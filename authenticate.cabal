@@ -1,0 +1,18 @@
+name:            authenticate
+version:         0.0.0
+license:         BSD3
+license-file:    LICENSE
+author:          Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>
+synopsis:        Authentication methods for Haskell web applications.
+description:     Focus is on remote authentication methods, such as OpenID,
+                 rpxnow and Google.
+category:        Web
+stability:       unstable
+cabal-version:   >= 1.2
+build-type:      Simple
+
+library
+    build-depends:   base, json, http-wget
+    exposed-modules: Web.Authenticate.Rpxnow
+    ghc-options:     -Wall
