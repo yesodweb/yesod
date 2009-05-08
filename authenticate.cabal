@@ -11,6 +11,7 @@ category:        Web
 stability:       unstable
 cabal-version:   >= 1.2
 build-type:      Simple
+homepage:        http://github.com/snoyberg/authenticate/tree/master
 
 library
     build-depends:   base, json, http-wget, tagsoup
