@@ -1,5 +1,5 @@
 ---------------------------------------------------------
--- |
+--
 -- Module        : Web.Authenticate.Rpxnow
 -- Copyright     : Michael Snoyman
 -- License       : BSD3

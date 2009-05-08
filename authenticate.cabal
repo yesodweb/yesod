@@ -13,6 +13,7 @@ cabal-version:   >= 1.2
 build-type:      Simple
 
 library
-    build-depends:   base, json, http-wget
-    exposed-modules: Web.Authenticate.Rpxnow
-    ghc-options:     -Wall
+    build-depends:   base, json, http-wget, tagsoup
+    exposed-modules: Web.Authenticate.Rpxnow,
+                     Web.Authenticate.OpenId
+    ghc-options:     -Wall -fno-warn-orphans
