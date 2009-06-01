@@ -26,11 +26,12 @@ import Numeric (showHex)
 -- | An openid identifier (ie, a URL).
 data Identifier = Identifier { identifier :: String }
 
-instance Monad (Either String) where
-    return = Right
-    fail = Left
-    (Left s) >>= _ = Left s
-    (Right x) >>= f = f x
+data Error v = Error String | Ok v
+instance Monad Error where
+    return = Ok
+    Error s >>= _ = Error s
+    Ok v >>= f = f v
+    fail s = Error s
 
 -- | Returns a URL to forward the user to in order to login.
 getForwardUrl :: Monad m
@@ -40,8 +41,8 @@ getForwardUrl :: Monad m
 getForwardUrl openid complete = do
     bodyIdent' <- wget openid [] []
     case bodyIdent' of
-        Left s -> return $ fail s
-        Right bodyIdent -> do
+        Error s -> return $ fail s
+        Ok bodyIdent -> do
         server <- getOpenIdVar "server" bodyIdent
         let delegate = fromMaybe openid $ getOpenIdVar "delegate" bodyIdent
         return $ return $ constructUrl server
@@ -81,8 +82,8 @@ authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
         Just authUrl -> do
             content' <- wget authUrl [] []
             case content' of
-                Left s -> return $ fail s
-                Right content -> do
+                Error s -> return $ fail s
+                Ok content -> do
                     let isValid = contains "is_valid:true" content
                     if isValid
                         then return $
