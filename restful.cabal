@@ -1,0 +1,17 @@
+name:            restful
+version:         0.0.0
+license:         BSD3
+license-file:    LICENSE
+author:          Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>
+synopsis:        A Restful front controller built on Hack.
+category:        Web
+stability:       unstable
+cabal-version:   >= 1.2
+build-type:      Simple
+homepage:        http://github.com/snoyberg/restful/tree/master
+
+library
+    build-depends:   base
+    exposed-modules: Web.Restful
+    ghc-options:     -Wall
