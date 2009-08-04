@@ -28,6 +28,12 @@ library
                      bytestring >= 0.9.1.4,
                      bytestring-class,
                      web-encodings,
-                     mtl >= 1.1.0.2
-    exposed-modules: Web.Restful
+                     mtl >= 1.1.0.2,
+                     data-object
+    exposed-modules: Web.Restful,
+                     Web.Restful.Constants,
+                     Web.Restful.Request,
+                     Web.Restful.Response,
+                     Web.Restful.Utils,
+                     Web.Restful.Application
     ghc-options:     -Wall
