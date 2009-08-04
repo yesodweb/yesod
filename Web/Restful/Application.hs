@@ -47,6 +47,7 @@ import Hack.Middleware.Gzip
 import Hack.Middleware.CleanPath
 import Hack.Middleware.Jsonp
 import Hack.Middleware.ClientSession
+import Hack.Middleware.MethodOverride
 
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Arrow (second)
@@ -80,7 +81,12 @@ instance Default ApplicationSettings where
             , rpxnowApiKey = Nothing
             , encryptKey = Left defaultKeyFile
             , urlRewriter = \s -> (s, [])
-            , hackMiddleware = [gzip, cleanPath, jsonp]
+            , hackMiddleware =
+                [ gzip
+                , cleanPath
+                , jsonp
+                , methodOverride
+                ]
             , response404 = default404
             , htmlWrapper = id
             }

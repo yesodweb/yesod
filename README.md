@@ -14,11 +14,14 @@ PUT: Replace data on server.
 DELETE: Remove data from server.
 POST: Some form of update.
 
-FIXME Note: not all clients support PUT and DELETE. Therefore, we need a
-workaround. I will implement two fixes:
+Note: not all clients support PUT and DELETE. Therefore, we need a
+workaround. There are two fixes:
 
 1. X-HTTP-Method-Override header.
-2. Get parameter (ie, in the query string). This will be more useful for web forms.
+2. Get parameter _method_override (ie, in the query string). This will be more
+useful for web forms.
+
+See MethodOverride middleware.
 
 ## Resource
 
