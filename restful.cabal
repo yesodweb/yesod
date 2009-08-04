@@ -1,5 +1,5 @@
 name:            restful
-version:         0.0.0
+version:         0.1.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -35,5 +35,7 @@ library
                      Web.Restful.Request,
                      Web.Restful.Response,
                      Web.Restful.Utils,
+                     Web.Restful.Definitions,
+                     Web.Restful.Handler,
                      Web.Restful.Application
     ghc-options:     -Wall

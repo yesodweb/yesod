@@ -17,9 +17,11 @@ module Web.Restful
     , module Web.Restful.Request
     , module Web.Restful.Response
     , module Web.Restful.Application
+    , module Web.Restful.Definitions
     ) where
 
 import Data.Object
 import Web.Restful.Request
 import Web.Restful.Response
 import Web.Restful.Application
+import Web.Restful.Definitions

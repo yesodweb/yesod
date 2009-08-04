@@ -1,2 +1,4 @@
 dist
 *.swp
+*.hi
+*.o

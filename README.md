@@ -49,6 +49,11 @@ clearly do not want to write code twice to process these requests. Instead,
 convert the article name into a URL parameter and then articles will have its
 own ResourceName.
 
+### ResourceParser
+
+A ResourceParser converts a Resource (ie, a URL) to a ResourceName and URL
+parameters.
+
 ## RawRequest
 
 The parsed data sent from the client. Has, for example, GET and POST
@@ -83,6 +88,15 @@ in different ways.
 There is a single Handler for each combination of ResourceName and Verb. A
 Handler takes some instance of Request and returns a Response.
 
+### HandlerMap
+
+Maps a ResourceName/Verb pair to a Handler.
+
+## Application
+
+An application is essentially a ResourceParser and HandlerMap. It also has some
+settings involved.
+
 # Static files
 
 All static files should go under the /static/ path. A typical application will
@@ -94,3 +108,8 @@ Restful API.
 Search engines nad older clients should not be ignored. However, it is quite
 tedious to write view code twice. Hopefully, in the future there will be a view
 component to this framework which can automate some of that process.
+
+# Passing global data
+
+You should use function currying to pass around global information (the list of
+entries in a blog, a database connection, etc).

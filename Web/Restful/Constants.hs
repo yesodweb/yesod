@@ -11,7 +11,9 @@
 -- Constants used throughout Restful.
 --
 ---------------------------------------------------------
-module Web.Restful.Constants where
+module Web.Restful.Constants
+    ( authCookieName
+    ) where
 
 authCookieName :: String
 authCookieName = "IDENTIFIER"

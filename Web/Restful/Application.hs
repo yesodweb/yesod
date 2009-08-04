@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Application
@@ -22,10 +23,12 @@ module Web.Restful.Application
       -- ** Settings
     , setHandler
     , setRpxnowApiKey
-    , setUrlRewriter
+    , setResourceParser
     , setHtmlWrapper
       -- ** Engage
     , run
+     -- * FIXME
+    , Application (..)
     ) where
 
 -- hideously long import list
@@ -56,31 +59,33 @@ import Web.Restful.Request
 import Web.Restful.Response
 import Web.Restful.Constants
 import Web.Restful.Utils
+import Web.Restful.Handler
+import Web.Restful.Definitions
 import Data.Object
 
 -- | Contains settings and a list of resources.
-type ApplicationMonad = StateT ApplicationSettings (Writer [Resource])
-instance Applicative ApplicationMonad where
+type ApplicationMonad a = StateT (ApplicationSettings a) (Writer (HandlerMap a))
+instance Applicative (ApplicationMonad a) where
     pure = return
     f <*> a = do
         f' <- f
         a' <- a
         return $! f' a'
-data ApplicationSettings = ApplicationSettings
+data ApplicationSettings rn = ApplicationSettings
     { hackHandler :: Hack.Application -> IO ()
     , rpxnowApiKey :: Maybe String
     , encryptKey :: Either FilePath Word256
-    , urlRewriter :: UrlRewriter
+    , appResourceParser :: ResourceParser rn
     , hackMiddleware :: [Hack.Middleware]
     , response404 :: Hack.Env -> IO Hack.Response
     , htmlWrapper :: BS.ByteString -> BS.ByteString
     }
-instance Default ApplicationSettings where
+instance ResourceName a => Default (ApplicationSettings a) where
     def = ApplicationSettings
             { hackHandler = Hack.Handler.CGI.run
             , rpxnowApiKey = Nothing
             , encryptKey = Left defaultKeyFile
-            , urlRewriter = \s -> (s, [])
+            , appResourceParser = \s -> ParsedResource (toResourceName s) []
             , hackMiddleware =
                 [ gzip
                 , cleanPath
@@ -98,44 +103,32 @@ default404 env = return $
         [("Content-Type", "text/plain")]
         $ toLazyByteString $ "Not found: " ++ Hack.pathInfo env
 
-data Handler = forall req res. (Request req, Response res)
-            => Handler (req -> IO res)
-type LiftedHandler = RawRequest -> IO ResponseWrapper
-
-liftHandler ::
-               Handler
-            -> RawRequest
-            -> IO ResponseWrapper
-liftHandler (Handler h) rr = do
-    case runRequestParser parseRequest rr of
-        Left errors -> return $ ResponseWrapper
-                              $ ErrorResponse
-                              $ unlines errors
-        Right req -> ResponseWrapper `fmap` h req
-
-data Resource = Resource [Hack.RequestMethod] PathInfo LiftedHandler
-
 -- FIXME document below here
 
-addResource :: (Request req, Response res)
-            => [Hack.RequestMethod]
-            -> PathInfo
+addResource :: (Request req, Response res, ResourceName rn)
+            => Verb
+            -> rn
             -> (req -> IO res)
-            -> ApplicationMonad ()
-addResource methods path f =
-    tell [Resource methods path $ liftHandler $ Handler f]
+            -> ApplicationMonad rn ()
+addResource verb resourceName' f = do
+    let handler :: Handler
+        handler = Handler $ (fmap ResponseWrapper) . f
+        handlerDesc = HandlerDesc resourceName' verb handler
+    tell [handlerDesc]
 
-setUrlRewriter :: UrlRewriter -> ApplicationMonad ()
-setUrlRewriter newUrlRewriter = do
+setResourceParser :: ResourceName rn
+                  => ResourceParser rn
+                  -> ApplicationMonad rn ()
+setResourceParser newRP = do
     s <- get
-    put $ s { urlRewriter = newUrlRewriter }
+    put $ s { appResourceParser = newRP }
 
-setHtmlWrapper :: (BS.ByteString -> BS.ByteString) -> ApplicationMonad ()
+setHtmlWrapper :: (BS.ByteString -> BS.ByteString) -> ApplicationMonad a ()
 setHtmlWrapper f = do
     s <- get
     put $ s { htmlWrapper = f }
 
-run :: ApplicationMonad () -> IO ()
+run :: ResourceName a => ApplicationMonad a () -> IO ()
 run m = do
     let (settings, resources') = runWriter $ execStateT m def
     key <- case encryptKey settings of
@@ -143,36 +136,38 @@ run m = do
             Right k -> return k
     let defApp = defaultResources settings
         defResources = execWriter $ execStateT defApp def
-        resources = resources' ++ defResources
+        resources = resources' ++ defResources -- FIXME rename HandlerDescs
         app' :: Hack.Application
-        app' = makeApplication' resources settings
+        app' = toHackApplication $ Application resources settings
         clientsession' :: Hack.Middleware
         clientsession' = clientsession [authCookieName] key
         app :: Hack.Application
         app = foldr ($) app' $ hackMiddleware settings ++ [clientsession']
     hackHandler settings app
 
-setHandler :: (Hack.Application -> IO ()) -> ApplicationMonad ()
+setHandler :: (Hack.Application -> IO ()) -> ApplicationMonad a ()
 setHandler h = do
     settings <- get
     put $ settings { hackHandler = h }
 
-setRpxnowApiKey :: String -> ApplicationMonad ()
+setRpxnowApiKey :: String -> ApplicationMonad a ()
 setRpxnowApiKey k = do
     settings <- get
     put $ settings { rpxnowApiKey = Just k }
 
-defaultResources :: ApplicationSettings -> ApplicationMonad ()
+defaultResources :: ResourceName rn
+                 => ApplicationSettings rn
+                 -> ApplicationMonad rn ()
 defaultResources settings = do
-    addResource [Hack.GET] ["auth", "check"] authCheck
-    addResource [Hack.GET] ["auth", "logout"] authLogout
-    addResource [Hack.GET] ["auth", "openid"] authOpenidForm
-    addResource [Hack.GET] ["auth", "openid", "forward"] authOpenidForward
-    addResource [Hack.GET] ["auth", "openid", "complete"] authOpenidComplete
+    addResource Get (toResourceName ["auth", "check"]) authCheck
+    addResource Get (toResourceName ["auth", "logout"]) authLogout
+    addResource Get (toResourceName ["auth", "openid"]) authOpenidForm
+    addResource Get (toResourceName ["auth", "openid", "forward"]) authOpenidForward
+    addResource Get (toResourceName ["auth", "openid", "complete"]) authOpenidComplete
     case rpxnowApiKey settings of
         Nothing -> return ()
         Just key -> do
-            addResource [Hack.GET] ["auth", "login", "rpxnow"] $
+            addResource Get (toResourceName ["auth", "login", "rpxnow"]) $
                         rpxnowLogin key
 
 data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)
@@ -314,22 +309,24 @@ instance Response LogoutResponse where
             Hack.Response s (h':h) c
         h' = resetCookie authCookieName
 
-makeApplication' :: [Resource]
-                 -> ApplicationSettings
-                 -> Hack.Env
-                 -> IO Hack.Response
-makeApplication' resources settings env = do
-    let method = Hack.requestMethod env
-        rr = envToRawRequest (urlRewriter settings) env
-        path' = rawPathInfo rr
-        isValid :: Resource -> Bool
-        isValid (Resource methods path _) = method `elem` methods
-                                         && path == path'
-    case filter isValid resources of
-        [Resource _ _ handler] -> do
+toHackApplication :: Eq resourceName
+                  => Application resourceName
+                  -> Hack.Application
+toHackApplication (Application hm settings) env = do
+    let (Right resource) = splitPath $ Hack.pathInfo env
+        (ParsedResource rn urlParams') = (appResourceParser settings) resource
+        verb :: Verb
+        verb = toVerb $ Hack.requestMethod env
+        rr :: RawRequest
+        rr = envToRawRequest urlParams' env
+        matchingHandler (HandlerDesc resourceName' verb' _) =
+            rn == resourceName' &&
+            verb == verb'
+    case filter matchingHandler hm of
+        [HandlerDesc _ _ handler] -> do
             let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
                 ctypes' = parseHttpAccept rawHttpAccept
-            body <- handler rr
+            body <- runHandler handler rr
             let reps' = reps body
                 ctypes = filter (\c -> isJust $ lookup c reps') ctypes'
             let handlerPair =
@@ -351,13 +348,11 @@ makeApplication' resources settings env = do
                              (("Content-Type", ctype) : headers)
                            $ toLazyByteString $ wrapper content
         [] -> response404 settings $ env
-        _ -> fail "Overlapping handlers"
+        _ -> fail $ "Overlapping handlers for: " ++ show env
 
-type UrlRewriter = PathInfo -> (PathInfo, [(String, String)])
-envToRawRequest :: UrlRewriter -> Hack.Env -> RawRequest
-envToRawRequest rewriter env =
+envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
+envToRawRequest urlParams' env =
     let (Right rawPieces) = splitPath $ Hack.pathInfo env
-        (pi', urls) = rewriter rawPieces
         gets' = decodeUrlPairs $ Hack.queryString env :: [(String, String)]
         clength = tryLookup "0" "Content-Length" $ Hack.http env
         ctype = tryLookup "" "Content-Type" $ Hack.http env
@@ -365,4 +360,9 @@ envToRawRequest rewriter env =
                        $ Hack.hackInput env
         rawCookie = tryLookup "" "Cookie" $ Hack.http env
         cookies' = decodeCookies rawCookie :: [(String, String)]
-     in RawRequest pi' urls gets' posts cookies' files env
+     in RawRequest rawPieces urlParams' gets' posts cookies' files env
+
+data Application a = Application
+    { handlerMap :: HandlerMap a
+    , applicationSettings :: ApplicationSettings a
+    }
