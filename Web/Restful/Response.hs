@@ -47,6 +47,7 @@ import System.Locale
 import Web.Restful.Request -- FIXME ultimately remove
 import Data.Object
 import Data.List (intercalate)
+import Data.Object.Instances
 
 type ContentType = String
 

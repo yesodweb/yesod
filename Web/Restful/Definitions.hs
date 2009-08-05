@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Definitions
@@ -18,7 +19,7 @@ module Web.Restful.Definitions
     , Resource
     , ParsedResource (..)
     , ResourceParser
-    , ResourceName (..)
+    , HasResourceParser (..)
     ) where
 
 import qualified Hack
@@ -34,14 +35,14 @@ toVerb _ = Get
 
 type Resource = [String]
 
-class Eq a => ResourceName a where
-    toResourceName :: [String] -> a
-instance ResourceName [String] where
-    toResourceName = id
-
 data ParsedResource a = ParsedResource
     { resourceName :: a
     , urlParameters :: [(String, String)]
     }
 
-type ResourceParser a = Resource -> ParsedResource a
+type ResourceParser a = Resource -> Maybe (ParsedResource a)
+
+class HasResourceParser a where
+    resourceParser :: ResourceParser a
+    simpleParse :: a -> Maybe (ParsedResource a)
+    simpleParse x = Just $ ParsedResource x []

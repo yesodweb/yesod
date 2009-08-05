@@ -1,4 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Handler
@@ -16,7 +18,8 @@ module Web.Restful.Handler
     ( Handler (..)
     , runHandler
     , HandlerMap
-    , HandlerDesc (..)
+    , HasHandlers (..)
+    , liftHandler
     ) where
 
 import Web.Restful.Definitions
@@ -32,5 +35,12 @@ runHandler (Handler f) rreq = do
         Left errors -> fail $ unlines errors -- FIXME
         Right req -> f req
 
-data HandlerDesc a = HandlerDesc a Verb Handler
-type HandlerMap a = [HandlerDesc a]
+type HandlerMap a = a -> Verb -> Maybe Handler
+
+class HasHandlers a b | a -> b where
+    getHandler :: b -> a -> Verb -> Maybe Handler
+
+liftHandler :: (Request req, Response res)
+            => (req -> IO res)
+            -> Maybe Handler
+liftHandler f = Just . Handler $ fmap ResponseWrapper . f

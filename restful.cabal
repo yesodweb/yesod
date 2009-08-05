@@ -29,7 +29,8 @@ library
                      bytestring-class,
                      web-encodings,
                      mtl >= 1.1.0.2,
-                     data-object
+                     data-object,
+                     yaml >= 0.0.1
     exposed-modules: Web.Restful,
                      Web.Restful.Constants,
                      Web.Restful.Request,
@@ -37,5 +38,8 @@ library
                      Web.Restful.Utils,
                      Web.Restful.Definitions,
                      Web.Restful.Handler,
-                     Web.Restful.Application
+                     Web.Restful.Application,
+                     Data.Object.Instances,
+                     Hack.Middleware.MethodOverride,
+                     Web.Restful.Helpers.Auth
     ghc-options:     -Wall
