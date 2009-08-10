@@ -47,6 +47,7 @@ import Web.Restful.Utils
 import Web.Restful.Handler
 import Web.Restful.Definitions
 import Web.Restful.Constants
+import Web.Restful.Resource
 
 -- | Contains settings and a list of resources.
 type ApplicationMonad a = State (ApplicationSettings a)
@@ -63,8 +64,7 @@ data ApplicationSettings rn = ApplicationSettings
     , htmlWrapper :: BS.ByteString -> BS.ByteString
     }
 
-instance (HasResourceParser a) =>
-        Default (ApplicationSettings a) where
+instance Default (ApplicationSettings a) where
     def = ApplicationSettings
             { encryptKey = Left defaultKeyFile
             , hackMiddleware =
@@ -91,7 +91,7 @@ setHtmlWrapper f = do
     s <- get
     put $ s { htmlWrapper = f }
 
-toHackApp :: (Eq a, HasResourceParser a, HasHandlers a b)
+toHackApp :: ResourceName a b
           => ApplicationMonad a ()
           -> b
           -> IO Hack.Application
@@ -106,15 +106,34 @@ toHackApp am model = do
         app = foldr ($) app' $ hackMiddleware settings ++ [clientsession']
     return app
 
-toHackApplication :: (HasResourceParser resourceName, Eq resourceName)
+findResourceNames :: ResourceName a model
+                  => Resource
+                  -> [(a, [(String, String)])]
+findResourceNames r = takeJusts $ map (checkPatternHelper r) allValues
+
+checkPatternHelper :: ResourceName a model
+                   => Resource
+                   -> a
+                   -> Maybe (a, [(String, String)])
+checkPatternHelper r rn =
+    case checkPattern (fromString $ resourcePattern rn) r of
+        Nothing -> Nothing
+        Just pairs -> Just (rn, pairs)
+
+takeJusts :: [Maybe a] -> [a]
+takeJusts [] = []
+takeJusts (Nothing:rest) = takeJusts rest
+takeJusts (Just x:rest) = x : takeJusts rest
+
+toHackApplication :: ResourceName resourceName model
                   => HandlerMap resourceName
                   -> ApplicationSettings resourceName
                   -> Hack.Application
 toHackApplication hm settings env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
-    case resourceParser resource of
-      Nothing -> response404 settings $ env
-      (Just (ParsedResource rn urlParams')) -> do
+    case findResourceNames resource of
+      [] -> response404 settings $ env
+      [(rn, urlParams')] -> do
         let verb :: Verb
             verb = toVerb $ Hack.requestMethod env
             rr :: RawRequest
@@ -145,6 +164,7 @@ toHackApplication hm settings env = do
                                  (("Content-Type", ctype) : headers)
                                $ toLazyByteString $ wrapper content
             Nothing -> response404 settings $ env
+      x -> error $ "Invalid matches: " ++ show x
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
 envToRawRequest urlParams' env =

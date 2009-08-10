@@ -18,7 +18,6 @@ module Web.Restful.Handler
     ( Handler (..)
     , runHandler
     , HandlerMap
-    , HasHandlers (..)
     , liftHandler
     ) where
 
@@ -36,9 +35,6 @@ runHandler (Handler f) rreq = do
         Right req -> f req
 
 type HandlerMap a = a -> Verb -> Maybe Handler
-
-class HasHandlers a b | a -> b where
-    getHandler :: b -> a -> Verb -> Maybe Handler
 
 liftHandler :: (Request req, Response res)
             => (req -> IO res)

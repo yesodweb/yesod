@@ -15,8 +15,6 @@
 ---------------------------------------------------------
 module Web.Restful.Helpers.Auth
     ( AuthResource
-    , FromAuthResource (..)
-    , authResourceParser
     ) where
 
 import qualified Hack
@@ -34,47 +32,40 @@ import Control.Monad.Reader
 import Data.Object
 
 data AuthResource =
-    AuthCheck
-    | AuthLogout
-    | AuthOpenid
-    | AuthOpenidForward
-    | AuthOpenidComplete
-    | AuthLoginRpxnow
-    deriving Eq
-class FromAuthResource a where
-    fromAuthResource :: AuthResource -> a
-
-authResourceParser :: FromAuthResource far
-                   => Resource
-                   -> Maybe (ParsedResource far)
-authResourceParser ["check"] =
-    authResourceParser' AuthCheck
-authResourceParser ["logout"] =
-    authResourceParser' AuthLogout
-authResourceParser ["openid"] =
-    authResourceParser' AuthOpenid
-authResourceParser ["openid", "forward"] =
-    authResourceParser' AuthOpenidForward
-authResourceParser ["openid", "complete"] =
-    authResourceParser' AuthOpenidComplete
-authResourceParser ["login", "rpxnow"] =
-    authResourceParser' AuthLoginRpxnow
-authResourceParser _ = Nothing
-
-authResourceParser' :: FromAuthResource far
-                    => AuthResource
-                    -> Maybe (ParsedResource far)
-authResourceParser' x = Just $ ParsedResource (fromAuthResource x) []
+    Check
+    | Logout
+    | Openid
+    | OpenidForward
+    | OpenidComplete
+    | LoginRpxnow
+    deriving Show
 
 type RpxnowApiKey = String -- FIXME newtype
-instance HasHandlers AuthResource (Maybe RpxnowApiKey) where
-    getHandler _ AuthCheck Get = liftHandler authCheck
-    getHandler _ AuthLogout Get = liftHandler authLogout
-    getHandler _ AuthOpenid Get = liftHandler authOpenidForm
-    getHandler _ AuthOpenidForward Get = liftHandler authOpenidForward
-    getHandler _ AuthOpenidComplete Get = liftHandler authOpenidComplete
-    getHandler (Just key) AuthLoginRpxnow Get = liftHandler $ rpxnowLogin key
+instance ResourceName AuthResource (Maybe RpxnowApiKey) where
+    getHandler _ Check Get = liftHandler authCheck
+    getHandler _ Logout Get = liftHandler authLogout
+    getHandler _ Openid Get = liftHandler authOpenidForm
+    getHandler _ OpenidForward Get = liftHandler authOpenidForward
+    getHandler _ OpenidComplete Get = liftHandler authOpenidComplete
+    getHandler (Just key) LoginRpxnow Get = liftHandler $ rpxnowLogin key
     getHandler _ _ _ = Nothing
+
+    allValues =
+        Check
+        : Logout
+        : Openid
+        : OpenidForward
+        : OpenidComplete
+        : LoginRpxnow
+        : []
+
+    resourcePattern Check = "/auth/check/"
+    resourcePattern Logout = "/auth/logout/"
+    resourcePattern Openid = "/auth/openid/"
+    resourcePattern OpenidForward  = "/auth/openid/forward/"
+    resourcePattern OpenidComplete = "/auth/openid/complete/"
+    resourcePattern LoginRpxnow = "/auth/login/rpxnow/"
+
 
 data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)
 instance Request OIDFormReq where

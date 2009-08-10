@@ -17,9 +17,6 @@ module Web.Restful.Definitions
     ( Verb (..)
     , toVerb
     , Resource
-    , ParsedResource (..)
-    , ResourceParser
-    , HasResourceParser (..)
     ) where
 
 import qualified Hack
@@ -34,15 +31,3 @@ toVerb Hack.POST = Post
 toVerb _ = Get
 
 type Resource = [String]
-
-data ParsedResource a = ParsedResource
-    { resourceName :: a
-    , urlParameters :: [(String, String)]
-    }
-
-type ResourceParser a = Resource -> Maybe (ParsedResource a)
-
-class HasResourceParser a where
-    resourceParser :: ResourceParser a
-    simpleParse :: a -> Maybe (ParsedResource a)
-    simpleParse x = Just $ ParsedResource x []
