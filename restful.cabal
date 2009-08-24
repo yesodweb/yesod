@@ -39,6 +39,7 @@ library
                      Web.Restful.Definitions,
                      Web.Restful.Handler,
                      Web.Restful.Application,
+                     Web.Restful.Resource,
                      Data.Object.Instances,
                      Hack.Middleware.MethodOverride,
                      Web.Restful.Helpers.Auth

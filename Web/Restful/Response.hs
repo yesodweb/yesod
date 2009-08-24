@@ -1,4 +1,5 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Response
@@ -292,3 +293,6 @@ instance Response Object where
         [ ("text/html", response 200 [] $ treeToHtml tree)
         , ("application/json", response 200 [] $ treeToJson tree)
         ]
+
+instance Response [(String, Hack.Response)] where
+    reps = id
