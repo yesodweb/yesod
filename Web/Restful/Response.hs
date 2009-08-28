@@ -18,25 +18,12 @@ module Web.Restful.Response
       -- * Response construction
       Response (..)
     , response
-      -- ** Helper 'Response' instances
-      -- *** Atom news feed
-    , AtomFeed (..)
-    , AtomFeedEntry (..)
-      -- *** Sitemap
-    , sitemap
-    , SitemapUrl (..)
-    , SitemapLoc (..)
-    , SitemapChangeFreq (..)
-      -- *** Generics
-      -- **** List/detail
-    , ListDetail (..)
-    , ItemList (..)
-    , ItemDetail (..)
-      -- **** Multiple response types.
-    , GenResponse (..)
       -- * FIXME
+    , GenResponse (..)
     , ResponseWrapper (..)
     , ErrorResponse (..)
+    , formatW3
+    , UTCTime
     ) where
 
 import Data.ByteString.Class
@@ -45,10 +32,8 @@ import Data.Time.Format
 import Data.Time.Clock
 import Web.Encodings
 import System.Locale
-import Web.Restful.Request -- FIXME ultimately remove
 import Data.Object
 import Data.List (intercalate)
-import Data.Object.Instances
 
 type ContentType = String
 
@@ -80,138 +65,6 @@ data ResponseWrapper = forall res. Response res => ResponseWrapper res
 instance Response ResponseWrapper where
     reps (ResponseWrapper res) = reps res
 
-data AtomFeed = AtomFeed
-    { atomTitle :: String
-    , atomLinkSelf :: String
-    , atomLinkHome :: String
-    , atomUpdated :: UTCTime
-    , atomEntries :: [AtomFeedEntry]
-    }
-instance Response AtomFeed where
-    reps e =
-        [ ("application/atom+xml", response 200 [] $ show e)
-        ]
-
-data AtomFeedEntry = AtomFeedEntry
-    { atomEntryLink :: String
-    , atomEntryUpdated :: UTCTime
-    , atomEntryTitle :: String
-    , atomEntryContent :: String
-    }
-
-instance Show AtomFeed where
-    show f = concat
-        [ "<?xml version='1.0' encoding='utf-8' ?>\n"
-        , "<feed xmlns='http://www.w3.org/2005/Atom'>"
-        , "<title>"
-        , encodeHtml $ atomTitle f
-        , "</title>"
-        , "<link rel='self' href='"
-        , encodeHtml $ atomLinkSelf f
-        , "'/>"
-        , "<link href='"
-        , encodeHtml $ atomLinkHome f
-        , "'/>"
-        , "<updated>"
-        , formatW3 $ atomUpdated f
-        , "</updated>"
-        , "<id>"
-        , encodeHtml $ atomLinkHome f
-        , "</id>"
-        , concatMap show $ atomEntries f
-        , "</feed>"
-        ]
-
-instance Show AtomFeedEntry where
-    show e = concat
-        [ "<entry>"
-        , "<id>"
-        , encodeHtml $ atomEntryLink e
-        , "</id>"
-        , "<link href='"
-        , encodeHtml $ atomEntryLink e
-        , "' />"
-        , "<updated>"
-        , formatW3 $ atomEntryUpdated e
-        , "</updated>"
-        , "<title>"
-        , encodeHtml $ atomEntryTitle e
-        , "</title>"
-        , "<content type='html'><![CDATA["
-        , atomEntryContent e
-        , "]]></content>"
-        , "</entry>"
-        ]
-
-formatW3 :: UTCTime -> String
-formatW3 = formatTime defaultTimeLocale "%FT%X-08:00"
-
--- sitemaps
-data SitemapLoc = AbsLoc String | RelLoc String
-data SitemapChangeFreq = Always
-                       | Hourly
-                       | Daily
-                       | Weekly
-                       | Monthly
-                       | Yearly
-                       | Never
-instance Show SitemapChangeFreq where
-    show Always = "always"
-    show Hourly = "hourly"
-    show Daily = "daily"
-    show Weekly = "weekly"
-    show Monthly = "monthly"
-    show Yearly = "yearly"
-    show Never = "never"
-
-data SitemapUrl = SitemapUrl
-    { sitemapLoc :: SitemapLoc
-    , sitemapLastMod :: UTCTime
-    , sitemapChangeFreq :: SitemapChangeFreq
-    , priority :: Double
-    }
-data SitemapRequest = SitemapRequest String Int
-instance Request SitemapRequest where
-    parseRequest = do
-        env <- parseEnv
-        return $! SitemapRequest (Hack.serverName env)
-                                 (Hack.serverPort env)
-data SitemapResponse = SitemapResponse SitemapRequest [SitemapUrl]
-instance Show SitemapResponse where
-    show (SitemapResponse (SitemapRequest host port) urls) =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++
-        "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">" ++
-        concatMap helper urls ++
-        "</urlset>"
-        where
-            prefix = "http://" ++ host ++
-                        case port of
-                            80 -> ""
-                            _ -> ":" ++ show port
-            helper (SitemapUrl loc modTime freq pri) = concat
-                [ "<url><loc>"
-                , encodeHtml $ showLoc loc
-                , "</loc><lastmod>"
-                , formatW3 modTime
-                , "</lastmod><changefreq>"
-                , show freq
-                , "</changefreq><priority>"
-                , show pri
-                , "</priority></url>"
-                ]
-            showLoc (AbsLoc s) = s
-            showLoc (RelLoc s) = prefix ++ s
-
-instance Response SitemapResponse where
-    reps res =
-        [ ("text/xml", response 200 [] $ show res)
-        ]
-
-sitemap :: IO [SitemapUrl] -> SitemapRequest -> IO SitemapResponse
-sitemap urls' req = do
-    urls <- urls'
-    return $ SitemapResponse req urls
-
 data GenResponse = HtmlResponse String
                  | ObjectResponse Object
                  | HtmlOrObjectResponse String Object
@@ -230,36 +83,6 @@ instance Response GenResponse where
                "'>" ++ encodeHtml url ++ "</a></p>"
     reps (PermissionDeniedResult s) = [("text/plain", response 403 [] s)]
     reps (NotFoundResponse s) = [("text/plain", response 404 [] s)]
-class ToObject a => ListDetail a where
-    htmlDetail :: a -> String
-    htmlDetail = treeToHtml . toObject
-    detailTitle :: a -> String
-    detailUrl :: a -> String
-    htmlList :: [a] -> String
-    htmlList l = "<ul>" ++ concatMap helper l ++ "</ul>"
-        where
-            helper i = "<li><a href=\"" ++ encodeHtml (detailUrl i) ++
-                       "\">" ++ encodeHtml (detailTitle i) ++
-                       "</a></li>"
-    -- | Often times for the JSON response of the list, we don't need all
-    -- the information.
-    treeList :: [a] -> Object -- FIXME
-    treeList = Sequence . map treeListSingle
-    treeListSingle :: a -> Object
-    treeListSingle = toObject
-
-newtype ItemList a = ItemList [a]
-instance ListDetail a => Response (ItemList a) where
-    reps (ItemList l) =
-        [ ("text/html", response 200 [] $ htmlList l)
-        , ("application/json", response 200 [] $ treeToJson $ treeList l)
-        ]
-newtype ItemDetail a = ItemDetail a
-instance ListDetail a => Response (ItemDetail a) where
-    reps (ItemDetail i) =
-        [ ("text/html", response 200 [] $ htmlDetail i)
-        , ("application/json", response 200 [] $ treeToJson $ toObject i)
-        ]
 
 -- FIXME remove treeTo functions, replace with Object instances
 treeToJson :: Object -> String
@@ -296,3 +119,7 @@ instance Response Object where
 
 instance Response [(String, Hack.Response)] where
     reps = id
+
+-- FIXME put in a separate module (maybe Web.Encodings)
+formatW3 :: UTCTime -> String
+formatW3 = formatTime defaultTimeLocale "%FT%X-08:00"

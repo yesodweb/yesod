@@ -42,5 +42,8 @@ library
                      Web.Restful.Resource,
                      Data.Object.Instances,
                      Hack.Middleware.MethodOverride,
-                     Web.Restful.Helpers.Auth
+                     Web.Restful.Helpers.Auth,
+                     Web.Restful.Response.AtomFeed,
+                     Web.Restful.Response.Sitemap,
+                     Web.Restful.Generic.ListDetail
     ghc-options:     -Wall

@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 ---------------------------------------------------------
 --
 -- Module        : Data.Object.Instances
@@ -15,6 +16,7 @@ module Data.Object.Instances
     ( Json (..)
     , Yaml (..)
     , Html (..)
+    , SafeFromObject (..)
     ) where
 
 import Data.Object
@@ -23,9 +25,12 @@ import Data.ByteString.Class
 import Web.Encodings (encodeJson)
 import qualified Text.Yaml as Y
 
-newtype Json = Json B.ByteString
-instance FromObject Json where
-    fromObject = return . Json . helper where
+class SafeFromObject a where
+    safeFromObject :: Object -> a
+
+newtype Json = Json { unJson :: B.ByteString }
+instance SafeFromObject Json where
+    safeFromObject = Json . helper where
         helper :: Object -> B.ByteString
         helper (Scalar s) = B.concat
             [ toStrictByteString "\""
@@ -50,19 +55,19 @@ instance FromObject Json where
             , helper v
             ]
 
-newtype Yaml = Yaml B.ByteString
-instance FromObject Yaml where
-    fromObject = return . Yaml . Y.encode
+newtype Yaml = Yaml { unYaml :: B.ByteString }
+instance SafeFromObject Yaml where
+    safeFromObject = Yaml . Y.encode
 
 -- | Represents as an entire HTML 5 document by using the following:
 --
 -- * A scalar is a paragraph.
 -- * A sequence is an unordered list.
 -- * A mapping is a definition list.
-newtype Html = Html B.ByteString
+newtype Html = Html { unHtml :: B.ByteString }
 
-instance FromObject Html where
-    fromObject o = return $ Html $ B.concat
+instance SafeFromObject Html where
+    safeFromObject o = Html $ B.concat
         [ toStrictByteString "<!DOCTYPE html>\n<html><body>"
         , helper o
         , toStrictByteString "</body></html>"
