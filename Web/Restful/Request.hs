@@ -53,6 +53,8 @@ import Web.Restful.Constants
 import Web.Restful.Utils
 import Control.Applicative (Applicative (..))
 import Web.Encodings
+import Data.Time.Calendar (Day, fromGregorian)
+import Data.Char (isDigit)
 
 -- $param_overview
 -- In Restful, all of the underlying parameter values are strings. They can
@@ -256,6 +258,24 @@ instance Parameter Int where
     readParam s = case reads s of
                     ((x, _):_) -> Right x
                     _ -> Left $ "Invalid integer: " ++ s
+
+instance Parameter Day where
+    readParam s =
+        let t1 = length s == 10
+            t2 = s !! 4 == '-'
+            t3 = s !! 7 == '-'
+            t4 = all isDigit $ concat
+                    [ take 4 s
+                    , take 2 $ drop 5 s
+                    , take 2 $ drop 8 s
+                    ]
+            t = and [t1, t2, t3, t4]
+            y = read $ take 4 s
+            m = read $ take 2 $ drop 5 s
+            d = read $ take 2 $ drop 8 s
+         in if t
+                then Right $ fromGregorian y m d
+                else Left $ "Invalid date: " ++ s
 
 -- | The input for a resource.
 --
