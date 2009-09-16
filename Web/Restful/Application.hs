@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -16,29 +18,21 @@
 ---------------------------------------------------------
 module Web.Restful.Application
     (
-      -- * Defining an application
-      ApplicationMonad
-      -- ** Settings
-    , setHtmlWrapper
-      -- ** Engage
-    , toHackApp
+      toHackApp
+    , RestfulApp (..)
     ) where
 
--- hideously long import list
-import qualified Hack
-import Control.Monad.State hiding (gets)
 import Web.Encodings
 import Data.Maybe (isJust)
-import Data.ByteString.Class
-import qualified Data.ByteString.Lazy as BS
 import Data.Function.Predicate (equals)
-import Data.Default
-import Control.Applicative ( Applicative (..))
+import Data.ByteString.Class
+import qualified Data.ByteString.Lazy as B
 
-import Hack.Middleware.Gzip
+import qualified Hack
 import Hack.Middleware.CleanPath
-import Hack.Middleware.Jsonp
 import Hack.Middleware.ClientSession
+import Hack.Middleware.Gzip
+import Hack.Middleware.Jsonp
 import Hack.Middleware.MethodOverride
 
 import Web.Restful.Request
@@ -49,61 +43,45 @@ import Web.Restful.Definitions
 import Web.Restful.Constants
 import Web.Restful.Resource
 
--- | Contains settings and a list of resources.
-type ApplicationMonad a = State (ApplicationSettings a)
-instance Applicative (ApplicationMonad a) where
-    pure = return
-    f <*> a = do
-        f' <- f
-        a' <- a
-        return $! f' a'
-data ApplicationSettings rn = ApplicationSettings
-    { encryptKey :: Either FilePath Word256
-    , hackMiddleware :: [Hack.Middleware]
-    , response404 :: Hack.Env -> IO Hack.Response
-    , htmlWrapper :: BS.ByteString -> BS.ByteString
-    }
+-- | A data type that can be turned into a Hack application.
+class ResourceName a b => RestfulApp a b | a -> b where
+    -- | Load up the model, ie the data which use passed to each handler.
+    getModel :: a -> IO b
 
-instance Default (ApplicationSettings a) where
-    def = ApplicationSettings
-            { encryptKey = Left defaultKeyFile
-            , hackMiddleware =
+    -- | The encryption key to be used for encrypting client sessions.
+    encryptKey :: a -> IO Word256
+    encryptKey _ = getKey defaultKeyFile
+
+    -- | All of the middlewares to install.
+    hackMiddleware :: a -> [Hack.Middleware]
+    hackMiddleware _ =
                 [ gzip
                 , cleanPath
                 , jsonp
                 , methodOverride
                 ]
-            , response404 = default404
-            , htmlWrapper = id
-            }
 
-default404 :: Hack.Env -> IO Hack.Response
-default404 env = return $
-    Hack.Response
-        404
-        [("Content-Type", "text/plain")]
-        $ toLazyByteString $ "Not found: " ++ Hack.pathInfo env
+    -- | How to generate 404 pages. FIXME make more user-friendly.
+    response404 :: a -> Hack.Env -> IO Hack.Response
+    response404 _ = default404
 
--- FIXME document below here
+    -- | Wrappers for cleaning up responses. Especially intended for
+    -- beautifying static HTML. FIXME more user friendly.
+    responseWrapper :: a -> String -> B.ByteString -> IO B.ByteString
+    responseWrapper _ _ = return
 
-setHtmlWrapper :: (BS.ByteString -> BS.ByteString) -> ApplicationMonad a ()
-setHtmlWrapper f = do
-    s <- get
-    put $ s { htmlWrapper = f }
-
-toHackApp :: ResourceName a b
-          => ApplicationMonad a ()
-          -> b
+-- | Given a sample resource name (purely for typing reasons), generating
+-- a Hack application.
+toHackApp :: RestfulApp resourceName modelType
+          => resourceName
           -> IO Hack.Application
-toHackApp am model = do
-    let settings = execState am def
-    key <- case encryptKey settings of
-            Left f -> getKey f
-            Right k -> return k
+toHackApp a = do
+    model <- getModel a
+    key <- encryptKey a
     let handlers = getHandler model
-        app' = toHackApplication handlers settings
+        app' = toHackApplication a handlers
         clientsession' = clientsession [authCookieName] key -- FIXME gotta be a better way...
-        app = foldr ($) app' $ hackMiddleware settings ++ [clientsession']
+        app = foldr ($) app' $ hackMiddleware a ++ [clientsession']
     return app
 
 findResourceNames :: ResourceName a model
@@ -125,14 +103,14 @@ takeJusts [] = []
 takeJusts (Nothing:rest) = takeJusts rest
 takeJusts (Just x:rest) = x : takeJusts rest
 
-toHackApplication :: ResourceName resourceName model
-                  => HandlerMap resourceName
-                  -> ApplicationSettings resourceName
+toHackApplication :: RestfulApp resourceName model
+                  => resourceName
+                  -> HandlerMap resourceName
                   -> Hack.Application
-toHackApplication hm settings env = do
+toHackApplication sampleRN hm env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
     case findResourceNames resource of
-      [] -> response404 settings $ env
+      [] -> response404 sampleRN $ env
       [(rn, urlParams')] -> do
         let verb :: Verb
             verb = toVerb $ Hack.requestMethod env
@@ -154,16 +132,15 @@ toHackApplication hm settings env = do
                             [] -> Nothing
                             _ -> error "Overlapping reps"
                 case handlerPair of
-                    Nothing -> response404 settings $ env
+                    Nothing -> response404 sampleRN $ env
                     Just (ctype, Hack.Response status headers content) -> do
-                        let wrapper =
-                                case ctype of
-                                    "text/html" -> htmlWrapper settings
-                                    _ -> id
-                        return $ Hack.Response status
-                                 (("Content-Type", ctype) : headers)
-                               $ toLazyByteString $ wrapper content
-            Nothing -> response404 settings $ env
+                        content' <- responseWrapper sampleRN ctype content
+                        let response' = Hack.Response
+                                            status
+                                            (("Content-Type", ctype) : headers)
+                                            content'
+                        return response'
+            Nothing -> response404 sampleRN $ env
       x -> error $ "Invalid matches: " ++ show x
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
@@ -177,3 +154,10 @@ envToRawRequest urlParams' env =
         rawCookie = tryLookup "" "Cookie" $ Hack.http env
         cookies' = decodeCookies rawCookie :: [(String, String)]
      in RawRequest rawPieces urlParams' gets' posts cookies' files env
+
+default404 :: Hack.Env -> IO Hack.Response
+default404 env = return $
+    Hack.Response
+        404
+        [("Content-Type", "text/plain")]
+        $ toLazyByteString $ "Not found: " ++ Hack.pathInfo env
