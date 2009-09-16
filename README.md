@@ -49,6 +49,10 @@ clearly do not want to write code twice to process these requests. Instead,
 convert the article name into a URL parameter and then articles will have its
 own ResourceName.
 
+NOTE: This has taken on a very central role in the restful library, in addition
+to the RestfulApp class. Hopefully I will have a chance to document this soon.
+As a result, some of the following documentation is outdated.
+
 ### ResourceParser
 
 A ResourceParser converts a Resource (ie, a URL) to a ResourceName and URL
