@@ -29,6 +29,8 @@ module Web.Restful.Response
     , header
     , GenResponse (..)
     , liftIO
+    , ErrorResult (..)
+    , HasRepsW (..)
     ) where
 
 import Data.ByteString.Class
@@ -61,47 +63,43 @@ data HasRepsW = forall a. HasReps a => HasRepsW a
 instance HasReps HasRepsW where
     reps (HasRepsW r) = reps r
 
--- | The result of a request. This does not include possible headers.
-data Result =
+data ErrorResult =
     Redirect String
     | NotFound
     | InternalError String
-    | Content HasRepsW
 
-instance HasReps Result where
-    reps (Redirect s) = [("text/plain", toLazyByteString s)]
-    reps NotFound = [("text/plain", toLazyByteString "not found")] -- FIXME use the real 404 page
-    reps (InternalError s) = [("text/plain", toLazyByteString s)]
-    reps (Content r) = reps r
-
-getStatus :: Result -> Int
+getStatus :: ErrorResult -> Int
 getStatus (Redirect _) = 303
 getStatus NotFound = 404
 getStatus (InternalError _) = 500
-getStatus (Content _) = 200
 
-getHeaders :: Result -> [Header]
+getHeaders :: ErrorResult -> [Header]
 getHeaders (Redirect s) = [Header "Location" s]
 getHeaders _ = []
 
-newtype ResponseT m a = ResponseT (m (Either Result a, [Header]))
+newtype ResponseT m a = ResponseT (m (Either ErrorResult a, [Header]))
 type ResponseIO = ResponseT IO
 type Response = ResponseIO HasRepsW
 
-runResponse :: Response -> [ContentType] -> IO Hack.Response
-runResponse (ResponseT inside) ctypesAll = do
+runResponse :: (ErrorResult -> HasRepsW)
+            -> (ContentType -> B.ByteString -> IO B.ByteString)
+            -> [ContentType]
+            -> Response
+            -> IO Hack.Response
+runResponse eh wrapper ctypesAll (ResponseT inside) = do
     (x, headers') <- inside
     let extraHeaders =
             case x of
                 Left r -> getHeaders r
                 Right _ -> []
     headers <- mapM toPair (headers' ++ extraHeaders)
-    let outReps = either reps reps x
+    let outReps = either (reps . eh) reps x
     let statusCode =
             case x of
                 Left r -> getStatus r
                 Right _ -> 200
-    (ctype, finalRep) <- chooseRep outReps ctypesAll
+    (ctype, selectedRep) <- chooseRep outReps ctypesAll
+    finalRep <- wrapper ctype selectedRep
     let headers'' = ("Content-Type", ctype) : headers
     return $! Hack.Response statusCode headers'' finalRep
 

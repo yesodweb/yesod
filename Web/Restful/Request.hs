@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Request
@@ -210,6 +211,9 @@ data RawRequest = RawRequest
     , rawFiles :: [(ParamName, FileInfo)]
     , rawEnv :: Hack.Env
     }
+    deriving Show
+
+deriving instance Show FileInfo
 
 -- | All GET paramater values with the given name.
 getParams :: RawRequest -> ParamName -> [ParamValue]

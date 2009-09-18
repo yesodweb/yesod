@@ -23,8 +23,8 @@ module Web.Restful.Application
     ) where
 
 import Web.Encodings
-import Data.ByteString.Class
 import qualified Data.ByteString.Lazy as B
+import Data.Object
 
 import qualified Hack
 import Hack.Middleware.CleanPath
@@ -59,14 +59,18 @@ class ResourceName a b => RestfulApp a b | a -> b where
                 , methodOverride
                 ]
 
-    -- | How to generate 404 pages. FIXME make more user-friendly.
-    response404 :: a -> Hack.Env -> IO Hack.Response
-    response404 _ = default404
-
     -- | Wrappers for cleaning up responses. Especially intended for
     -- beautifying static HTML. FIXME more user friendly.
     responseWrapper :: a -> String -> B.ByteString -> IO B.ByteString
     responseWrapper _ _ = return
+
+    -- | Output error response pages.
+    errorHandler :: a -> RawRequest -> ErrorResult -> HasRepsW
+    errorHandler _ rr NotFound = HasRepsW $ toObject $ "Not found: " ++ show rr
+    errorHandler _ _ (Redirect url) =
+        HasRepsW $ toObject $ "Redirect to: " ++ url
+    errorHandler _ _ (InternalError e) =
+        HasRepsW $ toObject $ "Internal server error: " ++ e
 
 -- | Given a sample resource name (purely for typing reasons), generating
 -- a Hack application.
@@ -107,19 +111,20 @@ toHackApplication :: RestfulApp resourceName model
                   -> Hack.Application
 toHackApplication sampleRN hm env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
-    case findResourceNames resource of
-      [] -> response404 sampleRN $ env
-      [(rn, urlParams')] -> do
-        let verb :: Verb
-            verb = toVerb $ Hack.requestMethod env
-            rr :: RawRequest
-            rr = envToRawRequest urlParams' env
-            handler :: Handler
-            handler = hm rn verb
-        let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
-            ctypes' = parseHttpAccept rawHttpAccept
-        runResponse (handler rr) ctypes'
-      x -> error $ "Invalid matches: " ++ show x
+    let (handler, urlParams') =
+          case findResourceNames resource of
+            [] -> (noHandler, [])
+            [(rn, urlParams'')] ->
+                let verb = toVerb $ Hack.requestMethod env
+                 in (hm rn verb, urlParams'')
+            x -> error $ "Invalid findResourceNames: " ++ show x
+    let rr = envToRawRequest urlParams' env
+    let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
+        ctypes' = parseHttpAccept rawHttpAccept
+    runResponse (errorHandler sampleRN rr)
+                (responseWrapper sampleRN)
+                ctypes'
+                (handler rr)
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
 envToRawRequest urlParams' env =
@@ -132,10 +137,3 @@ envToRawRequest urlParams' env =
         rawCookie = tryLookup "" "Cookie" $ Hack.http env
         cookies' = decodeCookies rawCookie :: [(String, String)]
      in RawRequest rawPieces urlParams' gets' posts cookies' files env
-
-default404 :: Hack.Env -> IO Hack.Response
-default404 env = return $
-    Hack.Response
-        404
-        [("Content-Type", "text/plain")]
-        $ toLazyByteString $ "Not found: " ++ Hack.pathInfo env
