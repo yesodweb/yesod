@@ -31,6 +31,7 @@ module Web.Restful.Response
     , liftIO
     , ErrorResult (..)
     , HasRepsW (..)
+    , byteStringResponse
     ) where
 
 import Data.ByteString.Class
@@ -185,11 +186,16 @@ instance HasReps () where
 data GenResponse = HtmlResponse String
                  | ObjectResponse Object
                  | HtmlOrObjectResponse String Object
+                 | ByteStringResponse ContentType B.ByteString
 instance HasReps GenResponse where
     reps (HtmlResponse h) = [("text/html", toLazyByteString h)]
     reps (ObjectResponse t) = reps t
     reps (HtmlOrObjectResponse h t) =
         ("text/html", toLazyByteString h) : reps t
+    reps (ByteStringResponse ct con) = [(ct, con)]
+
+byteStringResponse :: LazyByteString lbs => ContentType -> lbs -> GenResponse
+byteStringResponse ct = ByteStringResponse ct . toLazyByteString
 
 instance HasReps Object where
     reps o =
