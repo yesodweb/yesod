@@ -23,6 +23,8 @@ import Web.Restful.Response
 import Web.Encodings
 import qualified Hack
 import Web.Restful.Request
+import Data.ByteString.Class
+import Data.Time (UTCTime)
 
 data SitemapLoc = AbsLoc String | RelLoc String
 data SitemapChangeFreq = Always
@@ -79,12 +81,12 @@ instance Show SitemapResponse where
             showLoc (AbsLoc s) = s
             showLoc (RelLoc s) = prefix ++ s
 
-instance Response SitemapResponse where
+instance HasReps SitemapResponse where
     reps res =
-        [ ("text/xml", response 200 [] $ show res)
+        [ ("text/xml", toLazyByteString $ show res)
         ]
 
-sitemap :: IO [SitemapUrl] -> SitemapRequest -> IO SitemapResponse
+sitemap :: IO [SitemapUrl] -> SitemapRequest -> ResponseIO SitemapResponse
 sitemap urls' req = do
-    urls <- urls'
+    urls <- liftIO urls'
     return $ SitemapResponse req urls

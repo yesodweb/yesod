@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Response
@@ -14,110 +15,192 @@
 --
 ---------------------------------------------------------
 module Web.Restful.Response
-    (
-      -- * Response construction
-      Response (..)
-    , response
-      -- * FIXME
+    ( formatW3
+    , HasReps (..)
+    , notFound
+    , wrapResponse
+    , ResponseIO
+    , ResponseT
+    , Response
+    , runResponse
+    , deleteCookie
+    , redirect
+    , addCookie
+    , header
     , GenResponse (..)
-    , ResponseWrapper (..)
-    , ErrorResponse (..)
-    , formatW3
-    , UTCTime
+    , liftIO
     ) where
 
 import Data.ByteString.Class
-import qualified Hack
 import Data.Time.Format
 import Data.Time.Clock
-import Web.Encodings
 import System.Locale
 import Data.Object
-import Data.List (intercalate)
+import qualified Data.ByteString.Lazy as B
+import Data.Object.Instances
+import Data.Maybe (fromJust)
+
+import Control.Monad.Trans
+
+import qualified Hack
 
 type ContentType = String
 
--- | The output for a resource.
-class Response a where
-    -- | Provide an ordered list of possible responses, depending on content
-    -- type. If the user asked for a specific response type (like
+-- | Something which can be represented as multiple content types.
+-- Each content type is called a representation of the data.
+class HasReps a where
+    -- | Provide an ordered list of possible representations, depending on
+    -- content type. If the user asked for a specific response type (like
     -- text/html), then that will get priority. If not, then the first
     -- element in this list will be used.
-    reps :: a -> [(ContentType, Hack.Response)]
+    reps :: a -> [(ContentType, B.ByteString)]
 
--- | Wrapper around 'Hack.Response' to allow arbitrary pieces of data to be
--- used for the body.
-response :: LazyByteString lbs
-         => Int
-         -> [(String, String)]
-         -> lbs
-         -> Hack.Response
-response a b c = Hack.Response a b $ toLazyByteString c
+-- | Wrap up any instance of 'HasReps'.
+data HasRepsW = forall a. HasReps a => HasRepsW a
 
-instance Response () where
-    reps _ = [("text/plain", response 200 [] "")]
+instance HasReps HasRepsW where
+    reps (HasRepsW r) = reps r
 
-newtype ErrorResponse = ErrorResponse String
-instance Response ErrorResponse where
-    reps (ErrorResponse s) = [("text/plain", response 500 [] s)]
+-- | The result of a request. This does not include possible headers.
+data Result =
+    Redirect String
+    | NotFound
+    | InternalError String
+    | Content HasRepsW
 
-data ResponseWrapper = forall res. Response res => ResponseWrapper res
-instance Response ResponseWrapper where
-    reps (ResponseWrapper res) = reps res
+instance HasReps Result where
+    reps (Redirect s) = [("text/plain", toLazyByteString s)]
+    reps NotFound = [("text/plain", toLazyByteString "not found")] -- FIXME use the real 404 page
+    reps (InternalError s) = [("text/plain", toLazyByteString s)]
+    reps (Content r) = reps r
+
+getStatus :: Result -> Int
+getStatus (Redirect _) = 303
+getStatus NotFound = 404
+getStatus (InternalError _) = 500
+getStatus (Content _) = 200
+
+getHeaders :: Result -> [Header]
+getHeaders (Redirect s) = [Header "Location" s]
+getHeaders _ = []
+
+newtype ResponseT m a = ResponseT (m (Either Result a, [Header]))
+type ResponseIO = ResponseT IO
+type Response = ResponseIO HasRepsW
+
+runResponse :: Response -> [ContentType] -> IO Hack.Response
+runResponse (ResponseT inside) ctypesAll = do
+    (x, headers') <- inside
+    let extraHeaders =
+            case x of
+                Left r -> getHeaders r
+                Right _ -> []
+    headers <- mapM toPair (headers' ++ extraHeaders)
+    let outReps = either reps reps x
+    let statusCode =
+            case x of
+                Left r -> getStatus r
+                Right _ -> 200
+    (ctype, finalRep) <- chooseRep outReps ctypesAll
+    let headers'' = ("Content-Type", ctype) : headers
+    return $! Hack.Response statusCode headers'' finalRep
+
+chooseRep :: Monad m
+          => [(ContentType, B.ByteString)]
+          -> [ContentType]
+          -> m (ContentType, B.ByteString)
+chooseRep rs cs
+  | length rs == 0 = fail "All reps must have at least one value"
+  | otherwise = do
+    let availCs = map fst rs
+    case filter (`elem` availCs) cs of
+        [] -> return $ head rs
+        [ctype] -> return (ctype, fromJust $ lookup ctype rs)
+        _ -> fail "Overlapping representations"
+
+toPair :: Header -> IO (String, String)
+toPair (AddCookie minutes key value) = do
+    now <- getCurrentTime
+    let expires = addUTCTime (fromIntegral $ minutes * 60) now
+    return ("Set-Cookie", key ++ "=" ++ value ++"; path=/; expires="
+                              ++ formatW3 expires)
+toPair (DeleteCookie key) = return
+    ("Set-Cookie",
+     key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
+toPair (Header key value) = return (key, value)
+
+wrapResponse :: (Monad m, HasReps rep)
+             => ResponseT m rep
+             -> ResponseT m HasRepsW
+wrapResponse = fmap HasRepsW
+
+instance MonadTrans ResponseT where
+    lift ma = ResponseT $ do
+        a <- ma
+        return (Right a, [])
+
+instance MonadIO ResponseIO where
+    liftIO = lift
+
+redirect :: Monad m => String -> ResponseT m a
+redirect s = ResponseT (return (Left $ Redirect s, []))
+
+notFound :: Monad m => ResponseT m a
+notFound = ResponseT (return (Left NotFound, []))
+
+instance Monad m => Functor (ResponseT m) where
+    fmap f x = x >>= return . f
+
+instance Monad m => Monad (ResponseT m) where
+    return = lift . return
+    fail s = ResponseT (return (Left $ InternalError s, []))
+    (ResponseT mx) >>= f = ResponseT $ do
+        (x, hs1) <- mx
+        case x of
+            Left x' -> return (Left x', hs1)
+            Right a -> do
+                let (ResponseT b') = f a
+                (b, hs2) <- b'
+                return (b, hs1 ++ hs2)
+
+-- | Headers to be added to a 'Result'.
+data Header =
+    AddCookie Int String String
+    | DeleteCookie String
+    | Header String String
+
+addCookie :: Monad m => Int -> String -> String -> ResponseT m ()
+addCookie a b c = addHeader $ AddCookie a b c
+
+deleteCookie :: Monad m => String -> ResponseT m ()
+deleteCookie = addHeader . DeleteCookie
+
+header :: Monad m => String -> String -> ResponseT m ()
+header a b = addHeader $ Header a b
+
+addHeader :: Monad m => Header -> ResponseT m ()
+addHeader h = ResponseT (return (Right (), [h]))
+
+instance HasReps () where
+    reps _ = [("text/plain", toLazyByteString "")]
 
 data GenResponse = HtmlResponse String
                  | ObjectResponse Object
                  | HtmlOrObjectResponse String Object
-                 | RedirectResponse String
-                 | PermissionDeniedResult String
-                 | NotFoundResponse String
-instance Response GenResponse where
-    reps (HtmlResponse h) = [("text/html", response 200 [] h)]
+instance HasReps GenResponse where
+    reps (HtmlResponse h) = [("text/html", toLazyByteString h)]
     reps (ObjectResponse t) = reps t
     reps (HtmlOrObjectResponse h t) =
-        ("text/html", response 200 [] h) : reps t
-    reps (RedirectResponse url) = [("text/html", response 303 heads body)]
-      where
-        heads = [("Location", url)]
-        body = "<p>Redirecting to <a href='" ++ encodeHtml url ++
-               "'>" ++ encodeHtml url ++ "</a></p>"
-    reps (PermissionDeniedResult s) = [("text/plain", response 403 [] s)]
-    reps (NotFoundResponse s) = [("text/plain", response 404 [] s)]
+        ("text/html", toLazyByteString h) : reps t
 
--- FIXME remove treeTo functions, replace with Object instances
-treeToJson :: Object -> String
-treeToJson (Scalar s) = '"' : encodeJson (fromStrictByteString s) ++ "\""
-treeToJson (Sequence l) =
-    "[" ++ intercalate "," (map treeToJson l) ++ "]"
-treeToJson (Mapping m) =
-    "{" ++ intercalate "," (map helper m) ++ "}" where
-        helper (k, v) =
-            treeToJson (Scalar k) ++
-            ":" ++
-            treeToJson v
-
-treeToHtml :: Object -> String
-treeToHtml (Scalar s) = encodeHtml $ fromStrictByteString s
-treeToHtml (Sequence l) =
-    "<ul>" ++ concatMap (\e -> "<li>" ++ treeToHtml e ++ "</li>") l ++
-    "</ul>"
-treeToHtml (Mapping m) =
-    "<dl>" ++
-    concatMap (\(k, v) -> "<dt>" ++
-                          encodeHtml (fromStrictByteString k) ++
-                          "</dt>" ++
-                          "<dd>" ++
-                          treeToHtml v ++
-                          "</dd>") m ++
-    "</dl>"
-
-instance Response Object where
-    reps tree =
-        [ ("text/html", response 200 [] $ treeToHtml tree)
-        , ("application/json", response 200 [] $ treeToJson tree)
+instance HasReps Object where
+    reps o =
+        [ ("text/html", unHtml $ safeFromObject o)
+        , ("application/json", unJson $ safeFromObject o)
+        , ("text/yaml", unYaml $ safeFromObject o)
         ]
 
-instance Response [(String, Hack.Response)] where
+instance HasReps [(ContentType, B.ByteString)] where
     reps = id
 
 -- FIXME put in a separate module (maybe Web.Encodings)

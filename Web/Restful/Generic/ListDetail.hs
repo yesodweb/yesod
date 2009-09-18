@@ -25,7 +25,7 @@ import Data.ByteString.Class
 
 class ToObject a => ListDetail a where
     htmlDetail :: a -> String
-    htmlDetail = fromStrictByteString . unHtml . safeFromObject . toObject
+    htmlDetail = fromLazyByteString . unHtml . safeFromObject . toObject
     detailTitle :: a -> String
     detailUrl :: a -> String
     htmlList :: [a] -> String
@@ -42,14 +42,14 @@ class ToObject a => ListDetail a where
     treeListSingle = toObject
 
 newtype ItemList a = ItemList [a]
-instance ListDetail a => Response (ItemList a) where
+instance ListDetail a => HasReps (ItemList a) where
     reps (ItemList l) =
-        [ ("text/html", response 200 [] $ htmlList l)
-        , ("application/json", response 200 [] $ unJson $ safeFromObject $ treeList l)
+        [ ("text/html", toLazyByteString $ htmlList l)
+        , ("application/json", unJson $ safeFromObject $ treeList l)
         ]
 newtype ItemDetail a = ItemDetail a
-instance ListDetail a => Response (ItemDetail a) where
+instance ListDetail a => HasReps (ItemDetail a) where
     reps (ItemDetail i) =
-        [ ("text/html", response 200 [] $ htmlDetail i)
-        , ("application/json", response 200 [] $ unJson $ safeFromObject $ toObject i)
+        [ ("text/html", toLazyByteString $ htmlDetail i)
+        , ("application/json", unJson $ safeFromObject $ toObject i)
         ]

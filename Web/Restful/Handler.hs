@@ -15,28 +15,26 @@
 --
 ---------------------------------------------------------
 module Web.Restful.Handler
-    ( Handler (..)
-    , runHandler
-    , HandlerMap
+    ( Handler
     , liftHandler
+    , noHandler
     ) where
 
-import Web.Restful.Definitions
 import Web.Restful.Request
 import Web.Restful.Response
 
-data Handler = forall req. Request req => Handler (req -> IO ResponseWrapper)
+type Handler = RawRequest -> Response
 
-runHandler :: Handler -> RawRequest -> IO ResponseWrapper
-runHandler (Handler f) rreq = do
-    let rparser = parseRequest
-    case runRequestParser rparser rreq of
+liftHandler :: (Request req, HasReps rep)
+            => (req -> ResponseIO rep)
+            -> Handler
+liftHandler f req = liftRequest req >>= wrapResponse . f
+
+liftRequest :: (Request req, Monad m) => RawRequest -> m req
+liftRequest r =
+    case runRequestParser parseRequest r of
         Left errors -> fail $ unlines errors -- FIXME
-        Right req -> f req
+        Right req -> return req
 
-type HandlerMap a = a -> Verb -> Maybe Handler
-
-liftHandler :: (Request req, Response res)
-            => (req -> IO res)
-            -> Maybe Handler
-liftHandler f = Just . Handler $ fmap ResponseWrapper . f
+noHandler :: Handler
+noHandler = const notFound

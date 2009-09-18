@@ -19,10 +19,9 @@ module Web.Restful.Response.AtomFeed
 
 import Web.Restful.Response
 
-import Data.Time.Format
 import Data.Time.Clock
 import Web.Encodings
-import System.Locale
+import Data.ByteString.Class
 
 data AtomFeed = AtomFeed
     { atomTitle :: String
@@ -31,9 +30,9 @@ data AtomFeed = AtomFeed
     , atomUpdated :: UTCTime
     , atomEntries :: [AtomFeedEntry]
     }
-instance Response AtomFeed where
+instance HasReps AtomFeed where
     reps e =
-        [ ("application/atom+xml", response 200 [] $ show e)
+        [ ("application/atom+xml", toLazyByteString $ show e)
         ]
 
 data AtomFeedEntry = AtomFeedEntry

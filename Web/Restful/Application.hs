@@ -23,8 +23,6 @@ module Web.Restful.Application
     ) where
 
 import Web.Encodings
-import Data.Maybe (isJust)
-import Data.Function.Predicate (equals)
 import Data.ByteString.Class
 import qualified Data.ByteString.Lazy as B
 
@@ -105,7 +103,7 @@ takeJusts (Just x:rest) = x : takeJusts rest
 
 toHackApplication :: RestfulApp resourceName model
                   => resourceName
-                  -> HandlerMap resourceName
+                  -> (resourceName -> Verb -> Handler)
                   -> Hack.Application
 toHackApplication sampleRN hm env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
@@ -116,31 +114,11 @@ toHackApplication sampleRN hm env = do
             verb = toVerb $ Hack.requestMethod env
             rr :: RawRequest
             rr = envToRawRequest urlParams' env
-        case hm rn verb of
-            (Just handler) -> do
-                let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
-                    ctypes' = parseHttpAccept rawHttpAccept
-                body <- runHandler handler rr
-                let reps' = reps body
-                    ctypes = filter (\c -> isJust $ lookup c reps') ctypes'
-                let handlerPair =
-                      case ctypes of
-                        [] -> Just $ head reps'
-                        (c:_) ->
-                          case filter (fst `equals` c) reps' of
-                            [pair] -> Just pair
-                            [] -> Nothing
-                            _ -> error "Overlapping reps"
-                case handlerPair of
-                    Nothing -> response404 sampleRN $ env
-                    Just (ctype, Hack.Response status headers content) -> do
-                        content' <- responseWrapper sampleRN ctype content
-                        let response' = Hack.Response
-                                            status
-                                            (("Content-Type", ctype) : headers)
-                                            content'
-                        return response'
-            Nothing -> response404 sampleRN $ env
+            handler :: Handler
+            handler = hm rn verb
+        let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
+            ctypes' = parseHttpAccept rawHttpAccept
+        runResponse (handler rr) ctypes'
       x -> error $ "Invalid matches: " ++ show x
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest

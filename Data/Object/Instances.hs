@@ -20,10 +20,11 @@ module Data.Object.Instances
     ) where
 
 import Data.Object
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString as BS
 import Data.ByteString.Class
 import Web.Encodings (encodeJson)
-import qualified Text.Yaml as Y
+import Text.Yaml (encode)
 
 class SafeFromObject a where
     safeFromObject :: Object -> a
@@ -33,31 +34,31 @@ instance SafeFromObject Json where
     safeFromObject = Json . helper where
         helper :: Object -> B.ByteString
         helper (Scalar s) = B.concat
-            [ toStrictByteString "\""
+            [ toLazyByteString "\""
             , encodeJson $ fromStrictByteString s
-            , toStrictByteString "\""
+            , toLazyByteString "\""
             ]
         helper (Sequence s) = B.concat
-            [ toStrictByteString "["
-            , B.intercalate (toStrictByteString ",") $ map helper s
-            , toStrictByteString "]"
+            [ toLazyByteString "["
+            , B.intercalate (toLazyByteString ",") $ map helper s
+            , toLazyByteString "]"
             ]
         helper (Mapping m) = B.concat
-            [ toStrictByteString "{"
-            , B.intercalate (toStrictByteString ",") $ map helper2 m
-            , toStrictByteString "}"
+            [ toLazyByteString "{"
+            , B.intercalate (toLazyByteString ",") $ map helper2 m
+            , toLazyByteString "}"
             ]
-        helper2 :: (B.ByteString, Object) -> B.ByteString
+        helper2 :: (BS.ByteString, Object) -> B.ByteString
         helper2 (k, v) = B.concat
-            [ toStrictByteString "\""
+            [ toLazyByteString "\""
             , encodeJson $ fromStrictByteString k
-            , toStrictByteString "\":"
+            , toLazyByteString "\":"
             , helper v
             ]
 
 newtype Yaml = Yaml { unYaml :: B.ByteString }
 instance SafeFromObject Yaml where
-    safeFromObject = Yaml . Y.encode
+    safeFromObject = Yaml . encode
 
 -- | Represents as an entire HTML 5 document by using the following:
 --
@@ -68,31 +69,31 @@ newtype Html = Html { unHtml :: B.ByteString }
 
 instance SafeFromObject Html where
     safeFromObject o = Html $ B.concat
-        [ toStrictByteString "<!DOCTYPE html>\n<html><body>"
+        [ toLazyByteString "<!DOCTYPE html>\n<html><body>" -- FIXME full doc or just fragment?
         , helper o
-        , toStrictByteString "</body></html>"
+        , toLazyByteString "</body></html>"
         ] where
             helper :: Object -> B.ByteString
             helper (Scalar s) = B.concat
-                [ toStrictByteString "<p>"
-                , s
-                , toStrictByteString "</p>"
+                [ toLazyByteString "<p>"
+                , toLazyByteString s
+                , toLazyByteString "</p>"
                 ]
-            helper (Sequence []) = toStrictByteString "<ul></ul>"
+            helper (Sequence []) = toLazyByteString "<ul></ul>"
             helper (Sequence s) = B.concat
-                [ toStrictByteString "<ul><li>"
-                , B.intercalate (toStrictByteString "</li><li>") $ map helper s
-                , toStrictByteString "</li></ul>"
+                [ toLazyByteString "<ul><li>"
+                , B.intercalate (toLazyByteString "</li><li>") $ map helper s
+                , toLazyByteString "</li></ul>"
                 ]
             helper (Mapping m) = B.concat $
-                toStrictByteString "<dl>" :
+                toLazyByteString "<dl>" :
                 map helper2 m ++
-                [ toStrictByteString "</dl>" ]
-            helper2 :: (B.ByteString, Object) -> B.ByteString
+                [ toLazyByteString "</dl>" ]
+            helper2 :: (BS.ByteString, Object) -> B.ByteString
             helper2 (k, v) = B.concat $
-                [ toStrictByteString "<dt>"
-                , k
-                , toStrictByteString "</dt><dd>"
+                [ toLazyByteString "<dt>"
+                , toLazyByteString k
+                , toLazyByteString "</dt><dd>"
                 , helper v
-                , toStrictByteString "</dd>"
+                , toLazyByteString "</dd>"
                 ]

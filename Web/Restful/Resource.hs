@@ -49,7 +49,7 @@ class Show a => ResourceName a b | a -> b where
     allValues :: [a]
 
     -- | Find the handler for each resource name/verb pattern.
-    getHandler :: b -> a -> Verb -> Maybe Handler
+    getHandler :: b -> a -> Verb -> Handler
 
 -- FIXME add some overlap checking functions
 
