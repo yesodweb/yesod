@@ -86,7 +86,7 @@ authOpenidForm m@(OIDFormReq _ dest) = do
     case dest of
         Just dest' -> addCookie 20 "DEST" dest'
         Nothing -> return ()
-    return $! HtmlResponse html
+    return $! htmlResponse html
 
 data OIDFReq = OIDFReq String String
 instance Request OIDFReq where

@@ -1,2 +1,3 @@
 Static files and directories
 Better error handling for invalid arguments (currently 500 error)
+Include request getting in Response monad.

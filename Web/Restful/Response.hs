@@ -32,6 +32,7 @@ module Web.Restful.Response
     , ErrorResult (..)
     , HasRepsW (..)
     , byteStringResponse
+    , htmlResponse
     ) where
 
 import Data.ByteString.Class
@@ -183,7 +184,7 @@ addHeader h = ResponseT (return (Right (), [h]))
 instance HasReps () where
     reps _ = [("text/plain", toLazyByteString "")]
 
-data GenResponse = HtmlResponse String
+data GenResponse = HtmlResponse B.ByteString
                  | ObjectResponse Object
                  | HtmlOrObjectResponse String Object
                  | ByteStringResponse ContentType B.ByteString
@@ -196,6 +197,9 @@ instance HasReps GenResponse where
 
 byteStringResponse :: LazyByteString lbs => ContentType -> lbs -> GenResponse
 byteStringResponse ct = ByteStringResponse ct . toLazyByteString
+
+htmlResponse :: LazyByteString lbs => lbs -> GenResponse
+htmlResponse = HtmlResponse . toLazyByteString
 
 instance HasReps Object where
     reps o =
