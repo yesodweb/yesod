@@ -109,7 +109,7 @@ tryReadParams:: Parameter a
 tryReadParams name params =
     case readParams params of
         Left s -> do
-            tell [name ++ ": " ++ s]
+            tell [(name, s)]
             return $
               error $
                 "Trying to evaluate nonpresent parameter " ++
@@ -185,16 +185,15 @@ requestPath = do
                 q' -> q'
     return $! Hack.pathInfo env ++ q
 
-type RequestParser a = WriterT [ParamError] (Reader RawRequest) a
-instance Applicative (WriterT [ParamError] (Reader RawRequest)) where
+type RequestParser a = WriterT [(ParamName, ParamError)] (Reader RawRequest) a
+instance Applicative (WriterT [(ParamName, ParamError)] (Reader RawRequest)) where
     pure = return
-    f <*> a = do
-        f' <- f
-        a' <- a
-        return $! f' a'
+    (<*>) = ap
 
 -- | Parse a request into either the desired 'Request' or a list of errors.
-runRequestParser :: RequestParser a -> RawRequest -> Either [ParamError] a
+runRequestParser :: RequestParser a
+                 -> RawRequest
+                 -> Either [(ParamName, ParamError)] a
 runRequestParser p req =
     let (val, errors) = (runReader (runWriterT p)) req
      in case errors of

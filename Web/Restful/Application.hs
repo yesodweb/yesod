@@ -71,6 +71,11 @@ class ResourceName a b => RestfulApp a b | a -> b where
         HasRepsW $ toObject $ "Redirect to: " ++ url
     errorHandler _ _ (InternalError e) =
         HasRepsW $ toObject $ "Internal server error: " ++ e
+    errorHandler _ _ (InvalidArgs ia) =
+        HasRepsW $ toObject $
+            [ ("errorMsg", toObject "Invalid arguments")
+            , ("messages", toObject ia)
+            ]
 
 -- | Given a sample resource name (purely for typing reasons), generating
 -- a Hack application.

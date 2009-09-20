@@ -73,11 +73,13 @@ data ErrorResult =
     Redirect String
     | NotFound
     | InternalError String
+    | InvalidArgs [(String, String)]
 
 getStatus :: ErrorResult -> Int
 getStatus (Redirect _) = 303
 getStatus NotFound = 404
 getStatus (InternalError _) = 500
+getStatus (InvalidArgs _) = 400
 
 getHeaders :: ErrorResult -> [Header]
 getHeaders (Redirect s) = [Header "Location" s]
@@ -228,5 +230,5 @@ getRequest = ResponseT $ \rr -> return (helper rr, []) where
            -> Either ErrorResult r
     helper rr =
         case runRequestParser parseRequest rr of
-            Left errors -> Left $ InternalError $ unlines errors -- FIXME better error output
+            Left errors -> Left $ InvalidArgs errors -- FIXME better error output
             Right r -> Right r
