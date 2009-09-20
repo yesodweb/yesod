@@ -33,6 +33,7 @@ module Web.Restful.Response
     , HasRepsW (..)
     , byteStringResponse
     , htmlResponse
+    , getRequest
     ) where
 
 import Data.ByteString.Class
@@ -44,7 +45,10 @@ import qualified Data.ByteString.Lazy as B
 import Data.Object.Instances
 import Data.Maybe (fromJust)
 
+import Web.Restful.Request
+
 import Control.Monad.Trans
+import Control.Monad (liftM)
 
 import qualified Hack
 
@@ -79,7 +83,8 @@ getHeaders :: ErrorResult -> [Header]
 getHeaders (Redirect s) = [Header "Location" s]
 getHeaders _ = []
 
-newtype ResponseT m a = ResponseT (m (Either ErrorResult a, [Header]))
+newtype ResponseT m a =
+    ResponseT (RawRequest -> m (Either ErrorResult a, [Header]))
 type ResponseIO = ResponseT IO
 type Response = ResponseIO HasRepsW
 
@@ -87,9 +92,10 @@ runResponse :: (ErrorResult -> HasRepsW)
             -> (ContentType -> B.ByteString -> IO B.ByteString)
             -> [ContentType]
             -> Response
+            -> RawRequest
             -> IO Hack.Response
-runResponse eh wrapper ctypesAll (ResponseT inside) = do
-    (x, headers') <- inside
+runResponse eh wrapper ctypesAll (ResponseT inside) rr = do
+    (x, headers') <- inside rr
     let extraHeaders =
             case x of
                 Left r -> getHeaders r
@@ -135,7 +141,7 @@ wrapResponse :: (Monad m, HasReps rep)
 wrapResponse = fmap HasRepsW
 
 instance MonadTrans ResponseT where
-    lift ma = ResponseT $ do
+    lift ma = ResponseT $ const $ do
         a <- ma
         return (Right a, [])
 
@@ -143,24 +149,24 @@ instance MonadIO ResponseIO where
     liftIO = lift
 
 redirect :: Monad m => String -> ResponseT m a
-redirect s = ResponseT (return (Left $ Redirect s, []))
+redirect s = ResponseT (const $ return (Left $ Redirect s, []))
 
 notFound :: Monad m => ResponseT m a
-notFound = ResponseT (return (Left NotFound, []))
+notFound = ResponseT (const $ return (Left NotFound, []))
 
 instance Monad m => Functor (ResponseT m) where
-    fmap f x = x >>= return . f
+    fmap = liftM
 
 instance Monad m => Monad (ResponseT m) where
     return = lift . return
-    fail s = ResponseT (return (Left $ InternalError s, []))
-    (ResponseT mx) >>= f = ResponseT $ do
-        (x, hs1) <- mx
+    fail s = ResponseT (const $ return (Left $ InternalError s, []))
+    (ResponseT mx) >>= f = ResponseT $ \rr -> do
+        (x, hs1) <- mx rr
         case x of
             Left x' -> return (Left x', hs1)
             Right a -> do
                 let (ResponseT b') = f a
-                (b, hs2) <- b'
+                (b, hs2) <- b' rr
                 return (b, hs1 ++ hs2)
 
 -- | Headers to be added to a 'Result'.
@@ -179,7 +185,7 @@ header :: Monad m => String -> String -> ResponseT m ()
 header a b = addHeader $ Header a b
 
 addHeader :: Monad m => Header -> ResponseT m ()
-addHeader h = ResponseT (return (Right (), [h]))
+addHeader h = ResponseT (const $ return (Right (), [h]))
 
 instance HasReps () where
     reps _ = [("text/plain", toLazyByteString "")]
@@ -214,3 +220,13 @@ instance HasReps [(ContentType, B.ByteString)] where
 -- FIXME put in a separate module (maybe Web.Encodings)
 formatW3 :: UTCTime -> String
 formatW3 = formatTime defaultTimeLocale "%FT%X-08:00"
+
+getRequest :: (Monad m, Request r) => ResponseT m r
+getRequest = ResponseT $ \rr -> return (helper rr, []) where
+    helper :: Request r
+           => RawRequest
+           -> Either ErrorResult r
+    helper rr =
+        case runRequestParser parseRequest rr of
+            Left errors -> Left $ InternalError $ unlines errors -- FIXME better error output
+            Right r -> Right r

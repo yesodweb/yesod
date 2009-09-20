@@ -124,7 +124,8 @@ toHackApplication sampleRN hm env = do
     runResponse (errorHandler sampleRN rr)
                 (responseWrapper sampleRN)
                 ctypes'
-                (handler rr)
+                handler
+                rr
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
 envToRawRequest urlParams' env =

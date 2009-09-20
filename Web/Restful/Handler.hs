@@ -23,18 +23,14 @@ module Web.Restful.Handler
 import Web.Restful.Request
 import Web.Restful.Response
 
-type Handler = RawRequest -> Response
+type Handler = Response -- FIXME maybe move some stuff around now...
 
 liftHandler :: (Request req, HasReps rep)
             => (req -> ResponseIO rep)
             -> Handler
-liftHandler f req = liftRequest req >>= wrapResponse . f
-
-liftRequest :: (Request req, Monad m) => RawRequest -> m req
-liftRequest r =
-    case runRequestParser parseRequest r of
-        Left errors -> fail $ unlines errors -- FIXME
-        Right req -> return req
+liftHandler f = do
+    req <- getRequest
+    wrapResponse $ f req
 
 noHandler :: Handler
-noHandler = const notFound
+noHandler = notFound
