@@ -88,7 +88,8 @@ instance HasReps SitemapResponse where
         [ ("text/xml", toLazyByteString $ show res)
         ]
 
-sitemap :: IO [SitemapUrl] -> SitemapRequest -> Handler
-sitemap urls' req = do
+sitemap :: IO [SitemapUrl] -> Handler
+sitemap urls' = do
+    req <- getRequest
     urls <- liftIO urls'
     return $ reps $ SitemapResponse req urls

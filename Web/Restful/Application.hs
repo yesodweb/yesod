@@ -116,21 +116,21 @@ toHackApplication :: RestfulApp resourceName model
                   -> Hack.Application
 toHackApplication sampleRN hm env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
-    let (handler, urlParams') =
+    let (handler, urlParams', wrapper) =
           case findResourceNames resource of
-            [] -> (notFound, [])
+            [] -> (notFound, [], const return)
             [(rn, urlParams'')] ->
                 let verb = toVerb $ Hack.requestMethod env
-                 in (hm rn verb, urlParams'')
+                 in (hm rn verb, urlParams'', responseWrapper rn)
             x -> error $ "Invalid findResourceNames: " ++ show x
     let rr = envToRawRequest urlParams' env
     let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
         ctypes' = parseHttpAccept rawHttpAccept
     runHandler (errorHandler sampleRN rr)
-                (responseWrapper sampleRN)
-                ctypes'
-                handler
-                rr
+               wrapper
+               ctypes'
+               handler
+               rr
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
 envToRawRequest urlParams' env =
