@@ -25,19 +25,20 @@ import Web.Restful
 type FileLookup = FilePath -> IO (Maybe B.ByteString)
 
 serveStatic :: FileLookup -> Verb -> Handler
-serveStatic fl Get = liftHandler $ getStatic fl
-serveStatic _ _ = noHandler
+serveStatic fl Get = getStatic fl
+serveStatic _ _ = notFound
 
 newtype StaticReq = StaticReq FilePath
 instance Request StaticReq where
     parseRequest = StaticReq `fmap` urlParam "filepath" -- FIXME check for ..
 
-getStatic :: FileLookup -> StaticReq -> ResponseIO GenResponse
-getStatic fl (StaticReq fp) = do
+getStatic :: FileLookup -> Handler
+getStatic fl = do
+    StaticReq fp <- getRequest
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
-        Just bs -> return $ byteStringResponse (mimeType $ ext fp) bs
+        Just bs -> genResponse (mimeType $ ext fp) bs
 
 mimeType :: String -> String
 mimeType "jpg" = "image/jpeg"

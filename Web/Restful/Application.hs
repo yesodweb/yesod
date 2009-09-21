@@ -65,14 +65,14 @@ class ResourceName a b => RestfulApp a b | a -> b where
     responseWrapper _ _ = return
 
     -- | Output error response pages.
-    errorHandler :: a -> RawRequest -> ErrorResult -> HasRepsW
-    errorHandler _ rr NotFound = HasRepsW $ toObject $ "Not found: " ++ show rr
+    errorHandler :: a -> RawRequest -> ErrorResult -> Reps
+    errorHandler _ rr NotFound = reps $ toObject $ "Not found: " ++ show rr
     errorHandler _ _ (Redirect url) =
-        HasRepsW $ toObject $ "Redirect to: " ++ url
+        reps $ toObject $ "Redirect to: " ++ url
     errorHandler _ _ (InternalError e) =
-        HasRepsW $ toObject $ "Internal server error: " ++ e
+        reps $ toObject $ "Internal server error: " ++ e
     errorHandler _ _ (InvalidArgs ia) =
-        HasRepsW $ toObject $
+        reps $ toObject $
             [ ("errorMsg", toObject "Invalid arguments")
             , ("messages", toObject ia)
             ]
@@ -118,7 +118,7 @@ toHackApplication sampleRN hm env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
     let (handler, urlParams') =
           case findResourceNames resource of
-            [] -> (noHandler, [])
+            [] -> (notFound, [])
             [(rn, urlParams'')] ->
                 let verb = toVerb $ Hack.requestMethod env
                  in (hm rn verb, urlParams'')
@@ -126,7 +126,7 @@ toHackApplication sampleRN hm env = do
     let rr = envToRawRequest urlParams' env
     let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
         ctypes' = parseHttpAccept rawHttpAccept
-    runResponse (errorHandler sampleRN rr)
+    runHandler (errorHandler sampleRN rr)
                 (responseWrapper sampleRN)
                 ctypes'
                 handler

@@ -28,7 +28,6 @@ import Web.Restful.Constants
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad.Reader
 
-import Data.Object
 import Data.Maybe (fromMaybe)
 
 data AuthResource =
@@ -42,13 +41,13 @@ data AuthResource =
 
 type RpxnowApiKey = String -- FIXME newtype
 instance ResourceName AuthResource (Maybe RpxnowApiKey) where
-    getHandler _ Check Get = liftHandler authCheck
-    getHandler _ Logout Get = liftHandler authLogout
-    getHandler _ Openid Get = liftHandler authOpenidForm
-    getHandler _ OpenidForward Get = liftHandler authOpenidForward
-    getHandler _ OpenidComplete Get = liftHandler authOpenidComplete
-    getHandler (Just key) LoginRpxnow Get = liftHandler $ rpxnowLogin key
-    getHandler _ _ _ = noHandler
+    getHandler _ Check Get = authCheck
+    getHandler _ Logout Get = authLogout
+    getHandler _ Openid Get = authOpenidForm
+    getHandler _ OpenidForward Get = authOpenidForward
+    getHandler _ OpenidComplete Get = authOpenidComplete
+    getHandler (Just key) LoginRpxnow Get = rpxnowLogin key
+    getHandler _ _ _ = notFound
 
     allValues =
         Check
@@ -75,8 +74,9 @@ instance Show OIDFormReq where
     show (OIDFormReq (Just s) _) = "<p class='message'>" ++ encodeHtml s ++
                                  "</p>"
 
-authOpenidForm :: OIDFormReq -> ResponseIO GenResponse
-authOpenidForm m@(OIDFormReq _ dest) = do
+authOpenidForm :: Handler
+authOpenidForm = do
+    m@(OIDFormReq _ dest) <- getRequest
     let html =
             show m ++
             "<form method='get' action='forward/'>" ++
@@ -86,7 +86,7 @@ authOpenidForm m@(OIDFormReq _ dest) = do
     case dest of
         Just dest' -> addCookie 20 "DEST" dest'
         Nothing -> return ()
-    return $! htmlResponse html
+    htmlResponse html
 
 data OIDFReq = OIDFReq String String
 instance Request OIDFReq where
@@ -97,8 +97,9 @@ instance Request OIDFReq where
                        show (Hack.serverPort env) ++
                        "/auth/openid/complete/"
         return $! OIDFReq oid complete
-authOpenidForward :: OIDFReq -> Response
-authOpenidForward (OIDFReq oid complete) = do
+authOpenidForward :: Handler
+authOpenidForward = do
+    OIDFReq oid complete <- getRequest
     res <- liftIO $ OpenId.getForwardUrl oid complete
     case res of
         Left err -> redirect $ "/auth/openid/?message="
@@ -113,8 +114,9 @@ instance Request OIDComp where
         dest <- cookieParam "DEST"
         return $! OIDComp gets dest
 
-authOpenidComplete :: OIDComp -> Response
-authOpenidComplete (OIDComp gets' dest) = do
+authOpenidComplete :: Handler
+authOpenidComplete = do
+    OIDComp gets' dest <- getRequest
     res <- liftIO $ OpenId.authenticate gets'
     case res of
       Left err -> redirect $ "/auth/openid/?message="
@@ -137,9 +139,9 @@ chopHash ('#':rest) = rest
 chopHash x = x
 
 rpxnowLogin :: String -- ^ api key
-            -> RpxnowRequest
-            -> Response
-rpxnowLogin apiKey (RpxnowRequest token dest') = do
+            -> Handler
+rpxnowLogin apiKey = do
+    RpxnowRequest token dest' <- getRequest
     let dest = case dest' of
                 Nothing -> "/"
                 Just "" -> "/"
@@ -154,16 +156,17 @@ data AuthRequest = AuthRequest (Maybe String)
 instance Request AuthRequest where
     parseRequest = AuthRequest `fmap` identifier
 
-authCheck :: AuthRequest -> ResponseIO Object
-authCheck (AuthRequest Nothing) =
-    return $ toObject [("status", "notloggedin")]
-authCheck (AuthRequest (Just i)) =
-    return $ toObject
-        [ ("status", "loggedin")
-        , ("ident", i)
-        ]
+authCheck :: Handler
+authCheck = do
+    req <- getRequest
+    case req of
+        AuthRequest Nothing -> objectResponse[("status", "notloggedin")]
+        AuthRequest (Just i) -> objectResponse
+            [ ("status", "loggedin")
+            , ("ident", i)
+            ]
 
-authLogout :: () -> ResponseIO Object
-authLogout _ = do
+authLogout :: Handler
+authLogout = do
     deleteCookie authCookieName
-    return $ toObject [("status", "loggedout")]
+    objectResponse [("status", "loggedout")]

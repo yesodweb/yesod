@@ -19,7 +19,9 @@ module Web.Restful.Response.Sitemap
     , SitemapChangeFreq (..)
     ) where
 
+import Web.Restful.Handler
 import Web.Restful.Response
+import Web.Restful.Utils
 import Web.Encodings
 import qualified Hack
 import Web.Restful.Request
@@ -86,7 +88,7 @@ instance HasReps SitemapResponse where
         [ ("text/xml", toLazyByteString $ show res)
         ]
 
-sitemap :: IO [SitemapUrl] -> SitemapRequest -> ResponseIO SitemapResponse
+sitemap :: IO [SitemapUrl] -> SitemapRequest -> Handler
 sitemap urls' req = do
     urls <- liftIO urls'
-    return $ SitemapResponse req urls
+    return $ reps $ SitemapResponse req urls
