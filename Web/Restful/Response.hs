@@ -29,6 +29,8 @@ module Web.Restful.Response
     , genResponse
     , htmlResponse
     , objectResponse
+      -- * Tests
+    , testSuite
     ) where
 
 import Data.ByteString.Class
@@ -38,6 +40,8 @@ import qualified Data.ByteString.Lazy as B
 import Data.Object.Instances
 
 import Web.Restful.Utils (formatW3)
+
+import Test.Framework (testGroup, Test)
 
 type ContentType = String
 
@@ -120,3 +124,9 @@ instance HasReps Object where
 
 instance HasReps [(ContentType, B.ByteString)] where
     reps = id
+
+----- Testing
+testSuite :: Test
+testSuite = testGroup "Web.Restful.Response"
+    [
+    ]

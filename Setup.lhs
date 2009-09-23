@@ -2,6 +2,10 @@
 
 > module Main where
 > import Distribution.Simple
+> import System.Cmd (system)
 
 > main :: IO ()
-> main = defaultMain
+> main = defaultMainWithHooks (simpleUserHooks { runTests = runTests' })
+
+> runTests' :: a -> b -> c -> d -> IO ()
+> runTests' _ _ _ _ = system "runhaskell Test.hs" >> return ()

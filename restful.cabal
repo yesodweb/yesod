@@ -27,10 +27,15 @@ library
                      predicates >= 0.1,
                      bytestring >= 0.9.1.4,
                      bytestring-class,
-                     web-encodings,
+                     web-encodings >= 0.0.1,
                      mtl >= 1.1.0.2,
                      data-object,
-                     yaml >= 0.0.1
+                     yaml >= 0.0.1,
+                     test-framework,
+                     test-framework-quickcheck,
+                     test-framework-hunit,
+                     HUnit,
+                     QuickCheck == 1.*
     exposed-modules: Web.Restful,
                      Web.Restful.Constants,
                      Web.Restful.Request,
@@ -47,4 +52,4 @@ library
                      Web.Restful.Response.AtomFeed,
                      Web.Restful.Response.Sitemap,
                      Web.Restful.Generic.ListDetail
-    ghc-options:     -Wall
+    ghc-options:     -Wall -Werror

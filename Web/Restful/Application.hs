@@ -83,6 +83,7 @@ toHackApp :: RestfulApp resourceName modelType
           => resourceName
           -> IO Hack.Application
 toHackApp a = do
+    checkResourceName a -- FIXME maybe this should be done compile-time?
     model <- getModel a
     key <- encryptKey a
     let handlers = getHandler model

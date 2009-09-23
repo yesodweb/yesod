@@ -16,6 +16,7 @@ module Web.Restful.Utils
     ( parseHttpAccept
     , tryLookup
     , formatW3
+    , testSuite
     ) where
 
 import Data.List.Split (splitOneOf)
@@ -24,6 +25,10 @@ import Data.Maybe (fromMaybe)
 import Data.Time.Clock
 import System.Locale
 import Data.Time.Format
+
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.HUnit
+import Test.HUnit hiding (Test)
 
 -- | Parse the HTTP accept string to determine supported content types.
 parseHttpAccept :: String -> [String]
@@ -41,3 +46,16 @@ tryLookup def key = fromMaybe def . lookup key
 -- | Format a 'UTCTime' in W3 format; useful for setting cookies.
 formatW3 :: UTCTime -> String
 formatW3 = formatTime defaultTimeLocale "%FT%X-08:00" -- FIXME time zone?
+
+----- Testing
+testSuite :: Test
+testSuite = testGroup "Web.Restful.Response"
+    [ testCase "tryLookup1" test_tryLookup1
+    , testCase "tryLookup2" test_tryLookup2
+    ]
+
+test_tryLookup1 :: Assertion
+test_tryLookup1 = tryLookup "default" "foo" [] @?= "default"
+
+test_tryLookup2 :: Assertion
+test_tryLookup2 = tryLookup "default" "foo" [("foo", "baz")] @?= "baz"

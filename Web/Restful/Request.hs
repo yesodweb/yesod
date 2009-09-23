@@ -212,8 +212,6 @@ data RawRequest = RawRequest
     }
     deriving Show
 
-deriving instance Show FileInfo
-
 -- | All GET paramater values with the given name.
 getParams :: RawRequest -> ParamName -> [ParamValue]
 getParams rr name = map snd
