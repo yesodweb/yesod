@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Response
