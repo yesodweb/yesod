@@ -30,6 +30,7 @@ import Data.List.Split (splitOn)
 import Web.Restful.Definitions
 import Web.Restful.Handler
 import Data.List (intercalate)
+import Data.Enumerable
 
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
@@ -64,7 +65,7 @@ fromString' ('$':rest) = Dynamic rest
 fromString' ('*':rest) = Slurp rest
 fromString' x = Static x
 
-class Show a => ResourceName a b | a -> b where
+class (Show a, Enumerable a) => ResourceName a b | a -> b where
     -- | Get the URL pattern for each different resource name.
     -- Something like /foo/$bar/baz/ will match the regular expression
     -- /foo/(\\w*)/baz/, matching the middle part with the urlParam bar.
@@ -72,11 +73,6 @@ class Show a => ResourceName a b | a -> b where
     -- Also, /foo/*bar/ will match /foo/[anything else], capturing the value
     -- into the bar urlParam.
     resourcePattern :: a -> String
-
-    -- | Get all possible values for resource names.
-    -- Remember, if you use variables ($foo) in your resourcePatterns you
-    -- can get an unlimited number of resources for each resource name.
-    allValues :: [a]
 
     -- | Find the handler for each resource name/verb pattern.
     getHandler :: b -> a -> Verb -> Handler
@@ -123,7 +119,7 @@ overlaps (Static a:x) (Static b:y) = a == b && overlaps x y
 
 checkResourceName :: (Monad m, ResourceName rn model) => rn -> m ()
 checkResourceName rn = do
-    let avs@(y:_) = allValues
+    let avs@(y:_) = enumerate
         _ignore = asTypeOf rn y
     let patterns = map (fromString . resourcePattern) avs
     case validatePatterns patterns of

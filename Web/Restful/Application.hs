@@ -25,6 +25,7 @@ module Web.Restful.Application
 import Web.Encodings
 import qualified Data.ByteString.Lazy as B
 import Data.Object
+import Data.Enumerable
 
 import qualified Hack
 import Hack.Middleware.CleanPath
@@ -95,7 +96,7 @@ toHackApp a = do
 findResourceNames :: ResourceName a model
                   => Resource
                   -> [(a, [(String, String)])]
-findResourceNames r = takeJusts $ map (checkPatternHelper r) allValues
+findResourceNames r = takeJusts $ map (checkPatternHelper r) enumerate
 
 checkPatternHelper :: ResourceName a model
                    => Resource

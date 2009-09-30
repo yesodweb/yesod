@@ -21,6 +21,7 @@ import qualified Hack
 import Web.Encodings
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
+import Data.Enumerable
 
 import Web.Restful
 import Web.Restful.Constants
@@ -39,17 +40,8 @@ data AuthResource =
     | LoginRpxnow
     deriving Show
 
-type RpxnowApiKey = String -- FIXME newtype
-instance ResourceName AuthResource (Maybe RpxnowApiKey) where
-    getHandler _ Check Get = authCheck
-    getHandler _ Logout Get = authLogout
-    getHandler _ Openid Get = authOpenidForm
-    getHandler _ OpenidForward Get = authOpenidForward
-    getHandler _ OpenidComplete Get = authOpenidComplete
-    getHandler (Just key) LoginRpxnow Get = rpxnowLogin key
-    getHandler _ _ _ = notFound
-
-    allValues =
+instance Enumerable AuthResource where
+    enumerate =
         Check
         : Logout
         : Openid
@@ -57,6 +49,16 @@ instance ResourceName AuthResource (Maybe RpxnowApiKey) where
         : OpenidComplete
         : LoginRpxnow
         : []
+
+type RpxnowApiKey = String -- FIXME newtype
+instance ResourceName AuthResource (Maybe RpxnowApiKey) where
+    getHandler _ Check Get = authCheck
+    getHandler _ Logout Get = authLogout
+    getHandler _ Openid Get = authOpenidForm
+    getHandler _ OpenidForward Get = authOpenidForward
+    getHandler _ OpenidComplete Get = authOpenidComplete
+    getHandler (Just key) LoginRpxnow Post = rpxnowLogin key
+    getHandler _ _ _ = notFound
 
     resourcePattern Check = "/auth/check/"
     resourcePattern Logout = "/auth/logout/"
@@ -130,8 +132,8 @@ authOpenidComplete = do
 data RpxnowRequest = RpxnowRequest String (Maybe String)
 instance Request RpxnowRequest where
     parseRequest = do
-        token <- getParam "token"
-        dest <- getParam "dest"
+        token <- postParam "token"
+        dest <- postParam "dest"
         return $! RpxnowRequest token $ chopHash `fmap` dest
 
 chopHash :: String -> String
