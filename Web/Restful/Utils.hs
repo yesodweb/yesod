@@ -15,16 +15,11 @@
 module Web.Restful.Utils
     ( parseHttpAccept
     , tryLookup
-    , formatW3
     , testSuite
     ) where
 
 import Data.List.Split (splitOneOf)
 import Data.Maybe (fromMaybe)
-
-import Data.Time.Clock
-import System.Locale
-import Data.Time.Format
 
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
@@ -42,10 +37,6 @@ specialHttpAccept _ = False
 -- | Attempt a lookup, returning a default value on failure.
 tryLookup :: Eq k => v -> k -> [(k, v)] -> v
 tryLookup def key = fromMaybe def . lookup key
-
--- | Format a 'UTCTime' in W3 format; useful for setting cookies.
-formatW3 :: UTCTime -> String
-formatW3 = formatTime defaultTimeLocale "%FT%X-00:00"
 
 ----- Testing
 testSuite :: Test

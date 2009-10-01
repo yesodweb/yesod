@@ -21,7 +21,6 @@ module Web.Restful.Response.Sitemap
 
 import Web.Restful.Handler
 import Web.Restful.Response
-import Web.Restful.Utils
 import Web.Encodings
 import qualified Hack
 import Web.Restful.Request

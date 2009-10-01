@@ -40,7 +40,7 @@ import Data.Object
 import qualified Data.ByteString.Lazy as B
 import Data.Object.Instances
 
-import Web.Restful.Utils (formatW3)
+import Web.Encodings (formatW3)
 
 import Test.Framework (testGroup, Test)
 

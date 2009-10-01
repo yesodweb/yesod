@@ -18,7 +18,6 @@ module Web.Restful.Response.AtomFeed
     ) where
 
 import Web.Restful.Response
-import Web.Restful.Utils
 
 import Data.Time.Clock
 import Web.Encodings
