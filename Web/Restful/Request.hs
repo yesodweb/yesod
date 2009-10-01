@@ -160,7 +160,7 @@ hackHeaderParam name = do
 -- | Extract the cookie which specifies the identifier for a logged in
 -- user.
 identifier :: Parameter a => RequestParser a
-identifier = hackHeaderParam authCookieName
+identifier = hackHeaderParam authCookieName -- FIXME better error message
 
 -- | Get the raw 'Hack.Env' value.
 parseEnv :: RequestParser Hack.Env
@@ -277,6 +277,12 @@ instance Parameter Day where
          in if t
                 then Right $ fromGregorian y m d
                 else Left $ "Invalid date: " ++ s
+
+-- for checkboxes; checks for presence
+instance Parameter Bool where
+    readParams [] = Right False
+    readParams [_] = Right True
+    readParams x = Left $ "Invalid Bool parameter: " ++ show x
 
 -- | The input for a resource.
 --

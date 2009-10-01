@@ -86,7 +86,7 @@ authOpenidForm = do
             "<input type='submit' value='Login'>" ++
             "</form>"
     case dest of
-        Just dest' -> addCookie 20 "DEST" dest'
+        Just dest' -> addCookie 120 "DEST" dest'
         Nothing -> return ()
     htmlResponse html
 

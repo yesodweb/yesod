@@ -45,7 +45,7 @@ tryLookup def key = fromMaybe def . lookup key
 
 -- | Format a 'UTCTime' in W3 format; useful for setting cookies.
 formatW3 :: UTCTime -> String
-formatW3 = formatTime defaultTimeLocale "%FT%X-08:00" -- FIXME time zone?
+formatW3 = formatTime defaultTimeLocale "%FT%X-00:00"
 
 ----- Testing
 testSuite :: Test
