@@ -16,13 +16,25 @@
 module Web.Restful.Helpers.Static
     ( serveStatic
     , FileLookup
+    , fileLookupDir
     ) where
 
 import qualified Data.ByteString as B
+import System.Directory (doesFileExist)
+import Control.Applicative ((<$>))
 
 import Web.Restful
 
 type FileLookup = FilePath -> IO (Maybe B.ByteString)
+
+-- | A 'FileLookup' for files in a directory.
+fileLookupDir :: FilePath -> FileLookup
+fileLookupDir dir fp = do
+    let fp' = dir ++ '/' : fp -- FIXME incredibly insecure...
+    exists <- doesFileExist fp'
+    if exists
+        then Just <$> B.readFile fp'
+        else return Nothing
 
 serveStatic :: FileLookup -> Verb -> Handler
 serveStatic fl Get = getStatic fl

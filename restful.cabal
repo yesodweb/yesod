@@ -36,7 +36,8 @@ library
                      test-framework-hunit,
                      HUnit,
                      QuickCheck == 1.*,
-                     enumerable >= 0.0.3
+                     enumerable >= 0.0.3,
+                     directory >= 1
     exposed-modules: Web.Restful,
                      Web.Restful.Constants,
                      Web.Restful.Request,
