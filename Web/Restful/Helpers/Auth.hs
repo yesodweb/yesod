@@ -57,6 +57,8 @@ instance ResourceName AuthResource (Maybe RpxnowApiKey) where
     getHandler _ Openid Get = authOpenidForm
     getHandler _ OpenidForward Get = authOpenidForward
     getHandler _ OpenidComplete Get = authOpenidComplete
+    -- two different versions of RPX protocol apparently...
+    getHandler (Just key) LoginRpxnow Get = rpxnowLogin key
     getHandler (Just key) LoginRpxnow Post = rpxnowLogin key
     getHandler _ _ _ = notFound
 
@@ -132,8 +134,8 @@ authOpenidComplete = do
 data RpxnowRequest = RpxnowRequest String (Maybe String)
 instance Request RpxnowRequest where
     parseRequest = do
-        token <- postParam "token"
-        dest <- postParam "dest"
+        token <- anyParam "token"
+        dest <- anyParam "dest"
         return $! RpxnowRequest token $ chopHash `fmap` dest
 
 chopHash :: String -> String
