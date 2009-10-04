@@ -63,12 +63,14 @@ data ErrorResult =
     | NotFound
     | InternalError String
     | InvalidArgs [(String, String)]
+    | PermissionDenied
 
 getStatus :: ErrorResult -> Int
 getStatus (Redirect _) = 303
 getStatus NotFound = 404
 getStatus (InternalError _) = 500
 getStatus (InvalidArgs _) = 400
+getStatus PermissionDenied = 403
 
 getHeaders :: ErrorResult -> [Header]
 getHeaders (Redirect s) = [Header "Location" s]

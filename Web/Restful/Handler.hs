@@ -22,7 +22,6 @@ module Web.Restful.Handler
     , HandlerIO
     , Handler
     , runHandler
-    , getRequest
     , liftIO
       -- * Special handlers
     , redirect
@@ -37,7 +36,8 @@ import Web.Restful.Request
 import Web.Restful.Response
 
 import Control.Monad.Trans
-import Control.Monad (liftM)
+import Control.Monad (liftM, ap)
+import Control.Applicative
 
 import Data.Maybe (fromJust)
 import qualified Data.ByteString.Lazy as B
@@ -108,25 +108,27 @@ instance Monad m => Monad (HandlerT m) where
                 (b, hs2) <- b' rr
                 return (b, hs1 ++ hs2)
 
--- | Parse a request in the Handler monad. On failure, return a 400 error.
-getRequest :: (Monad m, Request r) => HandlerT m r
-getRequest = HandlerT $ \rr -> return (helper rr, []) where
-    helper :: Request r
-           => RawRequest
-           -> Either ErrorResult r
-    helper rr =
-        case runRequestParser parseRequest rr of
-            Left errors -> Left $ InvalidArgs errors
-            Right r -> Right r
+instance Monad m => Applicative (HandlerT m) where
+    pure = return
+    (<*>) = ap
+
+instance Monad m => MonadRequestReader (HandlerT m) where
+    askRawRequest = HandlerT $ \rr -> return (Right rr, [])
+    invalidParam ptype name msg =
+        errorResult $ InvalidArgs [(name ++ " (" ++ show ptype ++ ")", msg)]
+    authRequired = errorResult PermissionDenied
 
 ------ Special handlers
+errorResult :: Monad m => ErrorResult -> HandlerT m a
+errorResult er = HandlerT (const $ return (Left er, []))
+
 -- | Redirect to the given URL.
 redirect :: Monad m => String -> HandlerT m a
-redirect s = HandlerT (const $ return (Left $ Redirect s, []))
+redirect = errorResult . Redirect
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Monad m => HandlerT m a
-notFound = HandlerT (const $ return (Left NotFound, []))
+notFound = errorResult NotFound
 
 ------- Headers
 -- | Set the cookie on the client.

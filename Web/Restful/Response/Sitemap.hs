@@ -51,11 +51,6 @@ data SitemapUrl = SitemapUrl
     , priority :: Double
     }
 data SitemapRequest = SitemapRequest String Int
-instance Request SitemapRequest where
-    parseRequest = do
-        env <- parseEnv
-        return $! SitemapRequest (Hack.serverName env)
-                                 (Hack.serverPort env)
 data SitemapResponse = SitemapResponse SitemapRequest [SitemapUrl]
 instance Show SitemapResponse where
     show (SitemapResponse (SitemapRequest host port) urls) =
@@ -89,6 +84,8 @@ instance HasReps SitemapResponse where
 
 sitemap :: IO [SitemapUrl] -> Handler
 sitemap urls' = do
-    req <- getRequest
+    env <- parseEnv
+    -- FIXME
+    let req = SitemapRequest (Hack.serverName env) (Hack.serverPort env)
     urls <- liftIO urls'
     return $ reps $ SitemapResponse req urls

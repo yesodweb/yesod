@@ -77,6 +77,8 @@ class ResourceName a b => RestfulApp a b | a -> b where
             [ ("errorMsg", toObject "Invalid arguments")
             , ("messages", toObject ia)
             ]
+    errorHandler _ _ PermissionDenied =
+        reps $ toObject $ "Permission denied"
 
 -- | Given a sample resource name (purely for typing reasons), generating
 -- a Hack application.

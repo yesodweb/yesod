@@ -40,13 +40,9 @@ serveStatic :: FileLookup -> Verb -> Handler
 serveStatic fl Get = getStatic fl
 serveStatic _ _ = notFound
 
-newtype StaticReq = StaticReq FilePath
-instance Request StaticReq where
-    parseRequest = StaticReq `fmap` urlParam "filepath" -- FIXME check for ..
-
 getStatic :: FileLookup -> Handler
 getStatic fl = do
-    StaticReq fp <- getRequest
+    fp <- urlParam "filepath" -- FIXME check for ..
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound

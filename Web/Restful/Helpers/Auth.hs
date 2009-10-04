@@ -80,7 +80,7 @@ instance Show OIDFormReq where
 
 authOpenidForm :: Handler
 authOpenidForm = do
-    m@(OIDFormReq _ dest) <- getRequest
+    m@(OIDFormReq _ dest) <- parseRequest
     let html =
             show m ++
             "<form method='get' action='forward/'>" ++
@@ -92,35 +92,23 @@ authOpenidForm = do
         Nothing -> return ()
     htmlResponse html
 
-data OIDFReq = OIDFReq String String
-instance Request OIDFReq where
-    parseRequest = do
-        oid <- getParam "openid"
-        env <- parseEnv
-        let complete = "http://" ++ Hack.serverName env ++ ":" ++
-                       show (Hack.serverPort env) ++
-                       "/auth/openid/complete/"
-        return $! OIDFReq oid complete
 authOpenidForward :: Handler
 authOpenidForward = do
-    OIDFReq oid complete <- getRequest
+    oid <- getParam "openid"
+    env <- parseEnv
+    let complete = "http://" ++ Hack.serverName env ++ ":" ++
+                   show (Hack.serverPort env) ++
+                   "/auth/openid/complete/"
     res <- liftIO $ OpenId.getForwardUrl oid complete
     case res of
         Left err -> redirect $ "/auth/openid/?message="
                             ++ encodeUrl (err :: String)
         Right url -> redirect url
 
-data OIDComp = OIDComp [(String, String)] (Maybe String)
-instance Request OIDComp where
-    parseRequest = do
-        rr <- ask
-        let gets = rawGetParams rr
-        dest <- cookieParam "DEST"
-        return $! OIDComp gets dest
-
 authOpenidComplete :: Handler
 authOpenidComplete = do
-    OIDComp gets' dest <- getRequest
+    gets' <- rawGetParams <$> askRawRequest
+    dest <- cookieParam "DEST"
     res <- liftIO $ OpenId.authenticate gets'
     case res of
       Left err -> redirect $ "/auth/openid/?message="
@@ -145,27 +133,26 @@ chopHash x = x
 rpxnowLogin :: String -- ^ api key
             -> Handler
 rpxnowLogin apiKey = do
-    RpxnowRequest token dest' <- getRequest
+    token <- anyParam "token"
+    postDest <- postParam "dest"
+    dest' <- case postDest of
+                Nothing -> getParam "dest"
+                Just d -> return d
     let dest = case dest' of
                 Nothing -> "/"
                 Just "" -> "/"
+                Just ('#':rest) -> rest
                 Just s -> s
-    ident' <- liftIO $ Rpxnow.authenticate apiKey token
-    case ident' of
-        Nothing -> return ()
-        Just ident -> header authCookieName $ Rpxnow.identifier ident
+    ident <- join $ liftIO $ Rpxnow.authenticate apiKey token
+    header authCookieName $ Rpxnow.identifier ident
     redirect dest
-
-data AuthRequest = AuthRequest (Maybe String)
-instance Request AuthRequest where
-    parseRequest = AuthRequest `fmap` identifier
 
 authCheck :: Handler
 authCheck = do
-    req <- getRequest
-    case req of
-        AuthRequest Nothing -> objectResponse[("status", "notloggedin")]
-        AuthRequest (Just i) -> objectResponse
+    ident <- maybeIdentifier
+    case ident of
+        Nothing -> objectResponse [("status", "notloggedin")]
+        Just i -> objectResponse
             [ ("status", "loggedin")
             , ("ident", i)
             ]
