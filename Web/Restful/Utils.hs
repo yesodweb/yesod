@@ -41,12 +41,12 @@ tryLookup def key = fromMaybe def . lookup key
 ----- Testing
 testSuite :: Test
 testSuite = testGroup "Web.Restful.Response"
-    [ testCase "tryLookup1" test_tryLookup1
-    , testCase "tryLookup2" test_tryLookup2
+    [ testCase "tryLookup1" caseTryLookup1
+    , testCase "tryLookup2" caseTryLookup2
     ]
 
-test_tryLookup1 :: Assertion
-test_tryLookup1 = tryLookup "default" "foo" [] @?= "default"
+caseTryLookup1 :: Assertion
+caseTryLookup1 = tryLookup "default" "foo" [] @?= "default"
 
-test_tryLookup2 :: Assertion
-test_tryLookup2 = tryLookup "default" "foo" [("foo", "baz")] @?= "baz"
+caseTryLookup2 :: Assertion
+caseTryLookup2 = tryLookup "default" "foo" [("foo", "baz")] @?= "baz"

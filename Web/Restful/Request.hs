@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Request
@@ -254,7 +253,7 @@ cookies rr name = map snd . filter (fst `equals` name) . rawCookies $ rr
 
 instance Parameter a => Parameter (Maybe a) where
     readParams [] = Right Nothing
-    readParams [x] = readParam x >>= return . Just
+    readParams [x] = Just `fmap` readParam x
     readParams xs = Left $ "Given " ++ show (length xs) ++
                            " values, expecting 0 or 1"
 

@@ -42,13 +42,13 @@ data AuthResource =
 
 instance Enumerable AuthResource where
     enumerate =
-        Check
-        : Logout
-        : Openid
-        : OpenidForward
-        : OpenidComplete
-        : LoginRpxnow
-        : []
+        [ Check
+        , Logout
+        , Openid
+        , OpenidForward
+        , OpenidComplete
+        , LoginRpxnow
+        ]
 
 type RpxnowApiKey = String -- FIXME newtype
 instance ResourceName AuthResource (Maybe RpxnowApiKey) where

@@ -62,7 +62,7 @@ instance Show SitemapResponse where
             prefix = "http://" ++ host ++
                         case port of
                             80 -> ""
-                            _ -> ":" ++ show port
+                            _ -> ':' : show port
             helper (SitemapUrl loc modTime freq pri) = concat
                 [ "<url><loc>"
                 , encodeHtml $ showLoc loc

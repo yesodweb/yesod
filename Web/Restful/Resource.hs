@@ -31,6 +31,7 @@ import Web.Restful.Definitions
 import Web.Restful.Handler
 import Data.List (intercalate)
 import Data.Enumerable
+import Control.Monad (replicateM)
 
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
@@ -82,14 +83,14 @@ type SMap = [(String, String)]
 data CheckPatternReturn = StaticMatch | DynamicMatch (String, String) | NoMatch
 
 checkPattern :: ResourcePattern -> Resource -> Maybe SMap
-checkPattern rp r = checkPattern'' (unRP rp) r
+checkPattern = checkPatternPieces . unRP
 
-checkPattern'' :: [ResourcePatternPiece] -> Resource -> Maybe SMap
-checkPattern'' rp r
-    | length rp /= 0 && isSlurp (last rp) = do
+checkPatternPieces :: [ResourcePatternPiece] -> Resource -> Maybe SMap
+checkPatternPieces rp r
+    | not (null rp) && isSlurp (last rp) = do
         let rp' = init rp
             (r1, r2) = splitAt (length rp') r
-        smap <- checkPattern'' rp' r1
+        smap <- checkPatternPieces rp' r1
         let slurpValue = intercalate "/" r2
             Slurp slurpKey = last rp
         return $ (slurpKey, slurpValue) : smap
@@ -133,35 +134,33 @@ validatePatterns (x:xs) =
     validatePatterns' :: ResourcePattern
                    -> ResourcePattern
                    -> [(ResourcePattern, ResourcePattern)]
-    validatePatterns' a b =
-        if overlaps (unRP a) (unRP b)
-            then [(a, b)]
-            else []
+    validatePatterns' a b = [(a, b) | overlaps (unRP a) (unRP b)]
+
 ---- Testing
 testSuite :: Test
 testSuite = testGroup "Web.Restful.Resource"
-    [ testCase "non-overlap" case_overlap1
-    , testCase "overlap" case_overlap2
-    , testCase "overlap-slurp" case_overlap3
-    , testCase "validatePatterns" case_validatePatterns
+    [ testCase "non-overlap" caseOverlap1
+    , testCase "overlap" caseOverlap2
+    , testCase "overlap-slurp" caseOverlap3
+    , testCase "validatePatterns" caseValidatePatterns
     , testProperty "show pattern" prop_showPattern
     ]
 
-case_overlap1 :: Assertion
-case_overlap1 = assert $ not $ overlaps
+caseOverlap1 :: Assertion
+caseOverlap1 = assert $ not $ overlaps
                     (unRP $ fromString "/foo/$bar/")
                     (unRP $ fromString "/foo/baz/$bin")
-case_overlap2 :: Assertion
-case_overlap2 = assert $ overlaps
+caseOverlap2 :: Assertion
+caseOverlap2 = assert $ overlaps
                     (unRP $ fromString "/foo/bar")
                     (unRP $ fromString "/foo/$baz")
-case_overlap3 :: Assertion
-case_overlap3 = assert $ overlaps
+caseOverlap3 :: Assertion
+caseOverlap3 = assert $ overlaps
                     (unRP $ fromString "/foo/bar/baz/$bin")
                     (unRP $ fromString "*slurp")
 
-case_validatePatterns :: Assertion
-case_validatePatterns =
+caseValidatePatterns :: Assertion
+caseValidatePatterns =
     let p1 = fromString "/foo/bar/baz"
         p2 = fromString "/foo/$bar/baz"
         p3 = fromString "/bin"
@@ -179,6 +178,6 @@ instance Arbitrary ResourcePatternPiece where
     arbitrary = do
         constr <- elements [Static, Dynamic, Slurp]
         size <- elements [1..10]
-        s <- sequence (replicate size $ elements ['a'..'z'])
+        s <- replicateM size $ elements ['a'..'z']
         return $ constr s
     coarbitrary = undefined

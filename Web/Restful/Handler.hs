@@ -1,6 +1,5 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 ---------------------------------------------------------
@@ -77,7 +76,7 @@ chooseRep :: Monad m
           -> [ContentType]
           -> m (ContentType, B.ByteString)
 chooseRep rs cs
-  | length rs == 0 = fail "All reps must have at least one value"
+  | null rs = fail "All reps must have at least one representation"
   | otherwise = do
     let availCs = map fst rs
     case filter (`elem` availCs) cs of
@@ -137,7 +136,7 @@ addCookie :: Monad m
           -> String -- ^ key
           -> String -- ^ value
           -> HandlerT m ()
-addCookie a b c = addHeader $ AddCookie a b c
+addCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
 deleteCookie :: Monad m => String -> HandlerT m ()
@@ -145,7 +144,7 @@ deleteCookie = addHeader . DeleteCookie
 
 -- | Set an arbitrary header on the client.
 header :: Monad m => String -> String -> HandlerT m ()
-header a b = addHeader $ Header a b
+header a = addHeader . Header a
 
 addHeader :: Monad m => Header -> HandlerT m ()
 addHeader h = HandlerT (const $ return (Right (), [h]))
