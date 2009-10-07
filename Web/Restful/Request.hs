@@ -23,6 +23,7 @@ module Web.Restful.Request
     , ParamType
     , ParamName
     , ParamValue
+    , RawParam (..)
       -- * RawRequest
     , RawRequest (..)
     , PathInfo
@@ -303,7 +304,7 @@ class Request a where
 instance Request () where
     parseRequest = return ()
 
--- | Unsures that a String parameter is not blank.
+-- | Ensures that a String parameter is not blank.
 notBlank :: MonadRequestReader m => RawParam -> m String
 notBlank rp =
   case paramValue rp of
