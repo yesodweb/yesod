@@ -31,7 +31,8 @@ import Web.Restful.Definitions
 import Web.Restful.Handler
 import Data.List (intercalate)
 import Data.Enumerable
-import Control.Monad (replicateM)
+import Control.Monad (replicateM, when)
+import Data.Char (isDigit)
 
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
@@ -42,6 +43,7 @@ import Test.QuickCheck
 data ResourcePatternPiece =
     Static String
     | Dynamic String
+    | DynInt String
     | Slurp String -- ^ take up the rest of the pieces. must be last
     deriving Eq
 instance Show ResourcePattern where
@@ -49,6 +51,7 @@ instance Show ResourcePattern where
         helper (Static s) = '/' : s
         helper (Dynamic s) = '/' : '$' : s
         helper (Slurp s) = '/' : '*' : s
+        helper (DynInt s) = '/' : '#' : s
 
 isSlurp :: ResourcePatternPiece -> Bool
 isSlurp (Slurp _) = True
@@ -64,6 +67,7 @@ fromString = ResourcePattern
 fromString' :: String -> ResourcePatternPiece
 fromString' ('$':rest) = Dynamic rest
 fromString' ('*':rest) = Slurp rest
+fromString' ('#':rest) = DynInt rest
 fromString' x = Static x
 
 class (Show a, Enumerable a) => ResourceName a b | a -> b where
@@ -80,7 +84,10 @@ class (Show a, Enumerable a) => ResourceName a b | a -> b where
 
 type SMap = [(String, String)]
 
-data CheckPatternReturn = StaticMatch | DynamicMatch (String, String) | NoMatch
+data CheckPatternReturn =
+    StaticMatch
+  | DynamicMatch (String, String)
+  | NoMatch
 
 checkPattern :: ResourcePattern -> Resource -> Maybe SMap
 checkPattern = checkPatternPieces . unRP
@@ -116,6 +123,13 @@ overlaps (Slurp _:_) _ = True
 overlaps _ (Slurp _:_) = True
 overlaps (Dynamic _:x) (_:y) = overlaps x y
 overlaps (_:x) (Dynamic _:y) = overlaps x y
+overlaps (DynInt _:x) (DynInt _:y) = overlaps x y
+overlaps (DynInt _:x) (Static s:y)
+    | all isDigit s = overlaps x y
+    | otherwise = False
+overlaps (Static s:x) (DynInt _:y)
+    | all isDigit s = overlaps x y
+    | otherwise = False
 overlaps (Static a:x) (Static b:y) = a == b && overlaps x y
 
 checkResourceName :: (Monad m, ResourceName rn model) => rn -> m ()
@@ -144,6 +158,7 @@ testSuite = testGroup "Web.Restful.Resource"
     , testCase "overlap-slurp" caseOverlap3
     , testCase "validatePatterns" caseValidatePatterns
     , testProperty "show pattern" prop_showPattern
+    , testCase "integers" caseIntegers
     ]
 
 caseOverlap1 :: Assertion
@@ -174,9 +189,30 @@ caseValidatePatterns =
 prop_showPattern :: ResourcePattern -> Bool
 prop_showPattern p = fromString (show p) == p
 
+caseIntegers :: Assertion
+caseIntegers = do
+    let p1 = "/foo/#bar/"
+        p2 = "/foo/#baz/"
+        p3 = "/foo/$bin/"
+        p4 = "/foo/4/"
+        p5 = "/foo/bar/"
+        p6 = "/foo/*slurp/"
+        checkOverlap :: String -> String -> Bool -> IO ()
+        checkOverlap a b c = do
+            let res1 = overlaps (unRP $ fromString a) (unRP $ fromString b)
+            let res2 = overlaps (unRP $ fromString b) (unRP $ fromString a)
+            when (res1 /= c || res2 /= c) $ assertString $ a
+               ++ (if c then " does not overlap with " else " overlaps with ")
+               ++ b
+    checkOverlap p1 p2 True
+    checkOverlap p1 p3 True
+    checkOverlap p1 p4 True
+    checkOverlap p1 p5 False
+    checkOverlap p1 p6 True
+
 instance Arbitrary ResourcePatternPiece where
     arbitrary = do
-        constr <- elements [Static, Dynamic, Slurp]
+        constr <- elements [Static, Dynamic, Slurp, DynInt]
         size <- elements [1..10]
         s <- replicateM size $ elements ['a'..'z']
         return $ constr s
