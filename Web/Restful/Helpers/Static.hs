@@ -57,6 +57,8 @@ mimeType "html" = "text/html"
 mimeType "png" = "image/png"
 mimeType "gif" = "image/gif"
 mimeType "txt" = "text/plain"
+mimeType "flv" = "video/x-flv"
+mimeType "ogv" = "video/ogg"
 mimeType _ = "application/octet-stream"
 
 ext :: String -> String
