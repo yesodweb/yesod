@@ -36,7 +36,7 @@ module Web.Restful.Response
 
 import Data.ByteString.Class
 import Data.Time.Clock
-import Data.Object
+import Data.Object hiding (testSuite)
 import qualified Data.ByteString.Lazy as B
 import Data.Object.Instances
 
@@ -112,13 +112,13 @@ htmlResponse :: (Monad m, LazyByteString lbs) => lbs -> m Reps
 htmlResponse = genResponse "text/html"
 
 -- | Return a response from an Object.
-objectResponse :: (Monad m, ToObject o) => o -> m Reps
-objectResponse = return . reps . toObject
+objectResponse :: (Monad m, ToRawObject o) => o -> m Reps
+objectResponse = return . reps . toRawObject
 
 -- HasReps instances
 instance HasReps () where
     reps _ = [("text/plain", toLazyByteString "")]
-instance HasReps Object where
+instance HasReps RawObject where
     reps o =
         [ ("text/html", unHtml $ safeFromObject o)
         , ("application/json", unJson $ safeFromObject o)

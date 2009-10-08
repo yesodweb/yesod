@@ -1,5 +1,5 @@
 name:            restful
-version:         0.1.4
+version:         0.1.5
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -29,8 +29,8 @@ library
                      bytestring-class,
                      web-encodings >= 0.0.1,
                      mtl >= 1.1.0.2,
-                     data-object >= 0.0.2,
-                     yaml >= 0.0.4,
+                     data-object >= 0.2.0,
+                     yaml >= 0.2.0,
                      test-framework,
                      test-framework-quickcheck,
                      test-framework-hunit,
@@ -52,6 +52,5 @@ library
                      Web.Restful.Helpers.Auth,
                      Web.Restful.Helpers.Static,
                      Web.Restful.Response.AtomFeed,
-                     Web.Restful.Response.Sitemap,
-                     Web.Restful.Generic.ListDetail
+                     Web.Restful.Response.Sitemap
     ghc-options:     -Wall -Werror

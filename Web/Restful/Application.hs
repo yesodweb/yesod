@@ -67,18 +67,18 @@ class ResourceName a b => RestfulApp a b | a -> b where
 
     -- | Output error response pages.
     errorHandler :: a -> RawRequest -> ErrorResult -> Reps
-    errorHandler _ rr NotFound = reps $ toObject $ "Not found: " ++ show rr
+    errorHandler _ rr NotFound = reps $ toRawObject $ "Not found: " ++ show rr
     errorHandler _ _ (Redirect url) =
-        reps $ toObject $ "Redirect to: " ++ url
+        reps $ toRawObject $ "Redirect to: " ++ url
     errorHandler _ _ (InternalError e) =
-        reps $ toObject $ "Internal server error: " ++ e
+        reps $ toRawObject $ "Internal server error: " ++ e
     errorHandler _ _ (InvalidArgs ia) =
-        reps $ toObject
-            [ ("errorMsg", toObject "Invalid arguments")
-            , ("messages", toObject ia)
+        reps $ toRawObject
+            [ ("errorMsg", toRawObject "Invalid arguments")
+            , ("messages", toRawObject ia)
             ]
     errorHandler _ _ PermissionDenied =
-        reps $ toObject "Permission denied"
+        reps $ toRawObject "Permission denied"
 
 -- | Given a sample resource name (purely for typing reasons), generating
 -- a Hack application.

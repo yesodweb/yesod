@@ -1,4 +1,3 @@
 Catch exceptions and return as 500 errors
 approot
-remove listDetail?
 int patterns (#name)
