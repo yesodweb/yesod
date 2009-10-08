@@ -108,6 +108,9 @@ checkPattern' :: ResourcePatternPiece -> String -> CheckPatternReturn
 checkPattern' (Static x) y = if x == y then StaticMatch else NoMatch
 checkPattern' (Dynamic x) y = DynamicMatch (x, y)
 checkPattern' (Slurp x) _ = error $ "Slurp pattern " ++ x ++ " must be last"
+checkPattern' (DynInt x) y
+    | all isDigit y = DynamicMatch (x, y)
+    | otherwise = NoMatch
 
 combine :: SMap -> [CheckPatternReturn] -> Maybe SMap
 combine s [] = Just $ reverse s
