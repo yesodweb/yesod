@@ -40,6 +40,7 @@ module Web.Restful.Request
     , acceptedLanguages
     , requestPath
     , parseEnv
+    , approot
       -- * Building actual request
     , Request (..)
     , Hack.RequestMethod (..)
@@ -187,6 +188,21 @@ maybeIdentifier = do
 -- | Get the raw 'Hack.Env' value.
 parseEnv :: MonadRequestReader m => m Hack.Env
 parseEnv = rawEnv `fmap` askRawRequest
+
+-- | The URL to the application root (ie, the URL with pathInfo /).
+approot :: MonadRequestReader m => m String
+approot = do
+    env <- parseEnv
+    let (scheme, defPort) =
+            case Hack.hackUrlScheme env of
+                Hack.HTTP -> ("http://", 80)
+                Hack.HTTPS -> ("https://", 443)
+    let sn = Hack.serverName env
+    let portSuffix =
+            if Hack.serverPort env == defPort
+                then ""
+                else ':' : show (Hack.serverPort env)
+    return $! scheme ++ sn ++ portSuffix ++ "/"
 
 -- | Determine the ordered list of language preferences.
 --
