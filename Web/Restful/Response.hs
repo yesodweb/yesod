@@ -15,7 +15,8 @@
 ---------------------------------------------------------
 module Web.Restful.Response
     ( -- * Representations
-      Reps
+      Rep
+    , Reps
     , HasReps (..)
     , ContentType
       -- * Abnormal responses
@@ -32,21 +33,24 @@ module Web.Restful.Response
     , objectResponse
       -- * Tests
     , testSuite
+      -- * Re-export
+    , module Web.Restful.I18N
     ) where
 
 import Data.ByteString.Class
 import Data.Time.Clock
 import Data.Object hiding (testSuite)
-import qualified Data.ByteString.Lazy as B
 import Data.Object.Instances
 
 import Web.Encodings (formatW3)
+import Web.Restful.I18N
 
 import Test.Framework (testGroup, Test)
 
 type ContentType = String
 
-type Reps = [(ContentType, B.ByteString)]
+type Rep = (ContentType, Translator)
+type Reps = [Rep]
 
 -- | Something which can be represented as multiple content types.
 -- Each content type is called a representation of the data.
@@ -105,7 +109,7 @@ genResponse :: (Monad m, LazyByteString lbs)
             => ContentType
             -> lbs
             -> m Reps
-genResponse ct lbs = return [(ct, toLazyByteString lbs)]
+genResponse ct lbs = return [(ct, toTranslator lbs)]
 
 -- | Return a response with a text/html content type.
 htmlResponse :: (Monad m, LazyByteString lbs) => lbs -> m Reps
@@ -117,15 +121,15 @@ objectResponse = return . reps . toRawObject
 
 -- HasReps instances
 instance HasReps () where
-    reps _ = [("text/plain", toLazyByteString "")]
+    reps _ = [("text/plain", translate "")]
 instance HasReps RawObject where
     reps o =
-        [ ("text/html", unHtml $ safeFromObject o)
-        , ("application/json", unJson $ safeFromObject o)
-        , ("text/yaml", unYaml $ safeFromObject o)
+        [ ("text/html", translate $ unHtml $ safeFromObject o)
+        , ("application/json", translate $ unJson $ safeFromObject o)
+        , ("text/yaml", translate $ unYaml $ safeFromObject o)
         ]
 
-instance HasReps [(ContentType, B.ByteString)] where
+instance HasReps Reps where
     reps = id
 
 ----- Testing

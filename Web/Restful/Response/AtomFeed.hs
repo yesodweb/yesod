@@ -21,7 +21,6 @@ import Web.Restful.Response
 
 import Data.Time.Clock
 import Web.Encodings
-import Data.ByteString.Class
 
 data AtomFeed = AtomFeed
     { atomTitle :: String
@@ -32,7 +31,7 @@ data AtomFeed = AtomFeed
     }
 instance HasReps AtomFeed where
     reps e =
-        [ ("application/atom+xml", toLazyByteString $ show e)
+        [ ("application/atom+xml", translate $ show e)
         ]
 
 data AtomFeedEntry = AtomFeedEntry

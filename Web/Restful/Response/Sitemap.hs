@@ -24,7 +24,6 @@ import Web.Restful.Response
 import Web.Encodings
 import qualified Hack
 import Web.Restful.Request
-import Data.ByteString.Class
 import Data.Time (UTCTime)
 
 data SitemapLoc = AbsLoc String | RelLoc String
@@ -79,7 +78,7 @@ instance Show SitemapResponse where
 
 instance HasReps SitemapResponse where
     reps res =
-        [ ("text/xml", toLazyByteString $ show res)
+        [ ("text/xml", translate $ show res)
         ]
 
 sitemap :: IO [SitemapUrl] -> Handler

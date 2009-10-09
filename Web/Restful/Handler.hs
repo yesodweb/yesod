@@ -41,6 +41,7 @@ import Control.Applicative
 import Data.Maybe (fromJust)
 import qualified Data.ByteString.Lazy as B
 import qualified Hack
+import qualified Control.OldException
 
 ------ Handler monad
 newtype HandlerT m a =
@@ -55,7 +56,9 @@ runHandler :: (ErrorResult -> Reps)
             -> RawRequest
             -> IO Hack.Response
 runHandler eh wrapper ctypesAll (HandlerT inside) rr = do
-    (x, headers') <- inside rr
+    (x, headers') <- Control.OldException.catch
+                        (inside rr)
+                        (\e -> return (Left $ InternalError $ show e, []))
     let extraHeaders =
             case x of
                 Left r -> getHeaders r
@@ -67,14 +70,15 @@ runHandler eh wrapper ctypesAll (HandlerT inside) rr = do
                 Left r -> getStatus r
                 Right _ -> 200
     (ctype, selectedRep) <- chooseRep outReps ctypesAll
-    finalRep <- wrapper ctype selectedRep
+    let languages = [] -- FIXME
+    finalRep <- wrapper ctype $ selectedRep languages
     let headers'' = ("Content-Type", ctype) : headers
     return $! Hack.Response statusCode headers'' finalRep
 
 chooseRep :: Monad m
-          => [(ContentType, B.ByteString)]
+          => Reps
           -> [ContentType]
-          -> m (ContentType, B.ByteString)
+          -> m Rep
 chooseRep rs cs
   | null rs = fail "All reps must have at least one representation"
   | otherwise = do

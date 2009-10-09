@@ -1,5 +1,5 @@
 name:            restful
-version:         0.1.5
+version:         0.1.6
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -47,6 +47,7 @@ library
                      Web.Restful.Handler,
                      Web.Restful.Application,
                      Web.Restful.Resource,
+                     Web.Restful.I18N,
                      Data.Object.Instances,
                      Hack.Middleware.MethodOverride,
                      Web.Restful.Helpers.Auth,
