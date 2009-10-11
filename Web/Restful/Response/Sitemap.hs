@@ -14,6 +14,7 @@
 
 module Web.Restful.Response.Sitemap
     ( sitemap
+    , robots
     , SitemapUrl (..)
     , SitemapLoc (..)
     , SitemapChangeFreq (..)
@@ -88,3 +89,8 @@ sitemap urls' = do
     let req = SitemapRequest (Hack.serverName env) (Hack.serverPort env)
     urls <- liftIO urls'
     return $ reps $ SitemapResponse req urls
+
+robots :: Handler
+robots = do
+    ar <- approot
+    genResponse "text/plain" $ "Sitemap: " ++ ar ++ "sitemap.xml"

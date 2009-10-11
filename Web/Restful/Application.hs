@@ -26,6 +26,7 @@ import Web.Encodings
 import qualified Data.ByteString.Lazy as B
 import Data.Object
 import Data.Enumerable
+import Control.Monad (when)
 
 import qualified Hack
 import Hack.Middleware.CleanPath
@@ -80,13 +81,17 @@ class ResourceName a b => RestfulApp a b | a -> b where
     errorHandler _ _ PermissionDenied =
         reps $ toRawObject "Permission denied"
 
+    -- | Whether or not we should check for overlapping resource names.
+    checkOverlaps :: a -> Bool
+    checkOverlaps = const True
+
 -- | Given a sample resource name (purely for typing reasons), generating
 -- a Hack application.
 toHackApp :: RestfulApp resourceName modelType
           => resourceName
           -> IO Hack.Application
 toHackApp a = do
-    checkResourceName a -- FIXME maybe this should be done compile-time?
+    when (checkOverlaps a) $ checkResourceName a -- FIXME maybe this should be done compile-time?
     model <- getModel a
     key <- encryptKey a
     let handlers = getHandler model
@@ -123,10 +128,9 @@ toHackApplication sampleRN hm env = do
     let (handler, urlParams', wrapper) =
           case findResourceNames resource of
             [] -> (notFound, [], const return)
-            [(rn, urlParams'')] ->
+            ((rn, urlParams''):_) ->
                 let verb = toVerb $ Hack.requestMethod env
                  in (hm rn verb, urlParams'', responseWrapper rn)
-            x -> error $ "Invalid findResourceNames: " ++ show x
     let rr = envToRawRequest urlParams' env
     let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
         ctypes' = parseHttpAccept rawHttpAccept
