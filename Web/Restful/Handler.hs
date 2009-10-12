@@ -22,6 +22,7 @@ module Web.Restful.Handler
     , Handler
     , runHandler
     , liftIO
+    , ToHandler (..)
       -- * Special handlers
     , redirect
     , notFound
@@ -48,6 +49,15 @@ newtype HandlerT m a =
     HandlerT (RawRequest -> m (Either ErrorResult a, [Header]))
 type HandlerIO = HandlerT IO
 type Handler = HandlerIO Reps
+
+class ToHandler a where
+    toHandler :: a -> Handler
+
+instance (Request r, ToHandler h) => ToHandler (r -> h) where
+    toHandler f = parseRequest >>= toHandler . f
+
+instance ToHandler Handler where
+    toHandler = id
 
 runHandler :: (ErrorResult -> Reps)
             -> (ContentType -> B.ByteString -> IO B.ByteString)

@@ -37,7 +37,6 @@ module Web.Restful.Response
     , module Web.Restful.I18N
     ) where
 
-import Data.ByteString.Class
 import Data.Time.Clock
 import Data.Object hiding (testSuite)
 import Data.Object.Instances
@@ -105,14 +104,14 @@ response :: (Monad m, HasReps reps) => reps -> m Reps
 response = return . reps
 
 -- | Return a response with an arbitrary content type.
-genResponse :: (Monad m, LazyByteString lbs)
+genResponse :: (Monad m, NoI18N lbs)
             => ContentType
             -> lbs
             -> m Reps
-genResponse ct lbs = return [(ct, toTranslator lbs)]
+genResponse ct lbs = return [(ct, noTranslate lbs)]
 
 -- | Return a response with a text/html content type.
-htmlResponse :: (Monad m, LazyByteString lbs) => lbs -> m Reps
+htmlResponse :: (Monad m, NoI18N lbs) => lbs -> m Reps
 htmlResponse = genResponse "text/html"
 
 -- | Return a response from an Object.
@@ -124,9 +123,9 @@ instance HasReps () where
     reps _ = [("text/plain", translate "")]
 instance HasReps RawObject where
     reps o =
-        [ ("text/html", translate $ unHtml $ safeFromObject o)
-        , ("application/json", translate $ unJson $ safeFromObject o)
-        , ("text/yaml", translate $ unYaml $ safeFromObject o)
+        [ ("text/html", noTranslate $ unHtml $ safeFromObject o)
+        , ("application/json", noTranslate $ unJson $ safeFromObject o)
+        , ("text/yaml", noTranslate $ unYaml $ safeFromObject o)
         ]
 
 instance HasReps Reps where
