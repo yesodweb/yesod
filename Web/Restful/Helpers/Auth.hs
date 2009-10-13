@@ -15,6 +15,9 @@
 ---------------------------------------------------------
 module Web.Restful.Helpers.Auth
     ( AuthResource
+    , authHandler
+    , authResourcePattern
+    , RpxnowApiKey (..)
     ) where
 
 import qualified Hack
@@ -50,24 +53,26 @@ instance Enumerable AuthResource where
         , LoginRpxnow
         ]
 
-type RpxnowApiKey = String -- FIXME newtype
-instance ResourceName AuthResource (Maybe RpxnowApiKey) where
-    getHandler _ Check Get = authCheck
-    getHandler _ Logout Get = authLogout
-    getHandler _ Openid Get = authOpenidForm
-    getHandler _ OpenidForward Get = authOpenidForward
-    getHandler _ OpenidComplete Get = authOpenidComplete
-    -- two different versions of RPX protocol apparently...
-    getHandler (Just key) LoginRpxnow Get = rpxnowLogin key
-    getHandler (Just key) LoginRpxnow Post = rpxnowLogin key
-    getHandler _ _ _ = notFound
+newtype RpxnowApiKey = RpxnowApiKey String
 
-    resourcePattern Check = "/auth/check/"
-    resourcePattern Logout = "/auth/logout/"
-    resourcePattern Openid = "/auth/openid/"
-    resourcePattern OpenidForward  = "/auth/openid/forward/"
-    resourcePattern OpenidComplete = "/auth/openid/complete/"
-    resourcePattern LoginRpxnow = "/auth/login/rpxnow/"
+authHandler :: Maybe RpxnowApiKey -> AuthResource -> Verb -> Handler
+authHandler _ Check Get = authCheck
+authHandler _ Logout Get = authLogout
+authHandler _ Openid Get = authOpenidForm
+authHandler _ OpenidForward Get = authOpenidForward
+authHandler _ OpenidComplete Get = authOpenidComplete
+-- two different versions of RPX protocol apparently...
+authHandler (Just (RpxnowApiKey key)) LoginRpxnow Get = rpxnowLogin key
+authHandler (Just (RpxnowApiKey key)) LoginRpxnow Post = rpxnowLogin key
+authHandler _ _ _ = notFound
+
+authResourcePattern :: AuthResource -> String -- FIXME supply prefix as well
+authResourcePattern Check = "/auth/check/"
+authResourcePattern Logout = "/auth/logout/"
+authResourcePattern Openid = "/auth/openid/"
+authResourcePattern OpenidForward  = "/auth/openid/forward/"
+authResourcePattern OpenidComplete = "/auth/openid/complete/"
+authResourcePattern LoginRpxnow = "/auth/login/rpxnow/"
 
 
 data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)

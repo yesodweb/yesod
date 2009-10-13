@@ -89,7 +89,7 @@ instance SafeFromObject Html where
                 map helper2 m ++
                 [ toLazyByteString "</dl>" ]
             helper2 :: (B.ByteString, RawObject) -> B.ByteString
-            helper2 (k, v) = B.concat $
+            helper2 (k, v) = B.concat
                 [ toLazyByteString "<dt>"
                 , toLazyByteString k
                 , toLazyByteString "</dt><dd>"

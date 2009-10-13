@@ -1,5 +1,4 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -70,7 +69,7 @@ fromString' ('*':rest) = Slurp rest
 fromString' ('#':rest) = DynInt rest
 fromString' x = Static x
 
-class (Show a, Enumerable a) => ResourceName a b | a -> b where
+class (Show a, Enumerable a) => ResourceName a where
     -- | Get the URL pattern for each different resource name.
     -- Something like /foo/$bar/baz/ will match the regular expression
     -- /foo/(\\w*)/baz/, matching the middle part with the urlParam bar.
@@ -80,7 +79,7 @@ class (Show a, Enumerable a) => ResourceName a b | a -> b where
     resourcePattern :: a -> String
 
     -- | Find the handler for each resource name/verb pattern.
-    getHandler :: b -> a -> Verb -> Handler
+    getHandler :: a -> Verb -> Handler
 
 type SMap = [(String, String)]
 
@@ -135,7 +134,7 @@ overlaps (Static s:x) (DynInt _:y)
     | otherwise = False
 overlaps (Static a:x) (Static b:y) = a == b && overlaps x y
 
-checkResourceName :: (Monad m, ResourceName rn model) => rn -> m ()
+checkResourceName :: (Monad m, ResourceName rn) => rn -> m ()
 checkResourceName rn = do
     let avs@(y:_) = enumerate
         _ignore = asTypeOf rn y

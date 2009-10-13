@@ -1,5 +1,4 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -44,10 +43,7 @@ import Web.Restful.Constants
 import Web.Restful.Resource
 
 -- | A data type that can be turned into a Hack application.
-class ResourceName a b => RestfulApp a b | a -> b where
-    -- | Load up the model, ie the data which use passed to each handler.
-    getModel :: a -> IO b
-
+class ResourceName a => RestfulApp a where
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
     encryptKey _ = getKey defaultKeyFile
@@ -87,25 +83,23 @@ class ResourceName a b => RestfulApp a b | a -> b where
 
 -- | Given a sample resource name (purely for typing reasons), generating
 -- a Hack application.
-toHackApp :: RestfulApp resourceName modelType
+toHackApp :: RestfulApp resourceName
           => resourceName
           -> IO Hack.Application
 toHackApp a = do
     when (checkOverlaps a) $ checkResourceName a -- FIXME maybe this should be done compile-time?
-    model <- getModel a
     key <- encryptKey a
-    let handlers = getHandler model
-        app' = toHackApplication a handlers
+    let app' = toHackApplication a getHandler
         clientsession' = clientsession [authCookieName] key -- FIXME gotta be a better way...
         app = foldr ($) app' $ hackMiddleware a ++ [clientsession']
     return app
 
-findResourceNames :: ResourceName a model
+findResourceNames :: ResourceName a
                   => Resource
                   -> [(a, [(String, String)])]
 findResourceNames r = takeJusts $ map (checkPatternHelper r) enumerate
 
-checkPatternHelper :: ResourceName a model
+checkPatternHelper :: ResourceName a
                    => Resource
                    -> a
                    -> Maybe (a, [(String, String)])
@@ -119,7 +113,7 @@ takeJusts [] = []
 takeJusts (Nothing:rest) = takeJusts rest
 takeJusts (Just x:rest) = x : takeJusts rest
 
-toHackApplication :: RestfulApp resourceName model
+toHackApplication :: RestfulApp resourceName
                   => resourceName
                   -> (resourceName -> Verb -> Handler)
                   -> Hack.Application
