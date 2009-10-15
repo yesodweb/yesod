@@ -24,7 +24,6 @@ module Web.Restful.Application
 
 import Web.Encodings
 import qualified Data.ByteString.Lazy as B
-import Data.Object
 import Data.Object.Raw
 import Data.Enumerable
 import Control.Monad (when)
@@ -43,10 +42,6 @@ import Web.Restful.Handler
 import Web.Restful.Definitions
 import Web.Restful.Constants
 import Web.Restful.Resource
-
--- FIXME move to Data.Object.Raw
-toRawObject :: ToObject o Raw Raw => o -> RawObject
-toRawObject = toObject
 
 -- | A data type that can be turned into a Hack application.
 class ResourceName a => RestfulApp a where

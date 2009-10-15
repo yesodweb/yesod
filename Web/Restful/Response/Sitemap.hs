@@ -79,7 +79,7 @@ instance Show SitemapResponse where
 
 instance HasReps SitemapResponse where
     reps res =
-        [ ("text/xml", translate $ show res)
+        [ ("text/xml", noTranslate $ show res)
         ]
 
 sitemap :: IO [SitemapUrl] -> Handler

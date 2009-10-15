@@ -31,7 +31,7 @@ data AtomFeed = AtomFeed
     }
 instance HasReps AtomFeed where
     reps e =
-        [ ("application/atom+xml", translate $ show e)
+        [ ("application/atom+xml", noTranslate $ show e)
         ]
 
 data AtomFeedEntry = AtomFeedEntry

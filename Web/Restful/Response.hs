@@ -34,23 +34,34 @@ module Web.Restful.Response
     , objectResponse
       -- * Tests
     , testSuite
-      -- * Re-export
-    , module Web.Restful.I18N
+      -- * Translation
+    , TranslatorBS
+    , noTranslate
+    , translateBS
     ) where
 
 import Data.Time.Clock
 import Data.Object
 import Data.Object.Raw
+import Data.Object.Translate
 import Data.Object.Instances
+import Data.ByteString.Lazy (ByteString)
+import Data.ByteString.Class
 
 import Web.Encodings (formatW3)
-import Web.Restful.I18N
 
 import Test.Framework (testGroup, Test)
 
 type ContentType = String
 
-type Rep = (ContentType, Translator)
+type TranslatorBS = [Language] -> ByteString
+noTranslate :: LazyByteString lbs => lbs -> TranslatorBS
+noTranslate lbs = const $ toLazyByteString lbs
+
+translateBS :: CanTranslate t => t -> TranslatorBS
+translateBS t langs = toLazyByteString $ translate t langs
+
+type Rep = (ContentType, TranslatorBS)
 type Reps = [Rep]
 
 -- | Something which can be represented as multiple content types.
@@ -106,14 +117,14 @@ response :: (Monad m, HasReps reps) => reps -> m Reps
 response = return . reps
 
 -- | Return a response with an arbitrary content type.
-genResponse :: (Monad m, NoI18N lbs)
+genResponse :: (Monad m, LazyByteString lbs)
             => ContentType
             -> lbs
             -> m Reps
 genResponse ct lbs = return [(ct, noTranslate lbs)]
 
 -- | Return a response with a text/html content type.
-htmlResponse :: (Monad m, NoI18N lbs) => lbs -> m Reps
+htmlResponse :: (Monad m, LazyByteString lbs) => lbs -> m Reps
 htmlResponse = genResponse "text/html"
 
 -- | Return a response from an Object.
@@ -122,7 +133,7 @@ objectResponse o = return $ reps $ (toObject o :: RawObject)
 
 -- HasReps instances
 instance HasReps () where
-    reps _ = [("text/plain", translate "")]
+    reps _ = [("text/plain", noTranslate "")]
 instance HasReps RawObject where
     reps o =
         [ ("text/html", noTranslate $ unHtml $ safeFromObject o)
