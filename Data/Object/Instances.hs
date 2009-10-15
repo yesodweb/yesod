@@ -20,6 +20,7 @@ module Data.Object.Instances
     ) where
 
 import Data.Object
+import Data.Object.Raw
 import qualified Data.ByteString.Lazy as B
 import Data.ByteString.Class
 import Web.Encodings (encodeJson)
@@ -32,7 +33,7 @@ newtype Json = Json { unJson :: B.ByteString }
 instance SafeFromObject Json where
     safeFromObject = Json . helper where
         helper :: RawObject -> B.ByteString
-        helper (Scalar s) = B.concat
+        helper (Scalar (Raw s)) = B.concat
             [ toLazyByteString "\""
             , encodeJson $ fromLazyByteString s
             , toLazyByteString "\""
@@ -47,8 +48,8 @@ instance SafeFromObject Json where
             , B.intercalate (toLazyByteString ",") $ map helper2 m
             , toLazyByteString "}"
             ]
-        helper2 :: (B.ByteString, RawObject) -> B.ByteString
-        helper2 (k, v) = B.concat
+        helper2 :: (Raw, RawObject) -> B.ByteString
+        helper2 (Raw k, v) = B.concat
             [ toLazyByteString "\""
             , encodeJson $ fromLazyByteString k
             , toLazyByteString "\":"
@@ -73,7 +74,7 @@ instance SafeFromObject Html where
         , toLazyByteString "</body></html>"
         ] where
             helper :: RawObject -> B.ByteString
-            helper (Scalar s) = B.concat
+            helper (Scalar (Raw s)) = B.concat
                 [ toLazyByteString "<p>"
                 , toLazyByteString s
                 , toLazyByteString "</p>"
@@ -88,8 +89,8 @@ instance SafeFromObject Html where
                 toLazyByteString "<dl>" :
                 map helper2 m ++
                 [ toLazyByteString "</dl>" ]
-            helper2 :: (B.ByteString, RawObject) -> B.ByteString
-            helper2 (k, v) = B.concat
+            helper2 :: (Raw, RawObject) -> B.ByteString
+            helper2 (Raw k, v) = B.concat
                 [ toLazyByteString "<dt>"
                 , toLazyByteString k
                 , toLazyByteString "</dt><dd>"

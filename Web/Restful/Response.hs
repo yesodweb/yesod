@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 ---------------------------------------------------------
 --
@@ -38,7 +39,8 @@ module Web.Restful.Response
     ) where
 
 import Data.Time.Clock
-import Data.Object hiding (testSuite)
+import Data.Object
+import Data.Object.Raw
 import Data.Object.Instances
 
 import Web.Encodings (formatW3)
@@ -115,8 +117,8 @@ htmlResponse :: (Monad m, NoI18N lbs) => lbs -> m Reps
 htmlResponse = genResponse "text/html"
 
 -- | Return a response from an Object.
-objectResponse :: (Monad m, ToRawObject o) => o -> m Reps
-objectResponse = return . reps . toRawObject
+objectResponse :: (Monad m, ToObject o Raw Raw) => o -> m Reps
+objectResponse o = return $ reps $ (toObject o :: RawObject)
 
 -- HasReps instances
 instance HasReps () where
