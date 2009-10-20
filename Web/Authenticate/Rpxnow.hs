@@ -16,9 +16,11 @@ module Web.Authenticate.Rpxnow
     , authenticate
     ) where
 
-import Text.JSON
+import Text.JSON -- FIXME use Data.Object.JSON
 import Network.HTTP.Wget
 import Data.Maybe (isJust, fromJust)
+import Control.Monad.Trans
+import Control.Monad.Attempt.Class
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -27,29 +29,27 @@ data Identifier = Identifier
     }
 
 -- | Attempt to log a user in.
-authenticate :: Monad m
+authenticate :: (MonadIO m, MonadAttempt m)
              => String -- ^ API key given by RPXNOW.
              -> String -- ^ Token passed by client.
-             -> IO (m Identifier)
+             -> m Identifier
 authenticate apiKey token = do
-    body <- wget
+  b <- wget
                 "https://rpxnow.com/api/v2/auth_info"
                 []
                 [ ("apiKey", apiKey)
                 , ("token", token)
                 ]
-    case body of
-        Left s -> return $ fail $ "Unable to connect to rpxnow: " ++ s
-        Right b ->
-          case decode b >>= getObject of
-            Error s -> return $ fail $ "Not a valid JSON response: " ++ s
-            Ok o ->
-              case valFromObj "stat" o of
-                Error _ -> return $ fail "Missing 'stat' field"
-                Ok "ok" -> return $ parseProfile o
-                Ok stat -> return $ fail $ "Login not accepted: " ++ stat
+  case decode b >>= getObject of
+    Error s -> failureString $ "Not a valid JSON response: " ++ s
+    Ok o ->
+      case valFromObj "stat" o of
+        Error _ -> failureString "Missing 'stat' field"
+        Ok "ok" -> parseProfile o
+        Ok stat -> failureString $ "Login not accepted: " ++ stat
+                   ++ "\n" ++ b
 
-parseProfile :: Monad m => JSObject JSValue -> m Identifier
+parseProfile :: MonadAttempt m => JSObject JSValue -> m Identifier
 parseProfile v = do
     profile <- resultToMonad $ valFromObj "profile" v >>= getObject
     ident <- resultToMonad $ valFromObj "identifier" profile

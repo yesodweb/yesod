@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 ---------------------------------------------------------
 -- |
 -- Module        : Web.Authenticate.OpenId
@@ -18,10 +19,15 @@ module Web.Authenticate.OpenId
     , authenticate
     ) where
 
-import Data.Maybe (fromMaybe, fromJust)
 import Network.HTTP.Wget
 import Text.HTML.TagSoup
 import Numeric (showHex)
+import Control.Monad.Trans
+import Control.Monad.Attempt.Class
+import qualified Data.Attempt.Helper as A
+import Data.Generics
+import Data.Attempt
+import Control.Exception
 
 -- | An openid identifier (ie, a URL).
 data Identifier = Identifier { identifier :: String }
@@ -34,24 +40,22 @@ instance Monad Error where
     fail s = Error s
 
 -- | Returns a URL to forward the user to in order to login.
-getForwardUrl :: Monad m
+getForwardUrl :: (MonadIO m, MonadAttempt m)
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
-              -> IO (m String) -- ^ URL to send the user to.
+              -> m String -- ^ URL to send the user to.
 getForwardUrl openid complete = do
-    bodyIdent' <- wget openid [] []
-    case bodyIdent' of
-        Error s -> return $ fail s
-        Ok bodyIdent -> do
-        server <- getOpenIdVar "server" bodyIdent
-        let delegate = fromMaybe openid $ getOpenIdVar "delegate" bodyIdent
-        return $ return $ constructUrl server
-                            [ ("openid.mode", "checkid_setup")
-                            , ("openid.identity", delegate)
-                            , ("openid.return_to", complete)
-                            ]
+    bodyIdent <- wget openid [] []
+    server <- getOpenIdVar "server" bodyIdent
+    let delegate = attempt (const openid) id
+                 $ getOpenIdVar "delegate" bodyIdent
+    return $ constructUrl server
+                        [ ("openid.mode", "checkid_setup")
+                        , ("openid.identity", delegate)
+                        , ("openid.return_to", complete)
+                        ]
 
-getOpenIdVar :: Monad m => String -> String -> m String
+getOpenIdVar :: MonadAttempt m => String -> String -> m String
 getOpenIdVar var content = do
     let tags = parseTags content
     let secs = sections (~== ("<link rel=openid." ++ var ++ ">")) tags
@@ -74,35 +78,28 @@ constructUrl url args = url ++ "?" ++ queryString args
 -- | Handle a redirect from an OpenID provider and check that the user
 -- logged in properly. If it was successfully, 'return's the openid.
 -- Otherwise, 'fail's an explanation.
-authenticate :: Monad m => [(String, String)] -> IO (m Identifier)
+authenticate :: (MonadIO m, MonadAttempt m)
+             => [(String, String)]
+             -> m Identifier
 authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
-    authUrl' <- getAuthUrl req
-    case authUrl' of
-        Nothing -> return $ fail "Invalid parameters"
-        Just authUrl -> do
-            content' <- wget authUrl [] []
-            case content' of
-                Error s -> return $ fail s
-                Ok content -> do
-                    let isValid = contains "is_valid:true" content
-                    if isValid
-                        then return $
-                             return $ Identifier
-                             (fromJust $ lookup "openid.identity" req)
-                        else return $ fail content
+    authUrl <- getAuthUrl req
+    content <- wget authUrl [] []
+    let isValid = contains "is_valid:true" content
+    if isValid
+        then A.lookup "openid.identity" req >>= return . Identifier
+        else failure $ AuthenticateError content
 
-getAuthUrl :: [(String, String)] -> IO (Maybe String)
+newtype AuthenticateError = AuthenticateError String
+    deriving (Show, Typeable)
+instance Exception AuthenticateError
+
+getAuthUrl :: (MonadIO m, MonadAttempt m) => [(String, String)] -> m String
 getAuthUrl req = do
-    let identity' = lookup "openid.identity" req
-    case identity' of
-        Nothing -> return Nothing
-        Just identity -> do
-            idContent <- wget identity [] []
-            case idContent of
-                Nothing -> return Nothing
-                Just x -> return $ helper x
+    identity <- A.lookup "openid.identity" req
+    idContent <- wget identity [] []
+    helper idContent
     where
-        helper :: String -> Maybe String
+        helper :: MonadAttempt m => String -> m String
         helper idContent = do
             server <- getOpenIdVar "server" idContent
             dargs <- mapM makeArg [
@@ -114,10 +111,10 @@ getAuthUrl req = do
                 ]
             let sargs = [("openid.mode", "check_authentication")]
             return $ constructUrl server $ dargs ++ sargs
-        makeArg :: String -> Maybe (String, String)
+        makeArg :: MonadAttempt m => String -> m (String, String)
         makeArg s = do
             let k = "openid." ++ s
-            v <- lookup k req
+            v <- A.lookup k req
             return (k, v)
 
 contains :: String -> String -> Bool

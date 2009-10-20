@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.0.1
+version:         0.2.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -14,7 +14,13 @@ build-type:      Simple
 homepage:        http://github.com/snoyberg/authenticate/tree/master
 
 library
-    build-depends:   base, json, http-wget, tagsoup
+    build-depends:   base >= 4 && < 5,
+                     json,
+                     http-wget >= 0.2.0,
+                     tagsoup,
+                     attempt,
+                     transformers >= 0.1.4.0,
+                     syb
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId
     ghc-options:     -Wall -fno-warn-orphans
