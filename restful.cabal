@@ -1,5 +1,5 @@
 name:            restful
-version:         0.1.8
+version:         0.1.9
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -22,13 +22,12 @@ library
                      hack-handler-cgi >= 0.0.2,
                      hack >= 2009.5.19,
                      split >= 0.1.1,
-                     authenticate >= 0.0.1,
+                     authenticate >= 0.2.0,
                      data-default >= 0.2,
                      predicates >= 0.1,
                      bytestring >= 0.9.1.4,
                      bytestring-class,
                      web-encodings >= 0.0.1,
-                     mtl >= 1.1.0.2,
                      data-object >= 0.2.0,
                      yaml >= 0.2.0,
                      test-framework,
@@ -37,7 +36,10 @@ library
                      HUnit,
                      QuickCheck == 1.*,
                      enumerable >= 0.0.3,
-                     directory >= 1
+                     directory >= 1,
+                     transformers >= 0.1.4.0,
+                     monads-fd >= 0.0.0.1,
+                     attempt
     exposed-modules: Web.Restful,
                      Web.Restful.Constants,
                      Web.Restful.Request,

@@ -36,6 +36,7 @@ import Web.Restful.Request
 import Web.Restful.Response
 
 import Control.Monad.Trans
+import Control.Monad.Attempt.Class
 import Control.Monad (liftM, ap)
 import Control.Applicative
 
@@ -130,6 +131,9 @@ instance Monad m => MonadRequestReader (HandlerT m) where
     invalidParam ptype name msg =
         errorResult $ InvalidArgs [(name ++ " (" ++ show ptype ++ ")", msg)]
     authRequired = errorResult PermissionDenied
+
+instance Monad m => MonadAttempt (HandlerT m) where
+    failure = errorResult . InternalError . show
 
 ------ Special handlers
 errorResult :: Monad m => ErrorResult -> HandlerT m a

@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 ---------------------------------------------------------
 --
@@ -50,7 +49,6 @@ module Web.Restful.Request
 
 import qualified Hack
 import Data.Function.Predicate (equals)
-import Control.Monad.Error ()
 import Web.Restful.Constants
 import Web.Restful.Utils
 import Control.Applicative (Applicative (..))
@@ -275,9 +273,17 @@ instance Parameter a => Parameter (Maybe a) where
                            " values, expecting 0 or 1"
 
 instance Parameter a => Parameter [a] where
-    readParams = mapM readParam
+    readParams = mapM' readParam where
+        mapM' f = sequence' . map f
+        sequence' :: [Either String v] -> Either String [v]
+        sequence' [] = Right []
+        sequence' (Left l:_) = Left l
+        sequence' (Right r:rest) =
+            case sequence' rest of
+                Left l -> Left l
+                Right rest' -> Right $ r : rest'
 
-instance Parameter String where
+instance Parameter [Char] where
     readParam = Right . paramValue
 
 instance Parameter Int where

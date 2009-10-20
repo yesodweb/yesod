@@ -31,8 +31,10 @@ import Web.Restful.Constants
 
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad.Reader
+import Control.Monad.Attempt
 
 import Data.Maybe (fromMaybe)
+import Data.Attempt
 
 data AuthResource =
     Check
@@ -104,21 +106,21 @@ authOpenidForward = do
     let complete = "http://" ++ Hack.serverName env ++ ":" ++
                    show (Hack.serverPort env) ++
                    "/auth/openid/complete/"
-    res <- liftIO $ OpenId.getForwardUrl oid complete
+    res <- runAttemptT $ OpenId.getForwardUrl oid complete
     case res of
-        Left err -> redirect $ "/auth/openid/?message="
-                            ++ encodeUrl (err :: String)
-        Right url -> redirect url
+        Failure err -> redirect $ "/auth/openid/?message="
+                            ++ encodeUrl (show err)
+        Success url -> redirect url
 
 authOpenidComplete :: Handler
 authOpenidComplete = do
     gets' <- rawGetParams <$> askRawRequest
     dest <- cookieParam "DEST"
-    res <- liftIO $ OpenId.authenticate gets'
+    res <- runAttemptT $ OpenId.authenticate gets'
     case res of
-      Left err -> redirect $ "/auth/openid/?message="
-                          ++ encodeUrl (err :: String)
-      Right (OpenId.Identifier ident) -> do
+      Failure err -> redirect $ "/auth/openid/?message="
+                            ++ encodeUrl (show err)
+      Success (OpenId.Identifier ident) -> do
         deleteCookie "DEST"
         header authCookieName ident
         redirect $ fromMaybe "/" dest
@@ -148,7 +150,7 @@ rpxnowLogin apiKey = do
                 Just "" -> "/"
                 Just ('#':rest) -> rest
                 Just s -> s
-    ident <- join $ liftIO $ Rpxnow.authenticate apiKey token
+    ident <- Rpxnow.authenticate apiKey token
     header authCookieName $ Rpxnow.identifier ident
     redirect dest
 
