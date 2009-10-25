@@ -8,7 +8,7 @@ synopsis:        Authentication methods for Haskell web applications.
 description:     Focus is on remote authentication methods, such as OpenID,
                  rpxnow and Google.
 category:        Web
-stability:       unstable
+stability:       Stable
 cabal-version:   >= 1.2
 build-type:      Simple
 homepage:        http://github.com/snoyberg/authenticate/tree/master

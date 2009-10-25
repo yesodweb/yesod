@@ -23,14 +23,14 @@ import Network.HTTP.Wget
 import Text.HTML.TagSoup
 import Numeric (showHex)
 import Control.Monad.Trans
-import Control.Monad.Attempt.Class
 import qualified Data.Attempt.Helper as A
 import Data.Generics
 import Data.Attempt
 import Control.Exception
 
 -- | An openid identifier (ie, a URL).
-data Identifier = Identifier { identifier :: String }
+newtype Identifier = Identifier { identifier :: String }
+    deriving (Eq, Show)
 
 data Error v = Error String | Ok v
 instance Monad Error where
@@ -77,7 +77,7 @@ constructUrl url args = url ++ "?" ++ queryString args
 
 -- | Handle a redirect from an OpenID provider and check that the user
 -- logged in properly. If it was successfully, 'return's the openid.
--- Otherwise, 'fail's an explanation.
+-- Otherwise, 'failure's an explanation.
 authenticate :: (MonadIO m, MonadAttempt m)
              => [(String, String)]
              -> m Identifier
