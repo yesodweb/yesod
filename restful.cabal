@@ -29,6 +29,7 @@ library
                      bytestring-class,
                      web-encodings >= 0.0.1,
                      data-object >= 0.2.0,
+                     data-object-translate,
                      yaml >= 0.2.0,
                      test-framework,
                      test-framework-quickcheck,

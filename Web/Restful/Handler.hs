@@ -134,6 +134,7 @@ instance Monad m => MonadRequestReader (HandlerT m) where
 
 instance Monad m => MonadAttempt (HandlerT m) where
     failure = errorResult . InternalError . show
+    wrapFailure _ = id -- We don't actually use exception types
 
 ------ Special handlers
 errorResult :: Monad m => ErrorResult -> HandlerT m a
