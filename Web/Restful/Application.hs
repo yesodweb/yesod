@@ -23,7 +23,6 @@ module Web.Restful.Application
     ) where
 
 import Web.Encodings
-import qualified Data.ByteString.Lazy as B
 import Data.Object.Raw
 import Data.Enumerable
 import Control.Monad (when)
@@ -58,13 +57,8 @@ class ResourceName a => RestfulApp a where
                 , methodOverride
                 ]
 
-    -- | Wrappers for cleaning up responses. Especially intended for
-    -- beautifying static HTML. FIXME more user friendly.
-    responseWrapper :: a -> String -> B.ByteString -> IO B.ByteString
-    responseWrapper _ _ = return
-
     -- | Output error response pages.
-    errorHandler :: a -> RawRequest -> ErrorResult -> Reps
+    errorHandler :: Monad m => a -> RawRequest -> ErrorResult -> [RepT m] -- FIXME better type sig?
     errorHandler _ rr NotFound = reps $ toRawObject $ "Not found: " ++ show rr
     errorHandler _ _ (Redirect url) =
         reps $ toRawObject $ "Redirect to: " ++ url
@@ -119,21 +113,44 @@ toHackApplication :: RestfulApp resourceName
                   -> (resourceName -> Verb -> Handler)
                   -> Hack.Application
 toHackApplication sampleRN hm env = do
+    -- The following is safe since we run cleanPath as middleware
     let (Right resource) = splitPath $ Hack.pathInfo env
-    let (handler, urlParams', wrapper) =
+    let (handler :: Handler, urlParams') =
           case findResourceNames resource of
-            [] -> (notFound, [], const return)
+            [] -> (notFound, [])
             ((rn, urlParams''):_) ->
                 let verb = toVerb $ Hack.requestMethod env
-                 in (hm rn verb, urlParams'', responseWrapper rn)
+                 in (hm rn verb, urlParams'')
     let rr = envToRawRequest urlParams' env
     let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
         ctypes' = parseHttpAccept rawHttpAccept
-    runHandler (errorHandler sampleRN rr)
-               wrapper
-               ctypes'
-               handler
-               rr
+    r <-
+        runHandler handler rr ctypes' >>=
+        either (applyErrorHandler sampleRN rr ctypes') return
+    responseToHackResponse (rawLanguages rr) r
+
+applyErrorHandler :: (RestfulApp ra, Monad m)
+                  => ra
+                  -> RawRequest
+                  -> [ContentType]
+                  -> ErrorResult
+                  -> m Response
+applyErrorHandler ra rr cts er = do
+    let (ct, c) = chooseRep cts (errorHandler ra rr er)
+    c' <- c
+    return $ Response
+                (getStatus er)
+                (getHeaders er)
+                ct
+                c'
+
+responseToHackResponse :: [String] -- ^ language list
+                       -> Response -> IO Hack.Response
+responseToHackResponse ls (Response sc hs ct c) = do
+    hs' <- mapM toPair hs
+    let hs'' = ("Content-Type", ct) : hs'
+    let asLBS = runContent ls c
+    return $ Hack.Response sc hs'' asLBS
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
 envToRawRequest urlParams' env =
@@ -145,4 +162,5 @@ envToRawRequest urlParams' env =
                        $ Hack.hackInput env
         rawCookie = tryLookup "" "Cookie" $ Hack.http env
         cookies' = decodeCookies rawCookie :: [(String, String)]
-     in RawRequest rawPieces urlParams' gets' posts cookies' files env
+        langs = ["en"] -- FIXME
+     in RawRequest rawPieces urlParams' gets' posts cookies' files env langs

@@ -55,6 +55,7 @@ import Control.Applicative (Applicative (..))
 import Web.Encodings
 import Data.Time.Calendar (Day, fromGregorian)
 import Data.Char (isDigit)
+import Data.Object.Translate (Language)
 
 -- $param_overview
 -- In Restful, all of the underlying parameter values are strings. They can
@@ -232,6 +233,7 @@ data RawRequest = RawRequest
     , rawCookies :: [(ParamName, ParamValue)]
     , rawFiles :: [(ParamName, FileInfo)]
     , rawEnv :: Hack.Env
+    , rawLanguages :: [Language]
     }
     deriving Show
 

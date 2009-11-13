@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-} -- FIXME remove
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Response
@@ -15,11 +17,18 @@
 --
 ---------------------------------------------------------
 module Web.Restful.Response
-    ( -- * Representations
-      Rep
-    , Reps
+    ( Response (..)
+      -- * Representations
+    , RepT
+    , chooseRep
     , HasReps (..)
     , ContentType
+      -- * Content
+    , Content
+    , ToContent (..)
+    , runContent
+    , lbsContent
+    , translateContent
       -- * Abnormal responses
     , ErrorResult (..)
     , getHeaders
@@ -28,16 +37,11 @@ module Web.Restful.Response
     , Header (..)
     , toPair
       -- * Generic responses
-    , response
     , genResponse
     , htmlResponse
     , objectResponse
       -- * Tests
     , testSuite
-      -- * Translation
-    , TranslatorBS
-    , noTranslate
-    , translateBS
     ) where
 
 import Data.Time.Clock
@@ -45,33 +49,72 @@ import Data.Object
 import Data.Object.Raw
 import Data.Object.Translate
 import Data.Object.Instances
-import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Class
+import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy.Encoding as LTE
 
 import Web.Encodings (formatW3)
 
 import Test.Framework (testGroup, Test)
 
+import Data.Generics
+import Control.Exception (Exception)
+import Data.Maybe (fromJust)
+
+data Response = Response Int [Header] ContentType Content
+
 type ContentType = String
 
-type TranslatorBS = [Language] -> ByteString
-noTranslate :: LazyByteString lbs => lbs -> TranslatorBS
-noTranslate lbs = const $ toLazyByteString lbs
+data Content = ByteString LBS.ByteString
+             | Text LT.Text
+             | TransText ([Language] -> LT.Text)
 
-translateBS :: CanTranslate t => t -> TranslatorBS
-translateBS t langs = toLazyByteString $ translate t langs
+runContent :: [Language] -> Content -> LBS.ByteString
+runContent _ (ByteString lbs) = lbs
+runContent _ (Text lt) = LTE.encodeUtf8 lt
+runContent ls (TransText t) = LTE.encodeUtf8 $ t ls
 
-type Rep = (ContentType, TranslatorBS)
-type Reps = [Rep]
+class ToContent a where
+    toContent :: a -> Content
+instance ToContent LBS.ByteString where
+    toContent = ByteString
+instance ToContent String where
+    toContent = Text . LT.pack
+instance ToContent ([Language] -> String) where
+    toContent f = TransText $ LT.pack . f
+instance ToContent Translator where
+    toContent = TransText
+
+lbsContent :: LazyByteString lbs => lbs -> Content
+lbsContent = ByteString . toLazyByteString
+
+translateContent :: CanTranslate t => t -> Content
+translateContent t = toContent $ translate t
+
+type RepT m = (ContentType, m Content)
+
+chooseRep :: Monad m
+          => [ContentType]
+          -> [RepT m]
+          -> RepT m
+chooseRep cs rs
+  | null rs = error "All reps must have at least one representation" -- FIXME
+  | otherwise = do
+    let availCs = map fst rs
+    case filter (`elem` availCs) cs of
+        [] -> head rs
+        [ctype] -> (ctype, fromJust $ lookup ctype rs) -- FIXME
+        _ -> error "Overlapping representations" -- FIXME just take the first?
 
 -- | Something which can be represented as multiple content types.
 -- Each content type is called a representation of the data.
-class HasReps a where
+class Monad m => HasReps a m where
     -- | Provide an ordered list of possible representations, depending on
     -- content type. If the user asked for a specific response type (like
     -- text/html), then that will get priority. If not, then the first
     -- element in this list will be used.
-    reps :: a -> Reps
+    reps :: a -> [RepT m]
 
 -- | Abnormal return codes.
 data ErrorResult =
@@ -80,6 +123,8 @@ data ErrorResult =
     | InternalError String
     | InvalidArgs [(String, String)]
     | PermissionDenied
+    deriving (Show, Typeable)
+instance Exception ErrorResult
 
 getStatus :: ErrorResult -> Int
 getStatus (Redirect _) = 303
@@ -112,37 +157,36 @@ toPair (DeleteCookie key) = return
 toPair (Header key value) = return (key, value)
 
 ------ Generic responses
--- | Lifts a 'HasReps' into a monad.
-response :: (Monad m, HasReps reps) => reps -> m Reps
-response = return . reps
-
+-- FIXME move these to Handler?
 -- | Return a response with an arbitrary content type.
 genResponse :: (Monad m, LazyByteString lbs)
             => ContentType
             -> lbs
-            -> m Reps
-genResponse ct lbs = return [(ct, noTranslate lbs)]
+            -> [RepT m]
+genResponse ct lbs = [(ct, return $ lbsContent lbs)]
 
 -- | Return a response with a text/html content type.
-htmlResponse :: (Monad m, LazyByteString lbs) => lbs -> m Reps
+htmlResponse :: (Monad m, LazyByteString lbs) => lbs -> [RepT m]
 htmlResponse = genResponse "text/html"
 
--- | Return a response from an Object.
-objectResponse :: (Monad m, ToObject o Raw Raw) => o -> m Reps
-objectResponse o = return $ reps $ (toObject o :: RawObject)
+-- | Return a response from an Object. FIXME use TextObject
+objectResponse :: (Monad m, ToObject o Raw Raw) => o -> [RepT m]
+objectResponse = reps . toRawObject
 
 -- HasReps instances
-instance HasReps () where
-    reps _ = [("text/plain", noTranslate "")]
-instance HasReps RawObject where
+instance Monad m => HasReps () m where
+    reps _ = [("text/plain", return $ lbsContent "")]
+instance Monad m => HasReps RawObject m where -- FIXME TextObject
     reps o =
-        [ ("text/html", noTranslate $ unHtml $ safeFromObject o)
-        , ("application/json", noTranslate $ unJson $ safeFromObject o)
-        , ("text/yaml", noTranslate $ unYaml $ safeFromObject o)
+        [ ("text/html", return $ lbsContent $ unHtml $ safeFromObject o)
+        , ("application/json", return $ lbsContent $ unJson $ safeFromObject o)
+        , ("text/yaml", return $ lbsContent $ unYaml $ safeFromObject o)
         ]
 
-instance HasReps Reps where
+{- FIXME
+instance HasReps (Reps m) where
     reps = id
+-}
 
 ----- Testing
 testSuite :: Test

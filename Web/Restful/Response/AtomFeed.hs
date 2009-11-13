@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Response.AtomFeed
@@ -29,9 +31,9 @@ data AtomFeed = AtomFeed
     , atomUpdated :: UTCTime
     , atomEntries :: [AtomFeedEntry]
     }
-instance HasReps AtomFeed where
+instance Monad m => HasReps AtomFeed m where
     reps e =
-        [ ("application/atom+xml", noTranslate $ show e)
+        [ ("application/atom+xml", return $ toContent $ show e)
         ]
 
 data AtomFeedEntry = AtomFeedEntry

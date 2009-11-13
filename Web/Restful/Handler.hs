@@ -1,7 +1,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-} -- FIXME remove
+{-# LANGUAGE FlexibleContexts #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Handler
@@ -35,31 +36,78 @@ module Web.Restful.Handler
 import Web.Restful.Request
 import Web.Restful.Response
 
-import Control.Monad.Trans
-import Control.Monad.Attempt.Class
-import Control.Monad (liftM, ap)
-import Control.Applicative
+import Control.Exception hiding (Handler)
 
-import Data.Maybe (fromJust)
-import qualified Data.ByteString.Lazy as B
-import qualified Hack
-import qualified Control.OldException
+import Control.Monad.Reader
+import Control.Monad.Writer
+import Control.Monad.Attempt
+
+import Data.Typeable
 
 ------ Handler monad
-newtype HandlerT m a =
-    HandlerT (RawRequest -> m (Either ErrorResult a, [Header]))
+type HandlerT m =
+    ReaderT RawRequest (
+        WriterT [Header] (
+            AttemptT m
+        )
+    )
 type HandlerIO = HandlerT IO
-type Handler = HandlerIO Reps
+type Handler = HandlerIO [RepT HandlerIO]
+
+instance MonadRequestReader HandlerIO where
+    askRawRequest = ask
+    invalidParam _pt _pn _pe = error "invalidParam"
+    authRequired = error "authRequired"
+instance Exception e => MonadFailure e HandlerIO where
+    failure = error "HandlerIO failure"
 
 class ToHandler a where
     toHandler :: a -> Handler
 
+{- FIXME
 instance (Request r, ToHandler h) => ToHandler (r -> h) where
     toHandler f = parseRequest >>= toHandler . f
+-}
 
 instance ToHandler Handler where
     toHandler = id
 
+{- FIXME
+instance HasReps r HandlerIO => ToHandler (HandlerIO r) where
+    toHandler = fmap reps
+-}
+
+runHandler :: Handler
+           -> RawRequest
+           -> [ContentType]
+           -> IO (Either ErrorResult Response)
+runHandler h rr cts = do
+    let ares = runAttemptT $ runWriterT $ runReaderT (joinHandler cts h) rr
+    ares' <- takeAllExceptions ares
+    return $ attempt (Left . toErrorResult) (Right . toResponse) ares'
+    where
+        takeAllExceptions :: IO (Attempt x) -> IO (Attempt x)
+        takeAllExceptions ioa =
+            Control.Exception.catch ioa (return . Failure)
+        toErrorResult :: Exception e => e -> ErrorResult
+        toErrorResult e =
+            case cast e of
+                Just x -> x
+                Nothing -> InternalError $ show e
+        toResponse :: ((ContentType, Content), [Header]) -> Response
+        toResponse ((ct, c), hs) = Response 200 hs ct c
+
+joinHandler :: Monad m
+            => [ContentType]
+            -> m [RepT m]
+            -> m (ContentType, Content)
+joinHandler cts rs = do
+    rs' <- rs
+    let (ct, c) = chooseRep cts rs'
+    c' <- c
+    return (ct, c')
+
+{-
 runHandler :: (ErrorResult -> Reps)
             -> (ContentType -> B.ByteString -> IO B.ByteString)
             -> [ContentType]
@@ -67,9 +115,6 @@ runHandler :: (ErrorResult -> Reps)
             -> RawRequest
             -> IO Hack.Response
 runHandler eh wrapper ctypesAll (HandlerT inside) rr = do
-    (x, headers') <- Control.OldException.catch
-                        (inside rr)
-                        (\e -> return (Left $ InternalError $ show e, []))
     let extraHeaders =
             case x of
                 Left r -> getHeaders r
@@ -85,67 +130,18 @@ runHandler eh wrapper ctypesAll (HandlerT inside) rr = do
     finalRep <- wrapper ctype $ selectedRep languages
     let headers'' = ("Content-Type", ctype) : headers
     return $! Hack.Response statusCode headers'' finalRep
-
-chooseRep :: Monad m
-          => Reps
-          -> [ContentType]
-          -> m Rep
-chooseRep rs cs
-  | null rs = fail "All reps must have at least one representation"
-  | otherwise = do
-    let availCs = map fst rs
-    case filter (`elem` availCs) cs of
-        [] -> return $ head rs
-        [ctype] -> return (ctype, fromJust $ lookup ctype rs)
-        _ -> fail "Overlapping representations"
-
-instance MonadTrans HandlerT where
-    lift ma = HandlerT $ const $ do
-        a <- ma
-        return (Right a, [])
-
-instance MonadIO HandlerIO where
-    liftIO = lift
-
-instance Monad m => Functor (HandlerT m) where
-    fmap = liftM
-
-instance Monad m => Monad (HandlerT m) where
-    return = lift . return
-    fail s = HandlerT (const $ return (Left $ InternalError s, []))
-    (HandlerT mx) >>= f = HandlerT $ \rr -> do
-        (x, hs1) <- mx rr
-        case x of
-            Left x' -> return (Left x', hs1)
-            Right a -> do
-                let (HandlerT b') = f a
-                (b, hs2) <- b' rr
-                return (b, hs1 ++ hs2)
-
-instance Monad m => Applicative (HandlerT m) where
-    pure = return
-    (<*>) = ap
-
-instance Monad m => MonadRequestReader (HandlerT m) where
-    askRawRequest = HandlerT $ \rr -> return (Right rr, [])
-    invalidParam ptype name msg =
-        errorResult $ InvalidArgs [(name ++ " (" ++ show ptype ++ ")", msg)]
-    authRequired = errorResult PermissionDenied
-
-instance Monad m => MonadAttempt (HandlerT m) where
-    failure = errorResult . InternalError . show
-    wrapFailure _ = id -- We don't actually use exception types
+-}
 
 ------ Special handlers
-errorResult :: Monad m => ErrorResult -> HandlerT m a
-errorResult er = HandlerT (const $ return (Left er, []))
+errorResult :: ErrorResult -> HandlerIO a
+errorResult = lift . lift . failure -- FIXME more instances in Attempt?
 
 -- | Redirect to the given URL.
-redirect :: Monad m => String -> HandlerT m a
+redirect :: String -> HandlerIO a
 redirect = errorResult . Redirect
 
 -- | Return a 404 not found page. Also denotes no handler available.
-notFound :: Monad m => HandlerT m a
+notFound :: HandlerIO a
 notFound = errorResult NotFound
 
 ------- Headers
@@ -166,4 +162,4 @@ header :: Monad m => String -> String -> HandlerT m ()
 header a = addHeader . Header a
 
 addHeader :: Monad m => Header -> HandlerT m ()
-addHeader h = HandlerT (const $ return (Right (), [h]))
+addHeader = tell . return

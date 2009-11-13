@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Response.AtomFeed
@@ -77,9 +79,9 @@ instance Show SitemapResponse where
             showLoc (AbsLoc s) = s
             showLoc (RelLoc s) = prefix ++ s
 
-instance HasReps SitemapResponse where
+instance Monad m => HasReps SitemapResponse m where
     reps res =
-        [ ("text/xml", noTranslate $ show res)
+        [ ("text/xml", return $ toContent $ show res)
         ]
 
 sitemap :: IO [SitemapUrl] -> Handler
@@ -93,4 +95,4 @@ sitemap urls' = do
 robots :: Handler
 robots = do
     ar <- approot
-    genResponse "text/plain" $ "Sitemap: " ++ ar ++ "sitemap.xml"
+    return $ genResponse "text/plain" $ "Sitemap: " ++ ar ++ "sitemap.xml"

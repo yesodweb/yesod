@@ -97,7 +97,7 @@ authOpenidForm = do
     case dest of
         Just dest' -> addCookie 120 "DEST" dest'
         Nothing -> return ()
-    htmlResponse html
+    return $ htmlResponse html
 
 authOpenidForward :: Handler
 authOpenidForward = do
@@ -158,8 +158,8 @@ authCheck :: Handler
 authCheck = do
     ident <- maybeIdentifier
     case ident of
-        Nothing -> objectResponse [("status", "notloggedin")]
-        Just i -> objectResponse
+        Nothing -> return $ objectResponse [("status", "notloggedin")]
+        Just i -> return $ objectResponse
             [ ("status", "loggedin")
             , ("ident", i)
             ]
@@ -167,4 +167,4 @@ authCheck = do
 authLogout :: Handler
 authLogout = do
     deleteCookie authCookieName
-    objectResponse [("status", "loggedout")]
+    return $ objectResponse [("status", "loggedout")]
