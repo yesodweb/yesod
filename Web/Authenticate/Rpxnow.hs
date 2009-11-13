@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Authenticate.Rpxnow
@@ -20,7 +21,7 @@ import Text.JSON -- FIXME use Data.Object.JSON
 import Network.HTTP.Wget
 import Data.Maybe (isJust, fromJust)
 import Control.Monad.Trans
-import Control.Monad.Attempt.Class
+import Control.Monad.Failure
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -29,7 +30,7 @@ data Identifier = Identifier
     }
 
 -- | Attempt to log a user in.
-authenticate :: (MonadIO m, MonadAttempt m)
+authenticate :: (MonadIO m, MonadFailure WgetException m, MonadFailure StringException m)
              => String -- ^ API key given by RPXNOW.
              -> String -- ^ Token passed by client.
              -> m Identifier
@@ -41,7 +42,7 @@ authenticate apiKey token = do
                 , ("token", token)
                 ]
   case decode b >>= getObject of
-    Error s -> failureString $ "Not a valid JSON response: " ++ s
+    Error s -> failureString $ "Not a valid JSON response: " ++ s -- FIXME
     Ok o ->
       case valFromObj "stat" o of
         Error _ -> failureString "Missing 'stat' field"
@@ -49,7 +50,7 @@ authenticate apiKey token = do
         Ok stat -> failureString $ "Login not accepted: " ++ stat
                    ++ "\n" ++ b
 
-parseProfile :: MonadAttempt m => JSObject JSValue -> m Identifier
+parseProfile :: Monad m => JSObject JSValue -> m Identifier
 parseProfile v = do
     profile <- resultToMonad $ valFromObj "profile" v >>= getObject
     ident <- resultToMonad $ valFromObj "identifier" profile

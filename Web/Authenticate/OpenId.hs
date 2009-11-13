@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
 ---------------------------------------------------------
 -- |
 -- Module        : Web.Authenticate.OpenId
@@ -23,9 +24,9 @@ import Network.HTTP.Wget
 import Text.HTML.TagSoup
 import Numeric (showHex)
 import Control.Monad.Trans
-import qualified Data.Attempt.Helper as A
+import qualified Safe.Failure as A
 import Data.Generics
-import Data.Attempt
+import Control.Monad.Failure
 import Control.Exception
 
 -- | An openid identifier (ie, a URL).
@@ -40,14 +41,14 @@ instance Monad Error where
     fail s = Error s
 
 -- | Returns a URL to forward the user to in order to login.
-getForwardUrl :: (MonadIO m, MonadAttempt m)
+getForwardUrl :: (MonadIO m, MonadFailure WgetException m)
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
               -> m String -- ^ URL to send the user to.
 getForwardUrl openid complete = do
     bodyIdent <- wget openid [] []
     server <- getOpenIdVar "server" bodyIdent
-    let delegate = attempt (const openid) id
+    let delegate = maybe openid id
                  $ getOpenIdVar "delegate" bodyIdent
     return $ constructUrl server
                         [ ("openid.mode", "checkid_setup")
@@ -55,7 +56,7 @@ getForwardUrl openid complete = do
                         , ("openid.return_to", complete)
                         ]
 
-getOpenIdVar :: MonadAttempt m => String -> String -> m String
+getOpenIdVar :: Monad m => String -> String -> m String
 getOpenIdVar var content = do
     let tags = parseTags content
     let secs = sections (~== ("<link rel=openid." ++ var ++ ">")) tags
@@ -63,7 +64,7 @@ getOpenIdVar var content = do
     secs'' <- mhead secs'
     return $ fromAttrib "href" secs''
     where
-        mhead [] = fail $ "Variable not found: openid." ++ var
+        mhead [] = fail $ "Variable not found: openid." ++ var -- FIXME
         mhead (x:_) = return x
 
 constructUrl :: String -> [(String, String)] -> String
@@ -78,7 +79,9 @@ constructUrl url args = url ++ "?" ++ queryString args
 -- | Handle a redirect from an OpenID provider and check that the user
 -- logged in properly. If it was successfully, 'return's the openid.
 -- Otherwise, 'failure's an explanation.
-authenticate :: (MonadIO m, MonadAttempt m)
+authenticate :: (MonadIO m, MonadFailure WgetException m,
+                 MonadFailure (A.LookupFailure String) m,
+                 MonadFailure AuthenticateException m)
              => [(String, String)]
              -> m Identifier
 authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
@@ -87,19 +90,22 @@ authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
     let isValid = contains "is_valid:true" content
     if isValid
         then A.lookup "openid.identity" req >>= return . Identifier
-        else failure $ AuthenticateError content
+        else failure $ AuthenticateException content
 
-newtype AuthenticateError = AuthenticateError String
+newtype AuthenticateException = AuthenticateException String
     deriving (Show, Typeable)
-instance Exception AuthenticateError
+instance Exception AuthenticateException
 
-getAuthUrl :: (MonadIO m, MonadAttempt m) => [(String, String)] -> m String
+getAuthUrl :: (MonadIO m, MonadFailure (A.LookupFailure String) m,
+               MonadFailure WgetException m)
+           => [(String, String)] -> m String
 getAuthUrl req = do
     identity <- A.lookup "openid.identity" req
     idContent <- wget identity [] []
     helper idContent
     where
-        helper :: MonadAttempt m => String -> m String
+        helper :: MonadFailure (A.LookupFailure String) m
+               => String -> m String
         helper idContent = do
             server <- getOpenIdVar "server" idContent
             dargs <- mapM makeArg [
@@ -111,7 +117,8 @@ getAuthUrl req = do
                 ]
             let sargs = [("openid.mode", "check_authentication")]
             return $ constructUrl server $ dargs ++ sargs
-        makeArg :: MonadAttempt m => String -> m (String, String)
+        makeArg :: MonadFailure (A.LookupFailure String) m
+                => String -> m (String, String)
         makeArg s = do
             let k = "openid." ++ s
             v <- A.lookup k req
