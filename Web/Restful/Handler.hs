@@ -88,7 +88,9 @@ runHandler h rr cts = do
     where
         takeAllExceptions :: IO (Attempt x) -> IO (Attempt x)
         takeAllExceptions ioa =
-            Control.Exception.catch ioa (return . Failure)
+            Control.Exception.catch ioa (return . someFailure)
+        someFailure :: Control.Exception.SomeException -> Attempt v
+        someFailure = Failure
         toErrorResult :: Exception e => e -> ErrorResult
         toErrorResult e =
             case cast e of

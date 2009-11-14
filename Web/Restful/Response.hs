@@ -27,7 +27,6 @@ module Web.Restful.Response
     , Content
     , ToContent (..)
     , runContent
-    , lbsContent
     , translateContent
       -- * Abnormal responses
     , ErrorResult (..)
@@ -46,11 +45,10 @@ module Web.Restful.Response
 
 import Data.Time.Clock
 import Data.Object
-import Data.Object.Raw
+import Data.Object.Text
 import Data.Object.Translate
 import Data.Object.Instances
 import qualified Data.ByteString.Lazy as LBS
-import Data.ByteString.Class
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LTE
 
@@ -61,6 +59,9 @@ import Test.Framework (testGroup, Test)
 import Data.Generics
 import Control.Exception (Exception)
 import Data.Maybe (fromJust)
+import Data.Convertible
+
+import Data.Text.Lazy (Text)
 
 data Response = Response Int [Header] ContentType Content
 
@@ -81,13 +82,12 @@ instance ToContent LBS.ByteString where
     toContent = ByteString
 instance ToContent String where
     toContent = Text . LT.pack
+instance ToContent Text where
+    toContent = Text
 instance ToContent ([Language] -> String) where
     toContent f = TransText $ LT.pack . f
 instance ToContent Translator where
     toContent = TransText
-
-lbsContent :: LazyByteString lbs => lbs -> Content
-lbsContent = ByteString . toLazyByteString
 
 translateContent :: CanTranslate t => t -> Content
 translateContent t = toContent $ translate t
@@ -159,28 +159,28 @@ toPair (Header key value) = return (key, value)
 ------ Generic responses
 -- FIXME move these to Handler?
 -- | Return a response with an arbitrary content type.
-genResponse :: (Monad m, LazyByteString lbs)
+genResponse :: (Monad m, ConvertSuccess t Text)
             => ContentType
-            -> lbs
+            -> t
             -> [RepT m]
-genResponse ct lbs = [(ct, return $ lbsContent lbs)]
+genResponse ct t = [(ct, return $ Text $ convertSuccess t)]
 
 -- | Return a response with a text/html content type.
-htmlResponse :: (Monad m, LazyByteString lbs) => lbs -> [RepT m]
+htmlResponse :: (Monad m, ConvertSuccess t Text) => t -> [RepT m]
 htmlResponse = genResponse "text/html"
 
--- | Return a response from an Object. FIXME use TextObject
-objectResponse :: (Monad m, ToObject o Raw Raw) => o -> [RepT m]
-objectResponse = reps . toRawObject
+-- | Return a response from an Object.
+objectResponse :: (Monad m, ToObject o Text Text) => o -> [RepT m]
+objectResponse = reps . toTextObject
 
 -- HasReps instances
 instance Monad m => HasReps () m where
-    reps _ = [("text/plain", return $ lbsContent "")]
-instance Monad m => HasReps RawObject m where -- FIXME TextObject
+    reps _ = [("text/plain", return $ toContent "")]
+instance Monad m => HasReps TextObject m where
     reps o =
-        [ ("text/html", return $ lbsContent $ unHtml $ safeFromObject o)
-        , ("application/json", return $ lbsContent $ unJson $ safeFromObject o)
-        , ("text/yaml", return $ lbsContent $ unYaml $ safeFromObject o)
+        [ ("text/html", return $ toContent $ unHtml $ convertSuccess o)
+        , ("application/json", return $ toContent $ unJson $ convertSuccess o)
+        , ("text/yaml", return $ toContent $ unYaml $ convertSuccess o)
         ]
 
 {- FIXME

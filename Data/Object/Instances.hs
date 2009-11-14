@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
 -- Module        : Data.Object.Instances
@@ -16,84 +18,91 @@ module Data.Object.Instances
     ( Json (..)
     , Yaml (..)
     , Html (..)
-    , SafeFromObject (..)
     ) where
 
 import Data.Object
-import Data.Object.Raw
+import Data.Object.Text
 import qualified Data.ByteString.Lazy as B
-import Data.ByteString.Class
 import Web.Encodings (encodeJson)
-import Text.Yaml (encode)
+import Text.Yaml (encodeText)
+import qualified Data.Text.Lazy as LT
+import Data.Text.Lazy (Text)
+import Data.Convertible
 
-class SafeFromObject a where
-    safeFromObject :: RawObject -> a
-
-newtype Json = Json { unJson :: B.ByteString }
-instance SafeFromObject Json where
-    safeFromObject = Json . helper where
-        helper :: RawObject -> B.ByteString
-        helper (Scalar (Raw s)) = B.concat
-            [ toLazyByteString "\""
-            , encodeJson $ fromLazyByteString s
-            , toLazyByteString "\""
+newtype Json = Json { unJson :: Text }
+instance ConvertAttempt (Object Text Text) Json where
+    convertAttempt = return . convertSuccess
+instance ConvertSuccess (Object Text Text) Json where
+    convertSuccess = Json . helper where
+        helper :: TextObject -> Text
+        helper (Scalar s) = LT.concat
+            [ LT.pack "\""
+            , bsToText $ encodeJson $ convertSuccess s
+            , LT.pack "\""
             ]
-        helper (Sequence s) = B.concat
-            [ toLazyByteString "["
-            , B.intercalate (toLazyByteString ",") $ map helper s
-            , toLazyByteString "]"
+        helper (Sequence s) = LT.concat
+            [ LT.pack "["
+            , LT.intercalate (LT.pack ",") $ map helper s
+            , LT.pack "]"
             ]
-        helper (Mapping m) = B.concat
-            [ toLazyByteString "{"
-            , B.intercalate (toLazyByteString ",") $ map helper2 m
-            , toLazyByteString "}"
+        helper (Mapping m) = LT.concat
+            [ LT.pack "{"
+            , LT.intercalate (LT.pack ",") $ map helper2 m
+            , LT.pack "}"
             ]
-        helper2 :: (Raw, RawObject) -> B.ByteString
-        helper2 (Raw k, v) = B.concat
-            [ toLazyByteString "\""
-            , encodeJson $ fromLazyByteString k
-            , toLazyByteString "\":"
+        helper2 :: (Text, TextObject) -> Text
+        helper2 (k, v) = LT.concat
+            [ LT.pack "\""
+            , bsToText $ encodeJson $ convertSuccess k
+            , LT.pack "\":"
             , helper v
             ]
 
-newtype Yaml = Yaml { unYaml :: B.ByteString }
-instance SafeFromObject Yaml where
-    safeFromObject = Yaml . encode
+bsToText :: B.ByteString -> Text
+bsToText = convertSuccess
+
+newtype Yaml = Yaml { unYaml :: Text }
+instance ConvertAttempt (Object Text Text) Yaml where
+    convertAttempt = return . convertSuccess
+instance ConvertSuccess (Object Text Text) Yaml where
+    convertSuccess = Yaml . encodeText
 
 -- | Represents as an entire HTML 5 document by using the following:
 --
 -- * A scalar is a paragraph.
 -- * A sequence is an unordered list.
 -- * A mapping is a definition list.
-newtype Html = Html { unHtml :: B.ByteString }
+newtype Html = Html { unHtml :: Text }
 
-instance SafeFromObject Html where
-    safeFromObject o = Html $ B.concat
-        [ toLazyByteString "<!DOCTYPE html>\n<html><body>" -- FIXME full doc or just fragment?
+instance ConvertAttempt (Object Text Text) Html where
+    convertAttempt = return . convertSuccess
+instance ConvertSuccess (Object Text Text) Html where
+    convertSuccess o = Html $ LT.concat
+        [ LT.pack "<!DOCTYPE html>\n<html><body>" -- FIXME full doc or just fragment?
         , helper o
-        , toLazyByteString "</body></html>"
+        , LT.pack "</body></html>"
         ] where
-            helper :: RawObject -> B.ByteString
-            helper (Scalar (Raw s)) = B.concat
-                [ toLazyByteString "<p>"
-                , toLazyByteString s
-                , toLazyByteString "</p>"
+            helper :: TextObject -> Text
+            helper (Scalar s) = LT.concat
+                [ LT.pack "<p>"
+                , s
+                , LT.pack "</p>"
                 ]
-            helper (Sequence []) = toLazyByteString "<ul></ul>"
-            helper (Sequence s) = B.concat
-                [ toLazyByteString "<ul><li>"
-                , B.intercalate (toLazyByteString "</li><li>") $ map helper s
-                , toLazyByteString "</li></ul>"
+            helper (Sequence []) = LT.pack "<ul></ul>"
+            helper (Sequence s) = LT.concat
+                [ LT.pack "<ul><li>"
+                , LT.intercalate (LT.pack "</li><li>") $ map helper s
+                , LT.pack "</li></ul>"
                 ]
-            helper (Mapping m) = B.concat $
-                toLazyByteString "<dl>" :
+            helper (Mapping m) = LT.concat $
+                LT.pack "<dl>" :
                 map helper2 m ++
-                [ toLazyByteString "</dl>" ]
-            helper2 :: (Raw, RawObject) -> B.ByteString
-            helper2 (Raw k, v) = B.concat
-                [ toLazyByteString "<dt>"
-                , toLazyByteString k
-                , toLazyByteString "</dt><dd>"
+                [ LT.pack "</dl>" ]
+            helper2 :: (Text, TextObject) -> Text
+            helper2 (k, v) = LT.concat
+                [ LT.pack "<dt>"
+                , k
+                , LT.pack "</dt><dd>"
                 , helper v
-                , toLazyByteString "</dd>"
+                , LT.pack "</dd>"
                 ]

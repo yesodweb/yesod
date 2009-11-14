@@ -23,9 +23,11 @@ module Web.Restful.Application
     ) where
 
 import Web.Encodings
-import Data.Object.Raw
+import Data.Object
+import Data.Object.Text
 import Data.Enumerable
 import Control.Monad (when)
+import qualified Data.Text.Lazy as LT
 
 import qualified Hack
 import Hack.Middleware.CleanPath
@@ -59,18 +61,18 @@ class ResourceName a => RestfulApp a where
 
     -- | Output error response pages.
     errorHandler :: Monad m => a -> RawRequest -> ErrorResult -> [RepT m] -- FIXME better type sig?
-    errorHandler _ rr NotFound = reps $ toRawObject $ "Not found: " ++ show rr
+    errorHandler _ rr NotFound = reps $ toTextObject $ "Not found: " ++ show rr
     errorHandler _ _ (Redirect url) =
-        reps $ toRawObject $ "Redirect to: " ++ url
+        reps $ toTextObject $ "Redirect to: " ++ url
     errorHandler _ _ (InternalError e) =
-        reps $ toRawObject $ "Internal server error: " ++ e
+        reps $ toTextObject $ "Internal server error: " ++ e
     errorHandler _ _ (InvalidArgs ia) =
-        reps $ toRawObject
-            [ ("errorMsg", toRawObject "Invalid arguments")
-            , ("messages", toRawObject ia)
+        reps $ Mapping
+            [ (LT.pack "errorMsg", toTextObject "Invalid arguments")
+            , (LT.pack "messages", toTextObject ia)
             ]
     errorHandler _ _ PermissionDenied =
-        reps $ toRawObject "Permission denied"
+        reps $ toTextObject "Permission denied"
 
     -- | Whether or not we should check for overlapping resource names.
     checkOverlaps :: a -> Bool

@@ -40,9 +40,10 @@ library
                      directory >= 1,
                      transformers >= 0.1.4.0,
                      monads-fd >= 0.0.0.1,
-                     attempt,
+                     attempt >= 0.0.2,
                      syb,
-                     text >= 0.5
+                     text >= 0.5,
+                     convertible >= 1.2.0
     exposed-modules: Web.Restful,
                      Web.Restful.Constants,
                      Web.Restful.Request,
