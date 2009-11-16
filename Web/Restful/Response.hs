@@ -48,6 +48,7 @@ import Data.Object
 import Data.Object.Text
 import Data.Object.Translate
 import Data.Object.Instances
+import qualified Data.ByteString as SBS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LTE
@@ -78,6 +79,8 @@ runContent ls (TransText t) = LTE.encodeUtf8 $ t ls
 
 class ToContent a where
     toContent :: a -> Content
+instance ToContent SBS.ByteString where
+    toContent = ByteString . convertSuccess
 instance ToContent LBS.ByteString where
     toContent = ByteString
 instance ToContent String where

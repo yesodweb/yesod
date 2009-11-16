@@ -46,7 +46,7 @@ getStatic fl = do
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
-        Just bs -> return $ genResponse (mimeType $ ext fp) bs
+        Just bs -> return [(mimeType $ ext fp, return $ toContent bs)]
 
 mimeType :: String -> String
 mimeType "jpg" = "image/jpeg"

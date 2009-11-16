@@ -23,11 +23,10 @@ module Web.Restful.Application
     ) where
 
 import Web.Encodings
-import Data.Object
 import Data.Object.Text
+import Data.Object.String
 import Data.Enumerable
 import Control.Monad (when)
-import qualified Data.Text.Lazy as LT
 
 import qualified Hack
 import Hack.Middleware.CleanPath
@@ -61,15 +60,16 @@ class ResourceName a => RestfulApp a where
 
     -- | Output error response pages.
     errorHandler :: Monad m => a -> RawRequest -> ErrorResult -> [RepT m] -- FIXME better type sig?
-    errorHandler _ rr NotFound = reps $ toTextObject $ "Not found: " ++ show rr
+    errorHandler _ rr NotFound = reps $ toTextObject $
+                                   "Not found: " ++ show rr
     errorHandler _ _ (Redirect url) =
         reps $ toTextObject $ "Redirect to: " ++ url
     errorHandler _ _ (InternalError e) =
         reps $ toTextObject $ "Internal server error: " ++ e
     errorHandler _ _ (InvalidArgs ia) =
-        reps $ Mapping
-            [ (LT.pack "errorMsg", toTextObject "Invalid arguments")
-            , (LT.pack "messages", toTextObject ia)
+        reps $ toTextObject $ toStringObject
+            [ ("errorMsg", toStringObject "Invalid arguments")
+            , ("messages", toStringObject ia)
             ]
     errorHandler _ _ PermissionDenied =
         reps $ toTextObject "Permission denied"

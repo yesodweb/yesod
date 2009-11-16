@@ -107,23 +107,23 @@ authOpenidForward = do
                    show (Hack.serverPort env) ++
                    "/auth/openid/complete/"
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
-    case res of
-        Failure err -> redirect $ "/auth/openid/?message="
-                            ++ encodeUrl (show err)
-        Success url -> redirect url
+    attempt
+      (\err -> redirect $ "/auth/openid/?message=" ++ encodeUrl (show err))
+      redirect
+      res
 
 authOpenidComplete :: Handler
 authOpenidComplete = do
     gets' <- rawGetParams <$> askRawRequest
     dest <- cookieParam "DEST"
     res <- runAttemptT $ OpenId.authenticate gets'
-    case res of
-      Failure err -> redirect $ "/auth/openid/?message="
+    let onFailure err = redirect $ "/auth/openid/?message="
                             ++ encodeUrl (show err)
-      Success (OpenId.Identifier ident) -> do
+    let onSuccess (OpenId.Identifier ident) = do
         deleteCookie "DEST"
         header authCookieName ident
         redirect $ fromMaybe "/" dest
+    attempt onFailure onSuccess res
 
 -- | token dest
 data RpxnowRequest = RpxnowRequest String (Maybe String)
