@@ -135,14 +135,14 @@ applyErrorHandler :: (RestfulApp ra, Monad m)
                   => ra
                   -> RawRequest
                   -> [ContentType]
-                  -> ErrorResult
+                  -> (ErrorResult, [Header])
                   -> m Response
-applyErrorHandler ra rr cts er = do
+applyErrorHandler ra rr cts (er, headers) = do
     let (ct, c) = chooseRep cts (errorHandler ra rr er)
     c' <- c
     return $ Response
                 (getStatus er)
-                (getHeaders er)
+                (getHeaders er ++ headers)
                 ct
                 c'
 

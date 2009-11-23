@@ -47,8 +47,8 @@ import Data.Typeable
 ------ Handler monad
 type HandlerT m =
     ReaderT RawRequest (
-        WriterT [Header] (
-            AttemptT m
+        AttemptT (
+            WriterT [Header] m
         )
     )
 type HandlerIO = HandlerT IO
@@ -80,24 +80,32 @@ instance HasReps r HandlerIO => ToHandler (HandlerIO r) where
 runHandler :: Handler
            -> RawRequest
            -> [ContentType]
-           -> IO (Either ErrorResult Response)
+           -> IO (Either (ErrorResult, [Header]) Response)
 runHandler h rr cts = do
-    let ares = runAttemptT $ runWriterT $ runReaderT (joinHandler cts h) rr
-    ares' <- takeAllExceptions ares
-    return $ attempt (Left . toErrorResult) (Right . toResponse) ares'
+    --let (ares, _FIXMEheaders) =
+    let x :: IO (Attempt (ContentType, Content), [Header])
+        x =
+         runWriterT $ runAttemptT $ runReaderT (joinHandler cts h) rr
+        y :: IO (Attempt (Attempt (ContentType, Content), [Header]))
+        y = takeAllExceptions x
+    z <- y
+    let z' :: Attempt (Attempt (ContentType, Content), [Header])
+        z' = z
+        a :: (Attempt (ContentType, Content), [Header])
+        a = attempt (\e -> (failure e, [])) id z'
+        (b, headers) = a
+    return $ attempt (\e -> (Left (toErrorResult e, headers))) (Right . toResponse headers) b
     where
-        takeAllExceptions :: IO (Attempt x) -> IO (Attempt x)
+        takeAllExceptions :: MonadFailure SomeException m => IO x -> IO (m x)
         takeAllExceptions ioa =
-            Control.Exception.catch ioa (return . someFailure)
-        someFailure :: Control.Exception.SomeException -> Attempt v -- FIXME
-        someFailure = failure
+            Control.Exception.catch (return `fmap` ioa) (\e -> return $ failure (e :: SomeException))
         toErrorResult :: Exception e => e -> ErrorResult
         toErrorResult e =
             case cast e of
                 Just x -> x
                 Nothing -> InternalError $ show e
-        toResponse :: ((ContentType, Content), [Header]) -> Response
-        toResponse ((ct, c), hs) = Response 200 hs ct c
+        toResponse :: [Header] -> (ContentType, Content) -> Response
+        toResponse hs (ct, c) = Response 200 hs ct c
 
 joinHandler :: Monad m
             => [ContentType]
@@ -136,7 +144,7 @@ runHandler eh wrapper ctypesAll (HandlerT inside) rr = do
 
 ------ Special handlers
 errorResult :: ErrorResult -> HandlerIO a
-errorResult = lift . lift . failure -- FIXME more instances in Attempt?
+errorResult = lift . failure -- FIXME more instances in Attempt?
 
 -- | Redirect to the given URL.
 redirect :: String -> HandlerIO a
@@ -164,4 +172,4 @@ header :: Monad m => String -> String -> HandlerT m ()
 header a = addHeader . Header a
 
 addHeader :: Monad m => Header -> HandlerT m ()
-addHeader = tell . return
+addHeader = lift . lift . tell . return
