@@ -24,8 +24,8 @@ module Web.Restful
 
 import Data.Object
 import Web.Restful.Request
-import Web.Restful.Response hiding (testSuite)
+import Web.Restful.Response
 import Web.Restful.Application
 import Web.Restful.Definitions
 import Web.Restful.Handler
-import Web.Restful.Resource hiding (testSuite)
+import Web.Restful.Resource

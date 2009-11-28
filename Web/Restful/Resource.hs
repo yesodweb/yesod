@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE StandaloneDeriving #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Resource
@@ -21,8 +23,10 @@ module Web.Restful.Resource
     , checkPattern
     , validatePatterns
     , checkResourceName
+#if TEST
       -- * Testing
     , testSuite
+#endif
     ) where
 
 import Data.List.Split (splitOn)
@@ -30,14 +34,16 @@ import Web.Restful.Definitions
 import Web.Restful.Handler
 import Data.List (intercalate)
 import Data.Enumerable
-import Control.Monad (replicateM, when)
 import Data.Char (isDigit)
 
+#if TEST
+import Control.Monad (replicateM, when)
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck (testProperty)
 import Test.HUnit hiding (Test)
 import Test.QuickCheck
+#endif
 
 data ResourcePatternPiece =
     Static String
@@ -57,7 +63,7 @@ isSlurp (Slurp _) = True
 isSlurp _ = False
 
 newtype ResourcePattern = ResourcePattern { unRP :: [ResourcePatternPiece] }
-    deriving (Eq, Arbitrary)
+    deriving Eq
 
 fromString :: String -> ResourcePattern
 fromString = ResourcePattern
@@ -74,7 +80,7 @@ class (Show a, Enumerable a) => ResourceName a where
     -- Something like /foo/$bar/baz/ will match the regular expression
     -- /foo/(\\w*)/baz/, matching the middle part with the urlParam bar.
     --
-    -- Also, /foo/*bar/ will match /foo/[anything else], capturing the value
+    -- Also, /foo/\*bar/ will match /foo/<anything else>, capturing the value
     -- into the bar urlParam.
     resourcePattern :: a -> String
 
@@ -152,6 +158,7 @@ validatePatterns (x:xs) =
                    -> [(ResourcePattern, ResourcePattern)]
     validatePatterns' a b = [(a, b) | overlaps (unRP a) (unRP b)]
 
+#if TEST
 ---- Testing
 testSuite :: Test
 testSuite = testGroup "Web.Restful.Resource"
@@ -162,6 +169,8 @@ testSuite = testGroup "Web.Restful.Resource"
     , testProperty "show pattern" prop_showPattern
     , testCase "integers" caseIntegers
     ]
+
+deriving instance Arbitrary ResourcePattern
 
 caseOverlap1 :: Assertion
 caseOverlap1 = assert $ not $ overlaps
@@ -219,3 +228,4 @@ instance Arbitrary ResourcePatternPiece where
         s <- replicateM size $ elements ['a'..'z']
         return $ constr s
     coarbitrary = undefined
+#endif

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Utils
@@ -15,15 +16,19 @@
 module Web.Restful.Utils
     ( parseHttpAccept
     , tryLookup
+#if TEST
     , testSuite
+#endif
     ) where
 
 import Data.List.Split (splitOneOf)
 import Data.Maybe (fromMaybe)
 
+#if TEST
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
+#endif
 
 -- | Parse the HTTP accept string to determine supported content types.
 parseHttpAccept :: String -> [String]
@@ -38,6 +43,7 @@ specialHttpAccept _ = False
 tryLookup :: Eq k => v -> k -> [(k, v)] -> v
 tryLookup def key = fromMaybe def . lookup key
 
+#if TEST
 ----- Testing
 testSuite :: Test
 testSuite = testGroup "Web.Restful.Response"
@@ -50,3 +56,4 @@ caseTryLookup1 = tryLookup "default" "foo" [] @?= "default"
 
 caseTryLookup2 :: Assertion
 caseTryLookup2 = tryLookup "default" "foo" [("foo", "baz")] @?= "baz"
+#endif

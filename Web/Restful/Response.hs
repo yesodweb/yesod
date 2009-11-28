@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeSynonymInstances #-} -- FIXME remove
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Restful.Response
@@ -39,8 +40,10 @@ module Web.Restful.Response
     , genResponse
     , htmlResponse
     , objectResponse
+#if TEST
       -- * Tests
     , testSuite
+#endif
     ) where
 
 import Data.Time.Clock
@@ -55,7 +58,9 @@ import qualified Data.Text.Lazy.Encoding as LTE
 
 import Web.Encodings (formatW3)
 
+#if TEST
 import Test.Framework (testGroup, Test)
+#endif
 
 import Data.Generics
 import Control.Exception (Exception)
@@ -191,8 +196,10 @@ instance HasReps (Reps m) where
     reps = id
 -}
 
+#if TEST
 ----- Testing
 testSuite :: Test
 testSuite = testGroup "Web.Restful.Response"
     [
     ]
+#endif
