@@ -53,8 +53,8 @@ import Data.Object.Translate
 import Data.Object.Instances
 import qualified Data.ByteString as SBS
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Text as ST
 import qualified Data.Text.Lazy as LT
-import qualified Data.Text.Lazy.Encoding as LTE
 
 import Web.Encodings (formatW3)
 
@@ -73,29 +73,30 @@ data Response = Response Int [Header] ContentType Content
 
 type ContentType = String
 
-data Content = ByteString LBS.ByteString
-             | Text LT.Text
-             | TransText ([Language] -> LT.Text)
+-- | FIXME: Lazy in theory is better, but kills actual programs
+data Content = ByteString SBS.ByteString
+             | Text ST.Text
+             | TransText ([Language] -> ST.Text)
 
 runContent :: [Language] -> Content -> LBS.ByteString
-runContent _ (ByteString lbs) = lbs
-runContent _ (Text lt) = LTE.encodeUtf8 lt
-runContent ls (TransText t) = LTE.encodeUtf8 $ t ls
+runContent _ (ByteString sbs) = convertSuccess sbs
+runContent _ (Text lt) = convertSuccess lt
+runContent ls (TransText t) = convertSuccess $ t ls
 
 class ToContent a where
     toContent :: a -> Content
 instance ToContent SBS.ByteString where
-    toContent = ByteString . convertSuccess
-instance ToContent LBS.ByteString where
     toContent = ByteString
+instance ToContent LBS.ByteString where
+    toContent = ByteString . convertSuccess
 instance ToContent String where
-    toContent = Text . LT.pack
+    toContent = Text . convertSuccess
 instance ToContent Text where
-    toContent = Text
+    toContent = Text . convertSuccess
 instance ToContent ([Language] -> String) where
-    toContent f = TransText $ LT.pack . f
+    toContent f = TransText $ convertSuccess . f
 instance ToContent Translator where
-    toContent = TransText
+    toContent f = TransText $ convertSuccess . f
 
 translateContent :: CanTranslate t => t -> Content
 translateContent t = toContent $ translate t
@@ -167,14 +168,14 @@ toPair (Header key value) = return (key, value)
 ------ Generic responses
 -- FIXME move these to Handler?
 -- | Return a response with an arbitrary content type.
-genResponse :: (Monad m, ConvertSuccess t Text)
+genResponse :: (Monad m, ToContent t)
             => ContentType
             -> t
             -> [RepT m]
-genResponse ct t = [(ct, return $ Text $ convertSuccess t)]
+genResponse ct t = [(ct, return $ toContent t)]
 
 -- | Return a response with a text/html content type.
-htmlResponse :: (Monad m, ConvertSuccess t Text) => t -> [RepT m]
+htmlResponse :: (Monad m, ToContent t) => t -> [RepT m]
 htmlResponse = genResponse "text/html"
 
 -- | Return a response from an Object.

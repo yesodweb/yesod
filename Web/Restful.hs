@@ -20,6 +20,7 @@ module Web.Restful
     , module Web.Restful.Definitions
     , module Web.Restful.Handler
     , module Web.Restful.Resource
+    , Application
     ) where
 
 import Data.Object
@@ -29,3 +30,4 @@ import Web.Restful.Application
 import Web.Restful.Definitions
 import Web.Restful.Handler
 import Web.Restful.Resource
+import Hack (Application)
