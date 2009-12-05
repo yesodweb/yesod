@@ -54,11 +54,12 @@ type HandlerT m =
 type HandlerIO = HandlerT IO
 type Handler = HandlerIO [RepT HandlerIO]
 
+-- FIXME shouldn't call error here...
 instance MonadRequestReader HandlerIO where
     askRawRequest = ask
     invalidParam _pt _pn _pe = error "invalidParam"
     authRequired = error "authRequired"
-instance Exception e => MonadFailure e HandlerIO where
+instance Exception e => Failure e HandlerIO where
     failure = error "HandlerIO failure"
 
 class ToHandler a where

@@ -27,7 +27,7 @@ import Web.Encodings (encodeJson)
 import Text.Yaml (encodeText)
 import qualified Data.Text.Lazy as LT
 import Data.Text.Lazy (Text)
-import Data.Convertible
+import Data.Convertible.Text
 
 newtype Json = Json { unJson :: Text }
 instance ConvertAttempt (Object Text Text) Json where

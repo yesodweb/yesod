@@ -43,7 +43,7 @@ import Web.Restful.Definitions
 import Web.Restful.Constants
 import Web.Restful.Resource
 
-import Data.Convertible
+import Data.Convertible.Text
 import Control.Arrow ((***))
 
 -- | A data type that can be turned into a Hack application.

@@ -65,7 +65,7 @@ import Test.Framework (testGroup, Test)
 import Data.Generics
 import Control.Exception (Exception)
 import Data.Maybe (fromJust)
-import Data.Convertible
+import Data.Convertible.Text
 
 import Data.Text.Lazy (Text)
 

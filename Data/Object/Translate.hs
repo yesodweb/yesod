@@ -31,7 +31,7 @@ module Data.Object.Translate
 
 import Data.Maybe (fromMaybe)
 import Data.Object
-import Data.Attempt
+import Control.Monad.Attempt
 import Data.Object.Text
 
 -- | Should usually be the well established I18N translation code. Examples
