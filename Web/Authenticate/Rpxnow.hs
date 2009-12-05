@@ -21,7 +21,7 @@ import Text.JSON -- FIXME use Data.Object.JSON
 import Network.HTTP.Wget
 import Data.Maybe (isJust, fromJust)
 import Control.Monad.Trans
-import Control.Monad.Failure
+import Control.Failure
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
