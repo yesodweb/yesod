@@ -1,5 +1,5 @@
 name:            restful
-version:         0.1.11
+version:         0.1.12
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -21,32 +21,27 @@ library
     else
         Buildable: True
     build-depends:   base >= 4 && < 5,
-                     old-locale >= 1.0.0.1,
-                     time >= 1.1.3,
-                     hack-middleware-clientsession,
-                     hack-middleware-jsonp >= 0.0.2,
-                     hack-middleware-cleanpath >= 0.0.1,
-                     hack-middleware-gzip,
-                     hack-handler-cgi >= 0.0.2,
+                     old-locale >= 1.0.0.1 && < 1.1,
+                     time >= 1.1.3 && < 1.2,
                      hack >= 2009.5.19,
-                     split >= 0.1.1,
-                     authenticate >= 0.2.1,
-                     data-default >= 0.2,
-                     predicates >= 0.1,
-                     bytestring >= 0.9.1.4,
-                     bytestring-class,
-                     web-encodings >= 0.0.1,
-                     data-object >= 0.2.0,
-                     data-object-translate,
-                     yaml >= 0.2.0,
-                     enumerable >= 0.0.3,
-                     directory >= 1,
-                     transformers >= 0.1.4.0,
-                     monads-fd >= 0.0.0.1,
-                     attempt >= 0.0.2,
+                     split >= 0.1.1 && < 0.2,
+                     authenticate >= 0.2.1 && < 0.3,
+                     data-default >= 0.2 && < 0.3,
+                     predicates >= 0.1 && < 0.2,
+                     bytestring >= 0.9.1.4 && < 0.10,
+                     web-encodings >= 0.2.0 && < 0.3,
+                     data-object >= 0.2.0 && < 0.3,
+                     yaml >= 0.2.0 && < 0.3,
+                     enumerable >= 0.0.3 && < 0.1,
+                     directory >= 1 && < 1.1,
+                     transformers >= 0.1.4.0 && < 0.2,
+                     monads-fd >= 0.0.0.1 && < 0.1,
+                     attempt >= 0.0.2 && < 0.1,
                      syb,
-                     text >= 0.5,
-                     convertible >= 1.2.0
+                     text >= 0.5 && < 0.6,
+                     convertible >= 1.2.0 && < 1.3,
+                     clientsession >= 0.0.1 && < 0.1,
+                     zlib >= 0.5.2.0 && < 0.6
     exposed-modules: Web.Restful,
                      Web.Restful.Constants,
                      Web.Restful.Request,
@@ -57,11 +52,16 @@ library
                      Web.Restful.Application,
                      Web.Restful.Resource,
                      Data.Object.Instances,
+                     Data.Object.Translate,
                      Hack.Middleware.MethodOverride,
+                     Hack.Middleware.ClientSession,
+                     Hack.Middleware.Jsonp,
+                     Hack.Middleware.CleanPath,
+                     Hack.Middleware.Gzip,
                      Web.Restful.Helpers.Auth,
                      Web.Restful.Helpers.Static,
-                     Web.Restful.Response.AtomFeed,
-                     Web.Restful.Response.Sitemap
+                     Web.Restful.Helpers.AtomFeed,
+                     Web.Restful.Helpers.Sitemap
     ghc-options:     -Wall -Werror
 
 executable             runtests

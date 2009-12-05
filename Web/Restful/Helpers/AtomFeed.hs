@@ -14,7 +14,7 @@
 --
 ---------------------------------------------------------
 
-module Web.Restful.Response.AtomFeed
+module Web.Restful.Helpers.AtomFeed
     ( AtomFeed (..)
     , AtomFeedEntry (..)
     ) where

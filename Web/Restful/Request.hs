@@ -56,6 +56,7 @@ import Web.Encodings
 import Data.Time.Calendar (Day, fromGregorian)
 import Data.Char (isDigit)
 import Data.Object.Translate (Language)
+import qualified Data.ByteString.Lazy as BL
 
 -- $param_overview
 -- In Restful, all of the underlying parameter values are strings. They can
@@ -231,7 +232,7 @@ data RawRequest = RawRequest
     , rawGetParams :: [(ParamName, ParamValue)]
     , rawPostParams :: [(ParamName, ParamValue)]
     , rawCookies :: [(ParamName, ParamValue)]
-    , rawFiles :: [(ParamName, FileInfo)]
+    , rawFiles :: [(ParamName, FileInfo String BL.ByteString)]
     , rawEnv :: Hack.Env
     , rawLanguages :: [Language]
     }

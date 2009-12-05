@@ -43,6 +43,9 @@ import Web.Restful.Definitions
 import Web.Restful.Constants
 import Web.Restful.Resource
 
+import Data.Convertible
+import Control.Arrow ((***))
+
 -- | A data type that can be turned into a Hack application.
 class ResourceName a => RestfulApp a where
     -- | The encryption key to be used for encrypting client sessions.
@@ -160,9 +163,15 @@ envToRawRequest urlParams' env =
         gets' = decodeUrlPairs $ Hack.queryString env :: [(String, String)]
         clength = tryLookup "0" "Content-Length" $ Hack.http env
         ctype = tryLookup "" "Content-Type" $ Hack.http env
-        (posts, files) = parsePost ctype clength
+        (posts, files) = map (convertSuccess *** convertSuccess) ***
+                         map (convertSuccess *** convertFileInfo)
+                       $ parsePost ctype clength
                        $ Hack.hackInput env
         rawCookie = tryLookup "" "Cookie" $ Hack.http env
         cookies' = decodeCookies rawCookie :: [(String, String)]
         langs = ["en"] -- FIXME
      in RawRequest rawPieces urlParams' gets' posts cookies' files env langs
+
+convertFileInfo :: ConvertSuccess a b => FileInfo a c -> FileInfo b c
+convertFileInfo (FileInfo a b c) =
+    FileInfo (convertSuccess a) (convertSuccess b) c

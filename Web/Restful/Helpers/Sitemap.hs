@@ -14,7 +14,7 @@
 --
 ---------------------------------------------------------
 
-module Web.Restful.Response.Sitemap
+module Web.Restful.Helpers.Sitemap
     ( sitemap
     , robots
     , SitemapUrl (..)
