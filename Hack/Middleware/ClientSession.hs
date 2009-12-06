@@ -58,12 +58,12 @@ clientsession cnames key app env = do
         cookiesRaw :: String
         cookiesRaw = intercalate "; " $ map (\(k, v) -> k ++ "=" ++ v)
                      cookies
-        remoteHost :: String
-        remoteHost = fromMaybe "" $ lookup "REMOTE_HOST" $ http env
+        remoteHost' :: String
+        remoteHost' = remoteHost env
     now <- getCurrentTime
     let convertedCookies =
             takeJusts $
-            map (decodeCookie key now remoteHost) interceptCookies
+            map (decodeCookie key now remoteHost') interceptCookies
     let env' = env { http = ("Cookie", cookiesRaw)
                             : filter (fst `equals` "Cookie") (http env)
                             ++ nonCookies
@@ -77,7 +77,7 @@ clientsession cnames key app env = do
     let exp = fromIntegral twentyMinutes `addUTCTime` now
     let formattedExp = formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" exp
     let oldCookies = filter (\(k, _) -> not $ k `elem` map fst interceptHeaders) convertedCookies
-    let newCookies = map (setCookie key exp formattedExp remoteHost) $
+    let newCookies = map (setCookie key exp formattedExp remoteHost') $
                      oldCookies ++ interceptHeaders
     let res' = res { headers = newCookies ++ headers' }
     return res'
