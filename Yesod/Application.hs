@@ -5,7 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Application
+-- Module        : Yesod.Application
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -16,7 +16,7 @@
 -- Defining the application.
 --
 ---------------------------------------------------------
-module Web.Restful.Application
+module Yesod.Application
     (
       toHackApp
     , RestfulApp (..)
@@ -35,13 +35,13 @@ import Hack.Middleware.Gzip
 import Hack.Middleware.Jsonp
 import Hack.Middleware.MethodOverride
 
-import Web.Restful.Request
-import Web.Restful.Response
-import Web.Restful.Utils
-import Web.Restful.Handler
-import Web.Restful.Definitions
-import Web.Restful.Constants
-import Web.Restful.Resource
+import Yesod.Request
+import Yesod.Response
+import Yesod.Utils
+import Yesod.Handler
+import Yesod.Definitions
+import Yesod.Constants
+import Yesod.Resource
 
 import Data.Convertible.Text
 import Control.Arrow ((***))

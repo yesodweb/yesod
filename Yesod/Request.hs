@@ -2,7 +2,7 @@
 {-# LANGUAGE OverlappingInstances #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Request
+-- Module        : Yesod.Request
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -13,7 +13,7 @@
 -- Code for extracting parameters from requests.
 --
 ---------------------------------------------------------
-module Web.Restful.Request
+module Yesod.Request
     (
       -- * Parameter
       -- $param_overview
@@ -49,8 +49,8 @@ module Web.Restful.Request
 
 import qualified Hack
 import Data.Function.Predicate (equals)
-import Web.Restful.Constants
-import Web.Restful.Utils
+import Yesod.Constants
+import Yesod.Utils
 import Control.Applicative (Applicative (..))
 import Web.Encodings
 import Data.Time.Calendar (Day, fromGregorian)

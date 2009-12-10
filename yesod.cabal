@@ -1,15 +1,16 @@
-name:            restful
-version:         0.1.12
+name:            yesod
+version:         0.0.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        A Restful front controller built on Hack.
+description:     This package stradles the line between framework and simply a controller. It provides minimal support for model and view, mostly focusing on making a controller which adheres strictly to RESTful principles.
 category:        Web
 stability:       unstable
 cabal-version:   >= 1.2
 build-type:      Simple
-homepage:        http://github.com/snoyberg/restful/tree/master
+homepage:        http://github.com/snoyberg/yesod
 
 flag buildtests
   description: Build the executable to run unit tests
@@ -42,15 +43,15 @@ library
                      convertible-text >= 0.0.0 && < 0.1,
                      clientsession >= 0.0.1 && < 0.1,
                      zlib >= 0.5.2.0 && < 0.6
-    exposed-modules: Web.Restful,
-                     Web.Restful.Constants,
-                     Web.Restful.Request,
-                     Web.Restful.Response,
-                     Web.Restful.Utils,
-                     Web.Restful.Definitions,
-                     Web.Restful.Handler,
-                     Web.Restful.Application,
-                     Web.Restful.Resource,
+    exposed-modules: Yesod,
+                     Yesod.Constants,
+                     Yesod.Request,
+                     Yesod.Response,
+                     Yesod.Utils,
+                     Yesod.Definitions,
+                     Yesod.Handler,
+                     Yesod.Application,
+                     Yesod.Resource,
                      Data.Object.Instances,
                      Data.Object.Translate,
                      Hack.Middleware.MethodOverride,
@@ -58,10 +59,10 @@ library
                      Hack.Middleware.Jsonp,
                      Hack.Middleware.CleanPath,
                      Hack.Middleware.Gzip,
-                     Web.Restful.Helpers.Auth,
-                     Web.Restful.Helpers.Static,
-                     Web.Restful.Helpers.AtomFeed,
-                     Web.Restful.Helpers.Sitemap
+                     Yesod.Helpers.Auth,
+                     Yesod.Helpers.Static,
+                     Yesod.Helpers.AtomFeed,
+                     Yesod.Helpers.Sitemap
     ghc-options:     -Wall -Werror
 
 executable             runtests
@@ -76,4 +77,4 @@ executable             runtests
     else
         Buildable: False
     ghc-options:     -Wall
-    main-is:         Test.hs
+    main-is:         runtests.hs

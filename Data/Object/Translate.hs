@@ -30,7 +30,6 @@ module Data.Object.Translate
     ) where
 
 import Data.Maybe (fromMaybe)
-import Data.Object
 import Control.Monad.Attempt
 import Data.Object.Text
 

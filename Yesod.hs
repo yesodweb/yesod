@@ -1,6 +1,6 @@
 ---------------------------------------------------------
 --
--- Module        : Web.Restful
+-- Module        : Yesod
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -11,23 +11,23 @@
 -- Lightweight framework for designing RESTful APIs.
 --
 ---------------------------------------------------------
-module Web.Restful
+module Yesod
     (
       module Data.Object
-    , module Web.Restful.Request
-    , module Web.Restful.Response
-    , module Web.Restful.Application
-    , module Web.Restful.Definitions
-    , module Web.Restful.Handler
-    , module Web.Restful.Resource
+    , module Yesod.Request
+    , module Yesod.Response
+    , module Yesod.Application
+    , module Yesod.Definitions
+    , module Yesod.Handler
+    , module Yesod.Resource
     , Application
     ) where
 
 import Data.Object
-import Web.Restful.Request
-import Web.Restful.Response
-import Web.Restful.Application
-import Web.Restful.Definitions
-import Web.Restful.Handler
-import Web.Restful.Resource
+import Yesod.Request
+import Yesod.Response
+import Yesod.Application
+import Yesod.Definitions
+import Yesod.Handler
+import Yesod.Resource
 import Hack (Application)

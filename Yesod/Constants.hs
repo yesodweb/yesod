@@ -1,6 +1,6 @@
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Constants
+-- Module        : Yesod.Constants
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -11,7 +11,7 @@
 -- Constants used throughout Restful.
 --
 ---------------------------------------------------------
-module Web.Restful.Constants
+module Yesod.Constants
     ( authCookieName
     ) where
 

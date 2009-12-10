@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Helpers.Auth
+-- Module        : Yesod.Helpers.Auth
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -13,7 +13,7 @@
 -- Authentication through the authentication package.
 --
 ---------------------------------------------------------
-module Web.Restful.Helpers.Auth
+module Yesod.Helpers.Auth
     ( AuthResource
     , authHandler
     , authResourcePattern
@@ -26,8 +26,8 @@ import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
 import Data.Enumerable
 
-import Web.Restful
-import Web.Restful.Constants
+import Yesod
+import Yesod.Constants
 
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad.Reader

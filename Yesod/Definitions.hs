@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Definitions
+-- Module        : Yesod.Definitions
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -13,7 +13,7 @@
 -- Definitions throughout Restful.
 --
 ---------------------------------------------------------
-module Web.Restful.Definitions
+module Yesod.Definitions
     ( Verb (..)
     , toVerb
     , Resource

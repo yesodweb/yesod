@@ -6,7 +6,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Resource
+-- Module        : Yesod.Resource
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -17,7 +17,7 @@
 -- Defines the Resource class.
 --
 ---------------------------------------------------------
-module Web.Restful.Resource
+module Yesod.Resource
     ( ResourceName (..)
     , fromString
     , checkPattern
@@ -30,8 +30,8 @@ module Web.Restful.Resource
     ) where
 
 import Data.List.Split (splitOn)
-import Web.Restful.Definitions
-import Web.Restful.Handler
+import Yesod.Definitions
+import Yesod.Handler
 import Data.List (intercalate)
 import Data.Enumerable
 import Data.Char (isDigit)
@@ -161,7 +161,7 @@ validatePatterns (x:xs) =
 #if TEST
 ---- Testing
 testSuite :: Test
-testSuite = testGroup "Web.Restful.Resource"
+testSuite = testGroup "Yesod.Resource"
     [ testCase "non-overlap" caseOverlap1
     , testCase "overlap" caseOverlap2
     , testCase "overlap-slurp" caseOverlap3

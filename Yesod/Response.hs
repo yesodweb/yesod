@@ -6,7 +6,7 @@
 {-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Response
+-- Module        : Yesod.Response
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -17,7 +17,7 @@
 -- Generating responses.
 --
 ---------------------------------------------------------
-module Web.Restful.Response
+module Yesod.Response
     ( Response (..)
       -- * Representations
     , RepT
@@ -47,7 +47,6 @@ module Web.Restful.Response
     ) where
 
 import Data.Time.Clock
-import Data.Object
 import Data.Object.Text
 import Data.Object.Translate
 import Data.Object.Instances
@@ -200,7 +199,7 @@ instance HasReps (Reps m) where
 #if TEST
 ----- Testing
 testSuite :: Test
-testSuite = testGroup "Web.Restful.Response"
+testSuite = testGroup "Yesod.Response"
     [
     ]
 #endif

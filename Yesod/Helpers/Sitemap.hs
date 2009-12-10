@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Response.AtomFeed
+-- Module        : Yesod.Response.AtomFeed
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -14,7 +14,7 @@
 --
 ---------------------------------------------------------
 
-module Web.Restful.Helpers.Sitemap
+module Yesod.Helpers.Sitemap
     ( sitemap
     , robots
     , SitemapUrl (..)
@@ -22,11 +22,11 @@ module Web.Restful.Helpers.Sitemap
     , SitemapChangeFreq (..)
     ) where
 
-import Web.Restful.Handler
-import Web.Restful.Response
+import Yesod.Handler
+import Yesod.Response
 import Web.Encodings
 import qualified Hack
-import Web.Restful.Request
+import Yesod.Request
 import Data.Time (UTCTime)
 
 data SitemapLoc = AbsLoc String | RelLoc String

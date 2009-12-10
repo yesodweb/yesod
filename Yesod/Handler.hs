@@ -5,7 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Handler
+-- Module        : Yesod.Handler
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -16,7 +16,7 @@
 -- Define Handler stuff.
 --
 ---------------------------------------------------------
-module Web.Restful.Handler
+module Yesod.Handler
     ( -- * Handler monad
       HandlerT
     , HandlerIO
@@ -33,8 +33,8 @@ module Web.Restful.Handler
     , header
     ) where
 
-import Web.Restful.Request
-import Web.Restful.Response
+import Yesod.Request
+import Yesod.Response
 
 import Control.Exception hiding (Handler)
 

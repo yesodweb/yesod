@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Utils
+-- Module        : Yesod.Utils
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -13,7 +13,7 @@
 -- These are all functions which could be exported to another library.
 --
 ---------------------------------------------------------
-module Web.Restful.Utils
+module Yesod.Utils
     ( parseHttpAccept
     , tryLookup
 #if TEST
@@ -46,7 +46,7 @@ tryLookup def key = fromMaybe def . lookup key
 #if TEST
 ----- Testing
 testSuite :: Test
-testSuite = testGroup "Web.Restful.Response"
+testSuite = testGroup "Yesod.Response"
     [ testCase "tryLookup1" caseTryLookup1
     , testCase "tryLookup2" caseTryLookup2
     ]

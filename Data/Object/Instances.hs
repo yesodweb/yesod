@@ -20,11 +20,10 @@ module Data.Object.Instances
     , Html (..)
     ) where
 
-import Data.Object
 import Data.Object.Text
 import qualified Data.ByteString.Lazy as B
 import Web.Encodings (encodeJson)
-import Text.Yaml (encodeText)
+import Text.Yaml (encodeText')
 import qualified Data.Text.Lazy as LT
 import Data.Text.Lazy (Text)
 import Data.Convertible.Text
@@ -65,7 +64,7 @@ newtype Yaml = Yaml { unYaml :: Text }
 instance ConvertAttempt (Object Text Text) Yaml where
     convertAttempt = return . convertSuccess
 instance ConvertSuccess (Object Text Text) Yaml where
-    convertSuccess = Yaml . encodeText
+    convertSuccess = Yaml . convertSuccess . encodeText'
 
 -- | Represents as an entire HTML 5 document by using the following:
 --

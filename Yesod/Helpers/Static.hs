@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Helpers.Static
+-- Module        : Yesod.Helpers.Static
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -13,7 +13,7 @@
 -- Serve static files from a Restful app.
 --
 ---------------------------------------------------------
-module Web.Restful.Helpers.Static
+module Yesod.Helpers.Static
     ( serveStatic
     , FileLookup
     , fileLookupDir
@@ -23,7 +23,7 @@ import qualified Data.ByteString as B
 import System.Directory (doesFileExist)
 import Control.Applicative ((<$>))
 
-import Web.Restful
+import Yesod
 
 type FileLookup = FilePath -> IO (Maybe B.ByteString)
 

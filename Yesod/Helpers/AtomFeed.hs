@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
--- Module        : Web.Restful.Response.AtomFeed
+-- Module        : Yesod.Response.AtomFeed
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -14,12 +14,12 @@
 --
 ---------------------------------------------------------
 
-module Web.Restful.Helpers.AtomFeed
+module Yesod.Helpers.AtomFeed
     ( AtomFeed (..)
     , AtomFeedEntry (..)
     ) where
 
-import Web.Restful.Response
+import Yesod.Response
 
 import Data.Time.Clock
 import Web.Encodings
