@@ -8,4 +8,4 @@
 > main = defaultMainWithHooks (simpleUserHooks { runTests = runTests' })
 
 > runTests' :: a -> b -> c -> d -> IO ()
-> runTests' _ _ _ _ = system "runhaskell Test.hs" >> return ()
+> runTests' _ _ _ _ = system "runhaskell -DTEST runtests.hs" >> return ()
