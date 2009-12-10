@@ -10,7 +10,10 @@
 -- Stability     : Unstable
 -- Portability   : portable
 --
--- Serve static files from a Restful app.
+-- Serve static files from a Yesod app.
+--
+-- This is most useful for standalone testing. When running on a production
+-- server (like Apache), just let the server do the static serving.
 --
 ---------------------------------------------------------
 module Yesod.Helpers.Static

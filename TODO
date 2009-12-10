@@ -1,1 +1,17 @@
 HTML sitemap generation
+Cleanup Data.Object.Translate
+Remove Data.Object.Instances (Web.Types?)
+Possibly unify ResourceName and RestfulApp?
+Expand Yesod.Definitions?
+Cleanup Parameter stuff. Own module? Interface with formlets?
+Merge MonadRequestReader class with other Handler stuff
+SitemapLoc: what's the point again?
+Authentication via e-mail address built in. (eaut.org)
+OpenID 2 stuff (for direct Google login).
+Simple model information (settings files, etc) in RestfulApp
+Is there a mimetype package on hackage for Yesod.Helpers.Static?
+The RepT stuff is hideous.
+More than one type of objectResponse?
+Native support for HStringTemplate.
+Automatic HTML escaping, something smart for templates vs JSON.
+Handler should be a better type, do something about ToHandler.

@@ -8,7 +8,7 @@
 -- Stability     : Stable
 -- Portability   : portable
 --
--- Constants used throughout Restful.
+-- Constants used throughout Yesod.
 --
 ---------------------------------------------------------
 module Yesod.Constants

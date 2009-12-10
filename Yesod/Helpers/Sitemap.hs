@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
--- Module        : Yesod.Response.AtomFeed
+-- Module        : Yesod.Helpers.Sitemap
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --

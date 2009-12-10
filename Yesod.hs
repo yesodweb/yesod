@@ -13,8 +13,7 @@
 ---------------------------------------------------------
 module Yesod
     (
-      module Data.Object
-    , module Yesod.Request
+      module Yesod.Request
     , module Yesod.Response
     , module Yesod.Application
     , module Yesod.Definitions
@@ -23,7 +22,6 @@ module Yesod
     , Application
     ) where
 
-import Data.Object
 import Yesod.Request
 import Yesod.Response
 import Yesod.Application

@@ -14,7 +14,7 @@
 -- Stability     : Stable
 -- Portability   : portable
 --
--- Defines the Resource class.
+-- Defines the ResourceName class.
 --
 ---------------------------------------------------------
 module Yesod.Resource
@@ -65,6 +65,7 @@ isSlurp _ = False
 newtype ResourcePattern = ResourcePattern { unRP :: [ResourcePatternPiece] }
     deriving Eq
 
+-- | FIXME not a good name for the function. Use convertible
 fromString :: String -> ResourcePattern
 fromString = ResourcePattern
            . map fromString' . filter (not . null) . splitOn "/"
