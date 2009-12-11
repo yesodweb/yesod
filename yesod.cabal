@@ -42,7 +42,10 @@ library
                      text >= 0.5 && < 0.6,
                      convertible-text >= 0.0.0 && < 0.1,
                      clientsession >= 0.0.1 && < 0.1,
-                     zlib >= 0.5.2.0 && < 0.6
+                     zlib >= 0.5.2.0 && < 0.6,
+                     containers >= 0.2.0.1 && < 0.3,
+                     HStringTemplate >= 0.6.2 && < 0.7,
+                     data-object-json >= 0.0.0 && < 0.1
     exposed-modules: Yesod,
                      Yesod.Constants,
                      Yesod.Request,
@@ -52,6 +55,7 @@ library
                      Yesod.Handler,
                      Yesod.Application,
                      Yesod.Resource,
+                     Data.Object.Html,
                      Data.Object.Instances,
                      Data.Object.Translate,
                      Hack.Middleware.MethodOverride,
