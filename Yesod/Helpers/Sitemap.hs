@@ -22,6 +22,7 @@ module Yesod.Helpers.Sitemap
     , SitemapChangeFreq (..)
     ) where
 
+import Yesod.Definitions
 import Yesod.Handler
 import Yesod.Response
 import Web.Encodings
@@ -92,7 +93,6 @@ sitemap urls' = do
     urls <- liftIO urls'
     return $ reps $ SitemapResponse req urls
 
-robots :: Handler
-robots = do
-    ar <- approot
+robots :: Approot -> Handler
+robots (Approot ar) = do
     return $ genResponse "text/plain" $ "Sitemap: " ++ ar ++ "sitemap.xml"
