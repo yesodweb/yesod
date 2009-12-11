@@ -46,7 +46,7 @@ tryLookup def key = fromMaybe def . lookup key
 #if TEST
 ----- Testing
 testSuite :: Test
-testSuite = testGroup "Yesod.Response"
+testSuite = testGroup "Yesod.Utils"
     [ testCase "tryLookup1" caseTryLookup1
     , testCase "tryLookup2" caseTryLookup2
     ]
