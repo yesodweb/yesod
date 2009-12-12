@@ -37,6 +37,12 @@ import Data.Enumerable
 import Data.Char (isDigit)
 
 #if TEST
+import Yesod.Rep hiding (testSuite)
+#else
+import Yesod.Rep
+#endif
+
+#if TEST
 import Control.Monad (replicateM, when)
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
@@ -86,7 +92,7 @@ class (Show a, Enumerable a) => ResourceName a where
     resourcePattern :: a -> String
 
     -- | Find the handler for each resource name/verb pattern.
-    getHandler :: a -> Verb -> Handler
+    getHandler :: a -> Verb -> Handler [(ContentType, Content)] -- FIXME
 
 type SMap = [(String, String)]
 

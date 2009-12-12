@@ -19,7 +19,8 @@ module Yesod.Helpers.AtomFeed
     , AtomFeedEntry (..)
     ) where
 
-import Yesod.Response
+import Yesod.Rep
+import Data.Convertible.Text (cs)
 
 import Data.Time.Clock
 import Web.Encodings
@@ -31,9 +32,9 @@ data AtomFeed = AtomFeed
     , atomUpdated :: UTCTime
     , atomEntries :: [AtomFeedEntry]
     }
-instance Monad m => HasReps AtomFeed m where
-    reps e =
-        [ ("application/atom+xml", return $ toContent $ show e)
+instance HasReps AtomFeed where
+    reps =
+        [ (TypeAtom, cs . show)
         ]
 
 data AtomFeedEntry = AtomFeedEntry

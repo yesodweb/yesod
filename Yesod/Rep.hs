@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 -- | Representations of data. A representation is basically how you display
 -- information in a certain mime-type. For example, tree-style data can easily
 -- be displayed as both JSON and Yaml.
@@ -26,12 +28,15 @@
 module Yesod.Rep
     (
       ContentType (..)
-    , Content
+    , Content (..)
     , Rep
     , Reps
     , HasReps (..)
     , chooseRep
     -- FIXME TemplateFile or some such...
+      -- * Specific types of representations
+    , Plain (..)
+    , plain
 #if TEST
     , testSuite
 #endif
@@ -58,21 +63,46 @@ import Test.HUnit hiding (Test)
 
 data ContentType =
     TypeHtml
+    | TypePlain
     | TypeJson
+    | TypeXml
+    | TypeAtom
+    | TypeJpeg
+    | TypePng
+    | TypeGif
+    | TypeJavascript
+    | TypeCss
+    | TypeFlv
+    | TypeOgv
+    | TypeOctet
     | TypeOther String
-    deriving Eq
 instance Show ContentType where
     show TypeHtml = "text/html"
+    show TypePlain = "text/plain"
     show TypeJson = "application/json"
+    show TypeXml = "text/xml"
+    show TypeAtom = "application/atom+xml"
+    show TypeJpeg = "image/jpeg"
+    show TypePng = "image/png"
+    show TypeGif = "image/gif"
+    show TypeJavascript = "text/javascript"
+    show TypeCss = "text/css"
+    show TypeFlv = "video/x-flv"
+    show TypeOgv = "video/ogg"
+    show TypeOctet = "application/octet-stream"
     show (TypeOther s) = s
+instance Eq ContentType where
+    x == y = show x == show y
 
-newtype Content = Content ByteString
+newtype Content = Content { unContent :: ByteString }
     deriving (Eq, Show)
 
 instance ConvertSuccess Text Content where
     convertSuccess = Content . cs
 instance ConvertSuccess ByteString Content where
     convertSuccess = Content
+instance ConvertSuccess String Content where
+    convertSuccess = Content . cs
 
 type Rep a = (ContentType, a -> Content)
 type Reps a = [Rep a]
@@ -81,25 +111,32 @@ type Reps a = [Rep a]
 -- one representation for each type.
 class HasReps a where
     reps :: Reps a
+instance HasReps [(ContentType, Content)] where
+    reps = [(TypeOther "FIXME", const $ Content $ cs "FIXME")]
 
-chooseRep :: (Applicative f, HasReps a)
-          => f a
+-- FIXME done badly, needs cleanup
+chooseRep :: HasReps a
+          => a
           -> [ContentType]
-          -> f (ContentType, Content)
-chooseRep fa ts =
+          -> (ContentType, Content)
+chooseRep a ts =
     let choices = rs' ++ rs
-        helper2 (ct, f) =
-            let fbs = f `fmap` fa
-             in pure (\bs -> (ct, bs)) <*> fbs
+        helper2 (ct, f) = (ct, f a)
      in if null rs
             then error "Invalid empty reps"
-            else helper2 (head choices)
+            else helper2 $ head choices
     where
         rs = reps
         rs' = filter (\r -> fst r `elem` ts) rs
         -- for type signature stuff
         _ignored = pure (undefined :: Content) `asTypeOf`
-                   (snd (head rs) `fmap` fa)
+                   (snd (head rs) )
+
+newtype Plain = Plain Text
+    deriving (Eq, Show)
+
+plain :: ConvertSuccess x Text => x -> Plain
+plain = Plain . cs
 
 -- Useful instances of HasReps
 instance HasReps HtmlObject where
@@ -112,13 +149,13 @@ instance HasReps HtmlObject where
 caseChooseRep :: Assertion
 caseChooseRep = do
     let content = "IGNOREME"
-        a = Just $ toHtmlObject content
+        a = toHtmlObject content
         htmlbs = Content . cs . unHtmlDoc . cs $ toHtmlObject content
         jsonbs = Content . cs $ "\"" ++ content ++ "\""
-    chooseRep a [TypeHtml] @?= Just (TypeHtml, htmlbs)
-    chooseRep a [TypeJson] @?= Just (TypeJson, jsonbs)
-    chooseRep a [TypeHtml, TypeJson] @?= Just (TypeHtml, htmlbs)
-    chooseRep a [TypeOther "foo", TypeJson] @?= Just (TypeJson, jsonbs)
+    chooseRep a [TypeHtml] @?= (TypeHtml, htmlbs)
+    chooseRep a [TypeJson] @?= (TypeJson, jsonbs)
+    chooseRep a [TypeHtml, TypeJson] @?= (TypeHtml, htmlbs)
+    chooseRep a [TypeOther "foo", TypeJson] @?= (TypeJson, jsonbs)
 
 testSuite :: Test
 testSuite = testGroup "Yesod.Rep"

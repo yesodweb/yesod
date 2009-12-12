@@ -7,7 +7,7 @@ module Yesod.Yesod
 
 import Yesod.Rep
 import Data.Object.Html (toHtmlObject)
-import Yesod.Response hiding (reps, ContentType, Content, chooseRep)
+import Yesod.Response
 import Yesod.Request
 import Yesod.Constants
 --import Yesod.Definitions
@@ -43,7 +43,7 @@ class Yesod a where
                 ]
 
     -- | Output error response pages.
-    errorHandler :: a -> RawRequest -> ErrorResult -> [ContentType] -> MyIdentity (ContentType, Content) -- FIXME better type sig?
+    errorHandler :: a -> RawRequest -> ErrorResult -> [ContentType] -> (ContentType, Content) -- FIXME better type sig?
     errorHandler = defaultErrorHandler
     -- | Whether or not we should check for overlapping resource names.
     checkOverlaps :: a -> Bool
@@ -60,20 +60,20 @@ defaultErrorHandler :: a
                     -> RawRequest
                     -> ErrorResult
                     -> [ContentType]
-                    -> MyIdentity (ContentType, Content)
-defaultErrorHandler _ rr NotFound = chooseRep $ pure . toHtmlObject $
+                    -> (ContentType, Content)
+defaultErrorHandler _ rr NotFound = chooseRep $ toHtmlObject $
                                    "Not found: " ++ show rr
 defaultErrorHandler _ _ (Redirect url) =
-        chooseRep $ pure . toHtmlObject $ "Redirect to: " ++ url
+        chooseRep $ toHtmlObject $ "Redirect to: " ++ url
 defaultErrorHandler _ _ (InternalError e) =
-        chooseRep $ pure . toHtmlObject $ "Internal server error: " ++ e
+        chooseRep $ toHtmlObject $ "Internal server error: " ++ e
 defaultErrorHandler _ _ (InvalidArgs ia) =
-        chooseRep $ pure $ toHtmlObject
+        chooseRep $ toHtmlObject
             [ ("errorMsg", toHtmlObject "Invalid arguments")
             , ("messages", toHtmlObject ia)
             ]
 defaultErrorHandler _ _ PermissionDenied =
-        chooseRep $ pure $ toHtmlObject "Permission denied"
+        chooseRep $ toHtmlObject "Permission denied"
 
 toHackApp :: Yesod y => y -> Hack.Application
 toHackApp a env = do

@@ -18,13 +18,10 @@
 ---------------------------------------------------------
 module Yesod.Handler
     ( -- * Handler monad
-      HandlerT
-    , HandlerT' -- FIXME
-    , HandlerIO
-    , Handler
+      Handler
     , runHandler
     , liftIO
-    , ToHandler (..)
+    --, ToHandler (..)
       -- * Special handlers
     , redirect
     , notFound
@@ -36,54 +33,76 @@ module Yesod.Handler
 
 import Yesod.Request
 import Yesod.Response
+import Yesod.Rep
 
 import Control.Exception hiding (Handler)
+import Control.Applicative
 
-import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Monad.Attempt
 
-import Data.Typeable
+--import Data.Typeable
 
 ------ Handler monad
-type HandlerT m =
-    ReaderT RawRequest (
-        AttemptT (
-            WriterT [Header] m
-        )
-    )
-type HandlerIO = HandlerT IO
-type Handler = HandlerIO [RepT HandlerIO]
-type HandlerT' m a =
-    ReaderT RawRequest (
-        AttemptT (
-            WriterT [Header] m
-        )
-    ) a
+newtype Handler a = Handler {
+    unHandler :: RawRequest -> IO ([Header], HandlerContents a)
+}
+data HandlerContents a =
+    forall e. Exception e => HCError e
+    | HCSpecial ErrorResult
+    | HCContent a
 
--- FIXME shouldn't call error here...
-instance MonadRequestReader HandlerIO where
-    askRawRequest = ask
+instance Functor Handler where
+    fmap = liftM
+instance Applicative Handler where
+    pure = return
+    (<*>) = ap
+instance Monad Handler where
+    fail = failureString -- We want to catch all exceptions anyway
+    return x = Handler $ \_ -> return ([], HCContent x)
+    (Handler handler) >>= f = Handler $ \rr -> do
+        (headers, c) <- handler rr
+        (headers', c') <-
+            case c of
+                (HCError e) -> return $ ([], HCError e)
+                (HCSpecial e) -> return $ ([], HCSpecial e)
+                (HCContent a) -> unHandler (f a) rr
+        return (headers ++ headers', c')
+instance MonadIO Handler where
+    liftIO i = Handler $ \_ -> i >>= \i' -> return ([], HCContent i')
+instance Exception e => Failure e Handler where
+    failure e = Handler $ \_ -> return ([], HCError e)
+instance MonadRequestReader Handler where
+    askRawRequest = Handler $ \rr -> return ([], HCContent rr)
     invalidParam _pt _pn _pe = error "invalidParam"
     authRequired = error "authRequired"
-instance Exception e => Failure e HandlerIO where
-    failure = error "HandlerIO failure"
 
+-- FIXME this is a stupid signature
+runHandler :: HasReps a
+           => Handler a
+           -> RawRequest
+           -> [ContentType]
+           -> IO (Either (ErrorResult, [Header]) Response)
+runHandler (Handler handler) rr cts = do
+    (headers, contents) <- handler rr
+    case contents of
+        HCError e -> return $ Left (InternalError $ show e, headers)
+        HCSpecial e -> return $ Left (e, headers)
+        HCContent a ->
+            let (ct, c) = chooseRep a cts
+             in return $ Right $ Response 200 headers ct c
+{- FIXME
 class ToHandler a where
     toHandler :: a -> Handler
 
-{- FIXME
 instance (Request r, ToHandler h) => ToHandler (r -> h) where
     toHandler f = parseRequest >>= toHandler . f
--}
 
 instance ToHandler Handler where
     toHandler = id
 
-{- FIXME
 instance HasReps r HandlerIO => ToHandler (HandlerIO r) where
     toHandler = fmap reps
--}
 
 runHandler :: Handler
            -> RawRequest
@@ -124,6 +143,7 @@ joinHandler cts rs = do
     let (ct, c) = chooseRep cts rs'
     c' <- c
     return (ct, c')
+-}
 
 {-
 runHandler :: (ErrorResult -> Reps)
@@ -151,33 +171,32 @@ runHandler eh wrapper ctypesAll (HandlerT inside) rr = do
 -}
 
 ------ Special handlers
-errorResult :: ErrorResult -> HandlerIO a
-errorResult = lift . failure -- FIXME more instances in Attempt?
+errorResult :: ErrorResult -> Handler a
+errorResult er = Handler $ \_ -> return ([], HCSpecial er)
 
 -- | Redirect to the given URL.
-redirect :: String -> HandlerIO a
+redirect :: String -> Handler a
 redirect = errorResult . Redirect
 
 -- | Return a 404 not found page. Also denotes no handler available.
-notFound :: HandlerIO a
+notFound :: Handler a
 notFound = errorResult NotFound
 
 ------- Headers
 -- | Set the cookie on the client.
-addCookie :: Monad m
-          => Int -- ^ minutes to timeout
+addCookie :: Int -- ^ minutes to timeout
           -> String -- ^ key
           -> String -- ^ value
-          -> HandlerT m ()
+          -> Handler ()
 addCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
-deleteCookie :: Monad m => String -> HandlerT m ()
+deleteCookie :: String -> Handler ()
 deleteCookie = addHeader . DeleteCookie
 
 -- | Set an arbitrary header on the client.
-header :: Monad m => String -> String -> HandlerT m ()
+header :: String -> String -> Handler ()
 header a = addHeader . Header a
 
-addHeader :: Monad m => Header -> HandlerT m ()
-addHeader = lift . lift . tell . return
+addHeader :: Header -> Handler ()
+addHeader h = Handler $ \_ -> return ([h], HCContent ())

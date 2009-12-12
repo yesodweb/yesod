@@ -25,6 +25,7 @@ module Yesod.Application
 import Web.Encodings
 import Data.Enumerable
 import Control.Monad (when)
+import Data.Object.Html
 
 import qualified Hack
 import Hack.Middleware.CleanPath
@@ -40,6 +41,7 @@ import Yesod.Handler
 import Yesod.Definitions
 import Yesod.Constants
 import Yesod.Resource
+import Yesod.Rep
 
 import Data.Convertible.Text
 import Control.Arrow ((***))
@@ -60,7 +62,7 @@ class ResourceName a => RestfulApp a where
                 ]
 
     -- | Output error response pages.
-    errorHandler :: Monad m => a -> RawRequest -> ErrorResult -> [RepT m] -- FIXME better type sig?
+    errorHandler :: a -> RawRequest -> ErrorResult -> HtmlObject -- FIXME better type sig?
 
     -- | Whether or not we should check for overlapping resource names.
     checkOverlaps :: a -> Bool
@@ -100,12 +102,12 @@ takeJusts (Just x:rest) = x : takeJusts rest
 
 toHackApplication :: RestfulApp resourceName
                   => resourceName
-                  -> (resourceName -> Verb -> Handler)
+                  -> (resourceName -> Verb -> Handler [(ContentType, Content)])
                   -> Hack.Application
 toHackApplication sampleRN hm env = do
     -- The following is safe since we run cleanPath as middleware
     let (Right resource) = splitPath $ Hack.pathInfo env
-    let (handler :: Handler, urlParams') =
+    let (handler, urlParams') =
           case findResourceNames resource of
             [] -> (notFound, [])
             ((rn, urlParams''):_) ->
@@ -113,7 +115,7 @@ toHackApplication sampleRN hm env = do
                  in (hm rn verb, urlParams'')
     let rr = envToRawRequest urlParams' env
     let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
-        ctypes' = parseHttpAccept rawHttpAccept
+        ctypes' = map TypeOther $ parseHttpAccept rawHttpAccept
     r <-
         runHandler handler rr ctypes' >>=
         either (applyErrorHandler sampleRN rr ctypes') return
@@ -126,20 +128,19 @@ applyErrorHandler :: (RestfulApp ra, Monad m)
                   -> (ErrorResult, [Header])
                   -> m Response
 applyErrorHandler ra rr cts (er, headers) = do
-    let (ct, c) = chooseRep cts (errorHandler ra rr er)
-    c' <- c
+    let (ct, c) = chooseRep (errorHandler ra rr er) cts
     return $ Response
                 (getStatus er)
                 (getHeaders er ++ headers)
                 ct
-                c'
+                c
 
 responseToHackResponse :: [String] -- ^ language list
                        -> Response -> IO Hack.Response
-responseToHackResponse ls (Response sc hs ct c) = do
+responseToHackResponse _FIXMEls (Response sc hs ct c) = do
     hs' <- mapM toPair hs
-    let hs'' = ("Content-Type", ct) : hs'
-    let asLBS = runContent ls c
+    let hs'' = ("Content-Type", show ct) : hs'
+    let asLBS = unContent c
     return $ Hack.Response sc hs'' asLBS
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest

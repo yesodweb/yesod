@@ -19,15 +19,6 @@
 ---------------------------------------------------------
 module Yesod.Response
     ( Response (..)
-      -- * Representations
-    , RepT
-    , chooseRep
-    , HasReps (..)
-    , ContentType
-      -- * Content
-    , Content
-    , ToContent (..)
-    , runContent
       -- * Abnormal responses
     , ErrorResult (..)
     , getHeaders
@@ -35,21 +26,19 @@ module Yesod.Response
       -- * Header
     , Header (..)
     , toPair
-      -- * Generic responses
-    , genResponse
-    , htmlResponse
 #if TEST
       -- * Tests
     , testSuite
 #endif
     ) where
 
-import Yesod.Definitions
+#if TEST
+import Yesod.Rep hiding (testSuite)
+#else
+import Yesod.Rep
+#endif
+
 import Data.Time.Clock
-import qualified Data.ByteString as SBS
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text as ST
-import qualified Data.Text.Lazy as LT
 
 import Web.Encodings (formatW3)
 
@@ -59,61 +48,8 @@ import Test.Framework (testGroup, Test)
 
 import Data.Generics
 import Control.Exception (Exception)
-import Data.Maybe (fromJust)
-import Data.Convertible.Text
-
-import Data.Text.Lazy (Text)
 
 data Response = Response Int [Header] ContentType Content
-
-type ContentType = String
-
--- | FIXME: Lazy in theory is better, but kills actual programs
-data Content = ByteString SBS.ByteString
-             | Text ST.Text
-             | TransText ([Language] -> ST.Text)
-
-runContent :: [Language] -> Content -> LBS.ByteString
-runContent _ (ByteString sbs) = convertSuccess sbs
-runContent _ (Text lt) = convertSuccess lt
-runContent ls (TransText t) = convertSuccess $ t ls
-
-class ToContent a where
-    toContent :: a -> Content
-instance ToContent SBS.ByteString where
-    toContent = ByteString
-instance ToContent LBS.ByteString where
-    toContent = ByteString . convertSuccess
-instance ToContent String where
-    toContent = Text . convertSuccess
-instance ToContent Text where
-    toContent = Text . convertSuccess
-instance ToContent ([Language] -> String) where
-    toContent f = TransText $ convertSuccess . f
-
-type RepT m = (ContentType, m Content)
-
-chooseRep :: Monad m
-          => [ContentType]
-          -> [RepT m]
-          -> RepT m
-chooseRep cs' rs
-  | null rs = error "All reps must have at least one representation" -- FIXME
-  | otherwise = do
-    let availCs = map fst rs
-    case filter (`elem` availCs) cs' of
-        [] -> head rs
-        [ctype] -> (ctype, fromJust $ lookup ctype rs) -- FIXME
-        _ -> error "Overlapping representations" -- FIXME just take the first?
-
--- | Something which can be represented as multiple content types.
--- Each content type is called a representation of the data.
-class Monad m => HasReps a m where
-    -- | Provide an ordered list of possible representations, depending on
-    -- content type. If the user asked for a specific response type (like
-    -- text/html), then that will get priority. If not, then the first
-    -- element in this list will be used.
-    reps :: a -> [RepT m]
 
 -- | Abnormal return codes.
 data ErrorResult =
@@ -154,19 +90,6 @@ toPair (DeleteCookie key) = return
     ("Set-Cookie",
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
 toPair (Header key value) = return (key, value)
-
------- Generic responses
--- FIXME move these to Handler?
--- | Return a response with an arbitrary content type.
-genResponse :: (Monad m, ToContent t)
-            => ContentType
-            -> t
-            -> [RepT m]
-genResponse ct t = [(ct, return $ toContent t)]
-
--- | Return a response with a text/html content type.
-htmlResponse :: (Monad m, ToContent t) => t -> [RepT m]
-htmlResponse = genResponse "text/html"
 
 #if TEST
 ----- Testing

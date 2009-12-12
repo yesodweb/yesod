@@ -22,11 +22,12 @@ module Yesod.Helpers.Static
     , fileLookupDir
     ) where
 
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as B
 import System.Directory (doesFileExist)
 import Control.Applicative ((<$>))
 
 import Yesod
+import Yesod.Rep
 
 type FileLookup = FilePath -> IO (Maybe B.ByteString)
 
@@ -39,30 +40,30 @@ fileLookupDir dir fp = do
         then Just <$> B.readFile fp'
         else return Nothing
 
-serveStatic :: FileLookup -> Verb -> Handler
+serveStatic :: FileLookup -> Verb -> Handler [(ContentType, Content)]
 serveStatic fl Get = getStatic fl
 serveStatic _ _ = notFound
 
-getStatic :: FileLookup -> Handler
+getStatic :: FileLookup -> Handler [(ContentType, Content)]
 getStatic fl = do
     fp <- urlParam "filepath" -- FIXME check for ..
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
-        Just bs -> return [(mimeType $ ext fp, return $ toContent bs)]
+        Just bs -> return [(mimeType $ ext fp, Content bs)]
 
-mimeType :: String -> String
-mimeType "jpg" = "image/jpeg"
-mimeType "jpeg" = "image/jpeg"
-mimeType "js" = "text/javascript"
-mimeType "css" = "text/css"
-mimeType "html" = "text/html"
-mimeType "png" = "image/png"
-mimeType "gif" = "image/gif"
-mimeType "txt" = "text/plain"
-mimeType "flv" = "video/x-flv"
-mimeType "ogv" = "video/ogg"
-mimeType _ = "application/octet-stream"
+mimeType :: String -> ContentType
+mimeType "jpg" = TypeJpeg
+mimeType "jpeg" = TypeJpeg
+mimeType "js" = TypeJavascript
+mimeType "css" = TypeCss
+mimeType "html" = TypeHtml
+mimeType "png" = TypePng
+mimeType "gif" = TypeGif
+mimeType "txt" = TypePlain
+mimeType "flv" = TypeFlv
+mimeType "ogv" = TypeOgv
+mimeType _ = TypeOctet
 
 ext :: String -> String
 ext = reverse . fst . break (== '.') . reverse

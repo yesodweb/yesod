@@ -112,6 +112,9 @@ instance ConvertSuccess HtmlObject JsonObject where
 instance ConvertSuccess HtmlObject JsonDoc where
     convertSuccess = cs . (cs :: HtmlObject -> JsonObject)
 
+instance ToObject Html String Html where
+    toObject = Scalar
+
 instance ToSElem HtmlObject where
     toSElem (Scalar h) = STR $ TL.unpack $ cs h
     toSElem (Sequence hs) = LI $ map toSElem hs

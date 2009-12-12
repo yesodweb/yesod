@@ -26,6 +26,9 @@ import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
 import Data.Enumerable
 
+import Data.Object.Html
+import Data.Convertible.Text (cs)
+
 import Yesod
 import Yesod.Constants
 
@@ -57,7 +60,7 @@ instance Enumerable AuthResource where
 
 newtype RpxnowApiKey = RpxnowApiKey String
 
-authHandler :: Maybe RpxnowApiKey -> AuthResource -> Verb -> Handler
+authHandler :: Maybe RpxnowApiKey -> AuthResource -> Verb -> Handler HtmlObject
 authHandler _ Check Get = authCheck
 authHandler _ Logout Get = authLogout
 authHandler _ Openid Get = authOpenidForm
@@ -85,7 +88,7 @@ instance Show OIDFormReq where
     show (OIDFormReq (Just s) _) = "<p class='message'>" ++ encodeHtml s ++
                                  "</p>"
 
-authOpenidForm :: Handler
+authOpenidForm :: Handler HtmlObject
 authOpenidForm = do
     m@(OIDFormReq _ dest) <- parseRequest
     let html =
@@ -97,9 +100,9 @@ authOpenidForm = do
     case dest of
         Just dest' -> addCookie 120 "DEST" dest'
         Nothing -> return ()
-    return $ htmlResponse html
+    return $ toHtmlObject $ Html $ cs html
 
-authOpenidForward :: Handler
+authOpenidForward :: Handler HtmlObject
 authOpenidForward = do
     oid <- getParam "openid"
     env <- parseEnv
@@ -112,7 +115,7 @@ authOpenidForward = do
       redirect
       res
 
-authOpenidComplete :: Handler
+authOpenidComplete :: Handler HtmlObject
 authOpenidComplete = do
     gets' <- rawGetParams <$> askRawRequest
     dest <- cookieParam "DEST"
@@ -138,7 +141,7 @@ chopHash ('#':rest) = rest
 chopHash x = x
 
 rpxnowLogin :: String -- ^ api key
-            -> Handler
+            -> Handler HtmlObject
 rpxnowLogin apiKey = do
     token <- anyParam "token"
     postDest <- postParam "dest"
@@ -154,24 +157,17 @@ rpxnowLogin apiKey = do
     header authCookieName $ Rpxnow.identifier ident
     redirect dest
 
-authCheck :: Handler
-authCheck = error "authCheck"
-
-authLogout :: Handler
-authLogout = error "authLogout"
-{- FIXME
-authCheck :: Handler
+authCheck :: Handler HtmlObject
 authCheck = do
     ident <- maybeIdentifier
     case ident of
-        Nothing -> return $ objectResponse [("status", "notloggedin")]
-        Just i -> return $ objectResponse
+        Nothing -> return $ toHtmlObject [("status", "notloggedin")]
+        Just i -> return $ toHtmlObject
             [ ("status", "loggedin")
             , ("ident", i)
             ]
 
-authLogout :: Handler
+authLogout :: Handler HtmlObject
 authLogout = do
     deleteCookie authCookieName
-    return $ objectResponse [("status", "loggedout")]
--}
+    return $ toHtmlObject [("status", "loggedout")]

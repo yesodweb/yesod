@@ -24,11 +24,12 @@ module Yesod.Helpers.Sitemap
 
 import Yesod.Definitions
 import Yesod.Handler
-import Yesod.Response
+import Yesod.Rep
 import Web.Encodings
 import qualified Hack
 import Yesod.Request
 import Data.Time (UTCTime)
+import Data.Convertible.Text (cs)
 
 data SitemapLoc = AbsLoc String | RelLoc String
 data SitemapChangeFreq = Always
@@ -55,7 +56,7 @@ data SitemapUrl = SitemapUrl
     }
 data SitemapRequest = SitemapRequest String Int
 data SitemapResponse = SitemapResponse SitemapRequest [SitemapUrl]
-instance Show SitemapResponse where
+instance Show SitemapResponse where -- FIXME very ugly, use Text instead
     show (SitemapResponse (SitemapRequest host port) urls) =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++
         "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">" ++
@@ -80,19 +81,19 @@ instance Show SitemapResponse where
             showLoc (AbsLoc s) = s
             showLoc (RelLoc s) = prefix ++ s
 
-instance Monad m => HasReps SitemapResponse m where
-    reps res =
-        [ ("text/xml", return $ toContent $ show res)
+instance HasReps SitemapResponse where
+    reps =
+        [ (TypeXml, cs . show)
         ]
 
-sitemap :: IO [SitemapUrl] -> Handler
+sitemap :: IO [SitemapUrl] -> Handler SitemapResponse
 sitemap urls' = do
     env <- parseEnv
     -- FIXME
     let req = SitemapRequest (Hack.serverName env) (Hack.serverPort env)
     urls <- liftIO urls'
-    return $ reps $ SitemapResponse req urls
+    return $ SitemapResponse req urls
 
-robots :: Approot -> Handler
+robots :: Approot -> Handler Plain
 robots (Approot ar) = do
-    return $ genResponse "text/plain" $ "Sitemap: " ++ ar ++ "sitemap.xml"
+    return $ plain $ "Sitemap: " ++ ar ++ "sitemap.xml"
