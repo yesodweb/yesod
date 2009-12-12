@@ -50,11 +50,11 @@ import qualified Hack
 import Data.Function.Predicate (equals)
 import Yesod.Constants
 import Yesod.Utils
+import Yesod.Definitions
 import Control.Applicative (Applicative (..))
 import Web.Encodings
 import Data.Time.Calendar (Day, fromGregorian)
 import Data.Char (isDigit)
-import Data.Object.Translate (Language)
 import qualified Data.ByteString.Lazy as BL
 
 -- $param_overview

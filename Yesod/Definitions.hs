@@ -18,6 +18,7 @@ module Yesod.Definitions
     , toVerb
     , Resource
     , Approot (..)
+    , Language
     ) where
 
 import qualified Hack
@@ -37,3 +38,5 @@ type Resource = [String]
 -- programatically, but due to ambiguities in different ways of doing URL
 -- rewriting for (fast)cgi applications, it should be supplied by the user.
 newtype Approot = Approot { unApproot :: String }
+
+type Language = String

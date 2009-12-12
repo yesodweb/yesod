@@ -28,7 +28,6 @@ module Yesod.Response
     , Content
     , ToContent (..)
     , runContent
-    , translateContent
       -- * Abnormal responses
     , ErrorResult (..)
     , getHeaders
@@ -46,9 +45,9 @@ module Yesod.Response
 #endif
     ) where
 
+import Yesod.Definitions
 import Data.Time.Clock
 import Data.Object.Text
-import Data.Object.Translate
 import Data.Object.Instances
 import qualified Data.ByteString as SBS
 import qualified Data.ByteString.Lazy as LBS
@@ -94,11 +93,6 @@ instance ToContent Text where
     toContent = Text . convertSuccess
 instance ToContent ([Language] -> String) where
     toContent f = TransText $ convertSuccess . f
-instance ToContent Translator where
-    toContent f = TransText $ convertSuccess . f
-
-translateContent :: CanTranslate t => t -> Content
-translateContent t = toContent $ translate t
 
 type RepT m = (ContentType, m Content)
 
