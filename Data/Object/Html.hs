@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 -- | An 'Html' data type and associated 'HtmlObject'. This has useful
 -- conversions in web development:
 --
@@ -17,6 +18,9 @@ module Data.Object.Html
       Html (..)
     , HtmlDoc (..)
     , HtmlObject
+      -- * Standard 'Object' functions
+    , toHtmlObject
+    , fromHtmlObject
 #if TEST
     , testSuite
 #endif
@@ -24,13 +28,14 @@ module Data.Object.Html
 
 import Data.Generics
 import Data.Object.Text
-import Data.Object.JSON
+import Data.Object.Json
 import Data.Convertible.Text
 import qualified Data.Text.Lazy as TL
 import Web.Encodings
 import Text.StringTemplate.Classes
 import qualified Data.Map as Map
 import Control.Arrow (second)
+import Data.Attempt
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -48,12 +53,15 @@ data Html =
     deriving (Eq, Show, Typeable)
 
 -- | A full HTML document.
-newtype HtmlDoc = HtmlDoc Text
+newtype HtmlDoc = HtmlDoc { unHtmlDoc :: Text }
 
 type HtmlObject = Object String Html
 
-cs :: ConvertSuccess x y => x -> y
-cs = convertSuccess
+toHtmlObject :: ToObject x String Html => x -> HtmlObject
+toHtmlObject = toObject
+
+fromHtmlObject :: FromObject x String Html => HtmlObject -> Attempt x
+fromHtmlObject = fromObject
 
 instance ConvertSuccess Html Text where
     convertSuccess (Html t) = t
@@ -94,11 +102,14 @@ instance ConvertSuccess HtmlObject Html where
                 , Tag "dd" [] [cs v]
                 ]
 
+instance ConvertSuccess HtmlObject HtmlDoc where
+    convertSuccess = cs . (cs :: HtmlObject -> Html)
+
 instance ConvertSuccess Html JsonScalar where
     convertSuccess = cs . (cs :: Html -> Text)
 instance ConvertSuccess HtmlObject JsonObject where
     convertSuccess = mapKeysValues convertSuccess convertSuccess
-instance ConvertSuccess HtmlObject Json where
+instance ConvertSuccess HtmlObject JsonDoc where
     convertSuccess = cs . (cs :: HtmlObject -> JsonObject)
 
 instance ToSElem HtmlObject where
@@ -152,7 +163,7 @@ caseJson = do
     let expected = "{\"bar\":\"<img src=\\\"file.jpg\\\">\"" ++
                    ",\"foo\":[\"<br>\",\"&lt;hr&gt;\"]" ++
                    "}"
-    Json (cs expected) @=? cs content
+    JsonDoc (cs expected) @=? cs content
 
 testSuite :: Test
 testSuite = testGroup "Data.Object.Html"
@@ -162,3 +173,7 @@ testSuite = testGroup "Data.Object.Html"
     ]
 
 #endif
+
+instance ToObject Char String Html where
+    toObject c = Scalar $ Text $ cs [c]
+    listToObject = Scalar . Text . cs

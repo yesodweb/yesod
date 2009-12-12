@@ -106,11 +106,11 @@ chooseRep :: Monad m
           => [ContentType]
           -> [RepT m]
           -> RepT m
-chooseRep cs rs
+chooseRep cs' rs
   | null rs = error "All reps must have at least one representation" -- FIXME
   | otherwise = do
     let availCs = map fst rs
-    case filter (`elem` availCs) cs of
+    case filter (`elem` availCs) cs' of
         [] -> head rs
         [ctype] -> (ctype, fromJust $ lookup ctype rs) -- FIXME
         _ -> error "Overlapping representations" -- FIXME just take the first?

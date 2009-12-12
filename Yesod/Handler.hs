@@ -19,6 +19,7 @@
 module Yesod.Handler
     ( -- * Handler monad
       HandlerT
+    , HandlerT' -- FIXME
     , HandlerIO
     , Handler
     , runHandler
@@ -53,6 +54,12 @@ type HandlerT m =
     )
 type HandlerIO = HandlerT IO
 type Handler = HandlerIO [RepT HandlerIO]
+type HandlerT' m a =
+    ReaderT RawRequest (
+        AttemptT (
+            WriterT [Header] m
+        )
+    ) a
 
 -- FIXME shouldn't call error here...
 instance MonadRequestReader HandlerIO where
