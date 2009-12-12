@@ -55,7 +55,6 @@ library
                      Yesod.Resource
                      Yesod.Yesod
                      Data.Object.Html
-                     Data.Object.Instances
                      Hack.Middleware.MethodOverride
                      Hack.Middleware.ClientSession
                      Hack.Middleware.Jsonp

@@ -155,6 +155,12 @@ rpxnowLogin apiKey = do
     redirect dest
 
 authCheck :: Handler
+authCheck = error "authCheck"
+
+authLogout :: Handler
+authLogout = error "authLogout"
+{- FIXME
+authCheck :: Handler
 authCheck = do
     ident <- maybeIdentifier
     case ident of
@@ -168,3 +174,4 @@ authLogout :: Handler
 authLogout = do
     deleteCookie authCookieName
     return $ objectResponse [("status", "loggedout")]
+-}

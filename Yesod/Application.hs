@@ -23,8 +23,6 @@ module Yesod.Application
     ) where
 
 import Web.Encodings
-import Data.Object.Text
-import Data.Object.String
 import Data.Enumerable
 import Control.Monad (when)
 
@@ -63,19 +61,6 @@ class ResourceName a => RestfulApp a where
 
     -- | Output error response pages.
     errorHandler :: Monad m => a -> RawRequest -> ErrorResult -> [RepT m] -- FIXME better type sig?
-    errorHandler _ rr NotFound = reps $ toTextObject $
-                                   "Not found: " ++ show rr
-    errorHandler _ _ (Redirect url) =
-        reps $ toTextObject $ "Redirect to: " ++ url
-    errorHandler _ _ (InternalError e) =
-        reps $ toTextObject $ "Internal server error: " ++ e
-    errorHandler _ _ (InvalidArgs ia) =
-        reps $ toTextObject $ toStringObject
-            [ ("errorMsg", toStringObject "Invalid arguments")
-            , ("messages", toStringObject ia)
-            ]
-    errorHandler _ _ PermissionDenied =
-        reps $ toTextObject "Permission denied"
 
     -- | Whether or not we should check for overlapping resource names.
     checkOverlaps :: a -> Bool

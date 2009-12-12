@@ -38,7 +38,6 @@ module Yesod.Response
       -- * Generic responses
     , genResponse
     , htmlResponse
-    , objectResponse
 #if TEST
       -- * Tests
     , testSuite
@@ -47,8 +46,6 @@ module Yesod.Response
 
 import Yesod.Definitions
 import Data.Time.Clock
-import Data.Object.Text
-import Data.Object.Instances
 import qualified Data.ByteString as SBS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as ST
@@ -170,25 +167,6 @@ genResponse ct t = [(ct, return $ toContent t)]
 -- | Return a response with a text/html content type.
 htmlResponse :: (Monad m, ToContent t) => t -> [RepT m]
 htmlResponse = genResponse "text/html"
-
--- | Return a response from an Object.
-objectResponse :: (Monad m, ToObject o Text Text) => o -> [RepT m]
-objectResponse = reps . toTextObject
-
--- HasReps instances
-instance Monad m => HasReps () m where
-    reps _ = [("text/plain", return $ toContent "")]
-instance Monad m => HasReps TextObject m where
-    reps o =
-        [ ("text/html", return $ toContent $ unHtml $ convertSuccess o)
-        , ("application/json", return $ toContent $ unJson $ convertSuccess o)
-        , ("text/yaml", return $ toContent $ unYaml $ convertSuccess o)
-        ]
-
-{- FIXME
-instance HasReps (Reps m) where
-    reps = id
--}
 
 #if TEST
 ----- Testing
