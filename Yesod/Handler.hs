@@ -19,6 +19,7 @@
 module Yesod.Handler
     ( -- * Handler monad
       Handler
+    , getYesod
     , runHandler
     , liftIO
     --, ToHandler (..)
@@ -44,20 +45,20 @@ import Control.Monad.Attempt
 --import Data.Typeable
 
 ------ Handler monad
-newtype Handler a = Handler {
-    unHandler :: RawRequest -> IO ([Header], HandlerContents a)
+newtype Handler yesod a = Handler {
+    unHandler :: (RawRequest, yesod) -> IO ([Header], HandlerContents a)
 }
 data HandlerContents a =
     forall e. Exception e => HCError e
     | HCSpecial ErrorResult
     | HCContent a
 
-instance Functor Handler where
+instance Functor (Handler yesod) where
     fmap = liftM
-instance Applicative Handler where
+instance Applicative (Handler yesod) where
     pure = return
     (<*>) = ap
-instance Monad Handler where
+instance Monad (Handler yesod) where
     fail = failureString -- We want to catch all exceptions anyway
     return x = Handler $ \_ -> return ([], HCContent x)
     (Handler handler) >>= f = Handler $ \rr -> do
@@ -68,23 +69,27 @@ instance Monad Handler where
                 (HCSpecial e) -> return $ ([], HCSpecial e)
                 (HCContent a) -> unHandler (f a) rr
         return (headers ++ headers', c')
-instance MonadIO Handler where
+instance MonadIO (Handler yesod) where
     liftIO i = Handler $ \_ -> i >>= \i' -> return ([], HCContent i')
-instance Exception e => Failure e Handler where
+instance Exception e => Failure e (Handler yesod) where
     failure e = Handler $ \_ -> return ([], HCError e)
-instance MonadRequestReader Handler where
-    askRawRequest = Handler $ \rr -> return ([], HCContent rr)
+instance MonadRequestReader (Handler yesod) where
+    askRawRequest = Handler $ \(rr, _) -> return ([], HCContent rr)
     invalidParam _pt _pn _pe = error "invalidParam"
     authRequired = error "authRequired"
 
+getYesod :: Handler yesod yesod
+getYesod = Handler $ \(_, yesod) -> return ([], HCContent yesod)
+
 -- FIXME this is a stupid signature
 runHandler :: HasReps a
-           => Handler a
+           => Handler yesod a
            -> RawRequest
+           -> yesod
            -> [ContentType]
            -> IO (Either (ErrorResult, [Header]) Response)
-runHandler (Handler handler) rr cts = do
-    (headers, contents) <- handler rr
+runHandler (Handler handler) rr yesod cts = do
+    (headers, contents) <- handler (rr, yesod)
     case contents of
         HCError e -> return $ Left (InternalError $ show e, headers)
         HCSpecial e -> return $ Left (e, headers)
@@ -171,15 +176,15 @@ runHandler eh wrapper ctypesAll (HandlerT inside) rr = do
 -}
 
 ------ Special handlers
-errorResult :: ErrorResult -> Handler a
+errorResult :: ErrorResult -> Handler yesod a
 errorResult er = Handler $ \_ -> return ([], HCSpecial er)
 
 -- | Redirect to the given URL.
-redirect :: String -> Handler a
+redirect :: String -> Handler yesod a
 redirect = errorResult . Redirect
 
 -- | Return a 404 not found page. Also denotes no handler available.
-notFound :: Handler a
+notFound :: Handler yesod a
 notFound = errorResult NotFound
 
 ------- Headers
@@ -187,16 +192,16 @@ notFound = errorResult NotFound
 addCookie :: Int -- ^ minutes to timeout
           -> String -- ^ key
           -> String -- ^ value
-          -> Handler ()
+          -> Handler yesod ()
 addCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
-deleteCookie :: String -> Handler ()
+deleteCookie :: String -> Handler yesod ()
 deleteCookie = addHeader . DeleteCookie
 
 -- | Set an arbitrary header on the client.
-header :: String -> String -> Handler ()
+header :: String -> String -> Handler yesod ()
 header a = addHeader . Header a
 
-addHeader :: Header -> Handler ()
+addHeader :: Header -> Handler yesod ()
 addHeader h = Handler $ \_ -> return ([h], HCContent ())

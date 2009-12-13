@@ -102,7 +102,7 @@ takeJusts (Just x:rest) = x : takeJusts rest
 
 toHackApplication :: RestfulApp resourceName
                   => resourceName
-                  -> (resourceName -> Verb -> Handler [(ContentType, Content)])
+                  -> (resourceName -> Verb -> Handler resourceName [(ContentType, Content)])
                   -> Hack.Application
 toHackApplication sampleRN hm env = do
     -- The following is safe since we run cleanPath as middleware
@@ -117,7 +117,7 @@ toHackApplication sampleRN hm env = do
     let rawHttpAccept = tryLookup "" "Accept" $ Hack.http env
         ctypes' = map TypeOther $ parseHttpAccept rawHttpAccept
     r <-
-        runHandler handler rr ctypes' >>=
+        runHandler handler rr sampleRN ctypes' >>=
         either (applyErrorHandler sampleRN rr ctypes') return
     responseToHackResponse (rawLanguages rr) r
 

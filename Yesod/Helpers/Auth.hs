@@ -60,7 +60,7 @@ instance Enumerable AuthResource where
 
 newtype RpxnowApiKey = RpxnowApiKey String
 
-authHandler :: Maybe RpxnowApiKey -> AuthResource -> Verb -> Handler HtmlObject
+authHandler :: Maybe RpxnowApiKey -> AuthResource -> Verb -> Handler y HtmlObject
 authHandler _ Check Get = authCheck
 authHandler _ Logout Get = authLogout
 authHandler _ Openid Get = authOpenidForm
@@ -88,7 +88,7 @@ instance Show OIDFormReq where
     show (OIDFormReq (Just s) _) = "<p class='message'>" ++ encodeHtml s ++
                                  "</p>"
 
-authOpenidForm :: Handler HtmlObject
+authOpenidForm :: Handler y HtmlObject
 authOpenidForm = do
     m@(OIDFormReq _ dest) <- parseRequest
     let html =
@@ -102,7 +102,7 @@ authOpenidForm = do
         Nothing -> return ()
     return $ toHtmlObject $ Html $ cs html
 
-authOpenidForward :: Handler HtmlObject
+authOpenidForward :: Handler y HtmlObject
 authOpenidForward = do
     oid <- getParam "openid"
     env <- parseEnv
@@ -115,7 +115,7 @@ authOpenidForward = do
       redirect
       res
 
-authOpenidComplete :: Handler HtmlObject
+authOpenidComplete :: Handler y HtmlObject
 authOpenidComplete = do
     gets' <- rawGetParams <$> askRawRequest
     dest <- cookieParam "DEST"
@@ -141,7 +141,7 @@ chopHash ('#':rest) = rest
 chopHash x = x
 
 rpxnowLogin :: String -- ^ api key
-            -> Handler HtmlObject
+            -> Handler y HtmlObject
 rpxnowLogin apiKey = do
     token <- anyParam "token"
     postDest <- postParam "dest"
@@ -157,7 +157,7 @@ rpxnowLogin apiKey = do
     header authCookieName $ Rpxnow.identifier ident
     redirect dest
 
-authCheck :: Handler HtmlObject
+authCheck :: Handler y HtmlObject
 authCheck = do
     ident <- maybeIdentifier
     case ident of
@@ -167,7 +167,7 @@ authCheck = do
             , ("ident", i)
             ]
 
-authLogout :: Handler HtmlObject
+authLogout :: Handler y HtmlObject
 authLogout = do
     deleteCookie authCookieName
     return $ toHtmlObject [("status", "loggedout")]

@@ -40,11 +40,11 @@ fileLookupDir dir fp = do
         then Just <$> B.readFile fp'
         else return Nothing
 
-serveStatic :: FileLookup -> Verb -> Handler [(ContentType, Content)]
+serveStatic :: FileLookup -> Verb -> Handler y [(ContentType, Content)]
 serveStatic fl Get = getStatic fl
 serveStatic _ _ = notFound
 
-getStatic :: FileLookup -> Handler [(ContentType, Content)]
+getStatic :: FileLookup -> Handler y [(ContentType, Content)]
 getStatic fl = do
     fp <- urlParam "filepath" -- FIXME check for ..
     content <- liftIO $ fl fp

@@ -30,6 +30,7 @@ import qualified Hack
 import Yesod.Request
 import Data.Time (UTCTime)
 import Data.Convertible.Text (cs)
+import Yesod.Yesod
 
 data SitemapLoc = AbsLoc String | RelLoc String
 data SitemapChangeFreq = Always
@@ -86,7 +87,7 @@ instance HasReps SitemapResponse where
         [ (TypeXml, cs . show)
         ]
 
-sitemap :: IO [SitemapUrl] -> Handler SitemapResponse
+sitemap :: IO [SitemapUrl] -> Handler yesod SitemapResponse
 sitemap urls' = do
     env <- parseEnv
     -- FIXME
@@ -94,6 +95,8 @@ sitemap urls' = do
     urls <- liftIO urls'
     return $ SitemapResponse req urls
 
-robots :: Approot -> Handler Plain
-robots (Approot ar) = do
-    return $ plain $ "Sitemap: " ++ ar ++ "sitemap.xml"
+robots :: Yesod yesod => Handler yesod Plain
+robots = do
+    yesod <- getYesod
+    return $ plain $ "Sitemap: " ++ unApproot (approot yesod)
+                                 ++ "sitemap.xml"

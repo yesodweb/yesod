@@ -19,6 +19,7 @@
 ---------------------------------------------------------
 module Yesod.Resource
     ( ResourceName (..)
+    , ResourcePatternString
     , fromString
     , checkPattern
     , validatePatterns
@@ -92,7 +93,9 @@ class (Show a, Enumerable a) => ResourceName a where
     resourcePattern :: a -> String
 
     -- | Find the handler for each resource name/verb pattern.
-    getHandler :: a -> Verb -> Handler [(ContentType, Content)] -- FIXME
+    getHandler :: a -> Verb -> Handler a [(ContentType, Content)] -- FIXME
+
+type ResourcePatternString = String
 
 type SMap = [(String, String)]
 

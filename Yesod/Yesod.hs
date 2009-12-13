@@ -1,7 +1,6 @@
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( Yesod (..)
-    , Handler
     , toHackApp
     ) where
 
@@ -10,10 +9,10 @@ import Data.Object.Html (toHtmlObject)
 import Yesod.Response
 import Yesod.Request
 import Yesod.Constants
---import Yesod.Definitions
---import Yesod.Resource (checkResourceName)
+import Yesod.Definitions
+import Yesod.Resource
+import Yesod.Handler
 
-import Control.Applicative
 --import Control.Monad (when)
 
 import qualified Hack
@@ -23,11 +22,12 @@ import Hack.Middleware.Gzip
 import Hack.Middleware.Jsonp
 import Hack.Middleware.MethodOverride
 
-type Handler a v = a -> IO v -- FIXME
-type HandlerMap a = [(String, [ContentType] -> Handler a Content)]
+type ContentPair = (ContentType, Content)
 
 class Yesod a where
-    handlers :: HandlerMap a
+    handlers ::
+        [(ResourcePatternString,
+          [(Verb, [ContentType] -> Handler a ContentPair)])]
 
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
@@ -43,37 +43,36 @@ class Yesod a where
                 ]
 
     -- | Output error response pages.
-    errorHandler :: a -> RawRequest -> ErrorResult -> [ContentType] -> (ContentType, Content) -- FIXME better type sig?
+    errorHandler :: ErrorResult -> [ContentType] -> Handler a ContentPair
     errorHandler = defaultErrorHandler
+
     -- | Whether or not we should check for overlapping resource names.
     checkOverlaps :: a -> Bool
     checkOverlaps = const True
 
-newtype MyIdentity a = MyIdentity { _unMyIdentity :: a }
-instance Functor MyIdentity where
-    fmap f (MyIdentity a) = MyIdentity $ f a
-instance Applicative MyIdentity where
-    pure = MyIdentity
-    (MyIdentity f) <*> (MyIdentity a) = MyIdentity $ f a
+    -- | An absolute URL to the root of the application.
+    approot :: a -> Approot
 
-defaultErrorHandler :: a
-                    -> RawRequest
-                    -> ErrorResult
+defaultErrorHandler :: Yesod y
+                    => ErrorResult
                     -> [ContentType]
-                    -> (ContentType, Content)
-defaultErrorHandler _ rr NotFound = chooseRep $ toHtmlObject $
-                                   "Not found: " ++ show rr
-defaultErrorHandler _ _ (Redirect url) =
-        chooseRep $ toHtmlObject $ "Redirect to: " ++ url
-defaultErrorHandler _ _ (InternalError e) =
-        chooseRep $ toHtmlObject $ "Internal server error: " ++ e
-defaultErrorHandler _ _ (InvalidArgs ia) =
-        chooseRep $ toHtmlObject
+                    -> Handler y ContentPair
+defaultErrorHandler NotFound cts = do
+    rr <- askRawRequest
+    return $ chooseRep (toHtmlObject $ "Not found: " ++ show rr) cts
+defaultErrorHandler (Redirect url) cts =
+    return $ chooseRep (toHtmlObject $ "Redirect to: " ++ url) cts
+defaultErrorHandler PermissionDenied cts =
+    return $ chooseRep (toHtmlObject "Permission denied") cts
+defaultErrorHandler (InvalidArgs ia) cts =
+    return $ chooseRep (toHtmlObject
             [ ("errorMsg", toHtmlObject "Invalid arguments")
             , ("messages", toHtmlObject ia)
-            ]
-defaultErrorHandler _ _ PermissionDenied =
-        chooseRep $ toHtmlObject "Permission denied"
+            ]) cts
+defaultErrorHandler (InternalError e) cts =
+    return $ chooseRep (toHtmlObject
+                [ ("Internal server error", e)
+                ]) cts
 
 toHackApp :: Yesod y => y -> Hack.Application
 toHackApp a env = do
