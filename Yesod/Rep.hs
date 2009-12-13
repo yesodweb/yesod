@@ -32,7 +32,6 @@ module Yesod.Rep
     , Rep
     , Reps
     , HasReps (..)
-    , chooseRep
     -- FIXME TemplateFile or some such...
       -- * Specific types of representations
     , Plain (..)
@@ -111,15 +110,24 @@ type Reps a = [Rep a]
 -- one representation for each type.
 class HasReps a where
     reps :: Reps a
+    chooseRep :: a -> [ContentType] -> (ContentType, Content)
+    chooseRep = chooseRep'
+
 instance HasReps [(ContentType, Content)] where
-    reps = [(TypeOther "FIXME", const $ Content $ cs "FIXME")]
+    reps = error "reps of [(ContentType, Content)]"
+    chooseRep a cts =
+        case filter (\(ct, _) -> ct `elem` cts) a of
+            ((ct, c):_) -> (ct, c)
+            _ -> case a of
+                    (x:_) -> x
+                    _ -> error "chooseRep [(ContentType, Content)] of empty"
 
 -- FIXME done badly, needs cleanup
-chooseRep :: HasReps a
+chooseRep' :: HasReps a
           => a
           -> [ContentType]
           -> (ContentType, Content)
-chooseRep a ts =
+chooseRep' a ts =
     let choices = rs' ++ rs
         helper2 (ct, f) = (ct, f a)
      in if null rs
@@ -146,8 +154,8 @@ instance HasReps HtmlObject where
         ]
 
 #if TEST
-caseChooseRep :: Assertion
-caseChooseRep = do
+caseChooseRepHO :: Assertion
+caseChooseRepHO = do
     let content = "IGNOREME"
         a = toHtmlObject content
         htmlbs = Content . cs . unHtmlDoc . cs $ toHtmlObject content
@@ -157,8 +165,20 @@ caseChooseRep = do
     chooseRep a [TypeHtml, TypeJson] @?= (TypeHtml, htmlbs)
     chooseRep a [TypeOther "foo", TypeJson] @?= (TypeJson, jsonbs)
 
+caseChooseRepRaw :: Assertion
+caseChooseRepRaw = do
+    let content = Content $ cs "FOO"
+        foo = TypeOther "foo"
+        bar = TypeOther "bar"
+        hasreps = [(TypeHtml, content), (foo, content)]
+    chooseRep hasreps [TypeHtml] @?= (TypeHtml, content)
+    chooseRep hasreps [foo, bar] @?= (foo, content)
+    chooseRep hasreps [bar, foo] @?= (foo, content)
+    chooseRep hasreps [bar] @?= (TypeHtml, content)
+
 testSuite :: Test
 testSuite = testGroup "Yesod.Rep"
-    [ testCase "caseChooseRep" caseChooseRep
+    [ testCase "caseChooseRep HtmlObject" caseChooseRepHO
+    , testCase "caseChooseRep raw" caseChooseRepRaw
     ]
 #endif
