@@ -32,10 +32,10 @@ module Yesod.Rep
     , RepChooser
     , ContentPair
     , HasReps (..)
-    -- FIXME TemplateFile or some such...
       -- * Specific types of representations
     , Plain (..)
     , plain
+    , Template (..)
 #if TEST
     , testSuite
 #endif
@@ -43,6 +43,7 @@ module Yesod.Rep
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Text.Lazy (Text)
+import Data.Maybe (catMaybes)
 
 #if TEST
 import Data.Object.Html hiding (testSuite)
@@ -52,6 +53,7 @@ import Data.Object.Html
 
 import Data.Object.Json
 import Data.Convertible.Text
+import Text.StringTemplate
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -112,12 +114,17 @@ class HasReps a where
     chooseRep :: a -> RepChooser
     chooseRep a ts =
       let (ct, c) =
-            case filter (\(ct', _) -> ct' `elem` ts) reps of
+            case catMaybes $ map helper ts of
                 (x:_) -> x
                 [] -> case reps of
                         [] -> error "Empty reps"
                         (x:_) -> x
        in (ct, c a)
+            where
+                --helper :: ContentType -> Maybe ContentPair
+                helper ct = do
+                    c <- lookup ct reps
+                    return (ct, c)
 
 instance HasReps RepChooser where
     reps = error "reps of RepChooser"
@@ -137,6 +144,14 @@ newtype Plain = Plain Text
 
 plain :: ConvertSuccess x Text => x -> Plain
 plain = Plain . cs
+
+data Template = Template (StringTemplate String) HtmlObject
+instance HasReps Template where
+    reps = [ (TypeHtml,
+              \(Template t h) ->
+                cs $ toString $ setAttribute "o" h t)
+           , (TypeJson, \(Template _ ho) -> cs $ unJsonDoc $ cs ho)
+           ]
 
 -- Useful instances of HasReps
 instance HasReps HtmlObject where
@@ -168,9 +183,25 @@ caseChooseRepRaw = do
     chooseRep hasreps [bar, foo] @?= (foo, content)
     chooseRep hasreps [bar] @?= (TypeHtml, content)
 
+caseChooseRepTemplate :: Assertion
+caseChooseRepTemplate = do
+    let temp = newSTMP "foo:$o.foo$, bar:$o.bar$"
+        ho = toHtmlObject [ ("foo", toHtmlObject "<fooval>")
+                          , ("bar", toHtmlObject ["bar1", "bar2"])
+                          ]
+        hasreps = Template temp ho
+        res1 = cs "foo:&lt;fooval&gt;, bar:bar1bar2"
+        res2 = cs $ "{\"bar\":[\"bar1\",\"bar2\"]," ++
+                    "\"foo\":\"&lt;fooval&gt;\"}"
+    (1, chooseRep hasreps [TypeHtml]) @?= (1, (TypeHtml, res1))
+    (2, chooseRep hasreps [TypeJson]) @?= (2, (TypeJson, res2))
+    (3, chooseRep hasreps [TypeHtml, TypeJson]) @?= (3, (TypeHtml, res1))
+    (4, chooseRep hasreps [TypeJson, TypeHtml]) @?= (4, (TypeJson, res2))
+
 testSuite :: Test
 testSuite = testGroup "Yesod.Rep"
     [ testCase "caseChooseRep HtmlObject" caseChooseRepHO
     , testCase "caseChooseRep raw" caseChooseRepRaw
+    , testCase "caseChooseRep Template" caseChooseRepTemplate
     ]
 #endif
