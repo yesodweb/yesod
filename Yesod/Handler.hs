@@ -100,9 +100,9 @@ runHandler (Handler handler) eh rr y cts = do
         Left e -> do
             Response _ hs ct c <- runHandler (eh e) eh rr y cts
             return $ Response (getStatus e) hs ct c
-        Right a ->
-            let (ct, c) = a cts
-             in return $ Response 200 headers ct c
+        Right a -> do
+            (ct, c) <- a cts
+            return $ Response 200 headers ct c
 {- FIXME
 class ToHandler a where
     toHandler :: a -> Handler

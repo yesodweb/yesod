@@ -36,6 +36,7 @@ module Yesod.Rep
     , Plain (..)
     , plain
     , Template (..)
+    , TemplateFile (..)
 #if TEST
     , testSuite
 #endif
@@ -105,21 +106,22 @@ instance ConvertSuccess String Content where
     convertSuccess = Content . cs
 
 type ContentPair = (ContentType, Content)
-type RepChooser = [ContentType] -> ContentPair
+type RepChooser = [ContentType] -> IO ContentPair
 
 -- | Any type which can be converted to representations. There must be at least
 -- one representation for each type.
 class HasReps a where
-    reps :: [(ContentType, a -> Content)]
+    reps :: [(ContentType, a -> IO Content)]
     chooseRep :: a -> RepChooser
-    chooseRep a ts =
+    chooseRep a ts = do
       let (ct, c) =
             case catMaybes $ map helper ts of
                 (x:_) -> x
                 [] -> case reps of
                         [] -> error "Empty reps"
                         (x:_) -> x
-       in (ct, c a)
+      c' <- c a
+      return (ct, c')
             where
                 --helper :: ContentType -> Maybe ContentPair
                 helper ct = do
@@ -132,7 +134,7 @@ instance HasReps RepChooser where
 
 instance HasReps [(ContentType, Content)] where
     reps = error "reps of [(ContentType, Content)]"
-    chooseRep a cts =
+    chooseRep a cts = return $
         case filter (\(ct, _) -> ct `elem` cts) a of
             ((ct, c):_) -> (ct, c)
             _ -> case a of
@@ -149,15 +151,28 @@ data Template = Template (StringTemplate String) HtmlObject
 instance HasReps Template where
     reps = [ (TypeHtml,
               \(Template t h) ->
-                cs $ toString $ setAttribute "o" h t)
-           , (TypeJson, \(Template _ ho) -> cs $ unJsonDoc $ cs ho)
+                return $ cs $ toString $ setAttribute "o" h t)
+           , (TypeJson, \(Template _ ho) ->
+                            return $ cs $ unJsonDoc $ cs ho)
+           ]
+
+data TemplateFile = TemplateFile FilePath HtmlObject
+instance HasReps TemplateFile where
+    reps = [ (TypeHtml,
+              \(TemplateFile fp h) -> do
+                    contents <- readFile fp
+                    let t = newSTMP contents
+                    return $ cs $ toString $ setAttribute "o" h t
+             )
+           , (TypeJson, \(TemplateFile _ ho) ->
+                            return $ cs $ unJsonDoc $ cs ho)
            ]
 
 -- Useful instances of HasReps
 instance HasReps HtmlObject where
     reps =
-        [ (TypeHtml, cs . unHtmlDoc . cs)
-        , (TypeJson, cs . unJsonDoc . cs)
+        [ (TypeHtml, return . cs . unHtmlDoc . cs)
+        , (TypeJson, return . cs . unJsonDoc . cs)
         ]
 
 #if TEST
@@ -167,10 +182,10 @@ caseChooseRepHO = do
         a = toHtmlObject content
         htmlbs = Content . cs . unHtmlDoc . cs $ toHtmlObject content
         jsonbs = Content . cs $ "\"" ++ content ++ "\""
-    chooseRep a [TypeHtml] @?= (TypeHtml, htmlbs)
-    chooseRep a [TypeJson] @?= (TypeJson, jsonbs)
-    chooseRep a [TypeHtml, TypeJson] @?= (TypeHtml, htmlbs)
-    chooseRep a [TypeOther "foo", TypeJson] @?= (TypeJson, jsonbs)
+    chooseRep a [TypeHtml] >>= (@?= (TypeHtml, htmlbs))
+    chooseRep a [TypeJson] >>= (@?= (TypeJson, jsonbs))
+    chooseRep a [TypeHtml, TypeJson] >>= (@?= (TypeHtml, htmlbs))
+    chooseRep a [TypeOther "foo", TypeJson] >>= (@?= (TypeJson, jsonbs))
 
 caseChooseRepRaw :: Assertion
 caseChooseRepRaw = do
@@ -178,10 +193,10 @@ caseChooseRepRaw = do
         foo = TypeOther "foo"
         bar = TypeOther "bar"
         hasreps = [(TypeHtml, content), (foo, content)]
-    chooseRep hasreps [TypeHtml] @?= (TypeHtml, content)
-    chooseRep hasreps [foo, bar] @?= (foo, content)
-    chooseRep hasreps [bar, foo] @?= (foo, content)
-    chooseRep hasreps [bar] @?= (TypeHtml, content)
+    chooseRep hasreps [TypeHtml] >>= (@?= (TypeHtml, content))
+    chooseRep hasreps [foo, bar] >>= (@?= (foo, content))
+    chooseRep hasreps [bar, foo] >>= (@?= (foo, content))
+    chooseRep hasreps [bar]      >>= (@?= (TypeHtml, content))
 
 caseChooseRepTemplate :: Assertion
 caseChooseRepTemplate = do
@@ -193,15 +208,31 @@ caseChooseRepTemplate = do
         res1 = cs "foo:&lt;fooval&gt;, bar:bar1bar2"
         res2 = cs $ "{\"bar\":[\"bar1\",\"bar2\"]," ++
                     "\"foo\":\"&lt;fooval&gt;\"}"
-    (1, chooseRep hasreps [TypeHtml]) @?= (1, (TypeHtml, res1))
-    (2, chooseRep hasreps [TypeJson]) @?= (2, (TypeJson, res2))
-    (3, chooseRep hasreps [TypeHtml, TypeJson]) @?= (3, (TypeHtml, res1))
-    (4, chooseRep hasreps [TypeJson, TypeHtml]) @?= (4, (TypeJson, res2))
+    chooseRep hasreps [TypeHtml]           >>= (@?= (TypeHtml, res1))
+    chooseRep hasreps [TypeJson]           >>= (@?= (TypeJson, res2))
+    chooseRep hasreps [TypeHtml, TypeJson] >>= (@?= (TypeHtml, res1))
+    chooseRep hasreps [TypeJson, TypeHtml] >>= (@?= (TypeJson, res2))
+
+caseChooseRepTemplateFile :: Assertion
+caseChooseRepTemplateFile = do
+    let temp = "test/rep.st"
+        ho = toHtmlObject [ ("foo", toHtmlObject "<fooval>")
+                          , ("bar", toHtmlObject ["bar1", "bar2"])
+                          ]
+        hasreps = TemplateFile temp ho
+        res1 = cs "foo:&lt;fooval&gt;, bar:bar1bar2"
+        res2 = cs $ "{\"bar\":[\"bar1\",\"bar2\"]," ++
+                    "\"foo\":\"&lt;fooval&gt;\"}"
+    chooseRep hasreps [TypeHtml]           >>= (@?= (TypeHtml, res1))
+    chooseRep hasreps [TypeJson]           >>= (@?= (TypeJson, res2))
+    chooseRep hasreps [TypeHtml, TypeJson] >>= (@?= (TypeHtml, res1))
+    chooseRep hasreps [TypeJson, TypeHtml] >>= (@?= (TypeJson, res2))
 
 testSuite :: Test
 testSuite = testGroup "Yesod.Rep"
     [ testCase "caseChooseRep HtmlObject" caseChooseRepHO
     , testCase "caseChooseRep raw" caseChooseRepRaw
     , testCase "caseChooseRep Template" caseChooseRepTemplate
+    , testCase "caseChooseRep TemplateFile" caseChooseRepTemplateFile
     ]
 #endif

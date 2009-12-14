@@ -34,7 +34,7 @@ data AtomFeed = AtomFeed
     }
 instance HasReps AtomFeed where
     reps =
-        [ (TypeAtom, cs . show)
+        [ (TypeAtom, return . cs . show)
         ]
 
 data AtomFeedEntry = AtomFeedEntry

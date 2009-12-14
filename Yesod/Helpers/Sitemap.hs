@@ -84,7 +84,7 @@ instance Show SitemapResponse where -- FIXME very ugly, use Text instead
 
 instance HasReps SitemapResponse where
     reps =
-        [ (TypeXml, cs . show)
+        [ (TypeXml, return . cs . show)
         ]
 
 sitemap :: IO [SitemapUrl] -> Handler yesod SitemapResponse
