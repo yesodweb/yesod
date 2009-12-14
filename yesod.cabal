@@ -51,7 +51,6 @@ library
                      Yesod.Utils
                      Yesod.Definitions
                      Yesod.Handler
-                     Yesod.Application
                      Yesod.Resource
                      Yesod.Yesod
                      Data.Object.Html

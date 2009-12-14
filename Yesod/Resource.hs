@@ -4,6 +4,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Resource
@@ -18,9 +20,8 @@
 --
 ---------------------------------------------------------
 module Yesod.Resource
-    ( ResourceName (..)
-    , ResourcePatternString
-    , fromString
+    ( ResourcePatternString -- FIXME rename
+    , fromString -- FIXME rename
     , checkPattern
     , validatePatterns
     , checkResourceName
@@ -32,16 +33,12 @@ module Yesod.Resource
 
 import Data.List.Split (splitOn)
 import Yesod.Definitions
-import Yesod.Handler
 import Data.List (intercalate)
-import Data.Enumerable
 import Data.Char (isDigit)
 
-#if TEST
-import Yesod.Rep hiding (testSuite)
-#else
-import Yesod.Rep
-#endif
+import Data.Typeable (Typeable)
+import Control.Exception (Exception)
+import Data.Attempt -- for failure stuff
 
 #if TEST
 import Control.Monad (replicateM, when)
@@ -82,18 +79,6 @@ fromString' ('$':rest) = Dynamic rest
 fromString' ('*':rest) = Slurp rest
 fromString' ('#':rest) = DynInt rest
 fromString' x = Static x
-
-class (Show a, Enumerable a) => ResourceName a where
-    -- | Get the URL pattern for each different resource name.
-    -- Something like /foo/$bar/baz/ will match the regular expression
-    -- /foo/(\\w*)/baz/, matching the middle part with the urlParam bar.
-    --
-    -- Also, /foo/\*bar/ will match /foo/<anything else>, capturing the value
-    -- into the bar urlParam.
-    resourcePattern :: a -> String
-
-    -- | Find the handler for each resource name/verb pattern.
-    getHandler :: a -> Verb -> Handler a [(ContentType, Content)] -- FIXME
 
 type ResourcePatternString = String
 
@@ -150,14 +135,19 @@ overlaps (Static s:x) (DynInt _:y)
     | otherwise = False
 overlaps (Static a:x) (Static b:y) = a == b && overlaps x y
 
-checkResourceName :: (Monad m, ResourceName rn) => rn -> m ()
-checkResourceName rn = do
-    let avs@(y:_) = enumerate
-        _ignore = asTypeOf rn y
-    let patterns = map (fromString . resourcePattern) avs
-    case validatePatterns patterns of
+data OverlappingPatterns =
+    OverlappingPatterns [(ResourcePattern, ResourcePattern)]
+    deriving (Show, Typeable)
+instance Exception OverlappingPatterns
+
+checkResourceName :: MonadFailure OverlappingPatterns f
+                  => [ResourcePatternString]
+                  -> f ()
+checkResourceName patterns' =
+    let patterns = map fromString patterns'
+     in case validatePatterns patterns of
         [] -> return ()
-        x -> fail $ "Overlapping patterns:\n" ++ unlines (map show x)
+        x -> failure $ OverlappingPatterns x
 
 validatePatterns :: [ResourcePattern] -> [(ResourcePattern, ResourcePattern)]
 validatePatterns [] = []

@@ -15,7 +15,7 @@ module Yesod
     (
       module Yesod.Request
     , module Yesod.Response
-    , module Yesod.Application
+    , module Yesod.Yesod
     , module Yesod.Definitions
     , module Yesod.Handler
     , module Yesod.Resource
@@ -24,7 +24,7 @@ module Yesod
 
 import Yesod.Request
 import Yesod.Response
-import Yesod.Application
+import Yesod.Yesod
 import Yesod.Definitions
 import Yesod.Handler
 import Yesod.Resource

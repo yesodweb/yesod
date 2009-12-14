@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverlappingInstances #-} -- Parameter String
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Request
@@ -56,6 +57,9 @@ import Web.Encodings
 import Data.Time.Calendar (Day, fromGregorian)
 import Data.Char (isDigit)
 import qualified Data.ByteString.Lazy as BL
+import Data.Convertible.Text
+import Hack.Middleware.CleanPath (splitPath)
+import Control.Arrow ((***))
 
 -- $param_overview
 -- In Restful, all of the underlying parameter values are strings. They can
@@ -319,3 +323,19 @@ notBlank rp =
   case paramValue rp of
     "" -> invalidParam (paramType rp) (paramName rp) "Required field"
     s -> return s
+
+instance ConvertSuccess ([(ParamName, ParamValue)], Hack.Env) RawRequest where
+  convertSuccess (urlParams', env) =
+    let (Right rawPieces) = splitPath $ Hack.pathInfo env
+        gets' = decodeUrlPairs $ Hack.queryString env :: [(String, String)]
+        clength = tryLookup "0" "Content-Length" $ Hack.http env
+        ctype = tryLookup "" "Content-Type" $ Hack.http env
+        convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
+        (posts, files) = map (convertSuccess *** convertSuccess) ***
+                         map (convertSuccess *** convertFileInfo)
+                       $ parsePost ctype clength
+                       $ Hack.hackInput env
+        rawCookie = tryLookup "" "Cookie" $ Hack.http env
+        cookies' = decodeCookies rawCookie :: [(String, String)]
+        langs = ["en"] -- FIXME
+     in RawRequest rawPieces urlParams' gets' posts cookies' files env langs

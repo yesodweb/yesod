@@ -1,5 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Definitions
@@ -15,22 +14,22 @@
 ---------------------------------------------------------
 module Yesod.Definitions
     ( Verb (..)
-    , toVerb
     , Resource
     , Approot (..)
     , Language
     ) where
 
 import qualified Hack
+import Data.Convertible.Text
 
 data Verb = Get | Put | Delete | Post
     deriving (Eq, Show)
 
-toVerb :: Hack.RequestMethod -> Verb
-toVerb Hack.PUT = Put
-toVerb Hack.DELETE = Delete
-toVerb Hack.POST = Post
-toVerb _ = Get
+instance ConvertSuccess Hack.RequestMethod Verb where
+    convertSuccess Hack.PUT = Put
+    convertSuccess Hack.DELETE = Delete
+    convertSuccess Hack.POST = Post
+    convertSuccess _ = Get
 
 type Resource = [String]
 
