@@ -43,7 +43,6 @@ module Yesod.Rep
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Text.Lazy (Text)
-import Control.Applicative
 
 #if TEST
 import Data.Object.Html hiding (testSuite)
@@ -111,7 +110,14 @@ type RepChooser = [ContentType] -> ContentPair
 class HasReps a where
     reps :: [(ContentType, a -> Content)]
     chooseRep :: a -> RepChooser
-    chooseRep = chooseRep'
+    chooseRep a ts =
+      let (ct, c) =
+            case filter (\(ct', _) -> ct' `elem` ts) reps of
+                (x:_) -> x
+                [] -> case reps of
+                        [] -> error "Empty reps"
+                        (x:_) -> x
+       in (ct, c a)
 
 instance HasReps RepChooser where
     reps = error "reps of RepChooser"
@@ -125,24 +131,6 @@ instance HasReps [(ContentType, Content)] where
             _ -> case a of
                     (x:_) -> x
                     _ -> error "chooseRep [(ContentType, Content)] of empty"
-
--- FIXME done badly, needs cleanup
-chooseRep' :: HasReps a
-          => a
-          -> [ContentType]
-          -> (ContentType, Content)
-chooseRep' a ts =
-    let choices = rs' ++ rs
-        helper2 (ct, f) = (ct, f a)
-     in if null rs
-            then error "Invalid empty reps"
-            else helper2 $ head choices
-    where
-        rs = reps
-        rs' = filter (\r -> fst r `elem` ts) rs
-        -- for type signature stuff
-        _ignored = pure (undefined :: Content) `asTypeOf`
-                   (snd (head rs) )
 
 newtype Plain = Plain Text
     deriving (Eq, Show)
