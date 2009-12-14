@@ -20,8 +20,7 @@
 --
 ---------------------------------------------------------
 module Yesod.Resource
-    ( ResourcePatternString -- FIXME rename
-    , fromString -- FIXME rename
+    ( ResourcePattern
     , checkPattern
     , validatePatterns
     , checkResourceName
@@ -39,6 +38,7 @@ import Data.Char (isDigit)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Data.Attempt -- for failure stuff
+import Data.Convertible.Text
 
 #if TEST
 import Control.Monad (replicateM, when)
@@ -49,38 +49,39 @@ import Test.HUnit hiding (Test)
 import Test.QuickCheck
 #endif
 
-data ResourcePatternPiece =
+-- | Resource Pattern Piece
+data RPP =
     Static String
     | Dynamic String
     | DynInt String
     | Slurp String -- ^ take up the rest of the pieces. must be last
     deriving Eq
-instance Show ResourcePattern where
+
+-- | Resource Pattern
+newtype RP = RP { unRP :: [RPP] }
+    deriving Eq
+
+instance Show RP where
     show = concatMap helper . unRP where
         helper (Static s) = '/' : s
         helper (Dynamic s) = '/' : '$' : s
         helper (Slurp s) = '/' : '*' : s
         helper (DynInt s) = '/' : '#' : s
 
-isSlurp :: ResourcePatternPiece -> Bool
+isSlurp :: RPP -> Bool
 isSlurp (Slurp _) = True
 isSlurp _ = False
 
-newtype ResourcePattern = ResourcePattern { unRP :: [ResourcePatternPiece] }
-    deriving Eq
+instance ConvertSuccess String RP where
+    convertSuccess = RP . map helper . filter (not . null) .splitOn "/"
+      where
+        helper :: String -> RPP
+        helper ('$':rest) = Dynamic rest
+        helper ('*':rest) = Slurp rest
+        helper ('#':rest) = DynInt rest
+        helper x = Static x
 
--- | FIXME not a good name for the function. Use convertible
-fromString :: String -> ResourcePattern
-fromString = ResourcePattern
-           . map fromString' . filter (not . null) . splitOn "/"
-
-fromString' :: String -> ResourcePatternPiece
-fromString' ('$':rest) = Dynamic rest
-fromString' ('*':rest) = Slurp rest
-fromString' ('#':rest) = DynInt rest
-fromString' x = Static x
-
-type ResourcePatternString = String
+type ResourcePattern = String
 
 type SMap = [(String, String)]
 
@@ -89,10 +90,10 @@ data CheckPatternReturn =
   | DynamicMatch (String, String)
   | NoMatch
 
-checkPattern :: ResourcePattern -> Resource -> Maybe SMap
+checkPattern :: RP -> Resource -> Maybe SMap
 checkPattern = checkPatternPieces . unRP
 
-checkPatternPieces :: [ResourcePatternPiece] -> Resource -> Maybe SMap
+checkPatternPieces :: [RPP] -> Resource -> Maybe SMap
 checkPatternPieces rp r
     | not (null rp) && isSlurp (last rp) = do
         let rp' = init rp
@@ -104,7 +105,7 @@ checkPatternPieces rp r
     | length rp /= length r = Nothing
     | otherwise = combine [] $ zipWith checkPattern' rp r
 
-checkPattern' :: ResourcePatternPiece -> String -> CheckPatternReturn
+checkPattern' :: RPP -> String -> CheckPatternReturn
 checkPattern' (Static x) y = if x == y then StaticMatch else NoMatch
 checkPattern' (Dynamic x) y = DynamicMatch (x, y)
 checkPattern' (Slurp x) _ = error $ "Slurp pattern " ++ x ++ " must be last"
@@ -118,7 +119,7 @@ combine _ (NoMatch:_) = Nothing
 combine s (StaticMatch:rest) = combine s rest
 combine s (DynamicMatch x:rest) = combine (x:s) rest
 
-overlaps :: [ResourcePatternPiece] -> [ResourcePatternPiece] -> Bool
+overlaps :: [RPP] -> [RPP] -> Bool
 overlaps [] [] = True
 overlaps [] _ = False
 overlaps _ [] = False
@@ -141,22 +142,25 @@ data OverlappingPatterns =
 instance Exception OverlappingPatterns
 
 checkResourceName :: MonadFailure OverlappingPatterns f
-                  => [ResourcePatternString]
+                  => [ResourcePattern]
                   -> f ()
-checkResourceName patterns' =
-    let patterns = map fromString patterns'
-     in case validatePatterns patterns of
+checkResourceName patterns =
+    case validatePatterns patterns of
         [] -> return ()
         x -> failure $ OverlappingPatterns x
 
-validatePatterns :: [ResourcePattern] -> [(ResourcePattern, ResourcePattern)]
+validatePatterns :: [ResourcePattern]
+                 -> [(ResourcePattern, ResourcePattern)]
 validatePatterns [] = []
 validatePatterns (x:xs) =
   concatMap (validatePatterns' x) xs ++ validatePatterns xs where
     validatePatterns' :: ResourcePattern
-                   -> ResourcePattern
-                   -> [(ResourcePattern, ResourcePattern)]
-    validatePatterns' a b = [(a, b) | overlaps (unRP a) (unRP b)]
+                      -> ResourcePattern
+                      -> [(ResourcePattern, ResourcePattern)]
+    validatePatterns' a b =
+        let a' = unRP $ cs a
+            b' = unRP $ cs b
+         in [(a, b) | overlaps a' b']
 
 #if TEST
 ---- Testing
@@ -170,35 +174,35 @@ testSuite = testGroup "Yesod.Resource"
     , testCase "integers" caseIntegers
     ]
 
-deriving instance Arbitrary ResourcePattern
+deriving instance Arbitrary RP
 
 caseOverlap1 :: Assertion
 caseOverlap1 = assert $ not $ overlaps
-                    (unRP $ fromString "/foo/$bar/")
-                    (unRP $ fromString "/foo/baz/$bin")
+                    (unRP $ cs "/foo/$bar/")
+                    (unRP $ cs "/foo/baz/$bin")
 caseOverlap2 :: Assertion
 caseOverlap2 = assert $ overlaps
-                    (unRP $ fromString "/foo/bar")
-                    (unRP $ fromString "/foo/$baz")
+                    (unRP $ cs "/foo/bar")
+                    (unRP $ cs "/foo/$baz")
 caseOverlap3 :: Assertion
 caseOverlap3 = assert $ overlaps
-                    (unRP $ fromString "/foo/bar/baz/$bin")
-                    (unRP $ fromString "*slurp")
+                    (unRP $ cs "/foo/bar/baz/$bin")
+                    (unRP $ cs "*slurp")
 
 caseValidatePatterns :: Assertion
 caseValidatePatterns =
-    let p1 = fromString "/foo/bar/baz"
-        p2 = fromString "/foo/$bar/baz"
-        p3 = fromString "/bin"
-        p4 = fromString "/bin/boo"
-        p5 = fromString "/bin/*slurp"
+    let p1 = cs "/foo/bar/baz"
+        p2 = cs "/foo/$bar/baz"
+        p3 = cs "/bin"
+        p4 = cs "/bin/boo"
+        p5 = cs "/bin/*slurp"
      in validatePatterns [p1, p2, p3, p4, p5] @?=
             [ (p1, p2)
             , (p4, p5)
             ]
 
-prop_showPattern :: ResourcePattern -> Bool
-prop_showPattern p = fromString (show p) == p
+prop_showPattern :: RP -> Bool
+prop_showPattern p = cs (show p) == p
 
 caseIntegers :: Assertion
 caseIntegers = do
@@ -210,8 +214,8 @@ caseIntegers = do
         p6 = "/foo/*slurp/"
         checkOverlap :: String -> String -> Bool -> IO ()
         checkOverlap a b c = do
-            let res1 = overlaps (unRP $ fromString a) (unRP $ fromString b)
-            let res2 = overlaps (unRP $ fromString b) (unRP $ fromString a)
+            let res1 = overlaps (unRP $ cs a) (unRP $ cs b)
+            let res2 = overlaps (unRP $ cs b) (unRP $ cs a)
             when (res1 /= c || res2 /= c) $ assertString $ a
                ++ (if c then " does not overlap with " else " overlaps with ")
                ++ b
@@ -221,7 +225,7 @@ caseIntegers = do
     checkOverlap p1 p5 False
     checkOverlap p1 p6 True
 
-instance Arbitrary ResourcePatternPiece where
+instance Arbitrary RPP where
     arbitrary = do
         constr <- elements [Static, Dynamic, Slurp, DynInt]
         size <- elements [1..10]

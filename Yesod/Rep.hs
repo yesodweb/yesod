@@ -29,8 +29,8 @@ module Yesod.Rep
     (
       ContentType (..)
     , Content (..)
-    , Rep
-    , Reps
+    , RepChooser
+    , ContentPair
     , HasReps (..)
     -- FIXME TemplateFile or some such...
       -- * Specific types of representations
@@ -103,15 +103,19 @@ instance ConvertSuccess ByteString Content where
 instance ConvertSuccess String Content where
     convertSuccess = Content . cs
 
-type Rep a = (ContentType, a -> Content)
-type Reps a = [Rep a]
+type ContentPair = (ContentType, Content)
+type RepChooser = [ContentType] -> ContentPair
 
 -- | Any type which can be converted to representations. There must be at least
 -- one representation for each type.
 class HasReps a where
-    reps :: Reps a
-    chooseRep :: a -> [ContentType] -> (ContentType, Content)
+    reps :: [(ContentType, a -> Content)]
+    chooseRep :: a -> RepChooser
     chooseRep = chooseRep'
+
+instance HasReps RepChooser where
+    reps = error "reps of RepChooser"
+    chooseRep = id
 
 instance HasReps [(ContentType, Content)] where
     reps = error "reps of [(ContentType, Content)]"

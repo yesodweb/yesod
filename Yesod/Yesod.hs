@@ -26,12 +26,8 @@ import Hack.Middleware.Gzip
 import Hack.Middleware.Jsonp
 import Hack.Middleware.MethodOverride
 
-type ContentPair = (ContentType, Content)
-
 class Yesod a where
-    handlers ::
-        [(ResourcePatternString,
-          [(Verb, [ContentType] -> Handler a ContentPair)])]
+    handlers :: [(ResourcePattern, [(Verb, Handler a RepChooser)])]
 
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
@@ -71,8 +67,7 @@ defaultErrorHandler (InternalError e) cts =
 
 -- | For type signature reasons.
 handlers' :: Yesod y => y ->
-             [(ResourcePatternString,
-              [(Verb, [ContentType] -> Handler y ContentPair)])]
+             [(ResourcePattern, [(Verb, Handler y RepChooser)])]
 handlers' _ = handlers
 
 toHackApp :: Yesod y => y -> Hack.Application
