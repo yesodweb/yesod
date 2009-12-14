@@ -6,6 +6,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 ---------------------------------------------------------
 --
@@ -44,6 +45,9 @@ import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Data.Attempt -- for failure stuff
 import Data.Convertible.Text
+import Data.Object.Text
+import Control.Monad ((<=<))
+import Text.Yaml
 
 #if TEST
 import Control.Monad (replicateM)
@@ -60,18 +64,11 @@ data RPP =
     | Dynamic String
     | DynInt String
     | Slurp String -- ^ take up the rest of the pieces. must be last
-    deriving Eq
+    deriving (Eq, Show)
 
 -- | Resource Pattern
 newtype RP = RP { unRP :: [RPP] }
-    deriving Eq
-
-instance Show RP where
-    show = concatMap helper . unRP where
-        helper (Static s) = '/' : s
-        helper (Dynamic s) = '/' : '$' : s
-        helper (Slurp s) = '/' : '*' : s
-        helper (DynInt s) = '/' : '#' : s
+    deriving (Eq, Show)
 
 isSlurp :: RPP -> Bool
 isSlurp (Slurp _) = True
@@ -85,6 +82,12 @@ instance ConvertSuccess String RP where
         helper ('*':rest) = Slurp rest
         helper ('#':rest) = DynInt rest
         helper x = Static x
+instance ConvertSuccess RP String where
+    convertSuccess = concatMap helper . unRP where
+        helper (Static s) = '/' : s
+        helper (Dynamic s) = '/' : '$' : s
+        helper (Slurp s) = '/' : '*' : s
+        helper (DynInt s) = '/' : '#' : s
 
 type ResourcePattern = String
 
@@ -172,6 +175,34 @@ validatePatterns (x:xs) =
             b' = unRP $ cs b
          in [(a, b) | overlaps a' b']
 
+data RPNode = RPNode RP VerbMap
+    deriving (Show, Eq)
+data VerbMap = AllVerbs String | Verbs [(Verb, String)]
+    deriving (Show, Eq)
+instance ConvertAttempt YamlDoc [RPNode] where
+    convertAttempt = fromTextObject <=< ca
+instance FromObject RPNode Text Text where
+    fromObject = error "fromObject RPNode Text Text"
+    listFromObject = mapM helper <=< fromMapping where
+        helper :: (Text, TextObject) -> Attempt RPNode
+        helper (rp, rest) = do
+            verbMap <- fromTextObject rest
+            let rp' = cs (cs rp :: String)
+            return $ RPNode rp' verbMap
+instance FromObject VerbMap Text Text where
+    fromObject (Scalar s) = return $ AllVerbs $ cs s
+    fromObject (Mapping m) = Verbs `fmap` mapM helper m where
+        helper :: (Text, TextObject) -> Attempt (Verb, String)
+        helper (v, Scalar f) = do
+            v' <- ca (cs v :: String)
+            return (v', cs f)
+        helper (_, x) = failure $ VerbMapNonScalar x
+    fromObject o = failure $ VerbMapSequence o
+data RPNodeException = VerbMapNonScalar TextObject
+                     | VerbMapSequence TextObject
+    deriving (Show, Typeable)
+instance Exception RPNodeException
+
 #if TEST
 ---- Testing
 testSuite :: Test
@@ -182,6 +213,7 @@ testSuite = testGroup "Yesod.Resource"
     , testCase "validatePatterns" caseValidatePatterns
     , testProperty "show pattern" prop_showPattern
     , testCase "integers" caseIntegers
+    , testCase "read patterns from YAML" caseFromYaml
     ]
 
 deriving instance Arbitrary RP
@@ -212,7 +244,7 @@ caseValidatePatterns =
             ]
 
 prop_showPattern :: RP -> Bool
-prop_showPattern p = cs (show p) == p
+prop_showPattern p = cs (cs p :: String) == p
 
 caseIntegers :: Assertion
 caseIntegers = do
@@ -242,4 +274,19 @@ instance Arbitrary RPP where
         s <- replicateM size $ elements ['a'..'z']
         return $ constr s
     coarbitrary = undefined
+
+caseFromYaml :: Assertion
+caseFromYaml = do
+    contents <- readYamlDoc "test/resource-patterns.yaml"
+    let expected =
+         [ RPNode (cs "static/*filepath") $ AllVerbs "getStatic"
+         , RPNode (cs "page") $ Verbs [(Get, "pageIndex"), (Put, "pageAdd")]
+         , RPNode (cs "page/$page") $ Verbs [ (Get, "pageDetail")
+                                            , (Delete, "pageDelete")
+                                            , (Post, "pageUpdate")
+                                            ]
+         , RPNode (cs "user/#id") $ Verbs [(Get, "userInfo")]
+         ]
+    contents' <- fa $ ca contents
+    expected @=? contents'
 #endif

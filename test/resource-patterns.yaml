@@ -1,0 +1,10 @@
+/static/*filepath/: getStatic
+/page/:
+    Get: pageIndex
+    Put: pageAdd
+/page/$page/:
+    Get: pageDetail
+    Delete: pageDelete
+    Post: pageUpdate
+/user/#id/:
+    Get: userInfo
