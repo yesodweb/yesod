@@ -1,4 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Definitions
@@ -21,9 +23,20 @@ module Yesod.Definitions
 
 import qualified Hack
 import Data.Convertible.Text
+import Control.Exception (Exception)
+import Data.Typeable (Typeable)
 
 data Verb = Get | Put | Delete | Post
     deriving (Eq, Show)
+instance ConvertAttempt String Verb where
+    convertAttempt "Get" = return Get
+    convertAttempt "Put" = return Put
+    convertAttempt "Delete" = return Delete
+    convertAttempt "Post" = return Post
+    convertAttempt s = failure $ InvalidVerb s
+newtype InvalidVerb = InvalidVerb String
+    deriving (Show, Typeable)
+instance Exception InvalidVerb
 
 instance ConvertSuccess Hack.RequestMethod Verb where
     convertSuccess Hack.PUT = Put

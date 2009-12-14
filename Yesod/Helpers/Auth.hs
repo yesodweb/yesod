@@ -27,7 +27,7 @@ import qualified Web.Authenticate.OpenId as OpenId
 import Data.Enumerable
 
 import Data.Object.Html
-import Data.Convertible.Text (cs)
+import Data.Convertible.Text
 
 import Yesod
 import Yesod.Constants
@@ -82,20 +82,22 @@ authResourcePattern LoginRpxnow = "/auth/login/rpxnow/"
 data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)
 instance Request OIDFormReq where
     parseRequest = OIDFormReq <$> getParam "message" <*> getParam "dest"
-instance Show OIDFormReq where
-    show (OIDFormReq Nothing _) = ""
-    show (OIDFormReq (Just s) _) = "<p class='message'>" ++ encodeHtml s ++
-                                 "</p>"
+instance ConvertSuccess OIDFormReq Html where
+    convertSuccess (OIDFormReq Nothing _) = cs ""
+    convertSuccess (OIDFormReq (Just s) _) =
+        Tag "p" [("class", "message")] [cs s]
 
 authOpenidForm :: Handler y HtmlObject
 authOpenidForm = do
     m@(OIDFormReq _ dest) <- parseRequest
     let html =
-            show m ++
-            "<form method='get' action='forward/'>" ++
-            "OpenID: <input type='text' name='openid'>" ++
-            "<input type='submit' value='Login'>" ++
-            "</form>"
+         HtmlList
+          [ cs m
+          , Tag "form" [("method", "get"), ("action", "forward/")]
+                [ Tag "label" [("for", "openid")] [cs "OpenID: "]
+                , EmptyTag "input" [("type", "submit"), ("value", "Login")]
+                ]
+          ]
     case dest of
         Just dest' -> addCookie 120 "DEST" dest'
         Nothing -> return ()

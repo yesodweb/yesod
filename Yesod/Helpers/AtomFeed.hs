@@ -20,7 +20,9 @@ module Yesod.Helpers.AtomFeed
     ) where
 
 import Yesod.Rep
-import Data.Convertible.Text (cs)
+import Data.Convertible.Text
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as TL
 
 import Data.Time.Clock
 import Web.Encodings
@@ -34,7 +36,7 @@ data AtomFeed = AtomFeed
     }
 instance HasReps AtomFeed where
     reps =
-        [ (TypeAtom, return . cs . show)
+        [ (TypeAtom, return . cs)
         ]
 
 data AtomFeedEntry = AtomFeedEntry
@@ -44,46 +46,48 @@ data AtomFeedEntry = AtomFeedEntry
     , atomEntryContent :: String
     }
 
-instance Show AtomFeed where
-    show f = concat
-        [ "<?xml version='1.0' encoding='utf-8' ?>\n"
-        , "<feed xmlns='http://www.w3.org/2005/Atom'>"
-        , "<title>"
-        , encodeHtml $ atomTitle f
-        , "</title>"
-        , "<link rel='self' href='"
-        , encodeHtml $ atomLinkSelf f
-        , "'/>"
-        , "<link href='"
-        , encodeHtml $ atomLinkHome f
-        , "'/>"
-        , "<updated>"
-        , formatW3 $ atomUpdated f
-        , "</updated>"
-        , "<id>"
-        , encodeHtml $ atomLinkHome f
-        , "</id>"
-        , concatMap show $ atomEntries f
-        , "</feed>"
+instance ConvertSuccess AtomFeed Content where
+    convertSuccess = cs . (cs :: AtomFeed -> Text)
+instance ConvertSuccess AtomFeed Text where
+    convertSuccess f = TL.concat
+        [ cs "<?xml version='1.0' encoding='utf-8' ?>\n"
+        , cs "<feed xmlns='http://www.w3.org/2005/Atom'>"
+        , cs "<title>"
+        , encodeHtml $ cs $ atomTitle f
+        , cs "</title>"
+        , cs "<link rel='self' href='"
+        , encodeHtml $ cs $ atomLinkSelf f
+        , cs "'/>"
+        , cs "<link href='"
+        , encodeHtml $ cs $ atomLinkHome f
+        , cs "'/>"
+        , cs "<updated>"
+        , cs $ formatW3 $ atomUpdated f
+        , cs "</updated>"
+        , cs "<id>"
+        , encodeHtml $ cs $ atomLinkHome f
+        , cs "</id>"
+        , TL.concat $ map cs $ atomEntries f
+        , cs "</feed>"
         ]
 
-instance Show AtomFeedEntry where
-    show e = concat
-        [ "<entry>"
-        , "<id>"
-        , encodeHtml $ atomEntryLink e
-        , "</id>"
-        , "<link href='"
-        , encodeHtml $ atomEntryLink e
-        , "' />"
-        , "<updated>"
-        , formatW3 $ atomEntryUpdated e
-        , "</updated>"
-        , "<title>"
-        , encodeHtml $ atomEntryTitle e
-        , "</title>"
-        , "<content type='html'><![CDATA["
-        , atomEntryContent e
-        , "]]></content>"
-        , "</entry>"
+instance ConvertSuccess AtomFeedEntry Text where
+    convertSuccess e = TL.concat
+        [ cs "<entry>"
+        , cs "<id>"
+        , encodeHtml $ cs $ atomEntryLink e
+        , cs "</id>"
+        , cs "<link href='"
+        , encodeHtml $ cs $ atomEntryLink e
+        , cs "' />"
+        , cs "<updated>"
+        , cs $ formatW3 $ atomEntryUpdated e
+        , cs "</updated>"
+        , cs "<title>"
+        , encodeHtml $ cs $ atomEntryTitle e
+        , cs "</title>"
+        , cs "<content type='html'><![CDATA["
+        , cs $ atomEntryContent e
+        , cs "]]></content>"
+        , cs "</entry>"
         ]

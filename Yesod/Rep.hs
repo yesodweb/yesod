@@ -78,23 +78,24 @@ data ContentType =
     | TypeOgv
     | TypeOctet
     | TypeOther String
-instance Show ContentType where
-    show TypeHtml = "text/html"
-    show TypePlain = "text/plain"
-    show TypeJson = "application/json"
-    show TypeXml = "text/xml"
-    show TypeAtom = "application/atom+xml"
-    show TypeJpeg = "image/jpeg"
-    show TypePng = "image/png"
-    show TypeGif = "image/gif"
-    show TypeJavascript = "text/javascript"
-    show TypeCss = "text/css"
-    show TypeFlv = "video/x-flv"
-    show TypeOgv = "video/ogg"
-    show TypeOctet = "application/octet-stream"
-    show (TypeOther s) = s
+    deriving (Show)
+instance ConvertSuccess ContentType String where
+    convertSuccess TypeHtml = "text/html"
+    convertSuccess TypePlain = "text/plain"
+    convertSuccess TypeJson = "application/json"
+    convertSuccess TypeXml = "text/xml"
+    convertSuccess TypeAtom = "application/atom+xml"
+    convertSuccess TypeJpeg = "image/jpeg"
+    convertSuccess TypePng = "image/png"
+    convertSuccess TypeGif = "image/gif"
+    convertSuccess TypeJavascript = "text/javascript"
+    convertSuccess TypeCss = "text/css"
+    convertSuccess TypeFlv = "video/x-flv"
+    convertSuccess TypeOgv = "video/ogg"
+    convertSuccess TypeOctet = "application/octet-stream"
+    convertSuccess (TypeOther s) = s
 instance Eq ContentType where
-    (==) = (==) `on` show
+    (==) = (==) `on` (cs :: ContentType -> String)
 
 newtype Content = Content { unContent :: ByteString }
     deriving (Eq, Show)

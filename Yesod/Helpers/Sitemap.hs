@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Sitemap
@@ -26,10 +27,10 @@ import Yesod.Definitions
 import Yesod.Handler
 import Yesod.Rep
 import Web.Encodings
-import qualified Hack
-import Yesod.Request
 import Data.Time (UTCTime)
-import Data.Convertible.Text (cs)
+import Data.Convertible.Text
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as TL
 import Yesod.Yesod
 
 data SitemapLoc = AbsLoc String | RelLoc String
@@ -40,14 +41,14 @@ data SitemapChangeFreq = Always
                        | Monthly
                        | Yearly
                        | Never
-instance Show SitemapChangeFreq where
-    show Always = "always"
-    show Hourly = "hourly"
-    show Daily = "daily"
-    show Weekly = "weekly"
-    show Monthly = "monthly"
-    show Yearly = "yearly"
-    show Never = "never"
+instance ConvertSuccess SitemapChangeFreq String where
+    convertSuccess Always  = "always"
+    convertSuccess Hourly  = "hourly"
+    convertSuccess Daily   = "daily"
+    convertSuccess Weekly  = "weekly"
+    convertSuccess Monthly = "monthly"
+    convertSuccess Yearly  = "yearly"
+    convertSuccess Never   = "never"
 
 data SitemapUrl = SitemapUrl
     { sitemapLoc :: SitemapLoc
@@ -55,45 +56,41 @@ data SitemapUrl = SitemapUrl
     , sitemapChangeFreq :: SitemapChangeFreq
     , priority :: Double
     }
-data SitemapRequest = SitemapRequest String Int
-data SitemapResponse = SitemapResponse SitemapRequest [SitemapUrl]
-instance Show SitemapResponse where -- FIXME very ugly, use Text instead
-    show (SitemapResponse (SitemapRequest host port) urls) =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++
-        "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">" ++
-        concatMap helper urls ++
-        "</urlset>"
+data SitemapResponse = SitemapResponse [SitemapUrl] Approot
+instance ConvertSuccess SitemapResponse Content where
+    convertSuccess = cs . (cs :: SitemapResponse -> Text)
+instance ConvertSuccess SitemapResponse Text where
+    convertSuccess (SitemapResponse urls (Approot ar)) = TL.concat
+        [ cs "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        , cs "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"
+        , TL.concat $ map helper urls
+        , cs "</urlset>"
+        ]
         where
-            prefix = "http://" ++ host ++
-                        case port of
-                            80 -> ""
-                            _ -> ':' : show port
-            helper (SitemapUrl loc modTime freq pri) = concat
+            helper (SitemapUrl loc modTime freq pri) = cs $ concat
                 [ "<url><loc>"
                 , encodeHtml $ showLoc loc
                 , "</loc><lastmod>"
                 , formatW3 modTime
                 , "</lastmod><changefreq>"
-                , show freq
+                , cs freq
                 , "</changefreq><priority>"
                 , show pri
                 , "</priority></url>"
                 ]
             showLoc (AbsLoc s) = s
-            showLoc (RelLoc s) = prefix ++ s
+            showLoc (RelLoc s) = ar ++ s
 
 instance HasReps SitemapResponse where
     reps =
-        [ (TypeXml, return . cs . show)
+        [ (TypeXml, return . cs)
         ]
 
-sitemap :: IO [SitemapUrl] -> Handler yesod SitemapResponse
+sitemap :: Yesod yesod => IO [SitemapUrl] -> Handler yesod SitemapResponse
 sitemap urls' = do
-    env <- parseEnv
-    -- FIXME
-    let req = SitemapRequest (Hack.serverName env) (Hack.serverPort env)
+    yesod <- getYesod
     urls <- liftIO urls'
-    return $ SitemapResponse req urls
+    return $ SitemapResponse urls $ approot yesod
 
 robots :: Yesod yesod => Handler yesod Plain
 robots = do

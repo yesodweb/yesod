@@ -50,6 +50,7 @@ data Html =
   | Text Text -- ^ Text which should be HTML escaped.
   | Tag String [(String, String)] [Html] -- ^ Tag which needs a closing tag.
   | EmptyTag String [(String, String)] -- ^ Tag without a closing tag.
+  | HtmlList [Html]
     deriving (Eq, Show, Typeable)
 
 -- | A full HTML document.
@@ -62,6 +63,11 @@ toHtmlObject = toObject
 
 fromHtmlObject :: FromObject x String Html => HtmlObject -> Attempt x
 fromHtmlObject = fromObject
+
+instance ConvertSuccess String Html where
+    convertSuccess = Text . cs
+instance ConvertSuccess Text Html where
+    convertSuccess = Text
 
 instance ConvertSuccess Html Text where
     convertSuccess (Html t) = t
@@ -82,6 +88,7 @@ instance ConvertSuccess Html Text where
         , showAttribs as
         , cs ">"
         ]
+    convertSuccess (HtmlList l) = TL.concat $ map cs l
 
 instance ConvertSuccess Html HtmlDoc where
     convertSuccess h = HtmlDoc $ TL.concat
