@@ -33,7 +33,7 @@ splitPath :: String -> Either String [String]
 splitPath s =
     let corrected = ats $ rds s
      in if corrected == s
-            then Right $ map decodeUrl $ filter (\l -> length l /= 0)
+            then Right $ map decodeUrl $ filter (not . null)
                        $ splitOneOf "/" s
             else Left corrected
 

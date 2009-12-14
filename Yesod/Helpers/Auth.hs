@@ -37,7 +37,6 @@ import Control.Monad.Reader
 import Control.Monad.Attempt
 
 import Data.Maybe (fromMaybe)
-import Control.Monad.Attempt
 
 data AuthResource =
     Check

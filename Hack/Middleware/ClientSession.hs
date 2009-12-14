@@ -76,7 +76,7 @@ clientsession cnames key app env = do
         twentyMinutes = 20 * 60
     let exp = fromIntegral twentyMinutes `addUTCTime` now
     let formattedExp = formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" exp
-    let oldCookies = filter (\(k, _) -> not $ k `elem` map fst interceptHeaders) convertedCookies
+    let oldCookies = filter (\(k, _) -> k `notElem` map fst interceptHeaders) convertedCookies
     let newCookies = map (setCookie key exp formattedExp remoteHost') $
                      oldCookies ++ interceptHeaders
     let res' = res { headers = newCookies ++ headers' }

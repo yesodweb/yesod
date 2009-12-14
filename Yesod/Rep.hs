@@ -44,7 +44,8 @@ module Yesod.Rep
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Text.Lazy (Text)
-import Data.Maybe (catMaybes)
+import Data.Maybe (mapMaybe)
+import Data.Function (on)
 
 #if TEST
 import Data.Object.Html hiding (testSuite)
@@ -93,7 +94,7 @@ instance Show ContentType where
     show TypeOctet = "application/octet-stream"
     show (TypeOther s) = s
 instance Eq ContentType where
-    x == y = show x == show y
+    (==) = (==) `on` show
 
 newtype Content = Content { unContent :: ByteString }
     deriving (Eq, Show)
@@ -115,7 +116,7 @@ class HasReps a where
     chooseRep :: a -> RepChooser
     chooseRep a ts = do
       let (ct, c) =
-            case catMaybes $ map helper ts of
+            case mapMaybe helper ts of
                 (x:_) -> x
                 [] -> case reps of
                         [] -> error "Empty reps"

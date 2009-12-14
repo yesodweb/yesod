@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverlappingInstances #-} -- Parameter String
+{-# LANGUAGE TypeSynonymInstances #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Request
@@ -274,7 +275,7 @@ instance Parameter a => Parameter [a] where
                 Left l -> Left l
                 Right rest' -> Right $ r : rest'
 
-instance Parameter [Char] where
+instance Parameter String where
     readParam = Right . paramValue
 
 instance Parameter Int where

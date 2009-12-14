@@ -65,8 +65,8 @@ instance Monad (Handler yesod) where
         (headers, c) <- handler rr
         (headers', c') <-
             case c of
-                (HCError e) -> return $ ([], HCError e)
-                (HCSpecial e) -> return $ ([], HCSpecial e)
+                (HCError e) -> return ([], HCError e)
+                (HCSpecial e) -> return ([], HCSpecial e)
                 (HCContent a) -> unHandler (f a) rr
         return (headers ++ headers', c')
 instance MonadIO (Handler yesod) where
