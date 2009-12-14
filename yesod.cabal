@@ -42,7 +42,8 @@ library
                      containers >= 0.2.0.1 && < 0.3,
                      HStringTemplate >= 0.6.2 && < 0.7,
                      data-object-json >= 0.0.0 && < 0.1,
-                     attempt >= 0.2.1 && < 0.3
+                     attempt >= 0.2.1 && < 0.3,
+                     template-haskell
     exposed-modules: Yesod
                      Yesod.Constants
                      Yesod.Rep

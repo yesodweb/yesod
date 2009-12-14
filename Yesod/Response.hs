@@ -26,6 +26,8 @@ module Yesod.Response
       -- * Header
     , Header (..)
     , toPair
+      -- * Converting to Hack values
+    , responseToHackResponse
 #if TEST
       -- * Tests
     , testSuite
@@ -41,6 +43,7 @@ import Yesod.Rep
 import Data.Time.Clock
 
 import Web.Encodings (formatW3)
+import qualified Hack
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -90,6 +93,15 @@ toPair (DeleteCookie key) = return
     ("Set-Cookie",
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
 toPair (Header key value) = return (key, value)
+
+-- FIXME add test
+responseToHackResponse :: [String] -- ^ language list
+                       -> Response -> IO Hack.Response
+responseToHackResponse _FIXMEls (Response sc hs ct c) = do
+    hs' <- mapM toPair hs
+    let hs'' = ("Content-Type", show ct) : hs'
+    let asLBS = unContent c
+    return $ Hack.Response sc hs'' asLBS
 
 #if TEST
 ----- Testing

@@ -81,21 +81,28 @@ instance MonadRequestReader (Handler yesod) where
 getYesod :: Handler yesod yesod
 getYesod = Handler $ \(_, yesod) -> return ([], HCContent yesod)
 
--- FIXME this is a stupid signature
-runHandler :: HasReps a
-           => Handler yesod a
+runHandler :: Handler yesod RepChooser
+           -> (ErrorResult -> Handler yesod RepChooser)
            -> RawRequest
            -> yesod
            -> [ContentType]
-           -> IO (Either (ErrorResult, [Header]) Response)
-runHandler (Handler handler) rr yesod cts = do
-    (headers, contents) <- handler (rr, yesod)
-    case contents of
-        HCError e -> return $ Left (InternalError $ show e, headers)
-        HCSpecial e -> return $ Left (e, headers)
-        HCContent a ->
-            let (ct, c) = chooseRep a cts
-             in return $ Right $ Response 200 headers ct c
+           -> IO Response
+runHandler (Handler handler) eh rr y cts = do
+    (headers, contents) <- Control.Exception.catch
+        (handler (rr, y))
+        (\e -> return ([], HCError (e :: Control.Exception.SomeException)))
+    let contents' =
+            case contents of
+                HCError e -> Left $ InternalError $ show e
+                HCSpecial e -> Left e
+                HCContent a -> Right a
+    case contents' of
+        Left e -> do
+            Response _ hs ct c <- runHandler (eh e) eh rr y cts
+            return $ Response (getStatus e) hs ct c
+        Right a ->
+            let (ct, c) = a cts
+             in return $ Response 200 headers ct c
 {- FIXME
 class ToHandler a where
     toHandler :: a -> Handler

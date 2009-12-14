@@ -12,12 +12,13 @@ import Yesod.Constants
 import Yesod.Definitions
 import Yesod.Resource
 import Yesod.Handler
+import Yesod.Utils
 
-import Control.Monad (when)
 import Data.Maybe (fromMaybe)
 import Data.Convertible.Text
 import Web.Encodings
 import Control.Arrow ((***))
+import Control.Monad (when)
 
 import qualified Hack
 import Hack.Middleware.CleanPath
@@ -34,7 +35,7 @@ class Yesod a where
     encryptKey _ = getKey defaultKeyFile
 
     -- | Output error response pages.
-    errorHandler :: ErrorResult -> [ContentType] -> Handler a ContentPair
+    errorHandler :: ErrorResult -> Handler a RepChooser
     errorHandler = defaultErrorHandler
 
     -- | Whether or not we should check for overlapping resource names.
@@ -46,24 +47,23 @@ class Yesod a where
 
 defaultErrorHandler :: Yesod y
                     => ErrorResult
-                    -> [ContentType]
-                    -> Handler y ContentPair
-defaultErrorHandler NotFound cts = do
+                    -> Handler y RepChooser
+defaultErrorHandler NotFound = do
     rr <- askRawRequest
-    return $ chooseRep (toHtmlObject $ "Not found: " ++ show rr) cts
-defaultErrorHandler (Redirect url) cts =
-    return $ chooseRep (toHtmlObject $ "Redirect to: " ++ url) cts
-defaultErrorHandler PermissionDenied cts =
-    return $ chooseRep (toHtmlObject "Permission denied") cts
-defaultErrorHandler (InvalidArgs ia) cts =
-    return $ chooseRep (toHtmlObject
+    return $ chooseRep $ toHtmlObject $ "Not found: " ++ show rr
+defaultErrorHandler (Redirect url) =
+    return $ chooseRep $ toHtmlObject $ "Redirect to: " ++ url
+defaultErrorHandler PermissionDenied =
+    return $ chooseRep $ toHtmlObject "Permission denied"
+defaultErrorHandler (InvalidArgs ia) =
+    return $ chooseRep $ toHtmlObject
             [ ("errorMsg", toHtmlObject "Invalid arguments")
             , ("messages", toHtmlObject ia)
-            ]) cts
-defaultErrorHandler (InternalError e) cts =
-    return $ chooseRep (toHtmlObject
+            ]
+defaultErrorHandler (InternalError e) =
+    return $ chooseRep $ toHtmlObject
                 [ ("Internal server error", e)
-                ]) cts
+                ]
 
 -- | For type signature reasons.
 handlers' :: Yesod y => y ->
@@ -72,8 +72,12 @@ handlers' _ = handlers
 
 toHackApp :: Yesod y => y -> Hack.Application
 toHackApp a env = do
-    let patterns = map fst $ handlers' a
-    when (checkOverlaps a) $ checkResourceName patterns -- FIXME maybe this should be done compile-time?
+    -- FIXME figure out a way to do this check compile-time
+    when (checkOverlaps a) $ checkPatterns $ map fst $ handlers' a
+    toHackAppUnchecked a env
+
+toHackAppUnchecked :: Yesod y => y -> Hack.Application
+toHackAppUnchecked a env = do
     key <- encryptKey a
     let app' = toHackApp' a
         middleware =
@@ -94,27 +98,28 @@ toHackApp' y env = do
             (verbPairs, urlParams'') <- lookupHandlers resource
             let verb = cs $ Hack.requestMethod env
             handler'' <- lookup verb verbPairs
-            return (handler'' types, urlParams'')
+            return (handler'', urlParams'')
         rr = envToRawRequest urlParams' env
-    runHandler' handler rr y
+    res <- runHandler handler errorHandler rr y types
+    let langs = ["en"] -- FIXME
+    responseToHackResponse langs res
 
 httpAccept :: Hack.Env -> [ContentType]
-httpAccept = undefined
+httpAccept = map TypeOther . parseHttpAccept . fromMaybe ""
+           . lookup "Accept" . Hack.http
 
 lookupHandlers :: Yesod y
                => Resource
                -> Maybe
-                  ( [(Verb, [ContentType] -> Handler y ContentPair)]
+                  ( [(Verb, Handler y RepChooser)]
                   , [(ParamName, ParamValue)]
                   )
-lookupHandlers = undefined
-
-runHandler' :: Yesod y
-            => Handler y ContentPair
-            -> RawRequest
-            -> y
-            -> IO Hack.Response
-runHandler' = undefined
+lookupHandlers r = helper handlers where
+    helper [] = Nothing
+    helper ((rps, v):rest) =
+        case checkPattern (cs rps) r of
+            Just up -> Just (v, up)
+            Nothing -> helper rest
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
 envToRawRequest urlParams' env =

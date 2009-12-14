@@ -6,6 +6,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Resource
@@ -22,8 +23,9 @@
 module Yesod.Resource
     ( ResourcePattern
     , checkPattern
+    , checkPatternsTH
     , validatePatterns
-    , checkResourceName
+    , checkPatterns
 #if TEST
       -- * Testing
     , testSuite
@@ -35,13 +37,16 @@ import Yesod.Definitions
 import Data.List (intercalate)
 import Data.Char (isDigit)
 
+import Control.Monad (when)
+import Language.Haskell.TH
+
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Data.Attempt -- for failure stuff
 import Data.Convertible.Text
 
 #if TEST
-import Control.Monad (replicateM, when)
+import Control.Monad (replicateM)
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck (testProperty)
@@ -93,6 +98,11 @@ data CheckPatternReturn =
 checkPattern :: RP -> Resource -> Maybe SMap
 checkPattern = checkPatternPieces . unRP
 
+checkPatternsTH :: Bool -> [ResourcePattern] -> Q Exp
+checkPatternsTH toCheck patterns = do
+    runIO $ when toCheck $ checkPatterns patterns
+    [|return ()|]
+
 checkPatternPieces :: [RPP] -> Resource -> Maybe SMap
 checkPatternPieces rp r
     | not (null rp) && isSlurp (last rp) = do
@@ -141,10 +151,10 @@ data OverlappingPatterns =
     deriving (Show, Typeable)
 instance Exception OverlappingPatterns
 
-checkResourceName :: MonadFailure OverlappingPatterns f
-                  => [ResourcePattern]
-                  -> f ()
-checkResourceName patterns =
+checkPatterns :: MonadFailure OverlappingPatterns f
+              => [ResourcePattern]
+              -> f ()
+checkPatterns patterns =
     case validatePatterns patterns of
         [] -> return ()
         x -> failure $ OverlappingPatterns x
