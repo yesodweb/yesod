@@ -44,10 +44,9 @@ import Language.Haskell.TH
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Data.Attempt -- for failure stuff
-import Data.Convertible.Text
 import Data.Object.Text
 import Control.Monad ((<=<))
-import Text.Yaml
+import Data.Object.Yaml
 
 #if TEST
 import Control.Monad (replicateM)
@@ -181,23 +180,22 @@ data VerbMap = AllVerbs String | Verbs [(Verb, String)]
     deriving (Show, Eq)
 instance ConvertAttempt YamlDoc [RPNode] where
     convertAttempt = fromTextObject <=< ca
-instance FromObject RPNode Text Text where
-    fromObject = error "fromObject RPNode Text Text"
-    listFromObject = mapM helper <=< fromMapping where
+instance ConvertAttempt TextObject [RPNode] where
+    convertAttempt = mapM helper <=< fromMapping where
         helper :: (Text, TextObject) -> Attempt RPNode
         helper (rp, rest) = do
             verbMap <- fromTextObject rest
             let rp' = cs (cs rp :: String)
             return $ RPNode rp' verbMap
-instance FromObject VerbMap Text Text where
-    fromObject (Scalar s) = return $ AllVerbs $ cs s
-    fromObject (Mapping m) = Verbs `fmap` mapM helper m where
+instance ConvertAttempt TextObject VerbMap where
+    convertAttempt (Scalar s) = return $ AllVerbs $ cs s
+    convertAttempt (Mapping m) = Verbs `fmap` mapM helper m where
         helper :: (Text, TextObject) -> Attempt (Verb, String)
         helper (v, Scalar f) = do
             v' <- ca (cs v :: String)
             return (v', cs f)
         helper (_, x) = failure $ VerbMapNonScalar x
-    fromObject o = failure $ VerbMapSequence o
+    convertAttempt o = failure $ VerbMapSequence o
 data RPNodeException = VerbMapNonScalar TextObject
                      | VerbMapSequence TextObject
     deriving (Show, Typeable)

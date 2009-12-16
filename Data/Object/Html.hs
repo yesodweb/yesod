@@ -3,8 +3,10 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
--- | An 'Html' data type and associated 'HtmlObject'. This has useful
--- conversions in web development:
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+-- | An 'Html' data type and associated 'ConvertSuccess' instances. This has
+-- useful conversions in web development:
 --
 -- * Automatic generation of simple HTML documents from 'HtmlObject' (mostly
 -- useful for testing, you would never want to actually show them to an end
@@ -58,16 +60,31 @@ newtype HtmlDoc = HtmlDoc { unHtmlDoc :: Text }
 
 type HtmlObject = Object String Html
 
-toHtmlObject :: ToObject x String Html => x -> HtmlObject
-toHtmlObject = toObject
+toHtmlObject :: ConvertSuccess x HtmlObject => x -> HtmlObject
+toHtmlObject = cs
 
-fromHtmlObject :: FromObject x String Html => HtmlObject -> Attempt x
-fromHtmlObject = fromObject
+fromHtmlObject :: ConvertAttempt HtmlObject x => HtmlObject -> Attempt x
+fromHtmlObject = ca
 
 instance ConvertSuccess String Html where
     convertSuccess = Text . cs
 instance ConvertSuccess Text Html where
     convertSuccess = Text
+$(deriveAttempts
+    [ (''String, ''Html)
+    , (''Text, ''Html)
+    ])
+
+showAttribs :: [(String, String)] -> Text
+showAttribs = TL.concat . map helper where
+    helper :: (String, String) -> Text
+    helper (k, v) = TL.concat
+        [ cs " "
+        , encodeHtml $ cs k
+        , cs "=\""
+        , encodeHtml $ cs v
+        , cs "\""
+        ]
 
 instance ConvertSuccess Html Text where
     convertSuccess (Html t) = t
@@ -89,6 +106,9 @@ instance ConvertSuccess Html Text where
         , cs ">"
         ]
     convertSuccess (HtmlList l) = TL.concat $ map cs l
+
+instance ConvertSuccess Html String where
+    convertSuccess = cs . (cs :: Html -> Text)
 
 instance ConvertSuccess Html HtmlDoc where
     convertSuccess h = HtmlDoc $ TL.concat
@@ -119,24 +139,21 @@ instance ConvertSuccess HtmlObject JsonObject where
 instance ConvertSuccess HtmlObject JsonDoc where
     convertSuccess = cs . (cs :: HtmlObject -> JsonObject)
 
-instance ToObject Html String Html where
-    toObject = Scalar
+$(deriveAttempts
+    [ (''Html, ''String)
+    , (''Html, ''Text)
+    , (''Html, ''HtmlDoc)
+    , (''Html, ''JsonScalar)
+    ])
+
+$(deriveSuccessConvs ''String ''Html
+    [''String, ''Text]
+    [''Html, ''String, ''Text])
 
 instance ToSElem HtmlObject where
     toSElem (Scalar h) = STR $ TL.unpack $ cs h
     toSElem (Sequence hs) = LI $ map toSElem hs
     toSElem (Mapping pairs) = SM $ Map.fromList $ map (second toSElem) pairs
-
-showAttribs :: [(String, String)] -> Text
-showAttribs = TL.concat . map helper where
-    helper :: (String, String) -> Text
-    helper (k, v) = TL.concat
-        [ cs " "
-        , encodeHtml $ cs k
-        , cs "=\""
-        , encodeHtml $ cs v
-        , cs "\""
-        ]
 
 #if TEST
 caseHtmlToText :: Assertion
@@ -183,7 +200,3 @@ testSuite = testGroup "Data.Object.Html"
     ]
 
 #endif
-
-instance ToObject Char String Html where
-    toObject c = Scalar $ Text $ cs [c]
-    listToObject = Scalar . Text . cs
