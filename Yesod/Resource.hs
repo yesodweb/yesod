@@ -57,6 +57,7 @@ import Data.Attempt -- for failure stuff
 import Data.Object.Text
 import Control.Monad ((<=<))
 import Data.Object.Yaml
+import Yesod.Handler
 
 #if TEST
 import Control.Monad (replicateM)
@@ -106,6 +107,11 @@ data CheckPatternReturn =
     StaticMatch
   | DynamicMatch (String, String)
   | NoMatch
+
+checkPatternBool :: RP -> Resource -> Bool
+checkPatternBool rp r = case checkPattern rp r of
+                            Nothing -> False
+                            _ -> True
 
 checkPattern :: RP -> Resource -> Maybe SMap
 checkPattern = checkPatternPieces . unRP
@@ -234,10 +240,30 @@ instance Exception RepeatedVerb
 rpnodesTHCheck :: [RPNode] -> Q Exp
 rpnodesTHCheck nodes = do
     nodes' <- runIO $ checkRPNodes nodes
-    rpnodesTH nodes'
+    res <- rpnodesTH nodes'
+    -- For debugging purposes runIO $ putStrLn $ pprint res
+    return res
+
+notFoundVerb :: Verb -> Handler yesod a
+notFoundVerb _verb = notFound
 
 rpnodesTH :: [RPNode] -> Q Exp
-rpnodesTH = fmap ListE . mapM lift
+rpnodesTH ns = do
+    b <- helper ns
+    nfv <- [|notFoundVerb|]
+    let b' = b ++ [(NormalG $ VarE $ mkName "otherwise", nfv)]
+    return $ LamE [VarP $ mkName "resource"]
+           $ CaseE (TupE []) [Match WildP (GuardedB b') []]
+      where
+        helper :: [RPNode] -> Q [(Guard, Exp)]
+        helper nodes = mapM helper2 nodes
+        helper2 :: RPNode -> Q (Guard, Exp)
+        helper2 (RPNode rp vm) = do
+            rp' <- lift rp
+            cpb <- [|checkPatternBool|]
+            let g = cpb `AppE` rp' `AppE` VarE (mkName "resource")
+            vm' <- lift vm
+            return (NormalG g, vm')
 instance Lift RPNode where
     lift (RPNode rp vm) = do
         rp' <- lift rp
@@ -258,7 +284,8 @@ instance Lift RPP where
         return $ ConE (mkName "Slurp") `AppE` (LitE $ StringL s)
 instance Lift VerbMap where
     lift (AllVerbs s) =
-      return $ LamE [VarP $ mkName "_FIXMEverb"] $ VarE $ mkName s
+      return $ LamE [VarP $ mkName "verb"]
+             $ (VarE $ mkName s) `AppE` (VarE $ mkName "verb")
     lift (Verbs vs) =
       return $ LamE [VarP $ mkName "verb"]
              $ CaseE (VarE $ mkName "verb")

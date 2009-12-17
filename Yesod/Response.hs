@@ -53,6 +53,7 @@ import Data.Generics
 import Control.Exception (Exception)
 
 data Response = Response Int [Header] ContentType Content
+    deriving Show
 
 -- | Abnormal return codes.
 data ErrorResult =
@@ -81,6 +82,7 @@ data Header =
     AddCookie Int String String
     | DeleteCookie String
     | Header String String
+    deriving (Eq, Show)
 
 -- | Convert Header to a key/value pair.
 toPair :: Header -> IO (String, String)

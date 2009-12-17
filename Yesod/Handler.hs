@@ -42,6 +42,9 @@ import Control.Applicative
 import Control.Monad.Writer
 import Control.Monad.Attempt
 
+import System.IO
+import Data.Object.Html
+
 --import Data.Typeable
 
 ------ Handler monad
@@ -98,11 +101,16 @@ runHandler (Handler handler) eh rr y cts = do
                 HCContent a -> Right a
     case contents' of
         Left e -> do
-            Response _ hs ct c <- runHandler (eh e) eh rr y cts
+            Response _ hs ct c <- runHandler (eh e) specialEh rr y cts
             return $ Response (getStatus e) hs ct c
         Right a -> do
             (ct, c) <- a cts
             return $ Response 200 headers ct c
+
+specialEh :: ErrorResult -> Handler yesod RepChooser
+specialEh er = do
+    liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
+    return $ chooseRep $ toHtmlObject "Internal server error"
 {- FIXME
 class ToHandler a where
     toHandler :: a -> Handler
