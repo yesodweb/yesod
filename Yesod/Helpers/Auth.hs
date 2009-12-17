@@ -24,13 +24,11 @@ import qualified Hack
 import Web.Encodings
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
-import Data.Enumerable
 
 import Yesod
 import Yesod.Constants
 
 import Control.Applicative ((<$>), Applicative (..))
-import Control.Monad.Reader
 import Control.Monad.Attempt
 
 import Data.Maybe (fromMaybe)
@@ -42,17 +40,7 @@ data AuthResource =
     | OpenidForward
     | OpenidComplete
     | LoginRpxnow
-    deriving Show
-
-instance Enumerable AuthResource where
-    enumerate =
-        [ Check
-        , Logout
-        , Openid
-        , OpenidForward
-        , OpenidComplete
-        , LoginRpxnow
-        ]
+    deriving (Show, Eq, Enum, Bounded)
 
 newtype RpxnowApiKey = RpxnowApiKey String
 

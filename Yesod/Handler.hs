@@ -39,8 +39,9 @@ import Yesod.Rep
 import Control.Exception hiding (Handler)
 import Control.Applicative
 
-import Control.Monad.Writer
+import Control.Monad.Trans
 import Control.Monad.Attempt
+import Control.Monad (liftM, ap)
 
 import System.IO
 import Data.Object.Html
