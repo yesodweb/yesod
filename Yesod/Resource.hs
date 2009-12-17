@@ -36,6 +36,7 @@ module Yesod.Resource
     , VerbMap (..)
     , RP (..)
     , RPP (..)
+    , UrlParam (..)
 #if TEST
       -- * Testing
     , testSuite
@@ -44,7 +45,7 @@ module Yesod.Resource
 
 import Data.List.Split (splitOn)
 import Yesod.Definitions
-import Data.List (intercalate, nub)
+import Data.List (nub)
 import Data.Char (isDigit)
 
 import Control.Monad (when)
@@ -58,6 +59,8 @@ import Data.Object.Text
 import Control.Monad ((<=<))
 import Data.Object.Yaml
 import Yesod.Handler
+import Data.Maybe (fromJust)
+import Yesod.Rep
 
 #if TEST
 import Control.Monad (replicateM)
@@ -101,11 +104,10 @@ instance ConvertSuccess RP String where
 
 type ResourcePattern = String
 
-type SMap = [(String, String)]
-
 data CheckPatternReturn =
     StaticMatch
   | DynamicMatch (String, String)
+  | DynIntMatch (String, Int)
   | NoMatch
 
 checkPatternBool :: RP -> Resource -> Bool
@@ -113,7 +115,10 @@ checkPatternBool rp r = case checkPattern rp r of
                             Nothing -> False
                             _ -> True
 
-checkPattern :: RP -> Resource -> Maybe SMap
+checkPatternUP :: RP -> Resource -> [UrlParam]
+checkPatternUP rp r = map snd $ fromJust (checkPattern rp r)
+
+checkPattern :: RP -> Resource -> Maybe [(String, UrlParam)]
 checkPattern = checkPatternPieces . unRP
 
 checkPatternsTH :: Bool -> [ResourcePattern] -> Q Exp
@@ -121,15 +126,14 @@ checkPatternsTH toCheck patterns = do
     runIO $ when toCheck $ checkPatterns patterns
     [|return ()|]
 
-checkPatternPieces :: [RPP] -> Resource -> Maybe SMap
+checkPatternPieces :: [RPP] -> Resource -> Maybe [(String, UrlParam)]
 checkPatternPieces rp r
     | not (null rp) && isSlurp (last rp) = do
         let rp' = init rp
             (r1, r2) = splitAt (length rp') r
         smap <- checkPatternPieces rp' r1
-        let slurpValue = intercalate "/" r2
-            Slurp slurpKey = last rp
-        return $ (slurpKey, slurpValue) : smap
+        let Slurp slurpKey = last rp
+        return $ (slurpKey, SlurpParam r2) : smap
     | length rp /= length r = Nothing
     | otherwise = combine [] $ zipWith checkPattern' rp r
 
@@ -138,14 +142,17 @@ checkPattern' (Static x) y = if x == y then StaticMatch else NoMatch
 checkPattern' (Dynamic x) y = DynamicMatch (x, y)
 checkPattern' (Slurp x) _ = error $ "Slurp pattern " ++ x ++ " must be last"
 checkPattern' (DynInt x) y
-    | all isDigit y = DynamicMatch (x, y)
+    | all isDigit y = DynIntMatch (x, read y)
     | otherwise = NoMatch
 
-combine :: SMap -> [CheckPatternReturn] -> Maybe SMap
+combine :: [(String, UrlParam)]
+        -> [CheckPatternReturn]
+        -> Maybe [(String, UrlParam)]
 combine s [] = Just $ reverse s
 combine _ (NoMatch:_) = Nothing
 combine s (StaticMatch:rest) = combine s rest
-combine s (DynamicMatch x:rest) = combine (x:s) rest
+combine s (DynamicMatch (x, y):rest) = combine ((x, StringParam y):s) rest
+combine s (DynIntMatch (x, y):rest) = combine ((x, IntParam y):s) rest
 
 overlaps :: [RPP] -> [RPP] -> Bool
 overlaps [] [] = True
@@ -261,13 +268,67 @@ rpnodesTH ns = do
         helper2 (RPNode rp vm) = do
             rp' <- lift rp
             cpb <- [|checkPatternBool|]
-            let g = cpb `AppE` rp' `AppE` VarE (mkName "resource")
-            vm' <- lift vm
-            return (NormalG g, vm')
+            let r' = VarE $ mkName "resource"
+            let g = cpb `AppE` rp' `AppE` r'
+            vm' <- liftVerbMap vm $ countParams rp
+            vm'' <- applyUrlParams rp r' vm'
+            let vm''' = LamE [VarP $ mkName "verb"] vm''
+            return (NormalG g, vm''')
+
+data UrlParam = SlurpParam { slurpParam :: [String] }
+              | StringParam { stringParam :: String }
+              | IntParam { intParam :: Int }
+    deriving Show -- FIXME remove
+
+getUrlParam :: RP -> Resource -> Int -> UrlParam
+getUrlParam rp r i = checkPatternUP rp r !! i
+
+getUrlParamSlurp :: RP -> Resource -> Int -> [String]
+getUrlParamSlurp rp r = slurpParam . getUrlParam rp r
+
+getUrlParamString :: RP -> Resource -> Int -> String
+getUrlParamString rp r = stringParam . getUrlParam rp r
+
+getUrlParamInt :: RP -> Resource -> Int -> Int
+getUrlParamInt rp r = intParam . getUrlParam rp r
+
+applyUrlParams :: RP -> Exp -> Exp -> Q Exp
+applyUrlParams rp@(RP rpps) r f = do
+    getFs <- helper 0 rpps
+    return $ foldl AppE f getFs
+        where
+            helper :: Int -> [RPP] -> Q [Exp]
+            helper _ [] = return []
+            helper i (Static _:rest) = helper i rest
+            helper i (Dynamic _:rest) = do
+                rp' <- lift rp
+                str <- [|getUrlParamString|]
+                i' <- lift i
+                rest' <- helper (i + 1) rest
+                return $ str `AppE` rp' `AppE` r `AppE` i' : rest'
+            helper i (DynInt _:rest) = do
+                rp' <- lift rp
+                int <- [|getUrlParamInt|]
+                i' <- lift i
+                rest' <- helper (i + 1) rest
+                return $ int `AppE` rp' `AppE` r `AppE` i' : rest'
+            helper i (Slurp _:rest) = do
+                rp' <- lift rp
+                slurp <- [|getUrlParamSlurp|]
+                i' <- lift i
+                rest' <- helper (i + 1) rest
+                return $ slurp `AppE` rp' `AppE` r `AppE` i' : rest'
+
+countParams :: RP -> Int
+countParams (RP rpps) = helper 0 rpps where
+    helper i [] = i
+    helper i (Static _:rest) = helper i rest
+    helper i (_:rest) = helper (i + 1) rest
+
 instance Lift RPNode where
     lift (RPNode rp vm) = do
         rp' <- lift rp
-        vm' <- lift vm
+        vm' <- liftVerbMap vm $ countParams rp
         return $ TupE [rp', vm']
 instance Lift RP where
     lift (RP rpps) = do
@@ -282,13 +343,12 @@ instance Lift RPP where
         return $ ConE (mkName "DynInt") `AppE` (LitE $ StringL s)
     lift (Slurp s) =
         return $ ConE (mkName "Slurp") `AppE` (LitE $ StringL s)
-instance Lift VerbMap where
-    lift (AllVerbs s) =
-      return $ LamE [VarP $ mkName "verb"]
-             $ (VarE $ mkName s) `AppE` (VarE $ mkName "verb")
-    lift (Verbs vs) =
-      return $ LamE [VarP $ mkName "verb"]
-             $ CaseE (VarE $ mkName "verb")
+liftVerbMap :: VerbMap -> Int -> Q Exp
+liftVerbMap (AllVerbs s) _ = do
+    cr <- [|(.) (fmap chooseRep)|]
+    return $ cr `AppE` ((VarE $ mkName s) `AppE` (VarE $ mkName "verb"))
+liftVerbMap (Verbs vs) params =
+      return $ CaseE (VarE $ mkName "verb")
              $ map helper vs ++ [whenNotFound]
         where
             helper :: (Verb, String) -> Match
@@ -297,7 +357,10 @@ instance Lift VerbMap where
                       (NormalB $ VarE $ mkName f)
                       []
             whenNotFound :: Match
-            whenNotFound = Match WildP (NormalB $ VarE $ mkName "notFound") []
+            whenNotFound =
+                Match WildP
+                      (NormalB $ LamE (replicate params WildP) $ VarE $ mkName "notFound")
+                      []
 
 strToExp :: String -> Q Exp
 strToExp s = do

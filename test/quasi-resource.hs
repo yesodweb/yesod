@@ -10,20 +10,20 @@ data MyYesod = MyYesod
 
 instance Show (Handler MyYesod RepChooser) where show _ = "Another handler"
 
-getStatic :: Verb -> Handler MyYesod RepChooser
-getStatic v = return $ chooseRep $ toHtmlObject ["getStatic", show v]
+getStatic :: Verb -> [String] -> Handler MyYesod HtmlObject
+getStatic v p = return $ toHtmlObject ["getStatic", show v, show p]
 pageIndex :: Handler MyYesod RepChooser
 pageIndex = return $ chooseRep $ toHtmlObject ["pageIndex"]
 pageAdd :: Handler MyYesod RepChooser
 pageAdd = return $ chooseRep $ toHtmlObject ["pageAdd"]
-pageDetail :: Handler MyYesod RepChooser
-pageDetail = return $ chooseRep $ toHtmlObject ["pageDetail"]
-pageDelete :: Handler MyYesod RepChooser
-pageDelete = return $ chooseRep $ toHtmlObject ["pageDelete"]
-pageUpdate :: Handler MyYesod RepChooser
-pageUpdate = return $ chooseRep $ toHtmlObject ["pageUpdate"]
-userInfo :: Handler MyYesod RepChooser
-userInfo = return $ chooseRep $ toHtmlObject ["userInfo"]
+pageDetail :: String -> Handler MyYesod RepChooser
+pageDetail s = return $ chooseRep $ toHtmlObject ["pageDetail", s]
+pageDelete :: String -> Handler MyYesod RepChooser
+pageDelete s = return $ chooseRep $ toHtmlObject ["pageDelete", s]
+pageUpdate :: String -> Handler MyYesod RepChooser
+pageUpdate s = return $ chooseRep $ toHtmlObject ["pageUpdate", s]
+userInfo :: Int -> Handler MyYesod RepChooser
+userInfo i = return $ chooseRep $ toHtmlObject ["userInfo", show i]
 
 instance Show (Verb -> Handler MyYesod RepChooser) where
     show _ = "verb -> handler"

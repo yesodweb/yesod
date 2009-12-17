@@ -17,7 +17,7 @@ import Yesod.Utils
 import Data.Maybe (fromMaybe)
 import Data.Convertible.Text
 import Web.Encodings
-import Control.Arrow ((***))
+import Control.Arrow ((***), second)
 import Control.Monad (when)
 
 import qualified Hack
@@ -118,7 +118,7 @@ lookupHandlers r = helper handlers where
     helper [] = Nothing
     helper ((rps, v):rest) =
         case checkPattern (cs rps) r of
-            Just up -> Just (v, up)
+            Just up -> Just (v, map (second show) up)
             Nothing -> helper rest
 
 envToRawRequest :: [(ParamName, ParamValue)] -> Hack.Env -> RawRequest
