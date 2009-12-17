@@ -33,7 +33,6 @@ module Yesod.Request
     , MonadRequestReader (..)
     , getParam
     , postParam
-    , urlParam
     , anyParam
     , cookieParam
     , identifier
@@ -76,7 +75,6 @@ import Control.Arrow ((***))
 data ParamType =
     GetParam
     | PostParam
-    | UrlParam
     | CookieParam
     deriving (Eq, Show)
 
@@ -158,11 +156,6 @@ getParam = genParam getParams GetParam
 postParam :: (Parameter a, MonadRequestReader m) => ParamName -> m a
 postParam = genParam postParams PostParam
 
--- | Parse a value passed in the URL and extracted using rewrite.
--- (FIXME: link to rewrite section.)
-urlParam :: (Parameter a, MonadRequestReader m) => ParamName -> m a
-urlParam = genParam urlParams UrlParam
-
 -- | Parse a value passed as a GET, POST or URL parameter.
 anyParam :: (Parameter a, MonadRequestReader m) => ParamName -> m a
 anyParam = genParam anyParams PostParam -- FIXME
@@ -217,7 +210,6 @@ type PathInfo = [String]
 -- | The raw information passed through Hack, cleaned up a bit.
 data RawRequest = RawRequest
     { rawPathInfo :: PathInfo
-    , rawUrlParams :: [(ParamName, ParamValue)]
     , rawGetParams :: [(ParamName, ParamValue)]
     , rawPostParams :: [(ParamName, ParamValue)]
     , rawCookies :: [(ParamName, ParamValue)]
@@ -241,17 +233,9 @@ postParams rr name = map snd
                    . rawPostParams
                    $ rr
 
--- | All URL paramater values (see rewriting) with the given name.
-urlParams :: RawRequest -> ParamName -> [ParamValue]
-urlParams rr name = map snd
-                  . filter (\x -> name == fst x)
-                  . rawUrlParams
-                  $ rr
-
--- | All GET, POST and URL paramater values (see rewriting) with the given name.
+-- | All GET and POST paramater values (see rewriting) with the given name.
 anyParams :: RawRequest -> ParamName -> [ParamValue]
-anyParams req name = urlParams req name ++
-                     getParams req name ++
+anyParams req name = getParams req name ++
                      postParams req name
 
 -- | All cookies with the given name.
@@ -325,8 +309,8 @@ notBlank rp =
     "" -> invalidParam (paramType rp) (paramName rp) "Required field"
     s -> return s
 
-instance ConvertSuccess ([(ParamName, ParamValue)], Hack.Env) RawRequest where
-  convertSuccess (urlParams', env) =
+instance ConvertSuccess Hack.Env RawRequest where
+  convertSuccess env =
     let (Right rawPieces) = splitPath $ Hack.pathInfo env
         gets' = decodeUrlPairs $ Hack.queryString env :: [(String, String)]
         clength = tryLookup "0" "Content-Length" $ Hack.http env
@@ -339,4 +323,4 @@ instance ConvertSuccess ([(ParamName, ParamValue)], Hack.Env) RawRequest where
         rawCookie = tryLookup "" "Cookie" $ Hack.http env
         cookies' = decodeCookies rawCookie :: [(String, String)]
         langs = ["en"] -- FIXME
-     in RawRequest rawPieces urlParams' gets' posts cookies' files env langs
+     in RawRequest rawPieces gets' posts cookies' files env langs

@@ -28,6 +28,7 @@ import Control.Applicative ((<$>))
 
 import Yesod
 import Yesod.Rep
+import Data.List (intercalate)
 
 type FileLookup = FilePath -> IO (Maybe B.ByteString)
 
@@ -40,13 +41,14 @@ fileLookupDir dir fp = do
         then Just <$> B.readFile fp'
         else return Nothing
 
-serveStatic :: FileLookup -> Verb -> Handler y [(ContentType, Content)]
-serveStatic fl Get = getStatic fl
-serveStatic _ _ = notFound
+serveStatic :: FileLookup -> Verb -> [String]
+            -> Handler y [(ContentType, Content)]
+serveStatic fl Get fp = getStatic fl fp
+serveStatic _ _ _ = notFound
 
-getStatic :: FileLookup -> Handler y [(ContentType, Content)]
-getStatic fl = do
-    fp <- urlParam "filepath" -- FIXME check for ..
+getStatic :: FileLookup -> [String] -> Handler y [(ContentType, Content)]
+getStatic fl fp' = do
+    let fp = intercalate "/" fp' -- FIXME check for . or ..
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
