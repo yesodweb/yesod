@@ -25,9 +25,12 @@ import qualified Hack
 import Data.Convertible.Text
 import Control.Exception (Exception)
 import Data.Typeable (Typeable)
+import Language.Haskell.TH.Syntax
 
 data Verb = Get | Put | Delete | Post
-    deriving (Eq, Show)
+    deriving (Eq, Show, Enum, Bounded)
+instance Lift Verb where
+    lift = return . ConE . mkName . show
 instance ConvertAttempt String Verb where
     convertAttempt "Get" = return Get
     convertAttempt "Put" = return Put

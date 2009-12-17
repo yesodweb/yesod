@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE QuasiQuotes #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Resource
@@ -27,6 +28,14 @@ module Yesod.Resource
     , checkPatternsTH
     , validatePatterns
     , checkPatterns
+    , checkRPNodes
+    , rpnodesTH
+    , rpnodesTHCheck
+    , rpnodesQuasi
+    , RPNode (..)
+    , VerbMap (..)
+    , RP (..)
+    , RPP (..)
 #if TEST
       -- * Testing
     , testSuite
@@ -35,11 +44,12 @@ module Yesod.Resource
 
 import Data.List.Split (splitOn)
 import Yesod.Definitions
-import Data.List (intercalate)
+import Data.List (intercalate, nub)
 import Data.Char (isDigit)
 
 import Control.Monad (when)
-import Language.Haskell.TH
+import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Quote
 
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
@@ -201,6 +211,70 @@ data RPNodeException = VerbMapNonScalar TextObject
     deriving (Show, Typeable)
 instance Exception RPNodeException
 
+checkRPNodes :: (MonadFailure OverlappingPatterns m,
+                 MonadFailure RepeatedVerb m
+                )
+             => [RPNode]
+             -> m [RPNode]
+checkRPNodes nodes = do
+    checkPatterns $ map (\(RPNode r _) -> cs r) nodes -- FIXME ugly
+    mapM_ (\(RPNode _ v) -> checkVerbMap v) nodes
+    return nodes
+        where
+            checkVerbMap (AllVerbs _) = return ()
+            checkVerbMap (Verbs vs) =
+                let vs' = map fst vs
+                    res = nub vs' == vs'
+                 in if res then return () else failure $ RepeatedVerb vs
+
+newtype RepeatedVerb = RepeatedVerb [(Verb, String)]
+    deriving (Show, Typeable)
+instance Exception RepeatedVerb
+
+rpnodesTHCheck :: [RPNode] -> Q Exp
+rpnodesTHCheck nodes = do
+    nodes' <- runIO $ checkRPNodes nodes
+    rpnodesTH nodes'
+
+rpnodesTH :: [RPNode] -> Q Exp
+rpnodesTH = fmap ListE . mapM lift
+instance Lift RPNode where
+    lift (RPNode rp vm) = do
+        rp' <- lift rp
+        vm' <- lift vm
+        return $ TupE [rp', vm']
+instance Lift RP where
+    lift (RP rpps) = do
+        rpps' <- lift rpps
+        return $ ConE (mkName "RP") `AppE` rpps'
+instance Lift RPP where
+    lift (Static s) =
+        return $ ConE (mkName "Static") `AppE` (LitE $ StringL s)
+    lift (Dynamic s) =
+        return $ ConE (mkName "Dynamic") `AppE` (LitE $ StringL s)
+    lift (DynInt s) =
+        return $ ConE (mkName "DynInt") `AppE` (LitE $ StringL s)
+    lift (Slurp s) =
+        return $ ConE (mkName "Slurp") `AppE` (LitE $ StringL s)
+instance Lift VerbMap where
+    lift (AllVerbs s) = return $ ListE $ map helper [minBound..maxBound]
+        where
+            helper :: Verb -> Exp
+            helper v = TupE [(helper2 v), LitE $ StringL s]
+            helper2 :: Verb -> Exp
+            helper2 = ConE . mkName . show
+    lift (Verbs v) = lift v
+
+strToExp :: String -> Q Exp
+strToExp s = do
+    let yd :: YamlDoc
+        yd = YamlDoc $ cs s
+    rpnodes <- runIO $ convertAttemptWrap yd
+    rpnodesTHCheck rpnodes
+
+rpnodesQuasi :: QuasiQuoter
+rpnodesQuasi = QuasiQuoter strToExp undefined
+
 #if TEST
 ---- Testing
 testSuite :: Test
@@ -212,6 +286,7 @@ testSuite = testGroup "Yesod.Resource"
     , testProperty "show pattern" prop_showPattern
     , testCase "integers" caseIntegers
     , testCase "read patterns from YAML" caseFromYaml
+    , testCase "checkRPNodes" caseCheckRPNodes
     ]
 
 deriving instance Arbitrary RP
@@ -287,4 +362,16 @@ caseFromYaml = do
          ]
     contents' <- fa $ ca contents
     expected @=? contents'
+
+caseCheckRPNodes :: Assertion
+caseCheckRPNodes = do
+    good' <- readYamlDoc "test/resource-patterns.yaml"
+    good <- fa $ ca good'
+    Just good @=? checkRPNodes good
+    let bad1 = [ RPNode (cs "foo/bar") $ AllVerbs "foo"
+               , RPNode (cs "$foo/bar") $ AllVerbs "bar"
+               ]
+    Nothing @=? checkRPNodes bad1
+    let bad2 = [RPNode (cs "") $ Verbs [(Get, "foo"), (Get, "bar")]]
+    Nothing @=? checkRPNodes bad2
 #endif
