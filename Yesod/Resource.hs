@@ -257,13 +257,20 @@ instance Lift RPP where
     lift (Slurp s) =
         return $ ConE (mkName "Slurp") `AppE` (LitE $ StringL s)
 instance Lift VerbMap where
-    lift (AllVerbs s) = return $ ListE $ map helper [minBound..maxBound]
+    lift (AllVerbs s) =
+      return $ LamE [VarP $ mkName "_FIXMEverb"] $ VarE $ mkName s
+    lift (Verbs vs) =
+      return $ LamE [VarP $ mkName "verb"]
+             $ CaseE (VarE $ mkName "verb")
+             $ map helper vs ++ [whenNotFound]
         where
-            helper :: Verb -> Exp
-            helper v = TupE [(helper2 v), LitE $ StringL s]
-            helper2 :: Verb -> Exp
-            helper2 = ConE . mkName . show
-    lift (Verbs v) = lift v
+            helper :: (Verb, String) -> Match
+            helper (v, f) =
+                Match (ConP (mkName $ show v) [])
+                      (NormalB $ VarE $ mkName f)
+                      []
+            whenNotFound :: Match
+            whenNotFound = Match WildP (NormalB $ VarE $ mkName "notFound") []
 
 strToExp :: String -> Q Exp
 strToExp s = do

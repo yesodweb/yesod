@@ -1,24 +1,33 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-import Yesod.Resource
-import Yesod.Definitions
-import Data.Convertible.Text
+import Yesod
+import Yesod.Rep
 
-handler :: [(RP, [(Verb, [Char])])]
-handler =
-    $(rpnodesTHCheck
-         [ RPNode (cs "static/*filepath") $ AllVerbs "getStatic"
-         , RPNode (cs "page") $ Verbs [(Get, "pageIndex"), (Put, "pageAdd")]
-         , RPNode (cs "page/$page") $ Verbs [ (Get, "pageDetail")
-                                            , (Delete, "pageDelete")
-                                            , (Post, "pageUpdate")
-                                            ]
-         , RPNode (cs "user/#id") $ Verbs [(Get, "userInfo")]
-         ])
+data MyYesod = MyYesod
 
-handler2 :: [(RP, [(Verb, [Char])])]
-handler2 = [$rpnodesQuasi|
+instance Show (Handler MyYesod RepChooser) where show _ = "Another handler"
+
+getStatic :: Handler MyYesod RepChooser
+getStatic = undefined
+pageIndex :: Handler MyYesod RepChooser
+pageIndex = undefined
+pageAdd :: Handler MyYesod RepChooser
+pageAdd = undefined
+pageDetail :: Handler MyYesod RepChooser
+pageDetail = undefined
+pageDelete :: Handler MyYesod RepChooser
+pageDelete = undefined
+pageUpdate :: Handler MyYesod RepChooser
+pageUpdate = undefined
+userInfo :: Handler MyYesod RepChooser
+userInfo = undefined
+
+instance Show (Verb -> Handler MyYesod RepChooser) where
+    show _ = "verb -> handler"
+handler :: [(RP, Verb -> Handler MyYesod RepChooser)]
+handler = [$rpnodesQuasi|
 /static/*filepath/: getStatic
 /page/:
     Get: pageIndex
@@ -34,5 +43,3 @@ handler2 = [$rpnodesQuasi|
 main :: IO ()
 main = do
     print handler
-    print handler2
-    print $ handler == handler2
