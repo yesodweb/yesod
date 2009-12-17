@@ -38,6 +38,10 @@ import Data.Char (isDigit)
 
 import Language.Haskell.TH.Syntax
 import Language.Haskell.TH.Quote
+{- Debugging
+import Language.Haskell.TH.Ppr
+import System.IO
+-}
 
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
@@ -263,7 +267,10 @@ instance Exception RepeatedVerb
 rpnodesTHCheck :: [RPNode] -> Q Exp
 rpnodesTHCheck nodes = do
     nodes' <- runIO $ checkRPNodes nodes
-    -- For debugging purposes runIO $ putStrLn $ pprint res
+    {- For debugging purposes
+    rpnodesTH nodes' >>= runIO . putStrLn . pprint
+    runIO $ hFlush stdout
+    -}
     rpnodesTH nodes'
 
 notFoundVerb :: Verb -> Handler yesod a
@@ -338,11 +345,6 @@ countParams (RP rpps) = helper 0 rpps where
     helper i (Static _:rest) = helper i rest
     helper i (_:rest) = helper (i + 1) rest
 
-instance Lift RPNode where
-    lift (RPNode rp vm) = do
-        rp' <- lift rp
-        vm' <- liftVerbMap vm $ countParams rp
-        return $ TupE [rp', vm']
 instance Lift RP where
     lift (RP rpps) = do
         rpps' <- lift rpps
@@ -365,14 +367,17 @@ liftVerbMap :: VerbMap -> Int -> Q Exp
 liftVerbMap (AllVerbs s) _ = do
     cr <- [|(.) (fmap chooseRep)|]
     return $ cr `AppE` ((VarE $ mkName s) `AppE` (VarE $ mkName "verb"))
-liftVerbMap (Verbs vs) params =
-      return $ CaseE (VarE $ mkName "verb")
-             $ map helper vs ++ [whenNotFound]
+liftVerbMap (Verbs vs) params = do
+    cr0 <- [|fmap chooseRep|]
+    cr1 <- [|(.) (fmap chooseRep)|]
+    let cr = if params == 0 then cr0 else cr1
+    return $ CaseE (VarE $ mkName "verb")
+           $ map (helper cr) vs ++ [whenNotFound]
         where
-            helper :: (Verb, String) -> Match
-            helper (v, f) =
+            helper :: Exp -> (Verb, String) -> Match
+            helper cr (v, f) =
                 Match (ConP (mkName $ show v) [])
-                      (NormalB $ VarE $ mkName f)
+                      (NormalB $ cr `AppE` VarE (mkName f))
                       []
             whenNotFound :: Match
             whenNotFound =

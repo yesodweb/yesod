@@ -26,9 +26,6 @@ import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
 import Data.Enumerable
 
-import Data.Object.Html
-import Data.Convertible.Text
-
 import Yesod
 import Yesod.Constants
 

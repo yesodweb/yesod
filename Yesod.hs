@@ -19,6 +19,9 @@ module Yesod
     , module Yesod.Definitions
     , module Yesod.Handler
     , module Yesod.Resource
+    , module Data.Object.Html
+    , module Yesod.Rep
+    , module Data.Convertible.Text
     , Application
     ) where
 
@@ -29,3 +32,6 @@ import Yesod.Definitions
 import Yesod.Handler
 import Yesod.Resource
 import Hack (Application)
+import Yesod.Rep
+import Data.Object.Html
+import Data.Convertible.Text

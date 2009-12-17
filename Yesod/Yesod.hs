@@ -1,6 +1,7 @@
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( Yesod (..)
+    , YesodApproot (..)
     , toHackApp
     ) where
 
@@ -35,6 +36,7 @@ class Yesod a where
     errorHandler :: ErrorResult -> Handler a RepChooser
     errorHandler = defaultErrorHandler
 
+class Yesod a => YesodApproot a where
     -- | An absolute URL to the root of the application.
     approot :: a -> Approot
 

@@ -86,13 +86,15 @@ instance HasReps SitemapResponse where
         [ (TypeXml, return . cs)
         ]
 
-sitemap :: Yesod yesod => IO [SitemapUrl] -> Handler yesod SitemapResponse
+sitemap :: YesodApproot yesod
+        => IO [SitemapUrl]
+        -> Handler yesod SitemapResponse
 sitemap urls' = do
     yesod <- getYesod
     urls <- liftIO urls'
     return $ SitemapResponse urls $ approot yesod
 
-robots :: Yesod yesod => Handler yesod Plain
+robots :: YesodApproot yesod => Handler yesod Plain
 robots = do
     yesod <- getYesod
     return $ plain $ "Sitemap: " ++ unApproot (approot yesod)
