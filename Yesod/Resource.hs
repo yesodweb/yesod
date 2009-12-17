@@ -43,7 +43,7 @@ import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Data.Attempt -- for failure stuff
 import Data.Object.Text
-import Control.Monad ((<=<))
+import Control.Monad ((<=<), unless)
 import Data.Object.Yaml
 import Yesod.Handler
 import Data.Maybe (fromJust)
@@ -52,6 +52,7 @@ import Yesod.Rep hiding (testSuite)
 #else
 import Yesod.Rep
 #endif
+import Control.Arrow
 
 #if TEST
 import Control.Monad (replicateM)
@@ -63,10 +64,16 @@ import Test.QuickCheck
 import Control.Monad (when)
 #endif
 
+resources :: QuasiQuoter
+resources = QuasiQuoter (strToExp True) undefined
+
+resourcesNoCheck :: QuasiQuoter
+resourcesNoCheck = QuasiQuoter (strToExp False) undefined
+
 -- | Resource Pattern Piece
 data RPP =
     Static String
-    | Dynamic String
+    | DynStr String
     | DynInt String
     | Slurp String -- ^ take up the rest of the pieces. must be last
     deriving (Eq, Show)
@@ -79,76 +86,96 @@ isSlurp :: RPP -> Bool
 isSlurp (Slurp _) = True
 isSlurp _ = False
 
-instance ConvertSuccess String RP where
-    convertSuccess = RP . map helper . filter (not . null) .splitOn "/"
-      where
-        helper :: String -> RPP
-        helper ('$':rest) = Dynamic rest
-        helper ('*':rest) = Slurp rest
-        helper ('#':rest) = DynInt rest
-        helper x = Static x
+data InvalidResourcePattern =
+    SlurpNotLast String
+    | EmptyResourcePatternPiece String
+    deriving (Show, Typeable)
+instance Exception InvalidResourcePattern
+readRP :: MonadFailure InvalidResourcePattern m
+       => ResourcePattern
+       -> m RP
+readRP "" = return $ RP []
+readRP "/" = return $ RP []
+readRP rps = fmap RP $ helper $ splitOn "/" $ correct rps where
+    correct = correct1 . correct2 where
+        correct1 ('/':rest) = rest
+        correct1 x = x
+        correct2 x
+            | null x = x
+            | last x == '/' = init x
+            | otherwise = x
+    helper [] = return []
+    helper (('$':name):rest) = do
+        rest' <- helper rest
+        return $ DynStr name : rest'
+    helper (('#':name):rest) = do
+        rest' <- helper rest
+        return $ DynInt name : rest'
+    helper (('*':name):rest) = do
+        rest' <- helper rest
+        unless (null rest') $ failure $ SlurpNotLast rps
+        return $ Slurp name : rest'
+    helper ("":_) = failure $ EmptyResourcePatternPiece rps
+    helper (name:rest) = do
+        rest' <- helper rest
+        return $ Static name : rest'
 instance ConvertSuccess RP String where
     convertSuccess = concatMap helper . unRP where
         helper (Static s) = '/' : s
-        helper (Dynamic s) = '/' : '$' : s
+        helper (DynStr s) = '/' : '$' : s
         helper (Slurp s) = '/' : '*' : s
         helper (DynInt s) = '/' : '#' : s
 
 type ResourcePattern = String
 
-data CheckPatternReturn =
-    StaticMatch
-  | DynamicMatch (String, String)
-  | DynIntMatch (String, Int)
-  | NoMatch
-
-checkPatternBool :: RP -> Resource -> Bool
-checkPatternBool rp r = case checkPattern rp r of
+-- | Determing whether the given resource fits the resource pattern.
+doesPatternMatch :: RP -> Resource -> Bool
+doesPatternMatch rp r = case doPatternPiecesMatch (unRP rp) r of
                             Nothing -> False
                             _ -> True
 
-checkPatternUP :: RP -> Resource -> [UrlParam]
-checkPatternUP rp r = map snd $ fromJust (checkPattern rp r)
+-- | Extra the 'UrlParam's from a resource known to match the given 'RP'. This
+-- is a partial function.
+paramsFromMatchingPattern :: RP -> Resource -> [UrlParam]
+paramsFromMatchingPattern rp =
+    map snd . fromJust . doPatternPiecesMatch (unRP rp)
 
-checkPattern :: RP -> Resource -> Maybe [(String, UrlParam)]
-checkPattern = checkPatternPieces . unRP
-
-checkPatternPieces :: [RPP] -> Resource -> Maybe [(String, UrlParam)]
-checkPatternPieces rp r
+doPatternPiecesMatch :: MonadFailure NoMatch m
+                   => [RPP]
+                   -> Resource
+                   -> m [(String, UrlParam)]
+doPatternPiecesMatch rp r
     | not (null rp) && isSlurp (last rp) = do
         let rp' = init rp
             (r1, r2) = splitAt (length rp') r
-        smap <- checkPatternPieces rp' r1
+        smap <- doPatternPiecesMatch rp' r1
         let Slurp slurpKey = last rp
         return $ (slurpKey, SlurpParam r2) : smap
-    | length rp /= length r = Nothing
-    | otherwise = combine [] $ zipWith checkPattern' rp r
+    | length rp /= length r = failure NoMatch
+    | otherwise = concat `fmap` sequence (zipWith doesPatternPieceMatch rp r)
 
-checkPattern' :: RPP -> String -> CheckPatternReturn
-checkPattern' (Static x) y = if x == y then StaticMatch else NoMatch
-checkPattern' (Dynamic x) y = DynamicMatch (x, y)
-checkPattern' (Slurp x) _ = error $ "Slurp pattern " ++ x ++ " must be last"
-checkPattern' (DynInt x) y
-    | all isDigit y = DynIntMatch (x, read y)
-    | otherwise = NoMatch
+data NoMatch = NoMatch
+doesPatternPieceMatch :: MonadFailure NoMatch m
+              => RPP
+              -> String
+              -> m [(String, UrlParam)]
+doesPatternPieceMatch (Static x) y = if x == y then return [] else failure NoMatch
+doesPatternPieceMatch (DynStr x) y = return [(x, StringParam y)]
+doesPatternPieceMatch (Slurp x) _ = error $ "Slurp pattern " ++ x ++ " must be last"
+doesPatternPieceMatch (DynInt x) y
+    | all isDigit y = return [(x, IntParam $ read y)]
+    | otherwise = failure NoMatch
 
-combine :: [(String, UrlParam)]
-        -> [CheckPatternReturn]
-        -> Maybe [(String, UrlParam)]
-combine s [] = Just $ reverse s
-combine _ (NoMatch:_) = Nothing
-combine s (StaticMatch:rest) = combine s rest
-combine s (DynamicMatch (x, y):rest) = combine ((x, StringParam y):s) rest
-combine s (DynIntMatch (x, y):rest) = combine ((x, IntParam y):s) rest
-
+-- | Determine if two resource patterns can lead to an overlap (ie, they can
+-- both match a single resource).
 overlaps :: [RPP] -> [RPP] -> Bool
 overlaps [] [] = True
 overlaps [] _ = False
 overlaps _ [] = False
 overlaps (Slurp _:_) _ = True
 overlaps _ (Slurp _:_) = True
-overlaps (Dynamic _:x) (_:y) = overlaps x y
-overlaps (_:x) (Dynamic _:y) = overlaps x y
+overlaps (DynStr _:x) (_:y) = overlaps x y
+overlaps (_:x) (DynStr _:y) = overlaps x y
 overlaps (DynInt _:x) (DynInt _:y) = overlaps x y
 overlaps (DynInt _:x) (Static s:y)
     | all isDigit s = overlaps x y
@@ -163,26 +190,27 @@ data OverlappingPatterns =
     deriving (Show, Typeable)
 instance Exception OverlappingPatterns
 
-checkPatterns :: MonadFailure OverlappingPatterns f
-              => [ResourcePattern]
-              -> f ()
-checkPatterns patterns =
-    case validatePatterns patterns of
-        [] -> return ()
-        x -> failure $ OverlappingPatterns x
+getAllPairs :: [x] -> [(x, x)]
+getAllPairs [] = []
+getAllPairs [_] = []
+getAllPairs (x:xs) = map ((,) x) xs ++ getAllPairs xs
 
-validatePatterns :: [ResourcePattern]
-                 -> [(ResourcePattern, ResourcePattern)]
-validatePatterns [] = []
-validatePatterns (x:xs) =
-  concatMap (validatePatterns' x) xs ++ validatePatterns xs where
-    validatePatterns' :: ResourcePattern
-                      -> ResourcePattern
-                      -> [(ResourcePattern, ResourcePattern)]
-    validatePatterns' a b =
-        let a' = unRP $ cs a
-            b' = unRP $ cs b
-         in [(a, b) | overlaps a' b']
+-- | Ensures that we have a consistent set of resource patterns.
+checkPatterns :: (MonadFailure OverlappingPatterns m,
+                  MonadFailure InvalidResourcePattern m)
+              => [ResourcePattern]
+              -> m [RP] -- FIXME
+checkPatterns rpss = do
+    rps <- mapM (runKleisli $ Kleisli return &&& Kleisli readRP) rpss
+    let overlaps' = concatMap helper $ getAllPairs rps
+    unless (null overlaps') $ failure $ OverlappingPatterns overlaps'
+    return $ map snd rps
+        where
+            helper :: ((ResourcePattern, RP), (ResourcePattern, RP))
+                   -> [(ResourcePattern, ResourcePattern)]
+            helper ((a, RP x), (b, RP y))
+                | overlaps x y = [(a, b)]
+                | otherwise = []
 
 data RPNode = RPNode RP VerbMap
     deriving (Show, Eq)
@@ -195,7 +223,7 @@ instance ConvertAttempt TextObject [RPNode] where
         helper :: (Text, TextObject) -> Attempt RPNode
         helper (rp, rest) = do
             verbMap <- fromTextObject rest
-            let rp' = cs (cs rp :: String)
+            rp' <- readRP $ cs rp
             return $ RPNode rp' verbMap
 instance ConvertAttempt TextObject VerbMap where
     convertAttempt (Scalar s) = return $ AllVerbs $ cs s
@@ -212,7 +240,8 @@ data RPNodeException = VerbMapNonScalar TextObject
 instance Exception RPNodeException
 
 checkRPNodes :: (MonadFailure OverlappingPatterns m,
-                 MonadFailure RepeatedVerb m
+                 MonadFailure RepeatedVerb m,
+                 MonadFailure InvalidResourcePattern m
                 )
              => [RPNode]
              -> m [RPNode]
@@ -225,7 +254,7 @@ checkRPNodes nodes = do
             checkVerbMap (Verbs vs) =
                 let vs' = map fst vs
                     res = nub vs' == vs'
-                 in if res then return () else failure $ RepeatedVerb vs
+                 in unless res $ failure $ RepeatedVerb vs
 
 newtype RepeatedVerb = RepeatedVerb [(Verb, String)]
     deriving (Show, Typeable)
@@ -234,28 +263,25 @@ instance Exception RepeatedVerb
 rpnodesTHCheck :: [RPNode] -> Q Exp
 rpnodesTHCheck nodes = do
     nodes' <- runIO $ checkRPNodes nodes
-    res <- rpnodesTH nodes'
     -- For debugging purposes runIO $ putStrLn $ pprint res
-    return res
+    rpnodesTH nodes'
 
 notFoundVerb :: Verb -> Handler yesod a
 notFoundVerb _verb = notFound
 
 rpnodesTH :: [RPNode] -> Q Exp
 rpnodesTH ns = do
-    b <- helper ns
+    b <- mapM helper ns
     nfv <- [|notFoundVerb|]
     ow <- [|otherwise|]
     let b' = b ++ [(NormalG ow, nfv)]
     return $ LamE [VarP $ mkName "resource"]
            $ CaseE (TupE []) [Match WildP (GuardedB b') []]
       where
-        helper :: [RPNode] -> Q [(Guard, Exp)]
-        helper nodes = mapM helper2 nodes
-        helper2 :: RPNode -> Q (Guard, Exp)
-        helper2 (RPNode rp vm) = do
+        helper :: RPNode -> Q (Guard, Exp)
+        helper (RPNode rp vm) = do
             rp' <- lift rp
-            cpb <- [|checkPatternBool|]
+            cpb <- [|doesPatternMatch|]
             let r' = VarE $ mkName "resource"
             let g = cpb `AppE` rp' `AppE` r'
             vm' <- liftVerbMap vm $ countParams rp
@@ -266,10 +292,9 @@ rpnodesTH ns = do
 data UrlParam = SlurpParam { slurpParam :: [String] }
               | StringParam { stringParam :: String }
               | IntParam { intParam :: Int }
-    deriving Show -- FIXME remove
 
 getUrlParam :: RP -> Resource -> Int -> UrlParam
-getUrlParam rp r i = checkPatternUP rp r !! i
+getUrlParam rp = (!!) . paramsFromMatchingPattern rp
 
 getUrlParamSlurp :: RP -> Resource -> Int -> [String]
 getUrlParamSlurp rp r = slurpParam . getUrlParam rp r
@@ -288,7 +313,7 @@ applyUrlParams rp@(RP rpps) r f = do
             helper :: Int -> [RPP] -> Q [Exp]
             helper _ [] = return []
             helper i (Static _:rest) = helper i rest
-            helper i (Dynamic _:rest) = do
+            helper i (DynStr _:rest) = do
                 rp' <- lift rp
                 str <- [|getUrlParamString|]
                 i' <- lift i
@@ -327,8 +352,8 @@ instance Lift RPP where
     lift (Static s) = do
         st <- [|Static|]
         return $ st `AppE` (LitE $ StringL s)
-    lift (Dynamic s) = do
-        d <- [|Dynamic|]
+    lift (DynStr s) = do
+        d <- [|DynStr|]
         return $ d `AppE` (LitE $ StringL s)
     lift (DynInt s) = do
         d <- [|DynInt|]
@@ -360,12 +385,6 @@ strToExp toCheck s = do
     rpnodes <- runIO $ convertAttemptWrap $ YamlDoc $ cs s
     (if toCheck then rpnodesTHCheck else rpnodesTH) rpnodes
 
-resources :: QuasiQuoter
-resources = QuasiQuoter (strToExp True) undefined
-
-resourcesNoCheck :: QuasiQuoter
-resourcesNoCheck = QuasiQuoter (strToExp False) undefined
-
 #if TEST
 ---- Testing
 testSuite :: Test
@@ -373,28 +392,37 @@ testSuite = testGroup "Yesod.Resource"
     [ testCase "non-overlap" caseOverlap1
     , testCase "overlap" caseOverlap2
     , testCase "overlap-slurp" caseOverlap3
-    , testCase "validatePatterns" caseValidatePatterns
+    -- FIXME, testCase "validatePatterns" caseValidatePatterns
     , testProperty "show pattern" prop_showPattern
     , testCase "integers" caseIntegers
     , testCase "read patterns from YAML" caseFromYaml
     , testCase "checkRPNodes" caseCheckRPNodes
+    , testCase "readRP" caseReadRP
     ]
 
-deriving instance Arbitrary RP
+instance Arbitrary RP where
+    coarbitrary = undefined
+    arbitrary = do
+        size <- elements [1..10]
+        rpps <- replicateM size arbitrary
+        let rpps' = filter (not . isSlurp) rpps
+        extra <- arbitrary
+        return $ RP $ rpps' ++ [extra]
+
+caseOverlap' :: String -> String -> Bool -> Assertion
+caseOverlap' x y b = do
+    x' <- readRP x
+    y' <- readRP y
+    assert $ overlaps (unRP x') (unRP y') == b
 
 caseOverlap1 :: Assertion
-caseOverlap1 = assert $ not $ overlaps
-                    (unRP $ cs "/foo/$bar/")
-                    (unRP $ cs "/foo/baz/$bin")
+caseOverlap1 = caseOverlap' "/foo/$bar/" "/foo/baz/$bin" False
 caseOverlap2 :: Assertion
-caseOverlap2 = assert $ overlaps
-                    (unRP $ cs "/foo/bar")
-                    (unRP $ cs "/foo/$baz")
+caseOverlap2 = caseOverlap' "/foo/bar" "/foo/$baz" True
 caseOverlap3 :: Assertion
-caseOverlap3 = assert $ overlaps
-                    (unRP $ cs "/foo/bar/baz/$bin")
-                    (unRP $ cs "*slurp")
+caseOverlap3 = caseOverlap' "/foo/bar/baz/$bin" "*slurp" True
 
+{- FIXME rewrite this test
 caseValidatePatterns :: Assertion
 caseValidatePatterns =
     let p1 = cs "/foo/bar/baz"
@@ -402,13 +430,14 @@ caseValidatePatterns =
         p3 = cs "/bin"
         p4 = cs "/bin/boo"
         p5 = cs "/bin/*slurp"
-     in validatePatterns [p1, p2, p3, p4, p5] @?=
+     in validatePatterns [p1, p2, p3, p4, p5] @?= Just
             [ (p1, p2)
             , (p4, p5)
             ]
+-}
 
 prop_showPattern :: RP -> Bool
-prop_showPattern p = cs (cs p :: String) == p
+prop_showPattern p = readRP (cs p) == Just p
 
 caseIntegers :: Assertion
 caseIntegers = do
@@ -420,8 +449,10 @@ caseIntegers = do
         p6 = "/foo/*slurp/"
         checkOverlap :: String -> String -> Bool -> IO ()
         checkOverlap a b c = do
-            let res1 = overlaps (unRP $ cs a) (unRP $ cs b)
-            let res2 = overlaps (unRP $ cs b) (unRP $ cs a)
+            rpa <- readRP a
+            rpb <- readRP b
+            let res1 = overlaps (unRP rpa) (unRP $ rpb)
+            let res2 = overlaps (unRP rpb) (unRP $ rpa)
             when (res1 /= c || res2 /= c) $ assertString $ a
                ++ (if c then " does not overlap with " else " overlaps with ")
                ++ b
@@ -433,7 +464,7 @@ caseIntegers = do
 
 instance Arbitrary RPP where
     arbitrary = do
-        constr <- elements [Static, Dynamic, Slurp, DynInt]
+        constr <- elements [Static, DynStr, Slurp, DynInt]
         size <- elements [1..10]
         s <- replicateM size $ elements ['a'..'z']
         return $ constr s
@@ -442,14 +473,18 @@ instance Arbitrary RPP where
 caseFromYaml :: Assertion
 caseFromYaml = do
     contents <- readYamlDoc "test/resource-patterns.yaml"
+    rp1 <- readRP "static/*filepath"
+    rp2 <- readRP "page"
+    rp3 <- readRP "page/$page"
+    rp4 <- readRP "user/#id"
     let expected =
-         [ RPNode (cs "static/*filepath") $ AllVerbs "getStatic"
-         , RPNode (cs "page") $ Verbs [(Get, "pageIndex"), (Put, "pageAdd")]
-         , RPNode (cs "page/$page") $ Verbs [ (Get, "pageDetail")
-                                            , (Delete, "pageDelete")
-                                            , (Post, "pageUpdate")
-                                            ]
-         , RPNode (cs "user/#id") $ Verbs [(Get, "userInfo")]
+         [ RPNode rp1 $ AllVerbs "getStatic"
+         , RPNode rp2 $ Verbs [(Get, "pageIndex"), (Put, "pageAdd")]
+         , RPNode rp3 $ Verbs [ (Get, "pageDetail")
+                              , (Delete, "pageDelete")
+                              , (Post, "pageUpdate")
+                              ]
+         , RPNode rp4 $ Verbs [(Get, "userInfo")]
          ]
     contents' <- fa $ ca contents
     expected @=? contents'
@@ -459,10 +494,23 @@ caseCheckRPNodes = do
     good' <- readYamlDoc "test/resource-patterns.yaml"
     good <- fa $ ca good'
     Just good @=? checkRPNodes good
-    let bad1 = [ RPNode (cs "foo/bar") $ AllVerbs "foo"
-               , RPNode (cs "$foo/bar") $ AllVerbs "bar"
+    rp1 <- readRP "foo/bar"
+    rp2 <- readRP "$foo/bar"
+    let bad1 = [ RPNode rp1 $ AllVerbs "foo"
+               , RPNode rp2 $ AllVerbs "bar"
                ]
     Nothing @=? checkRPNodes bad1
-    let bad2 = [RPNode (cs "") $ Verbs [(Get, "foo"), (Get, "bar")]]
+    rp' <- readRP ""
+    let bad2 = [RPNode rp' $ Verbs [(Get, "foo"), (Get, "bar")]]
     Nothing @=? checkRPNodes bad2
+
+caseReadRP :: Assertion
+caseReadRP = do
+    Just (RP [Static "foo", DynStr "bar", DynInt "baz", Slurp "bin"]) @=?
+        readRP "foo/$bar/#baz/*bin/"
+    Just (RP [Static "foo", DynStr "bar", DynInt "baz", Slurp "bin"]) @=?
+        readRP "foo/$bar/#baz/*bin"
+    Nothing @=? readRP "/foo//"
+    Just (RP []) @=? readRP "/"
+    Nothing @=? readRP "/*slurp/anything"
 #endif

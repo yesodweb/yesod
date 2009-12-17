@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE QuasiQuotes #-}
 
@@ -45,7 +44,7 @@ handler = [$resources|
 
 ph :: Handler MyYesod RepChooser -> IO ()
 ph h = do
-    let eh e = return $ chooseRep $ toHtmlObject $ show e
+    let eh = return . chooseRep . toHtmlObject . show
         rr = error "No raw request"
         y = MyYesod
         cts = [TypeHtml]
