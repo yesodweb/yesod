@@ -23,20 +23,8 @@
 --
 ---------------------------------------------------------
 module Yesod.Resource
-    ( ResourcePattern
-    , checkPattern
-    , checkPatternsTH
-    , validatePatterns
-    , checkPatterns
-    , checkRPNodes
-    , rpnodesTH
-    , rpnodesTHCheck
-    , rpnodesQuasi
-    , RPNode (..)
-    , VerbMap (..)
-    , RP (..)
-    , RPP (..)
-    , UrlParam (..)
+    ( resources
+    , resourcesNoCheck
 #if TEST
       -- * Testing
     , testSuite
@@ -48,7 +36,6 @@ import Yesod.Definitions
 import Data.List (nub)
 import Data.Char (isDigit)
 
-import Control.Monad (when)
 import Language.Haskell.TH.Syntax
 import Language.Haskell.TH.Quote
 
@@ -73,6 +60,7 @@ import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck (testProperty)
 import Test.HUnit hiding (Test)
 import Test.QuickCheck
+import Control.Monad (when)
 #endif
 
 -- | Resource Pattern Piece
@@ -124,11 +112,6 @@ checkPatternUP rp r = map snd $ fromJust (checkPattern rp r)
 
 checkPattern :: RP -> Resource -> Maybe [(String, UrlParam)]
 checkPattern = checkPatternPieces . unRP
-
-checkPatternsTH :: Bool -> [ResourcePattern] -> Q Exp
-checkPatternsTH toCheck patterns = do
-    runIO $ when toCheck $ checkPatterns patterns
-    [|return ()|]
 
 checkPatternPieces :: [RPP] -> Resource -> Maybe [(String, UrlParam)]
 checkPatternPieces rp r
@@ -262,7 +245,8 @@ rpnodesTH :: [RPNode] -> Q Exp
 rpnodesTH ns = do
     b <- helper ns
     nfv <- [|notFoundVerb|]
-    let b' = b ++ [(NormalG $ VarE $ mkName "otherwise", nfv)]
+    ow <- [|otherwise|]
+    let b' = b ++ [(NormalG ow, nfv)]
     return $ LamE [VarP $ mkName "resource"]
            $ CaseE (TupE []) [Match WildP (GuardedB b') []]
       where
@@ -337,16 +321,21 @@ instance Lift RPNode where
 instance Lift RP where
     lift (RP rpps) = do
         rpps' <- lift rpps
-        return $ ConE (mkName "RP") `AppE` rpps'
+        rp <- [|RP|]
+        return $ rp `AppE` rpps'
 instance Lift RPP where
-    lift (Static s) =
-        return $ ConE (mkName "Static") `AppE` (LitE $ StringL s)
-    lift (Dynamic s) =
-        return $ ConE (mkName "Dynamic") `AppE` (LitE $ StringL s)
-    lift (DynInt s) =
-        return $ ConE (mkName "DynInt") `AppE` (LitE $ StringL s)
-    lift (Slurp s) =
-        return $ ConE (mkName "Slurp") `AppE` (LitE $ StringL s)
+    lift (Static s) = do
+        st <- [|Static|]
+        return $ st `AppE` (LitE $ StringL s)
+    lift (Dynamic s) = do
+        d <- [|Dynamic|]
+        return $ d `AppE` (LitE $ StringL s)
+    lift (DynInt s) = do
+        d <- [|DynInt|]
+        return $ d `AppE` (LitE $ StringL s)
+    lift (Slurp s) = do
+        sl <- [|Slurp|]
+        return $ sl `AppE` (LitE $ StringL s)
 liftVerbMap :: VerbMap -> Int -> Q Exp
 liftVerbMap (AllVerbs s) _ = do
     cr <- [|(.) (fmap chooseRep)|]
@@ -366,15 +355,16 @@ liftVerbMap (Verbs vs) params =
                       (NormalB $ LamE (replicate params WildP) $ VarE $ mkName "notFound")
                       []
 
-strToExp :: String -> Q Exp
-strToExp s = do
-    let yd :: YamlDoc
-        yd = YamlDoc $ cs s
-    rpnodes <- runIO $ convertAttemptWrap yd
-    rpnodesTHCheck rpnodes
+strToExp :: Bool -> String -> Q Exp
+strToExp toCheck s = do
+    rpnodes <- runIO $ convertAttemptWrap $ YamlDoc $ cs s
+    (if toCheck then rpnodesTHCheck else rpnodesTH) rpnodes
 
-rpnodesQuasi :: QuasiQuoter
-rpnodesQuasi = QuasiQuoter strToExp undefined
+resources :: QuasiQuoter
+resources = QuasiQuoter (strToExp True) undefined
+
+resourcesNoCheck :: QuasiQuoter
+resourcesNoCheck = QuasiQuoter (strToExp False) undefined
 
 #if TEST
 ---- Testing

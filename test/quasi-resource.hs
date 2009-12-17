@@ -30,7 +30,7 @@ instance Show (Verb -> Handler MyYesod RepChooser) where
 instance Show (Resource -> Verb -> Handler MyYesod RepChooser) where
     show _ = "resource -> verb -> handler"
 handler :: Resource -> Verb -> Handler MyYesod RepChooser
-handler = [$rpnodesQuasi|
+handler = [$resources|
 /static/*filepath/: getStatic
 /page/:
     Get: pageIndex
