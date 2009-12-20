@@ -21,6 +21,10 @@ pageUpdate :: String -> Handler MyYesod RepChooser
 pageUpdate s = return $ chooseRep $ toHtmlObject ["pageUpdate", s]
 userInfo :: Int -> Handler MyYesod HtmlObject
 userInfo i = return $ toHtmlObject ["userInfo", show i]
+userVariable :: Int -> String -> Handler MyYesod HtmlObject
+userVariable i s = return $ toHtmlObject ["userVariable", show i, s]
+userPage :: Int -> [String] -> Handler MyYesod HtmlObject
+userPage i p = return $ toHtmlObject ["userPage", show i, show p]
 
 instance Show (Verb -> Handler MyYesod RepChooser) where
     show _ = "verb -> handler"
@@ -38,6 +42,10 @@ handler = [$resources|
     Post: pageUpdate
 /user/#id/:
     Get: userInfo
+/user/#id/profile/$variable/:
+    Get: userVariable
+/user/#id/page/*page/:
+    Get: userPage
 |]
 
 ph :: Handler MyYesod RepChooser -> IO ()
@@ -57,3 +65,4 @@ main = do
     ph $ handler ["user"] Get
     ph $ handler ["user", "five"] Get
     ph $ handler ["user", "5"] Get
+    ph $ handler ["user", "5", "profile", "email"] Get

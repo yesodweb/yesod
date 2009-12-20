@@ -203,7 +203,7 @@ getAllPairs (x:xs) = map ((,) x) xs ++ getAllPairs xs
 checkPatterns :: (MonadFailure OverlappingPatterns m,
                   MonadFailure InvalidResourcePattern m)
               => [ResourcePattern]
-              -> m [RP] -- FIXME
+              -> m [RP]
 checkPatterns rpss = do
     rps <- mapM (runKleisli $ Kleisli return &&& Kleisli readRP) rpss
     let overlaps' = concatMap helper $ getAllPairs rps
@@ -291,10 +291,9 @@ rpnodesTH ns = do
             cpb <- [|doesPatternMatch|]
             let r' = VarE $ mkName "resource"
             let g = cpb `AppE` rp' `AppE` r'
-            vm' <- liftVerbMap vm $ countParams rp
-            vm'' <- applyUrlParams rp r' vm'
-            let vm''' = LamE [VarP $ mkName "verb"] vm''
-            return (NormalG g, vm''')
+            vm' <- liftVerbMap vm r' rp
+            let vm'' = LamE [VarP $ mkName "verb"] vm'
+            return (NormalG g, vm'')
 
 data UrlParam = SlurpParam { slurpParam :: [String] }
               | StringParam { stringParam :: String }
@@ -339,12 +338,6 @@ applyUrlParams rp@(RP rpps) r f = do
                 rest' <- helper (i + 1) rest
                 return $ slurp `AppE` rp' `AppE` r `AppE` i' : rest'
 
-countParams :: RP -> Int
-countParams (RP rpps) = helper 0 rpps where
-    helper i [] = i
-    helper i (Static _:rest) = helper i rest
-    helper i (_:rest) = helper (i + 1) rest
-
 instance Lift RP where
     lift (RP rpps) = do
         rpps' <- lift rpps
@@ -363,26 +356,34 @@ instance Lift RPP where
     lift (Slurp s) = do
         sl <- [|Slurp|]
         return $ sl `AppE` (LitE $ StringL s)
-liftVerbMap :: VerbMap -> Int -> Q Exp
-liftVerbMap (AllVerbs s) _ = do
-    cr <- [|(.) (fmap chooseRep)|]
-    return $ cr `AppE` ((VarE $ mkName s) `AppE` (VarE $ mkName "verb"))
-liftVerbMap (Verbs vs) params = do
-    cr0 <- [|fmap chooseRep|]
-    cr1 <- [|(.) (fmap chooseRep)|]
-    let cr = if params == 0 then cr0 else cr1
-    return $ CaseE (VarE $ mkName "verb")
-           $ map (helper cr) vs ++ [whenNotFound]
+liftVerbMap :: VerbMap -> Exp -> RP -> Q Exp
+liftVerbMap (AllVerbs s) r rp = do
+    -- handler function
+    let f = VarE $ mkName s
+    -- applied to the verb
+    let f' = f `AppE` VarE (mkName "verb")
+    -- apply all the url params
+    f'' <- applyUrlParams rp r f'
+    -- and apply chooseRep
+    cr <- [|fmap chooseRep|]
+    let f''' = cr `AppE` f''
+    return f'''
+liftVerbMap (Verbs vs) r rp = do
+    cr <- [|fmap chooseRep|]
+    vs' <- mapM (helper cr) vs
+    return $ CaseE (VarE $ mkName "verb") $ vs' ++ [whenNotFound]
         where
-            helper :: Exp -> (Verb, String) -> Match
-            helper cr (v, f) =
-                Match (ConP (mkName $ show v) [])
-                      (NormalB $ cr `AppE` VarE (mkName f))
-                      []
+            helper :: Exp -> (Verb, String) -> Q Match
+            helper cr (v, fName) = do
+                let f = VarE $ mkName fName
+                f' <- applyUrlParams rp r f
+                let f'' = cr `AppE` f'
+                let con = ConP (mkName $ show v) []
+                return $ Match con (NormalB f'') []
             whenNotFound :: Match
             whenNotFound =
                 Match WildP
-                      (NormalB $ LamE (replicate params WildP) $ VarE $ mkName "notFound")
+                      (NormalB $ VarE $ mkName "notFound")
                       []
 
 strToExp :: Bool -> String -> Q Exp
