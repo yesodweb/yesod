@@ -16,7 +16,10 @@ instance Yesod Fact where
 |]
 
 index = return $ StaticFile TypeHtml "examples/fact.html"
-fact i = return $ toHtmlObject $ show $ product [1..fromIntegral i]
+fact i = return $ toHtmlObject 
+            [ ("input", show i)
+            , ("result", show $ product [1..fromIntegral i])
+            ]
 factRedirect = do
     i <- getParam "num"
     redirect $ "../" ++ i ++ "/"
