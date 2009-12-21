@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-} -- FIXME remove
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PackageImports #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -39,7 +40,7 @@ import Yesod.Rep
 import Control.Exception hiding (Handler)
 import Control.Applicative
 
-import Control.Monad.Trans
+import "transformers" Control.Monad.Trans
 import Control.Monad.Attempt
 import Control.Monad (liftM, ap)
 
@@ -103,7 +104,8 @@ runHandler (Handler handler) eh rr y cts = do
     case contents' of
         Left e -> do
             Response _ hs ct c <- runHandler (eh e) specialEh rr y cts
-            return $ Response (getStatus e) hs ct c
+            let hs' = hs ++ getHeaders e
+            return $ Response (getStatus e) hs' ct c
         Right a -> do
             (ct, c) <- a cts
             return $ Response 200 headers ct c

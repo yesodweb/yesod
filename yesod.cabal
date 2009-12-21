@@ -113,3 +113,11 @@ executable             hellotemplate
     Buildable: False
   ghc-options:         -Wall
   main-is:             examples/hellotemplate.lhs
+
+executable             fact
+  if flag(buildsamples)
+    Buildable: True
+  else
+    Buildable: False
+  ghc-options:         -Wall
+  main-is:             examples/fact.lhs

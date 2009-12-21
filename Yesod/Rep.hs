@@ -37,12 +37,15 @@ module Yesod.Rep
     , plain
     , Template (..)
     , TemplateFile (..)
+    , Static (..)
+    , StaticFile (..)
 #if TEST
     , testSuite
 #endif
     ) where
 
 import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as BL
 import Data.Text.Lazy (Text)
 import Data.Maybe (mapMaybe)
 import Data.Function (on)
@@ -134,6 +137,9 @@ instance HasReps RepChooser where
     reps = error "reps of RepChooser"
     chooseRep = id
 
+instance HasReps () where
+    reps = [(TypePlain, const $ return $ cs "")]
+
 instance HasReps [(ContentType, Content)] where
     reps = error "reps of [(ContentType, Content)]"
     chooseRep a cts = return $
@@ -169,6 +175,18 @@ instance HasReps TemplateFile where
            , (TypeJson, \(TemplateFile _ ho) ->
                             return $ cs $ unJsonDoc $ cs ho)
            ]
+
+data Static = Static ContentType ByteString
+instance HasReps Static where
+    reps = error "reps of Static"
+    chooseRep (Static ct bs) _ = return (ct, Content bs)
+
+data StaticFile = StaticFile ContentType FilePath
+instance HasReps StaticFile where
+    reps = error "reps of StaticFile"
+    chooseRep (StaticFile ct fp) _ = do
+        bs <- BL.readFile fp
+        return (ct, Content bs)
 
 -- Useful instances of HasReps
 instance HasReps HtmlObject where
