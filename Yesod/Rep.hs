@@ -149,8 +149,10 @@ instance HasReps [(ContentType, Content)] where
                     (x:_) -> x
                     _ -> error "chooseRep [(ContentType, Content)] of empty"
 
-newtype Plain = Plain Text
+newtype Plain = Plain { unPlain :: Text }
     deriving (Eq, Show)
+instance HasReps Plain where
+    reps = [(TypePlain, return . cs . unPlain)]
 
 plain :: ConvertSuccess x Text => x -> Plain
 plain = Plain . cs

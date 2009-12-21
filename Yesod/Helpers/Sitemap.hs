@@ -21,6 +21,7 @@ module Yesod.Helpers.Sitemap
     , SitemapUrl (..)
     , SitemapLoc (..)
     , SitemapChangeFreq (..)
+    , SitemapResponse (..)
     ) where
 
 import Yesod.Definitions
