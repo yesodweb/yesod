@@ -51,6 +51,7 @@ import Test.Framework (testGroup, Test)
 
 import Data.Generics
 import Control.Exception (Exception)
+import Data.Convertible.Text (cs)
 
 data Response = Response Int [Header] ContentType Content
     deriving Show
@@ -101,7 +102,7 @@ responseToHackResponse :: [String] -- ^ language list
                        -> Response -> IO Hack.Response
 responseToHackResponse _FIXMEls (Response sc hs ct c) = do
     hs' <- mapM toPair hs
-    let hs'' = ("Content-Type", show ct) : hs'
+    let hs'' = ("Content-Type", cs ct) : hs'
     let asLBS = unContent c
     return $ Hack.Response sc hs'' asLBS
 
