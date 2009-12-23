@@ -2,7 +2,6 @@ module Hack.Middleware.CleanPath (cleanPath, splitPath) where
 
 import Hack
 import qualified Data.ByteString.Lazy as BS
-import Data.List
 import Web.Encodings
 import Data.List.Split
 

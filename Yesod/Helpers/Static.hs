@@ -27,7 +27,6 @@ import System.Directory (doesFileExist)
 import Control.Applicative ((<$>))
 
 import Yesod
-import Yesod.Rep
 import Data.List (intercalate)
 
 type FileLookup = FilePath -> IO (Maybe B.ByteString)

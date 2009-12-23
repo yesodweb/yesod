@@ -31,7 +31,6 @@ module Data.Object.Html
 import Data.Generics
 import Data.Object.Text
 import Data.Object.Json
-import Data.Convertible.Text
 import qualified Data.Text.Lazy as TL
 import Web.Encodings
 import Text.StringTemplate.Classes
