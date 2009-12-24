@@ -34,7 +34,6 @@ import Data.Object.Json
 import qualified Data.Text.Lazy as TL
 import Web.Encodings
 import Text.StringTemplate.Classes
-import qualified Data.Map as Map
 import Control.Arrow (second)
 import Data.Attempt
 
@@ -152,7 +151,9 @@ $(deriveSuccessConvs ''String ''Html
 instance ToSElem HtmlObject where
     toSElem (Scalar h) = STR $ TL.unpack $ cs h
     toSElem (Sequence hs) = LI $ map toSElem hs
-    toSElem (Mapping pairs) = SM $ Map.fromList $ map (second toSElem) pairs
+    toSElem (Mapping pairs) = helper $ map (second toSElem) pairs where
+        helper :: [(String, SElem b)] -> SElem b
+        helper = SM . cs
 
 #if TEST
 caseHtmlToText :: Assertion
