@@ -27,6 +27,7 @@ module Yesod.Handler
       -- * Special handlers
     , redirect
     , notFound
+    , permissionDenied
       -- * Setting headers
     , addCookie
     , deleteCookie
@@ -205,6 +206,9 @@ redirect = errorResult . Redirect
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Handler yesod a
 notFound = errorResult NotFound
+
+permissionDenied :: Handler yesod a
+permissionDenied = errorResult PermissionDenied
 
 ------- Headers
 -- | Set the cookie on the client.
