@@ -64,15 +64,8 @@ toHackApp :: Yesod y => y -> Hack.Application
 toHackApp a env = do
     key <- encryptKey a
     let app' = toHackApp' a
-        middleware =
-                [ gzip
-                , cleanPath
-                , jsonp
-                , methodOverride
-                , clientsession [authCookieName] key
-                ]
-        app = foldr ($) app' middleware
-    app env
+    (gzip $ cleanPath $ jsonp $ methodOverride
+          $ clientsession [authCookieName] key $ app') env
 
 toHackApp' :: Yesod y => y -> Hack.Application
 toHackApp' y env = do

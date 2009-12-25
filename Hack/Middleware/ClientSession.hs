@@ -12,7 +12,7 @@ import Hack
 import Web.Encodings
 import Data.List (partition, intercalate)
 import Data.Function.Predicate (is, isn't, equals)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Web.ClientSession
 import Data.Time.Clock (getCurrentTime, UTCTime, addUTCTime)
 import Data.Time.LocalTime () -- Show instance of UTCTime
@@ -62,8 +62,7 @@ clientsession cnames key app env = do
         remoteHost' = remoteHost env
     now <- getCurrentTime
     let convertedCookies =
-            takeJusts $
-            map (decodeCookie key now remoteHost') interceptCookies
+            mapMaybe (decodeCookie key now remoteHost') interceptCookies
     let env' = env { http = ("Cookie", cookiesRaw)
                             : filter (fst `equals` "Cookie") (http env)
                             ++ nonCookies
@@ -81,11 +80,6 @@ clientsession cnames key app env = do
                      oldCookies ++ interceptHeaders
     let res' = res { headers = newCookies ++ headers' }
     return res'
-
-takeJusts :: [Maybe a] -> [a]
-takeJusts [] = []
-takeJusts (Just x:rest) = x : takeJusts rest
-takeJusts (Nothing:rest) = takeJusts rest
 
 setCookie :: Word256
           -> UTCTime -- ^ expiration time

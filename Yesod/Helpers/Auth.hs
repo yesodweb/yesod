@@ -14,10 +14,8 @@
 --
 ---------------------------------------------------------
 module Yesod.Helpers.Auth
-    ( AuthResource
-    , authHandler
-    , authResourcePattern
-    , RpxnowApiKey (..)
+    ( authHandler
+    , YesodAuth (..)
     ) where
 
 import qualified Hack
@@ -33,6 +31,10 @@ import Control.Monad.Attempt
 
 import Data.Maybe (fromMaybe)
 
+class Yesod a => YesodAuth a where
+    rpxnowApiKey :: a -> Maybe String
+    rpxnowApiKey _ = Nothing
+
 data AuthResource =
     Check
     | Logout
@@ -42,27 +44,19 @@ data AuthResource =
     | LoginRpxnow
     deriving (Show, Eq, Enum, Bounded)
 
-newtype RpxnowApiKey = RpxnowApiKey String
+rc :: HasReps x => Handler y x -> Handler y RepChooser
+rc = fmap chooseRep
 
-authHandler :: Maybe RpxnowApiKey -> AuthResource -> Verb -> Handler y HtmlObject
-authHandler _ Check Get = authCheck
-authHandler _ Logout Get = authLogout
-authHandler _ Openid Get = authOpenidForm
-authHandler _ OpenidForward Get = authOpenidForward
-authHandler _ OpenidComplete Get = authOpenidComplete
--- two different versions of RPX protocol apparently...
-authHandler (Just (RpxnowApiKey key)) LoginRpxnow Get = rpxnowLogin key
-authHandler (Just (RpxnowApiKey key)) LoginRpxnow Post = rpxnowLogin key
-authHandler _ _ _ = notFound
-
-authResourcePattern :: AuthResource -> String -- FIXME supply prefix as well
-authResourcePattern Check = "/auth/check/"
-authResourcePattern Logout = "/auth/logout/"
-authResourcePattern Openid = "/auth/openid/"
-authResourcePattern OpenidForward  = "/auth/openid/forward/"
-authResourcePattern OpenidComplete = "/auth/openid/complete/"
-authResourcePattern LoginRpxnow = "/auth/login/rpxnow/"
-
+authHandler :: YesodAuth y => Verb -> [String] -> Handler y RepChooser
+authHandler Get ["check"] = rc authCheck
+authHandler Get ["logout"] = rc authLogout
+authHandler Get ["openid"] = rc authOpenidForm
+authHandler Get ["openid", "forward"] = rc authOpenidForward
+authHandler Get ["openid", "complete"] = rc authOpenidComplete
+-- two different versions of RPX protocol apparently, so just accepting all
+-- verbs
+authHandler _ ["login", "rpxnow"] = rc rpxnowLogin
+authHandler _ _ = notFound
 
 data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)
 instance Request OIDFormReq where
@@ -80,6 +74,8 @@ authOpenidForm = do
           [ cs m
           , Tag "form" [("method", "get"), ("action", "forward/")]
                 [ Tag "label" [("for", "openid")] [cs "OpenID: "]
+                , EmptyTag "input" [("type", "text"), ("id", "openid"),
+                                    ("name", "openid")]
                 , EmptyTag "input" [("type", "submit"), ("value", "Login")]
                 ]
           ]
@@ -126,9 +122,12 @@ chopHash :: String -> String
 chopHash ('#':rest) = rest
 chopHash x = x
 
-rpxnowLogin :: String -- ^ api key
-            -> Handler y HtmlObject
-rpxnowLogin apiKey = do
+rpxnowLogin :: YesodAuth y => Handler y HtmlObject
+rpxnowLogin = do
+    ay <- getYesod
+    apiKey <- case rpxnowApiKey ay of
+                Just x -> return x
+                Nothing -> notFound
     token <- anyParam "token"
     postDest <- postParam "dest"
     dest' <- case postDest of

@@ -103,8 +103,9 @@ runHandler (Handler handler) eh rr y cts = do
                 HCContent a -> Right a
     case contents' of
         Left e -> do
+            -- FIXME doesn't look right
             Response _ hs ct c <- runHandler (eh e) specialEh rr y cts
-            let hs' = hs ++ getHeaders e
+            let hs' = headers ++ hs ++ getHeaders e
             return $ Response (getStatus e) hs' ct c
         Right a -> do
             (ct, c) <- a cts
