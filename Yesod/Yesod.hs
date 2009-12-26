@@ -32,6 +32,11 @@ class Yesod a where
     encryptKey :: a -> IO Word256
     encryptKey _ = getKey defaultKeyFile
 
+    -- | Number of minutes before a client session times out. Defaults to
+    -- 120 (2 hours).
+    clientSessionDuration :: a -> Int
+    clientSessionDuration = const 120
+
     -- | Output error response pages.
     errorHandler :: ErrorResult -> Handler a RepChooser
     errorHandler = defaultErrorHandler
@@ -64,8 +69,9 @@ toHackApp :: Yesod y => y -> Hack.Application
 toHackApp a env = do
     key <- encryptKey a
     let app' = toHackApp' a
+    let mins = clientSessionDuration a
     (gzip $ cleanPath $ jsonp $ methodOverride
-          $ clientsession [authCookieName] key $ app') env
+          $ clientsession [authCookieName] key mins $ app') env
 
 toHackApp' :: Yesod y => y -> Hack.Application
 toHackApp' y env = do

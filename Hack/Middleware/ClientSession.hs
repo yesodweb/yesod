@@ -44,8 +44,9 @@ import Control.Monad (guard)
 -- the data to make sure that the user can neither see not tamper with it.
 clientsession :: [String] -- ^ list of cookies to intercept
               -> Word256 -- ^ encryption key
+              -> Int -- ^ minutes to live
               -> Middleware
-clientsession cnames key app env = do
+clientsession cnames key minutesToLive app env = do
     let initCookiesRaw :: String
         initCookiesRaw = fromMaybe "" $ lookup "Cookie" $ http env
         nonCookies :: [(String, String)]
@@ -71,9 +72,9 @@ clientsession cnames key app env = do
     res <- app env'
     let (interceptHeaders, headers') = partition (fst `is` (`elem` cnames))
                                      $ headers res
-    let twentyMinutes :: Int
-        twentyMinutes = 20 * 60
-    let exp = fromIntegral twentyMinutes `addUTCTime` now
+    let timeToLive :: Int
+        timeToLive = minutesToLive * 60
+    let exp = fromIntegral timeToLive `addUTCTime` now
     let formattedExp = formatTime defaultTimeLocale "%a, %d-%b-%Y %X %Z" exp
     let oldCookies = filter (\(k, _) -> k `notElem` map fst interceptHeaders) convertedCookies
     let newCookies = map (setCookie key exp formattedExp remoteHost') $
