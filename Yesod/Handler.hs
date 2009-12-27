@@ -1,7 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-} -- FIXME remove
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PackageImports #-}
 ---------------------------------------------------------
@@ -105,7 +105,6 @@ runHandler (Handler handler) eh rr y cts = do
                 HCContent a -> Right a
     case contents' of
         Left e -> do
-            -- FIXME doesn't look right
             Response _ hs ct c <- runHandler (eh e) specialEh rr y cts
             let hs' = headers ++ hs ++ getHeaders e
             return $ Response (getStatus e) hs' ct c
@@ -117,84 +116,6 @@ specialEh :: ErrorResult -> Handler yesod RepChooser
 specialEh er = do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
     return $ chooseRep $ toHtmlObject "Internal server error"
-{- FIXME
-class ToHandler a where
-    toHandler :: a -> Handler
-
-instance (Request r, ToHandler h) => ToHandler (r -> h) where
-    toHandler f = parseRequest >>= toHandler . f
-
-instance ToHandler Handler where
-    toHandler = id
-
-instance HasReps r HandlerIO => ToHandler (HandlerIO r) where
-    toHandler = fmap reps
-
-runHandler :: Handler
-           -> RawRequest
-           -> [ContentType]
-           -> IO (Either (ErrorResult, [Header]) Response)
-runHandler h rr cts = do
-    --let (ares, _FIXMEheaders) =
-    let x :: IO (Attempt (ContentType, Content), [Header])
-        x =
-         runWriterT $ runAttemptT $ runReaderT (joinHandler cts h) rr
-        y :: IO (Attempt (Attempt (ContentType, Content), [Header]))
-        y = takeAllExceptions x
-    z <- y
-    let z' :: Attempt (Attempt (ContentType, Content), [Header])
-        z' = z
-        a :: (Attempt (ContentType, Content), [Header])
-        a = attempt (\e -> (failure e, [])) id z'
-        (b, headers) = a
-    return $ attempt (\e -> (Left (toErrorResult e, headers))) (Right . toResponse headers) b
-    where
-        takeAllExceptions :: MonadFailure SomeException m => IO x -> IO (m x)
-        takeAllExceptions ioa =
-            Control.Exception.catch (return `fmap` ioa) (\e -> return $ failure (e :: SomeException))
-        toErrorResult :: Exception e => e -> ErrorResult
-        toErrorResult e =
-            case cast e of
-                Just x -> x
-                Nothing -> InternalError $ show e
-        toResponse :: [Header] -> (ContentType, Content) -> Response
-        toResponse hs (ct, c) = Response 200 hs ct c
-
-joinHandler :: Monad m
-            => [ContentType]
-            -> m [RepT m]
-            -> m (ContentType, Content)
-joinHandler cts rs = do
-    rs' <- rs
-    let (ct, c) = chooseRep cts rs'
-    c' <- c
-    return (ct, c')
--}
-
-{-
-runHandler :: (ErrorResult -> Reps)
-            -> (ContentType -> B.ByteString -> IO B.ByteString)
-            -> [ContentType]
-            -> Handler
-            -> RawRequest
-            -> IO Hack.Response
-runHandler eh wrapper ctypesAll (HandlerT inside) rr = do
-    let extraHeaders =
-            case x of
-                Left r -> getHeaders r
-                Right _ -> []
-    headers <- mapM toPair (headers' ++ extraHeaders)
-    let outReps = either (reps . eh) reps x
-    let statusCode =
-            case x of
-                Left r -> getStatus r
-                Right _ -> 200
-    (ctype, selectedRep) <- chooseRep outReps ctypesAll
-    let languages = [] -- FIXME
-    finalRep <- wrapper ctype $ selectedRep languages
-    let headers'' = ("Content-Type", ctype) : headers
-    return $! Hack.Response statusCode headers'' finalRep
--}
 
 ------ Special handlers
 errorResult :: ErrorResult -> Handler yesod a

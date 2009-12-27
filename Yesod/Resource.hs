@@ -62,6 +62,7 @@ import Test.Framework.Providers.QuickCheck (testProperty)
 import Test.HUnit hiding (Test)
 import Test.QuickCheck
 import Control.Monad (when)
+import Data.Typeable
 #endif
 
 resources :: QuasiQuoter
@@ -187,7 +188,7 @@ overlaps (Static a:x) (Static b:y) = a == b && overlaps x y
 
 data OverlappingPatterns =
     OverlappingPatterns [(ResourcePattern, ResourcePattern)]
-    deriving (Show, Typeable)
+    deriving (Show, Typeable, Eq)
 instance Exception OverlappingPatterns
 
 getAllPairs :: [x] -> [(x, x)]
@@ -394,7 +395,7 @@ testSuite = testGroup "Yesod.Resource"
     [ testCase "non-overlap" caseOverlap1
     , testCase "overlap" caseOverlap2
     , testCase "overlap-slurp" caseOverlap3
-    -- FIXME, testCase "validatePatterns" caseValidatePatterns
+    , testCase "checkPatterns" caseCheckPatterns
     , testProperty "show pattern" prop_showPattern
     , testCase "integers" caseIntegers
     , testCase "read patterns from YAML" caseFromYaml
@@ -424,19 +425,24 @@ caseOverlap2 = caseOverlap' "/foo/bar" "/foo/$baz" True
 caseOverlap3 :: Assertion
 caseOverlap3 = caseOverlap' "/foo/bar/baz/$bin" "*slurp" True
 
-{- FIXME rewrite this test
-caseValidatePatterns :: Assertion
-caseValidatePatterns =
-    let p1 = cs "/foo/bar/baz"
-        p2 = cs "/foo/$bar/baz"
-        p3 = cs "/bin"
-        p4 = cs "/bin/boo"
-        p5 = cs "/bin/*slurp"
-     in validatePatterns [p1, p2, p3, p4, p5] @?= Just
-            [ (p1, p2)
-            , (p4, p5)
-            ]
--}
+caseCheckPatterns :: Assertion
+caseCheckPatterns = do
+    let res = checkPatterns [p1, p2, p3, p4, p5]
+    attempt helper (fail "Did not fail") res
+        where
+            p1 = cs "/foo/bar/baz"
+            p2 = cs "/foo/$bar/baz"
+            p3 = cs "/bin"
+            p4 = cs "/bin/boo"
+            p5 = cs "/bin/*slurp"
+            expected = OverlappingPatterns
+                        [ (p1, p2)
+                        , (p4, p5)
+                        ]
+            helper e = case cast e of
+                        Nothing -> fail "Wrong exception"
+                        Just op -> do
+                            expected @=? op
 
 prop_showPattern :: RP -> Bool
 prop_showPattern p = readRP (cs p) == Just p
