@@ -28,6 +28,7 @@ module Yesod.Handler
     , redirect
     , notFound
     , permissionDenied
+    , invalidArgs
       -- * Setting headers
     , addCookie
     , deleteCookie
@@ -81,8 +82,8 @@ instance Exception e => Failure e (Handler yesod) where
     failure e = Handler $ \_ -> return ([], HCError e)
 instance MonadRequestReader (Handler yesod) where
     askRawRequest = Handler $ \(rr, _) -> return ([], HCContent rr)
-    invalidParam _pt _pn _pe = error "invalidParam"
-    authRequired = error "authRequired"
+    invalidParam _pt pn pe = invalidArgs [(pn, pe)]
+    authRequired = permissionDenied
 
 getYesod :: Handler yesod yesod
 getYesod = Handler $ \(_, yesod) -> return ([], HCContent yesod)
@@ -209,6 +210,9 @@ notFound = errorResult NotFound
 
 permissionDenied :: Handler yesod a
 permissionDenied = errorResult PermissionDenied
+
+invalidArgs :: [(ParamName, ParamValue)] -> Handler yesod a
+invalidArgs = errorResult . InvalidArgs
 
 ------- Headers
 -- | Set the cookie on the client.
