@@ -1,9 +1,5 @@
-HTML sitemap generation
 Cleanup Data.Object.Translate
 Cleanup Parameter stuff. Own module? Interface with formlets?
 Authentication via e-mail address built in. (eaut.org)
 OpenID 2 stuff (for direct Google login).
-Is there a mimetype package on hackage for Yesod.Helpers.Static?
 Native support for HStringTemplate groups.
-AtomFeed uses RelLoc and AbsLoc like Sitemap
-Fix type of sitemap

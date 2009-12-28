@@ -19,6 +19,8 @@ module Yesod.Definitions
     , Resource
     , Approot (..)
     , Language
+    , Location (..)
+    , showLocation
     ) where
 
 import qualified Hack
@@ -55,3 +57,12 @@ type Resource = [String]
 newtype Approot = Approot { unApproot :: String }
 
 type Language = String
+
+-- | A location string. Can either be given absolutely or as a suffix for the
+-- 'Approot'.
+data Location = AbsLoc String | RelLoc String
+
+-- | Display a 'Location' in absolute form.
+showLocation :: Approot -> Location -> String
+showLocation _ (AbsLoc s) = s
+showLocation (Approot ar) (RelLoc s) = ar ++ s

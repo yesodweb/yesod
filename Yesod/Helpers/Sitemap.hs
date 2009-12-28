@@ -19,7 +19,6 @@ module Yesod.Helpers.Sitemap
     ( sitemap
     , robots
     , SitemapUrl (..)
-    , SitemapLoc (..)
     , SitemapChangeFreq (..)
     , SitemapResponse (..)
     ) where
@@ -34,7 +33,6 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 import Yesod.Yesod
 
-data SitemapLoc = AbsLoc String | RelLoc String
 data SitemapChangeFreq = Always
                        | Hourly
                        | Daily
@@ -52,7 +50,7 @@ instance ConvertSuccess SitemapChangeFreq String where
     convertSuccess Never   = "never"
 
 data SitemapUrl = SitemapUrl
-    { sitemapLoc :: SitemapLoc
+    { sitemapLoc :: Location
     , sitemapLastMod :: UTCTime
     , sitemapChangeFreq :: SitemapChangeFreq
     , priority :: Double
@@ -61,7 +59,7 @@ data SitemapResponse = SitemapResponse [SitemapUrl] Approot
 instance ConvertSuccess SitemapResponse Content where
     convertSuccess = cs . (cs :: SitemapResponse -> Text)
 instance ConvertSuccess SitemapResponse Text where
-    convertSuccess (SitemapResponse urls (Approot ar)) = TL.concat
+    convertSuccess (SitemapResponse urls ar) = TL.concat
         [ cs "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         , cs "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"
         , TL.concat $ map helper urls
@@ -69,8 +67,9 @@ instance ConvertSuccess SitemapResponse Text where
         ]
         where
             helper (SitemapUrl loc modTime freq pri) = cs $ concat
+                -- FIXME use HTML?
                 [ "<url><loc>"
-                , encodeHtml $ showLoc loc
+                , encodeHtml $ showLocation ar loc
                 , "</loc><lastmod>"
                 , formatW3 modTime
                 , "</lastmod><changefreq>"
@@ -79,24 +78,20 @@ instance ConvertSuccess SitemapResponse Text where
                 , show pri
                 , "</priority></url>"
                 ]
-            showLoc (AbsLoc s) = s
-            showLoc (RelLoc s) = ar ++ s
 
 instance HasReps SitemapResponse where
     reps =
         [ (TypeXml, return . cs)
         ]
 
-sitemap :: YesodApproot yesod
-        => IO [SitemapUrl]
-        -> Handler yesod SitemapResponse
-sitemap urls' = do
+sitemap :: YesodApproot y => [SitemapUrl] -> Handler y SitemapResponse
+sitemap urls = do
     yesod <- getYesod
-    urls <- liftIO urls'
     return $ SitemapResponse urls $ approot yesod
 
 robots :: YesodApproot yesod => Handler yesod Plain
 robots = do
     yesod <- getYesod
-    return $ plain $ "Sitemap: " ++ unApproot (approot yesod)
-                                 ++ "sitemap.xml"
+    return $ plain $ "Sitemap: " ++ showLocation
+                                      (approot yesod)
+                                      (RelLoc "sitemap.xml")
