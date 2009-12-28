@@ -64,7 +64,7 @@ instance Request OIDFormReq where
 instance ConvertSuccess OIDFormReq Html where
     convertSuccess (OIDFormReq Nothing _) = cs ""
     convertSuccess (OIDFormReq (Just s) _) =
-        Tag "p" [("class", "message")] [cs s]
+        Tag "p" [("class", "message")] $ cs s
 
 authOpenidForm :: Handler y HtmlObject
 authOpenidForm = do
@@ -72,8 +72,9 @@ authOpenidForm = do
     let html =
          HtmlList
           [ cs m
-          , Tag "form" [("method", "get"), ("action", "forward/")]
-                [ Tag "label" [("for", "openid")] [cs "OpenID: "]
+          , Tag "form" [("method", "get"), ("action", "forward/")] $
+              HtmlList
+                [ Tag "label" [("for", "openid")] $ cs "OpenID: "
                 , EmptyTag "input" [("type", "text"), ("id", "openid"),
                                     ("name", "openid")]
                 , EmptyTag "input" [("type", "submit"), ("value", "Login")]
@@ -82,7 +83,7 @@ authOpenidForm = do
     case dest of
         Just dest' -> addCookie 120 "DEST" dest'
         Nothing -> return ()
-    return $ toHtmlObject $ Html $ cs html
+    return $ cs html
 
 authOpenidForward :: Handler y HtmlObject
 authOpenidForward = do

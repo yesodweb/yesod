@@ -109,6 +109,8 @@ instance ConvertSuccess ByteString Content where
     convertSuccess = Content
 instance ConvertSuccess String Content where
     convertSuccess = Content . cs
+instance ConvertSuccess Html Content where
+    convertSuccess = Content . cs
 
 type ContentPair = (ContentType, Content)
 type RepChooser = [ContentType] -> IO ContentPair

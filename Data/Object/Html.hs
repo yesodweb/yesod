@@ -32,6 +32,7 @@ import Data.Generics
 import Data.Object.Text
 import Data.Object.Json
 import qualified Data.Text.Lazy as TL
+import Data.ByteString.Lazy (ByteString)
 import Web.Encodings
 import Text.StringTemplate.Classes
 import Control.Arrow (second)
@@ -48,7 +49,7 @@ import Text.StringTemplate
 data Html =
     Html Text -- ^ Already encoded HTML.
   | Text Text -- ^ Text which should be HTML escaped.
-  | Tag String [(String, String)] [Html] -- ^ Tag which needs a closing tag.
+  | Tag String [(String, String)] Html -- ^ Tag which needs a closing tag.
   | EmptyTag String [(String, String)] -- ^ Tag without a closing tag.
   | HtmlList [Html]
     deriving (Eq, Show, Typeable)
@@ -92,7 +93,7 @@ instance ConvertSuccess Html Text where
         , cs n
         , showAttribs as
         , cs ">"
-        , TL.concat $ map convertSuccess content
+        , cs content
         , cs "</"
         , cs n
         , cs ">"
@@ -107,6 +108,8 @@ instance ConvertSuccess Html Text where
 
 instance ConvertSuccess Html String where
     convertSuccess = cs . (cs :: Html -> Text)
+instance ConvertSuccess Html ByteString where
+    convertSuccess = cs . (cs :: Html -> Text)
 
 instance ConvertSuccess Html HtmlDoc where
     convertSuccess h = HtmlDoc $ TL.concat
@@ -118,13 +121,14 @@ instance ConvertSuccess Html HtmlDoc where
 
 instance ConvertSuccess HtmlObject Html where
     convertSuccess (Scalar h) = h
-    convertSuccess (Sequence hs) = Tag "ul" [] $ map addLi hs where
-        addLi h = Tag "li" [] [cs h]
+    convertSuccess (Sequence hs) = Tag "ul" [] $ HtmlList $ map addLi hs
+      where
+        addLi h = Tag "li" [] $ cs h
     convertSuccess (Mapping pairs) =
-        Tag "dl" [] $ concatMap addDtDd pairs where
+        Tag "dl" [] $ HtmlList $ concatMap addDtDd pairs where
             addDtDd (k, v) =
-                [ Tag "dt" [] [Text $ cs k]
-                , Tag "dd" [] [cs v]
+                [ Tag "dt" [] $ Text $ cs k
+                , Tag "dd" [] $ cs v
                 ]
 
 instance ConvertSuccess HtmlObject HtmlDoc where

@@ -19,8 +19,7 @@ module Yesod.Helpers.AtomFeed
     , AtomFeedEntry (..)
     ) where
 
-import Yesod.Rep
-import Data.Convertible.Text
+import Yesod
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 
@@ -43,7 +42,7 @@ data AtomFeedEntry = AtomFeedEntry
     { atomEntryLink :: String
     , atomEntryUpdated :: UTCTime
     , atomEntryTitle :: String
-    , atomEntryContent :: String
+    , atomEntryContent :: Html
     }
 
 instance ConvertSuccess AtomFeed Content where
