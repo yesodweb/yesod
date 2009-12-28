@@ -23,15 +23,9 @@ module Yesod.Helpers.Sitemap
     , SitemapResponse (..)
     ) where
 
-import Yesod.Definitions
-import Yesod.Handler
-import Yesod.Rep
-import Web.Encodings
+import Yesod
+import Web.Encodings (formatW3)
 import Data.Time (UTCTime)
-import Data.Convertible.Text
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as TL
-import Yesod.Yesod
 
 data SitemapChangeFreq = Always
                        | Hourly
@@ -48,6 +42,8 @@ instance ConvertSuccess SitemapChangeFreq String where
     convertSuccess Monthly = "monthly"
     convertSuccess Yearly  = "yearly"
     convertSuccess Never   = "never"
+instance ConvertSuccess SitemapChangeFreq Html where
+    convertSuccess = (cs :: String -> Html) . cs
 
 data SitemapUrl = SitemapUrl
     { sitemapLoc :: Location
@@ -57,27 +53,20 @@ data SitemapUrl = SitemapUrl
     }
 data SitemapResponse = SitemapResponse [SitemapUrl] Approot
 instance ConvertSuccess SitemapResponse Content where
-    convertSuccess = cs . (cs :: SitemapResponse -> Text)
-instance ConvertSuccess SitemapResponse Text where
-    convertSuccess (SitemapResponse urls ar) = TL.concat
-        [ cs "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-        , cs "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"
-        , TL.concat $ map helper urls
-        , cs "</urlset>"
-        ]
-        where
-            helper (SitemapUrl loc modTime freq pri) = cs $ concat
-                -- FIXME use HTML?
-                [ "<url><loc>"
-                , encodeHtml $ showLocation ar loc
-                , "</loc><lastmod>"
-                , formatW3 modTime
-                , "</lastmod><changefreq>"
-                , cs freq
-                , "</changefreq><priority>"
-                , show pri
-                , "</priority></url>"
-                ]
+    convertSuccess = cs . (cs :: Html -> XmlDoc) . cs
+instance ConvertSuccess SitemapResponse Html where
+    convertSuccess (SitemapResponse urls ar) =
+        Tag "urlset" [("xmlns", sitemapNS)] $ HtmlList $ map helper urls
+          where
+            sitemapNS = "http://www.sitemaps.org/schemas/sitemap/0.9"
+            helper :: SitemapUrl -> Html
+            helper (SitemapUrl loc modTime freq pri) =
+                Tag "url" [] $ HtmlList
+                    [ Tag "loc" [] $ cs $ showLocation ar loc
+                    , Tag "lastmod" [] $ cs $ formatW3 modTime
+                    , Tag "changefreq" [] $ cs freq
+                    , Tag "priority" [] $ cs $ show pri
+                    ]
 
 instance HasReps SitemapResponse where
     reps =

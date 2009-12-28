@@ -22,11 +22,8 @@ module Yesod.Helpers.AtomFeed
     ) where
 
 import Yesod
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as TL
-
-import Data.Time.Clock
-import Web.Encodings
+import Data.Time.Clock (UTCTime)
+import Web.Encodings (formatW3)
 
 data AtomFeedResponse = AtomFeedResponse AtomFeed Approot
 
@@ -55,47 +52,26 @@ data AtomFeedEntry = AtomFeedEntry
     }
 
 instance ConvertSuccess AtomFeedResponse Content where
-    convertSuccess = (cs :: Text -> Content) . cs
-instance ConvertSuccess AtomFeedResponse Text where
-    convertSuccess (AtomFeedResponse f ar) = TL.concat
-        [ cs "<?xml version='1.0' encoding='utf-8' ?>\n"
-        , cs "<feed xmlns='http://www.w3.org/2005/Atom'>"
-        , cs "<title>"
-        , encodeHtml $ cs $ atomTitle f
-        , cs "</title>"
-        , cs "<link rel='self' href='"
-        , encodeHtml $ cs $ showLocation ar $ atomLinkSelf f
-        , cs "'/>"
-        , cs "<link href='"
-        , encodeHtml $ cs $ showLocation ar $ atomLinkHome f
-        , cs "'/>"
-        , cs "<updated>"
-        , cs $ formatW3 $ atomUpdated f
-        , cs "</updated>"
-        , cs "<id>"
-        , encodeHtml $ cs $ showLocation ar $ atomLinkHome f
-        , cs "</id>"
-        , TL.concat $ map cs $ zip (atomEntries f) $ repeat ar
-        , cs "</feed>"
+    convertSuccess = cs . (cs :: Html -> XmlDoc) . cs
+instance ConvertSuccess AtomFeedResponse Html where
+    convertSuccess (AtomFeedResponse f ar) =
+        Tag "feed" [("xmlns", "http://www.w3.org/2005/Atom")] $ HtmlList
+          [ Tag "title" [] $ cs $ atomTitle f
+          , EmptyTag "link" [ ("rel", "self")
+                            , ("href", showLocation ar $ atomLinkSelf f)
+                            ]
+          , EmptyTag "link" [ ("href", showLocation ar $ atomLinkHome f)
+                            ]
+          , Tag "updated" [] $ cs $ formatW3 $ atomUpdated f
+          , Tag "id" [] $ cs $ showLocation ar $ atomLinkHome f
+          , HtmlList $ map cs $ zip (atomEntries f) $ repeat ar
         ]
 
-instance ConvertSuccess (AtomFeedEntry, Approot) Text where
-    convertSuccess (e, ar) = TL.concat
-        [ cs "<entry>"
-        , cs "<id>"
-        , encodeHtml $ cs $ showLocation ar $ atomEntryLink e
-        , cs "</id>"
-        , cs "<link href='"
-        , encodeHtml $ cs $ showLocation ar $ atomEntryLink e
-        , cs "' />"
-        , cs "<updated>"
-        , cs $ formatW3 $ atomEntryUpdated e
-        , cs "</updated>"
-        , cs "<title>"
-        , encodeHtml $ cs $ atomEntryTitle e
-        , cs "</title>"
-        , cs "<content type='html'><![CDATA["
-        , cs $ atomEntryContent e
-        , cs "]]></content>"
-        , cs "</entry>"
+instance ConvertSuccess (AtomFeedEntry, Approot) Html where
+    convertSuccess (e, ar) = Tag "entry" [] $ HtmlList
+        [ Tag "id" [] $ cs $ showLocation ar $ atomEntryLink e
+        , EmptyTag "link" [("href", showLocation ar $ atomEntryLink e)]
+        , Tag "updated" [] $ cs $ formatW3 $ atomEntryUpdated e
+        , Tag "title" [] $ cs $ atomEntryTitle e
+        , Tag "content" [("type", "html")] $ cdata $ atomEntryContent e
         ]

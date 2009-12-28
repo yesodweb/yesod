@@ -20,6 +20,9 @@ module Data.Object.Html
       Html (..)
     , HtmlDoc (..)
     , HtmlObject
+      -- * XML helpers
+    , XmlDoc (..)
+    , cdata
       -- * Standard 'Object' functions
     , toHtmlObject
     , fromHtmlObject
@@ -85,26 +88,47 @@ showAttribs = TL.concat . map helper where
         , cs "\""
         ]
 
+htmlToText :: Bool -- ^ True to close empty tags like XML, False like HTML
+           -> Html
+           -> Text
+htmlToText _ (Html t) = t
+htmlToText _ (Text t) = encodeHtml t
+htmlToText xml (Tag n as content) = TL.concat
+    [ cs "<"
+    , cs n
+    , showAttribs as
+    , cs ">"
+    , htmlToText xml content
+    , cs "</"
+    , cs n
+    , cs ">"
+    ]
+htmlToText xml (EmptyTag n as) = TL.concat
+    [ cs "<"
+    , cs n
+    , showAttribs as
+    , cs $ if xml then "/>" else ">"
+    ]
+htmlToText xml (HtmlList l) = TL.concat $ map (htmlToText xml) l
+
 instance ConvertSuccess Html Text where
-    convertSuccess (Html t) = t
-    convertSuccess (Text t) = encodeHtml t
-    convertSuccess (Tag n as content) = TL.concat
-        [ cs "<"
-        , cs n
-        , showAttribs as
-        , cs ">"
-        , cs content
-        , cs "</"
-        , cs n
-        , cs ">"
+    convertSuccess = htmlToText False
+-- | Not fully typesafe. You must make sure that when converting to this, the
+-- 'Html' starts with a tag.
+newtype XmlDoc = XmlDoc { unXmlDoc :: Text }
+instance ConvertSuccess Html XmlDoc where
+    convertSuccess h = XmlDoc $ TL.concat
+        [ cs "<?xml version='1.0' encoding='utf-8' ?>\n"
+        , htmlToText True h
         ]
-    convertSuccess (EmptyTag n as) = TL.concat
-        [ cs "<"
-        , cs n
-        , showAttribs as
-        , cs ">"
-        ]
-    convertSuccess (HtmlList l) = TL.concat $ map cs l
+
+-- | Wrap an 'Html' in CDATA for XML output.
+cdata :: Html -> Html
+cdata h = HtmlList
+    [ Html $ cs "<![CDATA["
+    , h
+    , Html $ cs "]]>"
+    ]
 
 instance ConvertSuccess Html String where
     convertSuccess = cs . (cs :: Html -> Text)

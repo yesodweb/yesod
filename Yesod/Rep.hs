@@ -111,6 +111,8 @@ instance ConvertSuccess String Content where
     convertSuccess = Content . cs
 instance ConvertSuccess Html Content where
     convertSuccess = Content . cs
+instance ConvertSuccess XmlDoc Content where
+    convertSuccess = cs . unXmlDoc
 
 type ContentPair = (ContentType, Content)
 type RepChooser = [ContentType] -> IO ContentPair
