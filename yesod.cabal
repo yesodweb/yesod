@@ -51,7 +51,8 @@ library
                      HStringTemplate >= 0.6.2 && < 0.7,
                      data-object-json >= 0.0.0 && < 0.1,
                      attempt >= 0.2.1 && < 0.3,
-                     template-haskell
+                     template-haskell,
+                     failure >= 0.0.0 && < 0.1
     exposed-modules: Yesod
                      Yesod.Constants
                      Yesod.Rep
@@ -62,7 +63,7 @@ library
                      Yesod.Handler
                      Yesod.Resource
                      Yesod.Yesod
-                     Yesod.Templates
+                     Yesod.Template
                      Data.Object.Html
                      Hack.Middleware.MethodOverride
                      Hack.Middleware.ClientSession

@@ -43,7 +43,7 @@ import Language.Haskell.TH.Ppr
 import System.IO
 -}
 
-import Data.Typeable (Typeable)
+import Data.Typeable
 import Control.Exception (Exception)
 import Data.Attempt -- for failure stuff
 import Data.Object.Text
@@ -62,7 +62,6 @@ import Test.Framework.Providers.QuickCheck (testProperty)
 import Test.HUnit hiding (Test)
 import Test.QuickCheck
 import Control.Monad (when)
-import Data.Typeable
 #endif
 
 resources :: QuasiQuoter

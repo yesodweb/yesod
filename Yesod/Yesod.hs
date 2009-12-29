@@ -16,6 +16,7 @@ import Yesod.Utils
 
 import Data.Maybe (fromMaybe)
 import Data.Convertible.Text
+import Text.StringTemplate
 
 import qualified Hack
 import Hack.Middleware.CleanPath
@@ -40,6 +41,10 @@ class Yesod a where
     -- | Output error response pages.
     errorHandler :: ErrorResult -> Handler a RepChooser
     errorHandler = defaultErrorHandler
+
+    -- | The template directory. Blank means no templates.
+    templateDir :: a -> FilePath
+    templateDir _ = ""
 
 class Yesod a => YesodApproot a where
     -- | An absolute URL to the root of the application.
@@ -80,7 +85,12 @@ toHackApp' y env = do
         verb = cs $ Hack.requestMethod env
         handler = handlers resource verb
         rr = cs env
-    res <- runHandler handler errorHandler rr y types
+    -- FIXME don't do the templateDir thing for each request
+    let td = templateDir y
+    tg <- if null td
+            then return nullGroup
+            else directoryGroupRecursiveLazy td
+    res <- runHandler handler errorHandler rr y tg types
     let langs = ["en"] -- FIXME
     responseToHackResponse langs res
 

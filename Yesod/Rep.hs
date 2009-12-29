@@ -47,7 +47,6 @@ module Yesod.Rep
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BL
 import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as TL
 import Data.Maybe (mapMaybe)
 import Data.Function (on)
 
@@ -162,15 +161,24 @@ instance HasReps Plain where
 plain :: ConvertSuccess x Text => x -> Plain
 plain = Plain . cs
 
-data Template = Template (StringTemplate Text) HtmlObject
+data Template = Template (StringTemplate Text)
+                         String
+                         HtmlObject
+                         (IO [(String, HtmlObject)])
 instance HasReps Template where
     reps = [ (TypeHtml,
-              \(Template t h) ->
-                return $ cs $ render $ setAttribute "o" h t)
-           , (TypeJson, \(Template _ ho) ->
+              \(Template t name ho attrsIO) -> do
+                attrs <- attrsIO
+                return
+                    $ cs
+                    $ render
+                    $ setAttribute name ho
+                    $ setManyAttrib attrs t)
+           , (TypeJson, \(Template _ _ ho _) ->
                             return $ cs $ unJsonDoc $ cs ho)
            ]
 
+-- FIXME
 data TemplateFile = TemplateFile FilePath HtmlObject
 instance HasReps TemplateFile where
     reps = [ (TypeHtml,
@@ -231,7 +239,7 @@ caseChooseRepTemplate = do
         ho = toHtmlObject [ ("foo", toHtmlObject "<fooval>")
                           , ("bar", toHtmlObject ["bar1", "bar2"])
                           ]
-        hasreps = Template temp ho
+        hasreps = Template temp "o" ho $ return []
         res1 = cs "foo:&lt;fooval&gt;, bar:bar1bar2"
         res2 = cs $ "{\"bar\":[\"bar1\",\"bar2\"]," ++
                     "\"foo\":\"&lt;fooval&gt;\"}"

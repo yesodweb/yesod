@@ -186,7 +186,7 @@ instance ToSElem HtmlObject where
 #if TEST
 caseHtmlToText :: Assertion
 caseHtmlToText = do
-    let actual = Tag "div" [("id", "foo"), ("class", "bar")]
+    let actual = Tag "div" [("id", "foo"), ("class", "bar")] $ HtmlList
             [ Html $ cs "<br>Some HTML<br>"
             , Text $ cs "<'this should be escaped'>"
             , EmptyTag "img" [("src", "baz&")]

@@ -2,6 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 import Yesod
+import Text.StringTemplate (nullGroup)
 
 data MyYesod = MyYesod
 
@@ -54,7 +55,7 @@ ph h = do
         rr = error "No raw request"
         y = MyYesod
         cts = [TypeHtml]
-    res <- runHandler h eh rr y cts
+    res <- runHandler h eh rr y nullGroup cts
     print res
 
 main :: IO ()

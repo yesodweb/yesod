@@ -38,6 +38,7 @@ module Yesod.Handler
 import Yesod.Request
 import Yesod.Response
 import Yesod.Rep
+import Yesod.Template
 
 import Control.Exception hiding (Handler)
 import Control.Applicative
@@ -49,11 +50,10 @@ import Control.Monad (liftM, ap)
 import System.IO
 import Data.Object.Html
 
---import Data.Typeable
-
 ------ Handler monad
 newtype Handler yesod a = Handler {
-    unHandler :: (RawRequest, yesod) -> IO ([Header], HandlerContents a)
+    unHandler :: (RawRequest, yesod, TemplateGroup)
+              -> IO ([Header], HandlerContents a)
 }
 data HandlerContents a =
     forall e. Exception e => HCError e
@@ -81,22 +81,26 @@ instance MonadIO (Handler yesod) where
 instance Exception e => Failure e (Handler yesod) where
     failure e = Handler $ \_ -> return ([], HCError e)
 instance MonadRequestReader (Handler yesod) where
-    askRawRequest = Handler $ \(rr, _) -> return ([], HCContent rr)
+    askRawRequest = Handler $ \(rr, _, _) -> return ([], HCContent rr)
     invalidParam _pt pn pe = invalidArgs [(pn, pe)]
     authRequired = permissionDenied
 
 getYesod :: Handler yesod yesod
-getYesod = Handler $ \(_, yesod) -> return ([], HCContent yesod)
+getYesod = Handler $ \(_, yesod, _) -> return ([], HCContent yesod)
+
+instance HasTemplateGroup (Handler yesod) where
+    getTemplateGroup = Handler $ \(_, _, tg) -> return ([], HCContent tg)
 
 runHandler :: Handler yesod RepChooser
            -> (ErrorResult -> Handler yesod RepChooser)
            -> RawRequest
            -> yesod
+           -> TemplateGroup
            -> [ContentType]
            -> IO Response
-runHandler (Handler handler) eh rr y cts = do
+runHandler (Handler handler) eh rr y tg cts = do
     (headers, contents) <- Control.Exception.catch
-        (handler (rr, y))
+        (handler (rr, y, tg))
         (\e -> return ([], HCError (e :: Control.Exception.SomeException)))
     let contents' =
             case contents of
@@ -105,7 +109,7 @@ runHandler (Handler handler) eh rr y cts = do
                 HCContent a -> Right a
     case contents' of
         Left e -> do
-            Response _ hs ct c <- runHandler (eh e) specialEh rr y cts
+            Response _ hs ct c <- runHandler (eh e) specialEh rr y tg cts
             let hs' = headers ++ hs ++ getHeaders e
             return $ Response (getStatus e) hs' ct c
         Right a -> do

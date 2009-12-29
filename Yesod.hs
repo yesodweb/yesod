@@ -21,7 +21,7 @@ module Yesod
     , module Yesod.Resource
     , module Data.Object.Html
     , module Yesod.Rep
-    , module Yesod.Templates
+    , module Yesod.Template
     , module Data.Convertible.Text
     , Application
     ) where
@@ -34,6 +34,6 @@ import Yesod.Handler
 import Yesod.Resource
 import Hack (Application)
 import Yesod.Rep
-import Yesod.Templates
+import Yesod.Template
 import Data.Object.Html
 import Data.Convertible.Text
