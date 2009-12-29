@@ -62,6 +62,7 @@ library
                      Yesod.Handler
                      Yesod.Resource
                      Yesod.Yesod
+                     Yesod.Templates
                      Data.Object.Html
                      Hack.Middleware.MethodOverride
                      Hack.Middleware.ClientSession

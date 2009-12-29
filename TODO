@@ -3,3 +3,4 @@ Cleanup Parameter stuff. Own module? Interface with formlets?
 Authentication via e-mail address built in. (eaut.org)
 OpenID 2 stuff (for direct Google login).
 Native support for HStringTemplate groups.
+Use Text for HStringTemplate throughout

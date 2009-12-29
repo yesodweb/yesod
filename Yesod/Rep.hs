@@ -47,6 +47,7 @@ module Yesod.Rep
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BL
 import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as TL
 import Data.Maybe (mapMaybe)
 import Data.Function (on)
 
@@ -161,11 +162,11 @@ instance HasReps Plain where
 plain :: ConvertSuccess x Text => x -> Plain
 plain = Plain . cs
 
-data Template = Template (StringTemplate String) HtmlObject
+data Template = Template (StringTemplate Text) HtmlObject
 instance HasReps Template where
     reps = [ (TypeHtml,
               \(Template t h) ->
-                return $ cs $ toString $ setAttribute "o" h t)
+                return $ cs $ render $ setAttribute "o" h t)
            , (TypeJson, \(Template _ ho) ->
                             return $ cs $ unJsonDoc $ cs ho)
            ]
