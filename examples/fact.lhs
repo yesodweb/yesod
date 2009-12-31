@@ -87,6 +87,7 @@ I've decided to have a redirect instead of serving the some data in two
 locations. It fits in more properly with the RESTful principal of one name for
 one piece of data.
 
+> factRedirect :: Handler y ()
 > factRedirect = do
 >     i <- getParam "num"
 >     redirect $ "../" ++ i ++ "/"

@@ -479,7 +479,7 @@ instance Arbitrary RPP where
 
 caseFromYaml :: Assertion
 caseFromYaml = do
-    contents <- readYamlDoc "test/resource-patterns.yaml"
+    contents <- readYamlDoc "Test/resource-patterns.yaml"
     rp1 <- readRP "static/*filepath"
     rp2 <- readRP "page"
     rp3 <- readRP "page/$page"
@@ -498,7 +498,7 @@ caseFromYaml = do
 
 caseCheckRPNodes :: Assertion
 caseCheckRPNodes = do
-    good' <- readYamlDoc "test/resource-patterns.yaml"
+    good' <- readYamlDoc "Test/resource-patterns.yaml"
     good <- fa $ ca good'
     Just good @=? checkRPNodes good
     rp1 <- readRP "foo/bar"

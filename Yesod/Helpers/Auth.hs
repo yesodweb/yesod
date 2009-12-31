@@ -176,7 +176,6 @@ authIdentifier = do
         Nothing -> do
             rp <- requestPath
             let dest = ar ++ rp
-            liftIO $ print ("authIdentifier", dest, ar, rp)
             lp <- defaultLoginPath `fmap` getYesod
             addCookie 120 "DEST" dest
             redirect $ ar ++ lp

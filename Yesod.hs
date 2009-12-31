@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod
@@ -26,14 +27,22 @@ module Yesod
     , Application
     ) where
 
-import Yesod.Request
+#if TEST
+import Yesod.Resource hiding (testSuite)
+import Yesod.Response hiding (testSuite)
+import Data.Object.Html hiding (testSuite)
+import Yesod.Rep hiding (testSuite)
+#else
+import Yesod.Resource
 import Yesod.Response
+import Data.Object.Html
+import Yesod.Rep
+#endif
+
+import Yesod.Request
 import Yesod.Yesod
 import Yesod.Definitions
 import Yesod.Handler
-import Yesod.Resource
 import Hack (Application)
-import Yesod.Rep
 import Yesod.Template
-import Data.Object.Html
 import Data.Convertible.Text

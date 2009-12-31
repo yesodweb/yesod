@@ -20,6 +20,7 @@ helloWorld = return $ TemplateFile "examples/template.html" $ cs
                 , ("content", "Hey look!! I'm <auto escaped>!")
                 ]
 
+helloGroup :: Handler y Template
 helloGroup = template "real-template" "foo" (cs "bar") $ return []
 
 main :: IO ()

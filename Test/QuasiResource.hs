@@ -1,8 +1,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE QuasiQuotes #-}
 
+module Test.QuasiResource (testSuite) where
+
 import Yesod
 import Text.StringTemplate (nullGroup)
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.HUnit
+import Test.HUnit hiding (Test)
+import Data.List
 
 data MyYesod = MyYesod
 
@@ -49,21 +55,29 @@ handler = [$resources|
     Get: userPage
 |]
 
-ph :: Handler MyYesod RepChooser -> IO ()
-ph h = do
+ph :: [String] -> Handler MyYesod RepChooser -> Assertion
+ph ss h = do
     let eh = return . chooseRep . toHtmlObject . show
         rr = error "No raw request"
         y = MyYesod
         cts = [TypeHtml]
     res <- runHandler h eh rr y nullGroup cts
-    print res
+    mapM_ (helper $ show res) ss
+      where
+        helper haystack needle =
+            assertBool needle $ needle `isInfixOf` haystack
 
-main :: IO ()
-main = do
-    ph $ handler ["static", "foo", "bar", "baz"] Get
-    ph $ handler ["foo", "bar", "baz"] Get
-    ph $ handler ["page"] Get
-    ph $ handler ["user"] Get
-    ph $ handler ["user", "five"] Get
-    ph $ handler ["user", "5"] Get
-    ph $ handler ["user", "5", "profile", "email"] Get
+caseQuasi :: Assertion
+caseQuasi = do
+    ph ["200", "foo"] $ handler ["static", "foo", "bar", "baz"] Get
+    ph ["404"] $ handler ["foo", "bar", "baz"] Get
+    ph ["200", "pageIndex"] $ handler ["page"] Get
+    ph ["404"] $ handler ["user"] Get
+    ph ["404"] $ handler ["user", "five"] Get
+    ph ["200", "userInfo", "5"] $ handler ["user", "5"] Get
+    ph ["200", "userVar"] $ handler ["user", "5", "profile", "email"] Get
+
+testSuite :: Test
+testSuite = testGroup "Test.QuasiResource"
+    [ testCase "quasi" caseQuasi
+    ]

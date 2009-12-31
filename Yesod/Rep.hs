@@ -250,7 +250,7 @@ caseChooseRepTemplate = do
 
 caseChooseRepTemplateFile :: Assertion
 caseChooseRepTemplateFile = do
-    let temp = "test/rep.st"
+    let temp = "Test/rep.st"
         ho = toHtmlObject [ ("foo", toHtmlObject "<fooval>")
                           , ("bar", toHtmlObject ["bar1", "bar2"])
                           ]

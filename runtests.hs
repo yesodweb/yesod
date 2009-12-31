@@ -5,6 +5,8 @@ import qualified Yesod.Utils
 import qualified Yesod.Resource
 import qualified Yesod.Rep
 import qualified Data.Object.Html
+import qualified Test.Errors
+import qualified Test.QuasiResource
 
 main :: IO ()
 main = defaultMain
@@ -13,4 +15,6 @@ main = defaultMain
     , Yesod.Resource.testSuite
     , Yesod.Rep.testSuite
     , Data.Object.Html.testSuite
+    , Test.Errors.testSuite
+    , Test.QuasiResource.testSuite
     ]
