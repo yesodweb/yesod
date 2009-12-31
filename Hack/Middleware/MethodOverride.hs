@@ -18,6 +18,7 @@ module Hack.Middleware.MethodOverride (methodOverride) where
 import Hack
 import Web.Encodings (decodeUrlPairs)
 import Data.Monoid (mappend)
+import Data.Char
 
 methodOverride :: Middleware
 methodOverride app env = do
@@ -28,7 +29,7 @@ methodOverride app env = do
     app $
         case mo1 `mappend` mo2 of
             Nothing -> env
-            Just nm -> env { requestMethod = safeRead cm nm }
+            Just nm -> env { requestMethod = safeRead cm $ map toUpper nm }
 
 safeRead :: Read a => a -> String -> a
 safeRead d s =
