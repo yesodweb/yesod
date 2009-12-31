@@ -36,7 +36,6 @@ module Yesod.Request
     , anyParam
     , cookieParam
     , identifier
-    , maybeIdentifier
     , acceptedLanguages
     , requestPath
     , parseEnv
@@ -165,18 +164,9 @@ cookieParam :: (Parameter a, MonadRequestReader m) => ParamName -> m a
 cookieParam = genParam cookies CookieParam
 
 -- | Extract the cookie which specifies the identifier for a logged in
--- user.
-identifier :: MonadRequestReader m => m String
-identifier = do
-    mi <- maybeIdentifier
-    case mi of
-        Nothing -> authRequired
-        Just x -> return x
-
--- | Extract the cookie which specifies the identifier for a logged in
 -- user, if available.
-maybeIdentifier :: MonadRequestReader m => m (Maybe String)
-maybeIdentifier = do
+identifier :: MonadRequestReader m => m (Maybe String)
+identifier = do
     env <- parseEnv
     case lookup authCookieName $ Hack.hackHeaders env of
         Nothing -> return Nothing
@@ -203,7 +193,10 @@ requestPath = do
                 "" -> ""
                 q'@('?':_) -> q'
                 q' -> q'
-    return $! Hack.pathInfo env ++ q
+    return $! dropSlash (Hack.pathInfo env) ++ q
+      where
+        dropSlash ('/':x) = x
+        dropSlash x = x
 
 type PathInfo = [String]
 
@@ -285,9 +278,10 @@ instance Parameter Day where
                 then Right $ fromGregorian y m d
                 else Left $ "Invalid date: " ++ s
 
--- for checkboxes; checks for presence
+-- for checkboxes; checks for presence or a "false" value
 instance Parameter Bool where
     readParams [] = Right False
+    readParams [RawParam _ _ "false"] = Right False
     readParams [_] = Right True
     readParams x = Left $ "Invalid Bool parameter: " ++ show (map paramValue x)
 

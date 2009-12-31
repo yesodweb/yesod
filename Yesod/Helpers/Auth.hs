@@ -16,9 +16,9 @@
 module Yesod.Helpers.Auth
     ( authHandler
     , YesodAuth (..)
+    , authIdentifier
     ) where
 
-import qualified Hack
 import Web.Encodings
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
@@ -31,9 +31,26 @@ import Control.Monad.Attempt
 
 import Data.Maybe (fromMaybe)
 
-class Yesod a => YesodAuth a where
+class YesodApproot a => YesodAuth a where
+    -- | The following breaks DRY, but I cannot think of a better solution
+    -- right now.
+    --
+    -- The root relative to the application root. Should not begin with a slash
+    -- and should end with one.
+    authRoot :: a -> String
+    authRoot _ = "auth/"
+
+    defaultLoginPath :: a -> String
+    defaultLoginPath a = authRoot a ++ "openid/"
+
     rpxnowApiKey :: a -> Maybe String
     rpxnowApiKey _ = Nothing
+
+getFullAuthRoot :: YesodAuth y => Handler y String
+getFullAuthRoot = do
+    y <- getYesod
+    let (Approot ar) = approot y
+    return $ ar ++ authRoot y
 
 data AuthResource =
     Check
@@ -85,13 +102,11 @@ authOpenidForm = do
         Nothing -> return ()
     return $ cs html
 
-authOpenidForward :: Handler y HtmlObject
+authOpenidForward :: YesodAuth y => Handler y HtmlObject
 authOpenidForward = do
     oid <- getParam "openid"
-    env <- parseEnv
-    let complete = "http://" ++ Hack.serverName env ++ ":" ++
-                   show (Hack.serverPort env) ++
-                   "/auth/openid/complete/"
+    authroot <- getFullAuthRoot
+    let complete = authroot ++ "/openid/complete/"
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
     attempt
       (\err -> redirect $ "/auth/openid/?message=" ++ encodeUrl (show err))
@@ -145,15 +160,24 @@ rpxnowLogin = do
 
 authCheck :: Handler y HtmlObject
 authCheck = do
-    ident <- maybeIdentifier
-    case ident of
-        Nothing -> return $ toHtmlObject [("status", "notloggedin")]
-        Just i -> return $ toHtmlObject
-            [ ("status", "loggedin")
-            , ("ident", i)
-            ]
+    ident <- identifier
+    return $ toHtmlObject [("identifier", fromMaybe "" ident)]
 
 authLogout :: Handler y HtmlObject
 authLogout = do
     deleteCookie authCookieName
     return $ toHtmlObject [("status", "loggedout")]
+
+authIdentifier :: YesodAuth y => Handler y String
+authIdentifier = do
+    mi <- identifier
+    Approot ar <- getApproot
+    case mi of
+        Nothing -> do
+            rp <- requestPath
+            let dest = ar ++ rp
+            liftIO $ print ("authIdentifier", dest, ar, rp)
+            lp <- defaultLoginPath `fmap` getYesod
+            addCookie 120 "DEST" dest
+            redirect $ ar ++ lp
+        Just x -> return x

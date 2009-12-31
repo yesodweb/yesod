@@ -2,6 +2,7 @@
 module Yesod.Yesod
     ( Yesod (..)
     , YesodApproot (..)
+    , getApproot
     , toHackApp
     ) where
 
@@ -49,6 +50,9 @@ class Yesod a where
 class Yesod a => YesodApproot a where
     -- | An absolute URL to the root of the application.
     approot :: a -> Approot
+
+getApproot :: YesodApproot y => Handler y Approot
+getApproot = approot `fmap` getYesod
 
 defaultErrorHandler :: Yesod y
                     => ErrorResult
