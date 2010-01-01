@@ -21,6 +21,7 @@ module Yesod.Definitions
     , Language
     , Location (..)
     , showLocation
+    , PathInfo
     ) where
 
 import qualified Hack
@@ -54,7 +55,7 @@ type Resource = [String]
 -- | An absolute URL to the base of this application. This can almost be done
 -- programatically, but due to ambiguities in different ways of doing URL
 -- rewriting for (fast)cgi applications, it should be supplied by the user.
-newtype Approot = Approot { unApproot :: String }
+newtype Approot = Approot { unApproot :: String } -- FIXME make type syn?
 
 type Language = String
 
@@ -66,3 +67,5 @@ data Location = AbsLoc String | RelLoc String
 showLocation :: Approot -> Location -> String
 showLocation _ (AbsLoc s) = s
 showLocation (Approot ar) (RelLoc s) = ar ++ s
+
+type PathInfo = [String]

@@ -9,6 +9,7 @@ import Data.List
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
+import Control.Applicative
 
 data Errors = Errors
 instance Yesod Errors where
@@ -34,9 +35,8 @@ needsIdent = do
 
 hasArgs :: Handler Errors HtmlObject
 hasArgs = do
-    -- FIXME this test needs more work
-    a <- getParam "firstParam"
-    b <- getParam "secondParam"
+    (a, b) <- runRequest $ (,) <$> getParam "firstParam"
+                               <*> getParam "secondParam"
     return $ toHtmlObject [a :: String, b]
 
 caseErrorMessages :: Assertion
@@ -45,7 +45,6 @@ caseErrorMessages = do
     res <- app $ def { pathInfo = "/denied/" }
     assertBool "/denied/" $ "Permission denied" `isInfixOf` show res
     res' <- app $ def { pathInfo = "/needs-ident/" }
-    print res'
     assertBool "/needs-ident/" $ "IGNORED/auth/openid/" `isInfixOf` show res'
     res3 <- app $ def { pathInfo = "/has-args/" }
     assertBool "/has-args/" $ "secondParam" `isInfixOf` show res3

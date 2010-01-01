@@ -50,6 +50,8 @@ import Control.Monad (liftM, ap)
 import System.IO
 import Data.Object.Html
 
+import Yesod.Parameter
+
 ------ Handler monad
 newtype Handler yesod a = Handler {
     unHandler :: (RawRequest, yesod, TemplateGroup)
@@ -80,10 +82,10 @@ instance MonadIO (Handler yesod) where
     liftIO i = Handler $ \_ -> i >>= \i' -> return ([], HCContent i')
 instance Exception e => Failure e (Handler yesod) where
     failure e = Handler $ \_ -> return ([], HCError e)
-instance MonadRequestReader (Handler yesod) where
-    askRawRequest = Handler $ \(rr, _, _) -> return ([], HCContent rr)
-    invalidParam _pt pn pe = invalidArgs [(pn, pe)]
-    authRequired = permissionDenied
+instance RequestReader (Handler yesod) where
+    getRawRequest = Handler $ \(rr, _, _) -> return ([], HCContent rr)
+    invalidParams = invalidArgs . map helper where
+        helper ((_pt, pn, _pvs), e) = (pn, show e)
 
 getYesod :: Handler yesod yesod
 getYesod = Handler $ \(_, yesod, _) -> return ([], HCContent yesod)

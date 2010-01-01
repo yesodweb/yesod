@@ -21,6 +21,7 @@ module Yesod
     , module Yesod.Handler
     , module Yesod.Resource
     , module Data.Object.Html
+    , module Yesod.Parameter
     , module Yesod.Rep
     , module Yesod.Template
     , module Data.Convertible.Text
@@ -32,14 +33,16 @@ import Yesod.Resource hiding (testSuite)
 import Yesod.Response hiding (testSuite)
 import Data.Object.Html hiding (testSuite)
 import Yesod.Rep hiding (testSuite)
+import Yesod.Request hiding (testSuite)
 #else
 import Yesod.Resource
 import Yesod.Response
 import Data.Object.Html
 import Yesod.Rep
+import Yesod.Request
 #endif
 
-import Yesod.Request
+import Yesod.Parameter
 import Yesod.Yesod
 import Yesod.Definitions
 import Yesod.Handler

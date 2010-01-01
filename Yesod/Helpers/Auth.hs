@@ -76,8 +76,6 @@ authHandler _ ["login", "rpxnow"] = rc rpxnowLogin
 authHandler _ _ = notFound
 
 data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)
-instance Request OIDFormReq where
-    parseRequest = OIDFormReq <$> getParam "message" <*> getParam "dest"
 instance ConvertSuccess OIDFormReq Html where
     convertSuccess (OIDFormReq Nothing _) = cs ""
     convertSuccess (OIDFormReq (Just s) _) =
@@ -85,7 +83,9 @@ instance ConvertSuccess OIDFormReq Html where
 
 authOpenidForm :: Handler y HtmlObject
 authOpenidForm = do
-    m@(OIDFormReq _ dest) <- parseRequest
+    message <- runRequest $ getParam "message"
+    dest <- runRequest $ getParam "dest"
+    let m = OIDFormReq message dest
     let html =
          HtmlList
           [ cs m
@@ -104,7 +104,7 @@ authOpenidForm = do
 
 authOpenidForward :: YesodAuth y => Handler y HtmlObject
 authOpenidForward = do
-    oid <- getParam "openid"
+    oid <- runRequest $ getParam "openid"
     authroot <- getFullAuthRoot
     let complete = authroot ++ "/openid/complete/"
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
@@ -115,8 +115,8 @@ authOpenidForward = do
 
 authOpenidComplete :: Handler y HtmlObject
 authOpenidComplete = do
-    gets' <- rawGetParams <$> askRawRequest
-    dest <- cookieParam "DEST"
+    gets' <- rawGetParams <$> getRawRequest
+    dest <- runRequest $ cookieParam "DEST"
     res <- runAttemptT $ OpenId.authenticate gets'
     let onFailure err = redirect $ "/auth/openid/?message="
                             ++ encodeUrl (show err)
@@ -127,13 +127,6 @@ authOpenidComplete = do
     attempt onFailure onSuccess res
 
 -- | token dest
-data RpxnowRequest = RpxnowRequest String (Maybe String)
-instance Request RpxnowRequest where
-    parseRequest = do
-        token <- anyParam "token"
-        dest <- anyParam "dest"
-        return $! RpxnowRequest token $ chopHash `fmap` dest
-
 chopHash :: String -> String
 chopHash ('#':rest) = rest
 chopHash x = x
@@ -144,10 +137,10 @@ rpxnowLogin = do
     apiKey <- case rpxnowApiKey ay of
                 Just x -> return x
                 Nothing -> notFound
-    token <- anyParam "token"
-    postDest <- postParam "dest"
+    token <- runRequest $ anyParam "token"
+    postDest <- runRequest $ postParam "dest"
     dest' <- case postDest of
-                Nothing -> getParam "dest"
+                Nothing -> runRequest $ getParam "dest"
                 Just d -> return d
     let dest = case dest' of
                 Nothing -> "/"

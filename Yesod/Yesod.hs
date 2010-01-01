@@ -58,7 +58,7 @@ defaultErrorHandler :: Yesod y
                     => ErrorResult
                     -> Handler y RepChooser
 defaultErrorHandler NotFound = do
-    rr <- askRawRequest
+    rr <- getRawRequest
     return $ chooseRep $ toHtmlObject $ "Not found: " ++ show rr
 defaultErrorHandler (Redirect url) =
     return $ chooseRep $ toHtmlObject $ "Redirect to: " ++ url

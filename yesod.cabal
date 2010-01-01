@@ -52,7 +52,8 @@ library
                      data-object-json >= 0.0.0 && < 0.1,
                      attempt >= 0.2.1 && < 0.3,
                      template-haskell,
-                     failure >= 0.0.0 && < 0.1
+                     failure >= 0.0.0 && < 0.1,
+                     safe-failure >= 0.4.0 && < 0.5
     exposed-modules: Yesod
                      Yesod.Constants
                      Yesod.Rep
@@ -61,6 +62,7 @@ library
                      Yesod.Utils
                      Yesod.Definitions
                      Yesod.Handler
+                     Yesod.Parameter
                      Yesod.Resource
                      Yesod.Yesod
                      Yesod.Template
@@ -84,7 +86,8 @@ executable             runtests
                        test-framework-quickcheck,
                        test-framework-hunit,
                        HUnit,
-                       QuickCheck >= 1 && < 2
+                       QuickCheck >= 1 && < 2,
+                       data-default >= 0.2 && < 0.3
     else
         Buildable: False
     ghc-options:     -Wall

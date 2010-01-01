@@ -1,7 +1,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverlappingInstances #-} -- Parameter String
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Request
@@ -17,20 +18,11 @@
 ---------------------------------------------------------
 module Yesod.Request
     (
-      -- * Parameter
-      -- $param_overview
-      Parameter (..)
-    , ParamError
-    , ParamType
-    , ParamName
-    , ParamValue
-    , RawParam (..)
       -- * RawRequest
-    , RawRequest (..)
-    , PathInfo
+      RawRequest (..)
       -- * Parameter type class
       -- * MonadRequestReader type class and helpers
-    , MonadRequestReader (..)
+    , RequestReader (..)
     , getParam
     , postParam
     , anyParam
@@ -39,88 +31,64 @@ module Yesod.Request
     , acceptedLanguages
     , requestPath
     , parseEnv
+    , runRequest
       -- * Building actual request
     , Request (..)
     , Hack.RequestMethod (..)
       -- * Parameter restrictions
-    , notBlank
+    -- FIXME , notBlank
+#if TEST
+    , testSuite
+#endif
     ) where
 
 import qualified Hack
 import Data.Function.Predicate (equals)
 import Yesod.Constants
-import Yesod.Utils
+import Yesod.Utils (tryLookup, parseHttpAccept)
 import Yesod.Definitions
+import Yesod.Parameter
 import Control.Applicative (Applicative (..))
 import Web.Encodings
-import Data.Time.Calendar (Day, fromGregorian)
-import Data.Char (isDigit)
 import qualified Data.ByteString.Lazy as BL
 import Data.Convertible.Text
 import Hack.Middleware.CleanPath (splitPath)
 import Control.Arrow ((***))
+import Control.Exception (Exception, SomeException (..))
+import Data.Typeable (Typeable)
+import Data.Attempt
 
--- $param_overview
--- In Restful, all of the underlying parameter values are strings. They can
--- come from multiple sources: GET parameters, URL rewriting (FIXME: link),
--- cookies, etc. However, most applications eventually want to convert
--- those strings into something else, like 'Int's. Additionally, it is
--- often desirable to allow multiple values, or no value at all.
---
--- That is what the parameter concept is for. A 'Parameter' is any value
--- which can be converted from a 'String', or list of 'String's.
+#if TEST
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.HUnit
+import Test.HUnit hiding (Test)
+#endif
 
--- | Where this parameter came from.
-data ParamType =
-    GetParam
-    | PostParam
-    | CookieParam
-    deriving (Eq, Show)
+newtype Request v = Request { unRequest :: RawRequest
+                                        -> Either ParamException v }
+instance Functor Request where
+    fmap f (Request r) = Request $ fmap f . r
+instance Applicative Request where
+    pure = Request . const . Right
+    (Request f) <*> (Request r) = Request helper where
+        helper rr = helper2 (f rr) (r rr)
+        helper2 (Left e1) (Left e2) = Left $ e1 ++ e2
+        helper2 (Left e) _ = Left e
+        helper2 _ (Left e) = Left e
+        helper2 (Right f') (Right r') = Right $ f' r'
 
--- | Any kind of error message generated in the parsing stage.
-type ParamError = String
+class RequestReader m where
+    getRawRequest :: m RawRequest
+    invalidParams :: ParamException -> m a
+instance RequestReader Request where
+    getRawRequest = Request $ Right
+    invalidParams = Request . const . Left
 
--- | In GET parameters, the key. In cookies, the cookie name. So on and so
--- forth.
-type ParamName = String
-
--- | The 'String' value of a parameter, such as cookie content.
-type ParamValue = String
-
-data RawParam = RawParam
-    { paramType :: ParamType
-    , paramName :: ParamName
-    , paramValue :: ParamValue
-    }
-
--- | Anything which can be converted from a 'String' or list of 'String's.
---
--- The default implementation of 'readParams' will error out if given
--- anything but 1 'ParamValue'. This is usually what you want.
---
--- Minimal complete definition: either 'readParam' or 'readParams'.
-class Parameter a where
-    -- | Convert a string into the desired value, or explain why that can't
-    -- happen.
-    readParam :: RawParam -> Either ParamError a
-    readParam = readParams . return
-
-    -- | Convert a list of strings into the desired value, or explain why
-    -- that can't happen.
-    readParams :: [RawParam] -> Either ParamError a
-    readParams [x] = readParam x
-    readParams [] = Left "Missing parameter"
-    readParams xs = Left $ "Given " ++ show (length xs) ++
-                           " values, expecting 1"
-
-instance Parameter RawParam where
-    readParam = Right
-
-class (Monad m, Functor m, Applicative m) => MonadRequestReader m where
-    askRawRequest :: m RawRequest
-    invalidParam :: ParamType -> ParamName -> ParamError -> m a
-    authRequired :: m a
-
+runRequest :: (Monad m, RequestReader m) => Request a -> m a
+runRequest (Request f) = do
+    rr <- getRawRequest
+    either invalidParams return $ f rr
+{- FIXME
 -- | Attempt to parse a list of param values using 'readParams'.
 -- If that fails, return an error message and an undefined value. This way,
 -- we can process all of the parameters and get all of the error messages.
@@ -133,39 +101,41 @@ tryReadParams:: (Parameter a, MonadRequestReader m)
              -> m a
 tryReadParams ptype name params =
     case readParams params of
-        Left s -> invalidParam ptype name s
-        Right x -> return x
+        Failure s -> invalidParam ptype name s
+        Success x -> return x
+-}
 
 -- | Helper function for generating 'RequestParser's from various
 -- 'ParamValue' lists.
-genParam :: (Parameter a, MonadRequestReader m)
+genParam :: Parameter a
          => (RawRequest -> ParamName -> [ParamValue])
          -> ParamType
          -> ParamName
-         -> m a
-genParam f ptype name = do
-    req <- askRawRequest
-    tryReadParams ptype name $ map (RawParam ptype name) $ f req name
+         -> Request a
+genParam f ptype name = Request helper where
+  helper req = attempt failureH Right $ readParams pvs where
+      pvs = f req name
+      failureH e = Left [((ptype, name, pvs), SomeException e)]
 
 -- | Parse a value passed as a GET parameter.
-getParam :: (Parameter a, MonadRequestReader m) => ParamName -> m a
+getParam :: (Parameter a) => ParamName -> Request a
 getParam = genParam getParams GetParam
 
 -- | Parse a value passed as a POST parameter.
-postParam :: (Parameter a, MonadRequestReader m) => ParamName -> m a
+postParam :: (Parameter a) => ParamName -> Request a
 postParam = genParam postParams PostParam
 
 -- | Parse a value passed as a GET, POST or URL parameter.
-anyParam :: (Parameter a, MonadRequestReader m) => ParamName -> m a
+anyParam :: (Parameter a) => ParamName -> Request a
 anyParam = genParam anyParams PostParam -- FIXME
 
 -- | Parse a value passed as a raw cookie.
-cookieParam :: (Parameter a, MonadRequestReader m) => ParamName -> m a
+cookieParam :: (Parameter a) => ParamName -> Request a
 cookieParam = genParam cookies CookieParam
 
 -- | Extract the cookie which specifies the identifier for a logged in
 -- user, if available.
-identifier :: MonadRequestReader m => m (Maybe String)
+identifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
 identifier = do
     env <- parseEnv
     case lookup authCookieName $ Hack.hackHeaders env of
@@ -173,20 +143,20 @@ identifier = do
         Just x -> return (Just x)
 
 -- | Get the raw 'Hack.Env' value.
-parseEnv :: MonadRequestReader m => m Hack.Env
-parseEnv = rawEnv `fmap` askRawRequest
+parseEnv :: (Functor m, RequestReader m) => m Hack.Env
+parseEnv = rawEnv `fmap` getRawRequest
 
 -- | Determine the ordered list of language preferences.
 --
 -- FIXME: Future versions should account for some cookie.
-acceptedLanguages :: MonadRequestReader m => m [String]
+acceptedLanguages :: (Functor m, Monad m, RequestReader m) => m [String]
 acceptedLanguages = do
     env <- parseEnv
     let rawLang = tryLookup "" "Accept-Language" $ Hack.http env
     return $! parseHttpAccept rawLang
 
 -- | Determinge the path requested by the user (ie, the path info).
-requestPath :: MonadRequestReader m => m String
+requestPath :: (Functor m, Monad m, RequestReader m) => m String
 requestPath = do
     env <- parseEnv
     let q = case Hack.queryString env of
@@ -197,8 +167,6 @@ requestPath = do
       where
         dropSlash ('/':x) = x
         dropSlash x = x
-
-type PathInfo = [String]
 
 -- | The raw information passed through Hack, cleaned up a bit.
 data RawRequest = RawRequest
@@ -235,73 +203,18 @@ anyParams req name = getParams req name ++
 cookies :: RawRequest -> ParamName -> [ParamValue]
 cookies rr name = map snd . filter (fst `equals` name) . rawCookies $ rr
 
-instance Parameter a => Parameter (Maybe a) where
-    readParams [] = Right Nothing
-    readParams [x] = Just `fmap` readParam x
-    readParams xs = Left $ "Given " ++ show (length xs) ++
-                           " values, expecting 0 or 1"
-
-instance Parameter a => Parameter [a] where
-    readParams = mapM' readParam where
-        mapM' f = sequence' . map f
-        sequence' :: [Either String v] -> Either String [v]
-        sequence' [] = Right []
-        sequence' (Left l:_) = Left l
-        sequence' (Right r:rest) =
-            case sequence' rest of
-                Left l -> Left l
-                Right rest' -> Right $ r : rest'
-
-instance Parameter String where
-    readParam = Right . paramValue
-
-instance Parameter Int where
-    readParam (RawParam _ _ s) = case reads s of
-                    ((x, _):_) -> Right x
-                    _ -> Left $ "Invalid integer: " ++ s
-
-instance Parameter Day where
-    readParam (RawParam _ _ s) =
-        let t1 = length s == 10
-            t2 = s !! 4 == '-'
-            t3 = s !! 7 == '-'
-            t4 = all isDigit $ concat
-                    [ take 4 s
-                    , take 2 $ drop 5 s
-                    , take 2 $ drop 8 s
-                    ]
-            t = and [t1, t2, t3, t4]
-            y = read $ take 4 s
-            m = read $ take 2 $ drop 5 s
-            d = read $ take 2 $ drop 8 s
-         in if t
-                then Right $ fromGregorian y m d
-                else Left $ "Invalid date: " ++ s
-
--- for checkboxes; checks for presence or a "false" value
-instance Parameter Bool where
-    readParams [] = Right False
-    readParams [RawParam _ _ "false"] = Right False
-    readParams [_] = Right True
-    readParams x = Left $ "Invalid Bool parameter: " ++ show (map paramValue x)
-
--- | The input for a resource.
---
--- Each resource can define its own instance of 'Request' and then more
--- easily ensure that it received the correct input (ie, correct variables,
--- properly typed).
-class Request a where
-    parseRequest :: MonadRequestReader m => m a
-
-instance Request () where
-    parseRequest = return ()
-
+{- FIXME
 -- | Ensures that a String parameter is not blank.
 notBlank :: MonadRequestReader m => RawParam -> m String
 notBlank rp =
   case paramValue rp of
-    "" -> invalidParam (paramType rp) (paramName rp) "Required field"
+    "" -> invalidParam (paramType rp) (paramName rp) RequiredField
     s -> return s
+-}
+
+data RequiredField = RequiredField
+    deriving (Show, Typeable)
+instance Exception RequiredField
 
 instance ConvertSuccess Hack.Env RawRequest where
   convertSuccess env =
@@ -318,3 +231,21 @@ instance ConvertSuccess Hack.Env RawRequest where
         cookies' = decodeCookies rawCookie :: [(String, String)]
         langs = ["en"] -- FIXME
      in RawRequest rawPieces gets' posts cookies' files env langs
+
+#if TEST
+testSuite :: Test
+testSuite = testGroup "Yesod.Request"
+    [ testCase "Request applicative instance" caseAppInst
+    ]
+
+caseAppInst :: Assertion
+caseAppInst = do
+    let r5 = Request $ const $ Right 5
+        rAdd2 = Request $ const $ Right (+ 2)
+        r7 = Request $ const $ Right 7
+        rr = undefined
+        myEquals e t = (unRequest e) rr `myEquals2` (unRequest t) rr
+        myEquals2 x y = show x @=? show y
+    r5 `myEquals` pure 5
+    r7 `myEquals` (rAdd2 <*> r5)
+#endif
