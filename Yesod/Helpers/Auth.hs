@@ -26,7 +26,7 @@ import qualified Web.Authenticate.OpenId as OpenId
 import Yesod
 import Yesod.Constants
 
-import Control.Applicative ((<$>), Applicative (..))
+import Control.Applicative ((<$>))
 import Control.Monad.Attempt
 
 import Data.Maybe (fromMaybe)
@@ -125,11 +125,6 @@ authOpenidComplete = do
         header authCookieName ident
         redirect $ fromMaybe "/" dest
     attempt onFailure onSuccess res
-
--- | token dest
-chopHash :: String -> String
-chopHash ('#':rest) = rest
-chopHash x = x
 
 rpxnowLogin :: YesodAuth y => Handler y HtmlObject
 rpxnowLogin = do
