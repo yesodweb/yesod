@@ -13,7 +13,15 @@
 ---------------------------------------------------------
 module Yesod.Constants
     ( authCookieName
+    , authDisplayName
+    , encryptedCookies
     ) where
 
 authCookieName :: String
 authCookieName = "IDENTIFIER"
+
+authDisplayName :: String
+authDisplayName = "DISPLAY_NAME"
+
+encryptedCookies :: [String]
+encryptedCookies = [authDisplayName, authCookieName]

@@ -144,17 +144,34 @@ rpxnowLogin = do
                 Just s -> s
     ident <- Rpxnow.authenticate apiKey token
     header authCookieName $ Rpxnow.identifier ident
+    header authDisplayName $ getDisplayName ident
     redirect dest
+
+-- | Get some form of a display name, defaulting to the identifier.
+getDisplayName :: Rpxnow.Identifier -> String
+getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
+    choices = ["verifiedEmail", "email", "displayName", "preferredUsername"]
+    helper [] = ident
+    helper (x:xs) = case lookup x extra of
+                        Nothing -> helper xs
+                        Just y -> y
 
 authCheck :: Handler y HtmlObject
 authCheck = do
     ident <- identifier
-    return $ toHtmlObject [("identifier", fromMaybe "" ident)]
+    dn <- displayName
+    return $ toHtmlObject
+        [ ("identifier", fromMaybe "" ident)
+        , ("displayName", fromMaybe "" dn)
+        ]
 
-authLogout :: Handler y HtmlObject
+authLogout :: YesodAuth y => Handler y HtmlObject
 authLogout = do
     deleteCookie authCookieName
-    return $ toHtmlObject [("status", "loggedout")]
+    y <- getYesod
+    let (Approot ar) = approot y
+    redirect ar
+    -- FIXME check the DEST information
 
 authIdentifier :: YesodAuth y => Handler y String
 authIdentifier = do

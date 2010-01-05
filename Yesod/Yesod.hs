@@ -80,7 +80,7 @@ toHackApp a env = do
     let app' = toHackApp' a
     let mins = clientSessionDuration a
     (gzip $ cleanPath $ jsonp $ methodOverride
-          $ clientsession [authCookieName] key mins $ app') env
+          $ clientsession encryptedCookies key mins $ app') env
 
 toHackApp' :: Yesod y => y -> Hack.Application
 toHackApp' y env = do

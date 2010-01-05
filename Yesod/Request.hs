@@ -28,6 +28,7 @@ module Yesod.Request
     , anyParam
     , cookieParam
     , identifier
+    , displayName
     , acceptedLanguages
     , requestPath
     , parseEnv
@@ -139,6 +140,13 @@ identifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
 identifier = do
     env <- parseEnv
     case lookup authCookieName $ Hack.hackHeaders env of
+        Nothing -> return Nothing
+        Just x -> return (Just x)
+
+displayName :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
+displayName = do
+    env <- parseEnv
+    case lookup authDisplayName $ Hack.hackHeaders env of
         Nothing -> return Nothing
         Just x -> return (Just x)
 
