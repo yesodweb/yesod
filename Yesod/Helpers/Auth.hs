@@ -129,6 +129,7 @@ authOpenidComplete = do
 rpxnowLogin :: YesodAuth y => Handler y HtmlObject
 rpxnowLogin = do
     ay <- getYesod
+    let (Approot ar) = approot ay
     apiKey <- case rpxnowApiKey ay of
                 Just x -> return x
                 Nothing -> notFound
@@ -138,8 +139,8 @@ rpxnowLogin = do
                 Nothing -> runRequest $ getParam "dest"
                 Just d -> return d
     let dest = case dest' of
-                Nothing -> "/"
-                Just "" -> "/"
+                Nothing -> ar
+                Just "" -> ar
                 Just ('#':rest) -> rest
                 Just s -> s
     ident <- Rpxnow.authenticate apiKey token
