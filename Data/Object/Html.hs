@@ -26,6 +26,8 @@ module Data.Object.Html
       -- * Standard 'Object' functions
     , toHtmlObject
     , fromHtmlObject
+     -- * Re-export
+    , module Data.Object
 #if TEST
     , testSuite
 #endif
@@ -35,11 +37,13 @@ import Data.Generics
 import Data.Object.Text
 import Data.Object.Json
 import qualified Data.Text.Lazy as TL
+import qualified Data.Text as TS
 import Data.ByteString.Lazy (ByteString)
 import Web.Encodings
 import Text.StringTemplate.Classes
 import Control.Arrow (second)
 import Data.Attempt
+import Data.Object
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -50,8 +54,8 @@ import Text.StringTemplate
 
 -- | A single piece of HTML code.
 data Html =
-    Html Text -- ^ Already encoded HTML.
-  | Text Text -- ^ Text which should be HTML escaped.
+    Html TS.Text -- ^ Already encoded HTML.
+  | Text TS.Text -- ^ Text which should be HTML escaped.
   | Tag String [(String, String)] Html -- ^ Tag which needs a closing tag.
   | EmptyTag String [(String, String)] -- ^ Tag without a closing tag.
   | HtmlList [Html]
@@ -70,57 +74,56 @@ fromHtmlObject = ca
 
 instance ConvertSuccess String Html where
     convertSuccess = Text . cs
-instance ConvertSuccess Text Html where
+instance ConvertSuccess TS.Text Html where
     convertSuccess = Text
+instance ConvertSuccess Text Html where
+    convertSuccess = Text . cs
 $(deriveAttempts
     [ (''String, ''Html)
     , (''Text, ''Html)
+    , (''TS.Text, ''Html)
     ])
 
-showAttribs :: [(String, String)] -> Text
-showAttribs = TL.concat . map helper where
-    helper :: (String, String) -> Text
-    helper (k, v) = TL.concat
-        [ cs " "
-        , encodeHtml $ cs k
-        , cs "=\""
-        , encodeHtml $ cs v
-        , cs "\""
-        ]
+showAttribs :: [(String, String)] -> String -> String
+showAttribs pairs rest = foldr ($) rest $ map helper pairs where
+    helper :: (String, String) -> String -> String
+    helper (k, v) rest' =
+        ' ' : encodeHtml k
+        ++ '=' : '"' : encodeHtml v
+        ++ '"' : rest'
 
 htmlToText :: Bool -- ^ True to close empty tags like XML, False like HTML
            -> Html
-           -> Text
-htmlToText _ (Html t) = t
-htmlToText _ (Text t) = encodeHtml t
-htmlToText xml (Tag n as content) = TL.concat
-    [ cs "<"
-    , cs n
-    , showAttribs as
-    , cs ">"
-    , htmlToText xml content
-    , cs "</"
-    , cs n
-    , cs ">"
-    ]
-htmlToText xml (EmptyTag n as) = TL.concat
-    [ cs "<"
-    , cs n
-    , showAttribs as
-    , cs $ if xml then "/>" else ">"
-    ]
-htmlToText xml (HtmlList l) = TL.concat $ map (htmlToText xml) l
+           -> ([TS.Text] -> [TS.Text])
+htmlToText _ (Html t) = (:) t
+htmlToText _ (Text t) = (:) $ encodeHtml t
+htmlToText xml (Tag n as content) = \rest ->
+    (cs $ '<' : n)
+    : (cs $ showAttribs as ">")
+    : (htmlToText xml content
+    $ (cs $ '<' : '/' : n)
+    : cs ">"
+    : rest)
+htmlToText xml (EmptyTag n as) = \rest ->
+    (cs $ '<' : n )
+    : (cs $ showAttribs as (if xml then "/>" else ">"))
+    : rest
+htmlToText xml (HtmlList l) = \rest ->
+    foldr ($) rest $ map (htmlToText xml) l
 
+newtype HtmlFragment = HtmlFragment { unHtmlFragment :: Text }
+instance ConvertSuccess Html HtmlFragment where
+    convertSuccess h = HtmlFragment . TL.fromChunks . htmlToText False h $ []
+-- FIXME remove the next instance
 instance ConvertSuccess Html Text where
-    convertSuccess = htmlToText False
+    convertSuccess h = TL.fromChunks . htmlToText False h $ []
 -- | Not fully typesafe. You must make sure that when converting to this, the
 -- 'Html' starts with a tag.
 newtype XmlDoc = XmlDoc { unXmlDoc :: Text }
 instance ConvertSuccess Html XmlDoc where
-    convertSuccess h = XmlDoc $ TL.concat
-        [ cs "<?xml version='1.0' encoding='utf-8' ?>\n"
-        , htmlToText True h
-        ]
+    convertSuccess h = XmlDoc $ TL.fromChunks $
+        cs "<?xml version='1.0' encoding='utf-8' ?>\n"
+        : htmlToText True h []
 
 -- | Wrap an 'Html' in CDATA for XML output.
 cdata :: Html -> Html
