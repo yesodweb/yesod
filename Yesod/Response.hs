@@ -56,7 +56,6 @@ import Data.Convertible.Text (cs)
 import Web.Mime
 
 data Response = Response Int [Header] ContentType Content
-    deriving Show
 
 -- | Different types of redirects.
 data RedirectType = RedirectPermanent
@@ -113,10 +112,10 @@ headerToPair (Header key value) = return (key, value)
 
 responseToHackResponse :: [String] -- ^ language list
                        -> Response -> IO Hack.Response
-responseToHackResponse _FIXMEls (Response sc hs ct c) = do
+responseToHackResponse ls (Response sc hs ct c) = do
     hs' <- mapM headerToPair hs
     let hs'' = ("Content-Type", cs ct) : hs'
-    let asLBS = unContent c
+    asLBS <- unContent c ls
     return $ Hack.Response sc hs'' asLBS
 
 #if TEST

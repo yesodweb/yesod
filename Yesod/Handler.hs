@@ -119,7 +119,7 @@ runHandler (Handler handler) eh rr y tg cts = do
             -- FIXME do error handling on this, or leave it to the app?
             -- FIXME avoid lazy I/O by switching to WAI
             c <- BL.readFile fp
-            return $ Response 200 headers ct $ Content c
+            return $ Response 200 headers ct $ cs c
         HCContent a -> do
             (ct, c) <- a cts
             return $ Response 200 headers ct c

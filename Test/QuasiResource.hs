@@ -62,10 +62,19 @@ ph ss h = do
         y = MyYesod
         cts = [TypeHtml]
     res <- runHandler h eh rr y nullGroup cts
-    mapM_ (helper $ show res) ss
+    res' <- myShow res
+    mapM_ (helper res') ss
       where
         helper haystack needle =
             assertBool needle $ needle `isInfixOf` haystack
+
+myShow :: Response -> IO String
+myShow (Response sc hs ct (Content c)) = c [] >>= \c' -> return $ unlines
+    [ show sc
+    , unlines $ map show hs
+    , show ct
+    , show c'
+    ]
 
 caseQuasi :: Assertion
 caseQuasi = do

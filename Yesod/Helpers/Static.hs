@@ -58,7 +58,7 @@ getStatic fl fp' = do
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
-        Just bs -> return [(typeByExt $ ext fp, Content bs)]
+        Just bs -> return [(typeByExt $ ext fp, cs bs)]
       where
         isUnsafe [] = True
         isUnsafe ('.':_) = True
