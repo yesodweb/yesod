@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeSynonymInstances #-} -- FIXME remove
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE CPP #-}
@@ -97,7 +97,6 @@ toPair (DeleteCookie key) = return
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
 toPair (Header key value) = return (key, value)
 
--- FIXME add test
 responseToHackResponse :: [String] -- ^ language list
                        -> Response -> IO Hack.Response
 responseToHackResponse _FIXMEls (Response sc hs ct c) = do

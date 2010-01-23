@@ -244,7 +244,7 @@ checkRPNodes :: (MonadFailure OverlappingPatterns m,
              => [RPNode]
              -> m [RPNode]
 checkRPNodes nodes = do
-    _ <- checkPatterns $ map (\(RPNode r _) -> cs r) nodes -- FIXME ugly
+    _ <- checkPatterns $ map (\(RPNode r _) -> cs r) nodes
     mapM_ (\(RPNode _ v) -> checkVerbMap v) nodes
     return nodes
         where

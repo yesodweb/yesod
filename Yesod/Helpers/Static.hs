@@ -25,19 +25,25 @@ module Yesod.Helpers.Static
 import qualified Data.ByteString.Lazy as B
 import System.Directory (doesFileExist)
 import Control.Applicative ((<$>))
+import Control.Monad
 
 import Yesod
 import Data.List (intercalate)
 
 type FileLookup = FilePath -> IO (Maybe B.ByteString)
 
--- | A 'FileLookup' for files in a directory.
+-- | A 'FileLookup' for files in a directory. Note that this function does not
+-- check if the requested path does unsafe things, eg expose hidden files. You
+-- should provide this checking elsewhere.
+--
+-- If you are just using this in combination with serveStatic, serveStatic
+-- provides this checking.
 fileLookupDir :: FilePath -> FileLookup
 fileLookupDir dir fp = do
-    let fp' = dir ++ '/' : fp -- FIXME incredibly insecure...
+    let fp' = dir ++ '/' : fp
     exists <- doesFileExist fp'
     if exists
-        then Just <$> B.readFile fp'
+        then Just <$> B.readFile fp' -- FIXME replace lazy I/O when possible
         else return Nothing
 
 serveStatic :: FileLookup -> Verb -> [String]
@@ -47,11 +53,16 @@ serveStatic _ _ _ = notFound
 
 getStatic :: FileLookup -> [String] -> Handler y [(ContentType, Content)]
 getStatic fl fp' = do
-    let fp = intercalate "/" fp' -- FIXME check for . or ..
+    when (any isUnsafe fp') $ notFound
+    let fp = intercalate "/" fp'
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
         Just bs -> return [(mimeType $ ext fp, Content bs)]
+      where
+        isUnsafe [] = True
+        isUnsafe ('.':_) = True
+        isUnsafe _ = False
 
 mimeType :: String -> ContentType
 mimeType "jpg" = TypeJpeg

@@ -49,7 +49,7 @@ class YesodApproot a => YesodAuth a where
 getFullAuthRoot :: YesodAuth y => Handler y String
 getFullAuthRoot = do
     y <- getYesod
-    let (Approot ar) = approot y
+    ar <- getApproot
     return $ ar ++ authRoot y
 
 data AuthResource =
@@ -168,15 +168,14 @@ authCheck = do
 authLogout :: YesodAuth y => Handler y HtmlObject
 authLogout = do
     deleteCookie authCookieName
-    y <- getYesod
-    let (Approot ar) = approot y
+    ar <- getApproot
     redirect ar
     -- FIXME check the DEST information
 
 authIdentifier :: YesodAuth y => Handler y String
 authIdentifier = do
     mi <- identifier
-    Approot ar <- getApproot
+    ar <- getApproot
     case mi of
         Nothing -> do
             rp <- requestPath
