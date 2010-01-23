@@ -103,9 +103,14 @@ toHackApp'' y tg env = do
         rr = cs env
     res <- runHandler handler errorHandler rr y tg types
     let acceptLang = lookup "Accept-Language" $ Hack.http env
-    -- FIXME get languages from a cookie as well
     let langs = maybe [] parseHttpAccept acceptLang
-    responseToHackResponse langs res
+        langs' = case lookup langKey $ rawCookies rr of
+                    Nothing -> langs
+                    Just x -> x : langs
+        langs'' = case lookup langKey $ rawGetParams rr of
+                     Nothing -> langs'
+                     Just x -> x : langs'
+    responseToHackResponse langs'' res
 
 httpAccept :: Hack.Env -> [ContentType]
 httpAccept = map TypeOther . parseHttpAccept . fromMaybe ""

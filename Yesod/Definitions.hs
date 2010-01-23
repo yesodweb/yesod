@@ -25,6 +25,7 @@ module Yesod.Definitions
     , authCookieName
     , authDisplayName
     , encryptedCookies
+    , langKey
     ) where
 
 import qualified Hack
@@ -79,3 +80,6 @@ authDisplayName = "DISPLAY_NAME"
 
 encryptedCookies :: [String]
 encryptedCookies = [authDisplayName, authCookieName]
+
+langKey :: String
+langKey = "_LANG"
