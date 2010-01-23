@@ -42,14 +42,11 @@ import Data.Convertible.Text
 data ParamType =
     GetParam
     | PostParam
-    | CookieParam
     deriving (Eq, Show)
 
--- | In GET parameters, the key. In cookies, the cookie name. So on and so
--- forth.
 type ParamName = String
 
--- | The 'String' value of a parameter, such as cookie content.
+-- | The 'String' value of a parameter.
 type ParamValue = String
 
 -- | Anything which can be converted from a list of 'String's.

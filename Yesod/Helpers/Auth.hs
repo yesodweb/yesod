@@ -26,7 +26,6 @@ import qualified Web.Authenticate.OpenId as OpenId
 import Yesod
 import Yesod.Constants
 
-import Control.Applicative ((<$>))
 import Control.Monad.Attempt
 
 import Data.Maybe (fromMaybe)
@@ -114,10 +113,14 @@ authOpenidForward = do
       (redirect RedirectTemporary)
       res
 
-authOpenidComplete :: Handler y HtmlObject
+authOpenidComplete :: YesodApproot y => Handler y HtmlObject
 authOpenidComplete = do
-    gets' <- rawGetParams <$> getRawRequest
-    dest <- runRequest $ cookieParam "DEST"
+    ar <- getApproot
+    rr <- getRawRequest
+    let gets' = rawGetParams rr
+    let dest = case cookies rr "DEST" of
+                [] -> ar
+                (x:_) -> x
     res <- runAttemptT $ OpenId.authenticate gets'
     let onFailure err = redirect RedirectTemporary
                              $ "/auth/openid/?message="
@@ -125,7 +128,7 @@ authOpenidComplete = do
     let onSuccess (OpenId.Identifier ident) = do
         deleteCookie "DEST"
         header authCookieName ident
-        redirect RedirectTemporary $ fromMaybe "/" dest
+        redirect RedirectTemporary dest
     attempt onFailure onSuccess res
 
 rpxnowLogin :: YesodAuth y => Handler y HtmlObject

@@ -26,13 +26,13 @@ module Yesod.Request
     , getParam
     , postParam
     , anyParam
-    , cookieParam
     , identifier
     , displayName
     , acceptedLanguages
     , requestPath
     , parseEnv
     , runRequest
+    , cookies
       -- * Building actual request
     , Request (..)
     , Hack.RequestMethod (..)
@@ -129,10 +129,6 @@ postParam = genParam postParams PostParam
 -- | Parse a value passed as a GET, POST or URL parameter.
 anyParam :: (Parameter a) => ParamName -> Request a
 anyParam = genParam anyParams PostParam -- FIXME
-
--- | Parse a value passed as a raw cookie.
-cookieParam :: (Parameter a) => ParamName -> Request a
-cookieParam = genParam cookies CookieParam
 
 -- | Extract the cookie which specifies the identifier for a logged in
 -- user, if available.
