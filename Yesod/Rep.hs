@@ -27,9 +27,9 @@
 -- effort.
 module Yesod.Rep
     ( Content (..)
-    , RepChooser
-    , ContentPair
+    , ChooseRep
     , HasReps (..)
+    , defChooseRep
       -- * Specific types of representations
     , Plain (..)
     , plain
@@ -77,38 +77,36 @@ instance ConvertSuccess HtmlDoc Content where
 instance ConvertSuccess XmlDoc Content where
     convertSuccess = cs . unXmlDoc
 
-type ContentPair = (ContentType, Content)
-type RepChooser = [ContentType] -> IO ContentPair
+type ChooseRep = [ContentType] -> IO (ContentType, Content)
 
 -- | Any type which can be converted to representations. There must be at least
 -- one representation for each type.
 class HasReps a where
-    reps :: [(ContentType, a -> IO Content)]
-    chooseRep :: a -> RepChooser
-    chooseRep a ts = do
-      let (ct, c) =
-            case mapMaybe helper ts of
-                (x:_) -> x
-                [] -> case reps of
-                        [] -> error "Empty reps"
-                        (x:_) -> x
-      c' <- c a
-      return (ct, c')
-            where
-                --helper :: ContentType -> Maybe ContentPair
-                helper ct = do
-                    c <- lookup ct reps
-                    return (ct, c)
+    chooseRep :: a -> ChooseRep
 
-instance HasReps RepChooser where
-    reps = error "reps of RepChooser"
+-- | A helper method for generating 'HasReps' instances.
+defChooseRep :: [(ContentType, a -> IO Content)] -> a -> ChooseRep
+defChooseRep reps a ts = do
+  let (ct, c) =
+        case mapMaybe helper ts of
+            (x:_) -> x
+            [] -> case reps of
+                    [] -> error "Empty reps"
+                    (x:_) -> x
+  c' <- c a
+  return (ct, c')
+        where
+            helper ct = do
+                c <- lookup ct reps
+                return (ct, c)
+
+instance HasReps ChooseRep where
     chooseRep = id
 
 instance HasReps () where
-    reps = [(TypePlain, const $ return $ cs "")]
+    chooseRep = defChooseRep [(TypePlain, const $ return $ cs "")]
 
 instance HasReps [(ContentType, Content)] where
-    reps = error "reps of [(ContentType, Content)]"
     chooseRep a cts = return $
         case filter (\(ct, _) -> ct `elem` cts) a of
             ((ct, c):_) -> (ct, c)
@@ -119,7 +117,7 @@ instance HasReps [(ContentType, Content)] where
 newtype Plain = Plain { unPlain :: Text }
     deriving (Eq, Show)
 instance HasReps Plain where
-    reps = [(TypePlain, return . cs . unPlain)]
+    chooseRep = defChooseRep [(TypePlain, return . cs . unPlain)]
 
 plain :: ConvertSuccess x Text => x -> Plain
 plain = Plain . cs
@@ -129,7 +127,7 @@ data Template = Template (StringTemplate Text)
                          HtmlObject
                          (IO [(String, HtmlObject)])
 instance HasReps Template where
-    reps = [ (TypeHtml,
+    chooseRep = defChooseRep [ (TypeHtml,
               \(Template t name ho attrsIO) -> do
                 attrs <- attrsIO
                 return
@@ -144,7 +142,7 @@ instance HasReps Template where
 -- FIXME
 data TemplateFile = TemplateFile FilePath HtmlObject
 instance HasReps TemplateFile where
-    reps = [ (TypeHtml,
+    chooseRep = defChooseRep [ (TypeHtml,
               \(TemplateFile fp h) -> do
                     contents <- readFile fp
                     let t = newSTMP contents
@@ -156,19 +154,17 @@ instance HasReps TemplateFile where
 
 data Static = Static ContentType ByteString
 instance HasReps Static where
-    reps = error "reps of Static"
     chooseRep (Static ct bs) _ = return (ct, Content $ const $ return bs)
 
 data StaticFile = StaticFile ContentType FilePath
 instance HasReps StaticFile where
-    reps = error "reps of StaticFile"
     chooseRep (StaticFile ct fp) _ = do
         bs <- BL.readFile fp
         return (ct, Content $ const $ return bs)
 
 -- Useful instances of HasReps
 instance HasReps HtmlObject where
-    reps =
+    chooseRep = defChooseRep
         [ (TypeHtml, return . cs . unHtmlDoc . cs)
         , (TypeJson, return . cs . unJsonDoc . cs)
         ]

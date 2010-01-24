@@ -12,19 +12,19 @@ import Data.List
 
 data MyYesod = MyYesod
 
-instance Show (Handler MyYesod RepChooser) where show _ = "Another handler"
+instance Show (Handler MyYesod ChooseRep) where show _ = "Another handler"
 
 getStatic :: Verb -> [String] -> Handler MyYesod HtmlObject
 getStatic v p = return $ toHtmlObject ["getStatic", show v, show p]
 pageIndex :: Handler MyYesod HtmlObject
 pageIndex = return $ toHtmlObject ["pageIndex"]
-pageAdd :: Handler MyYesod RepChooser
+pageAdd :: Handler MyYesod ChooseRep
 pageAdd = return $ chooseRep $ toHtmlObject ["pageAdd"]
-pageDetail :: String -> Handler MyYesod RepChooser
+pageDetail :: String -> Handler MyYesod ChooseRep
 pageDetail s = return $ chooseRep $ toHtmlObject ["pageDetail", s]
 pageDelete :: String -> Handler MyYesod HtmlObject
 pageDelete s = return $ toHtmlObject ["pageDelete", s]
-pageUpdate :: String -> Handler MyYesod RepChooser
+pageUpdate :: String -> Handler MyYesod ChooseRep
 pageUpdate s = return $ chooseRep $ toHtmlObject ["pageUpdate", s]
 userInfo :: Int -> Handler MyYesod HtmlObject
 userInfo i = return $ toHtmlObject ["userInfo", show i]
@@ -33,11 +33,11 @@ userVariable i s = return $ toHtmlObject ["userVariable", show i, s]
 userPage :: Int -> [String] -> Handler MyYesod HtmlObject
 userPage i p = return $ toHtmlObject ["userPage", show i, show p]
 
-instance Show (Verb -> Handler MyYesod RepChooser) where
+instance Show (Verb -> Handler MyYesod ChooseRep) where
     show _ = "verb -> handler"
-instance Show (Resource -> Verb -> Handler MyYesod RepChooser) where
+instance Show (Resource -> Verb -> Handler MyYesod ChooseRep) where
     show _ = "resource -> verb -> handler"
-handler :: Resource -> Verb -> Handler MyYesod RepChooser
+handler :: Resource -> Verb -> Handler MyYesod ChooseRep
 handler = [$resources|
 /static/*filepath/: getStatic
 /page/:
@@ -55,7 +55,7 @@ handler = [$resources|
     Get: userPage
 |]
 
-ph :: [String] -> Handler MyYesod RepChooser -> Assertion
+ph :: [String] -> Handler MyYesod ChooseRep -> Assertion
 ph ss h = do
     let eh = return . chooseRep . toHtmlObject . show
         rr = error "No raw request"

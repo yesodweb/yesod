@@ -95,8 +95,8 @@ getYesod = Handler $ \(_, yesod, _) -> return ([], HCContent yesod)
 instance HasTemplateGroup (Handler yesod) where
     getTemplateGroup = Handler $ \(_, _, tg) -> return ([], HCContent tg)
 
-runHandler :: Handler yesod RepChooser
-           -> (ErrorResponse -> Handler yesod RepChooser)
+runHandler :: Handler yesod ChooseRep
+           -> (ErrorResponse -> Handler yesod ChooseRep)
            -> RawRequest
            -> yesod
            -> TemplateGroup
@@ -124,7 +124,7 @@ runHandler (Handler handler) eh rr y tg cts = do
             (ct, c) <- a cts
             return $ Response 200 headers ct c
 
-safeEh :: ErrorResponse -> Handler yesod RepChooser
+safeEh :: ErrorResponse -> Handler yesod ChooseRep
 safeEh er = do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
     return $ chooseRep $ toHtmlObject "Internal server error"

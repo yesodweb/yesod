@@ -65,10 +65,10 @@ data AuthResource =
     | LoginRpxnow
     deriving (Show, Eq, Enum, Bounded)
 
-rc :: HasReps x => Handler y x -> Handler y RepChooser
+rc :: HasReps x => Handler y x -> Handler y ChooseRep
 rc = fmap chooseRep
 
-authHandler :: YesodAuth y => Verb -> [String] -> Handler y RepChooser
+authHandler :: YesodAuth y => Verb -> [String] -> Handler y ChooseRep
 authHandler Get ["check"] = rc authCheck
 authHandler Get ["logout"] = rc authLogout
 authHandler Get ["openid"] = rc authOpenidForm

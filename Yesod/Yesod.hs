@@ -30,7 +30,7 @@ import Hack.Middleware.MethodOverride
 class Yesod a where
     -- | Please use the Quasi-Quoter, you\'ll be happier. For more information,
     -- see the examples/fact.lhs sample.
-    handlers :: Resource -> Verb -> Handler a RepChooser
+    handlers :: Resource -> Verb -> Handler a ChooseRep
 
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
@@ -42,7 +42,7 @@ class Yesod a where
     clientSessionDuration = const 120
 
     -- | Output error response pages.
-    errorHandler :: ErrorResponse -> Handler a RepChooser
+    errorHandler :: ErrorResponse -> Handler a ChooseRep
     errorHandler = defaultErrorHandler
 
     -- | The template directory. Blank means no templates.
@@ -58,7 +58,7 @@ getApproot = approot `fmap` getYesod
 
 defaultErrorHandler :: Yesod y
                     => ErrorResponse
-                    -> Handler y RepChooser
+                    -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
     rr <- getRawRequest
     return $ chooseRep $ toHtmlObject $ "Not found: " ++ show rr

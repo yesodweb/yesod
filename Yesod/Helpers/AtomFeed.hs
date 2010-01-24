@@ -40,7 +40,7 @@ data AtomFeed = AtomFeed
     , atomEntries :: [AtomFeedEntry]
     }
 instance HasReps AtomFeedResponse where
-    reps =
+    chooseRep = defChooseRep
         [ (TypeAtom, return . cs)
         ]
 

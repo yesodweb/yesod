@@ -69,7 +69,7 @@ instance ConvertSuccess SitemapResponse Html where
                     ]
 
 instance HasReps SitemapResponse where
-    reps =
+    chooseRep = defChooseRep
         [ (TypeXml, return . cs)
         ]
 
