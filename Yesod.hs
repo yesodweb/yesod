@@ -24,7 +24,6 @@ module Yesod
     , module Yesod.Parameter
     , module Yesod.Rep
     , module Yesod.Template
-    , module Data.Convertible.Text
     , Application
     ) where
 
@@ -48,4 +47,3 @@ import Yesod.Definitions
 import Yesod.Handler
 import Hack (Application)
 import Yesod.Template
-import Data.Convertible.Text

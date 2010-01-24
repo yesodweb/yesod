@@ -89,7 +89,7 @@ one piece of data.
 
 > factRedirect :: Handler y ()
 > factRedirect = do
->     i <- getParam "num"
+>     i <- runRequest $ getParam "num"
 >     redirect $ "../" ++ i ++ "/"
 
 The following line would be unnecesary if we had a type signature on
@@ -102,4 +102,4 @@ you could use CGI, FastCGI or a more powerful server. Just check out Hackage
 for options (any package starting hack-handler- should suffice).
 
 > main :: IO ()
-> main = putStrLn "Running..." >> run 3000 (toHackApp Fact)
+> main = putStrLn "Running..." >> toHackApp Fact >>= run 3000

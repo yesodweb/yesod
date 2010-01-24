@@ -26,5 +26,5 @@ helloGroup = template "real-template" "foo" (cs "bar") $ return []
 main :: IO ()
 main = do
     putStrLn "Running..."
-    run 3000 $ toHackApp HelloWorld
+    toHackApp HelloWorld >>= run 3000
 \end{code}

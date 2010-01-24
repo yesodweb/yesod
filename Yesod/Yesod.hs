@@ -14,6 +14,7 @@ import Yesod.Constants
 import Yesod.Definitions
 import Yesod.Handler
 import Yesod.Utils
+import Yesod.Template (TemplateGroup)
 
 import Data.Maybe (fromMaybe)
 import Data.Convertible.Text
@@ -27,7 +28,8 @@ import Hack.Middleware.Jsonp
 import Hack.Middleware.MethodOverride
 
 class Yesod a where
-    -- | Please use the Quasi-Quoter, you\'ll be happier. FIXME more info.
+    -- | Please use the Quasi-Quoter, you\'ll be happier. For more information,
+    -- see the examples/fact.lhs sample.
     handlers :: Resource -> Verb -> Handler a RepChooser
 
     -- | The encryption key to be used for encrypting client sessions.
@@ -74,26 +76,33 @@ defaultErrorHandler (InternalError e) =
                 [ ("Internal server error", e)
                 ]
 
-toHackApp :: Yesod y => y -> Hack.Application
-toHackApp a env = do
+toHackApp :: Yesod y => y -> IO Hack.Application
+toHackApp a = do
     key <- encryptKey a
-    let app' = toHackApp' a
+    app' <- toHackApp' a
     let mins = clientSessionDuration a
-    (gzip $ cleanPath $ jsonp $ methodOverride
-          $ clientsession encryptedCookies key mins $ app') env
+    return $ gzip
+           $ cleanPath
+           $ jsonp
+           $ methodOverride
+           $ clientsession encryptedCookies key mins
+           $ app'
 
-toHackApp' :: Yesod y => y -> Hack.Application
-toHackApp' y env = do
+toHackApp' :: Yesod y => y -> IO Hack.Application
+toHackApp' y = do
+    let td = templateDir y
+    tg <- if null td
+            then return nullGroup
+            else directoryGroupRecursiveLazy td
+    return $ toHackApp'' y tg
+
+toHackApp'' :: Yesod y => y -> TemplateGroup -> Hack.Env -> IO Hack.Response
+toHackApp'' y tg env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
         types = httpAccept env
         verb = cs $ Hack.requestMethod env
         handler = handlers resource verb
         rr = cs env
-    -- FIXME don't do the templateDir thing for each request
-    let td = templateDir y
-    tg <- if null td
-            then return nullGroup
-            else directoryGroupRecursiveLazy td
     res <- runHandler handler errorHandler rr y tg types
     let langs = ["en"] -- FIXME
     responseToHackResponse langs res

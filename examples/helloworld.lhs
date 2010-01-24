@@ -15,5 +15,5 @@ helloWorld :: Handler HelloWorld HtmlObject
 helloWorld = return $ cs "Hello world!"
 
 main :: IO ()
-main = putStrLn "Running..." >> run 3000 (toHackApp HelloWorld)
+main = putStrLn "Running..." >> toHackApp HelloWorld >>= run 3000
 \end{code}

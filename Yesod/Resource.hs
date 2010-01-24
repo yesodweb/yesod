@@ -216,8 +216,6 @@ data RPNode = RPNode RP VerbMap
     deriving (Show, Eq)
 data VerbMap = AllVerbs String | Verbs [(Verb, String)]
     deriving (Show, Eq)
-instance ConvertAttempt YamlDoc [RPNode] where
-    convertAttempt = fromTextObject <=< ca
 instance ConvertAttempt TextObject [RPNode] where
     convertAttempt = mapM helper <=< fromMapping where
         helper :: (Text, TextObject) -> Attempt RPNode
@@ -246,7 +244,7 @@ checkRPNodes :: (MonadFailure OverlappingPatterns m,
              => [RPNode]
              -> m [RPNode]
 checkRPNodes nodes = do
-    _ <- checkPatterns $ map (\(RPNode r _) -> cs r) nodes -- FIXME ugly
+    _ <- checkPatterns $ map (\(RPNode r _) -> cs r) nodes
     mapM_ (\(RPNode _ v) -> checkVerbMap v) nodes
     return nodes
         where
@@ -384,7 +382,7 @@ liftVerbMap (Verbs vs) r rp = do
 
 strToExp :: Bool -> String -> Q Exp
 strToExp toCheck s = do
-    rpnodes <- runIO $ convertAttemptWrap $ YamlDoc $ cs s
+    rpnodes <- runIO $ decode (cs s) >>= \to -> convertAttemptWrap (to :: TextObject)
     (if toCheck then rpnodesTHCheck else rpnodesTH) rpnodes
 
 #if TEST

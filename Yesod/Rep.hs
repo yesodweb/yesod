@@ -57,7 +57,6 @@ import Data.Object.Html
 #endif
 
 import Data.Object.Json
-import Data.Convertible.Text
 import Text.StringTemplate
 
 #if TEST
@@ -109,8 +108,8 @@ instance ConvertSuccess ByteString Content where
     convertSuccess = Content
 instance ConvertSuccess String Content where
     convertSuccess = Content . cs
-instance ConvertSuccess Html Content where
-    convertSuccess = Content . cs
+instance ConvertSuccess HtmlDoc Content where
+    convertSuccess = cs . unHtmlDoc
 instance ConvertSuccess XmlDoc Content where
     convertSuccess = cs . unXmlDoc
 
