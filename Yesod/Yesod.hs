@@ -43,7 +43,7 @@ class Yesod a where
     clientSessionDuration = const 120
 
     -- | Output error response pages.
-    errorHandler :: ErrorResult -> Handler a RepChooser
+    errorHandler :: ErrorResponse -> Handler a RepChooser
     errorHandler = defaultErrorHandler
 
     -- | The template directory. Blank means no templates.
@@ -58,13 +58,11 @@ getApproot :: YesodApproot y => Handler y Approot
 getApproot = approot `fmap` getYesod
 
 defaultErrorHandler :: Yesod y
-                    => ErrorResult
+                    => ErrorResponse
                     -> Handler y RepChooser
 defaultErrorHandler NotFound = do
     rr <- getRawRequest
     return $ chooseRep $ toHtmlObject $ "Not found: " ++ show rr
-defaultErrorHandler (Redirect url) =
-    return $ chooseRep $ toHtmlObject $ "Redirect to: " ++ url
 defaultErrorHandler PermissionDenied =
     return $ chooseRep $ toHtmlObject "Permission denied"
 defaultErrorHandler (InvalidArgs ia) =

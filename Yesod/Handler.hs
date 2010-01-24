@@ -50,6 +50,7 @@ import Control.Monad (liftM, ap)
 
 import System.IO
 import Data.Object.Html
+import qualified Data.ByteString.Lazy as BL
 
 import Yesod.Parameter
 
@@ -59,8 +60,8 @@ newtype Handler yesod a = Handler {
               -> IO ([Header], HandlerContents a)
 }
 data HandlerContents a =
-    forall e. Exception e => HCError e
-    | HCSpecial ErrorResult
+      HCSpecial SpecialResponse
+    | HCError ErrorResponse
     | HCContent a
 
 instance Functor (Handler yesod) where
@@ -82,7 +83,7 @@ instance Monad (Handler yesod) where
 instance MonadIO (Handler yesod) where
     liftIO i = Handler $ \_ -> i >>= \i' -> return ([], HCContent i')
 instance Exception e => Failure e (Handler yesod) where
-    failure e = Handler $ \_ -> return ([], HCError e)
+    failure e = Handler $ \_ -> return ([], HCError $ InternalError $ show e)
 instance RequestReader (Handler yesod) where
     getRawRequest = Handler $ \(rr, _, _) -> return ([], HCContent rr)
     invalidParams = invalidArgs . map helper where
@@ -95,7 +96,7 @@ instance HasTemplateGroup (Handler yesod) where
     getTemplateGroup = Handler $ \(_, _, tg) -> return ([], HCContent tg)
 
 runHandler :: Handler yesod RepChooser
-           -> (ErrorResult -> Handler yesod RepChooser)
+           -> (ErrorResponse -> Handler yesod RepChooser)
            -> RawRequest
            -> yesod
            -> TemplateGroup
@@ -104,43 +105,50 @@ runHandler :: Handler yesod RepChooser
 runHandler (Handler handler) eh rr y tg cts = do
     (headers, contents) <- Control.Exception.catch
         (handler (rr, y, tg))
-        (\e -> return ([], HCError (e :: Control.Exception.SomeException)))
-    let contents' =
-            case contents of
-                HCError e -> Left $ InternalError $ show e
-                HCSpecial e -> Left e
-                HCContent a -> Right a
-    case contents' of
-        Left e -> do
-            Response _ hs ct c <- runHandler (eh e) specialEh rr y tg cts
-            let hs' = headers ++ hs ++ getHeaders e
+        (\e -> return ([], HCError $ InternalError $ show
+                             (e :: Control.Exception.SomeException)))
+    case contents of
+        HCError e -> do
+            Response _ hs ct c <- runHandler (eh e) safeEh rr y tg cts
+            let hs' = headers ++ hs
             return $ Response (getStatus e) hs' ct c
-        Right a -> do
+        HCSpecial (Redirect rt loc) -> do
+            let hs = Header "Location" loc : headers
+            return $ Response (getRedirectStatus rt) hs TypePlain $ cs ""
+        HCSpecial (SendFile ct fp) -> do
+            -- FIXME do error handling on this, or leave it to the app?
+            -- FIXME avoid lazy I/O by switching to WAI
+            c <- BL.readFile fp
+            return $ Response 200 headers ct $ Content c
+        HCContent a -> do
             (ct, c) <- a cts
             return $ Response 200 headers ct c
 
-specialEh :: ErrorResult -> Handler yesod RepChooser
-specialEh er = do
+safeEh :: ErrorResponse -> Handler yesod RepChooser
+safeEh er = do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
     return $ chooseRep $ toHtmlObject "Internal server error"
 
 ------ Special handlers
-errorResult :: ErrorResult -> Handler yesod a
-errorResult er = Handler $ \_ -> return ([], HCSpecial er)
+specialResponse :: SpecialResponse -> Handler yesod a
+specialResponse er = Handler $ \_ -> return ([], HCSpecial er)
+
+errorResponse :: ErrorResponse -> Handler yesod a
+errorResponse er = Handler $ \_ -> return ([], HCError er)
 
 -- | Redirect to the given URL.
-redirect :: String -> Handler yesod a
-redirect = errorResult . Redirect
+redirect :: RedirectType -> String -> Handler yesod a
+redirect rt = specialResponse . Redirect rt
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Handler yesod a
-notFound = errorResult NotFound
+notFound = errorResponse NotFound
 
 permissionDenied :: Handler yesod a
-permissionDenied = errorResult PermissionDenied
+permissionDenied = errorResponse PermissionDenied
 
 invalidArgs :: [(ParamName, ParamValue)] -> Handler yesod a
-invalidArgs = errorResult . InvalidArgs
+invalidArgs = errorResponse . InvalidArgs
 
 ------- Headers
 -- | Set the cookie on the client.

@@ -109,8 +109,9 @@ authOpenidForward = do
     let complete = authroot ++ "/openid/complete/"
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
     attempt
-      (\err -> redirect $ "/auth/openid/?message=" ++ encodeUrl (show err))
-      redirect
+      (\err -> redirect RedirectTemporary
+                  $ "/auth/openid/?message=" ++ encodeUrl (show err))
+      (redirect RedirectTemporary)
       res
 
 authOpenidComplete :: Handler y HtmlObject
@@ -118,12 +119,13 @@ authOpenidComplete = do
     gets' <- rawGetParams <$> getRawRequest
     dest <- runRequest $ cookieParam "DEST"
     res <- runAttemptT $ OpenId.authenticate gets'
-    let onFailure err = redirect $ "/auth/openid/?message="
+    let onFailure err = redirect RedirectTemporary
+                             $ "/auth/openid/?message="
                             ++ encodeUrl (show err)
     let onSuccess (OpenId.Identifier ident) = do
         deleteCookie "DEST"
         header authCookieName ident
-        redirect $ fromMaybe "/" dest
+        redirect RedirectTemporary $ fromMaybe "/" dest
     attempt onFailure onSuccess res
 
 rpxnowLogin :: YesodAuth y => Handler y HtmlObject
@@ -146,7 +148,7 @@ rpxnowLogin = do
     ident <- Rpxnow.authenticate apiKey token
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
-    redirect dest
+    redirect RedirectTemporary dest
 
 -- | Get some form of a display name, defaulting to the identifier.
 getDisplayName :: Rpxnow.Identifier -> String
@@ -170,7 +172,7 @@ authLogout :: YesodAuth y => Handler y HtmlObject
 authLogout = do
     deleteCookie authCookieName
     ar <- getApproot
-    redirect ar
+    redirect RedirectTemporary ar
     -- FIXME check the DEST information
 
 authIdentifier :: YesodAuth y => Handler y String
@@ -183,5 +185,5 @@ authIdentifier = do
             let dest = ar ++ rp
             lp <- defaultLoginPath `fmap` getYesod
             addCookie 120 "DEST" dest
-            redirect $ ar ++ lp
+            redirect RedirectTemporary $ ar ++ lp
         Just x -> return x
