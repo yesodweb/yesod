@@ -46,7 +46,7 @@ module Yesod.Request
 import qualified Hack
 import Data.Function.Predicate (equals)
 import Yesod.Constants
-import Yesod.Utils (tryLookup, parseHttpAccept)
+import Yesod.Utils (tryLookup)
 import Yesod.Definitions
 import Yesod.Parameter
 import Control.Applicative (Applicative (..))

@@ -39,6 +39,7 @@ import Yesod.Request
 import Yesod.Response
 import Yesod.Rep
 import Yesod.Template
+import Web.Mime
 
 import Control.Exception hiding (Handler)
 import Control.Applicative

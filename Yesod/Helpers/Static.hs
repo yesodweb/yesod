@@ -58,24 +58,8 @@ getStatic fl fp' = do
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
-        Just bs -> return [(mimeType $ ext fp, Content bs)]
+        Just bs -> return [(typeByExt $ ext fp, Content bs)]
       where
         isUnsafe [] = True
         isUnsafe ('.':_) = True
         isUnsafe _ = False
-
-mimeType :: String -> ContentType
-mimeType "jpg" = TypeJpeg
-mimeType "jpeg" = TypeJpeg
-mimeType "js" = TypeJavascript
-mimeType "css" = TypeCss
-mimeType "html" = TypeHtml
-mimeType "png" = TypePng
-mimeType "gif" = TypeGif
-mimeType "txt" = TypePlain
-mimeType "flv" = TypeFlv
-mimeType "ogv" = TypeOgv
-mimeType _ = TypeOctet
-
-ext :: String -> String
-ext = reverse . fst . break (== '.') . reverse

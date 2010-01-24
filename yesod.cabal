@@ -76,6 +76,7 @@ library
                      Yesod.Helpers.Static
                      Yesod.Helpers.AtomFeed
                      Yesod.Helpers.Sitemap
+                     Web.Mime
     ghc-options:     -Wall -Werror
 
 executable             runtests

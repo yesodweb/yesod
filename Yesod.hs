@@ -24,6 +24,7 @@ module Yesod
     , module Yesod.Parameter
     , module Yesod.Rep
     , module Yesod.Template
+    , module Web.Mime
     , Application
     ) where
 
@@ -47,3 +48,4 @@ import Yesod.Definitions
 import Yesod.Handler
 import Hack (Application)
 import Yesod.Template
+import Web.Mime

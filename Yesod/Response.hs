@@ -52,6 +52,7 @@ import Test.Framework (testGroup, Test)
 import Data.Generics
 import Control.Exception (Exception)
 import Data.Convertible.Text (cs)
+import Web.Mime
 
 data Response = Response Int [Header] ContentType Content
     deriving Show

@@ -26,9 +26,7 @@
 -- all data can be contained in an 'Object'; however, some of it requires more
 -- effort.
 module Yesod.Rep
-    (
-      ContentType (..)
-    , Content (..)
+    ( Content (..)
     , RepChooser
     , ContentPair
     , HasReps (..)
@@ -48,7 +46,7 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BL
 import Data.Text.Lazy (Text)
 import Data.Maybe (mapMaybe)
-import Data.Function (on)
+import Web.Mime
 
 #if TEST
 import Data.Object.Html hiding (testSuite)
@@ -64,40 +62,6 @@ import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
 #endif
-
-data ContentType =
-    TypeHtml
-    | TypePlain
-    | TypeJson
-    | TypeXml
-    | TypeAtom
-    | TypeJpeg
-    | TypePng
-    | TypeGif
-    | TypeJavascript
-    | TypeCss
-    | TypeFlv
-    | TypeOgv
-    | TypeOctet
-    | TypeOther String
-    deriving (Show)
-instance ConvertSuccess ContentType String where
-    convertSuccess TypeHtml = "text/html"
-    convertSuccess TypePlain = "text/plain"
-    convertSuccess TypeJson = "application/json"
-    convertSuccess TypeXml = "text/xml"
-    convertSuccess TypeAtom = "application/atom+xml"
-    convertSuccess TypeJpeg = "image/jpeg"
-    convertSuccess TypePng = "image/png"
-    convertSuccess TypeGif = "image/gif"
-    convertSuccess TypeJavascript = "text/javascript"
-    convertSuccess TypeCss = "text/css"
-    convertSuccess TypeFlv = "video/x-flv"
-    convertSuccess TypeOgv = "video/ogg"
-    convertSuccess TypeOctet = "application/octet-stream"
-    convertSuccess (TypeOther s) = s
-instance Eq ContentType where
-    (==) = (==) `on` (cs :: ContentType -> String)
 
 newtype Content = Content { unContent :: ByteString }
     deriving (Eq, Show)

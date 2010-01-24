@@ -19,6 +19,7 @@ import Yesod.Template (TemplateGroup)
 import Data.Maybe (fromMaybe)
 import Data.Convertible.Text
 import Text.StringTemplate
+import Web.Mime
 
 import qualified Hack
 import Hack.Middleware.CleanPath
