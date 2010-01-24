@@ -27,7 +27,6 @@ import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod
-import Yesod.Constants
 
 import Control.Monad.Attempt
 

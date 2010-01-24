@@ -21,6 +21,10 @@ module Yesod.Definitions
     , Language
     , Location (..)
     , showLocation
+      -- * Constant values
+    , authCookieName
+    , authDisplayName
+    , encryptedCookies
     ) where
 
 import qualified Hack
@@ -66,3 +70,12 @@ data Location = AbsLoc String | RelLoc String
 showLocation :: Approot -> Location -> String
 showLocation _ (AbsLoc s) = s
 showLocation ar (RelLoc s) = ar ++ s
+
+authCookieName :: String
+authCookieName = "IDENTIFIER"
+
+authDisplayName :: String
+authDisplayName = "DISPLAY_NAME"
+
+encryptedCookies :: [String]
+encryptedCookies = [authDisplayName, authCookieName]

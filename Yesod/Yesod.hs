@@ -10,7 +10,6 @@ import Yesod.Rep
 import Data.Object.Html (toHtmlObject)
 import Yesod.Response
 import Yesod.Request
-import Yesod.Constants
 import Yesod.Definitions
 import Yesod.Handler
 import Yesod.Template (TemplateGroup)
