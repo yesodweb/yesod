@@ -200,7 +200,7 @@ caseChooseRepTemplate :: Assertion
 caseChooseRepTemplate = do
     let temp = newSTMP "foo:$o.foo$, bar:$o.bar$"
         ho = toHtmlObject [ ("foo", toHtmlObject "<fooval>")
-                          , ("bar", toHtmlObject ["bar1", "bar2"])
+                          , ("bar", Sequence $ map cs ["bar1", "bar2"])
                           ]
         hasreps = Template temp "o" ho $ return []
         res1 = cs "foo:&lt;fooval&gt;, bar:bar1bar2"
@@ -215,7 +215,7 @@ caseChooseRepTemplateFile :: Assertion
 caseChooseRepTemplateFile = do
     let temp = "Test/rep.st"
         ho = toHtmlObject [ ("foo", toHtmlObject "<fooval>")
-                          , ("bar", toHtmlObject ["bar1", "bar2"])
+                          , ("bar", Sequence $ map cs ["bar1", "bar2"])
                           ]
         hasreps = TemplateFile temp ho
         res1 = cs "foo:&lt;fooval&gt;, bar:bar1bar2"

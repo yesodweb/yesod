@@ -21,7 +21,6 @@ module Yesod.Definitions
     , Language
     , Location (..)
     , showLocation
-    , PathInfo
     ) where
 
 import qualified Hack
@@ -67,5 +66,3 @@ data Location = AbsLoc String | RelLoc String
 showLocation :: Approot -> Location -> String
 showLocation _ (AbsLoc s) = s
 showLocation ar (RelLoc s) = ar ++ s
-
-type PathInfo = [String]

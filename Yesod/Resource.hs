@@ -477,7 +477,6 @@ instance Arbitrary RPP where
 
 caseFromYaml :: Assertion
 caseFromYaml = do
-    contents <- readYamlDoc "Test/resource-patterns.yaml"
     rp1 <- readRP "static/*filepath"
     rp2 <- readRP "page"
     rp3 <- readRP "page/$page"
@@ -491,13 +490,14 @@ caseFromYaml = do
                               ]
          , RPNode rp4 $ Verbs [(Get, "userInfo")]
          ]
-    contents' <- fa $ ca contents
-    expected @=? contents'
+    contents' <- decodeFile "Test/resource-patterns.yaml"
+    contents <- convertAttemptWrap (contents' :: TextObject)
+    expected @=? contents
 
 caseCheckRPNodes :: Assertion
 caseCheckRPNodes = do
-    good' <- readYamlDoc "Test/resource-patterns.yaml"
-    good <- fa $ ca good'
+    good' <- decodeFile "Test/resource-patterns.yaml"
+    good <- convertAttemptWrap (good' :: TextObject)
     Just good @=? checkRPNodes good
     rp1 <- readRP "foo/bar"
     rp2 <- readRP "$foo/bar"

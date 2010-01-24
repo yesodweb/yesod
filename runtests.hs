@@ -1,7 +1,6 @@
 import Test.Framework (defaultMain)
 
 import qualified Yesod.Response
-import qualified Yesod.Utils
 import qualified Yesod.Resource
 import qualified Yesod.Rep
 import qualified Yesod.Request
@@ -12,7 +11,6 @@ import qualified Test.QuasiResource
 main :: IO ()
 main = defaultMain
     [ Yesod.Response.testSuite
-    , Yesod.Utils.testSuite
     , Yesod.Resource.testSuite
     , Yesod.Rep.testSuite
     , Yesod.Request.testSuite

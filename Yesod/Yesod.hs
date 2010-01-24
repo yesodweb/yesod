@@ -13,13 +13,13 @@ import Yesod.Request
 import Yesod.Constants
 import Yesod.Definitions
 import Yesod.Handler
-import Yesod.Utils
 import Yesod.Template (TemplateGroup)
 
 import Data.Maybe (fromMaybe)
 import Data.Convertible.Text
 import Text.StringTemplate
 import Web.Mime
+import Web.Encodings (parseHttpAccept)
 
 import qualified Hack
 import Hack.Middleware.CleanPath

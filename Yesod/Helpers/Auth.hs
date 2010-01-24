@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Auth
@@ -16,7 +17,9 @@
 module Yesod.Helpers.Auth
     ( authHandler
     , YesodAuth (..)
+    , maybeIdentifier
     , authIdentifier
+    , displayName
     ) where
 
 import Web.Encodings
@@ -29,6 +32,9 @@ import Yesod.Constants
 import Control.Monad.Attempt
 
 import Data.Maybe (fromMaybe)
+import qualified Hack
+import Data.Typeable (Typeable)
+import Control.Exception (Exception)
 
 class YesodApproot a => YesodAuth a where
     -- | The following breaks DRY, but I cannot think of a better solution
@@ -138,7 +144,10 @@ rpxnowLogin = do
     apiKey <- case rpxnowApiKey ay of
                 Just x -> return x
                 Nothing -> notFound
-    token <- runRequest $ anyParam "token"
+    rr <- getRawRequest
+    let token = case getParams rr "token" ++ postParams rr "token" of
+                    [] -> failure MissingToken
+                    (x:_) -> x
     postDest <- runRequest $ postParam "dest"
     dest' <- case postDest of
                 Nothing -> runRequest $ getParam "dest"
@@ -153,6 +162,10 @@ rpxnowLogin = do
     header authDisplayName $ getDisplayName ident
     redirect RedirectTemporary dest
 
+data MissingToken = MissingToken
+    deriving (Show, Typeable)
+instance Exception MissingToken
+
 -- | Get some form of a display name, defaulting to the identifier.
 getDisplayName :: Rpxnow.Identifier -> String
 getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
@@ -164,7 +177,7 @@ getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
 
 authCheck :: Handler y HtmlObject
 authCheck = do
-    ident <- identifier
+    ident <- maybeIdentifier
     dn <- displayName
     return $ toHtmlObject
         [ ("identifier", fromMaybe "" ident)
@@ -178,9 +191,27 @@ authLogout = do
     redirect RedirectTemporary ar
     -- FIXME check the DEST information
 
+-- | Gets the identifier for a user if available.
+maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
+maybeIdentifier = do
+    env <- parseEnv
+    case lookup authCookieName $ Hack.hackHeaders env of
+        Nothing -> return Nothing
+        Just x -> return (Just x)
+
+-- | Gets the display name for a user if available.
+displayName :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
+displayName = do
+    env <- parseEnv
+    case lookup authDisplayName $ Hack.hackHeaders env of
+        Nothing -> return Nothing
+        Just x -> return (Just x)
+
+-- | Gets the identifier for a user. If user is not logged in, redirects them
+-- to the login page.
 authIdentifier :: YesodAuth y => Handler y String
 authIdentifier = do
-    mi <- identifier
+    mi <- maybeIdentifier
     ar <- getApproot
     case mi of
         Nothing -> do
@@ -190,3 +221,17 @@ authIdentifier = do
             addCookie 120 "DEST" dest
             redirect RedirectTemporary $ ar ++ lp
         Just x -> return x
+
+-- | Determinge the path requested by the user (ie, the path info). This
+-- includes the query string.
+requestPath :: (Functor m, Monad m, RequestReader m) => m String
+requestPath = do
+    env <- parseEnv
+    let q = case Hack.queryString env of
+                "" -> ""
+                q'@('?':_) -> q'
+                q' -> '?' : q'
+    return $! dropSlash (Hack.pathInfo env) ++ q
+      where
+        dropSlash ('/':x) = x
+        dropSlash x = x

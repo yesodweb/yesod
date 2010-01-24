@@ -22,7 +22,7 @@ instance Yesod Errors where
     Get: hasArgs
 |]
 instance YesodApproot Errors where
-    approot _ = Approot "IGNORED/"
+    approot _ = "IGNORED/"
 instance YesodAuth Errors
 
 denied :: Handler Errors ()
@@ -41,7 +41,7 @@ hasArgs = do
 
 caseErrorMessages :: Assertion
 caseErrorMessages = do
-    let app = toHackApp Errors
+    app <- toHackApp Errors
     res <- app $ def { pathInfo = "/denied/" }
     assertBool "/denied/" $ "Permission denied" `isInfixOf` show res
     res' <- app $ def { pathInfo = "/needs-ident/" }

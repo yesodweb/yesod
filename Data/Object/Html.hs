@@ -90,6 +90,12 @@ instance ConvertSuccess Text HtmlObject where
     convertSuccess = Scalar . cs
 instance ConvertSuccess TS.Text HtmlObject where
     convertSuccess = Scalar . cs
+instance ConvertSuccess [String] HtmlObject where
+    convertSuccess = Sequence . map cs
+instance ConvertSuccess [Text] HtmlObject where
+    convertSuccess = Sequence . map cs
+instance ConvertSuccess [TS.Text] HtmlObject where
+    convertSuccess = Sequence . map cs
 instance ConvertSuccess [(String, String)] HtmlObject where
     convertSuccess = omTO
 instance ConvertSuccess [(Text, Text)] HtmlObject where
@@ -202,7 +208,7 @@ caseHtmlToText = do
             "<div id=\"foo\" class=\"bar\"><br>Some HTML<br>" ++
             "&lt;&#39;this should be escaped&#39;&gt;" ++
             "<img src=\"baz&amp;\"></div>"
-    cs actual @?= (cs expected :: Text)
+    unHtmlFragment (cs actual) @?= (cs expected :: Text)
 
 caseStringTemplate :: Assertion
 caseStringTemplate = do
