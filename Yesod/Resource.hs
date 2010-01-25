@@ -51,7 +51,7 @@ import Control.Monad ((<=<), unless)
 import Data.Object.Yaml
 import Yesod.Handler
 import Data.Maybe (fromJust)
-import Yesod.Rep (chooseRep)
+import Yesod.Response (chooseRep)
 import Control.Arrow
 
 #if TEST

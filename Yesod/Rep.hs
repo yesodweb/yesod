@@ -26,12 +26,8 @@
 -- all data can be contained in an 'Object'; however, some of it requires more
 -- effort.
 module Yesod.Rep
-    ( Content (..)
-    , ChooseRep
-    , HasReps (..)
-    , defChooseRep
-      -- * Specific types of representations
-    , Plain (..)
+    ( -- * Specific types of representations
+      Plain (..)
     , plain
     , Template (..)
     , TemplateFile (..)
@@ -43,16 +39,16 @@ module Yesod.Rep
     ) where
 
 import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BL
 import Data.Text.Lazy (Text)
-import Data.Maybe (mapMaybe)
+import qualified Data.ByteString.Lazy as BL
 import Web.Mime
-import Yesod.Definitions
 
 #if TEST
 import Data.Object.Html hiding (testSuite)
+import Yesod.Response hiding (testSuite)
 #else
 import Data.Object.Html
+import Yesod.Response
 #endif
 
 import Data.Object.Json
@@ -63,56 +59,6 @@ import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
 #endif
-
-newtype Content = Content { unContent :: [Language] -> IO ByteString }
-
-instance ConvertSuccess Text Content where
-    convertSuccess = Content . const . return . cs
-instance ConvertSuccess ByteString Content where
-    convertSuccess = Content . const . return
-instance ConvertSuccess String Content where
-    convertSuccess = Content . const . return . cs
-instance ConvertSuccess HtmlDoc Content where
-    convertSuccess = cs . unHtmlDoc
-instance ConvertSuccess XmlDoc Content where
-    convertSuccess = cs . unXmlDoc
-
-type ChooseRep = [ContentType] -> IO (ContentType, Content)
-
--- | Any type which can be converted to representations. There must be at least
--- one representation for each type.
-class HasReps a where
-    chooseRep :: a -> ChooseRep
-
--- | A helper method for generating 'HasReps' instances.
-defChooseRep :: [(ContentType, a -> IO Content)] -> a -> ChooseRep
-defChooseRep reps a ts = do
-  let (ct, c) =
-        case mapMaybe helper ts of
-            (x:_) -> x
-            [] -> case reps of
-                    [] -> error "Empty reps"
-                    (x:_) -> x
-  c' <- c a
-  return (ct, c')
-        where
-            helper ct = do
-                c <- lookup ct reps
-                return (ct, c)
-
-instance HasReps ChooseRep where
-    chooseRep = id
-
-instance HasReps () where
-    chooseRep = defChooseRep [(TypePlain, const $ return $ cs "")]
-
-instance HasReps [(ContentType, Content)] where
-    chooseRep a cts = return $
-        case filter (\(ct, _) -> ct `elem` cts) a of
-            ((ct, c):_) -> (ct, c)
-            _ -> case a of
-                    (x:_) -> x
-                    _ -> error "chooseRep [(ContentType, Content)] of empty"
 
 newtype Plain = Plain { unPlain :: Text }
     deriving (Eq, Show)
