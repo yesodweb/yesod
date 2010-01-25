@@ -1,6 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
 import Yesod
-import Yesod.Constants
 import Hack.Handler.SimpleServer
 
 data I18N = I18N
@@ -17,13 +16,14 @@ homepage = return Hello
 
 setLang lang = do
     addCookie 1 langKey lang
-    redirect "/"
+    redirect RedirectTemporary "/"
     return ()
 
 data Hello = Hello
 
 instance HasReps Hello where
-    reps = [(TypeHtml, const $ return $ Content $ return . cs . content)]
+    chooseRep = defChooseRep
+            [(TypeHtml, const $ return $ Content $ return . cs . content)]
       where
         content [] = "Hello"
         content ("he":_) = "שלום"
@@ -31,4 +31,4 @@ instance HasReps Hello where
         content (_:rest) = content rest
 
 
-main = putStrLn "Running..." >> run 3000 (toHackApp I18N)
+main = putStrLn "Running..." >> toHackApp I18N >>= run 3000

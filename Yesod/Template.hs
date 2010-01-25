@@ -5,15 +5,19 @@ module Yesod.Template
     , template
     , NoSuchTemplate
     , TemplateGroup
+    , Template (..)
+    , TemplateFile (..)
     ) where
 
 import Data.Object.Html
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Control.Failure
-import Yesod.Rep
 import Data.Object.Text (Text)
 import Text.StringTemplate
+import Data.Object.Json
+import Web.Mime
+import Yesod.Response
 
 type TemplateGroup = STGroup Text
 
@@ -36,3 +40,33 @@ template tn on o attrs = do
 newtype NoSuchTemplate = NoSuchTemplate String
     deriving (Show, Typeable)
 instance Exception NoSuchTemplate
+
+data Template = Template (StringTemplate Text)
+                         String
+                         HtmlObject
+                         (IO [(String, HtmlObject)])
+instance HasReps Template where
+    chooseRep = defChooseRep [ (TypeHtml,
+              \(Template t name ho attrsIO) -> do
+                attrs <- attrsIO
+                return
+                    $ cs
+                    $ render
+                    $ setAttribute name ho
+                    $ setManyAttrib attrs t)
+           , (TypeJson, \(Template _ _ ho _) ->
+                            return $ cs $ unJsonDoc $ cs ho)
+           ]
+
+-- FIXME
+data TemplateFile = TemplateFile FilePath HtmlObject
+instance HasReps TemplateFile where
+    chooseRep = defChooseRep [ (TypeHtml,
+              \(TemplateFile fp h) -> do
+                    contents <- readFile fp
+                    let t = newSTMP contents
+                    return $ cs $ toString $ setAttribute "o" h t
+             )
+           , (TypeJson, \(TemplateFile _ ho) ->
+                            return $ cs $ unJsonDoc $ cs ho)
+           ]

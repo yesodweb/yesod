@@ -78,9 +78,9 @@ sitemap urls = do
     yesod <- getYesod
     return $ SitemapResponse urls $ approot yesod
 
-robots :: YesodApproot yesod => Handler yesod Plain
+robots :: YesodApproot yesod => Handler yesod [(ContentType, Content)]
 robots = do
     yesod <- getYesod
-    return $ plain $ "Sitemap: " ++ showLocation
+    return $ staticRep TypePlain $ "Sitemap: " ++ showLocation
                                       (approot yesod)
                                       (RelLoc "sitemap.xml")

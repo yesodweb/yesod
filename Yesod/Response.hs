@@ -23,6 +23,9 @@ module Yesod.Response
     , ChooseRep
     , HasReps (..)
     , defChooseRep
+      -- ** Convenience wrappers
+    , staticRep
+      -- * Response type
     , Response (..)
       -- * Special responses
     , RedirectType (..)
@@ -119,6 +122,13 @@ instance HasReps HtmlObject where
         [ (TypeHtml, return . cs . unHtmlDoc . cs)
         , (TypeJson, return . cs . unJsonDoc . cs)
         ]
+
+-- | Data with a single representation.
+staticRep :: ConvertSuccess x ByteString
+          => ContentType
+          -> x
+          -> [(ContentType, Content)]
+staticRep ct x = [(ct, cs (cs x :: ByteString))]
 
 data Response = Response Int [Header] ContentType Content
 

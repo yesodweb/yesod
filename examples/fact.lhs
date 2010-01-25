@@ -66,7 +66,7 @@ request method.)
 
 This does what it looks like: serves a static HTML file.
 
-> index = return $ StaticFile TypeHtml "examples/fact.html"
+> index = sendFile TypeHtml "examples/fact.html" >> return ()
 
 HtmlObject is a funny beast. Basically, it allows multiple representations of
 data, all with HTML entities escaped properly. These representations include:
@@ -90,7 +90,7 @@ one piece of data.
 > factRedirect :: Handler y ()
 > factRedirect = do
 >     i <- runRequest $ getParam "num"
->     redirect $ "../" ++ i ++ "/"
+>     redirect RedirectPermanent $ "../" ++ i ++ "/"
 
 The following line would be unnecesary if we had a type signature on
 factRedirect.
