@@ -26,6 +26,7 @@ module Yesod.Handler
     --, ToHandler (..)
       -- * Special handlers
     , redirect
+    , sendFile
     , notFound
     , permissionDenied
     , invalidArgs
@@ -37,7 +38,6 @@ module Yesod.Handler
 
 import Yesod.Request
 import Yesod.Response
-import Yesod.Rep
 import Yesod.Template
 import Web.Mime
 
@@ -139,6 +139,9 @@ errorResponse er = Handler $ \_ -> return ([], HCError er)
 -- | Redirect to the given URL.
 redirect :: RedirectType -> String -> Handler yesod a
 redirect rt = specialResponse . Redirect rt
+
+sendFile :: ContentType -> FilePath -> Handler yesod a
+sendFile ct = specialResponse . SendFile ct
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Handler yesod a

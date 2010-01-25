@@ -47,6 +47,7 @@ import Data.Maybe (mapMaybe)
 import Data.ByteString.Lazy (ByteString)
 import Data.Text.Lazy (Text)
 import Yesod.Definitions
+import Data.Object.Json
 
 import Web.Encodings (formatW3)
 import qualified Hack
@@ -61,7 +62,6 @@ import Data.Object.Html
 import Test.Framework (testGroup, Test)
 #endif
 
-import Data.Convertible.Text (cs)
 import Web.Mime
 
 newtype Content = Content { unContent :: [Language] -> IO ByteString }
@@ -79,8 +79,7 @@ instance ConvertSuccess XmlDoc Content where
 
 type ChooseRep = [ContentType] -> IO (ContentType, Content)
 
--- | Any type which can be converted to representations. There must be at least
--- one representation for each type.
+-- | Any type which can be converted to representations.
 class HasReps a where
     chooseRep :: a -> ChooseRep
 
@@ -113,6 +112,13 @@ instance HasReps [(ContentType, Content)] where
             _ -> case a of
                     (x:_) -> x
                     _ -> error "chooseRep [(ContentType, Content)] of empty"
+
+-- FIXME remove this instance? only good for debugging, maybe special debugging newtype?
+instance HasReps HtmlObject where
+    chooseRep = defChooseRep
+        [ (TypeHtml, return . cs . unHtmlDoc . cs)
+        , (TypeJson, return . cs . unJsonDoc . cs)
+        ]
 
 data Response = Response Int [Header] ContentType Content
 

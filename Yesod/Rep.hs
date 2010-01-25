@@ -32,7 +32,6 @@ module Yesod.Rep
     , Template (..)
     , TemplateFile (..)
     , Static (..)
-    , StaticFile (..)
 #if TEST
     , testSuite
 #endif
@@ -40,7 +39,6 @@ module Yesod.Rep
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Text.Lazy (Text)
-import qualified Data.ByteString.Lazy as BL
 import Web.Mime
 
 #if TEST
@@ -101,19 +99,6 @@ instance HasReps TemplateFile where
 data Static = Static ContentType ByteString
 instance HasReps Static where
     chooseRep (Static ct bs) _ = return (ct, Content $ const $ return bs)
-
-data StaticFile = StaticFile ContentType FilePath
-instance HasReps StaticFile where
-    chooseRep (StaticFile ct fp) _ = do
-        bs <- BL.readFile fp
-        return (ct, Content $ const $ return bs)
-
--- Useful instances of HasReps
-instance HasReps HtmlObject where
-    chooseRep = defChooseRep
-        [ (TypeHtml, return . cs . unHtmlDoc . cs)
-        , (TypeJson, return . cs . unJsonDoc . cs)
-        ]
 
 #if TEST
 caseChooseRepHO :: Assertion

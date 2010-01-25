@@ -6,7 +6,6 @@ module Yesod.Yesod
     , toHackApp
     ) where
 
-import Yesod.Rep
 import Data.Object.Html (toHtmlObject)
 import Yesod.Response
 import Yesod.Request

@@ -24,13 +24,13 @@ module Yesod.Helpers.Static
 
 import qualified Data.ByteString.Lazy as B
 import System.Directory (doesFileExist)
-import Control.Applicative ((<$>))
 import Control.Monad
 
 import Yesod
 import Data.List (intercalate)
 
-type FileLookup = FilePath -> IO (Maybe B.ByteString)
+-- FIXME this type is getting ugly...
+type FileLookup = FilePath -> IO (Maybe (Either FilePath B.ByteString))
 
 -- | A 'FileLookup' for files in a directory. Note that this function does not
 -- check if the requested path does unsafe things, eg expose hidden files. You
@@ -43,7 +43,7 @@ fileLookupDir dir fp = do
     let fp' = dir ++ '/' : fp
     exists <- doesFileExist fp'
     if exists
-        then Just <$> B.readFile fp' -- FIXME replace lazy I/O when possible
+        then return $ Just $ Left fp'
         else return Nothing
 
 serveStatic :: FileLookup -> Verb -> [String]
@@ -58,7 +58,8 @@ getStatic fl fp' = do
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
-        Just bs -> return [(typeByExt $ ext fp, cs bs)]
+        Just (Left fp'') -> sendFile (typeByExt $ ext fp'') fp''
+        Just (Right bs) -> return [(typeByExt $ ext fp, cs bs)]
       where
         isUnsafe [] = True
         isUnsafe ('.':_) = True
