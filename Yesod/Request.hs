@@ -28,6 +28,7 @@ module Yesod.Request
     , cookies
     , getParams
     , postParams
+    , languages
       -- * Building actual request
     , Request (..)
     , Hack.RequestMethod (..)
@@ -39,6 +40,7 @@ module Yesod.Request
 import qualified Hack
 import Data.Function.Predicate (equals)
 import Yesod.Parameter
+import Yesod.Definitions
 import Control.Applicative (Applicative (..))
 import Web.Encodings
 import qualified Data.ByteString.Lazy as BL
@@ -99,6 +101,9 @@ getParam = genParam getParams GetParam
 postParam :: (Parameter a) => ParamName -> Request a
 postParam = genParam postParams PostParam
 
+languages :: (Functor m, RequestReader m) => m [Language]
+languages = rawLangs `fmap` getRawRequest
+
 -- | Get the raw 'Hack.Env' value.
 parseEnv :: (Functor m, RequestReader m) => m Hack.Env
 parseEnv = rawEnv `fmap` getRawRequest
@@ -112,6 +117,7 @@ data RawRequest = RawRequest
     , rawPostParams :: [(ParamName, ParamValue)]
     , rawFiles :: [(ParamName, FileInfo String BL.ByteString)]
     , rawEnv :: Hack.Env
+    , rawLangs :: [Language]
     }
     deriving Show
 
@@ -145,7 +151,15 @@ instance ConvertSuccess Hack.Env RawRequest where
                        $ Hack.hackInput env
         rawCookie = fromMaybe "" $ lookup "Cookie" $ Hack.http env
         cookies' = decodeCookies rawCookie :: [(String, String)]
-     in RawRequest gets' cookies' posts files env
+        acceptLang = lookup "Accept-Language" $ Hack.http env
+        langs = maybe [] parseHttpAccept acceptLang
+        langs' = case lookup langKey cookies' of
+                    Nothing -> langs
+                    Just x -> x : langs
+        langs'' = case lookup langKey gets' of
+                     Nothing -> langs'
+                     Just x -> x : langs'
+     in RawRequest gets' cookies' posts files env langs''
 
 #if TEST
 testSuite :: Test

@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE Rank2Types #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Response
@@ -47,10 +48,12 @@ module Yesod.Response
 
 import Data.Time.Clock
 import Data.Maybe (mapMaybe)
-import Data.ByteString.Lazy (ByteString)
+import Data.ByteString.Lazy (ByteString, toChunks, fromChunks)
+import qualified Data.ByteString as B
 import Data.Text.Lazy (Text)
-import Yesod.Definitions
+import qualified Data.Text as T
 import Data.Object.Json
+import Control.Monad (foldM)
 
 import Web.Encodings (formatW3)
 import qualified Hack
@@ -67,14 +70,18 @@ import Test.Framework (testGroup, Test)
 
 import Web.Mime
 
-newtype Content = Content { unContent :: [Language] -> IO ByteString }
+data Content = Content (forall a. ((a -> B.ByteString -> IO a) -> a -> IO a))
 
-instance ConvertSuccess Text Content where
-    convertSuccess = Content . const . return . cs
+instance ConvertSuccess B.ByteString Content where
+    convertSuccess bs = Content $ \f a -> f a bs
 instance ConvertSuccess ByteString Content where
-    convertSuccess = Content . const . return
+    convertSuccess lbs = Content $ \f a -> foldM f a $ toChunks lbs
+instance ConvertSuccess T.Text Content where
+    convertSuccess t = cs (cs t :: B.ByteString)
+instance ConvertSuccess Text Content where
+    convertSuccess lt = cs (cs lt :: ByteString)
 instance ConvertSuccess String Content where
-    convertSuccess = Content . const . return . cs
+    convertSuccess s = cs (cs s :: Text)
 instance ConvertSuccess HtmlDoc Content where
     convertSuccess = cs . unHtmlDoc
 instance ConvertSuccess XmlDoc Content where
@@ -185,13 +192,22 @@ headerToPair (DeleteCookie key) = return
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
 headerToPair (Header key value) = return (key, value)
 
-responseToHackResponse :: [String] -- ^ language list
-                       -> Response -> IO Hack.Response
-responseToHackResponse ls (Response sc hs ct c) = do
+responseToHackResponse :: Response -> IO Hack.Response
+responseToHackResponse (Response sc hs ct c) = do
     hs' <- mapM headerToPair hs
     let hs'' = ("Content-Type", cs ct) : hs'
-    asLBS <- unContent c ls
+    asLBS <- runContent c
     return $ Hack.Response sc hs'' asLBS
+
+runContent :: Content -> IO ByteString
+runContent (Content c) = do
+    front <- c helper id
+    return $ fromChunks $ front []
+      where
+        helper :: ([B.ByteString] -> [B.ByteString])
+               -> B.ByteString
+               -> IO ([B.ByteString] -> [B.ByteString])
+        helper front bs = return $ front . (:) bs
 
 #if TEST
 ----- Testing

@@ -101,15 +101,7 @@ toHackApp'' y tg env = do
         handler = handlers resource verb
         rr = cs env
     res <- runHandler handler errorHandler rr y tg types
-    let acceptLang = lookup "Accept-Language" $ Hack.http env
-    let langs = maybe [] parseHttpAccept acceptLang
-        langs' = case lookup langKey $ rawCookies rr of
-                    Nothing -> langs
-                    Just x -> x : langs
-        langs'' = case lookup langKey $ rawGetParams rr of
-                     Nothing -> langs'
-                     Just x -> x : langs'
-    responseToHackResponse langs'' res
+    responseToHackResponse res
 
 httpAccept :: Hack.Env -> [ContentType]
 httpAccept = map TypeOther . parseHttpAccept . fromMaybe ""
