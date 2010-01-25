@@ -21,17 +21,18 @@ module Yesod.Request
       -- * RawRequest
       RawRequest (..)
     , RequestReader (..)
-    , getParam
-    , postParam
     , parseEnv
-    , runRequest
     , cookies
     , getParams
     , postParams
     , languages
       -- * Building actual request
-    , Request (..)
     , Hack.RequestMethod (..)
+      -- * Parameter
+    , ParamType (..)
+    , ParamName
+    , ParamValue
+    , ParamException
 #if TEST
     , testSuite
 #endif
@@ -39,15 +40,12 @@ module Yesod.Request
 
 import qualified Hack
 import Data.Function.Predicate (equals)
-import Yesod.Parameter
 import Yesod.Definitions
-import Control.Applicative (Applicative (..))
 import Web.Encodings
 import qualified Data.ByteString.Lazy as BL
 import Data.Convertible.Text
 import Control.Arrow ((***))
 import Control.Exception (SomeException (..))
-import Data.Attempt
 import Data.Maybe (fromMaybe)
 
 #if TEST
@@ -56,50 +54,14 @@ import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
 #endif
 
-newtype Request v = Request { unRequest :: RawRequest
-                                        -> Either ParamException v }
-instance Functor Request where
-    fmap f (Request r) = Request $ fmap f . r
-instance Applicative Request where
-    pure = Request . const . Right
-    (Request f) <*> (Request r) = Request helper where
-        helper rr = helper2 (f rr) (r rr)
-        helper2 (Left e1) (Left e2) = Left $ e1 ++ e2
-        helper2 (Left e) _ = Left e
-        helper2 _ (Left e) = Left e
-        helper2 (Right f') (Right r') = Right $ f' r'
+data ParamType = GetParam | PostParam
+type ParamName = String
+type ParamValue = String
+type ParamException = [((ParamType, ParamName, [ParamValue]), SomeException)]
 
 class RequestReader m where
     getRawRequest :: m RawRequest
     invalidParams :: ParamException -> m a
-instance RequestReader Request where
-    getRawRequest = Request $ Right
-    invalidParams = Request . const . Left
-
-runRequest :: (Monad m, RequestReader m) => Request a -> m a
-runRequest (Request f) = do
-    rr <- getRawRequest
-    either invalidParams return $ f rr
-
--- | Helper function for generating 'RequestParser's from various
--- 'ParamValue' lists.
-genParam :: Parameter a
-         => (RawRequest -> ParamName -> [ParamValue])
-         -> ParamType
-         -> ParamName
-         -> Request a
-genParam f ptype name = Request helper where
-  helper req = attempt failureH Right $ readParams pvs where
-      pvs = f req name
-      failureH e = Left [((ptype, name, pvs), SomeException e)]
-
--- | Parse a value passed as a GET parameter.
-getParam :: (Parameter a) => ParamName -> Request a
-getParam = genParam getParams GetParam
-
--- | Parse a value passed as a POST parameter.
-postParam :: (Parameter a) => ParamName -> Request a
-postParam = genParam postParams PostParam
 
 languages :: (Functor m, RequestReader m) => m [Language]
 languages = rawLangs `fmap` getRawRequest
@@ -164,17 +126,6 @@ instance ConvertSuccess Hack.Env RawRequest where
 #if TEST
 testSuite :: Test
 testSuite = testGroup "Yesod.Request"
-    [ testCase "Request applicative instance" caseAppInst
+    [
     ]
-
-caseAppInst :: Assertion
-caseAppInst = do
-    let r5 = Request $ const $ Right (5 :: Int)
-        rAdd2 = Request $ const $ Right (+ 2)
-        r7 = Request $ const $ Right (7 :: Int)
-        rr = undefined
-        myEquals e t = (unRequest e) rr `myEquals2` (unRequest t) rr
-        myEquals2 x y = show x @=? show y
-    r5 `myEquals` pure (5 :: Int)
-    r7 `myEquals` (rAdd2 <*> r5)
 #endif

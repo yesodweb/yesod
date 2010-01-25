@@ -52,8 +52,6 @@ import System.IO
 import Data.Object.Html
 import qualified Data.ByteString.Lazy as BL
 
-import Yesod.Parameter
-
 ------ Handler monad
 newtype Handler yesod a = Handler {
     unHandler :: (RawRequest, yesod, TemplateGroup)

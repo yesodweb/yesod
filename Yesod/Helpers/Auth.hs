@@ -33,7 +33,7 @@ import Control.Monad.Attempt
 import Data.Maybe (fromMaybe)
 import qualified Hack
 import Data.Typeable (Typeable)
-import Control.Exception (Exception)
+import Control.Exception (Exception, SomeException (..))
 
 class YesodApproot a => YesodAuth a where
     -- | The following breaks DRY, but I cannot think of a better solution
@@ -85,14 +85,37 @@ instance ConvertSuccess OIDFormReq Html where
     convertSuccess (OIDFormReq (Just s) _) =
         Tag "p" [("class", "message")] $ cs s
 
+someParam :: (Monad m, RequestReader m)
+          => ParamType
+          -> (RawRequest -> ParamName -> [ParamValue])
+          -> ParamName
+          -> m ParamValue
+someParam pt paramList pn = do
+    rr <- getRawRequest
+    case paramList rr pn of
+        [x] -> return x
+        x -> invalidParams [((pt, pn, x), SomeException ExpectedSingleParam)]
+
+data ExpectedSingleParam = ExpectedSingleParam
+    deriving (Show, Typeable)
+instance Exception ExpectedSingleParam
+
+getParam :: (Monad m, RequestReader m)
+         => ParamName
+         -> m ParamValue
+getParam = someParam GetParam getParams
+
 authOpenidForm :: Handler y HtmlObject
 authOpenidForm = do
-    message <- runRequest $ getParam "message"
-    dest <- runRequest $ getParam "dest"
-    let m = OIDFormReq message dest
+    rr <- getRawRequest
+    case getParams rr "dest" of
+        [] -> return ()
+        (x:_) -> addCookie 120 "DEST" x
     let html =
          HtmlList
-          [ cs m
+          [ case getParams rr "message" of
+                [] -> HtmlList []
+                (m:_) -> Tag "p" [("class", "message")] $ cs m
           , Tag "form" [("method", "get"), ("action", "forward/")] $
               HtmlList
                 [ Tag "label" [("for", "openid")] $ cs "OpenID: "
@@ -101,14 +124,11 @@ authOpenidForm = do
                 , EmptyTag "input" [("type", "submit"), ("value", "Login")]
                 ]
           ]
-    case dest of
-        Just dest' -> addCookie 120 "DEST" dest'
-        Nothing -> return ()
     return $ cs html
 
 authOpenidForward :: YesodAuth y => Handler y HtmlObject
 authOpenidForward = do
-    oid <- runRequest $ getParam "openid"
+    oid <- getParam "openid"
     authroot <- getFullAuthRoot
     let complete = authroot ++ "/openid/complete/"
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
@@ -147,15 +167,13 @@ rpxnowLogin = do
     let token = case getParams rr "token" ++ postParams rr "token" of
                     [] -> failure MissingToken
                     (x:_) -> x
-    postDest <- runRequest $ postParam "dest"
-    dest' <- case postDest of
-                Nothing -> runRequest $ getParam "dest"
-                Just d -> return d
-    let dest = case dest' of
-                Nothing -> ar
-                Just "" -> ar
-                Just ('#':rest) -> rest
-                Just s -> s
+    let dest = case postParams rr "dest" of
+                [] -> case getParams rr "dest" of
+                        [] -> ar
+                        ("":_) -> ar
+                        (('#':rest):_) -> rest
+                        (s:_) -> s
+                (d:_) -> d
     ident <- Rpxnow.authenticate apiKey token
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident

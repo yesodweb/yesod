@@ -43,6 +43,7 @@ module Yesod.Response
 #if TEST
       -- * Tests
     , testSuite
+    , runContent
 #endif
     ) where
 

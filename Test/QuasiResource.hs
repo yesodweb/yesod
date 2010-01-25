@@ -69,7 +69,7 @@ ph ss h = do
             assertBool needle $ needle `isInfixOf` haystack
 
 myShow :: Response -> IO String
-myShow (Response sc hs ct (Content c)) = c [] >>= \c' -> return $ unlines
+myShow (Response sc hs ct c) = runContent c >>= \c' -> return $ unlines
     [ show sc
     , unlines $ map show hs
     , show ct

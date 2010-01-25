@@ -21,7 +21,6 @@ module Yesod
     , module Yesod.Handler
     , module Yesod.Resource
     , module Data.Object.Html
-    , module Yesod.Parameter
     , module Yesod.Template
     , module Web.Mime
     , Application
@@ -39,7 +38,6 @@ import Data.Object.Html
 import Yesod.Request
 #endif
 
-import Yesod.Parameter
 import Yesod.Yesod
 import Yesod.Definitions
 import Yesod.Handler

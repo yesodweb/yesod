@@ -59,7 +59,6 @@ library
                      Yesod.Response
                      Yesod.Definitions
                      Yesod.Handler
-                     Yesod.Parameter
                      Yesod.Resource
                      Yesod.Yesod
                      Yesod.Template
