@@ -14,24 +14,30 @@ data MyYesod = MyYesod
 
 instance Show (Handler MyYesod ChooseRep) where show _ = "Another handler"
 
-getStatic :: Verb -> [String] -> Handler MyYesod HtmlObject
-getStatic v p = return $ toHtmlObject ["getStatic", show v, show p]
-pageIndex :: Handler MyYesod HtmlObject
-pageIndex = return $ toHtmlObject ["pageIndex"]
+addHead' :: HtmlObject -> (HtmlObject, HtmlObject)
+addHead' x = (cs "", x)
+
+addHead :: Monad m => HtmlObject -> m (HtmlObject, HtmlObject)
+addHead = return . addHead'
+
+getStatic :: Verb -> [String] -> Handler MyYesod (HtmlObject, HtmlObject)
+getStatic v p = addHead $ toHtmlObject ["getStatic", show v, show p]
+pageIndex :: Handler MyYesod (HtmlObject, HtmlObject)
+pageIndex = addHead $ toHtmlObject ["pageIndex"]
 pageAdd :: Handler MyYesod ChooseRep
-pageAdd = return $ chooseRep $ toHtmlObject ["pageAdd"]
+pageAdd = return $ chooseRep $ addHead' $ toHtmlObject ["pageAdd"]
 pageDetail :: String -> Handler MyYesod ChooseRep
-pageDetail s = return $ chooseRep $ toHtmlObject ["pageDetail", s]
-pageDelete :: String -> Handler MyYesod HtmlObject
-pageDelete s = return $ toHtmlObject ["pageDelete", s]
+pageDetail s = return $ chooseRep $ addHead' $ toHtmlObject ["pageDetail", s]
+pageDelete :: String -> Handler MyYesod (HtmlObject, HtmlObject)
+pageDelete s = addHead $ toHtmlObject ["pageDelete", s]
 pageUpdate :: String -> Handler MyYesod ChooseRep
-pageUpdate s = return $ chooseRep $ toHtmlObject ["pageUpdate", s]
-userInfo :: Int -> Handler MyYesod HtmlObject
-userInfo i = return $ toHtmlObject ["userInfo", show i]
-userVariable :: Int -> String -> Handler MyYesod HtmlObject
-userVariable i s = return $ toHtmlObject ["userVariable", show i, s]
-userPage :: Int -> [String] -> Handler MyYesod HtmlObject
-userPage i p = return $ toHtmlObject ["userPage", show i, show p]
+pageUpdate s = return $ chooseRep $ addHead' $ toHtmlObject ["pageUpdate", s]
+userInfo :: Int -> Handler MyYesod (HtmlObject, HtmlObject)
+userInfo i = addHead $ toHtmlObject ["userInfo", show i]
+userVariable :: Int -> String -> Handler MyYesod (HtmlObject, HtmlObject)
+userVariable i s = addHead $ toHtmlObject ["userVariable", show i, s]
+userPage :: Int -> [String] -> Handler MyYesod (HtmlObject, HtmlObject)
+userPage i p = addHead $ toHtmlObject ["userPage", show i, show p]
 
 instance Show (Verb -> Handler MyYesod ChooseRep) where
     show _ = "verb -> handler"
@@ -57,7 +63,7 @@ handler = [$resources|
 
 ph :: [String] -> Handler MyYesod ChooseRep -> Assertion
 ph ss h = do
-    let eh = return . chooseRep . toHtmlObject . show
+    let eh = return . chooseRep . addHead' . toHtmlObject . show
         rr = error "No raw request"
         y = MyYesod
         cts = [TypeHtml]

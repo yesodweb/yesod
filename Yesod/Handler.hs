@@ -101,23 +101,28 @@ runHandler :: Handler yesod ChooseRep
            -> [ContentType]
            -> IO Response
 runHandler (Handler handler) eh rr y tg cts = do
+    let toErrorHandler =
+            InternalError
+          . (show :: Control.Exception.SomeException -> String)
     (headers, contents) <- Control.Exception.catch
         (handler (rr, y, tg))
-        (\e -> return ([], HCError $ InternalError $ show
-                             (e :: Control.Exception.SomeException)))
-    case contents of
-        HCError e -> do
+        (\e -> return ([], HCError $ toErrorHandler e))
+    let handleError e = do
             Response _ hs ct c <- runHandler (eh e) safeEh rr y tg cts
             let hs' = headers ++ hs
             return $ Response (getStatus e) hs' ct c
+    let sendFile' ct fp = do
+            -- avoid lazy I/O by switching to WAI
+            c <- BL.readFile fp
+            return $ Response 200 headers ct $ cs c
+    case contents of
+        HCError e -> handleError e
         HCSpecial (Redirect rt loc) -> do
             let hs = Header "Location" loc : headers
             return $ Response (getRedirectStatus rt) hs TypePlain $ cs ""
-        HCSpecial (SendFile ct fp) -> do
-            -- FIXME do error handling on this, or leave it to the app?
-            -- FIXME avoid lazy I/O by switching to WAI
-            c <- BL.readFile fp
-            return $ Response 200 headers ct $ cs c
+        HCSpecial (SendFile ct fp) -> Control.Exception.catch
+            (sendFile' ct fp)
+            (handleError . toErrorHandler)
         HCContent a -> do
             (ct, c) <- a cts
             return $ Response 200 headers ct c
@@ -125,7 +130,10 @@ runHandler (Handler handler) eh rr y tg cts = do
 safeEh :: ErrorResponse -> Handler yesod ChooseRep
 safeEh er = do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return $ chooseRep $ toHtmlObject "Internal server error"
+    return $ chooseRep $
+        ( toHtmlObject $ Tag "title" [] $ cs "Internal Server Error"
+        , toHtmlObject "Internal server error"
+        )
 
 ------ Special handlers
 specialResponse :: SpecialResponse -> Handler yesod a

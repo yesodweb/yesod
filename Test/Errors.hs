@@ -9,7 +9,6 @@ import Data.List
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
-import Control.Applicative
 
 data Errors = Errors
 instance Yesod Errors where
@@ -28,19 +27,19 @@ instance YesodAuth Errors
 denied :: Handler Errors ()
 denied = permissionDenied
 
-needsIdent :: Handler Errors HtmlObject
+needsIdent :: Handler Errors (HtmlObject, HtmlObject)
 needsIdent = do
     i <- authIdentifier
-    return $ toHtmlObject i
+    return $ (toHtmlObject "", toHtmlObject i)
 
-hasArgs :: Handler Errors HtmlObject
+hasArgs :: Handler Errors (HtmlObject, HtmlObject)
 hasArgs = do
     {- FIXME wait for new request API
     (a, b) <- runRequest $ (,) <$> getParam "firstParam"
                                <*> getParam "secondParam"
     -}
     let (a, b) = ("foo", "bar")
-    return $ toHtmlObject [a :: String, b]
+    return (toHtmlObject "", toHtmlObject [a :: String, b])
 
 caseErrorMessages :: Assertion
 caseErrorMessages = do

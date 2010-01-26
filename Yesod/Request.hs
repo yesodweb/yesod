@@ -74,7 +74,7 @@ parseEnv = rawEnv `fmap` getRawRequest
 data RawRequest = RawRequest
     { rawGetParams :: [(ParamName, ParamValue)]
     , rawCookies :: [(ParamName, ParamValue)]
-    -- FIXME when we switch to WAI, the following two should be combined and
+    -- when we switch to WAI, the following two should be combined and
     -- wrapped in the IO monad
     , rawPostParams :: [(ParamName, ParamValue)]
     , rawFiles :: [(ParamName, FileInfo String BL.ByteString)]

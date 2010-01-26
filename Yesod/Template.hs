@@ -1,3 +1,4 @@
+-- FIXME this whole module needs to be rethought
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Template
@@ -24,7 +25,6 @@ type TemplateGroup = STGroup Text
 class HasTemplateGroup a where
     getTemplateGroup :: a TemplateGroup
 
--- FIXME better home
 template :: (MonadFailure NoSuchTemplate t, HasTemplateGroup t)
          => String -- ^ template name
          -> String -- ^ object name
@@ -58,7 +58,6 @@ instance HasReps Template where
                             return $ cs $ unJsonDoc $ cs ho)
            ]
 
--- FIXME
 data TemplateFile = TemplateFile FilePath HtmlObject
 instance HasReps TemplateFile where
     chooseRep = defChooseRep [ (TypeHtml,

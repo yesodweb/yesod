@@ -105,7 +105,7 @@ getParam :: (Monad m, RequestReader m)
          -> m ParamValue
 getParam = someParam GetParam getParams
 
-authOpenidForm :: Handler y HtmlObject
+authOpenidForm :: Handler y (HtmlObject, HtmlObject)
 authOpenidForm = do
     rr <- getRawRequest
     case getParams rr "dest" of
@@ -124,9 +124,9 @@ authOpenidForm = do
                 , EmptyTag "input" [("type", "submit"), ("value", "Login")]
                 ]
           ]
-    return $ cs html
+    return $ (justTitle "Log in via OpenID", cs html)
 
-authOpenidForward :: YesodAuth y => Handler y HtmlObject
+authOpenidForward :: YesodAuth y => Handler y ()
 authOpenidForward = do
     oid <- getParam "openid"
     authroot <- getFullAuthRoot
@@ -138,7 +138,7 @@ authOpenidForward = do
       (redirect RedirectTemporary)
       res
 
-authOpenidComplete :: YesodApproot y => Handler y HtmlObject
+authOpenidComplete :: YesodApproot y => Handler y ()
 authOpenidComplete = do
     ar <- getApproot
     rr <- getRawRequest
@@ -156,7 +156,7 @@ authOpenidComplete = do
         redirect RedirectTemporary dest
     attempt onFailure onSuccess res
 
-rpxnowLogin :: YesodAuth y => Handler y HtmlObject
+rpxnowLogin :: YesodAuth y => Handler y ()
 rpxnowLogin = do
     ay <- getYesod
     let ar = approot ay
@@ -192,21 +192,30 @@ getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
                         Nothing -> helper xs
                         Just y -> y
 
-authCheck :: Handler y HtmlObject
+-- FIXME use templates for all of the following
+
+justTitle :: String -> HtmlObject
+justTitle = cs . Tag "title" [] . cs
+
+authCheck :: Handler y (HtmlObject, HtmlObject)
 authCheck = do
     ident <- maybeIdentifier
     dn <- displayName
-    return $ toHtmlObject
+    return $ (justTitle "Authentication Status", toHtmlObject
         [ ("identifier", fromMaybe "" ident)
         , ("displayName", fromMaybe "" dn)
-        ]
+        ])
 
-authLogout :: YesodAuth y => Handler y HtmlObject
+authLogout :: YesodAuth y => Handler y ()
 authLogout = do
     deleteCookie authCookieName
+    rr <- getRawRequest
     ar <- getApproot
-    redirect RedirectTemporary ar
-    -- FIXME check the DEST information
+    let dest = case cookies rr "DEST" of
+                [] -> ar
+                (x:_) -> x
+    deleteCookie "DEST"
+    redirect RedirectTemporary dest
 
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)

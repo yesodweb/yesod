@@ -124,8 +124,7 @@ instance HasReps [(ContentType, Content)] where
                     (x:_) -> x
                     _ -> error "chooseRep [(ContentType, Content)] of empty"
 
--- FIXME remove this instance? only good for debugging, maybe special debugging newtype?
-instance HasReps HtmlObject where
+instance HasReps (HtmlObject, HtmlObject) where
     chooseRep = defChooseRep
         [ (TypeHtml, return . cs . unHtmlDoc . cs)
         , (TypeJson, return . cs . unJsonDoc . cs)

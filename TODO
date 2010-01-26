@@ -1,6 +1,1 @@
-Some form of i18n.
 Cleanup Parameter stuff. Own module? Interface with formlets?
-Authentication via e-mail address built in. (eaut.org)
-OpenID 2 stuff (for direct Google login).
-Languages (read languages header, set language cookie)
-Approot and trailing slash missing

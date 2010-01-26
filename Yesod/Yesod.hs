@@ -6,7 +6,7 @@ module Yesod.Yesod
     , toHackApp
     ) where
 
-import Data.Object.Html (toHtmlObject)
+import Data.Object.Html
 import Yesod.Response
 import Yesod.Request
 import Yesod.Definitions
@@ -14,7 +14,6 @@ import Yesod.Handler
 import Yesod.Template (TemplateGroup)
 
 import Data.Maybe (fromMaybe)
-import Data.Convertible.Text
 import Text.StringTemplate
 import Web.Mime
 import Web.Encodings (parseHttpAccept)
@@ -55,23 +54,32 @@ class Yesod a => YesodApproot a where
 getApproot :: YesodApproot y => Handler y Approot
 getApproot = approot `fmap` getYesod
 
+justTitle :: String -> HtmlObject
+justTitle = cs . Tag "title" [] . cs
+
 defaultErrorHandler :: Yesod y
                     => ErrorResponse
                     -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
     rr <- getRawRequest
-    return $ chooseRep $ toHtmlObject $ "Not found: " ++ show rr
+    return $ chooseRep
+        ( justTitle "Not Found"
+        , toHtmlObject [("Not found", show rr)]
+        )
 defaultErrorHandler PermissionDenied =
-    return $ chooseRep $ toHtmlObject "Permission denied"
+    return $ chooseRep
+        ( justTitle "Permission Denied"
+        , toHtmlObject "Permission denied"
+        )
 defaultErrorHandler (InvalidArgs ia) =
-    return $ chooseRep $ toHtmlObject
+    return $ chooseRep (justTitle "Invalid Arguments", toHtmlObject
             [ ("errorMsg", toHtmlObject "Invalid arguments")
             , ("messages", toHtmlObject ia)
-            ]
+            ])
 defaultErrorHandler (InternalError e) =
-    return $ chooseRep $ toHtmlObject
+    return $ chooseRep (justTitle "Internal Server Error", toHtmlObject
                 [ ("Internal server error", e)
-                ]
+                ])
 
 toHackApp :: Yesod y => y -> IO Hack.Application
 toHackApp a = do
