@@ -75,8 +75,8 @@ applyLayoutJson :: Yesod y
 applyLayoutJson t b = do
     y <- getYesod
     return $ chooseRep
-        [ (TypeJson, cs $ unJsonDoc $ cs b)
-        , (TypeHtml, applyLayout y t $ cs b)
+        [ (TypeHtml, applyLayout y t $ cs b)
+        , (TypeJson, cs $ unJsonDoc $ cs b)
         ]
 
 getApproot :: YesodApproot y => Handler y Approot

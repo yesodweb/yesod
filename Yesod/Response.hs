@@ -24,6 +24,7 @@ module Yesod.Response
     , ChooseRep
     , HasReps (..)
     , defChooseRep
+    , ioTextToContent
       -- ** Convenience wrappers
     , staticRep
       -- * Response type
@@ -89,6 +90,12 @@ instance ConvertSuccess XmlDoc Content where
     convertSuccess = cs . unXmlDoc
 
 type ChooseRep = [ContentType] -> IO (ContentType, Content)
+
+-- | It would be nice to simplify 'Content' to the point where this is
+-- unnecesary.
+ioTextToContent :: IO Text -> Content
+ioTextToContent iotext =
+    Content $ \f a -> iotext >>= foldM f a . toChunks . cs
 
 -- | Any type which can be converted to representations.
 class HasReps a where

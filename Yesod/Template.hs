@@ -21,8 +21,6 @@ import Web.Mime
 import Yesod.Response
 import Yesod.Yesod
 import Yesod.Handler
-import Control.Monad (foldM)
-import Data.ByteString.Lazy (toChunks)
 
 type Template = StringTemplate Text
 type TemplateGroup = STGroup Text
@@ -44,8 +42,8 @@ template tn ho f = do
             Nothing -> failure $ NoSuchTemplate tn
             Just x -> return x
     return $ chooseRep
-        [ (TypeJson, cs $ unJsonDoc $ cs ho)
-        , (TypeHtml, tempToContent t ho f)
+        [ (TypeHtml, tempToContent t ho f)
+        , (TypeJson, cs $ unJsonDoc $ cs ho)
         ]
 newtype NoSuchTemplate = NoSuchTemplate String
     deriving (Show, Typeable)
@@ -56,10 +54,6 @@ tempToContent :: Template
               -> (HtmlObject -> Template -> IO Template)
               -> Content
 tempToContent t ho f = ioTextToContent $ fmap render $ f ho t
-
-ioTextToContent :: IO Text -> Content
-ioTextToContent iotext =
-    Content $ \f a -> iotext >>= foldM f a . toChunks . cs
 
 data TemplateFile = TemplateFile FilePath HtmlObject
 instance HasReps TemplateFile where
