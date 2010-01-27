@@ -44,11 +44,15 @@ class YesodApproot a => YesodAuth a where
     authRoot :: a -> String
     authRoot _ = "auth/"
 
+    -- | Absolute path to the default login path.
     defaultLoginPath :: a -> String
-    defaultLoginPath a = authRoot a ++ "openid/"
+    defaultLoginPath a = approot a ++ authRoot a ++ "openid/"
 
     rpxnowApiKey :: a -> Maybe String
     rpxnowApiKey _ = Nothing
+
+    onRpxnowLogin :: Rpxnow.Identifier -> Handler a ()
+    onRpxnowLogin _ = return ()
 
 getFullAuthRoot :: YesodAuth y => Handler y String
 getFullAuthRoot = do
@@ -176,6 +180,7 @@ rpxnowLogin = do
                         (s:_) -> s
                 (d:_) -> d
     ident <- Rpxnow.authenticate apiKey token
+    onRpxnowLogin ident
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
     redirect RedirectTemporary dest
@@ -241,7 +246,7 @@ authIdentifier = do
             let dest = ar ++ rp
             lp <- defaultLoginPath `fmap` getYesod
             addCookie 120 "DEST" dest
-            redirect RedirectTemporary $ ar ++ lp
+            redirect RedirectTemporary lp
         Just x -> return x
 
 -- | Determinge the path requested by the user (ie, the path info). This
