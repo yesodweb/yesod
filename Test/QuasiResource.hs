@@ -43,7 +43,7 @@ instance Show (Verb -> Handler MyYesod ChooseRep) where
 instance Show (Resource -> Verb -> Handler MyYesod ChooseRep) where
     show _ = "resource -> verb -> handler"
 handler :: Resource -> Verb -> Handler MyYesod ChooseRep
-handler = [$resources|
+handler = [$mkResources|
 /static/*filepath/: getStatic
 /page/:
     Get: pageIndex

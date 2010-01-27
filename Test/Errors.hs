@@ -12,7 +12,7 @@ import Test.HUnit hiding (Test)
 
 data Errors = Errors
 instance Yesod Errors where
-    handlers = [$resources|
+    resources = [$mkResources|
 /denied:
     Get: denied
 /needs-ident:

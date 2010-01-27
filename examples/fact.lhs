@@ -54,7 +54,7 @@ specify a single function which handles all verbs. (Note: a verb is just a
 request method.)
 
 \begin{code}
-   handlers = [$resources|
+   resources = [$mkResources|
 /:
     Get: index
 /#num:
@@ -78,7 +78,7 @@ data, all with HTML entities escaped properly. These representations include:
 For simplicity here, we don't include a template, though it would be trivial to
 do so (see the hellotemplate example).
 
-> fact i = return $ toHtmlObject
+> fact i = applyLayoutJson "Factorial result" $ cs
 >             [ ("input", show i)
 >             , ("result", show $ product [1..fromIntegral i :: Integer])
 >             ]
@@ -89,8 +89,11 @@ one piece of data.
 
 > factRedirect :: Handler y ()
 > factRedirect = do
->     i <- runRequest $ getParam "num"
->     redirect RedirectPermanent $ "../" ++ i ++ "/"
+>     rr <- getRawRequest
+>     let i = case getParams rr "num" of -- FIXME
+>               [] -> "1"
+>               (x:_) -> x
+>     _ <- redirect RedirectPermanent $ "../" ++ i ++ "/"
 
 The following line would be unnecesary if we had a type signature on
 factRedirect.

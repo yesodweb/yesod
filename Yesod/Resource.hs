@@ -23,8 +23,8 @@
 --
 ---------------------------------------------------------
 module Yesod.Resource
-    ( resources
-    , resourcesNoCheck
+    ( mkResources
+    , mkResourcesNoCheck
 #if TEST
       -- * Testing
     , testSuite
@@ -64,11 +64,11 @@ import Test.QuickCheck
 import Control.Monad (when)
 #endif
 
-resources :: QuasiQuoter
-resources = QuasiQuoter (strToExp True) undefined
+mkResources :: QuasiQuoter
+mkResources = QuasiQuoter (strToExp True) undefined
 
-resourcesNoCheck :: QuasiQuoter
-resourcesNoCheck = QuasiQuoter (strToExp False) undefined
+mkResourcesNoCheck :: QuasiQuoter
+mkResourcesNoCheck = QuasiQuoter (strToExp False) undefined
 
 -- | Resource Pattern Piece
 data RPP =

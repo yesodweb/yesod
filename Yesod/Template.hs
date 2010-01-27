@@ -6,6 +6,9 @@ module Yesod.Template
     , NoSuchTemplate
     , Template
     , TemplateGroup
+    , TemplateFile (..)
+    , setAttribute
+    , loadTemplateGroup
     ) where
 
 import Data.Object.Html
@@ -57,3 +60,14 @@ tempToContent t ho f = ioTextToContent $ fmap render $ f ho t
 ioTextToContent :: IO Text -> Content
 ioTextToContent iotext =
     Content $ \f a -> iotext >>= foldM f a . toChunks . cs
+
+data TemplateFile = TemplateFile FilePath HtmlObject
+instance HasReps TemplateFile where
+    chooseRep (TemplateFile fp (Mapping m)) _ = do
+        t <- fmap newSTMP $ readFile fp
+        let t' = setManyAttrib m t :: Template
+        return (TypeHtml, cs $ render t')
+    chooseRep _ _ = error "Please fix type of TemplateFile"
+
+loadTemplateGroup :: FilePath -> IO TemplateGroup
+loadTemplateGroup = directoryGroupRecursiveLazy

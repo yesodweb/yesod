@@ -5,7 +5,7 @@ import Hack.Handler.SimpleServer
 data I18N = I18N
 
 instance Yesod I18N where
-    handlers = [$resources|
+    resources = [$mkResources|
 /:
     Get: homepage
 /set/$lang:

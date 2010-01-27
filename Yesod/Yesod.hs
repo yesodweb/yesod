@@ -29,7 +29,7 @@ import Hack.Middleware.MethodOverride
 class Yesod a where
     -- | Please use the Quasi-Quoter, you\'ll be happier. For more information,
     -- see the examples/fact.lhs sample.
-    handlers :: Resource -> Verb -> Handler a ChooseRep
+    resources :: Resource -> Verb -> Handler a ChooseRep
 
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
@@ -117,7 +117,7 @@ toHackApp' y env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
         types = httpAccept env
         verb = cs $ Hack.requestMethod env
-        handler = handlers resource verb
+        handler = resources resource verb
         rr = cs env
     res <- runHandler handler errorHandler rr y types
     responseToHackResponse res
