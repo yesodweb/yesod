@@ -68,7 +68,8 @@ data AuthResource =
 rc :: HasReps x => Handler y x -> Handler y ChooseRep
 rc = fmap chooseRep
 
-authHandler :: YesodAuth y => Verb -> [String] -> Handler y ChooseRep
+authHandler :: YesodAuth y =>
+            Verb -> [String] -> Handler y ChooseRep
 authHandler Get ["check"] = rc authCheck
 authHandler Get ["logout"] = rc authLogout
 authHandler Get ["openid"] = rc authOpenidForm
@@ -105,7 +106,7 @@ getParam :: (Monad m, RequestReader m)
          -> m ParamValue
 getParam = someParam GetParam getParams
 
-authOpenidForm :: Handler y (HtmlObject, HtmlObject)
+authOpenidForm :: Yesod y => Handler y ChooseRep
 authOpenidForm = do
     rr <- getRawRequest
     case getParams rr "dest" of
@@ -124,7 +125,7 @@ authOpenidForm = do
                 , EmptyTag "input" [("type", "submit"), ("value", "Login")]
                 ]
           ]
-    return $ (justTitle "Log in via OpenID", cs html)
+    applyLayout' "Log in via OpenID" html
 
 authOpenidForward :: YesodAuth y => Handler y ()
 authOpenidForward = do
@@ -192,19 +193,14 @@ getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
                         Nothing -> helper xs
                         Just y -> y
 
--- FIXME use templates for all of the following
-
-justTitle :: String -> HtmlObject
-justTitle = cs . Tag "title" [] . cs
-
-authCheck :: Handler y (HtmlObject, HtmlObject)
+authCheck :: Yesod y => Handler y ChooseRep
 authCheck = do
     ident <- maybeIdentifier
     dn <- displayName
-    return $ (justTitle "Authentication Status", toHtmlObject
+    applyLayoutJson "Authentication Status" $ cs
         [ ("identifier", fromMaybe "" ident)
         , ("displayName", fromMaybe "" dn)
-        ])
+        ]
 
 authLogout :: YesodAuth y => Handler y ()
 authLogout = do

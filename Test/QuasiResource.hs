@@ -14,29 +14,29 @@ data MyYesod = MyYesod
 
 instance Show (Handler MyYesod ChooseRep) where show _ = "Another handler"
 
-addHead' :: HtmlObject -> (HtmlObject, HtmlObject)
+addHead' :: HtmlObject -> (Html, HtmlObject)
 addHead' x = (cs "", x)
 
-addHead :: Monad m => HtmlObject -> m (HtmlObject, HtmlObject)
+addHead :: Monad m => HtmlObject -> m (Html, HtmlObject)
 addHead = return . addHead'
 
-getStatic :: Verb -> [String] -> Handler MyYesod (HtmlObject, HtmlObject)
+getStatic :: Verb -> [String] -> Handler MyYesod (Html, HtmlObject)
 getStatic v p = addHead $ toHtmlObject ["getStatic", show v, show p]
-pageIndex :: Handler MyYesod (HtmlObject, HtmlObject)
+pageIndex :: Handler MyYesod (Html, HtmlObject)
 pageIndex = addHead $ toHtmlObject ["pageIndex"]
 pageAdd :: Handler MyYesod ChooseRep
 pageAdd = return $ chooseRep $ addHead' $ toHtmlObject ["pageAdd"]
 pageDetail :: String -> Handler MyYesod ChooseRep
 pageDetail s = return $ chooseRep $ addHead' $ toHtmlObject ["pageDetail", s]
-pageDelete :: String -> Handler MyYesod (HtmlObject, HtmlObject)
+pageDelete :: String -> Handler MyYesod (Html, HtmlObject)
 pageDelete s = addHead $ toHtmlObject ["pageDelete", s]
 pageUpdate :: String -> Handler MyYesod ChooseRep
 pageUpdate s = return $ chooseRep $ addHead' $ toHtmlObject ["pageUpdate", s]
-userInfo :: Int -> Handler MyYesod (HtmlObject, HtmlObject)
+userInfo :: Int -> Handler MyYesod (Html, HtmlObject)
 userInfo i = addHead $ toHtmlObject ["userInfo", show i]
-userVariable :: Int -> String -> Handler MyYesod (HtmlObject, HtmlObject)
+userVariable :: Int -> String -> Handler MyYesod (Html, HtmlObject)
 userVariable i s = addHead $ toHtmlObject ["userVariable", show i, s]
-userPage :: Int -> [String] -> Handler MyYesod (HtmlObject, HtmlObject)
+userPage :: Int -> [String] -> Handler MyYesod (Html, HtmlObject)
 userPage i p = addHead $ toHtmlObject ["userPage", show i, show p]
 
 instance Show (Verb -> Handler MyYesod ChooseRep) where

@@ -2,11 +2,14 @@
 module Yesod.Yesod
     ( Yesod (..)
     , YesodApproot (..)
+    , applyLayout'
+    , applyLayoutJson
     , getApproot
     , toHackApp
     ) where
 
 import Data.Object.Html
+import Data.Object.Json (unJsonDoc)
 import Yesod.Response
 import Yesod.Request
 import Yesod.Definitions
@@ -47,39 +50,61 @@ class Yesod a where
     templateDir :: a -> FilePath
     templateDir _ = ""
 
+    -- | Applies some form of layout to <title> and <body> contents of a page.
+    applyLayout :: a
+                -> String -- ^ title
+                -> Html -- ^ body
+                -> Content
+    applyLayout _ t b = cs (cs (Tag "title" [] $ cs t, b) :: HtmlDoc)
+
 class Yesod a => YesodApproot a where
     -- | An absolute URL to the root of the application.
     approot :: a -> Approot
 
+-- | A convenience wrapper around 'applyLayout'.
+applyLayout' :: Yesod y
+             => String
+             -> Html
+             -> Handler y ChooseRep
+applyLayout' t b = do
+    y <- getYesod
+    return $ chooseRep
+        [ (TypeHtml, applyLayout y t b)
+        ]
+
+-- | A convenience wrapper around 'applyLayout' which provides a JSON
+-- representation of the body.
+applyLayoutJson :: Yesod y
+                => String
+                -> HtmlObject
+                -> Handler y ChooseRep
+applyLayoutJson t b = do
+    y <- getYesod
+    return $ chooseRep
+        [ (TypeJson, cs $ unJsonDoc $ cs b)
+        , (TypeHtml, applyLayout y t $ cs b)
+        ]
+
 getApproot :: YesodApproot y => Handler y Approot
 getApproot = approot `fmap` getYesod
-
-justTitle :: String -> HtmlObject
-justTitle = cs . Tag "title" [] . cs
 
 defaultErrorHandler :: Yesod y
                     => ErrorResponse
                     -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
     rr <- getRawRequest
-    return $ chooseRep
-        ( justTitle "Not Found"
-        , toHtmlObject [("Not found", show rr)]
-        )
+    applyLayout' "Not Found" $ cs $ toHtmlObject [("Not found", show rr)]
 defaultErrorHandler PermissionDenied =
-    return $ chooseRep
-        ( justTitle "Permission Denied"
-        , toHtmlObject "Permission denied"
-        )
+    applyLayout' "Permission Denied" $ cs "Permission denied"
 defaultErrorHandler (InvalidArgs ia) =
-    return $ chooseRep (justTitle "Invalid Arguments", toHtmlObject
+    applyLayout' "Invalid Arguments" $ cs $ toHtmlObject
             [ ("errorMsg", toHtmlObject "Invalid arguments")
             , ("messages", toHtmlObject ia)
-            ])
+            ]
 defaultErrorHandler (InternalError e) =
-    return $ chooseRep (justTitle "Internal Server Error", toHtmlObject
-                [ ("Internal server error", e)
-                ])
+    applyLayout' "Internal Server Error" $ cs $ toHtmlObject
+        [ ("Internal server error", e)
+        ]
 
 toHackApp :: Yesod y => y -> IO Hack.Application
 toHackApp a = do

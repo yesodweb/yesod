@@ -164,10 +164,9 @@ instance ConvertSuccess (Html, Html) HtmlDoc where
             , Tag "body" [] b
             ]
         ) []
-instance ConvertSuccess (HtmlObject, HtmlObject) HtmlDoc where
-    convertSuccess (x, y) = cs (cs' x :: Html, cs' y) where
-        cs' = cs
-instance ConvertSuccess (HtmlObject, HtmlObject) JsonDoc where
+instance ConvertSuccess (Html, HtmlObject) HtmlDoc where
+    convertSuccess (x, y) = cs (x, cs y :: Html)
+instance ConvertSuccess (Html, HtmlObject) JsonDoc where
     convertSuccess (_, y) = cs y
 
 instance ConvertSuccess HtmlObject Html where

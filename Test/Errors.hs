@@ -27,19 +27,19 @@ instance YesodAuth Errors
 denied :: Handler Errors ()
 denied = permissionDenied
 
-needsIdent :: Handler Errors (HtmlObject, HtmlObject)
+needsIdent :: Handler Errors (Html, HtmlObject)
 needsIdent = do
     i <- authIdentifier
-    return $ (toHtmlObject "", toHtmlObject i)
+    return $ (cs "", cs i)
 
-hasArgs :: Handler Errors (HtmlObject, HtmlObject)
+hasArgs :: Handler Errors (Html, HtmlObject)
 hasArgs = do
     {- FIXME wait for new request API
     (a, b) <- runRequest $ (,) <$> getParam "firstParam"
                                <*> getParam "secondParam"
     -}
     let (a, b) = ("foo", "bar")
-    return (toHtmlObject "", toHtmlObject [a :: String, b])
+    return (cs "", cs [a :: String, b])
 
 caseErrorMessages :: Assertion
 caseErrorMessages = do

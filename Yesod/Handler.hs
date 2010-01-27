@@ -131,7 +131,7 @@ safeEh :: ErrorResponse -> Handler yesod ChooseRep
 safeEh er = do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
     return $ chooseRep $
-        ( toHtmlObject $ Tag "title" [] $ cs "Internal Server Error"
+        ( Tag "title" [] $ cs "Internal Server Error"
         , toHtmlObject "Internal server error"
         )
 

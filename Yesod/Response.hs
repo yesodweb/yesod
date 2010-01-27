@@ -124,7 +124,7 @@ instance HasReps [(ContentType, Content)] where
                     (x:_) -> x
                     _ -> error "chooseRep [(ContentType, Content)] of empty"
 
-instance HasReps (HtmlObject, HtmlObject) where
+instance HasReps (Html, HtmlObject) where
     chooseRep = defChooseRep
         [ (TypeHtml, return . cs . unHtmlDoc . cs)
         , (TypeJson, return . cs . unJsonDoc . cs)
