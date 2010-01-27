@@ -47,7 +47,7 @@ import Data.Typeable
 import Control.Exception (Exception)
 import Data.Attempt -- for failure stuff
 import Data.Object.Text
-import Control.Monad ((<=<), unless)
+import Control.Monad ((<=<), unless, zipWithM)
 import Data.Object.Yaml
 import Yesod.Handler
 import Data.Maybe (fromJust)
@@ -152,7 +152,7 @@ doPatternPiecesMatch rp r
         let Slurp slurpKey = last rp
         return $ (slurpKey, SlurpParam r2) : smap
     | length rp /= length r = failure NoMatch
-    | otherwise = concat `fmap` sequence (zipWith doesPatternPieceMatch rp r)
+    | otherwise = concat `fmap` zipWithM doesPatternPieceMatch rp r
 
 data NoMatch = NoMatch
 doesPatternPieceMatch :: MonadFailure NoMatch m

@@ -128,7 +128,7 @@ runHandler handler eh rr y cts = do
 safeEh :: ErrorResponse -> Handler yesod ChooseRep
 safeEh er = do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return $ chooseRep $
+    return $ chooseRep
         ( Tag "title" [] $ cs "Internal Server Error"
         , toHtmlObject "Internal server error"
         )

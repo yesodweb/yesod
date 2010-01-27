@@ -110,7 +110,7 @@ toHackApp a = do
            $ jsonp
            $ methodOverride
            $ clientsession encryptedCookies key mins
-           $ app'
+             app'
 
 toHackApp' :: Yesod y => y -> Hack.Env -> IO Hack.Response
 toHackApp' y env = do

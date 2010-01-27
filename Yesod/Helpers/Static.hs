@@ -51,7 +51,7 @@ serveStatic _ _ _ = notFound
 
 getStatic :: FileLookup -> [String] -> Handler y [(ContentType, Content)]
 getStatic fl fp' = do
-    when (any isUnsafe fp') $ notFound
+    when (any isUnsafe fp') notFound
     let fp = intercalate "/" fp'
     content <- liftIO $ fl fp
     case content of

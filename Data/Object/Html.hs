@@ -109,7 +109,7 @@ instance ConvertSuccess [(TS.Text, TS.Text)] HtmlObject where
     convertSuccess = omTO
 
 showAttribs :: [(String, String)] -> String -> String
-showAttribs pairs rest = foldr ($) rest $ map helper pairs where
+showAttribs pairs rest = foldr (($) . helper) rest pairs where
     helper :: (String, String) -> String -> String
     helper (k, v) rest' =
         ' ' : encodeHtml k
@@ -122,18 +122,17 @@ htmlToText :: Bool -- ^ True to close empty tags like XML, False like HTML
 htmlToText _ (Html t) = (:) t
 htmlToText _ (Text t) = (:) $ encodeHtml t
 htmlToText xml (Tag n as content) = \rest ->
-    (cs $ '<' : n)
-    : (cs $ showAttribs as ">")
-    : (htmlToText xml content
-    $ (cs $ '<' : '/' : n)
+    cs ('<' : n)
+    : cs (showAttribs as ">")
+    : htmlToText xml content
+    ( cs ('<' : '/' : n)
     : cs ">"
     : rest)
 htmlToText xml (EmptyTag n as) = \rest ->
-    (cs $ '<' : n )
-    : (cs $ showAttribs as (if xml then "/>" else ">"))
+    cs ('<' : n )
+    : cs (showAttribs as (if xml then "/>" else ">"))
     : rest
-htmlToText xml (HtmlList l) = \rest ->
-    foldr ($) rest $ map (htmlToText xml) l
+htmlToText xml (HtmlList l) = flip (foldr ($)) (map (htmlToText xml) l)
 
 newtype HtmlFragment = HtmlFragment { unHtmlFragment :: Text }
 instance ConvertSuccess Html HtmlFragment where
@@ -173,7 +172,7 @@ instance ConvertSuccess HtmlObject Html where
     convertSuccess (Scalar h) = h
     convertSuccess (Sequence hs) = Tag "ul" [] $ HtmlList $ map addLi hs
       where
-        addLi h = Tag "li" [] $ cs h
+        addLi = Tag "li" [] . cs
     convertSuccess (Mapping pairs) =
         Tag "dl" [] $ HtmlList $ concatMap addDtDd pairs where
             addDtDd (k, v) =

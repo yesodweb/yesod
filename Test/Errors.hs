@@ -30,7 +30,7 @@ denied = permissionDenied
 needsIdent :: Handler Errors (Html, HtmlObject)
 needsIdent = do
     i <- authIdentifier
-    return $ (cs "", cs i)
+    return (cs "", cs i)
 
 hasArgs :: Handler Errors (Html, HtmlObject)
 hasArgs = do

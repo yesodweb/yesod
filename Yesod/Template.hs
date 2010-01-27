@@ -55,5 +55,5 @@ tempToContent :: Template
 tempToContent t ho f = ioTextToContent $ fmap render $ f ho t
 
 ioTextToContent :: IO Text -> Content
-ioTextToContent iotext = Content $ \f a -> iotext >>= \t ->
-    foldM f a $ toChunks $ cs t
+ioTextToContent iotext =
+    Content $ \f a -> iotext >>= foldM f a . toChunks . cs
