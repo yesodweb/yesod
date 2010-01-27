@@ -14,10 +14,8 @@ import Yesod.Response
 import Yesod.Request
 import Yesod.Definitions
 import Yesod.Handler
-import Yesod.Template (TemplateGroup)
 
 import Data.Maybe (fromMaybe)
-import Text.StringTemplate
 import Web.Mime
 import Web.Encodings (parseHttpAccept)
 
@@ -45,10 +43,6 @@ class Yesod a where
     -- | Output error response pages.
     errorHandler :: ErrorResponse -> Handler a ChooseRep
     errorHandler = defaultErrorHandler
-
-    -- | The template directory. Blank means no templates.
-    templateDir :: a -> FilePath
-    templateDir _ = ""
 
     -- | Applies some form of layout to <title> and <body> contents of a page.
     applyLayout :: a
@@ -109,7 +103,7 @@ defaultErrorHandler (InternalError e) =
 toHackApp :: Yesod y => y -> IO Hack.Application
 toHackApp a = do
     key <- encryptKey a
-    app' <- toHackApp' a
+    let app' = toHackApp' a
     let mins = clientSessionDuration a
     return $ gzip
            $ cleanPath
@@ -118,22 +112,14 @@ toHackApp a = do
            $ clientsession encryptedCookies key mins
            $ app'
 
-toHackApp' :: Yesod y => y -> IO Hack.Application
-toHackApp' y = do
-    let td = templateDir y
-    tg <- if null td
-            then return nullGroup
-            else directoryGroupRecursiveLazy td
-    return $ toHackApp'' y tg
-
-toHackApp'' :: Yesod y => y -> TemplateGroup -> Hack.Env -> IO Hack.Response
-toHackApp'' y tg env = do
+toHackApp' :: Yesod y => y -> Hack.Env -> IO Hack.Response
+toHackApp' y env = do
     let (Right resource) = splitPath $ Hack.pathInfo env
         types = httpAccept env
         verb = cs $ Hack.requestMethod env
         handler = handlers resource verb
         rr = cs env
-    res <- runHandler handler errorHandler rr y tg types
+    res <- runHandler handler errorHandler rr y types
     responseToHackResponse res
 
 httpAccept :: Hack.Env -> [ContentType]

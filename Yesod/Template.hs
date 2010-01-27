@@ -1,71 +1,59 @@
--- FIXME this whole module needs to be rethought
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Template
-    ( HasTemplateGroup (..)
+    ( YesodTemplate (..)
     , template
     , NoSuchTemplate
+    , Template
     , TemplateGroup
-    , Template (..)
-    , TemplateFile (..)
     ) where
 
 import Data.Object.Html
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
-import Control.Failure
 import Data.Object.Text (Text)
 import Text.StringTemplate
 import Data.Object.Json
 import Web.Mime
 import Yesod.Response
+import Yesod.Yesod
+import Yesod.Handler
+import Control.Monad (foldM)
+import Data.ByteString.Lazy (toChunks)
 
+type Template = StringTemplate Text
 type TemplateGroup = STGroup Text
 
-class HasTemplateGroup a where
-    getTemplateGroup :: a TemplateGroup
+class Yesod y => YesodTemplate y where
+    getTemplateGroup :: y -> TemplateGroup
 
-template :: (MonadFailure NoSuchTemplate t, HasTemplateGroup t)
+getTemplateGroup' :: YesodTemplate y => Handler y TemplateGroup
+getTemplateGroup' = getTemplateGroup `fmap` getYesod
+
+template :: YesodTemplate y
          => String -- ^ template name
-         -> String -- ^ object name
          -> HtmlObject -- ^ object
-         -> IO [(String, HtmlObject)] -- ^ template attributes
-         -> t Template
-template tn on o attrs = do
-    tg <- getTemplateGroup
+         -> (HtmlObject -> Template -> IO Template)
+         -> Handler y ChooseRep
+template tn ho f = do
+    tg <- getTemplateGroup'
     t <- case getStringTemplate tn tg of
             Nothing -> failure $ NoSuchTemplate tn
             Just x -> return x
-    return $ Template t on o attrs
+    return $ chooseRep
+        [ (TypeJson, cs $ unJsonDoc $ cs ho)
+        , (TypeHtml, tempToContent t ho f)
+        ]
 newtype NoSuchTemplate = NoSuchTemplate String
     deriving (Show, Typeable)
 instance Exception NoSuchTemplate
 
-data Template = Template (StringTemplate Text)
-                         String
-                         HtmlObject
-                         (IO [(String, HtmlObject)])
-instance HasReps Template where
-    chooseRep = defChooseRep [ (TypeHtml,
-              \(Template t name ho attrsIO) -> do
-                attrs <- attrsIO
-                return
-                    $ cs
-                    $ render
-                    $ setAttribute name ho
-                    $ setManyAttrib attrs t)
-           , (TypeJson, \(Template _ _ ho _) ->
-                            return $ cs $ unJsonDoc $ cs ho)
-           ]
+tempToContent :: Template
+              -> HtmlObject
+              -> (HtmlObject -> Template -> IO Template)
+              -> Content
+tempToContent t ho f = ioTextToContent $ fmap render $ f ho t
 
-data TemplateFile = TemplateFile FilePath HtmlObject
-instance HasReps TemplateFile where
-    chooseRep = defChooseRep [ (TypeHtml,
-              \(TemplateFile fp h) -> do
-                    contents <- readFile fp
-                    let t = newSTMP contents
-                    return $ cs $ toString $ setAttribute "o" h t
-             )
-           , (TypeJson, \(TemplateFile _ ho) ->
-                            return $ cs $ unJsonDoc $ cs ho)
-           ]
+ioTextToContent :: IO Text -> Content
+ioTextToContent iotext = Content $ \f a -> iotext >>= \t ->
+    foldM f a $ toChunks $ cs t

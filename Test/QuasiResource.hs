@@ -4,7 +4,6 @@
 module Test.QuasiResource (testSuite) where
 
 import Yesod
-import Text.StringTemplate (nullGroup)
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
@@ -67,7 +66,7 @@ ph ss h = do
         rr = error "No raw request"
         y = MyYesod
         cts = [TypeHtml]
-    res <- runHandler h eh rr y nullGroup cts
+    res <- runHandler h eh rr y cts
     res' <- myShow res
     mapM_ (helper res') ss
       where

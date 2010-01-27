@@ -38,7 +38,6 @@ module Yesod.Handler
 
 import Yesod.Request
 import Yesod.Response
-import Yesod.Template
 import Web.Mime
 
 import Control.Exception hiding (Handler)
@@ -52,9 +51,11 @@ import System.IO
 import Data.Object.Html
 import qualified Data.ByteString.Lazy as BL
 
+data HandlerData yesod = HandlerData RawRequest yesod
+
 ------ Handler monad
 newtype Handler yesod a = Handler {
-    unHandler :: (RawRequest, yesod, TemplateGroup)
+    unHandler :: HandlerData yesod
               -> IO ([Header], HandlerContents a)
 }
 data HandlerContents a =
@@ -83,32 +84,29 @@ instance MonadIO (Handler yesod) where
 instance Exception e => Failure e (Handler yesod) where
     failure e = Handler $ \_ -> return ([], HCError $ InternalError $ show e)
 instance RequestReader (Handler yesod) where
-    getRawRequest = Handler $ \(rr, _, _) -> return ([], HCContent rr)
+    getRawRequest = Handler $ \(HandlerData rr _)
+                        -> return ([], HCContent rr)
     invalidParams = invalidArgs . map helper where
         helper ((_pt, pn, _pvs), e) = (pn, show e)
 
 getYesod :: Handler yesod yesod
-getYesod = Handler $ \(_, yesod, _) -> return ([], HCContent yesod)
-
-instance HasTemplateGroup (Handler yesod) where
-    getTemplateGroup = Handler $ \(_, _, tg) -> return ([], HCContent tg)
+getYesod = Handler $ \(HandlerData _ yesod) -> return ([], HCContent yesod)
 
 runHandler :: Handler yesod ChooseRep
            -> (ErrorResponse -> Handler yesod ChooseRep)
            -> RawRequest
            -> yesod
-           -> TemplateGroup
            -> [ContentType]
            -> IO Response
-runHandler (Handler handler) eh rr y tg cts = do
+runHandler handler eh rr y cts = do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
     (headers, contents) <- Control.Exception.catch
-        (handler (rr, y, tg))
+        (unHandler handler $ HandlerData rr y)
         (\e -> return ([], HCError $ toErrorHandler e))
     let handleError e = do
-            Response _ hs ct c <- runHandler (eh e) safeEh rr y tg cts
+            Response _ hs ct c <- runHandler (eh e) safeEh rr y cts
             let hs' = headers ++ hs
             return $ Response (getStatus e) hs' ct c
     let sendFile' ct fp = do
