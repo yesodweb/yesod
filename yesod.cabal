@@ -32,7 +32,8 @@ library
     build-depends:   base >= 4 && < 5,
                      old-locale >= 1.0.0.1 && < 1.1,
                      time >= 1.1.3 && < 1.2,
-                     hack == 2009.10.30,
+                     wai >= 0.0.0 && < 0.1,
+                     wai-extra >= 0.0.0 && < 0.1,
                      split >= 0.1.1 && < 0.2,
                      authenticate >= 0.4.0 && < 0.5,
                      predicates >= 0.1 && < 0.2,
@@ -46,8 +47,6 @@ library
                      syb,
                      text >= 0.5 && < 0.6,
                      convertible-text >= 0.2.0 && < 0.3,
-                     clientsession >= 0.0.1 && < 0.1,
-                     zlib >= 0.5.2.0 && < 0.6,
                      HStringTemplate >= 0.6.2 && < 0.7,
                      data-object-json >= 0.0.0 && < 0.1,
                      attempt >= 0.2.1 && < 0.3,
@@ -63,11 +62,6 @@ library
                      Yesod.Yesod
                      Yesod.Template
                      Data.Object.Html
-                     Hack.Middleware.MethodOverride
-                     Hack.Middleware.ClientSession
-                     Hack.Middleware.Jsonp
-                     Hack.Middleware.CleanPath
-                     Hack.Middleware.Gzip
                      Yesod.Helpers.Auth
                      Yesod.Helpers.Static
                      Yesod.Helpers.AtomFeed

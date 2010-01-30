@@ -50,6 +50,7 @@ import Control.Monad (liftM, ap)
 import System.IO
 import Data.Object.Html
 import qualified Data.ByteString.Lazy as BL
+import qualified Network.Wai as W
 
 data HandlerData yesod = HandlerData RawRequest yesod
 
@@ -110,9 +111,8 @@ runHandler handler eh rr y cts = do
             let hs' = headers ++ hs
             return $ Response (getStatus e) hs' ct c
     let sendFile' ct fp = do
-            -- avoid lazy I/O by switching to WAI
             c <- BL.readFile fp
-            return $ Response 200 headers ct $ cs c
+            return $ Response W.Status200 headers ct $ cs c
     case contents of
         HCError e -> handleError e
         HCSpecial (Redirect rt loc) -> do
@@ -123,7 +123,7 @@ runHandler handler eh rr y cts = do
             (handleError . toErrorHandler)
         HCContent a -> do
             (ct, c) <- a cts
-            return $ Response 200 headers ct c
+            return $ Response W.Status200 headers ct c
 
 safeEh :: ErrorResponse -> Handler yesod ChooseRep
 safeEh er = do

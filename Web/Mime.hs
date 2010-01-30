@@ -3,12 +3,14 @@
 -- | Generic MIME type module. Could be spun off into its own package.
 module Web.Mime
     ( ContentType (..)
+    , contentTypeFromBS
     , typeByExt
     , ext
     ) where
 
 import Data.Function (on)
 import Data.Convertible.Text
+import Data.ByteString.Char8 (pack, ByteString, unpack)
 
 data ContentType =
     TypeHtml
@@ -26,6 +28,9 @@ data ContentType =
     | TypeOctet
     | TypeOther String
     deriving (Show)
+
+instance ConvertSuccess ContentType ByteString where
+    convertSuccess = pack . cs
 
 instance ConvertSuccess ContentType [Char] where
     convertSuccess TypeHtml = "text/html; charset=utf-8"
@@ -45,6 +50,9 @@ instance ConvertSuccess ContentType [Char] where
 
 instance Eq ContentType where
     (==) = (==) `on` (cs :: ContentType -> String)
+
+contentTypeFromBS :: ByteString -> ContentType
+contentTypeFromBS = TypeOther . unpack
 
 -- | Determine a mime-type based on the file extension.
 typeByExt :: String -> ContentType

@@ -5,7 +5,7 @@ module Yesod.Yesod
     , applyLayout'
     , applyLayoutJson
     , getApproot
-    , toHackApp
+    , toWaiApp
     ) where
 
 import Data.Object.Html
@@ -14,17 +14,18 @@ import Yesod.Response
 import Yesod.Request
 import Yesod.Definitions
 import Yesod.Handler
+import qualified Data.ByteString as B
 
 import Data.Maybe (fromMaybe)
 import Web.Mime
 import Web.Encodings (parseHttpAccept)
 
-import qualified Hack
-import Hack.Middleware.CleanPath
-import Hack.Middleware.ClientSession
-import Hack.Middleware.Gzip
-import Hack.Middleware.Jsonp
-import Hack.Middleware.MethodOverride
+import qualified Network.Wai as W
+import Network.Wai.Middleware.CleanPath
+import Network.Wai.Middleware.ClientSession
+import Network.Wai.Middleware.Gzip
+import Network.Wai.Middleware.Jsonp
+import Network.Wai.Middleware.MethodOverride
 
 class Yesod a where
     -- | Please use the Quasi-Quoter, you\'ll be happier. For more information,
@@ -86,8 +87,8 @@ defaultErrorHandler :: Yesod y
                     => ErrorResponse
                     -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
-    rr <- getRawRequest
-    applyLayout' "Not Found" $ cs $ toHtmlObject [("Not found", show rr)]
+    --rr <- getRawRequest
+    applyLayout' "Not Found" $ cs $ toHtmlObject [("Not found", "FIXME")]
 defaultErrorHandler PermissionDenied =
     applyLayout' "Permission Denied" $ cs "Permission denied"
 defaultErrorHandler (InvalidArgs ia) =
@@ -100,28 +101,34 @@ defaultErrorHandler (InternalError e) =
         [ ("Internal server error", e)
         ]
 
-toHackApp :: Yesod y => y -> IO Hack.Application
-toHackApp a = do
+toWaiApp :: Yesod y => y -> IO W.Application
+toWaiApp a = do
     key <- encryptKey a
-    let app' = toHackApp' a
     let mins = clientSessionDuration a
     return $ gzip
-           $ cleanPath
            $ jsonp
            $ methodOverride
-           $ clientsession encryptedCookies key mins
-             app'
+           $ cleanPath
+           $ \thePath -> clientsession encryptedCookies key mins
+           $ toWaiApp' a thePath
 
-toHackApp' :: Yesod y => y -> Hack.Env -> IO Hack.Response
-toHackApp' y env = do
-    let (Right resource) = splitPath $ Hack.pathInfo env
-        types = httpAccept env
-        verb = cs $ Hack.requestMethod env
-        handler = resources resource verb
-        rr = cs env
+toWaiApp' :: Yesod y
+          => y
+          -> [B.ByteString]
+          -> [(B.ByteString, B.ByteString)]
+          -> W.Request
+          -> IO W.Response
+toWaiApp' y resource session env = do
+    let types = httpAccept env
+        verb = cs $ W.requestMethod env :: Verb
+        handler = resources (map cs resource) verb
+    rr <- parseWaiRequest env session
     res <- runHandler handler errorHandler rr y types
-    responseToHackResponse res
+    responseToWaiResponse res
 
-httpAccept :: Hack.Env -> [ContentType]
-httpAccept = map TypeOther . parseHttpAccept . fromMaybe ""
-           . lookup "Accept" . Hack.http
+httpAccept :: W.Request -> [ContentType]
+httpAccept = map contentTypeFromBS
+           . parseHttpAccept
+           . fromMaybe B.empty
+           . lookup W.Accept
+           . W.httpHeaders

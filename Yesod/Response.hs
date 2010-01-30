@@ -39,8 +39,8 @@ module Yesod.Response
       -- * Header
     , Header (..)
     , headerToPair
-      -- * Converting to Hack values
-    , responseToHackResponse
+      -- * Converting to WAI values
+    , responseToWaiResponse
 #if TEST
       -- * Tests
     , testSuite
@@ -50,15 +50,16 @@ module Yesod.Response
 
 import Data.Time.Clock
 import Data.Maybe (mapMaybe)
-import Data.ByteString.Lazy (ByteString, toChunks, fromChunks)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Data.Object.Json
-import Control.Monad (foldM)
+import qualified Data.Text.Lazy.Encoding as DTLE
 
 import Web.Encodings (formatW3)
-import qualified Hack
+import qualified Network.Wai as W
+import qualified Network.Wai.Enumerator as WE
 
 #if TEST
 import Data.Object.Html hiding (testSuite)
@@ -72,16 +73,17 @@ import Test.Framework (testGroup, Test)
 
 import Web.Mime
 
-data Content = Content (forall a. ((a -> B.ByteString -> IO a) -> a -> IO a))
+data Content = ContentFile FilePath
+             | ContentEnum (forall a. W.Enumerator a)
 
 instance ConvertSuccess B.ByteString Content where
-    convertSuccess bs = Content $ \f a -> f a bs
-instance ConvertSuccess ByteString Content where
-    convertSuccess lbs = Content $ \f a -> foldM f a $ toChunks lbs
+    convertSuccess bs = ContentEnum $ \f a -> f a bs
+instance ConvertSuccess L.ByteString Content where
+    convertSuccess = ContentEnum . WE.fromLBS
 instance ConvertSuccess T.Text Content where
     convertSuccess t = cs (cs t :: B.ByteString)
 instance ConvertSuccess Text Content where
-    convertSuccess lt = cs (cs lt :: ByteString)
+    convertSuccess lt = cs (cs lt :: L.ByteString)
 instance ConvertSuccess String Content where
     convertSuccess s = cs (cs s :: Text)
 instance ConvertSuccess HtmlDoc Content where
@@ -94,8 +96,7 @@ type ChooseRep = [ContentType] -> IO (ContentType, Content)
 -- | It would be nice to simplify 'Content' to the point where this is
 -- unnecesary.
 ioTextToContent :: IO Text -> Content
-ioTextToContent iotext =
-    Content $ \f a -> iotext >>= foldM f a . toChunks . cs
+ioTextToContent t = ContentEnum $ WE.fromLBS' $ fmap DTLE.encodeUtf8 t
 
 -- | Any type which can be converted to representations.
 class HasReps a where
@@ -138,13 +139,13 @@ instance HasReps (Html, HtmlObject) where
         ]
 
 -- | Data with a single representation.
-staticRep :: ConvertSuccess x ByteString
+staticRep :: ConvertSuccess x Content
           => ContentType
           -> x
           -> [(ContentType, Content)]
-staticRep ct x = [(ct, cs (cs x :: ByteString))]
+staticRep ct x = [(ct, cs x)]
 
-data Response = Response Int [Header] ContentType Content
+data Response = Response W.Status [Header] ContentType Content
 
 -- | Different types of redirects.
 data RedirectType = RedirectPermanent
@@ -152,10 +153,10 @@ data RedirectType = RedirectPermanent
                   | RedirectSeeOther
     deriving (Show, Eq)
 
-getRedirectStatus :: RedirectType -> Int
-getRedirectStatus RedirectPermanent = 301
-getRedirectStatus RedirectTemporary = 302
-getRedirectStatus RedirectSeeOther = 303
+getRedirectStatus :: RedirectType -> W.Status
+getRedirectStatus RedirectPermanent = W.Status301
+getRedirectStatus RedirectTemporary = W.Status302
+getRedirectStatus RedirectSeeOther = W.Status303
 
 -- | Special types of responses which should short-circuit normal response
 -- processing.
@@ -173,11 +174,11 @@ data ErrorResponse =
     | PermissionDenied
     deriving (Show, Eq)
 
-getStatus :: ErrorResponse -> Int
-getStatus NotFound = 404
-getStatus (InternalError _) = 500
-getStatus (InvalidArgs _) = 400
-getStatus PermissionDenied = 403
+getStatus :: ErrorResponse -> W.Status
+getStatus NotFound = W.Status404
+getStatus (InternalError _) = W.Status500
+getStatus (InvalidArgs _) = W.Status400
+getStatus PermissionDenied = W.Status403
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.
@@ -188,35 +189,31 @@ data Header =
     deriving (Eq, Show)
 
 -- | Convert Header to a key/value pair.
-headerToPair :: Header -> IO (String, String)
+headerToPair :: Header -> IO (W.ResponseHeader, B.ByteString)
 headerToPair (AddCookie minutes key value) = do
     now <- getCurrentTime
     let expires = addUTCTime (fromIntegral $ minutes * 60) now
-    return ("Set-Cookie", key ++ "=" ++ value ++"; path=/; expires="
+    return (W.SetCookie, cs $ key ++ "=" ++ value ++"; path=/; expires="
                               ++ formatW3 expires)
 headerToPair (DeleteCookie key) = return
-    ("Set-Cookie",
+    (W.SetCookie, cs $
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
-headerToPair (Header key value) = return (key, value)
+headerToPair (Header key value) =
+    return (W.responseHeaderFromBS $ cs key, cs value)
 
-responseToHackResponse :: Response -> IO Hack.Response
-responseToHackResponse (Response sc hs ct c) = do
+responseToWaiResponse :: Response -> IO W.Response
+responseToWaiResponse (Response sc hs ct c) = do
     hs' <- mapM headerToPair hs
-    let hs'' = ("Content-Type", cs ct) : hs'
-    asLBS <- runContent c
-    return $ Hack.Response sc hs'' asLBS
-
-runContent :: Content -> IO ByteString
-runContent (Content c) = do
-    front <- c helper id
-    return $ fromChunks $ front []
-      where
-        helper :: ([B.ByteString] -> [B.ByteString])
-               -> B.ByteString
-               -> IO ([B.ByteString] -> [B.ByteString])
-        helper front bs = return $ front . (:) bs
+    let hs'' = (W.ContentType, cs ct) : hs'
+    return $ W.Response sc hs'' $ case c of
+                                    ContentFile fp -> Left fp
+                                    ContentEnum e -> Right e
 
 #if TEST
+runContent :: Content -> IO L.ByteString
+runContent (ContentFile fp) = L.readFile fp
+runContent (ContentEnum c) = WE.toLBS c
+
 ----- Testing
 testSuite :: Test
 testSuite = testGroup "Yesod.Response"

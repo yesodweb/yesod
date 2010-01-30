@@ -29,9 +29,10 @@ import qualified Web.Authenticate.OpenId as OpenId
 import Yesod
 
 import Control.Monad.Attempt
+import qualified Data.ByteString.Char8 as B8
 
 import Data.Maybe (fromMaybe)
-import qualified Hack
+import qualified Network.Wai
 import Data.Typeable (Typeable)
 import Control.Exception (Exception, SomeException (..))
 
@@ -221,18 +222,14 @@ authLogout = do
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
 maybeIdentifier = do
-    env <- parseEnv
-    case lookup authCookieName $ Hack.hackHeaders env of
-        Nothing -> return Nothing
-        Just x -> return (Just x)
+    rr <- getRawRequest
+    return $ fmap cs $ lookup (B8.pack authCookieName) $ rawSession rr
 
 -- | Gets the display name for a user if available.
 displayName :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
 displayName = do
-    env <- parseEnv
-    case lookup authDisplayName $ Hack.hackHeaders env of
-        Nothing -> return Nothing
-        Just x -> return (Just x)
+    rr <- getRawRequest
+    return $ fmap cs $ lookup (B8.pack authDisplayName) $ rawSession rr
 
 -- | Gets the identifier for a user. If user is not logged in, redirects them
 -- to the login page.
@@ -254,11 +251,11 @@ authIdentifier = do
 requestPath :: (Functor m, Monad m, RequestReader m) => m String
 requestPath = do
     env <- parseEnv
-    let q = case Hack.queryString env of
+    let q = case B8.unpack $ Network.Wai.queryString env of
                 "" -> ""
                 q'@('?':_) -> q'
                 q' -> '?' : q'
-    return $! dropSlash (Hack.pathInfo env) ++ q
+    return $! dropSlash (B8.unpack $ Network.Wai.pathInfo env) ++ q
       where
         dropSlash ('/':x) = x
         dropSlash x = x

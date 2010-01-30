@@ -41,6 +41,6 @@ import Yesod.Request
 import Yesod.Yesod
 import Yesod.Definitions
 import Yesod.Handler
-import Hack (Application)
+import Network.Wai (Application)
 import Yesod.Template
 import Web.Mime

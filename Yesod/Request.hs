@@ -26,8 +26,7 @@ module Yesod.Request
     , getParams
     , postParams
     , languages
-      -- * Building actual request
-    , Hack.RequestMethod (..)
+    , parseWaiRequest
       -- * Parameter
     , ParamType (..)
     , ParamName
@@ -38,10 +37,12 @@ module Yesod.Request
 #endif
     ) where
 
-import qualified Hack
+import qualified Network.Wai as W
+import qualified Network.Wai.Enumerator as WE
 import Data.Function.Predicate (equals)
 import Yesod.Definitions
 import Web.Encodings
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import Data.Convertible.Text
 import Control.Arrow ((***))
@@ -50,8 +51,8 @@ import Data.Maybe (fromMaybe)
 
 #if TEST
 import Test.Framework (testGroup, Test)
-import Test.Framework.Providers.HUnit
-import Test.HUnit hiding (Test)
+--import Test.Framework.Providers.HUnit
+--import Test.HUnit hiding (Test)
 #endif
 
 data ParamType = GetParam | PostParam
@@ -66,22 +67,22 @@ class RequestReader m where
 languages :: (Functor m, RequestReader m) => m [Language]
 languages = rawLangs `fmap` getRawRequest
 
--- | Get the raw 'Hack.Env' value.
-parseEnv :: (Functor m, RequestReader m) => m Hack.Env
-parseEnv = rawEnv `fmap` getRawRequest
+-- | Get the raw 'W.Env' value.
+parseEnv :: (Functor m, RequestReader m) => m W.Request
+parseEnv = rawRequest `fmap` getRawRequest
 
--- | The raw information passed through Hack, cleaned up a bit.
+-- | The raw information passed through W, cleaned up a bit.
 data RawRequest = RawRequest
     { rawGetParams :: [(ParamName, ParamValue)]
     , rawCookies :: [(ParamName, ParamValue)]
+    , rawSession :: [(B.ByteString, B.ByteString)]
     -- when we switch to WAI, the following two should be combined and
     -- wrapped in the IO monad
     , rawPostParams :: [(ParamName, ParamValue)]
     , rawFiles :: [(ParamName, FileInfo String BL.ByteString)]
-    , rawEnv :: Hack.Env
+    , rawRequest :: W.Request
     , rawLangs :: [Language]
     }
-    deriving Show
 
 -- | All GET paramater values with the given name.
 getParams :: RawRequest -> ParamName -> [ParamValue]
@@ -101,27 +102,29 @@ postParams rr name = map snd
 cookies :: RawRequest -> ParamName -> [ParamValue]
 cookies rr name = map snd . filter (fst `equals` name) . rawCookies $ rr
 
-instance ConvertSuccess Hack.Env RawRequest where
-  convertSuccess env =
-    let gets' = decodeUrlPairs $ Hack.queryString env :: [(String, String)]
-        clength = fromMaybe "0" $ lookup "Content-Length" $ Hack.http env
-        ctype = fromMaybe "" $ lookup "Content-Type" $ Hack.http env
-        convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
-        (posts, files) = map (convertSuccess *** convertSuccess) ***
+parseWaiRequest :: W.Request -> [(B.ByteString, B.ByteString)] -> IO RawRequest
+parseWaiRequest env session = do
+    let gets' = map (cs *** cs) $ decodeUrlPairs $ W.queryString env
+    let clength = maybe "0" cs  $ lookup W.ReqContentLength
+                                $ W.httpHeaders env
+    let ctype = maybe "" cs $ lookup W.ReqContentType $ W.httpHeaders env
+    let convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
+    inputLBS <- WE.toLBS $ W.requestBody env -- FIXME
+    let (posts, files) = map (convertSuccess *** convertSuccess) ***
                          map (convertSuccess *** convertFileInfo)
                        $ parsePost ctype clength
-                       $ Hack.hackInput env
-        rawCookie = fromMaybe "" $ lookup "Cookie" $ Hack.http env
-        cookies' = decodeCookies rawCookie :: [(String, String)]
-        acceptLang = lookup "Accept-Language" $ Hack.http env
-        langs = maybe [] parseHttpAccept acceptLang
+                         inputLBS
+        rawCookie = fromMaybe B.empty $ lookup W.Cookie $ W.httpHeaders env
+        cookies' = map (cs *** cs) $ decodeCookies rawCookie
+        acceptLang = lookup W.AcceptLanguage $ W.httpHeaders env
+        langs = map cs $ maybe [] parseHttpAccept acceptLang
         langs' = case lookup langKey cookies' of
                     Nothing -> langs
                     Just x -> x : langs
         langs'' = case lookup langKey gets' of
                      Nothing -> langs'
                      Just x -> x : langs'
-     in RawRequest gets' cookies' posts files env langs''
+    return $ RawRequest gets' cookies' session posts files env langs''
 
 #if TEST
 testSuite :: Test
