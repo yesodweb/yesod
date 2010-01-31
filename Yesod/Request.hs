@@ -115,7 +115,7 @@ parseWaiRequest env session = do
                        $ parsePost ctype clength
                          inputLBS
         rawCookie = fromMaybe B.empty $ lookup W.Cookie $ W.httpHeaders env
-        cookies' = map (cs *** cs) $ decodeCookies rawCookie
+        cookies' = map (cs *** cs) $ parseCookies rawCookie
         acceptLang = lookup W.AcceptLanguage $ W.httpHeaders env
         langs = map cs $ maybe [] parseHttpAccept acceptLang
         langs' = case lookup langKey cookies' of

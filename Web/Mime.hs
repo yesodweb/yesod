@@ -6,6 +6,7 @@ module Web.Mime
     , contentTypeFromBS
     , typeByExt
     , ext
+    , simpleContentType
     ) where
 
 import Data.Function (on)
@@ -47,6 +48,9 @@ instance ConvertSuccess ContentType [Char] where
     convertSuccess TypeOgv = "video/ogg"
     convertSuccess TypeOctet = "application/octet-stream"
     convertSuccess (TypeOther s) = s
+
+simpleContentType :: ContentType -> String
+simpleContentType = fst . span (/= ';') . cs
 
 instance Eq ContentType where
     (==) = (==) `on` (cs :: ContentType -> String)

@@ -126,7 +126,8 @@ instance HasReps () where
 
 instance HasReps [(ContentType, Content)] where
     chooseRep a cts = return $
-        case filter (\(ct, _) -> ct `elem` cts) a of
+        case filter (\(ct, _) -> simpleContentType ct `elem`
+                                  map simpleContentType cts) a of
             ((ct, c):_) -> (ct, c)
             _ -> case a of
                     (x:_) -> x
