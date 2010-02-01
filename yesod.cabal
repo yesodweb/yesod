@@ -57,6 +57,7 @@ library
                      Yesod.Request
                      Yesod.Response
                      Yesod.Definitions
+                     Yesod.Form
                      Yesod.Handler
                      Yesod.Resource
                      Yesod.Yesod
