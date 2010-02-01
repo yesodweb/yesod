@@ -170,10 +170,11 @@ rpxnowLogin = do
                 Just x -> return x
                 Nothing -> notFound
     rr <- getRawRequest
-    let token = case getParams rr "token" ++ postParams rr "token" of
+    pp <- postParams rr
+    let token = case getParams rr "token" ++ pp "token" of
                     [] -> failure MissingToken
                     (x:_) -> x
-    let dest = case postParams rr "dest" of
+    let dest = case pp "dest" of
                 [] -> case getParams rr "dest" of
                         [] -> ar
                         ("":_) -> ar

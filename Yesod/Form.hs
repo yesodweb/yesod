@@ -53,7 +53,8 @@ runFormGeneric params (Form f) =
 runFormPost :: Form x -> Handler y x
 runFormPost f = do
     rr <- getRawRequest
-    runFormGeneric (postParams rr) f
+    pp <- postParams rr
+    runFormGeneric pp f
 
 -- | Run a form against GET parameters.
 runFormGet :: Form x -> Handler y x

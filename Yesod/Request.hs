@@ -48,6 +48,8 @@ import Data.Convertible.Text
 import Control.Arrow ((***))
 import Control.Exception (SomeException (..))
 import Data.Maybe (fromMaybe)
+import Control.Monad.Trans
+import Control.Concurrent.MVar
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -71,32 +73,36 @@ languages = rawLangs `fmap` getRawRequest
 parseEnv :: (Functor m, RequestReader m) => m W.Request
 parseEnv = rawRequest `fmap` getRawRequest
 
+type RequestBodyContents =
+    ( [(ParamName, ParamValue)]
+    , [(ParamName, FileInfo String BL.ByteString)]
+    )
+
 -- | The raw information passed through W, cleaned up a bit.
 data RawRequest = RawRequest
     { rawGetParams :: [(ParamName, ParamValue)]
     , rawCookies :: [(ParamName, ParamValue)]
     , rawSession :: [(B.ByteString, B.ByteString)]
-    -- when we switch to WAI, the following two should be combined and
-    -- wrapped in the IO monad
-    , rawPostParams :: [(ParamName, ParamValue)]
-    , rawFiles :: [(ParamName, FileInfo String BL.ByteString)]
+    , rawRequestBody :: IO RequestBodyContents
     , rawRequest :: W.Request
     , rawLangs :: [Language]
     }
 
+multiLookup :: [(ParamName, ParamValue)] -> ParamName -> [ParamValue]
+multiLookup [] _ = []
+multiLookup ((k, v):rest) pn
+    | k == pn = v : multiLookup rest pn
+    | otherwise = multiLookup rest pn
+
 -- | All GET paramater values with the given name.
 getParams :: RawRequest -> ParamName -> [ParamValue]
-getParams rr name = map snd
-                  . filter (\x -> name == fst x)
-                  . rawGetParams
-                  $ rr
+getParams rr = multiLookup $ rawGetParams rr
 
 -- | All POST paramater values with the given name.
-postParams :: RawRequest -> ParamName -> [ParamValue]
-postParams rr name = map snd
-                   . filter (\x -> name == fst x)
-                   . rawPostParams
-                   $ rr
+postParams :: MonadIO m => RawRequest -> m (ParamName -> [ParamValue])
+postParams rr = do
+    (pp, _) <- liftIO $ rawRequestBody rr
+    return $ multiLookup pp
 
 -- | All cookies with the given name.
 cookies :: RawRequest -> ParamName -> [ParamValue]
@@ -105,16 +111,7 @@ cookies rr name = map snd . filter (fst `equals` name) . rawCookies $ rr
 parseWaiRequest :: W.Request -> [(B.ByteString, B.ByteString)] -> IO RawRequest
 parseWaiRequest env session = do
     let gets' = map (cs *** cs) $ decodeUrlPairs $ W.queryString env
-    let clength = maybe "0" cs  $ lookup W.ReqContentLength
-                                $ W.httpHeaders env
-    let ctype = maybe "" cs $ lookup W.ReqContentType $ W.httpHeaders env
-    let convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
-    inputLBS <- WE.toLBS $ W.requestBody env -- FIXME
-    let (posts, files) = map (convertSuccess *** convertSuccess) ***
-                         map (convertSuccess *** convertFileInfo)
-                       $ parsePost ctype clength
-                         inputLBS
-        rawCookie = fromMaybe B.empty $ lookup W.Cookie $ W.httpHeaders env
+    let rawCookie = fromMaybe B.empty $ lookup W.Cookie $ W.httpHeaders env
         cookies' = map (cs *** cs) $ parseCookies rawCookie
         acceptLang = lookup W.AcceptLanguage $ W.httpHeaders env
         langs = map cs $ maybe [] parseHttpAccept acceptLang
@@ -124,7 +121,23 @@ parseWaiRequest env session = do
         langs'' = case lookup langKey gets' of
                      Nothing -> langs'
                      Just x -> x : langs'
-    return $ RawRequest gets' cookies' session posts files env langs''
+    mrb <- newMVar $ Left env
+    return $ RawRequest gets' cookies' session (rbHelper mrb) env langs''
+
+rbHelper :: MVar (Either W.Request RequestBodyContents)
+         -> IO RequestBodyContents
+rbHelper mvar = modifyMVar mvar helper where
+    helper (Right bc) = return (Right bc, bc)
+    helper (Left env) = do
+        inputLBS <- WE.toLBS $ W.requestBody env -- FIXME
+        let clength = maybe "0" cs  $ lookup W.ReqContentLength
+                                    $ W.httpHeaders env
+        let ctype = maybe "" cs $ lookup W.ReqContentType $ W.httpHeaders env
+        let convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
+        let ret = map (cs *** cs) ***
+                  map (cs *** convertFileInfo)
+                $ parsePost ctype clength inputLBS
+        return (Right ret, ret)
 
 #if TEST
 testSuite :: Test
