@@ -1,17 +1,14 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE EmptyDataDecls #-}
 module Test.Errors (testSuite) where
 
 import Yesod
 import Yesod.Helpers.Auth
-import Network.Wai
-import Data.Default
-import Data.List
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
-import qualified Data.ByteString.Char8 as B8
 
-data Errors = Errors
+data Errors
 instance Yesod Errors where
     resources = [$mkResources|
 /denied:

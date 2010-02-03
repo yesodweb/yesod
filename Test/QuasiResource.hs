@@ -31,11 +31,11 @@ pageDelete :: String -> Handler MyYesod (Html, HtmlObject)
 pageDelete s = addHead $ toHtmlObject ["pageDelete", s]
 pageUpdate :: String -> Handler MyYesod ChooseRep
 pageUpdate s = return $ chooseRep $ addHead' $ toHtmlObject ["pageUpdate", s]
-userInfo :: Int -> Handler MyYesod (Html, HtmlObject)
+userInfo :: Integer -> Handler MyYesod (Html, HtmlObject)
 userInfo i = addHead $ toHtmlObject ["userInfo", show i]
-userVariable :: Int -> String -> Handler MyYesod (Html, HtmlObject)
+userVariable :: Integer -> String -> Handler MyYesod (Html, HtmlObject)
 userVariable i s = addHead $ toHtmlObject ["userVariable", show i, s]
-userPage :: Int -> [String] -> Handler MyYesod (Html, HtmlObject)
+userPage :: Integer -> [String] -> Handler MyYesod (Html, HtmlObject)
 userPage i p = addHead $ toHtmlObject ["userPage", show i, show p]
 
 instance Show (Verb -> Handler MyYesod ChooseRep) where

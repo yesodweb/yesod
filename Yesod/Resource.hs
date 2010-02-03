@@ -291,7 +291,7 @@ rpnodesTH ns = do
 
 data UrlParam = SlurpParam { slurpParam :: [String] }
               | StringParam { stringParam :: String }
-              | IntParam { intParam :: Int }
+              | IntParam { intParam :: Integer }
 
 getUrlParam :: RP -> Resource -> Int -> UrlParam
 getUrlParam rp = (!!) . paramsFromMatchingPattern rp
@@ -302,7 +302,7 @@ getUrlParamSlurp rp r = slurpParam . getUrlParam rp r
 getUrlParamString :: RP -> Resource -> Int -> String
 getUrlParamString rp r = stringParam . getUrlParam rp r
 
-getUrlParamInt :: RP -> Resource -> Int -> Int
+getUrlParamInt :: RP -> Resource -> Int -> Integer
 getUrlParamInt rp r = intParam . getUrlParam rp r
 
 applyUrlParams :: RP -> Exp -> Exp -> Q Exp
