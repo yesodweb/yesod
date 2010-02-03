@@ -4,7 +4,7 @@ license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
-synopsis:        A Restful front controller built on Hack.
+synopsis:        A library for creating RESTful web applications.
 description:     This package stradles the line between framework and simply a controller. It provides minimal support for model and view, mostly focusing on making a controller which adheres strictly to RESTful principles.
 category:        Web
 stability:       unstable
@@ -17,7 +17,7 @@ flag buildtests
   default: False
 
 flag buildsamples
-  description: Build the executable to run unit tests
+  description: Build the executable sample applications.
   default: False
 
 flag nolib
@@ -85,21 +85,12 @@ executable             runtests
     ghc-options:     -Wall
     main-is:         runtests.hs
 
-executable             quasi-test
-  if flag(buildsamples)
-    Buildable: True
-  else
-    Buildable: False
-  ghc-options:         -Wall
-  main-is:             test/quasi-resource.hs
-
 executable             helloworld
   if flag(buildsamples)
     Buildable: True
   else
     Buildable: False
   ghc-options:         -Wall
-  build-depends:       hack-handler-simpleserver >= 0.2.0 && < 0.3
   main-is:             examples/helloworld.lhs
 
 executable             hellotemplate

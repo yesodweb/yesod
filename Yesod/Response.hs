@@ -25,8 +25,13 @@ module Yesod.Response
     , HasReps (..)
     , defChooseRep
     , ioTextToContent
+    , hoToJsonContent
       -- ** Convenience wrappers
     , staticRep
+      -- ** Specific content types
+    , RepHtml (..)
+    , RepJson (..)
+    , RepHtmlJson (..)
       -- * Response type
     , Response (..)
       -- * Special responses
@@ -98,6 +103,9 @@ type ChooseRep = [ContentType] -> IO (ContentType, Content)
 ioTextToContent :: IO Text -> Content
 ioTextToContent t = ContentEnum $ WE.fromLBS' $ fmap DTLE.encodeUtf8 t
 
+hoToJsonContent :: HtmlObject -> Content
+hoToJsonContent = cs . unJsonDoc . cs
+
 -- | Any type which can be converted to representations.
 class HasReps a where
     chooseRep :: a -> ChooseRep
@@ -145,6 +153,19 @@ staticRep :: ConvertSuccess x Content
           -> x
           -> [(ContentType, Content)]
 staticRep ct x = [(ct, cs x)]
+
+newtype RepHtml = RepHtml Content
+instance HasReps RepHtml where
+    chooseRep (RepHtml c) _ = return (TypeHtml, c)
+newtype RepJson = RepJson Content
+instance HasReps RepJson where
+    chooseRep (RepJson c) _ = return (TypeJson, c)
+data RepHtmlJson = RepHtmlJson Content Content
+instance HasReps RepHtmlJson where
+    chooseRep (RepHtmlJson html json) = chooseRep
+        [ (TypeHtml, html)
+        , (TypeJson, json)
+        ]
 
 data Response = Response W.Status [Header] ContentType Content
 

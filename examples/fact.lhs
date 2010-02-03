@@ -7,13 +7,13 @@ signatures.
 > {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 There are only two imports: Yesod includes all of the code we need for creating
-a web application, while Hack.Handler.SimpleServer allows us to test our
-application easily. A Yesod app can in general run on any Hack handler, so this
+a web application, while Network.Wai.Handler.SimpleServer allows us to test our
+application easily. A Yesod app can in general run on any WAI handler, so this
 application is easily convertible to CGI, FastCGI, or even run on the Happstack
 server.
 
 > import Yesod
-> import Hack.Handler.SimpleServer
+> import Network.Wai.Handler.SimpleServer
 
 The easiest way to start writing a Yesod app is to follow the Yesod typeclass.
 You define some data type which will contain all the specific settings and data
@@ -100,9 +100,9 @@ factRedirect.
 
 >     return ()
 
-You could replace this main to use any Hack handler you want. For production,
+You could replace this main to use any WAI handler you want. For production,
 you could use CGI, FastCGI or a more powerful server. Just check out Hackage
 for options (any package starting hack-handler- should suffice).
 
 > main :: IO ()
-> main = putStrLn "Running..." >> toHackApp Fact >>= run 3000
+> main = putStrLn "Running..." >> toWaiApp Fact >>= run 3000

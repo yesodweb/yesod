@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>$o.title$</title>
+    <title>$title$</title>
     <style>
       body {
         background-color: #ffc;
@@ -20,7 +20,7 @@
   </head>
   <body>
     <div id="wrapper">
-      $o.content$
+      $content$
     </div>
   </body>
 </html>

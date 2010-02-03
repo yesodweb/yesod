@@ -2,7 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 import Yesod
-import Hack.Handler.SimpleServer
+import Network.Wai.Handler.SimpleServer
 
 data HelloWorld = HelloWorld TemplateGroup
 instance YesodTemplate HelloWorld where
@@ -15,18 +15,17 @@ instance Yesod HelloWorld where
     Get: helloGroup
 |]
 
-helloWorld :: Handler HelloWorld TemplateFile
-helloWorld = return $ TemplateFile "examples/template.html" $ cs
-                [ ("title", "Hello world!")
-                , ("content", "Hey look!! I'm <auto escaped>!")
-                ]
+helloWorld :: Handler HelloWorld RepHtml
+helloWorld = templateHtml "template" $ return
+  . setHtmlAttrib "title" "Hello world!"
+  . setHtmlAttrib "content" "Hey look!! I'm <auto escaped>!"
 
-helloGroup :: YesodTemplate y => Handler y ChooseRep
-helloGroup = template "real-template" (cs "bar") $ \ho ->
-    return . setAttribute "foo" ho
+helloGroup :: YesodTemplate y => Handler y RepHtmlJson
+helloGroup = templateHtmlJson "real-template" (cs "bar") $ \ho ->
+    return . setHtmlAttrib "foo" ho
 
 main :: IO ()
 main = do
     putStrLn "Running..."
-    loadTemplateGroup "examples" >>= toHackApp . HelloWorld >>= run 3000
+    loadTemplateGroup "examples" >>= toWaiApp . HelloWorld >>= run 3000
 \end{code}
