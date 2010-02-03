@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE PackageImports #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Request
@@ -48,7 +49,7 @@ import Data.Convertible.Text
 import Control.Arrow ((***))
 import Control.Exception (SomeException (..))
 import Data.Maybe (fromMaybe)
-import Control.Monad.Trans
+import "transformers" Control.Monad.Trans
 import Control.Concurrent.MVar
 
 #if TEST

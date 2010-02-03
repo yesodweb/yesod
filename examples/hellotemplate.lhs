@@ -7,6 +7,7 @@ import Network.Wai.Handler.SimpleServer
 data HelloWorld = HelloWorld TemplateGroup
 instance YesodTemplate HelloWorld where
     getTemplateGroup (HelloWorld tg) = tg
+    defaultTemplateAttribs _ = return . setHtmlAttrib "default" "<DEFAULT>"
 instance Yesod HelloWorld where
     resources = [$mkResources|
 /:

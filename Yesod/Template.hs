@@ -21,13 +21,14 @@ import Text.StringTemplate
 import Yesod.Response
 import Yesod.Yesod
 import Yesod.Handler
+import Control.Monad (join)
 
 type Template = StringTemplate Text
 type TemplateGroup = STGroup Text
 
 class Yesod y => YesodTemplate y where
     getTemplateGroup :: y -> TemplateGroup
-    -- FIXME defaultTemplateAttribs :: y -> HtmlTemplate -> Handler y HtmlTemplate
+    defaultTemplateAttribs :: y -> HtmlTemplate -> IO HtmlTemplate
 
 getTemplateGroup' :: YesodTemplate y => Handler y TemplateGroup
 getTemplateGroup' = getTemplateGroup `fmap` getYesod
@@ -49,11 +50,16 @@ templateHtml :: YesodTemplate y
              -> Handler y RepHtml
 templateHtml tn f = do
     tg <- getTemplateGroup'
+    y <- getYesod
     t <- case getStringTemplate tn tg of
             Nothing -> failure $ NoSuchTemplate tn
             Just x -> return x
-    return $ RepHtml $ ioTextToContent $ fmap (render . unHtmlTemplate)
-                     $ f $ HtmlTemplate t
+    return $ RepHtml $ ioTextToContent
+                     $ fmap (render . unHtmlTemplate)
+                     $ join
+                     $ fmap f
+                     $ defaultTemplateAttribs y
+                     $ HtmlTemplate t
 
 setHtmlAttrib :: ConvertSuccess x HtmlObject
               => String -> x -> HtmlTemplate -> HtmlTemplate
@@ -69,10 +75,16 @@ templateHtmlJson :: YesodTemplate y
                  -> Handler y RepHtmlJson
 templateHtmlJson tn ho f = do
     tg <- getTemplateGroup'
+    y <- getYesod
     t <- case getStringTemplate tn tg of
             Nothing -> failure $ NoSuchTemplate tn
             Just x -> return x
     return $ RepHtmlJson
-            (ioTextToContent $ fmap (render . unHtmlTemplate)
-                     $ f ho $ HtmlTemplate t)
+            ( ioTextToContent
+            $ fmap (render . unHtmlTemplate)
+            $ join
+            $ fmap (f ho)
+            $ defaultTemplateAttribs y
+            $ HtmlTemplate t
+            )
             (hoToJsonContent ho)
