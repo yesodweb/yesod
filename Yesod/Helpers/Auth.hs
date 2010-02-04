@@ -223,7 +223,7 @@ authLogout = do
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
 maybeIdentifier = do
-    rr <- getRawRequest
+    rr <- getRawRequest -- FIXME provide version outside of monad?
     return $ fmap cs $ lookup (B8.pack authCookieName) $ rawSession rr
 
 -- | Gets the display name for a user if available.

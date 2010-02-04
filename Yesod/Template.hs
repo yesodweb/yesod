@@ -22,13 +22,15 @@ import Yesod.Response
 import Yesod.Yesod
 import Yesod.Handler
 import Control.Monad (join)
+import Yesod.Request (RawRequest, getRawRequest)
 
 type Template = StringTemplate Text
 type TemplateGroup = STGroup Text
 
 class Yesod y => YesodTemplate y where
     getTemplateGroup :: y -> TemplateGroup
-    defaultTemplateAttribs :: y -> HtmlTemplate -> IO HtmlTemplate
+    defaultTemplateAttribs :: y -> RawRequest -> HtmlTemplate
+                           -> IO HtmlTemplate
 
 getTemplateGroup' :: YesodTemplate y => Handler y TemplateGroup
 getTemplateGroup' = getTemplateGroup `fmap` getYesod
@@ -54,11 +56,12 @@ templateHtml tn f = do
     t <- case getStringTemplate tn tg of
             Nothing -> failure $ NoSuchTemplate tn
             Just x -> return x
+    rr <- getRawRequest
     return $ RepHtml $ ioTextToContent
                      $ fmap (render . unHtmlTemplate)
                      $ join
                      $ fmap f
-                     $ defaultTemplateAttribs y
+                     $ defaultTemplateAttribs y rr
                      $ HtmlTemplate t
 
 setHtmlAttrib :: ConvertSuccess x HtmlObject
@@ -76,6 +79,7 @@ templateHtmlJson :: YesodTemplate y
 templateHtmlJson tn ho f = do
     tg <- getTemplateGroup'
     y <- getYesod
+    rr <- getRawRequest
     t <- case getStringTemplate tn tg of
             Nothing -> failure $ NoSuchTemplate tn
             Just x -> return x
@@ -84,7 +88,7 @@ templateHtmlJson tn ho f = do
             $ fmap (render . unHtmlTemplate)
             $ join
             $ fmap (f ho)
-            $ defaultTemplateAttribs y
+            $ defaultTemplateAttribs y rr
             $ HtmlTemplate t
             )
             (hoToJsonContent ho)
