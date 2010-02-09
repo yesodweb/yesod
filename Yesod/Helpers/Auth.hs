@@ -181,11 +181,15 @@ rpxnowLogin = do
                         (('#':rest):_) -> rest
                         (s:_) -> s
                 (d:_) -> d
+    let dest' = case cookies rr "DEST" of
+                    [] -> dest
+                    (x:_) -> x
     ident <- Rpxnow.authenticate apiKey token
     onRpxnowLogin ident
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
-    redirect RedirectTemporary dest
+    deleteCookie "DEST"
+    redirect RedirectTemporary dest'
 
 data MissingToken = MissingToken
     deriving (Show, Typeable)
