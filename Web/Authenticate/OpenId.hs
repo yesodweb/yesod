@@ -26,7 +26,7 @@ import Numeric (showHex)
 import Control.Monad.Trans
 import qualified Safe.Failure as A
 import Data.Generics
-import Control.Failure
+import Control.Failure hiding (Error)
 import Control.Exception
 
 -- | An openid identifier (ie, a URL).
