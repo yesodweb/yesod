@@ -131,4 +131,4 @@ httpAccept = map contentTypeFromBS
            . parseHttpAccept
            . fromMaybe B.empty
            . lookup W.Accept
-           . W.httpHeaders
+           . W.requestHeaders

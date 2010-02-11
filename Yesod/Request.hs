@@ -112,9 +112,9 @@ cookies rr name = map snd . filter (fst `equals` name) . rawCookies $ rr
 parseWaiRequest :: W.Request -> [(B.ByteString, B.ByteString)] -> IO RawRequest
 parseWaiRequest env session = do
     let gets' = map (cs *** cs) $ decodeUrlPairs $ W.queryString env
-    let rawCookie = fromMaybe B.empty $ lookup W.Cookie $ W.httpHeaders env
+    let rawCookie = fromMaybe B.empty $ lookup W.Cookie $ W.requestHeaders env
         cookies' = map (cs *** cs) $ parseCookies rawCookie
-        acceptLang = lookup W.AcceptLanguage $ W.httpHeaders env
+        acceptLang = lookup W.AcceptLanguage $ W.requestHeaders env
         langs = map cs $ maybe [] parseHttpAccept acceptLang
         langs' = case lookup langKey cookies' of
                     Nothing -> langs
@@ -132,8 +132,8 @@ rbHelper mvar = modifyMVar mvar helper where
     helper (Left env) = do
         inputLBS <- WE.toLBS $ W.requestBody env -- FIXME
         let clength = maybe "0" cs  $ lookup W.ReqContentLength
-                                    $ W.httpHeaders env
-        let ctype = maybe "" cs $ lookup W.ReqContentType $ W.httpHeaders env
+                                    $ W.requestHeaders env
+        let ctype = maybe "" cs $ lookup W.ReqContentType $ W.requestHeaders env
         let convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
         let ret = map (cs *** cs) ***
                   map (cs *** convertFileInfo)
