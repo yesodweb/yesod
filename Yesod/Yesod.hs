@@ -47,10 +47,11 @@ class Yesod a where
 
     -- | Applies some form of layout to <title> and <body> contents of a page.
     applyLayout :: a
+                -> RawRequest
                 -> String -- ^ title
                 -> Html -- ^ body
                 -> Content
-    applyLayout _ t b = cs (cs (Tag "title" [] $ cs t, b) :: HtmlDoc)
+    applyLayout _ _ t b = cs (cs (Tag "title" [] $ cs t, b) :: HtmlDoc)
 
 class Yesod a => YesodApproot a where
     -- | An absolute URL to the root of the application.
@@ -63,8 +64,9 @@ applyLayout' :: Yesod y
              -> Handler y ChooseRep
 applyLayout' t b = do
     y <- getYesod
+    rr <- getRawRequest
     return $ chooseRep
-        [ (TypeHtml, applyLayout y t b)
+        [ (TypeHtml, applyLayout y rr t b)
         ]
 
 -- | A convenience wrapper around 'applyLayout' which provides a JSON
@@ -75,8 +77,9 @@ applyLayoutJson :: Yesod y
                 -> Handler y ChooseRep
 applyLayoutJson t b = do
     y <- getYesod
+    rr <- getRawRequest
     return $ chooseRep
-        [ (TypeHtml, applyLayout y t $ cs b)
+        [ (TypeHtml, applyLayout y rr t $ cs b)
         , (TypeJson, cs $ unJsonDoc $ cs b)
         ]
 
