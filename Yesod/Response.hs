@@ -65,6 +65,7 @@ import qualified Data.Text.Lazy.Encoding as DTLE
 import Web.Encodings (formatW3)
 import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as WE
+import Yesod.Request
 
 #if TEST
 import Data.Object.Html hiding (testSuite)
@@ -192,7 +193,7 @@ data SpecialResponse =
 data ErrorResponse =
       NotFound
     | InternalError String
-    | InvalidArgs [(String, String)] -- FIXME use SomeException?
+    | InvalidArgs [(ParamName, ParamError)]
     | PermissionDenied
     deriving (Show, Eq)
 

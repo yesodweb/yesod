@@ -29,9 +29,9 @@ module Yesod.Request
     , languages
     , parseWaiRequest
       -- * Parameter
-    , ParamType (..)
     , ParamName
     , ParamValue
+    , ParamError
 #if TEST
     , testSuite
 #endif
@@ -56,9 +56,9 @@ import Test.Framework (testGroup, Test)
 --import Test.HUnit hiding (Test)
 #endif
 
-data ParamType = GetParam | PostParam
 type ParamName = String
 type ParamValue = String
+type ParamError = String
 
 class RequestReader m where
     getRawRequest :: m RawRequest
