@@ -103,6 +103,19 @@ postParams rr = do
     (pp, _) <- liftIO $ rawRequestBody rr
     return $ multiLookup pp
 
+-- | Produces a \"compute on demand\" value. The computation will be run once
+-- it is requested, and then the result will be stored. This will happen only
+-- once.
+iothunk :: IO a -> IO (IO a)
+iothunk = fmap go . newMVar . Left where
+    go :: MVar (Either (IO a) a) -> IO a
+    go mvar = modifyMVar mvar go'
+    go' :: Either (IO a) a -> IO (Either (IO a) a, a)
+    go' (Right val) = return (Right val, val)
+    go' (Left comp) = do
+        val <- comp
+        return (Right val, val)
+
 -- | All cookies with the given name.
 cookies :: RawRequest -> ParamName -> [ParamValue]
 cookies rr name = map snd . filter (fst `equals` name) . rawCookies $ rr
@@ -120,23 +133,20 @@ parseWaiRequest env session = do
         langs'' = case lookup langKey gets' of
                      Nothing -> langs'
                      Just x -> x : langs'
-    mrb <- newMVar $ Left env
-    return $ RawRequest gets' cookies' session (rbHelper mrb) env langs''
+    rbthunk <- iothunk $ rbHelper env
+    return $ RawRequest gets' cookies' session rbthunk env langs''
 
-rbHelper :: MVar (Either W.Request RequestBodyContents)
-         -> IO RequestBodyContents
-rbHelper mvar = modifyMVar mvar helper where
-    helper (Right bc) = return (Right bc, bc)
-    helper (Left env) = do
-        inputLBS <- WE.toLBS $ W.requestBody env -- FIXME
-        let clength = maybe "0" cs  $ lookup W.ReqContentLength
-                                    $ W.requestHeaders env
-        let ctype = maybe "" cs $ lookup W.ReqContentType $ W.requestHeaders env
-        let convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
-        let ret = map (cs *** cs) ***
-                  map (cs *** convertFileInfo)
-                $ parsePost ctype clength inputLBS
-        return (Right ret, ret)
+rbHelper :: W.Request -> IO RequestBodyContents
+rbHelper env = do
+    inputLBS <- WE.toLBS $ W.requestBody env -- FIXME
+    let clength = maybe "0" cs  $ lookup W.ReqContentLength
+                                $ W.requestHeaders env
+    let ctype = maybe "" cs $ lookup W.ReqContentType $ W.requestHeaders env
+    let convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
+    let ret = map (cs *** cs) ***
+              map (cs *** convertFileInfo)
+            $ parsePost ctype clength inputLBS
+    return ret
 
 #if TEST
 testSuite :: Test

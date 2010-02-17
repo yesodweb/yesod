@@ -496,12 +496,12 @@ caseFromYaml = do
     rp4 <- readRP "user/#id"
     let expected =
          [ RPNode rp1 $ AllMethods "getStatic"
-         , RPNode rp2 $ Methods [(Get, "pageIndex"), (Put, "pageAdd")]
-         , RPNode rp3 $ Methods [ (Get, "pageDetail")
-                              , (Delete, "pageDelete")
-                              , (Post, "pageUpdate")
+         , RPNode rp2 $ Methods [(GET, "pageIndex"), (PUT, "pageAdd")]
+         , RPNode rp3 $ Methods [ (GET, "pageDetail")
+                              , (DELETE, "pageDelete")
+                              , (POST, "pageUpdate")
                               ]
-         , RPNode rp4 $ Methods [(Get, "userInfo")]
+         , RPNode rp4 $ Methods [(GET, "userInfo")]
          ]
     contents' <- decodeFile "Test/resource-patterns.yaml"
     contents <- convertAttemptWrap (contents' :: TextObject)
@@ -519,7 +519,7 @@ caseCheckRPNodes = do
                ]
     Nothing @=? checkRPNodes bad1
     rp' <- readRP ""
-    let bad2 = [RPNode rp' $ Methods [(Get, "foo"), (Get, "bar")]]
+    let bad2 = [RPNode rp' $ Methods [(GET, "foo"), (GET, "bar")]]
     Nothing @=? checkRPNodes bad2
 
 caseReadRP :: Assertion

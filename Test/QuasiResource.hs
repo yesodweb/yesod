@@ -8,6 +8,7 @@ import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
 import Data.List
+import Network.Wai (Method (..))
 
 data MyYesod = MyYesod
 
@@ -19,7 +20,7 @@ addHead' x = (cs "", x)
 addHead :: Monad m => HtmlObject -> m (Html, HtmlObject)
 addHead = return . addHead'
 
-getStatic :: Verb -> [String] -> Handler MyYesod (Html, HtmlObject)
+getStatic :: Method -> [String] -> Handler MyYesod (Html, HtmlObject)
 getStatic v p = addHead $ toHtmlObject ["getStatic", show v, show p]
 pageIndex :: Handler MyYesod (Html, HtmlObject)
 pageIndex = addHead $ toHtmlObject ["pageIndex"]
@@ -38,26 +39,26 @@ userVariable i s = addHead $ toHtmlObject ["userVariable", show i, s]
 userPage :: Integer -> [String] -> Handler MyYesod (Html, HtmlObject)
 userPage i p = addHead $ toHtmlObject ["userPage", show i, show p]
 
-instance Show (Verb -> Handler MyYesod ChooseRep) where
+instance Show (Method -> Handler MyYesod ChooseRep) where
     show _ = "verb -> handler"
-instance Show (Resource -> Verb -> Handler MyYesod ChooseRep) where
+instance Show (Resource -> Method -> Handler MyYesod ChooseRep) where
     show _ = "resource -> verb -> handler"
-handler :: Resource -> Verb -> Handler MyYesod ChooseRep
+handler :: Resource -> Method -> Handler MyYesod ChooseRep
 handler = [$mkResources|
 /static/*filepath/: getStatic
 /page/:
-    Get: pageIndex
-    Put: pageAdd
+    GET: pageIndex
+    PUT: pageAdd
 /page/$page/:
-    Get: pageDetail
-    Delete: pageDelete
-    Post: pageUpdate
+    GET: pageDetail
+    DELETE: pageDelete
+    POST: pageUpdate
 /user/#id/:
-    Get: userInfo
+    GET: userInfo
 /user/#id/profile/$variable/:
-    Get: userVariable
+    GET: userVariable
 /user/#id/page/*page/:
-    Get: userPage
+    GET: userPage
 |]
 
 ph :: [String] -> Handler MyYesod ChooseRep -> Assertion
@@ -71,7 +72,8 @@ ph ss h = do
     mapM_ (helper res') ss
       where
         helper haystack needle =
-            assertBool needle $ needle `isInfixOf` haystack
+            assertBool (show ("needle", needle, ss, haystack))
+                $ needle `isInfixOf` haystack
 
 myShow :: Response -> IO String
 myShow (Response sc hs ct c) = runContent c >>= \c' -> return $ unlines
@@ -83,13 +85,13 @@ myShow (Response sc hs ct c) = runContent c >>= \c' -> return $ unlines
 
 caseQuasi :: Assertion
 caseQuasi = do
-    ph ["200", "foo"] $ handler ["static", "foo", "bar", "baz"] Get
-    ph ["404"] $ handler ["foo", "bar", "baz"] Get
-    ph ["200", "pageIndex"] $ handler ["page"] Get
-    ph ["404"] $ handler ["user"] Get
-    ph ["404"] $ handler ["user", "five"] Get
-    ph ["200", "userInfo", "5"] $ handler ["user", "5"] Get
-    ph ["200", "userVar"] $ handler ["user", "5", "profile", "email"] Get
+    ph ["200", "foo"] $ handler ["static", "foo", "bar", "baz"] GET
+    ph ["404"] $ handler ["foo", "bar", "baz"] GET
+    ph ["200", "pageIndex"] $ handler ["page"] GET
+    ph ["404"] $ handler ["user"] GET
+    ph ["404"] $ handler ["user", "five"] GET
+    ph ["200", "userInfo", "5"] $ handler ["user", "5"] GET
+    ph ["200", "userVar"] $ handler ["user", "5", "profile", "email"] GET
 
 testSuite :: Test
 testSuite = testGroup "Test.QuasiResource"

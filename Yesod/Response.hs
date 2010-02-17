@@ -65,11 +65,12 @@ import qualified Data.Text.Lazy.Encoding as DTLE
 import Web.Encodings (formatW3)
 import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as WE
-import Yesod.Request
 
 #if TEST
+import Yesod.Request hiding (testSuite)
 import Data.Object.Html hiding (testSuite)
 #else
+import Yesod.Request
 import Data.Object.Html
 #endif
 
