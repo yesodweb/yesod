@@ -23,7 +23,6 @@ module Yesod.Handler
     , getYesod
     , runHandler
     , liftIO
-    --, ToHandler (..)
       -- * Special handlers
     , redirect
     , sendFile

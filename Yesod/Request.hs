@@ -22,7 +22,7 @@ module Yesod.Request
       -- * RawRequest
       RawRequest (..)
     , RequestReader (..)
-    , parseEnv
+    , waiRequest
     , cookies
     , getParams
     , postParams
@@ -70,9 +70,9 @@ class RequestReader m where
 languages :: (Functor m, RequestReader m) => m [Language]
 languages = rawLangs `fmap` getRawRequest
 
--- | Get the raw 'W.Env' value.
-parseEnv :: (Functor m, RequestReader m) => m W.Request
-parseEnv = rawRequest `fmap` getRawRequest
+-- | Get the raw 'W.Request' value.
+waiRequest :: (Functor m, RequestReader m) => m W.Request
+waiRequest = rawWaiRequest `fmap` getRawRequest
 
 type RequestBodyContents =
     ( [(ParamName, ParamValue)]
@@ -85,7 +85,7 @@ data RawRequest = RawRequest
     , rawCookies :: [(ParamName, ParamValue)]
     , rawSession :: [(B.ByteString, B.ByteString)]
     , rawRequestBody :: IO RequestBodyContents
-    , rawRequest :: W.Request
+    , rawWaiRequest :: W.Request
     , rawLangs :: [Language]
     }
 

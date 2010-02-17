@@ -90,8 +90,10 @@ defaultErrorHandler :: Yesod y
                     => ErrorResponse
                     -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
-    --rr <- getRawRequest
-    applyLayout' "Not Found" $ cs $ toHtmlObject [("Not found", "FIXME")]
+    r <- waiRequest
+    applyLayout' "Not Found" $ cs $ toHtmlObject
+        [ ("Not found", cs $ W.pathInfo r :: String)
+        ]
 defaultErrorHandler PermissionDenied =
     applyLayout' "Permission Denied" $ cs "Permission denied"
 defaultErrorHandler (InvalidArgs ia) =
