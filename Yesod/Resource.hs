@@ -38,6 +38,7 @@ import Data.Char (isDigit)
 
 import Language.Haskell.TH.Syntax
 import Language.Haskell.TH.Quote
+import Network.Wai (Method (..), methodFromBS, methodToBS)
 {- Debugging
 import Language.Haskell.TH.Ppr
 import System.IO
@@ -53,6 +54,7 @@ import Yesod.Handler
 import Data.Maybe (fromJust)
 import Yesod.Response (chooseRep)
 import Control.Arrow
+import Data.ByteString (ByteString)
 
 #if TEST
 import Control.Monad (replicateM)
@@ -212,9 +214,9 @@ checkPatterns rpss = do
                 | overlaps x y = [(a, b)]
                 | otherwise = []
 
-data RPNode = RPNode RP VerbMap
+data RPNode = RPNode RP MethodMap
     deriving (Show, Eq)
-data VerbMap = AllVerbs String | Verbs [(Verb, String)]
+data MethodMap = AllMethods String | Methods [(Method, String)]
     deriving (Show, Eq)
 instance ConvertAttempt TextObject [RPNode] where
     convertAttempt = mapM helper <=< fromMapping where
@@ -223,40 +225,38 @@ instance ConvertAttempt TextObject [RPNode] where
             verbMap <- fromTextObject rest
             rp' <- readRP $ cs rp
             return $ RPNode rp' verbMap
-instance ConvertAttempt TextObject VerbMap where
-    convertAttempt (Scalar s) = return $ AllVerbs $ cs s
-    convertAttempt (Mapping m) = Verbs `fmap` mapM helper m where
-        helper :: (Text, TextObject) -> Attempt (Verb, String)
-        helper (v, Scalar f) = do
-            v' <- ca (cs v :: String)
-            return (v', cs f)
-        helper (_, x) = failure $ VerbMapNonScalar x
-    convertAttempt o = failure $ VerbMapSequence o
-data RPNodeException = VerbMapNonScalar TextObject
-                     | VerbMapSequence TextObject
+instance ConvertAttempt TextObject MethodMap where
+    convertAttempt (Scalar s) = return $ AllMethods $ cs s
+    convertAttempt (Mapping m) = Methods `fmap` mapM helper m where
+        helper :: (Text, TextObject) -> Attempt (Method, String)
+        helper (v, Scalar f) = return (methodFromBS $ cs v, cs f)
+        helper (_, x) = failure $ MethodMapNonScalar x
+    convertAttempt o = failure $ MethodMapSequence o
+data RPNodeException = MethodMapNonScalar TextObject
+                     | MethodMapSequence TextObject
     deriving (Show, Typeable)
 instance Exception RPNodeException
 
 checkRPNodes :: (MonadFailure OverlappingPatterns m,
-                 MonadFailure RepeatedVerb m,
+                 MonadFailure RepeatedMethod m,
                  MonadFailure InvalidResourcePattern m
                 )
              => [RPNode]
              -> m [RPNode]
 checkRPNodes nodes = do
     _ <- checkPatterns $ map (\(RPNode r _) -> cs r) nodes
-    mapM_ (\(RPNode _ v) -> checkVerbMap v) nodes
+    mapM_ (\(RPNode _ v) -> checkMethodMap v) nodes
     return nodes
         where
-            checkVerbMap (AllVerbs _) = return ()
-            checkVerbMap (Verbs vs) =
+            checkMethodMap (AllMethods _) = return ()
+            checkMethodMap (Methods vs) =
                 let vs' = map fst vs
                     res = nub vs' == vs'
-                 in unless res $ failure $ RepeatedVerb vs
+                 in unless res $ failure $ RepeatedMethod vs
 
-newtype RepeatedVerb = RepeatedVerb [(Verb, String)]
+newtype RepeatedMethod = RepeatedMethod [(Method, String)]
     deriving (Show, Typeable)
-instance Exception RepeatedVerb
+instance Exception RepeatedMethod
 
 rpnodesTHCheck :: [RPNode] -> Q Exp
 rpnodesTHCheck nodes = do
@@ -267,13 +267,13 @@ rpnodesTHCheck nodes = do
     -}
     rpnodesTH nodes'
 
-notFoundVerb :: Verb -> Handler yesod a
-notFoundVerb _verb = notFound
+notFoundMethod :: Method -> Handler yesod a
+notFoundMethod _verb = notFound
 
 rpnodesTH :: [RPNode] -> Q Exp
 rpnodesTH ns = do
     b <- mapM helper ns
-    nfv <- [|notFoundVerb|]
+    nfv <- [|notFoundMethod|]
     ow <- [|otherwise|]
     let b' = b ++ [(NormalG ow, nfv)]
     return $ LamE [VarP $ mkName "resource"]
@@ -285,7 +285,7 @@ rpnodesTH ns = do
             cpb <- [|doesPatternMatch|]
             let r' = VarE $ mkName "resource"
             let g = cpb `AppE` rp' `AppE` r'
-            vm' <- liftVerbMap vm r' rp
+            vm' <- liftMethodMap vm r' rp
             let vm'' = LamE [VarP $ mkName "verb"] vm'
             return (NormalG g, vm'')
 
@@ -350,8 +350,8 @@ instance Lift RPP where
     lift (Slurp s) = do
         sl <- [|Slurp|]
         return $ sl `AppE` (LitE $ StringL s)
-liftVerbMap :: VerbMap -> Exp -> RP -> Q Exp
-liftVerbMap (AllVerbs s) r rp = do
+liftMethodMap :: MethodMap -> Exp -> RP -> Q Exp
+liftMethodMap (AllMethods s) r rp = do
     -- handler function
     let f = VarE $ mkName s
     -- applied to the verb
@@ -362,23 +362,36 @@ liftVerbMap (AllVerbs s) r rp = do
     cr <- [|fmap chooseRep|]
     let f''' = cr `AppE` f''
     return f'''
-liftVerbMap (Verbs vs) r rp = do
+liftMethodMap (Methods vs) r rp = do
     cr <- [|fmap chooseRep|]
     vs' <- mapM (helper cr) vs
-    return $ CaseE (VarE $ mkName "verb") $ vs' ++ [whenNotFound]
+    return $ CaseE (TupE []) [Match WildP (GuardedB $ vs' ++ [whenNotFound]) []]
+    --return $ CaseE (VarE $ mkName "verb") $ vs' ++ [whenNotFound]
         where
-            helper :: Exp -> (Verb, String) -> Q Match
+            helper :: Exp -> (Method, String) -> Q (Guard, Exp)
             helper cr (v, fName) = do
+                method' <- liftMethod v
+                equals <- [|(==)|]
+                let eq = equals
+                           `AppE` method'
+                           `AppE` VarE ((mkName "verb"))
+                let g = NormalG $ eq
                 let f = VarE $ mkName fName
                 f' <- applyUrlParams rp r f
                 let f'' = cr `AppE` f'
-                let con = ConP (mkName $ show v) []
-                return $ Match con (NormalB f'') []
-            whenNotFound :: Match
+                return (g, f'')
+            whenNotFound :: (Guard, Exp)
             whenNotFound =
-                Match WildP
-                      (NormalB $ VarE $ mkName "notFound")
-                      []
+                (NormalG $ ConE $ mkName "True",
+                 VarE $ mkName "notFound")
+
+liftMethod :: Method -> Q Exp
+liftMethod m = do
+    cs' <- [|cs :: String -> ByteString|]
+    methodFromBS' <- [|methodFromBS|]
+    let s = cs $ methodToBS m :: String
+    s' <- liftString s
+    return $ methodFromBS' `AppE` AppE cs' s'
 
 strToExp :: Bool -> String -> Q Exp
 strToExp toCheck s = do
@@ -482,13 +495,13 @@ caseFromYaml = do
     rp3 <- readRP "page/$page"
     rp4 <- readRP "user/#id"
     let expected =
-         [ RPNode rp1 $ AllVerbs "getStatic"
-         , RPNode rp2 $ Verbs [(Get, "pageIndex"), (Put, "pageAdd")]
-         , RPNode rp3 $ Verbs [ (Get, "pageDetail")
+         [ RPNode rp1 $ AllMethods "getStatic"
+         , RPNode rp2 $ Methods [(Get, "pageIndex"), (Put, "pageAdd")]
+         , RPNode rp3 $ Methods [ (Get, "pageDetail")
                               , (Delete, "pageDelete")
                               , (Post, "pageUpdate")
                               ]
-         , RPNode rp4 $ Verbs [(Get, "userInfo")]
+         , RPNode rp4 $ Methods [(Get, "userInfo")]
          ]
     contents' <- decodeFile "Test/resource-patterns.yaml"
     contents <- convertAttemptWrap (contents' :: TextObject)
@@ -501,12 +514,12 @@ caseCheckRPNodes = do
     Just good @=? checkRPNodes good
     rp1 <- readRP "foo/bar"
     rp2 <- readRP "$foo/bar"
-    let bad1 = [ RPNode rp1 $ AllVerbs "foo"
-               , RPNode rp2 $ AllVerbs "bar"
+    let bad1 = [ RPNode rp1 $ AllMethods "foo"
+               , RPNode rp2 $ AllMethods "bar"
                ]
     Nothing @=? checkRPNodes bad1
     rp' <- readRP ""
-    let bad2 = [RPNode rp' $ Verbs [(Get, "foo"), (Get, "bar")]]
+    let bad2 = [RPNode rp' $ Methods [(Get, "foo"), (Get, "bar")]]
     Nothing @=? checkRPNodes bad2
 
 caseReadRP :: Assertion

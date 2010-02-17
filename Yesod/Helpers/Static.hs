@@ -27,6 +27,7 @@ import Control.Monad
 
 import Yesod
 import Data.List (intercalate)
+import Network.Wai (Method (GET))
 
 type FileLookup = FilePath -> IO (Maybe (Either FilePath Content))
 
@@ -44,9 +45,9 @@ fileLookupDir dir fp = do
         then return $ Just $ Left fp'
         else return Nothing
 
-serveStatic :: FileLookup -> Verb -> [String]
+serveStatic :: FileLookup -> Method -> [String]
             -> Handler y [(ContentType, Content)]
-serveStatic fl Get fp = getStatic fl fp
+serveStatic fl GET fp = getStatic fl fp
 serveStatic _ _ _ = notFound
 
 getStatic :: FileLookup -> [String] -> Handler y [(ContentType, Content)]

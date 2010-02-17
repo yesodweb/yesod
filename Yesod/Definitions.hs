@@ -15,8 +15,7 @@
 --
 ---------------------------------------------------------
 module Yesod.Definitions
-    ( Verb (..)
-    , Resource
+    ( Resource
     , Approot
     , Language
     , Location (..)
@@ -30,33 +29,7 @@ module Yesod.Definitions
     , destCookieTimeout
     ) where
 
-import qualified Network.Wai as W
-import Data.Convertible.Text
-import Control.Exception (Exception)
-import Data.Typeable (Typeable)
-import Language.Haskell.TH.Syntax
 import Data.ByteString.Char8 (pack, ByteString)
-
--- FIXME replace with Method?
-data Verb = Get | Put | Delete | Post
-    deriving (Eq, Show, Enum, Bounded)
-instance Lift Verb where
-    lift = return . ConE . mkName . show
-instance ConvertAttempt String Verb where
-    convertAttempt "Get" = return Get
-    convertAttempt "Put" = return Put
-    convertAttempt "Delete" = return Delete
-    convertAttempt "Post" = return Post
-    convertAttempt s = failure $ InvalidVerb s
-newtype InvalidVerb = InvalidVerb String
-    deriving (Show, Typeable)
-instance Exception InvalidVerb
-
-instance ConvertSuccess W.Method Verb where
-    convertSuccess W.PUT = Put
-    convertSuccess W.DELETE = Delete
-    convertSuccess W.POST = Post
-    convertSuccess _ = Get
 
 type Resource = [String]
 

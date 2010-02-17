@@ -32,7 +32,7 @@ import Control.Monad.Attempt
 import qualified Data.ByteString.Char8 as B8
 
 import Data.Maybe (fromMaybe)
-import qualified Network.Wai
+import qualified Network.Wai as W
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 
@@ -73,13 +73,12 @@ data AuthResource =
 rc :: HasReps x => Handler y x -> Handler y ChooseRep
 rc = fmap chooseRep
 
-authHandler :: YesodAuth y =>
-            Verb -> [String] -> Handler y ChooseRep
-authHandler Get ["check"] = rc authCheck
-authHandler Get ["logout"] = rc authLogout
-authHandler Get ["openid"] = rc authOpenidForm
-authHandler Get ["openid", "forward"] = rc authOpenidForward
-authHandler Get ["openid", "complete"] = rc authOpenidComplete
+authHandler :: YesodAuth y => W.Method -> [String] -> Handler y ChooseRep
+authHandler W.GET ["check"] = rc authCheck
+authHandler W.GET ["logout"] = rc authLogout
+authHandler W.GET ["openid"] = rc authOpenidForm
+authHandler W.GET ["openid", "forward"] = rc authOpenidForward
+authHandler W.GET ["openid", "complete"] = rc authOpenidComplete
 -- two different versions of RPX protocol apparently, so just accepting all
 -- verbs
 authHandler _ ["login", "rpxnow"] = rc rpxnowLogin
@@ -225,11 +224,11 @@ redirectLogin =
 requestPath :: (Functor m, Monad m, RequestReader m) => m String
 requestPath = do
     env <- waiRequest
-    let q = case B8.unpack $ Network.Wai.queryString env of
+    let q = case B8.unpack $ W.queryString env of
                 "" -> ""
                 q'@('?':_) -> q'
                 q' -> '?' : q'
-    return $! dropSlash (B8.unpack $ Network.Wai.pathInfo env) ++ q
+    return $! dropSlash (B8.unpack $ W.pathInfo env) ++ q
       where
         dropSlash ('/':x) = x
         dropSlash x = x

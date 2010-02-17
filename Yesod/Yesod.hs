@@ -30,7 +30,7 @@ import Network.Wai.Middleware.MethodOverride
 class Yesod a where
     -- | Please use the Quasi-Quoter, you\'ll be happier. For more information,
     -- see the examples/fact.lhs sample.
-    resources :: Resource -> Verb -> Handler a ChooseRep
+    resources :: Resource -> W.Method -> Handler a ChooseRep
 
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
@@ -125,8 +125,7 @@ toWaiApp' :: Yesod y
           -> IO W.Response
 toWaiApp' y resource session env = do
     let types = httpAccept env
-        verb = cs $ W.requestMethod env :: Verb
-        handler = resources (map cs resource) verb
+        handler = resources (map cs resource) $ W.requestMethod env
     rr <- parseWaiRequest env session
     res <- runHandler handler errorHandler rr y types
     responseToWaiResponse res

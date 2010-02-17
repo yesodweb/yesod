@@ -56,11 +56,11 @@ request method.)
 \begin{code}
    resources = [$mkResources|
 /:
-    Get: index
+    GET: index
 /#num:
-    Get: fact
+    GET: fact
 /fact:
-    Get: factRedirect
+    GET: factRedirect
 |]
 \end{code}
 
