@@ -116,7 +116,7 @@ authOpenidForm = do
     rr <- getRawRequest
     case getParams rr "dest" of
         [] -> return ()
-        (x:_) -> addCookie 120 "DEST" x
+        (x:_) -> addCookie destCookieTimeout destCookieName x
     let html =
          HtmlList
           [ case getParams rr "message" of
@@ -146,20 +146,16 @@ authOpenidForward = do
 
 authOpenidComplete :: YesodApproot y => Handler y ()
 authOpenidComplete = do
-    ar <- getApproot
     rr <- getRawRequest
     let gets' = rawGetParams rr
-    let dest = case cookies rr "DEST" of
-                [] -> ar
-                (x:_) -> x
     res <- runAttemptT $ OpenId.authenticate gets'
     let onFailure err = redirect RedirectTemporary
                              $ "/auth/openid/?message="
                             ++ encodeUrl (show err)
     let onSuccess (OpenId.Identifier ident) = do
-        deleteCookie "DEST"
+        ar <- getApproot
         header authCookieName ident
-        redirect RedirectTemporary dest
+        redirectToDest RedirectTemporary ar
     attempt onFailure onSuccess res
 
 rpxnowLogin :: YesodAuth y => Handler y ()
@@ -181,15 +177,11 @@ rpxnowLogin = do
                         (('#':rest):_) -> rest
                         (s:_) -> s
                 (d:_) -> d
-    let dest' = case cookies rr "DEST" of
-                    [] -> dest
-                    (x:_) -> x
     ident <- Rpxnow.authenticate apiKey token
     onRpxnowLogin ident
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
-    deleteCookie "DEST"
-    redirect RedirectTemporary dest'
+    redirectToDest RedirectTemporary dest
 
 data MissingToken = MissingToken
     deriving (Show, Typeable)
@@ -216,13 +208,7 @@ authCheck = do
 authLogout :: YesodAuth y => Handler y ()
 authLogout = do
     deleteCookie authCookieName
-    rr <- getRawRequest
-    ar <- getApproot
-    let dest = case cookies rr "DEST" of
-                [] -> ar
-                (x:_) -> x
-    deleteCookie "DEST"
-    redirect RedirectTemporary dest
+    getApproot >>= redirectToDest RedirectTemporary
 
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
@@ -239,23 +225,19 @@ displayName = do
 -- | Gets the identifier for a user. If user is not logged in, redirects them
 -- to the login page.
 authIdentifier :: YesodAuth y => Handler y String
-authIdentifier = do
-    mi <- maybeIdentifier
-    ar <- getApproot
-    case mi of
-        Nothing -> do
-            rp <- requestPath
-            let dest = ar ++ rp
-            lp <- defaultLoginPath `fmap` getYesod
-            addCookie 120 "DEST" dest
-            redirect RedirectTemporary lp
-        Just x -> return x
+authIdentifier = maybeIdentifier >>= maybe redirectLogin return
+
+-- | Redirect the user to the 'defaultLoginPath', setting the DEST cookie
+-- appropriately.
+redirectLogin :: YesodAuth y => Handler y a
+redirectLogin =
+    defaultLoginPath `fmap` getYesod >>= redirectSetDest RedirectTemporary
 
 -- | Determinge the path requested by the user (ie, the path info). This
 -- includes the query string.
 requestPath :: (Functor m, Monad m, RequestReader m) => m String
 requestPath = do
-    env <- parseEnv
+    env <- waiRequest
     let q = case B8.unpack $ Network.Wai.queryString env of
                 "" -> ""
                 q'@('?':_) -> q'
@@ -264,3 +246,25 @@ requestPath = do
       where
         dropSlash ('/':x) = x
         dropSlash x = x
+
+-- | Redirect to the given URL, and set a cookie with the current URL so the
+-- user will ultimately be sent back here.
+redirectSetDest :: YesodApproot y => RedirectType -> String -> Handler y a
+redirectSetDest rt dest = do
+    ar <- getApproot
+    rp <- requestPath
+    let curr = ar ++ rp
+    addCookie destCookieTimeout destCookieName curr
+    redirect rt dest
+
+-- | Read the 'destCookieName' cookie and redirect to this destination. If the
+-- cookie is missing, then use the default path provided.
+redirectToDest :: RedirectType -> String -> Handler y a
+redirectToDest rt def = do
+    rr <- getRawRequest
+    dest <- case cookies rr destCookieName of
+                [] -> return def
+                (x:_) -> do
+                    deleteCookie destCookieName
+                    return x
+    redirect rt dest

@@ -26,6 +26,8 @@ module Yesod.Definitions
     , authDisplayName
     , encryptedCookies
     , langKey
+    , destCookieName
+    , destCookieTimeout
     ) where
 
 import qualified Network.Wai as W
@@ -85,3 +87,9 @@ encryptedCookies = [pack authDisplayName, pack authCookieName]
 
 langKey :: String
 langKey = "_LANG"
+
+destCookieName :: String
+destCookieName = "DEST"
+
+destCookieTimeout :: Int
+destCookieTimeout = 120
