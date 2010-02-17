@@ -35,6 +35,7 @@ import Data.Maybe (fromMaybe)
 import qualified Network.Wai as W
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
+import Control.Applicative ((<$>))
 
 class YesodApproot a => YesodAuth a where
     -- | The following breaks DRY, but I cannot think of a better solution
@@ -198,9 +199,9 @@ authLogout = do
 
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
-maybeIdentifier = do
-    rr <- getRawRequest -- FIXME provide version outside of monad?
-    return $ fmap cs $ lookup (B8.pack authCookieName) $ rawSession rr
+maybeIdentifier =
+    fmap cs . lookup (B8.pack authCookieName) . rawSession
+    <$> getRawRequest
 
 -- | Gets the display name for a user if available.
 displayName :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
