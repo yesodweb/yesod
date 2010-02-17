@@ -34,7 +34,7 @@ import qualified Data.ByteString.Char8 as B8
 import Data.Maybe (fromMaybe)
 import qualified Network.Wai
 import Data.Typeable (Typeable)
-import Control.Exception (Exception, SomeException (..))
+import Control.Exception (Exception)
 
 class YesodApproot a => YesodAuth a where
     -- | The following breaks DRY, but I cannot think of a better solution
@@ -91,25 +91,9 @@ instance ConvertSuccess OIDFormReq Html where
     convertSuccess (OIDFormReq (Just s) _) =
         Tag "p" [("class", "message")] $ cs s
 
-someParam :: (Monad m, RequestReader m)
-          => ParamType
-          -> (RawRequest -> ParamName -> [ParamValue])
-          -> ParamName
-          -> m ParamValue
-someParam pt paramList pn = do
-    rr <- getRawRequest
-    case paramList rr pn of
-        [x] -> return x
-        x -> invalidParams [((pt, pn, x), SomeException ExpectedSingleParam)]
-
 data ExpectedSingleParam = ExpectedSingleParam
     deriving (Show, Typeable)
 instance Exception ExpectedSingleParam
-
-getParam :: (Monad m, RequestReader m)
-         => ParamName
-         -> m ParamValue
-getParam = someParam GetParam getParams
 
 authOpenidForm :: Yesod y => Handler y ChooseRep
 authOpenidForm = do
@@ -134,7 +118,10 @@ authOpenidForm = do
 
 authOpenidForward :: YesodAuth y => Handler y ()
 authOpenidForward = do
-    oid <- getParam "openid"
+    rr <- getRawRequest
+    oid <- case getParams rr "openid" of
+            [x] -> return x
+            _ -> invalidArgs [("openid", show ExpectedSingleParam)]
     authroot <- getFullAuthRoot
     let complete = authroot ++ "/openid/complete/"
     res <- runAttemptT $ OpenId.getForwardUrl oid complete

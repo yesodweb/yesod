@@ -32,7 +32,6 @@ module Yesod.Request
     , ParamType (..)
     , ParamName
     , ParamValue
-    , ParamException
 #if TEST
     , testSuite
 #endif
@@ -47,7 +46,6 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import Data.Convertible.Text
 import Control.Arrow ((***))
-import Control.Exception (SomeException (..))
 import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.Trans
 import Control.Concurrent.MVar
@@ -61,11 +59,11 @@ import Test.Framework (testGroup, Test)
 data ParamType = GetParam | PostParam
 type ParamName = String
 type ParamValue = String
-type ParamException = [((ParamType, ParamName, [ParamValue]), SomeException)]
 
 class RequestReader m where
     getRawRequest :: m RawRequest
-    invalidParams :: ParamException -> m a
+instance RequestReader ((->) RawRequest) where
+    getRawRequest = id
 
 languages :: (Functor m, RequestReader m) => m [Language]
 languages = rawLangs `fmap` getRawRequest

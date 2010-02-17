@@ -192,7 +192,7 @@ data SpecialResponse =
 data ErrorResponse =
       NotFound
     | InternalError String
-    | InvalidArgs [(String, String)]
+    | InvalidArgs [(String, String)] -- FIXME use SomeException?
     | PermissionDenied
     deriving (Show, Eq)
 

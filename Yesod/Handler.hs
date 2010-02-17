@@ -86,8 +86,6 @@ instance Exception e => Failure e (Handler yesod) where
 instance RequestReader (Handler yesod) where
     getRawRequest = Handler $ \(HandlerData rr _)
                         -> return ([], HCContent rr)
-    invalidParams = invalidArgs . map helper where
-        helper ((_pt, pn, _pvs), e) = (pn, show e)
 
 getYesod :: Handler yesod yesod
 getYesod = Handler $ \(HandlerData _ yesod) -> return ([], HCContent yesod)
@@ -153,7 +151,7 @@ notFound = errorResponse NotFound
 permissionDenied :: Handler yesod a
 permissionDenied = errorResponse PermissionDenied
 
-invalidArgs :: [(ParamName, ParamValue)] -> Handler yesod a
+invalidArgs :: [(ParamName, String)] -> Handler yesod a
 invalidArgs = errorResponse . InvalidArgs
 
 ------- Headers
