@@ -20,6 +20,7 @@ module Yesod.Helpers.Auth
     , maybeIdentifier
     , authIdentifier
     , displayName
+    , redirectLogin
     ) where
 
 import Web.Encodings
