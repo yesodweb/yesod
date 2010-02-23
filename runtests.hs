@@ -6,6 +6,7 @@ import qualified Yesod.Request
 import qualified Data.Object.Html
 import qualified Test.Errors
 import qualified Test.QuasiResource
+import qualified Web.Mime
 
 main :: IO ()
 main = defaultMain
@@ -15,4 +16,5 @@ main = defaultMain
     , Data.Object.Html.testSuite
     , Test.Errors.testSuite
     , Test.QuasiResource.testSuite
+    , Web.Mime.testSuite
     ]

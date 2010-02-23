@@ -60,7 +60,7 @@ import Data.ByteString (ByteString)
 import Control.Monad (replicateM)
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
-import Test.Framework.Providers.QuickCheck (testProperty)
+import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.HUnit hiding (Test)
 import Test.QuickCheck
 import Control.Monad (when)
@@ -414,7 +414,6 @@ testSuite = testGroup "Yesod.Resource"
     ]
 
 instance Arbitrary RP where
-    coarbitrary = undefined
     arbitrary = do
         size <- elements [1..10]
         rpps <- replicateM size arbitrary
@@ -486,7 +485,6 @@ instance Arbitrary RPP where
         size <- elements [1..10]
         s <- replicateM size $ elements ['a'..'z']
         return $ constr s
-    coarbitrary = undefined
 
 caseFromYaml :: Assertion
 caseFromYaml = do

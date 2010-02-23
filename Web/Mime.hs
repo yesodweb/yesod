@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE CPP #-}
 -- | Generic MIME type module. Could be spun off into its own package.
 module Web.Mime
     ( ContentType (..)
@@ -7,11 +8,23 @@ module Web.Mime
     , typeByExt
     , ext
     , simpleContentType
+#if TEST
+    , testSuite
+#endif
     ) where
 
 import Data.Function (on)
 import Data.Convertible.Text
 import Data.ByteString.Char8 (pack, ByteString, unpack)
+
+#if TEST
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.HUnit
+import Test.Framework.Providers.QuickCheck2 (testProperty)
+import Test.HUnit hiding (Test)
+import Test.QuickCheck
+import Control.Monad (when)
+#endif
 
 data ContentType =
     TypeHtml
@@ -75,3 +88,23 @@ typeByExt _ = TypeOctet
 -- | Get a file extension (everything after last period).
 ext :: String -> String
 ext = reverse . fst . break (== '.') . reverse
+
+#if TEST
+---- Testing
+testSuite :: Test
+testSuite = testGroup "Yesod.Resource"
+    [ testProperty "ext" propExt
+    , testCase "typeByExt" caseTypeByExt
+    ]
+
+propExt :: String -> Bool
+propExt s =
+    let s' = filter (/= '.') s
+     in s' == ext ("foobarbaz." ++ s')
+
+caseTypeByExt :: Assertion
+caseTypeByExt = do
+    TypeJavascript @=? typeByExt (ext "foo.js")
+    TypeHtml @=? typeByExt (ext "foo.html")
+
+#endif

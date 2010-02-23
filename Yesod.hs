@@ -32,11 +32,13 @@ import Yesod.Resource hiding (testSuite)
 import Yesod.Response hiding (testSuite)
 import Data.Object.Html hiding (testSuite)
 import Yesod.Request hiding (testSuite)
+import Web.Mime hiding (testSuite)
 #else
 import Yesod.Resource
 import Yesod.Response
 import Data.Object.Html
 import Yesod.Request
+import Web.Mime
 #endif
 
 import Yesod.Form
@@ -45,4 +47,3 @@ import Yesod.Definitions
 import Yesod.Handler
 import Network.Wai (Application)
 import Yesod.Template
-import Web.Mime

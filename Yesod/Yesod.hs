@@ -23,7 +23,6 @@ import Web.Encodings (parseHttpAccept)
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath
 import Network.Wai.Middleware.ClientSession
-import Network.Wai.Middleware.Gzip
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.MethodOverride
 
@@ -110,8 +109,7 @@ toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do
     key <- encryptKey a
     let mins = clientSessionDuration a
-    return $ gzip
-           $ jsonp
+    return $ jsonp
            $ methodOverride
            $ cleanPath
            $ \thePath -> clientsession encryptedCookies key mins

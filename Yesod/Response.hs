@@ -69,16 +69,16 @@ import qualified Network.Wai.Enumerator as WE
 #if TEST
 import Yesod.Request hiding (testSuite)
 import Data.Object.Html hiding (testSuite)
+import Web.Mime hiding (testSuite)
 #else
 import Yesod.Request
 import Data.Object.Html
+import Web.Mime
 #endif
 
 #if TEST
 import Test.Framework (testGroup, Test)
 #endif
-
-import Web.Mime
 
 data Content = ContentFile FilePath
              | ContentEnum (forall a. W.Enumerator a)
