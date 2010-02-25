@@ -52,6 +52,10 @@ class Yesod a where
                 -> Content
     applyLayout _ _ t b = cs (cs (Tag "title" [] $ cs t, b) :: HtmlDoc)
 
+    -- | Gets called at the beginning of each request. Useful for logging.
+    onRequest :: a -> RawRequest -> IO ()
+    onRequest _ _ = return ()
+
 class Yesod a => YesodApproot a where
     -- | An absolute URL to the root of the application.
     approot :: a -> Approot
@@ -125,6 +129,7 @@ toWaiApp' y resource session env = do
     let types = httpAccept env
         handler = resources (map cs resource) $ W.requestMethod env
     rr <- parseWaiRequest env session
+    onRequest y rr
     res <- runHandler handler errorHandler rr y types
     responseToWaiResponse res
 
