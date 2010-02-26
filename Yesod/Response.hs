@@ -81,12 +81,15 @@ import Test.Framework (testGroup, Test)
 #endif
 
 data Content = ContentFile FilePath
-             | ContentEnum (forall a. W.Enumerator a)
+             | ContentEnum (forall a.
+                             (a -> B.ByteString -> IO (Either a a))
+                          -> a
+                          -> IO (Either a a))
 
 instance ConvertSuccess B.ByteString Content where
     convertSuccess bs = ContentEnum $ \f a -> f a bs
 instance ConvertSuccess L.ByteString Content where
-    convertSuccess = ContentEnum . WE.fromLBS
+    convertSuccess = swapEnum . WE.fromLBS
 instance ConvertSuccess T.Text Content where
     convertSuccess t = cs (cs t :: B.ByteString)
 instance ConvertSuccess Text Content where
@@ -103,7 +106,10 @@ type ChooseRep = [ContentType] -> IO (ContentType, Content)
 -- | It would be nice to simplify 'Content' to the point where this is
 -- unnecesary.
 ioTextToContent :: IO Text -> Content
-ioTextToContent t = ContentEnum $ WE.fromLBS' $ fmap DTLE.encodeUtf8 t
+ioTextToContent = swapEnum . WE.fromLBS' . fmap DTLE.encodeUtf8
+
+swapEnum :: W.Enumerator -> Content
+swapEnum (W.Enumerator e) = ContentEnum e
 
 hoToJsonContent :: HtmlObject -> Content
 hoToJsonContent = cs . unJsonDoc . cs
@@ -231,7 +237,7 @@ responseToWaiResponse (Response sc hs ct c) = do
     let hs'' = (W.ContentType, cs ct) : hs'
     return $ W.Response sc hs'' $ case c of
                                     ContentFile fp -> Left fp
-                                    ContentEnum e -> Right e
+                                    ContentEnum e -> Right $ W.Enumerator e
 
 #if TEST
 runContent :: Content -> IO L.ByteString

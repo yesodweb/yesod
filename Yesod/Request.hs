@@ -38,7 +38,7 @@ module Yesod.Request
     ) where
 
 import qualified Network.Wai as W
-import qualified Network.Wai.Enumerator as WE
+import qualified Network.Wai.Source as WS
 import Data.Function.Predicate (equals)
 import Yesod.Definitions
 import Web.Encodings
@@ -138,7 +138,7 @@ parseWaiRequest env session = do
 
 rbHelper :: W.Request -> IO RequestBodyContents
 rbHelper env = do
-    inputLBS <- WE.toLBS $ W.requestBody env -- FIXME
+    inputLBS <- WS.toLBS $ W.requestBody env -- FIXME
     let clength = maybe "0" cs  $ lookup W.ReqContentLength
                                 $ W.requestHeaders env
     let ctype = maybe "" cs $ lookup W.ReqContentType $ W.requestHeaders env
