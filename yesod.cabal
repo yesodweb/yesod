@@ -46,7 +46,7 @@ library
                      control-monad-attempt >= 0.0.0 && < 0.1,
                      syb,
                      text >= 0.5 && < 0.8,
-                     convertible-text >= 0.2.0.5 && < 0.3,
+                     convertible-text >= 0.2.0 && < 0.3,
                      HStringTemplate >= 0.6.2 && < 0.7,
                      data-object-json >= 0.0.0 && < 0.1,
                      attempt >= 0.2.1 && < 0.3,
