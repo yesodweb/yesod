@@ -38,7 +38,6 @@ module Yesod.Request
     ) where
 
 import qualified Network.Wai as W
-import qualified Network.Wai.Source as WS
 import Data.Function.Predicate (equals)
 import Yesod.Definitions
 import Web.Encodings
@@ -137,16 +136,9 @@ parseWaiRequest env session = do
     return $ RawRequest gets' cookies' session rbthunk env langs''
 
 rbHelper :: W.Request -> IO RequestBodyContents
-rbHelper env = do
-    inputLBS <- WS.toLBS $ W.requestBody env -- FIXME
-    let clength = maybe "0" cs  $ lookup W.ReqContentLength
-                                $ W.requestHeaders env
-    let ctype = maybe "" cs $ lookup W.ReqContentType $ W.requestHeaders env
-    let convertFileInfo (FileInfo a b c) = FileInfo (cs a) (cs b) c
-    let ret = map (cs *** cs) ***
-              map (cs *** convertFileInfo)
-            $ parsePost ctype clength inputLBS
-    return ret
+rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where
+    fix1 = map (cs *** cs)
+    fix2 (x, FileInfo a b c) = (cs x, FileInfo (cs a) (cs b) c)
 
 #if TEST
 testSuite :: Test
