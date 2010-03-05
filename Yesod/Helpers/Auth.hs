@@ -38,6 +38,8 @@ import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Control.Applicative ((<$>))
 
+-- FIXME check referer header to determine destination
+
 class YesodApproot a => YesodAuth a where
     -- | The following breaks DRY, but I cannot think of a better solution
     -- right now.

@@ -35,6 +35,7 @@ module Data.Object.Html
 
 import Data.Generics
 import Data.Object.Text
+import Data.Object.String
 import Data.Object.Json
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text as TS
@@ -75,6 +76,8 @@ instance ConvertSuccess [(String, HtmlObject)] HtmlObject where
     convertSuccess = Mapping
 instance ConvertSuccess [(String, Html)] HtmlObject where
     convertSuccess = Mapping . map (second cs)
+instance ConvertSuccess StringObject HtmlObject where
+    convertSuccess = mapKeysValues cs cs
 
 toHtmlObject :: ConvertSuccess x HtmlObject => x -> HtmlObject
 toHtmlObject = cs

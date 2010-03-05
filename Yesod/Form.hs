@@ -10,6 +10,7 @@ module Yesod.Form
     , applyForm
       -- * Specific checks
     , required
+    , optional
     , notEmpty
     , checkDay
     , checkBool
@@ -21,7 +22,7 @@ module Yesod.Form
 import Yesod.Request
 import Yesod.Response (ErrorResponse)
 import Yesod.Handler
-import Control.Applicative
+import Control.Applicative hiding (optional)
 import Data.Time (Day)
 import Data.Convertible.Text
 import Data.Attempt
@@ -91,6 +92,13 @@ required = applyForm $ \pvs -> case pvs of
                 [x] -> Right x
                 [] -> Left "No value for required field"
                 _ -> Left "Multiple values for required field"
+
+optional :: Form [ParamValue] -> Form (Maybe ParamValue)
+optional = applyForm $ \pvs -> case pvs of
+                [""] -> Right Nothing
+                [x] -> Right $ Just x
+                [] -> Right Nothing
+                _ -> Left "Multiple values for optional field"
 
 notEmpty :: Form ParamValue -> Form ParamValue
 notEmpty = applyForm $ \pv ->

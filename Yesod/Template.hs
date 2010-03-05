@@ -31,6 +31,7 @@ class Yesod y => YesodTemplate y where
     getTemplateGroup :: y -> TemplateGroup
     defaultTemplateAttribs :: y -> Request -> HtmlTemplate
                            -> IO HtmlTemplate
+    defaultTemplateAttribs _ _ = return
 
 getTemplateGroup' :: YesodTemplate y => Handler y TemplateGroup
 getTemplateGroup' = getTemplateGroup `fmap` getYesod
