@@ -22,6 +22,7 @@ Anyway, here's the import list.
 > import Data.Monoid
 > import Data.Text (pack)
 > import Control.Applicative ((<$>), (<*>))
+> import Data.Maybe (fromMaybe)
 
 One of the goals of Yesod is to make it work with the compiler to help you program. Instead of configuration files, it uses typeclasses to both change default behavior and enable extra features. An example of the former is error pages, while an example of the latter is authentication.
 
@@ -254,9 +255,15 @@ Now we want to convert the category into an HtmlObject. By doing so, we will get
 >           [ ("name", Scalar $ Text $ pack name)
 >           , ("id", Scalar $ Text $ pack $ show cid)
 >           ]
->   let issueHelper (Issue name _ iid) = Mapping
+>   let statusHelper = fromMaybe "No status set"
+>                    . getLast . mconcat . map (Last . messageStatus)
+>   let priorityHelper = fromMaybe "No priority set"
+>                      . getLast . mconcat . map (Last . messagePriority)
+>   let issueHelper (Issue name messages iid) = Mapping
 >           [ ("name", Scalar $ Text $ pack name)
 >           , ("id", Scalar $ Text $ pack $ show iid)
+>           , ("status", Scalar $ Text $ pack $ statusHelper messages)
+>           , ("priority", Scalar $ Text $ pack $ priorityHelper messages)
 >           ]
 >   let ho = Mapping
 >           [ ("cats", Sequence $ map catHelper $ subCats cat)

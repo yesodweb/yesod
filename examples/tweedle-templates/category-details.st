@@ -18,9 +18,10 @@ $cat.cats:{cat|
 
 <form method="post" action="issues/?_method_override=put">New issue: <input type="text" name="issuename"> <input type="submit" value="Create!"></form>
 <h2>Issues</h2>
-<ul>
+<table>
+<thead><tr><th>Title</th><th>Status</th><th>Priority</th></tr></thead><tbody>
 $cat.issues:{issue|
-<li><a href="../../issue/$issue.id$/">$issue.name$</a></li>
+<tr><td><a href="../../issue/$issue.id$/">$issue.name$</a></td><td>$issue.status$</td><td>$issue.priority$</td></tr>
 }$
-</ul>
+</tbody></table>
 })$
