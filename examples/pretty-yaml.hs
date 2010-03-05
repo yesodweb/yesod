@@ -27,7 +27,7 @@ showYamlH = do
     fi <- case lookup "yaml" files of
             Nothing -> invalidArgs [("yaml", "Missing input")]
             Just x -> return x
-    to <- decode $ B.concat $ L.toChunks $ fileContent fi
+    to <- liftIO $ decode $ B.concat $ L.toChunks $ fileContent fi
     let ho' = fmap Text to
     templateHtmlJson "pretty-yaml" ho' $ \ho ->
         return . setHtmlAttrib "yaml" (Scalar $ cs ho :: HtmlObject)

@@ -69,7 +69,7 @@ instance Applicative (Handler yesod) where
     pure = return
     (<*>) = ap
 instance Monad (Handler yesod) where
-    fail = failureString -- We want to catch all exceptions anyway
+    fail = failure . InternalError -- We want to catch all exceptions anyway
     return x = Handler $ \_ -> return ([], HCContent x)
     (Handler handler) >>= f = Handler $ \rr -> do
         (headers, c) <- handler rr
@@ -81,8 +81,8 @@ instance Monad (Handler yesod) where
         return (headers ++ headers', c')
 instance MonadIO (Handler yesod) where
     liftIO i = Handler $ \_ -> i >>= \i' -> return ([], HCContent i')
-instance Exception e => Failure e (Handler yesod) where
-    failure e = Handler $ \_ -> return ([], HCError $ InternalError $ show e)
+instance Failure ErrorResponse (Handler yesod) where
+    failure e = Handler $ \_ -> return ([], HCError e)
 instance RequestReader (Handler yesod) where
     getRequest = Handler $ \(HandlerData rr _)
                         -> return ([], HCContent rr)
@@ -134,9 +134,6 @@ safeEh er = do
 specialResponse :: SpecialResponse -> Handler yesod a
 specialResponse er = Handler $ \_ -> return ([], HCSpecial er)
 
-errorResponse :: ErrorResponse -> Handler yesod a
-errorResponse er = Handler $ \_ -> return ([], HCError er)
-
 -- | Redirect to the given URL.
 redirect :: RedirectType -> String -> Handler yesod a
 redirect rt = specialResponse . Redirect rt
@@ -145,14 +142,14 @@ sendFile :: ContentType -> FilePath -> Handler yesod a
 sendFile ct = specialResponse . SendFile ct
 
 -- | Return a 404 not found page. Also denotes no handler available.
-notFound :: Handler yesod a
-notFound = errorResponse NotFound
+notFound :: Failure ErrorResponse m => m a
+notFound = failure NotFound
 
-permissionDenied :: Handler yesod a
-permissionDenied = errorResponse PermissionDenied
+permissionDenied :: Failure ErrorResponse m => m a
+permissionDenied = failure PermissionDenied
 
-invalidArgs :: [(ParamName, String)] -> Handler yesod a
-invalidArgs = errorResponse . InvalidArgs
+invalidArgs :: Failure ErrorResponse m => [(ParamName, String)] -> m a
+invalidArgs = failure . InvalidArgs
 
 ------- Headers
 -- | Set the cookie on the client.

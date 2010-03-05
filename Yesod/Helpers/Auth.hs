@@ -165,7 +165,7 @@ rpxnowLogin = do
                         (('#':rest):_) -> rest
                         (s:_) -> s
                 (d:_) -> d
-    ident <- Rpxnow.authenticate apiKey token
+    ident <- liftIO $ Rpxnow.authenticate apiKey token
     onRpxnowLogin ident
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident

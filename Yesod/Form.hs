@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PackageImports #-}
 -- | Parse forms (and query strings).
 module Yesod.Form
     ( Form (..)
@@ -11,15 +13,21 @@ module Yesod.Form
     , notEmpty
     , checkDay
     , checkBool
+    , checkInteger
+      -- * Utility
+    , catchFormError
     ) where
 
 import Yesod.Request
+import Yesod.Response (ErrorResponse)
 import Yesod.Handler
 import Control.Applicative
 import Data.Time (Day)
 import Data.Convertible.Text
 import Data.Attempt
 import Data.Maybe (fromMaybe)
+import "transformers" Control.Monad.Trans (MonadIO)
+import qualified Safe.Failure
 
 noParamNameError :: String
 noParamNameError = "No param name (miscalling of Yesod.Form library)"
@@ -43,21 +51,24 @@ instance Applicative Form where
 
 type FormError = String
 
-runFormGeneric :: (ParamName -> [ParamValue]) -> Form x -> Handler y x
+runFormGeneric :: MonadFailure ErrorResponse m
+               => (ParamName -> [ParamValue]) -> Form x -> m x
 runFormGeneric params (Form f) =
     case f params of
         Left es -> invalidArgs es
         Right (_, x) -> return x
 
 -- | Run a form against POST parameters.
-runFormPost :: Form x -> Handler y x
+runFormPost :: (RequestReader m, MonadFailure ErrorResponse m, MonadIO m)
+            => Form x -> m x
 runFormPost f = do
     rr <- getRequest
     pp <- postParams rr
     runFormGeneric pp f
 
 -- | Run a form against GET parameters.
-runFormGet :: Form x -> Handler y x
+runFormGet :: (RequestReader m, MonadFailure ErrorResponse m)
+           => Form x -> m x
 runFormGet f = do
     rr <- getRequest
     runFormGeneric (getParams rr) f
@@ -96,3 +107,17 @@ checkBool = applyForm $ \pv -> Right $ case pv of
                                         [""] -> False
                                         ["false"] -> False
                                         _ -> True
+
+checkInteger :: Form ParamValue -> Form Integer
+checkInteger = applyForm $ \pv ->
+    case Safe.Failure.read pv of
+        Nothing -> Left "Invalid integer"
+        Just i -> Right i
+
+-- | Instead of calling 'failure' with an 'InvalidArgs', return the error
+-- messages.
+catchFormError :: Form x -> Form (Either [(ParamName, FormError)] x)
+catchFormError (Form x) = Form $ \l ->
+    case x l of
+        Left e -> Right (Nothing, Left e)
+        Right (_, v) -> Right (Nothing, Right v)

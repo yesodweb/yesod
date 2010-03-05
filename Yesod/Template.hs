@@ -54,7 +54,7 @@ templateHtml tn f = do
     tg <- getTemplateGroup'
     y <- getYesod
     t <- case getStringTemplate tn tg of
-            Nothing -> failure $ NoSuchTemplate tn
+            Nothing -> failure $ InternalError $ show $ NoSuchTemplate tn
             Just x -> return x
     rr <- getRequest
     return $ RepHtml $ ioTextToContent
@@ -81,7 +81,7 @@ templateHtmlJson tn ho f = do
     y <- getYesod
     rr <- getRequest
     t <- case getStringTemplate tn tg of
-            Nothing -> failure $ NoSuchTemplate tn
+            Nothing -> failure $ InternalError $ show $ NoSuchTemplate tn
             Just x -> return x
     return $ RepHtmlJson
             ( ioTextToContent

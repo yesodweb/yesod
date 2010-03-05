@@ -89,16 +89,12 @@ one piece of data.
 
 > factRedirect :: Handler y ()
 > factRedirect = do
->     rr <- getRequest
->     let i = case getParams rr "num" of -- FIXME
->               [] -> "1"
->               (x:_) -> x
->     _ <- redirect RedirectPermanent $ "../" ++ i ++ "/"
-
-The following line would be unnecesary if we had a type signature on
-factRedirect.
-
->     return ()
+>     res <- runFormPost $ catchFormError 
+>                        $ checkInteger
+>                        $ required
+>                        $ input "num"
+>     let i = either (const "1") show res
+>     redirect RedirectPermanent $ "../" ++ i ++ "/"
 
 You could replace this main to use any WAI handler you want. For production,
 you could use CGI, FastCGI or a more powerful server. Just check out Hackage
