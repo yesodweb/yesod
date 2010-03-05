@@ -123,3 +123,11 @@ executable             pretty-yaml
     Buildable: False
   ghc-options:         -Wall
   main-is:             examples/pretty-yaml.hs
+
+executable             tweedle
+  if flag(buildsamples)
+    Buildable: True
+  else
+    Buildable: False
+  ghc-options:         -Wall
+  main-is:             examples/tweedle.lhs
