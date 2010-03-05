@@ -242,7 +242,7 @@ responseToWaiResponse (Response sc hs ct c) = do
 #if TEST
 runContent :: Content -> IO L.ByteString
 runContent (ContentFile fp) = L.readFile fp
-runContent (ContentEnum c) = WE.toLBS c
+runContent (ContentEnum c) = WE.toLBS $ W.Enumerator c
 
 ----- Testing
 testSuite :: Test

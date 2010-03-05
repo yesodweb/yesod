@@ -22,8 +22,8 @@ homepageH = templateHtml "pretty-yaml" return
 
 showYamlH :: Handler PY RepHtmlJson
 showYamlH = do
-    rr <- getRawRequest
-    (_, files) <- liftIO $ rawRequestBody rr
+    rr <- getRequest
+    (_, files) <- liftIO $ reqRequestBody rr
     fi <- case lookup "yaml" files of
             Nothing -> invalidArgs [("yaml", "Missing input")]
             Just x -> return x

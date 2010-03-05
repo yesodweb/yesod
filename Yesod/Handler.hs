@@ -51,7 +51,7 @@ import Data.Object.Html
 import qualified Data.ByteString.Lazy as BL
 import qualified Network.Wai as W
 
-data HandlerData yesod = HandlerData RawRequest yesod
+data HandlerData yesod = HandlerData Request yesod
 
 ------ Handler monad
 newtype Handler yesod a = Handler {
@@ -84,7 +84,7 @@ instance MonadIO (Handler yesod) where
 instance Exception e => Failure e (Handler yesod) where
     failure e = Handler $ \_ -> return ([], HCError $ InternalError $ show e)
 instance RequestReader (Handler yesod) where
-    getRawRequest = Handler $ \(HandlerData rr _)
+    getRequest = Handler $ \(HandlerData rr _)
                         -> return ([], HCContent rr)
 
 getYesod :: Handler yesod yesod
@@ -92,7 +92,7 @@ getYesod = Handler $ \(HandlerData _ yesod) -> return ([], HCContent yesod)
 
 runHandler :: Handler yesod ChooseRep
            -> (ErrorResponse -> Handler yesod ChooseRep)
-           -> RawRequest
+           -> Request
            -> yesod
            -> [ContentType]
            -> IO Response

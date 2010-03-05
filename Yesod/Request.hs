@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Request
@@ -19,8 +20,8 @@
 ---------------------------------------------------------
 module Yesod.Request
     (
-      -- * RawRequest
-      RawRequest (..)
+      -- * Request
+      Request (..)
     , RequestReader (..)
     , waiRequest
     , cookies
@@ -60,30 +61,30 @@ type ParamValue = String
 type ParamError = String
 
 class RequestReader m where
-    getRawRequest :: m RawRequest
-instance RequestReader ((->) RawRequest) where
-    getRawRequest = id
+    getRequest :: m Request
+instance RequestReader ((->) Request) where
+    getRequest = id
 
 languages :: (Functor m, RequestReader m) => m [Language]
-languages = rawLangs `fmap` getRawRequest
+languages = reqLangs `fmap` getRequest
 
--- | Get the raw 'W.Request' value.
+-- | Get the req 'W.Request' value.
 waiRequest :: (Functor m, RequestReader m) => m W.Request
-waiRequest = rawWaiRequest `fmap` getRawRequest
+waiRequest = reqWaiRequest `fmap` getRequest
 
 type RequestBodyContents =
     ( [(ParamName, ParamValue)]
     , [(ParamName, FileInfo String BL.ByteString)]
     )
 
--- | The raw information passed through W, cleaned up a bit.
-data RawRequest = RawRequest
-    { rawGetParams :: [(ParamName, ParamValue)]
-    , rawCookies :: [(ParamName, ParamValue)]
-    , rawSession :: [(B.ByteString, B.ByteString)]
-    , rawRequestBody :: IO RequestBodyContents
-    , rawWaiRequest :: W.Request
-    , rawLangs :: [Language]
+-- | The req information passed through W, cleaned up a bit.
+data Request = Request
+    { reqGetParams :: [(ParamName, ParamValue)]
+    , reqCookies :: [(ParamName, ParamValue)]
+    , reqSession :: [(B.ByteString, B.ByteString)]
+    , reqRequestBody :: IO RequestBodyContents
+    , reqWaiRequest :: W.Request
+    , reqLangs :: [Language]
     }
 
 multiLookup :: [(ParamName, ParamValue)] -> ParamName -> [ParamValue]
@@ -93,13 +94,13 @@ multiLookup ((k, v):rest) pn
     | otherwise = multiLookup rest pn
 
 -- | All GET paramater values with the given name.
-getParams :: RawRequest -> ParamName -> [ParamValue]
-getParams rr = multiLookup $ rawGetParams rr
+getParams :: Request -> ParamName -> [ParamValue]
+getParams rr = multiLookup $ reqGetParams rr
 
 -- | All POST paramater values with the given name.
-postParams :: MonadIO m => RawRequest -> m (ParamName -> [ParamValue])
+postParams :: MonadIO m => Request -> m (ParamName -> [ParamValue])
 postParams rr = do
-    (pp, _) <- liftIO $ rawRequestBody rr
+    (pp, _) <- liftIO $ reqRequestBody rr
     return $ multiLookup pp
 
 -- | Produces a \"compute on demand\" value. The computation will be run once
@@ -116,14 +117,16 @@ iothunk = fmap go . newMVar . Left where
         return (Right val, val)
 
 -- | All cookies with the given name.
-cookies :: RawRequest -> ParamName -> [ParamValue]
-cookies rr name = map snd . filter (fst `equals` name) . rawCookies $ rr
+cookies :: Request -> ParamName -> [ParamValue]
+cookies rr name = map snd . filter (fst `equals` name) . reqCookies $ rr
 
-parseWaiRequest :: W.Request -> [(B.ByteString, B.ByteString)] -> IO RawRequest
+parseWaiRequest :: W.Request
+                -> [(B.ByteString, B.ByteString)] -- ^ session
+                -> IO Request
 parseWaiRequest env session = do
     let gets' = map (cs *** cs) $ decodeUrlPairs $ W.queryString env
-    let rawCookie = fromMaybe B.empty $ lookup W.Cookie $ W.requestHeaders env
-        cookies' = map (cs *** cs) $ parseCookies rawCookie
+    let reqCookie = fromMaybe B.empty $ lookup W.Cookie $ W.requestHeaders env
+        cookies' = map (cs *** cs) $ parseCookies reqCookie
         acceptLang = lookup W.AcceptLanguage $ W.requestHeaders env
         langs = map cs $ maybe [] parseHttpAccept acceptLang
         langs' = case lookup langKey cookies' of
@@ -133,7 +136,7 @@ parseWaiRequest env session = do
                      Nothing -> langs'
                      Just x -> x : langs'
     rbthunk <- iothunk $ rbHelper env
-    return $ RawRequest gets' cookies' session rbthunk env langs''
+    return $ Request gets' cookies' session rbthunk env langs''
 
 rbHelper :: W.Request -> IO RequestBodyContents
 rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where

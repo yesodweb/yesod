@@ -89,7 +89,7 @@ one piece of data.
 
 > factRedirect :: Handler y ()
 > factRedirect = do
->     rr <- getRawRequest
+>     rr <- getRequest
 >     let i = case getParams rr "num" of -- FIXME
 >               [] -> "1"
 >               (x:_) -> x

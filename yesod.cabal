@@ -38,7 +38,7 @@ library
                      authenticate >= 0.4.0 && < 0.5,
                      predicates >= 0.1 && < 0.2,
                      bytestring >= 0.9.1.4 && < 0.10,
-                     web-encodings >= 0.4.0 && < 0.5,
+                     web-encodings >= 0.2.4 && < 0.3,
                      data-object >= 0.2.0 && < 0.3,
                      data-object-yaml >= 0.2.0 && < 0.3,
                      directory >= 1 && < 1.1,
@@ -107,3 +107,19 @@ executable             fact
     Buildable: False
   ghc-options:         -Wall
   main-is:             examples/fact.lhs
+
+executable             i18n
+  if flag(buildsamples)
+    Buildable: True
+  else
+    Buildable: False
+  ghc-options:         -Wall
+  main-is:             examples/i18n.hs
+
+executable             pretty-yaml
+  if flag(buildsamples)
+    Buildable: True
+  else
+    Buildable: False
+  ghc-options:         -Wall
+  main-is:             examples/pretty-yaml.hs

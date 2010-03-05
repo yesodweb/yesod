@@ -98,7 +98,7 @@ instance Exception ExpectedSingleParam
 
 authOpenidForm :: Yesod y => Handler y ChooseRep
 authOpenidForm = do
-    rr <- getRawRequest
+    rr <- getRequest
     case getParams rr "dest" of
         [] -> return ()
         (x:_) -> addCookie destCookieTimeout destCookieName x
@@ -119,7 +119,7 @@ authOpenidForm = do
 
 authOpenidForward :: YesodAuth y => Handler y ()
 authOpenidForward = do
-    rr <- getRawRequest
+    rr <- getRequest
     oid <- case getParams rr "openid" of
             [x] -> return x
             _ -> invalidArgs [("openid", show ExpectedSingleParam)]
@@ -134,8 +134,8 @@ authOpenidForward = do
 
 authOpenidComplete :: YesodApproot y => Handler y ()
 authOpenidComplete = do
-    rr <- getRawRequest
-    let gets' = rawGetParams rr
+    rr <- getRequest
+    let gets' = reqGetParams rr
     res <- runAttemptT $ OpenId.authenticate gets'
     let onFailure err = redirect RedirectTemporary
                              $ "/auth/openid/?message="
@@ -153,7 +153,7 @@ rpxnowLogin = do
     apiKey <- case rpxnowApiKey ay of
                 Just x -> return x
                 Nothing -> notFound
-    rr <- getRawRequest
+    rr <- getRequest
     pp <- postParams rr
     let token = case getParams rr "token" ++ pp "token" of
                     [] -> failure MissingToken
@@ -201,14 +201,14 @@ authLogout = do
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
 maybeIdentifier =
-    fmap cs . lookup (B8.pack authCookieName) . rawSession
-    <$> getRawRequest
+    fmap cs . lookup (B8.pack authCookieName) . reqSession
+    <$> getRequest
 
 -- | Gets the display name for a user if available.
 displayName :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
 displayName = do
-    rr <- getRawRequest
-    return $ fmap cs $ lookup (B8.pack authDisplayName) $ rawSession rr
+    rr <- getRequest
+    return $ fmap cs $ lookup (B8.pack authDisplayName) $ reqSession rr
 
 -- | Gets the identifier for a user. If user is not logged in, redirects them
 -- to the login page.
@@ -249,7 +249,7 @@ redirectSetDest rt dest = do
 -- cookie is missing, then use the default path provided.
 redirectToDest :: RedirectType -> String -> Handler y a
 redirectToDest rt def = do
-    rr <- getRawRequest
+    rr <- getRequest
     dest <- case cookies rr destCookieName of
                 [] -> return def
                 (x:_) -> do
