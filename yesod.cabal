@@ -11,6 +11,13 @@ stability:       unstable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://www.yesodweb.com/code.html
+extra-source-files: CLI/skel/App.hs,
+                    CLI/skel/static/style.css,
+                    CLI/skel/settings.yaml,
+                    CLI/skel/LICENSE,
+                    CLI/skel/webapp.cabal,
+                    CLI/skel/templates/layout.st,
+                    CLI/skel/templates/homepage.st
 
 flag buildtests
   description: Build the executable to run unit tests
@@ -70,10 +77,10 @@ library
                      Web.Mime
     ghc-options:     -Wall
 
-executable             yesod
-    ghc-options:       -Wall
-    build-depends:     file-embed >= 0.0.3 && < 0.1
-    main-is:           CLI/yesod.hs
+executable              yesod
+    ghc-options:        -Wall
+    build-depends:      file-embed >= 0.0.3 && < 0.1
+    main-is:            CLI/yesod.hs
 
 executable             runtests
     if flag(buildtests)
