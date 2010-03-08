@@ -8,9 +8,9 @@ synopsis:        A library for creating RESTful web applications.
 description:     This package stradles the line between framework and simply a controller. It provides minimal support for model and view, mostly focusing on making a controller which adheres strictly to RESTful principles.
 category:        Web
 stability:       unstable
-cabal-version:   >= 1.2
+cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://github.com/snoyberg/yesod
+homepage:        http://www.yesodweb.com/code.html
 
 flag buildtests
   description: Build the executable to run unit tests
@@ -68,7 +68,7 @@ library
                      Yesod.Helpers.AtomFeed
                      Yesod.Helpers.Sitemap
                      Web.Mime
-    ghc-options:     -Wall -Werror
+    ghc-options:     -Wall
 
 executable             yesod
     ghc-options:       -Wall
@@ -136,3 +136,7 @@ executable             tweedle
     Buildable: False
   ghc-options:         -Wall
   main-is:             examples/tweedle.lhs
+
+source-repository head
+  type:     git
+  location: git://github.com/snoyberg/yesod.git
