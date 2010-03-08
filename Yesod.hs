@@ -25,6 +25,7 @@ module Yesod
     , module Yesod.Template
     , module Web.Mime
     , Application
+    , Method (..)
     ) where
 
 #if TEST
@@ -45,5 +46,5 @@ import Yesod.Form
 import Yesod.Yesod
 import Yesod.Definitions
 import Yesod.Handler
-import Network.Wai (Application)
+import Network.Wai (Application, Method (..))
 import Yesod.Template

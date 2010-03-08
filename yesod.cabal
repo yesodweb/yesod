@@ -70,6 +70,11 @@ library
                      Web.Mime
     ghc-options:     -Wall -Werror
 
+executable             yesod
+    ghc-options:       -Wall
+    build-depends:     file-embed >= 0.0.3 && < 0.1
+    main-is:           CLI/yesod.hs
+
 executable             runtests
     if flag(buildtests)
         Buildable: True

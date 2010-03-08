@@ -6,6 +6,7 @@ module Yesod.Yesod
     , applyLayoutJson
     , getApproot
     , toWaiApp
+    , basicHandler
     ) where
 
 import Data.Object.Html
@@ -25,6 +26,10 @@ import Network.Wai.Middleware.CleanPath
 import Network.Wai.Middleware.ClientSession
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.MethodOverride
+
+import qualified Network.Wai.Handler.SimpleServer as SS
+import qualified Network.Wai.Handler.CGI as CGI
+import System.Environment (getEnvironment)
 
 class Yesod a where
     -- | Please use the Quasi-Quoter, you\'ll be happier. For more information,
@@ -139,3 +144,15 @@ httpAccept = map contentTypeFromBS
            . fromMaybe B.empty
            . lookup W.Accept
            . W.requestHeaders
+
+-- | Runs an application with CGI if CGI variables are present (namely
+-- PATH_INFO); otherwise uses SimpleServer.
+basicHandler :: Int -- ^ port number
+             -> W.Application -> IO ()
+basicHandler port app = do
+    vars <- getEnvironment
+    case lookup "PATH_INFO" vars of
+        Nothing -> do
+            putStrLn $ "http://localhost:" ++ show port ++ "/"
+            SS.run port app
+        Just _ -> CGI.run app

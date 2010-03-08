@@ -6,6 +6,7 @@ module Yesod.Template
     , Template
     , TemplateGroup
     , loadTemplateGroup
+    , defaultApplyLayout
       -- * HTML templates
     , HtmlTemplate (..)
     , templateHtml
@@ -42,6 +43,23 @@ instance Exception NoSuchTemplate
 
 loadTemplateGroup :: FilePath -> IO TemplateGroup
 loadTemplateGroup = directoryGroupRecursiveLazy
+
+defaultApplyLayout :: YesodTemplate y
+                   => y
+                   -> Request
+                   -> String -- ^ title
+                   -> Html -- ^ body
+                   -> Content
+defaultApplyLayout y req t b =
+    case getStringTemplate "layout" $ getTemplateGroup y of
+        Nothing -> cs (cs (Tag "title" [] $ cs t, b) :: HtmlDoc)
+        Just temp ->
+                 ioTextToContent
+               $ fmap (render . unHtmlTemplate)
+               $ defaultTemplateAttribs y req
+               $ setHtmlAttrib "title" t
+               $ setHtmlAttrib "content" b
+               $ HtmlTemplate temp
 
 type TemplateName = String
 newtype HtmlTemplate = HtmlTemplate { unHtmlTemplate :: Template }

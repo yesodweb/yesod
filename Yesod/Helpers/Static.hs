@@ -27,7 +27,6 @@ import Control.Monad
 
 import Yesod
 import Data.List (intercalate)
-import Network.Wai (Method (GET))
 
 type FileLookup = FilePath -> IO (Maybe (Either FilePath Content))
 

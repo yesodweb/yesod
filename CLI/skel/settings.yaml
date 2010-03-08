@@ -1,0 +1,5 @@
+approot: http://localhost:3000/
+static-root: http://localhost:3000/static/
+static-dir: static
+template-dir: templates
+port: 3000
