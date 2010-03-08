@@ -26,6 +26,7 @@ import Network.Wai.Middleware.CleanPath
 import Network.Wai.Middleware.ClientSession
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.MethodOverride
+import Network.Wai.Middleware.Gzip
 
 import qualified Network.Wai.Handler.SimpleServer as SS
 import qualified Network.Wai.Handler.CGI as CGI
@@ -118,7 +119,8 @@ toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do
     key <- encryptKey a
     let mins = clientSessionDuration a
-    return $ jsonp
+    return $ gzip
+           $ jsonp
            $ methodOverride
            $ cleanPath
            $ \thePath -> clientsession encryptedCookies key mins
