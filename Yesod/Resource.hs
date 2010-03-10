@@ -389,9 +389,8 @@ liftMethod :: Method -> Q Exp
 liftMethod m = do
     cs' <- [|cs :: String -> ByteString|]
     methodFromBS' <- [|methodFromBS|]
-    let s = cs $ methodToBS m :: String
-    s' <- liftString s
-    return $ methodFromBS' `AppE` AppE cs' s'
+    let s = LitE $ StringL $ cs $ methodToBS m
+    return $ methodFromBS' `AppE` AppE cs' s
 
 strToExp :: Bool -> String -> Q Exp
 strToExp toCheck s = do
