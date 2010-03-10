@@ -60,7 +60,6 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Data.Object.Json
-import qualified Data.Text.Lazy.Encoding as DTLE
 
 import Web.Encodings (formatW3)
 import qualified Network.Wai as W
@@ -106,7 +105,7 @@ type ChooseRep = [ContentType] -> IO (ContentType, Content)
 -- | It would be nice to simplify 'Content' to the point where this is
 -- unnecesary.
 ioTextToContent :: IO Text -> Content
-ioTextToContent = swapEnum . WE.fromLBS' . fmap DTLE.encodeUtf8
+ioTextToContent = swapEnum . WE.fromLBS' . fmap cs
 
 swapEnum :: W.Enumerator -> Content
 swapEnum (W.Enumerator e) = ContentEnum e
