@@ -73,12 +73,12 @@ instance HasReps SitemapResponse where
         [ (TypeXml, return . cs)
         ]
 
-sitemap :: YesodApproot y => [SitemapUrl] -> Handler y SitemapResponse
+sitemap :: Yesod y => [SitemapUrl] -> Handler y SitemapResponse
 sitemap urls = do
     yesod <- getYesod
     return $ SitemapResponse urls $ approot yesod
 
-robots :: YesodApproot yesod => Handler yesod [(ContentType, Content)]
+robots :: Yesod yesod => Handler yesod [(ContentType, Content)]
 robots = do
     yesod <- getYesod
     return $ staticRep TypePlain $ "Sitemap: " ++ showLocation

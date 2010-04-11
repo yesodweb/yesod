@@ -40,7 +40,7 @@ import Control.Applicative ((<$>))
 
 -- FIXME check referer header to determine destination
 
-class YesodApproot a => YesodAuth a where
+class Yesod a => YesodAuth a where
     -- | The following breaks DRY, but I cannot think of a better solution
     -- right now.
     --
@@ -134,7 +134,7 @@ authOpenidForward = do
       (redirect RedirectTemporary)
       res
 
-authOpenidComplete :: YesodApproot y => Handler y ()
+authOpenidComplete :: Yesod y => Handler y ()
 authOpenidComplete = do
     rr <- getRequest
     let gets' = reqGetParams rr
@@ -239,7 +239,7 @@ requestPath = do
 
 -- | Redirect to the given URL, and set a cookie with the current URL so the
 -- user will ultimately be sent back here.
-redirectSetDest :: YesodApproot y => RedirectType -> String -> Handler y a
+redirectSetDest :: Yesod y => RedirectType -> String -> Handler y a
 redirectSetDest rt dest = do
     ar <- getApproot
     rp <- requestPath

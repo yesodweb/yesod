@@ -27,7 +27,7 @@ import Web.Encodings (formatW3)
 
 data AtomFeedResponse = AtomFeedResponse AtomFeed Approot
 
-atomFeed :: YesodApproot y => AtomFeed -> Handler y AtomFeedResponse
+atomFeed :: Yesod y => AtomFeed -> Handler y AtomFeedResponse
 atomFeed f = do
     y <- getYesod
     return $ AtomFeedResponse f $ approot y

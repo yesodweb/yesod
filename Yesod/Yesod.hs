@@ -2,7 +2,6 @@
 module Yesod.Yesod
     ( Yesod (..)
     , YesodSite (..)
-    , YesodApproot (..)
     , applyLayout'
     , applyLayoutJson
     , getApproot
@@ -21,7 +20,7 @@ import qualified Data.ByteString as B
 import Data.Maybe (fromMaybe)
 import Web.Mime
 import Web.Encodings (parseHttpAccept)
-import Web.Routes (Site (..))
+import Web.Routes (Site (..), encodePathInfo)
 
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath
@@ -66,10 +65,10 @@ class YesodSite a => Yesod a where
     onRequest :: a -> Request -> IO ()
     onRequest _ _ = return ()
 
-    badMethod :: a -> YesodApp a
+    badMethod :: a -> YesodApp a -- FIXME include in errorHandler
 
-class Yesod a => YesodApproot a where
-    -- | An absolute URL to the root of the application.
+    -- | An absolute URL to the root of the application. Do not include
+    -- trailing slash.
     approot :: a -> Approot
 
 -- | A convenience wrapper around 'applyLayout'.
@@ -98,7 +97,7 @@ applyLayoutJson t b = do
         , (TypeJson, cs $ unJsonDoc $ cs b)
         ]
 
-getApproot :: YesodApproot y => Handler y Approot
+getApproot :: Yesod y => Handler y Approot
 getApproot = approot `fmap` getYesod
 
 defaultErrorHandler :: Yesod y
@@ -148,7 +147,8 @@ toWaiApp' y resource session env = do
         Right url -> do
             rr <- parseWaiRequest env session
             onRequest y rr
-            let render = error "FIXME: render" -- use formatPathSegments
+            let render u = approot y ++ '/'
+                         : encodePathInfo (formatPathSegments site u)
             res <- handleSite site render url errorHandler rr types
             responseToWaiResponse res
 
