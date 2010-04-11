@@ -144,15 +144,14 @@ toWaiApp' y resource session env = do
         types = httpAccept env
         pathSegments = cleanupSegments resource
         eurl = parsePathSegments site pathSegments
-    case eurl of
-        Left _ -> error "FIXME: send 404 message"
-        Right url -> do
-            rr <- parseWaiRequest env session
-            onRequest y rr
-            let render u = approot y ++ '/'
-                         : encodePathInfo (formatPathSegments site u)
-            res <- handleSite site render url errorHandler rr types
-            responseToWaiResponse res
+        render u = approot y ++ '/'
+                 : encodePathInfo (formatPathSegments site u)
+    rr <- parseWaiRequest env session
+    onRequest y rr
+    let ya = case eurl of
+                Left _ -> runHandler (errorHandler NotFound) y render
+                Right url -> handleSite site render url
+    ya errorHandler rr types >>= responseToWaiResponse
 
 getMethod :: (String -> YesodApp y) -> YesodApp y
 getMethod f eh req cts =
