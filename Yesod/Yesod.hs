@@ -16,6 +16,7 @@ import Yesod.Request
 import Yesod.Definitions
 import Yesod.Handler
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B8
 
 import Data.Maybe (fromMaybe)
 import Web.Mime
@@ -153,7 +154,9 @@ toWaiApp' y resource session env = do
             responseToWaiResponse res
 
 getMethod :: (String -> YesodApp y) -> YesodApp y
-getMethod = error "FIXME: getMethod"
+getMethod f eh req cts =
+    let m = B8.unpack $ W.methodToBS $ W.requestMethod $ reqWaiRequest req
+     in f m eh req cts
 
 cleanupSegment :: B.ByteString -> String
 cleanupSegment = error "FIXME: cleanupSegment"
