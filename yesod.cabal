@@ -58,7 +58,9 @@ library
                      attempt >= 0.2.1 && < 0.3,
                      template-haskell,
                      failure >= 0.0.0 && < 0.1,
-                     safe-failure >= 0.4.0 && < 0.5
+                     safe-failure >= 0.4.0 && < 0.5,
+                     web-routes >= 0.20 && < 0.21,
+                     web-routes-quasi >= 0.0 && < 0.1
     exposed-modules: Yesod
                      Yesod.Request
                      Yesod.Response

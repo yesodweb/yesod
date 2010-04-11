@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE TypeFamilies #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -21,8 +22,11 @@ module Yesod.Handler
     ( -- * Handler monad
       Handler
     , getYesod
+    , getUrlRender
     , runHandler
     , liftIO
+    , YesodApp
+    , Routes
       -- * Special handlers
     , redirect
     , sendFile
@@ -51,7 +55,14 @@ import Data.Object.Html
 import qualified Data.ByteString.Lazy as BL
 import qualified Network.Wai as W
 
-data HandlerData yesod = HandlerData Request yesod
+type family Routes y
+
+data HandlerData yesod = HandlerData Request yesod (Routes yesod -> String)
+
+type YesodApp yesod = (ErrorResponse -> Handler yesod ChooseRep)
+                   -> Request
+                   -> [ContentType]
+                   -> IO Response
 
 ------ Handler monad
 newtype Handler yesod a = Handler {
@@ -84,27 +95,25 @@ instance MonadIO (Handler yesod) where
 instance Failure ErrorResponse (Handler yesod) where
     failure e = Handler $ \_ -> return ([], HCError e)
 instance RequestReader (Handler yesod) where
-    getRequest = Handler $ \(HandlerData rr _)
+    getRequest = Handler $ \(HandlerData rr _ _)
                         -> return ([], HCContent rr)
 
 getYesod :: Handler yesod yesod
-getYesod = Handler $ \(HandlerData _ yesod) -> return ([], HCContent yesod)
+getYesod = Handler $ \(HandlerData _ yesod _) -> return ([], HCContent yesod)
 
-runHandler :: Handler yesod ChooseRep
-           -> (ErrorResponse -> Handler yesod ChooseRep)
-           -> Request
-           -> yesod
-           -> [ContentType]
-           -> IO Response
-runHandler handler eh rr y cts = do
+getUrlRender :: Handler yesod (Routes yesod -> String)
+getUrlRender = Handler $ \(HandlerData _ _ r) -> return ([], HCContent r)
+
+runHandler :: HasReps c => Handler yesod c -> yesod -> (Routes yesod -> String) -> YesodApp yesod
+runHandler handler y render eh rr cts = do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
     (headers, contents) <- Control.Exception.catch
-        (unHandler handler $ HandlerData rr y)
+        (unHandler handler $ HandlerData rr y render)
         (\e -> return ([], HCError $ toErrorHandler e))
     let handleError e = do
-            Response _ hs ct c <- runHandler (eh e) safeEh rr y cts
+            Response _ hs ct c <- runHandler (eh e) y render safeEh rr cts
             let hs' = headers ++ hs
             return $ Response (getStatus e) hs' ct c
     let sendFile' ct fp = do
@@ -119,7 +128,7 @@ runHandler handler eh rr y cts = do
             (sendFile' ct fp)
             (handleError . toErrorHandler)
         HCContent a -> do
-            (ct, c) <- a cts
+            (ct, c) <- chooseRep a cts
             return $ Response W.Status200 headers ct c
 
 safeEh :: ErrorResponse -> Handler yesod ChooseRep

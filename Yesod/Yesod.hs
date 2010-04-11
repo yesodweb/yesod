@@ -1,6 +1,7 @@
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( Yesod (..)
+    , YesodSite (..)
     , YesodApproot (..)
     , applyLayout'
     , applyLayoutJson
@@ -20,6 +21,7 @@ import qualified Data.ByteString as B
 import Data.Maybe (fromMaybe)
 import Web.Mime
 import Web.Encodings (parseHttpAccept)
+import Web.Routes (Site (..))
 
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath
@@ -32,11 +34,13 @@ import qualified Network.Wai.Handler.SimpleServer as SS
 import qualified Network.Wai.Handler.CGI as CGI
 import System.Environment (getEnvironment)
 
-class Yesod a where
-    -- | Please use the Quasi-Quoter, you\'ll be happier. For more information,
-    -- see the examples/fact.lhs sample.
-    resources :: Resource -> W.Method -> Handler a ChooseRep
+class YesodSite y where
+    getSite :: ((String -> YesodApp y) -> YesodApp y) -- ^ get the method
+            -> YesodApp y -- ^ bad method
+            -> y
+            -> Site (Routes y) (YesodApp y)
 
+class YesodSite a => Yesod a where
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
     encryptKey _ = getKey defaultKeyFile
@@ -61,6 +65,8 @@ class Yesod a where
     -- | Gets called at the beginning of each request. Useful for logging.
     onRequest :: a -> Request -> IO ()
     onRequest _ _ = return ()
+
+    badMethod :: a -> YesodApp a
 
 class Yesod a => YesodApproot a where
     -- | An absolute URL to the root of the application.
@@ -133,12 +139,24 @@ toWaiApp' :: Yesod y
           -> W.Request
           -> IO W.Response
 toWaiApp' y resource session env = do
-    let types = httpAccept env
-        handler = resources (map cs resource) $ W.requestMethod env
-    rr <- parseWaiRequest env session
-    onRequest y rr
-    res <- runHandler handler errorHandler rr y types
-    responseToWaiResponse res
+    let site = getSite getMethod (badMethod y) y
+        types = httpAccept env
+        pathSegments = map cleanupSegment resource
+        eurl = parsePathSegments site pathSegments
+    case eurl of
+        Left _ -> error "FIXME: send 404 message"
+        Right url -> do
+            rr <- parseWaiRequest env session
+            onRequest y rr
+            let render = error "FIXME: render" -- use formatPathSegments
+            res <- handleSite site render url errorHandler rr types
+            responseToWaiResponse res
+
+getMethod :: (String -> YesodApp y) -> YesodApp y
+getMethod = error "FIXME: getMethod"
+
+cleanupSegment :: B.ByteString -> String
+cleanupSegment = error "FIXME: cleanupSegment"
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = map contentTypeFromBS
