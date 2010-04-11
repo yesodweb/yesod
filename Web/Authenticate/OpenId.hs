@@ -23,7 +23,7 @@ module Web.Authenticate.OpenId
 import Network.HTTP.Wget
 import Text.HTML.TagSoup
 import Numeric (showHex)
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import qualified Safe.Failure as A
 import Data.Generics
 import Control.Failure hiding (Error)
