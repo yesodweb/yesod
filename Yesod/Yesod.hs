@@ -21,7 +21,8 @@ import qualified Data.ByteString.Char8 as B8
 import Data.Maybe (fromMaybe)
 import Web.Mime
 import Web.Encodings (parseHttpAccept)
-import Web.Routes (Site (..), encodePathInfo)
+import Web.Routes (Site (..), encodePathInfo, decodePathInfo)
+import Data.List (intercalate)
 
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath
@@ -141,7 +142,7 @@ toWaiApp' :: Yesod y
 toWaiApp' y resource session env = do
     let site = getSite getMethod (badMethod y) y
         types = httpAccept env
-        pathSegments = map cleanupSegment resource
+        pathSegments = cleanupSegments resource
         eurl = parsePathSegments site pathSegments
     case eurl of
         Left _ -> error "FIXME: send 404 message"
@@ -158,8 +159,8 @@ getMethod f eh req cts =
     let m = B8.unpack $ W.methodToBS $ W.requestMethod $ reqWaiRequest req
      in f m eh req cts
 
-cleanupSegment :: B.ByteString -> String
-cleanupSegment = error "FIXME: cleanupSegment"
+cleanupSegments :: [B.ByteString] -> [String]
+cleanupSegments = decodePathInfo . intercalate "/" . map B8.unpack
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = map contentTypeFromBS
