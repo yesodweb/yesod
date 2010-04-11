@@ -67,8 +67,6 @@ class YesodSite a => Yesod a where
     onRequest :: a -> Request -> IO ()
     onRequest _ _ = return ()
 
-    badMethod :: a -> YesodApp a -- FIXME include in errorHandler
-
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     approot :: a -> Approot
@@ -140,14 +138,15 @@ toWaiApp' :: Yesod y
           -> W.Request
           -> IO W.Response
 toWaiApp' y resource session env = do
-    let site = getSite getMethod (badMethod y) y
+    let site = getSite getMethod badMethod y
         types = httpAccept env
-        pathSegments = cleanupSegments resource
+        pathSegments = filter (not . null) $ cleanupSegments resource
         eurl = parsePathSegments site pathSegments
         render u = approot y ++ '/'
                  : encodePathInfo (formatPathSegments site u)
     rr <- parseWaiRequest env session
     onRequest y rr
+    print pathSegments
     let ya = case eurl of
                 Left _ -> runHandler (errorHandler NotFound) y render
                 Right url -> handleSite site render url
@@ -179,3 +178,7 @@ basicHandler port app = do
             putStrLn $ "http://localhost:" ++ show port ++ "/"
             SS.run port app
         Just _ -> CGI.run app
+
+badMethod :: YesodApp y
+badMethod _ _ _ = return $ Response W.Status405 [] TypePlain
+                $ cs "Method not supported"

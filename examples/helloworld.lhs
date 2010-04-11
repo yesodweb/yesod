@@ -1,18 +1,23 @@
 \begin{code}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 import Yesod
 import Network.Wai.Handler.SimpleServer
+import qualified Web.Routes.Quasi
 
 data HelloWorld = HelloWorld
-instance Yesod HelloWorld where
-    resources = [$mkResources|
-/:
-    Get: helloWorld
+
+mkYesod "HelloWorld" [$parseRoutes|
+/ Home GET
 |]
 
-helloWorld :: Handler HelloWorld ChooseRep
-helloWorld = applyLayout' "Hello World" $ cs "Hello world!"
+instance Yesod HelloWorld where
+    approot _ = "http://localhost:3000"
+
+getHome :: Handler HelloWorld ChooseRep
+getHome = applyLayout' "Hello World" $ cs "Hello world!"
 
 main :: IO ()
 main = putStrLn "Running..." >> toWaiApp HelloWorld >>= run 3000

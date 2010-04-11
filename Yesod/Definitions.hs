@@ -15,8 +15,7 @@
 --
 ---------------------------------------------------------
 module Yesod.Definitions
-    ( Resource
-    , Approot
+    ( Approot
     , Language
     , Location (..)
     , showLocation
@@ -30,8 +29,6 @@ module Yesod.Definitions
     ) where
 
 import Data.ByteString.Char8 (pack, ByteString)
-
-type Resource = [String]
 
 -- | An absolute URL to the base of this application. This can almost be done
 -- programatically, but due to ambiguities in different ways of doing URL
