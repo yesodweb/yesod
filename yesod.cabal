@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.0.0.1
+version:         0.2.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -42,15 +42,14 @@ library
                      wai >= 0.0.0 && < 0.1,
                      wai-extra >= 0.0.0 && < 0.1,
                      split >= 0.1.1 && < 0.2,
-                     authenticate >= 0.4.0 && < 0.5,
+                     authenticate >= 0.6 && < 0.7,
                      predicates >= 0.1 && < 0.2,
                      bytestring >= 0.9.1.4 && < 0.10,
                      web-encodings >= 0.2.4 && < 0.3,
                      data-object >= 0.2.0 && < 0.3,
-                     data-object-yaml >= 0.2.0 && < 0.3,
                      directory >= 1 && < 1.1,
-                     transformers >= 0.1.4.0 && < 0.2,
-                     control-monad-attempt >= 0.0.0 && < 0.1,
+                     transformers >= 0.2.0 && < 0.3,
+                     control-monad-attempt >= 0.2.0 && < 0.3,
                      syb,
                      text >= 0.5 && < 0.8,
                      convertible-text >= 0.2.0 && < 0.3,

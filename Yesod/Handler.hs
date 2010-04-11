@@ -42,7 +42,7 @@ import Web.Mime
 import Control.Exception hiding (Handler)
 import Control.Applicative
 
-import "transformers" Control.Monad.Trans
+import "transformers" Control.Monad.IO.Class
 import Control.Monad.Attempt
 import Control.Monad (liftM, ap)
 

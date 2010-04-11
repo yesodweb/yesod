@@ -47,7 +47,7 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Convertible.Text
 import Control.Arrow ((***))
 import Data.Maybe (fromMaybe)
-import "transformers" Control.Monad.Trans
+import "transformers" Control.Monad.IO.Class
 import Control.Concurrent.MVar
 
 #if TEST

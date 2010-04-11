@@ -27,7 +27,7 @@ import Data.Time (Day)
 import Data.Convertible.Text
 import Data.Attempt
 import Data.Maybe (fromMaybe)
-import "transformers" Control.Monad.Trans (MonadIO)
+import "transformers" Control.Monad.IO.Class (MonadIO)
 import qualified Safe.Failure
 
 noParamNameError :: String
