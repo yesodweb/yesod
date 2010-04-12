@@ -5,7 +5,6 @@
 
 import Yesod
 import Network.Wai.Handler.SimpleServer
-import qualified Web.Routes.Quasi
 
 data HelloWorld = HelloWorld
 

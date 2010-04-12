@@ -1,29 +1,32 @@
 \begin{code}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 import Yesod
 import Network.Wai.Handler.SimpleServer
 
 data HelloWorld = HelloWorld TemplateGroup
+
+mkYesod "HelloWorld" [$parseRoutes|
+/       Home  GET
+/groups Group GET
+|]
+
+instance Yesod HelloWorld where
+    approot _ = "http://localhost:3000"
 instance YesodTemplate HelloWorld where
     getTemplateGroup (HelloWorld tg) = tg
     defaultTemplateAttribs _ _ = return
         . setHtmlAttrib "default" "<DEFAULT>"
-instance Yesod HelloWorld where
-    resources = [$mkResources|
-/:
-    Get: helloWorld
-/groups:
-    Get: helloGroup
-|]
 
-helloWorld :: Handler HelloWorld RepHtml
-helloWorld = templateHtml "template" $ return
+getHome :: Handler HelloWorld RepHtml
+getHome = templateHtml "template" $ return
   . setHtmlAttrib "title" "Hello world!"
   . setHtmlAttrib "content" "Hey look!! I'm <auto escaped>!"
 
-helloGroup :: YesodTemplate y => Handler y RepHtmlJson
-helloGroup = templateHtmlJson "real-template" (cs "bar") $ \ho ->
+getGroup :: YesodTemplate y => Handler y RepHtmlJson
+getGroup = templateHtmlJson "real-template" (cs "bar") $ \ho ->
     return . setHtmlAttrib "foo" ho
 
 main :: IO ()
