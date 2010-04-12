@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( Yesod (..)
@@ -23,6 +24,8 @@ import Web.Mime
 import Web.Encodings (parseHttpAccept)
 import Web.Routes (Site (..), encodePathInfo, decodePathInfo)
 import Data.List (intercalate)
+import Text.Hamlet hiding (Content, Html) -- FIXME do not export
+import qualified Text.Hamlet as Hamlet
 
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath
@@ -41,6 +44,19 @@ class YesodSite y where
             -> y
             -> Site (Routes y) (YesodApp y)
 
+data PageContent url = PageContent
+    { pageTitle :: Hamlet url IO Hamlet.Html
+    , pageHead :: Hamlet url IO ()
+    , pageBody :: Hamlet url IO ()
+    }
+
+simpleContent :: String -> Hamlet.Html -> PageContent url
+simpleContent title body = PageContent
+    { pageTitle = return $ Unencoded $ cs title
+    , pageHead = return ()
+    , pageBody = outputHtml body
+    }
+
 class YesodSite a => Yesod a where
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
@@ -57,11 +73,18 @@ class YesodSite a => Yesod a where
 
     -- | Applies some form of layout to <title> and <body> contents of a page.
     applyLayout :: a
+                -> PageContent (Routes a)
                 -> Request
-                -> String -- ^ title
-                -> Html -- ^ body
-                -> Content
-    applyLayout _ _ t b = cs (cs (Tag "title" [] $ cs t, b) :: HtmlDoc)
+                -> Hamlet (Routes a) IO ()
+    applyLayout _ p _ = [$hamlet|
+<!DOCTYPE html>
+%html
+    %head
+        %title $pageTitle$
+        ^pageHead^
+    %body
+        ^pageBody^
+|] p
 
     -- | Gets called at the beginning of each request. Useful for logging.
     onRequest :: a -> Request -> IO ()
@@ -77,10 +100,12 @@ applyLayout' :: Yesod y
              -> Html
              -> Handler y ChooseRep
 applyLayout' t b = do
+    let pc = simpleContent t $ Encoded $ cs $ unHtmlFragment $ cs b
     y <- getYesod
     rr <- getRequest
+    content <- hamletToContent $ applyLayout y pc rr
     return $ chooseRep
-        [ (TypeHtml, applyLayout y rr t b)
+        [ (TypeHtml, content)
         ]
 
 -- | A convenience wrapper around 'applyLayout' which provides a JSON
@@ -90,12 +115,27 @@ applyLayoutJson :: Yesod y
                 -> HtmlObject
                 -> Handler y ChooseRep
 applyLayoutJson t b = do
+    let pc = simpleContent t $ Encoded $ cs $ unHtmlFragment
+           $ cs (cs b :: Html)
     y <- getYesod
     rr <- getRequest
+    htmlcontent <- hamletToContent $ applyLayout y pc rr
     return $ chooseRep
-        [ (TypeHtml, applyLayout y rr t $ cs b)
+        [ (TypeHtml, htmlcontent)
         , (TypeJson, cs $ unJsonDoc $ cs b)
         ]
+
+hamletToContent :: Hamlet (Routes y) IO () -> Handler y Content
+hamletToContent h = do
+    render <- getUrlRender
+    return $ ContentEnum $ go render
+  where
+    go render iter seed = do
+        res <- runHamlet h render seed $ iter' iter
+        case res of
+            Left x -> return $ Left x
+            Right ((), x) -> return $ Right x
+    iter' iter seed text = iter seed $ cs text
 
 getApproot :: Yesod y => Handler y Approot
 getApproot = approot `fmap` getYesod

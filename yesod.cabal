@@ -60,7 +60,8 @@ library
                      failure >= 0.0.0 && < 0.1,
                      safe-failure >= 0.4.0 && < 0.5,
                      web-routes >= 0.20 && < 0.21,
-                     web-routes-quasi >= 0.0 && < 0.1
+                     web-routes-quasi >= 0.0 && < 0.1,
+                     hamlet >= 0.0 && < 0.1
     exposed-modules: Yesod
                      Yesod.Request
                      Yesod.Response
