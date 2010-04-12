@@ -1,5 +1,10 @@
 #!/usr/bin/env runhaskell
+
+FIXME documentation out of date.
+
 > {-# LANGUAGE QuasiQuotes #-}
+> {-# LANGUAGE TemplateHaskell #-}
+> {-# LANGUAGE TypeFamilies #-}
 
 While coming up on the first release of Yesod, I realized I needed a nice, comprehensive tutorial. I didn't want to do the typical blog example, since it's so trite. I considered doing a Reddit or Twitter clone (the former became a bit of a meme a few weeks ago), but then I needed to set up a bug tracker for some commercial projects I was working on, and I decided that it would be a great example program.
 
@@ -23,6 +28,7 @@ Anyway, here's the import list.
 > import Data.Text (pack)
 > import Control.Applicative ((<$>), (<*>))
 > import Data.Maybe (fromMaybe)
+> import qualified Network.Wai as W
 
 One of the goals of Yesod is to make it work with the compiler to help you program. Instead of configuration files, it uses typeclasses to both change default behavior and enable extra features. An example of the former is error pages, while an example of the latter is authentication.
 
@@ -159,8 +165,6 @@ Well, that was a *lot* of boilerplate code that had nothing to do with web progr
 
 The Yesod typeclass includes many functions, most of which have default implementations. I'm not going to go through all of them here, please see the documentation.
 
-> instance Yesod Tweedle where
-
 The most important function is resources: this is where all of the URL mapping will occur. Yesod adheres to Restful principles very strongly. A "resource" is essentially a URL. Each resource should be unique; for example, do not create /user/5/ as well as /user/by-number/5/. In addition to resources, we also determine which function should handle your request based on the request method. In other words, a POST and a GET are completely different.
 
 One of the middlewares that Yesod installs is called MethodOverride; please see the documentation there for more details, but essentially it allows us to work past a limitation in the form tag of HTML to use PUT and DELETE methods as well.
@@ -174,27 +178,21 @@ Instead of using regular expressions to handle the URL mapping, Yesod uses resou
 
 Yesod uses quasi quotation to make specifying the resource pattern simple and safe: your entire set of patterns is checked at compile time to see if you have overlapping rules.
 
->   resources = [$mkResources|
+> mkYesod "Tweedle" [$parseRoutes|
 
 Now we need to figure out all of the resources available in our application. We'll need a homepage:
 
->   /:
->       GET: homepageH
+>   /        Homepage GET
 
 We will also need to allow authentication. We use the slurp pattern here and accept all request methods. The authHandler method (in the Yesod.Helpers.Auth module) will handle everything itself.
 
->   /auth/*: authHandler
+>   /auth/* AuthHandler
 
 We're going to refer to categories and issues by their unique numerical id. We're also going to make this system append only: there is no way to change the history.
 
->   /category/#id: # notice that "id" is ignored by Yesod
->       GET: categoryDetailsH
->       PUT: createCategoryH
->   /category/#id/issues:
->       PUT: createIssueH
->   /issue/#id:
->       GET: issueDetailsH
->       PUT: addMessageH
+>   /category/#id CategoryH GET PUT
+>   /category/#id/issues Issues PUT
+>   /issue/#id IssueH GET PUT
 >   |]
 
 So if you make a PUT request to "/category/5", you will be creating a subcategory of category 5. "GET /issue/27/" will display details on issue 27. This is all we need.
@@ -216,15 +214,15 @@ Now the compiler is telling us that there's no instance of YesodAuth for Tweedle
 
 Running that tells us that we're missing a YesodApproot instance as well. That's easy enough to fix:
 
-> instance YesodApproot Tweedle where
+> instance Yesod Tweedle where
 >   approot (Tweedle settings _ _) = sApproot settings
 
 Congratulations, you have a working web application! Gratned, it doesn't actually do much yet, but you *can* use it to log in via openid. Just go to http://localhost:3000/auth/openid/.
 
 Now it's time to implement the real code here. We'll start with the homepage. For this program, I just want the homepage to redirect to the main category (which will be category 0). So let's create that redirect:
 
-> homepageH :: Handler Tweedle ()
-> homepageH = do
+> getHomepage :: Handler Tweedle ()
+> getHomepage = do
 >   ar <- getApproot
 >   redirect RedirectPermanent $ ar ++ "category/0/"
 
@@ -234,11 +232,11 @@ Now the category details function. We're just going to have two lists: subcatego
 
 But here's a very nice feature of Yesod: We're going to have multiple representations of this data. The main one people will use is the HTML representation. However, we're also going to provide a JSON representation. This will make it very simple to write clients or to AJAXify this application in the future.
 
-> categoryDetailsH :: Integer -> Handler Tweedle RepHtmlJson
+> getCategoryH :: Integer -> Handler Tweedle RepHtmlJson
 
 That function signature tells us a lot: the parameter is the category ID, and we'll be returning something that has both an HTML and JSON representation.
 
-> categoryDetailsH catId = do
+> getCategoryH catId = do
 
 getYesod returns our Tweedle data type. Remember, we wrapped it in an MVar; since this is a read-only operation, will unwrap the MVar immediately.
 
@@ -291,8 +289,8 @@ Now we actually get some output! I'm not going to cover the syntax of string tem
 
 Next, we need to implement createCategoryH. There are two parts to this process: parsing the form submission, and then modifying the database. Pay attention to the former, but you can ignore the latter if you wish. Also, this code does not do much for error checking, as that would needlessly complicate matters.
 
-> createCategoryH :: Integer -> Handler Tweedle ()
-> createCategoryH parentid = do
+> putCategoryH :: Integer -> Handler Tweedle ()
+> putCategoryH parentid = do
 
 Yesod uses a formlets-style interface for parsing submissions. This following line says we want a parameter named catname, which precisely one value (required) and that value must have a non-zero length (notEmpty).
 
@@ -324,8 +322,8 @@ And here's the database modification code we need. Once again, this is not web-s
 
 Next is creating an issue. This is almost identical to creating a category.
 
-> createIssueH :: Integer -> Handler Tweedle ()
-> createIssueH catid = do
+> putIssues :: Integer -> Handler Tweedle ()
+> putIssues catid = do
 >   issuename <- runFormPost $ notEmpty $ required $ input "issuename"
 >   newid <- modifyDB $ createIssue catid issuename
 >   ar <- getApproot
@@ -345,8 +343,8 @@ Next is creating an issue. This is almost identical to creating a category.
 
 Two functions to go. Now we want to show details of issues. This isn't too different from categoryDetailsH above, except for one feature: we need to know if a user is logged in. If they are logged in, we'll show an "add message" box; otherwise, we'll show a login box. Once again, we're getting the JSON representation easily.
 
-> issueDetailsH :: Integer -> Handler Tweedle RepHtmlJson
-> issueDetailsH iid = do
+> getIssueH :: Integer -> Handler Tweedle RepHtmlJson
+> getIssueH iid = do
 >   Tweedle _ mvarTopCat _ <- getYesod
 >   topcat <- liftIO $ readMVar mvarTopCat
 >   (cat, issue) <- maybe notFound return $ findIssue iid topcat
@@ -384,8 +382,8 @@ And now the supporting model code. This function returns the requested Issue alo
 
 Cool, just one function left! This should probably all make sense by now. Notice, however, the use of authIdentifier: if the user is not logged in, they will be redirected to the login page automatically.
 
-> addMessageH :: Integer -> Handler Tweedle ()
-> addMessageH issueid = do
+> putIssueH :: Integer -> Handler Tweedle ()
+> putIssueH issueid = do
 >   ident <- authIdentifier
 >   (status, priority, text) <- runFormPost $
 >           (,,)
@@ -405,3 +403,8 @@ Cool, just one function left! This should probably all make sense by now. Notice
 >       go (Issue name messages iid)
 >           | iid == issueid = Issue name (messages ++ [message]) iid
 >           | otherwise = Issue name messages iid
+
+> handleAuthHandler :: [String] -> Handler Tweedle ChooseRep
+> handleAuthHandler pieces = do
+>    m <- W.requestMethod `fmap` waiRequest
+>    authHandler m pieces

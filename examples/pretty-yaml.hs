@@ -1,4 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+
 import Yesod
 import Data.Object.Yaml
 import Network.Wai.Handler.SimpleServer
@@ -7,21 +10,22 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 
 data PY = PY TemplateGroup
+
+mkYesod "PY" [$parseRoutes|
+/ Homepage GET POST
+|]
+
 instance YesodTemplate PY where
     getTemplateGroup (PY tg) = tg
     defaultTemplateAttribs _ _ = return
 instance Yesod PY where
-    resources = [$mkResources|
-/:
-    GET: homepageH
-    POST: showYamlH
-|]
+    approot _ = "http://localhost:3000"
 
-homepageH :: Handler PY RepHtml
-homepageH = templateHtml "pretty-yaml" return
+getHomepage :: Handler PY RepHtml
+getHomepage = templateHtml "pretty-yaml" return
 
-showYamlH :: Handler PY RepHtmlJson
-showYamlH = do
+postHomepage :: Handler PY RepHtmlJson
+postHomepage = do
     rr <- getRequest
     (_, files) <- liftIO $ reqRequestBody rr
     fi <- case lookup "yaml" files of

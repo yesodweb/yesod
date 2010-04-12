@@ -16,8 +16,6 @@ mkYesod name res = do
     let yaname = mkName $ name ++ "YesodApp"
     let ya = TySynD yaname [] $ ConT ''YesodApp `AppT` ConT name'
     let tySyn = TySynInstD ''Routes [ConT $ name'] (ConT $ mkName $ name ++ "Routes")
-    let hand = TySynD (mkName $ name ++ "Handler") [PlainTV $ mkName "a"]
-             $ ConT ''Handler `AppT` ConT name' `AppT` VarT (mkName "a")
     let gsbod = NormalB $ VarE $ mkName $ "site" ++ name ++ "Routes"
     let yes' = FunD (mkName "getSite") [Clause [] gsbod []]
     let yes = InstanceD [] (ConT ''YesodSite `AppT` ConT name') [yes']
@@ -26,4 +24,4 @@ mkYesod name res = do
                          name'
                          "runHandler"
                          res
-    return $ ya : tySyn : hand : yes : decs
+    return $ ya : tySyn : yes : decs

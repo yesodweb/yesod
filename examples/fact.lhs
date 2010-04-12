@@ -1,4 +1,8 @@
+FIXME documentation is out of date in a few places.
+
 > {-# LANGUAGE QuasiQuotes #-}
+> {-# LANGUAGE TemplateHaskell #-}
+> {-# LANGUAGE TypeFamilies #-}
 
 I in general recommend type signatures for everything. However, I wanted
 to show in this example how it is possible to get away without the
@@ -35,7 +39,6 @@ function for you. There is a lot of cool stuff to do with representations going
 on here, but this is not the appropriate place to discuss it.
 
 
-> instance Yesod Fact where
 
 The structure is very simply: top level key is a "resource pattern". A resource pattern is simply a bunch of slash-separated strings, called "resource pattern pieces". There are three special ways to start a piece:
 
@@ -53,20 +56,18 @@ Now we have a mapping of verbs to handler functions. We could instead simply
 specify a single function which handles all verbs. (Note: a verb is just a
 request method.)
 
-\begin{code}
-   resources = [$mkResources|
-/:
-    GET: index
-/#num:
-    GET: fact
-/fact:
-    GET: factRedirect
-|]
-\end{code}
+> $(mkYesod "Fact" [$parseRoutes|
+> /      Index        GET
+> /#num  FactR        GET
+> /fact  FactRedirect GET
+> |])
+
+> instance Yesod Fact where
+>    approot _ = "http://localhost:3000"
 
 This does what it looks like: serves a static HTML file.
 
-> index = sendFile TypeHtml "examples/fact.html" >> return ()
+> getIndex = sendFile TypeHtml "examples/fact.html" >> return ()
 
 HtmlObject is a funny beast. Basically, it allows multiple representations of
 data, all with HTML entities escaped properly. These representations include:
@@ -78,7 +79,7 @@ data, all with HTML entities escaped properly. These representations include:
 For simplicity here, we don't include a template, though it would be trivial to
 do so (see the hellotemplate example).
 
-> fact i = applyLayoutJson "Factorial result" $ cs
+> getFactR i = applyLayoutJson "Factorial result" $ cs
 >             [ ("input", show i)
 >             , ("result", show $ product [1..fromIntegral i :: Integer])
 >             ]
@@ -87,8 +88,8 @@ I've decided to have a redirect instead of serving the some data in two
 locations. It fits in more properly with the RESTful principal of one name for
 one piece of data.
 
-> factRedirect :: Handler y ()
-> factRedirect = do
+> getFactRedirect :: Handler y ()
+> getFactRedirect = do
 >     res <- runFormPost $ catchFormError 
 >                        $ checkInteger
 >                        $ required
