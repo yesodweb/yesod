@@ -8,6 +8,8 @@ module Yesod.Yesod
     , getApproot
     , toWaiApp
     , basicHandler
+    , hamletToContent -- FIXME put elsewhere
+    , hamletToRepHtml
     ) where
 
 import Data.Object.Html
@@ -183,7 +185,7 @@ toWaiApp' y resource session env = do
         pathSegments = filter (not . null) $ cleanupSegments resource
         eurl = parsePathSegments site pathSegments
         render u = approot y ++ '/'
-                 : encodePathInfo (formatPathSegments site u)
+                 : encodePathInfo (fixSegs $ formatPathSegments site u)
     rr <- parseWaiRequest env session
     onRequest y rr
     print pathSegments
@@ -222,3 +224,15 @@ basicHandler port app = do
 badMethod :: YesodApp y
 badMethod _ _ _ = return $ Response W.Status405 [] TypePlain
                 $ cs "Method not supported"
+
+hamletToRepHtml :: Hamlet (Routes y) IO () -> Handler y RepHtml
+hamletToRepHtml h = do
+    c <- hamletToContent h
+    return $ RepHtml c
+
+fixSegs :: [String] -> [String]
+fixSegs [] = []
+fixSegs [x]
+    | any (== '.') x = [x]
+    | otherwise = [x, ""] -- append trailing slash
+fixSegs (x:xs) = x : fixSegs xs

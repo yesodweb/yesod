@@ -23,6 +23,8 @@ module Yesod.Helpers.Auth
     , redirectLogin
     ) where
 
+-- FIXME write as subsite
+
 import Web.Encodings
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
