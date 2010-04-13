@@ -26,8 +26,8 @@ import Web.Mime
 import Web.Encodings (parseHttpAccept)
 import Web.Routes (Site (..), encodePathInfo, decodePathInfo)
 import Data.List (intercalate)
-import Text.Hamlet hiding (Content, Html) -- FIXME do not export
-import qualified Text.Hamlet as Hamlet
+import Text.Hamlet
+import Text.Hamlet.Monad (outputHtml)
 
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath
@@ -47,12 +47,12 @@ class YesodSite y where
             -> Site (Routes y) (YesodApp y)
 
 data PageContent url = PageContent
-    { pageTitle :: Hamlet url IO Hamlet.Html
+    { pageTitle :: Hamlet url IO HtmlContent
     , pageHead :: Hamlet url IO ()
     , pageBody :: Hamlet url IO ()
     }
 
-simpleContent :: String -> Hamlet.Html -> PageContent url
+simpleContent :: String -> HtmlContent -> PageContent url
 simpleContent title body = PageContent
     { pageTitle = return $ Unencoded $ cs title
     , pageHead = return ()
@@ -79,7 +79,7 @@ class YesodSite a => Yesod a where
                 -> Request
                 -> Hamlet (Routes a) IO ()
     applyLayout _ p _ = [$hamlet|
-<!DOCTYPE html>
+!!!
 %html
     %head
         %title $pageTitle$
