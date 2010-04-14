@@ -17,7 +17,7 @@ import Data.Object.Json (unJsonDoc)
 import Yesod.Response
 import Yesod.Request
 import Yesod.Definitions
-import Yesod.Handler
+import Yesod.Handler hiding (badMethod)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 
@@ -41,10 +41,7 @@ import qualified Network.Wai.Handler.CGI as CGI
 import System.Environment (getEnvironment)
 
 class YesodSite y where
-    getSite :: ((String -> YesodApp y) -> YesodApp y) -- ^ get the method
-            -> YesodApp y -- ^ bad method
-            -> y
-            -> Site (Routes y) (YesodApp y)
+    getSite :: Site (Routes y) (String -> YesodApp -> y -> YesodApp)
 
 data PageContent url = PageContent
     { pageTitle :: Hamlet url IO HtmlContent
@@ -70,8 +67,8 @@ class YesodSite a => Yesod a where
     clientSessionDuration = const 120
 
     -- | Output error response pages.
-    errorHandler :: ErrorResponse -> Handler a ChooseRep
-    errorHandler = defaultErrorHandler
+    errorHandler :: Yesod y => a -> ErrorResponse -> Handler y ChooseRep
+    errorHandler _ = defaultErrorHandler
 
     -- | Applies some form of layout to <title> and <body> contents of a page.
     applyLayout :: a
@@ -142,9 +139,7 @@ hamletToContent h = do
 getApproot :: Yesod y => Handler y Approot
 getApproot = approot `fmap` getYesod
 
-defaultErrorHandler :: Yesod y
-                    => ErrorResponse
-                    -> Handler y ChooseRep
+defaultErrorHandler :: Yesod y => ErrorResponse -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
     applyLayout' "Not Found" $ cs $ toHtmlObject
@@ -161,6 +156,8 @@ defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error" $ cs $ toHtmlObject
         [ ("Internal server error", e)
         ]
+defaultErrorHandler BadMethod =
+    applyLayout' "Bad Method" $ cs "Method Not Supported"
 
 toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do
@@ -180,7 +177,8 @@ toWaiApp' :: Yesod y
           -> W.Request
           -> IO W.Response
 toWaiApp' y resource session env = do
-    let site = getSite getMethod badMethod y
+    let site = getSite
+        method = B8.unpack $ W.methodToBS $ W.requestMethod env
         types = httpAccept env
         pathSegments = filter (not . null) $ cleanupSegments resource
         eurl = parsePathSegments site pathSegments
@@ -190,14 +188,10 @@ toWaiApp' y resource session env = do
     onRequest y rr
     print pathSegments
     let ya = case eurl of
-                Left _ -> runHandler (errorHandler NotFound) y render
-                Right url -> handleSite site render url
-    ya errorHandler rr types >>= responseToWaiResponse
-
-getMethod :: (String -> YesodApp y) -> YesodApp y
-getMethod f eh req cts =
-    let m = B8.unpack $ W.methodToBS $ W.requestMethod $ reqWaiRequest req
-     in f m eh req cts
+                Left _ -> runHandler (errorHandler y NotFound) y render
+                Right url -> handleSite site render url method badMethod y
+    let eh er = runHandler (errorHandler y er) y render
+    unYesodApp ya eh rr types >>= responseToWaiResponse
 
 cleanupSegments :: [B.ByteString] -> [String]
 cleanupSegments = decodePathInfo . intercalate "/" . map B8.unpack
@@ -221,9 +215,8 @@ basicHandler port app = do
             SS.run port app
         Just _ -> CGI.run app
 
-badMethod :: YesodApp y
-badMethod _ _ _ = return $ Response W.Status405 [] TypePlain
-                $ cs "Method not supported"
+badMethod :: YesodApp
+badMethod = YesodApp $ \eh req cts -> unYesodApp (eh BadMethod) eh req cts
 
 hamletToRepHtml :: Hamlet (Routes y) IO () -> Handler y RepHtml
 hamletToRepHtml h = do

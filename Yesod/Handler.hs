@@ -25,12 +25,13 @@ module Yesod.Handler
     , getUrlRender
     , runHandler
     , liftIO
-    , YesodApp
+    , YesodApp (..)
     , Routes
       -- * Special handlers
     , redirect
     , sendFile
     , notFound
+    , badMethod
     , permissionDenied
     , invalidArgs
       -- * Setting headers
@@ -59,10 +60,13 @@ type family Routes y
 
 data HandlerData yesod = HandlerData Request yesod (Routes yesod -> String)
 
-type YesodApp yesod = (ErrorResponse -> Handler yesod ChooseRep)
-                   -> Request
-                   -> [ContentType]
-                   -> IO Response
+newtype YesodApp = YesodApp
+    { unYesodApp
+    :: (ErrorResponse -> YesodApp)
+    -> Request
+    -> [ContentType]
+    -> IO Response
+    }
 
 ------ Handler monad
 newtype Handler yesod a = Handler {
@@ -104,8 +108,8 @@ getYesod = Handler $ \(HandlerData _ yesod _) -> return ([], HCContent yesod)
 getUrlRender :: Handler yesod (Routes yesod -> String)
 getUrlRender = Handler $ \(HandlerData _ _ r) -> return ([], HCContent r)
 
-runHandler :: HasReps c => Handler yesod c -> yesod -> (Routes yesod -> String) -> YesodApp yesod
-runHandler handler y render eh rr cts = do
+runHandler :: HasReps c => Handler yesod c -> yesod -> (Routes yesod -> String) -> YesodApp
+runHandler handler y render = YesodApp $ \eh rr cts -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
@@ -113,7 +117,7 @@ runHandler handler y render eh rr cts = do
         (unHandler handler $ HandlerData rr y render)
         (\e -> return ([], HCError $ toErrorHandler e))
     let handleError e = do
-            Response _ hs ct c <- runHandler (eh e) y render safeEh rr cts
+            Response _ hs ct c <- unYesodApp (eh e) safeEh rr cts
             let hs' = headers ++ hs
             return $ Response (getStatus e) hs' ct c
     let sendFile' ct fp = do
@@ -131,13 +135,10 @@ runHandler handler y render eh rr cts = do
             (ct, c) <- chooseRep a cts
             return $ Response W.Status200 headers ct c
 
-safeEh :: ErrorResponse -> Handler yesod ChooseRep
-safeEh er = do
+safeEh :: ErrorResponse -> YesodApp
+safeEh er = YesodApp $ \_ _ _ -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return $ chooseRep
-        ( Tag "title" [] $ cs "Internal Server Error"
-        , toHtmlObject "Internal server error"
-        )
+    return $ Response W.Status500 [] TypePlain $ cs "Internal Server Error"
 
 ------ Special handlers
 specialResponse :: SpecialResponse -> Handler yesod a
@@ -153,6 +154,9 @@ sendFile ct = specialResponse . SendFile ct
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
 notFound = failure NotFound
+
+badMethod :: Failure ErrorResponse m => m a
+badMethod = failure BadMethod
 
 permissionDenied :: Failure ErrorResponse m => m a
 permissionDenied = failure PermissionDenied

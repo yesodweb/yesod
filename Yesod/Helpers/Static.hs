@@ -1,5 +1,6 @@
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Static
@@ -17,9 +18,12 @@
 --
 ---------------------------------------------------------
 module Yesod.Helpers.Static
-    ( serveStatic
-    , FileLookup
+    ( FileLookup
     , fileLookupDir
+    , siteStaticRoutes
+    , StaticRoutes
+    , staticArgs
+    , Static
     ) where
 
 import System.Directory (doesFileExist)
@@ -27,8 +31,18 @@ import Control.Monad
 
 import Yesod
 import Data.List (intercalate)
+import Network.Wai
 
 type FileLookup = FilePath -> IO (Maybe (Either FilePath Content))
+
+data Static = Static FileLookup
+
+staticArgs :: FileLookup -> Static
+staticArgs = Static
+
+$(mkYesod "Static" [$parseRoutes|
+/* StaticRoute GET
+|])
 
 -- | A 'FileLookup' for files in a directory. Note that this function does not
 -- check if the requested path does unsafe things, eg expose hidden files. You
@@ -36,29 +50,31 @@ type FileLookup = FilePath -> IO (Maybe (Either FilePath Content))
 --
 -- If you are just using this in combination with serveStatic, serveStatic
 -- provides this checking.
-fileLookupDir :: FilePath -> FileLookup
-fileLookupDir dir fp = do
+fileLookupDir :: FilePath -> Static
+fileLookupDir dir = Static $ \fp -> do
     let fp' = dir ++ '/' : fp
     exists <- doesFileExist fp'
     if exists
         then return $ Just $ Left fp'
         else return Nothing
 
-serveStatic :: FileLookup -> Method -> [String]
-            -> Handler y [(ContentType, Content)]
-serveStatic fl GET fp = getStatic fl fp
-serveStatic _ _ _ = notFound
-
 getStatic :: FileLookup -> [String] -> Handler y [(ContentType, Content)]
 getStatic fl fp' = do
     when (any isUnsafe fp') notFound
+    wai <- waiRequest
+    when (requestMethod wai /= GET) badMethod
     let fp = intercalate "/" fp'
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
         Just (Left fp'') -> sendFile (typeByExt $ ext fp'') fp''
         Just (Right bs) -> return [(typeByExt $ ext fp, cs bs)]
-      where
-        isUnsafe [] = True
-        isUnsafe ('.':_) = True
-        isUnsafe _ = False
+  where
+    isUnsafe [] = True
+    isUnsafe ('.':_) = True
+    isUnsafe _ = False
+
+getStaticRoute :: [String] -> Handler Static [(ContentType, Content)]
+getStaticRoute fp = do
+    Static fl <- getYesod
+    getStatic fl fp

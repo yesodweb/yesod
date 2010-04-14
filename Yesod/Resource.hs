@@ -13,15 +13,13 @@ import Yesod.Yesod
 mkYesod :: String -> [Resource] -> Q [Dec]
 mkYesod name res = do
     let name' = mkName name
-    let yaname = mkName $ name ++ "YesodApp"
-    let ya = TySynD yaname [] $ ConT ''YesodApp `AppT` ConT name'
     let tySyn = TySynInstD ''Routes [ConT $ name'] (ConT $ mkName $ name ++ "Routes")
     let gsbod = NormalB $ VarE $ mkName $ "site" ++ name ++ "Routes"
     let yes' = FunD (mkName "getSite") [Clause [] gsbod []]
     let yes = InstanceD [] (ConT ''YesodSite `AppT` ConT name') [yes']
     decs <- createRoutes (name ++ "Routes")
-                         yaname
+                         ''YesodApp
                          name'
                          "runHandler"
                          res
-    return $ ya : tySyn : yes : decs
+    return $ tySyn : yes : decs

@@ -201,6 +201,7 @@ data ErrorResponse =
     | InternalError String
     | InvalidArgs [(ParamName, ParamError)]
     | PermissionDenied
+    | BadMethod
     deriving (Show, Eq)
 
 getStatus :: ErrorResponse -> W.Status

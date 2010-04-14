@@ -59,7 +59,7 @@ library
                      template-haskell,
                      failure >= 0.0.0 && < 0.1,
                      safe-failure >= 0.4.0 && < 0.5,
-                     web-routes >= 0.20 && < 0.21,
+                     web-routes >= 0.22 && < 0.23,
                      web-routes-quasi >= 0.0 && < 0.1,
                      hamlet >= 0.0 && < 0.1
     exposed-modules: Yesod
