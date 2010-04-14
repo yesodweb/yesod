@@ -34,7 +34,7 @@ One of the goals of Yesod is to make it work with the compiler to help you progr
 
 To start with, we need a datatype to represent our program. We'll call this bug tracker "Tweedle", after Dr. Seuss's "Tweedle Beetle Battle" in "Fox in Socks" (my son absolutely loves this book). We'll be putting the complete state of the bug database in an MVar within this variable; in a production setting, you might instead put a database handle.
 
-> data Tweedle = Tweedle Settings (MVar Category) TemplateGroup
+> data Tweedle = Tweedle Settings (MVar Category)
 
 (For now, just ignore the TemplateGroup, its purpose becomes apparent later.)
 
@@ -149,7 +149,7 @@ Note that this will die unless an issues file is present. We could instead check
 >   issuesSO <- decodeFile $ issueFile settings
 >   issues <- fromAttempt $ categoryFromSO issuesSO
 >   missues <- newMVar issues
->   tg <- loadTemplateGroup $ templatesDir settings
+>   tg <- error "FIXME switch to hamlet" -- loadTemplateGroup $ templatesDir settings
 >   return $ Tweedle settings missues tg
 
 And now we're going to write our main function. Yesod is built on top of the Web Application Interface (wai package), so a Yesod application runs on a variety of backends. For our purposes, we're going to use the SimpleServer.

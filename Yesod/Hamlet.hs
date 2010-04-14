@@ -1,11 +1,16 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Hamlet
     ( hamletToContent
     , hamletToRepHtml
     , PageContent (..)
     , Hamlet
     , hamlet
-    , simpleContent
     , HtmlContent (..)
+    , HtmlObject
     )
     where
 
@@ -13,20 +18,13 @@ import Text.Hamlet
 import Text.Hamlet.Monad (outputHtml)
 import Yesod.Response
 import Yesod.Handler
-import Data.Text (pack)
-import Data.Convertible.Text (cs)
+import Data.Convertible.Text
+import Data.Object
 
 data PageContent url = PageContent
     { pageTitle :: IO HtmlContent
     , pageHead :: Hamlet url IO ()
     , pageBody :: Hamlet url IO ()
-    }
-
-simpleContent :: String -> HtmlContent -> PageContent url
-simpleContent title body = PageContent
-    { pageTitle = return $ Unencoded $ pack title
-    , pageHead = return ()
-    , pageBody = outputHtml body
     }
 
 hamletToContent :: Hamlet (Routes y) IO () -> Handler y Content
@@ -45,3 +43,33 @@ hamletToRepHtml :: Hamlet (Routes y) IO () -> Handler y RepHtml
 hamletToRepHtml h = do
     c <- hamletToContent h
     return $ RepHtml c
+
+instance Monad m => ConvertSuccess String (Hamlet url m ()) where
+    convertSuccess = outputHtml . Unencoded . cs
+instance Monad m
+    => ConvertSuccess (Object String HtmlContent) (Hamlet url m ()) where
+    convertSuccess (Scalar h) = outputHtml h
+    convertSuccess (Sequence s) = template () where
+        template = [$hamlet|
+                %ul
+                    $forall s' s
+                        %li ^s^|]
+        s' _ = return $ fromList $ map cs s
+    convertSuccess (Mapping m) = template () where
+        template :: Monad m => () -> Hamlet url m ()
+        template = [$hamlet|
+                %dl
+                    $forall pairs pair
+                        %dt $pair.key$
+                        %dd ^pair.val^|]
+        pairs _ = return $ fromList $ map go m
+        go (k, v) = Pair (return $ cs k) $ cs v
+instance ConvertSuccess String HtmlContent where
+    convertSuccess = Unencoded . cs
+
+data Pair url m = Pair { key :: m HtmlContent, val :: Hamlet url m () }
+
+type HtmlObject = Object String HtmlContent
+
+instance ConvertSuccess (Object String String) HtmlObject where
+    convertSuccess = fmap cs

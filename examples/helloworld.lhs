@@ -16,7 +16,7 @@ instance Yesod HelloWorld where
     approot _ = "http://localhost:3000"
 
 getHome :: Handler HelloWorld ChooseRep
-getHome = applyLayout' "Hello World" $ cs "Hello world!"
+getHome = simpleApplyLayout "Hello World" $ cs "Hello world!"
 
 main :: IO ()
 main = putStrLn "Running..." >> toWaiApp HelloWorld >>= run 3000

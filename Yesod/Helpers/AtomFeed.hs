@@ -23,7 +23,8 @@ module Yesod.Helpers.AtomFeed
 
 import Yesod
 import Data.Time.Clock (UTCTime)
-import Web.Encodings (formatW3)
+-- FIXME import Web.Encodings (formatW3)
+import Data.Convertible.Text
 
 data AtomFeedResponse = AtomFeedResponse AtomFeed Approot
 
@@ -48,11 +49,12 @@ data AtomFeedEntry = AtomFeedEntry
     { atomEntryLink :: Location
     , atomEntryUpdated :: UTCTime
     , atomEntryTitle :: String
-    , atomEntryContent :: Html
+    , atomEntryContent :: HtmlContent
     }
 
 instance ConvertSuccess AtomFeedResponse Content where
-    convertSuccess = cs . (cs :: Html -> XmlDoc) . cs
+    convertSuccess = error "FIXME" -- cs . (cs :: Html -> XmlDoc) . cs
+{- FIXME
 instance ConvertSuccess AtomFeedResponse Html where
     convertSuccess (AtomFeedResponse f ar) =
         Tag "feed" [("xmlns", "http://www.w3.org/2005/Atom")] $ HtmlList
@@ -75,3 +77,4 @@ instance ConvertSuccess (AtomFeedEntry, Approot) Html where
         , Tag "title" [] $ cs $ atomEntryTitle e
         , Tag "content" [("type", "html")] $ cdata $ atomEntryContent e
         ]
+-}

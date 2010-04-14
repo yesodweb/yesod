@@ -49,6 +49,7 @@ import Control.Arrow ((***))
 import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class
 import Control.Concurrent.MVar
+import Control.Monad (liftM)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -60,7 +61,7 @@ type ParamName = String
 type ParamValue = String
 type ParamError = String
 
-class RequestReader m where
+class Monad m => RequestReader m where
     getRequest :: m Request
 instance RequestReader ((->) Request) where
     getRequest = id
@@ -69,8 +70,8 @@ languages :: (Functor m, RequestReader m) => m [Language]
 languages = reqLangs `fmap` getRequest
 
 -- | Get the req 'W.Request' value.
-waiRequest :: (Functor m, RequestReader m) => m W.Request
-waiRequest = reqWaiRequest `fmap` getRequest
+waiRequest :: RequestReader m => m W.Request
+waiRequest = reqWaiRequest `liftM` getRequest
 
 type RequestBodyContents =
     ( [(ParamName, ParamValue)]

@@ -79,10 +79,11 @@ data, all with HTML entities escaped properly. These representations include:
 For simplicity here, we don't include a template, though it would be trivial to
 do so (see the hellotemplate example).
 
-> getFactR i = applyLayoutJson "Factorial result" $ cs
+> getFactR :: Integer -> Handler y ChooseRep -- FIXME remove
+> getFactR _i = error "FIXME" {-simpleApplyLayout "Factorial result" $ cs
 >             [ ("input", show i)
 >             , ("result", show $ product [1..fromIntegral i :: Integer])
->             ]
+>             ]-}
 
 I've decided to have a redirect instead of serving the some data in two
 locations. It fits in more properly with the RESTful principal of one name for

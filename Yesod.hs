@@ -21,23 +21,21 @@ module Yesod
     , module Yesod.Handler
     , module Yesod.Resource
     , module Yesod.Form
-    , module Data.Object.Html
-    , module Yesod.Template
     , module Web.Mime
+    , module Yesod.Hamlet
     , Application
     , Method (..)
+    , cs
     ) where
 
 #if TEST
 import Yesod.Resource hiding (testSuite)
 import Yesod.Response hiding (testSuite)
-import Data.Object.Html hiding (testSuite)
 import Yesod.Request hiding (testSuite)
 import Web.Mime hiding (testSuite)
 #else
 import Yesod.Resource
 import Yesod.Response
-import Data.Object.Html
 import Yesod.Request
 import Web.Mime
 #endif
@@ -47,4 +45,5 @@ import Yesod.Yesod
 import Yesod.Definitions
 import Yesod.Handler
 import Network.Wai (Application, Method (..))
-import Yesod.Template
+import Yesod.Hamlet
+import Data.Convertible.Text (cs)

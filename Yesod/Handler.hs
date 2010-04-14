@@ -52,9 +52,10 @@ import Control.Monad.Attempt
 import Control.Monad (liftM, ap)
 
 import System.IO
-import Data.Object.Html
 import qualified Data.ByteString.Lazy as BL
 import qualified Network.Wai as W
+
+import Data.Convertible.Text (cs)
 
 type family Routes y
 
@@ -155,8 +156,10 @@ sendFile ct = specialResponse . SendFile ct
 notFound :: Failure ErrorResponse m => m a
 notFound = failure NotFound
 
-badMethod :: Failure ErrorResponse m => m a
-badMethod = failure BadMethod
+badMethod :: (RequestReader m, Failure ErrorResponse m) => m a
+badMethod = do
+    w <- waiRequest
+    failure $ BadMethod $ cs $ W.methodToBS $ W.requestMethod w
 
 permissionDenied :: Failure ErrorResponse m => m a
 permissionDenied = failure PermissionDenied

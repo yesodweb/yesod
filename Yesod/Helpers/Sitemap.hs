@@ -24,8 +24,9 @@ module Yesod.Helpers.Sitemap
     ) where
 
 import Yesod
-import Web.Encodings (formatW3)
+--FIXME import Web.Encodings (formatW3)
 import Data.Time (UTCTime)
+import Data.Convertible.Text
 
 data SitemapChangeFreq = Always
                        | Hourly
@@ -42,8 +43,10 @@ instance ConvertSuccess SitemapChangeFreq String where
     convertSuccess Monthly = "monthly"
     convertSuccess Yearly  = "yearly"
     convertSuccess Never   = "never"
+{- FIXME
 instance ConvertSuccess SitemapChangeFreq Html where
     convertSuccess = (cs :: String -> Html) . cs
+-}
 
 data SitemapUrl = SitemapUrl
     { sitemapLoc :: Location
@@ -53,7 +56,8 @@ data SitemapUrl = SitemapUrl
     }
 data SitemapResponse = SitemapResponse [SitemapUrl] Approot
 instance ConvertSuccess SitemapResponse Content where
-    convertSuccess = cs . (cs :: Html -> XmlDoc) . cs
+    convertSuccess = error "FIXME" -- cs . (cs :: Html -> XmlDoc) . cs
+{- FIXME
 instance ConvertSuccess SitemapResponse Html where
     convertSuccess (SitemapResponse urls ar) =
         Tag "urlset" [("xmlns", sitemapNS)] $ HtmlList $ map helper urls
@@ -67,6 +71,7 @@ instance ConvertSuccess SitemapResponse Html where
                     , Tag "changefreq" [] $ cs freq
                     , Tag "priority" [] $ cs $ show pri
                     ]
+-}
 
 instance HasReps SitemapResponse where
     chooseRep = defChooseRep

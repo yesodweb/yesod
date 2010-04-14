@@ -25,7 +25,6 @@ module Yesod.Response
     , HasReps (..)
     , defChooseRep
     , ioTextToContent
-    , hoToJsonContent
       -- ** Convenience wrappers
     , staticRep
       -- ** Specific content types
@@ -59,7 +58,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
-import Data.Object.Json
+import Data.Convertible.Text
 
 import Web.Encodings (formatW3)
 import qualified Network.Wai as W
@@ -67,11 +66,9 @@ import qualified Network.Wai.Enumerator as WE
 
 #if TEST
 import Yesod.Request hiding (testSuite)
-import Data.Object.Html hiding (testSuite)
 import Web.Mime hiding (testSuite)
 #else
 import Yesod.Request
-import Data.Object.Html
 import Web.Mime
 #endif
 
@@ -95,10 +92,6 @@ instance ConvertSuccess Text Content where
     convertSuccess lt = cs (cs lt :: L.ByteString)
 instance ConvertSuccess String Content where
     convertSuccess s = cs (cs s :: Text)
-instance ConvertSuccess HtmlDoc Content where
-    convertSuccess = cs . unHtmlDoc
-instance ConvertSuccess XmlDoc Content where
-    convertSuccess = cs . unXmlDoc
 
 type ChooseRep = [ContentType] -> IO (ContentType, Content)
 
@@ -109,9 +102,6 @@ ioTextToContent = swapEnum . WE.fromLBS' . fmap cs
 
 swapEnum :: W.Enumerator -> Content
 swapEnum (W.Enumerator e) = ContentEnum e
-
-hoToJsonContent :: HtmlObject -> Content
-hoToJsonContent = cs . unJsonDoc . cs
 
 -- | Any type which can be converted to representations.
 class HasReps a where
@@ -147,12 +137,6 @@ instance HasReps [(ContentType, Content)] where
             _ -> case a of
                     (x:_) -> x
                     _ -> error "chooseRep [(ContentType, Content)] of empty"
-
-instance HasReps (Html, HtmlObject) where
-    chooseRep = defChooseRep
-        [ (TypeHtml, return . cs . unHtmlDoc . cs)
-        , (TypeJson, return . cs . unJsonDoc . cs)
-        ]
 
 -- | Data with a single representation.
 staticRep :: ConvertSuccess x Content
@@ -201,7 +185,7 @@ data ErrorResponse =
     | InternalError String
     | InvalidArgs [(ParamName, ParamError)]
     | PermissionDenied
-    | BadMethod
+    | BadMethod String
     deriving (Show, Eq)
 
 getStatus :: ErrorResponse -> W.Status
@@ -209,6 +193,7 @@ getStatus NotFound = W.Status404
 getStatus (InternalError _) = W.Status500
 getStatus (InvalidArgs _) = W.Status400
 getStatus PermissionDenied = W.Status403
+getStatus (BadMethod _) = W.Status405
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.

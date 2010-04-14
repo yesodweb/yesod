@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-overlapping-patterns #-} -- FIXME due to bug in Hamlet
 
 import Yesod
 import Yesod.Helpers.Static

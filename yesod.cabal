@@ -53,7 +53,6 @@ library
                      syb,
                      text >= 0.5 && < 0.8,
                      convertible-text >= 0.2.0 && < 0.3,
-                     HStringTemplate >= 0.6.2 && < 0.7,
                      data-object-json >= 0.0.0 && < 0.1,
                      attempt >= 0.2.1 && < 0.3,
                      template-haskell,
@@ -71,8 +70,6 @@ library
                      Yesod.Handler
                      Yesod.Resource
                      Yesod.Yesod
-                     Yesod.Template
-                     Data.Object.Html
                      Yesod.Helpers.Auth
                      Yesod.Helpers.Static
                      Yesod.Helpers.AtomFeed
@@ -82,7 +79,8 @@ library
 
 executable              yesod
     ghc-options:        -Wall
-    build-depends:      file-embed >= 0.0.3 && < 0.1
+    build-depends:      file-embed >= 0.0.3 && < 0.1,
+                        HStringTemplate >= 0.6.2 && < 0.7
     main-is:            CLI/yesod.hs
 
 executable             runtests
@@ -107,13 +105,13 @@ executable             helloworld
   ghc-options:         -Wall
   main-is:             examples/helloworld.lhs
 
-executable             hellotemplate
+executable             hamlet
   if flag(buildsamples)
     Buildable: True
   else
     Buildable: False
   ghc-options:         -Wall
-  main-is:             examples/hellotemplate.lhs
+  main-is:             examples/hamlet.hs
 
 executable             fact
   if flag(buildsamples)

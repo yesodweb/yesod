@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE QuasiQuotes #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Auth
@@ -30,11 +31,11 @@ import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod
+import Data.Convertible.Text
 
 import Control.Monad.Attempt
 import qualified Data.ByteString.Char8 as B8
 
-import Data.Maybe (fromMaybe)
 import qualified Network.Wai as W
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
@@ -90,11 +91,13 @@ authHandler W.GET ["openid", "complete"] = rc authOpenidComplete
 authHandler _ ["login", "rpxnow"] = rc rpxnowLogin
 authHandler _ _ = notFound
 
-data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)
+-- FIXME data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)
+{- FIXME
 instance ConvertSuccess OIDFormReq Html where
     convertSuccess (OIDFormReq Nothing _) = cs ""
     convertSuccess (OIDFormReq (Just s) _) =
         Tag "p" [("class", "message")] $ cs s
+-}
 
 data ExpectedSingleParam = ExpectedSingleParam
     deriving (Show, Typeable)
@@ -106,20 +109,21 @@ authOpenidForm = do
     case getParams rr "dest" of
         [] -> return ()
         (x:_) -> addCookie destCookieTimeout destCookieName x
-    let html =
-         HtmlList
-          [ case getParams rr "message" of
-                [] -> HtmlList []
-                (m:_) -> Tag "p" [("class", "message")] $ cs m
-          , Tag "form" [("method", "get"), ("action", "forward/")] $
-              HtmlList
-                [ Tag "label" [("for", "openid")] $ cs "OpenID: "
-                , EmptyTag "input" [("type", "text"), ("id", "openid"),
-                                    ("name", "openid")]
-                , EmptyTag "input" [("type", "submit"), ("value", "Login")]
-                ]
-          ]
-    applyLayout' "Log in via OpenID" html
+    let html = template (getParams rr "message")
+    simpleApplyLayout "Log in via OpenID" html
+  where
+    urlForward _ = error "FIXME urlForward"
+    hasMessage = return . not . null
+    message [] = return $ Encoded $ cs ""
+    message (m:_) = return $ Unencoded $ cs m
+    template = [$hamlet|
+$if hasMessage
+    %p.message $message$
+%form!method=get!action=@urlForward@
+    %label!for=openid OpenID: 
+    %input#openid!type=text!name=openid
+    %input!type=submit!value=Login
+|]
 
 authOpenidForward :: YesodAuth y => Handler y ()
 authOpenidForward = do
@@ -190,12 +194,15 @@ getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
 
 authCheck :: Yesod y => Handler y ChooseRep
 authCheck = do
-    ident <- maybeIdentifier
-    dn <- displayName
+    _ident <- maybeIdentifier
+    _dn <- displayName
+    error "FIXME applyLayoutJson"
+    {-
     applyLayoutJson "Authentication Status" $ cs
         [ ("identifier", fromMaybe "" ident)
         , ("displayName", fromMaybe "" dn)
         ]
+    -}
 
 authLogout :: YesodAuth y => Handler y ()
 authLogout = do

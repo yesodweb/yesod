@@ -4,7 +4,6 @@
 
 import Yesod
 import Network.Wai.Handler.SimpleServer
-import Text.Hamlet
 
 data Ham = Ham
 
@@ -21,7 +20,7 @@ data NextLink m = NextLink { nextLink :: m HamRoutes }
 nl :: Monad m => HamRoutes -> NextLink m
 nl = NextLink . return
 
-template :: Monad m => NextLink (Hamlet HamRoutes m) -> Hamlet HamRoutes m ()
+template :: Monad m => NextLink m -> Hamlet HamRoutes m ()
 template = [$hamlet|
 %a!href=@nextLink@ Next page
 |]

@@ -3,15 +3,12 @@
 module Yesod.Yesod
     ( Yesod (..)
     , YesodSite (..)
-    , applyLayout'
-    , applyLayoutJson
+    , simpleApplyLayout
     , getApproot
     , toWaiApp
     , basicHandler
     ) where
 
-import Data.Object.Html
-import Data.Object.Json (unJsonDoc)
 import Yesod.Response
 import Yesod.Request
 import Yesod.Definitions
@@ -19,6 +16,8 @@ import Yesod.Hamlet
 import Yesod.Handler hiding (badMethod)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
+import Data.Convertible.Text
+import Text.Hamlet.Monad (fromList)
 
 import Data.Maybe (fromMaybe)
 import Web.Mime
@@ -54,7 +53,7 @@ class YesodSite a => Yesod a where
     errorHandler :: Yesod y => a -> ErrorResponse -> Handler y ChooseRep
     errorHandler _ = defaultErrorHandler
 
-    -- | Applies some form of layout to <title> and <body> contents of a page.
+    -- | Applies some form of layout to <title> and <body> contents of a page. FIXME: use a Maybe here to allow subsites to simply inherit.
     applyLayout :: a
                 -> PageContent (Routes a)
                 -> Request
@@ -77,35 +76,22 @@ class YesodSite a => Yesod a where
     -- trailing slash.
     approot :: a -> Approot
 
--- | A convenience wrapper around 'applyLayout'.
-applyLayout' :: Yesod y
-             => String
-             -> Html
-             -> Handler y ChooseRep
-applyLayout' t b = do
-    let pc = simpleContent t $ Encoded $ cs $ unHtmlFragment $ cs b
+-- | A convenience wrapper around 'simpleApplyLayout for HTML-only data.
+simpleApplyLayout :: Yesod y
+                  => String -- ^ title
+                  -> Hamlet (Routes y) IO () -- ^ body
+                  -> Handler y ChooseRep
+simpleApplyLayout t b = do
+    let pc = PageContent
+                { pageTitle = return $ Unencoded $ cs t
+                , pageHead = return ()
+                , pageBody = b
+                }
     y <- getYesod
     rr <- getRequest
     content <- hamletToContent $ applyLayout y pc rr
     return $ chooseRep
         [ (TypeHtml, content)
-        ]
-
--- | A convenience wrapper around 'applyLayout' which provides a JSON
--- representation of the body.
-applyLayoutJson :: Yesod y
-                => String
-                -> HtmlObject
-                -> Handler y ChooseRep
-applyLayoutJson t b = do
-    let pc = simpleContent t $ Encoded $ cs $ unHtmlFragment
-           $ cs (cs b :: Html)
-    y <- getYesod
-    rr <- getRequest
-    htmlcontent <- hamletToContent $ applyLayout y pc rr
-    return $ chooseRep
-        [ (TypeHtml, htmlcontent)
-        , (TypeJson, cs $ unJsonDoc $ cs b)
         ]
 
 getApproot :: Yesod y => Handler y Approot
@@ -114,32 +100,54 @@ getApproot = approot `fmap` getYesod
 defaultErrorHandler :: Yesod y => ErrorResponse -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    applyLayout' "Not Found" $ cs $ toHtmlObject
-        [ ("Not found", cs $ W.pathInfo r :: String)
-        ]
+    simpleApplyLayout "Not Found" $ [$hamlet|
+%h1 Not Found
+%p $helper$
+|] r
+  where
+    helper = return . Unencoded . cs . W.pathInfo
 defaultErrorHandler PermissionDenied =
-    applyLayout' "Permission Denied" $ cs "Permission denied"
+    simpleApplyLayout "Permission Denied" $ [$hamlet|
+%h1 Permission denied|] ()
 defaultErrorHandler (InvalidArgs ia) =
-    applyLayout' "Invalid Arguments" $ cs $ toHtmlObject
-            [ ("errorMsg", toHtmlObject "Invalid arguments")
-            , ("messages", toHtmlObject ia)
-            ]
+    simpleApplyLayout "Invalid Arguments" $ [$hamlet|
+%h1 Invalid Arguments
+%dl
+    $forall ias pair
+        %dt $pair.key$
+        %dd $pair.val$
+|] ()
+  where
+    ias _ = return $ fromList $ map go ia
+    go (k, v) = Pair (return $ Unencoded $ cs k)
+                     (return $ Unencoded $ cs v)
 defaultErrorHandler (InternalError e) =
-    applyLayout' "Internal Server Error" $ cs $ toHtmlObject
-        [ ("Internal server error", e)
-        ]
-defaultErrorHandler BadMethod =
-    applyLayout' "Bad Method" $ cs "Method Not Supported"
+    simpleApplyLayout "Internal Server Error" $ [$hamlet|
+%h1 Internal Server Error
+%p $message$
+|] e
+  where
+    message :: String -> IO HtmlContent
+    message = return . Unencoded . cs
+defaultErrorHandler (BadMethod m) =
+    simpleApplyLayout "Bad Method" $ [$hamlet|
+%h1 Method Not Supported
+%p Method "$m'$" not supported
+|] ()
+  where
+    m' _ = return $ Unencoded $ cs m
+
+data Pair m k v = Pair { key :: m k, val :: m v }
 
 toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do
-    key <- encryptKey a
+    key' <- encryptKey a
     let mins = clientSessionDuration a
     return $ gzip
            $ jsonp
            $ methodOverride
            $ cleanPath
-           $ \thePath -> clientsession encryptedCookies key mins
+           $ \thePath -> clientsession encryptedCookies key' mins
            $ toWaiApp' a thePath
 
 toWaiApp' :: Yesod y
@@ -161,7 +169,8 @@ toWaiApp' y resource session env = do
     print pathSegments
     let ya = case eurl of
                 Left _ -> runHandler (errorHandler y NotFound) y render
-                Right url -> handleSite site render url method badMethod y
+                Right url -> handleSite site render url method
+                                        (badMethod method) y
     let eh er = runHandler (errorHandler y er) y render
     unYesodApp ya eh rr types >>= responseToWaiResponse
 
@@ -187,8 +196,9 @@ basicHandler port app = do
             SS.run port app
         Just _ -> CGI.run app
 
-badMethod :: YesodApp
-badMethod = YesodApp $ \eh req cts -> unYesodApp (eh BadMethod) eh req cts
+badMethod :: String -> YesodApp
+badMethod m = YesodApp $ \eh req cts
+         -> unYesodApp (eh $ BadMethod m) eh req cts
 
 fixSegs :: [String] -> [String]
 fixSegs [] = []
