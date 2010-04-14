@@ -67,6 +67,7 @@ library
                      Yesod.Response
                      Yesod.Definitions
                      Yesod.Form
+                     Yesod.Hamlet
                      Yesod.Handler
                      Yesod.Resource
                      Yesod.Yesod

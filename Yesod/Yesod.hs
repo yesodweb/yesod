@@ -8,8 +8,6 @@ module Yesod.Yesod
     , getApproot
     , toWaiApp
     , basicHandler
-    , hamletToContent -- FIXME put elsewhere
-    , hamletToRepHtml
     ) where
 
 import Data.Object.Html
@@ -17,6 +15,7 @@ import Data.Object.Json (unJsonDoc)
 import Yesod.Response
 import Yesod.Request
 import Yesod.Definitions
+import Yesod.Hamlet
 import Yesod.Handler hiding (badMethod)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
@@ -26,8 +25,6 @@ import Web.Mime
 import Web.Encodings (parseHttpAccept)
 import Web.Routes (Site (..), encodePathInfo, decodePathInfo)
 import Data.List (intercalate)
-import Text.Hamlet
-import Text.Hamlet.Monad (outputHtml)
 
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath
@@ -42,19 +39,6 @@ import System.Environment (getEnvironment)
 
 class YesodSite y where
     getSite :: Site (Routes y) (String -> YesodApp -> y -> YesodApp)
-
-data PageContent url = PageContent
-    { pageTitle :: Hamlet url IO HtmlContent
-    , pageHead :: Hamlet url IO ()
-    , pageBody :: Hamlet url IO ()
-    }
-
-simpleContent :: String -> HtmlContent -> PageContent url
-simpleContent title body = PageContent
-    { pageTitle = return $ Unencoded $ cs title
-    , pageHead = return ()
-    , pageBody = outputHtml body
-    }
 
 class YesodSite a => Yesod a where
     -- | The encryption key to be used for encrypting client sessions.
@@ -123,18 +107,6 @@ applyLayoutJson t b = do
         [ (TypeHtml, htmlcontent)
         , (TypeJson, cs $ unJsonDoc $ cs b)
         ]
-
-hamletToContent :: Hamlet (Routes y) IO () -> Handler y Content
-hamletToContent h = do
-    render <- getUrlRender
-    return $ ContentEnum $ go render
-  where
-    go render iter seed = do
-        res <- runHamlet h render seed $ iter' iter
-        case res of
-            Left x -> return $ Left x
-            Right ((), x) -> return $ Right x
-    iter' iter seed text = iter seed $ cs text
 
 getApproot :: Yesod y => Handler y Approot
 getApproot = approot `fmap` getYesod
@@ -217,11 +189,6 @@ basicHandler port app = do
 
 badMethod :: YesodApp
 badMethod = YesodApp $ \eh req cts -> unYesodApp (eh BadMethod) eh req cts
-
-hamletToRepHtml :: Hamlet (Routes y) IO () -> Handler y RepHtml
-hamletToRepHtml h = do
-    c <- hamletToContent h
-    return $ RepHtml c
 
 fixSegs :: [String] -> [String]
 fixSegs [] = []

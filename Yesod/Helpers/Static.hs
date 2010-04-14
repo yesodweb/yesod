@@ -40,6 +40,7 @@ data Static = Static FileLookup
 staticArgs :: FileLookup -> Static
 staticArgs = Static
 
+-- FIXME bug in web-routes-quasi generates warning here
 $(mkYesod "Static" [$parseRoutes|
 /* StaticRoute GET
 |])
