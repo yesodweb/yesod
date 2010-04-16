@@ -20,9 +20,10 @@ import Yesod.Response
 import Yesod.Handler
 import Data.Convertible.Text
 import Data.Object
+import Control.Arrow ((***))
 
 data PageContent url = PageContent
-    { pageTitle :: IO HtmlContent
+    { pageTitle :: HtmlContent
     , pageHead :: Hamlet url IO ()
     , pageBody :: Hamlet url IO ()
     }
@@ -54,20 +55,17 @@ instance Monad m
                 %ul
                     $forall s' s
                         %li ^s^|]
-        s' _ = return $ fromList $ map cs s
+        s' _ = map cs s
     convertSuccess (Mapping m) = template () where
         template :: Monad m => () -> Hamlet url m ()
         template = [$hamlet|
                 %dl
                     $forall pairs pair
-                        %dt $pair.key$
-                        %dd ^pair.val^|]
-        pairs _ = return $ fromList $ map go m
-        go (k, v) = Pair (return $ cs k) $ cs v
+                        %dt $pair.fst$
+                        %dd ^pair.snd^|]
+        pairs _ = map (cs *** cs) m
 instance ConvertSuccess String HtmlContent where
     convertSuccess = Unencoded . cs
-
-data Pair url m = Pair { key :: m HtmlContent, val :: Hamlet url m () }
 
 type HtmlObject = Object String HtmlContent
 

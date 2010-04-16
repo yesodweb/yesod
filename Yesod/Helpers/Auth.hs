@@ -113,9 +113,9 @@ authOpenidForm = do
     simpleApplyLayout "Log in via OpenID" html
   where
     urlForward _ = error "FIXME urlForward"
-    hasMessage = return . not . null
-    message [] = return $ Encoded $ cs ""
-    message (m:_) = return $ Unencoded $ cs m
+    hasMessage = not . null
+    message [] = cs ""
+    message (m:_) = cs m
     template = [$hamlet|
 $if hasMessage
     %p.message $message$

@@ -17,7 +17,7 @@ import Yesod.Handler hiding (badMethod)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import Data.Convertible.Text
-import Text.Hamlet.Monad (fromList)
+import Control.Arrow ((***))
 
 import Data.Maybe (fromMaybe)
 import Web.Mime
@@ -83,7 +83,7 @@ simpleApplyLayout :: Yesod y
                   -> Handler y ChooseRep
 simpleApplyLayout t b = do
     let pc = PageContent
-                { pageTitle = return $ Unencoded $ cs t
+                { pageTitle = cs t
                 , pageHead = return ()
                 , pageBody = b
                 }
@@ -105,7 +105,7 @@ defaultErrorHandler NotFound = do
 %p $helper$
 |] r
   where
-    helper = return . Unencoded . cs . W.pathInfo
+    helper = Unencoded . cs . W.pathInfo
 defaultErrorHandler PermissionDenied =
     simpleApplyLayout "Permission Denied" $ [$hamlet|
 %h1 Permission denied|] ()
@@ -114,30 +114,21 @@ defaultErrorHandler (InvalidArgs ia) =
 %h1 Invalid Arguments
 %dl
     $forall ias pair
-        %dt $pair.key$
-        %dd $pair.val$
+        %dt $pair.fst$
+        %dd $pair.snd$
 |] ()
   where
-    ias _ = return $ fromList $ map go ia
-    go (k, v) = Pair (return $ Unencoded $ cs k)
-                     (return $ Unencoded $ cs v)
+    ias _ = map (cs *** cs) ia
 defaultErrorHandler (InternalError e) =
     simpleApplyLayout "Internal Server Error" $ [$hamlet|
 %h1 Internal Server Error
-%p $message$
+%p $cs$
 |] e
-  where
-    message :: String -> IO HtmlContent
-    message = return . Unencoded . cs
 defaultErrorHandler (BadMethod m) =
     simpleApplyLayout "Bad Method" $ [$hamlet|
 %h1 Method Not Supported
-%p Method "$m'$" not supported
-|] ()
-  where
-    m' _ = return $ Unencoded $ cs m
-
-data Pair m k v = Pair { key :: m k, val :: m v }
+%p Method "$cs$" not supported
+|] m
 
 toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do

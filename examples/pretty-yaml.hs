@@ -36,13 +36,13 @@ template = [$hamlet|
 |]
 
 data TempArgs url m = TempArgs
-    { hasYaml :: m Bool
+    { hasYaml :: Bool
     , yaml :: Hamlet url m ()
     }
 
 getHomepage :: Handler PY RepHtml
 getHomepage = hamletToRepHtml
-            $ template $ TempArgs (return False) (return ())
+            $ template $ TempArgs False (return ())
 
 --FIXMEpostHomepage :: Handler PY RepHtmlJson
 postHomepage :: Handler PY RepHtml
@@ -53,13 +53,13 @@ postHomepage = do
             Nothing -> invalidArgs [("yaml", "Missing input")]
             Just x -> return x
     so <- liftIO $ decode $ B.concat $ L.toChunks $ fileContent fi
-    {-
+    {- FIXME
     let ho' = fmap Text to
     templateHtmlJson "pretty-yaml" ho' $ \ho ->
         return . setHtmlAttrib "yaml" (Scalar $ cs ho :: HtmlObject)
     -}
     let ho = cs (so :: StringObject) :: HtmlObject
-    hamletToRepHtml $ template $ TempArgs (return True) (cs ho)
+    hamletToRepHtml $ template $ TempArgs True (cs ho)
 
 main :: IO ()
 main = do

@@ -15,21 +15,18 @@ mkYesod "Ham" [$parseRoutes|
 instance Yesod Ham where
     approot _ = "http://localhost:3000"
 
-data NextLink m = NextLink { nextLink :: m HamRoutes }
+data NextLink = NextLink { nextLink :: HamRoutes }
 
-nl :: Monad m => HamRoutes -> NextLink m
-nl = NextLink . return
-
-template :: Monad m => NextLink m -> Hamlet HamRoutes m ()
+template :: Monad m => NextLink -> Hamlet HamRoutes m ()
 template = [$hamlet|
 %a!href=@nextLink@ Next page
 |]
 
 getHomepage :: Handler Ham RepHtml
-getHomepage = hamletToRepHtml $ template $ nl $ Another 1
+getHomepage = hamletToRepHtml $ template $ NextLink $ Another 1
 
 getAnother :: Integer -> Handler Ham RepHtml
-getAnother i = hamletToRepHtml $ template $ nl next
+getAnother i = hamletToRepHtml $ template $ NextLink next
   where
     next = case i of
                 5 -> Homepage
