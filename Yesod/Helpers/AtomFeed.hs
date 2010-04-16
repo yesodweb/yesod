@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.AtomFeed
@@ -17,64 +18,64 @@
 module Yesod.Helpers.AtomFeed
     ( AtomFeed (..)
     , AtomFeedEntry (..)
-    , AtomFeedResponse (..)
-    , atomFeed
+    --, atomFeed
+    , template -- FIXME
     ) where
 
 import Yesod
 import Data.Time.Clock (UTCTime)
--- FIXME import Web.Encodings (formatW3)
-import Data.Convertible.Text
+import Web.Encodings (formatW3)
+import Text.Hamlet.Monad
 
-data AtomFeedResponse = AtomFeedResponse AtomFeed Approot
-
+{-
 atomFeed :: Yesod y => AtomFeed -> Handler y AtomFeedResponse
 atomFeed f = do
     y <- getYesod
     return $ AtomFeedResponse f $ approot y
+-}
 
-data AtomFeed = AtomFeed
+data AtomFeed url = AtomFeed
     { atomTitle :: String
-    , atomLinkSelf :: Location
-    , atomLinkHome :: Location
+    , atomLinkSelf :: url
+    , atomLinkHome :: url
     , atomUpdated :: UTCTime
-    , atomEntries :: [AtomFeedEntry]
+    , atomEntries :: [AtomFeedEntry url]
     }
-instance HasReps AtomFeedResponse where
+{- FIXME
+instance HasReps (AtomFeed url) where
     chooseRep = defChooseRep
         [ (TypeAtom, return . cs)
         ]
+-}
 
-data AtomFeedEntry = AtomFeedEntry
-    { atomEntryLink :: Location
+data AtomFeedEntry url = AtomFeedEntry
+    { atomEntryLink :: url
     , atomEntryUpdated :: UTCTime
     , atomEntryTitle :: String
     , atomEntryContent :: HtmlContent
     }
 
-instance ConvertSuccess AtomFeedResponse Content where
-    convertSuccess = error "FIXME" -- cs . (cs :: Html -> XmlDoc) . cs
-{- FIXME
-instance ConvertSuccess AtomFeedResponse Html where
-    convertSuccess (AtomFeedResponse f ar) =
-        Tag "feed" [("xmlns", "http://www.w3.org/2005/Atom")] $ HtmlList
-          [ Tag "title" [] $ cs $ atomTitle f
-          , EmptyTag "link" [ ("rel", "self")
-                            , ("href", showLocation ar $ atomLinkSelf f)
-                            ]
-          , EmptyTag "link" [ ("href", showLocation ar $ atomLinkHome f)
-                            ]
-          , Tag "updated" [] $ cs $ formatW3 $ atomUpdated f
-          , Tag "id" [] $ cs $ showLocation ar $ atomLinkHome f
-          , HtmlList $ map cs $ zip (atomEntries f) $ repeat ar
-        ]
+xmlns :: a -> HtmlContent
+xmlns _ = cs "http://www.w3.org/2005/Atom"
 
-instance ConvertSuccess (AtomFeedEntry, Approot) Html where
-    convertSuccess (e, ar) = Tag "entry" [] $ HtmlList
-        [ Tag "id" [] $ cs $ showLocation ar $ atomEntryLink e
-        , EmptyTag "link" [("href", showLocation ar $ atomEntryLink e)]
-        , Tag "updated" [] $ cs $ formatW3 $ atomEntryUpdated e
-        , Tag "title" [] $ cs $ atomEntryTitle e
-        , Tag "content" [("type", "html")] $ cdata $ atomEntryContent e
-        ]
--}
+template :: AtomFeed url -> Hamlet url IO ()
+template = [$hamlet|
+%feed!xmlns=$xmlns$
+    %title $atomTitle.cs$
+    %link!rel=self!href=@atomLinkSelf@
+    %link!href=@atomLinkHome@
+    %updated $atomUpdated.formatW3.cs$
+    %id @atomLinkHome@
+    $forall atomEntries entry
+        ^entry.entryTemplate^
+|]
+
+entryTemplate :: AtomFeedEntry url -> Hamlet url IO ()
+entryTemplate = [$hamlet|
+%entry
+    %id @atomEntryLink@
+    %link!href=@atomEntryLink@
+    %updated $atomEntryUpdated.formatW3.cs$
+    %title $atomEntryTitle.cs$
+    %content!type=html $atomEntryContent.cdata$
+|]
