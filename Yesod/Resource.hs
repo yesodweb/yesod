@@ -20,6 +20,6 @@ mkYesod name res = do
     decs <- createRoutes (name ++ "Routes")
                          ''YesodApp
                          name'
-                         "runHandler"
+                         "runHandler'"
                          res
     return $ tySyn : yes : decs

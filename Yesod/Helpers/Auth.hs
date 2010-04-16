@@ -2,6 +2,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ExistentialQuantification #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Auth
@@ -16,15 +19,13 @@
 --
 ---------------------------------------------------------
 module Yesod.Helpers.Auth
-    ( authHandler
-    , YesodAuth (..)
-    , maybeIdentifier
+    ( maybeIdentifier
     , authIdentifier
     , displayName
     , redirectLogin
+    , Auth (..)
+    , siteAuthRoutes
     ) where
-
--- FIXME write as subsite
 
 import Web.Encodings
 import qualified Web.Authenticate.Rpxnow as Rpxnow
@@ -35,6 +36,7 @@ import Data.Convertible.Text
 
 import Control.Monad.Attempt
 import qualified Data.ByteString.Char8 as B8
+import Data.Maybe
 
 import qualified Network.Wai as W
 import Data.Typeable (Typeable)
@@ -43,79 +45,49 @@ import Control.Applicative ((<$>))
 
 -- FIXME check referer header to determine destination
 
-class Yesod a => YesodAuth a where
-    -- | The following breaks DRY, but I cannot think of a better solution
-    -- right now.
-    --
-    -- The root relative to the application root. Should not begin with a slash
-    -- and should end with one.
-    authRoot :: a -> String
-    authRoot _ = "auth/"
+data LoginType = OpenId | Rpxnow
 
-    -- | Absolute path to the default login path.
-    defaultLoginPath :: a -> String
-    defaultLoginPath a = approot a ++ authRoot a ++ "openid/"
+data Auth = forall y. Yesod y => Auth
+    { defaultDest :: String
+    , onRpxnowLogin :: Rpxnow.Identifier -> Handler Auth ()
+    , rpxnowApiKey :: Maybe String
+    , defaultLoginType :: LoginType
+    , parentYesod :: y
+    }
 
-    rpxnowApiKey :: a -> Maybe String
-    rpxnowApiKey _ = Nothing
-
-    onRpxnowLogin :: Rpxnow.Identifier -> Handler a ()
-    onRpxnowLogin _ = return ()
-
-getFullAuthRoot :: YesodAuth y => Handler y String
-getFullAuthRoot = do
-    y <- getYesod
-    ar <- getApproot
-    return $ ar ++ authRoot y
-
-data AuthResource =
-    Check
-    | Logout
-    | Openid
-    | OpenidForward
-    | OpenidComplete
-    | LoginRpxnow
-    deriving (Show, Eq, Enum, Bounded)
-
-rc :: HasReps x => Handler y x -> Handler y ChooseRep
-rc = fmap chooseRep
-
-authHandler :: YesodAuth y => W.Method -> [String] -> Handler y ChooseRep
-authHandler W.GET ["check"] = rc authCheck
-authHandler W.GET ["logout"] = rc authLogout
-authHandler W.GET ["openid"] = rc authOpenidForm
-authHandler W.GET ["openid", "forward"] = rc authOpenidForward
-authHandler W.GET ["openid", "complete"] = rc authOpenidComplete
--- two different versions of RPX protocol apparently, so just accepting all
--- verbs
-authHandler _ ["login", "rpxnow"] = rc rpxnowLogin
-authHandler _ _ = notFound
-
--- FIXME data OIDFormReq = OIDFormReq (Maybe String) (Maybe String)
-{- FIXME
-instance ConvertSuccess OIDFormReq Html where
-    convertSuccess (OIDFormReq Nothing _) = cs ""
-    convertSuccess (OIDFormReq (Just s) _) =
-        Tag "p" [("class", "message")] $ cs s
--}
+$(mkYesod "Auth" [$parseRoutes|
+/check                 Check              GET
+/logout                Logout             GET
+/openid                OpenIdR            GET
+/openid/forward        OpenIdForward      GET
+/openid/complete       OpenIdComplete     GET
+/login/rpxnow          RpxnowR
+|])
 
 data ExpectedSingleParam = ExpectedSingleParam
     deriving (Show, Typeable)
 instance Exception ExpectedSingleParam
 
-authOpenidForm :: Yesod y => Handler y ChooseRep
-authOpenidForm = do
+getOpenIdR :: Handler Auth RepHtml
+getOpenIdR = do
     rr <- getRequest
     case getParams rr "dest" of
         [] -> return ()
         (x:_) -> addCookie destCookieTimeout destCookieName x
-    let html = template (getParams rr "message")
-    simpleApplyLayout "Log in via OpenID" html
+    (Auth _ _ _ _ y) <- getYesod
+    let html = template (getParams rr "message", id)
+    let pc = PageContent
+                { pageTitle = cs "Log in via OpenID"
+                , pageHead = return ()
+                , pageBody = html
+                }
+    content <- hamletToContent $ applyLayout y pc rr
+    return $ RepHtml content
   where
-    urlForward _ = error "FIXME urlForward"
-    hasMessage = not . null
-    message [] = cs ""
-    message (m:_) = cs m
+    urlForward (_, wrapper) = wrapper OpenIdForward
+    hasMessage = not . null . fst
+    message ([], _) = cs ""
+    message (m:_, _) = cs m
     template = [$hamlet|
 $if hasMessage
     %p.message $message$
@@ -125,14 +97,14 @@ $if hasMessage
     %input!type=submit!value=Login
 |]
 
-authOpenidForward :: YesodAuth y => Handler y ()
-authOpenidForward = do
+getOpenIdForward :: Handler Auth ()
+getOpenIdForward = do
     rr <- getRequest
     oid <- case getParams rr "openid" of
             [x] -> return x
             _ -> invalidArgs [("openid", show ExpectedSingleParam)]
-    authroot <- getFullAuthRoot
-    let complete = authroot ++ "/openid/complete/"
+    render <- getUrlRender
+    let complete = render OpenIdComplete
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
     attempt
       (\err -> redirect RedirectTemporary
@@ -140,8 +112,8 @@ authOpenidForward = do
       (redirect RedirectTemporary)
       res
 
-authOpenidComplete :: Yesod y => Handler y ()
-authOpenidComplete = do
+getOpenIdComplete :: Handler Auth ()
+getOpenIdComplete = do
     rr <- getRequest
     let gets' = reqGetParams rr
     res <- runAttemptT $ OpenId.authenticate gets'
@@ -149,15 +121,14 @@ authOpenidComplete = do
                              $ "/auth/openid/?message="
                             ++ encodeUrl (show err)
     let onSuccess (OpenId.Identifier ident) = do
-        ar <- getApproot
+        y <- getYesod
         header authCookieName ident
-        redirectToDest RedirectTemporary ar
+        redirectToDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
-rpxnowLogin :: YesodAuth y => Handler y ()
-rpxnowLogin = do
+handleRpxnowR :: Handler Auth ()
+handleRpxnowR = do
     ay <- getYesod
-    let ar = approot ay
     apiKey <- case rpxnowApiKey ay of
                 Just x -> return x
                 Nothing -> notFound
@@ -168,13 +139,14 @@ rpxnowLogin = do
                     (x:_) -> x
     let dest = case pp "dest" of
                 [] -> case getParams rr "dest" of
-                        [] -> ar
-                        ("":_) -> ar
+                        [] -> defaultDest ay
+                        ("":_) -> defaultDest ay
                         (('#':rest):_) -> rest
                         (s:_) -> s
                 (d:_) -> d
     ident <- liftIO $ Rpxnow.authenticate apiKey token
-    onRpxnowLogin ident
+    auth <- getYesod
+    onRpxnowLogin auth ident
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
     redirectToDest RedirectTemporary dest
@@ -192,22 +164,25 @@ getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
                         Nothing -> helper xs
                         Just y -> y
 
-authCheck :: Yesod y => Handler y ChooseRep
-authCheck = do
-    _ident <- maybeIdentifier
-    _dn <- displayName
-    error "FIXME applyLayoutJson"
-    {-
-    applyLayoutJson "Authentication Status" $ cs
-        [ ("identifier", fromMaybe "" ident)
-        , ("displayName", fromMaybe "" dn)
-        ]
-    -}
+getCheck :: Handler Auth RepHtml
+getCheck = do
+    ident <- maybeIdentifier
+    dn <- displayName
+    -- FIXME applyLayoutJson
+    hamletToRepHtml $ [$hamlet|
+%h1 Authentication Status
+%dl
+    %dt identifier
+    %dd $fst$
+    %dt displayName
+    %dd $snd$
+|] (cs $ fromMaybe "" ident, cs $ fromMaybe "" dn)
 
-authLogout :: YesodAuth y => Handler y ()
-authLogout = do
+getLogout :: Handler Auth ()
+getLogout = do
+    y <- getYesod
     deleteCookie authCookieName
-    getApproot >>= redirectToDest RedirectTemporary
+    redirectToDest RedirectTemporary $ defaultDest y
 
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
@@ -223,18 +198,22 @@ displayName = do
 
 -- | Gets the identifier for a user. If user is not logged in, redirects them
 -- to the login page.
-authIdentifier :: YesodAuth y => Handler y String
+authIdentifier :: Handler Auth String
 authIdentifier = maybeIdentifier >>= maybe redirectLogin return
 
 -- | Redirect the user to the 'defaultLoginPath', setting the DEST cookie
 -- appropriately.
-redirectLogin :: YesodAuth y => Handler y a
-redirectLogin =
-    defaultLoginPath `fmap` getYesod >>= redirectSetDest RedirectTemporary
+redirectLogin :: Handler Auth a
+redirectLogin = do
+    y <- getYesod
+    let r = case defaultLoginType y of
+                OpenId -> OpenIdR
+                Rpxnow -> RpxnowR -- FIXME this doesn't actually show a login page?
+    redirectSetDest RedirectTemporary r
 
 -- | Determinge the path requested by the user (ie, the path info). This
 -- includes the query string.
-requestPath :: (Functor m, Monad m, RequestReader m) => m String
+requestPath :: (Functor m, Monad m, RequestReader m) => m String --FIXME unused
 requestPath = do
     env <- waiRequest
     let q = case B8.unpack $ W.queryString env of
@@ -248,13 +227,18 @@ requestPath = do
 
 -- | Redirect to the given URL, and set a cookie with the current URL so the
 -- user will ultimately be sent back here.
-redirectSetDest :: Yesod y => RedirectType -> String -> Handler y a
+redirectSetDest :: RedirectType
+                -> Routes y -- ^ redirect page
+                -> Handler y a
 redirectSetDest rt dest = do
-    ar <- getApproot
-    rp <- requestPath
-    let curr = ar ++ rp
-    addCookie destCookieTimeout destCookieName curr
-    redirect rt dest
+    ur <- getUrlRender
+    curr <- getRoute
+    let curr' = case curr of
+                    Just x -> ur x
+                    Nothing -> "/" -- should never happen anyway
+        dest' = ur dest
+    addCookie destCookieTimeout destCookieName curr'
+    redirect rt dest'
 
 -- | Read the 'destCookieName' cookie and redirect to this destination. If the
 -- cookie is missing, then use the default path provided.

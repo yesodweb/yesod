@@ -23,7 +23,9 @@ module Yesod.Handler
       Handler
     , getYesod
     , getUrlRender
+    , getRoute
     , runHandler
+    , runHandler'
     , liftIO
     , YesodApp (..)
     , Routes
@@ -59,7 +61,12 @@ import Data.Convertible.Text (cs)
 
 type family Routes y
 
-data HandlerData yesod = HandlerData Request yesod (Routes yesod -> String)
+data HandlerData yesod = HandlerData
+    { handlerRequest :: Request
+    , handlerYesod :: yesod
+    , handlerRoute :: Maybe (Routes yesod)
+    , handlerRender :: (Routes yesod -> String)
+    }
 
 newtype YesodApp = YesodApp
     { unYesodApp
@@ -100,22 +107,37 @@ instance MonadIO (Handler yesod) where
 instance Failure ErrorResponse (Handler yesod) where
     failure e = Handler $ \_ -> return ([], HCError e)
 instance RequestReader (Handler yesod) where
-    getRequest = Handler $ \(HandlerData rr _ _)
-                        -> return ([], HCContent rr)
+    getRequest = Handler $ \r -> return ([], HCContent $ handlerRequest r)
 
 getYesod :: Handler yesod yesod
-getYesod = Handler $ \(HandlerData _ yesod _) -> return ([], HCContent yesod)
+getYesod = Handler $ \r -> return ([], HCContent $ handlerYesod r)
 
 getUrlRender :: Handler yesod (Routes yesod -> String)
-getUrlRender = Handler $ \(HandlerData _ _ r) -> return ([], HCContent r)
+getUrlRender = Handler $ \r -> return ([], HCContent $ handlerRender r)
 
-runHandler :: HasReps c => Handler yesod c -> yesod -> (Routes yesod -> String) -> YesodApp
-runHandler handler y render = YesodApp $ \eh rr cts -> do
+getRoute :: Handler yesod (Maybe (Routes yesod))
+getRoute = Handler $ \r -> return ([], HCContent $ handlerRoute r)
+
+runHandler' :: HasReps c
+            => Handler yesod c
+            -> yesod
+            -> Routes yesod
+            -> (Routes yesod -> String)
+            -> YesodApp
+runHandler' handler y route render = runHandler handler y (Just route) render
+
+runHandler :: HasReps c
+           => Handler yesod c
+           -> yesod
+           -> Maybe (Routes yesod)
+           -> (Routes yesod -> String)
+           -> YesodApp
+runHandler handler y route render = YesodApp $ \eh rr cts -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
     (headers, contents) <- Control.Exception.catch
-        (unHandler handler $ HandlerData rr y render)
+        (unHandler handler $ HandlerData rr y route render)
         (\e -> return ([], HCError $ toErrorHandler e))
     let handleError e = do
             Response _ hs ct c <- unYesodApp (eh e) safeEh rr cts

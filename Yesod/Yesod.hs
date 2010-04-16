@@ -55,9 +55,9 @@ class YesodSite a => Yesod a where
 
     -- | Applies some form of layout to <title> and <body> contents of a page. FIXME: use a Maybe here to allow subsites to simply inherit.
     applyLayout :: a
-                -> PageContent (Routes a)
+                -> PageContent url -- FIXME not so good, should be Routes y
                 -> Request
-                -> Hamlet (Routes a) IO ()
+                -> Hamlet url IO ()
     applyLayout _ p _ = [$hamlet|
 !!!
 %html
@@ -159,10 +159,11 @@ toWaiApp' y resource session env = do
     onRequest y rr
     print pathSegments
     let ya = case eurl of
-                Left _ -> runHandler (errorHandler y NotFound) y render
+                Left _ -> runHandler (errorHandler y NotFound) y Nothing render
                 Right url -> handleSite site render url method
                                         (badMethod method) y
-    let eh er = runHandler (errorHandler y er) y render
+    let url' = either (const Nothing) Just eurl
+    let eh er = runHandler (errorHandler y er) y url' render
     unYesodApp ya eh rr types >>= responseToWaiResponse
 
 cleanupSegments :: [B.ByteString] -> [String]

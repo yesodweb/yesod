@@ -45,6 +45,12 @@ hamletToRepHtml h = do
     c <- hamletToContent h
     return $ RepHtml c
 
+-- FIXME some type of JSON combined output...
+--hamletToRepHtmlJson :: x
+--                    -> (x -> Hamlet (Routes y) IO ())
+--                    -> (x -> Json)
+--                    -> Handler y RepHtmlJson
+
 instance Monad m => ConvertSuccess String (Hamlet url m ()) where
     convertSuccess = outputHtml . Unencoded . cs
 instance Monad m
