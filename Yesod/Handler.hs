@@ -21,13 +21,19 @@
 module Yesod.Handler
     ( -- * Handler monad
       Handler
+    , GHandler
     , getYesod
+    , getYesodMaster
     , getUrlRender
+    , getUrlRenderMaster
     , getRoute
+    , getRouteMaster
     , runHandler
     , runHandler'
+    , runHandlerSub
     , liftIO
     , YesodApp (..)
+    , YesodAppSub (..)
     , Routes
       -- * Special handlers
     , redirect
@@ -61,11 +67,13 @@ import Data.Convertible.Text (cs)
 
 type family Routes y
 
-data HandlerData yesod = HandlerData
+data HandlerData sub master = HandlerData
     { handlerRequest :: Request
-    , handlerYesod :: yesod
-    , handlerRoute :: Maybe (Routes yesod)
-    , handlerRender :: (Routes yesod -> String)
+    , handlerSub :: sub
+    , handlerMaster :: master
+    , handlerRoute :: Maybe (Routes sub)
+    , handlerRender :: (Routes master -> String)
+    , handlerToMaster :: Routes sub -> Routes master
     }
 
 newtype YesodApp = YesodApp
@@ -76,22 +84,26 @@ newtype YesodApp = YesodApp
     -> IO Response
     }
 
+data YesodAppSub master = YesodAppSub
+
 ------ Handler monad
-newtype Handler yesod a = Handler {
-    unHandler :: HandlerData yesod
+newtype GHandler sub master a = Handler {
+    unHandler :: HandlerData sub master
               -> IO ([Header], HandlerContents a)
 }
+type Handler yesod = GHandler yesod yesod
+
 data HandlerContents a =
       HCSpecial SpecialResponse
     | HCError ErrorResponse
     | HCContent a
 
-instance Functor (Handler yesod) where
+instance Functor (GHandler sub master) where
     fmap = liftM
-instance Applicative (Handler yesod) where
+instance Applicative (GHandler sub master) where
     pure = return
     (<*>) = ap
-instance Monad (Handler yesod) where
+instance Monad (GHandler sub master) where
     fail = failure . InternalError -- We want to catch all exceptions anyway
     return x = Handler $ \_ -> return ([], HCContent x)
     (Handler handler) >>= f = Handler $ \rr -> do
@@ -102,21 +114,46 @@ instance Monad (Handler yesod) where
                 (HCSpecial e) -> return ([], HCSpecial e)
                 (HCContent a) -> unHandler (f a) rr
         return (headers ++ headers', c')
-instance MonadIO (Handler yesod) where
+instance MonadIO (GHandler sub master) where
     liftIO i = Handler $ \_ -> i >>= \i' -> return ([], HCContent i')
-instance Failure ErrorResponse (Handler yesod) where
+instance Failure ErrorResponse (GHandler sub master) where
     failure e = Handler $ \_ -> return ([], HCError e)
-instance RequestReader (Handler yesod) where
+instance RequestReader (GHandler sub master) where
     getRequest = Handler $ \r -> return ([], HCContent $ handlerRequest r)
 
-getYesod :: Handler yesod yesod
-getYesod = Handler $ \r -> return ([], HCContent $ handlerYesod r)
+getData :: GHandler sub master (HandlerData sub master)
+getData = Handler $ \r -> return ([], HCContent r)
 
-getUrlRender :: Handler yesod (Routes yesod -> String)
-getUrlRender = Handler $ \r -> return ([], HCContent $ handlerRender r)
+getYesod :: GHandler sub master sub
+getYesod = handlerSub <$> getData
 
-getRoute :: Handler yesod (Maybe (Routes yesod))
-getRoute = Handler $ \r -> return ([], HCContent $ handlerRoute r)
+getYesodMaster :: GHandler sub master master
+getYesodMaster = handlerMaster <$> getData
+
+getUrlRender :: GHandler sub master (Routes sub -> String)
+getUrlRender = do
+    d <- getData
+    return $ handlerRender d . handlerToMaster d
+
+getUrlRenderMaster :: GHandler sub master (Routes master -> String)
+getUrlRenderMaster = handlerRender <$> getData
+
+getRoute :: GHandler sub master (Maybe (Routes sub))
+getRoute = handlerRoute <$> getData
+
+getRouteMaster :: GHandler sub master (Maybe (Routes master))
+getRouteMaster = do
+    d <- getData
+    return $ handlerToMaster d <$> handlerRoute d
+
+runHandlerSub :: HasReps c
+              => GHandler sub master c
+              -> master
+              -> (master -> sub)
+              -> Routes sub
+              -> (Routes sub -> String)
+              -> YesodAppSub master
+runHandlerSub = error "runHandlerSub"
 
 runHandler' :: HasReps c
             => Handler yesod c
@@ -137,7 +174,14 @@ runHandler handler y route render = YesodApp $ \eh rr cts -> do
             InternalError
           . (show :: Control.Exception.SomeException -> String)
     (headers, contents) <- Control.Exception.catch
-        (unHandler handler $ HandlerData rr y route render)
+        (unHandler handler $ HandlerData
+            { handlerRequest = rr
+            , handlerSub = y
+            , handlerMaster = y
+            , handlerRoute = route
+            , handlerRender = render
+            , handlerToMaster = id
+            })
         (\e -> return ([], HCError $ toErrorHandler e))
     let handleError e = do
             Response _ hs ct c <- unYesodApp (eh e) safeEh rr cts
@@ -164,14 +208,14 @@ safeEh er = YesodApp $ \_ _ _ -> do
     return $ Response W.Status500 [] TypePlain $ cs "Internal Server Error"
 
 ------ Special handlers
-specialResponse :: SpecialResponse -> Handler yesod a
+specialResponse :: SpecialResponse -> GHandler sub master a
 specialResponse er = Handler $ \_ -> return ([], HCSpecial er)
 
 -- | Redirect to the given URL.
-redirect :: RedirectType -> String -> Handler yesod a
+redirect :: RedirectType -> String -> GHandler sub master a
 redirect rt = specialResponse . Redirect rt
 
-sendFile :: ContentType -> FilePath -> Handler yesod a
+sendFile :: ContentType -> FilePath -> GHandler sub master a
 sendFile ct = specialResponse . SendFile ct
 
 -- | Return a 404 not found page. Also denotes no handler available.
@@ -194,16 +238,16 @@ invalidArgs = failure . InvalidArgs
 addCookie :: Int -- ^ minutes to timeout
           -> String -- ^ key
           -> String -- ^ value
-          -> Handler yesod ()
+          -> GHandler sub master ()
 addCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
-deleteCookie :: String -> Handler yesod ()
+deleteCookie :: String -> GHandler sub master ()
 deleteCookie = addHeader . DeleteCookie
 
 -- | Set an arbitrary header on the client.
-header :: String -> String -> Handler yesod ()
+header :: String -> String -> GHandler sub master ()
 header a = addHeader . Header a
 
-addHeader :: Header -> Handler yesod ()
+addHeader :: Header -> GHandler sub master ()
 addHeader h = Handler $ \_ -> return ([h], HCContent ())

@@ -5,6 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME I'd like to get rid of this
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Auth
@@ -47,15 +48,14 @@ import Control.Applicative ((<$>))
 
 data LoginType = OpenId | Rpxnow
 
-data Auth = forall y. Yesod y => Auth
+data Auth = Auth
     { defaultDest :: String
-    , onRpxnowLogin :: Rpxnow.Identifier -> Handler Auth ()
+    --, onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth master ()
     , rpxnowApiKey :: Maybe String
     , defaultLoginType :: LoginType
-    , parentYesod :: y
     }
 
-$(mkYesod "Auth" [$parseRoutes|
+$(mkYesodSub "Auth" [$parseRoutes|
 /check                 Check              GET
 /logout                Logout             GET
 /openid                OpenIdR            GET
@@ -68,13 +68,13 @@ data ExpectedSingleParam = ExpectedSingleParam
     deriving (Show, Typeable)
 instance Exception ExpectedSingleParam
 
-getOpenIdR :: Handler Auth RepHtml
+getOpenIdR :: Yesod master => GHandler Auth master RepHtml
 getOpenIdR = do
     rr <- getRequest
     case getParams rr "dest" of
         [] -> return ()
         (x:_) -> addCookie destCookieTimeout destCookieName x
-    (Auth _ _ _ _ y) <- getYesod
+    y <- getYesodMaster
     let html = template (getParams rr "message", id)
     let pc = PageContent
                 { pageTitle = cs "Log in via OpenID"
@@ -97,7 +97,7 @@ $if hasMessage
     %input!type=submit!value=Login
 |]
 
-getOpenIdForward :: Handler Auth ()
+getOpenIdForward :: GHandler Auth master ()
 getOpenIdForward = do
     rr <- getRequest
     oid <- case getParams rr "openid" of
@@ -112,7 +112,7 @@ getOpenIdForward = do
       (redirect RedirectTemporary)
       res
 
-getOpenIdComplete :: Handler Auth ()
+getOpenIdComplete :: GHandler Auth master ()
 getOpenIdComplete = do
     rr <- getRequest
     let gets' = reqGetParams rr
@@ -126,7 +126,7 @@ getOpenIdComplete = do
         redirectToDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
-handleRpxnowR :: Handler Auth ()
+handleRpxnowR :: GHandler Auth master ()
 handleRpxnowR = do
     ay <- getYesod
     apiKey <- case rpxnowApiKey ay of
@@ -146,7 +146,10 @@ handleRpxnowR = do
                 (d:_) -> d
     ident <- liftIO $ Rpxnow.authenticate apiKey token
     auth <- getYesod
-    onRpxnowLogin auth ident
+    {- FIXME onRpxnowLogin
+    case auth of
+        Auth _ f _ _ _ -> f ident
+    -}
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
     redirectToDest RedirectTemporary dest
@@ -164,12 +167,12 @@ getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
                         Nothing -> helper xs
                         Just y -> y
 
-getCheck :: Handler Auth RepHtml
+getCheck :: Yesod master => GHandler Auth master RepHtml
 getCheck = do
     ident <- maybeIdentifier
     dn <- displayName
     -- FIXME applyLayoutJson
-    hamletToRepHtml $ [$hamlet|
+    simpleApplyLayout "Authentication Status" $ [$hamlet|
 %h1 Authentication Status
 %dl
     %dt identifier
@@ -178,7 +181,7 @@ getCheck = do
     %dd $snd$
 |] (cs $ fromMaybe "" ident, cs $ fromMaybe "" dn)
 
-getLogout :: Handler Auth ()
+getLogout :: GHandler Auth master ()
 getLogout = do
     y <- getYesod
     deleteCookie authCookieName
@@ -198,12 +201,12 @@ displayName = do
 
 -- | Gets the identifier for a user. If user is not logged in, redirects them
 -- to the login page.
-authIdentifier :: Handler Auth String
+authIdentifier :: GHandler Auth master String
 authIdentifier = maybeIdentifier >>= maybe redirectLogin return
 
 -- | Redirect the user to the 'defaultLoginPath', setting the DEST cookie
 -- appropriately.
-redirectLogin :: Handler Auth a
+redirectLogin :: GHandler Auth master a
 redirectLogin = do
     y <- getYesod
     let r = case defaultLoginType y of
@@ -228,8 +231,8 @@ requestPath = do
 -- | Redirect to the given URL, and set a cookie with the current URL so the
 -- user will ultimately be sent back here.
 redirectSetDest :: RedirectType
-                -> Routes y -- ^ redirect page
-                -> Handler y a
+                -> Routes sub -- ^ redirect page
+                -> GHandler sub master a
 redirectSetDest rt dest = do
     ur <- getUrlRender
     curr <- getRoute
@@ -242,7 +245,7 @@ redirectSetDest rt dest = do
 
 -- | Read the 'destCookieName' cookie and redirect to this destination. If the
 -- cookie is missing, then use the default path provided.
-redirectToDest :: RedirectType -> String -> Handler y a
+redirectToDest :: RedirectType -> String -> GHandler sub master a
 redirectToDest rt def = do
     rr <- getRequest
     dest <- case cookies rr destCookieName of

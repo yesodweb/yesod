@@ -28,7 +28,7 @@ data PageContent url = PageContent
     , pageBody :: Hamlet url IO ()
     }
 
-hamletToContent :: Hamlet (Routes y) IO () -> Handler y Content
+hamletToContent :: Hamlet (Routes sub) IO () -> GHandler sub master Content
 hamletToContent h = do
     render <- getUrlRender
     return $ ContentEnum $ go render

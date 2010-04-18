@@ -15,7 +15,7 @@ mkYesod "HelloWorld" [$parseRoutes|
 instance Yesod HelloWorld where
     approot _ = "http://localhost:3000"
 
-getHome :: Handler HelloWorld ChooseRep
+getHome :: Handler HelloWorld RepHtml
 getHome = simpleApplyLayout "Hello World" $ cs "Hello world!"
 
 main :: IO ()

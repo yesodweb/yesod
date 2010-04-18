@@ -77,40 +77,44 @@ class YesodSite a => Yesod a where
     approot :: a -> Approot
 
 -- | A convenience wrapper around 'simpleApplyLayout for HTML-only data.
-simpleApplyLayout :: Yesod y
+simpleApplyLayout :: Yesod master
                   => String -- ^ title
-                  -> Hamlet (Routes y) IO () -- ^ body
-                  -> Handler y ChooseRep
+                  -> Hamlet (Routes sub) IO () -- ^ body
+                  -> GHandler sub master RepHtml
 simpleApplyLayout t b = do
     let pc = PageContent
                 { pageTitle = cs t
                 , pageHead = return ()
                 , pageBody = b
                 }
-    y <- getYesod
+    y <- getYesodMaster
     rr <- getRequest
     content <- hamletToContent $ applyLayout y pc rr
-    return $ chooseRep
-        [ (TypeHtml, content)
-        ]
+    return $ RepHtml content
 
 getApproot :: Yesod y => Handler y Approot
 getApproot = approot `fmap` getYesod
 
+simpleApplyLayout' :: Yesod master
+                   => String -- ^ title
+                   -> Hamlet (Routes sub) IO () -- ^ body
+                   -> GHandler sub master ChooseRep
+simpleApplyLayout' t = fmap chooseRep . simpleApplyLayout t
+
 defaultErrorHandler :: Yesod y => ErrorResponse -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    simpleApplyLayout "Not Found" $ [$hamlet|
+    simpleApplyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
 %p $helper$
 |] r
   where
     helper = Unencoded . cs . W.pathInfo
 defaultErrorHandler PermissionDenied =
-    simpleApplyLayout "Permission Denied" $ [$hamlet|
+    simpleApplyLayout' "Permission Denied" $ [$hamlet|
 %h1 Permission denied|] ()
 defaultErrorHandler (InvalidArgs ia) =
-    simpleApplyLayout "Invalid Arguments" $ [$hamlet|
+    simpleApplyLayout' "Invalid Arguments" $ [$hamlet|
 %h1 Invalid Arguments
 %dl
     $forall ias pair
@@ -120,12 +124,12 @@ defaultErrorHandler (InvalidArgs ia) =
   where
     ias _ = map (cs *** cs) ia
 defaultErrorHandler (InternalError e) =
-    simpleApplyLayout "Internal Server Error" $ [$hamlet|
+    simpleApplyLayout' "Internal Server Error" $ [$hamlet|
 %h1 Internal Server Error
 %p $cs$
 |] e
 defaultErrorHandler (BadMethod m) =
-    simpleApplyLayout "Bad Method" $ [$hamlet|
+    simpleApplyLayout' "Bad Method" $ [$hamlet|
 %h1 Method Not Supported
 %p Method "$cs$" not supported
 |] m
