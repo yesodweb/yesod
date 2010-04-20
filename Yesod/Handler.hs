@@ -30,9 +30,6 @@ module Yesod.Handler
     , getRoute
     , getRouteMaster
     , runHandler
-    , runHandler'
-    , runHandlerSub
-    , runHandlerSub'
     , liftIO
     , YesodApp (..)
     , Routes
@@ -145,25 +142,15 @@ getRouteMaster = do
     d <- getData
     return $ handlerToMaster d <$> handlerRoute d
 
-runHandlerSub' :: HasReps c
-               => GHandler sub master c
-               -> (Routes master -> String)
-               -> Routes sub
-               -> (Routes sub -> Routes master)
-               -> master
-               -> (master -> sub)
-               -> String
-               -> YesodApp
-runHandlerSub' handler mrender surl tomurl marg tosarg _method =
-    runHandlerSub handler (marg, tosarg, tomurl, mrender) (Just surl) (mrender . tomurl)
-
-runHandlerSub :: HasReps c
-              => GHandler sub master c
-              -> (master, master -> sub, Routes sub -> Routes master, Routes master -> String)
-              -> Maybe (Routes sub)
-              -> (Routes sub -> String)
-              -> YesodApp
-runHandlerSub handler (ma, tosa, tomr, mrender) sroute _ = YesodApp $ \eh rr cts -> do
+runHandler :: HasReps c
+           => GHandler sub master c
+           -> (Routes master -> String)
+           -> Maybe (Routes sub)
+           -> (Routes sub -> Routes master)
+           -> master
+           -> (master -> sub)
+           -> YesodApp
+runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
@@ -195,23 +182,6 @@ runHandlerSub handler (ma, tosa, tomr, mrender) sroute _ = YesodApp $ \eh rr cts
         HCContent a -> do
             (ct, c) <- chooseRep a cts
             return $ Response W.Status200 headers ct c
-
-runHandler' :: HasReps c
-            => Handler yesod c
-            -> yesod
-            -> Routes yesod
-            -> (Routes yesod -> String)
-            -> YesodApp
-runHandler' handler y route render = runHandler handler y (Just route) render
-
-runHandler :: HasReps c
-           => Handler yesod c
-           -> yesod
-           -> Maybe (Routes yesod)
-           -> (Routes yesod -> String)
-           -> YesodApp
-runHandler handler y route render =
-    runHandlerSub handler (y, id, id, render) route render
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ -> do

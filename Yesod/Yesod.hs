@@ -5,40 +5,22 @@ module Yesod.Yesod
     , YesodSite (..)
     , simpleApplyLayout
     , getApproot
-    , toWaiApp
-    , basicHandler
     ) where
 
 import Yesod.Response
 import Yesod.Request
-import Yesod.Definitions
 import Yesod.Hamlet
-import Yesod.Handler hiding (badMethod)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as B8
+import Yesod.Handler
 import Data.Convertible.Text
 import Control.Arrow ((***))
-
-import Data.Maybe (fromMaybe)
-import Web.Mime
-import Web.Encodings (parseHttpAccept)
-import Web.Routes (Site (..), encodePathInfo, decodePathInfo)
-import Web.Routes.Quasi (QuasiSite (..))
-import Data.List (intercalate)
-
-import qualified Network.Wai as W
-import Network.Wai.Middleware.CleanPath
 import Network.Wai.Middleware.ClientSession
-import Network.Wai.Middleware.Jsonp
-import Network.Wai.Middleware.MethodOverride
-import Network.Wai.Middleware.Gzip
+import qualified Network.Wai as W
+import Yesod.Definitions
 
-import qualified Network.Wai.Handler.SimpleServer as SS
-import qualified Network.Wai.Handler.CGI as CGI
-import System.Environment (getEnvironment)
+import Web.Routes.Quasi (QuasiSite (..))
 
 class YesodSite y where
-    getSite :: QuasiSite YesodApp (Routes y) y (Routes master) master
+    getSite :: QuasiSite YesodApp (Routes y) y (Routes y) y
 
 class YesodSite a => Yesod a where
     -- | The encryption key to be used for encrypting client sessions.
@@ -134,77 +116,3 @@ defaultErrorHandler (BadMethod m) =
 %h1 Method Not Supported
 %p Method "$cs$" not supported
 |] m
-
-toWaiApp :: Yesod y => y -> IO W.Application
-toWaiApp a = do
-    key' <- encryptKey a
-    let mins = clientSessionDuration a
-    return $ gzip
-           $ jsonp
-           $ methodOverride
-           $ cleanPath
-           $ \thePath -> clientsession encryptedCookies key' mins
-           $ toWaiApp' a thePath
-
-toWaiApp' :: Yesod y
-          => y
-          -> [B.ByteString]
-          -> [(B.ByteString, B.ByteString)]
-          -> W.Request
-          -> IO W.Response
-toWaiApp' y resource session env = do
-    let site = getSite
-        method = B8.unpack $ W.methodToBS $ W.requestMethod env
-        types = httpAccept env
-        pathSegments = filter (not . null) $ cleanupSegments resource
-        eurl = quasiParse site pathSegments
-        render u = approot y ++ '/'
-                 : encodePathInfo (fixSegs $ quasiRender site u)
-    rr <- parseWaiRequest env session
-    onRequest y rr
-    print pathSegments -- FIXME remove
-    let ya = case eurl of
-                Nothing -> runHandler (errorHandler y NotFound) y Nothing render
-                Just url -> quasiDispatch site
-                                render
-                                url
-                                id
-                                y
-                                id
-                                (badMethod method)
-                                method
-    let eh er = runHandler (errorHandler y er) y eurl render
-    unYesodApp ya eh rr types >>= responseToWaiResponse
-
-cleanupSegments :: [B.ByteString] -> [String]
-cleanupSegments = decodePathInfo . intercalate "/" . map B8.unpack
-
-httpAccept :: W.Request -> [ContentType]
-httpAccept = map contentTypeFromBS
-           . parseHttpAccept
-           . fromMaybe B.empty
-           . lookup W.Accept
-           . W.requestHeaders
-
--- | Runs an application with CGI if CGI variables are present (namely
--- PATH_INFO); otherwise uses SimpleServer.
-basicHandler :: Int -- ^ port number
-             -> W.Application -> IO ()
-basicHandler port app = do
-    vars <- getEnvironment
-    case lookup "PATH_INFO" vars of
-        Nothing -> do
-            putStrLn $ "http://localhost:" ++ show port ++ "/"
-            SS.run port app
-        Just _ -> CGI.run app
-
-badMethod :: String -> YesodApp
-badMethod m = YesodApp $ \eh req cts
-         -> unYesodApp (eh $ BadMethod m) eh req cts
-
-fixSegs :: [String] -> [String]
-fixSegs [] = []
-fixSegs [x]
-    | any (== '.') x = [x]
-    | otherwise = [x, ""] -- append trailing slash
-fixSegs (x:xs) = x : fixSegs xs

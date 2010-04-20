@@ -5,7 +5,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME I'd like to get rid of this
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME remove
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Auth
@@ -39,7 +40,6 @@ import Control.Monad.Attempt
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe
 
---FIXME import qualified Network.Wai as W
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Control.Applicative ((<$>))
@@ -48,17 +48,15 @@ import Control.Applicative ((<$>))
 
 data LoginType = OpenId | Rpxnow
 
-class Yesod y => YesodAuth y where
-    onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth y ()
-
 data Auth = Auth
     { defaultDest :: String
-    --, onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth master ()
+    , onRpxnowLogin :: forall master. Yesod master
+                    => Rpxnow.Identifier -> GHandler Auth master ()
     , rpxnowApiKey :: Maybe String
     , defaultLoginType :: LoginType
     }
 
-$(mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
+$(mkYesodSub "Auth" [''Yesod] [$parseRoutes|
 /check                 Check              GET
 /logout                Logout             GET
 /openid                OpenIdR            GET
@@ -129,7 +127,7 @@ getOpenIdComplete = do
         redirectToDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
-handleRpxnowR :: YesodAuth master => GHandler Auth master ()
+handleRpxnowR :: Yesod master => GHandler Auth master ()
 handleRpxnowR = do
     ay <- getYesod
     apiKey <- case rpxnowApiKey ay of
@@ -148,7 +146,8 @@ handleRpxnowR = do
                         (s:_) -> s
                 (d:_) -> d
     ident <- liftIO $ Rpxnow.authenticate apiKey token
-    onRpxnowLogin ident
+    auth <- getYesod
+    onRpxnowLogin auth ident
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
     redirectToDest RedirectTemporary dest

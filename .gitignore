@@ -1,4 +1,4 @@
-dist
+/dist/
 *.swp
 client_session_key.aes
 *.hi

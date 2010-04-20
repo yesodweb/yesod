@@ -17,8 +17,6 @@
 module Yesod.Definitions
     ( Approot
     , Language
-    , Location (..)
-    , showLocation
       -- * Constant values
     , authCookieName
     , authDisplayName
@@ -37,22 +35,13 @@ type Approot = String
 
 type Language = String
 
--- | A location string. Can either be given absolutely or as a suffix for the
--- 'Approot'.
-data Location = AbsLoc String | RelLoc String
-
--- | Display a 'Location' in absolute form.
-showLocation :: Approot -> Location -> String
-showLocation _ (AbsLoc s) = s
-showLocation ar (RelLoc s) = ar ++ s
-
 authCookieName :: String
 authCookieName = "IDENTIFIER"
 
 authDisplayName :: String
 authDisplayName = "DISPLAY_NAME"
 
-encryptedCookies :: [ByteString]
+encryptedCookies :: [ByteString] -- FIXME make this extensible
 encryptedCookies = [pack authDisplayName, pack authCookieName]
 
 langKey :: String

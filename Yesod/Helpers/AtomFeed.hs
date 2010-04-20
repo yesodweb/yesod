@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuasiQuotes #-}
 ---------------------------------------------------------
 --
@@ -18,8 +16,8 @@
 module Yesod.Helpers.AtomFeed
     ( AtomFeed (..)
     , AtomFeedEntry (..)
-    --, atomFeed
-    , template -- FIXME
+    , atomFeed
+    , RepAtom (..)
     ) where
 
 import Yesod
@@ -27,12 +25,12 @@ import Data.Time.Clock (UTCTime)
 import Web.Encodings (formatW3)
 import Text.Hamlet.Monad
 
-{-
-atomFeed :: Yesod y => AtomFeed -> Handler y AtomFeedResponse
-atomFeed f = do
-    y <- getYesod
-    return $ AtomFeedResponse f $ approot y
--}
+newtype RepAtom = RepAtom Content
+instance HasReps RepAtom where
+    chooseRep (RepAtom c) _ = return (TypeAtom, c)
+
+atomFeed :: AtomFeed (Routes sub) -> GHandler sub master RepAtom
+atomFeed = fmap RepAtom . hamletToContent . template
 
 data AtomFeed url = AtomFeed
     { atomTitle :: String
@@ -41,12 +39,6 @@ data AtomFeed url = AtomFeed
     , atomUpdated :: UTCTime
     , atomEntries :: [AtomFeedEntry url]
     }
-{- FIXME
-instance HasReps (AtomFeed url) where
-    chooseRep = defChooseRep
-        [ (TypeAtom, return . cs)
-        ]
--}
 
 data AtomFeedEntry url = AtomFeedEntry
     { atomEntryLink :: url
@@ -55,7 +47,7 @@ data AtomFeedEntry url = AtomFeedEntry
     , atomEntryContent :: HtmlContent
     }
 
-xmlns :: a -> HtmlContent
+xmlns :: AtomFeed url -> HtmlContent
 xmlns _ = cs "http://www.w3.org/2005/Atom"
 
 template :: AtomFeed url -> Hamlet url IO ()

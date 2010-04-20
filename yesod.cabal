@@ -68,7 +68,7 @@ library
                      Yesod.Form
                      Yesod.Hamlet
                      Yesod.Handler
-                     Yesod.Resource
+                     Yesod.Dispatch
                      Yesod.Yesod
                      Yesod.Helpers.Auth
                      Yesod.Helpers.Static

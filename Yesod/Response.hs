@@ -31,6 +31,8 @@ module Yesod.Response
     , RepHtml (..)
     , RepJson (..)
     , RepHtmlJson (..)
+    , RepPlain (..)
+    , RepXml (..)
       -- * Response type
     , Response (..)
       -- * Special responses
@@ -157,6 +159,12 @@ instance HasReps RepHtmlJson where
         [ (TypeHtml, html)
         , (TypeJson, json)
         ]
+newtype RepPlain = RepPlain Content
+instance HasReps RepPlain where
+    chooseRep (RepPlain c) _ = return (TypePlain, c)
+newtype RepXml = RepXml Content
+instance HasReps RepXml where
+    chooseRep (RepXml c) _ = return (TypeXml, c)
 
 data Response = Response W.Status [Header] ContentType Content
 

@@ -19,7 +19,7 @@ module Yesod
     , module Yesod.Yesod
     , module Yesod.Definitions
     , module Yesod.Handler
-    , module Yesod.Resource
+    , module Yesod.Dispatch
     , module Yesod.Form
     , module Web.Mime
     , module Yesod.Hamlet
@@ -29,17 +29,16 @@ module Yesod
     ) where
 
 #if TEST
-import Yesod.Resource hiding (testSuite)
 import Yesod.Response hiding (testSuite)
 import Yesod.Request hiding (testSuite)
 import Web.Mime hiding (testSuite)
 #else
-import Yesod.Resource
 import Yesod.Response
 import Yesod.Request
 import Web.Mime
 #endif
 
+import Yesod.Dispatch
 import Yesod.Form
 import Yesod.Yesod
 import Yesod.Definitions

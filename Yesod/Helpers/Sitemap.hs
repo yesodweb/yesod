@@ -1,6 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE QuasiQuotes #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Sitemap
@@ -20,13 +18,11 @@ module Yesod.Helpers.Sitemap
     , robots
     , SitemapUrl (..)
     , SitemapChangeFreq (..)
-    , SitemapResponse (..)
     ) where
 
 import Yesod
---FIXME import Web.Encodings (formatW3)
+import Web.Encodings (formatW3)
 import Data.Time (UTCTime)
-import Data.Convertible.Text
 
 data SitemapChangeFreq = Always
                        | Hourly
@@ -35,57 +31,45 @@ data SitemapChangeFreq = Always
                        | Monthly
                        | Yearly
                        | Never
-instance ConvertSuccess SitemapChangeFreq String where
-    convertSuccess Always  = "always"
-    convertSuccess Hourly  = "hourly"
-    convertSuccess Daily   = "daily"
-    convertSuccess Weekly  = "weekly"
-    convertSuccess Monthly = "monthly"
-    convertSuccess Yearly  = "yearly"
-    convertSuccess Never   = "never"
+showFreq :: SitemapChangeFreq -> String
+showFreq Always  = "always"
+showFreq Hourly  = "hourly"
+showFreq Daily   = "daily"
+showFreq Weekly  = "weekly"
+showFreq Monthly = "monthly"
+showFreq Yearly  = "yearly"
+showFreq Never   = "never"
 {- FIXME
 instance ConvertSuccess SitemapChangeFreq Html where
     convertSuccess = (cs :: String -> Html) . cs
 -}
 
-data SitemapUrl = SitemapUrl
-    { sitemapLoc :: Location
+data SitemapUrl url = SitemapUrl
+    { sitemapLoc :: url
     , sitemapLastMod :: UTCTime
     , sitemapChangeFreq :: SitemapChangeFreq
     , priority :: Double
     }
-data SitemapResponse = SitemapResponse [SitemapUrl] Approot
-instance ConvertSuccess SitemapResponse Content where
-    convertSuccess = error "FIXME" -- cs . (cs :: Html -> XmlDoc) . cs
-{- FIXME
-instance ConvertSuccess SitemapResponse Html where
-    convertSuccess (SitemapResponse urls ar) =
-        Tag "urlset" [("xmlns", sitemapNS)] $ HtmlList $ map helper urls
-          where
-            sitemapNS = "http://www.sitemaps.org/schemas/sitemap/0.9"
-            helper :: SitemapUrl -> Html
-            helper (SitemapUrl loc modTime freq pri) =
-                Tag "url" [] $ HtmlList
-                    [ Tag "loc" [] $ cs $ showLocation ar loc
-                    , Tag "lastmod" [] $ cs $ formatW3 modTime
-                    , Tag "changefreq" [] $ cs freq
-                    , Tag "priority" [] $ cs $ show pri
-                    ]
--}
 
-instance HasReps SitemapResponse where
-    chooseRep = defChooseRep
-        [ (TypeXml, return . cs)
-        ]
+sitemapNS :: [SitemapUrl url] -> HtmlContent
+sitemapNS _ = cs "http://www.sitemaps.org/schemas/sitemap/0.9"
 
-sitemap :: Yesod y => [SitemapUrl] -> Handler y SitemapResponse
-sitemap urls = do
-    yesod <- getYesod
-    return $ SitemapResponse urls $ approot yesod
+template :: [SitemapUrl url] -> Hamlet url IO ()
+template = [$hamlet|
+%urlset!xmlns=$sitemapNS$
+    $forall id url
+        %url
+            %loc @url.sitemapLoc@
+            %lastmod $url.sitemapLastMod.formatW3.cs$
+            %changefreq $url.sitemapChangeFreq.showFreq.cs$
+            %priority $url.priority.show.cs$
+|]
 
-robots :: Yesod yesod => Handler yesod [(ContentType, Content)]
-robots = do
-    yesod <- getYesod
-    return $ staticRep TypePlain $ "Sitemap: " ++ showLocation
-                                      (approot yesod)
-                                      (RelLoc "sitemap.xml")
+sitemap :: [SitemapUrl (Routes sub)] -> GHandler sub master RepXml
+sitemap = fmap RepXml . hamletToContent . template
+
+robots :: Routes sub -- ^ sitemap url
+       -> GHandler sub master RepPlain
+robots smurl = do
+    r <- getUrlRender
+    return $ RepPlain $ cs $ "Sitemap: " ++ r smurl

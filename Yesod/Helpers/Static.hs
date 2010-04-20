@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -fno-warn-overlapping-patterns #-} -- FIXME due to bug in Hamlet
+{-# OPTIONS_GHC -fno-warn-overlapping-patterns #-} -- FIXME due to bug in web-routes-quasi
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Static
