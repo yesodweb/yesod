@@ -27,7 +27,7 @@ mkYesod name res = do
                 , crResources = res
                 , crSite = site
                 }
-    return [tySyn, yes, x, y, z]
+    return [tySyn, yes, x, {-y, -}z]
 
 mkYesodSub :: String -> [Name] -> [Resource] -> Q [Dec]
 mkYesodSub name ctxs res = do
@@ -55,4 +55,4 @@ mkYesodSub name ctxs res = do
     let helper claz = ClassP claz [VarT man]
     let ctxs' = map helper ctxs
     let y' = ForallT [PlainTV man] ctxs' y
-    return [tySyn, x, SigD yname y', z]
+    return [tySyn, x, {-SigD yname y',-} z]

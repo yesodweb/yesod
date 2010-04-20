@@ -147,11 +147,15 @@ getRouteMaster = do
 
 runHandlerSub' :: HasReps c
                => GHandler sub master c
-               -> (master, master -> sub, Routes sub -> Routes master, Routes master -> String)
+               -> (Routes master -> String)
                -> Routes sub
-               -> (Routes sub -> String)
+               -> (Routes sub -> Routes master)
+               -> master
+               -> (master -> sub)
+               -> String
                -> YesodApp
-runHandlerSub' handler arg route render = runHandlerSub handler arg (Just route) render
+runHandlerSub' handler mrender surl tomurl marg tosarg _method =
+    runHandlerSub handler (marg, tosarg, tomurl, mrender) (Just surl) (mrender . tomurl)
 
 runHandlerSub :: HasReps c
               => GHandler sub master c

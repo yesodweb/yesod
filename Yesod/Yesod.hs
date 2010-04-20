@@ -23,6 +23,7 @@ import Data.Maybe (fromMaybe)
 import Web.Mime
 import Web.Encodings (parseHttpAccept)
 import Web.Routes (Site (..), encodePathInfo, decodePathInfo)
+import Web.Routes.Quasi (QuasiSite (..))
 import Data.List (intercalate)
 
 import qualified Network.Wai as W
@@ -37,7 +38,7 @@ import qualified Network.Wai.Handler.CGI as CGI
 import System.Environment (getEnvironment)
 
 class YesodSite y where
-    getSite :: Site (Routes y) (String -> YesodApp -> y -> YesodApp)
+    getSite :: QuasiSite YesodApp (Routes y) y (Routes master) master
 
 class YesodSite a => Yesod a where
     -- | The encryption key to be used for encrypting client sessions.
@@ -156,18 +157,23 @@ toWaiApp' y resource session env = do
         method = B8.unpack $ W.methodToBS $ W.requestMethod env
         types = httpAccept env
         pathSegments = filter (not . null) $ cleanupSegments resource
-        eurl = parsePathSegments site pathSegments
+        eurl = quasiParse site pathSegments
         render u = approot y ++ '/'
-                 : encodePathInfo (fixSegs $ formatPathSegments site u)
+                 : encodePathInfo (fixSegs $ quasiRender site u)
     rr <- parseWaiRequest env session
     onRequest y rr
-    print pathSegments
+    print pathSegments -- FIXME remove
     let ya = case eurl of
-                Left _ -> runHandler (errorHandler y NotFound) y Nothing render
-                Right url -> handleSite site render url method
-                                        (badMethod method) y
-    let url' = either (const Nothing) Just eurl
-    let eh er = runHandler (errorHandler y er) y url' render
+                Nothing -> runHandler (errorHandler y NotFound) y Nothing render
+                Just url -> quasiDispatch site
+                                render
+                                url
+                                id
+                                y
+                                id
+                                (badMethod method)
+                                method
+    let eh er = runHandler (errorHandler y er) y eurl render
     unYesodApp ya eh rr types >>= responseToWaiResponse
 
 cleanupSegments :: [B.ByteString] -> [String]
