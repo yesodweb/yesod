@@ -23,6 +23,7 @@ module Yesod
     , module Yesod.Form
     , module Web.Mime
     , module Yesod.Hamlet
+    , module Yesod.Json
     , Application
     , Method (..)
     , cs
@@ -32,10 +33,12 @@ module Yesod
 import Yesod.Response hiding (testSuite)
 import Yesod.Request hiding (testSuite)
 import Web.Mime hiding (testSuite)
+import Yesod.Json hiding (testSuite)
 #else
 import Yesod.Response
 import Yesod.Request
 import Web.Mime
+import Yesod.Json
 #endif
 
 import Yesod.Dispatch

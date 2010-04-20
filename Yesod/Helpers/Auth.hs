@@ -6,7 +6,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME remove
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Auth
@@ -165,19 +164,25 @@ getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
                         Nothing -> helper xs
                         Just y -> y
 
-getCheck :: Yesod master => GHandler Auth master RepHtml
+getCheck :: Yesod master => GHandler Auth master RepHtmlJson
 getCheck = do
     ident <- maybeIdentifier
     dn <- displayName
-    -- FIXME applyLayoutJson
-    simpleApplyLayout "Authentication Status" $ [$hamlet|
+    let arg = (cs $ fromMaybe "" ident, cs $ fromMaybe "" dn)
+    applyLayoutJson "Authentication Status" arg html json
+  where
+    html = [$hamlet|
 %h1 Authentication Status
 %dl
     %dt identifier
     %dd $fst$
     %dt displayName
     %dd $snd$
-|] (cs $ fromMaybe "" ident, cs $ fromMaybe "" dn)
+|]
+    json (ident, dn) =
+        jsonMap [ (jsonScalar $ cs "ident", jsonScalar ident)
+                , (jsonScalar $ cs "displayName", jsonScalar dn)
+                ]
 
 getLogout :: GHandler Auth master ()
 getLogout = do
@@ -215,7 +220,7 @@ redirectLogin = do
 {- FIXME
 -- | Determinge the path requested by the user (ie, the path info). This
 -- includes the query string.
-requestPath :: (Functor m, Monad m, RequestReader m) => m String --FIXME unused
+requestPath :: (Functor m, Monad m, RequestReader m) => m String
 requestPath = do
     env <- waiRequest
     let q = case B8.unpack $ W.queryString env of

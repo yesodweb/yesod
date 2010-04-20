@@ -67,6 +67,7 @@ library
                      Yesod.Definitions
                      Yesod.Form
                      Yesod.Hamlet
+                     Yesod.Json
                      Yesod.Handler
                      Yesod.Dispatch
                      Yesod.Yesod

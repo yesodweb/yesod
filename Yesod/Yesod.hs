@@ -4,6 +4,7 @@ module Yesod.Yesod
     ( Yesod (..)
     , YesodSite (..)
     , simpleApplyLayout
+    , applyLayoutJson
     , getApproot
     ) where
 
@@ -16,6 +17,7 @@ import Control.Arrow ((***))
 import Network.Wai.Middleware.ClientSession
 import qualified Network.Wai as W
 import Yesod.Definitions
+import Yesod.Json
 
 import Web.Routes.Quasi (QuasiSite (..))
 
@@ -58,6 +60,24 @@ class YesodSite a => Yesod a where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     approot :: a -> Approot
+
+applyLayoutJson :: Yesod master
+                => String -- ^ title
+                -> x
+                -> (x -> Hamlet (Routes sub) IO ())
+                -> (x -> Json (Routes sub) IO ())
+                -> GHandler sub master RepHtmlJson
+applyLayoutJson t x toH toJ = do
+    let pc = PageContent
+                { pageTitle = cs t
+                , pageHead = return () -- FIXME allow user to supply?
+                , pageBody = toH x
+                }
+    y <- getYesodMaster
+    rr <- getRequest
+    html <- hamletToContent $ applyLayout y pc rr
+    json <- jsonToContent $ toJ x
+    return $ RepHtmlJson html json
 
 -- | A convenience wrapper around 'simpleApplyLayout for HTML-only data.
 simpleApplyLayout :: Yesod master
