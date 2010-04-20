@@ -160,9 +160,7 @@ getDisplayName :: Rpxnow.Identifier -> String
 getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
     choices = ["verifiedEmail", "email", "displayName", "preferredUsername"]
     helper [] = ident
-    helper (x:xs) = case lookup x extra of
-                        Nothing -> helper xs
-                        Just y -> y
+    helper (x:xs) = fromMaybe (helper xs) $ lookup x extra
 
 getCheck :: Yesod master => GHandler Auth master RepHtmlJson
 getCheck = do

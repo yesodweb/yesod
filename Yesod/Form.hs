@@ -45,7 +45,7 @@ instance Functor Form where
 instance Applicative Form where
     pure x = Form $ \_ -> Right (Nothing, x)
     (Form f') <*> (Form x') = Form $ \l -> case (f' l, x' l) of
-        (Right (_, f), Right (_, x)) -> Right $ (Nothing, f x)
+        (Right (_, f), Right (_, x)) -> Right (Nothing, f x)
         (Left e1, Left e2) -> Left $ e1 ++ e2
         (Left e, _) -> Left e
         (_, Left e) -> Left e
@@ -75,7 +75,7 @@ runFormGet f = do
     runFormGeneric (getParams rr) f
 
 input :: ParamName -> Form [ParamValue]
-input pn = Form $ \l -> Right $ (Just pn, l pn)
+input pn = Form $ \l -> Right (Just pn, l pn)
 
 applyForm :: (x -> Either FormError y) -> Form x -> Form y
 applyForm f (Form x') =

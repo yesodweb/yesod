@@ -58,13 +58,13 @@ explodeHandler a b c d e f _ _ = runHandler a b (Just c) d e f
 mkYesodGeneral :: String -> [Name] -> Bool -> [Resource] -> Q [Dec]
 mkYesodGeneral name clazzes isSub res = do
     let name' = mkName name
-    let tySyn = TySynInstD ''Routes [ConT $ name'] (ConT $ mkName $ name ++ "Routes")
+    let tySyn = TySynInstD ''Routes [ConT name'] (ConT $ mkName $ name ++ "Routes")
     let site = mkName $ "site" ++ name
     let gsbod = NormalB $ VarE site
     let yes' = FunD (mkName "getSite") [Clause [] gsbod []]
     let yes = InstanceD [] (ConT ''YesodSite `AppT` ConT name') [yes']
     explode <- [|explodeHandler|]
-    CreateRoutesResult x _ z <- createRoutes $ CreateRoutesSettings
+    CreateRoutesResult x _ z <- createRoutes CreateRoutesSettings
                 { crRoutes = mkName $ name ++ "Routes"
                 , crApplication = ConT ''YesodApp
                 , crArgument = ConT $ mkName name
@@ -85,11 +85,11 @@ mkYesodGeneral name clazzes isSub res = do
                     `AppT` murl
                     `AppT` master
     let ctx = if isSub
-                then map (\c -> ClassP c [master]) clazzes
+                then map (flip ClassP [master]) clazzes
                 else []
-        tvs = if isSub then [PlainTV $ mkName "master"] else []
+        tvs = [PlainTV $ mkName "master" | isSub]
     let y' = SigD site $ ForallT tvs ctx yType
-    return $ (if isSub then id else (:) yes) $ [y', z, tySyn, x]
+    return $ (if isSub then id else (:) yes) [y', z, tySyn, x]
 
 toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do

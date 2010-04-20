@@ -155,7 +155,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             InternalError
           . (show :: Control.Exception.SomeException -> String)
     (headers, contents) <- Control.Exception.catch
-        (unHandler handler $ HandlerData
+        (unHandler handler HandlerData
             { handlerRequest = rr
             , handlerSub = tosa ma
             , handlerMaster = ma
