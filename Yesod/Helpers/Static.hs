@@ -21,7 +21,7 @@
 module Yesod.Helpers.Static
     ( FileLookup
     , fileLookupDir
-    , siteStaticRoutes
+    , siteStatic
     , StaticRoutes
     , staticArgs
     , Static
@@ -33,6 +33,7 @@ import Control.Monad
 import Yesod
 import Data.List (intercalate)
 import Network.Wai
+import Web.Routes
 
 type FileLookup = FilePath -> IO (Maybe (Either FilePath Content))
 
@@ -42,9 +43,14 @@ staticArgs :: FileLookup -> Static
 staticArgs = Static
 
 -- FIXME bug in web-routes-quasi generates warning here
-$(mkYesod "Static" [$parseRoutes|
+$(mkYesodSub "Static" [$parseRoutes|
 /* StaticRoute GET
 |])
+
+siteStatic' :: Site StaticRoutes (String -> YesodApp
+    -> (master, master -> Static, StaticRoutes -> Routes master, Routes master -> String)
+    -> YesodApp)
+siteStatic' = siteStatic
 
 -- | A 'FileLookup' for files in a directory. Note that this function does not
 -- check if the requested path does unsafe things, eg expose hidden files. You
@@ -60,7 +66,7 @@ fileLookupDir dir = Static $ \fp -> do
         then return $ Just $ Left fp'
         else return Nothing
 
-getStatic :: FileLookup -> [String] -> Handler y [(ContentType, Content)]
+getStatic :: FileLookup -> [String] -> GHandler sub master [(ContentType, Content)]
 getStatic fl fp' = do
     when (any isUnsafe fp') notFound
     wai <- waiRequest
@@ -76,7 +82,7 @@ getStatic fl fp' = do
     isUnsafe ('.':_) = True
     isUnsafe _ = False
 
-getStaticRoute :: [String] -> Handler Static [(ContentType, Content)]
+getStaticRoute :: [String] -> GHandler Static master [(ContentType, Content)]
 getStaticRoute fp = do
     Static fl <- getYesod
     getStatic fl fp

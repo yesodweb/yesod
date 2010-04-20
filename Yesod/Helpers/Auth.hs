@@ -25,7 +25,7 @@ module Yesod.Helpers.Auth
     , displayName
     , redirectLogin
     , Auth (..)
-    , siteAuthRoutes
+    , siteAuth
     ) where
 
 import Web.Encodings

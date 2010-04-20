@@ -10,7 +10,7 @@ import Network.Wai.Handler.SimpleServer
 data StaticExample = StaticExample
 
 mkYesod "StaticExample" [$parseRoutes|
-/     Root    StaticRoutes siteStaticRoutes getStaticSite
+/     Root    StaticRoutes siteStatic getStaticSite
 |]
 
 instance Yesod StaticExample where
