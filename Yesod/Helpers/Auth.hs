@@ -39,7 +39,7 @@ import Control.Monad.Attempt
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe
 
-import qualified Network.Wai as W
+--FIXME import qualified Network.Wai as W
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 import Control.Applicative ((<$>))
@@ -48,6 +48,9 @@ import Control.Applicative ((<$>))
 
 data LoginType = OpenId | Rpxnow
 
+class Yesod y => YesodAuth y where
+    onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth y ()
+
 data Auth = Auth
     { defaultDest :: String
     --, onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth master ()
@@ -55,7 +58,7 @@ data Auth = Auth
     , defaultLoginType :: LoginType
     }
 
-$(mkYesodSub "Auth" [$parseRoutes|
+$(mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
 /check                 Check              GET
 /logout                Logout             GET
 /openid                OpenIdR            GET
@@ -126,7 +129,7 @@ getOpenIdComplete = do
         redirectToDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
-handleRpxnowR :: GHandler Auth master ()
+handleRpxnowR :: YesodAuth master => GHandler Auth master ()
 handleRpxnowR = do
     ay <- getYesod
     apiKey <- case rpxnowApiKey ay of
@@ -145,11 +148,7 @@ handleRpxnowR = do
                         (s:_) -> s
                 (d:_) -> d
     ident <- liftIO $ Rpxnow.authenticate apiKey token
-    auth <- getYesod
-    {- FIXME onRpxnowLogin
-    case auth of
-        Auth _ f _ _ _ -> f ident
-    -}
+    onRpxnowLogin ident
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
     redirectToDest RedirectTemporary dest
@@ -214,6 +213,7 @@ redirectLogin = do
                 Rpxnow -> RpxnowR -- FIXME this doesn't actually show a login page?
     redirectSetDest RedirectTemporary r
 
+{- FIXME
 -- | Determinge the path requested by the user (ie, the path info). This
 -- includes the query string.
 requestPath :: (Functor m, Monad m, RequestReader m) => m String --FIXME unused
@@ -227,6 +227,7 @@ requestPath = do
       where
         dropSlash ('/':x) = x
         dropSlash x = x
+-}
 
 -- | Redirect to the given URL, and set a cookie with the current URL so the
 -- user will ultimately be sent back here.

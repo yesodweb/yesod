@@ -29,17 +29,30 @@ mkYesod name res = do
                 }
     return [tySyn, yes, x, y, z]
 
-mkYesodSub :: String -> [Resource] -> Q [Dec]
-mkYesodSub name res = do
+mkYesodSub :: String -> [Name] -> [Resource] -> Q [Dec]
+mkYesodSub name ctxs res = do
     let name' = mkName name
     let site = mkName $ "site" ++ name
     let tySyn = TySynInstD ''Routes [ConT name'] (ConT $ mkName $ name ++ "Routes")
-    CreateRoutesResult x _ z <- createRoutes $ CreateRoutesSettings
+    let sa = ConT (mkName name)
+    let man = mkName "master"
+    let ma = VarT man -- FIXME
+    let sr = ConT $ mkName $ name ++ "Routes"
+    let mr = ConT ''Routes `AppT` VarT man
+    let arg = TupleT 4
+                `AppT` ma
+                `AppT` (ArrowT `AppT` ma `AppT` sa)
+                `AppT` (ArrowT `AppT` sr `AppT` mr)
+                `AppT` (ArrowT `AppT` mr `AppT` ConT ''String)
+    CreateRoutesResult x (SigD yname y) z <- createRoutes $ CreateRoutesSettings
                 { crRoutes = mkName $ name ++ "Routes"
                 , crApplication = ConT ''YesodApp
-                , crArgument = ConT $ mkName name
+                , crArgument = arg
                 , crExplode = VarE $ mkName "runHandlerSub'"
                 , crResources = res
                 , crSite = site
                 }
-    return [tySyn, x, z]
+    let helper claz = ClassP claz [VarT man]
+    let ctxs' = map helper ctxs
+    let y' = ForallT [PlainTV man] ctxs' y
+    return [tySyn, x, SigD yname y', z]

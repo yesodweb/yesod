@@ -33,7 +33,6 @@ import Control.Monad
 import Yesod
 import Data.List (intercalate)
 import Network.Wai
-import Web.Routes
 
 type FileLookup = FilePath -> IO (Maybe (Either FilePath Content))
 
@@ -43,14 +42,9 @@ staticArgs :: FileLookup -> Static
 staticArgs = Static
 
 -- FIXME bug in web-routes-quasi generates warning here
-$(mkYesodSub "Static" [$parseRoutes|
+$(mkYesodSub "Static" [] [$parseRoutes|
 /* StaticRoute GET
 |])
-
-siteStatic' :: Site StaticRoutes (String -> YesodApp
-    -> (master, master -> Static, StaticRoutes -> Routes master, Routes master -> String)
-    -> YesodApp)
-siteStatic' = siteStatic
 
 -- | A 'FileLookup' for files in a directory. Note that this function does not
 -- check if the requested path does unsafe things, eg expose hidden files. You
