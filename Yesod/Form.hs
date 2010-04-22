@@ -25,10 +25,9 @@ import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Time (Day)
 import Data.Convertible.Text
-import Data.Attempt
+import Control.Monad.Attempt
 import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class (MonadIO)
-import qualified Safe.Failure
 
 noParamNameError :: String
 noParamNameError = "No param name (miscalling of Yesod.Form library)"
@@ -118,9 +117,9 @@ checkBool = applyForm $ \pv -> Right $ case pv of
 
 checkInteger :: Form ParamValue -> Form Integer
 checkInteger = applyForm $ \pv ->
-    case Safe.Failure.read pv of
-        Nothing -> Left "Invalid integer"
-        Just i -> Right i
+    case reads pv of
+        [] -> Left "Invalid integer"
+        ((i, _):_) -> Right i
 
 -- | Instead of calling 'failure' with an 'InvalidArgs', return the error
 -- messages.

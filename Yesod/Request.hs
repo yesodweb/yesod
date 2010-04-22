@@ -39,7 +39,6 @@ module Yesod.Request
     ) where
 
 import qualified Network.Wai as W
-import Data.Function.Predicate (equals)
 import Yesod.Definitions
 import Web.Encodings
 import qualified Data.ByteString as B
@@ -119,7 +118,10 @@ iothunk = fmap go . newMVar . Left where
 
 -- | All cookies with the given name.
 cookies :: Request -> ParamName -> [ParamValue]
-cookies rr name = map snd . filter (fst `equals` name) . reqCookies $ rr
+cookies rr name =
+    map snd . filter (fst `equals` name) . reqCookies $ rr
+  where
+    equals f x y = f y == x
 
 parseWaiRequest :: W.Request
                 -> [(B.ByteString, B.ByteString)] -- ^ session
