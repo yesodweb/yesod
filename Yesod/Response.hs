@@ -133,12 +133,13 @@ instance HasReps () where
 
 instance HasReps [(ContentType, Content)] where
     chooseRep a cts = return $
-        case filter (\(ct, _) -> simpleContentType ct `elem`
-                                  map simpleContentType cts) a of
+        case filter (\(ct, _) -> go ct `elem` map go cts) a of
             ((ct, c):_) -> (ct, c)
             _ -> case a of
                     (x:_) -> x
                     _ -> error "chooseRep [(ContentType, Content)] of empty"
+      where
+        go = simpleContentType . contentTypeToString
 
 -- | Data with a single representation.
 staticRep :: ConvertSuccess x Content
@@ -227,7 +228,7 @@ headerToPair (Header key value) =
 responseToWaiResponse :: Response -> IO W.Response
 responseToWaiResponse (Response sc hs ct c) = do
     hs' <- mapM headerToPair hs
-    let hs'' = (W.ContentType, cs ct) : hs'
+    let hs'' = (W.ContentType, cs $ contentTypeToString ct) : hs'
     return $ W.Response sc hs'' $ case c of
                                     ContentFile fp -> Left fp
                                     ContentEnum e -> Right $ W.Enumerator e

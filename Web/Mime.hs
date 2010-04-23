@@ -3,10 +3,14 @@
 {-# LANGUAGE CPP #-}
 -- | Generic MIME type module. Could be spun off into its own package.
 module Web.Mime
-    ( ContentType (..)
-    , contentTypeFromBS
+    ( -- * Data type and conversions
+      ContentType (..)
+    , contentTypeFromString
+    , contentTypeToString
+      -- * File extensions
     , typeByExt
     , ext
+      -- * Utilities
     , simpleContentType
 #if TEST
     , testSuite
@@ -14,8 +18,6 @@ module Web.Mime
     ) where
 
 import Data.Function (on)
-import Data.Convertible.Text
-import Data.ByteString.Char8 (pack, ByteString, unpack)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -26,6 +28,11 @@ import Test.QuickCheck
 import Control.Monad (when)
 #endif
 
+-- | Equality is determined by converting to a 'String' via
+-- 'contentTypeToString'. This ensures that, for example, 'TypeJpeg' is the
+-- same as 'TypeOther' \"image/jpeg\". However, note that 'TypeHtml' is *not*
+-- the same as 'TypeOther' \"text/html\", since 'TypeHtml' is defined as UTF-8
+-- encoded. See 'contentTypeToString'.
 data ContentType =
     TypeHtml
     | TypePlain
@@ -43,33 +50,41 @@ data ContentType =
     | TypeOther String
     deriving (Show)
 
-instance ConvertSuccess ContentType ByteString where
-    convertSuccess = pack . cs
+-- | This is simply a synonym for 'TypeOther'. However, equality works as
+-- expected; see 'ContentType'.
+contentTypeFromString :: String -> ContentType
+contentTypeFromString = TypeOther
 
-instance ConvertSuccess ContentType [Char] where
-    convertSuccess TypeHtml = "text/html; charset=utf-8"
-    convertSuccess TypePlain = "text/plain; charset=utf-8"
-    convertSuccess TypeJson = "application/json; charset=utf-8"
-    convertSuccess TypeXml = "text/xml"
-    convertSuccess TypeAtom = "application/atom+xml"
-    convertSuccess TypeJpeg = "image/jpeg"
-    convertSuccess TypePng = "image/png"
-    convertSuccess TypeGif = "image/gif"
-    convertSuccess TypeJavascript = "text/javascript; charset=utf-8"
-    convertSuccess TypeCss = "text/css; charset=utf-8"
-    convertSuccess TypeFlv = "video/x-flv"
-    convertSuccess TypeOgv = "video/ogg"
-    convertSuccess TypeOctet = "application/octet-stream"
-    convertSuccess (TypeOther s) = s
+-- | This works as expected, with one caveat: the builtin textual content types
+-- ('TypeHtml', 'TypePlain', etc) all include \"; charset=utf-8\" at the end of
+-- their basic content-type. If another encoding is desired, please use
+-- 'TypeOther'.
+contentTypeToString :: ContentType -> String
+contentTypeToString TypeHtml = "text/html; charset=utf-8"
+contentTypeToString TypePlain = "text/plain; charset=utf-8"
+contentTypeToString TypeJson = "application/json; charset=utf-8"
+contentTypeToString TypeXml = "text/xml"
+contentTypeToString TypeAtom = "application/atom+xml"
+contentTypeToString TypeJpeg = "image/jpeg"
+contentTypeToString TypePng = "image/png"
+contentTypeToString TypeGif = "image/gif"
+contentTypeToString TypeJavascript = "text/javascript; charset=utf-8"
+contentTypeToString TypeCss = "text/css; charset=utf-8"
+contentTypeToString TypeFlv = "video/x-flv"
+contentTypeToString TypeOgv = "video/ogg"
+contentTypeToString TypeOctet = "application/octet-stream"
+contentTypeToString (TypeOther s) = s
 
-simpleContentType :: ContentType -> String
-simpleContentType = fst . span (/= ';') . cs
+-- | Removes \"extra\" information at the end of a content type string. In
+-- particular, removes everything after the semicolon, if present.
+--
+-- For example, \"text/html; charset=utf-8\" is commonly used to specify the
+-- character encoding for HTML data. This function would return \"text/html\".
+simpleContentType :: String -> String
+simpleContentType = fst . span (/= ';')
 
 instance Eq ContentType where
-    (==) = (==) `on` (cs :: ContentType -> String)
-
-contentTypeFromBS :: ByteString -> ContentType
-contentTypeFromBS = TypeOther . unpack
+    (==) = (==) `on` contentTypeToString
 
 -- | Determine a mime-type based on the file extension.
 typeByExt :: String -> ContentType
@@ -106,5 +121,4 @@ caseTypeByExt :: Assertion
 caseTypeByExt = do
     TypeJavascript @=? typeByExt (ext "foo.js")
     TypeHtml @=? typeByExt (ext "foo.html")
-
 #endif

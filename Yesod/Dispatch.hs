@@ -141,7 +141,7 @@ cleanupSegments :: [B.ByteString] -> [String]
 cleanupSegments = decodePathInfo . intercalate "/" . map B.unpack
 
 httpAccept :: W.Request -> [ContentType]
-httpAccept = map contentTypeFromBS
+httpAccept = map (contentTypeFromString . B.unpack)
            . parseHttpAccept
            . fromMaybe B.empty
            . lookup W.Accept
