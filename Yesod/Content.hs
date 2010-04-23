@@ -4,20 +4,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Rank2Types #-}
----------------------------------------------------------
---
--- Module        : Yesod.Response
--- Copyright     : Michael Snoyman
--- License       : BSD3
---
--- Maintainer    : Michael Snoyman <michael@snoyman.com>
--- Stability     : Stable
--- Portability   : portable
---
--- Generating responses.
---
----------------------------------------------------------
-module Yesod.Response
+
+module Yesod.Content
     ( -- * Content
       Content (..)
     , toContent
@@ -31,13 +19,6 @@ module Yesod.Response
     , RepHtmlJson (..)
     , RepPlain (..)
     , RepXml (..)
-      -- * Special responses
-    , RedirectType (..)
-    , SpecialResponse (..)
-      -- * Error responses
-    , ErrorResponse (..)
-      -- * Header
-    , Header (..)
     ) where
 
 import Data.Maybe (mapMaybe)
@@ -50,7 +31,6 @@ import Data.Convertible.Text
 import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as WE
 
-import Yesod.Request
 import Web.Mime
 
 -- | There are two different methods available for providing content in the
@@ -149,34 +129,3 @@ instance HasReps RepPlain where
 newtype RepXml = RepXml Content
 instance HasReps RepXml where
     chooseRep (RepXml c) _ = return (TypeXml, c)
-
--- | Different types of redirects.
-data RedirectType = RedirectPermanent
-                  | RedirectTemporary
-                  | RedirectSeeOther
-    deriving (Show, Eq)
-
--- | Special types of responses which should short-circuit normal response
--- processing.
-data SpecialResponse =
-      Redirect RedirectType String
-    | SendFile ContentType FilePath
-    deriving (Show, Eq)
-
--- | Responses to indicate some form of an error occurred. These are different
--- from 'SpecialResponse' in that they allow for custom error pages.
-data ErrorResponse =
-      NotFound
-    | InternalError String
-    | InvalidArgs [(ParamName, ParamError)]
-    | PermissionDenied
-    | BadMethod String
-    deriving (Show, Eq)
-
------ header stuff
--- | Headers to be added to a 'Result'.
-data Header =
-    AddCookie Int String String
-    | DeleteCookie String
-    | Header String String
-    deriving (Eq, Show)

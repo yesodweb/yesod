@@ -20,7 +20,6 @@ module Yesod.Form
     ) where
 
 import Yesod.Request
-import Yesod.Response (ErrorResponse)
 import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Time (Day)
@@ -28,6 +27,7 @@ import Data.Convertible.Text
 import Control.Monad.Attempt
 import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class (MonadIO)
+import Yesod.Internal
 
 noParamNameError :: String
 noParamNameError = "No param name (miscalling of Yesod.Form library)"

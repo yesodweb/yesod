@@ -23,17 +23,14 @@ module Yesod.Handler
     ( -- * Handler monad
       Handler
     , GHandler
+      -- ** Read information from handler
     , getYesod
     , getYesodMaster
     , getUrlRender
     , getUrlRenderMaster
     , getRoute
-    , getRouteMaster
-    , runHandler
-    , liftIO
-    , YesodApp (..)
-    , Routes
-      -- * Special handlers
+      -- * Special responses
+    , RedirectType (..)
     , redirect
     , sendFile
     , notFound
@@ -44,12 +41,16 @@ module Yesod.Handler
     , addCookie
     , deleteCookie
     , header
+      -- * Internal Yesod
+    , runHandler
+    , YesodApp (..)
     ) where
 
 import Yesod.Request
-import Yesod.Response
+import Yesod.Content
+import Yesod.Internal
+import Yesod.Definitions
 import Web.Mime
-import Web.Routes.Quasi (Routes)
 
 import Control.Exception hiding (Handler)
 import Control.Applicative
@@ -73,6 +74,21 @@ data HandlerData sub master = HandlerData
     , handlerToMaster :: Routes sub -> Routes master
     }
 
+-- | A generic handler monad, which can have a different subsite and master
+-- site. This monad is a combination of reader for basic arguments, a writer
+-- for headers, and an error-type monad for handling special responses.
+newtype GHandler sub master a = Handler {
+    unHandler :: HandlerData sub master -> IO ([Header], HandlerContents a)
+}
+
+-- | A 'GHandler' limited to the case where the master and sub sites are the
+-- same. This is the usual case for application writing; only code written
+-- specifically as a subsite need been concerned with the more general variety.
+type Handler yesod = GHandler yesod yesod
+
+-- | An extension of the basic WAI 'W.Application' datatype to provide extra
+-- features needed by Yesod. Users should never need to use this directly, as
+-- the 'GHandler' monad and template haskell code should hide it away.
 newtype YesodApp = YesodApp
     { unYesodApp
     :: (ErrorResponse -> YesodApp)
@@ -81,17 +97,11 @@ newtype YesodApp = YesodApp
     -> IO (W.Status, [Header], ContentType, Content)
     }
 
------- Handler monad
-newtype GHandler sub master a = Handler {
-    unHandler :: HandlerData sub master
-              -> IO ([Header], HandlerContents a)
-}
-type Handler yesod = GHandler yesod yesod
-
 data HandlerContents a =
-      HCSpecial SpecialResponse
+      HCContent a
     | HCError ErrorResponse
-    | HCContent a
+    | HCSendFile ContentType FilePath
+    | HCRedirect RedirectType String
 
 instance Functor (GHandler sub master) where
     fmap = liftM
@@ -105,9 +115,10 @@ instance Monad (GHandler sub master) where
         (headers, c) <- handler rr
         (headers', c') <-
             case c of
-                (HCError e) -> return ([], HCError e)
-                (HCSpecial e) -> return ([], HCSpecial e)
-                (HCContent a) -> unHandler (f a) rr
+                HCContent a -> unHandler (f a) rr
+                HCError e -> return ([], HCError e)
+                HCSendFile ct fp -> return ([], HCSendFile ct fp)
+                HCRedirect rt url -> return ([], HCRedirect rt url)
         return (headers ++ headers', c')
 instance MonadIO (GHandler sub master) where
     liftIO i = Handler $ \_ -> i >>= \i' -> return ([], HCContent i')
@@ -119,28 +130,31 @@ instance RequestReader (GHandler sub master) where
 getData :: GHandler sub master (HandlerData sub master)
 getData = Handler $ \r -> return ([], HCContent r)
 
+-- | Get the application argument.
 getYesod :: GHandler sub master sub
 getYesod = handlerSub <$> getData
 
+-- | Get the master site appliation argument.
 getYesodMaster :: GHandler sub master master
 getYesodMaster = handlerMaster <$> getData
 
+-- | Get the URL rendering function.
 getUrlRender :: GHandler sub master (Routes sub -> String)
 getUrlRender = do
     d <- getData
     return $ handlerRender d . handlerToMaster d
 
+-- | Get the URL rendering function for the master site.
 getUrlRenderMaster :: GHandler sub master (Routes master -> String)
 getUrlRenderMaster = handlerRender <$> getData
 
+-- | Get the route requested by the user. If this is a 404 response- where the
+-- user requested an invalid route- this function will return 'Nothing'.
 getRoute :: GHandler sub master (Maybe (Routes sub))
 getRoute = handlerRoute <$> getData
 
-getRouteMaster :: GHandler sub master (Maybe (Routes master))
-getRouteMaster = do
-    d <- getData
-    return $ handlerToMaster d <$> handlerRoute d
-
+-- | Function used internally by Yesod in the process of converting a
+-- 'GHandler' into an 'W.Application'. Should not be needed by users.
 runHandler :: HasReps c
            => GHandler sub master c
            -> (Routes master -> String)
@@ -171,45 +185,48 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             c <- BL.readFile fp
             return (W.Status200, headers, ct, cs c)
     case contents of
-        HCError e -> handleError e
-        HCSpecial (Redirect rt loc) -> do
-            let hs = Header "Location" loc : headers
-            return (getRedirectStatus rt, hs, TypePlain, cs "")
-        HCSpecial (SendFile ct fp) -> Control.Exception.catch
-            (sendFile' ct fp)
-            (handleError . toErrorHandler)
         HCContent a -> do
             (ct, c) <- chooseRep a cts
             return (W.Status200, headers, ct, c)
+        HCError e -> handleError e
+        HCRedirect rt loc -> do
+            let hs = Header "Location" loc : headers
+            return (getRedirectStatus rt, hs, TypePlain, cs "")
+        HCSendFile ct fp -> Control.Exception.catch
+            (sendFile' ct fp)
+            (handleError . toErrorHandler)
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
     return (W.Status500, [], TypePlain, cs "Internal Server Error")
 
------- Special handlers
-specialResponse :: SpecialResponse -> GHandler sub master a
-specialResponse er = Handler $ \_ -> return ([], HCSpecial er)
-
 -- | Redirect to the given URL.
 redirect :: RedirectType -> String -> GHandler sub master a
-redirect rt = specialResponse . Redirect rt
+redirect rt url = Handler $ \_ -> return ([], HCRedirect rt url)
 
+-- | Bypass remaining handler code and output the given file.
+--
+-- For some backends, this is more efficient than reading in the file to
+-- memory, since they can optimize file sending via a system call to sendfile.
 sendFile :: ContentType -> FilePath -> GHandler sub master a
-sendFile ct = specialResponse . SendFile ct
+sendFile ct fp = Handler $ \_ -> return ([], HCSendFile ct fp)
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
 notFound = failure NotFound
 
+-- | Return a 405 method not supported page.
 badMethod :: (RequestReader m, Failure ErrorResponse m) => m a
 badMethod = do
     w <- waiRequest
     failure $ BadMethod $ cs $ W.methodToBS $ W.requestMethod w
 
+-- | Return a 403 permission denied page.
 permissionDenied :: Failure ErrorResponse m => m a
 permissionDenied = failure PermissionDenied
 
+-- | Return a 400 invalid arguments page.
 invalidArgs :: Failure ErrorResponse m => [(ParamName, String)] -> m a
 invalidArgs = failure . InvalidArgs
 
@@ -243,3 +260,9 @@ getRedirectStatus :: RedirectType -> W.Status
 getRedirectStatus RedirectPermanent = W.Status301
 getRedirectStatus RedirectTemporary = W.Status302
 getRedirectStatus RedirectSeeOther = W.Status303
+
+-- | Different types of redirects.
+data RedirectType = RedirectPermanent
+                  | RedirectTemporary
+                  | RedirectSeeOther
+    deriving (Show, Eq)

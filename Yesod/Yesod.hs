@@ -8,7 +8,7 @@ module Yesod.Yesod
     , getApproot
     ) where
 
-import Yesod.Response
+import Yesod.Content
 import Yesod.Request
 import Yesod.Hamlet
 import Yesod.Handler
@@ -18,6 +18,7 @@ import Network.Wai.Middleware.ClientSession
 import qualified Network.Wai as W
 import Yesod.Definitions
 import Yesod.Json
+import Yesod.Internal
 
 import Web.Routes.Quasi (QuasiSite (..))
 

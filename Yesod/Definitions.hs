@@ -15,7 +15,8 @@
 --
 ---------------------------------------------------------
 module Yesod.Definitions
-    ( Approot
+    ( -- * Type synonyms
+      Approot
     , Language
       -- * Constant values
     , authCookieName
@@ -24,9 +25,12 @@ module Yesod.Definitions
     , langKey
     , destCookieName
     , destCookieTimeout
+      -- * Other
+    , Routes
     ) where
 
 import Data.ByteString.Char8 (pack, ByteString)
+import Web.Routes.Quasi (Routes)
 
 -- | An absolute URL to the base of this application. This can almost be done
 -- programatically, but due to ambiguities in different ways of doing URL

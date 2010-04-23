@@ -20,15 +20,10 @@ import Control.Applicative
 import Data.Text (Text)
 import Web.Encodings
 import Yesod.Hamlet
+import Yesod.Definitions
 import Control.Monad (when)
-#if TEST
-import Yesod.Response hiding (testSuite)
-import Data.Text.Lazy (unpack)
-import qualified Data.Text as T
-#else
-import Yesod.Response
-#endif
 import Yesod.Handler
+import Yesod.Content
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -36,7 +31,8 @@ import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.HUnit hiding (Test)
 import Test.QuickCheck
-import Control.Monad (when)
+import Data.Text.Lazy (unpack)
+import qualified Data.Text as T
 #endif
 
 newtype Json url m a = Json { unJson :: Hamlet url m a }

@@ -11,10 +11,11 @@ module Yesod.Dispatch
     ) where
 
 import Yesod.Handler
-import Yesod.Response
+import Yesod.Content
 import Yesod.Definitions
 import Yesod.Yesod
 import Yesod.Request
+import Yesod.Internal
 
 import Web.Routes.Quasi
 import Language.Haskell.TH.Syntax

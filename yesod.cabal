@@ -54,19 +54,20 @@ library
                      web-routes-quasi >= 0.0 && < 0.1,
                      hamlet >= 0.0 && < 0.1
     exposed-modules: Yesod
-                     Yesod.Request
-                     Yesod.Response
+                     Yesod.Content
                      Yesod.Definitions
+                     Yesod.Dispatch
                      Yesod.Form
                      Yesod.Hamlet
-                     Yesod.Json
                      Yesod.Handler
-                     Yesod.Dispatch
+                     Yesod.Internal
+                     Yesod.Json
+                     Yesod.Request
                      Yesod.Yesod
-                     Yesod.Helpers.Auth
-                     Yesod.Helpers.Static
                      Yesod.Helpers.AtomFeed
+                     Yesod.Helpers.Auth
                      Yesod.Helpers.Sitemap
+                     Yesod.Helpers.Static
                      Web.Mime
     ghc-options:     -Wall
 

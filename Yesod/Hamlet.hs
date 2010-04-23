@@ -21,8 +21,9 @@ module Yesod.Hamlet
 
 import Text.Hamlet
 import Text.Hamlet.Monad (outputHtml)
-import Yesod.Response
+import Yesod.Content
 import Yesod.Handler
+import Yesod.Definitions
 import Data.Convertible.Text
 import Data.Object
 import Control.Arrow ((***))
