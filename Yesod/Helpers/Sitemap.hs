@@ -65,7 +65,7 @@ template = [$hamlet|
             %priority $url.priority.show.cs$
 |]
 
-sitemap :: [SitemapUrl (Routes sub)] -> GHandler sub master RepXml
+sitemap :: [SitemapUrl (Routes master)] -> GHandler sub master RepXml
 sitemap = fmap RepXml . hamletToContent . template
 
 robots :: Routes sub -- ^ sitemap url

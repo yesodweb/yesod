@@ -29,6 +29,7 @@ module Yesod.Handler
     , getUrlRender
     , getUrlRenderMaster
     , getRoute
+    , getRouteToMaster
       -- * Special responses
     , RedirectType (..)
     , redirect
@@ -152,6 +153,11 @@ getUrlRenderMaster = handlerRender <$> getData
 -- user requested an invalid route- this function will return 'Nothing'.
 getRoute :: GHandler sub master (Maybe (Routes sub))
 getRoute = handlerRoute <$> getData
+
+-- | Get the function to promote a route for a subsite to a route for the
+-- master site.
+getRouteToMaster :: GHandler sub master (Routes sub -> Routes master)
+getRouteToMaster = handlerToMaster <$> getData
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.

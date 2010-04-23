@@ -1,11 +1,11 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( Yesod (..)
     , YesodSite (..)
-    , simpleApplyLayout
+    , applyLayout
     , applyLayoutJson
-    , getApproot
     ) where
 
 import Yesod.Content
@@ -36,15 +36,18 @@ class YesodSite a => Yesod a where
     clientSessionDuration = const 120
 
     -- | Output error response pages.
-    errorHandler :: Yesod y => a -> ErrorResponse -> Handler y ChooseRep
+    errorHandler :: Yesod y
+                 => a
+                 -> ErrorResponse
+                 -> Handler y ChooseRep
     errorHandler _ = defaultErrorHandler
 
     -- | Applies some form of layout to <title> and <body> contents of a page. FIXME: use a Maybe here to allow subsites to simply inherit.
-    applyLayout :: a
-                -> PageContent url -- FIXME not so good, should be Routes y
-                -> Request
-                -> Hamlet url IO ()
-    applyLayout _ p _ = [$hamlet|
+    rawApplyLayout :: a
+                   -> PageContent (Routes a)
+                   -> Request
+                   -> Hamlet (Routes a) IO ()
+    rawApplyLayout _ p _ = [$hamlet|
 !!!
 %html
     %head
@@ -62,11 +65,27 @@ class YesodSite a => Yesod a where
     -- trailing slash.
     approot :: a -> Approot
 
+-- | A convenience wrapper around 'simpleApplyLayout for HTML-only data.
+applyLayout :: Yesod master
+            => String -- ^ title
+            -> Hamlet (Routes master) IO () -- ^ body
+            -> GHandler sub master RepHtml
+applyLayout t b = do
+    let pc = PageContent
+                { pageTitle = cs t
+                , pageHead = return ()
+                , pageBody = b
+                }
+    y <- getYesodMaster
+    rr <- getRequest
+    content <- hamletToContent $ rawApplyLayout y pc rr
+    return $ RepHtml content
+
 applyLayoutJson :: Yesod master
                 => String -- ^ title
                 -> x
-                -> (x -> Hamlet (Routes sub) IO ())
-                -> (x -> Json (Routes sub) IO ())
+                -> (x -> Hamlet (Routes master) IO ())
+                -> (x -> Json (Routes master) ())
                 -> GHandler sub master RepHtmlJson
 applyLayoutJson t x toH toJ = do
     let pc = PageContent
@@ -76,49 +95,32 @@ applyLayoutJson t x toH toJ = do
                 }
     y <- getYesodMaster
     rr <- getRequest
-    html <- hamletToContent $ applyLayout y pc rr
+    html <- hamletToContent $ rawApplyLayout y pc rr
     json <- jsonToContent $ toJ x
     return $ RepHtmlJson html json
 
--- | A convenience wrapper around 'simpleApplyLayout for HTML-only data.
-simpleApplyLayout :: Yesod master
-                  => String -- ^ title
-                  -> Hamlet (Routes sub) IO () -- ^ body
-                  -> GHandler sub master RepHtml
-simpleApplyLayout t b = do
-    let pc = PageContent
-                { pageTitle = cs t
-                , pageHead = return ()
-                , pageBody = b
-                }
-    y <- getYesodMaster
-    rr <- getRequest
-    content <- hamletToContent $ applyLayout y pc rr
-    return $ RepHtml content
+applyLayout' :: Yesod master
+             => String -- ^ title
+             -> Hamlet (Routes master) IO () -- ^ body
+             -> GHandler sub master ChooseRep
+applyLayout' s = fmap chooseRep . applyLayout s
 
-getApproot :: Yesod y => Handler y Approot
-getApproot = approot `fmap` getYesod
-
-simpleApplyLayout' :: Yesod master
-                   => String -- ^ title
-                   -> Hamlet (Routes sub) IO () -- ^ body
-                   -> GHandler sub master ChooseRep
-simpleApplyLayout' t = fmap chooseRep . simpleApplyLayout t
-
-defaultErrorHandler :: Yesod y => ErrorResponse -> Handler y ChooseRep
+defaultErrorHandler :: Yesod y
+                    => ErrorResponse
+                    -> Handler y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    simpleApplyLayout' "Not Found" $ [$hamlet|
+    applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
 %p $helper$
 |] r
   where
     helper = Unencoded . cs . W.pathInfo
 defaultErrorHandler PermissionDenied =
-    simpleApplyLayout' "Permission Denied" $ [$hamlet|
+    applyLayout' "Permission Denied" $ [$hamlet|
 %h1 Permission denied|] ()
 defaultErrorHandler (InvalidArgs ia) =
-    simpleApplyLayout' "Invalid Arguments" $ [$hamlet|
+    applyLayout' "Invalid Arguments" $ [$hamlet|
 %h1 Invalid Arguments
 %dl
     $forall ias pair
@@ -128,12 +130,12 @@ defaultErrorHandler (InvalidArgs ia) =
   where
     ias _ = map (cs *** cs) ia
 defaultErrorHandler (InternalError e) =
-    simpleApplyLayout' "Internal Server Error" $ [$hamlet|
+    applyLayout' "Internal Server Error" $ [$hamlet|
 %h1 Internal Server Error
 %p $cs$
 |] e
 defaultErrorHandler (BadMethod m) =
-    simpleApplyLayout' "Bad Method" $ [$hamlet|
+    applyLayout' "Bad Method" $ [$hamlet|
 %h1 Method Not Supported
 %p Method "$cs$" not supported
 |] m

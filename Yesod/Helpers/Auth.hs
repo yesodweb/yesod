@@ -72,15 +72,9 @@ getOpenIdR = do
     case getParams rr "dest" of
         [] -> return ()
         (x:_) -> addCookie destCookieTimeout destCookieName x
-    y <- getYesodMaster
-    let html = template (getParams rr "message", id)
-    let pc = PageContent
-                { pageTitle = cs "Log in via OpenID"
-                , pageHead = return ()
-                , pageBody = html
-                }
-    content <- hamletToContent $ applyLayout y pc rr
-    return $ RepHtml content
+    rtom <- getRouteToMaster
+    let html = template (getParams rr "message", rtom)
+    applyLayout "Log in via OpenID" $ html
   where
     urlForward (_, wrapper) = wrapper OpenIdForward
     hasMessage = not . null . fst

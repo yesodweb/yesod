@@ -35,26 +35,26 @@ import Data.Text.Lazy (unpack)
 import qualified Data.Text as T
 #endif
 
-newtype Json url m a = Json { unJson :: Hamlet url m a }
+newtype Json url a = Json { unJson :: Hamlet url IO a }
     deriving (Functor, Applicative, Monad)
 
-jsonToContent :: Json (Routes sub) IO () -> GHandler sub master Content
+jsonToContent :: Json (Routes master) () -> GHandler sub master Content
 jsonToContent = hamletToContent . unJson
 
 htmlContentToText :: HtmlContent -> Text
 htmlContentToText (Encoded t) = t
 htmlContentToText (Unencoded t) = encodeHtml t
 
-jsonScalar :: Monad m => HtmlContent -> Json url m ()
+jsonScalar :: HtmlContent -> Json url ()
 jsonScalar s = Json $ do
     outputString "\""
     output $ encodeJson $ htmlContentToText s
     outputString "\""
 
-jsonList :: Monad m => [Json url m ()] -> Json url m ()
+jsonList :: [Json url ()] -> Json url ()
 jsonList = jsonList' . fromList
 
-jsonList' :: Monad m => Enumerator (Json url m ()) (Json url m) -> Json url m () -- FIXME simplify type
+jsonList' :: Enumerator (Json url ()) (Json url) -> Json url () -- FIXME simplify type
 jsonList' (Enumerator enum) = do
     Json $ outputString "["
     _ <- enum go False
@@ -65,10 +65,10 @@ jsonList' (Enumerator enum) = do
         () <- j
         return $ Right True
 
-jsonMap :: Monad m => [(Json url m (), Json url m ())] -> Json url m ()
+jsonMap :: [(Json url (), Json url ())] -> Json url ()
 jsonMap = jsonMap' . fromList
 
-jsonMap' :: Monad m => Enumerator (Json url m (), Json url m ()) (Json url m) -> Json url m () -- FIXME simplify type
+jsonMap' :: Enumerator (Json url (), Json url ()) (Json url) -> Json url () -- FIXME simplify type
 jsonMap' (Enumerator enum) = do
     Json $ outputString "{"
     _ <- enum go False
