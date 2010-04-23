@@ -1,10 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE PackageImports #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Request
@@ -15,75 +10,73 @@
 -- Stability     : Stable
 -- Portability   : portable
 --
--- Code for extracting parameters from requests.
+-- | Provides a parsed version of the raw 'W.Request' data.
 --
 ---------------------------------------------------------
 module Yesod.Request
     (
-      -- * Request
-      Request (..)
+      -- * Request datatype
+      RequestBodyContents
+    , Request (..)
     , RequestReader (..)
+      -- * Convenience functions
     , waiRequest
-    , cookies
+    , languages
+      -- * Lookup parameters
     , getParams
     , postParams
-    , languages
-    , parseWaiRequest
-      -- * Parameter
+    , cookies
+    , session
+      -- * Parameter type synonyms
     , ParamName
     , ParamValue
     , ParamError
-#if TEST
-    , testSuite
-#endif
     ) where
 
 import qualified Network.Wai as W
 import Yesod.Definitions
 import Web.Encodings
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
-import Data.Convertible.Text
-import Control.Arrow ((***))
-import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class
-import Control.Concurrent.MVar
 import Control.Monad (liftM)
-
-#if TEST
-import Test.Framework (testGroup, Test)
---import Test.Framework.Providers.HUnit
---import Test.HUnit hiding (Test)
-#endif
 
 type ParamName = String
 type ParamValue = String
 type ParamError = String
 
+-- | The reader monad specialized for 'Request'.
 class Monad m => RequestReader m where
     getRequest :: m Request
 instance RequestReader ((->) Request) where
     getRequest = id
 
-languages :: (Functor m, RequestReader m) => m [Language]
-languages = reqLangs `fmap` getRequest
+-- | Get the list of supported languages supplied by the user.
+languages :: RequestReader m => m [Language]
+languages = reqLangs `liftM` getRequest
 
--- | Get the req 'W.Request' value.
+-- | Get the request\'s 'W.Request' value.
 waiRequest :: RequestReader m => m W.Request
 waiRequest = reqWaiRequest `liftM` getRequest
 
+-- | A tuple containing both the POST parameters and submitted files.
 type RequestBodyContents =
     ( [(ParamName, ParamValue)]
     , [(ParamName, FileInfo String BL.ByteString)]
     )
 
--- | The req information passed through W, cleaned up a bit.
+-- | The parsed request information.
 data Request = Request
     { reqGetParams :: [(ParamName, ParamValue)]
     , reqCookies :: [(ParamName, ParamValue)]
-    , reqSession :: [(B.ByteString, B.ByteString)]
+      -- | Session data stored in a cookie via the clientsession package. FIXME explain how to extend.
+    , reqSession :: [(ParamName, ParamValue)]
+      -- | The POST parameters and submitted files. This is stored in an IO
+      -- thunk, which essentially means it will be computed once at most, but
+      -- only if requested. This allows avoidance of the potentially costly
+      -- parsing of POST bodies for pages which do not use them.
     , reqRequestBody :: IO RequestBodyContents
     , reqWaiRequest :: W.Request
+      -- | Languages which the client supports.
     , reqLangs :: [Language]
     }
 
@@ -94,8 +87,10 @@ multiLookup ((k, v):rest) pn
     | otherwise = multiLookup rest pn
 
 -- | All GET paramater values with the given name.
-getParams :: Request -> ParamName -> [ParamValue]
-getParams rr = multiLookup $ reqGetParams rr
+getParams :: RequestReader m => m (ParamName -> [ParamValue])
+getParams = do
+    rr <- getRequest
+    return $ multiLookup $ reqGetParams rr
 
 -- | All POST paramater values with the given name.
 postParams :: MonadIO m => Request -> m (ParamName -> [ParamValue])
@@ -103,52 +98,14 @@ postParams rr = do
     (pp, _) <- liftIO $ reqRequestBody rr
     return $ multiLookup pp
 
--- | Produces a \"compute on demand\" value. The computation will be run once
--- it is requested, and then the result will be stored. This will happen only
--- once.
-iothunk :: IO a -> IO (IO a)
-iothunk = fmap go . newMVar . Left where
-    go :: MVar (Either (IO a) a) -> IO a
-    go mvar = modifyMVar mvar go'
-    go' :: Either (IO a) a -> IO (Either (IO a) a, a)
-    go' (Right val) = return (Right val, val)
-    go' (Left comp) = do
-        val <- comp
-        return (Right val, val)
-
 -- | All cookies with the given name.
-cookies :: Request -> ParamName -> [ParamValue]
-cookies rr name =
-    map snd . filter (fst `equals` name) . reqCookies $ rr
-  where
-    equals f x y = f y == x
+cookies :: RequestReader m => m (ParamName -> [ParamValue])
+cookies = do
+    rr <- getRequest
+    return $ multiLookup $ reqCookies rr
 
-parseWaiRequest :: W.Request
-                -> [(B.ByteString, B.ByteString)] -- ^ session
-                -> IO Request
-parseWaiRequest env session = do
-    let gets' = map (cs *** cs) $ decodeUrlPairs $ W.queryString env
-    let reqCookie = fromMaybe B.empty $ lookup W.Cookie $ W.requestHeaders env
-        cookies' = map (cs *** cs) $ parseCookies reqCookie
-        acceptLang = lookup W.AcceptLanguage $ W.requestHeaders env
-        langs = map cs $ maybe [] parseHttpAccept acceptLang
-        langs' = case lookup langKey cookies' of
-                    Nothing -> langs
-                    Just x -> x : langs
-        langs'' = case lookup langKey gets' of
-                     Nothing -> langs'
-                     Just x -> x : langs'
-    rbthunk <- iothunk $ rbHelper env
-    return $ Request gets' cookies' session rbthunk env langs''
-
-rbHelper :: W.Request -> IO RequestBodyContents
-rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where
-    fix1 = map (cs *** cs)
-    fix2 (x, FileInfo a b c) = (cs x, FileInfo (cs a) (cs b) c)
-
-#if TEST
-testSuite :: Test
-testSuite = testGroup "Yesod.Request"
-    [
-    ]
-#endif
+-- | All session data with the given name.
+session :: RequestReader m => m (ParamName -> [ParamValue])
+session = do
+    rr <- getRequest
+    return $ multiLookup $ reqSession rr

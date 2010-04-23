@@ -78,7 +78,7 @@ newtype YesodApp = YesodApp
     :: (ErrorResponse -> YesodApp)
     -> Request
     -> [ContentType]
-    -> IO Response
+    -> IO (W.Status, [Header], ContentType, Content)
     }
 
 ------ Handler monad
@@ -164,28 +164,28 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             })
         (\e -> return ([], HCError $ toErrorHandler e))
     let handleError e = do
-            Response _ hs ct c <- unYesodApp (eh e) safeEh rr cts
+            (_, hs, ct, c) <- unYesodApp (eh e) safeEh rr cts
             let hs' = headers ++ hs
-            return $ Response (getStatus e) hs' ct c
+            return $ (getStatus e, hs', ct, c)
     let sendFile' ct fp = do
             c <- BL.readFile fp
-            return $ Response W.Status200 headers ct $ cs c
+            return (W.Status200, headers, ct, cs c)
     case contents of
         HCError e -> handleError e
         HCSpecial (Redirect rt loc) -> do
             let hs = Header "Location" loc : headers
-            return $ Response (getRedirectStatus rt) hs TypePlain $ cs ""
+            return (getRedirectStatus rt, hs, TypePlain, cs "")
         HCSpecial (SendFile ct fp) -> Control.Exception.catch
             (sendFile' ct fp)
             (handleError . toErrorHandler)
         HCContent a -> do
             (ct, c) <- chooseRep a cts
-            return $ Response W.Status200 headers ct c
+            return (W.Status200, headers, ct, c)
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return $ Response W.Status500 [] TypePlain $ cs "Internal Server Error"
+    return (W.Status500, [], TypePlain, cs "Internal Server Error")
 
 ------ Special handlers
 specialResponse :: SpecialResponse -> GHandler sub master a
@@ -231,3 +231,15 @@ header a = addHeader . Header a
 
 addHeader :: Header -> GHandler sub master ()
 addHeader h = Handler $ \_ -> return ([h], HCContent ())
+
+getStatus :: ErrorResponse -> W.Status
+getStatus NotFound = W.Status404
+getStatus (InternalError _) = W.Status500
+getStatus (InvalidArgs _) = W.Status400
+getStatus PermissionDenied = W.Status403
+getStatus (BadMethod _) = W.Status405
+
+getRedirectStatus :: RedirectType -> W.Status
+getRedirectStatus RedirectPermanent = W.Status301
+getRedirectStatus RedirectTemporary = W.Status302
+getRedirectStatus RedirectSeeOther = W.Status303

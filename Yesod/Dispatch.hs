@@ -32,15 +32,34 @@ import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
 import Data.Maybe (fromMaybe)
-import Web.Encodings (parseHttpAccept)
+import Web.Encodings
 import Web.Mime
 import Data.List (intercalate)
 import Web.Routes (encodePathInfo, decodePathInfo)
 
-mkYesod :: String -> [Resource] -> Q [Dec]
+import Control.Concurrent.MVar
+import Control.Arrow ((***))
+import Data.Convertible.Text (cs)
+
+import Data.Time.Clock
+
+-- | Generates URL datatype and site function for the given 'Resource's. This
+-- is used for creating sites, *not* subsites. See 'mkYesodSub' for the latter.
+-- Use 'parseRoutes' in generate to create the 'Resource's.
+mkYesod :: String -- ^ name of the argument datatype
+        -> [Resource]
+        -> Q [Dec]
 mkYesod name = mkYesodGeneral name [] False
 
-mkYesodSub :: String -> [Name] -> [Resource] -> Q [Dec]
+-- | Generates URL datatype and site function for the given 'Resource's. This
+-- is used for creating subsites, *not* sites. See 'mkYesod' for the latter.
+-- Use 'parseRoutes' in generate to create the 'Resource's. In general, a
+-- subsite is not executable by itself, but instead provides functionality to
+-- be embedded in other sites.
+mkYesodSub :: String -- ^ name of the argument datatype
+           -> [Name] -- ^ a list of classes the master datatype must be an instance of
+           -> [Resource]
+           -> Q [Dec]
 mkYesodSub name clazzes = mkYesodGeneral name clazzes True
 
 explodeHandler :: HasReps c
@@ -74,6 +93,8 @@ mkYesodGeneral name clazzes isSub res = do
                 }
     return $ (if isSub then id else (:) yes) [w, x, y, z]
 
+-- | Convert the given argument into a WAI application, executable with any WAI
+-- handler. You can use 'basicHandler' if you wish.
 toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do
     key' <- encryptKey a
@@ -82,7 +103,7 @@ toWaiApp a = do
            $ jsonp
            $ methodOverride
            $ cleanPath
-           $ \thePath -> clientsession encryptedCookies key' mins
+           $ \thePath -> clientsession encryptedCookies key' mins -- FIXME allow user input for encryptedCookies
            $ toWaiApp' a thePath
 
 toWaiApp' :: Yesod y
@@ -91,7 +112,7 @@ toWaiApp' :: Yesod y
           -> [(B.ByteString, B.ByteString)]
           -> W.Request
           -> IO W.Response
-toWaiApp' y resource session env = do
+toWaiApp' y resource session' env = do
     let site = getSite
         method = B.unpack $ W.methodToBS $ W.requestMethod env
         types = httpAccept env
@@ -99,7 +120,7 @@ toWaiApp' y resource session env = do
         eurl = quasiParse site pathSegments
         render u = approot y ++ '/'
                  : encodePathInfo (fixSegs $ quasiRender site u)
-    rr <- parseWaiRequest env session
+    rr <- parseWaiRequest env session'
     onRequest y rr
     print pathSegments -- FIXME remove
     let ya = case eurl of
@@ -153,3 +174,62 @@ fixSegs [x]
     | any (== '.') x = [x]
     | otherwise = [x, ""] -- append trailing slash
 fixSegs (x:xs) = x : fixSegs xs
+
+parseWaiRequest :: W.Request
+                -> [(B.ByteString, B.ByteString)] -- ^ session
+                -> IO Request
+parseWaiRequest env session' = do
+    let gets' = map (cs *** cs) $ decodeUrlPairs $ W.queryString env
+    let reqCookie = fromMaybe B.empty $ lookup W.Cookie $ W.requestHeaders env
+        cookies' = map (cs *** cs) $ parseCookies reqCookie
+        acceptLang = lookup W.AcceptLanguage $ W.requestHeaders env
+        langs = map cs $ maybe [] parseHttpAccept acceptLang
+        langs' = case lookup langKey cookies' of
+                    Nothing -> langs
+                    Just x -> x : langs
+        langs'' = case lookup langKey gets' of
+                     Nothing -> langs'
+                     Just x -> x : langs'
+        session'' = map (cs *** cs) session'
+    rbthunk <- iothunk $ rbHelper env
+    return $ Request gets' cookies' session'' rbthunk env langs''
+
+rbHelper :: W.Request -> IO RequestBodyContents
+rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where
+    fix1 = map (cs *** cs)
+    fix2 (x, FileInfo a b c) = (cs x, FileInfo (cs a) (cs b) c)
+
+-- | Produces a \"compute on demand\" value. The computation will be run once
+-- it is requested, and then the result will be stored. This will happen only
+-- once.
+iothunk :: IO a -> IO (IO a)
+iothunk = fmap go . newMVar . Left where
+    go :: MVar (Either (IO a) a) -> IO a
+    go mvar = modifyMVar mvar go'
+    go' :: Either (IO a) a -> IO (Either (IO a) a, a)
+    go' (Right val) = return (Right val, val)
+    go' (Left comp) = do
+        val <- comp
+        return (Right val, val)
+
+responseToWaiResponse :: (W.Status, [Header], ContentType, Content)
+                      -> IO W.Response
+responseToWaiResponse (sc, hs, ct, c) = do
+    hs' <- mapM headerToPair hs
+    let hs'' = (W.ContentType, cs $ contentTypeToString ct) : hs'
+    return $ W.Response sc hs'' $ case c of
+                                    ContentFile fp -> Left fp
+                                    ContentEnum e -> Right $ W.Enumerator e
+
+-- | Convert Header to a key/value pair.
+headerToPair :: Header -> IO (W.ResponseHeader, B.ByteString)
+headerToPair (AddCookie minutes key value) = do
+    now <- getCurrentTime
+    let expires = addUTCTime (fromIntegral $ minutes * 60) now
+    return (W.SetCookie, cs $ key ++ "=" ++ value ++"; path=/; expires="
+                              ++ formatW3 expires)
+headerToPair (DeleteCookie key) = return
+    (W.SetCookie, cs $
+     key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
+headerToPair (Header key value) =
+    return (W.responseHeaderFromBS $ cs key, cs value)

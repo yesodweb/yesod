@@ -36,12 +36,10 @@ import Yesod
 import Data.Convertible.Text
 
 import Control.Monad.Attempt
-import qualified Data.ByteString.Char8 as B8
 import Data.Maybe
 
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
-import Control.Applicative ((<$>))
 
 -- FIXME check referer header to determine destination
 
@@ -189,16 +187,16 @@ getLogout = do
     redirectToDest RedirectTemporary $ defaultDest y
 
 -- | Gets the identifier for a user if available.
-maybeIdentifier :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
-maybeIdentifier =
-    fmap cs . lookup (B8.pack authCookieName) . reqSession
-    <$> getRequest
+maybeIdentifier :: RequestReader m => m (Maybe String)
+maybeIdentifier = do
+    s <- session
+    return $ listToMaybe $ s authCookieName
 
 -- | Gets the display name for a user if available.
-displayName :: (Functor m, Monad m, RequestReader m) => m (Maybe String)
+displayName :: RequestReader m => m (Maybe String)
 displayName = do
-    rr <- getRequest
-    return $ fmap cs $ lookup (B8.pack authDisplayName) $ reqSession rr
+    s <- session
+    return $ listToMaybe $ s authDisplayName
 
 -- | Gets the identifier for a user. If user is not logged in, redirects them
 -- to the login page.
