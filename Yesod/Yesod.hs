@@ -2,10 +2,14 @@
 {-# LANGUAGE RankNTypes #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
-    ( Yesod (..)
+    ( -- * Type classes
+      Yesod (..)
     , YesodSite (..)
+      -- * Convenience functions
     , applyLayout
     , applyLayoutJson
+      -- * Defaults
+    , defaultErrorHandler
     ) where
 
 import Yesod.Content
@@ -22,10 +26,18 @@ import Yesod.Internal
 
 import Web.Routes.Quasi (QuasiSite (..))
 
+-- | This class is automatically instantiated when you use the template haskell
+-- mkYesod function.
 class YesodSite y where
     getSite :: QuasiSite YesodApp y y
 
+-- | Define settings for a Yesod applications. The only required setting is
+-- 'approot'; other than that, there are intelligent defaults.
 class YesodSite a => Yesod a where
+    -- | An absolute URL to the root of the application. Do not include
+    -- trailing slash.
+    approot :: a -> Approot
+
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256
     encryptKey _ = getKey defaultKeyFile
@@ -42,12 +54,12 @@ class YesodSite a => Yesod a where
                  -> Handler y ChooseRep
     errorHandler _ = defaultErrorHandler
 
-    -- | Applies some form of layout to <title> and <body> contents of a page. FIXME: use a Maybe here to allow subsites to simply inherit.
-    rawApplyLayout :: a
-                   -> PageContent (Routes a)
-                   -> Request
-                   -> Hamlet (Routes a) IO ()
-    rawApplyLayout _ p _ = [$hamlet|
+    -- | Applies some form of layout to <title> and <body> contents of a page.
+    defaultLayout :: a
+                  -> PageContent (Routes a)
+                  -> Request
+                  -> Hamlet (Routes a) IO ()
+    defaultLayout _ p _ = [$hamlet|
 !!!
 %html
     %head
@@ -61,11 +73,7 @@ class YesodSite a => Yesod a where
     onRequest :: a -> Request -> IO ()
     onRequest _ _ = return ()
 
-    -- | An absolute URL to the root of the application. Do not include
-    -- trailing slash.
-    approot :: a -> Approot
-
--- | A convenience wrapper around 'simpleApplyLayout for HTML-only data.
+-- | Apply the default layout ('defaultLayout') to the given title and body.
 applyLayout :: Yesod master
             => String -- ^ title
             -> Hamlet (Routes master) IO () -- ^ body
@@ -78,9 +86,11 @@ applyLayout t b = do
                 }
     y <- getYesodMaster
     rr <- getRequest
-    content <- hamletToContent $ rawApplyLayout y pc rr
+    content <- hamletToContent $ defaultLayout y pc rr
     return $ RepHtml content
 
+-- | Provide both an HTML and JSON representation for a piece of data, using
+-- the default layout for the HTML output ('defaultLayout').
 applyLayoutJson :: Yesod master
                 => String -- ^ title
                 -> x
@@ -95,7 +105,7 @@ applyLayoutJson t x toH toJ = do
                 }
     y <- getYesodMaster
     rr <- getRequest
-    html <- hamletToContent $ rawApplyLayout y pc rr
+    html <- hamletToContent $ defaultLayout y pc rr
     json <- jsonToContent $ toJ x
     return $ RepHtmlJson html json
 
@@ -105,6 +115,7 @@ applyLayout' :: Yesod master
              -> GHandler sub master ChooseRep
 applyLayout' s = fmap chooseRep . applyLayout s
 
+-- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod y
                     => ErrorResponse
                     -> Handler y ChooseRep
