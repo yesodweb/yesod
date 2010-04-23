@@ -22,7 +22,7 @@ import Yesod.Json
 import Web.Routes.Quasi (QuasiSite (..))
 
 class YesodSite y where
-    getSite :: QuasiSite YesodApp (Routes y) y (Routes y) y
+    getSite :: QuasiSite YesodApp y y
 
 class YesodSite a => Yesod a where
     -- | The encryption key to be used for encrypting client sessions.

@@ -49,6 +49,7 @@ module Yesod.Handler
 import Yesod.Request
 import Yesod.Response
 import Web.Mime
+import Web.Routes.Quasi (Routes)
 
 import Control.Exception hiding (Handler)
 import Control.Applicative
@@ -62,8 +63,6 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Network.Wai as W
 
 import Data.Convertible.Text (cs)
-
-type family Routes y
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request

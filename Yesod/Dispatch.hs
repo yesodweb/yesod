@@ -58,38 +58,21 @@ explodeHandler a b c d e f _ _ = runHandler a b (Just c) d e f
 mkYesodGeneral :: String -> [Name] -> Bool -> [Resource] -> Q [Dec]
 mkYesodGeneral name clazzes isSub res = do
     let name' = mkName name
-    let tySyn = TySynInstD ''Routes [ConT name'] (ConT $ mkName $ name ++ "Routes")
     let site = mkName $ "site" ++ name
     let gsbod = NormalB $ VarE site
     let yes' = FunD (mkName "getSite") [Clause [] gsbod []]
     let yes = InstanceD [] (ConT ''YesodSite `AppT` ConT name') [yes']
     explode <- [|explodeHandler|]
-    CreateRoutesResult x _ z <- createRoutes CreateRoutesSettings
+    QuasiSiteDecs w x y z <- createQuasiSite QuasiSiteSettings
                 { crRoutes = mkName $ name ++ "Routes"
                 , crApplication = ConT ''YesodApp
                 , crArgument = ConT $ mkName name
                 , crExplode = explode
                 , crResources = res
                 , crSite = site
+                , crMaster = if isSub then Right clazzes else Left (ConT name')
                 }
-    let master = if isSub
-                    then VarT (mkName "master")
-                    else ConT (mkName name)
-        murl = ConT ''Routes `AppT` master
-        sub = ConT $ mkName name
-        surl = ConT ''Routes `AppT` sub
-    let yType = ConT ''QuasiSite
-                    `AppT` ConT ''YesodApp
-                    `AppT` surl
-                    `AppT` sub
-                    `AppT` murl
-                    `AppT` master
-    let ctx = if isSub
-                then map (flip ClassP [master]) clazzes
-                else []
-        tvs = [PlainTV $ mkName "master" | isSub]
-    let y' = SigD site $ ForallT tvs ctx yType
-    return $ (if isSub then id else (:) yes) [y', z, tySyn, x]
+    return $ (if isSub then id else (:) yes) [w, x, y, z]
 
 toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do
@@ -120,13 +103,13 @@ toWaiApp' y resource session env = do
     onRequest y rr
     print pathSegments -- FIXME remove
     let ya = case eurl of
-                Nothing -> runHandler (errorHandler y NotFound)
+                Left _ -> runHandler (errorHandler y NotFound)
                                       render
                                       Nothing
                                       id
                                       y
                                       id
-                Just url -> quasiDispatch site
+                Right url -> quasiDispatch site
                                 render
                                 url
                                 id
@@ -134,7 +117,8 @@ toWaiApp' y resource session env = do
                                 id
                                 (badMethodApp method)
                                 method
-    let eh er = runHandler (errorHandler y er) render eurl id y id
+    let eurl' = either (const Nothing) Just eurl
+    let eh er = runHandler (errorHandler y er) render eurl' id y id
     unYesodApp ya eh rr types >>= responseToWaiResponse
 
 cleanupSegments :: [B.ByteString] -> [String]
