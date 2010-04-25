@@ -1,3 +1,4 @@
+-- FIXME document
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
 module Yesod.Json

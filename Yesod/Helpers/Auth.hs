@@ -74,7 +74,7 @@ getOpenIdR = do
         (x:_) -> addCookie destCookieTimeout destCookieName x
     rtom <- getRouteToMaster
     let html = template (getParams rr "message", rtom)
-    applyLayout "Log in via OpenID" $ html
+    applyLayout "Log in via OpenID" html
   where
     urlForward (_, wrapper) = wrapper OpenIdForward
     hasMessage = not . null . fst

@@ -186,7 +186,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
     let handleError e = do
             (_, hs, ct, c) <- unYesodApp (eh e) safeEh rr cts
             let hs' = headers ++ hs
-            return $ (getStatus e, hs', ct, c)
+            return (getStatus e, hs', ct, c)
     let sendFile' ct fp = do
             c <- BL.readFile fp
             return (W.Status200, headers, ct, cs c)
