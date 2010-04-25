@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE PackageImports #-}
 module Yesod
     (
       module Yesod.Request
@@ -35,4 +36,8 @@ import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application, Method (..))
 import Yesod.Hamlet
 import Data.Convertible.Text (cs)
-import Control.Monad.IO.Class (liftIO)
+#if TRANSFORMERS_02
+import "transformers" Control.Monad.IO.Class (liftIO)
+#else
+import "transformers" Control.Monad.Trans (liftIO)
+#endif

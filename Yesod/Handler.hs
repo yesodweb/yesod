@@ -6,6 +6,7 @@
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -56,7 +57,11 @@ import Web.Mime
 import Control.Exception hiding (Handler)
 import Control.Applicative
 
+#if TRANSFORMERS_02
 import "transformers" Control.Monad.IO.Class
+#else
+import "transformers" Control.Monad.Trans
+#endif
 import Control.Monad.Attempt
 import Control.Monad (liftM, ap)
 

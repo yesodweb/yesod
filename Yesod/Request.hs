@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Request
@@ -37,7 +38,11 @@ import qualified Network.Wai as W
 import Yesod.Definitions
 import Web.Encodings
 import qualified Data.ByteString.Lazy as BL
+#if TRANSFORMERS_02
 import "transformers" Control.Monad.IO.Class
+#else
+import "transformers" Control.Monad.Trans
+#endif
 import Control.Monad (liftM)
 
 type ParamName = String

@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE CPP #-}
 -- | Parse forms (and query strings).
 module Yesod.Form
     ( Form (..)
@@ -26,7 +27,11 @@ import Data.Time (Day)
 import Data.Convertible.Text
 import Control.Monad.Attempt
 import Data.Maybe (fromMaybe)
-import "transformers" Control.Monad.IO.Class (MonadIO)
+#if TRANSFORMERS_02
+import "transformers" Control.Monad.IO.Class
+#else
+import "transformers" Control.Monad.Trans
+#endif
 import Yesod.Internal
 
 noParamNameError :: String
