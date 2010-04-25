@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 -- |
 -- Module        : Web.Authenticate.OpenId
@@ -23,8 +24,12 @@ module Web.Authenticate.OpenId
 import Network.HTTP.Wget
 import Text.HTML.TagSoup
 import Numeric (showHex)
-import Control.Monad.IO.Class
 import qualified Safe.Failure as A
+#if TRANSFORMERS_02
+import Control.Monad.IO.Class
+#else
+import Control.Monad.Trans
+#endif
 import Data.Generics
 import Control.Failure hiding (Error)
 import Control.Exception

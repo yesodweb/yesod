@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Authenticate.Rpxnow
@@ -20,7 +21,11 @@ module Web.Authenticate.Rpxnow
 import Text.JSON -- FIXME use Data.Object.JSON
 import Network.HTTP.Wget
 import Data.Maybe (isJust, fromJust)
+#if TRANSFORMERS_02
 import Control.Monad.IO.Class
+#else
+import Control.Monad.Trans
+#endif
 import Control.Failure
 
 -- | Information received from Rpxnow after a valid login.

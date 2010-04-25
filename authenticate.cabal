@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.6.0
+version:         0.6.0.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -13,6 +13,9 @@ cabal-version:   >= 1.2
 build-type:      Simple
 homepage:        http://github.com/snoyberg/authenticate/tree/master
 
+flag transformers_02
+    description: transformers = 0.2.*
+
 library
     build-depends:   base >= 4 && < 5,
                      json >= 0.4.3 && < 0.5,
@@ -20,8 +23,12 @@ library
                      tagsoup >= 0.6 && < 0.9,
                      failure >= 0.0.0 && < 0.1,
                      safe-failure >= 0.4 && < 0.5,
-                     transformers >= 0.2 && < 0.3,
                      syb
+    if flag(transformers_02)
+      build-depends: transformers >= 0.2 && < 0.3
+      CPP-OPTIONS: -DTRANSFORMERS_02
+    else
+      build-depends: transformers >= 0.1 && < 0.2
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId
     ghc-options:     -Wall -fno-warn-orphans
