@@ -34,6 +34,7 @@ module Yesod.Handler
       -- * Special responses
     , RedirectType (..)
     , redirect
+    , redirectString
     , sendFile
     , notFound
     , badMethod
@@ -212,9 +213,15 @@ safeEh er = YesodApp $ \_ _ _ -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
     return (W.Status500, [], TypePlain, cs "Internal Server Error")
 
+-- | Redirect to the given route.
+redirect :: RedirectType -> Routes master -> GHandler sub master a
+redirect rt url = do
+    r <- getUrlRenderMaster
+    redirectString rt $ r url
+
 -- | Redirect to the given URL.
-redirect :: RedirectType -> String -> GHandler sub master a
-redirect rt url = Handler $ \_ -> return ([], HCRedirect rt url)
+redirectString :: RedirectType -> String -> GHandler sub master a
+redirectString rt url = Handler $ \_ -> return ([], HCRedirect rt url)
 
 -- | Bypass remaining handler code and output the given file.
 --

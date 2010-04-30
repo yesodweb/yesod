@@ -99,9 +99,9 @@ getOpenIdForward = do
     let complete = render OpenIdComplete
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
     attempt
-      (\err -> redirect RedirectTemporary
+      (\err -> redirectString RedirectTemporary -- FIXME
                   $ "/auth/openid/?message=" ++ encodeUrl (show err))
-      (redirect RedirectTemporary)
+      (redirectString RedirectTemporary)
       res
 
 getOpenIdComplete :: GHandler Auth master ()
@@ -109,7 +109,7 @@ getOpenIdComplete = do
     rr <- getRequest
     let gets' = reqGetParams rr
     res <- runAttemptT $ OpenId.authenticate gets'
-    let onFailure err = redirect RedirectTemporary
+    let onFailure err = redirectString RedirectTemporary -- FIXME
                              $ "/auth/openid/?message="
                             ++ encodeUrl (show err)
     let onSuccess (OpenId.Identifier ident) = do
@@ -236,7 +236,7 @@ redirectSetDest rt dest = do
                     Nothing -> "/" -- should never happen anyway
         dest' = ur dest
     addCookie destCookieTimeout destCookieName curr'
-    redirect rt dest'
+    redirectString rt dest' -- FIXME use redirect?
 
 -- | Read the 'destCookieName' cookie and redirect to this destination. If the
 -- cookie is missing, then use the default path provided.
@@ -248,4 +248,4 @@ redirectToDest rt def = do
                 (x:_) -> do
                     deleteCookie destCookieName
                     return x
-    redirect rt dest
+    redirectString rt dest -- FIXME use redirect?
