@@ -21,6 +21,7 @@ import Web.Routes.Quasi
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
+import qualified Network.Wai.Enumerator as W
 import Network.Wai.Middleware.CleanPath
 import Network.Wai.Middleware.ClientSession
 import Network.Wai.Middleware.Jsonp
@@ -220,7 +221,8 @@ responseToWaiResponse (sc, hs, ct, c) = do
     let hs'' = (W.ContentType, cs $ contentTypeToString ct) : hs'
     return $ W.Response sc hs'' $ case c of
                                     ContentFile fp -> Left fp
-                                    ContentEnum e -> Right $ W.Enumerator e
+                                    ContentEnum e -> Right $ W.buffer
+                                                           $ W.Enumerator e
 
 -- | Convert Header to a key/value pair.
 headerToPair :: Header -> IO (W.ResponseHeader, B.ByteString)
