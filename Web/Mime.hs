@@ -24,8 +24,6 @@ import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.HUnit hiding (Test)
-import Test.QuickCheck
-import Control.Monad (when)
 #endif
 
 -- | Equality is determined by converting to a 'String' via

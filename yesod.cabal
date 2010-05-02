@@ -25,19 +25,7 @@ flag buildtests
   description: Build the executable to run unit tests
   default: False
 
-flag buildsamples
-  description: Build the executable sample applications.
-  default: False
-
-flag nolib
-  description: Skip building of the library.
-  default: False
-
 library
-    if flag(nolib)
-        Buildable: False
-    else
-        Buildable: True
     build-depends:   base >= 4 && < 5,
                      time >= 1.1.3 && < 1.2,
                      wai >= 0.0.1 && < 0.3,
@@ -94,56 +82,13 @@ executable             runtests
                        QuickCheck >= 2 && < 3
     else
         Buildable: False
+    if flag(transformers_02)
+      build-depends: transformers >= 0.2 && < 0.3
+      CPP-OPTIONS: -DTRANSFORMERS_02
+    else
+      build-depends: transformers >= 0.1 && < 0.2
     ghc-options:     -Wall
     main-is:         runtests.hs
-
-executable             helloworld
-  if flag(buildsamples)
-    Buildable: True
-  else
-    Buildable: False
-  ghc-options:         -Wall
-  main-is:             examples/helloworld.lhs
-
-executable             hamlet
-  if flag(buildsamples)
-    Buildable: True
-  else
-    Buildable: False
-  ghc-options:         -Wall
-  main-is:             examples/hamlet.hs
-
-executable             fact
-  if flag(buildsamples)
-    Buildable: True
-  else
-    Buildable: False
-  ghc-options:         -Wall
-  main-is:             examples/fact.lhs
-
-executable             i18n
-  if flag(buildsamples)
-    Buildable: True
-  else
-    Buildable: False
-  ghc-options:         -Wall
-  main-is:             examples/i18n.hs
-
-executable             pretty-yaml
-  if flag(buildsamples)
-    Buildable: True
-  else
-    Buildable: False
-  ghc-options:         -Wall
-  main-is:             examples/pretty-yaml.hs
-
-executable             tweedle
-  if flag(buildsamples)
-    Buildable: True
-  else
-    Buildable: False
-  ghc-options:         -Wall
-  main-is:             examples/tweedle.lhs
 
 source-repository head
   type:     git

@@ -29,11 +29,8 @@ import Yesod.Content
 #if TEST
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
-import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.HUnit hiding (Test)
-import Test.QuickCheck
 import Data.Text.Lazy (unpack)
-import qualified Data.Text as T
 #endif
 
 newtype Json url a = Json { unJson :: Hamlet url IO a }
@@ -93,9 +90,9 @@ caseSimpleOutput :: Assertion
 caseSimpleOutput = do
     let j = do
         jsonMap
-            [ (jsonScalar $ T.pack "foo" , jsonList
-                [ jsonScalar $ T.pack "bar"
-                , jsonScalar $ T.pack "baz"
+            [ ("foo" , jsonList
+                [ jsonScalar $ Encoded $ pack "bar"
+                , jsonScalar $ Encoded $ pack "baz"
                 ])
             ]
     t <- hamletToText id $ unJson j
