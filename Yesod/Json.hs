@@ -18,7 +18,7 @@ module Yesod.Json
 
 import Text.Hamlet.Monad
 import Control.Applicative
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Web.Encodings
 import Yesod.Hamlet
 import Yesod.Definitions
@@ -66,10 +66,10 @@ jsonList' (Enumerator enum) = do
         () <- j
         return $ Right True
 
-jsonMap :: [(Json url (), Json url ())] -> Json url ()
+jsonMap :: [(String, Json url ())] -> Json url ()
 jsonMap = jsonMap' . fromList
 
-jsonMap' :: Enumerator (Json url (), Json url ()) (Json url) -> Json url () -- FIXME simplify type
+jsonMap' :: Enumerator (String, Json url ()) (Json url) -> Json url () -- FIXME simplify type
 jsonMap' (Enumerator enum) = do
     Json $ outputString "{"
     _ <- enum go False
@@ -77,7 +77,7 @@ jsonMap' (Enumerator enum) = do
   where
     go putComma (k, v) = do
         when putComma $ Json $ outputString ","
-        () <- k
+        jsonScalar $ Unencoded $ pack k
         Json $ outputString ":"
         () <- v
         return $ Right True

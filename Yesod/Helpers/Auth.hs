@@ -170,8 +170,8 @@ getCheck = do
     %dd $snd$
 |]
     json (ident, dn) =
-        jsonMap [ (jsonScalar $ cs "ident", jsonScalar ident)
-                , (jsonScalar $ cs "displayName", jsonScalar dn)
+        jsonMap [ ("ident", jsonScalar ident)
+                , ("displayName", jsonScalar dn)
                 ]
 
 getLogout :: GHandler Auth master ()

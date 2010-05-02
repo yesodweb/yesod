@@ -23,6 +23,7 @@ module Yesod.Helpers.Static
     , fileLookupDir
     , siteStatic
     , StaticRoutes
+    , toStaticRoute
     , staticArgs
     , Static
     ) where
@@ -80,3 +81,6 @@ getStaticRoute :: [String] -> GHandler Static master [(ContentType, Content)]
 getStaticRoute fp = do
     Static fl <- getYesod
     getStatic fl fp
+
+toStaticRoute :: [String] -> StaticRoutes
+toStaticRoute = StaticRoute
