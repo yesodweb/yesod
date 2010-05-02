@@ -32,7 +32,7 @@ library
                      convertible-text >= 0.2.0 && < 0.3,
                      template-haskell,
                      web-routes >= 0.22 && < 0.23,
-                     web-routes-quasi >= 0.0 && < 0.1,
+                     web-routes-quasi >= 0.1 && < 0.2,
                      hamlet >= 0.0.1 && < 0.1
     if flag(transformers_02)
       build-depends: transformers >= 0.2 && < 0.3

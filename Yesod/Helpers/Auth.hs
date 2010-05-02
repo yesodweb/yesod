@@ -25,7 +25,10 @@ module Yesod.Helpers.Auth
     , displayName
     , redirectLogin
     , Auth (..)
+    , AuthRoutes (..)
     , siteAuth
+    , LoginType (..)
+    , YesodAuth (..)
     ) where
 
 import Web.Encodings
@@ -45,15 +48,16 @@ import Control.Exception (Exception)
 
 data LoginType = OpenId | Rpxnow
 
+class Yesod master => YesodAuth master where
+    onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth master ()
+
 data Auth = Auth
     { defaultDest :: String
-    , onRpxnowLogin :: forall master. Yesod master
-                    => Rpxnow.Identifier -> GHandler Auth master ()
     , rpxnowApiKey :: Maybe String
     , defaultLoginType :: LoginType
     }
 
-$(mkYesodSub "Auth" [''Yesod] [$parseRoutes|
+$(mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
 /check                 Check              GET
 /logout                Logout             GET
 /openid                OpenIdR            GET
@@ -118,7 +122,7 @@ getOpenIdComplete = do
         redirectToDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
-handleRpxnowR :: Yesod master => GHandler Auth master ()
+handleRpxnowR :: YesodAuth master => GHandler Auth master ()
 handleRpxnowR = do
     ay <- getYesod
     apiKey <- case rpxnowApiKey ay of
@@ -137,8 +141,7 @@ handleRpxnowR = do
                         (s:_) -> s
                 (d:_) -> d
     ident <- liftIO $ Rpxnow.authenticate apiKey token
-    auth <- getYesod
-    onRpxnowLogin auth ident
+    onRpxnowLogin ident
     header authCookieName $ Rpxnow.identifier ident
     header authDisplayName $ getDisplayName ident
     redirectToDest RedirectTemporary dest
