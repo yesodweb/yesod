@@ -13,7 +13,6 @@ module Yesod
     , module Yesod.Hamlet
     , module Yesod.Json
     , Application
-    , Method (..)
     , cs
     , liftIO
     ) where
@@ -33,7 +32,7 @@ import Yesod.Form
 import Yesod.Yesod
 import Yesod.Definitions
 import Yesod.Handler hiding (runHandler)
-import Network.Wai (Application, Method (..))
+import Network.Wai (Application)
 import Yesod.Hamlet
 import Data.Convertible.Text (cs)
 #if TRANSFORMERS_02
