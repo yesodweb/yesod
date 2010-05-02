@@ -27,7 +27,7 @@ import Yesod.Internal
 import Web.Routes.Quasi (QuasiSite (..))
 
 -- | This class is automatically instantiated when you use the template haskell
--- mkYesod function.
+-- mkYesod function. You should never need to deal with it directly.
 class YesodSite y where
     getSite :: QuasiSite YesodApp y y
 
@@ -36,6 +36,14 @@ class YesodSite y where
 class YesodSite a => Yesod a where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
+    --
+    -- If you want to be lazy, you can supply an empty string under the
+    -- following conditions:
+    --
+    -- * Your application is served from the root of the domain.
+    --
+    -- * You do not use any features that require absolute URLs, such as Atom
+    -- feeds and XML sitemaps.
     approot :: a -> Approot
 
     -- | The encryption key to be used for encrypting client sessions.
@@ -54,7 +62,7 @@ class YesodSite a => Yesod a where
                  -> Handler y ChooseRep
     errorHandler _ = defaultErrorHandler
 
-    -- | Applies some form of layout to <title> and <body> contents of a page.
+    -- | Applies some form of layout to the contents of a page.
     defaultLayout :: a
                   -> PageContent (Routes a)
                   -> Request

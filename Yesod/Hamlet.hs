@@ -25,7 +25,7 @@ import Yesod.Content
 import Yesod.Handler
 import Yesod.Definitions
 import Data.Convertible.Text
-import Data.Object
+import Data.Object -- FIXME should we kill this?
 import Control.Arrow ((***))
 
 -- | Content for a web page. By providing this datatype, we can easily create

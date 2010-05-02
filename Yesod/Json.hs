@@ -1,8 +1,9 @@
--- FIXME document
+-- | Efficient generation of JSON documents, with HTML-entity encoding handled via types.
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
 module Yesod.Json
-    ( Json
+    ( -- * Monad
+      Json
     , jsonToContent
       -- * Generate Json output
     , jsonScalar
@@ -33,9 +34,19 @@ import Test.HUnit hiding (Test)
 import Data.Text.Lazy (unpack)
 #endif
 
+-- | A monad for generating Json output. In truth, it is just a newtype wrapper
+-- around 'Hamlet'; we thereby get the benefits of Hamlet (interleaving IO and
+-- enumerator output) without accidently mixing non-JSON content.
+--
+-- This is an opaque type to avoid any possible insertion of non-JSON content.
+-- Due to the limited nature of the JSON format, you can create any valid JSON
+-- document you wish using only 'jsonScalar', 'jsonList' and 'jsonMap'.
 newtype Json url a = Json { unJson :: Hamlet url IO a }
     deriving (Functor, Applicative, Monad)
 
+-- | Extract the final result from the given 'Json' value.
+--
+-- See also: applyLayoutJson in "Yesod.Yesod".
 jsonToContent :: Json (Routes master) () -> GHandler sub master Content
 jsonToContent = hamletToContent . unJson
 
@@ -43,15 +54,24 @@ htmlContentToText :: HtmlContent -> Text
 htmlContentToText (Encoded t) = t
 htmlContentToText (Unencoded t) = encodeHtml t
 
+-- | Outputs a single scalar. This function essentially:
+--
+-- * Performs HTML entity escaping as necesary.
+--
+-- * Performs JSON encoding.
+--
+-- * Wraps the resulting string in quotes.
 jsonScalar :: HtmlContent -> Json url ()
 jsonScalar s = Json $ do
     outputString "\""
     output $ encodeJson $ htmlContentToText s
     outputString "\""
 
+-- | Outputs a JSON list, eg [\"foo\",\"bar\",\"baz\"].
 jsonList :: [Json url ()] -> Json url ()
 jsonList = jsonList' . fromList
 
+-- | Same as 'jsonList', but uses an 'Enumerator' for input.
 jsonList' :: Enumerator (Json url ()) (Json url) -> Json url () -- FIXME simplify type
 jsonList' (Enumerator enum) = do
     Json $ outputString "["
@@ -63,9 +83,11 @@ jsonList' (Enumerator enum) = do
         () <- j
         return $ Right True
 
+-- | Outputs a JSON map, eg {\"foo\":\"bar\",\"baz\":\"bin\"}.
 jsonMap :: [(String, Json url ())] -> Json url ()
 jsonMap = jsonMap' . fromList
 
+-- | Same as 'jsonMap', but uses an 'Enumerator' for input.
 jsonMap' :: Enumerator (String, Json url ()) (Json url) -> Json url () -- FIXME simplify type
 jsonMap' (Enumerator enum) = do
     Json $ outputString "{"
