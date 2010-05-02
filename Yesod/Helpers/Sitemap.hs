@@ -39,10 +39,6 @@ showFreq Weekly  = "weekly"
 showFreq Monthly = "monthly"
 showFreq Yearly  = "yearly"
 showFreq Never   = "never"
-{- FIXME
-instance ConvertSuccess SitemapChangeFreq Html where
-    convertSuccess = (cs :: String -> Html) . cs
--}
 
 data SitemapUrl url = SitemapUrl
     { sitemapLoc :: url

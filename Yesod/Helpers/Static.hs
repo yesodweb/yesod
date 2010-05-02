@@ -1,7 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -fno-warn-overlapping-patterns #-} -- FIXME due to bug in web-routes-quasi
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Static
@@ -42,7 +41,6 @@ data Static = Static FileLookup
 staticArgs :: FileLookup -> Static
 staticArgs = Static
 
--- FIXME bug in web-routes-quasi generates warning here
 $(mkYesodSub "Static" [] [$parseRoutes|
 /* StaticRoute GET
 |])

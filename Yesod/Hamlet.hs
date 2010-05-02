@@ -38,7 +38,6 @@ data PageContent url = PageContent
     , pageBody :: Hamlet url IO ()
     }
 
--- FIXME some typeclasses for the stuff below?
 -- | Converts the given Hamlet template into 'Content', which can be used in a
 -- Yesod 'Response'.
 hamletToContent :: Hamlet (Routes master) IO () -> GHandler sub master Content

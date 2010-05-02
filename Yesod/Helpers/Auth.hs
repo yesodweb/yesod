@@ -98,9 +98,9 @@ getOpenIdForward = do
     render <- getUrlRender
     let complete = render OpenIdComplete
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
+    let errurl err = render OpenIdR ++ "?message=" ++ encodeUrl (show err)
     attempt
-      (\err -> redirectString RedirectTemporary -- FIXME
-                  $ "/auth/openid/?message=" ++ encodeUrl (show err))
+      (\err -> redirectString RedirectTemporary $ errurl err)
       (redirectString RedirectTemporary)
       res
 
@@ -109,9 +109,9 @@ getOpenIdComplete = do
     rr <- getRequest
     let gets' = reqGetParams rr
     res <- runAttemptT $ OpenId.authenticate gets'
-    let onFailure err = redirectString RedirectTemporary -- FIXME
-                             $ "/auth/openid/?message="
-                            ++ encodeUrl (show err)
+    render <- getUrlRender
+    let errurl err = render OpenIdR ++ "?message=" ++ encodeUrl (show err)
+    let onFailure err = redirectString RedirectTemporary $ errurl err
     let onSuccess (OpenId.Identifier ident) = do
         y <- getYesod
         header authCookieName ident
@@ -207,22 +207,6 @@ redirectLogin = do
                 Rpxnow -> RpxnowR -- FIXME this doesn't actually show a login page?
     redirectSetDest RedirectTemporary r
 
-{- FIXME
--- | Determinge the path requested by the user (ie, the path info). This
--- includes the query string.
-requestPath :: (Functor m, Monad m, RequestReader m) => m String
-requestPath = do
-    env <- waiRequest
-    let q = case B8.unpack $ W.queryString env of
-                "" -> ""
-                q'@('?':_) -> q'
-                q' -> '?' : q'
-    return $! dropSlash (B8.unpack $ W.pathInfo env) ++ q
-      where
-        dropSlash ('/':x) = x
-        dropSlash x = x
--}
-
 -- | Redirect to the given URL, and set a cookie with the current URL so the
 -- user will ultimately be sent back here.
 redirectSetDest :: RedirectType
@@ -230,13 +214,13 @@ redirectSetDest :: RedirectType
                 -> GHandler sub master a
 redirectSetDest rt dest = do
     ur <- getUrlRender
+    toMaster <- getRouteToMaster
     curr <- getRoute
     let curr' = case curr of
                     Just x -> ur x
                     Nothing -> "/" -- should never happen anyway
-        dest' = ur dest
     addCookie destCookieTimeout destCookieName curr'
-    redirectString rt dest' -- FIXME use redirect?
+    redirect rt $ toMaster dest
 
 -- | Read the 'destCookieName' cookie and redirect to this destination. If the
 -- cookie is missing, then use the default path provided.
@@ -248,4 +232,4 @@ redirectToDest rt def = do
                 (x:_) -> do
                     deleteCookie destCookieName
                     return x
-    redirectString rt dest -- FIXME use redirect?
+    redirectString rt dest

@@ -124,7 +124,6 @@ toWaiApp' y resource session' env = do
                  : encodePathInfo (fixSegs $ quasiRender site u)
     rr <- parseWaiRequest env session'
     onRequest y rr
-    print pathSegments -- FIXME remove
     let ya = case eurl of
                 Left _ -> runHandler (errorHandler y NotFound)
                                       render

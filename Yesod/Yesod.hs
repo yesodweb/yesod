@@ -108,7 +108,7 @@ applyLayoutJson :: Yesod master
 applyLayoutJson t x toH toJ = do
     let pc = PageContent
                 { pageTitle = cs t
-                , pageHead = return () -- FIXME allow user to supply?
+                , pageHead = return ()
                 , pageBody = toH x
                 }
     y <- getYesodMaster
