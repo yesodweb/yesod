@@ -5,19 +5,11 @@ license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        A library for creating RESTful web applications.
-description:     This package stradles the line between framework and simply a controller. It provides minimal support for model and view, mostly focusing on making a controller which adheres strictly to RESTful principles.
 category:        Web
-stability:       unstable
+stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://www.yesodweb.com/code.html
-extra-source-files: CLI/skel/App.hs,
-                    CLI/skel/static/style.css,
-                    CLI/skel/settings.yaml,
-                    CLI/skel/LICENSE,
-                    CLI/skel/webapp.cabal,
-                    CLI/skel/templates/layout.st,
-                    CLI/skel/templates/homepage.st
+homepage:        http://docs.yesodweb.com/yesod/
 
 flag transformers_02
     description: transformers = 0.2.*
@@ -64,12 +56,6 @@ library
                      Yesod.Helpers.Static
                      Web.Mime
     ghc-options:     -Wall
-
-executable              yesod
-    ghc-options:        -Wall
-    build-depends:      file-embed >= 0.0.3 && < 0.1,
-                        HStringTemplate >= 0.6.2 && < 0.7
-    main-is:            CLI/yesod.hs
 
 executable             runtests
     if flag(buildtests)
