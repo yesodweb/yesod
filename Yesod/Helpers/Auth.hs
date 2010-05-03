@@ -49,13 +49,20 @@ import Control.Exception (Exception)
 data LoginType = OpenId | Rpxnow
 
 class Yesod master => YesodAuth master where
+    defaultDest :: master -> Routes master
+
+    liftAuthRoute :: master -> Routes Auth -> Routes master
+
     onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth master ()
+    onRpxnowLogin _ = return ()
+
+    rpxnowApiKey :: master -> Maybe String
+    rpxnowApiKey _ = Nothing
+
+    defaultLoginType :: master -> LoginType
+    defaultLoginType _ = OpenId
 
 data Auth = Auth
-    { defaultDest :: String
-    , rpxnowApiKey :: Maybe String
-    , defaultLoginType :: LoginType
-    }
 
 $(mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
 /check                 Check              GET
@@ -108,23 +115,24 @@ getOpenIdForward = do
       (redirectString RedirectTemporary)
       res
 
-getOpenIdComplete :: GHandler Auth master ()
+getOpenIdComplete :: YesodAuth master => GHandler Auth master ()
 getOpenIdComplete = do
     rr <- getRequest
     let gets' = reqGetParams rr
     res <- runAttemptT $ OpenId.authenticate gets'
     render <- getUrlRender
+    renderm <- getUrlRenderMaster
     let errurl err = render OpenIdR ++ "?message=" ++ encodeUrl (show err)
     let onFailure err = redirectString RedirectTemporary $ errurl err
     let onSuccess (OpenId.Identifier ident) = do
-        y <- getYesod
+        y <- getYesodMaster
         header authCookieName ident
-        redirectToDest RedirectTemporary $ defaultDest y
+        redirectToDest RedirectTemporary $ renderm $ defaultDest y
     attempt onFailure onSuccess res
 
 handleRpxnowR :: YesodAuth master => GHandler Auth master ()
 handleRpxnowR = do
-    ay <- getYesod
+    ay <- getYesodMaster
     apiKey <- case rpxnowApiKey ay of
                 Just x -> return x
                 Nothing -> notFound
@@ -133,10 +141,11 @@ handleRpxnowR = do
     let token = case getParams rr "token" ++ pp "token" of
                     [] -> failure MissingToken
                     (x:_) -> x
+    render <- getUrlRenderMaster
     let dest = case pp "dest" of
                 [] -> case getParams rr "dest" of
-                        [] -> defaultDest ay
-                        ("":_) -> defaultDest ay
+                        [] -> render $ defaultDest ay
+                        ("":_) -> render $ defaultDest ay
                         (('#':rest):_) -> rest
                         (s:_) -> s
                 (d:_) -> d
@@ -177,11 +186,12 @@ getCheck = do
                 , ("displayName", jsonScalar dn)
                 ]
 
-getLogout :: GHandler Auth master ()
+getLogout :: YesodAuth master => GHandler Auth master ()
 getLogout = do
-    y <- getYesod
+    y <- getYesodMaster
     deleteCookie authCookieName
-    redirectToDest RedirectTemporary $ defaultDest y
+    render <- getUrlRenderMaster
+    redirectToDest RedirectTemporary $ render $ defaultDest y
 
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: RequestReader m => m (Maybe String)
@@ -197,33 +207,32 @@ displayName = do
 
 -- | Gets the identifier for a user. If user is not logged in, redirects them
 -- to the login page.
-authIdentifier :: GHandler Auth master String
+authIdentifier :: YesodAuth master => GHandler sub master String
 authIdentifier = maybeIdentifier >>= maybe redirectLogin return
 
 -- | Redirect the user to the 'defaultLoginPath', setting the DEST cookie
 -- appropriately.
-redirectLogin :: GHandler Auth master a
+redirectLogin :: YesodAuth master => GHandler sub master a
 redirectLogin = do
-    y <- getYesod
+    y <- getYesodMaster
     let r = case defaultLoginType y of
                 OpenId -> OpenIdR
                 Rpxnow -> RpxnowR -- FIXME this doesn't actually show a login page?
-    redirectSetDest RedirectTemporary r
+    redirectSetDest RedirectTemporary $ liftAuthRoute y r
 
 -- | Redirect to the given URL, and set a cookie with the current URL so the
 -- user will ultimately be sent back here.
 redirectSetDest :: RedirectType
-                -> Routes sub -- ^ redirect page
+                -> Routes master
                 -> GHandler sub master a
 redirectSetDest rt dest = do
     ur <- getUrlRender
-    toMaster <- getRouteToMaster
     curr <- getRoute
     let curr' = case curr of
                     Just x -> ur x
                     Nothing -> "/" -- should never happen anyway
     addCookie destCookieTimeout destCookieName curr'
-    redirect rt $ toMaster dest
+    redirect rt dest
 
 -- | Read the 'destCookieName' cookie and redirect to this destination. If the
 -- cookie is missing, then use the default path provided.
