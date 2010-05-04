@@ -122,7 +122,10 @@ toWaiApp' y resource session' env = do
         types = httpAccept env
         pathSegments = filter (not . null) $ cleanupSegments resource
         eurl = quasiParse site pathSegments
-        render = fullRender (approot y) site
+        render u =
+            case urlRenderOverride y u of
+                Nothing -> fullRender (approot y) site u
+                Just s -> s
     rr <- parseWaiRequest env session'
     onRequest y rr
     let ya = case eurl of

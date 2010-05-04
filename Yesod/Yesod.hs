@@ -78,6 +78,12 @@ class YesodSite a => Yesod a where
     onRequest :: a -> Request -> IO ()
     onRequest _ _ = return ()
 
+    -- | Override the rendering function for a particular URL. One use case for
+    -- this is to offload static hosting to a different domain name to avoid
+    -- sending cookies.
+    urlRenderOverride :: a -> Routes a -> Maybe String
+    urlRenderOverride _ _ = Nothing
+
 -- | Apply the default layout ('defaultLayout') to the given title and body.
 applyLayout :: Yesod master
             => String -- ^ title
