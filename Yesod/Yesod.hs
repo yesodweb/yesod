@@ -63,11 +63,8 @@ class YesodSite a => Yesod a where
     errorHandler _ = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: a
-                  -> PageContent (Routes a)
-                  -> Request
-                  -> Hamlet (Routes a) IO ()
-    defaultLayout _ p _ = [$hamlet|
+    defaultLayout :: PageContent (Routes a) -> GHandler sub a Content
+    defaultLayout p = hamletToContent $ [$hamlet|
 !!!
 %html
     %head
@@ -86,16 +83,12 @@ applyLayout :: Yesod master
             => String -- ^ title
             -> Hamlet (Routes master) IO () -- ^ body
             -> GHandler sub master RepHtml
-applyLayout t b = do
-    let pc = PageContent
+applyLayout t b =
+    RepHtml `fmap` defaultLayout PageContent
                 { pageTitle = cs t
                 , pageHead = return ()
                 , pageBody = b
                 }
-    y <- getYesodMaster
-    rr <- getRequest
-    content <- hamletToContent $ defaultLayout y pc rr
-    return $ RepHtml content
 
 -- | Provide both an HTML and JSON representation for a piece of data, using
 -- the default layout for the HTML output ('defaultLayout').
@@ -106,14 +99,11 @@ applyLayoutJson :: Yesod master
                 -> (x -> Json (Routes master) ())
                 -> GHandler sub master RepHtmlJson
 applyLayoutJson t x toH toJ = do
-    let pc = PageContent
+    html <- defaultLayout PageContent
                 { pageTitle = cs t
                 , pageHead = return ()
                 , pageBody = toH x
                 }
-    y <- getYesodMaster
-    rr <- getRequest
-    html <- hamletToContent $ defaultLayout y pc rr
     json <- jsonToContent $ toJ x
     return $ RepHtmlJson html json
 
