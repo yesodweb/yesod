@@ -8,6 +8,8 @@ module Yesod.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , basicHandler
+      -- * Utilities
+    , fullRender
     ) where
 
 import Yesod.Handler
@@ -120,8 +122,7 @@ toWaiApp' y resource session' env = do
         types = httpAccept env
         pathSegments = filter (not . null) $ cleanupSegments resource
         eurl = quasiParse site pathSegments
-        render u = approot y ++ '/'
-                 : encodePathInfo (fixSegs $ quasiRender site u)
+        render = fullRender (approot y) site
     rr <- parseWaiRequest env session'
     onRequest y rr
     let ya = case eurl of
@@ -142,6 +143,14 @@ toWaiApp' y resource session' env = do
     let eurl' = either (const Nothing) Just eurl
     let eh er = runHandler (errorHandler y er) render eurl' id y id
     unYesodApp ya eh rr types >>= responseToWaiResponse
+
+-- | Fully render a route to an absolute URL.
+fullRender :: String -- ^ approot, no trailing slash
+           -> QuasiSite YesodApp arg arg
+           -> Routes arg
+           -> String
+fullRender ar site route =
+    ar ++ '/' : encodePathInfo (fixSegs $ quasiRender site route)
 
 cleanupSegments :: [B.ByteString] -> [String]
 cleanupSegments = decodePathInfo . intercalate "/" . map B.unpack
