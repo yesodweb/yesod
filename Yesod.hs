@@ -35,7 +35,7 @@ import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet
 import Data.Convertible.Text (cs)
-#if TRANSFORMERS_02
+#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class (liftIO)
 #else
 import "transformers" Control.Monad.Trans (liftIO)

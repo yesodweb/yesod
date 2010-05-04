@@ -27,7 +27,7 @@ import Data.Time (Day)
 import Data.Convertible.Text
 import Control.Monad.Attempt
 import Data.Maybe (fromMaybe)
-#if TRANSFORMERS_02
+#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
 #else
 import "transformers" Control.Monad.Trans

@@ -38,7 +38,7 @@ import qualified Network.Wai as W
 import Yesod.Definitions
 import Web.Encodings
 import qualified Data.ByteString.Lazy as BL
-#if TRANSFORMERS_02
+#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
 #else
 import "transformers" Control.Monad.Trans
