@@ -44,6 +44,9 @@ module Yesod.Handler
     , addCookie
     , deleteCookie
     , header
+      -- * Session
+    , setSession
+    , clearSession
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
@@ -52,8 +55,9 @@ module Yesod.Handler
 import Yesod.Request
 import Yesod.Content
 import Yesod.Internal
-import Yesod.Definitions
 import Web.Mime
+import Web.Routes.Quasi (Routes)
+import Data.List (foldl')
 
 import Control.Exception hiding (Handler)
 import Control.Applicative
@@ -85,7 +89,8 @@ data HandlerData sub master = HandlerData
 -- site. This monad is a combination of reader for basic arguments, a writer
 -- for headers, and an error-type monad for handling special responses.
 newtype GHandler sub master a = Handler {
-    unHandler :: HandlerData sub master -> IO ([Header], HandlerContents a)
+    unHandler :: HandlerData sub master
+              -> IO ([Header], [(String, Maybe String)], HandlerContents a)
 }
 
 -- | A 'GHandler' limited to the case where the master and sub sites are the
@@ -117,25 +122,25 @@ instance Applicative (GHandler sub master) where
     (<*>) = ap
 instance Monad (GHandler sub master) where
     fail = failure . InternalError -- We want to catch all exceptions anyway
-    return x = Handler $ \_ -> return ([], HCContent x)
+    return x = Handler $ \_ -> return ([], [], HCContent x)
     (Handler handler) >>= f = Handler $ \rr -> do
-        (headers, c) <- handler rr
-        (headers', c') <-
+        (headers, session', c) <- handler rr
+        (headers', session'', c') <-
             case c of
                 HCContent a -> unHandler (f a) rr
-                HCError e -> return ([], HCError e)
-                HCSendFile ct fp -> return ([], HCSendFile ct fp)
-                HCRedirect rt url -> return ([], HCRedirect rt url)
-        return (headers ++ headers', c')
+                HCError e -> return ([], [], HCError e)
+                HCSendFile ct fp -> return ([], [], HCSendFile ct fp)
+                HCRedirect rt url -> return ([], [], HCRedirect rt url)
+        return (headers ++ headers', session' ++ session'', c')
 instance MonadIO (GHandler sub master) where
-    liftIO i = Handler $ \_ -> i >>= \i' -> return ([], HCContent i')
+    liftIO i = Handler $ \_ -> i >>= \i' -> return ([], [], HCContent i')
 instance Failure ErrorResponse (GHandler sub master) where
-    failure e = Handler $ \_ -> return ([], HCError e)
+    failure e = Handler $ \_ -> return ([], [], HCError e)
 instance RequestReader (GHandler sub master) where
-    getRequest = Handler $ \r -> return ([], HCContent $ handlerRequest r)
+    getRequest = handlerRequest <$> getData
 
 getData :: GHandler sub master (HandlerData sub master)
-getData = Handler $ \r -> return ([], HCContent r)
+getData = Handler $ \r -> return ([], [], HCContent r)
 
 -- | Get the application argument.
 getYesod :: GHandler sub master sub
@@ -165,6 +170,16 @@ getRoute = handlerRoute <$> getData
 getRouteToMaster :: GHandler sub master (Routes sub -> Routes master)
 getRouteToMaster = handlerToMaster <$> getData
 
+modifySession :: [(String, String)] -> (String, Maybe String)
+              -> [(String, String)]
+modifySession orig (k, v) =
+    case v of
+        Nothing -> dropKeys k orig
+        Just v' -> (k, v') : dropKeys k orig
+
+dropKeys :: String -> [(String, x)] -> [(String, x)]
+dropKeys k = filter $ \(x, _) -> x /= k
+
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
 runHandler :: HasReps c
@@ -179,7 +194,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
-    (headers, contents) <- Control.Exception.catch
+    (headersOrig, session', contents) <- Control.Exception.catch
         (unHandler handler HandlerData
             { handlerRequest = rr
             , handlerSub = tosa ma
@@ -188,7 +203,9 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             , handlerRender = mrender
             , handlerToMaster = tomr
             })
-        (\e -> return ([], HCError $ toErrorHandler e))
+        (\e -> return ([], [], HCError $ toErrorHandler e))
+    let finalSession = foldl' modifySession (reqSession rr) session'
+        headers = Header "_SESSION" (show finalSession) : headersOrig -- FIXME
     let handleError e = do
             (_, hs, ct, c) <- unYesodApp (eh e) safeEh rr cts
             let hs' = headers ++ hs
@@ -221,14 +238,14 @@ redirect rt url = do
 
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
-redirectString rt url = Handler $ \_ -> return ([], HCRedirect rt url)
+redirectString rt url = Handler $ \_ -> return ([], [], HCRedirect rt url)
 
 -- | Bypass remaining handler code and output the given file.
 --
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
 sendFile :: ContentType -> FilePath -> GHandler sub master a
-sendFile ct fp = Handler $ \_ -> return ([], HCSendFile ct fp)
+sendFile ct fp = Handler $ \_ -> return ([], [], HCSendFile ct fp)
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
@@ -264,8 +281,22 @@ deleteCookie = addHeader . DeleteCookie
 header :: String -> String -> GHandler sub master ()
 header a = addHeader . Header a
 
+-- | Set a variable in the user's session.
+--
+-- The session is handled by the clientsession package: it sets an encrypted
+-- and hashed cookie on the client. This ensures that all data is secure and
+-- not tampered with.
+setSession :: String -- ^ key
+           -> String -- ^ value
+           -> GHandler sub master ()
+setSession k v = Handler $ \_ -> return ([], [(k, Just v)], HCContent ())
+
+-- | Unsets a session variable. See 'setSession'.
+clearSession :: String -> GHandler sub master ()
+clearSession k = Handler $ \_ -> return ([], [(k, Nothing)], HCContent ())
+
 addHeader :: Header -> GHandler sub master ()
-addHeader h = Handler $ \_ -> return ([h], HCContent ())
+addHeader h = Handler $ \_ -> return ([h], [], HCContent ())
 
 getStatus :: ErrorResponse -> W.Status
 getStatus NotFound = W.Status404

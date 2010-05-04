@@ -35,7 +35,6 @@ module Yesod.Request
     ) where
 
 import qualified Network.Wai as W
-import Yesod.Definitions
 import Web.Encodings
 import qualified Data.ByteString.Lazy as BL
 #if MIN_VERSION_transformers(0,2,0)
@@ -56,7 +55,7 @@ instance RequestReader ((->) Request) where
     getRequest = id
 
 -- | Get the list of supported languages supplied by the user.
-languages :: RequestReader m => m [Language]
+languages :: RequestReader m => m [String]
 languages = reqLangs `liftM` getRequest
 
 -- | Get the request\'s 'W.Request' value.
@@ -82,7 +81,7 @@ data Request = Request
     , reqRequestBody :: IO RequestBodyContents
     , reqWaiRequest :: W.Request
       -- | Languages which the client supports.
-    , reqLangs :: [Language]
+    , reqLangs :: [String]
     }
 
 multiLookup :: [(ParamName, ParamValue)] -> ParamName -> [ParamValue]

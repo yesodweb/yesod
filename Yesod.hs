@@ -5,7 +5,6 @@ module Yesod
       module Yesod.Request
     , module Yesod.Content
     , module Yesod.Yesod
-    , module Yesod.Definitions
     , module Yesod.Handler
     , module Yesod.Dispatch
     , module Yesod.Form
@@ -15,6 +14,7 @@ module Yesod
     , Application
     , cs
     , liftIO
+    , Routes
     ) where
 
 #if TEST
@@ -30,7 +30,6 @@ import Yesod.Request
 import Yesod.Dispatch
 import Yesod.Form
 import Yesod.Yesod
-import Yesod.Definitions
 import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet
@@ -40,3 +39,4 @@ import "transformers" Control.Monad.IO.Class (liftIO)
 #else
 import "transformers" Control.Monad.Trans (liftIO)
 #endif
+import Web.Routes.Quasi (Routes)

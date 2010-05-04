@@ -20,11 +20,10 @@ import Data.Convertible.Text
 import Control.Arrow ((***))
 import Network.Wai.Middleware.ClientSession
 import qualified Network.Wai as W
-import Yesod.Definitions
 import Yesod.Json
 import Yesod.Internal
 
-import Web.Routes.Quasi (QuasiSite (..))
+import Web.Routes.Quasi (QuasiSite (..), Routes)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -44,7 +43,7 @@ class YesodSite a => Yesod a where
     --
     -- * You do not use any features that require absolute URLs, such as Atom
     -- feeds and XML sitemaps.
-    approot :: a -> Approot
+    approot :: a -> String
 
     -- | The encryption key to be used for encrypting client sessions.
     encryptKey :: a -> IO Word256

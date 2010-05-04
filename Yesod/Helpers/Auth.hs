@@ -46,6 +46,7 @@ import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 
 -- FIXME check referer header to determine destination
+-- FIXME switch to session
 
 getAuth :: a -> Auth
 getAuth = const Auth
@@ -249,3 +250,15 @@ redirectToDest rt def = do
                     deleteCookie destCookieName
                     return x
     redirectString rt dest
+
+authCookieName :: String -- FIXME don't use cookies!!!
+authCookieName = "IDENTIFIER"
+
+authDisplayName :: String
+authDisplayName = "DISPLAY_NAME"
+
+destCookieTimeout :: Int
+destCookieTimeout = 120
+
+destCookieName :: String
+destCookieName = "DEST"

@@ -14,7 +14,6 @@ module Yesod.Dispatch
 
 import Yesod.Handler
 import Yesod.Content
-import Yesod.Definitions
 import Yesod.Yesod
 import Yesod.Request
 import Yesod.Internal
@@ -97,6 +96,9 @@ mkYesodGeneral name clazzes isSub res = do
                 }
     return $ (if isSub then id else (:) yes) [w, x, y, z]
 
+sessionName :: B.ByteString
+sessionName = B.pack "_SESSION"
+
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. You can use 'basicHandler' if you wish.
 toWaiApp :: Yesod y => y -> IO W.Application
@@ -107,8 +109,13 @@ toWaiApp a = do
            $ jsonp
            $ methodOverride
            $ cleanPath
-           $ \thePath -> clientsession encryptedCookies key' mins -- FIXME allow user input for encryptedCookies
+           $ \thePath -> clientsession [sessionName] key' mins
            $ toWaiApp' a thePath
+
+parseSession :: B.ByteString -> [(String, String)]
+parseSession bs = case reads $ cs bs of
+                    [] -> []
+                    ((x, _):_) -> x
 
 toWaiApp' :: Yesod y
           => y
@@ -116,8 +123,9 @@ toWaiApp' :: Yesod y
           -> [(B.ByteString, B.ByteString)]
           -> W.Request
           -> IO W.Response
-toWaiApp' y resource session' env = do
-    let site = getSite
+toWaiApp' y resource fullSession env = do
+    let session' = maybe [] parseSession $ lookup sessionName fullSession
+        site = getSite
         method = B.unpack $ W.methodToBS $ W.requestMethod env
         types = httpAccept env
         pathSegments = filter (not . null) $ cleanupSegments resource
@@ -188,8 +196,11 @@ fixSegs [x]
     | otherwise = [x, ""] -- append trailing slash
 fixSegs (x:xs) = x : fixSegs xs
 
+langKey :: String
+langKey = "_LANG"
+
 parseWaiRequest :: W.Request
-                -> [(B.ByteString, B.ByteString)] -- ^ session
+                -> [(String, String)] -- ^ session
                 -> IO Request
 parseWaiRequest env session' = do
     let gets' = map (cs *** cs) $ decodeUrlPairs $ W.queryString env
@@ -203,9 +214,8 @@ parseWaiRequest env session' = do
         langs'' = case lookup langKey gets' of
                      Nothing -> langs'
                      Just x -> x : langs'
-        session'' = map (cs *** cs) session'
     rbthunk <- iothunk $ rbHelper env
-    return $ Request gets' cookies' session'' rbthunk env langs''
+    return $ Request gets' cookies' session' rbthunk env langs''
 
 rbHelper :: W.Request -> IO RequestBodyContents
 rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where

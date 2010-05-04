@@ -23,10 +23,10 @@ import Text.Hamlet
 import Text.Hamlet.Monad (outputHtml)
 import Yesod.Content
 import Yesod.Handler
-import Yesod.Definitions
 import Data.Convertible.Text
 import Data.Object -- FIXME should we kill this?
 import Control.Arrow ((***))
+import Web.Routes.Quasi (Routes)
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:

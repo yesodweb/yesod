@@ -35,7 +35,6 @@ library
                      transformers >= 0.1 && < 0.3
     exposed-modules: Yesod
                      Yesod.Content
-                     Yesod.Definitions
                      Yesod.Dispatch
                      Yesod.Form
                      Yesod.Hamlet

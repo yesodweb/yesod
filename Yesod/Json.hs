@@ -24,10 +24,10 @@ import Control.Applicative
 import Data.Text (Text, pack)
 import Web.Encodings
 import Yesod.Hamlet
-import Yesod.Definitions
 import Control.Monad (when)
 import Yesod.Handler
 import Yesod.Content
+import Web.Routes.Quasi (Routes)
 
 #if TEST
 import Test.Framework (testGroup, Test)
