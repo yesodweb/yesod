@@ -29,6 +29,7 @@ module Yesod.Helpers.Auth
     , siteAuth
     , LoginType (..)
     , YesodAuth (..)
+    , getAuth
     ) where
 
 import Web.Encodings
@@ -45,6 +46,9 @@ import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 
 -- FIXME check referer header to determine destination
+
+getAuth :: a -> Auth
+getAuth = const Auth
 
 data LoginType = OpenId | Rpxnow
 
