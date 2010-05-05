@@ -72,7 +72,7 @@ type RequestBodyContents =
 data Request = Request
     { reqGetParams :: [(ParamName, ParamValue)]
     , reqCookies :: [(ParamName, ParamValue)]
-      -- | Session data stored in a cookie via the clientsession package. FIXME explain how to extend.
+      -- | Session data stored in a cookie via the clientsession package.
     , reqSession :: [(ParamName, ParamValue)]
       -- | The POST parameters and submitted files. This is stored in an IO
       -- thunk, which essentially means it will be computed once at most, but

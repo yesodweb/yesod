@@ -9,6 +9,7 @@ module Yesod.Hamlet
       Hamlet
     , hamlet
     , HtmlContent (..)
+    , htmlContentToText
       -- * Convert to something displayable
     , hamletToContent
     , hamletToRepHtml
@@ -27,6 +28,12 @@ import Data.Convertible.Text
 import Data.Object -- FIXME should we kill this?
 import Control.Arrow ((***))
 import Web.Routes.Quasi (Routes)
+import Data.Text (Text)
+import Web.Encodings (encodeHtml)
+
+htmlContentToText :: HtmlContent -> Text
+htmlContentToText (Encoded t) = t
+htmlContentToText (Unencoded t) = encodeHtml t
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:

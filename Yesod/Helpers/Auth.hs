@@ -46,7 +46,6 @@ import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 
 -- FIXME check referer header to determine destination
--- FIXME switch to session
 
 getAuth :: a -> Auth
 getAuth = const Auth
@@ -131,7 +130,7 @@ getOpenIdComplete = do
     let onFailure err = redirectString RedirectTemporary $ errurl err
     let onSuccess (OpenId.Identifier ident) = do
         y <- getYesodMaster
-        header authCookieName ident
+        setSession identKey ident
         redirectToDest RedirectTemporary $ renderm $ defaultDest y
     attempt onFailure onSuccess res
 
@@ -156,8 +155,8 @@ handleRpxnowR = do
                 (d:_) -> d
     ident <- liftIO $ Rpxnow.authenticate apiKey token
     onRpxnowLogin ident
-    header authCookieName $ Rpxnow.identifier ident
-    header authDisplayName $ getDisplayName ident
+    setSession identKey $ Rpxnow.identifier ident
+    setSession displayNameKey $ getDisplayName ident
     redirectToDest RedirectTemporary dest
 
 data MissingToken = MissingToken
@@ -194,7 +193,7 @@ getCheck = do
 getLogout :: YesodAuth master => GHandler Auth master ()
 getLogout = do
     y <- getYesodMaster
-    deleteCookie authCookieName
+    clearSession identKey
     render <- getUrlRenderMaster
     redirectToDest RedirectTemporary $ render $ defaultDest y
 
@@ -202,13 +201,13 @@ getLogout = do
 maybeIdentifier :: RequestReader m => m (Maybe String)
 maybeIdentifier = do
     s <- session
-    return $ listToMaybe $ s authCookieName
+    return $ listToMaybe $ s identKey
 
 -- | Gets the display name for a user if available.
 displayName :: RequestReader m => m (Maybe String)
 displayName = do
     s <- session
-    return $ listToMaybe $ s authDisplayName
+    return $ listToMaybe $ s displayNameKey
 
 -- | Gets the identifier for a user. If user is not logged in, redirects them
 -- to the login page.
@@ -251,12 +250,13 @@ redirectToDest rt def = do
                     return x
     redirectString rt dest
 
-authCookieName :: String -- FIXME don't use cookies!!!
-authCookieName = "IDENTIFIER"
+identKey :: String
+identKey = "IDENTIFIER"
 
-authDisplayName :: String
-authDisplayName = "DISPLAY_NAME"
+displayNameKey :: String
+displayNameKey = "DISPLAY_NAME"
 
+-- FIXME export DEST stuff as its own module
 destCookieTimeout :: Int
 destCookieTimeout = 120
 

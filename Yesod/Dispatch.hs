@@ -109,7 +109,7 @@ toWaiApp a = do
            $ jsonp
            $ methodOverride
            $ cleanPath
-           $ \thePath -> clientsession [sessionName] key' mins
+           $ \thePath -> clientsession [sessionName] key' mins -- FIXME middleware is not helping us here, drop it
            $ toWaiApp' a thePath
 
 parseSession :: B.ByteString -> [(String, String)]
