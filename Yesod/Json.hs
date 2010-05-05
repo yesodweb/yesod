@@ -73,7 +73,7 @@ jsonList :: [Json url ()] -> Json url ()
 jsonList = jsonList' . fromList
 
 -- | Same as 'jsonList', but uses an 'Enumerator' for input.
-jsonList' :: Enumerator (Json url ()) (Json url) -> Json url () -- FIXME simplify type
+jsonList' :: Enumerator (Json url ()) (Json url) -> Json url ()
 jsonList' (Enumerator enum) = do
     Json $ outputString "["
     _ <- enum go False
@@ -89,7 +89,7 @@ jsonMap :: [(String, Json url ())] -> Json url ()
 jsonMap = jsonMap' . fromList
 
 -- | Same as 'jsonMap', but uses an 'Enumerator' for input.
-jsonMap' :: Enumerator (String, Json url ()) (Json url) -> Json url () -- FIXME simplify type
+jsonMap' :: Enumerator (String, Json url ()) (Json url) -> Json url ()
 jsonMap' (Enumerator enum) = do
     Json $ outputString "{"
     _ <- enum go False

@@ -15,8 +15,6 @@ module Yesod.Hamlet
     , hamletToRepHtml
       -- * Page templates
     , PageContent (..)
-      -- * data-object
-    , HtmlObject
     )
     where
 
@@ -25,8 +23,6 @@ import Text.Hamlet.Monad (outputHtml)
 import Yesod.Content
 import Yesod.Handler
 import Data.Convertible.Text
-import Data.Object -- FIXME should we kill this?
-import Control.Arrow ((***))
 import Web.Routes.Quasi (Routes)
 import Data.Text (Text)
 import Web.Encodings (encodeHtml)
@@ -65,27 +61,5 @@ hamletToRepHtml = fmap RepHtml . hamletToContent
 
 instance Monad m => ConvertSuccess String (Hamlet url m ()) where
     convertSuccess = outputHtml . Unencoded . cs
-instance Monad m
-    => ConvertSuccess (Object String HtmlContent) (Hamlet url m ()) where
-    convertSuccess (Scalar h) = outputHtml h
-    convertSuccess (Sequence s) = template () where
-        template = [$hamlet|
-                %ul
-                    $forall s' s
-                        %li ^s^|]
-        s' _ = map cs s
-    convertSuccess (Mapping m) = template () where
-        template :: Monad m => () -> Hamlet url m ()
-        template = [$hamlet|
-                %dl
-                    $forall pairs pair
-                        %dt $pair.fst$
-                        %dd ^pair.snd^|]
-        pairs _ = map (cs *** cs) m
 instance ConvertSuccess String HtmlContent where
     convertSuccess = Unencoded . cs
-
-type HtmlObject = Object String HtmlContent
-
-instance ConvertSuccess (Object String String) HtmlObject where
-    convertSuccess = fmap cs
