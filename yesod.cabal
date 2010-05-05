@@ -27,11 +27,12 @@ library
                      control-monad-attempt >= 0.2.0 && < 0.3,
                      text >= 0.5 && < 0.8,
                      convertible-text >= 0.2.0 && < 0.3,
-                     template-haskell,
+                     template-haskell >= 2.4 && < 2.5,
                      web-routes >= 0.22 && < 0.23,
                      web-routes-quasi >= 0.1 && < 0.2,
                      hamlet >= 0.0.1 && < 0.1,
-                     transformers >= 0.1 && < 0.3
+                     transformers >= 0.1 && < 0.3,
+                     clientsession >= 0.2 && < 0.3
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch

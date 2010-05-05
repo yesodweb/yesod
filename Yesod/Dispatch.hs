@@ -34,7 +34,6 @@ import qualified Network.Wai.Handler.CGI as CGI
 import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
-import Data.Maybe (fromMaybe)
 import Web.Encodings
 import Web.Mime
 import Data.List (intercalate)
@@ -44,7 +43,11 @@ import Control.Concurrent.MVar
 import Control.Arrow ((***))
 import Data.Convertible.Text (cs)
 
-import Data.Time.Clock
+import Data.Time
+
+import Control.Monad
+import Data.Maybe
+import Web.ClientSession
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, *not* subsites. See 'mkYesodSub' for the latter.
@@ -96,21 +99,18 @@ mkYesodGeneral name clazzes isSub res = do
                 }
     return $ (if isSub then id else (:) yes) [w, x, y, z]
 
-sessionName :: B.ByteString
-sessionName = B.pack "_SESSION"
+sessionName :: String
+sessionName = "_SESSION"
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. You can use 'basicHandler' if you wish.
 toWaiApp :: Yesod y => y -> IO W.Application
 toWaiApp a = do
-    key' <- encryptKey a
-    let mins = clientSessionDuration a
     return $ gzip
            $ jsonp
            $ methodOverride
            $ cleanPath
-           $ \thePath -> clientsession [sessionName] key' mins -- FIXME middleware is not helping us here, drop it
-           $ toWaiApp' a thePath
+           $ toWaiApp' a
 
 parseSession :: B.ByteString -> [(String, String)]
 parseSession bs = case reads $ cs bs of
@@ -120,11 +120,20 @@ parseSession bs = case reads $ cs bs of
 toWaiApp' :: Yesod y
           => y
           -> [B.ByteString]
-          -> [(B.ByteString, B.ByteString)]
           -> W.Request
           -> IO W.Response
-toWaiApp' y resource fullSession env = do
-    let session' = maybe [] parseSession $ lookup sessionName fullSession
+toWaiApp' y resource env = do
+    key' <- encryptKey y
+    now <- getCurrentTime
+    let getExpires m = fromIntegral (m * 60) `addUTCTime` now
+    let exp' = getExpires $ clientSessionDuration y
+    let host = W.remoteHost env
+    let session' = do
+            (_, raw) <- filter (\(x, _) -> x == W.Cookie) $ W.requestHeaders env
+            (name, val) <- parseCookies raw
+            guard $ name == B.pack sessionName
+            decoded <- maybeToList $ decodeCookie key' now host val
+            parseSession decoded
         site = getSite
         method = B.unpack $ W.methodToBS $ W.requestMethod env
         types = httpAccept env
@@ -153,7 +162,16 @@ toWaiApp' y resource fullSession env = do
                                 method
     let eurl' = either (const Nothing) Just eurl
     let eh er = runHandler (errorHandler y er) render eurl' id y id
-    unYesodApp ya eh rr types >>= responseToWaiResponse
+    (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
+    let sessionVal = encrypt key' $ B.pack $ show $ ACookie exp' host $ B.pack
+                                  $ show sessionFinal
+    let hs' = AddCookie (clientSessionDuration y) sessionName sessionVal : hs
+        hs'' = map (headerToPair getExpires) hs'
+        hs''' = (W.ContentType, cs $ contentTypeToString ct) : hs''
+    return $ W.Response s hs''' $ case c of
+                                    ContentFile fp -> Left fp
+                                    ContentEnum e -> Right $ W.buffer
+                                                           $ W.Enumerator e
 
 -- | Fully render a route to an absolute URL.
 fullRender :: String -- ^ approot, no trailing slash
@@ -235,25 +253,34 @@ iothunk = fmap go . newMVar . Left where
         val <- comp
         return (Right val, val)
 
-responseToWaiResponse :: (W.Status, [Header], ContentType, Content)
-                      -> IO W.Response
-responseToWaiResponse (sc, hs, ct, c) = do
-    hs' <- mapM headerToPair hs
-    let hs'' = (W.ContentType, cs $ contentTypeToString ct) : hs'
-    return $ W.Response sc hs'' $ case c of
-                                    ContentFile fp -> Left fp
-                                    ContentEnum e -> Right $ W.buffer
-                                                           $ W.Enumerator e
-
 -- | Convert Header to a key/value pair.
-headerToPair :: Header -> IO (W.ResponseHeader, B.ByteString)
-headerToPair (AddCookie minutes key value) = do
-    now <- getCurrentTime
-    let expires = addUTCTime (fromIntegral $ minutes * 60) now
-    return (W.SetCookie, cs $ key ++ "=" ++ value ++"; path=/; expires="
+headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
+             -> Header
+             -> (W.ResponseHeader, B.ByteString)
+headerToPair getExpires (AddCookie minutes key value) =
+    let expires = getExpires minutes
+     in (W.SetCookie, cs $ key ++ "=" ++ value ++"; path=/; expires="
                               ++ formatW3 expires)
-headerToPair (DeleteCookie key) = return
+headerToPair _ (DeleteCookie key) =
     (W.SetCookie, cs $
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
-headerToPair (Header key value) =
-    return (W.responseHeaderFromBS $ cs key, cs value)
+headerToPair _ (Header key value) = (W.responseHeaderFromBS $ cs key, cs value)
+
+decodeCookie :: Word256 -- ^ key
+             -> UTCTime -- ^ current time
+             -> B.ByteString -- ^ remote host field
+             -> B.ByteString -- ^ cookie value
+             -> Maybe B.ByteString
+decodeCookie key now rhost encrypted = do
+    decrypted <- decrypt key $ B.unpack encrypted
+    (ACookie expire rhost' val) <-
+        case reads $ B.unpack decrypted of
+            [] -> Nothing
+            ((x, _):_) -> Just x
+    guard $ expire > now
+    guard $ rhost' == rhost
+    guard $ not $ B.null val
+    return val
+
+data ACookie = ACookie UTCTime B.ByteString B.ByteString
+    deriving (Show, Read)

@@ -106,7 +106,7 @@ newtype YesodApp = YesodApp
     :: (ErrorResponse -> YesodApp)
     -> Request
     -> [ContentType]
-    -> IO (W.Status, [Header], ContentType, Content)
+    -> IO (W.Status, [Header], ContentType, Content, [(String, String)])
     }
 
 data HandlerContents a =
@@ -194,7 +194,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
-    (headersOrig, session', contents) <- Control.Exception.catch
+    (headers, session', contents) <- Control.Exception.catch
         (unHandler handler HandlerData
             { handlerRequest = rr
             , handlerSub = tosa ma
@@ -205,22 +205,21 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             })
         (\e -> return ([], [], HCError $ toErrorHandler e))
     let finalSession = foldl' modifySession (reqSession rr) session'
-        headers = Header "_SESSION" (show finalSession) : headersOrig -- FIXME
     let handleError e = do
-            (_, hs, ct, c) <- unYesodApp (eh e) safeEh rr cts
+            (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts
             let hs' = headers ++ hs
-            return (getStatus e, hs', ct, c)
+            return (getStatus e, hs', ct, c, sess)
     let sendFile' ct fp = do
             c <- BL.readFile fp
-            return (W.Status200, headers, ct, cs c)
+            return (W.Status200, headers, ct, cs c, finalSession)
     case contents of
         HCContent a -> do
             (ct, c) <- chooseRep a cts
-            return (W.Status200, headers, ct, c)
+            return (W.Status200, headers, ct, c, finalSession)
         HCError e -> handleError e
         HCRedirect rt loc -> do
             let hs = Header "Location" loc : headers
-            return (getRedirectStatus rt, hs, TypePlain, cs "")
+            return (getRedirectStatus rt, hs, TypePlain, cs "", finalSession)
         HCSendFile ct fp -> Control.Exception.catch
             (sendFile' ct fp)
             (handleError . toErrorHandler)
@@ -228,7 +227,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return (W.Status500, [], TypePlain, cs "Internal Server Error")
+    return (W.Status500, [], TypePlain, cs "Internal Server Error", [])
 
 -- | Redirect to the given route.
 redirect :: RedirectType -> Routes master -> GHandler sub master a
