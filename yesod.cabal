@@ -32,7 +32,8 @@ library
                      web-routes-quasi >= 0.1 && < 0.2,
                      hamlet >= 0.0.1 && < 0.1,
                      transformers >= 0.1 && < 0.3,
-                     clientsession >= 0.2 && < 0.3
+                     clientsession >= 0.2 && < 0.3,
+                     MonadCatchIO-transformers >= 0.2.2 && < 0.3
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch

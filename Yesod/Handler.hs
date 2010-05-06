@@ -52,6 +52,7 @@ module Yesod.Handler
     , YesodApp (..)
     ) where
 
+import Prelude hiding (catch)
 import Yesod.Request
 import Yesod.Content
 import Yesod.Internal
@@ -59,7 +60,8 @@ import Web.Mime
 import Web.Routes.Quasi (Routes)
 import Data.List (foldl')
 
-import Control.Exception hiding (Handler)
+import Control.Exception hiding (Handler, catch)
+import qualified Control.Exception as E
 import Control.Applicative
 
 #if MIN_VERSION_transformers(0,2,0)
@@ -67,6 +69,8 @@ import "transformers" Control.Monad.IO.Class
 #else
 import "transformers" Control.Monad.Trans
 #endif
+import qualified Control.Monad.CatchIO as C
+import Control.Monad.CatchIO (catch)
 import Control.Monad.Attempt
 import Control.Monad (liftM, ap)
 
@@ -134,6 +138,13 @@ instance Monad (GHandler sub master) where
         return (headers ++ headers', session' ++ session'', c')
 instance MonadIO (GHandler sub master) where
     liftIO i = Handler $ \_ -> i >>= \i' -> return ([], [], HCContent i')
+instance C.MonadCatchIO (GHandler sub master) where
+    catch (Handler m) f =
+        Handler $ \d -> E.catch (m d) (\e -> unHandler (f e) d)
+    block (Handler m) =
+        Handler $ \d -> E.block (m d)
+    unblock (Handler m) =
+        Handler $ \d -> E.unblock (m d)
 instance Failure ErrorResponse (GHandler sub master) where
     failure e = Handler $ \_ -> return ([], [], HCError e)
 instance RequestReader (GHandler sub master) where
@@ -194,7 +205,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
-    (headers, session', contents) <- Control.Exception.catch
+    (headers, session', contents) <- E.catch
         (unHandler handler HandlerData
             { handlerRequest = rr
             , handlerSub = tosa ma
@@ -220,7 +231,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
         HCRedirect rt loc -> do
             let hs = Header "Location" loc : headers
             return (getRedirectStatus rt, hs, TypePlain, cs "", finalSession)
-        HCSendFile ct fp -> Control.Exception.catch
+        HCSendFile ct fp -> E.catch
             (sendFile' ct fp)
             (handleError . toErrorHandler)
 
