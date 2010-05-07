@@ -30,6 +30,8 @@ module Yesod.Helpers.Auth
     , LoginType (..)
     , YesodAuth (..)
     , getAuth
+    , identKey
+    , displayNameKey
     ) where
 
 import Web.Encodings
