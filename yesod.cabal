@@ -33,7 +33,9 @@ library
                      hamlet >= 0.0.1 && < 0.1,
                      transformers >= 0.1 && < 0.3,
                      clientsession >= 0.2 && < 0.3,
-                     MonadCatchIO-transformers >= 0.2.2 && < 0.3
+                     MonadCatchIO-transformers >= 0.2.2 && < 0.3,
+                     pureMD5 >= 1.0.0.3 && < 1.1,
+                     random >= 1.0.0.2 && < 1.1
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch
@@ -48,6 +50,7 @@ library
                      Yesod.Helpers.Auth
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
+                     Yesod.Helpers.EmailAuth
                      Web.Mime
     ghc-options:     -Wall
 
