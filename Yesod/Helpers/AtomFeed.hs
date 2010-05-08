@@ -52,22 +52,22 @@ xmlns _ = cs "http://www.w3.org/2005/Atom"
 
 template :: AtomFeed url -> Hamlet url IO ()
 template = [$hamlet|
-%feed!xmlns=$xmlns$
-    %title $atomTitle.cs$
-    %link!rel=self!href=@atomLinkSelf@
-    %link!href=@atomLinkHome@
-    %updated $atomUpdated.formatW3.cs$
-    %id @atomLinkHome@
-    $forall atomEntries entry
+%feed!xmlns=$.xmlns$
+    %title $.atomTitle.cs$
+    %link!rel=self!href=@.atomLinkSelf@
+    %link!href=@.atomLinkHome@
+    %updated $.atomUpdated.formatW3.cs$
+    %id @.atomLinkHome@
+    $forall .atomEntries entry
         ^entry.entryTemplate^
 |]
 
 entryTemplate :: AtomFeedEntry url -> Hamlet url IO ()
 entryTemplate = [$hamlet|
 %entry
-    %id @atomEntryLink@
-    %link!href=@atomEntryLink@
-    %updated $atomEntryUpdated.formatW3.cs$
-    %title $atomEntryTitle.cs$
-    %content!type=html $atomEntryContent.cdata$
+    %id @.atomEntryLink@
+    %link!href=@.atomEntryLink@
+    %updated $.atomEntryUpdated.formatW3.cs$
+    %title $.atomEntryTitle.cs$
+    %content!type=html $.atomEntryContent.cdata$
 |]

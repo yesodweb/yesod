@@ -43,6 +43,7 @@ import Data.Convertible.Text
 
 import Control.Monad.Attempt
 import Data.Maybe
+import Control.Applicative
 
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
@@ -90,21 +91,16 @@ getOpenIdR = do
         [] -> return ()
         (x:_) -> addCookie destCookieTimeout destCookieName x
     rtom <- getRouteToMaster
-    let html = template (getParams rr "message", rtom)
-    applyLayout "Log in via OpenID" html
-  where
-    urlForward (_, wrapper) = wrapper OpenIdForward
-    hasMessage = not . null . fst
-    message ([], _) = cs ""
-    message (m:_, _) = cs m
-    template = [$hamlet|
-$if hasMessage
-    %p.message $message$
+    let message = cs <$> (listToMaybe $ getParams rr "message")
+    let urlForward = rtom OpenIdForward
+    applyLayout "Log in via OpenID" $ [$hamlet|
+$maybe message msg
+    %p.message $msg$
 %form!method=get!action=@urlForward@
     %label!for=openid OpenID: 
     %input#openid!type=text!name=openid
     %input!type=submit!value=Login
-|]
+|] ()
 
 getOpenIdForward :: GHandler Auth master ()
 getOpenIdForward = do
@@ -183,9 +179,9 @@ getCheck = do
 %h1 Authentication Status
 %dl
     %dt identifier
-    %dd $fst$
+    %dd $.fst$
     %dt displayName
-    %dd $snd$
+    %dd $.snd$
 |]
     json (ident, dn) =
         jsonMap [ ("ident", jsonScalar ident)

@@ -67,11 +67,11 @@ class YesodSite a => Yesod a where
 !!!
 %html
     %head
-        %title $pageTitle$
-        ^pageHead^
+        %title $p.pageTitle$
+        ^p.pageHead^
     %body
-        ^pageBody^
-|] p
+        ^p.pageBody^
+|] ()
 
     -- | Gets called at the beginning of each request. Useful for logging.
     onRequest :: a -> Request -> IO ()
@@ -126,7 +126,7 @@ defaultErrorHandler NotFound = do
     r <- waiRequest
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
-%p $helper$
+%p $.helper$
 |] r
   where
     helper = Unencoded . cs . W.pathInfo
@@ -146,10 +146,10 @@ defaultErrorHandler (InvalidArgs ia) =
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error" $ [$hamlet|
 %h1 Internal Server Error
-%p $cs$
-|] e
+%p $e.cs$
+|] ()
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method" $ [$hamlet|
 %h1 Method Not Supported
-%p Method "$cs$" not supported
-|] m
+%p Method "$m.cs$" not supported
+|] ()

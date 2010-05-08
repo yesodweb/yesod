@@ -47,13 +47,13 @@ data SitemapUrl url = SitemapUrl
     , priority :: Double
     }
 
-sitemapNS :: [SitemapUrl url] -> HtmlContent
-sitemapNS _ = cs "http://www.sitemaps.org/schemas/sitemap/0.9"
+sitemapNS :: HtmlContent
+sitemapNS = cs "http://www.sitemaps.org/schemas/sitemap/0.9"
 
 template :: [SitemapUrl url] -> Hamlet url IO ()
 template = [$hamlet|
 %urlset!xmlns=$sitemapNS$
-    $forall id url
+    $forall .id url
         %url
             %loc @url.sitemapLoc@
             %lastmod $url.sitemapLastMod.formatW3.cs$

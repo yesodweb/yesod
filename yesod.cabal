@@ -30,7 +30,7 @@ library
                      template-haskell >= 2.4 && < 2.5,
                      web-routes >= 0.22 && < 0.23,
                      web-routes-quasi >= 0.1 && < 0.2,
-                     hamlet >= 0.0.1 && < 0.1,
+                     hamlet >= 0.2.0 && < 0.3,
                      transformers >= 0.1 && < 0.3,
                      clientsession >= 0.2 && < 0.3,
                      MonadCatchIO-transformers >= 0.2.2 && < 0.3,
