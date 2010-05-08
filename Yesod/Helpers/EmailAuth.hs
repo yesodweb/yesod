@@ -71,11 +71,11 @@ getRegisterR = do
     toMaster <- getRouteToMaster
     applyLayout "Register a new account" $ [$hamlet|
 %p Enter your e-mail address below, and a confirmation e-mail will be sent to you.
-%form!method=post!action=@RegisterR.toMaster@
+%form!method=post!action=@toMaster.RegisterR@
     %label!for=email E-mail
     %input#email!type=email!name=email!width=150
     %input!type=submit!value=Register
-|] ()
+|]
 
 postRegisterR :: YesodEmailAuth master => GHandler EmailAuth master RepHtml
 postRegisterR = do
@@ -93,8 +93,8 @@ postRegisterR = do
     let verUrl = render $ VerifyR lid verKey
     liftIO $ sendVerifyEmail y email verKey verUrl
     applyLayout "Confirmation e-mail sent" $ [$hamlet|
-%p A confirmation e-mail has been sent to $email.cs$.
-|] ()
+%p A confirmation e-mail has been sent to $cs.email$.
+|]
 
 checkEmail :: Form ParamValue -> Form ParamValue
 checkEmail = notEmpty -- FIXME
@@ -113,7 +113,7 @@ getVerifyR lid key = do
             redirect RedirectTemporary $ toMaster PasswordR
         _ -> applyLayout "Invalid verification key" $ [$hamlet|
 %p I'm sorry, but that was an invalid verification key.
-        |] ()
+        |]
 
 messageKey :: String
 messageKey = "MESSAGE"
@@ -136,8 +136,8 @@ $maybe msg ms
     %p.message $ms$
 %p Please log in to your account.
 %p
-    %a!href=@RegisterR.toMaster@ I don't have an account
-%form!method=post!action=@LoginR.toMaster@
+    %a!href=@toMaster.RegisterR@ I don't have an account
+%form!method=post!action=@toMaster.LoginR@
     %table
         %tr
             %th E-mail
@@ -150,7 +150,7 @@ $maybe msg ms
         %tr
             %td!colspan=2
                 %input!type=submit!value=Login
-|] ()
+|]
 
 postLoginR :: YesodEmailAuth master => GHandler EmailAuth master ()
 postLoginR = do
@@ -181,11 +181,11 @@ getPasswordR = do
         setMessage "You must be logged in to set a password"
         redirect RedirectTemporary $ toMaster LoginR
     msg <- getMessage
-    applyLayout "Set password" $ [$hamlet|
+    applyLayout "Set password" [$hamlet|
 $maybe msg ms
     %p.message $ms$
 %h3 Set a new password
-%form!method=post!action=@PasswordR.toMaster@
+%form!method=post!action=@toMaster.PasswordR@
     %table
         %tr
             %th New password
@@ -198,7 +198,7 @@ $maybe msg ms
         %tr
             %td!colspan=2
                 %input!type=submit!value=Submit
-|] ()
+|]
 
 postPasswordR :: YesodEmailAuth master => GHandler EmailAuth master ()
 postPasswordR = do

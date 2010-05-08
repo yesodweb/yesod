@@ -51,14 +51,14 @@ sitemapNS :: HtmlContent
 sitemapNS = cs "http://www.sitemaps.org/schemas/sitemap/0.9"
 
 template :: [SitemapUrl url] -> Hamlet url IO ()
-template = [$hamlet|
+template urls = [$hamlet|
 %urlset!xmlns=$sitemapNS$
-    $forall .id url
+    $forall urls url
         %url
-            %loc @url.sitemapLoc@
-            %lastmod $url.sitemapLastMod.formatW3.cs$
-            %changefreq $url.sitemapChangeFreq.showFreq.cs$
-            %priority $url.priority.show.cs$
+            %loc @sitemapLoc.url@
+            %lastmod $cs.formatW3.sitemapLastMod.url$
+            %changefreq $cs.showFreq.sitemapChangeFreq.url$
+            %priority $cs.show.priority.url$
 |]
 
 sitemap :: [SitemapUrl (Routes master)] -> GHandler sub master RepXml

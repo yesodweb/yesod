@@ -17,7 +17,6 @@ import Yesod.Request
 import Yesod.Hamlet
 import Yesod.Handler
 import Data.Convertible.Text
-import Control.Arrow ((***))
 import Network.Wai.Middleware.ClientSession
 import qualified Network.Wai as W
 import Yesod.Json
@@ -63,15 +62,15 @@ class YesodSite a => Yesod a where
 
     -- | Applies some form of layout to the contents of a page.
     defaultLayout :: PageContent (Routes a) -> GHandler sub a Content
-    defaultLayout p = hamletToContent $ [$hamlet|
+    defaultLayout p = hamletToContent [$hamlet|
 !!!
 %html
     %head
-        %title $p.pageTitle$
-        ^p.pageHead^
+        %title $pageTitle.p$
+        ^pageHead.p^
     %body
-        ^p.pageBody^
-|] ()
+        ^pageBody.p^
+|]
 
     -- | Gets called at the beginning of each request. Useful for logging.
     onRequest :: a -> Request -> IO ()
@@ -126,30 +125,28 @@ defaultErrorHandler NotFound = do
     r <- waiRequest
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
-%p $.helper$
-|] r
+%p $Unencoded.cs.pathInfo.r$
+|]
   where
-    helper = Unencoded . cs . W.pathInfo
+    pathInfo = W.pathInfo
 defaultErrorHandler PermissionDenied =
     applyLayout' "Permission Denied" $ [$hamlet|
-%h1 Permission denied|] ()
+%h1 Permission denied|]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments" $ [$hamlet|
 %h1 Invalid Arguments
 %dl
-    $forall ias pair
-        %dt $pair.fst$
-        %dd $pair.snd$
-|] ()
-  where
-    ias _ = map (cs *** cs) ia
+    $forall ia pair
+        %dt $cs.fst.pair$
+        %dd $cs.snd.pair$
+|]
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error" $ [$hamlet|
 %h1 Internal Server Error
-%p $e.cs$
-|] ()
+%p $cs.e$
+|]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method" $ [$hamlet|
 %h1 Method Not Supported
-%p Method "$m.cs$" not supported
-|] ()
+%p Method "$cs.m$" not supported
+|]

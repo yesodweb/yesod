@@ -92,15 +92,14 @@ getOpenIdR = do
         (x:_) -> addCookie destCookieTimeout destCookieName x
     rtom <- getRouteToMaster
     let message = cs <$> (listToMaybe $ getParams rr "message")
-    let urlForward = rtom OpenIdForward
     applyLayout "Log in via OpenID" $ [$hamlet|
 $maybe message msg
     %p.message $msg$
-%form!method=get!action=@urlForward@
+%form!method=get!action=@rtom.OpenIdForward@
     %label!for=openid OpenID: 
     %input#openid!type=text!name=openid
     %input!type=submit!value=Login
-|] ()
+|]
 
 getOpenIdForward :: GHandler Auth master ()
 getOpenIdForward = do
@@ -175,13 +174,13 @@ getCheck = do
     let arg = (cs $ fromMaybe "" ident, cs $ fromMaybe "" dn)
     applyLayoutJson "Authentication Status" arg html json
   where
-    html = [$hamlet|
+    html (x, y) = [$hamlet|
 %h1 Authentication Status
 %dl
     %dt identifier
-    %dd $.fst$
+    %dd $x$
     %dt displayName
-    %dd $.snd$
+    %dd $y$
 |]
     json (ident, dn) =
         jsonMap [ ("ident", jsonScalar ident)
