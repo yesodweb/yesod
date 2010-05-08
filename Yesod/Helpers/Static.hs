@@ -77,7 +77,7 @@ getStatic fl fp' = do
 
 getStaticRoute :: [String] -> GHandler Static master [(ContentType, Content)]
 getStaticRoute fp = do
-    Static fl <- getYesod
+    Static fl <- getYesodSub
     getStatic fl fp
 
 toStaticRoute :: [String] -> StaticRoutes

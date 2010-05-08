@@ -80,7 +80,7 @@ getRegisterR = do
 postRegisterR :: YesodEmailAuth master => GHandler EmailAuth master RepHtml
 postRegisterR = do
     email <- runFormPost $ checkEmail $ required $ input "email"
-    y <- getYesodMaster
+    y <- getYesod
     creds <- liftIO $ getCreds y email
     (lid, verKey) <-
         case creds of
@@ -90,7 +90,8 @@ postRegisterR = do
                 return (lid, key)
             Just (lid, _, _, key) -> return (lid, key)
     render <- getUrlRender
-    let verUrl = render $ VerifyR lid verKey
+    tm <- getRouteToMaster
+    let verUrl = render $ tm $ VerifyR lid verKey
     liftIO $ sendVerifyEmail y email verKey verUrl
     applyLayout "Confirmation e-mail sent" $ [$hamlet|
 %p A confirmation e-mail has been sent to $cs.email$.
@@ -102,7 +103,7 @@ checkEmail = notEmpty -- FIXME
 getVerifyR :: YesodEmailAuth master
            => Integer -> String -> GHandler EmailAuth master RepHtml
 getVerifyR lid key = do
-    y <- getYesodMaster
+    y <- getYesod
     realKey <- liftIO $ getVerifyKey y lid
     memail <- liftIO $ getEmail y lid
     case (realKey == Just key, memail) of
@@ -157,7 +158,7 @@ postLoginR = do
     (email, pass) <- runFormPost $ (,)
         <$> checkEmail (required $ input "email")
         <*> required (input "password")
-    y <- getYesodMaster
+    y <- getYesod
     creds <- liftIO $ getCreds y email
     let mlid =
             case creds of
@@ -216,7 +217,7 @@ postPasswordR = do
                 setMessage "You must be logged in to set a password"
                 redirect RedirectTemporary $ toMaster LoginR
     salted <- liftIO $ saltPass new
-    y <- getYesodMaster
+    y <- getYesod
     liftIO $ setPassword y lid salted
     setMessage "Password updated"
     redirect RedirectTemporary $ toMaster LoginR
@@ -226,7 +227,7 @@ getLogoutR = do
     clearSession identKey
     clearSession displayNameKey
     clearSession emailAuthIdKey
-    y <- getYesodMaster
+    y <- getYesod
     redirect RedirectTemporary $ onSuccessfulLogout y
 
 saltLength :: Int
@@ -257,7 +258,7 @@ setLoginSession email lid = do
     setSession identKey email
     setSession displayNameKey email
     setSession emailAuthIdKey $ show lid
-    y <- getYesodMaster
+    y <- getYesod
     liftIO $ onEmailAuthLogin y email lid
 
 isLoggedIn :: GHandler sub master (Maybe Integer)

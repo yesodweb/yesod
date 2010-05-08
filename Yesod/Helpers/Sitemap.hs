@@ -67,5 +67,5 @@ sitemap = fmap RepXml . hamletToContent . template
 robots :: Routes sub -- ^ sitemap url
        -> GHandler sub master RepPlain
 robots smurl = do
-    r <- getUrlRender
-    return $ RepPlain $ cs $ "Sitemap: " ++ r smurl
+    tm <- getRouteToMaster
+    RepPlain `fmap` hamletToContent [$hamlet|Sitemap: @tm.smurl@|]

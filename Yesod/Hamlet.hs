@@ -45,7 +45,7 @@ data PageContent url = PageContent
 -- Yesod 'Response'.
 hamletToContent :: Hamlet (Routes master) IO () -> GHandler sub master Content
 hamletToContent h = do
-    render <- getUrlRenderMaster
+    render <- getUrlRender
     return $ ContentEnum $ go render
   where
     go render iter seed = do

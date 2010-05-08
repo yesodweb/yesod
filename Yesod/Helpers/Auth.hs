@@ -108,11 +108,12 @@ getOpenIdForward = do
             [x] -> return x
             _ -> invalidArgs [("openid", show ExpectedSingleParam)]
     render <- getUrlRender
-    let complete = render OpenIdComplete
+    toMaster <- getRouteToMaster
+    let complete = render $ toMaster OpenIdComplete
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
-    let errurl err = render OpenIdR ++ "?message=" ++ encodeUrl (show err)
     attempt
-      (\err -> redirectString RedirectTemporary $ errurl err)
+      (\err -> redirectParams RedirectTemporary (toMaster OpenIdR)
+                [("message", show err)])
       (redirectString RedirectTemporary)
       res
 
@@ -121,19 +122,20 @@ getOpenIdComplete = do
     rr <- getRequest
     let gets' = reqGetParams rr
     res <- runAttemptT $ OpenId.authenticate gets'
-    render <- getUrlRender
-    renderm <- getUrlRenderMaster
+    renderm <- getUrlRender
+    toMaster <- getRouteToMaster
+    let render = renderm . toMaster
     let errurl err = render OpenIdR ++ "?message=" ++ encodeUrl (show err)
     let onFailure err = redirectString RedirectTemporary $ errurl err
     let onSuccess (OpenId.Identifier ident) = do
-        y <- getYesodMaster
+        y <- getYesod
         setSession identKey ident
         redirectToDest RedirectTemporary $ renderm $ defaultDest y
     attempt onFailure onSuccess res
 
 handleRpxnowR :: YesodAuth master => GHandler Auth master ()
 handleRpxnowR = do
-    ay <- getYesodMaster
+    ay <- getYesod
     apiKey <- case rpxnowApiKey ay of
                 Just x -> return x
                 Nothing -> notFound
@@ -142,11 +144,11 @@ handleRpxnowR = do
     let token = case getParams rr "token" ++ pp "token" of
                     [] -> failure MissingToken
                     (x:_) -> x
-    render <- getUrlRenderMaster
+    renderm <- getUrlRender
     let dest = case pp "dest" of
                 [] -> case getParams rr "dest" of
-                        [] -> render $ defaultDest ay
-                        ("":_) -> render $ defaultDest ay
+                        [] -> renderm $ defaultDest ay
+                        ("":_) -> renderm $ defaultDest ay
                         (('#':rest):_) -> rest
                         (s:_) -> s
                 (d:_) -> d
@@ -189,9 +191,9 @@ getCheck = do
 
 getLogout :: YesodAuth master => GHandler Auth master ()
 getLogout = do
-    y <- getYesodMaster
+    y <- getYesod
     clearSession identKey
-    render <- getUrlRenderMaster
+    render <- getUrlRender
     redirectToDest RedirectTemporary $ render $ defaultDest y
 
 -- | Gets the identifier for a user if available.
@@ -215,7 +217,7 @@ authIdentifier = maybeIdentifier >>= maybe redirectLogin return
 -- appropriately.
 redirectLogin :: YesodAuth master => GHandler sub master a
 redirectLogin = do
-    y <- getYesodMaster
+    y <- getYesod
     let r = case defaultLoginType y of
                 OpenId -> OpenIdR
                 Rpxnow -> RpxnowR -- FIXME this doesn't actually show a login page?
@@ -228,9 +230,10 @@ redirectSetDest :: RedirectType
                 -> GHandler sub master a
 redirectSetDest rt dest = do
     ur <- getUrlRender
+    tm <- getRouteToMaster
     curr <- getRoute
     let curr' = case curr of
-                    Just x -> ur x
+                    Just x -> ur $ tm x
                     Nothing -> "/" -- should never happen anyway
     addCookie destCookieTimeout destCookieName curr'
     redirect rt dest

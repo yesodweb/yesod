@@ -26,20 +26,23 @@ module Yesod.Handler
     , GHandler
       -- ** Read information from handler
     , getYesod
-    , getYesodMaster
+    , getYesodSub
     , getUrlRender
-    , getUrlRenderMaster
     , getRoute
     , getRouteToMaster
       -- * Special responses
+      -- ** Redirecting
     , RedirectType (..)
     , redirect
+    , redirectParams
     , redirectString
-    , sendFile
+      -- ** Errors
     , notFound
     , badMethod
     , permissionDenied
     , invalidArgs
+      -- ** Sending static files
+    , sendFile
       -- * Setting headers
     , addCookie
     , deleteCookie
@@ -59,6 +62,7 @@ import Yesod.Internal
 import Web.Mime
 import Web.Routes.Quasi (Routes)
 import Data.List (foldl')
+import Web.Encodings (encodeUrlPairs)
 
 import Control.Exception hiding (Handler, catch)
 import qualified Control.Exception as E
@@ -153,23 +157,17 @@ instance RequestReader (GHandler sub master) where
 getData :: GHandler sub master (HandlerData sub master)
 getData = Handler $ \r -> return ([], [], HCContent r)
 
--- | Get the application argument.
-getYesod :: GHandler sub master sub
-getYesod = handlerSub <$> getData
+-- | Get the sub application argument.
+getYesodSub :: GHandler sub master sub
+getYesodSub = handlerSub <$> getData
 
 -- | Get the master site appliation argument.
-getYesodMaster :: GHandler sub master master
-getYesodMaster = handlerMaster <$> getData
+getYesod :: GHandler sub master master
+getYesod = handlerMaster <$> getData
 
 -- | Get the URL rendering function.
-getUrlRender :: GHandler sub master (Routes sub -> String)
-getUrlRender = do
-    d <- getData
-    return $ handlerRender d . handlerToMaster d
-
--- | Get the URL rendering function for the master site.
-getUrlRenderMaster :: GHandler sub master (Routes master -> String)
-getUrlRenderMaster = handlerRender <$> getData
+getUrlRender :: GHandler sub master (Routes master -> String)
+getUrlRender = handlerRender <$> getData
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
@@ -243,8 +241,15 @@ safeEh er = YesodApp $ \_ _ _ -> do
 -- | Redirect to the given route.
 redirect :: RedirectType -> Routes master -> GHandler sub master a
 redirect rt url = do
-    r <- getUrlRenderMaster
+    r <- getUrlRender
     redirectString rt $ r url
+
+-- | Redirects to the given route with the associated query-string parameters.
+redirectParams :: RedirectType -> Routes master -> [(String, String)]
+               -> GHandler sub master a
+redirectParams rt url params = do
+    r <- getUrlRender
+    redirectString rt $ r url ++ '?' : encodeUrlPairs params
 
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
