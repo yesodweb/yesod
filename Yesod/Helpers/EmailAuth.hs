@@ -69,7 +69,7 @@ mkYesodSub "EmailAuth" [''YesodEmailAuth] [$parseRoutes|
 getRegisterR :: Yesod master => GHandler EmailAuth master RepHtml
 getRegisterR = do
     toMaster <- getRouteToMaster
-    applyLayout "Register a new account" $ [$hamlet|
+    applyLayout "Register a new account" (return ()) [$hamlet|
 %p Enter your e-mail address below, and a confirmation e-mail will be sent to you.
 %form!method=post!action=@toMaster.RegisterR@
     %label!for=email E-mail
@@ -93,7 +93,7 @@ postRegisterR = do
     tm <- getRouteToMaster
     let verUrl = render $ tm $ VerifyR lid verKey
     liftIO $ sendVerifyEmail y email verKey verUrl
-    applyLayout "Confirmation e-mail sent" $ [$hamlet|
+    applyLayout "Confirmation e-mail sent" (return ()) [$hamlet|
 %p A confirmation e-mail has been sent to $cs.email$.
 |]
 
@@ -112,7 +112,7 @@ getVerifyR lid key = do
             setLoginSession email lid
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster PasswordR
-        _ -> applyLayout "Invalid verification key" $ [$hamlet|
+        _ -> applyLayout "Invalid verification key" (return ()) [$hamlet|
 %p I'm sorry, but that was an invalid verification key.
         |]
 
@@ -132,7 +132,7 @@ getLoginR :: Yesod master => GHandler EmailAuth master RepHtml
 getLoginR = do
     toMaster <- getRouteToMaster
     msg <- getMessage
-    applyLayout "Login" $ [$hamlet|
+    applyLayout "Login" (return ()) [$hamlet|
 $maybe msg ms
     %p.message $ms$
 %p Please log in to your account.
@@ -182,7 +182,7 @@ getPasswordR = do
         setMessage "You must be logged in to set a password"
         redirect RedirectTemporary $ toMaster LoginR
     msg <- getMessage
-    applyLayout "Set password" [$hamlet|
+    applyLayout "Set password" (return ()) [$hamlet|
 $maybe msg ms
     %p.message $ms$
 %h3 Set a new password

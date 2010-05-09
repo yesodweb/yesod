@@ -92,7 +92,7 @@ getOpenIdR = do
         (x:_) -> addCookie destCookieTimeout destCookieName x
     rtom <- getRouteToMaster
     let message = cs <$> (listToMaybe $ getParams rr "message")
-    applyLayout "Log in via OpenID" $ [$hamlet|
+    applyLayout "Log in via OpenID" (return ()) [$hamlet|
 $maybe message msg
     %p.message $msg$
 %form!method=get!action=@rtom.OpenIdForward@
@@ -174,7 +174,7 @@ getCheck = do
     ident <- maybeIdentifier
     dn <- displayName
     let arg = (cs $ fromMaybe "" ident, cs $ fromMaybe "" dn)
-    applyLayoutJson "Authentication Status" arg html json
+    applyLayoutJson "Authentication Status" (return ()) arg html json
   where
     html (x, y) = [$hamlet|
 %h1 Authentication Status
