@@ -28,6 +28,7 @@ module Yesod.Request
     , postParams
     , cookies
     , session
+    , lookupSession
       -- * Parameter type synonyms
     , ParamName
     , ParamValue
@@ -113,3 +114,9 @@ session :: RequestReader m => m (ParamName -> [ParamValue])
 session = do
     rr <- getRequest
     return $ multiLookup $ reqSession rr
+
+-- | Lookup for session data.
+lookupSession :: RequestReader m => ParamName -> m (Maybe ParamValue)
+lookupSession pn = do
+    rr <- getRequest
+    return $ lookup pn $ reqSession rr

@@ -116,18 +116,6 @@ getVerifyR lid key = do
 %p I'm sorry, but that was an invalid verification key.
         |]
 
-messageKey :: String
-messageKey = "MESSAGE"
-
-getMessage :: GHandler sub master (Maybe HtmlContent)
-getMessage = do
-    s <- session
-    clearSession messageKey
-    return $ listToMaybe $ map (Encoded . cs) $ s messageKey
-
-setMessage :: String -> GHandler sub master ()
-setMessage = setSession messageKey . cs
-
 getLoginR :: Yesod master => GHandler EmailAuth master RepHtml
 getLoginR = do
     toMaster <- getRouteToMaster
@@ -170,7 +158,7 @@ postLoginR = do
             setLoginSession email lid
             redirect RedirectTemporary $ onSuccessfulLogin y
         Nothing -> do
-            setMessage "Invalid email/password combination"
+            setMessage $ cs "Invalid email/password combination"
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster LoginR
 
@@ -179,7 +167,7 @@ getPasswordR = do
     l <- isJust <$> isLoggedIn
     toMaster <- getRouteToMaster
     unless l $ do
-        setMessage "You must be logged in to set a password"
+        setMessage $ cs "You must be logged in to set a password"
         redirect RedirectTemporary $ toMaster LoginR
     msg <- getMessage
     applyLayout "Set password" (return ()) [$hamlet|
@@ -208,18 +196,18 @@ postPasswordR = do
         <*> notEmpty (required $ input "confirm")
     toMaster <- getRouteToMaster
     when (new /= confirm) $ do
-        setMessage "Passwords did not match, please try again"
+        setMessage $ cs "Passwords did not match, please try again"
         redirect RedirectTemporary $ toMaster PasswordR
     mlid <- isLoggedIn
     lid <- case mlid of
             Just lid -> return lid
             Nothing -> do
-                setMessage "You must be logged in to set a password"
+                setMessage $ cs "You must be logged in to set a password"
                 redirect RedirectTemporary $ toMaster LoginR
     salted <- liftIO $ saltPass new
     y <- getYesod
     liftIO $ setPassword y lid salted
-    setMessage "Password updated"
+    setMessage $ cs "Password updated"
     redirect RedirectTemporary $ toMaster LoginR
 
 getLogoutR :: YesodEmailAuth master => GHandler EmailAuth master RepHtml

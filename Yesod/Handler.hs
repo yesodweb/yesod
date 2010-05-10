@@ -50,6 +50,14 @@ module Yesod.Handler
       -- * Session
     , setSession
     , clearSession
+      -- ** Ultimate destination
+    , setUltDest
+    , setUltDestString
+    , setUltDest'
+    , redirectUltDest
+      -- ** Messages
+    , setMessage
+    , getMessage
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
@@ -83,6 +91,9 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Network.Wai as W
 
 import Data.Convertible.Text (cs)
+import Text.Hamlet
+import Data.Text (Text)
+import Web.Encodings (encodeHtml)
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request
@@ -254,6 +265,67 @@ redirectParams rt url params = do
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
 redirectString rt url = Handler $ \_ -> return ([], [], HCRedirect rt url)
+
+ultDestKey :: String
+ultDestKey = "_ULT"
+
+-- | Sets the ultimate destination variable to the given route.
+--
+-- An ultimate destination is stored in the user session and can be loaded
+-- later by 'redirectUltDest'.
+setUltDest :: Routes master -> GHandler sub master ()
+setUltDest dest = do
+    render <- getUrlRender
+    setUltDestString $ render dest
+
+-- | Same as 'setUltDest', but use the given string.
+setUltDestString :: String -> GHandler sub master ()
+setUltDestString = setSession ultDestKey
+
+-- | Same as 'setUltDest', but uses the current page.
+--
+-- If this is a 404 handler, there is no current page, and then this call does
+-- nothing.
+setUltDest' :: GHandler sub master ()
+setUltDest' = do
+    route <- getRoute
+    tm <- getRouteToMaster
+    maybe (return ()) setUltDest $ tm <$> route
+
+-- | Redirect to the ultimate destination in the user's session. Clear the
+-- value from the session.
+--
+-- The ultimate destination is set with 'setUltDest'.
+redirectUltDest :: RedirectType
+                -> Routes master -- ^ default destination if nothing in session
+                -> GHandler sub master ()
+redirectUltDest rt def = do
+    mdest <- lookupSession ultDestKey
+    clearSession ultDestKey
+    maybe (redirect rt def) (redirectString rt) mdest
+
+msgKey :: String
+msgKey = "_MSG"
+
+-- | Sets a message in the user's session.
+--
+-- See 'getMessage'.
+setMessage :: HtmlContent -> GHandler sub master ()
+setMessage = setSession msgKey . cs . htmlContentToText
+
+-- | Gets the message in the user's session, if available, and then clears the
+-- variable.
+--
+-- See 'setMessage'.
+getMessage :: GHandler sub master (Maybe HtmlContent)
+getMessage = do
+    clearSession msgKey
+    (fmap $ fmap $ Encoded . cs) $ lookupSession msgKey
+
+-- | FIXME move this definition into hamlet
+htmlContentToText :: HtmlContent -> Text
+htmlContentToText (Encoded t) = t
+htmlContentToText (Unencoded t) = encodeHtml t
 
 -- | Bypass remaining handler code and output the given file.
 --
