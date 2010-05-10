@@ -100,18 +100,17 @@ applyLayout t h b =
 applyLayoutJson :: Yesod master
                 => String -- ^ title
                 -> Hamlet (Routes master) IO () -- ^ head
-                -> x
-                -> (x -> Hamlet (Routes master) IO ())
-                -> (x -> Json (Routes master) ())
+                -> Hamlet (Routes master) IO () -- ^ body
+                -> Json (Routes master) ()
                 -> GHandler sub master RepHtmlJson
-applyLayoutJson t h x toH toJ = do
-    html <- defaultLayout PageContent
+applyLayoutJson t h html json = do
+    html' <- defaultLayout PageContent
                 { pageTitle = cs t
                 , pageHead = h
-                , pageBody = toH x
+                , pageBody = html
                 }
-    json <- jsonToContent $ toJ x
-    return $ RepHtmlJson html json
+    json' <- jsonToContent json
+    return $ RepHtmlJson html' json'
 
 applyLayout' :: Yesod master
              => String -- ^ title

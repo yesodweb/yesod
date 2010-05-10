@@ -20,66 +20,100 @@
 --
 ---------------------------------------------------------
 module Yesod.Helpers.Auth
-    ( maybeIdentifier
-    , authIdentifier
-    , displayName
-    , redirectLogin
+    ( redirectLogin
     , Auth (..)
     , AuthRoutes (..)
     , siteAuth
     , YesodAuth (..)
     , identKey
     , displayNameKey
+    , Creds (..)
+    , maybeCreds
+    , requireCreds
     ) where
 
-import Web.Encodings
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod
-import Data.Convertible.Text
 
 import Control.Monad.Attempt
 import Data.Maybe
-import Control.Applicative
-
-import Data.Typeable (Typeable)
-import Control.Exception (Exception)
+import Control.Monad
 
 class Yesod master => YesodAuth master where
+    -- | Default destination on successful login or logout, if no other
+    -- destination exists.
     defaultDest :: master -> Routes master
 
+    -- | Default page to redirect user to for logging in.
     defaultLoginRoute :: master -> Routes master
 
-    onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth master ()
-    onRpxnowLogin _ = return ()
+    -- | Callback for a successful login.
+    --
+    -- The second parameter can contain various information, depending on login
+    -- mechanism.
+    onLogin :: Creds -> [(String, String)] -> GHandler Auth master ()
+    onLogin _ _ = return ()
 
 data Auth = Auth
     { authIsOpenIdEnabled :: Bool
     , authRpxnowApiKey :: Maybe String
     }
 
-$(mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
+data AuthType = AuthOpenId | AuthRpxnow
+    deriving (Show, Read, Eq)
+
+-- | User credentials
+data Creds = Creds
+    { credsIdent :: String -- ^ Identifier. Exact meaning depends on 'credsAuthType'.
+    , credsAuthType :: AuthType -- ^ How the user was authenticated
+    , credsEmail :: Maybe String -- ^ Verified e-mail address.
+    , credsDisplayName :: Maybe String -- ^ Display name.
+    }
+    deriving (Show, Read, Eq)
+
+credsKey :: String
+credsKey = "_CREDS"
+
+setCreds :: YesodAuth master
+         => Creds -> [(String, String)] -> GHandler Auth master ()
+setCreds creds extra = do
+    setSession credsKey $ show creds
+    onLogin creds extra
+
+maybeCreds :: GHandler sub master (Maybe Creds)
+maybeCreds = do
+    mcs <- lookupSession credsKey
+    return $ mcs >>= readMay
+  where
+    readMay x = case reads x of
+                    (y, _):_ -> Just y
+                    _ -> Nothing
+
+mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
 /check                 Check              GET
 /logout                Logout             GET
 /openid                OpenIdR            GET
 /openid/forward        OpenIdForward      GET
 /openid/complete       OpenIdComplete     GET
 /login/rpxnow          RpxnowR
-|])
+|]
 
-data ExpectedSingleParam = ExpectedSingleParam
-    deriving (Show, Typeable)
-instance Exception ExpectedSingleParam
+testOpenId :: GHandler Auth master ()
+testOpenId = do
+    a <- getYesodSub
+    unless (authIsOpenIdEnabled a) notFound
 
 getOpenIdR :: Yesod master => GHandler Auth master RepHtml
 getOpenIdR = do
+    testOpenId
     rr <- getRequest
     case getParams rr "dest" of
         [] -> return ()
         (x:_) -> setUltDestString x
     rtom <- getRouteToMaster
-    let message = cs <$> (listToMaybe $ getParams rr "message")
+    message <- getMessage
     applyLayout "Log in via OpenID" (return ()) [$hamlet|
 $maybe message msg
     %p.message $msg$
@@ -91,33 +125,35 @@ $maybe message msg
 
 getOpenIdForward :: GHandler Auth master ()
 getOpenIdForward = do
+    testOpenId
     rr <- getRequest
     oid <- case getParams rr "openid" of
             [x] -> return x
-            _ -> invalidArgs [("openid", show ExpectedSingleParam)]
+            _ -> invalidArgs [("openid", "Expected single parameter")]
     render <- getUrlRender
     toMaster <- getRouteToMaster
     let complete = render $ toMaster OpenIdComplete
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
     attempt
-      (\err -> redirectParams RedirectTemporary (toMaster OpenIdR)
-                [("message", show err)])
+      (\err -> do
+            setMessage $ cs $ show err
+            redirect RedirectTemporary $ toMaster OpenIdR)
       (redirectString RedirectTemporary)
       res
 
 getOpenIdComplete :: YesodAuth master => GHandler Auth master ()
 getOpenIdComplete = do
+    testOpenId
     rr <- getRequest
     let gets' = reqGetParams rr
     res <- runAttemptT $ OpenId.authenticate gets'
-    renderm <- getUrlRender
     toMaster <- getRouteToMaster
-    let render = renderm . toMaster
-    let errurl err = render OpenIdR ++ "?message=" ++ encodeUrl (show err)
-    let onFailure err = redirectString RedirectTemporary $ errurl err
+    let onFailure err = do
+        setMessage $ cs $ show err
+        redirect RedirectTemporary $ toMaster OpenIdR
     let onSuccess (OpenId.Identifier ident) = do
         y <- getYesod
-        setSession identKey ident
+        setCreds (Creds ident AuthOpenId Nothing Nothing) []
         redirectUltDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
@@ -131,12 +167,15 @@ handleRpxnowR = do
     rr <- getRequest
     pp <- postParams rr
     let token = case getParams rr "token" ++ pp "token" of
-                    [] -> failure MissingToken
+                    [] -> invalidArgs [("token", "Value not supplied")]
                     (x:_) -> x
-    ident <- liftIO $ Rpxnow.authenticate apiKey token
-    onRpxnowLogin ident
-    setSession identKey $ Rpxnow.identifier ident
-    setSession displayNameKey $ getDisplayName ident
+    Rpxnow.Identifier ident extra <- liftIO $ Rpxnow.authenticate apiKey token
+    let creds = Creds
+                    ident
+                    AuthRpxnow
+                    (lookup "verifiedEmail" extra)
+                    (getDisplayName extra)
+    setCreds creds extra
     either (redirect RedirectTemporary) (redirectString RedirectTemporary) $
         case pp "dest" of
             (d:_) -> Right d
@@ -146,60 +185,38 @@ handleRpxnowR = do
                     (('#':rest):_) -> Right rest
                     (s:_) -> Right s
 
-
-data MissingToken = MissingToken
-    deriving (Show, Typeable)
-instance Exception MissingToken
-
--- | Get some form of a display name, defaulting to the identifier.
-getDisplayName :: Rpxnow.Identifier -> String
-getDisplayName (Rpxnow.Identifier ident extra) = helper choices where
+-- | Get some form of a display name.
+getDisplayName :: [(String, String)] -> Maybe String
+getDisplayName extra = helper choices where
     choices = ["verifiedEmail", "email", "displayName", "preferredUsername"]
-    helper [] = ident
-    helper (x:xs) = fromMaybe (helper xs) $ lookup x extra
+    helper [] = Nothing
+    helper (x:xs) = maybe (helper xs) Just $ lookup x extra
 
 getCheck :: Yesod master => GHandler Auth master RepHtmlJson
 getCheck = do
-    ident <- maybeIdentifier
-    dn <- displayName
-    let arg = (cs $ fromMaybe "" ident, cs $ fromMaybe "" dn)
-    applyLayoutJson "Authentication Status" (return ()) arg html json
+    creds <- maybeCreds
+    applyLayoutJson "Authentication Status"
+        (return ()) (html creds) (json creds)
   where
-    html (x, y) = [$hamlet|
+    html creds = [$hamlet|
 %h1 Authentication Status
-%dl
-    %dt identifier
-    %dd $x$
-    %dt displayName
-    %dd $y$
+$if isNothing.creds
+    %p Not logged in
+$maybe creds c
+    %p Logged in as $cs.credsIdent.c$
 |]
-    json (ident, dn) =
-        jsonMap [ ("ident", jsonScalar ident)
-                , ("displayName", jsonScalar dn)
-                ]
+    json creds =
+        jsonMap
+            [ ("ident", jsonScalar $ maybe (cs "") (cs . credsIdent) creds)
+            , ("displayName", jsonScalar $ cs $ fromMaybe ""
+                                         $ creds >>= credsDisplayName)
+            ]
 
 getLogout :: YesodAuth master => GHandler Auth master ()
 getLogout = do
     y <- getYesod
-    clearSession identKey
+    clearSession credsKey
     redirectUltDest RedirectTemporary $ defaultDest y
-
--- | Gets the identifier for a user if available.
-maybeIdentifier :: RequestReader m => m (Maybe String)
-maybeIdentifier = do
-    s <- session
-    return $ listToMaybe $ s identKey
-
--- | Gets the display name for a user if available.
-displayName :: RequestReader m => m (Maybe String)
-displayName = do
-    s <- session
-    return $ listToMaybe $ s displayNameKey
-
--- | Gets the identifier for a user. If user is not logged in, redirects them
--- to the login page.
-authIdentifier :: YesodAuth master => GHandler sub master String
-authIdentifier = maybeIdentifier >>= maybe redirectLogin return
 
 -- | Redirect the user to the 'defaultLoginPath', setting the DEST cookie
 -- appropriately.
@@ -208,6 +225,9 @@ redirectLogin = do
     y <- getYesod
     setUltDest'
     redirect RedirectTemporary $ defaultLoginRoute y
+
+requireCreds :: YesodAuth master => GHandler sub master Creds
+requireCreds = maybeCreds >>= maybe redirectLogin return
 
 identKey :: String
 identKey = "IDENTIFIER"
