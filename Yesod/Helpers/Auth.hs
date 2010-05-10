@@ -27,9 +27,7 @@ module Yesod.Helpers.Auth
     , Auth (..)
     , AuthRoutes (..)
     , siteAuth
-    , LoginType (..)
     , YesodAuth (..)
-    , getAuth
     , identKey
     , displayNameKey
     ) where
@@ -48,28 +46,18 @@ import Control.Applicative
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 
--- FIXME check referer header to determine destination
-
-getAuth :: a -> Auth
-getAuth = const Auth
-
-data LoginType = OpenId | Rpxnow
-
 class Yesod master => YesodAuth master where
     defaultDest :: master -> Routes master
 
-    liftAuthRoute :: master -> Routes Auth -> Routes master
+    defaultLoginRoute :: master -> Routes master
 
     onRpxnowLogin :: Rpxnow.Identifier -> GHandler Auth master ()
     onRpxnowLogin _ = return ()
 
-    rpxnowApiKey :: master -> Maybe String
-    rpxnowApiKey _ = Nothing
-
-    defaultLoginType :: master -> LoginType
-    defaultLoginType _ = OpenId
-
 data Auth = Auth
+    { authIsOpenIdEnabled :: Bool
+    , authRpxnowApiKey :: Maybe String
+    }
 
 $(mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
 /check                 Check              GET
@@ -89,7 +77,7 @@ getOpenIdR = do
     rr <- getRequest
     case getParams rr "dest" of
         [] -> return ()
-        (x:_) -> addCookie destCookieTimeout destCookieName x
+        (x:_) -> setUltDestString x
     rtom <- getRouteToMaster
     let message = cs <$> (listToMaybe $ getParams rr "message")
     applyLayout "Log in via OpenID" (return ()) [$hamlet|
@@ -130,13 +118,14 @@ getOpenIdComplete = do
     let onSuccess (OpenId.Identifier ident) = do
         y <- getYesod
         setSession identKey ident
-        redirectToDest RedirectTemporary $ renderm $ defaultDest y
+        redirectUltDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
 handleRpxnowR :: YesodAuth master => GHandler Auth master ()
 handleRpxnowR = do
     ay <- getYesod
-    apiKey <- case rpxnowApiKey ay of
+    auth <- getYesodSub
+    apiKey <- case authRpxnowApiKey auth of
                 Just x -> return x
                 Nothing -> notFound
     rr <- getRequest
@@ -144,19 +133,19 @@ handleRpxnowR = do
     let token = case getParams rr "token" ++ pp "token" of
                     [] -> failure MissingToken
                     (x:_) -> x
-    renderm <- getUrlRender
-    let dest = case pp "dest" of
-                [] -> case getParams rr "dest" of
-                        [] -> renderm $ defaultDest ay
-                        ("":_) -> renderm $ defaultDest ay
-                        (('#':rest):_) -> rest
-                        (s:_) -> s
-                (d:_) -> d
     ident <- liftIO $ Rpxnow.authenticate apiKey token
     onRpxnowLogin ident
     setSession identKey $ Rpxnow.identifier ident
     setSession displayNameKey $ getDisplayName ident
-    redirectToDest RedirectTemporary dest
+    either (redirect RedirectTemporary) (redirectString RedirectTemporary) $
+        case pp "dest" of
+            (d:_) -> Right d
+            [] -> case getParams rr "dest" of
+                    [] -> Left $ defaultDest ay
+                    ("":_) -> Left $ defaultDest ay
+                    (('#':rest):_) -> Right rest
+                    (s:_) -> Right s
+
 
 data MissingToken = MissingToken
     deriving (Show, Typeable)
@@ -193,8 +182,7 @@ getLogout :: YesodAuth master => GHandler Auth master ()
 getLogout = do
     y <- getYesod
     clearSession identKey
-    render <- getUrlRender
-    redirectToDest RedirectTemporary $ render $ defaultDest y
+    redirectUltDest RedirectTemporary $ defaultDest y
 
 -- | Gets the identifier for a user if available.
 maybeIdentifier :: RequestReader m => m (Maybe String)
@@ -218,47 +206,11 @@ authIdentifier = maybeIdentifier >>= maybe redirectLogin return
 redirectLogin :: YesodAuth master => GHandler sub master a
 redirectLogin = do
     y <- getYesod
-    let r = case defaultLoginType y of
-                OpenId -> OpenIdR
-                Rpxnow -> RpxnowR -- FIXME this doesn't actually show a login page?
-    redirectSetDest RedirectTemporary $ liftAuthRoute y r
-
--- | Redirect to the given URL, and set a cookie with the current URL so the
--- user will ultimately be sent back here.
-redirectSetDest :: RedirectType
-                -> Routes master
-                -> GHandler sub master a
-redirectSetDest rt dest = do
-    ur <- getUrlRender
-    tm <- getRouteToMaster
-    curr <- getRoute
-    let curr' = case curr of
-                    Just x -> ur $ tm x
-                    Nothing -> "/" -- should never happen anyway
-    addCookie destCookieTimeout destCookieName curr'
-    redirect rt dest
-
--- | Read the 'destCookieName' cookie and redirect to this destination. If the
--- cookie is missing, then use the default path provided.
-redirectToDest :: RedirectType -> String -> GHandler sub master a
-redirectToDest rt def = do
-    rr <- getRequest
-    dest <- case cookies rr destCookieName of
-                [] -> return def
-                (x:_) -> do
-                    deleteCookie destCookieName
-                    return x
-    redirectString rt dest
+    setUltDest'
+    redirect RedirectTemporary $ defaultLoginRoute y
 
 identKey :: String
 identKey = "IDENTIFIER"
 
 displayNameKey :: String
 displayNameKey = "DISPLAY_NAME"
-
--- FIXME export DEST stuff as its own module
-destCookieTimeout :: Int
-destCookieTimeout = 120
-
-destCookieName :: String
-destCookieName = "DEST"
