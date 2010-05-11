@@ -20,18 +20,19 @@
 --
 ---------------------------------------------------------
 module Yesod.Helpers.Auth
-    ( redirectLogin
-    , Auth (..)
+    ( -- * Subsite
+      Auth (..)
     , AuthRoutes (..)
     , siteAuth
+      -- * Settings
     , YesodAuth (..)
-    , identKey
-    , displayNameKey
     , Creds (..)
-    , maybeCreds
-    , requireCreds
+    , AuthType (..)
     , AuthEmailSettings (..)
     , inMemoryEmailSettings
+      -- * Functions
+    , maybeCreds
+    , requireCreds
     ) where
 
 import qualified Web.Authenticate.Rpxnow as Rpxnow
@@ -71,12 +72,16 @@ class Yesod master => YesodAuth master where
         stdgen <- newStdGen
         return $ take 10 $ randomRs ('A', 'Z') stdgen
 
+-- | Each authentication subsystem (OpenId, Rpxnow, Email) has its own
+-- settings. If those settings are not present, then relevant handlers will
+-- simply return a 404.
 data Auth = Auth
     { authIsOpenIdEnabled :: Bool
     , authRpxnowApiKey :: Maybe String
     , authEmailSettings :: Maybe AuthEmailSettings
     }
 
+-- | Which subsystem authenticated the user.
 data AuthType = AuthOpenId | AuthRpxnow | AuthEmail
     deriving (Show, Read, Eq)
 
@@ -86,7 +91,12 @@ type VerUrl = String
 type EmailId = Integer
 type SaltedPass = String
 type VerStatus = Bool
+
+-- | Data stored in a database for each e-mail address.
 data EmailCreds = EmailCreds EmailId (Maybe SaltedPass) VerStatus VerKey
+
+-- | For a sample set of settings for a trivial in-memory database, see
+-- 'inMemoryEmailSettings'.
 data AuthEmailSettings = AuthEmailSettings
     { addUnverified :: Email -> VerKey -> IO EmailId
     , sendVerifyEmail :: Email -> VerKey -> VerUrl -> IO ()
@@ -116,6 +126,7 @@ setCreds creds extra = do
     setSession credsKey $ show creds
     onLogin creds extra
 
+-- | Retrieves user credentials, if user is authenticated.
 maybeCreds :: GHandler sub master (Maybe Creds)
 maybeCreds = do
     mcs <- lookupSession credsKey
@@ -258,22 +269,17 @@ getLogout = do
     clearSession credsKey
     redirectUltDest RedirectTemporary $ defaultDest y
 
--- | Redirect the user to the 'defaultLoginPath', setting the DEST cookie
--- appropriately.
-redirectLogin :: YesodAuth master => GHandler sub master a
-redirectLogin = do
-    y <- getYesod
-    setUltDest'
-    redirect RedirectTemporary $ defaultLoginRoute y
-
+-- | Retrieve user credentials. If user is not logged in, redirects to the
+-- 'defaultLoginRoute'. Sets ultimate destination to current route, so user
+-- should be sent back here after authenticating.
 requireCreds :: YesodAuth master => GHandler sub master Creds
-requireCreds = maybeCreds >>= maybe redirectLogin return
-
-identKey :: String
-identKey = "IDENTIFIER"
-
-displayNameKey :: String
-displayNameKey = "DISPLAY_NAME"
+requireCreds =
+    maybeCreds >>= maybe redirectLogin return
+  where
+    redirectLogin = do
+        y <- getYesod
+        setUltDest'
+        redirect RedirectTemporary $ defaultLoginRoute y
 
 getAuthEmailSettings :: GHandler Auth master AuthEmailSettings
 getAuthEmailSettings = getYesodSub >>= maybe notFound return . authEmailSettings

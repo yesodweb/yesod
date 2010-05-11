@@ -13,6 +13,9 @@
 --
 ---------------------------------------------------------
 
+-- | Generates XML sitemap files.
+--
+-- See <http://www.sitemaps.org/>.
 module Yesod.Helpers.Sitemap
     ( sitemap
     , robots
@@ -31,6 +34,7 @@ data SitemapChangeFreq = Always
                        | Monthly
                        | Yearly
                        | Never
+
 showFreq :: SitemapChangeFreq -> String
 showFreq Always  = "always"
 showFreq Hourly  = "hourly"
@@ -64,6 +68,7 @@ template urls = [$hamlet|
 sitemap :: [SitemapUrl (Routes master)] -> GHandler sub master RepXml
 sitemap = fmap RepXml . hamletToContent . template
 
+-- | A basic robots file which just lists the "Sitemap: " line.
 robots :: Routes sub -- ^ sitemap url
        -> GHandler sub master RepPlain
 robots smurl = do
