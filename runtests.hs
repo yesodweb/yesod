@@ -1,10 +1,10 @@
 import Test.Framework (defaultMain)
 
-import qualified Web.Mime
+import qualified Yesod.Content
 import qualified Yesod.Json
 
 main :: IO ()
 main = defaultMain
-    [ Web.Mime.testSuite
+    [ Yesod.Content.testSuite
     , Yesod.Json.testSuite
     ]

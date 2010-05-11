@@ -25,7 +25,6 @@ import Web.Encodings
 import Yesod.Hamlet
 import Control.Monad (when)
 import Yesod.Handler
-import Yesod.Content
 import Web.Routes.Quasi (Routes)
 
 #if TEST
@@ -33,6 +32,9 @@ import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
 import Data.Text.Lazy (unpack)
+import Yesod.Content hiding (testSuite)
+#else
+import Yesod.Content
 #endif
 
 -- | A monad for generating Json output. In truth, it is just a newtype wrapper

@@ -50,7 +50,6 @@ library
                      Yesod.Helpers.Auth
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
-                     Web.Mime
     ghc-options:     -Wall
 
 executable             runtests

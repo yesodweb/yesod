@@ -8,7 +8,6 @@ module Yesod
     , module Yesod.Handler
     , module Yesod.Dispatch
     , module Yesod.Form
-    , module Web.Mime
     , module Yesod.Hamlet
     , module Yesod.Json
     , Application
@@ -18,14 +17,13 @@ module Yesod
     ) where
 
 #if TEST
-import Web.Mime hiding (testSuite)
+import Yesod.Content hiding (testSuite)
 import Yesod.Json hiding (testSuite)
 #else
-import Web.Mime
+import Yesod.Content
 import Yesod.Json
 #endif
 
-import Yesod.Content
 import Yesod.Request
 import Yesod.Dispatch
 import Yesod.Form

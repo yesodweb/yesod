@@ -35,7 +35,6 @@ import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
 import Web.Encodings
-import Web.Mime
 import Data.List (intercalate)
 import Web.Routes (encodePathInfo, decodePathInfo)
 

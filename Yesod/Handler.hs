@@ -67,7 +67,6 @@ import Prelude hiding (catch)
 import Yesod.Request
 import Yesod.Content
 import Yesod.Internal
-import Web.Mime
 import Web.Routes.Quasi (Routes)
 import Data.List (foldl')
 import Web.Encodings (encodeUrlPairs)
