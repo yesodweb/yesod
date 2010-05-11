@@ -50,7 +50,6 @@ library
                      Yesod.Helpers.Auth
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
-                     Yesod.Helpers.EmailAuth
                      Web.Mime
     ghc-options:     -Wall
 
