@@ -50,7 +50,7 @@ import Web.ClientSession
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, *not* subsites. See 'mkYesodSub' for the latter.
--- Use 'parseRoutes' in generate to create the 'Resource's.
+-- Use 'parseRoutes' to create the 'Resource's.
 mkYesod :: String -- ^ name of the argument datatype
         -> [Resource]
         -> Q [Dec]
@@ -58,8 +58,8 @@ mkYesod name = mkYesodGeneral name [] False
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating subsites, *not* sites. See 'mkYesod' for the latter.
--- Use 'parseRoutes' in generate to create the 'Resource's. In general, a
--- subsite is not executable by itself, but instead provides functionality to
+-- Use 'parseRoutes' to create the 'Resource's. In general, a subsite is not
+-- executable by itself, but instead provides functionality to
 -- be embedded in other sites.
 mkYesodSub :: String -- ^ name of the argument datatype
            -> [Name] -- ^ a list of classes the master datatype must be an instance of
@@ -172,7 +172,12 @@ toWaiApp' y resource env = do
                                     ContentEnum e -> Right $ W.buffer
                                                            $ W.Enumerator e
 
--- | Fully render a route to an absolute URL.
+-- | Fully render a route to an absolute URL. Since Yesod does this for you
+-- internally, you will rarely need access to this. However, if you need to
+-- generate links *outside* of the Handler monad, this may be useful.
+--
+-- For example, if you want to generate an e-mail which links to your site,
+-- this is the function you would want to use.
 fullRender :: String -- ^ approot, no trailing slash
            -> QuasiSite YesodApp arg arg
            -> Routes arg

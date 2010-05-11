@@ -24,11 +24,15 @@ module Yesod.Request
     , waiRequest
     , languages
       -- * Lookup parameters
+    , lookupGetParam
+    , lookupPostParam
+    , lookupCookie
+    , lookupSession
+      -- ** Alternate
     , getParams
     , postParams
     , cookies
     , session
-    , lookupSession
       -- * Parameter type synonyms
     , ParamName
     , ParamValue
@@ -56,6 +60,18 @@ instance RequestReader ((->) Request) where
     getRequest = id
 
 -- | Get the list of supported languages supplied by the user.
+--
+-- Languages are determined based on the following three (in descending order
+-- of preference:
+--
+-- * The _LANG get parameter.
+--
+-- * The _LANG cookie.
+--
+-- * Accept-Language HTTP header.
+--
+-- This is handled by the parseWaiRequest function in Yesod.Dispatch (not
+-- exposed).
 languages :: RequestReader m => m [String]
 languages = reqLangs `liftM` getRequest
 
@@ -97,17 +113,38 @@ getParams = do
     rr <- getRequest
     return $ multiLookup $ reqGetParams rr
 
+-- | Lookup for GET parameters.
+lookupGetParam :: RequestReader m => ParamName -> m (Maybe ParamValue)
+lookupGetParam pn = do
+    rr <- getRequest
+    return $ lookup pn $ reqGetParams rr
+
 -- | All POST paramater values with the given name.
 postParams :: MonadIO m => Request -> m (ParamName -> [ParamValue])
 postParams rr = do
     (pp, _) <- liftIO $ reqRequestBody rr
     return $ multiLookup pp
 
+-- | Lookup for POST parameters.
+lookupPostParam :: (MonadIO m, RequestReader m)
+                => ParamName
+                -> m (Maybe ParamValue)
+lookupPostParam pn = do
+    rr <- getRequest
+    (pp, _) <- liftIO $ reqRequestBody rr
+    return $ lookup pn pp
+
 -- | All cookies with the given name.
 cookies :: RequestReader m => m (ParamName -> [ParamValue])
 cookies = do
     rr <- getRequest
     return $ multiLookup $ reqCookies rr
+
+-- | Lookup for cookie data.
+lookupCookie :: RequestReader m => ParamName -> m (Maybe ParamValue)
+lookupCookie pn = do
+    rr <- getRequest
+    return $ lookup pn $ reqCookies rr
 
 -- | All session data with the given name.
 session :: RequestReader m => m (ParamName -> [ParamValue])
