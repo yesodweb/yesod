@@ -4,6 +4,8 @@ module Yesod.Internal
       ErrorResponse (..)
       -- * Header
     , Header (..)
+      -- * Cookie names
+    , langKey
     ) where
 
 -- | Responses to indicate some form of an error occurred. These are different
@@ -23,3 +25,6 @@ data Header =
     | DeleteCookie String
     | Header String String
     deriving (Eq, Show)
+
+langKey :: String
+langKey = "_LANG"

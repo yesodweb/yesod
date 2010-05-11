@@ -47,6 +47,7 @@ module Yesod.Handler
     , addCookie
     , deleteCookie
     , header
+    , setLanguage
       -- * Session
     , setSession
     , clearSession
@@ -362,6 +363,10 @@ addCookie a b = addHeader . AddCookie a b
 -- | Unset the cookie on the client.
 deleteCookie :: String -> GHandler sub master ()
 deleteCookie = addHeader . DeleteCookie
+
+-- | Set the language header. Will show up in 'languages'.
+setLanguage :: String -> GHandler sub master ()
+setLanguage = addCookie 60 langKey
 
 -- | Set an arbitrary header on the client.
 header :: String -> String -> GHandler sub master ()

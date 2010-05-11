@@ -218,9 +218,6 @@ fixSegs [x]
     | otherwise = [x, ""] -- append trailing slash
 fixSegs (x:xs) = x : fixSegs xs
 
-langKey :: String
-langKey = "_LANG"
-
 parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session
                 -> IO Request
