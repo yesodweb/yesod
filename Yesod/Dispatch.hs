@@ -104,7 +104,7 @@ sessionName = "_SESSION"
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. You can use 'basicHandler' if you wish.
 toWaiApp :: Yesod y => y -> IO W.Application
-toWaiApp a = do
+toWaiApp a =
     return $ gzip
            $ jsonp
            $ methodOverride
@@ -138,10 +138,9 @@ toWaiApp' y resource env = do
         types = httpAccept env
         pathSegments = filter (not . null) $ cleanupSegments resource
         eurl = quasiParse site pathSegments
-        render u =
-            case urlRenderOverride y u of
-                Nothing -> fullRender (approot y) site u
-                Just s -> s
+        render u = fromMaybe
+                    (fullRender (approot y) site u)
+                    (urlRenderOverride y u)
     rr <- parseWaiRequest env session'
     onRequest y rr
     let ya = case eurl of

@@ -238,10 +238,10 @@ handleRpxnowR = do
 
 -- | Get some form of a display name.
 getDisplayName :: [(String, String)] -> Maybe String
-getDisplayName extra = helper choices where
+getDisplayName extra =
+    foldr (\x -> mplus (lookup x extra)) Nothing choices
+  where
     choices = ["verifiedEmail", "email", "displayName", "preferredUsername"]
-    helper [] = Nothing
-    helper (x:xs) = maybe (helper xs) Just $ lookup x extra
 
 getCheck :: Yesod master => GHandler Auth master RepHtmlJson
 getCheck = do
@@ -457,7 +457,7 @@ saltPass' salt pass = salt ++ show (md5 $ cs $ salt ++ pass)
 inMemoryEmailSettings :: IO AuthEmailSettings
 inMemoryEmailSettings = do
     mm <- newMVar []
-    return $ AuthEmailSettings
+    return AuthEmailSettings
         { addUnverified = \email verkey -> modifyMVar mm $ \m -> do
             let helper (_, EmailCreds x _ _ _) = x
             let newId = 1 + maximum (0 : map helper m)

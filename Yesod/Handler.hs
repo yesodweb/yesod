@@ -70,7 +70,7 @@ import Yesod.Content
 import Yesod.Internal
 import Web.Routes.Quasi (Routes)
 import Data.List (foldl')
-import Web.Encodings (encodeUrlPairs)
+import Web.Encodings (encodeUrlPairs, encodeHtml)
 
 import Control.Exception hiding (Handler, catch)
 import qualified Control.Exception as E
@@ -93,7 +93,6 @@ import qualified Network.Wai as W
 import Data.Convertible.Text (cs)
 import Text.Hamlet
 import Data.Text (Text)
-import Web.Encodings (encodeHtml)
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request
@@ -157,9 +156,9 @@ instance C.MonadCatchIO (GHandler sub master) where
     catch (Handler m) f =
         Handler $ \d -> E.catch (m d) (\e -> unHandler (f e) d)
     block (Handler m) =
-        Handler $ \d -> E.block (m d)
+        Handler $ E.block . m
     unblock (Handler m) =
-        Handler $ \d -> E.unblock (m d)
+        Handler $ E.unblock . m
 instance Failure ErrorResponse (GHandler sub master) where
     failure e = Handler $ \_ -> return ([], [], HCError e)
 instance RequestReader (GHandler sub master) where
@@ -320,7 +319,7 @@ setMessage = setSession msgKey . cs . htmlContentToText
 getMessage :: GHandler sub master (Maybe HtmlContent)
 getMessage = do
     clearSession msgKey
-    (fmap $ fmap $ Encoded . cs) $ lookupSession msgKey
+    fmap (fmap $ Encoded . cs) $ lookupSession msgKey
 
 -- | FIXME move this definition into hamlet
 htmlContentToText :: HtmlContent -> Text
