@@ -83,12 +83,12 @@ import "transformers" Control.Monad.Trans
 #endif
 import qualified Control.Monad.CatchIO as C
 import Control.Monad.CatchIO (catch)
-import Control.Monad.Attempt
 import Control.Monad (liftM, ap)
 
 import System.IO
 import qualified Data.ByteString.Lazy as BL
 import qualified Network.Wai as W
+import Control.Monad.Attempt
 
 import Data.Convertible.Text (cs)
 import Text.Hamlet

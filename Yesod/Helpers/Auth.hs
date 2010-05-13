@@ -40,7 +40,6 @@ import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod
 
-import Control.Monad.Attempt
 import Data.Maybe
 import Control.Monad
 import System.Random
@@ -48,6 +47,7 @@ import Data.Digest.Pure.MD5
 import Control.Applicative
 import Control.Concurrent.MVar
 import System.IO
+import Control.Monad.Attempt
 
 class Yesod master => YesodAuth master where
     -- | Default destination on successful login or logout, if no other

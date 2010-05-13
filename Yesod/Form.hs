@@ -25,7 +25,6 @@ import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Time (Day)
 import Data.Convertible.Text
-import Control.Monad.Attempt
 import Data.Maybe (fromMaybe)
 #if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
@@ -33,6 +32,7 @@ import "transformers" Control.Monad.IO.Class
 import "transformers" Control.Monad.Trans
 #endif
 import Yesod.Internal
+import Control.Monad.Attempt
 
 noParamNameError :: String
 noParamNameError = "No param name (miscalling of Yesod.Form library)"
@@ -56,7 +56,7 @@ instance Applicative Form where
 
 type FormError = String
 
-runFormGeneric :: MonadFailure ErrorResponse m
+runFormGeneric :: Failure ErrorResponse m
                => (ParamName -> [ParamValue]) -> Form x -> m x
 runFormGeneric params (Form f) =
     case f params of
@@ -64,7 +64,7 @@ runFormGeneric params (Form f) =
         Right (_, x) -> return x
 
 -- | Run a form against POST parameters.
-runFormPost :: (RequestReader m, MonadFailure ErrorResponse m, MonadIO m)
+runFormPost :: (RequestReader m, Failure ErrorResponse m, MonadIO m)
             => Form x -> m x
 runFormPost f = do
     rr <- getRequest
@@ -72,7 +72,7 @@ runFormPost f = do
     runFormGeneric pp f
 
 -- | Run a form against GET parameters.
-runFormGet :: (RequestReader m, MonadFailure ErrorResponse m)
+runFormGet :: (RequestReader m, Failure ErrorResponse m)
            => Form x -> m x
 runFormGet f = do
     rr <- getRequest

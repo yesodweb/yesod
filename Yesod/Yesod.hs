@@ -17,10 +17,10 @@ import Yesod.Request
 import Yesod.Hamlet
 import Yesod.Handler
 import Data.Convertible.Text
-import Network.Wai.Middleware.ClientSession
 import qualified Network.Wai as W
 import Yesod.Json
 import Yesod.Internal
+import Web.ClientSession (Word256, getKey, defaultKeyFile)
 
 import Web.Routes.Quasi (QuasiSite (..), Routes)
 

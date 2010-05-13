@@ -27,9 +27,7 @@ import Language.Haskell.TH.Syntax
 import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as W
 import Network.Wai.Middleware.CleanPath
-import Network.Wai.Middleware.ClientSession
 import Network.Wai.Middleware.Jsonp
-import Network.Wai.Middleware.MethodOverride
 import Network.Wai.Middleware.Gzip
 
 import qualified Network.Wai.Handler.SimpleServer as SS
@@ -38,8 +36,7 @@ import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
 import Web.Encodings
-import Data.List (intercalate)
-import Web.Routes (encodePathInfo, decodePathInfo)
+import Web.Routes (encodePathInfo)
 
 import Control.Concurrent.MVar
 import Control.Arrow ((***))
@@ -129,7 +126,6 @@ toWaiApp :: (Yesod y, YesodSite y) => y -> IO W.Application
 toWaiApp a =
     return $ gzip
            $ jsonp
-           $ methodOverride
            $ cleanPath
            $ toWaiApp' a
 
@@ -140,10 +136,10 @@ parseSession bs = case reads $ cs bs of
 
 toWaiApp' :: (Yesod y, YesodSite y)
           => y
-          -> [B.ByteString]
+          -> [String]
           -> W.Request
           -> IO W.Response
-toWaiApp' y resource env = do
+toWaiApp' y segments env = do
     key' <- encryptKey y
     now <- getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
@@ -158,7 +154,7 @@ toWaiApp' y resource env = do
         site = getSite
         method = B.unpack $ W.methodToBS $ W.requestMethod env
         types = httpAccept env
-        pathSegments = filter (not . null) $ cleanupSegments resource
+        pathSegments = filter (not . null) segments
         eurl = quasiParse site pathSegments
         render u = fromMaybe
                     (fullRender (approot y) site u)
@@ -205,9 +201,6 @@ fullRender :: String -- ^ approot, no trailing slash
            -> String
 fullRender ar site route =
     ar ++ '/' : encodePathInfo (fixSegs $ quasiRender site route)
-
-cleanupSegments :: [B.ByteString] -> [String]
-cleanupSegments = decodePathInfo . intercalate "/" . map B.unpack
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = map (contentTypeFromString . B.unpack)
