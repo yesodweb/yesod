@@ -31,7 +31,7 @@ class YesodSite y where
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.
-class YesodSite a => Yesod a where
+class Yesod a where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --

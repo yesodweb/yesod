@@ -5,6 +5,9 @@ module Yesod.Dispatch
       parseRoutes
     , mkYesod
     , mkYesodSub
+      -- ** More fine-grained
+    , mkYesodData
+    , mkYesodDispatch
       -- * Convert to WAI
     , toWaiApp
     , basicHandler
@@ -54,7 +57,7 @@ import Web.ClientSession
 mkYesod :: String -- ^ name of the argument datatype
         -> [Resource]
         -> Q [Dec]
-mkYesod name = mkYesodGeneral name [] False
+mkYesod name = fmap (\(x, y) -> x ++ y) . mkYesodGeneral name [] False
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating subsites, *not* sites. See 'mkYesod' for the latter.
@@ -65,7 +68,26 @@ mkYesodSub :: String -- ^ name of the argument datatype
            -> [Name] -- ^ a list of classes the master datatype must be an instance of
            -> [Resource]
            -> Q [Dec]
-mkYesodSub name clazzes = mkYesodGeneral name clazzes True
+mkYesodSub name clazzes =
+    fmap (\(x, y) -> x ++ y) . mkYesodGeneral name clazzes True
+
+-- | Sometimes, you will want to declare your routes in one file and define
+-- your handlers elsewhere. For example, this is the only way to break up a
+-- monolithic file into smaller parts. This function, paired with
+-- 'mkYesodDispatch', do just that.
+mkYesodData :: String -> [Resource] -> Q [Dec]
+mkYesodData name res = do
+    (x, _) <- mkYesodGeneral name [] False res
+    let rname = mkName $ "resources" ++ name
+    eres <- liftResources res
+    let y = [ SigD rname $ ListT `AppT` ConT ''Resource
+            , FunD rname [Clause [] (NormalB eres) []]
+            ]
+    return $ x ++ y
+
+-- | See 'mkYesodData'.
+mkYesodDispatch :: String -> [Resource] -> Q [Dec]
+mkYesodDispatch name = fmap snd . mkYesodGeneral name [] False
 
 explodeHandler :: HasReps c
                => GHandler sub master c
@@ -79,7 +101,7 @@ explodeHandler :: HasReps c
                -> YesodApp
 explodeHandler a b c d e f _ _ = runHandler a b (Just c) d e f
 
-mkYesodGeneral :: String -> [Name] -> Bool -> [Resource] -> Q [Dec]
+mkYesodGeneral :: String -> [Name] -> Bool -> [Resource] -> Q ([Dec], [Dec])
 mkYesodGeneral name clazzes isSub res = do
     let name' = mkName name
     let site = mkName $ "site" ++ name
@@ -96,14 +118,14 @@ mkYesodGeneral name clazzes isSub res = do
                 , crSite = site
                 , crMaster = if isSub then Right clazzes else Left (ConT name')
                 }
-    return $ (if isSub then id else (:) yes) [w, x, y, z]
+    return ([w, x], (if isSub then id else (:) yes) [y, z])
 
 sessionName :: String
 sessionName = "_SESSION"
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. You can use 'basicHandler' if you wish.
-toWaiApp :: Yesod y => y -> IO W.Application
+toWaiApp :: (Yesod y, YesodSite y) => y -> IO W.Application
 toWaiApp a =
     return $ gzip
            $ jsonp
@@ -116,7 +138,7 @@ parseSession bs = case reads $ cs bs of
                     [] -> []
                     ((x, _):_) -> x
 
-toWaiApp' :: Yesod y
+toWaiApp' :: (Yesod y, YesodSite y)
           => y
           -> [B.ByteString]
           -> W.Request
