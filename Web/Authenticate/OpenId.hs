@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE PackageImports #-}
 ---------------------------------------------------------
 -- |
 -- Module        : Web.Authenticate.OpenId
@@ -19,20 +20,21 @@ module Web.Authenticate.OpenId
     ( Identifier (..)
     , getForwardUrl
     , authenticate
+    , AuthenticateException (..)
     ) where
 
 import Network.HTTP.Wget
 import Text.HTML.TagSoup
 import Numeric (showHex)
-import qualified Safe.Failure as A
-#if TRANSFORMERS_02
-import Control.Monad.IO.Class
+#if MIN_VERSION_transformers(0,2,0)
+import "transformers" Control.Monad.IO.Class
 #else
-import Control.Monad.Trans
+import "transformers" Control.Monad.Trans
 #endif
-import Data.Generics
+import Data.Data
 import Control.Failure hiding (Error)
 import Control.Exception
+import Control.Monad (liftM)
 
 -- | An openid identifier (ie, a URL).
 newtype Identifier = Identifier { identifier :: String }
@@ -46,7 +48,7 @@ instance Monad Error where
     fail s = Error s
 
 -- | Returns a URL to forward the user to in order to login.
-getForwardUrl :: (MonadIO m, MonadFailure WgetException m)
+getForwardUrl :: (MonadIO m, Failure WgetException m)
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
               -> m String -- ^ URL to send the user to.
@@ -84,9 +86,8 @@ constructUrl url args = url ++ "?" ++ queryString args
 -- | Handle a redirect from an OpenID provider and check that the user
 -- logged in properly. If it was successfully, 'return's the openid.
 -- Otherwise, 'failure's an explanation.
-authenticate :: (MonadIO m, MonadFailure WgetException m,
-                 MonadFailure (A.LookupFailure String) m,
-                 MonadFailure AuthenticateException m)
+authenticate :: (MonadIO m, Failure WgetException m,
+                 Failure AuthenticateException m)
              => [(String, String)]
              -> m Identifier
 authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
@@ -94,23 +95,31 @@ authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
     content <- wget authUrl [] []
     let isValid = contains "is_valid:true" content
     if isValid
-        then A.lookup "openid.identity" req >>= return . Identifier
+        then Identifier `liftM` alookup "openid.identity" req
         else failure $ AuthenticateException content
 
-newtype AuthenticateException = AuthenticateException String
+alookup :: (Failure AuthenticateException m, Monad m)
+        => String
+        -> [(String, String)]
+        -> m String
+alookup k x = case lookup k x of
+                Just k -> return k
+                Nothing -> failure $ MissingOpenIdParameter k
+
+data AuthenticateException = AuthenticateException String
+                           | MissingOpenIdParameter String
     deriving (Show, Typeable)
 instance Exception AuthenticateException
 
-getAuthUrl :: (MonadIO m, MonadFailure (A.LookupFailure String) m,
-               MonadFailure WgetException m)
+getAuthUrl :: (MonadIO m,
+               Failure AuthenticateException m,
+               Failure WgetException m)
            => [(String, String)] -> m String
 getAuthUrl req = do
-    identity <- A.lookup "openid.identity" req
+    identity <- alookup "openid.identity" req
     idContent <- wget identity [] []
     helper idContent
     where
-        helper :: MonadFailure (A.LookupFailure String) m
-               => String -> m String
         helper idContent = do
             server <- getOpenIdVar "server" idContent
             dargs <- mapM makeArg [
@@ -122,11 +131,9 @@ getAuthUrl req = do
                 ]
             let sargs = [("openid.mode", "check_authentication")]
             return $ constructUrl server $ dargs ++ sargs
-        makeArg :: MonadFailure (A.LookupFailure String) m
-                => String -> m (String, String)
         makeArg s = do
             let k = "openid." ++ s
-            v <- A.lookup k req
+            v <- alookup k req
             return (k, v)
 
 contains :: String -> String -> Bool

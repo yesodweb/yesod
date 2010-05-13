@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE PackageImports #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Authenticate.Rpxnow
@@ -18,15 +19,19 @@ module Web.Authenticate.Rpxnow
     , authenticate
     ) where
 
-import Text.JSON -- FIXME use Data.Object.JSON
+import Data.Object
+import Data.Object.Json
 import Network.HTTP.Wget
-import Data.Maybe (isJust, fromJust)
-#if TRANSFORMERS_02
-import Control.Monad.IO.Class
+#if MIN_VERSION_transformers(0,2,0)
+import "transformers" Control.Monad.IO.Class
 #else
-import Control.Monad.Trans
+import "transformers" Control.Monad.Trans
 #endif
 import Control.Failure
+import Data.Maybe
+import Web.Authenticate.OpenId (AuthenticateException (..))
+import Control.Monad
+import Data.ByteString.Char8 (pack)
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -35,43 +40,35 @@ data Identifier = Identifier
     }
 
 -- | Attempt to log a user in.
-authenticate :: (MonadIO m, MonadFailure WgetException m, MonadFailure StringException m)
+authenticate :: (MonadIO m,
+                 Failure WgetException m,
+                 Failure AuthenticateException m,
+                 Failure ObjectExtractError m,
+                 Failure JsonDecodeError m)
              => String -- ^ API key given by RPXNOW.
              -> String -- ^ Token passed by client.
              -> m Identifier
 authenticate apiKey token = do
-  b <- wget
-                "https://rpxnow.com/api/v2/auth_info"
-                []
-                [ ("apiKey", apiKey)
-                , ("token", token)
-                ]
-  case decode b >>= getObject of
-    Error s -> failureString $ "Not a valid JSON response: " ++ s -- FIXME
-    Ok o ->
-      case valFromObj "stat" o of
-        Error _ -> failureString "Missing 'stat' field"
-        Ok "ok" -> parseProfile o
-        Ok stat -> failureString $ "Login not accepted: " ++ stat
-                   ++ "\n" ++ b
+    b <- wget "https://rpxnow.com/api/v2/auth_info"
+              []
+              [ ("apiKey", apiKey)
+              , ("token", token)
+              ]
+    o <- decode $ pack b
+    m <- fromMapping o
+    stat <- lookupScalar "stat" m
+    unless (stat == "ok") $ failure $ AuthenticateException $
+        "Rpxnow login not accepted: " ++ stat ++ "\n" ++ b
+    parseProfile m
 
-parseProfile :: Monad m => JSObject JSValue -> m Identifier
-parseProfile v = do
-    profile <- resultToMonad $ valFromObj "profile" v >>= getObject
-    ident <- resultToMonad $ valFromObj "identifier" profile
-    let pairs = fromJSObject profile
-        pairs' = filter (\(k, _) -> k /= "identifier") pairs
-        pairs'' = map fromJust . filter isJust . map takeString $ pairs'
-    return $ Identifier ident pairs''
-
-takeString :: (String, JSValue) -> Maybe (String, String)
-takeString (k, JSString v) = Just (k, fromJSString v)
-takeString _ = Nothing
-
-getObject :: Monad m => JSValue -> m (JSObject JSValue)
-getObject (JSObject o) = return o
-getObject _ = fail "Not an object"
-
-resultToMonad :: Monad m => Result a -> m a
-resultToMonad (Ok x) = return x
-resultToMonad (Error s) = fail s
+parseProfile :: (Monad m, Failure ObjectExtractError m)
+             => [(String, StringObject)] -> m Identifier
+parseProfile m = do
+    profile <- lookupMapping "profile" m
+    ident <- lookupScalar "identifier" profile
+    let profile' = mapMaybe go profile
+    return $ Identifier ident profile'
+  where
+    go ("identifier", _) = Nothing
+    go (k, Scalar v) = Just (k, v)
+    go _ = Nothing
