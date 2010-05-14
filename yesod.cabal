@@ -47,7 +47,7 @@ library
                      transformers >= 0.1 && < 0.3,
                      clientsession >= 0.2.1 && < 0.3,
                      MonadCatchIO-transformers >= 0.2.2 && < 0.3,
-                     pureMD5 >= 1.0.0.3 && < 1.1,
+                     pureMD5 >= 1.1.0.0 && < 1.2,
                      random >= 1.0.0.2 && < 1.1,
                      control-monad-attempt >= 0.3 && < 0.4
     exposed-modules: Yesod
