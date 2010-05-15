@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
@@ -13,10 +14,12 @@ module Yesod.Dispatch
     , basicHandler
       -- * Utilities
     , fullRender
+#if TEST
+    , testSuite
+#endif
     ) where
 
 import Yesod.Handler
-import Yesod.Content
 import Yesod.Yesod
 import Yesod.Request
 import Yesod.Internal
@@ -47,6 +50,17 @@ import Data.Time
 import Control.Monad
 import Data.Maybe
 import Web.ClientSession
+
+import Data.Serialize
+
+#if TEST
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.QuickCheck2 (testProperty)
+import System.IO.Unsafe
+import Yesod.Content hiding (testSuite)
+#else
+import Yesod.Content
+#endif
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, *not* subsites. See 'mkYesodSub' for the latter.
@@ -129,11 +143,6 @@ toWaiApp a =
            $ cleanPath
            $ toWaiApp' a
 
-parseSession :: B.ByteString -> [(String, String)]
-parseSession bs = case reads $ cs bs of
-                    [] -> []
-                    ((x, _):_) -> x
-
 toWaiApp' :: (Yesod y, YesodSite y)
           => y
           -> [String]
@@ -145,13 +154,11 @@ toWaiApp' y segments env = do
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration y
     let host = W.remoteHost env
-    let session' = do
-            (_, raw) <- filter (\(x, _) -> x == W.Cookie) $ W.requestHeaders env
-            (name, val) <- parseCookies raw
-            guard $ name == B.pack sessionName
-            decoded <- maybeToList $ decodeCookie key' now host val
-            parseSession decoded
-        site = getSite
+    let session' = fromMaybe [] $ do
+            raw <- lookup W.Cookie $ W.requestHeaders env
+            val <- lookup (B.pack sessionName) $ parseCookies raw
+            decodeSession key' now host val
+    let site = getSite
         method = B.unpack $ W.methodToBS $ W.requestMethod env
         types = httpAccept env
         pathSegments = filter (not . null) segments
@@ -179,9 +186,9 @@ toWaiApp' y segments env = do
     let eurl' = either (const Nothing) Just eurl
     let eh er = runHandler (errorHandler y er) render eurl' id y id
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
-    let sessionVal = encrypt key' $ B.pack $ show $ ACookie exp' host $ B.pack
-                                  $ show sessionFinal
-    let hs' = AddCookie (clientSessionDuration y) sessionName sessionVal : hs
+    sessionVal <- encodeSession key' exp' host sessionFinal
+    let hs' = AddCookie (clientSessionDuration y) sessionName sessionVal
+            : hs
         hs'' = map (headerToPair getExpires) hs'
         hs''' = (W.ContentType, cs $ contentTypeToString ct) : hs''
     return $ W.Response s hs''' $ case c of
@@ -281,21 +288,64 @@ headerToPair _ (DeleteCookie key) =
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
 headerToPair _ (Header key value) = (W.responseHeaderFromBS $ cs key, cs value)
 
-decodeCookie :: Word256 -- ^ key
-             -> UTCTime -- ^ current time
-             -> B.ByteString -- ^ remote host field
-             -> B.ByteString -- ^ cookie value
-             -> Maybe B.ByteString
-decodeCookie key now rhost encrypted = do
+encodeSession :: B.ByteString -- ^ key
+              -> UTCTime -- ^ expire time
+              -> B.ByteString -- ^ remote host
+              -> [(String, String)] -- ^ session
+              -> IO String -- ^ cookie value
+encodeSession key expire rhost session' =
+    encrypt key $ cs $ encode $ SessionCookie expire rhost session'
+
+decodeSession :: B.ByteString -- ^ key
+              -> UTCTime -- ^ current time
+              -> B.ByteString -- ^ remote host field
+              -> B.ByteString -- ^ cookie value
+              -> Maybe [(String, String)]
+decodeSession key now rhost encrypted = do
     decrypted <- decrypt key $ B.unpack encrypted
-    (ACookie expire rhost' val) <-
-        case reads $ B.unpack decrypted of
-            [] -> Nothing
-            ((x, _):_) -> Just x
+    SessionCookie expire rhost' session' <-
+        either (const Nothing) Just $ decode
+      $ cs decrypted
     guard $ expire > now
     guard $ rhost' == rhost
-    guard $ not $ B.null val
-    return val
+    return session'
 
-data ACookie = ACookie UTCTime B.ByteString B.ByteString
+data SessionCookie = SessionCookie UTCTime B.ByteString [(String, String)]
     deriving (Show, Read)
+instance Serialize SessionCookie where
+    put (SessionCookie a b c) = putTime a >> put b >> put c
+    get = do
+        a <- getTime
+        b <- get
+        c <- get
+        return $ SessionCookie a b c
+
+putTime :: Putter UTCTime
+putTime (UTCTime d t) = do
+    put $ toModifiedJulianDay d
+    put $ fromEnum t
+
+getTime :: Get UTCTime
+getTime = do
+    d <- get
+    t <- get
+    return $ UTCTime (ModifiedJulianDay d) (toEnum t)
+
+#if TEST
+
+testSuite :: Test
+testSuite = testGroup "Yesod.Dispatch"
+    [ testProperty "encode/decode session" propEncDecSession
+    ]
+
+propEncDecSession :: [(String, String)] -> Bool
+propEncDecSession session' = unsafePerformIO $ do
+    key <- getDefaultKey
+    now <- getCurrentTime
+    let expire = addUTCTime 1 now
+    let rhost = B.pack "some host"
+    val <- encodeSession key expire rhost session'
+    return $ Just session' ==
+             decodeSession key now rhost (B.pack val)
+
+#endif
