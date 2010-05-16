@@ -14,6 +14,7 @@ module Yesod.Dispatch
     , basicHandler
       -- * Utilities
     , fullRender
+    , quasiRender
 #if TEST
     , testSuite
 #endif
@@ -167,7 +168,7 @@ toWaiApp' y segments env = do
         pathSegments = filter (not . null) segments
         eurl = quasiParse site pathSegments
         render u = fromMaybe
-                    (fullRender (approot y) site u)
+                    (fullRender (approot y) (quasiRender site) u)
                     (urlRenderOverride y u)
     rr <- parseWaiRequest env session'
     onRequest y rr
@@ -206,11 +207,11 @@ toWaiApp' y segments env = do
 -- For example, if you want to generate an e-mail which links to your site,
 -- this is the function you would want to use.
 fullRender :: String -- ^ approot, no trailing slash
-           -> QuasiSite YesodApp arg arg
-           -> Routes arg
+           -> (url -> [String])
+           -> url
            -> String
-fullRender ar site route =
-    ar ++ '/' : encodePathInfo (fixSegs $ quasiRender site route)
+fullRender ar render route =
+    ar ++ '/' : encodePathInfo (fixSegs $ render route)
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = map (contentTypeFromString . B.unpack)

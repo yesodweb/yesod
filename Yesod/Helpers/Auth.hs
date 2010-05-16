@@ -27,6 +27,7 @@ module Yesod.Helpers.Auth
       -- * Settings
     , YesodAuth (..)
     , Creds (..)
+    , EmailCreds (..)
     , AuthType (..)
     , AuthEmailSettings (..)
     , inMemoryEmailSettings
@@ -127,7 +128,7 @@ setCreds creds extra = do
     onLogin creds extra
 
 -- | Retrieves user credentials, if user is authenticated.
-maybeCreds :: GHandler sub master (Maybe Creds)
+maybeCreds :: RequestReader r => r (Maybe Creds)
 maybeCreds = do
     mcs <- lookupSession credsKey
     return $ mcs >>= readMay
