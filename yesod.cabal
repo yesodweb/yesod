@@ -45,7 +45,7 @@ library
                      web-routes-quasi >= 0.2 && < 0.3,
                      hamlet >= 0.2.2 && < 0.3,
                      transformers >= 0.1 && < 0.3,
-                     clientsession >= 0.3.0 && < 0.4,
+                     clientsession >= 0.4.0 && < 0.5,
                      MonadCatchIO-transformers >= 0.2.2 && < 0.3,
                      pureMD5 >= 1.1.0.0 && < 1.2,
                      random >= 1.0.0.2 && < 1.1,

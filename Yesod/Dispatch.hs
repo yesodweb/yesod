@@ -186,7 +186,7 @@ toWaiApp' y segments env = do
     let eurl' = either (const Nothing) Just eurl
     let eh er = runHandler (errorHandler y er) render eurl' id y id
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
-    sessionVal <- encodeSession key' exp' host sessionFinal
+    let sessionVal = encodeSession key' exp' host sessionFinal
     let hs' = AddCookie (clientSessionDuration y) sessionName sessionVal
             : hs
         hs'' = map (headerToPair getExpires) hs'
@@ -288,15 +288,15 @@ headerToPair _ (DeleteCookie key) =
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
 headerToPair _ (Header key value) = (W.responseHeaderFromBS $ cs key, cs value)
 
-encodeSession :: B.ByteString -- ^ key
+encodeSession :: Key
               -> UTCTime -- ^ expire time
               -> B.ByteString -- ^ remote host
               -> [(String, String)] -- ^ session
-              -> IO String -- ^ cookie value
+              -> String -- ^ cookie value
 encodeSession key expire rhost session' =
     encrypt key $ cs $ encode $ SessionCookie expire rhost session'
 
-decodeSession :: B.ByteString -- ^ key
+decodeSession :: Key
               -> UTCTime -- ^ current time
               -> B.ByteString -- ^ remote host field
               -> B.ByteString -- ^ cookie value

@@ -20,8 +20,7 @@ import Data.Convertible.Text
 import qualified Network.Wai as W
 import Yesod.Json
 import Yesod.Internal
-import Web.ClientSession (getKey, defaultKeyFile)
-import Data.ByteString (ByteString)
+import Web.ClientSession (getKey, defaultKeyFile, Key)
 
 import Web.Routes.Quasi (QuasiSite (..), Routes)
 
@@ -46,7 +45,7 @@ class Yesod a where
     approot :: a -> String
 
     -- | The encryption key to be used for encrypting client sessions.
-    encryptKey :: a -> IO ByteString
+    encryptKey :: a -> IO Key
     encryptKey _ = getKey defaultKeyFile
 
     -- | Number of minutes before a client session times out. Defaults to
