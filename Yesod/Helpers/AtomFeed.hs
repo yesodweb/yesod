@@ -26,6 +26,7 @@ import Yesod
 import Data.Time.Clock (UTCTime)
 import Web.Encodings (formatW3)
 import Text.Hamlet.Monad
+import Text.Hamlet.Quasi
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
@@ -53,7 +54,8 @@ xmlns :: AtomFeed url -> HtmlContent
 xmlns _ = cs "http://www.w3.org/2005/Atom"
 
 template :: AtomFeed url -> Hamlet url IO ()
-template arg = [$hamlet|
+template arg = [$xhamlet|
+<?xml version="1.0" encoding="utf-8"?>
 %feed!xmlns=$xmlns.arg$
     %title $cs.atomTitle.arg$
     %link!rel=self!href=@atomLinkSelf.arg@
@@ -65,7 +67,7 @@ template arg = [$hamlet|
 |]
 
 entryTemplate :: AtomFeedEntry url -> Hamlet url IO ()
-entryTemplate arg = [$hamlet|
+entryTemplate arg = [$xhamlet|
 %entry
     %id @atomEntryLink.arg@
     %link!href=@atomEntryLink.arg@
