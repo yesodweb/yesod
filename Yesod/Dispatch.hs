@@ -56,8 +56,11 @@ import Data.Serialize
 #if TEST
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
+import Test.QuickCheck
 import System.IO.Unsafe
 import Yesod.Content hiding (testSuite)
+import Data.Serialize.Get
+import Data.Serialize.Put
 #else
 import Yesod.Content
 #endif
@@ -321,21 +324,23 @@ instance Serialize SessionCookie where
         return $ SessionCookie a b c
 
 putTime :: Putter UTCTime
-putTime (UTCTime d t) = do
+putTime t@(UTCTime d _) = do
     put $ toModifiedJulianDay d
-    put $ fromEnum t
+    let ndt = diffUTCTime t $ UTCTime d 0
+    put $ toRational ndt
 
 getTime :: Get UTCTime
 getTime = do
     d <- get
-    t <- get
-    return $ UTCTime (ModifiedJulianDay d) (toEnum t)
+    ndt <- get
+    return $ fromRational ndt `addUTCTime` UTCTime (ModifiedJulianDay d) 0
 
 #if TEST
 
 testSuite :: Test
 testSuite = testGroup "Yesod.Dispatch"
     [ testProperty "encode/decode session" propEncDecSession
+    , testProperty "get/put time" propGetPutTime
     ]
 
 propEncDecSession :: [(String, String)] -> Bool
@@ -344,8 +349,18 @@ propEncDecSession session' = unsafePerformIO $ do
     now <- getCurrentTime
     let expire = addUTCTime 1 now
     let rhost = B.pack "some host"
-    val <- encodeSession key expire rhost session'
+    let val = encodeSession key expire rhost session'
     return $ Just session' ==
              decodeSession key now rhost (B.pack val)
+
+propGetPutTime :: UTCTime -> Bool
+propGetPutTime t = Right t == runGet getTime (runPut $ putTime t)
+
+instance Arbitrary UTCTime where
+    arbitrary = do
+        a <- arbitrary
+        b <- arbitrary
+        return $ addUTCTime (fromRational b)
+               $ UTCTime (ModifiedJulianDay a) 0
 
 #endif
