@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Static
@@ -28,20 +29,31 @@ module Yesod.Helpers.Static
     , siteStatic
       -- * Lookup files in filesystem
     , fileLookupDir
+    , staticFiles
+#if TEST
+    , testSuite
+#endif
     ) where
 
-import System.Directory (doesFileExist)
+import System.Directory
 import Control.Monad
 
 import Yesod
 import Data.List (intercalate)
+import Language.Haskell.TH.Syntax
+
+#if TEST
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.HUnit
+import Test.HUnit hiding (Test)
+#endif
 
 -- | A function for looking up file contents. For serving from the file system,
 -- see 'fileLookupDir'.
 data Static = Static (FilePath -> IO (Maybe (Either FilePath Content)))
 
 $(mkYesodSub "Static" [] [$parseRoutes|
-/* StaticRoute GET
+* StaticRoute GET
 |])
 
 -- | Lookup files in a specific directory.
@@ -73,3 +85,53 @@ getStaticRoute fp' = do
     isUnsafe [] = True
     isUnsafe ('.':_) = True
     isUnsafe _ = False
+
+notHidden :: FilePath -> Bool
+notHidden ('.':_) = False
+notHidden _ = True
+
+getFileList :: FilePath -> IO [[String]]
+getFileList = flip go id
+  where
+    go :: String -> ([String] -> [String]) -> IO [[String]]
+    go fp front = do
+        allContents <- filter notHidden `fmap` getDirectoryContents fp
+        let fullPath :: String -> String
+            fullPath f = fp ++ '/' : f
+        files <- filterM (doesFileExist . fullPath) allContents
+        let files' = map (front . return) files
+        dirs <- filterM (doesDirectoryExist . fullPath) allContents
+        dirs' <- mapM (\f -> go (fullPath f) (front . (:) f)) dirs
+        return $ concat $ files' : dirs'
+
+staticFiles :: FilePath -> Q [Dec]
+staticFiles fp = do
+    fs <- qRunIO $ getFileList fp
+    concat `fmap` mapM go fs
+  where
+    replace '.' = '_'
+    replace c = c
+    go f = do
+        let name = mkName $ intercalate "/" $ map (map replace) f
+        f' <- lift f
+        let sr = ConE $ mkName "StaticRoute"
+        return
+            [ SigD name $ ConT ''StaticRoutes
+            , FunD name
+                [ Clause [] (NormalB $ sr `AppE` f') []
+                ]
+            ]
+
+#if TEST
+
+testSuite :: Test
+testSuite = testGroup "Yesod.Helpers.Static"
+    [ testCase "get file list" caseGetFileList
+    ]
+
+caseGetFileList :: Assertion
+caseGetFileList = do
+    x <- getFileList "test"
+    x @?= [["foo"], ["bar", "baz"]]
+
+#endif

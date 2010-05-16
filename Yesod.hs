@@ -19,13 +19,14 @@ module Yesod
 #if TEST
 import Yesod.Content hiding (testSuite)
 import Yesod.Json hiding (testSuite)
+import Yesod.Dispatch hiding (testSuite)
 #else
 import Yesod.Content
 import Yesod.Json
+import Yesod.Dispatch
 #endif
 
 import Yesod.Request
-import Yesod.Dispatch
 import Yesod.Form
 import Yesod.Yesod
 import Yesod.Handler hiding (runHandler)
