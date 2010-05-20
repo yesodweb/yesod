@@ -112,7 +112,7 @@ staticFiles fp = do
     replace '.' = '_'
     replace c = c
     go f = do
-        let name = mkName $ intercalate "/" $ map (map replace) f
+        let name = mkName $ intercalate "_" $ map (map replace) f
         f' <- lift f
         let sr = ConE $ mkName "StaticRoute"
         return
