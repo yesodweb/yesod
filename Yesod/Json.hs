@@ -21,11 +21,13 @@ module Yesod.Json
 import Text.Hamlet.Monad
 import Control.Applicative
 import Data.Text (pack)
-import Web.Encodings
+import qualified Data.Text as T
+import Data.Char (isControl)
 import Yesod.Hamlet
 import Control.Monad (when)
 import Yesod.Handler
 import Web.Routes.Quasi (Routes)
+import Numeric (showHex)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -69,6 +71,23 @@ jsonScalar s = Json $ do
     outputString "\""
     output $ encodeJson $ htmlContentToText s
     outputString "\""
+  where
+    encodeJson = T.concatMap (T.pack . encodeJsonChar)
+
+    encodeJsonChar '\b' = "\\b"
+    encodeJsonChar '\f' = "\\f"
+    encodeJsonChar '\n' = "\\n"
+    encodeJsonChar '\r' = "\\r"
+    encodeJsonChar '\t' = "\\t"
+    encodeJsonChar '"' = "\\\""
+    encodeJsonChar '\\' = "\\\\"
+    encodeJsonChar c
+        | not $ isControl c = [c]
+        | c < '\x10'   = '\\' : 'u' : '0' : '0' : '0' : hexxs
+        | c < '\x100'  = '\\' : 'u' : '0' : '0' : hexxs
+        | c < '\x1000' = '\\' : 'u' : '0' : hexxs
+        where hexxs = showHex (fromEnum c) "" -- FIXME
+    encodeJsonChar c = [c]
 
 -- | Outputs a JSON list, eg [\"foo\",\"bar\",\"baz\"].
 jsonList :: [Json url ()] -> Json url ()

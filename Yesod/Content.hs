@@ -30,6 +30,8 @@ module Yesod.Content
     , RepHtmlJson (..)
     , RepPlain (..)
     , RepXml (..)
+      -- * Utilities
+    , formatW3
 #if TEST
     , testSuite
 #endif
@@ -46,6 +48,8 @@ import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as WE
 
 import Data.Function (on)
+import Data.Time
+import System.Locale
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -245,3 +249,7 @@ caseTypeByExt = do
     TypeJavascript @=? typeByExt (ext "foo.js")
     TypeHtml @=? typeByExt (ext "foo.html")
 #endif
+
+-- | Format a 'UTCTime' in W3 format; useful for setting cookies.
+formatW3 :: UTCTime -> String
+formatW3 = formatTime defaultTimeLocale "%FT%X-00:00"

@@ -24,7 +24,6 @@ module Yesod.Helpers.AtomFeed
 
 import Yesod
 import Data.Time.Clock (UTCTime)
-import Web.Encodings (formatW3)
 import Text.Hamlet.Monad
 import Text.Hamlet.Quasi
 

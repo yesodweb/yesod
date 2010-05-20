@@ -20,6 +20,7 @@ module Yesod.Request
       RequestBodyContents
     , Request (..)
     , RequestReader (..)
+    , FileInfo (..)
       -- * Convenience functions
     , waiRequest
     , languages
@@ -40,7 +41,6 @@ module Yesod.Request
     ) where
 
 import qualified Network.Wai as W
-import Web.Encodings
 import qualified Data.ByteString.Lazy as BL
 #if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
@@ -48,6 +48,7 @@ import "transformers" Control.Monad.IO.Class
 import "transformers" Control.Monad.Trans
 #endif
 import Control.Monad (liftM)
+import Network.Wai.Parse
 
 type ParamName = String
 type ParamValue = String
@@ -58,6 +59,9 @@ class Monad m => RequestReader m where
     getRequest :: m Request
 instance RequestReader ((->) Request) where
     getRequest = id
+instance Monad ((->) Request) where -- FIXME what's happening here?
+    return = const
+    f >>= g = \r -> g (f r) r
 
 -- | Get the list of supported languages supplied by the user.
 --
@@ -82,7 +86,7 @@ waiRequest = reqWaiRequest `liftM` getRequest
 -- | A tuple containing both the POST parameters and submitted files.
 type RequestBodyContents =
     ( [(ParamName, ParamValue)]
-    , [(ParamName, FileInfo String BL.ByteString)]
+    , [(ParamName, FileInfo BL.ByteString)]
     )
 
 -- | The parsed request information.

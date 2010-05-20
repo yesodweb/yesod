@@ -24,7 +24,6 @@ module Yesod.Helpers.Sitemap
     ) where
 
 import Yesod
-import Web.Encodings (formatW3)
 import Data.Time (UTCTime)
 
 data SitemapChangeFreq = Always

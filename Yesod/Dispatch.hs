@@ -39,7 +39,6 @@ import qualified Network.Wai.Handler.CGI as CGI
 import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
-import Web.Encodings
 import Web.Routes (encodePathInfo)
 
 import Control.Concurrent.MVar
@@ -53,6 +52,7 @@ import Data.Maybe
 import Web.ClientSession
 
 import Data.Serialize
+import Network.Wai.Parse
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -247,7 +247,7 @@ parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session
                 -> IO Request
 parseWaiRequest env session' = do
-    let gets' = map (cs *** cs) $ decodeUrlPairs $ W.queryString env
+    let gets' = map (cs *** cs) $ parseQueryString $ W.queryString env
     let reqCookie = fromMaybe B.empty $ lookup W.Cookie $ W.requestHeaders env
         cookies' = map (cs *** cs) $ parseCookies reqCookie
         acceptLang = lookup W.AcceptLanguage $ W.requestHeaders env

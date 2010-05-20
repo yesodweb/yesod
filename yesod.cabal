@@ -36,7 +36,6 @@ library
                      wai-extra >= 0.1.1 && < 0.2,
                      authenticate >= 0.6.2 && < 0.7,
                      bytestring >= 0.9.1.4 && < 0.10,
-                     web-encodings >= 0.2.6 && < 0.3,
                      directory >= 1 && < 1.1,
                      text >= 0.5 && < 0.8,
                      convertible-text >= 0.3.0 && < 0.4,
@@ -50,7 +49,8 @@ library
                      pureMD5 >= 1.1.0.0 && < 1.2,
                      random >= 1.0.0.2 && < 1.1,
                      control-monad-attempt >= 0.3 && < 0.4,
-                     cereal >= 0.2 && < 0.3
+                     cereal >= 0.2 && < 0.3,
+                     old-locale >= 1.0.0.2 && < 1.1
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch

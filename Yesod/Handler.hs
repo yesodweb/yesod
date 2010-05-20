@@ -69,8 +69,8 @@ import Yesod.Request
 import Yesod.Content
 import Yesod.Internal
 import Web.Routes.Quasi (Routes)
-import Data.List (foldl')
-import Web.Encodings (encodeUrlPairs, encodeHtml)
+import Data.List (foldl', intercalate)
+import Text.Hamlet.Monad (htmlContentToText)
 
 import Control.Exception hiding (Handler, catch)
 import qualified Control.Exception as E
@@ -92,7 +92,8 @@ import Control.Monad.Attempt
 
 import Data.Convertible.Text (cs)
 import Text.Hamlet
-import Data.Text (Text)
+import Numeric (showIntAtBase)
+import Data.Char (ord, chr)
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request
@@ -260,6 +261,26 @@ redirectParams :: RedirectType -> Routes master -> [(String, String)]
 redirectParams rt url params = do
     r <- getUrlRender
     redirectString rt $ r url ++ '?' : encodeUrlPairs params
+  where
+    encodeUrlPairs = intercalate "&" . map encodeUrlPair
+    encodeUrlPair (x, []) = escape x
+    encodeUrlPair (x, y) = escape x ++ '=' : escape y
+    escape = concatMap escape'
+    escape' c
+        | 'A' < c && c < 'Z' = [c]
+        | 'a' < c && c < 'a' = [c]
+        | '0' < c && c < '9' = [c]
+        | c `elem` ".-~_" = [c]
+        | c == ' ' = "+"
+        | otherwise = '%' : myShowHex (ord c) ""
+    myShowHex :: Int -> ShowS
+    myShowHex n r =  case showIntAtBase 16 (toChrHex) n r of
+        []  -> "00"
+        [c] -> ['0',c]
+        s  -> s
+    toChrHex d
+        | d < 10    = chr (ord '0' + fromIntegral d)
+        | otherwise = chr (ord 'A' + fromIntegral (d - 10))
 
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
@@ -320,11 +341,6 @@ getMessage :: GHandler sub master (Maybe HtmlContent)
 getMessage = do
     clearSession msgKey
     fmap (fmap $ Encoded . cs) $ lookupSession msgKey
-
--- | FIXME move this definition into hamlet
-htmlContentToText :: HtmlContent -> Text
-htmlContentToText (Encoded t) = t
-htmlContentToText (Unencoded t) = encodeHtml t
 
 -- | Bypass remaining handler code and output the given file.
 --
