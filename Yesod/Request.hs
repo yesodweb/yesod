@@ -49,6 +49,7 @@ import "transformers" Control.Monad.Trans
 #endif
 import Control.Monad (liftM)
 import Network.Wai.Parse
+import Control.Monad.Instances () -- I'm missing the instance Monad ((->) r
 
 type ParamName = String
 type ParamValue = String
@@ -59,9 +60,6 @@ class Monad m => RequestReader m where
     getRequest :: m Request
 instance RequestReader ((->) Request) where
     getRequest = id
-instance Monad ((->) Request) where -- FIXME what's happening here?
-    return = const
-    f >>= g = \r -> g (f r) r
 
 -- | Get the list of supported languages supplied by the user.
 --
