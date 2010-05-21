@@ -41,7 +41,7 @@ library
                      convertible-text >= 0.3.0 && < 0.4,
                      template-haskell >= 2.4 && < 2.5,
                      web-routes >= 0.22 && < 0.23,
-                     web-routes-quasi >= 0.2 && < 0.3,
+                     web-routes-quasi >= 0.3 && < 0.4,
                      hamlet >= 0.2.2 && < 0.3,
                      transformers >= 0.1 && < 0.3,
                      clientsession >= 0.4.0 && < 0.5,

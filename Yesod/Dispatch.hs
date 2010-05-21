@@ -9,6 +9,10 @@ module Yesod.Dispatch
       -- ** More fine-grained
     , mkYesodData
     , mkYesodDispatch
+      -- ** Path pieces
+    , SinglePiece (..)
+    , MultiPiece (..)
+    , Strings
       -- * Convert to WAI
     , toWaiApp
     , basicHandler

@@ -53,7 +53,7 @@ import Test.HUnit hiding (Test)
 data Static = Static (FilePath -> IO (Maybe (Either FilePath Content)))
 
 $(mkYesodSub "Static" [] [$parseRoutes|
-* StaticRoute GET
+*Strings StaticRoute GET
 |])
 
 -- | Lookup files in a specific directory.

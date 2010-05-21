@@ -138,17 +138,17 @@ maybeCreds = do
                     _ -> Nothing
 
 mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
-/check                 Check              GET
-/logout                Logout             GET
-/openid                OpenIdR            GET
-/openid/forward        OpenIdForward      GET
-/openid/complete       OpenIdComplete     GET
-/login/rpxnow          RpxnowR
+/check                   Check              GET
+/logout                  Logout             GET
+/openid                  OpenIdR            GET
+/openid/forward          OpenIdForward      GET
+/openid/complete         OpenIdComplete     GET
+/login/rpxnow            RpxnowR
 
-/register              EmailRegisterR     GET POST
-/verify/#/$            EmailVerifyR       GET
-/login                 EmailLoginR        GET POST
-/set-password          EmailPasswordR     GET POST
+/register                EmailRegisterR     GET POST
+/verify/#EmailId/#String EmailVerifyR       GET
+/login                   EmailLoginR        GET POST
+/set-password            EmailPasswordR     GET POST
 |]
 
 testOpenId :: GHandler Auth master ()
