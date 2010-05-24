@@ -319,7 +319,7 @@ postEmailRegisterR = do
 |]
 
 checkEmail :: Form ParamValue -> Form ParamValue
-checkEmail = notEmpty -- FIXME
+checkEmail = notEmpty -- FIXME consider including e-mail validation
 
 getEmailVerifyR :: YesodAuth master
            => Integer -> String -> GHandler Auth master RepHtml
@@ -452,7 +452,7 @@ saltPass pass = do
     let salt = take saltLength $ randomRs ('A', 'Z') stdgen
     return $ saltPass' salt pass
 
-saltPass' :: String -> String -> String -- FIXME better salting scheme?
+saltPass' :: String -> String -> String
 saltPass' salt pass = salt ++ show (md5 $ cs $ salt ++ pass)
 
 inMemoryEmailSettings :: IO AuthEmailSettings

@@ -86,7 +86,7 @@ jsonScalar s = Json $ do
         | c < '\x10'   = '\\' : 'u' : '0' : '0' : '0' : hexxs
         | c < '\x100'  = '\\' : 'u' : '0' : '0' : hexxs
         | c < '\x1000' = '\\' : 'u' : '0' : hexxs
-        where hexxs = showHex (fromEnum c) "" -- FIXME
+        where hexxs = showHex (fromEnum c) ""
     encodeJsonChar c = [c]
 
 -- | Outputs a JSON list, eg [\"foo\",\"bar\",\"baz\"].
