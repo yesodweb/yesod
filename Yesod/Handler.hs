@@ -70,7 +70,7 @@ import Yesod.Content
 import Yesod.Internal
 import Web.Routes.Quasi (Routes)
 import Data.List (foldl', intercalate)
-import Text.Hamlet.Monad (htmlContentToText)
+import Text.Hamlet.Monad (htmlContentToByteString)
 
 import Control.Exception hiding (Handler, catch)
 import qualified Control.Exception as E
@@ -331,7 +331,7 @@ msgKey = "_MSG"
 --
 -- See 'getMessage'.
 setMessage :: HtmlContent -> GHandler sub master ()
-setMessage = setSession msgKey . cs . htmlContentToText
+setMessage = setSession msgKey . cs . htmlContentToByteString
 
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.

@@ -49,6 +49,7 @@ import Control.Applicative
 import Control.Concurrent.MVar
 import System.IO
 import Control.Monad.Attempt
+import Data.Monoid (mempty)
 
 class Yesod master => YesodAuth master where
     -- | Default destination on successful login or logout, if no other
@@ -165,7 +166,7 @@ getOpenIdR = do
         (x:_) -> setUltDestString x
     rtom <- getRouteToMaster
     message <- getMessage
-    applyLayout "Log in via OpenID" (return ()) [$hamlet|
+    applyLayout "Log in via OpenID" mempty [$hamlet|
 $maybe message msg
     %p.message $msg$
 %form!method=get!action=@rtom.OpenIdForward@
@@ -247,8 +248,7 @@ getDisplayName extra =
 getCheck :: Yesod master => GHandler Auth master RepHtmlJson
 getCheck = do
     creds <- maybeCreds
-    applyLayoutJson "Authentication Status"
-        (return ()) (html creds) (json creds)
+    applyLayoutJson "Authentication Status" mempty (html creds) (json creds)
   where
     html creds = [$hamlet|
 %h1 Authentication Status
@@ -289,7 +289,7 @@ getEmailRegisterR :: Yesod master => GHandler Auth master RepHtml
 getEmailRegisterR = do
     _ae <- getAuthEmailSettings
     toMaster <- getRouteToMaster
-    applyLayout "Register a new account" (return ()) [$hamlet|
+    applyLayout "Register a new account" mempty [$hamlet|
 %p Enter your e-mail address below, and a confirmation e-mail will be sent to you.
 %form!method=post!action=@toMaster.EmailRegisterR@
     %label!for=email E-mail
@@ -314,7 +314,7 @@ postEmailRegisterR = do
     tm <- getRouteToMaster
     let verUrl = render $ tm $ EmailVerifyR lid verKey
     liftIO $ sendVerifyEmail ae email verKey verUrl
-    applyLayout "Confirmation e-mail sent" (return ()) [$hamlet|
+    applyLayout "Confirmation e-mail sent" mempty [$hamlet|
 %p A confirmation e-mail has been sent to $cs.email$.
 |]
 
@@ -333,7 +333,7 @@ getEmailVerifyR lid key = do
             setCreds (Creds email AuthEmail (Just email) Nothing (Just lid)) []
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster EmailPasswordR
-        _ -> applyLayout "Invalid verification key" (return ()) [$hamlet|
+        _ -> applyLayout "Invalid verification key" mempty [$hamlet|
 %p I'm sorry, but that was an invalid verification key.
         |]
 
@@ -342,7 +342,7 @@ getEmailLoginR = do
     _ae <- getAuthEmailSettings
     toMaster <- getRouteToMaster
     msg <- getMessage
-    applyLayout "Login" (return ()) [$hamlet|
+    applyLayout "Login" mempty [$hamlet|
 $maybe msg ms
     %p.message $ms$
 %p Please log in to your account.
@@ -396,7 +396,7 @@ getEmailPasswordR = do
             setMessage $ cs "You must be logged in to set a password"
             redirect RedirectTemporary $ toMaster EmailLoginR
     msg <- getMessage
-    applyLayout "Set password" (return ()) [$hamlet|
+    applyLayout "Set password" mempty [$hamlet|
 $maybe msg ms
     %p.message $ms$
 %h3 Set a new password

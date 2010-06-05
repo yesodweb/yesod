@@ -52,7 +52,7 @@ data AtomFeedEntry url = AtomFeedEntry
 xmlns :: AtomFeed url -> HtmlContent
 xmlns _ = cs "http://www.w3.org/2005/Atom"
 
-template :: AtomFeed url -> Hamlet url IO ()
+template :: AtomFeed url -> Hamlet url
 template arg = [$xhamlet|
 <?xml version="1.0" encoding="utf-8"?>
 %feed!xmlns=$xmlns.arg$
@@ -65,7 +65,7 @@ template arg = [$xhamlet|
         ^entryTemplate.entry^
 |]
 
-entryTemplate :: AtomFeedEntry url -> Hamlet url IO ()
+entryTemplate :: AtomFeedEntry url -> Hamlet url
 entryTemplate arg = [$xhamlet|
 %entry
     %id @atomEntryLink.arg@

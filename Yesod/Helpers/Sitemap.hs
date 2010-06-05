@@ -53,7 +53,7 @@ data SitemapUrl url = SitemapUrl
 sitemapNS :: HtmlContent
 sitemapNS = cs "http://www.sitemaps.org/schemas/sitemap/0.9"
 
-template :: [SitemapUrl url] -> Hamlet url IO ()
+template :: [SitemapUrl url] -> Hamlet url
 template urls = [$hamlet|
 %urlset!xmlns=$sitemapNS$
     $forall urls url

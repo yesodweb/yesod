@@ -21,6 +21,7 @@ import qualified Network.Wai as W
 import Yesod.Json
 import Yesod.Internal
 import Web.ClientSession (getKey, defaultKeyFile, Key)
+import Data.Monoid (mempty)
 
 import Web.Routes.Quasi (QuasiSite (..), Routes)
 
@@ -93,8 +94,8 @@ class Yesod a where
 -- | Apply the default layout ('defaultLayout') to the given title and body.
 applyLayout :: Yesod master
             => String -- ^ title
-            -> Hamlet (Routes master) IO () -- ^ head
-            -> Hamlet (Routes master) IO () -- ^ body
+            -> Hamlet (Routes master) -- ^ head
+            -> Hamlet (Routes master) -- ^ body
             -> GHandler sub master RepHtml
 applyLayout t h b =
     RepHtml `fmap` defaultLayout PageContent
@@ -107,9 +108,9 @@ applyLayout t h b =
 -- the default layout for the HTML output ('defaultLayout').
 applyLayoutJson :: Yesod master
                 => String -- ^ title
-                -> Hamlet (Routes master) IO () -- ^ head
-                -> Hamlet (Routes master) IO () -- ^ body
-                -> Json (Routes master) ()
+                -> Hamlet (Routes master) -- ^ head
+                -> Hamlet (Routes master) -- ^ body
+                -> Json (Routes master)
                 -> GHandler sub master RepHtmlJson
 applyLayoutJson t h html json = do
     html' <- defaultLayout PageContent
@@ -122,9 +123,9 @@ applyLayoutJson t h html json = do
 
 applyLayout' :: Yesod master
              => String -- ^ title
-             -> Hamlet (Routes master) IO () -- ^ body
+             -> Hamlet (Routes master) -- ^ body
              -> GHandler sub master ChooseRep
-applyLayout' s = fmap chooseRep . applyLayout s (return ())
+applyLayout' s = fmap chooseRep . applyLayout s mempty
 
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod y
