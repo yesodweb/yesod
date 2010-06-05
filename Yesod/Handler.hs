@@ -361,7 +361,7 @@ badMethod = do
 
 -- | Return a 403 permission denied page.
 permissionDenied :: Failure ErrorResponse m => m a
-permissionDenied = failure PermissionDenied
+permissionDenied = failure $ PermissionDenied "Permission denied"
 
 -- | Return a 400 invalid arguments page.
 invalidArgs :: Failure ErrorResponse m => [(ParamName, String)] -> m a
@@ -408,7 +408,7 @@ getStatus :: ErrorResponse -> W.Status
 getStatus NotFound = W.Status404
 getStatus (InternalError _) = W.Status500
 getStatus (InvalidArgs _) = W.Status400
-getStatus PermissionDenied = W.Status403
+getStatus (PermissionDenied _) = W.Status403
 getStatus (BadMethod _) = W.Status405
 
 getRedirectStatus :: RedirectType -> W.Status

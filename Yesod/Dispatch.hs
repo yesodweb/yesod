@@ -176,14 +176,18 @@ toWaiApp' y segments env = do
                     (urlRenderOverride y u)
     rr <- parseWaiRequest env session'
     onRequest y rr
-    let ya = case eurl of
-                Left _ -> runHandler (errorHandler y NotFound)
-                                      render
-                                      Nothing
-                                      id
-                                      y
-                                      id
-                Right url -> quasiDispatch site
+    ya <-
+      case eurl of
+        Left _ -> return $ runHandler (errorHandler y NotFound)
+                          render
+                          Nothing
+                          id
+                          y
+                          id
+        Right url -> do
+            auth <- isAuthorized y url
+            case auth of
+                Nothing -> return $ quasiDispatch site
                                 render
                                 url
                                 id
@@ -191,6 +195,14 @@ toWaiApp' y segments env = do
                                 id
                                 (badMethodApp method)
                                 method
+                Just msg ->
+                    return $ runHandler
+                                (errorHandler y $ PermissionDenied msg)
+                                render
+                                (Just url)
+                                id
+                                y
+                                id
     let eurl' = either (const Nothing) Just eurl
     let eh er = runHandler (errorHandler y er) render eurl' id y id
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types

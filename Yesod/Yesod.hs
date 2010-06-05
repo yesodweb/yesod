@@ -82,6 +82,14 @@ class Yesod a where
     urlRenderOverride :: a -> Routes a -> Maybe String
     urlRenderOverride _ _ = Nothing
 
+    -- | Determine is a request is authorized or not.
+    --
+    -- Return 'Nothing' is the request is authorized, 'Just' a message if
+    -- unauthorized. If authentication is required, you should use a redirect;
+    -- the Auth helper provides this functionality automatically.
+    isAuthorized :: a -> Routes a -> IO (Maybe String)
+    isAuthorized _ _ = return Nothing
+
 -- | Apply the default layout ('defaultLayout') to the given title and body.
 applyLayout :: Yesod master
             => String -- ^ title
@@ -130,9 +138,11 @@ defaultErrorHandler NotFound = do
 |]
   where
     pathInfo = W.pathInfo
-defaultErrorHandler PermissionDenied =
+defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied" $ [$hamlet|
-%h1 Permission denied|]
+%h1 Permission denied
+%p $cs.msg$
+|]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments" $ [$hamlet|
 %h1 Invalid Arguments

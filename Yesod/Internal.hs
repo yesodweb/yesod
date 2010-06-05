@@ -14,7 +14,7 @@ data ErrorResponse =
       NotFound
     | InternalError String
     | InvalidArgs [(String, String)]
-    | PermissionDenied
+    | PermissionDenied String
     | BadMethod String
     deriving (Show, Eq)
 
