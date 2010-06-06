@@ -33,9 +33,5 @@ import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet
 import Data.Convertible.Text (cs)
-#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class (liftIO)
-#else
-import "transformers" Control.Monad.Trans (liftIO)
-#endif
 import Web.Routes.Quasi (Routes)

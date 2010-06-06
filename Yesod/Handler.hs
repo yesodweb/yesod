@@ -76,13 +76,9 @@ import Control.Exception hiding (Handler, catch)
 import qualified Control.Exception as E
 import Control.Applicative
 
-#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
-#else
-import "transformers" Control.Monad.Trans
-#endif
-import qualified Control.Monad.CatchIO as C
-import Control.Monad.CatchIO (catch)
+import qualified "MonadCatchIO-transformers" Control.Monad.CatchIO as C
+import "MonadCatchIO-transformers" Control.Monad.CatchIO (catch)
 import Control.Monad (liftM, ap)
 
 import System.IO

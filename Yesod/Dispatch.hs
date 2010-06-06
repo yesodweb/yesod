@@ -31,6 +31,7 @@ import Yesod.Internal
 
 import Web.Routes.Quasi
 import Language.Haskell.TH.Syntax
+import Data.List (nub)
 
 import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as W
@@ -46,7 +47,7 @@ import qualified Data.ByteString.Char8 as B
 import Web.Routes (encodePathInfo)
 
 import Control.Concurrent.MVar
-import Control.Arrow ((***))
+import Control.Arrow ((***), first)
 import Data.Convertible.Text (cs)
 
 import Data.Time
@@ -76,7 +77,7 @@ import Yesod.Content
 mkYesod :: String -- ^ name of the argument datatype
         -> [Resource]
         -> Q [Dec]
-mkYesod name = fmap (\(x, y) -> x ++ y) . mkYesodGeneral name [] False
+mkYesod name = fmap (\(x, y) -> x ++ y) . mkYesodGeneral name [] [] False
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating subsites, *not* sites. See 'mkYesod' for the latter.
@@ -84,11 +85,13 @@ mkYesod name = fmap (\(x, y) -> x ++ y) . mkYesodGeneral name [] False
 -- executable by itself, but instead provides functionality to
 -- be embedded in other sites.
 mkYesodSub :: String -- ^ name of the argument datatype
-           -> [Name] -- ^ a list of classes the master datatype must be an instance of
+           -> [(String, [Name])]
            -> [Resource]
            -> Q [Dec]
 mkYesodSub name clazzes =
-    fmap (\(x, y) -> x ++ y) . mkYesodGeneral name clazzes True
+    fmap (\(x, y) -> x ++ y) . mkYesodGeneral name' rest clazzes True
+  where
+    (name':rest) = words name
 
 -- | Sometimes, you will want to declare your routes in one file and define
 -- your handlers elsewhere. For example, this is the only way to break up a
@@ -96,7 +99,7 @@ mkYesodSub name clazzes =
 -- 'mkYesodDispatch', do just that.
 mkYesodData :: String -> [Resource] -> Q [Dec]
 mkYesodData name res = do
-    (x, _) <- mkYesodGeneral name [] False res
+    (x, _) <- mkYesodGeneral name [] [] False res
     let rname = mkName $ "resources" ++ name
     eres <- liftResources res
     let y = [ SigD rname $ ListT `AppT` ConT ''Resource
@@ -106,7 +109,7 @@ mkYesodData name res = do
 
 -- | See 'mkYesodData'.
 mkYesodDispatch :: String -> [Resource] -> Q [Dec]
-mkYesodDispatch name = fmap snd . mkYesodGeneral name [] False
+mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
 
 explodeHandler :: HasReps c
                => GHandler sub master c
@@ -120,24 +123,43 @@ explodeHandler :: HasReps c
                -> YesodApp
 explodeHandler a b c d e f _ _ = runHandler a b (Just c) d e f
 
-mkYesodGeneral :: String -> [Name] -> Bool -> [Resource] -> Q ([Dec], [Dec])
-mkYesodGeneral name clazzes isSub res = do
+mkYesodGeneral :: String -- ^ argument name
+               -> [String] -- ^ parameters for site argument
+               -> [(String, [Name])] -- ^ classes
+               -> Bool -- ^ is subsite?
+               -> [Resource]
+               -> Q ([Dec], [Dec])
+mkYesodGeneral name args clazzes isSub res = do
     let name' = mkName name
+        args' = map mkName args
+        arg = foldl AppT (ConT $ name') $ map VarT args'
     let site = mkName $ "site" ++ name
     let gsbod = NormalB $ VarE site
     let yes' = FunD (mkName "getSite") [Clause [] gsbod []]
     let yes = InstanceD [] (ConT ''YesodSite `AppT` ConT name') [yes']
+    let clazzes' = compact
+                 $ map (\x -> (x, [])) ("master" : args) ++
+                   clazzes
     explode <- [|explodeHandler|]
     QuasiSiteDecs w x y z <- createQuasiSite QuasiSiteSettings
                 { crRoutes = mkName $ name ++ "Routes"
                 , crApplication = ConT ''YesodApp
-                , crArgument = ConT $ mkName name
+                , crArgument = arg
                 , crExplode = explode
                 , crResources = res
                 , crSite = site
-                , crMaster = if isSub then Right clazzes else Left (ConT name')
+                , crMaster = if isSub
+                                then Right clazzes'
+                                else Left (ConT name')
                 }
     return ([w, x], (if isSub then id else (:) yes) [y, z])
+
+compact :: [(String, [a])] -> [(String, [a])]
+compact [] = []
+compact ((x, x'):rest) =
+    let ys = filter (\(y, _) -> y == x) rest
+        zs = filter (\(z, _) -> z /= x) rest
+     in (x, x' ++ concatMap snd ys) : compact zs
 
 sessionName :: String
 sessionName = "_SESSION"

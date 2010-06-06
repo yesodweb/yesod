@@ -26,11 +26,7 @@ import Control.Applicative hiding (optional)
 import Data.Time (Day)
 import Data.Convertible.Text
 import Data.Maybe (fromMaybe)
-#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
-#else
-import "transformers" Control.Monad.Trans
-#endif
 import Yesod.Internal
 import Control.Monad.Attempt
 

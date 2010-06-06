@@ -42,11 +42,7 @@ module Yesod.Request
 
 import qualified Network.Wai as W
 import qualified Data.ByteString.Lazy as BL
-#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
-#else
-import "transformers" Control.Monad.Trans
-#endif
 import Control.Monad (liftM)
 import Network.Wai.Parse
 import Control.Monad.Instances () -- I'm missing the instance Monad ((->) r
