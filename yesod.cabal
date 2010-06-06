@@ -50,7 +50,10 @@ library
                      random >= 1.0.0.2 && < 1.1,
                      control-monad-attempt >= 0.3 && < 0.4,
                      cereal >= 0.2 && < 0.3,
-                     old-locale >= 1.0.0.2 && < 1.1
+                     old-locale >= 1.0.0.2 && < 1.1,
+                     formlets >= 0.7.1 && < 0.8,
+                     applicative-extras >= 0.1.6 && < 0.2,
+                     persistent >= 0.0.0 && < 0.1
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch
@@ -65,6 +68,10 @@ library
                      Yesod.Helpers.Auth
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
+                     Yesod.Contrib
+                     Yesod.Contrib.Crud
+                     Yesod.Contrib.Formable
+                     Yesod.Contrib.Persist
     ghc-options:     -Wall
 
 executable             runtests

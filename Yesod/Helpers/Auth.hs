@@ -138,7 +138,7 @@ maybeCreds = do
                     (y, _):_ -> Just y
                     _ -> Nothing
 
-mkYesodSub "Auth" [''YesodAuth] [$parseRoutes|
+mkYesodSub "Auth" [("master", [''YesodAuth])] [$parseRoutes|
 /check                   Check              GET
 /logout                  Logout             GET
 /openid                  OpenIdR            GET
