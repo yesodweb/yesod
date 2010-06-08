@@ -5,7 +5,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 module Yesod.Contrib.Formable where
 
-import Text.Formlets
 import Text.Hamlet
 import Data.Time (Day)
 import Control.Applicative
@@ -17,23 +16,101 @@ import Language.Haskell.TH.Syntax
 import Database.Persist (Table (..))
 import Database.Persist.Helper (upperFirst)
 import Data.Convertible.Text (cs)
+import Control.Monad (liftM)
+import Control.Arrow (first)
+import Data.Maybe (fromMaybe)
+import Data.Monoid (mempty, mappend)
+
+type Env = [(String, String)]
+
+newtype Incr a = Incr { runIncr :: Int -> (a, Int) }
+incr :: Incr Int
+incr = Incr $ \i -> (i + 1, i + 1)
+instance Monad Incr where
+    return a = Incr $ \i -> (a, i)
+    Incr x >>= f = Incr $ \i ->
+        let (x', i') = x i
+         in runIncr (f x') i'
+
+data FormResult a = FormMissing
+                  | FormFailure [String]
+                  | FormSuccess a
+instance Functor FormResult where
+    fmap _ FormMissing = FormMissing
+    fmap _ (FormFailure errs) = FormFailure errs
+    fmap f (FormSuccess a) = FormSuccess $ f a
+
+newtype Form url a = Form
+    { runForm :: Env -> Incr (FormResult a, [String] -> Hamlet url)
+    }
+type Formlet url a = Maybe a -> Form url a
+
+newtype SealedForm url a = SealedForm
+    { runSealedForm :: Env -> Incr (Maybe a, Hamlet url)
+    }
+type SealedFormlet url a = Maybe a -> SealedForm url a
+instance Functor (SealedForm url) where
+    fmap f (SealedForm g) = SealedForm
+                          $ \env -> liftM (first $ fmap f) (g env)
+instance Applicative (SealedForm url) where
+    pure a = SealedForm $ const $ return (Just a, mempty)
+    (SealedForm f) <*> (SealedForm g) = SealedForm $ \env -> do
+        (f1, f2) <- f env
+        (g1, g2) <- g env
+        return (f1 <*> g1, f2 `mappend` g2)
+
+sealForm :: Form url a -> SealedForm url a
+sealForm (Form form) = SealedForm $ \env -> liftM go (form env)
+  where
+    go (FormSuccess a, xml) = (Just a, xml [])
+    go (FormFailure errs, xml) = (Nothing, xml errs)
+    go (FormMissing, xml) = (Nothing, xml [])
+
+sealFormlet :: Formlet url a -> SealedFormlet url a
+sealFormlet formlet initVal = sealForm $ formlet initVal
+
+instance Functor (Form url) where
+    fmap f (Form g) = Form $ \env -> liftM (first $ fmap f) (g env)
+
+input' :: (String -> String -> [String] -> Hamlet url)
+       -> Maybe String
+       -> Form url String
+input' mkXml val = Form $ \env -> do
+    i <- incr
+    let i' = show i
+    let param = lookup i' env
+    let xml = mkXml i' $ fromMaybe (fromMaybe "" val) param
+    return (maybe FormMissing FormSuccess param, xml)
+
+check :: Form url a -> (a -> Either [String] b) -> Form url b
+check (Form form) f = Form $ \env -> liftM (first go) (form env)
+  where
+    go FormMissing = FormMissing
+    go (FormFailure x) = FormFailure x
+    go (FormSuccess a) =
+        case f a of
+            Left errs -> FormFailure errs
+            Right b -> FormSuccess b
 
 class Formable a where
-    formable :: (Functor m, Applicative m, Monad m)
-             => Formlet (Hamlet url) m a
+    formable :: SealedFormlet url a
 
 class Fieldable a where
-    fieldable :: (Functor m, Applicative m, Monad m)
-              => String -> Formlet (Hamlet url) m a
+    fieldable :: String -> Formlet url a
 
 instance Fieldable [Char] where
     fieldable label = input' go
       where
-        go name val = [$hamlet|
+        go name val errs = [$hamlet|
 %tr
     %th $string.label$
     %td
         %input!type=text!name=$string.name$!value=$string.val$
+    $if not.null.errs
+        %td.errors
+            %ul
+                $forall errs err
+                    %li $string.err$
 |]
 
 instance Fieldable Html where
@@ -42,24 +119,36 @@ instance Fieldable Html where
       . input' go
       . fmap (cs . renderHtml)
       where
-        go name val = [$hamlet|
+        go name val errs = [$hamlet|
 %tr
     %th $string.label$
     %td
         %textarea!name=$string.name$
             $string.val$
+    $if not.null.errs
+        %td.errors
+            %ul
+                $forall errs err
+                    %li $string.err$
 |]
 
 instance Fieldable Day where
     fieldable label x = input' go (fmap show x) `check` asDay
       where
-        go name val = [$hamlet|
+        go name val errs = [$hamlet|
 %tr
     %th $string.label$
     %td
         %input!type=date!name=$string.name$!value=$string.val$
+    $if not.null.errs
+        %td.errors
+            %ul
+                $forall errs err
+                    %li $string.err$
 |]
-        asDay s = maybeRead' s "Invalid day"
+        asDay s = case reads s of
+                    (x, _):_ -> Right x
+                    [] -> Left ["Invalid day"]
 
 newtype Slug = Slug { unSlug :: String }
     deriving (Read, Eq, Show, SinglePiece, Persistable)
@@ -67,17 +156,22 @@ newtype Slug = Slug { unSlug :: String }
 instance Fieldable Slug where
     fieldable label x = input' go (fmap unSlug x) `check` asSlug
       where
-        go name val = [$hamlet|
+        go name val errs = [$hamlet|
 %tr
     %th $string.label$
     %td
         %input!type=text!name=$string.name$!value=$string.val$
+    $if not.null.errs
+        %td.errors
+            %ul
+                $forall errs err
+                    %li $string.err$
 |]
-        asSlug [] = Failure ["Slug must be non-empty"]
+        asSlug [] = Left ["Slug must be non-empty"]
         asSlug x'
             | all (\c -> c `elem` "-_" || isAlphaNum c) x' =
-                Success $ Slug x'
-            | otherwise = Failure ["Slug must be alphanumeric, - and _"]
+                Right $ Slug x'
+            | otherwise = Left ["Slug must be alphanumeric, - and _"]
 
 share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
 share2 f g a = do
@@ -107,5 +201,7 @@ deriveFormable = mapM derive
         return $ InstanceD [] (ConT ''Formable `AppT` ConT (mkName $ tableName t))
             [FunD (mkName "formable") [c1, c2]]
     go ap just' = foldl (ap' ap) just' . map go'
-    go' (label, ex) = VarE (mkName "fieldable") `AppE` LitE (StringL label) `AppE` ex
+    go' (label, ex) =  VarE (mkName "sealForm") `AppE`
+                      (VarE (mkName "fieldable")
+                `AppE` LitE (StringL label) `AppE` ex)
     ap' ap x y = InfixE (Just x) ap (Just y)

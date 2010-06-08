@@ -4,6 +4,6 @@ module Yesod.Contrib
     , module Yesod.Contrib.Persist
     ) where
 
-import Yesod.Contrib.Formable
+import Yesod.Contrib.Formable hiding (runForm)
 import Yesod.Contrib.Crud
 import Yesod.Contrib.Persist

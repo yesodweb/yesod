@@ -6,20 +6,17 @@ module Yesod.Contrib.Crud where
 import Yesod hiding (Form)
 import Database.Persist
 import Control.Applicative.Error
-import Yesod.Contrib.Formable
+import Yesod.Contrib.Formable hiding (runForm)
 import Yesod.Contrib.Persist
-import Text.Formlets
 import Control.Arrow (second)
 import Data.Monoid (mempty)
 
-runForm :: Form xml (GHandler sub y) a -> GHandler sub y (Failing a, xml)
+runForm :: SealedForm (Routes y) a
+        -> GHandler sub y (Maybe a, Hamlet (Routes y))
 runForm f = do
     req <- getRequest
     (pp, _) <- liftIO $ reqRequestBody req
-    let env = map (second Left) pp
-    let (a, b, _) = runFormState env f
-    a' <- a
-    return (a', b)
+    return $ fst $ runIncr (runSealedForm f pp) 1
 
 class Formable a => Item a where
     itemTitle :: a -> String
@@ -100,7 +97,7 @@ getCrudDeleteR :: (Yesod master, Item item, SinglePiece (Key item))
 getCrudDeleteR s = do
     itemId <- maybe notFound return $ itemReadId s
     crud <- getYesodSub
-    item <- crudGet crud itemId >>= maybe notFound return
+    item <- crudGet crud itemId >>= maybe notFound return -- Just ensure it exists
     toMaster <- getRouteToMaster
     applyLayout "Confirm delete" mempty [$hamlet|
 %form!method=post!action=@toMaster.CrudDeleteR.s@
@@ -132,25 +129,20 @@ crudHelper title me isPost = do
     crud <- getYesodSub
     (errs, form) <- runForm $ formable $ fmap snd me
     toMaster <- getRouteToMaster
-    errs' <- case (isPost, errs) of
-                (True, Success a) -> do
-                    eid <- case me of
-                            Just (eid, _) -> do
-                                crudReplace crud eid a
-                                return eid
-                            Nothing -> crudInsert crud a
-                    redirect RedirectTemporary $ toMaster $ CrudEditR
-                                               $ toSinglePiece eid
-                (True, Failure e) -> return $ Just e
-                (False, _) -> return Nothing
+    case (isPost, errs) of
+        (True, Just a) -> do
+            eid <- case me of
+                    Just (eid, _) -> do
+                        crudReplace crud eid a
+                        return eid
+                    Nothing -> crudInsert crud a
+            redirect RedirectTemporary $ toMaster $ CrudEditR
+                                       $ toSinglePiece eid
+        _ -> return ()
     applyLayout title mempty [$hamlet|
 %p
     %a!href=@toMaster.CrudListR@ Return to list
 %h1 $cs.title$
-$maybe errs' es
-    %ul
-        $forall es e
-            %li $cs.e$
 %form!method=post
     %table
         ^form^
