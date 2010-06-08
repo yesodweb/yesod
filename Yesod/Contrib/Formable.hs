@@ -8,7 +8,6 @@ module Yesod.Contrib.Formable where
 import Text.Hamlet
 import Data.Time (Day)
 import Control.Applicative
-import Control.Applicative.Error
 import Web.Routes.Quasi (SinglePiece)
 import Database.Persist (Persistable)
 import Data.Char (isAlphaNum)
@@ -41,7 +40,7 @@ instance Functor FormResult where
     fmap f (FormSuccess a) = FormSuccess $ f a
 
 newtype Form url a = Form
-    { runForm :: Env -> Incr (FormResult a, [String] -> Hamlet url)
+    { runForm :: Env -> Incr (FormResult a, Hamlet url)
     }
 type Formlet url a = Maybe a -> Form url a
 
@@ -59,20 +58,22 @@ instance Applicative (SealedForm url) where
         (g1, g2) <- g env
         return (f1 <*> g1, f2 `mappend` g2)
 
-sealForm :: Form url a -> SealedForm url a
-sealForm (Form form) = SealedForm $ \env -> liftM go (form env)
+sealForm :: ([String] -> Hamlet url -> Hamlet url)
+         -> Form url a -> SealedForm url a
+sealForm wrapper (Form form) = SealedForm $ \env -> liftM go (form env)
   where
-    go (FormSuccess a, xml) = (Just a, xml [])
-    go (FormFailure errs, xml) = (Nothing, xml errs)
-    go (FormMissing, xml) = (Nothing, xml [])
+    go (FormSuccess a, xml) = (Just a, wrapper [] xml)
+    go (FormFailure errs, xml) = (Nothing, wrapper errs xml)
+    go (FormMissing, xml) = (Nothing, wrapper [] xml)
 
-sealFormlet :: Formlet url a -> SealedFormlet url a
-sealFormlet formlet initVal = sealForm $ formlet initVal
+sealFormlet :: ([String] -> Hamlet url -> Hamlet url)
+            -> Formlet url a -> SealedFormlet url a
+sealFormlet wrapper formlet initVal = sealForm wrapper $ formlet initVal
 
 instance Functor (Form url) where
     fmap f (Form g) = Form $ \env -> liftM (first $ fmap f) (g env)
 
-input' :: (String -> String -> [String] -> Hamlet url)
+input' :: (String -> String -> Hamlet url)
        -> Maybe String
        -> Form url String
 input' mkXml val = Form $ \env -> do
@@ -96,82 +97,67 @@ class Formable a where
     formable :: SealedFormlet url a
 
 class Fieldable a where
-    fieldable :: String -> Formlet url a
+    fieldable :: Formlet url a
 
-instance Fieldable [Char] where
-    fieldable label = input' go
-      where
-        go name val errs = [$hamlet|
+wrapperRow :: String -> [String] -> Hamlet url -> Hamlet url
+wrapperRow label errs control = [$hamlet|
 %tr
     %th $string.label$
-    %td
-        %input!type=text!name=$string.name$!value=$string.val$
+    %td ^control^
     $if not.null.errs
         %td.errors
             %ul
                 $forall errs err
                     %li $string.err$
+|]
+
+instance Fieldable [Char] where
+    fieldable = input' go
+      where
+        go name val = [$hamlet|
+%input!type=text!name=$string.name$!value=$string.val$
 |]
 
 instance Fieldable Html where
-    fieldable label =
-        fmap preEscapedString
-      . input' go
-      . fmap (cs . renderHtml)
+    fieldable = fmap preEscapedString . input' go . fmap (cs . renderHtml)
       where
-        go name val errs = [$hamlet|
-%tr
-    %th $string.label$
-    %td
-        %textarea!name=$string.name$
-            $string.val$
-    $if not.null.errs
-        %td.errors
-            %ul
-                $forall errs err
-                    %li $string.err$
-|]
+        go name val = [$hamlet|%textarea!name=$string.name$ $string.val$|]
 
 instance Fieldable Day where
-    fieldable label x = input' go (fmap show x) `check` asDay
+    fieldable x = input' go (fmap show x) `check` asDay
       where
-        go name val errs = [$hamlet|
-%tr
-    %th $string.label$
-    %td
-        %input!type=date!name=$string.name$!value=$string.val$
-    $if not.null.errs
-        %td.errors
-            %ul
-                $forall errs err
-                    %li $string.err$
+        go name val = [$hamlet|
+%input!type=date!name=$string.name$!value=$string.val$
 |]
         asDay s = case reads s of
-                    (x, _):_ -> Right x
+                    (y, _):_ -> Right y
                     [] -> Left ["Invalid day"]
 
 newtype Slug = Slug { unSlug :: String }
     deriving (Read, Eq, Show, SinglePiece, Persistable)
 
 instance Fieldable Slug where
-    fieldable label x = input' go (fmap unSlug x) `check` asSlug
+    fieldable x = input' go (fmap unSlug x) `check` asSlug
       where
-        go name val errs = [$hamlet|
-%tr
-    %th $string.label$
-    %td
-        %input!type=text!name=$string.name$!value=$string.val$
-    $if not.null.errs
-        %td.errors
-            %ul
-                $forall errs err
-                    %li $string.err$
+        go name val = [$hamlet|
+%input!type=text!name=$string.name$!value=$string.val$
 |]
         asSlug [] = Left ["Slug must be non-empty"]
         asSlug x'
             | all (\c -> c `elem` "-_" || isAlphaNum c) x' =
                 Right $ Slug x'
             | otherwise = Left ["Slug must be alphanumeric, - and _"]
+
+newtype NonEmptyString = NonEmptyString { unNonEmptyString :: String }
+    deriving (Read, Eq, Show, SinglePiece, Persistable)
+instance Fieldable NonEmptyString where
+    fieldable x = input' go (fmap unNonEmptyString x) `check` notEmpty
+      where
+        go name val = [$hamlet|
+%input!type=text!name=$string.name$!value=$string.val$
+|]
+        notEmpty "" = Left ["Must be non-empty"]
+        notEmpty x = Right $ NonEmptyString x
 
 share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
 share2 f g a = do
@@ -201,7 +187,8 @@ deriveFormable = mapM derive
         return $ InstanceD [] (ConT ''Formable `AppT` ConT (mkName $ tableName t))
             [FunD (mkName "formable") [c1, c2]]
     go ap just' = foldl (ap' ap) just' . map go'
-    go' (label, ex) =  VarE (mkName "sealForm") `AppE`
-                      (VarE (mkName "fieldable")
-                `AppE` LitE (StringL label) `AppE` ex)
+    go' (label, ex) =
+        VarE (mkName "sealForm") `AppE`
+        (VarE (mkName "wrapperRow") `AppE` LitE (StringL label)) `AppE`
+        (VarE (mkName "fieldable") `AppE` ex)
     ap' ap x y = InfixE (Just x) ap (Just y)
