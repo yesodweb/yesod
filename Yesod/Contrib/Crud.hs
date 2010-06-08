@@ -12,7 +12,7 @@ import Control.Arrow (second)
 import Data.Monoid (mempty)
 
 runForm :: SealedForm (Routes y) a
-        -> GHandler sub y (Maybe a, Hamlet (Routes y))
+        -> GHandler sub y (Either [String] a, Hamlet (Routes y))
 runForm f = do
     req <- getRequest
     (pp, _) <- liftIO $ reqRequestBody req
@@ -130,7 +130,7 @@ crudHelper title me isPost = do
     (errs, form) <- runForm $ formable $ fmap snd me
     toMaster <- getRouteToMaster
     case (isPost, errs) of
-        (True, Just a) -> do
+        (True, Right a) -> do
             eid <- case me of
                     Just (eid, _) -> do
                         crudReplace crud eid a

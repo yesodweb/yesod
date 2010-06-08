@@ -45,26 +45,31 @@ newtype Form url a = Form
 type Formlet url a = Maybe a -> Form url a
 
 newtype SealedForm url a = SealedForm
-    { runSealedForm :: Env -> Incr (Maybe a, Hamlet url)
+    { runSealedForm :: Env -> Incr (Either [String] a, Hamlet url)
     }
 type SealedFormlet url a = Maybe a -> SealedForm url a
 instance Functor (SealedForm url) where
     fmap f (SealedForm g) = SealedForm
                           $ \env -> liftM (first $ fmap f) (g env)
 instance Applicative (SealedForm url) where
-    pure a = SealedForm $ const $ return (Just a, mempty)
+    pure a = SealedForm $ const $ return (Right a, mempty)
     (SealedForm f) <*> (SealedForm g) = SealedForm $ \env -> do
         (f1, f2) <- f env
         (g1, g2) <- g env
-        return (f1 <*> g1, f2 `mappend` g2)
+        return (f1 `apE` g1, f2 `mappend` g2)
+      where
+        apE (Left x) (Left y) = Left $ x ++ y
+        apE (Left x) _ = Left x
+        apE _ (Left y) = Left y
+        apE (Right x) (Right y) = Right $ x y
 
 sealForm :: ([String] -> Hamlet url -> Hamlet url)
          -> Form url a -> SealedForm url a
 sealForm wrapper (Form form) = SealedForm $ \env -> liftM go (form env)
   where
-    go (FormSuccess a, xml) = (Just a, wrapper [] xml)
-    go (FormFailure errs, xml) = (Nothing, wrapper errs xml)
-    go (FormMissing, xml) = (Nothing, wrapper [] xml)
+    go (FormSuccess a, xml) = (Right a, wrapper [] xml)
+    go (FormFailure errs, xml) = (Left errs, wrapper errs xml)
+    go (FormMissing, xml) = (Left [], wrapper [] xml)
 
 sealFormlet :: ([String] -> Hamlet url -> Hamlet url)
             -> Formlet url a -> SealedFormlet url a
