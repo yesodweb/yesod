@@ -2,11 +2,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 module Yesod.Contrib.Formable where
 
 import Text.Formlets
 import Text.Hamlet
-import Text.Hamlet.Monad (htmlContentToByteString)
 import Data.Time (Day)
 import Control.Applicative
 import Control.Applicative.Error
@@ -26,31 +26,28 @@ class Fieldable a where
     fieldable :: (Functor m, Applicative m, Monad m)
               => String -> Formlet (Hamlet url) m a
 
-pack' :: String -> HtmlContent
-pack' = Unencoded . cs
-
 instance Fieldable [Char] where
     fieldable label = input' go
       where
         go name val = [$hamlet|
 %tr
-    %th $pack'.label$
+    %th $string.label$
     %td
-        %input!type=text!name=$pack'.name$!value=$pack'.val$
+        %input!type=text!name=$string.name$!value=$string.val$
 |]
 
-instance Fieldable HtmlContent where
+instance Fieldable Html where
     fieldable label =
-        fmap (Encoded . cs)
+        fmap preEscapedString
       . input' go
-      . fmap (cs . htmlContentToByteString)
+      . fmap (cs . renderHtml)
       where
         go name val = [$hamlet|
 %tr
-    %th $pack'.label$
+    %th $string.label$
     %td
-        %textarea!name=$pack'.name$
-            $pack'.val$
+        %textarea!name=$string.name$
+            $string.val$
 |]
 
 instance Fieldable Day where
@@ -58,9 +55,9 @@ instance Fieldable Day where
       where
         go name val = [$hamlet|
 %tr
-    %th $pack'.label$
+    %th $string.label$
     %td
-        %input!type=date!name=$pack'.name$!value=$pack'.val$
+        %input!type=date!name=$string.name$!value=$string.val$
 |]
         asDay s = maybeRead' s "Invalid day"
 
@@ -72,9 +69,9 @@ instance Fieldable Slug where
       where
         go name val = [$hamlet|
 %tr
-    %th $pack'.label$
+    %th $string.label$
     %td
-        %input!type=text!name=$pack'.name$!value=$pack'.val$
+        %input!type=text!name=$string.name$!value=$string.val$
 |]
         asSlug [] = Failure ["Slug must be non-empty"]
         asSlug x'

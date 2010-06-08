@@ -50,7 +50,7 @@ data SitemapUrl url = SitemapUrl
     , priority :: Double
     }
 
-sitemapNS :: HtmlContent
+sitemapNS :: Html
 sitemapNS = cs "http://www.sitemaps.org/schemas/sitemap/0.9"
 
 template :: [SitemapUrl url] -> Hamlet url

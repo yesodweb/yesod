@@ -24,8 +24,6 @@ module Yesod.Helpers.AtomFeed
 
 import Yesod
 import Data.Time.Clock (UTCTime)
-import Text.Hamlet.Monad
-import Text.Hamlet.Quasi
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
@@ -46,10 +44,10 @@ data AtomFeedEntry url = AtomFeedEntry
     { atomEntryLink :: url
     , atomEntryUpdated :: UTCTime
     , atomEntryTitle :: String
-    , atomEntryContent :: HtmlContent
+    , atomEntryContent :: Html
     }
 
-xmlns :: AtomFeed url -> HtmlContent
+xmlns :: AtomFeed url -> Html
 xmlns _ = cs "http://www.w3.org/2005/Atom"
 
 template :: AtomFeed url -> Hamlet url

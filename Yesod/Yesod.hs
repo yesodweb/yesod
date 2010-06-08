@@ -110,7 +110,7 @@ applyLayoutJson :: Yesod master
                 => String -- ^ title
                 -> Hamlet (Routes master) -- ^ head
                 -> Hamlet (Routes master) -- ^ body
-                -> Json (Routes master)
+                -> Json
                 -> GHandler sub master RepHtmlJson
 applyLayoutJson t h html json = do
     html' <- defaultLayout PageContent
@@ -135,7 +135,7 @@ defaultErrorHandler NotFound = do
     r <- waiRequest
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
-%p $Unencoded.cs.pathInfo.r$
+%p $string.cs.pathInfo.r$
 |]
   where
     pathInfo = W.pathInfo
