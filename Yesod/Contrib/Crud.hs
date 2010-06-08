@@ -105,6 +105,7 @@ getCrudDeleteR s = do
     applyLayout "Confirm delete" mempty [$hamlet|
 %form!method=post!action=@toMaster.CrudDeleteR.s@
     %h1 Really delete?
+    %p Do you really want to delete $cs.itemTitle.item$?
     %p
         %input!type=submit!value=Yes
         \ 
