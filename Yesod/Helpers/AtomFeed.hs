@@ -27,7 +27,7 @@ import Data.Time.Clock (UTCTime)
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
-    chooseRep (RepAtom c) _ = return (TypeAtom, c)
+    chooseRep (RepAtom c) _ = return (typeAtom, c)
 
 atomFeed :: AtomFeed (Routes master) -> GHandler sub master RepAtom
 atomFeed = fmap RepAtom . hamletToContent . template

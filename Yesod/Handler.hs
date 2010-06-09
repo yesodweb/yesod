@@ -234,7 +234,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
         HCError e -> handleError e
         HCRedirect rt loc -> do
             let hs = Header "Location" loc : headers
-            return (getRedirectStatus rt, hs, TypePlain, cs "", finalSession)
+            return (getRedirectStatus rt, hs, typePlain, cs "", finalSession)
         HCSendFile ct fp -> E.catch
             (sendFile' ct fp)
             (handleError . toErrorHandler)
@@ -242,7 +242,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return (W.Status500, [], TypePlain, cs "Internal Server Error", [])
+    return (W.Status500, [], typePlain, cs "Internal Server Error", [])
 
 -- | Redirect to the given route.
 redirect :: RedirectType -> Routes master -> GHandler sub master a

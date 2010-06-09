@@ -233,7 +233,7 @@ toWaiApp' y segments env = do
                                                   (cs sessionVal)
             : hs
         hs'' = map (headerToPair getExpires) hs'
-        hs''' = (W.ContentType, cs $ contentTypeToString ct) : hs''
+        hs''' = (W.ContentType, cs ct) : hs''
     return $ W.Response s hs''' $ case c of
                                     ContentFile fp -> Left fp
                                     ContentEnum e -> Right $ W.buffer
@@ -253,7 +253,7 @@ fullRender ar render route =
     ar ++ '/' : encodePathInfo (fixSegs $ render route)
 
 httpAccept :: W.Request -> [ContentType]
-httpAccept = map (contentTypeFromString . B.unpack)
+httpAccept = map B.unpack
            . parseHttpAccept
            . fromMaybe B.empty
            . lookup W.Accept

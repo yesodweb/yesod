@@ -12,9 +12,20 @@ module Yesod.Content
     , toContent
       -- * Mime types
       -- ** Data type
-    , ContentType (..)
-    , contentTypeFromString
-    , contentTypeToString
+    , ContentType
+    , typeHtml
+    , typePlain
+    , typeJson
+    , typeXml
+    , typeAtom
+    , typeJpeg
+    , typePng
+    , typeGif
+    , typeJavascript
+    , typeCss
+    , typeFlv
+    , typeOgv
+    , typeOctet
       -- ** File extensions
     , typeByExt
     , ext
@@ -124,7 +135,7 @@ instance HasReps ChooseRep where
     chooseRep = id
 
 instance HasReps () where
-    chooseRep = defChooseRep [(TypePlain, const $ return $ cs "")]
+    chooseRep = defChooseRep [(typePlain, const $ return $ cs "")]
 
 instance HasReps [(ContentType, Content)] where
     chooseRep a cts = return $
@@ -134,73 +145,67 @@ instance HasReps [(ContentType, Content)] where
                     (x:_) -> x
                     _ -> error "chooseRep [(ContentType, Content)] of empty"
       where
-        go = simpleContentType . contentTypeToString
+        go = simpleContentType
 
 newtype RepHtml = RepHtml Content
 instance HasReps RepHtml where
-    chooseRep (RepHtml c) _ = return (TypeHtml, c)
+    chooseRep (RepHtml c) _ = return (typeHtml, c)
 newtype RepJson = RepJson Content
 instance HasReps RepJson where
-    chooseRep (RepJson c) _ = return (TypeJson, c)
+    chooseRep (RepJson c) _ = return (typeJson, c)
 data RepHtmlJson = RepHtmlJson Content Content
 instance HasReps RepHtmlJson where
     chooseRep (RepHtmlJson html json) = chooseRep
-        [ (TypeHtml, html)
-        , (TypeJson, json)
+        [ (typeHtml, html)
+        , (typeJson, json)
         ]
 newtype RepPlain = RepPlain Content
 instance HasReps RepPlain where
-    chooseRep (RepPlain c) _ = return (TypePlain, c)
+    chooseRep (RepPlain c) _ = return (typePlain, c)
 newtype RepXml = RepXml Content
 instance HasReps RepXml where
-    chooseRep (RepXml c) _ = return (TypeXml, c)
+    chooseRep (RepXml c) _ = return (typeXml, c)
 
--- | Equality is determined by converting to a 'String' via
--- 'contentTypeToString'. This ensures that, for example, 'TypeJpeg' is the
--- same as 'TypeOther' \"image/jpeg\". However, note that 'TypeHtml' is *not*
--- the same as 'TypeOther' \"text/html\", since 'TypeHtml' is defined as UTF-8
--- encoded. See 'contentTypeToString'.
-data ContentType =
-    TypeHtml
-    | TypePlain
-    | TypeJson
-    | TypeXml
-    | TypeAtom
-    | TypeJpeg
-    | TypePng
-    | TypeGif
-    | TypeJavascript
-    | TypeCss
-    | TypeFlv
-    | TypeOgv
-    | TypeOctet
-    | TypeOther String
-    deriving (Show)
+type ContentType = String
 
--- | This is simply a synonym for 'TypeOther'. However, equality works as
--- expected; see 'ContentType'.
-contentTypeFromString :: String -> ContentType
-contentTypeFromString = TypeOther
+typeHtml :: ContentType
+typeHtml = "text/html; charset=utf-8"
 
--- | This works as expected, with one caveat: the builtin textual content types
--- ('TypeHtml', 'TypePlain', etc) all include \"; charset=utf-8\" at the end of
--- their basic content-type. If another encoding is desired, please use
--- 'TypeOther'.
-contentTypeToString :: ContentType -> String
-contentTypeToString TypeHtml = "text/html; charset=utf-8"
-contentTypeToString TypePlain = "text/plain; charset=utf-8"
-contentTypeToString TypeJson = "application/json; charset=utf-8"
-contentTypeToString TypeXml = "text/xml"
-contentTypeToString TypeAtom = "application/atom+xml"
-contentTypeToString TypeJpeg = "image/jpeg"
-contentTypeToString TypePng = "image/png"
-contentTypeToString TypeGif = "image/gif"
-contentTypeToString TypeJavascript = "text/javascript; charset=utf-8"
-contentTypeToString TypeCss = "text/css; charset=utf-8"
-contentTypeToString TypeFlv = "video/x-flv"
-contentTypeToString TypeOgv = "video/ogg"
-contentTypeToString TypeOctet = "application/octet-stream"
-contentTypeToString (TypeOther s) = s
+typePlain :: ContentType
+typePlain = "text/plain; charset=utf-8"
+
+typeJson :: ContentType
+typeJson = "application/json; charset=utf-8"
+
+typeXml :: ContentType
+typeXml = "text/xml"
+
+typeAtom :: ContentType
+typeAtom = "application/atom+xml"
+
+typeJpeg :: ContentType
+typeJpeg = "image/jpeg"
+
+typePng :: ContentType
+typePng = "image/png"
+
+typeGif :: ContentType
+typeGif = "image/gif"
+
+typeJavascript :: ContentType
+typeJavascript = "text/javascript; charset=utf-8"
+
+typeCss :: ContentType
+typeCss = "text/css; charset=utf-8"
+
+typeFlv :: ContentType
+typeFlv = "video/x-flv"
+
+typeOgv :: ContentType
+typeOgv = "video/ogg"
+
+typeOctet :: ContentType
+typeOctet = "application/octet-stream"
 
 -- | Removes \"extra\" information at the end of a content type string. In
 -- particular, removes everything after the semicolon, if present.
@@ -210,22 +215,19 @@ contentTypeToString (TypeOther s) = s
 simpleContentType :: String -> String
 simpleContentType = fst . span (/= ';')
 
-instance Eq ContentType where
-    (==) = (==) `on` contentTypeToString
-
 -- | Determine a mime-type based on the file extension.
 typeByExt :: String -> ContentType
-typeByExt "jpg" = TypeJpeg
-typeByExt "jpeg" = TypeJpeg
-typeByExt "js" = TypeJavascript
-typeByExt "css" = TypeCss
-typeByExt "html" = TypeHtml
-typeByExt "png" = TypePng
-typeByExt "gif" = TypeGif
-typeByExt "txt" = TypePlain
-typeByExt "flv" = TypeFlv
-typeByExt "ogv" = TypeOgv
-typeByExt _ = TypeOctet
+typeByExt "jpg" = typeJpeg
+typeByExt "jpeg" = typeJpeg
+typeByExt "js" = typeJavascript
+typeByExt "css" = typeCss
+typeByExt "html" = typeHtml
+typeByExt "png" = typePng
+typeByExt "gif" = typeGif
+typeByExt "txt" = typePlain
+typeByExt "flv" = typeFlv
+typeByExt "ogv" = typeOgv
+typeByExt _ = typeOctet
 
 -- | Get a file extension (everything after last period).
 ext :: String -> String
@@ -247,7 +249,7 @@ propExt s =
 caseTypeByExt :: Assertion
 caseTypeByExt = do
     TypeJavascript @=? typeByExt (ext "foo.js")
-    TypeHtml @=? typeByExt (ext "foo.html")
+    typeHtml @=? typeByExt (ext "foo.html")
 #endif
 
 -- | Format a 'UTCTime' in W3 format; useful for setting cookies.
