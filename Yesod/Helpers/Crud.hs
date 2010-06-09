@@ -128,7 +128,7 @@ crudHelper title me isPost = do
     (errs, form) <- runForm $ formable $ fmap snd me
     toMaster <- getRouteToMaster
     case (isPost, errs) of
-        (True, Right a) -> do
+        (True, FormSuccess a) -> do
             eid <- case me of
                     Just (eid, _) -> do
                         crudReplace crud eid a
