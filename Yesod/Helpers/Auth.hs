@@ -301,7 +301,7 @@ getEmailRegisterR = do
 postEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
 postEmailRegisterR = do
     ae <- getAuthEmailSettings
-    email <- runFormPost $ checkEmail $ required $ input "email"
+    email <- runFormPost $ notEmpty $ required $ input "email" -- FIXME checkEmail
     y <- getYesod
     mecreds <- liftIO $ getEmailCreds ae email
     (lid, verKey) <-
@@ -318,9 +318,6 @@ postEmailRegisterR = do
     applyLayout "Confirmation e-mail sent" mempty [$hamlet|
 %p A confirmation e-mail has been sent to $string.email$.
 |]
-
-checkEmail :: Form ParamValue -> Form ParamValue
-checkEmail = notEmpty -- FIXME consider including e-mail validation
 
 getEmailVerifyR :: YesodAuth master
            => Integer -> String -> GHandler Auth master RepHtml
@@ -368,7 +365,7 @@ postEmailLoginR :: YesodAuth master => GHandler Auth master ()
 postEmailLoginR = do
     ae <- getAuthEmailSettings
     (email, pass) <- runFormPost $ (,)
-        <$> checkEmail (required $ input "email")
+        <$> notEmpty (required $ input "email") -- FIXME valid e-mail?
         <*> required (input "password")
     y <- getYesod
     mecreds <- liftIO $ getEmailCreds ae email

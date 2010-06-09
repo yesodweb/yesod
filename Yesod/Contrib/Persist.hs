@@ -1,7 +1,12 @@
 {-# LANGUAGE TypeFamilies #-}
-module Yesod.Contrib.Persist where
+module Yesod.Contrib.Persist
+    ( YesodPersist (..)
+    , Persist (..)
+    ) where
 
-import Yesod
+import Yesod.Handler
+import Yesod.Yesod
+import Database.Persist
 
 class YesodPersist y where
     type YesodDB y :: (* -> *) -> * -> *

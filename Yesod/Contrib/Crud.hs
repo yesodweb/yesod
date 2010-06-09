@@ -3,7 +3,14 @@
 {-# LANGUAGE Rank2Types #-}
 module Yesod.Contrib.Crud where
 
-import Yesod hiding (Form)
+import Yesod.Yesod
+import Yesod.Dispatch
+import Yesod.Content
+import Yesod.Handler
+import Yesod.Request
+import Text.Hamlet
+import Control.Monad.IO.Class (liftIO)
+import Web.Routes.Quasi
 import Database.Persist
 import Control.Applicative.Error
 import Yesod.Contrib.Formable hiding (runForm)
