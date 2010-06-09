@@ -155,7 +155,7 @@ crudHelper title me isPost = do
 
 defaultCrud :: (Persist i (YesodDB a (GHandler (Crud a i) a)), YesodPersist a)
             => a -> Crud a i
-defaultCrud = const $ Crud
+defaultCrud = const Crud
     { crudSelect = runDB $ select [] []
     , crudReplace = \a -> runDB . replace a
     , crudInsert = runDB . insert

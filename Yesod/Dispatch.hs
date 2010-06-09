@@ -79,7 +79,7 @@ import Yesod.Content
 mkYesod :: String -- ^ name of the argument datatype
         -> [Resource]
         -> Q [Dec]
-mkYesod name = fmap (\(x, y) -> x ++ y) . mkYesodGeneral name [] [] False
+mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating subsites, *not* sites. See 'mkYesod' for the latter.
@@ -91,7 +91,7 @@ mkYesodSub :: String -- ^ name of the argument datatype
            -> [Resource]
            -> Q [Dec]
 mkYesodSub name clazzes =
-    fmap (\(x, y) -> x ++ y) . mkYesodGeneral name' rest clazzes True
+    fmap (uncurry (++)) . mkYesodGeneral name' rest clazzes True
   where
     (name':rest) = words name
 
@@ -134,7 +134,7 @@ mkYesodGeneral :: String -- ^ argument name
 mkYesodGeneral name args clazzes isSub res = do
     let name' = mkName name
         args' = map mkName args
-        arg = foldl AppT (ConT $ name') $ map VarT args'
+        arg = foldl AppT (ConT name') $ map VarT args'
     let site = mkName $ "site" ++ name
     let gsbod = NormalB $ VarE site
     let yes' = FunD (mkName "getSite") [Clause [] gsbod []]

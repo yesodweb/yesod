@@ -269,7 +269,7 @@ redirectParams rt url params = do
         | c == ' ' = "+"
         | otherwise = '%' : myShowHex (ord c) ""
     myShowHex :: Int -> ShowS
-    myShowHex n r =  case showIntAtBase 16 (toChrHex) n r of
+    myShowHex n r =  case showIntAtBase 16 toChrHex n r of
         []  -> "00"
         [c] -> ['0',c]
         s  -> s

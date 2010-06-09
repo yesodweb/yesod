@@ -95,7 +95,7 @@ jsonList (x:xs) = mconcat
     , Json $ preEscapedString "]"
     ]
   where
-    go j = mappend (Json $ preEscapedString ",") j
+    go = mappend (Json $ preEscapedString ",")
 
 -- | Outputs a JSON map, eg {\"foo\":\"bar\",\"baz\":\"bin\"}.
 jsonMap :: [(String, Json)] -> Json

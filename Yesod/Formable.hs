@@ -24,10 +24,9 @@ module Yesod.Formable
 import Text.Hamlet
 import Data.Time (Day)
 import Control.Applicative
-import Database.Persist (Persistable)
+import Database.Persist (Persistable, Table (..))
 import Data.Char (isAlphaNum, toUpper, isUpper)
 import Language.Haskell.TH.Syntax
-import Database.Persist (Table (..))
 import Control.Monad (liftM)
 import Control.Arrow (first)
 import Data.Maybe (fromMaybe, isJust)
@@ -134,7 +133,7 @@ wrapperRow label errs control = [$hamlet|
                     %li $string.err$
 |]
 
-instance Formable [Char] where
+instance Formable String where
     formable = input' go
       where
         go name val = [$hamlet|
