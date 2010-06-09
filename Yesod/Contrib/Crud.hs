@@ -51,7 +51,7 @@ getCrudListR = do
     $forall items item
         %li
             %a!href=@toMaster.CrudEditR.toSinglePiece.fst.item@
-                $cs.itemTitle.snd.item$
+                $string.itemTitle.snd.item$
 %p
     %a!href=@toMaster.CrudAddR@ Add new item
 |]
@@ -102,7 +102,7 @@ getCrudDeleteR s = do
     applyLayout "Confirm delete" mempty [$hamlet|
 %form!method=post!action=@toMaster.CrudDeleteR.s@
     %h1 Really delete?
-    %p Do you really want to delete $cs.itemTitle.item$?
+    %p Do you really want to delete $string.itemTitle.item$?
     %p
         %input!type=submit!value=Yes
         \ 
@@ -142,7 +142,7 @@ crudHelper title me isPost = do
     applyLayout title mempty [$hamlet|
 %p
     %a!href=@toMaster.CrudListR@ Return to list
-%h1 $cs.title$
+%h1 $string.title$
 %form!method=post
     %table
         ^form^

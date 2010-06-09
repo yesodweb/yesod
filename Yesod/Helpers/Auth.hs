@@ -50,6 +50,7 @@ import Control.Concurrent.MVar
 import System.IO
 import Control.Monad.Attempt
 import Data.Monoid (mempty)
+import Data.ByteString.Lazy.UTF8 (fromString)
 
 class Yesod master => YesodAuth master where
     -- | Default destination on successful login or logout, if no other
@@ -131,8 +132,8 @@ setCreds creds extra = do
 -- | Retrieves user credentials, if user is authenticated.
 maybeCreds :: RequestReader r => r (Maybe Creds)
 maybeCreds = do
-    mcs <- lookupSession credsKey
-    return $ mcs >>= readMay
+    mstring <- lookupSession credsKey
+    return $ mstring >>= readMay
   where
     readMay x = case reads x of
                     (y, _):_ -> Just y
@@ -188,7 +189,7 @@ getOpenIdForward = do
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
     attempt
       (\err -> do
-            setMessage $ cs $ show err
+            setMessage $ string $ show err
             redirect RedirectTemporary $ toMaster OpenIdR)
       (redirectString RedirectTemporary)
       res
@@ -201,7 +202,7 @@ getOpenIdComplete = do
     res <- runAttemptT $ OpenId.authenticate gets'
     toMaster <- getRouteToMaster
     let onFailure err = do
-        setMessage $ cs $ show err
+        setMessage $ string $ show err
         redirect RedirectTemporary $ toMaster OpenIdR
     let onSuccess (OpenId.Identifier ident) = do
         y <- getYesod
@@ -255,12 +256,12 @@ getCheck = do
 $if isNothing.creds
     %p Not logged in
 $maybe creds c
-    %p Logged in as $cs.credsIdent.c$
+    %p Logged in as $string.credsIdent.c$
 |]
     json creds =
         jsonMap
-            [ ("ident", jsonScalar $ maybe (cs "") (cs . credsIdent) creds)
-            , ("displayName", jsonScalar $ cs $ fromMaybe ""
+            [ ("ident", jsonScalar $ maybe (string "") (string . credsIdent) creds)
+            , ("displayName", jsonScalar $ string $ fromMaybe ""
                                          $ creds >>= credsDisplayName)
             ]
 
@@ -315,7 +316,7 @@ postEmailRegisterR = do
     let verUrl = render $ tm $ EmailVerifyR lid verKey
     liftIO $ sendVerifyEmail ae email verKey verUrl
     applyLayout "Confirmation e-mail sent" mempty [$hamlet|
-%p A confirmation e-mail has been sent to $cs.email$.
+%p A confirmation e-mail has been sent to $string.email$.
 |]
 
 checkEmail :: Form ParamValue -> Form ParamValue
@@ -381,7 +382,7 @@ postEmailLoginR = do
             setCreds (Creds email AuthEmail (Just email) Nothing (Just lid)) []
             redirectUltDest RedirectTemporary $ defaultDest y
         Nothing -> do
-            setMessage $ cs "Invalid email/password combination"
+            setMessage $ string "Invalid email/password combination"
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster EmailLoginR
 
@@ -393,7 +394,7 @@ getEmailPasswordR = do
     case mcreds of
         Just (Creds _ AuthEmail _ _ (Just _)) -> return ()
         _ -> do
-            setMessage $ cs "You must be logged in to set a password"
+            setMessage $ string "You must be logged in to set a password"
             redirect RedirectTemporary $ toMaster EmailLoginR
     msg <- getMessage
     applyLayout "Set password" mempty [$hamlet|
@@ -423,17 +424,17 @@ postEmailPasswordR = do
         <*> notEmpty (required $ input "confirm")
     toMaster <- getRouteToMaster
     when (new /= confirm) $ do
-        setMessage $ cs "Passwords did not match, please try again"
+        setMessage $ string "Passwords did not match, please try again"
         redirect RedirectTemporary $ toMaster EmailPasswordR
     mcreds <- maybeCreds
     lid <- case mcreds of
             Just (Creds _ AuthEmail _ _ (Just lid)) -> return lid
             _ -> do
-                setMessage $ cs "You must be logged in to set a password"
+                setMessage $ string "You must be logged in to set a password"
                 redirect RedirectTemporary $ toMaster EmailLoginR
     salted <- liftIO $ saltPass new
     liftIO $ setPassword ae lid salted
-    setMessage $ cs "Password updated"
+    setMessage $ string "Password updated"
     redirect RedirectTemporary $ toMaster EmailLoginR
 
 saltLength :: Int
@@ -453,7 +454,7 @@ saltPass pass = do
     return $ saltPass' salt pass
 
 saltPass' :: String -> String -> String
-saltPass' salt pass = salt ++ show (md5 $ cs $ salt ++ pass)
+saltPass' salt pass = salt ++ show (md5 $ fromString $ salt ++ pass)
 
 inMemoryEmailSettings :: IO AuthEmailSettings
 inMemoryEmailSettings = do

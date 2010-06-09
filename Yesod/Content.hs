@@ -54,7 +54,6 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
-import Data.Convertible.Text
 
 import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as WE
@@ -62,6 +61,10 @@ import qualified Network.Wai.Enumerator as WE
 import Data.Function (on)
 import Data.Time
 import System.Locale
+
+import qualified Data.Text.Encoding
+import qualified Data.Text.Lazy.Encoding
+import qualified Data.ByteString.Lazy.UTF8
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -94,13 +97,11 @@ instance ToContent B.ByteString where
 instance ToContent L.ByteString where
     toContent = swapEnum . WE.fromLBS
 instance ToContent T.Text where
-    toContent t = toContent (cs t :: B.ByteString)
+    toContent = toContent . Data.Text.Encoding.encodeUtf8
 instance ToContent Text where
-    toContent lt = toContent (cs lt :: L.ByteString)
+    toContent = toContent . Data.Text.Lazy.Encoding.encodeUtf8
 instance ToContent String where
-    toContent s = toContent (cs s :: L.ByteString)
-instance ToContent (IO Text) where
-    toContent = swapEnum . WE.fromLBS' . fmap cs
+    toContent = toContent . Data.ByteString.Lazy.UTF8.fromString
 
 -- | A function which gives targetted representations of content based on the
 -- content-types the user accepts.
@@ -251,7 +252,7 @@ propExt s =
 
 caseTypeByExt :: Assertion
 caseTypeByExt = do
-    TypeJavascript @=? typeByExt (ext "foo.js")
+    typeJavascript @=? typeByExt (ext "foo.js")
     typeHtml @=? typeByExt (ext "foo.html")
 #endif
 

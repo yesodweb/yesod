@@ -46,9 +46,11 @@ import System.Environment (getEnvironment)
 import qualified Data.ByteString.Char8 as B
 import Web.Routes (encodePathInfo)
 
+import qualified Data.ByteString.UTF8 as S
+import qualified Data.ByteString.Lazy.UTF8 as L
+
 import Control.Concurrent.MVar
 import Control.Arrow ((***), first)
-import Data.Convertible.Text (cs)
 
 import Data.Time
 
@@ -230,10 +232,10 @@ toWaiApp' y segments env = do
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
     let sessionVal = encodeSession key' exp' host sessionFinal
     let hs' = AddCookie (clientSessionDuration y) sessionName
-                                                  (cs sessionVal)
+                                                  (S.toString sessionVal)
             : hs
         hs'' = map (headerToPair getExpires) hs'
-        hs''' = (W.ContentType, cs ct) : hs''
+        hs''' = (W.ContentType, S.fromString ct) : hs''
     return $ W.Response s hs''' $ case c of
                                     ContentFile fp -> Left fp
                                     ContentEnum e -> Right $ W.buffer
@@ -286,11 +288,13 @@ parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session
                 -> IO Request
 parseWaiRequest env session' = do
-    let gets' = map (cs *** cs) $ parseQueryString $ W.queryString env
-    let reqCookie = fromMaybe B.empty $ lookup W.Cookie $ W.requestHeaders env
-        cookies' = map (cs *** cs) $ parseCookies reqCookie
+    let gets' = map (S.toString *** S.toString)
+              $ parseQueryString $ W.queryString env
+    let reqCookie = fromMaybe B.empty $ lookup W.Cookie
+                  $ W.requestHeaders env
+        cookies' = map (S.toString *** S.toString) $ parseCookies reqCookie
         acceptLang = lookup W.AcceptLanguage $ W.requestHeaders env
-        langs = map cs $ maybe [] parseHttpAccept acceptLang
+        langs = map S.toString $ maybe [] parseHttpAccept acceptLang
         langs' = case lookup langKey cookies' of
                     Nothing -> langs
                     Just x -> x : langs
@@ -302,8 +306,9 @@ parseWaiRequest env session' = do
 
 rbHelper :: W.Request -> IO RequestBodyContents
 rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where
-    fix1 = map (cs *** cs)
-    fix2 (x, FileInfo a b c) = (cs x, FileInfo (cs a) (cs b) c)
+    fix1 = map (S.toString *** S.toString)
+    fix2 (x, FileInfo a b c) =
+        (S.toString x, FileInfo a b c)
 
 -- | Produces a \"compute on demand\" value. The computation will be run once
 -- it is requested, and then the result will be stored. This will happen only
@@ -324,12 +329,14 @@ headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
              -> (W.ResponseHeader, B.ByteString)
 headerToPair getExpires (AddCookie minutes key value) =
     let expires = getExpires minutes
-     in (W.SetCookie, cs $ key ++ "=" ++ value ++"; path=/; expires="
+     in (W.SetCookie, S.fromString
+                            $ key ++ "=" ++ value ++"; path=/; expires="
                               ++ formatW3 expires)
 headerToPair _ (DeleteCookie key) =
-    (W.SetCookie, cs $
+    (W.SetCookie, S.fromString $
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
-headerToPair _ (Header key value) = (W.responseHeaderFromBS $ cs key, cs value)
+headerToPair _ (Header key value) =
+    (W.responseHeaderFromBS $ S.fromString key, S.fromString value)
 
 encodeSession :: Key
               -> UTCTime -- ^ expire time

@@ -14,11 +14,11 @@ import Data.Char (isAlphaNum)
 import Language.Haskell.TH.Syntax
 import Database.Persist (Table (..))
 import Database.Persist.Helper (upperFirst)
-import Data.Convertible.Text (cs)
 import Control.Monad (liftM)
 import Control.Arrow (first)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mempty, mappend)
+import qualified Data.ByteString.Lazy.UTF8
 
 type Env = [(String, String)]
 
@@ -124,7 +124,9 @@ instance Fieldable [Char] where
 |]
 
 instance Fieldable Html where
-    fieldable = fmap preEscapedString . input' go . fmap (cs . renderHtml)
+    fieldable = fmap preEscapedString
+              . input' go
+              . fmap (Data.ByteString.Lazy.UTF8.toString . renderHtml)
       where
         go name val = [$hamlet|%textarea!name=$string.name$ $string.val$|]
 

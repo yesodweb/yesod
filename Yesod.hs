@@ -11,7 +11,6 @@ module Yesod
     , module Yesod.Hamlet
     , module Yesod.Json
     , Application
-    , cs
     , liftIO
     , Routes
     ) where
@@ -32,6 +31,5 @@ import Yesod.Yesod
 import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet
-import Data.Convertible.Text (cs)
 import "transformers" Control.Monad.IO.Class (liftIO)
 import Web.Routes.Quasi (Routes)

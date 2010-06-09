@@ -16,14 +16,14 @@ module Yesod.Json
     )
     where
 
-import qualified Data.ByteString.Char8 as S8
+import qualified Data.ByteString.Char8 as S
+import qualified Data.ByteString.Lazy.Char8 as L
 import Data.Char (isControl)
 import Yesod.Hamlet
 import Yesod.Handler
 import Web.Routes.Quasi (Routes)
 import Numeric (showHex)
 import Data.Monoid (Monoid (..))
-import Data.Convertible.Text (cs)
 import Text.Hamlet
 
 #if TEST
@@ -66,11 +66,11 @@ jsonToRepJson = fmap RepJson . jsonToContent
 jsonScalar :: Html -> Json
 jsonScalar s = Json $ mconcat
     [ preEscapedString "\""
-    , preEscapedString $ encodeJson $ cs $ renderHtml s
+    , unsafeBytestring $ S.concat $ L.toChunks $ encodeJson $ renderHtml s
     , preEscapedString "\""
     ]
   where
-    encodeJson = concatMap encodeJsonChar
+    encodeJson = L.concatMap (L.pack . encodeJsonChar)
 
     encodeJsonChar '\b' = "\\b"
     encodeJsonChar '\f' = "\\f"

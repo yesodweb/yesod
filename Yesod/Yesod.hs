@@ -16,12 +16,12 @@ import Yesod.Content
 import Yesod.Request
 import Yesod.Hamlet
 import Yesod.Handler
-import Data.Convertible.Text
 import qualified Network.Wai as W
 import Yesod.Json
 import Yesod.Internal
 import Web.ClientSession (getKey, defaultKeyFile, Key)
 import Data.Monoid (mempty)
+import Data.ByteString.UTF8 (toString)
 
 import Web.Routes.Quasi (QuasiSite (..), Routes)
 
@@ -99,7 +99,7 @@ applyLayout :: Yesod master
             -> GHandler sub master RepHtml
 applyLayout t h b =
     RepHtml `fmap` defaultLayout PageContent
-                { pageTitle = cs t
+                { pageTitle = string t
                 , pageHead = h
                 , pageBody = b
                 }
@@ -114,7 +114,7 @@ applyLayoutJson :: Yesod master
                 -> GHandler sub master RepHtmlJson
 applyLayoutJson t h html json = do
     html' <- defaultLayout PageContent
-                { pageTitle = cs t
+                { pageTitle = string t
                 , pageHead = h
                 , pageBody = html
                 }
@@ -135,30 +135,30 @@ defaultErrorHandler NotFound = do
     r <- waiRequest
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
-%p $string.cs.pathInfo.r$
+%p $string.toString.pathInfo.r$
 |]
   where
     pathInfo = W.pathInfo
 defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied" $ [$hamlet|
 %h1 Permission denied
-%p $cs.msg$
+%p $string.msg$
 |]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments" $ [$hamlet|
 %h1 Invalid Arguments
 %dl
     $forall ia pair
-        %dt $cs.fst.pair$
-        %dd $cs.snd.pair$
+        %dt $string.fst.pair$
+        %dd $string.snd.pair$
 |]
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error" $ [$hamlet|
 %h1 Internal Server Error
-%p $cs.e$
+%p $string.e$
 |]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method" $ [$hamlet|
 %h1 Method Not Supported
-%p Method "$cs.m$" not supported
+%p Method "$string.m$" not supported
 |]

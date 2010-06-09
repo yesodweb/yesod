@@ -24,7 +24,6 @@ import Yesod.Request
 import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Time (Day)
-import Data.Convertible.Text
 import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class
 import Yesod.Internal
@@ -107,7 +106,11 @@ notEmpty = applyForm $ \pv ->
                     else Right pv
 
 checkDay :: Form ParamValue -> Form Day
-checkDay = applyForm $ attempt (const (Left "Invalid day")) Right . ca
+checkDay = applyForm $ maybe (Left "Invalid day") Right . readMay
+  where
+    readMay s = case reads s of
+                    (x, _):_ -> Just x
+                    [] -> Nothing
 
 checkBool :: Form [ParamValue] -> Form Bool
 checkBool = applyForm $ \pv -> Right $ case pv of

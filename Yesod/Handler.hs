@@ -84,8 +84,9 @@ import System.IO
 import qualified Data.ByteString.Lazy as BL
 import qualified Network.Wai as W
 import Control.Monad.Attempt
+import Data.ByteString.UTF8 (toString)
+import qualified Data.ByteString.Lazy.UTF8 as L
 
-import Data.Convertible.Text (cs)
 import Text.Hamlet
 import Numeric (showIntAtBase)
 import Data.Char (ord, chr)
@@ -326,7 +327,7 @@ msgKey = "_MSG"
 --
 -- See 'getMessage'.
 setMessage :: Html -> GHandler sub master ()
-setMessage = setSession msgKey . cs . renderHtml
+setMessage = setSession msgKey . L.toString . renderHtml
 
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.
@@ -335,7 +336,7 @@ setMessage = setSession msgKey . cs . renderHtml
 getMessage :: GHandler sub master (Maybe Html)
 getMessage = do
     clearSession msgKey
-    fmap (fmap $ preEscapedString . cs) $ lookupSession msgKey
+    fmap (fmap preEscapedString) $ lookupSession msgKey
 
 -- | Bypass remaining handler code and output the given file.
 --
@@ -352,7 +353,7 @@ notFound = failure NotFound
 badMethod :: (RequestReader m, Failure ErrorResponse m) => m a
 badMethod = do
     w <- waiRequest
-    failure $ BadMethod $ cs $ W.methodToBS $ W.requestMethod w
+    failure $ BadMethod $ toString $ W.methodToBS $ W.requestMethod w
 
 -- | Return a 403 permission denied page.
 permissionDenied :: Failure ErrorResponse m => m a

@@ -80,7 +80,7 @@ getStaticRoute fp' = do
     case content of
         Nothing -> notFound
         Just (Left fp'') -> sendFile (typeByExt $ ext fp'') fp''
-        Just (Right bs) -> return [(typeByExt $ ext fp, cs bs)]
+        Just (Right bs) -> return [(typeByExt $ ext fp, bs)]
   where
     isUnsafe [] = True
     isUnsafe ('.':_) = True
