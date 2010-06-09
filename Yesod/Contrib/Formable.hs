@@ -164,7 +164,7 @@ instance Fieldable NonEmptyString where
 %input!type=text!name=$string.name$!value=$string.val$
 |]
         notEmpty "" = Left ["Must be non-empty"]
-        notEmpty x = Right $ NonEmptyString x
+        notEmpty y = Right $ NonEmptyString y
 
 share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
 share2 f g a = do

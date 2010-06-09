@@ -31,7 +31,6 @@ import Yesod.Internal
 
 import Web.Routes.Quasi
 import Language.Haskell.TH.Syntax
-import Data.List (nub)
 
 import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as W
@@ -47,10 +46,9 @@ import qualified Data.ByteString.Char8 as B
 import Web.Routes (encodePathInfo)
 
 import qualified Data.ByteString.UTF8 as S
-import qualified Data.ByteString.Lazy.UTF8 as L
 
 import Control.Concurrent.MVar
-import Control.Arrow ((***), first)
+import Control.Arrow ((***))
 
 import Data.Time
 

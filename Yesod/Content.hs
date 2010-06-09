@@ -58,7 +58,6 @@ import qualified Data.Text as T
 import qualified Network.Wai as W
 import qualified Network.Wai.Enumerator as WE
 
-import Data.Function (on)
 import Data.Time
 import System.Locale
 

@@ -5,7 +5,6 @@ module Yesod.Contrib.Persist
     ) where
 
 import Yesod.Handler
-import Yesod.Yesod
 import Database.Persist
 
 class YesodPersist y where

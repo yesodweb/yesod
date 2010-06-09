@@ -21,10 +21,8 @@ import qualified Data.ByteString.Lazy.Char8 as L
 import Data.Char (isControl)
 import Yesod.Hamlet
 import Yesod.Handler
-import Web.Routes.Quasi (Routes)
 import Numeric (showHex)
 import Data.Monoid (Monoid (..))
-import Text.Hamlet
 
 #if TEST
 import Test.Framework (testGroup, Test)

@@ -81,7 +81,6 @@ import "MonadCatchIO-transformers" Control.Monad.CatchIO (catch)
 import Control.Monad (liftM, ap)
 
 import System.IO
-import qualified Data.ByteString.Lazy as BL
 import qualified Network.Wai as W
 import Control.Monad.Attempt
 import Data.ByteString.UTF8 (toString)

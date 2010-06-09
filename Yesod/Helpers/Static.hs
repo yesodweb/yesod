@@ -109,10 +109,10 @@ staticFiles fp = do
     fs <- qRunIO $ getFileList fp
     concat `fmap` mapM go fs
   where
-    replace '.' = '_'
-    replace c = c
+    replace' '.' = '_'
+    replace' c = c
     go f = do
-        let name = mkName $ intercalate "_" $ map (map replace) f
+        let name = mkName $ intercalate "_" $ map (map replace') f
         f' <- lift f
         let sr = ConE $ mkName "StaticRoute"
         return
