@@ -58,6 +58,7 @@ library
                      Yesod.Content
                      Yesod.Dispatch
                      Yesod.Form
+                     Yesod.Formable
                      Yesod.Hamlet
                      Yesod.Handler
                      Yesod.Internal
@@ -66,13 +67,10 @@ library
                      Yesod.Yesod
                      Yesod.Helpers.AtomFeed
                      Yesod.Helpers.Auth
+                     Yesod.Helpers.Crud
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
-                     Yesod.Contrib
-                     Yesod.Contrib.Crud
-                     Yesod.Contrib.Formable
-                     Yesod.Contrib.Persist
-    ghc-options:     -Wall
+    ghc-options:     -Wall -Werror
 
 executable             runtests
     if flag(buildtests)

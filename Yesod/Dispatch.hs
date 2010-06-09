@@ -55,8 +55,10 @@ import Data.Time
 import Control.Monad
 import Data.Maybe
 import Web.ClientSession
+import qualified Web.ClientSession as CS
 
 import Data.Serialize
+import qualified Data.Serialize as Ser
 import Network.Wai.Parse
 
 #if TEST
@@ -336,7 +338,7 @@ headerToPair _ (DeleteCookie key) =
 headerToPair _ (Header key value) =
     (W.responseHeaderFromBS $ S.fromString key, S.fromString value)
 
-encodeSession :: Key
+encodeSession :: CS.Key
               -> UTCTime -- ^ expire time
               -> B.ByteString -- ^ remote host
               -> [(String, String)] -- ^ session
@@ -344,7 +346,7 @@ encodeSession :: Key
 encodeSession key expire rhost session' =
     encrypt key $ encode $ SessionCookie expire rhost session'
 
-decodeSession :: Key
+decodeSession :: CS.Key
               -> UTCTime -- ^ current time
               -> B.ByteString -- ^ remote host field
               -> B.ByteString -- ^ cookie value
@@ -363,8 +365,8 @@ instance Serialize SessionCookie where
     put (SessionCookie a b c) = putTime a >> put b >> put c
     get = do
         a <- getTime
-        b <- get
-        c <- get
+        b <- Ser.get
+        c <- Ser.get
         return $ SessionCookie a b c
 
 putTime :: Putter UTCTime
@@ -375,8 +377,8 @@ putTime t@(UTCTime d _) = do
 
 getTime :: Get UTCTime
 getTime = do
-    d <- get
-    ndt <- get
+    d <- Ser.get
+    ndt <- Ser.get
     return $ fromRational ndt `addUTCTime` UTCTime (ModifiedJulianDay d) 0
 
 #if TEST

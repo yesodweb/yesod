@@ -1,10 +1,14 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeFamilies #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( -- * Type classes
       Yesod (..)
     , YesodSite (..)
+      -- ** Persistence
+    , YesodPersist (..)
+    , Persist (..)
       -- * Convenience functions
     , applyLayout
     , applyLayoutJson
@@ -19,9 +23,11 @@ import Yesod.Handler
 import qualified Network.Wai as W
 import Yesod.Json
 import Yesod.Internal
-import Web.ClientSession (getKey, defaultKeyFile, Key)
+import Web.ClientSession (getKey, defaultKeyFile)
+import qualified Web.ClientSession as CS
 import Data.Monoid (mempty)
 import Data.ByteString.UTF8 (toString)
+import Database.Persist (Persist (..))
 
 import Web.Routes.Quasi (QuasiSite (..), Routes)
 
@@ -46,7 +52,7 @@ class Yesod a where
     approot :: a -> String
 
     -- | The encryption key to be used for encrypting client sessions.
-    encryptKey :: a -> IO Key
+    encryptKey :: a -> IO CS.Key
     encryptKey _ = getKey defaultKeyFile
 
     -- | Number of minutes before a client session times out. Defaults to
@@ -162,3 +168,7 @@ defaultErrorHandler (BadMethod m) =
 %h1 Method Not Supported
 %p Method "$string.m$" not supported
 |]
+
+class YesodPersist y where
+    type YesodDB y :: (* -> *) -> * -> *
+    runDB :: YesodDB y (GHandler sub y) a -> GHandler sub y a

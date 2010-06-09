@@ -1,27 +1,20 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE Rank2Types #-}
-module Yesod.Contrib.Crud where
+module Yesod.Helpers.Crud
+    ( Item (..)
+    , Crud (..)
+    , defaultCrud
+    , siteCrud
+    ) where
 
 import Yesod.Yesod
 import Yesod.Dispatch
 import Yesod.Content
 import Yesod.Handler
-import Yesod.Request
 import Text.Hamlet
-import Control.Monad.IO.Class (liftIO)
-import Web.Routes.Quasi
-import Database.Persist
-import Yesod.Contrib.Formable hiding (runForm)
-import Yesod.Contrib.Persist
+import Yesod.Formable
 import Data.Monoid (mempty)
-
-runForm :: SealedForm (Routes y) a
-        -> GHandler sub y (Either [String] a, Hamlet (Routes y))
-runForm f = do
-    req <- getRequest
-    (pp, _) <- liftIO $ reqRequestBody req
-    return $ fst $ runIncr (runSealedForm f pp) 1
 
 class Formable a => Item a where
     itemTitle :: a -> String

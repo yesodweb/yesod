@@ -3,12 +3,24 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-module Yesod.Contrib.Formable where
+module Yesod.Formable
+    ( Form (..)
+    , Formlet
+    , SealedForm (..)
+    , SealedFormlet
+    , runForm
+    , runIncr
+    , Formable (..)
+    , Fieldable (..)
+    , deriveFormable
+    , share2
+    , wrapperRow
+    , sealFormlet
+    ) where
 
 import Text.Hamlet
 import Data.Time (Day)
 import Control.Applicative
-import Web.Routes.Quasi (SinglePiece)
 import Database.Persist (Persistable)
 import Data.Char (isAlphaNum)
 import Language.Haskell.TH.Syntax
@@ -19,6 +31,17 @@ import Control.Arrow (first)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (mempty, mappend)
 import qualified Data.ByteString.Lazy.UTF8
+import Yesod.Request
+import Yesod.Handler
+import Control.Monad.IO.Class (liftIO)
+import Web.Routes.Quasi
+
+runForm :: SealedForm (Routes y) a
+        -> GHandler sub y (Either [String] a, Hamlet (Routes y))
+runForm f = do
+    req <- getRequest
+    (pp, _) <- liftIO $ reqRequestBody req
+    return $ fst $ runIncr (runSealedForm f pp) 1
 
 type Env = [(String, String)]
 
@@ -39,9 +62,7 @@ instance Functor FormResult where
     fmap _ (FormFailure errs) = FormFailure errs
     fmap f (FormSuccess a) = FormSuccess $ f a
 
-newtype Form url a = Form
-    { runForm :: Env -> Incr (FormResult a, Hamlet url)
-    }
+newtype Form url a = Form (Env -> Incr (FormResult a, Hamlet url))
 type Formlet url a = Maybe a -> Form url a
 
 newtype SealedForm url a = SealedForm

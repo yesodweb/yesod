@@ -10,7 +10,7 @@ module Yesod
     , module Yesod.Form
     , module Yesod.Hamlet
     , module Yesod.Json
-    , module Yesod.Contrib
+    , module Yesod.Formable
     , Application
     , liftIO
     , Routes
@@ -28,10 +28,10 @@ import Yesod.Dispatch
 
 import Yesod.Request
 import Yesod.Form hiding (Form)
+import Yesod.Formable
 import Yesod.Yesod
 import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet
 import "transformers" Control.Monad.IO.Class (liftIO)
 import Web.Routes.Quasi (Routes)
-import Yesod.Contrib
