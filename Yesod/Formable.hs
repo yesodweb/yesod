@@ -119,8 +119,8 @@ check (Form form) f = Form $ \env -> liftM (first go) (form env)
             Left errs -> FormFailure errs
             Right b -> FormSuccess b
 
-class Formable y param a where
-    formable :: param -> Formlet y y a
+class Formable a where
+    formable :: Formlet sub master a
 
 wrapperRow :: String -> [String] -> Hamlet url -> Hamlet url
 wrapperRow label errs control = [$hamlet|
@@ -134,22 +134,22 @@ wrapperRow label errs control = [$hamlet|
                     %li $string.err$
 |]
 
-instance Formable y param [Char] where
-    formable _ = input' go
+instance Formable [Char] where
+    formable = input' go
       where
         go name val = [$hamlet|
 %input!type=text!name=$string.name$!value=$string.val$
 |]
 
-instance Formable y param Html where
-    formable _ = fmap preEscapedString
+instance Formable Html where
+    formable = fmap preEscapedString
               . input' go
               . fmap (Data.ByteString.Lazy.UTF8.toString . renderHtml)
       where
         go name val = [$hamlet|%textarea!name=$string.name$ $string.val$|]
 
-instance Formable y param Day where
-    formable _ x = input' go (fmap show x) `check` asDay
+instance Formable Day where
+    formable x = input' go (fmap show x) `check` asDay
       where
         go name val = [$hamlet|
 %input!type=date!name=$string.name$!value=$string.val$
@@ -158,8 +158,8 @@ instance Formable y param Day where
                     (y, _):_ -> Right y
                     [] -> Left ["Invalid day"]
 
-instance Formable y param Bool where
-    formable _ x = Form $ \env -> do
+instance Formable Bool where
+    formable x = Form $ \env -> do
         i <- incr
         let i' = show i
         let param = lookup i' env
@@ -170,8 +170,8 @@ instance Formable y param Bool where
 %input!type=checkbox!name=$string.name$!:val:checked
 |]
 
-instance Formable y param Int where
-    formable _ x = input' go (fmap show x) `check` asInt
+instance Formable Int where
+    formable x = input' go (fmap show x) `check` asInt
       where
         go name val = [$hamlet|
 %input!type=number!name=$string.name$!value=$string.val$
@@ -183,8 +183,8 @@ instance Formable y param Int where
 newtype Slug = Slug { unSlug :: String }
     deriving (Read, Eq, Show, SinglePiece, Persistable)
 
-instance Formable y param Slug where
-    formable _ x = input' go (fmap unSlug x) `check` asSlug
+instance Formable Slug where
+    formable x = input' go (fmap unSlug x) `check` asSlug
       where
         go name val = [$hamlet|
 %input!type=text!name=$string.name$!value=$string.val$
@@ -197,8 +197,8 @@ instance Formable y param Slug where
 
 newtype NonEmptyString = NonEmptyString { unNonEmptyString :: String }
     deriving (Read, Eq, Show, SinglePiece, Persistable)
-instance Formable y param NonEmptyString where
-    formable _ x = input' go (fmap unNonEmptyString x) `check` notEmpty
+instance Formable NonEmptyString where
+    formable x = input' go (fmap unNonEmptyString x) `check` notEmpty
       where
         go name val = [$hamlet|
 %input!type=text!name=$string.name$!value=$string.val$
@@ -212,8 +212,8 @@ share2 f g a = do
     g' <- g a
     return $ f' ++ g'
 
-deriveFormable :: String -> String -> [Table] -> Q [Dec]
-deriveFormable yesod param = mapM derive
+deriveFormable :: [Table] -> Q [Dec]
+deriveFormable = mapM derive
   where
     derive :: Table -> Q Dec
     derive t = do
@@ -222,29 +222,24 @@ deriveFormable yesod param = mapM derive
         just <- [|pure|]
         nothing <- [|Nothing|]
         let just' = just `AppE` ConE (mkName $ tableName t)
-        param' <- newName "param"
-        let c1 = Clause [ VarP param'
-                        , ConP (mkName "Nothing") []
+        let c1 = Clause [ ConP (mkName "Nothing") []
                         ]
-                        (NormalB $ go param' ap just' $ zip cols $ map (const nothing) cols)
+                        (NormalB $ go ap just' $ zip cols $ map (const nothing) cols)
                         []
         xs <- mapM (const $ newName "x") cols
         let xs' = map (AppE just . VarE) xs
-        let c2 = Clause [ VarP param'
-                        , ConP (mkName "Just") [ConP (mkName $ tableName t)
+        let c2 = Clause [ ConP (mkName "Just") [ConP (mkName $ tableName t)
                             $ map VarP xs]]
-                        (NormalB $ go param' ap just' $ zip cols xs')
+                        (NormalB $ go ap just' $ zip cols xs')
                         []
         return $ InstanceD [] (ConT ''Formable
-                              `AppT` ConT (mkName yesod)
-                              `AppT` ConT (mkName param)
                               `AppT` ConT (mkName $ tableName t))
             [FunD (mkName "formable") [c1, c2]]
-    go param' ap just' = foldl (ap' ap) just' . map (go' param')
-    go' param' (label, ex) =
+    go ap just' = foldl (ap' ap) just' . map go'
+    go' (label, ex) =
         VarE (mkName "sealForm") `AppE`
         (VarE (mkName "wrapperRow") `AppE` LitE (StringL label)) `AppE`
-        (VarE (mkName "formable") `AppE` VarE param' `AppE` ex)
+        (VarE (mkName "formable") `AppE` ex)
     ap' ap x y = InfixE (Just x) ap (Just y)
 
 toLabel :: String -> String
