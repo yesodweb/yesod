@@ -4,6 +4,7 @@
 module Yesod.Helpers.Crud
     ( Item (..)
     , Crud (..)
+    , CrudRoutes (..)
     , defaultCrud
     , siteCrud
     ) where
