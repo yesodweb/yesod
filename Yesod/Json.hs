@@ -30,7 +30,7 @@ import Text.Hamlet
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
-import Data.Text.Lazy (unpack)
+import Data.ByteString.Lazy.Char8 (unpack)
 import Yesod.Content hiding (testSuite)
 #else
 import Yesod.Content
@@ -128,11 +128,10 @@ caseSimpleOutput = do
     let j = do
         jsonMap
             [ ("foo" , jsonList
-                [ jsonScalar $ Encoded $ pack "bar"
-                , jsonScalar $ Encoded $ pack "baz"
+                [ jsonScalar $ preEscapedString "bar"
+                , jsonScalar $ preEscapedString "baz"
                 ])
             ]
-    t <- hamletToText id $ unJson j
-    "{\"foo\":[\"bar\",\"baz\"]}" @=? unpack t
+    "{\"foo\":[\"bar\",\"baz\"]}" @=? unpack (renderHtml $ unJson j)
 
 #endif

@@ -396,8 +396,7 @@ propEncDecSession session' = unsafePerformIO $ do
     let expire = addUTCTime 1 now
     let rhost = B.pack "some host"
     let val = encodeSession key expire rhost session'
-    return $ Just session' ==
-             decodeSession key now rhost (B.pack val)
+    return $ Just session' == decodeSession key now rhost val
 
 propGetPutTime :: UTCTime -> Bool
 propGetPutTime t = Right t == runGet getTime (runPut $ putTime t)
