@@ -9,7 +9,8 @@
 module Yesod.Content
     ( -- * Content
       Content (..)
-    , toContent
+    , emptyContent
+    , ToContent (..)
       -- * Mime types
       -- ** Data type
     , ContentType
@@ -82,22 +83,24 @@ data Content = ContentFile FilePath
                           -> a
                           -> IO (Either a a))
 
-instance ConvertSuccess B.ByteString Content where
-    convertSuccess bs = ContentEnum $ \f a -> f a bs
-instance ConvertSuccess L.ByteString Content where
-    convertSuccess = swapEnum . WE.fromLBS
-instance ConvertSuccess T.Text Content where
-    convertSuccess t = cs (cs t :: B.ByteString)
-instance ConvertSuccess Text Content where
-    convertSuccess lt = cs (cs lt :: L.ByteString)
-instance ConvertSuccess String Content where
-    convertSuccess s = cs (cs s :: Text)
-instance ConvertSuccess (IO Text) Content where
-    convertSuccess = swapEnum . WE.fromLBS' . fmap cs
+emptyContent :: Content
+emptyContent = ContentEnum $ \_ -> return . Right
 
--- | A synonym for 'convertSuccess' to make the desired output type explicit.
-toContent :: ConvertSuccess x Content => x -> Content
-toContent = cs
+class ToContent a where
+    toContent :: a -> Content
+
+instance ToContent B.ByteString where
+    toContent bs = ContentEnum $ \f a -> f a bs
+instance ToContent L.ByteString where
+    toContent = swapEnum . WE.fromLBS
+instance ToContent T.Text where
+    toContent t = toContent (cs t :: B.ByteString)
+instance ToContent Text where
+    toContent lt = toContent (cs lt :: L.ByteString)
+instance ToContent String where
+    toContent s = toContent (cs s :: L.ByteString)
+instance ToContent (IO Text) where
+    toContent = swapEnum . WE.fromLBS' . fmap cs
 
 -- | A function which gives targetted representations of content based on the
 -- content-types the user accepts.
@@ -135,7 +138,7 @@ instance HasReps ChooseRep where
     chooseRep = id
 
 instance HasReps () where
-    chooseRep = defChooseRep [(typePlain, const $ return $ cs "")]
+    chooseRep = defChooseRep [(typePlain, const $ return $ toContent "")]
 
 instance HasReps [(ContentType, Content)] where
     chooseRep a cts = return $

@@ -224,9 +224,8 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts
             let hs' = headers ++ hs
             return (getStatus e, hs', ct, c, sess)
-    let sendFile' ct fp = do
-            c <- BL.readFile fp
-            return (W.Status200, headers, ct, cs c, finalSession)
+    let sendFile' ct fp =
+            return (W.Status200, headers, ct, ContentFile fp, finalSession)
     case contents of
         HCContent a -> do
             (ct, c) <- chooseRep a cts
@@ -234,7 +233,8 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
         HCError e -> handleError e
         HCRedirect rt loc -> do
             let hs = Header "Location" loc : headers
-            return (getRedirectStatus rt, hs, typePlain, cs "", finalSession)
+            return (getRedirectStatus rt, hs, typePlain, emptyContent,
+                    finalSession)
         HCSendFile ct fp -> E.catch
             (sendFile' ct fp)
             (handleError . toErrorHandler)
@@ -242,7 +242,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return (W.Status500, [], typePlain, cs "Internal Server Error", [])
+    return (W.Status500, [], typePlain, toContent "Internal Server Error", [])
 
 -- | Redirect to the given route.
 redirect :: RedirectType -> Routes master -> GHandler sub master a
