@@ -17,8 +17,8 @@ module Yesod.Formable
     , wrapperRow
     , sealFormlet
     , sealForm
-    , NonEmptyString (..)
     , Slug (..)
+    , sealRow
     ) where
 
 import Text.Hamlet
@@ -27,7 +27,7 @@ import Control.Applicative
 import Database.Persist (Persistable, Table (..))
 import Data.Char (isAlphaNum, toUpper, isUpper)
 import Language.Haskell.TH.Syntax
-import Control.Monad (liftM)
+import Control.Monad (liftM, join)
 import Control.Arrow (first)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid (mempty, mappend)
@@ -37,6 +37,11 @@ import Yesod.Handler
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State
 import Web.Routes.Quasi (Routes, SinglePiece)
+import Data.Int (Int64)
+
+sealRow :: Formable b => String -> (a -> b) -> Maybe a -> Form sub master b
+sealRow label getVal val =
+    sealForm (wrapperRow label) $ formable $ fmap getVal val
 
 runForm :: Form sub y a
         -> GHandler sub y (FormResult a, Hamlet (Routes y))
@@ -134,11 +139,24 @@ wrapperRow label errs control = [$hamlet|
 |]
 
 instance Formable String where
-    formable = input' go
+    formable x = input' go x `check` notEmpty
       where
         go name val = [$hamlet|
 %input!type=text!name=$string.name$!value=$string.val$
 |]
+        notEmpty s
+            | null s = Left ["Value required"]
+            | otherwise = Right s
+
+instance Formable (Maybe String) where
+    formable x = input' go (join x) `check` isEmpty
+      where
+        go name val = [$hamlet|
+%input!type=text!name=$string.name$!value=$string.val$
+|]
+        isEmpty s
+            | null s = Right Nothing
+            | otherwise = Right $ Just s
 
 instance Formable Html where
     formable = fmap preEscapedString
@@ -156,6 +174,64 @@ instance Formable Day where
         asDay s = case reads s of
                     (y, _):_ -> Right y
                     [] -> Left ["Invalid day"]
+
+instance Formable Int64 where
+    formable x = input' go (fmap show x) `check` asInt
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asInt s = case reads s of
+                    (y, _):_ -> Right y
+                    [] -> Left ["Invalid integer"]
+
+instance Formable Double where
+    formable x = input' go (fmap numstring x) `check` asDouble
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asDouble s = case reads s of
+                    (y, _):_ -> Right y
+                    [] -> Left ["Invalid double"]
+        numstring d =
+            let s = show d
+             in case reverse s of
+                    '0':'.':y -> reverse y
+                    _ -> s
+
+instance Formable (Maybe Day) where
+    formable x = input' go (fmap show $ join x) `check` asDay
+      where
+        go name val = [$hamlet|
+%input!type=date!name=$string.name$!value=$string.val$
+|]
+        asDay "" = Right Nothing
+        asDay s = case reads s of
+                    (y, _):_ -> Right $ Just y
+                    [] -> Left ["Invalid day"]
+
+instance Formable (Maybe Int) where
+    formable x = input' go (fmap show $ join x) `check` asInt
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asInt "" = Right Nothing
+        asInt s = case reads s of
+                    (y, _):_ -> Right $ Just y
+                    [] -> Left ["Invalid integer"]
+
+instance Formable (Maybe Int64) where
+    formable x = input' go (fmap show $ join x) `check` asInt
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asInt "" = Right Nothing
+        asInt s = case reads s of
+                    (y, _):_ -> Right $ Just y
+                    [] -> Left ["Invalid integer"]
 
 instance Formable Bool where
     formable x = Form $ \env -> do
@@ -193,17 +269,6 @@ instance Formable Slug where
             | all (\c -> c `elem` "-_" || isAlphaNum c) x' =
                 Right $ Slug x'
             | otherwise = Left ["Slug must be alphanumeric, - and _"]
-
-newtype NonEmptyString = NonEmptyString { unNonEmptyString :: String }
-    deriving (Read, Eq, Show, SinglePiece, Persistable)
-instance Formable NonEmptyString where
-    formable x = input' go (fmap unNonEmptyString x) `check` notEmpty
-      where
-        go name val = [$hamlet|
-%input!type=text!name=$string.name$!value=$string.val$
-|]
-        notEmpty "" = Left ["Must be non-empty"]
-        notEmpty y = Right $ NonEmptyString y
 
 share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
 share2 f g a = do
