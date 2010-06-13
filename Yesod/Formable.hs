@@ -19,6 +19,7 @@ module Yesod.Formable
     , sealForm
     , Slug (..)
     , sealRow
+    , check
     ) where
 
 import Text.Hamlet
