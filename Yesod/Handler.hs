@@ -75,8 +75,11 @@ import Control.Exception hiding (Handler, catch)
 import qualified Control.Exception as E
 import Control.Applicative
 
-import "transformers" Control.Monad.IO.Class
-import Control.Monad (liftM, ap)
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Writer
+import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Cont
 
 import System.IO
 import qualified Network.Wai as W
@@ -100,14 +103,15 @@ data HandlerData sub master = HandlerData
 -- | A generic handler monad, which can have a different subsite and master
 -- site. This monad is a combination of reader for basic arguments, a writer
 -- for headers, and an error-type monad for handling special responses.
-newtype GHandler sub master a = Handler {
-    unHandler :: HandlerData sub master
-              -> (a -> IO Helper)
-              -> IO Helper
-}
+type GHandler sub master =
+    ReaderT (HandlerData sub master) (
+    ContT HandlerContents (
+    WriterT (Endo [Header]) (
+    WriterT (Endo [(String, Maybe String)]) (
+    IO
+    ))))
 
 type Endo a = a -> a
-type Helper = (Endo [Header], Endo [(String, Maybe String)], HandlerContents)
 
 -- | A 'GHandler' limited to the case where the master and sub sites are the
 -- same. This is the usual case for application writing; only code written
@@ -131,63 +135,32 @@ data HandlerContents =
     | HCSendFile ContentType FilePath
     | HCRedirect RedirectType String
 
-instance Functor (GHandler sub master) where
-    fmap = liftM
-instance Applicative (GHandler sub master) where
-    pure = return
-    (<*>) = ap
-instance Monad (GHandler sub master) where
-    fail = failure . InternalError -- We want to catch all exceptions anyway
-    return x = Handler $ \_ f -> do
-        (a, b, c) <- f x
-        return (a, b, c)
-    Handler handler >>= f = Handler $ \rr cont -> do
-        handler rr (\a -> unHandler (f a) rr cont)
-instance MonadIO (GHandler sub master) where
-    liftIO i = Handler $ \_ f -> do
-        i' <- i
-        (a, b, c) <- f i'
-        return (a, b, c)
-{- FIXME
-instance C.MonadCatchIO (GHandler sub master) where
-    catch (Handler m) f =
-        Handler $ \d -> E.catch (m d) (\e -> unHandler (f e) d)
-    block (Handler m) =
-        Handler $ E.block . m
-    unblock (Handler m) =
-        Handler $ E.unblock . m
--}
 instance Failure ErrorResponse (GHandler sub master) where
-    failure e = Handler $ \_ _ -> return (id, id, HCError e)
+    failure = lift . ContT . const . return . HCError
 instance RequestReader (GHandler sub master) where
-    getRequest = handlerRequest <$> getData
-
-getData :: GHandler sub master (HandlerData sub master)
-getData = Handler $ \r f -> do
-    (a, b, c) <- f r
-    return (a, b, c)
+    getRequest = handlerRequest <$> ask
 
 -- | Get the sub application argument.
 getYesodSub :: GHandler sub master sub
-getYesodSub = handlerSub <$> getData
+getYesodSub = handlerSub <$> ask
 
 -- | Get the master site appliation argument.
 getYesod :: GHandler sub master master
-getYesod = handlerMaster <$> getData
+getYesod = handlerMaster <$> ask
 
 -- | Get the URL rendering function.
 getUrlRender :: GHandler sub master (Routes master -> String)
-getUrlRender = handlerRender <$> getData
+getUrlRender = handlerRender <$> ask
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
 getRoute :: GHandler sub master (Maybe (Routes sub))
-getRoute = handlerRoute <$> getData
+getRoute = handlerRoute <$> ask
 
 -- | Get the function to promote a route for a subsite to a route for the
 -- master site.
 getRouteToMaster :: GHandler sub master (Routes sub -> Routes master)
-getRouteToMaster = handlerToMaster <$> getData
+getRouteToMaster = handlerToMaster <$> ask
 
 modifySession :: [(String, String)] -> (String, Maybe String)
               -> [(String, String)]
@@ -213,16 +186,20 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
-    (headers, session', contents) <- E.catch
-        (unHandler handler HandlerData
+    let hd = HandlerData
             { handlerRequest = rr
             , handlerSub = tosa ma
             , handlerMaster = ma
             , handlerRoute = sroute
             , handlerRender = mrender
             , handlerToMaster = tomr
-            } $ \c -> return (id, id, HCContent $ chooseRep c))
-        (\e -> return (id, id, HCError $ toErrorHandler e))
+            }
+    ((contents, headers), session') <- E.catch (
+        runWriterT
+      $ runWriterT
+      $ flip runContT (return . HCContent . chooseRep)
+      $ flip runReaderT hd handler
+        ) (\e -> return ((HCError $ toErrorHandler e, id), id))
     let finalSession = foldl' modifySession (reqSession rr) $ session' []
     let handleError e = do
             (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts
@@ -283,7 +260,7 @@ redirectParams rt url params = do
 
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
-redirectString rt url = Handler $ \_ _ -> return (id, id, HCRedirect rt url)
+redirectString rt url = lift $ ContT $ const $ return $ HCRedirect rt url
 
 ultDestKey :: String
 ultDestKey = "_ULT"
@@ -346,7 +323,7 @@ getMessage = do
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
 sendFile :: ContentType -> FilePath -> GHandler sub master a
-sendFile ct fp = Handler $ \_ _ -> return (id, id, HCSendFile ct fp)
+sendFile ct fp = lift $ ContT $ const $ return $ HCSendFile ct fp
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
@@ -394,20 +371,14 @@ header a = addHeader . Header a
 setSession :: String -- ^ key
            -> String -- ^ value
            -> GHandler sub master ()
-setSession k v = Handler $ \_ f -> do
-    (a, b, c) <- f ()
-    return (a, b . (:) (k, Just v), c)
+setSession k v = lift . lift . lift . tell $ (:) (k, Just v)
 
 -- | Unsets a session variable. See 'setSession'.
 clearSession :: String -> GHandler sub master ()
-clearSession k = Handler $ \_ f -> do
-    (a, b, c) <- f ()
-    return (a, b . (:) (k, Nothing), c)
+clearSession k = lift . lift . lift . tell $ (:) (k, Nothing)
 
 addHeader :: Header -> GHandler sub master ()
-addHeader h = Handler $ \_ f -> do
-    (a, b, c) <- f ()
-    return (a . (:) h, b, c)
+addHeader = lift . lift . tell . (:)
 
 getStatus :: ErrorResponse -> W.Status
 getStatus NotFound = W.Status404
