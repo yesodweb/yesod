@@ -33,7 +33,6 @@ import Web.Routes.Quasi
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
-import qualified Network.Wai.Enumerator as W
 import Network.Wai.Middleware.CleanPath
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.Gzip
@@ -238,8 +237,7 @@ toWaiApp' y segments env = do
         hs''' = (W.ContentType, S.fromString ct) : hs''
     return $ W.Response s hs''' $ case c of
                                     ContentFile fp -> Left fp
-                                    ContentEnum e -> Right $ W.buffer
-                                                           $ W.Enumerator e
+                                    ContentEnum e -> Right $ W.Enumerator e
 
 -- | Fully render a route to an absolute URL. Since Yesod does this for you
 -- internally, you will rarely need access to this. However, if you need to
