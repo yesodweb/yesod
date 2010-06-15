@@ -76,8 +76,6 @@ import qualified Control.Exception as E
 import Control.Applicative
 
 import "transformers" Control.Monad.IO.Class
-import qualified "MonadCatchIO-transformers" Control.Monad.CatchIO as C
-import "MonadCatchIO-transformers" Control.Monad.CatchIO (catch)
 import Control.Monad (liftM, ap)
 
 import System.IO
@@ -108,7 +106,8 @@ newtype GHandler sub master a = Handler {
               -> IO Helper
 }
 
-type Helper = ([Header], [(String, Maybe String)], HandlerContents)
+type Endo a = a -> a
+type Helper = (Endo [Header], Endo [(String, Maybe String)], HandlerContents)
 
 -- | A 'GHandler' limited to the case where the master and sub sites are the
 -- same. This is the usual case for application writing; only code written
@@ -159,7 +158,7 @@ instance C.MonadCatchIO (GHandler sub master) where
         Handler $ E.unblock . m
 -}
 instance Failure ErrorResponse (GHandler sub master) where
-    failure e = Handler $ \_ _ -> return ([], [], HCError e)
+    failure e = Handler $ \_ _ -> return (id, id, HCError e)
 instance RequestReader (GHandler sub master) where
     getRequest = handlerRequest <$> getData
 
@@ -222,22 +221,22 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             , handlerRoute = sroute
             , handlerRender = mrender
             , handlerToMaster = tomr
-            } $ \c -> return ([], [], HCContent $ chooseRep c))
-        (\e -> return ([], [], HCError $ toErrorHandler e))
-    let finalSession = foldl' modifySession (reqSession rr) session'
+            } $ \c -> return (id, id, HCContent $ chooseRep c))
+        (\e -> return (id, id, HCError $ toErrorHandler e))
+    let finalSession = foldl' modifySession (reqSession rr) $ session' []
     let handleError e = do
             (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts
-            let hs' = headers ++ hs
+            let hs' = headers hs
             return (getStatus e, hs', ct, c, sess)
     let sendFile' ct fp =
-            return (W.Status200, headers, ct, ContentFile fp, finalSession)
+            return (W.Status200, headers [], ct, ContentFile fp, finalSession)
     case contents of
         HCContent a -> do
             (ct, c) <- chooseRep a cts
-            return (W.Status200, headers, ct, c, finalSession)
+            return (W.Status200, headers [], ct, c, finalSession)
         HCError e -> handleError e
         HCRedirect rt loc -> do
-            let hs = Header "Location" loc : headers
+            let hs = Header "Location" loc : headers []
             return (getRedirectStatus rt, hs, typePlain, emptyContent,
                     finalSession)
         HCSendFile ct fp -> E.catch
@@ -284,7 +283,7 @@ redirectParams rt url params = do
 
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
-redirectString rt url = Handler $ \_ _ -> return ([], [], HCRedirect rt url)
+redirectString rt url = Handler $ \_ _ -> return (id, id, HCRedirect rt url)
 
 ultDestKey :: String
 ultDestKey = "_ULT"
@@ -347,8 +346,7 @@ getMessage = do
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
 sendFile :: ContentType -> FilePath -> GHandler sub master a
-sendFile ct fp = Handler $ \_ _ -> do
-    return ([], [], HCSendFile ct fp)
+sendFile ct fp = Handler $ \_ _ -> return (id, id, HCSendFile ct fp)
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
@@ -398,18 +396,18 @@ setSession :: String -- ^ key
            -> GHandler sub master ()
 setSession k v = Handler $ \_ f -> do
     (a, b, c) <- f ()
-    return (a, b ++ [(k, Just v)], c)
+    return (a, b . (:) (k, Just v), c)
 
 -- | Unsets a session variable. See 'setSession'.
 clearSession :: String -> GHandler sub master ()
 clearSession k = Handler $ \_ f -> do
     (a, b, c) <- f ()
-    return (a, b ++ [(k, Nothing)], c)
+    return (a, b . (:) (k, Nothing), c)
 
 addHeader :: Header -> GHandler sub master ()
 addHeader h = Handler $ \_ f -> do
     (a, b, c) <- f ()
-    return (a ++ [h], b, c)
+    return (a . (:) h, b, c)
 
 getStatus :: ErrorResponse -> W.Status
 getStatus NotFound = W.Status404
