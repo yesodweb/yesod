@@ -110,6 +110,7 @@ staticFiles fp = do
     concat `fmap` mapM go fs
   where
     replace' '.' = '_'
+    replace' '-' = '_'
     replace' c = c
     go f = do
         let name = mkName $ intercalate "_" $ map (map replace') f
