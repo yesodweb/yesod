@@ -306,14 +306,14 @@ msgKey = "_MSG"
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessage :: Html -> GHandler sub master ()
+setMessage :: Html () -> GHandler sub master ()
 setMessage = setSession msgKey . L.toString . renderHtml
 
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.
 --
 -- See 'setMessage'.
-getMessage :: GHandler sub master (Maybe Html)
+getMessage :: GHandler sub master (Maybe (Html ()))
 getMessage = do
     clearSession msgKey
     fmap (fmap preEscapedString) $ lookupSession msgKey

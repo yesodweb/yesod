@@ -41,7 +41,7 @@ import Yesod.Content
 -- This is an opaque type to avoid any possible insertion of non-JSON content.
 -- Due to the limited nature of the JSON format, you can create any valid JSON
 -- document you wish using only 'jsonScalar', 'jsonList' and 'jsonMap'.
-newtype Json = Json { unJson :: Html }
+newtype Json = Json { unJson :: Html () }
     deriving Monoid
 
 -- | Extract the final result from the given 'Json' value.
@@ -61,10 +61,10 @@ jsonToRepJson = fmap RepJson . jsonToContent
 -- * Performs JSON encoding.
 --
 -- * Wraps the resulting string in quotes.
-jsonScalar :: Html -> Json
+jsonScalar :: Html () -> Json
 jsonScalar s = Json $ mconcat
     [ preEscapedString "\""
-    , unsafeBytestring $ S.concat $ L.toChunks $ encodeJson $ renderHtml s
+    , unsafeByteString $ S.concat $ L.toChunks $ encodeJson $ renderHtml s
     , preEscapedString "\""
     ]
   where

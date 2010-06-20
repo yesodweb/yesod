@@ -44,10 +44,10 @@ data AtomFeedEntry url = AtomFeedEntry
     { atomEntryLink :: url
     , atomEntryUpdated :: UTCTime
     , atomEntryTitle :: String
-    , atomEntryContent :: Html
+    , atomEntryContent :: Html ()
     }
 
-xmlns :: AtomFeed url -> Html
+xmlns :: AtomFeed url -> Html ()
 xmlns _ = preEscapedString "http://www.w3.org/2005/Atom"
 
 template :: AtomFeed url -> Hamlet url
