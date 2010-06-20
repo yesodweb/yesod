@@ -25,7 +25,8 @@ module Yesod.Formable
 import Text.Hamlet
 import Data.Time (Day)
 import Control.Applicative
-import Database.Persist (Persistable, Table (..))
+import Database.Persist (PersistField)
+import Database.Persist.Helper (EntityDef (..))
 import Data.Char (isAlphaNum, toUpper, isUpper)
 import Language.Haskell.TH.Syntax
 import Control.Monad (liftM, join)
@@ -159,7 +160,7 @@ instance Formable (Maybe String) where
             | null s = Right Nothing
             | otherwise = Right $ Just s
 
-instance Formable Html where
+instance Formable (Html ()) where
     formable = fmap preEscapedString
               . input' go
               . fmap (Data.ByteString.Lazy.UTF8.toString . renderHtml)
@@ -257,7 +258,7 @@ instance Formable Int where
                     [] -> Left ["Invalid integer"]
 
 newtype Slug = Slug { unSlug :: String }
-    deriving (Read, Eq, Show, SinglePiece, Persistable)
+    deriving (Read, Eq, Show, SinglePiece, PersistField)
 
 instance Formable Slug where
     formable x = input' go (fmap unSlug x) `check` asSlug
@@ -277,28 +278,29 @@ share2 f g a = do
     g' <- g a
     return $ f' ++ g'
 
-deriveFormable :: [Table] -> Q [Dec]
+deriveFormable :: [EntityDef] -> Q [Dec]
 deriveFormable = mapM derive
   where
-    derive :: Table -> Q Dec
+    derive :: EntityDef -> Q Dec
     derive t = do
-        let cols = map (toLabel . fst) $ tableColumns t
+        let fst3 (x, _, _) = x
+        let cols = map (toLabel . fst3) $ entityColumns t
         ap <- [|(<*>)|]
         just <- [|pure|]
         nothing <- [|Nothing|]
-        let just' = just `AppE` ConE (mkName $ tableName t)
+        let just' = just `AppE` ConE (mkName $ entityName t)
         let c1 = Clause [ ConP (mkName "Nothing") []
                         ]
                         (NormalB $ go ap just' $ zip cols $ map (const nothing) cols)
                         []
         xs <- mapM (const $ newName "x") cols
         let xs' = map (AppE just . VarE) xs
-        let c2 = Clause [ ConP (mkName "Just") [ConP (mkName $ tableName t)
+        let c2 = Clause [ ConP (mkName "Just") [ConP (mkName $ entityName t)
                             $ map VarP xs]]
                         (NormalB $ go ap just' $ zip cols xs')
                         []
         return $ InstanceD [] (ConT ''Formable
-                              `AppT` ConT (mkName $ tableName t))
+                              `AppT` ConT (mkName $ entityName t))
             [FunD (mkName "formable") [c1, c2]]
     go ap just' = foldl (ap' ap) just' . map go'
     go' (label, ex) =

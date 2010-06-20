@@ -8,7 +8,7 @@ module Yesod.Yesod
     , YesodSite (..)
       -- ** Persistence
     , YesodPersist (..)
-    , Persist (..)
+    , PersistEntity (..)
       -- * Convenience functions
     , applyLayout
     , applyLayoutJson
@@ -27,7 +27,7 @@ import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
 import Data.Monoid (mempty)
 import Data.ByteString.UTF8 (toString)
-import Database.Persist (Persist (..))
+import Database.Persist (PersistEntity (..))
 
 import Web.Routes.Quasi (QuasiSite (..), Routes)
 
