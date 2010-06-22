@@ -57,7 +57,7 @@ library
                      Yesod.Helpers.Crud
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
-    ghc-options:     -Wall -Werror
+    ghc-options:     -Wall
 
 executable             runtests
     if flag(buildtests)
