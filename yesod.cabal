@@ -9,16 +9,6 @@ description:
     Yesod is a framework designed to foster creation of RESTful web application that have strong compile-time guarantees of correctness. It also affords space efficient code and portability to many deployment backends, from CGI to stand-alone serving.
     .
     The Yesod documentation site <http://docs.yesodweb.com/> has much more information, tutorials and information on some of the supporting packages, like Hamlet and web-routes-quasi.
-    .
-    As a quick overview, here is a fully-functional Hello World application:
-    .
-    > {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell #-}
-    > import Yesod
-    > data HelloWorld = HelloWorld
-    > mkYesod "HelloWorld" [$parseRoutes|/ Home GET|]
-    > instance Yesod HelloWorld where approot _ = ""
-    > getHome = return $ RepPlain $ cs "Hello World!"
-    > main = toWaiApp HelloWorld >>= basicHandler 3000
 category:        Web
 stability:       Stable
 cabal-version:   >= 1.6
@@ -42,7 +32,7 @@ library
                      template-haskell >= 2.4 && < 2.5,
                      web-routes >= 0.22 && < 0.23,
                      web-routes-quasi >= 0.4 && < 0.5,
-                     hamlet >= 0.3.0 && < 0.4,
+                     hamlet >= 0.3.1 && < 0.4,
                      transformers >= 0.2 && < 0.3,
                      clientsession >= 0.4.0 && < 0.5,
                      pureMD5 >= 1.1.0.0 && < 1.2,
