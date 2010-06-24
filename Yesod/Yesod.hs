@@ -9,6 +9,9 @@ module Yesod.Yesod
       -- ** Persistence
     , YesodPersist (..)
     , PersistEntity (..)
+      -- ** Breadcrumbs
+    , YesodBreadcrumbs (..)
+    , breadcrumbs
       -- * Convenience functions
     , applyLayout
     , applyLayoutJson
@@ -96,6 +99,31 @@ class Yesod a where
     -- the Auth helper provides this functionality automatically.
     isAuthorized :: a -> Routes a -> IO (Maybe String)
     isAuthorized _ _ = return Nothing
+
+-- | A type-safe, concise method of creating breadcrumbs for pages. For each
+-- resource, you declare the title of the page and the parent resource (if
+-- present).
+class YesodBreadcrumbs y where
+    -- | Returns the title and the parent resource, if available. If you return
+    -- a 'Nothing', then this is considered a top-level page.
+    breadcrumb :: Routes y -> Handler y (String, Maybe (Routes y))
+
+-- | Gets the title of the current page and the hierarchy of parent pages,
+-- along with their respective titles.
+breadcrumbs :: YesodBreadcrumbs y => Handler y (String, [(Routes y, String)])
+breadcrumbs = do
+    x <- getRoute
+    case x of
+        Nothing -> return ("Not found", [])
+        Just y -> do
+            (title, next) <- breadcrumb y
+            z <- go [] next
+            return (title, z)
+  where
+    go back Nothing = return back
+    go back (Just this) = do
+        (title, next) <- breadcrumb this
+        go ((this, title) : back) next
 
 -- | Apply the default layout ('defaultLayout') to the given title and body.
 applyLayout :: Yesod master
