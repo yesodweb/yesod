@@ -22,11 +22,7 @@ module Web.Authenticate.Rpxnow
 import Data.Object
 import Data.Object.Json
 import Network.HTTP.Wget
-#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
-#else
-import "transformers" Control.Monad.Trans
-#endif
 import Control.Failure
 import Data.Maybe
 import Web.Authenticate.OpenId (AuthenticateException (..))

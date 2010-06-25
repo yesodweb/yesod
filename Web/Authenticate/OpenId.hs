@@ -26,11 +26,7 @@ module Web.Authenticate.OpenId
 import Network.HTTP.Wget
 import Text.HTML.TagSoup
 import Numeric (showHex)
-#if MIN_VERSION_transformers(0,2,0)
 import "transformers" Control.Monad.IO.Class
-#else
-import "transformers" Control.Monad.Trans
-#endif
 import Data.Data
 import Control.Failure hiding (Error)
 import Control.Exception
