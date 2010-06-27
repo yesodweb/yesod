@@ -153,8 +153,10 @@ crudHelper title me isPost = do
                     %a!href=@toMaster.CrudDeleteR.toSinglePiece.fst.e@ Delete
 |]
 
-defaultCrud :: (PersistEntity i, YesodPersist a, PersistMonad i ~ YesodDB a)
-            => a -> Crud a i
+defaultCrud
+    :: (PersistEntity i, PersistBackend (YesodDB a (GHandler (Crud a i) a)),
+        YesodPersist a)
+    => a -> Crud a i
 defaultCrud = const Crud
     { crudSelect = runDB $ select [] []
     , crudReplace = \a -> runDB . replace a

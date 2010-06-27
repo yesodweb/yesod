@@ -26,7 +26,7 @@ import Text.Hamlet
 import Data.Time (Day)
 import Control.Applicative
 import Database.Persist (PersistField)
-import Database.Persist.Helper (EntityDef (..))
+import Database.Persist.Base (EntityDef (..))
 import Data.Char (isAlphaNum, toUpper, isUpper)
 import Language.Haskell.TH.Syntax
 import Control.Monad (liftM, join)

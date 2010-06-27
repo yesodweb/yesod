@@ -8,7 +8,7 @@ module Yesod.Yesod
     , YesodSite (..)
       -- ** Persistence
     , YesodPersist (..)
-    , PersistEntity (..)
+    , module Database.Persist
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs
@@ -30,7 +30,7 @@ import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
 import Data.Monoid (mempty)
 import Data.ByteString.UTF8 (toString)
-import Database.Persist (PersistEntity (..))
+import Database.Persist
 
 import Web.Routes.Quasi (QuasiSite (..), Routes)
 
