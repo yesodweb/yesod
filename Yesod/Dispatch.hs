@@ -171,7 +171,7 @@ toWaiApp :: (Yesod y, YesodSite y) => y -> IO W.Application
 toWaiApp a =
     return $ gzip
            $ jsonp
-           $ cleanPath
+           $ cleanPathRel (B.pack $ approot a)
            $ toWaiApp' a
 
 toWaiApp' :: (Yesod y, YesodSite y)
