@@ -2,8 +2,6 @@
 module Web.Authenticate.Facebook where
 
 import Network.HTTP.Wget
-import Control.Failure hiding (Error)
-import Control.Monad.IO.Class
 import Data.List (intercalate)
 import Data.Object
 import Data.Object.Json
@@ -14,9 +12,10 @@ data Facebook = Facebook
     , facebookClientSecret :: String
     , facebookRedirectUri :: String
     }
+    deriving (Show, Eq, Read)
 
 newtype AccessToken = AccessToken { unAccessToken :: String }
-    deriving Show
+    deriving (Show, Eq, Read)
 
 getForwardUrl :: Facebook -> [String] -> String
 getForwardUrl fb perms = concat
