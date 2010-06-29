@@ -40,7 +40,8 @@ library
                      control-monad-attempt >= 0.3 && < 0.4,
                      cereal >= 0.2 && < 0.3,
                      old-locale >= 1.0.0.2 && < 1.1,
-                     persistent >= 0.1.0 && < 0.2
+                     persistent >= 0.1.0 && < 0.2,
+                     neither >= 0.0.0 && < 0.1
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch

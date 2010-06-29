@@ -70,6 +70,7 @@ import Yesod.Content
 import Yesod.Internal
 import Web.Routes.Quasi (Routes)
 import Data.List (foldl', intercalate)
+import Data.Neither
 
 import Control.Exception hiding (Handler, catch)
 import qualified Control.Exception as E
@@ -79,7 +80,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Cont
 
 import System.IO
 import qualified Network.Wai as W
@@ -105,7 +105,7 @@ data HandlerData sub master = HandlerData
 -- for headers, and an error-type monad for handling special responses.
 type GHandler sub master =
     ReaderT (HandlerData sub master) (
-    ContT HandlerContents (
+    MEitherT HandlerContents (
     WriterT (Endo [Header]) (
     WriterT (Endo [(String, Maybe String)]) (
     IO
@@ -136,7 +136,7 @@ data HandlerContents =
     | HCRedirect RedirectType String
 
 instance Failure ErrorResponse (GHandler sub master) where
-    failure = lift . ContT . const . return . HCError
+    failure = lift . throwMEither . HCError
 instance RequestReader (GHandler sub master) where
     getRequest = handlerRequest <$> ask
 
@@ -194,12 +194,13 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             , handlerRender = mrender
             , handlerToMaster = tomr
             }
-    ((contents, headers), session') <- E.catch (
+    ((contents', headers), session') <- E.catch (
         runWriterT
       $ runWriterT
-      $ flip runContT (return . HCContent . chooseRep)
+      $ runMEitherT
       $ flip runReaderT hd handler
-        ) (\e -> return ((HCError $ toErrorHandler e, id), id))
+        ) (\e -> return ((MLeft $ HCError $ toErrorHandler e, id), id))
+    let contents = meither id (HCContent . chooseRep) contents'
     let finalSession = foldl' modifySession (reqSession rr) $ session' []
     let handleError e = do
             (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts
@@ -260,7 +261,7 @@ redirectParams rt url params = do
 
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
-redirectString rt url = lift $ ContT $ const $ return $ HCRedirect rt url
+redirectString rt url = lift $ throwMEither $ HCRedirect rt url
 
 ultDestKey :: String
 ultDestKey = "_ULT"
@@ -323,7 +324,7 @@ getMessage = do
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
 sendFile :: ContentType -> FilePath -> GHandler sub master a
-sendFile ct fp = lift $ ContT $ const $ return $ HCSendFile ct fp
+sendFile ct fp = lift $ throwMEither $ HCSendFile ct fp
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
