@@ -38,6 +38,7 @@ module Yesod.Helpers.Auth
 
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import qualified Web.Authenticate.OpenId as OpenId
+import qualified Web.Authenticate.Facebook as Facebook
 
 import Yesod
 
@@ -51,6 +52,7 @@ import System.IO
 import Control.Monad.Attempt
 import Data.Monoid (mempty)
 import Data.ByteString.Lazy.UTF8 (fromString)
+import Data.Object
 
 class Yesod master => YesodAuth master where
     -- | Default destination on successful login or logout, if no other
@@ -82,10 +84,12 @@ data Auth = Auth
     { authIsOpenIdEnabled :: Bool
     , authRpxnowApiKey :: Maybe String
     , authEmailSettings :: Maybe AuthEmailSettings
+    , authFacebook :: Maybe (String, String) -- ^ client id and secret
+    , authFacebookPerms :: [String]
     }
 
 -- | Which subsystem authenticated the user.
-data AuthType = AuthOpenId | AuthRpxnow | AuthEmail
+data AuthType = AuthOpenId | AuthRpxnow | AuthEmail | AuthFacebook
     deriving (Show, Read, Eq)
 
 type Email = String
@@ -117,6 +121,7 @@ data Creds = Creds
     , credsEmail :: Maybe String -- ^ Verified e-mail address.
     , credsDisplayName :: Maybe String -- ^ Display name.
     , credsId :: Maybe Integer -- ^ Numeric ID, if used.
+    , credsFacebookToken :: Maybe Facebook.AccessToken
     }
     deriving (Show, Read, Eq)
 
@@ -146,6 +151,9 @@ mkYesodSub "Auth" [("master", [''YesodAuth])] [$parseRoutes|
 /openid/forward          OpenIdForward      GET
 /openid/complete         OpenIdComplete     GET
 /login/rpxnow            RpxnowR
+
+/facebook                FacebookR          GET
+/facebook/start          StartFacebookR     GET
 
 /register                EmailRegisterR     GET POST
 /verify/#EmailId/#String EmailVerifyR       GET
@@ -206,7 +214,7 @@ getOpenIdComplete = do
         redirect RedirectTemporary $ toMaster OpenIdR
     let onSuccess (OpenId.Identifier ident) = do
         y <- getYesod
-        setCreds (Creds ident AuthOpenId Nothing Nothing Nothing) []
+        setCreds (Creds ident AuthOpenId Nothing Nothing Nothing Nothing) []
         redirectUltDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
@@ -228,6 +236,7 @@ handleRpxnowR = do
                     AuthRpxnow
                     (lookup "verifiedEmail" extra)
                     (getDisplayName extra)
+                    Nothing
                     Nothing
     setCreds creds extra
     either (redirect RedirectTemporary) (redirectString RedirectTemporary) $
@@ -328,7 +337,8 @@ getEmailVerifyR lid key = do
     case (realKey == Just key, memail) of
         (True, Just email) -> do
             liftIO $ verifyAccount ae lid
-            setCreds (Creds email AuthEmail (Just email) Nothing (Just lid)) []
+            setCreds (Creds email AuthEmail (Just email) Nothing (Just lid)
+                      Nothing) []
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster EmailPasswordR
         _ -> applyLayout "Invalid verification key" mempty [$hamlet|
@@ -376,7 +386,8 @@ postEmailLoginR = do
                 _ -> Nothing
     case mlid of
         Just lid -> do
-            setCreds (Creds email AuthEmail (Just email) Nothing (Just lid)) []
+            setCreds (Creds email AuthEmail (Just email) Nothing (Just lid)
+                      Nothing) []
             redirectUltDest RedirectTemporary $ defaultDest y
         Nothing -> do
             setMessage $ string "Invalid email/password combination"
@@ -389,7 +400,7 @@ getEmailPasswordR = do
     toMaster <- getRouteToMaster
     mcreds <- maybeCreds
     case mcreds of
-        Just (Creds _ AuthEmail _ _ (Just _)) -> return ()
+        Just (Creds _ AuthEmail _ _ (Just _) _) -> return ()
         _ -> do
             setMessage $ string "You must be logged in to set a password"
             redirect RedirectTemporary $ toMaster EmailLoginR
@@ -425,7 +436,7 @@ postEmailPasswordR = do
         redirect RedirectTemporary $ toMaster EmailPasswordR
     mcreds <- maybeCreds
     lid <- case mcreds of
-            Just (Creds _ AuthEmail _ _ (Just lid)) -> return lid
+            Just (Creds _ AuthEmail _ _ (Just lid) _) -> return lid
             _ -> do
                 setMessage $ string "You must be logged in to set a password"
                 redirect RedirectTemporary $ toMaster EmailLoginR
@@ -481,3 +492,38 @@ inMemoryEmailSettings = do
     spgo eid pass (email, EmailCreds eid' pass' status key)
         | eid == eid' = (email, EmailCreds eid (Just pass) status key)
         | otherwise = (email, EmailCreds eid' pass' status key)
+
+getFacebookR :: YesodAuth master => GHandler Auth master ()
+getFacebookR = do
+    y <- getYesod
+    a <- authFacebook <$> getYesodSub
+    case a of
+        Nothing -> notFound
+        Just (cid, secret) -> do
+            render <- getUrlRender
+            tm <- getRouteToMaster
+            let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
+            code <- runFormGet $ required $ input "code"
+            at <- liftIO $ Facebook.getAccessToken fb code
+            so <- liftIO $ Facebook.getGraphData at "me"
+            let c = fromMaybe (error "Invalid response from Facebook") $ do
+                m <- fromMapping so
+                id' <- lookupScalar "id" m
+                let name = lookupScalar "name" m
+                let email = lookupScalar "email" m
+                let id'' = "http://graph.facebook.com/" ++ id'
+                return $ Creds id'' AuthFacebook email name Nothing $ Just at
+            setCreds c []
+            redirectUltDest RedirectTemporary $ defaultDest y
+
+getStartFacebookR :: GHandler Auth master ()
+getStartFacebookR = do
+    y <- getYesodSub
+    case authFacebook y of
+        Nothing -> notFound
+        Just (cid, secret) -> do
+            render <- getUrlRender
+            tm <- getRouteToMaster
+            let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
+            let fburl = Facebook.getForwardUrl fb $ authFacebookPerms y
+            redirectString RedirectTemporary fburl
