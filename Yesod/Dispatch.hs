@@ -57,7 +57,7 @@ import Control.Monad
 import Data.Maybe
 import Web.ClientSession
 import qualified Web.ClientSession as CS
-import Data.Char (isLower)
+import Data.Char (isLower, isUpper)
 
 import Data.Serialize
 import qualified Data.Serialize as Ser
@@ -175,6 +175,8 @@ fromStatic (StaticPiece s) = s
 fromStatic _ = error "fromStatic"
 
 thResourceFromResource :: Type -> Resource -> Q THResource
+thResourceFromResource _ (Resource n ps attribs)
+    | all (all isUpper) attribs = return (n, Simple ps attribs)
 thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
     | all isStatic ps && any (any isLower) atts = do
         let stype' = ConT $ mkName stype
@@ -200,7 +202,8 @@ thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
             , ssToMasterArg = VarE $ mkName toSubArg
             , ssPieces = map fromStatic ps
             })
-thResourceFromResource _ (Resource n ps attribs) = return (n, Simple ps attribs)
+thResourceFromResource _ (Resource n _ _) =
+    error $ "Invalid attributes for resource: " ++ n
 
 compact :: [(String, [a])] -> [(String, [a])]
 compact [] = []
