@@ -69,11 +69,8 @@ class Yesod a where
     clientSessionDuration = const 120
 
     -- | Output error response pages.
-    errorHandler :: Yesod y
-                 => a
-                 -> ErrorResponse
-                 -> Handler y ChooseRep
-    errorHandler _ = defaultErrorHandler
+    errorHandler :: ErrorResponse -> GHandler sub a ChooseRep
+    errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
     defaultLayout :: PageContent (Routes a) -> GHandler sub a Content
@@ -167,9 +164,7 @@ applyLayout' :: Yesod master
 applyLayout' s = fmap chooseRep . applyLayout s mempty
 
 -- | The default error handler for 'errorHandler'.
-defaultErrorHandler :: Yesod y
-                    => ErrorResponse
-                    -> Handler y ChooseRep
+defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
     applyLayout' "Not Found" $ [$hamlet|

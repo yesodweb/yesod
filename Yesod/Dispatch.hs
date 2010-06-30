@@ -251,14 +251,14 @@ toWaiApp' y segments env = do
     onRequest y rr
     let h =
           case eurl of
-            Left _ -> errorHandler y NotFound
+            Left _ -> errorHandler NotFound
             Right url -> do
                 -- FIXME auth <- isAuthorized y url
                 case handleSite site render url method of
-                    Nothing -> errorHandler y $ BadMethod method
+                    Nothing -> errorHandler $ BadMethod method
                     Just h' -> h'
     let eurl' = either (const Nothing) Just eurl
-    let eh er = runHandler (errorHandler y er) render eurl' id y id
+    let eh er = runHandler (errorHandler er) render eurl' id y id
     let ya = runHandler h render eurl' id y id
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
     let sessionVal = encodeSession key' exp' host sessionFinal
