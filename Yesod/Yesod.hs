@@ -41,6 +41,8 @@ class YesodSite y where
     getSite :: Site (Routes y) (Method -> Maybe (Handler y ChooseRep))
 type Method = String
 
+-- | Same as 'YesodSite', but for subsites. Once again, users should not need
+-- to deal with it directly, as the mkYesodSub creates instances appropriately.
 class YesodSubSite s y where
     getSubSite :: Site (Routes s) (Method -> Maybe (GHandler s y ChooseRep))
 

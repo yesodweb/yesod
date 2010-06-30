@@ -35,8 +35,8 @@ import Yesod.Content
 #endif
 
 -- | A monad for generating Json output. In truth, it is just a newtype wrapper
--- around 'Hamlet'; we thereby get the benefits of Hamlet (interleaving IO and
--- enumerator output) without accidently mixing non-JSON content.
+-- around 'Html'; we thereby get the benefits of BlazeHtml (type safety and
+-- speed) without accidently mixing non-JSON content.
 --
 -- This is an opaque type to avoid any possible insertion of non-JSON content.
 -- Due to the limited nature of the JSON format, you can create any valid JSON

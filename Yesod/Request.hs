@@ -63,11 +63,13 @@ instance RequestReader ((->) Request) where
 -- | Get the list of supported languages supplied by the user.
 --
 -- Languages are determined based on the following three (in descending order
--- of preference:
+-- of preference):
 --
 -- * The _LANG get parameter.
 --
 -- * The _LANG cookie.
+--
+-- * The _LANG user session variable.
 --
 -- * Accept-Language HTTP header.
 --
