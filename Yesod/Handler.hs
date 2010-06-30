@@ -377,7 +377,7 @@ permissionDenied :: Failure ErrorResponse m => String -> m a
 permissionDenied = failure . PermissionDenied
 
 -- | Return a 400 invalid arguments page.
-invalidArgs :: Failure ErrorResponse m => [(ParamName, String)] -> m a
+invalidArgs :: Failure ErrorResponse m => [String] -> m a
 invalidArgs = failure . InvalidArgs
 
 ------- Headers

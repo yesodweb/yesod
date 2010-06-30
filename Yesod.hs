@@ -10,7 +10,6 @@ module Yesod
     , module Yesod.Form
     , module Yesod.Hamlet
     , module Yesod.Json
-    , module Yesod.Formable
     , Application
     , liftIO
     , mempty
@@ -27,8 +26,7 @@ import Yesod.Dispatch
 #endif
 
 import Yesod.Request
-import Yesod.Form hiding (Form)
-import Yesod.Formable
+import Yesod.Form
 import Yesod.Yesod
 import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)

@@ -1,25 +1,38 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PackageImports #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | Parse forms (and query strings).
 module Yesod.Form
-    ( Form (..)
-    , runFormGeneric
-    , runFormPost
+    ( -- * Data types
+      Form (..)
+    , Formlet
+    , FormResult (..)
+      -- * Unwrapping functions
     , runFormGet
+    , runFormPost
+    , runFormGet'
+    , runFormPost'
+      -- * Create your own formlets
+    , incr
     , input
-    , applyForm
-      -- * Specific checks
-    , required
-    , optional
-    , notEmpty
-    , checkDay
-    , checkBool
-    , checkInteger
-      -- * Utility
-    , catchFormError
+    , check
+      -- * Error display
+    , wrapperRow
+    , sealFormlet
+    , sealForm
+    , sealRow
+      -- * Formable
+    , Formable (..)
+    , deriveFormable
+    , share2
+      -- * Pre-built formlets
     ) where
 
+import Text.Hamlet
 import Yesod.Request
 import Yesod.Handler
 import Control.Applicative hiding (optional)
@@ -28,110 +41,323 @@ import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class
 import Yesod.Internal
 import Control.Monad.Attempt
+import Control.Monad ((<=<), liftM, join)
+import Data.Monoid (mempty, mappend)
+import Control.Monad.Trans.State
+import Control.Arrow (first)
+import Language.Haskell.TH.Syntax
+import Database.Persist.Base (PersistField, EntityDef (..))
+import Data.Char (isAlphaNum, toUpper, isUpper)
+import Data.Maybe (fromMaybe, isJust)
+import Web.Routes.Quasi (SinglePiece)
+import Data.Int (Int64)
+import qualified Data.ByteString.Lazy.UTF8
 
 noParamNameError :: String
 noParamNameError = "No param name (miscalling of Yesod.Form library)"
 
-data Form x = Form (
-                (ParamName -> [ParamValue])
-             -> Either [(ParamName, FormError)] (Maybe ParamName, x)
-             )
+data FormResult a = FormMissing
+                  | FormFailure [String]
+                  | FormSuccess a
+instance Functor FormResult where
+    fmap _ FormMissing = FormMissing
+    fmap _ (FormFailure errs) = FormFailure errs
+    fmap f (FormSuccess a) = FormSuccess $ f a
+instance Applicative FormResult where
+    pure = FormSuccess
+    (FormSuccess f) <*> (FormSuccess g) = FormSuccess $ f g
+    (FormFailure x) <*> (FormFailure y) = FormFailure $ x ++ y
+    (FormFailure x) <*> _ = FormFailure x
+    _ <*> (FormFailure y) = FormFailure y
+    _ <*> _ = FormMissing
 
-instance Functor Form where
-    fmap f (Form x) = Form $ \l -> case x l of
-                                    Left errors -> Left errors
-                                    Right (pn, x') -> Right (pn, f x')
-instance Applicative Form where
-    pure x = Form $ \_ -> Right (Nothing, x)
-    (Form f') <*> (Form x') = Form $ \l -> case (f' l, x' l) of
-        (Right (_, f), Right (_, x)) -> Right (Nothing, f x)
-        (Left e1, Left e2) -> Left $ e1 ++ e2
-        (Left e, _) -> Left e
-        (_, Left e) -> Left e
+newtype Form sub y a = Form
+    { deform :: Env -> Incr (GHandler sub y) (FormResult a, Hamlet (Routes y))
+    }
+type Formlet sub y a = Maybe a -> Form sub y a
 
-type FormError = String
+type Env = [(String, String)]
 
-runFormGeneric :: Failure ErrorResponse m
-               => (ParamName -> [ParamValue]) -> Form x -> m x
-runFormGeneric params (Form f) =
-    case f params of
-        Left es -> invalidArgs es
-        Right (_, x) -> return x
+instance Functor (Form sub url) where
+    fmap f (Form g) = Form $ \env -> liftM (first $ fmap f) (g env)
+
+instance Applicative (Form sub url) where
+    pure a = Form $ const $ return (pure a, mempty)
+    (Form f) <*> (Form g) = Form $ \env -> do
+        (f1, f2) <- f env
+        (g1, g2) <- g env
+        return (f1 <*> g1, f2 `mappend` g2)
+
+runFormGeneric :: Env
+               -> Form sub y a
+               -> GHandler sub y (FormResult a, Hamlet (Routes y))
+runFormGeneric env f = evalStateT (deform f env) 1
 
 -- | Run a form against POST parameters.
-runFormPost :: (RequestReader m, Failure ErrorResponse m, MonadIO m)
-            => Form x -> m x
+runFormPost :: Form sub y a
+            -> GHandler sub y (FormResult a, Hamlet (Routes y))
 runFormPost f = do
     rr <- getRequest
     (pp, _) <- liftIO $ reqRequestBody rr
-    runFormGeneric (flip lookup' pp) f
+    runFormGeneric pp f
 
-lookup' :: Eq a => a -> [(a, b)] -> [b]
-lookup' a = map snd . filter (\x -> a == fst x)
+-- | Run a form against POST parameters, disregarding the resulting HTML and
+-- returning an error response on invalid input.
+runFormPost' :: Form sub y a -> GHandler sub y a
+runFormPost' = helper <=< runFormPost
+
+-- | Run a form against GET parameters, disregarding the resulting HTML and
+-- returning an error response on invalid input.
+runFormGet' :: Form sub y a -> GHandler sub y a
+runFormGet' = helper <=< runFormGet
+
+helper :: (FormResult a, Hamlet (Routes y)) -> GHandler sub y a
+helper (FormSuccess a, _) = return a
+helper (FormFailure e, _) = invalidArgs e
+helper (FormMissing, _) = invalidArgs ["No input found"]
 
 -- | Run a form against GET parameters.
-runFormGet :: (RequestReader m, Failure ErrorResponse m)
-           => Form x -> m x
+runFormGet :: Form sub y a
+           -> GHandler sub y (FormResult a, Hamlet (Routes y))
 runFormGet f = do
-    rr <- getRequest
-    runFormGeneric (flip lookupGetParams rr) f
+    gets <- reqGetParams `fmap` getRequest
+    runFormGeneric gets f
 
-input :: ParamName -> Form [ParamValue]
-input pn = Form $ \l -> Right (Just pn, l pn)
+type Incr = StateT Int
 
-applyForm :: (x -> Either FormError y) -> Form x -> Form y
-applyForm f (Form x') =
-    Form $ \l ->
-        case x' l of
-            Left e -> Left e
-            Right (pn, x) ->
-                case f x of
-                    Left e -> Left [(fromMaybe noParamNameError pn, e)]
-                    Right y -> Right (pn, y)
+incr :: Monad m => Incr m Int
+incr = do
+    i <- get
+    let i' = i + 1
+    put i'
+    return i'
 
-required :: Form [ParamValue] -> Form ParamValue
-required = applyForm $ \pvs -> case pvs of
-                [x] -> Right x
-                [] -> Left "No value for required field"
-                _ -> Left "Multiple values for required field"
+input :: (String -> String -> Hamlet (Routes y))
+      -> Maybe String
+      -> Form sub y String
+input mkXml val = Form $ \env -> do
+    i <- incr
+    let i' = show i
+    let param = lookup i' env
+    let xml = mkXml i' $ fromMaybe (fromMaybe "" val) param
+    return (maybe FormMissing FormSuccess param, xml)
 
-optional :: Form [ParamValue] -> Form (Maybe ParamValue)
-optional = applyForm $ \pvs -> case pvs of
-                [""] -> Right Nothing
-                [x] -> Right $ Just x
-                [] -> Right Nothing
-                _ -> Left "Multiple values for optional field"
-
-notEmpty :: Form ParamValue -> Form ParamValue
-notEmpty = applyForm $ \pv ->
-                if null pv
-                    then Left "Value required"
-                    else Right pv
-
-checkDay :: Form ParamValue -> Form Day
-checkDay = applyForm $ maybe (Left "Invalid day") Right . readMay
+check :: Form sub url a -> (a -> Either [String] b) -> Form sub url b
+check (Form form) f = Form $ \env -> liftM (first go) (form env)
   where
-    readMay s = case reads s of
-                    (x, _):_ -> Just x
-                    [] -> Nothing
+    go FormMissing = FormMissing
+    go (FormFailure x) = FormFailure x
+    go (FormSuccess a) =
+        case f a of
+            Left errs -> FormFailure errs
+            Right b -> FormSuccess b
 
-checkBool :: Form [ParamValue] -> Form Bool
-checkBool = applyForm $ \pv -> Right $ case pv of
-                                        [] -> False
-                                        [""] -> False
-                                        ["false"] -> False
-                                        _ -> True
+wrapperRow :: String -> [String] -> Hamlet url -> Hamlet url
+wrapperRow label errs control = [$hamlet|
+%tr
+    %th $string.label$
+    %td ^control^
+    $if not.null.errs
+        %td.errors
+            %ul
+                $forall errs err
+                    %li $string.err$
+|]
 
-checkInteger :: Form ParamValue -> Form Integer
-checkInteger = applyForm $ \pv ->
-    case reads pv of
-        [] -> Left "Invalid integer"
-        ((i, _):_) -> Right i
+sealRow :: Formable b => String -> (a -> b) -> Maybe a -> Form sub master b
+sealRow label getVal val =
+    sealForm (wrapperRow label) $ formable $ fmap getVal val
 
--- | Instead of calling 'failure' with an 'InvalidArgs', return the error
--- messages.
-catchFormError :: Form x -> Form (Either [(ParamName, FormError)] x)
-catchFormError (Form x) = Form $ \l ->
-    case x l of
-        Left e -> Right (Nothing, Left e)
-        Right (_, v) -> Right (Nothing, Right v)
+sealForm :: ([String] -> Hamlet (Routes y) -> Hamlet (Routes y))
+         -> Form sub y a -> Form sub y a
+sealForm wrapper (Form form) = Form $ \env -> liftM go (form env)
+  where
+    go (res, xml) = (res, wrapper (toList res) xml)
+    toList (FormFailure errs) = errs
+    toList _ = []
+
+sealFormlet :: ([String] -> Hamlet (Routes y) -> Hamlet (Routes y))
+            -> Formlet sub y a -> Formlet sub y a
+sealFormlet wrapper formlet initVal = sealForm wrapper $ formlet initVal
+
+class Formable a where
+    formable :: Formlet sub master a
+
+--------------- Formable instances
+instance Formable String where
+    formable x = input go x `check` notEmpty
+      where
+        go name val = [$hamlet|
+%input!type=text!name=$string.name$!value=$string.val$
+|]
+        notEmpty s
+            | null s = Left ["Value required"]
+            | otherwise = Right s
+
+instance Formable (Maybe String) where
+    formable x = input go (join x) `check` isEmpty
+      where
+        go name val = [$hamlet|
+%input!type=text!name=$string.name$!value=$string.val$
+|]
+        isEmpty s
+            | null s = Right Nothing
+            | otherwise = Right $ Just s
+
+instance Formable (Html ()) where
+    formable = fmap preEscapedString
+              . input go
+              . fmap (Data.ByteString.Lazy.UTF8.toString . renderHtml)
+      where
+        go name val = [$hamlet|%textarea!name=$string.name$ $string.val$|]
+
+instance Formable Day where
+    formable x = input go (fmap show x) `check` asDay
+      where
+        go name val = [$hamlet|
+%input!type=date!name=$string.name$!value=$string.val$
+|]
+        asDay s = case reads s of
+                    (y, _):_ -> Right y
+                    [] -> Left ["Invalid day"]
+
+instance Formable Int64 where
+    formable x = input go (fmap show x) `check` asInt
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asInt s = case reads s of
+                    (y, _):_ -> Right y
+                    [] -> Left ["Invalid integer"]
+
+instance Formable Double where
+    formable x = input go (fmap numstring x) `check` asDouble
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asDouble s = case reads s of
+                    (y, _):_ -> Right y
+                    [] -> Left ["Invalid double"]
+        numstring d =
+            let s = show d
+             in case reverse s of
+                    '0':'.':y -> reverse y
+                    _ -> s
+
+instance Formable (Maybe Day) where
+    formable x = input go (fmap show $ join x) `check` asDay
+      where
+        go name val = [$hamlet|
+%input!type=date!name=$string.name$!value=$string.val$
+|]
+        asDay "" = Right Nothing
+        asDay s = case reads s of
+                    (y, _):_ -> Right $ Just y
+                    [] -> Left ["Invalid day"]
+
+instance Formable (Maybe Int) where
+    formable x = input go (fmap show $ join x) `check` asInt
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asInt "" = Right Nothing
+        asInt s = case reads s of
+                    (y, _):_ -> Right $ Just y
+                    [] -> Left ["Invalid integer"]
+
+instance Formable (Maybe Int64) where
+    formable x = input go (fmap show $ join x) `check` asInt
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asInt "" = Right Nothing
+        asInt s = case reads s of
+                    (y, _):_ -> Right $ Just y
+                    [] -> Left ["Invalid integer"]
+
+instance Formable Bool where
+    formable x = Form $ \env -> do
+        i <- incr
+        let i' = show i
+        let param = lookup i' env
+        let def = if null env then fromMaybe False x else isJust param
+        return (FormSuccess $ isJust param, go i' def)
+      where
+        go name val = [$hamlet|
+%input!type=checkbox!name=$string.name$!:val:checked
+|]
+
+instance Formable Int where
+    formable x = input go (fmap show x) `check` asInt
+      where
+        go name val = [$hamlet|
+%input!type=number!name=$string.name$!value=$string.val$
+|]
+        asInt s = case reads s of
+                    (y, _):_ -> Right y
+                    [] -> Left ["Invalid integer"]
+
+newtype Slug = Slug { unSlug :: String }
+    deriving (Read, Eq, Show, SinglePiece, PersistField)
+
+instance Formable Slug where
+    formable x = input go (fmap unSlug x) `check` asSlug
+      where
+        go name val = [$hamlet|
+%input!type=text!name=$string.name$!value=$string.val$
+|]
+        asSlug [] = Left ["Slug must be non-empty"]
+        asSlug x'
+            | all (\c -> c `elem` "-_" || isAlphaNum c) x' =
+                Right $ Slug x'
+            | otherwise = Left ["Slug must be alphanumeric, - and _"]
+
+share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
+share2 f g a = do
+    f' <- f a
+    g' <- g a
+    return $ f' ++ g'
+
+deriveFormable :: [EntityDef] -> Q [Dec]
+deriveFormable = mapM derive
+  where
+    derive :: EntityDef -> Q Dec
+    derive t = do
+        let fst3 (x, _, _) = x
+        let cols = map (toLabel . fst3) $ entityColumns t
+        ap <- [|(<*>)|]
+        just <- [|pure|]
+        nothing <- [|Nothing|]
+        let just' = just `AppE` ConE (mkName $ entityName t)
+        let c1 = Clause [ ConP (mkName "Nothing") []
+                        ]
+                        (NormalB $ go ap just' $ zip cols $ map (const nothing) cols)
+                        []
+        xs <- mapM (const $ newName "x") cols
+        let xs' = map (AppE just . VarE) xs
+        let c2 = Clause [ ConP (mkName "Just") [ConP (mkName $ entityName t)
+                            $ map VarP xs]]
+                        (NormalB $ go ap just' $ zip cols xs')
+                        []
+        return $ InstanceD [] (ConT ''Formable
+                              `AppT` ConT (mkName $ entityName t))
+            [FunD (mkName "formable") [c1, c2]]
+    go ap just' = foldl (ap' ap) just' . map go'
+    go' (label, ex) =
+        VarE (mkName "sealForm") `AppE`
+        (VarE (mkName "wrapperRow") `AppE` LitE (StringL label)) `AppE`
+        (VarE (mkName "formable") `AppE` ex)
+    ap' ap x y = InfixE (Just x) ap (Just y)
+
+toLabel :: String -> String
+toLabel "" = ""
+toLabel (x:rest) = toUpper x : go rest
+  where
+    go "" = ""
+    go (c:cs)
+        | isUpper c = ' ' : c : go cs
+        | otherwise = c : go cs

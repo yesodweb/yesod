@@ -13,7 +13,7 @@ module Yesod.Internal
 data ErrorResponse =
       NotFound
     | InternalError String
-    | InvalidArgs [(String, String)]
+    | InvalidArgs [String]
     | PermissionDenied String
     | BadMethod String
     deriving (Show, Eq)

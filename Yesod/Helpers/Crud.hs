@@ -15,7 +15,7 @@ import Yesod.Dispatch
 import Yesod.Content
 import Yesod.Handler
 import Text.Hamlet
-import Yesod.Formable
+import Yesod.Form
 import Data.Monoid (mempty)
 
 class Formable a => Item a where
@@ -127,7 +127,7 @@ crudHelper
     -> GHandler (Crud master a) master RepHtml
 crudHelper title me isPost = do
     crud <- getYesodSub
-    (errs, form) <- runForm $ formable $ fmap snd me
+    (errs, form) <- runFormPost $ formable $ fmap snd me
     toMaster <- getRouteToMaster
     case (isPost, errs) of
         (True, FormSuccess a) -> do

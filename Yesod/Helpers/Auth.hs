@@ -179,10 +179,22 @@ $maybe message msg
     %input!type=submit!value=Login
 |]
 
+-- FIXME next two functions should show up in Yesod.Form properly
+requiredField :: String -> Form sub master String
+requiredField n = Form $ \env ->
+    return (maybe FormMissing FormSuccess $ lookup n env, mempty)
+
+notEmptyField :: String -> Form sub master String
+notEmptyField n = Form $ \env -> return
+    (case lookup n env of
+        Nothing -> FormMissing
+        Just "" -> FormFailure [n ++ ": You must provide a non-empty string"]
+        Just x -> FormSuccess x, mempty)
+
 getOpenIdForward :: GHandler Auth master ()
 getOpenIdForward = do
     testOpenId
-    oid <- runFormGet $ required $ input "openid"
+    oid <- runFormGet' $ requiredField "openid"
     render <- getUrlRender
     toMaster <- getRouteToMaster
     let complete = render $ toMaster OpenIdComplete
@@ -220,7 +232,7 @@ handleRpxnowR = do
     token1 <- lookupGetParam "token"
     token2 <- lookupPostParam "token"
     let token = case token1 `mplus` token2 of
-                    Nothing -> invalidArgs [("token", "Value not supplied")]
+                    Nothing -> invalidArgs ["token: Value not supplied"]
                     Just x -> x
     Rpxnow.Identifier ident extra <- liftIO $ Rpxnow.authenticate apiKey token
     let creds = Creds
@@ -302,7 +314,7 @@ getEmailRegisterR = do
 postEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
 postEmailRegisterR = do
     ae <- getAuthEmailSettings
-    email <- runFormPost $ notEmpty $ required $ input "email" -- FIXME checkEmail
+    email <- runFormPost' $ notEmptyField "email" -- FIXME checkEmail
     y <- getYesod
     mecreds <- liftIO $ getEmailCreds ae email
     (lid, verKey) <-
@@ -366,9 +378,9 @@ $maybe msg ms
 postEmailLoginR :: YesodAuth master => GHandler Auth master ()
 postEmailLoginR = do
     ae <- getAuthEmailSettings
-    (email, pass) <- runFormPost $ (,)
-        <$> notEmpty (required $ input "email") -- FIXME valid e-mail?
-        <*> required (input "password")
+    (email, pass) <- runFormPost' $ (,)
+        <$> notEmptyField "email" -- FIXME valid e-mail?
+        <*> requiredField "password"
     y <- getYesod
     mecreds <- liftIO $ getEmailCreds ae email
     let mlid =
@@ -419,9 +431,9 @@ $maybe msg ms
 postEmailPasswordR :: YesodAuth master => GHandler Auth master ()
 postEmailPasswordR = do
     ae <- getAuthEmailSettings
-    (new, confirm) <- runFormPost $ (,)
-        <$> notEmpty (required $ input "new")
-        <*> notEmpty (required $ input "confirm")
+    (new, confirm) <- runFormPost' $ (,)
+        <$> notEmptyField "new"
+        <*> notEmptyField "confirm"
     toMaster <- getRouteToMaster
     when (new /= confirm) $ do
         setMessage $ string "Passwords did not match, please try again"
@@ -495,7 +507,7 @@ getFacebookR = do
             render <- getUrlRender
             tm <- getRouteToMaster
             let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
-            code <- runFormGet $ required $ input "code"
+            code <- runFormGet' $ requiredField "code"
             at <- liftIO $ Facebook.getAccessToken fb code
             so <- liftIO $ Facebook.getGraphData at "me"
             let c = fromMaybe (error "Invalid response from Facebook") $ do

@@ -183,10 +183,9 @@ defaultErrorHandler (PermissionDenied msg) =
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments" $ [$hamlet|
 %h1 Invalid Arguments
-%dl
-    $forall ia pair
-        %dt $string.fst.pair$
-        %dd $string.snd.pair$
+%ul
+    $forall ia msg
+        %li $string.msg$
 |]
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error" $ [$hamlet|

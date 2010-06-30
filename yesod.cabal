@@ -48,7 +48,6 @@ library
                      Yesod.Content
                      Yesod.Dispatch
                      Yesod.Form
-                     Yesod.Formable
                      Yesod.Hamlet
                      Yesod.Handler
                      Yesod.Internal
