@@ -6,7 +6,6 @@
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 ---------------------------------------------------------
 --
@@ -22,8 +21,10 @@
 --
 ---------------------------------------------------------
 module Yesod.Handler
-    ( -- * Handler monad
-      Handler
+    ( -- * Type families
+      Routes
+      -- * Handler monad
+    , Handler
     , GHandler
       -- ** Read information from handler
     , getYesod
@@ -45,13 +46,13 @@ module Yesod.Handler
       -- ** Sending static files
     , sendFile
       -- * Setting headers
-    , addCookie
+    , setCookie
     , deleteCookie
-    , header
+    , setHeader
     , setLanguage
       -- * Session
     , setSession
-    , clearSession
+    , deleteSession
       -- ** Ultimate destination
     , setUltDest
     , setUltDestString
@@ -63,7 +64,6 @@ module Yesod.Handler
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
-    , Routes
     , toMasterHandler
     ) where
 
@@ -325,7 +325,7 @@ redirectUltDest :: RedirectType
                 -> GHandler sub master ()
 redirectUltDest rt def = do
     mdest <- lookupSession ultDestKey
-    clearSession ultDestKey
+    deleteSession ultDestKey
     maybe (redirect rt def) (redirectString rt) mdest
 
 msgKey :: String
@@ -343,7 +343,7 @@ setMessage = setSession msgKey . L.toString . renderHtml
 -- See 'setMessage'.
 getMessage :: GHandler sub master (Maybe (Html ()))
 getMessage = do
-    clearSession msgKey
+    deleteSession msgKey
     fmap (fmap preEscapedString) $ lookupSession msgKey
 
 -- | Bypass remaining handler code and output the given file.
@@ -373,11 +373,11 @@ invalidArgs = failure . InvalidArgs
 
 ------- Headers
 -- | Set the cookie on the client.
-addCookie :: Int -- ^ minutes to timeout
+setCookie :: Int -- ^ minutes to timeout
           -> String -- ^ key
           -> String -- ^ value
           -> GHandler sub master ()
-addCookie a b = addHeader . AddCookie a b
+setCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
 deleteCookie :: String -> GHandler sub master ()
@@ -385,11 +385,11 @@ deleteCookie = addHeader . DeleteCookie
 
 -- | Set the language header. Will show up in 'languages'.
 setLanguage :: String -> GHandler sub master ()
-setLanguage = addCookie 60 langKey
+setLanguage = setCookie 60 langKey -- FIXME shouldn't we use session for this?
 
 -- | Set an arbitrary header on the client.
-header :: String -> String -> GHandler sub master ()
-header a = addHeader . Header a
+setHeader :: String -> String -> GHandler sub master ()
+setHeader a = addHeader . Header a
 
 -- | Set a variable in the user's session.
 --
@@ -402,9 +402,10 @@ setSession :: String -- ^ key
 setSession k v = GHandler . lift . lift . lift . tell $ (:) (k, Just v)
 
 -- | Unsets a session variable. See 'setSession'.
-clearSession :: String -> GHandler sub master ()
-clearSession k = GHandler . lift . lift . lift . tell $ (:) (k, Nothing)
+deleteSession :: String -> GHandler sub master ()
+deleteSession k = GHandler . lift . lift . lift . tell $ (:) (k, Nothing)
 
+-- | Internal use only, not to be confused with 'setHeader'.
 addHeader :: Header -> GHandler sub master ()
 addHeader = GHandler . lift . lift . tell . (:)
 

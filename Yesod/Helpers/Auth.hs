@@ -270,7 +270,7 @@ $maybe creds c
 getLogout :: YesodAuth master => GHandler Auth master ()
 getLogout = do
     y <- getYesod
-    clearSession credsKey
+    deleteSession credsKey
     redirectUltDest RedirectTemporary $ defaultDest y
 
 -- | Retrieve user credentials. If user is not logged in, redirects to the
