@@ -31,13 +31,13 @@ import qualified Web.ClientSession as CS
 import Data.Monoid (mempty)
 import Data.ByteString.UTF8 (toString)
 import Database.Persist
-
-import Web.Routes.Quasi (QuasiSite (..), Routes)
+import Web.Routes.Site (Site)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
 class YesodSite y where
-    getSite :: QuasiSite YesodApp y y
+    getSite :: Site (Routes y) (Method -> Maybe (Handler y ChooseRep))
+type Method = String
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.

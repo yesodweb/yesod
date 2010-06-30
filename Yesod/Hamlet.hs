@@ -17,7 +17,6 @@ module Yesod.Hamlet
 import Text.Hamlet
 import Yesod.Content
 import Yesod.Handler
-import Web.Routes.Quasi (Routes)
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:

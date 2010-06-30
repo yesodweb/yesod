@@ -18,7 +18,6 @@ module Yesod.Dispatch
     , basicHandler
       -- * Utilities
     , fullRender
-    , quasiRender
 #if TEST
     , testSuite
 #endif
@@ -30,6 +29,9 @@ import Yesod.Request
 import Yesod.Internal
 
 import Web.Routes.Quasi
+import Web.Routes.Quasi.Parse
+import Web.Routes.Quasi.TH
+import Web.Routes.Site
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
@@ -102,7 +104,7 @@ mkYesodData :: String -> [Resource] -> Q [Dec]
 mkYesodData name res = do
     (x, _) <- mkYesodGeneral name [] [] False res
     let rname = mkName $ "resources" ++ name
-    eres <- liftResources res
+    eres <- lift res
     let y = [ SigD rname $ ListT `AppT` ConT ''Resource
             , FunD rname [Clause [] (NormalB eres) []]
             ]
@@ -142,6 +144,32 @@ mkYesodGeneral name args clazzes isSub res = do
                  $ map (\x -> (x, [])) ("master" : args) ++
                    clazzes
     explode <- [|explodeHandler|]
+    let th = map thResourceFromResource res
+    w' <- createRoutes th
+    let w = DataD [] (mkName $ name ++ "Routes") [] w' []
+    let x = TySynInstD ''Routes [arg] $ ConT $ mkName $ name ++ "Routes"
+
+    parse' <- createParse th
+    parse'' <- newName "parse"
+    let parse = LetE [FunD parse'' parse'] $ VarE parse''
+
+    render' <- createRender th
+    render'' <- newName "render"
+    let render = LetE [FunD render'' render'] $ VarE render''
+
+    id' <- [|id|]
+    modMaster <- [|fmap chooseRep|]
+    dispatch' <- createDispatch modMaster id' th
+    dispatch'' <- newName "dispatch"
+    let dispatch = LetE [FunD dispatch'' dispatch'] $ LamE [WildP] $ VarE dispatch''
+
+    site <- [|Site|]
+    let site' = site `AppE` dispatch `AppE` render `AppE` parse
+    let y = InstanceD [] (ConT ''YesodSite `AppT` arg)
+                [ FunD (mkName "getSite") [Clause [] (NormalB site') []]
+                ]
+    let z = undefined
+    {-
     QuasiSiteDecs w x y z <- createQuasiSite QuasiSiteSettings
                 { crRoutes = mkName $ name ++ "Routes"
                 , crApplication = ConT ''YesodApp
@@ -153,7 +181,11 @@ mkYesodGeneral name args clazzes isSub res = do
                                 then Right clazzes'
                                 else Left (ConT name')
                 }
-    return ([w, x], (if isSub then id else (:) yes) [y, z])
+    -}
+    return ([w, x], [y])
+
+thResourceFromResource :: Resource -> THResource
+thResourceFromResource (Resource n ps (ByMethod ms)) = (n, Simple ps $ map fst ms)
 
 compact :: [(String, [a])] -> [(String, [a])]
 compact [] = []
@@ -193,41 +225,23 @@ toWaiApp' y segments env = do
         method = B.unpack $ W.methodToBS $ W.requestMethod env
         types = httpAccept env
         pathSegments = filter (not . null) segments
-        eurl = quasiParse site pathSegments
+        eurl = parsePathSegments site pathSegments
         render u = fromMaybe
-                    (fullRender (approot y) (quasiRender site) u)
+                    (fullRender (approot y) (formatPathSegments site) u)
                     (urlRenderOverride y u)
     rr <- parseWaiRequest env session'
     onRequest y rr
-    ya <-
-      case eurl of
-        Left _ -> return $ runHandler (errorHandler y NotFound)
-                          render
-                          Nothing
-                          id
-                          y
-                          id
-        Right url -> do
-            auth <- isAuthorized y url
-            case auth of
-                Nothing -> return $ quasiDispatch site
-                                render
-                                url
-                                id
-                                y
-                                id
-                                (badMethodApp method)
-                                method
-                Just msg ->
-                    return $ runHandler
-                                (errorHandler y $ PermissionDenied msg)
-                                render
-                                (Just url)
-                                id
-                                y
-                                id
+    let h =
+          case eurl of
+            Left _ -> errorHandler y NotFound
+            Right url -> do
+                -- FIXME auth <- isAuthorized y url
+                case handleSite site render url method of
+                    Nothing -> errorHandler y $ BadMethod method
+                    Just h' -> h'
     let eurl' = either (const Nothing) Just eurl
     let eh er = runHandler (errorHandler y er) render eurl' id y id
+    let ya = runHandler h render eurl' id y id
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
     let sessionVal = encodeSession key' exp' host sessionFinal
     let hs' = AddCookie (clientSessionDuration y) sessionName
@@ -270,10 +284,6 @@ basicHandler port app = do
             putStrLn $ "http://localhost:" ++ show port ++ "/"
             SS.run port app
         Just _ -> CGI.run app
-
-badMethodApp :: String -> YesodApp
-badMethodApp m = YesodApp $ \eh req cts
-         -> unYesodApp (eh $ BadMethod m) eh req cts
 
 fixSegs :: [String] -> [String]
 fixSegs [] = []

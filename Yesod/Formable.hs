@@ -38,7 +38,7 @@ import Yesod.Request
 import Yesod.Handler
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State
-import Web.Routes.Quasi (Routes, SinglePiece)
+import Web.Routes.Quasi (SinglePiece)
 import Data.Int (Int64)
 
 sealRow :: Formable b => String -> (a -> b) -> Maybe a -> Form sub master b

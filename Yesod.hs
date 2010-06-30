@@ -13,7 +13,6 @@ module Yesod
     , module Yesod.Formable
     , Application
     , liftIO
-    , Routes
     ) where
 
 #if TEST
@@ -34,4 +33,3 @@ import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet
 import "transformers" Control.Monad.IO.Class (liftIO)
-import Web.Routes.Quasi (Routes)

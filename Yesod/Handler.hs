@@ -63,13 +63,13 @@ module Yesod.Handler
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
+    , Routes
     ) where
 
 import Prelude hiding (catch)
 import Yesod.Request
 import Yesod.Content
 import Yesod.Internal
-import Web.Routes.Quasi (Routes)
 import Data.List (foldl', intercalate)
 import Data.Neither
 
@@ -81,7 +81,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Reader
-import Control.Monad.CatchIO (MonadCatchIO)
+import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
 
 import System.IO
 import qualified Network.Wai as W
@@ -92,6 +92,8 @@ import qualified Data.ByteString.Lazy.UTF8 as L
 import Text.Hamlet
 import Numeric (showIntAtBase)
 import Data.Char (ord, chr)
+
+type family Routes a
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request
