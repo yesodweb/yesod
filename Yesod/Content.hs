@@ -85,9 +85,14 @@ data Content = ContentFile FilePath
                           -> a
                           -> IO (Either a a))
 
+-- | Zero-length enumerator.
 emptyContent :: Content
 emptyContent = ContentEnum $ \_ -> return . Right
 
+-- | Anything which can be converted into 'Content'. Most of the time, you will
+-- want to use the 'ContentEnum' constructor. An easier approach will be to use
+-- a pre-defined 'toContent' function, such as converting your data into a lazy
+-- bytestring and then calling 'toContent' on that.
 class ToContent a where
     toContent :: a -> Content
 
@@ -139,6 +144,9 @@ instance HasReps ChooseRep where
 
 instance HasReps () where
     chooseRep = defChooseRep [(typePlain, const $ return $ toContent "")]
+
+instance HasReps (ContentType, Content) where
+    chooseRep = const . return
 
 instance HasReps [(ContentType, Content)] where
     chooseRep a cts = return $
@@ -218,19 +226,20 @@ typeOctet = "application/octet-stream"
 simpleContentType :: String -> String
 simpleContentType = fst . span (/= ';')
 
--- | Determine a mime-type based on the file extension.
-typeByExt :: String -> ContentType
-typeByExt "jpg" = typeJpeg
-typeByExt "jpeg" = typeJpeg
-typeByExt "js" = typeJavascript
-typeByExt "css" = typeCss
-typeByExt "html" = typeHtml
-typeByExt "png" = typePng
-typeByExt "gif" = typeGif
-typeByExt "txt" = typePlain
-typeByExt "flv" = typeFlv
-typeByExt "ogv" = typeOgv
-typeByExt _ = typeOctet
+-- | A default extension to mime-type dictionary.
+typeByExt :: [(String, ContentType)]
+typeByExt =
+    [ ("jpg", typeJpeg)
+    , ("jpeg", typeJpeg)
+    , ("js", typeJavascript)
+    , ("css", typeCss)
+    , ("html", typeHtml)
+    , ("png", typePng)
+    , ("gif", typeGif)
+    , ("txt", typePlain)
+    , ("flv", typeFlv)
+    , ("ogv", typeOgv)
+    ]
 
 -- | Get a file extension (everything after last period).
 ext :: String -> String

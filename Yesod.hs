@@ -13,6 +13,7 @@ module Yesod
     , module Yesod.Formable
     , Application
     , liftIO
+    , mempty
     ) where
 
 #if TEST
@@ -33,3 +34,4 @@ import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet
 import "transformers" Control.Monad.IO.Class (liftIO)
+import Data.Monoid (mempty)

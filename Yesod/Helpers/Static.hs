@@ -38,6 +38,7 @@ module Yesod.Helpers.Static
 
 import System.Directory
 import Control.Monad
+import Data.Maybe (fromMaybe)
 
 import Yesod
 import Data.List (intercalate)
@@ -51,7 +52,11 @@ import Test.HUnit hiding (Test)
 
 -- | A function for looking up file contents. For serving from the file system,
 -- see 'fileLookupDir'.
-data Static = Static (FilePath -> IO (Maybe (Either FilePath Content)))
+data Static = Static
+    { staticLookup :: FilePath -> IO (Maybe (Either FilePath Content))
+    -- | Mapping from file extension to content type. See 'typeByExt'.
+    , staticTypes :: [(String, ContentType)]
+    }
 
 mkYesodSub "Static" [] [$parseRoutes|
 *Strings StaticRoute GET
@@ -63,7 +68,7 @@ mkYesodSub "Static" [] [$parseRoutes|
 -- probably are), the handler itself checks that no unsafe paths are being
 -- requested. In particular, no path segments may begin with a single period,
 -- so hidden files and parent directories are safe.
-fileLookupDir :: FilePath -> Static
+fileLookupDir :: FilePath -> [(String, ContentType)] -> Static
 fileLookupDir dir = Static $ \fp -> do
     let fp' = dir ++ '/' : fp
     exists <- doesFileExist fp'
@@ -72,16 +77,20 @@ fileLookupDir dir = Static $ \fp -> do
         else return Nothing
 
 getStaticRoute :: [String]
-               -> GHandler Static master [(ContentType, Content)]
+               -> GHandler Static master (ContentType, Content)
 getStaticRoute fp' = do
-    Static fl <- getYesodSub
+    Static fl ctypes <- getYesodSub
     when (any isUnsafe fp') notFound
     let fp = intercalate "/" fp'
     content <- liftIO $ fl fp
     case content of
         Nothing -> notFound
-        Just (Left fp'') -> sendFile (typeByExt $ ext fp'') fp''
-        Just (Right bs) -> return [(typeByExt $ ext fp, bs)]
+        Just (Left fp'') -> do
+            let ctype = fromMaybe typeOctet $ lookup (ext fp'') ctypes
+            sendFile ctype fp''
+        Just (Right bs) -> do
+            let ctype = fromMaybe typeOctet $ lookup (ext fp) ctypes
+            return (ctype, bs)
   where
     isUnsafe [] = True
     isUnsafe ('.':_) = True
