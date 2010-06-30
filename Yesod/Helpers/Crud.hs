@@ -1,12 +1,13 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types #-}
 module Yesod.Helpers.Crud
     ( Item (..)
     , Crud (..)
-    , CrudRoutes (..)
+    , Routes (..)
     , defaultCrud
-    , siteCrud
     ) where
 
 import Yesod.Yesod

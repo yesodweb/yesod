@@ -1,11 +1,13 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( -- * Type classes
       Yesod (..)
     , YesodSite (..)
+    , YesodSubSite (..)
       -- ** Persistence
     , YesodPersist (..)
     , module Database.Persist
@@ -38,6 +40,9 @@ import Web.Routes.Site (Site)
 class YesodSite y where
     getSite :: Site (Routes y) (Method -> Maybe (Handler y ChooseRep))
 type Method = String
+
+class YesodSubSite s y where
+    getSubSite :: Site (Routes s) (Method -> Maybe (GHandler s y ChooseRep))
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.

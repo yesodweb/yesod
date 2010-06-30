@@ -2,6 +2,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Static
@@ -25,8 +27,7 @@
 module Yesod.Helpers.Static
     ( -- * Subsite
       Static (..)
-    , StaticRoutes (..)
-    , siteStatic
+    , Routes (..)
       -- * Lookup files in filesystem
     , fileLookupDir
     , staticFiles
@@ -52,9 +53,9 @@ import Test.HUnit hiding (Test)
 -- see 'fileLookupDir'.
 data Static = Static (FilePath -> IO (Maybe (Either FilePath Content)))
 
-$(mkYesodSub "Static" [] [$parseRoutes|
+mkYesodSub "Static" [] [$parseRoutes|
 *Strings StaticRoute GET
-|])
+|]
 
 -- | Lookup files in a specific directory.
 --
@@ -117,7 +118,7 @@ staticFiles fp = do
         f' <- lift f
         let sr = ConE $ mkName "StaticRoute"
         return
-            [ SigD name $ ConT ''StaticRoutes
+            [ SigD name $ ConT ''Routes `AppT` ConT ''Static
             , FunD name
                 [ Clause [] (NormalB $ sr `AppE` f') []
                 ]

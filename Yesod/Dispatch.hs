@@ -57,6 +57,7 @@ import Control.Monad
 import Data.Maybe
 import Web.ClientSession
 import qualified Web.ClientSession as CS
+import Data.Char (isLower)
 
 import Data.Serialize
 import qualified Data.Serialize as Ser
@@ -114,17 +115,13 @@ mkYesodData name res = do
 mkYesodDispatch :: String -> [Resource] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
 
-explodeHandler :: HasReps c
-               => GHandler sub master c
-               -> (Routes master -> String)
-               -> Routes sub
-               -> (Routes sub -> Routes master)
-               -> master
-               -> (master -> sub)
-               -> YesodApp
-               -> String
-               -> YesodApp
-explodeHandler a b c d e f _ _ = runHandler a b (Just c) d e f
+typeHelper :: String -> Type
+typeHelper =
+    foldl1 AppT . map go . words
+  where
+    go s@(x:_)
+        | isLower x = VarT $ mkName s
+        | otherwise = ConT $ mkName s
 
 mkYesodGeneral :: String -- ^ argument name
                -> [String] -- ^ parameters for site argument
@@ -136,18 +133,13 @@ mkYesodGeneral name args clazzes isSub res = do
     let name' = mkName name
         args' = map mkName args
         arg = foldl AppT (ConT name') $ map VarT args'
-    let site = mkName $ "site" ++ name
-    let gsbod = NormalB $ VarE site
-    let yes' = FunD (mkName "getSite") [Clause [] gsbod []]
-    let yes = InstanceD [] (ConT ''YesodSite `AppT` ConT name') [yes']
-    let clazzes' = compact
-                 $ map (\x -> (x, [])) ("master" : args) ++
-                   clazzes
-    explode <- [|explodeHandler|]
-    let th = map thResourceFromResource res
+    let clazzes' = map (\(x, y) -> ClassP x [typeHelper y])
+                 $ concatMap (\(x, y) -> zip y $ repeat x)
+                 $ compact
+                 $ map (\x -> (x, [])) ("master" : args) ++ clazzes
+    th <- mapM (thResourceFromResource arg) res -- FIXME now we cannot have multi-nested subsites
     w' <- createRoutes th
     let w = DataInstD [] ''Routes [arg] w' []
-    let x = TySynD (mkName $ name ++ "Routes") [] $ ConT ''Routes `AppT` arg
 
     parse' <- createParse th
     parse'' <- newName "parse"
@@ -157,35 +149,58 @@ mkYesodGeneral name args clazzes isSub res = do
     render'' <- newName "render"
     let render = LetE [FunD render'' render'] $ VarE render''
 
-    id' <- [|id|]
+    tmh <- [|toMasterHandler|]
     modMaster <- [|fmap chooseRep|]
-    dispatch' <- createDispatch modMaster id' th
+    dispatch' <- createDispatch modMaster tmh th
     dispatch'' <- newName "dispatch"
     let dispatch = LetE [FunD dispatch'' dispatch'] $ LamE [WildP] $ VarE dispatch''
 
     site <- [|Site|]
     let site' = site `AppE` dispatch `AppE` render `AppE` parse
-    let y = InstanceD [] (ConT ''YesodSite `AppT` arg)
-                [ FunD (mkName "getSite") [Clause [] (NormalB site') []]
+    let (ctx, ytyp, yfunc) =
+            if isSub
+                then (clazzes', ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"), "getSubSite")
+                else ([], ConT ''YesodSite `AppT` arg, "getSite")
+    let y = InstanceD ctx ytyp
+                [ FunD (mkName yfunc) [Clause [] (NormalB site') []]
                 ]
-    let z = undefined
-    {-
-    QuasiSiteDecs w x y z <- createQuasiSite QuasiSiteSettings
-                { crRoutes = mkName $ name ++ "Routes"
-                , crApplication = ConT ''YesodApp
-                , crArgument = arg
-                , crExplode = explode
-                , crResources = res
-                , crSite = site
-                , crMaster = if isSub
-                                then Right clazzes'
-                                else Left (ConT name')
-                }
-    -}
-    return ([w, x], [y])
+    return ([w], [y])
 
-thResourceFromResource :: Resource -> THResource
-thResourceFromResource (Resource n ps (ByMethod ms)) = (n, Simple ps $ map fst ms)
+isStatic :: Piece -> Bool
+isStatic StaticPiece{} = True
+isStatic _ = False
+
+fromStatic :: Piece -> String
+fromStatic (StaticPiece s) = s
+fromStatic _ = error "fromStatic"
+
+thResourceFromResource :: Type -> Resource -> Q THResource
+thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
+    | all isStatic ps && any (any isLower) atts = do
+        let stype' = ConT $ mkName stype
+        gss <- [|getSubSite|]
+        let inside = ConT ''Maybe `AppT`
+                     (ConT ''GHandler `AppT` stype' `AppT` master `AppT`
+                      ConT ''ChooseRep)
+        let typ = ConT ''Site `AppT`
+                  (ConT ''Routes `AppT` stype') `AppT`
+                  (ArrowT `AppT` ConT ''String `AppT` inside)
+        let gss' = gss `SigE` typ
+        parse' <- [|parsePathSegments|]
+        let parse = parse' `AppE` gss'
+        render' <- [|formatPathSegments|]
+        let render = render' `AppE` gss'
+        dispatch' <- [|flip handleSite (error "Cannot use subsite render function")|]
+        let dispatch = dispatch' `AppE` gss'
+        return (n, SubSite
+            { ssType = ConT ''Routes `AppT` stype'
+            , ssParse = parse
+            , ssRender = render
+            , ssDispatch = dispatch
+            , ssToMasterArg = VarE $ mkName toSubArg
+            , ssPieces = map fromStatic ps
+            })
+thResourceFromResource _ (Resource n ps attribs) = return (n, Simple ps attribs)
 
 compact :: [(String, [a])] -> [(String, [a])]
 compact [] = []

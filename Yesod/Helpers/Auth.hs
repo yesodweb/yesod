@@ -22,8 +22,7 @@
 module Yesod.Helpers.Auth
     ( -- * Subsite
       Auth (..)
-    , AuthRoutes (..)
-    , siteAuth
+    , Routes (..)
       -- * Settings
     , YesodAuth (..)
     , Creds (..)

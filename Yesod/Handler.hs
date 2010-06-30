@@ -64,6 +64,7 @@ module Yesod.Handler
     , runHandler
     , YesodApp (..)
     , Routes
+    , toMasterHandler
     ) where
 
 import Prelude hiding (catch)
@@ -103,6 +104,25 @@ data HandlerData sub master = HandlerData
     , handlerRender :: (Routes master -> String)
     , handlerToMaster :: Routes sub -> Routes master
     }
+
+handlerSubData :: (Routes sub -> Routes master)
+               -> (master -> sub)
+               -> Routes sub
+               -> HandlerData oldSub master
+               -> HandlerData sub master
+handlerSubData tm ts route hd = hd
+    { handlerSub = ts $ handlerMaster hd
+    , handlerToMaster = tm
+    , handlerRoute = Just route
+    }
+
+toMasterHandler :: (Routes sub -> Routes master)
+                -> (master -> sub)
+                -> Routes sub
+                -> GHandler sub master a
+                -> Handler master a
+toMasterHandler tm ts route (GHandler h) =
+    GHandler $ withReaderT (handlerSubData tm ts route) h
 
 -- | A generic handler monad, which can have a different subsite and master
 -- site. This monad is a combination of reader for basic arguments, a writer
