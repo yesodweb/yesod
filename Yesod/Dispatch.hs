@@ -321,14 +321,17 @@ parseWaiRequest env session' = do
         cookies' = map (S.toString *** S.toString) $ parseCookies reqCookie
         acceptLang = lookup W.AcceptLanguage $ W.requestHeaders env
         langs = map S.toString $ maybe [] parseHttpAccept acceptLang
-        langs' = case lookup langKey cookies' of
+        langs' = case lookup langKey session' of
                     Nothing -> langs
                     Just x -> x : langs
-        langs'' = case lookup langKey gets' of
-                     Nothing -> langs'
-                     Just x -> x : langs'
+        langs'' = case lookup langKey cookies' of
+                    Nothing -> langs'
+                    Just x -> x : langs'
+        langs''' = case lookup langKey gets' of
+                     Nothing -> langs''
+                     Just x -> x : langs''
     rbthunk <- iothunk $ rbHelper env
-    return $ Request gets' cookies' session' rbthunk env langs''
+    return $ Request gets' cookies' session' rbthunk env langs'''
 
 rbHelper :: W.Request -> IO RequestBodyContents
 rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where

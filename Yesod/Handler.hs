@@ -382,9 +382,9 @@ setCookie a b = addHeader . AddCookie a b
 deleteCookie :: String -> GHandler sub master ()
 deleteCookie = addHeader . DeleteCookie
 
--- | Set the language header. Will show up in 'languages'.
+-- | Set the language in the user session. Will show up in 'languages'.
 setLanguage :: String -> GHandler sub master ()
-setLanguage = setCookie 60 langKey -- FIXME shouldn't we use session for this?
+setLanguage = setSession langKey
 
 -- | Set an arbitrary header on the client.
 setHeader :: String -> String -> GHandler sub master ()
