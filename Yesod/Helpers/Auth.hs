@@ -168,17 +168,14 @@ testOpenId = do
 getOpenIdR :: Yesod master => GHandler Auth master RepHtml
 getOpenIdR = do
     testOpenId
-    rr <- getRequest
-    case getParams rr "dest" of
-        [] -> return ()
-        (x:_) -> setUltDestString x
+    lookupGetParam "dest" >>= maybe (return ()) setUltDestString
     rtom <- getRouteToMaster
     message <- getMessage
     applyLayout "Log in via OpenID" mempty [$hamlet|
 $maybe message msg
     %p.message $msg$
 %form!method=get!action=@rtom.OpenIdForward@
-    %label!for=openid OpenID: 
+    %label!for=openid OpenID: $
     %input#openid!type=text!name=openid
     %input!type=submit!value=Login
 |]
@@ -186,10 +183,7 @@ $maybe message msg
 getOpenIdForward :: GHandler Auth master ()
 getOpenIdForward = do
     testOpenId
-    rr <- getRequest
-    oid <- case getParams rr "openid" of
-            [x] -> return x
-            _ -> invalidArgs [("openid", "Expected single parameter")]
+    oid <- runFormGet $ required $ input "openid"
     render <- getUrlRender
     toMaster <- getRouteToMaster
     let complete = render $ toMaster OpenIdComplete
@@ -224,11 +218,11 @@ handleRpxnowR = do
     apiKey <- case authRpxnowApiKey auth of
                 Just x -> return x
                 Nothing -> notFound
-    rr <- getRequest
-    pp <- postParams rr
-    let token = case getParams rr "token" ++ pp "token" of
-                    [] -> invalidArgs [("token", "Value not supplied")]
-                    (x:_) -> x
+    token1 <- lookupGetParam "token"
+    token2 <- lookupPostParam "token"
+    let token = case token1 `mplus` token2 of
+                    Nothing -> invalidArgs [("token", "Value not supplied")]
+                    Just x -> x
     Rpxnow.Identifier ident extra <- liftIO $ Rpxnow.authenticate apiKey token
     let creds = Creds
                     ident
@@ -238,14 +232,14 @@ handleRpxnowR = do
                     Nothing
                     Nothing
     setCreds creds extra
+    dest1 <- lookupPostParam "dest"
+    dest2 <- lookupGetParam "dest"
     either (redirect RedirectTemporary) (redirectString RedirectTemporary) $
-        case pp "dest" of
-            (d:_) -> Right d
-            [] -> case getParams rr "dest" of
-                    [] -> Left $ defaultDest ay
-                    ("":_) -> Left $ defaultDest ay
-                    (('#':rest):_) -> Right rest
-                    (s:_) -> Right s
+        case dest1 `mplus` dest2 of
+            Just "" -> Left $ defaultDest ay
+            Nothing -> Left $ defaultDest ay
+            Just ('#':d) -> Right d
+            Just d -> Right d
 
 -- | Get some form of a display name.
 getDisplayName :: [(String, String)] -> Maybe String

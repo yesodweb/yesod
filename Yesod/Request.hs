@@ -29,11 +29,13 @@ module Yesod.Request
     , lookupPostParam
     , lookupCookie
     , lookupSession
-      -- ** Alternate
-    , getParams
-    , postParams
-    , cookies
-    , session
+    , lookupFile
+      -- ** Multi-lookup
+    , lookupGetParams
+    , lookupPostParams
+    , lookupCookies
+    , lookupSessions
+    , lookupFiles
       -- * Parameter type synonyms
     , ParamName
     , ParamValue
@@ -46,6 +48,7 @@ import "transformers" Control.Monad.IO.Class
 import Control.Monad (liftM)
 import Network.Wai.Parse
 import Control.Monad.Instances () -- I'm missing the instance Monad ((->) r
+import Data.Maybe (listToMaybe)
 
 type ParamName = String
 type ParamValue = String
@@ -99,59 +102,64 @@ data Request = Request
     , reqLangs :: [String]
     }
 
-multiLookup :: [(ParamName, ParamValue)] -> ParamName -> [ParamValue]
-multiLookup [] _ = []
-multiLookup ((k, v):rest) pn
-    | k == pn = v : multiLookup rest pn
-    | otherwise = multiLookup rest pn
+lookup' :: Eq a => a -> [(a, b)] -> [b]
+lookup' a = map snd . filter (\x -> a == fst x)
 
--- | All GET paramater values with the given name.
-getParams :: RequestReader m => m (ParamName -> [ParamValue])
-getParams = do
+-- | Lookup for GET parameters.
+lookupGetParams :: RequestReader m => ParamName -> m [ParamValue]
+lookupGetParams pn = do
     rr <- getRequest
-    return $ multiLookup $ reqGetParams rr
+    return $ lookup' pn $ reqGetParams rr
 
 -- | Lookup for GET parameters.
 lookupGetParam :: RequestReader m => ParamName -> m (Maybe ParamValue)
-lookupGetParam pn = do
-    rr <- getRequest
-    return $ lookup pn $ reqGetParams rr
-
--- | All POST paramater values with the given name.
-postParams :: MonadIO m => Request -> m (ParamName -> [ParamValue])
-postParams rr = do
-    (pp, _) <- liftIO $ reqRequestBody rr
-    return $ multiLookup pp
+lookupGetParam = liftM listToMaybe . lookupGetParams
 
 -- | Lookup for POST parameters.
+lookupPostParams :: (MonadIO m, RequestReader m)
+                 => ParamName
+                 -> m [ParamValue]
+lookupPostParams pn = do
+    rr <- getRequest
+    (pp, _) <- liftIO $ reqRequestBody rr
+    return $ lookup' pn pp
+
 lookupPostParam :: (MonadIO m, RequestReader m)
                 => ParamName
                 -> m (Maybe ParamValue)
-lookupPostParam pn = do
-    rr <- getRequest
-    (pp, _) <- liftIO $ reqRequestBody rr
-    return $ lookup pn pp
+lookupPostParam = liftM listToMaybe . lookupPostParams
 
--- | All cookies with the given name.
-cookies :: RequestReader m => m (ParamName -> [ParamValue])
-cookies = do
+-- | Lookup for POSTed files.
+lookupFile :: (MonadIO m, RequestReader m)
+           => ParamName
+           -> m (Maybe (FileInfo BL.ByteString))
+lookupFile = liftM listToMaybe . lookupFiles
+
+-- | Lookup for POSTed files.
+lookupFiles :: (MonadIO m, RequestReader m)
+            => ParamName
+            -> m [FileInfo BL.ByteString]
+lookupFiles pn = do
     rr <- getRequest
-    return $ multiLookup $ reqCookies rr
+    (_, files) <- liftIO $ reqRequestBody rr
+    return $ lookup' pn files
 
 -- | Lookup for cookie data.
 lookupCookie :: RequestReader m => ParamName -> m (Maybe ParamValue)
-lookupCookie pn = do
-    rr <- getRequest
-    return $ lookup pn $ reqCookies rr
+lookupCookie = liftM listToMaybe . lookupCookies
 
--- | All session data with the given name.
-session :: RequestReader m => m (ParamName -> [ParamValue])
-session = do
+-- | Lookup for cookie data.
+lookupCookies :: RequestReader m => ParamName -> m [ParamValue]
+lookupCookies pn = do
     rr <- getRequest
-    return $ multiLookup $ reqSession rr
+    return $ lookup' pn $ reqCookies rr
 
 -- | Lookup for session data.
 lookupSession :: RequestReader m => ParamName -> m (Maybe ParamValue)
-lookupSession pn = do
+lookupSession = liftM listToMaybe . lookupSessions
+
+-- | Lookup for session data.
+lookupSessions :: RequestReader m => ParamName -> m [ParamValue]
+lookupSessions pn = do
     rr <- getRequest
-    return $ lookup pn $ reqSession rr
+    return $ lookup' pn $ reqSession rr

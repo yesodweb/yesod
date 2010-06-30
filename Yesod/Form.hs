@@ -63,15 +63,18 @@ runFormPost :: (RequestReader m, Failure ErrorResponse m, MonadIO m)
             => Form x -> m x
 runFormPost f = do
     rr <- getRequest
-    pp <- postParams rr
-    runFormGeneric pp f
+    (pp, _) <- liftIO $ reqRequestBody rr
+    runFormGeneric (flip lookup' pp) f
+
+lookup' :: Eq a => a -> [(a, b)] -> [b]
+lookup' a = map snd . filter (\x -> a == fst x)
 
 -- | Run a form against GET parameters.
 runFormGet :: (RequestReader m, Failure ErrorResponse m)
            => Form x -> m x
 runFormGet f = do
     rr <- getRequest
-    runFormGeneric (getParams rr) f
+    runFormGeneric (flip lookupGetParams rr) f
 
 input :: ParamName -> Form [ParamValue]
 input pn = Form $ \l -> Right (Just pn, l pn)
