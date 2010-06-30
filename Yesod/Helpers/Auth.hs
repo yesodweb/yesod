@@ -49,7 +49,6 @@ import Control.Applicative
 import Control.Concurrent.MVar
 import System.IO
 import Control.Monad.Attempt
-import Data.Monoid (mempty)
 import Data.ByteString.Lazy.UTF8 (fromString)
 import Data.Object
 
@@ -83,8 +82,8 @@ data Auth = Auth
     { authIsOpenIdEnabled :: Bool
     , authRpxnowApiKey :: Maybe String
     , authEmailSettings :: Maybe AuthEmailSettings
-    , authFacebook :: Maybe (String, String) -- ^ client id and secret
-    , authFacebookPerms :: [String]
+    -- | client id, secret and requested permissions
+    , authFacebook :: Maybe (String, String, [String])
     }
 
 -- | Which subsystem authenticated the user.
@@ -492,7 +491,7 @@ getFacebookR = do
     a <- authFacebook <$> getYesodSub
     case a of
         Nothing -> notFound
-        Just (cid, secret) -> do
+        Just (cid, secret, _) -> do
             render <- getUrlRender
             tm <- getRouteToMaster
             let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
@@ -514,9 +513,9 @@ getStartFacebookR = do
     y <- getYesodSub
     case authFacebook y of
         Nothing -> notFound
-        Just (cid, secret) -> do
+        Just (cid, secret, perms) -> do
             render <- getUrlRender
             tm <- getRouteToMaster
             let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
-            let fburl = Facebook.getForwardUrl fb $ authFacebookPerms y
+            let fburl = Facebook.getForwardUrl fb perms
             redirectString RedirectTemporary fburl
