@@ -146,8 +146,8 @@ mkYesodGeneral name args clazzes isSub res = do
     explode <- [|explodeHandler|]
     let th = map thResourceFromResource res
     w' <- createRoutes th
-    let w = DataD [] (mkName $ name ++ "Routes") [] w' []
-    let x = TySynInstD ''Routes [arg] $ ConT $ mkName $ name ++ "Routes"
+    let w = DataInstD [] ''Routes [arg] w' []
+    let x = TySynD (mkName $ name ++ "Routes") [] $ ConT ''Routes `AppT` arg
 
     parse' <- createParse th
     parse'' <- newName "parse"

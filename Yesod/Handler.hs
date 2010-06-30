@@ -93,7 +93,7 @@ import Text.Hamlet
 import Numeric (showIntAtBase)
 import Data.Char (ord, chr)
 
-type family Routes a
+data family Routes a
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request
