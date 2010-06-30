@@ -364,8 +364,8 @@ badMethod = do
     failure $ BadMethod $ toString $ W.methodToBS $ W.requestMethod w
 
 -- | Return a 403 permission denied page.
-permissionDenied :: Failure ErrorResponse m => m a
-permissionDenied = failure $ PermissionDenied "Permission denied"
+permissionDenied :: Failure ErrorResponse m => String -> m a
+permissionDenied = failure . PermissionDenied
 
 -- | Return a 400 invalid arguments page.
 invalidArgs :: Failure ErrorResponse m => [(ParamName, String)] -> m a

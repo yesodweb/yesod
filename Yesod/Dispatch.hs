@@ -246,14 +246,14 @@ toWaiApp' y segments env = do
         eurl = parsePathSegments site pathSegments
         render u = fromMaybe
                     (fullRender (approot y) (formatPathSegments site) u)
-                    (urlRenderOverride y u)
+                    (urlRenderOverride u)
     rr <- parseWaiRequest env session'
-    onRequest y rr
-    let h =
+    let h = do
+          onRequest
           case eurl of
             Left _ -> errorHandler NotFound
             Right url -> do
-                -- FIXME auth <- isAuthorized y url
+                isAuthorized url >>= maybe (return ()) permissionDenied
                 case handleSite site render url method of
                     Nothing -> errorHandler $ BadMethod method
                     Just h' -> h'

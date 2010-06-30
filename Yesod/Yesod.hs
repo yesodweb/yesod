@@ -85,22 +85,22 @@ class Yesod a where
 |]
 
     -- | Gets called at the beginning of each request. Useful for logging.
-    onRequest :: a -> Request -> IO ()
-    onRequest _ _ = return ()
+    onRequest :: GHandler sub a ()
+    onRequest = return ()
 
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
-    urlRenderOverride :: a -> Routes a -> Maybe String
-    urlRenderOverride _ _ = Nothing
+    urlRenderOverride :: Routes a -> Maybe String
+    urlRenderOverride _ = Nothing
 
-    -- | Determine is a request is authorized or not.
+    -- | Determine if a request is authorized or not.
     --
     -- Return 'Nothing' is the request is authorized, 'Just' a message if
     -- unauthorized. If authentication is required, you should use a redirect;
     -- the Auth helper provides this functionality automatically.
-    isAuthorized :: a -> Routes a -> IO (Maybe String)
-    isAuthorized _ _ = return Nothing
+    isAuthorized :: Routes a -> Handler a (Maybe String)
+    isAuthorized _ = return Nothing
 
 -- | A type-safe, concise method of creating breadcrumbs for pages. For each
 -- resource, you declare the title of the page and the parent resource (if
