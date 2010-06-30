@@ -255,16 +255,15 @@ safeEh er = YesodApp $ \_ _ _ -> do
 
 -- | Redirect to the given route.
 redirect :: RedirectType -> Routes master -> GHandler sub master a
-redirect rt url = do
-    r <- getUrlRender
-    redirectString rt $ r url
+redirect rt url = redirectParams rt url []
 
 -- | Redirects to the given route with the associated query-string parameters.
 redirectParams :: RedirectType -> Routes master -> [(String, String)]
                -> GHandler sub master a
 redirectParams rt url params = do
     r <- getUrlRender
-    redirectString rt $ r url ++ '?' : encodeUrlPairs params
+    redirectString rt $ r url ++
+        if null params then "" else '?' : encodeUrlPairs params
   where
     encodeUrlPairs = intercalate "&" . map encodeUrlPair
     encodeUrlPair (x, []) = escape x
