@@ -43,8 +43,9 @@ module Yesod.Handler
     , badMethod
     , permissionDenied
     , invalidArgs
-      -- ** Sending static files
+      -- ** Short-circuit responses.
     , sendFile
+    , sendResponse
       -- * Setting headers
     , setCookie
     , deleteCookie
@@ -94,6 +95,7 @@ import Text.Hamlet
 import Numeric (showIntAtBase)
 import Data.Char (ord, chr)
 
+-- | The type-safe URLs associated with a site argument.
 data family Routes a
 
 data HandlerData sub master = HandlerData
@@ -116,6 +118,8 @@ handlerSubData tm ts route hd = hd
     , handlerRoute = Just route
     }
 
+-- | Used internally for promoting subsite handler functions to master site
+-- handler functions. Should not be needed by users.
 toMasterHandler :: (Routes sub -> Routes master)
                 -> (master -> sub)
                 -> Routes sub
@@ -125,8 +129,10 @@ toMasterHandler tm ts route (GHandler h) =
     GHandler $ withReaderT (handlerSubData tm ts route) h
 
 -- | A generic handler monad, which can have a different subsite and master
--- site. This monad is a combination of reader for basic arguments, a writer
--- for headers, and an error-type monad for handling special responses.
+-- site. This monad is a combination of 'ReaderT' for basic arguments, a
+-- 'WriterT' for headers and session, and an 'MEitherT' monad for handling
+-- special responses. It is declared as a newtype to make compiler errors more
+-- readable.
 newtype GHandler sub master a = GHandler { unGHandler ::
     ReaderT (HandlerData sub master) (
     MEitherT HandlerContents (
@@ -351,6 +357,10 @@ getMessage = do
 -- memory, since they can optimize file sending via a system call to sendfile.
 sendFile :: ContentType -> FilePath -> GHandler sub master a
 sendFile ct = GHandler . lift . throwMEither . HCSendFile ct
+
+-- | Bypass remaining handler code and output the given content.
+sendResponse :: HasReps c => c -> GHandler sub master a
+sendResponse = GHandler . lift . throwMEither . HCContent . chooseRep
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
