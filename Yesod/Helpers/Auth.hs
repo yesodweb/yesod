@@ -179,18 +179,6 @@ $maybe message msg
     %input!type=submit!value=Login
 |]
 
--- FIXME next two functions should show up in Yesod.Form properly
-requiredField :: String -> Form sub master String
-requiredField n = Form $ \env ->
-    return (maybe FormMissing FormSuccess $ lookup n env, mempty)
-
-notEmptyField :: String -> Form sub master String
-notEmptyField n = Form $ \env -> return
-    (case lookup n env of
-        Nothing -> FormMissing
-        Just "" -> FormFailure [n ++ ": You must provide a non-empty string"]
-        Just x -> FormSuccess x, mempty)
-
 getOpenIdForward :: GHandler Auth master ()
 getOpenIdForward = do
     testOpenId

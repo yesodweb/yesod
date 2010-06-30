@@ -30,6 +30,10 @@ module Yesod.Form
     , deriveFormable
     , share2
       -- * Pre-built formlets
+    , optionalField
+    , requiredField
+    , notEmptyField
+    , boolField
     ) where
 
 import Text.Hamlet
@@ -39,8 +43,6 @@ import Control.Applicative hiding (optional)
 import Data.Time (Day)
 import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class
-import Yesod.Internal
-import Control.Monad.Attempt
 import Control.Monad ((<=<), liftM, join)
 import Data.Monoid (mempty, mappend)
 import Control.Monad.Trans.State
@@ -48,13 +50,10 @@ import Control.Arrow (first)
 import Language.Haskell.TH.Syntax
 import Database.Persist.Base (PersistField, EntityDef (..))
 import Data.Char (isAlphaNum, toUpper, isUpper)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (isJust)
 import Web.Routes.Quasi (SinglePiece)
 import Data.Int (Int64)
 import qualified Data.ByteString.Lazy.UTF8
-
-noParamNameError :: String
-noParamNameError = "No param name (miscalling of Yesod.Form library)"
 
 data FormResult a = FormMissing
                   | FormFailure [String]
@@ -120,8 +119,8 @@ helper (FormMissing, _) = invalidArgs ["No input found"]
 runFormGet :: Form sub y a
            -> GHandler sub y (FormResult a, Hamlet (Routes y))
 runFormGet f = do
-    gets <- reqGetParams `fmap` getRequest
-    runFormGeneric gets f
+    gs <- reqGetParams `fmap` getRequest
+    runFormGeneric gs f
 
 type Incr = StateT Int
 
@@ -179,6 +178,26 @@ sealForm wrapper (Form form) = Form $ \env -> liftM go (form env)
 sealFormlet :: ([String] -> Hamlet (Routes y) -> Hamlet (Routes y))
             -> Formlet sub y a -> Formlet sub y a
 sealFormlet wrapper formlet initVal = sealForm wrapper $ formlet initVal
+
+-------- Prebuilt
+optionalField :: String -> Form sub master (Maybe String)
+optionalField n = Form $ \env ->
+    return (FormSuccess $ lookup n env, mempty) -- FIXME
+
+requiredField :: String -> Form sub master String
+requiredField n = Form $ \env ->
+    return (maybe FormMissing FormSuccess $ lookup n env, mempty) -- FIXME
+
+notEmptyField :: String -> Form sub master String
+notEmptyField n = Form $ \env -> return
+    (case lookup n env of
+        Nothing -> FormMissing
+        Just "" -> FormFailure [n ++ ": You must provide a non-empty string"]
+        Just x -> FormSuccess x, mempty) -- FIXME
+
+boolField :: String -> Form sub master Bool
+boolField n = Form $ \env -> return
+    (FormSuccess $ isJust $ lookup n env, mempty) -- FIXME
 
 class Formable a where
     formable :: Formlet sub master a
