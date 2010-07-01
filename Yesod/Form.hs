@@ -71,34 +71,36 @@ instance Applicative FormResult where
     _ <*> _ = FormMissing
 
 newtype Form sub y a = Form
-    { deform :: Env -> Incr (GHandler sub y) (FormResult a, Hamlet (Routes y))
+    { deform :: Env -> FileEnv -> Incr (GHandler sub y) (FormResult a, Hamlet (Routes y))
     }
 type Formlet sub y a = Maybe a -> Form sub y a
 
 type Env = [(String, String)]
+type FileEnv = [(String, FileInfo)]
 
 instance Functor (Form sub url) where
-    fmap f (Form g) = Form $ \env -> liftM (first $ fmap f) (g env)
+    fmap f (Form g) = Form $ \env fe -> liftM (first $ fmap f) (g env fe)
 
 instance Applicative (Form sub url) where
-    pure a = Form $ const $ return (pure a, mempty)
-    (Form f) <*> (Form g) = Form $ \env -> do
-        (f1, f2) <- f env
-        (g1, g2) <- g env
+    pure a = Form $ const $ const $ return (pure a, mempty)
+    (Form f) <*> (Form g) = Form $ \env fe -> do
+        (f1, f2) <- f env fe
+        (g1, g2) <- g env fe
         return (f1 <*> g1, f2 `mappend` g2)
 
 runFormGeneric :: Env
+               -> FileEnv
                -> Form sub y a
                -> GHandler sub y (FormResult a, Hamlet (Routes y))
-runFormGeneric env f = evalStateT (deform f env) 1
+runFormGeneric env fe f = evalStateT (deform f env fe) 1
 
 -- | Run a form against POST parameters.
 runFormPost :: Form sub y a
             -> GHandler sub y (FormResult a, Hamlet (Routes y))
 runFormPost f = do
     rr <- getRequest
-    (pp, _) <- liftIO $ reqRequestBody rr
-    runFormGeneric pp f
+    (pp, files) <- liftIO $ reqRequestBody rr
+    runFormGeneric pp files f
 
 -- | Run a form against POST parameters, disregarding the resulting HTML and
 -- returning an error response on invalid input.
@@ -120,7 +122,7 @@ runFormGet :: Form sub y a
            -> GHandler sub y (FormResult a, Hamlet (Routes y))
 runFormGet f = do
     gs <- reqGetParams `fmap` getRequest
-    runFormGeneric gs f
+    runFormGeneric gs [] f
 
 type Incr = StateT Int
 
@@ -134,7 +136,7 @@ incr = do
 input :: (String -> String -> Hamlet (Routes y))
       -> Maybe String
       -> Form sub y String
-input mkXml val = Form $ \env -> do
+input mkXml val = Form $ \env _ -> do
     i <- incr
     let i' = show i
     let param = lookup i' env
@@ -142,7 +144,7 @@ input mkXml val = Form $ \env -> do
     return (maybe FormMissing FormSuccess param, xml)
 
 check :: Form sub url a -> (a -> Either [String] b) -> Form sub url b
-check (Form form) f = Form $ \env -> liftM (first go) (form env)
+check (Form form) f = Form $ \env fe -> liftM (first go) (form env fe)
   where
     go FormMissing = FormMissing
     go (FormFailure x) = FormFailure x
@@ -169,7 +171,7 @@ sealRow label getVal val =
 
 sealForm :: ([String] -> Hamlet (Routes y) -> Hamlet (Routes y))
          -> Form sub y a -> Form sub y a
-sealForm wrapper (Form form) = Form $ \env -> liftM go (form env)
+sealForm wrapper (Form form) = Form $ \env fe -> liftM go (form env fe)
   where
     go (res, xml) = (res, wrapper (toList res) xml)
     toList (FormFailure errs) = errs
@@ -181,22 +183,22 @@ sealFormlet wrapper formlet initVal = sealForm wrapper $ formlet initVal
 
 -------- Prebuilt
 optionalField :: String -> Form sub master (Maybe String)
-optionalField n = Form $ \env ->
+optionalField n = Form $ \env _ ->
     return (FormSuccess $ lookup n env, mempty) -- FIXME
 
 requiredField :: String -> Form sub master String
-requiredField n = Form $ \env ->
+requiredField n = Form $ \env _ ->
     return (maybe FormMissing FormSuccess $ lookup n env, mempty) -- FIXME
 
 notEmptyField :: String -> Form sub master String
-notEmptyField n = Form $ \env -> return
+notEmptyField n = Form $ \env _ -> return
     (case lookup n env of
         Nothing -> FormMissing
         Just "" -> FormFailure [n ++ ": You must provide a non-empty string"]
         Just x -> FormSuccess x, mempty) -- FIXME
 
 boolField :: String -> Form sub master Bool
-boolField n = Form $ \env -> return
+boolField n = Form $ \env _ -> return
     (FormSuccess $ isJust $ lookup n env, mempty) -- FIXME
 
 class Formable a where
@@ -299,7 +301,7 @@ instance Formable (Maybe Int64) where
                     [] -> Left ["Invalid integer"]
 
 instance Formable Bool where
-    formable x = Form $ \env -> do
+    formable x = Form $ \env _ -> do
         i <- incr
         let i' = show i
         let param = lookup i' env

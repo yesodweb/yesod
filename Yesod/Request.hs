@@ -46,7 +46,6 @@ import qualified Network.Wai as W
 import qualified Data.ByteString.Lazy as BL
 import "transformers" Control.Monad.IO.Class
 import Control.Monad (liftM)
-import Network.Wai.Parse
 import Control.Monad.Instances () -- I'm missing the instance Monad ((->) r
 import Data.Maybe (listToMaybe)
 
@@ -85,8 +84,15 @@ waiRequest = reqWaiRequest `liftM` getRequest
 -- | A tuple containing both the POST parameters and submitted files.
 type RequestBodyContents =
     ( [(ParamName, ParamValue)]
-    , [(ParamName, FileInfo BL.ByteString)]
+    , [(ParamName, FileInfo)]
     )
+
+data FileInfo = FileInfo
+    { fileName :: String
+    , fileContentType :: String
+    , fileContent :: BL.ByteString
+    }
+    deriving (Eq, Show)
 
 -- | The parsed request information.
 data Request = Request
@@ -134,13 +140,13 @@ lookupPostParam = liftM listToMaybe . lookupPostParams
 -- | Lookup for POSTed files.
 lookupFile :: (MonadIO m, RequestReader m)
            => ParamName
-           -> m (Maybe (FileInfo BL.ByteString))
+           -> m (Maybe FileInfo)
 lookupFile = liftM listToMaybe . lookupFiles
 
 -- | Lookup for POSTed files.
 lookupFiles :: (MonadIO m, RequestReader m)
             => ParamName
-            -> m [FileInfo BL.ByteString]
+            -> m [FileInfo]
 lookupFiles pn = do
     rr <- getRequest
     (_, files) <- liftIO $ reqRequestBody rr

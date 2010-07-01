@@ -61,7 +61,8 @@ import Data.Char (isLower, isUpper)
 
 import Data.Serialize
 import qualified Data.Serialize as Ser
-import Network.Wai.Parse
+import Network.Wai.Parse hiding (FileInfo)
+import qualified Network.Wai.Parse as NWP
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -122,6 +123,7 @@ typeHelper =
     go s@(x:_)
         | isLower x = VarT $ mkName s
         | otherwise = ConT $ mkName s
+    go [] = error "typeHelper: empty string to go"
 
 mkYesodGeneral :: String -- ^ argument name
                -> [String] -- ^ parameters for site argument
@@ -336,8 +338,8 @@ parseWaiRequest env session' = do
 rbHelper :: W.Request -> IO RequestBodyContents
 rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where
     fix1 = map (S.toString *** S.toString)
-    fix2 (x, FileInfo a b c) =
-        (S.toString x, FileInfo a b c)
+    fix2 (x, NWP.FileInfo a b c) =
+        (S.toString x, FileInfo (S.toString a) (S.toString b) c)
 
 -- | Produces a \"compute on demand\" value. The computation will be run once
 -- it is requested, and then the result will be stored. This will happen only
