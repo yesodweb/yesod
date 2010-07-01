@@ -141,7 +141,9 @@ mkYesodGeneral name args clazzes isSub res = do
                  $ map (\x -> (x, [])) ("master" : args) ++ clazzes
     th <- mapM (thResourceFromResource arg) res -- FIXME now we cannot have multi-nested subsites
     w' <- createRoutes th
-    let w = DataInstD [] ''Routes [arg] w' [''Show, ''Read, ''Eq]
+    let routesName = mkName $ name ++ "Routes"
+    let w = DataD [] routesName [] w' [''Show, ''Read, ''Eq]
+    let x = TySynInstD ''Routes [arg] $ ConT routesName
 
     parse' <- createParse th
     parse'' <- newName "parse"
@@ -166,7 +168,7 @@ mkYesodGeneral name args clazzes isSub res = do
     let y = InstanceD ctx ytyp
                 [ FunD (mkName yfunc) [Clause [] (NormalB site') []]
                 ]
-    return ([w], [y])
+    return ([w, x], [y])
 
 isStatic :: Piece -> Bool
 isStatic StaticPiece{} = True
@@ -248,7 +250,7 @@ toWaiApp' y segments env = do
         eurl = parsePathSegments site pathSegments
         render u = fromMaybe
                     (fullRender (approot y) (formatPathSegments site) u)
-                    (urlRenderOverride u)
+                    (urlRenderOverride y u)
     rr <- parseWaiRequest env session'
     let h = do
           onRequest

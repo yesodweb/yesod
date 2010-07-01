@@ -96,7 +96,7 @@ import Numeric (showIntAtBase)
 import Data.Char (ord, chr)
 
 -- | The type-safe URLs associated with a site argument.
-data family Routes a
+type family Routes a
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request

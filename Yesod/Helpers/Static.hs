@@ -27,7 +27,7 @@
 module Yesod.Helpers.Static
     ( -- * Subsite
       Static (..)
-    , Routes (..)
+    , StaticRoutes (..)
       -- * Lookup files in filesystem
     , fileLookupDir
     , staticFiles

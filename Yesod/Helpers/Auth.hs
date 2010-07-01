@@ -22,7 +22,7 @@
 module Yesod.Helpers.Auth
     ( -- * Subsite
       Auth (..)
-    , Routes (..)
+    , AuthRoutes (..)
       -- * Settings
     , YesodAuth (..)
     , Creds (..)
@@ -154,7 +154,7 @@ mkYesodSub "Auth" [("master", [''YesodAuth])] [$parseRoutes|
 /facebook/start          StartFacebookR     GET
 
 /register                EmailRegisterR     GET POST
-/verify/#EmailId/#String EmailVerifyR       GET
+/verify/#Integer/#String EmailVerifyR       GET
 /login                   EmailLoginR        GET POST
 /set-password            EmailPasswordR     GET POST
 |]

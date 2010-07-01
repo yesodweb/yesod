@@ -93,8 +93,8 @@ class Yesod a where
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
-    urlRenderOverride :: Routes a -> Maybe String
-    urlRenderOverride _ = Nothing
+    urlRenderOverride :: a -> Routes a -> Maybe String
+    urlRenderOverride _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
     --
