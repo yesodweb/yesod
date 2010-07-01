@@ -20,6 +20,7 @@ module Yesod.Widget
     , addBody
       -- * Manipulating
     , wrapWidget
+    , extractBody
     ) where
 
 import Data.List (nub)
@@ -30,7 +31,6 @@ import Yesod.Hamlet (Hamlet, hamlet, PageContent (..), Html, string)
 import Yesod.Handler (Routes, GHandler)
 import Yesod.Yesod (Yesod, defaultLayout)
 import Yesod.Content (RepHtml (..))
-import Data.Maybe (fromMaybe)
 import Control.Applicative (Applicative)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
@@ -63,7 +63,7 @@ newtype Head url = Head (Hamlet url)
 newtype Body url = Body (Hamlet url)
     deriving Monoid
 
-newtype Widget sub master a = Widget { unWidget ::
+newtype Widget sub master a = Widget (
     WriterT (Body (Routes master)) (
     WriterT (Last Title) (
     WriterT (UniqueList (Script (Routes master))) (
@@ -72,8 +72,7 @@ newtype Widget sub master a = Widget { unWidget ::
     WriterT (Head (Routes master)) (
     StateT Int (
     GHandler sub master
-    ))))))) a
-}
+    ))))))) a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadCatchIO)
 
 setTitle :: Html () -> Widget sub master ()
@@ -148,3 +147,9 @@ wrapWidget wrap (Widget w) =
     Widget $ mapWriterT (fmap go) w
   where
     go (a, Body h) = (a, Body $ wrap h)
+
+extractBody :: Widget s m () -> Widget s m (Hamlet (Routes m))
+extractBody (Widget w) =
+    Widget $ mapWriterT (fmap go) w
+  where
+    go ((), Body h) = (h, Body mempty)
