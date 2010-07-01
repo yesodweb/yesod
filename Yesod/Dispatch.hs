@@ -141,7 +141,7 @@ mkYesodGeneral name args clazzes isSub res = do
                  $ map (\x -> (x, [])) ("master" : args) ++ clazzes
     th <- mapM (thResourceFromResource arg) res -- FIXME now we cannot have multi-nested subsites
     w' <- createRoutes th
-    let w = DataInstD [] ''Routes [arg] w' []
+    let w = DataInstD [] ''Routes [arg] w' [''Show, ''Read, ''Eq]
 
     parse' <- createParse th
     parse'' <- newName "parse"

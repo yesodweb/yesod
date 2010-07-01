@@ -1,0 +1,3 @@
+$(function(){
+    $("p.noscript").hide();
+});

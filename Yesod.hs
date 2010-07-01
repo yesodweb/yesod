@@ -1,8 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PackageImports #-}
 module Yesod
-    (
-      module Yesod.Request
+    ( module Yesod.Request
     , module Yesod.Content
     , module Yesod.Yesod
     , module Yesod.Handler
@@ -10,6 +9,7 @@ module Yesod
     , module Yesod.Form
     , module Yesod.Hamlet
     , module Yesod.Json
+    , module Yesod.Widget
     , Application
     , liftIO
     , mempty
@@ -28,6 +28,7 @@ import Yesod.Dispatch
 import Yesod.Request
 import Yesod.Form
 import Yesod.Yesod
+import Yesod.Widget
 import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet

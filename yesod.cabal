@@ -53,6 +53,7 @@ library
                      Yesod.Internal
                      Yesod.Json
                      Yesod.Request
+                     Yesod.Widget
                      Yesod.Yesod
                      Yesod.Helpers.AtomFeed
                      Yesod.Helpers.Auth
