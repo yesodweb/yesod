@@ -9,13 +9,19 @@
 module Yesod.Form
     ( -- * Data types
       Form (..)
-    , Formlet
     , FormResult (..)
       -- * Unwrapping functions
     , runFormGet
     , runFormPost
     , runFormGet'
     , runFormPost'
+    , requiredField
+    , stringField
+    , intField
+    , dayField
+    , boolField
+    , fieldsToTable
+    {- FIXME
       -- * Create your own formlets
     , incr
     , input
@@ -34,6 +40,7 @@ module Yesod.Form
     , requiredField
     , notEmptyField
     , boolField
+    -}
     ) where
 
 import Text.Hamlet
@@ -44,7 +51,7 @@ import Data.Time (Day)
 import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<), liftM, join)
-import Data.Monoid (mempty, mappend)
+import Data.Monoid (Monoid (..))
 import Control.Monad.Trans.State
 import Control.Arrow (first)
 import Language.Haskell.TH.Syntax
@@ -59,6 +66,7 @@ import Yesod.Widget
 data FormResult a = FormMissing
                   | FormFailure [String]
                   | FormSuccess a
+    deriving Show
 instance Functor FormResult where
     fmap _ FormMissing = FormMissing
     fmap _ (FormFailure errs) = FormFailure errs
@@ -71,33 +79,175 @@ instance Applicative FormResult where
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
 
-newtype Form sub y a = Form
-    { deform :: Env -> FileEnv -> Incr (GHandler sub y) (FormResult a, Widget sub y ())
+data Enctype = UrlEncoded | Multipart
+instance Show Enctype where
+    show UrlEncoded = "urlencoded"
+    show Multipart = "multipart/mimetype" -- FIXME
+instance Monoid Enctype where
+    mempty = UrlEncoded
+    mappend UrlEncoded UrlEncoded = UrlEncoded
+    mappend _ _ = Multipart
+
+newtype GForm sub y xml a = GForm
+    { deform :: Env -> FileEnv -> StateT Int (GHandler sub y) (FormResult a, xml, Enctype)
     }
-type Formlet sub y a = Maybe a -> Form sub y a
+type Form sub y = GForm sub y (Widget sub y ())
+type FormField sub y = GForm sub y [FieldInfo sub y]
+
+data FieldInfo sub y = FieldInfo
+    { fiLabel :: Html ()
+    , fiTooltip :: Html ()
+    , fiIdent :: String
+    , fiInput :: Widget sub y ()
+    , fiErrors :: Html ()
+    }
 
 type Env = [(String, String)]
 type FileEnv = [(String, FileInfo)]
 
-instance Functor (Form sub url) where
-    fmap f (Form g) = Form $ \env fe -> liftM (first $ fmap f) (g env fe)
+instance Monoid xml => Functor (GForm sub url xml) where
+    fmap f (GForm g) =
+        GForm $ \env fe -> liftM (first3 $ fmap f) (g env fe)
+      where
+        first3 f (x, y, z) = (f x, y, z)
 
-instance Applicative (Form sub url) where
-    pure a = Form $ const $ const $ return (pure a, mempty)
-    (Form f) <*> (Form g) = Form $ \env fe -> do
-        (f1, f2) <- f env fe
-        (g1, g2) <- g env fe
-        return (f1 <*> g1, f2 `mappend` g2)
+instance Monoid xml => Applicative (GForm sub url xml) where
+    pure a = GForm $ const $ const $ return (pure a, mempty, mempty)
+    (GForm f) <*> (GForm g) = GForm $ \env fe -> do
+        (f1, f2, f3) <- f env fe
+        (g1, g2, g3) <- g env fe
+        return (f1 <*> g1, f2 `mappend` g2, f3 `mappend` g3)
+
+fieldsToTable :: [FieldInfo sub y] -> Widget sub y ()
+fieldsToTable = mapM_ go
+  where
+    go fi = do
+        flip wrapWidget (fiInput fi) $ \w -> [$hamlet|
+%tr
+    %td
+        %label!for=$string.fiIdent.fi$ $fiLabel.fi$
+        .tooltip $fiTooltip.fi$
+    %td
+        ^w^
+    %td.errors
+        $fiErrors.fi$
+|]
+
+requiredField :: FieldProfile sub y a
+              -> Html () -> Html () -> Maybe a -> FormField sub y a
+requiredField (FieldProfile parse render mkXml w) label tooltip orig =
+  GForm $ \env _ -> do
+    name <- incr
+    let (res, val) =
+            if null env
+                then (FormMissing, maybe "" render orig)
+                else case lookup name env of
+                        Nothing -> (FormMissing, "")
+                        Just "" -> (FormFailure ["Value is required"], "")
+                        Just x ->
+                            case parse x of
+                                Left e -> (FormFailure [e], x)
+                                Right y -> (FormSuccess y, x)
+    let fi = FieldInfo
+            { fiLabel = label
+            , fiTooltip = tooltip
+            , fiIdent = name
+            , fiInput = w name >> addBody (mkXml (string name) (string val) True)
+            , fiErrors = case res of
+                            FormFailure [x] -> string x
+                            _ -> string ""
+            }
+    return (res, [fi], UrlEncoded)
+
+data FieldProfile sub y a = FieldProfile
+    { fpParse :: String -> Either String a
+    , fpRender :: a -> String
+    , fpHamlet :: Html () -> Html () -> Bool -> Hamlet (Routes y)
+    , fpWidget :: String -> Widget sub y ()
+    }
+
+--------------------- Begin prebuilt forms
+
+stringField :: FieldProfile sub y String
+stringField = FieldProfile
+    { fpParse = Right
+    , fpRender = id
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input#$name$!name=$name$!type=text!:isReq:required!value=$val$
+|]
+    , fpWidget = \_name -> return ()
+    }
+
+intField :: FieldProfile sub y Int
+intField = FieldProfile
+    { fpParse = maybe (Left "Invalid integer") Right . readMay
+    , fpRender = show
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input#$name$!name=$name$!type=number!:isReq:required!value=$val$
+|]
+    , fpWidget = \_name -> return ()
+    }
+
+dayField :: FieldProfile sub y Day
+dayField = FieldProfile
+    { fpParse = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
+              . readMay
+    , fpRender = show
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input#$name$!name=$name$!type=date!:isReq:required!value=$val$
+|]
+    , fpWidget = \name -> do
+        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
+        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
+        addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
+        addHead [$hamlet|%script $$(function(){$$("#$string.name$").datepicker({dateFormat:'yy-mm-dd'})})|]
+    }
+
+boolField :: Html () -> Html () -> Maybe Bool -> FormField sub y Bool
+boolField label tooltip orig = GForm $ \env _ -> do
+    name <- incr
+    let (res, val) =
+            if null env
+                then (FormMissing, fromMaybe False orig)
+                else case lookup name env of
+                        Nothing -> (FormSuccess False, False)
+                        Just _ -> (FormSuccess True, True)
+    let fi = FieldInfo
+            { fiLabel = label
+            , fiTooltip = tooltip
+            , fiIdent = name
+            , fiInput = addBody [$hamlet|
+%input#$string.name$!type=checkbox!name=$string.name$!:val:checked
+|]
+            , fiErrors = case res of
+                            FormFailure [x] -> string x
+                            _ -> string ""
+            }
+    return (res, [fi], UrlEncoded)
+
+readMay :: Read a => String -> Maybe a
+readMay s = case reads s of
+                (x, _):_ -> Just x
+                [] -> Nothing
+
+--------------------- End prebuilt forms
+
+incr :: Monad m => StateT Int m String
+incr = do
+    i <- get
+    let i' = i + 1
+    put i'
+    return $ "f" ++ show i'
 
 runFormGeneric :: Env
                -> FileEnv
-               -> Form sub y a
-               -> GHandler sub y (FormResult a, Widget sub y ())
+               -> GForm sub y xml a
+               -> GHandler sub y (FormResult a, xml, Enctype)
 runFormGeneric env fe f = evalStateT (deform f env fe) 1
 
 -- | Run a form against POST parameters.
-runFormPost :: Form sub y a
-            -> GHandler sub y (FormResult a, Widget sub y ())
+runFormPost :: GForm sub y xml a
+            -> GHandler sub y (FormResult a, xml, Enctype)
 runFormPost f = do
     rr <- getRequest
     (pp, files) <- liftIO $ reqRequestBody rr
@@ -105,7 +255,7 @@ runFormPost f = do
 
 -- | Run a form against POST parameters, disregarding the resulting HTML and
 -- returning an error response on invalid input.
-runFormPost' :: Form sub y a -> GHandler sub y a
+runFormPost' :: GForm sub y xml a -> GHandler sub y a
 runFormPost' = helper <=< runFormPost
 
 -- | Run a form against GET parameters, disregarding the resulting HTML and
@@ -113,74 +263,19 @@ runFormPost' = helper <=< runFormPost
 runFormGet' :: Form sub y a -> GHandler sub y a
 runFormGet' = helper <=< runFormGet
 
-helper :: (FormResult a, Widget sub y ()) -> GHandler sub y a
-helper (FormSuccess a, _) = return a
-helper (FormFailure e, _) = invalidArgs e
-helper (FormMissing, _) = invalidArgs ["No input found"]
+helper :: (FormResult a, b, c) -> GHandler sub y a
+helper (FormSuccess a, _, _) = return a
+helper (FormFailure e, _, _) = invalidArgs e
+helper (FormMissing, _, _) = invalidArgs ["No input found"]
 
 -- | Run a form against GET parameters.
-runFormGet :: Form sub y a
-           -> GHandler sub y (FormResult a, Widget sub y ())
+runFormGet :: GForm sub y xml a
+           -> GHandler sub y (FormResult a, xml, Enctype)
 runFormGet f = do
     gs <- reqGetParams `fmap` getRequest
     runFormGeneric gs [] f
 
-type Incr = StateT Int
-
-incr :: Monad m => Incr m String
-incr = do
-    i <- get
-    let i' = i + 1
-    put i'
-    return $ "f" ++ show i'
-
-input :: (String -> String -> Hamlet (Routes y))
-      -> Maybe String
-      -> Form sub y String
-input mkXml val = Form $ \env _ -> do
-    i <- incr
-    let i' = show i
-    let param = lookup i' env
-    let xml = mkXml i' $ fromMaybe (fromMaybe "" val) param
-    return (maybe FormMissing FormSuccess param, addBody xml) -- FIXME
-
-check :: Form sub url a -> (a -> Either [String] b) -> Form sub url b
-check (Form form) f = Form $ \env fe -> liftM (first go) (form env fe)
-  where
-    go FormMissing = FormMissing
-    go (FormFailure x) = FormFailure x
-    go (FormSuccess a) =
-        case f a of
-            Left errs -> FormFailure errs
-            Right b -> FormSuccess b
-
-wrapperRow :: String -> [String] -> Hamlet url -> Hamlet url
-wrapperRow label errs control = [$hamlet|
-%tr
-    %th $string.label$
-    %td ^control^
-    $if not.null.errs
-        %td.errors
-            %ul
-                $forall errs err
-                    %li $string.err$
-|]
-
-sealRow :: Formable b => String -> (a -> b) -> Maybe a -> Form sub master b
-sealRow label getVal val =
-    sealForm (wrapperRow label) $ formable $ fmap getVal val
-
-sealForm :: ([String] -> Hamlet (Routes y) -> Hamlet (Routes y))
-         -> Form sub y a -> Form sub y a
-sealForm wrapper (Form form) = error "FIXME" {-Form $ \env fe -> liftM go (form env fe)
-  where
-    go (res, xml) = (res, wrapper (toList res) xml)
-    toList (FormFailure errs) = errs
-    toList _ = []-}
-
-sealFormlet :: ([String] -> Hamlet (Routes y) -> Hamlet (Routes y))
-            -> Formlet sub y a -> Formlet sub y a
-sealFormlet wrapper formlet initVal = sealForm wrapper $ formlet initVal
+{-
 
 -------- Prebuilt
 optionalField :: String -> Form sub master (Maybe String)
@@ -382,3 +477,4 @@ toLabel (x:rest) = toUpper x : go rest
     go (c:cs)
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
+-}
