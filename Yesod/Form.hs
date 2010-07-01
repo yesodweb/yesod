@@ -29,7 +29,7 @@ module Yesod.Form
     , Formable (..)
     , deriveFormable
     , share2
-      -- * Pre-built formlets
+      -- * Pre-built form
     , optionalField
     , requiredField
     , notEmptyField
@@ -54,6 +54,7 @@ import Data.Maybe (isJust)
 import Web.Routes.Quasi (SinglePiece)
 import Data.Int (Int64)
 import qualified Data.ByteString.Lazy.UTF8
+import Yesod.Widget
 
 data FormResult a = FormMissing
                   | FormFailure [String]
@@ -71,7 +72,7 @@ instance Applicative FormResult where
     _ <*> _ = FormMissing
 
 newtype Form sub y a = Form
-    { deform :: Env -> FileEnv -> Incr (GHandler sub y) (FormResult a, Hamlet (Routes y))
+    { deform :: Env -> FileEnv -> Incr (GHandler sub y) (FormResult a, Widget sub y ())
     }
 type Formlet sub y a = Maybe a -> Form sub y a
 
@@ -91,12 +92,12 @@ instance Applicative (Form sub url) where
 runFormGeneric :: Env
                -> FileEnv
                -> Form sub y a
-               -> GHandler sub y (FormResult a, Hamlet (Routes y))
+               -> GHandler sub y (FormResult a, Widget sub y ())
 runFormGeneric env fe f = evalStateT (deform f env fe) 1
 
 -- | Run a form against POST parameters.
 runFormPost :: Form sub y a
-            -> GHandler sub y (FormResult a, Hamlet (Routes y))
+            -> GHandler sub y (FormResult a, Widget sub y ())
 runFormPost f = do
     rr <- getRequest
     (pp, files) <- liftIO $ reqRequestBody rr
@@ -112,26 +113,26 @@ runFormPost' = helper <=< runFormPost
 runFormGet' :: Form sub y a -> GHandler sub y a
 runFormGet' = helper <=< runFormGet
 
-helper :: (FormResult a, Hamlet (Routes y)) -> GHandler sub y a
+helper :: (FormResult a, Widget sub y ()) -> GHandler sub y a
 helper (FormSuccess a, _) = return a
 helper (FormFailure e, _) = invalidArgs e
 helper (FormMissing, _) = invalidArgs ["No input found"]
 
 -- | Run a form against GET parameters.
 runFormGet :: Form sub y a
-           -> GHandler sub y (FormResult a, Hamlet (Routes y))
+           -> GHandler sub y (FormResult a, Widget sub y ())
 runFormGet f = do
     gs <- reqGetParams `fmap` getRequest
     runFormGeneric gs [] f
 
 type Incr = StateT Int
 
-incr :: Monad m => Incr m Int
+incr :: Monad m => Incr m String
 incr = do
     i <- get
     let i' = i + 1
     put i'
-    return i'
+    return $ "f" ++ show i'
 
 input :: (String -> String -> Hamlet (Routes y))
       -> Maybe String
@@ -141,7 +142,7 @@ input mkXml val = Form $ \env _ -> do
     let i' = show i
     let param = lookup i' env
     let xml = mkXml i' $ fromMaybe (fromMaybe "" val) param
-    return (maybe FormMissing FormSuccess param, xml)
+    return (maybe FormMissing FormSuccess param, addBody xml) -- FIXME
 
 check :: Form sub url a -> (a -> Either [String] b) -> Form sub url b
 check (Form form) f = Form $ \env fe -> liftM (first go) (form env fe)
@@ -171,11 +172,11 @@ sealRow label getVal val =
 
 sealForm :: ([String] -> Hamlet (Routes y) -> Hamlet (Routes y))
          -> Form sub y a -> Form sub y a
-sealForm wrapper (Form form) = Form $ \env fe -> liftM go (form env fe)
+sealForm wrapper (Form form) = error "FIXME" {-Form $ \env fe -> liftM go (form env fe)
   where
     go (res, xml) = (res, wrapper (toList res) xml)
     toList (FormFailure errs) = errs
-    toList _ = []
+    toList _ = []-}
 
 sealFormlet :: ([String] -> Hamlet (Routes y) -> Hamlet (Routes y))
             -> Formlet sub y a -> Formlet sub y a
@@ -303,12 +304,11 @@ instance Formable (Maybe Int64) where
 instance Formable Bool where
     formable x = Form $ \env _ -> do
         i <- incr
-        let i' = show i
-        let param = lookup i' env
+        let param = lookup i env
         let def = if null env then fromMaybe False x else isJust param
-        return (FormSuccess $ isJust param, go i' def)
+        return (FormSuccess $ isJust param, go i def)
       where
-        go name val = [$hamlet|
+        go name val = addBody [$hamlet|
 %input!type=checkbox!name=$string.name$!:val:checked
 |]
 

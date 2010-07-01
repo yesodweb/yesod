@@ -11,6 +11,7 @@ module Yesod.Helpers.Crud
     ) where
 
 import Yesod.Yesod
+import Yesod.Widget
 import Yesod.Dispatch
 import Yesod.Content
 import Yesod.Handler
@@ -33,6 +34,7 @@ mkYesodSub "Crud master item"
     [ ("master", [''Yesod])
     , ("item", [''Item])
     , ("Key item", [''SinglePiece])
+    , ("Routes master", [''Eq])
     ] [$parseRoutes|
 /               CrudListR        GET
 /add            CrudAddR         GET POST
@@ -56,21 +58,24 @@ getCrudListR = do
     %a!href=@toMaster.CrudAddR@ Add new item
 |]
 
-getCrudAddR :: (Yesod master, Item item, SinglePiece (Key item))
+getCrudAddR :: (Yesod master, Item item, SinglePiece (Key item),
+                Eq (Routes master))
             => GHandler (Crud master item) master RepHtml
 getCrudAddR = crudHelper
                 "Add new"
                 (Nothing :: Maybe (Key item, item))
                 False
 
-postCrudAddR :: (Yesod master, Item item, SinglePiece (Key item))
+postCrudAddR :: (Yesod master, Item item, SinglePiece (Key item),
+                 Eq (Routes master))
              => GHandler (Crud master item) master RepHtml
 postCrudAddR = crudHelper
                 "Add new"
                 (Nothing :: Maybe (Key item, item))
                 True
 
-getCrudEditR :: (Yesod master, Item item, SinglePiece (Key item))
+getCrudEditR :: (Yesod master, Item item, SinglePiece (Key item),
+                 Eq (Routes master))
              => String -> GHandler (Crud master item) master RepHtml
 getCrudEditR s = do
     itemId <- maybe notFound return $ itemReadId s
@@ -81,7 +86,8 @@ getCrudEditR s = do
         (Just (itemId, item))
         False
 
-postCrudEditR :: (Yesod master, Item item, SinglePiece (Key item))
+postCrudEditR :: (Yesod master, Item item, SinglePiece (Key item),
+                  Eq (Routes master))
               => String -> GHandler (Crud master item) master RepHtml
 postCrudEditR s = do
     itemId <- maybe notFound return $ itemReadId s
@@ -105,7 +111,7 @@ getCrudDeleteR s = do
     %p Do you really want to delete $string.itemTitle.item$?
     %p
         %input!type=submit!value=Yes
-        \ 
+        \ $
         %a!href=@toMaster.CrudListR@ No
 |]
 
@@ -122,7 +128,7 @@ itemReadId :: SinglePiece x => String -> Maybe x
 itemReadId = either (const Nothing) Just . fromSinglePiece
 
 crudHelper
-    :: (Item a, Yesod master, SinglePiece (Key a))
+    :: (Item a, Yesod master, SinglePiece (Key a), Eq (Routes master))
     => String -> Maybe (Key a, a) -> Bool
     -> GHandler (Crud master a) master RepHtml
 crudHelper title me isPost = do
@@ -139,7 +145,11 @@ crudHelper title me isPost = do
             redirect RedirectTemporary $ toMaster $ CrudEditR
                                        $ toSinglePiece eid
         _ -> return ()
-    applyLayout title mempty [$hamlet|
+    applyLayoutW $ do
+        wrapWidget (wrapForm toMaster) form
+        setTitle $ string title
+  where
+    wrapForm toMaster form = [$hamlet|
 %p
     %a!href=@toMaster.CrudListR@ Return to list
 %h1 $string.title$

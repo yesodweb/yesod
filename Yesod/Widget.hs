@@ -2,6 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Yesod.Widget
     ( -- * Datatype
       Widget
@@ -74,6 +75,9 @@ newtype Widget sub master a = Widget (
     GHandler sub master
     ))))))) a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadCatchIO)
+instance Monoid (Widget sub master ()) where
+    mempty = return ()
+    mappend x y = x >> y
 
 setTitle :: Html () -> Widget sub master ()
 setTitle = Widget . lift . tell . Last . Just . Title
