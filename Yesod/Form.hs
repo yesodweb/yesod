@@ -20,38 +20,21 @@ module Yesod.Form
       -- * Type classes
     , IsForm (..)
     , IsFormField (..)
-      -- * Pre-built fields
+      -- * Field/form helpers
     , requiredField
+    , mapFormXml
+    , newFormIdent
+      -- * Pre-built fields
+    , fieldsToTable
     , stringField
     , intField
     , dayField
     , boolField
     , htmlField
     , stringInput
-    , fieldsToTable
+      -- * Template Haskell
     , share2
     , mkIsForm
-    , mapFormXml
-    {- FIXME
-      -- * Create your own formlets
-    , incr
-    , input
-    , check
-      -- * Error display
-    , wrapperRow
-    , sealFormlet
-    , sealForm
-    , sealRow
-      -- * Formable
-    , Formable (..)
-    , deriveFormable
-    , share2
-      -- * Pre-built form
-    , optionalField
-    , requiredField
-    , notEmptyField
-    , boolField
-    -}
     ) where
 
 import Text.Hamlet
@@ -158,7 +141,7 @@ requiredField :: FieldProfile sub y a
               -> Html () -> Html () -> Maybe a -> FormField sub y a
 requiredField (FieldProfile parse render mkXml w) label tooltip orig =
   GForm $ \env _ -> do
-    name <- incr
+    name <- newFormIdent
     let (res, val) =
             if null env
                 then (FormMissing, maybe "" render orig)
@@ -232,7 +215,7 @@ instance IsFormField Day where
 
 boolField :: Html () -> Html () -> Maybe Bool -> FormField sub y Bool
 boolField label tooltip orig = GForm $ \env _ -> do
-    name <- incr
+    name <- newFormIdent
     let (res, val) =
             if null env
                 then (FormMissing, fromMaybe False orig)
@@ -287,8 +270,8 @@ stringInput n = GForm $ \env _ -> return
 
 --------------------- End prebuilt inputs
 
-incr :: Monad m => StateT Int m String
-incr = do
+newFormIdent :: Monad m => StateT Int m String
+newFormIdent = do
     i <- get
     let i' = i + 1
     put i'
@@ -329,164 +312,6 @@ runFormGet :: GForm sub y xml a
 runFormGet f = do
     gs <- reqGetParams `fmap` getRequest
     runFormGeneric gs [] f
-
-{-
-
--------- Prebuilt
-optionalField :: String -> Form sub master (Maybe String)
-optionalField n = Form $ \env _ ->
-    return (FormSuccess $ lookup n env, mempty) -- FIXME
-
-requiredField :: String -> Form sub master String
-requiredField n = Form $ \env _ ->
-    return (maybe FormMissing FormSuccess $ lookup n env, mempty) -- FIXME
-
-notEmptyField :: String -> Form sub master String
-notEmptyField n = Form $ \env _ -> return
-    (case lookup n env of
-        Nothing -> FormMissing
-        Just "" -> FormFailure [n ++ ": You must provide a non-empty string"]
-        Just x -> FormSuccess x, mempty) -- FIXME
-
-boolField :: String -> Form sub master Bool
-boolField n = Form $ \env _ -> return
-    (FormSuccess $ isJust $ lookup n env, mempty) -- FIXME
-
-class Formable a where
-    formable :: Formlet sub master a
-
---------------- Formable instances
-instance Formable String where
-    formable x = input go x `check` notEmpty
-      where
-        go name val = [$hamlet|
-%input!type=text!name=$string.name$!value=$string.val$
-|]
-        notEmpty s
-            | null s = Left ["Value required"]
-            | otherwise = Right s
-
-instance Formable (Maybe String) where
-    formable x = input go (join x) `check` isEmpty
-      where
-        go name val = [$hamlet|
-%input!type=text!name=$string.name$!value=$string.val$
-|]
-        isEmpty s
-            | null s = Right Nothing
-            | otherwise = Right $ Just s
-
-instance Formable (Html ()) where
-    formable = fmap preEscapedString
-              . input go
-              . fmap (U.toString . renderHtml)
-      where
-        go name val = [$hamlet|%textarea!name=$string.name$ $string.val$|]
-
-instance Formable Day where
-    formable x = input go (fmap show x) `check` asDay
-      where
-        go name val = [$hamlet|
-%input!type=date!name=$string.name$!value=$string.val$
-|]
-        asDay s = case reads s of
-                    (y, _):_ -> Right y
-                    [] -> Left ["Invalid day"]
-
-instance Formable Int64 where
-    formable x = input go (fmap show x) `check` asInt
-      where
-        go name val = [$hamlet|
-%input!type=number!name=$string.name$!value=$string.val$
-|]
-        asInt s = case reads s of
-                    (y, _):_ -> Right y
-                    [] -> Left ["Invalid integer"]
-
-instance Formable Double where
-    formable x = input go (fmap numstring x) `check` asDouble
-      where
-        go name val = [$hamlet|
-%input!type=number!name=$string.name$!value=$string.val$
-|]
-        asDouble s = case reads s of
-                    (y, _):_ -> Right y
-                    [] -> Left ["Invalid double"]
-        numstring d =
-            let s = show d
-             in case reverse s of
-                    '0':'.':y -> reverse y
-                    _ -> s
-
-instance Formable (Maybe Day) where
-    formable x = input go (fmap show $ join x) `check` asDay
-      where
-        go name val = [$hamlet|
-%input!type=date!name=$string.name$!value=$string.val$
-|]
-        asDay "" = Right Nothing
-        asDay s = case reads s of
-                    (y, _):_ -> Right $ Just y
-                    [] -> Left ["Invalid day"]
-
-instance Formable (Maybe Int) where
-    formable x = input go (fmap show $ join x) `check` asInt
-      where
-        go name val = [$hamlet|
-%input!type=number!name=$string.name$!value=$string.val$
-|]
-        asInt "" = Right Nothing
-        asInt s = case reads s of
-                    (y, _):_ -> Right $ Just y
-                    [] -> Left ["Invalid integer"]
-
-instance Formable (Maybe Int64) where
-    formable x = input go (fmap show $ join x) `check` asInt
-      where
-        go name val = [$hamlet|
-%input!type=number!name=$string.name$!value=$string.val$
-|]
-        asInt "" = Right Nothing
-        asInt s = case reads s of
-                    (y, _):_ -> Right $ Just y
-                    [] -> Left ["Invalid integer"]
-
-instance Formable Bool where
-    formable x = Form $ \env _ -> do
-        i <- incr
-        let param = lookup i env
-        let def = if null env then fromMaybe False x else isJust param
-        return (FormSuccess $ isJust param, go i def)
-      where
-        go name val = addBody [$hamlet|
-%input!type=checkbox!name=$string.name$!:val:checked
-|]
-
-instance Formable Int where
-    formable x = input go (fmap show x) `check` asInt
-      where
-        go name val = [$hamlet|
-%input!type=number!name=$string.name$!value=$string.val$
-|]
-        asInt s = case reads s of
-                    (y, _):_ -> Right y
-                    [] -> Left ["Invalid integer"]
-
-newtype Slug = Slug { unSlug :: String }
-    deriving (Read, Eq, Show, SinglePiece, PersistField)
-
-instance Formable Slug where
-    formable x = input go (fmap unSlug x) `check` asSlug
-      where
-        go name val = [$hamlet|
-%input!type=text!name=$string.name$!value=$string.val$
-|]
-        asSlug [] = Left ["Slug must be non-empty"]
-        asSlug x'
-            | all (\c -> c `elem` "-_" || isAlphaNum c) x' =
-                Right $ Slug x'
-            | otherwise = Left ["Slug must be alphanumeric, - and _"]
--}
 
 share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
 share2 f g a = do
