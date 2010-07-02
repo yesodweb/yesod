@@ -5,7 +5,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Yesod.Widget
     ( -- * Datatype
-      Widget
+      GWidget
+    , Widget
       -- * Unwrapping
     , widgetToPageContent
     , applyLayoutW
@@ -64,7 +65,7 @@ newtype Head url = Head (Hamlet url)
 newtype Body url = Body (Hamlet url)
     deriving Monoid
 
-newtype Widget sub master a = Widget (
+newtype GWidget sub master a = GWidget (
     WriterT (Body (Routes master)) (
     WriterT (Last Title) (
     WriterT (UniqueList (Script (Routes master))) (
@@ -75,51 +76,52 @@ newtype Widget sub master a = Widget (
     GHandler sub master
     ))))))) a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadCatchIO)
-instance Monoid (Widget sub master ()) where
+instance Monoid (GWidget sub master ()) where
     mempty = return ()
     mappend x y = x >> y
+type Widget y = GWidget y y
 
-setTitle :: Html () -> Widget sub master ()
-setTitle = Widget . lift . tell . Last . Just . Title
+setTitle :: Html () -> GWidget sub master ()
+setTitle = GWidget . lift . tell . Last . Just . Title
 
-addHead :: Hamlet (Routes master) -> Widget sub master ()
-addHead = Widget . lift . lift . lift . lift . lift . tell . Head
+addHead :: Hamlet (Routes master) -> GWidget sub master ()
+addHead = GWidget . lift . lift . lift . lift . lift . tell . Head
 
-addBody :: Hamlet (Routes master) -> Widget sub master ()
-addBody = Widget . tell . Body
+addBody :: Hamlet (Routes master) -> GWidget sub master ()
+addBody = GWidget . tell . Body
 
-newIdent :: Widget sub master String
-newIdent = Widget $ lift $ lift $ lift $ lift $ lift $ lift $ do
+newIdent :: GWidget sub master String
+newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ do
     i <- get
     let i' = i + 1
     put i'
     return $ "w" ++ show i'
 
-addStyle :: Hamlet (Routes master) -> Widget sub master ()
-addStyle = Widget . lift . lift . lift . lift . tell . Style
+addStyle :: Hamlet (Routes master) -> GWidget sub master ()
+addStyle = GWidget . lift . lift . lift . lift . tell . Style
 
-addStylesheet :: Routes master -> Widget sub master ()
-addStylesheet = Widget . lift . lift . lift . tell . toUnique . Stylesheet . Local
+addStylesheet :: Routes master -> GWidget sub master ()
+addStylesheet = GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Local
 
-addStylesheetRemote :: String -> Widget sub master ()
+addStylesheetRemote :: String -> GWidget sub master ()
 addStylesheetRemote =
-    Widget . lift . lift . lift . tell . toUnique . Stylesheet . Remote
+    GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Remote
 
-addScript :: Routes master -> Widget sub master ()
-addScript = Widget . lift . lift . tell . toUnique . Script . Local
+addScript :: Routes master -> GWidget sub master ()
+addScript = GWidget . lift . lift . tell . toUnique . Script . Local
 
-addScriptRemote :: String -> Widget sub master ()
+addScriptRemote :: String -> GWidget sub master ()
 addScriptRemote =
-    Widget . lift . lift . tell . toUnique . Script . Remote
+    GWidget . lift . lift . tell . toUnique . Script . Remote
 
 applyLayoutW :: (Eq (Routes m), Yesod m)
-             => Widget sub m () -> GHandler sub m RepHtml
+             => GWidget sub m () -> GHandler sub m RepHtml
 applyLayoutW w = widgetToPageContent w >>= fmap RepHtml . defaultLayout
 
 widgetToPageContent :: Eq (Routes master)
-                    => Widget sub master ()
+                    => GWidget sub master ()
                     -> GHandler sub master (PageContent (Routes master))
-widgetToPageContent (Widget w) = do
+widgetToPageContent (GWidget w) = do
     w' <- flip evalStateT 0
         $ runWriterT $ runWriterT $ runWriterT $ runWriterT
         $ runWriterT $ runWriterT w
@@ -145,15 +147,16 @@ $forall stylesheets s
 |]
     return $ PageContent title head'' body
 
-wrapWidget :: (Hamlet (Routes m) -> Hamlet (Routes m))
-           -> Widget s m a -> Widget s m a
-wrapWidget wrap (Widget w) =
-    Widget $ mapWriterT (fmap go) w
+wrapWidget :: GWidget s m a
+           -> (Hamlet (Routes m) -> Hamlet (Routes m))
+           -> GWidget s m a
+wrapWidget (GWidget w) wrap =
+    GWidget $ mapWriterT (fmap go) w
   where
     go (a, Body h) = (a, Body $ wrap h)
 
-extractBody :: Widget s m () -> Widget s m (Hamlet (Routes m))
-extractBody (Widget w) =
-    Widget $ mapWriterT (fmap go) w
+extractBody :: GWidget s m () -> GWidget s m (Hamlet (Routes m))
+extractBody (GWidget w) =
+    GWidget $ mapWriterT (fmap go) w
   where
     go ((), Body h) = (h, Body mempty)

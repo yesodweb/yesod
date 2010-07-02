@@ -113,13 +113,15 @@ class Eq (Routes a) => Yesod a where
 class YesodBreadcrumbs y where
     -- | Returns the title and the parent resource, if available. If you return
     -- a 'Nothing', then this is considered a top-level page.
-    breadcrumb :: Routes y -> Handler y (String, Maybe (Routes y))
+    breadcrumb :: Routes y -> GHandler sub y (String, Maybe (Routes y))
 
 -- | Gets the title of the current page and the hierarchy of parent pages,
 -- along with their respective titles.
-breadcrumbs :: YesodBreadcrumbs y => Handler y (String, [(Routes y, String)])
+breadcrumbs :: YesodBreadcrumbs y => GHandler sub y (String, [(Routes y, String)])
 breadcrumbs = do
-    x <- getRoute
+    x' <- getRoute
+    tm <- getRouteToMaster
+    let x = fmap tm x'
     case x of
         Nothing -> return ("Not found", [])
         Just y -> do

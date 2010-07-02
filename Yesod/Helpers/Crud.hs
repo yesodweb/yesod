@@ -141,7 +141,7 @@ crudHelper title me isPost = do
                                        $ toSinglePiece eid
         _ -> return ()
     applyLayoutW $ do
-        wrapWidget (wrapForm toMaster enctype) form
+        wrapWidget form (wrapForm toMaster enctype)
         setTitle $ string title
   where
     wrapForm toMaster enctype form = [$hamlet|

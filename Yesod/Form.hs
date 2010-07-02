@@ -10,8 +10,12 @@ module Yesod.Form
     ( -- * Data types
       GForm (..)
     , Form
+    , Formlet
     , FormField
     , FormResult (..)
+    , Enctype (..)
+    , FieldInfo (..)
+    , FieldProfile (..)
       -- * Unwrapping functions
     , runFormGet
     , runFormPost
@@ -22,16 +26,22 @@ module Yesod.Form
     , IsFormField (..)
       -- * Field/form helpers
     , requiredField
+    , optionalField
     , mapFormXml
     , newFormIdent
-      -- * Pre-built fields
     , fieldsToTable
+      -- * Pre-built fields
     , stringField
     , intField
     , dayField
     , boolField
     , htmlField
+    , selectField
+    , maybeSelectField
+      -- * Pre-built inputs
     , stringInput
+    , maybeStringInput
+    , boolInput
       -- * Template Haskell
     , share2
     , mkIsForm
@@ -42,17 +52,14 @@ import Yesod.Request
 import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Time (Day)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<), liftM, join)
 import Data.Monoid (Monoid (..))
 import Control.Monad.Trans.State
-import Control.Arrow (first)
 import Language.Haskell.TH.Syntax
-import Database.Persist.Base (PersistField, EntityDef (..))
-import Data.Char (isAlphaNum, toUpper, isUpper)
-import Data.Maybe (isJust)
-import Web.Routes.Quasi (SinglePiece)
+import Database.Persist.Base (EntityDef (..))
+import Data.Char (toUpper, isUpper)
 import Data.Int (Int64)
 import qualified Data.ByteString.Lazy.UTF8 as U
 import Yesod.Widget
@@ -85,7 +92,8 @@ instance Monoid Enctype where
 newtype GForm sub y xml a = GForm
     { deform :: Env -> FileEnv -> StateT Int (GHandler sub y) (FormResult a, xml, Enctype)
     }
-type Form sub y = GForm sub y (Widget sub y ())
+type Form sub y = GForm sub y (GWidget sub y ())
+type Formlet sub y a = Maybe a -> Form sub y a
 type FormField sub y = GForm sub y [FieldInfo sub y]
 
 mapFormXml :: (xml1 -> xml2) -> GForm s y xml1 a -> GForm s y xml2 a
@@ -97,8 +105,8 @@ data FieldInfo sub y = FieldInfo
     { fiLabel :: Html ()
     , fiTooltip :: Html ()
     , fiIdent :: String
-    , fiInput :: Widget sub y ()
-    , fiErrors :: Html ()
+    , fiInput :: GWidget sub y ()
+    , fiErrors :: Maybe (Html ())
     }
 
 type Env = [(String, String)]
@@ -108,7 +116,7 @@ instance Monoid xml => Functor (GForm sub url xml) where
     fmap f (GForm g) =
         GForm $ \env fe -> liftM (first3 $ fmap f) (g env fe)
       where
-        first3 f (x, y, z) = (f x, y, z)
+        first3 f' (x, y, z) = (f' x, y, z)
 
 instance Monoid xml => Applicative (GForm sub url xml) where
     pure a = GForm $ const $ const $ return (pure a, mempty, mempty)
@@ -117,19 +125,19 @@ instance Monoid xml => Applicative (GForm sub url xml) where
         (g1, g2, g3) <- g env fe
         return (f1 <*> g1, f2 `mappend` g2, f3 `mappend` g3)
 
-fieldsToTable :: [FieldInfo sub y] -> Widget sub y ()
+fieldsToTable :: [FieldInfo sub y] -> GWidget sub y ()
 fieldsToTable = mapM_ go
   where
     go fi = do
-        flip wrapWidget (fiInput fi) $ \w -> [$hamlet|
+        wrapWidget (fiInput fi) $ \w -> [$hamlet|
 %tr
     %td
         %label!for=$string.fiIdent.fi$ $fiLabel.fi$
         .tooltip $fiTooltip.fi$
     %td
         ^w^
-    %td.errors
-        $fiErrors.fi$
+    $maybe fiErrors.fi err
+        %td.errors $err$
 |]
 
 class IsForm a where
@@ -158,8 +166,36 @@ requiredField (FieldProfile parse render mkXml w) label tooltip orig =
             , fiIdent = name
             , fiInput = w name >> addBody (mkXml (string name) (string val) True)
             , fiErrors = case res of
-                            FormFailure [x] -> string x
-                            _ -> string ""
+                            FormFailure [x] -> Just $ string x
+                            _ -> Nothing
+            }
+    return (res, [fi], UrlEncoded)
+
+optionalField :: FieldProfile sub y a
+              -> Html () -> Html () -> Maybe (Maybe a)
+              -> FormField sub y (Maybe a)
+optionalField (FieldProfile parse render mkXml w) label tooltip orig' =
+  GForm $ \env _ -> do
+    let orig = join orig'
+    name <- newFormIdent
+    let (res, val) =
+            if null env
+                then (FormMissing, maybe "" render orig)
+                else case lookup name env of
+                        Nothing -> (FormSuccess Nothing, "")
+                        Just "" -> (FormSuccess Nothing, "")
+                        Just x ->
+                            case parse x of
+                                Left e -> (FormFailure [e], x)
+                                Right y -> (FormSuccess $ Just y, x)
+    let fi = FieldInfo
+            { fiLabel = label
+            , fiTooltip = tooltip
+            , fiIdent = name
+            , fiInput = w name >> addBody (mkXml (string name) (string val) False)
+            , fiErrors = case res of
+                            FormFailure [x] -> Just $ string x
+                            _ -> Nothing
             }
     return (res, [fi], UrlEncoded)
 
@@ -167,7 +203,7 @@ data FieldProfile sub y a = FieldProfile
     { fpParse :: String -> Either String a
     , fpRender :: a -> String
     , fpHamlet :: Html () -> Html () -> Bool -> Hamlet (Routes y)
-    , fpWidget :: String -> Widget sub y ()
+    , fpWidget :: String -> GWidget sub y ()
     }
 
 --------------------- Begin prebuilt forms
@@ -183,18 +219,45 @@ stringField = FieldProfile
     }
 instance IsFormField String where
     toFormField = requiredField stringField
+instance IsFormField (Maybe String) where
+    toFormField = optionalField stringField
 
-intField :: FieldProfile sub y Int
+intField :: Integral i => FieldProfile sub y i
 intField = FieldProfile
-    { fpParse = maybe (Left "Invalid integer") Right . readMay
+    { fpParse = maybe (Left "Invalid integer") Right . readMayI
+    , fpRender = showI
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input#$name$!name=$name$!type=number!:isReq:required!value=$val$
+|]
+    , fpWidget = \_name -> return ()
+    }
+  where
+    showI x = show (fromIntegral x :: Integer)
+    readMayI s = case reads s of
+                    (x, _):_ -> Just $ fromInteger x
+                    [] -> Nothing
+instance IsFormField Int where
+    toFormField = requiredField intField
+instance IsFormField (Maybe Int) where
+    toFormField = optionalField intField
+instance IsFormField Int64 where
+    toFormField = requiredField intField
+instance IsFormField (Maybe Int64) where
+    toFormField = optionalField intField
+
+doubleField :: FieldProfile sub y Double
+doubleField = FieldProfile
+    { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
 %input#$name$!name=$name$!type=number!:isReq:required!value=$val$
 |]
     , fpWidget = \_name -> return ()
     }
-instance IsFormField Int where
-    toFormField = requiredField intField
+instance IsFormField Double where
+    toFormField = requiredField doubleField
+instance IsFormField (Maybe Double) where
+    toFormField = optionalField doubleField
 
 dayField :: FieldProfile sub y Day
 dayField = FieldProfile
@@ -212,6 +275,8 @@ dayField = FieldProfile
     }
 instance IsFormField Day where
     toFormField = requiredField dayField
+instance IsFormField (Maybe Day) where
+    toFormField = optionalField dayField
 
 boolField :: Html () -> Html () -> Maybe Bool -> FormField sub y Bool
 boolField label tooltip orig = GForm $ \env _ -> do
@@ -230,8 +295,8 @@ boolField label tooltip orig = GForm $ \env _ -> do
 %input#$string.name$!type=checkbox!name=$string.name$!:val:checked
 |]
             , fiErrors = case res of
-                            FormFailure [x] -> string x
-                            _ -> string ""
+                            FormFailure [x] -> Just $ string x
+                            _ -> Nothing
             }
     return (res, [fi], UrlEncoded)
 instance IsFormField Bool where
@@ -241,21 +306,96 @@ htmlField :: FieldProfile sub y (Html ())
 htmlField = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
-    , fpHamlet = \name val isReq -> [$hamlet|
-%textarea#$name$!name=$name$ $val$
+    , fpHamlet = \name val _isReq -> [$hamlet|
+%textarea.html#$name$!name=$name$ $val$
 |]
     , fpWidget = \name -> do
         addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"
         addHead [$hamlet|%script bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$string.name$")})|]
-        addStyle [$hamlet|\#$string.name${min-width:400px;min-height:300px}|]
     }
 instance IsFormField (Html ()) where
     toFormField = requiredField htmlField
+instance IsFormField (Maybe (Html ())) where
+    toFormField = optionalField htmlField
 
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
+
+selectField :: Eq x => [(x, String)]
+            -> Html () -> Html ()
+            -> Maybe x -> FormField sub master x
+selectField pairs label tooltip initial = GForm $ \env _ -> do
+    i <- newFormIdent
+    let pairs' = zip [1 :: Int ..] pairs
+    let res = case lookup i env of
+                Nothing -> FormMissing
+                Just "none" -> FormFailure ["Field is required"]
+                Just x ->
+                    case reads x of
+                        (x', _):_ ->
+                            case lookup x' pairs' of
+                                Nothing -> FormFailure ["Invalid entry"]
+                                Just (y, _) -> FormSuccess y
+                        [] -> FormFailure ["Invalid entry"]
+    let isSelected x =
+            case res of
+                FormSuccess y -> x == y
+                _ -> Just x == initial
+    let input = [$hamlet|
+%select#$string.i$!name=$string.i$
+    %option!value=none
+    $forall pairs' pair
+        %option!value=$string.show.fst.pair$!:isSelected.fst.snd.pair:selected $string.snd.snd.pair$
+|]
+    let fi = FieldInfo
+            { fiLabel = label
+            , fiTooltip = tooltip
+            , fiIdent = i
+            , fiInput = addBody input
+            , fiErrors = case res of
+                            FormFailure [x] -> Just $ string x
+                            _ -> Nothing
+            }
+    return (res, [fi], UrlEncoded)
+
+maybeSelectField :: Eq x => [(x, String)]
+                 -> Html () -> Html ()
+                 -> Maybe x -> FormField sub master (Maybe x)
+maybeSelectField pairs label tooltip initial = GForm $ \env _ -> do
+    i <- newFormIdent
+    let pairs' = zip [1 :: Int ..] pairs
+    let res = case lookup i env of
+                Nothing -> FormMissing
+                Just "none" -> FormSuccess Nothing
+                Just x ->
+                    case reads x of
+                        (x', _):_ ->
+                            case lookup x' pairs' of
+                                Nothing -> FormFailure ["Invalid entry"]
+                                Just (y, _) -> FormSuccess $ Just y
+                        [] -> FormFailure ["Invalid entry"]
+    let isSelected x =
+            case res of
+                FormSuccess y -> Just x == y
+                _ -> Just x == initial
+    let input = [$hamlet|
+%select#$string.i$!name=$string.i$
+    %option!value=none
+    $forall pairs' pair
+        %option!value=$string.show.fst.pair$!:isSelected.fst.snd.pair:selected $string.snd.snd.pair$
+|]
+    let fi = FieldInfo
+            { fiLabel = label
+            , fiTooltip = tooltip
+            , fiIdent = i
+            , fiInput = addBody input
+            , fiErrors = case res of
+                            FormFailure [x] -> Just $ string x
+                            _ -> Nothing
+            }
+    return (res, [fi], UrlEncoded)
 
 --------------------- End prebuilt forms
 
@@ -267,6 +407,17 @@ stringInput n = GForm $ \env _ -> return
         Nothing -> FormMissing
         Just "" -> FormFailure [n ++ ": You must provide a non-empty string"]
         Just x -> FormSuccess x, mempty, UrlEncoded)
+
+maybeStringInput :: String -> Form sub master (Maybe String)
+maybeStringInput n = GForm $ \env _ -> return
+    (case lookup n env of
+        Nothing -> FormSuccess Nothing
+        Just "" -> FormSuccess Nothing
+        Just x -> FormSuccess $ Just x, mempty, UrlEncoded)
+
+boolInput :: String -> Form sub master Bool
+boolInput n = GForm $ \env _ -> return
+    (FormSuccess $ isJust $ lookup n env, mempty, UrlEncoded)
 
 --------------------- End prebuilt inputs
 
