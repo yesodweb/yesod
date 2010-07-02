@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
@@ -39,18 +40,18 @@ import Data.Maybe (isNothing)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
-class YesodSite y where
+class Eq (Routes y) => YesodSite y where
     getSite :: Site (Routes y) (Method -> Maybe (Handler y ChooseRep))
 type Method = String
 
 -- | Same as 'YesodSite', but for subsites. Once again, users should not need
 -- to deal with it directly, as the mkYesodSub creates instances appropriately.
-class YesodSubSite s y where
+class Eq (Routes s) => YesodSubSite s y where
     getSubSite :: Site (Routes s) (Method -> Maybe (GHandler s y ChooseRep))
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.
-class Yesod a where
+class Eq (Routes a) => Yesod a where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --

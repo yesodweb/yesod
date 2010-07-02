@@ -34,7 +34,6 @@ mkYesodSub "Crud master item"
     [ ("master", [''Yesod])
     , ("item", [''Item])
     , ("Key item", [''SinglePiece])
-    , ("Routes master", [''Eq])
     ] [$parseRoutes|
 /               CrudListR        GET
 /add            CrudAddR         GET POST
@@ -58,24 +57,21 @@ getCrudListR = do
     %a!href=@toMaster.CrudAddR@ Add new item
 |]
 
-getCrudAddR :: (Yesod master, Item item, SinglePiece (Key item),
-                Eq (Routes master))
+getCrudAddR :: (Yesod master, Item item, SinglePiece (Key item))
             => GHandler (Crud master item) master RepHtml
 getCrudAddR = crudHelper
                 "Add new"
                 (Nothing :: Maybe (Key item, item))
                 False
 
-postCrudAddR :: (Yesod master, Item item, SinglePiece (Key item),
-                 Eq (Routes master))
+postCrudAddR :: (Yesod master, Item item, SinglePiece (Key item))
              => GHandler (Crud master item) master RepHtml
 postCrudAddR = crudHelper
                 "Add new"
                 (Nothing :: Maybe (Key item, item))
                 True
 
-getCrudEditR :: (Yesod master, Item item, SinglePiece (Key item),
-                 Eq (Routes master))
+getCrudEditR :: (Yesod master, Item item, SinglePiece (Key item))
              => String -> GHandler (Crud master item) master RepHtml
 getCrudEditR s = do
     itemId <- maybe notFound return $ itemReadId s
@@ -86,8 +82,7 @@ getCrudEditR s = do
         (Just (itemId, item))
         False
 
-postCrudEditR :: (Yesod master, Item item, SinglePiece (Key item),
-                  Eq (Routes master))
+postCrudEditR :: (Yesod master, Item item, SinglePiece (Key item))
               => String -> GHandler (Crud master item) master RepHtml
 postCrudEditR s = do
     itemId <- maybe notFound return $ itemReadId s
@@ -128,7 +123,7 @@ itemReadId :: SinglePiece x => String -> Maybe x
 itemReadId = either (const Nothing) Just . fromSinglePiece
 
 crudHelper
-    :: (Item a, Yesod master, SinglePiece (Key a), Eq (Routes master))
+    :: (Item a, Yesod master, SinglePiece (Key a))
     => String -> Maybe (Key a, a) -> Bool
     -> GHandler (Crud master a) master RepHtml
 crudHelper title me isPost = do
