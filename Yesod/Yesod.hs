@@ -17,6 +17,7 @@ module Yesod.Yesod
       -- * Convenience functions
     , applyLayout
     , applyLayoutJson
+    , maybeAuthorized
       -- * Defaults
     , defaultErrorHandler
     ) where
@@ -34,6 +35,7 @@ import Data.Monoid (mempty)
 import Data.ByteString.UTF8 (toString)
 import Database.Persist
 import Web.Routes.Site (Site)
+import Data.Maybe (isNothing)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -101,7 +103,7 @@ class Yesod a where
     -- Return 'Nothing' is the request is authorized, 'Just' a message if
     -- unauthorized. If authentication is required, you should use a redirect;
     -- the Auth helper provides this functionality automatically.
-    isAuthorized :: Routes a -> Handler a (Maybe String)
+    isAuthorized :: Routes a -> GHandler s a (Maybe String)
     isAuthorized _ = return Nothing
 
 -- | A type-safe, concise method of creating breadcrumbs for pages. For each
@@ -201,3 +203,12 @@ defaultErrorHandler (BadMethod m) =
 class YesodPersist y where
     type YesodDB y :: (* -> *) -> * -> *
     runDB :: YesodDB y (GHandler sub y) a -> GHandler sub y a
+
+-- | Return the same URL if the user is authorized to see it.
+--
+-- Built on top of 'isAuthorized'. This is useful for building page that only
+-- contain links to pages the user is allowed to see.
+maybeAuthorized :: Yesod a => Routes a -> GHandler s a (Maybe (Routes a))
+maybeAuthorized r = do
+    x <- isAuthorized r
+    return $ if isNothing x then Just r else Nothing
