@@ -182,7 +182,7 @@ $maybe message msg
 getOpenIdForward :: GHandler Auth master ()
 getOpenIdForward = do
     testOpenId
-    oid <- runFormGet' $ requiredField "openid"
+    oid <- runFormGet' $ stringInput "openid"
     render <- getUrlRender
     toMaster <- getRouteToMaster
     let complete = render $ toMaster OpenIdComplete
@@ -302,7 +302,7 @@ getEmailRegisterR = do
 postEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
 postEmailRegisterR = do
     ae <- getAuthEmailSettings
-    email <- runFormPost' $ notEmptyField "email" -- FIXME checkEmail
+    email <- runFormPost' $ stringInput "email" -- FIXME checkEmail
     y <- getYesod
     mecreds <- liftIO $ getEmailCreds ae email
     (lid, verKey) <-
@@ -367,8 +367,8 @@ postEmailLoginR :: YesodAuth master => GHandler Auth master ()
 postEmailLoginR = do
     ae <- getAuthEmailSettings
     (email, pass) <- runFormPost' $ (,)
-        <$> notEmptyField "email" -- FIXME valid e-mail?
-        <*> requiredField "password"
+        <$> stringInput "email" -- FIXME valid e-mail?
+        <*> stringInput "password"
     y <- getYesod
     mecreds <- liftIO $ getEmailCreds ae email
     let mlid =
@@ -420,8 +420,8 @@ postEmailPasswordR :: YesodAuth master => GHandler Auth master ()
 postEmailPasswordR = do
     ae <- getAuthEmailSettings
     (new, confirm) <- runFormPost' $ (,)
-        <$> notEmptyField "new"
-        <*> notEmptyField "confirm"
+        <$> stringInput "new"
+        <*> stringInput "confirm"
     toMaster <- getRouteToMaster
     when (new /= confirm) $ do
         setMessage $ string "Passwords did not match, please try again"
@@ -495,7 +495,7 @@ getFacebookR = do
             render <- getUrlRender
             tm <- getRouteToMaster
             let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
-            code <- runFormGet' $ requiredField "code"
+            code <- runFormGet' $ stringInput "code"
             at <- liftIO $ Facebook.getAccessToken fb code
             so <- liftIO $ Facebook.getGraphData at "me"
             let c = fromMaybe (error "Invalid response from Facebook") $ do

@@ -8,18 +8,26 @@
 -- | Parse forms (and query strings).
 module Yesod.Form
     ( -- * Data types
-      Form (..)
+      GForm (..)
+    , Form
+    , FormField
     , FormResult (..)
       -- * Unwrapping functions
     , runFormGet
     , runFormPost
     , runFormGet'
     , runFormPost'
+      -- * Type classes
+    , IsForm (..)
+    , IsFormField (..)
+      -- * Pre-built fields
     , requiredField
     , stringField
     , intField
     , dayField
     , boolField
+    , htmlField
+    , stringInput
     , fieldsToTable
     {- FIXME
       -- * Create your own formlets
@@ -60,7 +68,7 @@ import Data.Char (isAlphaNum, toUpper, isUpper)
 import Data.Maybe (isJust)
 import Web.Routes.Quasi (SinglePiece)
 import Data.Int (Int64)
-import qualified Data.ByteString.Lazy.UTF8
+import qualified Data.ByteString.Lazy.UTF8 as U
 import Yesod.Widget
 
 data FormResult a = FormMissing
@@ -81,8 +89,8 @@ instance Applicative FormResult where
 
 data Enctype = UrlEncoded | Multipart
 instance Show Enctype where
-    show UrlEncoded = "urlencoded"
-    show Multipart = "multipart/mimetype" -- FIXME
+    show UrlEncoded = "application/x-www-form-urlencoded"
+    show Multipart = "multipart/form-data"
 instance Monoid Enctype where
     mempty = UrlEncoded
     mappend UrlEncoded UrlEncoded = UrlEncoded
@@ -133,6 +141,11 @@ fieldsToTable = mapM_ go
         $fiErrors.fi$
 |]
 
+class IsForm a where
+    toForm :: Maybe a -> Form sub y a
+class IsFormField a where
+    toFormField :: Html () -> Html () -> Maybe a -> FormField sub y a
+
 requiredField :: FieldProfile sub y a
               -> Html () -> Html () -> Maybe a -> FormField sub y a
 requiredField (FieldProfile parse render mkXml w) label tooltip orig =
@@ -177,6 +190,8 @@ stringField = FieldProfile
 |]
     , fpWidget = \_name -> return ()
     }
+instance IsFormField String where
+    toFormField = requiredField stringField
 
 intField :: FieldProfile sub y Int
 intField = FieldProfile
@@ -187,6 +202,8 @@ intField = FieldProfile
 |]
     , fpWidget = \_name -> return ()
     }
+instance IsFormField Int where
+    toFormField = requiredField intField
 
 dayField :: FieldProfile sub y Day
 dayField = FieldProfile
@@ -202,6 +219,8 @@ dayField = FieldProfile
         addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
         addHead [$hamlet|%script $$(function(){$$("#$string.name$").datepicker({dateFormat:'yy-mm-dd'})})|]
     }
+instance IsFormField Day where
+    toFormField = requiredField dayField
 
 boolField :: Html () -> Html () -> Maybe Bool -> FormField sub y Bool
 boolField label tooltip orig = GForm $ \env _ -> do
@@ -224,6 +243,23 @@ boolField label tooltip orig = GForm $ \env _ -> do
                             _ -> string ""
             }
     return (res, [fi], UrlEncoded)
+instance IsFormField Bool where
+    toFormField = boolField
+
+htmlField :: FieldProfile sub y (Html ())
+htmlField = FieldProfile
+    { fpParse = Right . preEscapedString
+    , fpRender = U.toString . renderHtml
+    , fpHamlet = \name val isReq -> [$hamlet|
+%textarea#$name$!name=$name$ $val$
+|]
+    , fpWidget = \name -> do
+        addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"
+        addHead [$hamlet|%script bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$string.name$")})|]
+        addStyle [$hamlet|\#$string.name${min-width:400px;min-height:300px}|]
+    }
+instance IsFormField (Html ()) where
+    toFormField = requiredField htmlField
 
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of
@@ -231,6 +267,17 @@ readMay s = case reads s of
                 [] -> Nothing
 
 --------------------- End prebuilt forms
+
+--------------------- Begin prebuilt inputs
+
+stringInput :: String -> Form sub master String
+stringInput n = GForm $ \env _ -> return
+    (case lookup n env of
+        Nothing -> FormMissing
+        Just "" -> FormFailure [n ++ ": You must provide a non-empty string"]
+        Just x -> FormSuccess x, mempty, UrlEncoded)
+
+--------------------- End prebuilt inputs
 
 incr :: Monad m => StateT Int m String
 incr = do
@@ -324,7 +371,7 @@ instance Formable (Maybe String) where
 instance Formable (Html ()) where
     formable = fmap preEscapedString
               . input go
-              . fmap (Data.ByteString.Lazy.UTF8.toString . renderHtml)
+              . fmap (U.toString . renderHtml)
       where
         go name val = [$hamlet|%textarea!name=$string.name$ $string.val$|]
 

@@ -19,7 +19,7 @@ import Text.Hamlet
 import Yesod.Form
 import Data.Monoid (mempty)
 
-class Formable a => Item a where
+class IsForm a => Item a where
     itemTitle :: a -> String
 
 data Crud master item = Crud
@@ -133,7 +133,7 @@ crudHelper
     -> GHandler (Crud master a) master RepHtml
 crudHelper title me isPost = do
     crud <- getYesodSub
-    (errs, form) <- runFormPost $ formable $ fmap snd me
+    (errs, form, enctype) <- runFormPost $ toForm $ fmap snd me
     toMaster <- getRouteToMaster
     case (isPost, errs) of
         (True, FormSuccess a) -> do
@@ -146,21 +146,21 @@ crudHelper title me isPost = do
                                        $ toSinglePiece eid
         _ -> return ()
     applyLayoutW $ do
-        wrapWidget (wrapForm toMaster) form
+        wrapWidget (wrapForm toMaster enctype) form
         setTitle $ string title
   where
-    wrapForm toMaster form = [$hamlet|
+    wrapForm toMaster enctype form = [$hamlet|
 %p
     %a!href=@toMaster.CrudListR@ Return to list
 %h1 $string.title$
-%form!method=post
+%form!method=post!enctype=$string.show.enctype$
     %table
         ^form^
         %tr
             %td!colspan=2
                 %input!type=submit
                 $maybe me e
-                    \ 
+                    \ $
                     %a!href=@toMaster.CrudDeleteR.toSinglePiece.fst.e@ Delete
 |]
 
