@@ -103,7 +103,7 @@ class Yesod a where
     -- Return 'Nothing' is the request is authorized, 'Just' a message if
     -- unauthorized. If authentication is required, you should use a redirect;
     -- the Auth helper provides this functionality automatically.
-    isAuthorized :: Routes a -> GHandler s a (Maybe String)
+    isAuthorized :: Routes a -> GHandler s a (Maybe String) -- FIXME use a data type that specifies whether authentication is required
     isAuthorized _ = return Nothing
 
 -- | A type-safe, concise method of creating breadcrumbs for pages. For each

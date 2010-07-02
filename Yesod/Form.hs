@@ -29,6 +29,9 @@ module Yesod.Form
     , htmlField
     , stringInput
     , fieldsToTable
+    , share2
+    , mkIsForm
+    , mapFormXml
     {- FIXME
       -- * Create your own formlets
     , incr
@@ -101,6 +104,11 @@ newtype GForm sub y xml a = GForm
     }
 type Form sub y = GForm sub y (Widget sub y ())
 type FormField sub y = GForm sub y [FieldInfo sub y]
+
+mapFormXml :: (xml1 -> xml2) -> GForm s y xml1 a -> GForm s y xml2 a
+mapFormXml f (GForm g) = GForm $ \e fe -> do
+    (res, xml, enc) <- g e fe
+    return (res, f xml, enc)
 
 data FieldInfo sub y = FieldInfo
     { fiLabel :: Html ()
@@ -478,6 +486,7 @@ instance Formable Slug where
             | all (\c -> c `elem` "-_" || isAlphaNum c) x' =
                 Right $ Slug x'
             | otherwise = Left ["Slug must be alphanumeric, - and _"]
+-}
 
 share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
 share2 f g a = do
@@ -485,8 +494,8 @@ share2 f g a = do
     g' <- g a
     return $ f' ++ g'
 
-deriveFormable :: [EntityDef] -> Q [Dec]
-deriveFormable = mapM derive
+mkIsForm :: [EntityDef] -> Q [Dec]
+mkIsForm = mapM derive
   where
     derive :: EntityDef -> Q Dec
     derive t = do
@@ -496,24 +505,31 @@ deriveFormable = mapM derive
         just <- [|pure|]
         nothing <- [|Nothing|]
         let just' = just `AppE` ConE (mkName $ entityName t)
+        string' <- [|string|]
+        mempty' <- [|mempty|]
+        mfx <- [|mapFormXml|]
+        ftt <- [|fieldsToTable|]
+        let go_ = go ap just' string' mempty' mfx ftt
         let c1 = Clause [ ConP (mkName "Nothing") []
                         ]
-                        (NormalB $ go ap just' $ zip cols $ map (const nothing) cols)
+                        (NormalB $ go_ $ zip cols $ map (const nothing) cols)
                         []
         xs <- mapM (const $ newName "x") cols
         let xs' = map (AppE just . VarE) xs
         let c2 = Clause [ ConP (mkName "Just") [ConP (mkName $ entityName t)
                             $ map VarP xs]]
-                        (NormalB $ go ap just' $ zip cols xs')
+                        (NormalB $ go_ $ zip cols xs')
                         []
-        return $ InstanceD [] (ConT ''Formable
+        return $ InstanceD [] (ConT ''IsForm
                               `AppT` ConT (mkName $ entityName t))
-            [FunD (mkName "formable") [c1, c2]]
-    go ap just' = foldl (ap' ap) just' . map go'
-    go' (label, ex) =
-        VarE (mkName "sealForm") `AppE`
-        (VarE (mkName "wrapperRow") `AppE` LitE (StringL label)) `AppE`
-        (VarE (mkName "formable") `AppE` ex)
+            [FunD (mkName "toForm") [c1, c2]]
+    go ap just' string' mem mfx ftt a =
+        let x = foldl (ap' ap) just' $ map (go' string' mem) a
+         in mfx `AppE` ftt `AppE` x
+    go' string' mempty' (label, ex) =
+        let label' = string' `AppE` LitE (StringL label)
+         in VarE (mkName "toFormField") `AppE` label'
+                `AppE` mempty' `AppE` ex
     ap' ap x y = InfixE (Just x) ap (Just y)
 
 toLabel :: String -> String
@@ -524,4 +540,3 @@ toLabel (x:rest) = toUpper x : go rest
     go (c:cs)
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
--}

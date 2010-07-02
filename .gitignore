@@ -3,3 +3,4 @@
 client_session_key.aes
 *.hi
 *.o
+blog.db3
