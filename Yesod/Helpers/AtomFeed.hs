@@ -47,17 +47,14 @@ data AtomFeedEntry url = AtomFeedEntry
     , atomEntryContent :: Html ()
     }
 
-xmlns :: Html ()
-xmlns = preEscapedString "http://www.w3.org/2005/Atom"
-
 template :: AtomFeed url -> Hamlet url
 template arg = [$xhamlet|
 <?xml version="1.0" encoding="utf-8"?>
-%feed!xmlns=$xmlns$
-    %title $string.atomTitle.arg$
+%feed!xmlns="http://www.w3.org/2005/Atom"
+    %title $atomTitle.arg$
     %link!rel=self!href=@atomLinkSelf.arg@
     %link!href=@atomLinkHome.arg@
-    %updated $string.formatW3.atomUpdated.arg$
+    %updated $formatW3.atomUpdated.arg$
     %id @atomLinkHome.arg@
     $forall atomEntries.arg entry
         ^entryTemplate.entry^
@@ -68,7 +65,7 @@ entryTemplate arg = [$xhamlet|
 %entry
     %id @atomEntryLink.arg@
     %link!href=@atomEntryLink.arg@
-    %updated $string.formatW3.atomEntryUpdated.arg$
-    %title $string.atomEntryTitle.arg$
-    %content!type=html $cdata.atomEntryContent.arg$
+    %updated $formatW3.atomEntryUpdated.arg$
+    %title $atomEntryTitle.arg$
+    %content!type=html $<cdata.atomEntryContent.arg>$
 |]

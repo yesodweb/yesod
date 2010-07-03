@@ -132,12 +132,12 @@ fieldsToTable = mapM_ go
         wrapWidget (fiInput fi) $ \w -> [$hamlet|
 %tr
     %td
-        %label!for=$string.fiIdent.fi$ $fiLabel.fi$
-        .tooltip $fiTooltip.fi$
+        %label!for=$fiIdent.fi$ $<fiLabel.fi>$
+        .tooltip $<fiTooltip.fi>$
     %td
         ^w^
     $maybe fiErrors.fi err
-        %td.errors $err$
+        %td.errors $<err>$
 |]
 
 class IsForm a where
@@ -213,7 +213,7 @@ stringField = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=text!:isReq:required!value=$val$
+%input#$<name>$!name=$<name>$!type=text!:isReq:required!value=$<val>$
 |]
     , fpWidget = \_name -> return ()
     }
@@ -227,7 +227,7 @@ intField = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI
     , fpRender = showI
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=number!:isReq:required!value=$val$
+%input#$<name>$!name=$<name>$!type=number!:isReq:required!value=$<val>$
 |]
     , fpWidget = \_name -> return ()
     }
@@ -250,7 +250,7 @@ doubleField = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=number!:isReq:required!value=$val$
+%input#$<name>$!name=$<name>$!type=number!:isReq:required!value=$<val>$
 |]
     , fpWidget = \_name -> return ()
     }
@@ -265,13 +265,13 @@ dayField = FieldProfile
               . readMay
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=date!:isReq:required!value=$val$
+%input#$<name>$!name=$<name>$!type=date!:isReq:required!value=$<val>$
 |]
     , fpWidget = \name -> do
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
         addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
-        addHead [$hamlet|%script $$(function(){$$("#$string.name$").datepicker({dateFormat:'yy-mm-dd'})})|]
+        addHead [$hamlet|%script $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})})|]
     }
 instance IsFormField Day where
     toFormField = requiredField dayField
@@ -292,7 +292,7 @@ boolField label tooltip orig = GForm $ \env _ -> do
             , fiTooltip = tooltip
             , fiIdent = name
             , fiInput = addBody [$hamlet|
-%input#$string.name$!type=checkbox!name=$string.name$!:val:checked
+%input#$name$!type=checkbox!name=$name$!:val:checked
 |]
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -307,11 +307,11 @@ htmlField = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
     , fpHamlet = \name val _isReq -> [$hamlet|
-%textarea.html#$name$!name=$name$ $val$
+%textarea.html#$<name>$!name=$<name>$ $<val>$
 |]
     , fpWidget = \name -> do
         addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"
-        addHead [$hamlet|%script bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$string.name$")})|]
+        addHead [$hamlet|%script bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")})|]
     }
 instance IsFormField (Html ()) where
     toFormField = requiredField htmlField
@@ -344,10 +344,10 @@ selectField pairs label tooltip initial = GForm $ \env _ -> do
                 FormSuccess y -> x == y
                 _ -> Just x == initial
     let input = [$hamlet|
-%select#$string.i$!name=$string.i$
+%select#$i$!name=$i$
     %option!value=none
     $forall pairs' pair
-        %option!value=$string.show.fst.pair$!:isSelected.fst.snd.pair:selected $string.snd.snd.pair$
+        %option!value=$show.fst.pair$!:isSelected.fst.snd.pair:selected $snd.snd.pair$
 |]
     let fi = FieldInfo
             { fiLabel = label
@@ -381,10 +381,10 @@ maybeSelectField pairs label tooltip initial = GForm $ \env _ -> do
                 FormSuccess y -> Just x == y
                 _ -> Just x == initial
     let input = [$hamlet|
-%select#$string.i$!name=$string.i$
+%select#$i$!name=$i$
     %option!value=none
     $forall pairs' pair
-        %option!value=$string.show.fst.pair$!:isSelected.fst.snd.pair:selected $string.snd.snd.pair$
+        %option!value=$show.fst.pair$!:isSelected.fst.snd.pair:selected $snd.snd.pair$
 |]
     let fi = FieldInfo
             { fiLabel = label

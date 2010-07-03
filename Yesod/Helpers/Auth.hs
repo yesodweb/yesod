@@ -172,7 +172,7 @@ getOpenIdR = do
     message <- getMessage
     applyLayout "Log in via OpenID" mempty [$hamlet|
 $maybe message msg
-    %p.message $msg$
+    %p.message $<msg>$
 %form!method=get!action=@rtom.OpenIdForward@
     %label!for=openid OpenID: $
     %input#openid!type=text!name=openid
@@ -257,7 +257,7 @@ getCheck = do
 $if isNothing.creds
     %p Not logged in
 $maybe creds c
-    %p Logged in as $string.credsIdent.c$
+    %p Logged in as $credsIdent.c$
 |]
     json creds =
         jsonMap
@@ -317,7 +317,7 @@ postEmailRegisterR = do
     let verUrl = render $ tm $ EmailVerifyR lid verKey
     liftIO $ sendVerifyEmail ae email verKey verUrl
     applyLayout "Confirmation e-mail sent" mempty [$hamlet|
-%p A confirmation e-mail has been sent to $string.email$.
+%p A confirmation e-mail has been sent to $email$.
 |]
 
 getEmailVerifyR :: YesodAuth master
@@ -344,7 +344,7 @@ getEmailLoginR = do
     msg <- getMessage
     applyLayout "Login" mempty [$hamlet|
 $maybe msg ms
-    %p.message $ms$
+    %p.message $<ms>$
 %p Please log in to your account.
 %p
     %a!href=@toMaster.EmailRegisterR@ I don't have an account
@@ -399,7 +399,7 @@ getEmailPasswordR = do
     msg <- getMessage
     applyLayout "Set password" mempty [$hamlet|
 $maybe msg ms
-    %p.message $ms$
+    %p.message $<ms>$
 %h3 Set a new password
 %form!method=post!action=@toMaster.EmailPasswordR@
     %table

@@ -50,18 +50,15 @@ data SitemapUrl url = SitemapUrl
     , priority :: Double
     }
 
-sitemapNS :: Html ()
-sitemapNS = string "http://www.sitemaps.org/schemas/sitemap/0.9"
-
 template :: [SitemapUrl url] -> Hamlet url
 template urls = [$hamlet|
-%urlset!xmlns=$sitemapNS$
+%urlset!xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
     $forall urls url
         %url
             %loc @sitemapLoc.url@
-            %lastmod $string.formatW3.sitemapLastMod.url$
-            %changefreq $string.showFreq.sitemapChangeFreq.url$
-            %priority $string.show.priority.url$
+            %lastmod $formatW3.sitemapLastMod.url$
+            %changefreq $showFreq.sitemapChangeFreq.url$
+            %priority $show.priority.url$
 |]
 
 sitemap :: [SitemapUrl (Routes master)] -> GHandler sub master RepXml

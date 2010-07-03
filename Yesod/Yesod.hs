@@ -83,7 +83,7 @@ class Eq (Routes a) => Yesod a where
 !!!
 %html
     %head
-        %title $pageTitle.p$
+        %title $<pageTitle.p>$
         ^pageHead.p^
     %body
         ^pageBody.p^
@@ -176,31 +176,31 @@ defaultErrorHandler NotFound = do
     r <- waiRequest
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
-%p $string.toString.pathInfo.r$
+%p $toString.pathInfo.r$
 |]
   where
     pathInfo = W.pathInfo
 defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied" $ [$hamlet|
 %h1 Permission denied
-%p $string.msg$
+%p $msg$
 |]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments" $ [$hamlet|
 %h1 Invalid Arguments
 %ul
     $forall ia msg
-        %li $string.msg$
+        %li $msg$
 |]
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error" $ [$hamlet|
 %h1 Internal Server Error
-%p $string.e$
+%p $e$
 |]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method" $ [$hamlet|
 %h1 Method Not Supported
-%p Method "$string.m$" not supported
+%p Method "$m$" not supported
 |]
 
 class YesodPersist y where

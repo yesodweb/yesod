@@ -42,7 +42,7 @@ data Location url = Local url | Remote String
     deriving (Show, Eq)
 locationToHamlet :: Location url -> Hamlet url
 locationToHamlet (Local url) = [$hamlet|@url@|]
-locationToHamlet (Remote s) = [$hamlet|$string.s$|]
+locationToHamlet (Remote s) = [$hamlet|$s$|]
 
 newtype UniqueList x = UniqueList ([x] -> [x])
 instance Monoid (UniqueList x) where
