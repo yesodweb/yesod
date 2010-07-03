@@ -32,7 +32,7 @@ library
                      template-haskell >= 2.4 && < 2.5,
                      web-routes >= 0.22 && < 0.23,
                      web-routes-quasi >= 0.5 && < 0.6,
-                     hamlet >= 0.3.1 && < 0.4,
+                     hamlet >= 0.4.0 && < 0.5,
                      transformers >= 0.2 && < 0.3,
                      clientsession >= 0.4.0 && < 0.5,
                      pureMD5 >= 1.1.0.0 && < 1.2,

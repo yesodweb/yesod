@@ -47,13 +47,13 @@ data AtomFeedEntry url = AtomFeedEntry
     , atomEntryContent :: Html ()
     }
 
-xmlns :: AtomFeed url -> Html ()
-xmlns _ = preEscapedString "http://www.w3.org/2005/Atom"
+xmlns :: Html ()
+xmlns = preEscapedString "http://www.w3.org/2005/Atom"
 
 template :: AtomFeed url -> Hamlet url
 template arg = [$xhamlet|
 <?xml version="1.0" encoding="utf-8"?>
-%feed!xmlns=$xmlns.arg$
+%feed!xmlns=$xmlns$
     %title $string.atomTitle.arg$
     %link!rel=self!href=@atomLinkSelf.arg@
     %link!href=@atomLinkHome.arg@
