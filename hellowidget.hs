@@ -15,16 +15,16 @@ wrapper h = [$hamlet|
 #wrapper ^h^
 %footer Brought to you by Yesod Widgets&trade;
 |]
-getRootR = applyLayoutW $ wrapWidget wrapper $ do
+getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
     i <- newIdent
     setTitle $ string "Hello Widgets"
-    addStyle [$hamlet|\#$string.i${color:red}|]
+    addStyle [$hamlet|\#$i${color:red}|]
     addStylesheet $ StaticR $ StaticRoute ["style.css"]
     addStylesheetRemote "http://localhost:3000/static/style2.css"
     addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
     addScript $ StaticR $ StaticRoute ["script.js"]
     addBody [$hamlet|
-%h1#$string.i$ Welcome to my first widget!!!
+%h1#$i$ Welcome to my first widget!!!
 %p
     %a!href=@RootR@ Recursive link.
 %p
@@ -34,28 +34,29 @@ getRootR = applyLayoutW $ wrapWidget wrapper $ do
     addHead [$hamlet|%meta!keywords=haskell|]
 
 handleFormR = do
-    (res, form, enctype) <- runFormPost $ (,,,,,)
+    (res, form, enctype) <- runFormPost $ (,,,,,,)
         <$> requiredField stringField (string "My Field") (string "Some tooltip info") Nothing
         <*> requiredField stringField (string "Another field") (string "") (Just "some default text")
         <*> requiredField intField (string "A number field") (string "some nums") (Just 5)
         <*> requiredField dayField (string "A day field") (string "") Nothing
+        <*> requiredField timeField (string "A time field") (string "") Nothing
         <*> boolField (string "A checkbox") (string "") (Just False)
         <*> requiredField htmlField (string "HTML") (string "")
                 (Just $ string "You can put rich text here")
     let mhtml = case res of
-                    FormSuccess (_, _, _, _, _, x) -> Just x
+                    FormSuccess (_, _, _, _, _, _, x) -> Just x
                     _ -> Nothing
     applyLayoutW $ do
         addStyle [$hamlet|\.tooltip{color:#666;font-style:italic}|]
-        flip wrapWidget (fieldsToTable form) $ \h -> [$hamlet|
-%form!method=post!enctype=$string.show.enctype$
+        wrapWidget (fieldsToTable form) $ \h -> [$hamlet|
+%form!method=post!enctype=$show.enctype$
     %table
         ^h^
         %tr
             %td!colspan=2
                 %input!type=submit
     $maybe mhtml html
-        $html$
+        $<html>$
 |]
         setTitle $ string "Form"
 

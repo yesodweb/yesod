@@ -34,6 +34,7 @@ module Yesod.Form
     , stringField
     , intField
     , dayField
+    , timeField
     , boolField
     , htmlField
     , selectField
@@ -51,7 +52,7 @@ import Text.Hamlet
 import Yesod.Request
 import Yesod.Handler
 import Control.Applicative hiding (optional)
-import Data.Time (Day)
+import Data.Time (Day, TimeOfDay (TimeOfDay))
 import Data.Maybe (fromMaybe, isJust)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<), liftM, join)
@@ -277,6 +278,45 @@ instance IsFormField Day where
     toFormField = requiredField dayField
 instance IsFormField (Maybe Day) where
     toFormField = optionalField dayField
+
+parseTime :: String -> Either String TimeOfDay
+parseTime (h2:':':m1:m2:[]) = parseTimeHelper ['0', h2, m1, m2, '0', '0']
+parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper [h1, h2, m1, m2, '0', '0']
+parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
+    parseTimeHelper [h1, h2, m1, m2, s1, s2]
+parseTime _ = Left "Invalid time, must be in HH:MM[:SS] format"
+
+parseTimeHelper :: String -> Either String TimeOfDay
+parseTimeHelper (h1:h2:m1:m2:s1:s2:[])
+    | h < 0 || h > 23 = Left $ "Invalid hour: " ++ show h
+    | m < 0 || m > 59 = Left $ "Invalid minute: " ++ show m
+    | s < 0 || s > 59 = Left $ "Invalid second: " ++ show s
+    | otherwise = Right $ TimeOfDay h m s
+  where
+    h = read [h1, h2]
+    m = read [m1, m2]
+    s = fromInteger $ read [s1, s2]
+
+timeField :: FieldProfile sub y TimeOfDay
+timeField = FieldProfile
+    { fpParse = parseTime
+    , fpRender = show
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input#$<name>$!name=$<name>$!:isReq:required!value=$<val>$
+|]
+    , fpWidget = \name -> do
+        return ()
+    {-
+        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
+        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
+        addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
+        addHead [$hamlet|%script $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})})|]
+    -}
+    }
+instance IsFormField TimeOfDay where
+    toFormField = requiredField timeField
+instance IsFormField (Maybe TimeOfDay) where
+    toFormField = optionalField timeField
 
 boolField :: Html () -> Html () -> Maybe Bool -> FormField sub y Bool
 boolField label tooltip orig = GForm $ \env _ -> do
