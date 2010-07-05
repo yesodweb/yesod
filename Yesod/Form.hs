@@ -64,6 +64,7 @@ import Data.Char (toUpper, isUpper)
 import Data.Int (Int64)
 import qualified Data.ByteString.Lazy.UTF8 as U
 import Yesod.Widget
+import Control.Arrow ((&&&))
 
 data FormResult a = FormMissing
                   | FormFailure [String]
@@ -513,10 +514,18 @@ share2 f g a = do
 mkIsForm :: [EntityDef] -> Q [Dec]
 mkIsForm = mapM derive
   where
+    getLabel (x, _, z) = fromMaybe (toLabel x) $ getLabel' z
+    getLabel' [] = Nothing
+    getLabel' (('l':'a':'b':'e':'l':'=':x):_) = Just x
+    getLabel' (_:x) = getLabel' x
+    getTooltip (_, _, z) = fromMaybe "" $ getTooltip' z
+    getTooltip' (('t':'o':'o':'l':'t':'i':'p':'=':x):_) = Just x
+    getTooltip' (_:x) = getTooltip' x
+    getTooltip' [] = Nothing
     derive :: EntityDef -> Q Dec
     derive t = do
         let fst3 (x, _, _) = x
-        let cols = map (toLabel . fst3) $ entityColumns t
+        let cols = map (getLabel &&& getTooltip) $ entityColumns t
         ap <- [|(<*>)|]
         just <- [|pure|]
         nothing <- [|Nothing|]
@@ -542,10 +551,11 @@ mkIsForm = mapM derive
     go ap just' string' mem mfx ftt a =
         let x = foldl (ap' ap) just' $ map (go' string' mem) a
          in mfx `AppE` ftt `AppE` x
-    go' string' mempty' (label, ex) =
+    go' string' mempty' ((label, tooltip), ex) =
         let label' = string' `AppE` LitE (StringL label)
+            tooltip' = string' `AppE` LitE (StringL tooltip)
          in VarE (mkName "toFormField") `AppE` label'
-                `AppE` mempty' `AppE` ex
+                `AppE` tooltip' `AppE` ex
     ap' ap x y = InfixE (Just x) ap (Just y)
 
 toLabel :: String -> String

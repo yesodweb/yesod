@@ -335,7 +335,7 @@ getEmailVerifyR lid key = do
             redirect RedirectTemporary $ toMaster EmailPasswordR
         _ -> applyLayout "Invalid verification key" mempty [$hamlet|
 %p I'm sorry, but that was an invalid verification key.
-        |]
+|]
 
 getEmailLoginR :: Yesod master => GHandler Auth master RepHtml
 getEmailLoginR = do

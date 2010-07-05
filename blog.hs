@@ -8,7 +8,7 @@ import Data.Time (Day)
 type Html' = Html ()
 share2 mkPersist mkIsForm [$persist|
 Entry
-    title String
+    title String "label=Entry title" "tooltip=Make it something cool"
     posted Day Desc
     content Html'
     deriving
@@ -44,8 +44,9 @@ instance Yesod Blog where
 !!!
 %html
     %head
-        %title $pageTitle.p$
+        %title $<pageTitle.p>$
         ^pageHead.p^
+        %style textarea.html{width:500px;height:200px}div.tooltip{font-size:80%;font-style:italic;color:#666}
     %body
         %p
             %a!href=@RootR@ Homepage
@@ -56,9 +57,9 @@ instance Yesod Blog where
             $maybe mcreds c
                 Welcome $
                 $maybe credsDisplayName.c dn
-                    $string.dn$
+                    $dn$
                 $nothing
-                    $string.credsIdent.c$
+                    $credsIdent.c$
                 \ $
                 %a!href=@AuthR.Logout@ Logout
             $nothing
@@ -90,7 +91,7 @@ getRootR = do
 %ul
     $forall entries entry
         %li
-            %a!href=@EntryR.fst.entry@ $string.entryTitle.snd.entry$
+            %a!href=@EntryR.fst.entry@ $entryTitle.snd.entry$
 |]
 
 getEntryR :: EntryId -> Handler Blog RepHtml
@@ -99,9 +100,9 @@ getEntryR eid = do
     applyLayoutW $ do
         setTitle $ string $ entryTitle entry
         addBody [$hamlet|
-%h1 $string.entryTitle.entry$
-%h2 $string.show.entryPosted.entry$
-#content $entryContent.entry$
+%h1 $entryTitle.entry$
+%h2 $show.entryPosted.entry$
+#content $<entryContent.entry>$
 |]
 main = withSqlite "blog.db3" $ \conn -> do
     flip runSqlite conn $ initialize (undefined :: Entry)
