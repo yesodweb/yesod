@@ -16,6 +16,9 @@ module Yesod.Form
     , Enctype (..)
     , FieldInfo (..)
     , FieldProfile (..)
+      -- * Newtype wrappers
+    , JqueryDay (..)
+    , NicHtml (..)
       -- * Unwrapping functions
     , runFormGet
     , runFormPost
@@ -59,7 +62,7 @@ import Control.Monad ((<=<), liftM, join)
 import Data.Monoid (Monoid (..))
 import Control.Monad.Trans.State
 import Language.Haskell.TH.Syntax
-import Database.Persist.Base (EntityDef (..))
+import Database.Persist.Base (EntityDef (..), PersistField)
 import Data.Char (toUpper, isUpper)
 import Data.Int (Int64)
 import qualified Data.ByteString.Lazy.UTF8 as U
@@ -269,16 +272,38 @@ dayField = FieldProfile
     , fpHamlet = \name val isReq -> [$hamlet|
 %input#$<name>$!name=$<name>$!type=date!:isReq:required!value=$<val>$
 |]
+    , fpWidget = const $ return ()
+    }
+instance IsFormField Day where
+    toFormField = requiredField dayField
+instance IsFormField (Maybe Day) where
+    toFormField = optionalField dayField
+
+jqueryDayField :: FieldProfile sub y JqueryDay
+jqueryDayField = dayField
+    { fpParse = maybe
+                  (Left "Invalid day, must be in YYYY-MM-DD format")
+                  (Right . JqueryDay)
+              . readMay
+    , fpRender = show . unJqueryDay
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input#$<name>$!name=$<name>$!type=date!:isReq:required!value=$<val>$
+|]
     , fpWidget = \name -> do
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
         addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
         addHead [$hamlet|%script $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})})|]
     }
-instance IsFormField Day where
-    toFormField = requiredField dayField
-instance IsFormField (Maybe Day) where
-    toFormField = optionalField dayField
+
+-- | A newtype wrapper around 'Day', using jQuery UI date picker for the
+-- 'IsFormField' instance.
+newtype JqueryDay = JqueryDay { unJqueryDay :: Day }
+    deriving PersistField
+instance IsFormField JqueryDay where
+    toFormField = requiredField jqueryDayField
+instance IsFormField (Maybe JqueryDay) where
+    toFormField = optionalField jqueryDayField
 
 parseTime :: String -> Either String TimeOfDay
 parseTime (h2:':':m1:m2:[]) = parseTimeHelper ['0', h2, m1, m2, '0', '0']
@@ -350,14 +375,31 @@ htmlField = FieldProfile
     , fpHamlet = \name val _isReq -> [$hamlet|
 %textarea.html#$<name>$!name=$<name>$ $<val>$
 |]
-    , fpWidget = \name -> do
-        addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"
-        addHead [$hamlet|%script bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")})|]
+    , fpWidget = const $ return ()
     }
 instance IsFormField (Html ()) where
     toFormField = requiredField htmlField
 instance IsFormField (Maybe (Html ())) where
     toFormField = optionalField htmlField
+
+newtype NicHtml = NicHtml { unNicHtml :: Html () }
+    deriving PersistField
+
+nicHtmlField :: FieldProfile sub y NicHtml
+nicHtmlField = FieldProfile
+    { fpParse = Right . NicHtml . preEscapedString
+    , fpRender = U.toString . renderHtml . unNicHtml
+    , fpHamlet = \name val _isReq -> [$hamlet|
+%textarea.html#$<name>$!name=$<name>$ $<val>$
+|]
+    , fpWidget = \name -> do
+        addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"
+        addHead [$hamlet|%script bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")})|]
+    }
+instance IsFormField NicHtml where
+    toFormField = requiredField nicHtmlField
+instance IsFormField (Maybe NicHtml) where
+    toFormField = optionalField nicHtmlField
 
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of

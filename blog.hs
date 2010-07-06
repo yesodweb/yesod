@@ -5,12 +5,11 @@ import Yesod.Helpers.Crud
 import Database.Persist.Sqlite
 import Data.Time (Day)
 
-type Html' = Html ()
 share2 mkPersist mkIsForm [$persist|
 Entry
     title String "label=Entry title" "tooltip=Make it something cool"
-    posted Day Desc
-    content Html'
+    posted JqueryDay Desc
+    content NicHtml
     deriving
 |]
 instance Item Entry where
@@ -101,8 +100,8 @@ getEntryR eid = do
         setTitle $ string $ entryTitle entry
         addBody [$hamlet|
 %h1 $entryTitle.entry$
-%h2 $show.entryPosted.entry$
-#content $<entryContent.entry>$
+%h2 $show.unJqueryDay.entryPosted.entry$
+#content $<unNicHtml.entryContent.entry>$
 |]
 main = withSqlite "blog.db3" $ \conn -> do
     flip runSqlite conn $ initialize (undefined :: Entry)
