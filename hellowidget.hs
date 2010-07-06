@@ -9,6 +9,7 @@ mkYesod "HW" [$parseRoutes|
 / RootR GET
 /form FormR
 /static StaticR Static hwStatic
+/autocomplete AutoCompleteR GET
 |]
 instance Yesod HW where approot _ = ""
 wrapper h = [$hamlet|
@@ -33,18 +34,21 @@ getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
 |]
     addHead [$hamlet|%meta!keywords=haskell|]
 
+-- FIXME add coolness to day and html below
 handleFormR = do
-    (res, form, enctype) <- runFormPost $ (,,,,,,)
-        <$> requiredField stringField (string "My Field") (string "Some tooltip info") Nothing
-        <*> requiredField stringField (string "Another field") (string "") (Just "some default text")
-        <*> requiredField intField (string "A number field") (string "some nums") (Just 5)
-        <*> requiredField dayField (string "A day field") (string "") Nothing
-        <*> requiredField timeField (string "A time field") (string "") Nothing
+    (res, form, enctype) <- runFormPost $ (,,,,,,,)
+        <$> stringField (string "My Field") (string "Some tooltip info") Nothing
+        <*> stringField (string "Another field") (string "") (Just "some default text")
+        <*> intField (string "A number field") (string "some nums") (Just 5)
+        <*> dayField (string "A day field") (string "") Nothing
+        <*> timeField (string "A time field") (string "") Nothing
         <*> boolField (string "A checkbox") (string "") (Just False)
-        <*> requiredField htmlField (string "HTML") (string "")
+        <*> jqueryAutocompleteField AutoCompleteR
+            (string "Autocomplete") (string "Try it!") Nothing
+        <*> htmlField (string "HTML") (string "")
                 (Just $ string "You can put rich text here")
     let mhtml = case res of
-                    FormSuccess (_, _, _, _, _, _, x) -> Just x
+                    FormSuccess (_, _, _, _, _, _, _, x) -> Just x
                     _ -> Nothing
     applyLayoutW $ do
         addStyle [$hamlet|\.tooltip{color:#666;font-style:italic}|]
@@ -56,8 +60,17 @@ handleFormR = do
             %td!colspan=2
                 %input!type=submit
     $maybe mhtml html
-        $<html>$
+        $html$
 |]
         setTitle $ string "Form"
 
 main = toWaiApp (HW $ fileLookupDir "static" typeByExt) >>= basicHandler 3000
+
+getAutoCompleteR :: Handler HW RepJson
+getAutoCompleteR = do
+    term <- runFormGet' $ stringInput "term"
+    jsonToRepJson $ jsonList
+        [ jsonScalar $ string $ term ++ "foo"
+        , jsonScalar $ string $ term ++ "bar"
+        , jsonScalar $ string $ term ++ "baz"
+        ]

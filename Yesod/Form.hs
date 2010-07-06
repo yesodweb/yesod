@@ -38,6 +38,7 @@ module Yesod.Form
     , stringFieldProfile
     , intFieldProfile
     , dayFieldProfile
+    , jqueryDayFieldProfile
     , timeFieldProfile
     , htmlFieldProfile
       -- * Pre-built fields
@@ -56,6 +57,7 @@ module Yesod.Form
     , selectField
     , maybeSelectField
     , boolField
+    , jqueryAutocompleteField
       -- * Pre-built inputs
     , stringInput
     , maybeStringInput
@@ -675,3 +677,20 @@ toLabel (x:rest) = toUpper x : go rest
     go (c:cs)
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
+
+jqueryAutocompleteField src = requiredFieldHelper
+                            $ jqueryAutocompleteFieldProfile src
+
+jqueryAutocompleteFieldProfile :: Route y -> FieldProfile sub y String
+jqueryAutocompleteFieldProfile src = FieldProfile
+    { fpParse = Right
+    , fpRender = id
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input.autocomplete#$name$!name=$name$!type=text!:isReq:required!value=$val$
+|]
+    , fpWidget = \name -> do
+        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
+        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
+        addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
+        addHead [$hamlet|%script $$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});|]
+    }
