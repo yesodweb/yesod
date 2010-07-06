@@ -21,6 +21,8 @@ module Yesod.Yesod
     , maybeAuthorized
       -- * Defaults
     , defaultErrorHandler
+      -- * Data types
+    , AuthResult (..)
     ) where
 
 import Yesod.Content
@@ -36,7 +38,6 @@ import Data.Monoid (mempty)
 import Data.ByteString.UTF8 (toString)
 import Database.Persist
 import Web.Routes.Site (Site)
-import Data.Maybe (isNothing)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -104,8 +105,18 @@ class Eq (Routes a) => Yesod a where
     -- Return 'Nothing' is the request is authorized, 'Just' a message if
     -- unauthorized. If authentication is required, you should use a redirect;
     -- the Auth helper provides this functionality automatically.
-    isAuthorized :: Routes a -> GHandler s a (Maybe String) -- FIXME use a data type that specifies whether authentication is required
-    isAuthorized _ = return Nothing
+    isAuthorized :: Routes a -> GHandler s a AuthResult
+    isAuthorized _ = return Authorized
+
+    -- | The default route for authentication.
+    --
+    -- Used in particular by 'isAuthorized', but library users can do whatever
+    -- they want with it.
+    authRoute :: a -> Maybe (Routes a)
+    authRoute _ = Nothing
+
+data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
+    deriving (Eq, Show, Read)
 
 -- | A type-safe, concise method of creating breadcrumbs for pages. For each
 -- resource, you declare the title of the page and the parent resource (if
@@ -214,4 +225,4 @@ class YesodPersist y where
 maybeAuthorized :: Yesod a => Routes a -> GHandler s a (Maybe (Routes a))
 maybeAuthorized r = do
     x <- isAuthorized r
-    return $ if isNothing x then Just r else Nothing
+    return $ if x == Authorized then Just r else Nothing

@@ -257,7 +257,16 @@ toWaiApp' y segments env = do
           case eurl of
             Left _ -> errorHandler NotFound
             Right url -> do
-                isAuthorized url >>= maybe (return ()) permissionDenied
+                ar <- isAuthorized url
+                case ar of
+                    Authorized -> return ()
+                    AuthenticationRequired ->
+                        case authRoute y of
+                            Nothing ->
+                                permissionDenied "Authentication required"
+                            Just url ->
+                                redirect RedirectTemporary url
+                    Unauthorized s -> permissionDenied s
                 case handleSite site render url method of
                     Nothing -> errorHandler $ BadMethod method
                     Just h' -> h'
