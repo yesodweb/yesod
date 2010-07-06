@@ -12,10 +12,10 @@ module Yesod.Form
     , Form
     , Formlet
     , FormField
+    , FormletField
     , FormResult (..)
     , Enctype (..)
     , FieldInfo (..)
-    , FieldProfile (..)
       -- * Newtype wrappers
     , JqueryDay (..)
     , NicHtml (..)
@@ -25,30 +25,46 @@ module Yesod.Form
     , runFormGet'
     , runFormPost'
       -- * Type classes
-    , IsForm (..)
-    , IsFormField (..)
+    , ToForm (..)
+    , ToFormField (..)
       -- * Field/form helpers
-    , requiredField
-    , optionalField
+    , requiredFieldHelper
+    , optionalFieldHelper
     , mapFormXml
     , newFormIdent
     , fieldsToTable
+      -- * Field profiles
+    , FieldProfile (..)
+    , stringFieldProfile
+    , intFieldProfile
+    , dayFieldProfile
+    , timeFieldProfile
+    , htmlFieldProfile
       -- * Pre-built fields
     , stringField
+    , maybeStringField
     , intField
+    , maybeIntField
+    , doubleField
+    , maybeDoubleField
     , dayField
+    , maybeDayField
     , timeField
-    , boolField
+    , maybeTimeField
     , htmlField
+    , maybeHtmlField
     , selectField
     , maybeSelectField
+    , boolField
       -- * Pre-built inputs
     , stringInput
     , maybeStringInput
     , boolInput
+    , dayInput
+    , maybeDayInput
       -- * Template Haskell
     , share2
-    , mkIsForm
+    , mkToForm
     ) where
 
 import Text.Hamlet
@@ -100,6 +116,7 @@ newtype GForm sub y xml a = GForm
 type Form sub y = GForm sub y (GWidget sub y ())
 type Formlet sub y a = Maybe a -> Form sub y a
 type FormField sub y = GForm sub y [FieldInfo sub y]
+type FormletField sub y a = Maybe a -> FormField sub y a
 
 mapFormXml :: (xml1 -> xml2) -> GForm s y xml1 a -> GForm s y xml2 a
 mapFormXml f (GForm g) = GForm $ \e fe -> do
@@ -145,14 +162,14 @@ fieldsToTable = mapM_ go
         %td.errors $err$
 |]
 
-class IsForm a where
+class ToForm a where
     toForm :: Maybe a -> Form sub y a
-class IsFormField a where
+class ToFormField a where
     toFormField :: Html () -> Html () -> Maybe a -> FormField sub y a
 
-requiredField :: FieldProfile sub y a
+requiredFieldHelper :: FieldProfile sub y a
               -> Html () -> Html () -> Maybe a -> FormField sub y a
-requiredField (FieldProfile parse render mkXml w) label tooltip orig =
+requiredFieldHelper (FieldProfile parse render mkXml w) label tooltip orig =
   GForm $ \env _ -> do
     name <- newFormIdent
     let (res, val) =
@@ -176,10 +193,10 @@ requiredField (FieldProfile parse render mkXml w) label tooltip orig =
             }
     return (res, [fi], UrlEncoded)
 
-optionalField :: FieldProfile sub y a
+optionalFieldHelper :: FieldProfile sub y a
               -> Html () -> Html () -> Maybe (Maybe a)
               -> FormField sub y (Maybe a)
-optionalField (FieldProfile parse render mkXml w) label tooltip orig' =
+optionalFieldHelper (FieldProfile parse render mkXml w) label tooltip orig' =
   GForm $ \env _ -> do
     let orig = join orig'
     name <- newFormIdent
@@ -213,8 +230,14 @@ data FieldProfile sub y a = FieldProfile
 
 --------------------- Begin prebuilt forms
 
-stringField :: FieldProfile sub y String
-stringField = FieldProfile
+stringField :: Html () -> Html () -> FormletField sub y String
+stringField = requiredFieldHelper stringFieldProfile
+
+maybeStringField :: Html () -> Html () -> FormletField sub y (Maybe String)
+maybeStringField = optionalFieldHelper stringFieldProfile
+
+stringFieldProfile :: FieldProfile sub y String
+stringFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpHamlet = \name val isReq -> [$hamlet|
@@ -222,13 +245,19 @@ stringField = FieldProfile
 |]
     , fpWidget = \_name -> return ()
     }
-instance IsFormField String where
-    toFormField = requiredField stringField
-instance IsFormField (Maybe String) where
-    toFormField = optionalField stringField
+instance ToFormField String where
+    toFormField = requiredFieldHelper stringFieldProfile
+instance ToFormField (Maybe String) where
+    toFormField = optionalFieldHelper stringFieldProfile
 
-intField :: Integral i => FieldProfile sub y i
-intField = FieldProfile
+intField :: Html () -> Html () -> FormletField sub y Int
+intField = requiredFieldHelper intFieldProfile
+
+maybeIntField :: Html () -> Html () -> FormletField sub y (Maybe Int)
+maybeIntField = optionalFieldHelper intFieldProfile
+
+intFieldProfile :: Integral i => FieldProfile sub y i
+intFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI
     , fpRender = showI
     , fpHamlet = \name val isReq -> [$hamlet|
@@ -241,17 +270,23 @@ intField = FieldProfile
     readMayI s = case reads s of
                     (x, _):_ -> Just $ fromInteger x
                     [] -> Nothing
-instance IsFormField Int where
-    toFormField = requiredField intField
-instance IsFormField (Maybe Int) where
-    toFormField = optionalField intField
-instance IsFormField Int64 where
-    toFormField = requiredField intField
-instance IsFormField (Maybe Int64) where
-    toFormField = optionalField intField
+instance ToFormField Int where
+    toFormField = requiredFieldHelper intFieldProfile
+instance ToFormField (Maybe Int) where
+    toFormField = optionalFieldHelper intFieldProfile
+instance ToFormField Int64 where
+    toFormField = requiredFieldHelper intFieldProfile
+instance ToFormField (Maybe Int64) where
+    toFormField = optionalFieldHelper intFieldProfile
 
-doubleField :: FieldProfile sub y Double
-doubleField = FieldProfile
+doubleField :: Html () -> Html () -> FormletField sub y Double
+doubleField = requiredFieldHelper doubleFieldProfile
+
+maybeDoubleField :: Html () -> Html () -> FormletField sub y (Maybe Double)
+maybeDoubleField = optionalFieldHelper doubleFieldProfile
+
+doubleFieldProfile :: FieldProfile sub y Double
+doubleFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
@@ -259,13 +294,19 @@ doubleField = FieldProfile
 |]
     , fpWidget = \_name -> return ()
     }
-instance IsFormField Double where
-    toFormField = requiredField doubleField
-instance IsFormField (Maybe Double) where
-    toFormField = optionalField doubleField
+instance ToFormField Double where
+    toFormField = requiredFieldHelper doubleFieldProfile
+instance ToFormField (Maybe Double) where
+    toFormField = optionalFieldHelper doubleFieldProfile
 
-dayField :: FieldProfile sub y Day
-dayField = FieldProfile
+dayField :: Html () -> Html () -> FormletField sub y Day
+dayField = requiredFieldHelper dayFieldProfile
+
+maybeDayField :: Html () -> Html () -> FormletField sub y (Maybe Day)
+maybeDayField = optionalFieldHelper dayFieldProfile
+
+dayFieldProfile :: FieldProfile sub y Day
+dayFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
               . readMay
     , fpRender = show
@@ -274,13 +315,13 @@ dayField = FieldProfile
 |]
     , fpWidget = const $ return ()
     }
-instance IsFormField Day where
-    toFormField = requiredField dayField
-instance IsFormField (Maybe Day) where
-    toFormField = optionalField dayField
+instance ToFormField Day where
+    toFormField = requiredFieldHelper dayFieldProfile
+instance ToFormField (Maybe Day) where
+    toFormField = optionalFieldHelper dayFieldProfile
 
-jqueryDayField :: FieldProfile sub y JqueryDay
-jqueryDayField = dayField
+jqueryDayFieldProfile :: FieldProfile sub y JqueryDay
+jqueryDayFieldProfile = FieldProfile
     { fpParse = maybe
                   (Left "Invalid day, must be in YYYY-MM-DD format")
                   (Right . JqueryDay)
@@ -297,23 +338,24 @@ jqueryDayField = dayField
     }
 
 -- | A newtype wrapper around 'Day', using jQuery UI date picker for the
--- 'IsFormField' instance.
+-- 'ToFormField' instance.
 newtype JqueryDay = JqueryDay { unJqueryDay :: Day }
     deriving PersistField
-instance IsFormField JqueryDay where
-    toFormField = requiredField jqueryDayField
-instance IsFormField (Maybe JqueryDay) where
-    toFormField = optionalField jqueryDayField
+instance ToFormField JqueryDay where
+    toFormField = requiredFieldHelper jqueryDayFieldProfile
+instance ToFormField (Maybe JqueryDay) where
+    toFormField = optionalFieldHelper jqueryDayFieldProfile
 
 parseTime :: String -> Either String TimeOfDay
-parseTime (h2:':':m1:m2:[]) = parseTimeHelper ['0', h2, m1, m2, '0', '0']
-parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper [h1, h2, m1, m2, '0', '0']
+parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
+parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
-    parseTimeHelper [h1, h2, m1, m2, s1, s2]
+    parseTimeHelper (h1, h2, m1, m2, s1, s2)
 parseTime _ = Left "Invalid time, must be in HH:MM[:SS] format"
 
-parseTimeHelper :: String -> Either String TimeOfDay
-parseTimeHelper (h1:h2:m1:m2:s1:s2:[])
+parseTimeHelper :: (Char, Char, Char, Char, Char, Char)
+                -> Either [Char] TimeOfDay
+parseTimeHelper (h1, h2, m1, m2, s1, s2)
     | h < 0 || h > 23 = Left $ "Invalid hour: " ++ show h
     | m < 0 || m > 59 = Left $ "Invalid minute: " ++ show m
     | s < 0 || s > 59 = Left $ "Invalid second: " ++ show s
@@ -323,26 +365,25 @@ parseTimeHelper (h1:h2:m1:m2:s1:s2:[])
     m = read [m1, m2]
     s = fromInteger $ read [s1, s2]
 
-timeField :: FieldProfile sub y TimeOfDay
-timeField = FieldProfile
+timeField :: Html () -> Html () -> FormletField sub y TimeOfDay
+timeField = requiredFieldHelper timeFieldProfile
+
+maybeTimeField :: Html () -> Html () -> FormletField sub y (Maybe TimeOfDay)
+maybeTimeField = optionalFieldHelper timeFieldProfile
+
+timeFieldProfile :: FieldProfile sub y TimeOfDay
+timeFieldProfile = FieldProfile
     { fpParse = parseTime
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
 %input#$name$!name=$name$!:isReq:required!value=$val$
 |]
-    , fpWidget = \name -> do
-        return ()
-    {-
-        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
-        addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
-        addHead [$hamlet|%script $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})})|]
-    -}
+    , fpWidget = const $ return ()
     }
-instance IsFormField TimeOfDay where
-    toFormField = requiredField timeField
-instance IsFormField (Maybe TimeOfDay) where
-    toFormField = optionalField timeField
+instance ToFormField TimeOfDay where
+    toFormField = requiredFieldHelper timeFieldProfile
+instance ToFormField (Maybe TimeOfDay) where
+    toFormField = optionalFieldHelper timeFieldProfile
 
 boolField :: Html () -> Html () -> Maybe Bool -> FormField sub y Bool
 boolField label tooltip orig = GForm $ \env _ -> do
@@ -365,11 +406,17 @@ boolField label tooltip orig = GForm $ \env _ -> do
                             _ -> Nothing
             }
     return (res, [fi], UrlEncoded)
-instance IsFormField Bool where
+instance ToFormField Bool where
     toFormField = boolField
 
-htmlField :: FieldProfile sub y (Html ())
-htmlField = FieldProfile
+htmlField :: Html () -> Html () -> FormletField sub y (Html ())
+htmlField = requiredFieldHelper htmlFieldProfile
+
+maybeHtmlField :: Html () -> Html () -> FormletField sub y (Maybe (Html ()))
+maybeHtmlField = optionalFieldHelper htmlFieldProfile
+
+htmlFieldProfile :: FieldProfile sub y (Html ())
+htmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
     , fpHamlet = \name val _isReq -> [$hamlet|
@@ -377,16 +424,16 @@ htmlField = FieldProfile
 |]
     , fpWidget = const $ return ()
     }
-instance IsFormField (Html ()) where
-    toFormField = requiredField htmlField
-instance IsFormField (Maybe (Html ())) where
-    toFormField = optionalField htmlField
+instance ToFormField (Html ()) where
+    toFormField = requiredFieldHelper htmlFieldProfile
+instance ToFormField (Maybe (Html ())) where
+    toFormField = optionalFieldHelper htmlFieldProfile
 
 newtype NicHtml = NicHtml { unNicHtml :: Html () }
     deriving PersistField
 
-nicHtmlField :: FieldProfile sub y NicHtml
-nicHtmlField = FieldProfile
+nicHtmlFieldProfile :: FieldProfile sub y NicHtml
+nicHtmlFieldProfile = FieldProfile
     { fpParse = Right . NicHtml . preEscapedString
     , fpRender = U.toString . renderHtml . unNicHtml
     , fpHamlet = \name val _isReq -> [$hamlet|
@@ -396,10 +443,10 @@ nicHtmlField = FieldProfile
         addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"
         addHead [$hamlet|%script bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")})|]
     }
-instance IsFormField NicHtml where
-    toFormField = requiredField nicHtmlField
-instance IsFormField (Maybe NicHtml) where
-    toFormField = optionalField nicHtmlField
+instance ToFormField NicHtml where
+    toFormField = requiredFieldHelper nicHtmlFieldProfile
+instance ToFormField (Maybe NicHtml) where
+    toFormField = optionalFieldHelper nicHtmlFieldProfile
 
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of
@@ -502,6 +549,28 @@ boolInput :: String -> Form sub master Bool
 boolInput n = GForm $ \env _ -> return
     (FormSuccess $ isJust $ lookup n env, mempty, UrlEncoded)
 
+dayInput :: String -> Form sub master Day
+dayInput n = GForm $ \env _ -> return
+    (case lookup n env of
+        Nothing -> FormMissing
+        Just "" -> FormFailure [n ++ ": You must provide a non-empty string"]
+        Just x ->
+            case readMay x of
+                Just y -> FormSuccess y
+                Nothing -> FormFailure [n ++ ": Invalid date"]
+        , mempty, UrlEncoded)
+
+maybeDayInput :: String -> Form sub master (Maybe Day)
+maybeDayInput n = GForm $ \env _ -> return
+    (case lookup n env of
+        Nothing -> FormSuccess Nothing
+        Just "" -> FormSuccess Nothing
+        Just x ->
+            case readMay x of
+                Just y -> FormSuccess $ Just y
+                Nothing -> FormFailure [n ++ ": Invalid date"]
+        , mempty, UrlEncoded)
+
 --------------------- End prebuilt inputs
 
 newFormIdent :: Monad m => StateT Int m String
@@ -553,8 +622,8 @@ share2 f g a = do
     g' <- g a
     return $ f' ++ g'
 
-mkIsForm :: [EntityDef] -> Q [Dec]
-mkIsForm = mapM derive
+mkToForm :: [EntityDef] -> Q [Dec]
+mkToForm = mapM derive
   where
     getLabel (x, _, z) = fromMaybe (toLabel x) $ getLabel' z
     getLabel' [] = Nothing
@@ -566,17 +635,15 @@ mkIsForm = mapM derive
     getTooltip' [] = Nothing
     derive :: EntityDef -> Q Dec
     derive t = do
-        let fst3 (x, _, _) = x
         let cols = map (getLabel &&& getTooltip) $ entityColumns t
         ap <- [|(<*>)|]
         just <- [|pure|]
         nothing <- [|Nothing|]
         let just' = just `AppE` ConE (mkName $ entityName t)
         string' <- [|string|]
-        mempty' <- [|mempty|]
         mfx <- [|mapFormXml|]
         ftt <- [|fieldsToTable|]
-        let go_ = go ap just' string' mempty' mfx ftt
+        let go_ = go ap just' string' mfx ftt
         let c1 = Clause [ ConP (mkName "Nothing") []
                         ]
                         (NormalB $ go_ $ zip cols $ map (const nothing) cols)
@@ -587,13 +654,13 @@ mkIsForm = mapM derive
                             $ map VarP xs]]
                         (NormalB $ go_ $ zip cols xs')
                         []
-        return $ InstanceD [] (ConT ''IsForm
+        return $ InstanceD [] (ConT ''ToForm
                               `AppT` ConT (mkName $ entityName t))
             [FunD (mkName "toForm") [c1, c2]]
-    go ap just' string' mem mfx ftt a =
-        let x = foldl (ap' ap) just' $ map (go' string' mem) a
+    go ap just' string' mfx ftt a =
+        let x = foldl (ap' ap) just' $ map (go' string') a
          in mfx `AppE` ftt `AppE` x
-    go' string' mempty' ((label, tooltip), ex) =
+    go' string' ((label, tooltip), ex) =
         let label' = string' `AppE` LitE (StringL label)
             tooltip' = string' `AppE` LitE (StringL tooltip)
          in VarE (mkName "toFormField") `AppE` label'

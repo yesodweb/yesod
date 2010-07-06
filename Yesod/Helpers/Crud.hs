@@ -19,7 +19,7 @@ import Text.Hamlet
 import Yesod.Form
 import Data.Monoid (mempty)
 
-class IsForm a => Item a where
+class ToForm a => Item a where
     itemTitle :: a -> String
 
 data Crud master item = Crud
