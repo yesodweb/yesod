@@ -83,7 +83,7 @@ class Eq (Routes a) => Yesod a where
 !!!
 %html
     %head
-        %title $<pageTitle.p>$
+        %title $pageTitle.p$
         ^pageHead.p^
     %body
         ^pageBody.p^

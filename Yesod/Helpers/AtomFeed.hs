@@ -67,5 +67,5 @@ entryTemplate arg = [$xhamlet|
     %link!href=@atomEntryLink.arg@
     %updated $formatW3.atomEntryUpdated.arg$
     %title $atomEntryTitle.arg$
-    %content!type=html $<cdata.atomEntryContent.arg>$
+    %content!type=html $cdata.atomEntryContent.arg$
 |]

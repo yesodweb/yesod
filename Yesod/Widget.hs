@@ -29,7 +29,7 @@ import Data.List (nub)
 import Data.Monoid
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State
-import Yesod.Hamlet (Hamlet, hamlet, PageContent (..), Html, string)
+import Yesod.Hamlet (Hamlet, hamlet, PageContent (..), Html)
 import Yesod.Handler (Routes, GHandler)
 import Yesod.Yesod (Yesod, defaultLayout)
 import Yesod.Content (RepHtml (..))

@@ -137,12 +137,12 @@ fieldsToTable = mapM_ go
         wrapWidget (fiInput fi) $ \w -> [$hamlet|
 %tr
     %td
-        %label!for=$fiIdent.fi$ $<fiLabel.fi>$
-        .tooltip $<fiTooltip.fi>$
+        %label!for=$fiIdent.fi$ $fiLabel.fi$
+        .tooltip $fiTooltip.fi$
     %td
         ^w^
     $maybe fiErrors.fi err
-        %td.errors $<err>$
+        %td.errors $err$
 |]
 
 class IsForm a where
@@ -218,7 +218,7 @@ stringField = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$<name>$!name=$<name>$!type=text!:isReq:required!value=$<val>$
+%input#$name$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     , fpWidget = \_name -> return ()
     }
@@ -232,7 +232,7 @@ intField = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI
     , fpRender = showI
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$<name>$!name=$<name>$!type=number!:isReq:required!value=$<val>$
+%input#$name$!name=$name$!type=number!:isReq:required!value=$val$
 |]
     , fpWidget = \_name -> return ()
     }
@@ -255,7 +255,7 @@ doubleField = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$<name>$!name=$<name>$!type=number!:isReq:required!value=$<val>$
+%input#$name$!name=$name$!type=number!:isReq:required!value=$val$
 |]
     , fpWidget = \_name -> return ()
     }
@@ -270,7 +270,7 @@ dayField = FieldProfile
               . readMay
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$<name>$!name=$<name>$!type=date!:isReq:required!value=$<val>$
+%input#$name$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = const $ return ()
     }
@@ -287,7 +287,7 @@ jqueryDayField = dayField
               . readMay
     , fpRender = show . unJqueryDay
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$<name>$!name=$<name>$!type=date!:isReq:required!value=$<val>$
+%input#$name$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
@@ -328,7 +328,7 @@ timeField = FieldProfile
     { fpParse = parseTime
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
-%input#$<name>$!name=$<name>$!:isReq:required!value=$<val>$
+%input#$name$!name=$name$!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
         return ()
@@ -373,7 +373,7 @@ htmlField = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
     , fpHamlet = \name val _isReq -> [$hamlet|
-%textarea.html#$<name>$!name=$<name>$ $<val>$
+%textarea.html#$name$!name=$name$ $val$
 |]
     , fpWidget = const $ return ()
     }
@@ -390,7 +390,7 @@ nicHtmlField = FieldProfile
     { fpParse = Right . NicHtml . preEscapedString
     , fpRender = U.toString . renderHtml . unNicHtml
     , fpHamlet = \name val _isReq -> [$hamlet|
-%textarea.html#$<name>$!name=$<name>$ $<val>$
+%textarea.html#$name$!name=$name$ $val$
 |]
     , fpWidget = \name -> do
         addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"

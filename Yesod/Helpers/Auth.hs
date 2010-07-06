@@ -172,7 +172,7 @@ getOpenIdR = do
     message <- getMessage
     applyLayout "Log in via OpenID" mempty [$hamlet|
 $maybe message msg
-    %p.message $<msg>$
+    %p.message $msg$
 %form!method=get!action=@rtom.OpenIdForward@
     %label!for=openid OpenID: $
     %input#openid!type=text!name=openid
@@ -344,7 +344,7 @@ getEmailLoginR = do
     msg <- getMessage
     applyLayout "Login" mempty [$hamlet|
 $maybe msg ms
-    %p.message $<ms>$
+    %p.message $ms$
 %p Please log in to your account.
 %p
     %a!href=@toMaster.EmailRegisterR@ I don't have an account
@@ -399,7 +399,7 @@ getEmailPasswordR = do
     msg <- getMessage
     applyLayout "Set password" mempty [$hamlet|
 $maybe msg ms
-    %p.message $<ms>$
+    %p.message $ms$
 %h3 Set a new password
 %form!method=post!action=@toMaster.EmailPasswordR@
     %table

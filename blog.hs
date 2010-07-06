@@ -43,7 +43,7 @@ instance Yesod Blog where
 !!!
 %html
     %head
-        %title $<pageTitle.p>$
+        %title $pageTitle.p$
         ^pageHead.p^
         %style textarea.html{width:500px;height:200px}div.tooltip{font-size:80%;font-style:italic;color:#666}
     %body
@@ -101,7 +101,7 @@ getEntryR eid = do
         addBody [$hamlet|
 %h1 $entryTitle.entry$
 %h2 $show.unJqueryDay.entryPosted.entry$
-#content $<unNicHtml.entryContent.entry>$
+#content $unNicHtml.entryContent.entry$
 |]
 main = withSqlite "blog.db3" $ \conn -> do
     flip runSqlite conn $ initialize (undefined :: Entry)
