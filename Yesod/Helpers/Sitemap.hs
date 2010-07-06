@@ -61,11 +61,11 @@ template urls = [$hamlet|
             %priority $show.priority.url$
 |]
 
-sitemap :: [SitemapUrl (Routes master)] -> GHandler sub master RepXml
+sitemap :: [SitemapUrl (Route master)] -> GHandler sub master RepXml
 sitemap = fmap RepXml . hamletToContent . template
 
 -- | A basic robots file which just lists the "Sitemap: " line.
-robots :: Routes sub -- ^ sitemap url
+robots :: Route sub -- ^ sitemap url
        -> GHandler sub master RepPlain
 robots smurl = do
     tm <- getRouteToMaster

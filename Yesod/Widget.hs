@@ -30,7 +30,7 @@ import Data.Monoid
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State
 import Yesod.Hamlet (Hamlet, hamlet, PageContent (..), Html)
-import Yesod.Handler (Routes, GHandler)
+import Yesod.Handler (Route, GHandler)
 import Yesod.Yesod (Yesod, defaultLayout)
 import Yesod.Content (RepHtml (..))
 import Control.Applicative (Applicative)
@@ -66,12 +66,12 @@ newtype Body url = Body (Hamlet url)
     deriving Monoid
 
 newtype GWidget sub master a = GWidget (
-    WriterT (Body (Routes master)) (
+    WriterT (Body (Route master)) (
     WriterT (Last Title) (
-    WriterT (UniqueList (Script (Routes master))) (
-    WriterT (UniqueList (Stylesheet (Routes master))) (
-    WriterT (Style (Routes master)) (
-    WriterT (Head (Routes master)) (
+    WriterT (UniqueList (Script (Route master))) (
+    WriterT (UniqueList (Stylesheet (Route master))) (
+    WriterT (Style (Route master)) (
+    WriterT (Head (Route master)) (
     StateT Int (
     GHandler sub master
     ))))))) a)
@@ -84,10 +84,10 @@ type Widget y = GWidget y y
 setTitle :: Html () -> GWidget sub master ()
 setTitle = GWidget . lift . tell . Last . Just . Title
 
-addHead :: Hamlet (Routes master) -> GWidget sub master ()
+addHead :: Hamlet (Route master) -> GWidget sub master ()
 addHead = GWidget . lift . lift . lift . lift . lift . tell . Head
 
-addBody :: Hamlet (Routes master) -> GWidget sub master ()
+addBody :: Hamlet (Route master) -> GWidget sub master ()
 addBody = GWidget . tell . Body
 
 newIdent :: GWidget sub master String
@@ -97,30 +97,30 @@ newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ do
     put i'
     return $ "w" ++ show i'
 
-addStyle :: Hamlet (Routes master) -> GWidget sub master ()
+addStyle :: Hamlet (Route master) -> GWidget sub master ()
 addStyle = GWidget . lift . lift . lift . lift . tell . Style
 
-addStylesheet :: Routes master -> GWidget sub master ()
+addStylesheet :: Route master -> GWidget sub master ()
 addStylesheet = GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Local
 
 addStylesheetRemote :: String -> GWidget sub master ()
 addStylesheetRemote =
     GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Remote
 
-addScript :: Routes master -> GWidget sub master ()
+addScript :: Route master -> GWidget sub master ()
 addScript = GWidget . lift . lift . tell . toUnique . Script . Local
 
 addScriptRemote :: String -> GWidget sub master ()
 addScriptRemote =
     GWidget . lift . lift . tell . toUnique . Script . Remote
 
-applyLayoutW :: (Eq (Routes m), Yesod m)
+applyLayoutW :: (Eq (Route m), Yesod m)
              => GWidget sub m () -> GHandler sub m RepHtml
 applyLayoutW w = widgetToPageContent w >>= fmap RepHtml . defaultLayout
 
-widgetToPageContent :: Eq (Routes master)
+widgetToPageContent :: Eq (Route master)
                     => GWidget sub master ()
-                    -> GHandler sub master (PageContent (Routes master))
+                    -> GHandler sub master (PageContent (Route master))
 widgetToPageContent (GWidget w) = do
     w' <- flip evalStateT 0
         $ runWriterT $ runWriterT $ runWriterT $ runWriterT
@@ -148,14 +148,14 @@ $forall stylesheets s
     return $ PageContent title head'' body
 
 wrapWidget :: GWidget s m a
-           -> (Hamlet (Routes m) -> Hamlet (Routes m))
+           -> (Hamlet (Route m) -> Hamlet (Route m))
            -> GWidget s m a
 wrapWidget (GWidget w) wrap =
     GWidget $ mapWriterT (fmap go) w
   where
     go (a, Body h) = (a, Body $ wrap h)
 
-extractBody :: GWidget s m () -> GWidget s m (Hamlet (Routes m))
+extractBody :: GWidget s m () -> GWidget s m (Hamlet (Route m))
 extractBody (GWidget w) =
     GWidget $ mapWriterT (fmap go) w
   where

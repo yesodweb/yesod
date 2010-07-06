@@ -41,18 +41,18 @@ import Web.Routes.Site (Site)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
-class Eq (Routes y) => YesodSite y where
-    getSite :: Site (Routes y) (Method -> Maybe (Handler y ChooseRep))
+class Eq (Route y) => YesodSite y where
+    getSite :: Site (Route y) (Method -> Maybe (Handler y ChooseRep))
 type Method = String
 
 -- | Same as 'YesodSite', but for subsites. Once again, users should not need
 -- to deal with it directly, as the mkYesodSub creates instances appropriately.
-class Eq (Routes s) => YesodSubSite s y where
-    getSubSite :: Site (Routes s) (Method -> Maybe (GHandler s y ChooseRep))
+class Eq (Route s) => YesodSubSite s y where
+    getSubSite :: Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.
-class Eq (Routes a) => Yesod a where
+class Eq (Route a) => Yesod a where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --
@@ -79,7 +79,7 @@ class Eq (Routes a) => Yesod a where
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: PageContent (Routes a) -> GHandler sub a Content
+    defaultLayout :: PageContent (Route a) -> GHandler sub a Content
     defaultLayout p = hamletToContent [$hamlet|
 !!!
 %html
@@ -97,7 +97,7 @@ class Eq (Routes a) => Yesod a where
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
-    urlRenderOverride :: a -> Routes a -> Maybe String
+    urlRenderOverride :: a -> Route a -> Maybe String
     urlRenderOverride _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
@@ -105,14 +105,14 @@ class Eq (Routes a) => Yesod a where
     -- Return 'Nothing' is the request is authorized, 'Just' a message if
     -- unauthorized. If authentication is required, you should use a redirect;
     -- the Auth helper provides this functionality automatically.
-    isAuthorized :: Routes a -> GHandler s a AuthResult
+    isAuthorized :: Route a -> GHandler s a AuthResult
     isAuthorized _ = return Authorized
 
     -- | The default route for authentication.
     --
     -- Used in particular by 'isAuthorized', but library users can do whatever
     -- they want with it.
-    authRoute :: a -> Maybe (Routes a)
+    authRoute :: a -> Maybe (Route a)
     authRoute _ = Nothing
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
@@ -124,13 +124,13 @@ data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
 class YesodBreadcrumbs y where
     -- | Returns the title and the parent resource, if available. If you return
     -- a 'Nothing', then this is considered a top-level page.
-    breadcrumb :: Routes y -> GHandler sub y (String, Maybe (Routes y))
+    breadcrumb :: Route y -> GHandler sub y (String, Maybe (Route y))
 
 -- | Gets the title of the current page and the hierarchy of parent pages,
 -- along with their respective titles.
-breadcrumbs :: YesodBreadcrumbs y => GHandler sub y (String, [(Routes y, String)])
+breadcrumbs :: YesodBreadcrumbs y => GHandler sub y (String, [(Route y, String)])
 breadcrumbs = do
-    x' <- getRoute
+    x' <- getCurrentRoute
     tm <- getRouteToMaster
     let x = fmap tm x'
     case x of
@@ -148,8 +148,8 @@ breadcrumbs = do
 -- | Apply the default layout ('defaultLayout') to the given title and body.
 applyLayout :: Yesod master
             => String -- ^ title
-            -> Hamlet (Routes master) -- ^ head
-            -> Hamlet (Routes master) -- ^ body
+            -> Hamlet (Route master) -- ^ head
+            -> Hamlet (Route master) -- ^ body
             -> GHandler sub master RepHtml
 applyLayout t h b =
     RepHtml `fmap` defaultLayout PageContent
@@ -162,8 +162,8 @@ applyLayout t h b =
 -- the default layout for the HTML output ('defaultLayout').
 applyLayoutJson :: Yesod master
                 => String -- ^ title
-                -> Hamlet (Routes master) -- ^ head
-                -> Hamlet (Routes master) -- ^ body
+                -> Hamlet (Route master) -- ^ head
+                -> Hamlet (Route master) -- ^ body
                 -> Json
                 -> GHandler sub master RepHtmlJson
 applyLayoutJson t h html json = do
@@ -177,7 +177,7 @@ applyLayoutJson t h html json = do
 
 applyLayout' :: Yesod master
              => String -- ^ title
-             -> Hamlet (Routes master) -- ^ body
+             -> Hamlet (Route master) -- ^ body
              -> GHandler sub master ChooseRep
 applyLayout' s = fmap chooseRep . applyLayout s mempty
 
@@ -222,7 +222,7 @@ class YesodPersist y where
 --
 -- Built on top of 'isAuthorized'. This is useful for building page that only
 -- contain links to pages the user is allowed to see.
-maybeAuthorized :: Yesod a => Routes a -> GHandler s a (Maybe (Routes a))
+maybeAuthorized :: Yesod a => Route a -> GHandler s a (Maybe (Route a))
 maybeAuthorized r = do
     x <- isAuthorized r
     return $ if x == Authorized then Just r else Nothing

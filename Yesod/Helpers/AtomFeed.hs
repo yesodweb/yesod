@@ -29,7 +29,7 @@ newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
     chooseRep (RepAtom c) _ = return (typeAtom, c)
 
-atomFeed :: AtomFeed (Routes master) -> GHandler sub master RepAtom
+atomFeed :: AtomFeed (Route master) -> GHandler sub master RepAtom
 atomFeed = fmap RepAtom . hamletToContent . template
 
 data AtomFeed url = AtomFeed

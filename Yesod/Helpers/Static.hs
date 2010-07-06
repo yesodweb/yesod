@@ -27,7 +27,7 @@
 module Yesod.Helpers.Static
     ( -- * Subsite
       Static (..)
-    , StaticRoutes (..)
+    , StaticRoute (..)
       -- * Lookup files in filesystem
     , fileLookupDir
     , staticFiles
@@ -127,7 +127,7 @@ staticFiles fp = do
         f' <- lift f
         let sr = ConE $ mkName "StaticRoute"
         return
-            [ SigD name $ ConT ''Routes `AppT` ConT ''Static
+            [ SigD name $ ConT ''Route `AppT` ConT ''Static
             , FunD name
                 [ Clause [] (NormalB $ sr `AppE` f') []
                 ]

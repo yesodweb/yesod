@@ -22,7 +22,7 @@
 ---------------------------------------------------------
 module Yesod.Handler
     ( -- * Type families
-      Routes
+      Route
       -- * Handler monad
     , Handler
     , GHandler
@@ -30,7 +30,7 @@ module Yesod.Handler
     , getYesod
     , getYesodSub
     , getUrlRender
-    , getRoute
+    , getCurrentRoute
     , getRouteToMaster
       -- * Special responses
       -- ** Redirecting
@@ -96,20 +96,20 @@ import Numeric (showIntAtBase)
 import Data.Char (ord, chr)
 
 -- | The type-safe URLs associated with a site argument.
-type family Routes a
+type family Route a
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request
     , handlerSub :: sub
     , handlerMaster :: master
-    , handlerRoute :: Maybe (Routes sub)
-    , handlerRender :: (Routes master -> String)
-    , handlerToMaster :: Routes sub -> Routes master
+    , handlerRoute :: Maybe (Route sub)
+    , handlerRender :: (Route master -> String)
+    , handlerToMaster :: Route sub -> Route master
     }
 
-handlerSubData :: (Routes sub -> Routes master)
+handlerSubData :: (Route sub -> Route master)
                -> (master -> sub)
-               -> Routes sub
+               -> Route sub
                -> HandlerData oldSub master
                -> HandlerData sub master
 handlerSubData tm ts route hd = hd
@@ -120,9 +120,9 @@ handlerSubData tm ts route hd = hd
 
 -- | Used internally for promoting subsite handler functions to master site
 -- handler functions. Should not be needed by users.
-toMasterHandler :: (Routes sub -> Routes master)
+toMasterHandler :: (Route sub -> Route master)
                 -> (master -> sub)
-                -> Routes sub
+                -> Route sub
                 -> GHandler sub master a
                 -> Handler master a
 toMasterHandler tm ts route (GHandler h) =
@@ -181,17 +181,17 @@ getYesod :: GHandler sub master master
 getYesod = handlerMaster <$> GHandler ask
 
 -- | Get the URL rendering function.
-getUrlRender :: GHandler sub master (Routes master -> String)
+getUrlRender :: GHandler sub master (Route master -> String)
 getUrlRender = handlerRender <$> GHandler ask
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
-getRoute :: GHandler sub master (Maybe (Routes sub))
-getRoute = handlerRoute <$> GHandler ask
+getCurrentRoute :: GHandler sub master (Maybe (Route sub))
+getCurrentRoute = handlerRoute <$> GHandler ask
 
 -- | Get the function to promote a route for a subsite to a route for the
 -- master site.
-getRouteToMaster :: GHandler sub master (Routes sub -> Routes master)
+getRouteToMaster :: GHandler sub master (Route sub -> Route master)
 getRouteToMaster = handlerToMaster <$> GHandler ask
 
 modifySession :: [(String, String)] -> (String, Maybe String)
@@ -208,9 +208,9 @@ dropKeys k = filter $ \(x, _) -> x /= k
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
 runHandler :: HasReps c
            => GHandler sub master c
-           -> (Routes master -> String)
-           -> Maybe (Routes sub)
-           -> (Routes sub -> Routes master)
+           -> (Route master -> String)
+           -> Maybe (Route sub)
+           -> (Route sub -> Route master)
            -> master
            -> (master -> sub)
            -> YesodApp
@@ -260,11 +260,11 @@ safeEh er = YesodApp $ \_ _ _ -> do
     return (W.Status500, [], typePlain, toContent "Internal Server Error", [])
 
 -- | Redirect to the given route.
-redirect :: RedirectType -> Routes master -> GHandler sub master a
+redirect :: RedirectType -> Route master -> GHandler sub master a
 redirect rt url = redirectParams rt url []
 
 -- | Redirects to the given route with the associated query-string parameters.
-redirectParams :: RedirectType -> Routes master -> [(String, String)]
+redirectParams :: RedirectType -> Route master -> [(String, String)]
                -> GHandler sub master a
 redirectParams rt url params = do
     r <- getUrlRender
@@ -302,7 +302,7 @@ ultDestKey = "_ULT"
 --
 -- An ultimate destination is stored in the user session and can be loaded
 -- later by 'redirectUltDest'.
-setUltDest :: Routes master -> GHandler sub master ()
+setUltDest :: Route master -> GHandler sub master ()
 setUltDest dest = do
     render <- getUrlRender
     setUltDestString $ render dest
@@ -317,7 +317,7 @@ setUltDestString = setSession ultDestKey
 -- nothing.
 setUltDest' :: GHandler sub master ()
 setUltDest' = do
-    route <- getRoute
+    route <- getCurrentRoute
     tm <- getRouteToMaster
     maybe (return ()) setUltDest $ tm <$> route
 
@@ -326,7 +326,7 @@ setUltDest' = do
 --
 -- The ultimate destination is set with 'setUltDest'.
 redirectUltDest :: RedirectType
-                -> Routes master -- ^ default destination if nothing in session
+                -> Route master -- ^ default destination if nothing in session
                 -> GHandler sub master ()
 redirectUltDest rt def = do
     mdest <- lookupSession ultDestKey

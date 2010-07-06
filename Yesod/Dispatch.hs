@@ -141,9 +141,9 @@ mkYesodGeneral name args clazzes isSub res = do
                  $ map (\x -> (x, [])) ("master" : args) ++ clazzes
     th <- mapM (thResourceFromResource arg) res -- FIXME now we cannot have multi-nested subsites
     w' <- createRoutes th
-    let routesName = mkName $ name ++ "Routes"
+    let routesName = mkName $ name ++ "Route"
     let w = DataD [] routesName [] w' [''Show, ''Read, ''Eq]
-    let x = TySynInstD ''Routes [arg] $ ConT routesName
+    let x = TySynInstD ''Route [arg] $ ConT routesName
 
     parse' <- createParse th
     parse'' <- newName "parse"
@@ -189,7 +189,7 @@ thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
                      (ConT ''GHandler `AppT` stype' `AppT` master `AppT`
                       ConT ''ChooseRep)
         let typ = ConT ''Site `AppT`
-                  (ConT ''Routes `AppT` stype') `AppT`
+                  (ConT ''Route `AppT` stype') `AppT`
                   (ArrowT `AppT` ConT ''String `AppT` inside)
         let gss' = gss `SigE` typ
         parse' <- [|parsePathSegments|]
@@ -199,7 +199,7 @@ thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
         dispatch' <- [|flip handleSite (error "Cannot use subsite render function")|]
         let dispatch = dispatch' `AppE` gss'
         return (n, SubSite
-            { ssType = ConT ''Routes `AppT` stype'
+            { ssType = ConT ''Route `AppT` stype'
             , ssParse = parse
             , ssRender = render
             , ssDispatch = dispatch

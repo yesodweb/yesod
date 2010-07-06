@@ -22,7 +22,7 @@
 module Yesod.Helpers.Auth
     ( -- * Subsite
       Auth (..)
-    , AuthRoutes (..)
+    , AuthRoute (..)
       -- * Settings
     , YesodAuth (..)
     , Creds (..)
@@ -55,10 +55,10 @@ import Data.Object
 class Yesod master => YesodAuth master where
     -- | Default destination on successful login or logout, if no other
     -- destination exists.
-    defaultDest :: master -> Routes master
+    defaultDest :: master -> Route master
 
     -- | Default page to redirect user to for logging in.
-    defaultLoginRoute :: master -> Routes master
+    defaultLoginRoute :: master -> Route master
 
     -- | Callback for a successful login.
     --

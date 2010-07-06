@@ -224,7 +224,7 @@ optionalFieldHelper (FieldProfile parse render mkXml w) label tooltip orig' =
 data FieldProfile sub y a = FieldProfile
     { fpParse :: String -> Either String a
     , fpRender :: a -> String
-    , fpHamlet :: Html () -> Html () -> Bool -> Hamlet (Routes y)
+    , fpHamlet :: Html () -> Html () -> Bool -> Hamlet (Route y)
     , fpWidget :: String -> GWidget sub y ()
     }
 
