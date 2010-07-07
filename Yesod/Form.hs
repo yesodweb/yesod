@@ -217,7 +217,7 @@ optionalFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig
     name <- maybe newFormIdent return name'
     let (res, val) =
             if null env
-                then (FormMissing, maybe "" render orig)
+                then (FormSuccess Nothing, maybe "" render orig)
                 else case lookup name env of
                         Nothing -> (FormSuccess Nothing, "")
                         Just "" -> (FormSuccess Nothing, "")
