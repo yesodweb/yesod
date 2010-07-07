@@ -40,15 +40,15 @@ handleFormR = do
         <$> stringField (string "My Field") (string "Some tooltip info") Nothing
         <*> stringField (string "Another field") (string "") (Just "some default text")
         <*> intField (string "A number field") (string "some nums") (Just 5)
-        <*> dayField (string "A day field") (string "") Nothing
+        <*> jqueryDayField (string "A day field") (string "") Nothing
         <*> timeField (string "A time field") (string "") Nothing
         <*> boolField (string "A checkbox") (string "") (Just False)
         <*> jqueryAutocompleteField AutoCompleteR
             (string "Autocomplete") (string "Try it!") Nothing
-        <*> htmlField (string "HTML") (string "")
-                (Just $ string "You can put rich text here")
+        <*> nicHtmlField (string "HTML") (string "")
+                (Just $ NicHtml $ string "You can put rich text here")
     let mhtml = case res of
-                    FormSuccess (_, _, _, _, _, _, _, x) -> Just x
+                    FormSuccess (_, _, _, _, _, _, _, NicHtml x) -> Just x
                     _ -> Nothing
     applyLayoutW $ do
         addStyle [$hamlet|\.tooltip{color:#666;font-style:italic}|]

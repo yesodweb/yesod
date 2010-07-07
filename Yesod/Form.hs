@@ -50,14 +50,19 @@ module Yesod.Form
     , maybeDoubleField
     , dayField
     , maybeDayField
+    , jqueryDayField
+    , maybeJqueryDayField
     , timeField
     , maybeTimeField
     , htmlField
     , maybeHtmlField
+    , nicHtmlField
+    , maybeNicHtmlField
     , selectField
     , maybeSelectField
     , boolField
     , jqueryAutocompleteField
+    , maybeJqueryAutocompleteField
       -- * Pre-built inputs
     , stringInput
     , maybeStringInput
@@ -322,6 +327,9 @@ instance ToFormField Day where
 instance ToFormField (Maybe Day) where
     toFormField = optionalFieldHelper dayFieldProfile
 
+jqueryDayField = requiredFieldHelper jqueryDayFieldProfile
+maybeJqueryDayField = optionalFieldHelper jqueryDayFieldProfile
+
 jqueryDayFieldProfile :: FieldProfile sub y JqueryDay
 jqueryDayFieldProfile = FieldProfile
     { fpParse = maybe
@@ -433,6 +441,9 @@ instance ToFormField (Maybe (Html ())) where
 
 newtype NicHtml = NicHtml { unNicHtml :: Html () }
     deriving PersistField
+
+nicHtmlField = requiredFieldHelper nicHtmlFieldProfile
+maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
 
 nicHtmlFieldProfile :: FieldProfile sub y NicHtml
 nicHtmlFieldProfile = FieldProfile
@@ -680,6 +691,8 @@ toLabel (x:rest) = toUpper x : go rest
 
 jqueryAutocompleteField src = requiredFieldHelper
                             $ jqueryAutocompleteFieldProfile src
+maybeJqueryAutocompleteField src = optionalFieldHelper
+                                 $ jqueryAutocompleteFieldProfile src
 
 jqueryAutocompleteFieldProfile :: Route y -> FieldProfile sub y String
 jqueryAutocompleteFieldProfile src = FieldProfile
