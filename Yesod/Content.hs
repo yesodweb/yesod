@@ -8,7 +8,7 @@
 
 module Yesod.Content
     ( -- * Content
-      Content (..)
+      Content
     , emptyContent
     , ToContent (..)
       -- * Mime types
@@ -56,7 +56,6 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 
 import qualified Network.Wai as W
-import qualified Network.Wai.Enumerator as WE
 
 import Data.Time
 import System.Locale
@@ -72,22 +71,11 @@ import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.HUnit hiding (Test)
 #endif
 
--- | There are two different methods available for providing content in the
--- response: via files and enumerators. The former allows server to use
--- optimizations (usually the sendfile system call) for serving static files.
--- The latter is a space-efficient approach to content.
---
--- It can be tedious to write enumerators; often times, you will be well served
--- to use 'toContent'.
-data Content = ContentFile FilePath
-             | ContentEnum (forall a.
-                             (a -> B.ByteString -> IO (Either a a))
-                          -> a
-                          -> IO (Either a a))
+type Content = W.ResponseBody
 
 -- | Zero-length enumerator.
 emptyContent :: Content
-emptyContent = ContentEnum $ \_ -> return . Right
+emptyContent = W.ResponseLBS L.empty
 
 -- | Anything which can be converted into 'Content'. Most of the time, you will
 -- want to use the 'ContentEnum' constructor. An easier approach will be to use
@@ -97,24 +85,21 @@ class ToContent a where
     toContent :: a -> Content
 
 instance ToContent B.ByteString where
-    toContent bs = ContentEnum $ \f a -> f a bs
+    toContent = W.ResponseLBS . L.fromChunks . return
 instance ToContent L.ByteString where
-    toContent = swapEnum . WE.fromLBS
+    toContent = W.ResponseLBS
 instance ToContent T.Text where
     toContent = toContent . Data.Text.Encoding.encodeUtf8
 instance ToContent Text where
-    toContent = toContent . Data.Text.Lazy.Encoding.encodeUtf8
+    toContent = W.ResponseLBS . Data.Text.Lazy.Encoding.encodeUtf8
 instance ToContent String where
-    toContent = toContent . Data.ByteString.Lazy.UTF8.fromString
+    toContent = W.ResponseLBS . Data.ByteString.Lazy.UTF8.fromString
 
 -- | A function which gives targetted representations of content based on the
 -- content-types the user accepts.
 type ChooseRep =
     [ContentType] -- ^ list of content-types user accepts, ordered by preference
  -> IO (ContentType, Content)
-
-swapEnum :: W.Enumerator -> Content
-swapEnum (W.Enumerator e) = ContentEnum e
 
 -- | Any type which can be converted to representations.
 class HasReps a where

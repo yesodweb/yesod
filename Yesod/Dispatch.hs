@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yesod.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
@@ -64,6 +65,7 @@ import Data.Serialize
 import qualified Data.Serialize as Ser
 import Network.Wai.Parse hiding (FileInfo)
 import qualified Network.Wai.Parse as NWP
+import Data.String (fromString)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -241,11 +243,11 @@ toWaiApp' y segments env = do
     let exp' = getExpires $ clientSessionDuration y
     let host = W.remoteHost env
     let session' = fromMaybe [] $ do
-            raw <- lookup W.Cookie $ W.requestHeaders env
+            raw <- lookup "Cookie" $ W.requestHeaders env
             val <- lookup (B.pack sessionName) $ parseCookies raw
             decodeSession key' now host val
     let site = getSite
-        method = B.unpack $ W.methodToBS $ W.requestMethod env
+        method = B.unpack $ W.requestMethod env
         types = httpAccept env
         pathSegments = filter (not . null) segments
         eurl = parsePathSegments site pathSegments
@@ -281,10 +283,8 @@ toWaiApp' y segments env = do
                                                   (S.toString sessionVal)
             : hs
         hs'' = map (headerToPair getExpires) hs'
-        hs''' = (W.ContentType, S.fromString ct) : hs''
-    return $ W.Response s hs''' $ case c of
-                                    ContentFile fp -> Left fp
-                                    ContentEnum e -> Right $ W.Enumerator e
+        hs''' = ("Content-Type", S.fromString ct) : hs''
+    return $ W.Response s hs''' c
 
 -- | Fully render a route to an absolute URL. Since Yesod does this for you
 -- internally, you will rarely need access to this. However, if you need to
@@ -303,7 +303,7 @@ httpAccept :: W.Request -> [ContentType]
 httpAccept = map B.unpack
            . parseHttpAccept
            . fromMaybe B.empty
-           . lookup W.Accept
+           . lookup "Accept"
            . W.requestHeaders
 
 -- | Runs an application with CGI if CGI variables are present (namely
@@ -347,10 +347,10 @@ parseWaiRequest :: W.Request
 parseWaiRequest env session' = do
     let gets' = map (S.toString *** S.toString)
               $ parseQueryString $ W.queryString env
-    let reqCookie = fromMaybe B.empty $ lookup W.Cookie
+    let reqCookie = fromMaybe B.empty $ lookup "Cookie"
                   $ W.requestHeaders env
         cookies' = map (S.toString *** S.toString) $ parseCookies reqCookie
-        acceptLang = lookup W.AcceptLanguage $ W.requestHeaders env
+        acceptLang = lookup "Accept-Language" $ W.requestHeaders env
         langs = map S.toString $ maybe [] parseHttpAccept acceptLang
         langs' = case lookup langKey session' of
                     Nothing -> langs
@@ -389,14 +389,14 @@ headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
              -> (W.ResponseHeader, B.ByteString)
 headerToPair getExpires (AddCookie minutes key value) =
     let expires = getExpires minutes
-     in (W.SetCookie, S.fromString
+     in ("Set-Cookie", S.fromString
                             $ key ++ "=" ++ value ++"; path=/; expires="
                               ++ formatW3 expires)
 headerToPair _ (DeleteCookie key) =
-    (W.SetCookie, S.fromString $
+    ("Set-Cookie", S.fromString $
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
 headerToPair _ (Header key value) =
-    (W.responseHeaderFromBS $ S.fromString key, S.fromString value)
+    (fromString key, S.fromString value)
 
 encodeSession :: CS.Key
               -> UTCTime -- ^ expire time

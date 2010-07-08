@@ -240,11 +240,11 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             let hs' = headers hs
             return (getStatus e, hs', ct, c, sess)
     let sendFile' ct fp =
-            return (W.Status200, headers [], ct, ContentFile fp, finalSession)
+            return (W.status200, headers [], ct, W.ResponseFile fp, finalSession)
     case contents of
         HCContent a -> do
             (ct, c) <- chooseRep a cts
-            return (W.Status200, headers [], ct, c, finalSession)
+            return (W.status200, headers [], ct, c, finalSession)
         HCError e -> handleError e
         HCRedirect rt loc -> do
             let hs = Header "Location" loc : headers []
@@ -257,7 +257,7 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return (W.Status500, [], typePlain, toContent "Internal Server Error", [])
+    return (W.status500, [], typePlain, toContent "Internal Server Error", [])
 
 -- | Redirect to the given route.
 redirect :: RedirectType -> Route master -> GHandler sub master a
@@ -373,7 +373,7 @@ notFound = failure NotFound
 badMethod :: (RequestReader m, Failure ErrorResponse m) => m a
 badMethod = do
     w <- waiRequest
-    failure $ BadMethod $ toString $ W.methodToBS $ W.requestMethod w
+    failure $ BadMethod $ toString $ W.requestMethod w
 
 -- | Return a 403 permission denied page.
 permissionDenied :: Failure ErrorResponse m => String -> m a
@@ -422,16 +422,16 @@ addHeader :: Header -> GHandler sub master ()
 addHeader = GHandler . lift . lift . tell . (:)
 
 getStatus :: ErrorResponse -> W.Status
-getStatus NotFound = W.Status404
-getStatus (InternalError _) = W.Status500
-getStatus (InvalidArgs _) = W.Status400
-getStatus (PermissionDenied _) = W.Status403
-getStatus (BadMethod _) = W.Status405
+getStatus NotFound = W.status404
+getStatus (InternalError _) = W.status500
+getStatus (InvalidArgs _) = W.status400
+getStatus (PermissionDenied _) = W.status403
+getStatus (BadMethod _) = W.status405
 
 getRedirectStatus :: RedirectType -> W.Status
-getRedirectStatus RedirectPermanent = W.Status301
-getRedirectStatus RedirectTemporary = W.Status302
-getRedirectStatus RedirectSeeOther = W.Status303
+getRedirectStatus RedirectPermanent = W.status301
+getRedirectStatus RedirectTemporary = W.status302
+getRedirectStatus RedirectSeeOther = W.status303
 
 -- | Different types of redirects.
 data RedirectType = RedirectPermanent
