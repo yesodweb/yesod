@@ -16,6 +16,7 @@ module Yesod.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , basicHandler
+    , basicHandler'
       -- * Utilities
     , fullRender
 #if TEST
@@ -307,13 +308,29 @@ httpAccept = map B.unpack
 
 -- | Runs an application with CGI if CGI variables are present (namely
 -- PATH_INFO); otherwise uses SimpleServer.
-basicHandler :: Int -- ^ port number
-             -> W.Application -> IO ()
-basicHandler port app = do
+basicHandler :: (Yesod y, YesodSite y)
+             => Int -- ^ port number
+             -> y
+             -> IO ()
+basicHandler port y = basicHandler' port (Just "localhost") y
+
+
+-- | Same as 'basicHandler', but allows you to specify the hostname to display
+-- to the user. If 'Nothing' is provided, then no output is produced.
+basicHandler' :: (Yesod y, YesodSite y)
+              => Int -- ^ port number
+              -> Maybe String -- ^ host name, 'Nothing' to show nothing
+              -> y
+              -> IO ()
+basicHandler' port mhost y = do
+    app <- toWaiApp y
     vars <- getEnvironment
     case lookup "PATH_INFO" vars of
         Nothing -> do
-            putStrLn $ "http://localhost:" ++ show port ++ "/"
+            case mhost of
+                Nothing -> return ()
+                Just h -> putStrLn $ concat
+                    ["http://", h, ":", show port, "/"]
             SS.run port app
         Just _ -> CGI.run app
 

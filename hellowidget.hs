@@ -64,7 +64,7 @@ handleFormR = do
 |]
         setTitle $ string "Form"
 
-main = toWaiApp (HW $ fileLookupDir "static" typeByExt) >>= basicHandler 3000
+main = basicHandler 3000 $ HW $ fileLookupDir "static" typeByExt
 
 getAutoCompleteR :: Handler HW RepJson
 getAutoCompleteR = do
