@@ -20,6 +20,7 @@ module Yesod.Widget
     , addScriptRemote
     , addHead
     , addBody
+    , addJavaScript
       -- * Manipulating
     , wrapWidget
     , extractBody
@@ -65,6 +66,8 @@ newtype Head url = Head (Hamlet url)
     deriving Monoid
 newtype Body url = Body (Hamlet url)
     deriving Monoid
+newtype JavaScript url = JavaScript (Hamlet url)
+    deriving Monoid
 
 newtype GWidget sub master a = GWidget (
     WriterT (Body (Route master)) (
@@ -72,10 +75,11 @@ newtype GWidget sub master a = GWidget (
     WriterT (UniqueList (Script (Route master))) (
     WriterT (UniqueList (Stylesheet (Route master))) (
     WriterT (Style (Route master)) (
+    WriterT (JavaScript (Route master)) (
     WriterT (Head (Route master)) (
     StateT Int (
     GHandler sub master
-    ))))))) a)
+    )))))))) a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadCatchIO)
 instance Monoid (GWidget sub master ()) where
     mempty = return ()
@@ -86,13 +90,13 @@ setTitle :: Html () -> GWidget sub master ()
 setTitle = GWidget . lift . tell . Last . Just . Title
 
 addHead :: Hamlet (Route master) -> GWidget sub master ()
-addHead = GWidget . lift . lift . lift . lift . lift . tell . Head
+addHead = GWidget . lift . lift . lift . lift . lift . lift . tell . Head
 
 addBody :: Hamlet (Route master) -> GWidget sub master ()
 addBody = GWidget . tell . Body
 
 newIdent :: GWidget sub master String
-newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ do
+newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
     i <- get
     let i' = i + 1
     put i'
@@ -115,6 +119,9 @@ addScriptRemote :: String -> GWidget sub master ()
 addScriptRemote =
     GWidget . lift . lift . tell . toUnique . Script . Remote
 
+addJavaScript :: Hamlet (Route master) -> GWidget sub master ()
+addJavaScript = GWidget . lift . lift . lift . lift . lift. tell . JavaScript
+
 applyLayoutW :: (Eq (Route m), Yesod m)
              => GWidget sub m () -> GHandler sub m RepHtml
 applyLayoutW w = widgetToPageContent w >>= fmap RepHtml . defaultLayout
@@ -125,13 +132,14 @@ widgetToPageContent :: Eq (Route master)
 widgetToPageContent (GWidget w) = do
     w' <- flip evalStateT 0
         $ runWriterT $ runWriterT $ runWriterT $ runWriterT
-        $ runWriterT $ runWriterT w
-    let (((((((),
+        $ runWriterT $ runWriterT $ runWriterT w
+    let ((((((((),
          Body body),
          Last mTitle),
          scripts'),
          stylesheets'),
          Style style),
+         JavaScript jscript),
          Head head') = w'
     let title = maybe mempty unTitle mTitle
     let scripts = map (locationToHamlet . unScript) $ runUniqueList scripts'
@@ -142,8 +150,8 @@ $forall scripts s
     %script!src=^s^
 $forall stylesheets s
     %link!rel=stylesheet!href=^s^
-%style
-    ^style^
+%style ^style^
+%script ^jscript^
 ^head'^
 |]
     return $ PageContent title head'' body
