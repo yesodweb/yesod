@@ -45,9 +45,9 @@ handleFormR = do
         <*> jqueryAutocompleteField AutoCompleteR
             (string "Autocomplete") (string "Try it!") Nothing
         <*> nicHtmlField (string "HTML") (string "")
-                (Just $ NicHtml $ string "You can put rich text here")
+                (Just $ string "You can put rich text here")
     let mhtml = case res of
-                    FormSuccess (_, _, _, _, _, _, _, NicHtml x) -> Just x
+                    FormSuccess (_, _, _, _, _, _, _, x) -> Just x
                     _ -> Nothing
     applyLayoutW $ do
         addStyle [$hamlet|\.tooltip{color:#666;font-style:italic}|]

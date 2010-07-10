@@ -375,22 +375,25 @@ instance ToFormField Day where
 instance ToFormField (Maybe Day) where
     toFormField = maybeDayField
 
+jqueryDayField :: Html () -> Html () -> FormletField sub y Day
 jqueryDayField l t = requiredFieldHelper jqueryDayFieldProfile
     { fpLabel = l
     , fpTooltip = t
     }
+
+maybeJqueryDayField :: Html () -> Html () -> FormletField sub y (Maybe Day)
 maybeJqueryDayField l t = optionalFieldHelper jqueryDayFieldProfile
     { fpLabel = l
     , fpTooltip = t
     }
 
-jqueryDayFieldProfile :: FieldProfile sub y JqueryDay
+jqueryDayFieldProfile :: FieldProfile sub y Day
 jqueryDayFieldProfile = FieldProfile
     { fpParse = maybe
                   (Left "Invalid day, must be in YYYY-MM-DD format")
-                  (Right . JqueryDay)
+                  Right
               . readMay
-    , fpRender = show . unJqueryDay
+    , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
 %input#$name$!name=$name$!type=date!:isReq:required!value=$val$
 |]
@@ -409,9 +412,10 @@ jqueryDayFieldProfile = FieldProfile
 newtype JqueryDay = JqueryDay { unJqueryDay :: Day }
     deriving PersistField
 instance ToFormField JqueryDay where
-    toFormField = jqueryDayField
+    toFormField = applyFormTypeWrappers JqueryDay unJqueryDay jqueryDayField
 instance ToFormField (Maybe JqueryDay) where
-    toFormField = maybeJqueryDayField
+    toFormField = applyFormTypeWrappers (fmap JqueryDay) (fmap unJqueryDay)
+                  maybeJqueryDayField
 
 parseTime :: String -> Either String TimeOfDay
 parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
@@ -517,19 +521,22 @@ instance ToFormField (Maybe (Html ())) where
 newtype NicHtml = NicHtml { unNicHtml :: Html () }
     deriving PersistField
 
+nicHtmlField :: Html () -> Html () -> FormletField sub y (Html ())
 nicHtmlField label tooltip = requiredFieldHelper nicHtmlFieldProfile
     { fpLabel = label
     , fpTooltip = tooltip
     }
+
+maybeNicHtmlField :: Html () -> Html () -> FormletField sub y (Maybe (Html ()))
 maybeNicHtmlField label tooltip = optionalFieldHelper nicHtmlFieldProfile
     { fpLabel = label
     , fpTooltip = tooltip
     }
 
-nicHtmlFieldProfile :: FieldProfile sub y NicHtml
+nicHtmlFieldProfile :: FieldProfile sub y (Html ())
 nicHtmlFieldProfile = FieldProfile
-    { fpParse = Right . NicHtml . preEscapedString
-    , fpRender = U.toString . renderHtml . unNicHtml
+    { fpParse = Right . preEscapedString
+    , fpRender = U.toString . renderHtml
     , fpHamlet = \name val _isReq -> [$hamlet|
 %textarea.html#$name$!name=$name$ $val$
 |]
@@ -541,9 +548,16 @@ nicHtmlFieldProfile = FieldProfile
     , fpTooltip = mempty
     }
 instance ToFormField NicHtml where
-    toFormField = nicHtmlField
+    toFormField = applyFormTypeWrappers NicHtml unNicHtml nicHtmlField
 instance ToFormField (Maybe NicHtml) where
-    toFormField = maybeNicHtmlField
+    toFormField = applyFormTypeWrappers (fmap NicHtml) (fmap unNicHtml)
+                  maybeNicHtmlField
+
+applyFormTypeWrappers :: (a -> b) -> (b -> a)
+                      -> (f -> g -> FormletField s y a)
+                      -> (f -> g -> FormletField s y b)
+applyFormTypeWrappers wrap unwrap field l t orig =
+    fmap wrap $ field l t $ fmap unwrap orig
 
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of
@@ -765,11 +779,16 @@ toLabel (x:rest) = toUpper x : go rest
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
 
+jqueryAutocompleteField ::
+    Route y -> Html () -> Html () -> FormletField sub y String
 jqueryAutocompleteField src l t =
     requiredFieldHelper $ (jqueryAutocompleteFieldProfile src)
         { fpLabel = l
         , fpTooltip = t
         }
+
+maybeJqueryAutocompleteField ::
+    Route y -> Html () -> Html () -> FormletField sub y (Maybe String)
 maybeJqueryAutocompleteField src l t =
     optionalFieldHelper $ (jqueryAutocompleteFieldProfile src)
         { fpLabel = l

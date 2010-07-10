@@ -265,9 +265,9 @@ toWaiApp' y segments env = do
                         case authRoute y of
                             Nothing ->
                                 permissionDenied "Authentication required"
-                            Just url -> do
+                            Just url' -> do
                                 setUltDest'
-                                redirect RedirectTemporary url
+                                redirect RedirectTemporary url'
                     Unauthorized s -> permissionDenied s
                 case handleSite site render url method of
                     Nothing -> errorHandler $ BadMethod method
