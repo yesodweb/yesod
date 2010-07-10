@@ -398,7 +398,7 @@ jqueryDayFieldProfile = FieldProfile
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
         addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
-        addHead [$hamlet|%script $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})})|]
+        addJavaScript [$hamlet|$$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});|]
     , fpName = Nothing
     , fpLabel = mempty
     , fpTooltip = mempty
@@ -535,7 +535,7 @@ nicHtmlFieldProfile = FieldProfile
 |]
     , fpWidget = \name -> do
         addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"
-        addHead [$hamlet|%script bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")})|]
+        addJavaScript [$hamlet|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")});|]
     , fpName = Nothing
     , fpLabel = mempty
     , fpTooltip = mempty
@@ -787,7 +787,7 @@ jqueryAutocompleteFieldProfile src = FieldProfile
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
         addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
         addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
-        addHead [$hamlet|%script $$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});|]
+        addJavaScript [$hamlet|$$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});|]
     , fpName = Nothing
     , fpLabel = mempty
     , fpTooltip = mempty

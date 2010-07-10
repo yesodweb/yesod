@@ -60,13 +60,13 @@ newtype Script url = Script { unScript :: Location url }
 newtype Stylesheet url = Stylesheet { unStylesheet :: Location url }
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html () }
-newtype Style url = Style (Hamlet url)
+newtype Style url = Style (Maybe (Hamlet url))
     deriving Monoid
 newtype Head url = Head (Hamlet url)
     deriving Monoid
 newtype Body url = Body (Hamlet url)
     deriving Monoid
-newtype JavaScript url = JavaScript (Hamlet url)
+newtype JavaScript url = JavaScript (Maybe (Hamlet url))
     deriving Monoid
 
 newtype GWidget sub master a = GWidget (
@@ -103,7 +103,7 @@ newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
     return $ "w" ++ show i'
 
 addStyle :: Hamlet (Route master) -> GWidget sub master ()
-addStyle = GWidget . lift . lift . lift . lift . tell . Style
+addStyle = GWidget . lift . lift . lift . lift . tell . Style . Just
 
 addStylesheet :: Route master -> GWidget sub master ()
 addStylesheet = GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Local
@@ -120,7 +120,8 @@ addScriptRemote =
     GWidget . lift . lift . tell . toUnique . Script . Remote
 
 addJavaScript :: Hamlet (Route master) -> GWidget sub master ()
-addJavaScript = GWidget . lift . lift . lift . lift . lift. tell . JavaScript
+addJavaScript = GWidget . lift . lift . lift . lift . lift. tell
+              . JavaScript . Just
 
 applyLayoutW :: (Eq (Route m), Yesod m)
              => GWidget sub m () -> GHandler sub m RepHtml
@@ -150,8 +151,10 @@ $forall scripts s
     %script!src=^s^
 $forall stylesheets s
     %link!rel=stylesheet!href=^s^
-%style ^style^
-%script ^jscript^
+$maybe style s
+    %style ^s^
+$maybe jscript j
+    %script ^j^
 ^head'^
 |]
     return $ PageContent title head'' body

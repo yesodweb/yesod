@@ -34,7 +34,6 @@ getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
 |]
     addHead [$hamlet|%meta!keywords=haskell|]
 
--- FIXME add coolness to day and html below
 handleFormR = do
     (res, form, enctype) <- runFormPost $ (,,,,,,,)
         <$> stringField (string "My Field") (string "Some tooltip info") Nothing
@@ -52,6 +51,7 @@ handleFormR = do
                     _ -> Nothing
     applyLayoutW $ do
         addStyle [$hamlet|\.tooltip{color:#666;font-style:italic}|]
+        addStyle [$hamlet|textarea.html{width:300px;height:150px};|]
         wrapWidget (fieldsToTable form) $ \h -> [$hamlet|
 %form!method=post!enctype=$show.enctype$
     %table
