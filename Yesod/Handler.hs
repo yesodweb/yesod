@@ -338,6 +338,9 @@ msgKey = "_MSG"
 
 -- | Sets a message in the user's session.
 --
+-- The message set here will not be visible within the current request;
+-- instead, it will only appear in the next request.
+--
 -- See 'getMessage'.
 setMessage :: Html () -> GHandler sub master ()
 setMessage = setSession msgKey . L.toString . renderHtml
