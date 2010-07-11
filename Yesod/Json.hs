@@ -10,6 +10,7 @@ module Yesod.Json
     , jsonScalar
     , jsonList
     , jsonMap
+    , jsonRaw
 #if TEST
     , testSuite
 #endif
@@ -113,6 +114,12 @@ jsonMap (x:xs) = mconcat
         , Json $ preEscapedString ":"
         , v
         ]
+
+-- | Outputs raw JSON data without performing any escaping. Use with caution:
+-- this is the only function in this module that allows you to create broken
+-- JSON documents.
+jsonRaw :: S.ByteString -> Json
+jsonRaw bs = Json $ unsafeByteString bs
 
 #if TEST
 
