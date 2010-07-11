@@ -35,7 +35,7 @@ getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
     addHead [$hamlet|%meta!keywords=haskell|]
 
 handleFormR = do
-    (res, form, enctype) <- runFormPost $ (,,,,,,,)
+    (res, form, enctype) <- runFormPost $ (,,,,,,,,)
         <$> stringField (string "My Field") (string "Some tooltip info") Nothing
         <*> stringField (string "Another field") (string "") (Just "some default text")
         <*> intField (string "A number field") (string "some nums") (Just 5)
@@ -46,8 +46,9 @@ handleFormR = do
             (string "Autocomplete") (string "Try it!") Nothing
         <*> nicHtmlField (string "HTML") (string "")
                 (Just $ string "You can put rich text here")
+        <*> maybeEmailField (string "An e-mail addres") mempty Nothing
     let mhtml = case res of
-                    FormSuccess (_, _, _, _, _, _, _, x) -> Just x
+                    FormSuccess (_, _, _, _, _, _, _, x, _) -> Just x
                     _ -> Nothing
     applyLayoutW $ do
         addStyle [$hamlet|\.tooltip{color:#666;font-style:italic}|]

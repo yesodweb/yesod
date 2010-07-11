@@ -98,6 +98,7 @@ import Data.Int (Int64)
 import qualified Data.ByteString.Lazy.UTF8 as U
 import Yesod.Widget
 import Control.Arrow ((&&&))
+import qualified Text.Email.Validate as Email
 
 data FormResult a = FormMissing
                   | FormFailure [String]
@@ -820,7 +821,9 @@ jqueryAutocompleteFieldProfile src = FieldProfile
 
 emailFieldProfile :: FieldProfile s y String
 emailFieldProfile = FieldProfile
-    { fpParse = Right -- FIXME validation
+    { fpParse = \s -> if Email.isValid s
+                        then Right s
+                        else Left "Invalid e-mail address"
     , fpRender = id
     , fpHamlet = \name val isReq -> [$hamlet|
 %input#$name$!name=$name$!type=email!:isReq:required!value=$val$
