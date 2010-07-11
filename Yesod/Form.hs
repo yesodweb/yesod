@@ -44,6 +44,7 @@ module Yesod.Form
     , jqueryDayFieldProfile
     , timeFieldProfile
     , htmlFieldProfile
+    , emailFieldProfile
       -- * Pre-built fields
     , stringField
     , maybeStringField
@@ -66,12 +67,15 @@ module Yesod.Form
     , boolField
     , jqueryAutocompleteField
     , maybeJqueryAutocompleteField
+    , emailField
+    , maybeEmailField
       -- * Pre-built inputs
     , stringInput
     , maybeStringInput
     , boolInput
     , dayInput
     , maybeDayInput
+    , emailInput
       -- * Template Haskell
     , share2
     , mkToForm
@@ -495,7 +499,7 @@ htmlField label tooltip = requiredFieldHelper htmlFieldProfile
     , fpTooltip = tooltip
     }
 
-maybeHtmlField :: Html () -> Html () -> FormletField sub y (Maybe (Html ())) -- FIXME make label and tooltip Strings instead
+maybeHtmlField :: Html () -> Html () -> FormletField sub y (Maybe (Html ()))
 maybeHtmlField label tooltip = optionalFieldHelper htmlFieldProfile
     { fpLabel = label
     , fpTooltip = tooltip
@@ -658,7 +662,9 @@ maybeStringInput n =
 
 boolInput :: String -> FormInput sub master Bool
 boolInput n = GForm $ \env _ -> return
-    (FormSuccess $ isJust $ lookup n env, mempty, UrlEncoded) -- FIXME
+    (FormSuccess $ isJust $ lookup n env, return $ addBody [$hamlet|
+%input#$n$!type=checkbox!name=$n$
+|], UrlEncoded)
 
 dayInput :: String -> FormInput sub master Day
 dayInput n =
@@ -811,3 +817,35 @@ jqueryAutocompleteFieldProfile src = FieldProfile
     , fpLabel = mempty
     , fpTooltip = mempty
     }
+
+emailFieldProfile :: FieldProfile s y String
+emailFieldProfile = FieldProfile
+    { fpParse = Right -- FIXME validation
+    , fpRender = id
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input#$name$!name=$name$!type=email!:isReq:required!value=$val$
+|]
+    , fpWidget = const $ return ()
+    , fpName = Nothing
+    , fpLabel = mempty
+    , fpTooltip = mempty
+    }
+
+emailField :: Html () -> Html () -> FormletField sub y String
+emailField label tooltip = requiredFieldHelper emailFieldProfile
+    { fpLabel = label
+    , fpTooltip = tooltip
+    }
+
+maybeEmailField :: Html () -> Html () -> FormletField sub y (Maybe String)
+maybeEmailField label tooltip = optionalFieldHelper emailFieldProfile
+    { fpLabel = label
+    , fpTooltip = tooltip
+    }
+
+emailInput :: String -> FormInput sub master String
+emailInput n =
+    mapFormXml fieldsToInput $
+    requiredFieldHelper emailFieldProfile
+    { fpName = Just n
+    } Nothing

@@ -302,7 +302,7 @@ getEmailRegisterR = do
 postEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
 postEmailRegisterR = do
     ae <- getAuthEmailSettings
-    email <- runFormPost' $ stringInput "email" -- FIXME checkEmail
+    email <- runFormPost' $ emailInput "email"
     y <- getYesod
     mecreds <- liftIO $ getEmailCreds ae email
     (lid, verKey) <-
@@ -367,7 +367,7 @@ postEmailLoginR :: YesodAuth master => GHandler Auth master ()
 postEmailLoginR = do
     ae <- getAuthEmailSettings
     (email, pass) <- runFormPost' $ (,)
-        <$> stringInput "email" -- FIXME valid e-mail?
+        <$> emailInput "email"
         <*> stringInput "password"
     y <- getYesod
     mecreds <- liftIO $ getEmailCreds ae email

@@ -26,7 +26,6 @@ module Yesod.Widget
     , extractBody
     ) where
 
--- FIXME add support for script contents
 import Data.List (nub)
 import Data.Monoid
 import Control.Monad.Trans.Writer
