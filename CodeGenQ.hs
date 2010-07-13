@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 -- | A code generation quasi-quoter. Everything is taken as literal text, with ~var~ variable interpolation, and ~~ is completely ignored.
-module CodeGen (codegen) where
+module CodeGenQ (codegen) where
 
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax

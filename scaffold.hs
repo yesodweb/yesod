@@ -1,5 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
-import CodeGen
+import CodeGenQ
 import System.IO
 import System.Directory
 
