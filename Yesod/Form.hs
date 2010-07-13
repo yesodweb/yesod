@@ -20,6 +20,7 @@ module Yesod.Form
       -- * Newtype wrappers
     , JqueryDay (..)
     , NicHtml (..)
+    , Html'
       -- * Unwrapping functions
     , runFormGet
     , runFormPost
@@ -550,6 +551,8 @@ instance ToFormField (Maybe (Html ())) where
 
 newtype NicHtml = NicHtml { unNicHtml :: Html () }
     deriving PersistField
+
+type Html' = Html ()
 
 nicHtmlField :: Html () -> Html () -> FormletField sub y (Html ())
 nicHtmlField label tooltip = requiredFieldHelper nicHtmlFieldProfile

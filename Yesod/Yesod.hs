@@ -12,6 +12,7 @@ module Yesod.Yesod
       -- ** Persistence
     , YesodPersist (..)
     , module Database.Persist
+    , get404
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs
@@ -38,6 +39,8 @@ import Data.Monoid (mempty)
 import Data.ByteString.UTF8 (toString)
 import Database.Persist
 import Web.Routes.Site (Site)
+import Control.Monad.Trans.Class (MonadTrans (..))
+import Control.Monad.Attempt (Failure)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -217,6 +220,17 @@ defaultErrorHandler (BadMethod m) =
 class YesodPersist y where
     type YesodDB y :: (* -> *) -> * -> *
     runDB :: YesodDB y (GHandler sub y) a -> GHandler sub y a
+
+
+-- Get the given entity by ID, or return a 404 not found if it doesn't exist.
+get404 :: (PersistBackend (t m), PersistEntity val, Monad (t m),
+           Failure ErrorResponse m, MonadTrans t)
+       => Key val -> t m val
+get404 key = do
+    mres <- get key
+    case mres of
+        Nothing -> lift notFound
+        Just res -> return res
 
 -- | Return the same URL if the user is authorized to see it.
 --
