@@ -68,6 +68,8 @@ mkYesodSub "Static" [] [$parseRoutes|
 -- probably are), the handler itself checks that no unsafe paths are being
 -- requested. In particular, no path segments may begin with a single period,
 -- so hidden files and parent directories are safe.
+--
+-- For the second argument to this function, you can just use 'typeByExt'.
 fileLookupDir :: FilePath -> [(String, ContentType)] -> Static
 fileLookupDir dir = Static $ \fp -> do
     let fp' = dir ++ '/' : fp
@@ -114,6 +116,10 @@ getFileList = flip go id
         dirs' <- mapM (\f -> go (fullPath f) (front . (:) f)) dirs
         return $ concat $ files' : dirs'
 
+-- | This piece of Template Haskell will find all of the files in the given directory and create Haskell identifiers for them. For example, if you have the files \"static\/style.css\" and \"static\/js\/script.js\", it will essentailly create:
+--
+-- > style_css = StaticRoute ["style.css"]
+-- > js_script_js = StaticRoute ["js/script.js"]
 staticFiles :: FilePath -> Q [Dec]
 staticFiles fp = do
     fs <- qRunIO $ getFileList fp

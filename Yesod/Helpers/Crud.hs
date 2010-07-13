@@ -19,9 +19,14 @@ import Text.Hamlet
 import Yesod.Form
 import Data.Monoid (mempty)
 
+-- | An entity which can be displayed by the Crud subsite.
 class ToForm a => Item a where
+    -- | The title of an entity, to be displayed in the list of all entities.
     itemTitle :: a -> String
 
+-- | Defines all of the CRUD operations (Create, Read, Update, Delete)
+-- necessary to implement this subsite. When using the "Yesod.Form" module and
+-- 'ToForm' typeclass, you can probably just use 'defaultCrud'.
 data Crud master item = Crud
     { crudSelect :: GHandler (Crud master item) master [(Key item, item)]
     , crudReplace :: Key item -> item -> GHandler (Crud master item) master ()
@@ -159,6 +164,7 @@ crudHelper title me isPost = do
                     %a!href=@toMaster.CrudDeleteR.toSinglePiece.fst.e@ Delete
 |]
 
+-- | A default 'Crud' value which relies about persistent and "Yesod.Form".
 defaultCrud
     :: (PersistEntity i, PersistBackend (YesodDB a (GHandler (Crud a i) a)),
         YesodPersist a)

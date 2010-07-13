@@ -80,7 +80,7 @@ import Yesod.Content
 #endif
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
--- is used for creating sites, *not* subsites. See 'mkYesodSub' for the latter.
+-- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
 -- Use 'parseRoutes' to create the 'Resource's.
 mkYesod :: String -- ^ name of the argument datatype
         -> [Resource]
@@ -88,7 +88,7 @@ mkYesod :: String -- ^ name of the argument datatype
 mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
--- is used for creating subsites, *not* sites. See 'mkYesod' for the latter.
+-- is used for creating subsites, /not/ sites. See 'mkYesod' for the latter.
 -- Use 'parseRoutes' to create the 'Resource's. In general, a subsite is not
 -- executable by itself, but instead provides functionality to
 -- be embedded in other sites.
@@ -103,8 +103,8 @@ mkYesodSub name clazzes =
 
 -- | Sometimes, you will want to declare your routes in one file and define
 -- your handlers elsewhere. For example, this is the only way to break up a
--- monolithic file into smaller parts. This function, paired with
--- 'mkYesodDispatch', do just that.
+-- monolithic file into smaller parts. Use this function, paired with
+-- 'mkYesodDispatch', to do just that.
 mkYesodData :: String -> [Resource] -> Q [Dec]
 mkYesodData name res = do
     (x, _) <- mkYesodGeneral name [] [] False res
@@ -288,7 +288,7 @@ toWaiApp' y segments env = do
 
 -- | Fully render a route to an absolute URL. Since Yesod does this for you
 -- internally, you will rarely need access to this. However, if you need to
--- generate links *outside* of the Handler monad, this may be useful.
+-- generate links /outside/ of the Handler monad, this may be useful.
 --
 -- For example, if you want to generate an e-mail which links to your site,
 -- this is the function you would want to use.

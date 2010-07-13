@@ -100,6 +100,11 @@ import Yesod.Widget
 import Control.Arrow ((&&&))
 import qualified Text.Email.Validate as Email
 
+-- | A form can produce three different results: there was no data available,
+-- the data was invalid, or there was a successful parse.
+--
+-- The 'Applicative' instance will concatenate the failure messages in two
+-- 'FormResult's.
 data FormResult a = FormMissing
                   | FormFailure [String]
                   | FormSuccess a
@@ -116,6 +121,8 @@ instance Applicative FormResult where
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
 
+-- | The encoding type required by a form. The 'Show' instance produces values
+-- that can be inserted directly into HTML.
 data Enctype = UrlEncoded | Multipart
 instance Show Enctype where
     show UrlEncoded = "application/x-www-form-urlencoded"
@@ -125,6 +132,8 @@ instance Monoid Enctype where
     mappend UrlEncoded UrlEncoded = UrlEncoded
     mappend _ _ = Multipart
 
+-- | A generic form, allowing you to specifying the subsite datatype, master
+-- site datatype, a datatype for the form XML and the return type.
 newtype GForm sub y xml a = GForm
     { deform :: Env -> FileEnv -> StateT Int (GHandler sub y) (FormResult a, xml, Enctype)
     }
@@ -134,11 +143,15 @@ type FormField sub y = GForm sub y [FieldInfo sub y]
 type FormletField sub y a = Maybe a -> FormField sub y a
 type FormInput sub y = GForm sub y [GWidget sub y ()]
 
+-- | Convert the XML in a 'GForm'.
 mapFormXml :: (xml1 -> xml2) -> GForm s y xml1 a -> GForm s y xml2 a
 mapFormXml f (GForm g) = GForm $ \e fe -> do
     (res, xml, enc) <- g e fe
     return (res, f xml, enc)
 
+-- | Using this as the intermediate XML representation for fields allows us to
+-- write generic field functions and then different functions for producing
+-- actual HTML. See, for example, 'fieldsToTable' and 'fieldsToPlain'.
 data FieldInfo sub y = FieldInfo
     { fiLabel :: Html ()
     , fiTooltip :: Html ()
@@ -163,12 +176,15 @@ instance Monoid xml => Applicative (GForm sub url xml) where
         (g1, g2, g3) <- g env fe
         return (f1 <*> g1, f2 `mappend` g2, f3 `mappend` g3)
 
+-- | Display only the actual input widget code, without any decoration.
 fieldsToPlain :: [FieldInfo sub y] -> GWidget sub y ()
 fieldsToPlain = mapM_ fiInput
 
 fieldsToInput :: [FieldInfo sub y] -> [GWidget sub y ()]
 fieldsToInput = map fiInput
 
+-- | Display the label, tooltip, input code and errors in a single row of a
+-- table.
 fieldsToTable :: [FieldInfo sub y] -> GWidget sub y ()
 fieldsToTable = mapM_ go
   where
@@ -189,6 +205,8 @@ class ToForm a where
 class ToFormField a where
     toFormField :: Html () -> Html () -> Maybe a -> FormField sub y a
 
+-- | Create a required field (ie, one that cannot be blank) from a
+-- 'FieldProfile'.
 requiredFieldHelper :: FieldProfile sub y a -> Maybe a -> FormField sub y a
 requiredFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig =
   GForm $ \env _ -> do
@@ -214,6 +232,8 @@ requiredFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig
             }
     return (res, [fi], UrlEncoded)
 
+-- | Create an optional field (ie, one that can be blank) from a
+-- 'FieldProfile'.
 optionalFieldHelper :: FieldProfile sub y a -> Maybe (Maybe a)
                     -> FormField sub y (Maybe a)
 optionalFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig' =
@@ -241,6 +261,9 @@ optionalFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig
             }
     return (res, [fi], UrlEncoded)
 
+-- | A generic definition of a form field that can be used for generating both
+-- required and optional fields. See 'requiredFieldHelper and
+-- 'optionalFieldHelper'.
 data FieldProfile sub y a = FieldProfile
     { fpParse :: String -> Either String a
     , fpRender :: a -> String
@@ -403,10 +426,12 @@ jqueryDayFieldProfile = FieldProfile
 %input#$name$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
-        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
-        addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
-        addJavaScript [$hamlet|$$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});|]
+        addScriptRemote urlJqueryJs
+        addScriptRemote urlJqueryUiJs
+        addStylesheetRemote urlJqueryUiCss
+        addJavaScript [$hamlet|
+$$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
+|]
     , fpName = Nothing
     , fpLabel = mempty
     , fpTooltip = mempty
@@ -683,6 +708,7 @@ maybeDayInput n =
 
 --------------------- End prebuilt inputs
 
+-- | Get a unique identifier.
 newFormIdent :: Monad m => StateT Int m String
 newFormIdent = do
     i <- get
@@ -726,12 +752,16 @@ runFormGet f = do
     gs <- reqGetParams `fmap` getRequest
     runFormGeneric gs [] f
 
+-- | This function allows two different monadic functions to share the same
+-- input and have their results concatenated. This is particularly useful for
+-- allowing 'mkToForm' to share its input with mkPersist.
 share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
 share2 f g a = do
     f' <- f a
     g' <- g a
     return $ f' ++ g'
 
+-- | Create 'ToForm' instances for the entities given. In addition to regular 'EntityDef' attributes understood by persistent, it also understands label= and tooltip=.
 mkToForm :: [EntityDef] -> Q [Dec]
 mkToForm = mapM derive
   where
@@ -810,10 +840,12 @@ jqueryAutocompleteFieldProfile src = FieldProfile
 %input.autocomplete#$name$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
-        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-        addScriptRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
-        addStylesheetRemote "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
-        addJavaScript [$hamlet|$$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});|]
+        addScriptRemote urlJqueryJs
+        addScriptRemote urlJqueryUiJs
+        addStylesheetRemote urlJqueryUiCss
+        addJavaScript [$hamlet|
+$$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});
+|]
     , fpName = Nothing
     , fpLabel = mempty
     , fpTooltip = mempty

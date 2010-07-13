@@ -52,6 +52,7 @@ import Control.Monad.Attempt
 import Data.ByteString.Lazy.UTF8 (fromString)
 import Data.Object
 
+-- | Minimal complete definition: 'defaultDest' and 'defaultLoginRoute'.
 class Yesod master => YesodAuth master where
     -- | Default destination on successful login or logout, if no other
     -- destination exists.
@@ -75,8 +76,8 @@ class Yesod master => YesodAuth master where
         stdgen <- newStdGen
         return $ take 10 $ randomRs ('A', 'Z') stdgen
 
--- | Each authentication subsystem (OpenId, Rpxnow, Email) has its own
--- settings. If those settings are not present, then relevant handlers will
+-- | Each authentication subsystem (OpenId, Rpxnow, Email, Facebook) has its
+-- own settings. If those settings are not present, then relevant handlers will
 -- simply return a 404.
 data Auth = Auth
     { authIsOpenIdEnabled :: Bool
@@ -456,6 +457,9 @@ saltPass pass = do
 saltPass' :: String -> String -> String
 saltPass' salt pass = salt ++ show (md5 $ fromString $ salt ++ pass)
 
+-- | A simplistic set of email settings, useful only for testing purposes. In
+-- particular, it doesn't actually send emails, but instead prints verification
+-- URLs to stderr.
 inMemoryEmailSettings :: IO AuthEmailSettings
 inMemoryEmailSettings = do
     mm <- newMVar []

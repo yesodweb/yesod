@@ -3,6 +3,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE FlexibleInstances #-}
+-- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
+-- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
     ( -- * Datatype
       GWidget
@@ -24,6 +26,10 @@ module Yesod.Widget
       -- * Manipulating
     , wrapWidget
     , extractBody
+      -- * Default library URLs
+    , urlJqueryJs
+    , urlJqueryUiJs
+    , urlJqueryUiCss
     ) where
 
 import Data.List (nub)
@@ -68,6 +74,9 @@ newtype Body url = Body (Hamlet url)
 newtype JavaScript url = JavaScript (Maybe (Hamlet url))
     deriving Monoid
 
+-- | A generic widget, allowing specification of both the subsite and master
+-- site datatypes. This is basically a large 'WriterT' stack keeping track of
+-- dependencies along with a 'StateT' to track unique identifiers.
 newtype GWidget sub master a = GWidget (
     WriterT (Body (Route master)) (
     WriterT (Last Title) (
@@ -83,17 +92,23 @@ newtype GWidget sub master a = GWidget (
 instance Monoid (GWidget sub master ()) where
     mempty = return ()
     mappend x y = x >> y
+-- | A 'GWidget' specialized to when the subsite and master site are the same.
 type Widget y = GWidget y y
 
+-- | Set the page title. Calling 'setTitle' multiple times overrides previously
+-- set values.
 setTitle :: Html () -> GWidget sub master ()
 setTitle = GWidget . lift . tell . Last . Just . Title
 
+-- | Add some raw HTML to the head tag.
 addHead :: Hamlet (Route master) -> GWidget sub master ()
 addHead = GWidget . lift . lift . lift . lift . lift . lift . tell . Head
 
+-- | Add some raw HTML to the body tag.
 addBody :: Hamlet (Route master) -> GWidget sub master ()
 addBody = GWidget . tell . Body
 
+-- | Get a unique identifier.
 newIdent :: GWidget sub master String
 newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
     i <- get
@@ -101,31 +116,39 @@ newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
     put i'
     return $ "w" ++ show i'
 
+-- | Add some raw CSS to the style tag.
 addStyle :: Hamlet (Route master) -> GWidget sub master ()
 addStyle = GWidget . lift . lift . lift . lift . tell . Style . Just
 
+-- | Link to the specified local stylesheet.
 addStylesheet :: Route master -> GWidget sub master ()
 addStylesheet = GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Local
 
+-- | Link to the specified remote stylesheet.
 addStylesheetRemote :: String -> GWidget sub master ()
 addStylesheetRemote =
     GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Remote
 
+-- | Link to the specified local script.
 addScript :: Route master -> GWidget sub master ()
 addScript = GWidget . lift . lift . tell . toUnique . Script . Local
 
+-- | Link to the specified remote script.
 addScriptRemote :: String -> GWidget sub master ()
 addScriptRemote =
     GWidget . lift . lift . tell . toUnique . Script . Remote
 
+-- | Include raw Javascript in the page's script tag.
 addJavaScript :: Hamlet (Route master) -> GWidget sub master ()
 addJavaScript = GWidget . lift . lift . lift . lift . lift. tell
               . JavaScript . Just
 
+-- | Apply the default layout to the given widget.
 applyLayoutW :: (Eq (Route m), Yesod m)
              => GWidget sub m () -> GHandler sub m RepHtml
 applyLayoutW w = widgetToPageContent w >>= fmap RepHtml . defaultLayout
 
+-- | Convert a widget to a 'PageContent'.
 widgetToPageContent :: Eq (Route master)
                     => GWidget sub master ()
                     -> GHandler sub master (PageContent (Route master))
@@ -158,6 +181,8 @@ $maybe jscript j
 |]
     return $ PageContent title head'' body
 
+-- | Modify the given 'GWidget' by wrapping the body tag HTML code with the
+-- given function. You might also consider using 'extractBody'.
 wrapWidget :: GWidget s m a
            -> (Hamlet (Route m) -> Hamlet (Route m))
            -> GWidget s m a
@@ -166,8 +191,25 @@ wrapWidget (GWidget w) wrap =
   where
     go (a, Body h) = (a, Body $ wrap h)
 
+-- | Pull out the HTML tag contents and return it. Useful for performing some
+-- manipulations. It can be easier to use this sometimes than 'wrapWidget'.
 extractBody :: GWidget s m () -> GWidget s m (Hamlet (Route m))
 extractBody (GWidget w) =
     GWidget $ mapWriterT (fmap go) w
   where
     go ((), Body h) = (h, Body mempty)
+
+-- | The Google-hosted jQuery 1.4.2 file.
+urlJqueryJs :: String
+urlJqueryJs =
+    "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
+
+-- | The Google-hosted jQuery UI 1.8.1 javascript file.
+urlJqueryUiJs :: String
+urlJqueryUiJs =
+    "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
+
+-- | The Google-hosted jQuery UI 1.8.1 CSS file with cupertino theme.
+urlJqueryUiCss :: String
+urlJqueryUiCss =
+    "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
