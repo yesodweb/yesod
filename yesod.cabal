@@ -63,6 +63,11 @@ library
                      Yesod.Helpers.Static
     ghc-options:     -Wall
 
+executable             yesod
+    build-depends:     parsec >= 2.1 && < 4
+    ghc-options:       -Wall
+    main-is:           scaffold.hs
+
 executable             runtests
     if flag(buildtests)
         Buildable: True

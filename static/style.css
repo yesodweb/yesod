@@ -1,3 +1,12 @@
 body {
-    background-color: #ffd;
+    font-family: sans-serif;
+    background: #eee;
+}
+
+#wrapper {
+    width: 760px;
+    margin: 1em auto;
+    border: 2px solid #000;
+    padding: 0.5em;
+    background: #fff;
 }
