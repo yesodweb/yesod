@@ -96,7 +96,7 @@ postCrudEditR s = do
     crudHelper
         "Edit item"
         (Just (itemId, item))
-        False
+        True
 
 getCrudDeleteR :: (Yesod master, Item item, SinglePiece (Key item))
                => String -> GHandler (Crud master item) master RepHtml
