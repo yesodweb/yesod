@@ -9,6 +9,7 @@ module Yesod.Widget
     ( -- * Datatype
       GWidget
     , Widget
+    , liftHandler
       -- * Unwrapping
     , widgetToPageContent
     , applyLayoutW
@@ -94,6 +95,11 @@ instance Monoid (GWidget sub master ()) where
     mappend x y = x >> y
 -- | A 'GWidget' specialized to when the subsite and master site are the same.
 type Widget y = GWidget y y
+
+-- | Lift an action in the 'GHandler' monad into an action in the 'GWidget'
+-- monad.
+liftHandler :: GHandler sub master a -> GWidget sub master a
+liftHandler = GWidget . lift . lift . lift . lift . lift . lift . lift . lift
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
