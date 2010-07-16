@@ -442,6 +442,14 @@ $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
 -- 'ToFormField' instance.
 newtype JqueryDay = JqueryDay { unJqueryDay :: Day }
     deriving PersistField
+instance Show JqueryDay where
+    show = show . unJqueryDay
+instance Read JqueryDay where
+    readsPrec i s = let [(day, str)] = readsPrec i s :: [(Day, String)]
+                    in [((JqueryDay day), str)]
+instance Eq JqueryDay where
+    x == y = (unJqueryDay x) == (unJqueryDay y)
+
 instance ToFormField JqueryDay where
     toFormField = applyFormTypeWrappers JqueryDay unJqueryDay jqueryDayField
 instance ToFormField (Maybe JqueryDay) where
