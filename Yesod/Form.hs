@@ -54,6 +54,8 @@ module Yesod.Form
     , maybeDayField
     , jqueryDayField
     , maybeJqueryDayField
+    , jqueryDayTimeField
+    , jqueryDayTimeFieldProfile
     , timeField
     , maybeTimeField
     , htmlField
@@ -83,7 +85,8 @@ import Text.Hamlet
 import Yesod.Request
 import Yesod.Handler
 import Control.Applicative hiding (optional)
-import Data.Time (Day, TimeOfDay (TimeOfDay))
+import Data.Time (UTCTime(..), Day, TimeOfDay(..))
+import Data.Time.LocalTime (timeOfDayToTime, timeToTimeOfDay)
 import Data.Maybe (fromMaybe, isJust)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<), liftM, join)
@@ -97,6 +100,7 @@ import qualified Data.ByteString.Lazy.UTF8 as U
 import Yesod.Widget
 import Control.Arrow ((&&&))
 import qualified Text.Email.Validate as Email
+import Data.Char (isSpace)
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -385,8 +389,7 @@ maybeDayField l t = optionalFieldHelper dayFieldProfile
 
 dayFieldProfile :: FieldProfile sub y Day
 dayFieldProfile = FieldProfile
-    { fpParse = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
-              . readMay
+    { fpParse = parseDate
     , fpRender = show
     , fpHamlet = \name val isReq -> [$hamlet|
 %input#$name$!name=$name$!type=date!:isReq:required!value=$val$
@@ -435,9 +438,79 @@ $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
     , fpTooltip = mempty
     }
 
+-- | Replaces all instances of a value in a list by another value.
+-- from http://hackage.haskell.org/packages/archive/cgi/3001.1.7.1/doc/html/src/Network-CGI-Protocol.html#replace
+replace :: Eq a => a -> a -> [a] -> [a]
+replace x y = map (\z -> if z == x then y else z)
+
+ifRight :: Either a b -> (b -> c) -> Either a c
+ifRight e f = case e of
+            Left l  -> Left l
+            Right r -> Right $ f r
+
+showLeadingZero :: (Show a) => a -> String
+showLeadingZero time = let t = show time in if length t == 1 then "0" ++ t else t
+
+parseUTCTime :: String -> Either String UTCTime
+parseUTCTime s =
+    let (dateS, timeS) = break isSpace (dropWhile isSpace s)
+    in let dateE = (parseDate dateS)
+       in case dateE of
+            Left l -> Left l
+            Right date -> ifRight (parseTime timeS)
+                                  (\time -> UTCTime date (timeOfDayToTime time))
+
+-- TODO - integrate with static helpers
+jqueryUiDateTimePicker :: String
+jqueryUiDateTimePicker = "http://www.projectcodegen.com/jquery.ui.datetimepicker.js.txt"
+
+jqueryDayTimeField :: Html () -> Html () -> FormletField sub y UTCTime
+jqueryDayTimeField l t = requiredFieldHelper jqueryDayTimeFieldProfile
+    { fpLabel = l , fpTooltip = t }
+
+parseDate :: String -> Either String Day
+parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
+              . readMay . replace '/' '-'
+
+
+-- use A.M/P.M and drop seconds and "UTC" (as opposed to normal UTCTime show)
+jqueryDayTimeUTCTime :: UTCTime -> String
+jqueryDayTimeUTCTime (UTCTime day utcTime) =
+  let timeOfDay = timeToTimeOfDay utcTime
+  in (replace '-' '/' (show day)) ++ " " ++ showTimeOfDay timeOfDay
+  where
+    showTimeOfDay (TimeOfDay hour minute _) =
+      let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
+      in (show h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
+
+jqueryDayTimeFieldProfile :: FieldProfile sub y UTCTime
+jqueryDayTimeFieldProfile = FieldProfile
+    { fpParse  = parseUTCTime 
+    , fpRender = jqueryDayTimeUTCTime
+    , fpHamlet = \name val isReq -> [$hamlet|
+%input#$name$!name=$name$!type=date!:isReq:required!value=$val$
+|]
+    , fpWidget = \name -> do
+        addScriptRemote urlJqueryJs
+        addScriptRemote urlJqueryUiJs
+        addScriptRemote jqueryUiDateTimePicker -- needs slashes, dashes are broken
+        addStylesheetRemote urlJqueryUiCss
+        addJavaScript [$hamlet|
+$$(function(){$$("#$name$").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
+|]
+    , fpName = Nothing
+    , fpLabel = mempty
+    , fpTooltip = mempty
+    } 
+
 parseTime :: String -> Either String TimeOfDay
 parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
+parseTime (h1:h2:':':m1:m2:' ':'A':'M':[]) =
+    parseTimeHelper (h1, h2, m1, m2, '0', '0')
+parseTime (h1:h2:':':m1:m2:' ':'P':'M':[]) = 
+    let [h1', h2'] = show $ (read [h1, h2] :: Int) + 12
+    in parseTimeHelper (h1', h2', m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
     parseTimeHelper (h1, h2, m1, m2, s1, s2)
 parseTime _ = Left "Invalid time, must be in HH:MM[:SS] format"
