@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.4.1
+version:         0.5.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -40,7 +40,7 @@ library
                      control-monad-attempt >= 0.3 && < 0.4,
                      cereal >= 0.2 && < 0.3,
                      old-locale >= 1.0.0.2 && < 1.1,
-                     persistent >= 0.1.0 && < 0.2,
+                     persistent >= 0.2.0 && < 0.3,
                      neither >= 0.0.0 && < 0.1,
                      MonadCatchIO-transformers >= 0.2.2.0 && < 0.3,
                      data-object >= 0.3.1 && < 0.4,

@@ -170,7 +170,7 @@ defaultCrud
         YesodPersist a)
     => a -> Crud a i
 defaultCrud = const Crud
-    { crudSelect = runDB $ select [] []
+    { crudSelect = runDB $ selectList [] [] 0 0
     , crudReplace = \a -> runDB . replace a
     , crudInsert = runDB . insert
     , crudGet = runDB . get
