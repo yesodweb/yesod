@@ -17,9 +17,6 @@ module Yesod.Form
     , FormResult (..)
     , Enctype (..)
     , FieldInfo (..)
-      -- * Newtype wrappers
-    , JqueryDay (..)
-    , NicHtml (..)
     , Html'
       -- * Unwrapping functions
     , runFormGet
@@ -93,7 +90,7 @@ import Control.Monad ((<=<), liftM, join)
 import Data.Monoid (Monoid (..))
 import Control.Monad.Trans.State
 import Language.Haskell.TH.Syntax
-import Database.Persist.Base (EntityDef (..), PersistField)
+import Database.Persist.Base (EntityDef (..))
 import Data.Char (toUpper, isUpper)
 import Data.Int (Int64)
 import qualified Data.ByteString.Lazy.UTF8 as U
@@ -438,24 +435,6 @@ $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
     , fpTooltip = mempty
     }
 
--- | A newtype wrapper around 'Day', using jQuery UI date picker for the
--- 'ToFormField' instance.
-newtype JqueryDay = JqueryDay { unJqueryDay :: Day }
-    deriving PersistField
-instance Show JqueryDay where
-    show = show . unJqueryDay
-instance Read JqueryDay where
-    readsPrec i s = let [(day, str)] = readsPrec i s :: [(Day, String)]
-                    in [((JqueryDay day), str)]
-instance Eq JqueryDay where
-    x == y = (unJqueryDay x) == (unJqueryDay y)
-
-instance ToFormField JqueryDay where
-    toFormField = applyFormTypeWrappers JqueryDay unJqueryDay jqueryDayField
-instance ToFormField (Maybe JqueryDay) where
-    toFormField = applyFormTypeWrappers (fmap JqueryDay) (fmap unJqueryDay)
-                  maybeJqueryDayField
-
 parseTime :: String -> Either String TimeOfDay
 parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
@@ -557,9 +536,6 @@ instance ToFormField (Html ()) where
 instance ToFormField (Maybe (Html ())) where
     toFormField = maybeHtmlField
 
-newtype NicHtml = NicHtml { unNicHtml :: Html () }
-    deriving PersistField
-
 type Html' = Html ()
 
 nicHtmlField :: Html () -> Html () -> FormletField sub y (Html ())
@@ -588,17 +564,6 @@ nicHtmlFieldProfile = FieldProfile
     , fpLabel = mempty
     , fpTooltip = mempty
     }
-instance ToFormField NicHtml where
-    toFormField = applyFormTypeWrappers NicHtml unNicHtml nicHtmlField
-instance ToFormField (Maybe NicHtml) where
-    toFormField = applyFormTypeWrappers (fmap NicHtml) (fmap unNicHtml)
-                  maybeNicHtmlField
-
-applyFormTypeWrappers :: (a -> b) -> (b -> a)
-                      -> (f -> g -> FormletField s y a)
-                      -> (f -> g -> FormletField s y b)
-applyFormTypeWrappers wrap unwrap field l t orig =
-    fmap wrap $ field l t $ fmap unwrap orig
 
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of
@@ -776,6 +741,10 @@ share2 f g a = do
 mkToForm :: [EntityDef] -> Q [Dec]
 mkToForm = mapM derive
   where
+    getTFF (_, _, z) = fromMaybe "toFormField" $ getTFF' z
+    getTFF' [] = Nothing
+    getTFF' (('t':'o':'F':'o':'r':'m':'F':'i':'e':'l':'d':'=':x):_) = Just x
+    getTFF' (_:x) = getTFF' x
     getLabel (x, _, z) = fromMaybe (toLabel x) $ getLabel' z
     getLabel' [] = Nothing
     getLabel' (('l':'a':'b':'e':'l':'=':x):_) = Just x
@@ -786,7 +755,7 @@ mkToForm = mapM derive
     getTooltip' [] = Nothing
     derive :: EntityDef -> Q Dec
     derive t = do
-        let cols = map (getLabel &&& getTooltip) $ entityColumns t
+        let cols = map ((getLabel &&& getTooltip) &&& getTFF) $ entityColumns t
         ap <- [|(<*>)|]
         just <- [|pure|]
         nothing <- [|Nothing|]
@@ -811,10 +780,10 @@ mkToForm = mapM derive
     go ap just' string' mfx ftt a =
         let x = foldl (ap' ap) just' $ map (go' string') a
          in mfx `AppE` ftt `AppE` x
-    go' string' ((label, tooltip), ex) =
+    go' string' (((label, tooltip), tff), ex) =
         let label' = string' `AppE` LitE (StringL label)
             tooltip' = string' `AppE` LitE (StringL tooltip)
-         in VarE (mkName "toFormField") `AppE` label'
+         in VarE (mkName tff) `AppE` label'
                 `AppE` tooltip' `AppE` ex
     ap' ap x y = InfixE (Just x) ap (Just y)
 
