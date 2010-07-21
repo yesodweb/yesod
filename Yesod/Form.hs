@@ -101,6 +101,7 @@ import Yesod.Widget
 import Control.Arrow ((&&&))
 import qualified Text.Email.Validate as Email
 import Data.Char (isSpace)
+import Yesod.Urls
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -427,9 +428,9 @@ jqueryDayFieldProfile = FieldProfile
 %input#$name$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
-        addScriptRemote urlJqueryJs
-        addScriptRemote urlJqueryUiJs
-        addStylesheetRemote urlJqueryUiCss
+        getSetting urlJqueryJs >>= addScriptRemote
+        getSetting urlJqueryUiJs >>= addScriptRemote
+        getSetting urlJqueryUiCss >>= addStylesheetRemote
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
 |]
@@ -460,10 +461,6 @@ parseUTCTime s =
             Right date -> ifRight (parseTime timeS)
                                   (\time -> UTCTime date (timeOfDayToTime time))
 
--- TODO - integrate with static helpers
-jqueryUiDateTimePicker :: String
-jqueryUiDateTimePicker = "http://www.projectcodegen.com/jquery.ui.datetimepicker.js.txt"
-
 jqueryDayTimeField :: Html () -> Html () -> FormletField sub y UTCTime
 jqueryDayTimeField l t = requiredFieldHelper jqueryDayTimeFieldProfile
     { fpLabel = l , fpTooltip = t }
@@ -485,23 +482,23 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
 
 jqueryDayTimeFieldProfile :: FieldProfile sub y UTCTime
 jqueryDayTimeFieldProfile = FieldProfile
-    { fpParse  = parseUTCTime 
+    { fpParse  = parseUTCTime
     , fpRender = jqueryDayTimeUTCTime
     , fpHamlet = \name val isReq -> [$hamlet|
 %input#$name$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
-        addScriptRemote urlJqueryJs
-        addScriptRemote urlJqueryUiJs
-        addScriptRemote jqueryUiDateTimePicker -- needs slashes, dashes are broken
-        addStylesheetRemote urlJqueryUiCss
+        getSetting urlJqueryJs >>= addScriptRemote
+        getSetting urlJqueryUiJs >>= addScriptRemote
+        getSetting urlJqueryUiDateTimePicker >>= addScriptRemote -- needs slashes, dashes are broken
+        getSetting urlJqueryUiCss >>= addStylesheetRemote
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
 |]
     , fpName = Nothing
     , fpLabel = mempty
     , fpTooltip = mempty
-    } 
+    }
 
 parseTime :: String -> Either String TimeOfDay
 parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
@@ -893,9 +890,9 @@ jqueryAutocompleteFieldProfile src = FieldProfile
 %input.autocomplete#$name$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
-        addScriptRemote urlJqueryJs
-        addScriptRemote urlJqueryUiJs
-        addStylesheetRemote urlJqueryUiCss
+        getSetting urlJqueryJs >>= addScriptRemote
+        getSetting urlJqueryUiJs >>= addScriptRemote
+        getSetting urlJqueryUiCss >>= addStylesheetRemote
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});
 |]

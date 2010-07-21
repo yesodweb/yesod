@@ -27,10 +27,6 @@ module Yesod.Widget
       -- * Manipulating
     , wrapWidget
     , extractBody
-      -- * Default library URLs
-    , urlJqueryJs
-    , urlJqueryUiJs
-    , urlJqueryUiCss
     ) where
 
 import Data.List (nub)
@@ -204,18 +200,3 @@ extractBody (GWidget w) =
     GWidget $ mapWriterT (fmap go) w
   where
     go ((), Body h) = (h, Body mempty)
-
--- | The Google-hosted jQuery 1.4.2 file.
-urlJqueryJs :: String
-urlJqueryJs =
-    "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-
--- | The Google-hosted jQuery UI 1.8.1 javascript file.
-urlJqueryUiJs :: String
-urlJqueryUiJs =
-    "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
-
--- | The Google-hosted jQuery UI 1.8.1 CSS file with cupertino theme.
-urlJqueryUiCss :: String
-urlJqueryUiCss =
-    "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
