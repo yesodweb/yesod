@@ -72,6 +72,7 @@ module Yesod.Form
       -- * Pre-built inputs
     , stringInput
     , maybeStringInput
+    , intInput
     , boolInput
     , dayInput
     , maybeDayInput
@@ -307,6 +308,13 @@ instance ToFormField String where
     toFormField = stringField
 instance ToFormField (Maybe String) where
     toFormField = maybeStringField
+
+intInput :: Integral i => String -> FormInput sub master i
+intInput n =
+    mapFormXml fieldsToInput $
+    requiredFieldHelper intFieldProfile
+    { fpName = Just n
+    } Nothing
 
 intField :: Integral i => Html () -> Html () -> FormletField sub y i
 intField l t = requiredFieldHelper intFieldProfile
