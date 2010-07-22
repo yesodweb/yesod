@@ -51,6 +51,7 @@ import System.IO
 import Control.Monad.Attempt
 import Data.ByteString.Lazy.UTF8 (fromString)
 import Data.Object
+import Language.Haskell.TH.Syntax
 
 -- | Minimal complete definition: 'defaultDest' and 'defaultLoginRoute'.
 class Yesod master => YesodAuth master where
@@ -143,7 +144,10 @@ maybeCreds = do
                     (y, _):_ -> Just y
                     _ -> Nothing
 
-mkYesodSub "Auth" [("master", [''YesodAuth])] [$parseRoutes|
+mkYesodSub "Auth"
+    [ ClassP ''YesodAuth [VarT $ mkName "master"]
+    ]
+    [$parseRoutes|
 /check                   Check              GET
 /logout                  Logout             GET
 /openid                  OpenIdR            GET

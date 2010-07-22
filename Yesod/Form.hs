@@ -79,7 +79,6 @@ module Yesod.Form
     , maybeDayInput
     , emailInput
       -- * Template Haskell
-    , share2
     , mkToForm
     ) where
 
@@ -806,15 +805,6 @@ runFormGet :: GForm sub y xml a
 runFormGet f = do
     gs <- reqGetParams `fmap` getRequest
     runFormGeneric gs [] f
-
--- | This function allows two different monadic functions to share the same
--- input and have their results concatenated. This is particularly useful for
--- allowing 'mkToForm' to share its input with mkPersist.
-share2 :: Monad m => (a -> m [b]) -> (a -> m [b]) -> a -> m [b]
-share2 f g a = do
-    f' <- f a
-    g' <- g a
-    return $ f' ++ g'
 
 -- | Create 'ToForm' instances for the entities given. In addition to regular 'EntityDef' attributes understood by persistent, it also understands label= and tooltip=.
 mkToForm :: String -> [EntityDef] -> Q [Dec]
