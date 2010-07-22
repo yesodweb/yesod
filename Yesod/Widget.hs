@@ -19,8 +19,10 @@ module Yesod.Widget
     , addStyle
     , addStylesheet
     , addStylesheetRemote
+    , addStylesheetEither
     , addScript
     , addScriptRemote
+    , addScriptEither
     , addHead
     , addBody
     , addJavaScript
@@ -130,6 +132,12 @@ addStylesheet = GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Lo
 addStylesheetRemote :: String -> GWidget sub master ()
 addStylesheetRemote =
     GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Remote
+
+addStylesheetEither :: Either (Route master) String -> GWidget sub master ()
+addStylesheetEither = either addStylesheet addStylesheetRemote
+
+addScriptEither :: Either (Route master) String -> GWidget sub master ()
+addScriptEither = either addScript addScriptRemote
 
 -- | Link to the specified local script.
 addScript :: Route master -> GWidget sub master ()

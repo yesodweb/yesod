@@ -102,7 +102,7 @@ import Yesod.Widget
 import Control.Arrow ((&&&))
 import qualified Text.Email.Validate as Email
 import Data.Char (isSpace)
-import Yesod.Urls
+import Yesod.Yesod (Yesod (..))
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -413,19 +413,19 @@ instance ToFormField Day where
 instance ToFormField (Maybe Day) where
     toFormField = maybeDayField
 
-jqueryDayField :: Html () -> Html () -> FormletField sub y Day
+jqueryDayField :: Yesod y => Html () -> Html () -> FormletField sub y Day
 jqueryDayField l t = requiredFieldHelper jqueryDayFieldProfile
     { fpLabel = l
     , fpTooltip = t
     }
 
-maybeJqueryDayField :: Html () -> Html () -> FormletField sub y (Maybe Day)
+maybeJqueryDayField :: Yesod y => Html () -> Html () -> FormletField sub y (Maybe Day)
 maybeJqueryDayField l t = optionalFieldHelper jqueryDayFieldProfile
     { fpLabel = l
     , fpTooltip = t
     }
 
-jqueryDayFieldProfile :: FieldProfile sub y Day
+jqueryDayFieldProfile :: Yesod y => FieldProfile sub y Day
 jqueryDayFieldProfile = FieldProfile
     { fpParse = maybe
                   (Left "Invalid day, must be in YYYY-MM-DD format")
@@ -436,9 +436,9 @@ jqueryDayFieldProfile = FieldProfile
 %input#$name$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
-        getSetting urlJqueryJs >>= addScriptRemote
-        getSetting urlJqueryUiJs >>= addScriptRemote
-        getSetting urlJqueryUiCss >>= addStylesheetRemote
+        addScript' urlJqueryJs
+        addScript' urlJqueryUiJs
+        addStylesheet' urlJqueryUiCss
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
 |]
@@ -469,7 +469,7 @@ parseUTCTime s =
             Right date -> ifRight (parseTime timeS)
                                   (\time -> UTCTime date (timeOfDayToTime time))
 
-jqueryDayTimeField :: Html () -> Html () -> FormletField sub y UTCTime
+jqueryDayTimeField :: Yesod y => Html () -> Html () -> FormletField sub y UTCTime
 jqueryDayTimeField l t = requiredFieldHelper jqueryDayTimeFieldProfile
     { fpLabel = l , fpTooltip = t }
 
@@ -488,7 +488,7 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
       let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
       in (show h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
 
-jqueryDayTimeFieldProfile :: FieldProfile sub y UTCTime
+jqueryDayTimeFieldProfile :: Yesod y => FieldProfile sub y UTCTime
 jqueryDayTimeFieldProfile = FieldProfile
     { fpParse  = parseUTCTime
     , fpRender = jqueryDayTimeUTCTime
@@ -496,10 +496,10 @@ jqueryDayTimeFieldProfile = FieldProfile
 %input#$name$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
-        getSetting urlJqueryJs >>= addScriptRemote
-        getSetting urlJqueryUiJs >>= addScriptRemote
-        getSetting urlJqueryUiDateTimePicker >>= addScriptRemote -- needs slashes, dashes are broken
-        getSetting urlJqueryUiCss >>= addStylesheetRemote
+        addScript' urlJqueryJs
+        addScript' urlJqueryUiJs
+        addScript' urlJqueryUiDateTimePicker
+        addStylesheet' urlJqueryUiCss
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
 |]
@@ -616,19 +616,19 @@ instance ToFormField (Maybe (Html ())) where
 
 type Html' = Html ()
 
-nicHtmlField :: Html () -> Html () -> FormletField sub y (Html ())
+nicHtmlField :: Yesod y => Html () -> Html () -> FormletField sub y (Html ())
 nicHtmlField label tooltip = requiredFieldHelper nicHtmlFieldProfile
     { fpLabel = label
     , fpTooltip = tooltip
     }
 
-maybeNicHtmlField :: Html () -> Html () -> FormletField sub y (Maybe (Html ()))
+maybeNicHtmlField :: Yesod y => Html () -> Html () -> FormletField sub y (Maybe (Html ()))
 maybeNicHtmlField label tooltip = optionalFieldHelper nicHtmlFieldProfile
     { fpLabel = label
     , fpTooltip = tooltip
     }
 
-nicHtmlFieldProfile :: FieldProfile sub y (Html ())
+nicHtmlFieldProfile :: Yesod y => FieldProfile sub y (Html ())
 nicHtmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
@@ -636,7 +636,7 @@ nicHtmlFieldProfile = FieldProfile
 %textarea.html#$name$!name=$name$ $val$
 |]
     , fpWidget = \name -> do
-        addScriptRemote "http://js.nicedit.com/nicEdit-latest.js"
+        addScript' urlNicEdit
         addJavaScript [$hamlet|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")});|]
     , fpName = Nothing
     , fpLabel = mempty
@@ -874,7 +874,7 @@ toLabel (x:rest) = toUpper x : go rest
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
 
-jqueryAutocompleteField ::
+jqueryAutocompleteField :: Yesod y =>
     Route y -> Html () -> Html () -> FormletField sub y String
 jqueryAutocompleteField src l t =
     requiredFieldHelper $ (jqueryAutocompleteFieldProfile src)
@@ -882,7 +882,7 @@ jqueryAutocompleteField src l t =
         , fpTooltip = t
         }
 
-maybeJqueryAutocompleteField ::
+maybeJqueryAutocompleteField :: Yesod y =>
     Route y -> Html () -> Html () -> FormletField sub y (Maybe String)
 maybeJqueryAutocompleteField src l t =
     optionalFieldHelper $ (jqueryAutocompleteFieldProfile src)
@@ -890,7 +890,7 @@ maybeJqueryAutocompleteField src l t =
         , fpTooltip = t
         }
 
-jqueryAutocompleteFieldProfile :: Route y -> FieldProfile sub y String
+jqueryAutocompleteFieldProfile :: Yesod y => Route y -> FieldProfile sub y String
 jqueryAutocompleteFieldProfile src = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -898,9 +898,9 @@ jqueryAutocompleteFieldProfile src = FieldProfile
 %input.autocomplete#$name$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
-        getSetting urlJqueryJs >>= addScriptRemote
-        getSetting urlJqueryUiJs >>= addScriptRemote
-        getSetting urlJqueryUiCss >>= addStylesheetRemote
+        addScript' urlJqueryJs
+        addScript' urlJqueryUiJs
+        addStylesheet' urlJqueryUiCss
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});
 |]
@@ -942,3 +942,13 @@ emailInput n =
     requiredFieldHelper emailFieldProfile
     { fpName = Just n
     } Nothing
+
+addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
+addScript' f = do
+    y <- liftHandler getYesod
+    addScriptEither $ f y
+
+addStylesheet' :: (y -> Either (Route y) String) -> GWidget sub y ()
+addStylesheet' f = do
+    y <- liftHandler getYesod
+    addStylesheetEither $ f y

@@ -53,7 +53,6 @@ library
                      Yesod.Handler
                      Yesod.Internal
                      Yesod.Json
-                     Yesod.Urls
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Yesod
