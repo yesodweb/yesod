@@ -5,6 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 -- | Parse forms (and query strings).
 module Yesod.Form
     ( -- * Data types
@@ -204,9 +205,9 @@ fieldsToTable = mapM_ go
         %td.errors $err$
 |]
 
-class ToForm a where
+class ToForm a y where
     toForm :: Maybe a -> Form sub y a
-class ToFormField a where
+class ToFormField a y where
     toFormField :: Html () -> Html () -> Maybe a -> FormField sub y a
 
 -- | Create a required field (ie, one that cannot be blank) from a
@@ -304,9 +305,9 @@ stringFieldProfile = FieldProfile
     , fpLabel = mempty
     , fpTooltip = mempty
     }
-instance ToFormField String where
+instance ToFormField String y where
     toFormField = stringField
-instance ToFormField (Maybe String) where
+instance ToFormField (Maybe String) y where
     toFormField = maybeStringField
 
 intInput :: Integral i => String -> FormInput sub master i
@@ -346,13 +347,13 @@ intFieldProfile = FieldProfile
     readMayI s = case reads s of
                     (x, _):_ -> Just $ fromInteger x
                     [] -> Nothing
-instance ToFormField Int where
+instance ToFormField Int y where
     toFormField = intField
-instance ToFormField (Maybe Int) where
+instance ToFormField (Maybe Int) y where
     toFormField = maybeIntField
-instance ToFormField Int64 where
+instance ToFormField Int64 y where
     toFormField = intField
-instance ToFormField (Maybe Int64) where
+instance ToFormField (Maybe Int64) y where
     toFormField = maybeIntField
 
 doubleField :: Html () -> Html () -> FormletField sub y Double
@@ -379,9 +380,9 @@ doubleFieldProfile = FieldProfile
     , fpLabel = mempty
     , fpTooltip = mempty
     }
-instance ToFormField Double where
+instance ToFormField Double y where
     toFormField = doubleField
-instance ToFormField (Maybe Double) where
+instance ToFormField (Maybe Double) y where
     toFormField = maybeDoubleField
 
 dayField :: Html () -> Html () -> FormletField sub y Day
@@ -408,9 +409,9 @@ dayFieldProfile = FieldProfile
     , fpLabel = mempty
     , fpTooltip = mempty
     }
-instance ToFormField Day where
+instance ToFormField Day y where
     toFormField = dayField
-instance ToFormField (Maybe Day) where
+instance ToFormField (Maybe Day) y where
     toFormField = maybeDayField
 
 jqueryDayField :: Yesod y => Html () -> Html () -> FormletField sub y Day
@@ -556,9 +557,9 @@ timeFieldProfile = FieldProfile
     , fpLabel = mempty
     , fpTooltip = mempty
     }
-instance ToFormField TimeOfDay where
+instance ToFormField TimeOfDay y where
     toFormField = timeField
-instance ToFormField (Maybe TimeOfDay) where
+instance ToFormField (Maybe TimeOfDay) y where
     toFormField = maybeTimeField
 
 boolField :: Html () -> Html () -> Maybe Bool -> FormField sub y Bool
@@ -582,7 +583,7 @@ boolField label tooltip orig = GForm $ \env _ -> do
                             _ -> Nothing
             }
     return (res, [fi], UrlEncoded)
-instance ToFormField Bool where
+instance ToFormField Bool y where
     toFormField = boolField
 
 htmlField :: Html () -> Html () -> FormletField sub y (Html ())
@@ -609,9 +610,9 @@ htmlFieldProfile = FieldProfile
     , fpLabel = mempty
     , fpTooltip = mempty
     }
-instance ToFormField (Html ()) where
+instance ToFormField (Html ()) y where
     toFormField = htmlField
-instance ToFormField (Maybe (Html ())) where
+instance ToFormField (Maybe (Html ())) y where
     toFormField = maybeHtmlField
 
 type Html' = Html ()
@@ -816,8 +817,8 @@ share2 f g a = do
     return $ f' ++ g'
 
 -- | Create 'ToForm' instances for the entities given. In addition to regular 'EntityDef' attributes understood by persistent, it also understands label= and tooltip=.
-mkToForm :: [EntityDef] -> Q [Dec]
-mkToForm = mapM derive
+mkToForm :: String -> [EntityDef] -> Q [Dec]
+mkToForm name = mapM derive
   where
     getTFF (_, _, z) = fromMaybe "toFormField" $ getTFF' z
     getTFF' [] = Nothing
@@ -853,7 +854,8 @@ mkToForm = mapM derive
                         (NormalB $ go_ $ zip cols xs')
                         []
         return $ InstanceD [] (ConT ''ToForm
-                              `AppT` ConT (mkName $ entityName t))
+                              `AppT` ConT (mkName $ entityName t)
+                              `AppT` ConT (mkName name))
             [FunD (mkName "toForm") [c1, c2]]
     go ap just' string' mfx ftt a =
         let x = foldl (ap' ap) just' $ map (go' string') a

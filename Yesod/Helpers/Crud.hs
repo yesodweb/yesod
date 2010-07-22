@@ -18,9 +18,10 @@ import Yesod.Handler
 import Text.Hamlet
 import Yesod.Form
 import Data.Monoid (mempty)
+import Language.Haskell.TH.Syntax
 
 -- | An entity which can be displayed by the Crud subsite.
-class ToForm a => Item a where
+class Item a where
     -- | The title of an entity, to be displayed in the list of all entities.
     itemTitle :: a -> String
 
@@ -36,9 +37,10 @@ data Crud master item = Crud
     }
 
 mkYesodSub "Crud master item"
-    [ ("master", [''Yesod])
-    , ("item", [''Item])
-    , ("Key item", [''SinglePiece])
+    [ ClassP ''Yesod [VarT $ mkName "master"]
+    , ClassP ''Item [VarT $ mkName "item"]
+    , ClassP ''SinglePiece [ConT ''Key `AppT` VarT (mkName "item")]
+    , ClassP ''ToForm [VarT $ mkName "item", VarT $ mkName "master"]
     ] [$parseRoutes|
 /               CrudListR        GET
 /add            CrudAddR         GET POST
@@ -62,21 +64,24 @@ getCrudListR = do
     %a!href=@toMaster.CrudAddR@ Add new item
 |]
 
-getCrudAddR :: (Yesod master, Item item, SinglePiece (Key item))
+getCrudAddR :: (Yesod master, Item item, SinglePiece (Key item),
+                ToForm item master)
             => GHandler (Crud master item) master RepHtml
 getCrudAddR = crudHelper
                 "Add new"
                 (Nothing :: Maybe (Key item, item))
                 False
 
-postCrudAddR :: (Yesod master, Item item, SinglePiece (Key item))
+postCrudAddR :: (Yesod master, Item item, SinglePiece (Key item),
+                 ToForm item master)
              => GHandler (Crud master item) master RepHtml
 postCrudAddR = crudHelper
                 "Add new"
                 (Nothing :: Maybe (Key item, item))
                 True
 
-getCrudEditR :: (Yesod master, Item item, SinglePiece (Key item))
+getCrudEditR :: (Yesod master, Item item, SinglePiece (Key item),
+                 ToForm item master)
              => String -> GHandler (Crud master item) master RepHtml
 getCrudEditR s = do
     itemId <- maybe notFound return $ itemReadId s
@@ -87,7 +92,8 @@ getCrudEditR s = do
         (Just (itemId, item))
         False
 
-postCrudEditR :: (Yesod master, Item item, SinglePiece (Key item))
+postCrudEditR :: (Yesod master, Item item, SinglePiece (Key item),
+                  ToForm item master)
               => String -> GHandler (Crud master item) master RepHtml
 postCrudEditR s = do
     itemId <- maybe notFound return $ itemReadId s
@@ -128,7 +134,7 @@ itemReadId :: SinglePiece x => String -> Maybe x
 itemReadId = either (const Nothing) Just . fromSinglePiece
 
 crudHelper
-    :: (Item a, Yesod master, SinglePiece (Key a))
+    :: (Item a, Yesod master, SinglePiece (Key a), ToForm a master)
     => String -> Maybe (Key a, a) -> Bool
     -> GHandler (Crud master a) master RepHtml
 crudHelper title me isPost = do

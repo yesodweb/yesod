@@ -93,7 +93,7 @@ mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 -- executable by itself, but instead provides functionality to
 -- be embedded in other sites.
 mkYesodSub :: String -- ^ name of the argument datatype
-           -> [(String, [Name])]
+           -> Cxt
            -> [Resource]
            -> Q [Dec]
 mkYesodSub name clazzes =
@@ -130,7 +130,7 @@ typeHelper =
 
 mkYesodGeneral :: String -- ^ argument name
                -> [String] -- ^ parameters for site argument
-               -> [(String, [Name])] -- ^ classes
+               -> Cxt -- ^ classes
                -> Bool -- ^ is subsite?
                -> [Resource]
                -> Q ([Dec], [Dec])
@@ -138,10 +138,6 @@ mkYesodGeneral name args clazzes isSub res = do
     let name' = mkName name
         args' = map mkName args
         arg = foldl AppT (ConT name') $ map VarT args'
-    let clazzes' = map (\(x, y) -> ClassP x [typeHelper y])
-                 $ concatMap (\(x, y) -> zip y $ repeat x)
-                 $ compact
-                 $ map (\x -> (x, [])) ("master" : args) ++ clazzes
     th <- mapM (thResourceFromResource arg) res -- FIXME now we cannot have multi-nested subsites
     w' <- createRoutes th
     let routesName = mkName $ name ++ "Route"
@@ -166,7 +162,7 @@ mkYesodGeneral name args clazzes isSub res = do
     let site' = site `AppE` dispatch `AppE` render `AppE` parse
     let (ctx, ytyp, yfunc) =
             if isSub
-                then (clazzes', ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"), "getSubSite")
+                then (clazzes, ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"), "getSubSite")
                 else ([], ConT ''YesodSite `AppT` arg, "getSite")
     let y = InstanceD ctx ytyp
                 [ FunD (mkName yfunc) [Clause [] (NormalB site') []]
