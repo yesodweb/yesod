@@ -742,7 +742,7 @@ maybeStringInput n =
 
 boolInput :: String -> FormInput sub master Bool
 boolInput n = GForm $ \env _ -> return
-    (FormSuccess $ isJust $ lookup n env, return $ addBody [$hamlet|
+    (FormSuccess $ fromMaybe "" (lookup n env) /= "", return $ addBody [$hamlet|
 %input#$n$!type=checkbox!name=$n$
 |], UrlEncoded)
 
