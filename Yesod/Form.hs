@@ -105,6 +105,7 @@ import Control.Arrow ((&&&))
 import qualified Text.Email.Validate as Email
 import Data.Char (isSpace)
 import Yesod.Yesod (Yesod (..))
+import Data.List (group, sort)
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -750,7 +751,16 @@ runFormGet f = do
 mkToForm :: [EntityDef] -> Q [Dec]
 mkToForm = mapM derive
   where
-    getTFF (_, _, z) = fromMaybe "toFormField" $ getTFF' z
+    afterPeriod s =
+        case dropWhile (/= '.') s of
+            ('.':t) -> t
+            _ -> s
+    beforePeriod s =
+        case break (== '.') s of
+            (t, '.':_) -> Just t
+            _ -> Nothing
+    getSuperclass (_, _, z) = getTFF' z >>= beforePeriod
+    getTFF (_, _, z) = maybe "toFormField" afterPeriod $ getTFF' z
     getTFF' [] = Nothing
     getTFF' (('t':'o':'F':'o':'r':'m':'F':'i':'e':'l':'d':'=':x):_) = Just x
     getTFF' (_:x) = getTFF' x
@@ -770,8 +780,6 @@ mkToForm = mapM derive
     getName' (('n':'a':'m':'e':'=':x):_) = Just x
     getName' (_:x) = getName' x
     getName' [] = Nothing
-    getSuperclass ('s':'u':'p':'e':'r':'c':'l':'a':'s':'s':'=':s) = Just s
-    getSuperclass _ = Nothing
     derive :: EntityDef -> Q Dec
     derive t = do
         let cols = map ((getId &&& getName) &&& ((getLabel &&& getTooltip) &&& getTFF)) $ entityColumns t
@@ -798,8 +806,8 @@ mkToForm = mapM derive
                         []
         let y = mkName "y"
         let ctx = map (\x -> ClassP (mkName x) [VarT y])
+                $ map head $ group $ sort
                 $ mapMaybe getSuperclass
-                $ concatMap (\(_, _, z) -> z)
                 $ entityColumns t
         return $ InstanceD ctx ( ConT ''ToForm
                               `AppT` ConT (mkName $ entityName t)

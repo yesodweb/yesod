@@ -10,7 +10,7 @@ import Data.Time (Day)
 share2 mkToForm mkPersist [$persist|
 Entry
     title String id=thetitle
-    day Day Desc toFormField=jqueryDayField name=day superclass=Yesod
+    day Day Desc toFormField=Yesod.jqueryDayField name=day
     content Html' toFormField=nicHtmlField
     deriving
 |]
