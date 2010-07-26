@@ -3,6 +3,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 import Yesod
 import Yesod.Helpers.Crud
+import Yesod.Form.Jquery
+import Yesod.Form.Nic
 import Database.Persist.Sqlite
 import Database.Persist.TH
 import Data.Time (Day)
@@ -10,8 +12,8 @@ import Data.Time (Day)
 share2 mkToForm mkPersist [$persist|
 Entry
     title String id=thetitle
-    day Day Desc toFormField=Yesod.jqueryDayField name=day
-    content Html' toFormField=nicHtmlField
+    day Day Desc toFormField=YesodJquery.jqueryDayField name=day
+    content Html' toFormField=YesodNic.nicHtmlField
     deriving
 |]
 
@@ -30,6 +32,8 @@ mkYesod "Blog" [$parseRoutes|
 
 instance Yesod Blog where
     approot _ = "http://localhost:3000"
+instance YesodJquery Blog
+instance YesodNic Blog
 
 instance YesodPersist Blog where
     type YesodDB Blog = SqliteReader

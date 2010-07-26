@@ -49,6 +49,8 @@ library
                      Yesod.Content
                      Yesod.Dispatch
                      Yesod.Form
+                     Yesod.Form.Jquery
+                     Yesod.Form.Nic
                      Yesod.Hamlet
                      Yesod.Handler
                      Yesod.Internal

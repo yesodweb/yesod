@@ -118,26 +118,6 @@ class Eq (Route a) => Yesod a where
     authRoute :: a -> Maybe (Route a)
     authRoute _ = Nothing
 
-    -- | The jQuery Javascript file.
-    urlJqueryJs :: a -> Either (Route a) String
-    urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-
-    -- | The jQuery UI 1.8.1 Javascript file.
-    urlJqueryUiJs :: a -> Either (Route a) String
-    urlJqueryUiJs _ = Right "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
-
-    -- | The jQuery UI 1.8.1 CSS file; defaults to cupertino theme.
-    urlJqueryUiCss :: a -> Either (Route a) String
-    urlJqueryUiCss _ = Right "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
-
-    -- | jQuery UI time picker add-on.
-    urlJqueryUiDateTimePicker :: a -> Either (Route a) String
-    urlJqueryUiDateTimePicker _ = Right "http://www.projectcodegen.com/jquery.ui.datetimepicker.js.txt"
-
-    -- | NIC Editor.
-    urlNicEdit :: a -> Either (Route a) String
-    urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
-
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
     deriving (Eq, Show, Read)
 

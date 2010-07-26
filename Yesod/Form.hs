@@ -40,7 +40,6 @@ module Yesod.Form
     , stringFieldProfile
     , intFieldProfile
     , dayFieldProfile
-    , jqueryDayFieldProfile
     , timeFieldProfile
     , htmlFieldProfile
     , emailFieldProfile
@@ -55,21 +54,13 @@ module Yesod.Form
     , maybeDoubleField
     , dayField
     , maybeDayField
-    , jqueryDayField
-    , maybeJqueryDayField
-    , jqueryDayTimeField
-    , jqueryDayTimeFieldProfile
     , timeField
     , maybeTimeField
     , htmlField
     , maybeHtmlField
-    , nicHtmlField
-    , maybeNicHtmlField
     , selectField
     , maybeSelectField
     , boolField
-    , jqueryAutocompleteField
-    , maybeJqueryAutocompleteField
     , emailField
     , maybeEmailField
       -- * Pre-built inputs
@@ -82,14 +73,16 @@ module Yesod.Form
     , emailInput
       -- * Template Haskell
     , mkToForm
+      -- * Utilities
+    , parseDate
+    , parseTime
     ) where
 
 import Text.Hamlet
 import Yesod.Request
 import Yesod.Handler
 import Control.Applicative hiding (optional)
-import Data.Time (UTCTime(..), Day, TimeOfDay(..))
-import Data.Time.LocalTime (timeOfDayToTime, timeToTimeOfDay)
+import Data.Time (Day, TimeOfDay(..))
 import Data.Maybe (fromMaybe, mapMaybe)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<), liftM, join)
@@ -103,8 +96,6 @@ import qualified Data.ByteString.Lazy.UTF8 as U
 import Yesod.Widget
 import Control.Arrow ((&&&))
 import qualified Text.Email.Validate as Email
-import Data.Char (isSpace)
-import Yesod.Yesod (Yesod (..))
 import Data.List (group, sort)
 
 -- | A form can produce three different results: there was no data available,
@@ -389,94 +380,21 @@ instance ToFormField Day y where
 instance ToFormField (Maybe Day) y where
     toFormField = maybeDayField
 
-jqueryDayField :: Yesod y => FormFieldSettings -> FormletField sub y Day
-jqueryDayField = requiredFieldHelper jqueryDayFieldProfile
-
-maybeJqueryDayField :: Yesod y => FormFieldSettings -> FormletField sub y (Maybe Day)
-maybeJqueryDayField = optionalFieldHelper jqueryDayFieldProfile
-
-jqueryDayFieldProfile :: Yesod y => FieldProfile sub y Day
-jqueryDayFieldProfile = FieldProfile
-    { fpParse = maybe
-                  (Left "Invalid day, must be in YYYY-MM-DD format")
-                  Right
-              . readMay
-    , fpRender = show
-    , fpHamlet = \theId name val isReq -> [$hamlet|
-%input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
-|]
-    , fpWidget = \name -> do
-        addScript' urlJqueryJs
-        addScript' urlJqueryUiJs
-        addStylesheet' urlJqueryUiCss
-        addJavaScript [$hamlet|
-$$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
-|]
-    }
+parseDate :: String -> Either String Day
+parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
+              . readMay . replace '/' '-'
 
 -- | Replaces all instances of a value in a list by another value.
 -- from http://hackage.haskell.org/packages/archive/cgi/3001.1.7.1/doc/html/src/Network-CGI-Protocol.html#replace
 replace :: Eq a => a -> a -> [a] -> [a]
 replace x y = map (\z -> if z == x then y else z)
 
-ifRight :: Either a b -> (b -> c) -> Either a c
-ifRight e f = case e of
-            Left l  -> Left l
-            Right r -> Right $ f r
-
-showLeadingZero :: (Show a) => a -> String
-showLeadingZero time = let t = show time in if length t == 1 then "0" ++ t else t
-
-parseUTCTime :: String -> Either String UTCTime
-parseUTCTime s =
-    let (dateS, timeS) = break isSpace (dropWhile isSpace s)
-    in let dateE = (parseDate dateS)
-       in case dateE of
-            Left l -> Left l
-            Right date -> ifRight (parseTime timeS)
-                                  (\time -> UTCTime date (timeOfDayToTime time))
-
-jqueryDayTimeField :: Yesod y => FormFieldSettings -> FormletField sub y UTCTime
-jqueryDayTimeField = requiredFieldHelper jqueryDayTimeFieldProfile
-
-parseDate :: String -> Either String Day
-parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
-              . readMay . replace '/' '-'
-
-
--- use A.M/P.M and drop seconds and "UTC" (as opposed to normal UTCTime show)
-jqueryDayTimeUTCTime :: UTCTime -> String
-jqueryDayTimeUTCTime (UTCTime day utcTime) =
-  let timeOfDay = timeToTimeOfDay utcTime
-  in (replace '-' '/' (show day)) ++ " " ++ showTimeOfDay timeOfDay
-  where
-    showTimeOfDay (TimeOfDay hour minute _) =
-      let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
-      in (show h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
-
-jqueryDayTimeFieldProfile :: Yesod y => FieldProfile sub y UTCTime
-jqueryDayTimeFieldProfile = FieldProfile
-    { fpParse  = parseUTCTime
-    , fpRender = jqueryDayTimeUTCTime
-    , fpHamlet = \theId name val isReq -> [$hamlet|
-%input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
-|]
-    , fpWidget = \name -> do
-        addScript' urlJqueryJs
-        addScript' urlJqueryUiJs
-        addScript' urlJqueryUiDateTimePicker
-        addStylesheet' urlJqueryUiCss
-        addJavaScript [$hamlet|
-$$(function(){$$("#$name$").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
-|]
-    }
-
 parseTime :: String -> Either String TimeOfDay
 parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:' ':'A':'M':[]) =
     parseTimeHelper (h1, h2, m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:' ':'P':'M':[]) = 
+parseTime (h1:h2:':':m1:m2:' ':'P':'M':[]) =
     let [h1', h2'] = show $ (read [h1, h2] :: Int) + 12
     in parseTimeHelper (h1', h2', m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
@@ -564,24 +482,6 @@ instance ToFormField (Maybe (Html ())) y where
     toFormField = maybeHtmlField
 
 type Html' = Html ()
-
-nicHtmlField :: Yesod y => FormFieldSettings -> FormletField sub y (Html ())
-nicHtmlField = requiredFieldHelper nicHtmlFieldProfile
-
-maybeNicHtmlField :: Yesod y => FormFieldSettings -> FormletField sub y (Maybe (Html ()))
-maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
-
-nicHtmlFieldProfile :: Yesod y => FieldProfile sub y (Html ())
-nicHtmlFieldProfile = FieldProfile
-    { fpParse = Right . preEscapedString
-    , fpRender = U.toString . renderHtml
-    , fpHamlet = \theId name val _isReq -> [$hamlet|
-%textarea.html#$theId$!name=$name$ $val$
-|]
-    , fpWidget = \name -> do
-        addScript' urlNicEdit
-        addJavaScript [$hamlet|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")});|]
-    }
 
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of
@@ -836,31 +736,6 @@ toLabel (x:rest) = toUpper x : go rest
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
 
-jqueryAutocompleteField :: Yesod y =>
-    Route y -> FormFieldSettings -> FormletField sub y String
-jqueryAutocompleteField = requiredFieldHelper . jqueryAutocompleteFieldProfile
-
-maybeJqueryAutocompleteField :: Yesod y =>
-    Route y -> FormFieldSettings -> FormletField sub y (Maybe String)
-maybeJqueryAutocompleteField src =
-    optionalFieldHelper $ jqueryAutocompleteFieldProfile src
-
-jqueryAutocompleteFieldProfile :: Yesod y => Route y -> FieldProfile sub y String
-jqueryAutocompleteFieldProfile src = FieldProfile
-    { fpParse = Right
-    , fpRender = id
-    , fpHamlet = \theId name val isReq -> [$hamlet|
-%input.autocomplete#$theId$!name=$name$!type=text!:isReq:required!value=$val$
-|]
-    , fpWidget = \name -> do
-        addScript' urlJqueryJs
-        addScript' urlJqueryUiJs
-        addStylesheet' urlJqueryUiCss
-        addJavaScript [$hamlet|
-$$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});
-|]
-    }
-
 emailFieldProfile :: FieldProfile s y String
 emailFieldProfile = FieldProfile
     { fpParse = \s -> if Email.isValid s
@@ -886,16 +761,6 @@ emailInput n =
 
 nameSettings :: String -> FormFieldSettings
 nameSettings n = FormFieldSettings mempty mempty (Just n) (Just n)
-
-addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
-addScript' f = do
-    y <- liftHandler getYesod
-    addScriptEither $ f y
-
-addStylesheet' :: (y -> Either (Route y) String) -> GWidget sub y ()
-addStylesheet' f = do
-    y <- liftHandler getYesod
-    addStylesheetEither $ f y
 
 labelSettings :: String -> FormFieldSettings
 labelSettings l = FormFieldSettings (string l) mempty Nothing Nothing

@@ -119,15 +119,6 @@ mkYesodData name res = do
 mkYesodDispatch :: String -> [Resource] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
 
-typeHelper :: String -> Type
-typeHelper =
-    foldl1 AppT . map go . words
-  where
-    go s@(x:_)
-        | isLower x = VarT $ mkName s
-        | otherwise = ConT $ mkName s
-    go [] = error "typeHelper: empty string to go"
-
 mkYesodGeneral :: String -- ^ argument name
                -> [String] -- ^ parameters for site argument
                -> Cxt -- ^ classes
@@ -207,13 +198,6 @@ thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
             })
 thResourceFromResource _ (Resource n _ _) =
     error $ "Invalid attributes for resource: " ++ n
-
-compact :: [(String, [a])] -> [(String, [a])]
-compact [] = []
-compact ((x, x'):rest) =
-    let ys = filter (\(y, _) -> y == x) rest
-        zs = filter (\(z, _) -> z /= x) rest
-     in (x, x' ++ concatMap snd ys) : compact zs
 
 sessionName :: String
 sessionName = "_SESSION"
