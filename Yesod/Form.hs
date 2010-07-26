@@ -89,7 +89,7 @@ import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Time (UTCTime(..), Day, TimeOfDay(..))
 import Data.Time.LocalTime (timeOfDayToTime, timeToTimeOfDay)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<), liftM, join)
 import Data.Monoid (Monoid (..))
@@ -739,8 +739,8 @@ runFormGet f = do
     runFormGeneric gs [] f
 
 -- | Create 'ToForm' instances for the entities given. In addition to regular 'EntityDef' attributes understood by persistent, it also understands label= and tooltip=.
-mkToForm :: String -> [EntityDef] -> Q [Dec]
-mkToForm name = mapM derive
+mkToForm :: [EntityDef] -> Q [Dec]
+mkToForm = mapM derive
   where
     getTFF (_, _, z) = fromMaybe "toFormField" $ getTFF' z
     getTFF' [] = Nothing
@@ -762,6 +762,8 @@ mkToForm name = mapM derive
     getName' (('n':'a':'m':'e':'=':x):_) = Just x
     getName' (_:x) = getName' x
     getName' [] = Nothing
+    getSuperclass ('s':'u':'p':'e':'r':'c':'l':'a':'s':'s':'=':s) = Just s
+    getSuperclass _ = Nothing
     derive :: EntityDef -> Q Dec
     derive t = do
         let cols = map ((getId &&& getName) &&& ((getLabel &&& getTooltip) &&& getTFF)) $ entityColumns t
@@ -786,9 +788,14 @@ mkToForm name = mapM derive
                             $ map VarP xs]]
                         (NormalB $ go_ $ zip cols xs')
                         []
-        return $ InstanceD [] (ConT ''ToForm
+        let y = mkName "y"
+        let ctx = map (\x -> ClassP (mkName x) [VarT y])
+                $ mapMaybe getSuperclass
+                $ concatMap (\(_, _, z) -> z)
+                $ entityColumns t
+        return $ InstanceD ctx ( ConT ''ToForm
                               `AppT` ConT (mkName $ entityName t)
-                              `AppT` ConT (mkName name))
+                              `AppT` VarT y)
             [FunD (mkName "toForm") [c1, c2]]
     go ap just' ffs' stm string' mfx ftt a =
         let x = foldl (ap' ap) just' $ map (go' ffs' stm string') a
