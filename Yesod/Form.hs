@@ -44,6 +44,7 @@ module Yesod.Form
     , timeFieldProfile
     , htmlFieldProfile
     , emailFieldProfile
+    , FormFieldSettings (..)
       -- * Pre-built fields
     , stringField
     , maybeStringField
@@ -88,7 +89,7 @@ import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Time (UTCTime(..), Day, TimeOfDay(..))
 import Data.Time.LocalTime (timeOfDayToTime, timeToTimeOfDay)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<), liftM, join)
 import Data.Monoid (Monoid (..))
@@ -160,6 +161,7 @@ data FieldInfo sub y = FieldInfo
     { fiLabel :: Html ()
     , fiTooltip :: Html ()
     , fiIdent :: String
+    , fiName :: String
     , fiInput :: GWidget sub y ()
     , fiErrors :: Maybe (Html ())
     }
@@ -207,14 +209,24 @@ fieldsToTable = mapM_ go
 class ToForm a y where
     toForm :: Maybe a -> Form sub y a
 class ToFormField a y where
-    toFormField :: Html () -> Html () -> Maybe a -> FormField sub y a
+    toFormField :: FormFieldSettings -> Maybe a -> FormField sub y a
+
+data FormFieldSettings = FormFieldSettings
+    { ffsLabel :: Html ()
+    , ffsTooltip :: Html ()
+    , ffsId :: Maybe String
+    , ffsName :: Maybe String
+    }
 
 -- | Create a required field (ie, one that cannot be blank) from a
--- 'FieldProfile'.
-requiredFieldHelper :: FieldProfile sub y a -> Maybe a -> FormField sub y a
-requiredFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig =
+-- 'FieldProfile'.ngs
+requiredFieldHelper :: FieldProfile sub y a -> FormFieldSettings -> Maybe a -> FormField sub y a
+requiredFieldHelper
+    (FieldProfile parse render mkXml w)
+    (FormFieldSettings label tooltip name' theId') orig =
   GForm $ \env _ -> do
     name <- maybe newFormIdent return name'
+    theId <- maybe newFormIdent return theId'
     let (res, val) =
             if null env
                 then (FormMissing, maybe "" render orig)
@@ -228,8 +240,9 @@ requiredFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig
     let fi = FieldInfo
             { fiLabel = label
             , fiTooltip = tooltip
-            , fiIdent = name
-            , fiInput = w name >> addBody (mkXml (string name) (string val) True)
+            , fiIdent = theId
+            , fiName = name
+            , fiInput = w theId >> addBody (mkXml theId name val True)
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
@@ -238,12 +251,14 @@ requiredFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig
 
 -- | Create an optional field (ie, one that can be blank) from a
 -- 'FieldProfile'.
-optionalFieldHelper :: FieldProfile sub y a -> Maybe (Maybe a)
-                    -> FormField sub y (Maybe a)
-optionalFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig' =
+optionalFieldHelper :: FieldProfile sub y a -> FormFieldSettings -> FormletField sub y (Maybe a)
+optionalFieldHelper
+ (FieldProfile parse render mkXml w)
+ (FormFieldSettings label tooltip name' theId') orig' =
   GForm $ \env _ -> do
     let orig = join orig'
     name <- maybe newFormIdent return name'
+    theId <- maybe newFormIdent return theId'
     let (res, val) =
             if null env
                 then (FormSuccess Nothing, maybe "" render orig)
@@ -257,8 +272,9 @@ optionalFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig
     let fi = FieldInfo
             { fiLabel = label
             , fiTooltip = tooltip
-            , fiIdent = name
-            , fiInput = w name >> addBody (mkXml (string name) (string val) False)
+            , fiIdent = theId
+            , fiName = name
+            , fiInput = w theId >> addBody (mkXml theId name val False)
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
@@ -271,38 +287,26 @@ optionalFieldHelper (FieldProfile parse render mkXml w name' label tooltip) orig
 data FieldProfile sub y a = FieldProfile
     { fpParse :: String -> Either String a
     , fpRender :: a -> String
-    , fpHamlet :: Html () -> Html () -> Bool -> Hamlet (Route y)
+    , fpHamlet :: String -> String -> String -> Bool -> Hamlet (Route y)
     , fpWidget :: String -> GWidget sub y ()
-    , fpName :: Maybe String
-    , fpLabel :: Html ()
-    , fpTooltip :: Html ()
     }
 
 --------------------- Begin prebuilt forms
 
-stringField :: Html () -> Html () -> FormletField sub y String
-stringField label tooltip = requiredFieldHelper stringFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+stringField :: FormFieldSettings -> FormletField sub y String
+stringField = requiredFieldHelper stringFieldProfile
 
-maybeStringField :: Html () -> Html () -> FormletField sub y (Maybe String)
-maybeStringField label tooltip = optionalFieldHelper stringFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+maybeStringField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeStringField = optionalFieldHelper stringFieldProfile
 
 stringFieldProfile :: FieldProfile sub y String
 stringFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=text!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     , fpWidget = \_name -> return ()
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 instance ToFormField String y where
     toFormField = stringField
@@ -312,34 +316,22 @@ instance ToFormField (Maybe String) y where
 intInput :: Integral i => String -> FormInput sub master i
 intInput n =
     mapFormXml fieldsToInput $
-    requiredFieldHelper intFieldProfile
-    { fpName = Just n
-    } Nothing
+    requiredFieldHelper intFieldProfile (nameSettings n) Nothing
 
-intField :: Integral i => Html () -> Html () -> FormletField sub y i
-intField l t = requiredFieldHelper intFieldProfile
-    { fpLabel = l
-    , fpTooltip = t
-    }
+intField :: Integral i => FormFieldSettings -> FormletField sub y i
+intField = requiredFieldHelper intFieldProfile
 
-maybeIntField :: Integral i =>
-              Html () -> Html () -> FormletField sub y (Maybe i)
-maybeIntField l t = optionalFieldHelper intFieldProfile
-    { fpLabel = l
-    , fpTooltip = t
-    }
+maybeIntField :: Integral i => FormFieldSettings -> FormletField sub y (Maybe i)
+maybeIntField = optionalFieldHelper intFieldProfile
 
 intFieldProfile :: Integral i => FieldProfile sub y i
 intFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI
     , fpRender = showI
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=number!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
 |]
     , fpWidget = \_name -> return ()
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
   where
     showI x = show (fromIntegral x :: Integer)
@@ -355,75 +347,51 @@ instance ToFormField Int64 y where
 instance ToFormField (Maybe Int64) y where
     toFormField = maybeIntField
 
-doubleField :: Html () -> Html () -> FormletField sub y Double
-doubleField l t = requiredFieldHelper doubleFieldProfile
-    { fpLabel = l
-    , fpTooltip = t
-    }
+doubleField :: FormFieldSettings -> FormletField sub y Double
+doubleField = requiredFieldHelper doubleFieldProfile
 
-maybeDoubleField :: Html () -> Html () -> FormletField sub y (Maybe Double)
-maybeDoubleField l t = optionalFieldHelper doubleFieldProfile
-    { fpLabel = l
-    , fpTooltip = t
-    }
+maybeDoubleField :: FormFieldSettings -> FormletField sub y (Maybe Double)
+maybeDoubleField = optionalFieldHelper doubleFieldProfile
 
 doubleFieldProfile :: FieldProfile sub y Double
 doubleFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=number!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
 |]
     , fpWidget = \_name -> return ()
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 instance ToFormField Double y where
     toFormField = doubleField
 instance ToFormField (Maybe Double) y where
     toFormField = maybeDoubleField
 
-dayField :: Html () -> Html () -> FormletField sub y Day
-dayField l t = requiredFieldHelper dayFieldProfile
-    { fpLabel = l
-    , fpTooltip = t
-    }
+dayField :: FormFieldSettings -> FormletField sub y Day
+dayField = requiredFieldHelper dayFieldProfile
 
-maybeDayField :: Html () -> Html () -> FormletField sub y (Maybe Day)
-maybeDayField l t = optionalFieldHelper dayFieldProfile
-    { fpLabel = l
-    , fpTooltip = t
-    }
+maybeDayField :: FormFieldSettings -> FormletField sub y (Maybe Day)
+maybeDayField = optionalFieldHelper dayFieldProfile
 
 dayFieldProfile :: FieldProfile sub y Day
 dayFieldProfile = FieldProfile
     { fpParse = parseDate
     , fpRender = show
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=date!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = const $ return ()
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 instance ToFormField Day y where
     toFormField = dayField
 instance ToFormField (Maybe Day) y where
     toFormField = maybeDayField
 
-jqueryDayField :: Yesod y => Html () -> Html () -> FormletField sub y Day
-jqueryDayField l t = requiredFieldHelper jqueryDayFieldProfile
-    { fpLabel = l
-    , fpTooltip = t
-    }
+jqueryDayField :: Yesod y => FormFieldSettings -> FormletField sub y Day
+jqueryDayField = requiredFieldHelper jqueryDayFieldProfile
 
-maybeJqueryDayField :: Yesod y => Html () -> Html () -> FormletField sub y (Maybe Day)
-maybeJqueryDayField l t = optionalFieldHelper jqueryDayFieldProfile
-    { fpLabel = l
-    , fpTooltip = t
-    }
+maybeJqueryDayField :: Yesod y => FormFieldSettings -> FormletField sub y (Maybe Day)
+maybeJqueryDayField = optionalFieldHelper jqueryDayFieldProfile
 
 jqueryDayFieldProfile :: Yesod y => FieldProfile sub y Day
 jqueryDayFieldProfile = FieldProfile
@@ -432,8 +400,8 @@ jqueryDayFieldProfile = FieldProfile
                   Right
               . readMay
     , fpRender = show
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=date!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
         addScript' urlJqueryJs
@@ -442,9 +410,6 @@ jqueryDayFieldProfile = FieldProfile
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
 |]
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 
 -- | Replaces all instances of a value in a list by another value.
@@ -469,9 +434,8 @@ parseUTCTime s =
             Right date -> ifRight (parseTime timeS)
                                   (\time -> UTCTime date (timeOfDayToTime time))
 
-jqueryDayTimeField :: Yesod y => Html () -> Html () -> FormletField sub y UTCTime
-jqueryDayTimeField l t = requiredFieldHelper jqueryDayTimeFieldProfile
-    { fpLabel = l , fpTooltip = t }
+jqueryDayTimeField :: Yesod y => FormFieldSettings -> FormletField sub y UTCTime
+jqueryDayTimeField = requiredFieldHelper jqueryDayTimeFieldProfile
 
 parseDate :: String -> Either String Day
 parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
@@ -492,8 +456,8 @@ jqueryDayTimeFieldProfile :: Yesod y => FieldProfile sub y UTCTime
 jqueryDayTimeFieldProfile = FieldProfile
     { fpParse  = parseUTCTime
     , fpRender = jqueryDayTimeUTCTime
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=date!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
         addScript' urlJqueryJs
@@ -503,9 +467,6 @@ jqueryDayTimeFieldProfile = FieldProfile
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
 |]
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 
 parseTime :: String -> Either String TimeOfDay
@@ -532,38 +493,32 @@ parseTimeHelper (h1, h2, m1, m2, s1, s2)
     m = read [m1, m2]
     s = fromInteger $ read [s1, s2]
 
-timeField :: Html () -> Html () -> FormletField sub y TimeOfDay
-timeField label tooltip = requiredFieldHelper timeFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+timeField :: FormFieldSettings -> FormletField sub y TimeOfDay
+timeField = requiredFieldHelper timeFieldProfile
 
-maybeTimeField :: Html () -> Html () -> FormletField sub y (Maybe TimeOfDay)
-maybeTimeField label tooltip = optionalFieldHelper timeFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+maybeTimeField :: FormFieldSettings -> FormletField sub y (Maybe TimeOfDay)
+maybeTimeField = optionalFieldHelper timeFieldProfile
 
 timeFieldProfile :: FieldProfile sub y TimeOfDay
 timeFieldProfile = FieldProfile
     { fpParse = parseTime
     , fpRender = show
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!:isReq:required!value=$val$
 |]
     , fpWidget = const $ return ()
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 instance ToFormField TimeOfDay y where
     toFormField = timeField
 instance ToFormField (Maybe TimeOfDay) y where
     toFormField = maybeTimeField
 
-boolField :: Html () -> Html () -> Maybe Bool -> FormField sub y Bool
-boolField label tooltip orig = GForm $ \env _ -> do
-    name <- newFormIdent
+boolField :: FormFieldSettings -> Maybe Bool -> FormField sub y Bool
+boolField ffs orig = GForm $ \env _ -> do
+    let label = ffsLabel ffs
+        tooltip = ffsTooltip ffs
+    name <- maybe newFormIdent return $ ffsName ffs
+    theId <- maybe newFormIdent return $ ffsId ffs
     let (res, val) =
             if null env
                 then (FormMissing, fromMaybe False orig)
@@ -573,9 +528,10 @@ boolField label tooltip orig = GForm $ \env _ -> do
     let fi = FieldInfo
             { fiLabel = label
             , fiTooltip = tooltip
-            , fiIdent = name
+            , fiIdent = theId
+            , fiName = name
             , fiInput = addBody [$hamlet|
-%input#$name$!type=checkbox!name=$name$!:val:checked
+%input#$theId$!type=checkbox!name=$name$!:val:checked
 |]
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -585,29 +541,20 @@ boolField label tooltip orig = GForm $ \env _ -> do
 instance ToFormField Bool y where
     toFormField = boolField
 
-htmlField :: Html () -> Html () -> FormletField sub y (Html ())
-htmlField label tooltip = requiredFieldHelper htmlFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+htmlField :: FormFieldSettings -> FormletField sub y (Html ())
+htmlField = requiredFieldHelper htmlFieldProfile
 
-maybeHtmlField :: Html () -> Html () -> FormletField sub y (Maybe (Html ()))
-maybeHtmlField label tooltip = optionalFieldHelper htmlFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+maybeHtmlField :: FormFieldSettings -> FormletField sub y (Maybe (Html ()))
+maybeHtmlField = optionalFieldHelper htmlFieldProfile
 
 htmlFieldProfile :: FieldProfile sub y (Html ())
 htmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
-    , fpHamlet = \name val _isReq -> [$hamlet|
-%textarea.html#$name$!name=$name$ $val$
+    , fpHamlet = \theId name val _isReq -> [$hamlet|
+%textarea.html#$theId$!name=$name$ $val$
 |]
     , fpWidget = const $ return ()
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 instance ToFormField (Html ()) y where
     toFormField = htmlField
@@ -616,31 +563,22 @@ instance ToFormField (Maybe (Html ())) y where
 
 type Html' = Html ()
 
-nicHtmlField :: Yesod y => Html () -> Html () -> FormletField sub y (Html ())
-nicHtmlField label tooltip = requiredFieldHelper nicHtmlFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+nicHtmlField :: Yesod y => FormFieldSettings -> FormletField sub y (Html ())
+nicHtmlField = requiredFieldHelper nicHtmlFieldProfile
 
-maybeNicHtmlField :: Yesod y => Html () -> Html () -> FormletField sub y (Maybe (Html ()))
-maybeNicHtmlField label tooltip = optionalFieldHelper nicHtmlFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+maybeNicHtmlField :: Yesod y => FormFieldSettings -> FormletField sub y (Maybe (Html ()))
+maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
 
 nicHtmlFieldProfile :: Yesod y => FieldProfile sub y (Html ())
 nicHtmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
-    , fpHamlet = \name val _isReq -> [$hamlet|
-%textarea.html#$name$!name=$name$ $val$
+    , fpHamlet = \theId name val _isReq -> [$hamlet|
+%textarea.html#$theId$!name=$name$ $val$
 |]
     , fpWidget = \name -> do
         addScript' urlNicEdit
         addJavaScript [$hamlet|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")});|]
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 
 readMay :: Read a => String -> Maybe a
@@ -678,6 +616,7 @@ selectField pairs label tooltip initial = GForm $ \env _ -> do
             { fiLabel = label
             , fiTooltip = tooltip
             , fiIdent = i
+            , fiName = i
             , fiInput = addBody input
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -715,6 +654,7 @@ maybeSelectField pairs label tooltip initial = GForm $ \env _ -> do
             { fiLabel = label
             , fiTooltip = tooltip
             , fiIdent = i
+            , fiName = i
             , fiInput = addBody input
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -729,16 +669,12 @@ maybeSelectField pairs label tooltip initial = GForm $ \env _ -> do
 stringInput :: String -> FormInput sub master String
 stringInput n =
     mapFormXml fieldsToInput $
-    requiredFieldHelper stringFieldProfile
-    { fpName = Just n
-    } Nothing
+    requiredFieldHelper stringFieldProfile (nameSettings n) Nothing
 
 maybeStringInput :: String -> FormInput sub master (Maybe String)
 maybeStringInput n =
     mapFormXml fieldsToInput $
-    optionalFieldHelper stringFieldProfile
-    { fpName = Just n
-    } Nothing
+    optionalFieldHelper stringFieldProfile (nameSettings n) Nothing
 
 boolInput :: String -> FormInput sub master Bool
 boolInput n = GForm $ \env _ -> return
@@ -749,16 +685,12 @@ boolInput n = GForm $ \env _ -> return
 dayInput :: String -> FormInput sub master Day
 dayInput n =
     mapFormXml fieldsToInput $
-    requiredFieldHelper dayFieldProfile
-    { fpName = Just n
-    } Nothing
+    requiredFieldHelper dayFieldProfile (nameSettings n) Nothing
 
 maybeDayInput :: String -> FormInput sub master (Maybe Day)
 maybeDayInput n =
     mapFormXml fieldsToInput $
-    optionalFieldHelper dayFieldProfile
-    { fpName = Just n
-    } Nothing
+    optionalFieldHelper dayFieldProfile (nameSettings n) Nothing
 
 --------------------- End prebuilt inputs
 
@@ -822,9 +754,17 @@ mkToForm name = mapM derive
     getTooltip' (('t':'o':'o':'l':'t':'i':'p':'=':x):_) = Just x
     getTooltip' (_:x) = getTooltip' x
     getTooltip' [] = Nothing
+    getId (_, _, z) = fromMaybe "" $ getId' z
+    getId' (('i':'d':'=':x):_) = Just x
+    getId' (_:x) = getId' x
+    getId' [] = Nothing
+    getName (_, _, z) = fromMaybe "" $ getName' z
+    getName' (('n':'a':'m':'e':'=':x):_) = Just x
+    getName' (_:x) = getName' x
+    getName' [] = Nothing
     derive :: EntityDef -> Q Dec
     derive t = do
-        let cols = map ((getLabel &&& getTooltip) &&& getTFF) $ entityColumns t
+        let cols = map ((getId &&& getName) &&& ((getLabel &&& getTooltip) &&& getTFF)) $ entityColumns t
         ap <- [|(<*>)|]
         just <- [|pure|]
         nothing <- [|Nothing|]
@@ -832,7 +772,10 @@ mkToForm name = mapM derive
         string' <- [|string|]
         mfx <- [|mapFormXml|]
         ftt <- [|fieldsToTable|]
-        let go_ = go ap just' string' mfx ftt
+        ffs' <- [|FormFieldSettings|]
+        let stm "" = nothing
+            stm x = just `AppE` LitE (StringL x)
+        let go_ = go ap just' ffs' stm string' mfx ftt
         let c1 = Clause [ ConP (mkName "Nothing") []
                         ]
                         (NormalB $ go_ $ zip cols $ map (const nothing) cols)
@@ -847,14 +790,18 @@ mkToForm name = mapM derive
                               `AppT` ConT (mkName $ entityName t)
                               `AppT` ConT (mkName name))
             [FunD (mkName "toForm") [c1, c2]]
-    go ap just' string' mfx ftt a =
-        let x = foldl (ap' ap) just' $ map (go' string') a
+    go ap just' ffs' stm string' mfx ftt a =
+        let x = foldl (ap' ap) just' $ map (go' ffs' stm string') a
          in mfx `AppE` ftt `AppE` x
-    go' string' (((label, tooltip), tff), ex) =
+    go' ffs' stm string' (((theId, name), ((label, tooltip), tff)), ex) =
         let label' = string' `AppE` LitE (StringL label)
             tooltip' = string' `AppE` LitE (StringL tooltip)
-         in VarE (mkName tff) `AppE` label'
-                `AppE` tooltip' `AppE` ex
+            ffs = ffs' `AppE`
+                  label' `AppE`
+                  tooltip' `AppE`
+                  (stm theId) `AppE`
+                  (stm name)
+         in VarE (mkName tff) `AppE` ffs `AppE` ex
     ap' ap x y = InfixE (Just x) ap (Just y)
 
 toLabel :: String -> String
@@ -867,27 +814,20 @@ toLabel (x:rest) = toUpper x : go rest
         | otherwise = c : go cs
 
 jqueryAutocompleteField :: Yesod y =>
-    Route y -> Html () -> Html () -> FormletField sub y String
-jqueryAutocompleteField src l t =
-    requiredFieldHelper $ (jqueryAutocompleteFieldProfile src)
-        { fpLabel = l
-        , fpTooltip = t
-        }
+    Route y -> FormFieldSettings -> FormletField sub y String
+jqueryAutocompleteField = requiredFieldHelper . jqueryAutocompleteFieldProfile
 
 maybeJqueryAutocompleteField :: Yesod y =>
-    Route y -> Html () -> Html () -> FormletField sub y (Maybe String)
-maybeJqueryAutocompleteField src l t =
-    optionalFieldHelper $ (jqueryAutocompleteFieldProfile src)
-        { fpLabel = l
-        , fpTooltip = t
-        }
+    Route y -> FormFieldSettings -> FormletField sub y (Maybe String)
+maybeJqueryAutocompleteField src =
+    optionalFieldHelper $ jqueryAutocompleteFieldProfile src
 
 jqueryAutocompleteFieldProfile :: Yesod y => Route y -> FieldProfile sub y String
 jqueryAutocompleteFieldProfile src = FieldProfile
     { fpParse = Right
     , fpRender = id
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input.autocomplete#$name$!name=$name$!type=text!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input.autocomplete#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     , fpWidget = \name -> do
         addScript' urlJqueryJs
@@ -896,9 +836,6 @@ jqueryAutocompleteFieldProfile src = FieldProfile
         addJavaScript [$hamlet|
 $$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});
 |]
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 
 emailFieldProfile :: FieldProfile s y String
@@ -907,33 +844,25 @@ emailFieldProfile = FieldProfile
                         then Right s
                         else Left "Invalid e-mail address"
     , fpRender = id
-    , fpHamlet = \name val isReq -> [$hamlet|
-%input#$name$!name=$name$!type=email!:isReq:required!value=$val$
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!type=email!:isReq:required!value=$val$
 |]
     , fpWidget = const $ return ()
-    , fpName = Nothing
-    , fpLabel = mempty
-    , fpTooltip = mempty
     }
 
-emailField :: Html () -> Html () -> FormletField sub y String
-emailField label tooltip = requiredFieldHelper emailFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+emailField :: FormFieldSettings -> FormletField sub y String
+emailField = requiredFieldHelper emailFieldProfile
 
-maybeEmailField :: Html () -> Html () -> FormletField sub y (Maybe String)
-maybeEmailField label tooltip = optionalFieldHelper emailFieldProfile
-    { fpLabel = label
-    , fpTooltip = tooltip
-    }
+maybeEmailField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeEmailField = optionalFieldHelper emailFieldProfile
 
 emailInput :: String -> FormInput sub master String
 emailInput n =
     mapFormXml fieldsToInput $
-    requiredFieldHelper emailFieldProfile
-    { fpName = Just n
-    } Nothing
+    requiredFieldHelper emailFieldProfile (nameSettings n) Nothing
+
+nameSettings :: String -> FormFieldSettings
+nameSettings = FormFieldSettings mempty mempty Nothing . Just
 
 addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
 addScript' f = do

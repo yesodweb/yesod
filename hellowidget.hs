@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies, QuasiQuotes, OverloadedStrings #-}
 import Yesod
 import Yesod.Widget
 import Yesod.Helpers.Static
@@ -41,7 +41,12 @@ handleFormR = do
         <*> intField (string "A number field") (string "some nums") (Just 5)
         <*> jqueryDayField (string "A day field") (string "") Nothing
         <*> timeField (string "A time field") (string "") Nothing
-        <*> boolField (string "A checkbox") (string "") (Just False)
+        <*> boolField FormFieldSettings
+                { ffsLabel = "A checkbox"
+                , ffsTooltip = ""
+                , ffsId = Nothing
+                , ffsName = Nothing
+                } (Just False)
         <*> jqueryAutocompleteField AutoCompleteR
             (string "Autocomplete") (string "Try it!") Nothing
         <*> nicHtmlField (string "HTML") (string "")
