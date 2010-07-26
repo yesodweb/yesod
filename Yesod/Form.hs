@@ -45,6 +45,7 @@ module Yesod.Form
     , htmlFieldProfile
     , emailFieldProfile
     , FormFieldSettings (..)
+    , labelSettings
       -- * Pre-built fields
     , stringField
     , maybeStringField
@@ -587,12 +588,15 @@ readMay s = case reads s of
                 [] -> Nothing
 
 selectField :: Eq x => [(x, String)]
-            -> Html () -> Html ()
+            -> FormFieldSettings
             -> Maybe x -> FormField sub master x
-selectField pairs label tooltip initial = GForm $ \env _ -> do
-    i <- newFormIdent
+selectField pairs ffs initial = GForm $ \env _ -> do
+    let label = ffsLabel ffs
+        tooltip = ffsTooltip ffs
+    theId <- maybe newFormIdent return $ ffsId ffs
+    name <- maybe newFormIdent return $ ffsName ffs
     let pairs' = zip [1 :: Int ..] pairs
-    let res = case lookup i env of
+    let res = case lookup name env of
                 Nothing -> FormMissing
                 Just "none" -> FormFailure ["Field is required"]
                 Just x ->
@@ -607,7 +611,7 @@ selectField pairs label tooltip initial = GForm $ \env _ -> do
                 FormSuccess y -> x == y
                 _ -> Just x == initial
     let input = [$hamlet|
-%select#$i$!name=$i$
+%select#$theId$!name=$name$
     %option!value=none
     $forall pairs' pair
         %option!value=$show.fst.pair$!:isSelected.fst.snd.pair:selected $snd.snd.pair$
@@ -615,8 +619,8 @@ selectField pairs label tooltip initial = GForm $ \env _ -> do
     let fi = FieldInfo
             { fiLabel = label
             , fiTooltip = tooltip
-            , fiIdent = i
-            , fiName = i
+            , fiIdent = theId
+            , fiName = name
             , fiInput = addBody input
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -625,12 +629,16 @@ selectField pairs label tooltip initial = GForm $ \env _ -> do
     return (res, [fi], UrlEncoded)
 
 maybeSelectField :: Eq x => [(x, String)]
-                 -> Html () -> Html ()
-                 -> Maybe x -> FormField sub master (Maybe x)
-maybeSelectField pairs label tooltip initial = GForm $ \env _ -> do
-    i <- newFormIdent
+                 -> FormFieldSettings
+                 -> FormletField sub master (Maybe x)
+maybeSelectField pairs ffs initial' = GForm $ \env _ -> do
+    let initial = join initial'
+        label = ffsLabel ffs
+        tooltip = ffsTooltip ffs
+    theId <- maybe newFormIdent return $ ffsId ffs
+    name <- maybe newFormIdent return $ ffsName ffs
     let pairs' = zip [1 :: Int ..] pairs
-    let res = case lookup i env of
+    let res = case lookup name env of
                 Nothing -> FormMissing
                 Just "none" -> FormSuccess Nothing
                 Just x ->
@@ -645,7 +653,7 @@ maybeSelectField pairs label tooltip initial = GForm $ \env _ -> do
                 FormSuccess y -> Just x == y
                 _ -> Just x == initial
     let input = [$hamlet|
-%select#$i$!name=$i$
+%select#$theId$!name=$name$
     %option!value=none
     $forall pairs' pair
         %option!value=$show.fst.pair$!:isSelected.fst.snd.pair:selected $snd.snd.pair$
@@ -653,8 +661,8 @@ maybeSelectField pairs label tooltip initial = GForm $ \env _ -> do
     let fi = FieldInfo
             { fiLabel = label
             , fiTooltip = tooltip
-            , fiIdent = i
-            , fiName = i
+            , fiIdent = theId
+            , fiName = name
             , fiInput = addBody input
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -869,7 +877,7 @@ emailInput n =
     requiredFieldHelper emailFieldProfile (nameSettings n) Nothing
 
 nameSettings :: String -> FormFieldSettings
-nameSettings = FormFieldSettings mempty mempty Nothing . Just
+nameSettings n = FormFieldSettings mempty mempty (Just n) (Just n)
 
 addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
 addScript' f = do
@@ -880,3 +888,6 @@ addStylesheet' :: (y -> Either (Route y) String) -> GWidget sub y ()
 addStylesheet' f = do
     y <- liftHandler getYesod
     addStylesheetEither $ f y
+
+labelSettings :: String -> FormFieldSettings
+labelSettings l = FormFieldSettings (string l) mempty Nothing Nothing
