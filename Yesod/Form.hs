@@ -224,7 +224,7 @@ data FormFieldSettings = FormFieldSettings
 requiredFieldHelper :: FieldProfile sub y a -> FormFieldSettings -> Maybe a -> FormField sub y a
 requiredFieldHelper
     (FieldProfile parse render mkXml w)
-    (FormFieldSettings label tooltip name' theId') orig =
+    (FormFieldSettings label tooltip theId' name') orig =
   GForm $ \env _ -> do
     name <- maybe newFormIdent return name'
     theId <- maybe newFormIdent return theId'
@@ -255,7 +255,7 @@ requiredFieldHelper
 optionalFieldHelper :: FieldProfile sub y a -> FormFieldSettings -> FormletField sub y (Maybe a)
 optionalFieldHelper
  (FieldProfile parse render mkXml w)
- (FormFieldSettings label tooltip name' theId') orig' =
+ (FormFieldSettings label tooltip theId' name') orig' =
   GForm $ \env _ -> do
     let orig = join orig'
     name <- maybe newFormIdent return name'
