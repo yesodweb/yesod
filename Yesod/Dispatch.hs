@@ -240,7 +240,8 @@ toWaiApp' y segments env = do
           case eurl of
             Left _ -> errorHandler NotFound
             Right url -> do
-                ar <- isAuthorized url
+                isWrite <- isWriteRequest url
+                ar <- isAuthorized url isWrite
                 case ar of
                     Authorized -> return ()
                     AuthenticationRequired ->

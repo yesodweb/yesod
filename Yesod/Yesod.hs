@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( -- * Type classes
@@ -108,8 +109,23 @@ class Eq (Route a) => Yesod a where
     -- Return 'Nothing' is the request is authorized, 'Just' a message if
     -- unauthorized. If authentication is required, you should use a redirect;
     -- the Auth helper provides this functionality automatically.
-    isAuthorized :: Route a -> GHandler s a AuthResult
-    isAuthorized _ = return Authorized
+    isAuthorized :: Route a
+                 -> Bool -- ^ is this a write request?
+                 -> GHandler s a AuthResult
+    isAuthorized _ _ = return Authorized
+
+    -- | Determines whether the current request is a write request. By default,
+    -- this assumes you are following RESTful principles, and determines this
+    -- from request method. In particular, all except the following request
+    -- methods are considered write: GET HEAD OPTIONS TRACE.
+    --
+    -- This function is used to determine if a request is authorized; see
+    -- 'isAuthorized'.
+    isWriteRequest :: Route a -> GHandler s a Bool
+    isWriteRequest _ = do
+        wai <- waiRequest
+        return $ not $ W.requestMethod wai `elem`
+            ["GET", "HEAD", "OPTIONS", "TRACE"]
 
     -- | The default route for authentication.
     --
@@ -236,7 +252,10 @@ get404 key = do
 --
 -- Built on top of 'isAuthorized'. This is useful for building page that only
 -- contain links to pages the user is allowed to see.
-maybeAuthorized :: Yesod a => Route a -> GHandler s a (Maybe (Route a))
-maybeAuthorized r = do
-    x <- isAuthorized r
+maybeAuthorized :: Yesod a
+                => Route a
+                -> Bool -- ^ is this a write request?
+                -> GHandler s a (Maybe (Route a))
+maybeAuthorized r isWrite = do
+    x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
