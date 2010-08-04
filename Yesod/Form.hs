@@ -38,6 +38,8 @@ module Yesod.Form
       -- * Field profiles
     , FieldProfile (..)
     , stringFieldProfile
+    , textareaFieldProfile
+    , hiddenFieldProfile
     , intFieldProfile
     , dayFieldProfile
     , timeFieldProfile
@@ -48,6 +50,10 @@ module Yesod.Form
       -- * Pre-built fields
     , stringField
     , maybeStringField
+    , textareaField
+    , maybeTextareaField
+    , hiddenField
+    , maybeHiddenField
     , intField
     , maybeIntField
     , doubleField
@@ -764,3 +770,35 @@ nameSettings n = FormFieldSettings mempty mempty (Just n) (Just n)
 
 labelSettings :: String -> FormFieldSettings
 labelSettings l = FormFieldSettings (string l) mempty Nothing Nothing
+
+textareaFieldProfile :: FieldProfile sub y String
+textareaFieldProfile = FieldProfile
+    { fpParse = Right
+    , fpRender = id
+    , fpHamlet = \theId name val _isReq -> [$hamlet|
+%textarea#$theId$!name=$name$ $val$
+|]
+    , fpWidget = const $ return ()
+    }
+
+textareaField :: FormFieldSettings -> FormletField sub y String
+textareaField = requiredFieldHelper textareaFieldProfile
+
+maybeTextareaField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeTextareaField = optionalFieldHelper textareaFieldProfile
+
+hiddenFieldProfile :: FieldProfile sub y String
+hiddenFieldProfile = FieldProfile
+    { fpParse = Right
+    , fpRender = id
+    , fpHamlet = \theId name val _isReq -> [$hamlet|
+%input!type=hidden#$theId$!name=$name$!value=$val$
+|]
+    , fpWidget = const $ return ()
+    }
+
+hiddenField :: FormFieldSettings -> FormletField sub y String
+hiddenField = requiredFieldHelper hiddenFieldProfile
+
+maybeHiddenField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeHiddenField = optionalFieldHelper hiddenFieldProfile
