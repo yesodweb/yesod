@@ -37,7 +37,7 @@ import Web.Routes.Site
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
-import Network.Wai.Middleware.CleanPath
+import Network.Wai.Middleware.CleanPath (cleanPathFunc)
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.Gzip
 
@@ -208,7 +208,7 @@ toWaiApp :: (Yesod y, YesodSite y) => y -> IO W.Application
 toWaiApp a =
     return $ gzip
            $ jsonp
-           $ cleanPathRel (B.pack $ approot a)
+           $ cleanPathFunc (splitPath a) (B.pack $ approot a)
            $ toWaiApp' a
 
 toWaiApp' :: (Yesod y, YesodSite y)

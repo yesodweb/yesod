@@ -42,6 +42,8 @@ import Database.Persist
 import Web.Routes.Site (Site)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Monad.Attempt (Failure)
+import qualified Data.ByteString as S
+import qualified Network.Wai.Middleware.CleanPath
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -133,6 +135,20 @@ class Eq (Route a) => Yesod a where
     -- they want with it.
     authRoute :: a -> Maybe (Route a)
     authRoute _ = Nothing
+
+    -- | A function used to split a raw PATH_INFO value into path pieces. It
+    -- returns a 'Left' value when you should redirect to the given path, and a
+    -- 'Right' value on successful parse.
+    --
+    -- By default, it splits paths on slashes, and ensures the following are true:
+    --
+    -- * No double slashes
+    --
+    -- * If the last path segment has a period, there is no trailing slash.
+    --
+    -- * Otherwise, ensures there /is/ a trailing slash.
+    splitPath :: a -> S.ByteString -> Either S.ByteString [String]
+    splitPath _ = Network.Wai.Middleware.CleanPath.splitPath
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
     deriving (Eq, Show, Read)
