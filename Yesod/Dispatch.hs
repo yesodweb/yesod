@@ -234,11 +234,12 @@ toWaiApp' y segments env = do
         render u = fromMaybe
                     (fullRender (approot y) (formatPathSegments site) u)
                     (urlRenderOverride y u)
+    let errorHandler' = localNoCurrent . errorHandler
     rr <- parseWaiRequest env session'
     let h = do
           onRequest
           case eurl of
-            Left _ -> errorHandler NotFound
+            Left _ -> errorHandler' NotFound
             Right url -> do
                 isWrite <- isWriteRequest url
                 ar <- isAuthorized url isWrite
@@ -253,10 +254,10 @@ toWaiApp' y segments env = do
                                 redirect RedirectTemporary url'
                     Unauthorized s -> permissionDenied s
                 case handleSite site render url method of
-                    Nothing -> errorHandler $ BadMethod method
+                    Nothing -> errorHandler' $ BadMethod method
                     Just h' -> h'
     let eurl' = either (const Nothing) Just eurl
-    let eh er = runHandler (errorHandler er) render eurl' id y id
+    let eh er = runHandler (errorHandler' er) render eurl' id y id
     let ya = runHandler h render eurl' id y id
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
     let sessionVal = encodeSession key' exp' host sessionFinal

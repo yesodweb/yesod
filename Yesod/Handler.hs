@@ -66,6 +66,7 @@ module Yesod.Handler
     , runHandler
     , YesodApp (..)
     , toMasterHandler
+    , localNoCurrent
     ) where
 
 import Prelude hiding (catch)
@@ -438,3 +439,7 @@ data RedirectType = RedirectPermanent
                   | RedirectTemporary
                   | RedirectSeeOther
     deriving (Show, Eq)
+
+localNoCurrent :: GHandler s m a -> GHandler s m a
+localNoCurrent =
+    GHandler . local (\hd -> hd { handlerRoute = Nothing }) . unGHandler
