@@ -18,8 +18,6 @@ module Yesod.Dispatch
     , toWaiApp
     , basicHandler
     , basicHandler'
-      -- * Utilities
-    , fullRender
 #if TEST
     , testSuite
 #endif
@@ -46,7 +44,6 @@ import qualified Network.Wai.Handler.CGI as CGI
 import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
-import Web.Routes (encodePathInfo)
 
 import qualified Data.ByteString.UTF8 as S
 
@@ -232,7 +229,7 @@ toWaiApp' y segments env = do
         pathSegments = filter (not . null) segments
         eurl = parsePathSegments site pathSegments
         render u = fromMaybe
-                    (fullRender (approot y) (formatPathSegments site) u)
+                    (joinPath y (approot y) $ formatPathSegments site u)
                     (urlRenderOverride y u)
     let errorHandler' = localNoCurrent . errorHandler
     rr <- parseWaiRequest env session'
@@ -268,19 +265,6 @@ toWaiApp' y segments env = do
         hs''' = ("Content-Type", S.fromString ct) : hs''
     return $ W.Response s hs''' c
 
--- | Fully render a route to an absolute URL. Since Yesod does this for you
--- internally, you will rarely need access to this. However, if you need to
--- generate links /outside/ of the Handler monad, this may be useful.
---
--- For example, if you want to generate an e-mail which links to your site,
--- this is the function you would want to use.
-fullRender :: String -- ^ approot, no trailing slash
-           -> (url -> [String])
-           -> url
-           -> String
-fullRender ar render route =
-    ar ++ '/' : encodePathInfo (fixSegs $ render route)
-
 httpAccept :: W.Request -> [ContentType]
 httpAccept = map B.unpack
            . parseHttpAccept
@@ -315,13 +299,6 @@ basicHandler' port mhost y = do
                     ["http://", h, ":", show port, "/"]
             SS.run port app
         Just _ -> CGI.run app
-
-fixSegs :: [String] -> [String]
-fixSegs [] = []
-fixSegs [x]
-    | any (== '.') x = [x]
-    | otherwise = [x, ""] -- append trailing slash
-fixSegs (x:xs) = x : fixSegs xs
 
 parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session

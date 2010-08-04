@@ -44,6 +44,7 @@ import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Monad.Attempt (Failure)
 import qualified Data.ByteString as S
 import qualified Network.Wai.Middleware.CleanPath
+import Web.Routes (encodePathInfo)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -149,6 +150,18 @@ class Eq (Route a) => Yesod a where
     -- * Otherwise, ensures there /is/ a trailing slash.
     splitPath :: a -> S.ByteString -> Either S.ByteString [String]
     splitPath _ = Network.Wai.Middleware.CleanPath.splitPath
+
+    -- | Join the pieces of a path together into an absolute URL. This should
+    -- be the inverse of 'splitPath'.
+    joinPath :: a -> String -> [String] -> String
+    joinPath _ ar pieces =
+        ar ++ '/' : encodePathInfo (fixSegs pieces)
+      where
+        fixSegs [] = []
+        fixSegs [x]
+            | any (== '.') x = [x]
+            | otherwise = [x, ""] -- append trailing slash
+        fixSegs (x:xs) = x : fixSegs xs
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
     deriving (Eq, Show, Read)
