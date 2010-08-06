@@ -269,10 +269,14 @@ redirectParams :: RedirectType -> Route master -> [(String, String)]
                -> GHandler sub master a
 redirectParams rt url params = do
     r <- getUrlRender
-    redirectString rt $ r url ++
-        if null params then "" else '?' : encodeUrlPairs params
+    redirectString rt $ r url ++ encodeUrlPairs params
+
+encodeUrlPairs :: [(String, String)] -> String
+encodeUrlPairs [] = ""
+encodeUrlPairs pairs =
+    (:) '?' $ encodeUrlPairs' pairs
   where
-    encodeUrlPairs = intercalate "&" . map encodeUrlPair
+    encodeUrlPairs' = intercalate "&" . map encodeUrlPair
     encodeUrlPair (x, []) = escape x
     encodeUrlPair (x, y) = escape x ++ '=' : escape y
     escape = concatMap escape'
@@ -319,8 +323,13 @@ setUltDestString = setSession ultDestKey
 setUltDest' :: GHandler sub master ()
 setUltDest' = do
     route <- getCurrentRoute
-    tm <- getRouteToMaster
-    maybe (return ()) setUltDest $ tm <$> route
+    case route of
+        Nothing -> return ()
+        Just r -> do
+            tm <- getRouteToMaster
+            gets <- reqGetParams <$> getRequest
+            render <- getUrlRender
+            setUltDestString $ render (tm r) ++ encodeUrlPairs gets
 
 -- | Redirect to the ultimate destination in the user's session. Clear the
 -- value from the session.
