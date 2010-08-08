@@ -6,6 +6,8 @@
 module Yesod.Hamlet
     ( -- * Hamlet library
       module Text.Hamlet
+    , jamlet
+    , camlet
       -- * Convert to something displayable
     , hamletToContent
     , hamletToRepHtml
@@ -14,7 +16,9 @@ module Yesod.Hamlet
     )
     where
 
-import Text.Hamlet
+import Text.Hamlet hiding (hamletFile)
+import Text.Camlet
+import Text.Jamlet
 import Yesod.Content
 import Yesod.Handler
 

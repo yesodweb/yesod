@@ -2,6 +2,8 @@
 import Yesod
 import Yesod.Widget
 import Yesod.Helpers.Static
+import Yesod.Form.Jquery
+import Yesod.Form.Nic
 import Control.Applicative
 
 data HW = HW { hwStatic :: Static }
@@ -12,6 +14,8 @@ mkYesod "HW" [$parseRoutes|
 /autocomplete AutoCompleteR GET
 |]
 instance Yesod HW where approot _ = ""
+instance YesodNic HW
+instance YesodJquery HW
 wrapper h = [$hamlet|
 #wrapper ^h^
 %footer Brought to you by Yesod Widgets&trade;
@@ -19,7 +23,10 @@ wrapper h = [$hamlet|
 getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
     i <- newIdent
     setTitle $ string "Hello Widgets"
-    addStyle [$hamlet|\#$i${color:red}|]
+    addStyle [$camlet|
+#$i$
+    color:red
+|]
     addStylesheet $ StaticR $ StaticRoute ["style.css"]
     addStylesheetRemote "http://localhost:3000/static/style2.css"
     addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
@@ -35,12 +42,13 @@ getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
     addHead [$hamlet|%meta!keywords=haskell|]
 
 handleFormR = do
-    (res, form, enctype) <- runFormPost $ (,,,,,,,,)
-        <$> stringField (string "My Field") (string "Some tooltip info") Nothing
-        <*> stringField (string "Another field") (string "") (Just "some default text")
-        <*> intField (string "A number field") (string "some nums") (Just 5)
-        <*> jqueryDayField (string "A day field") (string "") Nothing
-        <*> timeField (string "A time field") (string "") Nothing
+    (res, form, enctype) <- runFormPost $ (,,,,,,,,,)
+        <$> stringField (FormFieldSettings "My Field" "Some tooltip info" Nothing Nothing) Nothing
+        <*> stringField (labelSettings "Another field") (Just "some default text")
+        <*> intField (FormFieldSettings "A number field" "some nums" Nothing Nothing) (Just 5)
+        <*> jqueryDayField (labelSettings "A day field") Nothing
+        <*> timeField (labelSettings "A time field") Nothing
+        <*> jqueryDayTimeField (labelSettings "A day/time field") Nothing
         <*> boolField FormFieldSettings
                 { ffsLabel = "A checkbox"
                 , ffsTooltip = ""
@@ -48,16 +56,24 @@ handleFormR = do
                 , ffsName = Nothing
                 } (Just False)
         <*> jqueryAutocompleteField AutoCompleteR
-            (string "Autocomplete") (string "Try it!") Nothing
-        <*> nicHtmlField (string "HTML") (string "")
+            (FormFieldSettings "Autocomplete" "Try it!" Nothing Nothing) Nothing
+        <*> nicHtmlField (labelSettings "HTML")
                 (Just $ string "You can put rich text here")
-        <*> maybeEmailField (string "An e-mail addres") mempty Nothing
+        <*> maybeEmailField (labelSettings "An e-mail addres") Nothing
     let mhtml = case res of
-                    FormSuccess (_, _, _, _, _, _, _, x, _) -> Just x
+                    FormSuccess (_, _, _, _, _, _, _, _, x, _) -> Just x
                     _ -> Nothing
     applyLayoutW $ do
-        addStyle [$hamlet|\.tooltip{color:#666;font-style:italic}|]
-        addStyle [$hamlet|textarea.html{width:300px;height:150px};|]
+        addStyle [$camlet|
+.tooltip
+    color:#666
+    font-style:italic
+|]
+        addStyle [$camlet|
+textarea.html
+    width:300px
+    height:150px
+|]
         wrapWidget (fieldsToTable form) $ \h -> [$hamlet|
 %form!method=post!enctype=$show.enctype$
     %table
