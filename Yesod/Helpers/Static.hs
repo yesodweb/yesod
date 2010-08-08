@@ -43,6 +43,10 @@ import Data.Maybe (fromMaybe)
 import Yesod
 import Data.List (intercalate)
 import Language.Haskell.TH.Syntax
+import Web.Routes.Site
+
+import qualified Data.ByteString.Lazy as L
+import Data.Digest.Pure.MD5
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -58,9 +62,20 @@ data Static = Static
     , staticTypes :: [(String, ContentType)]
     }
 
-mkYesodSub "Static" [] [$parseRoutes|
-*Strings StaticRoute GET
-|]
+data StaticRoute = StaticRoute [String] [(String, String)]
+    deriving (Eq, Show, Read)
+
+type instance Route Static = StaticRoute
+
+instance YesodSubSite Static master where
+    getSubSite = Site
+        { handleSite = \_ (StaticRoute ps _) m ->
+                            case m of
+                                "GET" -> Just $ fmap chooseRep $ getStaticRoute ps
+                                _ -> Nothing
+        , formatPathSegments = \(StaticRoute x y) -> (x, y)
+        , parsePathSegments = \x -> Right $ StaticRoute x []
+        }
 
 -- | Lookup files in a specific directory.
 --
@@ -132,10 +147,12 @@ staticFiles fp = do
         let name = mkName $ intercalate "_" $ map (map replace') f
         f' <- lift f
         let sr = ConE $ mkName "StaticRoute"
+        hash <- qRunIO $ fmap (show . md5) $ L.readFile $ fp ++ '/' : intercalate "/" f
+        let qs = ListE [TupE [LitE $ StringL "hash", LitE $ StringL hash]]
         return
             [ SigD name $ ConT ''Route `AppT` ConT ''Static
             , FunD name
-                [ Clause [] (NormalB $ sr `AppE` f') []
+                [ Clause [] (NormalB $ sr `AppE` f' `AppE` qs) []
                 ]
             ]
 

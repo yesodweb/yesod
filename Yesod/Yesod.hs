@@ -154,9 +154,9 @@ class Eq (Route a) => Yesod a where
 
     -- | Join the pieces of a path together into an absolute URL. This should
     -- be the inverse of 'splitPath'.
-    joinPath :: a -> String -> [String] -> String
-    joinPath _ ar pieces =
-        ar ++ '/' : encodePathInfo (fixSegs pieces)
+    joinPath :: a -> String -> [String] -> [(String, String)] -> String
+    joinPath _ ar pieces qs =
+        ar ++ '/' : encodePathInfo (fixSegs pieces) qs
       where
         fixSegs [] = []
         fixSegs [x]
@@ -177,7 +177,7 @@ class Eq (Route a) => Yesod a where
     addStaticContent :: String -- ^ filename extension
                      -> String -- ^ mime-type
                      -> L.ByteString -- ^ content
-                     -> GHandler sub a (Maybe (Either String (Route a)))
+                     -> GHandler sub a (Maybe (Either String (Route a, [(String, String)])))
     addStaticContent _ _ _ = return Nothing
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized String

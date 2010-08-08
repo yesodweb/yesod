@@ -22,7 +22,7 @@ instance Yesod HW where
         let fn = show (md5 content) ++ '.' : ext
         liftIO $ createDirectoryIfMissing True "static/tmp"
         liftIO $ L.writeFile ("static/tmp/" ++ fn) content
-        return $ Just $ Right $ StaticR $ StaticRoute ["tmp", fn]
+        return $ Just $ Right (StaticR $ StaticRoute ["tmp", fn], [])
 
 instance YesodNic HW
 instance YesodJquery HW

@@ -30,6 +30,7 @@ module Yesod.Handler
     , getYesod
     , getYesodSub
     , getUrlRender
+    , getUrlRenderParams
     , getCurrentRoute
     , getRouteToMaster
       -- * Special responses
@@ -73,7 +74,7 @@ import Prelude hiding (catch)
 import Yesod.Request
 import Yesod.Content
 import Yesod.Internal
-import Data.List (foldl', intercalate)
+import Data.List (foldl')
 import Data.Neither
 
 import Control.Exception hiding (Handler, catch)
@@ -93,8 +94,6 @@ import Data.ByteString.UTF8 (toString)
 import qualified Data.ByteString.Lazy.UTF8 as L
 
 import Text.Hamlet
-import Numeric (showIntAtBase)
-import Data.Char (ord, chr)
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -104,7 +103,7 @@ data HandlerData sub master = HandlerData
     , handlerSub :: sub
     , handlerMaster :: master
     , handlerRoute :: Maybe (Route sub)
-    , handlerRender :: (Route master -> String)
+    , handlerRender :: (Route master -> [(String, String)] -> String)
     , handlerToMaster :: Route sub -> Route master
     }
 
@@ -183,7 +182,13 @@ getYesod = handlerMaster <$> GHandler ask
 
 -- | Get the URL rendering function.
 getUrlRender :: GHandler sub master (Route master -> String)
-getUrlRender = handlerRender <$> GHandler ask
+getUrlRender = do
+    x <- handlerRender <$> GHandler ask
+    return $ flip x []
+
+-- | The URL rendering function with query-string parameters.
+getUrlRenderParams :: GHandler sub master (Route master -> [(String, String)] -> String)
+getUrlRenderParams = handlerRender <$> GHandler ask
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
@@ -209,7 +214,7 @@ dropKeys k = filter $ \(x, _) -> x /= k
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
 runHandler :: HasReps c
            => GHandler sub master c
-           -> (Route master -> String)
+           -> (Route master -> [(String, String)] -> String)
            -> Maybe (Route sub)
            -> (Route sub -> Route master)
            -> master
@@ -268,33 +273,8 @@ redirect rt url = redirectParams rt url []
 redirectParams :: RedirectType -> Route master -> [(String, String)]
                -> GHandler sub master a
 redirectParams rt url params = do
-    r <- getUrlRender
-    redirectString rt $ r url ++ encodeUrlPairs params
-
-encodeUrlPairs :: [(String, String)] -> String
-encodeUrlPairs [] = ""
-encodeUrlPairs pairs =
-    (:) '?' $ encodeUrlPairs' pairs
-  where
-    encodeUrlPairs' = intercalate "&" . map encodeUrlPair
-    encodeUrlPair (x, []) = escape x
-    encodeUrlPair (x, y) = escape x ++ '=' : escape y
-    escape = concatMap escape'
-    escape' c
-        | 'A' < c && c < 'Z' = [c]
-        | 'a' < c && c < 'a' = [c]
-        | '0' < c && c < '9' = [c]
-        | c `elem` ".-~_" = [c]
-        | c == ' ' = "+"
-        | otherwise = '%' : myShowHex (ord c) ""
-    myShowHex :: Int -> ShowS
-    myShowHex n r =  case showIntAtBase 16 toChrHex n r of
-        []  -> "00"
-        [c] -> ['0',c]
-        s  -> s
-    toChrHex d
-        | d < 10    = chr (ord '0' + fromIntegral d)
-        | otherwise = chr (ord 'A' + fromIntegral (d - 10))
+    r <- getUrlRenderParams
+    redirectString rt $ r url params
 
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
@@ -328,8 +308,8 @@ setUltDest' = do
         Just r -> do
             tm <- getRouteToMaster
             gets <- reqGetParams <$> getRequest
-            render <- getUrlRender
-            setUltDestString $ render (tm r) ++ encodeUrlPairs gets
+            render <- getUrlRenderParams
+            setUltDestString $ render (tm r) gets
 
 -- | Redirect to the ultimate destination in the user's session. Clear the
 -- value from the session.

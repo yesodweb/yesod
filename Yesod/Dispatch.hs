@@ -228,8 +228,10 @@ toWaiApp' y segments env = do
         types = httpAccept env
         pathSegments = filter (not . null) segments
         eurl = parsePathSegments site pathSegments
-        render u = fromMaybe
-                    (joinPath y (approot y) $ formatPathSegments site u)
+        render u qs =
+            let (ps, qs') = formatPathSegments site u
+             in fromMaybe
+                    (joinPath y (approot y) ps $ qs ++ qs')
                     (urlRenderOverride y u)
     let errorHandler' = localNoCurrent . errorHandler
     rr <- parseWaiRequest env session'

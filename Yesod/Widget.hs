@@ -38,7 +38,7 @@ import Control.Monad.Trans.State
 import Yesod.Hamlet (Hamlet, hamlet, PageContent (..), Html)
 import Text.Camlet
 import Text.Jamlet
-import Yesod.Handler (Route, GHandler, getUrlRender)
+import Yesod.Handler (Route, GHandler, getUrlRenderParams)
 import Yesod.Yesod (Yesod, defaultLayout, addStaticContent)
 import Yesod.Content (RepHtml (..))
 import Control.Applicative (Applicative)
@@ -186,12 +186,12 @@ widgetToPageContent (GWidget w) = do
     let jelper :: Jamlet url -> Hamlet url
         jelper j render = lbsToHtml $ renderJamlet render j
 
-    render <- getUrlRender
+    render <- getUrlRenderParams
     let renderLoc x =
             case x of
                 Nothing -> Nothing
                 Just (Left s) -> Just s
-                Just (Right u) -> Just $ render u
+                Just (Right (u, p)) -> Just $ render u p
     cssLoc <-
         case style of
             Nothing -> return Nothing
