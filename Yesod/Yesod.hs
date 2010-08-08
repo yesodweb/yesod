@@ -45,6 +45,7 @@ import Control.Monad.Attempt (Failure)
 import qualified Data.ByteString as S
 import qualified Network.Wai.Middleware.CleanPath
 import Web.Routes (encodePathInfo)
+import qualified Data.ByteString.Lazy as L
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -162,6 +163,22 @@ class Eq (Route a) => Yesod a where
             | any (== '.') x = [x]
             | otherwise = [x, ""] -- append trailing slash
         fixSegs (x:xs) = x : fixSegs xs
+
+    -- | This function is used to store some static content to be served as an
+    -- external file. The most common case of this is stashing CSS and
+    -- JavaScript content in an external file; the "Yesod.Widget" module uses
+    -- this feature.
+    --
+    -- The return value is 'Nothing' if no storing was performed; this is the
+    -- default implementation. A 'Just' 'Left' gives the absolute URL of the
+    -- file, whereas a 'Just' 'Right' gives the type-safe URL. The former is
+    -- necessary when you are serving the content outside the context of a
+    -- Yesod application, such as via memcached.
+    addStaticContent :: String -- ^ filename extension
+                     -> String -- ^ mime-type
+                     -> L.ByteString -- ^ content
+                     -> GHandler sub a (Maybe (Either String (Route a)))
+    addStaticContent _ _ _ = return Nothing
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
     deriving (Eq, Show, Read)

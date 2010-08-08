@@ -38,8 +38,8 @@ import Control.Monad.Trans.State
 import Yesod.Hamlet (Hamlet, hamlet, PageContent (..), Html)
 import Text.Camlet
 import Text.Jamlet
-import Yesod.Handler (Route, GHandler)
-import Yesod.Yesod (Yesod, defaultLayout)
+import Yesod.Handler (Route, GHandler, getUrlRender)
+import Yesod.Yesod (Yesod, defaultLayout, addStaticContent)
 import Yesod.Content (RepHtml (..))
 import Control.Applicative (Applicative)
 import Control.Monad.IO.Class (MonadIO)
@@ -159,7 +159,7 @@ applyLayoutW :: (Eq (Route m), Yesod m)
 applyLayoutW w = widgetToPageContent w >>= fmap RepHtml . defaultLayout
 
 -- | Convert a widget to a 'PageContent'.
-widgetToPageContent :: Eq (Route master)
+widgetToPageContent :: (Eq (Route master), Yesod master)
                     => GWidget sub master ()
                     -> GHandler sub master (PageContent (Route master))
 widgetToPageContent (GWidget w) = do
@@ -186,15 +186,42 @@ widgetToPageContent (GWidget w) = do
     let jelper :: Jamlet url -> Hamlet url
         jelper j render = lbsToHtml $ renderJamlet render j
 
+    render <- getUrlRender
+    let renderLoc x =
+            case x of
+                Nothing -> Nothing
+                Just (Left s) -> Just s
+                Just (Right u) -> Just $ render u
+    cssLoc <-
+        case style of
+            Nothing -> return Nothing
+            Just s -> do
+                x <- addStaticContent "css" "text/css; charset=utf-8"
+                   $ renderCamlet render s
+                return $ renderLoc x
+    jsLoc <-
+        case jscript of
+            Nothing -> return Nothing
+            Just s -> do
+                x <- addStaticContent "js" "text/javascript; charset=utf-8"
+                   $ renderJamlet render s
+                return $ renderLoc x
+
     let head'' = [$hamlet|
 $forall scripts s
     %script!src=^s^
 $forall stylesheets s
     %link!rel=stylesheet!href=^s^
 $maybe style s
-    %style ^celper.s^
+    $maybe cssLoc s
+        %link!rel=stylesheet!href=$s$
+    $nothing
+        %style ^celper.s^
 $maybe jscript j
-    %script ^jelper.j^
+    $maybe jsLoc s
+        %script!src=$s$
+    $nothing
+        %script ^jelper.j^
 ^head'^
 |]
     return $ PageContent title head'' body

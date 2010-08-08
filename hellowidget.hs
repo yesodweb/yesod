@@ -5,6 +5,9 @@ import Yesod.Helpers.Static
 import Yesod.Form.Jquery
 import Yesod.Form.Nic
 import Control.Applicative
+import qualified Data.ByteString.Lazy as L
+import System.Directory
+import Data.Digest.Pure.MD5
 
 data HW = HW { hwStatic :: Static }
 mkYesod "HW" [$parseRoutes|
@@ -13,7 +16,14 @@ mkYesod "HW" [$parseRoutes|
 /static StaticR Static hwStatic
 /autocomplete AutoCompleteR GET
 |]
-instance Yesod HW where approot _ = ""
+instance Yesod HW where
+    approot _ = ""
+    addStaticContent ext _ content = do
+        let fn = show (md5 content) ++ '.' : ext
+        liftIO $ createDirectoryIfMissing True "static/tmp"
+        liftIO $ L.writeFile ("static/tmp/" ++ fn) content
+        return $ Just $ Right $ StaticR $ StaticRoute ["tmp", fn]
+
 instance YesodNic HW
 instance YesodJquery HW
 wrapper h = [$hamlet|
