@@ -34,6 +34,7 @@ library
                      web-routes-quasi >= 0.6 && < 0.7,
                      hamlet >= 0.5.0 && < 0.6,
                      blaze-html >= 0.1.1 && < 0.2,
+                     blaze-builder >= 0.1 && < 0.2,
                      transformers >= 0.2 && < 0.3,
                      clientsession >= 0.4.0 && < 0.5,
                      pureMD5 >= 1.1.0.0 && < 1.2,

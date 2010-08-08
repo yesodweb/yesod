@@ -5,9 +5,24 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Hamlet
     ( -- * Hamlet library
-      module Text.Hamlet
+      -- ** Hamlet
+      hamlet
+    , xhamlet
+    , Hamlet
+    , Html
+    , renderHamlet
+    , renderHtml
+    , string
+    , preEscapedString
+    , cdata
+      -- ** Jamlet
     , jamlet
+    , Jamlet
+    , renderJamlet
+      -- ** Camlet
     , camlet
+    , Camlet
+    , renderCamlet
       -- * Convert to something displayable
     , hamletToContent
     , hamletToRepHtml
@@ -16,7 +31,7 @@ module Yesod.Hamlet
     )
     where
 
-import Text.Hamlet hiding (hamletFile)
+import Text.Hamlet
 import Text.Camlet
 import Text.Jamlet
 import Yesod.Content
