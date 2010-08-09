@@ -266,8 +266,8 @@ $maybe creds c
 |]
     json creds =
         jsonMap
-            [ ("ident", jsonScalar $ maybe (string "") (string . credsIdent) creds)
-            , ("displayName", jsonScalar $ string $ fromMaybe ""
+            [ ("ident", jsonScalar $ maybe "" credsIdent creds)
+            , ("displayName", jsonScalar $ fromMaybe ""
                                          $ creds >>= credsDisplayName)
             ]
 

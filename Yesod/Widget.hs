@@ -35,7 +35,8 @@ import Data.List (nub)
 import Data.Monoid
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State
-import Yesod.Hamlet (Hamlet, hamlet, PageContent (..), Html)
+import Yesod.Hamlet (PageContent (..))
+import Text.Hamlet
 import Text.Camlet
 import Text.Jamlet
 import Yesod.Handler (Route, GHandler, getUrlRenderParams)
@@ -45,9 +46,6 @@ import Control.Applicative (Applicative)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
 import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString as S
-import Text.Hamlet (unsafeByteString)
 
 data Location url = Local url | Remote String
     deriving (Show, Eq)
@@ -178,13 +176,12 @@ widgetToPageContent (GWidget w) = do
     let scripts = map (locationToHamlet . unScript) $ runUniqueList scripts'
     let stylesheets = map (locationToHamlet . unStylesheet)
                     $ runUniqueList stylesheets'
-    -- FIXME the next functions can be optimized once blaze-html switches to
-    -- blaze-builder
-    let lbsToHtml = unsafeByteString . S.concat . L.toChunks
-    let celper :: Camlet url -> Hamlet url
-        celper c render = lbsToHtml $ renderCamlet render c
-    let jelper :: Jamlet url -> Hamlet url
-        jelper j render = lbsToHtml $ renderJamlet render j
+    let cssToHtml (Css b) = Html b
+        celper :: Camlet url -> Hamlet url
+        celper = fmap cssToHtml
+        jsToHtml (Javascript b) = Html b
+        jelper :: Jamlet url -> Hamlet url
+        jelper = fmap jsToHtml
 
     render <- getUrlRenderParams
     let renderLoc x =

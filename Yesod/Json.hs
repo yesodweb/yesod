@@ -1,4 +1,4 @@
--- | Efficient generation of JSON documents, with HTML-entity encoding handled via types.
+-- | Efficient generation of JSON documents.
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -19,13 +19,12 @@ module Yesod.Json
     where
 
 import qualified Data.ByteString.Char8 as S
-import qualified Data.ByteString.Lazy.Char8 as L
 import Data.Char (isControl)
 import Yesod.Handler
 import Numeric (showHex)
 import Data.Monoid (Monoid (..))
 import Text.Blaze.Builder.Core
-import Text.Hamlet (Html, renderHtml, string)
+import Text.Blaze.Builder.Utf8 (writeChar)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -58,35 +57,31 @@ jsonToRepJson = fmap RepJson . jsonToContent
 
 -- | Outputs a single scalar. This function essentially:
 --
--- * Performs HTML entity escaping as necesary.
---
 -- * Performs JSON encoding.
 --
 -- * Wraps the resulting string in quotes.
-jsonScalar :: Html -> Json
+jsonScalar :: String -> Json
 jsonScalar s = Json $ mconcat
     [ fromByteString "\""
-    -- FIXME the following line can be optimized after blaze-html 0.2
-    , fromByteString $ S.concat $ L.toChunks $ encodeJson $ renderHtml s
+    , writeList writeJsonChar s
     , fromByteString "\""
     ]
   where
-    encodeJson = L.concatMap (L.pack . encodeJsonChar)
-
-    encodeJsonChar '\b' = "\\b"
-    encodeJsonChar '\f' = "\\f"
-    encodeJsonChar '\n' = "\\n"
-    encodeJsonChar '\r' = "\\r"
-    encodeJsonChar '\t' = "\\t"
-    encodeJsonChar '"' = "\\\""
-    encodeJsonChar '\\' = "\\\\"
-    encodeJsonChar c
-        | not $ isControl c = [c]
-        | c < '\x10'   = '\\' : 'u' : '0' : '0' : '0' : hexxs
-        | c < '\x100'  = '\\' : 'u' : '0' : '0' : hexxs
-        | c < '\x1000' = '\\' : 'u' : '0' : hexxs
+    writeJsonChar '\b' = writeByteString "\\b"
+    writeJsonChar '\f' = writeByteString "\\f"
+    writeJsonChar '\n' = writeByteString "\\n"
+    writeJsonChar '\r' = writeByteString "\\r"
+    writeJsonChar '\t' = writeByteString "\\t"
+    writeJsonChar '"' = writeByteString "\\\""
+    writeJsonChar '\\' = writeByteString "\\\\"
+    writeJsonChar c
+        | not $ isControl c = writeChar c
+        | c < '\x10'   = writeString $ '\\' : 'u' : '0' : '0' : '0' : hexxs
+        | c < '\x100'  = writeString $ '\\' : 'u' : '0' : '0' : hexxs
+        | c < '\x1000' = writeString $ '\\' : 'u' : '0' : hexxs
         where hexxs = showHex (fromEnum c) ""
-    encodeJsonChar c = [c]
+    writeJsonChar c = writeChar c
+    writeString = writeByteString . S.pack
 
 -- | Outputs a JSON list, eg [\"foo\",\"bar\",\"baz\"].
 jsonList :: [Json] -> Json
@@ -112,7 +107,7 @@ jsonMap (x:xs) = mconcat
   where
     go' y = mappend (Json $ fromByteString ",") $ go y
     go (k, v) = mconcat
-        [ jsonScalar $ string k
+        [ jsonScalar k
         , Json $ fromByteString ":"
         , v
         ]
