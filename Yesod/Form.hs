@@ -18,7 +18,6 @@ module Yesod.Form
     , FormResult (..)
     , Enctype (..)
     , FieldInfo (..)
-    , Html'
       -- * Unwrapping functions
     , runFormGet
     , runFormPost
@@ -157,12 +156,12 @@ mapFormXml f (GForm g) = GForm $ \e fe -> do
 -- write generic field functions and then different functions for producing
 -- actual HTML. See, for example, 'fieldsToTable' and 'fieldsToPlain'.
 data FieldInfo sub y = FieldInfo
-    { fiLabel :: Html ()
-    , fiTooltip :: Html ()
+    { fiLabel :: Html
+    , fiTooltip :: Html
     , fiIdent :: String
     , fiName :: String
     , fiInput :: GWidget sub y ()
-    , fiErrors :: Maybe (Html ())
+    , fiErrors :: Maybe Html
     }
 
 type Env = [(String, String)]
@@ -211,8 +210,8 @@ class ToFormField a y where
     toFormField :: FormFieldSettings -> Maybe a -> FormField sub y a
 
 data FormFieldSettings = FormFieldSettings
-    { ffsLabel :: Html ()
-    , ffsTooltip :: Html ()
+    { ffsLabel :: Html
+    , ffsTooltip :: Html
     , ffsId :: Maybe String
     , ffsName :: Maybe String
     }
@@ -467,13 +466,13 @@ boolField ffs orig = GForm $ \env _ -> do
 instance ToFormField Bool y where
     toFormField = boolField
 
-htmlField :: FormFieldSettings -> FormletField sub y (Html ())
+htmlField :: FormFieldSettings -> FormletField sub y Html
 htmlField = requiredFieldHelper htmlFieldProfile
 
-maybeHtmlField :: FormFieldSettings -> FormletField sub y (Maybe (Html ()))
+maybeHtmlField :: FormFieldSettings -> FormletField sub y (Maybe Html)
 maybeHtmlField = optionalFieldHelper htmlFieldProfile
 
-htmlFieldProfile :: FieldProfile sub y (Html ())
+htmlFieldProfile :: FieldProfile sub y Html
 htmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
@@ -482,12 +481,10 @@ htmlFieldProfile = FieldProfile
 |]
     , fpWidget = const $ return ()
     }
-instance ToFormField (Html ()) y where
+instance ToFormField Html y where
     toFormField = htmlField
-instance ToFormField (Maybe (Html ())) y where
+instance ToFormField (Maybe Html) y where
     toFormField = maybeHtmlField
-
-type Html' = Html ()
 
 readMay :: Read a => String -> Maybe a
 readMay s = case reads s of

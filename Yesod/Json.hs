@@ -25,7 +25,7 @@ import Yesod.Handler
 import Numeric (showHex)
 import Data.Monoid (Monoid (..))
 import Text.Blaze.Builder.Core
-import Text.Blaze (Html, renderHtml, string)
+import Text.Hamlet (Html, renderHtml, string)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -63,7 +63,7 @@ jsonToRepJson = fmap RepJson . jsonToContent
 -- * Performs JSON encoding.
 --
 -- * Wraps the resulting string in quotes.
-jsonScalar :: Html () -> Json
+jsonScalar :: Html -> Json
 jsonScalar s = Json $ mconcat
     [ fromByteString "\""
     -- FIXME the following line can be optimized after blaze-html 0.2

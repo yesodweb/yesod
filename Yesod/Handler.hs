@@ -332,14 +332,14 @@ msgKey = "_MSG"
 -- instead, it will only appear in the next request.
 --
 -- See 'getMessage'.
-setMessage :: Html () -> GHandler sub master ()
+setMessage :: Html -> GHandler sub master ()
 setMessage = setSession msgKey . L.toString . renderHtml
 
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.
 --
 -- See 'setMessage'.
-getMessage :: GHandler sub master (Maybe (Html ()))
+getMessage :: GHandler sub master (Maybe Html)
 getMessage = do
     deleteSession msgKey
     fmap (fmap preEscapedString) $ lookupSession msgKey

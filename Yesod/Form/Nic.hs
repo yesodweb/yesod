@@ -16,13 +16,13 @@ class YesodNic a where
     urlNicEdit :: a -> Either (Route a) String
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-nicHtmlField :: YesodNic y => FormFieldSettings -> FormletField sub y (Html ())
+nicHtmlField :: YesodNic y => FormFieldSettings -> FormletField sub y Html
 nicHtmlField = requiredFieldHelper nicHtmlFieldProfile
 
-maybeNicHtmlField :: YesodNic y => FormFieldSettings -> FormletField sub y (Maybe (Html ()))
+maybeNicHtmlField :: YesodNic y => FormFieldSettings -> FormletField sub y (Maybe Html)
 maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
 
-nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y (Html ())
+nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html
 nicHtmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml

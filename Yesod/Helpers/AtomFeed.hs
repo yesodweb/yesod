@@ -44,7 +44,7 @@ data AtomFeedEntry url = AtomFeedEntry
     { atomEntryLink :: url
     , atomEntryUpdated :: UTCTime
     , atomEntryTitle :: String
-    , atomEntryContent :: Html ()
+    , atomEntryContent :: Html
     }
 
 template :: AtomFeed url -> Hamlet url

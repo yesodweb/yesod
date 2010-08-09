@@ -16,10 +16,10 @@ codegen' s' = do
     let s = killFirstBlank s'
     case parse (many parseToken) s s of
         Left e -> error $ show e
-        Right tokens -> do
-            let tokens' = map toExp tokens
+        Right tokens' -> do
+            let tokens'' = map toExp tokens'
             concat' <- [|concat|]
-            return $ concat' `AppE` ListE tokens'
+            return $ concat' `AppE` ListE tokens''
   where
     killFirstBlank ('\n':x) = x
     killFirstBlank ('\r':'\n':x) = x

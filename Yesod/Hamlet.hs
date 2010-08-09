@@ -42,7 +42,7 @@ import Yesod.Handler
 --
 -- > PageContent url -> Hamlet url
 data PageContent url = PageContent
-    { pageTitle :: Html ()
+    { pageTitle :: Html
     , pageHead :: Hamlet url
     , pageBody :: Hamlet url
     }

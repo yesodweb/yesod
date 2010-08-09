@@ -47,7 +47,7 @@ import Control.Monad.Trans.Class (lift)
 import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString as S
-import Text.Blaze (unsafeByteString)
+import Text.Hamlet (unsafeByteString)
 
 data Location url = Local url | Remote String
     deriving (Show, Eq)
@@ -68,7 +68,7 @@ newtype Script url = Script { unScript :: Location url }
     deriving (Show, Eq)
 newtype Stylesheet url = Stylesheet { unStylesheet :: Location url }
     deriving (Show, Eq)
-newtype Title = Title { unTitle :: Html () }
+newtype Title = Title { unTitle :: Html }
 newtype Head url = Head (Hamlet url)
     deriving Monoid
 newtype Body url = Body (Hamlet url)
@@ -102,7 +102,7 @@ liftHandler = GWidget . lift . lift . lift . lift . lift . lift . lift . lift
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitle :: Html () -> GWidget sub master ()
+setTitle :: Html -> GWidget sub master ()
 setTitle = GWidget . lift . tell . Last . Just . Title
 
 -- | Add some raw HTML to the head tag.
