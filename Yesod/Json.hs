@@ -130,10 +130,10 @@ caseSimpleOutput = do
     let j = do
         jsonMap
             [ ("foo" , jsonList
-                [ jsonScalar $ fromByteString "bar"
-                , jsonScalar $ fromByteString "baz"
+                [ jsonScalar "bar"
+                , jsonScalar "baz"
                 ])
             ]
-    "{\"foo\":[\"bar\",\"baz\"]}" @=? unpack (renderHtml $ unJson j)
+    "{\"foo\":[\"bar\",\"baz\"]}" @=? unpack (toLazyByteString $ unJson j)
 
 #endif

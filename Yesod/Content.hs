@@ -245,8 +245,8 @@ propExt s =
 
 caseTypeByExt :: Assertion
 caseTypeByExt = do
-    typeJavascript @=? typeByExt (ext "foo.js")
-    typeHtml @=? typeByExt (ext "foo.html")
+    Just typeJavascript @=? lookup (ext "foo.js") typeByExt
+    Just typeHtml @=? lookup (ext "foo.html") typeByExt
 #endif
 
 -- | Format a 'UTCTime' in W3 format; useful for setting cookies.
