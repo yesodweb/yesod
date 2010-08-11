@@ -153,7 +153,7 @@ staticFiles fp = do
         f' <- lift f
         let sr = ConE $ mkName "StaticRoute"
         hash <- qRunIO $ fmap base64md5 $ L.readFile $ fp ++ '/' : intercalate "/" f
-        let qs = ListE [TupE [LitE $ StringL "hash", LitE $ StringL hash]]
+        let qs = ListE [TupE [LitE $ StringL hash, ListE []]]
         return
             [ SigD name $ ConT ''Route `AppT` ConT ''Static
             , FunD name
@@ -177,8 +177,11 @@ caseGetFileList = do
 
 -- | md5-hashes the given lazy bytestring and returns the hash as
 -- base64url-encoded string.
+--
+-- This function returns the first 8 characters of the hash.
 base64md5 :: L.ByteString -> String
-base64md5 = Codec.Binary.Base64Url.encode
+base64md5 = take 8
+          . Codec.Binary.Base64Url.encode
           . S.unpack
           . Data.Serialize.encode
           . md5
