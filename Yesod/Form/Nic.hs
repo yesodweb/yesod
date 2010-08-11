@@ -31,7 +31,7 @@ nicHtmlFieldProfile = FieldProfile
 |]
     , fpWidget = \name -> do
         addScript' urlNicEdit
-        addJavaScript [$jamlet|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")});|]
+        addJavaScript [$julius|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")});|]
     }
 
 addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()

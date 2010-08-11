@@ -37,8 +37,8 @@ import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State
 import Yesod.Hamlet (PageContent (..))
 import Text.Hamlet
-import Text.Camlet
-import Text.Jamlet
+import Text.Cassius
+import Text.Julius
 import Yesod.Handler (Route, GHandler, getUrlRenderParams)
 import Yesod.Yesod (Yesod, defaultLayout, addStaticContent)
 import Yesod.Content (RepHtml (..))
@@ -80,8 +80,8 @@ newtype GWidget sub master a = GWidget (
     WriterT (Last Title) (
     WriterT (UniqueList (Script (Route master))) (
     WriterT (UniqueList (Stylesheet (Route master))) (
-    WriterT (Maybe (Camlet (Route master))) (
-    WriterT (Maybe (Jamlet (Route master))) (
+    WriterT (Maybe (Cassius (Route master))) (
+    WriterT (Maybe (Julius (Route master))) (
     WriterT (Head (Route master)) (
     StateT Int (
     GHandler sub master
@@ -120,7 +120,7 @@ newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
     return $ "w" ++ show i'
 
 -- | Add some raw CSS to the style tag.
-addStyle :: Camlet (Route master) -> GWidget sub master ()
+addStyle :: Cassius (Route master) -> GWidget sub master ()
 addStyle = GWidget . lift . lift . lift . lift . tell . Just
 
 -- | Link to the specified local stylesheet.
@@ -148,7 +148,7 @@ addScriptRemote =
     GWidget . lift . lift . tell . toUnique . Script . Remote
 
 -- | Include raw Javascript in the page's script tag.
-addJavaScript :: Jamlet (Route master) -> GWidget sub master ()
+addJavaScript :: Julius (Route master) -> GWidget sub master ()
 addJavaScript = GWidget . lift . lift . lift . lift . lift. tell . Just
 
 -- | Apply the default layout to the given widget.
@@ -177,10 +177,10 @@ widgetToPageContent (GWidget w) = do
     let stylesheets = map (locationToHamlet . unStylesheet)
                     $ runUniqueList stylesheets'
     let cssToHtml (Css b) = Html b
-        celper :: Camlet url -> Hamlet url
+        celper :: Cassius url -> Hamlet url
         celper = fmap cssToHtml
         jsToHtml (Javascript b) = Html b
-        jelper :: Jamlet url -> Hamlet url
+        jelper :: Julius url -> Hamlet url
         jelper = fmap jsToHtml
 
     render <- getUrlRenderParams
@@ -194,14 +194,14 @@ widgetToPageContent (GWidget w) = do
             Nothing -> return Nothing
             Just s -> do
                 x <- addStaticContent "css" "text/css; charset=utf-8"
-                   $ renderCamlet render s
+                   $ renderCassius render s
                 return $ renderLoc x
     jsLoc <-
         case jscript of
             Nothing -> return Nothing
             Just s -> do
                 x <- addStaticContent "js" "text/javascript; charset=utf-8"
-                   $ renderJamlet render s
+                   $ renderJulius render s
                 return $ renderLoc x
 
     let head'' = [$hamlet|

@@ -15,14 +15,14 @@ module Yesod.Hamlet
     , string
     , preEscapedString
     , cdata
-      -- ** Jamlet
-    , jamlet
-    , Jamlet
-    , renderJamlet
-      -- ** Camlet
-    , camlet
-    , Camlet
-    , renderCamlet
+      -- ** Julius
+    , julius
+    , Julius
+    , renderJulius
+      -- ** Cassius
+    , cassius
+    , Cassius
+    , renderCassius
       -- * Convert to something displayable
     , hamletToContent
     , hamletToRepHtml
@@ -32,8 +32,8 @@ module Yesod.Hamlet
     where
 
 import Text.Hamlet
-import Text.Camlet
-import Text.Jamlet
+import Text.Cassius
+import Text.Julius
 import Yesod.Content
 import Yesod.Handler
 
