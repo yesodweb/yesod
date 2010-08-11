@@ -19,10 +19,10 @@ mkYesod "HW" [$parseRoutes|
 instance Yesod HW where
     approot _ = ""
     addStaticContent ext _ content = do
-        let fn = show (md5 content) ++ '.' : ext
+        let fn = (base64md5 content) ++ '.' : ext
         liftIO $ createDirectoryIfMissing True "static/tmp"
         liftIO $ L.writeFile ("static/tmp/" ++ fn) content
-        return $ Just $ Right (StaticR $ StaticRoute ["tmp", fn], [])
+        return $ Just $ Right (StaticR $ StaticRoute ["tmp", fn] [], [])
 
 instance YesodNic HW
 instance YesodJquery HW
@@ -33,14 +33,14 @@ wrapper h = [$hamlet|
 getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
     i <- newIdent
     setTitle $ string "Hello Widgets"
-    addStyle [$camlet|
+    addStyle [$cassius|
 #$i$
     color:red
 |]
-    addStylesheet $ StaticR $ StaticRoute ["style.css"]
+    addStylesheet $ StaticR $ StaticRoute ["style.css"] []
     addStylesheetRemote "http://localhost:3000/static/style2.css"
     addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-    addScript $ StaticR $ StaticRoute ["script.js"]
+    addScript $ StaticR $ StaticRoute ["script.js"] []
     addBody [$hamlet|
 %h1#$i$ Welcome to my first widget!!!
 %p
@@ -74,12 +74,12 @@ handleFormR = do
                     FormSuccess (_, _, _, _, _, _, _, _, x, _) -> Just x
                     _ -> Nothing
     applyLayoutW $ do
-        addStyle [$camlet|
+        addStyle [$cassius|
 .tooltip
     color:#666
     font-style:italic
 |]
-        addStyle [$camlet|
+        addStyle [$cassius|
 textarea.html
     width:300px
     height:150px
@@ -102,7 +102,7 @@ getAutoCompleteR :: Handler HW RepJson
 getAutoCompleteR = do
     term <- runFormGet' $ stringInput "term"
     jsonToRepJson $ jsonList
-        [ jsonScalar $ string $ term ++ "foo"
-        , jsonScalar $ string $ term ++ "bar"
-        , jsonScalar $ string $ term ++ "baz"
+        [ jsonScalar $ term ++ "foo"
+        , jsonScalar $ term ++ "bar"
+        , jsonScalar $ term ++ "baz"
         ]

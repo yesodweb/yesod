@@ -31,6 +31,8 @@ module Yesod.Helpers.Static
       -- * Lookup files in filesystem
     , fileLookupDir
     , staticFiles
+      -- * Hashing
+    , base64md5
 #if TEST
     , testSuite
 #endif
@@ -47,6 +49,9 @@ import Web.Routes.Site
 
 import qualified Data.ByteString.Lazy as L
 import Data.Digest.Pure.MD5
+import qualified Codec.Binary.Base64Url
+import qualified Data.ByteString as S
+import qualified Data.Serialize
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -147,7 +152,7 @@ staticFiles fp = do
         let name = mkName $ intercalate "_" $ map (map replace') f
         f' <- lift f
         let sr = ConE $ mkName "StaticRoute"
-        hash <- qRunIO $ fmap (show . md5) $ L.readFile $ fp ++ '/' : intercalate "/" f
+        hash <- qRunIO $ fmap base64md5 $ L.readFile $ fp ++ '/' : intercalate "/" f
         let qs = ListE [TupE [LitE $ StringL "hash", LitE $ StringL hash]]
         return
             [ SigD name $ ConT ''Route `AppT` ConT ''Static
@@ -169,3 +174,11 @@ caseGetFileList = do
     x @?= [["foo"], ["bar", "baz"]]
 
 #endif
+
+-- | md5-hashes the given lazy bytestring and returns the hash as
+-- base64url-encoded string.
+base64md5 :: L.ByteString -> String
+base64md5 = Codec.Binary.Base64Url.encode
+          . S.unpack
+          . Data.Serialize.encode
+          . md5

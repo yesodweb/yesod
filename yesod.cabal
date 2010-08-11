@@ -40,6 +40,7 @@ library
                      random >= 1.0.0.2 && < 1.1,
                      control-monad-attempt >= 0.3 && < 0.4,
                      cereal >= 0.2 && < 0.3,
+                     dataenc >= 0.13.0.2 && < 0.14,
                      old-locale >= 1.0.0.2 && < 1.1,
                      persistent >= 0.2.0 && < 0.3,
                      neither >= 0.0.0 && < 0.1,
