@@ -44,6 +44,7 @@ module Yesod.Form
     , timeFieldProfile
     , htmlFieldProfile
     , emailFieldProfile
+    , urlFieldProfile
     , FormFieldSettings (..)
     , labelSettings
       -- * Pre-built fields
@@ -68,6 +69,8 @@ module Yesod.Form
     , boolField
     , emailField
     , maybeEmailField
+    , urlField
+    , maybeUrlField
       -- * Pre-built inputs
     , stringInput
     , maybeStringInput
@@ -76,6 +79,7 @@ module Yesod.Form
     , dayInput
     , maybeDayInput
     , emailInput
+    , urlInput
       -- * Template Haskell
     , mkToForm
       -- * Utilities
@@ -102,6 +106,7 @@ import Yesod.Widget
 import Control.Arrow ((&&&))
 import qualified Text.Email.Validate as Email
 import Data.List (group, sort)
+import Network.URI (parseURI)
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -738,6 +743,29 @@ toLabel (x:rest) = toUpper x : go rest
     go (c:cs)
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
+
+urlFieldProfile :: FieldProfile s y String
+urlFieldProfile = FieldProfile
+    { fpParse = \s -> case parseURI s of
+                        Nothing -> Left "Invalid URL"
+                        Just _ -> Right s
+    , fpRender = id
+    , fpHamlet = \theId name val isReq -> [$hamlet|
+%input#$theId$!name=$name$!type=url!:isReq:required!value=$val$
+|]
+    , fpWidget = const $ return ()
+    }
+
+urlField :: FormFieldSettings -> FormletField sub y String
+urlField = requiredFieldHelper urlFieldProfile
+
+maybeUrlField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeUrlField = optionalFieldHelper urlFieldProfile
+
+urlInput :: String -> FormInput sub master String
+urlInput n =
+    mapFormXml fieldsToInput $
+    requiredFieldHelper urlFieldProfile (nameSettings n) Nothing
 
 emailFieldProfile :: FieldProfile s y String
 emailFieldProfile = FieldProfile

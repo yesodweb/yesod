@@ -46,6 +46,7 @@ library
                      neither >= 0.0.0 && < 0.1,
                      MonadCatchIO-transformers >= 0.2.2.0 && < 0.3,
                      data-object >= 0.3.1 && < 0.4,
+                     network >= 2.2.1.5 && < 2.3,
                      email-validate >= 0.2.5 && < 0.3
     exposed-modules: Yesod
                      Yesod.Content
