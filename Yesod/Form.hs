@@ -31,6 +31,8 @@ module Yesod.Form
     , optionalFieldHelper
     , mapFormXml
     , newFormIdent
+    , deeperFormIdent
+    , shallowerFormIdent
     , fieldsToTable
     , fieldsToPlain
     , fieldsToInput
@@ -128,6 +130,9 @@ instance Applicative FormResult where
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
+instance Monoid m => Monoid (FormResult m) where
+    mempty = pure mempty
+    mappend x y = mappend <$> x <*> y
 
 -- | The encoding type required by a form. The 'Show' instance produces values
 -- that can be inserted directly into HTML.
@@ -140,10 +145,19 @@ instance Monoid Enctype where
     mappend UrlEncoded UrlEncoded = UrlEncoded
     mappend _ _ = Multipart
 
+data Ints = IntCons Int Ints | IntSingle Int
+instance Show Ints where
+    show (IntSingle i) = show i
+    show (IntCons i is) = show i ++ '-' : show is
+
+incrInts :: Ints -> Ints
+incrInts (IntSingle i) = IntSingle $ i + 1
+incrInts (IntCons i is) = (i + 1) `IntCons` is
+
 -- | A generic form, allowing you to specifying the subsite datatype, master
 -- site datatype, a datatype for the form XML and the return type.
 newtype GForm sub y xml a = GForm
-    { deform :: Env -> FileEnv -> StateT Int (GHandler sub y) (FormResult a, xml, Enctype)
+    { deform :: Env -> FileEnv -> StateT Ints (GHandler sub y) (FormResult a, xml, Enctype)
     }
 type Form sub y = GForm sub y (GWidget sub y ())
 type Formlet sub y a = Maybe a -> Form sub y a
@@ -614,18 +628,29 @@ maybeDayInput n =
 --------------------- End prebuilt inputs
 
 -- | Get a unique identifier.
-newFormIdent :: Monad m => StateT Int m String
+newFormIdent :: Monad m => StateT Ints m String
 newFormIdent = do
     i <- get
-    let i' = i + 1
+    let i' = incrInts i
     put i'
-    return $ "f" ++ show i'
+    return $ 'f' : show i'
+
+deeperFormIdent :: Monad m => StateT Ints m ()
+deeperFormIdent = do
+    i <- get
+    let i' = 1 `IntCons` incrInts i
+    put i'
+
+shallowerFormIdent :: Monad m => StateT Ints m ()
+shallowerFormIdent = do
+    IntCons _ i <- get
+    put i
 
 runFormGeneric :: Env
                -> FileEnv
                -> GForm sub y xml a
                -> GHandler sub y (FormResult a, xml, Enctype)
-runFormGeneric env fe f = evalStateT (deform f env fe) 1
+runFormGeneric env fe f = evalStateT (deform f env fe) $ IntSingle 1
 
 -- | Run a form against POST parameters.
 runFormPost :: GForm sub y xml a
