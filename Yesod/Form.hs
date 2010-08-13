@@ -46,7 +46,6 @@ module Yesod.Form
     , emailFieldProfile
     , urlFieldProfile
     , FormFieldSettings (..)
-    , labelSettings
       -- * Pre-built fields
     , stringField
     , maybeStringField
@@ -107,6 +106,7 @@ import Control.Arrow ((&&&))
 import qualified Text.Email.Validate as Email
 import Data.List (group, sort)
 import Network.URI (parseURI)
+import Data.String (IsString (..))
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -220,6 +220,8 @@ data FormFieldSettings = FormFieldSettings
     , ffsId :: Maybe String
     , ffsName :: Maybe String
     }
+instance IsString FormFieldSettings where
+    fromString s = FormFieldSettings (string s) mempty Nothing Nothing
 
 -- | Create a required field (ie, one that cannot be blank) from a
 -- 'FieldProfile'.ngs
@@ -792,9 +794,6 @@ emailInput n =
 
 nameSettings :: String -> FormFieldSettings
 nameSettings n = FormFieldSettings mempty mempty (Just n) (Just n)
-
-labelSettings :: String -> FormFieldSettings
-labelSettings l = FormFieldSettings (string l) mempty Nothing Nothing
 
 textareaFieldProfile :: FieldProfile sub y String
 textareaFieldProfile = FieldProfile

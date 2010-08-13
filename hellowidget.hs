@@ -54,11 +54,11 @@ getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
 handleFormR = do
     (res, form, enctype) <- runFormPost $ (,,,,,,,,,)
         <$> stringField (FormFieldSettings "My Field" "Some tooltip info" Nothing Nothing) Nothing
-        <*> stringField (labelSettings "Another field") (Just "some default text")
+        <*> stringField ("Another field") (Just "some default text")
         <*> intField (FormFieldSettings "A number field" "some nums" Nothing Nothing) (Just 5)
-        <*> jqueryDayField (labelSettings "A day field") Nothing
-        <*> timeField (labelSettings "A time field") Nothing
-        <*> jqueryDayTimeField (labelSettings "A day/time field") Nothing
+        <*> jqueryDayField ("A day field") Nothing
+        <*> timeField ("A time field") Nothing
+        <*> jqueryDayTimeField ("A day/time field") Nothing
         <*> boolField FormFieldSettings
                 { ffsLabel = "A checkbox"
                 , ffsTooltip = ""
@@ -67,9 +67,9 @@ handleFormR = do
                 } (Just False)
         <*> jqueryAutocompleteField AutoCompleteR
             (FormFieldSettings "Autocomplete" "Try it!" Nothing Nothing) Nothing
-        <*> nicHtmlField (labelSettings "HTML")
+        <*> nicHtmlField ("HTML")
                 (Just $ string "You can put rich text here")
-        <*> maybeEmailField (labelSettings "An e-mail addres") Nothing
+        <*> maybeEmailField ("An e-mail addres") Nothing
     let mhtml = case res of
                     FormSuccess (_, _, _, _, _, _, _, _, x, _) -> Just x
                     _ -> Nothing
