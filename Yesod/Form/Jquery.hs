@@ -34,7 +34,7 @@ class YesodJquery a where
 
     -- | jQuery UI time picker add-on.
     urlJqueryUiDateTimePicker :: a -> Either (Route a) String
-    urlJqueryUiDateTimePicker _ = Right "http://www.projectcodegen.com/jquery.ui.datetimepicker.js.txt"
+    urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
 jqueryDayField :: YesodJquery y => FormFieldSettings -> FormletField sub y Day
 jqueryDayField = requiredFieldHelper jqueryDayFieldProfile
@@ -57,7 +57,7 @@ jqueryDayFieldProfile = FieldProfile
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
         addJavaScript [$julius|
-$$(function(){$$("#$name$").datepicker({dateFormat:'yy-mm-dd'})});
+$$(function(){$$("#$theId$").datepicker({dateFormat:'yy-mm-dd'})});
 |]
     }
 
@@ -88,14 +88,14 @@ jqueryDayTimeFieldProfile = FieldProfile
     , fpRender = jqueryDayTimeUTCTime
     , fpWidget = \theId name val isReq -> do
         addBody [$hamlet|
-%input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
+%input#$theId$!name=$name$!:isReq:required!value=$val$
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addScript' urlJqueryUiDateTimePicker
         addStylesheet' urlJqueryUiCss
         addJavaScript [$julius|
-$$(function(){$$("#$name$").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
+$$(function(){$$("#$theId$").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
 |]
     }
 
@@ -130,7 +130,7 @@ jqueryAutocompleteFieldProfile src = FieldProfile
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
         addJavaScript [$julius|
-$$(function(){$$("#$name$").autocomplete({source:"@src@",minLength:2})});
+$$(function(){$$("#$theId$").autocomplete({source:"@src@",minLength:2})});
 |]
     }
 
