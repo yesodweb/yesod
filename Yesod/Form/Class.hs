@@ -13,9 +13,9 @@ import Data.Int (Int64)
 import Data.Time (Day, TimeOfDay)
 
 class ToForm a y where
-    toForm :: Maybe a -> Form sub y a
+    toForm :: Formlet sub y a
 class ToFormField a y where
-    toFormField :: FormFieldSettings -> Maybe a -> FormField sub y a
+    toFormField :: FormFieldSettings -> FormletField sub y a
 
 instance ToFormField String y where
     toFormField = stringField

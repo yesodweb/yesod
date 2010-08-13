@@ -7,7 +7,6 @@ module Yesod.Form.Nic
 
 import Yesod.Handler
 import Yesod.Form.Core
-import Yesod.Form.Profiles
 import Yesod.Hamlet
 import Yesod.Widget
 import qualified Data.ByteString.Lazy.UTF8 as U
@@ -27,10 +26,8 @@ nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html
 nicHtmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
-    , fpHamlet = \theId name val _isReq -> [$hamlet|
-%textarea.html#$theId$!name=$name$ $val$
-|]
-    , fpWidget = \name -> do
+    , fpWidget = \theId name val _isReq -> do
+        addBody [$hamlet|%textarea.html#$theId$!name=$name$ $val$|]
         addScript' urlNicEdit
         addJavaScript [$julius|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$name$")});|]
     }

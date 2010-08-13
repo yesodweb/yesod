@@ -126,7 +126,7 @@ instance Monoid xml => Applicative (GForm sub url xml) where
 -- 'FieldProfile'.ngs
 requiredFieldHelper :: FieldProfile sub y a -> FormFieldSettings
                     -> Maybe a -> FormField sub y a
-requiredFieldHelper (FieldProfile parse render mkXml w) ffs orig =
+requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig =
   GForm $ \env _ -> do
     let (FormFieldSettings label tooltip theId' name') = ffs
     name <- maybe newFormIdent return name'
@@ -146,7 +146,7 @@ requiredFieldHelper (FieldProfile parse render mkXml w) ffs orig =
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiName = name
-            , fiInput = w theId >> addBody (mkXml theId name val True)
+            , fiInput = mkWidget theId name val True
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
@@ -157,7 +157,7 @@ requiredFieldHelper (FieldProfile parse render mkXml w) ffs orig =
 -- 'FieldProfile'.
 optionalFieldHelper :: FieldProfile sub y a -> FormFieldSettings
                     -> FormletField sub y (Maybe a)
-optionalFieldHelper (FieldProfile parse render mkXml w) ffs orig' =
+optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' =
   GForm $ \env _ -> do
     let (FormFieldSettings label tooltip theId' name') = ffs
     let orig = join orig'
@@ -178,7 +178,7 @@ optionalFieldHelper (FieldProfile parse render mkXml w) ffs orig' =
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiName = name
-            , fiInput = w theId >> addBody (mkXml theId name val False)
+            , fiInput = mkWidget theId name val False
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
@@ -221,8 +221,8 @@ instance IsString FormFieldSettings where
 data FieldProfile sub y a = FieldProfile
     { fpParse :: String -> Either String a
     , fpRender :: a -> String
-    , fpHamlet :: String -> String -> String -> Bool -> Hamlet (Route y)
-    , fpWidget :: String -> GWidget sub y ()
+    -- | ID, name, value, required
+    , fpWidget :: String -> String -> String -> Bool -> GWidget sub y ()
     }
 
 type Form sub y = GForm sub y (GWidget sub y ())

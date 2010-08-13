@@ -1,7 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Yesod.Form.Profiles
-    ( FieldProfile (..)
-    , stringFieldProfile
+    ( stringFieldProfile
     , textareaFieldProfile
     , hiddenFieldProfile
     , intFieldProfile
@@ -16,6 +15,7 @@ module Yesod.Form.Profiles
     ) where
 
 import Yesod.Form.Core
+import Yesod.Widget
 import Text.Hamlet
 import Data.Time (Day, TimeOfDay(..))
 import qualified Data.ByteString.Lazy.UTF8 as U
@@ -26,10 +26,9 @@ intFieldProfile :: Integral i => FieldProfile sub y i
 intFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI
     , fpRender = showI
-    , fpHamlet = \theId name val isReq -> [$hamlet|
+    , fpWidget = \theId name val isReq -> addBody [$hamlet|
 %input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
 |]
-    , fpWidget = \_name -> return ()
     }
   where
     showI x = show (fromIntegral x :: Integer)
@@ -41,70 +40,63 @@ doubleFieldProfile :: FieldProfile sub y Double
 doubleFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
-    , fpHamlet = \theId name val isReq -> [$hamlet|
+    , fpWidget = \theId name val isReq -> addBody [$hamlet|
 %input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
 |]
-    , fpWidget = \_name -> return ()
     }
 
 dayFieldProfile :: FieldProfile sub y Day
 dayFieldProfile = FieldProfile
     { fpParse = parseDate
     , fpRender = show
-    , fpHamlet = \theId name val isReq -> [$hamlet|
+    , fpWidget = \theId name val isReq -> addBody [$hamlet|
 %input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
 |]
-    , fpWidget = const $ return ()
     }
 
 timeFieldProfile :: FieldProfile sub y TimeOfDay
 timeFieldProfile = FieldProfile
     { fpParse = parseTime
     , fpRender = show
-    , fpHamlet = \theId name val isReq -> [$hamlet|
+    , fpWidget = \theId name val isReq -> addBody [$hamlet|
 %input#$theId$!name=$name$!:isReq:required!value=$val$
 |]
-    , fpWidget = const $ return ()
     }
 
 htmlFieldProfile :: FieldProfile sub y Html
 htmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString
     , fpRender = U.toString . renderHtml
-    , fpHamlet = \theId name val _isReq -> [$hamlet|
+    , fpWidget = \theId name val _isReq -> addBody [$hamlet|
 %textarea.html#$theId$!name=$name$ $val$
 |]
-    , fpWidget = const $ return ()
     }
 
 textareaFieldProfile :: FieldProfile sub y String
 textareaFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
-    , fpHamlet = \theId name val _isReq -> [$hamlet|
+    , fpWidget = \theId name val _isReq -> addBody [$hamlet|
 %textarea#$theId$!name=$name$ $val$
 |]
-    , fpWidget = const $ return ()
     }
 
 hiddenFieldProfile :: FieldProfile sub y String
 hiddenFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
-    , fpHamlet = \theId name val _isReq -> [$hamlet|
+    , fpWidget = \theId name val _isReq -> addBody [$hamlet|
 %input!type=hidden#$theId$!name=$name$!value=$val$
 |]
-    , fpWidget = const $ return ()
     }
 
 stringFieldProfile :: FieldProfile sub y String
 stringFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
-    , fpHamlet = \theId name val isReq -> [$hamlet|
+    , fpWidget = \theId name val isReq -> addBody [$hamlet|
 %input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
-    , fpWidget = \_name -> return ()
     }
 
 readMay :: Read a => String -> Maybe a
@@ -151,10 +143,9 @@ emailFieldProfile = FieldProfile
                         then Right s
                         else Left "Invalid e-mail address"
     , fpRender = id
-    , fpHamlet = \theId name val isReq -> [$hamlet|
+    , fpWidget = \theId name val isReq -> addBody [$hamlet|
 %input#$theId$!name=$name$!type=email!:isReq:required!value=$val$
 |]
-    , fpWidget = const $ return ()
     }
 
 urlFieldProfile :: FieldProfile s y String
@@ -163,8 +154,7 @@ urlFieldProfile = FieldProfile
                         Nothing -> Left "Invalid URL"
                         Just _ -> Right s
     , fpRender = id
-    , fpHamlet = \theId name val isReq -> [$hamlet|
+    , fpWidget = \theId name val isReq -> addBody [$hamlet|
 %input#$theId$!name=$name$!type=url!:isReq:required!value=$val$
 |]
-    , fpWidget = const $ return ()
     }
