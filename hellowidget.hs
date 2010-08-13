@@ -3,11 +3,13 @@ import Yesod
 import Yesod.Widget
 import Yesod.Helpers.Static
 import Yesod.Form.Jquery
+import Yesod.Form.Core
+import Data.Monoid
 import Yesod.Form.Nic
 import Control.Applicative
 import qualified Data.ByteString.Lazy as L
 import System.Directory
-import Data.Digest.Pure.MD5
+import Control.Monad.Trans.Class
 
 data HW = HW { hwStatic :: Static }
 mkYesod "HW" [$parseRoutes|
@@ -15,6 +17,7 @@ mkYesod "HW" [$parseRoutes|
 /form FormR
 /static StaticR Static hwStatic
 /autocomplete AutoCompleteR GET
+/customform CustomFormR GET
 |]
 instance Yesod HW where
     approot _ = ""
@@ -47,6 +50,8 @@ getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
     %a!href=@RootR@ Recursive link.
 %p
     %a!href=@FormR@ Check out the form.
+%p
+    %a!href=@CustomFormR@ Custom form arrangement.
 %p.noscript Your script did not load. :(
 |]
     addHead [$hamlet|%meta!keywords=haskell|]
@@ -106,3 +111,28 @@ getAutoCompleteR = do
         , jsonScalar $ term ++ "bar"
         , jsonScalar $ term ++ "baz"
         ]
+
+data Person = Person String Int
+getCustomFormR = do
+    let customForm = GForm $ \e f -> do
+            (a1, [b1], c1) <- deform (stringInput "name") e f
+            (a2, [b2], c2) <- deform (intInput "age") e f
+            let b = do
+                    b1' <- extractBody b1
+                    b2' <- extractBody b2
+                    addBody [$hamlet|
+%p This is a custom layout.
+%h1 Name Follows!
+%p ^b1'^
+%p Age: ^b2'^
+|]
+            return (Person <$> a1 <*> a2, b , c1 `mappend` c2)
+    (_, wform, enctype) <- runFormGet customForm
+    applyLayoutW $ do
+        form <- extractBody wform
+        addBody [$hamlet|
+%form
+    ^form^
+    %div
+        %input!type=submit
+|]
