@@ -52,6 +52,10 @@ library
                      Yesod.Content
                      Yesod.Dispatch
                      Yesod.Form
+                     Yesod.Form.Class
+                     Yesod.Form.Core
+                     Yesod.Form.Fields
+                     Yesod.Form.Profiles
                      Yesod.Form.Jquery
                      Yesod.Form.Nic
                      Yesod.Hamlet

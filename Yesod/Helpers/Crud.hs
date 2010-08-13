@@ -17,6 +17,7 @@ import Yesod.Content
 import Yesod.Handler
 import Text.Hamlet
 import Yesod.Form
+import Yesod.Form.Class
 import Data.Monoid (mempty)
 import Language.Haskell.TH.Syntax
 

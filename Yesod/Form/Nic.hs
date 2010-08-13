@@ -7,6 +7,7 @@ module Yesod.Form.Nic
 
 import Yesod.Handler
 import Yesod.Form
+import Yesod.Form.Profiles
 import Yesod.Hamlet
 import Yesod.Widget
 import qualified Data.ByteString.Lazy.UTF8 as U
