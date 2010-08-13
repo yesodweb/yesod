@@ -225,11 +225,11 @@ instance IsString FormFieldSettings where
 
 -- | Create a required field (ie, one that cannot be blank) from a
 -- 'FieldProfile'.ngs
-requiredFieldHelper :: FieldProfile sub y a -> FormFieldSettings -> Maybe a -> FormField sub y a
-requiredFieldHelper
-    (FieldProfile parse render mkXml w)
-    (FormFieldSettings label tooltip theId' name') orig =
+requiredFieldHelper :: FieldProfile sub y a -> FormFieldSettings
+                    -> Maybe a -> FormField sub y a
+requiredFieldHelper (FieldProfile parse render mkXml w) ffs orig =
   GForm $ \env _ -> do
+    let (FormFieldSettings label tooltip theId' name') = ffs
     name <- maybe newFormIdent return name'
     theId <- maybe newFormIdent return theId'
     let (res, val) =
@@ -256,11 +256,11 @@ requiredFieldHelper
 
 -- | Create an optional field (ie, one that can be blank) from a
 -- 'FieldProfile'.
-optionalFieldHelper :: FieldProfile sub y a -> FormFieldSettings -> FormletField sub y (Maybe a)
-optionalFieldHelper
- (FieldProfile parse render mkXml w)
- (FormFieldSettings label tooltip theId' name') orig' =
+optionalFieldHelper :: FieldProfile sub y a -> FormFieldSettings
+                    -> FormletField sub y (Maybe a)
+optionalFieldHelper (FieldProfile parse render mkXml w) ffs orig' =
   GForm $ \env _ -> do
+    let (FormFieldSettings label tooltip theId' name') = ffs
     let orig = join orig'
     name <- maybe newFormIdent return name'
     theId <- maybe newFormIdent return theId'
