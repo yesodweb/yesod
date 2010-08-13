@@ -9,6 +9,7 @@ module Yesod.Form
       GForm
     , FormResult (..)
     , Enctype
+    , FormFieldSettings (..)
       -- * Type synonyms
     , Form
     , Formlet
@@ -48,13 +49,13 @@ import Control.Arrow ((&&&))
 import Data.List (group, sort)
 
 -- | Display only the actual input widget code, without any decoration.
-fieldsToPlain :: [FieldInfo sub y] -> GWidget sub y ()
-fieldsToPlain = mapM_ fiInput
+fieldsToPlain :: FormField sub y a -> Form sub y a
+fieldsToPlain = mapFormXml $ mapM_ fiInput
 
 -- | Display the label, tooltip, input code and errors in a single row of a
 -- table.
-fieldsToTable :: [FieldInfo sub y] -> GWidget sub y ()
-fieldsToTable = mapM_ go
+fieldsToTable :: FormField sub y a -> Form sub y a
+fieldsToTable = mapFormXml $ mapM_ go
   where
     go fi = do
         wrapWidget (fiInput fi) $ \w -> [$hamlet|
