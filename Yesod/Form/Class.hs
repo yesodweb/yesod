@@ -8,6 +8,7 @@ module Yesod.Form.Class
 
 import Text.Hamlet
 import Yesod.Form.Fields
+import Yesod.Form.Core
 import Data.Int (Int64)
 import Data.Time (Day, TimeOfDay)
 

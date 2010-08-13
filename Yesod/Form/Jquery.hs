@@ -11,7 +11,7 @@ module Yesod.Form.Jquery
     ) where
 
 import Yesod.Handler
-import Yesod.Form
+import Yesod.Form.Core
 import Yesod.Form.Profiles
 import Yesod.Widget
 import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,

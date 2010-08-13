@@ -15,23 +15,12 @@ module Yesod.Form.Profiles
     , parseTime
     ) where
 
-import Yesod.Widget
-import Yesod.Handler
+import Yesod.Form.Core
 import Text.Hamlet
 import Data.Time (Day, TimeOfDay(..))
 import qualified Data.ByteString.Lazy.UTF8 as U
 import qualified Text.Email.Validate as Email
 import Network.URI (parseURI)
-
--- | A generic definition of a form field that can be used for generating both
--- required and optional fields. See 'requiredFieldHelper and
--- 'optionalFieldHelper'.
-data FieldProfile sub y a = FieldProfile
-    { fpParse :: String -> Either String a
-    , fpRender :: a -> String
-    , fpHamlet :: String -> String -> String -> Bool -> Hamlet (Route y)
-    , fpWidget :: String -> GWidget sub y ()
-    }
 
 intFieldProfile :: Integral i => FieldProfile sub y i
 intFieldProfile = FieldProfile

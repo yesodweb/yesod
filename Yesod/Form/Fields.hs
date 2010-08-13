@@ -1,17 +1,8 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Yesod.Form.Fields
-    ( -- * Type synonyms
-      Form
-    , Formlet
-    , FormField
-    , FormletField
-    , FormInput
-      -- * Data types
-    , FieldInfo (..)
-    , FormFieldSettings (..)
-      -- * Fields
+    ( -- * Fields
       -- ** Required
-    , stringField
+      stringField
     , textareaField
     , hiddenField
     , intField
@@ -46,11 +37,6 @@ module Yesod.Form.Fields
       -- ** Optional
     , maybeStringInput
     , maybeDayInput
-      -- * Utils
-    , requiredFieldHelper
-    , optionalFieldHelper
-    , fieldsToInput
-    , mapFormXml
     ) where
 
 import Yesod.Form.Core
@@ -61,34 +47,6 @@ import Text.Hamlet
 import Data.Monoid
 import Control.Monad (join)
 import Data.Maybe (fromMaybe)
-import Data.String
-
-data FormFieldSettings = FormFieldSettings
-    { ffsLabel :: Html
-    , ffsTooltip :: Html
-    , ffsId :: Maybe String
-    , ffsName :: Maybe String
-    }
-instance IsString FormFieldSettings where
-    fromString s = FormFieldSettings (string s) mempty Nothing Nothing
-
--- | Using this as the intermediate XML representation for fields allows us to
--- write generic field functions and then different functions for producing
--- actual HTML. See, for example, 'fieldsToTable' and 'fieldsToPlain'.
-data FieldInfo sub y = FieldInfo
-    { fiLabel :: Html
-    , fiTooltip :: Html
-    , fiIdent :: String
-    , fiName :: String
-    , fiInput :: GWidget sub y ()
-    , fiErrors :: Maybe Html
-    }
-
-type Form sub y = GForm sub y (GWidget sub y ())
-type Formlet sub y a = Maybe a -> Form sub y a
-type FormField sub y = GForm sub y [FieldInfo sub y]
-type FormletField sub y a = Maybe a -> FormField sub y a
-type FormInput sub y = GForm sub y [GWidget sub y ()]
 
 stringField :: FormFieldSettings -> FormletField sub y String
 stringField = requiredFieldHelper stringFieldProfile
@@ -268,78 +226,6 @@ maybeDayInput n =
 
 nameSettings :: String -> FormFieldSettings
 nameSettings n = FormFieldSettings mempty mempty (Just n) (Just n)
-
--- | Create a required field (ie, one that cannot be blank) from a
--- 'FieldProfile'.ngs
-requiredFieldHelper :: FieldProfile sub y a -> FormFieldSettings
-                    -> Maybe a -> FormField sub y a
-requiredFieldHelper (FieldProfile parse render mkXml w) ffs orig =
-  GForm $ \env _ -> do
-    let (FormFieldSettings label tooltip theId' name') = ffs
-    name <- maybe newFormIdent return name'
-    theId <- maybe newFormIdent return theId'
-    let (res, val) =
-            if null env
-                then (FormMissing, maybe "" render orig)
-                else case lookup name env of
-                        Nothing -> (FormMissing, "")
-                        Just "" -> (FormFailure ["Value is required"], "")
-                        Just x ->
-                            case parse x of
-                                Left e -> (FormFailure [e], x)
-                                Right y -> (FormSuccess y, x)
-    let fi = FieldInfo
-            { fiLabel = label
-            , fiTooltip = tooltip
-            , fiIdent = theId
-            , fiName = name
-            , fiInput = w theId >> addBody (mkXml theId name val True)
-            , fiErrors = case res of
-                            FormFailure [x] -> Just $ string x
-                            _ -> Nothing
-            }
-    return (res, [fi], UrlEncoded)
-
--- | Create an optional field (ie, one that can be blank) from a
--- 'FieldProfile'.
-optionalFieldHelper :: FieldProfile sub y a -> FormFieldSettings
-                    -> FormletField sub y (Maybe a)
-optionalFieldHelper (FieldProfile parse render mkXml w) ffs orig' =
-  GForm $ \env _ -> do
-    let (FormFieldSettings label tooltip theId' name') = ffs
-    let orig = join orig'
-    name <- maybe newFormIdent return name'
-    theId <- maybe newFormIdent return theId'
-    let (res, val) =
-            if null env
-                then (FormSuccess Nothing, maybe "" render orig)
-                else case lookup name env of
-                        Nothing -> (FormSuccess Nothing, "")
-                        Just "" -> (FormSuccess Nothing, "")
-                        Just x ->
-                            case parse x of
-                                Left e -> (FormFailure [e], x)
-                                Right y -> (FormSuccess $ Just y, x)
-    let fi = FieldInfo
-            { fiLabel = label
-            , fiTooltip = tooltip
-            , fiIdent = theId
-            , fiName = name
-            , fiInput = w theId >> addBody (mkXml theId name val False)
-            , fiErrors = case res of
-                            FormFailure [x] -> Just $ string x
-                            _ -> Nothing
-            }
-    return (res, [fi], UrlEncoded)
-
-fieldsToInput :: [FieldInfo sub y] -> [GWidget sub y ()]
-fieldsToInput = map fiInput
-
--- | Convert the XML in a 'GForm'.
-mapFormXml :: (xml1 -> xml2) -> GForm s y xml1 a -> GForm s y xml2 a
-mapFormXml f (GForm g) = GForm $ \e fe -> do
-    (res, xml, enc) <- g e fe
-    return (res, f xml, enc)
 
 urlField :: FormFieldSettings -> FormletField sub y String
 urlField = requiredFieldHelper urlFieldProfile

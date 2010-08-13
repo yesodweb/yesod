@@ -8,7 +8,13 @@ module Yesod.Form
     ( -- * Data types
       GForm
     , FormResult (..)
-    , Enctype (..)
+    , Enctype
+      -- * Type synonyms
+    , Form
+    , Formlet
+    , FormField
+    , FormletField
+    , FormInput
       -- * Unwrapping functions
     , runFormGet
     , runFormPost

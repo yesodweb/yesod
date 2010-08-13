@@ -160,7 +160,7 @@ crudHelper title me isPost = do
 %p
     %a!href=@toMaster.CrudListR@ Return to list
 %h1 $title$
-%form!method=post!enctype=$show.enctype$
+%form!method=post!enctype=$enctype$
     %table
         ^form^
         %tr

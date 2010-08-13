@@ -6,7 +6,7 @@ module Yesod.Form.Nic
     ) where
 
 import Yesod.Handler
-import Yesod.Form
+import Yesod.Form.Core
 import Yesod.Form.Profiles
 import Yesod.Hamlet
 import Yesod.Widget
