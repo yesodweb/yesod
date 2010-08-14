@@ -13,6 +13,7 @@ module Yesod.Form.Core
     , optionalFieldHelper
     , fieldsToInput
     , mapFormXml
+    , checkForm
       -- * Data types
     , FieldInfo (..)
     , FormFieldSettings (..)
@@ -230,3 +231,12 @@ type Formlet sub y a = Maybe a -> Form sub y a
 type FormField sub y = GForm sub y [FieldInfo sub y]
 type FormletField sub y a = Maybe a -> FormField sub y a
 type FormInput sub y = GForm sub y [GWidget sub y ()]
+
+checkForm :: (a -> FormResult b) -> GForm s m x a -> GForm s m x b
+checkForm f (GForm form) = GForm $ \env fenv -> do
+    (res, xml, enc) <- form env fenv
+    let res' = case res of
+                    FormSuccess a -> f a
+                    FormFailure e -> FormFailure e
+                    FormMissing -> FormMissing
+    return (res', xml, enc)

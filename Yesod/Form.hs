@@ -24,6 +24,8 @@ module Yesod.Form
       -- * Field/form helpers
     , fieldsToTable
     , fieldsToPlain
+    , checkForm
+      -- * Fields
     , module Yesod.Form.Fields
       -- * Template Haskell
     , mkToForm

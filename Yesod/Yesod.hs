@@ -53,7 +53,6 @@ import Web.Routes.Site (Site)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Monad.Attempt (Failure)
 import qualified Data.ByteString as S
-import qualified Data.ByteString.Char8 as S8
 import qualified Network.Wai.Middleware.CleanPath
 import Web.Routes (encodePathInfo)
 import qualified Data.ByteString.Lazy as L
@@ -268,10 +267,10 @@ applyLayout' s = fmap chooseRep . applyLayout s mempty
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    let pi = BSU.toString $ pathInfo r
+    let path = BSU.toString $ pathInfo r
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
-%p $pi$
+%p $path$
 |]
   where
     pathInfo = W.pathInfo
