@@ -19,15 +19,16 @@ module Yesod
 import Yesod.Content hiding (testSuite)
 import Yesod.Json hiding (testSuite)
 import Yesod.Dispatch hiding (testSuite)
+import Yesod.Yesod hiding (testSuite)
 #else
 import Yesod.Content
 import Yesod.Json
 import Yesod.Dispatch
+import Yesod.Yesod
 #endif
 
 import Yesod.Request
 import Yesod.Form
-import Yesod.Yesod
 import Yesod.Widget
 import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)

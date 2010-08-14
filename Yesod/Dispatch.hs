@@ -23,8 +23,13 @@ module Yesod.Dispatch
 #endif
     ) where
 
-import Yesod.Handler
+#if TEST
+import Yesod.Yesod hiding (testSuite)
+#else
 import Yesod.Yesod
+#endif
+
+import Yesod.Handler
 import Yesod.Request
 import Yesod.Internal
 

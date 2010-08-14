@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Yesod
     ( -- * Type classes
@@ -25,27 +26,44 @@ module Yesod.Yesod
     , defaultErrorHandler
       -- * Data types
     , AuthResult (..)
+#if TEST
+    , testSuite
+#endif
     ) where
 
+#if TEST
+import Yesod.Content hiding (testSuite)
+import Yesod.Json hiding (testSuite)
+#else
 import Yesod.Content
+import Yesod.Json
+#endif
+
 import Yesod.Request
 import Yesod.Hamlet
 import Yesod.Handler
 import qualified Network.Wai as W
-import Yesod.Json
 import Yesod.Internal
 import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
 import Data.Monoid (mempty)
-import Data.ByteString.UTF8 (toString)
+import qualified Data.ByteString.UTF8 as BSU
 import Database.Persist
 import Web.Routes.Site (Site)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Monad.Attempt (Failure)
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Char8 as S8
 import qualified Network.Wai.Middleware.CleanPath
 import Web.Routes (encodePathInfo)
 import qualified Data.ByteString.Lazy as L
+
+#if TEST
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.HUnit
+import Test.Framework.Providers.QuickCheck2 (testProperty)
+import Test.HUnit hiding (Test)
+#endif
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -250,9 +268,10 @@ applyLayout' s = fmap chooseRep . applyLayout s mempty
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
+    let pi = BSU.toString $ pathInfo r
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
-%p $toString.pathInfo.r$
+%p $pi$
 |]
   where
     pathInfo = W.pathInfo
@@ -305,3 +324,38 @@ maybeAuthorized :: Yesod a
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
+
+#if TEST
+testSuite :: Test
+testSuite = testGroup "Yesod.Yesod"
+    [ testProperty "join/split path" propJoinSplitPath
+    , testCase "utf8 split path" caseUtf8SplitPath
+    , testCase "utf8 join path" caseUtf8JoinPath
+    ]
+
+data TmpYesod = TmpYesod
+data TmpRoute = TmpRoute deriving Eq
+type instance Route TmpYesod = TmpRoute
+instance Yesod TmpYesod where approot _ = ""
+
+propJoinSplitPath ss =
+    splitPath TmpYesod (BSU.fromString $ joinPath TmpYesod "" ss' [])
+        == Right ss'
+  where
+    ss' = filter (not . null) ss
+
+caseUtf8SplitPath :: Assertion
+caseUtf8SplitPath = do
+    Right ["שלום"] @=?
+        splitPath TmpYesod (BSU.fromString "/שלום/")
+    Right ["page", "Fooé"] @=?
+        splitPath TmpYesod (BSU.fromString "/page/Fooé/")
+    Right ["\156"] @=?
+        splitPath TmpYesod (BSU.fromString "/\156/")
+    Right ["ð"] @=?
+        splitPath TmpYesod (BSU.fromString "/%C3%B0/")
+
+caseUtf8JoinPath :: Assertion
+caseUtf8JoinPath = do
+    "/%D7%A9%D7%9C%D7%95%D7%9D/" @=? joinPath TmpYesod "" ["שלום"] []
+#endif
