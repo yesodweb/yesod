@@ -8,7 +8,7 @@ module Yesod.Form
     ( -- * Data types
       GForm
     , FormResult (..)
-    , Enctype
+    , Enctype (..)
     , FormFieldSettings (..)
       -- * Type synonyms
     , Form
@@ -25,10 +25,11 @@ module Yesod.Form
     , fieldsToTable
     , fieldsToPlain
     , checkForm
-      -- * Fields
-    , module Yesod.Form.Fields
       -- * Template Haskell
     , mkToForm
+      -- * Re-exports
+    , module Yesod.Form.Fields
+    , module Yesod.Form.Class
     ) where
 
 import Yesod.Form.Core
