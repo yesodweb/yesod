@@ -44,6 +44,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<))
 import Control.Monad.Trans.State
+import Control.Monad.Trans.Reader
 import Language.Haskell.TH.Syntax
 import Database.Persist.Base (EntityDef (..))
 import Data.Char (toUpper, isUpper)
@@ -76,7 +77,8 @@ runFormGeneric :: Env
                -> FileEnv
                -> GForm sub y xml a
                -> GHandler sub y (FormResult a, xml, Enctype)
-runFormGeneric env fe f = evalStateT (deform f env fe) $ IntSingle 1
+runFormGeneric env fe (GForm f) =
+    runReaderT (runReaderT (evalStateT f $ IntSingle 1) env) fe
 
 -- | Run a form against POST parameters.
 runFormPost :: GForm sub y xml a

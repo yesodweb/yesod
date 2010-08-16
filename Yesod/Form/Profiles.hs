@@ -10,12 +10,14 @@ module Yesod.Form.Profiles
     , emailFieldProfile
     , urlFieldProfile
     , doubleFieldProfile
+    , fileFieldProfile
     , parseDate
     , parseTime
     ) where
 
 import Yesod.Form.Core
 import Yesod.Widget
+import Yesod.Request
 import Text.Hamlet
 import Data.Time (Day, TimeOfDay(..))
 import qualified Data.ByteString.Lazy.UTF8 as U
@@ -44,6 +46,9 @@ doubleFieldProfile = FieldProfile
 %input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
 |]
     }
+
+fileFieldProfile :: FieldProfile s m FileInfo
+fileFieldProfile = undefined -- FIXME
 
 dayFieldProfile :: FieldProfile sub y Day
 dayFieldProfile = FieldProfile

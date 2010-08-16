@@ -84,7 +84,8 @@ maybeTimeField :: FormFieldSettings -> FormletField sub y (Maybe TimeOfDay)
 maybeTimeField = optionalFieldHelper timeFieldProfile
 
 boolField :: FormFieldSettings -> Maybe Bool -> FormField sub y Bool
-boolField ffs orig = GForm $ \env _ -> do
+boolField ffs orig = GForm $ do
+    env <- askParams
     let label = ffsLabel ffs
         tooltip = ffsTooltip ffs
     name <- maybe newFormIdent return $ ffsName ffs
@@ -118,7 +119,8 @@ maybeHtmlField = optionalFieldHelper htmlFieldProfile
 selectField :: Eq x => [(x, String)]
             -> FormFieldSettings
             -> Maybe x -> FormField sub master x
-selectField pairs ffs initial = GForm $ \env _ -> do
+selectField pairs ffs initial = GForm $ do
+    env <- askParams
     let label = ffsLabel ffs
         tooltip = ffsTooltip ffs
     theId <- maybe newFormIdent return $ ffsId ffs
@@ -159,7 +161,8 @@ selectField pairs ffs initial = GForm $ \env _ -> do
 maybeSelectField :: Eq x => [(x, String)]
                  -> FormFieldSettings
                  -> FormletField sub master (Maybe x)
-maybeSelectField pairs ffs initial' = GForm $ \env _ -> do
+maybeSelectField pairs ffs initial' = GForm $ do
+    env <- askParams
     let initial = join initial'
         label = ffsLabel ffs
         tooltip = ffsTooltip ffs
@@ -209,10 +212,13 @@ maybeStringInput n =
     optionalFieldHelper stringFieldProfile (nameSettings n) Nothing
 
 boolInput :: String -> FormInput sub master Bool
-boolInput n = GForm $ \env _ -> return
-    (FormSuccess $ fromMaybe "" (lookup n env) /= "", return $ addBody [$hamlet|
+boolInput n = GForm $ do
+    env <- askParams
+    let res = FormSuccess $ fromMaybe "" (lookup n env) /= ""
+    let xml = addBody [$hamlet|
 %input#$n$!type=checkbox!name=$n$
-|], UrlEncoded)
+|]
+    return (res, [xml], UrlEncoded)
 
 dayInput :: String -> FormInput sub master Day
 dayInput n =

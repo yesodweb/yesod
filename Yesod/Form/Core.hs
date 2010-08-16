@@ -14,6 +14,9 @@ module Yesod.Form.Core
     , fieldsToInput
     , mapFormXml
     , checkForm
+    , askParams
+    , askFiles
+    , liftForm
       -- * Data types
     , FieldInfo (..)
     , FormFieldSettings (..)
@@ -27,6 +30,8 @@ module Yesod.Form.Core
     ) where
 
 import Control.Monad.Trans.State
+import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Class (lift)
 import Yesod.Handler
 import Yesod.Widget
 import Data.Monoid (Monoid (..))
@@ -85,7 +90,11 @@ incrInts (IntCons i is) = (i + 1) `IntCons` is
 -- | A generic form, allowing you to specifying the subsite datatype, master
 -- site datatype, a datatype for the form XML and the return type.
 newtype GForm sub y xml a = GForm
-    { deform :: Env -> FileEnv -> StateT Ints (GHandler sub y) (FormResult a, xml, Enctype)
+    { deform :: StateT Ints (
+                ReaderT Env (
+                ReaderT FileEnv (
+                (GHandler sub y)
+                ))) (FormResult a, xml, Enctype)
     }
 
 type Env = [(String, String)]
@@ -112,23 +121,23 @@ shallowerFormIdent = do
 
 instance Monoid xml => Functor (GForm sub url xml) where
     fmap f (GForm g) =
-        GForm $ \env fe -> liftM (first3 $ fmap f) (g env fe)
+        GForm $ liftM (first3 $ fmap f) g
       where
         first3 f' (x, y, z) = (f' x, y, z)
 
 instance Monoid xml => Applicative (GForm sub url xml) where
-    pure a = GForm $ const $ const $ return (pure a, mempty, mempty)
-    (GForm f) <*> (GForm g) = GForm $ \env fe -> do
-        (f1, f2, f3) <- f env fe
-        (g1, g2, g3) <- g env fe
+    pure a = GForm $ return (pure a, mempty, mempty)
+    (GForm f) <*> (GForm g) = GForm $ do
+        (f1, f2, f3) <- f
+        (g1, g2, g3) <- g
         return (f1 <*> g1, f2 `mappend` g2, f3 `mappend` g3)
 
 -- | Create a required field (ie, one that cannot be blank) from a
 -- 'FieldProfile'.ngs
 requiredFieldHelper :: FieldProfile sub y a -> FormFieldSettings
                     -> Maybe a -> FormField sub y a
-requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig =
-  GForm $ \env _ -> do
+requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = GForm $ do
+    env <- lift ask
     let (FormFieldSettings label tooltip theId' name') = ffs
     name <- maybe newFormIdent return name'
     theId <- maybe newFormIdent return theId'
@@ -158,8 +167,8 @@ requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig =
 -- 'FieldProfile'.
 optionalFieldHelper :: FieldProfile sub y a -> FormFieldSettings
                     -> FormletField sub y (Maybe a)
-optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' =
-  GForm $ \env _ -> do
+optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = GForm $ do
+    env <- lift ask
     let (FormFieldSettings label tooltip theId' name') = ffs
     let orig = join orig'
     name <- maybe newFormIdent return name'
@@ -191,8 +200,8 @@ fieldsToInput = map fiInput
 
 -- | Convert the XML in a 'GForm'.
 mapFormXml :: (xml1 -> xml2) -> GForm s y xml1 a -> GForm s y xml2 a
-mapFormXml f (GForm g) = GForm $ \e fe -> do
-    (res, xml, enc) <- g e fe
+mapFormXml f (GForm g) = GForm $ do
+    (res, xml, enc) <- g
     return (res, f xml, enc)
 
 -- | Using this as the intermediate XML representation for fields allows us to
@@ -233,10 +242,19 @@ type FormletField sub y a = Maybe a -> FormField sub y a
 type FormInput sub y = GForm sub y [GWidget sub y ()]
 
 checkForm :: (a -> FormResult b) -> GForm s m x a -> GForm s m x b
-checkForm f (GForm form) = GForm $ \env fenv -> do
-    (res, xml, enc) <- form env fenv
+checkForm f (GForm form) = GForm $ do
+    (res, xml, enc) <- form
     let res' = case res of
                     FormSuccess a -> f a
                     FormFailure e -> FormFailure e
                     FormMissing -> FormMissing
     return (res', xml, enc)
+
+askParams :: Monad m => StateT Ints (ReaderT Env m) Env
+askParams = lift ask
+
+askFiles :: Monad m => StateT Ints (ReaderT Env (ReaderT FileEnv m)) FileEnv
+askFiles = lift $ lift ask
+
+liftForm :: Monad m => m a -> StateT Ints (ReaderT Env (ReaderT FileEnv m)) a
+liftForm = lift . lift . lift
