@@ -42,7 +42,7 @@ import System.Directory
 import Control.Monad
 import Data.Maybe (fromMaybe)
 
-import Yesod
+import Yesod hiding (lift)
 import Data.List (intercalate)
 import Language.Haskell.TH.Syntax
 import Web.Routes.Site
