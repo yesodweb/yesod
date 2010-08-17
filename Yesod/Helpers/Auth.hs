@@ -100,7 +100,12 @@ type SaltedPass = String
 type VerStatus = Bool
 
 -- | Data stored in a database for each e-mail address.
-data EmailCreds = EmailCreds EmailId (Maybe SaltedPass) VerStatus VerKey
+data EmailCreds = EmailCreds
+    { emailCredsId :: EmailId
+    , emailCredsPass :: Maybe SaltedPass
+    , emailCredsStatus :: VerStatus
+    , emailCredsVerkey :: Maybe VerKey
+    }
 
 -- | For a sample set of settings for a trivial in-memory database, see
 -- 'inMemoryEmailSettings'.
@@ -108,6 +113,7 @@ data AuthEmailSettings = AuthEmailSettings
     { addUnverified :: Email -> VerKey -> IO EmailId
     , sendVerifyEmail :: Email -> VerKey -> VerUrl -> IO ()
     , getVerifyKey :: EmailId -> IO (Maybe VerKey)
+    , setVerifyKey :: EmailId -> VerKey -> IO ()
     , verifyAccount :: EmailId -> IO ()
     , setPassword :: EmailId -> String -> IO ()
     , getEmailCreds :: Email -> IO (Maybe EmailCreds)
@@ -148,11 +154,11 @@ mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
     [$parseRoutes|
-/check                   Check              GET
-/logout                  Logout             GET
+/check                   CheckR             GET
+/logout                  LogoutR            GET
 /openid                  OpenIdR            GET
-/openid/forward          OpenIdForward      GET
-/openid/complete         OpenIdComplete     GET
+/openid/forward          OpenIdForwardR     GET
+/openid/complete         OpenIdCompleteR    GET
 /login/rpxnow            RpxnowR
 
 /facebook                FacebookR          GET
@@ -312,11 +318,15 @@ postEmailRegisterR = do
     mecreds <- liftIO $ getEmailCreds ae email
     (lid, verKey) <-
         case mecreds of
+            Just (EmailCreds lid _ _ (Just key)) -> return (lid, key)
+            Just (EmailCreds lid _ _ Nothing) -> liftIO $ do
+                key <- randomKey y
+                setVerifyKey ae lid key
+                return (lid, key)
             Nothing -> liftIO $ do
                 key <- randomKey y
                 lid <- addUnverified ae email key
                 return (lid, key)
-            Just (EmailCreds lid _ _ key) -> return (lid, key)
     render <- getUrlRender
     tm <- getRouteToMaster
     let verUrl = render $ tm $ EmailVerifyR lid verKey
@@ -471,12 +481,14 @@ inMemoryEmailSettings = do
         { addUnverified = \email verkey -> modifyMVar mm $ \m -> do
             let helper (_, EmailCreds x _ _ _) = x
             let newId = 1 + maximum (0 : map helper m)
-            let ec = EmailCreds newId Nothing False verkey
+            let ec = EmailCreds newId Nothing False $ Just verkey
             return ((email, ec) : m, newId)
         , sendVerifyEmail = \_email _verkey verurl ->
             hPutStrLn stderr $ "Please go to: " ++ verurl
         , getVerifyKey = \eid -> withMVar mm $ \m -> return $
-            lookup eid $ map (\(_, EmailCreds eid' _ _ vk) -> (eid', vk)) m
+            join $ lookup eid $ map (\(_, EmailCreds eid' _ _ vk) -> (eid', vk)) m
+        , setVerifyKey = \eid key -> modifyMVar_ mm $ \m -> return $
+            map (setHelper eid key) m
         , verifyAccount = \eid -> modifyMVar_ mm $ return . map (vago eid)
         , setPassword = \eid pass -> modifyMVar_ mm $ return . map (spgo eid pass)
         , getEmailCreds = \email -> withMVar mm $ return . lookup email
@@ -486,6 +498,9 @@ inMemoryEmailSettings = do
                 _ -> Nothing
         }
   where
+    setHelper eid key pair@(k, EmailCreds eid' b c _)
+        | eid == eid' = (k, EmailCreds eid b c $ Just key)
+        | otherwise = pair
     vago eid (email, EmailCreds eid' pass status key)
         | eid == eid' = (email, EmailCreds eid pass True key)
         | otherwise = (email, EmailCreds eid' pass status key)
