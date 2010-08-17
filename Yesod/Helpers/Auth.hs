@@ -184,19 +184,19 @@ getOpenIdR = do
     applyLayout "Log in via OpenID" mempty [$hamlet|
 $maybe message msg
     %p.message $msg$
-%form!method=get!action=@rtom.OpenIdForward@
+%form!method=get!action=@rtom.OpenIdForwardR@
     %label!for=openid OpenID: $
     %input#openid!type=text!name=openid
     %input!type=submit!value=Login
 |]
 
-getOpenIdForward :: GHandler Auth master ()
-getOpenIdForward = do
+getOpenIdForwardR :: GHandler Auth master ()
+getOpenIdForwardR = do
     testOpenId
     oid <- runFormGet' $ stringInput "openid"
     render <- getUrlRender
     toMaster <- getRouteToMaster
-    let complete = render $ toMaster OpenIdComplete
+    let complete = render $ toMaster OpenIdCompleteR
     res <- runAttemptT $ OpenId.getForwardUrl oid complete
     attempt
       (\err -> do
@@ -205,8 +205,8 @@ getOpenIdForward = do
       (redirectString RedirectTemporary)
       res
 
-getOpenIdComplete :: YesodAuth master => GHandler Auth master ()
-getOpenIdComplete = do
+getOpenIdCompleteR :: YesodAuth master => GHandler Auth master ()
+getOpenIdCompleteR = do
     testOpenId
     rr <- getRequest
     let gets' = reqGetParams rr
@@ -258,8 +258,8 @@ getDisplayName extra =
   where
     choices = ["verifiedEmail", "email", "displayName", "preferredUsername"]
 
-getCheck :: Yesod master => GHandler Auth master RepHtmlJson
-getCheck = do
+getCheckR :: Yesod master => GHandler Auth master RepHtmlJson
+getCheckR = do
     creds <- maybeCreds
     applyLayoutJson "Authentication Status" mempty (html creds) (json creds)
   where
@@ -277,8 +277,8 @@ $maybe creds c
                                          $ creds >>= credsDisplayName)
             ]
 
-getLogout :: YesodAuth master => GHandler Auth master ()
-getLogout = do
+getLogoutR :: YesodAuth master => GHandler Auth master ()
+getLogoutR = do
     y <- getYesod
     deleteSession credsKey
     redirectUltDest RedirectTemporary $ defaultDest y
