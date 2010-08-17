@@ -11,7 +11,9 @@ module Yesod
     , module Yesod.Json
     , module Yesod.Widget
     , Application
+    , lift
     , liftIO
+    , MonadCatchIO
     , mempty
     ) where
 
@@ -33,5 +35,7 @@ import Yesod.Widget
 import Yesod.Handler hiding (runHandler)
 import Network.Wai (Application)
 import Yesod.Hamlet
+import "transformers" Control.Monad.Trans.Class (lift)
 import "transformers" Control.Monad.IO.Class (liftIO)
+import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
 import Data.Monoid (mempty)
