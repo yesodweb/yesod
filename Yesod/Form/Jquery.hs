@@ -56,7 +56,7 @@ jqueryDayFieldProfile = FieldProfile
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJavaScript [$julius|
+        addJavascript [$julius|
 $$(function(){$$("#$theId$").datepicker({dateFormat:'yy-mm-dd'})});
 |]
     }
@@ -94,7 +94,7 @@ jqueryDayTimeFieldProfile = FieldProfile
         addScript' urlJqueryUiJs
         addScript' urlJqueryUiDateTimePicker
         addStylesheet' urlJqueryUiCss
-        addJavaScript [$julius|
+        addJavascript [$julius|
 $$(function(){$$("#$theId$").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
 |]
     }
@@ -129,7 +129,7 @@ jqueryAutocompleteFieldProfile src = FieldProfile
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJavaScript [$julius|
+        addJavascript [$julius|
 $$(function(){$$("#$theId$").autocomplete({source:"@src@",minLength:2})});
 |]
     }

@@ -25,7 +25,7 @@ module Yesod.Widget
     , addScriptEither
     , addHead
     , addBody
-    , addJavaScript
+    , addJavascript
       -- * Manipulating
     , wrapWidget
     , extractBody
@@ -148,8 +148,8 @@ addScriptRemote =
     GWidget . lift . lift . tell . toUnique . Script . Remote
 
 -- | Include raw Javascript in the page's script tag.
-addJavaScript :: Julius (Route master) -> GWidget sub master ()
-addJavaScript = GWidget . lift . lift . lift . lift . lift. tell . Just
+addJavascript :: Julius (Route master) -> GWidget sub master ()
+addJavascript = GWidget . lift . lift . lift . lift . lift. tell . Just
 
 -- | Apply the default layout to the given widget.
 applyLayoutW :: (Eq (Route m), Yesod m)
