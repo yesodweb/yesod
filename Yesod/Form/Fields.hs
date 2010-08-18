@@ -255,10 +255,10 @@ emailInput n =
     mapFormXml fieldsToInput $
     requiredFieldHelper emailFieldProfile (nameSettings n) Nothing
 
-textareaField :: FormFieldSettings -> FormletField sub y String
+textareaField :: FormFieldSettings -> FormletField sub y Textarea
 textareaField = requiredFieldHelper textareaFieldProfile
 
-maybeTextareaField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeTextareaField :: FormFieldSettings -> FormletField sub y (Maybe Textarea)
 maybeTextareaField = optionalFieldHelper textareaFieldProfile
 
 hiddenField :: FormFieldSettings -> FormletField sub y String

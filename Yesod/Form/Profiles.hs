@@ -1,4 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Yesod.Form.Profiles
     ( stringFieldProfile
     , textareaFieldProfile
@@ -13,6 +15,7 @@ module Yesod.Form.Profiles
     , fileFieldProfile
     , parseDate
     , parseTime
+    , Textarea (..)
     ) where
 
 import Yesod.Form.Core
@@ -23,6 +26,10 @@ import Data.Time (Day, TimeOfDay(..))
 import qualified Data.ByteString.Lazy.UTF8 as U
 import qualified Text.Email.Validate as Email
 import Network.URI (parseURI)
+import Database.Persist (PersistField)
+
+import Text.Blaze.Builder.Utf8 (writeChar)
+import Text.Blaze.Builder.Core (writeList, writeByteString)
 
 intFieldProfile :: Integral i => FieldProfile sub y i
 intFieldProfile = FieldProfile
@@ -77,10 +84,27 @@ htmlFieldProfile = FieldProfile
 |]
     }
 
-textareaFieldProfile :: FieldProfile sub y String
+-- | A newtype wrapper around a 'String' that converts newlines to HTML
+-- br-tags.
+newtype Textarea = Textarea { unTextarea :: String }
+    deriving (Show, Read, Eq, PersistField)
+instance ToHtml Textarea where
+    toHtml =
+        Html . writeList writeHtmlEscapedChar . unTextarea
+      where
+        -- Taken from blaze-builder and modified with newline handling.
+        writeHtmlEscapedChar '<'  = writeByteString "&lt;"
+        writeHtmlEscapedChar '>'  = writeByteString "&gt;"
+        writeHtmlEscapedChar '&'  = writeByteString "&amp;"
+        writeHtmlEscapedChar '"'  = writeByteString "&quot;"
+        writeHtmlEscapedChar '\'' = writeByteString "&apos;"
+        writeHtmlEscapedChar '\n' = writeByteString "<br>"
+        writeHtmlEscapedChar c    = writeChar c
+
+textareaFieldProfile :: FieldProfile sub y Textarea
 textareaFieldProfile = FieldProfile
-    { fpParse = Right
-    , fpRender = id
+    { fpParse = Right . Textarea
+    , fpRender = unTextarea
     , fpWidget = \theId name val _isReq -> addBody [$hamlet|
 %textarea#$theId$!name=$name$ $val$
 |]

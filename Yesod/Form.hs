@@ -10,6 +10,7 @@ module Yesod.Form
     , FormResult (..)
     , Enctype (..)
     , FormFieldSettings (..)
+    , Textarea (..)
       -- * Type synonyms
     , Form
     , Formlet
@@ -35,6 +36,7 @@ module Yesod.Form
 import Yesod.Form.Core
 import Yesod.Form.Fields
 import Yesod.Form.Class
+import Yesod.Form.Profiles (Textarea (..))
 
 import Text.Hamlet
 import Yesod.Request

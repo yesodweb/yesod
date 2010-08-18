@@ -9,6 +9,7 @@ module Yesod.Form.Class
 import Text.Hamlet
 import Yesod.Form.Fields
 import Yesod.Form.Core
+import Yesod.Form.Profiles (Textarea)
 import Data.Int (Int64)
 import Data.Time (Day, TimeOfDay)
 
@@ -53,3 +54,8 @@ instance ToFormField Html y where
     toFormField = htmlField
 instance ToFormField (Maybe Html) y where
     toFormField = maybeHtmlField
+
+instance ToFormField Textarea y where
+    toFormField = textareaField
+instance ToFormField (Maybe Textarea) y where
+    toFormField = maybeTextareaField

@@ -57,7 +57,7 @@ getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
     addHead [$hamlet|%meta!keywords=haskell|]
 
 handleFormR = do
-    (res, form, enctype) <- runFormPost $ fieldsToTable $ (,,,,,,,,,)
+    (res, form, enctype) <- runFormPost $ fieldsToTable $ (,,,,,,,,,,)
         <$> stringField (FormFieldSettings "My Field" "Some tooltip info" Nothing Nothing) Nothing
         <*> stringField ("Another field") (Just "some default text")
         <*> intField (FormFieldSettings "A number field" "some nums" Nothing Nothing) (Just 5)
@@ -75,8 +75,12 @@ handleFormR = do
         <*> nicHtmlField ("HTML")
                 (Just $ string "You can put rich text here")
         <*> maybeEmailField ("An e-mail addres") Nothing
+        <*> maybeTextareaField "A text area" Nothing
     let mhtml = case res of
-                    FormSuccess (_, _, _, _, _, _, _, _, x, _) -> Just x
+                    FormSuccess (_, _, _, _, _, _, _, _, x, _, _) -> Just x
+                    _ -> Nothing
+    let txt = case res of
+                    FormSuccess (_, _, _, _, _, _, _, _, _, _, Just x) -> Just x
                     _ -> Nothing
     applyLayoutW $ do
         addStyle [$cassius|
@@ -98,6 +102,8 @@ textarea.html
                 %input!type=submit
     $maybe mhtml html
         $html$
+    $maybe txt t
+        $t$
 |]
         setTitle $ string "Form"
 
@@ -114,9 +120,9 @@ getAutoCompleteR = do
 
 data Person = Person String Int
 getCustomFormR = do
-    let customForm = GForm $ \e f -> do
-            (a1, [b1], c1) <- deform (stringInput "name") e f
-            (a2, [b2], c2) <- deform (intInput "age") e f
+    let customForm = GForm $ do
+            (a1, [b1], c1) <- deform $ stringInput "name"
+            (a2, [b2], c2) <- deform $ intInput "age"
             let b = do
                     b1' <- extractBody b1
                     b2' <- extractBody b2
