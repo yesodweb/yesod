@@ -66,24 +66,24 @@ class Yesod master => YesodAuth master where
     --
     -- The second parameter can contain various information, depending on login
     -- mechanism.
-    onLogin :: Creds -> [(String, String)] -> GHandler Auth master ()
+    onLogin :: Creds -> [(String, String)] -> GHandler (Auth master) master ()
     onLogin _ _ = return ()
 
     -- | Generate a random alphanumeric string.
     --
     -- This is used for verify string in email authentication.
-    randomKey :: master -> IO String
-    randomKey _ = do
+    randomKey :: master -> GHandler (Auth master) master String
+    randomKey _ = liftIO $ do
         stdgen <- newStdGen
         return $ take 10 $ randomRs ('A', 'Z') stdgen
 
 -- | Each authentication subsystem (OpenId, Rpxnow, Email, Facebook) has its
 -- own settings. If those settings are not present, then relevant handlers will
 -- simply return a 404.
-data Auth = Auth
+data Auth m = Auth
     { authIsOpenIdEnabled :: Bool
     , authRpxnowApiKey :: Maybe String
-    , authEmailSettings :: Maybe AuthEmailSettings
+    , authEmailSettings :: Maybe (AuthEmailSettings m)
     -- | client id, secret and requested permissions
     , authFacebook :: Maybe (String, String, [String])
     }
@@ -109,15 +109,15 @@ data EmailCreds = EmailCreds
 
 -- | For a sample set of settings for a trivial in-memory database, see
 -- 'inMemoryEmailSettings'.
-data AuthEmailSettings = AuthEmailSettings
-    { addUnverified :: Email -> VerKey -> IO EmailId
-    , sendVerifyEmail :: Email -> VerKey -> VerUrl -> IO ()
-    , getVerifyKey :: EmailId -> IO (Maybe VerKey)
-    , setVerifyKey :: EmailId -> VerKey -> IO ()
-    , verifyAccount :: EmailId -> IO ()
-    , setPassword :: EmailId -> String -> IO ()
-    , getEmailCreds :: Email -> IO (Maybe EmailCreds)
-    , getEmail :: EmailId -> IO (Maybe Email)
+data AuthEmailSettings m = AuthEmailSettings
+    { addUnverified :: Email -> VerKey -> GHandler (Auth m) m EmailId
+    , sendVerifyEmail :: Email -> VerKey -> VerUrl -> GHandler (Auth m) m ()
+    , getVerifyKey :: EmailId -> GHandler (Auth m) m (Maybe VerKey)
+    , setVerifyKey :: EmailId -> VerKey -> GHandler (Auth m) m ()
+    , verifyAccount :: EmailId -> GHandler (Auth m) m ()
+    , setPassword :: EmailId -> String -> GHandler (Auth m) m ()
+    , getEmailCreds :: Email -> GHandler (Auth m) m (Maybe EmailCreds)
+    , getEmail :: EmailId -> GHandler (Auth m) m (Maybe Email)
     }
 
 -- | User credentials
@@ -135,7 +135,7 @@ credsKey :: String
 credsKey = "_CREDS"
 
 setCreds :: YesodAuth master
-         => Creds -> [(String, String)] -> GHandler Auth master ()
+         => Creds -> [(String, String)] -> GHandler (Auth master) master ()
 setCreds creds extra = do
     setSession credsKey $ show creds
     onLogin creds extra
@@ -150,7 +150,7 @@ maybeCreds = do
                     (y, _):_ -> Just y
                     _ -> Nothing
 
-mkYesodSub "Auth"
+mkYesodSub "Auth master"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
     [$parseRoutes|
@@ -170,12 +170,12 @@ mkYesodSub "Auth"
 /set-password            EmailPasswordR     GET POST
 |]
 
-testOpenId :: GHandler Auth master ()
+testOpenId :: GHandler (Auth master) master ()
 testOpenId = do
     a <- getYesodSub
     unless (authIsOpenIdEnabled a) notFound
 
-getOpenIdR :: Yesod master => GHandler Auth master RepHtml
+getOpenIdR :: Yesod master => GHandler (Auth master) master RepHtml
 getOpenIdR = do
     testOpenId
     lookupGetParam "dest" >>= maybe (return ()) setUltDestString
@@ -190,7 +190,7 @@ $maybe message msg
     %input!type=submit!value=Login
 |]
 
-getOpenIdForwardR :: GHandler Auth master ()
+getOpenIdForwardR :: GHandler (Auth master) master ()
 getOpenIdForwardR = do
     testOpenId
     oid <- runFormGet' $ stringInput "openid"
@@ -205,7 +205,7 @@ getOpenIdForwardR = do
       (redirectString RedirectTemporary)
       res
 
-getOpenIdCompleteR :: YesodAuth master => GHandler Auth master ()
+getOpenIdCompleteR :: YesodAuth master => GHandler (Auth master) master ()
 getOpenIdCompleteR = do
     testOpenId
     rr <- getRequest
@@ -221,7 +221,7 @@ getOpenIdCompleteR = do
         redirectUltDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
-handleRpxnowR :: YesodAuth master => GHandler Auth master ()
+handleRpxnowR :: YesodAuth master => GHandler (Auth master) master ()
 handleRpxnowR = do
     ay <- getYesod
     auth <- getYesodSub
@@ -258,7 +258,7 @@ getDisplayName extra =
   where
     choices = ["verifiedEmail", "email", "displayName", "preferredUsername"]
 
-getCheckR :: Yesod master => GHandler Auth master RepHtmlJson
+getCheckR :: Yesod master => GHandler (Auth master) master RepHtmlJson
 getCheckR = do
     creds <- maybeCreds
     applyLayoutJson "Authentication Status" mempty (html creds) (json creds)
@@ -277,7 +277,7 @@ $maybe creds c
                                          $ creds >>= credsDisplayName)
             ]
 
-getLogoutR :: YesodAuth master => GHandler Auth master ()
+getLogoutR :: YesodAuth master => GHandler (Auth master) master ()
 getLogoutR = do
     y <- getYesod
     deleteSession credsKey
@@ -295,10 +295,10 @@ requireCreds =
         setUltDest'
         redirect RedirectTemporary $ defaultLoginRoute y
 
-getAuthEmailSettings :: GHandler Auth master AuthEmailSettings
+getAuthEmailSettings :: GHandler (Auth master) master (AuthEmailSettings master)
 getAuthEmailSettings = getYesodSub >>= maybe notFound return . authEmailSettings
 
-getEmailRegisterR :: Yesod master => GHandler Auth master RepHtml
+getEmailRegisterR :: Yesod master => GHandler (Auth master) master RepHtml
 getEmailRegisterR = do
     _ae <- getAuthEmailSettings
     toMaster <- getRouteToMaster
@@ -310,40 +310,40 @@ getEmailRegisterR = do
     %input!type=submit!value=Register
 |]
 
-postEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
+postEmailRegisterR :: YesodAuth master => GHandler (Auth master) master RepHtml
 postEmailRegisterR = do
     ae <- getAuthEmailSettings
     email <- runFormPost' $ emailInput "email"
     y <- getYesod
-    mecreds <- liftIO $ getEmailCreds ae email
+    mecreds <- getEmailCreds ae email
     (lid, verKey) <-
         case mecreds of
             Just (EmailCreds lid _ _ (Just key)) -> return (lid, key)
-            Just (EmailCreds lid _ _ Nothing) -> liftIO $ do
+            Just (EmailCreds lid _ _ Nothing) -> do
                 key <- randomKey y
                 setVerifyKey ae lid key
                 return (lid, key)
-            Nothing -> liftIO $ do
+            Nothing -> do
                 key <- randomKey y
                 lid <- addUnverified ae email key
                 return (lid, key)
     render <- getUrlRender
     tm <- getRouteToMaster
     let verUrl = render $ tm $ EmailVerifyR lid verKey
-    liftIO $ sendVerifyEmail ae email verKey verUrl
+    sendVerifyEmail ae email verKey verUrl
     applyLayout "Confirmation e-mail sent" mempty [$hamlet|
 %p A confirmation e-mail has been sent to $email$.
 |]
 
 getEmailVerifyR :: YesodAuth master
-           => Integer -> String -> GHandler Auth master RepHtml
+           => Integer -> String -> GHandler (Auth master) master RepHtml
 getEmailVerifyR lid key = do
     ae <- getAuthEmailSettings
-    realKey <- liftIO $ getVerifyKey ae lid
-    memail <- liftIO $ getEmail ae lid
+    realKey <- getVerifyKey ae lid
+    memail <- getEmail ae lid
     case (realKey == Just key, memail) of
         (True, Just email) -> do
-            liftIO $ verifyAccount ae lid
+            verifyAccount ae lid
             setCreds (Creds email AuthEmail (Just email) Nothing (Just lid)
                       Nothing) []
             toMaster <- getRouteToMaster
@@ -352,7 +352,7 @@ getEmailVerifyR lid key = do
 %p I'm sorry, but that was an invalid verification key.
 |]
 
-getEmailLoginR :: Yesod master => GHandler Auth master RepHtml
+getEmailLoginR :: Yesod master => GHandler (Auth master) master RepHtml
 getEmailLoginR = do
     _ae <- getAuthEmailSettings
     toMaster <- getRouteToMaster
@@ -378,14 +378,14 @@ $maybe msg ms
                 %input!type=submit!value=Login
 |]
 
-postEmailLoginR :: YesodAuth master => GHandler Auth master ()
+postEmailLoginR :: YesodAuth master => GHandler (Auth master) master ()
 postEmailLoginR = do
     ae <- getAuthEmailSettings
     (email, pass) <- runFormPost' $ (,)
         <$> emailInput "email"
         <*> stringInput "password"
     y <- getYesod
-    mecreds <- liftIO $ getEmailCreds ae email
+    mecreds <- getEmailCreds ae email
     let mlid =
             case mecreds of
                 Just (EmailCreds lid (Just realpass) True _) ->
@@ -401,7 +401,7 @@ postEmailLoginR = do
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster EmailLoginR
 
-getEmailPasswordR :: Yesod master => GHandler Auth master RepHtml
+getEmailPasswordR :: Yesod master => GHandler (Auth master) master RepHtml
 getEmailPasswordR = do
     _ae <- getAuthEmailSettings
     toMaster <- getRouteToMaster
@@ -431,7 +431,7 @@ $maybe msg ms
                 %input!type=submit!value=Submit
 |]
 
-postEmailPasswordR :: YesodAuth master => GHandler Auth master ()
+postEmailPasswordR :: YesodAuth master => GHandler (Auth master) master ()
 postEmailPasswordR = do
     ae <- getAuthEmailSettings
     (new, confirm) <- runFormPost' $ (,)
@@ -448,7 +448,7 @@ postEmailPasswordR = do
                 setMessage $ string "You must be logged in to set a password"
                 redirect RedirectTemporary $ toMaster EmailLoginR
     salted <- liftIO $ saltPass new
-    liftIO $ setPassword ae lid salted
+    setPassword ae lid salted
     setMessage $ string "Password updated"
     redirect RedirectTemporary $ toMaster EmailLoginR
 
@@ -474,25 +474,25 @@ saltPass' salt pass = salt ++ show (md5 $ fromString $ salt ++ pass)
 -- | A simplistic set of email settings, useful only for testing purposes. In
 -- particular, it doesn't actually send emails, but instead prints verification
 -- URLs to stderr.
-inMemoryEmailSettings :: IO AuthEmailSettings
+inMemoryEmailSettings :: IO (AuthEmailSettings a)
 inMemoryEmailSettings = do
     mm <- newMVar []
     return AuthEmailSettings
-        { addUnverified = \email verkey -> modifyMVar mm $ \m -> do
+        { addUnverified = \email verkey -> liftIO $ modifyMVar mm $ \m -> do
             let helper (_, EmailCreds x _ _ _) = x
             let newId = 1 + maximum (0 : map helper m)
             let ec = EmailCreds newId Nothing False $ Just verkey
             return ((email, ec) : m, newId)
-        , sendVerifyEmail = \_email _verkey verurl ->
+        , sendVerifyEmail = \_email _verkey verurl -> liftIO $
             hPutStrLn stderr $ "Please go to: " ++ verurl
-        , getVerifyKey = \eid -> withMVar mm $ \m -> return $
+        , getVerifyKey = \eid -> liftIO $ withMVar mm $ \m -> return $
             join $ lookup eid $ map (\(_, EmailCreds eid' _ _ vk) -> (eid', vk)) m
-        , setVerifyKey = \eid key -> modifyMVar_ mm $ \m -> return $
+        , setVerifyKey = \eid key -> liftIO $ modifyMVar_ mm $ \m -> return $
             map (setHelper eid key) m
-        , verifyAccount = \eid -> modifyMVar_ mm $ return . map (vago eid)
-        , setPassword = \eid pass -> modifyMVar_ mm $ return . map (spgo eid pass)
-        , getEmailCreds = \email -> withMVar mm $ return . lookup email
-        , getEmail = \eid -> withMVar mm $ \m -> return $
+        , verifyAccount = \eid -> liftIO $ modifyMVar_ mm $ return . map (vago eid)
+        , setPassword = \eid pass -> liftIO $ modifyMVar_ mm $ return . map (spgo eid pass)
+        , getEmailCreds = \email -> liftIO $ withMVar mm $ return . lookup email
+        , getEmail = \eid -> liftIO $ withMVar mm $ \m -> return $
             case filter (\(_, EmailCreds eid' _ _ _) -> eid == eid') m of
                 ((email, _):_) -> Just email
                 _ -> Nothing
@@ -508,7 +508,7 @@ inMemoryEmailSettings = do
         | eid == eid' = (email, EmailCreds eid (Just pass) status key)
         | otherwise = (email, EmailCreds eid' pass' status key)
 
-getFacebookR :: YesodAuth master => GHandler Auth master ()
+getFacebookR :: YesodAuth master => GHandler (Auth master) master ()
 getFacebookR = do
     y <- getYesod
     a <- authFacebook <$> getYesodSub
@@ -531,7 +531,7 @@ getFacebookR = do
             setCreds c []
             redirectUltDest RedirectTemporary $ defaultDest y
 
-getStartFacebookR :: GHandler Auth master ()
+getStartFacebookR :: GHandler (Auth master) master ()
 getStartFacebookR = do
     y <- getYesodSub
     case authFacebook y of
