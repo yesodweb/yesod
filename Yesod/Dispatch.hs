@@ -36,8 +36,8 @@ import Yesod.Internal
 import Web.Routes.Quasi
 import Web.Routes.Quasi.Parse
 import Web.Routes.Quasi.TH
-import Web.Routes.Site
 import Language.Haskell.TH.Syntax
+import Yesod.WebRoutes
 
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath (cleanPathFunc)

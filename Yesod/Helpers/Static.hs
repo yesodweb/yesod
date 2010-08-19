@@ -45,13 +45,13 @@ import Data.Maybe (fromMaybe)
 import Yesod hiding (lift)
 import Data.List (intercalate)
 import Language.Haskell.TH.Syntax
-import Web.Routes.Site
 
 import qualified Data.ByteString.Lazy as L
 import Data.Digest.Pure.MD5
 import qualified Codec.Binary.Base64Url
 import qualified Data.ByteString as S
 import qualified Data.Serialize
+import Yesod.WebRoutes
 
 #if TEST
 import Test.Framework (testGroup, Test)

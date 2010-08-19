@@ -49,13 +49,12 @@ import qualified Web.ClientSession as CS
 import Data.Monoid (mempty)
 import qualified Data.ByteString.UTF8 as BSU
 import Database.Persist
-import Web.Routes.Site (Site)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Monad.Attempt (Failure)
 import qualified Data.ByteString as S
 import qualified Network.Wai.Middleware.CleanPath
-import Web.Routes (encodePathInfo)
 import qualified Data.ByteString.Lazy as L
+import Yesod.WebRoutes
 
 #if TEST
 import Test.Framework (testGroup, Test)

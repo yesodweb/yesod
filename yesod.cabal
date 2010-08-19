@@ -30,7 +30,6 @@ library
                      text >= 0.5 && < 0.8,
                      utf8-string >= 0.3.4 && < 0.4,
                      template-haskell >= 2.4 && < 2.5,
-                     web-routes >= 0.23 && < 0.24,
                      web-routes-quasi >= 0.6 && < 0.7,
                      hamlet >= 0.5.0 && < 0.6,
                      blaze-builder >= 0.1 && < 0.2,
@@ -70,6 +69,7 @@ library
                      Yesod.Helpers.Crud
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
+                     Yesod.WebRoutes
     ghc-options:     -Wall -Werror
 
 executable             yesod
