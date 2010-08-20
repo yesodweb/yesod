@@ -9,6 +9,7 @@ module Yesod.Mail
     , sendmail
     , Disposition (..)
     , renderSendMail
+    , randomString
     ) where
 
 import qualified Data.ByteString.Lazy as L
@@ -23,21 +24,24 @@ import System.Exit
 import Codec.Binary.Base64 (encode)
 import Control.Monad ((<=<))
 
+randomString :: RandomGen d => Int -> d -> (String, d)
+randomString len =
+    first (map toChar) . sequence' (replicate len (randomR (0, 61)))
+  where
+    sequence' [] g = ([], g)
+    sequence' (f:fs) g =
+        let (f', g') = f g
+            (fs', g'') = sequence' fs g'
+         in (f' : fs', g'')
+    toChar i
+        | i < 26 = toEnum $ i + fromEnum 'A'
+        | i < 52 = toEnum $ i + fromEnum 'a' - 26
+        | otherwise = toEnum $ i + fromEnum '0' - 52
+
 newtype Boundary = Boundary { unBoundary :: String }
 instance Random Boundary where
     randomR = const random
-    random =
-        first (Boundary . map toChar) . sequence' (replicate 10 (randomR (0, 61)))
-      where
-        sequence' [] g = ([], g)
-        sequence' (f:fs) g =
-            let (f', g') = f g
-                (fs', g'') = sequence' fs g'
-             in (f' : fs', g'')
-        toChar i
-            | i < 26 = toEnum $ i + fromEnum 'A'
-            | i < 52 = toEnum $ i + fromEnum 'a' - 26
-            | otherwise = toEnum $ i + fromEnum '0' - 52
+    random = first Boundary . randomString 10
 
 data Mail = Mail
     { mailHeaders :: [(String, String)]
@@ -93,7 +97,7 @@ renderMail (Boundary b) (Mail headers plain parts) = toLazyByteString $ mconcat
         , fromByteString "\n"
         , case encoding of
             None -> writeList writeByteString $ L.toChunks content
-            Base64 -> fromString $ encode $ L.unpack content
+            Base64 -> writeList writeByte $ map (toEnum . fromEnum) $ encode $ L.unpack content
         ]
 
 renderMail' :: Mail -> IO L.ByteString

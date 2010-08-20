@@ -40,6 +40,7 @@ import qualified Web.Authenticate.OpenId as OpenId
 import qualified Web.Authenticate.Facebook as Facebook
 
 import Yesod
+import Yesod.Mail (randomString)
 
 import Data.Maybe
 import Control.Monad
@@ -72,10 +73,10 @@ class Yesod master => YesodAuth master where
     -- | Generate a random alphanumeric string.
     --
     -- This is used for verify string in email authentication.
-    randomKey :: master -> GHandler (Auth master) master String
-    randomKey _ = liftIO $ do
+    randomKey :: master -> IO String
+    randomKey _ = do
         stdgen <- newStdGen
-        return $ take 10 $ randomRs ('A', 'Z') stdgen
+        return $ fst $ randomString 10 stdgen
 
 -- | Each authentication subsystem (OpenId, Rpxnow, Email, Facebook) has its
 -- own settings. If those settings are not present, then relevant handlers will
@@ -314,17 +315,18 @@ postEmailRegisterR :: YesodAuth master => GHandler (Auth master) master RepHtml
 postEmailRegisterR = do
     ae <- getAuthEmailSettings
     email <- runFormPost' $ emailInput "email"
-    y <- getYesod
     mecreds <- getEmailCreds ae email
     (lid, verKey) <-
         case mecreds of
             Just (EmailCreds lid _ _ (Just key)) -> return (lid, key)
             Just (EmailCreds lid _ _ Nothing) -> do
-                key <- randomKey y
+                y <- getYesod
+                key <- liftIO $ randomKey y
                 setVerifyKey ae lid key
                 return (lid, key)
             Nothing -> do
-                key <- randomKey y
+                y <- getYesod
+                key <- liftIO $ randomKey y
                 lid <- addUnverified ae email key
                 return (lid, key)
     render <- getUrlRender
