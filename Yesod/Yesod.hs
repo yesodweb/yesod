@@ -18,10 +18,10 @@ module Yesod.Yesod
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs
-      -- * Convenience functions
-    , applyLayout
-    , applyLayoutJson
+      -- * Utitlities
     , maybeAuthorized
+    , widgetToPageContent
+    , defaultLayoutJson
       -- * Defaults
     , defaultErrorHandler
       -- * Data types
@@ -39,6 +39,7 @@ import Yesod.Content
 import Yesod.Json
 #endif
 
+import Yesod.Widget
 import Yesod.Request
 import Yesod.Hamlet
 import Yesod.Handler
@@ -46,7 +47,6 @@ import qualified Network.Wai as W
 import Yesod.Internal
 import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
-import Data.Monoid (mempty)
 import qualified Data.ByteString.UTF8 as BSU
 import Database.Persist
 import Control.Monad.Trans.Class (MonadTrans (..))
@@ -55,6 +55,12 @@ import qualified Data.ByteString as S
 import qualified Network.Wai.Middleware.CleanPath
 import qualified Data.ByteString.Lazy as L
 import Yesod.WebRoutes
+import Data.Monoid
+import Control.Monad.Trans.Writer
+import Control.Monad.Trans.State hiding (get)
+import Text.Hamlet
+import Text.Cassius
+import Text.Julius
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -103,8 +109,10 @@ class Eq (Route a) => Yesod a where
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: PageContent (Route a) -> GHandler sub a Content
-    defaultLayout p = hamletToContent [$hamlet|
+    defaultLayout :: GWidget sub a () -> GHandler sub a RepHtml
+    defaultLayout w = do
+        p <- widgetToPageContent w
+        hamletToRepHtml [$hamlet|
 !!!
 %html
     %head
@@ -226,41 +234,24 @@ breadcrumbs = do
         (title, next) <- breadcrumb this
         go ((this, title) : back) next
 
--- | Apply the default layout ('defaultLayout') to the given title and body.
-applyLayout :: Yesod master
-            => String -- ^ title
-            -> Hamlet (Route master) -- ^ head
-            -> Hamlet (Route master) -- ^ body
-            -> GHandler sub master RepHtml
-applyLayout t h b =
-    RepHtml `fmap` defaultLayout PageContent
-                { pageTitle = string t
-                , pageHead = h
-                , pageBody = b
-                }
-
 -- | Provide both an HTML and JSON representation for a piece of data, using
 -- the default layout for the HTML output ('defaultLayout').
-applyLayoutJson :: Yesod master
-                => String -- ^ title
-                -> Hamlet (Route master) -- ^ head
-                -> Hamlet (Route master) -- ^ body
-                -> Json
-                -> GHandler sub master RepHtmlJson
-applyLayoutJson t h html json = do
-    html' <- defaultLayout PageContent
-                { pageTitle = string t
-                , pageHead = h
-                , pageBody = html
-                }
+defaultLayoutJson :: Yesod master
+                  => GWidget sub master ()
+                  -> Json
+                  -> GHandler sub master RepHtmlJson
+defaultLayoutJson w json = do
+    RepHtml html' <- defaultLayout w
     json' <- jsonToContent json
     return $ RepHtmlJson html' json'
 
 applyLayout' :: Yesod master
-             => String -- ^ title
+             => Html -- ^ title
              -> Hamlet (Route master) -- ^ body
              -> GHandler sub master ChooseRep
-applyLayout' s = fmap chooseRep . applyLayout s mempty
+applyLayout' title body = fmap chooseRep $ defaultLayout $ do
+    setTitle title
+    addBody body
 
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
@@ -322,6 +313,73 @@ maybeAuthorized :: Yesod a
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
+
+-- | Convert a widget to a 'PageContent'.
+widgetToPageContent :: (Eq (Route master), Yesod master)
+                    => GWidget sub master ()
+                    -> GHandler sub master (PageContent (Route master))
+widgetToPageContent (GWidget w) = do
+    w' <- flip evalStateT 0
+        $ runWriterT $ runWriterT $ runWriterT $ runWriterT
+        $ runWriterT $ runWriterT $ runWriterT w
+    let ((((((((),
+         Body body),
+         Last mTitle),
+         scripts'),
+         stylesheets'),
+         style),
+         jscript),
+         Head head') = w'
+    let title = maybe mempty unTitle mTitle
+    let scripts = map (locationToHamlet . unScript) $ runUniqueList scripts'
+    let stylesheets = map (locationToHamlet . unStylesheet)
+                    $ runUniqueList stylesheets'
+    let cssToHtml (Css b) = Html b
+        celper :: Cassius url -> Hamlet url
+        celper = fmap cssToHtml
+        jsToHtml (Javascript b) = Html b
+        jelper :: Julius url -> Hamlet url
+        jelper = fmap jsToHtml
+
+    render <- getUrlRenderParams
+    let renderLoc x =
+            case x of
+                Nothing -> Nothing
+                Just (Left s) -> Just s
+                Just (Right (u, p)) -> Just $ render u p
+    cssLoc <-
+        case style of
+            Nothing -> return Nothing
+            Just s -> do
+                x <- addStaticContent "css" "text/css; charset=utf-8"
+                   $ renderCassius render s
+                return $ renderLoc x
+    jsLoc <-
+        case jscript of
+            Nothing -> return Nothing
+            Just s -> do
+                x <- addStaticContent "js" "text/javascript; charset=utf-8"
+                   $ renderJulius render s
+                return $ renderLoc x
+
+    let head'' = [$hamlet|
+$forall scripts s
+    %script!src=^s^
+$forall stylesheets s
+    %link!rel=stylesheet!href=^s^
+$maybe style s
+    $maybe cssLoc s
+        %link!rel=stylesheet!href=$s$
+    $nothing
+        %style ^celper.s^
+$maybe jscript j
+    $maybe jsLoc s
+        %script!src=$s$
+    $nothing
+        %script ^jelper.j^
+^head'^
+|]
+    return $ PageContent title head'' body
 
 #if TEST
 testSuite :: Test

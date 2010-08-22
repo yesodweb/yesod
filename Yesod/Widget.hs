@@ -1,5 +1,4 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -7,12 +6,9 @@
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
     ( -- * Datatype
-      GWidget
+      GWidget (..)
     , Widget
     , liftHandler
-      -- * Unwrapping
-    , widgetToPageContent
-    , applyLayoutW
       -- * Creating
     , newIdent
     , setTitle
@@ -31,46 +27,18 @@ module Yesod.Widget
     , extractBody
     ) where
 
-import Data.List (nub)
 import Data.Monoid
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State
-import Yesod.Hamlet (PageContent (..))
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
-import Yesod.Handler (Route, GHandler, getUrlRenderParams)
-import Yesod.Yesod (Yesod, defaultLayout, addStaticContent)
-import Yesod.Content (RepHtml (..))
+import Yesod.Handler (Route, GHandler)
 import Control.Applicative (Applicative)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
 import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
-
-data Location url = Local url | Remote String
-    deriving (Show, Eq)
-locationToHamlet :: Location url -> Hamlet url
-locationToHamlet (Local url) = [$hamlet|@url@|]
-locationToHamlet (Remote s) = [$hamlet|$s$|]
-
-newtype UniqueList x = UniqueList ([x] -> [x])
-instance Monoid (UniqueList x) where
-    mempty = UniqueList id
-    UniqueList x `mappend` UniqueList y = UniqueList $ x . y
-runUniqueList :: Eq x => UniqueList x -> [x]
-runUniqueList (UniqueList x) = nub $ x []
-toUnique :: x -> UniqueList x
-toUnique = UniqueList . (:)
-
-newtype Script url = Script { unScript :: Location url }
-    deriving (Show, Eq)
-newtype Stylesheet url = Stylesheet { unStylesheet :: Location url }
-    deriving (Show, Eq)
-newtype Title = Title { unTitle :: Html }
-newtype Head url = Head (Hamlet url)
-    deriving Monoid
-newtype Body url = Body (Hamlet url)
-    deriving Monoid
+import Yesod.Internal
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
@@ -150,78 +118,6 @@ addScriptRemote =
 -- | Include raw Javascript in the page's script tag.
 addJavascript :: Julius (Route master) -> GWidget sub master ()
 addJavascript = GWidget . lift . lift . lift . lift . lift. tell . Just
-
--- | Apply the default layout to the given widget.
-applyLayoutW :: (Eq (Route m), Yesod m)
-             => GWidget sub m () -> GHandler sub m RepHtml
-applyLayoutW w = widgetToPageContent w >>= fmap RepHtml . defaultLayout
-
--- | Convert a widget to a 'PageContent'.
-widgetToPageContent :: (Eq (Route master), Yesod master)
-                    => GWidget sub master ()
-                    -> GHandler sub master (PageContent (Route master))
-widgetToPageContent (GWidget w) = do
-    w' <- flip evalStateT 0
-        $ runWriterT $ runWriterT $ runWriterT $ runWriterT
-        $ runWriterT $ runWriterT $ runWriterT w
-    let ((((((((),
-         Body body),
-         Last mTitle),
-         scripts'),
-         stylesheets'),
-         style),
-         jscript),
-         Head head') = w'
-    let title = maybe mempty unTitle mTitle
-    let scripts = map (locationToHamlet . unScript) $ runUniqueList scripts'
-    let stylesheets = map (locationToHamlet . unStylesheet)
-                    $ runUniqueList stylesheets'
-    let cssToHtml (Css b) = Html b
-        celper :: Cassius url -> Hamlet url
-        celper = fmap cssToHtml
-        jsToHtml (Javascript b) = Html b
-        jelper :: Julius url -> Hamlet url
-        jelper = fmap jsToHtml
-
-    render <- getUrlRenderParams
-    let renderLoc x =
-            case x of
-                Nothing -> Nothing
-                Just (Left s) -> Just s
-                Just (Right (u, p)) -> Just $ render u p
-    cssLoc <-
-        case style of
-            Nothing -> return Nothing
-            Just s -> do
-                x <- addStaticContent "css" "text/css; charset=utf-8"
-                   $ renderCassius render s
-                return $ renderLoc x
-    jsLoc <-
-        case jscript of
-            Nothing -> return Nothing
-            Just s -> do
-                x <- addStaticContent "js" "text/javascript; charset=utf-8"
-                   $ renderJulius render s
-                return $ renderLoc x
-
-    let head'' = [$hamlet|
-$forall scripts s
-    %script!src=^s^
-$forall stylesheets s
-    %link!rel=stylesheet!href=^s^
-$maybe style s
-    $maybe cssLoc s
-        %link!rel=stylesheet!href=$s$
-    $nothing
-        %style ^celper.s^
-$maybe jscript j
-    $maybe jsLoc s
-        %script!src=$s$
-    $nothing
-        %script ^jelper.j^
-^head'^
-|]
-    return $ PageContent title head'' body
 
 -- | Modify the given 'GWidget' by wrapping the body tag HTML code with the
 -- given function. You might also consider using 'extractBody'.

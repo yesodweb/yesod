@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yesod.Helpers.Crud
     ( Item (..)
     , Crud (..)
@@ -17,7 +18,6 @@ import Yesod.Content
 import Yesod.Handler
 import Text.Hamlet
 import Yesod.Form
-import Data.Monoid (mempty)
 import Language.Haskell.TH.Syntax
 
 -- | An entity which can be displayed by the Crud subsite.
@@ -53,7 +53,9 @@ getCrudListR :: (Yesod master, Item item, SinglePiece (Key item))
 getCrudListR = do
     items <- getYesodSub >>= crudSelect
     toMaster <- getRouteToMaster
-    applyLayout "Items" mempty [$hamlet|
+    defaultLayout $ do
+        setTitle "Items"
+        addBody [$hamlet|
 %h1 Items
 %ul
     $forall items item
@@ -111,7 +113,9 @@ getCrudDeleteR s = do
     crud <- getYesodSub
     item <- crudGet crud itemId >>= maybe notFound return -- Just ensure it exists
     toMaster <- getRouteToMaster
-    applyLayout "Confirm delete" mempty [$hamlet|
+    defaultLayout $ do
+        setTitle "Confirm delete"
+        addBody [$hamlet|
 %form!method=post!action=@toMaster.CrudDeleteR.s@
     %h1 Really delete?
     %p Do you really want to delete $itemTitle.item$?
@@ -151,7 +155,7 @@ crudHelper title me isPost = do
             redirect RedirectTemporary $ toMaster $ CrudEditR
                                        $ toSinglePiece eid
         _ -> return ()
-    applyLayoutW $ do
+    defaultLayout $ do
         wrapWidget form (wrapForm toMaster enctype)
         setTitle $ string title
   where
