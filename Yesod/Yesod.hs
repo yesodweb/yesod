@@ -72,7 +72,7 @@ import Test.HUnit hiding (Test)
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
 class Eq (Route y) => YesodSite y where
-    getSite :: Site (Route y) (Method -> Maybe (Handler y ChooseRep))
+    getSite :: Site (Route y) (Method -> Maybe (GHandler y y ChooseRep))
 type Method = String
 
 -- | Same as 'YesodSite', but for subsites. Once again, users should not need

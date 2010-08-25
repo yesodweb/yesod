@@ -24,7 +24,6 @@ module Yesod.Handler
     ( -- * Type families
       Route
       -- * Handler monad
-    , Handler
     , GHandler
       -- ** Read information from handler
     , getYesod
@@ -124,7 +123,7 @@ toMasterHandler :: (Route sub -> Route master)
                 -> (master -> sub)
                 -> Route sub
                 -> GHandler sub master a
-                -> Handler master a
+                -> GHandler master master a
 toMasterHandler tm ts route (GHandler h) =
     GHandler $ withReaderT (handlerSubData tm ts route) h
 
@@ -144,11 +143,6 @@ newtype GHandler sub master a = GHandler { unGHandler ::
     deriving (Functor, Applicative, Monad, MonadIO, MonadCatchIO)
 
 type Endo a = a -> a
-
--- | A 'GHandler' limited to the case where the master and sub sites are the
--- same. This is the usual case for application writing; only code written
--- specifically as a subsite need been concerned with the more general variety.
-type Handler yesod = GHandler yesod yesod
 
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
 -- features needed by Yesod. Users should never need to use this directly, as
