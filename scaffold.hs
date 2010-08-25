@@ -1,7 +1,14 @@
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
 import CodeGenQ
 import System.IO
 import System.Directory
+import qualified Data.ByteString.Char8 as S
+import Language.Haskell.TH.Syntax
+
+writeFile' :: FilePath -> String -> IO ()
+writeFile' fp s = do
+    putStrLn $ "Generating " ++ fp
+    writeFile fp s
 
 main :: IO ()
 main = do
@@ -35,8 +42,28 @@ Site argument: |]
 That's it! I'm creating your files now...
 |]
 
-    putStrLn $ "Generating " ++ project ++ ".cabal"
-    writeFile (project ++ ".cabal") [$codegen|
+    createDirectoryIfMissing False "Handler"
+    createDirectoryIfMissing False "hamlet"
+    createDirectoryIfMissing False "cassius"
+    createDirectoryIfMissing False "julius"
+
+    writeFile' "simple-server.hs" [$codegen|
+import Controller
+import Network.Wai.Handler.SimpleServer (run)
+
+main :: IO ()
+main = with~sitearg~ $ run 3000
+|]
+
+    writeFile' "fastcgi.hs" [$codegen|
+import Controller
+import Network.Wai.Handler.FastCGI (run)
+
+main :: IO ()
+main = with~sitearg~ run
+|]
+
+    writeFile' (project ++ ".cabal") [$codegen|
 name:              ~project~
 version:           0.0.0
 license:           BSD3
@@ -51,16 +78,39 @@ cabal-version:     >= 1.6
 build-type:        Simple
 homepage:          http://www.yesodweb.com/~project~
 
-executable         ~project~
+Flag production
+    Description:   Build the production executable.
+    Default:       False
+
+executable         simple-server
+    if flag(production)
+        Buildable: False
+    cpp-options:   -DDEBUG
+    main-is:       simple-server.hs
     build-depends: base >= 4 && < 5,
-                   yesod >= 0.4.0 && < 0.5.0,
-                   persistent-sqlite >= 0.1.0 && < 0.2
+                   yesod >= 0.5 && < 0.6,
+                   wai-extra,
+                   directory,
+                   bytestring,
+                   persistent,
+                   persistent-sqlite,
+                   template-haskell,
+                   hamlet
     ghc-options:   -Wall
-    main-is:       ~project~.hs
+    extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
+
+executable         fastcgi
+    if flag(production)
+        Buildable: True
+    else
+        Buildable: False
+    main-is:       fastcgi.hs
+    build-depends: wai-handler-fastcgi
+    ghc-options:   -Wall
+    extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 |]
 
-    putStrLn "Generating LICENSE"
-    writeFile "LICENSE" [$codegen|
+    writeFile' "LICENSE" [$codegen|
 The following license covers this documentation, and the source code, except
 where otherwise indicated.
 
@@ -88,113 +138,267 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 |]
 
-    putStrLn ("Generating " ++ project ++ ".hs")
-    writeFile (project ++ ".hs") [$codegen|
-import Yesod
-import App
-
-main :: IO ()
-main = with~sitearg~ $ basicHandler 3000
-|]
-
-    putStrLn "Generating App.hs"
-    writeFile "App.hs" [$codegen|
-{-# LANGUAGE TypeFamilies, QuasiQuotes, OverloadedStrings #-}
-module App
+    writeFile' (sitearg ++ ".hs") [$codegen|
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
+module ~sitearg~
     ( ~sitearg~ (..)
-    , with~sitearg~
+    , ~sitearg~Route (..)
+    , resources~sitearg~
+    , Handler
+    , module Yesod
+    , module Settings
+    , module Model
     ) where
+
 import Yesod
-import Yesod.Helpers.Crud
 import Yesod.Helpers.Static
-import Database.Persist.Sqlite
+import qualified Settings
+import System.Directory
+import qualified Data.ByteString.Lazy as L
+import Yesod.WebRoutes
+import Database.Persist.GenericSql
+import Settings (hamletFile, cassiusFile, juliusFile)
 import Model
 
 data ~sitearg~ = ~sitearg~
-    { connPool :: Pool Connection
-    , static :: Static
+    { getStatic :: Static
+    , connPool :: Settings.ConnectionPool
     }
 
-with~sitearg~ :: (~sitearg~ -> IO a) -> IO a
-with~sitearg~ f = withSqlite "~project~.db3" 8 $ \pool -> do
-    flip runSqlite pool $ do
-        -- This is where you can initialize your database.
-        initialize (undefined :: Person)
-    f $ ~sitearg~ pool $ fileLookupDir "static" typeByExt
+type Handler = GHandler ~sitearg~ ~sitearg~
 
-type PersonCrud = Crud ~sitearg~ Person
-
-mkYesod "~sitearg~" [$parseRoutes|
-/       RootR   GET
-/people PeopleR PersonCrud defaultCrud
-/static StaticR Static static
+mkYesodData "~sitearg~" [$parseRoutes|
+/ RootR GET POST
+/static StaticR Static getStatic
+/favicon.ico FaviconR GET
+/robots.txt RobotsR GET
 |~~]
 
 instance Yesod ~sitearg~ where
-    approot _ = "http://localhost:3000"
-    defaultLayout (PageContent title head' body) = hamletToContent [$hamlet|
-!!!
-%html
-    %head
-        %title $title$
-        %link!rel=stylesheet!href=@stylesheet@
-        ^head'^
-    %body
-        #wrapper
-            ^body^
-|~~]
+    approot _ = Settings.approot
+    defaultLayout widget = do
+        pc <- widgetToPageContent $ do
+            widget
+            addStyle $(Settings.cassiusFile "default-layout")
+        hamletToRepHtml $(Settings.hamletFile "default-layout")
+    urlRenderOverride a (StaticR s) =
+        Just $ uncurry (joinPath a Settings.staticroot) $ format s
       where
-        stylesheet = StaticR $ StaticRoute ["style.css"]
+        format = formatPathSegments ss
+        ss :: Site StaticRoute (String -> Maybe (GHandler Static ~sitearg~ ChooseRep))
+        ss = getSubSite
+    urlRenderOverride _ _ = Nothing
+    addStaticContent ext' _ content = do
+        let fn = base64md5 content ++ '.' : ext'
+        let statictmp = Settings.staticdir ++ "/tmp/"
+        liftIO $ createDirectoryIfMissing True statictmp
+        liftIO $ L.writeFile (statictmp ++ fn) content
+        return $ Just $ Right (StaticR $ StaticRoute ["tmp", fn] [], [])
 
 instance YesodPersist ~sitearg~ where
-    type YesodDB ~sitearg~ = SqliteReader
-    runDB db = fmap connPool getYesod >>= runSqlite db
-
-getRootR :: Handler ~sitearg~ RepHtml
-getRootR = applyLayoutW $ do
-    setTitle "Welcome to the ~project~ project"
-    addBody [$hamlet|
-%h1 Welcome to ~project~
-%h2 The greatest Yesod web application ever!
-%p
-    %a!href=@PeopleR.CrudListR@ Manage people
-|~~]
+    type YesodDB ~sitearg~ = SqlPersist
+    runDB db = fmap connPool getYesod >>= Settings.runConnectionPool db
 |]
 
-    putStrLn "Generating Model.hs"
-    writeFile "Model.hs" [$codegen|
-{-# LANGUAGE GeneralizedNewtypeDeriving, QuasiQuotes, TypeFamilies #-}
+    writeFile' "Controller.hs" [$codegen|
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE PackageImports #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+module Controller
+    ( with~sitearg~
+    ) where
 
--- We don't explicitly state our export list, since there are funny things
--- that happen with type family constructors.
+import ~sitearg~
+import Settings
+import Yesod.Helpers.Static
+import Database.Persist.GenericSql
+
+import Handler.Root
+
+mkYesodDispatch "~sitearg~" resources~sitearg~
+
+getFaviconR :: Handler ()
+getFaviconR = sendFile "image/x-icon" "favicon.ico"
+
+getRobotsR :: Handler RepPlain
+getRobotsR = return $ RepPlain $ toContent "User-agent: *"
+
+with~sitearg~ :: (Application -> IO a) -> IO a
+with~sitearg~ f = Settings.withConnectionPool $ \p -> do
+    flip runConnectionPool p $ runMigration $ do
+        migrate (undefined :: Message)
+    let h = ~sitearg~ s p
+    toWaiApp h >>= f
+  where
+    s = fileLookupDir Settings.staticdir typeByExt
+|]
+
+    writeFile' "Handler/Root.hs" [$codegen|
+{-# LANGUAGE TemplateHaskell, OverloadedStrings #-}
+module Handler.Root where
+
+import ~sitearg~
+import Control.Applicative
+
+messageFormlet :: Formlet sub master Message
+messageFormlet x = fieldsToTable
+    $ Message <$> textareaField "Message"
+                                (fmap messageContent x)
+
+getRootR :: Handler RepHtml
+getRootR = do
+    messages <- runDB $ selectList [] [] 10 0
+    (_, wform, _) <- runFormGet $ messageFormlet Nothing
+    defaultLayout $ do
+        setTitle "~project~ homepage"
+        ident <- newIdent
+        form <- extractBody wform
+        addBody $(hamletFile "homepage")
+        addStyle $(cassiusFile "homepage")
+        addJavascript $(juliusFile "homepage")
+
+postRootR :: Handler ()
+postRootR = do
+    (res, _, _) <- runFormPost $ messageFormlet Nothing
+    case res of
+        FormSuccess message -> runDB (insert message) >> return ()
+        _ -> return ()
+    redirect RedirectTemporary RootR
+|]
+
+    writeFile' "Model.hs" [$codegen|
+{-# LANGUAGE QuasiQuotes, TypeFamilies, GeneralizedNewtypeDeriving #-}
 module Model where
 
 import Yesod
-import Yesod.Helpers.Crud
 
-share2 mkPersist mkToForm [$persist|
-Person
-    name String
-    age Int
+mkPersist [$persist|
+Message
+    content Textarea
 |~~]
-
-instance Item Person where
-    itemTitle = personName
 |]
 
-    putStrLn "Generating static/style.css"
-    createDirectoryIfMissing True "static"
-    writeFile "static/style.css" [$codegen|
-body {
-    font-family: sans-serif;
-    background: #eee;
-}
+    writeFile' "Settings.hs" [$codegen|
+{-# LANGUAGE CPP #-}
+module Settings
+    ( hamletFile
+    , cassiusFile
+    , juliusFile
+    , connStr
+    , ConnectionPool
+    , withConnectionPool
+    , runConnectionPool
+    , approot
+    , staticroot
+    , staticdir
+    ) where
 
-#wrapper {
-    width: 760px;
-    margin: 1em auto;
-    border: 2px solid #000;
-    padding: 0.5em;
-    background: #fff;
+import qualified Text.Hamlet as H
+import qualified Text.Cassius as H
+import qualified Text.Julius as H
+import Language.Haskell.TH.Syntax
+import Database.Persist.Sqlite
+import Yesod (MonadCatchIO)
+
+hamletFile :: FilePath -> Q Exp
+#ifdef DEBUG
+hamletFile x = H.hamletFileDebug $ "hamlet/" ++ x ++ ".hamlet"
+#else
+hamletFile x = H.hamletFile $ "hamlet/" ++ x ++ ".hamlet"
+#endif
+
+cassiusFile :: FilePath -> Q Exp
+#ifdef DEBUG
+cassiusFile x = H.cassiusFileDebug $ "cassius/" ++ x ++ ".cassius"
+#else
+cassiusFile x = H.cassiusFile $ "cassius/" ++ x ++ ".cassius"
+#endif
+
+juliusFile :: FilePath -> Q Exp
+#ifdef DEBUG
+juliusFile x = H.juliusFileDebug $ "julius/" ++ x ++ ".julius"
+#else
+juliusFile x = H.juliusFile $ "julius/" ++ x ++ ".julius"
+#endif
+
+connStr :: String
+#ifdef DEBUG
+connStr = "debug.db3"
+#else
+connStr = "production.db3"
+#endif
+
+connectionCount :: Int
+connectionCount = 10
+
+withConnectionPool :: MonadCatchIO m => (ConnectionPool -> m a) -> m a
+withConnectionPool = withSqlitePool connStr connectionCount
+
+runConnectionPool :: MonadCatchIO m => SqlPersist m a -> ConnectionPool -> m a
+runConnectionPool = runSqlPool
+
+approot :: String
+#ifdef DEBUG
+approot = "http://localhost:3000"
+#else
+approot = "http://localhost:3000"
+#endif
+
+staticroot :: String
+staticroot = approot ++ "/static"
+
+staticdir :: FilePath
+staticdir = "static"
+|]
+
+    writeFile' "cassius/default-layout.cassius" [$codegen|
+body
+    font-family: sans-serif
+|]
+
+    writeFile' "hamlet/default-layout.hamlet" [$codegen|
+!!!
+%html
+    %head
+        %title $pageTitle.pc$
+        ^pageHead.pc^
+    %body
+        ^pageBody.pc^
+|]
+
+    writeFile' "hamlet/homepage.hamlet" [$codegen|
+%h1 Hello
+%p#$ident$ Welcome.
+%h3 Messages
+$if null.messages
+    %p No messages.
+$else
+    %ul
+        $forall messages m
+            %li $messageContent.snd.m$
+%h3 Add Message
+%form!method=post!action=@RootR@
+    %table
+        ^form^
+        %tr
+            %td!colspan=2
+                %input!type=submit!value="Add Message"
+|]
+
+    writeFile' "cassius/homepage.cassius" [$codegen|
+body
+    font-family: sans-serif
+h1
+    text-align: center
+|]
+
+    writeFile' "julius/homepage.julius" [$codegen|
+window.onload = function(){
+    document.getElementById("%ident%").innerHTML = "<i>Added from JavaScript.</i>";
 }
 |]
+
+    S.writeFile "favicon.ico"
+        $(runIO (S.readFile "favicon.ico") >>= \bs -> do
+            pack <- [|S.pack|]
+            return $ pack `AppE` LitE (StringL $ S.unpack bs))
