@@ -5,16 +5,10 @@ import System.Directory
 import qualified Data.ByteString.Char8 as S
 import Language.Haskell.TH.Syntax
 
-writeFile' :: FilePath -> String -> IO ()
-writeFile' fp s = do
-    putStrLn $ "Generating " ++ fp
-    writeFile fp s
-
 main :: IO ()
 main = do
     putStr [$codegen|Welcome to the Yesod scaffolder.
 I'm going to be creating a skeleton Yesod project for you.
-Please make sure you are in the directory where you'd like the files created.
 
 What is your name? We're going to put this in the cabal and LICENSE files.
 
@@ -24,28 +18,62 @@ Your name: |]
 
     putStr [$codegen|
 Welcome ~name~.
-What do you want to call your project? We'll use this for the cabal name and
-executable filenames.
+What do you want to call your project? We'll use this for the cabal name.
 
 Project name: |]
     hFlush stdout
     project <- getLine
+
     putStr [$codegen|
-Great, we'll be creating ~project~ today. What's going to be the name of
-your site argument datatype? This name must start with a capital letter;
-I recommend picking something short, as this name gets typed a lot.
+Now where would you like me to place your generated files? I'm smart enough
+to create the directories, don't worry about that. If you leave this answer
+blank, we'll place the files in ~project~.
+
+Directory name: |]
+    hFlush stdout
+    dirRaw <- getLine
+    let dir = if null dirRaw then project else dirRaw
+
+    putStr [$codegen|
+Great, we'll be creating ~project~ today, and placing it in ~dir~.
+What's going to be the name of your site argument datatype? This name must
+start with a capital letter.
 
 Site argument: |]
     hFlush stdout
     sitearg <- getLine
+
     putStr [$codegen|
 That's it! I'm creating your files now...
 |]
 
-    createDirectoryIfMissing False "Handler"
-    createDirectoryIfMissing False "hamlet"
-    createDirectoryIfMissing False "cassius"
-    createDirectoryIfMissing False "julius"
+    putStr [$codegen|
+Yesod uses Persistent for its (you guessed it) persistence layer.
+This tool will build in either SQLite or PostgreSQL support for you. If you
+want to use a different backend, you'll have to make changes manually.
+If you're not sure, stick with SQLite: it has no dependencies.
+
+So, what'll it be? s for sqlite, p for postgresql: |]
+    hFlush stdout
+    backendS <- getLine
+    let pconn1 = [$codegen|user=~project~ password=~project~ host=localhost port=5432 dbname=~project~_debug|]
+    let pconn2 = [$codegen|user=~project~ password=~project~ host=localhost port=5432 dbname=~project~_production|]
+    let (lower, upper, connstr1, connstr2) =
+            case backendS of
+                "s" -> ("sqlite", "Sqlite", "debug.db3", "production.db3")
+                "p" -> ("postgresql", "Postgresql", pconn1, pconn2)
+                _ -> error $ "Invalid backend: " ++ backendS
+
+
+    let writeFile' fp s = do
+            putStrLn $ "Generating " ++ fp
+            writeFile (dir ++ '/' : fp) s
+        mkDir fp = createDirectoryIfMissing True $ dir ++ '/' : fp
+
+    mkDir "Handler"
+    mkDir "hamlet"
+    mkDir "cassius"
+    mkDir "julius"
 
     writeFile' "simple-server.hs" [$codegen|
 import Controller
@@ -398,7 +426,7 @@ window.onload = function(){
 }
 |]
 
-    S.writeFile "favicon.ico"
+    S.writeFile (dir ++ "/favicon.ico")
         $(runIO (S.readFile "favicon.ico") >>= \bs -> do
             pack <- [|S.pack|]
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
