@@ -33,12 +33,12 @@ wrapper h = [$hamlet|
 #wrapper ^h^
 %footer Brought to you by Yesod Widgets&trade;
 |]
-getRootR = applyLayoutW $ flip wrapWidget wrapper $ do
+getRootR = defaultLayout $ flip wrapWidget wrapper $ do
     i <- newIdent
     setTitle $ string "Hello Widgets"
     addStyle [$cassius|
 #$i$
-    color:red
+    color: red
 |]
     addStylesheet $ StaticR $ StaticRoute ["style.css"] []
     addStylesheetRemote "http://localhost:3000/static/style2.css"
@@ -82,16 +82,16 @@ handleFormR = do
     let txt = case res of
                     FormSuccess (_, _, _, _, _, _, _, _, _, _, Just x) -> Just x
                     _ -> Nothing
-    applyLayoutW $ do
+    defaultLayout $ do
         addStyle [$cassius|
 .tooltip
-    color:#666
-    font-style:italic
+    color: #666
+    font-style: italic
 |]
         addStyle [$cassius|
 textarea.html
-    width:300px
-    height:150px
+    width: 300px
+    height: 150px
 |]
         wrapWidget form $ \h -> [$hamlet|
 %form!method=post!enctype=$enctype$
@@ -134,7 +134,7 @@ getCustomFormR = do
 |]
             return (Person <$> a1 <*> a2, b , c1 `mappend` c2)
     (_, wform, enctype) <- runFormGet customForm
-    applyLayoutW $ do
+    defaultLayout $ do
         form <- extractBody wform
         addBody [$hamlet|
 %form

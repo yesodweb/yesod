@@ -29,7 +29,7 @@ nicHtmlFieldProfile = FieldProfile
     , fpWidget = \theId name val _isReq -> do
         addBody [$hamlet|%textarea.html#$theId$!name=$name$ $val$|]
         addScript' urlNicEdit
-        addJavascript [$julius|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("$theId$")});|]
+        addJavascript [$julius|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("%theId%")});|]
     }
 
 addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
