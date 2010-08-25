@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -23,6 +24,7 @@
 module Yesod.Helpers.Auth
     ( -- * Subsite
       Auth (..)
+    , getAuth
     , AuthRoute (..)
       -- * Settings
     , YesodAuth (..)
@@ -34,6 +36,10 @@ module Yesod.Helpers.Auth
       -- * Functions
     , maybeCreds
     , requireCreds
+      -- * AuthId
+    , YesodAuthId (..)
+    , maybeAuthId
+    , requireAuthId
     ) where
 
 import qualified Web.Authenticate.Rpxnow as Rpxnow
@@ -68,7 +74,7 @@ class Yesod master => YesodAuth master where
     --
     -- The second parameter can contain various information, depending on login
     -- mechanism.
-    onLogin :: Creds -> [(String, String)] -> GHandler (Auth master) master ()
+    onLogin :: Creds -> [(String, String)] -> GHandler Auth master ()
     onLogin _ _ = return ()
 
     -- | Generate a random alphanumeric string.
@@ -79,16 +85,23 @@ class Yesod master => YesodAuth master where
         stdgen <- newStdGen
         return $ fst $ randomString 10 stdgen
 
--- | Each authentication subsystem (OpenId, Rpxnow, Email, Facebook) has its
--- own settings. If those settings are not present, then relevant handlers will
--- simply return a 404.
-data Auth m = Auth
-    { authIsOpenIdEnabled :: Bool
-    , authRpxnowApiKey :: Maybe String
-    , authEmailSettings :: Maybe (AuthEmailSettings m)
+    authIsOpenIdEnabled :: master -> Bool
+    authIsOpenIdEnabled _ = False
+
+    authRpxnowApiKey :: master -> Maybe String
+    authRpxnowApiKey _ = Nothing
+
+    authEmailSettings :: master -> Maybe (AuthEmailSettings master)
+    authEmailSettings _ = Nothing
+
     -- | client id, secret and requested permissions
-    , authFacebook :: Maybe (String, String, [String])
-    }
+    authFacebook :: master -> Maybe (String, String, [String])
+    authFacebook _ = Nothing
+
+data Auth = Auth
+
+getAuth :: a -> Auth
+getAuth = const Auth
 
 -- | Which subsystem authenticated the user.
 data AuthType = AuthOpenId | AuthRpxnow | AuthEmail | AuthFacebook
@@ -112,14 +125,14 @@ data EmailCreds = EmailCreds
 -- | For a sample set of settings for a trivial in-memory database, see
 -- 'inMemoryEmailSettings'.
 data AuthEmailSettings m = AuthEmailSettings
-    { addUnverified :: Email -> VerKey -> GHandler (Auth m) m EmailId
-    , sendVerifyEmail :: Email -> VerKey -> VerUrl -> GHandler (Auth m) m ()
-    , getVerifyKey :: EmailId -> GHandler (Auth m) m (Maybe VerKey)
-    , setVerifyKey :: EmailId -> VerKey -> GHandler (Auth m) m ()
-    , verifyAccount :: EmailId -> GHandler (Auth m) m ()
-    , setPassword :: EmailId -> String -> GHandler (Auth m) m ()
-    , getEmailCreds :: Email -> GHandler (Auth m) m (Maybe EmailCreds)
-    , getEmail :: EmailId -> GHandler (Auth m) m (Maybe Email)
+    { addUnverified :: Email -> VerKey -> GHandler Auth m EmailId
+    , sendVerifyEmail :: Email -> VerKey -> VerUrl -> GHandler Auth m ()
+    , getVerifyKey :: EmailId -> GHandler Auth m (Maybe VerKey)
+    , setVerifyKey :: EmailId -> VerKey -> GHandler Auth m ()
+    , verifyAccount :: EmailId -> GHandler Auth m ()
+    , setPassword :: EmailId -> String -> GHandler Auth m ()
+    , getEmailCreds :: Email -> GHandler Auth m (Maybe EmailCreds)
+    , getEmail :: EmailId -> GHandler Auth m (Maybe Email)
     }
 
 -- | User credentials
@@ -137,7 +150,7 @@ credsKey :: String
 credsKey = "_CREDS"
 
 setCreds :: YesodAuth master
-         => Creds -> [(String, String)] -> GHandler (Auth master) master ()
+         => Creds -> [(String, String)] -> GHandler Auth master ()
 setCreds creds extra = do
     setSession credsKey $ show creds
     onLogin creds extra
@@ -152,7 +165,7 @@ maybeCreds = do
                     (y, _):_ -> Just y
                     _ -> Nothing
 
-mkYesodSub "Auth master"
+mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
     [$parseRoutes|
@@ -172,12 +185,12 @@ mkYesodSub "Auth master"
 /set-password            EmailPasswordR     GET POST
 |]
 
-testOpenId :: GHandler (Auth master) master ()
+testOpenId :: YesodAuth master => GHandler Auth master ()
 testOpenId = do
-    a <- getYesodSub
+    a <- getYesod
     unless (authIsOpenIdEnabled a) notFound
 
-getOpenIdR :: Yesod master => GHandler (Auth master) master RepHtml
+getOpenIdR :: YesodAuth master => GHandler Auth master RepHtml
 getOpenIdR = do
     testOpenId
     lookupGetParam "dest" >>= maybe (return ()) setUltDestString
@@ -194,7 +207,7 @@ $maybe message msg
     %input!type=submit!value=Login
 |]
 
-getOpenIdForwardR :: GHandler (Auth master) master ()
+getOpenIdForwardR :: YesodAuth master => GHandler Auth master ()
 getOpenIdForwardR = do
     testOpenId
     oid <- runFormGet' $ stringInput "openid"
@@ -209,7 +222,7 @@ getOpenIdForwardR = do
       (redirectString RedirectTemporary)
       res
 
-getOpenIdCompleteR :: YesodAuth master => GHandler (Auth master) master ()
+getOpenIdCompleteR :: YesodAuth master => GHandler Auth master ()
 getOpenIdCompleteR = do
     testOpenId
     rr <- getRequest
@@ -225,10 +238,10 @@ getOpenIdCompleteR = do
         redirectUltDest RedirectTemporary $ defaultDest y
     attempt onFailure onSuccess res
 
-handleRpxnowR :: YesodAuth master => GHandler (Auth master) master ()
+handleRpxnowR :: YesodAuth master => GHandler Auth master ()
 handleRpxnowR = do
     ay <- getYesod
-    auth <- getYesodSub
+    auth <- getYesod
     apiKey <- case authRpxnowApiKey auth of
                 Just x -> return x
                 Nothing -> notFound
@@ -262,7 +275,7 @@ getDisplayName extra =
   where
     choices = ["verifiedEmail", "email", "displayName", "preferredUsername"]
 
-getCheckR :: Yesod master => GHandler (Auth master) master RepHtmlJson
+getCheckR :: Yesod master => GHandler Auth master RepHtmlJson
 getCheckR = do
     creds <- maybeCreds
     defaultLayoutJson (do
@@ -283,7 +296,7 @@ $maybe creds c
                                          $ creds >>= credsDisplayName)
             ]
 
-getLogoutR :: YesodAuth master => GHandler (Auth master) master ()
+getLogoutR :: YesodAuth master => GHandler Auth master ()
 getLogoutR = do
     y <- getYesod
     deleteSession credsKey
@@ -301,10 +314,11 @@ requireCreds =
         setUltDest'
         redirect RedirectTemporary $ defaultLoginRoute y
 
-getAuthEmailSettings :: GHandler (Auth master) master (AuthEmailSettings master)
-getAuthEmailSettings = getYesodSub >>= maybe notFound return . authEmailSettings
+getAuthEmailSettings :: YesodAuth master
+                     => GHandler Auth master (AuthEmailSettings master)
+getAuthEmailSettings = getYesod >>= maybe notFound return . authEmailSettings
 
-getEmailRegisterR :: Yesod master => GHandler (Auth master) master RepHtml
+getEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
 getEmailRegisterR = do
     _ae <- getAuthEmailSettings
     toMaster <- getRouteToMaster
@@ -316,7 +330,7 @@ getEmailRegisterR = do
     %input!type=submit!value=Register
 |]
 
-postEmailRegisterR :: YesodAuth master => GHandler (Auth master) master RepHtml
+postEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
 postEmailRegisterR = do
     ae <- getAuthEmailSettings
     email <- runFormPost' $ emailInput "email"
@@ -343,7 +357,7 @@ postEmailRegisterR = do
 |]
 
 getEmailVerifyR :: YesodAuth master
-           => Integer -> String -> GHandler (Auth master) master RepHtml
+           => Integer -> String -> GHandler Auth master RepHtml
 getEmailVerifyR lid key = do
     ae <- getAuthEmailSettings
     realKey <- getVerifyKey ae lid
@@ -361,7 +375,7 @@ getEmailVerifyR lid key = do
 %p I'm sorry, but that was an invalid verification key.
 |]
 
-getEmailLoginR :: Yesod master => GHandler (Auth master) master RepHtml
+getEmailLoginR :: YesodAuth master => GHandler Auth master RepHtml
 getEmailLoginR = do
     _ae <- getAuthEmailSettings
     toMaster <- getRouteToMaster
@@ -389,7 +403,7 @@ $maybe msg ms
                 %input!type=submit!value=Login
 |]
 
-postEmailLoginR :: YesodAuth master => GHandler (Auth master) master ()
+postEmailLoginR :: YesodAuth master => GHandler Auth master ()
 postEmailLoginR = do
     ae <- getAuthEmailSettings
     (email, pass) <- runFormPost' $ (,)
@@ -412,7 +426,7 @@ postEmailLoginR = do
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster EmailLoginR
 
-getEmailPasswordR :: Yesod master => GHandler (Auth master) master RepHtml
+getEmailPasswordR :: YesodAuth master => GHandler Auth master RepHtml
 getEmailPasswordR = do
     _ae <- getAuthEmailSettings
     toMaster <- getRouteToMaster
@@ -444,7 +458,7 @@ $maybe msg ms
                 %input!type=submit!value=Submit
 |]
 
-postEmailPasswordR :: YesodAuth master => GHandler (Auth master) master ()
+postEmailPasswordR :: YesodAuth master => GHandler Auth master ()
 postEmailPasswordR = do
     ae <- getAuthEmailSettings
     (new, confirm) <- runFormPost' $ (,)
@@ -521,10 +535,10 @@ inMemoryEmailSettings = do
         | eid == eid' = (email, EmailCreds eid (Just pass) status key)
         | otherwise = (email, EmailCreds eid' pass' status key)
 
-getFacebookR :: YesodAuth master => GHandler (Auth master) master ()
+getFacebookR :: YesodAuth master => GHandler Auth master ()
 getFacebookR = do
     y <- getYesod
-    a <- authFacebook <$> getYesodSub
+    a <- authFacebook <$> getYesod
     case a of
         Nothing -> notFound
         Just (cid, secret, _) -> do
@@ -544,9 +558,9 @@ getFacebookR = do
             setCreds c []
             redirectUltDest RedirectTemporary $ defaultDest y
 
-getStartFacebookR :: GHandler (Auth master) master ()
+getStartFacebookR :: YesodAuth master => GHandler Auth master ()
 getStartFacebookR = do
-    y <- getYesodSub
+    y <- getYesod
     case authFacebook y of
         Nothing -> notFound
         Just (cid, secret, perms) -> do
@@ -555,3 +569,33 @@ getStartFacebookR = do
             let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
             let fburl = Facebook.getForwardUrl fb perms
             redirectString RedirectTemporary fburl
+
+class ( YesodAuth m
+      , YesodPersist m
+      , PersistEntity (AuthEntity m)
+      ) => YesodAuthId m where
+    type AuthEntity m
+    newAuthEntity :: Creds -> (YesodDB m) (GHandler s m) (AuthEntity m)
+    getAuthEntity :: Creds
+                  -> (YesodDB m) (GHandler s m)
+                     (Maybe (Key (AuthEntity m), AuthEntity m))
+
+maybeAuthId :: (YesodAuthId m, PersistBackend (YesodDB m (GHandler s m)))
+            => GHandler s m (Maybe (Key (AuthEntity m), AuthEntity m))
+maybeAuthId = maybeCreds >>= maybe (return Nothing) (fmap Just . authIdHelper)
+
+requireAuthId :: (YesodAuthId m, PersistBackend (YesodDB m (GHandler s m)))
+              => GHandler s m (Key (AuthEntity m), AuthEntity m)
+requireAuthId = requireCreds >>= authIdHelper
+
+authIdHelper :: (YesodAuthId m, PersistBackend (YesodDB m (GHandler s m)))
+             => Creds
+             -> GHandler s m (Key (AuthEntity m), AuthEntity m)
+authIdHelper creds = runDB $ do
+    x <- getAuthEntity creds
+    case x of
+        Just y -> return y
+        Nothing -> do
+            user <- newAuthEntity creds
+            uid <- insert user
+            return (uid, user)

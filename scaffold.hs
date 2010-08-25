@@ -80,7 +80,7 @@ import Controller
 import Network.Wai.Handler.SimpleServer (run)
 
 main :: IO ()
-main = with~sitearg~ $ run 3000
+main = putStrLn "Loaded" >> with~sitearg~ (run 3000)
 |]
 
     writeFile' "fastcgi.hs" [$codegen|
@@ -205,6 +205,7 @@ mkYesodData "~sitearg~" [$parseRoutes|
 instance Yesod ~sitearg~ where
     approot _ = Settings.approot
     defaultLayout widget = do
+        mmsg <- getMessage
         pc <- widgetToPageContent $ do
             widget
             addStyle $(Settings.cassiusFile "default-layout")
@@ -391,6 +392,8 @@ body
         %title $pageTitle.pc$
         ^pageHead.pc^
     %body
+        $maybe mmsg msg
+            #message $msg$
         ^pageBody.pc^
 |]
 
