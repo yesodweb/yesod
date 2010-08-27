@@ -34,6 +34,7 @@ module Yesod.Helpers.Auth
     , RpxnowSettings (..)
     , EmailSettings (..)
     , FacebookSettings (..)
+    , getFacebookUrl
       -- * Functions
     , maybeAuth
     , maybeAuthId
@@ -514,19 +515,27 @@ getFacebookR = do
             setCreds c []
             redirectUltDest RedirectTemporary $ defaultDest y
 
-getLoginR :: YesodAuth master => GHandler Auth master RepHtml
-getLoginR = do
-    lookupGetParam "dest" >>= maybe (return ()) setUltDestString
-    tm <- getRouteToMaster
+getFacebookUrl :: YesodAuth m
+               => (AuthRoute -> Route m) -> GHandler s m (Maybe String)
+getFacebookUrl tm = do
     y <- getYesod
     render <- getUrlRender
-    let facebookUrl f =
+    case facebookSettings y of
+        Nothing -> return Nothing
+        Just f -> do
             let fb =
                     Facebook.Facebook
                         (fbAppId f)
                         (fbSecret f)
                         (render $ tm FacebookR)
-             in Facebook.getForwardUrl fb $ fbPerms f
+            return $ Just $ Facebook.getForwardUrl fb $ fbPerms f
+
+getLoginR :: YesodAuth master => GHandler Auth master RepHtml
+getLoginR = do
+    lookupGetParam "dest" >>= maybe (return ()) setUltDestString
+    tm <- getRouteToMaster
+    y <- getYesod
+    fb <- getFacebookUrl tm
     defaultLayout $ do
         setTitle "Login"
         addStyle [$cassius|
@@ -557,10 +566,10 @@ $if openIdEnabled.y
         %label!for=openid OpenID: $
         %input#openid!type=text!name=openid
         %input!type=submit!value="Login via OpenID"
-$maybe facebookSettings.y f
+$maybe fb f
     %h3 Facebook
     %p
-        %a!href=$facebookUrl.f$ Login via Facebook
+        %a!href=$f$ Login via Facebook
 $maybe rpxnowSettings.y r
     %h3 OpenID
     %p
