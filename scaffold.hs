@@ -173,13 +173,19 @@ module ~sitearg~
     , ~sitearg~Route (..)
     , resources~sitearg~
     , Handler
+    , maybeAuth
+    , requireAuth
     , module Yesod
     , module Settings
     , module Model
+    , StaticRoute (..)
+    , AuthRoute (..)
     ) where
 
 import Yesod
+import Yesod.Mail
 import Yesod.Helpers.Static
+import Yesod.Helpers.Auth
 import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L
@@ -187,6 +193,8 @@ import Yesod.WebRoutes
 import Database.Persist.GenericSql
 import Settings (hamletFile, cassiusFile, juliusFile)
 import Model
+import Control.Monad (join)
+import Data.Maybe (isJust)
 
 data ~sitearg~ = ~sitearg~
     { getStatic :: Static
@@ -196,10 +204,13 @@ data ~sitearg~ = ~sitearg~
 type Handler = GHandler ~sitearg~ ~sitearg~
 
 mkYesodData "~sitearg~" [$parseRoutes|
-/ RootR GET POST
 /static StaticR Static getStatic
+/auth   AuthR   Auth   getAuth
+
 /favicon.ico FaviconR GET
 /robots.txt RobotsR GET
+
+/ RootR GET
 |~~]
 
 instance Yesod ~sitearg~ where
@@ -217,6 +228,7 @@ instance Yesod ~sitearg~ where
         ss :: Site StaticRoute (String -> Maybe (GHandler Static ~sitearg~ ChooseRep))
         ss = getSubSite
     urlRenderOverride _ _ = Nothing
+    authRoute _ = Just $ AuthR LoginR
     addStaticContent ext' _ content = do
         let fn = base64md5 content ++ '.' : ext'
         let statictmp = Settings.staticdir ++ "/tmp/"
@@ -227,6 +239,76 @@ instance Yesod ~sitearg~ where
 instance YesodPersist ~sitearg~ where
     type YesodDB ~sitearg~ = SqlPersist
     runDB db = fmap connPool getYesod >>= Settings.runConnectionPool db
+
+instance YesodAuth ~sitearg~ where
+    type AuthEntity ~sitearg~ = User
+    type AuthEmailEntity ~sitearg~ = Email
+
+    defaultDest _ = RootR
+
+    getAuthId creds _extra = runDB $ do
+        x <- getBy $ UniqueUser $ credsIdent creds
+        case x of
+            Just (uid, _) -> return $ Just uid
+            Nothing -> do
+                fmap Just $ insert $ User (credsIdent creds) Nothing
+
+    openIdEnabled _ = True
+
+    emailSettings _ = Just EmailSettings
+        { addUnverified = \email verkey ->
+            runDB $ insert $ Email email Nothing (Just verkey)
+        , sendVerifyEmail = sendVerifyEmail'
+        , getVerifyKey = runDB . fmap (join . fmap emailVerkey) . get
+        , setVerifyKey = \eid key -> runDB $ update eid [EmailVerkey $ Just key]
+        , verifyAccount = \eid -> runDB $ do
+            me <- get eid
+            case me of
+                Nothing -> return Nothing
+                Just e -> do
+                    let email = emailEmail e
+                    case emailUser e of
+                        Just uid -> return $ Just uid
+                        Nothing -> do
+                            uid <- insert $ User email Nothing
+                            update eid [EmailUser $ Just uid]
+                            return $ Just uid
+        , getPassword = runDB . fmap (join . fmap userPassword) . get
+        , setPassword = \uid pass -> runDB $ update uid [UserPassword $ Just pass]
+        , getEmailCreds = \email -> runDB $ do
+            me <- getBy $ UniqueEmail email
+            case me of
+                Nothing -> return Nothing
+                Just (eid, e) -> return $ Just EmailCreds
+                    { emailCredsId = eid
+                    , emailCredsAuthId = emailUser e
+                    , emailCredsStatus = isJust $ emailUser e
+                    , emailCredsVerkey = emailVerkey e
+                    }
+        , getEmail = runDB . fmap (fmap emailEmail) . get
+        }
+
+sendVerifyEmail' :: String -> String -> String -> GHandler Auth m ()
+sendVerifyEmail' email _ verurl =
+    liftIO $ renderSendMail Mail
+            { mailHeaders =
+                [ ("From", "noreply")
+                , ("To", email)
+                , ("Subject", "Verify your email address")
+                ]
+            , mailPlain = verurl
+            , mailParts = return Part
+                { partType = "text/html; charset=utf-8"
+                , partEncoding = None
+                , partDisposition = Inline
+                , partContent = renderHamlet id [$hamlet|
+%p Please confirm your email address by clicking on the link below.
+%p
+    %a!href=$verurl$ $verurl$
+%p Thank you
+|~~]
+                }
+            }
 |]
 
     writeFile' "Controller.hs" [$codegen|
@@ -240,6 +322,7 @@ module Controller
 import ~sitearg~
 import Settings
 import Yesod.Helpers.Static
+import Yesod.Helpers.Auth
 import Database.Persist.GenericSql
 
 import Handler.Root
@@ -255,7 +338,8 @@ getRobotsR = return $ RepPlain $ toContent "User-agent: *"
 with~sitearg~ :: (Application -> IO a) -> IO a
 with~sitearg~ f = Settings.withConnectionPool $ \p -> do
     flip runConnectionPool p $ runMigration $ do
-        migrate (undefined :: Message)
+        migrate (undefined :: User)
+        migrate (undefined :: Email)
     let h = ~sitearg~ s p
     toWaiApp h >>= f
   where
@@ -269,30 +353,15 @@ module Handler.Root where
 import ~sitearg~
 import Control.Applicative
 
-messageFormlet :: Formlet sub master Message
-messageFormlet x = fieldsToTable
-    $ Message <$> textareaField "Message"
-                                (fmap messageContent x)
-
 getRootR :: Handler RepHtml
 getRootR = do
-    messages <- runDB $ selectList [] [] 10 0
-    (_, wform, _) <- runFormGet $ messageFormlet Nothing
+    mu <- maybeAuth
     defaultLayout $ do
+        h2id <- newIdent
         setTitle "~project~ homepage"
-        ident <- newIdent
-        form <- extractBody wform
         addBody $(hamletFile "homepage")
         addStyle $(cassiusFile "homepage")
         addJavascript $(juliusFile "homepage")
-
-postRootR :: Handler ()
-postRootR = do
-    (res, _, _) <- runFormPost $ messageFormlet Nothing
-    case res of
-        FormSuccess message -> runDB (insert message) >> return ()
-        _ -> return ()
-    redirect RedirectTemporary RootR
 |]
 
     writeFile' "Model.hs" [$codegen|
@@ -302,8 +371,15 @@ module Model where
 import Yesod
 
 mkPersist [$persist|
-Message
-    content Textarea
+User
+    ident String
+    password String null update
+    UniqueUser ident
+Email
+    email String
+    user UserId null update
+    verkey String null update
+    UniqueEmail email
 |~~]
 |]
 
@@ -399,21 +475,17 @@ body
 
     writeFile' "hamlet/homepage.hamlet" [$codegen|
 %h1 Hello
-%p#$ident$ Welcome.
-%h3 Messages
-$if null.messages
-    %p No messages.
-$else
-    %ul
-        $forall messages m
-            %li $messageContent.snd.m$
-%h3 Add Message
-%form!method=post!action=@RootR@
-    %table
-        ^form^
-        %tr
-            %td!colspan=2
-                %input!type=submit!value="Add Message"
+%h2#$h2id$ You do not have Javascript enabled.
+$maybe mu u
+    %p
+        You are logged in as $userIdent.snd.u$. $
+        %a!href=@AuthR.LogoutR@ Logout
+        \.
+$nothing
+    %p
+        You are not logged in. $
+        %a!href=@AuthR.LoginR@ Login now
+        \.
 |]
 
     writeFile' "cassius/homepage.cassius" [$codegen|
@@ -421,11 +493,13 @@ body
     font-family: sans-serif
 h1
     text-align: center
+h2#$h2id$
+    color: #990
 |]
 
     writeFile' "julius/homepage.julius" [$codegen|
 window.onload = function(){
-    document.getElementById("%ident%").innerHTML = "<i>Added from JavaScript.</i>";
+    document.getElementById("%h2id%").innerHTML = "<i>Added from JavaScript.</i>";
 }
 |]
 

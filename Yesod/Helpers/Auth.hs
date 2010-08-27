@@ -35,7 +35,9 @@ module Yesod.Helpers.Auth
     , EmailSettings (..)
     , FacebookSettings (..)
       -- * Functions
+    , maybeAuth
     , maybeAuthId
+    , requireAuth
     , requireAuthId
     ) where
 
@@ -47,6 +49,7 @@ import Yesod
 import Yesod.Mail (randomString)
 
 import Data.Maybe
+import Data.Int (Int64)
 import Control.Monad
 import System.Random
 import Data.Digest.Pure.MD5
@@ -56,19 +59,15 @@ import Data.ByteString.Lazy.UTF8 (fromString)
 import Data.Object
 import Language.Haskell.TH.Syntax
 
-class (Integral (AuthEmailId master), Yesod master,
-       Show (AuthId master), Read (AuthId master), Eq (AuthId master)
-       ) => YesodAuth master where
-    type AuthId master
-    type AuthEmailId master
+type AuthId m = Key (AuthEntity m)
+type AuthEmailId m = Key (AuthEmailEntity m)
 
-    showAuthId :: AuthId master -> GHandler s master String
-    showAuthId = return . show
-
-    readAuthId :: String -> GHandler s master (Maybe (AuthId master))
-    readAuthId s = return $ case reads s of
-                                [] -> Nothing
-                                ((x, _):_) -> Just x
+class ( Yesod master
+      , PersistEntity (AuthEntity master)
+      , PersistEntity (AuthEmailEntity master)
+      ) => YesodAuth master where
+    type AuthEntity master
+    type AuthEmailEntity master
 
     -- | Default destination on successful login or logout, if no other
     -- destination exists.
@@ -163,7 +162,7 @@ setCreds creds extra = do
     maid <- getAuthId creds extra
     case maid of
         Nothing -> return ()
-        Just aid -> showAuthId aid >>= setSession credsKey
+        Just aid -> setSession credsKey $ show $ fromPersistKey aid
 
 -- | Retrieves user credentials, if user is authenticated.
 maybeAuthId :: YesodAuth m => GHandler s m (Maybe (AuthId m))
@@ -171,7 +170,23 @@ maybeAuthId = do
     ms <- lookupSession credsKey
     case ms of
         Nothing -> return Nothing
-        Just s -> readAuthId s
+        Just s -> case reads s of
+                    [] -> return Nothing
+                    (i, _):_ -> return $ Just $ toPersistKey i
+
+maybeAuth :: ( PersistBackend (YesodDB m (GHandler s m))
+             , YesodPersist m
+             , YesodAuth m
+             ) => GHandler s m (Maybe (AuthId m, AuthEntity m))
+maybeAuth = do
+    maid <- maybeAuthId
+    case maid of
+        Nothing -> return Nothing
+        Just aid -> do
+            ma <- runDB $ get aid
+            case ma of
+                Nothing -> return Nothing
+                Just a -> return $ Just (aid, a)
 
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
@@ -186,7 +201,7 @@ mkYesodSub "Auth"
 /facebook                FacebookR          GET
 
 /register                EmailRegisterR     GET POST
-/verify/#Integer/#String EmailVerifyR       GET
+/verify/#Int64/#String   EmailVerifyR       GET
 /email-login             EmailLoginR        POST
 /set-password            EmailPasswordR     GET POST
 
@@ -233,7 +248,7 @@ handleRpxnowR :: YesodAuth master => GHandler Auth master ()
 handleRpxnowR = do
     ay <- getYesod
     auth <- getYesod
-    apiKey <- case rpxnowApp <$> rpxnowSettings auth of
+    apiKey <- case rpxnowKey <$> rpxnowSettings auth of
                 Just x -> return x
                 Nothing -> notFound
     token1 <- lookupGetParam "token"
@@ -295,15 +310,21 @@ getLogoutR = do
 -- 'authRoute'. Sets ultimate destination to current route, so user
 -- should be sent back here after authenticating.
 requireAuthId :: YesodAuth m => GHandler sub m (AuthId m)
-requireAuthId =
-    maybeAuthId >>= maybe redirectLogin return
-  where
-    redirectLogin = do
-        y <- getYesod
-        setUltDest'
-        case authRoute y of
-            Just z -> redirect RedirectTemporary z
-            Nothing -> permissionDenied "Please configure authRoute"
+requireAuthId = maybeAuthId >>= maybe redirectLogin return
+
+requireAuth :: ( PersistBackend (YesodDB m (GHandler s m))
+               , YesodPersist m
+               , YesodAuth m
+               ) => GHandler s m (AuthId m, AuthEntity m)
+requireAuth = maybeAuth >>= maybe redirectLogin return
+
+redirectLogin :: Yesod m => GHandler s m a
+redirectLogin = do
+    y <- getYesod
+    setUltDest'
+    case authRoute y of
+        Just z -> redirect RedirectTemporary z
+        Nothing -> permissionDenied "Please configure authRoute"
 
 getEmailSettings :: YesodAuth master
                      => GHandler Auth master (EmailSettings master)
@@ -341,16 +362,16 @@ postEmailRegisterR = do
                 return (lid, key)
     render <- getUrlRender
     tm <- getRouteToMaster
-    let verUrl = render $ tm $ EmailVerifyR (fromIntegral lid) verKey
+    let verUrl = render $ tm $ EmailVerifyR (fromPersistKey lid) verKey
     sendVerifyEmail ae email verKey verUrl
     defaultLayout $ setTitle "Confirmation e-mail sent" >> addBody [$hamlet|
 %p A confirmation e-mail has been sent to $email$.
 |]
 
 getEmailVerifyR :: YesodAuth master
-           => Integer -> String -> GHandler Auth master RepHtml
+           => Int64 -> String -> GHandler Auth master RepHtml
 getEmailVerifyR lid' key = do
-    let lid = fromInteger lid'
+    let lid = toPersistKey lid'
     ae <- getEmailSettings
     realKey <- getVerifyKey ae lid
     memail <- getEmail ae lid
