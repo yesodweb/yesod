@@ -31,10 +31,12 @@ module Yesod.Helpers.Auth
     , Creds (..)
     , EmailCreds (..)
     , AuthType (..)
-    , AuthEmailSettings (..)
+    , RpxnowSettings (..)
+    , EmailSettings (..)
+    , FacebookSettings (..)
       -- * Functions
-    , maybeCreds
-    , requireCreds
+    , maybeAuthId
+    , requireAuthId
     ) where
 
 import qualified Web.Authenticate.Rpxnow as Rpxnow
@@ -86,15 +88,15 @@ class (Integral (AuthEmailId master), Yesod master,
     openIdEnabled :: master -> Bool
     openIdEnabled _ = False
 
-    rpxnowApiKey :: master -> Maybe String
-    rpxnowApiKey _ = Nothing
+    rpxnowSettings :: master -> Maybe RpxnowSettings
+    rpxnowSettings _ = Nothing
 
-    emailSettings :: master -> Maybe (AuthEmailSettings master)
+    emailSettings :: master -> Maybe (EmailSettings master)
     emailSettings _ = Nothing
 
     -- | client id, secret and requested permissions
-    facebookKeys :: master -> Maybe (String, String, [String])
-    facebookKeys _ = Nothing
+    facebookSettings :: master -> Maybe FacebookSettings
+    facebookSettings _ = Nothing
 
 data Auth = Auth
 
@@ -119,7 +121,12 @@ data EmailCreds m = EmailCreds
     , emailCredsVerkey :: Maybe VerKey
     }
 
-data AuthEmailSettings m = AuthEmailSettings
+data RpxnowSettings = RpxnowSettings
+    { rpxnowApp :: String
+    , rpxnowKey :: String
+    }
+
+data EmailSettings m = EmailSettings
     { addUnverified :: Email -> VerKey -> GHandler Auth m (AuthEmailId m)
     , sendVerifyEmail :: Email -> VerKey -> VerUrl -> GHandler Auth m ()
     , getVerifyKey :: AuthEmailId m -> GHandler Auth m (Maybe VerKey)
@@ -129,6 +136,12 @@ data AuthEmailSettings m = AuthEmailSettings
     , setPassword :: AuthId m -> SaltedPass -> GHandler Auth m ()
     , getEmailCreds :: Email -> GHandler Auth m (Maybe (EmailCreds m))
     , getEmail :: AuthEmailId m -> GHandler Auth m (Maybe Email)
+    }
+
+data FacebookSettings = FacebookSettings
+    { fbAppId :: String
+    , fbSecret :: String
+    , fbPerms :: [String]
     }
 
 -- | User credentials
@@ -153,8 +166,8 @@ setCreds creds extra = do
         Just aid -> showAuthId aid >>= setSession credsKey
 
 -- | Retrieves user credentials, if user is authenticated.
-maybeCreds :: YesodAuth m => GHandler s m (Maybe (AuthId m))
-maybeCreds = do
+maybeAuthId :: YesodAuth m => GHandler s m (Maybe (AuthId m))
+maybeAuthId = do
     ms <- lookupSession credsKey
     case ms of
         Nothing -> return Nothing
@@ -166,41 +179,24 @@ mkYesodSub "Auth"
     [$parseRoutes|
 /check                   CheckR             GET
 /logout                  LogoutR            GET
-/openid                  OpenIdR            GET
 /openid/forward          OpenIdForwardR     GET
 /openid/complete         OpenIdCompleteR    GET
 /login/rpxnow            RpxnowR
 
 /facebook                FacebookR          GET
-/facebook/start          StartFacebookR     GET
 
 /register                EmailRegisterR     GET POST
 /verify/#Integer/#String EmailVerifyR       GET
-/login                   EmailLoginR        GET POST
+/email-login             EmailLoginR        POST
 /set-password            EmailPasswordR     GET POST
+
+/login                   LoginR             GET
 |]
 
 testOpenId :: YesodAuth master => GHandler Auth master ()
 testOpenId = do
     a <- getYesod
     unless (openIdEnabled a) notFound
-
-getOpenIdR :: YesodAuth master => GHandler Auth master RepHtml
-getOpenIdR = do
-    testOpenId
-    lookupGetParam "dest" >>= maybe (return ()) setUltDestString
-    rtom <- getRouteToMaster
-    message <- getMessage
-    defaultLayout $ do
-        setTitle "Log in via OpenID"
-        addBody [$hamlet|
-$maybe message msg
-    %p.message $msg$
-%form!method=get!action=@rtom.OpenIdForwardR@
-    %label!for=openid OpenID: $
-    %input#openid!type=text!name=openid
-    %input!type=submit!value=Login
-|]
 
 getOpenIdForwardR :: YesodAuth master => GHandler Auth master ()
 getOpenIdForwardR = do
@@ -213,7 +209,7 @@ getOpenIdForwardR = do
     attempt
       (\err -> do
             setMessage $ string $ show err
-            redirect RedirectTemporary $ toMaster OpenIdR)
+            redirect RedirectTemporary $ toMaster LoginR)
       (redirectString RedirectTemporary)
       res
 
@@ -226,7 +222,7 @@ getOpenIdCompleteR = do
     toMaster <- getRouteToMaster
     let onFailure err = do
         setMessage $ string $ show err
-        redirect RedirectTemporary $ toMaster OpenIdR
+        redirect RedirectTemporary $ toMaster LoginR
     let onSuccess (OpenId.Identifier ident) = do
         y <- getYesod
         setCreds (Creds ident AuthOpenId Nothing Nothing Nothing Nothing) []
@@ -237,7 +233,7 @@ handleRpxnowR :: YesodAuth master => GHandler Auth master ()
 handleRpxnowR = do
     ay <- getYesod
     auth <- getYesod
-    apiKey <- case rpxnowApiKey auth of
+    apiKey <- case rpxnowApp <$> rpxnowSettings auth of
                 Just x -> return x
                 Nothing -> notFound
     token1 <- lookupGetParam "token"
@@ -272,7 +268,7 @@ getDisplayName extra =
 
 getCheckR :: YesodAuth master => GHandler Auth master RepHtmlJson
 getCheckR = do
-    creds <- maybeCreds
+    creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle "Authentication Status"
         addBody $ html creds) (json creds)
@@ -298,9 +294,9 @@ getLogoutR = do
 -- | Retrieve user credentials. If user is not logged in, redirects to the
 -- 'authRoute'. Sets ultimate destination to current route, so user
 -- should be sent back here after authenticating.
-requireCreds :: YesodAuth m => GHandler sub m (AuthId m)
-requireCreds =
-    maybeCreds >>= maybe redirectLogin return
+requireAuthId :: YesodAuth m => GHandler sub m (AuthId m)
+requireAuthId =
+    maybeAuthId >>= maybe redirectLogin return
   where
     redirectLogin = do
         y <- getYesod
@@ -309,13 +305,13 @@ requireCreds =
             Just z -> redirect RedirectTemporary z
             Nothing -> permissionDenied "Please configure authRoute"
 
-getAuthEmailSettings :: YesodAuth master
-                     => GHandler Auth master (AuthEmailSettings master)
-getAuthEmailSettings = getYesod >>= maybe notFound return . emailSettings
+getEmailSettings :: YesodAuth master
+                     => GHandler Auth master (EmailSettings master)
+getEmailSettings = getYesod >>= maybe notFound return . emailSettings
 
 getEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
 getEmailRegisterR = do
-    _ae <- getAuthEmailSettings
+    _ae <- getEmailSettings
     toMaster <- getRouteToMaster
     defaultLayout $ setTitle "Register a new account" >> addBody [$hamlet|
 %p Enter your e-mail address below, and a confirmation e-mail will be sent to you.
@@ -327,7 +323,7 @@ getEmailRegisterR = do
 
 postEmailRegisterR :: YesodAuth master => GHandler Auth master RepHtml
 postEmailRegisterR = do
-    ae <- getAuthEmailSettings
+    ae <- getEmailSettings
     email <- runFormPost' $ emailInput "email"
     mecreds <- getEmailCreds ae email
     (lid, verKey) <-
@@ -355,7 +351,7 @@ getEmailVerifyR :: YesodAuth master
            => Integer -> String -> GHandler Auth master RepHtml
 getEmailVerifyR lid' key = do
     let lid = fromInteger lid'
-    ae <- getAuthEmailSettings
+    ae <- getEmailSettings
     realKey <- getVerifyKey ae lid
     memail <- getEmail ae lid
     case (realKey == Just key, memail) of
@@ -375,37 +371,9 @@ getEmailVerifyR lid' key = do
 %p I'm sorry, but that was an invalid verification key.
 |]
 
-getEmailLoginR :: YesodAuth master => GHandler Auth master RepHtml
-getEmailLoginR = do
-    _ae <- getAuthEmailSettings
-    toMaster <- getRouteToMaster
-    msg <- getMessage
-    defaultLayout $ do
-        setTitle "Login"
-        addBody [$hamlet|
-$maybe msg ms
-    %p.message $ms$
-%p Please log in to your account.
-%p
-    %a!href=@toMaster.EmailRegisterR@ I don't have an account
-%form!method=post!action=@toMaster.EmailLoginR@
-    %table
-        %tr
-            %th E-mail
-            %td
-                %input!type=email!name=email
-        %tr
-            %th Password
-            %td
-                %input!type=password!name=password
-        %tr
-            %td!colspan=2
-                %input!type=submit!value=Login
-|]
-
 postEmailLoginR :: YesodAuth master => GHandler Auth master ()
 postEmailLoginR = do
-    ae <- getAuthEmailSettings
+    ae <- getEmailSettings
     (email, pass) <- runFormPost' $ (,)
         <$> emailInput "email"
         <*> stringInput "password"
@@ -430,13 +398,13 @@ postEmailLoginR = do
         Nothing -> do
             setMessage $ string "Invalid email/password combination"
             toMaster <- getRouteToMaster
-            redirect RedirectTemporary $ toMaster EmailLoginR
+            redirect RedirectTemporary $ toMaster LoginR
 
 getEmailPasswordR :: YesodAuth master => GHandler Auth master RepHtml
 getEmailPasswordR = do
-    _ae <- getAuthEmailSettings
+    _ae <- getEmailSettings
     toMaster <- getRouteToMaster
-    maid <- maybeCreds
+    maid <- maybeAuthId
     case maid of
         Just _ -> return ()
         Nothing -> do
@@ -463,7 +431,7 @@ getEmailPasswordR = do
 
 postEmailPasswordR :: YesodAuth master => GHandler Auth master ()
 postEmailPasswordR = do
-    ae <- getAuthEmailSettings
+    ae <- getEmailSettings
     (new, confirm) <- runFormPost' $ (,)
         <$> stringInput "new"
         <*> stringInput "confirm"
@@ -471,7 +439,7 @@ postEmailPasswordR = do
     when (new /= confirm) $ do
         setMessage $ string "Passwords did not match, please try again"
         redirect RedirectTemporary $ toMaster EmailPasswordR
-    maid <- maybeCreds
+    maid <- maybeAuthId
     aid <- case maid of
             Nothing -> do
                 setMessage $ string "You must be logged in to set a password"
@@ -505,10 +473,10 @@ saltPass' salt pass = salt ++ show (md5 $ fromString $ salt ++ pass)
 getFacebookR :: YesodAuth master => GHandler Auth master ()
 getFacebookR = do
     y <- getYesod
-    a <- facebookKeys <$> getYesod
+    a <- facebookSettings <$> getYesod
     case a of
         Nothing -> notFound
-        Just (cid, secret, _) -> do
+        Just (FacebookSettings cid secret _) -> do
             render <- getUrlRender
             tm <- getRouteToMaster
             let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
@@ -525,14 +493,56 @@ getFacebookR = do
             setCreds c []
             redirectUltDest RedirectTemporary $ defaultDest y
 
-getStartFacebookR :: YesodAuth master => GHandler Auth master ()
-getStartFacebookR = do
+getLoginR :: YesodAuth master => GHandler Auth master RepHtml
+getLoginR = do
+    lookupGetParam "dest" >>= maybe (return ()) setUltDestString
+    tm <- getRouteToMaster
     y <- getYesod
-    case facebookKeys y of
-        Nothing -> notFound
-        Just (cid, secret, perms) -> do
-            render <- getUrlRender
-            tm <- getRouteToMaster
-            let fb = Facebook.Facebook cid secret $ render $ tm FacebookR
-            let fburl = Facebook.getForwardUrl fb perms
-            redirectString RedirectTemporary fburl
+    render <- getUrlRender
+    let facebookUrl f =
+            let fb =
+                    Facebook.Facebook
+                        (fbAppId f)
+                        (fbSecret f)
+                        (render $ tm FacebookR)
+             in Facebook.getForwardUrl fb $ fbPerms f
+    defaultLayout $ do
+        setTitle "Login"
+        addStyle [$cassius|
+#openid
+    background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
+    padding-left: 18px;
+|]
+        addBody [$hamlet|
+$maybe emailSettings.y _
+    %h3 Email
+    %form!method=post!action=@tm.EmailLoginR@
+        %table
+            %tr
+                %th E-mail
+                %td
+                    %input!type=email!name=email
+            %tr
+                %th Password
+                %td
+                    %input!type=password!name=password
+            %tr
+                %td!colspan=2
+                    %input!type=submit!value="Login via email"
+                    %a!href=@tm.EmailRegisterR@ I don't have an account
+$if openIdEnabled.y
+    %h3 OpenID
+    %form!action=@tm.OpenIdForwardR@
+        %label!for=openid OpenID: $
+        %input#openid!type=text!name=openid
+        %input!type=submit!value="Login via OpenID"
+$maybe facebookSettings.y f
+    %h3 Facebook
+    %p
+        %a!href=$facebookUrl.f$ Login via Facebook
+$maybe rpxnowSettings.y r
+    %h3 OpenID
+    %p
+        %a!onclick="return false;"!href="https://$rpxnowApp.r$.rpxnow.com/openid/v2/signin?token_url=@tm.RpxnowR@"
+            Login via Rpxnow
+|]
