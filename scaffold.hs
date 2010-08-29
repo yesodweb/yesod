@@ -113,7 +113,6 @@ Flag production
 executable         simple-server
     if flag(production)
         Buildable: False
-    cpp-options:   -DDEBUG
     main-is:       simple-server.hs
     build-depends: base >= 4 && < 5,
                    yesod >= 0.5 && < 0.6,
@@ -132,6 +131,7 @@ executable         fastcgi
         Buildable: True
     else
         Buildable: False
+    cpp-options:   -DPRODUCTION
     main-is:       fastcgi.hs
     build-depends: wai-handler-fastcgi
     ghc-options:   -Wall
@@ -351,7 +351,6 @@ with~sitearg~ f = Settings.withConnectionPool $ \p -> do
 module Handler.Root where
 
 import ~sitearg~
-import Control.Applicative
 
 getRootR :: Handler RepHtml
 getRootR = do
@@ -406,31 +405,31 @@ import Database.Persist.Sqlite
 import Yesod (MonadCatchIO)
 
 hamletFile :: FilePath -> Q Exp
-#ifdef DEBUG
-hamletFile x = H.hamletFileDebug $ "hamlet/" ++ x ++ ".hamlet"
-#else
+#ifdef PRODUCTION
 hamletFile x = H.hamletFile $ "hamlet/" ++ x ++ ".hamlet"
+#else
+hamletFile x = H.hamletFileDebug $ "hamlet/" ++ x ++ ".hamlet"
 #endif
 
 cassiusFile :: FilePath -> Q Exp
-#ifdef DEBUG
-cassiusFile x = H.cassiusFileDebug $ "cassius/" ++ x ++ ".cassius"
-#else
+#ifdef PRODUCTION
 cassiusFile x = H.cassiusFile $ "cassius/" ++ x ++ ".cassius"
+#else
+cassiusFile x = H.cassiusFileDebug $ "cassius/" ++ x ++ ".cassius"
 #endif
 
 juliusFile :: FilePath -> Q Exp
-#ifdef DEBUG
-juliusFile x = H.juliusFileDebug $ "julius/" ++ x ++ ".julius"
-#else
+#ifdef PRODUCTION
 juliusFile x = H.juliusFile $ "julius/" ++ x ++ ".julius"
+#else
+juliusFile x = H.juliusFileDebug $ "julius/" ++ x ++ ".julius"
 #endif
 
 connStr :: String
-#ifdef DEBUG
-connStr = "debug.db3"
-#else
+#ifdef PRODUCTION
 connStr = "production.db3"
+#else
+connStr = "debug.db3"
 #endif
 
 connectionCount :: Int
@@ -443,7 +442,7 @@ runConnectionPool :: MonadCatchIO m => SqlPersist m a -> ConnectionPool -> m a
 runConnectionPool = runSqlPool
 
 approot :: String
-#ifdef DEBUG
+#ifdef PRODUCTION
 approot = "http://localhost:3000"
 #else
 approot = "http://localhost:3000"
