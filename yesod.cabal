@@ -14,6 +14,7 @@ stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://docs.yesodweb.com/yesod/
+extra-source-files: favicon.ico
 
 flag buildtests
   description: Build the executable to run unit tests
@@ -72,7 +73,7 @@ library
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
                      Yesod.WebRoutes
-    ghc-options:     -Wall -Werror
+    ghc-options:     -Wall
 
 executable             yesod
     build-depends:     parsec >= 2.1 && < 4
