@@ -153,12 +153,11 @@ mkToForm = mapM derive
         nothing <- [|Nothing|]
         let just' = just `AppE` ConE (mkName $ entityName t)
         string' <- [|string|]
-        mfx <- [|mapFormXml|]
         ftt <- [|fieldsToTable|]
         ffs' <- [|FormFieldSettings|]
         let stm "" = nothing
             stm x = just `AppE` LitE (StringL x)
-        let go_ = go ap just' ffs' stm string' mfx ftt
+        let go_ = go ap just' ffs' stm string' ftt
         let c1 = Clause [ ConP (mkName "Nothing") []
                         ]
                         (NormalB $ go_ $ zip cols $ map (const nothing) cols)
@@ -178,9 +177,9 @@ mkToForm = mapM derive
                               `AppT` ConT (mkName $ entityName t)
                               `AppT` VarT y)
             [FunD (mkName "toForm") [c1, c2]]
-    go ap just' ffs' stm string' mfx ftt a =
+    go ap just' ffs' stm string' ftt a =
         let x = foldl (ap' ap) just' $ map (go' ffs' stm string') a
-         in mfx `AppE` ftt `AppE` x
+         in ftt `AppE` x
     go' ffs' stm string' (((theId, name), ((label, tooltip), tff)), ex) =
         let label' = string' `AppE` LitE (StringL label)
             tooltip' = string' `AppE` LitE (StringL tooltip)
