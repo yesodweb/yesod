@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.5.0.1
+version:         0.5.0.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -28,7 +28,7 @@ library
                      authenticate >= 0.6.3 && < 0.7,
                      bytestring >= 0.9.1.4 && < 0.10,
                      directory >= 1 && < 1.1,
-                     text >= 0.5 && < 0.8,
+                     text >= 0.5 && < 0.9,
                      utf8-string >= 0.3.4 && < 0.4,
                      template-haskell >= 2.4 && < 2.5,
                      web-routes-quasi >= 0.6 && < 0.7,
