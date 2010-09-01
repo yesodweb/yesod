@@ -95,6 +95,8 @@ boolField ffs orig = GForm $ do
                 then (FormMissing, fromMaybe False orig)
                 else case lookup name env of
                         Nothing -> (FormSuccess False, False)
+                        Just "" -> (FormSuccess False, False)
+                        Just "false" -> (FormSuccess False, False)
                         Just _ -> (FormSuccess True, True)
     let fi = FieldInfo
             { fiLabel = label
@@ -214,7 +216,11 @@ maybeStringInput n =
 boolInput :: String -> FormInput sub master Bool
 boolInput n = GForm $ do
     env <- askParams
-    let res = FormSuccess $ fromMaybe "" (lookup n env) /= ""
+    let res = case lookup n env of
+                Nothing -> FormSuccess False
+                Just "" -> FormSuccess False
+                Just "false" -> FormSuccess False
+                Just _ -> FormSuccess True
     let xml = addBody [$hamlet|
 %input#$n$!type=checkbox!name=$n$
 |]

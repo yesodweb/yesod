@@ -120,7 +120,7 @@ executable         simple-server
                    directory,
                    bytestring,
                    persistent,
-                   persistent-sqlite,
+                   persistent-~lower~,
                    template-haskell,
                    hamlet
     ghc-options:   -Wall
@@ -313,7 +313,6 @@ sendVerifyEmail' email _ verurl =
 
     writeFile' "Controller.hs" [$codegen|
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE PackageImports #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Controller
     ( with~sitearg~
@@ -401,7 +400,7 @@ import qualified Text.Hamlet as H
 import qualified Text.Cassius as H
 import qualified Text.Julius as H
 import Language.Haskell.TH.Syntax
-import Database.Persist.Sqlite
+import Database.Persist.~upper~
 import Yesod (MonadCatchIO)
 
 hamletFile :: FilePath -> Q Exp
@@ -427,16 +426,16 @@ juliusFile x = H.juliusFileDebug $ "julius/" ++ x ++ ".julius"
 
 connStr :: String
 #ifdef PRODUCTION
-connStr = "production.db3"
+connStr = "~connstr2~"
 #else
-connStr = "debug.db3"
+connStr = "~connstr1~"
 #endif
 
 connectionCount :: Int
 connectionCount = 10
 
 withConnectionPool :: MonadCatchIO m => (ConnectionPool -> m a) -> m a
-withConnectionPool = withSqlitePool connStr connectionCount
+withConnectionPool = with~upper~Pool connStr connectionCount
 
 runConnectionPool :: MonadCatchIO m => SqlPersist m a -> ConnectionPool -> m a
 runConnectionPool = runSqlPool
