@@ -67,6 +67,13 @@ data Static = Static
     , staticTypes :: [(String, ContentType)]
     }
 
+-- | Manually construct a static route.
+-- The first argument is a sub-path to the file being served whereas the second argument is the key value pairs in the query string.
+-- For example, 
+-- > StaticRoute $ StaticR ["thumb001.jpg"] [("foo", "5"), ("bar", "choc")]
+-- would generate a url such as 'http://site.com/static/thumb001.jpg?foo=5&bar=choc'
+-- The StaticRoute constructor can be used when url's cannot be statically generated at compile-time.
+-- E.g. When generating image galleries.
 data StaticRoute = StaticRoute [String] [(String, String)]
     deriving (Eq, Show, Read)
 
@@ -138,8 +145,8 @@ getFileList = flip go id
 
 -- | This piece of Template Haskell will find all of the files in the given directory and create Haskell identifiers for them. For example, if you have the files \"static\/style.css\" and \"static\/js\/script.js\", it will essentailly create:
 --
--- > style_css = StaticRoute ["style.css"]
--- > js_script_js = StaticRoute ["js/script.js"]
+-- > style_css = StaticRoute ["style.css"] []
+-- > js_script_js = StaticRoute ["js/script.js"] []
 staticFiles :: FilePath -> Q [Dec]
 staticFiles fp = do
     fs <- qRunIO $ getFileList fp
