@@ -4,6 +4,7 @@ module Yesod.Form.Fields
       -- ** Required
       stringField
     , textareaField
+    , escapedHtmlField
     , hiddenField
     , intField
     , doubleField
@@ -17,6 +18,7 @@ module Yesod.Form.Fields
       -- ** Optional
     , maybeStringField
     , maybeTextareaField
+    , maybeEscapedHtmlField
     , maybeHiddenField
     , maybeIntField
     , maybeDoubleField
@@ -266,6 +268,12 @@ textareaField = requiredFieldHelper textareaFieldProfile
 
 maybeTextareaField :: FormFieldSettings -> FormletField sub y (Maybe Textarea)
 maybeTextareaField = optionalFieldHelper textareaFieldProfile
+
+escapedHtmlField :: FormFieldSettings -> FormletField sub y EscapedHtml
+escapedHtmlField = requiredFieldHelper escapedHtmlFieldProfile
+
+maybeEscapedHtmlField :: FormFieldSettings -> FormletField sub y (Maybe EscapedHtml)
+maybeEscapedHtmlField = optionalFieldHelper escapedHtmlFieldProfile
 
 hiddenField :: FormFieldSettings -> FormletField sub y String
 hiddenField = requiredFieldHelper hiddenFieldProfile
