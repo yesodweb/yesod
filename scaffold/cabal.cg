@@ -32,6 +32,13 @@ executable         simple-server
     ghc-options:   -Wall
     extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 
+executable         devel-server
+    if flag(production)
+        Buildable: False
+    main-is:       devel-server.hs
+    build-depends: wai-handler-devel >= 0.1.0 && < 0.2
+    ghc-options:   -Wall -O2
+
 executable         fastcgi
     if flag(production)
         Buildable: True

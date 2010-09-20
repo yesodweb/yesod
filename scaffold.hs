@@ -49,6 +49,7 @@ main = do
 
     writeFile' "simple-server.hs" $(codegen "simple-server_hs")
     writeFile' "fastcgi.hs" $(codegen "fastcgi_hs")
+    writeFile' "devel-server.hs" $(codegen "devel-server_hs")
     writeFile' (project ++ ".cabal") $(codegen "cabal")
     writeFile' "LICENSE" $(codegen "LICENSE")
     writeFile' (sitearg ++ ".hs") $(codegen "sitearg_hs")
