@@ -1,0 +1,15 @@
+{-# LANGUAGE TemplateHaskell, OverloadedStrings #-}
+module Handler.Root where
+
+import ~sitearg~
+
+getRootR :: Handler RepHtml
+getRootR = do
+    mu <- maybeAuth
+    defaultLayout $ do
+        h2id <- newIdent
+        setTitle "~project~ homepage"
+        addBody $(hamletFile "homepage")
+        addStyle $(cassiusFile "homepage")
+        addJavascript $(juliusFile "homepage")
+

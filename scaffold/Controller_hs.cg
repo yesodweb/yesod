@@ -1,0 +1,32 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+module Controller
+    ( with~sitearg~
+    ) where
+
+import ~sitearg~
+import Settings
+import Yesod.Helpers.Static
+import Yesod.Helpers.Auth
+import Database.Persist.GenericSql
+
+import Handler.Root
+
+mkYesodDispatch "~sitearg~" resources~sitearg~
+
+getFaviconR :: Handler ()
+getFaviconR = sendFile "image/x-icon" "favicon.ico"
+
+getRobotsR :: Handler RepPlain
+getRobotsR = return $ RepPlain $ toContent "User-agent: *"
+
+with~sitearg~ :: (Application -> IO a) -> IO a
+with~sitearg~ f = Settings.withConnectionPool $ \p -> do
+    flip runConnectionPool p $ runMigration $ do
+        migrate (undefined :: User)
+        migrate (undefined :: Email)
+    let h = ~sitearg~ s p
+    toWaiApp h >>= f
+  where
+    s = fileLookupDir Settings.staticdir typeByExt
+

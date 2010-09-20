@@ -1,0 +1,1 @@
+user=~project~ password=~project~ host=localhost port=5432 dbname=~project~_production

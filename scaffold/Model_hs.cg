@@ -1,0 +1,17 @@
+{-# LANGUAGE QuasiQuotes, TypeFamilies, GeneralizedNewtypeDeriving #-}
+module Model where
+
+import Yesod
+
+mkPersist [$persist|
+User
+    ident String
+    password String null update
+    UniqueUser ident
+Email
+    email String
+    user UserId null update
+    verkey String null update
+    UniqueEmail email
+|~~]
+

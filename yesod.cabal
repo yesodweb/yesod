@@ -14,7 +14,7 @@ stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://docs.yesodweb.com/yesod/
-extra-source-files: favicon.ico
+extra-source-files: scaffold/*.cg
 
 flag buildtests
   description: Build the executable to run unit tests
@@ -79,7 +79,7 @@ executable             yesod
     build-depends:     parsec >= 2.1 && < 4
     ghc-options:       -Wall
     main-is:           scaffold.hs
-    other-modules:     CodeGenQ
+    other-modules:     CodeGen
     extensions:        TemplateHaskell
 
 executable             runtests

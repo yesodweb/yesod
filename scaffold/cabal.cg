@@ -1,0 +1,45 @@
+name:              ~project~
+version:           0.0.0
+license:           BSD3
+license-file:      LICENSE
+author:            ~name~
+maintainer:        ~name~
+synopsis:          The greatest Yesod web application ever.
+description:       I'm sure you can say something clever here if you try.
+category:          Web
+stability:         Experimental
+cabal-version:     >= 1.6
+build-type:        Simple
+homepage:          http://www.yesodweb.com/~project~
+
+Flag production
+    Description:   Build the production executable.
+    Default:       False
+
+executable         simple-server
+    if flag(production)
+        Buildable: False
+    main-is:       simple-server.hs
+    build-depends: base >= 4 && < 5,
+                   yesod >= 0.5 && < 0.6,
+                   wai-extra,
+                   directory,
+                   bytestring,
+                   persistent,
+                   persistent-~lower~,
+                   template-haskell,
+                   hamlet
+    ghc-options:   -Wall
+    extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
+
+executable         fastcgi
+    if flag(production)
+        Buildable: True
+    else
+        Buildable: False
+    cpp-options:   -DPRODUCTION
+    main-is:       fastcgi.hs
+    build-depends: wai-handler-fastcgi
+    ghc-options:   -Wall
+    extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
+
