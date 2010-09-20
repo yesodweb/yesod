@@ -571,7 +571,7 @@ $maybe fb f
     %p
         %a!href=$f$ Login via Facebook
 $maybe rpxnowSettings.y r
-    %h3 OpenID
+    %h3 Rpxnow
     %p
         %a!onclick="return false;"!href="https://$rpxnowApp.r$.rpxnow.com/openid/v2/signin?token_url=@tm.RpxnowR@"
             Login via Rpxnow

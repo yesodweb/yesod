@@ -112,6 +112,7 @@ class Eq (Route a) => Yesod a where
     defaultLayout :: GWidget sub a () -> GHandler sub a RepHtml
     defaultLayout w = do
         p <- widgetToPageContent w
+        mmsg <- getMessage
         hamletToRepHtml [$hamlet|
 !!!
 %html
@@ -119,6 +120,8 @@ class Eq (Route a) => Yesod a where
         %title $pageTitle.p$
         ^pageHead.p^
     %body
+        $maybe mmsg msg
+            %p.message $msg$
         ^pageBody.p^
 |]
 
