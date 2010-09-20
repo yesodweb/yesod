@@ -4,7 +4,6 @@
 module Yesod.Form.Profiles
     ( stringFieldProfile
     , textareaFieldProfile
-    , escapedHtmlFieldProfile
     , hiddenFieldProfile
     , intFieldProfile
     , dayFieldProfile
@@ -17,7 +16,6 @@ module Yesod.Form.Profiles
     , parseDate
     , parseTime
     , Textarea (..)
-    , EscapedHtml (..)
     ) where
 
 import Yesod.Form.Core
@@ -107,23 +105,6 @@ textareaFieldProfile :: FieldProfile sub y Textarea
 textareaFieldProfile = FieldProfile
     { fpParse = Right . Textarea
     , fpRender = unTextarea
-    , fpWidget = \theId name val _isReq -> addBody [$hamlet|
-%textarea#$theId$!name=$name$ $val$
-|]
-    }
-
--- | A newtype wrapper around a 'Html' that automatically entity-escapes all
--- input from the user. This means that values stored in the database are
--- already entity-escaped, avoiding escaping each time it is rendered.
-newtype EscapedHtml = EscapedHtml { unEscapedHtml :: Html }
-    deriving (Show, Eq, PersistField)
-instance ToHtml EscapedHtml where
-    toHtml = unEscapedHtml
-
-escapedHtmlFieldProfile :: FieldProfile sub y EscapedHtml
-escapedHtmlFieldProfile = FieldProfile
-    { fpParse = Right . EscapedHtml . string
-    , fpRender = U.toString . renderHtml . unEscapedHtml
     , fpWidget = \theId name val _isReq -> addBody [$hamlet|
 %textarea#$theId$!name=$name$ $val$
 |]
