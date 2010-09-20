@@ -10,7 +10,7 @@ category:          Web
 stability:         Experimental
 cabal-version:     >= 1.6
 build-type:        Simple
-homepage:          http://www.yesodweb.com/~project~
+homepage:          http://~project~.yesodweb.com/
 
 Flag production
     Description:   Build the production executable.
@@ -35,8 +35,9 @@ executable         simple-server
 executable         devel-server
     if flag(production)
         Buildable: False
+    else
+        build-depends: wai-handler-devel >= 0.1.0 && < 0.2
     main-is:       devel-server.hs
-    build-depends: wai-handler-devel >= 0.1.0 && < 0.2
     ghc-options:   -Wall -O2
 
 executable         fastcgi

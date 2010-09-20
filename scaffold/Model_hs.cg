@@ -3,6 +3,9 @@ module Model where
 
 import Yesod
 
+-- You can define all of your database entities here. You can find more
+-- information on persistent and how to declare entities at:
+-- http://docs.yesodweb.com/book/persistent/
 mkPersist [$persist|
 User
     ident String
@@ -13,5 +16,5 @@ Email
     user UserId null update
     verkey String null update
     UniqueEmail email
-|~~]
+|]
 

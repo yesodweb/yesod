@@ -4,6 +4,8 @@ import System.IO
 import System.Directory
 import qualified Data.ByteString.Char8 as S
 import Language.Haskell.TH.Syntax
+import Data.Time (getCurrentTime, utctDay, toGregorian)
+import Control.Applicative ((<$>))
 
 main :: IO ()
 main = do
@@ -36,6 +38,9 @@ main = do
                 _ -> error $ "Invalid backend: " ++ backendS
 
     putStrLn "That's it! I'm creating your files now..."
+
+    let fst3 (x, _, _) = x
+    year <- show . fst3 . toGregorian . utctDay <$> getCurrentTime
 
     let writeFile' fp s = do
             putStrLn $ "Generating " ++ fp
