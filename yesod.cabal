@@ -13,7 +13,7 @@ category:        Web
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://docs.yesodweb.com/yesod/
+homepage:        http://docs.yesodweb.com/
 extra-source-files: scaffold/*.cg
 
 flag buildtests
@@ -48,7 +48,8 @@ library
                      data-object >= 0.3.1 && < 0.4,
                      network >= 2.2.1.5 && < 2.3,
                      email-validate >= 0.2.5 && < 0.3,
-                     process >= 1.0.1 && < 1.1
+                     process >= 1.0.1 && < 1.1,
+                     web-routes >= 0.23 && < 0.24
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch
