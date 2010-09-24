@@ -3,6 +3,7 @@ import Yesod
 import Web.Authenticate.Facebook
 import Data.Object
 import Data.Maybe (fromMaybe)
+import Network.HTTP.Enumerator
 
 data FB = FB Facebook
 fb :: FB
@@ -22,9 +23,9 @@ getRootR = do
 
 getFacebookR = do
     FB f <- getYesod
-    code <- runFormGet $ required $ input "code"
+    code <- runFormGet' $ stringInput "code"
     at <- liftIO $ getAccessToken f code
-    mreq <-runFormGet $ optional $ input "req"
+    mreq <- runFormGet' $ maybeStringInput "req"
     let req = fromMaybe "me" mreq
     so <- liftIO $ getGraphData at req
     let so' = objToHamlet so
@@ -39,7 +40,7 @@ getFacebookR = do
 ^so'^
 |]
 
-main = toWaiApp fb >>= basicHandler 3000
+main = withHttpEnumerator $ basicHandler 3000 fb
 
 objToHamlet :: StringObject -> Hamlet url
 objToHamlet (Scalar s) = [$hamlet|$string.s$|]

@@ -1,11 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Web.Authenticate.Facebook where
 
-import Network.HTTP.Wget
+import Network.HTTP.Enumerator
 import Data.List (intercalate)
 import Data.Object
 import Data.Object.Json
-import Data.ByteString.Char8 (pack)
+import qualified Data.ByteString.Lazy.Char8 as L8
+import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString as S
 
 data Facebook = Facebook
     { facebookClientId :: String
@@ -43,8 +45,8 @@ accessTokenUrl fb code = concat
 getAccessToken :: Facebook -> String -> IO AccessToken
 getAccessToken fb code = do
     let url = accessTokenUrl fb code
-    b <- wget url [] []
-    let (front, back) = splitAt 13 b
+    b <- simpleHttp url
+    let (front, back) = splitAt 13 $ L8.unpack b
     case front of
         "access_token=" -> return $ AccessToken back
         _ -> error $ "Invalid facebook response: " ++ back
@@ -60,5 +62,5 @@ graphUrl (AccessToken s) func = concat
 getGraphData :: AccessToken -> String -> IO StringObject
 getGraphData at func = do
     let url = graphUrl at func
-    b <- wget url [] []
-    decode $ pack b
+    b <- simpleHttp url
+    decode $ S.concat $ L.toChunks b

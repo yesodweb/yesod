@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.6.3.2
+version:         0.6.4
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -17,7 +17,7 @@ library
     build-depends:   base >= 4 && < 5,
                      data-object >= 0.3.1 && < 0.4,
                      data-object-json >= 0.3.1 && < 0.4,
-                     http-wget >= 0.6 && < 0.7,
+                     http-enumerator >= 0.1.1 && < 0.2,
                      tagsoup >= 0.6 && < 0.12,
                      failure >= 0.0.0 && < 0.2,
                      transformers >= 0.1 && < 0.3,

@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE OverloadedStrings #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Authenticate.Rpxnow
@@ -21,13 +22,15 @@ module Web.Authenticate.Rpxnow
 
 import Data.Object
 import Data.Object.Json
-import Network.HTTP.Wget
+import Network.HTTP.Enumerator
 import "transformers" Control.Monad.IO.Class
 import Control.Failure
 import Data.Maybe
 import Web.Authenticate.OpenId (AuthenticateException (..))
 import Control.Monad
-import Data.ByteString.Char8 (pack)
+import qualified Data.ByteString.Char8 as S
+import qualified Data.ByteString.Lazy.Char8 as L
+import Control.Exception (throwIO)
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -37,7 +40,8 @@ data Identifier = Identifier
 
 -- | Attempt to log a user in.
 authenticate :: (MonadIO m,
-                 Failure WgetException m,
+                 Failure HttpException m,
+                 Failure InvalidUrlException m,
                  Failure AuthenticateException m,
                  Failure ObjectExtractError m,
                  Failure JsonDecodeError m)
@@ -45,16 +49,34 @@ authenticate :: (MonadIO m,
              -> String -- ^ Token passed by client.
              -> m Identifier
 authenticate apiKey token = do
-    b <- wget "https://rpxnow.com/api/v2/auth_info"
-              []
-              [ ("apiKey", apiKey)
-              , ("token", token)
-              ]
-    o <- decode $ pack b
+    let body = L.fromChunks
+            [ "apiKey="
+            , S.pack apiKey
+            , "&token="
+            , S.pack token
+            ]
+    let req =
+            Request
+                { method = "POST"
+                , secure = True
+                , host = "rpxnow.com"
+                , port = 443
+                , path = "api/v2/auth_info"
+                , queryString = []
+                , requestHeaders =
+                    [ ("Content-Type", "application/x-www-form-urlencoded")
+                    ]
+                , requestBody = body
+                }
+    res <- httpLbsRedirect req
+    let b = responseBody res
+    unless (200 <= statusCode res && statusCode res < 300) $
+        liftIO $ throwIO $ HttpException (statusCode res) b
+    o <- decode $ S.concat $ L.toChunks b
     m <- fromMapping o
     stat <- lookupScalar "stat" m
     unless (stat == "ok") $ failure $ AuthenticateException $
-        "Rpxnow login not accepted: " ++ stat ++ "\n" ++ b
+        "Rpxnow login not accepted: " ++ stat ++ "\n" ++ L.unpack b
     parseProfile m
 
 parseProfile :: (Monad m, Failure ObjectExtractError m)

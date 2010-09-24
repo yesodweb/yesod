@@ -23,7 +23,7 @@ module Web.Authenticate.OpenId
     , AuthenticateException (..)
     ) where
 
-import Network.HTTP.Wget
+import Network.HTTP.Enumerator
 import Text.HTML.TagSoup
 import Numeric (showHex)
 import "transformers" Control.Monad.IO.Class
@@ -31,6 +31,7 @@ import Data.Data
 import Control.Failure hiding (Error)
 import Control.Exception
 import Control.Monad (liftM)
+import qualified Data.ByteString.Lazy.Char8 as L8
 
 -- | An openid identifier (ie, a URL).
 newtype Identifier = Identifier { identifier :: String }
@@ -44,12 +45,16 @@ instance Monad Error where
     fail s = Error s
 
 -- | Returns a URL to forward the user to in order to login.
-getForwardUrl :: (MonadIO m, Failure WgetException m)
+getForwardUrl :: (MonadIO m,
+                  Failure InvalidUrlException m,
+                  Failure HttpException m
+                  )
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
               -> m String -- ^ URL to send the user to.
 getForwardUrl openid complete = do
-    bodyIdent <- wget openid [] []
+    bodyIdent' <- simpleHttp openid
+    let bodyIdent = L8.unpack bodyIdent'
     server <- getOpenIdVar "server" bodyIdent
     let delegate = maybe openid id
                  $ getOpenIdVar "delegate" bodyIdent
@@ -70,25 +75,28 @@ getOpenIdVar var content = do
         mhead [] = fail $ "Variable not found: openid." ++ var -- FIXME
         mhead (x:_) = return x
 
-constructUrl :: String -> [(String, String)] -> String
+constructUrl :: String -> [(String, String)] -> String -- FIXME no longer needed, use Request value directly
 constructUrl url [] = url
-constructUrl url args = url ++ "?" ++ queryString args
+constructUrl url args = url ++ "?" ++ queryString' args
     where
-        queryString [] = error "queryString with empty args cannot happen"
-        queryString [first] = onePair first
-        queryString (first:rest) = onePair first ++ "&" ++ queryString rest
+        queryString' [] = error "queryString with empty args cannot happen"
+        queryString' [first] = onePair first
+        queryString' (first:rest) = onePair first ++ "&" ++ queryString' rest
         onePair (x, y) = urlEncode x ++ "=" ++ urlEncode y
 
 -- | Handle a redirect from an OpenID provider and check that the user
 -- logged in properly. If it was successfully, 'return's the openid.
 -- Otherwise, 'failure's an explanation.
-authenticate :: (MonadIO m, Failure WgetException m,
-                 Failure AuthenticateException m)
+authenticate :: (MonadIO m,
+                 Failure AuthenticateException m,
+                 Failure InvalidUrlException m,
+                 Failure HttpException m)
              => [(String, String)]
              -> m Identifier
 authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
     authUrl <- getAuthUrl req
-    content <- wget authUrl [] []
+    content' <- simpleHttp authUrl
+    let content = L8.unpack content'
     let isValid = contains "is_valid:true" content
     if isValid
         then Identifier `liftM` alookup "openid.identity" req
@@ -99,7 +107,7 @@ alookup :: (Failure AuthenticateException m, Monad m)
         -> [(String, String)]
         -> m String
 alookup k x = case lookup k x of
-                Just k -> return k
+                Just k' -> return k'
                 Nothing -> failure $ MissingOpenIdParameter k
 
 data AuthenticateException = AuthenticateException String
@@ -107,14 +115,14 @@ data AuthenticateException = AuthenticateException String
     deriving (Show, Typeable)
 instance Exception AuthenticateException
 
-getAuthUrl :: (MonadIO m,
-               Failure AuthenticateException m,
-               Failure WgetException m)
+getAuthUrl :: (MonadIO m, Failure AuthenticateException m,
+               Failure InvalidUrlException m,
+               Failure HttpException m)
            => [(String, String)] -> m String
 getAuthUrl req = do
     identity <- alookup "openid.identity" req
-    idContent <- wget identity [] []
-    helper idContent
+    idContent <- simpleHttp identity
+    helper $ L8.unpack idContent
     where
         helper idContent = do
             server <- getOpenIdVar "server" idContent
