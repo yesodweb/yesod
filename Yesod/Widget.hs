@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
@@ -60,6 +61,19 @@ instance Monoid (GWidget sub master ()) where
     mappend x y = x >> y
 -- | A 'GWidget' specialized to when the subsite and master site are the same.
 type Widget y = GWidget y y
+
+instance HamletValue (GWidget s m ()) where
+    newtype HamletMonad (GWidget s m ()) a =
+        GWidget' { runGWidget' :: GWidget s m a }
+    type HamletUrl (GWidget s m ()) = Route m
+    toHamletValue = runGWidget'
+    htmlToHamletMonad = GWidget' . addBody . const
+    urlToHamletMonad url params = GWidget' $
+        addBody $ \r -> preEscapedString (r url params)
+    fromHamletValue = GWidget'
+instance Monad (HamletMonad (GWidget s m ())) where
+    return = GWidget' . return
+    x >>= y = GWidget' $ runGWidget' x >>= runGWidget' . y
 
 -- | Lift an action in the 'GHandler' monad into an action in the 'GWidget'
 -- monad.
