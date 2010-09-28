@@ -27,6 +27,7 @@ import qualified Data.ByteString.Lazy.UTF8 as U
 import qualified Text.Email.Validate as Email
 import Network.URI (parseURI)
 import Database.Persist (PersistField)
+import Text.HTML.SanitizeXSS (sanitizeXSS)
 
 import Text.Blaze.Builder.Utf8 (writeChar)
 import Text.Blaze.Builder.Core (writeList, writeByteString)
@@ -77,7 +78,7 @@ timeFieldProfile = FieldProfile
 
 htmlFieldProfile :: FieldProfile sub y Html
 htmlFieldProfile = FieldProfile
-    { fpParse = Right . preEscapedString
+    { fpParse = Right . preEscapedString . sanitizeXSS
     , fpRender = U.toString . renderHtml
     , fpWidget = \theId name val _isReq -> addBody [$hamlet|
 %textarea.html#$theId$!name=$name$ $val$

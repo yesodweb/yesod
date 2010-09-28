@@ -10,6 +10,7 @@ import Yesod.Form.Core
 import Yesod.Hamlet
 import Yesod.Widget
 import qualified Data.ByteString.Lazy.UTF8 as U
+import Text.HTML.SanitizeXSS (sanitizeXSS)
 
 class YesodNic a where
     -- | NIC Editor.
@@ -24,7 +25,7 @@ maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
 
 nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html
 nicHtmlFieldProfile = FieldProfile
-    { fpParse = Right . preEscapedString
+    { fpParse = Right . preEscapedString . sanitizeXSS
     , fpRender = U.toString . renderHtml
     , fpWidget = \theId name val _isReq -> do
         addBody [$hamlet|%textarea.html#$theId$!name=$name$ $val$|]
