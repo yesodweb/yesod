@@ -1,0 +1,35 @@
+name:            yesod-auth
+version:         0.0.0
+license:         BSD3
+license-file:    LICENSE
+author:          Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>
+synopsis:        Authentication for Yesod.
+category:        Web
+stability:       Stable
+cabal-version:   >= 1.6
+build-type:      Simple
+homepage:        http://docs.yesodweb.com/
+
+library
+    build-depends:   base                    >= 4         && < 5
+                   , authenticate            >= 0.6.4     && < 0.7
+                   , bytestring              >= 0.9.1.4   && < 0.10
+                   , yesod                   >= 0.5.1     && < 0.6
+                   , wai                     >= 0.2       && < 0.3
+                   , template-haskell
+                   , pureMD5                 >= 1.1       && < 1.2
+                   , random                  >= 1.0       && < 1.1
+                   , data-object             >= 0.3.1.3   && < 0.4
+                   , control-monad-attempt   >= 0.3.0     && < 0.4
+                   , utf8-string             >= 0.3.4     && < 0.4
+    exposed-modules: Yesod.Helpers.Auth2
+                     Yesod.Helpers.Auth2.Email
+                     Yesod.Helpers.Auth2.Facebook
+                     Yesod.Helpers.Auth2.OpenId
+                     Yesod.Helpers.Auth2.Rpxnow
+    ghc-options:     -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/snoyberg/yesod.git

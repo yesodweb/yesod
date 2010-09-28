@@ -1,0 +1,4 @@
+dist
+*.swp
+auth2.db3
+client_session_key.aes
