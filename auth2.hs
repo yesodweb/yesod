@@ -15,7 +15,7 @@ import Safe (readMay)
 
 mkPersist [$persist|
 Email
-    email String
+    email String Eq
     status Bool update
     verkey String null update
     password String null update
@@ -84,31 +84,20 @@ instance YesodAuthEmail A2 where
     setVerifyKey emailid verkey = runDB $
         update (fromIntegral emailid) [EmailVerkey $ Just verkey]
     verifyAccount emailid' = runDB $ do
-        {- FIXME
         let emailid = fromIntegral emailid'
         x <- get emailid
         uid <-
             case x of
                 Nothing -> return Nothing
-                Just (Email (Just uid) _ _) -> return $ Just uid
-                Just (Email Nothing email _) -> do
+                Just email -> do
                     update emailid [EmailStatus True]
-                    return $ Just email
-        update emailid [EmailVerkey Nothing]
+                    return $ Just $ emailEmail email
         return uid
-        -}
-        return Nothing
-    getPassword _ = return Nothing -- FIXME runDB . fmap (join . fmap emailPassword) . get
-    setPassword emailid password = runDB $ do
-        {- FIXME
-        _x <- get emailid
-        case x of
-            Just (Email (Just uid) _ _) -> do
-                update uid [EmailPassword $ Just password]
-                update emailid [EmailVerkey Nothing]
-            _ -> return ()
-        -}
-        return ()
+    getPassword email = runDB $ do
+        x <- getBy $ UniqueEmail email
+        return $ x >>= emailPassword . snd
+    setPassword email password = runDB $
+        updateWhere [EmailEmailEq email] [EmailPassword $ Just password]
     getEmailCreds email = runDB $ do
         x <- getBy $ UniqueEmail email
         case x of
