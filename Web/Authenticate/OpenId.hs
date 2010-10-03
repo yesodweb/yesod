@@ -47,7 +47,8 @@ instance Monad Error where
 -- | Returns a URL to forward the user to in order to login.
 getForwardUrl :: (MonadIO m,
                   Failure InvalidUrlException m,
-                  Failure HttpException m
+                  Failure HttpException m,
+                  Failure MissingVar m
                   )
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
@@ -64,7 +65,11 @@ getForwardUrl openid complete = do
                         , ("openid.return_to", complete)
                         ]
 
-getOpenIdVar :: Monad m => String -> String -> m String
+data MissingVar = MissingVar String
+    deriving (Typeable, Show)
+instance Exception MissingVar
+
+getOpenIdVar :: Failure MissingVar m => String -> String -> m String
 getOpenIdVar var content = do
     let tags = parseTags content
     let secs = sections (~== ("<link rel=openid." ++ var ++ ">")) tags
@@ -72,7 +77,7 @@ getOpenIdVar var content = do
     secs'' <- mhead secs'
     return $ fromAttrib "href" secs''
     where
-        mhead [] = fail $ "Variable not found: openid." ++ var -- FIXME
+        mhead [] = failure $ MissingVar $ "openid." ++ var
         mhead (x:_) = return x
 
 constructUrl :: String -> [(String, String)] -> String -- FIXME no longer needed, use Request value directly
@@ -90,7 +95,8 @@ constructUrl url args = url ++ "?" ++ queryString' args
 authenticate :: (MonadIO m,
                  Failure AuthenticateException m,
                  Failure InvalidUrlException m,
-                 Failure HttpException m)
+                 Failure HttpException m,
+                 Failure MissingVar m)
              => [(String, String)]
              -> m Identifier
 authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
@@ -117,7 +123,8 @@ instance Exception AuthenticateException
 
 getAuthUrl :: (MonadIO m, Failure AuthenticateException m,
                Failure InvalidUrlException m,
-               Failure HttpException m)
+               Failure HttpException m,
+               Failure MissingVar m)
            => [(String, String)] -> m String
 getAuthUrl req = do
     identity <- alookup "openid.identity" req
