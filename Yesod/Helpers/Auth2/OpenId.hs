@@ -18,15 +18,16 @@ authOpenId =
     complete2 = PluginR "openid" ["complete2"]
     name = "openid_identifier"
     login tm = do
+        ident <- newIdent
         addStyle [$cassius|
-#openid
+#$ident$
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
         addBody [$hamlet|
 %form!method=post!action=@tm.forward@
     %label!for=openid OpenID: $
-    %input#openid!type=text!name=$name$
+    %input#$ident$!type=text!name=$name$
     %input!type=submit!value="Login via OpenID"
 |]
     forward2 complete' oid = do

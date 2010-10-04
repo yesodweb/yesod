@@ -103,7 +103,7 @@ getRegisterR = do
 %p Enter your e-mail address below, and a confirmation e-mail will be sent to you.
 %form!method=post!action=@toMaster.register@
     %label!for=email E-mail
-    %input#email!type=email!name=email!width=150
+    %input!type=email!name=email!width=150
     %input!type=submit!value=Register
 |]
 
