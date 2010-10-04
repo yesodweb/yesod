@@ -21,8 +21,9 @@ library
                      tagsoup >= 0.6 && < 0.12,
                      failure >= 0.0.0 && < 0.2,
                      transformers >= 0.1 && < 0.3,
-                     bytestring >= 0.9 && < 0.10
+                     bytestring >= 0.9 && < 0.10,
+                     utf8-string >= 0.3 && < 0.4
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
                      Web.Authenticate.Facebook
-    ghc-options:     -Wall -fno-warn-orphans
+    ghc-options:     -Wall
