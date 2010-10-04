@@ -29,7 +29,7 @@ import "transformers" Control.Monad.IO.Class
 import Data.Data
 import Control.Failure hiding (Error)
 import Control.Exception
-import Control.Monad (liftM)
+import Control.Monad (liftM, unless)
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Web.Authenticate.Internal (qsEncode)
 import Data.List (intercalate)
@@ -98,12 +98,12 @@ authenticate :: (MonadIO m,
                  Failure MissingVar m)
              => [(String, String)]
              -> m Identifier
-authenticate req = do -- FIXME check openid.mode == id_res (not cancel)
+authenticate req = do
+    unless (lookup "openid.mode" req == Just "id_res") $
+        failure $ AuthenticateException "authenticate without openid.mode=id_res"
     authUrl <- getAuthUrl req
-    content' <- simpleHttp authUrl
-    let content = L8.unpack content'
-    let isValid = contains "is_valid:true" content
-    if isValid
+    content <- L8.unpack `liftM` simpleHttp authUrl
+    if contains "is_valid:true" content
         then Identifier `liftM` alookup "openid.identity" req
         else failure $ AuthenticateException content
 
