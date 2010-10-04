@@ -25,13 +25,14 @@ module Web.Authenticate.OpenId
 
 import Network.HTTP.Enumerator
 import Text.HTML.TagSoup
-import Numeric (showHex)
 import "transformers" Control.Monad.IO.Class
 import Data.Data
 import Control.Failure hiding (Error)
 import Control.Exception
 import Control.Monad (liftM)
 import qualified Data.ByteString.Lazy.Char8 as L8
+import Web.Authenticate.Internal (qsEncode)
+import Data.List (intercalate)
 
 -- | An openid identifier (ie, a URL).
 newtype Identifier = Identifier { identifier :: String }
@@ -80,14 +81,12 @@ getOpenIdVar var content = do
         mhead [] = failure $ MissingVar $ "openid." ++ var
         mhead (x:_) = return x
 
-constructUrl :: String -> [(String, String)] -> String -- FIXME no longer needed, use Request value directly
+constructUrl :: String -> [(String, String)] -> String
 constructUrl url [] = url
-constructUrl url args = url ++ "?" ++ queryString' args
-    where
-        queryString' [] = error "queryString with empty args cannot happen"
-        queryString' [first] = onePair first
-        queryString' (first:rest) = onePair first ++ "&" ++ queryString' rest
-        onePair (x, y) = urlEncode x ++ "=" ++ urlEncode y
+constructUrl url args =
+    url ++ "?" ++ intercalate "&" (map qsPair args)
+  where
+    qsPair (x, y) = qsEncode x ++ '=' : qsEncode y 
 
 -- | Handle a redirect from an OpenID provider and check that the user
 -- logged in properly. If it was successfully, 'return's the openid.
@@ -158,18 +157,3 @@ begins :: String -> String -> Bool
 begins [] _ = True
 begins _ [] = False
 begins (x:xs) (y:ys) = x == y && begins xs ys
-
-urlEncode :: String -> String
-urlEncode = concatMap urlEncodeChar
-
-urlEncodeChar :: Char -> String
-urlEncodeChar x
-    | safeChar (fromEnum x) = return x
-    | otherwise = '%' : showHex (fromEnum x) ""
-
-safeChar :: Int -> Bool
-safeChar x
-    | x >= fromEnum 'a' && x <= fromEnum 'z' = True
-    | x >= fromEnum 'A' && x <= fromEnum 'Z' = True
-    | x >= fromEnum '0' && x <= fromEnum '9' = True
-    | otherwise = False

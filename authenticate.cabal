@@ -26,4 +26,5 @@ library
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
                      Web.Authenticate.Facebook
+    other-modules:   Web.Authenticate.Internal
     ghc-options:     -Wall

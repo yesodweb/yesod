@@ -8,8 +8,7 @@ import Data.Object.Json
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString as S
-import qualified Codec.Binary.UTF8.String
-import Numeric (showHex)
+import Web.Authenticate.Internal (qsEncode)
 
 data Facebook = Facebook
     { facebookClientId :: String
@@ -20,22 +19,6 @@ data Facebook = Facebook
 
 newtype AccessToken = AccessToken { unAccessToken :: String }
     deriving (Show, Eq, Read)
-
-qsEncode :: String -> String
-qsEncode =
-    concatMap go . Codec.Binary.UTF8.String.encode
-  where
-    go 32 = "+" -- space
-    go 46 = "."
-    go 45 = "-"
-    go 126 = "~"
-    go 95 = "_"
-    go c
-        | 48 <= c && c <= 57 = [w2c c]
-        | 65 <= c && c <= 90 = [w2c c]
-        | 97 <= c && c <= 122 = [w2c c]
-    go c = '%' : showHex c ""
-    w2c = toEnum . fromEnum
 
 getForwardUrl :: Facebook -> [String] -> String
 getForwardUrl fb perms = concat
