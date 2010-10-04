@@ -76,8 +76,7 @@ authEmail =
     dispatch "POST" ["set-password"] = go postPasswordR
     dispatch _ _ = notFound
 
-    login' = do
-        tm <- liftHandler getRouteToMaster
+    login' tm = do
         addBody [$hamlet|
 %form!method=post!action=@tm.login@
     %table

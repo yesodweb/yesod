@@ -17,8 +17,7 @@ authOpenId =
     complete1 = PluginR "openid" ["complete1"]
     complete2 = PluginR "openid" ["complete2"]
     name = "openid_identifier"
-    login = do
-        tm <- liftHandler getRouteToMaster
+    login tm = do
         addStyle [$cassius|
 #openid
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;

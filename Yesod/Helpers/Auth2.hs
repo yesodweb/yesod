@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 module Yesod.Helpers.Auth2
     ( Auth
     , AuthPlugin (..)
@@ -30,7 +31,7 @@ type Piece = String
 data AuthPlugin m = AuthPlugin
     { apName :: String
     , apDispatch :: Method -> [Piece] -> GHandler Auth m ()
-    , apLogin :: GWidget Auth m ()
+    , apLogin :: forall s. (Route Auth -> Route m) -> GWidget s m ()
     }
 
 getAuth :: a -> Auth
@@ -117,7 +118,8 @@ $nothing
 getLoginR :: YesodAuth m => GHandler Auth m RepHtml
 getLoginR = defaultLayout $ do
     setTitle $ string "Login"
-    mapM_ apLogin authPlugins
+    tm <- liftHandler getRouteToMaster
+    mapM_ (flip apLogin tm) authPlugins
 
 getLogoutR :: YesodAuth m => GHandler Auth m ()
 getLogoutR = postLogoutR -- FIXME redirect to post
@@ -189,11 +191,9 @@ authDummy =
         setCreds True $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
-    authToMaster = liftHandler getRouteToMaster
-    login = do
-        tm <- authToMaster
+    login authToMaster = do
         addBody [$hamlet|
-%form!method=post!action=@tm.url@
+%form!method=post!action=@authToMaster.url@
     Your new identifier is: $
     %input!type=text!name=ident
     %input!type=submit!value="Dummy Login"

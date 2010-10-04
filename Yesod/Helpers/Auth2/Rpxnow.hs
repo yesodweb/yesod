@@ -15,8 +15,7 @@ authRpxnow :: YesodAuth m
 authRpxnow app apiKey =
     AuthPlugin "rpxnow" dispatch login
   where
-    login = do
-        tm <- liftHandler getRouteToMaster
+    login tm = do
         let url = {- FIXME urlEncode $ -} tm $ PluginR "rpxnow" []
         addBody [$hamlet|
 %iframe!src="http://$app$.rpxnow.com/openid/embed?token_url=@url@"!scrolling=no!frameBorder=no!allowtransparency=true!style="width:400px;height:240px"

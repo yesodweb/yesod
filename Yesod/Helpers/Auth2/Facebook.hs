@@ -40,8 +40,7 @@ authFacebook cid secret perms =
                 ]
         setCreds True c
     dispatch _ _ = notFound
-    login = do
-        tm <- liftHandler getRouteToMaster
+    login tm = do
         render <- liftHandler getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
