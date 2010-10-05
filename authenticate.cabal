@@ -31,7 +31,6 @@ library
                      Web.Authenticate.Facebook
     other-modules:   Web.Authenticate.Internal,
                      OpenId2.Discovery,
-                     OpenId2.HTTP,
                      OpenId2.Normalization,
                      OpenId2.Types,
                      OpenId2.XRDS

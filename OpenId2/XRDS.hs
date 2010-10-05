@@ -12,12 +12,8 @@
 
 module OpenId2.XRDS (
     -- * Types
-    XRDS, XRD
+    XRDS
   , Service(..)
-
-    -- * Utility Functions
-  , isUsable
-  , hasType
 
     -- * Parsing
   , parseXRDS
@@ -48,11 +44,6 @@ data Service = Service
 
 -- Utilities -------------------------------------------------------------------
 
--- | Check to see if an XRDS service description is usable.
-isUsable :: XRDS -> Bool
-isUsable  = not . null . concat
-
-
 -- | Generate a tag name predicate, that ignores prefix and namespace.
 tag :: String -> Element -> Bool
 tag n el = qName (elName el) == n
@@ -75,12 +66,6 @@ getText :: Element -> String
 getText el = case elContent el of
   [Text cd] -> cdData cd
   _         -> []
-
-
--- | Generate a predicate over Service Types.
-hasType :: String -> Service -> Bool
-hasType ty svc = ty `elem` serviceTypes svc
-
 
 -- Parsing ---------------------------------------------------------------------
 

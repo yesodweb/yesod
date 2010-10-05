@@ -21,8 +21,8 @@ import OpenId2.Types
 import Control.Applicative
 import Control.Monad
 import Data.List
-import Network.URI hiding (scheme,path)
 import Control.Failure (Failure (..))
+import Network.URI
 
 normalize :: Failure OpenIdException m => String -> m Identifier
 normalize ident =
@@ -49,11 +49,11 @@ normalizeIdentifier' xri (Identifier str)
 
     norm uri = validScheme >> return u
       where
-        scheme      = uriScheme uri
-        validScheme = guard (scheme == "http:" || scheme == "https:")
-        u = uri { uriFragment = "", uriPath = path }
-        path | null (uriPath uri) = "/"
-             | otherwise          = uriPath uri
+        scheme'     = uriScheme uri
+        validScheme = guard (scheme' == "http:" || scheme' == "https:")
+        u = uri { uriFragment = "", uriPath = path' }
+        path' | null (uriPath uri) = "/"
+              | otherwise          = uriPath uri
 
     fmt u = Identifier
           $ normalizePathSegments

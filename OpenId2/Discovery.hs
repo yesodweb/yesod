@@ -34,15 +34,14 @@ import Control.Failure (Failure (failure))
 
 -- | Attempt to resolve an OpenID endpoint, and user identifier.
 discover :: (MonadIO m, Failure OpenIdException m)
-         => Resolver IO
-         -> Identifier
+         => Identifier
          -> m (Provider, Identifier)
-discover resolve ident@(Identifier i) = do
-    res1 <- liftIO $ discoverYADIS resolve ident Nothing
+discover ident@(Identifier i) = do
+    res1 <- liftIO $ discoverYADIS ident Nothing
     case res1 of
         Just x -> return x
         Nothing -> do
-            res2 <- liftIO $ discoverHTML resolve ident
+            res2 <- liftIO $ discoverHTML ident
             case res2 of
                 Just x -> return x
                 Nothing -> failure $ DiscoveryException i
@@ -51,11 +50,10 @@ discover resolve ident@(Identifier i) = do
 
 -- | Attempt a YADIS based discovery, given a valid identifier.  The result is
 --   an OpenID endpoint, and the actual identifier for the user.
-discoverYADIS :: Resolver IO
-              -> Identifier
+discoverYADIS :: Identifier
               -> Maybe String
               -> IO (Maybe (Provider,Identifier))
-discoverYADIS resolve ident mb_loc = do
+discoverYADIS ident mb_loc = do
     let uri = fromMaybe (getIdentifier ident) mb_loc
     req <- parseUrl uri
     res <- httpLbs req
@@ -65,7 +63,7 @@ discoverYADIS resolve ident mb_loc = do
     case statusCode res of
         200 ->
           case mloc of
-            Just loc -> discoverYADIS resolve ident (Just $ S8.unpack loc)
+            Just loc -> discoverYADIS ident (Just $ S8.unpack loc)
             Nothing  -> do
               let mdoc = parseXRDS $ BSLU.toString $ responseBody res
               case mdoc of
@@ -91,16 +89,16 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
       , ("http://openid.net/signon/1.0"           , localId)
       , ("http://openid.net/signon/1.1"           , localId)
       ]
-    uri <- parseProvider =<< listToMaybe (serviceURIs svc)
-    return (uri,lid)
+    uri <- listToMaybe $ serviceURIs svc
+    return (Provider uri, lid)
 
 
 -- HTML-Based Discovery --------------------------------------------------------
 
 -- | Attempt to discover an OpenID endpoint, from an HTML document.  The result
 -- will be an endpoint on success, and the actual identifier of the user.
-discoverHTML :: Resolver IO -> Identifier -> IO (Maybe (Provider,Identifier))
-discoverHTML resolve ident'@(Identifier ident) =
+discoverHTML :: Identifier -> IO (Maybe (Provider,Identifier))
+discoverHTML ident'@(Identifier ident) =
     parseHTML ident' . BSLU.toString <$> simpleHttp ident
 
 -- | Parse out an OpenID endpoint and an actual identifier from an HTML
@@ -113,9 +111,9 @@ parseHTML ident = resolve
   where
     isOpenId (rel,_) = "openid" `isPrefixOf` rel
     resolve ls = do
-      prov <- parseProvider =<< lookup "openid2.provider" ls
+      prov <- lookup "openid2.provider" ls
       let lid = maybe ident Identifier $ lookup "openid2.local_id" ls
-      return (prov,lid)
+      return (Provider prov,lid)
 
 
 -- | Filter out link tags from a list of html tags.
