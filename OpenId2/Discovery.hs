@@ -14,8 +14,10 @@
 module OpenId2.Discovery (
     -- * Discovery
     discover
+  , Discovery (..)
   ) where
 
+import Debug.Trace -- FIXME
 -- Friends
 import OpenId2.Types
 import OpenId2.XRDS
@@ -27,19 +29,24 @@ import Data.Maybe
 import Network.HTTP.Enumerator
 import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import qualified Data.ByteString.Char8 as S8
-import Control.Arrow (first)
+import Control.Arrow (first, (***))
 import Control.Applicative ((<$>))
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Failure (Failure (failure))
+import Control.Monad (mplus)
+
+data Discovery = Discovery1 String (Maybe String)
+               | Discovery2 Provider Identifier
+    deriving Show
 
 -- | Attempt to resolve an OpenID endpoint, and user identifier.
 discover :: (MonadIO m, Failure OpenIdException m)
          => Identifier
-         -> m (Provider, Identifier)
+         -> m Discovery
 discover ident@(Identifier i) = do
     res1 <- liftIO $ discoverYADIS ident Nothing
     case res1 of
-        Just x -> return x
+        Just (x, y) -> return $ Discovery2 x y
         Nothing -> do
             res2 <- liftIO $ discoverHTML ident
             case res2 of
@@ -97,23 +104,29 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
 
 -- | Attempt to discover an OpenID endpoint, from an HTML document.  The result
 -- will be an endpoint on success, and the actual identifier of the user.
-discoverHTML :: Identifier -> IO (Maybe (Provider,Identifier))
+discoverHTML :: Identifier -> IO (Maybe Discovery)
 discoverHTML ident'@(Identifier ident) =
     parseHTML ident' . BSLU.toString <$> simpleHttp ident
 
 -- | Parse out an OpenID endpoint and an actual identifier from an HTML
 -- document.
-parseHTML :: Identifier -> String -> Maybe (Provider,Identifier)
+parseHTML :: Identifier -> String -> Maybe Discovery
 parseHTML ident = resolve
                 . filter isOpenId
+                . map (dropQuotes *** dropQuotes)
                 . linkTags
                 . htmlTags
   where
     isOpenId (rel,_) = "openid" `isPrefixOf` rel
-    resolve ls = do
+    resolve1 ls = do
+      server <- lookup "openid.server" ls
+      let delegate = lookup "openid.delegate" ls
+      return $ Discovery1 server delegate
+    resolve2 ls = do
       prov <- lookup "openid2.provider" ls
       let lid = maybe ident Identifier $ lookup "openid2.local_id" ls
-      return (Provider prov,lid)
+      return $ Discovery2 (Provider prov) lid
+    resolve ls = traceShow ls $ resolve2 ls `mplus` resolve1 ls
 
 
 -- | Filter out link tags from a list of html tags.
@@ -150,3 +163,12 @@ splitAttr xs = case break (== '=') xs of
   f key p cs = case break p cs of
       (_,[])         -> Nothing
       (value,_:rest) -> Just ((key,value), dropWhile isSpace rest)
+
+dropQuotes :: String -> String
+dropQuotes s@('\'':x:y)
+    | last y == '\'' = x : init y
+    | otherwise = s
+dropQuotes s@('"':x:y)
+    | last y == '"' = x : init y
+    | otherwise = s
+dropQuotes s = s

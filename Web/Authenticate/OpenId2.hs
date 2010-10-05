@@ -7,7 +7,7 @@ module Web.Authenticate.OpenId2
 
 import Control.Monad.IO.Class
 import OpenId2.Normalization (normalize)
-import OpenId2.Discovery (discover)
+import OpenId2.Discovery (discover, Discovery (..))
 import Control.Failure (Failure (failure))
 import OpenId2.Types (OpenIdException (..), Identifier (Identifier),
                       Provider (Provider))
@@ -19,20 +19,29 @@ import Network.HTTP.Enumerator
     (parseUrl, urlEncodedBody, responseBody, httpLbsRedirect)
 import Control.Arrow ((***))
 import Data.List (unfoldr)
+import Data.Maybe (fromMaybe)
 
 getForwardUrl :: (MonadIO m, Failure OpenIdException m)
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
               -> m String -- ^ URL to send the user to.
 getForwardUrl openid' complete = do
-    (Provider p, Identifier i) <- normalize openid' >>= discover
-    return $ qsUrl p
-        [ ("openid.ns", "http://specs.openid.net/auth/2.0")
-        , ("openid.mode", "checkid_setup")
-        , ("openid.claimed_id", i)
-        , ("openid.identity", i)
-        , ("openid.return_to", complete)
-        ]
+    disc <- normalize openid' >>= discover
+    case disc of
+        Discovery1 server mdelegate ->
+            return $ qsUrl server
+                [ ("openid.mode", "checkid_setup")
+                , ("openid.identity", fromMaybe openid' mdelegate)
+                , ("openid.return_to", complete)
+                ]
+        Discovery2 (Provider p) (Identifier i) ->
+            return $ qsUrl p
+                [ ("openid.ns", "http://specs.openid.net/auth/2.0")
+                , ("openid.mode", "checkid_setup")
+                , ("openid.claimed_id", i)
+                , ("openid.identity", i)
+                , ("openid.return_to", complete)
+                ]
 
 authenticate :: (MonadIO m, Failure OpenIdException m)
              => [(String, String)]
@@ -44,14 +53,10 @@ authenticate params = do
                 Just i -> return i
                 Nothing ->
                     failure $ AuthenticationException "Missing identity"
-    endpoint <-
-        case lookup "openid.op_endpoint" params of
-            Just e -> return e
-            Nothing ->
-                failure $ AuthenticationException "Missing op_endpoint"
-    (Provider p, Identifier i) <- normalize ident >>= discover
-    unless (endpoint == p) $
-        failure $ AuthenticationException "endpoint does not match discovery"
+    disc <- normalize ident >>= discover
+    let endpoint = case disc of
+                    Discovery1 p _ -> p
+                    Discovery2 (Provider p) _ -> p
     let params' = map (BSU.fromString *** BSU.fromString)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params

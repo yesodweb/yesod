@@ -10,9 +10,10 @@ import Data.List (intercalate)
 qsUrl :: String -> [(String, String)] -> String
 qsUrl s [] = s
 qsUrl url pairs =
-    url ++ "?" ++ intercalate "&" (map qsPair pairs)
+    url ++ delim : intercalate "&" (map qsPair pairs)
   where
     qsPair (x, y) = qsEncode x ++ '=' : qsEncode y 
+    delim = if '?' `elem` url then '&' else '?'
 
 qsEncode :: String -> String
 qsEncode =
