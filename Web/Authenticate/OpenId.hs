@@ -31,7 +31,7 @@ import Control.Failure hiding (Error)
 import Control.Exception
 import Control.Monad (liftM, unless)
 import qualified Data.ByteString.Lazy.Char8 as L8
-import Web.Authenticate.Internal (qsEncode)
+import Web.Authenticate.Internal (qsUrl)
 import Data.List (intercalate)
 
 -- | An openid identifier (ie, a URL).
@@ -60,7 +60,7 @@ getForwardUrl openid complete = do
     server <- getOpenIdVar "server" bodyIdent
     let delegate = maybe openid id
                  $ getOpenIdVar "delegate" bodyIdent
-    return $ constructUrl server
+    return $ qsUrl server
                         [ ("openid.mode", "checkid_setup")
                         , ("openid.identity", delegate)
                         , ("openid.return_to", complete)
@@ -80,13 +80,6 @@ getOpenIdVar var content = do
     where
         mhead [] = failure $ MissingVar $ "openid." ++ var
         mhead (x:_) = return x
-
-constructUrl :: String -> [(String, String)] -> String
-constructUrl url [] = url
-constructUrl url args =
-    url ++ "?" ++ intercalate "&" (map qsPair args)
-  where
-    qsPair (x, y) = qsEncode x ++ '=' : qsEncode y 
 
 -- | Handle a redirect from an OpenID provider and check that the user
 -- logged in properly. If it was successfully, 'return's the openid.
@@ -140,7 +133,7 @@ getAuthUrl req = do
                 "return_to"
                 ]
             let sargs = [("openid.mode", "check_authentication")]
-            return $ constructUrl server $ dargs ++ sargs
+            return $ qsUrl server $ dargs ++ sargs
         makeArg s = do
             let k = "openid." ++ s
             v <- alookup k req

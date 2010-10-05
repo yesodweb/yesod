@@ -1,9 +1,18 @@
 module Web.Authenticate.Internal
     ( qsEncode
+    , qsUrl
     ) where
 
 import Codec.Binary.UTF8.String (encode)
 import Numeric (showHex)
+import Data.List (intercalate)
+
+qsUrl :: String -> [(String, String)] -> String
+qsUrl s [] = s
+qsUrl url pairs =
+    url ++ "?" ++ intercalate "&" (map qsPair pairs)
+  where
+    qsPair (x, y) = qsEncode x ++ '=' : qsEncode y 
 
 qsEncode :: String -> String
 qsEncode =
