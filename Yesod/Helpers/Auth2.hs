@@ -47,9 +47,13 @@ data Creds m = Creds
 class Yesod m => YesodAuth m where
     type AuthId m
 
-    -- | Default destination on successful login or logout, if no other
+    -- | Default destination on successful login, if no other
     -- destination exists.
-    defaultDest :: m -> Route m
+    loginDest :: m -> Route m
+
+    -- | Default destination on successful logout, if no other
+    -- destination exists.
+    logoutDest :: m -> Route m
 
     getAuthId :: Creds m -> GHandler s m (Maybe (AuthId m))
 
@@ -93,7 +97,7 @@ setCreds doRedirects creds = do
             if doRedirects
                 then do
                     setMessage $ string "You are now logged in"
-                    redirect RedirectTemporary $ defaultDest y
+                    redirect RedirectTemporary $ loginDest y
                 else return ()
 
 getCheckR :: YesodAuth m => GHandler Auth m RepHtmlJson
@@ -128,7 +132,7 @@ postLogoutR :: YesodAuth m => GHandler Auth m ()
 postLogoutR = do
     y <- getYesod
     deleteSession credsKey
-    redirectUltDest RedirectTemporary $ defaultDest y
+    redirectUltDest RedirectTemporary $ logoutDest y
 
 handlePluginR :: YesodAuth m => String -> [String] -> GHandler Auth m ()
 handlePluginR plugin pieces = do

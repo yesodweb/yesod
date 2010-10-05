@@ -228,7 +228,7 @@ postPasswordR = do
     setPassword aid salted
     setMessage $ string "Password updated"
     y <- getYesod
-    redirect RedirectTemporary $ defaultDest y
+    redirect RedirectTemporary $ loginDest y
 
 saltLength :: Int
 saltLength = 5

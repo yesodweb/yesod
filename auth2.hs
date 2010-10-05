@@ -29,7 +29,8 @@ mkYesod "A2" [$parseRoutes|
 instance Yesod A2 where approot _ = "http://localhost:3000"
 instance YesodAuth A2 where
     type AuthId A2 = String
-    defaultDest _ = AuthR CheckR
+    loginDest _ = AuthR CheckR
+    logoutDest _ = AuthR CheckR
     getAuthId = return . Just . credsIdent
     showAuthId = const id
     readAuthId = const Just
