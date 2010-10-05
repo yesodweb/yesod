@@ -17,12 +17,18 @@ import Control.Monad (unless)
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import Network.HTTP.Enumerator
-    (parseUrl, urlEncodedBody, responseBody, httpLbsRedirect)
+    ( parseUrl, urlEncodedBody, responseBody, httpLbsRedirect
+    , HttpException, InvalidUrlException
+    )
 import Control.Arrow ((***))
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
 
-getForwardUrl :: (MonadIO m, Failure OpenIdException m)
+getForwardUrl :: ( MonadIO m
+                 , Failure OpenIdException m
+                 , Failure HttpException m
+                 , Failure InvalidUrlException m
+                 )
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
               -> m String -- ^ URL to send the user to.
@@ -44,7 +50,11 @@ getForwardUrl openid' complete = do
                 , ("openid.return_to", complete)
                 ]
 
-authenticate :: (MonadIO m, Failure OpenIdException m)
+authenticate :: ( MonadIO m
+                , Failure OpenIdException m
+                , Failure InvalidUrlException m
+                , Failure HttpException m
+                )
              => [(String, String)]
              -> m Identifier
 authenticate params = do
@@ -61,9 +71,9 @@ authenticate params = do
     let params' = map (BSU.fromString *** BSU.fromString)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params
-    req' <- liftIO $ parseUrl endpoint
+    req' <- parseUrl endpoint
     let req = urlEncodedBody params' req'
-    rsp <- liftIO $ httpLbsRedirect req
+    rsp <- httpLbsRedirect req
     let rps = parseDirectResponse $ BSLU.toString $ responseBody rsp
     case lookup "is_valid" rps of
         Just "true" -> return $ Identifier ident

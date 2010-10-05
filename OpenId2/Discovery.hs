@@ -29,25 +29,28 @@ import Network.HTTP.Enumerator
 import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import qualified Data.ByteString.Char8 as S8
 import Control.Arrow (first, (***))
-import Control.Applicative ((<$>))
-import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.IO.Class (MonadIO)
 import Control.Failure (Failure (failure))
-import Control.Monad (mplus)
+import Control.Monad (mplus, liftM)
 
 data Discovery = Discovery1 String (Maybe String)
                | Discovery2 Provider Identifier
     deriving Show
 
 -- | Attempt to resolve an OpenID endpoint, and user identifier.
-discover :: (MonadIO m, Failure OpenIdException m)
+discover :: ( MonadIO m
+            , Failure OpenIdException m
+            , Failure HttpException m
+            , Failure InvalidUrlException m
+            )
          => Identifier
          -> m Discovery
 discover ident@(Identifier i) = do
-    res1 <- liftIO $ discoverYADIS ident Nothing
+    res1 <- discoverYADIS ident Nothing
     case res1 of
         Just (x, y) -> return $ Discovery2 x y
         Nothing -> do
-            res2 <- liftIO $ discoverHTML ident
+            res2 <- discoverHTML ident
             case res2 of
                 Just x -> return x
                 Nothing -> failure $ DiscoveryException i
@@ -56,9 +59,13 @@ discover ident@(Identifier i) = do
 
 -- | Attempt a YADIS based discovery, given a valid identifier.  The result is
 --   an OpenID endpoint, and the actual identifier for the user.
-discoverYADIS :: Identifier
+discoverYADIS :: ( MonadIO m
+                 , Failure HttpException m
+                 , Failure InvalidUrlException m
+                 )
+              => Identifier
               -> Maybe String
-              -> IO (Maybe (Provider,Identifier))
+              -> m (Maybe (Provider,Identifier))
 discoverYADIS ident mb_loc = do
     let uri = fromMaybe (identifier ident) mb_loc
     req <- parseUrl uri
@@ -103,9 +110,14 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
 
 -- | Attempt to discover an OpenID endpoint, from an HTML document.  The result
 -- will be an endpoint on success, and the actual identifier of the user.
-discoverHTML :: Identifier -> IO (Maybe Discovery)
+discoverHTML :: ( MonadIO m
+                , Failure HttpException m
+                , Failure InvalidUrlException m
+                )
+             => Identifier
+             -> m (Maybe Discovery)
 discoverHTML ident'@(Identifier ident) =
-    parseHTML ident' . BSLU.toString <$> simpleHttp ident
+    (parseHTML ident' . BSLU.toString) `liftM` simpleHttp ident
 
 -- | Parse out an OpenID endpoint and an actual identifier from an HTML
 -- document.
