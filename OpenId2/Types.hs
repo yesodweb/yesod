@@ -31,5 +31,5 @@ instance Exception OpenIdException
 newtype Provider = Provider { providerURI :: String } deriving (Eq,Show)
 
 -- | A valid OpenID identifier.
-newtype Identifier = Identifier { getIdentifier :: String }
-  deriving (Eq,Show,Read)
+newtype Identifier = Identifier { identifier :: String }
+  deriving (Eq, Show, Read)

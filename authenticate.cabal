@@ -27,7 +27,6 @@ library
                      xml >= 1.3.7 && < 1.4
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
-                     Web.Authenticate.OpenId2,
                      Web.Authenticate.Facebook
     other-modules:   Web.Authenticate.Internal,
                      OpenId2.Discovery,

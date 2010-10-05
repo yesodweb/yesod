@@ -1,152 +1,83 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE PackageImports #-}
----------------------------------------------------------
--- |
--- Module        : Web.Authenticate.OpenId
--- Copyright     : Michael Snoyman
--- License       : BSD3
---
--- Maintainer    : Michael Snoyman <michael@snoyman.com>
--- Stability     : Unstable
--- Portability   : portable
---
--- Provides functionality for being an OpenId consumer.
---
----------------------------------------------------------
 module Web.Authenticate.OpenId
-    ( Identifier (..)
-    , getForwardUrl
+    ( getForwardUrl
     , authenticate
-    , AuthenticateException (..)
+    , OpenIdException (..)
+    , Identifier (..)
     ) where
 
-import Network.HTTP.Enumerator
-import Text.HTML.TagSoup
-import "transformers" Control.Monad.IO.Class
-import Data.Data
-import Control.Failure hiding (Error)
-import Control.Exception
-import Control.Monad (liftM, unless)
-import qualified Data.ByteString.Lazy.Char8 as L8
+import Control.Monad.IO.Class
+import OpenId2.Normalization (normalize)
+import OpenId2.Discovery (discover, Discovery (..))
+import Control.Failure (Failure (failure))
+import OpenId2.Types (OpenIdException (..), Identifier (Identifier),
+                      Provider (Provider))
 import Web.Authenticate.Internal (qsUrl)
-import Data.List (intercalate)
+import Control.Monad (unless)
+import qualified Data.ByteString.UTF8 as BSU
+import qualified Data.ByteString.Lazy.UTF8 as BSLU
+import Network.HTTP.Enumerator
+    (parseUrl, urlEncodedBody, responseBody, httpLbsRedirect)
+import Control.Arrow ((***))
+import Data.List (unfoldr)
+import Data.Maybe (fromMaybe)
 
--- | An openid identifier (ie, a URL).
-newtype Identifier = Identifier { identifier :: String }
-    deriving (Eq, Show)
-
-data Error v = Error String | Ok v
-instance Monad Error where
-    return = Ok
-    Error s >>= _ = Error s
-    Ok v >>= f = f v
-    fail s = Error s
-
--- | Returns a URL to forward the user to in order to login.
-getForwardUrl :: (MonadIO m,
-                  Failure InvalidUrlException m,
-                  Failure HttpException m,
-                  Failure MissingVar m
-                  )
+getForwardUrl :: (MonadIO m, Failure OpenIdException m)
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
               -> m String -- ^ URL to send the user to.
-getForwardUrl openid complete = do
-    bodyIdent' <- simpleHttp openid
-    let bodyIdent = L8.unpack bodyIdent'
-    server <- getOpenIdVar "server" bodyIdent
-    let delegate = maybe openid id
-                 $ getOpenIdVar "delegate" bodyIdent
-    return $ qsUrl server
-                        [ ("openid.mode", "checkid_setup")
-                        , ("openid.identity", delegate)
-                        , ("openid.return_to", complete)
-                        ]
+getForwardUrl openid' complete = do
+    disc <- normalize openid' >>= discover
+    case disc of
+        Discovery1 server mdelegate ->
+            return $ qsUrl server
+                [ ("openid.mode", "checkid_setup")
+                , ("openid.identity", fromMaybe openid' mdelegate)
+                , ("openid.return_to", complete)
+                ]
+        Discovery2 (Provider p) (Identifier i) ->
+            return $ qsUrl p
+                [ ("openid.ns", "http://specs.openid.net/auth/2.0")
+                , ("openid.mode", "checkid_setup")
+                , ("openid.claimed_id", i)
+                , ("openid.identity", i)
+                , ("openid.return_to", complete)
+                ]
 
-data MissingVar = MissingVar String
-    deriving (Typeable, Show)
-instance Exception MissingVar
-
-getOpenIdVar :: Failure MissingVar m => String -> String -> m String
-getOpenIdVar var content = do
-    let tags = parseTags content
-    let secs = sections (~== ("<link rel=openid." ++ var ++ ">")) tags
-    secs' <- mhead secs
-    secs'' <- mhead secs'
-    return $ fromAttrib "href" secs''
-    where
-        mhead [] = failure $ MissingVar $ "openid." ++ var
-        mhead (x:_) = return x
-
--- | Handle a redirect from an OpenID provider and check that the user
--- logged in properly. If it was successfully, 'return's the openid.
--- Otherwise, 'failure's an explanation.
-authenticate :: (MonadIO m,
-                 Failure AuthenticateException m,
-                 Failure InvalidUrlException m,
-                 Failure HttpException m,
-                 Failure MissingVar m)
+authenticate :: (MonadIO m, Failure OpenIdException m)
              => [(String, String)]
              -> m Identifier
-authenticate req = do
-    unless (lookup "openid.mode" req == Just "id_res") $
-        failure $ AuthenticateException "authenticate without openid.mode=id_res"
-    authUrl <- getAuthUrl req
-    content <- L8.unpack `liftM` simpleHttp authUrl
-    if contains "is_valid:true" content
-        then Identifier `liftM` alookup "openid.identity" req
-        else failure $ AuthenticateException content
+authenticate params = do
+    unless (lookup "openid.mode" params == Just "id_res")
+        $ failure $ AuthenticationException "mode is not id_res"
+    ident <- case lookup "openid.identity" params of
+                Just i -> return i
+                Nothing ->
+                    failure $ AuthenticationException "Missing identity"
+    disc <- normalize ident >>= discover
+    let endpoint = case disc of
+                    Discovery1 p _ -> p
+                    Discovery2 (Provider p) _ -> p
+    let params' = map (BSU.fromString *** BSU.fromString)
+                $ ("openid.mode", "check_authentication")
+                : filter (\(k, _) -> k /= "openid.mode") params
+    req' <- liftIO $ parseUrl endpoint
+    let req = urlEncodedBody params' req'
+    rsp <- liftIO $ httpLbsRedirect req
+    let rps = parseDirectResponse $ BSLU.toString $ responseBody rsp
+    case lookup "is_valid" rps of
+        Just "true" -> return $ Identifier ident
+        _ -> failure $ AuthenticationException "OpenID provider did not validate"
 
-alookup :: (Failure AuthenticateException m, Monad m)
-        => String
-        -> [(String, String)]
-        -> m String
-alookup k x = case lookup k x of
-                Just k' -> return k'
-                Nothing -> failure $ MissingOpenIdParameter k
+-- | Turn a response body into a list of parameters.
+parseDirectResponse :: String -> [(String, String)]
+parseDirectResponse  = unfoldr step
+  where
+    step []  = Nothing
+    step str = case split (== '\n') str of
+      (ps,rest) -> Just (split (== ':') ps,rest)
 
-data AuthenticateException = AuthenticateException String
-                           | MissingOpenIdParameter String
-    deriving (Show, Typeable)
-instance Exception AuthenticateException
-
-getAuthUrl :: (MonadIO m, Failure AuthenticateException m,
-               Failure InvalidUrlException m,
-               Failure HttpException m,
-               Failure MissingVar m)
-           => [(String, String)] -> m String
-getAuthUrl req = do
-    identity <- alookup "openid.identity" req
-    idContent <- simpleHttp identity
-    helper $ L8.unpack idContent
-    where
-        helper idContent = do
-            server <- getOpenIdVar "server" idContent
-            dargs <- mapM makeArg [
-                "assoc_handle",
-                "sig",
-                "signed",
-                "identity",
-                "return_to"
-                ]
-            let sargs = [("openid.mode", "check_authentication")]
-            return $ qsUrl server $ dargs ++ sargs
-        makeArg s = do
-            let k = "openid." ++ s
-            v <- alookup k req
-            return (k, v)
-
-contains :: String -> String -> Bool
-contains [] _ = True
-contains _ [] = False
-contains needle haystack =
-    begins needle haystack ||
-    (contains needle $ tail haystack)
-
-begins :: String -> String -> Bool
-begins [] _ = True
-begins _ [] = False
-begins (x:xs) (y:ys) = x == y && begins xs ys
+split :: (a -> Bool) -> [a] -> ([a],[a])
+split p as = case break p as of
+  (xs,_:ys) -> (xs,ys)
+  pair      -> pair

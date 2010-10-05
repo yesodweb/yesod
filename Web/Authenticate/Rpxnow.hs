@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 ---------------------------------------------------------
 --
 -- Module        : Web.Authenticate.Rpxnow
@@ -18,6 +19,7 @@
 module Web.Authenticate.Rpxnow
     ( Identifier (..)
     , authenticate
+    , RpxnowException (..)
     ) where
 
 import Data.Object
@@ -26,11 +28,11 @@ import Network.HTTP.Enumerator
 import "transformers" Control.Monad.IO.Class
 import Control.Failure
 import Data.Maybe
-import Web.Authenticate.OpenId (AuthenticateException (..))
 import Control.Monad
 import qualified Data.ByteString.Char8 as S
 import qualified Data.ByteString.Lazy.Char8 as L
-import Control.Exception (throwIO)
+import Control.Exception (throwIO, Exception)
+import Data.Typeable (Typeable)
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -42,7 +44,7 @@ data Identifier = Identifier
 authenticate :: (MonadIO m,
                  Failure HttpException m,
                  Failure InvalidUrlException m,
-                 Failure AuthenticateException m,
+                 Failure RpxnowException m,
                  Failure ObjectExtractError m,
                  Failure JsonDecodeError m)
              => String -- ^ API key given by RPXNOW.
@@ -75,7 +77,7 @@ authenticate apiKey token = do
     o <- decode $ S.concat $ L.toChunks b
     m <- fromMapping o
     stat <- lookupScalar "stat" m
-    unless (stat == "ok") $ failure $ AuthenticateException $
+    unless (stat == "ok") $ failure $ RpxnowException $
         "Rpxnow login not accepted: " ++ stat ++ "\n" ++ L.unpack b
     parseProfile m
 
@@ -90,3 +92,7 @@ parseProfile m = do
     go ("identifier", _) = Nothing
     go (k, Scalar v) = Just (k, v)
     go _ = Nothing
+
+data RpxnowException = RpxnowException String
+    deriving (Show, Typeable)
+instance Exception RpxnowException

@@ -17,7 +17,6 @@ module OpenId2.Discovery (
   , Discovery (..)
   ) where
 
-import Debug.Trace -- FIXME
 -- Friends
 import OpenId2.Types
 import OpenId2.XRDS
@@ -61,7 +60,7 @@ discoverYADIS :: Identifier
               -> Maybe String
               -> IO (Maybe (Provider,Identifier))
 discoverYADIS ident mb_loc = do
-    let uri = fromMaybe (getIdentifier ident) mb_loc
+    let uri = fromMaybe (identifier ident) mb_loc
     req <- parseUrl uri
     res <- httpLbs req
     let mloc = lookup "x-xrds-location"
@@ -126,9 +125,10 @@ parseHTML ident = resolve
       prov <- lookup "openid2.provider" ls
       let lid = maybe ident Identifier $ lookup "openid2.local_id" ls
       return $ Discovery2 (Provider prov) lid
-    resolve ls = traceShow ls $ resolve2 ls `mplus` resolve1 ls
+    resolve ls = resolve2 ls `mplus` resolve1 ls
 
 
+-- FIXME this would all be a lot better if it used tagsoup
 -- | Filter out link tags from a list of html tags.
 linkTags :: [String] -> [(String,String)]
 linkTags  = mapMaybe f . filter p
