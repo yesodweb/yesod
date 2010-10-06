@@ -70,13 +70,15 @@ discoverYADIS ident mb_loc = do
     let uri = fromMaybe (identifier ident) mb_loc
     req <- parseUrl uri
     res <- httpLbs req
-    let mloc = lookup "x-xrds-location"
+    let mloc = fmap S8.unpack
+             $ lookup "x-xrds-location"
              $ map (first $ map toLower . S8.unpack)
              $ responseHeaders res
+    let mloc' = if mloc == mb_loc then Nothing else mloc
     case statusCode res of
         200 ->
-          case mloc of
-            Just loc -> discoverYADIS ident (Just $ S8.unpack loc)
+          case mloc' of
+            Just loc -> discoverYADIS ident (Just loc)
             Nothing  -> do
               let mdoc = parseXRDS $ BSLU.toString $ responseBody res
               case mdoc of
