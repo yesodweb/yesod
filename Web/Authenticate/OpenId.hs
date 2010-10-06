@@ -40,6 +40,7 @@ getForwardUrl openid' complete = do
                 [ ("openid.mode", "checkid_setup")
                 , ("openid.identity", fromMaybe openid' mdelegate)
                 , ("openid.return_to", complete)
+                , ("openid.trust_root", complete)
                 ]
         Discovery2 (Provider p) (Identifier i) ->
             return $ qsUrl p

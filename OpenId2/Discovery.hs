@@ -46,7 +46,7 @@ discover :: ( MonadIO m
          => Identifier
          -> m Discovery
 discover ident@(Identifier i) = do
-    res1 <- discoverYADIS ident Nothing
+    res1 <- discoverYADIS ident Nothing 10
     case res1 of
         Just (x, y) -> return $ Discovery2 x y
         Nothing -> do
@@ -65,8 +65,11 @@ discoverYADIS :: ( MonadIO m
                  )
               => Identifier
               -> Maybe String
+              -> Int -- ^ remaining redirects
               -> m (Maybe (Provider,Identifier))
-discoverYADIS ident mb_loc = do
+discoverYADIS _ _ 0 =
+    failure $ InvalidUrlException "" "discoverYADIS redirected too many times" -- FIXME better failure
+discoverYADIS ident mb_loc redirects = do
     let uri = fromMaybe (identifier ident) mb_loc
     req <- parseUrl uri
     res <- httpLbs req
@@ -78,7 +81,7 @@ discoverYADIS ident mb_loc = do
     case statusCode res of
         200 ->
           case mloc' of
-            Just loc -> discoverYADIS ident (Just loc)
+            Just loc -> discoverYADIS ident (Just loc) (redirects - 1)
             Nothing  -> do
               let mdoc = parseXRDS $ BSLU.toString $ responseBody res
               case mdoc of
