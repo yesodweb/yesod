@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Yesod.Helpers.Auth2.Facebook
     ( authFacebook
+    , facebookUrl
     ) where
 
 import Yesod
@@ -8,6 +9,9 @@ import Yesod.Helpers.Auth2
 import qualified Web.Authenticate.Facebook as Facebook
 import Data.Object (fromMapping, lookupScalar)
 import Data.Maybe (fromMaybe)
+
+facebookUrl :: AuthRoute
+facebookUrl = PluginR "facebook" ["forward"]
 
 authFacebook :: YesodAuth m
              => String -- ^ Application ID
@@ -18,6 +22,11 @@ authFacebook cid secret perms =
     AuthPlugin "facebook" dispatch login
   where
     url = PluginR "facebook" []
+    dispatch "GET" ["forward"] = do
+        tm <- getRouteToMaster
+        render <- getUrlRender
+        let fb = Facebook.Facebook cid secret $ render $ tm url
+        redirectString RedirectTemporary $ Facebook.getForwardUrl fb perms
     dispatch "GET" [] = do
         render <- getUrlRender
         tm <- getRouteToMaster
