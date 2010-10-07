@@ -190,7 +190,7 @@ optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = GForm $ do
             , fiName = name
             , fiInput = mkWidget theId name val False
             , fiErrors = case res of
-                            FormFailure [x] -> Just $ string x
+                            FormFailure x -> Just $ string $ unlines x
                             _ -> Nothing
             }
     return (res, [fi], UrlEncoded)
@@ -241,6 +241,7 @@ type FormField sub y = GForm sub y [FieldInfo sub y]
 type FormletField sub y a = Maybe a -> FormField sub y a
 type FormInput sub y = GForm sub y [GWidget sub y ()]
 
+-- | FIXME Add some docs, especially about how failures from this function don't show up in the HTML.
 checkForm :: (a -> FormResult b) -> GForm s m x a -> GForm s m x b
 checkForm f (GForm form) = GForm $ do
     (res, xml, enc) <- form
@@ -249,6 +250,26 @@ checkForm f (GForm form) = GForm $ do
                     FormFailure e -> FormFailure e
                     FormMissing -> FormMissing
     return (res', xml, enc)
+
+checkField :: (a -> Either String b) -> FormField s m a -> FormField s m b
+checkField f (GForm form) = GForm $ do
+    (res, xml, enc) <- form
+    let (res', merr) =
+            case res of
+                FormSuccess a ->
+                    case f a of
+                        Left e -> (FormFailure [e], Just e)
+                        Right x -> (FormSuccess x, Nothing)
+    let xml' =
+            case merr of
+                Nothing -> xml
+                Just err -> flip map xml $ \fi -> fi
+                    { fiErrors = Just $
+                        case fiErrors fi of
+                            Nothing -> string err
+                            Just x -> x
+                    }
+    return (res', xml', enc)
 
 askParams :: Monad m => StateT Ints (ReaderT Env m) Env
 askParams = lift ask
