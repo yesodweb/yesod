@@ -22,6 +22,7 @@ module Yesod.Yesod
     , maybeAuthorized
     , widgetToPageContent
     , defaultLayoutJson
+    , redirectToPost
       -- * Defaults
     , defaultErrorHandler
       -- * Data types
@@ -418,3 +419,22 @@ caseUtf8JoinPath :: Assertion
 caseUtf8JoinPath = do
     "/%D7%A9%D7%9C%D7%95%D7%9D/" @=? joinPath TmpYesod "" ["שלום"] []
 #endif
+
+-- | Redirect to a POST resource.
+--
+-- This is not technically a redirect; instead, it returns an HTML page with a
+-- POST form, and some Javascript to automatically submit the form. This can be
+-- useful when you need to post a plain link somewhere that needs to cause
+-- changes on the server.
+redirectToPost :: Route master -> GHandler sub master a
+redirectToPost dest = hamletToRepHtml [$hamlet|
+!!!
+%html
+    %head
+        %title Redirecting...
+    %body!onload="document.getElementById('form').submit()"
+        %form#form!method=post!action=@dest@
+            %noscript
+                %p Javascript has been disabled; please click on the button below to be redirected.
+            %input!type=submit!value=Continue
+|] >>= sendResponse
