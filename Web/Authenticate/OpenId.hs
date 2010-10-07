@@ -2,7 +2,7 @@
 module Web.Authenticate.OpenId
     ( getForwardUrl
     , authenticate
-    , OpenIdException (..)
+    , AuthenticateException (..)
     , Identifier (..)
     ) where
 
@@ -10,24 +10,22 @@ import Control.Monad.IO.Class
 import OpenId2.Normalization (normalize)
 import OpenId2.Discovery (discover, Discovery (..))
 import Control.Failure (Failure (failure))
-import OpenId2.Types (OpenIdException (..), Identifier (Identifier),
-                      Provider (Provider))
+import OpenId2.Types
 import Web.Authenticate.Internal (qsUrl)
 import Control.Monad (unless)
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import Network.HTTP.Enumerator
     ( parseUrl, urlEncodedBody, responseBody, httpLbsRedirect
-    , HttpException, InvalidUrlException
+    , HttpException
     )
 import Control.Arrow ((***))
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
 
 getForwardUrl :: ( MonadIO m
-                 , Failure OpenIdException m
+                 , Failure AuthenticateException m
                  , Failure HttpException m
-                 , Failure InvalidUrlException m
                  )
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
@@ -52,8 +50,7 @@ getForwardUrl openid' complete = do
                 ]
 
 authenticate :: ( MonadIO m
-                , Failure OpenIdException m
-                , Failure InvalidUrlException m
+                , Failure AuthenticateException m
                 , Failure HttpException m
                 )
              => [(String, String)]

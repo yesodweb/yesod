@@ -24,7 +24,7 @@ import Data.List
 import Control.Failure (Failure (..))
 import Network.URI
 
-normalize :: Failure OpenIdException m => String -> m Identifier
+normalize :: Failure AuthenticateException m => String -> m Identifier
 normalize ident =
     case normalizeIdentifier $ Identifier ident of
         Just i -> return i

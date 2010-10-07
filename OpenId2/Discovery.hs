@@ -39,9 +39,8 @@ data Discovery = Discovery1 String (Maybe String)
 
 -- | Attempt to resolve an OpenID endpoint, and user identifier.
 discover :: ( MonadIO m
-            , Failure OpenIdException m
+            , Failure AuthenticateException m
             , Failure HttpException m
-            , Failure InvalidUrlException m
             )
          => Identifier
          -> m Discovery
@@ -61,14 +60,12 @@ discover ident@(Identifier i) = do
 --   an OpenID endpoint, and the actual identifier for the user.
 discoverYADIS :: ( MonadIO m
                  , Failure HttpException m
-                 , Failure InvalidUrlException m
                  )
               => Identifier
               -> Maybe String
               -> Int -- ^ remaining redirects
               -> m (Maybe (Provider,Identifier))
-discoverYADIS _ _ 0 =
-    failure $ InvalidUrlException "" "discoverYADIS redirected too many times" -- FIXME better failure
+discoverYADIS _ _ 0 = failure TooManyRedirects
 discoverYADIS ident mb_loc redirects = do
     let uri = fromMaybe (identifier ident) mb_loc
     req <- parseUrl uri
@@ -115,10 +112,7 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
 
 -- | Attempt to discover an OpenID endpoint, from an HTML document.  The result
 -- will be an endpoint on success, and the actual identifier of the user.
-discoverHTML :: ( MonadIO m
-                , Failure HttpException m
-                , Failure InvalidUrlException m
-                )
+discoverHTML :: ( MonadIO m, Failure HttpException m)
              => Identifier
              -> m (Maybe Discovery)
 discoverHTML ident'@(Identifier ident) =

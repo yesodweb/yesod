@@ -19,7 +19,7 @@
 module Web.Authenticate.Rpxnow
     ( Identifier (..)
     , authenticate
-    , RpxnowException (..)
+    , AuthenticateException (..)
     ) where
 
 import Data.Object
@@ -31,8 +31,8 @@ import Data.Maybe
 import Control.Monad
 import qualified Data.ByteString.Char8 as S
 import qualified Data.ByteString.Lazy.Char8 as L
-import Control.Exception (throwIO, Exception)
-import Data.Typeable (Typeable)
+import Control.Exception (throwIO)
+import Web.Authenticate.Internal
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -43,8 +43,7 @@ data Identifier = Identifier
 -- | Attempt to log a user in.
 authenticate :: (MonadIO m,
                  Failure HttpException m,
-                 Failure InvalidUrlException m,
-                 Failure RpxnowException m,
+                 Failure AuthenticateException m,
                  Failure ObjectExtractError m,
                  Failure JsonDecodeError m)
              => String -- ^ API key given by RPXNOW.
@@ -73,7 +72,7 @@ authenticate apiKey token = do
     res <- httpLbsRedirect req
     let b = responseBody res
     unless (200 <= statusCode res && statusCode res < 300) $
-        liftIO $ throwIO $ HttpException (statusCode res) b
+        liftIO $ throwIO $ StatusCodeException (statusCode res) b
     o <- decode $ S.concat $ L.toChunks b
     m <- fromMapping o
     stat <- lookupScalar "stat" m
@@ -92,7 +91,3 @@ parseProfile m = do
     go ("identifier", _) = Nothing
     go (k, Scalar v) = Just (k, v)
     go _ = Nothing
-
-data RpxnowException = RpxnowException String
-    deriving (Show, Typeable)
-instance Exception RpxnowException

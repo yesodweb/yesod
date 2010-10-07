@@ -13,19 +13,13 @@
 module OpenId2.Types (
     Provider (..)
   , Identifier (..)
-  , OpenIdException (..)
+  , AuthenticateException (..)
   ) where
 
 -- Libraries
 import Control.Exception (Exception)
 import Data.Typeable (Typeable)
-
-data OpenIdException =
-      NormalizationException String
-    | DiscoveryException String
-    | AuthenticationException String
-  deriving (Show, Typeable)
-instance Exception OpenIdException
+import Web.Authenticate.Internal
 
 -- | An OpenID provider.
 newtype Provider = Provider { providerURI :: String } deriving (Eq,Show)
