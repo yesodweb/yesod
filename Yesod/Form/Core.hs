@@ -14,6 +14,7 @@ module Yesod.Form.Core
     , fieldsToInput
     , mapFormXml
     , checkForm
+    , checkField
     , askParams
     , askFiles
     , liftForm
@@ -241,7 +242,10 @@ type FormField sub y = GForm sub y [FieldInfo sub y]
 type FormletField sub y a = Maybe a -> FormField sub y a
 type FormInput sub y = GForm sub y [GWidget sub y ()]
 
--- | FIXME Add some docs, especially about how failures from this function don't show up in the HTML.
+-- | Add a validation check to a form.
+--
+-- Note that if there is a validation error, this message will /not/
+-- automatically appear on the form; for that, you need to use 'checkField'.
 checkForm :: (a -> FormResult b) -> GForm s m x a -> GForm s m x b
 checkForm f (GForm form) = GForm $ do
     (res, xml, enc) <- form
@@ -251,6 +255,10 @@ checkForm f (GForm form) = GForm $ do
                     FormMissing -> FormMissing
     return (res', xml, enc)
 
+-- | Add a validation check to a 'FormField'.
+--
+-- Unlike 'checkForm', the validation error will appear in the generated HTML
+-- of the form.
 checkField :: (a -> Either String b) -> FormField s m a -> FormField s m b
 checkField f (GForm form) = GForm $ do
     (res, xml, enc) <- form
@@ -260,6 +268,8 @@ checkField f (GForm form) = GForm $ do
                     case f a of
                         Left e -> (FormFailure [e], Just e)
                         Right x -> (FormSuccess x, Nothing)
+                FormFailure e -> (FormFailure e, Nothing)
+                FormMissing -> (FormMissing, Nothing)
     let xml' =
             case merr of
                 Nothing -> xml
