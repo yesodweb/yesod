@@ -12,7 +12,6 @@ import System.Random
 import Control.Monad (when)
 import Control.Applicative ((<$>), (<*>))
 import Data.Digest.Pure.MD5
-import Data.String (fromString)
 import qualified Data.ByteString.Lazy.UTF8 as LU
 
 login, register, setpass :: AuthRoute
@@ -143,7 +142,7 @@ getVerifyR lid key = do
             muid <- verifyAccount lid
             case muid of
                 Nothing -> return ()
-                Just uid -> do
+                Just _uid -> do
                     setCreds False $ Creds "email" email [("verifiedEmail", email)] -- FIXME uid?
                     toMaster <- getRouteToMaster
                     setMessage $ string "Address verified, please set a new password"
@@ -160,7 +159,6 @@ postLoginR = do
     (email, pass) <- runFormPost' $ (,)
         <$> emailInput "email"
         <*> stringInput "password"
-    y <- getYesod
     mecreds <- getEmailCreds email
     maid <-
         case (mecreds >>= emailCredsAuthId, fmap emailCredsStatus mecreds) of
@@ -174,7 +172,7 @@ postLoginR = do
                             else Nothing
             _ -> return Nothing
     case maid of
-        Just aid ->
+        Just _aid ->
             setCreds True $ Creds "email" email [("verifiedEmail", email)] -- FIXME aid?
         Nothing -> do
             setMessage $ string "Invalid email/password combination"
