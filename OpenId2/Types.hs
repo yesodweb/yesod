@@ -17,8 +17,6 @@ module OpenId2.Types (
   ) where
 
 -- Libraries
-import Control.Exception (Exception)
-import Data.Typeable (Typeable)
 import Web.Authenticate.Internal
 
 -- | An OpenID provider.
