@@ -37,6 +37,7 @@ module Yesod.Form.Fields
       -- ** Optional
     , maybeStringInput
     , maybeDayInput
+    , maybeIntInput
     ) where
 
 import Yesod.Form.Core
@@ -58,6 +59,11 @@ intInput :: Integral i => String -> FormInput sub master i
 intInput n =
     mapFormXml fieldsToInput $
     requiredFieldHelper intFieldProfile (nameSettings n) Nothing
+
+maybeIntInput :: Integral i => String -> FormInput sub master (Maybe i)
+maybeIntInput n =
+    mapFormXml fieldsToInput $
+    optionalFieldHelper intFieldProfile (nameSettings n) Nothing
 
 intField :: Integral i => FormFieldSettings -> FormletField sub y i
 intField = requiredFieldHelper intFieldProfile
