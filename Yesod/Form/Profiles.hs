@@ -49,7 +49,7 @@ doubleFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
     , fpWidget = \theId name val isReq -> addBody [$hamlet|
-%input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
+%input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     }
 
