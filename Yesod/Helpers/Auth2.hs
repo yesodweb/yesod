@@ -62,6 +62,13 @@ class Yesod m => YesodAuth m where
 
     authPlugins :: [AuthPlugin m]
 
+    -- | What to show on the login page.
+    loginHandler :: GHandler Auth m RepHtml
+    loginHandler = defaultLayout $ do
+        setTitle $ string "Login"
+        tm <- liftHandler getRouteToMaster
+        mapM_ (flip apLogin tm) authPlugins
+
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ] [$parseRoutes|
@@ -120,10 +127,7 @@ $nothing
             ]
 
 getLoginR :: YesodAuth m => GHandler Auth m RepHtml
-getLoginR = defaultLayout $ do
-    setTitle $ string "Login"
-    tm <- liftHandler getRouteToMaster
-    mapM_ (flip apLogin tm) authPlugins
+getLoginR = loginHandler
 
 getLogoutR :: YesodAuth m => GHandler Auth m ()
 getLogoutR = postLogoutR -- FIXME redirect to post
