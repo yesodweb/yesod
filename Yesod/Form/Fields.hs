@@ -108,7 +108,6 @@ boolField ffs orig = GForm $ do
             { fiLabel = label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiName = name
             , fiInput = addBody [$hamlet|
 %input#$theId$!type=checkbox!name=$name$!:val:checked
 |]
@@ -158,7 +157,6 @@ selectField pairs ffs initial = GForm $ do
             { fiLabel = label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiName = name
             , fiInput = addBody input
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -201,7 +199,6 @@ maybeSelectField pairs ffs initial' = GForm $ do
             { fiLabel = label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiName = name
             , fiInput = addBody input
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x

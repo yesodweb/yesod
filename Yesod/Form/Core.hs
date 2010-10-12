@@ -156,7 +156,6 @@ requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = GForm $ do
             { fiLabel = label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiName = name
             , fiInput = mkWidget theId name val True
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -188,7 +187,6 @@ optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = GForm $ do
             { fiLabel = label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiName = name
             , fiInput = mkWidget theId name val False
             , fiErrors = case res of
                             FormFailure x -> Just $ string $ unlines x
@@ -212,7 +210,6 @@ data FieldInfo sub y = FieldInfo
     { fiLabel :: Html
     , fiTooltip :: Html
     , fiIdent :: String
-    , fiName :: String
     , fiInput :: GWidget sub y ()
     , fiErrors :: Maybe Html
     }
