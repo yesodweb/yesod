@@ -48,7 +48,7 @@ import Control.Monad ((<=<))
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 import Language.Haskell.TH.Syntax
-import Database.Persist.Base (EntityDef (..))
+import Database.Persist.Base (EntityDef (..), PersistEntity (entityDef))
 import Data.Char (toUpper, isUpper)
 import Yesod.Widget
 import Control.Arrow ((&&&))
@@ -112,9 +112,10 @@ runFormGet f = do
     gs <- reqGetParams `fmap` getRequest
     runFormGeneric gs [] f
 
--- | Create 'ToForm' instances for the entities given. In addition to regular 'EntityDef' attributes understood by persistent, it also understands label= and tooltip=.
-mkToForm :: [EntityDef] -> Q [Dec]
-mkToForm = mapM derive
+-- | Create 'ToForm' instances for the given entity. In addition to regular 'EntityDef' attributes understood by persistent, it also understands label= and tooltip=.
+mkToForm :: PersistEntity v => v -> Q [Dec]
+mkToForm =
+    fmap return . derive . entityDef
   where
     afterPeriod s =
         case dropWhile (/= '.') s of
