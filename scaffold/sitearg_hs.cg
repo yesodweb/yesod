@@ -40,6 +40,10 @@ data ~sitearg~ = ~sitearg~
 -- will need to be of this type.
 type Handler = GHandler ~sitearg~ ~sitearg~
 
+-- | A useful synonym; most of the widgets functions in your application
+-- will need to be of this type.
+type Widget = GWidget ~sitearg~ ~sitearg~
+
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
 -- http://docs.yesodweb.com/book/web-routes-quasi/

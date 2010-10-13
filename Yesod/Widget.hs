@@ -8,7 +8,6 @@
 module Yesod.Widget
     ( -- * Datatype
       GWidget (..)
-    , Widget
     , liftHandler
       -- * Creating
     , newIdent
@@ -59,8 +58,6 @@ newtype GWidget sub master a = GWidget (
 instance Monoid (GWidget sub master ()) where
     mempty = return ()
     mappend x y = x >> y
--- | A 'GWidget' specialized to when the subsite and master site are the same.
-type Widget y = GWidget y y
 
 instance HamletValue (GWidget s m ()) where
     newtype HamletMonad (GWidget s m ()) a =
