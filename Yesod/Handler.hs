@@ -51,6 +51,11 @@ module Yesod.Handler
     , deleteCookie
     , setHeader
     , setLanguage
+      -- ** Content caching and expiration
+    , cacheSeconds
+    , neverExpires
+    , alreadyExpired
+    , expiresAt
       -- * Session
     , setSession
     , deleteSession
@@ -75,6 +80,7 @@ import Yesod.Content
 import Yesod.Internal
 import Data.List (foldl')
 import Data.Neither
+import Data.Time (UTCTime)
 
 import Control.Exception hiding (Handler, catch)
 import qualified Control.Exception as E
@@ -383,9 +389,32 @@ deleteCookie = addHeader . DeleteCookie
 setLanguage :: String -> GHandler sub master ()
 setLanguage = setSession langKey
 
--- | Set an arbitrary header on the client.
+-- | Set an arbitrary response header.
 setHeader :: String -> String -> GHandler sub master ()
 setHeader a = addHeader . Header a
+
+-- | Set the Cache-Control header to indicate this response should be cached
+-- for the given number of seconds.
+cacheSeconds :: Int -> GHandler s m ()
+cacheSeconds i = setHeader "Cache-Control" $ concat
+    [ "max-age="
+    , show i
+    , ", public"
+    ]
+
+-- | Set the Expires header to some date in 2037. In other words, this content
+-- is never (realistically) expired.
+neverExpires :: GHandler s m ()
+neverExpires = setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
+
+-- | Set an Expires header in the past, meaning this content should not be
+-- cached.
+alreadyExpired :: GHandler s m ()
+alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
+
+-- | Set an Expires header to the given date.
+expiresAt :: UTCTime -> GHandler s m ()
+expiresAt = setHeader "Expires" . formatRFC1123
 
 -- | Set a variable in the user's session.
 --

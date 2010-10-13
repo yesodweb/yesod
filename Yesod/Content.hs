@@ -44,6 +44,7 @@ module Yesod.Content
     , RepXml (..)
       -- * Utilities
     , formatW3
+    , formatRFC1123
 #if TEST
     , testSuite
 #endif
@@ -252,3 +253,7 @@ caseTypeByExt = do
 -- | Format a 'UTCTime' in W3 format; useful for setting cookies.
 formatW3 :: UTCTime -> String
 formatW3 = formatTime defaultTimeLocale "%FT%X-00:00"
+
+-- | Format as per RFC 1123.
+formatRFC1123 :: UTCTime -> String
+formatRFC1123 = formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
