@@ -50,17 +50,18 @@ authOpenId =
                 toMaster <- getRouteToMaster
                 setMessage $ string "No OpenID identifier found"
                 redirect RedirectTemporary $ toMaster LoginR
-    dispatch "GET" ["complete"] = completeHelper OpenId.authenticate
+    dispatch "GET" ["complete"] = do
+        rr <- getRequest
+        completeHelper $ reqGetParams rr
+    dispatch "POST" ["complete"] = do
+        rr <- getRequest
+        (posts, _) <- liftIO $ reqRequestBody rr
+        completeHelper posts
     dispatch _ _ = notFound
 
-completeHelper
-    :: YesodAuth m
-    => ([(String, String)] -> AttemptT (GHandler Auth m) OpenId.Identifier)
-    -> GHandler Auth m ()
-completeHelper auth = do
-        rr <- getRequest
-        let gets' = reqGetParams rr
-        res <- runAttemptT $ auth gets'
+completeHelper :: YesodAuth m => [(String, String)] -> GHandler Auth m ()
+completeHelper gets' = do
+        res <- runAttemptT $ OpenId.authenticate gets'
         toMaster <- getRouteToMaster
         let onFailure err = do
             setMessage $ string $ show err
