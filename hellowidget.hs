@@ -27,8 +27,11 @@ instance Yesod HW where
         liftIO $ L.writeFile ("static/tmp/" ++ fn) content
         return $ Just $ Right (StaticR $ StaticRoute ["tmp", fn] [], [])
 
+type Handler = GHandler HW HW
+
 instance YesodNic HW
-instance YesodJquery HW
+instance YesodJquery HW where
+    urlJqueryUiCss _ = Right $ googleHostedJqueryUiCss "ui-darkness"
 wrapper h = [$hamlet|
 #wrapper ^h^
 %footer Brought to you by Yesod Widgets&trade;
@@ -109,7 +112,7 @@ textarea.html
 
 main = basicHandler 3000 $ HW $ fileLookupDir "static" typeByExt
 
-getAutoCompleteR :: Handler HW RepJson
+getAutoCompleteR :: Handler RepJson
 getAutoCompleteR = do
     term <- runFormGet' $ stringInput "term"
     jsonToRepJson $ jsonList
