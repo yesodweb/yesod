@@ -8,6 +8,7 @@ module Yesod.Form.Jquery
     , jqueryAutocompleteField
     , maybeJqueryAutocompleteField
     , jqueryDayFieldProfile
+    , googleHostedJqueryUiCss
     ) where
 
 import Yesod.Handler
@@ -19,18 +20,26 @@ import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,
 import Yesod.Hamlet
 import Data.Char (isSpace)
 
+-- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
+googleHostedJqueryUiCss :: String -> String
+googleHostedJqueryUiCss theme = concat
+    [ "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/"
+    , theme
+    , "/jquery-ui.css"
+    ]
+
 class YesodJquery a where
-    -- | The jQuery Javascript file.
+    -- | The jQuery 1.4 Javascript file.
     urlJqueryJs :: a -> Either (Route a) String
-    urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
+    urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"
 
-    -- | The jQuery UI 1.8.1 Javascript file.
+    -- | The jQuery UI 1.8 Javascript file.
     urlJqueryUiJs :: a -> Either (Route a) String
-    urlJqueryUiJs _ = Right "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.min.js"
+    urlJqueryUiJs _ = Right "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"
 
-    -- | The jQuery UI 1.8.1 CSS file; defaults to cupertino theme.
+    -- | The jQuery UI 1.8 CSS file; defaults to cupertino theme.
     urlJqueryUiCss :: a -> Either (Route a) String
-    urlJqueryUiCss _ = Right "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/cupertino/jquery-ui.css"
+    urlJqueryUiCss _ = Right $ googleHostedJqueryUiCss "cupertino"
 
     -- | jQuery UI time picker add-on.
     urlJqueryUiDateTimePicker :: a -> Either (Route a) String
