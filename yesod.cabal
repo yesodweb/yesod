@@ -51,6 +51,7 @@ library
                    , process                   >= 1.0.1    && < 1.1
                    , web-routes                >= 0.23     && < 0.24
                    , xss-sanitize              >= 0.2      && < 0.3
+                   , data-default              >= 0.2      && < 0.3
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch

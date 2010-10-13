@@ -9,6 +9,7 @@ module Yesod.Form.Jquery
     , maybeJqueryAutocompleteField
     , jqueryDayFieldProfile
     , googleHostedJqueryUiCss
+    , JqueryDaySettings (..)
     ) where
 
 import Yesod.Handler
@@ -19,6 +20,7 @@ import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,
                   timeToTimeOfDay)
 import Yesod.Hamlet
 import Data.Char (isSpace)
+import Data.Default
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: String -> String
@@ -45,14 +47,21 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) String
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField :: YesodJquery y => FormFieldSettings -> FormletField sub y Day
-jqueryDayField = requiredFieldHelper jqueryDayFieldProfile
+jqueryDayField :: YesodJquery y
+               => JqueryDaySettings
+               -> FormFieldSettings
+               -> FormletField sub y Day
+jqueryDayField = requiredFieldHelper . jqueryDayFieldProfile
 
-maybeJqueryDayField :: YesodJquery y => FormFieldSettings -> FormletField sub y (Maybe Day)
-maybeJqueryDayField = optionalFieldHelper jqueryDayFieldProfile
+maybeJqueryDayField :: YesodJquery y
+                    => JqueryDaySettings
+                    -> FormFieldSettings
+                    -> FormletField sub y (Maybe Day)
+maybeJqueryDayField = optionalFieldHelper . jqueryDayFieldProfile
 
-jqueryDayFieldProfile :: YesodJquery y => FieldProfile sub y Day
-jqueryDayFieldProfile = FieldProfile
+jqueryDayFieldProfile :: YesodJquery y
+                      => JqueryDaySettings -> FieldProfile sub y Day
+jqueryDayFieldProfile jds = FieldProfile
     { fpParse = maybe
                   (Left "Invalid day, must be in YYYY-MM-DD format")
                   Right
@@ -66,9 +75,26 @@ jqueryDayFieldProfile = FieldProfile
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
         addJavascript [$julius|
-$(function(){$("#%theId%").datepicker({dateFormat:'yy-mm-dd'})});
+$(function(){$("#%theId%").datepicker({
+    dateFormat:'yy-mm-dd',
+    changeMonth:%jsBool.jdsChangeMonth.jds%,
+    changeYear:%jsBool.jdsChangeYear.jds%,
+    numberOfMonths:%mos.jdsNumberOfMonths.jds%,
+    yearRange:"%jdsYearRange.jds%"
+})});
 |]
     }
+  where
+    jsBool True = "true"
+    jsBool False = "false"
+    mos (Left i) = show i
+    mos (Right (x, y)) = concat
+        [ "["
+        , show x
+        , ","
+        , show y
+        , "]"
+        ]
 
 ifRight :: Either a b -> (b -> c) -> Either a c
 ifRight e f = case e of
@@ -162,3 +188,18 @@ readMay s = case reads s of
 -- from http://hackage.haskell.org/packages/archive/cgi/3001.1.7.1/doc/html/src/Network-CGI-Protocol.html#replace
 replace :: Eq a => a -> a -> [a] -> [a]
 replace x y = map (\z -> if z == x then y else z)
+
+data JqueryDaySettings = JqueryDaySettings
+    { jdsChangeMonth :: Bool
+    , jdsChangeYear :: Bool
+    , jdsYearRange :: String
+    , jdsNumberOfMonths :: Either Int (Int, Int)
+    }
+
+instance Default JqueryDaySettings where
+    def = JqueryDaySettings
+        { jdsChangeMonth = False
+        , jdsChangeYear = False
+        , jdsYearRange = "c-10:c+10"
+        , jdsNumberOfMonths = Left 1
+        }

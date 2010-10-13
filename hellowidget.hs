@@ -10,6 +10,7 @@ import Control.Applicative
 import qualified Data.ByteString.Lazy as L
 import System.Directory
 import Control.Monad.Trans.Class
+import Data.Default
 
 data HW = HW { hwStatic :: Static }
 mkYesod "HW" [$parseRoutes|
@@ -64,7 +65,12 @@ handleFormR = do
         <$> stringField (FormFieldSettings "My Field" "Some tooltip info" Nothing Nothing) Nothing
         <*> stringField ("Another field") (Just "some default text")
         <*> intField (FormFieldSettings "A number field" "some nums" Nothing Nothing) (Just 5)
-        <*> jqueryDayField ("A day field") Nothing
+        <*> jqueryDayField def
+                { jdsChangeMonth = True
+                , jdsChangeYear = True
+                , jdsYearRange = "1900:c+10"
+                , jdsNumberOfMonths = Right (2, 3)
+                } ("A day field") Nothing
         <*> timeField ("A time field") Nothing
         <*> jqueryDayTimeField ("A day/time field") Nothing
         <*> boolField FormFieldSettings
