@@ -73,6 +73,7 @@ module Yesod.Handler
     , YesodApp (..)
     , toMasterHandler
     , localNoCurrent
+    , finallyHandler
 #if TEST
     , testSuite
 #endif
@@ -94,6 +95,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Reader
 import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
+import qualified "MonadCatchIO-transformers" Control.Monad.CatchIO as C
 
 import System.IO
 import qualified Network.Wai as W
@@ -108,7 +110,6 @@ import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Test)
 import Yesod.Content hiding (testSuite)
-import "MonadCatchIO-transformers" Control.Monad.CatchIO (finally)
 import Data.IORef
 #else
 import Yesod.Content
@@ -480,7 +481,7 @@ testSuite = testGroup "Yesod.Handler"
 caseFinally :: Assertion
 caseFinally = do
     i <- newIORef (1 :: Int)
-    let h = finally (do
+    let h = finallyHandler (do
                 liftIO $ writeIORef i 2
                 () <- redirectString RedirectTemporary ""
                 return ()) $ liftIO $ writeIORef i 3
@@ -490,3 +491,8 @@ caseFinally = do
     j @?= 3
 
 #endif
+
+-- | A version of 'finally' which works correctly with short-circuiting.
+finallyHandler :: GHandler s m a -> GHandler s m b -> GHandler s m a
+finallyHandler (GHandler (ReaderT thing)) (GHandler (ReaderT after)) =
+    GHandler $ ReaderT $ \hd -> mapMEitherT (`C.finally` runMEitherT (after hd)) (thing hd)
