@@ -5,6 +5,7 @@ import qualified Yesod.Json
 import qualified Yesod.Dispatch
 import qualified Yesod.Helpers.Static
 import qualified Yesod.Yesod
+import qualified Yesod.Handler
 
 main :: IO ()
 main = defaultMain
@@ -13,4 +14,5 @@ main = defaultMain
     , Yesod.Dispatch.testSuite
     , Yesod.Helpers.Static.testSuite
     , Yesod.Yesod.testSuite
+    , Yesod.Handler.testSuite
     ]

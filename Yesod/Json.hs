@@ -20,7 +20,7 @@ module Yesod.Json
 
 import qualified Data.ByteString.Char8 as S
 import Data.Char (isControl)
-import Yesod.Handler
+import Yesod.Handler (GHandler)
 import Numeric (showHex)
 import Data.Monoid (Monoid (..))
 import Text.Blaze.Builder.Core

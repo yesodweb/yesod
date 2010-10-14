@@ -35,15 +35,16 @@ module Yesod.Yesod
 #if TEST
 import Yesod.Content hiding (testSuite)
 import Yesod.Json hiding (testSuite)
+import Yesod.Handler hiding (testSuite)
 #else
 import Yesod.Content
 import Yesod.Json
+import Yesod.Handler
 #endif
 
 import Yesod.Widget
 import Yesod.Request
 import Yesod.Hamlet
-import Yesod.Handler
 import qualified Network.Wai as W
 import Yesod.Internal
 import Web.ClientSession (getKey, defaultKeyFile)
@@ -261,10 +262,10 @@ applyLayout' title body = fmap chooseRep $ defaultLayout $ do
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    let path = BSU.toString $ pathInfo r
+    let path' = BSU.toString $ pathInfo r
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
-%p $path$
+%p $path'$
 |]
   where
     pathInfo = W.pathInfo
@@ -398,6 +399,7 @@ data TmpRoute = TmpRoute deriving Eq
 type instance Route TmpYesod = TmpRoute
 instance Yesod TmpYesod where approot _ = ""
 
+propJoinSplitPath :: [String] -> Bool
 propJoinSplitPath ss =
     splitPath TmpYesod (BSU.fromString $ joinPath TmpYesod "" ss' [])
         == Right ss'

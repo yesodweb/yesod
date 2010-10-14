@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
@@ -25,11 +26,12 @@ module Yesod.Dispatch
 
 #if TEST
 import Yesod.Yesod hiding (testSuite)
+import Yesod.Handler hiding (testSuite)
 #else
 import Yesod.Yesod
+import Yesod.Handler
 #endif
 
-import Yesod.Handler
 import Yesod.Request
 import Yesod.Internal
 

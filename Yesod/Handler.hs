@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -72,17 +73,19 @@ module Yesod.Handler
     , YesodApp (..)
     , toMasterHandler
     , localNoCurrent
+#if TEST
+    , testSuite
+#endif
     ) where
 
 import Prelude hiding (catch)
 import Yesod.Request
-import Yesod.Content
 import Yesod.Internal
 import Data.List (foldl')
 import Data.Neither
 import Data.Time (UTCTime)
 
-import Control.Exception hiding (Handler, catch)
+import Control.Exception hiding (Handler, catch, finally)
 import qualified Control.Exception as E
 import Control.Applicative
 
@@ -99,6 +102,17 @@ import Data.ByteString.UTF8 (toString)
 import qualified Data.ByteString.Lazy.UTF8 as L
 
 import Text.Hamlet
+
+#if TEST
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.HUnit (testCase)
+import Test.HUnit hiding (Test)
+import Yesod.Content hiding (testSuite)
+import "MonadCatchIO-transformers" Control.Monad.CatchIO (finally)
+import Data.IORef
+#else
+import Yesod.Content
+#endif
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -455,3 +469,24 @@ data RedirectType = RedirectPermanent
 localNoCurrent :: GHandler s m a -> GHandler s m a
 localNoCurrent =
     GHandler . local (\hd -> hd { handlerRoute = Nothing }) . unGHandler
+
+#if TEST
+
+testSuite :: Test
+testSuite = testGroup "Yesod.Handler"
+    [ testCase "finally" caseFinally
+    ]
+
+caseFinally :: Assertion
+caseFinally = do
+    i <- newIORef (1 :: Int)
+    let h = finally (do
+                liftIO $ writeIORef i 2
+                () <- redirectString RedirectTemporary ""
+                return ()) $ liftIO $ writeIORef i 3
+    let y = runHandler h undefined undefined undefined undefined undefined
+    _ <- unYesodApp y undefined undefined undefined
+    j <- readIORef i
+    j @?= 3
+
+#endif
