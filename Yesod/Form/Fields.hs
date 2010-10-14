@@ -114,6 +114,7 @@ boolField ffs orig = GForm $ do
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
+            , fiRequired = True
             }
     return (res, [fi], UrlEncoded)
 
@@ -161,6 +162,7 @@ selectField pairs ffs initial = GForm $ do
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
+            , fiRequired = True
             }
     return (res, [fi], UrlEncoded)
 
@@ -203,6 +205,7 @@ maybeSelectField pairs ffs initial' = GForm $ do
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
+            , fiRequired = False
             }
     return (res, [fi], UrlEncoded)
 

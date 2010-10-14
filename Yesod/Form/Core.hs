@@ -160,6 +160,7 @@ requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = GForm $ do
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
+            , fiRequired = True
             }
     return (res, [fi], UrlEncoded)
 
@@ -191,6 +192,7 @@ optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = GForm $ do
             , fiErrors = case res of
                             FormFailure x -> Just $ string $ unlines x
                             _ -> Nothing
+            , fiRequired = False
             }
     return (res, [fi], UrlEncoded)
 
@@ -212,6 +214,7 @@ data FieldInfo sub y = FieldInfo
     , fiIdent :: String
     , fiInput :: GWidget sub y ()
     , fiErrors :: Maybe Html
+    , fiRequired :: Bool
     }
 
 data FormFieldSettings = FormFieldSettings
