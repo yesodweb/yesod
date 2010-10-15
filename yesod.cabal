@@ -45,7 +45,6 @@ library
                    , data-object               >= 0.3.1    && < 0.4
                    , network                   >= 2.2.1.5  && < 2.3
                    , email-validate            >= 0.2.5    && < 0.3
-                   , process                   >= 1.0.1    && < 1.1
                    , web-routes                >= 0.23     && < 0.24
                    , xss-sanitize              >= 0.2      && < 0.3
                    , data-default              >= 0.2      && < 0.3
@@ -64,7 +63,6 @@ library
                      Yesod.Handler
                      Yesod.Internal
                      Yesod.Json
-                     Yesod.Mail
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Yesod
