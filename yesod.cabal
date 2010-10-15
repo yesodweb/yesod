@@ -16,7 +16,7 @@ build-type:      Simple
 homepage:        http://docs.yesodweb.com/
 extra-source-files: scaffold/*.cg
 
-flag buildtests
+flag test
   description: Build the executable to run unit tests
   default: False
 
@@ -83,7 +83,7 @@ executable             yesod
     extensions:        TemplateHaskell
 
 executable             runtests
-    if flag(buildtests)
+    if flag(test)
         Buildable: True
         cpp-options:   -DTEST
         build-depends: test-framework,
