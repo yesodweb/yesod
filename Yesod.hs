@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE PackageImports #-}
 module Yesod
     ( module Yesod.Request
     , module Yesod.Content
@@ -13,7 +12,7 @@ module Yesod
     , Application
     , lift
     , liftIO
-    , MonadCatchIO
+    , MonadInvertIO
     , mempty
     ) where
 
@@ -36,7 +35,7 @@ import Yesod.Form
 import Yesod.Widget
 import Network.Wai (Application)
 import Yesod.Hamlet
-import "transformers" Control.Monad.Trans.Class (lift)
-import "transformers" Control.Monad.IO.Class (liftIO)
-import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.IO.Class (liftIO)
 import Data.Monoid (mempty)
+import Control.Monad.Invert (MonadInvertIO)

@@ -37,13 +37,11 @@ library
                    , clientsession             >= 0.4.0    && < 0.5
                    , pureMD5                   >= 1.1.0.0  && < 2.2
                    , random                    >= 1.0.0.2  && < 1.1
-                   , control-monad-attempt     >= 0.3      && < 0.4
                    , cereal                    >= 0.2      && < 0.4
                    , dataenc                   >= 0.13.0.2 && < 0.14
                    , old-locale                >= 1.0.0.2  && < 1.1
-                   , persistent                >= 0.2.2    && < 0.3
-                   , neither                   >= 0.0.0    && < 0.1
-                   , MonadCatchIO-transformers >= 0.2.2.0  && < 0.3
+                   , persistent                >= 0.3.0    && < 0.4
+                   , neither                   >= 0.1.0    && < 0.2
                    , data-object               >= 0.3.1    && < 0.4
                    , network                   >= 2.2.1.5  && < 2.3
                    , email-validate            >= 0.2.5    && < 0.3
@@ -51,6 +49,7 @@ library
                    , web-routes                >= 0.23     && < 0.24
                    , xss-sanitize              >= 0.2      && < 0.3
                    , data-default              >= 0.2      && < 0.3
+                   , failure                   >= 0.1      && < 0.2
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch

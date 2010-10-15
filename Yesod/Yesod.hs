@@ -52,7 +52,7 @@ import qualified Web.ClientSession as CS
 import qualified Data.ByteString.UTF8 as BSU
 import Database.Persist
 import Control.Monad.Trans.Class (MonadTrans (..))
-import Control.Monad.Attempt (Failure)
+import Control.Failure (Failure)
 import qualified Data.ByteString as S
 import qualified Network.Wai.Middleware.CleanPath
 import qualified Data.ByteString.Lazy as L

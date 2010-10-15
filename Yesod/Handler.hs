@@ -73,7 +73,7 @@ module Yesod.Handler
     , YesodApp (..)
     , toMasterHandler
     , localNoCurrent
-    , finallyHandler
+    , HandlerData
 #if TEST
     , testSuite
 #endif
@@ -94,16 +94,17 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Reader
-import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
-import qualified "MonadCatchIO-transformers" Control.Monad.CatchIO as C
 
 import System.IO
 import qualified Network.Wai as W
-import Control.Monad.Attempt
+import Control.Failure (Failure (failure))
 import Data.ByteString.UTF8 (toString)
 import qualified Data.ByteString.Lazy.UTF8 as L
 
 import Text.Hamlet
+
+import Control.Monad.Invert (MonadInvertIO (..))
+import Control.Monad (liftM)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -153,15 +154,28 @@ toMasterHandler tm ts route (GHandler h) =
 -- 'WriterT' for headers and session, and an 'MEitherT' monad for handling
 -- special responses. It is declared as a newtype to make compiler errors more
 -- readable.
-newtype GHandler sub master a = GHandler { unGHandler ::
-    ReaderT (HandlerData sub master) (
+newtype GHandler sub master a =
+    GHandler
+        { unGHandler :: GHInner sub master a
+        }
+    deriving (Functor, Applicative, Monad, MonadIO)
+
+type GHInner s m =
+    ReaderT (HandlerData s m) (
     MEitherT HandlerContents (
     WriterT (Endo [Header]) (
     WriterT (Endo [(String, Maybe String)]) (
     IO
-    )))) a
-}
-    deriving (Functor, Applicative, Monad, MonadIO, MonadCatchIO)
+    ))))
+
+instance MonadInvertIO (GHandler s m) where
+    newtype InvertedIO (GHandler s m) a =
+        InvGHandlerIO
+            { runInvGHandlerIO :: InvertedIO (GHInner s m) a
+            }
+    type InvertedArg (GHandler s m) = (HandlerData s m, ())
+    invertIO = liftM (fmap InvGHandlerIO) . invertIO . unGHandler
+    revertIO f = GHandler $ revertIO $ liftM runInvGHandlerIO . f
 
 type Endo a = a -> a
 
@@ -475,24 +489,7 @@ localNoCurrent =
 
 testSuite :: Test
 testSuite = testGroup "Yesod.Handler"
-    [ testCase "finally" caseFinally
+    [
     ]
 
-caseFinally :: Assertion
-caseFinally = do
-    i <- newIORef (1 :: Int)
-    let h = finallyHandler (do
-                liftIO $ writeIORef i 2
-                () <- redirectString RedirectTemporary ""
-                return ()) $ liftIO $ writeIORef i 3
-    let y = runHandler h undefined undefined undefined undefined undefined
-    _ <- unYesodApp y undefined undefined undefined
-    j <- readIORef i
-    j @?= 3
-
 #endif
-
--- | A version of 'finally' which works correctly with short-circuiting.
-finallyHandler :: GHandler s m a -> GHandler s m b -> GHandler s m a
-finallyHandler (GHandler (ReaderT thing)) (GHandler (ReaderT after)) =
-    GHandler $ ReaderT $ \hd -> mapMEitherT (`C.finally` runMEitherT (after hd)) (thing hd)
