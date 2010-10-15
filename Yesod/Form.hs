@@ -24,6 +24,7 @@ module Yesod.Form
     , runFormPost'
       -- * Field/form helpers
     , fieldsToTable
+    , fieldsToDivs
     , fieldsToPlain
     , checkForm
       -- * Template Haskell
@@ -50,7 +51,6 @@ import Control.Monad.Trans.Reader
 import Language.Haskell.TH.Syntax
 import Database.Persist.Base (EntityDef (..), PersistEntity (entityDef))
 import Data.Char (toUpper, isUpper)
-import Yesod.Widget
 import Control.Arrow ((&&&))
 import Data.List (group, sort)
 
@@ -63,16 +63,29 @@ fieldsToPlain = mapFormXml $ mapM_ fiInput
 fieldsToTable :: FormField sub y a -> Form sub y a
 fieldsToTable = mapFormXml $ mapM_ go
   where
-    go fi = do
-        wrapWidget (fiInput fi) $ \w -> [$hamlet|
+    go fi = [$hamlet|
 %tr.$clazz.fi$
     %td
         %label!for=$fiIdent.fi$ $fiLabel.fi$
         .tooltip $fiTooltip.fi$
     %td
-        ^w^
+        ^fiInput.fi^
     $maybe fiErrors.fi err
         %td.errors $err$
+|]
+    clazz fi = if fiRequired fi then "required" else "optional"
+
+-- | Display the label, tooltip, input code and errors in a single div.
+fieldsToDivs :: FormField sub y a -> Form sub y a
+fieldsToDivs = mapFormXml $ mapM_ go
+  where
+    go fi = [$hamlet|
+.$clazz.fi$
+    %label!for=$fiIdent.fi$ $fiLabel.fi$
+        .tooltip $fiTooltip.fi$
+    ^fiInput.fi^
+    $maybe fiErrors.fi err
+        %div.errors $err$
 |]
     clazz fi = if fiRequired fi then "required" else "optional"
 
