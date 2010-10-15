@@ -65,7 +65,7 @@ fieldsToTable = mapFormXml $ mapM_ go
   where
     go fi = do
         wrapWidget (fiInput fi) $ \w -> [$hamlet|
-%tr
+%tr.$clazz.fi$
     %td
         %label!for=$fiIdent.fi$ $fiLabel.fi$
         .tooltip $fiTooltip.fi$
@@ -74,6 +74,7 @@ fieldsToTable = mapFormXml $ mapM_ go
     $maybe fiErrors.fi err
         %td.errors $err$
 |]
+    clazz fi = if fiRequired fi then "required" else "optional"
 
 runFormGeneric :: Env
                -> FileEnv
