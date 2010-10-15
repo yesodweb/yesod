@@ -1,10 +1,10 @@
 {-# LANGUAGE QuasiQuotes #-}
-module Yesod.Helpers.Auth2.Rpxnow
+module Yesod.Helpers.Auth.Rpxnow
     ( authRpxnow
     ) where
 
 import Yesod
-import Yesod.Helpers.Auth2
+import Yesod.Helpers.Auth
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import Control.Monad (mplus)
 

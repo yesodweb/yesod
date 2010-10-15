@@ -1,5 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies #-}
-module Yesod.Helpers.Auth2.Email
+module Yesod.Helpers.Auth.Email
     ( authEmail
     , YesodAuthEmail (..)
     , EmailCreds (..)
@@ -7,7 +7,7 @@ module Yesod.Helpers.Auth2.Email
 
 import Yesod
 import Yesod.Mail (randomString)
-import Yesod.Helpers.Auth2
+import Yesod.Helpers.Auth
 import System.Random
 import Control.Monad (when)
 import Control.Applicative ((<$>), (<*>))

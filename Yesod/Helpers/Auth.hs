@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-module Yesod.Helpers.Auth2
+module Yesod.Helpers.Auth
     ( Auth
     , AuthPlugin (..)
     , AuthRoute (..)

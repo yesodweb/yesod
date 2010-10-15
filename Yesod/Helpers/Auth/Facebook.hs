@@ -1,11 +1,11 @@
 {-# LANGUAGE QuasiQuotes #-}
-module Yesod.Helpers.Auth2.Facebook
+module Yesod.Helpers.Auth.Facebook
     ( authFacebook
     , facebookUrl
     ) where
 
 import Yesod
-import Yesod.Helpers.Auth2
+import Yesod.Helpers.Auth
 import qualified Web.Authenticate.Facebook as Facebook
 import Data.Object (fromMapping, lookupScalar)
 import Data.Maybe (fromMaybe)
