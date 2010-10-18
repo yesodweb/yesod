@@ -11,6 +11,7 @@ module Yesod.Form
     , Enctype (..)
     , FormFieldSettings (..)
     , Textarea (..)
+    , FieldInfo (..)
       -- * Type synonyms
     , Form
     , Formlet
@@ -19,7 +20,9 @@ module Yesod.Form
     , FormInput
       -- * Unwrapping functions
     , runFormGet
+    , runFormMonadGet
     , runFormPost
+    , runFormMonadPost
     , runFormGet'
     , runFormPost'
       -- * Field/form helpers
@@ -46,8 +49,6 @@ import Control.Applicative hiding (optional)
 import Data.Maybe (fromMaybe, mapMaybe)
 import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<))
-import Control.Monad.Trans.State
-import Control.Monad.Trans.Reader
 import Language.Haskell.TH.Syntax
 import Database.Persist.Base (EntityDef (..), PersistEntity (entityDef))
 import Data.Char (toUpper, isUpper)
@@ -89,17 +90,16 @@ fieldsToDivs = mapFormXml $ mapM_ go
 |]
     clazz fi = if fiRequired fi then "required" else "optional"
 
-runFormGeneric :: Env
-               -> FileEnv
-               -> GForm sub y xml a
-               -> GHandler sub y (FormResult a, xml, Enctype)
-runFormGeneric env fe (GForm f) =
-    runReaderT (runReaderT (evalStateT f $ IntSingle 1) env) fe
+-- | Run a form against POST parameters.
+runFormPost :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
+runFormPost f = do
+    rr <- getRequest
+    (pp, files) <- liftIO $ reqRequestBody rr
+    runFormGeneric pp files f
 
 -- | Run a form against POST parameters.
-runFormPost :: GForm sub y xml a
-            -> GHandler sub y (FormResult a, xml, Enctype)
-runFormPost f = do
+runFormMonadPost :: GFormMonad s m a -> GHandler s m (a, Enctype)
+runFormMonadPost f = do
     rr <- getRequest
     (pp, files) <- liftIO $ reqRequestBody rr
     runFormGeneric pp files f
@@ -120,9 +120,13 @@ helper (FormFailure e, _, _) = invalidArgs e
 helper (FormMissing, _, _) = invalidArgs ["No input found"]
 
 -- | Run a form against GET parameters.
-runFormGet :: GForm sub y xml a
-           -> GHandler sub y (FormResult a, xml, Enctype)
+runFormGet :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
 runFormGet f = do
+    gs <- reqGetParams `fmap` getRequest
+    runFormGeneric gs [] f
+
+runFormMonadGet :: GFormMonad s m a -> GHandler s m (a, Enctype)
+runFormMonadGet f = do
     gs <- reqGetParams `fmap` getRequest
     runFormGeneric gs [] f
 

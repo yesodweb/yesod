@@ -1,4 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Form.Fields
     ( -- * Fields
       -- ** Required
@@ -49,10 +51,12 @@ import Data.Monoid
 import Control.Monad (join)
 import Data.Maybe (fromMaybe)
 
-stringField :: FormFieldSettings -> FormletField sub y String
+stringField :: (IsForm f, FormType f ~ String)
+            => FormFieldSettings -> Maybe String -> f
 stringField = requiredFieldHelper stringFieldProfile
 
-maybeStringField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeStringField :: (IsForm f, FormType f ~ Maybe String)
+                 => FormFieldSettings -> Maybe (Maybe String) -> f
 maybeStringField = optionalFieldHelper stringFieldProfile
 
 intInput :: Integral i => String -> FormInput sub master i
@@ -65,32 +69,41 @@ maybeIntInput n =
     mapFormXml fieldsToInput $
     optionalFieldHelper intFieldProfile (nameSettings n) Nothing
 
-intField :: Integral i => FormFieldSettings -> FormletField sub y i
+intField :: (Integral (FormType f), IsForm f)
+         => FormFieldSettings -> Maybe (FormType f) -> f
 intField = requiredFieldHelper intFieldProfile
 
-maybeIntField :: Integral i => FormFieldSettings -> FormletField sub y (Maybe i)
+maybeIntField :: (Integral i, FormType f ~ Maybe i, IsForm f)
+              => FormFieldSettings -> Maybe (FormType f) -> f
 maybeIntField = optionalFieldHelper intFieldProfile
 
-doubleField :: FormFieldSettings -> FormletField sub y Double
+doubleField :: (IsForm f, FormType f ~ Double)
+            => FormFieldSettings -> Maybe Double -> f
 doubleField = requiredFieldHelper doubleFieldProfile
 
-maybeDoubleField :: FormFieldSettings -> FormletField sub y (Maybe Double)
+maybeDoubleField :: (IsForm f, FormType f ~ Maybe Double)
+                 => FormFieldSettings -> Maybe (Maybe Double) -> f
 maybeDoubleField = optionalFieldHelper doubleFieldProfile
 
-dayField :: FormFieldSettings -> FormletField sub y Day
+dayField :: (IsForm f, FormType f ~ Day)
+         => FormFieldSettings -> Maybe Day -> f
 dayField = requiredFieldHelper dayFieldProfile
 
-maybeDayField :: FormFieldSettings -> FormletField sub y (Maybe Day)
+maybeDayField :: (IsForm f, FormType f ~ Maybe Day)
+              => FormFieldSettings -> Maybe (Maybe Day) -> f
 maybeDayField = optionalFieldHelper dayFieldProfile
 
-timeField :: FormFieldSettings -> FormletField sub y TimeOfDay
+timeField :: (IsForm f, FormType f ~ TimeOfDay)
+          => FormFieldSettings -> Maybe TimeOfDay -> f
 timeField = requiredFieldHelper timeFieldProfile
 
-maybeTimeField :: FormFieldSettings -> FormletField sub y (Maybe TimeOfDay)
+maybeTimeField :: (IsForm f, FormType f ~ Maybe TimeOfDay)
+               => FormFieldSettings -> Maybe (Maybe TimeOfDay) -> f
 maybeTimeField = optionalFieldHelper timeFieldProfile
 
-boolField :: FormFieldSettings -> Maybe Bool -> FormField sub y Bool
-boolField ffs orig = GForm $ do
+boolField :: (IsForm f, FormType f ~ Bool)
+          => FormFieldSettings -> Maybe Bool -> f
+boolField ffs orig = toForm $ do
     env <- askParams
     let label = ffsLabel ffs
         tooltip = ffsTooltip ffs
@@ -105,7 +118,7 @@ boolField ffs orig = GForm $ do
                         Just "false" -> (FormSuccess False, False)
                         Just _ -> (FormSuccess True, True)
     let fi = FieldInfo
-            { fiLabel = label
+            { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiInput = addBody [$hamlet|
@@ -116,18 +129,22 @@ boolField ffs orig = GForm $ do
                             _ -> Nothing
             , fiRequired = True
             }
-    return (res, [fi], UrlEncoded)
+    return (res, fi, UrlEncoded)
 
-htmlField :: FormFieldSettings -> FormletField sub y Html
+htmlField :: (IsForm f, FormType f ~ Html)
+          => FormFieldSettings -> Maybe Html -> f
 htmlField = requiredFieldHelper htmlFieldProfile
 
-maybeHtmlField :: FormFieldSettings -> FormletField sub y (Maybe Html)
+maybeHtmlField :: (IsForm f, FormType f ~ Maybe Html)
+               => FormFieldSettings -> Maybe (Maybe Html) -> f
 maybeHtmlField = optionalFieldHelper htmlFieldProfile
 
-selectField :: Eq x => [(x, String)]
+selectField :: (Eq x, IsForm f, FormType f ~ x)
+            => [(x, String)]
             -> FormFieldSettings
-            -> Maybe x -> FormField sub master x
-selectField pairs ffs initial = GForm $ do
+            -> Maybe x
+            -> f
+selectField pairs ffs initial = toForm $ do
     env <- askParams
     let label = ffsLabel ffs
         tooltip = ffsTooltip ffs
@@ -155,7 +172,7 @@ selectField pairs ffs initial = GForm $ do
         %option!value=$show.fst.pair$!:isSelected.fst.snd.pair:selected $snd.snd.pair$
 |]
     let fi = FieldInfo
-            { fiLabel = label
+            { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiInput = addBody input
@@ -164,12 +181,14 @@ selectField pairs ffs initial = GForm $ do
                             _ -> Nothing
             , fiRequired = True
             }
-    return (res, [fi], UrlEncoded)
+    return (res, fi, UrlEncoded)
 
-maybeSelectField :: Eq x => [(x, String)]
+maybeSelectField :: (Eq x, IsForm f, Maybe x ~ FormType f)
+                 => [(x, String)]
                  -> FormFieldSettings
-                 -> FormletField sub master (Maybe x)
-maybeSelectField pairs ffs initial' = GForm $ do
+                 -> Maybe (FormType f)
+                 -> f
+maybeSelectField pairs ffs initial' = toForm $ do
     env <- askParams
     let initial = join initial'
         label = ffsLabel ffs
@@ -198,7 +217,7 @@ maybeSelectField pairs ffs initial' = GForm $ do
         %option!value=$show.fst.pair$!:isSelected.fst.snd.pair:selected $snd.snd.pair$
 |]
     let fi = FieldInfo
-            { fiLabel = label
+            { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiInput = addBody input
@@ -207,7 +226,7 @@ maybeSelectField pairs ffs initial' = GForm $ do
                             _ -> Nothing
             , fiRequired = False
             }
-    return (res, [fi], UrlEncoded)
+    return (res, fi, UrlEncoded)
 
 stringInput :: String -> FormInput sub master String
 stringInput n =
@@ -245,10 +264,12 @@ maybeDayInput n =
 nameSettings :: String -> FormFieldSettings
 nameSettings n = FormFieldSettings mempty mempty (Just n) (Just n)
 
-urlField :: FormFieldSettings -> FormletField sub y String
+urlField :: (IsForm f, FormType f ~ String)
+         => FormFieldSettings -> Maybe String -> f
 urlField = requiredFieldHelper urlFieldProfile
 
-maybeUrlField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeUrlField :: (IsForm f, FormType f ~ Maybe String)
+               => FormFieldSettings -> Maybe (Maybe String) -> f
 maybeUrlField = optionalFieldHelper urlFieldProfile
 
 urlInput :: String -> FormInput sub master String
@@ -256,10 +277,12 @@ urlInput n =
     mapFormXml fieldsToInput $
     requiredFieldHelper urlFieldProfile (nameSettings n) Nothing
 
-emailField :: FormFieldSettings -> FormletField sub y String
+emailField :: (IsForm f, FormType f ~ String)
+           => FormFieldSettings -> Maybe String -> f
 emailField = requiredFieldHelper emailFieldProfile
 
-maybeEmailField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeEmailField :: (IsForm f, FormType f ~ Maybe String)
+                => FormFieldSettings -> Maybe (Maybe String) -> f
 maybeEmailField = optionalFieldHelper emailFieldProfile
 
 emailInput :: String -> FormInput sub master String
@@ -267,14 +290,17 @@ emailInput n =
     mapFormXml fieldsToInput $
     requiredFieldHelper emailFieldProfile (nameSettings n) Nothing
 
-textareaField :: FormFieldSettings -> FormletField sub y Textarea
+textareaField :: (IsForm f, FormType f ~ Textarea)
+              => FormFieldSettings -> Maybe Textarea -> f
 textareaField = requiredFieldHelper textareaFieldProfile
 
 maybeTextareaField :: FormFieldSettings -> FormletField sub y (Maybe Textarea)
 maybeTextareaField = optionalFieldHelper textareaFieldProfile
 
-hiddenField :: FormFieldSettings -> FormletField sub y String
+hiddenField :: (IsForm f, FormType f ~ String)
+            => FormFieldSettings -> Maybe String -> f
 hiddenField = requiredFieldHelper hiddenFieldProfile
 
-maybeHiddenField :: FormFieldSettings -> FormletField sub y (Maybe String)
+maybeHiddenField :: (IsForm f, FormType f ~ Maybe String)
+                 => FormFieldSettings -> Maybe (Maybe String) -> f
 maybeHiddenField = optionalFieldHelper hiddenFieldProfile

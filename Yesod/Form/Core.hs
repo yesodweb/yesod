@@ -1,4 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 module Yesod.Form.Core
     ( FormResult (..)
     , GForm (..)
@@ -18,6 +21,9 @@ module Yesod.Form.Core
     , askParams
     , askFiles
     , liftForm
+    , IsForm (..)
+    , RunForm (..)
+    , GFormMonad
       -- * Data types
     , FieldInfo (..)
     , FormFieldSettings (..)
@@ -32,6 +38,7 @@ module Yesod.Form.Core
 
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Class (lift)
 import Yesod.Handler
 import Yesod.Widget
@@ -90,13 +97,18 @@ incrInts (IntCons i is) = (i + 1) `IntCons` is
 
 -- | A generic form, allowing you to specifying the subsite datatype, master
 -- site datatype, a datatype for the form XML and the return type.
-newtype GForm sub y xml a = GForm
-    { deform :: StateT Ints (
-                ReaderT Env (
-                ReaderT FileEnv (
-                (GHandler sub y)
-                ))) (FormResult a, xml, Enctype)
+newtype GForm s m xml a = GForm
+    { deform :: FormInner s m (FormResult a, xml, Enctype)
     }
+
+type GFormMonad s m a = WriterT Enctype (FormInner s m) a
+
+type FormInner s m =
+    StateT Ints (
+    ReaderT Env (
+    ReaderT FileEnv (
+    GHandler s m
+    )))
 
 type Env = [(String, String)]
 type FileEnv = [(String, FileInfo)]
@@ -134,10 +146,14 @@ instance Monoid xml => Applicative (GForm sub url xml) where
         return (f1 <*> g1, f2 `mappend` g2, f3 `mappend` g3)
 
 -- | Create a required field (ie, one that cannot be blank) from a
--- 'FieldProfile'.ngs
-requiredFieldHelper :: FieldProfile sub y a -> FormFieldSettings
-                    -> Maybe a -> FormField sub y a
-requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = GForm $ do
+-- 'FieldProfile'.
+requiredFieldHelper
+    :: IsForm f
+    => FieldProfile (FormSub f) (FormMaster f) (FormType f)
+    -> FormFieldSettings
+    -> Maybe (FormType f)
+    -> f
+requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = toForm $ do
     env <- lift ask
     let (FormFieldSettings label tooltip theId' name') = ffs
     name <- maybe newFormIdent return name'
@@ -153,7 +169,7 @@ requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = GForm $ do
                                 Left e -> (FormFailure [e], x)
                                 Right y -> (FormSuccess y, x)
     let fi = FieldInfo
-            { fiLabel = label
+            { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiInput = mkWidget theId name val True
@@ -162,13 +178,70 @@ requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = GForm $ do
                             _ -> Nothing
             , fiRequired = True
             }
-    return (res, [fi], UrlEncoded)
+    let res' = case res of
+                FormFailure [e] -> FormFailure [label ++ ": " ++ e]
+                _ -> res
+    return (res', fi, UrlEncoded)
+
+class IsForm f where
+    type FormSub f
+    type FormMaster f
+    type FormType f
+    toForm :: FormInner
+                (FormSub f)
+                (FormMaster f)
+                (FormResult (FormType f),
+                 FieldInfo (FormSub f) (FormMaster f),
+                 Enctype) -> f
+instance IsForm (FormField s m a) where
+    type FormSub (FormField s m a) = s
+    type FormMaster (FormField s m a) = m
+    type FormType (FormField s m a) = a
+    toForm x = GForm $ do
+        (a, b, c) <- x
+        return (a, [b], c)
+instance IsForm (GFormMonad s m (FormResult a, FieldInfo s m)) where
+    type FormSub (GFormMonad s m (FormResult a, FieldInfo s m)) = s
+    type FormMaster (GFormMonad s m (FormResult a, FieldInfo s m)) = m
+    type FormType (GFormMonad s m (FormResult a, FieldInfo s m)) = a
+    toForm x = do
+        (res, fi, enctype) <- lift x
+        tell enctype
+        return (res, fi)
+
+class RunForm f where
+    type RunFormSub f
+    type RunFormMaster f
+    type RunFormType f
+    runFormGeneric :: Env -> FileEnv -> f
+                   -> GHandler (RunFormSub f)
+                               (RunFormMaster f)
+                               (RunFormType f)
+
+instance RunForm (GForm s m xml a) where
+    type RunFormSub (GForm s m xml a) = s
+    type RunFormMaster (GForm s m xml a) = m
+    type RunFormType (GForm s m xml a) =
+        (FormResult a, xml, Enctype)
+    runFormGeneric env fe (GForm f) =
+        runReaderT (runReaderT (evalStateT f $ IntSingle 1) env) fe
+
+instance RunForm (GFormMonad s m a) where
+    type RunFormSub (GFormMonad s m a) = s
+    type RunFormMaster (GFormMonad s m a) = m
+    type RunFormType (GFormMonad s m a) = (a, Enctype)
+    runFormGeneric e fe f =
+        runReaderT (runReaderT (evalStateT (runWriterT f) $ IntSingle 1) e) fe
 
 -- | Create an optional field (ie, one that can be blank) from a
 -- 'FieldProfile'.
-optionalFieldHelper :: FieldProfile sub y a -> FormFieldSettings
-                    -> FormletField sub y (Maybe a)
-optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = GForm $ do
+optionalFieldHelper
+    :: (IsForm f, Maybe b ~ FormType f)
+    => FieldProfile (FormSub f) (FormMaster f) b
+    -> FormFieldSettings
+    -> Maybe (Maybe b)
+    -> f
+optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = toForm $ do
     env <- lift ask
     let (FormFieldSettings label tooltip theId' name') = ffs
     let orig = join orig'
@@ -185,7 +258,7 @@ optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = GForm $ do
                                 Left e -> (FormFailure [e], x)
                                 Right y -> (FormSuccess $ Just y, x)
     let fi = FieldInfo
-            { fiLabel = label
+            { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiInput = mkWidget theId name val False
@@ -194,7 +267,10 @@ optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = GForm $ do
                             _ -> Nothing
             , fiRequired = False
             }
-    return (res, [fi], UrlEncoded)
+    let res' = case res of
+                FormFailure [e] -> FormFailure [label ++ ": " ++ e]
+                _ -> res
+    return (res', fi, UrlEncoded)
 
 fieldsToInput :: [FieldInfo sub y] -> [GWidget sub y ()]
 fieldsToInput = map fiInput
@@ -218,13 +294,13 @@ data FieldInfo sub y = FieldInfo
     }
 
 data FormFieldSettings = FormFieldSettings
-    { ffsLabel :: Html
+    { ffsLabel :: String
     , ffsTooltip :: Html
     , ffsId :: Maybe String
     , ffsName :: Maybe String
     }
 instance IsString FormFieldSettings where
-    fromString s = FormFieldSettings (string s) mempty Nothing Nothing
+    fromString s = FormFieldSettings s mempty Nothing Nothing
 
 -- | A generic definition of a form field that can be used for generating both
 -- required and optional fields. See 'requiredFieldHelper and
