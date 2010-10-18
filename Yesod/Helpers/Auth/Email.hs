@@ -6,7 +6,7 @@ module Yesod.Helpers.Auth.Email
     ) where
 
 import Yesod
-import Yesod.Mail (randomString)
+import Network.Mail.Mime (randomString)
 import Yesod.Helpers.Auth
 import System.Random
 import Control.Monad (when)
