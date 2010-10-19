@@ -3,6 +3,7 @@ module Yesod.Helpers.Auth.Email
     ( authEmail
     , YesodAuthEmail (..)
     , EmailCreds (..)
+    , saltPass
     ) where
 
 import Yesod
@@ -231,6 +232,7 @@ postPasswordR = do
 saltLength :: Int
 saltLength = 5
 
+-- | Salt a password with a randomly generated salt.
 saltPass :: String -> IO String
 saltPass pass = do
     stdgen <- newStdGen
