@@ -63,7 +63,6 @@ import System.Locale
 
 import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy.Encoding
-import qualified Data.ByteString.Lazy.UTF8
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -94,7 +93,7 @@ instance ToContent T.Text where
 instance ToContent Text where
     toContent = W.ResponseLBS . Data.Text.Lazy.Encoding.encodeUtf8
 instance ToContent String where
-    toContent = W.ResponseLBS . Data.ByteString.Lazy.UTF8.fromString
+    toContent = toContent . T.pack
 
 -- | A function which gives targetted representations of content based on the
 -- content-types the user accepts.

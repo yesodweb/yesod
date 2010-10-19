@@ -98,8 +98,6 @@ import Control.Monad.Trans.Reader
 import System.IO
 import qualified Network.Wai as W
 import Control.Failure (Failure (failure))
-import Data.ByteString.UTF8 (toString)
-import qualified Data.ByteString.Lazy.UTF8 as L
 
 import Text.Hamlet
 
@@ -362,7 +360,7 @@ msgKey = "_MSG"
 --
 -- See 'getMessage'.
 setMessage :: Html -> GHandler sub master ()
-setMessage = setSession msgKey . L.toString . renderHtml
+setMessage = setSession msgKey . lbsToChars . renderHtml
 
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.
@@ -392,7 +390,7 @@ notFound = failure NotFound
 badMethod :: (RequestReader m, Failure ErrorResponse m) => m a
 badMethod = do
     w <- waiRequest
-    failure $ BadMethod $ toString $ W.requestMethod w
+    failure $ BadMethod $ bsToChars $ W.requestMethod w
 
 -- | Return a 403 permission denied page.
 permissionDenied :: Failure ErrorResponse m => String -> m a

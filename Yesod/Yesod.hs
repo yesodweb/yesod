@@ -49,7 +49,6 @@ import qualified Network.Wai as W
 import Yesod.Internal
 import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
-import qualified Data.ByteString.UTF8 as BSU
 import Database.Persist
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Failure (Failure)
@@ -262,7 +261,7 @@ applyLayout' title body = fmap chooseRep $ defaultLayout $ do
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    let path' = BSU.toString $ pathInfo r
+    let path' = bsToChars $ pathInfo r
     applyLayout' "Not Found" $ [$hamlet|
 %h1 Not Found
 %p $path'$

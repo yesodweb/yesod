@@ -5,14 +5,16 @@ module CodeGen (codegen) where
 
 import Language.Haskell.TH.Syntax
 import Text.ParserCombinators.Parsec
-import qualified System.IO.UTF8 as U
+import qualified Data.ByteString.Lazy as L
+import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy.Encoding as LT
 
 data Token = VarToken String | LitToken String | EmptyToken
 
 codegen :: FilePath -> Q Exp
 codegen fp = do
-    s' <- qRunIO $ U.readFile $ "scaffold/" ++ fp ++ ".cg"
-    let s = init s'
+    s' <- qRunIO $ L.readFile $ "scaffold/" ++ fp ++ ".cg"
+    let s = init $ LT.unpack $ LT.decodeUtf8 s'
     case parse (many parseToken) s s of
         Left e -> error $ show e
         Right tokens' -> do

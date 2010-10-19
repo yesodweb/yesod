@@ -19,11 +19,25 @@ module Yesod.Internal
     , locationToHamlet
     , runUniqueList
     , toUnique
+      -- * UTF8 helpers
+    , bsToChars
+    , lbsToChars
+    , charsToBs
     ) where
 
 import Text.Hamlet (Hamlet, hamlet, Html)
 import Data.Monoid (Monoid (..))
 import Data.List (nub)
+
+import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy as L
+
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Data.Text.Encoding.Error as T
+
+import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy.Encoding as LT
 
 -- | Responses to indicate some form of an error occurred. These are different
 -- from 'SpecialResponse' in that they allow for custom error pages.
@@ -71,3 +85,12 @@ newtype Head url = Head (Hamlet url)
     deriving Monoid
 newtype Body url = Body (Hamlet url)
     deriving Monoid
+
+lbsToChars :: L.ByteString -> String
+lbsToChars = LT.unpack . LT.decodeUtf8With T.lenientDecode
+
+bsToChars :: S.ByteString -> String
+bsToChars = T.unpack . T.decodeUtf8With T.lenientDecode
+
+charsToBs :: String -> S.ByteString
+charsToBs = T.encodeUtf8 . T.pack

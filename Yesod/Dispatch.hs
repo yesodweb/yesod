@@ -52,8 +52,6 @@ import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
 
-import qualified Data.ByteString.UTF8 as S
-
 import Control.Concurrent.MVar
 import Control.Arrow ((***))
 
@@ -268,10 +266,10 @@ toWaiApp' y segments env = do
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
     let sessionVal = encodeSession key' exp' host sessionFinal
     let hs' = AddCookie (clientSessionDuration y) sessionName
-                                                  (S.toString sessionVal)
+                                                  (bsToChars sessionVal)
             : hs
         hs'' = map (headerToPair getExpires) hs'
-        hs''' = ("Content-Type", S.fromString ct) : hs''
+        hs''' = ("Content-Type", charsToBs ct) : hs''
     return $ W.Response s hs''' c
 
 httpAccept :: W.Request -> [ContentType]
@@ -313,13 +311,13 @@ parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session
                 -> IO Request
 parseWaiRequest env session' = do
-    let gets' = map (S.toString *** S.toString)
+    let gets' = map (bsToChars *** bsToChars)
               $ parseQueryString $ W.queryString env
     let reqCookie = fromMaybe B.empty $ lookup "Cookie"
                   $ W.requestHeaders env
-        cookies' = map (S.toString *** S.toString) $ parseCookies reqCookie
+        cookies' = map (bsToChars *** bsToChars) $ parseCookies reqCookie
         acceptLang = lookup "Accept-Language" $ W.requestHeaders env
-        langs = map S.toString $ maybe [] parseHttpAccept acceptLang
+        langs = map bsToChars $ maybe [] parseHttpAccept acceptLang
         langs' = case lookup langKey session' of
                     Nothing -> langs
                     Just x -> x : langs
@@ -334,9 +332,9 @@ parseWaiRequest env session' = do
 
 rbHelper :: W.Request -> IO RequestBodyContents
 rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where
-    fix1 = map (S.toString *** S.toString)
+    fix1 = map (bsToChars *** bsToChars)
     fix2 (x, NWP.FileInfo a b c) =
-        (S.toString x, FileInfo (S.toString a) (S.toString b) c)
+        (bsToChars x, FileInfo (bsToChars a) (bsToChars b) c)
 
 -- | Produces a \"compute on demand\" value. The computation will be run once
 -- it is requested, and then the result will be stored. This will happen only
@@ -357,14 +355,14 @@ headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
              -> (W.ResponseHeader, B.ByteString)
 headerToPair getExpires (AddCookie minutes key value) =
     let expires = getExpires minutes
-     in ("Set-Cookie", S.fromString
+     in ("Set-Cookie", charsToBs
                             $ key ++ "=" ++ value ++"; path=/; expires="
                               ++ formatW3 expires)
 headerToPair _ (DeleteCookie key) =
-    ("Set-Cookie", S.fromString $
+    ("Set-Cookie", charsToBs $
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
 headerToPair _ (Header key value) =
-    (fromString key, S.fromString value)
+    (fromString key, charsToBs value)
 
 encodeSession :: CS.Key
               -> UTCTime -- ^ expire time

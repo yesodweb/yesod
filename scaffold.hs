@@ -6,6 +6,9 @@ import qualified Data.ByteString.Char8 as S
 import Language.Haskell.TH.Syntax
 import Data.Time (getCurrentTime, utctDay, toGregorian)
 import Control.Applicative ((<$>))
+import qualified Data.ByteString.Lazy as L
+import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy.Encoding as LT
 
 main :: IO ()
 main = do
@@ -44,7 +47,7 @@ main = do
 
     let writeFile' fp s = do
             putStrLn $ "Generating " ++ fp
-            writeFile (dir ++ '/' : fp) s
+            L.writeFile (dir ++ '/' : fp) $ LT.encodeUtf8 $ LT.pack s
         mkDir fp = createDirectoryIfMissing True $ dir ++ '/' : fp
 
     mkDir "Handler"
