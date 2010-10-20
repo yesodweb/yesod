@@ -65,7 +65,6 @@ library
                      Yesod.Helpers.Crud
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
-                     Yesod.WebRoutes
     other-modules:   Yesod.Form.Class
                      Yesod.Internal
                      Yesod.Form.Fields

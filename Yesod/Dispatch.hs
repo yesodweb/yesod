@@ -39,7 +39,6 @@ import Web.Routes.Quasi
 import Web.Routes.Quasi.Parse
 import Web.Routes.Quasi.TH
 import Language.Haskell.TH.Syntax
-import Yesod.WebRoutes
 
 import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath (cleanPathFunc)
@@ -68,6 +67,7 @@ import qualified Data.Serialize as Ser
 import Network.Wai.Parse hiding (FileInfo)
 import qualified Network.Wai.Parse as NWP
 import Data.String (fromString)
+import Web.Routes
 
 #if TEST
 import Test.Framework (testGroup, Test)

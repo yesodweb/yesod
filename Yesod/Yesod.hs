@@ -55,13 +55,13 @@ import Control.Failure (Failure)
 import qualified Data.ByteString as S
 import qualified Network.Wai.Middleware.CleanPath
 import qualified Data.ByteString.Lazy as L
-import Yesod.WebRoutes
 import Data.Monoid
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State hiding (get)
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
+import Web.Routes
 
 #if TEST
 import Test.Framework (testGroup, Test)
