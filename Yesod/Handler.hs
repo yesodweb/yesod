@@ -448,6 +448,9 @@ expiresAt = setHeader "Expires" . formatRFC1123
 -- The session is handled by the clientsession package: it sets an encrypted
 -- and hashed cookie on the client. This ensures that all data is secure and
 -- not tampered with.
+--
+-- Please note that the value you set here will not be available via
+-- 'getSession' until the /next/ request.
 setSession :: String -- ^ key
            -> String -- ^ value
            -> GHandler sub master ()
