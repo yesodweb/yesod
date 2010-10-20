@@ -4,18 +4,20 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 module Yesod.Helpers.Auth
-    ( Auth
+    ( -- * Subsite
+      Auth
     , AuthPlugin (..)
     , AuthRoute (..)
     , getAuth
-    , Creds (..)
     , YesodAuth (..)
+      -- * Plugin interface
+    , Creds (..)
     , setCreds
+      -- * User functions
     , maybeAuthId
     , maybeAuth
     , requireAuthId
     , requireAuth
-    , authDummy
     ) where
 
 import Yesod
@@ -81,6 +83,7 @@ mkYesodSub "Auth"
 credsKey :: String
 credsKey = "_ID"
 
+-- | FIXME: won't show up till redirect
 setCreds :: YesodAuth m => Bool -> Creds m -> GHandler s m ()
 setCreds doRedirects creds = do
     y <- getYesod
@@ -189,20 +192,3 @@ redirectLogin = do
     case authRoute y of
         Just z -> redirect RedirectTemporary z
         Nothing -> permissionDenied "Please configure authRoute"
-
-authDummy :: YesodAuth m => AuthPlugin m
-authDummy =
-    AuthPlugin "dummy" dispatch login
-  where
-    dispatch "POST" [] = do
-        ident <- runFormPost' $ stringInput "ident"
-        setCreds True $ Creds "dummy" ident []
-    dispatch _ _ = notFound
-    url = PluginR "dummy" []
-    login authToMaster = do
-        addBody [$hamlet|
-%form!method=post!action=@authToMaster.url@
-    Your new identifier is: $
-    %input!type=text!name=ident
-    %input!type=submit!value="Dummy Login"
-|]

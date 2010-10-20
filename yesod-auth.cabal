@@ -26,6 +26,7 @@ library
                    , blaze-builder           >= 0.1       && < 0.2
                    , mime-mail               >= 0.0       && < 0.1
     exposed-modules: Yesod.Helpers.Auth
+                     Yesod.Helpers.Auth.Dummy
                      Yesod.Helpers.Auth.Email
                      Yesod.Helpers.Auth.Facebook
                      Yesod.Helpers.Auth.OpenId
