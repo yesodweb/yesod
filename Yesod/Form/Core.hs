@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+-- | Users of the forms library should not need to use this module in general.
+-- It is intended only for writing custom forms and form fields.
 module Yesod.Form.Core
     ( FormResult (..)
     , GForm (..)

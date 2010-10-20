@@ -1,4 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+-- | Provide the user with a rich text editor.
 module Yesod.Form.Nic
     ( YesodNic (..)
     , nicHtmlField
@@ -14,14 +17,17 @@ import Text.HTML.SanitizeXSS (sanitizeXSS)
 import Yesod.Internal (lbsToChars)
 
 class YesodNic a where
-    -- | NIC Editor.
+    -- | NIC Editor Javascript file.
     urlNicEdit :: a -> Either (Route a) String
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-nicHtmlField :: YesodNic y => FormFieldSettings -> FormletField sub y Html
+nicHtmlField :: (IsForm f, FormType f ~ Html, YesodNic (FormMaster f))
+             => FormFieldSettings -> Maybe Html -> f
 nicHtmlField = requiredFieldHelper nicHtmlFieldProfile
 
-maybeNicHtmlField :: YesodNic y => FormFieldSettings -> FormletField sub y (Maybe Html)
+maybeNicHtmlField
+    :: (IsForm f, FormType f ~ Maybe Html, YesodNic (FormMaster f))
+    => FormFieldSettings -> Maybe (FormType f) -> f
 maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
 
 nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html

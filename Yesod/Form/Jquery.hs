@@ -1,4 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+-- | Some fields spiced up with jQuery UI.
 module Yesod.Form.Jquery
     ( YesodJquery (..)
     , jqueryDayField
@@ -47,16 +50,19 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) String
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField :: YesodJquery y
+jqueryDayField :: (IsForm f, FormType f ~ Day, YesodJquery (FormMaster f))
                => JqueryDaySettings
                -> FormFieldSettings
-               -> FormletField sub y Day
+               -> Maybe (FormType f)
+               -> f
 jqueryDayField = requiredFieldHelper . jqueryDayFieldProfile
 
-maybeJqueryDayField :: YesodJquery y
-                    => JqueryDaySettings
-                    -> FormFieldSettings
-                    -> FormletField sub y (Maybe Day)
+maybeJqueryDayField
+    :: (IsForm f, FormType f ~ Maybe Day, YesodJquery (FormMaster f))
+    => JqueryDaySettings
+    -> FormFieldSettings
+    -> Maybe (FormType f)
+    -> f
 maybeJqueryDayField = optionalFieldHelper . jqueryDayFieldProfile
 
 jqueryDayFieldProfile :: YesodJquery y
@@ -104,7 +110,11 @@ ifRight e f = case e of
 showLeadingZero :: (Show a) => a -> String
 showLeadingZero time = let t = show time in if length t == 1 then "0" ++ t else t
 
-jqueryDayTimeField :: YesodJquery y => FormFieldSettings -> FormletField sub y UTCTime
+jqueryDayTimeField
+    :: (IsForm f, FormType f ~ UTCTime, YesodJquery (FormMaster f))
+    => FormFieldSettings
+    -> Maybe (FormType f)
+    -> f
 jqueryDayTimeField = requiredFieldHelper jqueryDayTimeFieldProfile
 
 -- use A.M/P.M and drop seconds and "UTC" (as opposed to normal UTCTime show)
@@ -144,12 +154,20 @@ parseUTCTime s =
                 ifRight (parseTime timeS)
                     (UTCTime date . timeOfDayToTime)
 
-jqueryAutocompleteField :: YesodJquery y =>
-    Route y -> FormFieldSettings -> FormletField sub y String
+jqueryAutocompleteField
+    :: (IsForm f, FormType f ~ String, YesodJquery (FormMaster f))
+    => Route (FormMaster f)
+    -> FormFieldSettings
+    -> Maybe (FormType f)
+    -> f
 jqueryAutocompleteField = requiredFieldHelper . jqueryAutocompleteFieldProfile
 
-maybeJqueryAutocompleteField :: YesodJquery y =>
-    Route y -> FormFieldSettings -> FormletField sub y (Maybe String)
+maybeJqueryAutocompleteField
+    :: (IsForm f, FormType f ~ Maybe String, YesodJquery (FormMaster f))
+    => Route (FormMaster f)
+    -> FormFieldSettings
+    -> Maybe (FormType f)
+    -> f
 maybeJqueryAutocompleteField src =
     optionalFieldHelper $ jqueryAutocompleteFieldProfile src
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+-- | This module simply re-exports from other modules for your convenience.
 module Yesod
     ( module Yesod.Request
     , module Yesod.Content

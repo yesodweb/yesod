@@ -30,11 +30,11 @@ module Yesod.Form
     , fieldsToDivs
     , fieldsToPlain
     , checkForm
+      -- * Type classes
+    , module Yesod.Form.Class
       -- * Template Haskell
     , mkToForm
-      -- * Re-exports
     , module Yesod.Form.Fields
-    , module Yesod.Form.Class
     ) where
 
 import Yesod.Form.Core
