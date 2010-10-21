@@ -19,6 +19,7 @@ module Yesod.Form
     , FormletField
     , FormInput
       -- * Unwrapping functions
+    , generateForm
     , runFormGet
     , runFormMonadGet
     , runFormPost
@@ -118,6 +119,12 @@ helper :: (FormResult a, b, c) -> GHandler sub y a
 helper (FormSuccess a, _, _) = return a
 helper (FormFailure e, _, _) = invalidArgs e
 helper (FormMissing, _, _) = invalidArgs ["No input found"]
+
+-- | Generate a form, feeding it no data.
+generateForm :: GForm s m xml a -> GHandler s m (xml, Enctype)
+generateForm f = do
+    (_, b, c) <- runFormGeneric [] [] f
+    return (b, c)
 
 -- | Run a form against GET parameters.
 runFormGet :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
