@@ -33,12 +33,15 @@ import qualified Data.ByteString.Char8 as S
 import qualified Data.ByteString.Lazy.Char8 as L
 import Control.Exception (throwIO)
 import Web.Authenticate.Internal
+import Data.Data (Data)
+import Data.Typeable (Typeable)
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
     { identifier :: String
     , extraData :: [(String, String)]
     }
+    deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- | Attempt to log a user in.
 authenticate :: (MonadIO m,

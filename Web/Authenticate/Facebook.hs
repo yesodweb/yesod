@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 module Web.Authenticate.Facebook where
 
 import Network.HTTP.Enumerator
@@ -9,16 +10,18 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString as S
 import Web.Authenticate.Internal (qsEncode)
+import Data.Data (Data)
+import Data.Typeable (Typeable)
 
 data Facebook = Facebook
     { facebookClientId :: String
     , facebookClientSecret :: String
     , facebookRedirectUri :: String
     }
-    deriving (Show, Eq, Read)
+    deriving (Show, Eq, Read, Ord, Data, Typeable)
 
 newtype AccessToken = AccessToken { unAccessToken :: String }
-    deriving (Show, Eq, Read)
+    deriving (Show, Eq, Read, Ord, Data, Typeable)
 
 getForwardUrl :: Facebook -> [String] -> String
 getForwardUrl fb perms = concat
