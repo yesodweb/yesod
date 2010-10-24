@@ -113,8 +113,10 @@ runFormPost f = do
                 _ -> res
     return (res', xml, enctype, hidden nonce)
   where
-    nonceName = "_nonce"
     hidden nonce = [$hamlet|%input!type=hidden!name=$nonceName$!value=$nonce$|]
+
+nonceName :: String
+nonceName = "_nonce"
 
 -- | Run a form against POST parameters. Please note that this does not provide
 -- CSRF protection.
@@ -144,11 +146,13 @@ helper (FormSuccess a, _, _) = return a
 helper (FormFailure e, _, _) = invalidArgs e
 helper (FormMissing, _, _) = invalidArgs ["No input found"]
 
--- | Generate a form, feeding it no data.
-generateForm :: GForm s m xml a -> GHandler s m (xml, Enctype)
+-- | Generate a form, feeding it no data. The third element in the result tuple
+-- is a nonce hidden field.
+generateForm :: GForm s m xml a -> GHandler s m (xml, Enctype, Html)
 generateForm f = do
     (_, b, c) <- runFormGeneric [] [] f
-    return (b, c)
+    nonce <- fmap reqNonce getRequest
+    return (b, c, [$hamlet|%input!type=hidden!name=$nonceName$!value=$nonce$|])
 
 -- | Run a form against GET parameters.
 runFormGet :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
