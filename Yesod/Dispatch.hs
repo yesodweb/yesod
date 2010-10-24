@@ -68,6 +68,8 @@ import Network.Wai.Parse hiding (FileInfo)
 import qualified Network.Wai.Parse as NWP
 import Data.String (fromString)
 import Web.Routes
+import Control.Arrow (first)
+import System.Random (randomR, newStdGen)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -264,7 +266,9 @@ toWaiApp' y segments env = do
     let eh er = runHandler (errorHandler' er) render eurl' id y id
     let ya = runHandler h render eurl' id y id
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
-    let sessionVal = encodeSession key' exp' host sessionFinal
+    let sessionVal = encodeSession key' exp' host
+                   $ (nonceKey, reqNonce rr)
+                   : sessionFinal
     let hs' = AddCookie (clientSessionDuration y) sessionName
                                                   (bsToChars sessionVal)
             : hs
@@ -328,7 +332,27 @@ parseWaiRequest env session' = do
                      Nothing -> langs''
                      Just x -> x : langs''
     rbthunk <- iothunk $ rbHelper env
-    return $ Request gets' cookies' session' rbthunk env langs'''
+    nonce <- case lookup nonceKey session' of
+                Just x -> return x
+                Nothing -> do
+                    g <- newStdGen
+                    return $ fst $ randomString 10 g
+    return $ Request gets' cookies' session' rbthunk env langs''' nonce
+  where
+    randomString len =
+        first (map toChar) . sequence' (replicate len (randomR (0, 61)))
+    sequence' [] g = ([], g)
+    sequence' (f:fs) g =
+        let (f', g') = f g
+            (fs', g'') = sequence' fs g'
+         in (f' : fs', g'')
+    toChar i
+        | i < 26 = toEnum $ i + fromEnum 'A'
+        | i < 52 = toEnum $ i + fromEnum 'a' - 26
+        | otherwise = toEnum $ i + fromEnum '0' - 52
+
+nonceKey :: String
+nonceKey = "_NONCE"
 
 rbHelper :: W.Request -> IO RequestBodyContents
 rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where

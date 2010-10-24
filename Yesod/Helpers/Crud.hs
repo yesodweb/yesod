@@ -143,7 +143,7 @@ crudHelper
     -> GHandler (Crud master a) master RepHtml
 crudHelper title me isPost = do
     crud <- getYesodSub
-    (errs, form, enctype) <- runFormPost $ toForm $ fmap snd me
+    (errs, form, enctype, hidden) <- runFormPost $ toForm $ fmap snd me
     toMaster <- getRouteToMaster
     case (isPost, errs) of
         (True, FormSuccess a) -> do
@@ -166,6 +166,7 @@ crudHelper title me isPost = do
         ^form^
         %tr
             %td!colspan=2
+                $hidden$
                 %input!type=submit
                 $maybe me e
                     \ $

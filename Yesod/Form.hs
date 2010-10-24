@@ -12,6 +12,8 @@ module Yesod.Form
     , FormFieldSettings (..)
     , Textarea (..)
     , FieldInfo (..)
+      -- ** Utilities
+    , formFailures
       -- * Type synonyms
     , Form
     , Formlet
@@ -92,13 +94,30 @@ fieldsToDivs = mapFormXml $ mapM_ go
     clazz fi = if fiRequired fi then "required" else "optional"
 
 -- | Run a form against POST parameters.
-runFormPost :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
+--
+-- This function includes CSRF protection by checking a nonce value. You must
+-- therefore embed this nonce in the form as a hidden field; that is the
+-- meaning of the fourth element in the tuple.
+runFormPost :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype, Html)
 runFormPost f = do
     rr <- getRequest
     (pp, files) <- liftIO $ reqRequestBody rr
-    runFormGeneric pp files f
+    nonce <- fmap reqNonce getRequest
+    (res, xml, enctype) <- runFormGeneric pp files f
+    let res' =
+            case res of
+                FormSuccess x ->
+                    if lookup nonceName pp == Just nonce
+                        then FormSuccess x
+                        else FormFailure ["As a protection against cross-site request forgery attacks, please confirm your form submission."]
+                _ -> res
+    return (res', xml, enctype, hidden nonce)
+  where
+    nonceName = "_nonce"
+    hidden nonce = [$hamlet|%input!type=hidden!name=$nonceName$!value=$nonce$|]
 
--- | Run a form against POST parameters.
+-- | Run a form against POST parameters. Please note that this does not provide
+-- CSRF protection.
 runFormMonadPost :: GFormMonad s m a -> GHandler s m (a, Enctype)
 runFormMonadPost f = do
     rr <- getRequest
@@ -106,9 +125,14 @@ runFormMonadPost f = do
     runFormGeneric pp files f
 
 -- | Run a form against POST parameters, disregarding the resulting HTML and
--- returning an error response on invalid input.
+-- returning an error response on invalid input. Note: this does /not/ perform
+-- CSRF protection.
 runFormPost' :: GForm sub y xml a -> GHandler sub y a
-runFormPost' = helper <=< runFormPost
+runFormPost' f = do
+    rr <- getRequest
+    (pp, files) <- liftIO $ reqRequestBody rr
+    x <- runFormGeneric pp files f
+    helper x
 
 -- | Run a form against GET parameters, disregarding the resulting HTML and
 -- returning an error response on invalid input.
@@ -225,3 +249,7 @@ toLabel (x:rest) = toUpper x : go rest
     go (c:cs)
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
+
+formFailures :: FormResult a -> Maybe [String]
+formFailures (FormFailure x) = Just x
+formFailures _ = Nothing

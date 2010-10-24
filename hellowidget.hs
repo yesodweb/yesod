@@ -61,7 +61,7 @@ getRootR = defaultLayout $ flip wrapWidget wrapper $ do
     addHead [$hamlet|%meta!keywords=haskell|]
 
 handleFormR = do
-    (res, form, enctype) <- runFormPost $ fieldsToTable $ (,,,,,,,,,,)
+    (res, form, enctype, hidden) <- runFormPost $ fieldsToTable $ (,,,,,,,,,,)
         <$> stringField (FormFieldSettings "My Field" "Some tooltip info" Nothing Nothing) Nothing
         <*> stringField ("Another field") (Just "some default text")
         <*> intField (FormFieldSettings "A number field" "some nums" Nothing Nothing) (Just 5)
@@ -103,7 +103,12 @@ textarea.html
     height: 150px
 |]
         wrapWidget form $ \h -> [$hamlet|
+$maybe formFailures.res failures
+    %ul.errors
+        $forall failures f
+            %li $f$
 %form!method=post!enctype=$enctype$
+    $hidden$
     %table
         ^h^
         %tr
