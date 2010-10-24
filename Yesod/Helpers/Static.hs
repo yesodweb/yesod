@@ -127,6 +127,7 @@ getStaticRoute fp' = do
 
 notHidden :: FilePath -> Bool
 notHidden ('.':_) = False
+notHidden "tmp" = False
 notHidden _ = True
 
 getFileList :: FilePath -> IO [[String]]

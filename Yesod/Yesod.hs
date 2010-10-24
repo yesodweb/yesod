@@ -36,6 +36,7 @@ module Yesod.Yesod
 import Yesod.Content hiding (testSuite)
 import Yesod.Json hiding (testSuite)
 import Yesod.Handler hiding (testSuite)
+import qualified Data.ByteString.UTF8 as BSU
 #else
 import Yesod.Content
 import Yesod.Json
