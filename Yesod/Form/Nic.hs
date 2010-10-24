@@ -35,9 +35,9 @@ nicHtmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString . sanitizeXSS
     , fpRender = lbsToChars . renderHtml
     , fpWidget = \theId name val _isReq -> do
-        addBody [$hamlet|%textarea.html#$theId$!name=$name$ $val$|]
+        addHtml [$hamlet|%textarea.html#$theId$!name=$name$ $val$|]
         addScript' urlNicEdit
-        addJavascript [$julius|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("%theId%")});|]
+        addJulius [$julius|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("%theId%")});|]
     }
 
 addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()

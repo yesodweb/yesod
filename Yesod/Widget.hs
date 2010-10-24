@@ -10,21 +10,27 @@ module Yesod.Widget
       GWidget (..)
     , liftHandler
       -- * Creating
-    , newIdent
+      -- ** Head of page
     , setTitle
-    , addStyle
+    , addHamletHead
+    , addHtmlHead
+      -- ** Body
+    , addHamlet
+    , addHtml
+    , addWidget
+      -- ** CSS
+    , addCassius
     , addStylesheet
     , addStylesheetRemote
     , addStylesheetEither
+      -- ** Javascript
+    , addJulius
     , addScript
     , addScriptRemote
     , addScriptEither
-    , addHead
-    , addBody
-    , addJavascript
-      -- * Manipulating
-    , wrapWidget
+      -- * Utilities
     , extractBody
+    , newIdent
     ) where
 
 import Data.Monoid
@@ -76,9 +82,9 @@ instance HamletValue (GWidget s m ()) where
         GWidget' { runGWidget' :: GWidget s m a }
     type HamletUrl (GWidget s m ()) = Route m
     toHamletValue = runGWidget'
-    htmlToHamletMonad = GWidget' . addBody . const
+    htmlToHamletMonad = GWidget' . addHtml
     urlToHamletMonad url params = GWidget' $
-        addBody $ \r -> preEscapedString (r url params)
+        addHamlet $ \r -> preEscapedString (r url params)
     fromHamletValue = GWidget'
 instance Monad (HamletMonad (GWidget s m ())) where
     return = GWidget' . return
@@ -94,13 +100,26 @@ liftHandler = GWidget . lift . lift . lift . lift . lift . lift . lift . lift
 setTitle :: Html -> GWidget sub master ()
 setTitle = GWidget . lift . tell . Last . Just . Title
 
--- | Add some raw HTML to the head tag.
-addHead :: Hamlet (Route master) -> GWidget sub master ()
-addHead = GWidget . lift . lift . lift . lift . lift . lift . tell . Head
+-- | Add a 'Hamlet' to the head tag.
+addHamletHead :: Hamlet (Route master) -> GWidget sub master ()
+addHamletHead = GWidget . lift . lift . lift . lift . lift . lift . tell . Head
 
--- | Add some raw HTML to the body tag.
-addBody :: Hamlet (Route master) -> GWidget sub master ()
-addBody = GWidget . tell . Body
+-- | Add a 'Html' to the head tag.
+addHtmlHead :: Html -> GWidget sub master ()
+addHtmlHead = GWidget . lift . lift . lift . lift . lift . lift . tell . Head . const
+
+-- | Add a 'Hamlet' to the body tag.
+addHamlet :: Hamlet (Route master) -> GWidget sub master ()
+addHamlet = GWidget . tell . Body
+
+-- | Add a 'Html' to the body tag.
+addHtml :: Html -> GWidget sub master ()
+addHtml = GWidget . tell . Body . const
+
+-- | Add another widget. This is defined as 'id', by can help with types, and
+-- makes widget blocks look more consistent.
+addWidget :: GWidget s m () -> GWidget s m ()
+addWidget = id
 
 -- | Get a unique identifier.
 newIdent :: GWidget sub master String
@@ -111,8 +130,8 @@ newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
     return $ "w" ++ show i'
 
 -- | Add some raw CSS to the style tag.
-addStyle :: Cassius (Route master) -> GWidget sub master ()
-addStyle = GWidget . lift . lift . lift . lift . tell . Just
+addCassius :: Cassius (Route master) -> GWidget sub master ()
+addCassius = GWidget . lift . lift . lift . lift . tell . Just
 
 -- | Link to the specified local stylesheet.
 addStylesheet :: Route master -> GWidget sub master ()
@@ -139,18 +158,8 @@ addScriptRemote =
     GWidget . lift . lift . tell . toUnique . Script . Remote
 
 -- | Include raw Javascript in the page's script tag.
-addJavascript :: Julius (Route master) -> GWidget sub master ()
-addJavascript = GWidget . lift . lift . lift . lift . lift. tell . Just
-
--- | Modify the given 'GWidget' by wrapping the body tag HTML code with the
--- given function. You might also consider using 'extractBody'.
-wrapWidget :: GWidget s m a
-           -> (Hamlet (Route m) -> Hamlet (Route m))
-           -> GWidget s m a
-wrapWidget (GWidget w) wrap =
-    GWidget $ mapWriterT (fmap go) w
-  where
-    go (a, Body h) = (a, Body $ wrap h)
+addJulius :: Julius (Route master) -> GWidget sub master ()
+addJulius = GWidget . lift . lift . lift . lift . lift. tell . Just
 
 -- | Pull out the HTML tag contents and return it. Useful for performing some
 -- manipulations. It can be easier to use this sometimes than 'wrapWidget'.

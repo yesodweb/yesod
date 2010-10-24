@@ -55,7 +55,7 @@ getCrudListR = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitle "Items"
-        addBody [$hamlet|
+        addWidget [$hamlet|
 %h1 Items
 %ul
     $forall items item
@@ -115,7 +115,7 @@ getCrudDeleteR s = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitle "Confirm delete"
-        addBody [$hamlet|
+        addWidget [$hamlet|
 %form!method=post!action=@toMaster.CrudDeleteR.s@
     %h1 Really delete?
     %p Do you really want to delete $itemTitle.item$?
@@ -156,10 +156,8 @@ crudHelper title me isPost = do
                                        $ toSinglePiece eid
         _ -> return ()
     defaultLayout $ do
-        wrapWidget form (wrapForm toMaster enctype)
         setTitle $ string title
-  where
-    wrapForm toMaster enctype form = [$hamlet|
+        addWidget [$hamlet|
 %p
     %a!href=@toMaster.CrudListR@ Return to list
 %h1 $title$

@@ -255,7 +255,7 @@ applyLayout' :: Yesod master
              -> GHandler sub master ChooseRep
 applyLayout' title body = fmap chooseRep $ defaultLayout $ do
     setTitle title
-    addBody body
+    addHamlet body
 
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep

@@ -44,7 +44,6 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Core
 import Yesod.Form.Profiles
-import Yesod.Widget
 import Data.Time (Day, TimeOfDay)
 import Text.Hamlet
 import Data.Monoid
@@ -121,7 +120,7 @@ boolField ffs orig = toForm $ do
             { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiInput = addBody [$hamlet|
+            , fiInput = [$hamlet|
 %input#$theId$!type=checkbox!name=$name$!:val:checked
 |]
             , fiErrors = case res of
@@ -175,7 +174,7 @@ selectField pairs ffs initial = toForm $ do
             { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiInput = addBody input
+            , fiInput = input
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
@@ -220,7 +219,7 @@ maybeSelectField pairs ffs initial' = toForm $ do
             { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiInput = addBody input
+            , fiInput = input
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
                             _ -> Nothing
@@ -246,9 +245,7 @@ boolInput n = GForm $ do
                 Just "" -> FormSuccess False
                 Just "false" -> FormSuccess False
                 Just _ -> FormSuccess True
-    let xml = addBody [$hamlet|
-%input#$n$!type=checkbox!name=$n$
-|]
+    let xml = [$hamlet|%input#$n$!type=checkbox!name=$n$|]
     return (res, [xml], UrlEncoded)
 
 dayInput :: String -> FormInput sub master Day
