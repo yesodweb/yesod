@@ -53,7 +53,7 @@ authFacebook cid secret perms =
         render <- liftHandler getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
-        addBody [$hamlet|
+        addHtml [$hamlet|
 %p
     %a!href=$furl$ Login with Facebook
 |]

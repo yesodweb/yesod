@@ -94,9 +94,7 @@ setCreds doRedirects creds = do
                 then do
                     case authRoute y of
                         Nothing -> do
-                            rh <- defaultLayout $ addBody [$hamlet|
-%h1 Invalid login
-|]
+                            rh <- defaultLayout [$hamlet|%h1 Invalid login|]
                             sendResponse rh
                         Just ar -> do
                             setMessage $ string "Invalid login"
@@ -115,7 +113,7 @@ getCheckR = do
     creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle $ string "Authentication Status"
-        addBody $ html creds) (json creds)
+        addHtml $ html creds) (json creds)
   where
     html creds = [$hamlet|
 %h1 Authentication Status

@@ -76,8 +76,7 @@ authEmail =
     dispatch "POST" ["set-password"] = go postPasswordR
     dispatch _ _ = notFound
 
-    login' tm = do
-        addBody [$hamlet|
+    login' tm = [$hamlet|
 %form!method=post!action=@tm.login@
     %table
         %tr
@@ -99,7 +98,7 @@ getRegisterR = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitle $ string "Register a new account"
-        addBody [$hamlet|
+        addHamlet [$hamlet|
 %p Enter your e-mail address below, and a confirmation e-mail will be sent to you.
 %form!method=post!action=@toMaster.register@
     %label!for=email E-mail
@@ -129,7 +128,7 @@ postRegisterR = do
     sendVerifyEmail email verKey verUrl
     defaultLayout $ do
         setTitle $ string "Confirmation e-mail sent"
-        addBody [$hamlet|
+        addWidget [$hamlet|
 %p A confirmation e-mail has been sent to $email$.
 |]
 
@@ -151,7 +150,7 @@ getVerifyR lid key = do
         _ -> return ()
     defaultLayout $ do
         setTitle $ string "Invalid verification key"
-        addBody [$hamlet|
+        addHtml [$hamlet|
 %p I'm sorry, but that was an invalid verification key.
 |]
 
@@ -191,7 +190,7 @@ getPasswordR = do
             redirect RedirectTemporary $ toMaster login
     defaultLayout $ do
         setTitle $ string "Set password"
-        addBody [$hamlet|
+        addHamlet [$hamlet|
 %h3 Set a new password
 %form!method=post!action=@toMaster.setpass@
     %table

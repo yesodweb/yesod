@@ -17,7 +17,7 @@ authRpxnow app apiKey =
   where
     login tm = do
         let url = {- FIXME urlEncode $ -} tm $ PluginR "rpxnow" []
-        addBody [$hamlet|
+        addHamlet [$hamlet|
 %iframe!src="http://$app$.rpxnow.com/openid/embed?token_url=@url@"!scrolling=no!frameBorder=no!allowtransparency=true!style="width:400px;height:240px"
 |]
     dispatch _ [] = do

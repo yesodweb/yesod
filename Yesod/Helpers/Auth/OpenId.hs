@@ -20,12 +20,12 @@ authOpenId =
     name = "openid_identifier"
     login tm = do
         ident <- newIdent
-        addStyle [$cassius|
+        addCassius [$cassius|
 #$ident$
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
-        addBody [$hamlet|
+        addHamlet [$hamlet|
 %form!method=get!action=@tm.forwardUrl@
     %label!for=openid OpenID: $
     %input#$ident$!type=text!name=$name$!value="http://"

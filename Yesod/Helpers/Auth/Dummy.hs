@@ -18,8 +18,7 @@ authDummy =
         setCreds True $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
-    login authToMaster = do
-        addBody [$hamlet|
+    login authToMaster = [$hamlet|
 %form!method=post!action=@authToMaster.url@
     Your new identifier is: $
     %input!type=text!name=ident
