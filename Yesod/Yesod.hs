@@ -209,6 +209,11 @@ class Eq (Route a) => Yesod a where
                      -> GHandler sub a (Maybe (Either String (Route a, [(String, String)])))
     addStaticContent _ _ _ = return Nothing
 
+    -- | Whether or not to tie a session to a specific IP address. Defaults to
+    -- 'True'.
+    sessionIpAddress :: a -> Bool
+    sessionIpAddress _ = True
+
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
     deriving (Eq, Show, Read)
 

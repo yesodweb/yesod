@@ -225,7 +225,7 @@ toWaiApp' y segments env = do
     now <- getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration y
-    let host = W.remoteHost env
+    let host = if sessionIpAddress y then W.remoteHost env else ""
     let session' = fromMaybe [] $ do
             raw <- lookup "Cookie" $ W.requestHeaders env
             val <- lookup (B.pack sessionName) $ parseCookies raw
