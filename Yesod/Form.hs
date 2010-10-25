@@ -25,6 +25,7 @@ module Yesod.Form
     , runFormGet
     , runFormMonadGet
     , runFormPost
+    , runFormPostNoNonce
     , runFormMonadPost
     , runFormGet'
     , runFormPost'
@@ -92,6 +93,13 @@ fieldsToDivs = mapFormXml $ mapM_ go
         %div.errors $err$
 |]
     clazz fi = if fiRequired fi then "required" else "optional"
+
+-- | Run a form against POST parameters, without CSRF protection.
+runFormPostNoNonce :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
+runFormPostNoNonce f = do
+    rr <- getRequest
+    (pp, files) <- liftIO $ reqRequestBody rr
+    runFormGeneric pp files f
 
 -- | Run a form against POST parameters.
 --
