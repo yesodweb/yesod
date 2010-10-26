@@ -22,7 +22,7 @@ import qualified Text.Cassius as H
 import qualified Text.Julius as H
 import Language.Haskell.TH.Syntax
 import Database.Persist.~upper~
-import Yesod (MonadCatchIO)
+import Yesod (MonadInvertIO)
 
 -- | The base URL for your application. This will usually be different for
 -- development and production. Yesod automatically constructs URLs for you,
@@ -93,13 +93,13 @@ connectionCount = 10
 -- is used for increased performance.
 --
 -- You can see an example of how to call these functions in Handler/Root.hs
+--
+-- Note: due to polymorphic Hamlet templates, hamletFileDebug is no longer
+-- used; to get the same auto-loading effect, it is recommended that you
+-- use the devel server.
 
 hamletFile :: FilePath -> Q Exp
-#ifdef PRODUCTION
 hamletFile x = H.hamletFile $ "hamlet/" ++ x ++ ".hamlet"
-#else
-hamletFile x = H.hamletFileDebug $ "hamlet/" ++ x ++ ".hamlet"
-#endif
 
 cassiusFile :: FilePath -> Q Exp
 #ifdef PRODUCTION
@@ -119,9 +119,9 @@ juliusFile x = H.juliusFileDebug $ "julius/" ++ x ++ ".julius"
 -- database actions using a pool, respectively. It is used internally
 -- by the scaffolded application, and therefore you will rarely need to use
 -- them yourself.
-withConnectionPool :: MonadCatchIO m => (ConnectionPool -> m a) -> m a
+withConnectionPool :: MonadInvertIO m => (ConnectionPool -> m a) -> m a
 withConnectionPool = with~upper~Pool connStr connectionCount
 
-runConnectionPool :: MonadCatchIO m => SqlPersist m a -> ConnectionPool -> m a
+runConnectionPool :: MonadInvertIO m => SqlPersist m a -> ConnectionPool -> m a
 runConnectionPool = runSqlPool
 

@@ -14,18 +14,16 @@ module ~sitearg~
     ) where
 
 import Yesod
-import Yesod.Mail
 import Yesod.Helpers.Static
 import Yesod.Helpers.Auth
+import Yesod.Helpers.Auth.OpenId
 import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L
-import Yesod.WebRoutes
+import Web.Routes.Site (Site (formatPathSegments))
 import Database.Persist.GenericSql
 import Settings (hamletFile, cassiusFile, juliusFile)
 import Model
-import Control.Monad (join)
-import Data.Maybe (isJust)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -82,7 +80,7 @@ instance Yesod ~sitearg~ where
         mmsg <- getMessage
         pc <- widgetToPageContent $ do
             widget
-            addStyle $(Settings.cassiusFile "default-layout")
+            addCassius $(Settings.cassiusFile "default-layout")
         hamletToRepHtml $(Settings.hamletFile "default-layout")
 
     -- This is done to provide an optimization for serving static files from
@@ -115,20 +113,29 @@ instance YesodPersist ~sitearg~ where
     runDB db = fmap connPool getYesod >>= Settings.runConnectionPool db
 
 instance YesodAuth ~sitearg~ where
-    type AuthEntity ~sitearg~ = User
-    type AuthEmailEntity ~sitearg~ = Email
+    type AuthId ~sitearg~ = UserId
 
-    defaultDest _ = RootR
+    -- Where to send a user after successful login
+    loginDest _ = RootR
+    -- Where to send a user after logout
+    logoutDest _ = RootR
 
-    getAuthId creds _extra = runDB $ do
+    getAuthId creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
         case x of
             Just (uid, _) -> return $ Just uid
             Nothing -> do
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
-    openIdEnabled _ = True
+    showAuthId _ x = show (fromIntegral x :: Integer)
+    readAuthId _ s = case reads s of
+                        (i, _):_ -> Just $ fromInteger i
+                        [] -> Nothing
 
+    authPlugins = [ authOpenId
+                  ]
+
+{- FIXME
     emailSettings _ = Just EmailSettings
         { addUnverified = \email verkey ->
             runDB $ insert $ Email email Nothing (Just verkey)
@@ -183,4 +190,5 @@ sendVerifyEmail' email _ verurl =
 |~~]
                 }
             }
+-}
 

@@ -16,7 +16,7 @@ getRootR = do
     defaultLayout $ do
         h2id <- newIdent
         setTitle "~project~ homepage"
-        addBody $(hamletFile "homepage")
-        addStyle $(cassiusFile "homepage")
-        addJavascript $(juliusFile "homepage")
+        addCassius $(cassiusFile "homepage")
+        addJulius $(juliusFile "homepage")
+        addWidget $(hamletFile "homepage")
 

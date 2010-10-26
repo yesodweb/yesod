@@ -20,15 +20,18 @@ executable         simple-server
     if flag(production)
         Buildable: False
     main-is:       simple-server.hs
-    build-depends: base >= 4 && < 5,
-                   yesod >= 0.5 && < 0.6,
-                   wai-extra,
-                   directory,
-                   bytestring,
-                   persistent,
-                   persistent-~lower~,
-                   template-haskell,
-                   hamlet
+    build-depends: base         >= 4       && < 5
+                 , yesod        >= 0.6     && < 0.7
+                 , yesod-auth   >= 0.2     && < 0.3
+                 , mime-mail    >= 0.0     && < 0.1
+                 , wai-extra
+                 , directory
+                 , bytestring
+                 , persistent
+                 , persistent-~lower~
+                 , template-haskell
+                 , hamlet
+                 , web-routes
     ghc-options:   -Wall
     extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 
@@ -47,7 +50,7 @@ executable         fastcgi
         Buildable: False
     cpp-options:   -DPRODUCTION
     main-is:       fastcgi.hs
-    build-depends: wai-handler-fastcgi
+    build-depends: wai-handler-fastcgi >= 0.2.2 && < 0.3
     ghc-options:   -Wall
     extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 
