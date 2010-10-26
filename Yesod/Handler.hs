@@ -58,7 +58,9 @@ module Yesod.Handler
     , alreadyExpired
     , expiresAt
       -- * Session
+    , SessionMap
     , lookupSession
+    , getSession
     , setSession
     , deleteSession
       -- ** Ultimate destination
@@ -482,6 +484,10 @@ lookupSession :: ParamName -> GHandler s m (Maybe ParamValue)
 lookupSession n = GHandler $ do
     m <- lift $ lift $ lift get
     return $ Map.lookup n m
+
+-- | Get all session variables.
+getSession :: GHandler s m SessionMap
+getSession = GHandler $ lift $ lift $ lift get
 
 #if TEST
 
