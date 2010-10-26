@@ -41,7 +41,6 @@ library
                    , old-locale                >= 1.0.0.2  && < 1.1
                    , persistent                >= 0.3.0    && < 0.4
                    , neither                   >= 0.1.0    && < 0.2
-                   , data-object               >= 0.3.1    && < 0.4
                    , network                   >= 2.2.1.5  && < 2.3
                    , email-validate            >= 0.2.5    && < 0.3
                    , web-routes                >= 0.23     && < 0.24
