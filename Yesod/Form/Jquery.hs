@@ -13,6 +13,7 @@ module Yesod.Form.Jquery
     , jqueryDayFieldProfile
     , googleHostedJqueryUiCss
     , JqueryDaySettings (..)
+    , Default (..)
     ) where
 
 import Yesod.Handler

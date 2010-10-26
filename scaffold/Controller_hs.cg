@@ -32,9 +32,7 @@ getRobotsR = return $ RepPlain $ toContent "User-agent: *"
 -- migrations handled by Yesod.
 with~sitearg~ :: (Application -> IO a) -> IO a
 with~sitearg~ f = Settings.withConnectionPool $ \p -> do
-    flip runConnectionPool p $ runMigration $ do
-        migrate (undefined :: User)
-        migrate (undefined :: Email)
+    runConnectionPool (runMigration migrateAll) p
     let h = ~sitearg~ s p
     toWaiApp h >>= f
   where

@@ -243,7 +243,7 @@ mkToForm =
         let x = foldl (ap' ap) just' $ map (go' ffs' stm string') a
          in ftt `AppE` x
     go' ffs' stm string' (((theId, name), ((label, tooltip), tff)), ex) =
-        let label' = string' `AppE` LitE (StringL label)
+        let label' = LitE $ StringL label
             tooltip' = string' `AppE` LitE (StringL tooltip)
             ffs = ffs' `AppE`
                   label' `AppE`
