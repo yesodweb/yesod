@@ -37,7 +37,7 @@ library
                    , pureMD5                   >= 1.1.0.0  && < 2.2
                    , random                    >= 1.0.0.2  && < 1.1
                    , cereal                    >= 0.2      && < 0.4
-                   , dataenc                   >= 0.13.0.2 && < 0.14
+                   , base64-bytestring         >= 0.1      && < 0.2
                    , old-locale                >= 1.0.0.2  && < 1.1
                    , persistent                >= 0.3.0    && < 0.4
                    , neither                   >= 0.1.0    && < 0.2
