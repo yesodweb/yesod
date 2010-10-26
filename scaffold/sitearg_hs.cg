@@ -4,6 +4,7 @@ module ~sitearg~
     , ~sitearg~Route (..)
     , resources~sitearg~
     , Handler
+    , Widget
     , maybeAuth
     , requireAuth
     , module Yesod
