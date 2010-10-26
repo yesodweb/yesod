@@ -15,6 +15,8 @@ module Yesod
     , liftIO
     , MonadInvertIO
     , mempty
+    , showIntegral
+    , readIntegral
     ) where
 
 #if TEST
@@ -40,3 +42,12 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import Data.Monoid (mempty)
 import Control.Monad.Invert (MonadInvertIO)
+
+showIntegral :: Integral a => a -> String
+showIntegral x = show (fromIntegral x :: Integer)
+
+readIntegral :: Num a => String -> Maybe a
+readIntegral s =
+    case reads s of
+        (i, _):_ -> Just $ fromInteger i
+        [] -> Nothing

@@ -27,6 +27,7 @@ executable         simple-server
                  , wai-extra
                  , directory
                  , bytestring
+                 , text
                  , persistent
                  , persistent-~lower~
                  , template-haskell
