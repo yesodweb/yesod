@@ -13,7 +13,8 @@ import System.Random
 import Control.Monad (when)
 import Control.Applicative ((<$>), (<*>))
 import Data.Digest.Pure.MD5
-import qualified Data.ByteString.Lazy.UTF8 as LU
+import qualified Data.Text.Lazy as T
+import Data.Text.Lazy.Encoding (encodeUtf8)
 
 login, register, setpass :: AuthRoute
 login = PluginR "email" ["login"]
@@ -239,7 +240,10 @@ saltPass pass = do
     return $ saltPass' salt pass
 
 saltPass' :: String -> String -> String
-saltPass' salt pass = salt ++ show (md5 $ LU.fromString $ salt ++ pass)
+saltPass' salt pass =
+    salt ++ show (md5 $ fromString $ salt ++ pass)
+  where
+    fromString = encodeUtf8 . T.pack
 
 isValidPass :: String -- ^ cleartext password
             -> SaltedPass -- ^ salted password
