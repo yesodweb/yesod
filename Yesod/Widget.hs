@@ -47,6 +47,7 @@ import Yesod.Internal
 
 import Control.Monad.Invert (MonadInvertIO (..))
 import Control.Monad (liftM)
+import qualified Data.Map as Map
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
@@ -73,7 +74,7 @@ instance MonadInvertIO (GWidget s m) where
             { runInvGWidgetIO :: InvertedIO (GWInner s m) a
             }
     type InvertedArg (GWidget s m) =
-        (Int, (HandlerData s m, ()))
+        (Int, (HandlerData s m, (Map.Map String String, ())))
     invertIO = liftM (fmap InvGWidgetIO) . invertIO . unGWidget
     revertIO f = GWidget $ revertIO $ liftM runInvGWidgetIO . f
 

@@ -71,6 +71,8 @@ import Web.Routes
 import Control.Arrow (first)
 import System.Random (randomR, newStdGen)
 
+import qualified Data.Map as Map
+
 #if TEST
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
@@ -265,10 +267,12 @@ toWaiApp' y segments env = do
     let eurl' = either (const Nothing) Just eurl
     let eh er = runHandler (errorHandler' er) render eurl' id y id
     let ya = runHandler h render eurl' id y id
-    (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types
+    let sessionMap = Map.fromList
+                   $ filter (\(x, _) -> x /= nonceKey) session'
+    (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types sessionMap
     let sessionVal = encodeSession key' exp' host
-                   $ (nonceKey, reqNonce rr)
-                   : sessionFinal
+                   $ Map.toList
+                   $ Map.insert nonceKey (reqNonce rr) sessionFinal
     let hs' = AddCookie (clientSessionDuration y) sessionName
                                                   (bsToChars sessionVal)
             : hs
@@ -337,7 +341,7 @@ parseWaiRequest env session' = do
                 Nothing -> do
                     g <- newStdGen
                     return $ fst $ randomString 10 g
-    return $ Request gets' cookies' session' rbthunk env langs''' nonce
+    return $ Request gets' cookies' rbthunk env langs''' nonce
   where
     randomString len =
         first (map toChar) . sequence' (replicate len (randomR (0, 61)))

@@ -48,6 +48,7 @@ library
                    , xss-sanitize              >= 0.2      && < 0.3
                    , data-default              >= 0.2      && < 0.3
                    , failure                   >= 0.1      && < 0.2
+                   , containers                >= 0.2      && < 0.5
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch

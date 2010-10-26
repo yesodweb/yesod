@@ -58,6 +58,7 @@ module Yesod.Handler
     , alreadyExpired
     , expiresAt
       -- * Session
+    , lookupSession
     , setSession
     , deleteSession
       -- ** Ultimate destination
@@ -82,7 +83,6 @@ module Yesod.Handler
 import Prelude hiding (catch)
 import Yesod.Request
 import Yesod.Internal
-import Data.List (foldl')
 import Data.Neither
 import Data.Time (UTCTime)
 
@@ -94,6 +94,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.State
 
 import System.IO
 import qualified Network.Wai as W
@@ -103,6 +104,7 @@ import Text.Hamlet
 
 import Control.Monad.Invert (MonadInvertIO (..))
 import Control.Monad (liftM)
+import qualified Data.Map as Map
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -162,16 +164,18 @@ type GHInner s m =
     ReaderT (HandlerData s m) (
     MEitherT HandlerContents (
     WriterT (Endo [Header]) (
-    WriterT (Endo [(String, Maybe String)]) (
+    StateT SessionMap ( -- session
     IO
     ))))
+
+type SessionMap = Map.Map String String
 
 instance MonadInvertIO (GHandler s m) where
     newtype InvertedIO (GHandler s m) a =
         InvGHandlerIO
             { runInvGHandlerIO :: InvertedIO (GHInner s m) a
             }
-    type InvertedArg (GHandler s m) = (HandlerData s m, ())
+    type InvertedArg (GHandler s m) = (HandlerData s m, (SessionMap, ()))
     invertIO = liftM (fmap InvGHandlerIO) . invertIO . unGHandler
     revertIO f = GHandler $ revertIO $ liftM runInvGHandlerIO . f
 
@@ -185,7 +189,8 @@ newtype YesodApp = YesodApp
     :: (ErrorResponse -> YesodApp)
     -> Request
     -> [ContentType]
-    -> IO (W.Status, [Header], ContentType, Content, [(String, String)])
+    -> SessionMap
+    -> IO (W.Status, [Header], ContentType, Content, SessionMap)
     }
 
 data HandlerContents =
@@ -227,16 +232,6 @@ getCurrentRoute = handlerRoute <$> GHandler ask
 getRouteToMaster :: GHandler sub master (Route sub -> Route master)
 getRouteToMaster = handlerToMaster <$> GHandler ask
 
-modifySession :: [(String, String)] -> (String, Maybe String)
-              -> [(String, String)]
-modifySession orig (k, v) =
-    case v of
-        Nothing -> dropKeys k orig
-        Just v' -> (k, v') : dropKeys k orig
-
-dropKeys :: String -> [(String, x)] -> [(String, x)]
-dropKeys k = filter $ \(x, _) -> x /= k
-
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
 runHandler :: HasReps c
@@ -247,7 +242,8 @@ runHandler :: HasReps c
            -> master
            -> (master -> sub)
            -> YesodApp
-runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
+runHandler handler mrender sroute tomr ma tosa =
+  YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
@@ -259,17 +255,16 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             , handlerRender = mrender
             , handlerToMaster = tomr
             }
-    ((contents', headers), session') <- E.catch (
-        runWriterT
+    ((contents', headers), finalSession) <- E.catch (
+        flip runStateT initSession
       $ runWriterT
       $ runMEitherT
       $ flip runReaderT hd
       $ unGHandler handler
-        ) (\e -> return ((MLeft $ HCError $ toErrorHandler e, id), id))
+        ) (\e -> return ((MLeft $ HCError $ toErrorHandler e, id), initSession))
     let contents = meither id (HCContent . chooseRep) contents'
-    let finalSession = foldl' modifySession (reqSession rr) $ session' []
     let handleError e = do
-            (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts
+            (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts finalSession
             let hs' = headers hs
             return (getStatus e, hs', ct, c, sess)
     let sendFile' ct fp =
@@ -288,9 +283,10 @@ runHandler handler mrender sroute tomr ma tosa = YesodApp $ \eh rr cts -> do
             (handleError . toErrorHandler)
 
 safeEh :: ErrorResponse -> YesodApp
-safeEh er = YesodApp $ \_ _ _ -> do
+safeEh er = YesodApp $ \_ _ _ session -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return (W.status500, [], typePlain, toContent "Internal Server Error", [])
+    return (W.status500, [], typePlain, toContent "Internal Server Error",
+            session)
 
 -- | Redirect to the given route.
 redirect :: RedirectType -> Route master -> GHandler sub master a
@@ -334,9 +330,9 @@ setUltDest' = do
         Nothing -> return ()
         Just r -> do
             tm <- getRouteToMaster
-            gets <- reqGetParams <$> getRequest
+            gets' <- reqGetParams <$> getRequest
             render <- getUrlRenderParams
-            setUltDestString $ render (tm r) gets
+            setUltDestString $ render (tm r) gets'
 
 -- | Redirect to the ultimate destination in the user's session. Clear the
 -- value from the session.
@@ -354,9 +350,6 @@ msgKey :: String
 msgKey = "_MSG"
 
 -- | Sets a message in the user's session.
---
--- The message set here will not be visible within the current request;
--- instead, it will only appear in the next request.
 --
 -- See 'getMessage'.
 setMessage :: Html -> GHandler sub master ()
@@ -412,7 +405,8 @@ setCookie a b = addHeader . AddCookie a b
 deleteCookie :: String -> GHandler sub master ()
 deleteCookie = addHeader . DeleteCookie
 
--- | Set the language in the user session. Will show up in 'languages'.
+-- | Set the language in the user session. Will show up in 'languages' on the
+-- next request.
 setLanguage :: String -> GHandler sub master ()
 setLanguage = setSession langKey
 
@@ -448,17 +442,14 @@ expiresAt = setHeader "Expires" . formatRFC1123
 -- The session is handled by the clientsession package: it sets an encrypted
 -- and hashed cookie on the client. This ensures that all data is secure and
 -- not tampered with.
---
--- Please note that the value you set here will not be available via
--- 'getSession' until the /next/ request.
 setSession :: String -- ^ key
            -> String -- ^ value
            -> GHandler sub master ()
-setSession k v = GHandler . lift . lift . lift . tell $ (:) (k, Just v)
+setSession k = GHandler . lift . lift . lift . modify . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
 deleteSession :: String -> GHandler sub master ()
-deleteSession k = GHandler . lift . lift . lift . tell $ (:) (k, Nothing)
+deleteSession = GHandler . lift . lift . lift . modify . Map.delete
 
 -- | Internal use only, not to be confused with 'setHeader'.
 addHeader :: Header -> GHandler sub master ()
@@ -485,6 +476,12 @@ data RedirectType = RedirectPermanent
 localNoCurrent :: GHandler s m a -> GHandler s m a
 localNoCurrent =
     GHandler . local (\hd -> hd { handlerRoute = Nothing }) . unGHandler
+
+-- | Lookup for session data.
+lookupSession :: ParamName -> GHandler s m (Maybe ParamValue)
+lookupSession n = GHandler $ do
+    m <- lift $ lift $ lift get
+    return $ Map.lookup n m
 
 #if TEST
 
