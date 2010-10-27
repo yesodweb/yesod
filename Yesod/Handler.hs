@@ -363,8 +363,9 @@ setMessage = setSession msgKey . lbsToChars . renderHtml
 -- See 'setMessage'.
 getMessage :: GHandler sub master (Maybe Html)
 getMessage = do
+    mmsg <- fmap (fmap preEscapedString) $ lookupSession msgKey
     deleteSession msgKey
-    fmap (fmap preEscapedString) $ lookupSession msgKey
+    return mmsg
 
 -- | Bypass remaining handler code and output the given file.
 --
