@@ -77,6 +77,7 @@ module Yesod.Handler
     , toMasterHandler
     , localNoCurrent
     , HandlerData
+    , ErrorResponse (..)
 #if TEST
     , testSuite
 #endif
