@@ -47,11 +47,11 @@ executable         devel-server
 executable         fastcgi
     if flag(production)
         Buildable: True
+        build-depends: wai-handler-fastcgi >= 0.2.2 && < 0.3
     else
         Buildable: False
     cpp-options:   -DPRODUCTION
     main-is:       fastcgi.hs
-    build-depends: wai-handler-fastcgi >= 0.2.2 && < 0.3
     ghc-options:   -Wall
     extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 
