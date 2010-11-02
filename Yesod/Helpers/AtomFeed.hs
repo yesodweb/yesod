@@ -19,6 +19,7 @@ module Yesod.Helpers.AtomFeed
     ( AtomFeed (..)
     , AtomFeedEntry (..)
     , atomFeed
+    , atomLink
     , RepAtom (..)
     ) where
 
@@ -68,4 +69,12 @@ entryTemplate arg = [$xhamlet|
     %updated $formatW3.atomEntryUpdated.arg$
     %title $atomEntryTitle.arg$
     %content!type=html $cdata.atomEntryContent.arg$
+|]
+
+-- | Generates a link tag in the head of a widget.
+atomLink :: Route m
+         -> String -- ^ title
+         -> GWidget s m ()
+atomLink u title = addHamletHead [$hamlet|
+%link!href=@u@!type="application/atom+xml"!rel="alternate"!title=$title$
 |]

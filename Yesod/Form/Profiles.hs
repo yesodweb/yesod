@@ -24,7 +24,7 @@ import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
 import Network.URI (parseURI)
 import Database.Persist (PersistField)
-import Text.HTML.SanitizeXSS (sanitizeXSS)
+import Text.HTML.SanitizeXSS (sanitizeBalance)
 
 import Text.Blaze.Builder.Utf8 (writeChar)
 import Text.Blaze.Builder.Core (writeList, writeByteString)
@@ -74,7 +74,7 @@ timeFieldProfile = FieldProfile
 
 htmlFieldProfile :: FieldProfile sub y Html
 htmlFieldProfile = FieldProfile
-    { fpParse = Right . preEscapedString . sanitizeXSS
+    { fpParse = Right . preEscapedString . sanitizeBalance
     , fpRender = lbsToChars . renderHtml
     , fpWidget = \theId name val _isReq -> addHamlet [$hamlet|
 %textarea.html#$theId$!name=$name$ $val$

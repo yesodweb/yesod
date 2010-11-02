@@ -12,7 +12,7 @@ import Yesod.Handler
 import Yesod.Form.Core
 import Yesod.Hamlet
 import Yesod.Widget
-import Text.HTML.SanitizeXSS (sanitizeXSS)
+import Text.HTML.SanitizeXSS (sanitizeBalance)
 
 import Yesod.Internal (lbsToChars)
 
@@ -32,7 +32,7 @@ maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
 
 nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html
 nicHtmlFieldProfile = FieldProfile
-    { fpParse = Right . preEscapedString . sanitizeXSS
+    { fpParse = Right . preEscapedString . sanitizeBalance
     , fpRender = lbsToChars . renderHtml
     , fpWidget = \theId name val _isReq -> do
         addHtml [$hamlet|%textarea.html#$theId$!name=$name$ $val$|]
