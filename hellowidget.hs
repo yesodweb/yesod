@@ -61,7 +61,7 @@ getRootR = defaultLayout $ wrapper $ do
     addHtmlHead [$hamlet|%meta!keywords=haskell|]
 
 handleFormR = do
-    (res, form, enctype, hidden) <- runFormPost $ fieldsToTable $ (,,,,,,,,,)
+    (res, form, enctype, hidden) <- runFormPost $ fieldsToTable $ (,,,,,,,,,,)
         <$> stringField (FormFieldSettings "My Field" "Some tooltip info" Nothing Nothing) Nothing
         <*> stringField ("Another field") (Just "some default text")
         <*> intField (FormFieldSettings "A number field" "some nums" Nothing Nothing) (Just 5)
@@ -84,11 +84,12 @@ handleFormR = do
                 (Just $ string "You can put rich text here")
         <*> maybeEmailField ("An e-mail addres") Nothing
         <*> maybeTextareaField "A text area" Nothing
-    let mhtml = case res of
-                    FormSuccess (_, _, _, _, _, _, _, x, _, _) -> Just x
-                    _ -> Nothing
+        <*> maybeFileField "Any file"
+    let (mhtml, mfile) = case res of
+                    FormSuccess (_, _, _, _, _, _, _, x, _, _, y) -> (Just x, y)
+                    _ -> (Nothing, Nothing)
     let txt = case res of
-                    FormSuccess (_, _, _, _, _, _, _, _, _, Just x) -> Just x
+                    FormSuccess (_, _, _, _, _, _, _, _, _, Just x, _) -> Just x
                     _ -> Nothing
     defaultLayout $ do
         addCassius [$cassius|
@@ -117,6 +118,8 @@ $maybe formFailures.res failures
         $html$
     $maybe txt t
         $t$
+    $maybe mfile f
+        $show.f$
 |]
         setTitle $ string "Form"
 

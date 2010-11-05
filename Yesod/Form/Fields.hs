@@ -16,6 +16,7 @@ module Yesod.Form.Fields
     , boolField
     , emailField
     , urlField
+    , fileField
       -- ** Optional
     , maybeStringField
     , maybeTextareaField
@@ -28,6 +29,7 @@ module Yesod.Form.Fields
     , maybeSelectField
     , maybeEmailField
     , maybeUrlField
+    , maybeFileField
       -- * Inputs
       -- ** Required
     , stringInput
@@ -44,6 +46,10 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Core
 import Yesod.Form.Profiles
+import Yesod.Request (FileInfo)
+import Yesod.Widget (GWidget)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Reader (ask)
 import Data.Time (Day, TimeOfDay)
 import Text.Hamlet
 import Data.Monoid
@@ -301,3 +307,55 @@ hiddenField = requiredFieldHelper hiddenFieldProfile
 maybeHiddenField :: (IsForm f, FormType f ~ Maybe String)
                  => FormFieldSettings -> Maybe (Maybe String) -> f
 maybeHiddenField = optionalFieldHelper hiddenFieldProfile
+
+fileField :: (IsForm f, FormType f ~ FileInfo)
+          => FormFieldSettings -> f
+fileField ffs = toForm $ do
+    env <- lift ask
+    fenv <- lift $ lift ask
+    let (FormFieldSettings label tooltip theId' name') = ffs
+    name <- maybe newFormIdent return name'
+    theId <- maybe newFormIdent return theId'
+    let res =
+            if null env && null fenv
+                then FormMissing
+                else case lookup name fenv of
+                        Nothing -> FormFailure ["File is required"]
+                        Just x -> FormSuccess x
+    let fi = FieldInfo
+            { fiLabel = string label
+            , fiTooltip = tooltip
+            , fiIdent = theId
+            , fiInput = fileWidget theId name True
+            , fiErrors = case res of
+                            FormFailure [x] -> Just $ string x
+                            _ -> Nothing
+            , fiRequired = True
+            }
+    let res' = case res of
+                FormFailure [e] -> FormFailure [label ++ ": " ++ e]
+                _ -> res
+    return (res', fi, Multipart)
+
+maybeFileField :: (IsForm f, FormType f ~ Maybe FileInfo)
+               => FormFieldSettings -> f
+maybeFileField ffs = toForm $ do
+    fenv <- lift $ lift ask
+    let (FormFieldSettings label tooltip theId' name') = ffs
+    name <- maybe newFormIdent return name'
+    theId <- maybe newFormIdent return theId'
+    let res = FormSuccess $ lookup name fenv
+    let fi = FieldInfo
+            { fiLabel = string label
+            , fiTooltip = tooltip
+            , fiIdent = theId
+            , fiInput = fileWidget theId name False
+            , fiErrors = Nothing
+            , fiRequired = True
+            }
+    return (res, fi, Multipart)
+
+fileWidget :: String -> String -> Bool -> GWidget s m ()
+fileWidget theId name isReq = [$hamlet|
+%input#$theId$!type=file!name=$name$!:isReq:required
+|]
