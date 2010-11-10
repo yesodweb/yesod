@@ -23,8 +23,8 @@ import Data.Char (isControl)
 import Yesod.Handler (GHandler)
 import Numeric (showHex)
 import Data.Monoid (Monoid (..))
-import Text.Blaze.Builder.Core
-import Text.Blaze.Builder.Utf8 (writeChar)
+import Blaze.ByteString.Builder
+import Blaze.ByteString.Builder.Char.Utf8 (writeChar)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -63,7 +63,7 @@ jsonToRepJson = fmap RepJson . jsonToContent
 jsonScalar :: String -> Json
 jsonScalar s = Json $ mconcat
     [ fromByteString "\""
-    , writeList writeJsonChar s
+    , fromWrite4List writeJsonChar s
     , fromByteString "\""
     ]
   where

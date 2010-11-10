@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.6.1
+version:         0.6.1.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -31,7 +31,7 @@ library
                    , template-haskell          >= 2.4      && < 2.6
                    , web-routes-quasi          >= 0.6      && < 0.7
                    , hamlet                    >= 0.5.1    && < 0.7
-                   , blaze-builder             >= 0.1      && < 0.2
+                   , blaze-builder             >= 0.2      && < 0.3
                    , transformers              >= 0.2      && < 0.3
                    , clientsession             >= 0.4.0    && < 0.5
                    , pureMD5                   >= 1.1.0.0  && < 2.2
