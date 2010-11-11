@@ -23,6 +23,9 @@ import Control.Monad
 import Data.List
 import Control.Failure (Failure (..))
 import Network.URI
+    ( uriToString, normalizeCase, normalizeEscape
+    , normalizePathSegments, parseURI, uriPath, uriScheme, uriFragment
+    )
 
 normalize :: Failure AuthenticateException m => String -> m Identifier
 normalize ident =
