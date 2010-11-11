@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.6.1.1
+version:         0.6.1.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -41,7 +41,7 @@ library
                    , old-locale                >= 1.0.0.2  && < 1.1
                    , persistent                >= 0.3.0    && < 0.4
                    , neither                   >= 0.1.0    && < 0.2
-                   , network                   >= 2.2.1.5  && < 2.3
+                   , network                   >= 2.2.1.5  && < 2.4
                    , email-validate            >= 0.2.5    && < 0.3
                    , web-routes                >= 0.23     && < 0.24
                    , xss-sanitize              >= 0.2.3    && < 0.3
