@@ -24,6 +24,7 @@
 module Yesod.Handler
     ( -- * Type families
       Route
+    , YesodSubRoute (..)
       -- * Handler monad
     , GHandler
       -- ** Read information from handler
@@ -47,6 +48,8 @@ module Yesod.Handler
       -- ** Short-circuit responses.
     , sendFile
     , sendResponse
+      -- ** Calling foreign subsite handlers
+    , runSubHandler
       -- * Setting headers
     , setCookie
     , deleteCookie
@@ -121,6 +124,9 @@ import Yesod.Content
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
+
+class YesodSubRoute s y where
+    fromSubRoute :: s -> y -> Route s -> Route y
 
 data HandlerData sub master = HandlerData
     { handlerRequest :: Request
@@ -210,6 +216,28 @@ instance RequestReader (GHandler sub master) where
 -- | Get the sub application argument.
 getYesodSub :: GHandler sub master sub
 getYesodSub = handlerSub <$> GHandler ask
+
+-- | Set the subsite in HandlerData
+setHandlerSub :: YesodSubRoute sub' master => sub' -> HandlerData sub master -> HandlerData sub' master
+setHandlerSub s (HandlerData r _ m _ rn _) = HandlerData r s m Nothing rn $ fromSubRoute s m
+
+-- | Run a handler from another subsite
+runSubHandler :: YesodSubRoute sub' master => sub' -> GHandler sub' master a -> GHandler sub master a
+runSubHandler sub handler = do 
+  hd <- setHandlerSub sub <$> GHandler ask
+  session <- getSession
+  GHandler $ do
+    let toErrorHandler =
+            InternalError
+            . (show :: Control.Exception.SomeException -> String)
+    ((contents, headers), finalSession) <- liftIO $ flip runStateT session
+                       $ runWriterT
+                       $ runMEitherT
+                       $ flip runReaderT hd
+                       $ unGHandler handler
+    lift $ lift $ lift $ put finalSession
+    lift $ MEitherT $ return contents
+
 
 -- | Get the master site appliation argument.
 getYesod :: GHandler sub master master

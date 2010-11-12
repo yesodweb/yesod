@@ -18,6 +18,7 @@ module Yesod.Widget
     , addHamlet
     , addHtml
     , addWidget
+    , addSubWidget
       -- ** CSS
     , addCassius
     , addStylesheet
@@ -39,7 +40,7 @@ import Control.Monad.Trans.State
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
-import Yesod.Handler (Route, GHandler, HandlerData)
+import Yesod.Handler (Route, GHandler, HandlerData, YesodSubRoute, runSubHandler)
 import Control.Applicative (Applicative)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
@@ -95,6 +96,34 @@ instance Monad (HamletMonad (GWidget s m ())) where
 -- monad.
 liftHandler :: GHandler sub master a -> GWidget sub master a
 liftHandler = GWidget . lift . lift . lift . lift . lift . lift . lift . lift
+
+addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWidget sub' master a
+addSubWidget sub w = do
+                       i <- GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift get
+                       w' <- liftHandler $ runSubHandler sub $ flip runStateT i
+                             $ runWriterT $ runWriterT $ runWriterT $ runWriterT
+                             $ runWriterT $ runWriterT $ runWriterT 
+                             $ unGWidget w
+                       let ((((((((a,
+                                   body),
+                                  title),
+                                 scripts),
+                                stylesheets),
+                               style),
+                              jscript),
+                             h),
+                            i') = w'
+                       GWidget $ do
+                         tell body
+                         lift $ tell title
+                         lift $ lift $ tell scripts
+                         lift $ lift $ lift $ tell stylesheets
+                         lift $ lift $ lift $ lift $ tell style
+                         lift $ lift $ lift $ lift $ lift $ tell jscript
+                         lift $ lift $ lift $ lift $ lift $ lift $ tell h
+                         lift $ lift $ lift $ lift $ lift $ lift $ lift $ put i'
+                         return a
+                                     
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
