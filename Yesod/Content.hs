@@ -45,6 +45,7 @@ module Yesod.Content
       -- * Utilities
     , formatW3
     , formatRFC1123
+    , formatCookieExpires
 #if TEST
     , testSuite
 #endif
@@ -249,10 +250,14 @@ caseTypeByExt = do
     Just typeHtml @=? lookup (ext "foo.html") typeByExt
 #endif
 
--- | Format a 'UTCTime' in W3 format; useful for setting cookies.
+-- | Format a 'UTCTime' in W3 format.
 formatW3 :: UTCTime -> String
 formatW3 = formatTime defaultTimeLocale "%FT%X-00:00"
 
 -- | Format as per RFC 1123.
 formatRFC1123 :: UTCTime -> String
 formatRFC1123 = formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
+
+-- | Format a 'UTCTime' for a cookie.
+formatCookieExpires :: UTCTime -> String
+formatCookieExpires = formatTime defaultTimeLocale "%a, %d-%b-%Y %X GMT"
