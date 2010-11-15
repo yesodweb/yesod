@@ -48,8 +48,6 @@ module Yesod.Handler
       -- ** Short-circuit responses.
     , sendFile
     , sendResponse
-      -- ** Calling foreign subsite handlers
-    , runSubHandler
       -- * Setting headers
     , setCookie
     , deleteCookie
@@ -78,6 +76,7 @@ module Yesod.Handler
     , runHandler
     , YesodApp (..)
     , toMasterHandler
+    , toMasterHandlerMaybe
     , localNoCurrent
     , HandlerData
     , ErrorResponse (..)
@@ -142,10 +141,17 @@ handlerSubData :: (Route sub -> Route master)
                -> Route sub
                -> HandlerData oldSub master
                -> HandlerData sub master
-handlerSubData tm ts route hd = hd
+handlerSubData tm ts = handlerSubDataMaybe tm ts . Just
+
+handlerSubDataMaybe :: (Route sub -> Route master)
+                    -> (master -> sub)
+                    -> Maybe (Route sub)
+                    -> HandlerData oldSub master
+                    -> HandlerData sub master
+handlerSubDataMaybe tm ts route hd = hd
     { handlerSub = ts $ handlerMaster hd
     , handlerToMaster = tm
-    , handlerRoute = Just route
+    , handlerRoute = route
     }
 
 -- | Used internally for promoting subsite handler functions to master site
@@ -154,9 +160,17 @@ toMasterHandler :: (Route sub -> Route master)
                 -> (master -> sub)
                 -> Route sub
                 -> GHandler sub master a
-                -> GHandler master master a
+                -> GHandler sub' master a
 toMasterHandler tm ts route (GHandler h) =
     GHandler $ withReaderT (handlerSubData tm ts route) h
+
+toMasterHandlerMaybe :: (Route sub -> Route master)
+                     -> (master -> sub)
+                     -> Maybe (Route sub)
+                     -> GHandler sub master a
+                     -> GHandler sub' master a
+toMasterHandlerMaybe tm ts route (GHandler h) =
+    GHandler $ withReaderT (handlerSubDataMaybe tm ts route) h
 
 -- | A generic handler monad, which can have a different subsite and master
 -- site. This monad is a combination of 'ReaderT' for basic arguments, a
@@ -216,28 +230,6 @@ instance RequestReader (GHandler sub master) where
 -- | Get the sub application argument.
 getYesodSub :: GHandler sub master sub
 getYesodSub = handlerSub <$> GHandler ask
-
--- | Set the subsite in HandlerData
-setHandlerSub :: YesodSubRoute sub' master => sub' -> HandlerData sub master -> HandlerData sub' master
-setHandlerSub s (HandlerData r _ m _ rn _) = HandlerData r s m Nothing rn $ fromSubRoute s m
-
--- | Run a handler from another subsite
-runSubHandler :: YesodSubRoute sub' master => sub' -> GHandler sub' master a -> GHandler sub master a
-runSubHandler sub handler = do 
-  hd <- setHandlerSub sub <$> GHandler ask
-  session <- getSession
-  GHandler $ do
-    let toErrorHandler =
-            InternalError
-            . (show :: Control.Exception.SomeException -> String)
-    ((contents, headers), finalSession) <- liftIO $ flip runStateT session
-                       $ runWriterT
-                       $ runMEitherT
-                       $ flip runReaderT hd
-                       $ unGHandler handler
-    lift $ lift $ lift $ put finalSession
-    lift $ MEitherT $ return contents
-
 
 -- | Get the master site appliation argument.
 getYesod :: GHandler sub master master
