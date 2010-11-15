@@ -29,6 +29,9 @@ module Yesod.Form
     , runFormMonadPost
     , runFormGet'
     , runFormPost'
+      -- ** High-level form post unwrappers
+    , runFormPostTable
+    , runFormPostDivs
       -- * Field/form helpers
     , fieldsToTable
     , fieldsToDivs
@@ -45,6 +48,7 @@ import Yesod.Form.Core
 import Yesod.Form.Fields
 import Yesod.Form.Class
 import Yesod.Form.Profiles (Textarea (..))
+import Yesod.Widget (GWidget)
 
 import Text.Hamlet
 import Yesod.Request
@@ -143,6 +147,41 @@ runFormPost' f = do
     (pp, files) <- liftIO $ reqRequestBody rr
     x <- runFormGeneric pp files f
     helper x
+
+-- | Create a table-styled form.
+--
+-- This function wraps around 'runFormPost' and 'fieldsToTable', taking care of
+-- some of the boiler-plate in creating forms. In particular, is automatically
+-- creates the form element, sets the method, action and enctype attributes,
+-- adds the CSRF-protection nonce hidden field and inserts a submit button.
+runFormPostTable :: Route m -> String -> FormField s m a
+                 -> GHandler s m (FormResult a, GWidget s m ())
+runFormPostTable dest inputLabel form = do
+    (res, widget, enctype, nonce) <- runFormPost $ fieldsToTable form
+    let widget' = [$hamlet|
+%form!method=post!action=@dest@!enctype=$enctype$
+    %table
+        ^widget^
+        %tr
+            %td!colspan=2
+            $nonce$
+            %input!type=submit!value=$inputLabel$
+|]
+    return (res, widget')
+
+-- | Same as 'runFormPostTable', but uses 'fieldsToDivs' for styling.
+runFormPostDivs :: Route m -> String -> FormField s m a
+                -> GHandler s m (FormResult a, GWidget s m ())
+runFormPostDivs dest inputLabel form = do
+    (res, widget, enctype, nonce) <- runFormPost $ fieldsToDivs form
+    let widget' = [$hamlet|
+%form!method=post!action=@dest@!enctype=$enctype$
+    ^widget^
+    %div
+        $nonce$
+        %input!type=submit!value=$inputLabel$
+|]
+    return (res, widget')
 
 -- | Run a form against GET parameters, disregarding the resulting HTML and
 -- returning an error response on invalid input.
