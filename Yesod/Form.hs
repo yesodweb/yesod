@@ -30,8 +30,8 @@ module Yesod.Form
     , runFormGet'
     , runFormPost'
       -- ** High-level form post unwrappers
-    , runFormPostTable
-    , runFormPostDivs
+    , runFormTable
+    , runFormDivs
       -- * Field/form helpers
     , fieldsToTable
     , fieldsToDivs
@@ -154,9 +154,9 @@ runFormPost' f = do
 -- some of the boiler-plate in creating forms. In particular, is automatically
 -- creates the form element, sets the method, action and enctype attributes,
 -- adds the CSRF-protection nonce hidden field and inserts a submit button.
-runFormPostTable :: Route m -> String -> FormField s m a
-                 -> GHandler s m (FormResult a, GWidget s m ())
-runFormPostTable dest inputLabel form = do
+runFormTable :: Route m -> String -> FormField s m a
+             -> GHandler s m (FormResult a, GWidget s m ())
+runFormTable dest inputLabel form = do
     (res, widget, enctype, nonce) <- runFormPost $ fieldsToTable form
     let widget' = [$hamlet|
 %form!method=post!action=@dest@!enctype=$enctype$
@@ -170,9 +170,9 @@ runFormPostTable dest inputLabel form = do
     return (res, widget')
 
 -- | Same as 'runFormPostTable', but uses 'fieldsToDivs' for styling.
-runFormPostDivs :: Route m -> String -> FormField s m a
-                -> GHandler s m (FormResult a, GWidget s m ())
-runFormPostDivs dest inputLabel form = do
+runFormDivs :: Route m -> String -> FormField s m a
+            -> GHandler s m (FormResult a, GWidget s m ())
+runFormDivs dest inputLabel form = do
     (res, widget, enctype, nonce) <- runFormPost $ fieldsToDivs form
     let widget' = [$hamlet|
 %form!method=post!action=@dest@!enctype=$enctype$
