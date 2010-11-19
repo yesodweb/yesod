@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Form.Fields
     ( -- * Fields
       -- ** Required
@@ -126,7 +127,12 @@ boolField ffs orig = toForm $ do
             { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiInput = [$hamlet|
+            , fiInput =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %input#$theId$!type=checkbox!name=$name$!:val:checked
 |]
             , fiErrors = case res of
@@ -170,7 +176,12 @@ selectField pairs ffs initial = toForm $ do
             case res of
                 FormSuccess y -> x == y
                 _ -> Just x == initial
-    let input = [$hamlet|
+    let input =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %select#$theId$!name=$name$
     %option!value=none
     $forall pairs' pair
@@ -215,7 +226,12 @@ maybeSelectField pairs ffs initial' = toForm $ do
             case res of
                 FormSuccess y -> Just x == y
                 _ -> Just x == initial
-    let input = [$hamlet|
+    let input =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %select#$theId$!name=$name$
     %option!value=none
     $forall pairs' pair
@@ -251,7 +267,14 @@ boolInput n = GForm $ do
                 Just "" -> FormSuccess False
                 Just "false" -> FormSuccess False
                 Just _ -> FormSuccess True
-    let xml = [$hamlet|%input#$n$!type=checkbox!name=$n$|]
+    let xml =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
+    %input#$n$!type=checkbox!name=$n$
+|]
     return (res, [xml], UrlEncoded)
 
 dayInput :: String -> FormInput sub master Day
@@ -356,6 +379,11 @@ maybeFileField ffs = toForm $ do
     return (res, fi, Multipart)
 
 fileWidget :: String -> String -> Bool -> GWidget s m ()
-fileWidget theId name isReq = [$hamlet|
+fileWidget theId name isReq =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %input#$theId$!type=file!name=$name$!:isReq:required
 |]

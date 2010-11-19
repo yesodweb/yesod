@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.AtomFeed
@@ -49,7 +50,12 @@ data AtomFeedEntry url = AtomFeedEntry
     }
 
 template :: AtomFeed url -> Hamlet url
-template arg = [$xhamlet|
+template arg =
+#if GHC7
+                [xhamlet|
+#else
+                [$xhamlet|
+#endif
 <?xml version="1.0" encoding="utf-8"?>
 %feed!xmlns="http://www.w3.org/2005/Atom"
     %title $atomTitle.arg$
@@ -62,7 +68,12 @@ template arg = [$xhamlet|
 |]
 
 entryTemplate :: AtomFeedEntry url -> Hamlet url
-entryTemplate arg = [$xhamlet|
+entryTemplate arg =
+#if GHC7
+                [xhamlet|
+#else
+                [$xhamlet|
+#endif
 %entry
     %id @atomEntryLink.arg@
     %link!href=@atomEntryLink.arg@
@@ -75,6 +86,11 @@ entryTemplate arg = [$xhamlet|
 atomLink :: Route m
          -> String -- ^ title
          -> GWidget s m ()
-atomLink u title = addHamletHead [$hamlet|
+atomLink u title = addHamletHead
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %link!href=@u@!type="application/atom+xml"!rel="alternate"!title=$title$
 |]

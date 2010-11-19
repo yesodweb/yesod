@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Sitemap
@@ -51,7 +52,12 @@ data SitemapUrl url = SitemapUrl
     }
 
 template :: [SitemapUrl url] -> Hamlet url
-template urls = [$hamlet|
+template urls =
+#if GHC7
+                [xhamlet|
+#else
+                [$xhamlet|
+#endif
 %urlset!xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
     $forall urls url
         %url
@@ -69,4 +75,5 @@ robots :: Route sub -- ^ sitemap url
        -> GHandler sub master RepPlain
 robots smurl = do
     tm <- getRouteToMaster
-    RepPlain `fmap` hamletToContent [$hamlet|Sitemap: @tm.smurl@|]
+    render <- getUrlRender
+    return $ RepPlain $ toContent $ "Sitemap: " ++ render (tm smurl)

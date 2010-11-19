@@ -73,6 +73,12 @@ import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.HUnit hiding (Test)
 #endif
 
+#if GHC7
+#define HAMLET hamlet
+#else
+#define HAMLET $hamlet
+#endif
+
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
 class Eq (Route y) => YesodSite y where
@@ -117,7 +123,7 @@ class Eq (Route a) => Yesod a where
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
-        hamletToRepHtml [$hamlet|
+        hamletToRepHtml [HAMLET|
 !!!
 %html
     %head
@@ -312,31 +318,56 @@ defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
     let path' = bsToChars $ pathInfo r
-    applyLayout' "Not Found" $ [$hamlet|
+    applyLayout' "Not Found" [hamlet|
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %h1 Not Found
 %p $path'$
 |]
   where
     pathInfo = W.pathInfo
 defaultErrorHandler (PermissionDenied msg) =
-    applyLayout' "Permission Denied" $ [$hamlet|
+    applyLayout' "Permission Denied"
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %h1 Permission denied
 %p $msg$
 |]
 defaultErrorHandler (InvalidArgs ia) =
-    applyLayout' "Invalid Arguments" $ [$hamlet|
+    applyLayout' "Invalid Arguments"
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %h1 Invalid Arguments
 %ul
     $forall ia msg
         %li $msg$
 |]
 defaultErrorHandler (InternalError e) =
-    applyLayout' "Internal Server Error" $ [$hamlet|
+    applyLayout' "Internal Server Error"
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %h1 Internal Server Error
 %p $e$
 |]
 defaultErrorHandler (BadMethod m) =
-    applyLayout' "Bad Method" $ [$hamlet|
+    applyLayout' "Bad Method"
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %h1 Method Not Supported
 %p Method "$m$" not supported
 |]
@@ -416,7 +447,12 @@ widgetToPageContent (GWidget w) = do
                    $ renderJulius render s
                 return $ renderLoc x
 
-    let head'' = [$hamlet|
+    let head'' =
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 $forall scripts s
     %script!src=^s^
 $forall stylesheets s
@@ -490,7 +526,12 @@ caseUtf8JoinPath = do
 -- useful when you need to post a plain link somewhere that needs to cause
 -- changes on the server.
 redirectToPost :: Route master -> GHandler sub master a
-redirectToPost dest = hamletToRepHtml [$hamlet|
+redirectToPost dest = hamletToRepHtml
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 !!!
 %html
     %head

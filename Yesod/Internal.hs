@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
 -- | Normal users should never need access to these.
 module Yesod.Internal
     ( -- * Error responses
@@ -39,6 +40,12 @@ import qualified Data.Text.Encoding.Error as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 
+#if GHC7
+#define HAMLET hamlet
+#else
+#define HAMLET $hamlet
+#endif
+
 -- | Responses to indicate some form of an error occurred. These are different
 -- from 'SpecialResponse' in that they allow for custom error pages.
 data ErrorResponse =
@@ -63,8 +70,8 @@ langKey = "_LANG"
 data Location url = Local url | Remote String
     deriving (Show, Eq)
 locationToHamlet :: Location url -> Hamlet url
-locationToHamlet (Local url) = [$hamlet|@url@|]
-locationToHamlet (Remote s) = [$hamlet|$s$|]
+locationToHamlet (Local url) = [HAMLET|@url@|]
+locationToHamlet (Remote s) = [HAMLET|$s$|]
 
 newtype UniqueList x = UniqueList ([x] -> [x])
 instance Monoid (UniqueList x) where

@@ -3,6 +3,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
 -- | Parse forms (and query strings).
 module Yesod.Form
     ( -- * Data types
@@ -72,7 +73,12 @@ fieldsToPlain = mapFormXml $ mapM_ fiInput
 fieldsToTable :: FormField sub y a -> Form sub y a
 fieldsToTable = mapFormXml $ mapM_ go
   where
-    go fi = [$hamlet|
+    go fi =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %tr.$clazz.fi$
     %td
         %label!for=$fiIdent.fi$ $fiLabel.fi$
@@ -88,7 +94,12 @@ fieldsToTable = mapFormXml $ mapM_ go
 fieldsToDivs :: FormField sub y a -> Form sub y a
 fieldsToDivs = mapFormXml $ mapM_ go
   where
-    go fi = [$hamlet|
+    go fi =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 .$clazz.fi$
     %label!for=$fiIdent.fi$ $fiLabel.fi$
         .tooltip $fiTooltip.fi$
@@ -125,7 +136,14 @@ runFormPost f = do
                 _ -> res
     return (res', xml, enctype, hidden nonce)
   where
-    hidden nonce = [$hamlet|%input!type=hidden!name=$nonceName$!value=$nonce$|]
+    hidden nonce =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
+    %input!type=hidden!name=$nonceName$!value=$nonce$
+|]
 
 nonceName :: String
 nonceName = "_nonce"
@@ -158,7 +176,12 @@ runFormTable :: Route m -> String -> FormField s m a
              -> GHandler s m (FormResult a, GWidget s m ())
 runFormTable dest inputLabel form = do
     (res, widget, enctype, nonce) <- runFormPost $ fieldsToTable form
-    let widget' = [$hamlet|
+    let widget' =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %form!method=post!action=@dest@!enctype=$enctype$
     %table
         ^widget^
@@ -174,7 +197,12 @@ runFormDivs :: Route m -> String -> FormField s m a
             -> GHandler s m (FormResult a, GWidget s m ())
 runFormDivs dest inputLabel form = do
     (res, widget, enctype, nonce) <- runFormPost $ fieldsToDivs form
-    let widget' = [$hamlet|
+    let widget' =
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %form!method=post!action=@dest@!enctype=$enctype$
     ^widget^
     %div
@@ -199,7 +227,14 @@ generateForm :: GForm s m xml a -> GHandler s m (xml, Enctype, Html)
 generateForm f = do
     (_, b, c) <- runFormGeneric [] [] f
     nonce <- fmap reqNonce getRequest
-    return (b, c, [$hamlet|%input!type=hidden!name=$nonceName$!value=$nonce$|])
+    return (b, c,
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
+    %input!type=hidden!name=$nonceName$!value=$nonce$
+|])
 
 -- | Run a form against GET parameters.
 runFormGet :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)

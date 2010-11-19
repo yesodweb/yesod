@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 -- | Provide the user with a rich text editor.
 module Yesod.Form.Nic
     ( YesodNic (..)
@@ -35,9 +36,23 @@ nicHtmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString . sanitizeBalance
     , fpRender = lbsToChars . renderHtml
     , fpWidget = \theId name val _isReq -> do
-        addHtml [$hamlet|%textarea.html#$theId$!name=$name$ $val$|]
+        addHtml
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
+    %textarea.html#$theId$!name=$name$ $val$
+|]
         addScript' urlNicEdit
-        addJulius [$julius|bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("%theId%")});|]
+        addJulius
+#if GHC7
+                [julius|
+#else
+                [$julius|
+#endif
+bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("%theId%")});
+|]
     }
 
 addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()

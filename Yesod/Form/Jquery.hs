@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 -- | Some fields spiced up with jQuery UI.
 module Yesod.Form.Jquery
     ( YesodJquery (..)
@@ -75,13 +76,23 @@ jqueryDayFieldProfile jds = FieldProfile
               . readMay
     , fpRender = show
     , fpWidget = \theId name val isReq -> do
-        addHtml [$hamlet|
+        addHtml
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJulius [$julius|
+        addJulius
+#if GHC7
+                [julius|
+#else
+                [$julius|
+#endif
 $(function(){$("#%theId%").datepicker({
     dateFormat:'yy-mm-dd',
     changeMonth:%jsBool.jdsChangeMonth.jds%,
@@ -133,14 +144,24 @@ jqueryDayTimeFieldProfile = FieldProfile
     { fpParse  = parseUTCTime
     , fpRender = jqueryDayTimeUTCTime
     , fpWidget = \theId name val isReq -> do
-        addHtml [$hamlet|
+        addHtml
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %input#$theId$!name=$name$!:isReq:required!value=$val$
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addScript' urlJqueryUiDateTimePicker
         addStylesheet' urlJqueryUiCss
-        addJulius [$julius|
+        addJulius
+#if GHC7
+                [julius|
+#else
+                [$julius|
+#endif
 $(function(){$("#%theId%").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
 |]
     }
@@ -177,13 +198,23 @@ jqueryAutocompleteFieldProfile src = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val isReq -> do
-        addHtml [$hamlet|
+        addHtml
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %input.autocomplete#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJulius [$julius|
+        addJulius
+#if GHC7
+                [julius|
+#else
+                [$julius|
+#endif
 $(function(){$("#%theId%").autocomplete({source:"@src@",minLength:2})});
 |]
     }

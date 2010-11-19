@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Helpers.Crud
     ( Item (..)
     , Crud (..)
@@ -41,7 +42,12 @@ mkYesodSub "Crud master item"
     , ClassP ''Item [VarT $ mkName "item"]
     , ClassP ''SinglePiece [ConT ''Key `AppT` VarT (mkName "item")]
     , ClassP ''ToForm [VarT $ mkName "item", VarT $ mkName "master"]
-    ] [$parseRoutes|
+    ]
+#if GHC7
+                [parseRoutes|
+#else
+                [$parseRoutes|
+#endif
 /               CrudListR        GET
 /add            CrudAddR         GET POST
 /edit/#String   CrudEditR        GET POST
@@ -55,7 +61,12 @@ getCrudListR = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitle "Items"
-        addWidget [$hamlet|
+        addWidget
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %h1 Items
 %ul
     $forall items item
@@ -115,7 +126,12 @@ getCrudDeleteR s = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitle "Confirm delete"
-        addWidget [$hamlet|
+        addWidget
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %form!method=post!action=@toMaster.CrudDeleteR.s@
     %h1 Really delete?
     %p Do you really want to delete $itemTitle.item$?
@@ -157,7 +173,12 @@ crudHelper title me isPost = do
         _ -> return ()
     defaultLayout $ do
         setTitle $ string title
-        addWidget [$hamlet|
+        addWidget
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
 %p
     %a!href=@toMaster.CrudListR@ Return to list
 %h1 $title$

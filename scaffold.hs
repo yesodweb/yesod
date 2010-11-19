@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 import CodeGen
 import System.IO
 import System.Directory
@@ -9,6 +10,13 @@ import Control.Applicative ((<$>))
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
+
+qq :: String
+#if GHC7
+qq = ""
+#else
+qq = "$"
+#endif
 
 main :: IO ()
 main = do

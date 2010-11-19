@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Form.Profiles
     ( stringFieldProfile
     , textareaFieldProfile
@@ -35,7 +36,12 @@ intFieldProfile :: Integral i => FieldProfile sub y i
 intFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI
     , fpRender = showI
-    , fpWidget = \theId name val isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
 |]
     }
@@ -49,7 +55,12 @@ doubleFieldProfile :: FieldProfile sub y Double
 doubleFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
-    , fpWidget = \theId name val isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     }
@@ -58,7 +69,12 @@ dayFieldProfile :: FieldProfile sub y Day
 dayFieldProfile = FieldProfile
     { fpParse = parseDate
     , fpRender = show
-    , fpWidget = \theId name val isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     }
@@ -67,7 +83,12 @@ timeFieldProfile :: FieldProfile sub y TimeOfDay
 timeFieldProfile = FieldProfile
     { fpParse = parseTime
     , fpRender = show
-    , fpWidget = \theId name val isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %input#$theId$!name=$name$!:isReq:required!value=$val$
 |]
     }
@@ -76,7 +97,12 @@ htmlFieldProfile :: FieldProfile sub y Html
 htmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString . sanitizeBalance
     , fpRender = lbsToChars . renderHtml
-    , fpWidget = \theId name val _isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val _isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %textarea.html#$theId$!name=$name$ $val$
 |]
     }
@@ -102,7 +128,12 @@ textareaFieldProfile :: FieldProfile sub y Textarea
 textareaFieldProfile = FieldProfile
     { fpParse = Right . Textarea
     , fpRender = unTextarea
-    , fpWidget = \theId name val _isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val _isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %textarea#$theId$!name=$name$ $val$
 |]
     }
@@ -111,7 +142,12 @@ hiddenFieldProfile :: FieldProfile sub y String
 hiddenFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
-    , fpWidget = \theId name val _isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val _isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %input!type=hidden#$theId$!name=$name$!value=$val$
 |]
     }
@@ -120,7 +156,12 @@ stringFieldProfile :: FieldProfile sub y String
 stringFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
-    , fpWidget = \theId name val isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     }
@@ -169,7 +210,12 @@ emailFieldProfile = FieldProfile
                         then Right s
                         else Left "Invalid e-mail address"
     , fpRender = id
-    , fpWidget = \theId name val isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %input#$theId$!name=$name$!type=email!:isReq:required!value=$val$
 |]
     }
@@ -180,7 +226,12 @@ urlFieldProfile = FieldProfile
                         Nothing -> Left "Invalid URL"
                         Just _ -> Right s
     , fpRender = id
-    , fpWidget = \theId name val isReq -> addHamlet [$hamlet|
+    , fpWidget = \theId name val isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %input#$theId$!name=$name$!type=url!:isReq:required!value=$val$
 |]
     }
