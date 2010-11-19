@@ -55,7 +55,6 @@ import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Failure (Failure)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
-import qualified Network.Wai.Middleware.CleanPath
 import qualified Data.ByteString.Lazy as L
 import Data.Monoid
 import Control.Monad.Trans.Writer
@@ -64,7 +63,6 @@ import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 import Web.Routes
-import Network.URI (unEscapeString)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -207,18 +205,18 @@ class Eq (Route a) => Yesod a where
         -- | Add a trailing slash if it is missing. Empty string is left alone.
         ats :: String -> String
         ats [] = []
-        ats s =
-            if last s == '/' || dbs (reverse s)
-                then s
-                else s ++ "/"
+        ats t =
+            if last t == '/' || dbs (reverse t)
+                then t
+                else t ++ "/"
 
         -- | Remove a trailing slash if the last piece has a period.
         rts :: String -> String
         rts [] = []
-        rts s =
-            if last s == '/' && dbs (tail $ reverse s)
-                then init s
-                else s
+        rts t =
+            if last t == '/' && dbs (tail $ reverse t)
+                then init t
+                else t
 
         -- | Is there a period before a slash here?
         dbs :: String -> Bool
@@ -239,8 +237,8 @@ class Eq (Route a) => Yesod a where
             | anyButLast (== '.') x = [x]
             | otherwise = [x, ""] -- append trailing slash
         fixSegs (x:xs) = x : fixSegs xs
-        anyButLast p [] = False
-        anyButLast p [_] = False
+        anyButLast _ [] = False
+        anyButLast _ [_] = False
         anyButLast p (x:xs) = p x || anyButLast p xs
 
     -- | This function is used to store some static content to be served as an
@@ -317,8 +315,8 @@ applyLayout' title body = fmap chooseRep $ defaultLayout $ do
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    let path' = bsToChars $ pathInfo r
-    applyLayout' "Not Found" [hamlet|
+    let path' = bsToChars $ W.pathInfo r
+    applyLayout' "Not Found"
 #if GHC7
         [hamlet|
 #else
@@ -327,8 +325,6 @@ defaultErrorHandler NotFound = do
 %h1 Not Found
 %p $path'$
 |]
-  where
-    pathInfo = W.pathInfo
 defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied"
 #if GHC7
