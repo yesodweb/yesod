@@ -33,6 +33,7 @@ executable         simple-server
                  , template-haskell
                  , hamlet
                  , web-routes
+                 , hjsmin       >= 0.0.4   && < 0.1
     ghc-options:   -Wall
     extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 

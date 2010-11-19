@@ -27,10 +27,11 @@ import Database.Persist.GenericSql
 import Settings (hamletFile, cassiusFile, juliusFile, widgetFile)
 import Model
 import Data.Maybe (isJust)
-import Control.Monad (join)
+import Control.Monad (join, unless)
 import Network.Mail.Mime
 import qualified Data.Text.Lazy
 import qualified Data.Text.Lazy.Encoding
+import Text.Jasmine (minifym)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -109,9 +110,17 @@ instance Yesod ~sitearg~ where
     -- users receiving stale content.
     addStaticContent ext' _ content = do
         let fn = base64md5 content ++ '.' : ext'
+        let content' =
+                if ext' == "js"
+                    then case minifym content of
+                            Left _ -> content
+                            Right y -> y
+                    else content
         let statictmp = Settings.staticdir ++ "/tmp/"
         liftIO $ createDirectoryIfMissing True statictmp
-        liftIO $ L.writeFile (statictmp ++ fn) content
+        let fn' = statictmp ++ fn
+        exists <- liftIO $ doesFileExist fn'
+        unless exists $ liftIO $ L.writeFile fn' content'
         return $ Just $ Right (StaticR $ StaticRoute ["tmp", fn] [], [])
 
 -- How to run database actions.
