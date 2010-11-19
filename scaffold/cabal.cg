@@ -28,7 +28,7 @@ executable         simple-server
                  , directory
                  , bytestring
                  , text
-                 , persistent
+                 , persistent   >= 0.3.1.1
                  , persistent-~lower~
                  , template-haskell
                  , hamlet

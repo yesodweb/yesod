@@ -11,12 +11,12 @@ import Database.Persist.GenericSql (mkMigrate)
 share2 mkPersist (mkMigrate "migrateAll") [~qq~persist|
 User
     ident String
-    password String null update
+    password String Maybe Update
     UniqueUser ident
 Email
     email String
-    user UserId null update
-    verkey String null update
+    user UserId Maybe Update
+    verkey String Maybe Update
     UniqueEmail email
 |]
 
