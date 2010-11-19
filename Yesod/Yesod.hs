@@ -54,6 +54,7 @@ import Database.Persist
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Failure (Failure)
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Char8 as S8
 import qualified Network.Wai.Middleware.CleanPath
 import qualified Data.ByteString.Lazy as L
 import Data.Monoid
@@ -63,6 +64,7 @@ import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 import Web.Routes
+import Network.URI (unEscapeString)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -179,7 +181,46 @@ class Eq (Route a) => Yesod a where
     --
     -- * Otherwise, ensures there /is/ a trailing slash.
     splitPath :: a -> S.ByteString -> Either S.ByteString [String]
-    splitPath _ = Network.Wai.Middleware.CleanPath.splitPath
+    splitPath _ s =
+        if corrected == s
+            then Right $ filter (not . null)
+                       $ decodePathInfo
+                       $ S8.unpack s
+            else Left corrected
+      where
+        corrected = S8.pack $ rts $ ats $ rds $ S8.unpack s
+
+        -- | Remove double slashes
+        rds :: String -> String
+        rds [] = []
+        rds [x] = [x]
+        rds (a:b:c)
+            | a == '/' && b == '/' = rds (b:c)
+            | otherwise = a : rds (b:c)
+
+        -- | Add a trailing slash if it is missing. Empty string is left alone.
+        ats :: String -> String
+        ats [] = []
+        ats s =
+            if last s == '/' || dbs (reverse s)
+                then s
+                else s ++ "/"
+
+        -- | Remove a trailing slash if the last piece has a period.
+        rts :: String -> String
+        rts [] = []
+        rts s =
+            if last s == '/' && dbs (tail $ reverse s)
+                then init s
+                else s
+
+        -- | Is there a period before a slash here?
+        dbs :: String -> Bool
+        dbs ('/':_) = False
+        dbs (_:'.':_) = True
+        dbs (_:x) = dbs x
+        dbs [] = False
+
 
     -- | Join the pieces of a path together into an absolute URL. This should
     -- be the inverse of 'splitPath'.
@@ -189,9 +230,12 @@ class Eq (Route a) => Yesod a where
       where
         fixSegs [] = []
         fixSegs [x]
-            | any (== '.') x = [x]
+            | anyButLast (== '.') x = [x]
             | otherwise = [x, ""] -- append trailing slash
         fixSegs (x:xs) = x : fixSegs xs
+        anyButLast p [] = False
+        anyButLast p [_] = False
+        anyButLast p (x:xs) = p x || anyButLast p xs
 
     -- | This function is used to store some static content to be served as an
     -- external file. The most common case of this is stashing CSS and
@@ -395,6 +439,7 @@ $maybe jscript j
 testSuite :: Test
 testSuite = testGroup "Yesod.Yesod"
     [ testProperty "join/split path" propJoinSplitPath
+    , testCase "join/split path [\".\"]" caseJoinSplitPathDquote
     , testCase "utf8 split path" caseUtf8SplitPath
     , testCase "utf8 join path" caseUtf8JoinPath
     ]
@@ -410,6 +455,17 @@ propJoinSplitPath ss =
         == Right ss'
   where
     ss' = filter (not . null) ss
+
+caseJoinSplitPathDquote :: Assertion
+caseJoinSplitPathDquote = do
+    splitPath TmpYesod (BSU.fromString "/x%2E/") @?= Right ["x."]
+    splitPath TmpYesod (BSU.fromString "/y./") @?= Right ["y."]
+    joinPath TmpYesod "" ["z."] [] @?= "/z./"
+    x @?= Right ss
+  where
+    x = splitPath TmpYesod (BSU.fromString $ joinPath TmpYesod "" ss' [])
+    ss' = filter (not . null) ss
+    ss = ["a."]
 
 caseUtf8SplitPath :: Assertion
 caseUtf8SplitPath = do
