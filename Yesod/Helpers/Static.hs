@@ -153,9 +153,11 @@ staticFiles fp = do
     fs <- qRunIO $ getFileList fp
     concat `fmap` mapM go fs
   where
-    replace' '.' = '_'
-    replace' '-' = '_'
-    replace' c = c
+    replace' c
+        | 'A' <= c && c <= 'Z' = c
+        | 'a' <= c && c <= 'z' = c
+        | '0' <= c && c <= '9' = c
+        | otherwise = '_'
     go f = do
         let name = mkName $ intercalate "_" $ map (map replace') f
         f' <- lift f
