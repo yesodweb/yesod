@@ -4,6 +4,7 @@
 {-# LANGUAGE CPP #-}
 module Yesod.Form.Profiles
     ( stringFieldProfile
+    , passwordFieldProfile
     , textareaFieldProfile
     , hiddenFieldProfile
     , intFieldProfile
@@ -163,6 +164,20 @@ stringFieldProfile = FieldProfile
         [$hamlet|
 #endif
 %input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
+|]
+    }
+
+passwordFieldProfile :: FieldProfile s m String
+passwordFieldProfile = FieldProfile
+    { fpParse = Right
+    , fpRender = id
+    , fpWidget = \theId name val isReq -> addHamlet
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
+%input#$theId$!name=$name$!type=password!:isReq:required!value=$val$
 |]
     }
 

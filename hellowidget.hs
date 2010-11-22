@@ -61,7 +61,7 @@ getRootR = defaultLayout $ wrapper $ do
     addHtmlHead [$hamlet|%meta!keywords=haskell|]
 
 handleFormR = do
-    (res, form, enctype, hidden) <- runFormPost $ fieldsToTable $ (,,,,,,,,,,)
+    (res, form, enctype, hidden) <- runFormPost $ fieldsToTable $ (,,,,,,,,,,,)
         <$> stringField (FormFieldSettings "My Field" "Some tooltip info" Nothing Nothing) Nothing
         <*> stringField ("Another field") (Just "some default text")
         <*> intField (FormFieldSettings "A number field" "some nums" Nothing Nothing) (Just 5)
@@ -85,11 +85,12 @@ handleFormR = do
         <*> maybeEmailField ("An e-mail addres") Nothing
         <*> maybeTextareaField "A text area" Nothing
         <*> maybeFileField "Any file"
+        <*> maybePasswordField "Enter a password" Nothing
     let (mhtml, mfile) = case res of
-                    FormSuccess (_, _, _, _, _, _, _, x, _, _, y) -> (Just x, y)
+                    FormSuccess (_, _, _, _, _, _, _, x, _, _, y, _) -> (Just x, y)
                     _ -> (Nothing, Nothing)
     let txt = case res of
-                    FormSuccess (_, _, _, _, _, _, _, _, _, Just x, _) -> Just x
+                    FormSuccess (_, _, _, _, _, _, _, _, _, Just x, _, _) -> Just x
                     _ -> Nothing
     defaultLayout $ do
         addCassius [$cassius|

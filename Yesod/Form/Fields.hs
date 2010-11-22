@@ -6,6 +6,7 @@ module Yesod.Form.Fields
     ( -- * Fields
       -- ** Required
       stringField
+    , passwordField
     , textareaField
     , hiddenField
     , intField
@@ -20,6 +21,7 @@ module Yesod.Form.Fields
     , fileField
       -- ** Optional
     , maybeStringField
+    , maybePasswordField
     , maybeTextareaField
     , maybeHiddenField
     , maybeIntField
@@ -64,6 +66,14 @@ stringField = requiredFieldHelper stringFieldProfile
 maybeStringField :: (IsForm f, FormType f ~ Maybe String)
                  => FormFieldSettings -> Maybe (Maybe String) -> f
 maybeStringField = optionalFieldHelper stringFieldProfile
+
+passwordField :: (IsForm f, FormType f ~ String)
+              => FormFieldSettings -> Maybe String -> f
+passwordField = requiredFieldHelper passwordFieldProfile
+
+maybePasswordField :: (IsForm f, FormType f ~ Maybe String)
+                   => FormFieldSettings -> Maybe (Maybe String) -> f
+maybePasswordField = optionalFieldHelper passwordFieldProfile
 
 intInput :: Integral i => String -> FormInput sub master i
 intInput n =
