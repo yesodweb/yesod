@@ -10,7 +10,9 @@ module Yesod.Dispatch
     , mkYesodSub
       -- ** More fine-grained
     , mkYesodData
+    , mkYesodSubData
     , mkYesodDispatch
+    , mkYesodSubDispatch 
       -- ** Path pieces
     , SinglePiece (..)
     , MultiPiece (..)
@@ -112,8 +114,15 @@ mkYesodSub name clazzes =
 -- monolithic file into smaller parts. Use this function, paired with
 -- 'mkYesodDispatch', to do just that.
 mkYesodData :: String -> [Resource] -> Q [Dec]
-mkYesodData name res = do
-    (x, _) <- mkYesodGeneral name [] [] False res
+mkYesodData name res = mkYesodDataGeneral name [] False res
+
+mkYesodSubData :: String -> Cxt -> [Resource] -> Q [Dec]
+mkYesodSubData name clazzes res = mkYesodDataGeneral name clazzes True res
+
+mkYesodDataGeneral :: String -> Cxt -> Bool -> [Resource] -> Q [Dec]
+mkYesodDataGeneral name clazzes isSub res = do
+    let (name':rest) = words name
+    (x, _) <- mkYesodGeneral name' rest clazzes isSub res
     let rname = mkName $ "resources" ++ name
     eres <- lift res
     let y = [ SigD rname $ ListT `AppT` ConT ''Resource
@@ -124,6 +133,10 @@ mkYesodData name res = do
 -- | See 'mkYesodData'.
 mkYesodDispatch :: String -> [Resource] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
+
+mkYesodSubDispatch :: String -> Cxt -> [Resource] -> Q [Dec]
+mkYesodSubDispatch name clazzes = fmap snd . mkYesodGeneral name' rest clazzes True 
+  where (name':rest) = words name
 
 mkYesodGeneral :: String -- ^ argument name
                -> [String] -- ^ parameters for site argument
