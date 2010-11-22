@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Helpers.Auth.Rpxnow
     ( authRpxnow
     ) where
@@ -17,7 +18,12 @@ authRpxnow app apiKey =
   where
     login tm = do
         let url = {- FIXME urlEncode $ -} tm $ PluginR "rpxnow" []
-        addHamlet [$hamlet|
+        addHamlet
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 %iframe!src="http://$app$.rpxnow.com/openid/embed?token_url=@url@"!scrolling=no!frameBorder=no!allowtransparency=true!style="width:400px;height:240px"
 |]
     dispatch _ [] = do

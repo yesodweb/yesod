@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Helpers.Auth.OpenId
     ( authOpenId
     , forwardUrl
@@ -20,12 +21,22 @@ authOpenId =
     name = "openid_identifier"
     login tm = do
         ident <- newIdent
-        addCassius [$cassius|
-#$ident$
+        addCassius
+#if GHC7
+            [cassius|
+#else
+            [$cassius|
+#endif
+  #$ident$
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
-        addHamlet [$hamlet|
+        addHamlet
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 %form!method=get!action=@tm.forwardUrl@
     %label!for=openid OpenID: $
     %input#$ident$!type=text!name=$name$!value="http://"

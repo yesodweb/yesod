@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Helpers.Auth
     ( -- * Subsite
       Auth
@@ -73,11 +74,17 @@ class Yesod m => YesodAuth m where
 
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
-    ] [$parseRoutes|
+    ]
+#define STRINGS *Strings
+#if GHC7
+    [parseRoutes|
+#else
+    [$parseRoutes|
+#endif
 /check                 CheckR      GET
 /login                 LoginR      GET
 /logout                LogoutR     GET POST
-/page/#String/*Strings PluginR
+/page/#String/STRINGS PluginR
 |]
 
 credsKey :: String
@@ -94,7 +101,13 @@ setCreds doRedirects creds = do
                 then do
                     case authRoute y of
                         Nothing -> do
-                            rh <- defaultLayout [$hamlet|%h1 Invalid login|]
+                            rh <- defaultLayout
+#if GHC7
+                                [hamlet|
+#else
+                                [$hamlet|
+#endif
+                                %h1 Invalid login|]
                             sendResponse rh
                         Just ar -> do
                             setMessage $ string "Invalid login"
@@ -115,7 +128,12 @@ getCheckR = do
         setTitle $ string "Authentication Status"
         addHtml $ html creds) (json creds)
   where
-    html creds = [$hamlet|
+    html creds =
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %h1 Authentication Status
 $maybe creds _
     %p Logged in.

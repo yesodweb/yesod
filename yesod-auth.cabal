@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.2.0.1
+version:         0.2.0.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -11,9 +11,15 @@ cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://docs.yesodweb.com/
 
+flag ghc7
+
 library
-    build-depends:   base                    >= 4         && < 5
-                   , authenticate            >= 0.7       && < 0.8
+    if flag(ghc7)
+        build-depends:   base                      >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base                      >= 4        && < 4.3
+    build-depends:   authenticate            >= 0.7       && < 0.8
                    , bytestring              >= 0.9.1.4   && < 0.10
                    , yesod                   >= 0.6       && < 0.7
                    , wai                     >= 0.2       && < 0.3

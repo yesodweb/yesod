@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Helpers.Auth.Email
     ( authEmail
     , YesodAuthEmail (..)
@@ -62,22 +63,12 @@ class YesodAuth m => YesodAuthEmail m where
 
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
-    AuthPlugin "email" dispatch login'
-  where
-    go x = x >>= sendResponse
-    dispatch "GET" ["register"] = go getRegisterR
-    dispatch "POST" ["register"] = go postRegisterR
-    dispatch "GET" ["verify", eid, verkey] = do
-        y <- getYesod
-        case readAuthEmailId y eid of
-            Nothing -> notFound
-            Just eid' -> go $ getVerifyR eid' verkey
-    dispatch "POST" ["login"] = go postLoginR
-    dispatch "GET" ["set-password"] = go getPasswordR
-    dispatch "POST" ["set-password"] = go postPasswordR
-    dispatch _ _ = notFound
-
-    login' tm = [$hamlet|
+    AuthPlugin "email" dispatch $ \tm ->
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %form!method=post!action=@tm.login@
     %table
         %tr
@@ -93,13 +84,30 @@ authEmail =
                 %input!type=submit!value="Login via email"
                 %a!href=@tm.register@ I don't have an account
 |]
+  where
+    dispatch "GET" ["register"] = getRegisterR >>= sendResponse
+    dispatch "POST" ["register"] = postRegisterR >>= sendResponse
+    dispatch "GET" ["verify", eid, verkey] = do
+        y <- getYesod
+        case readAuthEmailId y eid of
+            Nothing -> notFound
+            Just eid' -> getVerifyR eid' verkey >>= sendResponse
+    dispatch "POST" ["login"] = postLoginR >>= sendResponse
+    dispatch "GET" ["set-password"] = getPasswordR >>= sendResponse
+    dispatch "POST" ["set-password"] = postPasswordR >>= sendResponse
+    dispatch _ _ = notFound
 
 getRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
 getRegisterR = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitle $ string "Register a new account"
-        addHamlet [$hamlet|
+        addHamlet
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 %p Enter your e-mail address below, and a confirmation e-mail will be sent to you.
 %form!method=post!action=@toMaster.register@
     %label!for=email E-mail
@@ -129,7 +137,12 @@ postRegisterR = do
     sendVerifyEmail email verKey verUrl
     defaultLayout $ do
         setTitle $ string "Confirmation e-mail sent"
-        addWidget [$hamlet|
+        addWidget
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 %p A confirmation e-mail has been sent to $email$.
 |]
 
@@ -151,7 +164,12 @@ getVerifyR lid key = do
         _ -> return ()
     defaultLayout $ do
         setTitle $ string "Invalid verification key"
-        addHtml [$hamlet|
+        addHtml
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 %p I'm sorry, but that was an invalid verification key.
 |]
 
@@ -191,7 +209,12 @@ getPasswordR = do
             redirect RedirectTemporary $ toMaster login
     defaultLayout $ do
         setTitle $ string "Set password"
-        addHamlet [$hamlet|
+        addHamlet
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 %h3 Set a new password
 %form!method=post!action=@toMaster.setpass@
     %table

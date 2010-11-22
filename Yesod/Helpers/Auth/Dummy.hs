@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE CPP #-}
 -- | Provides a dummy authentication module that simply lets a user specify
 -- his/her identifier. This is not intended for real world use, just for
 -- testing.
@@ -18,7 +19,12 @@ authDummy =
         setCreds True $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
-    login authToMaster = [$hamlet|
+    login authToMaster =
+#if GHC7
+        [hamlet|
+#else
+        [$hamlet|
+#endif
 %form!method=post!action=@authToMaster.url@
     Your new identifier is: $
     %input!type=text!name=ident

@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Helpers.Auth.Facebook
     ( authFacebook
     , facebookUrl
@@ -53,7 +54,12 @@ authFacebook cid secret perms =
         render <- liftHandler getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
-        addHtml [$hamlet|
+        addHtml
+#if GHC7
+            [hamlet|
+#else
+            [$hamlet|
+#endif
 %p
     %a!href=$furl$ Login with Facebook
 |]
