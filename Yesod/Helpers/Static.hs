@@ -105,6 +105,52 @@ fileLookupDir dir = Static $ \fp -> do
         then return $ Just $ Left fp'
         else return Nothing
 
+-- | Lookup files in a specific directory, and embed them into the haskell source.
+--
+-- A variation of fileLookupDir which allows subsites distributed via cabal to include
+-- static content.  You can still use staticFiles to generate route identifiers.  See getStaticHandler
+-- for dispatching static content for a subsite.
+mkEmbedFiles :: FilePath -> Q Exp
+mkEmbedFiles d = do
+    fs <- qRunIO $ getFileList d
+    clauses <- mapM (mkClause . intercalate "/") fs
+    defC <- defaultClause
+    return $ static $ clauses ++ [defC]
+  where static clauses = LetE [fun clauses] $ ConE 'Static `AppE` VarE f
+        f = mkName "f"
+        fun clauses = FunD f clauses
+        defaultClause = do
+          b <- [| return Nothing |]
+          return $ Clause [WildP] (NormalB b) []
+
+        mkClause path = do
+          content <- qRunIO $ readFile $ d ++ '/':path
+          let pat = LitP $ StringL path
+              foldAppE = foldl1 AppE
+              content' = return $ LitE $ StringL $ content
+          body <- normalB [| return $ Just $ Right $ toContent ($content' :: [Char]) |]
+          return $ Clause [pat] body []
+
+-- | Dispatch static route for a subsite
+--
+-- Subsites with static routes can't (yet) define Static routes the same way "master" sites can.
+-- Instead of a subsite route:
+-- /static StaticR Static getStatic
+-- Use a normal route:
+-- /static/*Strings StaticR GET
+--
+-- Then, define getStaticR something like:
+-- getStaticR = getStaticHandler ($(mkEmbedFiles "static") typeByExt) StaticR
+-- */ end CPP comment
+getStaticHandler :: Static -> (StaticRoute -> Route sub) -> [String] -> GHandler sub y ChooseRep
+getStaticHandler static toSubR pieces = do
+  toMasterR <- getRouteToMaster   
+  toMasterHandler (toMasterR . toSubR) toSub route handler
+  where route = StaticRoute pieces []
+        toSub _ = static
+        staticSite = getSubSite :: Site (Route Static) (String -> Maybe (GHandler Static y ChooseRep))
+        handler = fromMaybe notFound $ handleSite staticSite undefined route "GET"
+
 getStaticRoute :: [String]
                -> GHandler Static master (ContentType, Content)
 getStaticRoute fp' = do
