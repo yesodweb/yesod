@@ -44,6 +44,7 @@ import Data.Maybe (fromMaybe)
 
 import Yesod hiding (lift)
 import Data.List (intercalate)
+import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 import Web.Routes
 
