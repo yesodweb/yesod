@@ -77,6 +77,7 @@ module Yesod.Handler
     , runHandler
     , YesodApp (..)
     , toMasterHandler
+    , toMasterHandlerDyn
     , toMasterHandlerMaybe
     , localNoCurrent
     , HandlerData
@@ -165,6 +166,15 @@ toMasterHandler :: (Route sub -> Route master)
                 -> GHandler sub' master a
 toMasterHandler tm ts route (GHandler h) =
     GHandler $ withReaderT (handlerSubData tm ts route) h
+
+toMasterHandlerDyn :: (Route sub -> Route master)
+                   -> GHandler sub' master sub
+                   -> Route sub
+                   -> GHandler sub master a
+                   -> GHandler sub' master a
+toMasterHandlerDyn tm getSub route (GHandler h) = do
+    sub <- getSub
+    GHandler $ withReaderT (handlerSubData tm (const sub) route) h
 
 toMasterHandlerMaybe :: (Route sub -> Route master)
                      -> (master -> sub)

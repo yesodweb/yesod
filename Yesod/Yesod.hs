@@ -87,6 +87,8 @@ type Method = String
 -- to deal with it directly, as the mkYesodSub creates instances appropriately.
 class Eq (Route s) => YesodSubSite s y where
     getSubSite :: Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
+    getSiteFromSubSite :: s -> Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
+    getSiteFromSubSite _ = getSubSite
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.

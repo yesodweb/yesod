@@ -162,7 +162,7 @@ mkYesodGeneral name args clazzes isSub res = do
     render'' <- newName "render"
     let render = LetE [FunD render'' render'] $ VarE render''
 
-    tmh <- [|toMasterHandler|]
+    tmh <- [|toMasterHandlerDyn|]
     modMaster <- [|fmap chooseRep|]
     dispatch' <- createDispatch modMaster tmh th
     dispatch'' <- newName "dispatch"
@@ -188,10 +188,11 @@ fromStatic (StaticPiece s) = s
 fromStatic _ = error "fromStatic"
 
 thResourceFromResource :: Type -> Resource -> Q THResource
-thResourceFromResource _ (Resource n ps attribs)
-    | all (all isUpper) attribs = return (n, Simple ps attribs)
+thResourceFromResource _ (Resource n ps atts)
+    | all (all isUpper) atts = return (n, Simple ps atts)
 thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
-    | all isStatic ps && any (any isLower) atts = do
+    -- static route to subsite
+    = do
         let stype' = ConT $ mkName stype
         gss <- [|getSubSite|]
         let inside = ConT ''Maybe `AppT`
@@ -213,8 +214,9 @@ thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
             , ssRender = render
             , ssDispatch = dispatch
             , ssToMasterArg = VarE $ mkName toSubArg
-            , ssPieces = map fromStatic ps
+            , ssPieces = ps
             })
+
 thResourceFromResource _ (Resource n _ _) =
     error $ "Invalid attributes for resource: " ++ n
 
