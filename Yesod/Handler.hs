@@ -48,6 +48,8 @@ module Yesod.Handler
       -- ** Short-circuit responses.
     , sendFile
     , sendResponse
+    , sendResponseStatus
+    , sendResponseCreated
       -- * Setting headers
     , setCookie
     , deleteCookie
@@ -110,6 +112,7 @@ import Text.Hamlet
 import Control.Monad.Invert (MonadInvertIO (..))
 import Control.Monad (liftM)
 import qualified Data.Map as Map
+import qualified Data.ByteString.Char8 as S8
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -217,10 +220,11 @@ newtype YesodApp = YesodApp
     }
 
 data HandlerContents =
-      HCContent ChooseRep
+      HCContent W.Status ChooseRep
     | HCError ErrorResponse
     | HCSendFile ContentType FilePath
     | HCRedirect RedirectType String
+    | HCCreated String
 
 instance Failure ErrorResponse (GHandler sub master) where
     failure = GHandler . lift . throwMEither . HCError
@@ -285,7 +289,7 @@ runHandler handler mrender sroute tomr ma tosa =
       $ flip runReaderT hd
       $ unGHandler handler
         ) (\e -> return ((MLeft $ HCError $ toErrorHandler e, id), initSession))
-    let contents = meither id (HCContent . chooseRep) contents'
+    let contents = meither id (HCContent W.status200 . chooseRep) contents'
     let handleError e = do
             (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts finalSession
             let hs' = headers hs
@@ -293,9 +297,9 @@ runHandler handler mrender sroute tomr ma tosa =
     let sendFile' ct fp =
             return (W.status200, headers [], ct, W.ResponseFile fp, finalSession)
     case contents of
-        HCContent a -> do
+        HCContent status a -> do
             (ct, c) <- chooseRep a cts
-            return (W.status200, headers [], ct, c, finalSession)
+            return (status, headers [], ct, c, finalSession)
         HCError e -> handleError e
         HCRedirect rt loc -> do
             let hs = Header "Location" loc : headers []
@@ -304,6 +308,11 @@ runHandler handler mrender sroute tomr ma tosa =
         HCSendFile ct fp -> E.catch
             (sendFile' ct fp)
             (handleError . toErrorHandler)
+        HCCreated loc -> do
+            let hs = Header "Location" loc : headers []
+            return (W.Status 201 (S8.pack "Created"), hs, typePlain,
+                    emptyContent,
+                    finalSession)
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ session -> do
@@ -395,9 +404,24 @@ getMessage = do
 sendFile :: ContentType -> FilePath -> GHandler sub master a
 sendFile ct = GHandler . lift . throwMEither . HCSendFile ct
 
--- | Bypass remaining handler code and output the given content.
+-- | Bypass remaining handler code and output the given content with a 200
+-- status code.
 sendResponse :: HasReps c => c -> GHandler sub master a
-sendResponse = GHandler . lift . throwMEither . HCContent . chooseRep
+sendResponse = GHandler . lift . throwMEither . HCContent W.status200
+             . chooseRep
+
+-- | Bypass remaining handler code and output the given content with the given
+-- status code.
+sendResponseStatus :: HasReps c => W.Status -> c -> GHandler s m a
+sendResponseStatus s = GHandler . lift . throwMEither . HCContent s
+                     . chooseRep
+
+-- | Send a 201 "Created" response with the given route as the Location
+-- response header.
+sendResponseCreated :: Route m -> GHandler s m a
+sendResponseCreated url = do
+    r <- getUrlRender
+    GHandler $ lift $ throwMEither $ HCCreated $ r url
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
