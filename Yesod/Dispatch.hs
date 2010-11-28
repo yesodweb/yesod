@@ -208,17 +208,31 @@ thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
         let render = render' `AppE` gss'
         dispatch' <- [|flip handleSite (error "Cannot use subsite render function")|]
         let dispatch = dispatch' `AppE` gss'
+        tmg <- mkToMasterArg ps toSubArg
         return (n, SubSite
             { ssType = ConT ''Route `AppT` stype'
             , ssParse = parse
             , ssRender = render
             , ssDispatch = dispatch
-            , ssToMasterArg = VarE $ mkName toSubArg
+            , ssToMasterArg = tmg
             , ssPieces = ps
             })
 
+
 thResourceFromResource _ (Resource n _ _) =
     error $ "Invalid attributes for resource: " ++ n
+
+mkToMasterArg :: [Piece] -> String -> Q Exp
+mkToMasterArg ps fname = do
+  let nargs = length $ filter (not.isStatic) ps
+      f = VarE $ mkName fname
+  args <- sequence $ take nargs $ repeat $ newName "x"
+  rsg <- [| runSubsiteGetter|]
+  let xps = map VarP args
+      xes = map VarE args
+      e' = foldl (\x y -> x `AppE` y) f xes
+      e = rsg `AppE` e'
+  return $ LamE xps e
 
 sessionName :: String
 sessionName = "_SESSION"

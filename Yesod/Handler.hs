@@ -8,6 +8,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FunctionalDependencies #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -76,6 +77,7 @@ module Yesod.Handler
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
+    , SubsiteGetter(..)
     , toMasterHandler
     , toMasterHandlerDyn
     , toMasterHandlerMaybe
@@ -175,6 +177,20 @@ toMasterHandlerDyn :: (Route sub -> Route master)
 toMasterHandlerDyn tm getSub route (GHandler h) = do
     sub <- getSub
     GHandler $ withReaderT (handlerSubData tm (const sub) route) h
+
+class SubsiteGetter g m s | g -> s where
+  runSubsiteGetter :: g -> m s
+
+instance (master ~ master'
+         ) => SubsiteGetter (master -> sub) (GHandler anySub master') sub where
+  runSubsiteGetter get = do 
+    y <- getYesod
+    return $ get y
+
+instance (anySub ~ anySub'
+         ,master ~ master'
+         ) => SubsiteGetter (GHandler anySub master sub) (GHandler anySub' master') sub where
+  runSubsiteGetter = id
 
 toMasterHandlerMaybe :: (Route sub -> Route master)
                      -> (master -> sub)
