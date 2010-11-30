@@ -28,7 +28,7 @@ import Network.URI (parseURI)
 import Database.Persist (PersistField)
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 
-import Blaze.ByteString.Builder.Char.Utf8 (writeChar)
+import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (fromWrite4List, writeByteString)
 
 import Yesod.Internal (lbsToChars)
@@ -117,13 +117,8 @@ instance ToHtml Textarea where
         Html . fromWrite4List writeHtmlEscapedChar . unTextarea
       where
         -- Taken from blaze-builder and modified with newline handling.
-        writeHtmlEscapedChar '<'  = writeByteString "&lt;"
-        writeHtmlEscapedChar '>'  = writeByteString "&gt;"
-        writeHtmlEscapedChar '&'  = writeByteString "&amp;"
-        writeHtmlEscapedChar '"'  = writeByteString "&quot;"
-        writeHtmlEscapedChar '\'' = writeByteString "&apos;"
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
-        writeHtmlEscapedChar c    = writeChar c
+        writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
 textareaFieldProfile :: FieldProfile sub y Textarea
 textareaFieldProfile = FieldProfile
