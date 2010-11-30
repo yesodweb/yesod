@@ -187,8 +187,8 @@ runFormTable dest inputLabel form = do
         ^widget^
         %tr
             %td!colspan=2
-            $nonce$
-            %input!type=submit!value=$inputLabel$
+                $nonce$
+                %input!type=submit!value=$inputLabel$
 |]
     return (res, widget')
 
