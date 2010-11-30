@@ -49,7 +49,6 @@ module Yesod.Handler
     , sendFile
     , sendResponse
     , sendResponseStatus
-    , sendResponseCreated
       -- * Setting headers
     , setCookie
     , deleteCookie
@@ -415,13 +414,6 @@ sendResponse = GHandler . lift . throwMEither . HCContent W.status200
 sendResponseStatus :: HasReps c => W.Status -> c -> GHandler s m a
 sendResponseStatus s = GHandler . lift . throwMEither . HCContent s
                      . chooseRep
-
--- | Send a 201 "Created" response with the given route as the Location
--- response header.
-sendResponseCreated :: Route m -> GHandler s m a
-sendResponseCreated url = do
-    r <- getUrlRender
-    GHandler $ lift $ throwMEither $ HCCreated $ r url
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
