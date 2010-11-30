@@ -53,6 +53,6 @@ executable         fastcgi
         Buildable: False
     cpp-options:   -DPRODUCTION
     main-is:       fastcgi.hs
-    ghc-options:   -Wall
+    ghc-options:   -Wall -threaded
     extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 
