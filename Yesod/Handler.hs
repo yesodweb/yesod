@@ -77,7 +77,7 @@ module Yesod.Handler
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
-    , SubsiteGetter(..)
+    , runSubsiteGetter
     , toMasterHandler
     , toMasterHandlerDyn
     , toMasterHandlerMaybe
@@ -183,9 +183,9 @@ class SubsiteGetter g m s | g -> s where
 
 instance (master ~ master'
          ) => SubsiteGetter (master -> sub) (GHandler anySub master') sub where
-  runSubsiteGetter get = do 
+  runSubsiteGetter getter = do
     y <- getYesod
-    return $ get y
+    return $ getter y
 
 instance (anySub ~ anySub'
          ,master ~ master'

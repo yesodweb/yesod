@@ -62,7 +62,7 @@ import Control.Monad
 import Data.Maybe
 import Web.ClientSession
 import qualified Web.ClientSession as CS
-import Data.Char (isLower, isUpper)
+import Data.Char (isUpper)
 
 import Data.Serialize
 import qualified Data.Serialize as Ser
@@ -183,14 +183,10 @@ isStatic :: Piece -> Bool
 isStatic StaticPiece{} = True
 isStatic _ = False
 
-fromStatic :: Piece -> String
-fromStatic (StaticPiece s) = s
-fromStatic _ = error "fromStatic"
-
 thResourceFromResource :: Type -> Resource -> Q THResource
 thResourceFromResource _ (Resource n ps atts)
     | all (all isUpper) atts = return (n, Simple ps atts)
-thResourceFromResource master (Resource n ps atts@[stype, toSubArg])
+thResourceFromResource master (Resource n ps [stype, toSubArg])
     -- static route to subsite
     = do
         let stype' = ConT $ mkName stype

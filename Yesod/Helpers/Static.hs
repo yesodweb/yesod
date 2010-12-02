@@ -31,6 +31,9 @@ module Yesod.Helpers.Static
       -- * Lookup files in filesystem
     , fileLookupDir
     , staticFiles
+      -- * Embed files
+    , mkEmbedFiles
+    , getStaticHandler
       -- * Hashing
     , base64md5
 #if TEST
