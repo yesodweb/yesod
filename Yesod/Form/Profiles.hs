@@ -12,6 +12,8 @@ module Yesod.Form.Profiles
     , timeFieldProfile
     , htmlFieldProfile
     , emailFieldProfile
+    , searchFieldProfile
+    , AutoFocus
     , urlFieldProfile
     , doubleFieldProfile
     , parseDate
@@ -22,27 +24,35 @@ module Yesod.Form.Profiles
 import Yesod.Form.Core
 import Yesod.Widget
 import Text.Hamlet
+import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
 import Network.URI (parseURI)
 import Database.Persist (PersistField)
 import Text.HTML.SanitizeXSS (sanitizeBalance)
+import Control.Monad (when)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (fromWrite4List, writeByteString)
 
 import Yesod.Internal (lbsToChars)
 
+#if GHC7
+#define HAMLET hamlet
+#define CASSIUS cassius
+#define JULIUS julius
+#else
+#define HAMLET $hamlet
+#define CASSIUS $cassius
+#define JULIUS $julius
+#endif
+
 intFieldProfile :: Integral i => FieldProfile sub y i
 intFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI
     , fpRender = showI
     , fpWidget = \theId name val isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
 |]
     }
@@ -57,11 +67,7 @@ doubleFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
     , fpWidget = \theId name val isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     }
@@ -71,11 +77,7 @@ dayFieldProfile = FieldProfile
     { fpParse = parseDate
     , fpRender = show
     , fpWidget = \theId name val isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
 |]
     }
@@ -85,11 +87,7 @@ timeFieldProfile = FieldProfile
     { fpParse = parseTime
     , fpRender = show
     , fpWidget = \theId name val isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input#$theId$!name=$name$!:isReq:required!value=$val$
 |]
     }
@@ -99,11 +97,7 @@ htmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString . sanitizeBalance
     , fpRender = lbsToChars . renderHtml
     , fpWidget = \theId name val _isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %textarea.html#$theId$!name=$name$ $val$
 |]
     }
@@ -125,11 +119,7 @@ textareaFieldProfile = FieldProfile
     { fpParse = Right . Textarea
     , fpRender = unTextarea
     , fpWidget = \theId name val _isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %textarea#$theId$!name=$name$ $val$
 |]
     }
@@ -139,11 +129,7 @@ hiddenFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val _isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input!type=hidden#$theId$!name=$name$!value=$val$
 |]
     }
@@ -153,11 +139,7 @@ stringFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
     }
@@ -167,11 +149,7 @@ passwordFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input#$theId$!name=$name$!type=password!:isReq:required!value=$val$
 |]
     }
@@ -221,13 +199,25 @@ emailFieldProfile = FieldProfile
                         else Left "Invalid e-mail address"
     , fpRender = id
     , fpWidget = \theId name val isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input#$theId$!name=$name$!type=email!:isReq:required!value=$val$
 |]
+    }
+
+type AutoFocus = Bool
+searchFieldProfile :: AutoFocus -> FieldProfile s y String
+searchFieldProfile autoFocus = FieldProfile
+    { fpParse = Right
+    , fpRender = id
+    , fpWidget = \theId name val isReq -> do
+        addHtml [HAMLET|
+%input#$theId$!name=$name$!type=search!:isReq:required!:autoFocus:autofocus!value=$val$
+|]
+        when autoFocus $ do
+          addHtml $ [HAMLET| <script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('$theId$').focus();}</script> |]
+          addCassius [CASSIUS|
+            #$theId$ -webkit-appearance: textfield;
+            |]
     }
 
 urlFieldProfile :: FieldProfile s y String
@@ -237,11 +227,7 @@ urlFieldProfile = FieldProfile
                         Just _ -> Right s
     , fpRender = id
     , fpWidget = \theId name val isReq -> addHamlet
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 %input#$theId$!name=$name$!type=url!:isReq:required!value=$val$
 |]
     }
