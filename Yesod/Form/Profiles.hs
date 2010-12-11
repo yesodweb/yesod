@@ -216,7 +216,8 @@ searchFieldProfile autoFocus = FieldProfile
         when autoFocus $ do
           addHtml $ [HAMLET| <script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('$theId$').focus();}</script> |]
           addCassius [CASSIUS|
-            #$theId$ -webkit-appearance: textfield;
+            #$theId$
+              -webkit-appearance: textfield
             |]
     }
 
