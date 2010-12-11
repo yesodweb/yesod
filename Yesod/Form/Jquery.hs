@@ -27,6 +27,16 @@ import Yesod.Hamlet
 import Data.Char (isSpace)
 import Data.Default
 
+#if GHC7
+#define HAMLET hamlet
+#define CASSIUS cassius
+#define JULIUS julius
+#else
+#define HAMLET $hamlet
+#define CASSIUS $cassius
+#define JULIUS $julius
+#endif
+
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: String -> String
 googleHostedJqueryUiCss theme = concat
@@ -76,23 +86,13 @@ jqueryDayFieldProfile jds = FieldProfile
               . readMay
     , fpRender = show
     , fpWidget = \theId name val isReq -> do
-        addHtml
-#if GHC7
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+        addHtml [HAMLET|
 %input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJulius
-#if GHC7
-                [julius|
-#else
-                [$julius|
-#endif
+        addJulius [JULIUS|
 $(function(){$("#%theId%").datepicker({
     dateFormat:'yy-mm-dd',
     changeMonth:%jsBool.jdsChangeMonth.jds%,
@@ -144,24 +144,14 @@ jqueryDayTimeFieldProfile = FieldProfile
     { fpParse  = parseUTCTime
     , fpRender = jqueryDayTimeUTCTime
     , fpWidget = \theId name val isReq -> do
-        addHtml
-#if GHC7
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+        addHtml [HAMLET|
 %input#$theId$!name=$name$!:isReq:required!value=$val$
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addScript' urlJqueryUiDateTimePicker
         addStylesheet' urlJqueryUiCss
-        addJulius
-#if GHC7
-                [julius|
-#else
-                [$julius|
-#endif
+        addJulius [JULIUS|
 $(function(){$("#%theId%").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
 |]
     }
@@ -198,23 +188,13 @@ jqueryAutocompleteFieldProfile src = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val isReq -> do
-        addHtml
-#if GHC7
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+        addHtml [HAMLET|
 %input.autocomplete#$theId$!name=$name$!type=text!:isReq:required!value=$val$
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJulius
-#if GHC7
-                [julius|
-#else
-                [$julius|
-#endif
+        addJulius [JULIUS|
 $(function(){$("#%theId%").autocomplete({source:"@src@",minLength:2})});
 |]
     }

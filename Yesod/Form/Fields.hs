@@ -17,6 +17,7 @@ module Yesod.Form.Fields
     , selectField
     , boolField
     , emailField
+    , searchField
     , urlField
     , fileField
       -- ** Optional
@@ -31,6 +32,7 @@ module Yesod.Form.Fields
     , maybeHtmlField
     , maybeSelectField
     , maybeEmailField
+    , maybeSearchField
     , maybeUrlField
     , maybeFileField
       -- * Inputs
@@ -325,6 +327,14 @@ emailInput :: String -> FormInput sub master String
 emailInput n =
     mapFormXml fieldsToInput $
     requiredFieldHelper emailFieldProfile (nameSettings n) Nothing
+
+searchField :: (IsForm f, FormType f ~ String)
+           => AutoFocus -> FormFieldSettings -> Maybe String -> f
+searchField = requiredFieldHelper . searchFieldProfile
+
+maybeSearchField :: (IsForm f, FormType f ~ Maybe String)
+                => AutoFocus -> FormFieldSettings -> Maybe (Maybe String) -> f
+maybeSearchField = optionalFieldHelper . searchFieldProfile
 
 textareaField :: (IsForm f, FormType f ~ Textarea)
               => FormFieldSettings -> Maybe Textarea -> f
