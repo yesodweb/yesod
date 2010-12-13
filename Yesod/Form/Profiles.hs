@@ -33,7 +33,8 @@ import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
-import Blaze.ByteString.Builder (fromWrite4List, writeByteString)
+import Blaze.ByteString.Builder (writeByteString)
+import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
 
 import Yesod.Internal (lbsToChars)
 
@@ -108,7 +109,7 @@ newtype Textarea = Textarea { unTextarea :: String }
     deriving (Show, Read, Eq, PersistField)
 instance ToHtml Textarea where
     toHtml =
-        Html . fromWrite4List writeHtmlEscapedChar . unTextarea
+        Html . fromWriteList writeHtmlEscapedChar . unTextarea
       where
         -- Taken from blaze-builder and modified with newline handling.
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
