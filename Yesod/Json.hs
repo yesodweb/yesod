@@ -25,6 +25,7 @@ import Numeric (showHex)
 import Data.Monoid (Monoid (..))
 import Blaze.ByteString.Builder
 import Blaze.ByteString.Builder.Char.Utf8 (writeChar)
+import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -63,7 +64,7 @@ jsonToRepJson = fmap RepJson . jsonToContent
 jsonScalar :: String -> Json
 jsonScalar s = Json $ mconcat
     [ fromByteString "\""
-    , fromWrite4List writeJsonChar s
+    , fromWriteList writeJsonChar s
     , fromByteString "\""
     ]
   where
