@@ -313,30 +313,33 @@ toWaiApp' y key' segments env = do
     let ya = runHandler h render eurl' id y id
     let sessionMap = Map.fromList
                    $ filter (\(x, _) -> x /= nonceKey) session'
-    (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types sessionMap
-    let sessionVal =
-            case key' of
-                Nothing -> B.empty
-                Just key'' ->
-                     encodeSession key'' exp' host
-                   $ Map.toList
-                   $ Map.insert nonceKey (reqNonce rr) sessionFinal
-    let hs' =
-            case key' of
-                Nothing -> hs
-                Just _ -> AddCookie
-                            (clientSessionDuration y)
-                            sessionName
-                            (bsToChars sessionVal)
-                          : hs
-        hs'' = map (headerToPair getExpires) hs'
-        hs''' = ("Content-Type", charsToBs ct) : hs''
-    return $
-        case c of
-            ContentLBS lbs -> W.ResponseLBS s hs''' lbs
-            ContentFile fp -> W.ResponseFile s hs''' fp
-            ContentEnum e -> W.ResponseEnumerator $ \iter ->
-                run_ $ e $$ iter s hs'''
+    yar <- unYesodApp ya eh rr types sessionMap
+    case yar of
+        YARPlain s hs ct c sessionFinal -> do
+            let sessionVal =
+                    case key' of
+                        Nothing -> B.empty
+                        Just key'' ->
+                             encodeSession key'' exp' host
+                           $ Map.toList
+                           $ Map.insert nonceKey (reqNonce rr) sessionFinal
+            let hs' =
+                    case key' of
+                        Nothing -> hs
+                        Just _ -> AddCookie
+                                    (clientSessionDuration y)
+                                    sessionName
+                                    (bsToChars sessionVal)
+                                  : hs
+                hs'' = map (headerToPair getExpires) hs'
+                hs''' = ("Content-Type", charsToBs ct) : hs''
+            return $
+                case c of
+                    ContentLBS lbs -> W.ResponseLBS s hs''' lbs
+                    ContentFile fp -> W.ResponseFile s hs''' fp
+                    ContentEnum e -> W.ResponseEnumerator $ \iter ->
+                        run_ $ e $$ iter s hs'''
+        YAREnum e -> return $ W.ResponseEnumerator e
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = map B.unpack
