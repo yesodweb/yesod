@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.6.8
+version:         0.7.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -36,7 +36,7 @@ library
                    , text                      >= 0.5      && < 0.12
                    , template-haskell          >= 2.4      && < 2.6
                    , web-routes-quasi          >= 0.6.2    && < 0.7
-                   , hamlet                    >= 0.5.1    && < 0.7
+                   , hamlet                    >= 0.6      && < 0.7
                    , blaze-builder             >= 0.2.1    && < 0.3
                    , transformers              >= 0.2      && < 0.3
                    , clientsession             >= 0.4.0    && < 0.5
@@ -45,8 +45,8 @@ library
                    , cereal                    >= 0.2      && < 0.4
                    , base64-bytestring         >= 0.1      && < 0.2
                    , old-locale                >= 1.0.0.2  && < 1.1
-                   , persistent                >= 0.3.0    && < 0.4
-                   , neither                   >= 0.1.0    && < 0.2
+                   , persistent                >= 0.4      && < 0.5
+                   , neither                   >= 0.2      && < 0.3
                    , network                   >= 2.2.1.5  && < 2.4
                    , email-validate            >= 0.2.5    && < 0.3
                    , web-routes                >= 0.23     && < 0.24
@@ -54,6 +54,7 @@ library
                    , data-default              >= 0.2      && < 0.3
                    , failure                   >= 0.1      && < 0.2
                    , containers                >= 0.2      && < 0.5
+                   , monad-peel                >= 0.1      && < 0.2
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch

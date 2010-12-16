@@ -112,8 +112,7 @@ import Control.Failure (Failure (failure))
 
 import Text.Hamlet
 
-import Control.Monad.Invert (MonadInvertIO (..))
-import Control.Monad (liftM)
+import Control.Monad.IO.Peel (MonadPeelIO)
 import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as S8
 
@@ -210,7 +209,7 @@ newtype GHandler sub master a =
     GHandler
         { unGHandler :: GHInner sub master a
         }
-    deriving (Functor, Applicative, Monad, MonadIO)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadPeelIO)
 
 type GHInner s m =
     ReaderT (HandlerData s m) (
@@ -221,15 +220,6 @@ type GHInner s m =
     ))))
 
 type SessionMap = Map.Map String String
-
-instance MonadInvertIO (GHandler s m) where
-    newtype InvertedIO (GHandler s m) a =
-        InvGHandlerIO
-            { runInvGHandlerIO :: InvertedIO (GHInner s m) a
-            }
-    type InvertedArg (GHandler s m) = (HandlerData s m, (SessionMap, ()))
-    invertIO = liftM (fmap InvGHandlerIO) . invertIO . unGHandler
-    revertIO f = GHandler $ revertIO $ liftM runInvGHandlerIO . f
 
 type Endo a = a -> a
 
