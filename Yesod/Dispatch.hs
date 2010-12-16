@@ -240,7 +240,7 @@ sessionName = "_SESSION"
 -- handler. This is the same as 'toWaiAppPlain', except it includes three
 -- middlewares: GZIP compression, JSON-P and path cleaning. This is the
 -- recommended approach for most users.
-toWaiApp :: (Yesod y, YesodSite y) => y -> IO (W.Application a)
+toWaiApp :: (Yesod y, YesodSite y) => y -> IO W.Application
 toWaiApp y = do
     a <- toWaiAppPlain y
     return $ gzip False
@@ -250,7 +250,7 @@ toWaiApp y = do
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This differs from 'toWaiApp' in that it only uses the cleanpath
 -- middleware.
-toWaiAppPlain :: (Yesod y, YesodSite y) => y -> IO (W.Application a)
+toWaiAppPlain :: (Yesod y, YesodSite y) => y -> IO W.Application
 toWaiAppPlain a = do
     key' <- if enableClientSessions a
                 then Just `fmap` encryptKey a
@@ -263,7 +263,7 @@ toWaiApp' :: (Yesod y, YesodSite y)
           -> Maybe Key
           -> [String]
           -> W.Request
-          -> IO (W.Response a)
+          -> IO W.Response
 toWaiApp' y key' segments env = do
     now <- getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
