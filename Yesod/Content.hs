@@ -8,7 +8,7 @@
 
 module Yesod.Content
     ( -- * Content
-      Content
+      Content (..)
     , emptyContent
     , ToContent (..)
       -- * Mime types
@@ -57,8 +57,6 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 
-import qualified Network.Wai as W
-
 import Data.Time
 import System.Locale
 
@@ -72,11 +70,16 @@ import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.HUnit hiding (Test)
 #endif
 
-type Content = W.ResponseBody
+import Data.Enumerator (Enumerator)
+import Blaze.ByteString.Builder (Builder)
+
+data Content = ContentLBS L.ByteString
+             | ContentEnum (forall a. Enumerator Builder IO a)
+             | ContentFile FilePath
 
 -- | Zero-length enumerator.
 emptyContent :: Content
-emptyContent = W.ResponseLBS L.empty
+emptyContent = ContentLBS L.empty
 
 -- | Anything which can be converted into 'Content'. Most of the time, you will
 -- want to use the 'ContentEnum' constructor. An easier approach will be to use
@@ -86,13 +89,13 @@ class ToContent a where
     toContent :: a -> Content
 
 instance ToContent B.ByteString where
-    toContent = W.ResponseLBS . L.fromChunks . return
+    toContent = ContentLBS . L.fromChunks . return
 instance ToContent L.ByteString where
-    toContent = W.ResponseLBS
+    toContent = ContentLBS
 instance ToContent T.Text where
     toContent = toContent . Data.Text.Encoding.encodeUtf8
 instance ToContent Text where
-    toContent = W.ResponseLBS . Data.Text.Lazy.Encoding.encodeUtf8
+    toContent = ContentLBS . Data.Text.Lazy.Encoding.encodeUtf8
 instance ToContent String where
     toContent = toContent . T.pack
 

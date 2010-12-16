@@ -311,7 +311,7 @@ runHandler handler mrender sroute tomr ma tosa =
             let hs' = headers hs
             return (getStatus e, hs', ct, c, sess)
     let sendFile' ct fp =
-            return (W.status200, headers [], ct, W.ResponseFile fp, finalSession)
+            return (W.status200, headers [], ct, ContentFile fp, finalSession)
     case contents of
         HCContent status a -> do
             (ct, c) <- chooseRep a cts
@@ -559,3 +559,6 @@ testSuite = testGroup "Yesod.Handler"
     ]
 
 #endif
+
+-- FIXME add a sendEnum that uses a ResponseEnumerator and bypasses all status
+-- and header stuff

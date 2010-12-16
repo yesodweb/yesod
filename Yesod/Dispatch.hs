@@ -43,7 +43,7 @@ import Web.Routes.Quasi.TH
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
-import Network.Wai.Middleware.CleanPath (cleanPathFunc)
+import Network.Wai.Middleware.CleanPath (cleanPath)
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.Gzip
 
@@ -74,6 +74,9 @@ import Control.Arrow (first)
 import System.Random (randomR, newStdGen)
 
 import qualified Data.Map as Map
+
+import Control.Applicative ((<$>))
+import Data.Enumerator (($$), run_)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -234,15 +237,25 @@ sessionName :: String
 sessionName = "_SESSION"
 
 -- | Convert the given argument into a WAI application, executable with any WAI
--- handler. You can use 'basicHandler' if you wish.
-toWaiApp :: (Yesod y, YesodSite y) => y -> IO W.Application
-toWaiApp a = do
+-- handler. This is the same as 'toWaiAppPlain', except it includes three
+-- middlewares: GZIP compression, JSON-P and path cleaning. This is the
+-- recommended approach for most users.
+toWaiApp :: (Yesod y, YesodSite y) => y -> IO (W.Application a)
+toWaiApp y = do
+    a <- toWaiAppPlain y
+    return $ gzip False
+           $ jsonp
+             a
+
+-- | Convert the given argument into a WAI application, executable with any WAI
+-- handler. This differs from 'toWaiApp' in that it only uses the cleanpath
+-- middleware.
+toWaiAppPlain :: (Yesod y, YesodSite y) => y -> IO (W.Application a)
+toWaiAppPlain a = do
     key' <- if enableClientSessions a
                 then Just `fmap` encryptKey a
                 else return Nothing
-    return $ gzip
-           $ jsonp
-           $ cleanPathFunc (splitPath a) (B.pack $ approot a)
+    return $ cleanPath (splitPath a) (B.pack $ approot a)
            $ toWaiApp' a key'
 
 toWaiApp' :: (Yesod y, YesodSite y)
@@ -250,7 +263,7 @@ toWaiApp' :: (Yesod y, YesodSite y)
           -> Maybe Key
           -> [String]
           -> W.Request
-          -> IO W.Response
+          -> IO (W.Response a)
 toWaiApp' y key' segments env = do
     now <- getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
@@ -318,7 +331,12 @@ toWaiApp' y key' segments env = do
                           : hs
         hs'' = map (headerToPair getExpires) hs'
         hs''' = ("Content-Type", charsToBs ct) : hs''
-    return $ W.Response s hs''' c
+    return $
+        case c of
+            ContentLBS lbs -> W.ResponseLBS s hs''' lbs
+            ContentFile fp -> W.ResponseFile s hs''' fp
+            ContentEnum e -> W.ResponseEnumerator $ \iter ->
+                run_ $ e $$ iter s hs'''
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = map B.unpack
@@ -399,8 +417,12 @@ nonceKey :: String
 nonceKey = "_NONCE"
 
 rbHelper :: W.Request -> IO RequestBodyContents
-rbHelper = fmap (fix1 *** map fix2) . parseRequestBody lbsSink where
-    fix1 = map (bsToChars *** bsToChars)
+rbHelper req =
+    (map fix1 *** map fix2) <$> run_ (enum $$ iter)
+  where
+    enum = W.requestBody req
+    iter = parseRequestBody lbsSink req
+    fix1 = bsToChars *** bsToChars
     fix2 (x, NWP.FileInfo a b c) =
         (bsToChars x, FileInfo (bsToChars a) (bsToChars b) c)
 
