@@ -59,10 +59,6 @@ library
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch
-                     Yesod.Form
-                     Yesod.Form.Core
-                     Yesod.Form.Jquery
-                     Yesod.Form.Nic
                      Yesod.Hamlet
                      Yesod.Handler
                      Yesod.Json
@@ -70,13 +66,9 @@ library
                      Yesod.Widget
                      Yesod.Yesod
                      Yesod.Helpers.AtomFeed
-                     Yesod.Helpers.Crud
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
-    other-modules:   Yesod.Form.Class
-                     Yesod.Internal
-                     Yesod.Form.Fields
-                     Yesod.Form.Profiles
+    other-modules:   Yesod.Internal
     ghc-options:     -Wall
 
 executable             yesod

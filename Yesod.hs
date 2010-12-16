@@ -6,7 +6,6 @@ module Yesod
     , module Yesod.Yesod
     , module Yesod.Handler
     , module Yesod.Dispatch
-    , module Yesod.Form
     , module Yesod.Hamlet
     , module Yesod.Json
     , module Yesod.Widget
@@ -34,7 +33,6 @@ import Yesod.Handler hiding (runHandler)
 #endif
 
 import Yesod.Request
-import Yesod.Form
 import Yesod.Widget
 import Network.Wai (Application)
 import Yesod.Hamlet
