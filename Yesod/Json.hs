@@ -1,4 +1,5 @@
 -- | Efficient generation of JSON documents.
+-- FIXME remove this module, possibly make a blaze-json
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
