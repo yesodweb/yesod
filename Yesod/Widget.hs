@@ -40,15 +40,13 @@ import Control.Monad.Trans.State
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
-import Yesod.Handler (Route, GHandler, HandlerData, YesodSubRoute(..), toMasterHandlerMaybe, getYesod)
+import Yesod.Handler (Route, GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod)
 import Control.Applicative (Applicative)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
 import Yesod.Internal
 
 import Control.Monad.IO.Peel (MonadPeelIO)
-import Control.Monad (liftM)
-import qualified Data.Map as Map
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
