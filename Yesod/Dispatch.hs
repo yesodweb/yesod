@@ -27,10 +27,10 @@ module Yesod.Dispatch
     ) where
 
 #if TEST
-import Yesod.Yesod hiding (testSuite)
+import Yesod.Yesod hiding (testSuite, Key)
 import Yesod.Handler hiding (testSuite)
 #else
-import Yesod.Yesod
+import Yesod.Yesod hiding (Key)
 import Yesod.Handler
 #endif
 
@@ -236,27 +236,33 @@ sessionName = "_SESSION"
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. You can use 'basicHandler' if you wish.
 toWaiApp :: (Yesod y, YesodSite y) => y -> IO W.Application
-toWaiApp a =
+toWaiApp a = do
+    key' <- if enableClientSessions a
+                then Just `fmap` encryptKey a
+                else return Nothing
     return $ gzip
            $ jsonp
            $ cleanPathFunc (splitPath a) (B.pack $ approot a)
-           $ toWaiApp' a
+           $ toWaiApp' a key'
 
 toWaiApp' :: (Yesod y, YesodSite y)
           => y
+          -> Maybe Key
           -> [String]
           -> W.Request
           -> IO W.Response
-toWaiApp' y segments env = do
-    key' <- encryptKey y
+toWaiApp' y key' segments env = do
     now <- getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration y
     let host = if sessionIpAddress y then W.remoteHost env else ""
-    let session' = fromMaybe [] $ do
-            raw <- lookup "Cookie" $ W.requestHeaders env
-            val <- lookup (B.pack sessionName) $ parseCookies raw
-            decodeSession key' now host val
+    let session' =
+            case key' of
+                Nothing -> []
+                Just key'' -> fromMaybe [] $ do
+                    raw <- lookup "Cookie" $ W.requestHeaders env
+                    val <- lookup (B.pack sessionName) $ parseCookies raw
+                    decodeSession key'' now host val
     let site = getSite
         method = B.unpack $ W.requestMethod env
         types = httpAccept env
@@ -295,12 +301,21 @@ toWaiApp' y segments env = do
     let sessionMap = Map.fromList
                    $ filter (\(x, _) -> x /= nonceKey) session'
     (s, hs, ct, c, sessionFinal) <- unYesodApp ya eh rr types sessionMap
-    let sessionVal = encodeSession key' exp' host
+    let sessionVal =
+            case key' of
+                Nothing -> B.empty
+                Just key'' ->
+                     encodeSession key'' exp' host
                    $ Map.toList
                    $ Map.insert nonceKey (reqNonce rr) sessionFinal
-    let hs' = AddCookie (clientSessionDuration y) sessionName
-                                                  (bsToChars sessionVal)
-            : hs
+    let hs' =
+            case key' of
+                Nothing -> hs
+                Just _ -> AddCookie
+                            (clientSessionDuration y)
+                            sessionName
+                            (bsToChars sessionVal)
+                          : hs
         hs'' = map (headerToPair getExpires) hs'
         hs''' = ("Content-Type", charsToBs ct) : hs''
     return $ W.Response s hs''' c
