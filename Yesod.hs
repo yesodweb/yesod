@@ -13,7 +13,7 @@ module Yesod
     , Application
     , lift
     , liftIO
-    , MonadInvertIO
+    , MonadPeelIO
     , mempty
     , showIntegral
     , readIntegral
@@ -41,7 +41,7 @@ import Yesod.Hamlet
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import Data.Monoid (mempty)
-import Control.Monad.Invert (MonadInvertIO)
+import Control.Monad.IO.Peel (MonadPeelIO)
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)

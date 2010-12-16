@@ -46,7 +46,7 @@ import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
 import Yesod.Internal
 
-import Control.Monad.Invert (MonadInvertIO (..))
+import Control.Monad.IO.Peel (MonadPeelIO)
 import Control.Monad (liftM)
 import qualified Data.Map as Map
 
@@ -54,7 +54,7 @@ import qualified Data.Map as Map
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
 -- dependencies along with a 'StateT' to track unique identifiers.
 newtype GWidget s m a = GWidget { unGWidget :: GWInner s m a }
-    deriving (Functor, Applicative, Monad, MonadIO)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadPeelIO)
 type GWInner sub master =
     WriterT (Body (Route master)) (
     WriterT (Last Title) (
@@ -69,15 +69,6 @@ type GWInner sub master =
 instance Monoid (GWidget sub master ()) where
     mempty = return ()
     mappend x y = x >> y
-instance MonadInvertIO (GWidget s m) where
-    newtype InvertedIO (GWidget s m) a =
-        InvGWidgetIO
-            { runInvGWidgetIO :: InvertedIO (GWInner s m) a
-            }
-    type InvertedArg (GWidget s m) =
-        (Int, (HandlerData s m, (Map.Map String String, ())))
-    invertIO = liftM (fmap InvGWidgetIO) . invertIO . unGWidget
-    revertIO f = GWidget $ revertIO $ liftM runInvGWidgetIO . f
 
 instance HamletValue (GWidget s m ()) where
     newtype HamletMonad (GWidget s m ()) a =
