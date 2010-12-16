@@ -51,6 +51,7 @@ module Yesod.Handler
     , sendResponse
     , sendResponseStatus
     , sendResponseCreated
+    , sendResponseEnumerator
       -- * Setting headers
     , setCookie
     , deleteCookie
@@ -85,6 +86,7 @@ module Yesod.Handler
     , localNoCurrent
     , HandlerData
     , ErrorResponse (..)
+    , YesodAppResult (..)
 #if TEST
     , testSuite
 #endif
@@ -232,8 +234,12 @@ newtype YesodApp = YesodApp
     -> Request
     -> [ContentType]
     -> SessionMap
-    -> IO (W.Status, [Header], ContentType, Content, SessionMap)
+    -> IO YesodAppResult
     }
+
+data YesodAppResult
+    = YAREnum (forall a. W.ResponseEnumerator a)
+    | YARPlain W.Status [Header] ContentType Content SessionMap
 
 data HandlerContents =
       HCContent W.Status ChooseRep
@@ -241,6 +247,7 @@ data HandlerContents =
     | HCSendFile ContentType FilePath
     | HCRedirect RedirectType String
     | HCCreated String
+    | HCEnum (forall a. W.ResponseEnumerator a)
 
 instance Failure ErrorResponse (GHandler sub master) where
     failure = GHandler . lift . throwMEither . HCError
@@ -307,34 +314,46 @@ runHandler handler mrender sroute tomr ma tosa =
         ) (\e -> return ((MLeft $ HCError $ toErrorHandler e, id), initSession))
     let contents = meither id (HCContent W.status200 . chooseRep) contents'
     let handleError e = do
-            (_, hs, ct, c, sess) <- unYesodApp (eh e) safeEh rr cts finalSession
-            let hs' = headers hs
-            return (getStatus e, hs', ct, c, sess)
+            yar <- unYesodApp (eh e) safeEh rr cts finalSession
+            case yar of
+                YARPlain _ hs ct c sess ->
+                    let hs' = headers hs
+                     in return $ YARPlain (getStatus e) hs' ct c sess
+                YAREnum _ -> return yar
     let sendFile' ct fp =
-            return (W.status200, headers [], ct, ContentFile fp, finalSession)
+            return $ YARPlain W.status200 (headers []) ct (ContentFile fp) finalSession
     case contents of
         HCContent status a -> do
             (ct, c) <- chooseRep a cts
-            return (status, headers [], ct, c, finalSession)
+            return $ YARPlain status (headers []) ct c finalSession
         HCError e -> handleError e
         HCRedirect rt loc -> do
             let hs = Header "Location" loc : headers []
-            return (getRedirectStatus rt, hs, typePlain, emptyContent,
-                    finalSession)
+            return $ YARPlain
+                (getRedirectStatus rt) hs typePlain emptyContent
+                finalSession
         HCSendFile ct fp -> E.catch
             (sendFile' ct fp)
             (handleError . toErrorHandler)
-        HCCreated loc -> do
+        HCCreated loc -> do -- FIXME add status201 to WAI
             let hs = Header "Location" loc : headers []
-            return (W.Status 201 (S8.pack "Created"), hs, typePlain,
-                    emptyContent,
-                    finalSession)
+            return $ YARPlain
+                (W.Status 201 (S8.pack "Created"))
+                hs
+                typePlain
+                emptyContent
+                finalSession
+        HCEnum e -> return $ YAREnum e
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ session -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return (W.status500, [], typePlain, toContent "Internal Server Error",
-            session)
+    return $ YARPlain
+        W.status500
+        []
+        typePlain
+        (toContent "Internal Server Error")
+        session
 
 -- | Redirect to the given route.
 redirect :: RedirectType -> Route master -> GHandler sub master a
@@ -438,6 +457,14 @@ sendResponseCreated :: Route m -> GHandler s m a
 sendResponseCreated url = do
     r <- getUrlRender
     GHandler $ lift $ throwMEither $ HCCreated $ r url
+
+-- | Send a 'W.ResponseEnumerator'. Please note: this function is rarely
+-- necessary, and will /disregard/ any changes to response headers and session
+-- that you have already specified. This function short-circuits. It should be
+-- considered only for they specific needs. If you are not sure if you need it,
+-- you don't.
+sendResponseEnumerator :: (forall a. W.ResponseEnumerator a) -> GHandler s m b
+sendResponseEnumerator = GHandler . lift . throwMEither . HCEnum
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
@@ -559,6 +586,3 @@ testSuite = testGroup "Yesod.Handler"
     ]
 
 #endif
-
--- FIXME add a sendEnum that uses a ResponseEnumerator and bypasses all status
--- and header stuff
