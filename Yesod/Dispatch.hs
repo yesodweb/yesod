@@ -52,6 +52,9 @@ import qualified Network.Wai.Handler.CGI as CGI
 import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy as L
+import Blaze.ByteString.Builder (toLazyByteString)
 
 import Control.Concurrent.MVar
 import Control.Arrow ((***))
@@ -63,6 +66,7 @@ import Data.Maybe
 import Web.ClientSession
 import qualified Web.ClientSession as CS
 import Data.Char (isUpper)
+import Web.Cookie (parseCookies, SetCookie (..), renderSetCookie)
 
 import Data.Serialize
 import qualified Data.Serialize as Ser
@@ -447,10 +451,15 @@ headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
              -> Header
              -> (W.ResponseHeader, B.ByteString)
 headerToPair getExpires (AddCookie minutes key value) =
-    let expires = getExpires minutes
-     in ("Set-Cookie", charsToBs
-                            $ key ++ "=" ++ value ++"; path=/; expires="
-                              ++ formatCookieExpires expires)
+    ("Set-Cookie", builderToBS $ renderSetCookie $ SetCookie
+        { setCookieName = B.pack key -- FIXME check for non-ASCII
+        , setCookieValue = B.pack value -- FIXME check for non-ASCII
+        , setCookiePath = Just "/" -- FIXME make a config option, or use approot?
+        , setCookieExpires = Just $ getExpires minutes
+        , setCookieDomain = Nothing
+        })
+  where
+    builderToBS = S.concat . L.toChunks . toLazyByteString
 headerToPair _ (DeleteCookie key) =
     ("Set-Cookie", charsToBs $
      key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
