@@ -339,7 +339,7 @@ toWaiApp' y key' segments env = do
                 hs''' = ("Content-Type", charsToBs ct) : hs''
             return $
                 case c of
-                    ContentLBS lbs -> W.ResponseLBS s hs''' lbs
+                    ContentBuilder b -> W.responseBuilder s hs''' b
                     ContentFile fp -> W.ResponseFile s hs''' fp
                     ContentEnum e -> W.ResponseEnumerator $ \iter ->
                         run_ $ e $$ iter s hs'''

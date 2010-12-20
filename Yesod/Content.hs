@@ -70,15 +70,16 @@ import Test.HUnit hiding (Test)
 #endif
 
 import Data.Enumerator (Enumerator)
-import Blaze.ByteString.Builder (Builder)
+import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
+import Data.Monoid (mempty)
 
-data Content = ContentLBS L.ByteString
+data Content = ContentBuilder Builder
              | ContentEnum (forall a. Enumerator Builder IO a)
              | ContentFile FilePath
 
 -- | Zero-length enumerator.
 emptyContent :: Content
-emptyContent = ContentLBS L.empty
+emptyContent = ContentBuilder mempty
 
 -- | Anything which can be converted into 'Content'. Most of the time, you will
 -- want to use the 'ContentEnum' constructor. An easier approach will be to use
@@ -88,13 +89,13 @@ class ToContent a where
     toContent :: a -> Content
 
 instance ToContent B.ByteString where
-    toContent = ContentLBS . L.fromChunks . return
+    toContent = ContentBuilder . fromByteString
 instance ToContent L.ByteString where
-    toContent = ContentLBS
+    toContent = ContentBuilder . fromLazyByteString
 instance ToContent T.Text where
     toContent = toContent . Data.Text.Encoding.encodeUtf8
 instance ToContent Text where
-    toContent = ContentLBS . Data.Text.Lazy.Encoding.encodeUtf8
+    toContent = toContent . Data.Text.Lazy.Encoding.encodeUtf8
 instance ToContent String where
     toContent = toContent . T.pack
 
