@@ -34,7 +34,7 @@ library
                    , bytestring                >= 0.9.1.4  && < 0.10
                    , directory                 >= 1        && < 1.2
                    , text                      >= 0.5      && < 0.12
-                   , template-haskell          >= 2.4      && < 2.6
+                   , template-haskell
                    , web-routes-quasi          >= 0.6.2    && < 0.7
                    , hamlet                    >= 0.6      && < 0.7
                    , blaze-builder             >= 0.2.1    && < 0.3
@@ -45,7 +45,6 @@ library
                    , cereal                    >= 0.2      && < 0.4
                    , base64-bytestring         >= 0.1      && < 0.2
                    , old-locale                >= 1.0.0.2  && < 1.1
-                   , persistent                >= 0.4      && < 0.5
                    , neither                   >= 0.2      && < 0.3
                    , network                   >= 2.2.1.5  && < 2.4
                    , email-validate            >= 0.2.5    && < 0.3
