@@ -15,6 +15,7 @@ module Yesod.Yesod
     , YesodPersist (..)
     , module Database.Persist
     , get404
+    , getBy404
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs
@@ -391,6 +392,15 @@ get404 key = do
     case mres of
         Nothing -> lift notFound
         Just res -> return res
+
+getBy404 :: (PersistBackend (t m), PersistEntity val, Monad (t m),
+             Failure ErrorResponse m, MonadTrans t)
+         => Unique val -> t m (Key val, val)
+getBy404 ukey = do
+  mres <- getBy ukey
+  case mres of
+    Nothing -> lift notFound
+    Just res -> return res
 
 -- | Return the same URL if the user is authorized to see it.
 --
