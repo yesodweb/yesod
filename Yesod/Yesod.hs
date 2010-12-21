@@ -23,6 +23,8 @@ module Yesod.Yesod
     , defaultErrorHandler
       -- * Data types
     , AuthResult (..)
+      -- * Misc
+    , yesodVersion
 #if TEST
     , testSuite
 #endif
@@ -39,6 +41,8 @@ import Yesod.Json
 import Yesod.Handler
 #endif
 
+import qualified Paths_yesod
+import Data.Version (showVersion)
 import Yesod.Widget
 import Yesod.Request
 import Yesod.Hamlet
@@ -525,3 +529,6 @@ redirectToPost dest = hamletToRepHtml
                 %p Javascript has been disabled; please click on the button below to be redirected.
             %input!type=submit!value=Continue
 |] >>= sendResponse
+
+yesodVersion :: String
+yesodVersion = showVersion Paths_yesod.version

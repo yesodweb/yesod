@@ -69,6 +69,7 @@ library
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
     other-modules:   Yesod.Internal
+                     Paths_yesod
     ghc-options:     -Wall
 
 executable             yesod
