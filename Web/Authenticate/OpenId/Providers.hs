@@ -23,7 +23,7 @@ livejournal :: String -> String
 livejournal u = concat ["http://", u, ".livejournal.com/"]
 
 myspace :: String -> String
-myspace = (++) "http://myspace.com/"
+myspace = (++) "http://www.myspace.com/"
 
 wordpress :: String -> String
 wordpress u = concat ["http://", u, ".wordpress.com/"]
