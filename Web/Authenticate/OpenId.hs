@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Web.Authenticate.OpenId
     ( getForwardUrl
+    , getForwardUrlRealm
     , authenticate
+    , authenticateParams
     , AuthenticateException (..)
     , Identifier (..)
     ) where
@@ -12,7 +14,7 @@ import OpenId2.Discovery (discover, Discovery (..))
 import Control.Failure (Failure (failure))
 import OpenId2.Types
 import Web.Authenticate.Internal (qsUrl)
-import Control.Monad (unless)
+import Control.Monad (unless, liftM)
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import Network.HTTP.Enumerator
@@ -30,32 +32,57 @@ getForwardUrl :: ( MonadIO m
               => String -- ^ The openid the user provided.
               -> String -- ^ The URL for this application\'s complete page.
               -> m String -- ^ URL to send the user to.
-getForwardUrl openid' complete = do
+getForwardUrl a b = getForwardUrlRealm a b Nothing []
+
+getForwardUrlRealm
+    :: ( MonadIO m
+       , Failure AuthenticateException m
+       , Failure HttpException m
+       )
+    => String -- ^ The openid the user provided.
+    -> String -- ^ The URL for this application\'s complete page.
+    -> Maybe String -- ^ Optional realm
+    -> [(String, String)] -- ^ Additional parameters to send to the OpenID provider. These can be useful for using extensions.
+    -> m String -- ^ URL to send the user to.
+getForwardUrlRealm openid' complete mrealm params = do
+    let realm = fromMaybe complete mrealm
     disc <- normalize openid' >>= discover
     case disc of
         Discovery1 server mdelegate ->
             return $ qsUrl server
-                [ ("openid.mode", "checkid_setup")
-                , ("openid.identity", fromMaybe openid' mdelegate)
-                , ("openid.return_to", complete)
-                , ("openid.trust_root", complete)
-                ]
+                $ ("openid.mode", "checkid_setup")
+                : ("openid.identity", fromMaybe openid' mdelegate)
+                : ("openid.return_to", complete)
+                : ("openid.realm", realm)
+                : ("openid.trust_root", complete)
+                : params
         Discovery2 (Provider p) (Identifier i) ->
             return $ qsUrl p
-                [ ("openid.ns", "http://specs.openid.net/auth/2.0")
-                , ("openid.mode", "checkid_setup")
-                , ("openid.claimed_id", i)
-                , ("openid.identity", i)
-                , ("openid.return_to", complete)
-                ]
+                $ ("openid.ns", "http://specs.openid.net/auth/2.0")
+                : ("openid.mode", "checkid_setup")
+                : ("openid.claimed_id", i)
+                : ("openid.identity", i)
+                : ("openid.return_to", complete)
+                : ("openid.realm", realm)
+                : params
 
-authenticate :: ( MonadIO m
-                , Failure AuthenticateException m
-                , Failure HttpException m
-                )
-             => [(String, String)]
-             -> m Identifier
-authenticate params = do
+authenticate
+    :: ( MonadIO m
+       , Failure AuthenticateException m
+       , Failure HttpException m
+       )
+    => [(String, String)]
+    -> m Identifier
+authenticate = liftM fst . authenticateParams
+
+authenticateParams
+    :: ( MonadIO m
+       , Failure AuthenticateException m
+       , Failure HttpException m
+       )
+    => [(String, String)]
+    -> m (Identifier, [(String, String)])
+authenticateParams params = do
     unless (lookup "openid.mode" params == Just "id_res")
         $ failure $ AuthenticationException "mode is not id_res"
     ident <- case lookup "openid.identity" params of
@@ -74,7 +101,7 @@ authenticate params = do
     rsp <- httpLbsRedirect req
     let rps = parseDirectResponse $ BSLU.toString $ responseBody rsp
     case lookup "is_valid" rps of
-        Just "true" -> return $ Identifier ident
+        Just "true" -> return (Identifier ident, rps)
         _ -> failure $ AuthenticationException "OpenID provider did not validate"
 
 -- | Turn a response body into a list of parameters.
