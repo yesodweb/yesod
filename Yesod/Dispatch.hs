@@ -27,10 +27,10 @@ module Yesod.Dispatch
     ) where
 
 #if TEST
-import Yesod.Yesod hiding (testSuite)
+import Yesod.Core hiding (testSuite)
 import Yesod.Handler hiding (testSuite)
 #else
-import Yesod.Yesod
+import Yesod.Core
 import Yesod.Handler
 #endif
 

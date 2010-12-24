@@ -57,17 +57,13 @@ library
                    , cookie                    >= 0.0      && < 0.1
                    , json-enumerator           >= 0.0      && < 0.1
                    , json-types                >= 0.1      && < 0.2
-    exposed-modules: Yesod
-                     Yesod.Content
+    exposed-modules: Yesod.Content
+                     Yesod.Core
                      Yesod.Dispatch
                      Yesod.Hamlet
                      Yesod.Handler
                      Yesod.Request
                      Yesod.Widget
-                     Yesod.Yesod
-                     Yesod.Helpers.AtomFeed
-                     Yesod.Helpers.Sitemap
-                     Yesod.Helpers.Static
     other-modules:   Yesod.Internal
                      Paths_yesod_core
     ghc-options:     -Wall

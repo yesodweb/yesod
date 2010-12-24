@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 -- | The basic typeclass for a Yesod application.
-module Yesod.Yesod
+module Yesod.Core
     ( -- * Type classes
       Yesod (..)
     , YesodSite (..)
