@@ -73,6 +73,9 @@ import Data.Enumerator (Enumerator)
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
 import Data.Monoid (mempty)
 
+import qualified Data.JSON.Types as J
+import qualified Text.JSON.Enumerator as J
+
 data Content = ContentBuilder Builder
              | ContentEnum (forall a. Enumerator Builder IO a)
              | ContentFile FilePath
@@ -98,6 +101,8 @@ instance ToContent Text where
     toContent = toContent . Data.Text.Lazy.Encoding.encodeUtf8
 instance ToContent String where
     toContent = toContent . T.pack
+instance ToContent J.Value where
+    toContent = ContentBuilder . J.renderValue
 
 -- | A function which gives targetted representations of content based on the
 -- content-types the user accepts.
