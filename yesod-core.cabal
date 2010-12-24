@@ -1,4 +1,4 @@
-name:            yesod
+name:            yesod-core
 version:         0.7.0
 license:         BSD3
 license-file:    LICENSE
@@ -14,7 +14,6 @@ stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://docs.yesodweb.com/
-extra-source-files: scaffold/*.cg
 
 flag test
   description: Build the executable to run unit tests
@@ -70,20 +69,8 @@ library
                      Yesod.Helpers.Sitemap
                      Yesod.Helpers.Static
     other-modules:   Yesod.Internal
-                     Paths_yesod
+                     Paths_yesod_core
     ghc-options:     -Wall
-
-executable             yesod
-    if flag(ghc7)
-        build-depends:   base                      >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base                      >= 4        && < 4.3
-    build-depends:     parsec >= 2.1 && < 4
-    ghc-options:       -Wall
-    main-is:           scaffold.hs
-    other-modules:     CodeGen
-    extensions:        TemplateHaskell
 
 executable             runtests
     if flag(ghc7)
@@ -106,4 +93,4 @@ executable             runtests
 
 source-repository head
   type:     git
-  location: git://github.com/snoyberg/yesod.git
+  location: git://github.com/snoyberg/yesod-core.git

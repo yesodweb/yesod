@@ -40,7 +40,7 @@ import Yesod.Content
 import Yesod.Handler
 #endif
 
-import qualified Paths_yesod
+import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Widget
 import Yesod.Request
@@ -534,4 +534,4 @@ redirectToPost dest = hamletToRepHtml
 |] >>= sendResponse
 
 yesodVersion :: String
-yesodVersion = showVersion Paths_yesod.version
+yesodVersion = showVersion Paths_yesod_core.version
