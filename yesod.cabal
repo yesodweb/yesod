@@ -56,12 +56,13 @@ library
                    , monad-peel                >= 0.1      && < 0.2
                    , enumerator                >= 0.4      && < 0.5
                    , cookie                    >= 0.0      && < 0.1
+                   , json-enumerator           >= 0.0      && < 0.1
+                   , json-types                >= 0.1      && < 0.2
     exposed-modules: Yesod
                      Yesod.Content
                      Yesod.Dispatch
                      Yesod.Hamlet
                      Yesod.Handler
-                     Yesod.Json
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Yesod

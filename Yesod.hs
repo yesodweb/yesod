@@ -7,7 +7,6 @@ module Yesod
     , module Yesod.Handler
     , module Yesod.Dispatch
     , module Yesod.Hamlet
-    , module Yesod.Json
     , module Yesod.Widget
     , Application
     , lift
@@ -20,13 +19,11 @@ module Yesod
 
 #if TEST
 import Yesod.Content hiding (testSuite)
-import Yesod.Json hiding (testSuite)
 import Yesod.Dispatch hiding (testSuite)
 import Yesod.Yesod hiding (testSuite)
 import Yesod.Handler hiding (runHandler, testSuite)
 #else
 import Yesod.Content
-import Yesod.Json
 import Yesod.Dispatch
 import Yesod.Yesod
 import Yesod.Handler hiding (runHandler)
