@@ -75,6 +75,8 @@ import Data.Monoid (mempty)
 
 import qualified Data.JSON.Types as J
 import qualified Text.JSON.Enumerator as J
+import Text.Hamlet (Html)
+import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
 
 data Content = ContentBuilder Builder
              | ContentEnum (forall a. Enumerator Builder IO a)
@@ -103,6 +105,8 @@ instance ToContent String where
     toContent = toContent . T.pack
 instance ToContent J.Value where
     toContent = ContentBuilder . J.renderValue
+instance ToContent Html where
+    toContent = ContentBuilder . renderHtmlBuilder
 
 -- | A function which gives targetted representations of content based on the
 -- content-types the user accepts.

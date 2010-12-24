@@ -44,7 +44,6 @@ import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Widget
 import Yesod.Request
-import Yesod.Hamlet
 import qualified Network.Wai as W
 import Yesod.Internal
 import Web.ClientSession (getKey, defaultKeyFile)

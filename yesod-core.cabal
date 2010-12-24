@@ -57,10 +57,10 @@ library
                    , cookie                    >= 0.0      && < 0.1
                    , json-enumerator           >= 0.0      && < 0.1
                    , json-types                >= 0.1      && < 0.2
+                   , blaze-html                >= 0.3.0.4  && < 0.4
     exposed-modules: Yesod.Content
                      Yesod.Core
                      Yesod.Dispatch
-                     Yesod.Hamlet
                      Yesod.Handler
                      Yesod.Request
                      Yesod.Widget
