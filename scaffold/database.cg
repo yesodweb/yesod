@@ -1,6 +1,0 @@
-Yesod uses Persistent for its (you guessed it) persistence layer.
-This tool will build in either SQLite or PostgreSQL support for you. If you
-want to use a different backend, you'll have to make changes manually.
-If you're not sure, stick with SQLite: it has no dependencies.
-
-So, what'll it be? s for sqlite, p for postgresql: 
