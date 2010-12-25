@@ -73,8 +73,6 @@ import Data.Enumerator (Enumerator)
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
 import Data.Monoid (mempty)
 
-import qualified Data.JSON.Types as J
-import qualified Text.JSON.Enumerator as J
 import Text.Hamlet (Html)
 import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
 
@@ -103,8 +101,6 @@ instance ToContent Text where
     toContent = toContent . Data.Text.Lazy.Encoding.encodeUtf8
 instance ToContent String where
     toContent = toContent . T.pack
-instance ToContent J.Value where
-    toContent = ContentBuilder . J.renderValue
 instance ToContent Html where
     toContent = ContentBuilder . renderHtmlBuilder
 
