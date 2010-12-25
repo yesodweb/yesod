@@ -96,15 +96,9 @@ class Eq (Route a) => Yesod a where
     approot :: a -> String
 
     -- | The encryption key to be used for encrypting client sessions.
-    encryptKey :: a -> IO CS.Key
-    encryptKey _ = getKey defaultKeyFile
-
-    -- | Whether or not to use client sessions.
-    --
-    -- FIXME: A better API would be to have 'encryptKey' return a Maybe, but
-    -- that would be a breaking change. Please include in Yesod 0.7.
-    enableClientSessions :: a -> Bool
-    enableClientSessions _ = True
+    -- Returning 'Nothing' disables sessions.
+    encryptKey :: a -> IO (Maybe CS.Key)
+    encryptKey _ = fmap Just $ getKey defaultKeyFile
 
     -- | Number of minutes before a client session times out. Defaults to
     -- 120 (2 hours).

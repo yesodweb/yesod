@@ -242,9 +242,7 @@ toWaiApp y = do
 -- middleware.
 toWaiAppPlain :: (Yesod y, YesodSite y) => y -> IO W.Application
 toWaiAppPlain a = do
-    key' <- if enableClientSessions a
-                then Just `fmap` encryptKey a
-                else return Nothing
+    key' <- encryptKey a
     return $ cleanPath (splitPath a) (B.pack $ approot a)
            $ toWaiApp' a key'
 
@@ -277,7 +275,7 @@ toWaiApp' y key' segments env = do
                     (joinPath y (approot y) ps $ qs ++ qs')
                     (urlRenderOverride y u)
     let errorHandler' = localNoCurrent . errorHandler
-    rr <- parseWaiRequest env session'
+    rr <- parseWaiRequest env session' key'
     let h = do
           onRequest
           case eurl of
@@ -347,8 +345,9 @@ httpAccept = map B.unpack
 
 parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session
+                -> Maybe a
                 -> IO Request
-parseWaiRequest env session' = do
+parseWaiRequest env session' key' = do
     let gets' = map (bsToChars *** bsToChars)
               $ parseQueryString $ W.queryString env
     let reqCookie = fromMaybe B.empty $ lookup "Cookie"
@@ -366,9 +365,10 @@ parseWaiRequest env session' = do
                      Nothing -> langs''
                      Just x -> x : langs''
     rbthunk <- iothunk $ rbHelper env
-    nonce <- case lookup nonceKey session' of
-                Just x -> return x
-                Nothing -> do
+    nonce <- case (key', lookup nonceKey session') of
+                (Nothing, _) -> return $ error "You have attempted to use the nonce, but sessions are disabled." -- FIXME maybe this should be handled without an error?
+                (_, Just x) -> return x
+                (_, Nothing) -> do
                     g <- newStdGen
                     return $ fst $ randomString 10 g
     return $ Request gets' cookies' rbthunk env langs''' nonce
