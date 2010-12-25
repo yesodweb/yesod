@@ -53,7 +53,7 @@ module Yesod.Content
 import Data.Maybe (mapMaybe)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
-import Data.Text.Lazy (Text)
+import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
 
 import Data.Time
@@ -76,33 +76,37 @@ import Data.Monoid (mempty)
 import Text.Hamlet (Html)
 import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
 
-data Content = ContentBuilder Builder
+data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional content length.
              | ContentEnum (forall a. Enumerator Builder IO a)
              | ContentFile FilePath
 
 -- | Zero-length enumerator.
 emptyContent :: Content
-emptyContent = ContentBuilder mempty
+emptyContent = ContentBuilder mempty $ Just 0
 
 -- | Anything which can be converted into 'Content'. Most of the time, you will
--- want to use the 'ContentEnum' constructor. An easier approach will be to use
+-- want to use the 'ContentBuilder' constructor. An easier approach will be to use
 -- a pre-defined 'toContent' function, such as converting your data into a lazy
 -- bytestring and then calling 'toContent' on that.
+--
+-- Please note that the built-in instances for lazy data structures ('String',
+-- lazy 'L.ByteString', lazy 'Text' and 'Html') will not automatically include
+-- the content length for the 'ContentBuilder' constructor.
 class ToContent a where
     toContent :: a -> Content
 
 instance ToContent B.ByteString where
-    toContent = ContentBuilder . fromByteString
+    toContent bs = ContentBuilder (fromByteString bs) $ Just $ B.length bs
 instance ToContent L.ByteString where
-    toContent = ContentBuilder . fromLazyByteString
+    toContent = flip ContentBuilder Nothing . fromLazyByteString
 instance ToContent T.Text where
     toContent = toContent . Data.Text.Encoding.encodeUtf8
 instance ToContent Text where
     toContent = toContent . Data.Text.Lazy.Encoding.encodeUtf8
 instance ToContent String where
-    toContent = toContent . T.pack
+    toContent = toContent . pack
 instance ToContent Html where
-    toContent = ContentBuilder . renderHtmlBuilder
+    toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
 
 -- | A function which gives targetted representations of content based on the
 -- content-types the user accepts.

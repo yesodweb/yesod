@@ -339,7 +339,14 @@ toWaiApp' y key' segments env = do
                 hs''' = ("Content-Type", charsToBs ct) : hs''
             return $
                 case c of
-                    ContentBuilder b -> W.responseBuilder s hs''' b
+                    ContentBuilder b mlen ->
+                        let hs'''' =
+                                case mlen of
+                                    Nothing -> hs'''
+                                    Just len ->
+                                        ("Content-Length", B.pack $ show len)
+                                        : hs'''
+                         in W.responseBuilder s hs'''' b
                     ContentFile fp -> W.ResponseFile s hs''' fp
                     ContentEnum e -> W.ResponseEnumerator $ \iter ->
                         run_ $ e $$ iter s hs'''
