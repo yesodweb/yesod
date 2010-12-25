@@ -46,7 +46,7 @@ module Yesod.Content
     , formatW3
     , formatRFC1123
 #if TEST
-    , testSuite
+    , contentTestSuite
 #endif
     ) where
 
@@ -245,8 +245,8 @@ ext = reverse . fst . break (== '.') . reverse
 
 #if TEST
 ---- Testing
-testSuite :: Test
-testSuite = testGroup "Yesod.Resource"
+contentTestSuite :: Test
+contentTestSuite = testGroup "Yesod.Resource"
     [ testProperty "ext" propExt
     , testCase "typeByExt" caseTypeByExt
     ]

@@ -25,18 +25,12 @@ module Yesod.Core
       -- * Misc
     , yesodVersion
 #if TEST
-    , testSuite
+    , coreTestSuite
 #endif
     ) where
 
-#if TEST
-import Yesod.Content hiding (testSuite)
-import Yesod.Handler hiding (testSuite)
-import qualified Data.ByteString.UTF8 as BSU
-#else
 import Yesod.Content
 import Yesod.Handler
-#endif
 
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
@@ -63,6 +57,8 @@ import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.HUnit hiding (Test)
+import qualified Data.Text
+import qualified Data.Text.Encoding
 #endif
 
 #if GHC7
@@ -447,8 +443,8 @@ $maybe jscript j
     return $ PageContent title head'' body
 
 #if TEST
-testSuite :: Test
-testSuite = testGroup "Yesod.Yesod"
+coreTestSuite :: Test
+coreTestSuite = testGroup "Yesod.Yesod"
     [ testProperty "join/split path" propJoinSplitPath
     , testCase "join/split path [\".\"]" caseJoinSplitPathDquote
     , testCase "utf8 split path" caseUtf8SplitPath
@@ -460,34 +456,37 @@ data TmpRoute = TmpRoute deriving Eq
 type instance Route TmpYesod = TmpRoute
 instance Yesod TmpYesod where approot _ = ""
 
+fromString :: String -> S8.ByteString
+fromString = Data.Text.Encoding.encodeUtf8 . Data.Text.pack
+
 propJoinSplitPath :: [String] -> Bool
 propJoinSplitPath ss =
-    splitPath TmpYesod (BSU.fromString $ joinPath TmpYesod "" ss' [])
+    splitPath TmpYesod (fromString $ joinPath TmpYesod "" ss' [])
         == Right ss'
   where
     ss' = filter (not . null) ss
 
 caseJoinSplitPathDquote :: Assertion
 caseJoinSplitPathDquote = do
-    splitPath TmpYesod (BSU.fromString "/x%2E/") @?= Right ["x."]
-    splitPath TmpYesod (BSU.fromString "/y./") @?= Right ["y."]
+    splitPath TmpYesod (fromString "/x%2E/") @?= Right ["x."]
+    splitPath TmpYesod (fromString "/y./") @?= Right ["y."]
     joinPath TmpYesod "" ["z."] [] @?= "/z./"
     x @?= Right ss
   where
-    x = splitPath TmpYesod (BSU.fromString $ joinPath TmpYesod "" ss' [])
+    x = splitPath TmpYesod (fromString $ joinPath TmpYesod "" ss' [])
     ss' = filter (not . null) ss
     ss = ["a."]
 
 caseUtf8SplitPath :: Assertion
 caseUtf8SplitPath = do
     Right ["שלום"] @=?
-        splitPath TmpYesod (BSU.fromString "/שלום/")
+        splitPath TmpYesod (fromString "/שלום/")
     Right ["page", "Fooé"] @=?
-        splitPath TmpYesod (BSU.fromString "/page/Fooé/")
+        splitPath TmpYesod (fromString "/page/Fooé/")
     Right ["\156"] @=?
-        splitPath TmpYesod (BSU.fromString "/\156/")
+        splitPath TmpYesod (fromString "/\156/")
     Right ["ð"] @=?
-        splitPath TmpYesod (BSU.fromString "/%C3%B0/")
+        splitPath TmpYesod (fromString "/%C3%B0/")
 
 caseUtf8JoinPath :: Assertion
 caseUtf8JoinPath = do

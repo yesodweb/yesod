@@ -12,27 +12,20 @@ module Yesod.Dispatch
     , mkYesodData
     , mkYesodSubData
     , mkYesodDispatch
-    , mkYesodSubDispatch 
+    , mkYesodSubDispatch
       -- ** Path pieces
     , SinglePiece (..)
     , MultiPiece (..)
     , Strings
       -- * Convert to WAI
     , toWaiApp
-    , basicHandler
-    , basicHandler'
 #if TEST
-    , testSuite
+    , dispatchTestSuite
 #endif
     ) where
 
-#if TEST
-import Yesod.Core hiding (testSuite)
-import Yesod.Handler hiding (testSuite)
-#else
 import Yesod.Core
 import Yesod.Handler
-#endif
 
 import Yesod.Request
 import Yesod.Internal
@@ -46,10 +39,6 @@ import qualified Network.Wai as W
 import Network.Wai.Middleware.CleanPath (cleanPath)
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.Gzip
-
-import qualified Network.Wai.Handler.SimpleServer as SS
-import qualified Network.Wai.Handler.CGI as CGI
-import System.Environment (getEnvironment)
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as S
@@ -87,12 +76,9 @@ import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.QuickCheck
 import System.IO.Unsafe
-import Yesod.Content hiding (testSuite)
-import Data.Serialize.Get
-import Data.Serialize.Put
-#else
-import Yesod.Content
 #endif
+
+import Yesod.Content
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
@@ -359,34 +345,6 @@ httpAccept = map B.unpack
            . lookup "Accept"
            . W.requestHeaders
 
--- | Runs an application with CGI if CGI variables are present (namely
--- PATH_INFO); otherwise uses SimpleServer.
-basicHandler :: (Yesod y, YesodSite y)
-             => Int -- ^ port number
-             -> y
-             -> IO ()
-basicHandler port y = basicHandler' port (Just "localhost") y
-
-
--- | Same as 'basicHandler', but allows you to specify the hostname to display
--- to the user. If 'Nothing' is provided, then no output is produced.
-basicHandler' :: (Yesod y, YesodSite y)
-              => Int -- ^ port number
-              -> Maybe String -- ^ host name, 'Nothing' to show nothing
-              -> y
-              -> IO ()
-basicHandler' port mhost y = do
-    app <- toWaiApp y
-    vars <- getEnvironment
-    case lookup "PATH_INFO" vars of
-        Nothing -> do
-            case mhost of
-                Nothing -> return ()
-                Just h -> putStrLn $ concat
-                    ["http://", h, ":", show port, "/"]
-            SS.run port app
-        Just _ -> CGI.run app
-
 parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session
                 -> IO Request
@@ -518,8 +476,8 @@ getTime = do
 
 #if TEST
 
-testSuite :: Test
-testSuite = testGroup "Yesod.Dispatch"
+dispatchTestSuite :: Test
+dispatchTestSuite = testGroup "Yesod.Dispatch"
     [ testProperty "encode/decode session" propEncDecSession
     , testProperty "get/put time" propGetPutTime
     ]

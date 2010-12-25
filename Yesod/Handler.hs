@@ -88,7 +88,7 @@ module Yesod.Handler
     , ErrorResponse (..)
     , YesodAppResult (..)
 #if TEST
-    , testSuite
+    , handlerTestSuite
 #endif
     ) where
 
@@ -120,13 +120,9 @@ import qualified Data.ByteString.Char8 as S8
 
 #if TEST
 import Test.Framework (testGroup, Test)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit hiding (Test)
-import Yesod.Content hiding (testSuite)
-import Data.IORef
-#else
-import Yesod.Content
 #endif
+
+import Yesod.Content
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -580,8 +576,8 @@ getSession = GHandler $ lift $ lift $ lift get
 
 #if TEST
 
-testSuite :: Test
-testSuite = testGroup "Yesod.Handler"
+handlerTestSuite :: Test
+handlerTestSuite = testGroup "Yesod.Handler"
     [
     ]
 
