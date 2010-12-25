@@ -31,11 +31,10 @@ library
                    , wai                       >= 0.3      && < 0.4
                    , wai-extra                 >= 0.3      && < 0.4
                    , bytestring                >= 0.9.1.4  && < 0.10
-                   , directory                 >= 1        && < 1.2
                    , text                      >= 0.5      && < 0.12
                    , template-haskell
                    , web-routes-quasi          >= 0.6.2    && < 0.7
-                   , hamlet                    >= 0.6      && < 0.7
+                   , hamlet                    >= 0.7      && < 0.8
                    , blaze-builder             >= 0.2.1    && < 0.3
                    , transformers              >= 0.2      && < 0.3
                    , clientsession             >= 0.4.0    && < 0.5
