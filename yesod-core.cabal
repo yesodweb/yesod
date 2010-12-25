@@ -38,17 +38,11 @@ library
                    , blaze-builder             >= 0.2.1    && < 0.3
                    , transformers              >= 0.2      && < 0.3
                    , clientsession             >= 0.4.0    && < 0.5
-                   , pureMD5                   >= 1.1.0.0  && < 2.2
                    , random                    >= 1.0.0.2  && < 1.1
                    , cereal                    >= 0.2      && < 0.4
-                   , base64-bytestring         >= 0.1      && < 0.2
                    , old-locale                >= 1.0.0.2  && < 1.1
                    , neither                   >= 0.2      && < 0.3
-                   , network                   >= 2.2.1.5  && < 2.4
-                   , email-validate            >= 0.2.5    && < 0.3
                    , web-routes                >= 0.23     && < 0.24
-                   , xss-sanitize              >= 0.2.3    && < 0.3
-                   , data-default              >= 0.2      && < 0.3
                    , failure                   >= 0.1      && < 0.2
                    , containers                >= 0.2      && < 0.5
                    , monad-peel                >= 0.1      && < 0.2
