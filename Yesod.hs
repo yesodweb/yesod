@@ -8,6 +8,9 @@ module Yesod
     , module Yesod.Handler
     , module Yesod.Dispatch
     , module Yesod.Widget
+      -- * Running your application
+    , warp
+    , warpDebug
       -- * Commonly referenced functions/datatypes
     , Application
     , lift
@@ -48,9 +51,13 @@ import Text.Julius
 import Yesod.Request
 import Yesod.Widget
 import Network.Wai (Application)
+import qualified Network.Wai as W
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.IO.Peel (MonadPeelIO)
+
+import Network.Wai.Handler.Warp (run)
+import System.IO (stderr, hPutStrLn)
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)
@@ -60,3 +67,23 @@ readIntegral s =
     case reads s of
         (i, _):_ -> Just $ fromInteger i
         [] -> Nothing
+
+-- | A convenience method to run an application using the Warp webserver on the
+-- specified port. Automatically calls 'toWaiApp'.
+warp :: (Yesod a, YesodSite a) => Int -> a -> IO ()
+warp port a = toWaiApp a >>= run port
+
+-- | Same as 'warp', but also sends a message to stderr for each request, and
+-- an \"application launched\" message as well. Can be useful for development.
+warpDebug :: (Yesod a, YesodSite a) => Int -> a -> IO ()
+warpDebug port a = do
+    hPutStrLn stderr $ "Application launched, listening on port " ++ show port
+    toWaiApp a >>= run port . debugMiddleware
+  where
+    debugMiddleware app req = do
+        hPutStrLn stderr $ concat
+            [ show $ W.requestMethod req
+            , " "
+            , show $ W.pathInfo req
+            ]
+        app req
