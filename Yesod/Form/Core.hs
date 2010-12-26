@@ -202,10 +202,10 @@ instance IsForm (FormField s m a) where
     toForm x = GForm $ do
         (a, b, c) <- x
         return (a, [b], c)
-instance IsForm (GFormMonad s m (FormResult a, FieldInfo s m)) where
-    type FormSub (GFormMonad s m (FormResult a, FieldInfo s m)) = s
-    type FormMaster (GFormMonad s m (FormResult a, FieldInfo s m)) = m
-    type FormType (GFormMonad s m (FormResult a, FieldInfo s m)) = a
+instance (FormResult ~ formResult) => IsForm (GFormMonad s m (formResult a, FieldInfo s m)) where
+    type FormSub (GFormMonad s m (formResult a, FieldInfo s m)) = s
+    type FormMaster (GFormMonad s m (formResult a, FieldInfo s m)) = m
+    type FormType (GFormMonad s m (formResult a, FieldInfo s m)) = a
     toForm x = do
         (res, fi, enctype) <- lift x
         tell enctype
