@@ -225,7 +225,7 @@ simpleContentType :: String -> String
 simpleContentType = fst . span (/= ';')
 
 -- | A default extension to mime-type dictionary.
-typeByExt :: [(String, ContentType)]
+typeByExt :: [(String, ContentType)] -- FIXME move to yesod-static
 typeByExt =
     [ ("jpg", typeJpeg)
     , ("jpeg", typeJpeg)

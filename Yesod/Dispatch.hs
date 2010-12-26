@@ -19,6 +19,7 @@ module Yesod.Dispatch
     , Strings
       -- * Convert to WAI
     , toWaiApp
+    , toWaiAppPlain
 #if TEST
     , dispatchTestSuite
 #endif
