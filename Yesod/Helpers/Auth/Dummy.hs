@@ -7,8 +7,10 @@ module Yesod.Helpers.Auth.Dummy
     ( authDummy
     ) where
 
-import Yesod
 import Yesod.Helpers.Auth
+import Yesod.Form (runFormPost', stringInput)
+import Yesod.Handler (notFound)
+import Text.Hamlet (hamlet)
 
 authDummy :: YesodAuth m => AuthPlugin m
 authDummy =

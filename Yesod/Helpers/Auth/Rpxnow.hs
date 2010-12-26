@@ -4,10 +4,15 @@ module Yesod.Helpers.Auth.Rpxnow
     ( authRpxnow
     ) where
 
-import Yesod
 import Yesod.Helpers.Auth
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import Control.Monad (mplus)
+
+import Yesod.Handler
+import Yesod.Widget
+import Yesod.Request
+import Text.Hamlet (hamlet)
+import Control.Monad.IO.Class (liftIO)
 
 authRpxnow :: YesodAuth m
            => String -- ^ app name

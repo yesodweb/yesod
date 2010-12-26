@@ -7,7 +7,6 @@ module Yesod.Helpers.Auth.Email
     , saltPass
     ) where
 
-import Yesod
 import Network.Mail.Mime (randomString)
 import Yesod.Helpers.Auth
 import System.Random
@@ -16,6 +15,15 @@ import Control.Applicative ((<$>), (<*>))
 import Data.Digest.Pure.MD5
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy.Encoding (encodeUtf8)
+
+import Yesod.Form
+import Yesod.Handler
+import Yesod.Content
+import Yesod.Widget
+import Yesod.Core
+import Text.Hamlet (hamlet)
+import Text.Blaze (string)
+import Control.Monad.IO.Class (liftIO)
 
 login, register, setpass :: AuthRoute
 login = PluginR "email" ["login"]

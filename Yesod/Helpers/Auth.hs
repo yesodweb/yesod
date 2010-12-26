@@ -21,10 +21,22 @@ module Yesod.Helpers.Auth
     , requireAuth
     ) where
 
-import Yesod
+import Yesod.Handler
+import Yesod.Core
+import Yesod.Widget
+import Yesod.Content
+import Yesod.Dispatch
+import Yesod.Persist
+import Yesod.Request
+import Yesod.Json
+import Text.Blaze
 import Language.Haskell.TH.Syntax hiding (lift)
 import qualified Data.ByteString.Char8 as S8
 import qualified Network.Wai as W
+import Text.Hamlet (hamlet)
+import Data.Text.Lazy (pack)
+import Data.JSON.Types (Value (..), Atom (AtomBoolean))
+import qualified Data.Map as Map
 
 data Auth = Auth
 
@@ -141,8 +153,10 @@ $nothing
     %p Not logged in.
 |]
     json creds =
-        jsonMap
-            [ ("logged_in", jsonScalar $ maybe "false" (const "true") creds)
+        ValueObject $ Map.fromList
+            [ (pack "logged_in"
+              , ValueAtom $ AtomBoolean
+                          $ maybe False (const True) creds)
             ]
 
 getLoginR :: YesodAuth m => GHandler Auth m RepHtml

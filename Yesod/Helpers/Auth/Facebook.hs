@@ -5,11 +5,16 @@ module Yesod.Helpers.Auth.Facebook
     , facebookUrl
     ) where
 
-import Yesod
 import Yesod.Helpers.Auth
 import qualified Web.Authenticate.Facebook as Facebook
 import Data.Object (fromMapping, lookupScalar)
 import Data.Maybe (fromMaybe)
+
+import Yesod.Form
+import Yesod.Handler
+import Yesod.Widget
+import Text.Hamlet (hamlet)
+import Control.Monad.IO.Class (liftIO)
 
 facebookUrl :: AuthRoute
 facebookUrl = PluginR "facebook" ["forward"]

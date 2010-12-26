@@ -5,10 +5,18 @@ module Yesod.Helpers.Auth.OpenId
     , forwardUrl
     ) where
 
-import Yesod
 import Yesod.Helpers.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 import Control.Monad.Attempt
+
+import Yesod.Form
+import Yesod.Handler
+import Yesod.Widget
+import Yesod.Request
+import Text.Hamlet (hamlet)
+import Text.Cassius (cassius)
+import Text.Blaze (string)
+import Control.Monad.IO.Class (liftIO)
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
@@ -49,7 +57,7 @@ authOpenId =
                 render <- getUrlRender
                 toMaster <- getRouteToMaster
                 let complete' = render $ toMaster complete
-                res <- runAttemptT $ OpenId.getForwardUrl oid complete'
+                res <- runAttemptT $ OpenId.getForwardUrl oid complete' Nothing []
                 attempt
                   (\err -> do
                         setMessage $ string $ show err
@@ -77,6 +85,6 @@ completeHelper gets' = do
         let onFailure err = do
             setMessage $ string $ show err
             redirect RedirectTemporary $ toMaster LoginR
-        let onSuccess (OpenId.Identifier ident) =
+        let onSuccess (OpenId.Identifier ident, _) =
                 setCreds True $ Creds "openid" ident []
         attempt onFailure onSuccess res
