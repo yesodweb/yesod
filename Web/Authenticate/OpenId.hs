@@ -84,7 +84,14 @@ authenticateParams
     -> m (Identifier, [(String, String)])
 authenticateParams params = do
     unless (lookup "openid.mode" params == Just "id_res")
-        $ failure $ AuthenticationException "mode is not id_res"
+        $ failure $ case lookup "openid.mode" params of
+                      Nothing -> AuthenticationException "openid.mode was not found in the params."
+                      (Just m)
+                            | m == "error" ->
+                                case lookup "openid.error" params of
+                                  Nothing -> AuthenticationException "An error occurred, but no error message was provided."
+                                  (Just e) -> AuthenticationException e
+                            | otherwise -> AuthenticationException $ "mode is " ++ m ++ " but we were expecting id_res."
     ident <- case lookup "openid.identity" params of
                 Just i -> return i
                 Nothing ->
