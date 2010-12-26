@@ -27,6 +27,7 @@ library
                    , transformers              >= 0.2      && < 0.3
                    , wai                       >= 0.3      && < 0.4
                    , hamlet                    >= 0.7      && < 0.8
+                   , warp                      >= 0.3      && < 0.4
     exposed-modules: Yesod
     ghc-options:     -Wall
 
