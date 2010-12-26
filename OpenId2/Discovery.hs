@@ -32,6 +32,7 @@ import Control.Arrow (first, (***))
 import Control.Monad.IO.Class (MonadIO)
 import Control.Failure (Failure (failure))
 import Control.Monad (mplus, liftM)
+import Network.Wai (ciOriginal)
 
 data Discovery = Discovery1 String (Maybe String)
                | Discovery2 Provider Identifier
@@ -72,7 +73,7 @@ discoverYADIS ident mb_loc redirects = do
     res <- httpLbs req
     let mloc = fmap S8.unpack
              $ lookup "x-xrds-location"
-             $ map (first $ map toLower . S8.unpack)
+             $ map (first $ map toLower . S8.unpack . ciOriginal)
              $ responseHeaders res
     let mloc' = if mloc == mb_loc then Nothing else mloc
     case statusCode res of
