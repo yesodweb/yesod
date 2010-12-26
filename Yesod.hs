@@ -1,41 +1,55 @@
 {-# LANGUAGE CPP #-}
 -- | This module simply re-exports from other modules for your convenience.
 module Yesod
-    ( module Yesod.Request
+    ( -- * Re-exports from yesod-core
+      module Yesod.Request
     , module Yesod.Content
-    , module Yesod.Yesod
+    , module Yesod.Core
     , module Yesod.Handler
     , module Yesod.Dispatch
-    , module Yesod.Hamlet
     , module Yesod.Widget
+      -- * Commonly referenced functions/datatypes
     , Application
     , lift
     , liftIO
     , MonadPeelIO
-    , mempty
+      -- * Utilities
     , showIntegral
     , readIntegral
+      -- * Hamlet library
+      -- ** Hamlet
+    , hamlet
+    , xhamlet
+    , Hamlet
+    , Html
+    , renderHamlet
+    , renderHtml
+    , string
+    , preEscapedString
+    , cdata
+      -- ** Julius
+    , julius
+    , Julius
+    , renderJulius
+      -- ** Cassius
+    , cassius
+    , Cassius
+    , renderCassius
     ) where
 
-#if TEST
-import Yesod.Content hiding (testSuite)
-import Yesod.Dispatch hiding (testSuite)
-import Yesod.Yesod hiding (testSuite)
-import Yesod.Handler hiding (runHandler, testSuite)
-#else
 import Yesod.Content
 import Yesod.Dispatch
-import Yesod.Yesod
+import Yesod.Core
 import Yesod.Handler hiding (runHandler)
-#endif
+import Text.Hamlet
+import Text.Cassius
+import Text.Julius
 
 import Yesod.Request
 import Yesod.Widget
 import Network.Wai (Application)
-import Yesod.Hamlet
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
-import Data.Monoid (mempty)
 import Control.Monad.IO.Peel (MonadPeelIO)
 
 showIntegral :: Integral a => a -> String
