@@ -1,9 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Web.Authenticate.OpenId
     ( getForwardUrl
-    , getForwardUrlRealm
     , authenticate
-    , authenticateParams
     , AuthenticateException (..)
     , Identifier (..)
     ) where
@@ -14,7 +12,7 @@ import OpenId2.Discovery (discover, Discovery (..))
 import Control.Failure (Failure (failure))
 import OpenId2.Types
 import Web.Authenticate.Internal (qsUrl)
-import Control.Monad (unless, liftM)
+import Control.Monad (unless)
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import Network.HTTP.Enumerator
@@ -25,16 +23,7 @@ import Control.Arrow ((***))
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
 
-getForwardUrl :: ( MonadIO m
-                 , Failure AuthenticateException m
-                 , Failure HttpException m
-                 )
-              => String -- ^ The openid the user provided.
-              -> String -- ^ The URL for this application\'s complete page.
-              -> m String -- ^ URL to send the user to.
-getForwardUrl a b = getForwardUrlRealm a b Nothing []
-
-getForwardUrlRealm
+getForwardUrl
     :: ( MonadIO m
        , Failure AuthenticateException m
        , Failure HttpException m
@@ -44,7 +33,7 @@ getForwardUrlRealm
     -> Maybe String -- ^ Optional realm
     -> [(String, String)] -- ^ Additional parameters to send to the OpenID provider. These can be useful for using extensions.
     -> m String -- ^ URL to send the user to.
-getForwardUrlRealm openid' complete mrealm params = do
+getForwardUrl openid' complete mrealm params = do
     let realm = fromMaybe complete mrealm
     disc <- normalize openid' >>= discover
     case disc of
@@ -72,17 +61,8 @@ authenticate
        , Failure HttpException m
        )
     => [(String, String)]
-    -> m Identifier
-authenticate = liftM fst . authenticateParams
-
-authenticateParams
-    :: ( MonadIO m
-       , Failure AuthenticateException m
-       , Failure HttpException m
-       )
-    => [(String, String)]
     -> m (Identifier, [(String, String)])
-authenticateParams params = do
+authenticate params = do
     unless (lookup "openid.mode" params == Just "id_res")
         $ failure $ case lookup "openid.mode" params of
                       Nothing -> AuthenticationException "openid.mode was not found in the params."
