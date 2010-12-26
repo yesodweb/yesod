@@ -88,12 +88,17 @@ dayFieldProfile = FieldProfile
 timeFieldProfile :: FieldProfile sub y TimeOfDay
 timeFieldProfile = FieldProfile
     { fpParse = parseTime
-    , fpRender = show
+    , fpRender = show . roundFullSeconds
     , fpWidget = \theId name val isReq -> addHamlet
         [HAMLET|
 %input#$theId$!name=$name$!:isReq:required!value=$val$
 |]
     }
+  where
+    roundFullSeconds tod =
+        TimeOfDay (todHour tod) (todMin tod) fullSec
+      where
+        fullSec = fromInteger $ floor $ todSec tod
 
 htmlFieldProfile :: FieldProfile sub y Html
 htmlFieldProfile = FieldProfile
