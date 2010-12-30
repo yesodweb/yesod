@@ -41,7 +41,6 @@ library
                    , random                    >= 1.0.0.2  && < 1.1
                    , cereal                    >= 0.2      && < 0.4
                    , old-locale                >= 1.0.0.2  && < 1.1
-                   , neither                   >= 0.2      && < 0.3
                    , web-routes                >= 0.23     && < 0.24
                    , failure                   >= 0.1      && < 0.2
                    , containers                >= 0.2      && < 0.5

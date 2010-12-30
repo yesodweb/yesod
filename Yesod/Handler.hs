@@ -95,7 +95,6 @@ module Yesod.Handler
 import Prelude hiding (catch)
 import Yesod.Request
 import Yesod.Internal
-import Data.Neither
 import Data.Time (UTCTime)
 
 import Control.Exception hiding (Handler, catch, finally)
@@ -107,6 +106,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.State
+import Control.Monad.Trans.Error (throwError, ErrorT (runErrorT), Error (..))
 
 import System.IO
 import qualified Network.Wai as W
@@ -211,7 +211,7 @@ newtype GHandler sub master a =
 
 type GHInner s m =
     ReaderT (HandlerData s m) (
-    MEitherT HandlerContents (
+    ErrorT HandlerContents (
     WriterT (Endo [Header]) (
     StateT SessionMap ( -- session
     IO
@@ -245,8 +245,11 @@ data HandlerContents =
     | HCCreated String
     | HCEnum (forall a. W.ResponseEnumerator a)
 
+instance Error HandlerContents where
+    strMsg = HCError . InternalError
+
 instance Failure ErrorResponse (GHandler sub master) where
-    failure = GHandler . lift . throwMEither . HCError
+    failure = GHandler . lift . throwError . HCError
 instance RequestReader (GHandler sub master) where
     getRequest = handlerRequest <$> GHandler ask
 
@@ -304,11 +307,11 @@ runHandler handler mrender sroute tomr ma tosa =
     ((contents', headers), finalSession) <- E.catch (
         flip runStateT initSession
       $ runWriterT
-      $ runMEitherT
+      $ runErrorT
       $ flip runReaderT hd
       $ unGHandler handler
-        ) (\e -> return ((MLeft $ HCError $ toErrorHandler e, id), initSession))
-    let contents = meither id (HCContent W.status200 . chooseRep) contents'
+        ) (\e -> return ((Left $ HCError $ toErrorHandler e, id), initSession))
+    let contents = either id (HCContent W.status200 . chooseRep) contents'
     let handleError e = do
             yar <- unYesodApp (eh e) safeEh rr cts finalSession
             case yar of
@@ -364,7 +367,7 @@ redirectParams rt url params = do
 
 -- | Redirect to the given URL.
 redirectString :: RedirectType -> String -> GHandler sub master a
-redirectString rt = GHandler . lift . throwMEither . HCRedirect rt
+redirectString rt = GHandler . lift . throwError . HCRedirect rt
 
 ultDestKey :: String
 ultDestKey = "_ULT"
@@ -433,18 +436,18 @@ getMessage = do
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
 sendFile :: ContentType -> FilePath -> GHandler sub master a
-sendFile ct = GHandler . lift . throwMEither . HCSendFile ct
+sendFile ct = GHandler . lift . throwError . HCSendFile ct
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
 sendResponse :: HasReps c => c -> GHandler sub master a
-sendResponse = GHandler . lift . throwMEither . HCContent W.status200
+sendResponse = GHandler . lift . throwError . HCContent W.status200
              . chooseRep
 
 -- | Bypass remaining handler code and output the given content with the given
 -- status code.
 sendResponseStatus :: HasReps c => W.Status -> c -> GHandler s m a
-sendResponseStatus s = GHandler . lift . throwMEither . HCContent s
+sendResponseStatus s = GHandler . lift . throwError . HCContent s
                      . chooseRep
 
 -- | Send a 201 "Created" response with the given route as the Location
@@ -452,7 +455,7 @@ sendResponseStatus s = GHandler . lift . throwMEither . HCContent s
 sendResponseCreated :: Route m -> GHandler s m a
 sendResponseCreated url = do
     r <- getUrlRender
-    GHandler $ lift $ throwMEither $ HCCreated $ r url
+    GHandler $ lift $ throwError $ HCCreated $ r url
 
 -- | Send a 'W.ResponseEnumerator'. Please note: this function is rarely
 -- necessary, and will /disregard/ any changes to response headers and session
@@ -460,7 +463,7 @@ sendResponseCreated url = do
 -- considered only for they specific needs. If you are not sure if you need it,
 -- you don't.
 sendResponseEnumerator :: (forall a. W.ResponseEnumerator a) -> GHandler s m b
-sendResponseEnumerator = GHandler . lift . throwMEither . HCEnum
+sendResponseEnumerator = GHandler . lift . throwError . HCEnum
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
