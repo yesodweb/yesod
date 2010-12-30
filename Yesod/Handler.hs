@@ -101,6 +101,8 @@ import Control.Exception hiding (Handler, catch, finally)
 import qualified Control.Exception as E
 import Control.Applicative
 
+import Control.Monad (liftM)
+
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
@@ -117,6 +119,8 @@ import Text.Hamlet
 import Control.Monad.IO.Peel (MonadPeelIO)
 import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as S8
+import Data.ByteString (ByteString)
+import Data.Enumerator (Iteratee (..))
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -203,18 +207,20 @@ toMasterHandlerMaybe tm ts route (GHandler h) =
 -- 'WriterT' for headers and session, and an 'MEitherT' monad for handling
 -- special responses. It is declared as a newtype to make compiler errors more
 -- readable.
-newtype GHandler sub master a =
+newtype GGHandler sub master m a =
     GHandler
-        { unGHandler :: GHInner sub master a
+        { unGHandler :: GHInner sub master m a
         }
     deriving (Functor, Applicative, Monad, MonadIO, MonadPeelIO)
 
-type GHInner s m =
+type GHandler sub master = GGHandler sub master (Iteratee ByteString IO)
+
+type GHInner s m monad =
     ReaderT (HandlerData s m) (
     ErrorT HandlerContents (
     WriterT (Endo [Header]) (
     StateT SessionMap ( -- session
-    IO
+    monad
     ))))
 
 type SessionMap = Map.Map String String
@@ -230,7 +236,7 @@ newtype YesodApp = YesodApp
     -> Request
     -> [ContentType]
     -> SessionMap
-    -> IO YesodAppResult
+    -> Iteratee ByteString IO YesodAppResult
     }
 
 data YesodAppResult
@@ -248,38 +254,43 @@ data HandlerContents =
 instance Error HandlerContents where
     strMsg = HCError . InternalError
 
-instance Failure ErrorResponse (GHandler sub master) where
+instance Monad monad => Failure ErrorResponse (GGHandler sub master monad) where
     failure = GHandler . lift . throwError . HCError
 instance RequestReader (GHandler sub master) where
     getRequest = handlerRequest <$> GHandler ask
+    runRequestBody = do
+        rr <- getRequest
+        GHandler $ lift $ lift $ lift $ lift $ reqRequestBody rr
 
 -- | Get the sub application argument.
-getYesodSub :: GHandler sub master sub
-getYesodSub = handlerSub <$> GHandler ask
+getYesodSub :: Monad m => GGHandler sub master m sub
+getYesodSub = handlerSub `liftM` GHandler ask
 
 -- | Get the master site appliation argument.
-getYesod :: GHandler sub master master
-getYesod = handlerMaster <$> GHandler ask
+getYesod :: Monad m => GGHandler sub master m master
+getYesod = handlerMaster `liftM` GHandler ask
 
 -- | Get the URL rendering function.
-getUrlRender :: GHandler sub master (Route master -> String)
+getUrlRender :: Monad m => GGHandler sub master m (Route master -> String)
 getUrlRender = do
-    x <- handlerRender <$> GHandler ask
+    x <- handlerRender `liftM` GHandler ask
     return $ flip x []
 
 -- | The URL rendering function with query-string parameters.
-getUrlRenderParams :: GHandler sub master (Route master -> [(String, String)] -> String)
-getUrlRenderParams = handlerRender <$> GHandler ask
+getUrlRenderParams
+    :: Monad m
+    => GGHandler sub master m (Route master -> [(String, String)] -> String)
+getUrlRenderParams = handlerRender `liftM` GHandler ask
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
-getCurrentRoute :: GHandler sub master (Maybe (Route sub))
-getCurrentRoute = handlerRoute <$> GHandler ask
+getCurrentRoute :: Monad m => GGHandler sub master m (Maybe (Route sub))
+getCurrentRoute = handlerRoute `liftM` GHandler ask
 
 -- | Get the function to promote a route for a subsite to a route for the
 -- master site.
-getRouteToMaster :: GHandler sub master (Route sub -> Route master)
-getRouteToMaster = handlerToMaster <$> GHandler ask
+getRouteToMaster :: Monad m => GGHandler sub master m (Route sub -> Route master)
+getRouteToMaster = handlerToMaster `liftM` GHandler ask
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
@@ -304,7 +315,7 @@ runHandler handler mrender sroute tomr ma tosa =
             , handlerRender = mrender
             , handlerToMaster = tomr
             }
-    ((contents', headers), finalSession) <- E.catch (
+    ((contents', headers), finalSession) <- catchIter (
         flip runStateT initSession
       $ runWriterT
       $ runErrorT
@@ -323,7 +334,7 @@ runHandler handler mrender sroute tomr ma tosa =
             return $ YARPlain W.status200 (headers []) ct (ContentFile fp) finalSession
     case contents of
         HCContent status a -> do
-            (ct, c) <- chooseRep a cts
+            (ct, c) <- liftIO $ chooseRep a cts
             return $ YARPlain status (headers []) ct c finalSession
         HCError e -> handleError e
         HCRedirect rt loc -> do
@@ -331,7 +342,7 @@ runHandler handler mrender sroute tomr ma tosa =
             return $ YARPlain
                 (getRedirectStatus rt) hs typePlain emptyContent
                 finalSession
-        HCSendFile ct fp -> E.catch
+        HCSendFile ct fp -> catchIter
             (sendFile' ct fp)
             (handleError . toErrorHandler)
         HCCreated loc -> do -- FIXME add status201 to WAI
@@ -343,6 +354,12 @@ runHandler handler mrender sroute tomr ma tosa =
                 emptyContent
                 finalSession
         HCEnum e -> return $ YAREnum e
+
+catchIter :: Exception e
+          => Iteratee ByteString IO a
+          -> (e -> Iteratee ByteString IO a)
+          -> Iteratee ByteString IO a
+catchIter (Iteratee mstep) f = Iteratee $ mstep `E.catch` (runIteratee . f)
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ session -> do

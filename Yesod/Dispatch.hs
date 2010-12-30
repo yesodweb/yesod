@@ -43,6 +43,7 @@ import Network.Wai.Middleware.Gzip
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as S
+import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as L
 import Blaze.ByteString.Builder (toLazyByteString)
 
@@ -70,7 +71,8 @@ import System.Random (randomR, newStdGen)
 import qualified Data.Map as Map
 
 import Control.Applicative ((<$>))
-import Data.Enumerator (($$), run_)
+import Data.Enumerator (($$), run_, Iteratee)
+import Control.Monad.IO.Class (liftIO)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -251,10 +253,9 @@ toWaiApp' :: (Yesod y, YesodSite y)
           => y
           -> Maybe Key
           -> [String]
-          -> W.Request
-          -> IO W.Response
+          -> W.Application
 toWaiApp' y key' segments env = do
-    now <- getCurrentTime
+    now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration y
     let host = if sessionIpAddress y then W.remoteHost env else ""
@@ -276,7 +277,7 @@ toWaiApp' y key' segments env = do
                     (joinPath y (approot y) ps $ qs ++ qs')
                     (urlRenderOverride y u)
     let errorHandler' = localNoCurrent . errorHandler
-    rr <- parseWaiRequest env session' key'
+    rr <- liftIO $ parseWaiRequest env session' key'
     let h = do
           onRequest
           case eurl of
@@ -389,11 +390,10 @@ parseWaiRequest env session' key' = do
 nonceKey :: String
 nonceKey = "_NONCE"
 
-rbHelper :: W.Request -> IO RequestBodyContents
+rbHelper :: W.Request -> Iteratee ByteString IO RequestBodyContents
 rbHelper req =
-    (map fix1 *** map fix2) <$> run_ (enum $$ iter)
+    (map fix1 *** map fix2) <$> iter
   where
-    enum = W.requestBody req
     iter = parseRequestBody lbsSink req
     fix1 = bsToChars *** bsToChars
     fix2 (x, NWP.FileInfo a b c) =
@@ -402,11 +402,18 @@ rbHelper req =
 -- | Produces a \"compute on demand\" value. The computation will be run once
 -- it is requested, and then the result will be stored. This will happen only
 -- once.
-iothunk :: IO a -> IO (IO a)
-iothunk = fmap go . newMVar . Left where
-    go :: MVar (Either (IO a) a) -> IO a
-    go mvar = modifyMVar mvar go'
-    go' :: Either (IO a) a -> IO (Either (IO a) a, a)
+iothunk :: Iteratee ByteString IO a -> IO (Iteratee ByteString IO a)
+iothunk =
+    fmap go . liftIO . newMVar . Left
+  where
+    go :: MVar (Either (Iteratee ByteString IO a) a) -> Iteratee ByteString IO a
+    go mvar = do
+        x <- liftIO $ takeMVar mvar
+        (x', a) <- go' x
+        liftIO $ putMVar mvar x'
+        return a
+    go' :: Either (Iteratee ByteString IO a) a
+        -> Iteratee ByteString IO (Either (Iteratee ByteString IO a) a, a)
     go' (Right val) = return (Right val, val)
     go' (Left comp) = do
         val <- comp

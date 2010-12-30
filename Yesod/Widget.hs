@@ -7,7 +7,8 @@
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
     ( -- * Datatype
-      GWidget (..)
+      GWidget
+    , GGWidget (..)
     , liftHandler
     , PageContent (..)
       -- * Creating
@@ -54,15 +55,17 @@ import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (lift)
 import Yesod.Internal
 import Yesod.Content (RepHtml (RepHtml), Content, toContent)
+import Control.Monad (liftM)
 
 import Control.Monad.IO.Peel (MonadPeelIO)
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
 -- dependencies along with a 'StateT' to track unique identifiers.
-newtype GWidget s m a = GWidget { unGWidget :: GWInner s m a }
+newtype GGWidget s m monad a = GWidget { unGWidget :: GWInner s m monad a }
     deriving (Functor, Applicative, Monad, MonadIO, MonadPeelIO)
-type GWInner sub master =
+type GWidget s m = GGWidget s m (GHandler s m)
+type GWInner sub master monad =
     WriterT (Body (Route master)) (
     WriterT (Last Title) (
     WriterT (UniqueList (Script (Route master))) (
@@ -71,28 +74,28 @@ type GWInner sub master =
     WriterT (Maybe (Julius (Route master))) (
     WriterT (Head (Route master)) (
     StateT Int (
-    GHandler sub master
+    monad
     ))))))))
-instance Monoid (GWidget sub master ()) where
+instance Monad monad => Monoid (GGWidget sub master monad ()) where
     mempty = return ()
     mappend x y = x >> y
 
-instance HamletValue (GWidget s m ()) where
-    newtype HamletMonad (GWidget s m ()) a =
-        GWidget' { runGWidget' :: GWidget s m a }
-    type HamletUrl (GWidget s m ()) = Route m
+instance Monad monad => HamletValue (GGWidget s m monad ()) where
+    newtype HamletMonad (GGWidget s m monad ()) a =
+        GWidget' { runGWidget' :: GGWidget s m monad a }
+    type HamletUrl (GGWidget s m monad ()) = Route m
     toHamletValue = runGWidget'
     htmlToHamletMonad = GWidget' . addHtml
     urlToHamletMonad url params = GWidget' $
         addHamlet $ \r -> preEscapedString (r url params)
     fromHamletValue = GWidget'
-instance Monad (HamletMonad (GWidget s m ())) where
+instance Monad monad => Monad (HamletMonad (GGWidget s m monad ())) where
     return = GWidget' . return
     x >>= y = GWidget' $ runGWidget' x >>= runGWidget' . y
 
 -- | Lift an action in the 'GHandler' monad into an action in the 'GWidget'
 -- monad.
-liftHandler :: GHandler sub master a -> GWidget sub master a
+liftHandler :: Monad monad => monad a -> GGWidget sub master monad a
 liftHandler = GWidget . lift . lift . lift . lift . lift . lift . lift . lift
 
 addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWidget sub' master a
@@ -125,32 +128,32 @@ addSubWidget sub w = do master <- liftHandler getYesod
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitle :: Html -> GWidget sub master ()
+setTitle :: Monad m => Html -> GGWidget sub master m ()
 setTitle = GWidget . lift . tell . Last . Just . Title
 
 -- | Add a 'Hamlet' to the head tag.
-addHamletHead :: Hamlet (Route master) -> GWidget sub master ()
+addHamletHead :: Monad m => Hamlet (Route master) -> GGWidget sub master m ()
 addHamletHead = GWidget . lift . lift . lift . lift . lift . lift . tell . Head
 
 -- | Add a 'Html' to the head tag.
-addHtmlHead :: Html -> GWidget sub master ()
+addHtmlHead :: Monad m => Html -> GGWidget sub master m ()
 addHtmlHead = GWidget . lift . lift . lift . lift . lift . lift . tell . Head . const
 
 -- | Add a 'Hamlet' to the body tag.
-addHamlet :: Hamlet (Route master) -> GWidget sub master ()
+addHamlet :: Monad m => Hamlet (Route master) -> GGWidget sub master m ()
 addHamlet = GWidget . tell . Body
 
 -- | Add a 'Html' to the body tag.
-addHtml :: Html -> GWidget sub master ()
+addHtml :: Monad m => Html -> GGWidget sub master m ()
 addHtml = GWidget . tell . Body . const
 
 -- | Add another widget. This is defined as 'id', by can help with types, and
 -- makes widget blocks look more consistent.
-addWidget :: GWidget s m () -> GWidget s m ()
+addWidget :: Monad mo => GGWidget s m mo () -> GGWidget s m mo ()
 addWidget = id
 
 -- | Get a unique identifier.
-newIdent :: GWidget sub master String
+newIdent :: Monad mo => GGWidget sub master mo String
 newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
     i <- get
     let i' = i + 1
@@ -158,42 +161,42 @@ newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
     return $ "w" ++ show i'
 
 -- | Add some raw CSS to the style tag.
-addCassius :: Cassius (Route master) -> GWidget sub master ()
+addCassius :: Monad m => Cassius (Route master) -> GGWidget sub master m ()
 addCassius = GWidget . lift . lift . lift . lift . tell . Just
 
 -- | Link to the specified local stylesheet.
-addStylesheet :: Route master -> GWidget sub master ()
+addStylesheet :: Monad m => Route master -> GGWidget sub master m ()
 addStylesheet = GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Local
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemote :: String -> GWidget sub master ()
+addStylesheetRemote :: Monad m => String -> GGWidget sub master m ()
 addStylesheetRemote =
     GWidget . lift . lift . lift . tell . toUnique . Stylesheet . Remote
 
-addStylesheetEither :: Either (Route master) String -> GWidget sub master ()
+addStylesheetEither :: Monad m => Either (Route master) String -> GGWidget sub master m ()
 addStylesheetEither = either addStylesheet addStylesheetRemote
 
-addScriptEither :: Either (Route master) String -> GWidget sub master ()
+addScriptEither :: Monad m => Either (Route master) String -> GGWidget sub master m ()
 addScriptEither = either addScript addScriptRemote
 
 -- | Link to the specified local script.
-addScript :: Route master -> GWidget sub master ()
+addScript :: Monad m => Route master -> GGWidget sub master m ()
 addScript = GWidget . lift . lift . tell . toUnique . Script . Local
 
 -- | Link to the specified remote script.
-addScriptRemote :: String -> GWidget sub master ()
+addScriptRemote :: Monad m => String -> GGWidget sub master m ()
 addScriptRemote =
     GWidget . lift . lift . tell . toUnique . Script . Remote
 
 -- | Include raw Javascript in the page's script tag.
-addJulius :: Julius (Route master) -> GWidget sub master ()
+addJulius :: Monad m => Julius (Route master) -> GGWidget sub master m ()
 addJulius = GWidget . lift . lift . lift . lift . lift. tell . Just
 
 -- | Pull out the HTML tag contents and return it. Useful for performing some
 -- manipulations. It can be easier to use this sometimes than 'wrapWidget'.
-extractBody :: GWidget s m () -> GWidget s m (Hamlet (Route m))
+extractBody :: Monad mo => GGWidget s m mo () -> GGWidget s m mo (Hamlet (Route m))
 extractBody (GWidget w) =
-    GWidget $ mapWriterT (fmap go) w
+    GWidget $ mapWriterT (liftM go) w
   where
     go ((), Body h) = (h, Body mempty)
 

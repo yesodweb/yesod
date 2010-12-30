@@ -41,6 +41,8 @@ module Yesod.Request
     ) where
 
 import qualified Network.Wai as W
+import Data.ByteString (ByteString)
+import Data.Enumerator (Iteratee)
 import qualified Data.ByteString.Lazy as BL
 import "transformers" Control.Monad.IO.Class
 import Control.Monad (liftM)
@@ -51,11 +53,12 @@ type ParamName = String
 type ParamValue = String
 type ParamError = String
 
+-- FIXME perhaps remove RequestReader typeclass, include Request datatype in Handler
+
 -- | The reader monad specialized for 'Request'.
 class Monad m => RequestReader m where
     getRequest :: m Request
-instance RequestReader ((->) Request) where
-    getRequest = id
+    runRequestBody :: m RequestBodyContents
 
 -- | Get the list of supported languages supplied by the user.
 --
@@ -107,7 +110,7 @@ data Request = Request
       -- service, you may want to accept JSON-encoded data. Just be aware that
       -- if you do such parsing, the standard POST form parsing functions will
       -- no longer work.
-    , reqRequestBody :: IO RequestBodyContents
+    , reqRequestBody :: Iteratee ByteString IO RequestBodyContents
     , reqWaiRequest :: W.Request
       -- | Languages which the client supports.
     , reqLangs :: [String]
@@ -129,12 +132,11 @@ lookupGetParam :: RequestReader m => ParamName -> m (Maybe ParamValue)
 lookupGetParam = liftM listToMaybe . lookupGetParams
 
 -- | Lookup for POST parameters.
-lookupPostParams :: (MonadIO m, RequestReader m)
+lookupPostParams :: RequestReader m
                  => ParamName
                  -> m [ParamValue]
 lookupPostParams pn = do
-    rr <- getRequest
-    (pp, _) <- liftIO $ reqRequestBody rr
+    (pp, _) <- runRequestBody
     return $ lookup' pn pp
 
 lookupPostParam :: (MonadIO m, RequestReader m)
@@ -149,12 +151,11 @@ lookupFile :: (MonadIO m, RequestReader m)
 lookupFile = liftM listToMaybe . lookupFiles
 
 -- | Lookup for POSTed files.
-lookupFiles :: (MonadIO m, RequestReader m)
+lookupFiles :: RequestReader m
             => ParamName
             -> m [FileInfo]
 lookupFiles pn = do
-    rr <- getRequest
-    (_, files) <- liftIO $ reqRequestBody rr
+    (_, files) <- runRequestBody
     return $ lookup' pn files
 
 -- | Lookup for cookie data.
