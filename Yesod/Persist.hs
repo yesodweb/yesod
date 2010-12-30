@@ -11,11 +11,11 @@ import Database.Persist
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Failure (Failure)
 
-import Yesod
+import Yesod.Handler
 
 class YesodPersist y where
     type YesodDB y :: (* -> *) -> * -> *
-    runDB :: YesodDB y (GHandler sub y) a -> GHandler sub y a
+    runDB :: YesodDB y (GGHandler sub y IO) a -> GHandler sub y a
 
 -- Get the given entity by ID, or return a 404 not found if it doesn't exist.
 get404 :: (PersistBackend (t m), PersistEntity val, Monad (t m),
