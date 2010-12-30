@@ -8,6 +8,9 @@ module Yesod
     , module Yesod.Handler
     , module Yesod.Dispatch
     , module Yesod.Widget
+    , module Yesod.Form
+    , module Yesod.Json
+    , module Yesod.Persist
       -- * Running your application
     , warp
     , warpDebug
@@ -50,7 +53,11 @@ import Text.Julius
 
 import Yesod.Request
 import Yesod.Widget
+import Yesod.Form
+import Yesod.Json
+import Yesod.Persist
 import Network.Wai (Application)
+import Network.Wai.Middleware.Debug
 import qualified Network.Wai as W
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
@@ -78,12 +85,4 @@ warp port a = toWaiApp a >>= run port
 warpDebug :: (Yesod a, YesodSite a) => Int -> a -> IO ()
 warpDebug port a = do
     hPutStrLn stderr $ "Application launched, listening on port " ++ show port
-    toWaiApp a >>= run port . debugMiddleware
-  where
-    debugMiddleware app req = do
-        hPutStrLn stderr $ concat
-            [ show $ W.requestMethod req
-            , " "
-            , show $ W.pathInfo req
-            ]
-        app req
+    toWaiApp a >>= run port . debug
