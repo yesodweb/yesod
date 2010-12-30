@@ -23,11 +23,18 @@ flag test
 library
     build-depends:   base                      >= 4        && < 5
                    , yesod-core                >= 0.7      && < 0.8
+                   , yesod-auth                >= 0.3      && < 0.4
+                   , yesod-form                >= 0.0      && < 0.1
+                   , yesod-json                >= 0.0      && < 0.1
+                   , yesod-persistent          >= 0.0      && < 0.1
+                   , yesod-static              >= 0.0      && < 0.1
                    , monad-peel                >= 0.1      && < 0.2
                    , transformers              >= 0.2      && < 0.3
                    , wai                       >= 0.3      && < 0.4
                    , hamlet                    >= 0.7      && < 0.8
                    , warp                      >= 0.3      && < 0.4
+                   , mime-mail                 >= 0.1      && < 0.2
+                   , hjsmin                    >= 0.0.5    && < 0.1
     exposed-modules: Yesod
     ghc-options:     -Wall
 
