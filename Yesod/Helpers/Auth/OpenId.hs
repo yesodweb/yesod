@@ -46,7 +46,7 @@ authOpenId =
             [$hamlet|
 #endif
 %form!method=get!action=@tm.forwardUrl@
-    %label!for=openid OpenID: $
+    %label!for=$ident$ OpenID: $
     %input#$ident$!type=text!name=$name$!value="http://"
     %input!type=submit!value="Login via OpenID"
 |]
