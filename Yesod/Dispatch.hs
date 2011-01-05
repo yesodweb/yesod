@@ -258,7 +258,9 @@ toWaiApp' y key' segments env = do
     now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration y
-    let host = if sessionIpAddress y then W.remoteHost env else ""
+    -- FIXME will show remoteHost give the answer I need? will it include port
+    -- information that changes on each request?
+    let host = if sessionIpAddress y then B.pack (show (W.remoteHost env)) else ""
     let session' =
             case key' of
                 Nothing -> []
