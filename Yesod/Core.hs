@@ -50,7 +50,9 @@ import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 import Web.Routes
-import Blaze.ByteString.Builder (toLazyByteString)
+import Text.Blaze (preEscapedLazyText)
+import Data.Text.Lazy.Builder (toLazyText)
+import Data.Text.Lazy.Encoding (encodeUtf8)
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -382,12 +384,10 @@ widgetToPageContent (GWidget w) = do
     let scripts = map (locationToHamlet . unScript) $ runUniqueList scripts'
     let stylesheets = map (locationToHamlet . unStylesheet)
                     $ runUniqueList stylesheets'
-    -- FIXME change hamlet: cassius and julius should be structured datatypes so we don't need to do this
-    let unsafeLazyByteString = mconcat . map unsafeByteString . L.toChunks
-    let cssToHtml (Css b) = unsafeLazyByteString $ toLazyByteString b
+    let cssToHtml = preEscapedLazyText . renderCss
         celper :: Cassius url -> Hamlet url
         celper = fmap cssToHtml
-        jsToHtml (Javascript b) = unsafeLazyByteString $ toLazyByteString b
+        jsToHtml (Javascript b) = preEscapedLazyText $ toLazyText b
         jelper :: Julius url -> Hamlet url
         jelper = fmap jsToHtml
 
@@ -402,14 +402,14 @@ widgetToPageContent (GWidget w) = do
             Nothing -> return Nothing
             Just s -> do
                 x <- addStaticContent "css" "text/css; charset=utf-8"
-                   $ renderCassius render s
+                   $ encodeUtf8 $ renderCassius render s
                 return $ renderLoc x
     jsLoc <-
         case jscript of
             Nothing -> return Nothing
             Just s -> do
                 x <- addStaticContent "js" "text/javascript; charset=utf-8"
-                   $ renderJulius render s
+                   $ encodeUtf8 $ renderJulius render s
                 return $ renderLoc x
 
     let head'' =
