@@ -334,7 +334,7 @@ toWaiApp' y key' segments env = do
                                     Just len ->
                                         ("Content-Length", B.pack $ show len)
                                         : hs'''
-                         in W.responseBuilder s hs'''' b
+                         in W.ResponseBuilder s hs'''' b
                     ContentFile fp -> W.ResponseFile s hs''' fp
                     ContentEnum e -> W.ResponseEnumerator $ \iter ->
                         run_ $ e $$ iter s hs'''
