@@ -56,13 +56,13 @@ import Yesod.Request
 import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Maybe (fromMaybe, mapMaybe)
-import "transformers" Control.Monad.IO.Class
 import Control.Monad ((<=<))
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax hiding (lift)
 import Database.Persist.Base (EntityDef (..), PersistEntity (entityDef))
 import Data.Char (toUpper, isUpper)
 import Control.Arrow ((&&&))
 import Data.List (group, sort)
+import Control.Monad.Trans.Class (lift)
 
 -- | Display only the actual input widget code, without any decoration.
 fieldsToPlain :: FormField sub y a -> Form sub y a
@@ -113,7 +113,7 @@ fieldsToDivs = mapFormXml $ mapM_ go
 runFormPostNoNonce :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
 runFormPostNoNonce f = do
     rr <- getRequest
-    (pp, files) <- liftIO $ reqRequestBody rr
+    (pp, files) <- lift $ reqRequestBody rr
     runFormGeneric pp files f
 
 -- | Run a form against POST parameters.
@@ -124,7 +124,7 @@ runFormPostNoNonce f = do
 runFormPost :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype, Html)
 runFormPost f = do
     rr <- getRequest
-    (pp, files) <- liftIO $ reqRequestBody rr
+    (pp, files) <- lift $ reqRequestBody rr
     nonce <- fmap reqNonce getRequest
     (res, xml, enctype) <- runFormGeneric pp files f
     let res' =
@@ -153,7 +153,7 @@ nonceName = "_nonce"
 runFormMonadPost :: GFormMonad s m a -> GHandler s m (a, Enctype)
 runFormMonadPost f = do
     rr <- getRequest
-    (pp, files) <- liftIO $ reqRequestBody rr
+    (pp, files) <- lift $ reqRequestBody rr
     runFormGeneric pp files f
 
 -- | Run a form against POST parameters, disregarding the resulting HTML and
@@ -162,7 +162,7 @@ runFormMonadPost f = do
 runFormPost' :: GForm sub y xml a -> GHandler sub y a
 runFormPost' f = do
     rr <- getRequest
-    (pp, files) <- liftIO $ reqRequestBody rr
+    (pp, files) <- lift $ reqRequestBody rr
     x <- runFormGeneric pp files f
     helper x
 
