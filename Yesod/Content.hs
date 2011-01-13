@@ -95,6 +95,8 @@ emptyContent = ContentBuilder mempty $ Just 0
 class ToContent a where
     toContent :: a -> Content
 
+instance ToContent Builder where
+    toContent = flip ContentBuilder Nothing
 instance ToContent B.ByteString where
     toContent bs = ContentBuilder (fromByteString bs) $ Just $ B.length bs
 instance ToContent L.ByteString where
