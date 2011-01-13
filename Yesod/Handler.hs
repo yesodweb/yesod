@@ -213,6 +213,9 @@ newtype GGHandler sub master m a =
         }
     deriving (Functor, Applicative, Monad, MonadIO, MonadPeelIO)
 
+instance MonadTrans (GGHandler s m) where
+    lift = GHandler . lift . lift . lift . lift
+
 type GHandler sub master = GGHandler sub master (Iteratee ByteString IO)
 
 type GHInner s m monad =

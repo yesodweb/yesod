@@ -52,7 +52,7 @@ import Yesod.Handler
     )
 import Control.Applicative (Applicative)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Class (MonadTrans (lift))
 import Yesod.Internal
 import Yesod.Content (RepHtml (RepHtml), Content, toContent)
 import Control.Monad (liftM)
@@ -64,6 +64,10 @@ import Control.Monad.IO.Peel (MonadPeelIO)
 -- dependencies along with a 'StateT' to track unique identifiers.
 newtype GGWidget s m monad a = GWidget { unGWidget :: GWInner s m monad a }
     deriving (Functor, Applicative, Monad, MonadIO, MonadPeelIO)
+
+instance MonadTrans (GGWidget s m) where
+    lift = GWidget . lift . lift . lift . lift . lift . lift . lift . lift
+
 type GWidget s m = GGWidget s m (GHandler s m)
 type GWInner sub master monad =
     WriterT (Body (Route master)) (
