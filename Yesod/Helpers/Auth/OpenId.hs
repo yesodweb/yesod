@@ -29,6 +29,7 @@ authOpenId =
     name = "openid_identifier"
     login tm = do
         ident <- newIdent
+        y <- liftHandler getYesod
         addCassius
 #if GHC7
             [cassius|
@@ -48,10 +49,11 @@ authOpenId =
 %form!method=get!action=@tm.forwardUrl@
     %label!for=$ident$ OpenID: $
     %input#$ident$!type=text!name=$name$!value="http://"
-    %input!type=submit!value="Login via OpenID"
+    %input!type=submit!value=$messageLoginOpenID.y$
 |]
     dispatch "GET" ["forward"] = do
         (roid, _, _) <- runFormGet $ stringInput name
+        y <- getYesod
         case roid of
             FormSuccess oid -> do
                 render <- getUrlRender
@@ -67,7 +69,7 @@ authOpenId =
                   res
             _ -> do
                 toMaster <- getRouteToMaster
-                setMessage $ string "No OpenID identifier found"
+                setMessage $ messageNoOpenID y
                 redirect RedirectTemporary $ toMaster LoginR
     dispatch "GET" ["complete"] = do
         rr <- getRequest

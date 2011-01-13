@@ -22,7 +22,6 @@ import Yesod.Content
 import Yesod.Widget
 import Yesod.Core
 import Text.Hamlet (hamlet)
-import Text.Blaze (string)
 import Control.Monad.IO.Class (liftIO)
 
 login, register, setpass :: AuthRoute
@@ -71,7 +70,8 @@ class YesodAuth m => YesodAuthEmail m where
 
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
-    AuthPlugin "email" dispatch $ \tm ->
+    AuthPlugin "email" dispatch $ \tm -> do
+        y <- liftHandler getYesod
 #if GHC7
         [hamlet|
 #else
@@ -80,11 +80,11 @@ authEmail =
 %form!method=post!action=@tm.login@
     %table
         %tr
-            %th E-mail
+            %th $messageEmail.y$
             %td
                 %input!type=email!name=email
         %tr
-            %th Password
+            %th $messagePassword.y$
             %td
                 %input!type=password!name=password
         %tr
@@ -107,20 +107,21 @@ authEmail =
 
 getRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
 getRegisterR = do
+    y <- getYesod
     toMaster <- getRouteToMaster
     defaultLayout $ do
-        setTitle $ string "Register a new account"
+        setTitle $ messageRegisterLong y
         addHamlet
 #if GHC7
             [hamlet|
 #else
             [$hamlet|
 #endif
-%p Enter your e-mail address below, and a confirmation e-mail will be sent to you.
+%p $messageEnterEmail.y$
 %form!method=post!action=@toMaster.register@
-    %label!for=email E-mail
+    %label!for=email $messageEmail y$
     %input!type=email!name=email!width=150
-    %input!type=submit!value=Register
+    %input!type=submit!value=$messageRegister y$
 |]
 
 postRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
@@ -144,14 +145,14 @@ postRegisterR = do
     let verUrl = render $ tm $ verify (showAuthEmailId y lid) verKey
     sendVerifyEmail email verKey verUrl
     defaultLayout $ do
-        setTitle $ string "Confirmation e-mail sent"
+        setTitle $ messageConfirmationEmailSentTitle y
         addWidget
 #if GHC7
             [hamlet|
 #else
             [$hamlet|
 #endif
-%p A confirmation e-mail has been sent to $email$.
+%p $(messageConfirmationEmailSent y) email$
 |]
 
 getVerifyR :: YesodAuthEmail m
@@ -159,6 +160,7 @@ getVerifyR :: YesodAuthEmail m
 getVerifyR lid key = do
     realKey <- getVerifyKey lid
     memail <- getEmail lid
+    y <- getYesod
     case (realKey == Just key, memail) of
         (True, Just email) -> do
             muid <- verifyAccount lid
@@ -167,18 +169,18 @@ getVerifyR lid key = do
                 Just _uid -> do
                     setCreds False $ Creds "email" email [("verifiedEmail", email)] -- FIXME uid?
                     toMaster <- getRouteToMaster
-                    setMessage $ string "Address verified, please set a new password"
+                    setMessage $ messageAddressVerified y
                     redirect RedirectTemporary $ toMaster setpass
         _ -> return ()
     defaultLayout $ do
-        setTitle $ string "Invalid verification key"
+        setTitle $ messageInvalidKey y
         addHtml
 #if GHC7
             [hamlet|
 #else
             [$hamlet|
 #endif
-%p I'm sorry, but that was an invalid verification key.
+%p $messageInvalidKey y$
 |]
 
 postLoginR :: YesodAuthEmail master => GHandler Auth master ()
@@ -202,7 +204,8 @@ postLoginR = do
         Just _aid ->
             setCreds True $ Creds "email" email [("verifiedEmail", email)] -- FIXME aid?
         Nothing -> do
-            setMessage $ string "Invalid email/password combination"
+            y <- getYesod
+            setMessage $ messageInvalidEmailPass y
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster LoginR
 
@@ -210,33 +213,34 @@ getPasswordR :: YesodAuthEmail master => GHandler Auth master RepHtml
 getPasswordR = do
     toMaster <- getRouteToMaster
     maid <- maybeAuthId
+    y <- getYesod
     case maid of
         Just _ -> return ()
         Nothing -> do
-            setMessage $ string "You must be logged in to set a password"
+            setMessage $ messageBadSetPass y
             redirect RedirectTemporary $ toMaster login
     defaultLayout $ do
-        setTitle $ string "Set password"
+        setTitle $ messageSetPassTitle y
         addHamlet
 #if GHC7
             [hamlet|
 #else
             [$hamlet|
 #endif
-%h3 Set a new password
+%h3 $messageSetPass y$
 %form!method=post!action=@toMaster.setpass@
     %table
         %tr
-            %th New password
+            %th $messageNewPass y$
             %td
                 %input!type=password!name=new
         %tr
-            %th Confirm
+            %th $messageConfirmPass y$
             %td
                 %input!type=password!name=confirm
         %tr
             %td!colspan=2
-                %input!type=submit!value=Submit
+                %input!type=submit!value=$messageSetPassTitle y$
 |]
 
 postPasswordR :: YesodAuthEmail master => GHandler Auth master ()
@@ -245,19 +249,19 @@ postPasswordR = do
         <$> stringInput "new"
         <*> stringInput "confirm"
     toMaster <- getRouteToMaster
+    y <- getYesod
     when (new /= confirm) $ do
-        setMessage $ string "Passwords did not match, please try again"
+        setMessage $ messagePassMismatch y
         redirect RedirectTemporary $ toMaster setpass
     maid <- maybeAuthId
     aid <- case maid of
             Nothing -> do
-                setMessage $ string "You must be logged in to set a password"
+                setMessage $ messageBadSetPass y
                 redirect RedirectTemporary $ toMaster login
             Just aid -> return aid
     salted <- liftIO $ saltPass new
     setPassword aid salted
-    setMessage $ string "Password updated"
-    y <- getYesod
+    setMessage $ messagePassUpdated y
     redirect RedirectTemporary $ loginDest y
 
 saltLength :: Int

@@ -84,6 +84,53 @@ class Yesod m => YesodAuth m where
         tm <- liftHandler getRouteToMaster
         mapM_ (flip apLogin tm) authPlugins
 
+    ----- Message strings. In theory in the future make this localizable
+    ----- See gist: https://gist.github.com/778712
+    messageNoOpenID :: m -> Html
+    messageNoOpenID _ = string "No OpenID identifier found"
+    messageLoginOpenID :: m -> Html
+    messageLoginOpenID _ = string "Login via OpenID"
+
+    messageEmail :: m -> Html
+    messageEmail _ = string "Email"
+    messagePassword :: m -> Html
+    messagePassword _ = string "Password"
+    messageRegister :: m -> Html
+    messageRegister _ = string "Register"
+    messageRegisterLong :: m -> Html
+    messageRegisterLong _ = string "Register a new account"
+    messageEnterEmail :: m -> Html
+    messageEnterEmail _ = string "Enter your e-mail address below, and a confirmation e-mail will be sent to you."
+    messageConfirmationEmailSentTitle :: m -> Html
+    messageConfirmationEmailSentTitle _ = string "Confirmation e-mail sent"
+    messageConfirmationEmailSent :: m -> String -> Html
+    messageConfirmationEmailSent _ email = string $ "A confirmation e-mail has been sent to " ++ email ++ "."
+    messageAddressVerified :: m -> Html
+    messageAddressVerified _ = string "Address verified, please set a new password"
+    messageInvalidKeyTitle :: m -> Html
+    messageInvalidKeyTitle _ = string "Invalid verification key"
+    messageInvalidKey :: m -> Html
+    messageInvalidKey _ = string "I'm sorry, but that was an invalid verification key."
+    messageInvalidEmailPass :: m -> Html
+    messageInvalidEmailPass _ = string "Invalid email/password combination"
+    messageBadSetPass :: m -> Html
+    messageBadSetPass _ = string "You must be logged in to set a password"
+    messageSetPassTitle :: m -> Html
+    messageSetPassTitle _ = string "Set password"
+    messageSetPass :: m -> Html
+    messageSetPass _ = string "Set a new password"
+    messageNewPass :: m -> Html
+    messageNewPass _ = string "New password"
+    messageConfirmPass :: m -> Html
+    messageConfirmPass _ = string "Confirm"
+    messagePassMismatch :: m -> Html
+    messagePassMismatch _ = string "Passwords did not match, please try again"
+    messagePassUpdated :: m -> Html
+    messagePassUpdated _ = string "Password updated"
+
+    messageFacebook :: m -> Html
+    messageFacebook _ = string "Login with Facebook"
+
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]

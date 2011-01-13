@@ -59,6 +59,7 @@ authFacebook cid secret perms =
         render <- liftHandler getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
+        y <- liftHandler getYesod
         addHtml
 #if GHC7
             [hamlet|
@@ -66,5 +67,5 @@ authFacebook cid secret perms =
             [$hamlet|
 #endif
 %p
-    %a!href=$furl$ Login with Facebook
+    %a!href=$furl$ $messageFacebook y$
 |]
