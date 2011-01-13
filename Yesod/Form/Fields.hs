@@ -15,6 +15,7 @@ module Yesod.Form.Fields
     , timeField
     , htmlField
     , selectField
+    , radioField
     , boolField
     , emailField
     , searchField
@@ -31,6 +32,7 @@ module Yesod.Form.Fields
     , maybeTimeField
     , maybeHtmlField
     , maybeSelectField
+    , maybeRadioField
     , maybeEmailField
     , maybeSearchField
     , maybeUrlField
@@ -59,7 +61,7 @@ import Data.Time (Day, TimeOfDay)
 import Text.Hamlet
 import Data.Monoid
 import Control.Monad (join)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 
 stringField :: (IsForm f, FormType f ~ String)
             => FormFieldSettings -> Maybe String -> f
@@ -407,3 +409,112 @@ fileWidget theId name isReq =
 #endif
 %input#$theId$!type=file!name=$name$!:isReq:required
 |]
+
+radioField :: (Eq x, IsForm f, FormType f ~ x)
+           => [(x, String)]
+           -> FormFieldSettings
+           -> Maybe x
+           -> f
+radioField pairs ffs initial = toForm $ do
+    env <- askParams
+    let label = ffsLabel ffs
+        tooltip = ffsTooltip ffs
+    theId <- maybe newFormIdent return $ ffsId ffs
+    name <- maybe newFormIdent return $ ffsName ffs
+    let pairs' = zip [1 :: Int ..] pairs
+    let res = case lookup name env of
+                Nothing -> FormMissing
+                Just "none" -> FormFailure ["Field is required"]
+                Just x ->
+                    case reads x of
+                        (x', _):_ ->
+                            case lookup x' pairs' of
+                                Nothing -> FormFailure ["Invalid entry"]
+                                Just (y, _) -> FormSuccess y
+                        [] -> FormFailure ["Invalid entry"]
+    let isSelected x =
+            case res of
+                FormSuccess y -> x == y
+                _ -> Just x == initial
+    let input =
+#if __GLASGOW_HASKELL__ >= 700
+                [hamlet|
+#else
+                [$hamlet|
+#endif
+%div#$theId$
+   $forall pairs' pair
+       %div
+           %input#$theId$-$show.fst.pair$!type=radio!name=$name$!value=$show.fst.pair$!:isSelected.fst.snd.pair:checked
+           %label!for=$name$-$show.fst.pair$ $snd.snd.pair$
+|]
+    let fi = FieldInfo
+           { fiLabel = string label
+           , fiTooltip = tooltip
+           , fiIdent = theId
+           , fiInput = input
+           , fiErrors = case res of
+                           FormFailure [x] -> Just $ string x
+                           _ -> Nothing
+           , fiRequired = True
+           }
+    return (res, fi, UrlEncoded)
+
+maybeRadioField
+    :: (Eq x, IsForm f, FormType f ~ Maybe x)
+    => [(x, String)]
+    -> FormFieldSettings
+    -> Maybe (FormType f)
+    -> f
+maybeRadioField pairs ffs initial' = toForm $ do
+    env <- askParams
+    let initial = join initial'
+        label = ffsLabel ffs
+        tooltip = ffsTooltip ffs
+    theId <- maybe newFormIdent return $ ffsId ffs
+    name <- maybe newFormIdent return $ ffsName ffs
+    let pairs' = zip [1 :: Int ..] pairs
+    let res = case lookup name env of
+                Nothing -> FormMissing
+                Just "none" -> FormSuccess Nothing
+                Just x ->
+                    case reads x of
+                        (x', _):_ ->
+                            case lookup x' pairs' of
+                                Nothing -> FormFailure ["Invalid entry"]
+                                Just (y, _) -> FormSuccess $ Just y
+                        [] -> FormFailure ["Invalid entry"]
+    let isSelected x =
+            case res of
+                FormSuccess y -> Just x == y
+                _ -> Just x == initial
+    let isNone =
+            case res of
+                FormSuccess Nothing -> True
+                FormSuccess Just{} -> False
+                _ -> isNothing initial
+    let input =
+#if __GLASGOW_HASKELL__ >= 700
+                [hamlet|
+#else
+                [$hamlet|
+#endif
+%div#$theId$
+   $forall pairs' pair
+       %div
+           %input#$theId$-none!type=radio!name=$name$!value=none!:isNone:checked None
+       %div
+           %input#$theId$-$show.fst.pair$!type=radio!name=$name$!value=$show.fst.pair$!:isSelected.fst.snd.pair:checked
+           %label!for=$name$-$show.fst.pair$ $snd.snd.pair$
+|]
+    let fi = FieldInfo
+           { fiLabel = string label
+           , fiTooltip = tooltip
+           , fiIdent = theId
+           , fiInput = input
+           , fiErrors = case res of
+                           FormFailure [x] -> Just $ string x
+                           _ -> Nothing
+           , fiRequired = False
+           }
+    return (res, fi, UrlEncoded)
