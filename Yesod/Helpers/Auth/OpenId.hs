@@ -16,7 +16,7 @@ import Yesod.Request
 import Text.Hamlet (hamlet)
 import Text.Cassius (cassius)
 import Text.Blaze (string)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
@@ -74,7 +74,7 @@ authOpenId =
         completeHelper $ reqGetParams rr
     dispatch "POST" ["complete"] = do
         rr <- getRequest
-        (posts, _) <- liftIO $ reqRequestBody rr
+        (posts, _) <- lift $ reqRequestBody rr
         completeHelper posts
     dispatch _ _ = notFound
 
