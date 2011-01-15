@@ -7,7 +7,7 @@ maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Authentication for Yesod.
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6
+cabal-version:   >= 1.6.1
 build-type:      Simple
 homepage:        http://docs.yesodweb.com/
 
@@ -45,6 +45,7 @@ library
                      Yesod.Helpers.Auth.Facebook
                      Yesod.Helpers.Auth.OpenId
                      Yesod.Helpers.Auth.Rpxnow
+                     Yesod.Helpers.Auth.HashDB
     ghc-options:     -Wall
 
 source-repository head
