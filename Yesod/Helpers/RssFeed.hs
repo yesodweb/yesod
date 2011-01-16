@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE CPP #-}
 -------------------------------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.RssFeed
@@ -14,10 +15,14 @@ module Yesod.Helpers.RssFeed
     ( RssFeed (..)
     , RssFeedEntry (..)
     , rssFeed
+    , rssLink
     , RepRss (..)
     ) where
 
-import Yesod
+import Yesod.Handler
+import Yesod.Content
+import Yesod.Widget
+import Text.Hamlet
 import System.Locale    (defaultTimeLocale)
 import Data.Time.Clock  (UTCTime)
 import Data.Time.Format (formatTime)
@@ -87,3 +92,16 @@ format = formatTime defaultTimeLocale rfc822DateFormat
 --   validate, this one does.
 rfc822DateFormat :: String
 rfc822DateFormat = "%a, %d %b %Y %H:%M:%S %z"
+
+-- | Generates a link tag in the head of a widget.
+rssLink :: Route m
+        -> String -- ^ title
+        -> GWidget s m ()
+rssLink u title = addHamletHead
+#if __GLASGOW_HASKELL__ >= 700
+                [hamlet|
+#else
+                [$hamlet|
+#endif
+%link!href=@u@!type="application/rss+xml"!rel="alternate"!title=$title$
+|]
