@@ -23,11 +23,17 @@ import Yesod.Handler
 import Yesod.Content
 import Yesod.Widget
 import Text.Hamlet
-import System.Locale    (defaultTimeLocale)
 import Data.Time.Clock  (UTCTime)
-import Data.Time.Format (formatTime)
 
--- | note: This would normally be added in Yesod.Content
+-- | FIXME unneeded if formatRFC822 moves
+import Data.Time.Format (formatTime)
+import System.Locale    (defaultTimeLocale)
+
+-- | FIXME move this to Yesod.Content
+formatRFC822 :: UTCTime -> String
+formatRFC822 = formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
+
+-- | FIXME move this to Yesod.Content
 typeRss :: ContentType
 typeRss = "application/rss+xml"
 
@@ -59,39 +65,40 @@ data RssFeedEntry url = RssFeedEntry
     }
 
 template :: RssFeed url -> Hamlet url
-template arg = [$xhamlet|
-%rss!version="2.0"!xmlns:atom="http://www.w3.org/2005/Atom"
+template arg = 
+#if __GLASGOW_HASKELL__ >= 700
+    [xhamlet|
+#else
+    [$xhamlet|
+#endif
+    %rss!version="2.0"!xmlns:atom="http://www.w3.org/2005/Atom"
 
-    %channel
-        %atom:link!href=@rssLinkSelf.arg@!rel="self"!type="application/rss+xml"
-        %title         $rssTitle.arg$
-        %link          @rssLinkHome.arg@
-        %description   $rssDescription.arg$
-        %lastBuildDate $format.rssUpdated.arg$
-        %language      $rssLanguage.arg$
+        %channel
+            %atom:link!href=@rssLinkSelf.arg@!rel="self"!type=$typeRss$
+            %title         $rssTitle.arg$
+            %link          @rssLinkHome.arg@
+            %description   $rssDescription.arg$
+            %lastBuildDate $formatRFC822.rssUpdated.arg$
+            %language      $rssLanguage.arg$
 
-        $forall rssEntries.arg entry
-            ^entryTemplate.entry^
-|]
+            $forall rssEntries.arg entry
+                ^entryTemplate.entry^
+    |]
 
 entryTemplate :: RssFeedEntry url -> Hamlet url
-entryTemplate arg = [$xhamlet|
-%item
-    %title       $rssEntryTitle.arg$
-    %link        @rssEntryLink.arg@
-    %guid        @rssEntryLink.arg@
-    %pubDate     $format.rssEntryUpdated.arg$
-    %description $rssEntryContent.arg$
-|]
-
--- | Format as string
-format :: UTCTime -> String
-format = formatTime defaultTimeLocale rfc822DateFormat
-
--- | System.Local.rfc822DateFormat disagrees with date -R and does not
---   validate, this one does.
-rfc822DateFormat :: String
-rfc822DateFormat = "%a, %d %b %Y %H:%M:%S %z"
+entryTemplate arg = 
+#if __GLASGOW_HASKELL__ >= 700
+    [xhamlet|
+#else
+    [$xhamlet|
+#endif
+    %item
+        %title       $rssEntryTitle.arg$
+        %link        @rssEntryLink.arg@
+        %guid        @rssEntryLink.arg@
+        %pubDate     $formatRFC822.rssEntryUpdated.arg$
+        %description $rssEntryContent.arg$
+    |]
 
 -- | Generates a link tag in the head of a widget.
 rssLink :: Route m
@@ -99,9 +106,9 @@ rssLink :: Route m
         -> GWidget s m ()
 rssLink u title = addHamletHead
 #if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
+    [hamlet|
 #else
-                [$hamlet|
+    [$hamlet|
 #endif
-%link!href=@u@!type="application/rss+xml"!rel="alternate"!title=$title$
-|]
+    %link!href=@u@!type=$typeRss$!rel="alternate"!title=$title$
+    |]
