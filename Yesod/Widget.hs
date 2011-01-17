@@ -80,20 +80,20 @@ type GWInner sub master monad =
     StateT Int (
     monad
     ))))))))
-instance Monad monad => Monoid (GGWidget sub master monad ()) where
+instance (Monad monad, a ~ ()) => Monoid (GGWidget sub master monad a) where
     mempty = return ()
     mappend x y = x >> y
 
-instance Monad monad => HamletValue (GGWidget s m monad ()) where
-    newtype HamletMonad (GGWidget s m monad ()) a =
-        GWidget' { runGWidget' :: GGWidget s m monad a }
-    type HamletUrl (GGWidget s m monad ()) = Route m
+instance (Monad monad, a ~ ()) => HamletValue (GGWidget s m monad a) where
+    newtype HamletMonad (GGWidget s m monad a) b =
+        GWidget' { runGWidget' :: GGWidget s m monad b }
+    type HamletUrl (GGWidget s m monad a) = Route m
     toHamletValue = runGWidget'
     htmlToHamletMonad = GWidget' . addHtml
     urlToHamletMonad url params = GWidget' $
         addHamlet $ \r -> preEscapedString (r url params)
     fromHamletValue = GWidget'
-instance Monad monad => Monad (HamletMonad (GGWidget s m monad ())) where
+instance (Monad monad, a ~ ()) => Monad (HamletMonad (GGWidget s m monad a)) where
     return = GWidget' . return
     x >>= y = GWidget' $ runGWidget' x >>= runGWidget' . y
 
