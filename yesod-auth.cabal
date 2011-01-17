@@ -2,12 +2,12 @@ name:            yesod-auth
 version:         0.3.0
 license:         BSD3
 license-file:    LICENSE
-author:          Michael Snoyman <michael@snoyman.com>
+author:          Michael Snoyman, Patrick Brisbin
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Authentication for Yesod.
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6.1
+cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://docs.yesodweb.com/
 
