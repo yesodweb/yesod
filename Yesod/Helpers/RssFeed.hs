@@ -25,18 +25,6 @@ import Yesod.Widget
 import Text.Hamlet
 import Data.Time.Clock  (UTCTime)
 
--- | FIXME unneeded if formatRFC822 moves
-import Data.Time.Format (formatTime)
-import System.Locale    (defaultTimeLocale)
-
--- | FIXME move this to Yesod.Content
-formatRFC822 :: UTCTime -> String
-formatRFC822 = formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
-
--- | FIXME move this to Yesod.Content
-typeRss :: ContentType
-typeRss = "application/rss+xml"
-
 newtype RepRss = RepRss Content
 instance HasReps RepRss where
     chooseRep (RepRss c) _ = return (typeRss, c)
