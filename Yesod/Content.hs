@@ -19,6 +19,7 @@ module Yesod.Content
     , typeJson
     , typeXml
     , typeAtom
+    , typeRss
     , typeJpeg
     , typePng
     , typeGif
@@ -45,6 +46,7 @@ module Yesod.Content
       -- * Utilities
     , formatW3
     , formatRFC1123
+    , formatRFC822
 #if TEST
     , contentTestSuite
 #endif
@@ -194,6 +196,9 @@ typeXml = "text/xml"
 typeAtom :: ContentType
 typeAtom = "application/atom+xml"
 
+typeRss :: ContentType
+typeRss = "application/rss+xml"
+
 typeJpeg :: ContentType
 typeJpeg = "image/jpeg"
 
@@ -271,3 +276,7 @@ formatW3 = formatTime defaultTimeLocale "%FT%X-00:00"
 -- | Format as per RFC 1123.
 formatRFC1123 :: UTCTime -> String
 formatRFC1123 = formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
+
+-- | Format as per RFC 822.
+formatRFC822 :: UTCTime -> String
+formatRFC822 = formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
