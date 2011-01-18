@@ -17,42 +17,25 @@
 -- | Generation of Atom newsfeeds. See
 -- <http://en.wikipedia.org/wiki/Atom_(standard)>.
 module Yesod.Helpers.AtomFeed
-    ( AtomFeed (..)
-    , AtomFeedEntry (..)
-    , atomFeed
+    ( atomFeed
     , atomLink
     , RepAtom (..)
+    , module Yesod.Helpers.Feed
     ) where
 
 import Yesod.Content
 import Yesod.Handler
 import Yesod.Widget
-import Text.Hamlet
-import Data.Time.Clock (UTCTime)
+import Yesod.Helpers.Feed
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
     chooseRep (RepAtom c) _ = return (typeAtom, c)
 
-atomFeed :: AtomFeed (Route master) -> GHandler sub master RepAtom
+atomFeed :: Feed (Route master) -> GHandler sub master RepAtom
 atomFeed = fmap RepAtom . hamletToContent . template
 
-data AtomFeed url = AtomFeed
-    { atomTitle :: String
-    , atomLinkSelf :: url
-    , atomLinkHome :: url
-    , atomUpdated :: UTCTime
-    , atomEntries :: [AtomFeedEntry url]
-    }
-
-data AtomFeedEntry url = AtomFeedEntry
-    { atomEntryLink :: url
-    , atomEntryUpdated :: UTCTime
-    , atomEntryTitle :: String
-    , atomEntryContent :: Html
-    }
-
-template :: AtomFeed url -> Hamlet url
+template :: Feed url -> Hamlet url
 template arg =
 #if __GLASGOW_HASKELL__ >= 700
                 [xhamlet|
@@ -61,16 +44,16 @@ template arg =
 #endif
 \<?xml version="1.0" encoding="utf-8"?>
 %feed!xmlns="http://www.w3.org/2005/Atom"
-    %title $atomTitle.arg$
-    %link!rel=self!href=@atomLinkSelf.arg@
-    %link!href=@atomLinkHome.arg@
-    %updated $formatW3.atomUpdated.arg$
-    %id @atomLinkHome.arg@
-    $forall atomEntries.arg entry
+    %title $feedTitle.arg$
+    %link!rel=self!href=@feedLinkSelf.arg@
+    %link!href=@feedLinkHome.arg@
+    %updated $formatW3.feedUpdated.arg$
+    %id @feedLinkHome.arg@
+    $forall feedEntries.arg entry
         ^entryTemplate.entry^
 |]
 
-entryTemplate :: AtomFeedEntry url -> Hamlet url
+entryTemplate :: FeedEntry url -> Hamlet url
 entryTemplate arg =
 #if __GLASGOW_HASKELL__ >= 700
                 [xhamlet|
@@ -78,11 +61,11 @@ entryTemplate arg =
                 [$xhamlet|
 #endif
 %entry
-    %id @atomEntryLink.arg@
-    %link!href=@atomEntryLink.arg@
-    %updated $formatW3.atomEntryUpdated.arg$
-    %title $atomEntryTitle.arg$
-    %content!type=html $cdata.atomEntryContent.arg$
+    %id @feedEntryLink.arg@
+    %link!href=@feedEntryLink.arg@
+    %updated $formatW3.feedEntryUpdated.arg$
+    %title $feedEntryTitle.arg$
+    %content!type=html $cdata.feedEntryContent.arg$
 |]
 
 -- | Generates a link tag in the head of a widget.
@@ -95,5 +78,5 @@ atomLink u title = addHamletHead
 #else
                 [$hamlet|
 #endif
-%link!href=@u@!type="application/atom+xml"!rel="alternate"!title=$title$
+%link!href=@u@!type=$typeAtom$!rel="alternate"!title=$title$
 |]
