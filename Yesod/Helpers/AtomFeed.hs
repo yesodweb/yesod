@@ -14,8 +14,7 @@
 --
 ---------------------------------------------------------
 
--- | Generation of Atom newsfeeds. See
--- <http://en.wikipedia.org/wiki/Atom_(standard)>.
+-- | Generation of Atom newsfeeds.
 module Yesod.Helpers.AtomFeed
     ( atomFeed
     , atomLink

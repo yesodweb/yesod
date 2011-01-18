@@ -8,8 +8,11 @@
 -- Stability     : Stable
 -- Portability   : Portable
 --
--- Generic Feed and Feed Entry data types that can be used as either and
+-- Generic Feed and Feed Entry data types that can be used as either an
 -- Rss feed or an Atom feed (or both, or other).
+--
+-- Atom spec: <http://en.wikipedia.org/wiki/Atom_(standard)>
+-- Rss spec:  <http://www.rssboard.org/rss-specification#sampleFiles>
 --
 -------------------------------------------------------------------------------
 module Yesod.Helpers.Feed
@@ -25,8 +28,15 @@ data Feed url = Feed
     { feedTitle       :: String
     , feedLinkSelf    :: url
     , feedLinkHome    :: url
+
+
+    -- | note: currently only used for Rss
     , feedDescription :: Html
+
+    -- | note: currently only used for Rss, possible values: 
+    --   <http://www.rssboard.org/rss-language-codes>
     , feedLanguage    :: String
+
     , feedUpdated     :: UTCTime
     , feedEntries     :: [FeedEntry url]
     }
