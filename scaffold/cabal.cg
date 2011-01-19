@@ -35,7 +35,6 @@ executable         simple-server
                  , web-routes
                  , hjsmin       >= 0.0.4   && < 0.1
     ghc-options:   -Wall
-    extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 
 executable         devel-server
     if flag(production)
@@ -54,5 +53,4 @@ executable         fastcgi
     cpp-options:   -DPRODUCTION
     main-is:       fastcgi.hs
     ghc-options:   -Wall -threaded
-    extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 
