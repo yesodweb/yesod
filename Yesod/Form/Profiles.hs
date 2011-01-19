@@ -56,8 +56,8 @@ intFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI
     , fpRender = showI
     , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|
-%input#$theId$!name=$name$!type=number!:isReq:required!value=$val$
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="number" :isReq:required="" value="#{val}">
 |]
     }
   where
@@ -71,8 +71,8 @@ doubleFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay
     , fpRender = show
     , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|
-%input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}">
 |]
     }
 
@@ -81,8 +81,8 @@ dayFieldProfile = FieldProfile
     { fpParse = parseDate
     , fpRender = show
     , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|
-%input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{val}">
 |]
     }
 
@@ -91,8 +91,8 @@ timeFieldProfile = FieldProfile
     { fpParse = parseTime
     , fpRender = show . roundFullSeconds
     , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|
-%input#$theId$!name=$name$!:isReq:required!value=$val$
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" :isReq:required="" value="#{val}">
 |]
     }
   where
@@ -106,8 +106,8 @@ htmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString . sanitizeBalance
     , fpRender = renderHtml
     , fpWidget = \theId name val _isReq -> addHamlet
-        [HAMLET|
-%textarea.html#$theId$!name=$name$ $val$
+        [HAMLET|\
+<textarea id="#{theId}" name="#{name}" .html>#{val}
 |]
     }
 
@@ -133,8 +133,8 @@ textareaFieldProfile = FieldProfile
     { fpParse = Right . Textarea
     , fpRender = unTextarea
     , fpWidget = \theId name val _isReq -> addHamlet
-        [HAMLET|
-%textarea#$theId$!name=$name$ $val$
+        [HAMLET|\
+<textarea id="#{theId}" name="#{name}">#{val}
 |]
     }
 
@@ -143,8 +143,8 @@ hiddenFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val _isReq -> addHamlet
-        [HAMLET|
-%input!type=hidden#$theId$!name=$name$!value=$val$
+        [HAMLET|\
+<input type="hidden" id="#{theId}" name="#{name}" value="#{val}">
 |]
     }
 
@@ -153,8 +153,8 @@ stringFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|
-%input#$theId$!name=$name$!type=text!:isReq:required!value=$val$
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}">
 |]
     }
 
@@ -163,8 +163,8 @@ passwordFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|
-%input#$theId$!name=$name$!type=password!:isReq:required!value=$val$
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="password" :isReq:required="" value="#{val}">
 |]
     }
 
@@ -213,8 +213,8 @@ emailFieldProfile = FieldProfile
                         else Left "Invalid e-mail address"
     , fpRender = id
     , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|
-%input#$theId$!name=$name$!type=email!:isReq:required!value=$val$
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="email" :isReq:required="" value="#{val}">
 |]
     }
 
@@ -224,11 +224,12 @@ searchFieldProfile autoFocus = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val isReq -> do
-        addHtml [HAMLET|
-%input#$theId$!name=$name$!type=search!:isReq:required!:autoFocus:autofocus!value=$val$
+        addHtml [HAMLET|\
+<input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{val}">
 |]
         when autoFocus $ do
-          addHtml $ [HAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('$theId$').focus();}</script> |]
+          addHtml $ [HAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
+|]
           addCassius [CASSIUS|
             #$theId$
               -webkit-appearance: textfield
@@ -242,7 +243,7 @@ urlFieldProfile = FieldProfile
                         Just _ -> Right s
     , fpRender = id
     , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|
-%input#$theId$!name=$name$!type=url!:isReq:required!value=$val$
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="url" :isReq:required="" value="#{val}">
 |]
     }

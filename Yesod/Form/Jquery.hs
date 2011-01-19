@@ -87,8 +87,8 @@ jqueryDayFieldProfile jds = FieldProfile
               . readMay
     , fpRender = show
     , fpWidget = \theId name val isReq -> do
-        addHtml [HAMLET|
-%input#$theId$!name=$name$!type=date!:isReq:required!value=$val$
+        addHtml [HAMLET|\
+<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -145,8 +145,8 @@ jqueryDayTimeFieldProfile = FieldProfile
     { fpParse  = parseUTCTime
     , fpRender = jqueryDayTimeUTCTime
     , fpWidget = \theId name val isReq -> do
-        addHtml [HAMLET|
-%input#$theId$!name=$name$!:isReq:required!value=$val$
+        addHtml [HAMLET|\
+<input id="#{theId}" name="#{name}" :isReq:required="" value="#{val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -189,8 +189,8 @@ jqueryAutocompleteFieldProfile src = FieldProfile
     { fpParse = Right
     , fpRender = id
     , fpWidget = \theId name val isReq -> do
-        addHtml [HAMLET|
-%input.autocomplete#$theId$!name=$name$!type=text!:isReq:required!value=$val$
+        addHtml [HAMLET|\
+<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}" .autocomplete>
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs

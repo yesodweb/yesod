@@ -79,14 +79,14 @@ fieldsToTable = mapFormXml $ mapM_ go
 #else
                 [$hamlet|
 #endif
-%tr.$clazz.fi$
-    %td
-        %label!for=$fiIdent.fi$ $fiLabel.fi$
-        .tooltip $fiTooltip.fi$
-    %td
-        ^fiInput.fi^
-    $maybe fiErrors.fi err
-        %td.errors $err$
+<tr .#{clazz fi}>
+    <td>
+        <label for="#{fiIdent fi}">#{fiLabel fi}
+        <div .tooltip>#{fiTooltip fi}
+    <td>
+        \^{fiInput fi}
+    $maybe err <- fiErrors fi
+        <td .errors>#{err}
 |]
     clazz fi = if fiRequired fi then "required" else "optional"
 
@@ -100,12 +100,12 @@ fieldsToDivs = mapFormXml $ mapM_ go
 #else
                 [$hamlet|
 #endif
-.$clazz.fi$
-    %label!for=$fiIdent.fi$ $fiLabel.fi$
-        .tooltip $fiTooltip.fi$
-    ^fiInput.fi^
-    $maybe fiErrors.fi err
-        %div.errors $err$
+<div .#{clazz fi}>
+    <label for="#{fiIdent fi}">#{fiLabel fi}
+        <div .tooltip>#{fiTooltip fi}
+    \^{fiInput fi}
+    $maybe err <- fiErrors fi
+        <div .errors>#{err}
 |]
     clazz fi = if fiRequired fi then "required" else "optional"
 
@@ -142,7 +142,7 @@ runFormPost f = do
 #else
                 [$hamlet|
 #endif
-    %input!type=hidden!name=$nonceName$!value=$nonce$
+    <input type="hidden" name="#{nonceName}" value="#{nonce}">
 |]
 
 nonceName :: String
@@ -182,13 +182,13 @@ runFormTable dest inputLabel form = do
 #else
                 [$hamlet|
 #endif
-%form!method=post!action=@dest@!enctype=$enctype$
-    %table
-        ^widget^
-        %tr
-            %td!colspan=2
-                $nonce$
-                %input!type=submit!value=$inputLabel$
+<form method="post" action="@{dest}" enctype="#{enctype}">
+    <table>
+        \^{widget}
+        <tr>
+            <td colspan="2">
+                \#{nonce}
+                <input type="submit" value="#{inputLabel}">
 |]
     return (res, widget')
 
@@ -203,11 +203,11 @@ runFormDivs dest inputLabel form = do
 #else
                 [$hamlet|
 #endif
-%form!method=post!action=@dest@!enctype=$enctype$
-    ^widget^
-    %div
-        $nonce$
-        %input!type=submit!value=$inputLabel$
+<form method="post" action="@{dest}" enctype="#{enctype}">
+    \^{widget}
+    <div>
+        \#{nonce}
+        <input type="submit" value="#{inputLabel}">
 |]
     return (res, widget')
 
@@ -233,7 +233,7 @@ generateForm f = do
 #else
                 [$hamlet|
 #endif
-    %input!type=hidden!name=$nonceName$!value=$nonce$
+    <input type="hidden" name="#{nonceName}" value="#{nonce}">
 |])
 
 -- | Run a form against GET parameters.

@@ -43,7 +43,7 @@ nicHtmlFieldProfile = FieldProfile
 #else
                 [$hamlet|
 #endif
-    %textarea.html#$theId$!name=$name$ $val$
+    <textarea id="#{theId}" name="#{name}" .html>#{val}
 |]
         addScript' urlNicEdit
         addJulius
@@ -52,7 +52,7 @@ nicHtmlFieldProfile = FieldProfile
 #else
                 [$julius|
 #endif
-bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("%theId%")});
+bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")});
 |]
     }
 

@@ -67,14 +67,14 @@ getCrudListR = do
 #else
                 [$hamlet|
 #endif
-%h1 Items
-%ul
-    $forall items item
-        %li
-            %a!href=@toMaster.CrudEditR.toSinglePiece.fst.item@
-                $itemTitle.snd.item$
-%p
-    %a!href=@toMaster.CrudAddR@ Add new item
+<h1>Items
+<ul>
+    $forall item <- items
+        <li>
+            <a href="@{toMaster (CrudEditR (toSinglePiece (fst item)))}">
+                \#{itemTitle (snd item)}
+<p>
+    <a href="@{toMaster CrudAddR}">Add new item
 |]
 
 getCrudAddR :: (Yesod master, Item item, SinglePiece (Key item),
@@ -132,13 +132,13 @@ getCrudDeleteR s = do
 #else
                 [$hamlet|
 #endif
-%form!method=post!action=@toMaster.CrudDeleteR.s@
-    %h1 Really delete?
-    %p Do you really want to delete $itemTitle.item$?
-    %p
-        %input!type=submit!value=Yes
-        \ $
-        %a!href=@toMaster.CrudListR@ No
+<form method="post" action="@{toMaster (CrudDeleteR s)}">
+    <h1>Really delete?
+    <p>Do you really want to delete #{itemTitle item}?
+    <p>
+        <input type="submit" value="Yes">
+        \ 
+        <a href="@{toMaster CrudListR}">No
 |]
 
 postCrudDeleteR :: (Yesod master, Item item, SinglePiece (Key item))
@@ -179,19 +179,19 @@ crudHelper title me isPost = do
 #else
                 [$hamlet|
 #endif
-%p
-    %a!href=@toMaster.CrudListR@ Return to list
-%h1 $title$
-%form!method=post!enctype=$enctype$
-    %table
-        ^form^
-        %tr
-            %td!colspan=2
-                $hidden$
-                %input!type=submit
-                $maybe me e
-                    \ $
-                    %a!href=@toMaster.CrudDeleteR.toSinglePiece.fst.e@ Delete
+<p>
+    <a href="@{toMaster CrudListR}">Return to list
+<h1>#{title}
+<form method="post" enctype="#{enctype}">
+    <table>
+        \^{form}
+        <tr>
+            <td colspan="2">
+                \#{hidden}
+                <input type="submit">
+                $maybe e <- me
+                    \ 
+                    <a href="@{toMaster (CrudDeleteR (toSinglePiece (fst e)))}">Delete
 |]
 
 -- | A default 'Crud' value which relies about persistent and "Yesod.Form".

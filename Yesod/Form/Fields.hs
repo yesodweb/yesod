@@ -147,7 +147,7 @@ boolField ffs orig = toForm $ do
 #else
                 [$hamlet|
 #endif
-%input#$theId$!type=checkbox!name=$name$!:val:checked
+<input id="#{theId}" type="checkbox" name="#{name}" :val:checked="">
 |]
             , fiErrors = case res of
                             FormFailure [x] -> Just $ string x
@@ -196,10 +196,10 @@ selectField pairs ffs initial = toForm $ do
 #else
                 [$hamlet|
 #endif
-%select#$theId$!name=$name$
-    %option!value=none
-    $forall pairs' pair
-        %option!value=$show.fst.pair$!:isSelected.fst.snd.pair:selected $snd.snd.pair$
+<select id="#{theId}" name="#{name}">
+    <option value="none">
+    $forall pair <- pairs'
+        <option value="#{show (fst pair)}" :isSelected (fst (snd pair)):selected="">#{snd (snd pair)}
 |]
     let fi = FieldInfo
             { fiLabel = string label
@@ -246,10 +246,10 @@ maybeSelectField pairs ffs initial' = toForm $ do
 #else
                 [$hamlet|
 #endif
-%select#$theId$!name=$name$
-    %option!value=none
-    $forall pairs' pair
-        %option!value=$show.fst.pair$!:isSelected.fst.snd.pair:selected $snd.snd.pair$
+<select id="#{theId}" name="#{name}">
+    <option value="none">
+    $forall pair <- pairs'
+        <option value="#{show (fst pair)}" :isSelected (fst (snd pair)):selected="">#{snd (snd pair)}
 |]
     let fi = FieldInfo
             { fiLabel = string label
@@ -287,7 +287,7 @@ boolInput n = GForm $ do
 #else
                 [$hamlet|
 #endif
-    %input#$n$!type=checkbox!name=$n$
+    <input id="#{n}" type="checkbox" name="#{n}">
 |]
     return (res, [xml], UrlEncoded)
 
@@ -407,7 +407,7 @@ fileWidget theId name isReq =
 #else
                 [$hamlet|
 #endif
-%input#$theId$!type=file!name=$name$!:isReq:required
+<input id="#{theId}" type="file" name="#{name}" :isReq:required="">
 |]
 
 radioField :: (Eq x, IsForm f, FormType f ~ x)
@@ -442,11 +442,11 @@ radioField pairs ffs initial = toForm $ do
 #else
                 [$hamlet|
 #endif
-%div#$theId$
-   $forall pairs' pair
-       %div
-           %input#$theId$-$show.fst.pair$!type=radio!name=$name$!value=$show.fst.pair$!:isSelected.fst.snd.pair:checked
-           %label!for=$name$-$show.fst.pair$ $snd.snd.pair$
+<div id="#{theId}">
+   $forall pair <- pairs'
+       <div>
+           <input id="#{theId}-#{show (fst pair)}" type="radio" name="#{name}" value="#{show (fst pair)}" :isSelected (fst (snd pair)):checked="">
+           <label for="#{name}-#{show (fst pair)}">#{snd (snd pair)}
 |]
     let fi = FieldInfo
            { fiLabel = string label
@@ -499,13 +499,13 @@ maybeRadioField pairs ffs initial' = toForm $ do
 #else
                 [$hamlet|
 #endif
-%div#$theId$
-   $forall pairs' pair
-       %div
-           %input#$theId$-none!type=radio!name=$name$!value=none!:isNone:checked None
-       %div
-           %input#$theId$-$show.fst.pair$!type=radio!name=$name$!value=$show.fst.pair$!:isSelected.fst.snd.pair:checked
-           %label!for=$name$-$show.fst.pair$ $snd.snd.pair$
+<div id="#{theId}">
+   $forall pair <- pairs'
+       <div>
+           <input id="#{theId}-none" type="radio" name="#{name}" value="none" :isNone:checked="">None
+       <div>
+           <input id="#{theId}-#{show (fst pair)}" type="radio" name="#{name}" value="#{show (fst pair)}" :isSelected (fst (snd pair)):checked="">
+           <label for="#{name}-#{show (fst pair)}">#{snd (snd pair)}
 |]
     let fi = FieldInfo
            { fiLabel = string label
