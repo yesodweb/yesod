@@ -12,7 +12,7 @@
 -- Rss feed or an Atom feed (or both, or other).
 --
 -- Atom spec: <http://en.wikipedia.org/wiki/Atom_(standard)>
--- Rss spec:  <http://www.rssboard.org/rss-specification#sampleFiles>
+-- Rss spec:  <http://www.rssboard.org/rss-specification>
 --
 -------------------------------------------------------------------------------
 module Yesod.Helpers.Feed
