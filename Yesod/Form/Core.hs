@@ -49,6 +49,7 @@ import Control.Applicative
 import Yesod.Request
 import Control.Monad (liftM)
 import Text.Hamlet
+import Text.Blaze (ToHtml (..))
 import Data.String
 import Control.Monad (join)
 

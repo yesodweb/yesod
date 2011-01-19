@@ -24,6 +24,7 @@ module Yesod.Form.Profiles
 import Yesod.Form.Core
 import Yesod.Widget
 import Text.Hamlet hiding (renderHtml)
+import Text.Blaze (ToHtml (..))
 import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
