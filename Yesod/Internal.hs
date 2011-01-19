@@ -70,8 +70,10 @@ langKey = "_LANG"
 data Location url = Local url | Remote String
     deriving (Show, Eq)
 locationToHamlet :: Location url -> Hamlet url
-locationToHamlet (Local url) = [HAMLET|@url@|]
-locationToHamlet (Remote s) = [HAMLET|$s$|]
+locationToHamlet (Local url) = [HAMLET|\@{url}
+|]
+locationToHamlet (Remote s) = [HAMLET|\#{s}
+|]
 
 newtype UniqueList x = UniqueList ([x] -> [x])
 instance Monoid (UniqueList x) where

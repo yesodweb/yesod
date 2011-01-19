@@ -116,16 +116,17 @@ class Eq (Route a) => Yesod a where
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
-        hamletToRepHtml [HAMLET|
-!!!
-%html
-    %head
-        %title $pageTitle.p$
-        ^pageHead.p^
-    %body
-        $maybe mmsg msg
-            %p.message $msg$
-        ^pageBody.p^
+        hamletToRepHtml [HAMLET|\
+\<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>#{pageTitle p}
+        \^{pageHead p}
+    <body>
+        $maybe msg <- mmsg
+            <p .message>#{msg}
+        \^{pageBody p}
 |]
 
     -- | Gets called at the beginning of each request. Useful for logging.
@@ -306,8 +307,8 @@ defaultErrorHandler NotFound = do
 #else
         [$hamlet|
 #endif
-%h1 Not Found
-%p $path'$
+<h1>Not Found
+<p>#{path'}
 |]
 defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied"
@@ -316,8 +317,8 @@ defaultErrorHandler (PermissionDenied msg) =
 #else
         [$hamlet|
 #endif
-%h1 Permission denied
-%p $msg$
+<h1>Permission denied
+<p>#{msg}
 |]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments"
@@ -326,10 +327,10 @@ defaultErrorHandler (InvalidArgs ia) =
 #else
         [$hamlet|
 #endif
-%h1 Invalid Arguments
-%ul
-    $forall ia msg
-        %li $msg$
+<h1>Invalid Arguments
+<ul>
+    $forall msg <- ia
+        <li>#{msg}
 |]
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error"
@@ -338,8 +339,8 @@ defaultErrorHandler (InternalError e) =
 #else
         [$hamlet|
 #endif
-%h1 Internal Server Error
-%p $e$
+<h1>Internal Server Error
+<p>#{e}
 |]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method"
@@ -348,8 +349,8 @@ defaultErrorHandler (BadMethod m) =
 #else
         [$hamlet|
 #endif
-%h1 Method Not Supported
-%p Method "$m$" not supported
+<h1>Method Not Supported
+<p>Method "#{m}" not supported
 |]
 
 -- | Return the same URL if the user is authorized to see it.
@@ -418,21 +419,21 @@ widgetToPageContent (GWidget w) = do
 #else
             [$hamlet|
 #endif
-$forall scripts s
-    %script!src=^s^
-$forall stylesheets s
-    %link!rel=stylesheet!href=^s^
-$maybe style s
-    $maybe cssLoc s
-        %link!rel=stylesheet!href=$s$
+$forall s <- scripts
+    <script src="^{s}">
+$forall s <- stylesheets
+    <link rel="stylesheet" href="^{s}">
+$maybe s <- style
+    $maybe s <- cssLoc
+        <link rel="stylesheet" href="#{s}">
     $nothing
-        %style ^celper.s^
-$maybe jscript j
-    $maybe jsLoc s
-        %script!src=$s$
+        <style>^{celper s}
+$maybe j <- jscript
+    $maybe s <- jsLoc
+        <script src="#{s}">
     $nothing
-        %script ^jelper.j^
-^head'^
+        <script>^{jelper j}
+\^{head'}
 |]
     return $ PageContent title head'' body
 
@@ -500,15 +501,16 @@ redirectToPost dest = hamletToRepHtml
 #else
             [$hamlet|
 #endif
-!!!
-%html
-    %head
-        %title Redirecting...
-    %body!onload="document.getElementById('form').submit()"
-        %form#form!method=post!action=@dest@
-            %noscript
-                %p Javascript has been disabled; please click on the button below to be redirected.
-            %input!type=submit!value=Continue
+\<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Redirecting...
+    <body onload="document.getElementById('form').submit()">
+        <form id="form" method="post" action="@{dest}">
+            <noscript>
+                <p>Javascript has been disabled; please click on the button below to be redirected.
+            <input type="submit" value="Continue">
 |] >>= sendResponse
 
 yesodVersion :: String
