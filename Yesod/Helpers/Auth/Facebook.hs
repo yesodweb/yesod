@@ -66,6 +66,6 @@ authFacebook cid secret perms =
 #else
             [$hamlet|
 #endif
-%p
-    %a!href=$furl$ $messageFacebook y$
+<p>
+    <a href="#{furl}">#{messageFacebook y}
 |]

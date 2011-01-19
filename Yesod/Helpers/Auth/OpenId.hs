@@ -32,11 +32,10 @@ authOpenId =
         y <- liftHandler getYesod
         addCassius
 #if GHC7
-            [cassius|
+            [cassius|##{ident}
 #else
-            [$cassius|
+            [$cassius|##{ident}
 #endif
-  #$ident$
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
@@ -46,10 +45,10 @@ authOpenId =
 #else
             [$hamlet|
 #endif
-%form!method=get!action=@tm.forwardUrl@
-    %label!for=$ident$ OpenID: $
-    %input#$ident$!type=text!name=$name$!value="http://"
-    %input!type=submit!value=$messageLoginOpenID.y$
+<form method="get" action="@{tm forwardUrl}">
+    <label for="#{ident}">OpenID: 
+    <input id="#{ident}" type="text" name="#{name}" value="http://">
+    <input type="submit" value="#{messageLoginOpenID y}">
 |]
     dispatch "GET" ["forward"] = do
         (roid, _, _) <- runFormGet $ stringInput name

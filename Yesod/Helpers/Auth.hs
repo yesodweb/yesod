@@ -166,7 +166,8 @@ setCreds doRedirects creds = do
 #else
                                 [$hamlet|
 #endif
-                                %h1 Invalid login|]
+                                <h1>Invalid login
+|]
                             sendResponse rh
                         Just ar -> do
                             setMessage $ string "Invalid login"
@@ -193,11 +194,11 @@ getCheckR = do
 #else
         [$hamlet|
 #endif
-%h1 Authentication Status
-$maybe creds _
-    %p Logged in.
+<h1>Authentication Status
+$maybe _ <- creds
+    <p>Logged in.
 $nothing
-    %p Not logged in.
+    <p>Not logged in.
 |]
     json creds =
         ValueObject $ Map.fromList
@@ -237,7 +238,7 @@ maybeAuthId = do
 
 maybeAuth :: ( YesodAuth m
              , Key val ~ AuthId m
-             , PersistBackend (YesodDB m (GHandler s m))
+             , PersistBackend (YesodDB m (GGHandler s m IO))
              , PersistEntity val
              , YesodPersist m
              ) => GHandler s m (Maybe (Key val, val))
@@ -256,7 +257,7 @@ requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
 requireAuth :: ( YesodAuth m
                , Key val ~ AuthId m
-               , PersistBackend (YesodDB m (GHandler s m))
+               , PersistBackend (YesodDB m (GGHandler s m IO))
                , PersistEntity val
                , YesodPersist m
                ) => GHandler s m (Key val, val)

@@ -54,15 +54,18 @@
 -- can be used to get the hash from the commandline.
 --
 -------------------------------------------------------------------------------
-module Helpers.Auth.HashDB
+module Yesod.Helpers.Auth.HashDB
     ( authHashDB
     , getAuthIdHashDB
     , UserId
     , migrateUsers
     ) where
 
-import Yesod
+import Yesod.Persist
+import Yesod.Handler
+import Yesod.Form
 import Yesod.Helpers.Auth
+import Text.Hamlet (hamlet)
 
 import Control.Applicative         ((<$>), (<*>))
 import Data.ByteString.Lazy.Char8  (pack)
@@ -85,7 +88,7 @@ User
 -- | Given a (user,password) in plaintext, validate them against the
 --   database values
 validateUser :: (YesodPersist y, 
-                 PersistBackend (YesodDB y (GHandler sub y))) 
+                 PersistBackend (YesodDB y (GGHandler sub y IO))) 
              => (String, String) 
              -> GHandler sub y Bool
 validateUser (user,password) = runDB (getBy $ UniqueUser user) >>= \dbUser ->
@@ -101,7 +104,7 @@ login = PluginR "hashdb" ["login"]
 -- | Handle the login form
 postLoginR :: (YesodAuth y,
                YesodPersist y, 
-               PersistBackend (YesodDB y (GHandler Auth y)))
+               PersistBackend (YesodDB y (GGHandler Auth y IO)))
            => GHandler Auth y ()
 postLoginR = do
     (user, password) <- runFormPost' $ (,)
@@ -113,14 +116,15 @@ postLoginR = do
     if isValid
         then setCreds True $ Creds "hashdb" user []
         else do
-            setMessage $ [$hamlet| %em invalid username/password |]
+            setMessage $ [$hamlet| <em>invalid username/password 
+|]
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster LoginR
 
 -- | A drop in for the getAuthId method of your YesodAuth instance which
 --   can be used if authHashDB is the only plugin in use.
 getAuthIdHashDB :: (Key User ~ AuthId master,
-                    PersistBackend (YesodDB master (GHandler sub master)),
+                    PersistBackend (YesodDB master (GGHandler sub master IO)),
                     YesodPersist master,
                     YesodAuth master)
                 => (AuthRoute -> Route master) -- ^ your site's Auth Route
@@ -137,41 +141,43 @@ getAuthIdHashDB authR creds = do
                 -- user exists
                 Just (uid, _) -> return $ Just uid
                 Nothing       -> do
-                    setMessage $ [$hamlet| %em user not found |]
+                    setMessage $ [$hamlet| <em>user not found 
+|]
                     redirect RedirectTemporary $ authR LoginR
 
 -- | Prompt for username and password, validate that against a database
 --   which holds the username and a hash of the password
 authHashDB :: (YesodAuth y,
                YesodPersist y, 
-               PersistBackend (YesodDB y (GHandler Auth y)))
+               PersistBackend (YesodDB y (GGHandler Auth y IO)))
            => AuthPlugin y
 authHashDB = AuthPlugin "hashdb" dispatch $ \tm ->
-    [$hamlet|
-    #header
-        %h1 Login
-
-    #login
-        %form!method=post!action=@tm.login@
-            %table
-                %tr
-                    %th Username:
-                    %td
-                        %input#x!name=username!autofocus
-                %tr
-                    %th Password:
-                    %td
-                        %input!type=password!name=password
-                %tr
-                    %td &nbsp;
-                    %td
-                        %input!type=submit!value="Login"
-
-            %script
-                if (!("autofocus" in document.createElement("input"))) {
-                    document.getElementById("x").focus();
-                }
-    |]
+    [$hamlet|\
+    <div id="header">
+        <h1>Login
+\
+    <div id="login">
+        <form method="post" action="@{tm login}">
+            <table>
+                <tr>
+                    <th>Username:
+                    <td>
+                        <input id="x" name="username" autofocus="">
+                <tr>
+                    <th>Password:
+                    <td>
+                        <input type="password" name="password">
+                <tr>
+                    <td>&nbsp;
+                    <td>
+                        <input type="submit" value="Login">
+\
+            <script>
+                \if (!("autofocus" in document.createElement("input"))) {
+                    \document.getElementById("x").focus();
+                \}
+    \
+|]
     where
         dispatch "POST" ["login"] = postLoginR >>= sendResponse
         dispatch _ _              = notFound

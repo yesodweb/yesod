@@ -77,20 +77,20 @@ authEmail =
 #else
         [$hamlet|
 #endif
-%form!method=post!action=@tm.login@
-    %table
-        %tr
-            %th $messageEmail.y$
-            %td
-                %input!type=email!name=email
-        %tr
-            %th $messagePassword.y$
-            %td
-                %input!type=password!name=password
-        %tr
-            %td!colspan=2
-                %input!type=submit!value="Login via email"
-                %a!href=@tm.register@ I don't have an account
+<form method="post" action="@{tm login}">
+    <table>
+        <tr>
+            <th>#{messageEmail y}
+            <td>
+                <input type="email" name="email">
+        <tr>
+            <th>#{messagePassword y}
+            <td>
+                <input type="password" name="password">
+        <tr>
+            <td colspan="2">
+                <input type="submit" value="Login via email">
+                <a href="@{tm register}">I don't have an account
 |]
   where
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
@@ -117,11 +117,11 @@ getRegisterR = do
 #else
             [$hamlet|
 #endif
-%p $messageEnterEmail.y$
-%form!method=post!action=@toMaster.register@
-    %label!for=email $messageEmail y$
-    %input!type=email!name=email!width=150
-    %input!type=submit!value=$messageRegister y$
+<p>#{messageEnterEmail y}
+<form method="post" action="@{toMaster register}">
+    <label for="email">#{messageEmail y}
+    <input type="email" name="email" width="150">
+    <input type="submit" value="#{messageRegister y}">
 |]
 
 postRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
@@ -152,7 +152,7 @@ postRegisterR = do
 #else
             [$hamlet|
 #endif
-%p $(messageConfirmationEmailSent y) email$
+<p>#{messageConfirmationEmailSent y email}
 |]
 
 getVerifyR :: YesodAuthEmail m
@@ -180,7 +180,7 @@ getVerifyR lid key = do
 #else
             [$hamlet|
 #endif
-%p $messageInvalidKey y$
+<p>#{messageInvalidKey y}
 |]
 
 postLoginR :: YesodAuthEmail master => GHandler Auth master ()
@@ -227,20 +227,20 @@ getPasswordR = do
 #else
             [$hamlet|
 #endif
-%h3 $messageSetPass y$
-%form!method=post!action=@toMaster.setpass@
-    %table
-        %tr
-            %th $messageNewPass y$
-            %td
-                %input!type=password!name=new
-        %tr
-            %th $messageConfirmPass y$
-            %td
-                %input!type=password!name=confirm
-        %tr
-            %td!colspan=2
-                %input!type=submit!value=$messageSetPassTitle y$
+<h3>#{messageSetPass y}
+<form method="post" action="@{toMaster setpass}">
+    <table>
+        <tr>
+            <th>#{messageNewPass y}
+            <td>
+                <input type="password" name="new">
+        <tr>
+            <th>#{messageConfirmPass y}
+            <td>
+                <input type="password" name="confirm">
+        <tr>
+            <td colspan="2">
+                <input type="submit" value="#{messageSetPassTitle y}">
 |]
 
 postPasswordR :: YesodAuthEmail master => GHandler Auth master ()
