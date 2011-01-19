@@ -28,6 +28,7 @@ module Yesod.Handler
     , YesodSubRoute (..)
       -- * Handler monad
     , GHandler
+    , GGHandler
       -- ** Read information from handler
     , getYesod
     , getYesodSub
