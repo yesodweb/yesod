@@ -4,7 +4,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE CPP #-}
 
 module Yesod.Content
     ( -- * Content
@@ -28,9 +27,6 @@ module Yesod.Content
     , typeFlv
     , typeOgv
     , typeOctet
-      -- ** File extensions
-    , typeByExt
-    , ext
       -- * Utilities
     , simpleContentType
       -- * Representations
@@ -47,9 +43,6 @@ module Yesod.Content
     , formatW3
     , formatRFC1123
     , formatRFC822
-#if TEST
-    , contentTestSuite
-#endif
     ) where
 
 import Data.Maybe (mapMaybe)
@@ -63,13 +56,6 @@ import System.Locale
 
 import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy.Encoding
-
-#if TEST
-import Test.Framework (testGroup, Test)
-import Test.Framework.Providers.HUnit
-import Test.Framework.Providers.QuickCheck2 (testProperty)
-import Test.HUnit hiding (Test)
-#endif
 
 import Data.Enumerator (Enumerator)
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
@@ -230,44 +216,6 @@ typeOctet = "application/octet-stream"
 -- character encoding for HTML data. This function would return \"text/html\".
 simpleContentType :: String -> String
 simpleContentType = fst . span (/= ';')
-
--- | A default extension to mime-type dictionary.
-typeByExt :: [(String, ContentType)] -- FIXME move to yesod-static
-typeByExt =
-    [ ("jpg", typeJpeg)
-    , ("jpeg", typeJpeg)
-    , ("js", typeJavascript)
-    , ("css", typeCss)
-    , ("html", typeHtml)
-    , ("png", typePng)
-    , ("gif", typeGif)
-    , ("txt", typePlain)
-    , ("flv", typeFlv)
-    , ("ogv", typeOgv)
-    ]
-
--- | Get a file extension (everything after last period).
-ext :: String -> String
-ext = reverse . fst . break (== '.') . reverse
-
-#if TEST
----- Testing
-contentTestSuite :: Test
-contentTestSuite = testGroup "Yesod.Resource"
-    [ testProperty "ext" propExt
-    , testCase "typeByExt" caseTypeByExt
-    ]
-
-propExt :: String -> Bool
-propExt s =
-    let s' = filter (/= '.') s
-     in s' == ext ("foobarbaz." ++ s')
-
-caseTypeByExt :: Assertion
-caseTypeByExt = do
-    Just typeJavascript @=? lookup (ext "foo.js") typeByExt
-    Just typeHtml @=? lookup (ext "foo.html") typeByExt
-#endif
 
 -- | Format a 'UTCTime' in W3 format.
 formatW3 :: UTCTime -> String

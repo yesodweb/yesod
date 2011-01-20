@@ -338,7 +338,7 @@ toWaiApp' y key' segments env = do
                     ContentFile fp -> W.ResponseFile s hs''' fp
                     ContentEnum e -> W.ResponseEnumerator $ \iter ->
                         run_ $ e $$ iter s hs'''
-        YAREnum e -> return $ W.ResponseEnumerator e
+        YARWai r -> return r
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = map B.unpack

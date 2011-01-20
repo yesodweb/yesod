@@ -52,7 +52,7 @@ module Yesod.Handler
     , sendResponse
     , sendResponseStatus
     , sendResponseCreated
-    , sendResponseEnumerator
+    , sendWaiResponse
       -- * Setting headers
     , setCookie
     , deleteCookie
@@ -244,7 +244,7 @@ newtype YesodApp = YesodApp
     }
 
 data YesodAppResult
-    = YAREnum (forall a. W.ResponseEnumerator a)
+    = YARWai W.Response
     | YARPlain W.Status [Header] ContentType Content SessionMap
 
 data HandlerContents =
@@ -253,7 +253,7 @@ data HandlerContents =
     | HCSendFile ContentType FilePath
     | HCRedirect RedirectType String
     | HCCreated String
-    | HCEnum (forall a. W.ResponseEnumerator a)
+    | HCWai W.Response
 
 instance Error HandlerContents where
     strMsg = HCError . InternalError
@@ -333,7 +333,7 @@ runHandler handler mrender sroute tomr ma tosa =
                 YARPlain _ hs ct c sess ->
                     let hs' = headers hs
                      in return $ YARPlain (getStatus e) hs' ct c sess
-                YAREnum _ -> return yar
+                YARWai _ -> return yar
     let sendFile' ct fp =
             return $ YARPlain W.status200 (headers []) ct (ContentFile fp) finalSession
     case contents of
@@ -357,7 +357,7 @@ runHandler handler mrender sroute tomr ma tosa =
                 typePlain
                 emptyContent
                 finalSession
-        HCEnum e -> return $ YAREnum e
+        HCWai r -> return $ YARWai r
 
 catchIter :: Exception e
           => Iteratee ByteString IO a
@@ -478,13 +478,13 @@ sendResponseCreated url = do
     r <- getUrlRender
     GHandler $ lift $ throwError $ HCCreated $ r url
 
--- | Send a 'W.ResponseEnumerator'. Please note: this function is rarely
+-- | Send a 'W.Response'. Please note: this function is rarely
 -- necessary, and will /disregard/ any changes to response headers and session
 -- that you have already specified. This function short-circuits. It should be
--- considered only for they specific needs. If you are not sure if you need it,
+-- considered only for very specific needs. If you are not sure if you need it,
 -- you don't.
-sendResponseEnumerator :: (forall a. W.ResponseEnumerator a) -> GHandler s m b
-sendResponseEnumerator = GHandler . lift . throwError . HCEnum
+sendWaiResponse :: W.Response -> GHandler s m b
+sendWaiResponse = GHandler . lift . throwError . HCWai
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: Failure ErrorResponse m => m a
