@@ -34,7 +34,7 @@ executable         simple-server
                  , hamlet
                  , web-routes
                  , hjsmin       >= 0.0.4   && < 0.1
-    ghc-options:   -Wall
+    ghc-options:   -Wall -threaded
 
 executable         devel-server
     if flag(production)
@@ -42,7 +42,7 @@ executable         devel-server
     else
         build-depends: wai-handler-devel >= 0.1.0 && < 0.2
     main-is:       devel-server.hs
-    ghc-options:   -Wall -O2
+    ghc-options:   -Wall -O2 -threaded
 
 executable         fastcgi
     if flag(production)
