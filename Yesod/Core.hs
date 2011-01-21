@@ -180,11 +180,6 @@ class Eq (Route a) => Yesod a where
     -- * If the last path segment has a period, there is no trailing slash.
     --
     -- * Otherwise, ensures there /is/ a trailing slash.
-    --
-    -- Note: As a special rule, any paths beginning with static are left alone
-    -- so that the static subsite, if available, can deal with proper
-    -- directory/folder naming. If you do not wish this behavior, you will need
-    -- to override this method.
     splitPath :: a -> S.ByteString -> Either S.ByteString [String]
     splitPath _ s =
         if corrected == s
@@ -193,9 +188,7 @@ class Eq (Route a) => Yesod a where
                        $ S8.unpack s
             else Left corrected
       where
-        corrected
-            | s == "/static" || "/static/" `S.isPrefixOf` s = s
-            | otherwise = S8.pack $ rts $ ats $ rds $ S8.unpack s
+        corrected = S8.pack $ rts $ ats $ rds $ S8.unpack s
 
         -- | Remove double slashes
         rds :: String -> String
