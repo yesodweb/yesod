@@ -37,7 +37,6 @@ import Web.Routes.Quasi.TH
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
-import Network.Wai.Middleware.CleanPath (cleanPath)
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.Gzip
 
@@ -241,20 +240,19 @@ toWaiApp y = do
              a
 
 -- | Convert the given argument into a WAI application, executable with any WAI
--- handler. This differs from 'toWaiApp' in that it only uses the cleanpath
--- middleware.
+-- handler. This differs from 'toWaiApp' in that it uses no middlewares.
 toWaiAppPlain :: (Yesod y, YesodSite y) => y -> IO W.Application
 toWaiAppPlain a = do
     key' <- encryptKey a
-    return $ cleanPath (splitPath a) (B.pack $ approot a)
-           $ toWaiApp' a key'
+    return $ toWaiApp' a key'
 
 toWaiApp' :: (Yesod y, YesodSite y)
           => y
           -> Maybe Key
-          -> [String]
           -> W.Application
-toWaiApp' y key' segments env = do
+toWaiApp' y key' env = do
+    let segments = decodePathInfo $ B.unpack $ W.pathInfo env
+    -- FIXME call cleanPath
     now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration y
@@ -275,7 +273,7 @@ toWaiApp' y key' segments env = do
         eurl = parsePathSegments site pathSegments
         render u qs =
             let (ps, qs') = formatPathSegments site u
-             in fromMaybe
+             in B.unpack $ fromMaybe
                     (joinPath y (approot y) ps $ qs ++ qs')
                     (urlRenderOverride y u)
     let errorHandler' = localNoCurrent . errorHandler

@@ -95,7 +95,7 @@ class Eq (Route a) => Yesod a where
     --
     -- * You do not use any features that require absolute URLs, such as Atom
     -- feeds and XML sitemaps.
-    approot :: a -> String
+    approot :: a -> S.ByteString
 
     -- | The encryption key to be used for encrypting client sessions.
     -- Returning 'Nothing' disables sessions.
@@ -116,27 +116,29 @@ class Eq (Route a) => Yesod a where
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
-        hamletToRepHtml [HAMLET|\
-\<!DOCTYPE html>
+        hamletToRepHtml [HAMLET|
+!!!
 
 <html>
     <head>
         <title>#{pageTitle p}
-        \^{pageHead p}
+        ^{pageHead p}
     <body>
         $maybe msg <- mmsg
             <p .message>#{msg}
-        \^{pageBody p}
+        ^{pageBody p}
 |]
 
     -- | Gets called at the beginning of each request. Useful for logging.
+    --
+    -- FIXME make this a part of the Yesod middlewares
     onRequest :: GHandler sub a ()
     onRequest = return ()
 
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
-    urlRenderOverride :: a -> Route a -> Maybe String
+    urlRenderOverride :: a -> Route a -> Maybe S.ByteString
     urlRenderOverride _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
@@ -144,6 +146,8 @@ class Eq (Route a) => Yesod a where
     -- Return 'Nothing' is the request is authorized, 'Just' a message if
     -- unauthorized. If authentication is required, you should use a redirect;
     -- the Auth helper provides this functionality automatically.
+    --
+    -- FIXME make this a part of the Yesod middlewares
     isAuthorized :: Route a
                  -> Bool -- ^ is this a write request?
                  -> GHandler s a AuthResult
@@ -169,73 +173,37 @@ class Eq (Route a) => Yesod a where
     authRoute :: a -> Maybe (Route a)
     authRoute _ = Nothing
 
-    -- | A function used to split a raw PATH_INFO value into path pieces. It
-    -- returns a 'Left' value when you should redirect to the given path, and a
-    -- 'Right' value on successful parse.
-    --
-    -- By default, it splits paths on slashes, and ensures the following are true:
+    -- | A function used to clean up path segments. It returns 'Nothing' when
+    -- the given path is already clean, and a 'Just' when Yesod should redirect
+    -- to the given path pieces.
     --
     -- * No double slashes
     --
-    -- * If the last path segment has a period, there is no trailing slash.
+    -- * There is no trailing slash.
     --
-    -- * Otherwise, ensures there /is/ a trailing slash.
-    splitPath :: a -> S.ByteString -> Either S.ByteString [String]
-    splitPath _ s =
+    -- Note that versions of Yesod prior to 0.7 used a different set of rules
+    -- involing trailing slashes.
+    cleanPath :: a -> [String] -> Maybe [String]
+    cleanPath _ s =
         if corrected == s
-            then Right $ filter (not . null)
-                       $ decodePathInfo
-                       $ S8.unpack s
-            else Left corrected
+            then Nothing
+            else Just corrected
       where
-        corrected = S8.pack $ rts $ ats $ rds $ S8.unpack s
-
-        -- | Remove double slashes
-        rds :: String -> String
-        rds [] = []
-        rds [x] = [x]
-        rds (a:b:c)
-            | a == '/' && b == '/' = rds (b:c)
-            | otherwise = a : rds (b:c)
-
-        -- | Add a trailing slash if it is missing. Empty string is left alone.
-        ats :: String -> String
-        ats [] = []
-        ats t =
-            if last t == '/' || dbs (reverse t)
-                then t
-                else t ++ "/"
-
-        -- | Remove a trailing slash if the last piece has a period.
-        rts :: String -> String
-        rts [] = []
-        rts t =
-            if last t == '/' && dbs (tail $ reverse t)
-                then init t
-                else t
-
-        -- | Is there a period before a slash here?
-        dbs :: String -> Bool
-        dbs ('/':_) = False
-        dbs (_:'.':_) = True
-        dbs (_:x) = dbs x
-        dbs [] = False
-
+        corrected = filter (not . null) s
 
     -- | Join the pieces of a path together into an absolute URL. This should
     -- be the inverse of 'splitPath'.
-    joinPath :: a -> String -> [String] -> [(String, String)] -> String
+    joinPath :: a
+              -> S.ByteString -- ^ application root
+              -> [String] -- ^ path pieces
+              -> [(String, String)] -- ^ query string
+              -> S.ByteString
     joinPath _ ar pieces qs =
-        ar ++ '/' : encodePathInfo (fixSegs pieces) qs
-      where
-        fixSegs [] = []
-        fixSegs [x]
-            | anyButLast (== '.') x = [x]
-            | otherwise = [x, ""] -- append trailing slash
-        fixSegs (x:xs) = x : fixSegs xs
-        anyButLast _ [] = False
-        anyButLast _ [_] = False
-        anyButLast p (x:xs) = p x || anyButLast p xs
+        S.concat
+            [ ar
+            , S8.singleton '/'
+            , S8.pack $ encodePathInfo pieces qs
+            ]
 
     -- | This function is used to store some static content to be served as an
     -- external file. The most common case of this is stashing CSS and
