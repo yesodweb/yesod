@@ -30,6 +30,7 @@ import Text.Hamlet (Hamlet, hamlet, Html)
 import Data.Monoid (Monoid (..))
 import Data.List (nub)
 
+import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 
@@ -39,6 +40,8 @@ import qualified Data.Text.Encoding.Error as T
 
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
+
+import qualified Network.Wai as W
 
 #if GHC7
 #define HAMLET hamlet
@@ -59,9 +62,9 @@ data ErrorResponse =
 ----- header stuff
 -- | Headers to be added to a 'Result'.
 data Header =
-    AddCookie Int String String
-    | DeleteCookie String
-    | Header String String
+    AddCookie Int ByteString ByteString
+    | DeleteCookie ByteString
+    | Header W.ResponseHeader ByteString
     deriving (Eq, Show)
 
 langKey :: String

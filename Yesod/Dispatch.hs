@@ -44,6 +44,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as S
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as L
+import Data.ByteString.Lazy.Char8 ()
 import Blaze.ByteString.Builder (toLazyByteString)
 
 import Control.Concurrent.MVar
@@ -225,7 +226,7 @@ mkToMasterArg ps fname = do
       e = rsg `AppE` e'
   return $ LamE xps e
 
-sessionName :: String
+sessionName :: B.ByteString
 sessionName = "_SESSION"
 
 -- | Convert the given argument into a WAI application, executable with any WAI
@@ -246,241 +247,53 @@ toWaiAppPlain a = do
     key' <- encryptKey a
     return $ toWaiApp' a key'
 
+dispatchPieces _ _ _ = Nothing -- FIXME
+
 toWaiApp' :: (Yesod y, YesodSite y)
           => y
           -> Maybe Key
           -> W.Application
 toWaiApp' y key' env = do
-    let segments = decodePathInfo $ B.unpack $ W.pathInfo env
-    -- FIXME call cleanPath
-    now <- liftIO getCurrentTime
-    let getExpires m = fromIntegral (m * 60) `addUTCTime` now
-    let exp' = getExpires $ clientSessionDuration y
-    -- FIXME will show remoteHost give the answer I need? will it include port
-    -- information that changes on each request?
-    let host = if sessionIpAddress y then B.pack (show (W.remoteHost env)) else ""
-    let session' =
-            case key' of
-                Nothing -> []
-                Just key'' -> fromMaybe [] $ do
-                    raw <- lookup "Cookie" $ W.requestHeaders env
-                    val <- lookup (B.pack sessionName) $ parseCookies raw
-                    decodeSession key'' now host val
-    let site = getSite
-        method = B.unpack $ W.requestMethod env
-        types = httpAccept env
-        pathSegments = filter (not . null) segments
-        eurl = parsePathSegments site pathSegments
-        render u qs =
-            let (ps, qs') = formatPathSegments site u
-             in B.unpack $ fromMaybe
-                    (joinPath y (approot y) ps $ qs ++ qs')
-                    (urlRenderOverride y u)
-    let errorHandler' = localNoCurrent . errorHandler
-    rr <- liftIO $ parseWaiRequest env session' key'
-    let h = do
-          onRequest
-          case eurl of
-            Left _ -> errorHandler' NotFound
-            Right url -> do
-                isWrite <- isWriteRequest url
-                ar <- isAuthorized url isWrite
-                case ar of
-                    Authorized -> return ()
-                    AuthenticationRequired ->
-                        case authRoute y of
-                            Nothing ->
-                                permissionDenied "Authentication required"
-                            Just url' -> do
-                                setUltDest'
-                                redirect RedirectTemporary url'
-                    Unauthorized s -> permissionDenied s
-                case handleSite site render url method of
-                    Nothing -> errorHandler' $ BadMethod method
-                    Just h' -> h'
-    let eurl' = either (const Nothing) Just eurl
-    let eh er = runHandler (errorHandler' er) render eurl' id y id
-    let ya = runHandler h render eurl' id y id
-    let sessionMap = Map.fromList
-                   $ filter (\(x, _) -> x /= nonceKey) session'
-    yar <- unYesodApp ya eh rr types sessionMap
-    case yar of
-        YARPlain s hs ct c sessionFinal -> do
-            let sessionVal =
-                    case key' of
-                        Nothing -> B.empty
-                        Just key'' ->
-                             encodeSession key'' exp' host
-                           $ Map.toList
-                           $ Map.insert nonceKey (reqNonce rr) sessionFinal
-            let hs' =
-                    case key' of
-                        Nothing -> hs
-                        Just _ -> AddCookie
-                                    (clientSessionDuration y)
-                                    sessionName
-                                    (bsToChars sessionVal)
-                                  : hs
-                hs'' = map (headerToPair getExpires) hs'
-                hs''' = ("Content-Type", charsToBs ct) : hs''
-            return $
-                case c of
-                    ContentBuilder b mlen ->
-                        let hs'''' =
-                                case mlen of
-                                    Nothing -> hs'''
-                                    Just len ->
-                                        ("Content-Length", B.pack $ show len)
-                                        : hs'''
-                         in W.ResponseBuilder s hs'''' b
-                    ContentFile fp -> W.ResponseFile s hs''' fp
-                    ContentEnum e -> W.ResponseEnumerator $ \iter ->
-                        run_ $ e $$ iter s hs'''
-        YARWai r -> return r
+    let segments =
+            case decodePathInfo $ B.unpack $ W.pathInfo env of
+                "":x -> x
+                x -> x
+    liftIO $ print (W.pathInfo env, segments)
+    case dispatchPieces y key' segments of
+        Nothing ->
+            case cleanPath y segments of
+                Nothing -> normalDispatch y key' segments env
+                Just segments' ->
+                    let dest = joinPath y (approot y) segments' []
+                        dest' =
+                            if S.null (W.queryString env)
+                                then dest
+                                else S.concat
+                                        [ dest
+                                        , B.singleton '?'
+                                        , W.queryString env
+                                        ]
+                     in return $ W.responseLBS W.status301
+                            [ ("Content-Type", "text/plain")
+                            , ("Location", dest')
+                            ] "Redirecting"
+        Just app -> app env
 
-httpAccept :: W.Request -> [ContentType]
-httpAccept = map B.unpack
-           . parseHttpAccept
-           . fromMaybe B.empty
-           . lookup "Accept"
-           . W.requestHeaders
-
-parseWaiRequest :: W.Request
-                -> [(String, String)] -- ^ session
-                -> Maybe a
-                -> IO Request
-parseWaiRequest env session' key' = do
-    let gets' = map (bsToChars *** bsToChars)
-              $ parseQueryString $ W.queryString env
-    let reqCookie = fromMaybe B.empty $ lookup "Cookie"
-                  $ W.requestHeaders env
-        cookies' = map (bsToChars *** bsToChars) $ parseCookies reqCookie
-        acceptLang = lookup "Accept-Language" $ W.requestHeaders env
-        langs = map bsToChars $ maybe [] parseHttpAccept acceptLang
-        langs' = case lookup langKey session' of
-                    Nothing -> langs
-                    Just x -> x : langs
-        langs'' = case lookup langKey cookies' of
-                    Nothing -> langs'
-                    Just x -> x : langs'
-        langs''' = case lookup langKey gets' of
-                     Nothing -> langs''
-                     Just x -> x : langs''
-    rbthunk <- iothunk $ rbHelper env
-    nonce <- case (key', lookup nonceKey session') of
-                (Nothing, _) -> return $ error "You have attempted to use the nonce, but sessions are disabled." -- FIXME maybe this should be handled without an error?
-                (_, Just x) -> return x
-                (_, Nothing) -> do
-                    g <- newStdGen
-                    return $ fst $ randomString 10 g
-    return $ Request gets' cookies' rbthunk env langs''' nonce
+normalDispatch :: (Yesod m, YesodSite m)
+               => m -> Maybe Key -> [String]
+               -> W.Application
+normalDispatch y key' segments env =
+    yesodRunner y key' murl handler env
   where
-    randomString len =
-        first (map toChar) . sequence' (replicate len (randomR (0, 61)))
-    sequence' [] g = ([], g)
-    sequence' (f:fs) g =
-        let (f', g') = f g
-            (fs', g'') = sequence' fs g'
-         in (f' : fs', g'')
-    toChar i
-        | i < 26 = toEnum $ i + fromEnum 'A'
-        | i < 52 = toEnum $ i + fromEnum 'a' - 26
-        | otherwise = toEnum $ i + fromEnum '0' - 52
-
-nonceKey :: String
-nonceKey = "_NONCE"
-
-rbHelper :: W.Request -> Iteratee ByteString IO RequestBodyContents
-rbHelper req =
-    (map fix1 *** map fix2) <$> iter
-  where
-    iter = parseRequestBody lbsSink req
-    fix1 = bsToChars *** bsToChars
-    fix2 (x, NWP.FileInfo a b c) =
-        (bsToChars x, FileInfo (bsToChars a) (bsToChars b) c)
-
--- | Produces a \"compute on demand\" value. The computation will be run once
--- it is requested, and then the result will be stored. This will happen only
--- once.
-iothunk :: Iteratee ByteString IO a -> IO (Iteratee ByteString IO a)
-iothunk =
-    fmap go . liftIO . newMVar . Left
-  where
-    go :: MVar (Either (Iteratee ByteString IO a) a) -> Iteratee ByteString IO a
-    go mvar = do
-        x <- liftIO $ takeMVar mvar
-        (x', a) <- go' x
-        liftIO $ putMVar mvar x'
-        return a
-    go' :: Either (Iteratee ByteString IO a) a
-        -> Iteratee ByteString IO (Either (Iteratee ByteString IO a) a, a)
-    go' (Right val) = return (Right val, val)
-    go' (Left comp) = do
-        val <- comp
-        return (Right val, val)
-
--- | Convert Header to a key/value pair.
-headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
-             -> Header
-             -> (W.ResponseHeader, B.ByteString)
-headerToPair getExpires (AddCookie minutes key value) =
-    ("Set-Cookie", builderToBS $ renderSetCookie $ SetCookie
-        { setCookieName = B.pack key -- FIXME check for non-ASCII
-        , setCookieValue = B.pack value -- FIXME check for non-ASCII
-        , setCookiePath = Just "/" -- FIXME make a config option, or use approot?
-        , setCookieExpires = Just $ getExpires minutes
-        , setCookieDomain = Nothing
-        })
-  where
-    builderToBS = S.concat . L.toChunks . toLazyByteString
-headerToPair _ (DeleteCookie key) =
-    ("Set-Cookie", charsToBs $
-     key ++ "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT")
-headerToPair _ (Header key value) =
-    (fromString key, charsToBs value)
-
-encodeSession :: CS.Key
-              -> UTCTime -- ^ expire time
-              -> B.ByteString -- ^ remote host
-              -> [(String, String)] -- ^ session
-              -> B.ByteString -- ^ cookie value
-encodeSession key expire rhost session' =
-    encrypt key $ encode $ SessionCookie expire rhost session'
-
-decodeSession :: CS.Key
-              -> UTCTime -- ^ current time
-              -> B.ByteString -- ^ remote host field
-              -> B.ByteString -- ^ cookie value
-              -> Maybe [(String, String)]
-decodeSession key now rhost encrypted = do
-    decrypted <- decrypt key encrypted
-    SessionCookie expire rhost' session' <-
-        either (const Nothing) Just $ decode decrypted
-    guard $ expire > now
-    guard $ rhost' == rhost
-    return session'
-
-data SessionCookie = SessionCookie UTCTime B.ByteString [(String, String)]
-    deriving (Show, Read)
-instance Serialize SessionCookie where
-    put (SessionCookie a b c) = putTime a >> put b >> put c
-    get = do
-        a <- getTime
-        b <- Ser.get
-        c <- Ser.get
-        return $ SessionCookie a b c
-
-putTime :: Putter UTCTime
-putTime t@(UTCTime d _) = do
-    put $ toModifiedJulianDay d
-    let ndt = diffUTCTime t $ UTCTime d 0
-    put $ toRational ndt
-
-getTime :: Get UTCTime
-getTime = do
-    d <- Ser.get
-    ndt <- Ser.get
-    return $ fromRational ndt `addUTCTime` UTCTime (ModifiedJulianDay d) 0
+    method = B.unpack $ W.requestMethod env
+    murl = either (const Nothing) Just $ parsePathSegments (getSite' y) segments
+    handler =
+        case murl of
+            Nothing -> notFound
+            Just url ->
+                case handleSite (getSite' y) (yesodRender y) url method of
+                    Nothing -> badMethod
+                    Just h -> h
 
 #if TEST
 

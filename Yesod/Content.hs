@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Yesod.Content
     ( -- * Content
@@ -47,6 +48,7 @@ module Yesod.Content
 
 import Data.Maybe (mapMaybe)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
@@ -63,6 +65,7 @@ import Data.Monoid (mempty)
 
 import Text.Hamlet (Html)
 import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
+import Data.String (IsString (fromString))
 
 data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional content length.
              | ContentEnum (forall a. Enumerator Builder IO a)
@@ -71,6 +74,9 @@ data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional 
 -- | Zero-length enumerator.
 emptyContent :: Content
 emptyContent = ContentBuilder mempty $ Just 0
+
+instance IsString Content where
+    fromString = toContent
 
 -- | Anything which can be converted into 'Content'. Most of the time, you will
 -- want to use the 'ContentBuilder' constructor. An easier approach will be to use
@@ -131,7 +137,7 @@ instance HasReps ChooseRep where
     chooseRep = id
 
 instance HasReps () where
-    chooseRep = defChooseRep [(typePlain, const $ return $ toContent "")]
+    chooseRep = defChooseRep [(typePlain, const $ return $ toContent B.empty)]
 
 instance HasReps (ContentType, Content) where
     chooseRep = const . return
@@ -165,7 +171,7 @@ newtype RepXml = RepXml Content
 instance HasReps RepXml where
     chooseRep (RepXml c) _ = return (typeXml, c)
 
-type ContentType = String
+type ContentType = B.ByteString
 
 typeHtml :: ContentType
 typeHtml = "text/html; charset=utf-8"
@@ -214,8 +220,8 @@ typeOctet = "application/octet-stream"
 --
 -- For example, \"text/html; charset=utf-8\" is commonly used to specify the
 -- character encoding for HTML data. This function would return \"text/html\".
-simpleContentType :: String -> String
-simpleContentType = fst . span (/= ';')
+simpleContentType :: B.ByteString -> B.ByteString
+simpleContentType = S8.takeWhile (/= ';')
 
 -- | Format a 'UTCTime' in W3 format.
 formatW3 :: UTCTime -> String

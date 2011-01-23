@@ -24,6 +24,7 @@ module Yesod.Core
     , AuthResult (..)
       -- * Misc
     , yesodVersion
+    , yesodRender
 #if TEST
     , coreTestSuite
 #endif
@@ -45,7 +46,7 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import Data.Monoid
 import Control.Monad.Trans.Writer
-import Control.Monad.Trans.State hiding (get)
+import Control.Monad.Trans.State hiding (get, put)
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
@@ -53,6 +54,20 @@ import Web.Routes
 import Text.Blaze (preEscapedLazyText)
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
+import Data.Maybe (fromMaybe)
+import System.Random (randomR, newStdGen)
+import Control.Arrow (first, (***))
+import qualified Network.Wai.Parse as NWP
+import Data.ByteString (ByteString)
+import Data.Enumerator (Iteratee, ($$), run_)
+import Control.Concurrent.MVar (MVar, takeMVar, putMVar, newMVar)
+import Control.Monad.IO.Class (liftIO)
+import Control.Applicative ((<$>))
+import Web.Cookie (parseCookies, SetCookie (..), renderSetCookie)
+import qualified Data.Map as Map
+import Control.Monad (guard)
+import Data.Serialize
+import Data.Time
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -69,18 +84,24 @@ import qualified Data.Text.Encoding
 #define HAMLET $hamlet
 #endif
 
+{- FIXME
+class YesodDispatcher y where
+    dispatchSubsite :: y -> Key -> [String] -> Maybe Application
+-}
+
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
 class Eq (Route y) => YesodSite y where
     getSite :: Site (Route y) (Method -> Maybe (GHandler y y ChooseRep))
+    getSite' :: y -> Site (Route y) (Method -> Maybe (GHandler y y ChooseRep))
+    getSite' _ = getSite
+
 type Method = String
 
 -- | Same as 'YesodSite', but for subsites. Once again, users should not need
--- to deal with it directly, as the mkYesodSub creates instances appropriately.
+-- to deal with it directly, as mkYesodSub creates instances appropriately.
 class Eq (Route s) => YesodSubSite s y where
     getSubSite :: Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
-    getSiteFromSubSite :: s -> Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
-    getSiteFromSubSite _ = getSubSite
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.
@@ -95,6 +116,8 @@ class Eq (Route a) => Yesod a where
     --
     -- * You do not use any features that require absolute URLs, such as Atom
     -- feeds and XML sitemaps.
+    --
+    -- FIXME: is this the right typesig?
     approot :: a -> S.ByteString
 
     -- | The encryption key to be used for encrypting client sessions.
@@ -128,12 +151,6 @@ class Eq (Route a) => Yesod a where
             <p .message>#{msg}
         ^{pageBody p}
 |]
-
-    -- | Gets called at the beginning of each request. Useful for logging.
-    --
-    -- FIXME make this a part of the Yesod middlewares
-    onRequest :: GHandler sub a ()
-    onRequest = return ()
 
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
@@ -193,6 +210,8 @@ class Eq (Route a) => Yesod a where
 
     -- | Join the pieces of a path together into an absolute URL. This should
     -- be the inverse of 'splitPath'.
+    --
+    -- FIXME is this the right type sig?
     joinPath :: a
               -> S.ByteString -- ^ application root
               -> [String] -- ^ path pieces
@@ -225,6 +244,68 @@ class Eq (Route a) => Yesod a where
     -- 'True'.
     sessionIpAddress :: a -> Bool
     sessionIpAddress _ = True
+
+    yesodRunner :: YesodSite a => a -> Maybe CS.Key -> Maybe (Route a) -> GHandler a a ChooseRep -> W.Application
+    yesodRunner = defaultYesodRunner
+
+defaultYesodRunner y mkey murl handler req = do
+    now <- liftIO getCurrentTime
+    let getExpires m = fromIntegral (m * 60) `addUTCTime` now
+    let exp' = getExpires $ clientSessionDuration y
+    -- FIXME will show remoteHost give the answer I need? will it include port
+    -- information that changes on each request?
+    let host = if sessionIpAddress y then S8.pack (show (W.remoteHost req)) else ""
+    let session' =
+            case mkey of
+                Nothing -> []
+                Just key -> fromMaybe [] $ do
+                    raw <- lookup "Cookie" $ W.requestHeaders req
+                    val <- lookup sessionName $ parseCookies raw
+                    decodeSession key now host val
+    rr <- liftIO $ parseWaiRequest req session' mkey
+    let h = do
+          case murl of
+            Nothing -> handler
+            Just url -> do
+                isWrite <- isWriteRequest url
+                ar <- isAuthorized url isWrite
+                case ar of
+                    Authorized -> return ()
+                    AuthenticationRequired ->
+                        case authRoute y of
+                            Nothing ->
+                                permissionDenied "Authentication required"
+                            Just url' -> do
+                                setUltDest'
+                                redirect RedirectTemporary url'
+                    Unauthorized s -> permissionDenied s
+                handler
+    let sessionMap = Map.fromList
+                   $ filter (\(x, _) -> x /= nonceKey) session'
+    yar <- handlerToYAR y (yesodRender y) errorHandler rr murl sessionMap h
+    let mnonce = Just $ reqNonce rr -- FIXME
+    return $ yarToResponse (hr mnonce getExpires host exp') yar
+  where
+    hr mnonce getExpires host exp' hs ct sm =
+        hs'''
+      where
+        sessionVal =
+            case (mkey, mnonce) of
+                (Just key, Just nonce)
+                    -> encodeSession key exp' host
+                     $ Map.toList
+                     $ Map.insert nonceKey nonce sm
+                _ -> S.empty
+        hs' =
+            case mkey of
+                Nothing -> hs
+                Just _ -> AddCookie
+                            (clientSessionDuration y)
+                            sessionName
+                            sessionVal
+                          : hs
+        hs'' = map (headerToPair getExpires) hs'
+        hs''' = ("Content-Type", ct) : hs''
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
     deriving (Eq, Show, Read)
@@ -483,3 +564,138 @@ redirectToPost dest = hamletToRepHtml
 
 yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version
+
+yesodRender :: (Yesod y, YesodSite y)
+            => y
+            -> Route y
+            -> [(String, String)]
+            -> String
+yesodRender y u qs =
+    S8.unpack $ fromMaybe
+                (joinPath y (approot y) ps $ qs ++ qs')
+                (urlRenderOverride y u)
+  where
+    (ps, qs') = formatPathSegments (getSite' y) u
+
+parseWaiRequest :: W.Request
+                -> [(String, String)] -- ^ session
+                -> Maybe a
+                -> IO Request
+parseWaiRequest env session' key' = do
+    let gets' = map (bsToChars *** bsToChars)
+              $ NWP.parseQueryString $ W.queryString env
+    let reqCookie = fromMaybe S.empty $ lookup "Cookie"
+                  $ W.requestHeaders env
+        cookies' = map (bsToChars *** bsToChars) $ parseCookies reqCookie
+        acceptLang = lookup "Accept-Language" $ W.requestHeaders env
+        langs = map bsToChars $ maybe [] NWP.parseHttpAccept acceptLang
+        langs' = case lookup langKey session' of
+                    Nothing -> langs
+                    Just x -> x : langs
+        langs'' = case lookup langKey cookies' of
+                    Nothing -> langs'
+                    Just x -> x : langs'
+        langs''' = case lookup langKey gets' of
+                     Nothing -> langs''
+                     Just x -> x : langs''
+    rbthunk <- iothunk $ rbHelper env
+    nonce <- case (key', lookup nonceKey session') of
+                (Nothing, _) -> return $ error "You have attempted to use the nonce, but sessions are disabled." -- FIXME maybe this should be handled without an error?
+                (_, Just x) -> return x
+                (_, Nothing) -> do
+                    g <- newStdGen
+                    return $ fst $ randomString 10 g
+    return $ Request gets' cookies' rbthunk env langs''' nonce
+  where
+    randomString len =
+        first (map toChar) . sequence' (replicate len (randomR (0, 61)))
+    sequence' [] g = ([], g)
+    sequence' (f:fs) g =
+        let (f', g') = f g
+            (fs', g'') = sequence' fs g'
+         in (f' : fs', g'')
+    toChar i
+        | i < 26 = toEnum $ i + fromEnum 'A'
+        | i < 52 = toEnum $ i + fromEnum 'a' - 26
+        | otherwise = toEnum $ i + fromEnum '0' - 52
+
+nonceKey :: String
+nonceKey = "_NONCE"
+
+rbHelper :: W.Request -> Iteratee ByteString IO RequestBodyContents
+rbHelper req =
+    (map fix1 *** map fix2) <$> iter
+  where
+    iter = NWP.parseRequestBody NWP.lbsSink req
+    fix1 = bsToChars *** bsToChars
+    fix2 (x, NWP.FileInfo a b c) =
+        (bsToChars x, FileInfo (bsToChars a) (bsToChars b) c)
+
+-- | Produces a \"compute on demand\" value. The computation will be run once
+-- it is requested, and then the result will be stored. This will happen only
+-- once.
+--
+-- FIXME: remove this function and use a StateT in Handler
+iothunk :: Iteratee ByteString IO a -> IO (Iteratee ByteString IO a)
+iothunk =
+    fmap go . liftIO . newMVar . Left
+  where
+    go :: MVar (Either (Iteratee ByteString IO a) a) -> Iteratee ByteString IO a
+    go mvar = do
+        x <- liftIO $ takeMVar mvar
+        (x', a) <- go' x
+        liftIO $ putMVar mvar x'
+        return a
+    go' :: Either (Iteratee ByteString IO a) a
+        -> Iteratee ByteString IO (Either (Iteratee ByteString IO a) a, a)
+    go' (Right val) = return (Right val, val)
+    go' (Left comp) = do
+        val <- comp
+        return (Right val, val)
+
+-- FIXME don't duplicate
+sessionName :: ByteString
+sessionName = "_SESSION"
+
+encodeSession :: CS.Key
+              -> UTCTime -- ^ expire time
+              -> ByteString -- ^ remote host
+              -> [(String, String)] -- ^ session
+              -> ByteString -- ^ cookie value
+encodeSession key expire rhost session' =
+    CS.encrypt key $ encode $ SessionCookie expire rhost session'
+
+decodeSession :: CS.Key
+              -> UTCTime -- ^ current time
+              -> ByteString -- ^ remote host field
+              -> ByteString -- ^ cookie value
+              -> Maybe [(String, String)]
+decodeSession key now rhost encrypted = do
+    decrypted <- CS.decrypt key encrypted
+    SessionCookie expire rhost' session' <-
+        either (const Nothing) Just $ decode decrypted
+    guard $ expire > now
+    guard $ rhost' == rhost
+    return session'
+
+data SessionCookie = SessionCookie UTCTime ByteString [(String, String)]
+    deriving (Show, Read)
+instance Serialize SessionCookie where
+    put (SessionCookie a b c) = putTime a >> put b >> put c
+    get = do
+        a <- getTime
+        b <- get
+        c <- get
+        return $ SessionCookie a b c
+
+putTime :: Putter UTCTime
+putTime t@(UTCTime d _) = do
+    put $ toModifiedJulianDay d
+    let ndt = diffUTCTime t $ UTCTime d 0
+    put $ toRational ndt
+
+getTime :: Get UTCTime
+getTime = do
+    d <- get
+    ndt <- get
+    return $ fromRational ndt `addUTCTime` UTCTime (ModifiedJulianDay d) 0

@@ -9,6 +9,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE OverloadedStrings #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -88,6 +89,9 @@ module Yesod.Handler
     , HandlerData
     , ErrorResponse (..)
     , YesodAppResult (..)
+    , handlerToYAR
+    , yarToResponse
+    , headerToPair
 #if TEST
     , handlerTestSuite
 #endif
@@ -119,15 +123,21 @@ import Text.Hamlet
 
 import Control.Monad.IO.Peel (MonadPeelIO)
 import qualified Data.Map as Map
+import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
 import Data.ByteString (ByteString)
 import Data.Enumerator (Iteratee (..))
+import Network.Wai.Parse (parseHttpAccept)
 
 #if TEST
 import Test.Framework (testGroup, Test)
 #endif
 
 import Yesod.Content
+import Data.Maybe (fromMaybe)
+import Web.Cookie (SetCookie (..), renderSetCookie)
+import Blaze.ByteString.Builder (toByteString)
+import Data.Enumerator (run_, ($$))
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -251,8 +261,8 @@ data HandlerContents =
       HCContent W.Status ChooseRep
     | HCError ErrorResponse
     | HCSendFile ContentType FilePath
-    | HCRedirect RedirectType String
-    | HCCreated String
+    | HCRedirect RedirectType ByteString
+    | HCCreated ByteString
     | HCWai W.Response
 
 instance Error HandlerContents where
@@ -349,7 +359,7 @@ runHandler handler mrender sroute tomr ma tosa =
         HCSendFile ct fp -> catchIter
             (sendFile' ct fp)
             (handleError . toErrorHandler)
-        HCCreated loc -> do -- FIXME add status201 to WAI
+        HCCreated loc -> do
             let hs = Header "Location" loc : headers []
             return $ YARPlain
                 (W.Status 201 (S8.pack "Created"))
@@ -372,7 +382,7 @@ safeEh er = YesodApp $ \_ _ _ session -> do
         W.status500
         []
         typePlain
-        (toContent "Internal Server Error")
+        (toContent ("Internal Server Error" :: S.ByteString))
         session
 
 -- | Redirect to the given route.
@@ -384,10 +394,10 @@ redirectParams :: RedirectType -> Route master -> [(String, String)]
                -> GHandler sub master a
 redirectParams rt url params = do
     r <- getUrlRenderParams
-    redirectString rt $ r url params
+    redirectString rt $ S8.pack $ r url params
 
 -- | Redirect to the given URL.
-redirectString :: RedirectType -> String -> GHandler sub master a
+redirectString :: RedirectType -> ByteString -> GHandler sub master a
 redirectString rt = GHandler . lift . throwError . HCRedirect rt
 
 ultDestKey :: String
@@ -431,7 +441,7 @@ redirectUltDest :: RedirectType
 redirectUltDest rt def = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
-    maybe (redirect rt def) (redirectString rt) mdest
+    maybe (redirect rt def) (redirectString rt . S8.pack) mdest
 
 msgKey :: String
 msgKey = "_MSG"
@@ -476,7 +486,7 @@ sendResponseStatus s = GHandler . lift . throwError . HCContent s
 sendResponseCreated :: Route m -> GHandler s m a
 sendResponseCreated url = do
     r <- getUrlRender
-    GHandler $ lift $ throwError $ HCCreated $ r url
+    GHandler $ lift $ throwError $ HCCreated $ S8.pack $ r url
 
 -- | Send a 'W.Response'. Please note: this function is rarely
 -- necessary, and will /disregard/ any changes to response headers and session
@@ -507,13 +517,13 @@ invalidArgs = failure . InvalidArgs
 ------- Headers
 -- | Set the cookie on the client.
 setCookie :: Int -- ^ minutes to timeout
-          -> String -- ^ key
-          -> String -- ^ value
+          -> ByteString -- ^ key
+          -> ByteString -- ^ value
           -> GHandler sub master ()
 setCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
-deleteCookie :: String -> GHandler sub master ()
+deleteCookie :: ByteString -> GHandler sub master ()
 deleteCookie = addHeader . DeleteCookie
 
 -- | Set the language in the user session. Will show up in 'languages' on the
@@ -522,13 +532,13 @@ setLanguage :: String -> GHandler sub master ()
 setLanguage = setSession langKey
 
 -- | Set an arbitrary response header.
-setHeader :: String -> String -> GHandler sub master ()
+setHeader :: W.ResponseHeader -> ByteString -> GHandler sub master ()
 setHeader a = addHeader . Header a
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
 cacheSeconds :: Int -> GHandler s m ()
-cacheSeconds i = setHeader "Cache-Control" $ concat
+cacheSeconds i = setHeader "Cache-Control" $ S8.pack $ concat
     [ "max-age="
     , show i
     , ", public"
@@ -546,7 +556,7 @@ alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
 expiresAt :: UTCTime -> GHandler s m ()
-expiresAt = setHeader "Expires" . formatRFC1123
+expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
 
 -- | Set a variable in the user's session.
 --
@@ -606,3 +616,83 @@ handlerTestSuite = testGroup "Yesod.Handler"
     ]
 
 #endif
+
+handlerToYAR :: (HasReps a, HasReps b)
+             => m -- ^ master site foundation
+             -> (Route m -> [(String, String)] -> String) -- ^ url render
+             -> (ErrorResponse -> GHandler m m a)
+             -> Request
+             -> Maybe (Route m)
+             -> SessionMap
+             -> GHandler m m b
+             -> Iteratee ByteString IO YesodAppResult
+handlerToYAR y render errorHandler rr murl sessionMap h =
+    unYesodApp ya eh' rr types sessionMap
+  where
+    ya = runHandler h render murl id y id
+    eh' er = runHandler (errorHandler' er) render murl id y id
+    types = httpAccept $ reqWaiRequest rr
+    errorHandler' = localNoCurrent . errorHandler
+
+type HeaderRenderer = [Header]
+                   -> ContentType
+                   -> SessionMap
+                   -> [(W.ResponseHeader, ByteString)]
+
+yarToResponse :: HeaderRenderer -> YesodAppResult -> W.Response
+yarToResponse _ (YARWai a) = a
+yarToResponse renderHeaders (YARPlain s hs ct c sessionFinal) =
+    case c of
+        ContentBuilder b mlen ->
+            let hs' = maybe finalHeaders finalHeaders' mlen
+             in W.ResponseBuilder s hs' b
+        ContentFile fp -> W.ResponseFile s finalHeaders fp
+        ContentEnum e ->
+            W.ResponseEnumerator $ \iter -> run_ $ e $$ iter s finalHeaders
+  where
+    finalHeaders = renderHeaders hs ct sessionFinal
+    finalHeaders' len = ("Content-Length", S8.pack $ show len)
+                      : finalHeaders
+    {-
+    getExpires m = fromIntegral (m * 60) `addUTCTime` now
+    sessionVal =
+        case key' of
+            Nothing -> B.empty
+            Just key'' -> encodeSession key'' exp' host
+                        $ Map.toList
+                        $ Map.insert nonceKey (reqNonce rr) sessionFinal
+    hs' =
+            case key' of
+                Nothing -> hs
+                Just _ -> AddCookie
+                        (clientSessionDuration y)
+                        sessionName
+                        (bsToChars sessionVal)
+                      : hs
+    hs'' = map (headerToPair getExpires) hs'
+    hs''' = ("Content-Type", charsToBs ct) : hs''
+    -}
+
+httpAccept :: W.Request -> [ContentType]
+httpAccept = parseHttpAccept
+           . fromMaybe S.empty
+           . lookup "Accept"
+           . W.requestHeaders
+
+-- | Convert Header to a key/value pair.
+headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
+             -> Header
+             -> (W.ResponseHeader, ByteString)
+headerToPair getExpires (AddCookie minutes key value) =
+    ("Set-Cookie", toByteString $ renderSetCookie $ SetCookie
+        { setCookieName = key
+        , setCookieValue = value
+        , setCookiePath = Just "/" -- FIXME make a config option, or use approot?
+        , setCookieExpires = Just $ getExpires minutes
+        , setCookieDomain = Nothing
+        })
+headerToPair _ (DeleteCookie key) =
+    ( "Set-Cookie"
+    , key `S.append` "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT"
+    )
+headerToPair _ (Header key value) = (key, value)
