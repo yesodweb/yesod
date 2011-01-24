@@ -33,7 +33,6 @@ module Yesod.Widget
     , addScriptEither
       -- * Utilities
     , extractBody
-    , newIdent -- FIXME this should be a function on Handler, not Widget
       -- * Helpers for specific content
       -- ** Hamlet
     , hamletToContent
@@ -155,14 +154,6 @@ addHtml = GWidget . tell . Body . const
 -- makes widget blocks look more consistent.
 addWidget :: Monad mo => GGWidget s m mo () -> GGWidget s m mo ()
 addWidget = id
-
--- | Get a unique identifier.
-newIdent :: Monad mo => GGWidget sub master mo String
-newIdent = GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift $ do
-    i <- get
-    let i' = i + 1
-    put i'
-    return $ "w" ++ show i'
 
 -- | Add some raw CSS to the style tag.
 addCassius :: Monad m => Cassius (Route master) -> GGWidget sub master m ()

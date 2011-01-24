@@ -78,6 +78,8 @@ module Yesod.Handler
       -- ** Messages
     , setMessage
     , getMessage
+      -- ** Misc
+    , newIdent
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
@@ -138,7 +140,7 @@ import Data.Maybe (fromMaybe)
 import Web.Cookie (SetCookie (..), renderSetCookie)
 import Blaze.ByteString.Builder (toByteString)
 import Data.Enumerator (run_, ($$))
-import Control.Arrow (first, (***))
+import Control.Arrow (second, (***))
 import qualified Network.Wai.Parse as NWP
 
 -- | The type-safe URLs associated with a site argument.
@@ -231,11 +233,17 @@ instance MonadTrans (GGHandler s m) where
 
 type GHandler sub master = GGHandler sub master (Iteratee ByteString IO)
 
+data GHState = GHState
+    { ghsSession :: SessionMap
+    , ghsRBC :: Maybe RequestBodyContents
+    , ghsIdent :: Int
+    }
+
 type GHInner s m monad =
     ReaderT (HandlerData s m) (
     ErrorT HandlerContents (
     WriterT (Endo [Header]) (
-    StateT (SessionMap, Maybe RequestBodyContents) (
+    StateT GHState (
     monad
     ))))
 
@@ -275,13 +283,13 @@ instance Monad monad => Failure ErrorResponse (GGHandler sub master monad) where
 instance RequestReader (GHandler sub master) where
     getRequest = handlerRequest <$> GHandler ask
     runRequestBody = do
-        (sm, mrbc) <- GHandler $ lift $ lift $ lift get
-        case mrbc of
+        x <- GHandler $ lift $ lift $ lift get
+        case ghsRBC x of
             Just rbc -> return rbc
             Nothing -> do
                 rr <- waiRequest
                 rbc <- lift $ rbHelper rr
-                GHandler $ lift $ lift $ lift $ put (sm, Just rbc)
+                GHandler $ lift $ lift $ lift $ put x { ghsRBC = Just rbc }
                 return rbc
 
 rbHelper :: W.Request -> Iteratee ByteString IO RequestBodyContents
@@ -346,14 +354,15 @@ runHandler handler mrender sroute tomr ma tosa =
             , handlerRender = mrender
             , handlerToMaster = tomr
             }
-    let initSession' = (initSession, Nothing)
-    ((contents', headers), (finalSession, _)) <- catchIter (
-        flip runStateT initSession'
+    let initSession' = GHState initSession Nothing 1
+    ((contents', headers), finalSession) <- catchIter (
+        fmap (second ghsSession)
+      $ flip runStateT initSession'
       $ runWriterT
       $ runErrorT
       $ flip runReaderT hd
       $ unGHandler handler
-        ) (\e -> return ((Left $ HCError $ toErrorHandler e, id), initSession'))
+        ) (\e -> return ((Left $ HCError $ toErrorHandler e, id), initSession))
     let contents = either id (HCContent W.status200 . chooseRep) contents'
     let handleError e = do
             yar <- unYesodApp (eh e) safeEh rr cts finalSession
@@ -584,11 +593,14 @@ expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
 setSession :: String -- ^ key
            -> String -- ^ value
            -> GHandler sub master ()
-setSession k = GHandler . lift . lift . lift . modify . first . Map.insert k
+setSession k = GHandler . lift . lift . lift . modify . modSession . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
 deleteSession :: String -> GHandler sub master ()
-deleteSession = GHandler . lift . lift . lift . modify . first . Map.delete
+deleteSession = GHandler . lift . lift . lift . modify . modSession . Map.delete
+
+modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
+modSession f x = x { ghsSession = f $ ghsSession x }
 
 -- | Internal use only, not to be confused with 'setHeader'.
 addHeader :: Header -> GHandler sub master ()
@@ -619,12 +631,12 @@ localNoCurrent =
 -- | Lookup for session data.
 lookupSession :: ParamName -> GHandler s m (Maybe ParamValue)
 lookupSession n = GHandler $ do
-    m <- fmap fst $ lift $ lift $ lift get
+    m <- fmap ghsSession $ lift $ lift $ lift get
     return $ Map.lookup n m
 
 -- | Get all session variables.
 getSession :: GHandler s m SessionMap
-getSession = fmap fst $ GHandler $ lift $ lift $ lift get
+getSession = fmap ghsSession $ GHandler $ lift $ lift $ lift get
 
 #if TEST
 
@@ -714,3 +726,11 @@ headerToPair _ (DeleteCookie key) =
     , key `S.append` "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT"
     )
 headerToPair _ (Header key value) = (key, value)
+
+-- | Get a unique identifier.
+newIdent :: Monad mo => GGHandler sub master mo String
+newIdent = GHandler $ lift $ lift $ lift $ do
+    x <- get
+    let i' = ghsIdent x + 1
+    put x { ghsIdent = i' }
+    return $ "h" ++ show i'
