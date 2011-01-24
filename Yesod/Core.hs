@@ -40,6 +40,7 @@ import Yesod.Request
 import qualified Network.Wai as W
 import Yesod.Internal
 import Yesod.Internal.Session
+import Yesod.Internal.Request
 import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
 import qualified Data.ByteString as S
@@ -56,9 +57,6 @@ import Text.Blaze (preEscapedLazyText)
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Maybe (fromMaybe)
-import System.Random (randomR, newStdGen)
-import Control.Arrow (first, (***))
-import qualified Network.Wai.Parse as NWP
 import Control.Monad.IO.Class (liftIO)
 import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
@@ -577,44 +575,3 @@ yesodRender y u qs =
                 (urlRenderOverride y u)
   where
     (ps, qs') = formatPathSegments (getSite' y) u
-
-parseWaiRequest :: W.Request
-                -> [(String, String)] -- ^ session
-                -> Maybe a
-                -> IO Request
-parseWaiRequest env session' key' = do
-    let gets' = map (bsToChars *** bsToChars)
-              $ NWP.parseQueryString $ W.queryString env
-    let reqCookie = fromMaybe S.empty $ lookup "Cookie"
-                  $ W.requestHeaders env
-        cookies' = map (bsToChars *** bsToChars) $ parseCookies reqCookie
-        acceptLang = lookup "Accept-Language" $ W.requestHeaders env
-        langs = map bsToChars $ maybe [] NWP.parseHttpAccept acceptLang
-        langs' = case lookup langKey session' of
-                    Nothing -> langs
-                    Just x -> x : langs
-        langs'' = case lookup langKey cookies' of
-                    Nothing -> langs'
-                    Just x -> x : langs'
-        langs''' = case lookup langKey gets' of
-                     Nothing -> langs''
-                     Just x -> x : langs''
-    nonce <- case (key', lookup nonceKey session') of
-                (Nothing, _) -> return Nothing
-                (_, Just x) -> return $ Just x
-                (_, Nothing) -> do
-                    g <- newStdGen
-                    return $ Just $ fst $ randomString 10 g
-    return $ Request gets' cookies' env langs''' nonce
-  where
-    randomString len =
-        first (map toChar) . sequence' (replicate len (randomR (0, 61)))
-    sequence' [] g = ([], g)
-    sequence' (f:fs) g =
-        let (f', g') = f g
-            (fs', g'') = sequence' fs g'
-         in (f' : fs', g'')
-    toChar i
-        | i < 26 = toEnum $ i + fromEnum 'A'
-        | i < 52 = toEnum $ i + fromEnum 'a' - 26
-        | otherwise = toEnum $ i + fromEnum '0' - 52

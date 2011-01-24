@@ -56,6 +56,7 @@ library
                      Yesod.Widget
     other-modules:   Yesod.Internal
                      Yesod.Internal.Session
+                     Yesod.Internal.Request
                      Paths_yesod_core
     ghc-options:     -Wall
 

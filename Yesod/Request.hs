@@ -71,8 +71,7 @@ class Monad m => RequestReader m where
 --
 -- * Accept-Language HTTP header.
 --
--- This is handled by the parseWaiRequest function in Yesod.Dispatch (not
--- exposed).
+-- This is handled by parseWaiRequest (not exposed).
 languages :: RequestReader m => m [String]
 languages = reqLangs `liftM` getRequest
 
