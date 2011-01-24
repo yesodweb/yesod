@@ -283,7 +283,7 @@ defaultYesodRunner y mkey murl handler req = do
     let sessionMap = Map.fromList
                    $ filter (\(x, _) -> x /= nonceKey) session'
     yar <- handlerToYAR y (yesodRender y) errorHandler rr murl sessionMap h
-    let mnonce = Just $ reqNonce rr -- FIXME
+    let mnonce = reqNonce rr
     return $ yarToResponse (hr mnonce getExpires host exp') yar
   where
     hr mnonce getExpires host exp' hs ct sm =
@@ -599,11 +599,11 @@ parseWaiRequest env session' key' = do
                      Nothing -> langs''
                      Just x -> x : langs''
     nonce <- case (key', lookup nonceKey session') of
-                (Nothing, _) -> return $ error "You have attempted to use the nonce, but sessions are disabled." -- FIXME maybe this should be handled without an error?
-                (_, Just x) -> return x
+                (Nothing, _) -> return Nothing
+                (_, Just x) -> return $ Just x
                 (_, Nothing) -> do
                     g <- newStdGen
-                    return $ fst $ randomString 10 g
+                    return $ Just $ fst $ randomString 10 g
     return $ Request gets' cookies' env langs''' nonce
   where
     randomString len =

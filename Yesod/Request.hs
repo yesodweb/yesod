@@ -101,7 +101,7 @@ data Request = Request
       -- | Languages which the client supports.
     , reqLangs :: [String]
       -- | A random, session-specific nonce used to prevent CSRF attacks.
-    , reqNonce :: String
+    , reqNonce :: Maybe String
     }
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
