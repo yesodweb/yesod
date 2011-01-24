@@ -39,6 +39,7 @@ import Yesod.Widget
 import Yesod.Request
 import qualified Network.Wai as W
 import Yesod.Internal
+import Yesod.Internal.Session
 import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
 import qualified Data.ByteString as S
@@ -58,15 +59,9 @@ import Data.Maybe (fromMaybe)
 import System.Random (randomR, newStdGen)
 import Control.Arrow (first, (***))
 import qualified Network.Wai.Parse as NWP
-import Data.ByteString (ByteString)
-import Data.Enumerator (Iteratee, ($$), run_)
-import Control.Concurrent.MVar (MVar, takeMVar, putMVar, newMVar)
 import Control.Monad.IO.Class (liftIO)
-import Control.Applicative ((<$>))
-import Web.Cookie (parseCookies, SetCookie (..), renderSetCookie)
+import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
-import Control.Monad (guard)
-import Data.Serialize
 import Data.Time
 
 #if TEST
@@ -248,6 +243,12 @@ class Eq (Route a) => Yesod a where
     yesodRunner :: YesodSite a => a -> Maybe CS.Key -> Maybe (Route a) -> GHandler a a ChooseRep -> W.Application
     yesodRunner = defaultYesodRunner
 
+defaultYesodRunner :: (Yesod a, YesodSite a)
+                   => a
+                   -> Maybe CS.Key
+                   -> Maybe (Route a)
+                   -> GHandler a a ChooseRep
+                   -> W.Application
 defaultYesodRunner y mkey murl handler req = do
     now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
@@ -617,53 +618,3 @@ parseWaiRequest env session' key' = do
         | i < 26 = toEnum $ i + fromEnum 'A'
         | i < 52 = toEnum $ i + fromEnum 'a' - 26
         | otherwise = toEnum $ i + fromEnum '0' - 52
-
-nonceKey :: String
-nonceKey = "_NONCE"
-
--- FIXME don't duplicate
-sessionName :: ByteString
-sessionName = "_SESSION"
-
-encodeSession :: CS.Key
-              -> UTCTime -- ^ expire time
-              -> ByteString -- ^ remote host
-              -> [(String, String)] -- ^ session
-              -> ByteString -- ^ cookie value
-encodeSession key expire rhost session' =
-    CS.encrypt key $ encode $ SessionCookie expire rhost session'
-
-decodeSession :: CS.Key
-              -> UTCTime -- ^ current time
-              -> ByteString -- ^ remote host field
-              -> ByteString -- ^ cookie value
-              -> Maybe [(String, String)]
-decodeSession key now rhost encrypted = do
-    decrypted <- CS.decrypt key encrypted
-    SessionCookie expire rhost' session' <-
-        either (const Nothing) Just $ decode decrypted
-    guard $ expire > now
-    guard $ rhost' == rhost
-    return session'
-
-data SessionCookie = SessionCookie UTCTime ByteString [(String, String)]
-    deriving (Show, Read)
-instance Serialize SessionCookie where
-    put (SessionCookie a b c) = putTime a >> put b >> put c
-    get = do
-        a <- getTime
-        b <- get
-        c <- get
-        return $ SessionCookie a b c
-
-putTime :: Putter UTCTime
-putTime t@(UTCTime d _) = do
-    put $ toModifiedJulianDay d
-    let ndt = diffUTCTime t $ UTCTime d 0
-    put $ toRational ndt
-
-getTime :: Get UTCTime
-getTime = do
-    d <- get
-    ndt <- get
-    return $ fromRational ndt `addUTCTime` UTCTime (ModifiedJulianDay d) 0

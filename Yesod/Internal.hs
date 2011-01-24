@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Normal users should never need access to these.
 module Yesod.Internal
     ( -- * Error responses
@@ -24,6 +25,9 @@ module Yesod.Internal
     , bsToChars
     , lbsToChars
     , charsToBs
+      -- * Names
+    , sessionName
+    , nonceKey
     ) where
 
 import Text.Hamlet (Hamlet, hamlet, Html)
@@ -106,3 +110,9 @@ bsToChars = T.unpack . T.decodeUtf8With T.lenientDecode
 
 charsToBs :: String -> S.ByteString
 charsToBs = T.encodeUtf8 . T.pack
+
+nonceKey :: String
+nonceKey = "_NONCE"
+
+sessionName :: ByteString
+sessionName = "_SESSION"

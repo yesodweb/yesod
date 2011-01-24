@@ -226,9 +226,6 @@ mkToMasterArg ps fname = do
       e = rsg `AppE` e'
   return $ LamE xps e
 
-sessionName :: B.ByteString
-sessionName = "_SESSION"
-
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This is the same as 'toWaiAppPlain', except it includes three
 -- middlewares: GZIP compression, JSON-P and path cleaning. This is the
