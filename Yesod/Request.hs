@@ -41,8 +41,6 @@ module Yesod.Request
     ) where
 
 import qualified Network.Wai as W
-import Data.ByteString (ByteString)
-import Data.Enumerator (Iteratee)
 import qualified Data.ByteString.Lazy as BL
 import "transformers" Control.Monad.IO.Class
 import Control.Monad (liftM)
@@ -99,18 +97,6 @@ data FileInfo = FileInfo
 data Request = Request
     { reqGetParams :: [(ParamName, ParamValue)]
     , reqCookies :: [(ParamName, ParamValue)]
-      -- | The POST parameters and submitted files. This is stored in an IO
-      -- thunk, which essentially means it will be computed once at most, but
-      -- only if requested. This allows avoidance of the potentially costly
-      -- parsing of POST bodies for pages which do not use them.
-      --
-      -- Additionally, since the request body is not read until needed, you can
-      -- directly access the 'W.requestBody' record in 'reqWaiRequest' and
-      -- perform other forms of parsing. For example, when designing a web
-      -- service, you may want to accept JSON-encoded data. Just be aware that
-      -- if you do such parsing, the standard POST form parsing functions will
-      -- no longer work.
-    , reqRequestBody :: Iteratee ByteString IO RequestBodyContents
     , reqWaiRequest :: W.Request
       -- | Languages which the client supports.
     , reqLangs :: [String]

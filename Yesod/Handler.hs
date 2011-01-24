@@ -138,6 +138,8 @@ import Data.Maybe (fromMaybe)
 import Web.Cookie (SetCookie (..), renderSetCookie)
 import Blaze.ByteString.Builder (toByteString)
 import Data.Enumerator (run_, ($$))
+import Control.Arrow (first, (***))
+import qualified Network.Wai.Parse as NWP
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -233,7 +235,7 @@ type GHInner s m monad =
     ReaderT (HandlerData s m) (
     ErrorT HandlerContents (
     WriterT (Endo [Header]) (
-    StateT SessionMap ( -- session
+    StateT (SessionMap, Maybe RequestBodyContents) (
     monad
     ))))
 
@@ -273,8 +275,23 @@ instance Monad monad => Failure ErrorResponse (GGHandler sub master monad) where
 instance RequestReader (GHandler sub master) where
     getRequest = handlerRequest <$> GHandler ask
     runRequestBody = do
-        rr <- getRequest
-        GHandler $ lift $ lift $ lift $ lift $ reqRequestBody rr
+        (sm, mrbc) <- GHandler $ lift $ lift $ lift get
+        case mrbc of
+            Just rbc -> return rbc
+            Nothing -> do
+                rr <- waiRequest
+                rbc <- lift $ rbHelper rr
+                GHandler $ lift $ lift $ lift $ put (sm, Just rbc)
+                return rbc
+
+rbHelper :: W.Request -> Iteratee ByteString IO RequestBodyContents
+rbHelper req =
+    (map fix1 *** map fix2) <$> iter
+  where
+    iter = NWP.parseRequestBody NWP.lbsSink req
+    fix1 = bsToChars *** bsToChars
+    fix2 (x, NWP.FileInfo a b c) =
+        (bsToChars x, FileInfo (bsToChars a) (bsToChars b) c)
 
 -- | Get the sub application argument.
 getYesodSub :: Monad m => GGHandler sub master m sub
@@ -329,13 +346,14 @@ runHandler handler mrender sroute tomr ma tosa =
             , handlerRender = mrender
             , handlerToMaster = tomr
             }
-    ((contents', headers), finalSession) <- catchIter (
-        flip runStateT initSession
+    let initSession' = (initSession, Nothing)
+    ((contents', headers), (finalSession, _)) <- catchIter (
+        flip runStateT initSession'
       $ runWriterT
       $ runErrorT
       $ flip runReaderT hd
       $ unGHandler handler
-        ) (\e -> return ((Left $ HCError $ toErrorHandler e, id), initSession))
+        ) (\e -> return ((Left $ HCError $ toErrorHandler e, id), initSession'))
     let contents = either id (HCContent W.status200 . chooseRep) contents'
     let handleError e = do
             yar <- unYesodApp (eh e) safeEh rr cts finalSession
@@ -566,11 +584,11 @@ expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
 setSession :: String -- ^ key
            -> String -- ^ value
            -> GHandler sub master ()
-setSession k = GHandler . lift . lift . lift . modify . Map.insert k
+setSession k = GHandler . lift . lift . lift . modify . first . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
 deleteSession :: String -> GHandler sub master ()
-deleteSession = GHandler . lift . lift . lift . modify . Map.delete
+deleteSession = GHandler . lift . lift . lift . modify . first . Map.delete
 
 -- | Internal use only, not to be confused with 'setHeader'.
 addHeader :: Header -> GHandler sub master ()
@@ -601,12 +619,12 @@ localNoCurrent =
 -- | Lookup for session data.
 lookupSession :: ParamName -> GHandler s m (Maybe ParamValue)
 lookupSession n = GHandler $ do
-    m <- lift $ lift $ lift get
+    m <- fmap fst $ lift $ lift $ lift get
     return $ Map.lookup n m
 
 -- | Get all session variables.
 getSession :: GHandler s m SessionMap
-getSession = GHandler $ lift $ lift $ lift get
+getSession = fmap fst $ GHandler $ lift $ lift $ lift get
 
 #if TEST
 

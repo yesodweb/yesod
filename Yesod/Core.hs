@@ -598,14 +598,13 @@ parseWaiRequest env session' key' = do
         langs''' = case lookup langKey gets' of
                      Nothing -> langs''
                      Just x -> x : langs''
-    rbthunk <- iothunk $ rbHelper env
     nonce <- case (key', lookup nonceKey session') of
                 (Nothing, _) -> return $ error "You have attempted to use the nonce, but sessions are disabled." -- FIXME maybe this should be handled without an error?
                 (_, Just x) -> return x
                 (_, Nothing) -> do
                     g <- newStdGen
                     return $ fst $ randomString 10 g
-    return $ Request gets' cookies' rbthunk env langs''' nonce
+    return $ Request gets' cookies' env langs''' nonce
   where
     randomString len =
         first (map toChar) . sequence' (replicate len (randomR (0, 61)))
@@ -621,37 +620,6 @@ parseWaiRequest env session' key' = do
 
 nonceKey :: String
 nonceKey = "_NONCE"
-
-rbHelper :: W.Request -> Iteratee ByteString IO RequestBodyContents
-rbHelper req =
-    (map fix1 *** map fix2) <$> iter
-  where
-    iter = NWP.parseRequestBody NWP.lbsSink req
-    fix1 = bsToChars *** bsToChars
-    fix2 (x, NWP.FileInfo a b c) =
-        (bsToChars x, FileInfo (bsToChars a) (bsToChars b) c)
-
--- | Produces a \"compute on demand\" value. The computation will be run once
--- it is requested, and then the result will be stored. This will happen only
--- once.
---
--- FIXME: remove this function and use a StateT in Handler
-iothunk :: Iteratee ByteString IO a -> IO (Iteratee ByteString IO a)
-iothunk =
-    fmap go . liftIO . newMVar . Left
-  where
-    go :: MVar (Either (Iteratee ByteString IO a) a) -> Iteratee ByteString IO a
-    go mvar = do
-        x <- liftIO $ takeMVar mvar
-        (x', a) <- go' x
-        liftIO $ putMVar mvar x'
-        return a
-    go' :: Either (Iteratee ByteString IO a) a
-        -> Iteratee ByteString IO (Either (Iteratee ByteString IO a) a, a)
-    go' (Right val) = return (Right val, val)
-    go' (Left comp) = do
-        val <- comp
-        return (Right val, val)
 
 -- FIXME don't duplicate
 sessionName :: ByteString
