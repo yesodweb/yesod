@@ -188,7 +188,7 @@ mkYesodGeneral name args clazzes isSub res = do
         master <- newName "master"
         mkey <- newName "mkey"
         just <- [|Just|]
-        (pat', tma', rest) <- mkPat' pieces $ just `AppE` (VarE $ mkName toSub)
+        (pat', tma', rest) <- mkPat' pieces $ just `AppE` (VarE (mkName toSub) `AppE` VarE master)
         ds <- [|dispatchSubsite|]
         let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest
         fmap' <- [|(<$>)|]
@@ -260,12 +260,12 @@ mkToMasterArg ps fname = do
   let nargs = length $ filter (not.isStatic) ps
       f = VarE $ mkName fname
   args <- sequence $ take nargs $ repeat $ newName "x"
-  rsg <- [| runSubsiteGetter|]
+  rsg <- [|error "runSubsiteGetter"|]
   let xps = map VarP args
       xes = map VarE args
       e' = foldl (\x y -> x `AppE` y) f xes
       e = rsg `AppE` e'
-  return $ LamE xps e
+  return $ rsg -- FIXME LamE xps e
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This is the same as 'toWaiAppPlain', except it includes three
