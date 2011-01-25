@@ -93,8 +93,15 @@ type Method = String
 -- to deal with it directly, as mkYesodSub creates instances appropriately.
 class Eq (Route s) => YesodSubSite s y where
     getSubSite :: Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
-    dispatchSubsite :: y -> Maybe CS.Key -> [String] -> s -> W.Application
-    dispatchSubsite _ _ _ _ _ = return $ W.responseLBS W.status200 [("Content-Type", "text/plain")] $ L8.pack "FIXME"
+    getSubSite' :: s -> y -> Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
+    getSubSite' _ _ = getSubSite
+    dispatchSubsite :: (Yesod y, YesodSite y)
+                    => y
+                    -> Maybe CS.Key
+                    -> [String]
+                    -> (Route s -> Route y)
+                    -> s
+                    -> W.Application
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.

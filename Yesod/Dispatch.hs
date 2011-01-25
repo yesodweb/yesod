@@ -173,9 +173,10 @@ mkYesodGeneral name args clazzes isSub res = do
                 else ([], ConT ''YesodSite `AppT` arg, "getSite")
     subsiteClauses <- catMaybes <$> mapM sc th'
     nothing <- [|Nothing|]
+    dds <- [|defaultDispatchSubsite|]
     let otherMethods =
             if isSub
-                then []
+                then [ FunD (mkName "dispatchSubsite") [Clause [] (NormalB dds) []]]
                 else [ FunD (mkName "dispatchToSubsite")
                         (subsiteClauses ++ [Clause [WildP, WildP, WildP] (NormalB nothing) []])
                      ]
@@ -190,7 +191,9 @@ mkYesodGeneral name args clazzes isSub res = do
         just <- [|Just|]
         (pat', tma', rest) <- mkPat' pieces $ just `AppE` (VarE (mkName toSub) `AppE` VarE master)
         ds <- [|dispatchSubsite|]
-        let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest
+        -- let toMaster = ConE (mkName "SubsiteR")
+        toMaster <- [|error "FIXME toMaster"|]
+        let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest `AppE` toMaster
         fmap' <- [|(<$>)|]
         let body = InfixE (Just body') fmap' $ Just tma'
         return $ Just $ Clause
@@ -328,6 +331,27 @@ normalDispatch y key' segments env =
             Nothing -> notFound
             Just url ->
                 case handleSite (getSite' y) (yesodRender y) url method of
+                    Nothing -> badMethod
+                    Just h -> h
+
+-- FIXME address sub-subsites
+defaultDispatchSubsite
+    :: (Yesod m, YesodSite m, YesodSubSite s m)
+    => m -> Maybe Key -> [String]
+    -> (Route s -> Route m)
+    -> s
+    -> W.Application
+defaultDispatchSubsite y key' segments toMasterRoute s env =
+    yesodRunner y key' (fmap toMasterRoute murl) handler env
+  where
+    method = B.unpack $ W.requestMethod env
+    murl = either (const Nothing) Just $ parsePathSegments (getSubSite' s y) segments
+    handler = toMasterHandlerMaybe toMasterRoute (const s) murl handler'
+    handler' =
+        case murl of
+            Nothing -> notFound
+            Just url ->
+                case handleSite (getSubSite' s y) (yesodRender y . toMasterRoute) url method of
                     Nothing -> badMethod
                     Just h -> h
 
