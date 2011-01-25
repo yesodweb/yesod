@@ -70,7 +70,7 @@ import System.Random (randomR, newStdGen)
 
 import qualified Data.Map as Map
 
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<*>))
 import Data.Enumerator (($$), run_, Iteratee)
 import Control.Monad.IO.Class (liftIO)
 
@@ -144,7 +144,8 @@ mkYesodGeneral name args clazzes isSub res = do
     let name' = mkName name
         args' = map mkName args
         arg = foldl AppT (ConT name') $ map VarT args'
-    th <- mapM (thResourceFromResource arg) res -- FIXME now we cannot have multi-nested subsites
+    th' <- mapM (thResourceFromResource arg) res -- FIXME now we cannot have multi-nested subsites
+    let th = map fst th'
     w' <- createRoutes th
     let routesName = mkName $ name ++ "Route"
     let w = DataD [] routesName [] w' [''Show, ''Read, ''Eq]
@@ -170,18 +171,58 @@ mkYesodGeneral name args clazzes isSub res = do
             if isSub
                 then (clazzes, ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"), "getSubSite")
                 else ([], ConT ''YesodSite `AppT` arg, "getSite")
+    subsiteClauses <- catMaybes <$> mapM sc th'
+    nothing <- [|Nothing|]
+    let otherMethods =
+            if isSub
+                then []
+                else [ FunD (mkName "dispatchToSubsite")
+                        (subsiteClauses ++ [Clause [WildP, WildP, WildP] (NormalB nothing) []])
+                     ]
     let y = InstanceD ctx ytyp
-                [ FunD (mkName yfunc) [Clause [] (NormalB site') []]
-                ]
+                $ FunD (mkName yfunc) [Clause [] (NormalB site') []]
+                : otherMethods
     return ([w, x], [y])
+  where
+    sc ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
+        master <- newName "master"
+        mkey <- newName "mkey"
+        just <- [|Just|]
+        (pat', tma', rest) <- mkPat' pieces $ just `AppE` (VarE $ mkName toSub)
+        ds <- [|dispatchSubsite|]
+        let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest
+        fmap' <- [|(<$>)|]
+        let body = InfixE (Just body') fmap' $ Just tma'
+        return $ Just $ Clause
+            [ VarP master
+            , VarP mkey
+            , pat'
+            ] (NormalB body) []
+    sc _ = return Nothing
+    mkPat' :: [Piece] -> Exp -> Q (Pat, Exp, Exp)
+    mkPat' (MultiPiece _:_) _ = error "MultiPiece not allowed as part of a subsite"
+    mkPat' (StaticPiece s:rest) tma = do
+        (x, tma, rest') <- mkPat' rest tma
+        let sp = LitP $ StringL s
+        return (InfixP sp (mkName ":") x, tma, rest')
+    mkPat' (SinglePiece s:rest) tma = do
+        fsp <- [|either (const Nothing) Just . fromSinglePiece|]
+        v <- newName $ "var" ++ s
+        be <- [|(<*>)|]
+        let tma' = InfixE (Just tma) be $ Just $ fsp `AppE` VarE v
+        (x, tma'', rest) <- mkPat' rest tma'
+        return (InfixP (VarP v) (mkName ":") x, tma'', rest)
+    mkPat' [] parse = do
+        rest <- newName "rest"
+        return (VarP rest, parse, VarE rest)
 
 isStatic :: Piece -> Bool
 isStatic StaticPiece{} = True
 isStatic _ = False
 
-thResourceFromResource :: Type -> Resource -> Q THResource
+thResourceFromResource :: Type -> Resource -> Q (THResource, Maybe String)
 thResourceFromResource _ (Resource n ps atts)
-    | all (all isUpper) atts = return (n, Simple ps atts)
+    | all (all isUpper) atts = return ((n, Simple ps atts), Nothing)
 thResourceFromResource master (Resource n ps [stype, toSubArg])
     -- static route to subsite
     = do
@@ -201,14 +242,14 @@ thResourceFromResource master (Resource n ps [stype, toSubArg])
         dispatch' <- [|flip handleSite (error "Cannot use subsite render function")|]
         let dispatch = dispatch' `AppE` gss'
         tmg <- mkToMasterArg ps toSubArg
-        return (n, SubSite
+        return ((n, SubSite
             { ssType = ConT ''Route `AppT` stype'
             , ssParse = parse
             , ssRender = render
             , ssDispatch = dispatch
             , ssToMasterArg = tmg
             , ssPieces = ps
-            })
+            }), Just toSubArg)
 
 
 thResourceFromResource _ (Resource n _ _) =
@@ -244,8 +285,6 @@ toWaiAppPlain a = do
     key' <- encryptKey a
     return $ toWaiApp' a key'
 
-dispatchPieces _ _ _ = Nothing -- FIXME
-
 toWaiApp' :: (Yesod y, YesodSite y)
           => y
           -> Maybe Key
@@ -256,7 +295,7 @@ toWaiApp' y key' env = do
                 "":x -> x
                 x -> x
     liftIO $ print (W.pathInfo env, segments)
-    case dispatchPieces y key' segments of
+    case dispatchToSubsite y key' segments of
         Nothing ->
             case cleanPath y segments of
                 Nothing -> normalDispatch y key' segments env

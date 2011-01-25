@@ -17,7 +17,6 @@ module Yesod.Core
       -- * Utitlities
     , maybeAuthorized
     , widgetToPageContent
-    , redirectToPost
       -- * Defaults
     , defaultErrorHandler
       -- * Data types
@@ -46,6 +45,7 @@ import qualified Web.ClientSession as CS
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Monoid
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State hiding (get, put)
@@ -77,10 +77,7 @@ import qualified Data.Text.Encoding
 #define HAMLET $hamlet
 #endif
 
-{- FIXME
-class YesodDispatcher y where
-    dispatchSubsite :: y -> Key -> [String] -> Maybe Application
--}
+-- FIXME ditch the whole Site thing and just have render and dispatch?
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -88,6 +85,7 @@ class Eq (Route y) => YesodSite y where
     getSite :: Site (Route y) (Method -> Maybe (GHandler y y ChooseRep))
     getSite' :: y -> Site (Route y) (Method -> Maybe (GHandler y y ChooseRep))
     getSite' _ = getSite
+    dispatchToSubsite :: y -> Maybe CS.Key -> [String] -> Maybe W.Application
 
 type Method = String
 
@@ -95,6 +93,8 @@ type Method = String
 -- to deal with it directly, as mkYesodSub creates instances appropriately.
 class Eq (Route s) => YesodSubSite s y where
     getSubSite :: Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
+    dispatchSubsite :: y -> Maybe CS.Key -> [String] -> (y -> s) -> W.Application
+    dispatchSubsite _ _ _ _ _ = return $ W.responseLBS W.status200 [("Content-Type", "text/plain")] $ L8.pack "FIXME"
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.
@@ -156,8 +156,6 @@ class Eq (Route a) => Yesod a where
     -- Return 'Nothing' is the request is authorized, 'Just' a message if
     -- unauthorized. If authentication is required, you should use a redirect;
     -- the Auth helper provides this functionality automatically.
-    --
-    -- FIXME make this a part of the Yesod middlewares
     isAuthorized :: Route a
                  -> Bool -- ^ is this a write request?
                  -> GHandler s a AuthResult
@@ -485,6 +483,21 @@ $maybe j <- jscript
 |]
     return $ PageContent title head'' body
 
+yesodVersion :: String
+yesodVersion = showVersion Paths_yesod_core.version
+
+yesodRender :: (Yesod y, YesodSite y)
+            => y
+            -> Route y
+            -> [(String, String)]
+            -> String
+yesodRender y u qs =
+    S8.unpack $ fromMaybe
+                (joinPath y (approot y) ps $ qs ++ qs')
+                (urlRenderOverride y u)
+  where
+    (ps, qs') = formatPathSegments (getSite' y) u
+
 #if TEST
 coreTestSuite :: Test
 coreTestSuite = testGroup "Yesod.Yesod"
@@ -535,43 +548,3 @@ caseUtf8JoinPath :: Assertion
 caseUtf8JoinPath = do
     "/%D7%A9%D7%9C%D7%95%D7%9D/" @=? joinPath TmpYesod "" ["שלום"] []
 #endif
-
--- | Redirect to a POST resource.
---
--- This is not technically a redirect; instead, it returns an HTML page with a
--- POST form, and some Javascript to automatically submit the form. This can be
--- useful when you need to post a plain link somewhere that needs to cause
--- changes on the server.
-redirectToPost :: Route master -> GHandler sub master a
-redirectToPost dest = hamletToRepHtml
-#if GHC7
-            [hamlet|
-#else
-            [$hamlet|
-#endif
-\<!DOCTYPE html>
-
-<html>
-    <head>
-        <title>Redirecting...
-    <body onload="document.getElementById('form').submit()">
-        <form id="form" method="post" action="@{dest}">
-            <noscript>
-                <p>Javascript has been disabled; please click on the button below to be redirected.
-            <input type="submit" value="Continue">
-|] >>= sendResponse
-
-yesodVersion :: String
-yesodVersion = showVersion Paths_yesod_core.version
-
-yesodRender :: (Yesod y, YesodSite y)
-            => y
-            -> Route y
-            -> [(String, String)]
-            -> String
-yesodRender y u qs =
-    S8.unpack $ fromMaybe
-                (joinPath y (approot y) ps $ qs ++ qs')
-                (urlRenderOverride y u)
-  where
-    (ps, qs') = formatPathSegments (getSite' y) u
