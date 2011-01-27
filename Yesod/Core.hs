@@ -102,6 +102,14 @@ class Eq (Route s) => YesodSubSite s y where
                     -> (Route s -> Route y)
                     -> s
                     -> W.Application
+    dispatchToSubSubsite
+        :: (Yesod y, YesodSite y)
+        => y
+        -> Maybe CS.Key
+        -> [String]
+        -> (Route s -> Route y)
+        -> s
+        -> Maybe W.Application
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.

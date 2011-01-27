@@ -172,11 +172,15 @@ mkYesodGeneral name args clazzes isSub res = do
                 then (clazzes, ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"), "getSubSite")
                 else ([], ConT ''YesodSite `AppT` arg, "getSite")
     subsiteClauses <- catMaybes <$> mapM sc th'
+    let subSubsiteClauses = [] -- FIXME subSubsiteClauses
     nothing <- [|Nothing|]
     dds <- [|defaultDispatchSubsite|]
     let otherMethods =
             if isSub
-                then [ FunD (mkName "dispatchSubsite") [Clause [] (NormalB dds) []]]
+                then [ FunD (mkName "dispatchSubsite") [Clause [] (NormalB dds) []]
+                     , FunD (mkName "dispatchToSubSubsite")
+                        (subSubsiteClauses ++ [Clause [WildP, WildP, WildP, WildP, WildP] (NormalB nothing) []])
+                     ]
                 else [ FunD (mkName "dispatchToSubsite")
                         (subsiteClauses ++ [Clause [WildP, WildP, WildP] (NormalB nothing) []])
                      ]
@@ -189,10 +193,13 @@ mkYesodGeneral name args clazzes isSub res = do
         master <- newName "master"
         mkey <- newName "mkey"
         just <- [|Just|]
-        (pat', tma', rest) <- mkPat' pieces $ just `AppE` (VarE (mkName toSub) `AppE` VarE master)
+        (pat', tma', rest, toMaster)
+            <- mkPat' pieces
+               (ConE $ mkName constr)
+             $ just `AppE` (VarE (mkName toSub) `AppE` VarE master)
         ds <- [|dispatchSubsite|]
-        -- let toMaster = ConE (mkName "SubsiteR")
-        toMaster <- [|error "FIXME toMaster"|]
+        goodParse <- (`AppE` tma') <$> [|isJust|]
+        tma'' <- (`AppE` tma') <$> [|fromJust|]
         let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest `AppE` toMaster
         fmap' <- [|(<$>)|]
         let body = InfixE (Just body') fmap' $ Just tma'
@@ -200,24 +207,25 @@ mkYesodGeneral name args clazzes isSub res = do
             [ VarP master
             , VarP mkey
             , pat'
-            ] (NormalB body) []
+            ] (GuardedB [(NormalG goodParse, body)]) []
     sc _ = return Nothing
-    mkPat' :: [Piece] -> Exp -> Q (Pat, Exp, Exp)
-    mkPat' (MultiPiece _:_) _ = error "MultiPiece not allowed as part of a subsite"
-    mkPat' (StaticPiece s:rest) tma = do
-        (x, tma, rest') <- mkPat' rest tma
+    mkPat' :: [Piece] -> Exp -> Exp -> Q (Pat, Exp, Exp, Exp)
+    mkPat' (MultiPiece _:_) _ _ = error "MultiPiece not allowed as part of a subsite"
+    mkPat' (StaticPiece s:rest) toMaster tma = do
+        (x, tma, rest', toMaster') <- mkPat' rest toMaster tma
         let sp = LitP $ StringL s
-        return (InfixP sp (mkName ":") x, tma, rest')
-    mkPat' (SinglePiece s:rest) tma = do
+        return (InfixP sp (mkName ":") x, tma, rest', toMaster')
+    mkPat' (SinglePiece s:rest) toMaster tma = do
         fsp <- [|either (const Nothing) Just . fromSinglePiece|]
         v <- newName $ "var" ++ s
         be <- [|(<*>)|]
         let tma' = InfixE (Just tma) be $ Just $ fsp `AppE` VarE v
-        (x, tma'', rest) <- mkPat' rest tma'
-        return (InfixP (VarP v) (mkName ":") x, tma'', rest)
-    mkPat' [] parse = do
+        let toMaster' = toMaster `AppE` VarE v
+        (x, tma'', rest, toMaster'') <- mkPat' rest toMaster' tma'
+        return (InfixP (VarP v) (mkName ":") x, tma'', rest, toMaster'')
+    mkPat' [] toMaster parse = do
         rest <- newName "rest"
-        return (VarP rest, parse, VarE rest)
+        return (VarP rest, parse, VarE rest, toMaster)
 
 isStatic :: Piece -> Bool
 isStatic StaticPiece{} = True
@@ -334,7 +342,6 @@ normalDispatch y key' segments env =
                     Nothing -> badMethod
                     Just h -> h
 
--- FIXME address sub-subsites
 defaultDispatchSubsite
     :: (Yesod m, YesodSite m, YesodSubSite s m)
     => m -> Maybe Key -> [String]
@@ -342,7 +349,9 @@ defaultDispatchSubsite
     -> s
     -> W.Application
 defaultDispatchSubsite y key' segments toMasterRoute s env =
-    yesodRunner y key' (fmap toMasterRoute murl) handler env
+    case dispatchToSubSubsite y key' segments toMasterRoute s of
+        Just app -> app env
+        Nothing -> yesodRunner y key' (fmap toMasterRoute murl) handler env
   where
     method = B.unpack $ W.requestMethod env
     murl = either (const Nothing) Just $ parsePathSegments (getSubSite' s y) segments

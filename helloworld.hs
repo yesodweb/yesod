@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 import Yesod.Core
 import Yesod.Dispatch
 import Yesod.Content
@@ -15,7 +16,9 @@ mkYesodSub "Subsite" [] [$parseRoutes|
 getSubRootR :: GHandler Subsite m RepPlain
 getSubRootR = do
     Subsite s <- getYesodSub
-    return $ RepPlain $ toContent $ "Hello Sub World: " ++ s
+    tm <- getRouteToMaster
+    render <- getUrlRender
+    return $ RepPlain $ toContent $ "Hello Sub World: " ++ s ++ ". " ++ render (tm SubRootR)
 
 data HelloWorld = HelloWorld { getSubsite :: String -> Subsite }
 mkYesod "HelloWorld" [$parseRoutes|
