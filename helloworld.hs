@@ -5,7 +5,7 @@ import Yesod.Core
 import Yesod.Dispatch
 import Yesod.Content
 import Yesod.Handler
-import Network.Wai.Handler.Warp (run)
+import Network.Wai.Handler.Warp (runEx)
 
 data Subsite = Subsite String
 
@@ -26,5 +26,6 @@ mkYesod "HelloWorld" [$parseRoutes|
 /subsite/#String SubsiteR Subsite getSubsite
 |]
 instance Yesod HelloWorld where approot _ = ""
+getRootR :: GHandler HelloWorld HelloWorld RepPlain -- FIXME remove type sig
 getRootR = return $ RepPlain "Hello World"
-main = toWaiApp (HelloWorld Subsite) >>= run 3000
+main = toWaiApp (HelloWorld Subsite) >>= runEx print 3000

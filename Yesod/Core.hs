@@ -9,8 +9,9 @@
 module Yesod.Core
     ( -- * Type classes
       Yesod (..)
-    , YesodSite (..)
+    , YesodDispatch (..)
     , YesodSubSite (..)
+    , RenderRoute (..)
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs
@@ -45,7 +46,6 @@ import qualified Web.ClientSession as CS
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Monoid
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State hiding (get, put)
@@ -77,25 +77,19 @@ import qualified Data.Text.Encoding
 #define HAMLET $hamlet
 #endif
 
--- FIXME ditch the whole Site thing and just have render and dispatch?
+class Eq u => RenderRoute u where
+    renderRoute :: u -> ([String], [(String, String)])
 
+-- FIXME unify YesodSite and YesodSubSite
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
-class Eq (Route y) => YesodSite y where
-    getSite :: Site (Route y) (Method -> Maybe (GHandler y y ChooseRep))
-    getSite' :: y -> Site (Route y) (Method -> Maybe (GHandler y y ChooseRep))
-    getSite' _ = getSite
-    dispatchToSubsite :: y -> Maybe CS.Key -> [String] -> Maybe W.Application
-
-type Method = String
+class RenderRoute (Route y) => YesodDispatch y where
+    yesodDispatch :: y -> Maybe CS.Key -> [String] -> Maybe W.Application
 
 -- | Same as 'YesodSite', but for subsites. Once again, users should not need
 -- to deal with it directly, as mkYesodSub creates instances appropriately.
-class Eq (Route s) => YesodSubSite s y where
-    getSubSite :: Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
-    getSubSite' :: s -> y -> Site (Route s) (Method -> Maybe (GHandler s y ChooseRep))
-    getSubSite' _ _ = getSubSite
-    dispatchSubsite :: (Yesod y, YesodSite y)
+class (RenderRoute (Route s)) => YesodSubSite s y where
+    dispatchSubsite :: (Yesod y)
                     => y
                     -> Maybe CS.Key
                     -> [String]
@@ -103,17 +97,18 @@ class Eq (Route s) => YesodSubSite s y where
                     -> s
                     -> W.Application
     dispatchToSubSubsite
-        :: (Yesod y, YesodSite y)
+        :: (Yesod y)
         => y
         -> Maybe CS.Key
         -> [String]
         -> (Route s -> Route y)
         -> s
         -> Maybe W.Application
+    dispatchSubLocal :: y -> Maybe CS.Key -> [String] -> (Route s -> Route y) -> s -> Maybe W.Application
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.
-class Eq (Route a) => Yesod a where
+class RenderRoute (Route a) => Yesod a where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --
@@ -251,10 +246,10 @@ class Eq (Route a) => Yesod a where
     sessionIpAddress :: a -> Bool
     sessionIpAddress _ = True
 
-    yesodRunner :: YesodSite a => a -> Maybe CS.Key -> Maybe (Route a) -> GHandler a a ChooseRep -> W.Application
+    yesodRunner :: a -> Maybe CS.Key -> Maybe (Route a) -> GHandler a a ChooseRep -> W.Application
     yesodRunner = defaultYesodRunner
 
-defaultYesodRunner :: (Yesod a, YesodSite a)
+defaultYesodRunner :: Yesod a
                    => a
                    -> Maybe CS.Key
                    -> Maybe (Route a)
@@ -501,7 +496,7 @@ $maybe j <- jscript
 yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version
 
-yesodRender :: (Yesod y, YesodSite y)
+yesodRender :: Yesod y
             => y
             -> Route y
             -> [(String, String)]
@@ -511,7 +506,7 @@ yesodRender y u qs =
                 (joinPath y (approot y) ps $ qs ++ qs')
                 (urlRenderOverride y u)
   where
-    (ps, qs') = formatPathSegments (getSite' y) u
+    (ps, qs') = renderRoute u
 
 #if TEST
 coreTestSuite :: Test

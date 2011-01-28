@@ -56,7 +56,7 @@ import Control.Monad
 import Data.Maybe
 import Web.ClientSession
 import qualified Web.ClientSession as CS
-import Data.Char (isUpper)
+import Data.Char (isUpper, toLower)
 import Web.Cookie (parseCookies, SetCookie (..), renderSetCookie)
 
 import Data.Serialize
@@ -64,7 +64,7 @@ import qualified Data.Serialize as Ser
 import Network.Wai.Parse hiding (FileInfo)
 import qualified Network.Wai.Parse as NWP
 import Data.String (fromString)
-import Web.Routes
+import Web.Routes (decodePathInfo)
 import Control.Arrow (first)
 import System.Random (randomR, newStdGen)
 
@@ -73,6 +73,7 @@ import qualified Data.Map as Map
 import Control.Applicative ((<$>), (<*>))
 import Data.Enumerator (($$), run_, Iteratee)
 import Control.Monad.IO.Class (liftIO)
+import Data.List (foldl')
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -134,8 +135,8 @@ mkYesodSubDispatch :: String -> Cxt -> [Resource] -> Q [Dec]
 mkYesodSubDispatch name clazzes = fmap snd . mkYesodGeneral name' rest clazzes True 
   where (name':rest) = words name
 
-mkYesodGeneral :: String -- ^ argument name
-               -> [String] -- ^ parameters for site argument
+mkYesodGeneral :: String -- ^ foundation name
+               -> [String] -- ^ parameters for foundation
                -> Cxt -- ^ classes
                -> Bool -- ^ is subsite?
                -> [Resource]
@@ -144,20 +145,19 @@ mkYesodGeneral name args clazzes isSub res = do
     let name' = mkName name
         args' = map mkName args
         arg = foldl AppT (ConT name') $ map VarT args'
-    th' <- mapM (thResourceFromResource arg) res -- FIXME now we cannot have multi-nested subsites
+    th' <- mapM (thResourceFromResource arg) res
     let th = map fst th'
     w' <- createRoutes th
     let routesName = mkName $ name ++ "Route"
     let w = DataD [] routesName [] w' [''Show, ''Read, ''Eq]
     let x = TySynInstD ''Route [arg] $ ConT routesName
 
-    parse' <- createParse th
-    parse'' <- newName "parse"
-    let parse = LetE [FunD parse'' parse'] $ VarE parse''
-
     render' <- createRender th
     render'' <- newName "render"
     let render = LetE [FunD render'' render'] $ VarE render''
+    let x' = InstanceD [] (ConT ''RenderRoute `AppT` ConT routesName)
+                [ FunD (mkName "renderRoute") render'
+                ]
 
     tmh <- [|toMasterHandlerDyn|]
     modMaster <- [|fmap chooseRep|]
@@ -165,13 +165,16 @@ mkYesodGeneral name args clazzes isSub res = do
     dispatch'' <- newName "dispatch"
     let dispatch = LetE [FunD dispatch'' dispatch'] $ LamE [WildP] $ VarE dispatch''
 
-    site <- [|Site|]
-    let site' = site `AppE` dispatch `AppE` render `AppE` parse
+    {- FIXME
     let (ctx, ytyp, yfunc) =
             if isSub
                 then (clazzes, ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"), "getSubSite")
                 else ([], ConT ''YesodSite `AppT` arg, "getSite")
-    subsiteClauses <- catMaybes <$> mapM sc th'
+    -}
+    let sortedRes = filter (not . isSubSite) th' ++ filter isSubSite th'
+    yd <- mkYesodDispatch' sortedRes
+    localClauses <- catMaybes <$> mapM mkDispatchLocal th'
+    subsiteClauses <- catMaybes <$> mapM mkDispatchToSubsite th'
     let subSubsiteClauses = [] -- FIXME subSubsiteClauses
     nothing <- [|Nothing|]
     dds <- [|defaultDispatchSubsite|]
@@ -184,37 +187,186 @@ mkYesodGeneral name args clazzes isSub res = do
                 else [ FunD (mkName "dispatchToSubsite")
                         (subsiteClauses ++ [Clause [WildP, WildP, WildP] (NormalB nothing) []])
                      ]
-    let y = InstanceD ctx ytyp
+    let mkYSS = InstanceD clazzes (ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"))
+                [
+                ]
+        mkYS = InstanceD [] (ConT ''YesodDispatch `AppT` arg) [FunD (mkName "yesodDispatch") [yd]]
+    let y = if isSub then mkYSS else mkYS {-InstanceD ctx ytyp
                 $ FunD (mkName yfunc) [Clause [] (NormalB site') []]
-                : otherMethods
-    return ([w, x], [y])
+                : otherMethods -}
+    return ([w, x, x'], [y])
+
+isSubSite ((_, SubSite{}), _) = True
+isSubSite _ = False
+
+mkYesodDispatch' sortedRes = do
+    master <- newName "master"
+    mkey <- newName "mkey"
+    segments <- newName "segments"
+    nothing <- [|Nothing|]
+    body <- foldM (go master mkey segments) nothing sortedRes
+    return $ Clause
+        [VarP master, VarP mkey, VarP segments]
+        (NormalB body)
+        []
   where
-    sc ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
-        master <- newName "master"
-        mkey <- newName "mkey"
+    go master mkey segments onFail ((constr, SubSite { ssPieces = pieces }), Just toSub) = return onFail
+    go master mkey segments onFail ((constr, Simple pieces methods), Nothing) = do
+        test <- mkSimpleExp segments pieces id (master, mkey, constr, methods)
         just <- [|Just|]
-        (pat', tma', rest, toMaster)
-            <- mkPat' pieces
-               (ConE $ mkName constr)
-             $ just `AppE` (VarE (mkName toSub) `AppE` VarE master)
-        ds <- [|dispatchSubsite|]
-        goodParse <- (`AppE` tma') <$> [|isJust|]
-        tma'' <- (`AppE` tma') <$> [|fromJust|]
-        let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest `AppE` toMaster
-        fmap' <- [|(<$>)|]
-        let body = InfixE (Just body') fmap' $ Just tma'
-        return $ Just $ Clause
-            [ VarP master
-            , VarP mkey
-            , pat'
-            ] (GuardedB [(NormalG goodParse, body)]) []
-    sc _ = return Nothing
+        app <- newName "app"
+        return $ CaseE test
+            [ Match (ConP (mkName "Nothing") []) (NormalB onFail) []
+            , Match (ConP (mkName "Just") [VarP app]) (NormalB $ just `AppE` VarE app) []
+            ]
+
+mkSimpleExp segments [] frontVars (master, mkey, constr, methods) = do
+    just <- [|Just|]
+    nothing <- [|Nothing|]
+    onSuccess <- newName "onSuccess"
+    req <- newName "req"
+    badMethod' <- [|badMethod|]
+    rm <- [|W.requestMethod|]
+    let caseExp = rm `AppE` VarE req
+    yr <- [|yesodRunner|]
+    cr <- [|fmap chooseRep|]
+    let url = foldl' AppE (ConE $ mkName constr) $ frontVars []
+    let runHandlerVars h = runHandler $ foldl' AppE (cr `AppE` (VarE $ mkName h)) $ frontVars []
+        runHandler h = NormalB $ yr `AppE` VarE master `AppE` VarE mkey `AppE` (just `AppE` url) `AppE` h `AppE` VarE req
+    let match m = Match (LitP $ StringL m) (runHandlerVars $ map toLower m ++ constr) []
+    let clauses =
+            case methods of
+                [] -> [Clause [] (runHandlerVars $ "handle" ++ constr) []]
+                _ -> [Clause [VarP req] (NormalB $ CaseE caseExp $ map match methods ++
+                                                                   [Match WildP (runHandler badMethod') []]) []]
+    let exp = CaseE (VarE segments)
+                [ Match
+                    (ConP (mkName "[]") [])
+                    (NormalB $ just `AppE` VarE onSuccess)
+                    [FunD onSuccess clauses]
+                , Match
+                    WildP
+                    (NormalB nothing)
+                    []
+                ]
+    return exp
+mkSimpleExp segments (StaticPiece s:pieces) frontVars x = do
+    srest <- newName "segments"
+    innerExp <- mkSimpleExp srest pieces frontVars x
+    nothing <- [|Nothing|]
+    let exp = CaseE (VarE segments)
+                [ Match
+                    (InfixP (LitP $ StringL s) (mkName ":") (VarP srest))
+                    (NormalB innerExp)
+                    []
+                , Match WildP (NormalB nothing) []
+                ]
+    return exp
+mkSimpleExp segments (SinglePiece s:pieces) frontVars x = do
+    srest <- newName "segments"
+    next' <- newName "next'"
+    innerExp <- mkSimpleExp srest pieces (frontVars . (:) (VarE next')) x
+    nothing <- [|Nothing|]
+    next <- newName "next"
+    fsp <- [|fromSinglePiece|]
+    let exp' = CaseE (fsp `AppE` VarE next)
+                [ Match
+                    (ConP (mkName "Left") [WildP])
+                    (NormalB nothing)
+                    []
+                , Match
+                    (ConP (mkName "Right") [VarP next'])
+                    (NormalB innerExp)
+                    []
+                ]
+    let exp = CaseE (VarE segments)
+                [ Match
+                    (InfixP (VarP next) (mkName ":") (VarP srest))
+                    (NormalB exp')
+                    []
+                , Match WildP (NormalB nothing) []
+                ]
+    return exp
+
+{-
+    mkPat' (SinglePiece s:rest) url = do
+        fsp <- [|either (const Nothing) Just . fromSinglePiece|]
+        v <- newName $ "var" ++ s
+        be <- [|(<*>)|]
+        let url' = InfixE (Just url) be $ Just $ fsp `AppE` VarE v
+        (x, rest, url'') <- mkPat' rest url'
+        return (InfixP (VarP v) (mkName ":") x, rest, url'')
+    mkPat' [] url = do
+        rest <- newName "rest"
+        return (VarP rest, VarE rest, url)
+-}
+
+mkDispatchLocal ((constr, Simple pieces methods), Nothing) = do
+    master <- newName "master"
+    mkey <- newName "mkey"
+    req <- newName "req"
+    just <- [|Just|]
+    (pat', rest, url) <- mkPat' pieces $ just `AppE` (ConE $ mkName constr)
+    goodParse <- (`AppE` url) <$> [|isJust|]
+    tma'' <- (`AppE` url) <$> [|fromJust|]
+    nothing <- [|Nothing|]
+    let body = if null methods
+                    then VarE $ mkName $ "handle" ++ constr
+                    else CaseE (VarE req) $ map mkMatch methods ++ [Match WildP (NormalB nothing) []]
+    return $ Just $ Clause
+        [ VarP master
+        , VarP mkey
+        , pat'
+        ] (GuardedB [(NormalG goodParse, body)]) [] -- FIXME
+  where
+    singleToMApp :: GHandler s m c -> Maybe W.Application
+    singleToMApp = undefined
+    multiToMApp = undefined
+    -- FIXME requires OverloadedStrings
+    mkMatch method = Match (LitP $ StringL method) (NormalB $ VarE $ mkName $ map toLower method ++ constr) []
+    mkPat' :: [Piece] -> Exp -> Q (Pat, Exp, Exp)
+    mkPat' (StaticPiece s:rest) url = do
+        (x, rest', url') <- mkPat' rest url
+        let sp = LitP $ StringL s
+        return (InfixP sp (mkName ":") x, rest', url')
+    mkPat' (SinglePiece s:rest) url = do
+        fsp <- [|either (const Nothing) Just . fromSinglePiece|]
+        v <- newName $ "var" ++ s
+        be <- [|(<*>)|]
+        let url' = InfixE (Just url) be $ Just $ fsp `AppE` VarE v
+        (x, rest, url'') <- mkPat' rest url'
+        return (InfixP (VarP v) (mkName ":") x, rest, url'')
+    mkPat' [] url = do
+        rest <- newName "rest"
+        return (VarP rest, VarE rest, url)
+mkDispatchLocal _ = return Nothing
+
+mkDispatchToSubsite ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
+    master <- newName "master"
+    mkey <- newName "mkey"
+    just <- [|Just|]
+    (pat', tma', rest, toMaster)
+        <- mkPat' pieces
+           (ConE $ mkName constr)
+         $ just `AppE` (VarE (mkName toSub) `AppE` VarE master)
+    ds <- [|dispatchSubsite|]
+    goodParse <- (`AppE` tma') <$> [|isJust|]
+    tma'' <- (`AppE` tma') <$> [|fromJust|]
+    let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest `AppE` toMaster
+    fmap' <- [|(<$>)|]
+    let body = InfixE (Just body') fmap' $ Just tma'
+    return $ Just $ Clause
+        [ VarP master
+        , VarP mkey
+        , pat'
+        ] (GuardedB [(NormalG goodParse, body)]) []
+  where
     mkPat' :: [Piece] -> Exp -> Exp -> Q (Pat, Exp, Exp, Exp)
     mkPat' (MultiPiece _:_) _ _ = error "MultiPiece not allowed as part of a subsite"
     mkPat' (StaticPiece s:rest) toMaster tma = do
-        (x, tma, rest', toMaster') <- mkPat' rest toMaster tma
+        (x, tma', rest', toMaster') <- mkPat' rest toMaster tma
         let sp = LitP $ StringL s
-        return (InfixP sp (mkName ":") x, tma, rest', toMaster')
+        return (InfixP sp (mkName ":") x, tma', rest', toMaster')
     mkPat' (SinglePiece s:rest) toMaster tma = do
         fsp <- [|either (const Nothing) Just . fromSinglePiece|]
         v <- newName $ "var" ++ s
@@ -226,6 +378,7 @@ mkYesodGeneral name args clazzes isSub res = do
     mkPat' [] toMaster parse = do
         rest <- newName "rest"
         return (VarP rest, parse, VarE rest, toMaster)
+mkDispatchToSubsite _ = return Nothing
 
 isStatic :: Piece -> Bool
 isStatic StaticPiece{} = True
@@ -238,7 +391,8 @@ thResourceFromResource master (Resource n ps [stype, toSubArg])
     -- static route to subsite
     = do
         let stype' = ConT $ mkName stype
-        gss <- [|getSubSite|]
+        {-
+        gss <- [|error "FIXME getSubSite"|]
         let inside = ConT ''Maybe `AppT`
                      (ConT ''GHandler `AppT` stype' `AppT` master `AppT`
                       ConT ''ChooseRep)
@@ -252,6 +406,10 @@ thResourceFromResource master (Resource n ps [stype, toSubArg])
         let render = render' `AppE` gss'
         dispatch' <- [|flip handleSite (error "Cannot use subsite render function")|]
         let dispatch = dispatch' `AppE` gss'
+        -}
+        parse <- [|error "ssParse"|]
+        dispatch <- [|error "ssDispatch"|]
+        render <- [|renderRoute|]
         tmg <- mkToMasterArg ps toSubArg
         return ((n, SubSite
             { ssType = ConT ''Route `AppT` stype'
@@ -282,7 +440,7 @@ mkToMasterArg ps fname = do
 -- handler. This is the same as 'toWaiAppPlain', except it includes three
 -- middlewares: GZIP compression, JSON-P and path cleaning. This is the
 -- recommended approach for most users.
-toWaiApp :: (Yesod y, YesodSite y) => y -> IO W.Application
+toWaiApp :: (Yesod y, YesodDispatch y) => y -> IO W.Application
 toWaiApp y = do
     a <- toWaiAppPlain y
     return $ gzip False
@@ -291,12 +449,12 @@ toWaiApp y = do
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This differs from 'toWaiApp' in that it uses no middlewares.
-toWaiAppPlain :: (Yesod y, YesodSite y) => y -> IO W.Application
+toWaiAppPlain :: (Yesod y, YesodDispatch y) => y -> IO W.Application
 toWaiAppPlain a = do
     key' <- encryptKey a
     return $ toWaiApp' a key'
 
-toWaiApp' :: (Yesod y, YesodSite y)
+toWaiApp' :: (Yesod y, YesodDispatch y)
           => y
           -> Maybe Key
           -> W.Application
@@ -306,10 +464,14 @@ toWaiApp' y key' env = do
                 "":x -> x
                 x -> x
     liftIO $ print (W.pathInfo env, segments)
-    case dispatchToSubsite y key' segments of
+    case yesodDispatch y key' segments of
+        Just app -> app env
         Nothing ->
             case cleanPath y segments of
-                Nothing -> normalDispatch y key' segments env
+                Nothing ->
+                    case yesodDispatch y key' segments of
+                        Just app -> app env
+                        Nothing -> yesodRunner y key' Nothing notFound env
                 Just segments' ->
                     let dest = joinPath y (approot y) segments' []
                         dest' =
@@ -324,26 +486,9 @@ toWaiApp' y key' env = do
                             [ ("Content-Type", "text/plain")
                             , ("Location", dest')
                             ] "Redirecting"
-        Just app -> app env
-
-normalDispatch :: (Yesod m, YesodSite m)
-               => m -> Maybe Key -> [String]
-               -> W.Application
-normalDispatch y key' segments env =
-    yesodRunner y key' murl handler env
-  where
-    method = B.unpack $ W.requestMethod env
-    murl = either (const Nothing) Just $ parsePathSegments (getSite' y) segments
-    handler =
-        case murl of
-            Nothing -> notFound
-            Just url ->
-                case handleSite (getSite' y) (yesodRender y) url method of
-                    Nothing -> badMethod
-                    Just h -> h
 
 defaultDispatchSubsite
-    :: (Yesod m, YesodSite m, YesodSubSite s m)
+    :: (Yesod m, YesodDispatch m, YesodSubSite s m)
     => m -> Maybe Key -> [String]
     -> (Route s -> Route m)
     -> s
@@ -351,18 +496,10 @@ defaultDispatchSubsite
 defaultDispatchSubsite y key' segments toMasterRoute s env =
     case dispatchToSubSubsite y key' segments toMasterRoute s of
         Just app -> app env
-        Nothing -> yesodRunner y key' (fmap toMasterRoute murl) handler env
-  where
-    method = B.unpack $ W.requestMethod env
-    murl = either (const Nothing) Just $ parsePathSegments (getSubSite' s y) segments
-    handler = toMasterHandlerMaybe toMasterRoute (const s) murl handler'
-    handler' =
-        case murl of
-            Nothing -> notFound
-            Just url ->
-                case handleSite (getSubSite' s y) (yesodRender y . toMasterRoute) url method of
-                    Nothing -> badMethod
-                    Just h -> h
+        Nothing ->
+            case dispatchSubLocal y key' segments toMasterRoute s of
+                Just app -> app env
+                Nothing -> yesodRunner y key' Nothing notFound env
 
 #if TEST
 
