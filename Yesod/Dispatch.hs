@@ -210,7 +210,14 @@ mkYesodDispatch' sortedRes = do
         (NormalB body)
         []
   where
-    go master mkey segments onFail ((constr, SubSite { ssPieces = pieces }), Just toSub) = return onFail
+    go master mkey segments onFail ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
+        test <- mkSubsiteExp segments pieces id (master, mkey, constr, toSub)
+        just <- [|Just|]
+        app <- newName "app"
+        return $ CaseE test
+            [ Match (ConP (mkName "Nothing") []) (NormalB onFail) []
+            , Match (ConP (mkName "Just") [VarP app]) (NormalB $ just `AppE` VarE app) []
+            ]
     go master mkey segments onFail ((constr, Simple pieces methods), Nothing) = do
         test <- mkSimpleExp segments pieces id (master, mkey, constr, methods)
         just <- [|Just|]
@@ -266,6 +273,52 @@ mkSimpleExp segments (SinglePiece s:pieces) frontVars x = do
     srest <- newName "segments"
     next' <- newName "next'"
     innerExp <- mkSimpleExp srest pieces (frontVars . (:) (VarE next')) x
+    nothing <- [|Nothing|]
+    next <- newName "next"
+    fsp <- [|fromSinglePiece|]
+    let exp' = CaseE (fsp `AppE` VarE next)
+                [ Match
+                    (ConP (mkName "Left") [WildP])
+                    (NormalB nothing)
+                    []
+                , Match
+                    (ConP (mkName "Right") [VarP next'])
+                    (NormalB innerExp)
+                    []
+                ]
+    let exp = CaseE (VarE segments)
+                [ Match
+                    (InfixP (VarP next) (mkName ":") (VarP srest))
+                    (NormalB exp')
+                    []
+                , Match WildP (NormalB nothing) []
+                ]
+    return exp
+
+mkSubsiteExp segments [] frontVars (master, mkey, constr, toSub) = do
+    ds <- [|dispatchSubsite|]
+    let con = foldl' AppE (ConE $ mkName constr) $ frontVars []
+    let s' = VarE (mkName toSub) `AppE` VarE master
+    let s = foldl' AppE s' $ frontVars []
+    let app = ds `AppE` VarE master `AppE` VarE mkey `AppE` VarE segments `AppE` con `AppE` s
+    just <- [|Just|]
+    return $ just `AppE` app
+mkSubsiteExp segments (StaticPiece s:pieces) frontVars x = do
+    srest <- newName "segments"
+    innerExp <- mkSubsiteExp srest pieces frontVars x
+    nothing <- [|Nothing|]
+    let exp = CaseE (VarE segments)
+                [ Match
+                    (InfixP (LitP $ StringL s) (mkName ":") (VarP srest))
+                    (NormalB innerExp)
+                    []
+                , Match WildP (NormalB nothing) []
+                ]
+    return exp
+mkSubsiteExp segments (SinglePiece s:pieces) frontVars x = do
+    srest <- newName "segments"
+    next' <- newName "next'"
+    innerExp <- mkSubsiteExp srest pieces (frontVars . (:) (VarE next')) x
     nothing <- [|Nothing|]
     next <- newName "next"
     fsp <- [|fromSinglePiece|]
