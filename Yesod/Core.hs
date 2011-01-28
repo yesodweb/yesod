@@ -80,11 +80,17 @@ import qualified Data.Text.Encoding
 class Eq u => RenderRoute u where
     renderRoute :: u -> ([String], [(String, String)])
 
--- FIXME unify YesodSite and YesodSubSite
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
-class RenderRoute (Route y) => YesodDispatch y where
-    yesodDispatch :: y -> Maybe CS.Key -> [String] -> Maybe W.Application
+class Yesod master => YesodDispatch a master where
+    yesodDispatch
+        :: (Yesod master)
+        => a
+        -> Maybe CS.Key
+        -> [String]
+        -> master
+        -> (Route a -> Route master)
+        -> Maybe W.Application
 
 -- | Same as 'YesodSite', but for subsites. Once again, users should not need
 -- to deal with it directly, as mkYesodSub creates instances appropriately.
@@ -246,22 +252,29 @@ class RenderRoute (Route a) => Yesod a where
     sessionIpAddress :: a -> Bool
     sessionIpAddress _ = True
 
-    yesodRunner :: a -> Maybe CS.Key -> Maybe (Route a) -> GHandler a a ChooseRep -> W.Application
+    -- FIXME this probably needs to be a part of YesodDispatch
+    yesodRunner :: Yesod master
+                => a
+                -> master
+                -> (Route a -> Route master)
+                -> Maybe CS.Key -> Maybe (Route a) -> GHandler a master ChooseRep -> W.Application
     yesodRunner = defaultYesodRunner
 
-defaultYesodRunner :: Yesod a
+defaultYesodRunner :: Yesod master
                    => a
+                   -> master
+                   -> (Route a -> Route master)
                    -> Maybe CS.Key
                    -> Maybe (Route a)
-                   -> GHandler a a ChooseRep
+                   -> GHandler a master ChooseRep
                    -> W.Application
-defaultYesodRunner y mkey murl handler req = do
+defaultYesodRunner s master toMasterRoute mkey murl handler req = do
     now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
-    let exp' = getExpires $ clientSessionDuration y
+    let exp' = getExpires $ clientSessionDuration master
     -- FIXME will show remoteHost give the answer I need? will it include port
     -- information that changes on each request?
-    let host = if sessionIpAddress y then S8.pack (show (W.remoteHost req)) else ""
+    let host = if sessionIpAddress master then S8.pack (show (W.remoteHost req)) else ""
     let session' =
             case mkey of
                 Nothing -> []
@@ -274,12 +287,12 @@ defaultYesodRunner y mkey murl handler req = do
           case murl of
             Nothing -> handler
             Just url -> do
-                isWrite <- isWriteRequest url
-                ar <- isAuthorized url isWrite
+                isWrite <- isWriteRequest $ toMasterRoute url
+                ar <- isAuthorized (toMasterRoute url) isWrite
                 case ar of
                     Authorized -> return ()
                     AuthenticationRequired ->
-                        case authRoute y of
+                        case authRoute master of
                             Nothing ->
                                 permissionDenied "Authentication required"
                             Just url' -> do
@@ -289,7 +302,7 @@ defaultYesodRunner y mkey murl handler req = do
                 handler
     let sessionMap = Map.fromList
                    $ filter (\(x, _) -> x /= nonceKey) session'
-    yar <- handlerToYAR y (yesodRender y) errorHandler rr murl sessionMap h
+    yar <- handlerToYAR master s toMasterRoute (yesodRender master) errorHandler rr murl sessionMap h
     let mnonce = reqNonce rr
     return $ yarToResponse (hr mnonce getExpires host exp') yar
   where
@@ -307,7 +320,7 @@ defaultYesodRunner y mkey murl handler req = do
             case mkey of
                 Nothing -> hs
                 Just _ -> AddCookie
-                            (clientSessionDuration y)
+                            (clientSessionDuration master)
                             sessionName
                             sessionVal
                           : hs

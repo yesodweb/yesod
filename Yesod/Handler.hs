@@ -345,16 +345,16 @@ runHandler :: HasReps c
            -> Maybe (Route sub)
            -> (Route sub -> Route master)
            -> master
-           -> (master -> sub)
+           -> sub
            -> YesodApp
-runHandler handler mrender sroute tomr ma tosa =
+runHandler handler mrender sroute tomr ma sa =
   YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler =
             InternalError
           . (show :: Control.Exception.SomeException -> String)
     let hd = HandlerData
             { handlerRequest = rr
-            , handlerSub = tosa ma
+            , handlerSub = sa
             , handlerMaster = ma
             , handlerRoute = sroute
             , handlerRender = mrender
@@ -655,18 +655,20 @@ handlerTestSuite = testGroup "Yesod.Handler"
 
 handlerToYAR :: (HasReps a, HasReps b)
              => m -- ^ master site foundation
+             -> s -- ^ sub site foundation
+             -> (Route s -> Route m)
              -> (Route m -> [(String, String)] -> String) -- ^ url render
-             -> (ErrorResponse -> GHandler m m a)
+             -> (ErrorResponse -> GHandler s m a)
              -> Request
-             -> Maybe (Route m)
+             -> Maybe (Route s)
              -> SessionMap
-             -> GHandler m m b
+             -> GHandler s m b
              -> Iteratee ByteString IO YesodAppResult
-handlerToYAR y render errorHandler rr murl sessionMap h =
+handlerToYAR y s toMasterRoute render errorHandler rr murl sessionMap h =
     unYesodApp ya eh' rr types sessionMap
   where
-    ya = runHandler h render murl id y id
-    eh' er = runHandler (errorHandler' er) render murl id y id
+    ya = runHandler h render murl toMasterRoute y s
+    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s
     types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 

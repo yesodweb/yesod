@@ -26,6 +26,6 @@ mkYesod "HelloWorld" [$parseRoutes|
 /subsite/#String SubsiteR Subsite getSubsite
 |]
 instance Yesod HelloWorld where approot _ = ""
-getRootR :: GHandler HelloWorld HelloWorld RepPlain -- FIXME remove type sig
+-- getRootR :: GHandler HelloWorld HelloWorld RepPlain -- FIXME remove type sig
 getRootR = return $ RepPlain "Hello World"
 main = toWaiApp (HelloWorld Subsite) >>= runEx print 3000
