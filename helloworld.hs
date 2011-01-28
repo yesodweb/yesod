@@ -21,7 +21,10 @@ getSubRootR = do
     render <- getUrlRender
     return $ RepPlain $ toContent $ "Hello Sub World: " ++ s ++ ". " ++ render (tm SubRootR)
 
-handleSubMultiR = return . RepPlain . toContent . show
+handleSubMultiR :: Strings -> GHandler Subsite m RepPlain
+handleSubMultiR x = do
+    Subsite y <- getYesodSub
+    return . RepPlain . toContent . show $ (x, y)
 
 data HelloWorld = HelloWorld { getSubsite :: String -> Subsite }
 mkYesod "HelloWorld" [$parseRoutes|

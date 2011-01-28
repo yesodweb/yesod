@@ -133,7 +133,7 @@ mkYesodGeneral name args clazzes isSub res = do
                 [ FunD (mkName "renderRoute") render
                 ]
 
-    let sortedRes = filter (not . isSubSite) th ++ filter isSubSite th
+    let sortedRes = filter (not . isSubSite) th' ++ filter isSubSite th'
     yd <- mkYesodDispatch' sortedRes
     let master = mkName "master"
     let ctx = if isSub
@@ -145,11 +145,11 @@ mkYesodGeneral name args clazzes isSub res = do
     let y = InstanceD ctx ytyp [FunD (mkName "yesodDispatch") [yd]]
     return ([w, x, x'], [y])
 
-isSubSite :: (String, Pieces) -> Bool
-isSubSite (_, SubSite{}) = True
+isSubSite :: ((String, Pieces), a) -> Bool
+isSubSite ((_, SubSite{}), _) = True
 isSubSite _ = False
 
-mkYesodDispatch' :: [(String, Pieces)] -> Q Clause
+mkYesodDispatch' :: [((String, Pieces), Maybe String)] -> Q Clause
 mkYesodDispatch' sortedRes = do
     sub <- newName "sub"
     master <- newName "master"
@@ -163,14 +163,14 @@ mkYesodDispatch' sortedRes = do
         (NormalB body)
         []
   where
-    go master sub toMasterRoute mkey segments onFail (constr, SubSite { ssPieces = pieces }) = do
-        test <- mkSubsiteExp segments pieces id (master, sub, toMasterRoute, mkey, constr)
+    go master sub toMasterRoute mkey segments onFail ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
+        test <- mkSubsiteExp segments pieces id (master, sub, toMasterRoute, mkey, constr, VarE $ mkName toSub)
         app <- newName "app"
         return $ CaseE test
             [ Match (ConP (mkName "Nothing") []) (NormalB onFail) []
             , Match (ConP (mkName "Just") [VarP app]) (NormalB $ VarE app) []
             ]
-    go master sub toMasterRoute mkey segments onFail (constr, Simple pieces methods) = do
+    go master sub toMasterRoute mkey segments onFail ((constr, Simple pieces methods), Nothing) = do
         test <- mkSimpleExp (VarE segments) pieces id (master, sub, toMasterRoute, mkey, constr, methods)
         just <- [|Just|]
         app <- newName "app"
@@ -178,6 +178,7 @@ mkYesodDispatch' sortedRes = do
             [ Match (ConP (mkName "Nothing") []) (NormalB onFail) []
             , Match (ConP (mkName "Just") [VarP app]) (NormalB $ just `AppE` VarE app) []
             ]
+    go _ _ _ _ _ _ _ = error "Invalid combination"
 
 mkSimpleExp :: Exp -- ^ segments
             -> [Piece]
@@ -195,7 +196,7 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
     yr <- [|yesodRunner|]
     cr <- [|fmap chooseRep|]
     let url = foldl' AppE (ConE $ mkName constr) $ frontVars []
-    let runHandlerVars h = runHandler' $ foldl' AppE (cr `AppE` (VarE $ mkName h)) $ frontVars []
+    let runHandlerVars h = runHandler' $ cr `AppE` foldl' AppE (VarE $ mkName h) (frontVars [])
         runHandler' h = NormalB $ yr `AppE` sub
                                      `AppE` VarE master
                                      `AppE` toMasterRoute
@@ -279,13 +280,15 @@ mkSimpleExp _ (MultiPiece _:_) _ _ = error "MultiPiece must be last piece"
 mkSubsiteExp :: Name -- ^ segments
              -> [Piece]
              -> ([Exp] -> [Exp]) -- ^ variables already parsed
-             -> (Name, Exp, Exp, Name, String) -- ^ master, sub, toMasterRoute, mkey, constructor
+             -> (Name, Exp, Exp, Name, String, Exp) -- ^ master, sub, toMasterRoute, mkey, constructor, toSub
              -> Q Exp
-mkSubsiteExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr) = do
+mkSubsiteExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, toSub) = do
     yd <- [|yesodDispatch|]
     dot <- [|(.)|]
     let con = InfixE (Just toMasterRoute) dot $ Just $ foldl' AppE (ConE $ mkName constr) $ frontVars []
-    let app = yd `AppE` sub
+    -- proper handling for sub-subsites
+    let sub' = foldl' AppE (toSub `AppE` sub) $ frontVars []
+    let app = yd `AppE` sub'
                  `AppE` VarE mkey
                  `AppE` VarE segments
                  `AppE` VarE master
