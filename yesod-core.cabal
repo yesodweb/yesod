@@ -58,7 +58,7 @@ library
                      Yesod.Internal.Session
                      Yesod.Internal.Request
                      Paths_yesod_core
-    ghc-options:     -Wall
+    ghc-options:     -Wall -Werror
 
 executable             runtests
     if flag(ghc7)

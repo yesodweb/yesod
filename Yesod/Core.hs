@@ -91,7 +91,8 @@ class Yesod master => YesodDispatch a master where
         -> (Route a -> Route master)
         -> Maybe W.Application
 
-    yesodRunner :: a
+    yesodRunner :: Yesod master
+                => a
                 -> master
                 -> (Route a -> Route master)
                 -> Maybe CS.Key -> Maybe (Route a) -> GHandler a master ChooseRep -> W.Application
@@ -275,7 +276,7 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                             Just url' -> do
                                 setUltDest'
                                 redirect RedirectTemporary url'
-                    Unauthorized s -> permissionDenied s
+                    Unauthorized s' -> permissionDenied s'
                 handler
     let sessionMap = Map.fromList
                    $ filter (\(x, _) -> x /= nonceKey) session'

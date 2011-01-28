@@ -25,11 +25,9 @@ module Yesod.Dispatch
 #endif
     ) where
 
+import Prelude hiding (exp)
 import Yesod.Core
 import Yesod.Handler
-
-import Yesod.Request
-import Yesod.Internal
 
 import Web.Routes.Quasi
 import Web.Routes.Quasi.Parse
@@ -42,36 +40,14 @@ import Network.Wai.Middleware.Gzip
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as S
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Lazy.Char8 ()
-import Blaze.ByteString.Builder (toLazyByteString)
-
-import Control.Concurrent.MVar
-import Control.Arrow ((***))
-
-import Data.Time
 
 import Control.Monad
-import Data.Maybe
 import Web.ClientSession
-import qualified Web.ClientSession as CS
 import Data.Char (isUpper, toLower)
-import Web.Cookie (parseCookies, SetCookie (..), renderSetCookie)
 
-import Data.Serialize
-import qualified Data.Serialize as Ser
-import Network.Wai.Parse hiding (FileInfo)
-import qualified Network.Wai.Parse as NWP
-import Data.String (fromString)
 import Web.Routes (decodePathInfo)
-import Control.Arrow (first)
-import System.Random (randomR, newStdGen)
 
-import qualified Data.Map as Map
-
-import Control.Applicative ((<$>), (<*>))
-import Data.Enumerator (($$), run_, Iteratee)
 import Control.Monad.IO.Class (liftIO)
 import Data.List (foldl')
 
@@ -145,49 +121,35 @@ mkYesodGeneral name args clazzes isSub res = do
     let name' = mkName name
         args' = map mkName args
         arg = foldl AppT (ConT name') $ map VarT args'
-    th' <- mapM (thResourceFromResource arg) res
+    th' <- mapM thResourceFromResource res
     let th = map fst th'
     w' <- createRoutes th
     let routesName = mkName $ name ++ "Route"
     let w = DataD [] routesName [] w' [''Show, ''Read, ''Eq]
     let x = TySynInstD ''Route [arg] $ ConT routesName
 
-    render' <- createRender th
-    render'' <- newName "render"
-    let render = LetE [FunD render'' render'] $ VarE render''
+    render <- createRender th
     let x' = InstanceD [] (ConT ''RenderRoute `AppT` ConT routesName)
-                [ FunD (mkName "renderRoute") render'
+                [ FunD (mkName "renderRoute") render
                 ]
 
-    tmh <- [|toMasterHandlerDyn|]
-    modMaster <- [|fmap chooseRep|]
-    dispatch' <- createDispatch modMaster tmh th
-    dispatch'' <- newName "dispatch"
-    let dispatch = LetE [FunD dispatch'' dispatch'] $ LamE [WildP] $ VarE dispatch''
-
-    {- FIXME
-    let (ctx, ytyp, yfunc) =
-            if isSub
-                then (clazzes, ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"), "getSubSite")
-                else ([], ConT ''YesodSite `AppT` arg, "getSite")
-    -}
-    let sortedRes = filter (not . isSubSite) th' ++ filter isSubSite th'
+    let sortedRes = filter (not . isSubSite) th ++ filter isSubSite th
     yd <- mkYesodDispatch' sortedRes
-    nothing <- [|Nothing|]
     let master = mkName "master"
-    let ctx = ClassP (mkName "Yesod") [VarT master] : clazzes
-    let mkYSS = InstanceD ctx (ConT ''YesodDispatch `AppT` arg `AppT` VarT master)
-                [ FunD (mkName "yesodDispatch") [yd]
-                ]
-        mkYS = InstanceD [] (ConT ''YesodDispatch `AppT` arg `AppT` arg) [FunD (mkName "yesodDispatch") [yd]]
-    let y = if isSub then mkYSS else mkYS {-InstanceD ctx ytyp
-                $ FunD (mkName yfunc) [Clause [] (NormalB site') []]
-                : otherMethods -}
+    let ctx = if isSub
+                then ClassP (mkName "Yesod") [VarT master] : clazzes
+                else []
+    let ytyp = if isSub
+                then ConT ''YesodDispatch `AppT` arg `AppT` VarT master
+                else ConT ''YesodDispatch `AppT` arg `AppT` arg
+    let y = InstanceD ctx ytyp [FunD (mkName "yesodDispatch") [yd]]
     return ([w, x, x'], [y])
 
-isSubSite ((_, SubSite{}), _) = True
+isSubSite :: (String, Pieces) -> Bool
+isSubSite (_, SubSite{}) = True
 isSubSite _ = False
 
+mkYesodDispatch' :: [(String, Pieces)] -> Q Clause
 mkYesodDispatch' sortedRes = do
     sub <- newName "sub"
     master <- newName "master"
@@ -195,22 +157,21 @@ mkYesodDispatch' sortedRes = do
     segments <- newName "segments"
     toMasterRoute <- newName "toMasterRoute"
     nothing <- [|Nothing|]
-    body <- foldM (go master sub toMasterRoute mkey segments) nothing sortedRes
+    body <- foldM (go master (VarE sub) (VarE toMasterRoute) mkey segments) nothing sortedRes
     return $ Clause
         [VarP sub, VarP mkey, VarP segments, VarP master, VarP toMasterRoute]
         (NormalB body)
         []
   where
-    go master sub toMasterRoute mkey segments onFail ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
-        test <- mkSubsiteExp segments pieces id (master, sub, toMasterRoute, mkey, constr, toSub)
-        just <- [|Just|]
+    go master sub toMasterRoute mkey segments onFail (constr, SubSite { ssPieces = pieces }) = do
+        test <- mkSubsiteExp segments pieces id (master, sub, toMasterRoute, mkey, constr)
         app <- newName "app"
         return $ CaseE test
             [ Match (ConP (mkName "Nothing") []) (NormalB onFail) []
             , Match (ConP (mkName "Just") [VarP app]) (NormalB $ VarE app) []
             ]
-    go master sub toMasterRoute mkey segments onFail ((constr, Simple pieces methods), Nothing) = do
-        test <- mkSimpleExp segments pieces id (master, sub, toMasterRoute, mkey, constr, methods)
+    go master sub toMasterRoute mkey segments onFail (constr, Simple pieces methods) = do
+        test <- mkSimpleExp (VarE segments) pieces id (master, sub, toMasterRoute, mkey, constr, methods)
         just <- [|Just|]
         app <- newName "app"
         return $ CaseE test
@@ -218,6 +179,11 @@ mkYesodDispatch' sortedRes = do
             , Match (ConP (mkName "Just") [VarP app]) (NormalB $ just `AppE` VarE app) []
             ]
 
+mkSimpleExp :: Exp -- ^ segments
+            -> [Piece]
+            -> ([Exp] -> [Exp]) -- ^ variables already parsed
+            -> (Name, Exp, Exp, Name, String, [String]) -- ^ master, sub, toMasterRoute, mkey, constructor, methods
+            -> Q Exp
 mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, methods) = do
     just <- [|Just|]
     nothing <- [|Nothing|]
@@ -229,21 +195,21 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
     yr <- [|yesodRunner|]
     cr <- [|fmap chooseRep|]
     let url = foldl' AppE (ConE $ mkName constr) $ frontVars []
-    let runHandlerVars h = runHandler $ foldl' AppE (cr `AppE` (VarE $ mkName h)) $ frontVars []
-        runHandler h = NormalB $ yr `AppE` VarE sub
-                                    `AppE` VarE master
-                                    `AppE` VarE toMasterRoute
-                                    `AppE` VarE mkey
-                                    `AppE` (just `AppE` url)
-                                    `AppE` h
-                                    `AppE` VarE req
+    let runHandlerVars h = runHandler' $ foldl' AppE (cr `AppE` (VarE $ mkName h)) $ frontVars []
+        runHandler' h = NormalB $ yr `AppE` sub
+                                     `AppE` VarE master
+                                     `AppE` toMasterRoute
+                                     `AppE` VarE mkey
+                                     `AppE` (just `AppE` url)
+                                     `AppE` h
+                                     `AppE` VarE req
     let match m = Match (LitP $ StringL m) (runHandlerVars $ map toLower m ++ constr) []
     let clauses =
             case methods of
-                [] -> [Clause [] (runHandlerVars $ "handle" ++ constr) []]
+                [] -> [Clause [VarP req] (runHandlerVars $ "handle" ++ constr) []]
                 _ -> [Clause [VarP req] (NormalB $ CaseE caseExp $ map match methods ++
-                                                                   [Match WildP (runHandler badMethod') []]) []]
-    let exp = CaseE (VarE segments)
+                                                                   [Match WildP (runHandler' badMethod') []]) []]
+    let exp = CaseE segments
                 [ Match
                     (ConP (mkName "[]") [])
                     (NormalB $ just `AppE` VarE onSuccess)
@@ -256,9 +222,9 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
     return exp
 mkSimpleExp segments (StaticPiece s:pieces) frontVars x = do
     srest <- newName "segments"
-    innerExp <- mkSimpleExp srest pieces frontVars x
+    innerExp <- mkSimpleExp (VarE srest) pieces frontVars x
     nothing <- [|Nothing|]
-    let exp = CaseE (VarE segments)
+    let exp = CaseE segments
                 [ Match
                     (InfixP (LitP $ StringL s) (mkName ":") (VarP srest))
                     (NormalB innerExp)
@@ -266,10 +232,10 @@ mkSimpleExp segments (StaticPiece s:pieces) frontVars x = do
                 , Match WildP (NormalB nothing) []
                 ]
     return exp
-mkSimpleExp segments (SinglePiece s:pieces) frontVars x = do
+mkSimpleExp segments (SinglePiece _:pieces) frontVars x = do
     srest <- newName "segments"
     next' <- newName "next'"
-    innerExp <- mkSimpleExp srest pieces (frontVars . (:) (VarE next')) x
+    innerExp <- mkSimpleExp (VarE srest) pieces (frontVars . (:) (VarE next')) x
     nothing <- [|Nothing|]
     next <- newName "next"
     fsp <- [|fromSinglePiece|]
@@ -283,7 +249,7 @@ mkSimpleExp segments (SinglePiece s:pieces) frontVars x = do
                     (NormalB innerExp)
                     []
                 ]
-    let exp = CaseE (VarE segments)
+    let exp = CaseE segments
                 [ Match
                     (InfixP (VarP next) (mkName ":") (VarP srest))
                     (NormalB exp')
@@ -291,19 +257,42 @@ mkSimpleExp segments (SinglePiece s:pieces) frontVars x = do
                 , Match WildP (NormalB nothing) []
                 ]
     return exp
+mkSimpleExp segments [MultiPiece _] frontVars x = do
+    next' <- newName "next'"
+    srest <- [|[]|]
+    innerExp <- mkSimpleExp srest [] (frontVars . (:) (VarE next')) x
+    nothing <- [|Nothing|]
+    fmp <- [|fromMultiPiece|]
+    let exp = CaseE (fmp `AppE` segments)
+                [ Match
+                    (ConP (mkName "Left") [WildP])
+                    (NormalB nothing)
+                    []
+                , Match
+                    (ConP (mkName "Right") [VarP next'])
+                    (NormalB innerExp)
+                    []
+                ]
+    return exp
+mkSimpleExp _ (MultiPiece _:_) _ _ = error "MultiPiece must be last piece"
 
-mkSubsiteExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, toSub) = do
+mkSubsiteExp :: Name -- ^ segments
+             -> [Piece]
+             -> ([Exp] -> [Exp]) -- ^ variables already parsed
+             -> (Name, Exp, Exp, Name, String) -- ^ master, sub, toMasterRoute, mkey, constructor
+             -> Q Exp
+mkSubsiteExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr) = do
     yd <- [|yesodDispatch|]
-    let con = foldl' AppE (ConE $ mkName constr) $ frontVars []
-    let s' = VarE (mkName toSub) `AppE` VarE master
-    let s = foldl' AppE s' $ frontVars []
-    let app = yd `AppE` s
+    dot <- [|(.)|]
+    let con = InfixE (Just toMasterRoute) dot $ Just $ foldl' AppE (ConE $ mkName constr) $ frontVars []
+    let app = yd `AppE` sub
                  `AppE` VarE mkey
                  `AppE` VarE segments
                  `AppE` VarE master
                  `AppE` con
     just <- [|Just|]
     return $ just `AppE` app
+mkSubsiteExp _ (MultiPiece _:_) _ _ = error "Subsites cannot have MultiPiece"
 mkSubsiteExp segments (StaticPiece s:pieces) frontVars x = do
     srest <- newName "segments"
     innerExp <- mkSubsiteExp srest pieces frontVars x
@@ -316,7 +305,7 @@ mkSubsiteExp segments (StaticPiece s:pieces) frontVars x = do
                 , Match WildP (NormalB nothing) []
                 ]
     return exp
-mkSubsiteExp segments (SinglePiece s:pieces) frontVars x = do
+mkSubsiteExp segments (SinglePiece _:pieces) frontVars x = do
     srest <- newName "segments"
     next' <- newName "next'"
     innerExp <- mkSubsiteExp srest pieces (frontVars . (:) (VarE next')) x
@@ -342,153 +331,26 @@ mkSubsiteExp segments (SinglePiece s:pieces) frontVars x = do
                 ]
     return exp
 
-{-
-    mkPat' (SinglePiece s:rest) url = do
-        fsp <- [|either (const Nothing) Just . fromSinglePiece|]
-        v <- newName $ "var" ++ s
-        be <- [|(<*>)|]
-        let url' = InfixE (Just url) be $ Just $ fsp `AppE` VarE v
-        (x, rest, url'') <- mkPat' rest url'
-        return (InfixP (VarP v) (mkName ":") x, rest, url'')
-    mkPat' [] url = do
-        rest <- newName "rest"
-        return (VarP rest, VarE rest, url)
--}
-
-mkDispatchLocal ((constr, Simple pieces methods), Nothing) = do
-    master <- newName "master"
-    mkey <- newName "mkey"
-    req <- newName "req"
-    just <- [|Just|]
-    (pat', rest, url) <- mkPat' pieces $ just `AppE` (ConE $ mkName constr)
-    goodParse <- (`AppE` url) <$> [|isJust|]
-    tma'' <- (`AppE` url) <$> [|fromJust|]
-    nothing <- [|Nothing|]
-    let body = if null methods
-                    then VarE $ mkName $ "handle" ++ constr
-                    else CaseE (VarE req) $ map mkMatch methods ++ [Match WildP (NormalB nothing) []]
-    return $ Just $ Clause
-        [ VarP master
-        , VarP mkey
-        , pat'
-        ] (GuardedB [(NormalG goodParse, body)]) [] -- FIXME
-  where
-    singleToMApp :: GHandler s m c -> Maybe W.Application
-    singleToMApp = undefined
-    multiToMApp = undefined
-    -- FIXME requires OverloadedStrings
-    mkMatch method = Match (LitP $ StringL method) (NormalB $ VarE $ mkName $ map toLower method ++ constr) []
-    mkPat' :: [Piece] -> Exp -> Q (Pat, Exp, Exp)
-    mkPat' (StaticPiece s:rest) url = do
-        (x, rest', url') <- mkPat' rest url
-        let sp = LitP $ StringL s
-        return (InfixP sp (mkName ":") x, rest', url')
-    mkPat' (SinglePiece s:rest) url = do
-        fsp <- [|either (const Nothing) Just . fromSinglePiece|]
-        v <- newName $ "var" ++ s
-        be <- [|(<*>)|]
-        let url' = InfixE (Just url) be $ Just $ fsp `AppE` VarE v
-        (x, rest, url'') <- mkPat' rest url'
-        return (InfixP (VarP v) (mkName ":") x, rest, url'')
-    mkPat' [] url = do
-        rest <- newName "rest"
-        return (VarP rest, VarE rest, url)
-mkDispatchLocal _ = return Nothing
-
-mkDispatchToSubsite ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
-    master <- newName "master"
-    mkey <- newName "mkey"
-    just <- [|Just|]
-    (pat', tma', rest, toMaster)
-        <- mkPat' pieces
-           (ConE $ mkName constr)
-         $ just `AppE` (VarE (mkName toSub) `AppE` VarE master)
-    ds <- error "FIXME" -- [|dispatchSubsite|]
-    goodParse <- (`AppE` tma') <$> [|isJust|]
-    tma'' <- (`AppE` tma') <$> [|fromJust|]
-    let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest `AppE` toMaster
-    fmap' <- [|(<$>)|]
-    let body = InfixE (Just body') fmap' $ Just tma'
-    return $ Just $ Clause
-        [ VarP master
-        , VarP mkey
-        , pat'
-        ] (GuardedB [(NormalG goodParse, body)]) []
-  where
-    mkPat' :: [Piece] -> Exp -> Exp -> Q (Pat, Exp, Exp, Exp)
-    mkPat' (MultiPiece _:_) _ _ = error "MultiPiece not allowed as part of a subsite"
-    mkPat' (StaticPiece s:rest) toMaster tma = do
-        (x, tma', rest', toMaster') <- mkPat' rest toMaster tma
-        let sp = LitP $ StringL s
-        return (InfixP sp (mkName ":") x, tma', rest', toMaster')
-    mkPat' (SinglePiece s:rest) toMaster tma = do
-        fsp <- [|either (const Nothing) Just . fromSinglePiece|]
-        v <- newName $ "var" ++ s
-        be <- [|(<*>)|]
-        let tma' = InfixE (Just tma) be $ Just $ fsp `AppE` VarE v
-        let toMaster' = toMaster `AppE` VarE v
-        (x, tma'', rest, toMaster'') <- mkPat' rest toMaster' tma'
-        return (InfixP (VarP v) (mkName ":") x, tma'', rest, toMaster'')
-    mkPat' [] toMaster parse = do
-        rest <- newName "rest"
-        return (VarP rest, parse, VarE rest, toMaster)
-mkDispatchToSubsite _ = return Nothing
-
-isStatic :: Piece -> Bool
-isStatic StaticPiece{} = True
-isStatic _ = False
-
-thResourceFromResource :: Type -> Resource -> Q (THResource, Maybe String)
-thResourceFromResource _ (Resource n ps atts)
+thResourceFromResource :: Resource -> Q (THResource, Maybe String)
+thResourceFromResource (Resource n ps atts)
     | all (all isUpper) atts = return ((n, Simple ps atts), Nothing)
-thResourceFromResource master (Resource n ps [stype, toSubArg])
-    -- static route to subsite
-    = do
-        let stype' = ConT $ mkName stype
-        {-
-        gss <- [|error "FIXME getSubSite"|]
-        let inside = ConT ''Maybe `AppT`
-                     (ConT ''GHandler `AppT` stype' `AppT` master `AppT`
-                      ConT ''ChooseRep)
-        let typ = ConT ''Site `AppT`
-                  (ConT ''Route `AppT` stype') `AppT`
-                  (ArrowT `AppT` ConT ''String `AppT` inside)
-        let gss' = gss `SigE` typ
-        parse' <- [|parsePathSegments|]
-        let parse = parse' `AppE` gss'
-        render' <- [|formatPathSegments|]
-        let render = render' `AppE` gss'
-        dispatch' <- [|flip handleSite (error "Cannot use subsite render function")|]
-        let dispatch = dispatch' `AppE` gss'
-        -}
-        parse <- [|error "ssParse"|]
-        dispatch <- [|error "ssDispatch"|]
-        render <- [|renderRoute|]
-        tmg <- mkToMasterArg ps toSubArg
-        return ((n, SubSite
-            { ssType = ConT ''Route `AppT` stype'
-            , ssParse = parse
-            , ssRender = render
-            , ssDispatch = dispatch
-            , ssToMasterArg = tmg
-            , ssPieces = ps
-            }), Just toSubArg)
+thResourceFromResource (Resource n ps [stype, toSubArg]) = do
+    let stype' = ConT $ mkName stype
+    parse <- [|error "ssParse"|]
+    dispatch <- [|error "ssDispatch"|]
+    render <- [|renderRoute|]
+    tmg <- [|error "ssToMasterArg"|]
+    return ((n, SubSite
+        { ssType = ConT ''Route `AppT` stype'
+        , ssParse = parse
+        , ssRender = render
+        , ssDispatch = dispatch
+        , ssToMasterArg = tmg
+        , ssPieces = ps
+        }), Just toSubArg)
 
-
-thResourceFromResource _ (Resource n _ _) =
+thResourceFromResource (Resource n _ _) =
     error $ "Invalid attributes for resource: " ++ n
-
-mkToMasterArg :: [Piece] -> String -> Q Exp
-mkToMasterArg ps fname = do
-  let nargs = length $ filter (not.isStatic) ps
-      f = VarE $ mkName fname
-  args <- sequence $ take nargs $ repeat $ newName "x"
-  rsg <- [|error "runSubsiteGetter"|]
-  let xps = map VarP args
-      xes = map VarE args
-      e' = foldl (\x y -> x `AppE` y) f xes
-      e = rsg `AppE` e'
-  return $ rsg -- FIXME LamE xps e
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This is the same as 'toWaiAppPlain', except it includes three

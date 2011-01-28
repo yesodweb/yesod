@@ -11,6 +11,7 @@ data Subsite = Subsite String
 
 mkYesodSub "Subsite" [] [$parseRoutes|
 / SubRootR GET
+/multi/*Strings SubMultiR
 |]
 
 getSubRootR :: GHandler Subsite m RepPlain
@@ -19,6 +20,8 @@ getSubRootR = do
     tm <- getRouteToMaster
     render <- getUrlRender
     return $ RepPlain $ toContent $ "Hello Sub World: " ++ s ++ ". " ++ render (tm SubRootR)
+
+handleSubMultiR = return . RepPlain . toContent . show
 
 data HelloWorld = HelloWorld { getSubsite :: String -> Subsite }
 mkYesod "HelloWorld" [$parseRoutes|
