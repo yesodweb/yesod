@@ -28,6 +28,7 @@ module Yesod.Dispatch
 import Prelude hiding (exp)
 import Yesod.Core
 import Yesod.Handler
+import Yesod.Internal.Dispatch
 
 import Web.Routes.Quasi
 import Web.Routes.Quasi.Parse
@@ -42,14 +43,12 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as S
 import Data.ByteString.Lazy.Char8 ()
 
-import Control.Monad
 import Web.ClientSession
-import Data.Char (isUpper, toLower)
+import Data.Char (isUpper)
 
 import Web.Routes (decodePathInfo)
 
 import Control.Monad.IO.Class (liftIO)
-import Data.List (foldl')
 
 #if TEST
 import Test.Framework (testGroup, Test)
@@ -57,8 +56,6 @@ import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.QuickCheck
 import System.IO.Unsafe
 #endif
-
-import Yesod.Content
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
@@ -133,8 +130,7 @@ mkYesodGeneral name args clazzes isSub res = do
                 [ FunD (mkName "renderRoute") render
                 ]
 
-    let sortedRes = filter (not . isSubSite) th' ++ filter isSubSite th'
-    yd <- mkYesodDispatch' sortedRes
+    yd <- mkYesodDispatch' th'
     let master = mkName "master"
     let ctx = if isSub
                 then ClassP (mkName "Yesod") [VarT master] : clazzes
@@ -144,195 +140,6 @@ mkYesodGeneral name args clazzes isSub res = do
                 else ConT ''YesodDispatch `AppT` arg `AppT` arg
     let y = InstanceD ctx ytyp [FunD (mkName "yesodDispatch") [yd]]
     return ([w, x, x'], [y])
-
-isSubSite :: ((String, Pieces), a) -> Bool
-isSubSite ((_, SubSite{}), _) = True
-isSubSite _ = False
-
-mkYesodDispatch' :: [((String, Pieces), Maybe String)] -> Q Clause
-mkYesodDispatch' sortedRes = do
-    sub <- newName "sub"
-    master <- newName "master"
-    mkey <- newName "mkey"
-    segments <- newName "segments"
-    toMasterRoute <- newName "toMasterRoute"
-    nothing <- [|Nothing|]
-    body <- foldM (go master (VarE sub) (VarE toMasterRoute) mkey segments) nothing sortedRes
-    return $ Clause
-        [VarP sub, VarP mkey, VarP segments, VarP master, VarP toMasterRoute]
-        (NormalB body)
-        []
-  where
-    go master sub toMasterRoute mkey segments onFail ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
-        test <- mkSubsiteExp segments pieces id (master, sub, toMasterRoute, mkey, constr, VarE $ mkName toSub)
-        app <- newName "app"
-        return $ CaseE test
-            [ Match (ConP (mkName "Nothing") []) (NormalB onFail) []
-            , Match (ConP (mkName "Just") [VarP app]) (NormalB $ VarE app) []
-            ]
-    go master sub toMasterRoute mkey segments onFail ((constr, Simple pieces methods), Nothing) = do
-        test <- mkSimpleExp (VarE segments) pieces id (master, sub, toMasterRoute, mkey, constr, methods)
-        just <- [|Just|]
-        app <- newName "app"
-        return $ CaseE test
-            [ Match (ConP (mkName "Nothing") []) (NormalB onFail) []
-            , Match (ConP (mkName "Just") [VarP app]) (NormalB $ just `AppE` VarE app) []
-            ]
-    go _ _ _ _ _ _ _ = error "Invalid combination"
-
-mkSimpleExp :: Exp -- ^ segments
-            -> [Piece]
-            -> ([Exp] -> [Exp]) -- ^ variables already parsed
-            -> (Name, Exp, Exp, Name, String, [String]) -- ^ master, sub, toMasterRoute, mkey, constructor, methods
-            -> Q Exp
-mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, methods) = do
-    just <- [|Just|]
-    nothing <- [|Nothing|]
-    onSuccess <- newName "onSuccess"
-    req <- newName "req"
-    badMethod' <- [|badMethod|]
-    rm <- [|W.requestMethod|]
-    let caseExp = rm `AppE` VarE req
-    yr <- [|yesodRunner|]
-    cr <- [|fmap chooseRep|]
-    let url = foldl' AppE (ConE $ mkName constr) $ frontVars []
-    let runHandlerVars h = runHandler' $ cr `AppE` foldl' AppE (VarE $ mkName h) (frontVars [])
-        runHandler' h = NormalB $ yr `AppE` sub
-                                     `AppE` VarE master
-                                     `AppE` toMasterRoute
-                                     `AppE` VarE mkey
-                                     `AppE` (just `AppE` url)
-                                     `AppE` h
-                                     `AppE` VarE req
-    let match m = Match (LitP $ StringL m) (runHandlerVars $ map toLower m ++ constr) []
-    let clauses =
-            case methods of
-                [] -> [Clause [VarP req] (runHandlerVars $ "handle" ++ constr) []]
-                _ -> [Clause [VarP req] (NormalB $ CaseE caseExp $ map match methods ++
-                                                                   [Match WildP (runHandler' badMethod') []]) []]
-    let exp = CaseE segments
-                [ Match
-                    (ConP (mkName "[]") [])
-                    (NormalB $ just `AppE` VarE onSuccess)
-                    [FunD onSuccess clauses]
-                , Match
-                    WildP
-                    (NormalB nothing)
-                    []
-                ]
-    return exp
-mkSimpleExp segments (StaticPiece s:pieces) frontVars x = do
-    srest <- newName "segments"
-    innerExp <- mkSimpleExp (VarE srest) pieces frontVars x
-    nothing <- [|Nothing|]
-    let exp = CaseE segments
-                [ Match
-                    (InfixP (LitP $ StringL s) (mkName ":") (VarP srest))
-                    (NormalB innerExp)
-                    []
-                , Match WildP (NormalB nothing) []
-                ]
-    return exp
-mkSimpleExp segments (SinglePiece _:pieces) frontVars x = do
-    srest <- newName "segments"
-    next' <- newName "next'"
-    innerExp <- mkSimpleExp (VarE srest) pieces (frontVars . (:) (VarE next')) x
-    nothing <- [|Nothing|]
-    next <- newName "next"
-    fsp <- [|fromSinglePiece|]
-    let exp' = CaseE (fsp `AppE` VarE next)
-                [ Match
-                    (ConP (mkName "Left") [WildP])
-                    (NormalB nothing)
-                    []
-                , Match
-                    (ConP (mkName "Right") [VarP next'])
-                    (NormalB innerExp)
-                    []
-                ]
-    let exp = CaseE segments
-                [ Match
-                    (InfixP (VarP next) (mkName ":") (VarP srest))
-                    (NormalB exp')
-                    []
-                , Match WildP (NormalB nothing) []
-                ]
-    return exp
-mkSimpleExp segments [MultiPiece _] frontVars x = do
-    next' <- newName "next'"
-    srest <- [|[]|]
-    innerExp <- mkSimpleExp srest [] (frontVars . (:) (VarE next')) x
-    nothing <- [|Nothing|]
-    fmp <- [|fromMultiPiece|]
-    let exp = CaseE (fmp `AppE` segments)
-                [ Match
-                    (ConP (mkName "Left") [WildP])
-                    (NormalB nothing)
-                    []
-                , Match
-                    (ConP (mkName "Right") [VarP next'])
-                    (NormalB innerExp)
-                    []
-                ]
-    return exp
-mkSimpleExp _ (MultiPiece _:_) _ _ = error "MultiPiece must be last piece"
-
-mkSubsiteExp :: Name -- ^ segments
-             -> [Piece]
-             -> ([Exp] -> [Exp]) -- ^ variables already parsed
-             -> (Name, Exp, Exp, Name, String, Exp) -- ^ master, sub, toMasterRoute, mkey, constructor, toSub
-             -> Q Exp
-mkSubsiteExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, toSub) = do
-    yd <- [|yesodDispatch|]
-    dot <- [|(.)|]
-    let con = InfixE (Just toMasterRoute) dot $ Just $ foldl' AppE (ConE $ mkName constr) $ frontVars []
-    -- proper handling for sub-subsites
-    let sub' = foldl' AppE (toSub `AppE` sub) $ frontVars []
-    let app = yd `AppE` sub'
-                 `AppE` VarE mkey
-                 `AppE` VarE segments
-                 `AppE` VarE master
-                 `AppE` con
-    just <- [|Just|]
-    return $ just `AppE` app
-mkSubsiteExp _ (MultiPiece _:_) _ _ = error "Subsites cannot have MultiPiece"
-mkSubsiteExp segments (StaticPiece s:pieces) frontVars x = do
-    srest <- newName "segments"
-    innerExp <- mkSubsiteExp srest pieces frontVars x
-    nothing <- [|Nothing|]
-    let exp = CaseE (VarE segments)
-                [ Match
-                    (InfixP (LitP $ StringL s) (mkName ":") (VarP srest))
-                    (NormalB innerExp)
-                    []
-                , Match WildP (NormalB nothing) []
-                ]
-    return exp
-mkSubsiteExp segments (SinglePiece _:pieces) frontVars x = do
-    srest <- newName "segments"
-    next' <- newName "next'"
-    innerExp <- mkSubsiteExp srest pieces (frontVars . (:) (VarE next')) x
-    nothing <- [|Nothing|]
-    next <- newName "next"
-    fsp <- [|fromSinglePiece|]
-    let exp' = CaseE (fsp `AppE` VarE next)
-                [ Match
-                    (ConP (mkName "Left") [WildP])
-                    (NormalB nothing)
-                    []
-                , Match
-                    (ConP (mkName "Right") [VarP next'])
-                    (NormalB innerExp)
-                    []
-                ]
-    let exp = CaseE (VarE segments)
-                [ Match
-                    (InfixP (VarP next) (mkName ":") (VarP srest))
-                    (NormalB exp')
-                    []
-                , Match WildP (NormalB nothing) []
-                ]
-    return exp
 
 thResourceFromResource :: Resource -> Q (THResource, Maybe String)
 thResourceFromResource (Resource n ps atts)
@@ -405,22 +212,6 @@ toWaiApp' y key' env = do
                             [ ("Content-Type", "text/plain")
                             , ("Location", dest')
                             ] "Redirecting"
-
-{-
-defaultDispatchSubsite
-    :: (Yesod m, YesodDispatch m, YesodSubSite s m)
-    => m -> Maybe Key -> [String]
-    -> (Route s -> Route m)
-    -> s
-    -> W.Application
-defaultDispatchSubsite y key' segments toMasterRoute s env = error "FIXME" {-
-    case dispatchToSubSubsite y key' segments toMasterRoute s of
-        Just app -> app env
-        Nothing ->
-            case dispatchSubLocal y key' segments toMasterRoute s of
-                Just app -> app env
-                Nothing -> yesodRunner y key' Nothing notFound env-}
--}
 
 #if TEST
 

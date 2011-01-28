@@ -57,6 +57,7 @@ library
     other-modules:   Yesod.Internal
                      Yesod.Internal.Session
                      Yesod.Internal.Request
+                     Yesod.Internal.Dispatch
                      Paths_yesod_core
     ghc-options:     -Wall -Werror
 
