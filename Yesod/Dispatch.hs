@@ -173,12 +173,11 @@ mkYesodGeneral name args clazzes isSub res = do
     -}
     let sortedRes = filter (not . isSubSite) th' ++ filter isSubSite th'
     yd <- mkYesodDispatch' sortedRes
-    localClauses <- catMaybes <$> mapM mkDispatchLocal th'
-    subsiteClauses <- catMaybes <$> mapM mkDispatchToSubsite th'
-    let subSubsiteClauses = [] -- FIXME subSubsiteClauses
     nothing <- [|Nothing|]
-    let mkYSS = InstanceD clazzes (ConT ''YesodSubSite `AppT` arg `AppT` VarT (mkName "master"))
-                [
+    let master = mkName "master"
+    let ctx = ClassP (mkName "Yesod") [VarT master] : clazzes
+    let mkYSS = InstanceD ctx (ConT ''YesodDispatch `AppT` arg `AppT` VarT master)
+                [ FunD (mkName "yesodDispatch") [yd]
                 ]
         mkYS = InstanceD [] (ConT ''YesodDispatch `AppT` arg `AppT` arg) [FunD (mkName "yesodDispatch") [yd]]
     let y = if isSub then mkYSS else mkYS {-InstanceD ctx ytyp
@@ -198,7 +197,7 @@ mkYesodDispatch' sortedRes = do
     nothing <- [|Nothing|]
     body <- foldM (go master sub toMasterRoute mkey segments) nothing sortedRes
     return $ Clause
-        [VarP master, VarP mkey, VarP segments, VarP sub, VarP toMasterRoute]
+        [VarP sub, VarP mkey, VarP segments, VarP master, VarP toMasterRoute]
         (NormalB body)
         []
   where
@@ -208,7 +207,7 @@ mkYesodDispatch' sortedRes = do
         app <- newName "app"
         return $ CaseE test
             [ Match (ConP (mkName "Nothing") []) (NormalB onFail) []
-            , Match (ConP (mkName "Just") [VarP app]) (NormalB $ just `AppE` VarE app) []
+            , Match (ConP (mkName "Just") [VarP app]) (NormalB $ VarE app) []
             ]
     go master sub toMasterRoute mkey segments onFail ((constr, Simple pieces methods), Nothing) = do
         test <- mkSimpleExp segments pieces id (master, sub, toMasterRoute, mkey, constr, methods)
@@ -294,11 +293,15 @@ mkSimpleExp segments (SinglePiece s:pieces) frontVars x = do
     return exp
 
 mkSubsiteExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, toSub) = do
-    ds <- [|dispatchSubsite|]
+    yd <- [|yesodDispatch|]
     let con = foldl' AppE (ConE $ mkName constr) $ frontVars []
     let s' = VarE (mkName toSub) `AppE` VarE master
     let s = foldl' AppE s' $ frontVars []
-    let app = ds `AppE` VarE master `AppE` VarE mkey `AppE` VarE segments `AppE` con `AppE` s
+    let app = yd `AppE` s
+                 `AppE` VarE mkey
+                 `AppE` VarE segments
+                 `AppE` VarE master
+                 `AppE` con
     just <- [|Just|]
     return $ just `AppE` app
 mkSubsiteExp segments (StaticPiece s:pieces) frontVars x = do
@@ -400,7 +403,7 @@ mkDispatchToSubsite ((constr, SubSite { ssPieces = pieces }), Just toSub) = do
         <- mkPat' pieces
            (ConE $ mkName constr)
          $ just `AppE` (VarE (mkName toSub) `AppE` VarE master)
-    ds <- [|dispatchSubsite|]
+    ds <- error "FIXME" -- [|dispatchSubsite|]
     goodParse <- (`AppE` tma') <$> [|isJust|]
     tma'' <- (`AppE` tma') <$> [|fromJust|]
     let body' = ds `AppE` VarE master `AppE` VarE mkey `AppE` rest `AppE` toMaster

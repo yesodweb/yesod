@@ -10,7 +10,6 @@ module Yesod.Core
     ( -- * Type classes
       Yesod (..)
     , YesodDispatch (..)
-    , YesodSubSite (..)
     , RenderRoute (..)
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
@@ -92,25 +91,11 @@ class Yesod master => YesodDispatch a master where
         -> (Route a -> Route master)
         -> Maybe W.Application
 
--- | Same as 'YesodSite', but for subsites. Once again, users should not need
--- to deal with it directly, as mkYesodSub creates instances appropriately.
-class (RenderRoute (Route s)) => YesodSubSite s y where
-    dispatchSubsite :: (Yesod y)
-                    => y
-                    -> Maybe CS.Key
-                    -> [String]
-                    -> (Route s -> Route y)
-                    -> s
-                    -> W.Application
-    dispatchToSubSubsite
-        :: (Yesod y)
-        => y
-        -> Maybe CS.Key
-        -> [String]
-        -> (Route s -> Route y)
-        -> s
-        -> Maybe W.Application
-    dispatchSubLocal :: y -> Maybe CS.Key -> [String] -> (Route s -> Route y) -> s -> Maybe W.Application
+    yesodRunner :: a
+                -> master
+                -> (Route a -> Route master)
+                -> Maybe CS.Key -> Maybe (Route a) -> GHandler a master ChooseRep -> W.Application
+    yesodRunner = defaultYesodRunner
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.
@@ -251,14 +236,6 @@ class RenderRoute (Route a) => Yesod a where
     -- 'True'.
     sessionIpAddress :: a -> Bool
     sessionIpAddress _ = True
-
-    -- FIXME this probably needs to be a part of YesodDispatch
-    yesodRunner :: Yesod master
-                => a
-                -> master
-                -> (Route a -> Route master)
-                -> Maybe CS.Key -> Maybe (Route a) -> GHandler a master ChooseRep -> W.Application
-    yesodRunner = defaultYesodRunner
 
 defaultYesodRunner :: Yesod master
                    => a
