@@ -16,6 +16,7 @@ import qualified Network.Wai as W
 import Yesod.Core (yesodRunner, yesodDispatch)
 import Data.List (foldl')
 import Data.Char (toLower)
+import qualified Data.ByteString.Char8 as S8
 
 {-|
 
@@ -106,7 +107,7 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
     onSuccess <- newName "onSuccess"
     req <- newName "req"
     badMethod' <- [|badMethod|]
-    rm <- [|W.requestMethod|]
+    rm <- [|S8.unpack . W.requestMethod|]
     let caseExp = rm `AppE` VarE req
     yr <- [|yesodRunner|]
     cr <- [|fmap chooseRep|]
