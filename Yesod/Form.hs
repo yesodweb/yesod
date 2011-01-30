@@ -62,7 +62,7 @@ import Database.Persist.Base (EntityDef (..), PersistEntity (entityDef))
 import Data.Char (toUpper, isUpper)
 import Control.Arrow ((&&&))
 import Data.List (group, sort)
-import Control.Monad.Trans.Class (lift)
+import Data.Monoid (mempty)
 
 -- | Display only the actual input widget code, without any decoration.
 fieldsToPlain :: FormField sub y a -> Form sub y a
@@ -112,8 +112,7 @@ fieldsToDivs = mapFormXml $ mapM_ go
 -- | Run a form against POST parameters, without CSRF protection.
 runFormPostNoNonce :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
 runFormPostNoNonce f = do
-    rr <- getRequest
-    (pp, files) <- lift $ reqRequestBody rr
+    (pp, files) <- runRequestBody
     runFormGeneric pp files f
 
 -- | Run a form against POST parameters.
@@ -123,18 +122,17 @@ runFormPostNoNonce f = do
 -- meaning of the fourth element in the tuple.
 runFormPost :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype, Html)
 runFormPost f = do
-    rr <- getRequest
-    (pp, files) <- lift $ reqRequestBody rr
+    (pp, files) <- runRequestBody
     nonce <- fmap reqNonce getRequest
     (res, xml, enctype) <- runFormGeneric pp files f
     let res' =
             case res of
                 FormSuccess x ->
-                    if lookup nonceName pp == Just nonce
+                    if lookup nonceName pp == nonce
                         then FormSuccess x
                         else FormFailure ["As a protection against cross-site request forgery attacks, please confirm your form submission."]
                 _ -> res
-    return (res', xml, enctype, hidden nonce)
+    return (res', xml, enctype, maybe mempty hidden nonce)
   where
     hidden nonce =
 #if __GLASGOW_HASKELL__ >= 700
@@ -152,8 +150,7 @@ nonceName = "_nonce"
 -- CSRF protection.
 runFormMonadPost :: GFormMonad s m a -> GHandler s m (a, Enctype)
 runFormMonadPost f = do
-    rr <- getRequest
-    (pp, files) <- lift $ reqRequestBody rr
+    (pp, files) <- runRequestBody
     runFormGeneric pp files f
 
 -- | Run a form against POST parameters, disregarding the resulting HTML and
@@ -161,8 +158,7 @@ runFormMonadPost f = do
 -- CSRF protection.
 runFormPost' :: GForm sub y xml a -> GHandler sub y a
 runFormPost' f = do
-    rr <- getRequest
-    (pp, files) <- lift $ reqRequestBody rr
+    (pp, files) <- runRequestBody
     x <- runFormGeneric pp files f
     helper x
 
@@ -233,7 +229,8 @@ generateForm f = do
 #else
                 [$hamlet|
 #endif
-    <input type="hidden" name="#{nonceName}" value="#{nonce}">
+$maybe n <- nonce
+    <input type="hidden" name="#{nonceName}" value="#{n}">
 |])
 
 -- | Run a form against GET parameters.
