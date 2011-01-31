@@ -7,7 +7,6 @@ module Yesod.Widget
     ( -- * Datatype
       GWidget
     , GGWidget (..)
-    , liftHandler
     , PageContent (..)
       -- * Creating
       -- ** Head of page
@@ -87,16 +86,11 @@ instance (Monad monad, a ~ ()) => Monad (HamletMonad (GGWidget s m monad a)) whe
     return = GWidget' . return
     x >>= y = GWidget' $ runGWidget' x >>= runGWidget' . y
 
--- | Lift an action in the 'GHandler' monad into an action in the 'GWidget'
--- monad.
-liftHandler :: Monad monad => monad a -> GGWidget sub master monad a
-liftHandler = GWidget . lift . lift . lift . lift . lift . lift . lift . lift
-
 addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWidget sub' master a
-addSubWidget sub w = do master <- liftHandler getYesod
+addSubWidget sub w = do master <- lift getYesod
                         let sr = fromSubRoute sub master
                         i <- GWidget $ lift $ lift $ lift $ lift $ lift $ lift $ lift get
-                        w' <- liftHandler $ toMasterHandlerMaybe sr (const sub) Nothing $ flip runStateT i
+                        w' <- lift $ toMasterHandlerMaybe sr (const sub) Nothing $ flip runStateT i
                               $ runWriterT $ runWriterT $ runWriterT $ runWriterT
                               $ runWriterT $ runWriterT $ runWriterT 
                               $ unGWidget w
