@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Request
@@ -42,7 +39,7 @@ module Yesod.Request
 
 import qualified Network.Wai as W
 import qualified Data.ByteString.Lazy as BL
-import "transformers" Control.Monad.IO.Class
+import Control.Monad.IO.Class
 import Control.Monad (liftM)
 import Control.Monad.Instances () -- I'm missing the instance Monad ((->) r
 import Data.Maybe (listToMaybe)

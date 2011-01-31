@@ -1,8 +1,6 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
