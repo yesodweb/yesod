@@ -27,6 +27,7 @@ import Data.Char (isSpace)
 import Data.Default
 import Text.Hamlet (hamlet)
 import Text.Julius (julius)
+import Control.Monad.Trans.Class (lift)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HAMLET hamlet
@@ -96,10 +97,10 @@ jqueryDayFieldProfile jds = FieldProfile
         addJulius [JULIUS|
 $(function(){$("##{theId}").datepicker({
     dateFormat:'yy-mm-dd',
-    changeMonth:%jsBool.jdsChangeMonth.jds%,
-    changeYear:%jsBool.jdsChangeYear.jds%,
-    numberOfMonths:%mos.jdsNumberOfMonths.jds%,
-    yearRange:"%jdsYearRange.jds%"
+    changeMonth:#{jsBool $ jdsChangeMonth jds},
+    changeYear:#{jsBool $ jdsChangeYear jds},
+    numberOfMonths:#{mos $ jdsNumberOfMonths jds},
+    yearRange:"#{jdsYearRange jds}"
 })});
 |]
     }
@@ -196,18 +197,18 @@ jqueryAutocompleteFieldProfile src = FieldProfile
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
         addJulius [JULIUS|
-$(function(){$("##{theId}").autocomplete({source:"@src@",minLength:2})});
+$(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     }
 
 addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
 addScript' f = do
-    y <- liftHandler getYesod
+    y <- lift getYesod
     addScriptEither $ f y
 
 addStylesheet' :: (y -> Either (Route y) String) -> GWidget sub y ()
 addStylesheet' f = do
-    y <- liftHandler getYesod
+    y <- lift getYesod
     addStylesheetEither $ f y
 
 readMay :: Read a => String -> Maybe a

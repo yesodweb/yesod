@@ -17,6 +17,7 @@ import Text.Hamlet (Html, hamlet)
 import Text.Julius (julius)
 import Text.Blaze.Renderer.String (renderHtml)
 import Text.Blaze (preEscapedString)
+import Control.Monad.Trans.Class (lift)
 
 class YesodNic a where
     -- | NIC Editor Javascript file.
@@ -58,5 +59,5 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{th
 
 addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
 addScript' f = do
-    y <- liftHandler getYesod
+    y <- lift getYesod
     addScriptEither $ f y
