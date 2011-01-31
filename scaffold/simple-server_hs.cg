@@ -1,6 +1,0 @@
-import Controller
-import Network.Wai.Handler.SimpleServer (run)
-
-main :: IO ()
-main = putStrLn "Loaded" >> with~sitearg~ (run 3000)
-

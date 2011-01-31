@@ -14,7 +14,7 @@ getRootR :: Handler RepHtml
 getRootR = do
     mu <- maybeAuth
     defaultLayout $ do
-        h2id <- newIdent
+        h2id <- lift newIdent
         setTitle "~project~ homepage"
         addWidget $(widgetFile "homepage")
 

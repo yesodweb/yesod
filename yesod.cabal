@@ -35,7 +35,7 @@ library
                    , hamlet                    >= 0.7      && < 0.8
                    , warp                      >= 0.3      && < 0.4
                    , mime-mail                 >= 0.1      && < 0.2
-                   , hjsmin                    >= 0.0.5    && < 0.1
+                   , hjsmin                    >= 0.0.12   && < 0.1
     exposed-modules: Yesod
     ghc-options:     -Wall
 

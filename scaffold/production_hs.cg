@@ -1,0 +1,6 @@
+import Controller (with~sitearg~)
+import Network.Wai.Handler.Warp (run)
+
+main :: IO ()
+main = with~sitearg~ $ run 3000
+
