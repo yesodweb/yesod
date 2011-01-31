@@ -83,6 +83,7 @@ module Yesod.Handler
     , hamletToRepHtml
       -- ** Misc
     , newIdent
+    , liftIOHandler
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
@@ -111,14 +112,14 @@ import Control.Exception hiding (Handler, catch, finally)
 import qualified Control.Exception as E
 import Control.Applicative
 
-import Control.Monad (liftM)
+import Control.Monad (liftM, join)
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.State
-import Control.Monad.Trans.Error (throwError, ErrorT (runErrorT), Error (..))
+import Control.Monad.Trans.Error (throwError, ErrorT (..), Error (..))
 
 import System.IO
 import qualified Network.Wai as W
@@ -127,6 +128,7 @@ import Control.Failure (Failure (failure))
 import Text.Hamlet
 
 import Control.Monad.IO.Peel (MonadPeelIO)
+import Control.Monad.Trans.Peel (MonadTransPeel (peel), liftPeel)
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
@@ -739,6 +741,18 @@ newIdent = GHandler $ lift $ lift $ lift $ do
     let i' = ghsIdent x + 1
     put x { ghsIdent = i' }
     return $ "h" ++ show i'
+
+liftIOHandler :: MonadIO mo
+              => GGHandler sub master IO a
+              -> GGHandler sub master mo a
+liftIOHandler x = do
+    k <- peel
+    join $ liftIO $ k x
+
+instance MonadTransPeel (GGHandler s m) where
+    peel = GHandler $ do
+        k <- liftPeel $ liftPeel $ liftPeel peel
+        return $ liftM GHandler . k . unGHandler
 
 -- | Redirect to a POST resource.
 --

@@ -46,8 +46,6 @@ import Data.Char (isUpper)
 
 import Web.Routes (decodePathInfo)
 
-import Control.Monad.IO.Class (liftIO)
-
 #if TEST
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
@@ -187,7 +185,6 @@ toWaiApp' y key' env = do
             case decodePathInfo $ B.unpack $ W.pathInfo env of
                 "":x -> x
                 x -> x
-    liftIO $ print (W.pathInfo env, segments)
     case yesodDispatch y key' segments y id of
         Just app -> app env
         Nothing ->
