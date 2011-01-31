@@ -203,14 +203,10 @@ toWaiApp' y key' env = do
                         dest' =
                             if S.null (W.queryString env)
                                 then dest
-                                else S.concat
-                                        [ dest
-                                        , B.singleton '?'
-                                        , W.queryString env
-                                        ]
+                                else dest ++ '?' : B.unpack (W.queryString env)
                      in return $ W.responseLBS W.status301
                             [ ("Content-Type", "text/plain")
-                            , ("Location", dest')
+                            , ("Location", B.pack $ dest')
                             ] "Redirecting"
 
 #if TEST

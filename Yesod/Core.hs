@@ -81,9 +81,9 @@ class Eq u => RenderRoute u where
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
-class Yesod master => YesodDispatch a master where
+class YesodDispatch a master where
     yesodDispatch
-        :: (Yesod master)
+        :: Yesod master
         => a
         -> Maybe CS.Key
         -> [String]
@@ -111,9 +111,7 @@ class RenderRoute (Route a) => Yesod a where
     --
     -- * You do not use any features that require absolute URLs, such as Atom
     -- feeds and XML sitemaps.
-    --
-    -- FIXME: is this the right typesig?
-    approot :: a -> S.ByteString
+    approot :: a -> String
 
     -- | The encryption key to be used for encrypting client sessions.
     -- Returning 'Nothing' disables sessions.
@@ -150,7 +148,7 @@ class RenderRoute (Route a) => Yesod a where
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
-    urlRenderOverride :: a -> Route a -> Maybe S.ByteString
+    urlRenderOverride :: a -> Route a -> Maybe String
     urlRenderOverride _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
@@ -203,19 +201,12 @@ class RenderRoute (Route a) => Yesod a where
 
     -- | Join the pieces of a path together into an absolute URL. This should
     -- be the inverse of 'splitPath'.
-    --
-    -- FIXME is this the right type sig?
     joinPath :: a
-              -> S.ByteString -- ^ application root
+              -> String -- ^ application root
               -> [String] -- ^ path pieces
               -> [(String, String)] -- ^ query string
-              -> S.ByteString
-    joinPath _ ar pieces qs =
-        S.concat
-            [ ar
-            , S8.singleton '/'
-            , S8.pack $ encodePathInfo pieces qs
-            ]
+              -> String
+    joinPath _ ar pieces qs = ar ++ '/' : encodePathInfo pieces qs
 
     -- | This function is used to store some static content to be served as an
     -- external file. The most common case of this is stashing CSS and
@@ -493,9 +484,9 @@ yesodRender :: Yesod y
             -> [(String, String)]
             -> String
 yesodRender y u qs =
-    S8.unpack $ fromMaybe
-                (joinPath y (approot y) ps $ qs ++ qs')
-                (urlRenderOverride y u)
+    fromMaybe
+        (joinPath y (approot y) ps $ qs ++ qs')
+        (urlRenderOverride y u)
   where
     (ps, qs') = renderRoute u
 
