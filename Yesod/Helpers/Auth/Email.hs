@@ -23,6 +23,7 @@ import Yesod.Widget
 import Yesod.Core
 import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
 
 login, register, setpass :: AuthRoute
 login = PluginR "email" ["login"]
@@ -71,7 +72,7 @@ class YesodAuth m => YesodAuthEmail m where
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch $ \tm -> do
-        y <- liftHandler getYesod
+        y <- lift getYesod
 #if GHC7
         [hamlet|
 #else

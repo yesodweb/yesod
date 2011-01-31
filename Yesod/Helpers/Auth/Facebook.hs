@@ -15,6 +15,8 @@ import Yesod.Handler
 import Yesod.Widget
 import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
+import qualified Data.ByteString.Char8 as S8
+import Control.Monad.Trans.Class (lift)
 
 facebookUrl :: AuthRoute
 facebookUrl = PluginR "facebook" ["forward"]
@@ -32,7 +34,7 @@ authFacebook cid secret perms =
         tm <- getRouteToMaster
         render <- getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
-        redirectString RedirectTemporary $ Facebook.getForwardUrl fb perms
+        redirectString RedirectTemporary $ S8.pack $ Facebook.getForwardUrl fb perms
     dispatch "GET" [] = do
         render <- getUrlRender
         tm <- getRouteToMaster
@@ -56,10 +58,10 @@ authFacebook cid secret perms =
         setCreds True c
     dispatch _ _ = notFound
     login tm = do
-        render <- liftHandler getUrlRender
+        render <- lift getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
-        y <- liftHandler getYesod
+        y <- lift getYesod
         addHtml
 #if GHC7
             [hamlet|

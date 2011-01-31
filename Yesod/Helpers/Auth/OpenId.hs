@@ -17,6 +17,7 @@ import Text.Hamlet (hamlet)
 import Text.Cassius (cassius)
 import Text.Blaze (string)
 import Control.Monad.Trans.Class (lift)
+import qualified Data.ByteString.Char8 as S8
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
@@ -28,8 +29,8 @@ authOpenId =
     complete = PluginR "openid" ["complete"]
     name = "openid_identifier"
     login tm = do
-        ident <- newIdent
-        y <- liftHandler getYesod
+        ident <- lift newIdent
+        y <- lift getYesod
         addCassius
 #if GHC7
             [cassius|##{ident}
@@ -64,7 +65,7 @@ authOpenId =
                         setMessage $ string $ show err
                         redirect RedirectTemporary $ toMaster LoginR
                         )
-                  (redirectString RedirectTemporary)
+                  (redirectString RedirectTemporary . S8.pack)
                   res
             _ -> do
                 toMaster <- getRouteToMaster
@@ -74,8 +75,7 @@ authOpenId =
         rr <- getRequest
         completeHelper $ reqGetParams rr
     dispatch "POST" ["complete"] = do
-        rr <- getRequest
-        (posts, _) <- lift $ reqRequestBody rr
+        (posts, _) <- runRequestBody
         completeHelper posts
     dispatch _ _ = notFound
 

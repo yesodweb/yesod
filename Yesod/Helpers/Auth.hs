@@ -37,6 +37,7 @@ import Text.Hamlet (hamlet)
 import Data.Text.Lazy (pack)
 import Data.JSON.Types (Value (..), Atom (AtomBoolean))
 import qualified Data.Map as Map
+import Control.Monad.Trans.Class (lift)
 
 data Auth = Auth
 
@@ -81,7 +82,7 @@ class Yesod m => YesodAuth m where
     loginHandler :: GHandler Auth m RepHtml
     loginHandler = defaultLayout $ do
         setTitle $ string "Login"
-        tm <- liftHandler getRouteToMaster
+        tm <- lift getRouteToMaster
         mapM_ (flip apLogin tm) authPlugins
 
     ----- Message strings. In theory in the future make this localizable
