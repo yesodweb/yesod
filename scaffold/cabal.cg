@@ -16,41 +16,35 @@ Flag production
     Description:   Build the production executable.
     Default:       False
 
-executable         simple-server
+executable         ~project~-test
     if flag(production)
         Buildable: False
-    main-is:       simple-server.hs
+    main-is:       test.hs
     build-depends: base         >= 4       && < 5
-                 , yesod        >= 0.6     && < 0.7
-                 , yesod-auth   >= 0.2     && < 0.3
-                 , mime-mail    >= 0.0     && < 0.1
+                 , yesod        >= 0.7     && < 0.8
+                 , yesod-auth
+                 , yesod-static
+                 , mime-mail
                  , wai-extra
                  , directory
                  , bytestring
                  , text
-                 , persistent   >= 0.3.1.1
+                 , persistent
                  , persistent-~lower~
                  , template-haskell
                  , hamlet
                  , web-routes
-                 , hjsmin       >= 0.0.4   && < 0.1
+                 , hjsmin
+                 , transformers
+                 , warp
     ghc-options:   -Wall -threaded
 
-executable         devel-server
-    if flag(production)
-        Buildable: False
-    else
-        build-depends: wai-handler-devel >= 0.1.0 && < 0.2
-    main-is:       devel-server.hs
-    ghc-options:   -Wall -O2 -threaded
-
-executable         fastcgi
+executable         ~project~-production
     if flag(production)
         Buildable: True
-        build-depends: wai-handler-fastcgi >= 0.2.2 && < 0.3
     else
         Buildable: False
     cpp-options:   -DPRODUCTION
-    main-is:       fastcgi.hs
+    main-is:       production.hs
     ghc-options:   -Wall -threaded
 

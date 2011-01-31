@@ -1,4 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Controller
     ( with~sitearg~
@@ -9,6 +11,7 @@ import Settings
 import Yesod.Helpers.Static
 import Yesod.Helpers.Auth
 import Database.Persist.GenericSql
+import Data.ByteString (ByteString)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -24,7 +27,7 @@ getFaviconR :: Handler ()
 getFaviconR = sendFile "image/x-icon" "favicon.ico"
 
 getRobotsR :: Handler RepPlain
-getRobotsR = return $ RepPlain $ toContent "User-agent: *"
+getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 
 -- This function allocates resources (such as a database connection pool),
 -- performs initialization and creates a WAI application. This is also the
@@ -36,5 +39,5 @@ with~sitearg~ f = Settings.withConnectionPool $ \p -> do
     let h = ~sitearg~ s p
     toWaiApp h >>= f
   where
-    s = fileLookupDir Settings.staticdir typeByExt
+    s = static Settings.staticdir
 

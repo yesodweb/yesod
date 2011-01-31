@@ -1,10 +1,10 @@
 !!!
-%html
-    %head
-        %title $pageTitle.pc$
-        ^pageHead.pc^
-    %body
-        $maybe mmsg msg
-            #message $msg$
-        ^pageBody.pc^
+<html
+    <head
+        <title>#{pageTitle pc}
+        ^{pageHead pc}
+    <body
+        $maybe msg <- mmsg
+            <div #message>#{msg}
+        ^{pageBody pc}
 

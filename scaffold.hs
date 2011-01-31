@@ -63,8 +63,8 @@ main = do
     mkDir "cassius"
     mkDir "julius"
 
-    writeFile' "simple-server.hs" $(codegen "simple-server_hs")
-    writeFile' "fastcgi.hs" $(codegen "fastcgi_hs")
+    writeFile' "test.hs" $(codegen "test_hs")
+    writeFile' "production.hs" $(codegen "production_hs")
     writeFile' "devel-server.hs" $(codegen "devel-server_hs")
     writeFile' (project ++ ".cabal") $(codegen "cabal")
     writeFile' "LICENSE" $(codegen "LICENSE")
