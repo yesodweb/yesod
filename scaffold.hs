@@ -18,6 +18,15 @@ qq = ""
 qq = "$"
 #endif
 
+prompt :: (String -> Bool) -> IO String
+prompt f = do
+    s <- getLine
+    if f s
+        then return s
+        else do
+            putStrLn "That was not a valid entry, please try again: "
+            prompt f
+
 main :: IO ()
 main = do
     putStr $(codegen "welcome")
@@ -26,7 +35,14 @@ main = do
 
     putStr $(codegen "project-name")
     hFlush stdout
-    project <- getLine
+    let validPN c
+            | 'A' <= c && c <= 'Z' = True
+            | 'a' <= c && c <= 'z' = True
+            | '0' <= c && c <= '9' = True
+        validPN '-' = True
+        validPN '_' = True
+        validPN _ = False
+    project <- prompt $ all validPN
 
     putStr $(codegen "dir-name")
     hFlush stdout
@@ -35,11 +51,12 @@ main = do
 
     putStr $(codegen "site-arg")
     hFlush stdout
-    sitearg <- getLine
+    let isUpperAZ c = 'A' <= c && c <= 'Z'
+    sitearg <- prompt $ \s -> not (null s) && all validPN s && isUpperAZ (head s)
 
     putStr $(codegen "database")
     hFlush stdout
-    backendS <- getLine
+    backendS <- prompt $ flip elem ["s", "p"]
     let pconn1 = $(codegen "pconn1")
     let pconn2 = $(codegen "pconn2")
     let (lower, upper, connstr1, connstr2) =
