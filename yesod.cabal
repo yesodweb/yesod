@@ -36,6 +36,8 @@ library
                    , warp                      >= 0.3      && < 0.4
                    , mime-mail                 >= 0.1      && < 0.2
                    , hjsmin                    >= 0.0.12   && < 0.1
+                   , wai-handler-devel         >= 0.2      && < 0.3
+                   , attoparsec-text           >= 0.8      && < 0.9
     exposed-modules: Yesod
     ghc-options:     -Wall
 
