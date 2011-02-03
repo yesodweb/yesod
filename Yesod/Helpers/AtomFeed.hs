@@ -26,6 +26,8 @@ import Yesod.Content
 import Yesod.Handler
 import Yesod.Widget
 import Yesod.Helpers.Feed
+import Text.Hamlet (Hamlet, xhamlet, hamlet, cdata)
+import qualified Data.ByteString.Char8 as S8
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
@@ -42,14 +44,14 @@ template arg =
                 [$xhamlet|
 #endif
 \<?xml version="1.0" encoding="utf-8"?>
-%feed!xmlns="http://www.w3.org/2005/Atom"
-    %title $feedTitle.arg$
-    %link!rel=self!href=@feedLinkSelf.arg@
-    %link!href=@feedLinkHome.arg@
-    %updated $formatW3.feedUpdated.arg$
-    %id @feedLinkHome.arg@
-    $forall feedEntries.arg entry
-        ^entryTemplate.entry^
+<feed xmlns="http://www.w3.org/2005/Atom"
+    <title>#{feedTitle arg}
+    <link rel=self href=@{feedLinkSelf arg}
+    <link href=@{feedLinkHome arg}
+    <updated>#{formatW3 $ feedUpdated arg}
+    <id>@{feedLinkHome arg}
+    $forall entry <- feedEntries arg
+        ^{entryTemplate entry}
 |]
 
 entryTemplate :: FeedEntry url -> Hamlet url
@@ -59,12 +61,12 @@ entryTemplate arg =
 #else
                 [$xhamlet|
 #endif
-%entry
-    %id @feedEntryLink.arg@
-    %link!href=@feedEntryLink.arg@
-    %updated $formatW3.feedEntryUpdated.arg$
-    %title $feedEntryTitle.arg$
-    %content!type=html $cdata.feedEntryContent.arg$
+<entry
+    <id>@{feedEntryLink arg}
+    <link href=@{feedEntryLink arg}
+    <updated>#{formatW3 $ feedEntryUpdated arg}
+    <title>#{feedEntryTitle arg}
+    <content type=html>#{cdata $ feedEntryContent arg}
 |]
 
 -- | Generates a link tag in the head of a widget.
@@ -77,5 +79,5 @@ atomLink u title = addHamletHead
 #else
                 [$hamlet|
 #endif
-%link!href=@u@!type=$typeAtom$!rel="alternate"!title=$title$
+<link href=@{u} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}
 |]

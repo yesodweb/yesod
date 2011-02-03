@@ -22,6 +22,8 @@ import Yesod.Handler
 import Yesod.Content
 import Yesod.Widget
 import Yesod.Helpers.Feed
+import Text.Hamlet (Hamlet, xhamlet, hamlet)
+import qualified Data.ByteString.Char8 as S8
 
 newtype RepRss = RepRss Content
 instance HasReps RepRss where
@@ -39,18 +41,17 @@ template arg =
     [$xhamlet|
 #endif
     \<?xml version="1.0" encoding="utf-8"?> 
-    %rss!version="2.0"!xmlns:atom="http://www.w3.org/2005/Atom"
+    <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"
+        <channel
+            <atom:link href=@{feedLinkSelf arg} rel="self" type=#{S8.unpack typeRss}
+            <title>        #{feedTitle arg}
+            <link>         @{feedLinkHome arg}
+            <description>  #{feedDescription arg}
+            <lastBuildDate>#{formatRFC822 $ feedUpdated arg}
+            <language>     #{feedLanguage arg}
 
-        %channel
-            %atom:link!href=@feedLinkSelf.arg@!rel="self"!type=$typeRss$
-            %title         $feedTitle.arg$
-            %link          @feedLinkHome.arg@
-            %description   $feedDescription.arg$
-            %lastBuildDate $formatRFC822.feedUpdated.arg$
-            %language      $feedLanguage.arg$
-
-            $forall feedEntries.arg entry
-                ^entryTemplate.entry^
+            $forall entry <- feedEntries arg
+                ^{entryTemplate entry}
     |]
 
 entryTemplate :: FeedEntry url -> Hamlet url
@@ -60,12 +61,12 @@ entryTemplate arg =
 #else
     [$xhamlet|
 #endif
-    %item
-        %title       $feedEntryTitle.arg$
-        %link        @feedEntryLink.arg@
-        %guid        @feedEntryLink.arg@
-        %pubDate     $formatRFC822.feedEntryUpdated.arg$
-        %description $feedEntryContent.arg$
+    <item
+        <title>      #{feedEntryTitle arg}
+        <link>       @{feedEntryLink arg}
+        <guid>       @{feedEntryLink arg}
+        <pubDate>    #{formatRFC822 $ feedEntryUpdated arg}
+        <description>#{feedEntryContent arg}
     |]
 
 -- | Generates a link tag in the head of a widget.
@@ -78,5 +79,5 @@ rssLink u title = addHamletHead
 #else
     [$hamlet|
 #endif
-    %link!href=@u@!type=$typeRss$!rel="alternate"!title=$title$
+    <link href=@{u} type=#{S8.unpack typeRss} rel="alternate" title=#{title}
     |]
