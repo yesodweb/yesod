@@ -16,6 +16,8 @@ library
                    , yesod-core                >= 0.7      && < 0.8
                    , json-enumerator           >= 0.0      && < 0.1
                    , json-types                >= 0.1      && < 0.2
+                   , containers                >= 0.2      && < 0.5
+                   , text                      >= 0.8      && < 0.12
     exposed-modules: Yesod.Json
     ghc-options:     -Wall
 
