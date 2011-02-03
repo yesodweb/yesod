@@ -348,9 +348,10 @@ runHandler :: HasReps c
            -> YesodApp
 runHandler handler mrender sroute tomr ma sa =
   YesodApp $ \eh rr cts initSession -> do
-    let toErrorHandler =
-            InternalError
-          . (show :: Control.Exception.SomeException -> String)
+    let toErrorHandler e =
+            case fromException e of
+                Just x -> x
+                Nothing -> InternalError $ show e
     let hd = HandlerData
             { handlerRequest = rr
             , handlerSub = sa

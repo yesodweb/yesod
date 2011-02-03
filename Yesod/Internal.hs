@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 -- | Normal users should never need access to these.
 module Yesod.Internal
     ( -- * Error responses
@@ -46,6 +47,8 @@ import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 
 import qualified Network.Wai as W
+import Data.Typeable (Typeable)
+import Control.Exception (Exception)
 
 #if GHC7
 #define HAMLET hamlet
@@ -61,7 +64,8 @@ data ErrorResponse =
     | InvalidArgs [String]
     | PermissionDenied String
     | BadMethod String
-    deriving (Show, Eq)
+    deriving (Show, Eq, Typeable)
+instance Exception ErrorResponse
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.
