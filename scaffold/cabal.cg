@@ -54,5 +54,5 @@ executable         ~project~-devel
     else
         build-depends: wai-handler-devel >= 0.2 && < 0.3
     main-is:       devel-server.hs
-    ghc-options:   -Wall -O2
+    ghc-options:   -Wall -O2 -threaded
 
