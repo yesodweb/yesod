@@ -186,16 +186,17 @@ handlerSubDataMaybe tm ts route hd = hd
 toMasterHandler :: (Route sub -> Route master)
                 -> (master -> sub)
                 -> Route sub
-                -> GHandler sub master a
-                -> GHandler sub' master a
+                -> GGHandler sub master mo a
+                -> GGHandler sub' master mo a
 toMasterHandler tm ts route (GHandler h) =
     GHandler $ withReaderT (handlerSubData tm ts route) h
 
-toMasterHandlerDyn :: (Route sub -> Route master)
-                   -> GHandler sub' master sub
+toMasterHandlerDyn :: Monad mo
+                   => (Route sub -> Route master)
+                   -> GGHandler sub' master mo sub
                    -> Route sub
-                   -> GHandler sub master a
-                   -> GHandler sub' master a
+                   -> GGHandler sub master mo a
+                   -> GGHandler sub' master mo a
 toMasterHandlerDyn tm getSub route (GHandler h) = do
     sub <- getSub
     GHandler $ withReaderT (handlerSubData tm (const sub) route) h
@@ -217,8 +218,8 @@ instance (anySub ~ anySub'
 toMasterHandlerMaybe :: (Route sub -> Route master)
                      -> (master -> sub)
                      -> Maybe (Route sub)
-                     -> GHandler sub master a
-                     -> GHandler sub' master a
+                     -> GGHandler sub master mo a
+                     -> GGHandler sub' master mo a
 toMasterHandlerMaybe tm ts route (GHandler h) =
     GHandler $ withReaderT (handlerSubDataMaybe tm ts route) h
 
@@ -285,7 +286,7 @@ instance Error HandlerContents where
 
 instance Monad monad => Failure ErrorResponse (GGHandler sub master monad) where
     failure = GHandler . lift . throwError . HCError
-instance RequestReader (GHandler sub master) where
+instance RequestReader (GHandler sub master) where -- FIXME kill this typeclass, does not work for GGHandler
     getRequest = handlerRequest <$> GHandler ask
     runRequestBody = do
         x <- GHandler $ lift $ lift $ lift get
@@ -419,18 +420,19 @@ safeEh er = YesodApp $ \_ _ _ session -> do
         session
 
 -- | Redirect to the given route.
-redirect :: RedirectType -> Route master -> GHandler sub master a
+redirect :: Monad mo => RedirectType -> Route master -> GGHandler sub master mo a
 redirect rt url = redirectParams rt url []
 
 -- | Redirects to the given route with the associated query-string parameters.
-redirectParams :: RedirectType -> Route master -> [(String, String)]
-               -> GHandler sub master a
+redirectParams :: Monad mo
+               => RedirectType -> Route master -> [(String, String)]
+               -> GGHandler sub master mo a
 redirectParams rt url params = do
     r <- getUrlRenderParams
     redirectString rt $ S8.pack $ r url params
 
 -- | Redirect to the given URL.
-redirectString :: RedirectType -> ByteString -> GHandler sub master a
+redirectString :: Monad mo => RedirectType -> ByteString -> GGHandler sub master mo a
 redirectString rt = GHandler . lift . throwError . HCRedirect rt
 
 ultDestKey :: String
@@ -440,27 +442,27 @@ ultDestKey = "_ULT"
 --
 -- An ultimate destination is stored in the user session and can be loaded
 -- later by 'redirectUltDest'.
-setUltDest :: Route master -> GHandler sub master ()
+setUltDest :: Monad mo => Route master -> GGHandler sub master mo ()
 setUltDest dest = do
     render <- getUrlRender
     setUltDestString $ render dest
 
 -- | Same as 'setUltDest', but use the given string.
-setUltDestString :: String -> GHandler sub master ()
+setUltDestString :: Monad mo => String -> GGHandler sub master mo ()
 setUltDestString = setSession ultDestKey
 
 -- | Same as 'setUltDest', but uses the current page.
 --
 -- If this is a 404 handler, there is no current page, and then this call does
 -- nothing.
-setUltDest' :: GHandler sub master ()
+setUltDest' :: Monad mo => GGHandler sub master mo ()
 setUltDest' = do
     route <- getCurrentRoute
     case route of
         Nothing -> return ()
         Just r -> do
             tm <- getRouteToMaster
-            gets' <- reqGetParams <$> getRequest
+            gets' <- reqGetParams `liftM` handlerRequest `liftM` GHandler ask
             render <- getUrlRenderParams
             setUltDestString $ render (tm r) gets'
 
@@ -468,9 +470,10 @@ setUltDest' = do
 -- value from the session.
 --
 -- The ultimate destination is set with 'setUltDest'.
-redirectUltDest :: RedirectType
+redirectUltDest :: Monad mo
+                => RedirectType
                 -> Route master -- ^ default destination if nothing in session
-                -> GHandler sub master ()
+                -> GGHandler sub master mo ()
 redirectUltDest rt def = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
@@ -482,16 +485,16 @@ msgKey = "_MSG"
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessage :: Html -> GHandler sub master ()
+setMessage :: Monad mo => Html -> GGHandler sub master mo ()
 setMessage = setSession msgKey . lbsToChars . renderHtml
 
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.
 --
 -- See 'setMessage'.
-getMessage :: GHandler sub master (Maybe Html)
+getMessage :: Monad mo => GGHandler sub master mo (Maybe Html)
 getMessage = do
-    mmsg <- fmap (fmap preEscapedString) $ lookupSession msgKey
+    mmsg <- liftM (fmap preEscapedString) $ lookupSession msgKey
     deleteSession msgKey
     return mmsg
 
@@ -499,24 +502,24 @@ getMessage = do
 --
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
-sendFile :: ContentType -> FilePath -> GHandler sub master a
+sendFile :: Monad mo => ContentType -> FilePath -> GGHandler sub master mo a
 sendFile ct = GHandler . lift . throwError . HCSendFile ct
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
-sendResponse :: HasReps c => c -> GHandler sub master a
+sendResponse :: (Monad mo, HasReps c) => c -> GGHandler sub master mo a
 sendResponse = GHandler . lift . throwError . HCContent W.status200
              . chooseRep
 
 -- | Bypass remaining handler code and output the given content with the given
 -- status code.
-sendResponseStatus :: HasReps c => W.Status -> c -> GHandler s m a
+sendResponseStatus :: (Monad mo, HasReps c) => W.Status -> c -> GGHandler s m mo a
 sendResponseStatus s = GHandler . lift . throwError . HCContent s
                      . chooseRep
 
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
-sendResponseCreated :: Route m -> GHandler s m a
+sendResponseCreated :: Monad mo => Route m -> GGHandler s m mo a
 sendResponseCreated url = do
     r <- getUrlRender
     GHandler $ lift $ throwError $ HCCreated $ S8.pack $ r url
@@ -526,7 +529,7 @@ sendResponseCreated url = do
 -- that you have already specified. This function short-circuits. It should be
 -- considered only for very specific needs. If you are not sure if you need it,
 -- you don't.
-sendWaiResponse :: W.Response -> GHandler s m b
+sendWaiResponse :: Monad mo => W.Response -> GGHandler s m mo b
 sendWaiResponse = GHandler . lift . throwError . HCWai
 
 -- | Return a 404 not found page. Also denotes no handler available.
@@ -549,28 +552,30 @@ invalidArgs = failure . InvalidArgs
 
 ------- Headers
 -- | Set the cookie on the client.
-setCookie :: Int -- ^ minutes to timeout
+setCookie :: Monad mo
+          => Int -- ^ minutes to timeout
           -> ByteString -- ^ key
           -> ByteString -- ^ value
-          -> GHandler sub master ()
+          -> GGHandler sub master mo ()
 setCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
-deleteCookie :: ByteString -> GHandler sub master ()
+deleteCookie :: Monad mo => ByteString -> GGHandler sub master mo ()
 deleteCookie = addHeader . DeleteCookie
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
-setLanguage :: String -> GHandler sub master ()
+setLanguage :: Monad mo => String -> GGHandler sub master mo ()
 setLanguage = setSession langKey
 
 -- | Set an arbitrary response header.
-setHeader :: W.ResponseHeader -> ByteString -> GHandler sub master ()
+setHeader :: Monad mo
+          => W.ResponseHeader -> ByteString -> GGHandler sub master mo ()
 setHeader a = addHeader . Header a
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
-cacheSeconds :: Int -> GHandler s m ()
+cacheSeconds :: Monad mo => Int -> GGHandler s m mo ()
 cacheSeconds i = setHeader "Cache-Control" $ S8.pack $ concat
     [ "max-age="
     , show i
@@ -579,16 +584,16 @@ cacheSeconds i = setHeader "Cache-Control" $ S8.pack $ concat
 
 -- | Set the Expires header to some date in 2037. In other words, this content
 -- is never (realistically) expired.
-neverExpires :: GHandler s m ()
+neverExpires :: Monad mo => GGHandler s m mo ()
 neverExpires = setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
 
 -- | Set an Expires header in the past, meaning this content should not be
 -- cached.
-alreadyExpired :: GHandler s m ()
+alreadyExpired :: Monad mo => GGHandler s m mo ()
 alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
-expiresAt :: UTCTime -> GHandler s m ()
+expiresAt :: Monad mo => UTCTime -> GGHandler s m mo ()
 expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
 
 -- | Set a variable in the user's session.
@@ -596,20 +601,21 @@ expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
 -- The session is handled by the clientsession package: it sets an encrypted
 -- and hashed cookie on the client. This ensures that all data is secure and
 -- not tampered with.
-setSession :: String -- ^ key
+setSession :: Monad mo
+           => String -- ^ key
            -> String -- ^ value
-           -> GHandler sub master ()
+           -> GGHandler sub master mo ()
 setSession k = GHandler . lift . lift . lift . modify . modSession . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
-deleteSession :: String -> GHandler sub master ()
+deleteSession :: Monad mo => String -> GGHandler sub master mo ()
 deleteSession = GHandler . lift . lift . lift . modify . modSession . Map.delete
 
 modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
 modSession f x = x { ghsSession = f $ ghsSession x }
 
 -- | Internal use only, not to be confused with 'setHeader'.
-addHeader :: Header -> GHandler sub master ()
+addHeader :: Monad mo => Header -> GGHandler sub master mo ()
 addHeader = GHandler . lift . lift . tell . (:)
 
 getStatus :: ErrorResponse -> W.Status
@@ -630,19 +636,19 @@ data RedirectType = RedirectPermanent
                   | RedirectSeeOther
     deriving (Show, Eq)
 
-localNoCurrent :: GHandler s m a -> GHandler s m a
+localNoCurrent :: Monad mo => GGHandler s m mo a -> GGHandler s m mo a
 localNoCurrent =
     GHandler . local (\hd -> hd { handlerRoute = Nothing }) . unGHandler
 
 -- | Lookup for session data.
-lookupSession :: ParamName -> GHandler s m (Maybe ParamValue)
+lookupSession :: Monad mo => ParamName -> GGHandler s m mo (Maybe ParamValue)
 lookupSession n = GHandler $ do
-    m <- fmap ghsSession $ lift $ lift $ lift get
+    m <- liftM ghsSession $ lift $ lift $ lift get
     return $ Map.lookup n m
 
 -- | Get all session variables.
-getSession :: GHandler s m SessionMap
-getSession = fmap ghsSession $ GHandler $ lift $ lift $ lift get
+getSession :: Monad mo => GGHandler s m mo SessionMap
+getSession = liftM ghsSession $ GHandler $ lift $ lift $ lift get
 
 #if TEST
 
@@ -761,7 +767,7 @@ instance MonadTransPeel (GGHandler s m) where
 -- POST form, and some Javascript to automatically submit the form. This can be
 -- useful when you need to post a plain link somewhere that needs to cause
 -- changes on the server.
-redirectToPost :: Route master -> GHandler sub master a
+redirectToPost :: Monad mo => Route master -> GGHandler sub master mo a
 redirectToPost dest = hamletToRepHtml
 #if GHC7
             [hamlet|
@@ -782,11 +788,13 @@ redirectToPost dest = hamletToRepHtml
 
 -- | Converts the given Hamlet template into 'Content', which can be used in a
 -- Yesod 'Response'.
-hamletToContent :: Hamlet (Route master) -> GHandler sub master Content
+hamletToContent :: Monad mo
+                => Hamlet (Route master) -> GGHandler sub master mo Content
 hamletToContent h = do
     render <- getUrlRenderParams
     return $ toContent $ h render
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-hamletToRepHtml :: Hamlet (Route master) -> GHandler sub master RepHtml
-hamletToRepHtml = fmap RepHtml . hamletToContent
+hamletToRepHtml :: Monad mo
+                => Hamlet (Route master) -> GGHandler sub master mo RepHtml
+hamletToRepHtml = liftM RepHtml . hamletToContent
