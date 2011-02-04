@@ -19,22 +19,23 @@ module Yesod.Helpers.AtomFeed
     ( atomFeed
     , atomLink
     , RepAtom (..)
-    , module Yesod.Helpers.Feed
+    , module Yesod.Helpers.FeedTypes
     ) where
 
 import Yesod.Content
 import Yesod.Handler
 import Yesod.Widget
-import Yesod.Helpers.Feed
+import Yesod.Helpers.FeedTypes
 import Text.Hamlet (Hamlet, xhamlet, hamlet, cdata)
 import qualified Data.ByteString.Char8 as S8
+import Control.Monad (liftM)
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
     chooseRep (RepAtom c) _ = return (typeAtom, c)
 
-atomFeed :: Feed (Route master) -> GHandler sub master RepAtom
-atomFeed = fmap RepAtom . hamletToContent . template
+atomFeed :: Monad mo => Feed (Route master) -> GGHandler sub master mo RepAtom
+atomFeed = liftM RepAtom . hamletToContent . template
 
 template :: Feed url -> Hamlet url
 template arg =

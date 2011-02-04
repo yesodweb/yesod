@@ -20,6 +20,7 @@ library
     exposed-modules: Yesod.Helpers.AtomFeed
                    , Yesod.Helpers.RssFeed
                    , Yesod.Helpers.Feed
+    other-modules:   Yesod.Helpers.FeedTypes
     ghc-options:     -Wall
 
 source-repository head

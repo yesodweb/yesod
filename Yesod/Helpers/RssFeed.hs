@@ -15,23 +15,24 @@ module Yesod.Helpers.RssFeed
     ( rssFeed
     , rssLink
     , RepRss (..)
-    , module Yesod.Helpers.Feed
+    , module Yesod.Helpers.FeedTypes
     ) where
 
 import Yesod.Handler
 import Yesod.Content
 import Yesod.Widget
-import Yesod.Helpers.Feed
+import Yesod.Helpers.FeedTypes
 import Text.Hamlet (Hamlet, xhamlet, hamlet)
 import qualified Data.ByteString.Char8 as S8
+import Control.Monad (liftM)
 
 newtype RepRss = RepRss Content
 instance HasReps RepRss where
     chooseRep (RepRss c) _ = return (typeRss, c)
 
 -- | Generate the feed
-rssFeed :: Feed (Route master) -> GHandler sub master RepRss
-rssFeed = fmap RepRss . hamletToContent . template
+rssFeed :: Monad mo => Feed (Route master) -> GGHandler sub master mo RepRss
+rssFeed = liftM RepRss . hamletToContent . template
 
 template :: Feed url -> Hamlet url
 template arg = 

@@ -16,35 +16,25 @@
 --
 -------------------------------------------------------------------------------
 module Yesod.Helpers.Feed
-    ( Feed(..)
-    , FeedEntry(..)
+    ( newsFeed
+    , RepAtomRss (..)
+    , module Yesod.Helpers.FeedTypes
     ) where
 
-import Text.Hamlet      (Html)
-import Data.Time.Clock  (UTCTime)
+import Yesod.Helpers.FeedTypes
+import Yesod.Helpers.AtomFeed
+import Yesod.Helpers.RssFeed
+import Yesod.Content (HasReps (chooseRep), typeAtom, typeRss)
+import Yesod.Handler (Route, GGHandler)
 
--- | The overal feed
-data Feed url = Feed
-    { feedTitle       :: String
-    , feedLinkSelf    :: url
-    , feedLinkHome    :: url
-
-
-    -- | note: currently only used for Rss
-    , feedDescription :: Html
-
-    -- | note: currently only used for Rss, possible values: 
-    --   <http://www.rssboard.org/rss-language-codes>
-    , feedLanguage    :: String
-
-    , feedUpdated     :: UTCTime
-    , feedEntries     :: [FeedEntry url]
-    }
-
--- | Each feed entry
-data FeedEntry url = FeedEntry
-    { feedEntryLink    :: url
-    , feedEntryUpdated :: UTCTime
-    , feedEntryTitle   :: String
-    , feedEntryContent :: Html
-    }
+data RepAtomRss = RepAtomRss RepAtom RepRss
+instance HasReps RepAtomRss where
+    chooseRep (RepAtomRss (RepAtom a) (RepRss r)) = chooseRep
+        [ (typeAtom, a)
+        , (typeRss, r)
+        ]
+newsFeed :: Monad mo => Feed (Route master) -> GGHandler sub master mo RepAtomRss
+newsFeed f = do
+    a <- atomFeed f
+    r <- rssFeed f
+    return $ RepAtomRss a r
