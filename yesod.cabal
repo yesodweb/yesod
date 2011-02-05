@@ -16,13 +16,16 @@ build-type:      Simple
 homepage:        http://docs.yesodweb.com/
 extra-source-files: scaffold/*.cg
 
-flag test
-  description: Build the executable to run unit tests
-  default: False
+flag ghc7
 
 library
-    build-depends:   base                      >= 4        && < 5
-                   , yesod-core                >= 0.7      && < 0.8
+    if flag(ghc7)
+        build-depends:   base                  >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base                  >= 4        && < 4.3
+                       , wai-handler-devel     >= 0.2      && < 0.3
+    build-depends:   yesod-core                >= 0.7      && < 0.8
                    , yesod-auth                >= 0.3      && < 0.4
                    , yesod-json                >= 0.0      && < 0.1
                    , yesod-persistent          >= 0.0      && < 0.1
@@ -36,12 +39,16 @@ library
                    , warp                      >= 0.3      && < 0.4
                    , mime-mail                 >= 0.1      && < 0.2
                    , hjsmin                    >= 0.0.12   && < 0.1
-                   , wai-handler-devel         >= 0.2      && < 0.3
                    , attoparsec-text           >= 0.8      && < 0.9
     exposed-modules: Yesod
     ghc-options:     -Wall
 
 executable             yesod
+    if flag(ghc7)
+        build-depends:   base                  >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base                  >= 4        && < 4.3
     build-depends:     parsec             >= 2.1          && < 4
                      , text               >= 0.11         && < 0.12
                      , bytestring         >= 0.9          && < 0.10
@@ -52,6 +59,8 @@ executable             yesod
     main-is:           scaffold.hs
     other-modules:     CodeGen
     extensions:        TemplateHaskell
+    if flag(ghc7)
+        cpp-options:     -DGHC7
 
 source-repository head
   type:     git
