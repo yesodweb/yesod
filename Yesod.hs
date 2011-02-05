@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 -- | This module simply re-exports from other modules for your convenience.
 module Yesod
     ( -- * Re-exports from yesod-core
@@ -59,7 +60,9 @@ import Yesod.Json
 import Yesod.Persist
 import Network.Wai (Application)
 import Network.Wai.Middleware.Debug
+#if !GHC7
 import Network.Wai.Handler.DevelServer (runQuit)
+#endif
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.IO.Peel (MonadPeelIO)
@@ -100,6 +103,9 @@ develServer :: Int -- ^ port number
             -> String -- ^ module name holding the code
             -> String -- ^ name of function providing a with-application
             -> IO ()
+#if GHC7
+develServer = error "Unfortunately, the hint package has not yet been ported to GHC 7, and therefore wai-handler-devel has not either. Once this situation is addressed, a new version of Yesod will be released."
+#else
 develServer port modu func = do
     mapM_ putStrLn
         [ "Starting your server process. Code changes will be automatically"
@@ -108,6 +114,7 @@ develServer port modu func = do
         , ""
         ]
     runQuit port modu func determineHamletDeps
+#endif
 
 data TempType = Hamlet | Cassius | Julius | Widget
     deriving Show
