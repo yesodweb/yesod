@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 -------------------------------------------------------------------------------
 -- |
 -- Module      :  Yesod.Helpers.Auth.HashDB
@@ -78,7 +80,12 @@ sha1String :: String -> String
 sha1String = showDigest . sha1 . pack
 
 -- | Generate data base instances for a valid user
-share2 mkPersist (mkMigrate "migrateUsers") [$persist|
+share2 mkPersist (mkMigrate "migrateUsers")
+#if GHC7
+            [persist|
+#else
+            [$persist|
+#endif
 User
     username String Eq
     password String
@@ -116,7 +123,13 @@ postLoginR = do
     if isValid
         then setCreds True $ Creds "hashdb" user []
         else do
-            setMessage $ [$hamlet| <em>invalid username/password 
+            setMessage
+#if GHC7
+                [hamlet|
+#else
+                [$hamlet|
+#endif
+    <em>invalid username/password
 |]
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster LoginR
@@ -141,7 +154,13 @@ getAuthIdHashDB authR creds = do
                 -- user exists
                 Just (uid, _) -> return $ Just uid
                 Nothing       -> do
-                    setMessage $ [$hamlet| <em>user not found 
+                    setMessage
+#if GHC7
+                        [hamlet|
+#else
+                        [$hamlet|
+#endif
+    <em>user not found
 |]
                     redirect RedirectTemporary $ authR LoginR
 
@@ -152,7 +171,11 @@ authHashDB :: (YesodAuth y,
                PersistBackend (YesodDB y (GGHandler Auth y IO)))
            => AuthPlugin y
 authHashDB = AuthPlugin "hashdb" dispatch $ \tm ->
-    [$hamlet|\
+#if GHC7
+    [hamlet|
+#else
+    [$hamlet|
+#endif
     <div id="header">
         <h1>Login
 \
