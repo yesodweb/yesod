@@ -179,9 +179,9 @@ class RenderRoute (Route a) => Yesod a where
     authRoute :: a -> Maybe (Route a)
     authRoute _ = Nothing
 
-    -- | A function used to clean up path segments. It returns 'Nothing' when
-    -- the given path is already clean, and a 'Just' when Yesod should redirect
-    -- to the given path pieces.
+    -- | A function used to clean up path segments. It returns 'Right' with a
+    -- clean path or 'Left' with a new set of pieces the user should be
+    -- redirected to. The default implementation enforces:
     --
     -- * No double slashes
     --
@@ -189,11 +189,11 @@ class RenderRoute (Route a) => Yesod a where
     --
     -- Note that versions of Yesod prior to 0.7 used a different set of rules
     -- involing trailing slashes.
-    cleanPath :: a -> [String] -> Maybe [String]
+    cleanPath :: a -> [String] -> Either [String] [String]
     cleanPath _ s =
         if corrected == s
-            then Nothing
-            else Just corrected
+            then Right s
+            else Left corrected
       where
         corrected = filter (not . null) s
 

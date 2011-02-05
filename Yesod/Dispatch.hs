@@ -189,11 +189,11 @@ toWaiApp' y key' env = do
         Just app -> app env
         Nothing ->
             case cleanPath y segments of
-                Nothing ->
-                    case yesodDispatch y key' segments y id of
+                Right segments' ->
+                    case yesodDispatch y key' segments' y id of
                         Just app -> app env
                         Nothing -> yesodRunner y y id key' Nothing notFound env
-                Just segments' ->
+                Left segments' ->
                     let dest = joinPath y (approot y) segments' []
                         dest' =
                             if S.null (W.queryString env)
