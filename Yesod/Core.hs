@@ -239,9 +239,8 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
     now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration master
-    -- FIXME will show remoteHost give the answer I need? will it include port
-    -- information that changes on each request?
-    let host = if sessionIpAddress master then S8.pack (show (W.remoteHost req)) else ""
+    let rh = takeWhile (/= ':') $ show $ W.remoteHost req
+    let host = if sessionIpAddress master then S8.pack rh else ""
     let session' =
             case mkey of
                 Nothing -> []
