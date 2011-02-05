@@ -26,7 +26,7 @@ module Yesod.Helpers.Sitemap
 
 import Yesod.Content (RepXml (..), RepPlain (..), toContent, formatW3)
 import Yesod.Handler (Route, GHandler, getUrlRender)
-import Yesod.Widget (hamletToContent)
+import Yesod.Handler (hamletToContent)
 import Text.Hamlet (Hamlet, xhamlet)
 import Data.Time (UTCTime)
 
@@ -61,13 +61,14 @@ template urls =
 #else
                 [$xhamlet|
 #endif
-%urlset!xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-    $forall urls url
-        %url
-            %loc @sitemapLoc.url@
-            %lastmod $formatW3.sitemapLastMod.url$
-            %changefreq $showFreq.sitemapChangeFreq.url$
-            %priority $show.priority.url$
+<div id="endif">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    $forall url <- urls
+        <url>
+            <loc>@{sitemapLoc url}
+            <lastmod>#{formatW3 (sitemapLastMod url)}
+            <changefreq>#{showFreq (sitemapChangeFreq url)}
+            <priority>#{show (priority url)}
 |]
 
 sitemap :: [SitemapUrl (Route master)] -> GHandler sub master RepXml
