@@ -15,7 +15,9 @@ module Yesod
       -- * Running your application
     , warp
     , warpDebug
+#if !PRODUCTION
     , develServer
+#endif
       -- * Commonly referenced functions/datatypes
     , Application
     , lift
@@ -60,7 +62,7 @@ import Yesod.Json
 import Yesod.Persist
 import Network.Wai (Application)
 import Network.Wai.Middleware.Debug
-#if !GHC7
+#if !GHC7 && !PRODUCTION
 import Network.Wai.Handler.DevelServer (runQuit)
 #endif
 import Control.Monad.Trans.Class (lift)
@@ -97,6 +99,7 @@ warpDebug port a = do
     hPutStrLn stderr $ "Application launched, listening on port " ++ show port
     toWaiApp a >>= run port . debug
 
+#if !PRODUCTION
 -- | Run a development server, where your code changes are automatically
 -- reloaded.
 develServer :: Int -- ^ port number
@@ -114,6 +117,7 @@ develServer port modu func = do
         , ""
         ]
     runQuit port modu func determineHamletDeps
+#endif
 #endif
 
 data TempType = Hamlet | Cassius | Julius | Widget
