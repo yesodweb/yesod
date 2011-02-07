@@ -45,12 +45,16 @@ getForwardUrl openid' complete mrealm params = do
                 : ("openid.realm", realm)
                 : ("openid.trust_root", complete)
                 : params
-        Discovery2 (Provider p) (Identifier i) ->
+        Discovery2 (Provider p) (Identifier i) itype -> do
+            let i' =
+                    case itype of
+                        ClaimedIdent -> i
+                        OPIdent -> "http://specs.openid.net/auth/2.0/identifier_select"
             return $ qsUrl p
                 $ ("openid.ns", "http://specs.openid.net/auth/2.0")
                 : ("openid.mode", "checkid_setup")
-                : ("openid.claimed_id", i)
-                : ("openid.identity", i)
+                : ("openid.claimed_id", i')
+                : ("openid.identity", i')
                 : ("openid.return_to", complete)
                 : ("openid.realm", realm)
                 : params
@@ -79,7 +83,7 @@ authenticate params = do
     disc <- normalize ident >>= discover
     let endpoint = case disc of
                     Discovery1 p _ -> p
-                    Discovery2 (Provider p) _ -> p
+                    Discovery2 (Provider p) _ _ -> p
     let params' = map (BSU.fromString *** BSU.fromString)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params

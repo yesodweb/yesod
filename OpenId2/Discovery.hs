@@ -35,7 +35,7 @@ import Control.Monad (mplus, liftM)
 import Network.Wai (ciOriginal)
 
 data Discovery = Discovery1 String (Maybe String)
-               | Discovery2 Provider Identifier
+               | Discovery2 Provider Identifier IdentType
     deriving Show
 
 -- | Attempt to resolve an OpenID endpoint, and user identifier.
@@ -48,7 +48,7 @@ discover :: ( MonadIO m
 discover ident@(Identifier i) = do
     res1 <- discoverYADIS ident Nothing 10
     case res1 of
-        Just (x, y) -> return $ Discovery2 x y
+        Just (x, y, z) -> return $ Discovery2 x y z
         Nothing -> do
             res2 <- discoverHTML ident
             case res2 of
@@ -65,7 +65,7 @@ discoverYADIS :: ( MonadIO m
               => Identifier
               -> Maybe String
               -> Int -- ^ remaining redirects
-              -> m (Maybe (Provider,Identifier))
+              -> m (Maybe (Provider, Identifier, IdentType))
 discoverYADIS _ _ 0 = failure TooManyRedirects
 discoverYADIS ident mb_loc redirects = do
     let uri = fromMaybe (identifier ident) mb_loc
@@ -90,7 +90,7 @@ discoverYADIS ident mb_loc redirects = do
 
 -- | Parse out an OpenID endpoint, and actual identifier from a YADIS xml
 -- document.
-parseYADIS :: Identifier -> XRDS -> Maybe (Provider,Identifier)
+parseYADIS :: Identifier -> XRDS -> Maybe (Provider, Identifier, IdentType)
 parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
   where
   isOpenId svc = do
@@ -98,15 +98,15 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
         localId = maybe ident Identifier $ listToMaybe $ serviceLocalIDs svc
         f (x,y) | x `elem` tys = Just y
                 | otherwise    = Nothing
-    lid <- listToMaybe $ mapMaybe f
-      [ ("http://specs.openid.net/auth/2.0/server", ident)
+    (lid, itype) <- listToMaybe $ mapMaybe f
+      [ ("http://specs.openid.net/auth/2.0/server", (ident, OPIdent))
       -- claimed identifiers
-      , ("http://specs.openid.net/auth/2.0/signon", localId)
-      , ("http://openid.net/signon/1.0"           , localId)
-      , ("http://openid.net/signon/1.1"           , localId)
+      , ("http://specs.openid.net/auth/2.0/signon", (localId, ClaimedIdent))
+      , ("http://openid.net/signon/1.0"           , (localId, ClaimedIdent))
+      , ("http://openid.net/signon/1.1"           , (localId, ClaimedIdent))
       ]
     uri <- listToMaybe $ serviceURIs svc
-    return (Provider uri, lid)
+    return (Provider uri, lid, itype)
 
 
 -- HTML-Based Discovery --------------------------------------------------------
@@ -136,7 +136,9 @@ parseHTML ident = resolve
     resolve2 ls = do
       prov <- lookup "openid2.provider" ls
       let lid = maybe ident Identifier $ lookup "openid2.local_id" ls
-      return $ Discovery2 (Provider prov) lid
+      -- Based on OpenID 2.0 spec, section 7.3.3, HTML discovery can only
+      -- result in a claimed identifier.
+      return $ Discovery2 (Provider prov) lid ClaimedIdent
     resolve ls = resolve2 ls `mplus` resolve1 ls
 
 

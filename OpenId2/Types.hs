@@ -13,6 +13,7 @@
 module OpenId2.Types (
     Provider (..)
   , Identifier (..)
+  , IdentType (..)
   , AuthenticateException (..)
   ) where
 
@@ -26,4 +27,7 @@ newtype Provider = Provider { providerURI :: String } deriving (Eq,Show)
 
 -- | A valid OpenID identifier.
 newtype Identifier = Identifier { identifier :: String }
+    deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+data IdentType = OPIdent | ClaimedIdent
     deriving (Eq, Ord, Show, Read, Data, Typeable)
