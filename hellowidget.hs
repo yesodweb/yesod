@@ -53,7 +53,7 @@ getRootR = defaultLayout $ wrapper $ do
     i <- newIdent
     setTitle $ string "Hello Widgets"
     addCassius [$cassius|
-#$i$
+#{i}
     color: red
 |]
     addStylesheet $ StaticR $ StaticRoute ["style.css"] []
@@ -61,7 +61,7 @@ getRootR = defaultLayout $ wrapper $ do
     addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
     addScript $ StaticR $ StaticRoute ["script.js"] []
     addHamlet [$hamlet|
-%h1#$i$ Welcome to my first widget!!!
+%h1#{i} Welcome to my first widget!!!
 %p
     %a!href=@RootR@ Recursive link.
 %p

@@ -231,7 +231,7 @@ searchFieldProfile autoFocus = FieldProfile
           addHtml $ [HAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
 |]
           addCassius [CASSIUS|
-            #$theId$
+            #{theId}
               -webkit-appearance: textfield
             |]
     }
