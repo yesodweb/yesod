@@ -15,6 +15,7 @@ import Network.Wai.Test
 data Y = Y
 mkYesod "Y" [$parseRoutes|
 /foo FooR GET
+/foo/#String FooStringR GET
 /bar BarR GET
 |]
 
@@ -30,6 +31,7 @@ instance Yesod Y where
         corrected = filter (not . null) s
 
 getFooR = return $ RepPlain "foo"
+getFooStringR = return . RepPlain . toContent
 getBarR = return $ RepPlain "bar"
 
 cleanPathTest :: Test
@@ -38,6 +40,7 @@ cleanPathTest = testGroup "Test.CleanPath"
     , testCase "noTrailingSlash" noTrailingSlash
     , testCase "add trailing slash" addTrailingSlash
     , testCase "has trailing slash" hasTrailingSlash
+    , testCase "/foo/something" fooSomething
     ]
 
 runner f = toWaiApp Y >>= runSession f
@@ -77,3 +80,11 @@ hasTrailingSlash = runner $ do
     assertStatus 200 res
     assertContentType "text/plain; charset=utf-8" res
     assertBody "bar" res
+
+fooSomething = runner $ do
+    res <- request defaultRequest
+                { pathInfo = "/foo/something"
+                }
+    assertStatus 200 res
+    assertContentType "text/plain; charset=utf-8" res
+    assertBody "something" res

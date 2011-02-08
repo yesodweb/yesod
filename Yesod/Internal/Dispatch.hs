@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | A bunch of Template Haskell used in the Yesod.Dispatch module.
 module Yesod.Internal.Dispatch
     ( mkYesodDispatch'
@@ -17,6 +18,9 @@ import Yesod.Core (yesodRunner, yesodDispatch)
 import Data.List (foldl')
 import Data.Char (toLower)
 import qualified Data.ByteString.Char8 as S8
+import Data.ByteString.Lazy.Char8 ()
+import qualified Data.ByteString as S
+import Yesod.Core (Yesod (joinPath, approot, cleanPath))
 
 {-|
 
@@ -64,16 +68,52 @@ case segments of
 Obviously we would never want to write code by hand like this, but generating it is not too bad.
 
 This function generates a clause for the yesodDispatch function based on a set of routes.
+
+NOTE: We deal with subsites first; if none of those match, we try to apply
+cleanPath. If that indicates a redirect, we perform it. Otherwise, we match
+local routes.
+
 -}
-mkYesodDispatch' :: [((String, Pieces), Maybe String)] -> Q Clause
-mkYesodDispatch' res = do
+
+sendRedirect :: Yesod master => master -> [String] -> W.Application
+sendRedirect y segments' env =
+     return $ W.responseLBS W.status301
+            [ ("Content-Type", "text/plain")
+            , ("Location", S8.pack $ dest')
+            ] "Redirecting"
+  where
+    dest = joinPath y (approot y) segments' []
+    dest' =
+        if S.null (W.queryString env)
+            then dest
+            else dest ++ '?' : S8.unpack (W.queryString env)
+
+mkYesodDispatch' :: [((String, Pieces), Maybe String)]
+                 -> [((String, Pieces), Maybe String)]
+                 -> Q Clause
+mkYesodDispatch' resSub resLoc = do
     sub <- newName "sub"
     master <- newName "master"
     mkey <- newName "mkey"
     segments <- newName "segments"
+    segments' <- newName "segmentsClean"
     toMasterRoute <- newName "toMasterRoute"
     nothing <- [|Nothing|]
-    body <- foldM (go master (VarE sub) (VarE toMasterRoute) mkey segments) nothing res
+    bodyLoc <- foldM (go master (VarE sub) (VarE toMasterRoute) mkey segments') nothing resLoc
+    cp <- [|cleanPath|]
+    sr <- [|sendRedirect|]
+    just <- [|Just|]
+    let bodyLoc' =
+            CaseE (cp `AppE` VarE master `AppE` VarE segments)
+                [ Match (ConP (mkName "Left") [VarP segments'])
+                        (NormalB $ just `AppE`
+                           (sr `AppE` VarE master `AppE` VarE segments'))
+                        []
+                , Match (ConP (mkName "Right") [VarP segments'])
+                        (NormalB bodyLoc)
+                        []
+                ]
+    body <- foldM (go master (VarE sub) (VarE toMasterRoute) mkey segments) bodyLoc' resSub
     return $ Clause
         [VarP sub, VarP mkey, VarP segments, VarP master, VarP toMasterRoute]
         (NormalB body)

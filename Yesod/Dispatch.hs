@@ -20,6 +20,7 @@ module Yesod.Dispatch
     , toWaiAppPlain
     ) where
 
+import Data.Either (partitionEithers)
 import Prelude hiding (exp)
 import Yesod.Core
 import Yesod.Handler
@@ -35,7 +36,6 @@ import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.Gzip
 
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString as S
 import Data.ByteString.Lazy.Char8 ()
 
 import Web.ClientSession
@@ -116,7 +116,14 @@ mkYesodGeneral name args clazzes isSub res = do
                 [ FunD (mkName "renderRoute") render
                 ]
 
-    yd <- mkYesodDispatch' th'
+    let splitter :: (THResource, Maybe String)
+                 -> Either
+                        (THResource, Maybe String)
+                        (THResource, Maybe String)
+        splitter a@((_, SubSite{}), _) = Left a
+        splitter a = Right a
+    let (resSub, resLoc) = partitionEithers $ map splitter th'
+    yd <- mkYesodDispatch' resSub resLoc
     let master = mkName "master"
     let ctx = if isSub
                 then ClassP (mkName "Yesod") [VarT master] : clazzes
@@ -174,22 +181,6 @@ toWaiApp' y key' env = do
     let dropSlash ('/':x) = x
         dropSlash x = x
     let segments = decodePathInfo $ dropSlash $ B.unpack $ W.pathInfo env
-    -- FIXME cleanPath will not force redirect if yesodDispatch likes its arguments
     case yesodDispatch y key' segments y id of
         Just app -> app env
-        Nothing ->
-            case cleanPath y segments of
-                Right segments' ->
-                    case yesodDispatch y key' segments' y id of
-                        Just app -> app env
-                        Nothing -> yesodRunner y y id key' Nothing notFound env
-                Left segments' ->
-                    let dest = joinPath y (approot y) segments' []
-                        dest' =
-                            if S.null (W.queryString env)
-                                then dest
-                                else dest ++ '?' : B.unpack (W.queryString env)
-                     in return $ W.responseLBS W.status301
-                            [ ("Content-Type", "text/plain")
-                            , ("Location", B.pack $ dest')
-                            ] "Redirecting"
+        Nothing -> yesodRunner y y id key' Nothing notFound env
