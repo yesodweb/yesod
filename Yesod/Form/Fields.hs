@@ -63,6 +63,12 @@ import Data.Monoid
 import Control.Monad (join)
 import Data.Maybe (fromMaybe, isNothing)
 
+#if __GLASGOW_HASKELL__ >= 700
+#define HAMLET hamlet
+#else
+#define HAMLET $hamlet
+#endif
+
 stringField :: (IsForm f, FormType f ~ String)
             => FormFieldSettings -> Maybe String -> f
 stringField = requiredFieldHelper stringFieldProfile
@@ -141,12 +147,7 @@ boolField ffs orig = toForm $ do
             { fiLabel = string label
             , fiTooltip = tooltip
             , fiIdent = theId
-            , fiInput =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+            , fiInput = [HAMLET|
 <input id="#{theId}" type="checkbox" name="#{name}" :val:checked="">
 |]
             , fiErrors = case res of
@@ -281,12 +282,7 @@ boolInput n = GForm $ do
                 Just "" -> FormSuccess False
                 Just "false" -> FormSuccess False
                 Just _ -> FormSuccess True
-    let xml =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+    let xml = [HAMLET|
     <input id="#{n}" type="checkbox" name="#{n}">
 |]
     return (res, [xml], UrlEncoded)
@@ -401,12 +397,7 @@ maybeFileField ffs = toForm $ do
     return (res, fi, Multipart)
 
 fileWidget :: String -> String -> Bool -> GWidget s m ()
-fileWidget theId name isReq =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+fileWidget theId name isReq = [HAMLET|
 <input id="#{theId}" type="file" name="#{name}" :isReq:required="">
 |]
 
@@ -436,12 +427,7 @@ radioField pairs ffs initial = toForm $ do
             case res of
                 FormSuccess y -> x == y
                 _ -> Just x == initial
-    let input =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+    let input = [HAMLET|
 <div id="#{theId}">
    $forall pair <- pairs'
        <div>

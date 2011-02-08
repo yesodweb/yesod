@@ -64,6 +64,11 @@ import Control.Arrow ((&&&))
 import Data.List (group, sort)
 import Data.Monoid (mempty)
 
+#if __GLASGOW_HASKELL__ >= 700
+#define HAMLET hamlet
+#else
+#define HAMLET $hamlet
+#endif
 -- | Display only the actual input widget code, without any decoration.
 fieldsToPlain :: FormField sub y a -> Form sub y a
 fieldsToPlain = mapFormXml $ mapM_ fiInput
@@ -73,12 +78,7 @@ fieldsToPlain = mapFormXml $ mapM_ fiInput
 fieldsToTable :: FormField sub y a -> Form sub y a
 fieldsToTable = mapFormXml $ mapM_ go
   where
-    go fi =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+    go fi = [HAMLET|
 <tr .#{clazz fi}>
     <td>
         <label for="#{fiIdent fi}">#{fiLabel fi}
@@ -94,12 +94,7 @@ fieldsToTable = mapFormXml $ mapM_ go
 fieldsToDivs :: FormField sub y a -> Form sub y a
 fieldsToDivs = mapFormXml $ mapM_ go
   where
-    go fi =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+    go fi = [HAMLET|
 <div .#{clazz fi}>
     <label for="#{fiIdent fi}">#{fiLabel fi}
         <div .tooltip>#{fiTooltip fi}
@@ -134,12 +129,7 @@ runFormPost f = do
                 _ -> res
     return (res', xml, enctype, maybe mempty hidden nonce)
   where
-    hidden nonce =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+    hidden nonce = [HAMLET|
     <input type="hidden" name="#{nonceName}" value="#{nonce}">
 |]
 
@@ -172,12 +162,7 @@ runFormTable :: Route m -> String -> FormField s m a
              -> GHandler s m (FormResult a, GWidget s m ())
 runFormTable dest inputLabel form = do
     (res, widget, enctype, nonce) <- runFormPost $ fieldsToTable form
-    let widget' =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+    return (res, [HAMLET|
 <form method="post" action="@{dest}" enctype="#{enctype}">
     <table>
         \^{widget}
@@ -185,27 +170,20 @@ runFormTable dest inputLabel form = do
             <td colspan="2">
                 \#{nonce}
                 <input type="submit" value="#{inputLabel}">
-|]
-    return (res, widget')
+|])
 
 -- | Same as 'runFormPostTable', but uses 'fieldsToDivs' for styling.
 runFormDivs :: Route m -> String -> FormField s m a
             -> GHandler s m (FormResult a, GWidget s m ())
 runFormDivs dest inputLabel form = do
     (res, widget, enctype, nonce) <- runFormPost $ fieldsToDivs form
-    let widget' =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+    return (res, [HAMLET|
 <form method="post" action="@{dest}" enctype="#{enctype}">
     \^{widget}
     <div>
         \#{nonce}
         <input type="submit" value="#{inputLabel}">
-|]
-    return (res, widget')
+|])
 
 -- | Run a form against GET parameters, disregarding the resulting HTML and
 -- returning an error response on invalid input.
@@ -223,12 +201,7 @@ generateForm :: GForm s m xml a -> GHandler s m (xml, Enctype, Html)
 generateForm f = do
     (_, b, c) <- runFormGeneric [] [] f
     nonce <- fmap reqNonce getRequest
-    return (b, c,
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+    return (b, c, [HAMLET|\
 $maybe n <- nonce
     <input type="hidden" name="#{nonceName}" value="#{n}">
 |])
