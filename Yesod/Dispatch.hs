@@ -18,9 +18,6 @@ module Yesod.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
-#if TEST
-    , dispatchTestSuite
-#endif
     ) where
 
 import Prelude hiding (exp)
@@ -45,13 +42,6 @@ import Web.ClientSession
 import Data.Char (isUpper)
 
 import Web.Routes (decodePathInfo)
-
-#if TEST
-import Test.Framework (testGroup, Test)
-import Test.Framework.Providers.QuickCheck2 (testProperty)
-import Test.QuickCheck
-import System.IO.Unsafe
-#endif
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
@@ -181,10 +171,10 @@ toWaiApp' :: (Yesod y, YesodDispatch y y)
           -> Maybe Key
           -> W.Application
 toWaiApp' y key' env = do
-    let segments =
-            case decodePathInfo $ B.unpack $ W.pathInfo env of
-                "":x -> x
-                x -> x
+    let dropSlash ('/':x) = x
+        dropSlash x = x
+    let segments = decodePathInfo $ dropSlash $ B.unpack $ W.pathInfo env
+    -- FIXME cleanPath will not force redirect if yesodDispatch likes its arguments
     case yesodDispatch y key' segments y id of
         Just app -> app env
         Nothing ->
@@ -203,32 +193,3 @@ toWaiApp' y key' env = do
                             [ ("Content-Type", "text/plain")
                             , ("Location", B.pack $ dest')
                             ] "Redirecting"
-
-#if TEST
-
-dispatchTestSuite :: Test
-dispatchTestSuite = testGroup "Yesod.Dispatch"
-    [ testProperty "encode/decode session" propEncDecSession
-    , testProperty "get/put time" propGetPutTime
-    ]
-
-propEncDecSession :: [(String, String)] -> Bool
-propEncDecSession session' = unsafePerformIO $ do
-    key <- getDefaultKey
-    now <- getCurrentTime
-    let expire = addUTCTime 1 now
-    let rhost = B.pack "some host"
-    let val = encodeSession key expire rhost session'
-    return $ Just session' == decodeSession key now rhost val
-
-propGetPutTime :: UTCTime -> Bool
-propGetPutTime t = Right t == runGet getTime (runPut $ putTime t)
-
-instance Arbitrary UTCTime where
-    arbitrary = do
-        a <- arbitrary
-        b <- arbitrary
-        return $ addUTCTime (fromRational b)
-               $ UTCTime (ModifiedJulianDay a) 0
-
-#endif

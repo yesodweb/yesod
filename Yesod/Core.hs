@@ -22,9 +22,6 @@ module Yesod.Core
       -- * Misc
     , yesodVersion
     , yesodRender
-#if TEST
-    , coreTestSuite
-#endif
     ) where
 
 import Yesod.Content
@@ -58,15 +55,6 @@ import Control.Monad.IO.Class (liftIO)
 import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
 import Data.Time
-
-#if TEST
-import Test.Framework (testGroup, Test)
-import Test.Framework.Providers.HUnit
-import Test.Framework.Providers.QuickCheck2 (testProperty)
-import Test.HUnit hiding (Test)
-import qualified Data.Text
-import qualified Data.Text.Encoding
-#endif
 
 #if GHC7
 #define HAMLET hamlet
@@ -486,54 +474,3 @@ yesodRender y u qs =
         (urlRenderOverride y u)
   where
     (ps, qs') = renderRoute u
-
-#if TEST
-coreTestSuite :: Test
-coreTestSuite = testGroup "Yesod.Yesod"
-    [ testProperty "join/split path" propJoinSplitPath
-    , testCase "join/split path [\".\"]" caseJoinSplitPathDquote
-    , testCase "utf8 split path" caseUtf8SplitPath
-    , testCase "utf8 join path" caseUtf8JoinPath
-    ]
-
-data TmpYesod = TmpYesod
-data TmpRoute = TmpRoute deriving Eq
-type instance Route TmpYesod = TmpRoute
-instance Yesod TmpYesod where approot _ = ""
-
-fromString :: String -> S8.ByteString
-fromString = Data.Text.Encoding.encodeUtf8 . Data.Text.pack
-
-propJoinSplitPath :: [String] -> Bool
-propJoinSplitPath ss =
-    splitPath TmpYesod (fromString $ joinPath TmpYesod "" ss' [])
-        == Right ss'
-  where
-    ss' = filter (not . null) ss
-
-caseJoinSplitPathDquote :: Assertion
-caseJoinSplitPathDquote = do
-    splitPath TmpYesod (fromString "/x%2E/") @?= Right ["x."]
-    splitPath TmpYesod (fromString "/y./") @?= Right ["y."]
-    joinPath TmpYesod "" ["z."] [] @?= "/z./"
-    x @?= Right ss
-  where
-    x = splitPath TmpYesod (fromString $ joinPath TmpYesod "" ss' [])
-    ss' = filter (not . null) ss
-    ss = ["a."]
-
-caseUtf8SplitPath :: Assertion
-caseUtf8SplitPath = do
-    Right ["שלום"] @=?
-        splitPath TmpYesod (fromString "/שלום/")
-    Right ["page", "Fooé"] @=?
-        splitPath TmpYesod (fromString "/page/Fooé/")
-    Right ["\156"] @=?
-        splitPath TmpYesod (fromString "/\156/")
-    Right ["ð"] @=?
-        splitPath TmpYesod (fromString "/%C3%B0/")
-
-caseUtf8JoinPath :: Assertion
-caseUtf8JoinPath = do
-    "/%D7%A9%D7%9C%D7%95%D7%9D/" @=? joinPath TmpYesod "" ["שלום"] []
-#endif

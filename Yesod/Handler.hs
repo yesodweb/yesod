@@ -98,9 +98,6 @@ module Yesod.Handler
     , handlerToYAR
     , yarToResponse
     , headerToPair
-#if TEST
-    , handlerTestSuite
-#endif
     ) where
 
 import Prelude hiding (catch)
@@ -135,10 +132,6 @@ import qualified Data.ByteString.Char8 as S8
 import Data.ByteString (ByteString)
 import Data.Enumerator (Iteratee (..))
 import Network.Wai.Parse (parseHttpAccept)
-
-#if TEST
-import Test.Framework (testGroup, Test)
-#endif
 
 import Yesod.Content
 import Data.Maybe (fromMaybe)
@@ -649,15 +642,6 @@ lookupSession n = GHandler $ do
 -- | Get all session variables.
 getSession :: Monad mo => GGHandler s m mo SessionMap
 getSession = liftM ghsSession $ GHandler $ lift $ lift $ lift get
-
-#if TEST
-
-handlerTestSuite :: Test
-handlerTestSuite = testGroup "Yesod.Handler"
-    [
-    ]
-
-#endif
 
 handlerToYAR :: (HasReps a, HasReps b)
              => m -- ^ master site foundation

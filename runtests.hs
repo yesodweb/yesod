@@ -1,12 +1,7 @@
 import Test.Framework (defaultMain)
-
-import Yesod.Content
-import Yesod.Dispatch
-import Yesod.Handler
+import Test.CleanPath
 
 main :: IO ()
 main = defaultMain
-    [ contentTestSuite
-    , dispatchTestSuite
-    , handlerTestSuite
+    [ cleanPathTest
     ]
