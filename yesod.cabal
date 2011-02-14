@@ -23,15 +23,15 @@ flag production
     Default:     False
 
 library
+    if flag(production)
+        cpp-options: -DPRODUCTION
+    else
+        build-depends: wai-handler-devel   >= 0.2      && < 0.3
     if flag(ghc7)
         build-depends:   base                  >= 4.3      && < 5
         cpp-options:     -DGHC7
     else
         build-depends:   base                  >= 4        && < 4.3
-        if flag(production)
-            cpp-options: -DPRODUCTION
-        else
-            build-depends: wai-handler-devel   >= 0.2      && < 0.3
     build-depends:   yesod-core                >= 0.7      && < 0.8
                    , yesod-auth                >= 0.3      && < 0.4
                    , yesod-json                >= 0.0      && < 0.1
