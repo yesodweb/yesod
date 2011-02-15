@@ -1,5 +1,5 @@
 name:            yesod-persistent
-version:         0.0.0
+version:         0.0.0.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -14,7 +14,7 @@ homepage:        http://docs.yesodweb.com/
 library
     build-depends:   base                      >= 4        && < 5
                    , yesod-core                >= 0.7      && < 0.8
-                   , persistent                >= 0.4      && < 0.5
+                   , persistent                >= 0.4.1    && < 0.5
                    , failure                   >= 0.1      && < 0.2
                    , transformers              >= 0.2      && < 0.3
     exposed-modules: Yesod.Persist
