@@ -53,6 +53,7 @@ import Data.List (intercalate)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
+import Data.Char
 import qualified Data.ByteString.Lazy as L
 import Data.Digest.Pure.MD5
 import qualified Data.ByteString.Base64
@@ -155,7 +156,11 @@ staticFiles fp = do
         | '0' <= c && c <= '9' = c
         | otherwise = '_'
     go f = do
-        let name = mkName $ intercalate "_" $ map (map replace') f
+        let adjust [] = ""
+            adjust str@(x:xs) | isDigit x = '_' : x : xs
+                              | isUpper x = toLower x : xs
+                              | otherwise = str
+        let name = mkName $ intercalate "_" $ map (adjust . map replace') f
         f' <- lift f
         let sr = ConE $ mkName "StaticRoute"
         hash <- qRunIO $ fmap base64md5 $ L.readFile $ fp ++ '/' : intercalate "/" f
