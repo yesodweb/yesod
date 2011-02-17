@@ -79,7 +79,8 @@ main = do
     mkDir "hamlet"
     mkDir "cassius"
     mkDir "julius"
-
+    mkDir "static"
+    
     writeFile' "test.hs" $(codegen "test_hs")
     writeFile' "production.hs" $(codegen "production_hs")
     writeFile' "devel-server.hs" $(codegen "devel-server_hs")
@@ -90,6 +91,7 @@ main = do
     writeFile' "Handler/Root.hs" $(codegen "Root_hs")
     writeFile' "Model.hs" $(codegen "Model_hs")
     writeFile' "Settings.hs" $(codegen "Settings_hs")
+    writeFile' "StaticFiles.hs" $(codegen "StaticFiles_hs")
     writeFile' "cassius/default-layout.cassius"
         $(codegen "default-layout_cassius")
     writeFile' "hamlet/default-layout.hamlet"
@@ -97,8 +99,9 @@ main = do
     writeFile' "hamlet/homepage.hamlet" $(codegen "homepage_hamlet")
     writeFile' "cassius/homepage.cassius" $(codegen "homepage_cassius")
     writeFile' "julius/homepage.julius" $(codegen "homepage_julius")
-
+  
     S.writeFile (dir ++ "/favicon.ico")
         $(runIO (S.readFile "scaffold/favicon_ico.cg") >>= \bs -> do
             pack <- [|S.pack|]
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
+    
