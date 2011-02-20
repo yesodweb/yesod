@@ -12,7 +12,8 @@ module Yesod.Helpers.Crud
     , defaultCrud
     ) where
 
-import Yesod.Yesod
+-- import Yesod
+import Yesod.Core
 import Yesod.Widget
 import Yesod.Dispatch
 import Yesod.Content
@@ -20,7 +21,7 @@ import Yesod.Handler
 import Text.Hamlet
 import Yesod.Form
 import Language.Haskell.TH.Syntax
-
+import Yesod.Persist
 -- | An entity which can be displayed by the Crud subsite.
 class Item a where
     -- | The title of an entity, to be displayed in the list of all entities.
@@ -137,7 +138,7 @@ getCrudDeleteR s = do
     <p>Do you really want to delete #{itemTitle item}?
     <p>
         <input type="submit" value="Yes">
-        \ 
+        \
         <a href="@{toMaster CrudListR}">No
 |]
 
@@ -190,13 +191,13 @@ crudHelper title me isPost = do
                 \#{hidden}
                 <input type="submit">
                 $maybe e <- me
-                    \ 
+                    \
                     <a href="@{toMaster (CrudDeleteR (toSinglePiece (fst e)))}">Delete
 |]
 
 -- | A default 'Crud' value which relies about persistent and "Yesod.Form".
 defaultCrud
-    :: (PersistEntity i, PersistBackend (YesodDB a (GHandler (Crud a i) a)),
+    :: (PersistEntity i, PersistBackend (YesodDB a (GGHandler (Crud a i) a IO)),
         YesodPersist a)
     => a -> Crud a i
 defaultCrud = const Crud
