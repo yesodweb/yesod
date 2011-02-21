@@ -61,7 +61,6 @@ template urls =
 #else
                 [$xhamlet|
 #endif
-<div id="endif">
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     $forall url <- urls
         <url>
