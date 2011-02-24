@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Json
-    ( -- ^ Convert from a JSON value
+    ( -- * Convert from a JSON value
       defaultLayoutJson
     , jsonToRepJson
-      -- ^ Compatibility wrapper for old API
+      -- * Compatibility wrapper for old API
     , Json
     , jsonScalar
     , jsonList
