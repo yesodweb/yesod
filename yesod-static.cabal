@@ -1,5 +1,9 @@
 name:            yesod-static
+<<<<<<< HEAD
 version:         0.1.0
+=======
+version:         0.1.0.0
+>>>>>>> update caching interface
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
