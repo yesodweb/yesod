@@ -26,7 +26,7 @@ authOpenId :: YesodAuth m => AuthPlugin m
 authOpenId =
     AuthPlugin "openid" dispatch login
   where
-    complete = PluginR "openid" ["complete", ""]
+    complete = PluginR "openid" ["complete"]
     name = "openid_identifier"
     login tm = do
         ident <- lift newIdent
@@ -71,10 +71,12 @@ authOpenId =
                 toMaster <- getRouteToMaster
                 setMessage $ messageNoOpenID y
                 redirect RedirectTemporary $ toMaster LoginR
-    dispatch "GET" ["complete", ""] = do
+    dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
+    dispatch "GET" ["complete"] = do
         rr <- getRequest
         completeHelper $ reqGetParams rr
-    dispatch "POST" ["complete", ""] = do
+    dispatch "POST" ["complete", ""] = dispatch "POST" ["complete"] -- compatibility issues
+    dispatch "POST" ["complete"] = do
         (posts, _) <- runRequestBody
         completeHelper posts
     dispatch _ _ = notFound
