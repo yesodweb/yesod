@@ -1,15 +1,15 @@
 {-# LANGUAGE DeriveDataTypeable, OverloadedStrings, StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Web.Authenticate.OAuth
-    ( -- | Data types
+    ( -- * Data types
       OAuth(..), SignMethod(..), Credential(..),
-      -- | Operations for credentials
+      -- * Operations for credentials
       emptyCredential, insert, delete, inserts,
-      -- | Signature
+      -- * Signature
       signOAuth,
-      -- | Url & operation for authentication
+      -- * Url & operation for authentication
       authorizeUrl, getAccessToken, getTemporaryCredential, 
-      -- | Utility Methods
+      -- * Utility Methods
       paramEncode
     ) where
 import Network.HTTP.Enumerator
