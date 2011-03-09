@@ -8,7 +8,8 @@ module Web.Authenticate.OAuth
       -- * Signature
       signOAuth,
       -- * Url & operation for authentication
-      authorizeUrl, getAccessToken, getTemporaryCredential, 
+      authorizeUrl, getAccessToken, getTemporaryCredential,
+      getTokenCredential,
       -- * Utility Methods
       paramEncode
     ) where
@@ -97,7 +98,8 @@ authorizeUrl :: OAuth           -- ^ OAuth Application
 authorizeUrl oa cr = qsUrl (oauthAuthorizeUri oa) [("oauth_token", BS.unpack $ token cr)]
 
 -- | Get Access token.
-getAccessToken :: OAuth         -- ^ OAuth Application
+getAccessToken, getTokenCredential
+               :: OAuth         -- ^ OAuth Application
                -> Credential    -- ^ Temporary Credential with oauth_verifier
                -> IO Credential -- ^ Token Credential (Access Token & Secret)
 getAccessToken oa cr = do
@@ -105,6 +107,8 @@ getAccessToken oa cr = do
   rsp <- signOAuth oa cr req >>= httpLbs
   let dic = parseQueryString . toStrict . responseBody $ rsp
   return $ Credential dic
+
+getTokenCredential = getAccessToken
 
 insertMap :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
 insertMap key val = ((key,val):) . filter ((/=key).fst)
