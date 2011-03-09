@@ -56,7 +56,7 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         oaTok    <- runFormGet' $ stringInput "oauth_token"
         let reqTok = Credential [ ("oauth_verifier", pack verifier), ("oauth_token", pack oaTok)
                                 ] 
-        accTok <- liftIO $ getTokenCredential oauth reqTok
+        accTok <- liftIO $ getAccessToken oauth reqTok
         let crId = unpack $ fromJust $ lookup (pack ident) $ unCredential accTok
             creds = Creds name crId $ map (unpack *** unpack) $ unCredential accTok
         setCreds True creds
