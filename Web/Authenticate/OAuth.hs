@@ -168,6 +168,7 @@ injectOAuthToCred :: OAuth -> Credential -> Credential
 injectOAuthToCred oa cred = maybe id (insert "oauth_callback") (oauthCallback oa) $ 
   inserts [ ("oauth_signature_method", showSigMtd $ oauthSignatureMethod oa)
           , ("oauth_consumer_key", oauthConsumerKey oa)
+          , ("oauth_version", "1.0")
           ] cred
 
 genSign :: OAuth -> Credential -> Request -> BS.ByteString
@@ -209,7 +210,7 @@ getBaseString tok req =
       bsQuery = queryString req
       bsBodyQ = if isBodyFormEncoded $ requestHeaders req
                   then parseQueryString (toStrict $ requestBody req) else []
-      bsAuthParams = filter ((`notElem`["oauth_signature","realm","oauth_version", "oauth_token_secret"]).fst) $ unCredential tok
+      bsAuthParams = filter ((`notElem`["oauth_signature","realm", "oauth_token_secret"]).fst) $ unCredential tok
       allParams = bsQuery++bsBodyQ++bsAuthParams
       bsParams = BS.intercalate "&" $ map (\(a,b)->BS.concat[a,"=",b]) $ sortBy compareTuple
                    $ map (\(a,b) -> (paramEncode a,paramEncode b)) allParams
