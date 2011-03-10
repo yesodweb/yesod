@@ -21,6 +21,8 @@ import qualified Data.ByteString.Char8 as S8
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.ByteString as S
 import Yesod.Core (Yesod (joinPath, approot, cleanPath))
+import Network.HTTP.Types (status301)
+import qualified Data.Ascii as A
 
 {-|
 
@@ -77,16 +79,16 @@ local routes.
 
 sendRedirect :: Yesod master => master -> [String] -> W.Application
 sendRedirect y segments' env =
-     return $ W.responseLBS W.status301
+     return $ W.responseLBS status301
             [ ("Content-Type", "text/plain")
-            , ("Location", S8.pack $ dest')
+            , ("Location", A.unsafeFromString $ dest')
             ] "Redirecting"
   where
     dest = joinPath y (approot y) segments' []
     dest' =
-        if S.null (W.queryString env)
+        if S.null (W.rawQueryString env)
             then dest
-            else dest ++ '?' : S8.unpack (W.queryString env)
+            else dest ++ '?' : S8.unpack (W.rawQueryString env)
 
 mkYesodDispatch' :: [((String, Pieces), Maybe String)]
                  -> [((String, Pieces), Maybe String)]
@@ -147,7 +149,7 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
     onSuccess <- newName "onSuccess"
     req <- newName "req"
     badMethod' <- [|badMethod|]
-    rm <- [|S8.unpack . W.requestMethod|]
+    rm <- [|A.toString . W.requestMethod|]
     let caseExp = rm `AppE` VarE req
     yr <- [|yesodRunner|]
     cr <- [|fmap chooseRep|]

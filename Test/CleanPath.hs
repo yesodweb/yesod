@@ -13,6 +13,7 @@ import Test.Framework.Providers.HUnit
 import Test.HUnit hiding (Test)
 import Network.Wai
 import Network.Wai.Test
+import Network.HTTP.Types (status200, decodePathSegments)
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 
@@ -65,22 +66,23 @@ cleanPathTest = testGroup "Test.CleanPath"
 
 runner f = toWaiApp Y >>= runSession f
 defaultRequest = Request
-    { pathInfo = ""
+    { pathInfo = []
     , requestHeaders = []
-    , queryString = ""
+    , queryString = []
+    , rawQueryString = ""
     , requestMethod = "GET"
     }
 
 removeTrailingSlash = runner $ do
     res <- request defaultRequest
-                { pathInfo = "/foo/"
+                { pathInfo = decodePathSegments "/foo/"
                 }
     assertStatus 301 res
     assertHeader "Location" "http://test/foo" res
 
 noTrailingSlash = runner $ do
     res <- request defaultRequest
-                { pathInfo = "/foo"
+                { pathInfo = decodePathSegments "/foo"
                 }
     assertStatus 200 res
     assertContentType "text/plain; charset=utf-8" res
@@ -88,14 +90,14 @@ noTrailingSlash = runner $ do
 
 addTrailingSlash = runner $ do
     res <- request defaultRequest
-                { pathInfo = "/bar"
+                { pathInfo = decodePathSegments "/bar"
                 }
     assertStatus 301 res
     assertHeader "Location" "http://test/bar/" res
 
 hasTrailingSlash = runner $ do
     res <- request defaultRequest
-                { pathInfo = "/bar/"
+                { pathInfo = decodePathSegments "/bar/"
                 }
     assertStatus 200 res
     assertContentType "text/plain; charset=utf-8" res
@@ -103,7 +105,7 @@ hasTrailingSlash = runner $ do
 
 fooSomething = runner $ do
     res <- request defaultRequest
-                { pathInfo = "/foo/something"
+                { pathInfo = decodePathSegments "/foo/something"
                 }
     assertStatus 200 res
     assertContentType "text/plain; charset=utf-8" res
@@ -111,7 +113,7 @@ fooSomething = runner $ do
 
 subsiteDispatch = runner $ do
     res <- request defaultRequest
-                { pathInfo = "/subsite/1/2/3/"
+                { pathInfo = decodePathSegments "/subsite/1/2/3/"
                 }
     assertStatus 200 res
     assertContentType "SUBSITE" res

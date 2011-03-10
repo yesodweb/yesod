@@ -43,6 +43,7 @@ import Control.Monad.IO.Class
 import Control.Monad (liftM)
 import Control.Monad.Instances () -- I'm missing the instance Monad ((->) r
 import Data.Maybe (listToMaybe)
+import qualified Data.Ascii as A
 
 type ParamName = String
 type ParamValue = String
@@ -92,7 +93,7 @@ data FileInfo = FileInfo
 -- | The parsed request information.
 data Request = Request
     { reqGetParams :: [(ParamName, ParamValue)]
-    , reqCookies :: [(ParamName, ParamValue)]
+    , reqCookies :: [(A.Ascii, A.Ascii)]
     , reqWaiRequest :: W.Request
       -- | Languages which the client supports.
     , reqLangs :: [String]
@@ -141,11 +142,11 @@ lookupFiles pn = do
     return $ lookup' pn files
 
 -- | Lookup for cookie data.
-lookupCookie :: RequestReader m => ParamName -> m (Maybe ParamValue)
+lookupCookie :: RequestReader m => A.Ascii -> m (Maybe A.Ascii)
 lookupCookie = liftM listToMaybe . lookupCookies
 
 -- | Lookup for cookie data.
-lookupCookies :: RequestReader m => ParamName -> m [ParamValue]
+lookupCookies :: RequestReader m => A.Ascii -> m [A.Ascii]
 lookupCookies pn = do
     rr <- getRequest
     return $ lookup' pn $ reqCookies rr

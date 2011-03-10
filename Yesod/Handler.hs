@@ -120,6 +120,7 @@ import Control.Monad.Trans.Error (throwError, ErrorT (..), Error (..))
 
 import System.IO
 import qualified Network.Wai as W
+import qualified Network.HTTP.Types as H
 import Control.Failure (Failure (failure))
 
 import Text.Hamlet
@@ -128,7 +129,6 @@ import Control.Monad.IO.Peel (MonadPeelIO)
 import Control.Monad.Trans.Peel (MonadTransPeel (peel), liftPeel)
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
-import qualified Data.ByteString.Char8 as S8
 import Data.ByteString (ByteString)
 import Data.Enumerator (Iteratee (..))
 import Network.Wai.Parse (parseHttpAccept)
@@ -136,10 +136,11 @@ import Network.Wai.Parse (parseHttpAccept)
 import Yesod.Content
 import Data.Maybe (fromMaybe)
 import Web.Cookie (SetCookie (..), renderSetCookie)
-import Blaze.ByteString.Builder (toByteString)
 import Data.Enumerator (run_, ($$))
 import Control.Arrow (second, (***))
 import qualified Network.Wai.Parse as NWP
+import qualified Data.Ascii as A
+import Data.Monoid (mappend, mempty)
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -152,7 +153,7 @@ data HandlerData sub master = HandlerData
     , handlerSub :: sub
     , handlerMaster :: master
     , handlerRoute :: Maybe (Route sub)
-    , handlerRender :: (Route master -> [(String, String)] -> String)
+    , handlerRender :: (Route master -> [(String, String)] -> String) -- FIXME replace output String with Ascii
     , handlerToMaster :: Route sub -> Route master
     }
 
@@ -264,14 +265,14 @@ newtype YesodApp = YesodApp
 
 data YesodAppResult
     = YARWai W.Response
-    | YARPlain W.Status [Header] ContentType Content SessionMap
+    | YARPlain H.Status [Header] ContentType Content SessionMap
 
 data HandlerContents =
-      HCContent W.Status ChooseRep
+      HCContent H.Status ChooseRep
     | HCError ErrorResponse
     | HCSendFile ContentType FilePath
-    | HCRedirect RedirectType ByteString
-    | HCCreated ByteString
+    | HCRedirect RedirectType A.Ascii
+    | HCCreated A.Ascii
     | HCWai W.Response
 
 instance Error HandlerContents where
@@ -363,7 +364,7 @@ runHandler handler mrender sroute tomr ma sa =
       $ flip runReaderT hd
       $ unGHandler handler
         ) (\e -> return ((Left $ HCError $ toErrorHandler e, id), initSession))
-    let contents = either id (HCContent W.status200 . chooseRep) contents'
+    let contents = either id (HCContent H.status200 . chooseRep) contents'
     let handleError e = do
             yar <- unYesodApp (eh e) safeEh rr cts finalSession
             case yar of
@@ -372,7 +373,7 @@ runHandler handler mrender sroute tomr ma sa =
                      in return $ YARPlain (getStatus e) hs' ct c sess
                 YARWai _ -> return yar
     let sendFile' ct fp =
-            return $ YARPlain W.status200 (headers []) ct (ContentFile fp) finalSession
+            return $ YARPlain H.status200 (headers []) ct (ContentFile fp) finalSession
     case contents of
         HCContent status a -> do
             (ct, c) <- liftIO $ chooseRep a cts
@@ -389,7 +390,7 @@ runHandler handler mrender sroute tomr ma sa =
         HCCreated loc -> do
             let hs = Header "Location" loc : headers []
             return $ YARPlain
-                (W.Status 201 (S8.pack "Created"))
+                H.status201
                 hs
                 typePlain
                 emptyContent
@@ -406,7 +407,7 @@ safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ session -> do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
     return $ YARPlain
-        W.status500
+        H.status500
         []
         typePlain
         (toContent ("Internal Server Error" :: S.ByteString))
@@ -422,10 +423,10 @@ redirectParams :: Monad mo
                -> GGHandler sub master mo a
 redirectParams rt url params = do
     r <- getUrlRenderParams
-    redirectString rt $ S8.pack $ r url params
+    redirectString rt $ A.unsafeFromString $ r url params
 
 -- | Redirect to the given URL.
-redirectString :: Monad mo => RedirectType -> ByteString -> GGHandler sub master mo a
+redirectString :: Monad mo => RedirectType -> A.Ascii -> GGHandler sub master mo a
 redirectString rt = GHandler . lift . throwError . HCRedirect rt
 
 ultDestKey :: String
@@ -470,7 +471,7 @@ redirectUltDest :: Monad mo
 redirectUltDest rt def = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
-    maybe (redirect rt def) (redirectString rt . S8.pack) mdest
+    maybe (redirect rt def) (redirectString rt . A.unsafeFromString) mdest
 
 msgKey :: String
 msgKey = "_MSG"
@@ -501,12 +502,12 @@ sendFile ct = GHandler . lift . throwError . HCSendFile ct
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
 sendResponse :: (Monad mo, HasReps c) => c -> GGHandler sub master mo a
-sendResponse = GHandler . lift . throwError . HCContent W.status200
+sendResponse = GHandler . lift . throwError . HCContent H.status200
              . chooseRep
 
 -- | Bypass remaining handler code and output the given content with the given
 -- status code.
-sendResponseStatus :: (Monad mo, HasReps c) => W.Status -> c -> GGHandler s m mo a
+sendResponseStatus :: (Monad mo, HasReps c) => H.Status -> c -> GGHandler s m mo a
 sendResponseStatus s = GHandler . lift . throwError . HCContent s
                      . chooseRep
 
@@ -515,7 +516,7 @@ sendResponseStatus s = GHandler . lift . throwError . HCContent s
 sendResponseCreated :: Monad mo => Route m -> GGHandler s m mo a
 sendResponseCreated url = do
     r <- getUrlRender
-    GHandler $ lift $ throwError $ HCCreated $ S8.pack $ r url
+    GHandler $ lift $ throwError $ HCCreated $ A.unsafeFromString $ r url
 
 -- | Send a 'W.Response'. Please note: this function is rarely
 -- necessary, and will /disregard/ any changes to response headers and session
@@ -533,7 +534,7 @@ notFound = failure NotFound
 badMethod :: (RequestReader m, Failure ErrorResponse m) => m a
 badMethod = do
     w <- waiRequest
-    failure $ BadMethod $ bsToChars $ W.requestMethod w
+    failure $ BadMethod $ W.requestMethod w
 
 -- | Return a 403 permission denied page.
 permissionDenied :: Failure ErrorResponse m => String -> m a
@@ -547,29 +548,29 @@ invalidArgs = failure . InvalidArgs
 -- | Set the cookie on the client.
 setCookie :: Monad mo
           => Int -- ^ minutes to timeout
-          -> ByteString -- ^ key
-          -> ByteString -- ^ value
+          -> A.Ascii -- ^ key
+          -> A.Ascii -- ^ value
           -> GGHandler sub master mo ()
 setCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
-deleteCookie :: Monad mo => ByteString -> GGHandler sub master mo ()
+deleteCookie :: Monad mo => A.Ascii -> GGHandler sub master mo ()
 deleteCookie = addHeader . DeleteCookie
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
 setLanguage :: Monad mo => String -> GGHandler sub master mo ()
-setLanguage = setSession langKey
+setLanguage = setSession (A.toString langKey)
 
 -- | Set an arbitrary response header.
 setHeader :: Monad mo
-          => W.ResponseHeader -> ByteString -> GGHandler sub master mo ()
+          => A.CIAscii -> A.Ascii -> GGHandler sub master mo ()
 setHeader a = addHeader . Header a
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
 cacheSeconds :: Monad mo => Int -> GGHandler s m mo ()
-cacheSeconds i = setHeader "Cache-Control" $ S8.pack $ concat
+cacheSeconds i = setHeader "Cache-Control" $ A.unsafeFromString $ concat
     [ "max-age="
     , show i
     , ", public"
@@ -587,7 +588,7 @@ alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
 expiresAt :: Monad mo => UTCTime -> GGHandler s m mo ()
-expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
+expiresAt = setHeader "Expires" . A.unsafeFromString . formatRFC1123
 
 -- | Set a variable in the user's session.
 --
@@ -611,17 +612,17 @@ modSession f x = x { ghsSession = f $ ghsSession x }
 addHeader :: Monad mo => Header -> GGHandler sub master mo ()
 addHeader = GHandler . lift . lift . tell . (:)
 
-getStatus :: ErrorResponse -> W.Status
-getStatus NotFound = W.status404
-getStatus (InternalError _) = W.status500
-getStatus (InvalidArgs _) = W.status400
-getStatus (PermissionDenied _) = W.status403
-getStatus (BadMethod _) = W.status405
+getStatus :: ErrorResponse -> H.Status
+getStatus NotFound = H.status404
+getStatus (InternalError _) = H.status500
+getStatus (InvalidArgs _) = H.status400
+getStatus (PermissionDenied _) = H.status403
+getStatus (BadMethod _) = H.status405
 
-getRedirectStatus :: RedirectType -> W.Status
-getRedirectStatus RedirectPermanent = W.status301
-getRedirectStatus RedirectTemporary = W.status302
-getRedirectStatus RedirectSeeOther = W.status303
+getRedirectStatus :: RedirectType -> H.Status
+getRedirectStatus RedirectPermanent = H.status301
+getRedirectStatus RedirectTemporary = H.status302
+getRedirectStatus RedirectSeeOther = H.status303
 
 -- | Different types of redirects.
 data RedirectType = RedirectPermanent
@@ -665,7 +666,7 @@ handlerToYAR y s toMasterRoute render errorHandler rr murl sessionMap h =
 type HeaderRenderer = [Header]
                    -> ContentType
                    -> SessionMap
-                   -> [(W.ResponseHeader, ByteString)]
+                   -> [(A.CIAscii, A.Ascii)]
 
 yarToResponse :: HeaderRenderer -> YesodAppResult -> W.Response
 yarToResponse _ (YARWai a) = a
@@ -679,7 +680,7 @@ yarToResponse renderHeaders (YARPlain s hs ct c sessionFinal) =
             W.ResponseEnumerator $ \iter -> run_ $ e $$ iter s finalHeaders
   where
     finalHeaders = renderHeaders hs ct sessionFinal
-    finalHeaders' len = ("Content-Length", S8.pack $ show len)
+    finalHeaders' len = ("Content-Length", A.unsafeFromString $ show len)
                       : finalHeaders
     {-
     getExpires m = fromIntegral (m * 60) `addUTCTime` now
@@ -703,16 +704,16 @@ yarToResponse renderHeaders (YARPlain s hs ct c sessionFinal) =
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = parseHttpAccept
-           . fromMaybe S.empty
+           . fromMaybe mempty
            . lookup "Accept"
            . W.requestHeaders
 
 -- | Convert Header to a key/value pair.
 headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
              -> Header
-             -> (W.ResponseHeader, ByteString)
+             -> (A.CIAscii, A.Ascii)
 headerToPair getExpires (AddCookie minutes key value) =
-    ("Set-Cookie", toByteString $ renderSetCookie $ SetCookie
+    ("Set-Cookie", A.fromAsciiBuilder $ renderSetCookie $ SetCookie
         { setCookieName = key
         , setCookieValue = value
         , setCookiePath = Just "/" -- FIXME make a config option, or use approot?
@@ -721,7 +722,7 @@ headerToPair getExpires (AddCookie minutes key value) =
         })
 headerToPair _ (DeleteCookie key) =
     ( "Set-Cookie"
-    , key `S.append` "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT"
+    , key `mappend` "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT"
     )
 headerToPair _ (Header key value) = (key, value)
 

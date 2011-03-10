@@ -6,32 +6,32 @@ module Yesod.Internal.Request
 import Yesod.Request
 import Control.Arrow (first, (***))
 import qualified Network.Wai.Parse as NWP
-import Data.Maybe (fromMaybe)
 import Yesod.Internal
 import qualified Network.Wai as W
-import qualified Data.ByteString as S
 import System.Random (randomR, newStdGen)
 import Web.Cookie (parseCookies)
+import qualified Data.Ascii as A
+import Data.Monoid (mempty)
 
 parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session
                 -> Maybe a
                 -> IO Request
 parseWaiRequest env session' key' = do
-    let gets' = map (bsToChars *** bsToChars)
-              $ NWP.parseQueryString $ W.queryString env
-    let reqCookie = fromMaybe S.empty $ lookup "Cookie"
+    let gets' = map (bsToChars *** maybe "" bsToChars)
+              $ W.queryString env
+    let reqCookie = maybe mempty id $ lookup "Cookie"
                   $ W.requestHeaders env
-        cookies' = map (bsToChars *** bsToChars) $ parseCookies reqCookie
+        cookies' = parseCookies reqCookie
         acceptLang = lookup "Accept-Language" $ W.requestHeaders env
-        langs = map bsToChars $ maybe [] NWP.parseHttpAccept acceptLang
-        langs' = case lookup langKey session' of
+        langs = map A.toString $ maybe [] NWP.parseHttpAccept acceptLang
+        langs' = case lookup (A.toString langKey) session' of
                     Nothing -> langs
                     Just x -> x : langs
         langs'' = case lookup langKey cookies' of
                     Nothing -> langs'
-                    Just x -> x : langs'
-        langs''' = case lookup langKey gets' of
+                    Just x -> A.toString x : langs'
+        langs''' = case lookup (A.toString langKey) gets' of
                      Nothing -> langs''
                      Just x -> x : langs''
     nonce <- case (key', lookup nonceKey session') of

@@ -27,6 +27,7 @@ module Yesod.Core
 import Yesod.Content
 import Yesod.Handler
 
+import Control.Arrow ((***))
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Widget
@@ -37,7 +38,6 @@ import Yesod.Internal.Session
 import Yesod.Internal.Request
 import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
-import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import Data.Monoid
@@ -45,7 +45,6 @@ import Control.Monad.Trans.RWS
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
-import Web.Routes
 import Text.Blaze (preEscapedLazyText)
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
@@ -54,6 +53,9 @@ import Control.Monad.IO.Class (liftIO)
 import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
 import Data.Time
+import Network.HTTP.Types (encodePath)
+import qualified Data.Text as TS
+import qualified Data.Ascii as A
 
 #if GHC7
 #define HAMLET hamlet
@@ -188,10 +190,15 @@ class RenderRoute (Route a) => Yesod a where
     -- be the inverse of 'splitPath'.
     joinPath :: a
               -> String -- ^ application root
-              -> [String] -- ^ path pieces
+              -> [String] -- ^ path pieces FIXME Text
               -> [(String, String)] -- ^ query string
               -> String
-    joinPath _ ar pieces qs = ar ++ '/' : encodePathInfo pieces qs
+    joinPath _ ar pieces qs' =
+        ar ++ A.toString (A.fromAsciiBuilder $ encodePath (map TS.pack pieces) qs)
+      where
+        qs = map (charsToBs *** go) qs'
+        go "" = Nothing
+        go x = Just $ charsToBs x
 
     -- | This function is used to store some static content to be served as an
     -- external file. The most common case of this is stashing CSS and
@@ -268,7 +275,7 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                     -> encodeSession key exp' host
                      $ Map.toList
                      $ Map.insert nonceKey nonce sm
-                _ -> S.empty
+                _ -> mempty
         hs' =
             case mkey of
                 Nothing -> hs
@@ -322,7 +329,7 @@ applyLayout' title body = fmap chooseRep $ defaultLayout $ do
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    let path' = bsToChars $ W.pathInfo r
+    let path' = bsToChars $ W.rawPathInfo r
     applyLayout' "Not Found"
 #if GHC7
         [hamlet|
@@ -372,7 +379,7 @@ defaultErrorHandler (BadMethod m) =
         [$hamlet|
 #endif
 <h1>Method Not Supported
-<p>Method "#{m}" not supported
+<p>Method "#{A.toText m}" not supported
 |]
 
 -- | Return the same URL if the user is authorized to see it.

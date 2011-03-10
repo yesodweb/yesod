@@ -49,9 +49,11 @@ import qualified Data.Text.Encoding.Error as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 
-import qualified Network.Wai as W
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
+
+import qualified Data.Ascii as A
+import qualified Network.HTTP.Types as H
 
 #if GHC7
 #define HAMLET hamlet
@@ -66,19 +68,19 @@ data ErrorResponse =
     | InternalError String
     | InvalidArgs [String]
     | PermissionDenied String
-    | BadMethod String
+    | BadMethod H.Method
     deriving (Show, Eq, Typeable)
 instance Exception ErrorResponse
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.
 data Header =
-    AddCookie Int ByteString ByteString
-    | DeleteCookie ByteString
-    | Header W.ResponseHeader ByteString
+    AddCookie Int A.Ascii A.Ascii
+    | DeleteCookie A.Ascii
+    | Header A.CIAscii A.Ascii
     deriving (Eq, Show)
 
-langKey :: String
+langKey :: A.Ascii
 langKey = "_LANG"
 
 data Location url = Local url | Remote String
@@ -121,7 +123,7 @@ charsToBs = T.encodeUtf8 . T.pack
 nonceKey :: String
 nonceKey = "_NONCE"
 
-sessionName :: ByteString
+sessionName :: A.Ascii
 sessionName = "_SESSION"
 
 data GWData a = GWData
