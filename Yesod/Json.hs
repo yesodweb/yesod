@@ -18,14 +18,15 @@ import Yesod.Content
     )
 import Yesod.Core (defaultLayout, Yesod)
 import Yesod.Widget (GWidget)
-import qualified Data.JSON.Types as J
-import qualified Text.JSON.Enumerator as J
-import Data.Text.Lazy (pack)
+import qualified Data.Aeson as J
+import Data.Aeson.Encode (fromValue)
+import Data.Text (pack)
 import Control.Arrow (first)
 import Data.Map (fromList)
+import qualified Data.Vector as V
 
 instance ToContent J.Value where
-    toContent = flip ContentBuilder Nothing . J.renderValue
+    toContent = flip ContentBuilder Nothing . fromValue
 
 -- | Provide both an HTML and JSON representation for a piece of data, using
 -- the default layout for the HTML output ('defaultLayout').
@@ -44,10 +45,10 @@ jsonToRepJson = return . RepJson . toContent
 type Json = J.Value
 
 jsonScalar :: String -> Json
-jsonScalar = J.ValueAtom . J.AtomText . pack
+jsonScalar = J.String . pack
 
 jsonList :: [Json] -> Json
-jsonList = J.ValueArray
+jsonList = J.Array . V.fromList
 
 jsonMap :: [(String, Json)] -> Json
-jsonMap = J.ValueObject . fromList . map (first pack)
+jsonMap = J.Object . fromList . map (first pack)
