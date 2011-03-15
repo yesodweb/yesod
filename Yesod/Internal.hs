@@ -38,7 +38,6 @@ import Text.Julius (Julius)
 import Data.Monoid (Monoid (..), Last)
 import Data.List (nub)
 
-import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 

@@ -55,6 +55,7 @@ import qualified Data.Map as Map
 import Data.Time
 import Network.HTTP.Types (encodePath)
 import qualified Data.Text as TS
+import qualified Data.Text.Encoding as TE
 import qualified Data.Ascii as A
 
 #if GHC7
@@ -64,7 +65,7 @@ import qualified Data.Ascii as A
 #endif
 
 class Eq u => RenderRoute u where
-    renderRoute :: u -> ([String], [(String, String)])
+    renderRoute :: u -> ([String], [(String, String)]) -- FIXME switch to Text?
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -98,7 +99,7 @@ class RenderRoute (Route a) => Yesod a where
     --
     -- * You do not use any features that require absolute URLs, such as Atom
     -- feeds and XML sitemaps.
-    approot :: a -> String
+    approot :: a -> A.Ascii
 
     -- | The encryption key to be used for encrypting client sessions.
     -- Returning 'Nothing' disables sessions.
@@ -135,7 +136,7 @@ class RenderRoute (Route a) => Yesod a where
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
-    urlRenderOverride :: a -> Route a -> Maybe String
+    urlRenderOverride :: a -> Route a -> Maybe A.AsciiBuilder
     urlRenderOverride _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
@@ -189,16 +190,15 @@ class RenderRoute (Route a) => Yesod a where
     -- | Join the pieces of a path together into an absolute URL. This should
     -- be the inverse of 'splitPath'.
     joinPath :: a
-              -> String -- ^ application root
-              -> [String] -- ^ path pieces FIXME Text
-              -> [(String, String)] -- ^ query string
-              -> String
-    joinPath _ ar pieces qs' =
-        ar ++ A.toString (A.fromAsciiBuilder $ encodePath (map TS.pack pieces) qs)
+             -> A.AsciiBuilder -- ^ application root
+             -> [TS.Text] -- ^ path pieces FIXME Text
+             -> [(TS.Text, TS.Text)] -- ^ query string
+             -> A.AsciiBuilder
+    joinPath _ ar pieces qs' = ar `mappend` encodePath pieces qs
       where
-        qs = map (charsToBs *** go) qs'
+        qs = map (TE.encodeUtf8 *** go) qs'
         go "" = Nothing
-        go x = Just $ charsToBs x
+        go x = Just $ TE.encodeUtf8 x
 
     -- | This function is used to store some static content to be served as an
     -- external file. The most common case of this is stashing CSS and
@@ -465,8 +465,10 @@ yesodRender :: Yesod y
             -> [(String, String)]
             -> String
 yesodRender y u qs =
+    A.toString $ A.fromAsciiBuilder $
     fromMaybe
-        (joinPath y (approot y) ps $ qs ++ qs')
+        ( joinPath y (A.toAsciiBuilder $ approot y) (map TS.pack ps)
+          $ map (TS.pack *** TS.pack) $ qs ++ qs')
         (urlRenderOverride y u)
   where
     (ps, qs') = renderRoute u

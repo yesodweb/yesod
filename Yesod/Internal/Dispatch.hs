@@ -17,12 +17,14 @@ import qualified Network.Wai as W
 import Yesod.Core (yesodRunner, yesodDispatch)
 import Data.List (foldl')
 import Data.Char (toLower)
-import qualified Data.ByteString.Char8 as S8
-import Data.ByteString.Lazy.Char8 ()
 import qualified Data.ByteString as S
 import Yesod.Core (Yesod (joinPath, approot, cleanPath))
 import Network.HTTP.Types (status301)
 import qualified Data.Ascii as A
+import Data.Text (Text)
+import Data.Monoid (mappend)
+import qualified Blaze.ByteString.Builder
+import qualified Blaze.ByteString.Builder.Char8
 
 {-|
 
@@ -77,18 +79,21 @@ local routes.
 
 -}
 
-sendRedirect :: Yesod master => master -> [String] -> W.Application
+sendRedirect :: Yesod master => master -> [Text] -> W.Application
 sendRedirect y segments' env =
      return $ W.responseLBS status301
             [ ("Content-Type", "text/plain")
-            , ("Location", A.unsafeFromString $ dest')
+            , ("Location", A.fromAsciiBuilder dest')
             ] "Redirecting"
   where
-    dest = joinPath y (approot y) segments' []
+    dest = joinPath y (A.toAsciiBuilder $ approot y) segments' []
     dest' =
         if S.null (W.rawQueryString env)
             then dest
-            else dest ++ '?' : S8.unpack (W.rawQueryString env)
+            else A.unsafeFromBuilder
+                 (A.toBuilder dest `mappend`
+                 Blaze.ByteString.Builder.Char8.fromChar '?' `mappend`
+                 Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
 
 mkYesodDispatch' :: [((String, Pieces), Maybe String)]
                  -> [((String, Pieces), Maybe String)]
