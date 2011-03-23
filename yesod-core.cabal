@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         0.7.0.1
+version:         0.7.0.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>

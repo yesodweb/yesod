@@ -12,6 +12,7 @@ module Yesod.Internal
       -- * Cookie names
     , langKey
       -- * Widgets
+    , GWData (..)
     , Location (..)
     , UniqueList (..)
     , Script (..)
@@ -32,7 +33,9 @@ module Yesod.Internal
     ) where
 
 import Text.Hamlet (Hamlet, hamlet, Html)
-import Data.Monoid (Monoid (..))
+import Text.Cassius (Cassius)
+import Text.Julius (Julius)
+import Data.Monoid (Monoid (..), Last)
 import Data.List (nub)
 
 import Data.ByteString (ByteString)
@@ -120,3 +123,23 @@ nonceKey = "_NONCE"
 
 sessionName :: ByteString
 sessionName = "_SESSION"
+
+data GWData a = GWData
+    (Body a)
+    (Last Title)
+    (UniqueList (Script a))
+    (UniqueList (Stylesheet a))
+    (Maybe (Cassius a))
+    (Maybe (Julius a))
+    (Head a)
+instance Monoid (GWData a) where
+    mempty = GWData mempty mempty mempty mempty mempty mempty mempty
+    mappend (GWData a1 a2 a3 a4 a5 a6 a7)
+            (GWData b1 b2 b3 b4 b5 b6 b7) = GWData
+        (a1 `mappend` b1)
+        (a2 `mappend` b2)
+        (a3 `mappend` b3)
+        (a4 `mappend` b4)
+        (a5 `mappend` b5)
+        (a6 `mappend` b6)
+        (a7 `mappend` b7)

@@ -41,8 +41,7 @@ import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import Data.Monoid
-import Control.Monad.Trans.Writer
-import Control.Monad.Trans.State hiding (get, put)
+import Control.Monad.Trans.RWS
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
@@ -393,17 +392,7 @@ widgetToPageContent :: (Eq (Route master), Yesod master)
                     => GWidget sub master ()
                     -> GHandler sub master (PageContent (Route master))
 widgetToPageContent (GWidget w) = do
-    w' <- flip evalStateT 0
-        $ runWriterT $ runWriterT $ runWriterT $ runWriterT
-        $ runWriterT $ runWriterT $ runWriterT w
-    let ((((((((),
-         Body body),
-         Last mTitle),
-         scripts'),
-         stylesheets'),
-         style),
-         jscript),
-         Head head') = w'
+    ((), _, GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- runRWST w () 0
     let title = maybe mempty unTitle mTitle
     let scripts = map (locationToHamlet . unScript) $ runUniqueList scripts'
     let stylesheets = map (locationToHamlet . unStylesheet)
