@@ -24,7 +24,7 @@ main = defaultMain
     ]
   where
     rows :: Int
-    rows = 10
+    rows = 1000
 
     bigTableData :: [[Int]]
     bigTableData = replicate rows [1..10]

@@ -125,13 +125,13 @@ sessionName :: ByteString
 sessionName = "_SESSION"
 
 data GWData a = GWData
-    (Body a)
-    (Last Title)
-    (UniqueList (Script a))
-    (UniqueList (Stylesheet a))
-    (Maybe (Cassius a))
-    (Maybe (Julius a))
-    (Head a)
+    !(Body a)
+    !(Last Title)
+    !(UniqueList (Script a))
+    !(UniqueList (Stylesheet a))
+    !(Maybe (Cassius a))
+    !(Maybe (Julius a))
+    !(Head a)
 instance Monoid (GWData a) where
     mempty = GWData mempty mempty mempty mempty mempty mempty mempty
     mappend (GWData a1 a2 a3 a4 a5 a6 a7)
