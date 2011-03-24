@@ -10,8 +10,8 @@ import Yesod.Internal
 import qualified Network.Wai as W
 import System.Random (randomR, newStdGen)
 import Web.Cookie (parseCookies)
-import qualified Data.Ascii as A
 import Data.Monoid (mempty)
+import qualified Data.ByteString.Char8 as S8
 
 parseWaiRequest :: W.Request
                 -> [(String, String)] -- ^ session
@@ -24,14 +24,14 @@ parseWaiRequest env session' key' = do
                   $ W.requestHeaders env
         cookies' = parseCookies reqCookie
         acceptLang = lookup "Accept-Language" $ W.requestHeaders env
-        langs = map A.toString $ maybe [] NWP.parseHttpAccept acceptLang
-        langs' = case lookup (A.toString langKey) session' of
+        langs = map S8.unpack $ maybe [] NWP.parseHttpAccept acceptLang
+        langs' = case lookup (S8.unpack langKey) session' of
                     Nothing -> langs
                     Just x -> x : langs
         langs'' = case lookup langKey cookies' of
                     Nothing -> langs'
-                    Just x -> A.toString x : langs'
-        langs''' = case lookup (A.toString langKey) gets' of
+                    Just x -> S8.unpack x : langs'
+        langs''' = case lookup (S8.unpack langKey) gets' of
                      Nothing -> langs''
                      Just x -> x : langs''
     nonce <- case (key', lookup nonceKey session') of

@@ -20,11 +20,11 @@ import Data.Char (toLower)
 import qualified Data.ByteString as S
 import Yesod.Core (Yesod (joinPath, approot, cleanPath))
 import Network.HTTP.Types (status301)
-import qualified Data.Ascii as A
 import Data.Text (Text)
 import Data.Monoid (mappend)
 import qualified Blaze.ByteString.Builder
 import qualified Blaze.ByteString.Builder.Char8
+import qualified Data.ByteString.Char8 as S8
 
 {-|
 
@@ -83,15 +83,14 @@ sendRedirect :: Yesod master => master -> [Text] -> W.Application
 sendRedirect y segments' env =
      return $ W.responseLBS status301
             [ ("Content-Type", "text/plain")
-            , ("Location", A.fromAsciiBuilder dest')
+            , ("Location", Blaze.ByteString.Builder.toByteString dest')
             ] "Redirecting"
   where
-    dest = joinPath y (A.toAsciiBuilder $ approot y) segments' []
+    dest = joinPath y (Blaze.ByteString.Builder.fromByteString $ approot y) segments' []
     dest' =
         if S.null (W.rawQueryString env)
             then dest
-            else A.unsafeFromBuilder
-                 (A.toBuilder dest `mappend`
+            else (dest `mappend`
                  Blaze.ByteString.Builder.Char8.fromChar '?' `mappend`
                  Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
 
@@ -154,7 +153,7 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
     onSuccess <- newName "onSuccess"
     req <- newName "req"
     badMethod' <- [|badMethod|]
-    rm <- [|A.toString . W.requestMethod|]
+    rm <- [|S8.unpack . W.requestMethod|]
     let caseExp = rm `AppE` VarE req
     yr <- [|yesodRunner|]
     cr <- [|fmap chooseRep|]
@@ -205,11 +204,11 @@ mkSimpleExp segments (SinglePiece _:pieces) frontVars x = do
     fsp <- [|fromSinglePiece|]
     let exp' = CaseE (fsp `AppE` VarE next)
                 [ Match
-                    (ConP (mkName "Left") [WildP])
+                    (ConP (mkName "Nothing") [])
                     (NormalB nothing)
                     []
                 , Match
-                    (ConP (mkName "Right") [VarP next'])
+                    (ConP (mkName "Just") [VarP next'])
                     (NormalB innerExp)
                     []
                 ]

@@ -8,20 +8,19 @@ import Data.Serialize
 import Data.Time
 import Data.ByteString (ByteString)
 import Control.Monad (guard)
-import qualified Data.Ascii as A
 
 encodeSession :: CS.Key
               -> UTCTime -- ^ expire time
               -> ByteString -- ^ remote host
               -> [(String, String)] -- ^ session
-              -> A.Ascii -- ^ cookie value
+              -> ByteString -- ^ cookie value
 encodeSession key expire rhost session' =
     CS.encrypt key $ encode $ SessionCookie expire rhost session'
 
 decodeSession :: CS.Key
               -> UTCTime -- ^ current time
               -> ByteString -- ^ remote host field
-              -> A.Ascii -- ^ cookie value
+              -> ByteString -- ^ cookie value
               -> Maybe [(String, String)]
 decodeSession key now rhost encrypted = do
     decrypted <- CS.decrypt key encrypted

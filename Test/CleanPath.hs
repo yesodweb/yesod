@@ -16,10 +16,11 @@ import Network.Wai.Test
 import Network.HTTP.Types (status200, decodePathSegments)
 
 import qualified Data.ByteString.Lazy.Char8 as L8
+import qualified Data.Text as TS
 
 data Subsite = Subsite
 getSubsite = const Subsite
-data SubsiteRoute = SubsiteRoute [String]
+data SubsiteRoute = SubsiteRoute [TS.Text]
     deriving (Eq, Show, Read)
 type instance Route Subsite = SubsiteRoute
 instance RenderRoute SubsiteRoute where
@@ -48,7 +49,7 @@ instance Yesod Y where
             then Right s
             else Left corrected
       where
-        corrected = filter (not . null) s
+        corrected = filter (not . TS.null) s
 
 getFooR = return $ RepPlain "foo"
 getFooStringR = return . RepPlain . toContent

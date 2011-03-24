@@ -54,9 +54,11 @@ import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
 import Data.Time
 import Network.HTTP.Types (encodePath)
+import qualified Network.HTTP.Types as H
 import qualified Data.Text as TS
+import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
-import qualified Data.Ascii as A
+import Blaze.ByteString.Builder (Builder, fromByteString, toByteString)
 
 #if GHC7
 #define HAMLET hamlet
@@ -65,7 +67,7 @@ import qualified Data.Ascii as A
 #endif
 
 class Eq u => RenderRoute u where
-    renderRoute :: u -> ([String], [(String, String)]) -- FIXME switch to Text?
+    renderRoute :: u -> ([Text], [(Text, Text)])
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -74,7 +76,7 @@ class YesodDispatch a master where
         :: Yesod master
         => a
         -> Maybe CS.Key
-        -> [String]
+        -> [Text]
         -> master
         -> (Route a -> Route master)
         -> Maybe W.Application
@@ -99,7 +101,7 @@ class RenderRoute (Route a) => Yesod a where
     --
     -- * You do not use any features that require absolute URLs, such as Atom
     -- feeds and XML sitemaps.
-    approot :: a -> A.Ascii
+    approot :: a -> H.Ascii
 
     -- | The encryption key to be used for encrypting client sessions.
     -- Returning 'Nothing' disables sessions.
@@ -136,7 +138,7 @@ class RenderRoute (Route a) => Yesod a where
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
-    urlRenderOverride :: a -> Route a -> Maybe A.AsciiBuilder
+    urlRenderOverride :: a -> Route a -> Maybe Builder
     urlRenderOverride _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
@@ -179,21 +181,21 @@ class RenderRoute (Route a) => Yesod a where
     --
     -- Note that versions of Yesod prior to 0.7 used a different set of rules
     -- involing trailing slashes.
-    cleanPath :: a -> [String] -> Either [String] [String]
+    cleanPath :: a -> [Text] -> Either [Text] [Text]
     cleanPath _ s =
         if corrected == s
             then Right s
             else Left corrected
       where
-        corrected = filter (not . null) s
+        corrected = filter (not . TS.null) s
 
     -- | Join the pieces of a path together into an absolute URL. This should
     -- be the inverse of 'splitPath'.
     joinPath :: a
-             -> A.AsciiBuilder -- ^ application root
+             -> Builder -- ^ application root
              -> [TS.Text] -- ^ path pieces FIXME Text
              -> [(TS.Text, TS.Text)] -- ^ query string
-             -> A.AsciiBuilder
+             -> Builder
     joinPath _ ar pieces qs' = ar `mappend` encodePath pieces qs
       where
         qs = map (TE.encodeUtf8 *** go) qs'
@@ -379,7 +381,7 @@ defaultErrorHandler (BadMethod m) =
         [$hamlet|
 #endif
 <h1>Method Not Supported
-<p>Method "#{A.toText m}" not supported
+<p>Method "#{S8.unpack m}" not supported
 |]
 
 -- | Return the same URL if the user is authorized to see it.
@@ -411,7 +413,8 @@ widgetToPageContent (GWidget w) = do
         jelper :: Julius url -> Hamlet url
         jelper = fmap jsToHtml
 
-    render <- getUrlRenderParams
+    renderFIXME <- getUrlRenderParams
+    let render a b = renderFIXME a $ map (TS.pack *** TS.pack) b
     let renderLoc x =
             case x of
                 Nothing -> Nothing
@@ -462,13 +465,13 @@ yesodVersion = showVersion Paths_yesod_core.version
 yesodRender :: Yesod y
             => y
             -> Route y
-            -> [(String, String)]
-            -> String
+            -> [(Text, Text)]
+            -> String -- FIXME
 yesodRender y u qs =
-    A.toString $ A.fromAsciiBuilder $
+    S8.unpack $ toByteString $
     fromMaybe
-        ( joinPath y (A.toAsciiBuilder $ approot y) (map TS.pack ps)
-          $ map (TS.pack *** TS.pack) $ qs ++ qs')
+        (joinPath y (fromByteString $ approot y) ps
+          $ qs ++ qs')
         (urlRenderOverride y u)
   where
     (ps, qs') = renderRoute u

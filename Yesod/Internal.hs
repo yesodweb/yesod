@@ -51,8 +51,9 @@ import qualified Data.Text.Lazy.Encoding as LT
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 
-import qualified Data.Ascii as A
 import qualified Network.HTTP.Types as H
+import qualified Network.HTTP.Types as A
+import Data.CaseInsensitive (CI)
 
 #if GHC7
 #define HAMLET hamlet
@@ -76,7 +77,7 @@ instance Exception ErrorResponse
 data Header =
     AddCookie Int A.Ascii A.Ascii
     | DeleteCookie A.Ascii
-    | Header A.CIAscii A.Ascii
+    | Header (CI A.Ascii) A.Ascii
     deriving (Eq, Show)
 
 langKey :: A.Ascii

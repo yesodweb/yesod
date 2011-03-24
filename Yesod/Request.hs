@@ -43,7 +43,7 @@ import Control.Monad.IO.Class
 import Control.Monad (liftM)
 import Control.Monad.Instances () -- I'm missing the instance Monad ((->) r
 import Data.Maybe (listToMaybe)
-import qualified Data.Ascii as A
+import qualified Network.HTTP.Types as A
 
 type ParamName = String
 type ParamValue = String

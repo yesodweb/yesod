@@ -35,9 +35,9 @@ exceptionsTest = testGroup "Test.Exceptions"
 
 runner f = toWaiApp Y >>= runSession f
 defaultRequest = Request
-    { pathInfo = ""
+    { pathInfo = []
     , requestHeaders = []
-    , queryString = ""
+    , queryString = []
     , requestMethod = "GET"
     }
 

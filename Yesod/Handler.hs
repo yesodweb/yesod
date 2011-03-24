@@ -125,7 +125,7 @@ import Control.Failure (Failure (failure))
 
 import Text.Hamlet
 
-import Control.Monad.IO.Peel (MonadPeelIO)
+import Control.Monad.IO.Peel (MonadPeelIO) -- FIXME monad-control
 import Control.Monad.Trans.Peel (MonadTransPeel (peel), liftPeel)
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
@@ -139,8 +139,12 @@ import Web.Cookie (SetCookie (..), renderSetCookie)
 import Data.Enumerator (run_, ($$))
 import Control.Arrow (second, (***))
 import qualified Network.Wai.Parse as NWP
-import qualified Data.Ascii as A
 import Data.Monoid (mappend, mempty)
+import qualified Data.ByteString.Char8 as S8
+import Data.CaseInsensitive (CI)
+import Blaze.ByteString.Builder (toByteString)
+import Data.Text (Text)
+import qualified Data.Text as TS
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -153,7 +157,7 @@ data HandlerData sub master = HandlerData
     , handlerSub :: sub
     , handlerMaster :: master
     , handlerRoute :: Maybe (Route sub)
-    , handlerRender :: (Route master -> [(String, String)] -> String) -- FIXME replace output String with Ascii
+    , handlerRender :: (Route master -> [(Text, Text)] -> String) -- FIXME replace output String with Ascii
     , handlerToMaster :: Route sub -> Route master
     }
 
@@ -271,8 +275,8 @@ data HandlerContents =
       HCContent H.Status ChooseRep
     | HCError ErrorResponse
     | HCSendFile ContentType FilePath
-    | HCRedirect RedirectType A.Ascii
-    | HCCreated A.Ascii
+    | HCRedirect RedirectType H.Ascii
+    | HCCreated H.Ascii
     | HCWai W.Response
 
 instance Error HandlerContents where
@@ -318,7 +322,7 @@ getUrlRender = do
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
     :: Monad m
-    => GGHandler sub master m (Route master -> [(String, String)] -> String)
+    => GGHandler sub master m (Route master -> [(Text, Text)] -> String)
 getUrlRenderParams = handlerRender `liftM` GHandler ask
 
 -- | Get the route requested by the user. If this is a 404 response- where the
@@ -335,7 +339,7 @@ getRouteToMaster = handlerToMaster `liftM` GHandler ask
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
 runHandler :: HasReps c
            => GHandler sub master c
-           -> (Route master -> [(String, String)] -> String)
+           -> (Route master -> [(Text, Text)] -> String)
            -> Maybe (Route sub)
            -> (Route sub -> Route master)
            -> master
@@ -419,14 +423,14 @@ redirect rt url = redirectParams rt url []
 
 -- | Redirects to the given route with the associated query-string parameters.
 redirectParams :: Monad mo
-               => RedirectType -> Route master -> [(String, String)]
+               => RedirectType -> Route master -> [(Text, Text)]
                -> GGHandler sub master mo a
 redirectParams rt url params = do
     r <- getUrlRenderParams
-    redirectString rt $ A.unsafeFromString $ r url params
+    redirectString rt $ S8.pack $ r url params
 
 -- | Redirect to the given URL.
-redirectString :: Monad mo => RedirectType -> A.Ascii -> GGHandler sub master mo a
+redirectString :: Monad mo => RedirectType -> H.Ascii -> GGHandler sub master mo a
 redirectString rt = GHandler . lift . throwError . HCRedirect rt
 
 ultDestKey :: String
@@ -458,7 +462,8 @@ setUltDest' = do
             tm <- getRouteToMaster
             gets' <- reqGetParams `liftM` handlerRequest `liftM` GHandler ask
             render <- getUrlRenderParams
-            setUltDestString $ render (tm r) gets'
+            let renderFIXME a b = render a $ map (TS.pack *** TS.pack) b
+            setUltDestString $ renderFIXME (tm r) gets'
 
 -- | Redirect to the ultimate destination in the user's session. Clear the
 -- value from the session.
@@ -471,7 +476,7 @@ redirectUltDest :: Monad mo
 redirectUltDest rt def = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
-    maybe (redirect rt def) (redirectString rt . A.unsafeFromString) mdest
+    maybe (redirect rt def) (redirectString rt . S8.pack) mdest
 
 msgKey :: String
 msgKey = "_MSG"
@@ -516,7 +521,7 @@ sendResponseStatus s = GHandler . lift . throwError . HCContent s
 sendResponseCreated :: Monad mo => Route m -> GGHandler s m mo a
 sendResponseCreated url = do
     r <- getUrlRender
-    GHandler $ lift $ throwError $ HCCreated $ A.unsafeFromString $ r url
+    GHandler $ lift $ throwError $ HCCreated $ S8.pack $ r url
 
 -- | Send a 'W.Response'. Please note: this function is rarely
 -- necessary, and will /disregard/ any changes to response headers and session
@@ -548,29 +553,29 @@ invalidArgs = failure . InvalidArgs
 -- | Set the cookie on the client.
 setCookie :: Monad mo
           => Int -- ^ minutes to timeout
-          -> A.Ascii -- ^ key
-          -> A.Ascii -- ^ value
+          -> H.Ascii -- ^ key
+          -> H.Ascii -- ^ value
           -> GGHandler sub master mo ()
 setCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
-deleteCookie :: Monad mo => A.Ascii -> GGHandler sub master mo ()
+deleteCookie :: Monad mo => H.Ascii -> GGHandler sub master mo ()
 deleteCookie = addHeader . DeleteCookie
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
 setLanguage :: Monad mo => String -> GGHandler sub master mo ()
-setLanguage = setSession (A.toString langKey)
+setLanguage = setSession $ S8.unpack langKey
 
 -- | Set an arbitrary response header.
 setHeader :: Monad mo
-          => A.CIAscii -> A.Ascii -> GGHandler sub master mo ()
+          => CI H.Ascii -> H.Ascii -> GGHandler sub master mo ()
 setHeader a = addHeader . Header a
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
 cacheSeconds :: Monad mo => Int -> GGHandler s m mo ()
-cacheSeconds i = setHeader "Cache-Control" $ A.unsafeFromString $ concat
+cacheSeconds i = setHeader "Cache-Control" $ S8.pack $ concat
     [ "max-age="
     , show i
     , ", public"
@@ -588,7 +593,7 @@ alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
 expiresAt :: Monad mo => UTCTime -> GGHandler s m mo ()
-expiresAt = setHeader "Expires" . A.unsafeFromString . formatRFC1123
+expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
 
 -- | Set a variable in the user's session.
 --
@@ -648,7 +653,7 @@ handlerToYAR :: (HasReps a, HasReps b)
              => m -- ^ master site foundation
              -> s -- ^ sub site foundation
              -> (Route s -> Route m)
-             -> (Route m -> [(String, String)] -> String) -- ^ url render
+             -> (Route m -> [(Text, Text)] -> String) -- ^ url render FIXME
              -> (ErrorResponse -> GHandler s m a)
              -> Request
              -> Maybe (Route s)
@@ -666,7 +671,7 @@ handlerToYAR y s toMasterRoute render errorHandler rr murl sessionMap h =
 type HeaderRenderer = [Header]
                    -> ContentType
                    -> SessionMap
-                   -> [(A.CIAscii, A.Ascii)]
+                   -> [(CI H.Ascii, H.Ascii)]
 
 yarToResponse :: HeaderRenderer -> YesodAppResult -> W.Response
 yarToResponse _ (YARWai a) = a
@@ -675,12 +680,12 @@ yarToResponse renderHeaders (YARPlain s hs ct c sessionFinal) =
         ContentBuilder b mlen ->
             let hs' = maybe finalHeaders finalHeaders' mlen
              in W.ResponseBuilder s hs' b
-        ContentFile fp -> W.ResponseFile s finalHeaders fp
+        ContentFile fp -> W.ResponseFile s finalHeaders fp Nothing -- FIXME handle partial files
         ContentEnum e ->
             W.ResponseEnumerator $ \iter -> run_ $ e $$ iter s finalHeaders
   where
     finalHeaders = renderHeaders hs ct sessionFinal
-    finalHeaders' len = ("Content-Length", A.unsafeFromString $ show len)
+    finalHeaders' len = ("Content-Length", S8.pack $ show len)
                       : finalHeaders
     {-
     getExpires m = fromIntegral (m * 60) `addUTCTime` now
@@ -711,9 +716,9 @@ httpAccept = parseHttpAccept
 -- | Convert Header to a key/value pair.
 headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
              -> Header
-             -> (A.CIAscii, A.Ascii)
+             -> (CI H.Ascii, H.Ascii)
 headerToPair getExpires (AddCookie minutes key value) =
-    ("Set-Cookie", A.fromAsciiBuilder $ renderSetCookie $ SetCookie
+    ("Set-Cookie", toByteString $ renderSetCookie $ SetCookie
         { setCookieName = key
         , setCookieValue = value
         , setCookiePath = Just "/" -- FIXME make a config option, or use approot?
@@ -777,7 +782,8 @@ hamletToContent :: Monad mo
                 => Hamlet (Route master) -> GGHandler sub master mo Content
 hamletToContent h = do
     render <- getUrlRenderParams
-    return $ toContent $ h render
+    let renderFIXME a b = render a $ map (TS.pack *** TS.pack) b
+    return $ toContent $ h renderFIXME
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
 hamletToRepHtml :: Monad mo

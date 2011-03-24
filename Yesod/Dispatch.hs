@@ -39,7 +39,6 @@ import Data.ByteString.Lazy.Char8 ()
 
 import Web.ClientSession
 import Data.Char (isUpper)
-import qualified Data.Text as TS
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
@@ -175,8 +174,7 @@ toWaiApp' :: (Yesod y, YesodDispatch y y)
           => y
           -> Maybe Key
           -> W.Application
-toWaiApp' y key' env = do
-    let segments = map TS.unpack $ W.pathInfo env
-    case yesodDispatch y key' segments y id of
+toWaiApp' y key' env =
+    case yesodDispatch y key' (W.pathInfo env) y id of
         Just app -> app env
         Nothing -> yesodRunner y y id key' Nothing notFound env

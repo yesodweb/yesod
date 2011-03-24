@@ -61,7 +61,6 @@ import Data.Monoid (mempty)
 import Text.Hamlet (Html)
 import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
 import Data.String (IsString (fromString))
-import qualified Data.Ascii as A
 
 data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional content length.
              | ContentEnum (forall a. Enumerator Builder IO a)
@@ -167,7 +166,7 @@ newtype RepXml = RepXml Content
 instance HasReps RepXml where
     chooseRep (RepXml c) _ = return (typeXml, c)
 
-type ContentType = A.Ascii
+type ContentType = B.ByteString
 
 typeHtml :: ContentType
 typeHtml = "text/html; charset=utf-8"
@@ -216,8 +215,8 @@ typeOctet = "application/octet-stream"
 --
 -- For example, \"text/html; charset=utf-8\" is commonly used to specify the
 -- character encoding for HTML data. This function would return \"text/html\".
-simpleContentType :: A.Ascii -> A.Ascii
-simpleContentType = A.unsafeFromByteString . fst . B.breakByte 59 . A.toByteString -- 59 == ;
+simpleContentType :: ContentType -> ContentType
+simpleContentType = fst . B.breakByte 59 -- 59 == ;
 
 -- | Format a 'UTCTime' in W3 format.
 formatW3 :: UTCTime -> String
