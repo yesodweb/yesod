@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.7.1
+version:         0.7.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -18,21 +18,13 @@ extra-source-files: scaffold/*.cg
 
 flag ghc7
 
-flag production
-    Description: Skip the wai-handler-devel and hint dependencies.
-    Default:     False
-
 library
-    if flag(production)
-        cpp-options: -DPRODUCTION
-    else
-        build-depends: wai-handler-devel   >= 0.2      && < 0.3
     if flag(ghc7)
         build-depends:   base                  >= 4.3      && < 5
         cpp-options:     -DGHC7
     else
         build-depends:   base                  >= 4        && < 4.3
-    build-depends:   yesod-core                >= 0.7.0.1  && < 0.8
+    build-depends:   yesod-core                >= 0.7.0.2  && < 0.8
                    , yesod-auth                >= 0.3      && < 0.4
                    , yesod-json                >= 0.0.0.1  && < 0.1
                    , yesod-persistent          >= 0.0.0.1  && < 0.1
@@ -46,7 +38,6 @@ library
                    , warp                      >= 0.3.2.1  && < 0.4
                    , mime-mail                 >= 0.1.0.1  && < 0.2
                    , hjsmin                    >= 0.0.12   && < 0.1
-                   , attoparsec-text           >= 0.8.2.1  && < 0.9
     exposed-modules: Yesod
     ghc-options:     -Wall
 

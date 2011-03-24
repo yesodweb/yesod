@@ -15,9 +15,7 @@ module Yesod
       -- * Running your application
     , warp
     , warpDebug
-#if !PRODUCTION
     , develServer
-#endif
       -- * Commonly referenced functions/datatypes
     , Application
     , lift
@@ -62,21 +60,12 @@ import Yesod.Json
 import Yesod.Persist
 import Network.Wai (Application)
 import Network.Wai.Middleware.Debug
-#if !PRODUCTION
-import Network.Wai.Handler.DevelServer (runQuit)
-#endif
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.IO.Peel (MonadPeelIO)
 
 import Network.Wai.Handler.Warp (run)
 import System.IO (stderr, hPutStrLn)
-
-import qualified Data.Text.Lazy.IO as TIO
-import qualified Data.Attoparsec.Text.Lazy as A
-import Control.Applicative ((<|>))
-import Data.Maybe (mapMaybe)
-import Data.Char (isSpace)
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)
@@ -99,7 +88,6 @@ warpDebug port a = do
     hPutStrLn stderr $ "Application launched, listening on port " ++ show port
     toWaiApp a >>= run port . debug
 
-#if !PRODUCTION
 -- | Run a development server, where your code changes are automatically
 -- reloaded.
 develServer :: Int -- ^ port number
@@ -107,45 +95,20 @@ develServer :: Int -- ^ port number
             -> String -- ^ name of function providing a with-application
             -> IO ()
 
-develServer port modu func = do
+develServer port modu func =
     mapM_ putStrLn
-        [ "Starting your server process. Code changes will be automatically"
-        , "loaded as you save your files. Type \"quit\" to exit."
-        , "You can view your app at http://localhost:" ++ show port ++ "/"
+        [ "Due to issues with GHC 7.0.2, you must now run the devel server"
+        , "separately. To do so, ensure you have installed the "
+        , "wai-handler-devel package >= 0.2.1 and run:"
+        , concat
+            [ "   wai-handler-devel "
+            , show port
+            , " "
+            , modu
+            , " "
+            , func
+            , " --yesod"
+            ]
         , ""
         ]
-    runQuit port modu func determineHamletDeps
 
-#endif
-
-data TempType = Hamlet | Cassius | Julius | Widget
-    deriving Show
-
--- | Determine which Hamlet files a Haskell file depends upon.
-determineHamletDeps :: FilePath -> IO [FilePath]
-determineHamletDeps x = do
-    y <- TIO.readFile x
-    let z = A.parse (A.many $ (parser <|> (A.anyChar >> return Nothing))) y
-    case z of
-        A.Fail{} -> return []
-        A.Done _ r -> return $ mapMaybe go r
-  where
-    go (Just (Hamlet, f)) = Just $ "hamlet/" ++ f ++ ".hamlet"
-    go (Just (Widget, f)) = Just $ "hamlet/" ++ f ++ ".hamlet"
-    go _ = Nothing
-    parser = do
-        typ <- (A.string "$(hamletFile " >> return Hamlet)
-           <|> (A.string "$(cassiusFile " >> return Cassius)
-           <|> (A.string "$(juliusFile " >> return Julius)
-           <|> (A.string "$(widgetFile " >> return Widget)
-           <|> (A.string "$(Settings.hamletFile " >> return Hamlet)
-           <|> (A.string "$(Settings.cassiusFile " >> return Cassius)
-           <|> (A.string "$(Settings.juliusFile " >> return Julius)
-           <|> (A.string "$(Settings.widgetFile " >> return Widget)
-        A.skipWhile isSpace
-        _ <- A.char '"'
-        y <- A.many1 $ A.satisfy (/= '"')
-        _ <- A.char '"'
-        A.skipWhile isSpace
-        _ <- A.char ')'
-        return $ Just (typ, y)
