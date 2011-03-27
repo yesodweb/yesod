@@ -36,7 +36,6 @@ library
                    , yesod-json              >= 0.0       && < 0.1
                    , containers              >= 0.2       && < 0.5
                    , json-types              >= 0.1       && < 0.2
-                   , text                    >= 0.11      && < 0.12
                    , yesod-form              >= 0.0       && < 0.1
                    , transformers            >= 0.2       && < 0.3
                    , persistent              >= 0.4       && < 0.5
