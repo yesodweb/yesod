@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.8.2.2
+version:         0.9.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -15,8 +15,7 @@ homepage:        http://github.com/snoyberg/authenticate/tree/master
 
 library
     build-depends:   base >= 4 && < 5,
-                     data-object >= 0.3.1 && < 0.4,
-                     data-object-json >= 0.3.1 && < 0.4,
+                     aeson >= 0.3.1.1 && < 0.4,
                      http-enumerator >= 0.3.0 && < 0.4,
                      tagsoup >= 0.6 && < 0.13,
                      failure >= 0.0.0 && < 0.2,
@@ -31,7 +30,9 @@ library
                      base64-bytestring >= 0.1 && < 0.2,
                      SHA >= 1.4 && < 1.5,
                      random >= 1.0 && < 1.1,
-                     wai-extra >= 0.3 && < 0.4
+                     wai-extra >= 0.3 && < 0.4,
+                     text >= 0.5 && < 1.0,
+                     attoparsec >= 0.8.5 && < 0.9
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
                      Web.Authenticate.OpenId.Providers,

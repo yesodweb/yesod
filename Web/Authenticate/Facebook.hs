@@ -4,14 +4,13 @@ module Web.Authenticate.Facebook where
 
 import Network.HTTP.Enumerator
 import Data.List (intercalate)
-import Data.Object
-import Data.Object.Json
+import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as L8
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString as S
 import Web.Authenticate.Internal (qsEncode)
 import Data.Data (Data)
 import Data.Typeable (Typeable)
+import Control.Exception (Exception, throwIO)
+import Data.Attoparsec.Lazy (parse, eitherResult)
 
 data Facebook = Facebook
     { facebookClientId :: String
@@ -63,8 +62,15 @@ graphUrl (AccessToken s) func = concat
     , s
     ]
 
-getGraphData :: AccessToken -> String -> IO StringObject
+getGraphData :: AccessToken -> String -> IO (Either String Value)
 getGraphData at func = do
     let url = graphUrl at func
     b <- simpleHttp url
-    decode $ S.concat $ L.toChunks b
+    return $ eitherResult $ parse json b
+
+getGraphData' :: AccessToken -> String -> IO Value
+getGraphData' a b = getGraphData a b >>= either (throwIO . InvalidJsonException) return
+
+data InvalidJsonException = InvalidJsonException String
+    deriving (Show, Typeable)
+instance Exception InvalidJsonException

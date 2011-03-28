@@ -22,8 +22,7 @@ module Web.Authenticate.Rpxnow
     , AuthenticateException (..)
     ) where
 
-import Data.Object
-import Data.Object.Json
+import Data.Aeson
 import Network.HTTP.Enumerator
 import "transformers" Control.Monad.IO.Class
 import Control.Failure
@@ -35,20 +34,22 @@ import Control.Exception (throwIO)
 import Web.Authenticate.Internal
 import Data.Data (Data)
 import Data.Typeable (Typeable)
+import Data.Attoparsec.Lazy (parse)
+import qualified Data.Attoparsec.Lazy as AT
+import Data.Text (Text)
+import qualified Data.Aeson.Types
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
-    { identifier :: String
-    , extraData :: [(String, String)]
+    { identifier :: Text
+    , extraData :: [(Text, Text)]
     }
     deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- | Attempt to log a user in.
 authenticate :: (MonadIO m,
                  Failure HttpException m,
-                 Failure AuthenticateException m,
-                 Failure ObjectExtractError m,
-                 Failure JsonDecodeError m)
+                 Failure AuthenticateException m)
              => String -- ^ API key given by RPXNOW.
              -> String -- ^ Token passed by client.
              -> m Identifier
@@ -76,21 +77,32 @@ authenticate apiKey token = do
     let b = responseBody res
     unless (200 <= statusCode res && statusCode res < 300) $
         liftIO $ throwIO $ StatusCodeException (statusCode res) b
-    o <- decode $ S.concat $ L.toChunks b
-    m <- fromMapping o
-    stat <- lookupScalar "stat" m
-    unless (stat == "ok") $ failure $ RpxnowException $
-        "Rpxnow login not accepted: " ++ stat ++ "\n" ++ L.unpack b
-    parseProfile m
+    o <- unResult $ parse json b
+    --m <- fromMapping o
+    let mstat = flip Data.Aeson.Types.parse o $ \v ->
+                case v of
+                    Object m -> m .: "stat"
+                    _ -> mzero
+    case mstat of
+        Success "ok" -> return ()
+        Success stat -> failure $ RpxnowException $
+            "Rpxnow login not accepted: " ++ stat ++ "\n" ++ L.unpack b
+        _ -> failure $ RpxnowException "Now stat value found on Rpxnow response"
+    case Data.Aeson.Types.parse parseProfile o of
+        Success x -> return x
+        Error e -> failure $ RpxnowException $ "Unable to parse Rpxnow response: " ++ e
 
-parseProfile :: (Monad m, Failure ObjectExtractError m)
-             => [(String, StringObject)] -> m Identifier
-parseProfile m = do
-    profile <- lookupMapping "profile" m
-    ident <- lookupScalar "identifier" profile
+unResult :: Failure AuthenticateException m => AT.Result a -> m a
+unResult = either (failure . RpxnowException) return . AT.eitherResult
+
+parseProfile :: Value -> Data.Aeson.Types.Parser Identifier
+parseProfile (Object m) = do
+    profile <- m .: "profile"
+    ident <- m .: "identifier"
     let profile' = mapMaybe go profile
     return $ Identifier ident profile'
   where
     go ("identifier", _) = Nothing
-    go (k, Scalar v) = Just (k, v)
+    go (k, String v) = Just (k, v)
     go _ = Nothing
+parseProfile _ = mzero
