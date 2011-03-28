@@ -29,10 +29,10 @@ import Network.HTTP.Enumerator
 import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import qualified Data.ByteString.Char8 as S8
 import Control.Arrow (first, (***))
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Failure (Failure (failure))
 import Control.Monad (mplus, liftM)
-import Network.Wai (ciOriginal)
+import qualified Data.CaseInsensitive as CI
 
 data Discovery = Discovery1 String (Maybe String)
                | Discovery2 Provider Identifier IdentType
@@ -69,11 +69,11 @@ discoverYADIS :: ( MonadIO m
 discoverYADIS _ _ 0 = failure TooManyRedirects
 discoverYADIS ident mb_loc redirects = do
     let uri = fromMaybe (identifier ident) mb_loc
-    req <- parseUrl uri
-    res <- httpLbs req
+    req <- parseUrl $ S8.pack uri
+    res <- liftIO $ withManager $ httpLbs req
     let mloc = fmap S8.unpack
              $ lookup "x-xrds-location"
-             $ map (first $ map toLower . S8.unpack . ciOriginal)
+             $ map (first $ map toLower . S8.unpack . CI.original)
              $ responseHeaders res
     let mloc' = if mloc == mb_loc then Nothing else mloc
     case statusCode res of
@@ -117,7 +117,7 @@ discoverHTML :: ( MonadIO m, Failure HttpException m)
              => Identifier
              -> m (Maybe Discovery)
 discoverHTML ident'@(Identifier ident) =
-    (parseHTML ident' . BSLU.toString) `liftM` simpleHttp ident
+    (parseHTML ident' . BSLU.toString) `liftM` simpleHttp (S8.pack ident)
 
 -- | Parse out an OpenID endpoint and an actual identifier from an HTML
 -- document.

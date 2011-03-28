@@ -11,6 +11,7 @@ import Data.Data (Data)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception, throwIO)
 import Data.Attoparsec.Lazy (parse, eitherResult)
+import qualified Data.ByteString.Char8 as S8
 
 data Facebook = Facebook
     { facebookClientId :: String
@@ -48,7 +49,7 @@ accessTokenUrl fb code = concat
 getAccessToken :: Facebook -> String -> IO AccessToken
 getAccessToken fb code = do
     let url = accessTokenUrl fb code
-    b <- simpleHttp url
+    b <- simpleHttp $ S8.pack url
     let (front, back) = splitAt 13 $ L8.unpack b
     case front of
         "access_token=" -> return $ AccessToken back
@@ -65,7 +66,7 @@ graphUrl (AccessToken s) func = concat
 getGraphData :: AccessToken -> String -> IO (Either String Value)
 getGraphData at func = do
     let url = graphUrl at func
-    b <- simpleHttp url
+    b <- simpleHttp $ S8.pack url
     return $ eitherResult $ parse json b
 
 getGraphData' :: AccessToken -> String -> IO Value

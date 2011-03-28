@@ -71,9 +71,10 @@ authenticate apiKey token = do
                 , requestHeaders =
                     [ ("Content-Type", "application/x-www-form-urlencoded")
                     ]
-                , requestBody = body
+                , requestBody = RequestBodyLBS body
+                , checkCerts = const $ return True
                 }
-    res <- httpLbsRedirect req
+    res <- liftIO $ withManager $ httpLbsRedirect req
     let b = responseBody res
     unless (200 <= statusCode res && statusCode res < 300) $
         liftIO $ throwIO $ StatusCodeException (statusCode res) b

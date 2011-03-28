@@ -30,9 +30,15 @@ import Data.Digest.Pure.SHA
 import Data.ByteString.Base64
 import Data.Time
 import Numeric
-import Network.Wai (ResponseHeader)
 import Codec.Crypto.RSA (rsassa_pkcs1_v1_5_sign, ha_SHA1, PrivateKey(..))
-
+import Network.HTTP.Types (Header)
+import Control.Arrow (second)
+import qualified Data.ByteString.Char8 as S8
+import Blaze.ByteString.Builder (toByteString)
+import Data.Enumerator (($$), run_, Stream (..), continue)
+import Data.Monoid (mconcat)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.IORef (newIORef, readIORef, atomicModifyIORef)
 
 -- | Data type for OAuth client (consumer).
 data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name
@@ -85,9 +91,9 @@ fromStrict = BSL.fromChunks . return
 getTemporaryCredential :: OAuth         -- ^ OAuth Application
                        -> IO Credential -- ^ Temporary Credential (Request Token & Secret).
 getTemporaryCredential oa = do
-  let req = fromJust $ parseUrl (oauthRequestUri oa)
+  let req = fromJust $ parseUrl $ S8.pack $ oauthRequestUri oa
   req' <- signOAuth oa emptyCredential (req { method = "POST" }) 
-  rsp <- httpLbs req'
+  rsp <- withManager $ httpLbs req'
   let dic = parseQueryString . toStrict . responseBody $ rsp
   return $ Credential dic
 
@@ -103,8 +109,8 @@ getAccessToken, getTokenCredential
                -> Credential    -- ^ Temporary Credential with oauth_verifier
                -> IO Credential -- ^ Token Credential (Access Token & Secret)
 getAccessToken oa cr = do
-  let req = (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
-  rsp <- signOAuth oa cr req >>= httpLbs
+  let req = (fromJust $ parseUrl $ S8.pack $ oauthAccessTokenUri oa) { method = "POST" }
+  rsp <- signOAuth oa cr req >>= withManager . httpLbs
   let dic = parseQueryString . toStrict . responseBody $ rsp
   return $ Credential dic
 
@@ -136,12 +142,12 @@ delete key = Credential . deleteMap key . unCredential
 -- | Add OAuth headers & sign to 'Request'.
 signOAuth :: OAuth              -- ^ OAuth Application
           -> Credential         -- ^ Credential
-          -> Request            -- ^ Original Request
-          -> IO Request         -- ^ Signed OAuth Request
+          -> Request IO         -- ^ Original Request
+          -> IO (Request IO)    -- ^ Signed OAuth Request
 signOAuth oa crd req = do
   crd' <- addTimeStamp =<< addNonce crd
   let tok = injectOAuthToCred oa crd'
-      sign = genSign oa tok req
+  sign <- genSign oa tok req
   return $ addAuthHeader (insert "oauth_signature" sign tok) req
 
 baseTime :: UTCTime
@@ -171,19 +177,19 @@ injectOAuthToCred oa cred = maybe id (insert "oauth_callback") (oauthCallback oa
           , ("oauth_version", "1.0")
           ] cred
 
-genSign :: OAuth -> Credential -> Request -> BS.ByteString
+genSign :: MonadIO m => OAuth -> Credential -> Request m -> m BS.ByteString
 genSign oa tok req =
   case oauthSignatureMethod oa of
-    HMACSHA1 ->
-      let text = getBaseString tok req
-          key  = BS.intercalate "&" $ map paramEncode [oauthConsumerSecret oa, tokenSecret tok]
-      in encode $ toStrict $ bytestringDigest $ hmacSha1 (fromStrict key) text
+    HMACSHA1 -> do
+      text <- getBaseString tok req
+      let key  = BS.intercalate "&" $ map paramEncode [oauthConsumerSecret oa, tokenSecret tok]
+      return $ encode $ toStrict $ bytestringDigest $ hmacSha1 (fromStrict key) text
     PLAINTEXT ->
-      BS.intercalate "&" $ map paramEncode [oauthConsumerSecret oa, tokenSecret tok]
+      return $ BS.intercalate "&" $ map paramEncode [oauthConsumerSecret oa, tokenSecret tok]
     RSASHA1 pr ->
-      encode $ toStrict $ rsassa_pkcs1_v1_5_sign ha_SHA1 pr (getBaseString tok req)
+      liftM (encode . toStrict . rsassa_pkcs1_v1_5_sign ha_SHA1 pr) (getBaseString tok req)
 
-addAuthHeader :: Credential -> Request -> Request
+addAuthHeader :: Credential -> Request a -> Request a
 addAuthHeader (Credential cred) req =
   req { requestHeaders = insertMap "Authorization" (renderAuthHeader cred) $ requestHeaders req }
 
@@ -199,24 +205,44 @@ paramEncode = BS.concatMap escape
                                oct = '%' : replicate (2 - length num) '0' ++ num
                            in BS.pack oct
 
-getBaseString :: Credential -> Request -> BSL.ByteString
-getBaseString tok req =
+getBaseString :: MonadIO m => Credential -> Request m -> m BSL.ByteString
+getBaseString tok req = do
   let bsMtd  = BS.map toUpper $ method req
       isHttps = secure req
       scheme = if isHttps then "https" else "http"
       bsPort = if (isHttps && port req /= 443) || (not isHttps && port req /= 80)
                  then ':' `BS.cons` BS.pack (show $ port req) else ""
       bsURI = BS.concat [scheme, "://", host req, bsPort, path req]
-      bsQuery = queryString req
-      bsBodyQ = if isBodyFormEncoded $ requestHeaders req
-                  then parseQueryString (toStrict $ requestBody req) else []
-      bsAuthParams = filter ((`notElem`["oauth_signature","realm", "oauth_token_secret"]).fst) $ unCredential tok
+      bsQuery = map (second $ fromMaybe "") $ queryString req
+  bsBodyQ <- if isBodyFormEncoded $ requestHeaders req
+                  then liftM parseQueryString $ toLBS (requestBody req)
+                  else return []
+  let bsAuthParams = filter ((`notElem`["oauth_signature","realm", "oauth_token_secret"]).fst) $ unCredential tok
       allParams = bsQuery++bsBodyQ++bsAuthParams
       bsParams = BS.intercalate "&" $ map (\(a,b)->BS.concat[a,"=",b]) $ sortBy compareTuple
                    $ map (\(a,b) -> (paramEncode a,paramEncode b)) allParams
-  in BSL.intercalate "&" $ map (fromStrict.paramEncode) [bsMtd, bsURI, bsParams]
+  -- FIXME it would be much better to use http-types functions here
+  return $ BSL.intercalate "&" $ map (fromStrict.paramEncode) [bsMtd, bsURI, bsParams]
 
-isBodyFormEncoded :: [(ResponseHeader, BS.ByteString)] -> Bool
+toLBS :: MonadIO m => RequestBody m -> m BS.ByteString
+toLBS (RequestBodyLBS l) = return $ toStrict l
+toLBS (RequestBodyBS s) = return s
+toLBS (RequestBodyBuilder _ b) = return $ toByteString b
+toLBS (RequestBodyEnum _ enum) = do
+    i <- liftIO $ newIORef id
+    run_ $ enum $$ go i
+    liftIO $ liftM (toByteString . mconcat . ($ [])) $ readIORef i
+  where
+    go i =
+        continue go'
+      where
+        go' (Chunks []) = continue go'
+        go' (Chunks x) = do
+            liftIO (atomicModifyIORef i $ \y -> (y . (x ++), ()))
+            continue go'
+        go' EOF = return ()
+
+isBodyFormEncoded :: [Header] -> Bool
 isBodyFormEncoded = maybe False (=="application/x-www-form-urlencoded") . lookup "Content-Type"
 
 compareTuple :: (Ord a, Ord b) => (a, b) -> (a, b) -> Ordering
