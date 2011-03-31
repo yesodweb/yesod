@@ -83,7 +83,7 @@ data Header =
 langKey :: A.Ascii
 langKey = "_LANG"
 
-data Location url = Local url | Remote String
+data Location url = Local url | Remote String -- FIXME Text
     deriving (Show, Eq)
 locationToHamlet :: Location url -> Hamlet url
 locationToHamlet (Local url) = [HAMLET|\@{url}
@@ -100,9 +100,9 @@ runUniqueList (UniqueList x) = nub $ x []
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
 
-newtype Script url = Script { unScript :: Location url }
+data Script url = Script { scriptLocation :: Location url, scriptAttributes :: [(T.Text, T.Text)] }
     deriving (Show, Eq)
-newtype Stylesheet url = Stylesheet { unStylesheet :: Location url }
+data Stylesheet url = Stylesheet { styleLocation :: Location url, styleAttributes :: [(T.Text, T.Text)] }
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html }
 

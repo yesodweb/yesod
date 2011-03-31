@@ -45,7 +45,9 @@ import Control.Monad.Trans.RWS
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
-import Text.Blaze (preEscapedLazyText)
+import Text.Blaze (preEscapedLazyText, (!), customAttribute, textTag, toValue)
+import qualified Data.Text as T
+import qualified Text.Blaze.Html5 as TBH
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Maybe (fromMaybe)
@@ -59,6 +61,7 @@ import qualified Data.Text as TS
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
 import Blaze.ByteString.Builder (Builder, fromByteString, toByteString)
+import Data.List (foldl')
 
 #if GHC7
 #define HAMLET hamlet
@@ -232,16 +235,15 @@ defaultYesodRunner :: Yesod master
                    -> GHandler a master ChooseRep
                    -> W.Application
 defaultYesodRunner s master toMasterRoute mkey murl handler req = do
+    now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration master
     let rh = takeWhile (/= ':') $ show $ W.remoteHost req
     let host = if sessionIpAddress master then S8.pack rh else ""
-    session' <-
-        case mkey of
-            Nothing -> return []
-            Just key -> do
-                now <- liftIO getCurrentTime
-                return $ fromMaybe [] $ do
+    let session' =
+            case mkey of
+                Nothing -> []
+                Just key -> fromMaybe [] $ do
                     raw <- lookup "Cookie" $ W.requestHeaders req
                     val <- lookup sessionName $ parseCookies raw
                     decodeSession key now host val
@@ -404,9 +406,8 @@ widgetToPageContent :: (Eq (Route master), Yesod master)
 widgetToPageContent (GWidget w) = do
     ((), _, GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- runRWST w () 0
     let title = maybe mempty unTitle mTitle
-    let scripts = map (locationToHamlet . unScript) $ runUniqueList scripts'
-    let stylesheets = map (locationToHamlet . unStylesheet)
-                    $ runUniqueList stylesheets'
+    let scripts = runUniqueList scripts'
+    let stylesheets = runUniqueList stylesheets'
     let cssToHtml = preEscapedLazyText . renderCss
         celper :: Cassius url -> Hamlet url
         celper = fmap cssToHtml
@@ -436,6 +437,13 @@ widgetToPageContent (GWidget w) = do
                    $ encodeUtf8 $ renderJulius render s
                 return $ renderLoc x
 
+    let addAttr x (y, z) = x ! customAttribute (textTag y) (toValue z)
+    let renderLoc' render' (Local url) = render' url []
+        renderLoc' _ (Remote s) = s
+    let mkScriptTag (Script loc attrs) render' =
+            foldl' addAttr TBH.script (("src", T.pack $ renderLoc' render' loc) : attrs) $ return ()
+    let mkLinkTag (Stylesheet loc attrs) render' =
+            foldl' addAttr TBH.link (("rel", "stylesheet") : ("href", T.pack $ renderLoc' render' loc) : attrs)
     let head'' =
 #if GHC7
             [hamlet|
@@ -443,12 +451,12 @@ widgetToPageContent (GWidget w) = do
             [$hamlet|
 #endif
 $forall s <- scripts
-    <script src="^{s}">
+    ^{mkScriptTag s}
 $forall s <- stylesheets
-    <link rel="stylesheet" href="^{s}">
+    ^{mkLinkTag s}
 $maybe s <- style
     $maybe s <- cssLoc
-        <link rel="stylesheet" href="#{s}">
+        <link rel=stylesheet href=#{s}
     $nothing
         <style>^{celper s}
 $maybe j <- jscript
