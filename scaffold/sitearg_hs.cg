@@ -185,7 +185,7 @@ instance YesodAuthEmail ~sitearg~ where
             , partContent = renderHtml [~qq~hamlet|
 <p>Please confirm your email address by clicking on the link below.
 <p>
-    <a href=#{verurl} #{verurl}
+    <a href=#{verurl}>#{verurl}
 <p>Thank you
 |]
             , partHeaders = []
