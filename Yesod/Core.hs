@@ -232,15 +232,16 @@ defaultYesodRunner :: Yesod master
                    -> GHandler a master ChooseRep
                    -> W.Application
 defaultYesodRunner s master toMasterRoute mkey murl handler req = do
-    now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
     let exp' = getExpires $ clientSessionDuration master
     let rh = takeWhile (/= ':') $ show $ W.remoteHost req
     let host = if sessionIpAddress master then S8.pack rh else ""
-    let session' =
-            case mkey of
-                Nothing -> []
-                Just key -> fromMaybe [] $ do
+    session' <-
+        case mkey of
+            Nothing -> return []
+            Just key -> do
+                now <- liftIO getCurrentTime
+                return $ fromMaybe [] $ do
                     raw <- lookup "Cookie" $ W.requestHeaders req
                     val <- lookup sessionName $ parseCookies raw
                     decodeSession key now host val
