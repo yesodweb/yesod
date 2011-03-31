@@ -30,7 +30,7 @@ executable         ~project~-test
                  , bytestring
                  , text
                  , persistent
-                 , persistent-~lower~
+                 , persistent-~lower~ >= 0.4 && < 0.5
                  , template-haskell
                  , hamlet
                  , web-routes

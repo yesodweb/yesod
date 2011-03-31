@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.7.2
+version:         0.7.3
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -34,10 +34,10 @@ library
                    , transformers              >= 0.2      && < 0.3
                    , wai                       >= 0.3      && < 0.4
                    , wai-extra                 >= 0.3.2    && < 0.4
-                   , hamlet                    >= 0.7.1    && < 0.8
-                   , warp                      >= 0.3.2.1  && < 0.4
+                   , hamlet                    >= 0.7.3    && < 0.8
+                   , warp                      >= 0.3.3    && < 0.4
                    , mime-mail                 >= 0.1.0.1  && < 0.2
-                   , hjsmin                    >= 0.0.12   && < 0.1
+                   , hjsmin                    >= 0.0.13   && < 0.1
     exposed-modules: Yesod
     ghc-options:     -Wall
 

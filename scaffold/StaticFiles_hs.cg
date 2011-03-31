@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
 module StaticFiles where
-import Yesod
+
 import Yesod.Helpers.Static
 
 -- | This generates easy references to files in the static directory at compile time.
