@@ -1,0 +1,51 @@
+name:              ~project~
+version:           0.0.0
+license:           BSD3
+license-file:      LICENSE
+author:            ~name~
+maintainer:        ~name~
+synopsis:          The greatest Yesod web application ever.
+description:       I'm sure you can say something clever here if you try.
+category:          Web
+stability:         Experimental
+cabal-version:     >= 1.6
+build-type:        Simple
+homepage:          http://~project~.yesodweb.com/
+
+Flag production
+    Description:   Build the production executable.
+    Default:       False
+
+executable         ~project~-test
+    if flag(production)
+        Buildable: False
+    main-is:       test.hs
+    build-depends: base         >= 4       && < 5
+                 , yesod-core   >= 0.7     && < 0.8
+                 , yesod-static
+                 , wai-extra
+                 , directory
+                 , bytestring
+                 , text
+                 , template-haskell
+                 , hamlet
+                 , web-routes
+                 , transformers
+                 , wai
+                 , warp
+    ghc-options:   -Wall -threaded
+
+executable         ~project~-production
+    if flag(production)
+        Buildable: True
+    else
+        Buildable: False
+    cpp-options:   -DPRODUCTION
+    main-is:       production.hs
+    ghc-options:   -Wall -threaded
+
+executable         ~project~-devel
+    if flag(production)
+        Buildable: False
+    main-is:       devel-server.hs
+    ghc-options:   -Wall -O2 -threaded

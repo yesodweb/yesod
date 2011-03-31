@@ -1,5 +1,3 @@
-import Yesod (develServer)
-
 main :: IO ()
-main = develServer 3000 "Controller" "with~sitearg~"
+main = putStrLn "Please run: wai-handler-devel 3000 Controller with~sitearg~ --yesod"
 

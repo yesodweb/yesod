@@ -4,16 +4,12 @@
 -- includes database connection settings, static file locations, etc.
 -- In addition, you can configure a number of different aspects of Yesod
 -- by overriding methods in the Yesod typeclass. That instance is
--- declared in the ~sitearg~.hs file.
+-- declared in the ~project~.hs file.
 module Settings
     ( hamletFile
     , cassiusFile
     , juliusFile
     , widgetFile
-    , connStr
-    , ConnectionPool
-    , withConnectionPool
-    , runConnectionPool
     , approot
     , staticroot
     , staticdir
@@ -23,8 +19,7 @@ import qualified Text.Hamlet as H
 import qualified Text.Cassius as H
 import qualified Text.Julius as H
 import Language.Haskell.TH.Syntax
-~importDB~
-import Yesod (MonadPeelIO, addWidget, addCassius, addJulius)
+import Yesod.Widget (addWidget, addCassius, addJulius)
 import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
 
@@ -56,35 +51,12 @@ staticdir = "static"
 -- please see:
 --   http://code.google.com/speed/page-speed/docs/request.html#ServeFromCookielessDomain
 --
--- If you change the resource pattern for StaticR in ~sitearg~.hs, you will
+-- If you change the resource pattern for StaticR in ~project~.hs, you will
 -- have to make a corresponding change here.
 --
--- To see how this value is used, see urlRenderOverride in ~sitearg~.hs
+-- To see how this value is used, see urlRenderOverride in ~project~.hs
 staticroot :: String
 staticroot = approot ++ "/static"
-
--- | The database connection string. The meaning of this string is backend-
--- specific.
-connStr :: String
-#ifdef PRODUCTION
-connStr = "~connstr2~"
-#else
-connStr = "~connstr1~"
-#endif
-
--- | Your application will keep a connection pool and take connections from
--- there as necessary instead of continually creating new connections. This
--- value gives the maximum number of connections to be open at a given time.
--- If your application requests a connection when all connections are in
--- use, that request will fail. Try to choose a number that will work well
--- with the system resources available to you while providing enough
--- connections for your expected load.
---
--- Also, connections are returned to the pool as quickly as possible by
--- Yesod to avoid resource exhaustion. A connection is only considered in
--- use while within a call to runDB.
-connectionCount :: Int
-connectionCount = 10
 
 -- The rest of this file contains settings which rarely need changing by a
 -- user.
@@ -134,14 +106,3 @@ widgetFile x = do
     unlessExists tofn f = do
         e <- qRunIO $ doesFileExist $ tofn x
         if e then f x else [|mempty|]
-
--- The next two functions are for allocating a connection pool and running
--- database actions using a pool, respectively. It is used internally
--- by the scaffolded application, and therefore you will rarely need to use
--- them yourself.
-withConnectionPool :: MonadPeelIO m => (ConnectionPool -> m a) -> m a
-withConnectionPool = with~upper~Pool connStr connectionCount
-
-runConnectionPool :: MonadPeelIO m => SqlPersist m a -> ConnectionPool -> m a
-runConnectionPool = runSqlPool
-
