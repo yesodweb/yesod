@@ -612,7 +612,7 @@ alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
 expiresAt :: Monad mo => UTCTime -> GGHandler s m mo ()
-expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
+expiresAt = setHeader "Expires" . encodeUtf8 . formatRFC1123
 
 -- | Set a variable in the user's session.
 --

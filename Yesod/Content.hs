@@ -167,7 +167,7 @@ newtype RepXml = RepXml Content
 instance HasReps RepXml where
     chooseRep (RepXml c) _ = return (typeXml, c)
 
-type ContentType = B.ByteString
+type ContentType = B.ByteString -- FIXME Text?
 
 typeHtml :: ContentType
 typeHtml = "text/html; charset=utf-8"
@@ -220,13 +220,13 @@ simpleContentType :: ContentType -> ContentType
 simpleContentType = fst . B.breakByte 59 -- 59 == ;
 
 -- | Format a 'UTCTime' in W3 format.
-formatW3 :: UTCTime -> String
-formatW3 = formatTime defaultTimeLocale "%FT%X-00:00"
+formatW3 :: UTCTime -> T.Text
+formatW3 = T.pack . formatTime defaultTimeLocale "%FT%X-00:00"
 
 -- | Format as per RFC 1123.
-formatRFC1123 :: UTCTime -> String
-formatRFC1123 = formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
+formatRFC1123 :: UTCTime -> T.Text
+formatRFC1123 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
 
 -- | Format as per RFC 822.
-formatRFC822 :: UTCTime -> String
-formatRFC822 = formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
+formatRFC822 :: UTCTime -> T.Text
+formatRFC822 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
