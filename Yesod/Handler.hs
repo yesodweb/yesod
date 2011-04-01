@@ -35,6 +35,9 @@ module Yesod.Handler
     , getUrlRenderParams
     , getCurrentRoute
     , getRouteToMaster
+    , getRequest
+    , waiRequest
+    , runRequestBody
       -- * Special responses
       -- ** Redirecting
     , RedirectType (..)
@@ -103,7 +106,7 @@ module Yesod.Handler
     ) where
 
 import Prelude hiding (catch)
-import Yesod.Request
+import Yesod.Internal.Request
 import Yesod.Internal
 import Data.Time (UTCTime)
 
@@ -289,19 +292,22 @@ data HandlerContents =
 instance Error HandlerContents where
     strMsg = HCError . InternalError . T.pack
 
+getRequest :: Monad mo => GGHandler s m mo Request
+getRequest = handlerRequest `liftM` GHandler ask
+
 instance Monad monad => Failure ErrorResponse (GGHandler sub master monad) where
     failure = GHandler . lift . throwError . HCError
-instance RequestReader (GHandler sub master) where -- FIXME kill this typeclass, does not work for GGHandler
-    getRequest = handlerRequest <$> GHandler ask
-    runRequestBody = do
-        x <- GHandler $ lift $ lift $ lift get
-        case ghsRBC x of
-            Just rbc -> return rbc
-            Nothing -> do
-                rr <- waiRequest
-                rbc <- lift $ rbHelper rr
-                GHandler $ lift $ lift $ lift $ put x { ghsRBC = Just rbc }
-                return rbc
+
+runRequestBody :: GHandler s m RequestBodyContents
+runRequestBody = do
+    x <- GHandler $ lift $ lift $ lift get
+    case ghsRBC x of
+        Just rbc -> return rbc
+        Nothing -> do
+            rr <- waiRequest
+            rbc <- lift $ rbHelper rr
+            GHandler $ lift $ lift $ lift $ put x { ghsRBC = Just rbc }
+            return rbc
 
 rbHelper :: W.Request -> Iteratee ByteString IO RequestBodyContents
 rbHelper req =
@@ -555,7 +561,7 @@ notFound :: Failure ErrorResponse m => m a
 notFound = failure NotFound
 
 -- | Return a 405 method not supported page.
-badMethod :: (RequestReader m, Failure ErrorResponse m) => m a
+badMethod :: Monad mo => GGHandler s m mo a
 badMethod = do
     w <- waiRequest
     failure $ BadMethod $ W.requestMethod w
@@ -807,3 +813,7 @@ hamletToContent h = do
 hamletToRepHtml :: Monad mo
                 => Hamlet (Route master) -> GGHandler sub master mo RepHtml
 hamletToRepHtml = liftM RepHtml . hamletToContent
+
+-- | Get the request\'s 'W.Request' value.
+waiRequest :: Monad mo => GGHandler sub master mo W.Request
+waiRequest = reqWaiRequest `liftM` getRequest

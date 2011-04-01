@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Yesod.Internal.Request
     ( parseWaiRequest
+    , Request (..)
+    , RequestBodyContents
+    , FileInfo (..)
     ) where
 
-import Yesod.Request
 import Control.Arrow (first, second)
 import qualified Network.Wai.Parse as NWP
 import Yesod.Internal
@@ -16,6 +18,18 @@ import Data.Text (Text, pack)
 import Network.HTTP.Types (queryToQueryText)
 import Control.Monad (join)
 import Data.Maybe (fromMaybe)
+import qualified Data.ByteString.Lazy as L
+
+-- | The parsed request information.
+data Request = Request
+    { reqGetParams :: [(Text, Text)]
+    , reqCookies :: [(Text, Text)]
+    , reqWaiRequest :: W.Request
+      -- | Languages which the client supports.
+    , reqLangs :: [Text]
+      -- | A random, session-specific nonce used to prevent CSRF attacks.
+    , reqNonce :: Maybe Text
+    }
 
 parseWaiRequest :: W.Request
                 -> [(Text, Text)] -- ^ session
@@ -57,3 +71,16 @@ parseWaiRequest env session' key' = do
         | i < 26 = toEnum $ i + fromEnum 'A'
         | i < 52 = toEnum $ i + fromEnum 'a' - 26
         | otherwise = toEnum $ i + fromEnum '0' - 52
+
+-- | A tuple containing both the POST parameters and submitted files.
+type RequestBodyContents =
+    ( [(Text, Text)]
+    , [(Text, FileInfo)]
+    )
+
+data FileInfo = FileInfo
+    { fileName :: Text
+    , fileContentType :: Text
+    , fileContent :: L.ByteString
+    }
+    deriving (Eq, Show)
