@@ -50,6 +50,7 @@ module Yesod.Handler
     , invalidArgs
       -- ** Short-circuit responses.
     , sendFile
+    , sendFilePart
     , sendResponse
     , sendResponseStatus
     , sendResponseCreated
@@ -280,7 +281,7 @@ data YesodAppResult
 data HandlerContents =
       HCContent H.Status ChooseRep
     | HCError ErrorResponse
-    | HCSendFile ContentType FilePath -- FIXME replace FilePath with opaque type from system-filepath?
+    | HCSendFile ContentType FilePath (Maybe W.FilePart) -- FIXME replace FilePath with opaque type from system-filepath?
     | HCRedirect RedirectType Text
     | HCCreated Text
     | HCWai W.Response
@@ -383,8 +384,8 @@ runHandler handler mrender sroute tomr ma sa =
                     let hs' = headers hs
                      in return $ YARPlain (getStatus e) hs' ct c sess
                 YARWai _ -> return yar
-    let sendFile' ct fp =
-            return $ YARPlain H.status200 (headers []) ct (ContentFile fp) finalSession
+    let sendFile' ct fp p =
+            return $ YARPlain H.status200 (headers []) ct (ContentFile fp p) finalSession
     case contents of
         HCContent status a -> do
             (ct, c) <- liftIO $ chooseRep a cts
@@ -395,8 +396,8 @@ runHandler handler mrender sroute tomr ma sa =
             return $ YARPlain
                 (getRedirectStatus rt) hs typePlain emptyContent
                 finalSession
-        HCSendFile ct fp -> catchIter
-            (sendFile' ct fp)
+        HCSendFile ct fp p -> catchIter
+            (sendFile' ct fp p)
             (handleError . toErrorHandler)
         HCCreated loc -> do
             let hs = Header "Location" (encodeUtf8 loc) : headers []
@@ -510,7 +511,17 @@ getMessage = do
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
 sendFile :: Monad mo => ContentType -> FilePath -> GGHandler sub master mo a
-sendFile ct = GHandler . lift . throwError . HCSendFile ct
+sendFile ct fp = GHandler . lift . throwError $ HCSendFile ct fp Nothing
+
+-- | Same as 'sendFile', but only sends part of a file.
+sendFilePart :: Monad mo
+             => ContentType
+             -> FilePath
+             -> Integer -- ^ offset
+             -> Integer -- ^ count
+             -> GGHandler sub master mo a
+sendFilePart ct fp off count =
+    GHandler . lift . throwError $ HCSendFile ct fp $ Just $ W.FilePart off count
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
@@ -688,7 +699,7 @@ yarToResponse renderHeaders (YARPlain s hs ct c sessionFinal) =
         ContentBuilder b mlen ->
             let hs' = maybe finalHeaders finalHeaders' mlen
              in W.ResponseBuilder s hs' b
-        ContentFile fp -> W.ResponseFile s finalHeaders fp Nothing -- FIXME handle partial files
+        ContentFile fp p -> W.ResponseFile s finalHeaders fp p
         ContentEnum e ->
             W.ResponseEnumerator $ \iter -> run_ $ e $$ iter s finalHeaders
   where

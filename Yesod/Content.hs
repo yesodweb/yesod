@@ -61,10 +61,11 @@ import Data.Monoid (mempty)
 import Text.Hamlet (Html)
 import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
 import Data.String (IsString (fromString))
+import Network.Wai (FilePart)
 
 data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional content length.
              | ContentEnum (forall a. Enumerator Builder IO a)
-             | ContentFile FilePath
+             | ContentFile FilePath (Maybe FilePart)
 
 -- | Zero-length enumerator.
 emptyContent :: Content

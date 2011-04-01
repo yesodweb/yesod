@@ -195,7 +195,7 @@ class RenderRoute (Route a) => Yesod a where
     -- be the inverse of 'splitPath'.
     joinPath :: a
              -> Builder -- ^ application root
-             -> [TS.Text] -- ^ path pieces FIXME Text
+             -> [TS.Text] -- ^ path pieces
              -> [(TS.Text, TS.Text)] -- ^ query string
              -> Builder
     joinPath _ ar pieces qs' = ar `mappend` encodePath pieces qs
@@ -407,7 +407,6 @@ widgetToPageContent (GWidget w) = do
     let title = maybe mempty unTitle mTitle
     let scripts = runUniqueList scripts'
     let stylesheets = runUniqueList stylesheets'
-    -- FIXME check size of cassius/julius template
     let cssToHtml = preEscapedLazyText . renderCss
         celper :: Cassius url -> Hamlet url
         celper = fmap cssToHtml
