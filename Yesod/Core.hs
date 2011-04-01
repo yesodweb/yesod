@@ -226,6 +226,11 @@ class RenderRoute (Route a) => Yesod a where
     sessionIpAddress :: a -> Bool
     sessionIpAddress _ = True
 
+    -- | The path value to set for cookies. By default, uses \"\/\", meaning
+    -- cookies will be sent to every page on the current domain.
+    cookiePath :: a -> S8.ByteString
+    cookiePath _ = "/"
+
 defaultYesodRunner :: Yesod master
                    => a
                    -> master
@@ -289,7 +294,7 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                             sessionName
                             sessionVal
                           : hs
-        hs'' = map (headerToPair getExpires) hs'
+        hs'' = map (headerToPair (cookiePath master) getExpires) hs'
         hs''' = ("Content-Type", ct) : hs''
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text

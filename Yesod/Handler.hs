@@ -739,22 +739,23 @@ httpAccept = parseHttpAccept
            . W.requestHeaders
 
 -- | Convert Header to a key/value pair.
-headerToPair :: (Int -> UTCTime) -- ^ minutes -> expiration time
+headerToPair :: S.ByteString -- ^ cookie path
+             -> (Int -> UTCTime) -- ^ minutes -> expiration time
              -> Header
              -> (CI H.Ascii, H.Ascii)
-headerToPair getExpires (AddCookie minutes key value) =
+headerToPair cp getExpires (AddCookie minutes key value) =
     ("Set-Cookie", toByteString $ renderSetCookie $ SetCookie
         { setCookieName = key
         , setCookieValue = value
-        , setCookiePath = Just "/" -- FIXME make a config option, or use approot?
+        , setCookiePath = Just cp
         , setCookieExpires = Just $ getExpires minutes
         , setCookieDomain = Nothing
         })
-headerToPair _ (DeleteCookie key) =
+headerToPair cp _ (DeleteCookie key) =
     ( "Set-Cookie"
-    , key `mappend` "=; path=/; expires=Thu, 01-Jan-1970 00:00:00 GMT"
+    , key `mappend` "=; path=" `mappend` cp `mappend` "; expires=Thu, 01-Jan-1970 00:00:00 GMT"
     )
-headerToPair _ (Header key value) = (key, value)
+headerToPair _ _ (Header key value) = (key, value)
 
 -- | Get a unique identifier.
 newIdent :: Monad mo => GGHandler sub master mo String
