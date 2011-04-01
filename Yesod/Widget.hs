@@ -50,13 +50,13 @@ import Yesod.Internal
 import Control.Monad (liftM)
 import Data.Text (Text)
 
-import Control.Monad.IO.Peel (MonadPeelIO)
+import Control.Monad.IO.Control (MonadControlIO)
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
 -- dependencies along with a 'StateT' to track unique identifiers.
 newtype GGWidget s m monad a = GWidget { unGWidget :: GWInner m monad a } -- FIXME remove s
-    deriving (Functor, Applicative, Monad, MonadIO, MonadPeelIO)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadControlIO)
 
 instance MonadTrans (GGWidget s m) where
     lift = GWidget . lift

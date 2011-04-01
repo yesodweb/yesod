@@ -125,8 +125,8 @@ import Control.Failure (Failure (failure))
 
 import Text.Hamlet
 
-import Control.Monad.IO.Peel (MonadPeelIO) -- FIXME monad-control
-import Control.Monad.Trans.Peel (MonadTransPeel (peel), liftPeel)
+import Control.Monad.IO.Control (MonadControlIO)
+import Control.Monad.Trans.Control (MonadTransControl, liftControl, control)
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
 import Data.ByteString (ByteString)
@@ -230,7 +230,7 @@ newtype GGHandler sub master m a =
     GHandler
         { unGHandler :: GHInner sub master m a
         }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadPeelIO)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadControlIO)
 
 instance MonadTrans (GGHandler s m) where
     lift = GHandler . lift . lift . lift . lift
@@ -243,7 +243,7 @@ data GHState = GHState
     , ghsIdent :: Int
     }
 
-type GHInner s m monad =
+type GHInner s m monad = -- FIXME collapse the stack
     ReaderT (HandlerData s m) (
     ErrorT HandlerContents (
     WriterT (Endo [Header]) (
@@ -742,14 +742,14 @@ newIdent = GHandler $ lift $ lift $ lift $ do
 liftIOHandler :: MonadIO mo
               => GGHandler sub master IO a
               -> GGHandler sub master mo a
-liftIOHandler x = do
-    k <- peel
-    join $ liftIO $ k x
+liftIOHandler x = error "FIXME liftIOHandler" {- do
+    k <- control
+    join $ liftIO $ k x -}
 
-instance MonadTransPeel (GGHandler s m) where
-    peel = GHandler $ do
-        k <- liftPeel $ liftPeel $ liftPeel peel
-        return $ liftM GHandler . k . unGHandler
+instance MonadTransControl (GGHandler s m) where
+    liftControl = error "FIXME liftControl for GGHandler" {-GHandler $ do
+        k <- liftControl $ liftControl $ liftControl control
+        return $ liftM GHandler . k . unGHandler -}
 
 -- | Redirect to a POST resource.
 --
