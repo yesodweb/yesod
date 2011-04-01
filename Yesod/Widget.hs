@@ -27,6 +27,7 @@ module Yesod.Widget
     , addStylesheetEither
       -- ** Javascript
     , addJulius
+    , addJuliusBody
     , addScript
     , addScriptAttrs
     , addScriptRemote
@@ -38,7 +39,8 @@ module Yesod.Widget
 
 import Data.Monoid
 import Control.Monad.Trans.RWS
-import Text.Blaze (preEscapedText)
+import Text.Blaze (preEscapedText, preEscapedLazyText)
+import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
@@ -163,6 +165,11 @@ addScriptRemoteAttrs x y = GWidget $ tell $ GWData mempty mempty (toUnique $ Scr
 -- | Include raw Javascript in the page's script tag.
 addJulius :: Monad m => Julius (Route master) -> GGWidget master m ()
 addJulius x = GWidget $ tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
+
+-- | Add a new script tag to the body with the contents of this 'Julius'
+-- template.
+addJuliusBody :: Monad m => Julius (Route master) -> GGWidget master m ()
+addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJulius r j
 
 -- | Pull out the HTML tag contents and return it. Useful for performing some
 -- manipulations. It can be easier to use this sometimes than 'wrapWidget'.
