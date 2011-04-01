@@ -38,6 +38,7 @@ module Yesod.Widget
 
 import Data.Monoid
 import Control.Monad.Trans.RWS
+import Text.Blaze (preEscapedText)
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
@@ -75,7 +76,7 @@ instance (Monad monad, a ~ ()) => HamletValue (GGWidget s m monad a) where
     toHamletValue = runGWidget'
     htmlToHamletMonad = GWidget' . addHtml
     urlToHamletMonad url params = GWidget' $
-        addHamlet $ \r -> preEscapedString (r url params)
+        addHamlet $ \r -> preEscapedText (r url params)
     fromHamletValue = GWidget'
 instance (Monad monad, a ~ ()) => Monad (HamletMonad (GGWidget s m monad a)) where
     return = GWidget' . return
@@ -130,17 +131,17 @@ addStylesheetAttrs :: Monad m => Route master -> [(Text, Text)] -> GGWidget sub 
 addStylesheetAttrs x y = GWidget $ tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemote :: Monad m => String -> GGWidget sub master m ()
+addStylesheetRemote :: Monad m => Text -> GGWidget sub master m ()
 addStylesheetRemote = flip addStylesheetRemoteAttrs []
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemoteAttrs :: Monad m => String -> [(Text, Text)] -> GGWidget sub master m ()
+addStylesheetRemoteAttrs :: Monad m => Text -> [(Text, Text)] -> GGWidget sub master m ()
 addStylesheetRemoteAttrs x y = GWidget $ tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
 
-addStylesheetEither :: Monad m => Either (Route master) String -> GGWidget sub master m ()
+addStylesheetEither :: Monad m => Either (Route master) Text -> GGWidget sub master m ()
 addStylesheetEither = either addStylesheet addStylesheetRemote
 
-addScriptEither :: Monad m => Either (Route master) String -> GGWidget sub master m ()
+addScriptEither :: Monad m => Either (Route master) Text -> GGWidget sub master m ()
 addScriptEither = either addScript addScriptRemote
 
 -- | Link to the specified local script.
@@ -152,11 +153,11 @@ addScriptAttrs :: Monad m => Route master -> [(Text, Text)] -> GGWidget sub mast
 addScriptAttrs x y = GWidget $ tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
-addScriptRemote :: Monad m => String -> GGWidget sub master m ()
+addScriptRemote :: Monad m => Text -> GGWidget sub master m ()
 addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
-addScriptRemoteAttrs :: Monad m => String -> [(Text, Text)] -> GGWidget sub master m ()
+addScriptRemoteAttrs :: Monad m => Text -> [(Text, Text)] -> GGWidget sub master m ()
 addScriptRemoteAttrs x y = GWidget $ tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
 -- | Include raw Javascript in the page's script tag.

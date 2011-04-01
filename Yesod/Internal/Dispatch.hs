@@ -24,6 +24,7 @@ import Data.Text (Text)
 import Data.Monoid (mappend)
 import qualified Blaze.ByteString.Builder
 import qualified Blaze.ByteString.Builder.Char8
+import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import qualified Data.ByteString.Char8 as S8
 
 {-|
@@ -86,7 +87,7 @@ sendRedirect y segments' env =
             , ("Location", Blaze.ByteString.Builder.toByteString dest')
             ] "Redirecting"
   where
-    dest = joinPath y (Blaze.ByteString.Builder.fromByteString $ approot y) segments' []
+    dest = joinPath y (fromText $ approot y) segments' []
     dest' =
         if S.null (W.rawQueryString env)
             then dest

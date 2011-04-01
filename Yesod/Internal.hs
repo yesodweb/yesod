@@ -41,6 +41,7 @@ import Data.List (nub)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Encoding.Error as T
@@ -54,6 +55,7 @@ import Control.Exception (Exception)
 import qualified Network.HTTP.Types as H
 import qualified Network.HTTP.Types as A
 import Data.CaseInsensitive (CI)
+import Data.String (IsString)
 
 #if GHC7
 #define HAMLET hamlet
@@ -65,9 +67,9 @@ import Data.CaseInsensitive (CI)
 -- from 'SpecialResponse' in that they allow for custom error pages.
 data ErrorResponse =
       NotFound
-    | InternalError String
-    | InvalidArgs [String]
-    | PermissionDenied String
+    | InternalError Text
+    | InvalidArgs [Text]
+    | PermissionDenied Text
     | BadMethod H.Method
     deriving (Show, Eq, Typeable)
 instance Exception ErrorResponse
@@ -80,10 +82,10 @@ data Header =
     | Header (CI A.Ascii) A.Ascii
     deriving (Eq, Show)
 
-langKey :: A.Ascii
+langKey :: IsString a => a
 langKey = "_LANG"
 
-data Location url = Local url | Remote String -- FIXME Text
+data Location url = Local url | Remote Text
     deriving (Show, Eq)
 locationToHamlet :: Location url -> Hamlet url
 locationToHamlet (Local url) = [HAMLET|\@{url}
@@ -111,6 +113,7 @@ newtype Head url = Head (Hamlet url)
 newtype Body url = Body (Hamlet url)
     deriving Monoid
 
+-- FIXME remove these functions
 lbsToChars :: L.ByteString -> String
 lbsToChars = LT.unpack . LT.decodeUtf8With T.lenientDecode
 
@@ -120,10 +123,10 @@ bsToChars = T.unpack . T.decodeUtf8With T.lenientDecode
 charsToBs :: String -> S.ByteString
 charsToBs = T.encodeUtf8 . T.pack
 
-nonceKey :: String
+nonceKey :: IsString a => a
 nonceKey = "_NONCE"
 
-sessionName :: A.Ascii
+sessionName :: IsString a => a
 sessionName = "_SESSION"
 
 data GWData a = GWData

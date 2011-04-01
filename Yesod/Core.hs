@@ -46,7 +46,6 @@ import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 import Text.Blaze (preEscapedLazyText, (!), customAttribute, textTag, toValue)
-import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as TBH
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
@@ -56,11 +55,11 @@ import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
 import Data.Time
 import Network.HTTP.Types (encodePath)
-import qualified Network.HTTP.Types as H
 import qualified Data.Text as TS
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
-import Blaze.ByteString.Builder (Builder, fromByteString, toByteString)
+import Blaze.ByteString.Builder (Builder, toByteString)
+import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Data.List (foldl')
 
 #if GHC7
@@ -104,7 +103,7 @@ class RenderRoute (Route a) => Yesod a where
     --
     -- * You do not use any features that require absolute URLs, such as Atom
     -- feeds and XML sitemaps.
-    approot :: a -> H.Ascii
+    approot :: a -> Text
 
     -- | The encryption key to be used for encrypting client sessions.
     -- Returning 'Nothing' disables sessions.
@@ -215,10 +214,10 @@ class RenderRoute (Route a) => Yesod a where
     -- file, whereas a 'Just' 'Right' gives the type-safe URL. The former is
     -- necessary when you are serving the content outside the context of a
     -- Yesod application, such as via memcached.
-    addStaticContent :: String -- ^ filename extension
-                     -> String -- ^ mime-type
+    addStaticContent :: Text -- ^ filename extension
+                     -> Text -- ^ mime-type
                      -> L.ByteString -- ^ content
-                     -> GHandler sub a (Maybe (Either String (Route a, [(String, String)])))
+                     -> GHandler sub a (Maybe (Either Text (Route a, [(Text, Text)])))
     addStaticContent _ _ _ = return Nothing
 
     -- | Whether or not to tie a session to a specific IP address. Defaults to
@@ -292,7 +291,7 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
         hs'' = map (headerToPair getExpires) hs'
         hs''' = ("Content-Type", ct) : hs''
 
-data AuthResult = Authorized | AuthenticationRequired | Unauthorized String
+data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
     deriving (Eq, Show, Read)
 
 -- | A type-safe, concise method of creating breadcrumbs for pages. For each
@@ -408,6 +407,7 @@ widgetToPageContent (GWidget w) = do
     let title = maybe mempty unTitle mTitle
     let scripts = runUniqueList scripts'
     let stylesheets = runUniqueList stylesheets'
+    -- FIXME check size of cassius/julius template
     let cssToHtml = preEscapedLazyText . renderCss
         celper :: Cassius url -> Hamlet url
         celper = fmap cssToHtml
@@ -415,8 +415,7 @@ widgetToPageContent (GWidget w) = do
         jelper :: Julius url -> Hamlet url
         jelper = fmap jsToHtml
 
-    renderFIXME <- getUrlRenderParams
-    let render a b = renderFIXME a $ map (TS.pack *** TS.pack) b
+    render <- getUrlRenderParams
     let renderLoc x =
             case x of
                 Nothing -> Nothing
@@ -441,9 +440,13 @@ widgetToPageContent (GWidget w) = do
     let renderLoc' render' (Local url) = render' url []
         renderLoc' _ (Remote s) = s
     let mkScriptTag (Script loc attrs) render' =
-            foldl' addAttr TBH.script (("src", T.pack $ renderLoc' render' loc) : attrs) $ return ()
+            foldl' addAttr TBH.script (("src", renderLoc' render' loc) : attrs) $ return ()
     let mkLinkTag (Stylesheet loc attrs) render' =
-            foldl' addAttr TBH.link (("rel", "stylesheet") : ("href", T.pack $ renderLoc' render' loc) : attrs)
+            foldl' addAttr TBH.link
+                ( ("rel", "stylesheet")
+                : ("href", renderLoc' render' loc)
+                : attrs
+                )
     let head'' =
 #if GHC7
             [hamlet|
@@ -475,11 +478,11 @@ yesodRender :: Yesod y
             => y
             -> Route y
             -> [(Text, Text)]
-            -> String -- FIXME
+            -> Text
 yesodRender y u qs =
-    S8.unpack $ toByteString $
+    TE.decodeUtf8 $ toByteString $
     fromMaybe
-        (joinPath y (fromByteString $ approot y) ps
+        (joinPath y (fromText $ approot y) ps
           $ qs ++ qs')
         (urlRenderOverride y u)
   where

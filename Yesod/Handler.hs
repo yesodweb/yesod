@@ -41,6 +41,7 @@ module Yesod.Handler
     , redirect
     , redirectParams
     , redirectString
+    , redirectText
     , redirectToPost
       -- ** Errors
     , notFound
@@ -124,6 +125,12 @@ import qualified Network.HTTP.Types as H
 import Control.Failure (Failure (failure))
 
 import Text.Hamlet
+import Text.Blaze (preEscapedText)
+import qualified Text.Blaze.Renderer.Text
+import qualified Data.Text as T
+import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+import qualified Data.Text.Lazy as TL
 
 import Control.Monad.IO.Control (MonadControlIO)
 import Control.Monad.Trans.Control (MonadTransControl, liftControl, control)
@@ -144,7 +151,6 @@ import qualified Data.ByteString.Char8 as S8
 import Data.CaseInsensitive (CI)
 import Blaze.ByteString.Builder (toByteString)
 import Data.Text (Text)
-import qualified Data.Text as TS
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -157,7 +163,7 @@ data HandlerData sub master = HandlerData
     , handlerSub :: sub
     , handlerMaster :: master
     , handlerRoute :: Maybe (Route sub)
-    , handlerRender :: (Route master -> [(Text, Text)] -> String) -- FIXME replace output String with Ascii
+    , handlerRender :: (Route master -> [(Text, Text)] -> Text)
     , handlerToMaster :: Route sub -> Route master
     }
 
@@ -251,7 +257,7 @@ type GHInner s m monad = -- FIXME collapse the stack
     monad
     ))))
 
-type SessionMap = Map.Map String String
+type SessionMap = Map.Map Text Text
 
 type Endo a = a -> a
 
@@ -274,13 +280,13 @@ data YesodAppResult
 data HandlerContents =
       HCContent H.Status ChooseRep
     | HCError ErrorResponse
-    | HCSendFile ContentType FilePath
-    | HCRedirect RedirectType H.Ascii
-    | HCCreated H.Ascii
+    | HCSendFile ContentType FilePath -- FIXME replace FilePath with opaque type from system-filepath?
+    | HCRedirect RedirectType Text
+    | HCCreated Text
     | HCWai W.Response
 
 instance Error HandlerContents where
-    strMsg = HCError . InternalError
+    strMsg = HCError . InternalError . T.pack
 
 instance Monad monad => Failure ErrorResponse (GGHandler sub master monad) where
     failure = GHandler . lift . throwError . HCError
@@ -301,9 +307,10 @@ rbHelper req =
     (map fix1 *** map fix2) <$> iter
   where
     iter = NWP.parseRequestBody NWP.lbsSink req
-    fix1 = bsToChars *** bsToChars
+    fix1 = go *** go
     fix2 (x, NWP.FileInfo a b c) =
-        (bsToChars x, FileInfo (bsToChars a) (bsToChars b) c)
+        (go x, FileInfo (go a) (go b) c)
+    go = decodeUtf8With lenientDecode
 
 -- | Get the sub application argument.
 getYesodSub :: Monad m => GGHandler sub master m sub
@@ -314,7 +321,7 @@ getYesod :: Monad m => GGHandler sub master m master
 getYesod = handlerMaster `liftM` GHandler ask
 
 -- | Get the URL rendering function.
-getUrlRender :: Monad m => GGHandler sub master m (Route master -> String)
+getUrlRender :: Monad m => GGHandler sub master m (Route master -> Text)
 getUrlRender = do
     x <- handlerRender `liftM` GHandler ask
     return $ flip x []
@@ -322,7 +329,7 @@ getUrlRender = do
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
     :: Monad m
-    => GGHandler sub master m (Route master -> [(Text, Text)] -> String)
+    => GGHandler sub master m (Route master -> [(Text, Text)] -> Text)
 getUrlRenderParams = handlerRender `liftM` GHandler ask
 
 -- | Get the route requested by the user. If this is a 404 response- where the
@@ -339,7 +346,7 @@ getRouteToMaster = handlerToMaster `liftM` GHandler ask
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
 runHandler :: HasReps c
            => GHandler sub master c
-           -> (Route master -> [(Text, Text)] -> String)
+           -> (Route master -> [(Text, Text)] -> Text)
            -> Maybe (Route sub)
            -> (Route sub -> Route master)
            -> master
@@ -350,7 +357,7 @@ runHandler handler mrender sroute tomr ma sa =
     let toErrorHandler e =
             case fromException e of
                 Just x -> x
-                Nothing -> InternalError $ show e
+                Nothing -> InternalError $ T.pack $ show e
     let hd = HandlerData
             { handlerRequest = rr
             , handlerSub = sa
@@ -384,7 +391,7 @@ runHandler handler mrender sroute tomr ma sa =
             return $ YARPlain status (headers []) ct c finalSession
         HCError e -> handleError e
         HCRedirect rt loc -> do
-            let hs = Header "Location" loc : headers []
+            let hs = Header "Location" (encodeUtf8 loc) : headers []
             return $ YARPlain
                 (getRedirectStatus rt) hs typePlain emptyContent
                 finalSession
@@ -392,7 +399,7 @@ runHandler handler mrender sroute tomr ma sa =
             (sendFile' ct fp)
             (handleError . toErrorHandler)
         HCCreated loc -> do
-            let hs = Header "Location" loc : headers []
+            let hs = Header "Location" (encodeUtf8 loc) : headers []
             return $ YARPlain
                 H.status201
                 hs
@@ -427,13 +434,15 @@ redirectParams :: Monad mo
                -> GGHandler sub master mo a
 redirectParams rt url params = do
     r <- getUrlRenderParams
-    redirectString rt $ S8.pack $ r url params
+    redirectString rt $ r url params
 
 -- | Redirect to the given URL.
-redirectString :: Monad mo => RedirectType -> H.Ascii -> GGHandler sub master mo a
-redirectString rt = GHandler . lift . throwError . HCRedirect rt
+redirectString, redirectText :: Monad mo => RedirectType -> Text -> GGHandler sub master mo a
+redirectText rt = GHandler . lift . throwError . HCRedirect rt
+redirectString = redirectText
+{-# DEPRECATED redirectString "Use redirectText instead" #-}
 
-ultDestKey :: String
+ultDestKey :: Text
 ultDestKey = "_ULT"
 
 -- | Sets the ultimate destination variable to the given route.
@@ -446,7 +455,7 @@ setUltDest dest = do
     setUltDestString $ render dest
 
 -- | Same as 'setUltDest', but use the given string.
-setUltDestString :: Monad mo => String -> GGHandler sub master mo ()
+setUltDestString :: Monad mo => Text -> GGHandler sub master mo ()
 setUltDestString = setSession ultDestKey
 
 -- | Same as 'setUltDest', but uses the current page.
@@ -462,8 +471,7 @@ setUltDest' = do
             tm <- getRouteToMaster
             gets' <- reqGetParams `liftM` handlerRequest `liftM` GHandler ask
             render <- getUrlRenderParams
-            let renderFIXME a b = render a $ map (TS.pack *** TS.pack) b
-            setUltDestString $ renderFIXME (tm r) gets'
+            setUltDestString $ render (tm r) gets'
 
 -- | Redirect to the ultimate destination in the user's session. Clear the
 -- value from the session.
@@ -476,16 +484,16 @@ redirectUltDest :: Monad mo
 redirectUltDest rt def = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
-    maybe (redirect rt def) (redirectString rt . S8.pack) mdest
+    maybe (redirect rt def) (redirectText rt) mdest
 
-msgKey :: String
+msgKey :: Text
 msgKey = "_MSG"
 
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
 setMessage :: Monad mo => Html -> GGHandler sub master mo ()
-setMessage = setSession msgKey . lbsToChars . renderHtml
+setMessage = setSession msgKey . T.concat . TL.toChunks . Text.Blaze.Renderer.Text.renderHtml
 
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.
@@ -493,7 +501,7 @@ setMessage = setSession msgKey . lbsToChars . renderHtml
 -- See 'setMessage'.
 getMessage :: Monad mo => GGHandler sub master mo (Maybe Html)
 getMessage = do
-    mmsg <- liftM (fmap preEscapedString) $ lookupSession msgKey
+    mmsg <- liftM (fmap preEscapedText) $ lookupSession msgKey
     deleteSession msgKey
     return mmsg
 
@@ -521,7 +529,7 @@ sendResponseStatus s = GHandler . lift . throwError . HCContent s
 sendResponseCreated :: Monad mo => Route m -> GGHandler s m mo a
 sendResponseCreated url = do
     r <- getUrlRender
-    GHandler $ lift $ throwError $ HCCreated $ S8.pack $ r url
+    GHandler $ lift $ throwError $ HCCreated $ r url
 
 -- | Send a 'W.Response'. Please note: this function is rarely
 -- necessary, and will /disregard/ any changes to response headers and session
@@ -542,11 +550,11 @@ badMethod = do
     failure $ BadMethod $ W.requestMethod w
 
 -- | Return a 403 permission denied page.
-permissionDenied :: Failure ErrorResponse m => String -> m a
+permissionDenied :: Failure ErrorResponse m => Text -> m a
 permissionDenied = failure . PermissionDenied
 
 -- | Return a 400 invalid arguments page.
-invalidArgs :: Failure ErrorResponse m => [String] -> m a
+invalidArgs :: Failure ErrorResponse m => [Text] -> m a
 invalidArgs = failure . InvalidArgs
 
 ------- Headers
@@ -564,8 +572,8 @@ deleteCookie = addHeader . DeleteCookie
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
-setLanguage :: Monad mo => String -> GGHandler sub master mo ()
-setLanguage = setSession $ S8.unpack langKey
+setLanguage :: Monad mo => Text -> GGHandler sub master mo ()
+setLanguage = setSession langKey
 
 -- | Set an arbitrary response header.
 setHeader :: Monad mo
@@ -601,13 +609,13 @@ expiresAt = setHeader "Expires" . S8.pack . formatRFC1123
 -- and hashed cookie on the client. This ensures that all data is secure and
 -- not tampered with.
 setSession :: Monad mo
-           => String -- ^ key
-           -> String -- ^ value
+           => Text -- ^ key
+           -> Text -- ^ value
            -> GGHandler sub master mo ()
 setSession k = GHandler . lift . lift . lift . modify . modSession . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
-deleteSession :: Monad mo => String -> GGHandler sub master mo ()
+deleteSession :: Monad mo => Text -> GGHandler sub master mo ()
 deleteSession = GHandler . lift . lift . lift . modify . modSession . Map.delete
 
 modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
@@ -640,7 +648,7 @@ localNoCurrent =
     GHandler . local (\hd -> hd { handlerRoute = Nothing }) . unGHandler
 
 -- | Lookup for session data.
-lookupSession :: Monad mo => ParamName -> GGHandler s m mo (Maybe ParamValue)
+lookupSession :: Monad mo => Text -> GGHandler s m mo (Maybe Text)
 lookupSession n = GHandler $ do
     m <- liftM ghsSession $ lift $ lift $ lift get
     return $ Map.lookup n m
@@ -653,7 +661,7 @@ handlerToYAR :: (HasReps a, HasReps b)
              => m -- ^ master site foundation
              -> s -- ^ sub site foundation
              -> (Route s -> Route m)
-             -> (Route m -> [(Text, Text)] -> String) -- ^ url render FIXME
+             -> (Route m -> [(Text, Text)] -> Text)
              -> (ErrorResponse -> GHandler s m a)
              -> Request
              -> Maybe (Route s)
@@ -782,8 +790,7 @@ hamletToContent :: Monad mo
                 => Hamlet (Route master) -> GGHandler sub master mo Content
 hamletToContent h = do
     render <- getUrlRenderParams
-    let renderFIXME a b = render a $ map (TS.pack *** TS.pack) b
-    return $ toContent $ h renderFIXME
+    return $ toContent $ h render
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
 hamletToRepHtml :: Monad mo

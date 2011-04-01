@@ -8,12 +8,12 @@ synopsis:        Creation of type-safe, RESTful web applications.
 description:
     Yesod is a framework designed to foster creation of RESTful web application that have strong compile-time guarantees of correctness. It also affords space efficient code and portability to many deployment backends, from CGI to stand-alone serving.
     .
-    The Yesod documentation site <http://docs.yesodweb.com/> has much more information, tutorials and information on some of the supporting packages, like Hamlet and web-routes-quasi.
+    The Yesod documentation site <http://www.yesodweb.com/> has much more information, tutorials and information on some of the supporting packages, like Hamlet and web-routes-quasi.
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://docs.yesodweb.com/
+homepage:        http://www.yesodweb.com/
 
 flag test
   description: Build the executable to run unit tests
@@ -34,7 +34,7 @@ library
                    , text                      >= 0.5      && < 0.12
                    , template-haskell
                    , web-routes-quasi          >= 0.7      && < 0.8
-                   , hamlet                    >= 0.7.3    && < 0.8
+                   , hamlet                    >= 0.8      && < 0.9
                    , blaze-builder             >= 0.2.1    && < 0.4
                    , transformers              >= 0.2      && < 0.3
                    , clientsession             >= 0.6      && < 0.7
@@ -45,7 +45,7 @@ library
                    , containers                >= 0.2      && < 0.5
                    , monad-control             >= 0.2      && < 0.3
                    , enumerator                >= 0.4.7    && < 0.5
-                   , cookie                    >= 0.2      && < 0.3
+                   , cookie                    >= 0.2.1    && < 0.3
                    , blaze-html                >= 0.4      && < 0.5
                    , http-types                >= 0.6      && < 0.7
                    , case-insensitive          >= 0.2      && < 0.3

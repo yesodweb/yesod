@@ -4,34 +4,37 @@ module Yesod.Internal.Request
     ) where
 
 import Yesod.Request
-import Control.Arrow (first, (***))
+import Control.Arrow (first, second)
 import qualified Network.Wai.Parse as NWP
 import Yesod.Internal
 import qualified Network.Wai as W
 import System.Random (randomR, newStdGen)
-import Web.Cookie (parseCookies)
+import Web.Cookie (parseCookiesText)
 import Data.Monoid (mempty)
 import qualified Data.ByteString.Char8 as S8
+import Data.Text (Text, pack)
+import Network.HTTP.Types (queryToQueryText)
+import Control.Monad (join)
+import Data.Maybe (fromMaybe)
 
 parseWaiRequest :: W.Request
-                -> [(String, String)] -- ^ session
+                -> [(Text, Text)] -- ^ session
                 -> Maybe a
                 -> IO Request
 parseWaiRequest env session' key' = do
-    let gets' = map (bsToChars *** maybe "" bsToChars)
-              $ W.queryString env
+    let gets' = queryToQueryText $ W.queryString env
     let reqCookie = maybe mempty id $ lookup "Cookie"
                   $ W.requestHeaders env
-        cookies' = parseCookies reqCookie
+        cookies' = parseCookiesText reqCookie
         acceptLang = lookup "Accept-Language" $ W.requestHeaders env
-        langs = map S8.unpack $ maybe [] NWP.parseHttpAccept acceptLang
-        langs' = case lookup (S8.unpack langKey) session' of
+        langs = map (pack . S8.unpack) $ maybe [] NWP.parseHttpAccept acceptLang
+        langs' = case lookup langKey session' of
                     Nothing -> langs
                     Just x -> x : langs
         langs'' = case lookup langKey cookies' of
                     Nothing -> langs'
-                    Just x -> S8.unpack x : langs'
-        langs''' = case lookup (S8.unpack langKey) gets' of
+                    Just x -> x : langs'
+        langs''' = case join $ lookup langKey gets' of
                      Nothing -> langs''
                      Just x -> x : langs''
     nonce <- case (key', lookup nonceKey session') of
@@ -39,8 +42,9 @@ parseWaiRequest env session' key' = do
                 (_, Just x) -> return $ Just x
                 (_, Nothing) -> do
                     g <- newStdGen
-                    return $ Just $ fst $ randomString 10 g
-    return $ Request gets' cookies' env langs''' nonce
+                    return $ Just $ pack $ fst $ randomString 10 g
+    let gets'' = map (second $ fromMaybe "") gets'
+    return $ Request gets'' cookies' env langs''' nonce
   where
     randomString len =
         first (map toChar) . sequence' (replicate len (randomR (0, 61)))
