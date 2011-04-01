@@ -23,10 +23,6 @@ module Yesod.Internal
     , locationToHamlet
     , runUniqueList
     , toUnique
-      -- * UTF8 helpers
-    , bsToChars
-    , lbsToChars
-    , charsToBs
       -- * Names
     , sessionName
     , nonceKey
@@ -38,16 +34,7 @@ import Text.Julius (Julius)
 import Data.Monoid (Monoid (..), Last)
 import Data.List (nub)
 
-import qualified Data.ByteString as S
-import qualified Data.ByteString.Lazy as L
-
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.Encoding.Error as T
-
-import qualified Data.Text.Lazy as LT
-import qualified Data.Text.Lazy.Encoding as LT
 
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
@@ -102,9 +89,9 @@ runUniqueList (UniqueList x) = nub $ x []
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
 
-data Script url = Script { scriptLocation :: Location url, scriptAttributes :: [(T.Text, T.Text)] }
+data Script url = Script { scriptLocation :: Location url, scriptAttributes :: [(Text, Text)] }
     deriving (Show, Eq)
-data Stylesheet url = Stylesheet { styleLocation :: Location url, styleAttributes :: [(T.Text, T.Text)] }
+data Stylesheet url = Stylesheet { styleLocation :: Location url, styleAttributes :: [(Text, Text)] }
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html }
 
@@ -112,16 +99,6 @@ newtype Head url = Head (Hamlet url)
     deriving Monoid
 newtype Body url = Body (Hamlet url)
     deriving Monoid
-
--- FIXME remove these functions
-lbsToChars :: L.ByteString -> String
-lbsToChars = LT.unpack . LT.decodeUtf8With T.lenientDecode
-
-bsToChars :: S.ByteString -> String
-bsToChars = T.unpack . T.decodeUtf8With T.lenientDecode
-
-charsToBs :: String -> S.ByteString
-charsToBs = T.encodeUtf8 . T.pack
 
 nonceKey :: IsString a => a
 nonceKey = "_NONCE"

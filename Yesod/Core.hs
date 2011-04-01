@@ -58,6 +58,7 @@ import Network.HTTP.Types (encodePath)
 import qualified Data.Text as TS
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding.Error as TEE
 import Blaze.ByteString.Builder (Builder, toByteString)
 import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Data.List (foldl')
@@ -333,7 +334,7 @@ applyLayout' title body = fmap chooseRep $ defaultLayout $ do
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
 defaultErrorHandler NotFound = do
     r <- waiRequest
-    let path' = bsToChars $ W.rawPathInfo r
+    let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
     applyLayout' "Not Found"
 #if GHC7
         [hamlet|
