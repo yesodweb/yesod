@@ -19,6 +19,9 @@ module Yesod.Core
     , defaultErrorHandler
       -- * Data types
     , AuthResult (..)
+      -- * Logging
+    , LogLevel (..)
+    , formatLogMessage
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -63,6 +66,10 @@ import Blaze.ByteString.Builder (Builder, toByteString)
 import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Data.List (foldl')
 import qualified Network.HTTP.Types as H
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.IO
+import qualified System.IO
+import qualified Data.Text.Lazy.Builder as TB
 
 #if GHC7
 #define HAMLET hamlet
@@ -235,6 +242,34 @@ class RenderRoute (Route a) => Yesod a where
     -- | Maximum allowed length of the request body, in bytes.
     maximumContentLength :: a -> Maybe (Route a) -> Int
     maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
+
+    -- | Send a message to the log. By default, prints to stderr.
+    messageLogger :: a
+                  -> LogLevel
+                  -> Text -- ^ source
+                  -> Text -- ^ message
+                  -> IO ()
+    messageLogger _ level src msg =
+        formatLogMessage level src msg >>=
+        Data.Text.Lazy.IO.hPutStrLn System.IO.stderr
+
+data LogLevel = LevelDebug | LevelInfo | LevelWarn | LevelError | LevelOther Text
+    deriving (Eq, Show, Read, Ord)
+
+formatLogMessage :: LogLevel
+                 -> Text -- ^ source
+                 -> Text -- ^ message
+                 -> IO TL.Text
+formatLogMessage level src msg = do
+    now <- getCurrentTime
+    return $ TB.toLazyText $
+        TB.fromText (TS.pack $ show now)
+        `mappend` TB.fromText ": "
+        `mappend` TB.fromText (TS.pack $ show level)
+        `mappend` TB.fromText "@("
+        `mappend` TB.fromText src
+        `mappend` TB.fromText ") "
+        `mappend` TB.fromText msg
 
 defaultYesodRunner :: Yesod master
                    => a
