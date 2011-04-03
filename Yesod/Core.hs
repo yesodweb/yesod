@@ -62,6 +62,7 @@ import qualified Data.Text.Encoding.Error as TEE
 import Blaze.ByteString.Builder (Builder, toByteString)
 import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Data.List (foldl')
+import qualified Network.HTTP.Types as H
 
 #if GHC7
 #define HAMLET hamlet
@@ -231,6 +232,10 @@ class RenderRoute (Route a) => Yesod a where
     cookiePath :: a -> S8.ByteString
     cookiePath _ = "/"
 
+    -- | Maximum allowed length of the request body, in bytes.
+    maximumContentLength :: a -> Maybe (Route a) -> Int
+    maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
+
 defaultYesodRunner :: Yesod master
                    => a
                    -> master
@@ -239,6 +244,18 @@ defaultYesodRunner :: Yesod master
                    -> Maybe (Route a)
                    -> GHandler a master ChooseRep
                    -> W.Application
+defaultYesodRunner _ m toMaster _ murl _ req
+    | maximumContentLength m (fmap toMaster murl) < len =
+        return $ W.responseLBS
+            (H.Status 413 "Too Large")
+            [("Content-Type", "text/plain")]
+            "Request body too large to be processed."
+  where
+    len = fromMaybe 0 $ lookup "content-length" (W.requestHeaders req) >>= readMay
+    readMay s =
+        case reads $ S8.unpack s of
+            [] -> Nothing
+            (x, _):_ -> Just x
 defaultYesodRunner s master toMasterRoute mkey murl handler req = do
     now <- liftIO getCurrentTime
     let getExpires m = fromIntegral (m * 60) `addUTCTime` now
