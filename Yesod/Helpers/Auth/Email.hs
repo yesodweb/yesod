@@ -1,10 +1,15 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies #-}
 {-# LANGUAGE CPP #-}
 module Yesod.Helpers.Auth.Email
-    ( authEmail
+    ( -- * Plugin
+      authEmail
     , YesodAuthEmail (..)
     , EmailCreds (..)
     , saltPass
+      -- * Routes
+    , loginR
+    , registerR
+    , setpassR
     ) where
 
 import Network.Mail.Mime (randomString)
@@ -25,10 +30,10 @@ import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 
-login, register, setpass :: AuthRoute
-login = PluginR "email" ["login"]
-register = PluginR "email" ["register"]
-setpass = PluginR "email" ["set-password"]
+loginR, registerR, setpassR :: AuthRoute
+loginR = PluginR "email" ["login"]
+registerR = PluginR "email" ["register"]
+setpassR = PluginR "email" ["set-password"]
 
 verify :: String -> String -> AuthRoute -- FIXME
 verify eid verkey = PluginR "email" ["verify", eid, verkey]
@@ -78,7 +83,7 @@ authEmail =
 #else
         [$hamlet|
 #endif
-<form method="post" action="@{tm login}">
+<form method="post" action="@{tm loginR}">
     <table>
         <tr>
             <th>#{messageEmail y}
@@ -91,7 +96,7 @@ authEmail =
         <tr>
             <td colspan="2">
                 <input type="submit" value="Login via email">
-                <a href="@{tm register}">I don't have an account
+                <a href="@{tm registerR}">I don't have an account
 |]
   where
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
@@ -119,7 +124,7 @@ getRegisterR = do
             [$hamlet|
 #endif
 <p>#{messageEnterEmail y}
-<form method="post" action="@{toMaster register}">
+<form method="post" action="@{toMaster registerR}">
     <label for="email">#{messageEmail y}
     <input type="email" name="email" width="150">
     <input type="submit" value="#{messageRegister y}">
@@ -171,7 +176,7 @@ getVerifyR lid key = do
                     setCreds False $ Creds "email" email [("verifiedEmail", email)] -- FIXME uid?
                     toMaster <- getRouteToMaster
                     setMessage $ messageAddressVerified y
-                    redirect RedirectTemporary $ toMaster setpass
+                    redirect RedirectTemporary $ toMaster setpassR
         _ -> return ()
     defaultLayout $ do
         setTitle $ messageInvalidKey y
@@ -219,7 +224,7 @@ getPasswordR = do
         Just _ -> return ()
         Nothing -> do
             setMessage $ messageBadSetPass y
-            redirect RedirectTemporary $ toMaster login
+            redirect RedirectTemporary $ toMaster loginR
     defaultLayout $ do
         setTitle $ messageSetPassTitle y
         addHamlet
@@ -229,7 +234,7 @@ getPasswordR = do
             [$hamlet|
 #endif
 <h3>#{messageSetPass y}
-<form method="post" action="@{toMaster setpass}">
+<form method="post" action="@{toMaster setpassR}">
     <table>
         <tr>
             <th>#{messageNewPass y}
@@ -253,12 +258,12 @@ postPasswordR = do
     y <- getYesod
     when (new /= confirm) $ do
         setMessage $ messagePassMismatch y
-        redirect RedirectTemporary $ toMaster setpass
+        redirect RedirectTemporary $ toMaster setpassR
     maid <- maybeAuthId
     aid <- case maid of
             Nothing -> do
                 setMessage $ messageBadSetPass y
-                redirect RedirectTemporary $ toMaster login
+                redirect RedirectTemporary $ toMaster loginR
             Just aid -> return aid
     salted <- liftIO $ saltPass new
     setPassword aid salted
