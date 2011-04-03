@@ -38,6 +38,7 @@ mkYesod "Y" [$parseRoutes|
 /foo/#String FooStringR GET
 /bar BarR GET
 /subsite SubsiteR Subsite getSubsite
+/plain PlainR GET
 |]
 
 instance Yesod Y where
@@ -54,6 +55,7 @@ instance Yesod Y where
 getFooR = return $ RepPlain "foo"
 getFooStringR = return . RepPlain . toContent
 getBarR = return $ RepPlain "bar"
+getPlainR = return $ RepPlain "plain"
 
 cleanPathTest :: Test
 cleanPathTest = testGroup "Test.CleanPath"
@@ -63,6 +65,7 @@ cleanPathTest = testGroup "Test.CleanPath"
     , testCase "has trailing slash" hasTrailingSlash
     , testCase "/foo/something" fooSomething
     , testCase "subsite dispatch" subsiteDispatch
+    , testCase "redirect with query string" redQueryString
     ]
 
 runner f = toWaiApp Y >>= runSession f
@@ -119,3 +122,11 @@ subsiteDispatch = runner $ do
     assertStatus 200 res
     assertContentType "SUBSITE" res
     assertBody "[\"1\",\"2\",\"3\",\"\"]" res
+
+redQueryString = runner $ do
+    res <- request defaultRequest
+                { pathInfo = decodePathSegments "/plain/"
+                , rawQueryString = "?foo=bar"
+                }
+    assertStatus 301 res
+    assertHeader "Location" "http://test/plain?foo=bar" res

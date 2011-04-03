@@ -92,7 +92,6 @@ sendRedirect y segments' env =
         if S.null (W.rawQueryString env)
             then dest
             else (dest `mappend`
-                 Blaze.ByteString.Builder.Char8.fromChar '?' `mappend`
                  Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
 
 mkYesodDispatch' :: [((String, Pieces), Maybe String)]
