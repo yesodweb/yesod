@@ -228,11 +228,11 @@ mkSimpleExp segments [MultiPiece _] frontVars x = do
     fmp <- [|fromMultiPiece|]
     let exp = CaseE (fmp `AppE` segments)
                 [ Match
-                    (ConP (mkName "Left") [WildP])
+                    (ConP (mkName "Nothing") [])
                     (NormalB nothing)
                     []
                 , Match
-                    (ConP (mkName "Right") [VarP next'])
+                    (ConP (mkName "Just") [VarP next'])
                     (NormalB innerExp)
                     []
                 ]

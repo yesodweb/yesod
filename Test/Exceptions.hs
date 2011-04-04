@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Test.Exceptions (exceptionsTest) where
 
-import Yesod.Core
+import Yesod.Core hiding (Request)
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Handler (Route, ErrorResponse (InternalError))

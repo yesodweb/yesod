@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Test.Widget (widgetTest) where
 
-import Yesod.Core
+import Yesod.Core hiding (Request)
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Widget
@@ -20,12 +20,14 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 data Y = Y
 mkYesod "Y" [$parseRoutes|
 / RootR GET
+/foo/*Strings MultiR GET
 |]
 
 instance Yesod Y where
     approot _ = "http://test"
 
 getRootR = defaultLayout $ addJuliusBody [$julius|<not escaped>|]
+getMultiR _ = return ()
 
 widgetTest :: Test
 widgetTest = testGroup "Test.Exceptions"
