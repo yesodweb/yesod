@@ -8,7 +8,7 @@ synopsis:        Creation of type-safe, RESTful web applications.
 description:
     Yesod is a framework designed to foster creation of RESTful web application that have strong compile-time guarantees of correctness. It also affords space efficient code and portability to many deployment backends, from CGI to stand-alone serving.
     .
-    The Yesod documentation site <http://www.yesodweb.com/> has much more information, tutorials and information on some of the supporting packages, like Hamlet and web-routes-quasi.
+    The Yesod documentation site <http://www.yesodweb.com/> has much more information, tutorials and information on some of the supporting packages, like Hamlet and Persistent.
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
@@ -56,6 +56,7 @@ library
                      Yesod.Request
                      Yesod.Widget
     other-modules:   Yesod.Internal
+                     Yesod.Internal.Core
                      Yesod.Internal.Session
                      Yesod.Internal.Request
                      Yesod.Internal.Dispatch

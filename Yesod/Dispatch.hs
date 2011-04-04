@@ -22,7 +22,7 @@ module Yesod.Dispatch
 
 import Data.Either (partitionEithers)
 import Prelude hiding (exp)
-import Yesod.Core
+import Yesod.Internal.Core
 import Yesod.Handler
 import Yesod.Internal.Dispatch
 

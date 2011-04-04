@@ -14,11 +14,11 @@ import Control.Monad (foldM)
 import Yesod.Handler (badMethod)
 import Yesod.Content (chooseRep)
 import qualified Network.Wai as W
-import Yesod.Core (yesodRunner, yesodDispatch)
+import Yesod.Internal.Core (yesodRunner, yesodDispatch)
 import Data.List (foldl')
 import Data.Char (toLower)
 import qualified Data.ByteString as S
-import Yesod.Core (Yesod (joinPath, approot, cleanPath))
+import Yesod.Internal.Core (Yesod (joinPath, approot, cleanPath))
 import Network.HTTP.Types (status301)
 import Data.Text (Text)
 import Data.Monoid (mappend)
