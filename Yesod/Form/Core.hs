@@ -52,6 +52,13 @@ import Text.Hamlet
 import Text.Blaze (ToHtml (..))
 import Data.String
 import Control.Monad (join)
+import Data.Text (Text, pack)
+import qualified Data.Text as T
+import Prelude hiding ((++))
+import Data.Monoid (Monoid (mappend))
+
+(++) :: Monoid a => a -> a -> a
+(++) = mappend
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -59,7 +66,7 @@ import Control.Monad (join)
 -- The 'Applicative' instance will concatenate the failure messages in two
 -- 'FormResult's.
 data FormResult a = FormMissing
-                  | FormFailure [String]
+                  | FormFailure [Text]
                   | FormSuccess a
     deriving Show
 instance Functor FormResult where
@@ -92,7 +99,7 @@ instance Monoid Enctype where
 data Ints = IntCons Int Ints | IntSingle Int
 instance Show Ints where
     show (IntSingle i) = show i
-    show (IntCons i is) = show i ++ '-' : show is
+    show (IntCons i is) = show i ++ ('-' : show is)
 
 incrInts :: Ints -> Ints
 incrInts (IntSingle i) = IntSingle $ i + 1
@@ -113,16 +120,16 @@ type FormInner s m =
     GHandler s m
     )))
 
-type Env = [(String, String)]
-type FileEnv = [(String, FileInfo)]
+type Env = [(Text, Text)]
+type FileEnv = [(Text, FileInfo)]
 
 -- | Get a unique identifier.
-newFormIdent :: Monad m => StateT Ints m String
+newFormIdent :: Monad m => StateT Ints m Text
 newFormIdent = do
     i <- get
     let i' = incrInts i
     put i'
-    return $ 'f' : show i'
+    return $ pack $ 'f' : show i'
 
 deeperFormIdent :: Monad m => StateT Ints m ()
 deeperFormIdent = do
@@ -172,12 +179,12 @@ requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = toForm $ do
                                 Left e -> (FormFailure [e], x)
                                 Right y -> (FormSuccess y, x)
     let fi = FieldInfo
-            { fiLabel = string label
+            { fiLabel = toHtml label
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiInput = mkWidget theId name val True
             , fiErrors = case res of
-                            FormFailure [x] -> Just $ string x
+                            FormFailure [x] -> Just $ toHtml x
                             _ -> Nothing
             , fiRequired = True
             }
@@ -261,12 +268,12 @@ optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = toForm $ do
                                 Left e -> (FormFailure [e], x)
                                 Right y -> (FormSuccess $ Just y, x)
     let fi = FieldInfo
-            { fiLabel = string label
+            { fiLabel = toHtml label
             , fiTooltip = tooltip
             , fiIdent = theId
             , fiInput = mkWidget theId name val False
             , fiErrors = case res of
-                            FormFailure x -> Just $ string $ unlines x
+                            FormFailure x -> Just $ toHtml $ T.unlines x
                             _ -> Nothing
             , fiRequired = False
             }
@@ -290,29 +297,29 @@ mapFormXml f (GForm g) = GForm $ do
 data FieldInfo sub y = FieldInfo
     { fiLabel :: Html
     , fiTooltip :: Html
-    , fiIdent :: String
+    , fiIdent :: Text
     , fiInput :: GWidget sub y ()
     , fiErrors :: Maybe Html
     , fiRequired :: Bool
     }
 
 data FormFieldSettings = FormFieldSettings
-    { ffsLabel :: String
+    { ffsLabel :: Text
     , ffsTooltip :: Html
-    , ffsId :: Maybe String
-    , ffsName :: Maybe String
+    , ffsId :: Maybe Text
+    , ffsName :: Maybe Text
     }
 instance IsString FormFieldSettings where
-    fromString s = FormFieldSettings s mempty Nothing Nothing
+    fromString s = FormFieldSettings (pack s) mempty Nothing Nothing
 
 -- | A generic definition of a form field that can be used for generating both
 -- required and optional fields. See 'requiredFieldHelper and
 -- 'optionalFieldHelper'.
 data FieldProfile sub y a = FieldProfile
-    { fpParse :: String -> Either String a
-    , fpRender :: a -> String
+    { fpParse :: Text -> Either Text a
+    , fpRender :: a -> Text
     -- | ID, name, value, required
-    , fpWidget :: String -> String -> String -> Bool -> GWidget sub y ()
+    , fpWidget :: Text -> Text -> Text -> Bool -> GWidget sub y ()
     }
 
 type Form sub y = GForm sub y (GWidget sub y ())
@@ -338,7 +345,7 @@ checkForm f (GForm form) = GForm $ do
 --
 -- Unlike 'checkForm', the validation error will appear in the generated HTML
 -- of the form.
-checkField :: (a -> Either String b) -> FormField s m a -> FormField s m b
+checkField :: (a -> Either Text b) -> FormField s m a -> FormField s m b
 checkField f (GForm form) = GForm $ do
     (res, xml, enc) <- form
     let (res', merr) =
@@ -355,7 +362,7 @@ checkField f (GForm form) = GForm $ do
                 Just err -> flip map xml $ \fi -> fi
                     { fiErrors = Just $
                         case fiErrors fi of
-                            Nothing -> string err
+                            Nothing -> toHtml err
                             Just x -> x
                     }
     return (res', xml', enc)

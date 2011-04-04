@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Provide the user with a rich text editor.
 module Yesod.Form.Nic
     ( YesodNic (..)
@@ -18,10 +19,11 @@ import Text.Julius (julius)
 import Text.Blaze.Renderer.String (renderHtml)
 import Text.Blaze (preEscapedString)
 import Control.Monad.Trans.Class (lift)
+import Data.Text (Text, pack, unpack)
 
 class YesodNic a where
     -- | NIC Editor Javascript file.
-    urlNicEdit :: a -> Either (Route a) String
+    urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
 nicHtmlField :: (IsForm f, FormType f ~ Html, YesodNic (FormMaster f))
@@ -35,8 +37,8 @@ maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
 
 nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html
 nicHtmlFieldProfile = FieldProfile
-    { fpParse = Right . preEscapedString . sanitizeBalance
-    , fpRender = renderHtml
+    { fpParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME
+    , fpRender = pack . renderHtml
     , fpWidget = \theId name val _isReq -> do
         addHtml
 #if __GLASGOW_HASKELL__ >= 700
@@ -57,7 +59,7 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{th
 |]
     }
 
-addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
+addScript' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addScript' f = do
     y <- lift getYesod
     addScriptEither $ f y

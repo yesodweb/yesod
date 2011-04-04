@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Some fields spiced up with jQuery UI.
 module Yesod.Form.Jquery
     ( YesodJquery (..)
@@ -28,6 +29,8 @@ import Data.Default
 import Text.Hamlet (hamlet)
 import Text.Julius (julius)
 import Control.Monad.Trans.Class (lift)
+import Data.Text (Text, pack, unpack)
+import Data.Monoid (mconcat)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HAMLET hamlet
@@ -40,8 +43,8 @@ import Control.Monad.Trans.Class (lift)
 #endif
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
-googleHostedJqueryUiCss :: String -> String
-googleHostedJqueryUiCss theme = concat
+googleHostedJqueryUiCss :: Text -> Text
+googleHostedJqueryUiCss theme = mconcat
     [ "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/"
     , theme
     , "/jquery-ui.css"
@@ -49,19 +52,19 @@ googleHostedJqueryUiCss theme = concat
 
 class YesodJquery a where
     -- | The jQuery 1.4 Javascript file.
-    urlJqueryJs :: a -> Either (Route a) String
+    urlJqueryJs :: a -> Either (Route a) Text
     urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"
 
     -- | The jQuery UI 1.8 Javascript file.
-    urlJqueryUiJs :: a -> Either (Route a) String
+    urlJqueryUiJs :: a -> Either (Route a) Text
     urlJqueryUiJs _ = Right "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"
 
     -- | The jQuery UI 1.8 CSS file; defaults to cupertino theme.
-    urlJqueryUiCss :: a -> Either (Route a) String
+    urlJqueryUiCss :: a -> Either (Route a) Text
     urlJqueryUiCss _ = Right $ googleHostedJqueryUiCss "cupertino"
 
     -- | jQuery UI time picker add-on.
-    urlJqueryUiDateTimePicker :: a -> Either (Route a) String
+    urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
 jqueryDayField :: (IsForm f, FormType f ~ Day, YesodJquery (FormMaster f))
@@ -86,7 +89,8 @@ jqueryDayFieldProfile jds = FieldProfile
                   (Left "Invalid day, must be in YYYY-MM-DD format")
                   Right
               . readMay
-    , fpRender = show
+              . unpack
+    , fpRender = pack . show
     , fpWidget = \theId name val isReq -> do
         addHtml [HAMLET|\
 <input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{val}">
@@ -105,8 +109,8 @@ $(function(){$("##{theId}").datepicker({
 |]
     }
   where
-    jsBool True = "true"
-    jsBool False = "false"
+    jsBool True = "true" :: Text
+    jsBool False = "false" :: Text
     mos (Left i) = show i
     mos (Right (x, y)) = concat
         [ "["
@@ -143,8 +147,8 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
 
 jqueryDayTimeFieldProfile :: YesodJquery y => FieldProfile sub y UTCTime
 jqueryDayTimeFieldProfile = FieldProfile
-    { fpParse  = parseUTCTime
-    , fpRender = jqueryDayTimeUTCTime
+    { fpParse  = parseUTCTime . unpack
+    , fpRender = pack . jqueryDayTimeUTCTime
     , fpWidget = \theId name val isReq -> do
         addHtml [HAMLET|\
 <input id="#{theId}" name="#{name}" :isReq:required="" value="#{val}">
@@ -158,7 +162,7 @@ $(function(){$("##{theId}").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})}
 |]
     }
 
-parseUTCTime :: String -> Either String UTCTime
+parseUTCTime :: String -> Either Text UTCTime
 parseUTCTime s =
     let (dateS, timeS) = break isSpace (dropWhile isSpace s)
         dateE = parseDate dateS
@@ -169,7 +173,7 @@ parseUTCTime s =
                     (UTCTime date . timeOfDayToTime)
 
 jqueryAutocompleteField
-    :: (IsForm f, FormType f ~ String, YesodJquery (FormMaster f))
+    :: (IsForm f, FormType f ~ Text, YesodJquery (FormMaster f))
     => Route (FormMaster f)
     -> FormFieldSettings
     -> Maybe (FormType f)
@@ -177,7 +181,7 @@ jqueryAutocompleteField
 jqueryAutocompleteField = requiredFieldHelper . jqueryAutocompleteFieldProfile
 
 maybeJqueryAutocompleteField
-    :: (IsForm f, FormType f ~ Maybe String, YesodJquery (FormMaster f))
+    :: (IsForm f, FormType f ~ Maybe Text, YesodJquery (FormMaster f))
     => Route (FormMaster f)
     -> FormFieldSettings
     -> Maybe (FormType f)
@@ -185,7 +189,7 @@ maybeJqueryAutocompleteField
 maybeJqueryAutocompleteField src =
     optionalFieldHelper $ jqueryAutocompleteFieldProfile src
 
-jqueryAutocompleteFieldProfile :: YesodJquery y => Route y -> FieldProfile sub y String
+jqueryAutocompleteFieldProfile :: YesodJquery y => Route y -> FieldProfile sub y Text
 jqueryAutocompleteFieldProfile src = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -201,12 +205,12 @@ $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     }
 
-addScript' :: (y -> Either (Route y) String) -> GWidget sub y ()
+addScript' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addScript' f = do
     y <- lift getYesod
     addScriptEither $ f y
 
-addStylesheet' :: (y -> Either (Route y) String) -> GWidget sub y ()
+addStylesheet' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addStylesheet' f = do
     y <- lift getYesod
     addStylesheetEither $ f y

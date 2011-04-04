@@ -12,15 +12,23 @@ import Yesod.Form.Core
 import Yesod.Form.Profiles (Textarea)
 import Data.Int (Int64)
 import Data.Time (Day, TimeOfDay)
+import Data.Text (Text)
 
 class ToForm a y where
     toForm :: Formlet sub y a
 class ToFormField a y where
     toFormField :: FormFieldSettings -> FormletField sub y a
 
+{- FIXME
 instance ToFormField String y where
     toFormField = stringField
 instance ToFormField (Maybe String) y where
+    toFormField = maybeStringField
+-}
+
+instance ToFormField Text y where
+    toFormField = stringField
+instance ToFormField (Maybe Text) y where
     toFormField = maybeStringField
 
 instance ToFormField Int y where

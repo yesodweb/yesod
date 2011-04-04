@@ -4,6 +4,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Parse forms (and query strings).
 module Yesod.Form
     ( -- * Data types
@@ -63,6 +64,8 @@ import Data.Char (toUpper, isUpper)
 import Control.Arrow ((&&&))
 import Data.List (group, sort)
 import Data.Monoid (mempty)
+import Data.Text (Text)
+import Text.Blaze (toHtml)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HAMLET hamlet
@@ -88,7 +91,7 @@ fieldsToTable = mapFormXml $ mapM_ go
     $maybe err <- fiErrors fi
         <td .errors>#{err}
 |]
-    clazz fi = if fiRequired fi then "required" else "optional"
+    clazz fi = if fiRequired fi then "required" else "optional" :: Text
 
 -- | Display the label, tooltip, input code and errors in a single div.
 fieldsToDivs :: FormField sub y a -> Form sub y a
@@ -102,7 +105,7 @@ fieldsToDivs = mapFormXml $ mapM_ go
     $maybe err <- fiErrors fi
         <div .errors>#{err}
 |]
-    clazz fi = if fiRequired fi then "required" else "optional"
+    clazz fi = if fiRequired fi then "required" else "optional" :: Text
 
 -- | Run a form against POST parameters, without CSRF protection.
 runFormPostNoNonce :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
@@ -133,7 +136,7 @@ runFormPost f = do
     <input type="hidden" name="#{nonceName}" value="#{nonce}">
 |]
 
-nonceName :: String
+nonceName :: Text
 nonceName = "_nonce"
 
 -- | Run a form against POST parameters. Please note that this does not provide
@@ -258,7 +261,7 @@ mkToForm =
         just <- [|pure|]
         nothing <- [|Nothing|]
         let just' = just `AppE` ConE (mkName $ entityName t)
-        string' <- [|string|]
+        string' <- [|toHtml|]
         ftt <- [|fieldsToTable|]
         ffs' <- [|FormFieldSettings|]
         let stm "" = nothing
@@ -306,6 +309,6 @@ toLabel (x:rest) = toUpper x : go rest
         | isUpper c = ' ' : c : go cs
         | otherwise = c : go cs
 
-formFailures :: FormResult a -> Maybe [String]
+formFailures :: FormResult a -> Maybe [Text]
 formFailures (FormFailure x) = Just x
 formFailures _ = Nothing

@@ -40,6 +40,7 @@ import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
 import Text.Blaze.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
+import Data.Text (Text, unpack, pack)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HAMLET hamlet
@@ -53,8 +54,8 @@ import qualified Data.ByteString.Lazy as L
 
 intFieldProfile :: Integral i => FieldProfile sub y i
 intFieldProfile = FieldProfile
-    { fpParse = maybe (Left "Invalid integer") Right . readMayI
-    , fpRender = showI
+    { fpParse = maybe (Left "Invalid integer") Right . readMayI . unpack -- FIXME Data.Text.Read
+    , fpRender = pack . showI
     , fpWidget = \theId name val isReq -> addHamlet
         [HAMLET|\
 <input id="#{theId}" name="#{name}" type="number" :isReq:required="" value="#{val}">
@@ -68,8 +69,8 @@ intFieldProfile = FieldProfile
 
 doubleFieldProfile :: FieldProfile sub y Double
 doubleFieldProfile = FieldProfile
-    { fpParse = maybe (Left "Invalid number") Right . readMay
-    , fpRender = show
+    { fpParse = maybe (Left "Invalid number") Right . readMay . unpack -- FIXME use Data.Text.Read
+    , fpRender = pack . show
     , fpWidget = \theId name val isReq -> addHamlet
         [HAMLET|\
 <input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}">
@@ -78,8 +79,8 @@ doubleFieldProfile = FieldProfile
 
 dayFieldProfile :: FieldProfile sub y Day
 dayFieldProfile = FieldProfile
-    { fpParse = parseDate
-    , fpRender = show
+    { fpParse = parseDate . unpack
+    , fpRender = pack . show
     , fpWidget = \theId name val isReq -> addHamlet
         [HAMLET|\
 <input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{val}">
@@ -88,8 +89,8 @@ dayFieldProfile = FieldProfile
 
 timeFieldProfile :: FieldProfile sub y TimeOfDay
 timeFieldProfile = FieldProfile
-    { fpParse = parseTime
-    , fpRender = show . roundFullSeconds
+    { fpParse = parseTime . unpack
+    , fpRender = pack . show . roundFullSeconds
     , fpWidget = \theId name val isReq -> addHamlet
         [HAMLET|\
 <input id="#{theId}" name="#{name}" :isReq:required="" value="#{val}">
@@ -103,8 +104,8 @@ timeFieldProfile = FieldProfile
 
 htmlFieldProfile :: FieldProfile sub y Html
 htmlFieldProfile = FieldProfile
-    { fpParse = Right . preEscapedString . sanitizeBalance
-    , fpRender = renderHtml
+    { fpParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
+    , fpRender = pack . renderHtml
     , fpWidget = \theId name val _isReq -> addHamlet
         [HAMLET|\
 <textarea id="#{theId}" name="#{name}" .html>#{val}
@@ -113,7 +114,7 @@ htmlFieldProfile = FieldProfile
 
 -- | A newtype wrapper around a 'String' that converts newlines to HTML
 -- br-tags.
-newtype Textarea = Textarea { unTextarea :: String }
+newtype Textarea = Textarea { unTextarea :: Text }
     deriving (Show, Read, Eq, PersistField)
 instance ToHtml Textarea where
     toHtml =
@@ -122,6 +123,7 @@ instance ToHtml Textarea where
         . L.toChunks
         . toLazyByteString
         . fromWriteList writeHtmlEscapedChar
+        . unpack
         . unTextarea
       where
         -- Taken from blaze-builder and modified with newline handling.
@@ -138,7 +140,7 @@ textareaFieldProfile = FieldProfile
 |]
     }
 
-hiddenFieldProfile :: FieldProfile sub y String
+hiddenFieldProfile :: FieldProfile sub y Text
 hiddenFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -148,7 +150,7 @@ hiddenFieldProfile = FieldProfile
 |]
     }
 
-stringFieldProfile :: FieldProfile sub y String
+stringFieldProfile :: FieldProfile sub y Text
 stringFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -158,7 +160,7 @@ stringFieldProfile = FieldProfile
 |]
     }
 
-passwordFieldProfile :: FieldProfile s m String
+passwordFieldProfile :: FieldProfile s m Text
 passwordFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -173,7 +175,7 @@ readMay s = case reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
 
-parseDate :: String -> Either String Day
+parseDate :: String -> Either Text Day
 parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
               . readMay . replace '/' '-'
 
@@ -182,7 +184,7 @@ parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
 replace :: Eq a => a -> a -> [a] -> [a]
 replace x y = map (\z -> if z == x then y else z)
 
-parseTime :: String -> Either String TimeOfDay
+parseTime :: String -> Either Text TimeOfDay
 parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:' ':'A':'M':[]) =
@@ -195,20 +197,20 @@ parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
 parseTime _ = Left "Invalid time, must be in HH:MM[:SS] format"
 
 parseTimeHelper :: (Char, Char, Char, Char, Char, Char)
-                -> Either [Char] TimeOfDay
+                -> Either Text TimeOfDay
 parseTimeHelper (h1, h2, m1, m2, s1, s2)
-    | h < 0 || h > 23 = Left $ "Invalid hour: " ++ show h
-    | m < 0 || m > 59 = Left $ "Invalid minute: " ++ show m
-    | s < 0 || s > 59 = Left $ "Invalid second: " ++ show s
+    | h < 0 || h > 23 = Left $ pack $ "Invalid hour: " ++ show h
+    | m < 0 || m > 59 = Left $ pack $ "Invalid minute: " ++ show m
+    | s < 0 || s > 59 = Left $ pack $ "Invalid second: " ++ show s
     | otherwise = Right $ TimeOfDay h m s
   where
     h = read [h1, h2]
     m = read [m1, m2]
     s = fromInteger $ read [s1, s2]
 
-emailFieldProfile :: FieldProfile s y String
+emailFieldProfile :: FieldProfile s y Text
 emailFieldProfile = FieldProfile
-    { fpParse = \s -> if Email.isValid s
+    { fpParse = \s -> if Email.isValid (unpack s)
                         then Right s
                         else Left "Invalid e-mail address"
     , fpRender = id
@@ -219,7 +221,7 @@ emailFieldProfile = FieldProfile
     }
 
 type AutoFocus = Bool
-searchFieldProfile :: AutoFocus -> FieldProfile s y String
+searchFieldProfile :: AutoFocus -> FieldProfile s y Text
 searchFieldProfile autoFocus = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -236,9 +238,9 @@ searchFieldProfile autoFocus = FieldProfile
             |]
     }
 
-urlFieldProfile :: FieldProfile s y String
+urlFieldProfile :: FieldProfile s y Text
 urlFieldProfile = FieldProfile
-    { fpParse = \s -> case parseURI s of
+    { fpParse = \s -> case parseURI $ unpack s of
                         Nothing -> Left "Invalid URL"
                         Just _ -> Right s
     , fpRender = id
