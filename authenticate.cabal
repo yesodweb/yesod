@@ -30,7 +30,6 @@ library
                      base64-bytestring >= 0.1 && < 0.2,
                      SHA >= 1.4 && < 1.5,
                      random >= 1.0 && < 1.1,
-                     wai-extra >= 0.3 && < 0.4,
                      text >= 0.5 && < 1.0,
                      http-types >= 0.6 && < 0.7,
                      enumerator >= 0.4.7 && < 0.5,

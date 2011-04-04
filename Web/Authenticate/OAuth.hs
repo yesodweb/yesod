@@ -20,7 +20,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Maybe
 import Control.Applicative
-import Network.Wai.Parse
+import Network.HTTP.Types (parseSimpleQuery)
 import Control.Exception
 import Control.Monad
 import Data.List (sortBy)
@@ -93,7 +93,7 @@ getTemporaryCredential oa = do
   let req = fromJust $ parseUrl $ oauthRequestUri oa
   req' <- signOAuth oa emptyCredential (req { method = "POST" }) 
   rsp <- withManager $ httpLbs req'
-  let dic = parseQueryString . toStrict . responseBody $ rsp
+  let dic = parseSimpleQuery . toStrict . responseBody $ rsp
   return $ Credential dic
 
 -- | URL to obtain OAuth verifier.
@@ -110,7 +110,7 @@ getAccessToken, getTokenCredential
 getAccessToken oa cr = do
   let req = (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
   rsp <- signOAuth oa cr req >>= withManager . httpLbs
-  let dic = parseQueryString . toStrict . responseBody $ rsp
+  let dic = parseSimpleQuery . toStrict . responseBody $ rsp
   return $ Credential dic
 
 getTokenCredential = getAccessToken
@@ -214,7 +214,7 @@ getBaseString tok req = do
       bsURI = BS.concat [scheme, "://", host req, bsPort, path req]
       bsQuery = map (second $ fromMaybe "") $ queryString req
   bsBodyQ <- if isBodyFormEncoded $ requestHeaders req
-                  then liftM parseQueryString $ toLBS (requestBody req)
+                  then liftM parseSimpleQuery $ toLBS (requestBody req)
                   else return []
   let bsAuthParams = filter ((`notElem`["oauth_signature","realm", "oauth_token_secret"]).fst) $ unCredential tok
       allParams = bsQuery++bsBodyQ++bsAuthParams
