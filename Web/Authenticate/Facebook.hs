@@ -64,7 +64,7 @@ accessTokenUrl fb code =
 getAccessToken :: Facebook -> Text -> IO AccessToken
 getAccessToken fb code = do
     let url = accessTokenUrl fb code
-    b <- simpleHttp url
+    b <- simpleHttp $ S8.unpack url
     let (front, back) = splitAt 13 $ L8.unpack b
     case front of
         "access_token=" -> return $ AccessToken $ T.pack back
@@ -80,7 +80,7 @@ graphUrl (AccessToken s) func =
 getGraphData :: AccessToken -> Text -> IO (Either String Value)
 getGraphData at func = do
     let url = graphUrl at func
-    b <- simpleHttp url
+    b <- simpleHttp $ S8.unpack url
     return $ eitherResult $ parse json b
 
 getGraphData' :: AccessToken -> Text -> IO Value

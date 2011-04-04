@@ -14,7 +14,6 @@ import OpenId2.Types
 import Web.Authenticate.Internal (qsUrl)
 import Control.Monad (unless)
 import qualified Data.ByteString.UTF8 as BSU
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import Network.HTTP.Enumerator
     ( parseUrl, urlEncodedBody, responseBody, httpLbsRedirect
@@ -88,7 +87,7 @@ authenticate params = do
     let params' = map (BSU.fromString *** BSU.fromString)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params
-    req' <- parseUrl $ S8.pack endpoint
+    req' <- parseUrl endpoint
     let req = urlEncodedBody params' req'
     rsp <- liftIO $ withManager $ httpLbsRedirect req
     let rps = parseDirectResponse $ BSLU.toString $ responseBody rsp

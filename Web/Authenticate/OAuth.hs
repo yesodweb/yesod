@@ -33,7 +33,6 @@ import Numeric
 import Codec.Crypto.RSA (rsassa_pkcs1_v1_5_sign, ha_SHA1, PrivateKey(..))
 import Network.HTTP.Types (Header)
 import Control.Arrow (second)
-import qualified Data.ByteString.Char8 as S8
 import Blaze.ByteString.Builder (toByteString)
 import Data.Enumerator (($$), run_, Stream (..), continue)
 import Data.Monoid (mconcat)
@@ -91,7 +90,7 @@ fromStrict = BSL.fromChunks . return
 getTemporaryCredential :: OAuth         -- ^ OAuth Application
                        -> IO Credential -- ^ Temporary Credential (Request Token & Secret).
 getTemporaryCredential oa = do
-  let req = fromJust $ parseUrl $ S8.pack $ oauthRequestUri oa
+  let req = fromJust $ parseUrl $ oauthRequestUri oa
   req' <- signOAuth oa emptyCredential (req { method = "POST" }) 
   rsp <- withManager $ httpLbs req'
   let dic = parseQueryString . toStrict . responseBody $ rsp
@@ -109,7 +108,7 @@ getAccessToken, getTokenCredential
                -> Credential    -- ^ Temporary Credential with oauth_verifier
                -> IO Credential -- ^ Token Credential (Access Token & Secret)
 getAccessToken oa cr = do
-  let req = (fromJust $ parseUrl $ S8.pack $ oauthAccessTokenUri oa) { method = "POST" }
+  let req = (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
   rsp <- signOAuth oa cr req >>= withManager . httpLbs
   let dic = parseQueryString . toStrict . responseBody $ rsp
   return $ Credential dic

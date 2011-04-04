@@ -69,7 +69,7 @@ discoverYADIS :: ( MonadIO m
 discoverYADIS _ _ 0 = failure TooManyRedirects
 discoverYADIS ident mb_loc redirects = do
     let uri = fromMaybe (identifier ident) mb_loc
-    req <- parseUrl $ S8.pack uri
+    req <- parseUrl uri
     res <- liftIO $ withManager $ httpLbs req
     let mloc = fmap S8.unpack
              $ lookup "x-xrds-location"
@@ -117,7 +117,7 @@ discoverHTML :: ( MonadIO m, Failure HttpException m)
              => Identifier
              -> m (Maybe Discovery)
 discoverHTML ident'@(Identifier ident) =
-    (parseHTML ident' . BSLU.toString) `liftM` simpleHttp (S8.pack ident)
+    (parseHTML ident' . BSLU.toString) `liftM` simpleHttp ident
 
 -- | Parse out an OpenID endpoint and an actual identifier from an HTML
 -- document.
