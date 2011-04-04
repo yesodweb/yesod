@@ -137,7 +137,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import qualified Data.Text.Lazy as TL
 
 import Control.Monad.IO.Control (MonadControlIO)
-import Control.Monad.Trans.Control (MonadTransControl, liftControl, control)
+import Control.Monad.Trans.Control (MonadTransControl, liftControl)
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
 import Data.ByteString (ByteString)
@@ -768,14 +768,42 @@ newIdent = GHandler $ lift $ lift $ lift $ do
 liftIOHandler :: MonadIO mo
               => GGHandler sub master IO a
               -> GGHandler sub master mo a
-liftIOHandler x = error "FIXME liftIOHandler" {- do
-    k <- control
-    join $ liftIO $ k x -}
+liftIOHandler m = GHandler $
+                   ReaderT $ \r ->
+                     ErrorT $
+                       WriterT $
+                         StateT $ \s ->
+                           liftIO $ runGGHandler m r s
+
+runGGHandler :: GGHandler sub master m a
+            -> HandlerData sub master
+            -> GHState
+            -> m ( ( Either HandlerContents a
+                   , Endo [Header]
+                   )
+                 , GHState
+                 )
+runGGHandler m r s = runStateT
+                      (runWriterT
+                        (runErrorT
+                          (runReaderT
+                            (unGHandler m) r))) s
 
 instance MonadTransControl (GGHandler s m) where
-    liftControl = error "FIXME liftControl for GGHandler" {-GHandler $ do
-        k <- liftControl $ liftControl $ liftControl control
-        return $ liftM GHandler . k . unGHandler -}
+    liftControl f =
+      GHandler $
+        liftControl $ \runRdr ->
+          liftControl $ \runErr ->
+            liftControl $ \runWrt ->
+              liftControl $ \runSt ->
+                f ( liftM ( GHandler
+                          . join . lift
+                          . join . lift
+                          . join . lift
+                          )
+                  . runSt . runWrt . runErr . runRdr
+                  . unGHandler
+                  )
 
 -- | Redirect to a POST resource.
 --
