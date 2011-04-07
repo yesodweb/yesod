@@ -5,9 +5,11 @@ module Yesod.Persist
     , get404
     , getBy404
     , module Database.Persist
+    , module Database.Persist.TH
     ) where
 
 import Database.Persist
+import Database.Persist.TH
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Control.Failure (Failure)
 
