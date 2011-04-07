@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yesod.Helpers.Auth.Rpxnow
     ( authRpxnow
     ) where
@@ -13,6 +14,8 @@ import Yesod.Widget
 import Yesod.Request
 import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
+import Data.Text (Text, pack, unpack)
+import Control.Arrow ((***))
 
 authRpxnow :: YesodAuth m
            => String -- ^ app name
@@ -32,18 +35,18 @@ authRpxnow app apiKey =
 <iframe src="http://#{app}.rpxnow.com/openid/embed?token_url=@{url}" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px">
 |]
     dispatch _ [] = do
-        token1 <- lookupGetParam "token"
-        token2 <- lookupPostParam "token"
-        let token = case token1 `mplus` token2 of
-                        Nothing -> invalidArgs ["token: Value not supplied"]
-                        Just x -> x
+        token1 <- lookupGetParams "token"
+        token2 <- lookupPostParams "token"
+        token <- case token1 ++ token2 of
+                        [] -> invalidArgs ["token: Value not supplied"]
+                        x:_ -> return $ unpack x
         Rpxnow.Identifier ident extra <- liftIO $ Rpxnow.authenticate apiKey token
         let creds =
                 Creds "rpxnow" ident
                 $ maybe id (\x -> (:) ("verifiedEmail", x))
                     (lookup "verifiedEmail" extra)
                 $ maybe id (\x -> (:) ("displayName", x))
-                    (getDisplayName extra)
+                    (fmap pack $ getDisplayName $ map (unpack *** unpack) extra)
                   []
         setCreds True creds
     dispatch _ _ = notFound

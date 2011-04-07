@@ -4,6 +4,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE OverloadedStrings          #-}
 -------------------------------------------------------------------------------
 -- |
 -- Module      :  Yesod.Helpers.Auth.HashDB
@@ -72,8 +73,8 @@ import Text.Hamlet (hamlet)
 import Control.Applicative         ((<$>), (<*>))
 import Data.ByteString.Lazy.Char8  (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)
-import Database.Persist.TH         (share2)
-import Database.Persist.GenericSql (mkMigrate)
+import Database.Persist.TH         (share2, mkMigrate, persist, mkPersist)
+import Data.Text                   (Text, unpack)
 
 -- | Computer the sha1 of a string and return it as a string
 sha1String :: String -> String
@@ -87,8 +88,8 @@ share2 mkPersist (mkMigrate "migrateUsers")
             [$persist|
 #endif
 User
-    username String Eq
-    password String
+    username Text Eq
+    password Text
     UniqueUser username
 |]
 
@@ -96,14 +97,14 @@ User
 --   database values
 validateUser :: (YesodPersist y, 
                  PersistBackend (YesodDB y (GGHandler sub y IO))) 
-             => (String, String) 
+             => (Text, Text) 
              -> GHandler sub y Bool
 validateUser (user,password) = runDB (getBy $ UniqueUser user) >>= \dbUser ->
     case dbUser of
         -- user not found
         Nothing          -> return False
         -- validate password
-        Just (_, sqlUser) -> return $ sha1String password == userPassword sqlUser
+        Just (_, sqlUser) -> return $ sha1String (unpack password) == unpack (userPassword sqlUser)
 
 login :: AuthRoute
 login = PluginR "hashdb" ["login"]

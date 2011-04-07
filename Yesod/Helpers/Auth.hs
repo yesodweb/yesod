@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yesod.Helpers.Auth
     ( -- * Subsite
       Auth
@@ -35,17 +36,22 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Network.Wai as W
 import Text.Hamlet (hamlet)
 import Data.Text.Lazy (pack)
-import Data.JSON.Types (Value (..), Atom (AtomBoolean))
 import qualified Data.Map as Map
 import Control.Monad.Trans.Class (lift)
+import Data.Aeson
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+import Data.Monoid (mconcat)
 
 data Auth = Auth
 
-type Method = String
-type Piece = String
+type Method = Text
+type Piece = Text
 
 data AuthPlugin m = AuthPlugin
-    { apName :: String
+    { apName :: Text
     , apDispatch :: Method -> [Piece] -> GHandler Auth m ()
     , apLogin :: forall s. (Route Auth -> Route m) -> GWidget s m ()
     }
@@ -55,9 +61,9 @@ getAuth = const Auth
 
 -- | User credentials
 data Creds m = Creds
-    { credsPlugin :: String -- ^ How the user was authenticated
-    , credsIdent :: String -- ^ Identifier. Exact meaning depends on plugin.
-    , credsExtra :: [(String, String)]
+    { credsPlugin :: Text -- ^ How the user was authenticated
+    , credsIdent :: Text -- ^ Identifier. Exact meaning depends on plugin.
+    , credsExtra :: [(Text, Text)]
     }
 
 class Yesod m => YesodAuth m where
@@ -73,8 +79,8 @@ class Yesod m => YesodAuth m where
 
     getAuthId :: Creds m -> GHandler s m (Maybe (AuthId m))
 
-    showAuthId :: m -> AuthId m -> String
-    readAuthId :: m -> String -> Maybe (AuthId m)
+    showAuthId :: m -> AuthId m -> Text
+    readAuthId :: m -> Text -> Maybe (AuthId m)
 
     authPlugins :: [AuthPlugin m]
 
@@ -104,8 +110,9 @@ class Yesod m => YesodAuth m where
     messageEnterEmail _ = string "Enter your e-mail address below, and a confirmation e-mail will be sent to you."
     messageConfirmationEmailSentTitle :: m -> Html
     messageConfirmationEmailSentTitle _ = string "Confirmation e-mail sent"
-    messageConfirmationEmailSent :: m -> String -> Html
-    messageConfirmationEmailSent _ email = string $ "A confirmation e-mail has been sent to " ++ email ++ "."
+    messageConfirmationEmailSent :: m -> Text -> Html
+    messageConfirmationEmailSent _ email = toHtml $ mconcat
+        ["A confirmation e-mail has been sent to ", email, "."]
     messageAddressVerified :: m -> Html
     messageAddressVerified _ = string "Address verified, please set a new password"
     messageInvalidKeyTitle :: m -> Html
@@ -132,10 +139,12 @@ class Yesod m => YesodAuth m where
     messageFacebook :: m -> Html
     messageFacebook _ = string "Login with Facebook"
 
+type Texts = [Text]
+
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
-#define STRINGS *Strings
+#define STRINGS *Texts
 #if GHC7
     [parseRoutes|
 #else
@@ -144,10 +153,10 @@ mkYesodSub "Auth"
 /check                 CheckR      GET
 /login                 LoginR      GET
 /logout                LogoutR     GET POST
-/page/#String/STRINGS PluginR
+/page/#Text/STRINGS PluginR
 |]
 
-credsKey :: String
+credsKey :: Text
 credsKey = "_ID"
 
 -- | FIXME: won't show up till redirect
@@ -202,10 +211,8 @@ $nothing
     <p>Not logged in.
 |]
     json creds =
-        ValueObject $ Map.fromList
-            [ (pack "logged_in"
-              , ValueAtom $ AtomBoolean
-                          $ maybe False (const True) creds)
+        Object $ Map.fromList
+            [ (T.pack "logged_in", Bool $ maybe False (const True) creds)
             ]
 
 getLoginR :: YesodAuth m => GHandler Auth m RepHtml
@@ -220,10 +227,10 @@ postLogoutR = do
     deleteSession credsKey
     redirectUltDest RedirectTemporary $ logoutDest y
 
-handlePluginR :: YesodAuth m => String -> [String] -> GHandler Auth m ()
+handlePluginR :: YesodAuth m => Text -> [Text] -> GHandler Auth m ()
 handlePluginR plugin pieces = do
     env <- waiRequest
-    let method = S8.unpack $ W.requestMethod env
+    let method = decodeUtf8With lenientDecode $ W.requestMethod env
     case filter (\x -> apName x == plugin) authPlugins of
         [] -> notFound
         ap:_ -> apDispatch ap method pieces

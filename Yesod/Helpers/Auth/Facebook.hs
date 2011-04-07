@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yesod.Helpers.Auth.Facebook
     ( authFacebook
     , facebookUrl
@@ -7,7 +8,8 @@ module Yesod.Helpers.Auth.Facebook
 
 import Yesod.Helpers.Auth
 import qualified Web.Authenticate.Facebook as Facebook
-import Data.Object (fromMapping, lookupScalar)
+import Data.Aeson
+import Data.Aeson.Types (parseMaybe)
 import Data.Maybe (fromMaybe)
 
 import Yesod.Form
@@ -17,14 +19,17 @@ import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Char8 as S8
 import Control.Monad.Trans.Class (lift)
+import Data.Text (Text)
+import Control.Monad (mzero)
+import Data.Monoid (mappend)
 
 facebookUrl :: AuthRoute
 facebookUrl = PluginR "facebook" ["forward"]
 
 authFacebook :: YesodAuth m
-             => String -- ^ Application ID
-             -> String -- ^ Application secret
-             -> [String] -- ^ Requested permissions
+             => Text -- ^ Application ID
+             -> Text -- ^ Application secret
+             -> [Text] -- ^ Requested permissions
              -> AuthPlugin m
 authFacebook cid secret perms =
     AuthPlugin "facebook" dispatch login
@@ -34,7 +39,7 @@ authFacebook cid secret perms =
         tm <- getRouteToMaster
         render <- getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
-        redirectString RedirectTemporary $ S8.pack $ Facebook.getForwardUrl fb perms
+        redirectString RedirectTemporary $ Facebook.getForwardUrl fb perms
     dispatch "GET" [] = do
         render <- getUrlRender
         tm <- getRouteToMaster
@@ -43,18 +48,8 @@ authFacebook cid secret perms =
         at <- liftIO $ Facebook.getAccessToken fb code
         let Facebook.AccessToken at' = at
         so <- liftIO $ Facebook.getGraphData at "me"
-        let c = fromMaybe (error "Invalid response from Facebook") $ do
-            m <- fromMapping so
-            id' <- lookupScalar "id" m
-            let name = lookupScalar "name" m
-            let email = lookupScalar "email" m
-            let id'' = "http://graph.facebook.com/" ++ id'
-            return
-                $ Creds "facebook" id''
-                $ maybe id (\x -> (:) ("verifiedEmail", x)) email
-                $ maybe id (\x -> (:) ("displayName ", x)) name
-                [ ("accessToken", at')
-                ]
+        let c = fromMaybe (error "Invalid response from Facebook")
+                $ parseMaybe (parseCreds at') $ either error id so
         setCreds True c
     dispatch _ _ = notFound
     login tm = do
@@ -71,3 +66,16 @@ authFacebook cid secret perms =
 <p>
     <a href="#{furl}">#{messageFacebook y}
 |]
+
+parseCreds at' (Object m) = do
+    id' <- m .: "id"
+    let id'' = "http://graph.facebook.com/" `mappend` id'
+    name <- m .: "name"
+    email <- m .: "email"
+    return
+        $ Creds "facebook" id''
+        $ maybe id (\x -> (:) ("verifiedEmail", x)) email
+        $ maybe id (\x -> (:) ("displayName ", x)) name
+        [ ("accessToken", at')
+        ]
+parseCreds _ _ = mzero

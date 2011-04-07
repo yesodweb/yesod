@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.3.2
+version:         0.4.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -19,28 +19,28 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                      >= 4        && < 4.3
-    build-depends:   authenticate            >= 0.8.1     && < 0.9
+    build-depends:   authenticate            >= 0.9       && < 0.10
                    , bytestring              >= 0.9.1.4   && < 0.10
-                   , yesod-core              >= 0.7       && < 0.8
-                   , wai                     >= 0.3       && < 0.4
+                   , yesod-core              >= 0.8       && < 0.9
+                   , wai                     >= 0.4       && < 0.5
                    , template-haskell
                    , pureMD5                 >= 1.1       && < 2.2
                    , random                  >= 1.0       && < 1.1
-                   , data-object             >= 0.3.1.3   && < 0.4
                    , control-monad-attempt   >= 0.3.0     && < 0.4
                    , text                    >= 0.7       && < 0.12
-                   , mime-mail               >= 0.1       && < 0.2
+                   , mime-mail               >= 0.3       && < 0.4
                    , blaze-html              >= 0.4       && < 0.5
-                   , yesod-persistent        >= 0.0       && < 0.1
-                   , hamlet                  >= 0.7       && < 0.8
-                   , yesod-json              >= 0.0       && < 0.1
+                   , yesod-persistent        >= 0.1       && < 0.2
+                   , hamlet                  >= 0.8       && < 0.9
+                   , yesod-json              >= 0.1       && < 0.2
                    , containers              >= 0.2       && < 0.5
-                   , json-types              >= 0.1       && < 0.2
-                   , yesod-form              >= 0.0       && < 0.1
+                   , yesod-form              >= 0.1       && < 0.2
                    , transformers            >= 0.2       && < 0.3
-                   , persistent              >= 0.4       && < 0.5
+                   , persistent              >= 0.5       && < 0.6
+                   , persistent-template     >= 0.5       && < 0.6
                    , SHA                     >= 1.4.1.3   && < 1.5
-                   , http-enumerator         >= 0.3.1     && < 0.4
+                   , http-enumerator         >= 0.6       && < 0.7
+                   , aeson                   >= 0.3.2.2   && < 0.4
 
     exposed-modules: Yesod.Helpers.Auth
                      Yesod.Helpers.Auth.Dummy

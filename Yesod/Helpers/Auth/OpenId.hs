@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yesod.Helpers.Auth.OpenId
     ( authOpenId
     , forwardUrl
@@ -18,6 +19,7 @@ import Text.Cassius (cassius)
 import Text.Blaze (string)
 import Control.Monad.Trans.Class (lift)
 import qualified Data.ByteString.Char8 as S8
+import Data.Text (Text)
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
@@ -65,7 +67,7 @@ authOpenId =
                         setMessage $ string $ show err
                         redirect RedirectTemporary $ toMaster LoginR
                         )
-                  (redirectString RedirectTemporary . S8.pack)
+                  (redirectString RedirectTemporary)
                   res
             _ -> do
                 toMaster <- getRouteToMaster
@@ -81,7 +83,7 @@ authOpenId =
         completeHelper posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth m => [(String, String)] -> GHandler Auth m ()
+completeHelper :: YesodAuth m => [(Text, Text)] -> GHandler Auth m ()
 completeHelper gets' = do
         res <- runAttemptT $ OpenId.authenticate gets'
         toMaster <- getRouteToMaster

@@ -15,17 +15,20 @@ import Web.Authenticate.OAuth
 import Data.Maybe
 import Data.String
 import Network.HTTP.Enumerator
-import Data.ByteString.Char8 (unpack, pack)
+import Data.ByteString.Char8 (pack)
 import Control.Arrow ((***))
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
+import Data.Text (Text, unpack)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
 
-oauthUrl :: String -> AuthRoute
+oauthUrl :: Text -> AuthRoute
 oauthUrl name = PluginR name ["forward"]
 
 authOAuth :: YesodAuth m =>
-             String -- ^ Service Name
+             Text -- ^ Service Name
           -> String -- ^ OAuth Parameter Name to use for identify
           -> String -- ^ Request URL
           -> String -- ^ Access Token URL
@@ -36,7 +39,7 @@ authOAuth :: YesodAuth m =>
 authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch login
   where
     url = PluginR name []
-    oauth = OAuth { oauthServerName = name, oauthRequestUri = reqUrl
+    oauth = OAuth { oauthServerName = unpack name, oauthRequestUri = reqUrl
                   , oauthAccessTokenUri = accUrl, oauthAuthorizeUri = authUrl
                   , oauthSignatureMethod = HMACSHA1
                   , oauthConsumerKey = fromString key, oauthConsumerSecret = fromString sec
@@ -45,7 +48,7 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
     dispatch "GET" ["forward"] = do
         render <- getUrlRender
         tm <- getRouteToMaster
-        let oauth' = oauth { oauthCallback = Just $ fromString $ render $ tm url }
+        let oauth' = oauth { oauthCallback = Just $ encodeUtf8 $ render $ tm url }
         tok <- liftIO $ getTemporaryCredential oauth'
         redirectString RedirectTemporary (fromString $ authorizeUrl oauth' tok)
     dispatch "GET" [] = do
@@ -54,11 +57,11 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         let callback = render $ tm url
         verifier <- runFormGet' $ stringInput "oauth_verifier"
         oaTok    <- runFormGet' $ stringInput "oauth_token"
-        let reqTok = Credential [ ("oauth_verifier", pack verifier), ("oauth_token", pack oaTok)
+        let reqTok = Credential [ ("oauth_verifier", encodeUtf8 verifier), ("oauth_token", encodeUtf8 oaTok)
                                 ] 
         accTok <- liftIO $ getAccessToken oauth reqTok
-        let crId = unpack $ fromJust $ lookup (pack ident) $ unCredential accTok
-            creds = Creds name crId $ map (unpack *** unpack) $ unCredential accTok
+        let crId = decodeUtf8With lenientDecode $ fromJust $ lookup (pack ident) $ unCredential accTok
+            creds = Creds name crId $ map (bsToText *** bsToText ) $ unCredential accTok
         setCreds True creds
     dispatch _ _ = notFound
     login tm = do
@@ -85,3 +88,5 @@ authTwitter = authOAuth "twitter"
 
 twitterUrl :: AuthRoute
 twitterUrl = oauthUrl "twitter"
+
+bsToText = decodeUtf8With lenientDecode

@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yesod.Helpers.Auth.Email
     ( -- * Plugin
       authEmail
@@ -19,7 +20,9 @@ import Control.Monad (when)
 import Control.Applicative ((<$>), (<*>))
 import Data.Digest.Pure.MD5
 import qualified Data.Text.Lazy as T
+import qualified Data.Text as TS
 import Data.Text.Lazy.Encoding (encodeUtf8)
+import Data.Text (Text)
 
 import Yesod.Form
 import Yesod.Handler
@@ -35,13 +38,13 @@ loginR = PluginR "email" ["login"]
 registerR = PluginR "email" ["register"]
 setpassR = PluginR "email" ["set-password"]
 
-verify :: String -> String -> AuthRoute -- FIXME
+verify :: Text -> Text -> AuthRoute -- FIXME
 verify eid verkey = PluginR "email" ["verify", eid, verkey]
 
-type Email = String
-type VerKey = String
-type VerUrl = String
-type SaltedPass = String
+type Email = Text
+type VerKey = Text
+type VerUrl = Text
+type SaltedPass = Text
 type VerStatus = Bool
 
 -- | Data stored in a database for each e-mail address.
@@ -55,8 +58,8 @@ data EmailCreds m = EmailCreds
 class YesodAuth m => YesodAuthEmail m where
     type AuthEmailId m
 
-    showAuthEmailId :: m -> AuthEmailId m -> String
-    readAuthEmailId :: m -> String -> Maybe (AuthEmailId m)
+    showAuthEmailId :: m -> AuthEmailId m -> Text
+    readAuthEmailId :: m -> Text -> Maybe (AuthEmailId m)
 
     addUnverified :: Email -> VerKey -> GHandler Auth m (AuthEmailId m)
     sendVerifyEmail :: Email -> VerKey -> VerUrl -> GHandler Auth m ()
@@ -69,10 +72,10 @@ class YesodAuth m => YesodAuthEmail m where
     getEmail :: AuthEmailId m -> GHandler Auth m (Maybe Email)
 
     -- | Generate a random alphanumeric string.
-    randomKey :: m -> IO String
+    randomKey :: m -> IO Text
     randomKey _ = do
         stdgen <- newStdGen
-        return $ fst $ randomString 10 stdgen
+        return $ TS.pack $ fst $ randomString 10 stdgen
 
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
@@ -162,7 +165,7 @@ postRegisterR = do
 |]
 
 getVerifyR :: YesodAuthEmail m
-           => AuthEmailId m -> String -> GHandler Auth m RepHtml
+           => AuthEmailId m -> Text -> GHandler Auth m RepHtml
 getVerifyR lid key = do
     realKey <- getVerifyKey lid
     memail <- getEmail lid
@@ -274,11 +277,11 @@ saltLength :: Int
 saltLength = 5
 
 -- | Salt a password with a randomly generated salt.
-saltPass :: String -> IO String
+saltPass :: Text -> IO Text
 saltPass pass = do
     stdgen <- newStdGen
     let salt = take saltLength $ randomRs ('A', 'Z') stdgen
-    return $ saltPass' salt pass
+    return $ TS.pack $ saltPass' salt $ TS.unpack pass
 
 saltPass' :: String -> String -> String
 saltPass' salt pass =
@@ -286,9 +289,12 @@ saltPass' salt pass =
   where
     fromString = encodeUtf8 . T.pack
 
-isValidPass :: String -- ^ cleartext password
+isValidPass :: Text -- ^ cleartext password
             -> SaltedPass -- ^ salted password
             -> Bool
-isValidPass clear salted =
+isValidPass clear' salted' =
     let salt = take saltLength salted
      in salted == saltPass' salt clear
+  where
+    clear = TS.unpack clear'
+    salted = TS.unpack salted'
