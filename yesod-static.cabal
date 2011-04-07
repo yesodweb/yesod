@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         0.0.0.1
+version:         0.1.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -9,7 +9,7 @@ category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://docs.yesodweb.com/
+homepage:        http://www.yesodweb.com/
 
 flag test
   description: Build the executable to run unit tests
@@ -17,16 +17,16 @@ flag test
 
 library
     build-depends:   base                      >= 4        && < 5
-                   , yesod-core                >= 0.7      && < 0.8
+                   , yesod-core                >= 0.8      && < 0.9
                    , base64-bytestring         >= 0.1.0.1  && < 0.2
                    , pureMD5                   >= 2.1.0.3  && < 2.2
                    , cereal                    >= 0.3      && < 0.4
                    , bytestring                >= 0.9      && < 0.10
-                   , web-routes                >= 0.23     && < 0.24
                    , template-haskell
                    , directory                 >= 1.0      && < 1.2
                    , transformers              >= 0.2      && < 0.3
-                   , wai-app-static            >= 0.0.1    && < 0.1
+                   , wai-app-static            >= 0.1      && < 0.2
+                   , text                      >= 0.5      && < 1.0
     exposed-modules: Yesod.Helpers.Static
     ghc-options:     -Wall
 

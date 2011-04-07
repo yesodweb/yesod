@@ -59,6 +59,7 @@ import Data.Digest.Pure.MD5
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Serialize
+import Data.Text (Text)
 
 import Network.Wai.Application.Static
     ( defaultMimeTypeByExt, StaticSettings (..), staticAppPieces
@@ -88,7 +89,7 @@ static fp = Static $ StaticSettings fp [] (Just defaultListing)
 -- would generate a url such as 'http://site.com/static/thumb001.jpg?foo=5&bar=choc'
 -- The StaticRoute constructor can be used when url's cannot be statically generated at compile-time.
 -- E.g. When generating image galleries.
-data StaticRoute = StaticRoute [String] [(String, String)]
+data StaticRoute = StaticRoute [Text] [(Text, Text)]
     deriving (Eq, Show, Read)
 
 type instance Route Static = StaticRoute
