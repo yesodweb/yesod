@@ -26,12 +26,13 @@ import Network.URI
     ( uriToString, normalizeCase, normalizeEscape
     , normalizePathSegments, parseURI, uriPath, uriScheme, uriFragment
     )
+import Data.Text (Text, pack, unpack)
 
-normalize :: Failure AuthenticateException m => String -> m Identifier
+normalize :: Failure AuthenticateException m => Text -> m Identifier
 normalize ident =
     case normalizeIdentifier $ Identifier ident of
         Just i -> return i
-        Nothing -> failure $ NormalizationException ident
+        Nothing -> failure $ NormalizationException $ unpack ident
 
 -- | Normalize an identifier, discarding XRIs.
 normalizeIdentifier :: Identifier -> Maybe Identifier
@@ -42,12 +43,13 @@ normalizeIdentifier  = normalizeIdentifier' (const Nothing)
 -- normalize an XRI.
 normalizeIdentifier' :: (String -> Maybe String) -> Identifier
                      -> Maybe Identifier
-normalizeIdentifier' xri (Identifier str)
+normalizeIdentifier' xri (Identifier str')
   | null str                  = Nothing
-  | "xri://" `isPrefixOf` str = Identifier `fmap` xri str
-  | head str `elem` "=@+$!"   = Identifier `fmap` xri str
+  | "xri://" `isPrefixOf` str = (Identifier . pack) `fmap` xri str
+  | head str `elem` "=@+$!"   = (Identifier . pack) `fmap` xri str
   | otherwise = fmt `fmap` (url >>= norm)
   where
+    str = unpack str'
     url = parseURI str <|> parseURI ("http://" ++ str)
 
     norm uri = validScheme >> return u
@@ -59,6 +61,7 @@ normalizeIdentifier' xri (Identifier str)
               | otherwise          = uriPath uri
 
     fmt u = Identifier
+          $ pack
           $ normalizePathSegments
           $ normalizeEscape
           $ normalizeCase

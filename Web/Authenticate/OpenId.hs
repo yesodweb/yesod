@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Web.Authenticate.OpenId
     ( getForwardUrl
     , authenticate
@@ -22,25 +23,28 @@ import Network.HTTP.Enumerator
 import Control.Arrow ((***))
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
+import Data.Text (Text, pack, unpack)
+import Data.Text.Encoding (encodeUtf8)
 
 getForwardUrl
     :: ( MonadIO m
        , Failure AuthenticateException m
        , Failure HttpException m
        )
-    => String -- ^ The openid the user provided.
-    -> String -- ^ The URL for this application\'s complete page.
-    -> Maybe String -- ^ Optional realm
-    -> [(String, String)] -- ^ Additional parameters to send to the OpenID provider. These can be useful for using extensions.
-    -> m String -- ^ URL to send the user to.
+    => Text -- ^ The openid the user provided.
+    -> Text -- ^ The URL for this application\'s complete page.
+    -> Maybe Text -- ^ Optional realm
+    -> [(Text, Text)] -- ^ Additional parameters to send to the OpenID provider. These can be useful for using extensions.
+    -> m Text -- ^ URL to send the user to.
 getForwardUrl openid' complete mrealm params = do
     let realm = fromMaybe complete mrealm
     disc <- normalize openid' >>= discover
     case disc of
         Discovery1 server mdelegate ->
-            return $ qsUrl server
+            return $ pack $ qsUrl server
+                $ map (unpack *** unpack) -- FIXME
                 $ ("openid.mode", "checkid_setup")
-                : ("openid.identity", fromMaybe openid' mdelegate)
+                : ("openid.identity", maybe openid' pack mdelegate)
                 : ("openid.return_to", complete)
                 : ("openid.realm", realm)
                 : ("openid.trust_root", complete)
@@ -50,22 +54,22 @@ getForwardUrl openid' complete mrealm params = do
                     case itype of
                         ClaimedIdent -> i
                         OPIdent -> "http://specs.openid.net/auth/2.0/identifier_select"
-            return $ qsUrl p
+            return $ pack $ qsUrl p
                 $ ("openid.ns", "http://specs.openid.net/auth/2.0")
                 : ("openid.mode", "checkid_setup")
-                : ("openid.claimed_id", i')
-                : ("openid.identity", i')
-                : ("openid.return_to", complete)
-                : ("openid.realm", realm)
-                : params
+                : ("openid.claimed_id", unpack i')
+                : ("openid.identity", unpack i')
+                : ("openid.return_to", unpack complete)
+                : ("openid.realm", unpack realm)
+                : map (unpack *** unpack) params
 
 authenticate
     :: ( MonadIO m
        , Failure AuthenticateException m
        , Failure HttpException m
        )
-    => [(String, String)]
-    -> m (Identifier, [(String, String)])
+    => [(Text, Text)]
+    -> m (Identifier, [(Text, Text)])
 authenticate params = do
     unless (lookup "openid.mode" params == Just "id_res")
         $ failure $ case lookup "openid.mode" params of
@@ -74,8 +78,8 @@ authenticate params = do
                             | m == "error" ->
                                 case lookup "openid.error" params of
                                   Nothing -> AuthenticationException "An error occurred, but no error message was provided."
-                                  (Just e) -> AuthenticationException e
-                            | otherwise -> AuthenticationException $ "mode is " ++ m ++ " but we were expecting id_res."
+                                  (Just e) -> AuthenticationException $ unpack e
+                            | otherwise -> AuthenticationException $ "mode is " ++ unpack m ++ " but we were expecting id_res."
     ident <- case lookup "openid.identity" params of
                 Just i -> return i
                 Nothing ->
@@ -84,20 +88,21 @@ authenticate params = do
     let endpoint = case disc of
                     Discovery1 p _ -> p
                     Discovery2 (Provider p) _ _ -> p
-    let params' = map (BSU.fromString *** BSU.fromString)
+    let params' = map (encodeUtf8 *** encodeUtf8)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params
     req' <- parseUrl endpoint
     let req = urlEncodedBody params' req'
     rsp <- liftIO $ withManager $ httpLbsRedirect req
-    let rps = parseDirectResponse $ BSLU.toString $ responseBody rsp
+    let rps = parseDirectResponse $ pack $ BSLU.toString $ responseBody rsp -- FIXME
     case lookup "is_valid" rps of
         Just "true" -> return (Identifier ident, rps)
         _ -> failure $ AuthenticationException "OpenID provider did not validate"
 
 -- | Turn a response body into a list of parameters.
-parseDirectResponse :: String -> [(String, String)]
-parseDirectResponse  = unfoldr step
+parseDirectResponse :: Text -> [(Text, Text)]
+parseDirectResponse  =
+    map (pack *** pack) . unfoldr step . unpack
   where
     step []  = Nothing
     step str = case split (== '\n') str of

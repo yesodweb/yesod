@@ -33,6 +33,7 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Failure (Failure (failure))
 import Control.Monad (mplus, liftM)
 import qualified Data.CaseInsensitive as CI
+import Data.Text (Text, pack, unpack)
 
 data Discovery = Discovery1 String (Maybe String)
                | Discovery2 Provider Identifier IdentType
@@ -53,7 +54,7 @@ discover ident@(Identifier i) = do
             res2 <- discoverHTML ident
             case res2 of
                 Just x -> return x
-                Nothing -> failure $ DiscoveryException i
+                Nothing -> failure $ DiscoveryException $ unpack i
 
 -- YADIS-Based Discovery -------------------------------------------------------
 
@@ -68,7 +69,7 @@ discoverYADIS :: ( MonadIO m
               -> m (Maybe (Provider, Identifier, IdentType))
 discoverYADIS _ _ 0 = failure TooManyRedirects
 discoverYADIS ident mb_loc redirects = do
-    let uri = fromMaybe (identifier ident) mb_loc
+    let uri = fromMaybe (unpack $ identifier ident) mb_loc
     req <- parseUrl uri
     res <- liftIO $ withManager $ httpLbs req
     let mloc = fmap S8.unpack
@@ -95,7 +96,7 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
   where
   isOpenId svc = do
     let tys = serviceTypes svc
-        localId = maybe ident Identifier $ listToMaybe $ serviceLocalIDs svc
+        localId = maybe ident (Identifier . pack) $ listToMaybe $ serviceLocalIDs svc
         f (x,y) | x `elem` tys = Just y
                 | otherwise    = Nothing
     (lid, itype) <- listToMaybe $ mapMaybe f
@@ -117,7 +118,7 @@ discoverHTML :: ( MonadIO m, Failure HttpException m)
              => Identifier
              -> m (Maybe Discovery)
 discoverHTML ident'@(Identifier ident) =
-    (parseHTML ident' . BSLU.toString) `liftM` simpleHttp ident
+    (parseHTML ident' . BSLU.toString) `liftM` simpleHttp (unpack ident)
 
 -- | Parse out an OpenID endpoint and an actual identifier from an HTML
 -- document.
@@ -135,7 +136,7 @@ parseHTML ident = resolve
       return $ Discovery1 server delegate
     resolve2 ls = do
       prov <- lookup "openid2.provider" ls
-      let lid = maybe ident Identifier $ lookup "openid2.local_id" ls
+      let lid = maybe ident (Identifier . pack) $ lookup "openid2.local_id" ls
       -- Based on OpenID 2.0 spec, section 7.3.3, HTML discovery can only
       -- result in a claimed identifier.
       return $ Discovery2 (Provider prov) lid ClaimedIdent

@@ -21,12 +21,13 @@ module OpenId2.Types (
 import Data.Data (Data)
 import Data.Typeable (Typeable)
 import Web.Authenticate.Internal
+import Data.Text (Text)
 
 -- | An OpenID provider.
 newtype Provider = Provider { providerURI :: String } deriving (Eq,Show)
 
 -- | A valid OpenID identifier.
-newtype Identifier = Identifier { identifier :: String }
+newtype Identifier = Identifier { identifier :: Text }
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 data IdentType = OPIdent | ClaimedIdent
