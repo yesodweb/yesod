@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE OverloadedStrings #-}
 module ~sitearg~
     ( ~sitearg~ (..)
     , ~sitearg~Route (..)
@@ -16,11 +17,7 @@ module ~sitearg~
     , liftIO
     ) where
 
-import Yesod.Handler
-import Yesod.Widget
-import Yesod.Dispatch
 import Yesod.Core
-import Yesod.Content
 import Yesod.Helpers.Static
 import qualified Settings
 import System.Directory
@@ -30,6 +27,8 @@ import StaticFiles
 import Control.Monad (unless)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
+import qualified Data.Text as T
+import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -90,7 +89,7 @@ instance Yesod ~sitearg~ where
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticroot setting in Settings.hs
     urlRenderOverride a (StaticR s) =
-        Just $ uncurry (joinPath a Settings.staticroot) $ renderRoute s
+        Just $ uncurry (joinPath a $ fromText Settings.staticroot) $ renderRoute s
     urlRenderOverride _ _ = Nothing
 
     -- This function creates static content files in the static folder
@@ -98,10 +97,10 @@ instance Yesod ~sitearg~ where
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
     addStaticContent ext' _ content = do
-        let fn = base64md5 content ++ '.' : ext'
+        let fn = base64md5 content ++ '.' : T.unpack ext'
         let statictmp = Settings.staticdir ++ "/tmp/"
         liftIO $ createDirectoryIfMissing True statictmp
         let fn' = statictmp ++ fn
         exists <- liftIO $ doesFileExist fn'
         unless exists $ liftIO $ L.writeFile fn' content
-        return $ Just $ Right (StaticR $ StaticRoute ["tmp", fn] [], [])
+        return $ Just $ Right (StaticR $ StaticRoute ["tmp", T.pack fn] [], [])

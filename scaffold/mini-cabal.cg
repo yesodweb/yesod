@@ -21,7 +21,7 @@ executable         ~project~-test
         Buildable: False
     main-is:       test.hs
     build-depends: base         >= 4       && < 5
-                 , yesod-core   >= 0.7     && < 0.8
+                 , yesod-core   >= 0.8     && < 0.9
                  , yesod-static
                  , wai-extra
                  , directory
@@ -33,6 +33,7 @@ executable         ~project~-test
                  , transformers
                  , wai
                  , warp
+                 , blaze-builder
     ghc-options:   -Wall -threaded
 
 executable         ~project~-production

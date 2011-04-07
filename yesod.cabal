@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.7.3
+version:         0.8.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -24,19 +24,19 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                  >= 4        && < 4.3
-    build-depends:   yesod-core                >= 0.7.0.2  && < 0.8
-                   , yesod-auth                >= 0.3      && < 0.4
-                   , yesod-json                >= 0.0.0.1  && < 0.1
-                   , yesod-persistent          >= 0.0.0.1  && < 0.1
-                   , yesod-static              >= 0.0      && < 0.1
-                   , yesod-form                >= 0.0.0.1  && < 0.1
-                   , monad-peel                >= 0.1      && < 0.2
+    build-depends:   yesod-core                >= 0.8      && < 0.9
+                   , yesod-auth                >= 0.4      && < 0.5
+                   , yesod-json                >= 0.1      && < 0.2
+                   , yesod-persistent          >= 0.1      && < 0.2
+                   , yesod-static              >= 0.1      && < 0.2
+                   , yesod-form                >= 0.1      && < 0.2
+                   , monad-control             >= 0.2      && < 0.3
                    , transformers              >= 0.2      && < 0.3
-                   , wai                       >= 0.3      && < 0.4
-                   , wai-extra                 >= 0.3.2    && < 0.4
-                   , hamlet                    >= 0.7.3    && < 0.8
-                   , warp                      >= 0.3.3    && < 0.4
-                   , mime-mail                 >= 0.1.0.1  && < 0.2
+                   , wai                       >= 0.4      && < 0.5
+                   , wai-extra                 >= 0.4      && < 0.5
+                   , hamlet                    >= 0.8      && < 0.9
+                   , warp                      >= 0.4      && < 0.5
+                   , mime-mail                 >= 0.3      && < 0.4
                    , hjsmin                    >= 0.0.13   && < 0.1
     exposed-modules: Yesod
     ghc-options:     -Wall

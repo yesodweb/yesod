@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE OverloadedStrings #-}
 module ~sitearg~
     ( ~sitearg~ (..)
     , ~sitearg~Route (..)
@@ -32,6 +33,8 @@ import Network.Mail.Mime
 import qualified Data.Text.Lazy
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
+import qualified Data.Text as T
+import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -94,7 +97,7 @@ instance Yesod ~sitearg~ where
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticroot setting in Settings.hs
     urlRenderOverride a (StaticR s) =
-        Just $ uncurry (joinPath a Settings.staticroot) $ renderRoute s
+        Just $ uncurry (joinPath a $ fromText Settings.staticroot) $ renderRoute s
     urlRenderOverride _ _ = Nothing
 
     -- The page to be redirected to when authentication is required.
@@ -105,7 +108,7 @@ instance Yesod ~sitearg~ where
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
     addStaticContent ext' _ content = do
-        let fn = base64md5 content ++ '.' : ext'
+        let fn = base64md5 content ++ '.' : T.unpack ext'
         let content' =
                 if ext' == "js"
                     then case minifym content of
@@ -117,7 +120,7 @@ instance Yesod ~sitearg~ where
         let fn' = statictmp ++ fn
         exists <- liftIO $ doesFileExist fn'
         unless exists $ liftIO $ L.writeFile fn' content'
-        return $ Just $ Right (StaticR $ StaticRoute ["tmp", fn] [], [])
+        return $ Just $ Right (StaticR $ StaticRoute ["tmp", T.pack fn] [], [])
 
 -- How to run database actions.
 instance YesodPersist ~sitearg~ where
@@ -140,8 +143,8 @@ instance YesodAuth ~sitearg~ where
             Nothing -> do
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
-    showAuthId _ = showIntegral
-    readAuthId _ = readIntegral
+    showAuthId _ = T.pack . show
+    readAuthId _ = read . T.unpack
 
     authPlugins = [ authOpenId
                   , authEmail
@@ -150,8 +153,8 @@ instance YesodAuth ~sitearg~ where
 instance YesodAuthEmail ~sitearg~ where
     type AuthEmailId ~sitearg~ = EmailId
 
-    showAuthEmailId _ = showIntegral
-    readAuthEmailId _ = readIntegral
+    showAuthEmailId _ = T.pack . show
+    readAuthEmailId _ = read . T.unpack
 
     addUnverified email verkey =
         runDB $ insert $ Email email Nothing $ Just verkey
@@ -169,10 +172,10 @@ instance YesodAuthEmail ~sitearg~ where
             , partEncoding = None
             , partFilename = Nothing
             , partContent = Data.Text.Lazy.Encoding.encodeUtf8
-                          $ Data.Text.Lazy.pack $ unlines
+                          $ Data.Text.Lazy.unlines
                 [ "Please confirm your email address by clicking on the link below."
                 , ""
-                , verurl
+                , Data.Text.Lazy.fromChunks [verurl]
                 , ""
                 , "Thank you"
                 ]

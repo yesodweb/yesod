@@ -3,12 +3,7 @@
 -- | This module simply re-exports from other modules for your convenience.
 module Yesod
     ( -- * Re-exports from yesod-core
-      module Yesod.Request
-    , module Yesod.Content
-    , module Yesod.Core
-    , module Yesod.Handler
-    , module Yesod.Dispatch
-    , module Yesod.Widget
+      module Yesod.Core
     , module Yesod.Form
     , module Yesod.Json
     , module Yesod.Persist
@@ -20,7 +15,7 @@ module Yesod
     , Application
     , lift
     , liftIO
-    , MonadPeelIO
+    , MonadControlIO
       -- * Utilities
     , showIntegral
     , readIntegral
@@ -62,7 +57,7 @@ import Network.Wai (Application)
 import Network.Wai.Middleware.Debug
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.IO.Peel (MonadPeelIO)
+import Control.Monad.IO.Control (MonadControlIO)
 
 import Network.Wai.Handler.Warp (run)
 import System.IO (stderr, hPutStrLn)

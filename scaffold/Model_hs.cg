@@ -2,21 +2,21 @@
 module Model where
 
 import Yesod
-import Database.Persist.TH (share2)
-import Database.Persist.GenericSql (mkMigrate)
+import Database.Persist.TH (share, mkMigrate)
+import Data.Text (Text)
 
 -- You can define all of your database entities here. You can find more
 -- information on persistent and how to declare entities at:
--- http://docs.yesodweb.com/book/persistent/
-share2 mkPersist (mkMigrate "migrateAll") [~qq~persist|
+-- http://www.yesodweb.com/book/persistent/
+share [mkPersist, mkMigrate "migrateAll"] [~qq~persist|
 User
-    ident String
-    password String Maybe Update
+    ident Text
+    password Text Maybe Update
     UniqueUser ident
 Email
-    email String
+    email Text
     user UserId Maybe Update
-    verkey String Maybe Update
+    verkey Text Maybe Update
     UniqueEmail email
 |]
 
