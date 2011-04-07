@@ -4,6 +4,7 @@
 module Yesod.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
+    , parseRoutesFile
     , mkYesod
     , mkYesodSub
       -- ** More fine-grained
