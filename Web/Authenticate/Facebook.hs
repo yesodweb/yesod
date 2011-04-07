@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Authenticate.Facebook
     ( Facebook (..)
+    , AccessToken (..)
     , getForwardUrl
     , getAccessToken
     , getGraphData
