@@ -10,7 +10,7 @@ import Control.Applicative ((<$>))
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
-import Control.Monad (when)
+import Control.Monad (when, unless)
 
 qq :: String
 #if GHC7
@@ -99,8 +99,10 @@ main = do
     writeFile' "hamlet/default-layout.hamlet"
         $(codegen "default-layout_hamlet")
     writeFile' "hamlet/homepage.hamlet" $ if backendS == "m" then $(codegen "mini-homepage_hamlet") else $(codegen "homepage_hamlet")
+    writeFile' "routes" $ if backendS == "m" then $(codegen "mini-routes") else $(codegen "routes")
     writeFile' "cassius/homepage.cassius" $(codegen "homepage_cassius")
     writeFile' "julius/homepage.julius" $(codegen "homepage_julius")
+    unless (backendS == "m") $ writeFile' "entities" $(codegen "entities")
   
     S.writeFile (dir ++ "/favicon.ico")
         $(runIO (S.readFile "scaffold/favicon_ico.cg") >>= \bs -> do
