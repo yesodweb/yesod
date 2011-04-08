@@ -21,6 +21,8 @@ module Yesod.Widget
       -- ** CSS
     , addCassius
     , addCassiusMedia
+    , addLucius
+    , addLuciusMedia
     , addStylesheet
     , addStylesheetAttrs
     , addStylesheetRemote
@@ -44,6 +46,7 @@ import Text.Blaze (preEscapedText, preEscapedLazyText)
 import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
+import Text.Lucius (Lucius)
 import Text.Julius
 import Yesod.Handler
     (Route, GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod)
@@ -126,9 +129,17 @@ addWidget = id
 addCassius :: Monad m => Cassius (Route master) -> GGWidget master m ()
 addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing x) mempty mempty
 
+-- | Identical to 'addCassius'.
+addLucius :: Monad m => Lucius (Route master) -> GGWidget master m ()
+addLucius = addCassius
+
 -- | Add some raw CSS to the style tag, for a specific media type.
 addCassiusMedia :: Monad m => Text -> Cassius (Route master) -> GGWidget master m ()
 addCassiusMedia m x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) x) mempty mempty
+
+-- | Identical to 'addCassiusMedia'.
+addLuciusMedia :: Monad m => Text -> Lucius (Route master) -> GGWidget master m ()
+addLuciusMedia = addCassiusMedia
 
 -- | Link to the specified local stylesheet.
 addStylesheet :: Monad m => Route master -> GGWidget master m ()
