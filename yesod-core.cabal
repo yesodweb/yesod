@@ -62,6 +62,8 @@ library
                      Yesod.Internal.Dispatch
                      Paths_yesod_core
     ghc-options:     -Wall
+    if flag(test)
+        Buildable: False
 
 executable             runtests
     if flag(ghc7)

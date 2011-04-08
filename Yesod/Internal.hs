@@ -43,6 +43,7 @@ import qualified Network.HTTP.Types as H
 import qualified Network.HTTP.Types as A
 import Data.CaseInsensitive (CI)
 import Data.String (IsString)
+import qualified Data.Map as Map
 
 #if GHC7
 #define HAMLET hamlet
@@ -111,7 +112,7 @@ data GWData a = GWData
     !(Last Title)
     !(UniqueList (Script a))
     !(UniqueList (Stylesheet a))
-    !(Maybe (Cassius a))
+    !(Map.Map (Maybe Text) (Cassius a)) -- media type
     !(Maybe (Julius a))
     !(Head a)
 instance Monoid (GWData a) where
@@ -122,6 +123,6 @@ instance Monoid (GWData a) where
         (a2 `mappend` b2)
         (a3 `mappend` b3)
         (a4 `mappend` b4)
-        (a5 `mappend` b5)
+        (Map.unionWith mappend a5 b5)
         (a6 `mappend` b6)
         (a7 `mappend` b7)

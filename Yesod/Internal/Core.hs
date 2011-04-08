@@ -478,13 +478,14 @@ widgetToPageContent (GWidget w) = do
                 Nothing -> Nothing
                 Just (Left s) -> Just s
                 Just (Right (u, p)) -> Just $ render u p
-    cssLoc <-
-        case style of
-            Nothing -> return Nothing
-            Just s -> do
-                x <- addStaticContent "css" "text/css; charset=utf-8"
-                   $ encodeUtf8 $ renderCassius render s
-                return $ renderLoc x
+    css <- flip mapM (Map.toList style) $ \(mmedia, content) -> do
+        let rendered = renderCassius render content
+        x <- addStaticContent "css" "text/css; charset=utf-8"
+           $ encodeUtf8 rendered
+        return (mmedia,
+            case x of
+                Nothing -> Left $ preEscapedLazyText rendered
+                Just y -> Right $ either id (uncurry render) y)
     jsLoc <-
         case jscript of
             Nothing -> return Nothing
@@ -504,6 +505,10 @@ widgetToPageContent (GWidget w) = do
                 : ("href", renderLoc' render' loc)
                 : attrs
                 )
+    let left (Left x) = Just x
+        left _ = Nothing
+        right (Right x) = Just x
+        right _ = Nothing
     let head'' =
 #if GHC7
             [hamlet|
@@ -514,11 +519,17 @@ $forall s <- scripts
     ^{mkScriptTag s}
 $forall s <- stylesheets
     ^{mkLinkTag s}
-$maybe s <- style
-    $maybe s <- cssLoc
-        <link rel=stylesheet href=#{s}
-    $nothing
-        <style>^{celper s}
+$forall s <- css
+    $maybe t <- right $ snd s
+        $maybe media <- fst s
+            <link rel=stylesheet media=#{media} href=#{t}
+        $nothing
+            <link rel=stylesheet href=#{t}
+    $maybe content <- left $ snd s
+        $maybe media <- fst s
+            <style media=#{media}>#{content}
+        $nothing
+            <style>#{content}
 $maybe j <- jscript
     $maybe s <- jsLoc
         <script src="#{s}">

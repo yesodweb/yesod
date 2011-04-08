@@ -20,6 +20,7 @@ module Yesod.Widget
     , addSubWidget
       -- ** CSS
     , addCassius
+    , addCassiusMedia
     , addStylesheet
     , addStylesheetAttrs
     , addStylesheetRemote
@@ -52,6 +53,7 @@ import Control.Monad.Trans.Class (MonadTrans (lift))
 import Yesod.Internal
 import Control.Monad (liftM)
 import Data.Text (Text)
+import qualified Data.Map as Map
 
 import Control.Monad.IO.Control (MonadControlIO)
 
@@ -120,9 +122,13 @@ addHtml = addHamlet . const
 addWidget :: Monad mo => GGWidget m mo () -> GGWidget m mo ()
 addWidget = id
 
--- | Add some raw CSS to the style tag.
+-- | Add some raw CSS to the style tag. Applies to all media types.
 addCassius :: Monad m => Cassius (Route master) -> GGWidget master m ()
-addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Just x) mempty mempty
+addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing x) mempty mempty
+
+-- | Add some raw CSS to the style tag, for a specific media type.
+addCassiusMedia :: Monad m => Text -> Cassius (Route master) -> GGWidget master m ()
+addCassiusMedia m x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) x) mempty mempty
 
 -- | Link to the specified local stylesheet.
 addStylesheet :: Monad m => Route master -> GGWidget master m ()
