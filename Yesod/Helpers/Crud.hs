@@ -12,19 +12,17 @@ module Yesod.Helpers.Crud
     , defaultCrud
     ) where
 
-import Yesod.Yesod
-import Yesod.Widget
-import Yesod.Dispatch
-import Yesod.Content
-import Yesod.Handler
+import Yesod.Core
 import Text.Hamlet
 import Yesod.Form
 import Language.Haskell.TH.Syntax
+import Yesod.Persist
+import Data.Text (Text)
 
 -- | An entity which can be displayed by the Crud subsite.
 class Item a where
     -- | The title of an entity, to be displayed in the list of all entities.
-    itemTitle :: a -> String
+    itemTitle :: a -> Text
 
 -- | Defines all of the CRUD operations (Create, Read, Update, Delete)
 -- necessary to implement this subsite. When using the "Yesod.Form" module and
@@ -38,8 +36,7 @@ data Crud master item = Crud
     }
 
 mkYesodSub "Crud master item"
-    [ ClassP ''Yesod [VarT $ mkName "master"]
-    , ClassP ''Item [VarT $ mkName "item"]
+    [ ClassP ''Item [VarT $ mkName "item"]
     , ClassP ''SinglePiece [ConT ''Key `AppT` VarT (mkName "item")]
     , ClassP ''ToForm [VarT $ mkName "item", VarT $ mkName "master"]
     ]
@@ -50,8 +47,8 @@ mkYesodSub "Crud master item"
 #endif
 /               CrudListR        GET
 /add            CrudAddR         GET POST
-/edit/#String   CrudEditR        GET POST
-/delete/#String CrudDeleteR      GET POST
+/edit/#Text     CrudEditR        GET POST
+/delete/#Text   CrudDeleteR      GET POST
 |]
 
 getCrudListR :: (Yesod master, Item item, SinglePiece (Key item))
@@ -95,9 +92,9 @@ postCrudAddR = crudHelper
 
 getCrudEditR :: (Yesod master, Item item, SinglePiece (Key item),
                  ToForm item master)
-             => String -> GHandler (Crud master item) master RepHtml
+             => Text -> GHandler (Crud master item) master RepHtml
 getCrudEditR s = do
-    itemId <- maybe notFound return $ itemReadId s
+    itemId <- maybe notFound return $ fromSinglePiece s
     crud <- getYesodSub
     item <- crudGet crud itemId >>= maybe notFound return
     crudHelper
@@ -107,9 +104,9 @@ getCrudEditR s = do
 
 postCrudEditR :: (Yesod master, Item item, SinglePiece (Key item),
                   ToForm item master)
-              => String -> GHandler (Crud master item) master RepHtml
+              => Text -> GHandler (Crud master item) master RepHtml
 postCrudEditR s = do
-    itemId <- maybe notFound return $ itemReadId s
+    itemId <- maybe notFound return $ fromSinglePiece s
     crud <- getYesodSub
     item <- crudGet crud itemId >>= maybe notFound return
     crudHelper
@@ -118,9 +115,9 @@ postCrudEditR s = do
         True
 
 getCrudDeleteR :: (Yesod master, Item item, SinglePiece (Key item))
-               => String -> GHandler (Crud master item) master RepHtml
+               => Text -> GHandler (Crud master item) master RepHtml
 getCrudDeleteR s = do
-    itemId <- maybe notFound return $ itemReadId s
+    itemId <- maybe notFound return $ fromSinglePiece s
     crud <- getYesodSub
     item <- crudGet crud itemId >>= maybe notFound return -- Just ensure it exists
     toMaster <- getRouteToMaster
@@ -137,25 +134,22 @@ getCrudDeleteR s = do
     <p>Do you really want to delete #{itemTitle item}?
     <p>
         <input type="submit" value="Yes">
-        \ 
+        \
         <a href="@{toMaster CrudListR}">No
 |]
 
 postCrudDeleteR :: (Yesod master, Item item, SinglePiece (Key item))
-                => String -> GHandler (Crud master item) master RepHtml
+                => Text -> GHandler (Crud master item) master RepHtml
 postCrudDeleteR s = do
-    itemId <- maybe notFound return $ itemReadId s
+    itemId <- maybe notFound return $ fromSinglePiece s
     crud <- getYesodSub
     toMaster <- getRouteToMaster
     crudDelete crud itemId
     redirect RedirectTemporary $ toMaster CrudListR
 
-itemReadId :: SinglePiece x => String -> Maybe x
-itemReadId = either (const Nothing) Just . fromSinglePiece
-
 crudHelper
     :: (Item a, Yesod master, SinglePiece (Key a), ToForm a master)
-    => String -> Maybe (Key a, a) -> Bool
+    => Text -> Maybe (Key a, a) -> Bool
     -> GHandler (Crud master a) master RepHtml
 crudHelper title me isPost = do
     crud <- getYesodSub
@@ -172,7 +166,7 @@ crudHelper title me isPost = do
                                        $ toSinglePiece eid
         _ -> return ()
     defaultLayout $ do
-        setTitle $ string title
+        setTitle $ toHtml title
         addWidget
 #if __GLASGOW_HASKELL__ >= 700
                 [hamlet|
@@ -190,13 +184,13 @@ crudHelper title me isPost = do
                 \#{hidden}
                 <input type="submit">
                 $maybe e <- me
-                    \ 
+                    \
                     <a href="@{toMaster (CrudDeleteR (toSinglePiece (fst e)))}">Delete
 |]
 
 -- | A default 'Crud' value which relies about persistent and "Yesod.Form".
 defaultCrud
-    :: (PersistEntity i, PersistBackend (YesodDB a (GHandler (Crud a i) a)),
+    :: (PersistEntity i, PersistBackend (YesodDB a (GGHandler (Crud a i) a IO)),
         YesodPersist a)
     => a -> Crud a i
 defaultCrud = const Crud
