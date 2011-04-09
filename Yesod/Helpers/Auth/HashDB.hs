@@ -75,6 +75,7 @@ import Data.ByteString.Lazy.Char8  (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)
 import Database.Persist.TH         (share2, mkMigrate, persist, mkPersist)
 import Data.Text                   (Text, unpack)
+import Data.Maybe                  (fromMaybe)
 
 -- | Computer the sha1 of a string and return it as a string
 sha1String :: String -> String
@@ -115,14 +116,17 @@ postLoginR :: (YesodAuth y,
                PersistBackend (YesodDB y (GGHandler Auth y IO)))
            => GHandler Auth y ()
 postLoginR = do
-    (user, password) <- runFormPost' $ (,)
-        <$> stringInput "username"
-        <*> stringInput "password"
+    (mu,mp) <- runFormPost' $ (,)
+        <$> maybeStringInput "username"
+        <*> maybeStringInput "password"
 
-    isValid <- validateUser (user,password)
+    isValid <- case (mu,mp) of
+        (Nothing, _      ) -> return False
+        (_      , Nothing) -> return False
+        (Just u , Just p ) -> validateUser (u,p)
 
     if isValid
-        then setCreds True $ Creds "hashdb" user []
+        then setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
         else do
             setMessage
 #if GHC7
@@ -130,7 +134,7 @@ postLoginR = do
 #else
                 [$hamlet|
 #endif
-    <em>invalid username/password
+    Invalid username/password
 |]
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster LoginR
@@ -161,7 +165,7 @@ getAuthIdHashDB authR creds = do
 #else
                         [$hamlet|
 #endif
-    <em>user not found
+    User not found
 |]
                     redirect RedirectTemporary $ authR LoginR
 
@@ -179,28 +183,28 @@ authHashDB = AuthPlugin "hashdb" dispatch $ \tm ->
 #endif
     <div id="header">
         <h1>Login
-\
+
     <div id="login">
         <form method="post" action="@{tm login}">
             <table>
                 <tr>
                     <th>Username:
                     <td>
-                        <input id="x" name="username" autofocus="">
+                        <input id="x" name="username" autofocus="" required>
                 <tr>
                     <th>Password:
                     <td>
-                        <input type="password" name="password">
+                        <input type="password" name="password" required>
                 <tr>
                     <td>&nbsp;
                     <td>
                         <input type="submit" value="Login">
-\
+
             <script>
-                \if (!("autofocus" in document.createElement("input"))) {
-                    \document.getElementById("x").focus();
-                \}
-    \
+                if (!("autofocus" in document.createElement("input"))) {
+                    document.getElementById("x").focus();
+                }
+
 |]
     where
         dispatch "POST" ["login"] = postLoginR >>= sendResponse
