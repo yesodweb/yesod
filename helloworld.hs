@@ -1,11 +1,10 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
 import Yesod.Core
-import Yesod.Dispatch
-import Yesod.Content
-import Yesod.Handler
-import Network.Wai.Handler.Warp (runEx)
+import Network.Wai.Handler.Warp (run)
+import Data.Text (unpack)
 
 data Subsite = Subsite String
 
@@ -14,16 +13,18 @@ mkYesodSub "Subsite" [] [$parseRoutes|
 /multi/*Strings SubMultiR
 |]
 
-getSubRootR :: GHandler Subsite m RepPlain
+getSubRootR :: Yesod m => GHandler Subsite m RepPlain
 getSubRootR = do
     Subsite s <- getYesodSub
     tm <- getRouteToMaster
     render <- getUrlRender
-    return $ RepPlain $ toContent $ "Hello Sub World: " ++ s ++ ". " ++ render (tm SubRootR)
+    $(logDebug) "I'm in SubRootR"
+    return $ RepPlain $ toContent $ "Hello Sub World: " ++ s ++ ". " ++ unpack (render (tm SubRootR))
 
-handleSubMultiR :: Strings -> GHandler Subsite m RepPlain
+handleSubMultiR :: Yesod m => Strings -> GHandler Subsite m RepPlain
 handleSubMultiR x = do
     Subsite y <- getYesodSub
+    $(logInfo) "In SubMultiR"
     return . RepPlain . toContent . show $ (x, y)
 
 data HelloWorld = HelloWorld { getSubsite :: String -> Subsite }
@@ -33,5 +34,7 @@ mkYesod "HelloWorld" [$parseRoutes|
 |]
 instance Yesod HelloWorld where approot _ = ""
 -- getRootR :: GHandler HelloWorld HelloWorld RepPlain -- FIXME remove type sig
-getRootR = return $ RepPlain "Hello World"
-main = toWaiApp (HelloWorld Subsite) >>= runEx print 3000
+getRootR = do
+    $(logOther "HAHAHA") "Here I am"
+    return $ RepPlain "Hello World"
+main = toWaiApp (HelloWorld Subsite) >>= run 3000

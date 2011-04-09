@@ -279,11 +279,11 @@ mkSubsiteExp segments (SinglePiece _:pieces) frontVars x = do
     fsp <- [|fromSinglePiece|]
     let exp' = CaseE (fsp `AppE` VarE next)
                 [ Match
-                    (ConP (mkName "Left") [WildP])
+                    (ConP (mkName "Nothing") [])
                     (NormalB nothing)
                     []
                 , Match
-                    (ConP (mkName "Right") [VarP next'])
+                    (ConP (mkName "Just") [VarP next'])
                     (NormalB innerExp)
                     []
                 ]

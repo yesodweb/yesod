@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TemplateHaskell #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Internal.Core
     ( -- * Type classes
@@ -22,6 +23,7 @@ module Yesod.Internal.Core
       -- * Logging
     , LogLevel (..)
     , formatLogMessage
+    , messageLoggerHandler
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -53,7 +55,7 @@ import qualified Text.Blaze.Html5 as TBH
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Maybe (fromMaybe)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
 import Data.Time
@@ -70,6 +72,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO
 import qualified System.IO
 import qualified Data.Text.Lazy.Builder as TB
+import Language.Haskell.TH.Syntax (Loc (..), Lift (..))
 
 #if GHC7
 #define HAMLET hamlet
@@ -245,29 +248,44 @@ class RenderRoute (Route a) => Yesod a where
 
     -- | Send a message to the log. By default, prints to stderr.
     messageLogger :: a
+                  -> Loc -- ^ position in source code
                   -> LogLevel
-                  -> Text -- ^ source
                   -> Text -- ^ message
                   -> IO ()
-    messageLogger _ level src msg =
-        formatLogMessage level src msg >>=
+    messageLogger _ loc level msg =
+        formatLogMessage loc level msg >>=
         Data.Text.Lazy.IO.hPutStrLn System.IO.stderr
+
+messageLoggerHandler :: (Yesod m, MonadIO mo)
+                     => Loc -> LogLevel -> Text -> GGHandler s m mo ()
+messageLoggerHandler loc level msg = do
+    y <- getYesod
+    liftIO $ messageLogger y loc level msg
 
 data LogLevel = LevelDebug | LevelInfo | LevelWarn | LevelError | LevelOther Text
     deriving (Eq, Show, Read, Ord)
 
-formatLogMessage :: LogLevel
-                 -> Text -- ^ source
+instance Lift LogLevel where
+    lift LevelDebug = [|LevelDebug|]
+    lift LevelInfo = [|LevelInfo|]
+    lift LevelWarn = [|LevelWarn|]
+    lift LevelError = [|LevelError|]
+    lift (LevelOther x) = [|LevelOther $ TS.pack $(lift $ TS.unpack x)|]
+
+formatLogMessage :: Loc
+                 -> LogLevel
                  -> Text -- ^ message
                  -> IO TL.Text
-formatLogMessage level src msg = do
+formatLogMessage loc level msg = do
     now <- getCurrentTime
     return $ TB.toLazyText $
         TB.fromText (TS.pack $ show now)
         `mappend` TB.fromText ": "
         `mappend` TB.fromText (TS.pack $ show level)
         `mappend` TB.fromText "@("
-        `mappend` TB.fromText src
+        `mappend` TB.fromText (TS.pack $ loc_filename loc)
+        `mappend` TB.fromText ":"
+        `mappend` TB.fromText (TS.pack $ show $ fst $ loc_start loc)
         `mappend` TB.fromText ") "
         `mappend` TB.fromText msg
 
