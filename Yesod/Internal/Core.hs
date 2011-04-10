@@ -210,8 +210,9 @@ class RenderRoute (Route a) => Yesod a where
              -> [TS.Text] -- ^ path pieces
              -> [(TS.Text, TS.Text)] -- ^ query string
              -> Builder
-    joinPath _ ar pieces qs' = ar `mappend` encodePath pieces qs
+    joinPath _ ar pieces' qs' = ar `mappend` encodePath pieces qs
       where
+        pieces = if null pieces' then [""] else pieces'
         qs = map (TE.encodeUtf8 *** go) qs'
         go "" = Nothing
         go x = Just $ TE.encodeUtf8 x

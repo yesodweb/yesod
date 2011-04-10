@@ -1,13 +1,10 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Test.Widget (widgetTest) where
+module Test.Links (linksTest) where
 
 import Yesod.Core hiding (Request)
-import Yesod.Content
-import Yesod.Dispatch
-import Yesod.Widget
-import Text.Julius
+import Text.Hamlet
 
 import Test.Framework (defaultMain, testGroup, Test)
 import Test.Framework.Providers.HUnit
@@ -20,18 +17,16 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 data Y = Y
 mkYesod "Y" [$parseRoutes|
 / RootR GET
-/foo/*Strings MultiR GET
 |]
 
 instance Yesod Y where
-    approot _ = "http://test"
+    approot _ = ""
 
-getRootR = defaultLayout $ addJuliusBody [$julius|<not escaped>|]
-getMultiR _ = return ()
+getRootR = defaultLayout $ addHamlet [$hamlet|<a href=@{RootR}>|]
 
-widgetTest :: Test
-widgetTest = testGroup "Test.Widget"
-    [ testCase "addJuliusBody" case_addJuliusBody
+linksTest :: Test
+linksTest = testGroup "Test.Links"
+    [ testCase "linkToHome" case_linkToHome
     ]
 
 runner f = toWaiApp Y >>= runSession f
@@ -42,6 +37,6 @@ defaultRequest = Request
     , requestMethod = "GET"
     }
 
-case_addJuliusBody = runner $ do
+case_linkToHome = runner $ do
     res <- request defaultRequest
-    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><script><not escaped></script></body></html>" res
+    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><a href=\"/\"></a></body></html>" res

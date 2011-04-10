@@ -3,6 +3,7 @@ import Test.CleanPath
 import Test.Exceptions
 import Test.Widget
 import Test.Media
+import Test.Links
 
 main :: IO ()
 main = defaultMain
@@ -10,4 +11,5 @@ main = defaultMain
     , exceptionsTest
     , widgetTest
     , mediaTest
+    , linksTest
     ]
