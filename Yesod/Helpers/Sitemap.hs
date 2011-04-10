@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Helpers.Sitemap
@@ -29,6 +30,7 @@ import Yesod.Handler (Route, GHandler, getUrlRender)
 import Yesod.Handler (hamletToContent)
 import Text.Hamlet (Hamlet, xhamlet)
 import Data.Time (UTCTime)
+import Data.Monoid (mappend)
 
 data SitemapChangeFreq = Always
                        | Hourly
@@ -78,4 +80,4 @@ robots :: Route master -- ^ sitemap url
        -> GHandler sub master RepPlain
 robots smurl = do
     render <- getUrlRender
-    return $ RepPlain $ toContent $ "Sitemap: " ++ render smurl
+    return $ RepPlain $ toContent $ "Sitemap: " `mappend` render smurl
