@@ -59,7 +59,7 @@ import Data.Digest.Pure.MD5
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Serialize
-import Data.Text (Text)
+import Data.Text (Text, pack)
 
 import Network.Wai.Application.Static
     ( defaultMimeTypeByExt, StaticSettings (..), staticAppPieces
@@ -162,7 +162,7 @@ staticFiles fp = do
                               | isUpper x = toLower x : xs
                               | otherwise = str
         let name = mkName $ intercalate "_" $ map (adjust . map replace') f
-        f' <- lift f
+        f' <- [|pack $(lift f)|]
         let sr = ConE $ mkName "StaticRoute"
         hash <- qRunIO $ fmap base64md5 $ L.readFile $ fp ++ '/' : intercalate "/" f
         let qs = ListE [TupE [LitE $ StringL hash, ListE []]]
