@@ -377,11 +377,11 @@ data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
 class YesodBreadcrumbs y where
     -- | Returns the title and the parent resource, if available. If you return
     -- a 'Nothing', then this is considered a top-level page.
-    breadcrumb :: Route y -> GHandler sub y (String, Maybe (Route y))
+    breadcrumb :: Route y -> GHandler sub y (Text , Maybe (Route y))
 
 -- | Gets the title of the current page and the hierarchy of parent pages,
 -- along with their respective titles.
-breadcrumbs :: YesodBreadcrumbs y => GHandler sub y (String, [(Route y, String)])
+breadcrumbs :: YesodBreadcrumbs y => GHandler sub y (Text, [(Route y, Text)])
 breadcrumbs = do
     x' <- getCurrentRoute
     tm <- getRouteToMaster
