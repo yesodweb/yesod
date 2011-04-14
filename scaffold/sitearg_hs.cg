@@ -135,8 +135,8 @@ instance YesodAuth ~sitearg~ where
             Nothing -> do
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
-    showAuthId _ = T.pack . show
-    readAuthId _ = read . T.unpack
+    showAuthId _ = showKey (undefined :: YesodDB ~sitearg~ IO a) . fromPersistKey
+    readAuthId _ = fmap toPersistKey . readKey (undefined :: YesodDB ~sitearg~ IO a)
 
     authPlugins = [ authOpenId
                   , authEmail
@@ -145,8 +145,8 @@ instance YesodAuth ~sitearg~ where
 instance YesodAuthEmail ~sitearg~ where
     type AuthEmailId ~sitearg~ = EmailId
 
-    showAuthEmailId _ = T.pack . show
-    readAuthEmailId _ = read . T.unpack
+    showAuthEmailId _ = showKey (undefined :: YesodDB ~sitearg~ IO a) . fromPersistKey
+    readAuthEmailId _ = fmap toPersistKey . readKey (undefined :: YesodDB ~sitearg~ IO a)
 
     addUnverified email verkey =
         runDB $ insert $ Email email Nothing $ Just verkey
