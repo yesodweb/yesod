@@ -30,6 +30,7 @@ module Yesod
     , string
     , preEscapedString
     , cdata
+    , toHtml
       -- ** Julius
     , julius
     , Julius
@@ -40,16 +41,11 @@ module Yesod
     , renderCassius
     ) where
 
-import Yesod.Content
-import Yesod.Dispatch
 import Yesod.Core
-import Yesod.Handler hiding (runHandler)
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 
-import Yesod.Request
-import Yesod.Widget
 import Yesod.Form
 import Yesod.Json
 import Yesod.Persist
