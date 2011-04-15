@@ -5,10 +5,11 @@ module Yesod.Helpers.FeedTypes
 
 import Text.Hamlet      (Html)
 import Data.Time.Clock  (UTCTime)
+import Data.Text        (Text)
 
 -- | The overal feed
 data Feed url = Feed
-    { feedTitle       :: String
+    { feedTitle       :: Text
     , feedLinkSelf    :: url
     , feedLinkHome    :: url
 
@@ -18,7 +19,7 @@ data Feed url = Feed
 
     -- | note: currently only used for Rss, possible values: 
     --   <http://www.rssboard.org/rss-language-codes>
-    , feedLanguage    :: String
+    , feedLanguage    :: Text
 
     , feedUpdated     :: UTCTime
     , feedEntries     :: [FeedEntry url]
@@ -28,6 +29,6 @@ data Feed url = Feed
 data FeedEntry url = FeedEntry
     { feedEntryLink    :: url
     , feedEntryUpdated :: UTCTime
-    , feedEntryTitle   :: String
+    , feedEntryTitle   :: Text
     , feedEntryContent :: Html
     }
