@@ -2,7 +2,6 @@
 module Model where
 
 import Yesod
-import Database.Persist.TH (share, mkMigrate)
 import Data.Text (Text)
 
 -- You can define all of your database entities in the entities file.

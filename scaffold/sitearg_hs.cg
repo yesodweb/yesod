@@ -34,7 +34,6 @@ import qualified Data.Text.Lazy
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 import qualified Data.Text as T
-import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -89,7 +88,7 @@ instance Yesod ~sitearg~ where
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticroot setting in Settings.hs
     urlRenderOverride a (StaticR s) =
-        Just $ uncurry (joinPath a $ fromText Settings.staticroot) $ renderRoute s
+        Just $ uncurry (joinPath a Settings.staticroot) $ renderRoute s
     urlRenderOverride _ _ = Nothing
 
     -- The page to be redirected to when authentication is required.
@@ -135,18 +134,12 @@ instance YesodAuth ~sitearg~ where
             Nothing -> do
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
-    showAuthId _ = showKey (undefined :: YesodDB ~sitearg~ IO a) . fromPersistKey
-    readAuthId _ = fmap toPersistKey . readKey (undefined :: YesodDB ~sitearg~ IO a)
-
     authPlugins = [ authOpenId
                   , authEmail
                   ]
 
 instance YesodAuthEmail ~sitearg~ where
     type AuthEmailId ~sitearg~ = EmailId
-
-    showAuthEmailId _ = showKey (undefined :: YesodDB ~sitearg~ IO a) . fromPersistKey
-    readAuthEmailId _ = fmap toPersistKey . readKey (undefined :: YesodDB ~sitearg~ IO a)
 
     addUnverified email verkey =
         runDB $ insert $ Email email Nothing $ Just verkey

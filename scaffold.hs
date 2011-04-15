@@ -13,7 +13,7 @@ import qualified Data.Text.Lazy.Encoding as LT
 import Control.Monad (when, unless)
 
 qq :: String
-#if GHC7
+#if __GLASGOW_HASKELL__ >= 700
 qq = ""
 #else
 qq = "$"
