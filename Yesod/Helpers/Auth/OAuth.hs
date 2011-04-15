@@ -14,15 +14,14 @@ import Text.Hamlet (hamlet)
 import Web.Authenticate.OAuth
 import Data.Maybe
 import Data.String
-import Network.HTTP.Enumerator
 import Data.ByteString.Char8 (pack)
 import Control.Arrow ((***))
-import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
+import Data.ByteString (ByteString)
 
 oauthUrl :: Text -> AuthRoute
 oauthUrl name = PluginR name ["forward"]
@@ -50,11 +49,8 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         tm <- getRouteToMaster
         let oauth' = oauth { oauthCallback = Just $ encodeUtf8 $ render $ tm url }
         tok <- liftIO $ getTemporaryCredential oauth'
-        redirectString RedirectTemporary (fromString $ authorizeUrl oauth' tok)
+        redirectText RedirectTemporary (fromString $ authorizeUrl oauth' tok)
     dispatch "GET" [] = do
-        render <- getUrlRender
-        tm <- getRouteToMaster
-        let callback = render $ tm url
         verifier <- runFormGet' $ stringInput "oauth_verifier"
         oaTok    <- runFormGet' $ stringInput "oauth_token"
         let reqTok = Credential [ ("oauth_verifier", encodeUtf8 verifier), ("oauth_token", encodeUtf8 oaTok)
@@ -89,4 +85,5 @@ authTwitter = authOAuth "twitter"
 twitterUrl :: AuthRoute
 twitterUrl = oauthUrl "twitter"
 
+bsToText :: ByteString -> Text
 bsToText = decodeUtf8With lenientDecode

@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Helpers.Auth.Email
     ( -- * Plugin
       authEmail
@@ -55,11 +56,8 @@ data EmailCreds m = EmailCreds
     , emailCredsVerkey :: Maybe VerKey
     }
 
-class YesodAuth m => YesodAuthEmail m where
+class (YesodAuth m, SinglePiece (AuthEmailId m)) => YesodAuthEmail m where
     type AuthEmailId m
-
-    showAuthEmailId :: m -> AuthEmailId m -> Text
-    readAuthEmailId :: m -> Text -> Maybe (AuthEmailId m)
 
     addUnverified :: Email -> VerKey -> GHandler Auth m (AuthEmailId m)
     sendVerifyEmail :: Email -> VerKey -> VerUrl -> GHandler Auth m ()
@@ -104,9 +102,8 @@ authEmail =
   where
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
     dispatch "POST" ["register"] = postRegisterR >>= sendResponse
-    dispatch "GET" ["verify", eid, verkey] = do
-        y <- getYesod
-        case readAuthEmailId y eid of
+    dispatch "GET" ["verify", eid, verkey] =
+        case fromSinglePiece eid of
             Nothing -> notFound
             Just eid' -> getVerifyR eid' verkey >>= sendResponse
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
@@ -151,7 +148,7 @@ postRegisterR = do
                 return (lid, key)
     render <- getUrlRender
     tm <- getRouteToMaster
-    let verUrl = render $ tm $ verify (showAuthEmailId y lid) verKey
+    let verUrl = render $ tm $ verify (toSinglePiece lid) verKey
     sendVerifyEmail email verKey verUrl
     defaultLayout $ do
         setTitle $ messageConfirmationEmailSentTitle y

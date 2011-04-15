@@ -22,20 +22,13 @@ module Yesod.Helpers.Auth
     , requireAuth
     ) where
 
-import Yesod.Handler
 import Yesod.Core
-import Yesod.Widget
-import Yesod.Content
-import Yesod.Dispatch
 import Yesod.Persist
-import Yesod.Request
 import Yesod.Json
 import Text.Blaze
 import Language.Haskell.TH.Syntax hiding (lift)
-import qualified Data.ByteString.Char8 as S8
 import qualified Network.Wai as W
 import Text.Hamlet (hamlet)
-import Data.Text.Lazy (pack)
 import qualified Data.Map as Map
 import Control.Monad.Trans.Class (lift)
 import Data.Aeson
@@ -66,7 +59,7 @@ data Creds m = Creds
     , credsExtra :: [(Text, Text)]
     }
 
-class Yesod m => YesodAuth m where
+class (Yesod m, SinglePiece (AuthId m)) => YesodAuth m where
     type AuthId m
 
     -- | Default destination on successful login, if no other
@@ -79,65 +72,62 @@ class Yesod m => YesodAuth m where
 
     getAuthId :: Creds m -> GHandler s m (Maybe (AuthId m))
 
-    showAuthId :: m -> AuthId m -> Text
-    readAuthId :: m -> Text -> Maybe (AuthId m)
-
     authPlugins :: [AuthPlugin m]
 
     -- | What to show on the login page.
     loginHandler :: GHandler Auth m RepHtml
     loginHandler = defaultLayout $ do
-        setTitle $ string "Login"
+        setTitle "Login"
         tm <- lift getRouteToMaster
         mapM_ (flip apLogin tm) authPlugins
 
     ----- Message strings. In theory in the future make this localizable
     ----- See gist: https://gist.github.com/778712
     messageNoOpenID :: m -> Html
-    messageNoOpenID _ = string "No OpenID identifier found"
+    messageNoOpenID _ = "No OpenID identifier found"
     messageLoginOpenID :: m -> Html
-    messageLoginOpenID _ = string "Login via OpenID"
+    messageLoginOpenID _ = "Login via OpenID"
 
     messageEmail :: m -> Html
-    messageEmail _ = string "Email"
+    messageEmail _ = "Email"
     messagePassword :: m -> Html
-    messagePassword _ = string "Password"
+    messagePassword _ = "Password"
     messageRegister :: m -> Html
-    messageRegister _ = string "Register"
+    messageRegister _ = "Register"
     messageRegisterLong :: m -> Html
-    messageRegisterLong _ = string "Register a new account"
+    messageRegisterLong _ = "Register a new account"
     messageEnterEmail :: m -> Html
-    messageEnterEmail _ = string "Enter your e-mail address below, and a confirmation e-mail will be sent to you."
+    messageEnterEmail _ = "Enter your e-mail address below, and a confirmation e-mail will be sent to you."
     messageConfirmationEmailSentTitle :: m -> Html
-    messageConfirmationEmailSentTitle _ = string "Confirmation e-mail sent"
+    messageConfirmationEmailSentTitle _ = "Confirmation e-mail sent"
     messageConfirmationEmailSent :: m -> Text -> Html
     messageConfirmationEmailSent _ email = toHtml $ mconcat
         ["A confirmation e-mail has been sent to ", email, "."]
     messageAddressVerified :: m -> Html
-    messageAddressVerified _ = string "Address verified, please set a new password"
+    messageAddressVerified _ = "Address verified, please set a new password"
     messageInvalidKeyTitle :: m -> Html
-    messageInvalidKeyTitle _ = string "Invalid verification key"
+    messageInvalidKeyTitle _ = "Invalid verification key"
     messageInvalidKey :: m -> Html
-    messageInvalidKey _ = string "I'm sorry, but that was an invalid verification key."
+    messageInvalidKey _ = "I'm sorry, but that was an invalid verification key."
     messageInvalidEmailPass :: m -> Html
-    messageInvalidEmailPass _ = string "Invalid email/password combination"
+    messageInvalidEmailPass _ = "Invalid email/password combination"
     messageBadSetPass :: m -> Html
-    messageBadSetPass _ = string "You must be logged in to set a password"
+    messageBadSetPass _ = "You must be logged in to set a password"
     messageSetPassTitle :: m -> Html
-    messageSetPassTitle _ = string "Set password"
+    messageSetPassTitle _ = "Set password"
     messageSetPass :: m -> Html
-    messageSetPass _ = string "Set a new password"
+    messageSetPass _ = "Set a new password"
     messageNewPass :: m -> Html
-    messageNewPass _ = string "New password"
+    messageNewPass _ = "New password"
     messageConfirmPass :: m -> Html
-    messageConfirmPass _ = string "Confirm"
+    messageConfirmPass _ = "Confirm"
     messagePassMismatch :: m -> Html
-    messagePassMismatch _ = string "Passwords did not match, please try again"
+    messagePassMismatch _ = "Passwords did not match, please try again"
     messagePassUpdated :: m -> Html
-    messagePassUpdated _ = string "Password updated"
+    messagePassUpdated _ = "Password updated"
 
     messageFacebook :: m -> Html
-    messageFacebook _ = string "Login with Facebook"
+    messageFacebook _ = "Login with Facebook"
 
 type Texts = [Text]
 
@@ -180,14 +170,14 @@ setCreds doRedirects creds = do
 |]
                             sendResponse rh
                         Just ar -> do
-                            setMessage $ string "Invalid login"
+                            setMessage "Invalid login"
                             redirect RedirectTemporary ar
                 else return ()
         Just aid -> do
-            setSession credsKey $ showAuthId y aid
+            setSession credsKey $ toSinglePiece aid
             if doRedirects
                 then do
-                    setMessage $ string "You are now logged in"
+                    setMessage "You are now logged in"
                     redirectUltDest RedirectTemporary $ loginDest y
                 else return ()
 
@@ -195,8 +185,8 @@ getCheckR :: YesodAuth m => GHandler Auth m RepHtmlJson
 getCheckR = do
     creds <- maybeAuthId
     defaultLayoutJson (do
-        setTitle $ string "Authentication Status"
-        addHtml $ html creds) (json creds)
+        setTitle "Authentication Status"
+        addHtml $ html creds) (json' creds)
   where
     html creds =
 #if GHC7
@@ -210,7 +200,7 @@ $maybe _ <- creds
 $nothing
     <p>Not logged in.
 |]
-    json creds =
+    json' creds =
         Object $ Map.fromList
             [ (T.pack "logged_in", Bool $ maybe False (const True) creds)
             ]
@@ -239,10 +229,9 @@ handlePluginR plugin pieces = do
 maybeAuthId :: YesodAuth m => GHandler s m (Maybe (AuthId m))
 maybeAuthId = do
     ms <- lookupSession credsKey
-    y <- getYesod
     case ms of
         Nothing -> return Nothing
-        Just s -> return $ readAuthId y s
+        Just s -> return $ fromSinglePiece s
 
 maybeAuth :: ( YesodAuth m
              , Key val ~ AuthId m

@@ -14,7 +14,7 @@ import Yesod.Widget
 import Yesod.Request
 import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
-import Data.Text (Text, pack, unpack)
+import Data.Text (pack, unpack)
 import Control.Arrow ((***))
 
 authRpxnow :: YesodAuth m

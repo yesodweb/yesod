@@ -73,7 +73,6 @@ import Text.Hamlet (hamlet)
 import Control.Applicative         ((<$>), (<*>))
 import Data.ByteString.Lazy.Char8  (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)
-import Database.Persist.TH         (share2, mkMigrate, persist, mkPersist)
 import Data.Text                   (Text, unpack)
 import Data.Maybe                  (fromMaybe)
 

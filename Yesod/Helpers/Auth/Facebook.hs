@@ -17,11 +17,11 @@ import Yesod.Handler
 import Yesod.Widget
 import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
-import qualified Data.ByteString.Char8 as S8
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text)
 import Control.Monad (mzero)
 import Data.Monoid (mappend)
+import qualified Data.Aeson.Types
 
 facebookUrl :: AuthRoute
 facebookUrl = PluginR "facebook" ["forward"]
@@ -39,7 +39,7 @@ authFacebook cid secret perms =
         tm <- getRouteToMaster
         render <- getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
-        redirectString RedirectTemporary $ Facebook.getForwardUrl fb perms
+        redirectText RedirectTemporary $ Facebook.getForwardUrl fb perms
     dispatch "GET" [] = do
         render <- getUrlRender
         tm <- getRouteToMaster
@@ -67,6 +67,7 @@ authFacebook cid secret perms =
     <a href="#{furl}">#{messageFacebook y}
 |]
 
+parseCreds :: Text -> Value -> Data.Aeson.Types.Parser (Creds m)
 parseCreds at' (Object m) = do
     id' <- m .: "id"
     let id'' = "http://graph.facebook.com/" `mappend` id'

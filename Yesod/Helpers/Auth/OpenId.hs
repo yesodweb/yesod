@@ -16,9 +16,8 @@ import Yesod.Widget
 import Yesod.Request
 import Text.Hamlet (hamlet)
 import Text.Cassius (cassius)
-import Text.Blaze (string)
+import Text.Blaze (toHtml)
 import Control.Monad.Trans.Class (lift)
-import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text)
 
 forwardUrl :: AuthRoute
@@ -64,10 +63,10 @@ authOpenId =
                 res <- runAttemptT $ OpenId.getForwardUrl oid complete' Nothing []
                 attempt
                   (\err -> do
-                        setMessage $ string $ show err
+                        setMessage $ toHtml $ show err
                         redirect RedirectTemporary $ toMaster LoginR
                         )
-                  (redirectString RedirectTemporary)
+                  (redirectText RedirectTemporary)
                   res
             _ -> do
                 toMaster <- getRouteToMaster
@@ -88,7 +87,7 @@ completeHelper gets' = do
         res <- runAttemptT $ OpenId.authenticate gets'
         toMaster <- getRouteToMaster
         let onFailure err = do
-            setMessage $ string $ show err
+            setMessage $ toHtml $ show err
             redirect RedirectTemporary $ toMaster LoginR
         let onSuccess (OpenId.Identifier ident, _) =
                 setCreds True $ Creds "openid" ident []
