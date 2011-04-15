@@ -206,11 +206,11 @@ class RenderRoute (Route a) => Yesod a where
     -- | Join the pieces of a path together into an absolute URL. This should
     -- be the inverse of 'splitPath'.
     joinPath :: a
-             -> Builder -- ^ application root
+             -> TS.Text -- ^ application root
              -> [TS.Text] -- ^ path pieces
              -> [(TS.Text, TS.Text)] -- ^ query string
              -> Builder
-    joinPath _ ar pieces' qs' = ar `mappend` encodePath pieces qs
+    joinPath _ ar pieces' qs' = fromText ar `mappend` encodePath pieces qs
       where
         pieces = if null pieces' then [""] else pieces'
         qs = map (TE.encodeUtf8 *** go) qs'
@@ -569,7 +569,7 @@ yesodRender :: Yesod y
 yesodRender y u qs =
     TE.decodeUtf8 $ toByteString $
     fromMaybe
-        (joinPath y (fromText $ approot y) ps
+        (joinPath y (approot y) ps
           $ qs ++ qs')
         (urlRenderOverride y u)
   where
