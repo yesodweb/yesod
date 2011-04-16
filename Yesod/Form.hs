@@ -65,7 +65,6 @@ import Control.Arrow ((&&&))
 import Data.List (group, sort)
 import Data.Monoid (mempty)
 import Data.Text (Text)
-import Text.Blaze (toHtml)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HAMLET hamlet

@@ -63,9 +63,8 @@ import Text.Hamlet
 import Data.Monoid
 import Control.Monad (join)
 import Data.Maybe (fromMaybe, isNothing)
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, unpack)
 import qualified Data.Text as T
-import Text.Blaze (toHtml)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HAMLET hamlet
@@ -170,7 +169,7 @@ maybeHtmlField :: (IsForm f, FormType f ~ Maybe Html)
 maybeHtmlField = optionalFieldHelper htmlFieldProfile
 
 selectField :: (Eq x, IsForm f, FormType f ~ x)
-            => [(x, String)]
+            => [(x, Text)]
             -> FormFieldSettings
             -> Maybe x
             -> f
@@ -406,7 +405,7 @@ fileWidget theId name isReq = [HAMLET|
 |]
 
 radioField :: (Eq x, IsForm f, FormType f ~ x)
-           => [(x, String)]
+           => [(x, Text)]
            -> FormFieldSettings
            -> Maybe x
            -> f
@@ -452,7 +451,7 @@ radioField pairs ffs initial = toForm $ do
 
 maybeRadioField
     :: (Eq x, IsForm f, FormType f ~ Maybe x)
-    => [(x, String)]
+    => [(x, Text)]
     -> FormFieldSettings
     -> Maybe (FormType f)
     -> f
