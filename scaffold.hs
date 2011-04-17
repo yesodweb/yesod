@@ -53,7 +53,7 @@ main = do
     putStr $(codegen "site-arg")
     hFlush stdout
     let isUpperAZ c = 'A' <= c && c <= 'Z'
-    sitearg <- prompt $ \s -> not (null s) && all validPN s && isUpperAZ (head s)
+    sitearg <- prompt $ \s -> not (null s) && all validPN s && isUpperAZ (head s) && s /= "Main"
 
     putStr $(codegen "database")
     hFlush stdout
