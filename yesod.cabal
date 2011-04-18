@@ -57,10 +57,15 @@ executable             yesod
                      , unix-compat        >= 0.2          && < 0.3
                      , containers         >= 0.2          && < 0.5
                      , attoparsec-text    >= 0.8.5        && < 0.9
+                     , http-types         >= 0.6.1        && < 0.7
+                     , blaze-builder      >= 0.2          && < 0.4
+                     , direct-plugins     >= 1.1          && < 1.2
     ghc-options:       -Wall
     main-is:           scaffold.hs
     other-modules:     CodeGen
                        Scaffold.Build
+                       Scaffold.Devel
+                       Network.Wai.Application.Devel
     if flag(ghc7)
         cpp-options:     -DGHC7
 

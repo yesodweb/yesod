@@ -1,17 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Scaffold.Build
     ( build
+    , getDeps
+    , touchDeps
+    , findHaskellFiles
     ) where
 
 import qualified Distribution.Simple.Build as B
-import Distribution.PackageDescription.Parse
-import Distribution.Verbosity (normal)
 import System.Directory (getDirectoryContents, doesDirectoryExist)
 import Data.List (isSuffixOf)
-import Distribution.PackageDescription (packageDescription)
-import Distribution.Simple.Utils (defaultPackageDesc, defaultHookedPackageDesc)
 import Distribution.Simple.Setup (defaultBuildFlags)
-import Distribution.Simple.Configure (getPersistBuildConfig, localBuildInfoFile)
+import Distribution.Simple.Configure (getPersistBuildConfig)
 import Distribution.Simple.LocalBuildInfo
 import qualified Data.Attoparsec.Text.Lazy as A
 import qualified Data.Text.Lazy.IO as TIO
@@ -43,6 +42,12 @@ build = do
         []
 
 type Deps = Map.Map FilePath (Set.Set FilePath)
+
+getDeps :: IO Deps
+getDeps = do
+    hss <- findHaskellFiles "."
+    deps' <- mapM determineHamletDeps hss
+    return $ fixDeps $ zip hss deps'
 
 touchDeps :: Deps -> IO ()
 touchDeps =

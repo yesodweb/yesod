@@ -13,7 +13,8 @@ import qualified Data.Text.Lazy.Encoding as LT
 import Control.Monad (when, unless)
 import System.Environment (getArgs)
 
-import Scaffold.Build
+import Scaffold.Build (build)
+import Scaffold.Devel (devel)
 
 qq :: String
 #if __GLASGOW_HASKELL__ >= 700
@@ -37,6 +38,7 @@ main = do
     case args of
         ["init"] -> scaffold
         ["build"] -> build
+        ["devel"] -> devel
         _ -> do
             putStrLn "Usage: yesod <command>"
             putStrLn "Available commands:"
