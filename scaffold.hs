@@ -11,6 +11,9 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import Control.Monad (when, unless)
+import System.Environment (getArgs)
+
+import Scaffold.Build
 
 qq :: String
 #if __GLASGOW_HASKELL__ >= 700
@@ -30,6 +33,18 @@ prompt f = do
 
 main :: IO ()
 main = do
+    args <- getArgs
+    case args of
+        ["init"] -> scaffold
+        ["build"] -> build
+        _ -> do
+            putStrLn "Usage: yesod <command>"
+            putStrLn "Available commands:"
+            putStrLn "    init         Scaffold a new site"
+            putStrLn "    build        Build project (performs TH dependency analysis)"
+
+scaffold :: IO ()
+scaffold = do
     putStr $(codegen "welcome")
     hFlush stdout
     name <- getLine
