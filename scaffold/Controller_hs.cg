@@ -4,6 +4,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Controller
     ( with~sitearg~
+    , withDevelApp
     ) where
 
 import ~sitearg~
@@ -12,6 +13,7 @@ import Yesod.Helpers.Static
 import Yesod.Helpers.Auth
 import Database.Persist.GenericSql
 import Data.ByteString (ByteString)
+import Data.Dynamic (Dynamic, toDyn)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -40,4 +42,7 @@ with~sitearg~ f = Settings.withConnectionPool $ \p -> do
     toWaiApp h >>= f
   where
     s = static Settings.staticdir
+
+withDevelApp :: Dynamic
+withDevelApp = toDyn (with~sitearg~ :: (Application -> IO ()) -> IO ())
 

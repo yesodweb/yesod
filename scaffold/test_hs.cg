@@ -1,3 +1,11 @@
+{-# LANGUAGE CPP #-}
+#if PRODUCTION
+import Controller (with~sitearg~)
+import Network.Wai.Handler.Warp (run)
+
+main :: IO ()
+main = with~sitearg~ $ run 3000
+#else
 import Controller (with~sitearg~)
 import System.IO (hPutStrLn, stderr)
 import Network.Wai.Middleware.Debug (debug)
@@ -8,4 +16,5 @@ main = do
     let port = 3000
     hPutStrLn stderr $ "Application launched, listening on port " ++ show port
     with~sitearg~ $ run port . debug
+#endif
 

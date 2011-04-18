@@ -6,6 +6,8 @@ module Scaffold.Build
     , findHaskellFiles
     ) where
 
+-- FIXME there's a bug when getFileStatus applies to a file temporary deleted (e.g., Vim saving a file)
+
 import qualified Distribution.Simple.Build as B
 import System.Directory (getDirectoryContents, doesDirectoryExist)
 import Data.List (isSuffixOf)

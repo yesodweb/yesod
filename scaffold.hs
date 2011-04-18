@@ -44,6 +44,7 @@ main = do
             putStrLn "Available commands:"
             putStrLn "    init         Scaffold a new site"
             putStrLn "    build        Build project (performs TH dependency analysis)"
+            putStrLn "    devel        Run project with the devel server"
 
 scaffold :: IO ()
 scaffold = do
@@ -100,8 +101,7 @@ scaffold = do
     mkDir "julius"
     mkDir "static"
 
-    writeFile' "test.hs" $(codegen "test_hs")
-    writeFile' "production.hs" $(codegen "production_hs")
+    writeFile' (project ++ ".hs") $(codegen "test_hs")
     writeFile' "devel-server.hs" $(codegen "devel-server_hs")
     writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini-cabal") else $(codegen "cabal")
     writeFile' "LICENSE" $(codegen "LICENSE")

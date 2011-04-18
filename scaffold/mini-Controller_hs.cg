@@ -4,6 +4,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Controller
     ( with~sitearg~
+    , withDevelApp
     ) where
 
 import ~sitearg~
@@ -11,6 +12,7 @@ import Settings
 import Yesod.Helpers.Static
 import Data.ByteString (ByteString)
 import Network.Wai (Application)
+import Data.Dynamic (Dynamic, toDyn)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -38,3 +40,7 @@ with~sitearg~ f = do
     toWaiApp h >>= f
   where
     s = static Settings.staticdir
+
+withDevelApp :: Dynamic
+withDevelApp = toDyn (with~sitearg~ :: (Application -> IO ()) -> IO ())
+
