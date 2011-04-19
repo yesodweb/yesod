@@ -8,5 +8,5 @@ import Data.Text (Text)
 -- You can find more information on persistent and how to declare entities
 -- at:
 -- http://www.yesodweb.com/book/persistent/
-share [mkPersist, mkMigrate "migrateAll"] $(persistFile "entities")
+share [mkPersist, mkMigrate "migrateAll"] $(persistFile "config/models")
 

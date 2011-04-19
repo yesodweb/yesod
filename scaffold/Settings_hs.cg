@@ -10,6 +10,7 @@ module Settings
     ( hamletFile
     , cassiusFile
     , juliusFile
+    , luciusFile
     , widgetFile
     , connStr
     , ConnectionPool
@@ -23,9 +24,10 @@ module Settings
 import qualified Text.Hamlet as H
 import qualified Text.Cassius as H
 import qualified Text.Julius as H
+import qualified Text.Lucius as H
 import Language.Haskell.TH.Syntax
 ~importDB~
-import Yesod (MonadControlIO, addWidget, addCassius, addJulius)
+import Yesod (MonadControlIO, addWidget, addCassius, addJulius, addLucius)
 import Data.Monoid (mempty, mappend)
 import System.Directory (doesFileExist)
 import Data.Text (Text)
@@ -104,10 +106,11 @@ connectionCount = 10
 -- used; to get the same auto-loading effect, it is recommended that you
 -- use the devel server.
 
-toHamletFile, toCassiusFile, toJuliusFile :: String -> FilePath
+toHamletFile, toCassiusFile, toJuliusFile, toLuciusFile :: String -> FilePath
 toHamletFile x = "hamlet/" ++ x ++ ".hamlet"
 toCassiusFile x = "cassius/" ++ x ++ ".cassius"
 toJuliusFile x = "julius/" ++ x ++ ".julius"
+toLuciusFile x = "lucius/" ++ x ++ ".lucius"
 
 hamletFile :: FilePath -> Q Exp
 hamletFile = H.hamletFile . toHamletFile
@@ -117,6 +120,13 @@ cassiusFile :: FilePath -> Q Exp
 cassiusFile = H.cassiusFile . toCassiusFile
 #else
 cassiusFile = H.cassiusFileDebug . toCassiusFile
+#endif
+
+luciusFile :: FilePath -> Q Exp
+#ifdef PRODUCTION
+luciusFile = H.luciusFile . toLuciusFile
+#else
+luciusFile = H.luciusFileDebug . toLuciusFile
 #endif
 
 juliusFile :: FilePath -> Q Exp
@@ -131,7 +141,8 @@ widgetFile x = do
     let h = unlessExists toHamletFile hamletFile
     let c = unlessExists toCassiusFile cassiusFile
     let j = unlessExists toJuliusFile juliusFile
-    [|addWidget $h >> addCassius $c >> addJulius $j|]
+    let l = unlessExists toLuciusFile luciusFile
+    [|addWidget $h >> addCassius $c >> addJulius $j >> addLucius $l|]
   where
     unlessExists tofn f = do
         e <- qRunIO $ doesFileExist $ tofn x

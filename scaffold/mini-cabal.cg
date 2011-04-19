@@ -26,6 +26,7 @@ library
     else
         Buildable: False
     exposed-modules: Controller
+    hs-source-dirs: ., config
     other-modules:   ~sitearg~
                      Settings
                      StaticFiles
@@ -41,7 +42,8 @@ executable         ~project~
     else
         ghc-options:   -Wall -threaded
 
-    main-is:       ~project~.hs
+    main-is:       config/~project~.hs
+    hs-source-dirs: ., config
 
     build-depends: base         >= 4       && < 5
                  , yesod-core   >= 0.8     && < 0.9

@@ -98,10 +98,12 @@ scaffold = do
     mkDir "Handler"
     mkDir "hamlet"
     mkDir "cassius"
+    mkDir "lucius"
     mkDir "julius"
     mkDir "static"
+    mkDir "config"
 
-    writeFile' (project ++ ".hs") $(codegen "test_hs")
+    writeFile' ("config/" ++ project ++ ".hs") $(codegen "test_hs")
     writeFile' "devel-server.hs" $(codegen "devel-server_hs")
     writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini-cabal") else $(codegen "cabal")
     writeFile' "LICENSE" $(codegen "LICENSE")
@@ -109,19 +111,19 @@ scaffold = do
     writeFile' "Controller.hs" $ if backendS == "m" then $(codegen "mini-Controller_hs") else $(codegen "Controller_hs")
     writeFile' "Handler/Root.hs" $ if backendS == "m" then $(codegen "mini-Root_hs") else $(codegen "Root_hs")
     when (backendS /= "m") $ writeFile' "Model.hs" $(codegen "Model_hs")
-    writeFile' "Settings.hs" $ if backendS == "m" then $(codegen "mini-Settings_hs") else $(codegen "Settings_hs")
-    writeFile' "StaticFiles.hs" $(codegen "StaticFiles_hs")
+    writeFile' "config/Settings.hs" $ if backendS == "m" then $(codegen "mini-Settings_hs") else $(codegen "Settings_hs")
+    writeFile' "config/StaticFiles.hs" $(codegen "StaticFiles_hs")
     writeFile' "cassius/default-layout.cassius"
         $(codegen "default-layout_cassius")
     writeFile' "hamlet/default-layout.hamlet"
         $(codegen "default-layout_hamlet")
     writeFile' "hamlet/homepage.hamlet" $ if backendS == "m" then $(codegen "mini-homepage_hamlet") else $(codegen "homepage_hamlet")
-    writeFile' "routes" $ if backendS == "m" then $(codegen "mini-routes") else $(codegen "routes")
+    writeFile' "config/routes" $ if backendS == "m" then $(codegen "mini-routes") else $(codegen "routes")
     writeFile' "cassius/homepage.cassius" $(codegen "homepage_cassius")
     writeFile' "julius/homepage.julius" $(codegen "homepage_julius")
-    unless (backendS == "m") $ writeFile' "entities" $(codegen "entities")
+    unless (backendS == "m") $ writeFile' "config/models" $(codegen "entities")
   
-    S.writeFile (dir ++ "/favicon.ico")
+    S.writeFile (dir ++ "/config/favicon.ico")
         $(runIO (S.readFile "scaffold/favicon_ico.cg") >>= \bs -> do
             pack <- [|S.pack|]
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
