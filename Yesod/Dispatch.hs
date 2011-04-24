@@ -27,9 +27,9 @@ import Yesod.Internal.Core
 import Yesod.Handler
 import Yesod.Internal.Dispatch
 
-import Web.Routes.Quasi
-import Web.Routes.Quasi.Parse
-import Web.Routes.Quasi.TH
+import Web.Routes.Quasi (SinglePiece, MultiPiece, Strings)
+import Web.Routes.Quasi.Parse (Resource (..), parseRoutes, parseRoutesFile)
+import Web.Routes.Quasi.TH (THResource, Pieces (..), createRoutes, createRender)
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W

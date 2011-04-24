@@ -24,6 +24,7 @@ import Data.Text (Text)
 import Data.Monoid (mappend)
 import qualified Blaze.ByteString.Builder
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.Text
 
 {-|
 
@@ -155,21 +156,35 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
     let caseExp = rm `AppE` VarE req
     yr <- [|yesodRunner|]
     cr <- [|fmap chooseRep|]
+    pack <- [|Data.Text.pack|]
+    eq <- [|(==)|]
     let url = foldl' AppE (ConE $ mkName constr) $ frontVars []
     let runHandlerVars h = runHandler' $ cr `AppE` foldl' AppE (VarE $ mkName h) (frontVars [])
-        runHandler' h = NormalB $ yr `AppE` sub
-                                     `AppE` VarE master
-                                     `AppE` toMasterRoute
-                                     `AppE` VarE mkey
-                                     `AppE` (just `AppE` url)
-                                     `AppE` h
-                                     `AppE` VarE req
-    let match m = Match (LitP $ StringL m) (runHandlerVars $ map toLower m ++ constr) []
-    let clauses =
-            case methods of
-                [] -> [Clause [VarP req] (runHandlerVars $ "handle" ++ constr) []]
-                _ -> [Clause [VarP req] (NormalB $ CaseE caseExp $ map match methods ++
-                                                                   [Match WildP (runHandler' badMethod') []]) []]
+        runHandler' h = yr `AppE` sub
+                           `AppE` VarE master
+                           `AppE` toMasterRoute
+                           `AppE` VarE mkey
+                           `AppE` (just `AppE` url)
+                           `AppE` h
+                           `AppE` VarE req
+    let match :: String -> Q Match
+        match m = do
+            x <- newName "x"
+            return $ Match
+                (VarP x)
+                (GuardedB
+                    [ ( NormalG $ InfixE (Just $ VarE x) eq (Just $ (LitE $ StringL m)) -- FIXME need to pack, right?
+                      , runHandlerVars $ map toLower m ++ constr
+                      )
+                    ])
+                []
+    clauses <-
+        case methods of
+            [] -> return [Clause [VarP req] (NormalB $ runHandlerVars $ "handle" ++ constr) []]
+            _ -> do
+                matches <- mapM match methods
+                return [Clause [VarP req] (NormalB $ CaseE caseExp $ matches ++
+                                                               [Match WildP (NormalB $ runHandler' badMethod') []]) []]
     let exp = CaseE segments
                 [ Match
                     (ConP (mkName "[]") [])
@@ -185,10 +200,17 @@ mkSimpleExp segments (StaticPiece s:pieces) frontVars x = do
     srest <- newName "segments"
     innerExp <- mkSimpleExp (VarE srest) pieces frontVars x
     nothing <- [|Nothing|]
+    y <- newName "y"
+    pack <- [|Data.Text.pack|]
+    eq <- [|(==)|]
     let exp = CaseE segments
                 [ Match
-                    (InfixP (LitP $ StringL s) (mkName ":") (VarP srest))
-                    (NormalB innerExp)
+                    (InfixP (VarP y) (mkName ":") (VarP srest))
+                    (GuardedB
+                        [ ( NormalG $ InfixE (Just $ VarE y) eq (Just $ pack `AppE` (LitE $ StringL s))
+                          , innerExp
+                          )
+                        ])
                     []
                 , Match WildP (NormalB nothing) []
                 ]
@@ -260,10 +282,17 @@ mkSubsiteExp segments (StaticPiece s:pieces) frontVars x = do
     srest <- newName "segments"
     innerExp <- mkSubsiteExp srest pieces frontVars x
     nothing <- [|Nothing|]
+    y <- newName "y"
+    pack <- [|Data.Text.pack|]
+    eq <- [|(==)|]
     let exp = CaseE (VarE segments)
                 [ Match
-                    (InfixP (LitP $ StringL s) (mkName ":") (VarP srest))
-                    (NormalB innerExp)
+                    (InfixP (VarP y) (mkName ":") (VarP srest))
+                    (GuardedB
+                        [ ( NormalG $ InfixE (Just $ VarE y) eq (Just $ pack `AppE` (LitE $ StringL s))
+                          , innerExp
+                          )
+                        ])
                     []
                 , Match WildP (NormalB nothing) []
                 ]

@@ -4,6 +4,7 @@ import Test.Exceptions
 import Test.Widget
 import Test.Media
 import Test.Links
+import Test.NoOverloadedStrings
 
 main :: IO ()
 main = defaultMain
@@ -12,4 +13,5 @@ main = defaultMain
     , widgetTest
     , mediaTest
     , linksTest
+    , noOverloadedTest
     ]

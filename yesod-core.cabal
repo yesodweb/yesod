@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         0.8.0
+version:         0.8.0.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -33,7 +33,7 @@ library
                    , bytestring                >= 0.9.1.4  && < 0.10
                    , text                      >= 0.5      && < 0.12
                    , template-haskell
-                   , web-routes-quasi          >= 0.7      && < 0.8
+                   , web-routes-quasi          >= 0.7.0.1  && < 0.8
                    , hamlet                    >= 0.8      && < 0.9
                    , blaze-builder             >= 0.2.1    && < 0.4
                    , transformers              >= 0.2      && < 0.3
