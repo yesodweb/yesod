@@ -6,7 +6,7 @@ module Web.Authenticate.OAuth
       -- * Operations for credentials
       emptyCredential, insert, delete, inserts,
       -- * Signature
-      signOAuth,
+      signOAuth, genSign,
       -- * Url & operation for authentication
       authorizeUrl, getAccessToken, getTemporaryCredential,
       getTokenCredential,
