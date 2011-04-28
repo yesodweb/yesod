@@ -37,6 +37,7 @@ import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.Monoid (mconcat)
+import Web.Routes.Quasi (toSinglePiece, fromSinglePiece)
 
 data Auth = Auth
 

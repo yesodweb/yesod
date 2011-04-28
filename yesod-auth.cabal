@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.4.0
+version:         0.4.0.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -9,7 +9,7 @@ category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6.0
 build-type:      Simple
-homepage:        http://docs.yesodweb.com/
+homepage:        http://www.yesodweb.com/
 
 flag ghc7
 
@@ -41,6 +41,7 @@ library
                    , SHA                     >= 1.4.1.3   && < 1.5
                    , http-enumerator         >= 0.6       && < 0.7
                    , aeson                   >= 0.3.2.2   && < 0.4
+                   , web-routes-quasi        >= 0.7       && < 0.8
 
     exposed-modules: Yesod.Helpers.Auth
                      Yesod.Helpers.Auth.Dummy

@@ -33,6 +33,7 @@ import Yesod.Core
 import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
+import Web.Routes.Quasi (toSinglePiece, fromSinglePiece)
 
 loginR, registerR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
