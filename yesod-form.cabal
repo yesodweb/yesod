@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         0.1.0
+version:         0.1.0.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -28,6 +28,7 @@ library
                    , blaze-html                >= 0.4      && < 0.5
                    , bytestring                >= 0.9      && < 0.10
                    , text                      >= 0.7      && < 1.0
+                   , web-routes-quasi          >= 0.7      && < 0.8
     exposed-modules: Yesod.Form
                      Yesod.Form.Class
                      Yesod.Form.Core

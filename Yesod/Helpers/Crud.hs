@@ -18,6 +18,7 @@ import Yesod.Form
 import Language.Haskell.TH.Syntax
 import Yesod.Persist
 import Data.Text (Text)
+import Web.Routes.Quasi (toSinglePiece, fromSinglePiece)
 
 -- | An entity which can be displayed by the Crud subsite.
 class Item a where
