@@ -31,6 +31,7 @@ import System.Process (runCommand, terminateProcess, getProcessExitCode, waitFor
 import qualified Data.IORef as I
 import qualified Data.ByteString.Lazy.Char8 as L
 import System.Directory (doesFileExist, removeFile)
+import Distribution.Package (PackageName (..), pkgName)
 
 appMessage :: L.ByteString -> IO ()
 appMessage l = forever $ do
@@ -83,12 +84,12 @@ devel = do
             install (localPkgDescr lbi) lbi defaultCopyFlags
             register (localPkgDescr lbi) lbi defaultRegisterFlags
 
-            let pi' = display $ package $ localPkgDescr lbi
+            let PackageName pi' = pkgName $ package $ localPkgDescr lbi
             writeFile "dist/devel.hs" $ unlines
                 [ "{-# LANGUAGE PackageImports #-}"
                 , concat
                     [ "import \""
-                    , "haskellers" -- FIXME
+                    , pi'
                     , "\" Controller (withDevelApp)"
                     ]
                 , "import Data.Dynamic (fromDynamic)"
