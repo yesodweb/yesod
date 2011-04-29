@@ -13,28 +13,40 @@ import Distribution.PackageDescription.Parse (readPackageDescription, readHooked
 import Distribution.PackageDescription (FlagName (FlagName), package, emptyHookedBuildInfo)
 import Distribution.Simple.LocalBuildInfo (localPkgDescr)
 import Scaffold.Build (getDeps, touchDeps, findHaskellFiles)
-import System.Plugins (loadDynamic)
 import Network.Wai.Handler.Warp (run)
-import Network.Wai.Application.Devel
 import Network.Wai.Middleware.Debug (debug)
-import Data.Dynamic (fromDynamic)
 import Distribution.Text (display)
 import Distribution.Simple.Install (install)
 import Distribution.Simple.Register (register)
-import Control.Concurrent (forkIO, threadDelay)
-import Control.Exception (try, SomeException)
+import Control.Concurrent (forkIO, threadDelay, ThreadId, killThread)
+import Control.Exception (try, SomeException, finally)
 import System.PosixCompat.Files (modificationTime, getFileStatus)
 import qualified Data.Map as Map
 import System.Posix.Types (EpochTime)
 import Blaze.ByteString.Builder.Char.Utf8 (fromString)
-import Network.Wai (Application, Response (ResponseBuilder))
+import Network.Wai (Application, Response (ResponseBuilder), responseLBS)
 import Network.HTTP.Types (status500)
-import Control.Monad (when)
+import Control.Monad (when, forever)
+import System.Process (runCommand, terminateProcess, getProcessExitCode, waitForProcess)
+import qualified Data.IORef as I
+import qualified Data.ByteString.Lazy.Char8 as L
+import System.Directory (doesFileExist, removeFile)
+
+appMessage :: L.ByteString -> IO ()
+appMessage l = forever $ do
+    run 3000 . const . return $ responseLBS status500 [("Content-Type", "text/plain")] l
+    threadDelay 10000
+
+swapApp :: I.IORef ThreadId -> IO ThreadId -> IO ()
+swapApp i f = do
+    I.readIORef i >>= killThread
+    f >>= I.writeIORef i
 
 devel :: IO ()
 devel = do
-    appHolder <- initAppHolder
-    _ <- forkIO $ run 3000 $ debug $ toApp appHolder
+    e <- doesFileExist "dist/devel-flag"
+    when e $ removeFile "dist/devel-flag"
+    listenThread <- forkIO (appMessage "Initializing, please wait") >>= I.newIORef
 
     cabal <- defaultPackageDesc normal
     gpd <- readPackageDescription normal cabal
@@ -50,12 +62,15 @@ devel = do
         , configUserInstall = Flag True
         }
 
-    let myTry :: IO (Either String x) -> IO (Either String x)
-        myTry f = try f >>= \x -> return $ case x of
-                                    Left e -> Left $ show (e :: SomeException)
-                                    Right y -> y
-    let getNewApp :: IO (Either String WithAppRunner)
+    let myTry :: IO () -> IO ()
+        myTry f = try f >>= \x -> case x of
+                                    Left e -> swapApp listenThread $ forkIO $ appMessage $ L.pack $ show (e :: SomeException)
+                                    Right y -> return y
+    let getNewApp :: IO ()
         getNewApp = myTry $ do
+            putStrLn "Rebuilding app"
+            swapApp listenThread $ forkIO $ appMessage "Rebuilding your app, please wait"
+
             deps <- getDeps
             touchDeps deps
 
@@ -69,13 +84,50 @@ devel = do
             register (localPkgDescr lbi) lbi defaultRegisterFlags
 
             let pi' = display $ package $ localPkgDescr lbi
-            dyn <- loadDynamic (pi', "Controller", "withDevelApp")
-            return $ case fmap fromDynamic dyn of
-                Nothing -> Left "withDevelApp not found"
-                Just Nothing -> Left "Not a withApp"
-                Just (Just withApp) -> Right withApp
+            writeFile "dist/devel.hs" $ unlines
+                [ "{-# LANGUAGE PackageImports #-}"
+                , concat
+                    [ "import \""
+                    , "haskellers" -- FIXME
+                    , "\" Controller (withDevelApp)"
+                    ]
+                , "import Data.Dynamic (fromDynamic)"
+                , "import Network.Wai.Handler.Warp (run)"
+                , "import Network.Wai.Middleware.Debug (debug)"
+                , "import Data.Maybe (fromJust)"
+                , "import Control.Concurrent (forkIO)"
+                , "import System.Directory (doesFileExist, removeFile)"
+                , "import Control.Concurrent (threadDelay)"
+                , ""
+                , "main :: IO ()"
+                , "main = do"
+                , "    putStrLn \"Starting app\""
+                , "    forkIO $ (fromJust $ fromDynamic withDevelApp) $ run 3000"
+                , "    loop"
+                , ""
+                , "loop :: IO ()"
+                , "loop = do"
+                , "    threadDelay 100000"
+                , "    e <- doesFileExist \"dist/devel-flag\""
+                , "    if e then removeFile \"dist/devel-flag\" else loop"
+                ]
+            swapApp listenThread $ forkIO $ do
+                putStrLn "Calling runghc..."
+                ph <- runCommand "runghc dist/devel.hs"
+                let forceType :: Either SomeException () -> ()
+                    forceType = const ()
+                fmap forceType $ try sleepForever
+                writeFile "dist/devel-flag" ""
+                putStrLn "Terminating external process"
+                terminateProcess ph
+                putStrLn "Process terminated"
+                ec <- waitForProcess ph
+                putStrLn $ "Exit code: " ++ show ec
 
-    loop Map.empty appHolder getNewApp
+    loop Map.empty getNewApp
+
+sleepForever :: IO ()
+sleepForever = forever $ threadDelay 1000000
 
 type FileList = Map.Map FilePath EpochTime
 
@@ -88,16 +140,13 @@ getFileList = do
         fs <- getFileStatus f
         return (f, modificationTime fs)
 
-loop :: FileList -> AppHolder -> IO (Either String WithAppRunner) -> IO ()
-loop oldList appHolder getNewApp = do
+loop :: FileList -> IO () -> IO ()
+loop oldList getNewApp = do
+    putStrLn "Testing files..."
     newList <- getFileList
-    when (newList /= oldList) $ do
-        res <- getNewApp
-        case res of
-            Left s -> swapAppSimple (errApp s) appHolder
-            Right x -> swapApp x appHolder
+    when (newList /= oldList) getNewApp
     threadDelay 1000000
-    loop newList appHolder getNewApp
+    loop newList getNewApp
 
 errApp :: String -> Application
 errApp s _ = return $ ResponseBuilder status500 [("Content-Type", "text/plain")] $ fromString s

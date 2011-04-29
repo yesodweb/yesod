@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.8.0
+version:         0.8.0.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -59,13 +59,12 @@ executable             yesod
                      , attoparsec-text    >= 0.8.5        && < 0.9
                      , http-types         >= 0.6.1        && < 0.7
                      , blaze-builder      >= 0.2          && < 0.4
-                     , direct-plugins     >= 1.1          && < 1.2
+                     , process
     ghc-options:       -Wall -threaded
     main-is:           scaffold.hs
     other-modules:     CodeGen
                        Scaffold.Build
                        Scaffold.Devel
-                       Network.Wai.Application.Devel
     if flag(ghc7)
         cpp-options:     -DGHC7
 
