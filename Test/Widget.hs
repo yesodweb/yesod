@@ -21,6 +21,7 @@ data Y = Y
 mkYesod "Y" [$parseRoutes|
 / RootR GET
 /foo/*Strings MultiR GET
+/whamlet WhamletR GET
 |]
 
 instance Yesod Y where
@@ -29,9 +30,26 @@ instance Yesod Y where
 getRootR = defaultLayout $ addJuliusBody [$julius|<not escaped>|]
 getMultiR _ = return ()
 
+data Msg = Hello | Goodbye
+instance YesodMessage Y where
+    type Message Y = Msg
+    renderMessage _ ("en":_) Hello = "Hello"
+    renderMessage _ ("es":_) Hello = "Hola"
+    renderMessage _ ("en":_) Goodbye = "Goodbye"
+    renderMessage _ ("es":_) Goodbye = "Adios"
+    renderMessage a (_:xs) y = renderMessage a xs y
+    renderMessage a [] y = renderMessage a ["en"] y
+
+getWhamletR = defaultLayout [$whamlet|
+<h1>Test
+<h2>@{WhamletR}
+<h3>_{Goodbye}
+|]
+
 widgetTest :: Test
 widgetTest = testGroup "Test.Widget"
     [ testCase "addJuliusBody" case_addJuliusBody
+    , testCase "whamlet" case_whamlet
     ]
 
 runner f = toWaiApp Y >>= runSession f
@@ -45,3 +63,10 @@ defaultRequest = Request
 case_addJuliusBody = runner $ do
     res <- request defaultRequest
     assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><script><not escaped></script></body></html>" res
+
+case_whamlet = runner $ do
+    res <- request defaultRequest
+        { pathInfo = ["whamlet"]
+        , requestHeaders = [("Accept-Language", "es")]
+        }
+    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><h1>Test</h1><h2>http://test/whamlet</h2><h3>Adios</h3></body></html>" res

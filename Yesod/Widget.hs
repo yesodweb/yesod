@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
@@ -8,6 +9,11 @@ module Yesod.Widget
       GWidget
     , GGWidget (..)
     , PageContent (..)
+      -- * Special Hamlet quasiquoter/TH for Widgets
+    , YesodMessage (..)
+    , getMessageRender
+    , whamlet
+    , whamletFile
       -- * Creating
       -- ** Head of page
     , setTitle
@@ -49,7 +55,7 @@ import Text.Cassius
 import Text.Lucius (Lucius)
 import Text.Julius
 import Yesod.Handler
-    (Route, GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod)
+    (Route, GHandler, GGHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod)
 import Control.Applicative (Applicative)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -57,8 +63,13 @@ import Yesod.Internal
 import Control.Monad (liftM)
 import Data.Text (Text)
 import qualified Data.Map as Map
+import Language.Haskell.TH.Quote (QuasiQuoter)
+import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE), Pat (VarP), newName)
+import Yesod.Handler (getUrlRenderParams, getYesodSub)
+import Yesod.Request (languages)
 
 import Control.Monad.IO.Control (MonadControlIO)
+import qualified Text.Hamlet.NonPoly as NP
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
@@ -205,3 +216,39 @@ data PageContent url = PageContent
     , pageHead :: Hamlet url
     , pageBody :: Hamlet url
     }
+
+class YesodMessage a where
+    type Message a
+    renderMessage :: a
+                  -> [Text] -- ^ languages
+                  -> Message a
+                  -> Html
+
+getMessageRender :: (Monad mo, YesodMessage s) => GGHandler s m mo (Message s -> Html)
+getMessageRender = do
+    s <- getYesodSub
+    l <- languages
+    return $ renderMessage s l
+
+whamlet :: QuasiQuoter
+whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
+
+whamletFile :: FilePath -> Q Exp
+whamletFile = NP.hamletFileWithSettings rules NP.defaultHamletSettings
+
+rules :: Q NP.HamletRules
+rules = do
+    ah <- [|addHtml|]
+    let helper qg f = do
+            x <- newName "urender"
+            e <- f $ VarE x
+            let e' = LamE [VarP x] e
+            g <- qg
+            bind <- [|(>>=)|]
+            return $ InfixE (Just g) bind (Just e')
+    let ur f = do
+            let env = NP.Env
+                    (Just $ helper [|lift getUrlRenderParams|])
+                    (Just $ helper [|lift getMessageRender|])
+            f env
+    return $ NP.HamletRules ah ur
