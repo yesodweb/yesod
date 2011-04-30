@@ -19,11 +19,15 @@ import Yesod.Content
 import Yesod.Core (defaultLayout, Yesod)
 import Yesod.Widget (GWidget)
 import qualified Data.Aeson as J
+import qualified Data.Aeson.Encode as JE
 import Data.Aeson.Encode (fromValue)
 import Data.Text (pack)
 import Control.Arrow (first)
 import Data.Map (fromList)
 import qualified Data.Vector as V
+import Text.Julius (ToJavascript (..))
+import Data.Text.Lazy.Builder (fromLazyText)
+import Data.Text.Lazy.Encoding (decodeUtf8)
 
 instance ToContent J.Value where
     toContent = flip ContentBuilder Nothing . fromValue
@@ -53,7 +57,5 @@ jsonList = J.Array . V.fromList
 jsonMap :: [(String, Json)] -> Json
 jsonMap = J.Object . fromList . map (first pack)
 
-{- FIXME
 instance ToJavascript J.Value where
-    toJavascript = fromLazyText . decodeUtf8 . toLazyByteString . JE.renderValue
--}
+    toJavascript = fromLazyText . decodeUtf8 . JE.encode
