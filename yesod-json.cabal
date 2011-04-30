@@ -13,7 +13,7 @@ homepage:        http://docs.yesodweb.com/
 
 library
     build-depends:   base                      >= 4        && < 5
-                   , yesod-core                >= 0.7      && < 0.8
+                   , yesod-core                >= 0.8      && < 0.9
                    , aeson                     >= 0.3.1.1  && < 0.4
                    , text                      >= 0.8      && < 0.12
                    , vector

@@ -52,3 +52,8 @@ jsonList = J.Array . V.fromList
 
 jsonMap :: [(String, Json)] -> Json
 jsonMap = J.Object . fromList . map (first pack)
+
+{- FIXME
+instance ToJavascript J.Value where
+    toJavascript = fromLazyText . decodeUtf8 . toLazyByteString . JE.renderValue
+-}
