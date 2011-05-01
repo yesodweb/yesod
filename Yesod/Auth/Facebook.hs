@@ -1,12 +1,12 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Yesod.Helpers.Auth.Facebook
+module Yesod.Auth.Facebook
     ( authFacebook
     , facebookUrl
     ) where
 
-import Yesod.Helpers.Auth
+import Yesod.Auth
 import qualified Web.Authenticate.Facebook as Facebook
 import Data.Aeson
 import Data.Aeson.Types (parseMaybe)

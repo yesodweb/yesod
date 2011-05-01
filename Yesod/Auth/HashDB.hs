@@ -7,7 +7,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 -------------------------------------------------------------------------------
 -- |
--- Module      :  Yesod.Helpers.Auth.HashDB
+-- Module      :  Yesod.Auth.HashDB
 -- Copyright   :  (c) Patrick Brisbin 2010 
 -- License     :  as-is
 --
@@ -22,7 +22,7 @@
 -- Example usage:
 --
 -- > -- import the function
--- > import Helpers.Auth.HashDB
+-- > import Auth.HashDB
 -- >
 -- > -- make sure you have an auth route
 -- > mkYesodData "MyApp" [$parseRoutes|
@@ -57,7 +57,7 @@
 -- can be used to get the hash from the commandline.
 --
 -------------------------------------------------------------------------------
-module Yesod.Helpers.Auth.HashDB
+module Yesod.Auth.HashDB
     ( authHashDB
     , getAuthIdHashDB
     , UserId
@@ -67,7 +67,7 @@ module Yesod.Helpers.Auth.HashDB
 import Yesod.Persist
 import Yesod.Handler
 import Yesod.Form
-import Yesod.Helpers.Auth
+import Yesod.Auth
 import Text.Hamlet (hamlet)
 
 import Control.Applicative         ((<$>), (<*>))

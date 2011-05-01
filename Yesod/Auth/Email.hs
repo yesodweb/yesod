@@ -2,7 +2,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Yesod.Helpers.Auth.Email
+module Yesod.Auth.Email
     ( -- * Plugin
       authEmail
     , YesodAuthEmail (..)
@@ -15,7 +15,7 @@ module Yesod.Helpers.Auth.Email
     ) where
 
 import Network.Mail.Mime (randomString)
-import Yesod.Helpers.Auth
+import Yesod.Auth
 import System.Random
 import Control.Monad (when)
 import Control.Applicative ((<$>), (<*>))

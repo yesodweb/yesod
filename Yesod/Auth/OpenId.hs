@@ -1,12 +1,12 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Yesod.Helpers.Auth.OpenId
+module Yesod.Auth.OpenId
     ( authOpenId
     , forwardUrl
     ) where
 
-import Yesod.Helpers.Auth
+import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 import Control.Monad.Attempt
 

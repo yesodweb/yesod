@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Yesod.Helpers.Auth
+module Yesod.Auth
     ( -- * Subsite
       Auth
     , AuthPlugin (..)

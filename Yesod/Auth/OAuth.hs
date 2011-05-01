@@ -1,12 +1,12 @@
 {-# LANGUAGE CPP, QuasiQuotes, OverloadedStrings #-}
 {-# OPTIONS_GHC -fwarn-unused-imports #-}
-module Yesod.Helpers.Auth.OAuth
+module Yesod.Auth.OAuth
     ( authOAuth
     , oauthUrl
     , authTwitter
     , twitterUrl
     ) where
-import Yesod.Helpers.Auth
+import Yesod.Auth
 import Yesod.Form
 import Yesod.Handler
 import Yesod.Widget

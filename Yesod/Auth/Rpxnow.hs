@@ -1,11 +1,11 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Yesod.Helpers.Auth.Rpxnow
+module Yesod.Auth.Rpxnow
     ( authRpxnow
     ) where
 
-import Yesod.Helpers.Auth
+import Yesod.Auth
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import Control.Monad (mplus)
 

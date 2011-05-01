@@ -4,11 +4,11 @@
 -- | Provides a dummy authentication module that simply lets a user specify
 -- his/her identifier. This is not intended for real world use, just for
 -- testing.
-module Yesod.Helpers.Auth.Dummy
+module Yesod.Auth.Dummy
     ( authDummy
     ) where
 
-import Yesod.Helpers.Auth
+import Yesod.Auth
 import Yesod.Form (runFormPost', stringInput)
 import Yesod.Handler (notFound)
 import Text.Hamlet (hamlet)

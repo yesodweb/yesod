@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.4.0.1
+version:         0.5.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -21,7 +21,7 @@ library
         build-depends:   base                      >= 4        && < 4.3
     build-depends:   authenticate            >= 0.9       && < 0.10
                    , bytestring              >= 0.9.1.4   && < 0.10
-                   , yesod-core              >= 0.8       && < 0.9
+                   , yesod-core              >= 0.8.1     && < 0.9
                    , wai                     >= 0.4       && < 0.5
                    , template-haskell
                    , pureMD5                 >= 1.1       && < 2.2
@@ -31,7 +31,7 @@ library
                    , mime-mail               >= 0.3       && < 0.4
                    , blaze-html              >= 0.4       && < 0.5
                    , yesod-persistent        >= 0.1       && < 0.2
-                   , hamlet                  >= 0.8       && < 0.9
+                   , hamlet                  >= 0.8.1     && < 0.9
                    , yesod-json              >= 0.1       && < 0.2
                    , containers              >= 0.2       && < 0.5
                    , yesod-form              >= 0.1       && < 0.2
@@ -43,14 +43,14 @@ library
                    , aeson                   >= 0.3.2.2   && < 0.4
                    , web-routes-quasi        >= 0.7       && < 0.8
 
-    exposed-modules: Yesod.Helpers.Auth
-                     Yesod.Helpers.Auth.Dummy
-                     Yesod.Helpers.Auth.Email
-                     Yesod.Helpers.Auth.Facebook
-                     Yesod.Helpers.Auth.OpenId
-                     Yesod.Helpers.Auth.OAuth
-                     Yesod.Helpers.Auth.Rpxnow
-                     Yesod.Helpers.Auth.HashDB
+    exposed-modules: Yesod.Auth
+                     Yesod.Auth.Dummy
+                     Yesod.Auth.Email
+                     Yesod.Auth.Facebook
+                     Yesod.Auth.OpenId
+                     Yesod.Auth.OAuth
+                     Yesod.Auth.Rpxnow
+                     Yesod.Auth.HashDB
     ghc-options:     -Wall
 
 source-repository head
