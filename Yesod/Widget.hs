@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
@@ -48,7 +49,6 @@ module Yesod.Widget
 
 import Data.Monoid
 import Control.Monad.Trans.RWS
-import Text.Blaze (preEscapedText, preEscapedLazyText)
 import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
@@ -217,18 +217,20 @@ data PageContent url = PageContent
     , pageBody :: Hamlet url
     }
 
-class YesodMessage a where
-    type Message a
-    renderMessage :: a
+class YesodMessage sub master where
+    type Message sub master
+    renderMessage :: sub
+                  -> master
                   -> [Text] -- ^ languages
-                  -> Message a
+                  -> Message sub master
                   -> Html
 
-getMessageRender :: (Monad mo, YesodMessage s) => GGHandler s m mo (Message s -> Html)
+getMessageRender :: (Monad mo, YesodMessage s m) => GGHandler s m mo (Message s m -> Html)
 getMessageRender = do
     s <- getYesodSub
+    m <- getYesod
     l <- languages
-    return $ renderMessage s l
+    return $ renderMessage s m l
 
 whamlet :: QuasiQuoter
 whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
