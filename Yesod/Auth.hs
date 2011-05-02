@@ -36,8 +36,8 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
-import Data.Monoid (mconcat)
 import Web.Routes.Quasi (toSinglePiece, fromSinglePiece)
+import Yesod.Auth.Message (AuthMessage, defaultMessage)
 
 data Auth = Auth
 
@@ -82,53 +82,10 @@ class (Yesod m, SinglePiece (AuthId m)) => YesodAuth m where
         tm <- lift getRouteToMaster
         mapM_ (flip apLogin tm) authPlugins
 
-    ----- Message strings. In theory in the future make this localizable
-    ----- See gist: https://gist.github.com/778712
-    messageNoOpenID :: m -> Html
-    messageNoOpenID _ = "No OpenID identifier found"
-    messageLoginOpenID :: m -> Html
-    messageLoginOpenID _ = "Login via OpenID"
-
-    messageEmail :: m -> Html
-    messageEmail _ = "Email"
-    messagePassword :: m -> Html
-    messagePassword _ = "Password"
-    messageRegister :: m -> Html
-    messageRegister _ = "Register"
-    messageRegisterLong :: m -> Html
-    messageRegisterLong _ = "Register a new account"
-    messageEnterEmail :: m -> Html
-    messageEnterEmail _ = "Enter your e-mail address below, and a confirmation e-mail will be sent to you."
-    messageConfirmationEmailSentTitle :: m -> Html
-    messageConfirmationEmailSentTitle _ = "Confirmation e-mail sent"
-    messageConfirmationEmailSent :: m -> Text -> Html
-    messageConfirmationEmailSent _ email = toHtml $ mconcat
-        ["A confirmation e-mail has been sent to ", email, "."]
-    messageAddressVerified :: m -> Html
-    messageAddressVerified _ = "Address verified, please set a new password"
-    messageInvalidKeyTitle :: m -> Html
-    messageInvalidKeyTitle _ = "Invalid verification key"
-    messageInvalidKey :: m -> Html
-    messageInvalidKey _ = "I'm sorry, but that was an invalid verification key."
-    messageInvalidEmailPass :: m -> Html
-    messageInvalidEmailPass _ = "Invalid email/password combination"
-    messageBadSetPass :: m -> Html
-    messageBadSetPass _ = "You must be logged in to set a password"
-    messageSetPassTitle :: m -> Html
-    messageSetPassTitle _ = "Set password"
-    messageSetPass :: m -> Html
-    messageSetPass _ = "Set a new password"
-    messageNewPass :: m -> Html
-    messageNewPass _ = "New password"
-    messageConfirmPass :: m -> Html
-    messageConfirmPass _ = "Confirm"
-    messagePassMismatch :: m -> Html
-    messagePassMismatch _ = "Passwords did not match, please try again"
-    messagePassUpdated :: m -> Html
-    messagePassUpdated _ = "Password updated"
-
-    messageFacebook :: m -> Html
-    messageFacebook _ = "Login with Facebook"
+    renderAuthMessage :: m
+                      -> [Text] -- ^ languages
+                      -> AuthMessage -> Html
+    renderAuthMessage _ _ = defaultMessage
 
 type Texts = [Text]
 
@@ -268,3 +225,7 @@ redirectLogin = do
     case authRoute y of
         Just z -> redirect RedirectTemporary z
         Nothing -> permissionDenied "Please configure authRoute"
+
+instance YesodAuth m => YesodMessage Auth m where
+    type Message Auth m = AuthMessage
+    renderMessage = const renderAuthMessage

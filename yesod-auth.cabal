@@ -51,6 +51,7 @@ library
                      Yesod.Auth.OAuth
                      Yesod.Auth.Rpxnow
                      Yesod.Auth.HashDB
+                     Yesod.Auth.Message
     ghc-options:     -Wall
 
 source-repository head

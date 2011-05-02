@@ -15,6 +15,7 @@ import Data.Maybe (fromMaybe)
 import Yesod.Form
 import Yesod.Handler
 import Yesod.Widget
+import Yesod.Request (languages)
 import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
@@ -22,6 +23,7 @@ import Data.Text (Text)
 import Control.Monad (mzero)
 import Data.Monoid (mappend)
 import qualified Data.Aeson.Types
+import qualified Yesod.Auth.Message as Msg
 
 facebookUrl :: AuthRoute
 facebookUrl = PluginR "facebook" ["forward"]
@@ -57,6 +59,8 @@ authFacebook cid secret perms =
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
         y <- lift getYesod
+        l <- lift languages
+        let mr = renderMessage (getAuth 'x') y l
         addHtml
 #if GHC7
             [hamlet|
@@ -64,7 +68,7 @@ authFacebook cid secret perms =
             [$hamlet|
 #endif
 <p>
-    <a href="#{furl}">#{messageFacebook y}
+    <a href="#{furl}">#{mr Msg.Facebook}
 |]
 
 parseCreds :: Text -> Value -> Data.Aeson.Types.Parser (Creds m)

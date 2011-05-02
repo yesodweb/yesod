@@ -19,6 +19,7 @@ import Text.Cassius (cassius)
 import Text.Blaze (toHtml)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text)
+import qualified Yesod.Auth.Message as Msg
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
@@ -41,6 +42,8 @@ authOpenId =
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
+        l <- lift languages
+        let mr = renderMessage (getAuth 'x') y l
         addHamlet
 #if GHC7
             [hamlet|
@@ -50,7 +53,7 @@ authOpenId =
 <form method="get" action="@{tm forwardUrl}">
     <label for="#{ident}">OpenID: 
     <input id="#{ident}" type="text" name="#{name}" value="http://">
-    <input type="submit" value="#{messageLoginOpenID y}">
+    <input type="submit" value="#{mr Msg.LoginOpenID}">
 |]
     dispatch "GET" ["forward"] = do
         (roid, _, _) <- runFormGet $ stringInput name
@@ -70,7 +73,8 @@ authOpenId =
                   res
             _ -> do
                 toMaster <- getRouteToMaster
-                setMessage $ messageNoOpenID y
+                mr <- getMessageRender
+                setMessage $ mr Msg.NoOpenID
                 redirect RedirectTemporary $ toMaster LoginR
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do
