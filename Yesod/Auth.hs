@@ -38,6 +38,7 @@ import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Web.Routes.Quasi (toSinglePiece, fromSinglePiece)
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
+import qualified Yesod.Auth.Message as Msg
 
 data Auth = Auth
 
@@ -112,6 +113,8 @@ setCreds :: YesodAuth m => Bool -> Creds m -> GHandler s m ()
 setCreds doRedirects creds = do
     y <- getYesod
     maid <- getAuthId creds
+    l <- languages
+    let mr = renderMessage Auth y l
     case maid of
         Nothing ->
             if doRedirects
@@ -128,14 +131,14 @@ setCreds doRedirects creds = do
 |]
                             sendResponse rh
                         Just ar -> do
-                            setMessage "Invalid login"
+                            setMessage $ mr Msg.InvalidLogin
                             redirect RedirectTemporary ar
                 else return ()
         Just aid -> do
             setSession credsKey $ toSinglePiece aid
             if doRedirects
                 then do
-                    setMessage "You are now logged in"
+                    setMessage $ mr Msg.NowLoggedIn
                     redirectUltDest RedirectTemporary $ loginDest y
                 else return ()
 

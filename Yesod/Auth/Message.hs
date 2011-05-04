@@ -31,6 +31,8 @@ data AuthMessage =
     | PassUpdated
     | Facebook
     | LoginViaEmail
+    | InvalidLogin
+    | NowLoggedIn
 
 defaultMessage :: AuthMessage -> Html
 defaultMessage NoOpenID = "No OpenID identifier found"
@@ -58,3 +60,5 @@ defaultMessage PassMismatch = "Passwords did not match, please try again"
 defaultMessage PassUpdated = "Password updated"
 defaultMessage Facebook = "Login with Facebook"
 defaultMessage LoginViaEmail = "Login via email"
+defaultMessage InvalidLogin = "Invalid login"
+defaultMessage NowLoggedIn = "You are now logged in"
