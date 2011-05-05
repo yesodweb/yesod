@@ -31,14 +31,14 @@ getRootR = defaultLayout $ addJuliusBody [$julius|<not escaped>|]
 getMultiR _ = return ()
 
 data Msg = Hello | Goodbye
-instance YesodMessage Y where
-    type Message Y = Msg
-    renderMessage _ ("en":_) Hello = "Hello"
-    renderMessage _ ("es":_) Hello = "Hola"
-    renderMessage _ ("en":_) Goodbye = "Goodbye"
-    renderMessage _ ("es":_) Goodbye = "Adios"
-    renderMessage a (_:xs) y = renderMessage a xs y
-    renderMessage a [] y = renderMessage a ["en"] y
+instance YesodMessage Y Y where
+    type Message Y Y = Msg
+    renderMessage _ _ ("en":_) Hello = "Hello"
+    renderMessage _ _ ("es":_) Hello = "Hola"
+    renderMessage _ _ ("en":_) Goodbye = "Goodbye"
+    renderMessage _ _ ("es":_) Goodbye = "Adios"
+    renderMessage a b (_:xs) y = renderMessage a b xs y
+    renderMessage a b [] y = renderMessage a b ["en"] y
 
 getWhamletR = defaultLayout [$whamlet|
 <h1>Test
