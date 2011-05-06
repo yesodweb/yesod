@@ -44,7 +44,10 @@ getWhamletR = defaultLayout [$whamlet|
 <h1>Test
 <h2>@{WhamletR}
 <h3>_{Goodbye}
+^{embed}
 |]
+  where
+    embed = [$whamlet|<h4>Embed|]
 
 widgetTest :: Test
 widgetTest = testGroup "Test.Widget"
@@ -69,4 +72,4 @@ case_whamlet = runner $ do
         { pathInfo = ["whamlet"]
         , requestHeaders = [("Accept-Language", "es")]
         }
-    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><h1>Test</h1><h2>http://test/whamlet</h2><h3>Adios</h3></body></html>" res
+    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><h1>Test</h1><h2>http://test/whamlet</h2><h3>Adios</h3><h4>Embed</h4></body></html>" res
