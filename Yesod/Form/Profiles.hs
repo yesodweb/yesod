@@ -52,7 +52,7 @@ import Data.Text (Text, unpack, pack)
 #define JULIUS $julius
 #endif
 
-intFieldProfile :: Integral i => FieldProfile sub y i
+intFieldProfile :: (Monad monad, Integral i) => FieldProfile (GGWidget master monad ()) i
 intFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid integer") Right . readMayI . unpack -- FIXME Data.Text.Read
     , fpRender = pack . showI
@@ -67,7 +67,7 @@ intFieldProfile = FieldProfile
                     (x, _):_ -> Just $ fromInteger x
                     [] -> Nothing
 
-doubleFieldProfile :: FieldProfile sub y Double
+doubleFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Double
 doubleFieldProfile = FieldProfile
     { fpParse = maybe (Left "Invalid number") Right . readMay . unpack -- FIXME use Data.Text.Read
     , fpRender = pack . show
@@ -77,7 +77,7 @@ doubleFieldProfile = FieldProfile
 |]
     }
 
-dayFieldProfile :: FieldProfile sub y Day
+dayFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Day
 dayFieldProfile = FieldProfile
     { fpParse = parseDate . unpack
     , fpRender = pack . show
@@ -87,7 +87,7 @@ dayFieldProfile = FieldProfile
 |]
     }
 
-timeFieldProfile :: FieldProfile sub y TimeOfDay
+timeFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) TimeOfDay
 timeFieldProfile = FieldProfile
     { fpParse = parseTime . unpack
     , fpRender = pack . show . roundFullSeconds
@@ -102,7 +102,7 @@ timeFieldProfile = FieldProfile
       where
         fullSec = fromInteger $ floor $ todSec tod
 
-htmlFieldProfile :: FieldProfile sub y Html
+htmlFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Html
 htmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
     , fpRender = pack . renderHtml
@@ -130,7 +130,7 @@ instance ToHtml Textarea where
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
-textareaFieldProfile :: FieldProfile sub y Textarea
+textareaFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Textarea
 textareaFieldProfile = FieldProfile
     { fpParse = Right . Textarea
     , fpRender = unTextarea
@@ -140,7 +140,7 @@ textareaFieldProfile = FieldProfile
 |]
     }
 
-hiddenFieldProfile :: FieldProfile sub y Text
+hiddenFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Text
 hiddenFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -150,7 +150,7 @@ hiddenFieldProfile = FieldProfile
 |]
     }
 
-stringFieldProfile :: FieldProfile sub y Text
+stringFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Text
 stringFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -160,7 +160,7 @@ stringFieldProfile = FieldProfile
 |]
     }
 
-passwordFieldProfile :: FieldProfile s m Text
+passwordFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Text
 passwordFieldProfile = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -208,7 +208,7 @@ parseTimeHelper (h1, h2, m1, m2, s1, s2)
     m = read [m1, m2]
     s = fromInteger $ read [s1, s2]
 
-emailFieldProfile :: FieldProfile s y Text
+emailFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Text
 emailFieldProfile = FieldProfile
     { fpParse = \s -> if Email.isValid (unpack s)
                         then Right s
@@ -221,7 +221,7 @@ emailFieldProfile = FieldProfile
     }
 
 type AutoFocus = Bool
-searchFieldProfile :: AutoFocus -> FieldProfile s y Text
+searchFieldProfile :: Monad monad => AutoFocus -> FieldProfile (GGWidget master monad ()) Text
 searchFieldProfile autoFocus = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -238,14 +238,14 @@ searchFieldProfile autoFocus = FieldProfile
             |]
     }
 
-urlFieldProfile :: FieldProfile s y Text
+urlFieldProfile :: Monad monad => FieldProfile (GGWidget master monad ()) Text
 urlFieldProfile = FieldProfile
     { fpParse = \s -> case parseURI $ unpack s of
                         Nothing -> Left "Invalid URL"
                         Just _ -> Right s
     , fpRender = id
-    , fpWidget = \theId name val isReq -> addHamlet
-        [HAMLET|\
-<input id="#{theId}" name="#{name}" type="url" :isReq:required="" value="#{val}">
+    , fpWidget = \theId name val isReq -> addHtml
+        [HAMLET|
+<input ##{theId} name=#{name} type=url :isReq:required value=#{val}>
 |]
     }

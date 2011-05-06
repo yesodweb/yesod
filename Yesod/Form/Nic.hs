@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME remove
 -- | Provide the user with a rich text editor.
 module Yesod.Form.Nic
     ( YesodNic (..)
@@ -26,16 +27,11 @@ class YesodNic a where
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-nicHtmlField :: (IsForm f, FormType f ~ Html, YesodNic (FormMaster f))
-             => FormFieldSettings -> Maybe Html -> f
 nicHtmlField = requiredFieldHelper nicHtmlFieldProfile
 
-maybeNicHtmlField
-    :: (IsForm f, FormType f ~ Maybe Html, YesodNic (FormMaster f))
-    => FormFieldSettings -> Maybe (FormType f) -> f
 maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
 
-nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html
+--nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html
 nicHtmlFieldProfile = FieldProfile
     { fpParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME
     , fpRender = pack . renderHtml

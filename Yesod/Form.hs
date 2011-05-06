@@ -16,33 +16,41 @@ module Yesod.Form
     , FieldInfo (..)
       -- ** Utilities
     , formFailures
+    {-
       -- * Type synonyms
     , Form
     , Formlet
     , FormField
     , FormletField
     , FormInput
+    -}
       -- * Unwrapping functions
     , generateForm
     , runFormGet
-    , runFormMonadGet
+    --, runFormMonadGet
     , runFormPost
     , runFormPostNoNonce
+    {-
     , runFormMonadPost
     , runFormGet'
     , runFormPost'
+    -}
       -- ** High-level form post unwrappers
+    {-
     , runFormTable
     , runFormDivs
+    -}
       -- * Field/form helpers
     , fieldsToTable
     , fieldsToDivs
     , fieldsToPlain
+    {-
     , checkForm
+    -}
       -- * Type classes
     , module Yesod.Form.Class
       -- * Template Haskell
-    , mkToForm
+    --, mkToForm
     , module Yesod.Form.Fields
     ) where
 
@@ -50,14 +58,14 @@ import Yesod.Form.Core
 import Yesod.Form.Fields
 import Yesod.Form.Class
 import Yesod.Form.Profiles (Textarea (..))
-import Yesod.Widget (GWidget)
+import Yesod.Widget (GWidget, GGWidget)
 
 import Text.Hamlet
 import Yesod.Request
 import Yesod.Handler
 import Control.Applicative hiding (optional)
 import Data.Maybe (fromMaybe, mapMaybe)
-import Control.Monad ((<=<))
+import Control.Monad ((<=<), liftM)
 import Language.Haskell.TH.Syntax hiding (lift)
 import Database.Persist.Base (EntityDef (..), PersistEntity (entityDef))
 import Data.Char (toUpper, isUpper)
@@ -65,6 +73,7 @@ import Control.Arrow ((&&&))
 import Data.List (group, sort)
 import Data.Monoid (mempty)
 import Data.Text (Text)
+import Control.Monad.Trans.RWS (runRWST)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HAMLET hamlet
@@ -72,12 +81,12 @@ import Data.Text (Text)
 #define HAMLET $hamlet
 #endif
 -- | Display only the actual input widget code, without any decoration.
-fieldsToPlain :: FormField sub y a -> Form sub y a
+fieldsToPlain :: (Monad mo, Monad mo') => GForm [FieldInfo (GGWidget master mo' ())] mo a -> GForm (GGWidget master mo' ()) mo a
 fieldsToPlain = mapFormXml $ mapM_ fiInput
 
 -- | Display the label, tooltip, input code and errors in a single row of a
 -- table.
-fieldsToTable :: FormField sub y a -> Form sub y a
+fieldsToTable :: (Monad mo, Monad mo') => GForm [FieldInfo (GGWidget master mo' ())] mo a -> GForm (GGWidget master mo' ()) mo a
 fieldsToTable = mapFormXml $ mapM_ go
   where
     go fi = [HAMLET|
@@ -93,7 +102,7 @@ fieldsToTable = mapFormXml $ mapM_ go
     clazz fi = if fiRequired fi then "required" else "optional" :: Text
 
 -- | Display the label, tooltip, input code and errors in a single div.
-fieldsToDivs :: FormField sub y a -> Form sub y a
+fieldsToDivs :: (Monad mo, Monad mo') => GForm [FieldInfo (GGWidget master mo' ())] mo a -> GForm (GGWidget master mo' ()) mo a
 fieldsToDivs = mapFormXml $ mapM_ go
   where
     go fi = [HAMLET|
@@ -107,7 +116,7 @@ fieldsToDivs = mapFormXml $ mapM_ go
     clazz fi = if fiRequired fi then "required" else "optional" :: Text
 
 -- | Run a form against POST parameters, without CSRF protection.
-runFormPostNoNonce :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
+runFormPostNoNonce :: GForm xml (GHandler s m) a -> GHandler s m (a, xml, Enctype)
 runFormPostNoNonce f = do
     (pp, files) <- runRequestBody
     runFormGeneric pp files f
@@ -117,17 +126,17 @@ runFormPostNoNonce f = do
 -- This function includes CSRF protection by checking a nonce value. You must
 -- therefore embed this nonce in the form as a hidden field; that is the
 -- meaning of the fourth element in the tuple.
-runFormPost :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype, Html)
+runFormPost :: GForm xml (GHandler s m) (FormResult a) -> GHandler s m (FormResult a, xml, Enctype, Html)
 runFormPost f = do
     (pp, files) <- runRequestBody
-    nonce <- fmap reqNonce getRequest
+    nonce <- liftM reqNonce getRequest
     (res, xml, enctype) <- runFormGeneric pp files f
     let res' =
             case res of
                 FormSuccess x ->
                     if lookup nonceName pp == nonce
                         then FormSuccess x
-                        else FormFailure ["As a protection against cross-site request forgery attacks, please confirm your form submission."]
+                        else FormFailure ["As a protection against cross-site request forgery attacks, please confirm your form submission."] -- TRANS
                 _ -> res
     return (res', xml, enctype, maybe mempty hidden nonce)
   where
@@ -138,13 +147,7 @@ runFormPost f = do
 nonceName :: Text
 nonceName = "_nonce"
 
--- | Run a form against POST parameters. Please note that this does not provide
--- CSRF protection.
-runFormMonadPost :: GFormMonad s m a -> GHandler s m (a, Enctype)
-runFormMonadPost f = do
-    (pp, files) <- runRequestBody
-    runFormGeneric pp files f
-
+{- FIXME
 -- | Run a form against POST parameters, disregarding the resulting HTML and
 -- returning an error response on invalid input. Note: this does /not/ perform
 -- CSRF protection.
@@ -153,7 +156,9 @@ runFormPost' f = do
     (pp, files) <- runRequestBody
     x <- runFormGeneric pp files f
     helper x
+-}
 
+{- FIXME
 -- | Create a table-styled form.
 --
 -- This function wraps around 'runFormPost' and 'fieldsToTable', taking care of
@@ -173,7 +178,9 @@ runFormTable dest inputLabel form = do
                 \#{nonce}
                 <input type="submit" value="#{inputLabel}">
 |])
+-}
 
+{- FIXME
 -- | Same as 'runFormPostTable', but uses 'fieldsToDivs' for styling.
 runFormDivs :: Route m -> String -> FormField s m a
             -> GHandler s m (FormResult a, GWidget s m ())
@@ -186,11 +193,14 @@ runFormDivs dest inputLabel form = do
         \#{nonce}
         <input type="submit" value="#{inputLabel}">
 |])
+-}
 
+{- FIXME
 -- | Run a form against GET parameters, disregarding the resulting HTML and
 -- returning an error response on invalid input.
-runFormGet' :: GForm sub y xml a -> GHandler sub y a
+runFormGet' :: GForm xml mo a -> GHandler sub y a
 runFormGet' = helper <=< runFormGet
+-}
 
 helper :: (FormResult a, b, c) -> GHandler sub y a
 helper (FormSuccess a, _, _) = return a
@@ -199,26 +209,27 @@ helper (FormMissing, _, _) = invalidArgs ["No input found"]
 
 -- | Generate a form, feeding it no data. The third element in the result tuple
 -- is a nonce hidden field.
-generateForm :: GForm s m xml a -> GHandler s m (xml, Enctype, Html)
+generateForm :: Monad mo => GForm xml (GGHandler s m mo) a -> GGHandler s m mo (xml, Enctype, Html)
 generateForm f = do
     (_, b, c) <- runFormGeneric [] [] f
-    nonce <- fmap reqNonce getRequest
+    nonce <- liftM reqNonce getRequest
     return (b, c, [HAMLET|\
 $maybe n <- nonce
     <input type="hidden" name="#{nonceName}" value="#{n}">
 |])
 
 -- | Run a form against GET parameters.
-runFormGet :: GForm s m xml a -> GHandler s m (FormResult a, xml, Enctype)
+runFormGet :: Monad mo => GForm xml (GGHandler s m mo) a -> GGHandler s m mo (a, xml, Enctype)
 runFormGet f = do
-    gs <- reqGetParams `fmap` getRequest
+    gs <- reqGetParams `liftM` getRequest
     runFormGeneric gs [] f
 
-runFormMonadGet :: GFormMonad s m a -> GHandler s m (a, Enctype)
-runFormMonadGet f = do
-    gs <- reqGetParams `fmap` getRequest
-    runFormGeneric gs [] f
+runFormGeneric :: Monad mo => Env -> FileEnv -> GForm xml mo a -> mo (a, xml, Enctype)
+runFormGeneric e fe f = do
+    (a, _s, (enc, xml)) <- runRWST f (e, fe) (IntSingle 1)
+    return (a, xml, enc)
 
+{- FIXME
 -- | Create 'ToForm' instances for the given entity. In addition to regular 'EntityDef' attributes understood by persistent, it also understands label= and tooltip=.
 mkToForm :: PersistEntity v => v -> Q [Dec]
 mkToForm =
@@ -298,6 +309,7 @@ mkToForm =
                   (stm name)
          in VarE (mkName tff) `AppE` ffs `AppE` ex
     ap' ap x y = InfixE (Just x) ap (Just y)
+-}
 
 toLabel :: String -> String
 toLabel "" = ""

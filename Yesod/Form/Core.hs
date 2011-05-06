@@ -8,39 +8,38 @@ module Yesod.Form.Core
     ( FormResult (..)
     , GForm (..)
     , newFormIdent
+    {- FIXME
     , deeperFormIdent
     , shallowerFormIdent
+    -}
     , Env
     , FileEnv
     , Enctype (..)
     , Ints (..)
     , requiredFieldHelper
     , optionalFieldHelper
-    , fieldsToInput
     , mapFormXml
+    {- FIXME
     , checkForm
     , checkField
+    -}
     , askParams
     , askFiles
-    , liftForm
-    , IsForm (..)
-    , RunForm (..)
-    , GFormMonad
       -- * Data types
     , FieldInfo (..)
     , FormFieldSettings (..)
     , FieldProfile (..)
       -- * Type synonyms
+    {- FIXME
     , Form
     , Formlet
     , FormField
     , FormletField
     , FormInput
+    -}
     ) where
 
-import Control.Monad.Trans.State
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Writer
+import Control.Monad.Trans.RWS
 import Control.Monad.Trans.Class (lift)
 import Yesod.Handler
 import Yesod.Widget
@@ -83,7 +82,7 @@ instance Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
     mappend x y = mappend <$> x <*> y
 
--- | The encoding type required by a form. The 'Show' instance produces values
+-- | The encoding type required by a form. The 'ToHtml' instance produces values
 -- that can be inserted directly into HTML.
 data Enctype = UrlEncoded | Multipart
     deriving (Eq, Enum, Bounded)
@@ -104,32 +103,19 @@ incrInts :: Ints -> Ints
 incrInts (IntSingle i) = IntSingle $ i + 1
 incrInts (IntCons i is) = (i + 1) `IntCons` is
 
--- | A generic form, allowing you to specifying the subsite datatype, master
--- site datatype, a datatype for the form XML and the return type.
-newtype GForm s m xml a = GForm
-    { deform :: FormInner s m (FormResult a, xml, Enctype)
-    }
-
-type GFormMonad s m a = WriterT Enctype (FormInner s m) a
-
-type FormInner s m =
-    StateT Ints (
-    ReaderT Env (
-    ReaderT FileEnv (
-    GHandler s m
-    )))
-
+type GForm xml m a = RWST (Env, FileEnv) (Enctype, xml) Ints m a -- FIXME rename to Form
 type Env = [(Text, Text)]
 type FileEnv = [(Text, FileInfo)]
 
 -- | Get a unique identifier.
-newFormIdent :: Monad m => StateT Ints m Text
+newFormIdent :: (Monoid xml, Monad m) => GForm xml m Text
 newFormIdent = do
     i <- get
     let i' = incrInts i
     put i'
     return $ pack $ 'f' : show i'
 
+{- FIXME
 deeperFormIdent :: Monad m => StateT Ints m ()
 deeperFormIdent = do
     i <- get
@@ -140,30 +126,18 @@ shallowerFormIdent :: Monad m => StateT Ints m ()
 shallowerFormIdent = do
     IntCons _ i <- get
     put i
-
-instance Monoid xml => Functor (GForm sub url xml) where
-    fmap f (GForm g) =
-        GForm $ liftM (first3 $ fmap f) g
-      where
-        first3 f' (x, y, z) = (f' x, y, z)
-
-instance Monoid xml => Applicative (GForm sub url xml) where
-    pure a = GForm $ return (pure a, mempty, mempty)
-    (GForm f) <*> (GForm g) = GForm $ do
-        (f1, f2, f3) <- f
-        (g1, g2, g3) <- g
-        return (f1 <*> g1, f2 `mappend` g2, f3 `mappend` g3)
+-}
 
 -- | Create a required field (ie, one that cannot be blank) from a
 -- 'FieldProfile'.
 requiredFieldHelper
-    :: IsForm f
-    => FieldProfile (FormSub f) (FormMaster f) (FormType f)
+    :: (Monoid xml', Monad m)
+    => FieldProfile xml a
     -> FormFieldSettings
-    -> Maybe (FormType f)
-    -> f
-requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = toForm $ do
-    env <- lift ask
+    -> Maybe a
+    -> GForm xml' m (FormResult a, FieldInfo xml)
+requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = do
+    env <- askParams
     let (FormFieldSettings label tooltip theId' name') = ffs
     name <- maybe newFormIdent return name'
     theId <- maybe newFormIdent return theId'
@@ -172,7 +146,7 @@ requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = toForm $ do
                 then (FormMissing, maybe "" render orig)
                 else case lookup name env of
                         Nothing -> (FormMissing, "")
-                        Just "" -> (FormFailure ["Value is required"], "")
+                        Just "" -> (FormFailure ["Value is required"], "") -- TRANS
                         Just x ->
                             case parse x of
                                 Left e -> (FormFailure [e], x)
@@ -190,68 +164,18 @@ requiredFieldHelper (FieldProfile parse render mkWidget) ffs orig = toForm $ do
     let res' = case res of
                 FormFailure [e] -> FormFailure [label ++ ": " ++ e]
                 _ -> res
-    return (res', fi, UrlEncoded)
-
-class IsForm f where
-    type FormSub f
-    type FormMaster f
-    type FormType f
-    toForm :: FormInner
-                (FormSub f)
-                (FormMaster f)
-                (FormResult (FormType f),
-                 FieldInfo (FormSub f) (FormMaster f),
-                 Enctype) -> f
-instance IsForm (FormField s m a) where
-    type FormSub (FormField s m a) = s
-    type FormMaster (FormField s m a) = m
-    type FormType (FormField s m a) = a
-    toForm x = GForm $ do
-        (a, b, c) <- x
-        return (a, [b], c)
-instance (FormResult ~ formResult) => IsForm (GFormMonad s m (formResult a, FieldInfo s m)) where
-    type FormSub (GFormMonad s m (formResult a, FieldInfo s m)) = s
-    type FormMaster (GFormMonad s m (formResult a, FieldInfo s m)) = m
-    type FormType (GFormMonad s m (formResult a, FieldInfo s m)) = a
-    toForm x = do
-        (res, fi, enctype) <- lift x
-        tell enctype
-        return (res, fi)
-
-class RunForm f where
-    type RunFormSub f
-    type RunFormMaster f
-    type RunFormType f
-    runFormGeneric :: Env -> FileEnv -> f
-                   -> GHandler (RunFormSub f)
-                               (RunFormMaster f)
-                               (RunFormType f)
-
-instance RunForm (GForm s m xml a) where
-    type RunFormSub (GForm s m xml a) = s
-    type RunFormMaster (GForm s m xml a) = m
-    type RunFormType (GForm s m xml a) =
-        (FormResult a, xml, Enctype)
-    runFormGeneric env fe (GForm f) =
-        runReaderT (runReaderT (evalStateT f $ IntSingle 1) env) fe
-
-instance RunForm (GFormMonad s m a) where
-    type RunFormSub (GFormMonad s m a) = s
-    type RunFormMaster (GFormMonad s m a) = m
-    type RunFormType (GFormMonad s m a) = (a, Enctype)
-    runFormGeneric e fe f =
-        runReaderT (runReaderT (evalStateT (runWriterT f) $ IntSingle 1) e) fe
+    return (res', fi)
 
 -- | Create an optional field (ie, one that can be blank) from a
 -- 'FieldProfile'.
 optionalFieldHelper
-    :: (IsForm f, Maybe b ~ FormType f)
-    => FieldProfile (FormSub f) (FormMaster f) b
+    :: (Monad m, Monoid xml')
+    => FieldProfile xml b
     -> FormFieldSettings
     -> Maybe (Maybe b)
-    -> f
-optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = toForm $ do
-    env <- lift ask
+    -> GForm xml' m (FormResult (Maybe b), FieldInfo xml)
+optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = do
+    env <- askParams
     let (FormFieldSettings label tooltip theId' name') = ffs
     let orig = join orig'
     name <- maybe newFormIdent return name'
@@ -279,25 +203,22 @@ optionalFieldHelper (FieldProfile parse render mkWidget) ffs orig' = toForm $ do
     let res' = case res of
                 FormFailure [e] -> FormFailure [label ++ ": " ++ e]
                 _ -> res
-    return (res', fi, UrlEncoded)
-
-fieldsToInput :: [FieldInfo sub y] -> [GWidget sub y ()]
-fieldsToInput = map fiInput
+    return (res', fi)
 
 -- | Convert the XML in a 'GForm'.
-mapFormXml :: (xml1 -> xml2) -> GForm s y xml1 a -> GForm s y xml2 a
-mapFormXml f (GForm g) = GForm $ do
-    (res, xml, enc) <- g
-    return (res, f xml, enc)
+mapFormXml :: Monad m => (xml1 -> xml2) -> GForm xml1 m a -> GForm xml2 m a
+mapFormXml f = mapRWST $ \x -> do
+    (a, b, (c, d)) <- x
+    return (a, b, (c, f d))
 
 -- | Using this as the intermediate XML representation for fields allows us to
 -- write generic field functions and then different functions for producing
 -- actual HTML. See, for example, 'fieldsToTable' and 'fieldsToPlain'.
-data FieldInfo sub y = FieldInfo
+data FieldInfo xml = FieldInfo
     { fiLabel :: Html
     , fiTooltip :: Html
     , fiIdent :: Text
-    , fiInput :: GWidget sub y ()
+    , fiInput :: xml
     , fiErrors :: Maybe Html
     , fiRequired :: Bool
     }
@@ -314,19 +235,22 @@ instance IsString FormFieldSettings where
 -- | A generic definition of a form field that can be used for generating both
 -- required and optional fields. See 'requiredFieldHelper and
 -- 'optionalFieldHelper'.
-data FieldProfile sub y a = FieldProfile
+data FieldProfile xml a = FieldProfile
     { fpParse :: Text -> Either Text a
     , fpRender :: a -> Text
     -- | ID, name, value, required
-    , fpWidget :: Text -> Text -> Text -> Bool -> GWidget sub y ()
+    , fpWidget :: Text -> Text -> Text -> Bool -> xml
     }
 
+{- FIXME
 type Form sub y = GForm sub y (GWidget sub y ())
 type Formlet sub y a = Maybe a -> Form sub y a
-type FormField sub y = GForm sub y [FieldInfo sub y]
-type FormletField sub y a = Maybe a -> FormField sub y a
 type FormInput sub y = GForm sub y [GWidget sub y ()]
+type FormField xml m = GForm xml m [FieldInfo xml]
+type FormletField xml m a = Maybe a -> FormField xml a
+-}
 
+{- FIXME
 -- | Add a validation check to a form.
 --
 -- Note that if there is a validation error, this message will /not/
@@ -345,7 +269,7 @@ checkForm f (GForm form) = GForm $ do
 -- Unlike 'checkForm', the validation error will appear in the generated HTML
 -- of the form.
 checkField :: (a -> Either Text b) -> FormField s m a -> FormField s m b
-checkField f (GForm form) = GForm $ do
+checkField f form = do
     (res, xml, enc) <- form
     let (res', merr) =
             case res of
@@ -365,12 +289,10 @@ checkField f (GForm form) = GForm $ do
                             Just x -> x
                     }
     return (res', xml', enc)
+-}
 
-askParams :: Monad m => StateT Ints (ReaderT Env m) Env
-askParams = lift ask
+askParams :: (Monoid xml, Monad m) => GForm xml m Env
+askParams = liftM fst ask
 
-askFiles :: Monad m => StateT Ints (ReaderT Env (ReaderT FileEnv m)) FileEnv
-askFiles = lift $ lift ask
-
-liftForm :: Monad m => m a -> StateT Ints (ReaderT Env (ReaderT FileEnv m)) a
-liftForm = lift . lift . lift
+askFiles :: (Monoid xml, Monad m) => GForm xml m FileEnv
+askFiles = liftM snd ask

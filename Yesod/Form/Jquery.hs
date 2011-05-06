@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME remove
 -- | Some fields spiced up with jQuery UI.
 module Yesod.Form.Jquery
     ( YesodJquery (..)
@@ -67,23 +68,10 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField :: (IsForm f, FormType f ~ Day, YesodJquery (FormMaster f))
-               => JqueryDaySettings
-               -> FormFieldSettings
-               -> Maybe (FormType f)
-               -> f
 jqueryDayField = requiredFieldHelper . jqueryDayFieldProfile
 
-maybeJqueryDayField
-    :: (IsForm f, FormType f ~ Maybe Day, YesodJquery (FormMaster f))
-    => JqueryDaySettings
-    -> FormFieldSettings
-    -> Maybe (FormType f)
-    -> f
 maybeJqueryDayField = optionalFieldHelper . jqueryDayFieldProfile
 
-jqueryDayFieldProfile :: YesodJquery y
-                      => JqueryDaySettings -> FieldProfile sub y Day
 jqueryDayFieldProfile jds = FieldProfile
     { fpParse = maybe
                   (Left "Invalid day, must be in YYYY-MM-DD format")
@@ -128,11 +116,6 @@ ifRight e f = case e of
 showLeadingZero :: (Show a) => a -> String
 showLeadingZero time = let t = show time in if length t == 1 then "0" ++ t else t
 
-jqueryDayTimeField
-    :: (IsForm f, FormType f ~ UTCTime, YesodJquery (FormMaster f))
-    => FormFieldSettings
-    -> Maybe (FormType f)
-    -> f
 jqueryDayTimeField = requiredFieldHelper jqueryDayTimeFieldProfile
 
 -- use A.M/P.M and drop seconds and "UTC" (as opposed to normal UTCTime show)
@@ -145,7 +128,6 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
       let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
       in (show h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
 
-jqueryDayTimeFieldProfile :: YesodJquery y => FieldProfile sub y UTCTime
 jqueryDayTimeFieldProfile = FieldProfile
     { fpParse  = parseUTCTime . unpack
     , fpRender = pack . jqueryDayTimeUTCTime
@@ -172,24 +154,12 @@ parseUTCTime s =
                 ifRight (parseTime timeS)
                     (UTCTime date . timeOfDayToTime)
 
-jqueryAutocompleteField
-    :: (IsForm f, FormType f ~ Text, YesodJquery (FormMaster f))
-    => Route (FormMaster f)
-    -> FormFieldSettings
-    -> Maybe (FormType f)
-    -> f
 jqueryAutocompleteField = requiredFieldHelper . jqueryAutocompleteFieldProfile
 
-maybeJqueryAutocompleteField
-    :: (IsForm f, FormType f ~ Maybe Text, YesodJquery (FormMaster f))
-    => Route (FormMaster f)
-    -> FormFieldSettings
-    -> Maybe (FormType f)
-    -> f
 maybeJqueryAutocompleteField src =
     optionalFieldHelper $ jqueryAutocompleteFieldProfile src
 
-jqueryAutocompleteFieldProfile :: YesodJquery y => Route y -> FieldProfile sub y Text
+jqueryAutocompleteFieldProfile :: YesodJquery master => Route master -> FieldProfile (GWidget sub master ()) Text
 jqueryAutocompleteFieldProfile src = FieldProfile
     { fpParse = Right
     , fpRender = id
@@ -205,7 +175,6 @@ $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     }
 
-addScript' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addScript' f = do
     y <- lift getYesod
     addScriptEither $ f y

@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 module Yesod.Form.Class
+() where
+{- FIXME Maybe we should remove this module entirely...
     ( ToForm (..)
     , ToFormField (..)
     ) where
@@ -67,3 +69,4 @@ instance ToFormField Textarea y where
     toFormField = textareaField
 instance ToFormField (Maybe Textarea) y where
     toFormField = maybeTextareaField
+-}
