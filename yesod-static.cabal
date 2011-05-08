@@ -7,7 +7,7 @@ maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Static file serving subsite for Yesod Web Framework.
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6
+cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 
@@ -32,17 +32,15 @@ library
     exposed-modules: Yesod.Helpers.Static
     ghc-options:     -Wall
 
-executable             runtests
-    if flag(test)
-        Buildable: True
-        cpp-options:   -DTEST
-        build-depends: test-framework,
-                       test-framework-quickcheck2,
-                       test-framework-hunit,
-                       HUnit,
-                       QuickCheck >= 2 && < 3
-    else
-        Buildable: False
+test-suite runtests
+    hs-source-dirs: tests
+    main-is: runtests.hs
+    type: exitcode-stdio-1.0
+    cpp-options:   -DTEST
+    build-depends: yesod-static,
+                   base >= 4 && < 5,
+                   hspec,
+                   HUnit
     ghc-options:     -Wall
     main-is:         runtests.hs
 

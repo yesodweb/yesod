@@ -44,7 +44,7 @@ module Yesod.Helpers.Static
       -- * Hashing
     , base64md5
 #if TEST
-    , testSuite
+    , getFileListPieces 
 #endif
     ) where
 
@@ -75,12 +75,6 @@ import Network.Wai.Application.Static
     , staticAppPieces
     , pathFromPieces
     )
-
-#if TEST
-import Test.Framework (testGroup, Test)
-import Test.Framework.Providers.HUnit
-import Test.HUnit hiding (Test)
-#endif
 
 -- | generally static assets referenced in html files
 -- assets get a checksum query parameter appended for perfect caching
@@ -257,20 +251,6 @@ base64md5File :: FilePath -> IO String
 base64md5File file = do
   contents <- L.readFile file
   return $ base64md5 contents
-
-#if TEST
-
-testSuite :: Test
-testSuite = testGroup "Yesod.Helpers.Static"
-    [ testCase "get file list" caseGetFileList
-    ]
-
-caseGetFileList :: Assertion
-caseGetFileList = do
-    x <- getFileListPieces "test"
-    x @?= [["foo"], ["bar", "baz"]]
-
-#endif
 
 -- | md5-hashes the given lazy bytestring and returns the hash as
 -- base64url-encoded string.
