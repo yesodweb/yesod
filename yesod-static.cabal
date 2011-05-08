@@ -1,9 +1,5 @@
 name:            yesod-static
-<<<<<<< HEAD
 version:         0.1.0
-=======
-version:         0.1.0.0
->>>>>>> update caching interface
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -21,6 +17,8 @@ flag test
 
 library
     build-depends:   base                      >= 4        && < 5
+                   , containers                >= 0.4
+                   , old-time                  >= 1.0
                    , yesod-core                >= 0.8      && < 0.9
                    , base64-bytestring         >= 0.1.0.1  && < 0.2
                    , pureMD5                   >= 2.1.0.3  && < 2.2
@@ -29,7 +27,7 @@ library
                    , template-haskell
                    , directory                 >= 1.0      && < 1.2
                    , transformers              >= 0.2      && < 0.3
-                   , wai-app-static            >= 0.1      && < 0.2
+                   , wai-app-static            >= 0.3      && < 0.4
                    , text                      >= 0.5      && < 1.0
     exposed-modules: Yesod.Helpers.Static
     ghc-options:     -Wall

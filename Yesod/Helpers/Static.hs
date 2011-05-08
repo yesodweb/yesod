@@ -59,7 +59,6 @@ import Data.List (intercalate)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
-import Data.Char
 import qualified Data.ByteString.Lazy as L
 import Data.Digest.Pure.MD5
 import qualified Data.ByteString.Base64
@@ -67,13 +66,14 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Data.Serialize
 import Data.Text (Text, pack)
 import Data.Monoid (mempty)
+import qualified Data.Map as M
+import Data.IORef (readIORef, newIORef, writeIORef)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..), CacheSettings (..)
     , defaultStaticSettings, defaultPublicSettings
     , staticAppPieces
     , pathFromPieces
-    , Pieces
     )
 
 #if TEST
@@ -103,7 +103,7 @@ static root fp = do
   hashes <- mkHashMap fp
   return $ Static $ (defaultStaticSettings (Forever $ isStaticRequest hashes)) {
     ssFolder = fp
-  , ssMkRedirect = \_ newPath -> S8.pack $ root ++ "/" ++ newPath
+  , ssMkRedirect = \_ newPath -> S8.append (S8.pack (root ++ "/")) newPath
   }
   where
     isStaticRequest hashes reqf reqh = case M.lookup reqf hashes of
@@ -114,7 +114,7 @@ static root fp = do
 public :: String -> FilePath -> CacheSettings -> Public
 public root fp cache = Public $ (defaultPublicSettings cache) {
     ssFolder = fp 
-  , ssMkRedirect = \_ newPath -> S8.pack $ root ++ "/" ++ newPath
+  , ssMkRedirect = \_ newPath -> S8.append (S8.pack (root ++ "/")) newPath
   }
 
 publicProduction :: String -> FilePath -> IO Public
@@ -137,7 +137,7 @@ publicDevel root fp = do
 -- E.g. When generating image galleries.
 data StaticRoute = StaticRoute [Text] [(Text, Text)]
     deriving (Eq, Show, Read)
-data PublicRoute = PublicRoute [String] [(String, String)]
+data PublicRoute = PublicRoute [Text] [(Text, Text)]
     deriving (Eq, Show, Read)
 
 type instance Route Static = StaticRoute
@@ -190,11 +190,11 @@ mkHashMap dir = do
     fs <- getFileListPieces dir
     hashAlist fs >>= return . M.fromList
   where
-    hashAlist :: [Pieces] -> IO [(FilePath, S8.ByteString)]
+    hashAlist :: [[String]] -> IO [(FilePath, S8.ByteString)]
     hashAlist fs = mapM hashPair fs
       where
-        hashPair :: Pieces -> IO (FilePath, S8.ByteString)
-        hashPair pieces = do let file = pathFromPieces dir pieces
+        hashPair :: [String] -> IO (FilePath, S8.ByteString)
+        hashPair pieces = do let file = pathFromPieces dir (map pack pieces)
                              h <- base64md5File file
                              return (file, S8.pack h)
 
@@ -243,7 +243,7 @@ mkStaticFiles' fp routeConName makeHash = do
         let route = mkName routeConName
         pack' <- [|pack|]
         qs <- if makeHash
-                    then do hash <- qRunIO $ base64md5File $ pathFromPieces fp f
+                    then do hash <- qRunIO $ base64md5File $ pathFromPieces fp (map pack f)
                             [|[(pack $(lift hash), mempty)]|]
                     else return $ ListE []
         return
