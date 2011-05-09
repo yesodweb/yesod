@@ -8,11 +8,10 @@
 module Yesod.Form.Nic
     ( YesodNic (..)
     , nicHtmlField
-    , maybeNicHtmlField
     ) where
 
 import Yesod.Handler
-import Yesod.Form.Core
+import Yesod.Form
 import Yesod.Widget
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Text.Hamlet (Html, hamlet)
@@ -27,15 +26,11 @@ class YesodNic a where
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-nicHtmlField = requiredFieldHelper nicHtmlFieldProfile
-
-maybeNicHtmlField = optionalFieldHelper nicHtmlFieldProfile
-
---nicHtmlFieldProfile :: YesodNic y => FieldProfile sub y Html
-nicHtmlFieldProfile = FieldProfile
-    { fpParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME
-    , fpRender = pack . renderHtml
-    , fpWidget = \theId name val _isReq -> do
+nicHtmlField :: YesodNic master => Field (GWidget sub master ()) Html
+nicHtmlField = Field
+    { fieldParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME
+    , fieldRender = pack . renderHtml
+    , fieldView = \theId name val _isReq -> do
         addHtml
 #if __GLASGOW_HASKELL__ >= 700
                 [hamlet|

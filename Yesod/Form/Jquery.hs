@@ -8,20 +8,15 @@
 module Yesod.Form.Jquery
     ( YesodJquery (..)
     , jqueryDayField
-    , maybeJqueryDayField
     , jqueryDayTimeField
-    , jqueryDayTimeFieldProfile
     , jqueryAutocompleteField
-    , maybeJqueryAutocompleteField
-    , jqueryDayFieldProfile
     , googleHostedJqueryUiCss
     , JqueryDaySettings (..)
     , Default (..)
     ) where
 
 import Yesod.Handler
-import Yesod.Form.Core
-import Yesod.Form.Profiles
+import Yesod.Form
 import Yesod.Widget
 import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,
                   timeToTimeOfDay)
@@ -68,18 +63,15 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField = requiredFieldHelper . jqueryDayFieldProfile
-
-maybeJqueryDayField = optionalFieldHelper . jqueryDayFieldProfile
-
-jqueryDayFieldProfile jds = FieldProfile
-    { fpParse = maybe
+jqueryDayField :: (YesodJquery master) => JqueryDaySettings -> Field (GWidget sub master ()) Day
+jqueryDayField jds = Field
+    { fieldParse = maybe
                   (Left "Invalid day, must be in YYYY-MM-DD format")
                   Right
               . readMay
               . unpack
-    , fpRender = pack . show
-    , fpWidget = \theId name val isReq -> do
+    , fieldRender = pack . show
+    , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
 <input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{val}">
 |]
@@ -116,8 +108,6 @@ ifRight e f = case e of
 showLeadingZero :: (Show a) => a -> String
 showLeadingZero time = let t = show time in if length t == 1 then "0" ++ t else t
 
-jqueryDayTimeField = requiredFieldHelper jqueryDayTimeFieldProfile
-
 -- use A.M/P.M and drop seconds and "UTC" (as opposed to normal UTCTime show)
 jqueryDayTimeUTCTime :: UTCTime -> String
 jqueryDayTimeUTCTime (UTCTime day utcTime) =
@@ -128,10 +118,11 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
       let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
       in (show h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
 
-jqueryDayTimeFieldProfile = FieldProfile
-    { fpParse  = parseUTCTime . unpack
-    , fpRender = pack . jqueryDayTimeUTCTime
-    , fpWidget = \theId name val isReq -> do
+jqueryDayTimeField :: YesodJquery master => Field (GWidget sub master ()) UTCTime
+jqueryDayTimeField = Field
+    { fieldParse  = parseUTCTime . unpack
+    , fieldRender = pack . jqueryDayTimeUTCTime
+    , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
 <input id="#{theId}" name="#{name}" :isReq:required="" value="#{val}">
 |]
@@ -154,16 +145,11 @@ parseUTCTime s =
                 ifRight (parseTime timeS)
                     (UTCTime date . timeOfDayToTime)
 
-jqueryAutocompleteField = requiredFieldHelper . jqueryAutocompleteFieldProfile
-
-maybeJqueryAutocompleteField src =
-    optionalFieldHelper $ jqueryAutocompleteFieldProfile src
-
-jqueryAutocompleteFieldProfile :: YesodJquery master => Route master -> FieldProfile (GWidget sub master ()) Text
-jqueryAutocompleteFieldProfile src = FieldProfile
-    { fpParse = Right
-    , fpRender = id
-    , fpWidget = \theId name val isReq -> do
+jqueryAutocompleteField :: YesodJquery master => Route master -> Field (GWidget sub master ()) Text
+jqueryAutocompleteField src = Field
+    { fieldParse = Right
+    , fieldRender = id
+    , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
 <input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}" .autocomplete>
 |]
@@ -175,6 +161,7 @@ $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     }
 
+addScript' :: Monad m => (t -> Either (Route master) Text) -> GGWidget master (GGHandler sub t m) ()
 addScript' f = do
     y <- lift getYesod
     addScriptEither $ f y
