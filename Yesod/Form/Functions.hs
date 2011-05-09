@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Yesod.Form.Functions
     ( -- * Running in Form monad
       newFormIdent
@@ -28,14 +29,15 @@ import Yesod.Form.Types
 import Data.Text (Text, pack)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad (liftM)
-import Text.Blaze (Html)
+import Control.Monad (liftM, join)
+import Text.Blaze (Html, toHtml)
 import Yesod.Handler (GHandler, GGHandler, getRequest, runRequestBody)
 import Yesod.Widget (GGWidget, whamlet)
 import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams)
 import Network.Wai (requestMethod)
 import Text.Hamlet.NonPoly (html)
 import Data.Monoid (mempty)
+import Data.Maybe (fromMaybe)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -76,17 +78,48 @@ askParams = liftM (liftM fst) ask
 askFiles :: Monad m => Form m (Maybe FileEnv)
 askFiles = liftM (liftM snd) ask
 
-mreq :: Monad m => Field xml a -> Maybe a -> Form m (FormResult a, xml)
-mreq = undefined
+mreq :: Monad m => Field xml a -> FieldSettings -> Maybe a -> Form m (FormResult a, FieldView xml)
+mreq field fs mdef = mhelper field fs mdef (FormFailure ["Value is required"]) FormSuccess True -- TRANS
 
-mopt :: Monad m => Field xml a -> Maybe (Maybe a) -> Form m (FormResult (Maybe a), xml)
-mopt = undefined
+mopt :: Monad m => Field xml a -> FieldSettings -> Maybe (Maybe a) -> Form m (FormResult (Maybe a), FieldView xml)
+mopt field fs mdef = mhelper field fs (join mdef) (FormSuccess Nothing) (FormSuccess . Just) False
 
-areq :: Monad m => Field xml a -> Maybe a -> AForm ([xml] -> [xml]) m a
-areq a b = formToAForm $ mreq a b
+mhelper :: Monad m
+        => Field xml a
+        -> FieldSettings
+        -> Maybe a
+        -> FormResult b -- ^ on missing
+        -> (a -> FormResult b) -- ^ on success
+        -> Bool -- ^ is it required?
+        -> Form m (FormResult b, FieldView xml)
+mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
+    mp <- askParams
+    name <- maybe newFormIdent return fsName
+    theId <- maybe newFormIdent return fsId -- FIXME use widget ident for this
+    let (res, val) =
+            case mp of
+                Nothing -> (FormMissing, maybe "" fieldRender mdef)
+                Just p ->
+                    case fromMaybe "" $ lookup name p of
+                        "" -> (onMissing, "") -- TRANS
+                        x -> (either (FormFailure . return) onFound $ fieldParse x, x)
+    return (res, FieldView
+        { fvLabel = fsLabel
+        , fvTooltip = fsTooltip
+        , fvId = theId
+        , fvInput = fieldView theId name val isReq
+        , fvErrors =
+            case res of
+                FormFailure [e] -> Just $ toHtml e
+                _ -> Nothing
+        , fvRequired = isReq
+        })
 
-aopt :: Monad m => Field xml a -> Maybe (Maybe a) -> AForm ([xml] -> [xml]) m (Maybe a)
-aopt a b = formToAForm $ mopt a b
+areq :: Monad m => Field xml a -> FieldSettings -> Maybe a -> AForm ([FieldView xml] -> [FieldView xml]) m a
+areq a b = formToAForm . mreq a b
+
+aopt :: Monad m => Field xml a -> FieldSettings -> Maybe (Maybe a) -> AForm ([FieldView xml] -> [FieldView xml]) m (Maybe a)
+aopt a b = formToAForm . mopt a b
 
 runFormGeneric :: Monad m => Form m a -> Maybe (Env, FileEnv) -> m (a, Enctype)
 runFormGeneric form env = evalRWST form env (IntSingle 1)
