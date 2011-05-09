@@ -43,10 +43,12 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 
 #if __GLASGOW_HASKELL__ >= 700
+#define WHAMLET whamlet
 #define HAMLET hamlet
 #define CASSIUS cassius
 #define JULIUS julius
 #else
+#define WHAMLET $whamlet
 #define HAMLET $hamlet
 #define CASSIUS $cassius
 #define JULIUS $julius
@@ -154,9 +156,9 @@ textField :: Monad monad => Field (GGWidget master monad ()) Text
 textField = Field
     { fieldParse = Right
     , fieldRender = id
-    , fieldView = \theId name val isReq -> addHamlet
-        [HAMLET|\
-<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}">
+    , fieldView = \theId name val isReq ->
+        [WHAMLET|
+<input id="#{theId}" name="#{name}" type="text" :isReq:required value="#{val}">
 |]
     }
 

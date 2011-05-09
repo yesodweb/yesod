@@ -2,24 +2,25 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 module Yesod.Form.Class
-() where
-{- FIXME Maybe we should remove this module entirely...
     ( ToForm (..)
-    , ToFormField (..)
+    , ToField (..)
     ) where
 
 import Text.Hamlet
+import Yesod.Widget (GGWidget)
 import Yesod.Form.Fields
-import Yesod.Form.Core
-import Yesod.Form.Profiles (Textarea)
+import Yesod.Form.Types
+import Yesod.Form.Functions (areq, aopt)
 import Data.Int (Int64)
 import Data.Time (Day, TimeOfDay)
 import Data.Text (Text)
+import Yesod.Handler (GGHandler)
 
-class ToForm a y where
-    toForm :: Formlet sub y a
-class ToFormField a y where
-    toFormField :: FormFieldSettings -> FormletField sub y a
+class ToForm a master monad where
+    toForm :: AForm ([FieldView (GGWidget master monad ())] -> [FieldView (GGWidget master monad ())]) monad a
+
+class ToField a master monad where
+    toField :: FieldSettings -> Maybe a -> AForm ([FieldView (GGWidget master monad ())] -> [FieldView (GGWidget master monad ())]) monad a
 
 {- FIXME
 instance ToFormField String y where
@@ -28,45 +29,47 @@ instance ToFormField (Maybe String) y where
     toFormField = maybeStringField
 -}
 
-instance ToFormField Text y where
-    toFormField = stringField
-instance ToFormField (Maybe Text) y where
-    toFormField = maybeStringField
+instance Monad m => ToField Text master (GGHandler sub master m) where
+    toField = areq textField
+instance Monad m => ToField (Maybe Text) master (GGHandler sub master m) where
+    toField = aopt textField
 
-instance ToFormField Int y where
-    toFormField = intField
-instance ToFormField (Maybe Int) y where
-    toFormField = maybeIntField
-instance ToFormField Int64 y where
-    toFormField = intField
-instance ToFormField (Maybe Int64) y where
-    toFormField = maybeIntField
+instance Monad m => ToField Int master (GGHandler sub master m) where
+    toField = areq intField
+instance Monad m => ToField (Maybe Int) master (GGHandler sub master m) where
+    toField = aopt intField
 
-instance ToFormField Double y where
-    toFormField = doubleField
-instance ToFormField (Maybe Double) y where
-    toFormField = maybeDoubleField
+instance Monad m => ToField Int64 master (GGHandler sub master m) where
+    toField = areq intField
+instance Monad m => ToField (Maybe Int64) master (GGHandler sub master m) where
+    toField = aopt intField
 
-instance ToFormField Day y where
-    toFormField = dayField
-instance ToFormField (Maybe Day) y where
-    toFormField = maybeDayField
+instance Monad m => ToField Double master (GGHandler sub master m) where
+    toField = areq doubleField
+instance Monad m => ToField (Maybe Double) master (GGHandler sub master m) where
+    toField = aopt doubleField
 
-instance ToFormField TimeOfDay y where
-    toFormField = timeField
-instance ToFormField (Maybe TimeOfDay) y where
-    toFormField = maybeTimeField
+instance Monad m => ToField Day master (GGHandler sub master m) where
+    toField = areq dayField
+instance Monad m => ToField (Maybe Day) master (GGHandler sub master m) where
+    toField = aopt dayField
 
+instance Monad m => ToField TimeOfDay master (GGHandler sub master m) where
+    toField = areq timeField
+instance Monad m => ToField (Maybe TimeOfDay) master (GGHandler sub master m) where
+    toField = aopt timeField
+
+instance Monad m => ToField Html master (GGHandler sub master m) where
+    toField = areq htmlField
+instance Monad m => ToField (Maybe Html) master (GGHandler sub master m) where
+    toField = aopt htmlField
+
+instance Monad m => ToField Textarea master (GGHandler sub master m) where
+    toField = areq textareaField
+instance Monad m => ToField (Maybe Textarea) master (GGHandler sub master m) where
+    toField = aopt textareaField
+
+{- FIXME
 instance ToFormField Bool y where
     toFormField = boolField
-
-instance ToFormField Html y where
-    toFormField = htmlField
-instance ToFormField (Maybe Html) y where
-    toFormField = maybeHtmlField
-
-instance ToFormField Textarea y where
-    toFormField = textareaField
-instance ToFormField (Maybe Textarea) y where
-    toFormField = maybeTextareaField
 -}
