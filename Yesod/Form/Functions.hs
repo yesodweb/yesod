@@ -31,7 +31,7 @@ import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM, join)
 import Text.Blaze (Html, toHtml)
-import Yesod.Handler (GHandler, GGHandler, getRequest, runRequestBody)
+import Yesod.Handler (GHandler, GGHandler, getRequest, runRequestBody, newIdent)
 import Yesod.Widget (GGWidget, whamlet)
 import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams)
 import Network.Wai (requestMethod)
@@ -78,10 +78,12 @@ askParams = liftM (liftM fst) ask
 askFiles :: Monad m => Form m (Maybe FileEnv)
 askFiles = liftM (liftM snd) ask
 
-mreq :: Monad m => Field xml a -> FieldSettings -> Maybe a -> Form m (FormResult a, FieldView xml)
+mreq :: Monad m => Field xml a -> FieldSettings -> Maybe a
+     -> Form (GGHandler sub master m) (FormResult a, FieldView xml)
 mreq field fs mdef = mhelper field fs mdef (FormFailure ["Value is required"]) FormSuccess True -- TRANS
 
-mopt :: Monad m => Field xml a -> FieldSettings -> Maybe (Maybe a) -> Form m (FormResult (Maybe a), FieldView xml)
+mopt :: Monad m => Field xml a -> FieldSettings -> Maybe (Maybe a)
+     -> Form (GGHandler sub master m) (FormResult (Maybe a), FieldView xml)
 mopt field fs mdef = mhelper field fs (join mdef) (FormSuccess Nothing) (FormSuccess . Just) False
 
 mhelper :: Monad m
@@ -91,11 +93,11 @@ mhelper :: Monad m
         -> FormResult b -- ^ on missing
         -> (a -> FormResult b) -- ^ on success
         -> Bool -- ^ is it required?
-        -> Form m (FormResult b, FieldView xml)
+        -> Form (GGHandler sub master m) (FormResult b, FieldView xml)
 mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     mp <- askParams
     name <- maybe newFormIdent return fsName
-    theId <- maybe newFormIdent return fsId -- FIXME use widget ident for this
+    theId <- lift $ maybe (liftM pack newIdent) return fsId
     let (res, val) =
             case mp of
                 Nothing -> (FormMissing, maybe "" fieldRender mdef)
@@ -115,10 +117,12 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
-areq :: Monad m => Field xml a -> FieldSettings -> Maybe a -> AForm ([FieldView xml] -> [FieldView xml]) m a
+areq :: Monad m => Field xml a -> FieldSettings -> Maybe a
+     -> AForm ([FieldView xml] -> [FieldView xml]) (GGHandler sub master m) a
 areq a b = formToAForm . mreq a b
 
-aopt :: Monad m => Field xml a -> FieldSettings -> Maybe (Maybe a) -> AForm ([FieldView xml] -> [FieldView xml]) m (Maybe a)
+aopt :: Monad m => Field xml a -> FieldSettings -> Maybe (Maybe a)
+     -> AForm ([FieldView xml] -> [FieldView xml]) (GGHandler sub master m) (Maybe a)
 aopt a b = formToAForm . mopt a b
 
 runFormGeneric :: Monad m => Form m a -> Maybe (Env, FileEnv) -> m (a, Enctype)
