@@ -1,444 +1,251 @@
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME remove
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Form.Fields
-    ( -- * Fields
-      -- ** Required
-      stringField
+    ( textField
     , passwordField
     , textareaField
     , hiddenField
     , intField
-    , doubleField
     , dayField
     , timeField
     , htmlField
-    , selectField
-    , radioField
-    , boolField
     , emailField
     , searchField
+    , AutoFocus
     , urlField
-    , fileField
-      -- ** Optional
-    , maybeStringField
-    , maybePasswordField
-    , maybeTextareaField
-    , maybeHiddenField
-    , maybeIntField
-    , maybeDoubleField
-    , maybeDayField
-    , maybeTimeField
-    , maybeHtmlField
-    , maybeSelectField
-    , maybeRadioField
-    , maybeEmailField
-    , maybeSearchField
-    , maybeUrlField
-    , maybeFileField
-    {- FIXME
-      -- * Inputs
-      -- ** Required
-    , stringInput
-    , intInput
-    , boolInput
-    , dayInput
-    , emailInput
-    , urlInput
-      -- ** Optional
-    , maybeStringInput
-    , maybeDayInput
-    , maybeIntInput
-    -}
+    , doubleField
+    , parseDate
+    , parseTime
+    , Textarea (..)
     ) where
 
-import Yesod.Form.Core
-import Yesod.Form.Profiles
-import Yesod.Request (FileInfo)
-import Yesod.Widget (GWidget)
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Reader (ask)
-import Data.Time (Day, TimeOfDay)
-import Text.Hamlet
-import Data.Monoid
-import Control.Monad (join)
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Text (Text, unpack)
-import qualified Data.Text as T
+import Yesod.Form.Types
+import Yesod.Widget
+import Text.Hamlet hiding (renderHtml)
+import Text.Blaze (ToHtml (..))
+import Text.Cassius
+import Data.Time (Day, TimeOfDay(..))
+import qualified Text.Email.Validate as Email
+import Network.URI (parseURI)
+import Database.Persist (PersistField)
+import Text.HTML.SanitizeXSS (sanitizeBalance)
+import Control.Monad (when)
+
+import qualified Blaze.ByteString.Builder.Html.Utf8 as B
+import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
+import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
+
+import Text.Blaze.Renderer.String (renderHtml)
+import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy as L
+import Data.Text (Text, unpack, pack)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HAMLET hamlet
+#define CASSIUS cassius
+#define JULIUS julius
 #else
 #define HAMLET $hamlet
+#define CASSIUS $cassius
+#define JULIUS $julius
 #endif
 
-stringField = requiredFieldHelper stringFieldProfile
-
-maybeStringField = optionalFieldHelper stringFieldProfile
-
-passwordField = requiredFieldHelper passwordFieldProfile
-
-maybePasswordField = optionalFieldHelper passwordFieldProfile
-
-{- FIXME
-intInput n =
-    mapFormXml fieldsToInput $
-    requiredFieldHelper intFieldProfile (nameSettings n) Nothing
-
-maybeIntInput n =
-    mapFormXml fieldsToInput $
-    optionalFieldHelper intFieldProfile (nameSettings n) Nothing
--}
-
-intField = requiredFieldHelper intFieldProfile
-
-maybeIntField = optionalFieldHelper intFieldProfile
-
-doubleField = requiredFieldHelper doubleFieldProfile
-
-maybeDoubleField = optionalFieldHelper doubleFieldProfile
-
-dayField = requiredFieldHelper dayFieldProfile
-
-maybeDayField = optionalFieldHelper dayFieldProfile
-
-timeField = requiredFieldHelper timeFieldProfile
-
-maybeTimeField = optionalFieldHelper timeFieldProfile
-
-boolField ffs orig = do
-    env <- askParams
-    let label = ffsLabel ffs
-        tooltip = ffsTooltip ffs
-    name <- maybe newFormIdent return $ ffsName ffs
-    theId <- maybe newFormIdent return $ ffsId ffs
-    let (res, val) =
-            if null env
-                then (FormMissing, fromMaybe False orig)
-                else case lookup name env of
-                        Nothing -> (FormSuccess False, False)
-                        Just "" -> (FormSuccess False, False)
-                        Just "false" -> (FormSuccess False, False)
-                        Just _ -> (FormSuccess True, True)
-    let fi = FieldInfo
-            { fiLabel = toHtml label
-            , fiTooltip = tooltip
-            , fiIdent = theId
-            , fiInput = [HAMLET|
-<input id="#{theId}" type="checkbox" name="#{name}" :val:checked="">
+intField :: (Monad monad, Integral i) => Field (GGWidget master monad ()) i
+intField = Field
+    { fieldParse = maybe (Left "Invalid integer") Right . readMayI . unpack -- FIXME Data.Text.Read
+    , fieldRender = pack . showI
+    , fieldView = \theId name val isReq -> addHamlet
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="number" :isReq:required="" value="#{val}">
 |]
-            , fiErrors = case res of
-                            FormFailure [x] -> Just $ toHtml x
-                            _ -> Nothing
-            , fiRequired = True
-            }
-    return (res, fi, UrlEncoded)
+    }
+  where
+    showI x = show (fromIntegral x :: Integer)
+    readMayI s = case reads s of
+                    (x, _):_ -> Just $ fromInteger x
+                    [] -> Nothing
 
-htmlField = requiredFieldHelper htmlFieldProfile
-
-maybeHtmlField = optionalFieldHelper htmlFieldProfile
-
-selectField pairs ffs initial = do
-    env <- askParams
-    let label = ffsLabel ffs
-        tooltip = ffsTooltip ffs
-    theId <- maybe newFormIdent return $ ffsId ffs
-    name <- maybe newFormIdent return $ ffsName ffs
-    let pairs' = zip [1 :: Int ..] pairs
-    let res = case lookup name env of
-                Nothing -> FormMissing
-                Just "none" -> FormFailure ["Field is required"]
-                Just x ->
-                    case reads $ unpack x of
-                        (x', _):_ ->
-                            case lookup x' pairs' of
-                                Nothing -> FormFailure ["Invalid entry"]
-                                Just (y, _) -> FormSuccess y
-                        [] -> FormFailure ["Invalid entry"]
-    let isSelected x =
-            case res of
-                FormSuccess y -> x == y
-                _ -> Just x == initial
-    let input =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
-<select id="#{theId}" name="#{name}">
-    <option value="none">
-    $forall pair <- pairs'
-        <option value="#{show (fst pair)}" :isSelected (fst (snd pair)):selected="">#{snd (snd pair)}
+doubleField :: Monad monad => Field (GGWidget master monad ()) Double
+doubleField = Field
+    { fieldParse = maybe (Left "Invalid number") Right . readMay . unpack -- FIXME use Data.Text.Read
+    , fieldRender = pack . show
+    , fieldView = \theId name val isReq -> addHamlet
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}">
 |]
-    let fi = FieldInfo
-            { fiLabel = toHtml label
-            , fiTooltip = tooltip
-            , fiIdent = theId
-            , fiInput = input
-            , fiErrors = case res of
-                            FormFailure [x] -> Just $ toHtml x
-                            _ -> Nothing
-            , fiRequired = True
-            }
-    return (res, fi, UrlEncoded)
+    }
 
-maybeSelectField pairs ffs initial' = do
-    env <- askParams
-    let initial = join initial'
-        label = ffsLabel ffs
-        tooltip = ffsTooltip ffs
-    theId <- maybe newFormIdent return $ ffsId ffs
-    name <- maybe newFormIdent return $ ffsName ffs
-    let pairs' = zip [1 :: Int ..] pairs
-    let res = case lookup name env of
-                Nothing -> FormMissing
-                Just "none" -> FormSuccess Nothing
-                Just x ->
-                    case reads $ unpack x of
-                        (x', _):_ ->
-                            case lookup x' pairs' of
-                                Nothing -> FormFailure ["Invalid entry"]
-                                Just (y, _) -> FormSuccess $ Just y
-                        [] -> FormFailure ["Invalid entry"]
-    let isSelected x =
-            case res of
-                FormSuccess y -> Just x == y
-                _ -> Just x == initial
-    let input =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
-<select id="#{theId}" name="#{name}">
-    <option value="none">
-    $forall pair <- pairs'
-        <option value="#{show (fst pair)}" :isSelected (fst (snd pair)):selected="">#{snd (snd pair)}
+dayField :: Monad monad => Field (GGWidget master monad ()) Day
+dayField = Field
+    { fieldParse = parseDate . unpack
+    , fieldRender = pack . show
+    , fieldView = \theId name val isReq -> addHamlet
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{val}">
 |]
-    let fi = FieldInfo
-            { fiLabel = toHtml label
-            , fiTooltip = tooltip
-            , fiIdent = theId
-            , fiInput = input
-            , fiErrors = case res of
-                            FormFailure [x] -> Just $ toHtml x
-                            _ -> Nothing
-            , fiRequired = False
-            }
-    return (res, fi, UrlEncoded)
+    }
 
-{- FIXME
-stringInput :: Text -> FormInput sub master Text
-stringInput n =
-    mapFormXml fieldsToInput $
-    requiredFieldHelper stringFieldProfile (nameSettings n) Nothing
-
-maybeStringInput :: Text -> FormInput sub master (Maybe Text)
-maybeStringInput n =
-    mapFormXml fieldsToInput $
-    optionalFieldHelper stringFieldProfile (nameSettings n) Nothing
-
-boolInput :: Text -> FormInput sub master Bool
-boolInput n = GForm $ do
-    env <- askParams
-    let res = case lookup n env of
-                Nothing -> FormSuccess False
-                Just "" -> FormSuccess False
-                Just "false" -> FormSuccess False
-                Just _ -> FormSuccess True
-    let xml = [HAMLET|
-    <input id="#{n}" type="checkbox" name="#{n}">
+timeField :: Monad monad => Field (GGWidget master monad ()) TimeOfDay
+timeField = Field
+    { fieldParse = parseTime . unpack
+    , fieldRender = pack . show . roundFullSeconds
+    , fieldView = \theId name val isReq -> addHamlet
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" :isReq:required="" value="#{val}">
 |]
-    return (res, [xml], UrlEncoded)
+    }
+  where
+    roundFullSeconds tod =
+        TimeOfDay (todHour tod) (todMin tod) fullSec
+      where
+        fullSec = fromInteger $ floor $ todSec tod
 
-dayInput :: Text -> FormInput sub master Day
-dayInput n =
-    mapFormXml fieldsToInput $
-    requiredFieldHelper dayFieldProfile (nameSettings n) Nothing
-
-maybeDayInput :: Text -> FormInput sub master (Maybe Day)
-maybeDayInput n =
-    mapFormXml fieldsToInput $
-    optionalFieldHelper dayFieldProfile (nameSettings n) Nothing
--}
-
-nameSettings :: Text -> FormFieldSettings
-nameSettings n = FormFieldSettings mempty mempty (Just n) (Just n)
-
-urlField = requiredFieldHelper urlFieldProfile
-
-maybeUrlField = optionalFieldHelper urlFieldProfile
-
-{- FIXME
-urlInput :: Text -> FormInput sub master Text
-urlInput n =
-    mapFormXml fieldsToInput $
-    requiredFieldHelper urlFieldProfile (nameSettings n) Nothing
--}
-
-emailField = requiredFieldHelper emailFieldProfile
-
-maybeEmailField = optionalFieldHelper emailFieldProfile
-
-{- FIXME
-emailInput :: Text -> FormInput sub master Text
-emailInput n =
-    mapFormXml fieldsToInput $
-    requiredFieldHelper emailFieldProfile (nameSettings n) Nothing
--}
-
-searchField = requiredFieldHelper . searchFieldProfile
-
-maybeSearchField = optionalFieldHelper . searchFieldProfile
-
-textareaField = requiredFieldHelper textareaFieldProfile
-
-maybeTextareaField = optionalFieldHelper textareaFieldProfile
-
-hiddenField = requiredFieldHelper hiddenFieldProfile
-
-maybeHiddenField = optionalFieldHelper hiddenFieldProfile
-
-fileField ffs = do
-    env <- lift ask
-    fenv <- lift $ lift ask
-    let (FormFieldSettings label tooltip theId' name') = ffs
-    name <- maybe newFormIdent return name'
-    theId <- maybe newFormIdent return theId'
-    let res =
-            if null env && null fenv
-                then FormMissing
-                else case lookup name fenv of
-                        Nothing -> FormFailure ["File is required"]
-                        Just x -> FormSuccess x
-    let fi = FieldInfo
-            { fiLabel = toHtml label
-            , fiTooltip = tooltip
-            , fiIdent = theId
-            , fiInput = fileWidget theId name True
-            , fiErrors = case res of
-                            FormFailure [x] -> Just $ toHtml x
-                            _ -> Nothing
-            , fiRequired = True
-            }
-    let res' = case res of
-                FormFailure [e] -> FormFailure [T.concat [label, ": ", e]]
-                _ -> res
-    return (res', fi, Multipart)
-
-maybeFileField ffs = do
-    fenv <- lift $ lift ask
-    let (FormFieldSettings label tooltip theId' name') = ffs
-    name <- maybe newFormIdent return name'
-    theId <- maybe newFormIdent return theId'
-    let res = FormSuccess $ lookup name fenv
-    let fi = FieldInfo
-            { fiLabel = toHtml label
-            , fiTooltip = tooltip
-            , fiIdent = theId
-            , fiInput = fileWidget theId name False
-            , fiErrors = Nothing
-            , fiRequired = True
-            }
-    return (res, fi, Multipart)
-
-fileWidget :: Text -> Text -> Bool -> GWidget s m ()
-fileWidget theId name isReq = [HAMLET|
-<input id="#{theId}" type="file" name="#{name}" :isReq:required="">
+htmlField :: Monad monad => Field (GGWidget master monad ()) Html
+htmlField = Field
+    { fieldParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
+    , fieldRender = pack . renderHtml
+    , fieldView = \theId name val _isReq -> addHamlet
+        [HAMLET|\
+<textarea id="#{theId}" name="#{name}" .html>#{val}
 |]
+    }
 
-radioField pairs ffs initial = do
-    env <- askParams
-    let label = ffsLabel ffs
-        tooltip = ffsTooltip ffs
-    theId <- maybe newFormIdent return $ ffsId ffs
-    name <- maybe newFormIdent return $ ffsName ffs
-    let pairs' = zip [1 :: Int ..] pairs
-    let res = case lookup name env of
-                Nothing -> FormMissing
-                Just "none" -> FormFailure ["Field is required"]
-                Just x ->
-                    case reads $ unpack x of
-                        (x', _):_ ->
-                            case lookup x' pairs' of
-                                Nothing -> FormFailure ["Invalid entry"]
-                                Just (y, _) -> FormSuccess y
-                        [] -> FormFailure ["Invalid entry"]
-    let isSelected x =
-            case res of
-                FormSuccess y -> x == y
-                _ -> Just x == initial
-    let input = [HAMLET|
-<div id="#{theId}">
-   $forall pair <- pairs'
-       <div>
-           <input id="#{theId}-#{show (fst pair)}" type="radio" name="#{name}" value="#{show (fst pair)}" :isSelected (fst (snd pair)):checked="">
-           <label for="#{name}-#{show (fst pair)}">#{snd (snd pair)}
-|]
-    let fi = FieldInfo
-           { fiLabel = toHtml label
-           , fiTooltip = tooltip
-           , fiIdent = theId
-           , fiInput = input
-           , fiErrors = case res of
-                           FormFailure [x] -> Just $ toHtml x
-                           _ -> Nothing
-           , fiRequired = True
-           }
-    return (res, fi, UrlEncoded)
+-- | A newtype wrapper around a 'String' that converts newlines to HTML
+-- br-tags.
+newtype Textarea = Textarea { unTextarea :: Text }
+    deriving (Show, Read, Eq, PersistField)
+instance ToHtml Textarea where
+    toHtml =
+        unsafeByteString
+        . S.concat
+        . L.toChunks
+        . toLazyByteString
+        . fromWriteList writeHtmlEscapedChar
+        . unpack
+        . unTextarea
+      where
+        -- Taken from blaze-builder and modified with newline handling.
+        writeHtmlEscapedChar '\n' = writeByteString "<br>"
+        writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
-maybeRadioField pairs ffs initial' = do
-    env <- askParams
-    let initial = join initial'
-        label = ffsLabel ffs
-        tooltip = ffsTooltip ffs
-    theId <- maybe newFormIdent return $ ffsId ffs
-    name <- maybe newFormIdent return $ ffsName ffs
-    let pairs' = zip [1 :: Int ..] pairs
-    let res = case lookup name env of
-                Nothing -> FormMissing
-                Just "none" -> FormSuccess Nothing
-                Just x ->
-                    case reads $ unpack x of
-                        (x', _):_ ->
-                            case lookup x' pairs' of
-                                Nothing -> FormFailure ["Invalid entry"]
-                                Just (y, _) -> FormSuccess $ Just y
-                        [] -> FormFailure ["Invalid entry"]
-    let isSelected x =
-            case res of
-                FormSuccess y -> Just x == y
-                _ -> Just x == initial
-    let isNone =
-            case res of
-                FormSuccess Nothing -> True
-                FormSuccess Just{} -> False
-                _ -> isNothing initial
-    let input =
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
-<div id="#{theId}">
-   $forall pair <- pairs'
-       <div>
-           <input id="#{theId}-none" type="radio" name="#{name}" value="none" :isNone:checked="">None
-       <div>
-           <input id="#{theId}-#{show (fst pair)}" type="radio" name="#{name}" value="#{show (fst pair)}" :isSelected (fst (snd pair)):checked="">
-           <label for="#{name}-#{show (fst pair)}">#{snd (snd pair)}
+textareaField :: Monad monad => Field (GGWidget master monad ()) Textarea
+textareaField = Field
+    { fieldParse = Right . Textarea
+    , fieldRender = unTextarea
+    , fieldView = \theId name val _isReq -> addHamlet
+        [HAMLET|\
+<textarea id="#{theId}" name="#{name}">#{val}
 |]
-    let fi = FieldInfo
-           { fiLabel = toHtml label
-           , fiTooltip = tooltip
-           , fiIdent = theId
-           , fiInput = input
-           , fiErrors = case res of
-                           FormFailure [x] -> Just $ toHtml x
-                           _ -> Nothing
-           , fiRequired = False
-           }
-    return (res, fi, UrlEncoded)
+    }
+
+hiddenField :: Monad monad => Field (GGWidget master monad ()) Text
+hiddenField = Field
+    { fieldParse = Right
+    , fieldRender = id
+    , fieldView = \theId name val _isReq -> addHamlet
+        [HAMLET|\
+<input type="hidden" id="#{theId}" name="#{name}" value="#{val}">
+|]
+    }
+
+textField :: Monad monad => Field (GGWidget master monad ()) Text
+textField = Field
+    { fieldParse = Right
+    , fieldRender = id
+    , fieldView = \theId name val isReq -> addHamlet
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}">
+|]
+    }
+
+passwordField :: Monad monad => Field (GGWidget master monad ()) Text
+passwordField = Field
+    { fieldParse = Right
+    , fieldRender = id
+    , fieldView = \theId name val isReq -> addHamlet
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="password" :isReq:required="" value="#{val}">
+|]
+    }
+
+readMay :: Read a => String -> Maybe a
+readMay s = case reads s of
+                (x, _):_ -> Just x
+                [] -> Nothing
+
+parseDate :: String -> Either Text Day
+parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
+              . readMay . replace '/' '-'
+
+-- | Replaces all instances of a value in a list by another value.
+-- from http://hackage.haskell.org/packages/archive/cgi/3001.1.7.1/doc/html/src/Network-CGI-Protocol.html#replace
+replace :: Eq a => a -> a -> [a] -> [a]
+replace x y = map (\z -> if z == x then y else z)
+
+parseTime :: String -> Either Text TimeOfDay
+parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
+parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
+parseTime (h1:h2:':':m1:m2:' ':'A':'M':[]) =
+    parseTimeHelper (h1, h2, m1, m2, '0', '0')
+parseTime (h1:h2:':':m1:m2:' ':'P':'M':[]) =
+    let [h1', h2'] = show $ (read [h1, h2] :: Int) + 12
+    in parseTimeHelper (h1', h2', m1, m2, '0', '0')
+parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
+    parseTimeHelper (h1, h2, m1, m2, s1, s2)
+parseTime _ = Left "Invalid time, must be in HH:MM[:SS] format"
+
+parseTimeHelper :: (Char, Char, Char, Char, Char, Char)
+                -> Either Text TimeOfDay
+parseTimeHelper (h1, h2, m1, m2, s1, s2)
+    | h < 0 || h > 23 = Left $ pack $ "Invalid hour: " ++ show h
+    | m < 0 || m > 59 = Left $ pack $ "Invalid minute: " ++ show m
+    | s < 0 || s > 59 = Left $ pack $ "Invalid second: " ++ show s
+    | otherwise = Right $ TimeOfDay h m s
+  where
+    h = read [h1, h2]
+    m = read [m1, m2]
+    s = fromInteger $ read [s1, s2]
+
+emailField :: Monad monad => Field (GGWidget master monad ()) Text
+emailField = Field
+    { fieldParse = \s -> if Email.isValid (unpack s)
+                        then Right s
+                        else Left "Invalid e-mail address"
+    , fieldRender = id
+    , fieldView = \theId name val isReq -> addHamlet
+        [HAMLET|\
+<input id="#{theId}" name="#{name}" type="email" :isReq:required="" value="#{val}">
+|]
+    }
+
+type AutoFocus = Bool
+searchField :: Monad monad => AutoFocus -> Field (GGWidget master monad ()) Text
+searchField autoFocus = Field
+    { fieldParse = Right
+    , fieldRender = id
+    , fieldView = \theId name val isReq -> do
+        addHtml [HAMLET|\
+<input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{val}">
+|]
+        when autoFocus $ do
+          addHtml $ [HAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
+|]
+          addCassius [CASSIUS|
+            #{theId}
+              -webkit-appearance: textfield
+            |]
+    }
+
+urlField :: Monad monad => Field (GGWidget master monad ()) Text
+urlField = Field
+    { fieldParse = \s -> case parseURI $ unpack s of
+                        Nothing -> Left "Invalid URL"
+                        Just _ -> Right s
+    , fieldRender = id
+    , fieldView = \theId name val isReq -> addHtml
+        [HAMLET|
+<input ##{theId} name=#{name} type=url :isReq:required value=#{val}>
+|]
+    }
