@@ -761,12 +761,12 @@ headerToPair cp _ (DeleteCookie key) =
 headerToPair _ _ (Header key value) = (key, value)
 
 -- | Get a unique identifier.
-newIdent :: Monad mo => GGHandler sub master mo String
+newIdent :: Monad mo => GGHandler sub master mo String -- FIXME use Text
 newIdent = GHandler $ lift $ lift $ lift $ do
     x <- get
     let i' = ghsIdent x + 1
     put x { ghsIdent = i' }
-    return $ "h" ++ show i'
+    return $ 'h' : show i'
 
 liftIOHandler :: MonadIO mo
               => GGHandler sub master IO a
