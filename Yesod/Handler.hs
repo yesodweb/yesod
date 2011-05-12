@@ -748,7 +748,10 @@ headerToPair cp getExpires (AddCookie minutes key value) =
         { setCookieName = key
         , setCookieValue = value
         , setCookiePath = Just cp
-        , setCookieExpires = Just $ getExpires minutes
+        , setCookieExpires =
+            if minutes == 0
+                then Nothing
+                else Just $ getExpires minutes
         , setCookieDomain = Nothing
         })
 headerToPair cp _ (DeleteCookie key) =
