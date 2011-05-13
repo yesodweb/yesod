@@ -22,6 +22,7 @@ import Data.Text (Text, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.ByteString (ByteString)
+import Control.Applicative ((<$>), (<*>))
 
 oauthUrl :: Text -> AuthRoute
 oauthUrl name = PluginR name ["forward"]
@@ -51,8 +52,9 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         tok <- liftIO $ getTemporaryCredential oauth'
         redirectText RedirectTemporary (fromString $ authorizeUrl oauth' tok)
     dispatch "GET" [] = do
-        verifier <- runFormGet' $ stringInput "oauth_verifier"
-        oaTok    <- runFormGet' $ stringInput "oauth_token"
+        (verifier, oaTok) <- runInputGet $ (,)
+            <$> ireq textField "oauth_verifier"
+            <*> ireq textField "oauth_token"
         let reqTok = Credential [ ("oauth_verifier", encodeUtf8 verifier), ("oauth_token", encodeUtf8 oaTok)
                                 ] 
         accTok <- liftIO $ getAccessToken oauth reqTok

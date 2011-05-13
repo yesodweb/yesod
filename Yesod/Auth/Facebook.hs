@@ -46,7 +46,7 @@ authFacebook cid secret perms =
         render <- getUrlRender
         tm <- getRouteToMaster
         let fb = Facebook.Facebook cid secret $ render $ tm url
-        code <- runFormGet' $ stringInput "code"
+        code <- runInputGet $ ireq textField "code"
         at <- liftIO $ Facebook.getAccessToken fb code
         let Facebook.AccessToken at' = at
         so <- liftIO $ Facebook.getGraphData at "me"

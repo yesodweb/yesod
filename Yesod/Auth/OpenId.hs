@@ -56,10 +56,9 @@ authOpenId =
     <input type="submit" value="#{mr Msg.LoginOpenID}">
 |]
     dispatch "GET" ["forward"] = do
-        (roid, _, _) <- runFormGet $ stringInput name
-        y <- getYesod
+        roid <- runInputGet $ iopt textField name
         case roid of
-            FormSuccess oid -> do
+            Just oid -> do
                 render <- getUrlRender
                 toMaster <- getRouteToMaster
                 let complete' = render $ toMaster complete
@@ -71,7 +70,7 @@ authOpenId =
                         )
                   (redirectText RedirectTemporary)
                   res
-            _ -> do
+            Nothing -> do
                 toMaster <- getRouteToMaster
                 mr <- getMessageRender
                 setMessage $ mr Msg.NoOpenID

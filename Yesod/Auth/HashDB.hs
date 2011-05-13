@@ -115,9 +115,9 @@ postLoginR :: (YesodAuth y,
                PersistBackend (YesodDB y (GGHandler Auth y IO)))
            => GHandler Auth y ()
 postLoginR = do
-    (mu,mp) <- runFormPost' $ (,)
-        <$> maybeStringInput "username"
-        <*> maybeStringInput "password"
+    (mu,mp) <- runInputPost $ (,)
+        <$> iopt textField "username"
+        <*> iopt textField "password"
 
     isValid <- case (mu,mp) of
         (Nothing, _      ) -> return False

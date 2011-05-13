@@ -136,7 +136,7 @@ getRegisterR = do
 postRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
 postRegisterR = do
     y <- getYesod
-    email <- runFormPost' $ emailInput "email"
+    email <- runInputPost $ ireq emailField "email"
     mecreds <- getEmailCreds email
     (lid, verKey) <-
         case mecreds of
@@ -196,9 +196,9 @@ getVerifyR lid key = do
 
 postLoginR :: YesodAuthEmail master => GHandler Auth master ()
 postLoginR = do
-    (email, pass) <- runFormPost' $ (,)
-        <$> emailInput "email"
-        <*> stringInput "password"
+    (email, pass) <- runInputPost $ (,)
+        <$> ireq emailField "email"
+        <*> ireq textField "password"
     mecreds <- getEmailCreds email
     maid <-
         case (mecreds >>= emailCredsAuthId, fmap emailCredsStatus mecreds) of
@@ -215,7 +215,6 @@ postLoginR = do
         Just _aid ->
             setCreds True $ Creds "email" email [("verifiedEmail", email)] -- FIXME aid?
         Nothing -> do
-            y <- getYesod
             mr <- getMessageRender
             setMessage $ mr Msg.InvalidEmailPass
             toMaster <- getRouteToMaster
@@ -257,9 +256,9 @@ getPasswordR = do
 
 postPasswordR :: YesodAuthEmail master => GHandler Auth master ()
 postPasswordR = do
-    (new, confirm) <- runFormPost' $ (,)
-        <$> stringInput "new"
-        <*> stringInput "confirm"
+    (new, confirm) <- runInputPost $ (,)
+        <$> ireq textField "new"
+        <*> ireq textField "confirm"
     toMaster <- getRouteToMaster
     y <- getYesod
     when (new /= confirm) $ do

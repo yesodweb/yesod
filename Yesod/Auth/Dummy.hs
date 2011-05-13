@@ -9,7 +9,7 @@ module Yesod.Auth.Dummy
     ) where
 
 import Yesod.Auth
-import Yesod.Form (runFormPost', stringInput)
+import Yesod.Form (runInputPost, textField, ireq)
 import Yesod.Handler (notFound)
 import Text.Hamlet (hamlet)
 
@@ -18,7 +18,7 @@ authDummy =
     AuthPlugin "dummy" dispatch login
   where
     dispatch "POST" [] = do
-        ident <- runFormPost' $ stringInput "ident"
+        ident <- runInputPost $ ireq textField "ident"
         setCreds True $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
