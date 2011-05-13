@@ -34,6 +34,7 @@ library
                      Yesod.Form.Class
                      Yesod.Form.Types
                      Yesod.Form.Functions
+                     Yesod.Form.Input
                      Yesod.Form.Fields
                      Yesod.Form.Jquery
                      Yesod.Form.Nic

@@ -66,7 +66,7 @@ instance Show Ints where
     show (IntSingle i) = show i
     show (IntCons i is) = show i ++ ('-' : show is)
 
-type Env = [(Text, Text)]
+type Env = [(Text, Text)] -- FIXME use a Map
 type FileEnv = [(Text, FileInfo)]
 
 type Form m a = RWST (Maybe (Env, FileEnv)) Enctype Ints m a
