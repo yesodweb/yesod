@@ -218,10 +218,10 @@ mkStaticFiles :: FilePath -> StaticSite -> Q [Dec]
 mkStaticFiles fp StaticSite = mkStaticFiles' fp "StaticRoute" True
 mkStaticFiles fp PublicSite = mkStaticFiles' fp "PublicRoute" False
 
-mkStaticFiles' :: FilePath -> -- ^ static directory
-                  String   -> -- ^ route constructor "StaticRoute"
-                  Bool     -> -- ^ append checksum query parameter
-                  Q [Dec]
+mkStaticFiles' :: FilePath -- ^ static directory
+               -> String   -- ^ route constructor "StaticRoute"
+               -> Bool     -- ^ append checksum query parameter
+               -> Q [Dec]
 mkStaticFiles' fp routeConName makeHash = do
     fs <- qRunIO $ getFileListPieces fp
     concat `fmap` mapM mkRoute fs
