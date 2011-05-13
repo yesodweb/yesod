@@ -14,6 +14,7 @@ import Yesod.Handler (GHandler, GGHandler, invalidArgs, runRequestBody, getReque
 import Yesod.Request (reqGetParams)
 import Data.Maybe (fromMaybe)
 import Control.Monad (liftM)
+import Yesod.Widget (GWidget)
 
 type DText = [Text] -> [Text]
 newtype FormInput a = FormInput { unFormInput :: Env -> Either DText a }
@@ -28,13 +29,13 @@ instance Applicative FormInput where
             (_, Left b) -> Left b
             (Right a, Right b) -> Right $ a b
 
-ireq :: Field xml a -> Text -> FormInput a
+ireq :: Field (GWidget sub master ()) a -> Text -> FormInput a
 ireq field name = FormInput $ \env ->
     case lookup name env of
         Nothing -> Left $ (:) $ append "Input not found: " name -- TRANS
         Just x -> either (Left . (:)) Right $ fieldParse field x
 
-iopt :: Field xml a -> Text -> FormInput (Maybe a)
+iopt :: Field (GWidget sub master ()) a -> Text -> FormInput (Maybe a)
 iopt field name = FormInput $ \env ->
     case fromMaybe "" $ lookup name env of
         "" -> Right Nothing
