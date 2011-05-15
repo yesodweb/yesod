@@ -81,7 +81,6 @@ authEmail =
     AuthPlugin "email" dispatch $ \tm -> do
         y <- lift getYesod
         l <- lift languages
-        let mr = renderMessage (getAuth 'x') y l
 #if GHC7
         [whamlet|
 #else
@@ -90,16 +89,16 @@ authEmail =
 <form method="post" action="@{tm loginR}">
     <table>
         <tr>
-            <th>#{mr Msg.Email}
+            <th>_{Msg.Email}
             <td>
                 <input type="email" name="email">
         <tr>
-            <th>#{mr Msg.Password}
+            <th>_{Msg.Password}
             <td>
                 <input type="password" name="password">
         <tr>
             <td colspan="2">
-                <input type="submit" value=#{mr Msg.LoginViaEmail}>
+                <input type="submit" value=_{Msg.LoginViaEmail}>
                 <a href="@{tm registerR}">I don't have an account
 |]
   where
@@ -117,9 +116,8 @@ authEmail =
 getRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
 getRegisterR = do
     toMaster <- getRouteToMaster
-    mr <- getMessageRender
     defaultLayout $ do
-        setTitle $ mr Msg.RegisterLong
+        setTitleI Msg.RegisterLong
         addWidget
 #if GHC7
             [whamlet|
@@ -153,9 +151,8 @@ postRegisterR = do
     tm <- getRouteToMaster
     let verUrl = render $ tm $ verify (toSinglePiece lid) verKey
     sendVerifyEmail email verKey verUrl
-    mr <- getMessageRender
     defaultLayout $ do
-        setTitle $ mr Msg.ConfirmationEmailSentTitle
+        setTitleI Msg.ConfirmationEmailSentTitle
         addWidget
 #if GHC7
             [whamlet|
@@ -178,13 +175,11 @@ getVerifyR lid key = do
                 Just _uid -> do
                     setCreds False $ Creds "email" email [("verifiedEmail", email)] -- FIXME uid?
                     toMaster <- getRouteToMaster
-                    mr <- getMessageRender
-                    setMessage $ mr Msg.AddressVerified
+                    setMessageI Msg.AddressVerified
                     redirect RedirectTemporary $ toMaster setpassR
         _ -> return ()
-    mr <- getMessageRender
     defaultLayout $ do
-        setTitle $ mr Msg.InvalidKey
+        setTitleI Msg.InvalidKey
         addWidget
 #if GHC7
             [whamlet|
@@ -215,8 +210,7 @@ postLoginR = do
         Just _aid ->
             setCreds True $ Creds "email" email [("verifiedEmail", email)] -- FIXME aid?
         Nothing -> do
-            mr <- getMessageRender
-            setMessage $ mr Msg.InvalidEmailPass
+            setMessageI Msg.InvalidEmailPass
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster LoginR
 
@@ -224,14 +218,13 @@ getPasswordR :: YesodAuthEmail master => GHandler Auth master RepHtml
 getPasswordR = do
     toMaster <- getRouteToMaster
     maid <- maybeAuthId
-    mr <- getMessageRender
     case maid of
         Just _ -> return ()
         Nothing -> do
-            setMessage $ mr Msg.BadSetPass
+            setMessageI Msg.BadSetPass
             redirect RedirectTemporary $ toMaster loginR
     defaultLayout $ do
-        setTitle $ mr Msg.SetPassTitle
+        setTitleI Msg.SetPassTitle
         addWidget
 #if GHC7
             [whamlet|
@@ -262,20 +255,17 @@ postPasswordR = do
     toMaster <- getRouteToMaster
     y <- getYesod
     when (new /= confirm) $ do
-        mr <- getMessageRender
-        setMessage $ mr Msg.PassMismatch
+        setMessageI Msg.PassMismatch
         redirect RedirectTemporary $ toMaster setpassR
     maid <- maybeAuthId
     aid <- case maid of
             Nothing -> do
-                mr <- getMessageRender
-                setMessage $ mr Msg.BadSetPass
+                setMessageI Msg.BadSetPass
                 redirect RedirectTemporary $ toMaster loginR
             Just aid -> return aid
     salted <- liftIO $ saltPass new
     setPassword aid salted
-    mr <- getMessageRender
-    setMessage $ mr Msg.PassUpdated
+    setMessageI Msg.PassUpdated
     redirect RedirectTemporary $ loginDest y
 
 saltLength :: Int

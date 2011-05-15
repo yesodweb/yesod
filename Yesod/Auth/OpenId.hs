@@ -43,17 +43,15 @@ authOpenId =
     padding-left: 18px;
 |]
         l <- lift languages
-        let mr = renderMessage (getAuth 'x') y l
-        addHamlet
 #if GHC7
-            [hamlet|
+        [whamlet|
 #else
-            [$hamlet|
+        [$whamlet|
 #endif
 <form method="get" action="@{tm forwardUrl}">
-    <label for="#{ident}">OpenID: 
+    <label for="#{ident}">OpenID: #
     <input id="#{ident}" type="text" name="#{name}" value="http://">
-    <input type="submit" value="#{mr Msg.LoginOpenID}">
+    <input type="submit" value="_{Msg.LoginOpenID}">
 |]
     dispatch "GET" ["forward"] = do
         roid <- runInputGet $ iopt textField name
@@ -72,8 +70,7 @@ authOpenId =
                   res
             Nothing -> do
                 toMaster <- getRouteToMaster
-                mr <- getMessageRender
-                setMessage $ mr Msg.NoOpenID
+                setMessageI Msg.NoOpenID
                 redirect RedirectTemporary $ toMaster LoginR
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do

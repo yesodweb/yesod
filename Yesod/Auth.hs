@@ -25,7 +25,6 @@ module Yesod.Auth
 import Yesod.Core
 import Yesod.Persist
 import Yesod.Json
-import Text.Blaze
 import Language.Haskell.TH.Syntax hiding (lift)
 import qualified Network.Wai as W
 import Text.Hamlet (hamlet)
@@ -39,6 +38,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import Web.Routes.Quasi (toSinglePiece, fromSinglePiece)
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
+import Yesod.Form (FormMessage)
 
 data Auth = Auth
 
@@ -61,7 +61,7 @@ data Creds m = Creds
     , credsExtra :: [(Text, Text)]
     }
 
-class (Yesod m, SinglePiece (AuthId m)) => YesodAuth m where
+class (Yesod m, SinglePiece (AuthId m), RenderMessage m FormMessage) => YesodAuth m where
     type AuthId m
 
     -- | Default destination on successful login, if no other
@@ -85,10 +85,8 @@ class (Yesod m, SinglePiece (AuthId m)) => YesodAuth m where
 
     renderAuthMessage :: m
                       -> [Text] -- ^ languages
-                      -> AuthMessage -> Html
+                      -> AuthMessage -> Text
     renderAuthMessage _ _ = defaultMessage
-
-type Texts = [Text]
 
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
@@ -114,7 +112,6 @@ setCreds doRedirects creds = do
     y <- getYesod
     maid <- getAuthId creds
     l <- languages
-    let mr = renderMessage Auth y l
     case maid of
         Nothing ->
             if doRedirects
@@ -131,14 +128,14 @@ setCreds doRedirects creds = do
 |]
                             sendResponse rh
                         Just ar -> do
-                            setMessage $ mr Msg.InvalidLogin
+                            setMessageI Msg.InvalidLogin
                             redirect RedirectTemporary ar
                 else return ()
         Just aid -> do
             setSession credsKey $ toSinglePiece aid
             if doRedirects
                 then do
-                    setMessage $ mr Msg.NowLoggedIn
+                    setMessageI Msg.NowLoggedIn
                     redirectUltDest RedirectTemporary $ loginDest y
                 else return ()
 
@@ -229,6 +226,5 @@ redirectLogin = do
         Just z -> redirect RedirectTemporary z
         Nothing -> permissionDenied "Please configure authRoute"
 
-instance YesodAuth m => YesodMessage Auth m where
-    type Message Auth m = AuthMessage
-    renderMessage = const renderAuthMessage
+instance YesodAuth m => RenderMessage m AuthMessage where
+    renderMessage = renderAuthMessage

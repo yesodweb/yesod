@@ -34,7 +34,7 @@ data AuthMessage =
     | InvalidLogin
     | NowLoggedIn
 
-defaultMessage :: AuthMessage -> Html
+defaultMessage :: AuthMessage -> Text
 defaultMessage NoOpenID = "No OpenID identifier found"
 defaultMessage LoginOpenID = "Login via OpenID"
 defaultMessage Email = "Email"
@@ -45,7 +45,7 @@ defaultMessage EnterEmail = "Enter your e-mail address below, and a confirmation
 defaultMessage ConfirmationEmailSentTitle = "Confirmation e-mail sent"
 defaultMessage (ConfirmationEmailSent email) =
     "A confirmation e-mail has been sent to " `mappend`
-    toHtml email `mappend`
+    email `mappend`
     "."
 defaultMessage AddressVerified = "Address verified, please set a new password"
 defaultMessage InvalidKeyTitle = "Invalid verification key"
