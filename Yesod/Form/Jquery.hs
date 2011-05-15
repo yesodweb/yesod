@@ -63,10 +63,10 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField :: (YesodJquery master) => JqueryDaySettings -> Field (GWidget sub master ()) Day
+jqueryDayField :: (YesodJquery master) => JqueryDaySettings -> Field (GWidget sub master ()) FormMessage Day
 jqueryDayField jds = Field
     { fieldParse = maybe
-                  (Left "Invalid day, must be in YYYY-MM-DD format")
+                  (Left MsgInvalidDay)
                   Right
               . readMay
               . unpack
@@ -118,7 +118,7 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
       let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
       in (show h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
 
-jqueryDayTimeField :: YesodJquery master => Field (GWidget sub master ()) UTCTime
+jqueryDayTimeField :: YesodJquery master => Field (GWidget sub master ()) FormMessage UTCTime
 jqueryDayTimeField = Field
     { fieldParse  = parseUTCTime . unpack
     , fieldRender = pack . jqueryDayTimeUTCTime
@@ -135,7 +135,7 @@ $(function(){$("##{theId}").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})}
 |]
     }
 
-parseUTCTime :: String -> Either Text UTCTime
+parseUTCTime :: String -> Either FormMessage UTCTime
 parseUTCTime s =
     let (dateS, timeS) = break isSpace (dropWhile isSpace s)
         dateE = parseDate dateS
@@ -145,7 +145,7 @@ parseUTCTime s =
                 ifRight (parseTime timeS)
                     (UTCTime date . timeOfDayToTime)
 
-jqueryAutocompleteField :: YesodJquery master => Route master -> Field (GWidget sub master ()) Text
+jqueryAutocompleteField :: YesodJquery master => Route master -> Field (GWidget sub master ()) FormMessage Text
 jqueryAutocompleteField src = Field
     { fieldParse = Right
     , fieldRender = id

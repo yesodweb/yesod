@@ -69,38 +69,38 @@ instance Show Ints where
 type Env = [(Text, Text)] -- FIXME use a Map
 type FileEnv = [(Text, FileInfo)]
 
-type Form m a = RWST (Maybe (Env, FileEnv)) Enctype Ints m a
+type Form master m a = RWST (Maybe (Env, FileEnv), master, [Text]) Enctype Ints m a
 
-newtype AForm xml m a = AForm
-    { unAForm :: Maybe (Env, FileEnv) -> Ints -> m (FormResult a, xml, Ints, Enctype)
+newtype AForm xml master m a = AForm
+    { unAForm :: (master, [Text]) -> Maybe (Env, FileEnv) -> Ints -> m (FormResult a, xml, Ints, Enctype)
     }
-instance Monad m => Functor (AForm xml m) where
+instance Monad m => Functor (AForm xml msg m) where
     fmap f (AForm a) =
-        AForm $ \x y -> liftM go $ a x y
+        AForm $ \x y z -> liftM go $ a x y z
       where
         go (w, x, y, z) = (fmap f w, x, y, z)
-instance (Monad m, Monoid xml) => Applicative (AForm xml m) where
-    pure x = AForm $ const $ \ints -> return (FormSuccess x, mempty, ints, mempty)
-    (AForm f) <*> (AForm g) = AForm $ \env ints -> do
-        (a, b, ints', c) <- f env ints
-        (x, y, ints'', z) <- g env ints'
+instance (Monad m, Monoid xml) => Applicative (AForm xml msg m) where
+    pure x = AForm $ const $ const $ \ints -> return (FormSuccess x, mempty, ints, mempty)
+    (AForm f) <*> (AForm g) = AForm $ \mr env ints -> do
+        (a, b, ints', c) <- f mr env ints
+        (x, y, ints'', z) <- g mr env ints'
         return (a <*> x, b `mappend` y, ints'', c `mappend` z)
-instance (Monad m, Monoid xml, Monoid a) => Monoid (AForm xml m a) where
+instance (Monad m, Monoid xml, Monoid a) => Monoid (AForm xml msg m a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
-instance Monoid xml => MonadTrans (AForm xml) where
-    lift mx = AForm $ const $ \ints -> do
+instance Monoid xml => MonadTrans (AForm xml msg) where
+    lift mx = AForm $ const $ const $ \ints -> do
         x <- mx
         return (pure x, mempty, ints, mempty)
 
-data FieldSettings = FieldSettings
-    { fsLabel :: Html -- FIXME do we need Text?
-    , fsTooltip :: Maybe Html
+data FieldSettings msg = FieldSettings
+    { fsLabel :: msg
+    , fsTooltip :: Maybe msg
     , fsId :: Maybe Text
     , fsName :: Maybe Text
     }
 
-instance IsString FieldSettings where
+instance IsString a => IsString (FieldSettings a) where
     fromString s = FieldSettings (fromString s) Nothing Nothing Nothing
 
 data FieldView xml = FieldView
@@ -112,8 +112,8 @@ data FieldView xml = FieldView
     , fvRequired :: Bool
     }
 
-data Field xml a = Field
-    { fieldParse :: Text -> Either Text a -- FIXME probably want to make this more sophisticated, handle no form, no field
+data Field xml msg a = Field
+    { fieldParse :: Text -> Either msg a -- FIXME probably want to make this more sophisticated, handle no form, no field
     , fieldRender :: a -> Text
     , fieldView :: Text -- ^ ID
                 -> Text -- ^ name

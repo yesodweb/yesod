@@ -3,7 +3,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
 module Yesod.Form.Fields
-    ( textField
+    ( FormMessage (..)
+    , defaultFormMessage
+    , textField
     , passwordField
     , textareaField
     , hiddenField
@@ -13,6 +15,7 @@ module Yesod.Form.Fields
     , htmlField
     , emailField
     , searchField
+    , selectField
     , AutoFocus
     , urlField
     , doubleField
@@ -41,6 +44,8 @@ import Text.Blaze.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
+import qualified Data.Text.Read
+import Data.Monoid (mappend)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -54,9 +59,32 @@ import Data.Text (Text, unpack, pack)
 #define JULIUS $julius
 #endif
 
-intField :: (Monad monad, Integral i) => Field (GGWidget master monad ()) i
+data FormMessage = MsgInvalidInteger Text
+                 | MsgInvalidNumber Text
+                 | MsgInvalidEntry Text
+                 | MsgInvalidUrl Text
+                 | MsgInvalidEmail Text
+                 | MsgInvalidTimeFormat
+                 | MsgInvalidHour Text
+                 | MsgInvalidMinute Text
+                 | MsgInvalidSecond Text
+                 | MsgInvalidDay
+
+defaultFormMessage :: FormMessage -> Text
+defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
+defaultFormMessage (MsgInvalidNumber t) = "Invalid number: " `mappend` t
+defaultFormMessage (MsgInvalidEntry t) = "Invalid entry: " `mappend` t
+defaultFormMessage MsgInvalidTimeFormat = "Invalid time, must be in HH:MM[:SS] format"
+defaultFormMessage MsgInvalidDay = "Invalid day, must be in YYYY-MM-DD format"
+defaultFormMessage (MsgInvalidUrl t) = "Invalid URL: " `mappend` t
+defaultFormMessage (MsgInvalidEmail t) = "Invalid e-mail address: " `mappend` t
+defaultFormMessage (MsgInvalidHour t) = "Invalid hour: " `mappend` t
+defaultFormMessage (MsgInvalidMinute t) = "Invalid minute: " `mappend` t
+defaultFormMessage (MsgInvalidSecond t) = "Invalid second: " `mappend` t
+
+intField :: (Monad monad, Integral i) => Field (GGWidget master monad ()) FormMessage i
 intField = Field
-    { fieldParse = maybe (Left "Invalid integer") Right . readMayI . unpack -- FIXME Data.Text.Read
+    { fieldParse = \s -> maybe (Left $ MsgInvalidInteger s) Right . readMayI $ unpack s -- FIXME Data.Text.Read
     , fieldRender = pack . showI
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -69,9 +97,9 @@ intField = Field
                     (x, _):_ -> Just $ fromInteger x
                     [] -> Nothing
 
-doubleField :: Monad monad => Field (GGWidget master monad ()) Double
+doubleField :: Monad monad => Field (GGWidget master monad ()) FormMessage Double
 doubleField = Field
-    { fieldParse = maybe (Left "Invalid number") Right . readMay . unpack -- FIXME use Data.Text.Read
+    { fieldParse = \s -> maybe (Left $ MsgInvalidNumber s) Right . readMay $ unpack s -- FIXME use Data.Text.Read
     , fieldRender = pack . show
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -79,7 +107,7 @@ doubleField = Field
 |]
     }
 
-dayField :: Monad monad => Field (GGWidget master monad ()) Day
+dayField :: Monad monad => Field (GGWidget master monad ()) FormMessage Day
 dayField = Field
     { fieldParse = parseDate . unpack
     , fieldRender = pack . show
@@ -89,7 +117,7 @@ dayField = Field
 |]
     }
 
-timeField :: Monad monad => Field (GGWidget master monad ()) TimeOfDay
+timeField :: Monad monad => Field (GGWidget master monad ()) FormMessage TimeOfDay
 timeField = Field
     { fieldParse = parseTime . unpack
     , fieldRender = pack . show . roundFullSeconds
@@ -104,7 +132,7 @@ timeField = Field
       where
         fullSec = fromInteger $ floor $ todSec tod
 
-htmlField :: Monad monad => Field (GGWidget master monad ()) Html
+htmlField :: Monad monad => Field (GGWidget master monad ()) FormMessage Html
 htmlField = Field
     { fieldParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
     , fieldRender = pack . renderHtml
@@ -132,7 +160,7 @@ instance ToHtml Textarea where
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
-textareaField :: Monad monad => Field (GGWidget master monad ()) Textarea
+textareaField :: Monad monad => Field (GGWidget master monad ()) FormMessage Textarea
 textareaField = Field
     { fieldParse = Right . Textarea
     , fieldRender = unTextarea
@@ -142,7 +170,7 @@ textareaField = Field
 |]
     }
 
-hiddenField :: Monad monad => Field (GGWidget master monad ()) Text
+hiddenField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 hiddenField = Field
     { fieldParse = Right
     , fieldRender = id
@@ -152,7 +180,7 @@ hiddenField = Field
 |]
     }
 
-textField :: Monad monad => Field (GGWidget master monad ()) Text
+textField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 textField = Field
     { fieldParse = Right
     , fieldRender = id
@@ -162,7 +190,7 @@ textField = Field
 |]
     }
 
-passwordField :: Monad monad => Field (GGWidget master monad ()) Text
+passwordField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 passwordField = Field
     { fieldParse = Right
     , fieldRender = id
@@ -177,8 +205,8 @@ readMay s = case reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
 
-parseDate :: String -> Either Text Day
-parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
+parseDate :: String -> Either FormMessage Day
+parseDate = maybe (Left MsgInvalidDay) Right
               . readMay . replace '/' '-'
 
 -- | Replaces all instances of a value in a list by another value.
@@ -186,7 +214,7 @@ parseDate = maybe (Left "Invalid day, must be in YYYY-MM-DD format") Right
 replace :: Eq a => a -> a -> [a] -> [a]
 replace x y = map (\z -> if z == x then y else z)
 
-parseTime :: String -> Either Text TimeOfDay
+parseTime :: String -> Either FormMessage TimeOfDay
 parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:' ':'A':'M':[]) =
@@ -196,25 +224,25 @@ parseTime (h1:h2:':':m1:m2:' ':'P':'M':[]) =
     in parseTimeHelper (h1', h2', m1, m2, '0', '0')
 parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
     parseTimeHelper (h1, h2, m1, m2, s1, s2)
-parseTime _ = Left "Invalid time, must be in HH:MM[:SS] format"
+parseTime _ = Left MsgInvalidTimeFormat
 
 parseTimeHelper :: (Char, Char, Char, Char, Char, Char)
-                -> Either Text TimeOfDay
+                -> Either FormMessage TimeOfDay
 parseTimeHelper (h1, h2, m1, m2, s1, s2)
-    | h < 0 || h > 23 = Left $ pack $ "Invalid hour: " ++ show h
-    | m < 0 || m > 59 = Left $ pack $ "Invalid minute: " ++ show m
-    | s < 0 || s > 59 = Left $ pack $ "Invalid second: " ++ show s
+    | h < 0 || h > 23 = Left $ MsgInvalidHour $ pack [h1, h2]
+    | m < 0 || m > 59 = Left $ MsgInvalidMinute $ pack [m1, m2]
+    | s < 0 || s > 59 = Left $ MsgInvalidSecond $ pack [s1, s2]
     | otherwise = Right $ TimeOfDay h m s
   where
-    h = read [h1, h2]
+    h = read [h1, h2] -- FIXME isn't this a really bad idea?
     m = read [m1, m2]
     s = fromInteger $ read [s1, s2]
 
-emailField :: Monad monad => Field (GGWidget master monad ()) Text
+emailField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 emailField = Field
     { fieldParse = \s -> if Email.isValid (unpack s)
                         then Right s
-                        else Left "Invalid e-mail address"
+                        else Left $ MsgInvalidEmail s
     , fieldRender = id
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -223,7 +251,7 @@ emailField = Field
     }
 
 type AutoFocus = Bool
-searchField :: Monad monad => AutoFocus -> Field (GGWidget master monad ()) Text
+searchField :: Monad monad => AutoFocus -> Field (GGWidget master monad ()) FormMessage Text
 searchField autoFocus = Field
     { fieldParse = Right
     , fieldRender = id
@@ -240,10 +268,10 @@ searchField autoFocus = Field
             |]
     }
 
-urlField :: Monad monad => Field (GGWidget master monad ()) Text
+urlField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 urlField = Field
     { fieldParse = \s -> case parseURI $ unpack s of
-                        Nothing -> Left "Invalid URL"
+                        Nothing -> Left $ MsgInvalidUrl s
                         Just _ -> Right s
     , fieldRender = id
     , fieldView = \theId name val isReq -> addHtml
@@ -251,3 +279,25 @@ urlField = Field
 <input ##{theId} name=#{name} type=url :isReq:required value=#{val}>
 |]
     }
+
+selectField :: (Eq a, Monad monad) => [(Text, a)] -> Field (GGWidget master monad ()) FormMessage a
+selectField opts = Field -- FIXME won't work for optional yet
+    { fieldParse = \s ->
+        case Data.Text.Read.decimal s of
+            Right (a, "") ->
+                case lookup a pairs of
+                    Nothing -> Left $ MsgInvalidEntry s
+                    Just x -> Right $ snd x
+            _ -> Left $ MsgInvalidNumber s
+    , fieldRender = \a -> maybe "" (pack . show) $ lookup a rpairs
+    , fieldView = \theId name val isReq -> [WHAMLET|
+<select id=#{theId} name=#{name}
+    $if not isReq
+        <option value=none>
+    $forall pair <- pairs
+        <option value=#{show $ fst pair} :(==) val (fst $ snd pair):selected>#{fst $ snd pair}
+|]
+    }
+  where
+    pairs = zip [1 :: Int ..] opts -- FIXME use IntMap
+    rpairs = zip (map snd opts) [1 :: Int ..]
