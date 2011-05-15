@@ -50,7 +50,7 @@ import Control.Monad.Trans.RWS
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
-import Text.Blaze (preEscapedLazyText, (!), customAttribute, textTag, toValue)
+import Text.Blaze ((!), customAttribute, textTag, toValue)
 import qualified Text.Blaze.Html5 as TBH
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
@@ -484,10 +484,7 @@ widgetToPageContent (GWidget w) = do
     let title = maybe mempty unTitle mTitle
     let scripts = runUniqueList scripts'
     let stylesheets = runUniqueList stylesheets'
-    let cssToHtml = preEscapedLazyText . renderCss
-        celper :: Cassius url -> Hamlet url
-        celper = fmap cssToHtml
-        jsToHtml (Javascript b) = preEscapedLazyText $ toLazyText b
+    let jsToHtml (Javascript b) = preEscapedLazyText $ toLazyText b
         jelper :: Julius url -> Hamlet url
         jelper = fmap jsToHtml
 

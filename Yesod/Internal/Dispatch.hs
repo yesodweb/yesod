@@ -156,7 +156,6 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
     let caseExp = rm `AppE` VarE req
     yr <- [|yesodRunner|]
     cr <- [|fmap chooseRep|]
-    pack <- [|Data.Text.pack|]
     eq <- [|(==)|]
     let url = foldl' AppE (ConE $ mkName constr) $ frontVars []
     let runHandlerVars h = runHandler' $ cr `AppE` foldl' AppE (VarE $ mkName h) (frontVars [])

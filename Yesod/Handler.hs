@@ -129,7 +129,6 @@ import qualified Network.HTTP.Types as H
 import Control.Failure (Failure (failure))
 
 import Text.Hamlet
-import Text.Blaze (preEscapedText)
 import qualified Text.Blaze.Renderer.Text
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)

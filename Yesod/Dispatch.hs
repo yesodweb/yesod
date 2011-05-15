@@ -16,6 +16,7 @@ module Yesod.Dispatch
     , SinglePiece (..)
     , MultiPiece (..)
     , Strings
+    , Texts
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
@@ -27,7 +28,7 @@ import Yesod.Internal.Core
 import Yesod.Handler
 import Yesod.Internal.Dispatch
 
-import Web.Routes.Quasi (SinglePiece, MultiPiece, Strings)
+import Web.Routes.Quasi (SinglePiece (..), MultiPiece (..), Strings)
 import Web.Routes.Quasi.Parse (Resource (..), parseRoutes, parseRoutesFile)
 import Web.Routes.Quasi.TH (THResource, Pieces (..), createRoutes, createRender)
 import Language.Haskell.TH.Syntax
@@ -40,6 +41,9 @@ import Data.ByteString.Lazy.Char8 ()
 
 import Web.ClientSession
 import Data.Char (isUpper)
+import Data.Text (Text)
+
+type Texts = [Text]
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
