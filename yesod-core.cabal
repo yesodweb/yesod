@@ -49,12 +49,15 @@ library
                    , blaze-html                >= 0.4      && < 0.5
                    , http-types                >= 0.6      && < 0.7
                    , case-insensitive          >= 0.2      && < 0.3
+                   , parsec                    >= 2        && < 3.2
+                   , directory                 >= 1        && < 1.2
     exposed-modules: Yesod.Content
                      Yesod.Core
                      Yesod.Dispatch
                      Yesod.Handler
                      Yesod.Request
                      Yesod.Widget
+                     Yesod.Message
     other-modules:   Yesod.Internal
                      Yesod.Internal.Core
                      Yesod.Internal.Session

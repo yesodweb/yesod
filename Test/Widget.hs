@@ -18,6 +18,9 @@ import Network.Wai.Test
 import qualified Data.ByteString.Lazy.Char8 as L8
 
 data Y = Y
+
+mkMessage "Y" "test" "en"
+
 mkYesod "Y" [$parseRoutes|
 / RootR GET
 /foo/*Strings MultiR GET
@@ -31,19 +34,19 @@ getRootR = defaultLayout $ addJuliusBody [$julius|<not escaped>|]
 getMultiR _ = return ()
 
 data Msg = Hello | Goodbye
-instance YesodMessage Y Y where
-    type Message Y Y = Msg
-    renderMessage _ _ ("en":_) Hello = "Hello"
-    renderMessage _ _ ("es":_) Hello = "Hola"
-    renderMessage _ _ ("en":_) Goodbye = "Goodbye"
-    renderMessage _ _ ("es":_) Goodbye = "Adios"
-    renderMessage a b (_:xs) y = renderMessage a b xs y
-    renderMessage a b [] y = renderMessage a b ["en"] y
+instance RenderMessage Y Msg where
+    renderMessage _ ("en":_) Hello = "Hello"
+    renderMessage _ ("es":_) Hello = "Hola"
+    renderMessage _ ("en":_) Goodbye = "Goodbye"
+    renderMessage _ ("es":_) Goodbye = "Adios"
+    renderMessage a (_:xs) y = renderMessage a xs y
+    renderMessage a [] y = renderMessage a ["en"] y
 
 getWhamletR = defaultLayout [$whamlet|
 <h1>Test
 <h2>@{WhamletR}
 <h3>_{Goodbye}
+<h3>_{MsgAnother}
 ^{embed}
 |]
   where
@@ -72,4 +75,4 @@ case_whamlet = runner $ do
         { pathInfo = ["whamlet"]
         , requestHeaders = [("Accept-Language", "es")]
         }
-    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><h1>Test</h1><h2>http://test/whamlet</h2><h3>Adios</h3><h4>Embed</h4></body></html>" res
+    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><h1>Test</h1><h2>http://test/whamlet</h2><h3>Adios</h3><h3>String</h3><h4>Embed</h4></body></html>" res

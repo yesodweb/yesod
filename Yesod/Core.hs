@@ -31,6 +31,7 @@ module Yesod.Core
     , module Yesod.Handler
     , module Yesod.Request
     , module Yesod.Widget
+    , module Yesod.Message
     ) where
 
 import Yesod.Internal.Core
@@ -39,6 +40,7 @@ import Yesod.Dispatch
 import Yesod.Handler
 import Yesod.Request
 import Yesod.Widget
+import Yesod.Message
 
 import Language.Haskell.TH.Syntax
 import Data.Text (Text)

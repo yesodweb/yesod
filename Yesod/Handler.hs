@@ -50,7 +50,9 @@ module Yesod.Handler
     , notFound
     , badMethod
     , permissionDenied
+    , permissionDeniedI
     , invalidArgs
+    , invalidArgsI
       -- ** Short-circuit responses.
     , sendFile
     , sendFilePart
@@ -81,6 +83,7 @@ module Yesod.Handler
     , redirectUltDest
       -- ** Messages
     , setMessage
+    , setMessageI
     , getMessage
       -- * Helpers for specific content
       -- ** Hamlet
@@ -89,6 +92,8 @@ module Yesod.Handler
       -- ** Misc
     , newIdent
     , liftIOHandler
+      -- * i18n
+    , getMessageRender
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
@@ -154,6 +159,7 @@ import qualified Data.ByteString.Char8 as S8
 import Data.CaseInsensitive (CI)
 import Blaze.ByteString.Builder (toByteString)
 import Data.Text (Text)
+import Yesod.Message (RenderMessage (..))
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -501,6 +507,14 @@ msgKey = "_MSG"
 setMessage :: Monad mo => Html -> GGHandler sub master mo ()
 setMessage = setSession msgKey . T.concat . TL.toChunks . Text.Blaze.Renderer.Text.renderHtml
 
+-- | Sets a message in the user's session.
+--
+-- See 'getMessage'.
+setMessageI :: (RenderMessage y msg, Monad mo) => msg -> GGHandler sub y mo ()
+setMessageI msg = do
+    mr <- getMessageRender
+    setMessage $ toHtml $ mr msg
+
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.
 --
@@ -569,9 +583,21 @@ badMethod = do
 permissionDenied :: Failure ErrorResponse m => Text -> m a
 permissionDenied = failure . PermissionDenied
 
+-- | Return a 403 permission denied page.
+permissionDeniedI :: (RenderMessage y msg, Monad mo) => msg -> GGHandler s y mo a
+permissionDeniedI msg = do
+    mr <- getMessageRender
+    permissionDenied $ mr msg
+
 -- | Return a 400 invalid arguments page.
 invalidArgs :: Failure ErrorResponse m => [Text] -> m a
 invalidArgs = failure . InvalidArgs
+
+-- | Return a 400 invalid arguments page.
+invalidArgsI :: (RenderMessage y msg, Monad mo) => [msg] -> GGHandler s y mo a
+invalidArgsI msg = do
+    mr <- getMessageRender
+    invalidArgs $ map mr msg
 
 ------- Headers
 -- | Set the cookie on the client.
@@ -848,3 +874,9 @@ hamletToRepHtml = liftM RepHtml . hamletToContent
 -- | Get the request\'s 'W.Request' value.
 waiRequest :: Monad mo => GGHandler sub master mo W.Request
 waiRequest = reqWaiRequest `liftM` getRequest
+
+getMessageRender :: (Monad mo, RenderMessage master message) => GGHandler s master mo (message -> Text)
+getMessageRender = do
+    m <- getYesod
+    l <- reqLangs `liftM` getRequest
+    return $ renderMessage m l
