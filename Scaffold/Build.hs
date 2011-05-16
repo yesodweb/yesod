@@ -23,6 +23,7 @@ import Data.Monoid (mappend)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes)
+import Data.Text (unpack)
 
 build :: IO ()
 build = do
@@ -56,7 +57,7 @@ touchDeps =
     mapM_ go . Map.toList
   where
     go (x, ys) = do
-        fs <- getFileStatus x
+        fs <- getFileStatus x -- FIXME ignore exceptions
         flip mapM_ (Set.toList ys) $ \y -> do
             fs' <- getFileStatus y
             if modificationTime fs' < modificationTime fs
@@ -88,38 +89,47 @@ findHaskellFiles path = do
                     then return [y]
                     else return []
 
-data TempType = Hamlet | Cassius | Lucius | Julius | Widget | Verbatim
+data TempType = Hamlet | Verbatim | Messages FilePath
     deriving Show
 
 determineHamletDeps :: FilePath -> IO [FilePath]
 determineHamletDeps x = do
-    y <- TIO.readFile x
+    y <- TIO.readFile x -- FIXME catch IO exceptions
     let z = A.parse (A.many $ (parser <|> (A.anyChar >> return Nothing))) y
     case z of
         A.Fail{} -> return []
-        A.Done _ r -> return $ mapMaybe go r
+        A.Done _ r -> return $ concatMap go r
   where
-    go (Just (Hamlet, f)) = Just $ "hamlet/" ++ f ++ ".hamlet"
-    go (Just (Widget, f)) = Just $ "hamlet/" ++ f ++ ".hamlet"
-    go (Just (Verbatim, f)) = Just f
-    go _ = Nothing
+    go (Just (Hamlet, f)) = [f, "hamlet/" ++ f ++ ".hamlet"]
+    go (Just (Verbatim, f)) = [f]
+    go (Just (Messages f, _)) = [f]
+    go Nothing = []
     parser = do
         ty <- (A.string "$(hamletFile " >> return Hamlet)
-           <|> (A.string "$(cassiusFile " >> return Cassius)
-           <|> (A.string "$(luciusFile " >> return Lucius)
-           <|> (A.string "$(juliusFile " >> return Julius)
-           <|> (A.string "$(widgetFile " >> return Widget)
+           <|> (A.string "$(ihamletFile " >> return Hamlet)
+           <|> (A.string "$(whamletFile " >> return Hamlet)
+           <|> (A.string "$(html " >> return Hamlet)
+           <|> (A.string "$(widgetFile " >> return Hamlet)
            <|> (A.string "$(Settings.hamletFile " >> return Hamlet)
-           <|> (A.string "$(Settings.cassiusFile " >> return Cassius)
-           <|> (A.string "$(Settings.luciusFile " >> return Lucius)
-           <|> (A.string "$(Settings.juliusFile " >> return Julius)
-           <|> (A.string "$(Settings.widgetFile " >> return Widget)
+           <|> (A.string "$(Settings.widgetFile " >> return Hamlet)
            <|> (A.string "$(persistFile " >> return Verbatim)
            <|> (A.string "$(parseRoutesFile " >> return Verbatim)
-        A.skipWhile isSpace
-        _ <- A.char '"'
-        y <- A.many1 $ A.satisfy (/= '"')
-        _ <- A.char '"'
-        A.skipWhile isSpace
-        _ <- A.char ')'
-        return $ Just (ty, y)
+           <|> (do
+                    A.string "\nmkMessage \""
+                    A.skipWhile (/= '"')
+                    A.string "\" \""
+                    x <- A.many1 $ A.satisfy (/= '"')
+                    A.string "\" \""
+                    y <- A.many1 $ A.satisfy (/= '"')
+                    A.string "\""
+                    return $ Messages $ concat [x, "/", y, ".msg"])
+        case ty of
+            Messages{} -> return $ Just (ty, "")
+            _ -> do
+                A.skipWhile isSpace
+                _ <- A.char '"'
+                y <- A.many1 $ A.satisfy (/= '"')
+                _ <- A.char '"'
+                A.skipWhile isSpace
+                _ <- A.char ')'
+                return $ Just (ty, y)

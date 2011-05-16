@@ -143,7 +143,6 @@ getFileList = do
 
 loop :: FileList -> IO () -> IO ()
 loop oldList getNewApp = do
-    putStrLn "Testing files..."
     newList <- getFileList
     when (newList /= oldList) getNewApp
     threadDelay 1000000

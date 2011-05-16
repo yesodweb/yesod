@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.8.0.1
+version:         0.8.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -13,7 +13,7 @@ category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://docs.yesodweb.com/
+homepage:        http://www.yesodweb.com/
 extra-source-files: scaffold/*.cg
 
 flag ghc7
@@ -24,8 +24,8 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                  >= 4        && < 4.3
-    build-depends:   yesod-core                >= 0.8      && < 0.9
-                   , yesod-auth                >= 0.4      && < 0.5
+    build-depends:   yesod-core                >= 0.8.1    && < 0.9
+                   , yesod-auth                >= 0.4      && < 0.6
                    , yesod-json                >= 0.1      && < 0.2
                    , yesod-persistent          >= 0.1      && < 0.2
                    , yesod-static              >= 0.1      && < 0.2
@@ -34,7 +34,7 @@ library
                    , transformers              >= 0.2      && < 0.3
                    , wai                       >= 0.4      && < 0.5
                    , wai-extra                 >= 0.4      && < 0.5
-                   , hamlet                    >= 0.8      && < 0.9
+                   , hamlet                    >= 0.8.1    && < 0.9
                    , warp                      >= 0.4      && < 0.5
                    , mime-mail                 >= 0.3      && < 0.4
                    , hjsmin                    >= 0.0.13   && < 0.1
