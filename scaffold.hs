@@ -46,14 +46,15 @@ main = do
             putStrLn "    build        Build project (performs TH dependency analysis)"
             putStrLn "    devel        Run project with the devel server"
 
+puts :: String -> IO ()
+puts s = putStr s >> hFlush stdout
+
 scaffold :: IO ()
 scaffold = do
-    putStr $(codegen "welcome")
-    hFlush stdout
+    puts $(codegen "welcome")
     name <- getLine
 
-    putStr $(codegen "project-name")
-    hFlush stdout
+    puts $(codegen "project-name")
     let validPN c
             | 'A' <= c && c <= 'Z' = True
             | 'a' <= c && c <= 'z' = True
@@ -62,19 +63,13 @@ scaffold = do
         validPN '_' = True
         validPN _ = False
     project <- prompt $ all validPN
+    let dir = project
 
-    putStr $(codegen "dir-name")
-    hFlush stdout
-    dirRaw <- getLine
-    let dir = if null dirRaw then project else dirRaw
-
-    putStr $(codegen "site-arg")
-    hFlush stdout
+    puts $(codegen "site-arg")
     let isUpperAZ c = 'A' <= c && c <= 'Z'
     sitearg <- prompt $ \s -> not (null s) && all validPN s && isUpperAZ (head s) && s /= "Main"
 
-    putStr $(codegen "database")
-    hFlush stdout
+    puts $(codegen "database")
     backendS <- prompt $ flip elem ["s", "p", "m"]
     let pconn1 = $(codegen "pconn1")
     let pconn2 = $(codegen "pconn2")
@@ -101,6 +96,7 @@ scaffold = do
     mkDir "lucius"
     mkDir "julius"
     mkDir "static"
+    mkDir "static/css"
     mkDir "config"
 
     writeFile' ("config/" ++ project ++ ".hs") $(codegen "test_hs")
@@ -116,6 +112,10 @@ scaffold = do
         $(codegen "default-layout_cassius")
     writeFile' "hamlet/default-layout.hamlet"
         $(codegen "default-layout_hamlet")
+    writeFile' "hamlet/boilerplate-layout.hamlet"
+        $(codegen "boilerplate-layout_hamlet")
+    writeFile' "static/css/html5boilerplate.css"
+        $(codegen "boilerplate_css")
     writeFile' "hamlet/homepage.hamlet" $ if backendS == "m" then $(codegen "mini-homepage_hamlet") else $(codegen "homepage_hamlet")
     writeFile' "config/routes" $ if backendS == "m" then $(codegen "mini-routes") else $(codegen "routes")
     writeFile' "cassius/homepage.cassius" $(codegen "homepage_cassius")
