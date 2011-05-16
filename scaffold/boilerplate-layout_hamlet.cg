@@ -1,0 +1,30 @@
+\<!doctype html>M
+\<!--[if lt IE 7 ]> <html lang="en" class="no-js ie6"> <![endif]-->^M
+\<!--[if IE 7 ]>    <html lang="en" class="no-js ie7"> <![endif]-->^M
+\<!--[if IE 8 ]>    <html lang="en" class="no-js ie8"> <![endif]-->^M
+\<!--[if IE 9 ]>    <html lang="en" class="no-js ie9"> <![endif]-->^M
+\<!--[if (gt IE 9)|!(IE)]><!-->
+<html lang="en" class="no-js"><!--<![endif]-->^M
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        <meta name="description" content="">
+        <meta name="author" content="">
+
+        <title>#{pageTitle pc}
+
+        <link rel="stylesheet" href=@{StaticR css_html5boilerplate_css}>
+        ^{pageHead pc}
+      
+        <!--[if lt IE 9]>
+        <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->^M
+
+        <script>
+          document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/,'js');
+    <body>
+        $maybe msg <- mmsg
+            <div #message>#{msg}
+        ^{pageBody pc}
