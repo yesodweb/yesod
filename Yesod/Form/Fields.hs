@@ -295,7 +295,7 @@ selectField opts = Field -- FIXME won't work for optional yet
     $if not isReq
         <option value=none>
     $forall pair <- pairs
-        <option value=#{show $ fst pair} :(==) val (fst $ snd pair):selected>#{fst $ snd pair}
+        <option value=#{show $ fst pair} :(==) val (pack $ show $ fst pair):selected>#{fst $ snd pair}
 |]
     }
   where
