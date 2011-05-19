@@ -114,8 +114,12 @@ getAccessToken, getTokenCredential
 getAccessToken oa cr = do
   let req = (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
   rsp <- signOAuth oa cr req >>= withManager . httpLbs
-  let dic = parseSimpleQuery . toStrict . responseBody $ rsp
-  return $ Credential dic
+  if statusCode rsp == 200
+    then do
+      let dic = parseSimpleQuery . toStrict . responseBody $ rsp
+      return $ Credential dic
+    else throwIO . OAuthException $ "Gaining OAuth Temporary Credential Failed: " ++ BSL.unpack (responseBody rsp)
+
 
 getTokenCredential = getAccessToken
 
