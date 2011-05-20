@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 module Yesod.Form.Types
     ( -- * Helpers
       Enctype (..)
@@ -100,7 +101,7 @@ data FieldSettings msg = FieldSettings
     , fsName :: Maybe Text
     }
 
-instance IsString a => IsString (FieldSettings a) where
+instance (a ~ Text) => IsString (FieldSettings a) where
     fromString s = FieldSettings (fromString s) Nothing Nothing Nothing
 
 data FieldView xml = FieldView
