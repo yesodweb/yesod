@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Form.Fields
     ( FormMessage (..)
     , defaultFormMessage
@@ -22,10 +23,13 @@ module Yesod.Form.Fields
     , parseDate
     , parseTime
     , Textarea (..)
+    , radioField
     ) where
 
 import Yesod.Form.Types
 import Yesod.Widget
+import Yesod.Message (RenderMessage)
+import Yesod.Handler (GGHandler)
 import Text.Hamlet hiding (renderHtml)
 import Text.Blaze (ToHtml (..))
 import Text.Cassius
@@ -34,7 +38,7 @@ import qualified Text.Email.Validate as Email
 import Network.URI (parseURI)
 import Database.Persist (PersistField)
 import Text.HTML.SanitizeXSS (sanitizeBalance)
-import Control.Monad (when)
+import Control.Monad (when, unless)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -46,17 +50,20 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 import Data.Monoid (mappend)
+import Text.Hamlet.NonPoly (html)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
 #define HAMLET hamlet
 #define CASSIUS cassius
 #define JULIUS julius
+#define HTML html
 #else
 #define WHAMLET $whamlet
 #define HAMLET $hamlet
 #define CASSIUS $cassius
 #define JULIUS $julius
+#define HTML $html
 #endif
 
 data FormMessage = MsgInvalidInteger Text
@@ -72,6 +79,7 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgCsrfWarning
                  | MsgValueRequired
                  | MsgInputNotFound Text
+                 | MsgSelectNone
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
@@ -87,6 +95,7 @@ defaultFormMessage (MsgInvalidSecond t) = "Invalid second: " `mappend` t
 defaultFormMessage MsgCsrfWarning = "As a protection against cross-site request forgery attacks, please confirm your form submission."
 defaultFormMessage MsgValueRequired = "Value is required"
 defaultFormMessage (MsgInputNotFound t) = "Input not found: " `mappend` t
+defaultFormMessage MsgSelectNone = "<None>"
 
 blank :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
 blank _ Nothing = Right Nothing
@@ -296,8 +305,32 @@ urlField = Field
 |]
     }
 
-selectField :: (Eq a, Monad monad) => [(Text, a)] -> Field (GGWidget master monad ()) FormMessage a
-selectField opts = Field
+selectField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage a
+selectField = selectFieldHelper
+    (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|])
+    (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|])
+    (\_theId _name value isSel text -> addHtml [HTML|<option value=#{value} :isSel:selected>#{text}|])
+
+radioField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage a
+radioField = selectFieldHelper
+    (\theId _name inside -> [WHAMLET|<div ##{theId}>^{inside}|])
+    (\theId name isSel -> [WHAMLET|
+<div>
+    <input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
+    <label for=#{theId}-none>_{MsgSelectNone}
+|])
+    (\theId name value isSel text -> [WHAMLET|
+<div>
+    <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked>
+    <label for=#{theId}-#{value}>#{text}
+|])
+
+selectFieldHelper :: (Eq a, Monad monad)
+        => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())
+        -> (Text -> Text -> Bool -> GGWidget master monad ())
+        -> (Text -> Text -> Text -> Bool -> Text -> GGWidget master monad ())
+        -> [(Text, a)] -> Field (GGWidget master monad ()) FormMessage a
+selectFieldHelper outside onOpt inside opts = Field
     { fieldParse = \s ->
         case s of
             Nothing -> Right Nothing
@@ -311,13 +344,15 @@ selectField opts = Field
                             Just y -> Right $ Just $ snd y
                     _ -> Left $ MsgInvalidNumber x
     , fieldRender = \a -> maybe "" (pack . show) $ lookup a rpairs
-    , fieldView = \theId name val isReq -> [WHAMLET|
-<select id=#{theId} name=#{name}
-    $if not isReq
-        <option value=none>
-    $forall pair <- pairs
-        <option value=#{show $ fst pair} :(==) val (pack $ show $ fst pair):selected>#{fst $ snd pair}
-|]
+    , fieldView = \theId name val isReq ->
+        outside theId name $ do
+            unless isReq $ onOpt theId name $ not $ val `elem` map (pack . show . fst) pairs
+            flip mapM_ pairs $ \pair -> inside
+                theId
+                name
+                (pack $ show $ fst pair)
+                (val == pack (show $ fst pair))
+                (fst $ snd pair)
     }
   where
     pairs = zip [1 :: Int ..] opts -- FIXME use IntMap
