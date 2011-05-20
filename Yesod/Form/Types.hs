@@ -113,7 +113,7 @@ data FieldView xml = FieldView
     }
 
 data Field xml msg a = Field
-    { fieldParse :: Text -> Either msg a -- FIXME probably want to make this more sophisticated, handle no form, no field
+    { fieldParse :: Maybe Text -> Either msg (Maybe a)
     , fieldRender :: a -> Text
     , fieldView :: Text -- ^ ID
                 -> Text -- ^ name

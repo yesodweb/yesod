@@ -27,7 +27,7 @@ module Yesod.Form.Functions
     ) where
 
 import Yesod.Form.Types
-import Yesod.Form.Fields (FormMessage (MsgCsrfWarning))
+import Yesod.Form.Fields (FormMessage (MsgCsrfWarning, MsgValueRequired))
 import Data.Text (Text, pack)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
@@ -86,21 +86,21 @@ askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
-mreq :: (Monad m, RenderMessage master msg, RenderMessage master msg2)
+mreq :: (Monad m, RenderMessage master msg, RenderMessage master msg2, RenderMessage master FormMessage)
      => Field xml msg a -> FieldSettings msg2 -> Maybe a
      -> Form master (GGHandler sub master m) (FormResult a, FieldView xml)
-mreq field fs mdef = mhelper field fs mdef (FormFailure ["Value is required"]) FormSuccess True -- TRANS
+mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
 mopt :: (Monad m, RenderMessage master msg, RenderMessage master msg2)
      => Field xml msg a -> FieldSettings msg2 -> Maybe (Maybe a)
      -> Form master (GGHandler sub master m) (FormResult (Maybe a), FieldView xml)
-mopt field fs mdef = mhelper field fs (join mdef) (FormSuccess Nothing) (FormSuccess . Just) False
+mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
 mhelper :: (Monad m, RenderMessage master msg, RenderMessage master msg2)
         => Field xml msg a
         -> FieldSettings msg2
         -> Maybe a
-        -> FormResult b -- ^ on missing
+        -> (master -> [Text] -> FormResult b) -- ^ on missing
         -> (a -> FormResult b) -- ^ on success
         -> Bool -- ^ is it required?
         -> Form master (GGHandler sub master m) (FormResult b, FieldView xml)
@@ -109,15 +109,19 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     name <- maybe newFormIdent return fsName
     theId <- lift $ maybe (liftM pack newIdent) return fsId
     (_, master, langs) <- ask
-    let mr = renderMessage master langs
     let mr2 = renderMessage master langs
     let (res, val) =
             case mp of
                 Nothing -> (FormMissing, maybe "" fieldRender mdef)
                 Just p ->
-                    case fromMaybe "" $ lookup name p of
-                        "" -> (onMissing, "") -- TRANS
-                        x -> (either (FormFailure . return . mr) onFound $ fieldParse x, x)
+                    let mval = lookup name p
+                        valB = fromMaybe "" mval
+                     in case fieldParse mval of
+                            Left e -> (FormFailure [renderMessage master langs e], valB)
+                            Right mx ->
+                                case mx of
+                                    Nothing -> (onMissing master langs, valB)
+                                    Just x -> (onFound x, valB)
     return (res, FieldView
         { fvLabel = toHtml $ mr2 fsLabel
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
@@ -130,7 +134,7 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
-areq :: (Monad m, RenderMessage master msg1, RenderMessage master msg2)
+areq :: (Monad m, RenderMessage master msg1, RenderMessage master msg2, RenderMessage master FormMessage)
      => Field xml msg1 a -> FieldSettings msg2 -> Maybe a
      -> AForm ([FieldView xml] -> [FieldView xml]) master (GGHandler sub master m) a
 areq a b = formToAForm . mreq a b

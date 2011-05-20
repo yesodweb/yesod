@@ -63,9 +63,14 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
+blank :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
+blank _ Nothing = Right Nothing
+blank _ (Just "") = Right Nothing
+blank f (Just t) = either Left (Right . Just) $ f t
+
 jqueryDayField :: (YesodJquery master) => JqueryDaySettings -> Field (GWidget sub master ()) FormMessage Day
 jqueryDayField jds = Field
-    { fieldParse = maybe
+    { fieldParse = blank $ maybe
                   (Left MsgInvalidDay)
                   Right
               . readMay
@@ -120,7 +125,7 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
 
 jqueryDayTimeField :: YesodJquery master => Field (GWidget sub master ()) FormMessage UTCTime
 jqueryDayTimeField = Field
-    { fieldParse  = parseUTCTime . unpack
+    { fieldParse  = blank $ parseUTCTime . unpack
     , fieldRender = pack . jqueryDayTimeUTCTime
     , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\

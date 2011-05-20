@@ -26,9 +26,14 @@ class YesodNic a where
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
+blank :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
+blank _ Nothing = Right Nothing
+blank _ (Just "") = Right Nothing
+blank f (Just t) = either Left (Right . Just) $ f t
+
 nicHtmlField :: YesodNic master => Field (GWidget sub master ()) msg Html
 nicHtmlField = Field
-    { fieldParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME
+    { fieldParse = blank $ Right . preEscapedString . sanitizeBalance . unpack -- FIXME
     , fieldRender = pack . renderHtml
     , fieldView = \theId name val _isReq -> do
         addHtml

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Form.Input
     ( FormInput (..)
     , runInputGet
@@ -8,11 +9,11 @@ module Yesod.Form.Input
     ) where
 
 import Yesod.Form.Types
-import Data.Text (Text, append)
+import Yesod.Form.Fields (FormMessage (MsgInputNotFound))
+import Data.Text (Text)
 import Control.Applicative (Applicative (..))
 import Yesod.Handler (GHandler, GGHandler, invalidArgs, runRequestBody, getRequest, getYesod)
 import Yesod.Request (reqGetParams, languages)
-import Data.Maybe (fromMaybe)
 import Control.Monad (liftM)
 import Yesod.Widget (GWidget)
 import Yesod.Message (RenderMessage (..))
@@ -30,17 +31,18 @@ instance Applicative (FormInput master) where
             (_, Left b) -> Left b
             (Right a, Right b) -> Right $ a b
 
-ireq :: RenderMessage master msg => Field (GWidget sub master ()) msg a -> Text -> FormInput master a
+ireq :: (RenderMessage master msg, RenderMessage master FormMessage) => Field (GWidget sub master ()) msg a -> Text -> FormInput master a
 ireq field name = FormInput $ \m l env ->
-    case lookup name env of
-        Nothing -> Left $ (:) $ append "Input not found: " name -- TRANS
-        Just x -> either (Left . (:) . renderMessage m l) Right $ fieldParse field x
+    case fieldParse field $ lookup name env of
+        Left e -> Left $ (:) $ renderMessage m l e
+        Right Nothing -> Left $ (:) $ renderMessage m l $ MsgInputNotFound name
+        Right (Just a) -> Right a
 
 iopt :: RenderMessage master msg => Field (GWidget sub master ()) msg a -> Text -> FormInput master (Maybe a)
 iopt field name = FormInput $ \m l env ->
-    case fromMaybe "" $ lookup name env of
-        "" -> Right Nothing
-        x -> either (Left . (:) . renderMessage m l) (Right . Just) $ fieldParse field x
+    case fieldParse field $ lookup name env of
+        Left e -> Left $ (:) $ renderMessage m l e
+        Right x -> Right x
 
 runInputGet :: Monad monad => FormInput master a -> GGHandler sub master monad a
 runInputGet (FormInput f) = do

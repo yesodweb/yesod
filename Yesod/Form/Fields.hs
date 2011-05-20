@@ -70,6 +70,8 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgInvalidSecond Text
                  | MsgInvalidDay
                  | MsgCsrfWarning
+                 | MsgValueRequired
+                 | MsgInputNotFound Text
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
@@ -83,10 +85,20 @@ defaultFormMessage (MsgInvalidHour t) = "Invalid hour: " `mappend` t
 defaultFormMessage (MsgInvalidMinute t) = "Invalid minute: " `mappend` t
 defaultFormMessage (MsgInvalidSecond t) = "Invalid second: " `mappend` t
 defaultFormMessage MsgCsrfWarning = "As a protection against cross-site request forgery attacks, please confirm your form submission."
+defaultFormMessage MsgValueRequired = "Value is required"
+defaultFormMessage (MsgInputNotFound t) = "Input not found: " `mappend` t
+
+blank :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
+blank _ Nothing = Right Nothing
+blank _ (Just "") = Right Nothing
+blank f (Just t) = either Left (Right . Just) $ f t
 
 intField :: (Monad monad, Integral i) => Field (GGWidget master monad ()) FormMessage i
 intField = Field
-    { fieldParse = \s -> maybe (Left $ MsgInvalidInteger s) Right . readMayI $ unpack s -- FIXME Data.Text.Read
+    { fieldParse = blank $ \s ->
+        case Data.Text.Read.signed Data.Text.Read.decimal s of
+            Right (a, "") -> Right a
+            _ -> Left $ MsgInvalidInteger s
     , fieldRender = pack . showI
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -95,13 +107,13 @@ intField = Field
     }
   where
     showI x = show (fromIntegral x :: Integer)
-    readMayI s = case reads s of
-                    (x, _):_ -> Just $ fromInteger x
-                    [] -> Nothing
 
 doubleField :: Monad monad => Field (GGWidget master monad ()) FormMessage Double
 doubleField = Field
-    { fieldParse = \s -> maybe (Left $ MsgInvalidNumber s) Right . readMay $ unpack s -- FIXME use Data.Text.Read
+    { fieldParse = blank $ \s ->
+        case Data.Text.Read.double s of
+            Right (a, "") -> Right a
+            _ -> Left $ MsgInvalidNumber s
     , fieldRender = pack . show
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -111,7 +123,7 @@ doubleField = Field
 
 dayField :: Monad monad => Field (GGWidget master monad ()) FormMessage Day
 dayField = Field
-    { fieldParse = parseDate . unpack
+    { fieldParse = blank $ parseDate . unpack
     , fieldRender = pack . show
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -121,7 +133,7 @@ dayField = Field
 
 timeField :: Monad monad => Field (GGWidget master monad ()) FormMessage TimeOfDay
 timeField = Field
-    { fieldParse = parseTime . unpack
+    { fieldParse = blank $ parseTime . unpack
     , fieldRender = pack . show . roundFullSeconds
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -136,7 +148,7 @@ timeField = Field
 
 htmlField :: Monad monad => Field (GGWidget master monad ()) FormMessage Html
 htmlField = Field
-    { fieldParse = Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
+    { fieldParse = blank $ Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
     , fieldRender = pack . renderHtml
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
@@ -164,7 +176,7 @@ instance ToHtml Textarea where
 
 textareaField :: Monad monad => Field (GGWidget master monad ()) FormMessage Textarea
 textareaField = Field
-    { fieldParse = Right . Textarea
+    { fieldParse = blank $ Right . Textarea
     , fieldRender = unTextarea
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
@@ -174,7 +186,7 @@ textareaField = Field
 
 hiddenField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 hiddenField = Field
-    { fieldParse = Right
+    { fieldParse = blank $ Right
     , fieldRender = id
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
@@ -184,7 +196,7 @@ hiddenField = Field
 
 textField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 textField = Field
-    { fieldParse = Right
+    { fieldParse = blank $ Right
     , fieldRender = id
     , fieldView = \theId name val isReq ->
         [WHAMLET|
@@ -194,7 +206,7 @@ textField = Field
 
 passwordField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 passwordField = Field
-    { fieldParse = Right
+    { fieldParse = blank $ Right
     , fieldRender = id
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -242,9 +254,10 @@ parseTimeHelper (h1, h2, m1, m2, s1, s2)
 
 emailField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 emailField = Field
-    { fieldParse = \s -> if Email.isValid (unpack s)
-                        then Right s
-                        else Left $ MsgInvalidEmail s
+    { fieldParse = blank $
+        \s -> if Email.isValid (unpack s)
+                then Right s
+                else Left $ MsgInvalidEmail s
     , fieldRender = id
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
@@ -255,7 +268,7 @@ emailField = Field
 type AutoFocus = Bool
 searchField :: Monad monad => AutoFocus -> Field (GGWidget master monad ()) FormMessage Text
 searchField autoFocus = Field
-    { fieldParse = Right
+    { fieldParse = blank Right
     , fieldRender = id
     , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
@@ -272,9 +285,10 @@ searchField autoFocus = Field
 
 urlField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 urlField = Field
-    { fieldParse = \s -> case parseURI $ unpack s of
-                        Nothing -> Left $ MsgInvalidUrl s
-                        Just _ -> Right s
+    { fieldParse = blank $ \s ->
+        case parseURI $ unpack s of
+            Nothing -> Left $ MsgInvalidUrl s
+            Just _ -> Right s
     , fieldRender = id
     , fieldView = \theId name val isReq -> addHtml
         [HAMLET|
@@ -283,14 +297,19 @@ urlField = Field
     }
 
 selectField :: (Eq a, Monad monad) => [(Text, a)] -> Field (GGWidget master monad ()) FormMessage a
-selectField opts = Field -- FIXME won't work for optional yet
+selectField opts = Field
     { fieldParse = \s ->
-        case Data.Text.Read.decimal s of
-            Right (a, "") ->
-                case lookup a pairs of
-                    Nothing -> Left $ MsgInvalidEntry s
-                    Just x -> Right $ snd x
-            _ -> Left $ MsgInvalidNumber s
+        case s of
+            Nothing -> Right Nothing
+            Just "" -> Right Nothing
+            Just "none" -> Right Nothing
+            Just x ->
+                case Data.Text.Read.decimal x of
+                    Right (a, "") ->
+                        case lookup a pairs of
+                            Nothing -> Left $ MsgInvalidEntry x
+                            Just y -> Right $ Just $ snd y
+                    _ -> Left $ MsgInvalidNumber x
     , fieldRender = \a -> maybe "" (pack . show) $ lookup a rpairs
     , fieldView = \theId name val isReq -> [WHAMLET|
 <select id=#{theId} name=#{name}
