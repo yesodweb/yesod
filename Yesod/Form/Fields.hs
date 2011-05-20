@@ -69,6 +69,7 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgInvalidMinute Text
                  | MsgInvalidSecond Text
                  | MsgInvalidDay
+                 | MsgCsrfWarning
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
@@ -81,6 +82,7 @@ defaultFormMessage (MsgInvalidEmail t) = "Invalid e-mail address: " `mappend` t
 defaultFormMessage (MsgInvalidHour t) = "Invalid hour: " `mappend` t
 defaultFormMessage (MsgInvalidMinute t) = "Invalid minute: " `mappend` t
 defaultFormMessage (MsgInvalidSecond t) = "Invalid second: " `mappend` t
+defaultFormMessage MsgCsrfWarning = "As a protection against cross-site request forgery attacks, please confirm your form submission."
 
 intField :: (Monad monad, Integral i) => Field (GGWidget master monad ()) FormMessage i
 intField = Field

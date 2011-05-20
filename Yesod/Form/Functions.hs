@@ -2,6 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Form.Functions
     ( -- * Running in Form monad
       newFormIdent
@@ -26,6 +27,7 @@ module Yesod.Form.Functions
     ) where
 
 import Yesod.Form.Types
+import Yesod.Form.Fields (FormMessage (MsgCsrfWarning))
 import Data.Text (Text, pack)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
@@ -141,7 +143,8 @@ aopt a b = formToAForm . mopt a b
 runFormGeneric :: Monad m => Form master m a -> master -> [Text] -> Maybe (Env, FileEnv) -> m (a, Enctype)
 runFormGeneric form master langs env = evalRWST form (env, master, langs) (IntSingle 1)
 
-runFormPost :: (Html -> Form master (GHandler sub master) (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
+runFormPost :: RenderMessage master FormMessage
+            => (Html -> Form master (GHandler sub master) (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPost form = do
     req <- getRequest
     let nonceKey = "_nonce"
@@ -159,12 +162,9 @@ runFormPost form = do
             case (res, env) of
                 (FormSuccess{}, Just (params, _))
                     | lookup nonceKey params /= reqNonce req ->
-                        FormFailure [csrfWarning]
+                        FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
     return ((res', xml), enctype)
-
-csrfWarning :: Text
-csrfWarning = "As a protection against cross-site request forgery attacks, please confirm your form submission." -- TRANS
 
 runFormPostNoNonce :: (Html -> Form master (GHandler sub master) (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoNonce form = do
