@@ -24,6 +24,7 @@ module Yesod.Form.Fields
     , parseTime
     , Textarea (..)
     , radioField
+    , boolField
     ) where
 
 import Yesod.Form.Types
@@ -80,6 +81,9 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgValueRequired
                  | MsgInputNotFound Text
                  | MsgSelectNone
+                 | MsgInvalidBool Text
+                 | MsgBoolYes
+                 | MsgBoolNo
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
@@ -96,6 +100,9 @@ defaultFormMessage MsgCsrfWarning = "As a protection against cross-site request 
 defaultFormMessage MsgValueRequired = "Value is required"
 defaultFormMessage (MsgInputNotFound t) = "Input not found: " `mappend` t
 defaultFormMessage MsgSelectNone = "<None>"
+defaultFormMessage (MsgInvalidBool t) = "Invalid boolean: " `mappend` t
+defaultFormMessage MsgBoolYes = "Yes"
+defaultFormMessage MsgBoolNo = "No"
 
 blank :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
 blank _ Nothing = Right Nothing
@@ -324,6 +331,32 @@ radioField = selectFieldHelper
     <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked>
     <label for=#{theId}-#{value}>#{text}
 |])
+
+boolField :: (Monad monad, RenderMessage master FormMessage) => Field (GGWidget master (GGHandler sub master monad) ()) FormMessage Bool
+boolField = Field
+    { fieldParse = \s ->
+        case s of
+            Nothing -> Right Nothing
+            Just "" -> Right Nothing
+            Just "none" -> Right Nothing
+            Just "yes" -> Right $ Just True
+            Just "no" -> Right $ Just False
+            Just t -> Left $ MsgInvalidBool t
+    , fieldRender = \a -> if a then "yes" else "no"
+    , fieldView = \theId name val isReq -> [WHAMLET|
+$if not isReq
+    <input id=#{theId}-none type=radio name=#{name} value=none :isNone val:checked>
+    <label for=#{theId}-none>_{MsgSelectNone}
+
+<input id=#{theId}-yes type=radio name=#{name} value=yes :(==) val "yes":checked>
+<label for=#{theId}-yes>_{MsgBoolYes}
+
+<input id=#{theId}-no type=radio name=#{name} value=no :(==) val "no":checked>
+<label for=#{theId}-no>_{MsgBoolNo}
+|]
+    }
+  where
+    isNone val = not $ val `elem` ["yes", "no"]
 
 selectFieldHelper :: (Eq a, Monad monad)
         => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())

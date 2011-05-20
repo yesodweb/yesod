@@ -12,7 +12,9 @@ data Fruit = Apple | Banana | Pear
 fruits :: [(Text, Fruit)]
 fruits = map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
-myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,)
+myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,)
+    <*> areq boolField "Bool field" Nothing
+    <*> aopt boolField "Opt bool field" Nothing
     <*> areq textField "Text field" Nothing
     <*> areq (selectField fruits) "Select field" Nothing
     <*> aopt (selectField fruits) "Opt select field" Nothing
