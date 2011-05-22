@@ -81,6 +81,7 @@ module Yesod.Handler
     , setUltDestString
     , setUltDest'
     , redirectUltDest
+    , clearUltDest
       -- ** Messages
     , setMessage
     , setMessageI
@@ -492,11 +493,15 @@ setUltDest' = do
 redirectUltDest :: Monad mo
                 => RedirectType
                 -> Route master -- ^ default destination if nothing in session
-                -> GGHandler sub master mo ()
+                -> GGHandler sub master mo a
 redirectUltDest rt def = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
     maybe (redirect rt def) (redirectText rt) mdest
+
+-- | Remove a previously set ultimate destination. See 'setUltDest'.
+clearUltDest :: Monad mo => GGHandler sub master mo ()
+clearUltDest = deleteSession ultDestKey
 
 msgKey :: Text
 msgKey = "_MSG"
