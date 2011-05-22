@@ -246,7 +246,7 @@ rules = do
     let ur f = do
             let env = NP.Env
                     (Just $ helper [|lift getUrlRenderParams|])
-                    (Just $ helper [|fmap (toHtml .) $ lift getMessageRender|])
+                    (Just $ helper [|liftM (toHtml .) $ lift getMessageRender|])
             f env
     return $ NP.HamletRules ah ur $ \_ b -> return b
 
