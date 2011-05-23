@@ -9,7 +9,7 @@ module Scaffold.Build
 -- FIXME there's a bug when getFileStatus applies to a file temporary deleted (e.g., Vim saving a file)
 
 import qualified Distribution.Simple.Build as B
-import System.Directory (getDirectoryContents, doesDirectoryExist)
+import System.Directory (getDirectoryContents, doesDirectoryExist, doesFileExist)
 import Data.List (isSuffixOf)
 import Distribution.Simple.Setup (defaultBuildFlags)
 import Distribution.Simple.Configure (getPersistBuildConfig)
@@ -22,8 +22,10 @@ import Data.Maybe (mapMaybe)
 import Data.Monoid (mappend)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes)
+import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes, FileStatus)
 import Data.Text (unpack)
+import Control.Monad (filterM)
+import Control.Exception (SomeException, try)
 
 build :: IO ()
 build = do
@@ -57,14 +59,24 @@ touchDeps =
     mapM_ go . Map.toList
   where
     go (x, ys) = do
-        fs <- getFileStatus x -- FIXME ignore exceptions
+        (_, mod1) <- getFileStatus' x
         flip mapM_ (Set.toList ys) $ \y -> do
-            fs' <- getFileStatus y
-            if modificationTime fs' < modificationTime fs
+            (access, mod2) <- getFileStatus' y
+            if mod2 < mod1
                 then do
                     putStrLn $ "Touching " ++ y ++ " because of " ++ x
-                    setFileTimes y (accessTime fs') (modificationTime fs)
+                    _ <- try' $ setFileTimes y access mod1
+                    return ()
                 else return ()
+
+try' :: IO x -> IO (Either SomeException x)
+try' = try
+
+getFileStatus' fp = do
+    efs <- try' $ getFileStatus fp
+    case efs of
+        Left _ -> return (0, 0)
+        Right fs -> return (accessTime fs, modificationTime fs)
 
 fixDeps :: [(FilePath, [FilePath])] -> Deps
 fixDeps =
@@ -98,7 +110,7 @@ determineHamletDeps x = do
     let z = A.parse (A.many $ (parser <|> (A.anyChar >> return Nothing))) y
     case z of
         A.Fail{} -> return []
-        A.Done _ r -> return $ concatMap go r
+        A.Done _ r -> filterM doesFileExist $ concatMap go r
   where
     go (Just (Hamlet, f)) = [f, "hamlet/" ++ f ++ ".hamlet"]
     go (Just (Verbatim, f)) = [f]
