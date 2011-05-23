@@ -33,6 +33,7 @@ data AuthMessage =
     | LoginViaEmail
     | InvalidLogin
     | NowLoggedIn
+    | LoginTitle
 
 defaultMessage :: AuthMessage -> Text
 defaultMessage NoOpenID = "No OpenID identifier found"
@@ -62,3 +63,4 @@ defaultMessage Facebook = "Login with Facebook"
 defaultMessage LoginViaEmail = "Login via email"
 defaultMessage InvalidLogin = "Invalid login"
 defaultMessage NowLoggedIn = "You are now logged in"
+defaultMessage LoginTitle = "Login"

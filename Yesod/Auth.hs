@@ -35,7 +35,6 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
-import Web.Routes.Quasi (toSinglePiece, fromSinglePiece)
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
@@ -79,7 +78,7 @@ class (Yesod m, SinglePiece (AuthId m), RenderMessage m FormMessage) => YesodAut
     -- | What to show on the login page.
     loginHandler :: GHandler Auth m RepHtml
     loginHandler = defaultLayout $ do
-        setTitle "Login"
+        setTitleI Msg.LoginTitle
         tm <- lift getRouteToMaster
         mapM_ (flip apLogin tm) authPlugins
 
@@ -111,7 +110,6 @@ setCreds :: YesodAuth m => Bool -> Creds m -> GHandler s m ()
 setCreds doRedirects creds = do
     y <- getYesod
     maid <- getAuthId creds
-    l <- languages
     case maid of
         Nothing ->
             if doRedirects
