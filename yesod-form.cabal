@@ -39,7 +39,7 @@ library
                      Yesod.Form.Jquery
                      Yesod.Form.Nic
                      -- FIXME Yesod.Helpers.Crud
-    ghc-options:     -Wall -Werror
+    ghc-options:     -Wall
 
 source-repository head
   type:     git
