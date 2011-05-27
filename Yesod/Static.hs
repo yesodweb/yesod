@@ -24,7 +24,7 @@
 -- domain name to save time on transmitting cookies. In that case, you may wish
 -- to use 'urlRenderOverride' to redirect requests to this subsite to a
 -- separate domain name.
-module Yesod.Helpers.Static
+module Yesod.Static
     ( -- * Subsite
       Static (..)
     , Public (..)

@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         0.2.0.1
+version:         0.3.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -27,9 +27,9 @@ library
                    , template-haskell
                    , directory                 >= 1.0      && < 1.2
                    , transformers              >= 0.2      && < 0.3
-                   , wai-app-static            >= 0.2      && < 0.3
+                   , wai-app-static            >= 0.3      && < 0.4
                    , text                      >= 0.5      && < 1.0
-    exposed-modules: Yesod.Helpers.Static
+    exposed-modules: Yesod.Static
     ghc-options:     -Wall
 
 test-suite runtests
