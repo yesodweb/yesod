@@ -238,6 +238,7 @@ mkStaticFiles' fp routeConName makeHash = do
         pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromPieces fp (map pack f)
+        -- FIXME hash <- qRunIO . calcHash $ fp ++ '/' : intercalate "/" f
                             [|[(pack $(lift hash), mempty)]|]
                     else return $ ListE []
         return
@@ -290,3 +291,10 @@ getStaticHandler static toSubR pieces = do
         handler = fromMaybe notFound $ handleSite staticSite undefined route "GET"
 -}
 
+
+calcHash :: FilePath -> IO String
+calcHash fname =
+    withBinaryFile fname ReadMode hashHandle
+  where
+    hashHandle h = do s <- L.hGetContents h
+                      return $! base64md5 s
