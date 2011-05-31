@@ -38,6 +38,8 @@ module Yesod.Widget
       -- ** Javascript
     , addJulius
     , addJuliusBody
+    , addCoffee
+    , addCoffeeBody
     , addScript
     , addScriptAttrs
     , addScriptRemote
@@ -54,6 +56,7 @@ import Text.Hamlet
 import Text.Cassius
 import Text.Lucius (Lucius)
 import Text.Julius
+import Text.Coffee
 import Yesod.Handler
     (Route, GHandler, GGHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
     , getMessageRender
@@ -61,7 +64,7 @@ import Yesod.Handler
 import Yesod.Message (RenderMessage)
 import Yesod.Content (RepHtml (..), toContent)
 import Control.Applicative (Applicative)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Yesod.Internal
 import Control.Monad (liftM)
@@ -73,6 +76,7 @@ import Yesod.Handler (getUrlRenderParams)
 
 import Control.Monad.IO.Control (MonadControlIO)
 import qualified Text.Hamlet.NonPoly as NP
+import Data.Text.Lazy.Builder (fromLazyText)
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
@@ -208,6 +212,22 @@ addJulius x = GWidget $ tell $ GWData mempty mempty mempty mempty mempty (Just x
 -- template.
 addJuliusBody :: Monad m => Julius (Route master) -> GGWidget master m ()
 addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJulius r j
+
+-- | Add Coffesscript to the page's script tag. Requires the coffeescript
+-- executable to be present at runtime.
+addCoffee :: MonadIO m => Coffee (Route master) -> GGWidget master (GGHandler sub master m) ()
+addCoffee c = do
+    render <- lift getUrlRenderParams
+    t <- liftIO $ renderCoffee render c
+    addJulius $ const $ Javascript $ fromLazyText t
+
+-- | Add a new script tag to the body with the contents of this Coffesscript
+-- template. Requires the coffeescript executable to be present at runtime.
+addCoffeeBody :: MonadIO m => Coffee (Route master) -> GGWidget master (GGHandler sub master m) ()
+addCoffeeBody c = do
+    render <- lift getUrlRenderParams
+    t <- liftIO $ renderCoffee render c
+    addJuliusBody $ const $ Javascript $ fromLazyText t
 
 -- | Pull out the HTML tag contents and return it. Useful for performing some
 -- manipulations. It can be easier to use this sometimes than 'wrapWidget'.
