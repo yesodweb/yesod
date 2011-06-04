@@ -6,6 +6,9 @@ module Yesod.Auth.OAuth
     , authTwitter
     , twitterUrl
     ) where
+
+#include "qq.h"
+
 import Yesod.Auth
 import Yesod.Form
 import Yesod.Handler
@@ -66,13 +69,7 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         render <- lift getUrlRender
         let oaUrl = render $ tm $ oauthUrl name
         addHtml
-#if GHC7
-          [hamlet|
-#else
-          [$hamlet|
-#endif
-             <a href=#{oaUrl}>Login with #{name}
-          |]
+          [QQ(hamlet)| <a href=#{oaUrl}>Login with #{name} |]
 
 authTwitter :: YesodAuth m =>
                String -- ^ Consumer Key

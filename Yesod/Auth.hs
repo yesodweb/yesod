@@ -22,6 +22,8 @@ module Yesod.Auth
     , requireAuth
     ) where
 
+#include "qq.h"
+
 import Yesod.Core
 import Yesod.Persist
 import Yesod.Json
@@ -91,11 +93,7 @@ mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
 #define STRINGS *Texts
-#if GHC7
-    [parseRoutes|
-#else
-    [$parseRoutes|
-#endif
+    [QQ(parseRoutes)|
 /check                 CheckR      GET
 /login                 LoginR      GET
 /logout                LogoutR     GET POST
@@ -117,13 +115,7 @@ setCreds doRedirects creds = do
                     case authRoute y of
                         Nothing -> do
                             rh <- defaultLayout
-#if GHC7
-                                [hamlet|
-#else
-                                [$hamlet|
-#endif
-                                <h1>Invalid login
-|]
+                                [QQ(hamlet)| <h1>Invalid login |]
                             sendResponse rh
                         Just ar -> do
                             setMessageI Msg.InvalidLogin
@@ -145,11 +137,7 @@ getCheckR = do
         addHtml $ html creds) (json' creds)
   where
     html creds =
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [QQ(hamlet)|
 <h1>Authentication Status
 $maybe _ <- creds
     <p>Logged in.

@@ -6,6 +6,8 @@ module Yesod.Auth.OpenId
     , forwardUrl
     ) where
 
+#include "qq.h"
+
 import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 import Control.Monad.Attempt
@@ -34,20 +36,12 @@ authOpenId =
         ident <- lift newIdent
         y <- lift getYesod
         addCassius
-#if GHC7
-            [cassius|##{ident}
-#else
-            [$cassius|##{ident}
-#endif
+            [QQ(cassius)|##{ident}
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
         l <- lift languages
-#if GHC7
-        [whamlet|
-#else
-        [$whamlet|
-#endif
+        [QQ(whamlet)|
 <form method="get" action="@{tm forwardUrl}">
     <label for="#{ident}">OpenID: #
     <input id="#{ident}" type="text" name="#{name}" value="http://">

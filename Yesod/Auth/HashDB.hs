@@ -64,6 +64,8 @@ module Yesod.Auth.HashDB
     , migrateUsers
     ) where
 
+#include "qq.h"
+
 import Yesod.Persist
 import Yesod.Handler
 import Yesod.Form
@@ -82,11 +84,7 @@ sha1String = showDigest . sha1 . pack
 
 -- | Generate data base instances for a valid user
 share2 mkPersist (mkMigrate "migrateUsers")
-#if GHC7
-            [persist|
-#else
-            [$persist|
-#endif
+         [QQ(persist)|
 User
     username Text Eq
     password Text
@@ -128,13 +126,7 @@ postLoginR = do
         then setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
         else do
             setMessage
-#if GHC7
-                [hamlet|
-#else
-                [$hamlet|
-#endif
-    Invalid username/password
-|]
+                [QQ(hamlet)| Invalid username/password |]
             toMaster <- getRouteToMaster
             redirect RedirectTemporary $ toMaster LoginR
 
@@ -158,14 +150,7 @@ getAuthIdHashDB authR creds = do
                 -- user exists
                 Just (uid, _) -> return $ Just uid
                 Nothing       -> do
-                    setMessage
-#if GHC7
-                        [hamlet|
-#else
-                        [$hamlet|
-#endif
-    User not found
-|]
+                    setMessage [QQ(hamlet)| User not found |]
                     redirect RedirectTemporary $ authR LoginR
 
 -- | Prompt for username and password, validate that against a database
@@ -175,11 +160,7 @@ authHashDB :: (YesodAuth y,
                PersistBackend (YesodDB y (GGHandler Auth y IO)))
            => AuthPlugin y
 authHashDB = AuthPlugin "hashdb" dispatch $ \tm ->
-#if GHC7
-    [hamlet|
-#else
-    [$hamlet|
-#endif
+    [QQ(hamlet)|
     <div id="header">
         <h1>Login
 
