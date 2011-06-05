@@ -59,6 +59,7 @@
 -------------------------------------------------------------------------------
 module Yesod.Auth.HashDB
     ( HashDBUser(..)
+    , setPassword
     , authHashDB
     , validateUser
     , getAuthIdHashDB
@@ -77,7 +78,8 @@ import Yesod.Auth
 import Text.Hamlet (hamlet)
 
 import Control.Applicative         ((<$>), (<*>))
-import Control.Monad               (replicateM)
+import Control.Monad               (replicateM,liftM)
+import Control.Monad.IO.Class      (MonadIO, liftIO)
 
 import qualified Data.ByteString.Lazy.Char8 as BS (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)
@@ -96,8 +98,8 @@ class HashDBUser user where
                      -> user -> user
 
 -- | Generate random salt. Length of 8 is chosen arbitrarily
-randomSalt :: IO Text
-randomSalt = pack <$> replicateM 8 (randomRIO ('0','z'))
+randomSalt :: MonadIO m => m Text
+randomSalt = pack `liftM` liftIO (replicateM 8 (randomRIO ('0','z')))
 
 -- | Calculate salted hash using SHA1.
 saltedHash :: Text              -- ^ Salt
@@ -105,6 +107,12 @@ saltedHash :: Text              -- ^ Salt
            -> Text
 saltedHash salt = 
   pack . showDigest . sha1 . BS.pack . unpack . append salt
+
+-- | Set password for user. This function should be used for setting
+--   passwords. It generates random salt and calculates proper hashes.
+setPassword :: (MonadIO m, HashDBUser user) => Text -> user -> m user
+setPassword pwd u = do salt <- randomSalt
+                       return $ setUserHashAndSalt salt (saltedHash salt pwd) u
 
 
 -- | Given a user ID and password in plaintext, validate them against
