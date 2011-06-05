@@ -31,7 +31,8 @@ import Language.Haskell.TH.Syntax hiding (lift)
 import qualified Network.Wai as W
 import Text.Hamlet (hamlet)
 import qualified Data.Map as Map
-import Control.Monad.Trans.Class (lift)
+import Control.Monad                 (when)  
+import Control.Monad.Trans.Class     (lift)
 import Data.Aeson
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -106,28 +107,21 @@ credsKey = "_ID"
 -- | FIXME: won't show up till redirect
 setCreds :: YesodAuth m => Bool -> Creds m -> GHandler s m ()
 setCreds doRedirects creds = do
-    y <- getYesod
+    y    <- getYesod
     maid <- getAuthId creds
     case maid of
         Nothing ->
-            if doRedirects
-                then do
-                    case authRoute y of
-                        Nothing -> do
-                            rh <- defaultLayout
-                                [QQ(hamlet)| <h1>Invalid login |]
+          when doRedirects $ do
+            case authRoute y of
+              Nothing -> do rh <- defaultLayout [QQ(hamlet)| <h1>Invalid login |]
                             sendResponse rh
-                        Just ar -> do
-                            setMessageI Msg.InvalidLogin
+              Just ar -> do setMessageI Msg.InvalidLogin
                             redirect RedirectTemporary ar
-                else return ()
         Just aid -> do
             setSession credsKey $ toSinglePiece aid
-            if doRedirects
-                then do
-                    setMessageI Msg.NowLoggedIn
-                    redirectUltDest RedirectTemporary $ loginDest y
-                else return ()
+            when doRedirects $ do
+              setMessageI Msg.NowLoggedIn
+              redirectUltDest RedirectTemporary $ loginDest y
 
 getCheckR :: YesodAuth m => GHandler Auth m RepHtmlJson
 getCheckR = do
