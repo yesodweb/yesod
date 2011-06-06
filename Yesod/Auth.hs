@@ -26,6 +26,7 @@ module Yesod.Auth
 
 import Control.Monad                 (when)  
 import Control.Monad.Trans.Class     (lift)
+import Control.Monad.Trans.Maybe
 
 import Data.Aeson
 import Data.Text.Encoding (decodeUtf8With)
@@ -181,15 +182,10 @@ maybeAuth :: ( YesodAuth m
              , PersistEntity val
              , YesodPersist m
              ) => GHandler s m (Maybe (Key val, val))
-maybeAuth = do
-    maid <- maybeAuthId
-    case maid of
-        Nothing -> return Nothing
-        Just aid -> do
-            ma <- runDB $ get aid
-            case ma of
-                Nothing -> return Nothing
-                Just a -> return $ Just (aid, a)
+maybeAuth = runMaybeT $ do
+    aid <- MaybeT $ maybeAuthId
+    a   <- MaybeT $ runDB $ get aid
+    return (aid, a)
 
 requireAuthId :: YesodAuth m => GHandler s m (AuthId m)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
