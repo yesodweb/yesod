@@ -24,20 +24,24 @@ module Yesod.Auth
 
 #include "qq.h"
 
+import Control.Monad                 (when)  
+import Control.Monad.Trans.Class     (lift)
+
+import Data.Aeson
+import Data.Text.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+import           Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Map as Map
+
+import Language.Haskell.TH.Syntax hiding (lift)
+
+import qualified Network.Wai as W
+import Text.Hamlet (hamlet)
+
 import Yesod.Core
 import Yesod.Persist
 import Yesod.Json
-import Language.Haskell.TH.Syntax hiding (lift)
-import qualified Network.Wai as W
-import Text.Hamlet (hamlet)
-import qualified Data.Map as Map
-import Control.Monad                 (when)  
-import Control.Monad.Trans.Class     (lift)
-import Data.Aeson
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8With)
-import Data.Text.Encoding.Error (lenientDecode)
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
