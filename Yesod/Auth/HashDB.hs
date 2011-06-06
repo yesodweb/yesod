@@ -36,8 +36,8 @@
 -- >
 -- >    loginDest _  = RootR
 -- >    logoutDest _ = RootR
--- >    getAuthId    = getAuthIdHashDB AuthR (Just . UniqueUser . userUsername)
--- >    authPlugins  = [authHashDB (Just . UniqueUser . userUsername)]
+-- >    getAuthId    = getAuthIdHashDB AuthR (Just . UniqueUser)
+-- >    authPlugins  = [authHashDB (Just . UniqueUser)]
 -- >
 -- >
 -- > -- include the migration function in site startup
