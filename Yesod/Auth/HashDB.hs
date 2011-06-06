@@ -16,8 +16,7 @@
 -- Portability :  Portable
 --
 -- A yesod-auth AuthPlugin designed to look users up in Persist where
--- their user id's and a sha1 hash of their password will already be
--- stored.
+-- their user id's and a salted SHA1 hash of their password is stored.
 --
 -- Example usage:
 --
@@ -37,10 +36,8 @@
 -- >
 -- >    loginDest _  = RootR
 -- >    logoutDest _ = RootR
--- >    getAuthId    = getAuthIdHashDB AuthR 
--- >    showAuthId _ = showIntegral
--- >    readAuthId _ = readIntegral
--- >    authPlugins  = [authHashDB]
+-- >    getAuthId    = getAuthIdHashDB AuthR (Just . UniqueUser . userUsername)
+-- >    authPlugins  = [authHashDB (Just . UniqueUser . userUsername)]
 -- >
 -- >
 -- > -- include the migration function in site startup
@@ -49,10 +46,12 @@
 -- >     runSqlPool (runMigration migrateUsers) p
 -- >     let h = DevSite p
 --
--- Your app must be an instance of YesodPersist and the username and
--- hashed-passwords must be added manually to the database.
+-- Note that function which converts username to unique identifier must be same.
 --
--- > echo -n 'MyPassword' | sha1sum
+-- Your app must be an instance of YesodPersist. and the username,
+-- salt and hashed-passwords should be added to the database.
+--
+-- > echo -n 'MySaltMyPassword' | sha1sum
 --
 -- can be used to get the hash from the commandline.
 --
@@ -60,8 +59,9 @@
 module Yesod.Auth.HashDB
     ( HashDBUser(..)
     , setPassword
-    , authHashDB
+      -- * Authentification
     , validateUser
+    , authHashDB
     , getAuthIdHashDB
       -- * Predefined data type
     , User(..)
@@ -87,6 +87,9 @@ import Data.Text                   (Text, pack, unpack, append)
 import Data.Maybe                  (fromMaybe)
 import System.Random               (randomRIO)
 
+
+-- | Interface for data type which holds user info. It's just a
+--   collection of getters and setters
 class HashDBUser user where
   -- | Retrieve password hash from user data
   userPasswordHash :: user -> Maybe Text
@@ -115,6 +118,10 @@ setPassword pwd u = do salt <- randomSalt
                        return $ setUserHashAndSalt salt (saltedHash salt pwd) u
 
 
+----------------------------------------------------------------
+-- Authentification
+----------------------------------------------------------------
+
 -- | Given a user ID and password in plaintext, validate them against
 --   the database values.
 validateUser :: ( YesodPersist yesod
@@ -139,8 +146,8 @@ login :: AuthRoute
 login = PluginR "hashdb" ["login"]
 
 
--- | Handle the login form. First parameter is function which username
---   (whatever it might be) to unique user ID.
+-- | Handle the login form. First parameter is function which maps
+--   username (whatever it might be) to unique user ID.
 postLoginR :: ( YesodAuth y, YesodPersist y
               , HashDBUser user, PersistEntity user
               , PersistBackend (YesodDB y (GGHandler Auth y IO))) 
@@ -168,7 +175,7 @@ getAuthIdHashDB :: ( YesodAuth master, YesodPersist master
                    , PersistBackend (YesodDB master (GGHandler sub master IO)))
                 => (AuthRoute -> Route master)   -- ^ your site's Auth Route
                 -> (Text -> Maybe (Unique user)) -- ^ gets user ID
-                -> Creds m                       -- ^ the creds argument
+                -> Creds master                  -- ^ the creds argument
                 -> GHandler sub master (Maybe (AuthId master))
 getAuthIdHashDB authR uniq creds = do
     muid <- maybeAuth
