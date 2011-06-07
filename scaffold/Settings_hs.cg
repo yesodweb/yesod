@@ -35,15 +35,16 @@ import Data.Text (Text)
 -- | The base URL for your application. This will usually be different for
 -- development and production. Yesod automatically constructs URLs for you,
 -- so this value must be accurate to create valid links.
+-- Please note that there is no trailing slash.
 approot :: Text
+approot =
 #ifdef PRODUCTION
 -- You probably want to change this. If your domain name was "yesod.com",
 -- you would probably want it to be:
--- > approot = "http://www.yesod.com"
--- Please note that there is no trailing slash.
-approot = "http://localhost:3000"
+-- > "http://yesod.com"
+  "http://localhost:3000"
 #else
-approot = "http://localhost:3000"
+  "http://localhost:3000"
 #endif
 
 -- | The location of static files on your system. This is a file system
@@ -70,10 +71,11 @@ staticroot = approot `mappend` "/static"
 -- | The database connection string. The meaning of this string is backend-
 -- specific.
 connStr :: Text
+connStr =
 #ifdef PRODUCTION
-connStr = "~connstr2~"
+  "~connstr2~"
 #else
-connStr = "~connstr1~"
+  "~connstr1~"
 #endif
 
 -- | Your application will keep a connection pool and take connections from
@@ -106,42 +108,43 @@ connectionCount = 10
 -- used; to get the same auto-loading effect, it is recommended that you
 -- use the devel server.
 
-toHamletFile, toCassiusFile, toJuliusFile, toLuciusFile :: String -> FilePath
-toHamletFile x = "hamlet/" ++ x ++ ".hamlet"
-toCassiusFile x = "cassius/" ++ x ++ ".cassius"
-toJuliusFile x = "julius/" ++ x ++ ".julius"
-toLuciusFile x = "lucius/" ++ x ++ ".lucius"
+-- | expects a root folder for each type, e.g: hamlet/ lucius/ julius/
+globFile :: String -> String -> FilePath
+globFile kind x = kind ++ "/" ++ x ++ "." ++ kind
 
 hamletFile :: FilePath -> Q Exp
-hamletFile = H.hamletFile . toHamletFile
+hamletFile = H.hamletFile . globFile "hamlet"
 
 cassiusFile :: FilePath -> Q Exp
+cassiusFile = 
 #ifdef PRODUCTION
-cassiusFile = H.cassiusFile . toCassiusFile
+  H.cassiusFile . globFile "cassius"
 #else
-cassiusFile = H.cassiusFileDebug . toCassiusFile
+  H.cassiusFileDebug . globFile "cassius"
 #endif
 
 luciusFile :: FilePath -> Q Exp
+luciusFile = 
 #ifdef PRODUCTION
-luciusFile = H.luciusFile . toLuciusFile
+  H.luciusFile . globFile "lucius"
 #else
-luciusFile = H.luciusFileDebug . toLuciusFile
+  H.luciusFileDebug . globFile "lucius"
 #endif
 
 juliusFile :: FilePath -> Q Exp
+juliusFile =
 #ifdef PRODUCTION
-juliusFile = H.juliusFile . toJuliusFile
+  H.juliusFile . globFile "julius"
 #else
-juliusFile = H.juliusFileDebug . toJuliusFile
+  H.juliusFileDebug . globFile "julius"
 #endif
 
 widgetFile :: FilePath -> Q Exp
 widgetFile x = do
-    let h = unlessExists toHamletFile hamletFile
-    let c = unlessExists toCassiusFile cassiusFile
-    let j = unlessExists toJuliusFile juliusFile
-    let l = unlessExists toLuciusFile luciusFile
+    let h = unlessExists (globFile "hamlet")  hamletFile
+    let c = unlessExists (globFile "cassius") cassiusFile
+    let j = unlessExists (globFile "julius")  juliusFile
+    let l = unlessExists (globFile "lucius")  luciusFile
     [|addWidget $h >> addCassius $c >> addJulius $j >> addLucius $l|]
   where
     unlessExists tofn f = do
@@ -157,4 +160,3 @@ withConnectionPool = with~upper~Pool connStr connectionCount
 
 runConnectionPool :: MonadControlIO m => SqlPersist m a -> ConnectionPool -> m a
 runConnectionPool = runSqlPool
-
