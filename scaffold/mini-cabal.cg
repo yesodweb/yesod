@@ -54,7 +54,6 @@ executable         ~project~
                  , text
                  , template-haskell
                  , hamlet
-                 , web-routes
                  , transformers
                  , wai
                  , warp

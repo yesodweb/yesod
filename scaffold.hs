@@ -60,7 +60,6 @@ scaffold = do
             | 'a' <= c && c <= 'z' = True
             | '0' <= c && c <= '9' = True
         validPN '-' = True
-        validPN '_' = True
         validPN _ = False
     project <- prompt $ all validPN
     let dir = project
