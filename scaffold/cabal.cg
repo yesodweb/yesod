@@ -49,7 +49,7 @@ executable         ~project~
     build-depends: base         >= 4       && < 5
                  , yesod        >= 0.8     && < 0.9
                  , yesod-auth
-                 , yesod-static
+                 , yesod-static >= 0.1     && < 0.2
                  , mime-mail
                  , wai-extra
                  , directory

@@ -24,7 +24,7 @@ import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L
 import Database.Persist.GenericSql
-import Settings (hamletFile, cassiusFile, juliusFile, widgetFile)
+import Settings (hamletFile, cassiusFile, luciusFile, juliusFile, widgetFile)
 import Model
 import StaticFiles
 import Data.Maybe (isJust)

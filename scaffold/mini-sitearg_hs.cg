@@ -18,7 +18,7 @@ import Yesod.Helpers.Static
 import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L
-import Settings (hamletFile, cassiusFile, juliusFile, widgetFile)
+import Settings (hamletFile, cassiusFile, luciusFile, juliusFile, widgetFile)
 import StaticFiles
 import Control.Monad (unless)
 import Control.Monad.Trans.Class (lift)
