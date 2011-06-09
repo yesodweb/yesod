@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Web.Authenticate.OAuth
     ( -- * Data types
-      OAuth(..), SignMethod(..), Credential(..),
+      OAuth(..), SignMethod(..), Credential(..), OAuthException(..),
       -- * Operations for credentials
       emptyCredential, insert, delete, inserts,
       -- * Signature
@@ -38,6 +38,7 @@ import Data.Enumerator (($$), run_, Stream (..), continue)
 import Data.Monoid (mconcat)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.IORef (newIORef, readIORef, atomicModifyIORef)
+import Control.Exception (Exception, throwIO)
 
 -- | Data type for OAuth client (consumer).
 data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name
@@ -75,7 +76,7 @@ token, tokenSecret :: Credential -> BS.ByteString
 token = fromMaybe "" . lookup "oauth_token" . unCredential
 tokenSecret = fromMaybe "" . lookup "oauth_token_secret" . unCredential
 
-data OAuthException = ProtocolException String
+data OAuthException = OAuthException String
                       deriving (Show, Eq, Data, Typeable)
 
 instance Exception OAuthException
@@ -93,8 +94,11 @@ getTemporaryCredential oa = do
   let req = fromJust $ parseUrl $ oauthRequestUri oa
   req' <- signOAuth oa emptyCredential (req { method = "POST" }) 
   rsp <- withManager $ httpLbs req'
-  let dic = parseSimpleQuery . toStrict . responseBody $ rsp
-  return $ Credential dic
+  if statusCode rsp == 200
+    then do
+      let dic = parseSimpleQuery . toStrict . responseBody $ rsp
+      return $ Credential dic
+    else throwIO . OAuthException $ "Gaining OAuth Temporary Credential Failed: " ++ BSL.unpack (responseBody rsp)
 
 -- | URL to obtain OAuth verifier.
 authorizeUrl :: OAuth           -- ^ OAuth Application
@@ -110,8 +114,12 @@ getAccessToken, getTokenCredential
 getAccessToken oa cr = do
   let req = (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
   rsp <- signOAuth oa cr req >>= withManager . httpLbs
-  let dic = parseSimpleQuery . toStrict . responseBody $ rsp
-  return $ Credential dic
+  if statusCode rsp == 200
+    then do
+      let dic = parseSimpleQuery . toStrict . responseBody $ rsp
+      return $ Credential dic
+    else throwIO . OAuthException $ "Gaining OAuth Temporary Credential Failed: " ++ BSL.unpack (responseBody rsp)
+
 
 getTokenCredential = getAccessToken
 
