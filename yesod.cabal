@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.8.2
+version:         0.8.2.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -25,7 +25,7 @@ library
     else
         build-depends:   base                  >= 4        && < 4.3
     build-depends:   yesod-core                >= 0.8.1    && < 0.9
-                   , yesod-auth                >= 0.4      && < 0.6
+                   , yesod-auth                >= 0.4      && < 0.5
                    , yesod-json                >= 0.1      && < 0.2
                    , yesod-persistent          >= 0.1      && < 0.2
                    , yesod-static              >= 0.1      && < 0.2
