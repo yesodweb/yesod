@@ -155,7 +155,7 @@ import Web.Cookie (SetCookie (..), renderSetCookie)
 import Data.Enumerator (run_, ($$))
 import Control.Arrow (second, (***))
 import qualified Network.Wai.Parse as NWP
-import Data.Monoid (mappend, mempty)
+import Data.Monoid (mappend, mempty, Endo (..))
 import qualified Data.ByteString.Char8 as S8
 import Data.CaseInsensitive (CI)
 import Blaze.ByteString.Builder (toByteString)
@@ -268,8 +268,6 @@ type GHInner s m monad = -- FIXME collapse the stack
     ))))
 
 type SessionMap = Map.Map Text Text
-
-type Endo a = a -> a
 
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
 -- features needed by Yesod. Users should never need to use this directly, as
@@ -387,24 +385,24 @@ runHandler handler mrender sroute tomr ma sa =
       $ runErrorT
       $ flip runReaderT hd
       $ unGHandler handler
-        ) (\e -> return ((Left $ HCError $ toErrorHandler e, id), initSession))
+        ) (\e -> return ((Left $ HCError $ toErrorHandler e, mempty), initSession))
     let contents = either id (HCContent H.status200 . chooseRep) contents'
     let handleError e = do
             yar <- unYesodApp (eh e) safeEh rr cts finalSession
             case yar of
                 YARPlain _ hs ct c sess ->
-                    let hs' = headers hs
+                    let hs' = appEndo headers hs
                      in return $ YARPlain (getStatus e) hs' ct c sess
                 YARWai _ -> return yar
     let sendFile' ct fp p =
-            return $ YARPlain H.status200 (headers []) ct (ContentFile fp p) finalSession
+            return $ YARPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession
     case contents of
         HCContent status a -> do
             (ct, c) <- liftIO $ a cts
-            return $ YARPlain status (headers []) ct c finalSession
+            return $ YARPlain status (appEndo headers []) ct c finalSession
         HCError e -> handleError e
         HCRedirect rt loc -> do
-            let hs = Header "Location" (encodeUtf8 loc) : headers []
+            let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
             return $ YARPlain
                 (getRedirectStatus rt) hs typePlain emptyContent
                 finalSession
@@ -412,7 +410,7 @@ runHandler handler mrender sroute tomr ma sa =
             (sendFile' ct fp p)
             (handleError . toErrorHandler)
         HCCreated loc -> do
-            let hs = Header "Location" (encodeUtf8 loc) : headers []
+            let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
             return $ YARPlain
                 H.status201
                 hs
@@ -670,7 +668,7 @@ modSession f x = x { ghsSession = f $ ghsSession x }
 
 -- | Internal use only, not to be confused with 'setHeader'.
 addHeader :: Monad mo => Header -> GGHandler sub master mo ()
-addHeader = GHandler . lift . lift . tell . (:)
+addHeader = GHandler . lift . lift . tell . Endo . (:)
 
 getStatus :: ErrorResponse -> H.Status
 getStatus NotFound = H.status404
