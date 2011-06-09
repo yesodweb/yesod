@@ -400,7 +400,7 @@ runHandler handler mrender sroute tomr ma sa =
             return $ YARPlain H.status200 (headers []) ct (ContentFile fp p) finalSession
     case contents of
         HCContent status a -> do
-            (ct, c) <- liftIO $ chooseRep a cts
+            (ct, c) <- liftIO $ a cts
             return $ YARPlain status (headers []) ct c finalSession
         HCError e -> handleError e
         HCRedirect rt loc -> do
