@@ -120,7 +120,7 @@ import Control.Exception hiding (Handler, catch, finally)
 import qualified Control.Exception as E
 import Control.Applicative
 
-import Control.Monad (liftM, join)
+import Control.Monad (liftM, join, MonadPlus)
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -246,7 +246,7 @@ newtype GGHandler sub master m a =
     GHandler
         { unGHandler :: GHInner sub master m a
         }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadControlIO)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadControlIO, MonadPlus)
 
 instance MonadTrans (GGHandler s m) where
     lift = GHandler . lift . lift . lift . lift
