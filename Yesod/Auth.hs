@@ -22,19 +22,27 @@ module Yesod.Auth
     , requireAuth
     ) where
 
+#include "qq.h"
+
+import Control.Monad                 (when)  
+import Control.Monad.Trans.Class     (lift)
+import Control.Monad.Trans.Maybe
+
+import Data.Aeson
+import Data.Text.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+import           Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Map as Map
+
+import Language.Haskell.TH.Syntax hiding (lift)
+
+import qualified Network.Wai as W
+import Text.Hamlet (hamlet)
+
 import Yesod.Core
 import Yesod.Persist
 import Yesod.Json
-import Language.Haskell.TH.Syntax hiding (lift)
-import qualified Network.Wai as W
-import Text.Hamlet (hamlet)
-import qualified Data.Map as Map
-import Control.Monad.Trans.Class (lift)
-import Data.Aeson
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8With)
-import Data.Text.Encoding.Error (lenientDecode)
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
@@ -91,11 +99,7 @@ mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
 #define STRINGS *Texts
-#if GHC7
-    [parseRoutes|
-#else
-    [$parseRoutes|
-#endif
+    [QQ(parseRoutes)|
 /check                 CheckR      GET
 /login                 LoginR      GET
 /logout                LogoutR     GET POST
@@ -108,34 +112,21 @@ credsKey = "_ID"
 -- | FIXME: won't show up till redirect
 setCreds :: YesodAuth m => Bool -> Creds m -> GHandler s m ()
 setCreds doRedirects creds = do
-    y <- getYesod
+    y    <- getYesod
     maid <- getAuthId creds
     case maid of
         Nothing ->
-            if doRedirects
-                then do
-                    case authRoute y of
-                        Nothing -> do
-                            rh <- defaultLayout
-#if GHC7
-                                [hamlet|
-#else
-                                [$hamlet|
-#endif
-                                <h1>Invalid login
-|]
+          when doRedirects $ do
+            case authRoute y of
+              Nothing -> do rh <- defaultLayout [QQ(hamlet)| <h1>Invalid login |]
                             sendResponse rh
-                        Just ar -> do
-                            setMessageI Msg.InvalidLogin
+              Just ar -> do setMessageI Msg.InvalidLogin
                             redirect RedirectTemporary ar
-                else return ()
         Just aid -> do
             setSession credsKey $ toSinglePiece aid
-            if doRedirects
-                then do
-                    setMessageI Msg.NowLoggedIn
-                    redirectUltDest RedirectTemporary $ loginDest y
-                else return ()
+            when doRedirects $ do
+              setMessageI Msg.NowLoggedIn
+              redirectUltDest RedirectTemporary $ loginDest y
 
 getCheckR :: YesodAuth m => GHandler Auth m RepHtmlJson
 getCheckR = do
@@ -145,11 +136,7 @@ getCheckR = do
         addHtml $ html creds) (json' creds)
   where
     html creds =
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [QQ(hamlet)|
 <h1>Authentication Status
 $maybe _ <- creds
     <p>Logged in.
@@ -195,15 +182,10 @@ maybeAuth :: ( YesodAuth m
              , PersistEntity val
              , YesodPersist m
              ) => GHandler s m (Maybe (Key val, val))
-maybeAuth = do
-    maid <- maybeAuthId
-    case maid of
-        Nothing -> return Nothing
-        Just aid -> do
-            ma <- runDB $ get aid
-            case ma of
-                Nothing -> return Nothing
-                Just a -> return $ Just (aid, a)
+maybeAuth = runMaybeT $ do
+    aid <- MaybeT $ maybeAuthId
+    a   <- MaybeT $ runDB $ get aid
+    return (aid, a)
 
 requireAuthId :: YesodAuth m => GHandler s m (AuthId m)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return

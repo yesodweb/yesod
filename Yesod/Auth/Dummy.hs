@@ -8,6 +8,8 @@ module Yesod.Auth.Dummy
     ( authDummy
     ) where
 
+#include "qq.h"
+
 import Yesod.Auth
 import Yesod.Form (runInputPost, textField, ireq)
 import Yesod.Handler (notFound)
@@ -23,11 +25,7 @@ authDummy =
     dispatch _ _ = notFound
     url = PluginR "dummy" []
     login authToMaster =
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [QQ(hamlet)|
 <form method="post" action="@{authToMaster url}">
     \Your new identifier is: 
     <input type="text" name="ident">

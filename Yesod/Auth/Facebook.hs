@@ -6,6 +6,8 @@ module Yesod.Auth.Facebook
     , facebookUrl
     ) where
 
+#include "qq.h"
+
 import Yesod.Auth
 import qualified Web.Authenticate.Facebook as Facebook
 import Data.Aeson
@@ -56,11 +58,7 @@ authFacebook cid secret perms =
         render <- lift getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
-#if GHC7
-        [whamlet|
-#else
-        [$whamlet|
-#endif
+        [QQ(whamlet)|
 <p>
     <a href="#{furl}">_{Msg.Facebook}
 |]
