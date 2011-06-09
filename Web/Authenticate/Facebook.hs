@@ -60,6 +60,7 @@ accessTokenUrl fb code =
         [ ("client_id", Just $ facebookClientId fb)
         , ("redirect_uri", Just $ facebookRedirectUri fb)
         , ("code", Just code)
+        , ("client_secret", Just $ facebookClientSecret fb)
         ]
 
 getAccessToken :: Facebook -> Text -> IO AccessToken

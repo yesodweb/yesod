@@ -22,23 +22,24 @@ instance Yesod FB where approot _ = "http://localhost:3000"
 
 getRootR = do
     FB f <- getYesod
-    let s = encodeUtf8 $ getForwardUrl f ["email"]
+    let s = getForwardUrl f ["email"]
+    liftIO $ print ("Redirecting", s)
     redirectString RedirectTemporary s
     return ()
 
 getFacebookR = do
     FB f <- getYesod
     code <- runFormGet' $ stringInput "code"
-    at <- liftIO $ getAccessToken f $ pack code
+    at <- liftIO $ getAccessToken f code
     mreq <- runFormGet' $ maybeStringInput "req"
     let req = fromMaybe "me" mreq
-    Right so <- liftIO $ getGraphData at $ pack req
+    Right so <- liftIO $ getGraphData at req
     let so' = objToHamlet so
     hamletToRepHtml [$hamlet|\
 <form>
-    <input type="hidden" name="code" value="#{string code}">
+    <input type="hidden" name="code" value="#{code}">
     \Request: 
-    <input type="text" name="req" value="#{string req}">
+    <input type="text" name="req" value="#{req}">
     \ 
     <input type="submit">
 <hr>
