@@ -36,6 +36,7 @@ import Language.Haskell.TH.Syntax
 import qualified Network.Wai as W
 import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.Gzip
+import Network.Wai.Middleware.Autohead
 
 import Data.ByteString.Lazy.Char8 ()
 
@@ -166,6 +167,7 @@ toWaiApp y = do
     a <- toWaiAppPlain y
     return $ gzip False
            $ jsonp
+           $ autohead
              a
 
 -- | Convert the given argument into a WAI application, executable with any WAI
