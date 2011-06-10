@@ -19,7 +19,7 @@ class YesodPersist y where
     type YesodDB y :: (* -> *) -> * -> *
     runDB :: YesodDB y (GGHandler sub y IO) a -> GHandler sub y a
 
--- Get the given entity by ID, or return a 404 not found if it doesn't exist.
+-- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
 get404 :: (PersistBackend (t m), PersistEntity val, Monad (t m),
            Failure ErrorResponse m, MonadTrans t)
        => Key val -> t m val
@@ -29,8 +29,8 @@ get404 key = do
         Nothing -> lift notFound
         Just res -> return res
 
--- Get the given entity by unique key, or return a 404 not found if it doesn't
--- exist.
+-- | Get the given entity by unique key, or return a 404 not found if it doesn't
+--   exist.
 getBy404 :: (PersistBackend (t m), PersistEntity val, Monad (t m),
              Failure ErrorResponse m, MonadTrans t)
          => Unique val -> t m (Key val, val)
