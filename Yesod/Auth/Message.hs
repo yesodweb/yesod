@@ -4,7 +4,6 @@ module Yesod.Auth.Message
     , defaultMessage
     ) where
 
-import Text.Blaze (Html, toHtml)
 import Data.Monoid (mappend)
 import Data.Text (Text)
 
