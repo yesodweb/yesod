@@ -149,10 +149,10 @@ $nothing
             ]
 
 getLoginR :: YesodAuth m => GHandler Auth m RepHtml
-getLoginR = loginHandler
+getLoginR = setUltDestReferer >> loginHandler
 
 getLogoutR :: YesodAuth m => GHandler Auth m ()
-getLogoutR = postLogoutR -- FIXME redirect to post
+getLogoutR = setUltDestReferer >> postLogoutR -- FIXME redirect to post
 
 postLogoutR :: YesodAuth m => GHandler Auth m ()
 postLogoutR = do
