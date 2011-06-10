@@ -7,19 +7,19 @@ module Web.Authenticate.Facebook
     , getForwardUrl
     , getAccessToken
     , getGraphData
+    , getGraphData_
     ) where
 
 import Network.HTTP.Enumerator
-import Data.List (intercalate)
+import Network.HTTP.Types (parseSimpleQuery)
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as L8
-import Web.Authenticate.Internal (qsEncode)
 import Data.Data (Data)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception, throwIO)
 import Data.Attoparsec.Lazy (parse, eitherResult)
 import qualified Data.ByteString.Char8 as S8
-import Data.Text (Text, pack)
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Blaze.ByteString.Builder (toByteString, copyByteString)
@@ -67,10 +67,10 @@ getAccessToken :: Facebook -> Text -> IO AccessToken
 getAccessToken fb code = do
     let url = accessTokenUrl fb code
     b <- simpleHttp $ S8.unpack url
-    let (front, back) = splitAt 13 $ L8.unpack b
-    case front of
-        "access_token=" -> return $ AccessToken $ T.pack back
-        _ -> error $ "Invalid facebook response: " ++ back
+    let params = parseSimpleQuery $ S8.concat $ L8.toChunks b
+    case lookup "access_token" params of
+        Just x -> return $ AccessToken $ T.pack $ S8.unpack x
+        Nothing -> error $ "Invalid facebook response: " ++ L8.unpack b
 
 graphUrl :: AccessToken -> Text -> ByteString
 graphUrl (AccessToken s) func =
@@ -85,8 +85,8 @@ getGraphData at func = do
     b <- simpleHttp $ S8.unpack url
     return $ eitherResult $ parse json b
 
-getGraphData' :: AccessToken -> Text -> IO Value
-getGraphData' a b = getGraphData a b >>= either (throwIO . InvalidJsonException) return
+getGraphData_ :: AccessToken -> Text -> IO Value
+getGraphData_ a b = getGraphData a b >>= either (throwIO . InvalidJsonException) return
 
 data InvalidJsonException = InvalidJsonException String
     deriving (Show, Typeable)
