@@ -79,7 +79,9 @@ module Yesod.Handler
       -- ** Ultimate destination
     , setUltDest
     , setUltDestString
+    , setUltDestText
     , setUltDest'
+    , setUltDestReferer
     , redirectUltDest
     , clearUltDest
       -- ** Messages
@@ -466,8 +468,12 @@ setUltDest dest = do
     setUltDestString $ render dest
 
 -- | Same as 'setUltDest', but use the given string.
+setUltDestText :: Monad mo => Text -> GGHandler sub master mo ()
+setUltDestText = setSession ultDestKey
+
 setUltDestString :: Monad mo => Text -> GGHandler sub master mo ()
 setUltDestString = setSession ultDestKey
+{-# DEPRECATED setUltDestString "Use setUltDestText instead" #-}
 
 -- | Same as 'setUltDest', but uses the current page.
 --
@@ -483,6 +489,19 @@ setUltDest' = do
             gets' <- reqGetParams `liftM` handlerRequest `liftM` GHandler ask
             render <- getUrlRenderParams
             setUltDestString $ render (tm r) gets'
+
+-- | Sets the ultimate destination to the referer request header, if present.
+--
+-- This function will not overwrite an existing ultdest.
+setUltDestReferer :: Monad mo => GGHandler sub master mo ()
+setUltDestReferer = do
+    mdest <- lookupSession ultDestKey
+    maybe
+        (waiRequest >>= maybe (return ()) setUltDestBS . lookup "referer" . W.requestHeaders)
+        (const $ return ())
+        mdest
+  where
+    setUltDestBS = setUltDestText . T.pack . S8.unpack
 
 -- | Redirect to the ultimate destination in the user's session. Clear the
 -- value from the session.
