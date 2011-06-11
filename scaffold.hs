@@ -100,6 +100,7 @@ scaffold = do
 
     writeFile' ("config/" ++ project ++ ".hs") $(codegen "test_hs")
     writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini-cabal") else $(codegen "cabal")
+    writeFile' ".ghci" $(codegen "dotghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
     writeFile' (sitearg ++ ".hs") $ if backendS == "m" then $(codegen "mini-sitearg_hs") else $(codegen "sitearg_hs")
     writeFile' "Controller.hs" $ if backendS == "m" then $(codegen "mini-Controller_hs") else $(codegen "Controller_hs")
