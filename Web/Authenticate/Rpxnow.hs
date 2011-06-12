@@ -73,6 +73,8 @@ authenticate apiKey token = do
                     ]
                 , requestBody = RequestBodyLBS body
                 , checkCerts = const $ return True
+                , proxy = Nothing
+                , rawBody = False
                 }
     res <- liftIO $ withManager $ httpLbsRedirect req
     let b = responseBody res
