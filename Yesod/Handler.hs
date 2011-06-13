@@ -222,9 +222,7 @@ class SubsiteGetter g m s | g -> s where
 
 instance (master ~ master'
          ) => SubsiteGetter (master -> sub) (GHandler anySub master') sub where
-  runSubsiteGetter getter = do
-    y <- getYesod
-    return $ getter y
+  runSubsiteGetter getter = getter <$> getYesod
 
 instance (anySub ~ anySub'
          ,master ~ master'
