@@ -38,6 +38,8 @@ import Data.Attoparsec.Lazy (parse)
 import qualified Data.Attoparsec.Lazy as AT
 import Data.Text (Text)
 import qualified Data.Aeson.Types
+import qualified Data.Map as Map
+import Control.Applicative ((<$>), (<*>))
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -101,9 +103,9 @@ unResult = either (failure . RpxnowException) return . AT.eitherResult
 parseProfile :: Value -> Data.Aeson.Types.Parser Identifier
 parseProfile (Object m) = do
     profile <- m .: "profile"
-    ident <- m .: "identifier"
-    let profile' = mapMaybe go profile
-    return $ Identifier ident profile'
+    Identifier
+        <$> (profile .: "identifier")
+        <*> return (mapMaybe go (Map.toList profile))
   where
     go ("identifier", _) = Nothing
     go (k, String v) = Just (k, v)
