@@ -22,7 +22,8 @@ module Yesod.Dispatch
     , toWaiAppPlain
     ) where
 
-import Data.Either (partitionEithers)
+import Data.Functor   ((<$>))
+import Data.Either    (partitionEithers)
 import Prelude hiding (exp)
 import Yesod.Internal.Core
 import Yesod.Handler
@@ -163,19 +164,13 @@ thResourceFromResource (Resource n _ _) =
 -- middlewares: GZIP compression, JSON-P and path cleaning. This is the
 -- recommended approach for most users.
 toWaiApp :: (Yesod y, YesodDispatch y y) => y -> IO W.Application
-toWaiApp y = do
-    a <- toWaiAppPlain y
-    return $ gzip False
-           $ jsonp
-           $ autohead
-             a
+toWaiApp y = gzip False . jsonp . autohead <$> toWaiAppPlain y
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This differs from 'toWaiApp' in that it uses no middlewares.
 toWaiAppPlain :: (Yesod y, YesodDispatch y y) => y -> IO W.Application
-toWaiAppPlain a = do
-    key' <- encryptKey a
-    return $ toWaiApp' a key'
+toWaiAppPlain a = toWaiApp' a <$> encryptKey a
+
 
 toWaiApp' :: (Yesod y, YesodDispatch y y)
           => y
