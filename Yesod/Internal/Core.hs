@@ -531,8 +531,6 @@ widgetToPageContent (GWidget w) = do
 #else
             [$hamlet|
 #endif
-$forall s <- scripts
-    ^{mkScriptTag s}
 $forall s <- stylesheets
     ^{mkLinkTag s}
 $forall s <- css
@@ -546,6 +544,8 @@ $forall s <- css
             <style media=#{media}>#{content}
         $nothing
             <style>#{content}
+$forall s <- scripts
+    ^{mkScriptTag s}
 $maybe j <- jscript
     $maybe s <- jsLoc
         <script src="#{s}">
