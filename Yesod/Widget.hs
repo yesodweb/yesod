@@ -59,7 +59,7 @@ import Text.Julius
 import Text.Coffee
 import Yesod.Handler
     (Route, GHandler, GGHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
-    , getMessageRender
+    , getMessageRender, getUrlRenderParams
     )
 import Yesod.Message (RenderMessage)
 import Yesod.Content (RepHtml (..), toContent)
@@ -72,7 +72,6 @@ import Data.Text (Text)
 import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE), Pat (VarP), newName)
-import Yesod.Handler (getUrlRenderParams)
 
 import Control.Monad.IO.Control (MonadControlIO)
 import qualified Text.Hamlet.NonPoly as NP

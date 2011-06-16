@@ -33,6 +33,7 @@ import Yesod.Content
 import Yesod.Handler
 
 import Control.Arrow ((***))
+import Control.Monad (forM)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Widget
@@ -175,7 +176,7 @@ class RenderRoute (Route a) => Yesod a where
     isWriteRequest :: Route a -> GHandler s a Bool
     isWriteRequest _ = do
         wai <- waiRequest
-        return $ not $ W.requestMethod wai `elem`
+        return $ W.requestMethod wai `notElem`
             ["GET", "HEAD", "OPTIONS", "TRACE"]
 
     -- | The default route for authentication.
@@ -494,7 +495,7 @@ widgetToPageContent (GWidget w) = do
                 Nothing -> Nothing
                 Just (Left s) -> Just s
                 Just (Right (u, p)) -> Just $ render u p
-    css <- flip mapM (Map.toList style) $ \(mmedia, content) -> do
+    css <- forM (Map.toList style) $ \(mmedia, content) -> do
         let rendered = renderCassius render content
         x <- addStaticContent "css" "text/css; charset=utf-8"
            $ encodeUtf8 rendered
