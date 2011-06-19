@@ -40,6 +40,7 @@ import Data.Text (Text)
 import qualified Data.Aeson.Types
 import qualified Data.Map as Map
 import Control.Applicative ((<$>), (<*>))
+import Network.TLS (TLSCertificateUsage (CertificateUsageAccept))
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -74,7 +75,7 @@ authenticate apiKey token = do
                     [ ("Content-Type", "application/x-www-form-urlencoded")
                     ]
                 , requestBody = RequestBodyLBS body
-                , checkCerts = const $ return True
+                , checkCerts = const $ return CertificateUsageAccept
                 , proxy = Nothing
                 , rawBody = False
                 }
