@@ -148,13 +148,12 @@ import Control.Monad.Trans.Control (MonadTransControl, liftControl)
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
 import Data.ByteString (ByteString)
-import Data.Enumerator (Iteratee (..))
+import Data.Enumerator (Iteratee (..), run_, ($$))
 import Network.Wai.Parse (parseHttpAccept)
 
 import Yesod.Content
 import Data.Maybe (fromMaybe)
 import Web.Cookie (SetCookie (..), renderSetCookie)
-import Data.Enumerator (run_, ($$))
 import Control.Arrow (second, (***))
 import qualified Network.Wai.Parse as NWP
 import Data.Monoid (mappend, mempty, Endo (..))
@@ -171,11 +170,11 @@ class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
 
 data HandlerData sub master = HandlerData
-    { handlerRequest :: Request
-    , handlerSub :: sub
-    , handlerMaster :: master
-    , handlerRoute :: Maybe (Route sub)
-    , handlerRender :: (Route master -> [(Text, Text)] -> Text)
+    { handlerRequest  :: Request
+    , handlerSub      :: sub
+    , handlerMaster   :: master
+    , handlerRoute    :: Maybe (Route sub)
+    , handlerRender   :: Route master -> [(Text, Text)] -> Text
     , handlerToMaster :: Route sub -> Route master
     }
 
@@ -222,9 +221,7 @@ class SubsiteGetter g m s | g -> s where
 
 instance (master ~ master'
          ) => SubsiteGetter (master -> sub) (GHandler anySub master') sub where
-  runSubsiteGetter getter = do
-    y <- getYesod
-    return $ getter y
+  runSubsiteGetter getter = getter <$> getYesod
 
 instance (anySub ~ anySub'
          ,master ~ master'

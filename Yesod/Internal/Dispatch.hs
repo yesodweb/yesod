@@ -172,7 +172,7 @@ mkSimpleExp segments [] frontVars (master, sub, toMasterRoute, mkey, constr, met
             return $ Match
                 (VarP x)
                 (GuardedB
-                    [ ( NormalG $ InfixE (Just $ VarE x) eq (Just $ (LitE $ StringL m)) -- FIXME need to pack, right?
+                    [ ( NormalG $ InfixE (Just $ VarE x) eq (Just $ LitE $ StringL m) -- FIXME need to pack, right?
                       , runHandlerVars $ map toLower m ++ constr
                       )
                     ])

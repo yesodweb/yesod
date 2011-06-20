@@ -37,7 +37,7 @@ parseWaiRequest :: W.Request
                 -> IO Request
 parseWaiRequest env session' key' = do
     let gets' = queryToQueryText $ W.queryString env
-    let reqCookie = maybe mempty id $ lookup "Cookie"
+    let reqCookie = fromMaybe mempty $ lookup "Cookie"
                   $ W.requestHeaders env
         cookies' = parseCookiesText reqCookie
         acceptLang = lookup "Accept-Language" $ W.requestHeaders env
