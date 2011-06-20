@@ -38,7 +38,6 @@ import Data.Enumerator (($$), run_, Stream (..), continue)
 import Data.Monoid (mconcat)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.IORef (newIORef, readIORef, atomicModifyIORef)
-import Control.Exception (Exception, throwIO)
 
 -- | Data type for OAuth client (consumer).
 data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name
