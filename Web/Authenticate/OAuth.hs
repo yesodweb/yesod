@@ -207,7 +207,7 @@ renderAuthHeader = ("OAuth " `BS.append`). BS.intercalate "," . map (\(a,b) -> B
 paramEncode :: BS.ByteString -> BS.ByteString
 paramEncode = BS.concatMap escape
   where
-    escape c | isAlpha c || isDigit c || c `elem` "-._~" = BS.singleton c
+    escape c | isAscii c && (isAlpha c || isDigit c || c `elem` "-._~") = BS.singleton c
              | otherwise = let num = map toUpper $ showHex (ord c) ""
                                oct = '%' : replicate (2 - length num) '0' ++ num
                            in BS.pack oct
