@@ -1,8 +1,8 @@
 name:            authenticate
-version:         0.9.1.5
+version:         0.9.1.6
 license:         BSD3
 license-file:    LICENSE
-author:          Michael Snoyman <michael@snoyman.com>
+author:          Michael Snoyman, Hiromi Ishii
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Authentication methods for Haskell web applications.
 description:     Focus is on third-party authentication methods, such as OpenID,
