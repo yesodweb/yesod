@@ -114,11 +114,10 @@ data FieldView xml = FieldView
     }
 
 data Field xml msg a = Field
-    { fieldParse :: Maybe Text -> Either msg (Maybe a)
-    , fieldRender :: a -> Text
+    { fieldParse :: [Text] -> Either msg (Maybe a)
     , fieldView :: Text -- ^ ID
                 -> Text -- ^ name
-                -> Text -- ^ value
+                -> Maybe a -- ^ value
                 -> Bool -- ^ required?
                 -> xml
     }

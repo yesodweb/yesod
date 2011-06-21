@@ -40,7 +40,6 @@ import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
 import Text.Hamlet.NonPoly (html)
 import Data.Monoid (mempty)
-import Data.Maybe (fromMaybe)
 import Yesod.Message (RenderMessage (..))
 
 #if __GLASGOW_HASKELL__ >= 700
@@ -112,16 +111,15 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     let mr2 = renderMessage master langs
     let (res, val) =
             case mp of
-                Nothing -> (FormMissing, maybe "" fieldRender mdef)
+                Nothing -> (FormMissing, mdef)
                 Just p ->
-                    let mval = lookup name p
-                        valB = fromMaybe "" mval
-                     in case fieldParse mval of
-                            Left e -> (FormFailure [renderMessage master langs e], valB)
+                    let mvals = map snd $ filter (\(n,_) -> n == name) p
+                     in case fieldParse mvals of
+                            Left e -> (FormFailure [renderMessage master langs e], Nothing)  -- There is no way to retain the wrong value
                             Right mx ->
                                 case mx of
-                                    Nothing -> (onMissing master langs, valB)
-                                    Just x -> (onFound x, valB)
+                                    Nothing -> (onMissing master langs, Nothing)
+                                    Just x -> (onFound x, Just x)
     return (res, FieldView
         { fvLabel = toHtml $ mr2 fsLabel
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip

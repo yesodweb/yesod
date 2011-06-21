@@ -26,15 +26,16 @@ class YesodNic a where
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-blank :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
-blank _ Nothing = Right Nothing
-blank _ (Just "") = Right Nothing
-blank f (Just t) = either Left (Right . Just) $ f t
+blank :: (Text -> Either msg a) -> [Text] -> Either msg (Maybe a)
+blank _ [] = Right Nothing
+blank _ ("":_) = Right Nothing
+blank f (x:_) = either Left (Right . Just) $ f x
+
+
 
 nicHtmlField :: YesodNic master => Field (GWidget sub master ()) msg Html
 nicHtmlField = Field
     { fieldParse = blank $ Right . preEscapedString . sanitizeBalance . unpack -- FIXME
-    , fieldRender = pack . renderHtml
     , fieldView = \theId name val _isReq -> do
         addHtml
 #if __GLASGOW_HASKELL__ >= 700
@@ -42,7 +43,7 @@ nicHtmlField = Field
 #else
                 [$hamlet|
 #endif
-    <textarea id="#{theId}" name="#{name}" .html>#{val}
+    <textarea id="#{theId}" name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit
         addJulius
@@ -54,6 +55,8 @@ nicHtmlField = Field
 bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")});
 |]
     }
+  where
+    showVal = maybe "" (pack . renderHtml)
 
 addScript' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addScript' f = do
