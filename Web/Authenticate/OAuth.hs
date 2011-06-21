@@ -223,7 +223,7 @@ getBaseString tok req = do
   bsBodyQ <- if isBodyFormEncoded $ requestHeaders req
                   then liftM parseSimpleQuery $ toLBS (requestBody req)
                   else return []
-  let bsAuthParams = filter ((`elem`["oauth_consumer_key","oauth_token", "oauth_version","oauth_signature_method","oauth_timestamp", "oauth_nonce", "oauth_verifier", "oauth_version"]).fst) $ unCredential tok
+  let bsAuthParams = filter ((`elem`["oauth_consumer_key","oauth_token", "oauth_version","oauth_signature_method","oauth_timestamp", "oauth_nonce", "oauth_verifier", "oauth_version","oauth_callback"]).fst) $ unCredential tok
       allParams = bsQuery++bsBodyQ++bsAuthParams
       bsParams = BS.intercalate "&" $ map (\(a,b)->BS.concat[a,"=",b]) $ sortBy compareTuple
                    $ map (\(a,b) -> (paramEncode a,paramEncode b)) allParams
