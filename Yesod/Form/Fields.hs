@@ -17,6 +17,7 @@ module Yesod.Form.Fields
     , emailField
     , searchField
     , selectField
+    , multiSelectField
     , AutoFocus
     , urlField
     , doubleField
@@ -40,6 +41,9 @@ import Network.URI (parseURI)
 import Database.Persist (PersistField)
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
+import Data.List (intersect, nub)
+import Data.Either (rights)
+import Data.Maybe (catMaybes)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -315,6 +319,11 @@ selectField = selectFieldHelper
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|])
     (\_theId _name value isSel text -> addHtml [HTML|<option value=#{value} :isSel:selected>#{text}|])
 
+multiSelectField :: (Show a, Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage [a]
+multiSelectField = multiSelectFieldHelper
+    (\theId name inside -> [WHAMLET|<select ##{theId} multiple name=#{name}>^{inside}|])
+    (\_theId _name value isSel text -> addHtml [HTML|<option value=#{value} :isSel:selected>#{text}|])
+
 radioField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage a
 radioField = selectFieldHelper
     (\theId _name inside -> [WHAMLET|<div ##{theId}>^{inside}|])
@@ -354,6 +363,28 @@ boolField = Field
       "no" -> Right $ Just False
       t -> Left $ MsgInvalidBool t
 
+multiSelectFieldHelper :: (Show a, Eq a, Monad monad)
+        => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())
+        -> (Text -> Text -> Text -> Bool -> Text -> GGWidget master monad ())
+        -> [(Text, a)] -> Field (GGWidget master monad ()) FormMessage [a]
+multiSelectFieldHelper outside inside opts = Field
+    { fieldParse = selectParser
+    , fieldView = \theId name vals _ ->
+        outside theId name $ do
+            flip mapM_ pairs $ \pair -> inside
+                theId
+                name
+                (pack $ show $ fst pair)
+                ((fst pair) `elem` (maybe [] selectedVals vals))
+                (fst $ snd pair)
+    }
+  where
+    pairs = zip [1 :: Int ..] opts -- FIXME use IntMap
+    rpairs = zip (map snd opts) [1 :: Int ..]
+    selectedVals vals = map snd $ filter (\y -> fst y `elem` vals) rpairs
+    selectParser [] = Right Nothing
+    selectParser xs | not $ null (["", "none"] `intersect` xs) = Right Nothing
+                    | otherwise = (Right . Just . map snd . catMaybes . map (\y -> lookup y pairs) . nub . map fst . rights . map Data.Text.Read.decimal) xs
 
 selectFieldHelper :: (Eq a, Monad monad)
         => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())
