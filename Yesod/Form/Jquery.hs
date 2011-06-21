@@ -63,11 +63,6 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-blankMulti :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
-blankMulti _ Nothing = Right Nothing
-blankMulti _ (Just "") = Right Nothing
-blankMulti f (Just t) = either Left (Right . Just) $ f t
-
 blank :: (Text -> Either msg a) -> [Text] -> Either msg (Maybe a)
 blank _ [] = Right Nothing
 blank _ ("":_) = Right Nothing
