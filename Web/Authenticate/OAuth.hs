@@ -38,7 +38,6 @@ import Data.Enumerator (($$), run_, Stream (..), continue)
 import Data.Monoid (mconcat)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.IORef (newIORef, readIORef, atomicModifyIORef)
-import Control.Exception (Exception, throwIO)
 
 -- | Data type for OAuth client (consumer).
 data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name
@@ -201,13 +200,13 @@ addAuthHeader (Credential cred) req =
   req { requestHeaders = insertMap "Authorization" (renderAuthHeader cred) $ requestHeaders req }
 
 renderAuthHeader :: [(BS.ByteString, BS.ByteString)] -> BS.ByteString
-renderAuthHeader = ("OAuth " `BS.append`). BS.intercalate "," . map (\(a,b) -> BS.concat [paramEncode a, "=\"",  paramEncode b, "\""]) . filter ((`notElem` ["oauth_token_secret", "oauth_consumer_secret"]) . fst)
+renderAuthHeader = ("OAuth " `BS.append`). BS.intercalate "," . map (\(a,b) -> BS.concat [paramEncode a, "=\"",  paramEncode b, "\""]) . filter ((`elem` ["realm", "oauth_token", "oauth_verifier", "oauth_consumer_key", "oauth_signature_method", "oauth_timestamp", "oauth_nonce", "oauth_version", "oauth_callback", "oauth_signature"]) . fst)
 
 -- | Encode a string using the percent encoding method for OAuth.
 paramEncode :: BS.ByteString -> BS.ByteString
 paramEncode = BS.concatMap escape
   where
-    escape c | isAlpha c || isDigit c || c `elem` "-._~" = BS.singleton c
+    escape c | isAscii c && (isAlpha c || isDigit c || c `elem` "-._~") = BS.singleton c
              | otherwise = let num = map toUpper $ showHex (ord c) ""
                                oct = '%' : replicate (2 - length num) '0' ++ num
                            in BS.pack oct
@@ -224,7 +223,7 @@ getBaseString tok req = do
   bsBodyQ <- if isBodyFormEncoded $ requestHeaders req
                   then liftM parseSimpleQuery $ toLBS (requestBody req)
                   else return []
-  let bsAuthParams = filter ((`notElem`["oauth_signature","realm", "oauth_token_secret"]).fst) $ unCredential tok
+  let bsAuthParams = filter ((`elem`["oauth_consumer_key","oauth_token", "oauth_version","oauth_signature_method","oauth_timestamp", "oauth_nonce", "oauth_verifier", "oauth_version"]).fst) $ unCredential tok
       allParams = bsQuery++bsBodyQ++bsAuthParams
       bsParams = BS.intercalate "&" $ map (\(a,b)->BS.concat[a,"=",b]) $ sortBy compareTuple
                    $ map (\(a,b) -> (paramEncode a,paramEncode b)) allParams
