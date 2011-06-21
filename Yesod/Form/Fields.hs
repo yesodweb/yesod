@@ -128,7 +128,7 @@ intField = Field
 |]
     }
   where
-    showVal = maybe "" (pack . showI)
+    showVal = either id (pack . showI)
     showI x = show (fromIntegral x :: Integer)
 
 doubleField :: Monad monad => Field (GGWidget master monad ()) FormMessage Double
@@ -143,7 +143,7 @@ doubleField = Field
 <input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{showVal val}">
 |]
     }
-  where showVal = maybe "" (pack . show)
+  where showVal = either id (pack . show)
 
 dayField :: Monad monad => Field (GGWidget master monad ()) FormMessage Day
 dayField = Field
@@ -153,7 +153,7 @@ dayField = Field
 <input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{showVal val}">
 |]
     }
-  where showVal = maybe "" (pack . show)
+  where showVal = either id (pack . show)
 
 timeField :: Monad monad => Field (GGWidget master monad ()) FormMessage TimeOfDay
 timeField = Field
@@ -164,7 +164,7 @@ timeField = Field
 |]
     }
   where
-    showVal = maybe "" (pack . show . roundFullSeconds)
+    showVal = either id (pack . show . roundFullSeconds)
     roundFullSeconds tod =
         TimeOfDay (todHour tod) (todMin tod) fullSec
       where
@@ -178,7 +178,7 @@ htmlField = Field
 <textarea id="#{theId}" name="#{name}" .html>#{showVal val}
 |]
     }
-  where showVal = maybe "" (pack . renderHtml)
+  where showVal = either id (pack . renderHtml)
 
 -- | A newtype wrapper around a 'String' that converts newlines to HTML
 -- br-tags.
@@ -203,7 +203,7 @@ textareaField = Field
     { fieldParse =  blank $ Right . Textarea
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
-<textarea id="#{theId}" name="#{name}">#{maybe "" unTextarea val}
+<textarea id="#{theId}" name="#{name}">#{either id unTextarea val}
 |]
     }
 
@@ -212,7 +212,7 @@ hiddenField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
-<input type="hidden" id="#{theId}" name="#{name}" value="#{maybe "" id val}">
+<input type="hidden" id="#{theId}" name="#{name}" value="#{either id id val}">
 |]
     }
 
@@ -221,7 +221,7 @@ textField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val isReq ->
         [WHAMLET|
-<input id="#{theId}" name="#{name}" type="text" :isReq:required value="#{maybe "" id val}">
+<input id="#{theId}" name="#{name}" type="text" :isReq:required value="#{either id id val}">
 |]
     }
 
@@ -230,7 +230,7 @@ passwordField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" type="password" :isReq:required="" value="#{maybe "" id val}">
+<input id="#{theId}" name="#{name}" type="password" :isReq:required="" value="#{either id id val}">
 |]
     }
 
@@ -280,7 +280,7 @@ emailField = Field
                 else Left $ MsgInvalidEmail s
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" type="email" :isReq:required="" value="#{maybe "" id val}">
+<input id="#{theId}" name="#{name}" type="email" :isReq:required="" value="#{either id id val}">
 |]
     }
 
@@ -290,7 +290,7 @@ searchField autoFocus = Field
     { fieldParse =  blank Right
     , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
-<input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{maybe "" id val}">
+<input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
         when autoFocus $ do
           addHtml $ [HAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
@@ -309,7 +309,7 @@ urlField = Field
             Just _ -> Right s
     , fieldView = \theId name val isReq -> addHtml
         [HAMLET|
-<input ##{theId} name=#{name} type=url :isReq:required value=#{maybe "" id val}>
+<input ##{theId} name=#{name} type=url :isReq:required value=#{either id id val}>
 |]
     }
 
@@ -347,10 +347,10 @@ boolField = Field
       <label for=#{theId}-none>_{MsgSelectNone}
 
 
-<input id=#{theId}-yes type=radio name=#{name} value=yes :maybe False id val:checked>
+<input id=#{theId}-yes type=radio name=#{name} value=yes :showVal id val:checked>
 <label for=#{theId}-yes>_{MsgBoolYes}
 
-<input id=#{theId}-no type=radio name=#{name} value=no :maybe False not val:checked>
+<input id=#{theId}-no type=radio name=#{name} value=no :showVal not val:checked>
 <label for=#{theId}-no>_{MsgBoolNo}
 |]
     }
@@ -362,6 +362,7 @@ boolField = Field
       "yes" -> Right $ Just True
       "no" -> Right $ Just False
       t -> Left $ MsgInvalidBool t
+    showVal = either (\_ -> False)
 
 multiSelectFieldHelper :: (Show a, Eq a, Monad monad)
         => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())
@@ -375,7 +376,7 @@ multiSelectFieldHelper outside inside opts = Field
                 theId
                 name
                 (pack $ show $ fst pair)
-                ((fst pair) `elem` (maybe [] selectedVals vals))
+                ((fst pair) `elem` (either (\_ -> []) selectedVals vals)) -- We are presuming that select fields can't hold invalid values
                 (fst $ snd pair)
     }
   where
@@ -406,8 +407,8 @@ selectFieldHelper outside onOpt inside opts = Field
   where
     pairs = zip [1 :: Int ..] opts -- FIXME use IntMap
     rpairs = zip (map snd opts) [1 :: Int ..]
-    render Nothing = ""
-    render (Just a) = maybe "" (pack . show) $ lookup a rpairs
+    render (Left _) = ""
+    render (Right a) = maybe "" (pack . show) $ lookup a rpairs
     selectParser [] = Right Nothing
     selectParser (s:_) = case s of
             "" -> Right Nothing

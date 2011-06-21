@@ -117,7 +117,7 @@ data Field xml msg a = Field
     { fieldParse :: [Text] -> Either msg (Maybe a)
     , fieldView :: Text -- ^ ID
                 -> Text -- ^ name
-                -> Maybe a -- ^ value
+                -> Either Text a -- ^ value could be invalid text or a legitimate a
                 -> Bool -- ^ required?
                 -> xml
     }

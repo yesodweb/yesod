@@ -56,7 +56,7 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{th
 |]
     }
   where
-    showVal = maybe "" (pack . renderHtml)
+    showVal = either id (pack . renderHtml)
 
 addScript' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addScript' f = do

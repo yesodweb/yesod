@@ -93,7 +93,7 @@ $(function(){$("##{theId}").datepicker({
 |]
     }
   where
-    showVal = maybe "" (pack . show)
+    showVal = either id (pack . show)
     jsBool True = "true" :: Text
     jsBool False = "false" :: Text
     mos (Left i) = show i
@@ -139,7 +139,7 @@ $(function(){$("##{theId}").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})}
 |]
     }
   where
-   showVal  = maybe "" (pack . jqueryDayTimeUTCTime)
+   showVal  = either id (pack . jqueryDayTimeUTCTime)
 
 parseUTCTime :: String -> Either FormMessage UTCTime
 parseUTCTime s =
@@ -156,7 +156,7 @@ jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
-<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{maybe "" id val}" .autocomplete>
+<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
