@@ -17,6 +17,7 @@ module Yesod.Form.Fields
     , emailField
     , searchField
     , selectField
+    , multiSelectField
     , AutoFocus
     , urlField
     , doubleField
@@ -40,6 +41,9 @@ import Network.URI (parseURI)
 import Database.Persist (PersistField)
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
+import Data.List (intersect, nub)
+import Data.Either (rights)
+import Data.Maybe (catMaybes)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -104,10 +108,12 @@ defaultFormMessage (MsgInvalidBool t) = "Invalid boolean: " `mappend` t
 defaultFormMessage MsgBoolYes = "Yes"
 defaultFormMessage MsgBoolNo = "No"
 
-blank :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
-blank _ Nothing = Right Nothing
-blank _ (Just "") = Right Nothing
-blank f (Just t) = either Left (Right . Just) $ f t
+blank :: (Text -> Either msg a) -> [Text] -> Either msg (Maybe a)
+blank _ [] = Right Nothing
+blank _ ("":_) = Right Nothing
+blank f (x:_) = either Left (Right . Just) $ f x
+
+
 
 intField :: (Monad monad, Integral i) => Field (GGWidget master monad ()) FormMessage i
 intField = Field
@@ -115,13 +121,14 @@ intField = Field
         case Data.Text.Read.signed Data.Text.Read.decimal s of
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidInteger s
-    , fieldRender = pack . showI
+
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" type="number" :isReq:required="" value="#{val}">
+<input id="#{theId}" name="#{name}" type="number" :isReq:required="" value="#{showVal val}">
 |]
     }
   where
+    showVal = either id (pack . showI)
     showI x = show (fromIntegral x :: Integer)
 
 doubleField :: Monad monad => Field (GGWidget master monad ()) FormMessage Double
@@ -130,33 +137,34 @@ doubleField = Field
         case Data.Text.Read.double s of
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidNumber s
-    , fieldRender = pack . show
+
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}">
+<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{showVal val}">
 |]
     }
+  where showVal = either id (pack . show)
 
 dayField :: Monad monad => Field (GGWidget master monad ()) FormMessage Day
 dayField = Field
     { fieldParse = blank $ parseDate . unpack
-    , fieldRender = pack . show
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{val}">
+<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{showVal val}">
 |]
     }
+  where showVal = either id (pack . show)
 
 timeField :: Monad monad => Field (GGWidget master monad ()) FormMessage TimeOfDay
 timeField = Field
     { fieldParse = blank $ parseTime . unpack
-    , fieldRender = pack . show . roundFullSeconds
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" :isReq:required="" value="#{val}">
+<input id="#{theId}" name="#{name}" :isReq:required="" value="#{showVal val}">
 |]
     }
   where
+    showVal = either id (pack . show . roundFullSeconds)
     roundFullSeconds tod =
         TimeOfDay (todHour tod) (todMin tod) fullSec
       where
@@ -165,12 +173,12 @@ timeField = Field
 htmlField :: Monad monad => Field (GGWidget master monad ()) FormMessage Html
 htmlField = Field
     { fieldParse = blank $ Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
-    , fieldRender = pack . renderHtml
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
-<textarea id="#{theId}" name="#{name}" .html>#{val}
+<textarea id="#{theId}" name="#{name}" .html>#{showVal val}
 |]
     }
+  where showVal = either id (pack . renderHtml)
 
 -- | A newtype wrapper around a 'String' that converts newlines to HTML
 -- br-tags.
@@ -192,41 +200,37 @@ instance ToHtml Textarea where
 
 textareaField :: Monad monad => Field (GGWidget master monad ()) FormMessage Textarea
 textareaField = Field
-    { fieldParse = blank $ Right . Textarea
-    , fieldRender = unTextarea
+    { fieldParse =  blank $ Right . Textarea
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
-<textarea id="#{theId}" name="#{name}">#{val}
+<textarea id="#{theId}" name="#{name}">#{either id unTextarea val}
 |]
     }
 
 hiddenField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 hiddenField = Field
     { fieldParse = blank $ Right
-    , fieldRender = id
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
-<input type="hidden" id="#{theId}" name="#{name}" value="#{val}">
+<input type="hidden" id="#{theId}" name="#{name}" value="#{either id id val}">
 |]
     }
 
 textField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 textField = Field
     { fieldParse = blank $ Right
-    , fieldRender = id
     , fieldView = \theId name val isReq ->
         [WHAMLET|
-<input id="#{theId}" name="#{name}" type="text" :isReq:required value="#{val}">
+<input id="#{theId}" name="#{name}" type="text" :isReq:required value="#{either id id val}">
 |]
     }
 
 passwordField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
 passwordField = Field
     { fieldParse = blank $ Right
-    , fieldRender = id
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" type="password" :isReq:required="" value="#{val}">
+<input id="#{theId}" name="#{name}" type="password" :isReq:required="" value="#{either id id val}">
 |]
     }
 
@@ -274,21 +278,19 @@ emailField = Field
         \s -> if Email.isValid (unpack s)
                 then Right s
                 else Left $ MsgInvalidEmail s
-    , fieldRender = id
     , fieldView = \theId name val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" type="email" :isReq:required="" value="#{val}">
+<input id="#{theId}" name="#{name}" type="email" :isReq:required="" value="#{either id id val}">
 |]
     }
 
 type AutoFocus = Bool
 searchField :: Monad monad => AutoFocus -> Field (GGWidget master monad ()) FormMessage Text
 searchField autoFocus = Field
-    { fieldParse = blank Right
-    , fieldRender = id
+    { fieldParse =  blank Right
     , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
-<input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{val}">
+<input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
         when autoFocus $ do
           addHtml $ [HAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
@@ -305,10 +307,9 @@ urlField = Field
         case parseURI $ unpack s of
             Nothing -> Left $ MsgInvalidUrl s
             Just _ -> Right s
-    , fieldRender = id
     , fieldView = \theId name val isReq -> addHtml
         [HAMLET|
-<input ##{theId} name=#{name} type=url :isReq:required value=#{val}>
+<input ##{theId} name=#{name} type=url :isReq:required value=#{either id id val}>
 |]
     }
 
@@ -316,6 +317,11 @@ selectField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, 
 selectField = selectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|])
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|])
+    (\_theId _name value isSel text -> addHtml [HTML|<option value=#{value} :isSel:selected>#{text}|])
+
+multiSelectField :: (Show a, Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage [a]
+multiSelectField = multiSelectFieldHelper
+    (\theId name inside -> [WHAMLET|<select ##{theId} multiple name=#{name}>^{inside}|])
     (\_theId _name value isSel text -> addHtml [HTML|<option value=#{value} :isSel:selected>#{text}|])
 
 radioField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage a
@@ -334,29 +340,52 @@ radioField = selectFieldHelper
 
 boolField :: (Monad monad, RenderMessage master FormMessage) => Field (GGWidget master (GGHandler sub master monad) ()) FormMessage Bool
 boolField = Field
-    { fieldParse = \s ->
-        case s of
-            Nothing -> Right Nothing
-            Just "" -> Right Nothing
-            Just "none" -> Right Nothing
-            Just "yes" -> Right $ Just True
-            Just "no" -> Right $ Just False
-            Just t -> Left $ MsgInvalidBool t
-    , fieldRender = \a -> if a then "yes" else "no"
-    , fieldView = \theId name val isReq -> [WHAMLET|
-$if not isReq
-    <input id=#{theId}-none type=radio name=#{name} value=none :isNone val:checked>
-    <label for=#{theId}-none>_{MsgSelectNone}
+      { fieldParse = boolParser
+      , fieldView = \theId name val isReq -> [WHAMLET|
+  $if not isReq
+      <input id=#{theId}-none type=radio name=#{name} value=none checked>
+      <label for=#{theId}-none>_{MsgSelectNone}
 
-<input id=#{theId}-yes type=radio name=#{name} value=yes :(==) val "yes":checked>
+
+<input id=#{theId}-yes type=radio name=#{name} value=yes :showVal id val:checked>
 <label for=#{theId}-yes>_{MsgBoolYes}
 
-<input id=#{theId}-no type=radio name=#{name} value=no :(==) val "no":checked>
+<input id=#{theId}-no type=radio name=#{name} value=no :showVal not val:checked>
 <label for=#{theId}-no>_{MsgBoolNo}
 |]
     }
   where
-    isNone val = not $ val `elem` ["yes", "no"]
+    boolParser [] = Right Nothing
+    boolParser (x:_) = case x of
+      "" -> Right Nothing
+      "none" -> Right Nothing
+      "yes" -> Right $ Just True
+      "no" -> Right $ Just False
+      t -> Left $ MsgInvalidBool t
+    showVal = either (\_ -> False)
+
+multiSelectFieldHelper :: (Show a, Eq a, Monad monad)
+        => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())
+        -> (Text -> Text -> Text -> Bool -> Text -> GGWidget master monad ())
+        -> [(Text, a)] -> Field (GGWidget master monad ()) FormMessage [a]
+multiSelectFieldHelper outside inside opts = Field
+    { fieldParse = selectParser
+    , fieldView = \theId name vals _ ->
+        outside theId name $ do
+            flip mapM_ pairs $ \pair -> inside
+                theId
+                name
+                (pack $ show $ fst pair)
+                ((fst pair) `elem` (either (\_ -> []) selectedVals vals)) -- We are presuming that select fields can't hold invalid values
+                (fst $ snd pair)
+    }
+  where
+    pairs = zip [1 :: Int ..] opts -- FIXME use IntMap
+    rpairs = zip (map snd opts) [1 :: Int ..]
+    selectedVals vals = map snd $ filter (\y -> fst y `elem` vals) rpairs
+    selectParser [] = Right Nothing
+    selectParser xs | not $ null (["", "none"] `intersect` xs) = Right Nothing
+                    | otherwise = (Right . Just . map snd . catMaybes . map (\y -> lookup y pairs) . nub . map fst . rights . map Data.Text.Read.decimal) xs
 
 selectFieldHelper :: (Eq a, Monad monad)
         => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())
@@ -364,29 +393,29 @@ selectFieldHelper :: (Eq a, Monad monad)
         -> (Text -> Text -> Text -> Bool -> Text -> GGWidget master monad ())
         -> [(Text, a)] -> Field (GGWidget master monad ()) FormMessage a
 selectFieldHelper outside onOpt inside opts = Field
-    { fieldParse = \s ->
-        case s of
-            Nothing -> Right Nothing
-            Just "" -> Right Nothing
-            Just "none" -> Right Nothing
-            Just x ->
-                case Data.Text.Read.decimal x of
-                    Right (a, "") ->
-                        case lookup a pairs of
-                            Nothing -> Left $ MsgInvalidEntry x
-                            Just y -> Right $ Just $ snd y
-                    _ -> Left $ MsgInvalidNumber x
-    , fieldRender = \a -> maybe "" (pack . show) $ lookup a rpairs
+    { fieldParse = selectParser
     , fieldView = \theId name val isReq ->
         outside theId name $ do
-            unless isReq $ onOpt theId name $ not $ val `elem` map (pack . show . fst) pairs
+            unless isReq $ onOpt theId name $ not $ (render val) `elem` map (pack . show . fst) pairs
             flip mapM_ pairs $ \pair -> inside
                 theId
                 name
                 (pack $ show $ fst pair)
-                (val == pack (show $ fst pair))
+                ((render val) == pack (show $ fst pair))
                 (fst $ snd pair)
     }
   where
     pairs = zip [1 :: Int ..] opts -- FIXME use IntMap
     rpairs = zip (map snd opts) [1 :: Int ..]
+    render (Left _) = ""
+    render (Right a) = maybe "" (pack . show) $ lookup a rpairs
+    selectParser [] = Right Nothing
+    selectParser (s:_) = case s of
+            "" -> Right Nothing
+            "none" -> Right Nothing
+            x -> case Data.Text.Read.decimal x of
+                    Right (a, "") ->
+                        case lookup a pairs of
+                            Nothing -> Left $ MsgInvalidEntry x
+                            Just y -> Right $ Just $ snd y
+                    _ -> Left $ MsgInvalidNumber x

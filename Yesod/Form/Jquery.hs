@@ -63,10 +63,10 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-blank :: (Text -> Either msg a) -> Maybe Text -> Either msg (Maybe a)
-blank _ Nothing = Right Nothing
-blank _ (Just "") = Right Nothing
-blank f (Just t) = either Left (Right . Just) $ f t
+blank :: (Text -> Either msg a) -> [Text] -> Either msg (Maybe a)
+blank _ [] = Right Nothing
+blank _ ("":_) = Right Nothing
+blank f (x:_) = either Left (Right . Just) $ f x
 
 jqueryDayField :: (YesodJquery master) => JqueryDaySettings -> Field (GWidget sub master ()) FormMessage Day
 jqueryDayField jds = Field
@@ -75,10 +75,9 @@ jqueryDayField jds = Field
                   Right
               . readMay
               . unpack
-    , fieldRender = pack . show
     , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
-<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{val}">
+<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -94,6 +93,7 @@ $(function(){$("##{theId}").datepicker({
 |]
     }
   where
+    showVal = either id (pack . show)
     jsBool True = "true" :: Text
     jsBool False = "false" :: Text
     mos (Left i) = show i
@@ -126,10 +126,9 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
 jqueryDayTimeField :: YesodJquery master => Field (GWidget sub master ()) FormMessage UTCTime
 jqueryDayTimeField = Field
     { fieldParse  = blank $ parseUTCTime . unpack
-    , fieldRender = pack . jqueryDayTimeUTCTime
     , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
-<input id="#{theId}" name="#{name}" :isReq:required="" value="#{val}">
+<input id="#{theId}" name="#{name}" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -139,6 +138,8 @@ jqueryDayTimeField = Field
 $(function(){$("##{theId}").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
 |]
     }
+  where
+   showVal  = either id (pack . jqueryDayTimeUTCTime)
 
 parseUTCTime :: String -> Either FormMessage UTCTime
 parseUTCTime s =
@@ -152,11 +153,10 @@ parseUTCTime s =
 
 jqueryAutocompleteField :: YesodJquery master => Route master -> Field (GWidget sub master ()) FormMessage Text
 jqueryAutocompleteField src = Field
-    { fieldParse = Right
-    , fieldRender = id
+    { fieldParse = blank $ Right
     , fieldView = \theId name val isReq -> do
         addHtml [HAMLET|\
-<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{val}" .autocomplete>
+<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs

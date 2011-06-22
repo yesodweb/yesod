@@ -33,14 +33,16 @@ instance Applicative (FormInput master) where
 
 ireq :: (RenderMessage master msg, RenderMessage master FormMessage) => Field (GWidget sub master ()) msg a -> Text -> FormInput master a
 ireq field name = FormInput $ \m l env ->
-    case fieldParse field $ lookup name env of
-        Left e -> Left $ (:) $ renderMessage m l e
-        Right Nothing -> Left $ (:) $ renderMessage m l $ MsgInputNotFound name
-        Right (Just a) -> Right a
+      let filteredEnv = map snd $ filter (\y -> fst y == name) env
+      in case fieldParse field $ filteredEnv of
+          Left e -> Left $ (:) $ renderMessage m l e
+          Right Nothing -> Left $ (:) $ renderMessage m l $ MsgInputNotFound name
+          Right (Just a) -> Right a
 
 iopt :: RenderMessage master msg => Field (GWidget sub master ()) msg a -> Text -> FormInput master (Maybe a)
 iopt field name = FormInput $ \m l env ->
-    case fieldParse field $ lookup name env of
+      let filteredEnv = map snd $ filter (\y -> fst y == name) env
+      in case fieldParse field $ filteredEnv of
         Left e -> Left $ (:) $ renderMessage m l e
         Right x -> Right x
 
