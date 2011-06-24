@@ -2,6 +2,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 import Yesod.Core
 import Yesod.Form
+import Yesod.Form.MassInput
 import Control.Applicative
 import Data.Text (Text, pack)
 import Network.Wai.Handler.Warp (run)
@@ -37,6 +38,7 @@ instance Yesod HelloForms where
 
 mkYesod "HelloForms" [parseRoutes|
 / RootR GET
+/mass MassR GET
 |]
 
 getRootR = do
@@ -47,6 +49,26 @@ getRootR = do
     ^{form}
     <div>
         <input type=submit>
+<p>
+    <a href=@{MassR}>See the mass form
+|]
+
+myMassForm = fixType $ runFormGet $ renderTable $ inputList "People" massTable
+    (\x -> (,)
+        <$> areq textField "Name" (fmap fst x)
+        <*> areq intField "Age" (fmap snd x)) (Just [("Michael", 26)])
+
+getMassR = do
+    ((res, form), enctype) <- myMassForm
+    defaultLayout [whamlet|
+<p>Result: #{show res}
+<form enctype=#{enctype}>
+    <table>
+        ^{form}
+    <div>
+        <input type=submit>
+<p>
+    <a href=@{RootR}>See the regular form
 |]
 
 main = toWaiApp HelloForms >>= run 3000
