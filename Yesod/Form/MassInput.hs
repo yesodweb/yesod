@@ -57,8 +57,7 @@ inputList :: (Monad mo, m ~ GGHandler sub master mo, xml ~ GGWidget master (GGHa
 inputList label fixXml single mdef = formToAForm $ do
     theId <- lift newIdent
     down 1
-    --countName <- newFormIdent
-    let countName = "count"
+    countName <- newFormIdent
     addName <- newFormIdent
     (menv, _, _) <- ask
     let readInt t =
