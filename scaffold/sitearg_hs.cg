@@ -54,7 +54,7 @@ type Widget = GWidget ~sitearg~ ~sitearg~
 
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
--- http://docs.yesodweb.com/book/web-routes-quasi/
+-- http://www.yesodweb.com/book/handler
 --
 -- This function does three things:
 --
