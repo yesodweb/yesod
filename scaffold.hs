@@ -13,7 +13,7 @@ import qualified Data.Text.Lazy.Encoding as LT
 import Control.Monad (when, unless)
 import System.Environment (getArgs)
 
-import Scaffold.Build (build)
+import Scaffold.Build (build, touch)
 import Scaffold.Devel (devel)
 
 qq :: String
@@ -38,12 +38,14 @@ main = do
     case args of
         ["init"] -> scaffold
         ["build"] -> build
+        ["touch"] -> touch
         ["devel"] -> devel
         _ -> do
             putStrLn "Usage: yesod <command>"
             putStrLn "Available commands:"
             putStrLn "    init         Scaffold a new site"
             putStrLn "    build        Build project (performs TH dependency analysis)"
+            putStrLn "    touch        Touch any files with altered TH dependencies but do not build"
             putStrLn "    devel        Run project with the devel server"
 
 puts :: String -> IO ()

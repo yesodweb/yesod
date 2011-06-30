@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Scaffold.Build
     ( build
+    , touch
     , getDeps
     , touchDeps
     , findHaskellFiles
@@ -26,6 +27,14 @@ import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, se
 import Data.Text (unpack)
 import Control.Monad (filterM)
 import Control.Exception (SomeException, try)
+
+-- | Touch any files with altered dependencies but do not build
+touch :: IO ()
+touch = do
+    hss <- findHaskellFiles "."
+    deps' <- mapM determineHamletDeps hss
+    let deps = fixDeps $ zip hss deps'
+    touchDeps deps
 
 build :: IO ()
 build = do
