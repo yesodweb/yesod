@@ -26,6 +26,8 @@ import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
 import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Text (Text)
+import qualified Crypto.PasswordStore as PS
+import qualified Data.Text.Encoding as DTE
 
 import Yesod.Form
 import Yesod.Handler
@@ -251,10 +253,9 @@ saltLength = 5
 
 -- | Salt a password with a randomly generated salt.
 saltPass :: Text -> IO Text
-saltPass pass = do
-    stdgen <- newStdGen
-    let salt = take saltLength $ randomRs ('A', 'Z') stdgen
-    return $ TS.pack $ saltPass' salt $ TS.unpack pass
+saltPass = fmap DTE.decodeUtf8
+         . flip PS.makePassword 12
+         . DTE.encodeUtf8
 
 saltPass' :: String -> String -> String
 saltPass' salt pass =
@@ -265,7 +266,13 @@ saltPass' salt pass =
 isValidPass :: Text -- ^ cleartext password
             -> SaltedPass -- ^ salted password
             -> Bool
-isValidPass clear' salted' =
+isValidPass ct salted =
+    PS.verifyPassword (DTE.encodeUtf8 ct) (DTE.encodeUtf8 salted) || isValidPass' ct salted
+
+isValidPass' :: Text -- ^ cleartext password
+            -> SaltedPass -- ^ salted password
+            -> Bool
+isValidPass' clear' salted' =
     let salt = take saltLength salted
      in salted == saltPass' salt clear
   where
