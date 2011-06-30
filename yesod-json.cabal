@@ -1,15 +1,15 @@
 name:            yesod-json
-version:         0.1.1
+version:         0.1.1.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
-synopsis:        Generate content for Yesod using the json-types package.
+synopsis:        Generate content for Yesod using the aeson package.
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://docs.yesodweb.com/
+homepage:        http://www.yesodweb.com/
 
 library
     build-depends:   base                      >= 4        && < 5
@@ -19,6 +19,7 @@ library
                    , hamlet                    >= 0.8      && < 0.9
                    , vector
                    , containers
+                   , blaze-textual             >= 0.1      && < 0.2
     exposed-modules: Yesod.Json
     ghc-options:     -Wall
 
