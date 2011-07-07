@@ -1,20 +1,51 @@
-{-# LANGUAGE CPP #-}
-#if PRODUCTION
+{-# LANGUAGE CPP, DeriveDataTypeable #-}
+import qualified Settings as Settings
 import Controller (with~sitearg~)
 import Network.Wai.Handler.Warp (run)
+import System.Console.CmdArgs
+import Data.Char (toUpper, toLower)
 
+#if PRODUCTION
 main :: IO ()
-main = with~sitearg~ $ run 3000
+main = do
+    appEnv <- getAppEnv
+    config <- Settings.loadConfig appEnv
+    with~sitearg~ config $ run (Settings.appPort settings)
+
 #else
-import Controller (with~sitearg~)
 import System.IO (hPutStrLn, stderr)
 import Network.Wai.Middleware.Debug (debug)
-import Network.Wai.Handler.Warp (run)
 
 main :: IO ()
 main = do
-    let port = 3000
-    hPutStrLn stderr $ "Application launched, listening on port " ++ show port
-    with~sitearg~ $ run port . debug
+    appEnv <- getAppEnv
+    config <- Settings.loadConfig appEnv
+    hPutStrLn stderr $ "Application launched, listening on port " ++ show (Settings.appPort config)
+    with~sitearg~ config $ run (Settings.appPort config) . debug
 #endif
 
+data ArgConfig = ArgConfig {environment :: String}
+                 deriving (Show, Data, Typeable)
+
+config = ArgConfig{ environment = def
+  &= help "application environment, one of:" ++ (foldl1 (++) environments)
+  &= typ "ENVIRONMENT"
+#if PRODUCTION
+  &= opt "production"
+#else
+  &= opt "development"
+#endif
+}
+
+environments :: [String]
+environments = map show ([minBound..maxBound] :: [Settings.AppEnvironment])
+
+
+-- | retrieve the -e environment option
+getAppEnv :: IO Settings.AppEnvironment
+getAppEnv = do
+    cfg <- cmdArgs config
+    return $ read $ capitalize $ environment cfg
+  where
+    capitalize [] = []
+    capitalize (x:xs) = toUpper x : map toLower xs

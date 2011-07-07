@@ -34,13 +34,13 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: (Application -> IO a) -> IO a
-with~sitearg~ f = do
-    let h = ~sitearg~ s
+with~sitearg~ :: AppEnvironment -> (Application -> IO a) -> IO a
+with~sitearg~ appEnv f = do
+    let h = ~sitearg~ appEnv s
     toWaiApp h >>= f
   where
     s = static Settings.staticdir
 
 withDevelApp :: Dynamic
-withDevelApp = toDyn (with~sitearg~ :: (Application -> IO ()) -> IO ())
+withDevelApp = toDyn (with~sitearg~ Development :: (Application -> IO ()) -> IO ())
 

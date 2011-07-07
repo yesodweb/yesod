@@ -16,9 +16,11 @@ module Settings
     , ConnectionPool
     , withConnectionPool
     , runConnectionPool
-    , approot
-    , staticroot
-    , staticdir
+    , staticRoot
+    , staticDir
+    , loadConfig
+    , AppEnvironment(..)
+    , AppConfig(..)
     ) where
 
 import qualified Text.Hamlet as H
@@ -31,26 +33,67 @@ import Yesod (MonadControlIO, addWidget, addCassius, addJulius, addLucius)
 import Data.Monoid (mempty, mappend)
 import System.Directory (doesFileExist)
 import Data.Text (Text)
+import Data.Object
+import Data.Object.Yaml
+import Control.Monad (join)
 
--- | The base URL for your application. This will usually be different for
--- development and production. Yesod automatically constructs URLs for you,
--- so this value must be accurate to create valid links.
--- Please note that there is no trailing slash.
-approot :: Text
-approot =
-#ifdef PRODUCTION
--- You probably want to change this. If your domain name was "yesod.com",
--- you would probably want it to be:
--- > "http://yesod.com"
-  "http://localhost:3000"
-#else
-  "http://localhost:3000"
-#endif
+data AppEnvironment = Test
+                    | Development
+                    | Staging
+                    | Production
+                    deriving (Eq, Show, Read, Enum, Bounded)
+
+-- | dynamic per-environment configuration loaded from a YAML file
+--   use this to avoid the need to re-compile between staging and production environments
+data AppConfig = AppConfig {
+    appEnv :: AppEnvironment
+
+  , appPort :: Int
+
+    -- | Your application will keep a connection pool and take connections from
+    -- there as necessary instead of continually creating new connections. This
+    -- value gives the maximum number of connections to be open at a given time.
+    -- If your application requests a connection when all connections are in
+    -- use, that request will fail. Try to choose a number that will work well
+    -- with the system resources available to you while providing enough
+    -- connections for your expected load.
+    --
+    -- Connections are returned to the pool as quickly as possible by
+    -- Yesod to avoid resource exhaustion. A connection is only considered in
+    -- use while within a call to runDB.
+  , connectionPoolSize :: Int
+
+    -- | The base URL for your application. This will usually be different for
+    -- development and production. Yesod automatically constructs URLs for you,
+    -- so this value must be accurate to create valid links.
+    -- Please note that there is no trailing slash.
+    --
+    -- You probably want to change this! If your domain name was "yesod.com",
+    -- you would probably want it to be:
+    -- > "http://yesod.com"
+  , appRoot :: Text
+}
+
+loadConfig :: AppEnvironment -> IO AppConfig
+loadConfig env = do
+    allSettings <- (join $ decodeFile ("Settings.yaml" :: String)) >>= fromMapping
+    settings <- lookupMapping (show env) allSettings
+    appPortS <- lookupScalar "appPort" settings
+    appRootS <- lookupScalar "appRoot" settings
+    connectionPoolSizeS <- lookupScalar "connectionPoolSize" settings
+    return $ AppConfig {
+      appEnv = env
+    , appPort = read $ appPortS
+    , appRoot = read $ appRootS
+    , connectionPoolSize = read $ connectionPoolSizeS
+    }
+
+-- Static setting below. Changing these requires a recompile
 
 -- | The location of static files on your system. This is a file system
 -- path. The default value works properly with your scaffolded site.
-staticdir :: FilePath
-staticdir = "static"
+staticDir :: FilePath
+staticDir = "static"
 
 -- | The base URL for your static files. As you can see by the default
 -- value, this can simply be "static" appended to your application root.
@@ -65,8 +108,9 @@ staticdir = "static"
 -- have to make a corresponding change here.
 --
 -- To see how this value is used, see urlRenderOverride in ~sitearg~.hs
-staticroot :: Text
-staticroot = approot `mappend` "/static"
+staticRoot :: AppConfig ->  Text
+staticRoot conf = (appRoot conf) `mappend` "/static"
+
 
 -- | The database connection string. The meaning of this string is backend-
 -- specific.
@@ -77,20 +121,6 @@ connStr =
 #else
   "~connstr1~"
 #endif
-
--- | Your application will keep a connection pool and take connections from
--- there as necessary instead of continually creating new connections. This
--- value gives the maximum number of connections to be open at a given time.
--- If your application requests a connection when all connections are in
--- use, that request will fail. Try to choose a number that will work well
--- with the system resources available to you while providing enough
--- connections for your expected load.
---
--- Also, connections are returned to the pool as quickly as possible by
--- Yesod to avoid resource exhaustion. A connection is only considered in
--- use while within a call to runDB.
-connectionCount :: Int
-connectionCount = 10
 
 -- The rest of this file contains settings which rarely need changing by a
 -- user.
@@ -155,8 +185,8 @@ widgetFile x = do
 -- database actions using a pool, respectively. It is used internally
 -- by the scaffolded application, and therefore you will rarely need to use
 -- them yourself.
-withConnectionPool :: MonadControlIO m => (ConnectionPool -> m a) -> m a
-withConnectionPool = with~upper~Pool connStr connectionCount
+withConnectionPool :: MonadControlIO m => AppConfig -> (ConnectionPool -> m a) -> m a
+withConnectionPool conf = with~upper~Pool connStr (connectionPoolSize conf)
 
 runConnectionPool :: MonadControlIO m => SqlPersist m a -> ConnectionPool -> m a
 runConnectionPool = runSqlPool

@@ -30,7 +30,8 @@ import qualified Data.Text as T
 -- starts running, such as database connections. Every handler will have
 -- access to the data present here.
 data ~sitearg~ = ~sitearg~
-    { getStatic :: Static -- ^ Settings for static file serving.
+    { appEnv :: Settings.AppEnvironment
+    , getStatic :: Static -- ^ Settings for static file serving.
     }
 
 -- | A useful synonym; most of the handler functions in your application
