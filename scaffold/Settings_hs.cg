@@ -19,6 +19,7 @@ module Settings
     , approot
     , staticroot
     , staticdir
+    , appPort
     ) where
 
 import qualified Text.Hamlet as H
@@ -42,10 +43,13 @@ approot =
 -- You probably want to change this. If your domain name was "yesod.com",
 -- you would probably want it to be:
 -- > "http://yesod.com"
-  "http://localhost:3000"
+  "http://localhost:" ++ show appPort
 #else
-  "http://localhost:3000"
+  "http://localhost:" ++ show appPort
 #endif
+
+appPort :: Int
+appPort = 3000
 
 -- | The location of static files on your system. This is a file system
 -- path. The default value works properly with your scaffolded site.

@@ -10,11 +10,11 @@ import Controller (with~sitearg~)
 import System.IO (hPutStrLn, stderr)
 import Network.Wai.Middleware.Debug (debug)
 import Network.Wai.Handler.Warp (run)
+import Settings (appPort)
 
 main :: IO ()
 main = do
-    let port = 3000
-    hPutStrLn stderr $ "Application launched, listening on port " ++ show port
-    with~sitearg~ $ run port . debug
+    hPutStrLn stderr $ "Application launched, listening on port " ++ show appPort
+    with~sitearg~ $ run appPort . debug
 #endif
 
