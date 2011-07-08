@@ -98,7 +98,9 @@ scaffold = do
     mkDir "julius"
     mkDir "static"
     mkDir "static/css"
+    mkDir "static/js"
     mkDir "config"
+    mkDir "Model"
 
     writeFile' ("config/" ++ project ++ ".hs") $(codegen "test_hs")
     writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini-cabal") else $(codegen "cabal")
