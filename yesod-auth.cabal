@@ -10,6 +10,7 @@ stability:       Stable
 cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
+extra-source-files: include/qq.h
 
 flag ghc7
 
@@ -54,8 +55,7 @@ library
                      Yesod.Auth.HashDB
                      Yesod.Auth.Message
     ghc-options:     -Wall
-    include-dirs:
-                     include
+    include-dirs: include
 
 source-repository head
   type:     git
