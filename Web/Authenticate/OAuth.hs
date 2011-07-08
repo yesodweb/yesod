@@ -10,6 +10,9 @@ module Web.Authenticate.OAuth
       -- * Url & operation for authentication
       authorizeUrl, getAccessToken, getTemporaryCredential,
       getTokenCredential,
+      getAccessTokenProxy, getTemporaryCredentialProxy,
+      getTokenCredentialProxy,
+      getAccessToken', getTemporaryCredential',
       -- * Utility Methods
       paramEncode
     ) where
@@ -89,10 +92,21 @@ fromStrict = BSL.fromChunks . return
 -- | Get temporary credential for requesting acces token.
 getTemporaryCredential :: OAuth         -- ^ OAuth Application
                        -> IO Credential -- ^ Temporary Credential (Request Token & Secret).
-getTemporaryCredential oa = do
+getTemporaryCredential = getTemporaryCredential' id
+
+-- | Get temporary credential for requesting access token via the proxy.
+getTemporaryCredentialProxy :: Maybe Proxy   -- ^ Proxy
+                            -> OAuth         -- ^ OAuth Application
+                            -> IO Credential -- ^ Temporary Credential (Request Token & Secret).
+getTemporaryCredentialProxy p = getTemporaryCredential' $ addMaybeProxy p
+
+getTemporaryCredential' :: (Request IO -> Request IO) -- ^ Request Hook
+                        -> OAuth                      -- ^ OAuth Application
+                        -> IO Credential              -- ^ Temporary Credential (Request Token & Secret).
+getTemporaryCredential' hook oa = do
   let req = fromJust $ parseUrl $ oauthRequestUri oa
   req' <- signOAuth oa emptyCredential (req { method = "POST" }) 
-  rsp <- withManager $ httpLbs req'
+  rsp <- withManager . httpLbs . hook $ req'
   if statusCode rsp == 200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
@@ -110,9 +124,23 @@ getAccessToken, getTokenCredential
                :: OAuth         -- ^ OAuth Application
                -> Credential    -- ^ Temporary Credential with oauth_verifier
                -> IO Credential -- ^ Token Credential (Access Token & Secret)
-getAccessToken oa cr = do
+getAccessToken = getAccessToken' id
+
+-- | Get Access token via the proxy.
+getAccessTokenProxy, getTokenCredentialProxy
+               :: Maybe Proxy   -- ^ Proxy
+               -> OAuth         -- ^ OAuth Application
+               -> Credential    -- ^ Temporary Credential with oauth_verifier
+               -> IO Credential -- ^ Token Credential (Access Token & Secret)
+getAccessTokenProxy p = getAccessToken' $ addMaybeProxy p
+
+getAccessToken' :: (Request IO -> Request IO) -- ^ Request Hook
+                -> OAuth                      -- ^ OAuth Application
+                -> Credential                 -- ^ Temporary Credential with oauth_verifier
+                -> IO Credential              -- ^ Token Credential (Access Token & Secret)
+getAccessToken' hook oa cr = do
   let req = (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
-  rsp <- signOAuth oa cr req >>= withManager . httpLbs
+  rsp <- signOAuth oa cr req >>= withManager . httpLbs . hook
   if statusCode rsp == 200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
@@ -121,6 +149,7 @@ getAccessToken oa cr = do
 
 
 getTokenCredential = getAccessToken
+getTokenCredentialProxy = getAccessTokenProxy
 
 insertMap :: Eq a => a -> b -> [(a,b)] -> [(a,b)]
 insertMap key val = ((key,val):) . filter ((/=key).fst)
@@ -257,3 +286,6 @@ compareTuple (a,b) (c,d) =
     LT -> LT
     EQ -> compare b d
     GT -> GT
+
+addMaybeProxy :: Maybe Proxy -> Request m -> Request m
+addMaybeProxy p req = req { proxy = p }
