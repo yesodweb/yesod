@@ -99,7 +99,9 @@ scaffold = do
     mkDir "static"
     mkDir "static/css"
     mkDir "config"
+    mkDir "deploy"
 
+    writeFile' ("deploy/Procfile") $(codegen "Procfile")
     writeFile' ("config/" ++ project ++ ".hs") $(codegen "test_hs")
     writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini-cabal") else $(codegen "cabal")
     writeFile' ".ghci" $(codegen "dotghci")
