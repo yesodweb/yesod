@@ -25,7 +25,7 @@ main = do
     appEnv <- getAppEnv args
     config <- Settings.loadConfig appEnv
     let c = if (port args) /= 0 then config {appPort = (port args) } else config
-    do hPutStrLn stderr $ "Application launched, listening on port " ++ show (appPort c)
+    do hPutStrLn stderr $ (show appEnv) ++ " application launched, listening on port " ++ show (appPort c)
        with~sitearg~ c $ run (appPort c) . debug
 #endif
 
