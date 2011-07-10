@@ -76,7 +76,7 @@ data AppConfig = AppConfig {
 
 loadConfig :: AppEnvironment -> IO AppConfig
 loadConfig env = do
-    allSettings <- (join $ decodeFile ("Settings.yaml" :: String)) >>= fromMapping
+    allSettings <- (join $ decodeFile ("config/Settings.yaml" :: String)) >>= fromMapping
     settings <- lookupMapping (show env) allSettings
     appPortS <- lookupScalar "appPort" settings
     appRootS <- lookupScalar "appRoot" settings
@@ -84,7 +84,7 @@ loadConfig env = do
     return $ AppConfig {
       appEnv = env
     , appPort = read $ appPortS
-    , appRoot = read $ appRootS
+    , appRoot = read $ (show appRootS)
     , connectionPoolSize = read $ connectionPoolSizeS
     }
 

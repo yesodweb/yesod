@@ -100,6 +100,7 @@ scaffold = do
     mkDir "static/css"
     mkDir "config"
 
+    writeFile' ("config/Settings.yaml") $(codegen "Settings_yaml")
     writeFile' ("config/" ++ project ++ ".hs") $(codegen "test_hs")
     writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini-cabal") else $(codegen "cabal")
     writeFile' ".ghci" $(codegen "dotghci")
