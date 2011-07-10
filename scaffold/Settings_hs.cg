@@ -43,8 +43,13 @@ data AppEnvironment = Test
                     | Production
                     deriving (Eq, Show, Read, Enum, Bounded)
 
--- | dynamic per-environment configuration loaded from a YAML file
---   use this to avoid the need to re-compile between staging and production environments
+-- | Dynamic per-environment configuration loaded from the YAML file Settings.yaml.
+-- Use dynamic settings to avoid the need to re-compile the application (between staging and production environments).
+--
+-- By convention these settings should be overwritten by any command line arguments.
+-- See config/~sitearg~.hs for command line arguments
+-- Command line arguments provide some convenience but are also required for hosting situations where a setting is read from the environment (appPort on Heroku).
+--
 data AppConfig = AppConfig {
     appEnv :: AppEnvironment
 
@@ -72,7 +77,7 @@ data AppConfig = AppConfig {
     -- you would probably want it to be:
     -- > "http://yesod.com"
   , appRoot :: Text
-}
+} deriving (Show)
 
 loadConfig :: AppEnvironment -> IO AppConfig
 loadConfig env = do
