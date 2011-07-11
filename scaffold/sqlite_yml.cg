@@ -1,0 +1,17 @@
+Default: &defaults
+  adapter: sqlite
+  database: ~project~.sqlite3
+
+Development:
+  <<: *defaults
+
+Test:
+  database: ~project~_test.sqlite3
+  <<: *defaults
+
+Staging:
+  <<: *defaults
+
+Production:
+  database: ~project~_production.sqlite3
+  <<: *defaults

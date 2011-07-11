@@ -12,7 +12,6 @@ module Settings
     , juliusFile
     , luciusFile
     , widgetFile
-    , connStr
     , ConnectionPool
     , withConnectionPool
     , runConnectionPool
@@ -29,12 +28,12 @@ import qualified Text.Julius as H
 import qualified Text.Lucius as H
 import Language.Haskell.TH.Syntax
 ~importDB~
-import Yesod (MonadControlIO, addWidget, addCassius, addJulius, addLucius)
+import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius)
 import Data.Monoid (mempty, mappend)
 import System.Directory (doesFileExist)
 import Data.Text (Text)
 import Data.Object
-import Data.Object.Yaml
+import qualified Data.Object.Yaml as YAML
 import Control.Monad (join)
 
 data AppEnvironment = Test
@@ -81,7 +80,7 @@ data AppConfig = AppConfig {
 
 loadConfig :: AppEnvironment -> IO AppConfig
 loadConfig env = do
-    allSettings <- (join $ decodeFile ("config/Settings.yaml" :: String)) >>= fromMapping
+    allSettings <- (join $ YAML.decodeFile ("config/settings.yml" :: String)) >>= fromMapping
     settings <- lookupMapping (show env) allSettings
     appPortS <- lookupScalar "appPort" settings
     appRootS <- lookupScalar "appRoot" settings
@@ -117,18 +116,35 @@ staticRoot :: AppConfig ->  Text
 staticRoot conf = (appRoot conf) `mappend` "/static"
 
 
--- | The database connection string. The meaning of this string is backend-
--- specific.
-connStr :: Text
-connStr =
-#ifdef PRODUCTION
-  "~connstr2~"
-#else
-  "~connstr1~"
-#endif
-
 -- The rest of this file contains settings which rarely need changing by a
 -- user.
+
+-- The next functions are for allocating a connection pool and running
+-- database actions using a pool, respectively. It is used internally
+-- by the scaffolded application, and therefore you will rarely need to use
+-- them yourself.
+runConnectionPool :: MonadControlIO m => SqlPersist m a -> ConnectionPool -> m a
+runConnectionPool = runSqlPool
+
+-- | The database connection string. The meaning of this string is backend-
+-- specific.
+loadConnStr :: AppEnvironment -> IO Text
+loadConnStr env = do
+    allSettings <- (join $ YAML.decodeFile ("config/~backendLower~.yml" :: String)) >>= fromMapping
+    settings <- lookupMapping (show env) allSettings
+    database <- lookupScalar "database" settings
+~connstr~
+
+withConnectionPool :: MonadControlIO m => AppConfig -> (ConnectionPool -> m a) -> m a
+withConnectionPool conf f = do
+    cs <- liftIO $ loadConnStr (appEnv conf)
+    with~upper~Pool cs (connectionPoolSize conf) f
+
+-- Example of making a dynamic configuration static
+-- use /return $(mkConnStr Production)/ instead of loadConnStr
+-- mkConnStr :: AppEnvironment -> Q Exp
+-- mkConnStr env = qRunIO (loadConnStr env) >>= return . LitE . StringL
+
 
 -- The following three functions are used for calling HTML, CSS and
 -- Javascript templates from your Haskell code. During development,
@@ -185,13 +201,3 @@ widgetFile x = do
     unlessExists tofn f = do
         e <- qRunIO $ doesFileExist $ tofn x
         if e then f x else [|mempty|]
-
--- The next two functions are for allocating a connection pool and running
--- database actions using a pool, respectively. It is used internally
--- by the scaffolded application, and therefore you will rarely need to use
--- them yourself.
-withConnectionPool :: MonadControlIO m => AppConfig -> (ConnectionPool -> m a) -> m a
-withConnectionPool conf = with~upper~Pool connStr (connectionPoolSize conf)
-
-runConnectionPool :: MonadControlIO m => SqlPersist m a -> ConnectionPool -> m a
-runConnectionPool = runSqlPool
