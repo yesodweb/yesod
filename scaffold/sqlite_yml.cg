@@ -1,5 +1,4 @@
 Default: &defaults
-  adapter: sqlite
   database: ~project~.sqlite3
 
 Development:

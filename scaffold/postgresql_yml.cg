@@ -1,5 +1,4 @@
 Default: &defaults
-  adapter: postgres
   user: ~project~
   password: ~project~
   host: localhost
