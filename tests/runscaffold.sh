@@ -1,4 +1,3 @@
-#!/bin/sh
+#!/bin/bash -x
 
-cabal clean && cabal install &&
-  rm -rf foobar && runghc scaffold.hs init < tests/sample-input.txt && cd foobar && cabal install && cabal install -fdevel && cd ..
+  rm -rf foobar && runghc scaffold.hs init && cd foobar && cabal install && cabal install -fdevel && cd ..

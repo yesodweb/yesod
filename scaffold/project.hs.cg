@@ -7,24 +7,20 @@ import System.Console.CmdArgs
 import Data.Char (toUpper, toLower)
 
 #if PRODUCTION
-main :: IO ()
-main = do
-    args <- cmdArgs argConfig
-    appEnv <- getAppEnv args
-    config <- Settings.loadConfig appEnv
-    let c = if (port args) /= 0 then config {appPort = (port args) } else config
-    with~sitearg~ c $ run (appPort c)
-
 #else
-
 import System.IO (hPutStrLn, stderr)
 import Network.Wai.Middleware.Debug (debug)
+#endif
+
 main :: IO ()
 main = do
     args <- cmdArgs argConfig
     appEnv <- getAppEnv args
     config <- Settings.loadConfig appEnv
     let c = if (port args) /= 0 then config {appPort = (port args) } else config
+#if PRODUCTION
+    with~sitearg~ c $ run (appPort c)
+#else
     hPutStrLn stderr $ (show appEnv) ++ " application launched, listening on port " ++ show (appPort c)
     with~sitearg~ c $ run (appPort c) . debug
 #endif

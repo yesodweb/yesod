@@ -60,5 +60,8 @@ executable         ~project~
                  , wai
                  , warp
                  , blaze-builder
+                 , cmdargs
+                 , data-object
+                 , data-object-yaml
     ghc-options:   -Wall -threaded
 

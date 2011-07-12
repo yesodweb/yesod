@@ -12,9 +12,11 @@ module Settings
     , juliusFile
     , luciusFile
     , widgetFile
-    , approot
-    , staticroot
-    , staticdir
+    , staticRoot
+    , staticDir
+    , loadConfig
+    , AppEnvironment(..)
+    , AppConfig(..)
     ) where
 
 import qualified Text.Hamlet as H
@@ -26,25 +28,55 @@ import Yesod.Widget (addWidget, addCassius, addJulius, addLucius)
 import Data.Monoid (mempty, mappend)
 import System.Directory (doesFileExist)
 import Data.Text (Text)
+import Data.Object
+import qualified Data.Object.Yaml as YAML
+import Control.Monad (join)
 
--- | The base URL for your application. This will usually be different for
--- development and production. Yesod automatically constructs URLs for you,
--- so this value must be accurate to create valid links.
-approot :: Text
-#ifdef PRODUCTION
--- You probably want to change this. If your domain name was "yesod.com",
--- you would probably want it to be:
--- > approot = "http://www.yesod.com"
--- Please note that there is no trailing slash.
-approot = "http://localhost:3000"
-#else
-approot = "http://localhost:3000"
-#endif
+data AppEnvironment = Test
+                    | Development
+                    | Staging
+                    | Production
+                    deriving (Eq, Show, Read, Enum, Bounded)
+
+-- | Dynamic per-environment configuration loaded from the YAML file Settings.yaml.
+-- Use dynamic settings to avoid the need to re-compile the application (between staging and production environments).
+--
+-- By convention these settings should be overwritten by any command line arguments.
+-- See config/~sitearg~.hs for command line arguments
+-- Command line arguments provide some convenience but are also required for hosting situations where a setting is read from the environment (appPort on Heroku).
+--
+data AppConfig = AppConfig {
+    appEnv :: AppEnvironment
+
+  , appPort :: Int
+
+    -- | The base URL for your application. This will usually be different for
+    -- development and production. Yesod automatically constructs URLs for you,
+    -- so this value must be accurate to create valid links.
+    -- Please note that there is no trailing slash.
+    --
+    -- You probably want to change this! If your domain name was "yesod.com",
+    -- you would probably want it to be:
+    -- > "http://yesod.com"
+  , appRoot :: Text
+} deriving (Show)
+
+loadConfig :: AppEnvironment -> IO AppConfig
+loadConfig env = do
+    allSettings <- (join $ YAML.decodeFile ("config/settings.yml" :: String)) >>= fromMapping
+    settings <- lookupMapping (show env) allSettings
+    appPortS <- lookupScalar "appPort" settings
+    appRootS <- lookupScalar "appRoot" settings
+    return $ AppConfig {
+      appEnv = env
+    , appPort = read $ appPortS
+    , appRoot = read $ (show appRootS)
+    }
 
 -- | The location of static files on your system. This is a file system
 -- path. The default value works properly with your scaffolded site.
-staticdir :: FilePath
-staticdir = "static"
+staticDir :: FilePath
+staticDir = "static"
 
 -- | The base URL for your static files. As you can see by the default
 -- value, this can simply be "static" appended to your application root.
@@ -59,8 +91,8 @@ staticdir = "static"
 -- have to make a corresponding change here.
 --
 -- To see how this value is used, see urlRenderOverride in ~project~.hs
-staticroot :: Text
-staticroot = approot `mappend` "/static"
+staticRoot :: AppConfig ->  Text
+staticRoot conf = (appRoot conf) `mappend` "/static"
 
 -- The rest of this file contains settings which rarely need changing by a
 -- user.
