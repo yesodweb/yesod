@@ -53,10 +53,10 @@ puts s = putStr s >> hFlush stdout
 
 scaffold :: IO ()
 scaffold = do
-    puts $(codegen "welcome")
+    puts $(codegenDir "input" "welcome")
     name <- getLine
 
-    puts $(codegen "project-name")
+    puts $(codegenDir "input" "project-name")
     let validPN c
             | 'A' <= c && c <= 'Z' = True
             | 'a' <= c && c <= 'z' = True
@@ -66,11 +66,11 @@ scaffold = do
     project <- prompt $ all validPN
     let dir = project
 
-    puts $(codegen "site-arg")
+    puts $(codegenDir "input" "site-arg")
     let isUpperAZ c = 'A' <= c && c <= 'Z'
     sitearg <- prompt $ \s -> not (null s) && all validPN s && isUpperAZ (head s) && s /= "Main"
 
-    puts $(codegen "database")
+    puts $(codegenDir "input" "database")
     backendS <- prompt $ flip elem ["s", "p", "m"]
     let pconn1 = $(codegen "pconn1")
     let (backendLower, upper, connstr, importDB) =
@@ -100,38 +100,38 @@ scaffold = do
     mkDir "config"
 
     case backendS of
-        "s" -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("sqlite_yml"))
-        "p" -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("postgresql_yml"))
+        "s" -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/sqlite.yml"))
+        "p" -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/postgresql.yml"))
         "m" -> return ()
         _ -> error $ "Invalid backend: " ++ backendS
 
-    writeFile' ("config/settings.yml") $(codegen "settings_yml")
-    writeFile' ("config/" ++ project ++ ".hs") $(codegen "test_hs")
-    writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini-cabal") else $(codegen "cabal")
-    writeFile' ".ghci" $(codegen "dotghci")
+    writeFile' ("config/settings.yml") $(codegen "config/settings.yml")
+    writeFile' ("config/" ++ project ++ ".hs") $(codegen "project.hs")
+    writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini/cabal") else $(codegen "cabal")
+    writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
-    writeFile' (sitearg ++ ".hs") $ if backendS == "m" then $(codegen "mini-sitearg_hs") else $(codegen "sitearg_hs")
-    writeFile' "Controller.hs" $ if backendS == "m" then $(codegen "mini-Controller_hs") else $(codegen "Controller_hs")
-    writeFile' "Handler/Root.hs" $ if backendS == "m" then $(codegen "mini-Root_hs") else $(codegen "Root_hs")
-    when (backendS /= "m") $ writeFile' "Model.hs" $(codegen "Model_hs")
-    writeFile' "config/Settings.hs" $ if backendS == "m" then $(codegen "mini-Settings_hs") else $(codegen "Settings_hs")
-    writeFile' "config/StaticFiles.hs" $(codegen "StaticFiles_hs")
+    writeFile' (sitearg ++ ".hs") $ if backendS == "m" then $(codegen "mini/sitearg.hs") else $(codegen "sitearg.hs")
+    writeFile' "Controller.hs" $ if backendS == "m" then $(codegen "mini/Controller.hs") else $(codegen "Controller.hs")
+    writeFile' "Handler/Root.hs" $ if backendS == "m" then $(codegen "mini/Handler/Root.hs") else $(codegen "Handler/Root.hs")
+    when (backendS /= "m") $ writeFile' "Model.hs" $(codegen "Model.hs")
+    writeFile' "config/Settings.hs" $ if backendS == "m" then $(codegen "mini/config/Settings.hs") else $(codegen "config/Settings.hs")
+    writeFile' "config/StaticFiles.hs" $(codegen "config/StaticFiles.hs")
     writeFile' "cassius/default-layout.cassius"
-        $(codegen "default-layout_cassius")
+        $(codegen "cassius/default-layout.cassius")
     writeFile' "hamlet/default-layout.hamlet"
-        $(codegen "default-layout_hamlet")
+        $(codegen "hamlet/default-layout.hamlet")
     writeFile' "hamlet/boilerplate-layout.hamlet"
-        $(codegen "boilerplate-layout_hamlet")
+        $(codegen "hamlet/boilerplate-layout.hamlet")
     writeFile' "static/css/html5boilerplate.css"
-        $(codegen "boilerplate_css")
-    writeFile' "hamlet/homepage.hamlet" $ if backendS == "m" then $(codegen "mini-homepage_hamlet") else $(codegen "homepage_hamlet")
-    writeFile' "config/routes" $ if backendS == "m" then $(codegen "mini-routes") else $(codegen "routes")
-    writeFile' "cassius/homepage.cassius" $(codegen "homepage_cassius")
-    writeFile' "julius/homepage.julius" $(codegen "homepage_julius")
-    unless (backendS == "m") $ writeFile' "config/models" $(codegen "entities")
+        $(codegen "static/css/html5boilerplate.css")
+    writeFile' "hamlet/homepage.hamlet" $ if backendS == "m" then $(codegen "mini/hamlet/homepage.hamlet") else $(codegen "hamlet/homepage.hamlet")
+    writeFile' "config/routes" $ if backendS == "m" then $(codegen "mini/config/routes") else $(codegen "config/routes")
+    writeFile' "cassius/homepage.cassius" $(codegen "cassius/homepage.cassius")
+    writeFile' "julius/homepage.julius" $(codegen "julius/homepage.julius")
+    unless (backendS == "m") $ writeFile' "config/models" $(codegen "config/models")
   
     S.writeFile (dir ++ "/config/favicon.ico")
-        $(runIO (S.readFile "scaffold/favicon_ico.cg") >>= \bs -> do
+        $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do
             pack <- [|S.pack|]
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
     
