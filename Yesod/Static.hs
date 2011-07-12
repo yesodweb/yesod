@@ -27,16 +27,11 @@
 module Yesod.Static
     ( -- * Subsite
       Static (..)
-    , Public (..)
     , StaticRoute (..)
-    , PublicRoute (..)
       -- * Smart constructor
     , static
-    , publicProduction
-    , publicDevel
       -- * Template Haskell helpers
     , staticFiles
-    , publicFiles
     {-
       -- * Embed files
     , getStaticHandler
@@ -70,23 +65,15 @@ import qualified Data.Map as M
 import Data.IORef (readIORef, newIORef, writeIORef)
 
 import Network.Wai.Application.Static
-    ( StaticSettings (..), CacheSettings (..)
-    , defaultStaticSettings, defaultPublicSettings
+    ( StaticSettings (..)
+    , defaultWebAppSettings, defaultFileServerSettings
     , staticAppPieces
-    , pathFromPieces
+    , pathFromRawPieces
+    , fileSystemLookup
+    , pieceFromText 
     )
 
--- | generally static assets referenced in html files
--- assets get a checksum query parameter appended for perfect caching
--- * a far future expire date is set
--- * a given asset revision will only ever be downloaded once (if the browser maintains its cache)
--- if you don't want to see a checksum in the url- use Public
 newtype Static = Static StaticSettings
--- | same as Static, but there is no checksum query parameter appended
--- generally html files and the favicon, but could be any file where you don't want the checksum parameter
--- * the file checksum is used for an ETag.
--- * this form of caching is not as good as the static- the browser can avoid downloading the file, but it always need to send a request with the etag value to the server to see if its copy is up to date
-newtype Public = Public StaticSettings
 
 -- | Default value of 'Static' for a given file folder.
 --
@@ -95,22 +82,11 @@ newtype Public = Public StaticSettings
 static :: String -> FilePath -> IO Static
 static root fp = do
   hashes <- mkHashMap fp
-  return $ Static $ (defaultStaticSettings (Forever $ isStaticRequest hashes)) {
-    ssFolder = fp
-  , ssMkRedirect = \_ newPath -> S8.append (S8.pack (root ++ "/")) newPath
-  }
-  where
-    isStaticRequest hashes reqf reqh = case M.lookup reqf hashes of
-                               Nothing -> False
-                               Just h  -> h == reqh
-
--- | no directory listing
-public :: String -> FilePath -> CacheSettings -> Public
-public root fp cache = Public $ (defaultPublicSettings cache) {
-    ssFolder = fp 
-  , ssMkRedirect = \_ newPath -> S8.append (S8.pack (root ++ "/")) newPath
+  return $ Static $ defaultWebAppSettings {
+    ssFolder = fileSystemLookup fp
   }
 
+{-
 publicProduction :: String -> FilePath -> IO Public
 publicProduction root fp = do
   etags <- mkPublicProductionEtag fp
@@ -120,6 +96,7 @@ publicDevel :: String -> FilePath -> IO Public
 publicDevel root fp = do
   etags <- mkPublicDevelEtag fp
   return $ public root fp etags
+  -}
 
 
 -- | Manually construct a static route.
@@ -131,24 +108,15 @@ publicDevel root fp = do
 -- E.g. When generating image galleries.
 data StaticRoute = StaticRoute [Text] [(Text, Text)]
     deriving (Eq, Show, Read)
-data PublicRoute = PublicRoute [Text] [(Text, Text)]
-    deriving (Eq, Show, Read)
 
 type instance Route Static = StaticRoute
-type instance Route Public = PublicRoute
 
 instance RenderRoute StaticRoute where
     renderRoute (StaticRoute x y) = (x, y)
-instance RenderRoute PublicRoute where
-    renderRoute (PublicRoute x y) = (x, y)
 
 instance Yesod master => YesodDispatch Static master where
-    yesodDispatch (Static set) _ pieces  _ _ =
-        Just $ staticAppPieces set pieces
-
-instance Yesod master => YesodDispatch Public master where
-    yesodDispatch (Public set) _ pieces  _ _ =
-        Just $ staticAppPieces set pieces
+    yesodDispatch (Static set) _ textPieces  _ _ =
+        Just $ staticAppPieces set (map pieceFromText textPieces)
 
 notHidden :: FilePath -> Bool
 notHidden ('.':_) = False
@@ -188,11 +156,12 @@ mkHashMap dir = do
     hashAlist fs = mapM hashPair fs
       where
         hashPair :: [String] -> IO (FilePath, S8.ByteString)
-        hashPair pieces = do let file = pathFromPieces dir (map pack pieces)
+        hashPair pieces = do let file = pathFromRawPieces dir pieces
                              h <- base64md5File file
                              return (file, S8.pack h)
 
-mkPublicDevelEtag :: FilePath -> IO CacheSettings
+{-
+mkPublicDevelEtag :: FilePath -> IO StaticSettings
 mkPublicDevelEtag dir = do
     etags <- mkHashMap dir
     mtimeVar <- newIORef (M.empty :: M.Map FilePath System.Time.ClockTime)
@@ -208,15 +177,15 @@ mkPublicDevelEtag dir = do
           return $ if newt /= oldt then Nothing else Just checksum
 
 
-mkPublicProductionEtag :: FilePath -> IO CacheSettings
+mkPublicProductionEtag :: FilePath -> IO StaticSettings
 mkPublicProductionEtag dir = do
     etags <- mkHashMap dir
     return $ ETag $ \f -> return . M.lookup f $ etags
+-}
 
 data StaticSite = StaticSite | PublicSite
 mkStaticFiles :: FilePath -> StaticSite -> Q [Dec]
 mkStaticFiles fp StaticSite = mkStaticFiles' fp "StaticRoute" True
-mkStaticFiles fp PublicSite = mkStaticFiles' fp "PublicRoute" False
 
 mkStaticFiles' :: FilePath -- ^ static directory
                -> String   -- ^ route constructor "StaticRoute"
@@ -237,7 +206,7 @@ mkStaticFiles' fp routeConName makeHash = do
         let route = mkName routeConName
         pack' <- [|pack|]
         qs <- if makeHash
-                    then do hash <- qRunIO $ base64md5File $ pathFromPieces fp (map pack f)
+                    then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
         -- FIXME hash <- qRunIO . calcHash $ fp ++ '/' : intercalate "/" f
                             [|[(pack $(lift hash), mempty)]|]
                     else return $ ListE []
@@ -292,9 +261,11 @@ getStaticHandler static toSubR pieces = do
 -}
 
 
+{-
 calcHash :: FilePath -> IO String
 calcHash fname =
     withBinaryFile fname ReadMode hashHandle
   where
     hashHandle h = do s <- L.hGetContents h
                       return $! base64md5 s
+                      -}
