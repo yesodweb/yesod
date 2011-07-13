@@ -3,7 +3,7 @@ import qualified Settings as Settings
 import Settings (AppConfig(..))
 import Controller (with~sitearg~)
 import Network.Wai.Handler.Warp (run)
-import System.Console.CmdArgs
+import System.Console.CmdArgs hiding (args)
 import Data.Char (toUpper, toLower)
 
 #if PRODUCTION
@@ -15,13 +15,13 @@ import Network.Wai.Middleware.Debug (debug)
 main :: IO ()
 main = do
     args <- cmdArgs argConfig
-    appEnv <- getAppEnv args
-    config <- Settings.loadConfig appEnv
+    env <- getAppEnv args
+    config <- Settings.loadConfig env
     let c = if (port args) /= 0 then config {appPort = (port args) } else config
 #if PRODUCTION
     with~sitearg~ c $ run (appPort c)
 #else
-    hPutStrLn stderr $ (show appEnv) ++ " application launched, listening on port " ++ show (appPort c)
+    hPutStrLn stderr $ (show env) ++ " application launched, listening on port " ++ show (appPort c)
     with~sitearg~ c $ run (appPort c) . debug
 #endif
 

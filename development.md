@@ -2,4 +2,8 @@
 
 ## Test suite
 
-  shelltest test/scaffold.shelltest
+  shelltest tests/scaffold.shelltest
+
+## Automated builder
+
+  tests/runscaffold.sh < sqlite-input.txt
