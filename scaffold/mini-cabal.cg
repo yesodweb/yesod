@@ -55,6 +55,8 @@ executable         ~project~
                  , template-haskell
                  , hamlet
                  , transformers
+                 , data-object
+                 , data-object-yaml
                  , wai
                  , warp
                  , blaze-builder

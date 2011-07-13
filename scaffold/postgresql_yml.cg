@@ -1,0 +1,20 @@
+Default: &defaults
+  user: ~project~
+  password: ~project~
+  host: localhost
+  port: 5432
+  database: ~project~
+
+Development:
+  <<: *defaults
+
+Test:
+  database: ~project~_test
+  <<: *defaults
+
+Staging:
+  <<: *defaults
+
+Production:
+  database: ~project~_production
+  <<: *defaults

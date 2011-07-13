@@ -40,7 +40,8 @@ import qualified Data.Text as T
 -- starts running, such as database connections. Every handler will have
 -- access to the data present here.
 data ~sitearg~ = ~sitearg~
-    { getStatic :: Static -- ^ Settings for static file serving.
+    { settings :: Settings.AppConfig
+    , getStatic :: Static -- ^ Settings for static file serving.
     , connPool :: Settings.ConnectionPool -- ^ Database connection pool.
     }
 
@@ -76,7 +77,7 @@ mkYesodData "~sitearg~" $(parseRoutesFile "config/routes")
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
 instance Yesod ~sitearg~ where
-    approot _ = Settings.approot
+    approot = Settings.appRoot . settings
 
     defaultLayout widget = do
         mmsg <- getMessage
@@ -86,9 +87,9 @@ instance Yesod ~sitearg~ where
         hamletToRepHtml $(Settings.hamletFile "default-layout")
 
     -- This is done to provide an optimization for serving static files from
-    -- a separate domain. Please see the staticroot setting in Settings.hs
-    urlRenderOverride a (StaticR s) =
-        Just $ uncurry (joinPath a Settings.staticroot) $ renderRoute s
+    -- a separate domain. Please see the staticRoot setting in Settings.hs
+    urlRenderOverride y (StaticR s) =
+        Just $ uncurry (joinPath y (Settings.staticRoot $ settings y)) $ renderRoute s
     urlRenderOverride _ _ = Nothing
 
     -- The page to be redirected to when authentication is required.
@@ -106,7 +107,7 @@ instance Yesod ~sitearg~ where
                             Left _ -> content
                             Right y -> y
                     else content
-        let statictmp = Settings.staticdir ++ "/tmp/"
+        let statictmp = Settings.staticDir ++ "/tmp/"
         liftIO $ createDirectoryIfMissing True statictmp
         let fn' = statictmp ++ fn
         exists <- liftIO $ doesFileExist fn'
