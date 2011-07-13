@@ -73,12 +73,11 @@ scaffold = do
     puts $(codegen "database")
     backendS <- prompt $ flip elem ["s", "p", "m"]
     let pconn1 = $(codegen "pconn1")
-    let pconn2 = $(codegen "pconn2")
-    let (lower, upper, connstr1, connstr2, importDB) =
+    let (backendLower, upper, connstr, importDB) =
             case backendS of
-                "s" -> ("sqlite", "Sqlite", "debug.db3", "production.db3", "import Database.Persist.Sqlite\n")
-                "p" -> ("postgresql", "Postgresql", pconn1, pconn2, "import Database.Persist.Postgresql\n")
-                "m" -> ("FIXME lower", "FIXME upper", "FIXME connstr1", "FIXME connstr2", "")
+                "s" -> ("sqlite", "Sqlite", "    return database", "import Database.Persist.Sqlite\n")
+                "p" -> ("postgresql", "Postgresql", pconn1, "import Database.Persist.Postgresql\n")
+                "m" -> ("FIXME lower", "FIXME upper", "FIXME connstr1", "")
                 _ -> error $ "Invalid backend: " ++ backendS
 
     putStrLn "That's it! I'm creating your files now..."
@@ -102,6 +101,13 @@ scaffold = do
     mkDir "config"
     mkDir "Model"
 
+    case backendS of
+        "s" -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("sqlite_yml"))
+        "p" -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("postgresql_yml"))
+        "m" -> return ()
+        _ -> error $ "Invalid backend: " ++ backendS
+
+    writeFile' ("config/settings.yml") $(codegen "settings_yml")
     writeFile' ("config/" ++ project ++ ".hs") $(codegen "test_hs")
     writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini-cabal") else $(codegen "cabal")
     writeFile' ".ghci" $(codegen "dotghci")

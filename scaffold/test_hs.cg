@@ -1,20 +1,57 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, DeriveDataTypeable #-}
+import qualified Settings as Settings
+import Settings (AppConfig(..))
+import Controller (with~sitearg~)
+import Network.Wai.Handler.Warp (run)
+import System.Console.CmdArgs
+import Data.Char (toUpper, toLower)
+
 #if PRODUCTION
-import Controller (with~sitearg~)
-import Network.Wai.Handler.Warp (run)
-
-main :: IO ()
-main = with~sitearg~ $ run 3000
-#else
-import Controller (with~sitearg~)
-import System.IO (hPutStrLn, stderr)
-import Network.Wai.Middleware.Debug (debug)
-import Network.Wai.Handler.Warp (run)
-
 main :: IO ()
 main = do
-    let port = 3000
-    hPutStrLn stderr $ "Application launched, listening on port " ++ show port
-    with~sitearg~ $ run port . debug
+    args <- cmdArgs argConfig
+    appEnv <- getAppEnv args
+    config <- Settings.loadConfig appEnv
+    let c = if (port args) /= 0 then config {appPort = (port args) } else config
+    with~sitearg~ c $ run (appPort c)
+
+#else
+
+import System.IO (hPutStrLn, stderr)
+import Network.Wai.Middleware.Debug (debug)
+main :: IO ()
+main = do
+    args <- cmdArgs argConfig
+    appEnv <- getAppEnv args
+    config <- Settings.loadConfig appEnv
+    let c = if (port args) /= 0 then config {appPort = (port args) } else config
+    hPutStrLn stderr $ (show appEnv) ++ " application launched, listening on port " ++ show (appPort c)
+    with~sitearg~ c $ run (appPort c) . debug
 #endif
 
+data ArgConfig = ArgConfig {environment :: String, port :: Int}
+                 deriving (Show, Data, Typeable)
+
+argConfig = ArgConfig{ environment = def 
+  &= help ("application environment, one of: " ++ (foldl1 (\a b -> a ++ ", " ++ b) environments))
+  &= typ "ENVIRONMENT"
+  ,port = def &= typ "PORT"
+}
+
+environments :: [String]
+environments = map ((map toLower) . show) ([minBound..maxBound] :: [Settings.AppEnvironment])
+
+-- | retrieve the -e environment option
+getAppEnv :: ArgConfig ->  IO Settings.AppEnvironment
+getAppEnv cfg = do
+    let e = if (environment cfg) /= "" then (environment cfg)
+            else
+#if PRODUCTION
+                  "production"
+#else
+                  "development"
+#endif
+    return $ read $ capitalize e
+  where
+    capitalize [] = []
+    capitalize (x:xs) = toUpper x : map toLower xs
