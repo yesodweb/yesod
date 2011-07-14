@@ -9,12 +9,12 @@ module Web.Authenticate.OAuth
       signOAuth, genSign,
       -- * Url & operation for authentication
       authorizeUrl, getAccessToken, getTemporaryCredential,
-      getTokenCredential,
+      getTokenCredential, getTemporaryCredentialWithScope,
       getAccessTokenProxy, getTemporaryCredentialProxy,
-      getTokenCredentialProxy,
+      getTokenCredentialProxy, 
       getAccessToken', getTemporaryCredential',
       -- * Utility Methods
-      paramEncode
+      paramEncode, addScope, addMaybeProxy
     ) where
 import Network.HTTP.Enumerator
 import Web.Authenticate.Internal (qsUrl)
@@ -93,6 +93,16 @@ fromStrict = BSL.fromChunks . return
 getTemporaryCredential :: OAuth         -- ^ OAuth Application
                        -> IO Credential -- ^ Temporary Credential (Request Token & Secret).
 getTemporaryCredential = getTemporaryCredential' id
+
+-- | Get temporary credential for requesting access token with Scope parameter.
+getTemporaryCredentialWithScope :: BS.ByteString -- ^ Scope parameter string
+                                -> OAuth         -- ^ OAuth Application
+                                -> IO Credential -- ^ Temporay Credential (Request Token & Secret).
+getTemporaryCredentialWithScope = getTemporaryCredential' . addScope
+
+addScope :: (MonadIO m) => BS.ByteString -> Request m -> Request m
+addScope scope req | BS.null scope = req
+                   | otherwise     = urlEncodedBody [("scope", scope)] req
 
 -- | Get temporary credential for requesting access token via the proxy.
 getTemporaryCredentialProxy :: Maybe Proxy   -- ^ Proxy
