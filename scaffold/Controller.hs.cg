@@ -46,10 +46,10 @@ with~sitearg~ conf f = do
 
 with~sitearg~LoadConfig :: Settings.AppEnvironment -> (Application -> IO a) -> IO a
 with~sitearg~LoadConfig env f = do
-  conf <- Settings.loadConfig Settings.Development
+  conf <- Settings.loadConfig env
   withFoobar conf f
 
-
+-- for yesod devel
 withDevelApp :: Dynamic
 withDevelApp = do
   toDyn ((with~sitearg~LoadConfig Settings.Development):: (Application -> IO ()) -> IO ())

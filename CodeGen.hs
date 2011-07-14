@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 -- | A code generation template haskell. Everything is taken as literal text,
 -- with ~var~ variable interpolation.
-module CodeGen (codegen) where
+module CodeGen (codegen, codegenDir) where
 
 import Language.Haskell.TH.Syntax
 import Text.ParserCombinators.Parsec
@@ -11,9 +11,9 @@ import qualified Data.Text.Lazy.Encoding as LT
 
 data Token = VarToken String | LitToken String | EmptyToken
 
-codegen :: FilePath -> Q Exp
-codegen fp = do
-    s' <- qRunIO $ L.readFile $ "scaffold/" ++ fp ++ ".cg"
+codegenDir :: FilePath -> FilePath -> Q Exp
+codegenDir dir fp = do
+    s' <- qRunIO $ L.readFile $ (dir ++ "/" ++ fp ++ ".cg")
     let s = init $ LT.unpack $ LT.decodeUtf8 s'
     case parse (many parseToken) s s of
         Left e -> error $ show e
@@ -21,6 +21,9 @@ codegen fp = do
             let tokens'' = map toExp tokens'
             concat' <- [|concat|]
             return $ concat' `AppE` ListE tokens''
+
+codegen :: FilePath -> Q Exp
+codegen fp = codegenDir "scaffold" fp
 
 toExp :: Token -> Exp
 toExp (LitToken s) = LitE $ StringL s
