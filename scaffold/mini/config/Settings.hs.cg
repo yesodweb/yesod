@@ -5,16 +5,13 @@
 -- includes database connection settings, static file locations, etc.
 -- In addition, you can configure a number of different aspects of Yesod
 -- by overriding methods in the Yesod typeclass. That instance is
--- declared in the ~sitearg~.hs file.
+-- declared in the ~project~.hs file.
 module Settings
     ( hamletFile
     , cassiusFile
     , juliusFile
     , luciusFile
     , widgetFile
-    , ConnectionPool
-    , withConnectionPool
-    , runConnectionPool
     , staticRoot
     , staticDir
     , loadConfig
@@ -27,8 +24,7 @@ import qualified Text.Cassius as H
 import qualified Text.Julius as H
 import qualified Text.Lucius as H
 import Language.Haskell.TH.Syntax
-~importDB~
-import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius)
+import Yesod.Widget (addWidget, addCassius, addJulius, addLucius)
 import Data.Monoid (mempty, mappend)
 import System.Directory (doesFileExist)
 import Data.Text (Text)
@@ -54,19 +50,6 @@ data AppConfig = AppConfig {
 
   , appPort :: Int
 
-    -- | Your application will keep a connection pool and take connections from
-    -- there as necessary instead of continually creating new connections. This
-    -- value gives the maximum number of connections to be open at a given time.
-    -- If your application requests a connection when all connections are in
-    -- use, that request will fail. Try to choose a number that will work well
-    -- with the system resources available to you while providing enough
-    -- connections for your expected load.
-    --
-    -- Connections are returned to the pool as quickly as possible by
-    -- Yesod to avoid resource exhaustion. A connection is only considered in
-    -- use while within a call to runDB.
-  , connectionPoolSize :: Int
-
     -- | The base URL for your application. This will usually be different for
     -- development and production. Yesod automatically constructs URLs for you,
     -- so this value must be accurate to create valid links.
@@ -84,15 +67,11 @@ loadConfig env = do
     settings <- lookupMapping (show env) allSettings
     appPortS <- lookupScalar "appPort" settings
     appRootS <- lookupScalar "appRoot" settings
-    connectionPoolSizeS <- lookupScalar "connectionPoolSize" settings
     return $ AppConfig {
       appEnv = env
     , appPort = read $ appPortS
     , appRoot = read $ (show appRootS)
-    , connectionPoolSize = read $ connectionPoolSizeS
     }
-
--- Static setting below. Changing these requires a recompile
 
 -- | The location of static files on your system. This is a file system
 -- path. The default value works properly with your scaffolded site.
@@ -108,43 +87,15 @@ staticDir = "static"
 -- please see:
 --   http://code.google.com/speed/page-speed/docs/request.html#ServeFromCookielessDomain
 --
--- If you change the resource pattern for StaticR in ~sitearg~.hs, you will
+-- If you change the resource pattern for StaticR in ~project~.hs, you will
 -- have to make a corresponding change here.
 --
--- To see how this value is used, see urlRenderOverride in ~sitearg~.hs
+-- To see how this value is used, see urlRenderOverride in ~project~.hs
 staticRoot :: AppConfig ->  Text
 staticRoot conf = (appRoot conf) `mappend` "/static"
 
-
 -- The rest of this file contains settings which rarely need changing by a
 -- user.
-
--- The next functions are for allocating a connection pool and running
--- database actions using a pool, respectively. It is used internally
--- by the scaffolded application, and therefore you will rarely need to use
--- them yourself.
-runConnectionPool :: MonadControlIO m => SqlPersist m a -> ConnectionPool -> m a
-runConnectionPool = runSqlPool
-
--- | The database connection string. The meaning of this string is backend-
--- specific.
-loadConnStr :: AppEnvironment -> IO Text
-loadConnStr env = do
-    allSettings <- (join $ YAML.decodeFile ("config/~backendLower~.yml" :: String)) >>= fromMapping
-    settings <- lookupMapping (show env) allSettings
-    database <- lookupScalar "database" settings
-~connstr~
-
-withConnectionPool :: MonadControlIO m => AppConfig -> (ConnectionPool -> m a) -> m a
-withConnectionPool conf f = do
-    cs <- liftIO $ loadConnStr (appEnv conf)
-    with~upper~Pool cs (connectionPoolSize conf) f
-
--- Example of making a dynamic configuration static
--- use /return $(mkConnStr Production)/ instead of loadConnStr
--- mkConnStr :: AppEnvironment -> Q Exp
--- mkConnStr env = qRunIO (loadConnStr env) >>= return . LitE . StringL
-
 
 -- The following three functions are used for calling HTML, CSS and
 -- Javascript templates from your Haskell code. During development,
@@ -159,43 +110,42 @@ withConnectionPool conf f = do
 -- used; to get the same auto-loading effect, it is recommended that you
 -- use the devel server.
 
--- | expects a root folder for each type, e.g: hamlet/ lucius/ julius/
-globFile :: String -> String -> FilePath
-globFile kind x = kind ++ "/" ++ x ++ "." ++ kind
+toHamletFile, toCassiusFile, toJuliusFile, toLuciusFile :: String -> FilePath
+toHamletFile x = "hamlet/" ++ x ++ ".hamlet"
+toCassiusFile x = "cassius/" ++ x ++ ".cassius"
+toJuliusFile x = "julius/" ++ x ++ ".julius"
+toLuciusFile x = "lucius/" ++ x ++ ".lucius"
 
 hamletFile :: FilePath -> Q Exp
-hamletFile = H.hamletFile . globFile "hamlet"
+hamletFile = H.hamletFile . toHamletFile
 
 cassiusFile :: FilePath -> Q Exp
-cassiusFile = 
 #ifdef PRODUCTION
-  H.cassiusFile . globFile "cassius"
+cassiusFile = H.cassiusFile . toCassiusFile
 #else
-  H.cassiusFileDebug . globFile "cassius"
+cassiusFile = H.cassiusFileDebug . toCassiusFile
 #endif
 
 luciusFile :: FilePath -> Q Exp
-luciusFile = 
 #ifdef PRODUCTION
-  H.luciusFile . globFile "lucius"
+luciusFile = H.luciusFile . toLuciusFile
 #else
-  H.luciusFileDebug . globFile "lucius"
+luciusFile = H.luciusFileDebug . toLuciusFile
 #endif
 
 juliusFile :: FilePath -> Q Exp
-juliusFile =
 #ifdef PRODUCTION
-  H.juliusFile . globFile "julius"
+juliusFile = H.juliusFile . toJuliusFile
 #else
-  H.juliusFileDebug . globFile "julius"
+juliusFile = H.juliusFileDebug . toJuliusFile
 #endif
 
 widgetFile :: FilePath -> Q Exp
 widgetFile x = do
-    let h = unlessExists (globFile "hamlet")  hamletFile
-    let c = unlessExists (globFile "cassius") cassiusFile
-    let j = unlessExists (globFile "julius")  juliusFile
-    let l = unlessExists (globFile "lucius")  luciusFile
+    let h = unlessExists toHamletFile hamletFile
+    let c = unlessExists toCassiusFile cassiusFile
+    let j = unlessExists toJuliusFile juliusFile
+    let l = unlessExists toLuciusFile luciusFile
     [|addWidget $h >> addCassius $c >> addJulius $j >> addLucius $l|]
   where
     unlessExists tofn f = do

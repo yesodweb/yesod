@@ -12,9 +12,7 @@ import ~sitearg~
 -- inclined, or create a single monolithic file.
 getRootR :: Handler RepHtml
 getRootR = do
-    mu <- maybeAuth
     defaultLayout $ do
         h2id <- lift newIdent
         setTitle "~project~ homepage"
         addWidget $(widgetFile "homepage")
-
