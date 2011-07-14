@@ -115,8 +115,9 @@ getTemporaryCredential' :: (Request IO -> Request IO) -- ^ Request Hook
                         -> IO Credential              -- ^ Temporary Credential (Request Token & Secret).
 getTemporaryCredential' hook oa = do
   let req = fromJust $ parseUrl $ oauthRequestUri oa
-  req' <- signOAuth oa emptyCredential (req { method = "POST" }) 
-  rsp <- withManager . httpLbs . hook $ req'
+      crd = maybe id (insert "oauth_callback") (oauthCallback oa) $ emptyCredential
+  req' <- signOAuth oa crd $ hook (req { method = "POST" }) 
+  rsp <- withManager . httpLbs $ req'
   if statusCode rsp == 200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
@@ -149,13 +150,13 @@ getAccessToken' :: (Request IO -> Request IO) -- ^ Request Hook
                 -> Credential                 -- ^ Temporary Credential with oauth_verifier
                 -> IO Credential              -- ^ Token Credential (Access Token & Secret)
 getAccessToken' hook oa cr = do
-  let req = (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
+  let req = hook (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
   rsp <- signOAuth oa cr req >>= withManager . httpLbs . hook
   if statusCode rsp == 200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
       return $ Credential dic
-    else throwIO . OAuthException $ "Gaining OAuth Temporary Credential Failed: " ++ BSL.unpack (responseBody rsp)
+    else throwIO . OAuthException $ "Gaining OAuth Token Credential Failed: " ++ BSL.unpack (responseBody rsp)
 
 
 getTokenCredential = getAccessToken
@@ -216,11 +217,11 @@ addTimeStamp cred = do
   return $ insert "oauth_timestamp" (BS.pack $ show stamp) cred
 
 injectOAuthToCred :: OAuth -> Credential -> Credential
-injectOAuthToCred oa cred = maybe id (insert "oauth_callback") (oauthCallback oa) $ 
-  inserts [ ("oauth_signature_method", showSigMtd $ oauthSignatureMethod oa)
-          , ("oauth_consumer_key", oauthConsumerKey oa)
-          , ("oauth_version", "1.0")
-          ] cred
+injectOAuthToCred oa cred =
+    inserts [ ("oauth_signature_method", showSigMtd $ oauthSignatureMethod oa)
+            , ("oauth_consumer_key", oauthConsumerKey oa)
+            , ("oauth_version", "1.0")
+            ] cred
 
 genSign :: MonadIO m => OAuth -> Credential -> Request m -> m BS.ByteString
 genSign oa tok req =
@@ -266,7 +267,8 @@ getBaseString tok req = do
       allParams = bsQuery++bsBodyQ++bsAuthParams
       bsParams = BS.intercalate "&" $ map (\(a,b)->BS.concat[a,"=",b]) $ sortBy compareTuple
                    $ map (\(a,b) -> (paramEncode a,paramEncode b)) allParams
-  -- FIXME it would be much better to use http-types functions here
+  -- parameter encoding method in OAuth is slight different from ordinary one.
+  -- So this is OK.
   return $ BSL.intercalate "&" $ map (fromStrict.paramEncode) [bsMtd, bsURI, bsParams]
 
 toLBS :: MonadIO m => RequestBody m -> m BS.ByteString
