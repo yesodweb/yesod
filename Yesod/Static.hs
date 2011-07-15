@@ -30,21 +30,15 @@ module Yesod.Static
     , StaticRoute (..)
       -- * Smart constructor
     , static
+    -- FIXME add embed
       -- * Template Haskell helpers
     , staticFiles
-    {-
-      -- * Embed files
-    , getStaticHandler
-    -}
       -- * Hashing
     , base64md5
-#if TEST
-    , getFileListPieces 
-#endif
     ) where
 
 import System.Directory
-import qualified System.Time
+--import qualified System.Time
 import Control.Monad
 
 import Yesod.Handler
@@ -62,15 +56,14 @@ import qualified Data.Serialize
 import Data.Text (Text, pack)
 import Data.Monoid (mempty)
 import qualified Data.Map as M
-import Data.IORef (readIORef, newIORef, writeIORef)
+--import Data.IORef (readIORef, newIORef, writeIORef)
+import Network.Wai (pathInfo)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
-    , defaultWebAppSettings, defaultFileServerSettings
-    , staticAppPieces
-    , pathFromRawPieces
+    , defaultWebAppSettings
     , fileSystemLookup
-    , pieceFromText 
+    , staticApp
     )
 
 newtype Static = Static StaticSettings
@@ -79,10 +72,10 @@ newtype Static = Static StaticSettings
 --
 -- Does not have index files, uses default directory listings and default mime
 -- type list.
-static :: String -> FilePath -> IO Static
-static root fp = do
-  hashes <- mkHashMap fp
-  return $ Static $ defaultWebAppSettings {
+static :: FilePath -> Static
+static fp =
+  --hashes <- mkHashMap fp
+  Static $ defaultWebAppSettings {
     ssFolder = fileSystemLookup fp
   }
 
@@ -115,8 +108,8 @@ instance RenderRoute StaticRoute where
     renderRoute (StaticRoute x y) = (x, y)
 
 instance Yesod master => YesodDispatch Static master where
-    yesodDispatch (Static set) _ textPieces  _ _ =
-        Just $ staticAppPieces set (map pieceFromText textPieces)
+    yesodDispatch (Static set) _ textPieces  _ _ = Just $
+        \req -> staticApp set req { pathInfo = textPieces }
 
 notHidden :: FilePath -> Bool
 notHidden ('.':_) = False
@@ -142,10 +135,12 @@ getFileListPieces = flip go id
 -- > style_css = StaticRoute ["style.css"] []
 -- > js_script_js = StaticRoute ["js/script.js"] []
 staticFiles :: FilePath -> Q [Dec]
-staticFiles dir = mkStaticFiles dir StaticSite
+staticFiles dir = mkStaticFiles dir
 
+{-
 publicFiles :: FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles dir PublicSite
+-}
 
 mkHashMap :: FilePath -> IO (M.Map FilePath S8.ByteString)
 mkHashMap dir = do
@@ -184,8 +179,8 @@ mkPublicProductionEtag dir = do
 -}
 
 data StaticSite = StaticSite | PublicSite
-mkStaticFiles :: FilePath -> StaticSite -> Q [Dec]
-mkStaticFiles fp StaticSite = mkStaticFiles' fp "StaticRoute" True
+mkStaticFiles :: FilePath -> Q [Dec]
+mkStaticFiles fp = mkStaticFiles' fp "StaticRoute" True
 
 mkStaticFiles' :: FilePath -- ^ static directory
                -> String   -- ^ route constructor "StaticRoute"
@@ -269,3 +264,7 @@ calcHash fname =
     hashHandle h = do s <- L.hGetContents h
                       return $! base64md5 s
                       -}
+
+-- FIXME Greg: Is this correct? Where is this function supposed to be?
+pathFromRawPieces :: FilePath -> [String] -> FilePath
+pathFromRawPieces = undefined

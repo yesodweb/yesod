@@ -28,6 +28,7 @@ library
                    , directory                 >= 1.0      && < 1.2
                    , transformers              >= 0.2      && < 0.3
                    , wai-app-static            >= 0.3      && < 0.4
+                   , wai                       >= 0.4      && < 0.5
                    , text                      >= 0.5      && < 1.0
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
