@@ -24,6 +24,7 @@ import Control.Monad (unless)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Text as T
+import Web.ClientSession (getKey)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application

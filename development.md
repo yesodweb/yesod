@@ -6,6 +6,8 @@ Run this from the project root directory. It will make sure each site type build
 
   shelltest tests/scaffold.shelltest
 
+Give it the --debug flag to see all output
+
 ## Quicker, repeatable site building
 
 Useful for debugging individual failures.
