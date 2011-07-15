@@ -30,7 +30,7 @@ module Yesod.Static
     , StaticRoute (..)
       -- * Smart constructor
     , static
-    -- FIXME add embed
+    , embed
       -- * Template Haskell helpers
     , staticFiles
       -- * Hashing
@@ -40,6 +40,7 @@ module Yesod.Static
 import System.Directory
 --import qualified System.Time
 import Control.Monad
+import Data.FileEmbed (embedDir)
 
 import Yesod.Handler
 import Yesod.Core
@@ -58,12 +59,18 @@ import Data.Monoid (mempty)
 import qualified Data.Map as M
 --import Data.IORef (readIORef, newIORef, writeIORef)
 import Network.Wai (pathInfo)
+import Data.Char (isLower, isDigit)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
     , defaultWebAppSettings
     , fileSystemLookup
     , staticApp
+    , embeddedLookup
+    , toEmbedded
+    , pathFromPieces
+    , toPiece
+    , fixPathName
     )
 
 newtype Static = Static StaticSettings
@@ -78,6 +85,14 @@ static fp =
   Static $ defaultWebAppSettings {
     ssFolder = fileSystemLookup fp
   }
+
+-- | Produces a 'Static' based on embedding file contents in the executable at
+-- compile time.
+embed :: FilePath -> Q Exp
+embed fp =
+    [|Static (defaultWebAppSettings
+        { ssFolder = embeddedLookup (toEmbedded $(embedDir fp))
+        })|]
 
 {-
 publicProduction :: String -> FilePath -> IO Public
@@ -196,7 +211,14 @@ mkStaticFiles' fp routeConName makeHash = do
         | '0' <= c && c <= '9' = c
         | otherwise = '_'
     mkRoute f = do
-        let name = mkName $ intercalate "_" $ map (map replace') f
+        let name' = intercalate "_" $ map (map replace') f
+            name = mkName $
+                case () of
+                    ()
+                        | null name' -> error "null-named file"
+                        | isDigit (head name') -> '_' : name'
+                        | isLower (head name') -> name'
+                        | otherwise -> '_' : name'
         f' <- [|map pack $(lift f)|]
         let route = mkName routeConName
         pack' <- [|pack|]
@@ -252,7 +274,7 @@ getStaticHandler static toSubR pieces = do
   where route = StaticRoute pieces []
         toSub _ = static
         staticSite = getSubSite :: Site (Route Static) (String -> Maybe (GHandler Static y ChooseRep))
-        handler = fromMaybe notFound $ handleSite staticSite undefined route "GET"
+        handler = fromMaybe notFound $ handleSite staticSite (error "Yesod.Static: getSTaticHandler") route "GET"
 -}
 
 
@@ -267,4 +289,4 @@ calcHash fname =
 
 -- FIXME Greg: Is this correct? Where is this function supposed to be?
 pathFromRawPieces :: FilePath -> [String] -> FilePath
-pathFromRawPieces = undefined
+pathFromRawPieces fp = pathFromPieces fp . map (toPiece . pack . fixPathName)
