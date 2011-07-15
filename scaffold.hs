@@ -100,6 +100,9 @@ scaffold = do
     mkDir "static/js"
     mkDir "config"
     mkDir "Model"
+    mkDir "deploy"
+     
+    writeFile' ("deploy/Procfile") $(codegen "deploy/Procfile")
 
     case backendS of
         "s" -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/sqlite.yml"))
