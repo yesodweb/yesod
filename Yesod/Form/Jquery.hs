@@ -121,7 +121,7 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
   where
     showTimeOfDay (TimeOfDay hour minute _) =
       let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
-      in (show h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
+      in (showLeadingZero h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
 
 jqueryDayTimeField :: YesodJquery master => Field (GWidget sub master ()) FormMessage UTCTime
 jqueryDayTimeField = Field
@@ -135,7 +135,7 @@ jqueryDayTimeField = Field
         addScript' urlJqueryUiDateTimePicker
         addStylesheet' urlJqueryUiCss
         addJulius [JULIUS|
-$(function(){$("##{theId}").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})});
+$(function(){$("##{theId}").datetimepicker({dateFormat : "yyyy/mm/dd hh:MM TT"})});
 |]
     }
   where
@@ -143,7 +143,8 @@ $(function(){$("##{theId}").datetimepicker({dateFormat : "yyyy/mm/dd h:MM TT"})}
 
 parseUTCTime :: String -> Either FormMessage UTCTime
 parseUTCTime s =
-    let (dateS, timeS) = break isSpace (dropWhile isSpace s)
+    let (dateS, timeS') = break isSpace (dropWhile isSpace s)
+        timeS = drop 1 timeS'
         dateE = parseDate dateS
      in case dateE of
             Left l -> Left l
