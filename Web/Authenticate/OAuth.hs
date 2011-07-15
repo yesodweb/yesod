@@ -151,7 +151,7 @@ getAccessToken' :: (Request IO -> Request IO) -- ^ Request Hook
                 -> IO Credential              -- ^ Token Credential (Access Token & Secret)
 getAccessToken' hook oa cr = do
   let req = hook (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
-  rsp <- signOAuth oa cr req >>= withManager . httpLbs . hook
+  rsp <- withManager . httpLbs =<< signOAuth oa cr req
   if statusCode rsp == 200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
