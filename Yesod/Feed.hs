@@ -1,6 +1,6 @@
 -------------------------------------------------------------------------------
 --
--- Module        : Yesod.Helpers.Feed
+-- Module        : Yesod.Feed
 -- Copyright     : Patrick Brisbin
 -- License       : as-is
 --
@@ -15,15 +15,15 @@
 -- Rss spec:  <http://www.rssboard.org/rss-specification>
 --
 -------------------------------------------------------------------------------
-module Yesod.Helpers.Feed
+module Yesod.Feed
     ( newsFeed
     , RepAtomRss (..)
-    , module Yesod.Helpers.FeedTypes
+    , module Yesod.FeedTypes
     ) where
 
-import Yesod.Helpers.FeedTypes
-import Yesod.Helpers.AtomFeed
-import Yesod.Helpers.RssFeed
+import Yesod.FeedTypes
+import Yesod.AtomFeed
+import Yesod.RssFeed
 import Yesod.Content (HasReps (chooseRep), typeAtom, typeRss)
 import Yesod.Handler (Route, GGHandler)
 

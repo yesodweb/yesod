@@ -1,5 +1,5 @@
 name:            yesod-newsfeed
-version:         0.1.0
+version:         0.2.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -18,10 +18,10 @@ library
                    , hamlet                    >= 0.8      && < 0.9
                    , bytestring                >= 0.9      && < 0.10
                    , text                      >= 0.9      && < 1.0
-    exposed-modules: Yesod.Helpers.AtomFeed
-                   , Yesod.Helpers.RssFeed
-                   , Yesod.Helpers.Feed
-    other-modules:   Yesod.Helpers.FeedTypes
+    exposed-modules: Yesod.AtomFeed
+                   , Yesod.RssFeed
+                   , Yesod.Feed
+    other-modules:   Yesod.FeedTypes
     ghc-options:     -Wall
 
 source-repository head

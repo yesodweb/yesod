@@ -1,4 +1,4 @@
-module Yesod.Helpers.FeedTypes
+module Yesod.FeedTypes
     ( Feed (..)
     , FeedEntry (..)
     ) where

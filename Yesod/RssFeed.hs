@@ -2,7 +2,7 @@
 {-# LANGUAGE CPP #-}
 -------------------------------------------------------------------------------
 --
--- Module        : Yesod.Helpers.RssFeed
+-- Module        : Yesod.RssFeed
 -- Copyright     : Patrick Brisbin
 -- License       : as-is
 --
@@ -11,17 +11,17 @@
 -- Portability   : Portable
 --
 -------------------------------------------------------------------------------
-module Yesod.Helpers.RssFeed
+module Yesod.RssFeed
     ( rssFeed
     , rssLink
     , RepRss (..)
-    , module Yesod.Helpers.FeedTypes
+    , module Yesod.FeedTypes
     ) where
 
 import Yesod.Handler
 import Yesod.Content
 import Yesod.Widget
-import Yesod.Helpers.FeedTypes
+import Yesod.FeedTypes
 import Text.Hamlet (Hamlet, xhamlet, hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Control.Monad (liftM)

@@ -2,7 +2,7 @@
 {-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
--- Module        : Yesod.Helpers.AtomFeed
+-- Module        : Yesod.AtomFeed
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -15,17 +15,17 @@
 ---------------------------------------------------------
 
 -- | Generation of Atom newsfeeds.
-module Yesod.Helpers.AtomFeed
+module Yesod.AtomFeed
     ( atomFeed
     , atomLink
     , RepAtom (..)
-    , module Yesod.Helpers.FeedTypes
+    , module Yesod.FeedTypes
     ) where
 
 import Yesod.Content
 import Yesod.Handler
 import Yesod.Widget
-import Yesod.Helpers.FeedTypes
+import Yesod.FeedTypes
 import Text.Hamlet (Hamlet, xhamlet, hamlet, cdata)
 import qualified Data.ByteString.Char8 as S8
 import Control.Monad (liftM)
