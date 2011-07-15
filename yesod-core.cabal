@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         0.8.3.1
+version:         0.8.3.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -45,7 +45,7 @@ library
                    , containers                >= 0.2      && < 0.5
                    , monad-control             >= 0.2      && < 0.3
                    , enumerator                >= 0.4.7    && < 0.5
-                   , cookie                    >= 0.2.1    && < 0.3
+                   , cookie                    >= 0.3      && < 0.4
                    , blaze-html                >= 0.4      && < 0.5
                    , http-types                >= 0.6      && < 0.7
                    , case-insensitive          >= 0.2      && < 0.4

@@ -797,6 +797,7 @@ headerToPair cp getExpires (AddCookie minutes key value) =
                 then Nothing
                 else Just $ getExpires minutes
         , setCookieDomain = Nothing
+        , setCookieHttpOnly = True
         })
 headerToPair cp _ (DeleteCookie key) =
     ( "Set-Cookie"
