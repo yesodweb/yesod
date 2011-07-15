@@ -34,6 +34,7 @@ import qualified Data.Text.Lazy
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 import qualified Data.Text as T
+import Web.ClientSession (getKey)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -78,6 +79,9 @@ mkYesodData "~sitearg~" $(parseRoutesFile "config/routes")
 -- of settings which can be configured by overriding methods here.
 instance Yesod ~sitearg~ where
     approot = Settings.appRoot . settings
+
+    -- Place the session key file in the config folder
+    encryptKey _ = fmap Just $ getKey "config/client_session_key.aes"
 
     defaultLayout widget = do
         mmsg <- getMessage
