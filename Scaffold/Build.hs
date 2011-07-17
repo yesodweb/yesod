@@ -8,22 +8,16 @@ module Scaffold.Build
 
 -- FIXME there's a bug when getFileStatus applies to a file temporary deleted (e.g., Vim saving a file)
 
-import qualified Distribution.Simple.Build as B
 import System.Directory (getDirectoryContents, doesDirectoryExist, doesFileExist)
 import Data.List (isSuffixOf)
-import Distribution.Simple.Setup (defaultBuildFlags)
-import Distribution.Simple.Configure (getPersistBuildConfig)
-import Distribution.Simple.LocalBuildInfo
 import qualified Data.Attoparsec.Text.Lazy as A
 import qualified Data.Text.Lazy.IO as TIO
 import Control.Applicative ((<|>))
 import Data.Char (isSpace)
-import Data.Maybe (mapMaybe)
 import Data.Monoid (mappend)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes, FileStatus)
-import Data.Text (unpack)
+import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes)
 import Control.Monad (filterM, forM)
 import Control.Exception (SomeException, try)
 
@@ -34,25 +28,6 @@ touch = do
     deps' <- mapM determineHamletDeps hss
     let deps = fixDeps $ zip hss deps'
     touchDeps deps
-
-build :: IO ()
-build = do
-    {-
-    cabal <- defaultPackageDesc normal
-    gpd <- readPackageDescription normal cabal
-    putStrLn $ showPackageDescription $ packageDescription gpd
-    -}
-    hss <- findHaskellFiles "."
-    deps' <- mapM determineHamletDeps hss
-    let deps = fixDeps $ zip hss deps'
-    touchDeps deps
-
-    lbi <- getPersistBuildConfig "dist"
-    B.build
-        (localPkgDescr lbi)
-        lbi
-        defaultBuildFlags
-        []
 
 type Deps = Map.Map FilePath (Set.Set FilePath)
 
@@ -136,18 +111,18 @@ determineHamletDeps x = do
            <|> (A.string "$(persistFile " >> return Verbatim)
            <|> (A.string "$(parseRoutesFile " >> return Verbatim)
            <|> (do
-                    A.string "\nmkMessage \""
+                    _ <- A.string "\nmkMessage \""
                     A.skipWhile (/= '"')
-                    A.string "\" \""
-                    x <- A.many1 $ A.satisfy (/= '"')
-                    A.string "\" \""
+                    _ <- A.string "\" \""
+                    x' <- A.many1 $ A.satisfy (/= '"')
+                    _ <- A.string "\" \""
                     y <- A.many1 $ A.satisfy (/= '"')
-                    A.string "\""
-                    return $ Messages $ concat [x, "/", y, ".msg"])
+                    _ <- A.string "\""
+                    return $ Messages $ concat [x', "/", y, ".msg"])
            <|> (do
-                    A.string "\nstaticFiles \""
-                    x <- A.many1 $ A.satisfy (/= '"')
-                    return $ StaticFiles x)
+                    _ <- A.string "\nstaticFiles \""
+                    x' <- A.many1 $ A.satisfy (/= '"')
+                    return $ StaticFiles x')
         case ty of
             Messages{} -> return $ Just (ty, "")
             StaticFiles{} -> return $ Just (ty, "")
