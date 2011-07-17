@@ -5,6 +5,7 @@ module Scaffold.Devel
 
 import qualified Distribution.Simple.Build as B
 import Distribution.Simple.Configure (configure)
+import Distribution.Simple (defaultMainArgs)
 import Distribution.Simple.Setup (defaultConfigFlags, configConfigurationsFlags, configUserInstall, Flag (..), defaultBuildFlags, defaultCopyFlags, defaultRegisterFlags)
 import Distribution.Simple.Utils (defaultPackageDesc, defaultHookedPackageDesc)
 import Distribution.Simple.Program (defaultProgramConfiguration)
@@ -30,8 +31,9 @@ import Control.Monad (when, forever)
 import System.Process (runCommand, terminateProcess, getProcessExitCode, waitForProcess)
 import qualified Data.IORef as I
 import qualified Data.ByteString.Lazy.Char8 as L
-import System.Directory (doesFileExist, removeFile)
+import System.Directory (doesFileExist, removeFile, getDirectoryContents)
 import Distribution.Package (PackageName (..), pkgName)
+import Data.Maybe (mapMaybe)
 
 appMessage :: L.ByteString -> IO ()
 appMessage l = forever $ do
@@ -43,10 +45,9 @@ swapApp i f = do
     I.readIORef i >>= killThread
     f >>= I.writeIORef i
 
-devel :: ([String] -> IO ()) -- ^ configure command
-      -> ([String] -> IO ()) -- ^ build command
+devel :: ([String] -> IO ()) -- ^ cabal
       -> IO ()
-devel conf build = do
+devel cabalCmd = do
     e <- doesFileExist "dist/devel-flag"
     when e $ removeFile "dist/devel-flag"
     listenThread <- forkIO (appMessage "Initializing, please wait") >>= I.newIORef
@@ -60,10 +61,7 @@ devel conf build = do
             Nothing -> return emptyHookedBuildInfo
             Just fp -> readHookedBuildInfo normal fp
 
-    lbi <- configure (gpd, hooked) (defaultConfigFlags defaultProgramConfiguration)
-        { configConfigurationsFlags = [(FlagName "devel", True)]
-        , configUserInstall = Flag True
-        }
+    cabalCmd ["configure", "-fdevel"]
 
     let myTry :: IO () -> IO ()
         myTry f = try f >>= \x -> case x of
@@ -77,16 +75,10 @@ devel conf build = do
             deps <- getDeps
             touchDeps deps
 
-            B.build
-                (localPkgDescr lbi)
-                lbi
-                defaultBuildFlags
-                []
+            cabalCmd ["build"]
+            defaultMainArgs ["install"]
 
-            install (localPkgDescr lbi) lbi defaultCopyFlags
-            register (localPkgDescr lbi) lbi defaultRegisterFlags
-
-            let PackageName pi' = pkgName $ package $ localPkgDescr lbi
+            pi' <- getPackageName
             writeFile "dist/devel.hs" $ unlines
                 [ "{-# LANGUAGE PackageImports #-}"
                 , concat
@@ -152,3 +144,14 @@ loop oldList getNewApp = do
 
 errApp :: String -> Application
 errApp s _ = return $ ResponseBuilder status500 [("Content-Type", "text/plain")] $ fromString s
+
+getPackageName :: IO String
+getPackageName = do
+    xs <- getDirectoryContents "."
+    case mapMaybe (toCabal . reverse) xs of
+        [x] -> return x
+        [] -> error "No cabal files found"
+        _ -> error "Too many cabal files found"
+  where
+    toCabal ('l':'a':'b':'a':'c':'.':x) = Just $ reverse x
+    toCabal _ = Nothing

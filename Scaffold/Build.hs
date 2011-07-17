@@ -139,6 +139,7 @@ getFolderContents :: FilePath -> IO [FilePath]
 getFolderContents fp = do
     cs <- getDirectoryContents fp
     let notHidden ('.':_) = False
+        notHidden "tmp" = False
         notHidden _ = True
     fmap concat $ forM (filter notHidden cs) $ \c -> do
         let f = fp ++ '/' : c

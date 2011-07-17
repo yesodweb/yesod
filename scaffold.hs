@@ -42,13 +42,14 @@ main = do
                 "--dev":rest -> (True, rest)
                 _ -> (False, args')
     let cmd = if isDev then "cabal-dev" else "cabal"
-    let conf rest = rawSystem cmd ("configure":rest) >> return ()
-    let build rest = rawSystem cmd ("build":rest) >> return ()
+    let cabal rest = rawSystem cmd rest >> return ()
+    let conf rest = cabal $ "configure":rest
+    let build rest = cabal $ "build":rest
     case args of
         ["init"] -> scaffold
         "build":rest -> touch >> build rest
         ["touch"] -> touch
-        ["devel"] -> devel conf build
+        ["devel"] -> devel cabal
         "configure":rest -> conf rest
         _ -> do
             putStrLn "Usage: yesod <command>"
