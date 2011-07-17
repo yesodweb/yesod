@@ -16,6 +16,7 @@ build-type:      Simple
 homepage:        http://www.yesodweb.com/
 
 extra-source-files:
+  input/*.cg
   scaffold/cassius/default-layout.cassius.cg,
   scaffold/cassius/homepage.cassius.cg,
   scaffold/Model.hs.cg scaffold/sitearg.hs.cg,
@@ -31,6 +32,7 @@ extra-source-files:
   scaffold/pconn1.cg,
   scaffold/.ghci.cg,
   scaffold/cabal.cg,
+  scaffold/deploy/Procfile.cg,
   scaffold/Controller.hs.cg,
   scaffold/julius/homepage.julius.cg,
   scaffold/hamlet/homepage.hamlet.cg,
