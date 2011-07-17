@@ -37,7 +37,7 @@ import Data.Maybe (mapMaybe)
 
 appMessage :: L.ByteString -> IO ()
 appMessage l = forever $ do
-    run 3000 . const . return $ responseLBS status500 [("Content-Type", "text/plain")] l
+    -- run 3000 . const . return $ responseLBS status500 [("Content-Type", "text/plain")] l
     threadDelay 10000
 
 swapApp :: I.IORef ThreadId -> IO ThreadId -> IO ()
