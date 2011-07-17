@@ -2,9 +2,13 @@
 
 ## Test suite
 
+install the shelltest package: cabal install shelltests
+
 Run this from the project root directory. It will make sure each site type builds. It first does an sdist, which ensures we are testing what will be put on hackage.
 
-  shelltest tests/scaffold.shelltest
+  tests/run.sh
+
+Give it the --debug flag to see all output
 
 ## Quicker, repeatable site building
 

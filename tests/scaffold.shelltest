@@ -1,13 +1,4 @@
-# This uses shelltest
-#
-#   cabal install shelltestrunner
-#   shelltest tests/scaffold.shelltest
-#
-# note that the first 2 lines setup this test but will also be counted as 2 tests.
-
-cabal clean && cabal install && cabal sdist
-
-for f in $(ls -1rt dist/*.tar.gz | tail -1); do tar -xzvf $f && cd `basename $f .tar.gz`; done
+# Important! run with tests/run.sh
 
 rm -rf foobar && runghc scaffold.hs init && cd foobar && cabal install && cabal install -fdevel && cd ..
 <<<
