@@ -25,7 +25,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes, FileStatus)
 import Data.Text (unpack)
-import Control.Monad (filterM)
+import Control.Monad (filterM, forM)
 import Control.Exception (SomeException, try)
 
 -- | Touch any files with altered dependencies but do not build
@@ -110,7 +110,7 @@ findHaskellFiles path = do
                     then return [y]
                     else return []
 
-data TempType = Hamlet | Verbatim | Messages FilePath
+data TempType = Hamlet | Verbatim | Messages FilePath | StaticFiles FilePath
     deriving Show
 
 determineHamletDeps :: FilePath -> IO [FilePath]
@@ -119,12 +119,13 @@ determineHamletDeps x = do
     let z = A.parse (A.many $ (parser <|> (A.anyChar >> return Nothing))) y
     case z of
         A.Fail{} -> return []
-        A.Done _ r -> filterM doesFileExist $ concatMap go r
+        A.Done _ r -> mapM go r >>= filterM doesFileExist . concat
   where
-    go (Just (Hamlet, f)) = [f, "hamlet/" ++ f ++ ".hamlet"]
-    go (Just (Verbatim, f)) = [f]
-    go (Just (Messages f, _)) = [f]
-    go Nothing = []
+    go (Just (Hamlet, f)) = return [f, "hamlet/" ++ f ++ ".hamlet"]
+    go (Just (Verbatim, f)) = return [f]
+    go (Just (Messages f, _)) = return [f]
+    go (Just (StaticFiles fp, _)) = getFolderContents fp
+    go Nothing = return []
     parser = do
         ty <- (A.string "$(hamletFile " >> return Hamlet)
            <|> (A.string "$(ihamletFile " >> return Hamlet)
@@ -144,8 +145,13 @@ determineHamletDeps x = do
                     y <- A.many1 $ A.satisfy (/= '"')
                     A.string "\""
                     return $ Messages $ concat [x, "/", y, ".msg"])
+           <|> (do
+                    A.string "\nstaticFiles \""
+                    x <- A.many1 $ A.satisfy (/= '"')
+                    return $ StaticFiles x)
         case ty of
             Messages{} -> return $ Just (ty, "")
+            StaticFiles{} -> return $ Just (ty, "")
             _ -> do
                 A.skipWhile isSpace
                 _ <- A.char '"'
@@ -154,3 +160,13 @@ determineHamletDeps x = do
                 A.skipWhile isSpace
                 _ <- A.char ')'
                 return $ Just (ty, y)
+
+getFolderContents :: FilePath -> IO [FilePath]
+getFolderContents fp = do
+    cs <- getDirectoryContents fp
+    let notHidden ('.':_) = False
+        notHidden _ = True
+    fmap concat $ forM (filter notHidden cs) $ \c -> do
+        let f = fp ++ '/' : c
+        isFile <- doesFileExist f
+        if isFile then return [f] else getFolderContents f
