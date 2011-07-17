@@ -13,8 +13,10 @@ import qualified Data.Text.Lazy.Encoding as LT
 import Control.Monad (when, unless)
 import System.Environment (getArgs)
 
-import Scaffold.Build (build, touch)
+import Scaffold.Build (touch)
 import Scaffold.Devel (devel)
+
+import System.Process (rawSystem)
 
 qq :: String
 #if __GLASGOW_HASKELL__ >= 700
@@ -34,16 +36,25 @@ prompt f = do
 
 main :: IO ()
 main = do
-    args <- getArgs
+    args' <- getArgs
+    let (isDev, args) =
+            case args' of
+                "--dev":rest -> (True, rest)
+                _ -> (False, args')
+    let cmd = if isDev then "cabal-dev" else "cabal"
+    let conf rest = rawSystem cmd ("configure":rest) >> return ()
+    let build rest = rawSystem cmd ("build":rest) >> return ()
     case args of
         ["init"] -> scaffold
-        ["build"] -> build
+        "build":rest -> touch >> build rest
         ["touch"] -> touch
-        ["devel"] -> devel
+        ["devel"] -> devel conf build
+        "configure":rest -> conf rest
         _ -> do
             putStrLn "Usage: yesod <command>"
             putStrLn "Available commands:"
             putStrLn "    init         Scaffold a new site"
+            putStrLn "    configure    Configure a project for building"
             putStrLn "    build        Build project (performs TH dependency analysis)"
             putStrLn "    touch        Touch any files with altered TH dependencies but do not build"
             putStrLn "    devel        Run project with the devel server"

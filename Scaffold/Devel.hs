@@ -43,8 +43,10 @@ swapApp i f = do
     I.readIORef i >>= killThread
     f >>= I.writeIORef i
 
-devel :: IO ()
-devel = do
+devel :: ([String] -> IO ()) -- ^ configure command
+      -> ([String] -> IO ()) -- ^ build command
+      -> IO ()
+devel conf build = do
     e <- doesFileExist "dist/devel-flag"
     when e $ removeFile "dist/devel-flag"
     listenThread <- forkIO (appMessage "Initializing, please wait") >>= I.newIORef

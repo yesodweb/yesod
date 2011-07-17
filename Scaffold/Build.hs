@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Scaffold.Build
-    ( build
-    , touch
+    ( touch
     , getDeps
     , touchDeps
     , findHaskellFiles
