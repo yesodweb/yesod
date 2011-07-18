@@ -1,8 +1,16 @@
-# Simple and free deployment to Heroku.
+# A Configuraiton file for a Heroku deployment (feel free to delete if you are deploying elsewhere)
+
+web: ./dist/build/~project~/~project~ -p $PORT
+
+# That's it!
+# A Simple and free  deployment to Heroku.(for one application with small db usage)
+# But you need to set things up as per below:
 #
 #   !! Warning: You must use a 64 bit machine to compile !!
 #
 #   This could mean using a virtual machine. Give your VM as much memory as you can to speed up linking.
+#
+#
 #
 # Yesod setup:
 #
@@ -10,38 +18,58 @@
 #
 #     mv deploy/Procfile ./
 #
-# * Create an empty Gemfile and Gemfile.lock
+# * Create an empty package.json file.
+#   The other route to try is to create an empty Gemfile and Gemfile.lock
+#   Node.js is officialy supported, and Heroku will automatically look for a package.json
 #
-#    touch Gemfile && touch Gemfile.lock
+#   echo '{ "name": "~sitearg~", "version": "0.0.1", "dependencies": {} }' > package.json
 #
-# * TODO: code to read DATABASE_URL environment variable.
+#
+# * Modify your application to use Heroku's default database
+#
+#     You can skip this step if you aren't using a database.
+#     You can't use sqlite with Heroku- you must use postgresql (the default) or
+#       a database compatible with one of theri add-ons.
 # 
-#   import System.Environment
-#   main = do
-#     durl <- getEnv "DATABASE_URL"
-#     # parse env variable
-#     # pass settings to withConnectionPool instead of directly using loadConnStr
+#     add 'herkou' to the build-depends field of your cabal file
+#     Change your Settings.hs to use it:
+#
+#     dbConnParams :: AppEnvironment -> IO [(Text, Text)]
+#     #ifdef PRODUCTION
+#     dbConnParams _ = Web.Heroku.dbConnParams 
+#     #else
+#     dbConnParams env =
+#       ... existing dbConnParams function
+#     #endif
+#
+# * Statically Compile your application
+#
+#   Add this flag to the ghc-options field of the production section of your cabal file: -static
+#
+# * Other application deployment notes:
+#
+#   * You can't reliably *write* anything to the filesystem
+#   * Take a look at available Heroku add-ons
+#   * For true customization you can communicate with custom ec2 servers
+#
+#
 #
 # Heroku setup:
+#
 # Find the Heroku guide. Roughly:
 #
 # * sign up for a heroku account and register your ssh key
-# * create a new application on the *cedar* stack
-#
+# * create a new heroku application on the *cedar* stack
 # * make your Yesod project the git repository for that application
-# * create a deploy branch
+# * use a deploy branch
 #
-#     git checkout -b deploy
+#     git checkout -b heroku
 #
 # Repeat these steps to deploy:
 # * add your web executable binary (referenced below) to the git repository
 #
-#     git add ./dist/build/~project~/~project~
+#     git add ./dist/build/~sitearg~/~sitearg~
 #
 # * push to Heroku
 #
-#     git push heroku deploy:master
-
-
-# Heroku configuration that runs your app
-web: ./dist/build/~project~/~project~ -p $PORT
+#     git push heroku heroku:master
