@@ -1,6 +1,6 @@
-{-# LANGUAGE TypeFamilies, QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 import Yesod
-import Web.Authenticate.OpenId2
+import Web.Authenticate.OpenId
 import Data.Object
 import Data.Maybe (fromMaybe)
 import Network.HTTP.Enumerator
@@ -14,23 +14,23 @@ mkYesod "OID" [$parseRoutes|
 
 instance Yesod OID where approot _ = "http://localhost:3000"
 
-getRootR = defaultLayout [$hamlet|
-%form!action=@ForwardR@
-    OpenId: 
-    %input!type=text!name=openid_identifier!value="http://"
-    %input!type=submit
+getRootR = defaultLayout [$hamlet|\
+<form action="@{ForwardR}">
+    \OpenId: 
+    <input type="text" name="openid_identifier" value="http://">
+    <input type="submit">
 |]
 
 getForwardR = do
     openid <- runFormGet' $ stringInput "openid_identifier"
     render <- getUrlRender
-    url <- liftIO $ getForwardUrl openid $ render CompleteR
+    url <- liftIO $ getForwardUrl openid (render CompleteR) Nothing []
     redirectString RedirectTemporary url
     return ()
 
 getCompleteR = do
     params <- reqGetParams `fmap` getRequest
     ident <- liftIO $ authenticate params
-    return $ RepPlain $ toContent ident
+    return $ RepPlain $ toContent $ show ident
 
-main = withHttpEnumerator $ basicHandler 3000 OID
+main = warpDebug 3000 OID
