@@ -34,6 +34,8 @@ web: ./dist/build/~project~/~project~ -p $PORT
 #     add 'herkou' to the build-depends field of your cabal file
 #     Change your Settings.hs to use it:
 #
+#     import qualifed Web.Heroku
+#     ...
 #     dbConnParams :: AppEnvironment -> IO [(Text, Text)]
 #     #ifdef PRODUCTION
 #     dbConnParams _ = Web.Heroku.dbConnParams 

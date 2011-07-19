@@ -32,7 +32,7 @@ import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLuciu
 import Data.Monoid (mempty, mappend)
 import System.Directory (doesFileExist)
 import Prelude hiding (concat)
-import Data.Text (Text, snoc, append, pack, concat)
+import Data.Text (Text, pack, intercalate)
 import Data.Object
 import qualified Data.Object.Yaml as YAML
 import Control.Monad (join)
@@ -130,7 +130,13 @@ runConnectionPool = runSqlPool
 -- | The database connection string. The meaning of this string is backend-
 -- specific.
 loadConnStr :: AppEnvironment -> IO Text
-loadConnStr env = do
+loadConnStr env = return . toConnStr =<< dbConnParams env
+  where
+    toConnStr :: [(Text, Text)] -> Text
+    toConnStr = intercalate " " . map (\(k,v) -> mconcat [k,"=",v])
+
+dbConnParams :: AppEnvironment -> IO [(Text, Text)]
+dbConnParams env = do
     allSettings <- (join $ YAML.decodeFile ("config/~backendLower~.yml" :: String)) >>= fromMapping
     settings <- lookupMapping (show env) allSettings
     database <- lookupScalar "database" settings

@@ -1,5 +1,5 @@
-    connPart <- fmap concat $ (flip mapM) ["user", "password", "host", "port"] $ \key -> do
+    connKeyValues <- (flip mapM) ["user", "password", "host", "port"] $ \key -> do
       value <- lookupScalar key settings
-      return $ append (snoc (pack key) '=') (snoc value ' ')
-    return $ append connPart (append " dbname= " database)
+      return (pack key, value)
+    return $ connKeyValues ++ [("dbname", database)]
 
