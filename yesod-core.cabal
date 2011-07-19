@@ -33,7 +33,7 @@ library
                    , bytestring                >= 0.9.1.4  && < 0.10
                    , text                      >= 0.5      && < 0.12
                    , template-haskell
-                   , web-routes-quasi          >= 0.7.0.1  && < 0.8
+                   , path-pieces               >= 0.0      && < 0.1
                    , hamlet                    >= 0.9      && < 0.10
                    , blaze-builder             >= 0.2.1    && < 0.4
                    , transformers              >= 0.2      && < 0.3
@@ -63,6 +63,7 @@ library
                      Yesod.Internal.Session
                      Yesod.Internal.Request
                      Yesod.Internal.Dispatch
+                     Yesod.Internal.RouteParsing
                      Paths_yesod_core
     ghc-options:     -Wall
     if flag(test)

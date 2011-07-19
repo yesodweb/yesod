@@ -7,9 +7,8 @@ module Yesod.Internal.Dispatch
 
 import Prelude hiding (exp)
 import Language.Haskell.TH.Syntax
-import Web.Routes.Quasi
-import Web.Routes.Quasi.Parse
-import Web.Routes.Quasi.TH
+import Web.PathPieces
+import Yesod.Internal.RouteParsing
 import Control.Monad (foldM)
 import Yesod.Handler (badMethod)
 import Yesod.Content (chooseRep)

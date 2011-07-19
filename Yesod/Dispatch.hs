@@ -15,7 +15,6 @@ module Yesod.Dispatch
       -- ** Path pieces
     , SinglePiece (..)
     , MultiPiece (..)
-    , Strings
     , Texts
       -- * Convert to WAI
     , toWaiApp
@@ -29,9 +28,8 @@ import Yesod.Internal.Core
 import Yesod.Handler
 import Yesod.Internal.Dispatch
 
-import Web.Routes.Quasi (SinglePiece (..), MultiPiece (..), Strings)
-import Web.Routes.Quasi.Parse (Resource (..), parseRoutes, parseRoutesFile)
-import Web.Routes.Quasi.TH (THResource, Pieces (..), createRoutes, createRender)
+import Web.PathPieces (SinglePiece (..), MultiPiece (..))
+import Yesod.Internal.RouteParsing (THResource, Pieces (..), createRoutes, createRender, Resource (..), parseRoutes, parseRoutesFile)
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
