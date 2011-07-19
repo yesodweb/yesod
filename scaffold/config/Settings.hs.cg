@@ -29,10 +29,10 @@ import qualified Text.Lucius as H
 import Language.Haskell.TH.Syntax
 ~importDB~
 import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius)
-import Data.Monoid (mempty, mappend)
+import Data.Monoid (mempty, mappend, mconcat)
 import System.Directory (doesFileExist)
 import Prelude hiding (concat)
-import Data.Text (Text, snoc, append, pack, concat)
+import Data.Text (Text, pack, intercalate)
 import Data.Object
 import qualified Data.Object.Yaml as YAML
 import Control.Monad (join)
@@ -130,11 +130,15 @@ runConnectionPool = runSqlPool
 -- | The database connection string. The meaning of this string is backend-
 -- specific.
 loadConnStr :: AppEnvironment -> IO Text
-loadConnStr env = do
-    allSettings <- (join $ YAML.decodeFile ("config/~backendLower~.yml" :: String)) >>= fromMapping
-    settings <- lookupMapping (show env) allSettings
-    database <- lookupScalar "database" settings
-~connstr~
+loadConnStr env = dbConnParams env
+    ~toConnStr~
+  where
+    dbConnParams env = do
+        allSettings <- (join $ YAML.decodeFile ("config/~backendLower~.yml" :: String)) >>= fromMapping
+        settings <- lookupMapping (show env) allSettings
+        database <- lookupScalar "database" settings
+~connParams~
+
 
 withConnectionPool :: MonadControlIO m => AppConfig -> (ConnectionPool -> m a) -> m a
 withConnectionPool conf f = do
