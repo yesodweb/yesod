@@ -35,8 +35,6 @@ import Yesod.Content
 import Yesod.Widget
 import Yesod.Core
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Class (lift)
-import Web.Routes.Quasi (toSinglePiece, fromSinglePiece)
 import qualified Yesod.Auth.Message as Msg
 
 loginR, registerR, setpassR :: AuthRoute
@@ -82,9 +80,7 @@ class (YesodAuth m, SinglePiece (AuthEmailId m)) => YesodAuthEmail m where
 
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
-    AuthPlugin "email" dispatch $ \tm -> do
-        y <- lift getYesod
-        l <- lift languages
+    AuthPlugin "email" dispatch $ \tm ->
         [QQ(whamlet)|
 <form method="post" action="@{tm loginR}">
     <table>

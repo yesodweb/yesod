@@ -76,7 +76,8 @@ import Yesod.Persist
 import Yesod.Handler
 import Yesod.Form
 import Yesod.Auth
-import Text.Hamlet (hamlet)
+import Yesod.Widget (addHamlet)
+import Text.Hamlet (hamlet, html)
 
 import Control.Applicative         ((<$>), (<*>))
 import Control.Monad               (replicateM,liftM)
@@ -163,7 +164,7 @@ postLoginR uniq = do
                  (validateUser <$> (uniq =<< mu) <*> mp)
     if isValid 
        then setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
-       else do setMessage [QQ(hamlet)| Invalid username/password |]
+       else do setMessage [QQ(html)| Invalid username/password |]
                toMaster <- getRouteToMaster
                redirect RedirectTemporary $ toMaster LoginR
 
@@ -191,7 +192,7 @@ getAuthIdHashDB authR uniq creds = do
                 -- user exists
                 Just (uid, _) -> return $ Just uid
                 Nothing       -> do
-                    setMessage [QQ(hamlet)| User not found |]
+                    setMessage [QQ(html)| User not found |]
                     redirect RedirectTemporary $ authR LoginR
 
 -- | Prompt for username and password, validate that against a database
@@ -201,7 +202,7 @@ authHashDB :: ( YesodAuth m, YesodPersist m
               , PersistEntity user
               , PersistBackend (YesodDB m (GGHandler Auth m IO))) 
            => (Text -> Maybe (Unique user)) -> AuthPlugin m
-authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm ->
+authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
     [QQ(hamlet)|
     <div id="header">
         <h1>Login

@@ -39,7 +39,7 @@ import qualified Data.Map as Map
 import Language.Haskell.TH.Syntax hiding (lift)
 
 import qualified Network.Wai as W
-import Text.Hamlet (hamlet)
+import Text.Hamlet (html)
 
 import Yesod.Core
 import Yesod.Persist
@@ -119,7 +119,7 @@ setCreds doRedirects creds = do
         Nothing ->
           when doRedirects $ do
             case authRoute y of
-              Nothing -> do rh <- defaultLayout [QQ(hamlet)| <h1>Invalid login |]
+              Nothing -> do rh <- defaultLayout $ addHtml [QQ(html)| <h1>Invalid login |]
                             sendResponse rh
               Just ar -> do setMessageI Msg.InvalidLogin
                             redirect RedirectTemporary ar
@@ -134,10 +134,10 @@ getCheckR = do
     creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle "Authentication Status"
-        addHtml $ html creds) (json' creds)
+        addHtml $ html' creds) (json' creds)
   where
-    html creds =
-        [QQ(hamlet)|
+    html' creds =
+        [QQ(html)|
 <h1>Authentication Status
 $maybe _ <- creds
     <p>Logged in.
