@@ -22,17 +22,19 @@ import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,
                   timeToTimeOfDay)
 import Data.Char (isSpace)
 import Data.Default
-import Text.Hamlet (hamlet)
+import Text.Hamlet (html)
 import Text.Julius (julius)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
 
 #if __GLASGOW_HASKELL__ >= 700
+#define HTML html
 #define HAMLET hamlet
 #define CASSIUS cassius
 #define JULIUS julius
 #else
+#define HTML $html
 #define HAMLET $hamlet
 #define CASSIUS $cassius
 #define JULIUS $julius
@@ -76,7 +78,7 @@ jqueryDayField jds = Field
               . readMay
               . unpack
     , fieldView = \theId name val isReq -> do
-        addHtml [HAMLET|\
+        addHtml [HTML|\
 <input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
@@ -127,7 +129,7 @@ jqueryDayTimeField :: YesodJquery master => Field (GWidget sub master ()) FormMe
 jqueryDayTimeField = Field
     { fieldParse  = blank $ parseUTCTime . unpack
     , fieldView = \theId name val isReq -> do
-        addHtml [HAMLET|\
+        addHtml [HTML|\
 <input id="#{theId}" name="#{name}" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
@@ -156,7 +158,7 @@ jqueryAutocompleteField :: YesodJquery master => Route master -> Field (GWidget 
 jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val isReq -> do
-        addHtml [HAMLET|\
+        addHtml [HTML|\
 <input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs

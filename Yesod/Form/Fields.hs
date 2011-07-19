@@ -32,8 +32,8 @@ import Yesod.Form.Types
 import Yesod.Widget
 import Yesod.Message (RenderMessage)
 import Yesod.Handler (GGHandler)
-import Text.Hamlet hiding (renderHtml)
-import Text.Blaze (ToHtml (..))
+import Text.Hamlet
+import Text.Blaze (ToHtml (..), preEscapedString, unsafeByteString)
 import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
@@ -55,7 +55,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 import Data.Monoid (mappend)
-import Text.Hamlet.NonPoly (html)
+import Text.Hamlet (html)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -289,11 +289,11 @@ searchField :: Monad monad => AutoFocus -> Field (GGWidget master monad ()) Form
 searchField autoFocus = Field
     { fieldParse =  blank Right
     , fieldView = \theId name val isReq -> do
-        addHtml [HAMLET|\
+        [WHAMLET|\
 <input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
         when autoFocus $ do
-          addHtml $ [HAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
+          [WHAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
 |]
           addCassius [CASSIUS|
             #{theId}
@@ -307,8 +307,8 @@ urlField = Field
         case parseURI $ unpack s of
             Nothing -> Left $ MsgInvalidUrl s
             Just _ -> Right s
-    , fieldView = \theId name val isReq -> addHtml
-        [HAMLET|
+    , fieldView = \theId name val isReq ->
+        [WHAMLET|
 <input ##{theId} name=#{name} type=url :isReq:required value=#{either id id val}>
 |]
     }
@@ -317,12 +317,12 @@ selectField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, 
 selectField = selectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|])
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|])
-    (\_theId _name value isSel text -> addHtml [HTML|<option value=#{value} :isSel:selected>#{text}|])
+    (\_theId _name value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected>#{text}|])
 
 multiSelectField :: (Show a, Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage [a]
 multiSelectField = multiSelectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} multiple name=#{name}>^{inside}|])
-    (\_theId _name value isSel text -> addHtml [HTML|<option value=#{value} :isSel:selected>#{text}|])
+    (\_theId _name value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected>#{text}|])
 
 radioField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage a
 radioField = selectFieldHelper
