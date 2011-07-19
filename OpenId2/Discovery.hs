@@ -28,7 +28,6 @@ import Data.Char
 import Data.List
 import Data.Maybe
 import Network.HTTP.Enumerator
-import qualified Data.ByteString.Lazy.UTF8 as BSLU
 import qualified Data.ByteString.Char8 as S8
 import Control.Arrow (first, (***))
 import Control.Monad.IO.Class (MonadIO (liftIO))

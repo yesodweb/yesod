@@ -14,7 +14,6 @@ module Web.Authenticate.OAuth
       paramEncode
     ) where
 import Network.HTTP.Enumerator
-import Web.Authenticate.Internal (qsUrl)
 import Data.Data
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -38,6 +37,7 @@ import Data.Enumerator (($$), run_, Stream (..), continue)
 import Data.Monoid (mconcat)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.IORef (newIORef, readIORef, atomicModifyIORef)
+import Network.HTTP.Types (renderSimpleQuery)
 
 -- | Data type for OAuth client (consumer).
 data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name
@@ -103,7 +103,7 @@ getTemporaryCredential oa = do
 authorizeUrl :: OAuth           -- ^ OAuth Application
              -> Credential      -- ^ Temporary Credential (Request Token & Secret)
              -> String          -- ^ URL to authorize
-authorizeUrl oa cr = qsUrl (oauthAuthorizeUri oa) [("oauth_token", BS.unpack $ token cr)]
+authorizeUrl oa cr = oauthAuthorizeUri oa ++ BS.unpack (renderSimpleQuery True [("oauth_token", token cr)])
 
 -- | Get Access token.
 getAccessToken, getTokenCredential
