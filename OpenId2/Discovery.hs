@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 --------------------------------------------------------------------------------
 -- |
@@ -21,6 +22,7 @@ module OpenId2.Discovery (
 import OpenId2.Types
 import OpenId2.XRDS
 
+import Debug.Trace
 -- Libraries
 import Data.Char
 import Data.List
@@ -34,8 +36,14 @@ import Control.Failure (Failure (failure))
 import Control.Monad (mplus, liftM)
 import qualified Data.CaseInsensitive as CI
 import Data.Text (Text, pack, unpack)
+import Data.Text.Lazy (toStrict)
+import qualified Data.Text as T
+import Data.Text.Lazy.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+import Text.HTML.TagSoup (parseTags, Tag (TagOpen))
+import Control.Applicative ((<$>), (<*>))
 
-data Discovery = Discovery1 String (Maybe String)
+data Discovery = Discovery1 Text (Maybe Text)
                | Discovery2 Provider Identifier IdentType
     deriving Show
 
@@ -82,7 +90,8 @@ discoverYADIS ident mb_loc redirects = do
           case mloc' of
             Just loc -> discoverYADIS ident (Just loc) (redirects - 1)
             Nothing  -> do
-              let mdoc = parseXRDS $ BSLU.toString $ responseBody res
+              let mdoc = parseXRDS $ responseBody res
+              liftIO $ print mdoc
               case mdoc of
                   Just doc -> return $ parseYADIS ident doc
                   Nothing -> return Nothing
@@ -96,7 +105,7 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
   where
   isOpenId svc = do
     let tys = serviceTypes svc
-        localId = maybe ident (Identifier . pack) $ listToMaybe $ serviceLocalIDs svc
+        localId = maybe ident Identifier $ listToMaybe $ serviceLocalIDs svc
         f (x,y) | x `elem` tys = Just y
                 | otherwise    = Nothing
     (lid, itype) <- listToMaybe $ mapMaybe f
@@ -118,72 +127,31 @@ discoverHTML :: ( MonadIO m, Failure HttpException m)
              => Identifier
              -> m (Maybe Discovery)
 discoverHTML ident'@(Identifier ident) =
-    (parseHTML ident' . BSLU.toString) `liftM` simpleHttp (unpack ident)
+    (parseHTML ident' . toStrict . decodeUtf8With lenientDecode) `liftM` simpleHttp (unpack ident)
 
 -- | Parse out an OpenID endpoint and an actual identifier from an HTML
 -- document.
-parseHTML :: Identifier -> String -> Maybe Discovery
+parseHTML :: Identifier -> Text -> Maybe Discovery
 parseHTML ident = resolve
                 . filter isOpenId
-                . map (dropQuotes *** dropQuotes)
-                . linkTags
-                . htmlTags
+                . mapMaybe linkTag
+                . parseTags
   where
-    isOpenId (rel,_) = "openid" `isPrefixOf` rel
+    isOpenId (rel, x) = "openid" `T.isPrefixOf` rel
     resolve1 ls = do
       server <- lookup "openid.server" ls
       let delegate = lookup "openid.delegate" ls
       return $ Discovery1 server delegate
     resolve2 ls = do
       prov <- lookup "openid2.provider" ls
-      let lid = maybe ident (Identifier . pack) $ lookup "openid2.local_id" ls
+      let lid = maybe ident Identifier $ lookup "openid2.local_id" ls
       -- Based on OpenID 2.0 spec, section 7.3.3, HTML discovery can only
       -- result in a claimed identifier.
       return $ Discovery2 (Provider prov) lid ClaimedIdent
     resolve ls = resolve2 ls `mplus` resolve1 ls
 
 
--- FIXME this would all be a lot better if it used tagsoup
 -- | Filter out link tags from a list of html tags.
-linkTags :: [String] -> [(String,String)]
-linkTags  = mapMaybe f . filter p
-  where
-    p = ("link " `isPrefixOf`)
-    f xs = do
-      let ys = unfoldr splitAttr (drop 5 xs)
-      x <- lookup "rel"  ys
-      y <- lookup "href" ys
-      return (x,y)
-
-
--- | Split a string into strings of html tags.
-htmlTags :: String -> [String]
-htmlTags [] = []
-htmlTags xs = case break (== '<') xs of
-  (as,_:bs) -> fmt as : htmlTags bs
-  (as,[])   -> [as]
-  where
-    fmt as = case break (== '>') as of
-      (bs,_) -> bs
-
-
--- | Split out values from a key="value" like string, in a way that
--- is suitable for use with unfoldr.
-splitAttr :: String -> Maybe ((String,String),String)
-splitAttr xs = case break (== '=') xs of
-  (_,[])         -> Nothing
-  (key,_:'"':ys) -> f key (== '"') ys
-  (key,_:ys)     -> f key isSpace  ys
-  where
-  f key p cs = case break p cs of
-      (_,[])         -> Nothing
-      (value,_:rest) -> Just ((key,value), dropWhile isSpace rest)
-
-dropQuotes :: String -> String
-dropQuotes s@('\'':x:y)
-    | last y == '\'' = x : init y
-    | otherwise = s
-dropQuotes s@('"':x:y)
-    | last y == '"' = x : init y
-    | otherwise = s
-dropQuotes s = s
+--linkTags :: [Tag Text] -> [(Text, Text)]
+linkTag (TagOpen "link" as) = let x = (,) <$> lookup "rel" as <*> lookup "href" as in traceShow x x
+linkTag x = Nothing

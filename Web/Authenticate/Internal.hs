@@ -19,7 +19,7 @@ data AuthenticateException =
   deriving (Show, Typeable)
 instance Exception AuthenticateException
 
-qsUrl :: String -> [(String, String)] -> String
+qsUrl :: String -> [(String, String)] -> String -- FIXME remove
 qsUrl s [] = s
 qsUrl url pairs =
     url ++ delim : intercalate "&" (map qsPair pairs)

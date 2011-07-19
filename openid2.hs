@@ -6,7 +6,7 @@ import Data.Maybe (fromMaybe)
 import Network.HTTP.Enumerator
 
 data OID = OID
-mkYesod "OID" [$parseRoutes|
+mkYesod "OID" [parseRoutes|
 / RootR GET
 /forward ForwardR GET
 /complete CompleteR GET
@@ -14,7 +14,7 @@ mkYesod "OID" [$parseRoutes|
 
 instance Yesod OID where approot _ = "http://localhost:3000"
 
-getRootR = defaultLayout [$hamlet|\
+getRootR = defaultLayout [hamlet|\
 <form action="@{ForwardR}">
     \OpenId: 
     <input type="text" name="openid_identifier" value="http://">
@@ -25,7 +25,7 @@ getForwardR = do
     openid <- runFormGet' $ stringInput "openid_identifier"
     render <- getUrlRender
     url <- liftIO $ getForwardUrl openid (render CompleteR) Nothing []
-    redirectString RedirectTemporary url
+    redirectText RedirectTemporary url
     return ()
 
 getCompleteR = do
@@ -33,4 +33,4 @@ getCompleteR = do
     ident <- liftIO $ authenticate params
     return $ RepPlain $ toContent $ show ident
 
-main = warpDebug 3000 OID
+main = warp 3000 OID

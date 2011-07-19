@@ -14,8 +14,9 @@ import Control.Failure (Failure (failure))
 import OpenId2.Types
 import Web.Authenticate.Internal (qsUrl)
 import Control.Monad (unless)
-import qualified Data.ByteString.UTF8 as BSU
-import qualified Data.ByteString.Lazy.UTF8 as BSLU
+import Data.Text.Lazy.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+import Data.Text.Lazy (toStrict)
 import Network.HTTP.Enumerator
     ( parseUrl, urlEncodedBody, responseBody, httpLbsRedirect
     , HttpException, withManager
@@ -41,10 +42,10 @@ getForwardUrl openid' complete mrealm params = do
     disc <- normalize openid' >>= discover
     case disc of
         Discovery1 server mdelegate ->
-            return $ pack $ qsUrl server
+            return $ pack $ qsUrl (unpack server)
                 $ map (unpack *** unpack) -- FIXME
                 $ ("openid.mode", "checkid_setup")
-                : ("openid.identity", maybe openid' pack mdelegate)
+                : ("openid.identity", maybe openid' id mdelegate)
                 : ("openid.return_to", complete)
                 : ("openid.realm", realm)
                 : ("openid.trust_root", complete)
@@ -54,7 +55,7 @@ getForwardUrl openid' complete mrealm params = do
                     case itype of
                         ClaimedIdent -> i
                         OPIdent -> "http://specs.openid.net/auth/2.0/identifier_select"
-            return $ pack $ qsUrl p
+            return $ pack $ qsUrl (unpack p)
                 $ ("openid.ns", "http://specs.openid.net/auth/2.0")
                 : ("openid.mode", "checkid_setup")
                 : ("openid.claimed_id", unpack i')
@@ -91,10 +92,10 @@ authenticate params = do
     let params' = map (encodeUtf8 *** encodeUtf8)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params
-    req' <- parseUrl endpoint
+    req' <- parseUrl $ unpack endpoint
     let req = urlEncodedBody params' req'
     rsp <- liftIO $ withManager $ httpLbsRedirect req
-    let rps = parseDirectResponse $ pack $ BSLU.toString $ responseBody rsp -- FIXME
+    let rps = parseDirectResponse $ toStrict $ decodeUtf8With lenientDecode $ responseBody rsp
     case lookup "is_valid" rps of
         Just "true" -> return (Identifier ident, rps)
         _ -> failure $ AuthenticationException "OpenID provider did not validate"

@@ -24,7 +24,7 @@ import Web.Authenticate.Internal
 import Data.Text (Text)
 
 -- | An OpenID provider.
-newtype Provider = Provider { providerURI :: String } deriving (Eq,Show)
+newtype Provider = Provider { providerURI :: Text } deriving (Eq,Show)
 
 -- | A valid OpenID identifier.
 newtype Identifier = Identifier { identifier :: Text }
