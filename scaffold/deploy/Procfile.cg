@@ -62,6 +62,11 @@ web: ./dist/build/~project~/~project~ -p $PORT
 #
 # * sign up for a heroku account and register your ssh key
 # * create a new heroku application on the *cedar* stack
+# * use the postgresql shared database (or a different database add-on)
+#
+#     gem install heroku
+#     heroku addons:add shared-database
+#
 # * make your Yesod project the git repository for that application
 # * use a deploy branch
 #
