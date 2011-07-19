@@ -26,7 +26,7 @@ import Yesod.Content
 import Yesod.Handler
 import Yesod.Widget
 import Yesod.FeedTypes
-import Text.Hamlet (Hamlet, xhamlet, hamlet, cdata)
+import Text.Hamlet (Hamlet, xhamlet, hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Control.Monad (liftM)
 
@@ -67,7 +67,10 @@ entryTemplate arg =
     <link href=@{feedEntryLink arg}
     <updated>#{formatW3 $ feedEntryUpdated arg}
     <title>#{feedEntryTitle arg}
-    <content type=html>#{cdata $ feedEntryContent arg}
+    <content type=html>
+        \<![CDATA[
+        \#{feedEntryContent arg}
+        ]]>
 |]
 
 -- | Generates a link tag in the head of a widget.
