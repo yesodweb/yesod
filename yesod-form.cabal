@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         0.2.0
+version:         0.3.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -16,8 +16,8 @@ library
                    , yesod-core                >= 0.8.2    && < 0.9
                    , time                      >= 1.1.4    && < 1.3
                    , hamlet                    >= 0.8.1    && < 0.9
-                   , persistent                >= 0.5      && < 0.6
-                   , yesod-persistent          >= 0.1      && < 0.2
+                   , persistent                >= 0.6      && < 0.7
+                   , yesod-persistent          >= 0.2      && < 0.3
                    , template-haskell
                    , transformers              >= 0.2.2    && < 0.3
                    , data-default              >= 0.2      && < 0.3
