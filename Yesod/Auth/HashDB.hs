@@ -5,6 +5,7 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE GADTs                      #-}
 -------------------------------------------------------------------------------
 -- |
 -- Module      :  Yesod.Auth.HashDB
