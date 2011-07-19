@@ -85,11 +85,11 @@ scaffold = do
     puts $(codegenDir "input" "database")
     backendS <- prompt $ flip elem ["s", "p", "m"]
     let pconn1 = $(codegen "pconn1")
-    let (backendLower, upper, connstr, importDB) =
+    let (backendLower, upper, connParams, toConnStr, importDB) =
             case backendS of
-                "s" -> ("sqlite", "Sqlite", "    return database", "import Database.Persist.Sqlite\n")
-                "p" -> ("postgresql", "Postgresql", pconn1, "import Database.Persist.Postgresql\n")
-                "m" -> ("FIXME lower", "FIXME upper", "FIXME connstr1", "")
+                "s" -> ("sqlite", "Sqlite", "        return database", "", "import Database.Persist.Sqlite\n")
+                "p" -> ("postgresql", "Postgresql", pconn1, ">>= return . toConnStr", "import Database.Persist.Postgresql\n")
+                "m" -> (error "lower", error "upper", error "connParams", error "toConnStr", error "importDB")
                 _ -> error $ "Invalid backend: " ++ backendS
 
     putStrLn "That's it! I'm creating your files now..."

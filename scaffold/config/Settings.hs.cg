@@ -29,7 +29,7 @@ import qualified Text.Lucius as H
 import Language.Haskell.TH.Syntax
 ~importDB~
 import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius)
-import Data.Monoid (mempty, mappend)
+import Data.Monoid (mempty, mappend, mconcat)
 import System.Directory (doesFileExist)
 import Prelude hiding (concat)
 import Data.Text (Text, pack, intercalate)
@@ -130,17 +130,15 @@ runConnectionPool = runSqlPool
 -- | The database connection string. The meaning of this string is backend-
 -- specific.
 loadConnStr :: AppEnvironment -> IO Text
-loadConnStr env = return . toConnStr =<< dbConnParams env
+loadConnStr env = dbConnParams env
+    ~toConnStr~
   where
-    toConnStr :: [(Text, Text)] -> Text
-    toConnStr = intercalate " " . map (\(k,v) -> mconcat [k,"=",v])
+    dbConnParams env = do
+        allSettings <- (join $ YAML.decodeFile ("config/~backendLower~.yml" :: String)) >>= fromMapping
+        settings <- lookupMapping (show env) allSettings
+        database <- lookupScalar "database" settings
+~connParams~
 
-dbConnParams :: AppEnvironment -> IO [(Text, Text)]
-dbConnParams env = do
-    allSettings <- (join $ YAML.decodeFile ("config/~backendLower~.yml" :: String)) >>= fromMapping
-    settings <- lookupMapping (show env) allSettings
-    database <- lookupScalar "database" settings
-~connstr~
 
 withConnectionPool :: MonadControlIO m => AppConfig -> (ConnectionPool -> m a) -> m a
 withConnectionPool conf f = do
