@@ -74,8 +74,9 @@ import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE), Pat (VarP), newName)
 
 import Control.Monad.IO.Control (MonadControlIO)
-import qualified Text.Hamlet.NonPoly as NP
+import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
+import Text.Blaze (toHtml, preEscapedLazyText)
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
@@ -92,19 +93,6 @@ type GWInner master = RWST () (GWData (Route master)) Int
 instance (Monad monad, a ~ ()) => Monoid (GGWidget master monad a) where
     mempty = return ()
     mappend x y = x >> y
-
-instance (Monad monad, a ~ ()) => HamletValue (GGWidget m monad a) where
-    newtype HamletMonad (GGWidget m monad a) b =
-        GWidget' { runGWidget' :: GGWidget m monad b }
-    type HamletUrl (GGWidget m monad a) = Route m
-    toHamletValue = runGWidget'
-    htmlToHamletMonad = GWidget' . addHtml
-    urlToHamletMonad url params = GWidget' $
-        addHamlet $ \r -> preEscapedText (r url params)
-    fromHamletValue = GWidget'
-instance (Monad monad, a ~ ()) => Monad (HamletMonad (GGWidget m monad a)) where
-    return = GWidget' . return
-    x >>= y = GWidget' $ runGWidget' x >>= runGWidget' . y
 
 addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWidget sub' master a
 addSubWidget sub (GWidget w) = do

@@ -74,6 +74,7 @@ import qualified Data.Text.Lazy.IO
 import qualified System.IO
 import qualified Data.Text.Lazy.Builder as TB
 import Language.Haskell.TH.Syntax (Loc (..), Lift (..))
+import Text.Blaze (preEscapedLazyText)
 
 #if GHC7
 #define HAMLET hamlet
