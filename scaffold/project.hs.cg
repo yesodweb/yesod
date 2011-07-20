@@ -25,10 +25,10 @@ main = do
     with~sitearg~ c $ run (appPort c) . debug
 #endif
 
-data ArgConfig = ArgConfig {environment :: String, port :: Int}
+data ~sitearg~ = ArgConfig {environment :: String, port :: Int}
                  deriving (Show, Data, Typeable)
 
-argConfig :: ArgConfig
+argConfig :: ~sitearg~
 argConfig = ArgConfig{ environment = def 
   &= help ("application environment, one of: " ++ (foldl1 (\a b -> a ++ ", " ++ b) environments))
   &= typ "ENVIRONMENT"
@@ -39,7 +39,7 @@ environments :: [String]
 environments = map ((map toLower) . show) ([minBound..maxBound] :: [Settings.AppEnvironment])
 
 -- | retrieve the -e environment option
-getAppEnv :: ArgConfig ->  IO Settings.AppEnvironment
+getAppEnv :: ~sitearg~ ->  IO Settings.AppEnvironment
 getAppEnv cfg = do
     let e = if (environment cfg) /= "" then (environment cfg)
             else

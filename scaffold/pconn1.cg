@@ -1,8 +1,8 @@
         connKeyValues <- (flip mapM) ["user", "password", "host", "port"] $ \key -> do
           value <- lookupScalar key settings
-          return (pack key, value)
+          return (T.pack key, value)
         return $ connKeyValues ++ [("dbname", database)]
 
     toConnStr :: [(Text, Text)] -> Text
-    toConnStr = intercalate " " . map (\(k,v) -> mconcat [k,"=",v])
+    toConnStr = T.intercalate " " . map (\(k,v) -> T.concat [k,"=",v])
 
