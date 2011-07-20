@@ -47,7 +47,7 @@ executable         ~project~
 
     build-depends: base         >= 4       && < 5
                  , yesod-core   >= 0.8     && < 0.9
-                 , yesod-static
+                 , yesod-static >= 0.1     && < 0.2
                  , clientsession
                  , wai-extra
                  , directory
