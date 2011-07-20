@@ -123,7 +123,7 @@ scaffold = do
         _ -> error $ "Invalid backend: " ++ backendS
 
     writeFile' ("config/settings.yml") $(codegen "config/settings.yml")
-    writeFile' ("config/" ++ project ++ ".hs") $(codegen "project.hs")
+    writeFile' (project ++ ".hs") $(codegen "project.hs")
     writeFile' (project ++ ".cabal") $ if backendS == "m" then $(codegen "mini/cabal") else $(codegen "cabal")
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
