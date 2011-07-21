@@ -38,6 +38,7 @@ library
                      containers
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
+                     Web.Authenticate.BrowserId,
                      Web.Authenticate.OpenId.Providers,
                      Web.Authenticate.OAuth,
                      Web.Authenticate.Facebook
