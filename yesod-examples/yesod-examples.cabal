@@ -1,0 +1,69 @@
+Name:                yesod-examples
+Version:             0.8.0.3
+Synopsis:            Example programs using the Yesod Web Framework.
+Description:         These are the same examples and tutorials found on the documentation site.
+Homepage:            http://www.yesodweb.com/
+License:             BSD3
+License-file:        LICENSE
+Author:              Michael Snoyman
+Maintainer:          michael@snoyman.com
+Stability:           Experimental
+Category:            Web, Yesod
+Build-type:          Simple
+Cabal-version:       >=1.6
+extra-source-files:  static/yesod/ajax/script.js,
+                     static/yesod/ajax/style.css,
+                     static/chat.js
+
+Executable yesod-blog
+  Main-is:             src/blog.lhs
+  Build-depends:       base >= 4 && < 5,
+                       yesod >= 0.8 && < 0.9
+
+Executable yesod-ajax
+  Main-is:             src/ajax.lhs
+  Build-depends:       yesod-static
+
+Executable yesod-file-echo
+  Main-is:             src/file-echo.lhs
+  Build-depends:       text
+
+Executable yesod-pretty-yaml
+  Main-is:             src/pretty-yaml.lhs
+  Build-depends:       data-object-yaml >= 0.3.0 && < 0.4,
+                       data-object >= 0.3.1 && < 0.4,
+                       bytestring >= 0.9 && < 0.10
+
+Executable yesod-i18n
+  Main-is:             src/i18n.lhs
+
+Executable yesod-session
+  Main-is:             src/session.lhs
+
+Executable yesod-widgets
+  Main-is:             src/widgets.lhs
+  Build-depends:       yesod-form
+
+Executable yesod-generalized-hamlet
+  Main-is:             src/generalized-hamlet.lhs
+
+Executable yesod-form
+  Main-is:             src/form.lhs
+
+Executable yesod-persistent-synopsis
+  Main-is:             synopsis/persistent.lhs
+  Build-depends:       transformers >= 0.2.1 && < 0.3,
+                       persistent-sqlite,
+                       persistent-template
+
+Executable yesod-hamlet-synopsis
+  Main-is:             synopsis/hamlet.lhs
+  Build-depends:       hamlet
+
+Executable yesod-chat
+  Main-is:             src/chat.hs
+  Build-depends:       stm
+
+source-repository head
+  type:     git
+  location: git://github.com/snoyberg/yesod-examples.git
