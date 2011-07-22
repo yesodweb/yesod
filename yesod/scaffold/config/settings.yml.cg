@@ -1,0 +1,16 @@
+Default: &defaults
+  appRoot: http://localhost
+  appPort: 3000
+  connectionPoolSize: 10
+
+Development:
+  <<: *defaults
+
+Test:
+  <<: *defaults
+
+Staging:
+  <<: *defaults
+
+Production:
+  <<: *defaults

@@ -1,0 +1,70 @@
+name:              ~project~
+version:           0.0.0
+license:           BSD3
+license-file:      LICENSE
+author:            ~name~
+maintainer:        ~name~
+synopsis:          The greatest Yesod web application ever.
+description:       I'm sure you can say something clever here if you try.
+category:          Web
+stability:         Experimental
+cabal-version:     >= 1.6
+build-type:        Simple
+homepage:          http://~project~.yesodweb.com/
+
+Flag production
+    Description:   Build the production executable.
+    Default:       False
+
+Flag devel
+    Description:   Build for use with "yesod devel"
+    Default:       False
+
+library
+    if flag(devel)
+        Buildable: True
+    else
+        Buildable: False
+    exposed-modules: Controller
+    hs-source-dirs: ., config
+    other-modules:   ~sitearg~
+                     Model
+                     Settings
+                     StaticFiles
+                     Handler.Root
+
+executable         ~project~
+    if flag(devel)
+        Buildable: False
+
+    if flag(production)
+        cpp-options:   -DPRODUCTION
+        ghc-options:   -Wall -threaded -O2
+    else
+        ghc-options:   -Wall -threaded
+
+    main-is:       config/~project~.hs
+    hs-source-dirs: ., config
+
+    build-depends: base         >= 4       && < 5
+                 , yesod        >= 0.8     && < 0.9
+                 , yesod-auth   >= 0.4     && < 0.5
+                 , yesod-static >= 0.1     && < 0.2
+                 , mime-mail
+                 , clientsession
+                 , wai-extra
+                 , directory
+                 , bytestring
+                 , text
+                 , persistent
+                 , persistent-template
+                 , persistent-~backendLower~ >= 0.5 && < 0.6
+                 , template-haskell
+                 , hamlet
+                 , hjsmin
+                 , transformers
+                 , data-object
+                 , data-object-yaml
+                 , warp
+                 , blaze-builder
+                 , cmdargs

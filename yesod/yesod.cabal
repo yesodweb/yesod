@@ -1,0 +1,107 @@
+name:            yesod
+version:         0.8.2.1
+license:         BSD3
+license-file:    LICENSE
+author:          Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>
+synopsis:        Creation of type-safe, RESTful web applications.
+description:
+    Yesod is a framework designed to foster creation of RESTful web application that have strong compile-time guarantees of correctness. It also affords space efficient code and portability to many deployment backends, from CGI to stand-alone serving.
+    .
+    The Yesod documentation site <http://docs.yesodweb.com/> has much more information, tutorials and information on some of the supporting packages, like Hamlet and web-routes-quasi.
+category:        Web, Yesod
+stability:       Stable
+cabal-version:   >= 1.6
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+
+extra-source-files:
+  input/*.cg
+  scaffold/cassius/default-layout.cassius.cg,
+  scaffold/cassius/homepage.cassius.cg,
+  scaffold/Model.hs.cg scaffold/sitearg.hs.cg,
+  scaffold/LICENSE.cg,
+  scaffold/mini/sitearg.hs.cg,
+  scaffold/mini/cabal.cg,
+  scaffold/mini/Controller.hs.cg,
+  scaffold/mini/hamlet/homepage.hamlet.cg,
+  scaffold/mini/Handler/Root.hs.cg,
+  scaffold/mini/config/routes.cg,
+  scaffold/mini/config/Settings.hs.cg,
+  scaffold/static/css/html5boilerplate.css.cg,
+  scaffold/pconn1.cg,
+  scaffold/.ghci.cg,
+  scaffold/cabal.cg,
+  scaffold/deploy/Procfile.cg,
+  scaffold/Controller.hs.cg,
+  scaffold/julius/homepage.julius.cg,
+  scaffold/hamlet/homepage.hamlet.cg,
+  scaffold/hamlet/default-layout.hamlet.cg,
+  scaffold/hamlet/boilerplate-layout.hamlet.cg,
+  scaffold/project.hs.cg,
+  scaffold/Handler/Root.hs.cg,
+  scaffold/config/models.cg,
+  scaffold/config/sqlite.yml.cg,
+  scaffold/config/settings.yml.cg,
+  scaffold/config/favicon.ico.cg,
+  scaffold/config/postgresql.yml.cg,
+  scaffold/config/routes.cg,
+  scaffold/config/Settings.hs.cg,
+  scaffold/config/StaticFiles.hs.cg
+
+
+flag ghc7
+
+library
+    if flag(ghc7)
+        build-depends:   base                  >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base                  >= 4        && < 4.3
+    build-depends:   yesod-core                >= 0.8.1    && < 0.9
+                   , yesod-auth                >= 0.4      && < 0.5
+                   , yesod-json                >= 0.1      && < 0.2
+                   , yesod-persistent          >= 0.1      && < 0.2
+                   , yesod-static              >= 0.1      && < 0.2
+                   , yesod-form                >= 0.1      && < 0.2
+                   , monad-control             >= 0.2      && < 0.3
+                   , transformers              >= 0.2      && < 0.3
+                   , wai                       >= 0.4      && < 0.5
+                   , wai-extra                 >= 0.4      && < 0.5
+                   , hamlet                    >= 0.8.1    && < 0.9
+                   , warp                      >= 0.4      && < 0.5
+                   , mime-mail                 >= 0.3      && < 0.4
+                   , hjsmin                    >= 0.0.13   && < 0.1
+    exposed-modules: Yesod
+    ghc-options:     -Wall
+
+executable             yesod
+    if flag(ghc7)
+        build-depends:   base                  >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base                  >= 4        && < 4.3
+    build-depends:     parsec             >= 2.1          && < 4
+                     , text               >= 0.11         && < 0.12
+                     , bytestring         >= 0.9          && < 0.10
+                     , time               >= 1.1.4        && < 1.3
+                     , template-haskell
+                     , directory          >= 1.0          && < 1.2
+                     , Cabal              >= 1.8          && < 1.11
+                     , unix-compat        >= 0.2          && < 0.3
+                     , containers         >= 0.2          && < 0.5
+                     , attoparsec-text    >= 0.8.5        && < 0.9
+                     , http-types         >= 0.6.1        && < 0.7
+                     , blaze-builder      >= 0.2          && < 0.4
+                     , process
+    ghc-options:       -Wall -threaded
+    main-is:           scaffold.hs
+    other-modules:     CodeGen
+                       Scaffold.Build
+                       Scaffold.Devel
+    if flag(ghc7)
+        cpp-options:     -DGHC7
+
+source-repository head
+  type:     git
+  location: git://github.com/snoyberg/yesod.git

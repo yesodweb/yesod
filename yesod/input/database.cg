@@ -1,0 +1,9 @@
+Yesod uses Persistent for its (you guessed it) persistence layer.
+This tool will build in either SQLite or PostgreSQL support for you. If you
+want to use a different backend, you'll have to make changes manually.
+If you're not sure, stick with SQLite: it has no dependencies.
+
+We also have a new option: a mini project. This is a site with minimal
+dependencies. In particular: no database, no authentication.
+
+So, what'll it be? s for sqlite, p for postgresql, m for mini: 

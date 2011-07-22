@@ -1,0 +1,47 @@
+# Simple and free deployment to Heroku.
+#
+#   !! Warning: You must use a 64 bit machine to compile !!
+#
+#   This could mean using a virtual machine. Give your VM as much memory as you can to speed up linking.
+#
+# Yesod setup:
+#
+# * Move this file out of the deploy directory and into your root directory
+#
+#     mv deploy/Procfile ./
+#
+# * Create an empty Gemfile and Gemfile.lock
+#
+#    touch Gemfile && touch Gemfile.lock
+#
+# * TODO: code to read DATABASE_URL environment variable.
+# 
+#   import System.Environment
+#   main = do
+#     durl <- getEnv "DATABASE_URL"
+#     # parse env variable
+#     # pass settings to withConnectionPool instead of directly using loadConnStr
+#
+# Heroku setup:
+# Find the Heroku guide. Roughly:
+#
+# * sign up for a heroku account and register your ssh key
+# * create a new application on the *cedar* stack
+#
+# * make your Yesod project the git repository for that application
+# * create a deploy branch
+#
+#     git checkout -b deploy
+#
+# Repeat these steps to deploy:
+# * add your web executable binary (referenced below) to the git repository
+#
+#     git add ./dist/build/~project~/~project~
+#
+# * push to Heroku
+#
+#     git push heroku deploy:master
+
+
+# Heroku configuration that runs your app
+web: ./dist/build/~project~/~project~ -p $PORT
