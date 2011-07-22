@@ -4,9 +4,10 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 ---------------------------------------------------------
 --
--- Module        : Yesod.Helpers.Static
+-- Module        : Yesod.Static
 -- Copyright     : Michael Snoyman
 -- License       : BSD3
 --
@@ -37,6 +38,8 @@ module Yesod.Static
     , base64md5
     ) where
 
+import Prelude hiding (FilePath)
+import qualified Prelude
 import System.Directory
 --import qualified System.Time
 import Control.Monad
@@ -58,8 +61,11 @@ import Data.Text (Text, pack)
 import Data.Monoid (mempty)
 import qualified Data.Map as M
 --import Data.IORef (readIORef, newIORef, writeIORef)
-import Network.Wai (pathInfo)
+import Network.Wai (pathInfo, rawPathInfo, responseLBS)
 import Data.Char (isLower, isDigit)
+import Data.List (foldl')
+import qualified Data.ByteString as S
+import Network.HTTP.Types (status301)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -69,8 +75,7 @@ import Network.Wai.Application.Static
     , embeddedLookup
     , toEmbedded
     , pathFromPieces
-    , toPiece
-    , fixPathName
+    , toFilePath
     )
 
 newtype Static = Static StaticSettings
@@ -79,28 +84,28 @@ newtype Static = Static StaticSettings
 --
 -- Does not have index files, uses default directory listings and default mime
 -- type list.
-static :: FilePath -> Static
+static :: Prelude.FilePath -> Static
 static fp =
   --hashes <- mkHashMap fp
   Static $ defaultWebAppSettings {
-    ssFolder = fileSystemLookup fp
+    ssFolder = fileSystemLookup $ toFilePath fp
   }
 
 -- | Produces a 'Static' based on embedding file contents in the executable at
 -- compile time.
-embed :: FilePath -> Q Exp
+embed :: Prelude.FilePath -> Q Exp
 embed fp =
     [|Static (defaultWebAppSettings
         { ssFolder = embeddedLookup (toEmbedded $(embedDir fp))
         })|]
 
 {-
-publicProduction :: String -> FilePath -> IO Public
+publicProduction :: String -> Prelude.FilePath -> IO Public
 publicProduction root fp = do
   etags <- mkPublicProductionEtag fp
   return $ public root fp etags
 
-publicDevel :: String -> FilePath -> IO Public
+publicDevel :: String -> Prelude.FilePath -> IO Public
 publicDevel root fp = do
   etags <- mkPublicDevelEtag fp
   return $ public root fp etags
@@ -123,15 +128,19 @@ instance RenderRoute StaticRoute where
     renderRoute (StaticRoute x y) = (x, y)
 
 instance Yesod master => YesodDispatch Static master where
+    -- Need to append trailing slash to make relative links work
+    yesodDispatch _ _ [] _ _ = Just $
+        \req -> return $ responseLBS status301 [("Location", rawPathInfo req `S.append` "/")] ""
+
     yesodDispatch (Static set) _ textPieces  _ _ = Just $
         \req -> staticApp set req { pathInfo = textPieces }
 
-notHidden :: FilePath -> Bool
+notHidden :: Prelude.FilePath -> Bool
 notHidden ('.':_) = False
 notHidden "tmp" = False
 notHidden _ = True
 
-getFileListPieces :: FilePath -> IO [[String]]
+getFileListPieces :: Prelude.FilePath -> IO [[String]]
 getFileListPieces = flip go id
   where
     go :: String -> ([String] -> [String]) -> IO [[String]]
@@ -149,32 +158,38 @@ getFileListPieces = flip go id
 --
 -- > style_css = StaticRoute ["style.css"] []
 -- > js_script_js = StaticRoute ["js/script.js"] []
-staticFiles :: FilePath -> Q [Dec]
+staticFiles :: Prelude.FilePath -> Q [Dec]
 staticFiles dir = mkStaticFiles dir
 
 {-
-publicFiles :: FilePath -> Q [Dec]
+publicFiles :: Prelude.FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles dir PublicSite
 -}
 
-mkHashMap :: FilePath -> IO (M.Map FilePath S8.ByteString)
+mkHashMap :: Prelude.FilePath -> IO (M.Map Prelude.FilePath S8.ByteString)
 mkHashMap dir = do
     fs <- getFileListPieces dir
     hashAlist fs >>= return . M.fromList
   where
-    hashAlist :: [[String]] -> IO [(FilePath, S8.ByteString)]
+    hashAlist :: [[String]] -> IO [(Prelude.FilePath, S8.ByteString)]
     hashAlist fs = mapM hashPair fs
       where
-        hashPair :: [String] -> IO (FilePath, S8.ByteString)
+        hashPair :: [String] -> IO (Prelude.FilePath, S8.ByteString)
         hashPair pieces = do let file = pathFromRawPieces dir pieces
                              h <- base64md5File file
                              return (file, S8.pack h)
 
+pathFromRawPieces :: Prelude.FilePath -> [String] -> Prelude.FilePath
+pathFromRawPieces =
+    foldl' append
+  where
+    append a b = a ++ '/' : b
+
 {-
-mkPublicDevelEtag :: FilePath -> IO StaticSettings
+mkPublicDevelEtag :: Prelude.FilePath -> IO StaticSettings
 mkPublicDevelEtag dir = do
     etags <- mkHashMap dir
-    mtimeVar <- newIORef (M.empty :: M.Map FilePath System.Time.ClockTime)
+    mtimeVar <- newIORef (M.empty :: M.Map Prelude.FilePath System.Time.ClockTime)
     return $ ETag $ \f ->
       case M.lookup f etags of
         Nothing -> return Nothing
@@ -187,17 +202,17 @@ mkPublicDevelEtag dir = do
           return $ if newt /= oldt then Nothing else Just checksum
 
 
-mkPublicProductionEtag :: FilePath -> IO StaticSettings
+mkPublicProductionEtag :: Prelude.FilePath -> IO StaticSettings
 mkPublicProductionEtag dir = do
     etags <- mkHashMap dir
     return $ ETag $ \f -> return . M.lookup f $ etags
 -}
 
 data StaticSite = StaticSite | PublicSite
-mkStaticFiles :: FilePath -> Q [Dec]
+mkStaticFiles :: Prelude.FilePath -> Q [Dec]
 mkStaticFiles fp = mkStaticFiles' fp "StaticRoute" True
 
-mkStaticFiles' :: FilePath -- ^ static directory
+mkStaticFiles' :: Prelude.FilePath -- ^ static directory
                -> String   -- ^ route constructor "StaticRoute"
                -> Bool     -- ^ append checksum query parameter
                -> Q [Dec]
@@ -234,7 +249,7 @@ mkStaticFiles' fp routeConName makeHash = do
                 ]
             ]
 
-base64md5File :: FilePath -> IO String
+base64md5File :: Prelude.FilePath -> IO String
 base64md5File file = do
   contents <- L.readFile file
   return $ base64md5 contents
@@ -279,14 +294,10 @@ getStaticHandler static toSubR pieces = do
 
 
 {-
-calcHash :: FilePath -> IO String
+calcHash :: Prelude.FilePath -> IO String
 calcHash fname =
     withBinaryFile fname ReadMode hashHandle
   where
     hashHandle h = do s <- L.hGetContents h
                       return $! base64md5 s
                       -}
-
--- FIXME Greg: Is this correct? Where is this function supposed to be?
-pathFromRawPieces :: FilePath -> [String] -> FilePath
-pathFromRawPieces fp = pathFromPieces fp . map (toPiece . pack . fixPathName)
