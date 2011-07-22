@@ -1,0 +1,7 @@
+/dist/
+*.swp
+client_session_key.aes
+*.hi
+*.o
+blog.db3
+static/tmp/
