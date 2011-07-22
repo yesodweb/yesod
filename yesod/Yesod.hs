@@ -25,11 +25,6 @@ module Yesod
     , xhamlet
     , Hamlet
     , Html
-    , renderHamlet
-    , renderHtml
-    , string
-    , preEscapedString
-    , cdata
     , toHtml
       -- ** Julius
     , julius
@@ -48,7 +43,7 @@ import Text.Julius
 
 import Yesod.Form
 import Yesod.Json
-import Yesod.Persist
+import Yesod.Persist hiding (Field)
 import Network.Wai (Application)
 import Network.Wai.Middleware.Debug
 import Control.Monad.Trans.Class (lift)
@@ -57,6 +52,7 @@ import Control.Monad.IO.Control (MonadControlIO)
 
 import Network.Wai.Handler.Warp (run)
 import System.IO (stderr, hPutStrLn)
+import Text.Blaze (toHtml)
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)
