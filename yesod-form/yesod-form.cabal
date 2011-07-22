@@ -1,0 +1,46 @@
+name:            yesod-form
+version:         0.3.0
+license:         BSD3
+license-file:    LICENSE
+author:          Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>
+synopsis:        Form handling support for Yesod Web Framework
+category:        Web, Yesod
+stability:       Stable
+cabal-version:   >= 1.6
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+
+library
+    build-depends:   base                      >= 4        && < 5
+                   , yesod-core                >= 0.9      && < 0.10
+                   , time                      >= 1.1.4    && < 1.3
+                   , hamlet                    >= 0.9      && < 0.10
+                   , persistent                >= 0.6      && < 0.7
+                   , yesod-persistent          >= 0.2      && < 0.3
+                   , template-haskell
+                   , transformers              >= 0.2.2    && < 0.3
+                   , data-default              >= 0.2      && < 0.3
+                   , xss-sanitize              >= 0.2.4    && < 0.3
+                   , blaze-builder             >= 0.2.1    && < 0.4
+                   , network                   >= 2.2      && < 2.4
+                   , email-validate            >= 0.2.6    && < 0.3
+                   , blaze-html                >= 0.4      && < 0.5
+                   , bytestring                >= 0.9      && < 0.10
+                   , text                      >= 0.7      && < 1.0
+                   , web-routes-quasi          >= 0.7      && < 0.8
+                   , wai                       >= 0.4      && < 0.5
+    exposed-modules: Yesod.Form
+                     Yesod.Form.Class
+                     Yesod.Form.Types
+                     Yesod.Form.Functions
+                     Yesod.Form.Input
+                     Yesod.Form.Fields
+                     Yesod.Form.Jquery
+                     Yesod.Form.Nic
+                     -- FIXME Yesod.Helpers.Crud
+    ghc-options:     -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/snoyberg/yesod-form.git
