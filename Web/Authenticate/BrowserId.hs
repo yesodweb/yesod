@@ -5,11 +5,12 @@ module Web.Authenticate.BrowserId
     ) where
 
 import Data.Text (Text)
-import Network.HTTP.Enumerator (parseUrl, responseBody, httpLbs, queryString, withManager)
+import Network.HTTP.Enumerator (parseUrl, responseBody, httpLbs, withManager, method, urlEncodedBody)
 import Network.HTTP.Types (queryTextToQuery)
 import Data.Aeson (json, Value (Object, String))
 import Data.Attoparsec.Lazy (parse, maybeResult)
 import qualified Data.Map as Map
+import Data.Text.Encoding (encodeUtf8)
 
 -- | Location of the Javascript file hosted by browserid.org
 browserIdJs :: Text
@@ -20,12 +21,10 @@ checkAssertion :: Text -- ^ audience
                -> IO (Maybe Text)
 checkAssertion audience assertion = do
     req' <- parseUrl "https://browserid.org/verify"
-    let req = req'
-                { queryString = queryTextToQuery
-                    [ ("audience", Just audience)
-                    , ("assertion", Just assertion)
-                    ]
-                }
+    let req = urlEncodedBody
+                [ ("audience", encodeUtf8 audience)
+                , ("assertion", encodeUtf8 assertion)
+                ] req' { method = "POST" }
     res <- withManager $ httpLbs req
     let lbs = responseBody res
     return $ maybeResult (parse json lbs) >>= getEmail

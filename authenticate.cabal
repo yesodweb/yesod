@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.9.2
+version:         0.9.2.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii
