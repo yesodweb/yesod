@@ -31,6 +31,7 @@ library
                    , wai                       >= 0.4      && < 0.5
                    , text                      >= 0.5      && < 1.0
                    , file-embed                >= 0.0.4.1  && < 0.5
+                   , http-types                >= 0.6.5    && < 0.7
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
 
