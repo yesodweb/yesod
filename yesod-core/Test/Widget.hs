@@ -21,6 +21,8 @@ data Y = Y
 
 mkMessage "Y" "test" "en"
 
+type Strings = [String]
+
 mkYesod "Y" [$parseRoutes|
 / RootR GET
 /foo/*Strings MultiR GET

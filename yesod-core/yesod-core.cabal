@@ -69,23 +69,24 @@ library
     if flag(test)
         Buildable: False
 
-executable             runtests
+test-suite runtests
+    type: exitcode-stdio-1.0
     if flag(ghc7)
+        type: exitcode-stdio-1.0
         build-depends:   base                      >= 4.3      && < 5
         cpp-options:     -DGHC7
+        main-is:         runtests.hs
     else
+        type: exitcode-stdio-1.0
         build-depends:   base                      >= 4        && < 4.3
-    if flag(test)
-        Buildable: True
-        cpp-options:   -DTEST
-        build-depends: test-framework,
-                       test-framework-quickcheck2,
-                       test-framework-hunit,
-                       HUnit,
-                       wai-test,
-                       QuickCheck >= 2 && < 3
-    else
-        Buildable: False
+        main-is:         runtests.hs
+    cpp-options:   -DTEST
+    build-depends: test-framework,
+                   test-framework-quickcheck2,
+                   test-framework-hunit,
+                   HUnit,
+                   wai-test,
+                   QuickCheck >= 2 && < 3
     ghc-options:     -Wall
     main-is:         runtests.hs
 
