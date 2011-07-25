@@ -47,7 +47,7 @@ with~sitearg~ conf f = do
 with~sitearg~LoadConfig :: Settings.AppEnvironment -> (Application -> IO a) -> IO a
 with~sitearg~LoadConfig env f = do
   conf <- Settings.loadConfig env
-  withFoobar conf f
+  with~sitearg~ conf f
 
 -- for yesod devel
 withDevelApp :: Dynamic
