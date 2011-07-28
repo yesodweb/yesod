@@ -115,9 +115,10 @@ data FieldView xml = FieldView
 
 data Field xml msg a = Field
     { fieldParse :: [Text] -> Either msg (Maybe a)
-    , fieldView :: Text -- ^ ID
-                -> Text -- ^ name
-                -> Either Text a -- ^ value could be invalid text or a legitimate a
-                -> Bool -- ^ required?
+    -- | ID, name, (invalid text OR legimiate result), required?
+    , fieldView :: Text
+                -> Text
+                -> Either Text a
+                -> Bool
                 -> xml
     }

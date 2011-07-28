@@ -147,6 +147,15 @@ aopt a b = formToAForm . mopt a b
 runFormGeneric :: Monad m => Form master m a -> master -> [Text] -> Maybe (Env, FileEnv) -> m (a, Enctype)
 runFormGeneric form master langs env = evalRWST form (env, master, langs) (IntSingle 1)
 
+-- | This function is used to both initially render a form and to later extract
+-- results from it. Note that, due to CSRF protection and a few other issues,
+-- forms submitted via GET and POST are slightly different. As such, be sure to
+-- call the relevant function based on how the form will be submitted, /not/
+-- the current request method.
+--
+-- For example, a common case is displaying a form on a GET request and having
+-- the form submit to a POST page. In such a case, both the GET and POST
+-- handlers should use 'runFormPost'.
 runFormPost :: RenderMessage master FormMessage
             => (Html -> Form master (GHandler sub master) (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPost form = do
