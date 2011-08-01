@@ -53,7 +53,7 @@ Executable yesod-form
 Executable yesod-persistent-synopsis
   Main-is:             synopsis/persistent.lhs
   Build-depends:       transformers >= 0.2.1 && < 0.3,
-                       persistent-sqlite,
+                       persistent-sqlite >= 0.6,
                        persistent-template
 
 Executable yesod-hamlet-synopsis
