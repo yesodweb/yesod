@@ -43,7 +43,7 @@ executable         ~project~
     else
         ghc-options:   -Wall -threaded
 
-    main-is:       config/~project~.hs
+    main-is:       main.hs
     hs-source-dirs: ., config
 
     build-depends: base         >= 4       && < 5
