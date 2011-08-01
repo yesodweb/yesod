@@ -9,8 +9,8 @@ module Controller
 
 import ~sitearg~
 import Settings
-import Yesod.Helpers.Static
-import Yesod.Helpers.Auth
+import Yesod.Static
+import Yesod.Auth
 import Database.Persist.GenericSql
 import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)

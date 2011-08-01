@@ -9,7 +9,7 @@ module Controller
 
 import ~sitearg~
 import Settings
-import Yesod.Helpers.Static
+import Yesod.Static
 import Data.ByteString (ByteString)
 import Network.Wai (Application)
 import Data.Dynamic (Dynamic, toDyn)

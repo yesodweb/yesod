@@ -14,7 +14,7 @@ module ~sitearg~
     ) where
 
 import Yesod.Core
-import Yesod.Helpers.Static
+import Yesod.Static
 import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L

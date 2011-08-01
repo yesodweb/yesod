@@ -17,10 +17,10 @@ module ~sitearg~
 
 import Yesod
 import Yesod.Form (defaultFormMessage)
-import Yesod.Helpers.Static
-import Yesod.Helpers.Auth
-import Yesod.Helpers.Auth.OpenId
-import Yesod.Helpers.Auth.Email
+import Yesod.Static
+import Yesod.Auth
+import Yesod.Auth.OpenId
+import Yesod.Auth.Email
 import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L
@@ -36,6 +36,7 @@ import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 import qualified Data.Text as T
 import Web.ClientSession (getKey)
+import Text.Blaze.Renderer.String (renderHtml)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -185,7 +186,7 @@ instance YesodAuthEmail ~sitearg~ where
             , partHeaders = []
             }
     getVerifyKey = runDB . fmap (join . fmap emailVerkey) . get
-    setVerifyKey eid key = runDB $ update eid [EmailVerkey $ Just key]
+    setVerifyKey eid key = runDB $ update eid [EmailVerkey =. Just key]
     verifyAccount eid = runDB $ do
         me <- get eid
         case me of
@@ -196,10 +197,10 @@ instance YesodAuthEmail ~sitearg~ where
                     Just uid -> return $ Just uid
                     Nothing -> do
                         uid <- insert $ User email Nothing
-                        update eid [EmailUser $ Just uid, EmailVerkey Nothing]
+                        update eid [EmailUser =. Just uid, EmailVerkey =. Nothing]
                         return $ Just uid
     getPassword = runDB . fmap (join . fmap userPassword) . get
-    setPassword uid pass = runDB $ update uid [UserPassword $ Just pass]
+    setPassword uid pass = runDB $ update uid [UserPassword =. Just pass]
     getEmailCreds email = runDB $ do
         me <- getBy $ UniqueEmail email
         case me of
