@@ -1,5 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, MultiParamTypeClasses #-}
 module ~sitearg~
     ( ~sitearg~ (..)
     , ~sitearg~Route (..)
@@ -16,6 +16,7 @@ module ~sitearg~
     ) where
 
 import Yesod
+import Yesod.Form (defaultFormMessage)
 import Yesod.Helpers.Static
 import Yesod.Helpers.Auth
 import Yesod.Helpers.Auth.OpenId
@@ -211,3 +212,5 @@ instance YesodAuthEmail ~sitearg~ where
                 }
     getEmail = runDB . fmap (fmap emailEmail) . get
 
+instance RenderMessage ~sitearg~ FormMessage where
+    renderMessage _ _ = defaultFormMessage

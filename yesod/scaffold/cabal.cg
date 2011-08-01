@@ -50,6 +50,7 @@ executable         ~project~
                  , yesod        >= 0.8     && < 0.9
                  , yesod-auth   >= 0.4     && < 0.5
                  , yesod-static >= 0.1     && < 0.2
+                 , yesod-form
                  , mime-mail
                  , clientsession
                  , wai-extra
