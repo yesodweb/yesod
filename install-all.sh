@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PACKAGES="yesod-core yesod-json yesod-static yesod-persistent yesod-newsfeed yesod-form yesod-auth yesod-sitemap yesod yesod-examples"
+PACKAGES="yesod-core yesod-json yesod-static yesod-persistent yesod-newsfeed yesod-form yesod-auth yesod-sitemap yesod"
 CABAL=cabal
 
 for package in $PACKAGES
