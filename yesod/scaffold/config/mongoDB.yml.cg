@@ -2,7 +2,7 @@ Default: &defaults
   user: ~project~
   password: ~project~
   host: localhost
-  port: 5432
+  port: 27017
   database: ~project~
 
 Development:
@@ -14,6 +14,7 @@ Test:
 
 Staging:
   database: ~project~_staging
+  <<: *defaults
 
 Production:
   database: ~project~_production

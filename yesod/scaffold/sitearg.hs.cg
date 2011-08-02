@@ -124,8 +124,8 @@ instance Yesod ~sitearg~ where
 -- How to run database actions.
 instance YesodPersist ~sitearg~ where
     type YesodDB ~sitearg~ = SqlPersist
-    runDB db = liftIOHandler
-             $ fmap connPool getYesod >>= Settings.runConnectionPool db
+    runDB f = liftIOHandler
+            $ fmap connPool getYesod >>= Settings.runConnectionPool f
 
 instance YesodAuth ~sitearg~ where
     type AuthId ~sitearg~ = UserId

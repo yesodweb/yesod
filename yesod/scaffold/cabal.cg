@@ -61,6 +61,7 @@ executable         ~project~
                  , persistent
                  , persistent-template
                  , persistent-~backendLower~ >= 0.6 && < 0.7
+                 ~packages~
                  , template-haskell
                  , hamlet
                  , hjsmin

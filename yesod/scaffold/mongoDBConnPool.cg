@@ -1,0 +1,16 @@
+runConnectionPool :: MonadControlIO m => MongoPersist m a -> ConnectionPool -> Database -> m a
+runConnectionPool = runMongoDBConn safe Master
+
+withConnectionPool :: (MonadControlIO m, Applicative m) => AppConfig -> (ConnectionPool -> Database -> m b) -> m b
+withConnectionPool conf f = do
+    (database,host) <- liftIO $ loadConnParams (appEnv conf)
+    withMongoDBPool (Database $ u database) host (connectionPoolSize conf) f
+  where
+    -- | The database connection parameters.
+  --  loadConnParams :: AppEnvironment -> IO Text
+    loadConnParams env = do
+        allSettings <- (join $ YAML.decodeFile ("config/mongoDB.yml" :: String)) >>= fromMapping
+        settings <- lookupMapping (show env) allSettings
+        database <- lookupScalar "database" settings
+        host <- lookupScalar "host" settings
+        return (database, host)

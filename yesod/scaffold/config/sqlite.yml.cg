@@ -9,6 +9,7 @@ Test:
   <<: *defaults
 
 Staging:
+  database: ~project~_staging.sqlite3
   <<: *defaults
 
 Production:

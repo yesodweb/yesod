@@ -17,36 +17,40 @@ homepage:        http://www.yesodweb.com/
 
 extra-source-files:
   input/*.cg
-  scaffold/cassius/default-layout.cassius.cg,
-  scaffold/cassius/homepage.cassius.cg,
-  scaffold/Model.hs.cg scaffold/sitearg.hs.cg,
-  scaffold/LICENSE.cg,
-  scaffold/mini/sitearg.hs.cg,
-  scaffold/mini/cabal.cg,
-  scaffold/mini/Controller.hs.cg,
-  scaffold/mini/hamlet/homepage.hamlet.cg,
-  scaffold/mini/Handler/Root.hs.cg,
-  scaffold/mini/config/routes.cg,
-  scaffold/mini/config/Settings.hs.cg,
-  scaffold/static/css/html5boilerplate.css.cg,
-  scaffold/pconn1.cg,
-  scaffold/.ghci.cg,
-  scaffold/cabal.cg,
-  scaffold/deploy/Procfile.cg,
-  scaffold/Controller.hs.cg,
-  scaffold/julius/homepage.julius.cg,
-  scaffold/hamlet/homepage.hamlet.cg,
-  scaffold/hamlet/default-layout.hamlet.cg,
-  scaffold/hamlet/boilerplate-layout.hamlet.cg,
-  scaffold/project.hs.cg,
-  scaffold/Handler/Root.hs.cg,
-  scaffold/config/models.cg,
-  scaffold/config/sqlite.yml.cg,
-  scaffold/config/settings.yml.cg,
-  scaffold/config/favicon.ico.cg,
-  scaffold/config/postgresql.yml.cg,
-  scaffold/config/routes.cg,
-  scaffold/config/Settings.hs.cg,
+  scaffold/cassius/default-layout.cassius.cg
+  scaffold/cassius/homepage.cassius.cg
+  scaffold/Model.hs.cg
+  scaffold/sitearg.hs.cg
+  scaffold/LICENSE.cg
+  scaffold/mongoDBConnPool.cg
+  scaffold/mini/sitearg.hs.cg
+  scaffold/mini/cabal.cg
+  scaffold/mini/Controller.hs.cg
+  scaffold/mini/hamlet/homepage.hamlet.cg
+  scaffold/mini/Handler/Root.hs.cg
+  scaffold/mini/config/routes.cg
+  scaffold/mini/config/Settings.hs.cg
+  scaffold/static/css/html5boilerplate.css.cg
+  scaffold/postgresqlConnPool.cg
+  scaffold/sqliteConnPool.cg
+  scaffold/.ghci.cg
+  scaffold/cabal.cg
+  scaffold/Controller.hs.cg
+  scaffold/julius/homepage.julius.cg
+  scaffold/hamlet/homepage.hamlet.cg
+  scaffold/hamlet/default-layout.hamlet.cg
+  scaffold/hamlet/boilerplate-layout.hamlet.cg
+  scaffold/deploy/Procfile.cg
+  scaffold/project.hs.cg
+  scaffold/Handler/Root.hs.cg
+  scaffold/config/models.cg
+  scaffold/config/sqlite.yml.cg
+  scaffold/config/settings.yml.cg
+  scaffold/config/favicon.ico.cg
+  scaffold/config/postgresql.yml.cg
+  scaffold/config/mongoDB.yml.cg
+  scaffold/config/routes.cg
+  scaffold/config/Settings.hs.cg
   scaffold/config/StaticFiles.hs.cg
 
 
