@@ -38,6 +38,7 @@ library
                      Yesod.Form.Fields
                      Yesod.Form.Jquery
                      Yesod.Form.Nic
+                     Yesod.Form.MassInput
                      -- FIXME Yesod.Helpers.Crud
     ghc-options:     -Wall
 
