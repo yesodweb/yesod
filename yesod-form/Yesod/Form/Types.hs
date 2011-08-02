@@ -114,7 +114,7 @@ data FieldView xml = FieldView
     }
 
 data Field xml msg a = Field
-    { fieldParse :: [Text] -> Either msg (Maybe a)
+    { fieldParse :: [Text] -> IO (Either msg (Maybe a)) -- FIXME
     -- | ID, name, (invalid text OR legimiate result), required?
     , fieldView :: Text
                 -> Text

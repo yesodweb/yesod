@@ -44,6 +44,7 @@ import Control.Monad (when, unless)
 import Data.List (intersect, nub)
 import Data.Either (rights)
 import Data.Maybe (catMaybes)
+import Data.String (IsString (..))
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -88,6 +89,7 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgInvalidBool Text
                  | MsgBoolYes
                  | MsgBoolNo
+                 | MsgOther Text
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
@@ -107,11 +109,15 @@ defaultFormMessage MsgSelectNone = "<None>"
 defaultFormMessage (MsgInvalidBool t) = "Invalid boolean: " `mappend` t
 defaultFormMessage MsgBoolYes = "Yes"
 defaultFormMessage MsgBoolNo = "No"
+defaultFormMessage (MsgOther t) = t
 
-blank :: (Text -> Either msg a) -> [Text] -> Either msg (Maybe a)
-blank _ [] = Right Nothing
-blank _ ("":_) = Right Nothing
-blank f (x:_) = either Left (Right . Just) $ f x
+instance IsString FormMessage where
+    fromString = MsgOther . fromString
+
+blank :: (Text -> Either msg a) -> [Text] -> IO (Either msg (Maybe a))
+blank _ [] = return $ Right Nothing
+blank _ ("":_) = return $ Right Nothing
+blank f (x:_) = return $ either Left (Right . Just) $ f x
 
 
 
@@ -340,7 +346,7 @@ radioField = selectFieldHelper
 
 boolField :: (Monad monad, RenderMessage master FormMessage) => Field (GGWidget master (GGHandler sub master monad) ()) FormMessage Bool
 boolField = Field
-      { fieldParse = boolParser
+      { fieldParse = return . boolParser
       , fieldView = \theId name val isReq -> [WHAMLET|
   $if not isReq
       <input id=#{theId}-none type=radio name=#{name} value=none checked>
@@ -369,7 +375,7 @@ multiSelectFieldHelper :: (Show a, Eq a, Monad monad)
         -> (Text -> Text -> Text -> Bool -> Text -> GGWidget master monad ())
         -> [(Text, a)] -> Field (GGWidget master monad ()) FormMessage [a]
 multiSelectFieldHelper outside inside opts = Field
-    { fieldParse = selectParser
+    { fieldParse = return . selectParser
     , fieldView = \theId name vals _ ->
         outside theId name $ do
             flip mapM_ pairs $ \pair -> inside
@@ -393,7 +399,7 @@ selectFieldHelper :: (Eq a, Monad monad)
         -> (Text -> Text -> Text -> Bool -> Text -> GGWidget master monad ())
         -> [(Text, a)] -> Field (GGWidget master monad ()) FormMessage a
 selectFieldHelper outside onOpt inside opts = Field
-    { fieldParse = selectParser
+    { fieldParse = return . selectParser
     , fieldView = \theId name val isReq ->
         outside theId name $ do
             unless isReq $ onOpt theId name $ not $ (render val) `elem` map (pack . show . fst) pairs

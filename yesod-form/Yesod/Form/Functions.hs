@@ -24,6 +24,10 @@ module Yesod.Form.Functions
     , FormRender
     , renderTable
     , renderDivs
+      -- * Validation
+    , check
+    , checkBool
+    , checkM
     ) where
 
 import Yesod.Form.Types
@@ -42,6 +46,7 @@ import Text.Hamlet (html)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe)
 import Yesod.Message (RenderMessage (..))
+import Control.Monad.IO.Class (MonadIO, liftIO) -- FIXME
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -86,17 +91,17 @@ askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
-mreq :: (Monad m, RenderMessage master msg, RenderMessage master msg2, RenderMessage master FormMessage)
+mreq :: (MonadIO m, RenderMessage master msg, RenderMessage master msg2, RenderMessage master FormMessage)
      => Field xml msg a -> FieldSettings msg2 -> Maybe a
      -> Form master (GGHandler sub master m) (FormResult a, FieldView xml)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
-mopt :: (Monad m, RenderMessage master msg, RenderMessage master msg2)
+mopt :: (MonadIO m, RenderMessage master msg, RenderMessage master msg2)
      => Field xml msg a -> FieldSettings msg2 -> Maybe (Maybe a)
      -> Form master (GGHandler sub master m) (FormResult (Maybe a), FieldView xml)
 mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
-mhelper :: (Monad m, RenderMessage master msg, RenderMessage master msg2)
+mhelper :: (MonadIO m, RenderMessage master msg, RenderMessage master msg2)
         => Field xml msg a
         -> FieldSettings msg2
         -> Maybe a
@@ -111,17 +116,18 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     theId <- lift $ maybe (liftM pack newIdent) return fsId
     (_, master, langs) <- ask
     let mr2 = renderMessage master langs
-    let (res, val) =
-            case mp of
-                Nothing -> (FormMissing, maybe (Left "") Right mdef)
-                Just p ->
-                    let mvals = map snd $ filter (\(n,_) -> n == name) p
-                     in case fieldParse mvals of
-                            Left e -> (FormFailure [renderMessage master langs e], maybe (Left "") Left (listToMaybe mvals))
-                            Right mx ->
-                                case mx of
-                                    Nothing -> (onMissing master langs, Left "")
-                                    Just x -> (onFound x, Right x)
+    (res, val) <-
+        case mp of
+            Nothing -> return (FormMissing, maybe (Left "") Right mdef)
+            Just p -> do
+                let mvals = map snd $ filter (\(n,_) -> n == name) p
+                emx <- liftIO $ fieldParse mvals
+                return $ case emx of
+                    Left e -> (FormFailure [renderMessage master langs e], maybe (Left "") Left (listToMaybe mvals))
+                    Right mx ->
+                        case mx of
+                            Nothing -> (onMissing master langs, Left "")
+                            Just x -> (onFound x, Right x)
     return (res, FieldView
         { fvLabel = toHtml $ mr2 fsLabel
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
@@ -134,12 +140,12 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
-areq :: (Monad m, RenderMessage master msg1, RenderMessage master msg2, RenderMessage master FormMessage)
+areq :: (MonadIO m, RenderMessage master msg1, RenderMessage master msg2, RenderMessage master FormMessage)
      => Field xml msg1 a -> FieldSettings msg2 -> Maybe a
      -> AForm ([FieldView xml] -> [FieldView xml]) master (GGHandler sub master m) a
 areq a b = formToAForm . mreq a b
 
-aopt :: (Monad m, RenderMessage master msg1, RenderMessage master msg2)
+aopt :: (MonadIO m, RenderMessage master msg1, RenderMessage master msg2)
      => Field xml msg1 a -> FieldSettings msg2 -> Maybe (Maybe a)
      -> AForm ([FieldView xml] -> [FieldView xml]) master (GGHandler sub master m) (Maybe a)
 aopt a b = formToAForm . mopt a b
@@ -241,3 +247,20 @@ $forall view <- views
             <div .errors>#{err}
 |]
     return (res, widget)
+
+check :: (a -> Either msg a) -> Field xml msg a -> Field xml msg a
+check f = checkM $ return . f
+
+-- | Return the given error message if the predicate is false.
+checkBool :: (a -> Bool) -> msg -> Field xml msg a -> Field xml msg a
+checkBool b s = check $ \x -> if b x then Right x else Left s
+
+checkM :: (a -> IO (Either msg a)) -> Field xml msg a -> Field xml msg a
+checkM f field = field
+    { fieldParse = \ts -> do
+        e1 <- fieldParse field ts
+        case e1 of
+            Left msg -> return $ Left msg
+            Right Nothing -> return $ Right Nothing
+            Right (Just a) -> fmap (either Left (Right . Just)) $ f a
+    }

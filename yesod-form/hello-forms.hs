@@ -6,6 +6,8 @@ import Yesod.Form.MassInput
 import Control.Applicative
 import Data.Text (Text, pack)
 import Network.Wai.Handler.Warp (run)
+import Data.Time (utctDay, getCurrentTime)
+import qualified Data.Text as T
 
 data Fruit = Apple | Banana | Pear
     deriving (Show, Enum, Bounded, Eq)
@@ -39,6 +41,7 @@ instance Yesod HelloForms where
 mkYesod "HelloForms" [parseRoutes|
 / RootR GET
 /mass MassR GET
+/valid ValidR GET
 |]
 
 getRootR = do
@@ -51,6 +54,8 @@ getRootR = do
         <input type=submit>
 <p>
     <a href=@{MassR}>See the mass form
+<p>
+    <a href=@{ValidR}>Validation form
 |]
 
 myMassForm = fixType $ runFormGet $ renderTable $ inputList "People" massTable
@@ -60,6 +65,28 @@ myMassForm = fixType $ runFormGet $ renderTable $ inputList "People" massTable
 
 getMassR = do
     ((res, form), enctype) <- myMassForm
+    defaultLayout [whamlet|
+<p>Result: #{show res}
+<form enctype=#{enctype}>
+    <table>
+        ^{form}
+    <div>
+        <input type=submit>
+<p>
+    <a href=@{RootR}>See the regular form
+|]
+
+myValidForm = fixType $ runFormGet $ renderTable $ pure (,,)
+    <*> areq (check (\x -> if T.length x < 3 then Left "Need at least 3 letters" else Right x) textField) "Name" Nothing
+    <*> areq (checkBool (>= 18) "Must be 18 or older" intField) "Age" Nothing
+    <*> areq (checkM inPast dayField) "Anniversary" Nothing
+  where
+    inPast x = do
+        now <- getCurrentTime
+        return $ if utctDay now < x then Left "Need a date in the past" else Right x
+
+getValidR = do
+    ((res, form), enctype) <- myValidForm
     defaultLayout [whamlet|
 <p>Result: #{show res}
 <form enctype=#{enctype}>

@@ -24,6 +24,7 @@ import Data.Text.Read (decimal)
 import Control.Monad (liftM)
 import Data.Either (partitionEithers)
 import Data.Traversable (sequenceA)
+import Control.Monad.IO.Class (MonadIO)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -49,7 +50,7 @@ up i = do
         IntCons _ is' -> put is' >> newFormIdent >> return ()
     up $ i - 1
 
-inputList :: (Monad mo, m ~ GGHandler sub master mo, xml ~ GGWidget master (GGHandler sub master mo) (), RenderMessage master FormMessage)
+inputList :: (MonadIO mo, m ~ GGHandler sub master mo, xml ~ GGWidget master (GGHandler sub master mo) (), RenderMessage master FormMessage)
           => Html
           -> ([[FieldView xml]] -> xml)
           -> (Maybe a -> AForm ([FieldView xml] -> [FieldView xml]) master m a)
@@ -92,7 +93,7 @@ inputList label fixXml single mdef = formToAForm $ do
         , fvRequired = False
         })
 
-withDelete :: (xml ~ GGWidget master m (), m ~ GGHandler sub master mo, Monad mo, RenderMessage master FormMessage)
+withDelete :: (MonadIO mo, xml ~ GGWidget master m (), m ~ GGHandler sub master mo, Monad mo, RenderMessage master FormMessage)
            => AForm ([FieldView xml] -> [FieldView xml]) master m a
            -> Form master m (Either xml (FormResult a, [FieldView xml]))
 withDelete af = do
