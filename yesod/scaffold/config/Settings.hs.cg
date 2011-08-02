@@ -28,7 +28,7 @@ import qualified Text.Julius as H
 import qualified Text.Lucius as H
 import Language.Haskell.TH.Syntax
 ~importDB~
-import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius)
+import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius, whamletFile)
 import Data.Monoid (mempty, mappend)
 import System.Directory (doesFileExist)
 import Prelude hiding (concat)
@@ -193,7 +193,7 @@ juliusFile =
 
 widgetFile :: FilePath -> Q Exp
 widgetFile x = do
-    let h = unlessExists (globFile "hamlet")  hamletFile
+    let h = unlessExists (globFile "hamlet")  (whamletFile . globFile "hamlet")
     let c = unlessExists (globFile "cassius") cassiusFile
     let j = unlessExists (globFile "julius")  juliusFile
     let l = unlessExists (globFile "lucius")  luciusFile
