@@ -29,13 +29,3 @@ Foobar
 p
 >>> /.*Registering foobar-0.0.0.*/
 >>>= 0
-
-rm -rf foobar && runghc scaffold.hs init && cd foobar && cabal install && cabal install -fdevel && cd .. && rm -rf foobar
-<<<
-Michael
-foobar
-
-Foobar
-m
->>> /.*Registering foobar-0.0.0.*/
->>>= 0
