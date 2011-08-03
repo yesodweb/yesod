@@ -16,7 +16,6 @@ module ~sitearg~
     ) where
 
 import Yesod
-import Yesod.Form (defaultFormMessage)
 import Yesod.Static
 import Yesod.Auth
 import Yesod.Auth.OpenId
@@ -27,7 +26,6 @@ import qualified Data.ByteString.Lazy as L
 import Database.Persist.GenericSql
 import Settings (hamletFile, cassiusFile, luciusFile, juliusFile, widgetFile)
 import Model
-import StaticFiles
 import Data.Maybe (isJust)
 import Control.Monad (join, unless)
 import Network.Mail.Mime
