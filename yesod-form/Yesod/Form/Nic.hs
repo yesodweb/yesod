@@ -20,22 +20,16 @@ import Text.Blaze.Renderer.String (renderHtml)
 import Text.Blaze (preEscapedString)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack, unpack)
+import Data.Maybe (listToMaybe)
 
 class YesodNic a where
     -- | NIC Editor Javascript file.
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-blank :: (Text -> Either msg a) -> [Text] -> Either msg (Maybe a)
-blank _ [] = Right Nothing
-blank _ ("":_) = Right Nothing
-blank f (x:_) = either Left (Right . Just) $ f x
-
-
-
-nicHtmlField :: YesodNic master => Field (GWidget sub master ()) msg Html
+nicHtmlField :: YesodNic master => Field sub master Html
 nicHtmlField = Field
-    { fieldParse = blank $ Right . preEscapedString . sanitizeBalance . unpack -- FIXME
+    { fieldParse = return . Right . fmap (preEscapedString . sanitizeBalance . unpack) . listToMaybe -- FIXME
     , fieldView = \theId name val _isReq -> do
         addHtml
 #if __GLASGOW_HASKELL__ >= 700

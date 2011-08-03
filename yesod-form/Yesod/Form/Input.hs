@@ -35,7 +35,7 @@ instance Applicative (FormInput sub master) where
             (_, Left b) -> Left b
             (Right a, Right b) -> Right $ a b
 
-ireq :: (RenderMessage master msg, RenderMessage master FormMessage) => Field sub master a -> Text -> FormInput sub master a
+ireq :: (RenderMessage master FormMessage) => Field sub master a -> Text -> FormInput sub master a
 ireq field name = FormInput $ \m l env -> do
       let filteredEnv = fromMaybe [] $ Map.lookup name env
       emx <- fieldParse field $ filteredEnv
@@ -44,7 +44,7 @@ ireq field name = FormInput $ \m l env -> do
           Right Nothing -> Left $ (:) $ renderMessage m l $ MsgInputNotFound name
           Right (Just a) -> Right a
 
-iopt :: RenderMessage master msg => Field sub master a -> Text -> FormInput sub master (Maybe a)
+iopt :: Field sub master a -> Text -> FormInput sub master (Maybe a)
 iopt field name = FormInput $ \m l env -> do
       let filteredEnv = fromMaybe [] $ Map.lookup name env
       emx <- fieldParse field $ filteredEnv

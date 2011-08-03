@@ -27,6 +27,7 @@ import Text.Julius (julius)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
+import Yesod.Core (RenderMessage)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HTML html
@@ -65,12 +66,12 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-blank :: (Text -> Either msg a) -> [Text] -> Either msg (Maybe a)
-blank _ [] = Right Nothing
-blank _ ("":_) = Right Nothing
-blank f (x:_) = either Left (Right . Just) $ f x
+blank :: (RenderMessage master FormMessage, Monad m) => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))
+blank _ [] = return $ Right Nothing
+blank _ ("":_) = return $ Right Nothing
+blank f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x
 
-jqueryDayField :: (YesodJquery master) => JqueryDaySettings -> Field (GWidget sub master ()) FormMessage Day
+jqueryDayField :: (RenderMessage master FormMessage, YesodJquery master) => JqueryDaySettings -> Field sub master Day
 jqueryDayField jds = Field
     { fieldParse = blank $ maybe
                   (Left MsgInvalidDay)
@@ -125,7 +126,7 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
       let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
       in (showLeadingZero h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
 
-jqueryDayTimeField :: YesodJquery master => Field (GWidget sub master ()) FormMessage UTCTime
+jqueryDayTimeField :: (RenderMessage master FormMessage, YesodJquery master) => Field sub master UTCTime
 jqueryDayTimeField = Field
     { fieldParse  = blank $ parseUTCTime . unpack
     , fieldView = \theId name val isReq -> do
@@ -154,7 +155,8 @@ parseUTCTime s =
                 ifRight (parseTime timeS)
                     (UTCTime date . timeOfDayToTime)
 
-jqueryAutocompleteField :: YesodJquery master => Route master -> Field (GWidget sub master ()) FormMessage Text
+jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master)
+                        => Route master -> Field sub master Text
 jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val isReq -> do

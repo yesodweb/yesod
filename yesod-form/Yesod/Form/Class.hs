@@ -17,7 +17,6 @@ import Data.Time (Day, TimeOfDay)
 import Data.Text (Text)
 import Yesod.Handler (GGHandler)
 import Yesod.Message (RenderMessage)
-import Control.Monad.IO.Class (MonadIO) -- FIXME
 
 {-
 class ToForm a where
