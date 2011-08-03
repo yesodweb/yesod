@@ -11,7 +11,7 @@ module Yesod.Form.MassInput
 
 import Yesod.Form.Types
 import Yesod.Form.Functions
-import Yesod.Form.Fields (boolField, FormMessage)
+import Yesod.Form.Fields (boolField, FormMessage (MsgDelete))
 import Yesod.Widget (GWidget, GGWidget, whamlet)
 import Yesod.Message (RenderMessage)
 import Yesod.Handler (newIdent, GHandler, GGHandler)
@@ -106,13 +106,13 @@ withDelete af = do
         Just ("yes":_) -> return $ Left [WHAMLET|<input type=hidden name=#{deleteName} value=yes>|]
         _ -> do
             (_, xml2) <- aFormToForm $ areq boolField FieldSettings
-                { fsLabel = "Delete?" :: Text -- FIXME
+                { fsLabel = MsgDelete
                 , fsTooltip = Nothing
                 , fsName = Just deleteName
                 , fsId = Nothing
-                } $ Just False -- TRANS
+                } $ Just False
             (res, xml) <- aFormToForm af
-            return $ Right (res, xml [] ++ xml2 []) -- FIXME shouldn't need ++
+            return $ Right (res, xml $ xml2 [])
     up 1
     return res
 

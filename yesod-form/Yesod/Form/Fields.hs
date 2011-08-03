@@ -88,6 +88,7 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgInvalidBool Text
                  | MsgBoolYes
                  | MsgBoolNo
+                 | MsgDelete
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
@@ -107,6 +108,7 @@ defaultFormMessage MsgSelectNone = "<None>"
 defaultFormMessage (MsgInvalidBool t) = "Invalid boolean: " `mappend` t
 defaultFormMessage MsgBoolYes = "Yes"
 defaultFormMessage MsgBoolNo = "No"
+defaultFormMessage MsgDelete = "Delete?"
 
 blank :: (Monad m, RenderMessage master FormMessage)
       => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))
