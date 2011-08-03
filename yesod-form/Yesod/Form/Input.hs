@@ -17,6 +17,8 @@ import Yesod.Request (reqGetParams, languages)
 import Control.Monad (liftM)
 import Yesod.Widget (GWidget)
 import Yesod.Message (RenderMessage (..))
+import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 
 type DText = [Text] -> [Text]
 newtype FormInput sub master a = FormInput { unFormInput :: master -> [Text] -> Env -> GGHandler sub master IO (Either DText a) }
@@ -35,7 +37,7 @@ instance Applicative (FormInput sub master) where
 
 ireq :: (RenderMessage master msg, RenderMessage master FormMessage) => Field sub master a -> Text -> FormInput sub master a
 ireq field name = FormInput $ \m l env -> do
-      let filteredEnv = map snd $ filter (\y -> fst y == name) env
+      let filteredEnv = fromMaybe [] $ Map.lookup name env
       emx <- fieldParse field $ filteredEnv
       return $ case emx of
           Left (SomeMessage e) -> Left $ (:) $ renderMessage m l e
@@ -44,7 +46,7 @@ ireq field name = FormInput $ \m l env -> do
 
 iopt :: RenderMessage master msg => Field sub master a -> Text -> FormInput sub master (Maybe a)
 iopt field name = FormInput $ \m l env -> do
-      let filteredEnv = map snd $ filter (\y -> fst y == name) env
+      let filteredEnv = fromMaybe [] $ Map.lookup name env
       emx <- fieldParse field $ filteredEnv
       return $ case emx of
         Left (SomeMessage e) -> Left $ (:) $ renderMessage m l e
@@ -52,7 +54,7 @@ iopt field name = FormInput $ \m l env -> do
 
 runInputGet :: FormInput sub master a -> GHandler sub master a
 runInputGet (FormInput f) = do
-    env <- liftM reqGetParams getRequest
+    env <- liftM (toMap . reqGetParams) getRequest
     m <- getYesod
     l <- languages
     emx <- liftIOHandler $ f m l env
@@ -60,9 +62,11 @@ runInputGet (FormInput f) = do
         Left errs -> invalidArgs $ errs []
         Right x -> return x
 
+toMap = Map.unionsWith (++) . map (\(x, y) -> Map.singleton x [y])
+
 runInputPost :: FormInput sub master a -> GHandler sub master a
 runInputPost (FormInput f) = do
-    env <- liftM fst runRequestBody
+    env <- liftM (toMap . fst) runRequestBody
     m <- getYesod
     l <- languages
     emx <- liftIOHandler $ f m l env

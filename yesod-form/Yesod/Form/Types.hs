@@ -27,6 +27,7 @@ import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad (liftM)
 import Data.String (IsString (..))
 import Yesod.Core (RenderMessage, GGHandler, GWidget)
+import qualified Data.Map as Map
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -69,8 +70,8 @@ instance Show Ints where
     show (IntSingle i) = show i
     show (IntCons i is) = show i ++ ('-' : show is)
 
-type Env = [(Text, Text)] -- FIXME use a Map
-type FileEnv = [(Text, FileInfo)]
+type Env = Map.Map Text [Text]
+type FileEnv = Map.Map Text FileInfo
 
 type Lang = Text
 type Form sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GGHandler sub master IO) a

@@ -44,9 +44,10 @@ import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
 import Text.Hamlet (html)
 import Data.Monoid (mempty)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import qualified Data.Map as Map
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -120,7 +121,7 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         case mp of
             Nothing -> return (FormMissing, maybe (Left "") Right mdef)
             Just p -> do
-                let mvals = map snd $ filter (\(n,_) -> n == name) p
+                let mvals = fromMaybe [] $ Map.lookup name p
                 emx <- lift $ fieldParse mvals
                 return $ case emx of
                     Left (SomeMessage e) -> (FormFailure [renderMessage master langs e], maybe (Left "") Left (listToMaybe mvals))
@@ -174,28 +175,32 @@ runFormPost form = do
             case reqNonce req of
                 Nothing -> mempty
                 Just n -> [HTML|<input type=hidden name=#{nonceKey} value=#{n}>|]
-    env <- if requestMethod (reqWaiRequest req) == "GET"
-                then return Nothing
-                else fmap Just runRequestBody
+    env <- postEnv
     m <- getYesod
     langs <- languages
     ((res, xml), enctype) <- runFormGeneric (form nonce) m langs env
     let res' =
             case (res, env) of
                 (FormSuccess{}, Just (params, _))
-                    | lookup nonceKey params /= reqNonce req ->
+                    | Map.lookup nonceKey params /= fmap return (reqNonce req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
     return ((res', xml), enctype)
 
+postEnv = do
+    req <- getRequest
+    if requestMethod (reqWaiRequest req) == "GET"
+        then return Nothing
+        else do
+            (p, f) <- runRequestBody
+            let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
+            return $ Just (p', Map.fromList f)
+
 runFormPostNoNonce :: (Html -> Form sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoNonce form = do
-    req <- getRequest
-    env <- if requestMethod (reqWaiRequest req) == "GET"
-                then return Nothing
-                else fmap Just runRequestBody
     langs <- languages
     m <- getYesod
+    env <- postEnv
     runFormGeneric (form mempty) m langs env
 
 runFormGet :: (Html -> Form sub master a) -> GHandler sub master (a, Enctype)
@@ -206,7 +211,7 @@ runFormGet form = do
     let env =
             case lookup key gets of
                 Nothing -> Nothing
-                Just _ -> Just (gets, [])
+                Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env

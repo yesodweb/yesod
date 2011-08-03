@@ -25,6 +25,8 @@ import Control.Monad (liftM)
 import Data.Either (partitionEithers)
 import Data.Traversable (sequenceA)
 import Control.Monad.IO.Class (MonadIO)
+import qualified Data.Map as Map
+import Data.Maybe (listToMaybe)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -69,8 +71,8 @@ inputList label fixXml single mdef = formToAForm $ do
             case menv of
                 Nothing -> map Just $ fromMaybe [] mdef
                 Just (env, _) ->
-                    let toAdd = maybe False (const True) $ lookup addName env
-                        count' = fromMaybe 0 $ lookup countName env >>= readInt
+                    let toAdd = maybe False (const True) $ Map.lookup addName env
+                        count' = fromMaybe 0 $ Map.lookup countName env >>= listToMaybe >>= readInt
                         count = (if toAdd then 1 else 0) + count'
                      in replicate count Nothing
     let count = length vals
@@ -100,8 +102,8 @@ withDelete af = do
     down 1
     deleteName <- newFormIdent
     (menv, _, _) <- ask
-    res <- case menv >>= lookup deleteName . fst of
-        Just "yes" -> return $ Left [WHAMLET|<input type=hidden name=#{deleteName} value=yes>|]
+    res <- case menv >>= Map.lookup deleteName . fst of
+        Just ("yes":_) -> return $ Left [WHAMLET|<input type=hidden name=#{deleteName} value=yes>|]
         _ -> do
             (_, xml2) <- aFormToForm $ areq boolField FieldSettings
                 { fsLabel = "Delete?" :: Text -- FIXME
