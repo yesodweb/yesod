@@ -110,7 +110,6 @@ scaffold = do
           Postgresql -> $(codegen $ "postgresqlConnPool")
           MongoDB    -> $(codegen $ "mongoDBConnPool")
           Tiny       -> ""
-          _ -> error $ "Invalid backend: " ++ backendLower
 
         packages = if backend == MongoDB then "          , mongoDB\n         , bson\n" else ""
 
@@ -140,7 +139,7 @@ scaffold = do
       Sqlite     -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/sqlite.yml"))
       Postgresql -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/postgresql.yml"))
       MongoDB    -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/mongoDB.yml"))
-      _            -> error $ "Invalid backend: " ++ backendLower
+      Tiny       -> return ()
 
     let isTiny = backend == Tiny
         ifTiny a b = if isTiny then a else b
