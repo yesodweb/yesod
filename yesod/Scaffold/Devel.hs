@@ -3,22 +3,22 @@ module Scaffold.Devel
     ( devel
     ) where
 
-import qualified Distribution.Simple.Build as B
-import Distribution.Simple.Configure (configure)
+-- import qualified Distribution.Simple.Build as B
+-- import Distribution.Simple.Configure (configure)
 import Distribution.Simple (defaultMainArgs)
-import Distribution.Simple.Setup (defaultConfigFlags, configConfigurationsFlags, configUserInstall, Flag (..), defaultBuildFlags, defaultCopyFlags, defaultRegisterFlags)
+-- import Distribution.Simple.Setup (defaultConfigFlags, configConfigurationsFlags, configUserInstall, Flag (..), defaultBuildFlags, defaultCopyFlags, defaultRegisterFlags)
 import Distribution.Simple.Utils (defaultPackageDesc, defaultHookedPackageDesc)
-import Distribution.Simple.Program (defaultProgramConfiguration)
+-- import Distribution.Simple.Program (defaultProgramConfiguration)
 import Distribution.Verbosity (normal)
 import Distribution.PackageDescription.Parse (readPackageDescription, readHookedBuildInfo)
-import Distribution.PackageDescription (FlagName (FlagName), package, emptyHookedBuildInfo)
-import Distribution.Simple.LocalBuildInfo (localPkgDescr)
+import Distribution.PackageDescription (emptyHookedBuildInfo)
+-- import Distribution.Simple.LocalBuildInfo (localPkgDescr)
 import Scaffold.Build (getDeps, touchDeps, findHaskellFiles)
-import Network.Wai.Handler.Warp (run)
-import Network.Wai.Middleware.Debug (debug)
-import Distribution.Text (display)
-import Distribution.Simple.Install (install)
-import Distribution.Simple.Register (register)
+-- import Network.Wai.Handler.Warp (run)
+-- import Network.Wai.Middleware.Debug (debug)
+-- import Distribution.Text (display)
+-- import Distribution.Simple.Install (install)
+-- import Distribution.Simple.Register (register)
 import Control.Concurrent (forkIO, threadDelay, ThreadId, killThread)
 import Control.Exception (try, SomeException, finally)
 import System.PosixCompat.Files (modificationTime, getFileStatus)
@@ -26,17 +26,17 @@ import qualified Data.Map as Map
 import System.Posix.Types (EpochTime)
 import Blaze.ByteString.Builder.Char.Utf8 (fromString)
 import Network.Wai (Application, Response (ResponseBuilder), responseLBS)
-import Network.HTTP.Types (status500)
+-- import Network.HTTP.Types (status500)
 import Control.Monad (when, forever)
-import System.Process (runCommand, terminateProcess, getProcessExitCode, waitForProcess)
+import System.Process (runCommand, terminateProcess, waitForProcess)
 import qualified Data.IORef as I
 import qualified Data.ByteString.Lazy.Char8 as L
 import System.Directory (doesFileExist, removeFile, getDirectoryContents)
-import Distribution.Package (PackageName (..), pkgName)
+-- import Distribution.Package (PackageName (..), pkgName)
 import Data.Maybe (mapMaybe)
 
 appMessage :: L.ByteString -> IO ()
-appMessage l = forever $ do
+appMessage _ = forever $ do
     -- run 3000 . const . return $ responseLBS status500 [("Content-Type", "text/plain")] l
     threadDelay 10000
 
@@ -53,11 +53,10 @@ devel cabalCmd = do
     listenThread <- forkIO (appMessage "Initializing, please wait") >>= I.newIORef
 
     cabal <- defaultPackageDesc normal
-    gpd <- readPackageDescription normal cabal
+    _ <- readPackageDescription normal cabal
 
     mhpd <- defaultHookedPackageDesc
-    hooked <-
-        case mhpd of
+    _ <- case mhpd of
             Nothing -> return emptyHookedBuildInfo
             Just fp -> readHookedBuildInfo normal fp
 
@@ -65,7 +64,7 @@ devel cabalCmd = do
 
     let myTry :: IO () -> IO ()
         myTry f = try f >>= \x -> case x of
-                                    Left e -> swapApp listenThread $ forkIO $ appMessage $ L.pack $ show (e :: SomeException)
+                                    Left err -> swapApp listenThread $ forkIO $ appMessage $ L.pack $ show (err :: SomeException)
                                     Right y -> return y
     let getNewApp :: IO ()
         getNewApp = myTry $ do
@@ -142,8 +141,10 @@ loop oldList getNewApp = do
     threadDelay 1000000
     loop newList getNewApp
 
+{-
 errApp :: String -> Application
 errApp s _ = return $ ResponseBuilder status500 [("Content-Type", "text/plain")] $ fromString s
+-}
 
 getPackageName :: IO String
 getPackageName = do
