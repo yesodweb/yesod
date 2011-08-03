@@ -12,9 +12,9 @@ module Yesod.Form.MassInput
 import Yesod.Form.Types
 import Yesod.Form.Functions
 import Yesod.Form.Fields (boolField, FormMessage)
-import Yesod.Widget (GGWidget, whamlet)
+import Yesod.Widget (GWidget, GGWidget, whamlet)
 import Yesod.Message (RenderMessage)
-import Yesod.Handler (newIdent, GGHandler)
+import Yesod.Handler (newIdent, GHandler, GGHandler)
 import Text.Blaze (Html)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (pack, Text)
@@ -50,11 +50,11 @@ up i = do
         IntCons _ is' -> put is' >> newFormIdent >> return ()
     up $ i - 1
 
-inputList :: (MonadIO mo, m ~ GGHandler sub master mo, xml ~ GGWidget master (GGHandler sub master mo) (), RenderMessage master FormMessage)
+inputList :: (m ~ GGHandler sub master IO, xml ~ GWidget sub master (), RenderMessage master FormMessage)
           => Html
-          -> ([[FieldView xml]] -> xml)
-          -> (Maybe a -> AForm ([FieldView xml] -> [FieldView xml]) master m a)
-          -> (Maybe [a] -> AForm ([FieldView xml] -> [FieldView xml]) master m [a])
+          -> ([[FieldView sub master]] -> xml)
+          -> (Maybe a -> AForm sub master a)
+          -> (Maybe [a] -> AForm sub master [a])
 inputList label fixXml single mdef = formToAForm $ do
     theId <- lift newIdent
     down 1
@@ -93,9 +93,9 @@ inputList label fixXml single mdef = formToAForm $ do
         , fvRequired = False
         })
 
-withDelete :: (MonadIO mo, xml ~ GGWidget master m (), m ~ GGHandler sub master mo, Monad mo, RenderMessage master FormMessage)
-           => AForm ([FieldView xml] -> [FieldView xml]) master m a
-           -> Form master m (Either xml (FormResult a, [FieldView xml]))
+withDelete :: (xml ~ GWidget sub master (), RenderMessage master FormMessage)
+           => AForm sub master a
+           -> Form sub master (Either xml (FormResult a, [FieldView sub master]))
 withDelete af = do
     down 1
     deleteName <- newFormIdent
@@ -114,9 +114,9 @@ withDelete af = do
     up 1
     return res
 
-fixme :: (xml ~ GGWidget master (GGHandler sub master mo) ())
-      => [Either xml (FormResult a, [FieldView xml])]
-      -> (FormResult [a], [xml], [[FieldView xml]])
+fixme :: (xml ~ GWidget sub master ())
+      => [Either xml (FormResult a, [FieldView sub master])]
+      -> (FormResult [a], [xml], [[FieldView sub master]])
 fixme eithers =
     (res, xmls, map snd rest)
   where
@@ -124,9 +124,8 @@ fixme eithers =
     res = sequenceA $ map fst rest
 
 massDivs, massTable
-         :: Monad m
-         => [[FieldView (GGWidget master m ())]]
-         -> GGWidget master m ()
+         :: [[FieldView sub master]]
+         -> GWidget sub master ()
 massDivs viewss = [WHAMLET|
 $forall views <- viewss
     <fieldset>

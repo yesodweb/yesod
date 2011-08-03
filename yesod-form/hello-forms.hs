@@ -8,6 +8,7 @@ import Data.Text (Text, pack)
 import Network.Wai.Handler.Warp (run)
 import Data.Time (utctDay, getCurrentTime)
 import qualified Data.Text as T
+import Control.Monad.IO.Class (liftIO)
 
 data Fruit = Apple | Banana | Pear
     deriving (Show, Enum, Bounded, Eq)
@@ -77,13 +78,13 @@ getMassR = do
 |]
 
 myValidForm = fixType $ runFormGet $ renderTable $ pure (,,)
-    <*> areq (check (\x -> if T.length x < 3 then Left "Need at least 3 letters" else Right x) textField) "Name" Nothing
-    <*> areq (checkBool (>= 18) "Must be 18 or older" intField) "Age" Nothing
+    <*> areq (check (\x -> if T.length x < 3 then Left ("Need at least 3 letters" :: Text) else Right x) textField) "Name" Nothing
+    <*> areq (checkBool (>= 18) ("Must be 18 or older" :: Text) intField) "Age" Nothing
     <*> areq (checkM inPast dayField) "Anniversary" Nothing
   where
     inPast x = do
-        now <- getCurrentTime
-        return $ if utctDay now < x then Left "Need a date in the past" else Right x
+        now <- liftIO $ getCurrentTime
+        return $ if utctDay now < x then Left ("Need a date in the past" :: Text) else Right x
 
 getValidR = do
     ((res, form), enctype) <- myValidForm

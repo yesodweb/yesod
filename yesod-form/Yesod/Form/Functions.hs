@@ -38,15 +38,15 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM, join)
 import Text.Blaze (Html, toHtml)
 import Yesod.Handler (GHandler, GGHandler, getRequest, runRequestBody, newIdent, getYesod)
-import Yesod.Core (RenderMessage)
-import Yesod.Widget (GGWidget, whamlet)
+import Yesod.Core (RenderMessage, liftIOHandler)
+import Yesod.Widget (GWidget, GGWidget, whamlet)
 import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
 import Text.Hamlet (html)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe)
 import Yesod.Message (RenderMessage (..))
-import Control.Monad.IO.Class (MonadIO, liftIO) -- FIXME
+import Control.Monad.IO.Class (MonadIO, liftIO)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -57,7 +57,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO) -- FIXME
 #endif
 
 -- | Get a unique identifier.
-newFormIdent :: Monad m => Form msg m Text
+newFormIdent :: Form sub master Text
 newFormIdent = do
     i <- get
     let i' = incrInts i
@@ -67,12 +67,12 @@ newFormIdent = do
     incrInts (IntSingle i) = IntSingle $ i + 1
     incrInts (IntCons i is) = (i + 1) `IntCons` is
 
-formToAForm :: Monad m => Form msg m (FormResult a, xml) -> AForm ([xml] -> [xml]) msg m a
+formToAForm :: Form sub master (FormResult a, FieldView sub master) -> AForm sub master a
 formToAForm form = AForm $ \(master, langs) env ints -> do
     ((a, xml), ints', enc) <- runRWST form (env, master, langs) ints
     return (a, (:) xml, ints', enc)
 
-aFormToForm :: Monad m => AForm xml msg m a -> Form msg m (FormResult a, xml)
+aFormToForm :: AForm sub master a -> Form sub master (FormResult a, [FieldView sub master] -> [FieldView sub master])
 aFormToForm (AForm aform) = do
     ints <- get
     (env, master, langs) <- ask
@@ -81,34 +81,34 @@ aFormToForm (AForm aform) = do
     tell enc
     return (a, xml)
 
-askParams :: Monad m => Form msg m (Maybe Env)
+askParams :: Form sub master (Maybe Env)
 askParams = do
     (x, _, _) <- ask
     return $ liftM fst x
 
-askFiles :: Monad m => Form msg m (Maybe FileEnv)
+askFiles :: Form sub master (Maybe FileEnv)
 askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
-mreq :: (MonadIO m, RenderMessage master msg, RenderMessage master msg2, RenderMessage master FormMessage)
-     => Field xml msg a -> FieldSettings msg2 -> Maybe a
-     -> Form master (GGHandler sub master m) (FormResult a, FieldView xml)
+mreq :: (RenderMessage master msg, RenderMessage master FormMessage)
+     => Field sub master a -> FieldSettings msg -> Maybe a
+     -> Form sub master (FormResult a, FieldView sub master)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
-mopt :: (MonadIO m, RenderMessage master msg, RenderMessage master msg2)
-     => Field xml msg a -> FieldSettings msg2 -> Maybe (Maybe a)
-     -> Form master (GGHandler sub master m) (FormResult (Maybe a), FieldView xml)
+mopt :: RenderMessage master msg
+     => Field sub master a -> FieldSettings msg -> Maybe (Maybe a)
+     -> Form sub master (FormResult (Maybe a), FieldView sub master)
 mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
-mhelper :: (MonadIO m, RenderMessage master msg, RenderMessage master msg2)
-        => Field xml msg a
-        -> FieldSettings msg2
+mhelper :: RenderMessage master msg
+        => Field sub master a
+        -> FieldSettings msg
         -> Maybe a
         -> (master -> [Text] -> FormResult b) -- ^ on missing
         -> (a -> FormResult b) -- ^ on success
         -> Bool -- ^ is it required?
-        -> Form master (GGHandler sub master m) (FormResult b, FieldView xml)
+        -> Form sub master (FormResult b, FieldView sub master)
 
 mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     mp <- askParams
@@ -121,9 +121,9 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
             Nothing -> return (FormMissing, maybe (Left "") Right mdef)
             Just p -> do
                 let mvals = map snd $ filter (\(n,_) -> n == name) p
-                emx <- liftIO $ fieldParse mvals
+                emx <- lift $ fieldParse mvals
                 return $ case emx of
-                    Left e -> (FormFailure [renderMessage master langs e], maybe (Left "") Left (listToMaybe mvals))
+                    Left (SomeMessage e) -> (FormFailure [renderMessage master langs e], maybe (Left "") Left (listToMaybe mvals))
                     Right mx ->
                         case mx of
                             Nothing -> (onMissing master langs, Left "")
@@ -140,18 +140,20 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
-areq :: (MonadIO m, RenderMessage master msg1, RenderMessage master msg2, RenderMessage master FormMessage)
-     => Field xml msg1 a -> FieldSettings msg2 -> Maybe a
-     -> AForm ([FieldView xml] -> [FieldView xml]) master (GGHandler sub master m) a
+areq :: (RenderMessage master msg, RenderMessage master FormMessage)
+     => Field sub master a -> FieldSettings msg -> Maybe a
+     -> AForm sub master a
 areq a b = formToAForm . mreq a b
 
-aopt :: (MonadIO m, RenderMessage master msg1, RenderMessage master msg2)
-     => Field xml msg1 a -> FieldSettings msg2 -> Maybe (Maybe a)
-     -> AForm ([FieldView xml] -> [FieldView xml]) master (GGHandler sub master m) (Maybe a)
+aopt :: RenderMessage master msg
+     => Field sub master a
+     -> FieldSettings msg
+     -> Maybe (Maybe a)
+     -> AForm sub master (Maybe a)
 aopt a b = formToAForm . mopt a b
 
-runFormGeneric :: Monad m => Form master m a -> master -> [Text] -> Maybe (Env, FileEnv) -> m (a, Enctype)
-runFormGeneric form master langs env = evalRWST form (env, master, langs) (IntSingle 1)
+runFormGeneric :: MonadIO m => Form sub master a -> master -> [Text] -> Maybe (Env, FileEnv) -> GGHandler sub master m (a, Enctype)
+runFormGeneric form master langs env = liftIOHandler $ evalRWST form (env, master, langs) (IntSingle 1)
 
 -- | This function is used to both initially render a form and to later extract
 -- results from it. Note that, due to CSRF protection and a few other issues,
@@ -163,7 +165,8 @@ runFormGeneric form master langs env = evalRWST form (env, master, langs) (IntSi
 -- the form submit to a POST page. In such a case, both the GET and POST
 -- handlers should use 'runFormPost'.
 runFormPost :: RenderMessage master FormMessage
-            => (Html -> Form master (GHandler sub master) (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
+            => (Html -> Form sub master (FormResult a, xml))
+            -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPost form = do
     req <- getRequest
     let nonceKey = "_nonce"
@@ -185,7 +188,7 @@ runFormPost form = do
                 _ -> res
     return ((res', xml), enctype)
 
-runFormPostNoNonce :: (Html -> Form master (GHandler sub master) (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
+runFormPostNoNonce :: (Html -> Form sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoNonce form = do
     req <- getRequest
     env <- if requestMethod (reqWaiRequest req) == "GET"
@@ -195,7 +198,7 @@ runFormPostNoNonce form = do
     m <- getYesod
     runFormGeneric (form mempty) m langs env
 
-runFormGet :: Monad m => (Html -> Form master (GGHandler sub master m) a) -> GGHandler sub master m (a, Enctype)
+runFormGet :: (Html -> Form sub master a) -> GHandler sub master (a, Enctype)
 runFormGet form = do
     let key = "_hasdata"
     let fragment = [HTML|<input type=hidden name=#{key}>|]
@@ -208,12 +211,12 @@ runFormGet form = do
     m <- getYesod
     runFormGeneric (form fragment) m langs env
 
-type FormRender master msg m a =
-       AForm ([FieldView (GGWidget master m ())] -> [FieldView (GGWidget master m ())]) msg m a
+type FormRender sub master a =
+       AForm sub master a
     -> Html
-    -> Form msg m (FormResult a, GGWidget master m ())
+    -> Form sub master (FormResult a, GWidget sub master ())
 
-renderTable, renderDivs :: Monad m => FormRender master msg m a
+renderTable, renderDivs :: FormRender sub master a
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
@@ -248,19 +251,24 @@ $forall view <- views
 |]
     return (res, widget)
 
-check :: (a -> Either msg a) -> Field xml msg a -> Field xml msg a
+check :: RenderMessage master msg
+      => (a -> Either msg a) -> Field sub master a -> Field sub master a
 check f = checkM $ return . f
 
 -- | Return the given error message if the predicate is false.
-checkBool :: (a -> Bool) -> msg -> Field xml msg a -> Field xml msg a
+checkBool :: RenderMessage master msg
+          => (a -> Bool) -> msg -> Field sub master a -> Field sub master a
 checkBool b s = check $ \x -> if b x then Right x else Left s
 
-checkM :: (a -> IO (Either msg a)) -> Field xml msg a -> Field xml msg a
+checkM :: RenderMessage master msg
+       => (a -> GGHandler sub master IO (Either msg a))
+       -> Field sub master a
+       -> Field sub master a
 checkM f field = field
     { fieldParse = \ts -> do
         e1 <- fieldParse field ts
         case e1 of
             Left msg -> return $ Left msg
             Right Nothing -> return $ Right Nothing
-            Right (Just a) -> fmap (either Left (Right . Just)) $ f a
+            Right (Just a) -> fmap (either (Left . SomeMessage) (Right . Just)) $ f a
     }

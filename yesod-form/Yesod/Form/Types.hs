@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ExistentialQuantification #-}
 module Yesod.Form.Types
     ( -- * Helpers
       Enctype (..)
@@ -11,6 +12,7 @@ module Yesod.Form.Types
     , Form
     , AForm (..)
       -- * Build forms
+    , SomeMessage (..)
     , Field (..)
     , FieldSettings (..)
     , FieldView (..)
@@ -24,7 +26,7 @@ import Text.Blaze (Html, ToHtml (toHtml))
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad (liftM)
 import Data.String (IsString (..))
-import Control.Monad.Trans.Class (MonadTrans (..))
+import Yesod.Core (RenderMessage, GGHandler, GWidget)
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -70,32 +72,29 @@ instance Show Ints where
 type Env = [(Text, Text)] -- FIXME use a Map
 type FileEnv = [(Text, FileInfo)]
 
-type Form master m a = RWST (Maybe (Env, FileEnv), master, [Text]) Enctype Ints m a
+type Lang = Text
+type Form sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GGHandler sub master IO) a
 
-newtype AForm xml master m a = AForm
-    { unAForm :: (master, [Text]) -> Maybe (Env, FileEnv) -> Ints -> m (FormResult a, xml, Ints, Enctype)
+newtype AForm sub master a = AForm
+    { unAForm :: (master, [Text]) -> Maybe (Env, FileEnv) -> Ints -> GGHandler sub master IO (FormResult a, [FieldView sub master] -> [FieldView sub master], Ints, Enctype)
     }
-instance Monad m => Functor (AForm xml msg m) where
+instance Functor (AForm sub master) where
     fmap f (AForm a) =
         AForm $ \x y z -> liftM go $ a x y z
       where
         go (w, x, y, z) = (fmap f w, x, y, z)
-instance (Monad m, Monoid xml) => Applicative (AForm xml msg m) where
+instance Applicative (AForm sub master) where
     pure x = AForm $ const $ const $ \ints -> return (FormSuccess x, mempty, ints, mempty)
     (AForm f) <*> (AForm g) = AForm $ \mr env ints -> do
         (a, b, ints', c) <- f mr env ints
         (x, y, ints'', z) <- g mr env ints'
         return (a <*> x, b `mappend` y, ints'', c `mappend` z)
-instance (Monad m, Monoid xml, Monoid a) => Monoid (AForm xml msg m a) where
+instance Monoid a => Monoid (AForm sub master a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
-instance Monoid xml => MonadTrans (AForm xml msg) where
-    lift mx = AForm $ const $ const $ \ints -> do
-        x <- mx
-        return (pure x, mempty, ints, mempty)
 
 data FieldSettings msg = FieldSettings
-    { fsLabel :: msg
+    { fsLabel :: msg -- FIXME switch to SomeMessage?
     , fsTooltip :: Maybe msg
     , fsId :: Maybe Text
     , fsName :: Maybe Text
@@ -104,21 +103,23 @@ data FieldSettings msg = FieldSettings
 instance (a ~ Text) => IsString (FieldSettings a) where
     fromString s = FieldSettings (fromString s) Nothing Nothing Nothing
 
-data FieldView xml = FieldView
+data FieldView sub master = FieldView
     { fvLabel :: Html
     , fvTooltip :: Maybe Html
     , fvId :: Text
-    , fvInput :: xml
+    , fvInput :: GWidget sub master ()
     , fvErrors :: Maybe Html
     , fvRequired :: Bool
     }
 
-data Field xml msg a = Field
-    { fieldParse :: [Text] -> IO (Either msg (Maybe a)) -- FIXME
+data SomeMessage master = forall msg. RenderMessage master msg => SomeMessage msg
+
+data Field sub master a = Field
+    { fieldParse :: [Text] -> GGHandler sub master IO (Either (SomeMessage master) (Maybe a))
     -- | ID, name, (invalid text OR legimiate result), required?
     , fieldView :: Text
                 -> Text
                 -> Either Text a
                 -> Bool
-                -> xml
+                -> GWidget sub master ()
     }

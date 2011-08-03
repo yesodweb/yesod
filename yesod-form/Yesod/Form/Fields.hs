@@ -44,7 +44,6 @@ import Control.Monad (when, unless)
 import Data.List (intersect, nub)
 import Data.Either (rights)
 import Data.Maybe (catMaybes)
-import Data.String (IsString (..))
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -89,7 +88,6 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgInvalidBool Text
                  | MsgBoolYes
                  | MsgBoolNo
-                 | MsgOther Text
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
@@ -109,19 +107,14 @@ defaultFormMessage MsgSelectNone = "<None>"
 defaultFormMessage (MsgInvalidBool t) = "Invalid boolean: " `mappend` t
 defaultFormMessage MsgBoolYes = "Yes"
 defaultFormMessage MsgBoolNo = "No"
-defaultFormMessage (MsgOther t) = t
 
-instance IsString FormMessage where
-    fromString = MsgOther . fromString
-
-blank :: (Text -> Either msg a) -> [Text] -> IO (Either msg (Maybe a))
+blank :: (Monad m, RenderMessage master FormMessage)
+      => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))
 blank _ [] = return $ Right Nothing
 blank _ ("":_) = return $ Right Nothing
-blank f (x:_) = return $ either Left (Right . Just) $ f x
+blank f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x
 
-
-
-intField :: (Monad monad, Integral i) => Field (GGWidget master monad ()) FormMessage i
+intField :: (Integral i, RenderMessage master FormMessage) => Field sub master i
 intField = Field
     { fieldParse = blank $ \s ->
         case Data.Text.Read.signed Data.Text.Read.decimal s of
@@ -137,7 +130,7 @@ intField = Field
     showVal = either id (pack . showI)
     showI x = show (fromIntegral x :: Integer)
 
-doubleField :: Monad monad => Field (GGWidget master monad ()) FormMessage Double
+doubleField :: RenderMessage master FormMessage => Field sub master Double
 doubleField = Field
     { fieldParse = blank $ \s ->
         case Data.Text.Read.double s of
@@ -151,7 +144,7 @@ doubleField = Field
     }
   where showVal = either id (pack . show)
 
-dayField :: Monad monad => Field (GGWidget master monad ()) FormMessage Day
+dayField :: RenderMessage master FormMessage => Field sub master Day
 dayField = Field
     { fieldParse = blank $ parseDate . unpack
     , fieldView = \theId name val isReq -> addHamlet
@@ -161,7 +154,7 @@ dayField = Field
     }
   where showVal = either id (pack . show)
 
-timeField :: Monad monad => Field (GGWidget master monad ()) FormMessage TimeOfDay
+timeField :: RenderMessage master FormMessage => Field sub master TimeOfDay
 timeField = Field
     { fieldParse = blank $ parseTime . unpack
     , fieldView = \theId name val isReq -> addHamlet
@@ -176,7 +169,7 @@ timeField = Field
       where
         fullSec = fromInteger $ floor $ todSec tod
 
-htmlField :: Monad monad => Field (GGWidget master monad ()) FormMessage Html
+htmlField :: RenderMessage master FormMessage => Field sub master Html
 htmlField = Field
     { fieldParse = blank $ Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
     , fieldView = \theId name val _isReq -> addHamlet
@@ -204,7 +197,7 @@ instance ToHtml Textarea where
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
-textareaField :: Monad monad => Field (GGWidget master monad ()) FormMessage Textarea
+textareaField :: RenderMessage master FormMessage => Field sub master Textarea
 textareaField = Field
     { fieldParse =  blank $ Right . Textarea
     , fieldView = \theId name val _isReq -> addHamlet
@@ -213,7 +206,7 @@ textareaField = Field
 |]
     }
 
-hiddenField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
+hiddenField :: RenderMessage master FormMessage => Field sub master Text
 hiddenField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val _isReq -> addHamlet
@@ -222,7 +215,7 @@ hiddenField = Field
 |]
     }
 
-textField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
+textField :: RenderMessage master FormMessage => Field sub master Text
 textField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val isReq ->
@@ -231,7 +224,7 @@ textField = Field
 |]
     }
 
-passwordField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
+passwordField :: RenderMessage master FormMessage => Field sub master Text
 passwordField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name val isReq -> addHamlet
@@ -278,7 +271,7 @@ parseTimeHelper (h1, h2, m1, m2, s1, s2)
     m = read [m1, m2]
     s = fromInteger $ read [s1, s2]
 
-emailField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
+emailField :: RenderMessage master FormMessage => Field sub master Text
 emailField = Field
     { fieldParse = blank $
         \s -> if Email.isValid (unpack s)
@@ -291,9 +284,9 @@ emailField = Field
     }
 
 type AutoFocus = Bool
-searchField :: Monad monad => AutoFocus -> Field (GGWidget master monad ()) FormMessage Text
+searchField :: RenderMessage master FormMessage => AutoFocus -> Field sub master Text
 searchField autoFocus = Field
-    { fieldParse =  blank Right
+    { fieldParse = blank Right
     , fieldView = \theId name val isReq -> do
         [WHAMLET|\
 <input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
@@ -307,7 +300,7 @@ searchField autoFocus = Field
             |]
     }
 
-urlField :: Monad monad => Field (GGWidget master monad ()) FormMessage Text
+urlField :: RenderMessage master FormMessage => Field sub master Text
 urlField = Field
     { fieldParse = blank $ \s ->
         case parseURI $ unpack s of
@@ -319,18 +312,18 @@ urlField = Field
 |]
     }
 
-selectField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage a
+selectField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 selectField = selectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|])
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|])
     (\_theId _name value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected>#{text}|])
 
-multiSelectField :: (Show a, Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage [a]
+multiSelectField :: (Show a, Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master [a]
 multiSelectField = multiSelectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} multiple name=#{name}>^{inside}|])
     (\_theId _name value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected>#{text}|])
 
-radioField :: (Eq a, Monad monad, RenderMessage master FormMessage) => [(Text, a)] -> Field (GGWidget master (GGHandler sub master monad) ()) FormMessage a
+radioField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 radioField = selectFieldHelper
     (\theId _name inside -> [WHAMLET|<div ##{theId}>^{inside}|])
     (\theId name isSel -> [WHAMLET|
@@ -344,7 +337,7 @@ radioField = selectFieldHelper
     <label for=#{theId}-#{value}>#{text}
 |])
 
-boolField :: (Monad monad, RenderMessage master FormMessage) => Field (GGWidget master (GGHandler sub master monad) ()) FormMessage Bool
+boolField :: RenderMessage master FormMessage => Field sub master Bool
 boolField = Field
       { fieldParse = return . boolParser
       , fieldView = \theId name val isReq -> [WHAMLET|
@@ -367,13 +360,13 @@ boolField = Field
       "none" -> Right Nothing
       "yes" -> Right $ Just True
       "no" -> Right $ Just False
-      t -> Left $ MsgInvalidBool t
+      t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
 
-multiSelectFieldHelper :: (Show a, Eq a, Monad monad)
-        => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())
-        -> (Text -> Text -> Text -> Bool -> Text -> GGWidget master monad ())
-        -> [(Text, a)] -> Field (GGWidget master monad ()) FormMessage [a]
+multiSelectFieldHelper :: (Show a, Eq a)
+        => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
+        -> (Text -> Text -> Text -> Bool -> Text -> GWidget sub master ())
+        -> [(Text, a)] -> Field sub master [a]
 multiSelectFieldHelper outside inside opts = Field
     { fieldParse = return . selectParser
     , fieldView = \theId name vals _ ->
@@ -393,11 +386,12 @@ multiSelectFieldHelper outside inside opts = Field
     selectParser xs | not $ null (["", "none"] `intersect` xs) = Right Nothing
                     | otherwise = (Right . Just . map snd . catMaybes . map (\y -> lookup y pairs) . nub . map fst . rights . map Data.Text.Read.decimal) xs
 
-selectFieldHelper :: (Eq a, Monad monad)
-        => (Text -> Text -> GGWidget master monad () -> GGWidget master monad ())
-        -> (Text -> Text -> Bool -> GGWidget master monad ())
-        -> (Text -> Text -> Text -> Bool -> Text -> GGWidget master monad ())
-        -> [(Text, a)] -> Field (GGWidget master monad ()) FormMessage a
+selectFieldHelper
+        :: (Eq a, RenderMessage master FormMessage)
+        => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
+        -> (Text -> Text -> Bool -> GWidget sub master ())
+        -> (Text -> Text -> Text -> Bool -> Text -> GWidget sub master ())
+        -> [(Text, a)] -> Field sub master a
 selectFieldHelper outside onOpt inside opts = Field
     { fieldParse = return . selectParser
     , fieldView = \theId name val isReq ->
@@ -422,6 +416,6 @@ selectFieldHelper outside onOpt inside opts = Field
             x -> case Data.Text.Read.decimal x of
                     Right (a, "") ->
                         case lookup a pairs of
-                            Nothing -> Left $ MsgInvalidEntry x
+                            Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
                             Just y -> Right $ Just $ snd y
-                    _ -> Left $ MsgInvalidNumber x
+                    _ -> Left $ SomeMessage $ MsgInvalidNumber x
