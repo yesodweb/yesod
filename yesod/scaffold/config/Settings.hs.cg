@@ -32,7 +32,7 @@ import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLuciu
 import Data.Monoid (mempty, mappend)
 import System.Directory (doesFileExist)
 import Prelude hiding (concat)
-import Data.Text (Text)
+~importDT~
 import Data.Object
 import qualified Data.Object.Yaml as YAML
 import Control.Monad (join)

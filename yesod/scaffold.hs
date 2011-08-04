@@ -102,6 +102,9 @@ scaffold = do
         uncapitalize s = toLower (head s) : tail s
         backendLower = uncapitalize $ show backend 
         upper = show backend
+    let importDT = if backend == Postgresql
+                   then "import Data.Text (Text, append, concat, pack, snoc)"
+                   else "import Data.Text (Text)"
 
     putStrLn "That's it! I'm creating your files now..."
 
