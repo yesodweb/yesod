@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Controller
     ( with~sitearg~
@@ -11,6 +12,7 @@ import ~sitearg~
 import Settings
 import Yesod.Static
 import Yesod.Auth
+import Yesod.Logger (makeLogger, flushLogger, Logger)
 import Database.Persist.GenericSql
 import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
@@ -35,11 +37,11 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig -> (Application -> IO a) -> IO a
-with~sitearg~ conf f = do
+with~sitearg~ :: AppConfig -> Logger -> (Application -> IO a) -> IO a
+with~sitearg~ conf logger f = do
   Settings.withConnectionPool conf $ \p -> do
     runConnectionPool (runMigration migrateAll) p
-    let h = ~sitearg~ conf s p
+    let h = ~sitearg~ conf logger s p
     toWaiApp h >>= f
   where
     s = static Settings.staticDir
@@ -47,7 +49,10 @@ with~sitearg~ conf f = do
 with~sitearg~LoadConfig :: Settings.AppEnvironment -> (Application -> IO a) -> IO a
 with~sitearg~LoadConfig env f = do
   conf <- Settings.loadConfig env
-  with~sitearg~ conf f
+  logger <- makeLogger
+  r <- with~sitearg~ conf logger f
+  flushLogger logger
+  return r
 
 -- for yesod devel
 withDevelApp :: Dynamic

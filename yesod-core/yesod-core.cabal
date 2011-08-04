@@ -51,10 +51,14 @@ library
                    , case-insensitive          >= 0.2      && < 0.4
                    , parsec                    >= 2        && < 3.2
                    , directory                 >= 1        && < 1.2
+                   -- for logger. Probably logger should be a separate package
+                   , strict-concurrency        >= 0.2.4    && < 0.2.5
+
     exposed-modules: Yesod.Content
                      Yesod.Core
                      Yesod.Dispatch
                      Yesod.Handler
+                     Yesod.Logger
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Message

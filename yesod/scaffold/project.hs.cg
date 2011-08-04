@@ -5,15 +5,15 @@ import Controller (with~sitearg~)
 import Network.Wai.Handler.Warp (run)
 import System.Console.CmdArgs hiding (args)
 import Data.Char (toUpper, toLower)
+import Yesod.Logger (logString, logLazyText, flushLogger, makeLogger)
 
-#if PRODUCTION
-#else
-import System.IO (hPutStrLn, stderr)
-import Network.Wai.Middleware.Debug (debug)
+#ifndef PRODUCTION
+import Network.Wai.Middleware.Debug (debugHandle)
 #endif
 
 main :: IO ()
 main = do
+    logger <- makeLogger
     args <- cmdArgs argConfig
     env <- getAppEnv args
     config <- Settings.loadConfig env
@@ -21,9 +21,12 @@ main = do
 #if PRODUCTION
     with~sitearg~ c $ run (appPort c)
 #else
-    hPutStrLn stderr $ (show env) ++ " application launched, listening on port " ++ show (appPort c)
-    with~sitearg~ c $ run (appPort c) . debug
+    logString logger $ (show env) ++ " application launched, listening on port " ++ show (appPort c)
+    with~sitearg~ c logger $ run (appPort c) . debugHandle (logHandle logger)
+    flushLogger logger
 #endif
+  where
+    logHandle logger msg = logLazyText logger msg >> flushLogger logger
 
 data ArgConfig = ArgConfig {environment :: String, port :: Int}
                  deriving (Show, Data, Typeable)

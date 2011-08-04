@@ -20,6 +20,7 @@ import Yesod.Static
 import Yesod.Auth
 import Yesod.Auth.OpenId
 import Yesod.Auth.Email
+import Yesod.Logger (Logger, logLazyText)
 import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L
@@ -43,6 +44,7 @@ import Text.Hamlet (html)
 -- access to the data present here.
 data ~sitearg~ = ~sitearg~
     { settings :: Settings.AppConfig
+    , getLogger :: Logger
     , getStatic :: Static -- ^ Settings for static file serving.
     , connPool :: Settings.ConnectionPool -- ^ Database connection pool.
     }
@@ -100,6 +102,9 @@ instance Yesod ~sitearg~ where
     -- The page to be redirected to when authentication is required.
     authRoute _ = Just $ AuthR LoginR
 
+    messageLogger y loc level msg =
+      formatLogMessage loc level msg >>= logLazyText (getLogger y)
+
     -- This function creates static content files in the static folder
     -- and names them based on a hash of their content. This allows
     -- expiration dates to be set far in the future without worry of
@@ -118,6 +123,7 @@ instance Yesod ~sitearg~ where
         exists <- liftIO $ doesFileExist fn'
         unless exists $ liftIO $ L.writeFile fn' content'
         return $ Just $ Right (StaticR $ StaticRoute ["tmp", T.pack fn] [], [])
+
 
 -- How to run database actions.
 instance YesodPersist ~sitearg~ where

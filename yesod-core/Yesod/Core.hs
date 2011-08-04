@@ -17,6 +17,7 @@ module Yesod.Core
       -- * Logging
     , LogLevel (..)
     , formatLogMessage
+    , fileLocationToString
     , logDebug
     , logInfo
     , logWarn

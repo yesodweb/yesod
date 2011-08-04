@@ -9,21 +9,26 @@ module Yesod.Logger
     , makeLogger
     , flushLogger
     , timed
+    , logText
+    , logLazyText
+    , logString
     ) where
 
 import Control.Monad (forever)
-import Control.Monad.Trans (MonadIO, liftIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Applicative ((<$>), (<*>))
 import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan.Strict (Chan, newChan, readChan, writeChan)
 import Control.Concurrent.MVar.Strict (MVar, newEmptyMVar, takeMVar, putMVar)
 import Text.Printf (printf)
-
+import Data.Text
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.IO
 import Data.Time (getCurrentTime, diffUTCTime)
 
 data Logger = Logger
-    { loggerChan :: Chan (Maybe String)  -- Nothing marks the end
-    , loggerSync :: MVar ()              -- Used for sync on quit
+    { loggerChan :: Chan (Maybe TL.Text)  -- Nothing marks the end
+    , loggerSync :: MVar ()               -- Used for sync on quit
     }
 
 makeLogger :: IO Logger
@@ -38,7 +43,7 @@ makeLogger = do
             -- Stop: sync
             Nothing -> putMVar (loggerSync logger) ()
             -- Print and continue
-            Just m  -> putStrLn m
+            Just m  -> Data.Text.Lazy.IO.putStrLn m
 
 -- | Flush the logger (blocks until flushed)
 --
@@ -49,15 +54,21 @@ flushLogger logger = do
     return ()
 
 -- | Send a raw message to the logger
---
-message :: Logger -> String -> IO ()
-message logger = writeChan (loggerChan logger) . Just
+--   Native format is lazy text
+logLazyText :: Logger -> TL.Text -> IO ()
+logLazyText logger = writeChan (loggerChan logger) . Just
+
+logText :: Logger -> Text -> IO ()
+logText logger = logLazyText logger . TL.fromStrict
+
+logString :: Logger -> String -> IO ()
+logString logger = logLazyText logger . TL.pack
 
 -- | Execute a monadic action and log the duration
 --
 timed :: MonadIO m
       => Logger  -- ^ Logger
-      -> String  -- ^ Message
+      -> Text  -- ^ Message
       -> m a     -- ^ Action
       -> m a     -- ^ Timed and logged action
 timed logger msg action = do
@@ -66,6 +77,6 @@ timed logger msg action = do
     stop <- liftIO getCurrentTime
     let diff = fromEnum $ diffUTCTime stop start
         ms = diff `div` 10 ^ (9 :: Int)
-        formatted = printf "  [%4dms] %s" ms msg
-    liftIO $ message logger formatted
+        formatted = printf "  [%4dms] %s" ms (unpack msg)
+    liftIO $ logString logger formatted
     return result

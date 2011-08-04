@@ -23,6 +23,7 @@ module Yesod.Internal.Core
       -- * Logging
     , LogLevel (..)
     , formatLogMessage
+    , fileLocationToString
     , messageLoggerHandler
       -- * Misc
     , yesodVersion
@@ -71,7 +72,6 @@ import Data.List (foldl')
 import qualified Network.HTTP.Types as H
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO
-import qualified System.IO
 import qualified Data.Text.Lazy.Builder as TB
 import Language.Haskell.TH.Syntax (Loc (..), Lift (..))
 import Text.Blaze (preEscapedLazyText)
@@ -257,7 +257,7 @@ class RenderRoute (Route a) => Yesod a where
                   -> IO ()
     messageLogger _ loc level msg =
         formatLogMessage loc level msg >>=
-        Data.Text.Lazy.IO.hPutStrLn System.IO.stderr
+        Data.Text.Lazy.IO.putStrLn
 
 messageLoggerHandler :: (Yesod m, MonadIO mo)
                      => Loc -> LogLevel -> Text -> GGHandler s m mo ()
@@ -283,14 +283,23 @@ formatLogMessage loc level msg = do
     now <- getCurrentTime
     return $ TB.toLazyText $
         TB.fromText (TS.pack $ show now)
-        `mappend` TB.fromText ": "
-        `mappend` TB.fromText (TS.pack $ show level)
-        `mappend` TB.fromText "@("
-        `mappend` TB.fromText (TS.pack $ loc_filename loc)
-        `mappend` TB.fromText ":"
-        `mappend` TB.fromText (TS.pack $ show $ fst $ loc_start loc)
-        `mappend` TB.fromText ") "
+        `mappend` TB.fromText " ["
+        `mappend` TB.fromText (TS.pack $ drop 5 $ show level)
+        `mappend` TB.fromText "] "
         `mappend` TB.fromText msg
+        `mappend` TB.fromText " @("
+        `mappend` TB.fromText (TS.pack $ fileLocationToString loc)
+        `mappend` TB.fromText ") "
+
+-- taken from file-location package
+-- turn the TH Loc loaction information into a human readable string
+-- leaving out the loc_end parameter
+fileLocationToString :: Loc -> String
+fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++  
+  ' ' : (loc_filename loc) ++ ':' : (line loc) ++ ':' : (char loc)
+  where
+    line = show . fst . loc_start
+    char = show . snd . loc_start
 
 defaultYesodRunner :: Yesod master
                    => a

@@ -11,7 +11,7 @@ cabal clean && cabal install && cabal sdist
 for f in $(ls -1rt dist/*.tar.gz | tail -1)
 do
   tar -xzvf $f && cd `basename $f .tar.gz`
-  shelltest ../tests/scaffold.shelltest $@
+  shelltest ../tests/scaffold.shelltest -c $@
   cd ..
   rm -r `basename $f .tar.gz`
 done
