@@ -111,6 +111,10 @@ scaffold = do
           MongoDB    -> $(codegen $ "mongoDBConnPool")
           Tiny       -> ""
 
+        textImport = case backend of
+          Postgresql -> ", concat, append, snoc, pack"
+          _          -> ""
+
         packages = if backend == MongoDB then "          , mongoDB\n         , bson\n" else ""
 
     let fst3 (x, _, _) = x
