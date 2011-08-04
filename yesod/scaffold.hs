@@ -149,7 +149,7 @@ scaffold = do
         ifTiny a b = if isTiny then a else b
 
     writeFile' ("config/settings.yml") $(codegen "config/settings.yml")
-    writeFile' ("main.hs") $(codegen "project.hs")
+    writeFile' ("main.hs") $(codegen "main.hs")
     writeFile' (project ++ ".cabal") $ ifTiny $(codegen "mini/cabal") $(codegen "project.cabal")
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
