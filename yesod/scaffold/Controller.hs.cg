@@ -17,6 +17,12 @@ import Database.Persist.GenericSql
 import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
 
+#ifndef WINDOWS
+import qualified System.Posix.Signals as Signal
+import Control.Concurrent (forkIO, killThread)
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+#endif
+
 -- Import all relevant handler modules here.
 import Handler.Root
 
@@ -37,22 +43,31 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig -> Logger -> (Application -> IO a) -> IO a
+with~sitearg~ :: AppConfig -> Logger -> (Application -> IO a) -> IO ()
 with~sitearg~ conf logger f = do
   Settings.withConnectionPool conf $ \p -> do
     runConnectionPool (runMigration migrateAll) p
     let h = ~sitearg~ conf logger s p
-    toWaiApp h >>= f
+#ifdef WINDOWS
+    toWaiApp h >>= f >> return ()
+#else
+    tid <- forkIO $ toWaiApp h >>= f >> return ()
+    flag <- newEmptyMVar
+    _ <- Signal.installHandler Signal.sigINT (Signal.CatchOnce $ do
+        putStrLn "Caught an interrupt"
+        killThread tid
+        putMVar flag ()) Nothing
+    takeMVar flag
+#endif
   where
     s = static Settings.staticDir
 
-with~sitearg~LoadConfig :: Settings.AppEnvironment -> (Application -> IO a) -> IO a
+with~sitearg~LoadConfig :: Settings.AppEnvironment -> (Application -> IO a) -> IO ()
 with~sitearg~LoadConfig env f = do
   conf <- Settings.loadConfig env
   logger <- makeLogger
-  r <- with~sitearg~ conf logger f
+  with~sitearg~ conf logger f
   flushLogger logger
-  return r
 
 -- for yesod devel
 withDevelApp :: Dynamic

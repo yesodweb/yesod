@@ -64,5 +64,3 @@ executable         ~project~
                  , cmdargs
                  , data-object
                  , data-object-yaml
-    ghc-options:   -Wall -threaded
-

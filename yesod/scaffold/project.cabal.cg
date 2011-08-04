@@ -75,3 +75,6 @@ executable         ~project~
                  , warp
                  , blaze-builder
                  , cmdargs
+
+    if !os(windows)
+         build-depends: unix
