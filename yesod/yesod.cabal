@@ -34,7 +34,7 @@ extra-source-files:
   scaffold/postgresqlConnPool.cg
   scaffold/sqliteConnPool.cg
   scaffold/.ghci.cg
-  scaffold/cabal.cg
+  scaffold/project.cabal.cg
   scaffold/Controller.hs.cg
   scaffold/julius/homepage.julius.cg
   scaffold/hamlet/homepage.hamlet.cg
