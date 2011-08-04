@@ -23,13 +23,13 @@ extra-source-files:
   scaffold/sitearg.hs.cg
   scaffold/LICENSE.cg
   scaffold/mongoDBConnPool.cg
-  scaffold/mini/sitearg.hs.cg
-  scaffold/mini/cabal.cg
-  scaffold/mini/Controller.hs.cg
-  scaffold/mini/hamlet/homepage.hamlet.cg
-  scaffold/mini/Handler/Root.hs.cg
-  scaffold/mini/config/routes.cg
-  scaffold/mini/config/Settings.hs.cg
+  scaffold/tiny/sitearg.hs.cg
+  scaffold/tiny/cabal.cg
+  scaffold/tiny/Controller.hs.cg
+  scaffold/tiny/hamlet/homepage.hamlet.cg
+  scaffold/tiny/Handler/Root.hs.cg
+  scaffold/tiny/config/routes.cg
+  scaffold/tiny/config/Settings.hs.cg
   scaffold/static/css/html5boilerplate.css.cg
   scaffold/postgresqlConnPool.cg
   scaffold/sqliteConnPool.cg
