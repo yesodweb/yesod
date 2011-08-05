@@ -172,12 +172,12 @@ juliusFile =
 
 widgetFile :: FilePath -> Q Exp
 widgetFile x = do
-    let h = unlessExists (globFile "hamlet")  (whamletFile . globFile "hamlet")
-    let c = unlessExists (globFile "cassius") cassiusFile
-    let j = unlessExists (globFile "julius")  juliusFile
-    let l = unlessExists (globFile "lucius")  luciusFile
+    let h = whenExists (globFile "hamlet")  (whamletFile . globFile "hamlet")
+    let c = whenExists (globFile "cassius") cassiusFile
+    let j = whenExists (globFile "julius")  juliusFile
+    let l = whenExists (globFile "lucius")  luciusFile
     [|addWidget $h >> addCassius $c >> addJulius $j >> addLucius $l|]
   where
-    unlessExists tofn f = do
+    whenExists tofn f = do
         e <- qRunIO $ doesFileExist $ tofn x
         if e then f x else [|mempty|]

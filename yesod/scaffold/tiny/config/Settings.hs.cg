@@ -142,12 +142,12 @@ juliusFile = H.juliusFileDebug . toJuliusFile
 
 widgetFile :: FilePath -> Q Exp
 widgetFile x = do
-    let h = unlessExists toHamletFile $ whamletFile . toHamletFile
-    let c = unlessExists toCassiusFile cassiusFile
-    let j = unlessExists toJuliusFile juliusFile
-    let l = unlessExists toLuciusFile luciusFile
+    let h = whenExists toHamletFile $ whamletFile . toHamletFile
+    let c = whenExists toCassiusFile cassiusFile
+    let j = whenExists toJuliusFile juliusFile
+    let l = whenExists toLuciusFile luciusFile
     [|addWidget $h >> addCassius $c >> addJulius $j >> addLucius $l|]
   where
-    unlessExists tofn f = do
+    whenExists tofn f = do
         e <- qRunIO $ doesFileExist $ tofn x
         if e then f x else [|mempty|]
