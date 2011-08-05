@@ -20,6 +20,9 @@ module Yesod.Form.Functions
     , runFormPost
     , runFormPostNoNonce
     , runFormGet
+      -- * Generate a blank form
+    , generateFormPost
+    , generateFormGet
       -- * Rendering
     , FormRender
     , renderTable
@@ -39,14 +42,14 @@ import Control.Monad (liftM, join)
 import Text.Blaze (Html, toHtml)
 import Yesod.Handler (GHandler, GGHandler, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, liftIOHandler)
-import Yesod.Widget (GWidget, GGWidget, whamlet)
+import Yesod.Widget (GWidget, whamlet)
 import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
 import Text.Hamlet (html)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Map as Map
 
 #if __GLASGOW_HASKELL__ >= 700
@@ -169,13 +172,20 @@ runFormPost :: RenderMessage master FormMessage
             => (Html -> Form sub master (FormResult a, xml))
             -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPost form = do
+    env <- postEnv
+    postHelper form env
+
+postHelper  :: RenderMessage master FormMessage
+            => (Html -> Form sub master (FormResult a, xml))
+            -> Maybe (Env, FileEnv)
+            -> GHandler sub master ((FormResult a, xml), Enctype)
+postHelper form env = do
     req <- getRequest
     let nonceKey = "_nonce"
     let nonce =
             case reqNonce req of
                 Nothing -> mempty
                 Just n -> [HTML|<input type=hidden name=#{nonceKey} value=#{n}>|]
-    env <- postEnv
     m <- getYesod
     langs <- languages
     ((res, xml), enctype) <- runFormGeneric (form nonce) m langs env
@@ -187,6 +197,17 @@ runFormPost form = do
                 _ -> res
     return ((res', xml), enctype)
 
+-- | Similar to 'runFormPost', except it always ignore the currently available
+-- environment. This is necessary in cases like a wizard UI, where a single
+-- page will both receive and incoming form and produce a new, blank form. For
+-- general usage, you can stick with @runFormPost@.
+generateFormPost
+    :: RenderMessage master FormMessage
+    => (Html -> Form sub master (FormResult a, xml))
+    -> GHandler sub master ((FormResult a, xml), Enctype)
+generateFormPost form = postHelper form Nothing
+
+postEnv :: GHandler sub master (Maybe (Env, FileEnv))
 postEnv = do
     req <- getRequest
     if requestMethod (reqWaiRequest req) == "GET"
@@ -205,13 +226,22 @@ runFormPostNoNonce form = do
 
 runFormGet :: (Html -> Form sub master a) -> GHandler sub master (a, Enctype)
 runFormGet form = do
-    let key = "_hasdata"
-    let fragment = [HTML|<input type=hidden name=#{key}>|]
     gets <- liftM reqGetParams getRequest
     let env =
-            case lookup key gets of
+            case lookup getKey gets of
                 Nothing -> Nothing
                 Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
+    getHelper form env
+
+generateFormGet :: (Html -> Form sub master a) -> GHandler sub master (a, Enctype)
+generateFormGet form = getHelper form Nothing
+
+getKey :: Text
+getKey = "_hasdata"
+
+getHelper :: (Html -> Form sub master a) -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
+getHelper form env = do
+    let fragment = [HTML|<input type=hidden name=#{getKey}>|]
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env
