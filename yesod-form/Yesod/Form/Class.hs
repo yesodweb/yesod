@@ -8,14 +8,12 @@ module Yesod.Form.Class
     ) where
 
 import Text.Hamlet
-import Yesod.Widget (GGWidget, GWidget)
 import Yesod.Form.Fields
 import Yesod.Form.Types
 import Yesod.Form.Functions (areq, aopt)
 import Data.Int (Int64)
 import Data.Time (Day, TimeOfDay)
 import Data.Text (Text)
-import Yesod.Handler (GGHandler)
 import Yesod.Message (RenderMessage)
 
 {-

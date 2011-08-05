@@ -12,19 +12,18 @@ module Yesod.Form.MassInput
 import Yesod.Form.Types
 import Yesod.Form.Functions
 import Yesod.Form.Fields (boolField, FormMessage (MsgDelete))
-import Yesod.Widget (GWidget, GGWidget, whamlet)
+import Yesod.Widget (GWidget, whamlet)
 import Yesod.Message (RenderMessage)
-import Yesod.Handler (newIdent, GHandler, GGHandler)
+import Yesod.Handler (newIdent, GGHandler)
 import Text.Blaze (Html)
 import Control.Monad.Trans.Class (lift)
-import Data.Text (pack, Text)
+import Data.Text (pack)
 import Control.Monad.Trans.RWS (get, put, ask)
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (fromMaybe)
 import Data.Text.Read (decimal)
 import Control.Monad (liftM)
 import Data.Either (partitionEithers)
 import Data.Traversable (sequenceA)
-import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
 
@@ -36,6 +35,7 @@ import Data.Maybe (listToMaybe)
 #define WHAMLET $whamlet
 #endif
 
+down :: Int -> Form sub master ()
 down 0 = return ()
 down i | i < 0 = error "called down with a negative number"
 down i = do
@@ -43,6 +43,7 @@ down i = do
     put $ IntCons 0 is
     down $ i - 1
 
+up :: Int -> Form sub master ()
 up 0 = return ()
 up i | i < 0 = error "called down with a negative number"
 up i = do

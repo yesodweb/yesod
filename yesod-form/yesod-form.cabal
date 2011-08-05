@@ -28,7 +28,6 @@ library
                    , blaze-html                >= 0.4      && < 0.5
                    , bytestring                >= 0.9      && < 0.10
                    , text                      >= 0.7      && < 1.0
-                   , web-routes-quasi          >= 0.7      && < 0.8
                    , wai                       >= 0.4      && < 0.5
                    , containers                >= 0.2      && < 0.5
     exposed-modules: Yesod.Form

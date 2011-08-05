@@ -15,7 +15,6 @@ import Control.Applicative (Applicative (..))
 import Yesod.Handler (GHandler, GGHandler, invalidArgs, runRequestBody, getRequest, getYesod, liftIOHandler)
 import Yesod.Request (reqGetParams, languages)
 import Control.Monad (liftM)
-import Yesod.Widget (GWidget)
 import Yesod.Message (RenderMessage (..))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -62,6 +61,7 @@ runInputGet (FormInput f) = do
         Left errs -> invalidArgs $ errs []
         Right x -> return x
 
+toMap :: [(Text, a)] -> Map.Map Text [a]
 toMap = Map.unionsWith (++) . map (\(x, y) -> Map.singleton x [y])
 
 runInputPost :: FormInput sub master a -> GHandler sub master a

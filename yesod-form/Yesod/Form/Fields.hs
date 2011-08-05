@@ -31,7 +31,6 @@ module Yesod.Form.Fields
 import Yesod.Form.Types
 import Yesod.Widget
 import Yesod.Message (RenderMessage)
-import Yesod.Handler (GGHandler)
 import Text.Hamlet
 import Text.Blaze (ToHtml (..), preEscapedString, unsafeByteString)
 import Text.Cassius
@@ -55,7 +54,6 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 import Data.Monoid (mappend)
-import Text.Hamlet (html)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet

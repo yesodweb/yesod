@@ -78,13 +78,21 @@ getMassR = do
 |]
 
 myValidForm = fixType $ runFormGet $ renderTable $ pure (,,)
-    <*> areq (check (\x -> if T.length x < 3 then Left ("Need at least 3 letters" :: Text) else Right x) textField) "Name" Nothing
-    <*> areq (checkBool (>= 18) ("Must be 18 or older" :: Text) intField) "Age" Nothing
+    <*> areq (check (\x ->
+            if T.length x < 3
+                then Left ("Need at least 3 letters" :: Text)
+                else Right x
+              ) textField)
+            "Name" Nothing
+    <*> areq (checkBool (>= 18) ("Must be 18 or older" :: Text) intField)
+            "Age" Nothing
     <*> areq (checkM inPast dayField) "Anniversary" Nothing
   where
     inPast x = do
         now <- liftIO $ getCurrentTime
-        return $ if utctDay now < x then Left ("Need a date in the past" :: Text) else Right x
+        return $ if utctDay now < x
+                    then Left ("Need a date in the past" :: Text)
+                    else Right x
 
 getValidR = do
     ((res, form), enctype) <- myValidForm
