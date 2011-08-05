@@ -13,6 +13,7 @@ import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import Control.Monad (unless)
 import System.Environment (getArgs)
+import System.Exit (exitWith)
 
 import Scaffold.Build (touch)
 import Scaffold.Devel (devel)
@@ -44,14 +45,13 @@ main = do
                 _ -> (False, args')
     let cmd = if isDev then "cabal-dev" else "cabal"
     let cabal rest = rawSystem cmd rest >> return ()
-    let conf rest = cabal $ "configure":rest
-    let build rest = cabal $ "build":rest
+    let build rest = rawSystem cmd $ "build":rest
     case args of
         ["init"] -> scaffold
-        "build":rest -> touch >> build rest
+        "build":rest -> touch >> build rest >>= exitWith
         ["touch"] -> touch
         ["devel"] -> devel cabal
-        "configure":rest -> conf rest
+        "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         _ -> do
             putStrLn "Usage: yesod <command>"
             putStrLn "Available commands:"
