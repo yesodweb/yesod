@@ -96,4 +96,4 @@ test-suite runtests
 
 source-repository head
   type:     git
-  location: git://github.com/snoyberg/yesod-core.git
+  location: git://github.com/yesodweb/yesod.git
