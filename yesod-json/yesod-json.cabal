@@ -14,12 +14,12 @@ homepage:        http://www.yesodweb.com/
 library
     build-depends:   base                      >= 4        && < 5
                    , yesod-core                >= 0.9      && < 0.10
-                   , aeson                     >= 0.3.1.1  && < 0.4
+                   , aeson                     >= 0.3.2.2  && < 0.4
                    , text                      >= 0.8      && < 0.12
                    , hamlet                    >= 0.9      && < 0.10
                    , vector
                    , containers
-                   , blaze-textual             >= 0.1      && < 0.2
+                   , blaze-textual             >= 0.2      && < 0.3
     exposed-modules: Yesod.Json
     ghc-options:     -Wall
 
