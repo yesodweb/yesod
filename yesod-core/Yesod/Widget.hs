@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
@@ -14,6 +15,10 @@ module Yesod.Widget
     , whamlet
     , whamletFile
     , ihamletToRepHtml
+      -- * Convert to Widget
+    , ToWidget (..)
+    , ToWidgetHead (..)
+    , ToWidgetBody (..)
       -- * Creating
       -- ** Head of page
     , setTitle
@@ -103,6 +108,48 @@ addSubWidget sub (GWidget w) = do
     GWidget $ put s'
     GWidget $ tell w'
     return a
+
+class ToWidget sub master a where
+    toWidget :: a -> GWidget sub master ()
+
+instance url ~ Route master => ToWidget sub master (Hamlet url) where
+    toWidget = addHamlet
+instance url ~ Route master => ToWidget sub master (Cassius url) where
+    toWidget = addCassius
+instance url ~ Route master => ToWidget sub master (Julius url) where
+    toWidget = addJulius
+instance ToWidget sub master (GWidget sub master ()) where
+    toWidget = id
+instance ToWidget sub master Html where
+    toWidget = addHtml
+instance url ~ Route master => ToWidget sub master (Coffee url) where
+    toWidget = addCoffee
+
+class ToWidgetBody sub master a where
+    toWidgetBody :: a -> GWidget sub master ()
+
+instance url ~ Route master => ToWidgetBody sub master (Hamlet url) where
+    toWidgetBody = addHamlet
+instance url ~ Route master => ToWidgetBody sub master (Julius url) where
+    toWidgetBody = addJulius
+instance ToWidgetBody sub master Html where
+    toWidgetBody = addHtml
+instance url ~ Route master => ToWidgetBody sub master (Coffee url) where
+    toWidgetBody = addCoffeeBody
+
+class ToWidgetHead sub master a where
+    toWidgetHead :: a -> GWidget sub master ()
+
+instance url ~ Route master => ToWidgetHead sub master (Hamlet url) where
+    toWidgetHead = addHamletHead
+instance url ~ Route master => ToWidgetHead sub master (Cassius url) where
+    toWidgetHead = addCassius
+instance url ~ Route master => ToWidgetHead sub master (Julius url) where
+    toWidgetHead = addJulius
+instance ToWidgetHead sub master Html where
+    toWidgetHead = addHtmlHead
+instance url ~ Route master => ToWidgetHead sub master (Coffee url) where
+    toWidgetHead = addCoffee
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
