@@ -20,7 +20,7 @@ library
                    , yesod-persistent          >= 0.2      && < 0.3
                    , template-haskell
                    , transformers              >= 0.2.2    && < 0.3
-                   , data-default              >= 0.2      && < 0.3
+                   , data-default              >= 0.3      && < 0.4
                    , xss-sanitize              >= 0.2.4    && < 0.3
                    , blaze-builder             >= 0.2.1    && < 0.4
                    , network                   >= 2.2      && < 2.4
