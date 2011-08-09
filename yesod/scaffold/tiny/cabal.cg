@@ -55,6 +55,8 @@ executable         ~project~
                  , text
                  , template-haskell
                  , hamlet
+                 , shakespeare-css
+                 , shakespeare-js
                  , transformers
                  , data-object
                  , data-object-yaml

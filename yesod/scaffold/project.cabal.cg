@@ -67,7 +67,9 @@ executable         ~project~
                  , persistent-~backendLower~ >= 0.6 && < 0.7
                  ~packages~
                  , template-haskell
-                 , hamlet
+                 , hamlet               >= 0.10     && < 0.11
+                 , shakespeare-css      >= 0.10     && < 0.11
+                 , shakespeare-js       >= 0.10     && < 0.11
                  , hjsmin
                  , transformers
                  , data-object
