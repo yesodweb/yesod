@@ -20,9 +20,9 @@ class YesodPersist y where
     runDB :: YesodDB y (GGHandler sub y IO) a -> GHandler sub y a
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
-get404 :: (PersistBackend (t m), PersistEntity val, Monad (t m),
+get404 :: (PersistBackend t m, PersistEntity val, Monad (t m),
            Failure ErrorResponse m, MonadTrans t)
-       => Key val -> t m val
+       => Key t val -> t m val
 get404 key = do
     mres <- get key
     case mres of
@@ -31,9 +31,9 @@ get404 key = do
 
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
 --   exist.
-getBy404 :: (PersistBackend (t m), PersistEntity val, Monad (t m),
+getBy404 :: (PersistBackend t m, PersistEntity val, Monad (t m),
              Failure ErrorResponse m, MonadTrans t)
-         => Unique val -> t m (Key val, val)
+         => Unique val t -> t m (Key t val, val)
 getBy404 key = do
     mres <- getBy key
     case mres of
