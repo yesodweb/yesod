@@ -11,6 +11,8 @@
 
 ## Installing the latest development version from github
 
+    cabal update
+
     REPOS="hamlet persistent wai yesod"
     for repo in $REPOS
     do
