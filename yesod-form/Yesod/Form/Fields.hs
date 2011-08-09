@@ -30,7 +30,7 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Types
 import Yesod.Widget
-import Yesod.Message (RenderMessage)
+import Yesod.Message (RenderMessage, SomeMessage (..))
 import Text.Hamlet
 import Text.Blaze (ToHtml (..), preEscapedString, unsafeByteString)
 import Text.Cassius

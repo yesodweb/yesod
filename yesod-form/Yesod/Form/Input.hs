@@ -15,7 +15,7 @@ import Control.Applicative (Applicative (..))
 import Yesod.Handler (GHandler, GGHandler, invalidArgs, runRequestBody, getRequest, getYesod, liftIOHandler)
 import Yesod.Request (reqGetParams, languages)
 import Control.Monad (liftM)
-import Yesod.Message (RenderMessage (..))
+import Yesod.Message (RenderMessage (..), SomeMessage (..))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 

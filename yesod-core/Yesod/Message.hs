@@ -2,10 +2,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE ExistentialQuantification #-}
 module Yesod.Message
     ( mkMessage
     , RenderMessage (..)
     , ToMessage (..)
+    , SomeMessage (..)
     ) where
 
 import Language.Haskell.TH.Syntax
@@ -248,3 +250,5 @@ parseVar s =
     case break (== '@') s of
         (x, '@':y) -> (x, Just y)
         _ -> (s, Nothing)
+
+data SomeMessage master = forall msg. RenderMessage master msg => SomeMessage msg

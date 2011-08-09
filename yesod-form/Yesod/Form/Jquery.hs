@@ -27,7 +27,7 @@ import Text.Julius (julius)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
-import Yesod.Core (RenderMessage)
+import Yesod.Core (RenderMessage, SomeMessage (..))
 
 #if __GLASGOW_HASKELL__ >= 700
 #define HTML html

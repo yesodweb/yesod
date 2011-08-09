@@ -12,7 +12,6 @@ module Yesod.Form.Types
     , Form
     , AForm (..)
       -- * Build forms
-    , SomeMessage (..)
     , Field (..)
     , FieldSettings (..)
     , FieldView (..)
@@ -26,7 +25,7 @@ import Text.Blaze (Html, ToHtml (toHtml))
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad (liftM)
 import Data.String (IsString (..))
-import Yesod.Core (RenderMessage, GGHandler, GWidget)
+import Yesod.Core (GGHandler, GWidget, SomeMessage)
 import qualified Data.Map as Map
 
 -- | A form can produce three different results: there was no data available,
@@ -112,8 +111,6 @@ data FieldView sub master = FieldView
     , fvErrors :: Maybe Html
     , fvRequired :: Bool
     }
-
-data SomeMessage master = forall msg. RenderMessage master msg => SomeMessage msg
 
 data Field sub master a = Field
     { fieldParse :: [Text] -> GGHandler sub master IO (Either (SomeMessage master) (Maybe a))
