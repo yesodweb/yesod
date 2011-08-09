@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Persist
     ( YesodPersist (..)
+    , YesodDB
     , get404
     , getBy404
     , module Database.Persist
@@ -11,13 +12,16 @@ module Yesod.Persist
 import Database.Persist
 import Database.Persist.TH
 import Control.Monad.Trans.Class (MonadTrans (..))
+import Control.Monad.IO.Class (MonadIO)
 import Control.Failure (Failure)
 
 import Yesod.Handler
 
-class YesodPersist y where
-    type YesodDB y :: (* -> *) -> * -> *
-    runDB :: YesodDB y (GGHandler sub y IO) a -> GHandler sub y a
+type YesodDB sub master = YesodPersistBackend master (GGHandler sub master IO)
+
+class YesodPersist master where
+    type YesodPersistBackend master :: (* -> *) -> * -> *
+    runDB :: MonadIO monad => YesodDB sub master a -> GGHandler sub master monad a
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
 get404 :: (PersistBackend t m, PersistEntity val, Monad (t m),

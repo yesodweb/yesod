@@ -72,7 +72,9 @@ library
                    , transformers              >= 0.2      && < 0.3
                    , wai                       >= 0.4      && < 0.5
                    , wai-extra                 >= 0.4.1    && < 0.5
-                   , hamlet                    >= 0.9      && < 0.10
+                   , hamlet                    >= 0.10     && < 0.11
+                   , shakespeare-js            >= 0.10     && < 0.11
+                   , shakespeare-css           >= 0.10     && < 0.11
                    , warp                      >= 0.4      && < 0.5
                    , mime-mail                 >= 0.3      && < 0.4
                    , hjsmin                    >= 0.0.13   && < 0.1

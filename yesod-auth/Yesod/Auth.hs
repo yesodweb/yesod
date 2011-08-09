@@ -178,11 +178,12 @@ maybeAuthId = do
         Just s -> return $ fromSinglePiece s
 
 maybeAuth :: ( YesodAuth m
-             , Key val ~ AuthId m
-             , PersistBackend (YesodDB m (GGHandler s m IO))
+             , b ~ YesodPersistBackend m
+             , Key b val ~ AuthId m
+             , PersistBackend b (GGHandler s m IO)
              , PersistEntity val
              , YesodPersist m
-             ) => GHandler s m (Maybe (Key val, val))
+             ) => GHandler s m (Maybe (Key b val, val))
 maybeAuth = runMaybeT $ do
     aid <- MaybeT $ maybeAuthId
     a   <- MaybeT $ runDB $ get aid
@@ -192,11 +193,12 @@ requireAuthId :: YesodAuth m => GHandler s m (AuthId m)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
 requireAuth :: ( YesodAuth m
-               , Key val ~ AuthId m
-               , PersistBackend (YesodDB m (GGHandler s m IO))
+               , b ~ YesodPersistBackend m
+               , Key b val ~ AuthId m
+               , PersistBackend b (GGHandler s m IO)
                , PersistEntity val
                , YesodPersist m
-               ) => GHandler s m (Key val, val)
+               ) => GHandler s m (Key b val, val)
 requireAuth = maybeAuth >>= maybe redirectLogin return
 
 redirectLogin :: Yesod m => GHandler s m a

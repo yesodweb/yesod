@@ -17,7 +17,7 @@ import qualified Data.ByteString as S
 import Data.Text.Encoding (decodeUtf8)
 import Data.Char (isSpace, toLower, toUpper)
 import Data.Ord (comparing)
-import Text.Shakespeare (Deref (..), Ident (..), parseHash, derefToExp)
+import Text.Shakespeare.Base (Deref (..), Ident (..), parseHash, derefToExp)
 import Text.ParserCombinators.Parsec (parse, many, eof, many1, noneOf, (<|>))
 import Control.Arrow ((***))
 import Data.Monoid (mempty, mappend)

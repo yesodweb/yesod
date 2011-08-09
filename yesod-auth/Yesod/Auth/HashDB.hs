@@ -65,7 +65,8 @@ module Yesod.Auth.HashDB
     , authHashDB
     , getAuthIdHashDB
       -- * Predefined data type
-    , User(..)
+    , User
+    , UserG (..)
     , UserId
     , migrateUsers
     ) where
@@ -127,11 +128,12 @@ setPassword pwd u = do salt <- randomSalt
 -- | Given a user ID and password in plaintext, validate them against
 --   the database values.
 validateUser :: ( YesodPersist yesod
-                , PersistBackend (YesodDB yesod (GGHandler sub yesod IO))
+                , b ~ YesodPersistBackend yesod
+                , PersistBackend b (GGHandler sub yesod IO)
                 , PersistEntity user
                 , HashDBUser    user
                 ) => 
-                Unique user     -- ^ User unique identifier
+                Unique user b   -- ^ User unique identifier
              -> Text            -- ^ Password in plaint-text
              -> GHandler sub yesod Bool
 validateUser userID passwd = do
@@ -151,9 +153,10 @@ login = PluginR "hashdb" ["login"]
 -- | Handle the login form. First parameter is function which maps
 --   username (whatever it might be) to unique user ID.
 postLoginR :: ( YesodAuth y, YesodPersist y
+              , b ~ YesodPersistBackend y
               , HashDBUser user, PersistEntity user
-              , PersistBackend (YesodDB y (GGHandler Auth y IO))) 
-           => (Text -> Maybe (Unique user)) 
+              , PersistBackend b (GGHandler Auth y IO))
+           => (Text -> Maybe (Unique user b)) 
            -> GHandler Auth y ()
 postLoginR uniq = do
     (mu,mp) <- runInputPost $ (,)
@@ -173,10 +176,11 @@ postLoginR uniq = do
 --   can be used if authHashDB is the only plugin in use.
 getAuthIdHashDB :: ( YesodAuth master, YesodPersist master
                    , HashDBUser user, PersistEntity user
-                   , Key user ~ AuthId master
-                   , PersistBackend (YesodDB master (GGHandler sub master IO)))
+                   , Key b user ~ AuthId master
+                   , b ~ YesodPersistBackend master
+                   , PersistBackend b (GGHandler sub master IO))
                 => (AuthRoute -> Route master)   -- ^ your site's Auth Route
-                -> (Text -> Maybe (Unique user)) -- ^ gets user ID
+                -> (Text -> Maybe (Unique user b)) -- ^ gets user ID
                 -> Creds master                  -- ^ the creds argument
                 -> GHandler sub master (Maybe (AuthId master))
 getAuthIdHashDB authR uniq creds = do
@@ -200,8 +204,9 @@ getAuthIdHashDB authR uniq creds = do
 authHashDB :: ( YesodAuth m, YesodPersist m
               , HashDBUser user
               , PersistEntity user
-              , PersistBackend (YesodDB m (GGHandler Auth m IO))) 
-           => (Text -> Maybe (Unique user)) -> AuthPlugin m
+              , b ~ YesodPersistBackend m
+              , PersistBackend b (GGHandler Auth m IO))
+           => (Text -> Maybe (Unique user b)) -> AuthPlugin m
 authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
     [QQ(hamlet)|
     <div id="header">
@@ -239,7 +244,7 @@ authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
 ----------------------------------------------------------------
 
 -- | Generate data base instances for a valid user
-share2 mkPersist (mkMigrate "migrateUsers")
+share2 (mkPersist sqlSettings) (mkMigrate "migrateUsers")
          [QQ(persist)|
 User
     username Text Eq
@@ -248,7 +253,7 @@ User
     UniqueUser username
 |]
 
-instance HashDBUser User where
+instance HashDBUser (UserG backend) where
   userPasswordHash = Just . userPassword
   userPasswordSalt = Just . userSalt
   setUserHashAndSalt s h u = u { userSalt     = s

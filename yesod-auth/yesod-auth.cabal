@@ -32,7 +32,8 @@ library
                    , mime-mail               >= 0.3       && < 0.4
                    , blaze-html              >= 0.4       && < 0.5
                    , yesod-persistent        >= 0.2       && < 0.3
-                   , hamlet                  >= 0.9       && < 0.10
+                   , hamlet                  >= 0.10      && < 0.11
+                   , shakespeare-css         >= 0.10      && < 0.11
                    , yesod-json              >= 0.2       && < 0.3
                    , containers              >= 0.2       && < 0.5
                    , yesod-form              >= 0.3       && < 0.4
