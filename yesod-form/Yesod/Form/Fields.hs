@@ -32,7 +32,7 @@ import Yesod.Form.Types
 import Yesod.Widget
 import Yesod.Message (RenderMessage, SomeMessage (..))
 import Text.Hamlet
-import Text.Blaze (ToHtml (..), preEscapedString, unsafeByteString)
+import Text.Blaze (ToHtml (..), preEscapedText, unsafeByteString)
 import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
@@ -171,7 +171,7 @@ timeField = Field
 
 htmlField :: RenderMessage master FormMessage => Field sub master Html
 htmlField = Field
-    { fieldParse = blank $ Right . preEscapedString . sanitizeBalance . unpack -- FIXME make changes to xss-sanitize
+    { fieldParse = blank $ Right . preEscapedText . sanitizeBalance
     , fieldView = \theId name val _isReq -> addHamlet
         [HAMLET|\
 <textarea id="#{theId}" name="#{name}" .html>#{showVal val}

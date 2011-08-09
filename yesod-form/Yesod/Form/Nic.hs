@@ -17,9 +17,9 @@ import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Text.Hamlet (Html, html)
 import Text.Julius (julius)
 import Text.Blaze.Renderer.String (renderHtml)
-import Text.Blaze (preEscapedString)
+import Text.Blaze (preEscapedText)
 import Control.Monad.Trans.Class (lift)
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, pack)
 import Data.Maybe (listToMaybe)
 
 class YesodNic a where
@@ -29,7 +29,7 @@ class YesodNic a where
 
 nicHtmlField :: YesodNic master => Field sub master Html
 nicHtmlField = Field
-    { fieldParse = return . Right . fmap (preEscapedString . sanitizeBalance . unpack) . listToMaybe -- FIXME
+    { fieldParse = return . Right . fmap (preEscapedText . sanitizeBalance) . listToMaybe
     , fieldView = \theId name val _isReq -> do
         addHtml
 #if __GLASGOW_HASKELL__ >= 700
