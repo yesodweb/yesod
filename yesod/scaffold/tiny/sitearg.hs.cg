@@ -15,6 +15,7 @@ module ~sitearg~
 
 import Yesod.Core
 import Yesod.Static
+import StaticFiles
 import Yesod.Logger (Logger, logLazyText)
 import qualified Settings
 import System.Directory

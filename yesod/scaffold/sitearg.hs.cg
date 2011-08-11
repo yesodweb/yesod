@@ -17,6 +17,7 @@ module ~sitearg~
 
 import Yesod
 import Yesod.Static
+import StaticFiles
 import Yesod.Auth
 import Yesod.Auth.OpenId
 import Yesod.Auth.Email
