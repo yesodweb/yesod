@@ -2,6 +2,7 @@
 <html
     <head
         <title>#{pageTitle pc}
+        <link rel="stylesheet" href=@{StaticR css_normalize_css}>
         ^{pageHead pc}
     <body
         $maybe msg <- mmsg

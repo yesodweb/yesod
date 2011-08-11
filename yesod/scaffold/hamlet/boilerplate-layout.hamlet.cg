@@ -15,7 +15,7 @@
 
         <title>#{pageTitle pc}
 
-        <link rel="stylesheet" href=@{StaticR css_html5boilerplate_css}>
+        <link rel="stylesheet" href=@{StaticR css_normalize_css}>
         ^{pageHead pc}
       
         <!--[if lt IE 9]>
