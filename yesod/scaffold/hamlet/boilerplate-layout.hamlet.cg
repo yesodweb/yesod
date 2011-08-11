@@ -25,6 +25,10 @@
         <script>
           document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/,'js');
     <body>
-        $maybe msg <- mmsg
-            <div #message>#{msg}
-        ^{pageBody pc}
+        <div id="container">
+            <header>
+            <div id="main" role="main">
+                $maybe msg <- mmsg
+                    <div #message>#{msg}
+                ^{pageBody pc}
+            <footer>
