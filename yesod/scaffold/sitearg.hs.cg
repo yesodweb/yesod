@@ -25,7 +25,7 @@ import Yesod.Logger (Logger, logLazyText)
 import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L
-import Database.Persist.GenericSql
+import Database.Persist.~importGenericDB~
 import Settings (hamletFile, cassiusFile, luciusFile, juliusFile, widgetFile)
 import Model
 import Data.Maybe (isJust)
@@ -128,7 +128,7 @@ instance Yesod ~sitearg~ where
 
 -- How to run database actions.
 instance YesodPersist ~sitearg~ where
-    type YesodPersistBackend ~sitearg~ = SqlPersist
+    type YesodPersistBackend ~sitearg~ = ~dbMonad~
     runDB f = liftIOHandler
             $ fmap connPool getYesod >>= Settings.runConnectionPool f
 

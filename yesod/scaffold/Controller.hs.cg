@@ -13,7 +13,7 @@ import Settings
 import Yesod.Static
 import Yesod.Auth
 import Yesod.Logger (makeLogger, flushLogger, Logger)
-import Database.Persist.GenericSql
+import Database.Persist.~importGenericDB~
 import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
 

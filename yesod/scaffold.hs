@@ -92,12 +92,12 @@ scaffold = do
     puts $(codegenDir "input" "database")
     
     backendC <- prompt $ flip elem $ map (return . toLower . head . show) backends
-    let (backend, importDB) =
+    let (backend, importGenericDB, dbMonad, importDB, mkPersistSettings) =
             case backendC of
-                "s" -> (Sqlite, "import Database.Persist.Sqlite\n")
-                "p" -> (Postgresql, "import Database.Persist.Postgresql\n")
-                "m" -> (MongoDB, "import Database.Persist.MongoDB\nimport Control.Applicative (Applicative)\n")
-                "t" -> (Tiny, "")
+                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "import Database.Persist.Sqlite\n", "sqlSettings")
+                "p" -> (Postgresql, "GenericSql", "SqlPersist", "import Database.Persist.Postgresql\n", "sqlSettings")
+                "m" -> (MongoDB,    "MongoDB", "Action", "import Database.Persist.MongoDB\nimport Control.Applicative (Applicative)\n", "MkPersistSettings { mpsBackend = ConT ''Action }")
+                "t" -> (Tiny, "","","","")
                 _ -> error $ "Invalid backend: " ++ backendC
         uncapitalize s = toLower (head s) : tail s
         backendLower = uncapitalize $ show backend 
@@ -115,7 +115,7 @@ scaffold = do
           Postgresql -> ", concat, append, snoc, pack"
           _          -> ""
 
-        packages = if backend == MongoDB then "          , mongoDB\n         , bson\n" else ""
+        packages = if backend == MongoDB then ", mongoDB\n               , bson\n" else ""
 
     let fst3 (x, _, _) = x
     year <- show . fst3 . toGregorian . utctDay <$> getCurrentTime
