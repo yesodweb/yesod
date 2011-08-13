@@ -34,6 +34,7 @@ module Yesod.Static
     , embed
       -- * Template Haskell helpers
     , staticFiles
+    , publicFiles
       -- * Hashing
     , base64md5
     ) where
@@ -74,7 +75,7 @@ import Network.Wai.Application.Static
     , staticApp
     , embeddedLookup
     , toEmbedded
-    , pathFromPieces
+    -- , pathFromPieces
     , toFilePath
     )
 
@@ -82,8 +83,7 @@ newtype Static = Static StaticSettings
 
 -- | Default value of 'Static' for a given file folder.
 --
--- Does not have index files, uses default directory listings and default mime
--- type list.
+-- Does not have index files or directory listings.
 static :: Prelude.FilePath -> Static
 static fp =
   --hashes <- mkHashMap fp
@@ -161,10 +161,11 @@ getFileListPieces = flip go id
 staticFiles :: Prelude.FilePath -> Q [Dec]
 staticFiles dir = mkStaticFiles dir
 
-{-
+-- | like staticFiles, but doesn't append an etag to the query string
+-- This will compile faster, but doesn't achieve as great of caching.
+-- The browser can avoid downloading the file, but it always needs to send a request with the etag value or the last-modified value to the server to see if its copy is up to dat
 publicFiles :: Prelude.FilePath -> Q [Dec]
-publicFiles dir = mkStaticFiles dir PublicSite
--}
+publicFiles dir = mkStaticFiles' dir "StaticRoute" False
 
 mkHashMap :: Prelude.FilePath -> IO (M.Map Prelude.FilePath S8.ByteString)
 mkHashMap dir = do
@@ -208,7 +209,6 @@ mkPublicProductionEtag dir = do
     return $ ETag $ \f -> return . M.lookup f $ etags
 -}
 
-data StaticSite = StaticSite | PublicSite
 mkStaticFiles :: Prelude.FilePath -> Q [Dec]
 mkStaticFiles fp = mkStaticFiles' fp "StaticRoute" True
 
@@ -227,7 +227,7 @@ mkStaticFiles' fp routeConName makeHash = do
         | otherwise = '_'
     mkRoute f = do
         let name' = intercalate "_" $ map (map replace') f
-            name = mkName $
+            routeName = mkName $
                 case () of
                     ()
                         | null name' -> error "null-named file"
@@ -243,8 +243,8 @@ mkStaticFiles' fp routeConName makeHash = do
                             [|[(pack $(lift hash), mempty)]|]
                     else return $ ListE []
         return
-            [ SigD name $ ConT route
-            , FunD name
+            [ SigD routeName $ ConT route
+            , FunD routeName
                 [ Clause [] (NormalB $ (ConE route) `AppE` f' `AppE` qs) []
                 ]
             ]
