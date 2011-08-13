@@ -70,6 +70,7 @@ executable         ~project~
                  , hamlet               >= 0.10     && < 0.11
                  , shakespeare-css      >= 0.10     && < 0.11
                  , shakespeare-js       >= 0.10     && < 0.11
+                 , shakespeare-text     >= 0.10     && < 0.11
                  , hjsmin
                  , transformers
                  , data-object

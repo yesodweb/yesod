@@ -1,5 +1,5 @@
 Default: &defaults
-  appRoot: http://localhost
+  appRoot: "http://localhost"
   appPort: 3000
   connectionPoolSize: 10
 

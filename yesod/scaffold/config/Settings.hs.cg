@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | Settings are centralized, as much as possible, into this file. This
 -- includes database connection settings, static file locations, etc.
@@ -11,6 +11,7 @@ module Settings
     , cassiusFile
     , juliusFile
     , luciusFile
+    , textFile
     , widgetFile
     , ConnectionPool
     , withConnectionPool
@@ -22,17 +23,19 @@ module Settings
     , AppConfig(..)
     ) where
 
-import qualified Text.Hamlet as H
-import qualified Text.Cassius as H
-import qualified Text.Julius as H
-import qualified Text.Lucius as H
+import qualified Text.Hamlet as S
+import qualified Text.Cassius as S
+import qualified Text.Julius as S
+import qualified Text.Lucius as S
+import qualified Text.Shakespeare.Text as S
+import Text.Shakespeare.Text (st)
 import Language.Haskell.TH.Syntax
-~importDB~
+import Database.Persist.~importPersist~
 import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius, whamletFile)
-import Data.Monoid (mempty, mappend)
+import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
 import Prelude hiding (concat)
-import Data.Text (Text~textImport~)
+~settingsTextImport~
 import Data.Object
 import qualified Data.Object.Yaml as YAML
 import Control.Monad (join)
@@ -114,7 +117,7 @@ staticDir = "static"
 --
 -- To see how this value is used, see urlRenderOverride in ~sitearg~.hs
 staticRoot :: AppConfig ->  Text
-staticRoot conf = (appRoot conf) `mappend` "/static"
+staticRoot conf = [st|#{appRoot conf}/static|]
 
 
 -- The rest of this file contains settings which rarely need changing by a
@@ -144,30 +147,38 @@ globFile :: String -> String -> FilePath
 globFile kind x = kind ++ "/" ++ x ++ "." ++ kind
 
 hamletFile :: FilePath -> Q Exp
-hamletFile = H.hamletFile . globFile "hamlet"
+hamletFile = S.hamletFile . globFile "hamlet"
 
 cassiusFile :: FilePath -> Q Exp
 cassiusFile = 
 #ifdef PRODUCTION
-  H.cassiusFile . globFile "cassius"
+  S.cassiusFile . globFile "cassius"
 #else
-  H.cassiusFileDebug . globFile "cassius"
+  S.cassiusFileDebug . globFile "cassius"
 #endif
 
 luciusFile :: FilePath -> Q Exp
 luciusFile = 
 #ifdef PRODUCTION
-  H.luciusFile . globFile "lucius"
+  S.luciusFile . globFile "lucius"
 #else
-  H.luciusFileDebug . globFile "lucius"
+  S.luciusFileDebug . globFile "lucius"
 #endif
 
 juliusFile :: FilePath -> Q Exp
 juliusFile =
 #ifdef PRODUCTION
-  H.juliusFile . globFile "julius"
+  S.juliusFile . globFile "julius"
 #else
-  H.juliusFileDebug . globFile "julius"
+  S.juliusFileDebug . globFile "julius"
+#endif
+
+textFile :: FilePath -> Q Exp
+textFile =
+#ifdef PRODUCTION
+  S.textFile . globFile "text"
+#else
+  S.textFileDebug . globFile "text"
 #endif
 
 widgetFile :: FilePath -> Q Exp

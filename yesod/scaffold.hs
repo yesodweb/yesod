@@ -92,13 +92,19 @@ scaffold = do
     puts $(codegenDir "input" "database")
     
     backendC <- prompt $ flip elem $ map (return . toLower . head . show) backends
-    let (backend, importGenericDB, dbMonad, importDB, mkPersistSettings) =
+    let (backend, importGenericDB, dbMonad, importPersist, mkPersistSettings) =
             case backendC of
-                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "import Database.Persist.Sqlite\n", "sqlSettings")
-                "p" -> (Postgresql, "GenericSql", "SqlPersist", "import Database.Persist.Postgresql\n", "sqlSettings")
-                "m" -> (MongoDB,    "MongoDB", "Action", "import Database.Persist.MongoDB\nimport Control.Applicative (Applicative)\n", "MkPersistSettings { mpsBackend = ConT ''Action }")
-                "t" -> (Tiny, "","","","")
+                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite\n", "sqlSettings")
+                "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql\n", "sqlSettings")
+                "m" -> (MongoDB,    "MongoDB", "Action", "MongoDB\nimport Control.Applicative (Applicative)\n", "MkPersistSettings { mpsBackend = ConT ''Action }")
+                "t" -> (Tiny, "","","",undefined)
                 _ -> error $ "Invalid backend: " ++ backendC
+        (modelImports) = case backend of
+          MongoDB -> "import Database.Persist." ++ importGenericDB ++ "\nimport Language.Haskell.TH.Syntax"
+          Sqlite -> ""
+          Postgresql -> ""
+          Tiny -> undefined
+
         uncapitalize s = toLower (head s) : tail s
         backendLower = uncapitalize $ show backend 
         upper = show backend
@@ -111,9 +117,9 @@ scaffold = do
           MongoDB    -> $(codegen $ "mongoDBConnPool")
           Tiny       -> ""
 
-        textImport = case backend of
-          Postgresql -> ", concat, append, snoc, pack"
-          _          -> ""
+        settingsTextImport = case backend of
+          Postgresql -> "import Text.Shakespeare.Text (st)\nimport Data.Text (Text, concat)"
+          _          -> "import Data.Text"
 
         packages = if backend == MongoDB then ", mongoDB\n               , bson\n" else ""
 
