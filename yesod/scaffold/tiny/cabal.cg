@@ -54,9 +54,10 @@ executable         ~project~
                  , bytestring
                  , text
                  , template-haskell
-                 , hamlet
-                 , shakespeare-css
-                 , shakespeare-js
+                 , hamlet               >= 0.10     && < 0.11
+                 , shakespeare-css      >= 0.10     && < 0.11
+                 , shakespeare-js       >= 0.10     && < 0.11
+                 , shakespeare-text     >= 0.10     && < 0.11
                  , transformers
                  , data-object
                  , data-object-yaml

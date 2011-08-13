@@ -118,7 +118,7 @@ scaffold = do
           Tiny       -> ""
 
         settingsTextImport = case backend of
-          Postgresql -> "import Text.Shakespeare.Text (st)\nimport Data.Text (Text, concat)"
+          Postgresql -> "import Data.Text (Text, concat)"
           _          -> "import Data.Text"
 
         packages = if backend == MongoDB then ", mongoDB\n               , bson\n" else ""

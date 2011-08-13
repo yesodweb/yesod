@@ -117,7 +117,7 @@ staticDir = "static"
 --
 -- To see how this value is used, see urlRenderOverride in ~sitearg~.hs
 staticRoot :: AppConfig ->  Text
-staticRoot conf = [st|#{appRoot conf}:#{appPort conf}/static|]
+staticRoot conf = [st|#{appRoot conf}:#{show $ appPort conf}/static|]
 
 
 -- The rest of this file contains settings which rarely need changing by a
@@ -129,8 +129,8 @@ staticRoot conf = [st|#{appRoot conf}:#{appPort conf}/static|]
 -- them yourself.
 ~withConnectionPool~
 
--- The following three functions are used for calling HTML, CSS and
--- Javascript templates from your Haskell code. During development,
+-- The following functions are used for calling HTML, CSS,
+-- Javascript, and plain text templates from your Haskell code. During development,
 -- the "Debug" versions of these functions are used so that changes to
 -- the templates are immediately reflected in an already running
 -- application. When making a production compile, the non-debug version
