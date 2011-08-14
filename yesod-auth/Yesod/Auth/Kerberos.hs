@@ -5,7 +5,8 @@
 module Yesod.Auth.Kerberos
     ( authKerberos,
       genericAuthKerberos,
-      KerberosConfig(..)
+      KerberosConfig(..),
+      defaultKerberosConfig
     ) where
 
 #include "qq.h"
