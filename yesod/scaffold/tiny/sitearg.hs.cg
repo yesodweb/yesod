@@ -57,7 +57,7 @@ type Widget = GWidget ~sitearg~ ~sitearg~
 -- * Creates the associated type:
 --       type instance Route ~sitearg~ = ~sitearg~Route
 -- * Creates the value resources~sitearg~ which contains information on the
---   resources declared below. This is used in Controller.hs by the call to
+--   resources declared below. This is used in Handler.hs by the call to
 --   mkYesodDispatch
 --
 -- What this function does *not* do is create a YesodSite instance for

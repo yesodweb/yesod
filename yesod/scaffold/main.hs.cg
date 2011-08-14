@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, DeriveDataTypeable #-}
 import qualified Settings as Settings
 import Settings (AppConfig(..))
-import Controller (with~sitearg~)
+import Handler (with~sitearg~)
 import Network.Wai.Handler.Warp (run)
 import System.Console.CmdArgs hiding (args)
 import Data.Char (toUpper, toLower)

@@ -25,7 +25,7 @@ library
         Buildable: True
     else
         Buildable: False
-    exposed-modules: Controller
+    exposed-modules: Handler
     hs-source-dirs: ., config
     other-modules:   ~sitearg~
                      Model

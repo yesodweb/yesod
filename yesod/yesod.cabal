@@ -25,7 +25,7 @@ extra-source-files:
   scaffold/mongoDBConnPool.cg
   scaffold/tiny/sitearg.hs.cg
   scaffold/tiny/cabal.cg
-  scaffold/tiny/Controller.hs.cg
+  scaffold/tiny/Handler.hs.cg
   scaffold/tiny/hamlet/homepage.hamlet.cg
   scaffold/tiny/Handler/Root.hs.cg
   scaffold/tiny/config/routes.cg
@@ -35,7 +35,7 @@ extra-source-files:
   scaffold/sqliteConnPool.cg
   scaffold/.ghci.cg
   scaffold/project.cabal.cg
-  scaffold/Controller.hs.cg
+  scaffold/Handler.hs.cg
   scaffold/julius/homepage.julius.cg
   scaffold/hamlet/homepage.hamlet.cg
   scaffold/hamlet/default-layout.hamlet.cg

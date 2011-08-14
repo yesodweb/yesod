@@ -160,7 +160,7 @@ scaffold = do
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
     writeFile' (sitearg ++ ".hs") $ ifTiny $(codegen "tiny/sitearg.hs") $(codegen "sitearg.hs")
-    writeFile' "Controller.hs" $ ifTiny $(codegen "tiny/Controller.hs") $(codegen "Controller.hs")
+    writeFile' "Handler.hs" $ ifTiny $(codegen "tiny/Handler.hs") $(codegen "Handler.hs")
     writeFile' "Handler/Root.hs" $ ifTiny $(codegen "tiny/Handler/Root.hs") $(codegen "Handler/Root.hs")
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "config/Settings.hs" $ ifTiny $(codegen "tiny/config/Settings.hs") $(codegen "config/Settings.hs")
