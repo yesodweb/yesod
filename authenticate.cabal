@@ -43,6 +43,7 @@ library
                      Web.Authenticate.OpenId.Providers,
                      Web.Authenticate.OAuth,
                      Web.Authenticate.Facebook
+                     Web.Authenticate.Kerberos
     other-modules:   Web.Authenticate.Internal,
                      OpenId2.Discovery,
                      OpenId2.Normalization,
