@@ -27,7 +27,7 @@ library
                    , template-haskell
                    , directory                 >= 1.0      && < 1.2
                    , transformers              >= 0.2      && < 0.3
-                   , wai-app-static            >= 0.3      && < 0.4
+                   , wai-app-static            >= 0.3.1    && < 0.4
                    , wai                       >= 0.4      && < 0.5
                    , text                      >= 0.5      && < 1.0
                    , file-embed                >= 0.0.4.1  && < 0.5
