@@ -18,6 +18,7 @@ import Data.Monoid (mappend)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes)
+import qualified System.Posix.Types
 import Control.Monad (filterM, forM)
 import Control.Exception (SomeException, try)
 
@@ -55,6 +56,7 @@ touchDeps =
 try' :: IO x -> IO (Either SomeException x)
 try' = try
 
+getFileStatus' :: FilePath -> IO (System.Posix.Types.EpochTime, System.Posix.Types.EpochTime)
 getFileStatus' fp = do
     efs <- try' $ getFileStatus fp
     case efs of
