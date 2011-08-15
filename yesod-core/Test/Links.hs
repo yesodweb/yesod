@@ -3,12 +3,12 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Test.Links (linksTest) where
 
+import Test.Hspec
+import Test.Hspec.HUnit
+
 import Yesod.Core hiding (Request)
 import Text.Hamlet
 
-import Test.Framework (defaultMain, testGroup, Test)
-import Test.Framework.Providers.HUnit
-import Test.HUnit hiding (Test)
 import Network.Wai
 import Network.Wai.Test
 
@@ -24,9 +24,9 @@ instance Yesod Y where
 
 getRootR = defaultLayout $ addHamlet [$hamlet|<a href=@{RootR}>|]
 
-linksTest :: Test
-linksTest = testGroup "Test.Links"
-    [ testCase "linkToHome" case_linkToHome
+linksTest :: IO [IO Spec]
+linksTest = describe "Test.Links"
+    [ it "linkToHome" case_linkToHome
     ]
 
 runner f = toWaiApp Y >>= runSession f

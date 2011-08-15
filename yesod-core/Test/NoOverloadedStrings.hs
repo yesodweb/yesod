@@ -2,9 +2,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Test.NoOverloadedStrings (noOverloadedTest) where
 
+import Test.Hspec
+import Test.Hspec.HUnit
+
 import Yesod.Core hiding (Request)
-import Test.Framework (testGroup, Test)
-import Test.Framework.Providers.HUnit
 import Network.Wai.Test
 import Network.Wai
 import Data.Monoid (mempty)
@@ -44,7 +45,7 @@ case_sanity = runner $ do
     res <- request defaultRequest
     assertBody mempty res
 
-noOverloadedTest :: Test
-noOverloadedTest = testGroup "Test.NoOverloadedStrings"
-    [ testCase "sanity" case_sanity
+noOverloadedTest :: IO [IO Spec]
+noOverloadedTest = describe "Test.NoOverloadedStrings"
+    [ it "sanity" case_sanity
     ]

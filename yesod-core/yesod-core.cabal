@@ -78,6 +78,8 @@ library
 
 test-suite runtests
     type: exitcode-stdio-1.0
+    main-is: test/main.hs
+
     if flag(ghc7)
         type: exitcode-stdio-1.0
         build-depends:   base                      >= 4.3      && < 5
@@ -88,12 +90,10 @@ test-suite runtests
         build-depends:   base                      >= 4        && < 4.3
         main-is:         runtests.hs
     cpp-options:   -DTEST
-    build-depends: test-framework,
-                   test-framework-quickcheck2,
-                   test-framework-hunit,
-                   HUnit,
-                   wai-test,
-                   QuickCheck >= 2 && < 3
+    build-depends: hspec >= 0.6 && < 0.7
+                  ,wai-test
+                  ,HUnit
+                  ,QuickCheck >= 2 && < 3
     ghc-options:     -Wall
     main-is:         runtests.hs
 

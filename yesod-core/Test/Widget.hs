@@ -3,15 +3,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Test.Widget (widgetTest) where
 
+import Test.Hspec
+import Test.Hspec.HUnit
+
 import Yesod.Core hiding (Request)
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Widget
 import Text.Julius
 
-import Test.Framework (defaultMain, testGroup, Test)
-import Test.Framework.Providers.HUnit
-import Test.HUnit hiding (Test)
 import Network.Wai
 import Network.Wai.Test
 
@@ -54,10 +54,10 @@ getWhamletR = defaultLayout [$whamlet|
   where
     embed = [$whamlet|<h4>Embed|]
 
-widgetTest :: Test
-widgetTest = testGroup "Test.Widget"
-    [ testCase "addJuliusBody" case_addJuliusBody
-    , testCase "whamlet" case_whamlet
+widgetTest :: IO [IO Spec]
+widgetTest = describe "Test.Widget"
+    [ it "addJuliusBody" case_addJuliusBody
+    , it "whamlet" case_whamlet
     ]
 
 runner f = toWaiApp Y >>= runSession f

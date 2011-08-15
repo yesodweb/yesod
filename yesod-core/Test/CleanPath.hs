@@ -3,14 +3,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Test.CleanPath (cleanPathTest) where
 
+import Test.Hspec
+import Test.Hspec.HUnit
+
 import Yesod.Core hiding (Request)
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Handler (Route)
 
-import Test.Framework (defaultMain, testGroup, Test)
-import Test.Framework.Providers.HUnit
-import Test.HUnit hiding (Test)
 import Network.Wai
 import Network.Wai.Test
 import Network.HTTP.Types (status200, decodePathSegments)
@@ -57,15 +57,16 @@ getFooStringR = return . RepPlain . toContent
 getBarR = return $ RepPlain "bar"
 getPlainR = return $ RepPlain "plain"
 
-cleanPathTest :: Test
-cleanPathTest = testGroup "Test.CleanPath"
-    [ testCase "remove trailing slash" removeTrailingSlash
-    , testCase "noTrailingSlash" noTrailingSlash
-    , testCase "add trailing slash" addTrailingSlash
-    , testCase "has trailing slash" hasTrailingSlash
-    , testCase "/foo/something" fooSomething
-    , testCase "subsite dispatch" subsiteDispatch
-    , testCase "redirect with query string" redQueryString
+cleanPathTest :: IO [IO Spec]
+cleanPathTest =
+  describe "Test.CleanPath"
+    [ it "remove trailing slash" removeTrailingSlash
+    , it "noTrailingSlash" noTrailingSlash
+    , it "add trailing slash" addTrailingSlash
+    , it "has trailing slash" hasTrailingSlash
+    , it "/foo/something" fooSomething
+    , it "subsite dispatch" subsiteDispatch
+    , it "redirect with query string" redQueryString
     ]
 
 runner f = toWaiApp Y >>= runSession f

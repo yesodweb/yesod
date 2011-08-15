@@ -1,4 +1,5 @@
-import Test.Framework (defaultMain)
+import Test.Hspec
+
 import Test.CleanPath
 import Test.Exceptions
 import Test.Widget
@@ -7,7 +8,7 @@ import Test.Links
 import Test.NoOverloadedStrings
 
 main :: IO ()
-main = defaultMain
+main = hspecX $ descriptions $ 
     [ cleanPathTest
     , exceptionsTest
     , widgetTest

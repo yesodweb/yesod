@@ -3,14 +3,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Test.Exceptions (exceptionsTest) where
 
+import Test.Hspec
+import Test.Hspec.HUnit
+
 import Yesod.Core hiding (Request)
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Handler (Route, ErrorResponse (InternalError))
 
-import Test.Framework (defaultMain, testGroup, Test)
-import Test.Framework.Providers.HUnit
-import Test.HUnit hiding (Test)
 import Network.Wai
 import Network.Wai.Test
 
@@ -28,9 +28,9 @@ instance Yesod Y where
 
 getRootR = error "FOOBAR" >> return ()
 
-exceptionsTest :: Test
-exceptionsTest = testGroup "Test.Exceptions"
-    [ testCase "500" case500
+exceptionsTest :: IO [IO Spec]
+exceptionsTest = describe "Test.Exceptions"
+    [ it "500" case500
     ]
 
 runner f = toWaiApp Y >>= runSession f
