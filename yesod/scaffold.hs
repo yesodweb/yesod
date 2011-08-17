@@ -185,3 +185,4 @@ scaffold = do
             pack <- [|S.pack|]
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
     
+    puts $(codegenDir "input" "done")
