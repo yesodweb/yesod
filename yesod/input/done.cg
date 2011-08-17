@@ -14,8 +14,16 @@
 
 ---------------------------------------
 
-The foundation for your site has beel laid. Start having some fun:
+The foundation for your site has been laid.
 
-   cd ~project~ && cabal install
+
+There are a lot of resources to help you use Yesod.
+Start with the book: http://www.yesodweb.com/book
+Take part in the community: http://yesodweb.com/page/community
+
+
+Start your project:
+
+   cd ~project~ && cabal install && yesod devel
 
 
