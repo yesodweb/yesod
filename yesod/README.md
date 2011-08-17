@@ -1,3 +1,13 @@
+# Overview
+
+The yesod package
+* groups together the various Yesod related packages into one cohesive whole.
+* contains the executable yesod
+
+There are 2 main features of the executable
+* yesod devel - star a development environment
+* yesod init - create a scaffolded site
+
 # Scaffolding
 
 ## Test suite
