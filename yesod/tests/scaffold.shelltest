@@ -1,6 +1,6 @@
 # Important! run with tests/run.sh
 
-rm -rf foobar && runghc scaffold.hs init && cd foobar && cabal install && cabal install -fdevel && cd .. && rm -rf foobar
+rm -rf foobar && runghc scaffold.hs init && cd foobar && cabal install && cabal install -fdevel && cd ..
 <<<
 Michael
 foobar
@@ -20,7 +20,7 @@ s
 >>> /.*Registering foobar-0.0.0.*/
 >>>= 0
 
-rm -rf foobar && runghc scaffold.hs init && cd foobar && cabal install && cabal install -fdevel && cd .. 
+rm -rf foobar && runghc scaffold.hs init && cd foobar && cabal install && cabal install -fdevel && cd .. && rm -rf foobar
 <<<
 Michael
 foobar
