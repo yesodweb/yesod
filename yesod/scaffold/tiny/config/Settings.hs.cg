@@ -29,7 +29,7 @@ import Language.Haskell.TH.Syntax
 import Yesod.Widget (addWidget, addCassius, addJulius, addLucius, whamletFile)
 import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
-import Data.Text (Text)
+~settingsTextImport~
 import Data.Object
 import qualified Data.Object.Yaml as YAML
 import Control.Monad (join)
@@ -67,12 +67,12 @@ loadConfig :: AppEnvironment -> IO AppConfig
 loadConfig env = do
     allSettings <- (join $ YAML.decodeFile ("config/settings.yml" :: String)) >>= fromMapping
     settings <- lookupMapping (show env) allSettings
-    appPortS <- lookupScalar "appPort" settings
-    appRootS <- lookupScalar "appRoot" settings
+    portS <- lookupScalar "port" settings
+    hostS <- lookupScalar "host" settings
     return $ AppConfig {
       appEnv = env
-    , appPort = read $ appPortS
-    , appRoot = read $ (show appRootS)
+    , appPort = read portS
+    , appRoot = pack (hostS ++ ":" ++ portS)
     }
 
 -- | The location of static files on your system. This is a file system
@@ -94,7 +94,7 @@ staticDir = "static"
 --
 -- To see how this value is used, see urlRenderOverride in ~project~.hs
 staticRoot :: AppConfig ->  Text
-staticRoot conf = [st|#{appRoot conf}:#{show $ appPort conf}/static|]
+staticRoot conf = [st|#{appRoot conf}/static|]
 
 -- The rest of this file contains settings which rarely need changing by a
 -- user.

@@ -34,7 +34,6 @@ import Database.Persist.~importPersist~
 import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius, whamletFile)
 import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
-import Prelude hiding (concat)
 ~settingsTextImport~
 import Data.Object
 import qualified Data.Object.Yaml as YAML
@@ -86,14 +85,14 @@ loadConfig :: AppEnvironment -> IO AppConfig
 loadConfig env = do
     allSettings <- (join $ YAML.decodeFile ("config/settings.yml" :: String)) >>= fromMapping
     settings <- lookupMapping (show env) allSettings
-    appPortS <- lookupScalar "appPort" settings
-    appRootS <- lookupScalar "appRoot" settings
+    portS <- lookupScalar "port" settings
+    hostS <- lookupScalar "host" settings
     connectionPoolSizeS <- lookupScalar "connectionPoolSize" settings
     return $ AppConfig {
       appEnv = env
-    , appPort = read $ appPortS
-    , appRoot = read $ (show appRootS)
-    , connectionPoolSize = read $ connectionPoolSizeS
+    , appPort = read portS
+    , appRoot = pack (hostS ++ ":" ++ portS)
+    , connectionPoolSize = read connectionPoolSizeS
     }
 
 -- Static setting below. Changing these requires a recompile
@@ -117,7 +116,7 @@ staticDir = "static"
 --
 -- To see how this value is used, see urlRenderOverride in ~sitearg~.hs
 staticRoot :: AppConfig ->  Text
-staticRoot conf = [st|#{appRoot conf}:#{show $ appPort conf}/static|]
+staticRoot conf = [st|#{appRoot conf}/static|]
 
 
 -- The rest of this file contains settings which rarely need changing by a
