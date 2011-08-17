@@ -51,6 +51,7 @@ main = do
         "build":rest -> touch >> build rest >>= exitWith
         ["touch"] -> touch
         ["devel"] -> devel cabal
+        ["version"] -> putStrLn "0.9"
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         _ -> do
             putStrLn "Usage: yesod <command>"
