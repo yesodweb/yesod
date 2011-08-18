@@ -66,7 +66,7 @@ module Yesod.Auth.HashDB
     , getAuthIdHashDB
       -- * Predefined data type
     , User
-    , UserG (..)
+    , UserGeneric (..)
     , UserId
     , migrateUsers
     ) where
@@ -253,7 +253,7 @@ User
     UniqueUser username
 |]
 
-instance HashDBUser (UserG backend) where
+instance HashDBUser (UserGeneric backend) where
   userPasswordHash = Just . userPassword
   userPasswordSalt = Just . userSalt
   setUserHashAndSalt s h u = u { userSalt     = s
