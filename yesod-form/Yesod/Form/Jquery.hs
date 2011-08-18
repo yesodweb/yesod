@@ -22,7 +22,7 @@ import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,
                   timeToTimeOfDay)
 import Data.Char (isSpace)
 import Data.Default
-import Text.Hamlet (html)
+import Text.Hamlet (shamlet)
 import Text.Julius (julius)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack, unpack)
@@ -30,12 +30,12 @@ import Data.Monoid (mconcat)
 import Yesod.Core (RenderMessage, SomeMessage (..))
 
 #if __GLASGOW_HASKELL__ >= 700
-#define HTML html
+#define HTML shamlet
 #define HAMLET hamlet
 #define CASSIUS cassius
 #define JULIUS julius
 #else
-#define HTML $html
+#define HTML $shamlet
 #define HAMLET $hamlet
 #define CASSIUS $cassius
 #define JULIUS $julius

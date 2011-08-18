@@ -59,7 +59,6 @@ import Control.Monad.Trans.RWS
 import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
-import Text.Lucius (Lucius)
 import Text.Julius
 import Text.Coffee
 import Yesod.Handler
@@ -112,11 +111,15 @@ addSubWidget sub (GWidget w) = do
 class ToWidget sub master a where
     toWidget :: a -> GWidget sub master ()
 
-instance url ~ Route master => ToWidget sub master (Hamlet url) where
+-- FIXME At some point in the future, deprecate all the
+-- addHamlet/Cassius/Lucius/Julius stuff. For the most part, toWidget* will be
+-- sufficient. For somethings, like addLuciusMedia, create addCssUrlMedia.
+
+instance url ~ Route master => ToWidget sub master (HtmlUrl url) where
     toWidget = addHamlet
-instance url ~ Route master => ToWidget sub master (Cassius url) where
+instance url ~ Route master => ToWidget sub master (CssUrl url) where
     toWidget = addCassius
-instance url ~ Route master => ToWidget sub master (Julius url) where
+instance url ~ Route master => ToWidget sub master (JavascriptUrl url) where
     toWidget = addJulius
 instance ToWidget sub master (GWidget sub master ()) where
     toWidget = id
@@ -128,9 +131,9 @@ instance url ~ Route master => ToWidget sub master (Coffee url) where
 class ToWidgetBody sub master a where
     toWidgetBody :: a -> GWidget sub master ()
 
-instance url ~ Route master => ToWidgetBody sub master (Hamlet url) where
+instance url ~ Route master => ToWidgetBody sub master (HtmlUrl url) where
     toWidgetBody = addHamlet
-instance url ~ Route master => ToWidgetBody sub master (Julius url) where
+instance url ~ Route master => ToWidgetBody sub master (JavascriptUrl url) where
     toWidgetBody = addJulius
 instance ToWidgetBody sub master Html where
     toWidgetBody = addHtml
@@ -140,11 +143,11 @@ instance url ~ Route master => ToWidgetBody sub master (Coffee url) where
 class ToWidgetHead sub master a where
     toWidgetHead :: a -> GWidget sub master ()
 
-instance url ~ Route master => ToWidgetHead sub master (Hamlet url) where
+instance url ~ Route master => ToWidgetHead sub master (HtmlUrl url) where
     toWidgetHead = addHamletHead
-instance url ~ Route master => ToWidgetHead sub master (Cassius url) where
+instance url ~ Route master => ToWidgetHead sub master (CssUrl url) where
     toWidgetHead = addCassius
-instance url ~ Route master => ToWidgetHead sub master (Julius url) where
+instance url ~ Route master => ToWidgetHead sub master (JavascriptUrl url) where
     toWidgetHead = addJulius
 instance ToWidgetHead sub master Html where
     toWidgetHead = addHtmlHead
@@ -164,7 +167,7 @@ setTitleI msg = do
     setTitle $ toHtml $ mr msg
 
 -- | Add a 'Hamlet' to the head tag.
-addHamletHead :: Monad m => Hamlet (Route master) -> GGWidget master m ()
+addHamletHead :: Monad m => HtmlUrl (Route master) -> GGWidget master m ()
 addHamletHead = GWidget . tell . GWData mempty mempty mempty mempty mempty mempty . Head
 
 -- | Add a 'Html' to the head tag.
@@ -172,7 +175,7 @@ addHtmlHead :: Monad m => Html -> GGWidget master m ()
 addHtmlHead = addHamletHead . const
 
 -- | Add a 'Hamlet' to the body tag.
-addHamlet :: Monad m => Hamlet (Route master) -> GGWidget master m ()
+addHamlet :: Monad m => HtmlUrl (Route master) -> GGWidget master m ()
 addHamlet x = GWidget $ tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
 
 -- | Add a 'Html' to the body tag.
@@ -185,19 +188,19 @@ addWidget :: Monad mo => GGWidget m mo () -> GGWidget m mo ()
 addWidget = id
 
 -- | Add some raw CSS to the style tag. Applies to all media types.
-addCassius :: Monad m => Cassius (Route master) -> GGWidget master m ()
+addCassius :: Monad m => CssUrl (Route master) -> GGWidget master m ()
 addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing x) mempty mempty
 
 -- | Identical to 'addCassius'.
-addLucius :: Monad m => Lucius (Route master) -> GGWidget master m ()
+addLucius :: Monad m => CssUrl (Route master) -> GGWidget master m ()
 addLucius = addCassius
 
 -- | Add some raw CSS to the style tag, for a specific media type.
-addCassiusMedia :: Monad m => Text -> Cassius (Route master) -> GGWidget master m ()
+addCassiusMedia :: Monad m => Text -> CssUrl (Route master) -> GGWidget master m ()
 addCassiusMedia m x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) x) mempty mempty
 
 -- | Identical to 'addCassiusMedia'.
-addLuciusMedia :: Monad m => Text -> Lucius (Route master) -> GGWidget master m ()
+addLuciusMedia :: Monad m => Text -> CssUrl (Route master) -> GGWidget master m ()
 addLuciusMedia = addCassiusMedia
 
 -- | Link to the specified local stylesheet.
@@ -239,13 +242,13 @@ addScriptRemoteAttrs :: Monad m => Text -> [(Text, Text)] -> GGWidget master m (
 addScriptRemoteAttrs x y = GWidget $ tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
 -- | Include raw Javascript in the page's script tag.
-addJulius :: Monad m => Julius (Route master) -> GGWidget master m ()
+addJulius :: Monad m => JavascriptUrl (Route master) -> GGWidget master m ()
 addJulius x = GWidget $ tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
 
 -- | Add a new script tag to the body with the contents of this 'Julius'
 -- template.
-addJuliusBody :: Monad m => Julius (Route master) -> GGWidget master m ()
-addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJulius r j
+addJuliusBody :: Monad m => JavascriptUrl (Route master) -> GGWidget master m ()
+addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 
 -- | Add Coffesscript to the page's script tag. Requires the coffeescript
 -- executable to be present at runtime.
@@ -265,7 +268,7 @@ addCoffeeBody c = do
 
 -- | Pull out the HTML tag contents and return it. Useful for performing some
 -- manipulations. It can be easier to use this sometimes than 'wrapWidget'.
-extractBody :: Monad mo => GGWidget m mo () -> GGWidget m mo (Hamlet (Route m))
+extractBody :: Monad mo => GGWidget m mo () -> GGWidget m mo (HtmlUrl (Route m))
 extractBody (GWidget w) =
     GWidget $ mapRWST (liftM go) w
   where
@@ -274,11 +277,11 @@ extractBody (GWidget w) =
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:
 --
--- > PageContent url -> Hamlet url
+-- > PageContent url -> HtmlUrl url
 data PageContent url = PageContent
     { pageTitle :: Html
-    , pageHead :: Hamlet url
-    , pageBody :: Hamlet url
+    , pageHead :: HtmlUrl url
+    , pageBody :: HtmlUrl url
     }
 
 whamlet :: QuasiQuoter
@@ -306,7 +309,7 @@ rules = do
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
 ihamletToRepHtml :: (Monad mo, RenderMessage master message)
-                 => NP.IHamlet message (Route master)
+                 => HtmlUrlI18n message (Route master)
                  -> GGHandler sub master mo RepHtml
 ihamletToRepHtml ih = do
     urender <- getUrlRenderParams

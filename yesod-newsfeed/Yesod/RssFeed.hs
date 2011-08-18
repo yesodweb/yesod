@@ -22,7 +22,7 @@ import Yesod.Handler
 import Yesod.Content
 import Yesod.Widget
 import Yesod.FeedTypes
-import Text.Hamlet (Hamlet, xhamlet, hamlet)
+import Text.Hamlet (HtmlUrl, xhamlet, hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Control.Monad (liftM)
 
@@ -34,7 +34,7 @@ instance HasReps RepRss where
 rssFeed :: Monad mo => Feed (Route master) -> GGHandler sub master mo RepRss
 rssFeed = liftM RepRss . hamletToContent . template
 
-template :: Feed url -> Hamlet url
+template :: Feed url -> HtmlUrl url
 template arg = 
 #if __GLASGOW_HASKELL__ >= 700
     [xhamlet|
@@ -55,7 +55,7 @@ template arg =
                 ^{entryTemplate entry}
     |]
 
-entryTemplate :: FeedEntry url -> Hamlet url
+entryTemplate :: FeedEntry url -> HtmlUrl url
 entryTemplate arg = 
 #if __GLASGOW_HASKELL__ >= 700
     [xhamlet|

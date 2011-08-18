@@ -28,7 +28,7 @@ module Yesod.Sitemap
 import Yesod.Content (RepXml (..), RepPlain (..), toContent, formatW3)
 import Yesod.Handler (Route, GHandler, getUrlRender)
 import Yesod.Handler (hamletToContent)
-import Text.Hamlet (Hamlet, xhamlet)
+import Text.Hamlet (HtmlUrl, xhamlet)
 import Data.Time (UTCTime)
 import Data.Monoid (mappend)
 
@@ -56,7 +56,7 @@ data SitemapUrl url = SitemapUrl
     , priority :: Double
     }
 
-template :: [SitemapUrl url] -> Hamlet url
+template :: [SitemapUrl url] -> HtmlUrl url
 template urls =
 #if __GLASGOW_HASKELL__ >= 700
                 [xhamlet|

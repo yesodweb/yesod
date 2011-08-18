@@ -20,7 +20,7 @@ module Yesod.Internal
     , Title (..)
     , Head (..)
     , Body (..)
-    , locationToHamlet
+    , locationToHtmlUrl
     , runUniqueList
     , toUnique
       -- * Names
@@ -28,9 +28,9 @@ module Yesod.Internal
     , nonceKey
     ) where
 
-import Text.Hamlet (Hamlet, hamlet, Html)
-import Text.Cassius (Cassius)
-import Text.Julius (Julius)
+import Text.Hamlet (HtmlUrl, hamlet, Html)
+import Text.Cassius (CssUrl)
+import Text.Julius (JavascriptUrl)
 import Data.Monoid (Monoid (..), Last)
 import Data.List (nub)
 
@@ -75,10 +75,10 @@ langKey = "_LANG"
 
 data Location url = Local url | Remote Text
     deriving (Show, Eq)
-locationToHamlet :: Location url -> Hamlet url
-locationToHamlet (Local url) = [HAMLET|\@{url}
+locationToHtmlUrl :: Location url -> HtmlUrl url
+locationToHtmlUrl (Local url) = [HAMLET|\@{url}
 |]
-locationToHamlet (Remote s) = [HAMLET|\#{s}
+locationToHtmlUrl (Remote s) = [HAMLET|\#{s}
 |]
 
 newtype UniqueList x = UniqueList ([x] -> [x])
@@ -96,9 +96,9 @@ data Stylesheet url = Stylesheet { styleLocation :: Location url, styleAttribute
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html }
 
-newtype Head url = Head (Hamlet url)
+newtype Head url = Head (HtmlUrl url)
     deriving Monoid
-newtype Body url = Body (Hamlet url)
+newtype Body url = Body (HtmlUrl url)
     deriving Monoid
 
 nonceKey :: IsString a => a
@@ -112,8 +112,8 @@ data GWData a = GWData
     !(Last Title)
     !(UniqueList (Script a))
     !(UniqueList (Stylesheet a))
-    !(Map.Map (Maybe Text) (Cassius a)) -- media type
-    !(Maybe (Julius a))
+    !(Map.Map (Maybe Text) (CssUrl a)) -- media type
+    !(Maybe (JavascriptUrl a))
     !(Head a)
 instance Monoid (GWData a) where
     mempty = GWData mempty mempty mempty mempty mempty mempty mempty

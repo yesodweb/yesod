@@ -411,7 +411,7 @@ breadcrumbs = do
 
 applyLayout' :: Yesod master
              => Html -- ^ title
-             -> Hamlet (Route master) -- ^ body
+             -> HtmlUrl (Route master) -- ^ body
              -> GHandler sub master ChooseRep
 applyLayout' title body = fmap chooseRep $ defaultLayout $ do
     setTitle title
@@ -496,7 +496,7 @@ widgetToPageContent (GWidget w) = do
     let scripts = runUniqueList scripts'
     let stylesheets = runUniqueList stylesheets'
     let jsToHtml (Javascript b) = preEscapedLazyText $ toLazyText b
-        jelper :: Julius url -> Hamlet url
+        jelper :: JavascriptUrl url -> HtmlUrl url
         jelper = fmap jsToHtml
 
     render <- getUrlRenderParams
@@ -506,7 +506,7 @@ widgetToPageContent (GWidget w) = do
                 Just (Left s) -> Just s
                 Just (Right (u, p)) -> Just $ render u p
     css <- forM (Map.toList style) $ \(mmedia, content) -> do
-        let rendered = renderCassius render content
+        let rendered = renderCssUrl render content
         x <- addStaticContent "css" "text/css; charset=utf-8"
            $ encodeUtf8 rendered
         return (mmedia,
@@ -518,7 +518,7 @@ widgetToPageContent (GWidget w) = do
             Nothing -> return Nothing
             Just s -> do
                 x <- addStaticContent "js" "text/javascript; charset=utf-8"
-                   $ encodeUtf8 $ renderJulius render s
+                   $ encodeUtf8 $ renderJavascriptUrl render s
                 return $ renderLoc x
 
     let addAttr x (y, z) = x ! customAttribute (textTag y) (toValue z)

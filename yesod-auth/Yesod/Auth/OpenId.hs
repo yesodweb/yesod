@@ -16,7 +16,6 @@ import Yesod.Form
 import Yesod.Handler
 import Yesod.Widget
 import Yesod.Request
-import Text.Hamlet (hamlet)
 import Text.Cassius (cassius)
 import Text.Blaze (toHtml)
 import Control.Monad.Trans.Class (lift)
@@ -34,13 +33,11 @@ authOpenId =
     name = "openid_identifier"
     login tm = do
         ident <- lift newIdent
-        y <- lift getYesod
         addCassius
             [QQ(cassius)|##{ident}
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
-        l <- lift languages
         [QQ(whamlet)|
 <form method="get" action="@{tm forwardUrl}">
     <label for="#{ident}">OpenID: #

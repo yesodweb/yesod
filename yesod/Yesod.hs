@@ -23,22 +23,24 @@ module Yesod
       -- ** Hamlet
     , hamlet
     , xhamlet
-    , Hamlet
+    , HtmlUrl
     , Html
     , toHtml
       -- ** Julius
     , julius
-    , Julius
-    , renderJulius
-      -- ** Cassius
+    , JavascriptUrl
+    , renderJavascriptUrl
+      -- ** Cassius/Lucius
     , cassius
-    , Cassius
-    , renderCassius
+    , lucius
+    , CssUrl
+    , renderCssUrl
     ) where
 
 import Yesod.Core
 import Text.Hamlet
 import Text.Cassius
+import Text.Lucius
 import Text.Julius
 
 import Yesod.Form

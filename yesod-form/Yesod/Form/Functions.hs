@@ -45,7 +45,7 @@ import Yesod.Core (RenderMessage, liftIOHandler, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
 import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
-import Text.Hamlet (html)
+import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
@@ -54,9 +54,9 @@ import qualified Data.Map as Map
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
-#define HTML html
+#define HTML shamlet
 #else
-#define HTML $html
+#define HTML $shamlet
 #define WHAMLET $whamlet
 #endif
 

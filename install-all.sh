@@ -2,7 +2,6 @@
 
 CABAL=cabal
 
-$CABAL update
 # install testing dependencies
 $CABAL install HUnit QuickCheck hspec
 
@@ -11,8 +10,6 @@ for package in $PACKAGES
 do
     echo Installing $package
     cd $package
-    ($CABAL configure --enable-tests ||
-      ($CABAL install --only-dependencies && $CABAL configure --enable-tests)
-    ) && $CABAL build && $CABAL test && ./Setup.lhs install || exit
+    $CABAL configure --enable-tests && $CABAL build && $CABAL test && ./Setup.lhs install || exit
     cd ..
 done

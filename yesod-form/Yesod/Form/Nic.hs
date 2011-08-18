@@ -14,7 +14,7 @@ import Yesod.Handler
 import Yesod.Form
 import Yesod.Widget
 import Text.HTML.SanitizeXSS (sanitizeBalance)
-import Text.Hamlet (Html, html)
+import Text.Hamlet (Html, shamlet)
 import Text.Julius (julius)
 import Text.Blaze.Renderer.String (renderHtml)
 import Text.Blaze (preEscapedText)
@@ -33,9 +33,9 @@ nicHtmlField = Field
     , fieldView = \theId name val _isReq -> do
         addHtml
 #if __GLASGOW_HASKELL__ >= 700
-                [html|
+                [shamlet|
 #else
-                [$html|
+                [$shamlet|
 #endif
     <textarea id="#{theId}" name="#{name}" .html>#{showVal val}
 |]

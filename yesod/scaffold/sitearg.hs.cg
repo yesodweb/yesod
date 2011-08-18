@@ -37,7 +37,7 @@ import Text.Jasmine (minifym)
 import qualified Data.Text as T
 import Web.ClientSession (getKey)
 import Text.Blaze.Renderer.Utf8 (renderHtml)
-import Text.Hamlet (html)
+import Text.Hamlet (shamlet)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -183,7 +183,7 @@ instance YesodAuthEmail ~sitearg~ where
             { partType = "text/html; charset=utf-8"
             , partEncoding = None
             , partFilename = Nothing
-            , partContent = renderHtml [~qq~html|
+            , partContent = renderHtml [~qq~shamlet|
 <p>Please confirm your email address by clicking on the link below.
 <p>
     <a href=#{verurl}>#{verurl}

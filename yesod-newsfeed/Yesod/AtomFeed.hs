@@ -26,7 +26,7 @@ import Yesod.Content
 import Yesod.Handler
 import Yesod.Widget
 import Yesod.FeedTypes
-import Text.Hamlet (Hamlet, xhamlet, hamlet)
+import Text.Hamlet (HtmlUrl, xhamlet, hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Control.Monad (liftM)
 
@@ -37,7 +37,7 @@ instance HasReps RepAtom where
 atomFeed :: Monad mo => Feed (Route master) -> GGHandler sub master mo RepAtom
 atomFeed = liftM RepAtom . hamletToContent . template
 
-template :: Feed url -> Hamlet url
+template :: Feed url -> HtmlUrl url
 template arg =
 #if __GLASGOW_HASKELL__ >= 700
                 [xhamlet|
@@ -55,7 +55,7 @@ template arg =
         ^{entryTemplate entry}
 |]
 
-entryTemplate :: FeedEntry url -> Hamlet url
+entryTemplate :: FeedEntry url -> HtmlUrl url
 entryTemplate arg =
 #if __GLASGOW_HASKELL__ >= 700
                 [xhamlet|

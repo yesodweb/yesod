@@ -78,7 +78,7 @@ import Yesod.Handler
 import Yesod.Form
 import Yesod.Auth
 import Yesod.Widget (addHamlet)
-import Text.Hamlet (hamlet, html)
+import Text.Hamlet (hamlet, shamlet)
 
 import Control.Applicative         ((<$>), (<*>))
 import Control.Monad               (replicateM,liftM)
@@ -167,7 +167,7 @@ postLoginR uniq = do
                  (validateUser <$> (uniq =<< mu) <*> mp)
     if isValid 
        then setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
-       else do setMessage [QQ(html)| Invalid username/password |]
+       else do setMessage [QQ(shamlet)| Invalid username/password |]
                toMaster <- getRouteToMaster
                redirect RedirectTemporary $ toMaster LoginR
 
@@ -196,7 +196,7 @@ getAuthIdHashDB authR uniq creds = do
                 -- user exists
                 Just (uid, _) -> return $ Just uid
                 Nothing       -> do
-                    setMessage [QQ(html)| User not found |]
+                    setMessage [QQ(shamlet)| User not found |]
                     redirect RedirectTemporary $ authR LoginR
 
 -- | Prompt for username and password, validate that against a database

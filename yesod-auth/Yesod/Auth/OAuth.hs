@@ -13,7 +13,7 @@ import Yesod.Auth
 import Yesod.Form
 import Yesod.Handler
 import Yesod.Widget
-import Text.Hamlet (html)
+import Text.Hamlet (shamlet)
 import Web.Authenticate.OAuth
 import Data.Maybe
 import Data.String
@@ -69,7 +69,7 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         render <- lift getUrlRender
         let oaUrl = render $ tm $ oauthUrl name
         addHtml
-          [QQ(html)| <a href=#{oaUrl}>Login with #{name} |]
+          [QQ(shamlet)| <a href=#{oaUrl}>Login with #{name} |]
 
 authTwitter :: YesodAuth m =>
                String -- ^ Consumer Key
