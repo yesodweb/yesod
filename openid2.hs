@@ -12,7 +12,7 @@ mkYesod "OID" [parseRoutes|
 /complete CompleteR GET
 |]
 
-instance Yesod OID where approot _ = "http://localhost:3000"
+instance Yesod OID where approot _ = "http://10.0.0.3:3000"
 
 getRootR = defaultLayout [hamlet|\
 <form action="@{ForwardR}">
