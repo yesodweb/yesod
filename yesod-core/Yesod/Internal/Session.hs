@@ -12,12 +12,13 @@ import Data.Text (Text, pack, unpack)
 import Control.Arrow ((***))
 
 encodeSession :: CS.Key
+              -> CS.IV
               -> UTCTime -- ^ expire time
               -> ByteString -- ^ remote host
               -> [(Text, Text)] -- ^ session
               -> ByteString -- ^ cookie value
-encodeSession key expire rhost session' =
-    CS.encrypt key $ encode $ SessionCookie expire rhost session'
+encodeSession key iv expire rhost session' =
+    CS.encrypt key iv $ encode $ SessionCookie expire rhost session'
 
 decodeSession :: CS.Key
               -> UTCTime -- ^ current time

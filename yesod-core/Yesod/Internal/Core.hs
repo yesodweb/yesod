@@ -356,15 +356,16 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                    $ filter (\(x, _) -> x /= nonceKey) session'
     yar <- handlerToYAR master s toMasterRoute (yesodRender master) errorHandler rr murl sessionMap h
     let mnonce = reqNonce rr
-    return $ yarToResponse (hr mnonce getExpires host exp') yar
+    iv <- liftIO CS.randomIV
+    return $ yarToResponse (hr iv mnonce getExpires host exp') yar
   where
-    hr mnonce getExpires host exp' hs ct sm =
+    hr iv mnonce getExpires host exp' hs ct sm =
         hs'''
       where
         sessionVal =
             case (mkey, mnonce) of
                 (Just key, Just nonce)
-                    -> encodeSession key exp' host
+                    -> encodeSession key iv exp' host
                      $ Map.toList
                      $ Map.insert nonceKey nonce sm
                 _ -> mempty
