@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.9.3
+version:         0.9.3.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii, Arash Rouhani
@@ -24,7 +24,7 @@ library
                      network >= 2.2.1 && < 2.4,
                      case-insensitive >= 0.2 && < 0.4,
                      RSA >= 1.0 && < 1.1,
-                     time >= 1.1 && < 1.3,
+                     time >= 1.1 && < 1.4,
                      base64-bytestring >= 0.1 && < 0.2,
                      SHA >= 1.4 && < 1.6,
                      random >= 1.0 && < 1.1,
