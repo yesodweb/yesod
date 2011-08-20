@@ -41,9 +41,9 @@ test-suite runtests
     type: exitcode-stdio-1.0
     cpp-options:   -DTEST
     build-depends: yesod-static,
-                   base >= 4 && < 5,
-                   hspec,
-                   HUnit
+                   , base >= 4 && < 5
+                   , hspec >= 0.6.1 && < 0.7
+                   , HUnit
     ghc-options:     -Wall
     main-is:         runtests.hs
 

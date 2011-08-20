@@ -90,7 +90,7 @@ test-suite runtests
         build-depends:   base                      >= 4        && < 4.3
         main-is:         runtests.hs
     cpp-options:   -DTEST
-    build-depends: hspec >= 0.6 && < 0.7
+    build-depends: hspec >= 0.6.1 && < 0.7
                   ,wai-test
                   ,HUnit
                   ,QuickCheck >= 2 && < 3

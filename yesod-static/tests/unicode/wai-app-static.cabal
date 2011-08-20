@@ -48,7 +48,7 @@ test-suite runtests
     type: exitcode-stdio-1.0
 
     build-depends:   base                      >= 4        && < 5
-                   , hspec >= 0.6
+                   , hspec >= 0.6.1 && < 0.7
                    , HUnit
                    , unix-compat               >= 0.2      && < 0.3
                    , time                      >= 1.1.4    && < 1.3
