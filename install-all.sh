@@ -3,7 +3,7 @@
 CABAL=cabal
 
 # install testing dependencies
-$CABAL install HUnit QuickCheck hspec
+$CABAL install HUnit QuickCheck hspec shelltestrunner
 
 PACKAGES="yesod-core yesod-json yesod-static yesod-persistent yesod-newsfeed yesod-form yesod-auth yesod-sitemap yesod"
 for package in $PACKAGES
