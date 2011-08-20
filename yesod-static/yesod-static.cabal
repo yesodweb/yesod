@@ -40,7 +40,7 @@ test-suite runtests
     main-is: runtests.hs
     type: exitcode-stdio-1.0
     cpp-options:   -DTEST
-    build-depends: yesod-static,
+    build-depends:   yesod-static
                    , base >= 4 && < 5
                    , hspec >= 0.6.1 && < 0.7
                    , HUnit
