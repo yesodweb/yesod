@@ -424,31 +424,19 @@ defaultErrorHandler NotFound = do
     r <- waiRequest
     let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
     applyLayout' "Not Found"
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 <h1>Not Found
 <p>#{path'}
 |]
 defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied"
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 <h1>Permission denied
 <p>#{msg}
 |]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments"
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 <h1>Invalid Arguments
 <ul>
     $forall msg <- ia
@@ -456,21 +444,13 @@ defaultErrorHandler (InvalidArgs ia) =
 |]
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error"
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 <h1>Internal Server Error
 <p>#{e}
 |]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method"
-#if GHC7
-        [hamlet|
-#else
-        [$hamlet|
-#endif
+        [HAMLET|
 <h1>Method Not Supported
 <p>Method "#{S8.unpack m}" not supported
 |]
@@ -537,12 +517,7 @@ widgetToPageContent (GWidget w) = do
         left _ = Nothing
         right (Right x) = Just x
         right _ = Nothing
-    let head'' =
-#if GHC7
-            [hamlet|
-#else
-            [$hamlet|
-#endif
+    let head'' = [HAMLET|
 $forall s <- stylesheets
     ^{mkLinkTag s}
 $forall s <- css
