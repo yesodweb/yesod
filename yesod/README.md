@@ -16,7 +16,7 @@ install the shelltest package: cabal install shelltests
 
 Run this from the project root directory. It will make sure each site type builds. It first does an sdist, which ensures we are testing what will be put on hackage.
 
-  tests/run.sh
+  test/run.sh
 
 Give it the --debug flag to see all output
 
@@ -24,7 +24,7 @@ Give it the --debug flag to see all output
 
 Useful for debugging individual failures.
 
-  tests/runscaffold.sh < sqlite-input.txt
+  test/runscaffold.sh < sqlite-input.txt
 
 ## Getting a list of scaffold files for the cabal file
 
