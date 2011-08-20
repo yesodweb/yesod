@@ -11,7 +11,7 @@ do
     echo Installing $package
     cd $package
     ($CABAL configure --enable-tests ||
-        ($CABAL install --only-dependencies --enable-tests && $CABAL configure --enable-tests)
+        ($CABAL install --only-dependencies && $CABAL configure --enable-tests)
     ) && $CABAL build && $CABAL test && ./Setup.lhs install || exit 1
     cd ..
 done
