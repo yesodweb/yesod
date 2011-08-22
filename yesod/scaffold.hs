@@ -144,6 +144,7 @@ scaffold = do
     mkDir "config"
     mkDir "Model"
     mkDir "deploy"
+    mkDir "Settings"
      
     writeFile' ("deploy/Procfile") $(codegen "deploy/Procfile")
 
@@ -165,8 +166,8 @@ scaffold = do
     writeFile' "Application.hs" $ ifTiny $(codegen "tiny/Application.hs") $(codegen "Application.hs")
     writeFile' "Handler/Root.hs" $ ifTiny $(codegen "tiny/Handler/Root.hs") $(codegen "Handler/Root.hs")
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
-    writeFile' "config/Settings.hs" $ ifTiny $(codegen "tiny/config/Settings.hs") $(codegen "config/Settings.hs")
-    writeFile' "config/StaticFiles.hs" $(codegen "config/StaticFiles.hs")
+    writeFile' "Settings.hs" $ ifTiny $(codegen "tiny/Settings.hs") $(codegen "Settings.hs")
+    writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
     writeFile' "cassius/default-layout.cassius"
         $(codegen "cassius/default-layout.cassius")
     writeFile' "hamlet/default-layout.hamlet"

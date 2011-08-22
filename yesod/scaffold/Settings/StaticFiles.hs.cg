@@ -1,5 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
-module StaticFiles where
+module Settings.StaticFiles where
 
 import Yesod.Static
 
