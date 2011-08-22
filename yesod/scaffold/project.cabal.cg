@@ -25,9 +25,9 @@ library
         Buildable: True
     else
         Buildable: False
-    exposed-modules: Handler
+    exposed-modules: Application
     hs-source-dirs: ., config
-    other-modules:   ~sitearg~
+    other-modules:   Foundation
                      Model
                      Settings
                      StaticFiles

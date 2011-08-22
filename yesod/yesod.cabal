@@ -20,12 +20,12 @@ extra-source-files:
   scaffold/cassius/default-layout.cassius.cg
   scaffold/cassius/homepage.cassius.cg
   scaffold/Model.hs.cg
-  scaffold/sitearg.hs.cg
+  scaffold/Foundation.hs.cg
   scaffold/LICENSE.cg
   scaffold/mongoDBConnPool.cg
-  scaffold/tiny/sitearg.hs.cg
-  scaffold/tiny/cabal.cg
-  scaffold/tiny/Handler.hs.cg
+  scaffold/tiny/Foundation.hs.cg
+  scaffold/tiny/project.cabal.cg
+  scaffold/tiny/Application.hs.cg
   scaffold/tiny/hamlet/homepage.hamlet.cg
   scaffold/tiny/Handler/Root.hs.cg
   scaffold/tiny/config/routes.cg
@@ -35,7 +35,7 @@ extra-source-files:
   scaffold/sqliteConnPool.cg
   scaffold/.ghci.cg
   scaffold/project.cabal.cg
-  scaffold/Handler.hs.cg
+  scaffold/Application.hs.cg
   scaffold/julius/homepage.julius.cg
   scaffold/hamlet/homepage.hamlet.cg
   scaffold/hamlet/default-layout.hamlet.cg

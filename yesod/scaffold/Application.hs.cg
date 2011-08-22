@@ -3,12 +3,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Handler
+module Application
     ( with~sitearg~
     , withDevelAppPort
     ) where
 
-import ~sitearg~
+import Foundation
 import Settings
 import Yesod.Static
 import Yesod.Auth
@@ -27,7 +27,7 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Handler.Root
 
 -- This line actually creates our YesodSite instance. It is the second half
--- of the call to mkYesodData which occurs in ~sitearg~.hs. Please see
+-- of the call to mkYesodData which occurs in Foundation.hs. Please see
 -- the comments there for more details.
 mkYesodDispatch "~sitearg~" resources~sitearg~
 

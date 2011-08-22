@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings, MultiParamTypeClasses #-}
-module ~sitearg~
+module Foundation
     ( ~sitearg~ (..)
     , ~sitearg~Route (..)
     , resources~sitearg~

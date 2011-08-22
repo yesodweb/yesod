@@ -7,7 +7,7 @@ module Handler
     , withDevelApp
     ) where
 
-import ~sitearg~
+import Foundation
 import Settings
 import Yesod.Static
 import Yesod.Logger (makeLogger, flushLogger, Logger)
@@ -19,7 +19,7 @@ import Data.Dynamic (Dynamic, toDyn)
 import Handler.Root
 
 -- This line actually creates our YesodSite instance. It is the second half
--- of the call to mkYesodData which occurs in ~sitearg~.hs. Please see
+-- of the call to mkYesodData which occurs in Foundation.hs. Please see
 -- the comments there for more details.
 mkYesodDispatch "~sitearg~" resources~sitearg~
 

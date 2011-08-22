@@ -27,7 +27,7 @@ library
         Buildable: False
     exposed-modules: Handler
     hs-source-dirs: ., config
-    other-modules:   ~sitearg~
+    other-modules:   Foundation
                      Settings
                      StaticFiles
                      Handler.Root

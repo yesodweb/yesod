@@ -83,7 +83,7 @@ devel cabalCmd = do
                 , concat
                     [ "import \""
                     , pi'
-                    , "\" Handler (withDevelAppPort)"
+                    , "\" Application (withDevelAppPort)"
                     ]
                 , "import Data.Dynamic (fromDynamic)"
                 , "import Network.Wai.Handler.Warp (run)"

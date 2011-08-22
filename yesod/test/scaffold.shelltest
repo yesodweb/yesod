@@ -1,4 +1,4 @@
-# Important! run with tests/run.sh
+# Important! run with test/run.sh
 
 rm -rf foobar && runghc scaffold.hs init && cd foobar && cabal install && cabal install -fdevel && cd ..
 <<<
