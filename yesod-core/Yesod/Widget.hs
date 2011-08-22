@@ -254,7 +254,7 @@ addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJavasc
 
 -- | Add Coffesscript to the page's script tag. Requires the coffeescript
 -- executable to be present at runtime.
-addCoffee :: MonadIO m => Coffee (Route master) -> GGWidget master (GGHandler sub master m) ()
+addCoffee :: MonadIO m => CoffeeUrl (Route master) -> GGWidget master (GGHandler sub master m) ()
 addCoffee c = do
     render <- lift getUrlRenderParams
     t <- liftIO $ renderCoffee render c
@@ -262,7 +262,7 @@ addCoffee c = do
 
 -- | Add a new script tag to the body with the contents of this Coffesscript
 -- template. Requires the coffeescript executable to be present at runtime.
-addCoffeeBody :: MonadIO m => Coffee (Route master) -> GGWidget master (GGHandler sub master m) ()
+addCoffeeBody :: MonadIO m => CoffeeUrl (Route master) -> GGWidget master (GGHandler sub master m) ()
 addCoffeeBody c = do
     render <- lift getUrlRenderParams
     t <- liftIO $ renderCoffee render c
