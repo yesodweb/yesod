@@ -7,19 +7,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 ---------------------------------------------------------
 --
--- Module        : Yesod.Static
--- Copyright     : Michael Snoyman
--- License       : BSD3
---
--- Maintainer    : Michael Snoyman <michael@snoyman.com>
--- Stability     : Unstable
--- Portability   : portable
---
-
 -- | Serve static files from a Yesod app.
 --
--- This is most useful for standalone testing. When running on a production
--- server (like Apache), just let the server do the static serving.
+-- This is great for developming your application, but also for a dead-simple deployment.
+-- Caching headers are automatically taken care of.
+--
+-- If you are running a proxy server (like Apache or Nginx),
+-- you may want to have that server do the static serving instead.
 --
 -- In fact, in an ideal setup you'll serve your static files from a separate
 -- domain name to save time on transmitting cookies. In that case, you may wish
@@ -61,24 +55,26 @@ import qualified Data.Serialize
 import Data.Text (Text, pack)
 import Data.Monoid (mempty)
 import qualified Data.Map as M
---import Data.IORef (readIORef, newIORef, writeIORef)
+import Data.IORef (readIORef, newIORef, writeIORef)
 import Network.Wai (pathInfo, rawPathInfo, responseLBS)
 import Data.Char (isLower, isDigit)
 import Data.List (foldl')
 import qualified Data.ByteString as S
 import Network.HTTP.Types (status301)
+import System.PosixCompat.Files (getFileStatus, modificationTime)
+import System.Posix.Types (EpochTime)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
     , defaultWebAppSettings
-    , fileSystemLookupHash
     , staticApp
     , embeddedLookup
     , toEmbedded
-    -- , pathFromPieces
     , toFilePath
     , fromFilePath
     , FilePath
+    , ETagLookup
+    , webAppSettingsWithLookup
     )
 
 newtype Static = Static StaticSettings
@@ -86,15 +82,17 @@ newtype Static = Static StaticSettings
 -- | Default value of 'Static' for a given file folder.
 --
 -- Does not have index files or directory listings.
+-- Expects static files to *never* change
 static :: Prelude.FilePath -> IO Static
-static fp = do
-  hashes <- mkHashMap fp
-  return $ Static defaultWebAppSettings{
-    ssFolder = fileSystemLookupHash (getHash hashes) (toFilePath fp)
-  }
+static dir = do
+    hashLookup <- cachedETagLookup dir
+    return $ Static $ webAppSettingsWithLookup hashLookup
 
-getHash :: M.Map Prelude.FilePath S.ByteString -> FilePath -> Maybe (IO S.ByteString)
-getHash m fp = fmap return $ M.lookup (fromFilePath fp) m
+-- | like static, but checks to see if the file has changed
+staticDevel :: Prelude.FilePath -> IO Static
+staticDevel dir = do
+    hashLookup <- cachedETagLookupDevel dir
+    return $ Static $ webAppSettingsWithLookup hashLookup
 
 -- | Produces a 'Static' based on embedding file contents in the executable at
 -- compile time.
@@ -103,18 +101,6 @@ embed fp =
     [|Static (defaultWebAppSettings
         { ssFolder = embeddedLookup (toEmbedded $(embedDir fp))
         })|]
-
-{-
-publicProduction :: String -> Prelude.FilePath -> IO Public
-publicProduction root fp = do
-  etags <- mkPublicProductionEtag fp
-  return $ public root fp etags
-
-publicDevel :: String -> Prelude.FilePath -> IO Public
-publicDevel root fp = do
-  etags <- mkPublicDevelEtag fp
-  return $ public root fp etags
-  -}
 
 
 -- | Manually construct a static route.
@@ -172,18 +158,19 @@ staticFiles dir = mkStaticFiles dir
 publicFiles :: Prelude.FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles' dir "StaticRoute" False
 
-mkHashMap :: Prelude.FilePath -> IO (M.Map Prelude.FilePath S8.ByteString)
+
+mkHashMap :: Prelude.FilePath -> IO (M.Map FilePath S8.ByteString)
 mkHashMap dir = do
     fs <- getFileListPieces dir
     hashAlist fs >>= return . M.fromList
   where
-    hashAlist :: [[String]] -> IO [(Prelude.FilePath, S8.ByteString)]
+    hashAlist :: [[String]] -> IO [(FilePath, S8.ByteString)]
     hashAlist fs = mapM hashPair fs
       where
-        hashPair :: [String] -> IO (Prelude.FilePath, S8.ByteString)
+        hashPair :: [String] -> IO (FilePath, S8.ByteString)
         hashPair pieces = do let file = pathFromRawPieces dir pieces
                              h <- base64md5File file
-                             return (file, S8.pack h)
+                             return (toFilePath file, S8.pack h)
 
 pathFromRawPieces :: Prelude.FilePath -> [String] -> Prelude.FilePath
 pathFromRawPieces =
@@ -191,28 +178,27 @@ pathFromRawPieces =
   where
     append a b = a ++ '/' : b
 
-{-
-mkPublicDevelEtag :: Prelude.FilePath -> IO StaticSettings
-mkPublicDevelEtag dir = do
+cachedETagLookupDevel :: Prelude.FilePath -> IO ETagLookup
+cachedETagLookupDevel dir = do
     etags <- mkHashMap dir
-    mtimeVar <- newIORef (M.empty :: M.Map Prelude.FilePath System.Time.ClockTime)
-    return $ ETag $ \f ->
+    mtimeVar <- newIORef (M.empty :: M.Map FilePath EpochTime)
+    return $ \f ->
       case M.lookup f etags of
         Nothing -> return Nothing
         Just checksum -> do
-          newt <- getModificationTime f
+          fs <- getFileStatus $ fromFilePath f
+          let newt = modificationTime fs
           mtimes <- readIORef mtimeVar
           oldt <- case M.lookup f mtimes of
             Nothing -> writeIORef mtimeVar (M.insert f newt mtimes) >> return newt
-            Just ot -> return ot
+            Just oldt -> return oldt
           return $ if newt /= oldt then Nothing else Just checksum
 
 
-mkPublicProductionEtag :: Prelude.FilePath -> IO StaticSettings
-mkPublicProductionEtag dir = do
+cachedETagLookup :: Prelude.FilePath -> IO ETagLookup
+cachedETagLookup dir = do
     etags <- mkHashMap dir
-    return $ ETag $ \f -> return . M.lookup f $ etags
--}
+    return $ (\f -> return $ M.lookup f etags)
 
 mkStaticFiles :: Prelude.FilePath -> Q [Dec]
 mkStaticFiles fp = mkStaticFiles' fp "StaticRoute" True

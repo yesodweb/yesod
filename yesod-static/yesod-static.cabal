@@ -3,7 +3,7 @@ version:         0.3.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
-maintainer:      Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>, Greg Weber <greg@gregweber.info>
 synopsis:        Static file serving subsite for Yesod Web Framework.
 category:        Web, Yesod
 stability:       Stable
@@ -27,11 +27,12 @@ library
                    , template-haskell
                    , directory                 >= 1.0      && < 1.2
                    , transformers              >= 0.2      && < 0.3
-                   , wai-app-static            >= 0.3.1    && < 0.4
+                   , wai-app-static            >= 0.3.2    && < 0.4
                    , wai                       >= 0.4      && < 0.5
                    , text                      >= 0.5      && < 1.0
                    , file-embed                >= 0.0.4.1  && < 0.5
                    , http-types                >= 0.6.5    && < 0.7
+                   , unix-compat               >= 0.2      && < 0.3
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
 
