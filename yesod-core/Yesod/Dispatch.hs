@@ -27,6 +27,7 @@ import Prelude hiding (exp)
 import Yesod.Internal.Core
 import Yesod.Handler
 import Yesod.Internal.Dispatch
+import Yesod.Widget (GWidget)
 
 import Web.PathPieces (SinglePiece (..), MultiPiece (..))
 import Yesod.Internal.RouteParsing (THResource, Pieces (..), createRoutes, createRender, Resource (..), parseRoutes, parseRoutesFile)
@@ -103,8 +104,7 @@ mkYesodGeneral :: String -- ^ foundation name
                -> [Resource]
                -> Q ([Dec], [Dec])
 mkYesodGeneral name args clazzes isSub res = do
-    let name' = mkName name
-        args' = map mkName args
+    let args' = map mkName args
         arg = foldl AppT (ConT name') $ map VarT args'
     th' <- mapM thResourceFromResource res
     let th = map fst th'
@@ -134,7 +134,21 @@ mkYesodGeneral name args clazzes isSub res = do
                 then ConT ''YesodDispatch `AppT` arg `AppT` VarT master
                 else ConT ''YesodDispatch `AppT` arg `AppT` arg
     let y = InstanceD ctx ytyp [FunD (mkName "yesodDispatch") [yd]]
-    return ([w, x, x'], [y])
+    return ([w, x, x'] ++ masterTypSyns, [y])
+  where
+    name' = mkName name
+    masterTypSyns
+        | isSub = []
+        | otherwise =
+            [ TySynD
+                (mkName "Handler")
+                []
+                (ConT ''GHandler `AppT` ConT name' `AppT` ConT name')
+            , TySynD
+                (mkName "Widget")
+                []
+                (ConT ''GWidget `AppT` ConT name' `AppT` ConT name' `AppT` TupleT 0)
+            ]
 
 thResourceFromResource :: Resource -> Q (THResource, Maybe String)
 thResourceFromResource (Resource n ps atts)

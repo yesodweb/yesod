@@ -47,6 +47,7 @@ instance RenderMessage Y Msg where
     renderMessage a (_:xs) y = renderMessage a xs y
     renderMessage a [] y = renderMessage a ["en"] y
 
+getTowidgetR :: Handler RepHtml
 getTowidgetR = defaultLayout $ do
     toWidget [julius|foo|]
     toWidgetHead [julius|foo|]
@@ -55,7 +56,7 @@ getTowidgetR = defaultLayout $ do
     toWidget [lucius|foo{bar:baz}|]
     toWidgetHead [lucius|foo{bar:baz}|]
 
-    toWidget [hamlet|<foo>|]
+    toWidget [hamlet|<foo>|] :: Widget
     toWidgetHead [hamlet|<foo>|]
     toWidgetBody [hamlet|<foo>|]
 
