@@ -83,7 +83,7 @@ devel cabalCmd = do
                 , concat
                     [ "import \""
                     , pi'
-                    , "\" Handler (withDevelApp)"
+                    , "\" Handler (withDevelAppPort)"
                     ]
                 , "import Data.Dynamic (fromDynamic)"
                 , "import Network.Wai.Handler.Warp (run)"
@@ -96,7 +96,8 @@ devel cabalCmd = do
                 , "main :: IO ()"
                 , "main = do"
                 , "    putStrLn \"Starting app\""
-                , "    forkIO $ (fromJust $ fromDynamic withDevelApp) $ run 3000"
+                , "    wdap <- return $ fromJust $ fromDynamic withDevelAppPort"
+                , "    forkIO $ wdap $ \\(port, app) -> run port app"
                 , "    loop"
                 , ""
                 , "loop :: IO ()"
