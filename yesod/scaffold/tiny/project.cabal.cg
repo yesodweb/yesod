@@ -25,7 +25,7 @@ library
         Buildable: True
     else
         Buildable: False
-    exposed-modules: Handler
+    exposed-modules: Application
     hs-source-dirs: .
     other-modules:   Foundation
                      Settings
