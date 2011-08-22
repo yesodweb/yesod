@@ -103,8 +103,6 @@ executable             yesod
     other-modules:     CodeGen
                        Scaffold.Build
                        Scaffold.Devel
-    if flag(ghc7)
-        cpp-options:     -DGHC7
 
 source-repository head
   type:     git
