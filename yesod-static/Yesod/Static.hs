@@ -71,12 +71,14 @@ import Network.HTTP.Types (status301)
 import Network.Wai.Application.Static
     ( StaticSettings (..)
     , defaultWebAppSettings
-    , fileSystemLookup
+    , fileSystemLookupHash
     , staticApp
     , embeddedLookup
     , toEmbedded
     -- , pathFromPieces
     , toFilePath
+    , fromFilePath
+    , FilePath
     )
 
 newtype Static = Static StaticSettings
@@ -84,12 +86,15 @@ newtype Static = Static StaticSettings
 -- | Default value of 'Static' for a given file folder.
 --
 -- Does not have index files or directory listings.
-static :: Prelude.FilePath -> Static
-static fp =
-  --hashes <- mkHashMap fp
-  Static $ defaultWebAppSettings {
-    ssFolder = fileSystemLookup $ toFilePath fp
+static :: Prelude.FilePath -> IO Static
+static fp = do
+  hashes <- mkHashMap fp
+  return $ Static defaultWebAppSettings{
+    ssFolder = fileSystemLookupHash (getHash hashes) (toFilePath fp)
   }
+
+getHash :: M.Map Prelude.FilePath S.ByteString -> FilePath -> Maybe (IO S.ByteString)
+getHash m fp = fmap return $ M.lookup (fromFilePath fp) m
 
 -- | Produces a 'Static' based on embedding file contents in the executable at
 -- compile time.
