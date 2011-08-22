@@ -61,6 +61,7 @@ main = do
             putStrLn "    build        Build project (performs TH dependency analysis)"
             putStrLn "    touch        Touch any files with altered TH dependencies but do not build"
             putStrLn "    devel        Run project with the devel server"
+            putStrLn "    version      Print the version of Yesod"
 
 puts :: String -> IO ()
 puts s = putStr s >> hFlush stdout
