@@ -11,6 +11,8 @@ import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Widget
 import Text.Julius
+import Text.Lucius
+import Text.Hamlet
 
 import Network.Wai
 import Network.Wai.Test
@@ -27,12 +29,13 @@ mkYesod "Y" [$parseRoutes|
 / RootR GET
 /foo/*Strings MultiR GET
 /whamlet WhamletR GET
+/towidget TowidgetR GET
 |]
 
 instance Yesod Y where
     approot _ = "http://test"
 
-getRootR = defaultLayout $ addJuliusBody [$julius|<not escaped>|]
+getRootR = defaultLayout $ toWidgetBody [$julius|<not escaped>|]
 getMultiR _ = return ()
 
 data Msg = Hello | Goodbye
@@ -43,6 +46,18 @@ instance RenderMessage Y Msg where
     renderMessage _ ("es":_) Goodbye = "Adios"
     renderMessage a (_:xs) y = renderMessage a xs y
     renderMessage a [] y = renderMessage a ["en"] y
+
+getTowidgetR = defaultLayout $ do
+    toWidget [julius|foo|]
+    toWidgetHead [julius|foo|]
+    toWidgetBody [julius|foo|]
+
+    toWidget [lucius|foo{bar:baz}|]
+    toWidgetHead [lucius|foo{bar:baz}|]
+
+    toWidget [hamlet|<foo>|]
+    toWidgetHead [hamlet|<foo>|]
+    toWidgetBody [hamlet|<foo>|]
 
 getWhamletR = defaultLayout [$whamlet|
 <h1>Test

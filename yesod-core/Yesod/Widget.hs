@@ -115,43 +115,45 @@ class ToWidget sub master a where
 -- addHamlet/Cassius/Lucius/Julius stuff. For the most part, toWidget* will be
 -- sufficient. For somethings, like addLuciusMedia, create addCssUrlMedia.
 
-instance url ~ Route master => ToWidget sub master (HtmlUrl url) where
+type RY master = Route master -> [(Text, Text)] -> Text
+
+instance render ~ RY master => ToWidget sub master (render -> Html) where
     toWidget = addHamlet
-instance url ~ Route master => ToWidget sub master (CssUrl url) where
+instance render ~ RY master => ToWidget sub master (render -> Css) where
     toWidget = addCassius
-instance url ~ Route master => ToWidget sub master (JavascriptUrl url) where
+instance render ~ RY master => ToWidget sub master (render -> Javascript) where
     toWidget = addJulius
 instance ToWidget sub master (GWidget sub master ()) where
     toWidget = id
 instance ToWidget sub master Html where
     toWidget = addHtml
-instance url ~ Route master => ToWidget sub master (Coffee url) where
+instance render ~ RY master => ToWidget sub master (render -> Coffeescript) where
     toWidget = addCoffee
 
 class ToWidgetBody sub master a where
     toWidgetBody :: a -> GWidget sub master ()
 
-instance url ~ Route master => ToWidgetBody sub master (HtmlUrl url) where
+instance render ~ RY master => ToWidgetBody sub master (render -> Html) where
     toWidgetBody = addHamlet
-instance url ~ Route master => ToWidgetBody sub master (JavascriptUrl url) where
-    toWidgetBody = addJulius
+instance render ~ RY master => ToWidgetBody sub master (render -> Javascript) where
+    toWidgetBody = addJuliusBody
 instance ToWidgetBody sub master Html where
     toWidgetBody = addHtml
-instance url ~ Route master => ToWidgetBody sub master (Coffee url) where
+instance render ~ RY master => ToWidgetBody sub master (render -> Coffeescript) where
     toWidgetBody = addCoffeeBody
 
 class ToWidgetHead sub master a where
     toWidgetHead :: a -> GWidget sub master ()
 
-instance url ~ Route master => ToWidgetHead sub master (HtmlUrl url) where
+instance render ~ RY master => ToWidgetHead sub master (render -> Html) where
     toWidgetHead = addHamletHead
-instance url ~ Route master => ToWidgetHead sub master (CssUrl url) where
+instance render ~ RY master => ToWidgetHead sub master (render -> Css) where
     toWidgetHead = addCassius
-instance url ~ Route master => ToWidgetHead sub master (JavascriptUrl url) where
+instance render ~ RY master => ToWidgetHead sub master (render -> Javascript) where
     toWidgetHead = addJulius
 instance ToWidgetHead sub master Html where
     toWidgetHead = addHtmlHead
-instance url ~ Route master => ToWidgetHead sub master (Coffee url) where
+instance render ~ RY master => ToWidgetHead sub master (render -> Coffeescript) where
     toWidgetHead = addCoffee
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
