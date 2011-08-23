@@ -97,7 +97,7 @@ postLoginR config = do
         <*> iopt textField "password"
 
     let errorMessage (message :: Text) = do
-        setMessage [html| Error: #{message} |]
+        setMessage [shamlet|Error: #{message}|]
         toMaster <- getRouteToMaster
         redirect RedirectTemporary $ toMaster LoginR
 
