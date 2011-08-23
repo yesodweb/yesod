@@ -25,6 +25,7 @@ module Yesod.Static
     , StaticRoute (..)
       -- * Smart constructor
     , static
+    , staticDevel
     , embed
       -- * Template Haskell helpers
     , staticFiles

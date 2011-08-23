@@ -61,7 +61,11 @@ with~sitearg~ conf logger f = do
     takeMVar flag
 #endif
   where
+#ifdef PRODUCTION
     s = static Settings.staticDir
+#else
+    s = staticDevel Settings.staticDir
+#endif
 
 -- for yesod devel
 withDevelAppPort :: Dynamic

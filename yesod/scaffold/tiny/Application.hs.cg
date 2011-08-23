@@ -40,7 +40,11 @@ with~sitearg~ conf logger f = do
     let h = ~sitearg~ conf logger s
     toWaiApp h >>= f
   where
+#ifdef PRODUCTION
     s = static Settings.staticDir
+#else
+    s = staticDevel Settings.staticDir
+#endif
 
 with~sitearg~LoadConfig :: Settings.AppEnvironment -> (Application -> IO a) -> IO a
 with~sitearg~LoadConfig env f = do
