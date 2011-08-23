@@ -67,8 +67,8 @@ with~sitearg~ conf logger f = do
 #endif
 
 -- for yesod devel
-withDevelApp :: Dynamic
-withDevelApp =
+withDevelAppPort :: Dynamic
+withDevelAppPort =
     toDyn go
   where
     go :: ((Int, Application) -> IO ()) -> IO ()
