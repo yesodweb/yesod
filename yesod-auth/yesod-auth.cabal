@@ -20,7 +20,7 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                      >= 4        && < 4.3
-    build-depends:   authenticate            >= 0.9.2.3   && < 0.10
+    build-depends:   authenticate            >= 0.10      && < 0.11
                    , bytestring              >= 0.9.1.4   && < 0.10
                    , yesod-core              >= 0.9       && < 0.10
                    , wai                     >= 0.4       && < 0.5
