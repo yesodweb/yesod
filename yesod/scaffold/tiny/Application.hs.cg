@@ -46,16 +46,18 @@ with~sitearg~ conf logger f = do
     s = staticDevel Settings.staticDir
 #endif
 
-with~sitearg~LoadConfig :: Settings.AppEnvironment -> (Application -> IO a) -> IO a
-with~sitearg~LoadConfig env f = do
-  conf <- Settings.loadConfig env
-  logger <- makeLogger
-  r <- with~sitearg~ conf logger f
-  flushLogger logger
-  return r
-
-
+-- for yesod devel
 withDevelApp :: Dynamic
-withDevelApp = do
-  toDyn ((with~sitearg~LoadConfig Settings.Development):: (Application -> IO ()) -> IO ())
-
+withDevelApp =
+    toDyn go
+  where
+    go :: ((Int, Application) -> IO ()) -> IO ()
+    go f = do
+        conf <- Settings.loadConfig Settings.Development
+        let port = appPort conf
+        logger <- makeLogger
+        logString logger $ "Devel application launched, listening on port " ++ show port
+        with~sitearg~ conf logger $ \app -> f (port, debugHandle (logHandle logger) app)
+        flushLogger logger
+      where
+        logHandle logger msg = logLazyText logger msg >> flushLogger logger
