@@ -79,6 +79,31 @@ library
     exposed-modules: Yesod
     ghc-options:     -Wall
 
+executable             yesod
+    if flag(ghc7)
+        build-depends:   base                  >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base                  >= 4        && < 4.3
+    build-depends:     parsec             >= 2.1          && < 4
+                     , text               >= 0.11         && < 0.12
+                     , bytestring         >= 0.9          && < 0.10
+                     , time               >= 1.1.4        && < 1.3
+                     , template-haskell
+                     , directory          >= 1.0          && < 1.2
+                     , Cabal              >= 1.8          && < 1.11
+                     , unix-compat        >= 0.2          && < 0.3
+                     , containers         >= 0.2          && < 0.5
+                     , attoparsec-text    >= 0.8.5        && < 0.9
+                     , http-types         >= 0.6.1        && < 0.7
+                     , blaze-builder      >= 0.2          && < 0.4
+                     , process
+    ghc-options:       -Wall -threaded
+    main-is:           scaffold.hs
+    other-modules:     CodeGen
+                       Scaffold.Build
+                       Scaffold.Devel
+
 source-repository head
   type:     git
   location: git://github.com/yesodweb/yesod.git
