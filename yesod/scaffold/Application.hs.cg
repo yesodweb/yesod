@@ -46,25 +46,24 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- migrations handled by Yesod.
 with~sitearg~ :: AppConfig -> Logger -> (Application -> IO a) -> IO ()
 with~sitearg~ conf logger f = do
-  Settings.withConnectionPool conf $ \p -> do
-    runConnectionPool (runMigration migrateAll) p
-    let h = ~sitearg~ conf logger s p
-#ifdef WINDOWS
-    toWaiApp h >>= f >> return ()
-#else
-    tid <- forkIO $ toWaiApp h >>= f >> return ()
-    flag <- newEmptyMVar
-    _ <- Signal.installHandler Signal.sigINT (Signal.CatchOnce $ do
-        putStrLn "Caught an interrupt"
-        killThread tid
-        putMVar flag ()) Nothing
-    takeMVar flag
-#endif
-  where
 #ifdef PRODUCTION
-    s = static Settings.staticDir
+    s <- static Settings.staticDir
 #else
-    s = staticDevel Settings.staticDir
+    s <- staticDevel Settings.staticDir
+#endif
+    Settings.withConnectionPool conf $ \p -> do
+        runConnectionPool (runMigration migrateAll) p
+        let h = ~sitearg~ conf logger s p
+#ifdef WINDOWS
+        toWaiApp h >>= f >> return ()
+#else
+        tid <- forkIO $ toWaiApp h >>= f >> return ()
+        flag <- newEmptyMVar
+        _ <- Signal.installHandler Signal.sigINT (Signal.CatchOnce $ do
+            putStrLn "Caught an interrupt"
+            killThread tid
+            putMVar flag ()) Nothing
+        takeMVar flag
 #endif
 
 -- for yesod devel

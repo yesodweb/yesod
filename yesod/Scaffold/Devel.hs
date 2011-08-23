@@ -83,11 +83,10 @@ devel cabalCmd = do
                 , concat
                     [ "import \""
                     , pi'
-                    , "\" Application (withDevelApp)"
+                    , "\" Application (withDevelAppPort)"
                     ]
                 , "import Data.Dynamic (fromDynamic)"
                 , "import Network.Wai.Handler.Warp (run)"
-                , "import Network.Wai.Middleware.Debug (debugHandle)"
                 , "import Data.Maybe (fromJust)"
                 , "import Control.Concurrent (forkIO)"
                 , "import System.Directory (doesFileExist, removeFile)"
@@ -97,7 +96,7 @@ devel cabalCmd = do
                 , "main = do"
                 , "    putStrLn \"Starting app\""
                 , "    wdap <- return $ fromJust $ fromDynamic withDevelAppPort"
-                , "    forkIO $ wdap $ \\(port, debugLogHandle app) -> (run port . debugHandle debugLogHandle) app"
+                , "    forkIO $ wdap $ \\(port, app) -> run port app"
                 , "    loop"
                 , ""
                 , "loop :: IO ()"
