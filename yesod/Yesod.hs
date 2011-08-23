@@ -45,7 +45,7 @@ import Text.Julius
 
 import Yesod.Form
 import Yesod.Json
-import Yesod.Persist hiding (Field)
+import Yesod.Persist
 import Network.Wai (Application)
 import Network.Wai.Middleware.Debug
 import Control.Monad.Trans.Class (lift)
