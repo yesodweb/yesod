@@ -23,6 +23,8 @@ import Text.Shakespeare.Base (Deref (..), Ident (..), parseHash, derefToExp)
 import Text.ParserCombinators.Parsec (parse, many, eof, many1, noneOf, (<|>))
 import Control.Arrow ((***))
 import Data.Monoid (mempty, mappend)
+import qualified Data.Text as T
+import Data.String (IsString (fromString))
 
 class ToMessage a where
     toMessage :: a -> Text
@@ -252,3 +254,6 @@ parseVar s =
         _ -> (s, Nothing)
 
 data SomeMessage master = forall msg. RenderMessage master msg => SomeMessage msg
+
+instance IsString (SomeMessage master) where
+    fromString = SomeMessage . T.pack
