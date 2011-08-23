@@ -16,6 +16,8 @@ A next genteration web framework using the Haskell programming language, featuri
 
 ## Installing the latest development version from github
 
+Yesod is built upon many smaller packages, all of which can be installed with:
+
     cabal update
 
     REPOS="hamlet persistent wai yesod"
