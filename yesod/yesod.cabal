@@ -91,7 +91,7 @@ executable             yesod
                      , time               >= 1.1.4        && < 1.3
                      , template-haskell
                      , directory          >= 1.0          && < 1.2
-                     , Cabal              >= 1.8          && < 1.11
+                     , Cabal              >= 1.8          && < 1.13
                      , unix-compat        >= 0.2          && < 0.3
                      , containers         >= 0.2          && < 0.5
                      , attoparsec-text    >= 0.8.5        && < 0.9
