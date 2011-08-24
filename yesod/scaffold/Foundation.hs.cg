@@ -144,14 +144,13 @@ instance YesodAuth ~sitearg~ where
                   , authEmail
                   ]
 
-
+-- Sends off your mail. Requires sendmail in production!
 deliver :: ~sitearg~ -> L.ByteString -> IO ()
 #ifdef PRODUCTION
 deliver _ = sendmail
 #else
 deliver y = logLazyText (getLogger y) . Data.Text.Lazy.Encoding.decodeUtf8
 #endif
-
 
 instance YesodAuthEmail ~sitearg~ where
     type AuthEmailId ~sitearg~ = EmailId
@@ -178,7 +177,7 @@ instance YesodAuthEmail ~sitearg~ where
             , partContent = Data.Text.Lazy.Encoding.encodeUtf8 [stext|
 Please confirm your email address by clicking on the link below.
 
-#{verurl}
+  #{verurl}
 
 Thank you
 |]
