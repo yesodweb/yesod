@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings, MultiParamTypeClasses #-}
+{-# LANGUAGE CPP #-}
 module Foundation
     ( ~sitearg~ (..)
     , ~sitearg~Route (..)
@@ -31,13 +32,13 @@ import Model
 import Data.Maybe (isJust)
 import Control.Monad (join, unless)
 import Network.Mail.Mime
-import qualified Data.Text.Lazy
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 import qualified Data.Text as T
 import Web.ClientSession (getKey)
 import Text.Blaze.Renderer.Utf8 (renderHtml)
 import Text.Hamlet (shamlet)
+import Text.Shakespeare.Text (stext)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -143,32 +144,43 @@ instance YesodAuth ~sitearg~ where
                   , authEmail
                   ]
 
+
+deliver :: ~sitearg~ -> L.ByteString -> IO ()
+#ifdef PRODUCTION
+deliver _ = sendmail
+#else
+deliver y = logLazyText (getLogger y) . Data.Text.Lazy.Encoding.decodeUtf8
+#endif
+
+
 instance YesodAuthEmail ~sitearg~ where
     type AuthEmailId ~sitearg~ = EmailId
 
     addUnverified email verkey =
         runDB $ insert $ Email email Nothing $ Just verkey
-    sendVerifyEmail email _ verurl = liftIO $ renderSendMail Mail
-        { mailHeaders =
-            [ ("From", "noreply")
-            , ("To", email)
-            , ("Subject", "Verify your email address")
-            ]
-        , mailParts = [[textPart, htmlPart]]
-        }
+
+    sendVerifyEmail email _ verurl = do
+        y <- getYesod
+        liftIO $ deliver y =<< renderMail' Mail
+            {
+              mailHeaders =
+                [ ("From", "noreply")
+                , ("To", email)
+                , ("Subject", "Verify your email address")
+                ]
+            , mailParts = [[textPart, htmlPart]]
+            }
       where
         textPart = Part
             { partType = "text/plain; charset=utf-8"
             , partEncoding = None
             , partFilename = Nothing
-            , partContent = Data.Text.Lazy.Encoding.encodeUtf8
-                          $ Data.Text.Lazy.unlines
-                [ "Please confirm your email address by clicking on the link below."
-                , ""
-                , Data.Text.Lazy.fromChunks [verurl]
-                , ""
-                , "Thank you"
-                ]
+            , partContent = Data.Text.Lazy.Encoding.encodeUtf8 [stext|
+                Please confirm your email address by clicking on the link below.
+
+                #{verurl}
+
+                Thank you |]
             , partHeaders = []
             }
         htmlPart = Part
