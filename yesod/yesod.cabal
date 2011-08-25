@@ -99,10 +99,11 @@ executable             yesod
                      , blaze-builder      >= 0.2          && < 0.4
                      , process
     ghc-options:       -Wall -threaded
-    main-is:           scaffold.hs
-    other-modules:     CodeGen
-                       Scaffold.Build
-                       Scaffold.Devel
+    main-is:           main.hs
+    other-modules:     Scaffolding.CodeGen
+                       Scaffolding.Scaffolder
+                       Devel
+                       Build
 
 source-repository head
   type:     git

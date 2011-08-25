@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 -- | A code generation template haskell. Everything is taken as literal text,
 -- with ~var~ variable interpolation.
-module CodeGen (codegen, codegenDir) where
+module Scaffolding.CodeGen (codegen, codegenDir) where
 
 import Language.Haskell.TH.Syntax
 import Text.ParserCombinators.Parsec

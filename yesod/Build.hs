@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Scaffold.Build
+module Build
     ( touch
     , getDeps
     , touchDeps

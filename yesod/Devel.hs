@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Scaffold.Devel
+module Devel
     ( devel
     ) where
 
@@ -13,7 +13,7 @@ import Distribution.Verbosity (normal)
 import Distribution.PackageDescription.Parse (readPackageDescription, readHookedBuildInfo)
 import Distribution.PackageDescription (emptyHookedBuildInfo)
 -- import Distribution.Simple.LocalBuildInfo (localPkgDescr)
-import Scaffold.Build (getDeps, touchDeps, findHaskellFiles)
+import Build (getDeps, touchDeps, findHaskellFiles)
 -- import Network.Wai.Handler.Warp (run)
 -- import Network.Wai.Middleware.Debug (debug)
 -- import Distribution.Text (display)

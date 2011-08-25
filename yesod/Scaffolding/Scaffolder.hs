@@ -1,31 +1,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE CPP #-}
-import CodeGen
-import System.IO
-import System.Directory
-import qualified Data.ByteString.Char8 as S
+module Scaffolding.Scaffolder (scaffold) where
+
+import Scaffolding.CodeGen
+
 import Language.Haskell.TH.Syntax
-import Data.Time (getCurrentTime, utctDay, toGregorian)
-import Data.Char (toLower)
-import Control.Applicative ((<$>))
-import qualified Data.ByteString.Lazy as L
+import Control.Monad (unless)
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
-import Control.Monad (unless)
-import System.Environment (getArgs)
-import System.Exit (exitWith)
-
-import Scaffold.Build (touch)
-import Scaffold.Devel (devel)
-
-import System.Process (rawSystem)
-
-qq :: String
-#if __GLASGOW_HASKELL__ >= 700
-qq = ""
-#else
-qq = "$"
-#endif
+import qualified Data.ByteString.Lazy as L
+import Control.Applicative ((<$>))
+import qualified Data.ByteString.Char8 as S
+import Data.Time (getCurrentTime, utctDay, toGregorian)
+import Data.Char (toLower)
+import System.Directory
+import System.IO
 
 prompt :: (String -> Bool) -> IO String
 prompt f = do
@@ -36,41 +25,22 @@ prompt f = do
             putStrLn "That was not a valid entry, please try again: "
             prompt f
 
-main :: IO ()
-main = do
-    args' <- getArgs
-    let (isDev, args) =
-            case args' of
-                "--dev":rest -> (True, rest)
-                _ -> (False, args')
-    let cmd = if isDev then "cabal-dev" else "cabal"
-    let cabal rest = rawSystem cmd rest >> return ()
-    let build rest = rawSystem cmd $ "build":rest
-    case args of
-        ["init"] -> scaffold
-        "build":rest -> touch >> build rest >>= exitWith
-        ["touch"] -> touch
-        ["devel"] -> devel cabal
-        ["version"] -> putStrLn "0.9"
-        "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
-        _ -> do
-            putStrLn "Usage: yesod <command>"
-            putStrLn "Available commands:"
-            putStrLn "    init         Scaffold a new site"
-            putStrLn "    configure    Configure a project for building"
-            putStrLn "    build        Build project (performs TH dependency analysis)"
-            putStrLn "    touch        Touch any files with altered TH dependencies but do not build"
-            putStrLn "    devel        Run project with the devel server"
-            putStrLn "    version      Print the version of Yesod"
-
-puts :: String -> IO ()
-puts s = putStr s >> hFlush stdout
+qq :: String
+#if __GLASGOW_HASKELL__ >= 700
+qq = ""
+#else
+qq = "$"
+#endif
 
 data Backend = Sqlite | Postgresql | MongoDB | Tiny
   deriving (Eq, Read, Show, Enum, Bounded)
 
+puts :: String -> IO ()
+puts s = putStr s >> hFlush stdout
+
 backends :: [Backend]
 backends = [minBound .. maxBound]
+
 
 scaffold :: IO ()
 scaffold = do
