@@ -1,3 +1,5 @@
+# Not using this currently!
+#
 # Important! run with test/run.sh
 
 rm -rf foobar && runghc main.hs init && cd foobar && cabal install && cabal install -fdevel && cd ..

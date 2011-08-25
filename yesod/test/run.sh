@@ -11,7 +11,13 @@ cabal clean && cabal install && cabal sdist
 for f in $(ls -1rt dist/*.tar.gz | tail -1)
 do
   tar -xzvf $f && cd `basename $f .tar.gz` || exit 1
-  shelltest ../test/scaffold.shelltest --color --diff $@ -- --hide-successes
+
+  # shelltest is designed to show you the diff of an expected stdout/stdin. We don't care about that. If it compiles, it compiles
+  # shelltest ../test/scaffold.shelltest --color --diff --all $@ -- --hide-successes
+
+  ../test/scaffold.sh < ../test/sqlite-input.txt &&
+  ../test/scaffold.sh < ../test/postgresql-input.txt &&
+  ../test/scaffold.sh < ../test/tiny-input.txt || (echo "FAILED" && exit 1)
   cd ..
   rm -r `basename $f .tar.gz`
 done
