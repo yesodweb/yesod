@@ -1,4 +1,4 @@
-
+{-# LANGUAGE OverloadedStrings #-}
 --------------------------------------------------------------------------------
 -- |
 -- Module      : Text.XRDS
@@ -20,12 +20,13 @@ module OpenId2.XRDS (
   ) where
 
 -- Libraries
-import Control.Arrow
-import Control.Monad
-import Data.List
-import Data.Maybe
-import Text.XML.Light
-
+import Control.Monad ((>=>))
+import Data.Maybe (listToMaybe)
+import Text.XML.Enumerator.Resolved (parseLBS, decodeEntities)
+import Text.XML.Enumerator.Cursor (fromDocument, element, content, ($/), (&|), Cursor, (&/), attribute, node)
+import qualified Data.ByteString.Lazy as L
+import Data.Text (Text)
+import qualified Data.Text.Read
 
 -- Types -----------------------------------------------------------------------
 
@@ -34,68 +35,43 @@ type XRDS = [XRD]
 type XRD = [Service]
 
 data Service = Service
-  { serviceTypes      :: [String]
-  , serviceMediaTypes :: [String]
-  , serviceURIs       :: [String]
-  , serviceLocalIDs   :: [String]
+  { serviceTypes      :: [Text]
+  , serviceMediaTypes :: [Text]
+  , serviceURIs       :: [Text]
+  , serviceLocalIDs   :: [Text]
   , servicePriority   :: Maybe Int
-  , serviceExtra      :: [Element]
   } deriving Show
 
--- Utilities -------------------------------------------------------------------
+parseXRDS :: L.ByteString -> Maybe XRDS
+parseXRDS str =
+    either
+        (const Nothing)
+        (Just . parseXRDS' . fromDocument)
+        (parseLBS str decodeEntities)
 
--- | Generate a tag name predicate, that ignores prefix and namespace.
-tag :: String -> Element -> Bool
-tag n el = qName (elName el) == n
+parseXRDS' :: Cursor -> [[Service]]
+parseXRDS' = element "{xri://$xrds}XRDS" &/
+             element "{xri://$xrd*($v*2.0)}XRD" &|
+             parseXRD
 
+parseXRD :: Cursor -> [Service]
+parseXRD c = c $/ element "{xri://$xrd*($v*2.0)}Service" >=> parseService
 
--- | Filter the attributes of an element by some predicate
-findAttr' :: (QName -> Bool) -> Element -> Maybe String
-findAttr' p el = attrVal `fmap` find (p . attrKey) (elAttribs el)
-
-
--- | Read, maybe
-readMaybe :: Read a => String -> Maybe a
-readMaybe str = case reads str of
-  [(x,"")] -> Just x
-  _        -> Nothing
-
-
--- | Get the text of an element
-getText :: Element -> String
-getText el = case elContent el of
-  [Text cd] -> cdData cd
-  _         -> []
-
--- Parsing ---------------------------------------------------------------------
-
-
-parseXRDS :: String -> Maybe XRDS
-parseXRDS str = do
-  doc <- parseXMLDoc str
-  let xrds = filterChildren (tag "XRD") doc
-  return $ map parseXRD xrds
-
-
-parseXRD :: Element -> XRD
-parseXRD el =
-  let svcs = filterChildren (tag "Service") el
-   in mapMaybe parseService svcs
-
-
-parseService :: Element -> Maybe Service
-parseService el = do
-  let vals t x = first (map getText) $ partition (tag t) x
-      (tys,tr)    = vals "Type"      (elChildren el)
-      (mts,mr)    = vals "MediaType" tr
-      (uris,ur)   = vals "URI"       mr
-      (lids,rest) = vals "LocalID"   ur
-      priority = readMaybe =<< findAttr' (("priority" ==) . qName) el
-  guard $ not $ null tys
-  return $ Service { serviceTypes      = tys
-                   , serviceMediaTypes = mts
-                   , serviceURIs       = uris
-                   , serviceLocalIDs   = lids
-                   , servicePriority   = priority
-                   , serviceExtra      = rest
-                   }
+parseService :: Cursor -> [Service]
+parseService c =
+    if null types then [] else [Service
+        { serviceTypes = types
+        , serviceMediaTypes = mtypes
+        , serviceURIs = uris
+        , serviceLocalIDs = localids
+        , servicePriority = listToMaybe (attribute "priority" c) >>= readMaybe
+        }]
+  where
+    types = c $/ element "{xri://$xrd*($v*2.0)}Type" &/ content
+    mtypes = c $/ element "{xri://$xrd*($v*2.0)}MediaType" &/ content
+    uris = c $/ element "{xri://$xrd*($v*2.0)}URI" &/ content
+    localids = c $/ element "{xri://$xrd*($v*2.0)}LocalID" &/ content
+    readMaybe t =
+        case Data.Text.Read.signed Data.Text.Read.decimal t of
+            Right (i, "") -> Just i
+            _ -> Nothing

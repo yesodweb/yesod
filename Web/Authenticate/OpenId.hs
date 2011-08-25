@@ -12,19 +12,22 @@ import OpenId2.Normalization (normalize)
 import OpenId2.Discovery (discover, Discovery (..))
 import Control.Failure (Failure (failure))
 import OpenId2.Types
-import Web.Authenticate.Internal (qsUrl)
 import Control.Monad (unless)
-import qualified Data.ByteString.UTF8 as BSU
-import qualified Data.ByteString.Lazy.UTF8 as BSLU
+import Data.Text.Lazy.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+import Data.Text.Lazy (toStrict)
 import Network.HTTP.Enumerator
     ( parseUrl, urlEncodedBody, responseBody, httpLbsRedirect
     , HttpException, withManager
     )
-import Control.Arrow ((***))
+import Control.Arrow ((***), second)
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text, pack, unpack)
-import Data.Text.Encoding (encodeUtf8)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8)
+import Blaze.ByteString.Builder (toByteString)
+import Network.HTTP.Types (renderQueryText)
+import Data.Monoid (mappend)
 
 getForwardUrl
     :: ( MonadIO m
@@ -39,12 +42,11 @@ getForwardUrl
 getForwardUrl openid' complete mrealm params = do
     let realm = fromMaybe complete mrealm
     disc <- normalize openid' >>= discover
+    let helper s q = return $ s `mappend` decodeUtf8 (toByteString $ renderQueryText True $ map (second Just) q)
     case disc of
-        Discovery1 server mdelegate ->
-            return $ pack $ qsUrl server
-                $ map (unpack *** unpack) -- FIXME
+        Discovery1 server mdelegate -> helper server
                 $ ("openid.mode", "checkid_setup")
-                : ("openid.identity", maybe openid' pack mdelegate)
+                : ("openid.identity", maybe openid' id mdelegate)
                 : ("openid.return_to", complete)
                 : ("openid.realm", realm)
                 : ("openid.trust_root", complete)
@@ -54,14 +56,14 @@ getForwardUrl openid' complete mrealm params = do
                     case itype of
                         ClaimedIdent -> i
                         OPIdent -> "http://specs.openid.net/auth/2.0/identifier_select"
-            return $ pack $ qsUrl p
+            helper p
                 $ ("openid.ns", "http://specs.openid.net/auth/2.0")
                 : ("openid.mode", "checkid_setup")
-                : ("openid.claimed_id", unpack i')
-                : ("openid.identity", unpack i')
-                : ("openid.return_to", unpack complete)
-                : ("openid.realm", unpack realm)
-                : map (unpack *** unpack) params
+                : ("openid.claimed_id", i')
+                : ("openid.identity", i')
+                : ("openid.return_to", complete)
+                : ("openid.realm", realm)
+                : params
 
 authenticate
     :: ( MonadIO m
@@ -91,10 +93,10 @@ authenticate params = do
     let params' = map (encodeUtf8 *** encodeUtf8)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params
-    req' <- parseUrl endpoint
+    req' <- parseUrl $ unpack endpoint
     let req = urlEncodedBody params' req'
     rsp <- liftIO $ withManager $ httpLbsRedirect req
-    let rps = parseDirectResponse $ pack $ BSLU.toString $ responseBody rsp -- FIXME
+    let rps = parseDirectResponse $ toStrict $ decodeUtf8With lenientDecode $ responseBody rsp
     case lookup "is_valid" rps of
         Just "true" -> return (Identifier ident, rps)
         _ -> failure $ AuthenticationException "OpenID provider did not validate"
