@@ -1,20 +1,42 @@
-#!/bin/sh
+#!/bin/bash -e
 
-CABAL=cabal
+# allow a CABAL env var to override
+CABAL=${CABAL:-cabal}
 
 # install testing dependencies
-$CABAL install HUnit QuickCheck 'hspec >= 0.6.1 && < 0.7' shelltestrunner || exit 1
+$CABAL install HUnit QuickCheck 'hspec >= 0.6.1 && < 0.7' shelltestrunner
 
-git submodule init
-git submodule update
+# pull submodules
+git submodule update --init
 
-PACKAGES="blaze-textual aeson authenticate yesod-core yesod-json yesod-static yesod-persistent yesod-newsfeed yesod-form yesod-auth yesod-sitemap yesod"
-for package in $PACKAGES
-do
-    echo Installing $package
-    cd $package
-    ($CABAL configure --enable-tests ||
-        ($CABAL install --only-dependencies && $CABAL configure --enable-tests)
-    ) && $CABAL build && $CABAL test && ./Setup.lhs install || exit 1
-    cd ..
+pkgs=( blaze-textual
+       aeson
+       authenticate
+       yesod-core
+       yesod-json
+       yesod-static
+       yesod-persistent
+       yesod-newsfeed
+       yesod-form
+       yesod-auth
+       yesod-sitemap
+       yesod
+     )
+
+# install each sub-respository
+for pkg in "${pkgs[@]}"; do
+  echo "Installing $pkg..."
+
+  (
+    cd "./$pkg"
+
+    if ! $CABAL configure --enable-tests; then
+      $CABAL install --only-dependencies
+      $CABAL configure --enable-tests
+    fi
+
+    $CABAL build
+    $CABAL test
+    ./Setup.lhs install
+  )
 done
