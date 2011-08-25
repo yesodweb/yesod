@@ -17,7 +17,7 @@ module Foundation
     ) where
 
 import Yesod
-import Yesod.Static
+import Yesod.Static (Static, base64md5, StaticRoute(..))
 import Settings.StaticFiles
 import Yesod.Auth
 import Yesod.Auth.OpenId
@@ -177,7 +177,7 @@ instance YesodAuthEmail ~sitearg~ where
             , partContent = Data.Text.Lazy.Encoding.encodeUtf8 [stext|
 Please confirm your email address by clicking on the link below.
 
-  #{verurl}
+\#{verurl}
 
 Thank you
 |]

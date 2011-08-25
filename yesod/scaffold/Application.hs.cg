@@ -10,7 +10,7 @@ module Application
 
 import Foundation
 import Settings
-import Yesod.Static
+import Settings.StaticFiles (static)
 import Yesod.Auth
 import Yesod.Logger (makeLogger, flushLogger, Logger, logString, logLazyText)
 import Database.Persist.~importGenericDB~
@@ -46,11 +46,7 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- migrations handled by Yesod.
 with~sitearg~ :: AppConfig -> Logger -> (Application -> IO a) -> IO ()
 with~sitearg~ conf logger f = do
-#ifdef PRODUCTION
     s <- static Settings.staticDir
-#else
-    s <- staticDevel Settings.staticDir
-#endif
     Settings.withConnectionPool conf $ \p -> do
         runConnectionPool (runMigration migrateAll) p
         let h = ~sitearg~ conf logger s p

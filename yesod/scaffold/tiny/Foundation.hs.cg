@@ -14,7 +14,7 @@ module Foundation
     ) where
 
 import Yesod.Core
-import Yesod.Static
+import Yesod.Static (Static, base64md5, StaticRoute(..))
 import Settings.StaticFiles
 import Yesod.Logger (Logger, logLazyText)
 import qualified Settings
