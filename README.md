@@ -24,5 +24,5 @@ Yesod is built upon many smaller packages, all of which can be installed with:
     for repo in $REPOS
     do
       git clone http://github.com/yesodweb/$repo
-      pushd $repo && (./install-all.sh; popd)
+      (cd $repo && ./install-all.sh)
     done
