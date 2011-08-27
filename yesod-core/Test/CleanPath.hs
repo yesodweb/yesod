@@ -70,13 +70,6 @@ cleanPathTest =
     ]
 
 runner f = toWaiApp Y >>= runSession f
-defaultRequest = Request
-    { pathInfo = []
-    , requestHeaders = []
-    , queryString = []
-    , rawQueryString = ""
-    , requestMethod = "GET"
-    }
 
 removeTrailingSlash = runner $ do
     res <- request defaultRequest

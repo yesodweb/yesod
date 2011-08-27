@@ -34,12 +34,6 @@ exceptionsTest = describe "Test.Exceptions"
     ]
 
 runner f = toWaiApp Y >>= runSession f
-defaultRequest = Request
-    { pathInfo = []
-    , requestHeaders = []
-    , queryString = []
-    , requestMethod = "GET"
-    }
 
 case500 = runner $ do
     res <- request defaultRequest

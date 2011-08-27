@@ -34,12 +34,6 @@ getRootR = return ()
 getFooR = return ()
 
 runner f = toWaiApp Y >>= runSession f
-defaultRequest = Request
-    { pathInfo = []
-    , requestHeaders = []
-    , queryString = []
-    , requestMethod = fromString "GET"
-    }
 
 case_sanity = runner $ do
     res <- request defaultRequest

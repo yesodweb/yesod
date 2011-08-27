@@ -77,12 +77,6 @@ widgetTest = describe "Test.Widget"
     ]
 
 runner f = toWaiApp Y >>= runSession f
-defaultRequest = Request
-    { pathInfo = []
-    , requestHeaders = []
-    , queryString = []
-    , requestMethod = "GET"
-    }
 
 case_addJuliusBody = runner $ do
     res <- request defaultRequest

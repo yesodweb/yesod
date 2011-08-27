@@ -30,12 +30,6 @@ linksTest = describe "Test.Links"
     ]
 
 runner f = toWaiApp Y >>= runSession f
-defaultRequest = Request
-    { pathInfo = []
-    , requestHeaders = []
-    , queryString = []
-    , requestMethod = "GET"
-    }
 
 case_linkToHome = runner $ do
     res <- request defaultRequest

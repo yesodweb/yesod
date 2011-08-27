@@ -41,12 +41,6 @@ getRootR = defaultLayout $ do
 getStaticR = getRootR
 
 runner f = toWaiApp Y >>= runSession f
-defaultRequest = Request
-    { pathInfo = []
-    , requestHeaders = []
-    , queryString = []
-    , requestMethod = "GET"
-    }
 
 caseMedia = runner $ do
     res <- request defaultRequest
