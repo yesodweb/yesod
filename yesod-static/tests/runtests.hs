@@ -1,10 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-import Yesod.Static
+import Yesod.Static ()
 
 import Test.Hspec
 import Test.Hspec.HUnit ()
 -- import Test.Hspec.QuickCheck (prop)
-import Test.HUnit ((@?=))
 
 main :: IO ()
 main = hspecX $ return [] {- FIXME specs

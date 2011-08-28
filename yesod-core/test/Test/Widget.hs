@@ -4,12 +4,9 @@
 module Test.Widget (widgetTest) where
 
 import Test.Hspec
-import Test.Hspec.HUnit
+import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
-import Yesod.Content
-import Yesod.Dispatch
-import Yesod.Widget
 import Text.Julius
 import Text.Lucius
 import Text.Hamlet
@@ -17,15 +14,13 @@ import Text.Hamlet
 import Network.Wai
 import Network.Wai.Test
 
-import qualified Data.ByteString.Lazy.Char8 as L8
-
 data Y = Y
 
 mkMessage "Y" "test" "en"
 
 type Strings = [String]
 
-mkYesod "Y" [$parseRoutes|
+mkYesod "Y" [parseRoutes|
 / RootR GET
 /foo/*Strings MultiR GET
 /whamlet WhamletR GET
@@ -35,7 +30,10 @@ mkYesod "Y" [$parseRoutes|
 instance Yesod Y where
     approot _ = "http://test"
 
-getRootR = defaultLayout $ toWidgetBody [$julius|<not escaped>|]
+getRootR :: Handler RepHtml
+getRootR = defaultLayout $ toWidgetBody [julius|<not escaped>|]
+
+getMultiR :: [String] -> Handler ()
 getMultiR _ = return ()
 
 data Msg = Hello | Goodbye
@@ -49,7 +47,7 @@ instance RenderMessage Y Msg where
 
 getTowidgetR :: Handler RepHtml
 getTowidgetR = defaultLayout $ do
-    toWidget [julius|foo|]
+    toWidget [julius|foo|] :: Widget
     toWidgetHead [julius|foo|]
     toWidgetBody [julius|foo|]
 
@@ -60,7 +58,8 @@ getTowidgetR = defaultLayout $ do
     toWidgetHead [hamlet|<foo>|]
     toWidgetBody [hamlet|<foo>|]
 
-getWhamletR = defaultLayout [$whamlet|
+getWhamletR :: Handler RepHtml
+getWhamletR = defaultLayout [whamlet|
 <h1>Test
 <h2>@{WhamletR}
 <h3>_{Goodbye}
@@ -68,7 +67,7 @@ getWhamletR = defaultLayout [$whamlet|
 ^{embed}
 |]
   where
-    embed = [$whamlet|<h4>Embed|]
+    embed = [whamlet|<h4>Embed|]
 
 widgetTest :: IO [IO Spec]
 widgetTest = describe "Test.Widget"
@@ -76,12 +75,15 @@ widgetTest = describe "Test.Widget"
     , it "whamlet" case_whamlet
     ]
 
+runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f
 
+case_addJuliusBody :: IO ()
 case_addJuliusBody = runner $ do
     res <- request defaultRequest
     assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><script><not escaped></script></body></html>" res
 
+case_whamlet :: IO ()
 case_whamlet = runner $ do
     res <- request defaultRequest
         { pathInfo = ["whamlet"]

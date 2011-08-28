@@ -11,6 +11,7 @@ cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 extra-source-files: include/qq.h
+description:     Authentication for Yesod.
 
 flag ghc7
 

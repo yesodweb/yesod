@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# OPTIONS_GHC -fno-warn-missing-fields #-} -- QuasiQuoter
 module Yesod.Internal.RouteParsing
     ( createRoutes
     , createRender
@@ -22,10 +23,8 @@ import Data.Either
 import Data.List
 import Data.Char (toLower)
 import qualified Data.Text
-import Language.Haskell.TH.Syntax
 import Language.Haskell.TH.Quote
 import Data.Data
-import Data.Maybe
 import qualified System.IO as SIO
 
 data Pieces =

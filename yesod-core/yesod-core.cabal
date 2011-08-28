@@ -11,7 +11,7 @@ description:
     The Yesod documentation site <http://www.yesodweb.com/> has much more information, tutorials and information on some of the supporting packages, like Hamlet and Persistent.
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6
+cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 
@@ -78,7 +78,8 @@ library
 
 test-suite runtests
     type: exitcode-stdio-1.0
-    main-is: test/main.hs
+    main-is: main.hs
+    hs-source-dirs: test
 
     if flag(ghc7)
         type: exitcode-stdio-1.0
@@ -92,10 +93,17 @@ test-suite runtests
     cpp-options:   -DTEST
     build-depends: hspec >= 0.6.1 && < 0.7
                   ,wai-test
+                  ,wai
+                  ,yesod-core
+                  ,bytestring
+                  ,hamlet
+                  ,shakespeare-css
+                  ,shakespeare-js
+                  ,text
+                  ,http-types
                   ,HUnit
                   ,QuickCheck >= 2 && < 3
     ghc-options:     -Wall
-    main-is:         runtests.hs
 
 source-repository head
   type:     git

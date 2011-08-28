@@ -9,7 +9,8 @@ category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://docs.yesodweb.com/
+homepage:        http://www.yesodweb.com/
+description:     Helper functions and data types for producing News feeds.
 
 library
     build-depends:   base                      >= 4        && < 5
@@ -26,4 +27,4 @@ library
 
 source-repository head
   type:     git
-  location: git://github.com/snoyberg/yesod-newsfeed.git
+  location: git://github.com/yesodweb/yesod.git

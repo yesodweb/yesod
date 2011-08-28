@@ -128,9 +128,11 @@ instance Yesod master => YesodDispatch Static master where
         \req -> staticApp set req { pathInfo = textPieces }
 
 notHidden :: Prelude.FilePath -> Bool
-notHidden ('.':_) = False
 notHidden "tmp" = False
-notHidden _ = True
+notHidden s =
+    case s of
+        '.':_ -> False
+        _ -> True
 
 getFileListPieces :: Prelude.FilePath -> IO [[String]]
 getFileListPieces = flip go id

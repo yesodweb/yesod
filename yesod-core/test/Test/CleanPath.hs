@@ -1,15 +1,12 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Test.CleanPath (cleanPathTest) where
+module Test.CleanPath (cleanPathTest, Widget) where
 
 import Test.Hspec
-import Test.Hspec.HUnit
+import Test.Hspec.HUnit()
 
 import Yesod.Core hiding (Request)
-import Yesod.Content
-import Yesod.Dispatch
-import Yesod.Handler (Route)
 
 import Network.Wai
 import Network.Wai.Test
@@ -19,7 +16,10 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Text as TS
 
 data Subsite = Subsite
+
+getSubsite :: a -> Subsite
 getSubsite = const Subsite
+
 data SubsiteRoute = SubsiteRoute [TS.Text]
     deriving (Eq, Show, Read)
 type instance Route Subsite = SubsiteRoute
@@ -33,7 +33,7 @@ instance YesodDispatch Subsite master where
         ] $ L8.pack $ show pieces
 
 data Y = Y
-mkYesod "Y" [$parseRoutes|
+mkYesod "Y" [parseRoutes|
 /foo FooR GET
 /foo/#String FooStringR GET
 /bar BarR GET
@@ -52,8 +52,13 @@ instance Yesod Y where
       where
         corrected = filter (not . TS.null) s
 
+getFooR :: Handler RepPlain
 getFooR = return $ RepPlain "foo"
+
+getFooStringR :: String -> Handler RepPlain
 getFooStringR = return . RepPlain . toContent
+
+getBarR, getPlainR :: Handler RepPlain
 getBarR = return $ RepPlain "bar"
 getPlainR = return $ RepPlain "plain"
 
@@ -69,8 +74,10 @@ cleanPathTest =
     , it "redirect with query string" redQueryString
     ]
 
+runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f
 
+removeTrailingSlash :: IO ()
 removeTrailingSlash = runner $ do
     res <- request defaultRequest
                 { pathInfo = decodePathSegments "/foo/"
@@ -78,6 +85,7 @@ removeTrailingSlash = runner $ do
     assertStatus 301 res
     assertHeader "Location" "http://test/foo" res
 
+noTrailingSlash :: IO ()
 noTrailingSlash = runner $ do
     res <- request defaultRequest
                 { pathInfo = decodePathSegments "/foo"
@@ -86,6 +94,7 @@ noTrailingSlash = runner $ do
     assertContentType "text/plain; charset=utf-8" res
     assertBody "foo" res
 
+addTrailingSlash :: IO ()
 addTrailingSlash = runner $ do
     res <- request defaultRequest
                 { pathInfo = decodePathSegments "/bar"
@@ -93,6 +102,7 @@ addTrailingSlash = runner $ do
     assertStatus 301 res
     assertHeader "Location" "http://test/bar/" res
 
+hasTrailingSlash :: IO ()
 hasTrailingSlash = runner $ do
     res <- request defaultRequest
                 { pathInfo = decodePathSegments "/bar/"
@@ -101,6 +111,7 @@ hasTrailingSlash = runner $ do
     assertContentType "text/plain; charset=utf-8" res
     assertBody "bar" res
 
+fooSomething :: IO ()
 fooSomething = runner $ do
     res <- request defaultRequest
                 { pathInfo = decodePathSegments "/foo/something"
@@ -109,6 +120,7 @@ fooSomething = runner $ do
     assertContentType "text/plain; charset=utf-8" res
     assertBody "something" res
 
+subsiteDispatch :: IO ()
 subsiteDispatch = runner $ do
     res <- request defaultRequest
                 { pathInfo = decodePathSegments "/subsite/1/2/3/"
@@ -117,6 +129,7 @@ subsiteDispatch = runner $ do
     assertContentType "SUBSITE" res
     assertBody "[\"1\",\"2\",\"3\",\"\"]" res
 
+redQueryString :: IO ()
 redQueryString = runner $ do
     res <- request defaultRequest
                 { pathInfo = decodePathSegments "/plain/"
