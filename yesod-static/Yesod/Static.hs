@@ -87,13 +87,13 @@ newtype Static = Static StaticSettings
 static :: Prelude.FilePath -> IO Static
 static dir = do
     hashLookup <- cachedETagLookup dir
-    return $ Static $ webAppSettingsWithLookup hashLookup
+    return $ Static $ webAppSettingsWithLookup (toFilePath dir) hashLookup
 
 -- | like static, but checks to see if the file has changed
 staticDevel :: Prelude.FilePath -> IO Static
 staticDevel dir = do
     hashLookup <- cachedETagLookupDevel dir
-    return $ Static $ webAppSettingsWithLookup hashLookup
+    return $ Static $ webAppSettingsWithLookup (toFilePath dir) hashLookup
 
 -- | Produces a 'Static' based on embedding file contents in the executable at
 -- compile time.
