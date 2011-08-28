@@ -23,7 +23,7 @@ module OpenId2.XRDS (
 import Control.Monad ((>=>))
 import Data.Maybe (listToMaybe)
 import Text.XML.Enumerator.Resolved (parseLBS, decodeEntities)
-import Text.XML.Enumerator.Cursor (fromDocument, element, content, ($/), (&|), Cursor, (&/), attribute, node)
+import Text.XML.Enumerator.Cursor (fromDocument, element, content, ($/), (&|), Cursor, (&/), attribute)
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text)
 import qualified Data.Text.Read

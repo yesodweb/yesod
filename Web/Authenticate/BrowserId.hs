@@ -6,7 +6,6 @@ module Web.Authenticate.BrowserId
 
 import Data.Text (Text)
 import Network.HTTP.Enumerator (parseUrl, responseBody, httpLbs, withManager, method, urlEncodedBody)
-import Network.HTTP.Types (queryTextToQuery)
 import Data.Aeson (json, Value (Object, String))
 import Data.Attoparsec.Lazy (parse, maybeResult)
 import qualified Data.Map as Map

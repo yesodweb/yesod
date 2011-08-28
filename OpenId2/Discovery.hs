@@ -25,16 +25,15 @@ import OpenId2.XRDS
 import Debug.Trace
 -- Libraries
 import Data.Char
-import Data.List
 import Data.Maybe
 import Network.HTTP.Enumerator
 import qualified Data.ByteString.Char8 as S8
-import Control.Arrow (first, (***))
+import Control.Arrow (first)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Failure (Failure (failure))
 import Control.Monad (mplus, liftM)
 import qualified Data.CaseInsensitive as CI
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, unpack)
 import Data.Text.Lazy (toStrict)
 import qualified Data.Text as T
 import Data.Text.Lazy.Encoding (decodeUtf8With)
@@ -136,7 +135,7 @@ parseHTML ident = resolve
                 . mapMaybe linkTag
                 . parseTags
   where
-    isOpenId (rel, x) = "openid" `T.isPrefixOf` rel
+    isOpenId (rel, _x) = "openid" `T.isPrefixOf` rel
     resolve1 ls = do
       server <- lookup "openid.server" ls
       let delegate = lookup "openid.delegate" ls
@@ -151,6 +150,6 @@ parseHTML ident = resolve
 
 
 -- | Filter out link tags from a list of html tags.
---linkTags :: [Tag Text] -> [(Text, Text)]
+linkTag :: Tag Text -> Maybe (Text, Text)
 linkTag (TagOpen "link" as) = let x = (,) <$> lookup "rel" as <*> lookup "href" as in traceShow x x
-linkTag x = Nothing
+linkTag _x = Nothing

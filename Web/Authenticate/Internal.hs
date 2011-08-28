@@ -3,8 +3,6 @@ module Web.Authenticate.Internal
     ( AuthenticateException (..)
     ) where
 
-import Numeric (showHex)
-import Data.List (intercalate)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 
