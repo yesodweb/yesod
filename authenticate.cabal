@@ -9,7 +9,7 @@ description:     Focus is on third-party authentication methods, such as OpenID,
                  rpxnow and Facebook.
 category:        Web
 stability:       Stable
-cabal-version:   >= 1.2
+cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://github.com/snoyberg/authenticate/tree/master
 
@@ -50,3 +50,7 @@ library
                      OpenId2.Types,
                      OpenId2.XRDS
     ghc-options:     -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/snoyberg/authenticate.git
