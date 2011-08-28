@@ -30,13 +30,15 @@ for pkg in "${pkgs[@]}"; do
   (
     cd "./$pkg"
 
-    if ! $CABAL configure --enable-tests; then
+    if ! $CABAL configure --enable-tests --ghc-options="-Wall -Werror"; then
       $CABAL install --only-dependencies
-      $CABAL configure --enable-tests
+      $CABAL configure --enable-tests --ghc-options="-Wall -Werror"
     fi
 
     $CABAL build
     $CABAL test
+    $CABAL check
+    $CABAL haddock --executables
     ./Setup.lhs install
   )
 done
