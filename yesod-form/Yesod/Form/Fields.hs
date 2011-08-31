@@ -292,6 +292,7 @@ searchField autoFocus = Field
 <input id="#{theId}" name="#{name}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
         when autoFocus $ do
+          -- we want this javascript to be placed immediately after the field
           [WHAMLET|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
 |]
           addCassius [CASSIUS|
