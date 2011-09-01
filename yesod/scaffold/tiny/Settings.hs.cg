@@ -72,12 +72,15 @@ loadConfig env = do
     return $ AppConfig {
       appEnv = env
     , appPort = port
-    , appRoot = pack $ hostS ++ maybeAddPort port
+    , appRoot = pack $ hostS ++ addPort port
     }
     where
-        maybeAddPort :: Int -> String
-        maybeAddPort 80 = ""
-        maybeAddPort p = ":" ++ (show p)
+        addPort :: Int -> String
+#ifdef PRODUCTION
+        addPort _ = ""
+#else
+        addPort p = ":" ++ (show p)
+#endif
 
 -- | The location of static files on your system. This is a file system
 -- path. The default value works properly with your scaffolded site.

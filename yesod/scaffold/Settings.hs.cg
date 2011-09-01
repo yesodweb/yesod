@@ -91,13 +91,16 @@ loadConfig env = do
     return $ AppConfig {
       appEnv = env
     , appPort = port
-    , appRoot = pack $ hostS ++ maybeAddPort port
+    , appRoot = pack $ hostS ++ addPort port
     , connectionPoolSize = read connectionPoolSizeS
     }
     where
-        maybeAddPort :: Int -> String
-        maybeAddPort 80 = ""
-        maybeAddPort p = ":" ++ (show p)
+        addPort :: Int -> String
+#ifdef PRODUCTION
+        addPort _ = ""
+#else
+        addPort p = ":" ++ (show p)
+#endif
 
 -- Static setting below. Changing these requires a recompile
 
