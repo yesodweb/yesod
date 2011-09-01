@@ -84,8 +84,8 @@ instance Yesod ~sitearg~ where
         mmsg <- getMessage
         pc <- widgetToPageContent $ do
             widget
-            addCassius $(Settings.cassiusFile "default-layout")
-        hamletToRepHtml $(Settings.hamletFile "default-layout")
+            addCassius $(cassiusFile "default-layout")
+        hamletToRepHtml $(hamletFile "default-layout")
 
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticRoot setting in Settings.hs
