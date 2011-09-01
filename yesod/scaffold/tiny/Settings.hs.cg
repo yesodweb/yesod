@@ -67,13 +67,17 @@ loadConfig :: AppEnvironment -> IO AppConfig
 loadConfig env = do
     allSettings <- (join $ YAML.decodeFile ("config/settings.yml" :: String)) >>= fromMapping
     settings <- lookupMapping (show env) allSettings
-    portS <- lookupScalar "port" settings
     hostS <- lookupScalar "host" settings
+    port <- fmap read $ lookupScalar "port" settings
     return $ AppConfig {
       appEnv = env
-    , appPort = read portS
-    , appRoot = pack (hostS ++ ":" ++ portS)
+    , appPort = port
+    , appRoot = pack $ hostS ++ maybeAddPort port
     }
+    where
+        maybeAddPort :: Int -> String
+        maybeAddPort 80 = ""
+        maybeAddPort p = ":" ++ (show p)
 
 -- | The location of static files on your system. This is a file system
 -- path. The default value works properly with your scaffolded site.
