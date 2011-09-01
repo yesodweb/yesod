@@ -21,3 +21,4 @@ do
   cd ..
   rm -r `basename $f .tar.gz`
 done
+echo "PASSED"
