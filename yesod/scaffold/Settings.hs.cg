@@ -91,9 +91,13 @@ loadConfig env = do
     return $ AppConfig {
       appEnv = env
     , appPort = read portS
-    , appRoot = pack (hostS ++ ":" ++ portS)
+    , appRoot = maybeAddPort hostS portS
     , connectionPoolSize = read connectionPoolSizeS
     }
+
+    where
+        maybeAddPort :: String -> String -> Text
+        maybeAddPort h p = pack $ if p == "80" then h else h ++ ":" ++ p
 
 -- Static setting below. Changing these requires a recompile
 
