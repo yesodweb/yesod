@@ -85,11 +85,11 @@ test-suite runtests
         type: exitcode-stdio-1.0
         build-depends:   base                      >= 4.3      && < 5
         cpp-options:     -DGHC7
-        main-is:         runtests.hs
+        main-is:         main.hs
     else
         type: exitcode-stdio-1.0
         build-depends:   base                      >= 4        && < 4.3
-        main-is:         runtests.hs
+        main-is:         main.hs
     cpp-options:   -DTEST
     build-depends: hspec >= 0.6.1 && < 0.7
                   ,wai-test
