@@ -1,7 +1,9 @@
 A next generation web framework using the Haskell programming language, featuring:
-  * safety & security: guaranteed at compile time
-  * performance: a greater concurrent load than any other web application server
-  * developer productivity: efficiently handles all your basic web development needs
+  * safety & security guaranteed at compile time
+  * performance
+    * fast, compiled code
+    * a greater concurrent load than any other web application server
+  * developer productivity: tools for all your basic web development needs
 
 ## Learn more: http://yesodweb.com/
 
