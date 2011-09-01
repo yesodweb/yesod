@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.9.1
+version:         0.9.1.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -62,7 +62,7 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                  >= 4        && < 4.3
-    build-depends:   yesod-core                >= 0.9      && < 0.10
+    build-depends:   yesod-core                >= 0.9.1.1  && < 0.10
                    , yesod-auth                >= 0.7      && < 0.8
                    , yesod-json                >= 0.2      && < 0.3
                    , yesod-persistent          >= 0.2      && < 0.3
