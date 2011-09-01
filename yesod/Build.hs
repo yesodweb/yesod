@@ -1,36 +1,59 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Build
-    ( touch
+    ( copySources
     , getDeps
-    , touchDeps
+    , copyDeps
+    , touch
     , findHaskellFiles
     ) where
 
--- FIXME there's a bug when getFileStatus applies to a file temporary deleted (e.g., Vim saving a file)
+-- FIXME there's a bug when getFileStatus applies to a file
+-- temporary deleted (e.g., Vim saving a file)
 
-import System.Directory (getDirectoryContents, doesDirectoryExist, doesFileExist)
+import System.FilePath (takeFileName, takeDirectory, (</>))
+import System.Directory
 import Data.List (isSuffixOf)
 import qualified Data.Attoparsec.Text.Lazy as A
 import qualified Data.Text.Lazy.IO as TIO
 import Control.Applicative ((<|>))
+import Control.Monad (when)
 import Data.Char (isSpace)
 import Data.Monoid (mappend)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes)
 import qualified System.Posix.Types
-import Control.Monad (filterM, forM)
+import System.PosixCompat.Files (setFileTimes, getFileStatus,
+                                             accessTime, modificationTime)
+import Control.Monad (filterM, forM, forM_)
 import Control.Exception (SomeException, try)
 
--- | Touch any files with altered dependencies but do not build
 touch :: IO ()
-touch = do
+touch = mapM_ go . Map.toList =<< getDeps
+    where
+      go (x, ys) = do
+        (_, mod1) <- getFileStatus' x
+        forM_ (Set.toList ys) $ \y -> do
+            (access, mod2) <- getFileStatus' y
+            when (mod2 < mod1) $ do
+              putStrLn ("Touching " ++ y ++ " because of " ++ x)
+              setFileTimes y access mod1
+
+
+-- | Copy all .hs files to the devel src dir
+copySources :: IO ()
+copySources = cleanDev >> copySources'
+
+copySources' :: IO ()
+copySources' = do
     hss <- findHaskellFiles "."
-    deps' <- mapM determineHamletDeps hss
-    let deps = fixDeps $ zip hss deps'
-    touchDeps deps
+    forM_ hss $ \hs -> do
+        n <- hs `isNewerThan` (develSrcDir </> hs)
+        when n (copyToDev hs)
 
 type Deps = Map.Map FilePath (Set.Set FilePath)
+
+develSrcDir :: FilePath
+develSrcDir = "dist/src-devel"
 
 getDeps :: IO Deps
 getDeps = do
@@ -38,25 +61,40 @@ getDeps = do
     deps' <- mapM determineHamletDeps hss
     return $ fixDeps $ zip hss deps'
 
-touchDeps :: Deps -> IO ()
-touchDeps =
-    mapM_ go . Map.toList
+copyDeps :: Deps -> IO ()
+copyDeps deps = (mapM_ go . Map.toList) deps >> copySources'
   where
-    go (x, ys) = do
-        (_, mod1) <- getFileStatus' x
-        flip mapM_ (Set.toList ys) $ \y -> do
-            (access, mod2) <- getFileStatus' y
-            if mod2 < mod1
-                then do
-                    putStrLn $ "Touching " ++ y ++ " because of " ++ x
-                    _ <- try' $ setFileTimes y access mod1
-                    return ()
-                else return ()
+    go (x, ys) =
+        forM_ (Set.toList ys) $ \y -> do
+                  n <- x `isNewerThan` (develSrcDir </> y)
+                  when n $ do
+                    putStrLn ("Copying " ++ y ++ " because of " ++ x)
+                    copyToDev y
+
+copyToDev :: FilePath -> IO ()
+copyToDev file = do
+  createDirectoryIfMissing True targetDir
+  copyFile file (targetDir </> takeFileName file)
+  where
+   dir = takeDirectory file
+   targetDir = develSrcDir </> dir
+
+cleanDev :: IO ()
+cleanDev = do
+  exists <- doesDirectoryExist develSrcDir
+  when exists (removeDirectoryRecursive develSrcDir)
 
 try' :: IO x -> IO (Either SomeException x)
 try' = try
 
-getFileStatus' :: FilePath -> IO (System.Posix.Types.EpochTime, System.Posix.Types.EpochTime)
+isNewerThan :: FilePath -> FilePath -> IO Bool
+isNewerThan f1 f2 = do
+  (_, mod1) <- getFileStatus' f1
+  (_, mod2) <- getFileStatus' f2
+  return (mod1 > mod2)
+
+getFileStatus' :: FilePath ->
+                  IO (System.Posix.Types.EpochTime, System.Posix.Types.EpochTime)
 getFileStatus' fp = do
     efs <- try' $ getFileStatus fp
     case efs of
@@ -75,10 +113,11 @@ findHaskellFiles path = do
     contents <- getDirectoryContents path
     fmap concat $ mapM go contents
   where
-    go ('.':_) = return []
-    go "dist" = return []
+    go ('.':_)     = return []
+    go "cabal-dev" = return []
+    go "dist"      = return []
     go x = do
-        let y = path ++ '/' : x
+        let y = path </> x
         d <- doesDirectoryExist y
         if d
             then findHaskellFiles y

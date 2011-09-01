@@ -26,4 +26,7 @@ Start your project:
 
    cd ~project~ && cabal install && yesod devel
 
+or if you use cabal-dev:
+
+   cd ~project~ && cabal-dev install && yesod --dev devel
 
