@@ -75,8 +75,8 @@ findHaskellFiles path = do
     contents <- getDirectoryContents path
     fmap concat $ mapM go contents
   where
-    go ('.':_) = return []
-    go "dist" = return []
+    go ('.':_)     = return []
+    go ('d':"ist") = return []
     go x = do
         let y = path ++ '/' : x
         d <- doesDirectoryExist y
@@ -141,7 +141,7 @@ getFolderContents :: FilePath -> IO [FilePath]
 getFolderContents fp = do
     cs <- getDirectoryContents fp
     let notHidden ('.':_) = False
-        notHidden "tmp" = False
+        notHidden ('t':"mp") = False
         notHidden _ = True
     fmap concat $ forM (filter notHidden cs) $ \c -> do
         let f = fp ++ '/' : c
