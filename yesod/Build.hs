@@ -16,7 +16,8 @@ import Data.List (isSuffixOf)
 import qualified Data.Attoparsec.Text.Lazy as A
 import qualified Data.Text.Lazy.IO as TIO
 import Control.Applicative ((<|>))
-import Control.Monad (when)
+import Control.Exception (SomeException, try)
+import Control.Monad (when, filterM, forM, forM_)
 import Data.Char (isSpace)
 import Data.Monoid (mappend)
 import qualified Data.Map as Map
@@ -24,8 +25,7 @@ import qualified Data.Set as Set
 import qualified System.Posix.Types
 import System.PosixCompat.Files (setFileTimes, getFileStatus,
                                              accessTime, modificationTime)
-import Control.Monad (filterM, forM, forM_)
-import Control.Exception (SomeException, try)
+
 
 touch :: IO ()
 touch = mapM_ go . Map.toList =<< getDeps

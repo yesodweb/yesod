@@ -165,7 +165,7 @@ checkCabalFile gpd = case D.condLibrary gpd of
          case (D.hsSourceDirs . D.libBuildInfo) dLib of
            ["dist/src-devel"]  -> return ()
            _                   ->
-             T.putStrLn upgradeMessage >> print gpd >> exitFailure
+             T.putStrLn upgradeMessage >> exitFailure
 
 lookupDevelLib :: D.CondTree D.ConfVar c a -> Maybe a
 lookupDevelLib ct = listToMaybe . map (\(_,x,_) -> D.condTreeData x) .
