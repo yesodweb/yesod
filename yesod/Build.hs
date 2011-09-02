@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Build
-    ( copySources
-    , getDeps
-    , copyDeps
+    ( getDeps
+    , touchDeps
     , touch
     , findHaskellFiles
     ) where
@@ -10,50 +9,28 @@ module Build
 -- FIXME there's a bug when getFileStatus applies to a file
 -- temporary deleted (e.g., Vim saving a file)
 
-import System.FilePath (takeFileName, takeDirectory, (</>))
-import System.Directory
-import Data.List (isSuffixOf)
+import           Control.Applicative ((<|>))
+import           Control.Exception (SomeException, try)
+import           Control.Monad (when, filterM, forM, forM_)
+
 import qualified Data.Attoparsec.Text.Lazy as A
-import qualified Data.Text.Lazy.IO as TIO
-import Control.Applicative ((<|>))
-import Control.Exception (SomeException, try)
-import Control.Monad (when, filterM, forM, forM_)
-import Data.Char (isSpace)
-import Data.Monoid (mappend)
+import           Data.Char (isSpace)
+import           Data.Monoid (mappend)
+import           Data.List (isSuffixOf)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text.Lazy.IO as TIO
+
 import qualified System.Posix.Types
-import System.PosixCompat.Files (setFileTimes, getFileStatus,
+import           System.Directory
+import           System.FilePath (replaceExtension, (</>))
+import           System.PosixCompat.Files (setFileTimes, getFileStatus,
                                              accessTime, modificationTime)
 
-
 touch :: IO ()
-touch = mapM_ go . Map.toList =<< getDeps
-    where
-      go (x, ys) = do
-        (_, mod1) <- getFileStatus' x
-        forM_ (Set.toList ys) $ \y -> do
-            (access, mod2) <- getFileStatus' y
-            when (mod2 < mod1) $ do
-              putStrLn ("Touching " ++ y ++ " because of " ++ x)
-              setFileTimes y access mod1
-
-
--- | Copy all .hs files to the devel src dir
-copySources :: IO ()
-copySources = cleanDev >> copySources'
-
-copySources' :: IO ()
-copySources' = do
-    hss <- findHaskellFiles "."
-    forM_ hss $ \hs -> do
-        n <- hs `isNewerThan` (develSrcDir </> hs)
-        when n (copyToDev hs)
+touch = touchDeps =<< getDeps
 
 type Deps = Map.Map FilePath (Set.Set FilePath)
-
-develSrcDir :: FilePath
-develSrcDir = "dist/src-devel"
 
 getDeps :: IO Deps
 getDeps = do
@@ -61,28 +38,26 @@ getDeps = do
     deps' <- mapM determineHamletDeps hss
     return $ fixDeps $ zip hss deps'
 
-copyDeps :: Deps -> IO ()
-copyDeps deps = (mapM_ go . Map.toList) deps >> copySources'
+touchDeps :: Deps -> IO ()
+touchDeps deps = (mapM_ go . Map.toList) deps
   where
     go (x, ys) =
         forM_ (Set.toList ys) $ \y -> do
-                  n <- x `isNewerThan` (develSrcDir </> y)
-                  when n $ do
-                    putStrLn ("Copying " ++ y ++ " because of " ++ x)
-                    copyToDev y
+            n <- x `isNewerThan` (hiFile y)
+            when n $ do
+              putStrLn ("Forcing recompile for " ++ y ++ " because of " ++ x)
+              removeHi y
 
-copyToDev :: FilePath -> IO ()
-copyToDev file = do
-  createDirectoryIfMissing True targetDir
-  copyFile file (targetDir </> takeFileName file)
-  where
-   dir = takeDirectory file
-   targetDir = develSrcDir </> dir
+-- | remove the .hi files for a .hs file, thereby forcing a recompile
+removeHi :: FilePath -> IO ()
+removeHi hs = mapM_ removeFile' hiFiles
+    where
+      removeFile' file = try' (removeFile file) >> return ()
+      hiFiles          = map (\e -> "dist/build" </> replaceExtension hs e)
+                             ["hi", "p_hi"]
 
-cleanDev :: IO ()
-cleanDev = do
-  try' $ removeDirectoryRecursive develSrcDir
-  return ()
+hiFile :: FilePath -> FilePath
+hiFile hs = "dist/build" </> replaceExtension hs "hi"
 
 try' :: IO x -> IO (Either SomeException x)
 try' = try

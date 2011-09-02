@@ -27,12 +27,12 @@ import           System.Directory (doesFileExist, removeFile,
 import           System.Exit (exitFailure)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
-import           System.Process (runCommand, terminateProcess, 
+import           System.Process (runCommand, terminateProcess,
                                            waitForProcess, rawSystem)
 
 import Text.Shakespeare.Text (st)
 
-import Build (getDeps, copySources, copyDeps, findHaskellFiles)
+import Build (touch, getDeps, findHaskellFiles)
 
 devel :: Bool -> IO ()
 devel isDevel = do
@@ -45,7 +45,6 @@ devel isDevel = do
 
     checkCabalFile gpd
 
-    copySources
     _ <- if isDevel
       then rawSystem "cabal-dev" ["configure", "--cabal-install-arg=-fdevel"]
       else rawSystem "cabal"     ["configure", "-fdevel"]
@@ -59,8 +58,7 @@ mainLoop :: Bool -> IO ()
 mainLoop isDevel = forever $ do
    putStrLn "Rebuilding app"
 
-   deps <- getDeps
-   copyDeps deps
+   touch
 
    list <- getFileList
    _ <- if isDevel
@@ -105,7 +103,7 @@ getFileList = do
         fs <- getFileStatus f
         return (f, modificationTime fs)
 
-watchForChanges :: FileList -> IO () --  ThreadId -> IO ()
+watchForChanges :: FileList -> IO ()
 watchForChanges list = do
     newList <- getFileList
     if list /= newList
@@ -147,10 +145,6 @@ terminateDevel = do
   exitSuccess
 |]
 
-{-
-  check whether cabal file from old scaffold needs to be updated
-  should be removed after 1.0 release?
--}
 checkCabalFile :: D.GenericPackageDescription -> IO ()
 checkCabalFile gpd = case D.condLibrary gpd of
     Nothing -> do
@@ -163,9 +157,11 @@ checkCabalFile gpd = case D.condLibrary gpd of
           exitFailure
         Just dLib ->
          case (D.hsSourceDirs . D.libBuildInfo) dLib of
-           ["dist/src-devel"]  -> return ()
-           _                   ->
-             T.putStrLn upgradeMessage >> exitFailure
+           []     -> return ()
+           ["."]  -> return ()
+           _      ->
+             putStrLn $ "WARNING: yesod devel may not work correctly with " ++
+                        "custom hs-source-dirs"
 
 lookupDevelLib :: D.CondTree D.ConfVar c a -> Maybe a
 lookupDevelLib ct = listToMaybe . map (\(_,x,_) -> D.condTreeData x) .
@@ -174,31 +170,4 @@ lookupDevelLib ct = listToMaybe . map (\(_,x,_) -> D.condTreeData x) .
     isDevelLib ((D.Var (D.Flag (D.FlagName "devel"))), _, _) = True
     isDevelLib _                                             = False
 
-upgradeMessage :: T.Text
-upgradeMessage = [st|
-Your cabal file needs to be updated for this version of yesod devel.
-Find the lines:
-library
-    if flag(devel)
-        Buildable: True
-    else
-        Buildable: False
-
-    if os(windows)
-        cpp-options: -DWINDOWS
-
-    hs-source-dirs: .
-
-And replace them with:
-library
-    if flag(devel)
-        Buildable: True
-        hs-source-dirs: dist/src-devel
-    else
-        Buildable: False
-        hs-source-dirs: .
-
-    if os(windows)
-        cpp-options: -DWINDOWS
-|]
 

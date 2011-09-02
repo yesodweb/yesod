@@ -23,14 +23,13 @@ Flag devel
 library
     if flag(devel)
         Buildable: True
-        hs-source-dirs: dist/src-devel
     else
         Buildable: False
-        hs-source-dirs: .
 
     if os(windows)
         cpp-options: -DWINDOWS
 
+    hs-source-dirs: .
     exposed-modules: Application
     other-modules:   Foundation
                      Model
