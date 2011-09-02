@@ -24,7 +24,7 @@ import qualified Data.Text.Lazy.IO as TIO
 import qualified System.Posix.Types
 import           System.Directory
 import           System.FilePath (replaceExtension, (</>))
-import           System.PosixCompat.Files (setFileTimes, getFileStatus,
+import           System.PosixCompat.Files (getFileStatus,
                                              accessTime, modificationTime)
 
 touch :: IO ()

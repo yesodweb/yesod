@@ -14,7 +14,8 @@ import qualified Distribution.PackageDescription.Parse as D
 import qualified Distribution.PackageDescription as D
 
 import           Control.Concurrent (forkIO, threadDelay)
-import           Control.Monad (when, forever)
+import qualified Control.Exception as Ex
+import           Control.Monad (forever)
 
 import qualified Data.List as L
 import qualified Data.Map as Map
@@ -22,8 +23,8 @@ import           Data.Maybe (listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import           System.Directory (doesFileExist, removeFile,
-                                                getDirectoryContents)
+import           System.Directory (removeFile, getDirectoryContents)
+
 import           System.Exit (exitFailure)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
@@ -34,10 +35,12 @@ import Text.Shakespeare.Text (st)
 
 import Build (touch, getDeps, findHaskellFiles)
 
+lockFile :: FilePath
+lockFile = "dist/devel-terminate"
+
 devel :: Bool -> IO ()
 devel isDevel = do
-    e <- doesFileExist "dist/devel-flag"
-    when e $ removeFile "dist/devel-flag"
+    writeFile lockFile ""
 
     cabal <- D.findPackageDesc "."
     gpd   <- D.readPackageDescription D.normal cabal
@@ -56,7 +59,7 @@ devel isDevel = do
 
 mainLoop :: Bool -> IO ()
 mainLoop isDevel = forever $ do
-   putStrLn "Rebuilding app"
+   putStrLn "Rebuilding application..."
 
    touch
 
@@ -65,19 +68,23 @@ mainLoop isDevel = forever $ do
      then rawSystem "cabal"     ["build"]
      else rawSystem "cabal-dev" ["build"]
 
+   try_ $ removeFile lockFile
    putStrLn "Starting development server..."
    pkg <- pkgConfigs isDevel
    ph <- runCommand $ concat ["runghc ", pkg, " dist/devel.hs"]
-   watchForChanges list
-   putStrLn "Stopping development server..."
-   _ <- forkIO $ do
-     writeFile "dist/devel-flag" ""
+   watchTid <- forkIO . try_ $ do
+     watchForChanges list
+     putStrLn "Stopping development server..."
+     writeFile lockFile ""
      threadDelay 1000000
-     -- fixme, check whether process is still alive?
-     putStrLn "Terminating external process"
+     putStrLn "Terminating development server..."
      terminateProcess ph
    ec <- waitForProcess ph
    putStrLn $ "Exit code: " ++ show ec
+   Ex.throwTo watchTid (userError "process finished")
+
+try_ :: forall a. IO a -> IO ()
+try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
 
 pkgConfigs :: Bool -> IO String
 pkgConfigs isDev
@@ -127,7 +134,7 @@ import Control.Concurrent (threadDelay)
 
 main :: IO ()
 main = do
-  putStrLn "Starting app"
+  putStrLn "Starting devel application"
   wdap <- (return . fromJust . fromDynamic) withDevelAppPort
   forkIO . wdap $ \(port, app) -> run port app
   loop
@@ -135,13 +142,12 @@ main = do
 loop :: IO ()
 loop = do
   threadDelay 100000
-  e <- doesFileExist "dist/devel-flag"
+  e <- doesFileExist "dist/devel-terminate"
   if e then terminateDevel else loop
 
 terminateDevel :: IO ()
 terminateDevel = do
-  removeFile "dist/devel-flag"
-  putStrLn "Terminating server"
+  putStrLn "Devel application exiting"
   exitSuccess
 |]
 
