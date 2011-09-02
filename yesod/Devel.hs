@@ -24,7 +24,6 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 import           System.Directory (removeFile, getDirectoryContents)
-
 import           System.Exit (exitFailure)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
