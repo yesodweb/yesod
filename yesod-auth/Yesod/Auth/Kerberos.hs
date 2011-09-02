@@ -53,7 +53,7 @@ defaultKerberosConfig = KerberosConfig id id
 -- | A configurable version of 'authKerberos'
 genericAuthKerberos :: YesodAuth m => KerberosConfig -> AuthPlugin m
 genericAuthKerberos config = AuthPlugin "kerberos" dispatch $ \tm -> addHamlet
-    [hamlet|
+    [QQ(hamlet)|
     <div id="header">
         <h1>Login
 
