@@ -81,8 +81,8 @@ copyToDev file = do
 
 cleanDev :: IO ()
 cleanDev = do
-  exists <- doesDirectoryExist develSrcDir
-  when exists (removeDirectoryRecursive develSrcDir)
+  try' $ removeDirectoryRecursive develSrcDir
+  return ()
 
 try' :: IO x -> IO (Either SomeException x)
 try' = try
