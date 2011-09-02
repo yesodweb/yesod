@@ -1,4 +1,5 @@
 A next generation web framework using the Haskell programming language, featuring:
+  
   * safety & security guaranteed at compile time
   * performance
     * fast, compiled code
