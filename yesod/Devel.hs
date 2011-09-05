@@ -25,7 +25,7 @@ import qualified Data.Text.IO as T
 
 import           System.Directory (createDirectoryIfMissing, removeFile,
                                            getDirectoryContents)
-import           System.Exit (exitFailure)
+import           System.Exit (exitFailure, exitSuccess)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
 import           System.Process (runCommand, terminateProcess,
@@ -38,24 +38,38 @@ import Build (touch, getDeps, findHaskellFiles)
 lockFile :: FilePath
 lockFile = "dist/devel-terminate"
 
-devel :: Bool -> IO ()
-devel isDevel = do
-    createDirectoryIfMissing True "dist"
+writeLock :: IO ()
+writeLock = do
+    createDirectoryIfMissing True "dist"  
     writeFile lockFile ""
 
-    cabal <- D.findPackageDesc "."
-    gpd   <- D.readPackageDescription D.normal cabal
-    let pid = (D.package . D.packageDescription) gpd
+removeLock :: IO ()
+removeLock = try_ (removeFile lockFile)
 
-    checkCabalFile gpd
+devel :: Bool -> IO ()
+devel isDevel = do
+    writeLock
+    
+    putStrLn "Yesod devel server. Pres ENTER to quit"
+    _ <- forkIO $ do
+      cabal <- D.findPackageDesc "."
+      gpd   <- D.readPackageDescription D.normal cabal
+      let pid = (D.package . D.packageDescription) gpd
 
-    _ <- if isDevel
-      then rawSystem "cabal-dev" ["configure", "--cabal-install-arg=-fdevel"]
-      else rawSystem "cabal"     ["configure", "-fdevel"]
+      checkCabalFile gpd
 
-    T.writeFile "dist/devel.hs" (develFile pid)
+      _ <- if isDevel
+        then rawSystem "cabal-dev" ["configure", "--cabal-install-arg=-fdevel"]
+        else rawSystem "cabal"     ["configure", "-fdevel"]
 
-    mainLoop isDevel
+      T.writeFile "dist/devel.hs" (develFile pid)
+
+      mainLoop isDevel
+    
+    _ <- getLine
+    writeLock
+    exitSuccess
+
 
 
 mainLoop :: Bool -> IO ()
@@ -69,14 +83,14 @@ mainLoop isDevel = forever $ do
      then rawSystem "cabal"     ["build"]
      else rawSystem "cabal-dev" ["build"]
 
-   try_ $ removeFile lockFile
+   removeLock
    putStrLn "Starting development server..."
    pkg <- pkgConfigs isDevel
    ph <- runCommand $ concat ["runghc ", pkg, " dist/devel.hs"]
    watchTid <- forkIO . try_ $ do
      watchForChanges list
      putStrLn "Stopping development server..."
-     writeFile lockFile ""
+     writeLock
      threadDelay 1000000
      putStrLn "Terminating development server..."
      terminateProcess ph
@@ -147,9 +161,7 @@ loop = do
   if e then terminateDevel else loop
 
 terminateDevel :: IO ()
-terminateDevel = do
-  putStrLn "Devel application exiting"
-  exitSuccess
+terminateDevel = exitSuccess
 |]
 
 checkCabalFile :: D.GenericPackageDescription -> IO ()
