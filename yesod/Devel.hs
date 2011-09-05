@@ -23,7 +23,8 @@ import           Data.Maybe (listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import           System.Directory (removeFile, getDirectoryContents)
+import           System.Directory (createDirectoryIfMissing, removeFile,
+                                           getDirectoryContents)
 import           System.Exit (exitFailure)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
@@ -39,6 +40,7 @@ lockFile = "dist/devel-terminate"
 
 devel :: Bool -> IO ()
 devel isDevel = do
+    createDirectoryIfMissing True "dist"
     writeFile lockFile ""
 
     cabal <- D.findPackageDesc "."
@@ -95,8 +97,8 @@ pkgConfigs isDev
   | otherwise = return inplacePkg
   where
     inplacePkg = "-package-confdist/package.conf.inplace"
-    isConfig pkg = "packages-" `L.isPrefixOf` pkg &&
-                   ".conf"     `L.isSuffixOf` pkg
+    isConfig dir = "packages-" `L.isPrefixOf` dir &&
+                   ".conf"     `L.isSuffixOf` dir
 
 type FileList = Map.Map FilePath EpochTime
 
