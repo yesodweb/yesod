@@ -40,7 +40,6 @@ import Data.Text (Text)
 import qualified Data.Aeson.Types
 import qualified Data.Map as Map
 import Control.Applicative ((<$>), (<*>))
-import Network.TLS (TLSCertificateUsage (CertificateUsageAccept))
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -63,21 +62,15 @@ authenticate apiKey token = do
             , "&token="
             , S.pack token
             ]
+    req' <- parseUrl "https://rpxnow.com"
     let req =
-            Request
+            req'
                 { method = "POST"
-                , secure = True
-                , host = "rpxnow.com"
-                , port = 443
                 , path = "api/v2/auth_info"
-                , queryString = []
                 , requestHeaders =
                     [ ("Content-Type", "application/x-www-form-urlencoded")
                     ]
                 , requestBody = RequestBodyLBS body
-                , checkCerts = const $ return CertificateUsageAccept
-                , proxy = Nothing
-                , rawBody = False
                 }
     res <- liftIO $ withManager $ httpLbsRedirect req
     let b = responseBody res
