@@ -88,9 +88,9 @@ findHaskellFiles path = do
     contents <- getDirectoryContents path
     fmap concat $ mapM go contents
   where
-    go ('.':_)     = return []
-    go ('c':"abal-dev" = return []
-    go ('d':"ist")     = return []
+    go ('.':_)          = return []
+    go ('c':"abal-dev") = return []
+    go ('d':"ist")      = return []
     go x = do
         let y = path </> x
         d <- doesDirectoryExist y
