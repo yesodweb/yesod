@@ -97,6 +97,7 @@ mainLoop isDevel = forever $ do
    ec <- waitForProcess ph
    putStrLn $ "Exit code: " ++ show ec
    Ex.throwTo watchTid (userError "process finished")
+   watchForChanges list
 
 try_ :: forall a. IO a -> IO ()
 try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
