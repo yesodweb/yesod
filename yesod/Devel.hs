@@ -80,8 +80,8 @@ mainLoop isDevel = forever $ do
 
    list <- getFileList
    _ <- if isDevel
-     then rawSystem "cabal"     ["build"]
-     else rawSystem "cabal-dev" ["build"]
+     then rawSystem "cabal-dev" ["build"]
+     else rawSystem "cabal"     ["build"]
 
    removeLock
    putStrLn "Starting development server..."
