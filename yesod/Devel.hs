@@ -1,127 +1,119 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Devel
     ( devel
     ) where
 
--- import qualified Distribution.Simple.Build as B
--- import Distribution.Simple.Configure (configure)
-import Distribution.Simple (defaultMainArgs)
--- import Distribution.Simple.Setup (defaultConfigFlags, configConfigurationsFlags, configUserInstall, Flag (..), defaultBuildFlags, defaultCopyFlags, defaultRegisterFlags)
-import Distribution.Simple.Utils (defaultPackageDesc, defaultHookedPackageDesc)
--- import Distribution.Simple.Program (defaultProgramConfiguration)
-import Distribution.Verbosity (normal)
-import Distribution.PackageDescription.Parse (readPackageDescription, readHookedBuildInfo)
-import Distribution.PackageDescription (emptyHookedBuildInfo)
--- import Distribution.Simple.LocalBuildInfo (localPkgDescr)
-import Build (getDeps, touchDeps, findHaskellFiles)
--- import Network.Wai.Handler.Warp (run)
--- import Network.Wai.Middleware.Debug (debug)
--- import Distribution.Text (display)
--- import Distribution.Simple.Install (install)
--- import Distribution.Simple.Register (register)
-import Control.Concurrent (forkIO, threadDelay, ThreadId, killThread)
-import Control.Exception (try, SomeException)
-import System.PosixCompat.Files (modificationTime, getFileStatus)
+
+import qualified Distribution.Simple.Utils as D
+import qualified Distribution.Verbosity as D
+import qualified Distribution.Package as D
+import qualified Distribution.PackageDescription.Parse as D
+import qualified Distribution.PackageDescription as D
+
+import           Control.Concurrent (forkIO, threadDelay)
+import qualified Control.Exception as Ex
+import           Control.Monad (forever)
+
+import qualified Data.List as L
 import qualified Data.Map as Map
-import System.Posix.Types (EpochTime)
--- import Blaze.ByteString.Builder.Char.Utf8 (fromString)
--- import Network.Wai (Application, Response (ResponseBuilder), responseLBS)
--- import Network.HTTP.Types (status500)
-import Control.Monad (when, forever)
-import System.Process (runCommand, terminateProcess, waitForProcess)
-import qualified Data.IORef as I
-import qualified Data.ByteString.Lazy.Char8 as L
-import System.Directory (doesFileExist, removeFile, getDirectoryContents)
--- import Distribution.Package (PackageName (..), pkgName)
-import Data.Maybe (mapMaybe)
+import           Data.Maybe (listToMaybe)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
-appMessage :: L.ByteString -> IO ()
-appMessage _ = forever $ do
-    -- run 3000 . const . return $ responseLBS status500 [("Content-Type", "text/plain")] l
-    threadDelay 10000
+import           System.Directory (createDirectoryIfMissing, removeFile,
+                                           getDirectoryContents)
+import           System.Exit (exitFailure, exitSuccess)
+import           System.Posix.Types (EpochTime)
+import           System.PosixCompat.Files (modificationTime, getFileStatus)
+import           System.Process (runCommand, terminateProcess,
+                                           waitForProcess, rawSystem)
 
-swapApp :: I.IORef ThreadId -> IO ThreadId -> IO ()
-swapApp i f = do
-    I.readIORef i >>= killThread
-    f >>= I.writeIORef i
+import Text.Shakespeare.Text (st)
 
-devel :: ([String] -> IO ()) -- ^ cabal
-      -> IO ()
-devel cabalCmd = do
-    e <- doesFileExist "dist/devel-flag"
-    when e $ removeFile "dist/devel-flag"
-    listenThread <- forkIO (appMessage "Initializing, please wait") >>= I.newIORef
+import Build (touch, getDeps, findHaskellFiles)
 
-    cabal <- defaultPackageDesc normal
-    _ <- readPackageDescription normal cabal
+lockFile :: FilePath
+lockFile = "dist/devel-terminate"
 
-    mhpd <- defaultHookedPackageDesc
-    _ <- case mhpd of
-            Nothing -> return emptyHookedBuildInfo
-            Just fp -> readHookedBuildInfo normal fp
+writeLock :: IO ()
+writeLock = do
+    createDirectoryIfMissing True "dist"  
+    writeFile lockFile ""
 
-    cabalCmd ["configure", "-fdevel"]
+removeLock :: IO ()
+removeLock = try_ (removeFile lockFile)
 
-    let myTry :: IO () -> IO ()
-        myTry f = try f >>= \x -> case x of
-                                    Left err -> swapApp listenThread $ forkIO $ appMessage $ L.pack $ show (err :: SomeException)
-                                    Right y -> return y
-    let getNewApp :: IO ()
-        getNewApp = myTry $ do
-            putStrLn "Rebuilding app"
-            swapApp listenThread $ forkIO $ appMessage "Rebuilding your app, please wait"
+devel :: Bool -> IO ()
+devel isDevel = do
+    writeLock
+    
+    putStrLn "Yesod devel server. Pres ENTER to quit"
+    _ <- forkIO $ do
+      cabal <- D.findPackageDesc "."
+      gpd   <- D.readPackageDescription D.normal cabal
+      let pid = (D.package . D.packageDescription) gpd
 
-            deps <- getDeps
-            touchDeps deps
+      checkCabalFile gpd
 
-            cabalCmd ["build"]
-            defaultMainArgs ["install"]
+      _ <- if isDevel
+        then rawSystem "cabal-dev" ["configure", "--cabal-install-arg=-fdevel"]
+        else rawSystem "cabal"     ["configure", "-fdevel"]
 
-            pi' <- getPackageName
-            writeFile "dist/devel.hs" $ unlines
-                [ "{-# LANGUAGE PackageImports #-}"
-                , concat
-                    [ "import \""
-                    , pi'
-                    , "\" Application (withDevelAppPort)"
-                    ]
-                , "import Data.Dynamic (fromDynamic)"
-                , "import Network.Wai.Handler.Warp (run)"
-                , "import Data.Maybe (fromJust)"
-                , "import Control.Concurrent (forkIO)"
-                , "import System.Directory (doesFileExist, removeFile)"
-                , "import Control.Concurrent (threadDelay)"
-                , ""
-                , "main :: IO ()"
-                , "main = do"
-                , "    putStrLn \"Starting app\""
-                , "    wdap <- return $ fromJust $ fromDynamic withDevelAppPort"
-                , "    forkIO $ wdap $ \\(port, app) -> run port app"
-                , "    loop"
-                , ""
-                , "loop :: IO ()"
-                , "loop = do"
-                , "    threadDelay 100000"
-                , "    e <- doesFileExist \"dist/devel-flag\""
-                , "    if e then removeFile \"dist/devel-flag\" else loop"
-                ]
-            swapApp listenThread $ forkIO $ do
-                putStrLn "Calling runghc..."
-                ph <- runCommand "runghc dist/devel.hs"
-                let forceType :: Either SomeException () -> ()
-                    forceType = const ()
-                fmap forceType $ try sleepForever
-                writeFile "dist/devel-flag" ""
-                putStrLn "Terminating external process"
-                terminateProcess ph
-                putStrLn "Process terminated"
-                ec <- waitForProcess ph
-                putStrLn $ "Exit code: " ++ show ec
+      T.writeFile "dist/devel.hs" (develFile pid)
 
-    loop Map.empty getNewApp
+      mainLoop isDevel
+    
+    _ <- getLine
+    writeLock
+    exitSuccess
 
-sleepForever :: IO ()
-sleepForever = forever $ threadDelay 1000000
+
+
+mainLoop :: Bool -> IO ()
+mainLoop isDevel = forever $ do
+   putStrLn "Rebuilding application..."
+
+   touch
+
+   list <- getFileList
+   _ <- if isDevel
+     then rawSystem "cabal-dev" ["build"]
+     else rawSystem "cabal"     ["build"]
+
+   removeLock
+   putStrLn "Starting development server..."
+   pkg <- pkgConfigs isDevel
+   ph <- runCommand $ concat ["runghc ", pkg, " dist/devel.hs"]
+   watchTid <- forkIO . try_ $ do
+     watchForChanges list
+     putStrLn "Stopping development server..."
+     writeLock
+     threadDelay 1000000
+     putStrLn "Terminating development server..."
+     terminateProcess ph
+   ec <- waitForProcess ph
+   putStrLn $ "Exit code: " ++ show ec
+   Ex.throwTo watchTid (userError "process finished")
+   watchForChanges list
+
+try_ :: forall a. IO a -> IO ()
+try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
+
+pkgConfigs :: Bool -> IO String
+pkgConfigs isDev
+  | isDev = do
+      devContents <- getDirectoryContents "cabal-dev"
+      let confs = filter isConfig devContents
+      return . unwords $ inplacePkg :
+             map ("-package-confcabal-dev/"++) confs
+  | otherwise = return inplacePkg
+  where
+    inplacePkg = "-package-confdist/package.conf.inplace"
+    isConfig dir = "packages-" `L.isPrefixOf` dir &&
+                   ".conf"     `L.isSuffixOf` dir
 
 type FileList = Map.Map FilePath EpochTime
 
@@ -134,25 +126,68 @@ getFileList = do
         fs <- getFileStatus f
         return (f, modificationTime fs)
 
-loop :: FileList -> IO () -> IO ()
-loop oldList getNewApp = do
+watchForChanges :: FileList -> IO ()
+watchForChanges list = do
     newList <- getFileList
-    when (newList /= oldList) getNewApp
-    threadDelay 1000000
-    loop newList getNewApp
+    if list /= newList
+      then return ()
+      else threadDelay 1000000 >> watchForChanges list
 
-{-
-errApp :: String -> Application
-errApp s _ = return $ ResponseBuilder status500 [("Content-Type", "text/plain")] $ fromString s
--}
+showPkgName :: D.PackageId -> String
+showPkgName = (\(D.PackageName n) -> n) . D.pkgName
 
-getPackageName :: IO String
-getPackageName = do
-    xs <- getDirectoryContents "."
-    case mapMaybe (toCabal . reverse) xs of
-        [x] -> return x
-        [] -> error "No cabal files found"
-        _ -> error "Too many cabal files found"
+develFile :: D.PackageId -> T.Text
+develFile pid = [st|
+{-# LANGUAGE PackageImports #-}
+import "#{showPkgName pid}" Application (withDevelAppPort)
+import Data.Dynamic (fromDynamic)
+import Network.Wai.Handler.Warp (run)
+import Data.Maybe (fromJust)
+import Control.Concurrent (forkIO)
+import System.Directory (doesFileExist, removeFile)
+import System.Exit (exitSuccess)
+import Control.Concurrent (threadDelay)
+
+main :: IO ()
+main = do
+  putStrLn "Starting devel application"
+  wdap <- (return . fromJust . fromDynamic) withDevelAppPort
+  forkIO . wdap $ \(port, app) -> run port app
+  loop
+
+loop :: IO ()
+loop = do
+  threadDelay 100000
+  e <- doesFileExist "dist/devel-terminate"
+  if e then terminateDevel else loop
+
+terminateDevel :: IO ()
+terminateDevel = exitSuccess
+|]
+
+checkCabalFile :: D.GenericPackageDescription -> IO ()
+checkCabalFile gpd = case D.condLibrary gpd of
+    Nothing -> do
+      putStrLn "Error: incorrect cabal file, no library"
+      exitFailure
+    Just ct ->
+      case lookupDevelLib ct of
+        Nothing   -> do
+          putStrLn "Error: no library configuration for -fdevel"
+          exitFailure
+        Just dLib ->
+         case (D.hsSourceDirs . D.libBuildInfo) dLib of
+           []     -> return ()
+           ["."]  -> return ()
+           _      ->
+             putStrLn $ "WARNING: yesod devel may not work correctly with " ++
+                        "custom hs-source-dirs"
+
+lookupDevelLib :: D.CondTree D.ConfVar c a -> Maybe a
+lookupDevelLib ct = listToMaybe . map (\(_,x,_) -> D.condTreeData x) .
+                    filter isDevelLib . D.condTreeComponents  $ ct
   where
-    toCabal ('l':'a':'b':'a':'c':'.':x) = Just $ reverse x
-    toCabal _ = Nothing
+    isDevelLib ((D.Var (D.Flag (D.FlagName "devel"))), _, _) = True
+    isDevelLib _                                             = False
+
+

@@ -1,34 +1,34 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Build
-    ( touch
-    , getDeps
+    ( getDeps
     , touchDeps
+    , touch
     , findHaskellFiles
     ) where
 
--- FIXME there's a bug when getFileStatus applies to a file temporary deleted (e.g., Vim saving a file)
+-- FIXME there's a bug when getFileStatus applies to a file
+-- temporary deleted (e.g., Vim saving a file)
 
-import System.Directory (getDirectoryContents, doesDirectoryExist, doesFileExist)
-import Data.List (isSuffixOf)
+import           Control.Applicative ((<|>))
+import           Control.Exception (SomeException, try)
+import           Control.Monad (when, filterM, forM, forM_)
+
 import qualified Data.Attoparsec.Text.Lazy as A
-import qualified Data.Text.Lazy.IO as TIO
-import Control.Applicative ((<|>))
-import Data.Char (isSpace)
-import Data.Monoid (mappend)
+import           Data.Char (isSpace)
+import           Data.Monoid (mappend)
+import           Data.List (isSuffixOf)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import System.PosixCompat.Files (accessTime, modificationTime, getFileStatus, setFileTimes)
-import qualified System.Posix.Types
-import Control.Monad (filterM, forM)
-import Control.Exception (SomeException, try)
+import qualified Data.Text.Lazy.IO as TIO
 
--- | Touch any files with altered dependencies but do not build
+import qualified System.Posix.Types
+import           System.Directory
+import           System.FilePath (replaceExtension, (</>))
+import           System.PosixCompat.Files (getFileStatus,
+                                             accessTime, modificationTime)
+
 touch :: IO ()
-touch = do
-    hss <- findHaskellFiles "."
-    deps' <- mapM determineHamletDeps hss
-    let deps = fixDeps $ zip hss deps'
-    touchDeps deps
+touch = touchDeps =<< getDeps
 
 type Deps = Map.Map FilePath (Set.Set FilePath)
 
@@ -39,24 +39,37 @@ getDeps = do
     return $ fixDeps $ zip hss deps'
 
 touchDeps :: Deps -> IO ()
-touchDeps =
-    mapM_ go . Map.toList
+touchDeps deps = (mapM_ go . Map.toList) deps
   where
-    go (x, ys) = do
-        (_, mod1) <- getFileStatus' x
-        flip mapM_ (Set.toList ys) $ \y -> do
-            (access, mod2) <- getFileStatus' y
-            if mod2 < mod1
-                then do
-                    putStrLn $ "Touching " ++ y ++ " because of " ++ x
-                    _ <- try' $ setFileTimes y access mod1
-                    return ()
-                else return ()
+    go (x, ys) =
+        forM_ (Set.toList ys) $ \y -> do
+            n <- x `isNewerThan` (hiFile y)
+            when n $ do
+              putStrLn ("Forcing recompile for " ++ y ++ " because of " ++ x)
+              removeHi y
+
+-- | remove the .hi files for a .hs file, thereby forcing a recompile
+removeHi :: FilePath -> IO ()
+removeHi hs = mapM_ removeFile' hiFiles
+    where
+      removeFile' file = try' (removeFile file) >> return ()
+      hiFiles          = map (\e -> "dist/build" </> replaceExtension hs e)
+                             ["hi", "p_hi"]
+
+hiFile :: FilePath -> FilePath
+hiFile hs = "dist/build" </> replaceExtension hs "hi"
 
 try' :: IO x -> IO (Either SomeException x)
 try' = try
 
-getFileStatus' :: FilePath -> IO (System.Posix.Types.EpochTime, System.Posix.Types.EpochTime)
+isNewerThan :: FilePath -> FilePath -> IO Bool
+isNewerThan f1 f2 = do
+  (_, mod1) <- getFileStatus' f1
+  (_, mod2) <- getFileStatus' f2
+  return (mod1 > mod2)
+
+getFileStatus' :: FilePath ->
+                  IO (System.Posix.Types.EpochTime, System.Posix.Types.EpochTime)
 getFileStatus' fp = do
     efs <- try' $ getFileStatus fp
     case efs of
@@ -76,9 +89,10 @@ findHaskellFiles path = do
     fmap concat $ mapM go contents
   where
     go ('.':_)     = return []
-    go ('d':"ist") = return []
+    go ('c':"abal-dev" = return []
+    go ('d':"ist")     = return []
     go x = do
-        let y = path ++ '/' : x
+        let y = path </> x
         d <- doesDirectoryExist y
         if d
             then findHaskellFiles y
