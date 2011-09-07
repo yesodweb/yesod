@@ -50,7 +50,7 @@ devel :: Bool -> IO ()
 devel isDevel = do
     writeLock
     
-    putStrLn "Yesod devel server. Pres ENTER to quit"
+    putStrLn "Yesod devel server. Press ENTER to quit"
     _ <- forkIO $ do
       cabal <- D.findPackageDesc "."
       gpd   <- D.readPackageDescription D.normal cabal
