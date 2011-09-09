@@ -85,6 +85,8 @@ executable             yesod
         cpp-options:     -DGHC7
     else
         build-depends:   base                  >= 4        && < 4.3
+    if os(windows)
+        cpp-options:     -DWINDOWS
     build-depends:     parsec             >= 2.1          && < 4
                      , text               >= 0.11         && < 0.12
                      , shakespeare-text   >= 0.10         && < 0.11

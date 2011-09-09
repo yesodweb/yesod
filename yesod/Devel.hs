@@ -33,14 +33,14 @@ import           System.Process (runCommand, terminateProcess,
 
 import Text.Shakespeare.Text (st)
 
-import Build (touch, getDeps, findHaskellFiles)
+import Build (recompDeps, getDeps,findHaskellFiles)
 
 lockFile :: FilePath
 lockFile = "dist/devel-terminate"
 
 writeLock :: IO ()
 writeLock = do
-    createDirectoryIfMissing True "dist"  
+    createDirectoryIfMissing True "dist"
     writeFile lockFile ""
 
 removeLock :: IO ()
@@ -49,7 +49,7 @@ removeLock = try_ (removeFile lockFile)
 devel :: Bool -> IO ()
 devel isDevel = do
     writeLock
-    
+
     putStrLn "Yesod devel server. Press ENTER to quit"
     _ <- forkIO $ do
       cabal <- D.findPackageDesc "."
@@ -65,7 +65,7 @@ devel isDevel = do
       T.writeFile "dist/devel.hs" (develFile pid)
 
       mainLoop isDevel
-    
+
     _ <- getLine
     writeLock
     exitSuccess
@@ -76,7 +76,7 @@ mainLoop :: Bool -> IO ()
 mainLoop isDevel = forever $ do
    putStrLn "Rebuilding application..."
 
-   touch
+   recompDeps
 
    list <- getFileList
    _ <- if isDevel

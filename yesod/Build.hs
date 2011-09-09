@@ -3,6 +3,7 @@ module Build
     ( getDeps
     , touchDeps
     , touch
+    , recompDeps
     , findHaskellFiles
     ) where
 
@@ -24,11 +25,14 @@ import qualified Data.Text.Lazy.IO as TIO
 import qualified System.Posix.Types
 import           System.Directory
 import           System.FilePath (replaceExtension, (</>))
-import           System.PosixCompat.Files (getFileStatus,
+import           System.PosixCompat.Files (getFileStatus, setFileTimes,
                                              accessTime, modificationTime)
 
 touch :: IO ()
-touch = touchDeps =<< getDeps
+touch = touchDeps id updateFileTime =<< getDeps
+
+recompDeps :: IO ()
+recompDeps = touchDeps hiFile removeHi =<< getDeps
 
 type Deps = Map.Map FilePath (Set.Set FilePath)
 
@@ -38,23 +42,33 @@ getDeps = do
     deps' <- mapM determineHamletDeps hss
     return $ fixDeps $ zip hss deps'
 
-touchDeps :: Deps -> IO ()
-touchDeps deps = (mapM_ go . Map.toList) deps
+touchDeps :: (FilePath -> FilePath) ->
+             (FilePath -> FilePath -> IO ()) ->
+             Deps -> IO ()
+touchDeps f action deps = (mapM_ go . Map.toList) deps
   where
     go (x, ys) =
         forM_ (Set.toList ys) $ \y -> do
-            n <- x `isNewerThan` (hiFile y)
+            n <- x `isNewerThan` f y
             when n $ do
               putStrLn ("Forcing recompile for " ++ y ++ " because of " ++ x)
-              removeHi y
+              action x y
 
 -- | remove the .hi files for a .hs file, thereby forcing a recompile
-removeHi :: FilePath -> IO ()
-removeHi hs = mapM_ removeFile' hiFiles
+removeHi :: FilePath -> FilePath -> IO ()
+removeHi _ hs = mapM_ removeFile' hiFiles
     where
       removeFile' file = try' (removeFile file) >> return ()
       hiFiles          = map (\e -> "dist/build" </> replaceExtension hs e)
                              ["hi", "p_hi"]
+
+-- | change file mtime of .hs file to that of the dependency
+updateFileTime :: FilePath -> FilePath -> IO ()
+updateFileTime x hs = do
+  (_     , modx) <- getFileStatus' x
+  (access, _   ) <- getFileStatus' hs
+  _ <- try' (setFileTimes hs access modx)
+  return ()
 
 hiFile :: FilePath -> FilePath
 hiFile hs = "dist/build" </> replaceExtension hs "hi"
