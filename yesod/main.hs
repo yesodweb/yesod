@@ -25,7 +25,9 @@ main = do
                 "--dev":rest -> (True, rest)
                 _ -> (False, args')
     let cmd = if isDev then "cabal-dev" else "cabal"
+#ifndef WINDOWS
     let build rest = rawSystem cmd $ "build":rest
+#endif
     case args of
         ["init"] -> scaffold
 #ifndef WINDOWS
