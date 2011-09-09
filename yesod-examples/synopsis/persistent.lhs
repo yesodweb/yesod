@@ -1,12 +1,12 @@
 This example uses the sqlite backend for Persistent, since it can run in-memory and has no external dependencies.
 
-> {-# LANGUAGE TypeFamilies, GeneralizedNewtypeDeriving, QuasiQuotes, TemplateHaskell, OverloadedStrings #-}
+> {-# LANGUAGE GADTs, TypeFamilies, GeneralizedNewtypeDeriving, QuasiQuotes, TemplateHaskell, OverloadedStrings #-}
 >
 > import Database.Persist.Sqlite
 > import Database.Persist.TH
 > import Control.Monad.IO.Class (liftIO)
 >
-> mkPersist [$persist|Person
+> mkPersist sqlSettings [persist|Person
 >     name String Eq
 >     age Int Update
 > |]
@@ -21,7 +21,7 @@ This example uses the sqlite backend for Persistent, since it can run in-memory 
 >   liftIO $ print key
 >   p1 <- get key
 >   liftIO $ print p1
->   update key [PersonAge 26]
+>   update key [PersonAge =. 26]
 >   p2 <- get key
 >   liftIO $ print p2
 >   p3 <- selectList [PersonName ==. "Michael"] []

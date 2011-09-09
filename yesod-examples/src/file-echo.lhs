@@ -4,10 +4,11 @@
 > import Data.Monoid (mempty)
 > import qualified Data.ByteString.Char8 as S8
 > import qualified Data.Text as T
+> import Text.Blaze (string)
 
 > data Echo = Echo
 
-> mkYesod "Echo" [$parseRoutes|
+> mkYesod "Echo" [parseRoutes|
 > / Homepage GET POST
 > |]
 

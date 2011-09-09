@@ -3,10 +3,17 @@
 > import Control.Applicative ((<$>), (<*>))
 > 
 > data Session = Session
-> type Handler = GHandler Session Session
-> mkYesod "Session" [$parseRoutes|
+> mkYesod "Session" [parseRoutes|
 > / Root GET POST
 > |]
+> 
+> instance Yesod Session where
+>     approot _ = ""
+>     clientSessionDuration _ = 1
+>
+> instance RenderMessage Session FormMessage where
+>    renderMessage _ _ = defaultFormMessage
+>
 > getRoot :: Handler RepHtml
 > getRoot = do
 >     sess <- getSession
@@ -20,12 +27,9 @@
 > 
 > postRoot :: Handler ()
 > postRoot = do
->     (key, val) <- runFormPost' $ (,) <$> stringInput "key" <*> stringInput "val"
->     setSession key val
->     liftIO $ print (key, val)
->     redirect RedirectTemporary Root
-> 
-> instance Yesod Session where
->     approot _ = ""
->     clientSessionDuration _ = 1
+>       (key, val) <- runInputPost $ (,) <$> ireq textField "key" <*> ireq textField "val"
+>       setSession key val
+>       liftIO $ print (key, val)
+>       redirect RedirectTemporary Root
+>
 > main = warpDebug 3000 Session

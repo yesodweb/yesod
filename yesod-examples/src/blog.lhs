@@ -25,7 +25,6 @@ Since normally you'll need to perform an IO action to load up your entries from 
 Each Yesod application needs to define the site argument. You can use this for storing anything that should be loaded before running your application. For example, you might store a database connection there. In our case, we'll store our list of entries.
 
 > data Blog = Blog { blogEntries :: [Entry] }
-> type Handler = GHandler Blog Blog
 
 Now we use the first "magical" Yesod set of functions: mkYesod and parseRoutes. If you want to see *exactly* what they do, look at their Haddock docs. For now, we'll try to keep this tutorial simple:
 
@@ -67,10 +66,9 @@ The Nav datatype will contain navigation information (ie, the URL and title) of 
 
 And now the template itself:
 
-> entryTemplate :: TemplateArgs -> Hamlet (Route Blog)
+> entryTemplate :: TemplateArgs -> HtmlUrl (Route Blog)
 > entryTemplate args = [hamlet|
 >   !!!
-> 
 >   <html>
 >       <head>
 >           <title>#{templateTitle args}

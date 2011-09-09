@@ -1,13 +1,13 @@
 > {-# LANGUAGE TypeFamilies, QuasiQuotes, OverloadedStrings, MultiParamTypeClasses, TemplateHaskell #-}
 > import Yesod
-> import Yesod.Helpers.Static
+> import Yesod.Static
 > import Yesod.Form.Jquery
 > import Yesod.Form.Nic
 > import Control.Applicative
 > import Data.Text (unpack)
+> import Text.Blaze (string)
 > 
 > data HW = HW { hwStatic :: Static }
-> type Handler = GHandler HW HW
 > mkYesod "HW" [$parseRoutes|
 > / RootR GET
 > /form FormR
@@ -17,10 +17,13 @@
 > instance Yesod HW where approot _ = ""
 > instance YesodJquery HW
 > instance YesodNic HW
-> wrapper h = [$hamlet|
+> wrapper h = [hamlet|
 > <#wrapper>^{h}
 > <footer>Brought to you by Yesod Widgets&trade;
 > |]
+> instance RenderMessage HW FormMessage where
+>    renderMessage _ _ = defaultFormMessage
+>
 > getRootR = defaultLayout $ wrapper $ do
 >     i <- lift newIdent
 >     setTitle $ string "Hello Widgets"
@@ -42,17 +45,17 @@
 >     addHtmlHead [$hamlet|<meta keywords=haskell|]
 > 
 > handleFormR = do
->     (res, form, enctype, nonce) <- runFormPost $ fieldsToTable $ (,,,,,,,,)
->         <$> stringField "My Field" Nothing
->         <*> stringField "Another field" (Just "some default text")
->         <*> intField "A number field" (Just 5)
->         <*> jqueryDayField def "A day field" Nothing
->         <*> timeField "A time field" Nothing
->         <*> boolField "A checkbox" (Just False)
->         <*> jqueryAutocompleteField AutoCompleteR "Autocomplete" Nothing
->         <*> nicHtmlField "HTML"
+>     (res, form, enctype, nonce) <- runFormPost $ renderTable $ (,,,,,,,,)
+>         <$> aopt textField "My Field" Nothing
+>         <*> aopt textField "Another field" (Just "some default text")
+>         <*> aopt intField "A number field" (Just 5)
+>         <*> aopt jqueryDayField "A day field" Nothing
+>         <*> aopt timeField "A time field" Nothing
+>         <*> aopt boolField "A checkbox" (Just False)
+>         <*> aopt jqueryAutocompleteField AutoCompleteR "Autocomplete" Nothing
+>         <*> aopt nicHtmlField "HTML"
 >                 (Just $ string "You can put <rich text> here")
->         <*> maybeEmailField "An e-mail addres" Nothing
+>         <*> aopt emailField "An e-mail addres" Nothing
 >     let mhtml = case res of
 >                     FormSuccess (_, _, _, _, _, _, _, x, _) -> Just x
 >                     _ -> Nothing
@@ -77,11 +80,11 @@
 > |]
 >         setTitle $ string "Form"
 > 
-> main = warpDebug 3000 $ HW $ static "static"
+> main = static "static" >>= (warpDebug 3000 . HW)
 > 
 > getAutoCompleteR :: Handler RepJson
 > getAutoCompleteR = do
->     term <- runFormGet' $ stringInput "term"
+>     term <- runInputGet $ ireq textField "term"
 >     jsonToRepJson $ jsonList
 >         [ jsonScalar $ unpack term ++ "foo"
 >         , jsonScalar $ unpack term ++ "bar"

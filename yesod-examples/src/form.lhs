@@ -7,25 +7,26 @@
 > import Data.Text (Text)
 
 > data FormExample = FormExample
-> type Handler = GHandler FormExample FormExample
-> mkYesod "FormExample" [$parseRoutes|
+> mkYesod "FormExample" [parseRoutes|
 > / RootR GET
 > |]
 > instance Yesod FormExample where approot _ = ""
+> instance RenderMessage FormExample FormMessage where
+>    renderMessage _ _ = defaultFormMessage
 
 Next, we'll declare a Person datatype with a name and age. After that, we'll create a formlet. A formlet is a declarative approach to forms. It takes a Maybe value and constructs either a blank form, a form based on the original value, or a form based on the values submitted by the user. It also attempts to construct a datatype, failing on validation errors.
 
 > data Person = Person { name :: Text, age :: Int }
 >     deriving Show
-> personFormlet p = fieldsToTable $ Person
->     <$> stringField "Name" (fmap name p)
->     <*> intField "Age" (fmap age p)
+> personFormlet p = renderTable $ Person
+>     <$> areq textField "Name" (fmap name p)
+>     <*> areq intField "Age" (fmap age p)
 
 We use an applicative approach and stay mostly declarative. The "fmap name p" bit is just a way to get the name from within a value of type "Maybe Person".
 
 > getRootR :: Handler RepHtml
 > getRootR = do
->     (res, wform, enctype) <- runFormGet $ personFormlet Nothing
+>     ((res, wform), enctype) <- runFormGet $ personFormlet Nothing
 
 <p>We use runFormGet to bind to GET (query-string) parameters; we could also use runFormPost. The "Nothing" is the initial value of the form. You could also supply a "Just Person" value if you like. There is a three-tuple returned, containing the parsed value, the HTML form as a widget and the encoding type for the form.</p>
 

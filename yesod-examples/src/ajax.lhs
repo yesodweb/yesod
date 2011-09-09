@@ -4,8 +4,9 @@
 
 > {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 > import Yesod
-> import Yesod.Helpers.Static
+> import Yesod.Static
 > import Data.Monoid (mempty)
+> import Text.Blaze (string)
 
 Like the blog example, we'll define some data first.
 
@@ -26,7 +27,6 @@ Like the blog example, we'll define some data first.
 >   { ajaxPages :: [Page]
 >   , ajaxStatic :: Static
 >   }
-> type Handler = GHandler Ajax Ajax
 
 Next we'll generate a function for each file in our static folder. This way, we get a compiler warning when trying to using a file which does not exist.
 
@@ -34,7 +34,7 @@ Next we'll generate a function for each file in our static folder. This way, we 
 
 Now the routes; we'll have a homepage, a pattern for the pages, and use a static subsite for the Javascript and CSS files.
 
-> mkYesod "Ajax" [$parseRoutes|
+> mkYesod "Ajax" [parseRoutes|
 > /                  HomeR   GET
 > /page/#String      PageR   GET
 > /static            StaticR Static ajaxStatic
@@ -108,5 +108,5 @@ And now the cool part: a handler that returns either HTML or JSON data, dependin
 > main :: IO ()
 > main = do
 >   pages <- loadPages
->   let s = static "static/yesod/ajax"
+>   s <- static "static/yesod/ajax"
 >   warpDebug 3000 $ Ajax pages s

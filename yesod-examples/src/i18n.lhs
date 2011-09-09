@@ -9,7 +9,6 @@
 > import Data.Text (Text)
 
 > data I18N = I18N
-> type Handler = GHandler I18N I18N
 
 > mkYesod "I18N" [$parseRoutes|
 > /            HomepageR GET
