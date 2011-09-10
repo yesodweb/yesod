@@ -12,6 +12,7 @@ module Yesod.Auth.Email
     , loginR
     , registerR
     , setpassR
+    , isValidPass
     ) where
 
 #include "qq.h"
