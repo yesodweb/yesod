@@ -47,8 +47,7 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 with~sitearg~ :: AppConfig -> Logger -> (Application -> IO a) -> IO ()
 with~sitearg~ conf logger f = do
     s <- static Settings.staticDir
-    Settings.withConnectionPool conf $ \p -> do
-        runConnectionPool (runMigration migrateAll) p
+    Settings.withConnectionPool conf $ \p -> do~runMigration~
         let h = ~sitearg~ conf logger s p
 #ifdef WINDOWS
         toWaiApp h >>= f >> return ()

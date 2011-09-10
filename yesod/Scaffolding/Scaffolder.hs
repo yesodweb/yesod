@@ -81,6 +81,11 @@ scaffold = do
         backendLower = uncapitalize $ show backend 
         upper = show backend
 
+    let runMigration  =
+          case backend of
+            MongoDB -> ""
+            _ -> "\n        runConnectionPool (runMigration migrateAll) p"
+
     putStrLn "That's it! I'm creating your files now..."
 
     let withConnectionPool = case backend of
@@ -93,7 +98,7 @@ scaffold = do
           Postgresql -> "import Data.Text (Text, pack, concat)\nimport Prelude hiding (concat)"
           _          -> "import Data.Text (Text, pack)"
 
-        packages = if backend == MongoDB then ", mongoDB\n               , bson\n" else ""
+        packages = if backend == MongoDB then ", mongoDB >= 1.1\n               , bson >= 0.1.5\n" else ""
 
     let fst3 (x, _, _) = x
     year <- show . fst3 . toGregorian . utctDay <$> getCurrentTime
