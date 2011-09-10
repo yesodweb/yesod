@@ -98,7 +98,11 @@ scaffold = do
           Postgresql -> "import Data.Text (Text, pack, concat)\nimport Prelude hiding (concat)"
           _          -> "import Data.Text (Text, pack)"
 
-        packages = if backend == MongoDB then ", mongoDB >= 1.1\n               , bson >= 0.1.5\n" else ""
+        packages =
+          if backend == MongoDB
+            then "                 , persistent-mongoDB >= 0.6.1 && < 0.7\n                 , mongoDB >= 1.1\n                 , bson >= 0.1.5\n"
+            else "                 , persistent-" ++ backendLower ++ " >= 0.6 && < 0.7"
+
 
     let fst3 (x, _, _) = x
     year <- show . fst3 . toGregorian . utctDay <$> getCurrentTime
