@@ -16,6 +16,13 @@ data Fruit = Apple | Banana | Pear
 fruits :: [(Text, Fruit)]
 fruits = map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
+mkYesod "HelloForms" [parseRoutes|
+/ RootR GET
+/mass MassR GET
+/valid ValidR GET
+/file FileR GET POST
+|]
+
 myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,)
     <*> areq boolField "Bool field" Nothing
     <*> aopt boolField "Opt bool field" Nothing
@@ -28,10 +35,6 @@ myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,)
     <*> aopt (radioField fruits) "Opt radio" Nothing
 
 data HelloForms = HelloForms
-type Handler = GHandler HelloForms HelloForms
-
-fixType :: Handler a -> Handler a
-fixType = id
 
 instance RenderMessage HelloForms FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -39,11 +42,8 @@ instance RenderMessage HelloForms FormMessage where
 instance Yesod HelloForms where
     approot _ = ""
 
-mkYesod "HelloForms" [parseRoutes|
-/ RootR GET
-/mass MassR GET
-/valid ValidR GET
-|]
+fixType :: Handler a -> Handler a
+fixType = id
 
 getRootR = do
     ((res, form), enctype) <- myForm
@@ -57,6 +57,8 @@ getRootR = do
     <a href=@{MassR}>See the mass form
 <p>
     <a href=@{ValidR}>Validation form
+<p>
+    <a href=@{FileR}>File form
 |]
 
 myMassForm = fixType $ runFormGet $ renderTable $ inputList "People" massTable
@@ -108,3 +110,23 @@ getValidR = do
 |]
 
 main = toWaiApp HelloForms >>= run 3000
+
+fileForm = renderTable $ pure (,)
+    <*> fileAFormReq "Required file"
+    <*> fileAFormOpt "Optional file"
+
+getFileR = do
+    ((res, form), enctype) <- runFormPost fileForm
+    defaultLayout [whamlet|
+<p>Result: #{show res}
+<form method=post enctype=#{enctype}>
+    <table>
+        ^{form}
+    <tr>
+        <td>
+            <input type=submit>
+<p>
+    <a href=@{RootR}>See the regular form
+|]
+
+postFileR = getFileR

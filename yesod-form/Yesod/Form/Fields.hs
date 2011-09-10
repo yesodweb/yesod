@@ -4,8 +4,10 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Form.Fields
-    ( FormMessage (..)
+    ( -- * i18n
+      FormMessage (..)
     , defaultFormMessage
+      -- * Fields
     , textField
     , passwordField
     , textareaField
@@ -26,11 +28,14 @@ module Yesod.Form.Fields
     , Textarea (..)
     , radioField
     , boolField
+      -- * File 'AForm's
+    , fileAFormReq
+    , fileAFormOpt
     ) where
 
 import Yesod.Form.Types
 import Yesod.Widget
-import Yesod.Message (RenderMessage, SomeMessage (..))
+import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
 import Text.Hamlet
 import Text.Blaze (ToHtml (..), preEscapedText, unsafeByteString)
 import Text.Cassius
@@ -54,6 +59,12 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 import Data.Monoid (mappend)
+import Control.Monad.IO.Class (liftIO)
+
+import Control.Applicative ((<$>))
+import qualified Data.Map as Map
+import Yesod.Handler (newIdent)
+import Yesod.Request (FileInfo)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -420,3 +431,66 @@ selectFieldHelper outside onOpt inside opts = Field
                             Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
                             Just y -> Right $ Just $ snd y
                     _ -> Left $ SomeMessage $ MsgInvalidNumber x
+
+fileAFormReq :: (RenderMessage master msg, RenderMessage master FormMessage) => FieldSettings msg -> AForm sub master FileInfo
+fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
+    let (name, ints') =
+            case fsName fs of
+                Just x -> (x, ints)
+                Nothing ->
+                    let i' = incrInts ints
+                     in (pack $ 'f' : show i', i')
+    id' <- maybe (pack <$> newIdent) return $ fsId fs
+    let (res, errs) =
+            case menvs of
+                Nothing -> (FormMissing, Nothing)
+                Just (_, fenv) ->
+                    case Map.lookup name fenv of
+                        Nothing ->
+                            let t = renderMessage master langs MsgValueRequired
+                             in (FormFailure [t], Just $ toHtml t)
+                        Just fi -> (FormSuccess fi, Nothing)
+    let fv = FieldView
+            { fvLabel = toHtml $ renderMessage master langs $ fsLabel fs
+            , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
+            , fvId = id'
+            , fvInput = [whamlet|
+<input type=file name=#{name} ##{id'}>
+|]
+            , fvErrors = errs
+            , fvRequired = True
+            }
+    return (res, (fv :), ints', Multipart)
+
+fileAFormOpt :: (RenderMessage master msg, RenderMessage master FormMessage) => FieldSettings msg -> AForm sub master (Maybe FileInfo)
+fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
+    liftIO $ print menvs
+    let (name, ints') =
+            case fsName fs of
+                Just x -> (x, ints)
+                Nothing ->
+                    let i' = incrInts ints
+                     in (pack $ 'f' : show i', i')
+    id' <- maybe (pack <$> newIdent) return $ fsId fs
+    let (res, errs) =
+            case menvs of
+                Nothing -> (FormMissing, Nothing)
+                Just (_, fenv) ->
+                    case Map.lookup name fenv of
+                        Nothing -> (FormSuccess Nothing, Nothing)
+                        Just fi -> (FormSuccess $ Just fi, Nothing)
+    let fv = FieldView
+            { fvLabel = toHtml $ renderMessage master langs $ fsLabel fs
+            , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
+            , fvId = id'
+            , fvInput = [whamlet|
+<input type=file name=#{name} ##{id'}>
+|]
+            , fvErrors = errs
+            , fvRequired = False
+            }
+    return (res, (fv :), ints', Multipart)
+
+incrInts :: Ints -> Ints
+incrInts (IntSingle i) = IntSingle $ i + 1
+incrInts (IntCons i is) = (i + 1) `IntCons` is

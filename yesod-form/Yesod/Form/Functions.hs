@@ -43,7 +43,7 @@ import Text.Blaze (Html, toHtml)
 import Yesod.Handler (GHandler, GGHandler, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, liftIOHandler, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
-import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages)
+import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages, FileInfo (..))
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
@@ -51,6 +51,7 @@ import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Map as Map
+import qualified Data.ByteString.Lazy as L
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -215,7 +216,9 @@ postEnv = do
         else do
             (p, f) <- runRequestBody
             let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
-            return $ Just (p', Map.fromList f)
+            return $ Just (p', Map.fromList $ filter (notEmpty . snd) f)
+  where
+    notEmpty = not . L.null . fileContent
 
 runFormPostNoNonce :: (Html -> Form sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoNonce form = do
