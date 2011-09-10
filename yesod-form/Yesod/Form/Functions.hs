@@ -34,7 +34,6 @@ module Yesod.Form.Functions
     ) where
 
 import Yesod.Form.Types
-import Yesod.Form.Fields (FormMessage (MsgCsrfWarning, MsgValueRequired))
 import Data.Text (Text, pack)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)

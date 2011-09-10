@@ -4,8 +4,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Form.Fields
-    ( FormMessage (..)
-    , defaultFormMessage
+    ( defaultFormMessage
     , textField
     , passwordField
     , textareaField
@@ -29,6 +28,7 @@ module Yesod.Form.Fields
     ) where
 
 import Yesod.Form.Types
+import Yesod.Form.I18n.English
 import Yesod.Widget
 import Yesod.Message (RenderMessage, SomeMessage (..))
 import Text.Hamlet
@@ -53,7 +53,6 @@ import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
-import Data.Monoid (mappend)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -69,44 +68,9 @@ import Data.Monoid (mappend)
 #define HTML $html
 #endif
 
-data FormMessage = MsgInvalidInteger Text
-                 | MsgInvalidNumber Text
-                 | MsgInvalidEntry Text
-                 | MsgInvalidUrl Text
-                 | MsgInvalidEmail Text
-                 | MsgInvalidTimeFormat
-                 | MsgInvalidHour Text
-                 | MsgInvalidMinute Text
-                 | MsgInvalidSecond Text
-                 | MsgInvalidDay
-                 | MsgCsrfWarning
-                 | MsgValueRequired
-                 | MsgInputNotFound Text
-                 | MsgSelectNone
-                 | MsgInvalidBool Text
-                 | MsgBoolYes
-                 | MsgBoolNo
-                 | MsgDelete
 
 defaultFormMessage :: FormMessage -> Text
-defaultFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
-defaultFormMessage (MsgInvalidNumber t) = "Invalid number: " `mappend` t
-defaultFormMessage (MsgInvalidEntry t) = "Invalid entry: " `mappend` t
-defaultFormMessage MsgInvalidTimeFormat = "Invalid time, must be in HH:MM[:SS] format"
-defaultFormMessage MsgInvalidDay = "Invalid day, must be in YYYY-MM-DD format"
-defaultFormMessage (MsgInvalidUrl t) = "Invalid URL: " `mappend` t
-defaultFormMessage (MsgInvalidEmail t) = "Invalid e-mail address: " `mappend` t
-defaultFormMessage (MsgInvalidHour t) = "Invalid hour: " `mappend` t
-defaultFormMessage (MsgInvalidMinute t) = "Invalid minute: " `mappend` t
-defaultFormMessage (MsgInvalidSecond t) = "Invalid second: " `mappend` t
-defaultFormMessage MsgCsrfWarning = "As a protection against cross-site request forgery attacks, please confirm your form submission."
-defaultFormMessage MsgValueRequired = "Value is required"
-defaultFormMessage (MsgInputNotFound t) = "Input not found: " `mappend` t
-defaultFormMessage MsgSelectNone = "<None>"
-defaultFormMessage (MsgInvalidBool t) = "Invalid boolean: " `mappend` t
-defaultFormMessage MsgBoolYes = "Yes"
-defaultFormMessage MsgBoolNo = "No"
-defaultFormMessage MsgDelete = "Delete?"
+defaultFormMessage = englishFormMessage
 
 blank :: (Monad m, RenderMessage master FormMessage)
       => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))

@@ -42,6 +42,7 @@ library
                      Yesod.Form.Jquery
                      Yesod.Form.Nic
                      Yesod.Form.MassInput
+                     Yesod.Form.I18n.English
                      -- FIXME Yesod.Helpers.Crud
     ghc-options:     -Wall
 
