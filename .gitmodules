@@ -1,9 +1,0 @@
-[submodule "aeson"]
-	path = aeson
-	url = https://github.com/yesodweb/aeson.git
-[submodule "authenticate"]
-	path = authenticate
-	url = https://github.com/snoyberg/authenticate.git
-[submodule "blaze-textual"]
-	path = blaze-textual
-	url = https://github.com/yesodweb/blaze-textual.git
