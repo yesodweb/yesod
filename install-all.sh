@@ -6,9 +6,6 @@ CABAL=${CABAL:-cabal}
 # install testing dependencies
 $CABAL install HUnit QuickCheck 'hspec >= 0.6.1 && < 0.7' shelltestrunner
 
-# pull submodules
-git submodule update --init
-
 pkgs=( yesod-core
        yesod-json
        yesod-static
