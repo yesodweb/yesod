@@ -53,7 +53,7 @@ loadConfig env = do
 
 loadPostgresqlConnStr :: AppEnvironment -> IO Text
 loadPostgresqlConnStr env = do
-    allSettings <- (join $ YAML.decodeFile ("config/postgesql.yml" :: String)) >>= fromMapping
+    allSettings <- (join $ YAML.decodeFile ("config/postgresql.yml" :: String)) >>= fromMapping
     settings    <- lookupMapping (show env) allSettings
     database    <- lookupScalar "database" settings :: IO Text
 
