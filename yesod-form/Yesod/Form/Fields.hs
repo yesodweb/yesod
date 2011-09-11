@@ -4,7 +4,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Form.Fields
-    ( defaultFormMessage
+    ( FormMessage (..)
+    , defaultFormMessage
     , textField
     , passwordField
     , textareaField
