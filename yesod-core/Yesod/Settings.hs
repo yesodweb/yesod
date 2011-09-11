@@ -1,4 +1,8 @@
-module Yesod.Settings where
+module Yesod.Settings
+    ( AppEnvironment(..)
+    , AppConfig(..)
+    , loadConfig
+    ) where
 
 import Control.Monad (join)
 import Data.Object
