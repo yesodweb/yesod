@@ -7,6 +7,8 @@ module Yesod
     , module Yesod.Form
     , module Yesod.Json
     , module Yesod.Persist
+    , module Yesod.Settings
+    , module Yesod.Main
       -- * Running your application
     , warp
     , warpDebug
@@ -46,6 +48,8 @@ import Text.Julius
 import Yesod.Form
 import Yesod.Json
 import Yesod.Persist
+import Yesod.Settings
+import Yesod.Main
 import Network.Wai (Application)
 import Network.Wai.Middleware.Debug
 import Control.Monad.Trans.Class (lift)
