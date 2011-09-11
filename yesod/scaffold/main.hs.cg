@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP, DeriveDataTypeable #-}
-import qualified Settings as Settings
-import Settings (AppConfig(..))
+import Settings (AppEnvironment(..), AppConfig(..), loadConfig)
 import Application (with~sitearg~)
 import Network.Wai.Handler.Warp (run)
 import System.Console.CmdArgs hiding (args)
@@ -18,7 +17,7 @@ main = do
     logger <- makeLogger
     args <- cmdArgs argConfig
     env <- getAppEnv args
-    config <- Settings.loadConfig env
+    config <- loadConfig env
     let c = if (port args) /= 0 then config {appPort = (port args) } else config
 #if PRODUCTION
     with~sitearg~ c logger $ run (appPort c)
@@ -41,10 +40,10 @@ argConfig = ArgConfig{ environment = def
 }
 
 environments :: [String]
-environments = map ((map toLower) . show) ([minBound..maxBound] :: [Settings.AppEnvironment])
+environments = map ((map toLower) . show) ([minBound..maxBound] :: [AppEnvironment])
 
 -- | retrieve the -e environment option
-getAppEnv :: ArgConfig ->  IO Settings.AppEnvironment
+getAppEnv :: ArgConfig ->  IO AppEnvironment
 getAppEnv cfg = do
     let e = if (environment cfg) /= "" then (environment cfg)
             else
