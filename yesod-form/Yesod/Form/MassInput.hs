@@ -11,7 +11,7 @@ module Yesod.Form.MassInput
 
 import Yesod.Form.Types
 import Yesod.Form.Functions
-import Yesod.Form.Fields (boolField, FormMessage (MsgDelete))
+import Yesod.Form.Fields (boolField)
 import Yesod.Widget (GWidget, whamlet)
 import Yesod.Message (RenderMessage)
 import Yesod.Handler (newIdent, GGHandler)
