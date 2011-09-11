@@ -3,12 +3,15 @@ module Yesod.Main
     ( defaultMain
     , fromArgs
     , fromArgsWith
+    , defaultDevelApp
+    , defaultDevelAppWith
     ) where
 
-import Yesod.Logger (Logger, makeLogger)
+import Yesod.Logger (Logger, makeLogger, logString, logLazyText, flushLogger)
 import Yesod.Settings (AppEnvironment(..), AppConfig(..), loadConfig)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp (run)
+import Network.Wai.Middleware.Debug (debugHandle)
 import System.Console.CmdArgs hiding (args)
 import Data.Char (toUpper, toLower)
 
@@ -72,3 +75,33 @@ fromArgsWith load = do
 
         capitalize [] = []
         capitalize (x:xs) = toUpper x : map toLower xs
+
+-- | A default argument for use with yesod devel with debug logging
+--   enabled. Uses @'Yesod.Settings.loadConfig'@ for the @'Development'@
+--   environment.
+--
+--   > -- Application.hs
+--   > 
+--   > withDevelAppPort :: Dynamic
+--   > withDevelAppPort = toDyn $ defaultDevelApp withMySite
+--
+defaultDevelApp :: (AppConfig -> Logger -> (Application -> IO ()) -> IO ())
+                -> ((Int, Application) -> IO ())
+                -> IO ()
+defaultDevelApp = defaultDevelAppWith loadConfig
+
+-- | Same, but allows one to provide their own cust @'loadConfig'@
+defaultDevelAppWith :: (AppEnvironment -> IO AppConfig)
+                    -> (AppConfig -> Logger -> (Application -> IO ()) -> IO ())
+                    -> ((Int, Application) -> IO ())
+                    -> IO ()
+defaultDevelAppWith load withSite f = do
+        conf   <- load Development
+        logger <- makeLogger
+        let p = appPort conf
+        logString logger $ "Devel application launched, listening on port " ++ show p
+        withSite conf logger $ \app -> f (p, debugHandle (logHandle logger) app)
+        flushLogger logger
+
+        where
+            logHandle logger msg = logLazyText logger msg >> flushLogger logger
