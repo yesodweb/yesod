@@ -47,16 +47,14 @@ fromArgsWith load = do
     let env = read
             $ capitalize
             $ if environment args /= ""
-              then environment args
-              else "development"
+                  then environment args
+                  else "development"
 
     config <- load env
 
-    let c = if port args /= 0
-            then config { appPort = port args }
-            else config
-
-    return $ config
+    return $ if port args /= 0
+                then config { appPort = port args }
+                else config
 
     where
         argConfig :: ArgConfig
