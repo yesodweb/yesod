@@ -12,11 +12,11 @@ import Foundation
 import Settings
 import Yesod.Static
 import Yesod.Settings
-import Yesod.Logger (makeLogger, flushLogger, Logger, logLazyText, logString)
+import Yesod.Main (defaultDevelApp)
+import Yesod.Logger (Logger)
 import Data.ByteString (ByteString)
 import Network.Wai (Application)
 import Data.Dynamic (Dynamic, toDyn)
-import Network.Wai.Middleware.Debug (debugHandle)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -50,16 +50,4 @@ with~sitearg~ conf logger f = do
 
 -- for yesod devel
 withDevelAppPort :: Dynamic
-withDevelAppPort =
-    toDyn go
-  where
-    go :: ((Int, Application) -> IO ()) -> IO ()
-    go f = do
-        conf <- loadConfig Development
-        let port = appPort conf
-        logger <- makeLogger
-        logString logger $ "Devel application launched, listening on port " ++ show port
-        with~sitearg~ conf logger $ \app -> f (port, debugHandle (logHandle logger) app)
-        flushLogger logger
-      where
-        logHandle logger msg = logLazyText logger msg >> flushLogger logger
+withDevelAppPort = toDyn $ defaultDevelApp with~sitearg~

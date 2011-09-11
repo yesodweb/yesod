@@ -12,11 +12,10 @@ import Foundation
 import Settings
 import Settings.StaticFiles (static)
 import Yesod.Auth
-import Yesod.Logger (makeLogger, flushLogger, Logger, logString, logLazyText)
+import Yesod.Logger (Logger)
 import Database.Persist.~importGenericDB~
 import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
-import Network.Wai.Middleware.Debug (debugHandle)
 
 #ifndef WINDOWS
 import qualified System.Posix.Signals as Signal
@@ -63,16 +62,4 @@ with~sitearg~ conf logger f = do
 
 -- for yesod devel
 withDevelAppPort :: Dynamic
-withDevelAppPort =
-    toDyn go
-  where
-    go :: ((Int, Application) -> IO ()) -> IO ()
-    go f = do
-        conf <- loadConfig Development
-        let port = appPort conf
-        logger <- makeLogger
-        logString logger $ "Devel application launched, listening on port " ++ show port
-        with~sitearg~ conf logger $ \app -> f (port, debugHandle (logHandle logger) app)
-        flushLogger logger
-      where
-        logHandle logger msg = logLazyText logger msg >> flushLogger logger
+withDevelAppPort = toDyn $ defaultDevelApp with~sitearg~
