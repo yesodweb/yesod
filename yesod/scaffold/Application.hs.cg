@@ -68,7 +68,7 @@ withDevelAppPort =
   where
     go :: ((Int, Application) -> IO ()) -> IO ()
     go f = do
-        conf <- Settings.loadConfig Settings.Development
+        conf <- loadConfig Development
         let port = appPort conf
         logger <- makeLogger
         logString logger $ "Devel application launched, listening on port " ++ show port

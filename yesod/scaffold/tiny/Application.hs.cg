@@ -11,6 +11,7 @@ module Application
 import Foundation
 import Settings
 import Yesod.Static
+import Yesod.Settings
 import Yesod.Logger (makeLogger, flushLogger, Logger, logLazyText, logString)
 import Data.ByteString (ByteString)
 import Network.Wai (Application)
@@ -54,7 +55,7 @@ withDevelAppPort =
   where
     go :: ((Int, Application) -> IO ()) -> IO ()
     go f = do
-        conf <- Settings.loadConfig Settings.Development
+        conf <- loadConfig Development
         let port = appPort conf
         logger <- makeLogger
         logString logger $ "Devel application launched, listening on port " ++ show port
