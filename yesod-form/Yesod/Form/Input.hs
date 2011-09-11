@@ -9,7 +9,6 @@ module Yesod.Form.Input
     ) where
 
 import Yesod.Form.Types
-import Yesod.Form.Fields (FormMessage (MsgInputNotFound))
 import Data.Text (Text)
 import Control.Applicative (Applicative (..))
 import Yesod.Handler (GHandler, GGHandler, invalidArgs, runRequestBody, getRequest, getYesod, liftIOHandler)

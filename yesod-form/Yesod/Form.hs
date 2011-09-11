@@ -9,6 +9,6 @@ module Yesod.Form
 
 import Yesod.Form.Types
 import Yesod.Form.Functions
-import Yesod.Form.Fields
+import Yesod.Form.Fields hiding (FormMessage (..))
 import Yesod.Form.Class
 import Yesod.Form.Input
