@@ -1,10 +1,12 @@
-{-# LANGUAGE QuasiQuotes #-}
+{-# OPTIONS -fno-warn-missing-signatures #-}
+{-# LANGUAGE QuasiQuotes                 #-}
 module Yesod.Settings
     ( AppEnvironment(..)
     , AppConfig(..)
     , loadConfig
     , loadPostgresqlConnStr
     , loadSqliteConnStr
+    , loadMongoConnParams
     ) where
 
 import Control.Monad (join)
@@ -63,7 +65,14 @@ loadPostgresqlConnStr env = do
 loadSqliteConnStr :: AppEnvironment -> IO Text
 loadSqliteConnStr env = do
     allSettings <- (join $ YAML.decodeFile ("config/sqlite.yml" :: String)) >>= fromMapping
-    settings <- lookupMapping (show env) allSettings
+    settings    <- lookupMapping (show env) allSettings
     lookupScalar "database" settings
 
--- TODO: Mongo
+-- note: no type signature to avoid Persistent.MongoDB dep
+--loadMongoConnParams :: AppEnvironment -> IO (Database, HostName)
+loadMongoConnParams env = do
+    allSettings <- (join $ YAML.decodeFile ("config/mongoDB.yml" :: String)) >>= fromMapping
+    settings    <- lookupMapping (show env) allSettings
+    database    <- lookupScalar "database" settings
+    host        <- lookupScalar "host" settings
+    return (database, host)
