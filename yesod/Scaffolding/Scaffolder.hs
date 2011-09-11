@@ -94,10 +94,6 @@ scaffold = do
           MongoDB    -> $(codegen $ "mongoDBConnPool")
           Tiny       -> ""
 
-        settingsTextImport = case backend of
-          Postgresql -> "import Data.Text (Text, concat)\nimport Prelude hiding (concat)"
-          _          -> "import Data.Text (Text)"
-
         packages =
           if backend == MongoDB
             then "                 , persistent-mongoDB >= 0.6.1 && < 0.7\n                 , mongoDB >= 1.1\n                 , bson >= 0.1.5\n"

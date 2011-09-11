@@ -3,16 +3,8 @@ runConnectionPool = runSqlPool
 
 withConnectionPool :: MonadControlIO m => AppConfig -> (ConnectionPool -> m a) -> m a
 withConnectionPool conf f = do
-    cs <- liftIO $ loadConnStr (appEnv conf)
+    cs <- liftIO $ load~upper~ConnStr (appEnv conf)
     with~upper~Pool cs (connectionPoolSize conf) f
-  where
-    -- | The database connection string. The meaning of this string is backend-
-    -- specific.
-    loadConnStr :: AppEnvironment -> IO Text
-    loadConnStr env = do
-        allSettings <- (join $ YAML.decodeFile ("config/~backendLower~.yml" :: String)) >>= fromMapping
-        settings <- lookupMapping (show env) allSettings
-        lookupScalar "database" settings
 
 -- Example of making a dynamic configuration static
 -- use /return $(mkConnStr Production)/ instead of loadConnStr

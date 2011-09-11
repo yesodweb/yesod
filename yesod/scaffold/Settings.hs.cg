@@ -32,10 +32,7 @@ import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLuciu
 import Yesod.Settings
 import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
-~settingsTextImport~
-import Data.Object
-import qualified Data.Object.Yaml as YAML
-import Control.Monad (join)
+import Data.Text (Text)
 
 
 -- Static setting below. Changing these requires a recompile
