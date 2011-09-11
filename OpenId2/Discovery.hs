@@ -89,7 +89,6 @@ discoverYADIS ident mb_loc redirects = do
             Just loc -> discoverYADIS ident (Just loc) (redirects - 1)
             Nothing  -> do
               let mdoc = parseXRDS $ responseBody res
-              liftIO $ print mdoc
               case mdoc of
                   Just doc -> return $ parseYADIS ident doc
                   Nothing -> return Nothing
