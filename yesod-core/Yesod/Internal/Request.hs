@@ -6,11 +6,12 @@ module Yesod.Internal.Request
     , FileInfo (..)
     ) where
 
-import Control.Arrow (first, second)
+import Control.Applicative ((<$>))
+import Control.Arrow (second)
 import qualified Network.Wai.Parse as NWP
 import Yesod.Internal
 import qualified Network.Wai as W
-import System.Random (randomR, newStdGen)
+import System.Random (randomRs, newStdGen)
 import Web.Cookie (parseCookiesText)
 import Data.Monoid (mempty)
 import qualified Data.ByteString.Char8 as S8
@@ -54,19 +55,11 @@ parseWaiRequest env session' key' = do
     nonce <- case (key', lookup nonceKey session') of
                 (Nothing, _) -> return Nothing
                 (_, Just x) -> return $ Just x
-                (_, Nothing) -> do
-                    g <- newStdGen
-                    return $ Just $ pack $ fst $ randomString 10 g
+                _ -> Just . pack . randomString 10 <$> newStdGen
     let gets'' = map (second $ fromMaybe "") gets'
     return $ Request gets'' cookies' env langs''' nonce
   where
-    randomString len =
-        first (map toChar) . sequence' (replicate len (randomR (0, 61)))
-    sequence' [] g = ([], g)
-    sequence' (f:fs) g =
-        let (f', g') = f g
-            (fs', g'') = sequence' fs g'
-         in (f' : fs', g'')
+    randomString len = map toChar . take len . randomRs (0, 61)
     toChar i
         | i < 26 = toEnum $ i + fromEnum 'A'
         | i < 52 = toEnum $ i + fromEnum 'a' - 26
