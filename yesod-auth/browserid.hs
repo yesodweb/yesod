@@ -13,7 +13,6 @@ import Yesod.Form
 import Network.Wai.Handler.Warp (run)
 
 data BID = BID
-type Handler = GHandler BID BID
 
 mkYesod "BID" [parseRoutes|
 / RootR GET
@@ -39,7 +38,7 @@ instance YesodAuth BID where
     loginDest _ = AfterLoginR
     logoutDest _ = AuthR LoginR
     getAuthId = return . Just . credsIdent
-    authPlugins = [authBrowserId "localhost:3000"]
+    authPlugins = [authBrowserId']
 
 instance RenderMessage BID FormMessage where
     renderMessage _ _ = defaultFormMessage

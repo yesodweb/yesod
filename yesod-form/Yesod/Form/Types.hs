@@ -5,6 +5,7 @@ module Yesod.Form.Types
     ( -- * Helpers
       Enctype (..)
     , FormResult (..)
+    , FormMessage (..)
     , Env
     , FileEnv
     , Ints (..)
@@ -121,3 +122,22 @@ data Field sub master a = Field
                 -> Bool
                 -> GWidget sub master ()
     }
+
+data FormMessage = MsgInvalidInteger Text
+                 | MsgInvalidNumber Text
+                 | MsgInvalidEntry Text
+                 | MsgInvalidUrl Text
+                 | MsgInvalidEmail Text
+                 | MsgInvalidTimeFormat
+                 | MsgInvalidHour Text
+                 | MsgInvalidMinute Text
+                 | MsgInvalidSecond Text
+                 | MsgInvalidDay
+                 | MsgCsrfWarning
+                 | MsgValueRequired
+                 | MsgInputNotFound Text
+                 | MsgSelectNone
+                 | MsgInvalidBool Text
+                 | MsgBoolYes
+                 | MsgBoolNo
+                 | MsgDelete

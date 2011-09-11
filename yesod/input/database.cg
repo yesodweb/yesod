@@ -1,7 +1,9 @@
 Yesod uses Persistent for its (you guessed it) persistence layer.
-This tool will build in either SQLite or PostgreSQL support for you.
+This tool will build in either SQLite or PostgreSQL or MongoDB support for you.
 We recommend starting with SQLite: it has no dependencies.
 
-We have another option: a tiny project with minimal dependencies. In particular: no database and no authentication.
+We have another option: a tiny project with minimal dependencies.
+Mostly this means no database and no authentication.
 
-So, what'll it be? s for sqlite, p for postgresql, t for tiny: 
+So, what'll it be?
+s for sqlite, p for postgresql, m for mongodb, or t for tiny: 
