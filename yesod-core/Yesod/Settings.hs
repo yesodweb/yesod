@@ -1,12 +1,16 @@
+{-# LANGUAGE QuasiQuotes #-}
 module Yesod.Settings
     ( AppEnvironment(..)
     , AppConfig(..)
     , loadConfig
+    , loadPostgresqlConnStr
+    , loadSqliteConnStr
     ) where
 
 import Control.Monad (join)
 import Data.Object
 import Data.Text (Text)
+import Text.Shakespeare.Text (st)
 
 import qualified Data.Object.Yaml as YAML
 import qualified Data.Text        as T
@@ -44,3 +48,22 @@ loadConfig env = do
         addPort p = case env of
             Production -> ""
             _          -> ":" ++ show p
+
+loadPostgresqlConnStr :: AppEnvironment -> IO Text
+loadPostgresqlConnStr env = do
+    allSettings <- (join $ YAML.decodeFile ("config/postgesql.yml" :: String)) >>= fromMapping
+    settings    <- lookupMapping (show env) allSettings
+    database    <- lookupScalar "database" settings :: IO Text
+
+    connPart <- fmap T.concat $ (flip mapM) ["user", "password", "host", "port"] $ \key -> do
+      value <- lookupScalar key settings
+      return $ [st| #{key}=#{value} |]
+    return $ [st|#{connPart} dbname=#{database}|]
+
+loadSqliteConnStr :: AppEnvironment -> IO Text
+loadSqliteConnStr env = do
+    allSettings <- (join $ YAML.decodeFile ("config/sqlite.yml" :: String)) >>= fromMapping
+    settings <- lookupMapping (show env) allSettings
+    lookupScalar "database" settings
+
+-- TODO: Mongo
