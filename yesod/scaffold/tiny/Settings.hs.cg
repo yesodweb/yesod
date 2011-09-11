@@ -27,10 +27,7 @@ import Yesod.Widget (addWidget, addCassius, addJulius, addLucius, whamletFile)
 import Yesod.Settings
 import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
-~settingsTextImport~
-import Data.Object
-import qualified Data.Object.Yaml as YAML
-import Control.Monad (join)
+import Data.Text (Text)
 
 -- | The location of static files on your system. This is a file system
 -- path. The default value works properly with your scaffolded site.
