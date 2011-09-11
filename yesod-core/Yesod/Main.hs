@@ -1,5 +1,9 @@
-{-# LANGUAGE CPP, DeriveDataTypeable #-}
-module Yesod.Main (defaultMain) where
+{-# LANGUAGE DeriveDataTypeable #-}
+module Yesod.Main
+    ( defaultMain
+    , fromArgs
+    , fromArgsWith
+    ) where
 
 import Yesod.Logger (Logger, makeLogger)
 import Yesod.Settings (AppEnvironment(..), AppConfig(..), loadConfig)
@@ -8,44 +12,65 @@ import Network.Wai.Handler.Warp (run)
 import System.Console.CmdArgs hiding (args)
 import Data.Char (toUpper, toLower)
 
-defaultMain :: (AppConfig -> Logger -> (Application -> IO ()) -> IO ()) -> IO ()
-defaultMain withSite = do
-    logger <- makeLogger
-    args   <- cmdArgs argConfig
-    env    <- getAppEnv args
-    config <- loadConfig env
-
-    let c = if port args /= 0 
-            then config { appPort = port args }
-            else config
-
-    withSite c logger $ run (appPort c)
-
 data ArgConfig = ArgConfig
     { environment :: String
     , port        :: Int
     } deriving (Show, Data, Typeable)
 
-argConfig :: ArgConfig
-argConfig = ArgConfig
-    { environment = def 
-        &= help ("application environment, one of: " ++ (foldl1 (\a b -> a ++ ", " ++ b) environments))
-        &= typ   "ENVIRONMENT"
-    , port = def
-        &= help "the port to listen on"
-        &= typ  "PORT"
-    }
+-- | Load an @'AppConfig'@ using the provided function, then start your
+--   app via Warp on the configured port.
+--
+--   > -- main.hs
+--   > import Application (withMySite)
+--   > import Yesod.Main  (defaultMain, fromArgs)
+--   >
+--   > main :: IO ()
+--   > main = defaultMain fromArgs withMySite
+--
+defaultMain :: IO AppConfig -> (AppConfig -> Logger -> (Application -> IO ()) -> IO ()) -> IO ()
+defaultMain load withSite = do
+    config <- load
+    logger <- makeLogger
+    withSite config logger $ run (appPort config)
 
-getAppEnv :: ArgConfig -> IO AppEnvironment
-getAppEnv cfg = do
-    let e = if environment cfg /= ""
-            then environment cfg
-            else "development"
-    return $ read $ capitalize e
+-- | Call the @'Yesod.Settings.loadConfig'@ function for the environment
+--   passed on the commandline (or the default, \"development\") and
+--   override the port if passed.
+fromArgs :: IO AppConfig
+fromArgs = fromArgsWith loadConfig
+
+-- | Same, but allows one to provide their own custom @'loadConfig'@
+fromArgsWith :: (AppEnvironment -> IO AppConfig) -> IO AppConfig
+fromArgsWith load = do
+    args <- cmdArgs argConfig
+
+    let env = read
+            $ capitalize
+            $ if environment args /= ""
+              then environment args
+              else "development"
+
+    config <- load env
+
+    let c = if port args /= 0
+            then config { appPort = port args }
+            else config
+
+    return $ config
 
     where
+        argConfig :: ArgConfig
+        argConfig = ArgConfig
+            { environment = def 
+                &= help ("application environment, one of: " ++ (foldl1 (\a b -> a ++ ", " ++ b) environments))
+                &= typ   "ENVIRONMENT"
+            , port = def
+                &= help "the port to listen on"
+                &= typ  "PORT"
+            }
+
+        environments :: [String]
+        environments = map ((map toLower) . show) ([minBound..maxBound] :: [AppEnvironment])
+
         capitalize [] = []
         capitalize (x:xs) = toUpper x : map toLower xs
-
-environments :: [String]
-environments = map ((map toLower) . show) ([minBound..maxBound] :: [AppEnvironment])
