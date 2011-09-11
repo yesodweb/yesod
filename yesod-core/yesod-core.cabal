@@ -54,6 +54,10 @@ library
                    , case-insensitive          >= 0.2      && < 0.4
                    , parsec                    >= 2        && < 3.2
                    , directory                 >= 1        && < 1.2
+                   , cmdargs                   >= 0.8      && < 0.9
+                   , data-object               >= 0.3      && < 0.4
+                   , data-object-yaml          >= 0.3      && < 0.4
+                   , warp                      >= 0.4      && < 0.5
                    -- for logger. Probably logger should be a separate package
                    , strict-concurrency        >= 0.2.4    && < 0.2.5
 
@@ -65,6 +69,8 @@ library
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Message
+                     Yesod.Settings
+                     Yesod.Main
     other-modules:   Yesod.Internal
                      Yesod.Internal.Core
                      Yesod.Internal.Session
