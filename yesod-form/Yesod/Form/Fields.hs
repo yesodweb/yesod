@@ -419,7 +419,7 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
             { fvLabel = toHtml $ renderMessage master langs $ fsLabel fs
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
             , fvId = id'
-            , fvInput = [whamlet|
+            , fvInput = [WHAMLET|
 <input type=file name=#{name} ##{id'}>
 |]
             , fvErrors = errs
@@ -448,7 +448,7 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
             { fvLabel = toHtml $ renderMessage master langs $ fsLabel fs
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
             , fvId = id'
-            , fvInput = [whamlet|
+            , fvInput = [WHAMLET|
 <input type=file name=#{name} ##{id'}>
 |]
             , fvErrors = errs
