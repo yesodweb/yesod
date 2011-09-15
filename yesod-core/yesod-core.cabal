@@ -91,7 +91,7 @@ test-suite runtests
         build-depends:   base                      >= 4        && < 4.3
         main-is:         main.hs
     cpp-options:   -DTEST
-    build-depends: hspec >= 0.6.1 && < 0.7
+    build-depends: hspec >= 0.8 && < 0.9
                   ,wai-test
                   ,wai
                   ,yesod-core

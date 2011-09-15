@@ -22,7 +22,7 @@ instance Yesod Y where
 getRootR :: Handler ()
 getRootR = error "FOOBAR" >> return ()
 
-exceptionsTest :: IO [IO Spec]
+exceptionsTest :: [Spec]
 exceptionsTest = describe "Test.Exceptions"
     [ it "500" case500
     ]
