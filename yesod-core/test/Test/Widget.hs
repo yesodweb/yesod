@@ -69,7 +69,7 @@ getWhamletR = defaultLayout [whamlet|
   where
     embed = [whamlet|<h4>Embed|]
 
-widgetTest :: IO [IO Spec]
+widgetTest :: [Spec]
 widgetTest = describe "Test.Widget"
     [ it "addJuliusBody" case_addJuliusBody
     , it "whamlet" case_whamlet
