@@ -2,6 +2,7 @@
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                 #-}
 module Devel
     ( devel
     ) where
@@ -34,6 +35,12 @@ import           System.Process (runCommand, terminateProcess,
 import Text.Shakespeare.Text (st)
 
 import Build (recompDeps, getDeps,findHaskellFiles)
+
+#if __GLASGOW_HASKELL__ >= 700
+#define ST st
+#else
+#define ST $st
+#endif
 
 lockFile :: FilePath
 lockFile = "dist/devel-terminate"
@@ -137,7 +144,7 @@ showPkgName :: D.PackageId -> String
 showPkgName = (\(D.PackageName n) -> n) . D.pkgName
 
 develFile :: D.PackageId -> T.Text
-develFile pid = [st|
+develFile pid = [ST|
 {-# LANGUAGE PackageImports #-}
 import "#{showPkgName pid}" Application (withDevelAppPort)
 import Data.Dynamic (fromDynamic)
