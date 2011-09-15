@@ -59,7 +59,7 @@ parseWaiRequest env session' key' = do
     let gets'' = map (second $ fromMaybe "") gets'
     return $ Request gets'' cookies' env langs''' nonce
   where
-    randomString len = map toChar . take len . randomRs (0, 61)
+    randomString len = take len . map toChar . randomRs (0, 61)
     toChar i
         | i < 26 = toEnum $ i + fromEnum 'A'
         | i < 52 = toEnum $ i + fromEnum 'a' - 26
