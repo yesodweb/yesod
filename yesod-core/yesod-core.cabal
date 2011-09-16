@@ -65,6 +65,7 @@ library
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Message
+                     Yesod.Internal.TestApi
     other-modules:   Yesod.Internal
                      Yesod.Internal.Core
                      Yesod.Internal.Session
@@ -101,6 +102,7 @@ test-suite runtests
                   ,shakespeare-js
                   ,text
                   ,http-types
+                  , random
                   ,HUnit
                   ,QuickCheck >= 2 && < 3
     ghc-options:     -Wall
