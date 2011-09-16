@@ -17,7 +17,6 @@ import Yesod.Internal
 import qualified Network.Wai as W
 import System.Random (RandomGen, newStdGen, randomRs)
 import Web.Cookie (parseCookiesText)
-import Data.Monoid (mempty)
 import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text, pack)
 import Network.HTTP.Types (queryToQueryText)
@@ -51,9 +50,9 @@ parseWaiRequest' :: RandomGen g
 parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonce
   where
     gets' = queryToQueryText $ W.queryString env
-    reqCookie = fromMaybe mempty $ lookup "Cookie"
-              $ W.requestHeaders env
-    cookies' = parseCookiesText reqCookie
+    gets'' = map (second $ fromMaybe "") gets'
+    reqCookie = lookup "Cookie" $ W.requestHeaders env
+    cookies' = maybe [] parseCookiesText reqCookie
     acceptLang = lookup "Accept-Language" $ W.requestHeaders env
     langs = map (pack . S8.unpack) $ maybe [] NWP.parseHttpAccept acceptLang
     -- The language preferences are prioritized as follows:
@@ -61,7 +60,6 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonc
                        , lookup langKey cookies'     -- Cookie _LANG
                        , lookup langKey session'     -- Session _LANG
                        ] ++ langs                    -- Accept-Language(s)
-    gets'' = map (second $ fromMaybe "") gets'
     -- If the session is not secure a nonce should not be
     -- used (any nonce present in the session is ignored).
     -- If a secure session has no nonceKey a new one is
