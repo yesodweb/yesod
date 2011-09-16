@@ -22,7 +22,7 @@ import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text, pack)
 import Network.HTTP.Types (queryToQueryText)
 import Control.Monad (join)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.ByteString.Lazy as L
 
 -- | The parsed request information.
@@ -48,7 +48,7 @@ parseWaiRequest' :: RandomGen g
                  -> Maybe a
                  -> g
                  -> Request
-parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs''' nonce
+parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonce
   where
     gets' = queryToQueryText $ W.queryString env
     reqCookie = fromMaybe mempty $ lookup "Cookie"
@@ -56,15 +56,11 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs''' no
     cookies' = parseCookiesText reqCookie
     acceptLang = lookup "Accept-Language" $ W.requestHeaders env
     langs = map (pack . S8.unpack) $ maybe [] NWP.parseHttpAccept acceptLang
-    langs' = case lookup langKey session' of
-                Nothing -> langs
-                Just x -> x : langs
-    langs'' = case lookup langKey cookies' of
-                Nothing -> langs'
-                Just x -> x : langs'
-    langs''' = case join $ lookup langKey gets' of
-                Nothing -> langs''
-                Just x -> x : langs''
+    -- The language preferences are prioritized as follows:
+    langs' = catMaybes [ join $ lookup langKey gets' -- Query _LANG
+                       , lookup langKey cookies'     -- Cookie _LANG
+                       , lookup langKey session'     -- Session _LANG
+                       ] ++ langs                    -- Accept-Language(s)
     gets'' = map (second $ fromMaybe "") gets'
     -- If the session is not secure a nonce should not be
     -- used (any nonce present in the session is ignored).
@@ -72,8 +68,8 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs''' no
     -- generated.
     nonce = case (key', lookup nonceKey session') of
                 (Nothing, _) -> Nothing
-                (_, Just x) -> Just x
-                _ -> Just $ pack $ randomString 10 gen
+                (_, Just x)  -> Just x
+                _            -> Just $ pack $ randomString 10 gen
 
 -- | Generate a random String of alphanumerical characters
 -- (a-z, A-Z, and 0-9) of the given length using the given
