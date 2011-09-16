@@ -62,7 +62,7 @@ getBarR, getPlainR :: Handler RepPlain
 getBarR = return $ RepPlain "bar"
 getPlainR = return $ RepPlain "plain"
 
-cleanPathTest :: IO [IO Spec]
+cleanPathTest :: [Spec]
 cleanPathTest =
   describe "Test.CleanPath"
     [ it "remove trailing slash" removeTrailingSlash
