@@ -1,9 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Internal.Request
     ( parseWaiRequest
     , Request (..)
     , RequestBodyContents
     , FileInfo (..)
+#ifdef TEST
+    , randomString
+    , parseWaiRequest'
+#endif
     ) where
 
 import Control.Applicative ((<$>))
