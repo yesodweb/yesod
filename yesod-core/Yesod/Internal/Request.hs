@@ -63,6 +63,10 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs''' no
                 Nothing -> langs''
                 Just x -> x : langs''
     gets'' = map (second $ fromMaybe "") gets'
+    -- If the session is not secure a nonce should not be
+    -- used (any nonce present in the session is ignored).
+    -- If a secure session has no nonceKey a new one is
+    -- generated.
     nonce = case (key', lookup nonceKey session') of
                 (Nothing, _) -> Nothing
                 (_, Just x) -> Just x
