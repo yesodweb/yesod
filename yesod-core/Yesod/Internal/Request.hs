@@ -81,10 +81,7 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs''' no
 randomString :: RandomGen g => Int -> g -> String
 randomString len = take len . map toChar . randomRs (0, 61)
   where
-    toChar i
-        | i < 26 = toEnum $ i + fromEnum 'A'
-        | i < 52 = toEnum $ i + fromEnum 'a' - 26
-        | otherwise = toEnum $ i + fromEnum '0' - 52
+    toChar i = (['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']) !! i
 
 -- | A tuple containing both the POST parameters and submitted files.
 type RequestBodyContents =
