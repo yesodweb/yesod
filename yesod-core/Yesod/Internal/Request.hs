@@ -67,7 +67,13 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs''' no
                 (Nothing, _) -> Nothing
                 (_, Just x) -> Just x
                 _ -> Just $ pack $ randomString 10 gen
-    randomString len = take len . map toChar . randomRs (0, 61)
+
+-- | Generate a random String of alphanumerical characters
+-- (a-z, A-Z, and 0-9) of the given length using the given
+-- random number generator.
+randomString :: RandomGen g => Int -> g -> String
+randomString len = take len . map toChar . randomRs (0, 61)
+  where
     toChar i
         | i < 26 = toEnum $ i + fromEnum 'A'
         | i < 52 = toEnum $ i + fromEnum 'a' - 26
