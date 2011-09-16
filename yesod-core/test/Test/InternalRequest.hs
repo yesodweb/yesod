@@ -1,19 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.InternalRequest where
+module Test.InternalRequest (internalRequestTest) where
 
 import Data.List (nub)
 import System.Random (StdGen, mkStdGen)
-import Control.Applicative ((<$>))
 
-import Blaze.ByteString.Builder
-
-import Yesod.Internal.Request
 import Network.Wai as W
 import Network.Wai.Test
-import Web.Cookie (renderCookies)
+import Yesod.Internal.TestApi
 import Test.Hspec
-import Test.Hspec.HUnit
-
 
 randomStringSpecs :: [Spec]
 randomStringSpecs = describe "Yesod.Internal.Request.randomString"
@@ -51,14 +45,14 @@ generateNonce = reqNonce r /= Nothing where
 
 langSpecs :: [Spec]
 langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)"
-  [ it "respects Accept-Language" respectAcceptLang
+  [ it "respects Accept-Language" respectAcceptLangs
   , it "respects sessions" respectSessionLang
   , it "respects cookies" respectCookieLang
   , it "respects queries" respectQueryLang
   , it "prioritizes correctly" prioritizeLangs
   ]
 
-respectAcceptLang = reqLangs r == ["accept1", "accept2"] where
+respectAcceptLangs = reqLangs r == ["accept1", "accept2"] where
   r = parseWaiRequest' defaultRequest
         { requestHeaders = [("Accept-Language", "accept1, accept2")] } [] Nothing g
 
@@ -67,7 +61,7 @@ respectSessionLang = reqLangs r == ["session"] where
 
 respectCookieLang = reqLangs r == ["cookie"] where
   r = parseWaiRequest' defaultRequest
-        { requestHeaders = [("Cookie", toByteString $ renderCookies [("_LANG", "cookie")])]
+        { requestHeaders = [("Cookie", "_LANG=cookie")]
         } [] Nothing g
 
 respectQueryLang = reqLangs r == ["query"] where
@@ -76,7 +70,7 @@ respectQueryLang = reqLangs r == ["query"] where
 prioritizeLangs = reqLangs r == ["query", "cookie", "session", "accept1", "accept2"] where
   r = parseWaiRequest' defaultRequest
         { requestHeaders = [ ("Accept-Language", "accept1, accept2")
-                           , ("Cookie", toByteString $ renderCookies [("_LANG", "cookie")])
+                           , ("Cookie", "_LANG=cookie")
                            ]
         , queryString = [("_LANG", Just "query")]
         } [("_LANG", "session")] Nothing g
@@ -87,3 +81,5 @@ internalRequestTest = descriptions [ randomStringSpecs
                                    , nonceSpecs
                                    , langSpecs
                                    ]
+
+main = hspec internalRequestTest
