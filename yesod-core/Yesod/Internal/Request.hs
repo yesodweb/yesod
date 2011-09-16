@@ -5,10 +5,9 @@ module Yesod.Internal.Request
     , Request (..)
     , RequestBodyContents
     , FileInfo (..)
-#ifdef TEST
+    -- The below are exported for testing.
     , randomString
     , parseWaiRequest'
-#endif
     ) where
 
 import Control.Applicative ((<$>))
@@ -41,8 +40,7 @@ parseWaiRequest :: W.Request
                 -> [(Text, Text)] -- ^ session
                 -> Maybe a
                 -> IO Request
-parseWaiRequest env session' key' = parseWaiRequest' env session' key'
-                                  <$> newStdGen
+parseWaiRequest env session' key' = parseWaiRequest' env session' key' <$> newStdGen
 
 parseWaiRequest' :: RandomGen g
                  => W.Request
