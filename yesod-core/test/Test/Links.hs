@@ -21,7 +21,7 @@ instance Yesod Y where
 getRootR :: Handler RepHtml
 getRootR = defaultLayout $ addHamlet [hamlet|<a href=@{RootR}>|]
 
-linksTest :: IO [IO Spec]
+linksTest :: [Spec]
 linksTest = describe "Test.Links"
     [ it "linkToHome" case_linkToHome
     ]
