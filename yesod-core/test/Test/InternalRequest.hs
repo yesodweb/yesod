@@ -6,7 +6,8 @@ import System.Random (StdGen, mkStdGen)
 
 import Network.Wai as W
 import Network.Wai.Test
-import Yesod.Internal.TestApi
+import Yesod.Internal.TestApi (randomString, parseWaiRequest')
+import Yesod.Request (Request (..))
 import Test.Hspec
 
 randomStringSpecs :: [Spec]
