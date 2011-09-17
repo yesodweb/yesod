@@ -12,8 +12,13 @@ import Test.Hspec
 
 randomStringSpecs :: [Spec]
 randomStringSpecs = describe "Yesod.Internal.Request.randomString"
-  [ it "does not repeat itself" $ noRepeat 10 100
+  [ it "looks reasonably random" looksRandom
+  , it "does not repeat itself" $ noRepeat 10 100
   ]
+
+-- NOTE: this testcase may break on other systems/architectures if
+-- mkStdGen is not identical everywhere (is it?).
+looksRandom = randomString 20 (mkStdGen 0) == "VH9SkhtptqPs6GqtofVg"
 
 noRepeat len n = length (nub $ map (randomString len . mkStdGen) [1..n]) == n
 
