@@ -6,7 +6,8 @@ import Test.Hspec.HUnit ()
 -- import Test.Hspec.QuickCheck (prop)
 
 main :: IO ()
-main = hspecX $ return [] {- FIXME specs
+main = return () -- hspecX $ return []
+{- FIXME specs
 
 specs :: IO [Spec]
 specs = runSpecM $ do

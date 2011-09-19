@@ -205,8 +205,9 @@ class RenderRoute (Route a) => Yesod a where
       where
         corrected = filter (not . TS.null) s
 
-    -- | Join the pieces of a path together into an absolute URL. This should
-    -- be the inverse of 'splitPath'.
+    -- | Builds an absolute URL by concatenating the application root with the  
+    -- pieces of a path and a query string, if any. 
+    -- Note that the pieces of the path have been previously cleaned up by 'cleanPath'.
     joinPath :: a
              -> TS.Text -- ^ application root
              -> [TS.Text] -- ^ path pieces
@@ -258,6 +259,10 @@ class RenderRoute (Route a) => Yesod a where
     messageLogger _ loc level msg =
         formatLogMessage loc level msg >>=
         Data.Text.Lazy.IO.putStrLn
+
+    -- | Apply gzip compression to files. Default is false.
+    gzipCompressFiles :: a -> Bool
+    gzipCompressFiles _ = False
 
 messageLoggerHandler :: (Yesod m, MonadIO mo)
                      => Loc -> LogLevel -> Text -> GGHandler s m mo ()
