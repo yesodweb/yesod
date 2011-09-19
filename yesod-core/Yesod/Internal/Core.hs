@@ -260,6 +260,10 @@ class RenderRoute (Route a) => Yesod a where
         formatLogMessage loc level msg >>=
         Data.Text.Lazy.IO.putStrLn
 
+    -- | Apply gzip compression to files. Default is false.
+    gzipCompressFiles :: a -> Bool
+    gzipCompressFiles _ = False
+
 messageLoggerHandler :: (Yesod m, MonadIO mo)
                      => Loc -> LogLevel -> Text -> GGHandler s m mo ()
 messageLoggerHandler loc level msg = do
