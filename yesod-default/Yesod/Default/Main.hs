@@ -48,10 +48,8 @@ defaultDevelApp = defaultDevelAppWith loadDevelopmentConfig
 --   > withDevelAppPort = toDyn $ (defaultDevelAppWith customLoadAppConfig) withMySite
 --
 defaultDevelAppWith :: AppEnv e
-                    -- | A means to load your development @'AppConfig'@
-                    => IO (AppConfig e)
-                    -- | Your @withMySite@ function
-                    -> (AppConfig e -> Logger -> (Application -> IO ()) -> IO ())
+                    => IO (AppConfig e) -- ^ A means to load your development @'AppConfig'@
+                    -> (AppConfig e -> Logger -> (Application -> IO ()) -> IO ()) -- ^ Your @withMySite@ function
                     -> ((Int, Application) -> IO ()) -> IO ()
 defaultDevelAppWith load withSite f = do
         conf   <- load
