@@ -74,15 +74,9 @@ library
                    , hamlet                    >= 0.10     && < 0.11
                    , shakespeare-js            >= 0.10     && < 0.11
                    , shakespeare-css           >= 0.10     && < 0.11
-                   , shakespeare-text          >= 0.10     && < 0.11
                    , warp                      >= 0.4      && < 0.5
                    , blaze-html                >= 0.4      && < 0.5
-                   , cmdargs                   >= 0.8      && < 0.9
-                   , data-object               >= 0.3      && < 0.4
-                   , data-object-yaml          >= 0.3      && < 0.4
     exposed-modules: Yesod
-                     Yesod.Settings
-                     Yesod.Main
     ghc-options:     -Wall
 
 executable             yesod
