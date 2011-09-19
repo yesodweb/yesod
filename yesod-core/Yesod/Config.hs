@@ -1,7 +1,7 @@
 {-# OPTIONS -fno-warn-missing-signatures #-}
 {-# LANGUAGE QuasiQuotes                 #-}
-module Yesod.Settings
-    ( AppEnvironment(..)
+module Yesod.Config
+    ( AppEnv(..)
     , AppConfig(..)
     , loadConfig
     , loadPostgresqlConnStr
@@ -17,30 +17,16 @@ import Text.Shakespeare.Text (st)
 import qualified Data.Object.Yaml as YAML
 import qualified Data.Text        as T
 
-data AppEnvironment = Development
-                    | Test
-                    | Staging
-                    | Production
-                    deriving (Eq, Show, Read, Enum, Bounded)
+class AppEnv e where
+    displayPort :: e -> Bool
 
 -- | Dynamic per-environment configuration which can be loaded at
 --   run-time negating the need to recompile between environments.
-data AppConfig = AppConfig
-    { appEnv  :: AppEnvironment
+data AppConfig e = AppConfig
+    { appEnv  :: e
     , appPort :: Int
 
-    -- | Your application will keep a connection pool and take
-    --   connections from there as necessary instead of continually
-    --   creating new connections. This value gives the maximum number
-    --   of connections to be open at a given time. If your application
-    --   requests a connection when all connections are in use, that
-    --   request will fail. Try to choose a number that will work well
-    --   with the system resources available to you while providing
-    --   enough connections for your expected load.
-    --
-    --   Connections are returned to the pool as quickly as possible by
-    --   Yesod to avoid resource exhaustion. A connection is only
-    --   considered in use while within a call to runDB.
+    -- TODO: put this in db configs
     , connectionPoolSize :: Int
 
     -- | The base URL for your application. This will usually be
@@ -56,9 +42,10 @@ data AppConfig = AppConfig
     , appRoot :: Text
     } deriving (Show)
 
+
 -- | Load an @'AppConfig'@ from a YAML-formatted file located at
 --   @config\/settings.yml@.
-loadConfig :: AppEnvironment -> IO AppConfig
+loadConfig :: AppEnv e => e -> IO (AppConfig e)
 loadConfig env = do
     allSettings <- (join $ YAML.decodeFile ("config/settings.yml" :: String)) >>= fromMapping
     settings    <- lookupMapping (show env) allSettings
@@ -75,13 +62,12 @@ loadConfig env = do
 
     where
         addPort :: Int -> String
-        addPort p = case env of
-            Production -> ""
-            _          -> ":" ++ show p
+        addPort p = if displayPort env
+                        then ":" ++ show p else ""
 
 -- | Load Postgresql settings from a YAML-formatted file located at
 --   @config\/postgresql.yml@.
-loadPostgresqlConnStr :: AppEnvironment -> IO Text
+loadPostgresqlConnStr :: Show e => e -> IO Text
 loadPostgresqlConnStr env = do
     allSettings <- (join $ YAML.decodeFile ("config/postgresql.yml" :: String)) >>= fromMapping
     settings    <- lookupMapping (show env) allSettings
@@ -94,7 +80,7 @@ loadPostgresqlConnStr env = do
 
 -- | Load Sqlite settings from a YAML-formatted file located at
 --   @config\/sqlite.yml@.
-loadSqliteConnStr :: AppEnvironment -> IO Text
+loadSqliteConnStr :: Show e => e -> IO Text
 loadSqliteConnStr env = do
     allSettings <- (join $ YAML.decodeFile ("config/sqlite.yml" :: String)) >>= fromMapping
     settings    <- lookupMapping (show env) allSettings
