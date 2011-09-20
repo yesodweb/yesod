@@ -385,13 +385,13 @@ multiSelectFieldHelper outside inside opts = Field
 
 data OptionList a = OptionList
     { olOptions :: [Option a]
-    , olReadExternal :: Text -> Maybe a
+    , olReadExternal :: Text -> Either (Maybe Text) a -- switch to SomeMessage ?
     }
 
 mkOptionList :: [Option a] -> OptionList a
 mkOptionList os = OptionList
     { olOptions = os
-    , olReadExternal = flip Map.lookup $ Map.fromList $ map (optionExternalValue &&& optionInternalValue) os
+    , olReadExternal = maybe (Left Nothing) Right . (flip Map.lookup $ Map.fromList $ map (optionExternalValue &&& optionInternalValue) os)
     }
 
 data Option a = Option
@@ -451,8 +451,9 @@ selectFieldHelper outside onOpt inside opts' = Field
             "" -> Right Nothing
             "none" -> Right Nothing
             x -> case olReadExternal opts x of
-                    Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
-                    Just y -> Right $ Just y
+                    Left Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
+                    Left (Just msg) -> Left $ SomeMessage msg
+                    Right y -> Right $ Just y
 
 fileAFormReq :: (RenderMessage master msg, RenderMessage master FormMessage) => FieldSettings msg -> AForm sub master FileInfo
 fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
