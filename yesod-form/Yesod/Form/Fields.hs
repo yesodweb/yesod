@@ -35,6 +35,8 @@ module Yesod.Form.Fields
     , selectField'
     , radioField'
     , Option (..)
+    , OptionList (..)
+    , mkOptionList
     , optionsPersist
     , optionsPairs
     , optionsEnum
@@ -76,6 +78,7 @@ import Yesod.Request (FileInfo)
 
 import Yesod.Core (toSinglePiece, GGHandler, SinglePiece)
 import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistBackend)
+import Control.Arrow ((&&&))
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -303,7 +306,7 @@ urlField = Field
 selectField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 selectField = selectField' . optionsPairs
 
-selectField' :: (Eq a, RenderMessage master FormMessage) => GGHandler sub master IO [Option a] -> Field sub master a
+selectField' :: (Eq a, RenderMessage master FormMessage) => GGHandler sub master IO (OptionList a) -> Field sub master a
 selectField' = selectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|]) -- outside
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
@@ -317,7 +320,7 @@ multiSelectField = multiSelectFieldHelper
 radioField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 radioField = radioField' . optionsPairs
 
-radioField' :: (Eq a, RenderMessage master FormMessage) => GGHandler sub master IO [Option a] -> Field sub master a
+radioField' :: (Eq a, RenderMessage master FormMessage) => GGHandler sub master IO (OptionList a) -> Field sub master a
 radioField' = selectFieldHelper
     (\theId _name inside -> [WHAMLET|<div ##{theId}>^{inside}|])
     (\theId name isSel -> [WHAMLET|
@@ -380,20 +383,31 @@ multiSelectFieldHelper outside inside opts = Field
     selectParser xs | not $ null (["", "none"] `intersect` xs) = Right Nothing
                     | otherwise = (Right . Just . map snd . catMaybes . map (\y -> lookup y pairs) . nub . map fst . rights . map Data.Text.Read.decimal) xs
 
+data OptionList a = OptionList
+    { olOptions :: [Option a]
+    , olReadExternal :: Text -> Maybe a
+    }
+
+mkOptionList :: [Option a] -> OptionList a
+mkOptionList os = OptionList
+    { olOptions = os
+    , olReadExternal = flip Map.lookup $ Map.fromList $ map (optionExternalValue &&& optionInternalValue) os
+    }
+
 data Option a = Option
     { optionDisplay :: Text
     , optionInternalValue :: a
     , optionExternalValue :: Text
     }
 
-optionsPairs :: [(Text, a)] -> GGHandler sub master IO [Option a]
-optionsPairs = return . zipWith (\external (display, internal) -> Option
+optionsPairs :: [(Text, a)] -> GGHandler sub master IO (OptionList a)
+optionsPairs = return . mkOptionList . zipWith (\external (display, internal) -> Option
     { optionDisplay = display
     , optionInternalValue = internal
     , optionExternalValue = pack $ show external
     }) [1 :: Int ..]
 
-optionsEnum :: (Show a, Enum a, Bounded a) => GGHandler sub master IO [Option a]
+optionsEnum :: (Show a, Enum a, Bounded a) => GGHandler sub master IO (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
 optionsPersist :: ( YesodPersist master, PersistEntity a, PersistBackend (YesodPersistBackend master) (GGHandler sub master IO)
@@ -413,13 +427,13 @@ selectFieldHelper
         => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
         -> (Text -> Text -> Bool -> GWidget sub master ())
         -> (Text -> Text -> Text -> Bool -> Text -> GWidget sub master ())
-        -> GGHandler sub master IO [Option a] -> Field sub master a
+        -> GGHandler sub master IO (OptionList a) -> Field sub master a
 selectFieldHelper outside onOpt inside opts' = Field
     { fieldParse = \x -> do
         opts <- opts'
         return $ selectParser opts x
     , fieldView = \theId name val isReq -> do
-        opts <- lift $ liftIOHandler opts'
+        opts <- fmap olOptions $ lift $ liftIOHandler opts'
         outside theId name $ do
             unless isReq $ onOpt theId name $ not $ render opts val `elem` map optionExternalValue opts
             flip mapM_ opts $ \opt -> inside
@@ -436,9 +450,9 @@ selectFieldHelper outside onOpt inside opts' = Field
     selectParser opts (s:_) = case s of
             "" -> Right Nothing
             "none" -> Right Nothing
-            x -> case listToMaybe $ filter ((== x) . optionExternalValue) opts of
+            x -> case olReadExternal opts x of
                     Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
-                    Just y -> Right $ Just $ optionInternalValue y
+                    Just y -> Right $ Just y
 
 fileAFormReq :: (RenderMessage master msg, RenderMessage master FormMessage) => FieldSettings msg -> AForm sub master FileInfo
 fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
