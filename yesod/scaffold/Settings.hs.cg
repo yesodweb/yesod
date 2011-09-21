@@ -29,7 +29,7 @@ import Text.Shakespeare.Text (st)
 import Language.Haskell.TH.Syntax
 import Database.Persist.~importPersist~
 import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius, whamletFile)
-import Yesod.Settings
+import Yesod.Default.Config
 import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
 import Data.Text (Text)
@@ -55,7 +55,7 @@ staticDir = "static"
 -- have to make a corresponding change here.
 --
 -- To see how this value is used, see urlRenderOverride in Foundation.hs
-staticRoot :: AppConfig ->  Text
+staticRoot :: AppConfig DefaultEnv ->  Text
 staticRoot conf = [st|#{appRoot conf}/static|]
 
 

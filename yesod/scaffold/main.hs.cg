@@ -1,5 +1,6 @@
-import Yesod.Main (defaultMain, fromArgs)
-import Application (with~sitearg~)
+import Yesod.Default.Config (fromArgs)
+import Yesod.Default.Main   (defaultMain)
+import Application          (with~sitearg~)
 
 main :: IO ()
 main = defaultMain fromArgs with~sitearg~
