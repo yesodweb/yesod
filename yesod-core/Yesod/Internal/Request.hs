@@ -60,9 +60,9 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonc
                        , lookup langKey cookies'     -- Cookie _LANG
                        , lookup langKey session'     -- Session _LANG
                        ] ++ langs                    -- Accept-Language(s)
-    -- If the session is not secure a nonce should not be
-    -- used (any nonce present in the session is ignored).
-    -- If a secure session has no nonceKey a new one is
+    -- If sessions are disabled nonces should not be used (any
+    -- nonceKey present in the session is ignored). If sessions
+    -- are enabled and a session has no nonceKey a new one is
     -- generated.
     nonce = case (key', lookup nonceKey session') of
                 (Nothing, _) -> Nothing
