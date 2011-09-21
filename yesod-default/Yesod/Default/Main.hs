@@ -25,7 +25,7 @@ import Network.Wai.Middleware.Debug (debugHandle)
 --   > main :: IO ()
 --   > main = defaultMain (fromArgsWith customArgConfig) withMySite
 --
-defaultMain :: AppEnv e => IO (AppConfig e) -> (AppConfig e -> Logger -> (Application -> IO ()) -> IO ()) -> IO ()
+defaultMain :: (Show e, Read e) => IO (AppConfig e) -> (AppConfig e -> Logger -> (Application -> IO ()) -> IO ()) -> IO ()
 defaultMain load withSite = do
     config <- load
     logger <- makeLogger
@@ -47,7 +47,7 @@ defaultDevelApp = defaultDevelAppWith loadDevelopmentConfig
 --   > withDevelAppPort :: Dynamic
 --   > withDevelAppPort = toDyn $ (defaultDevelAppWith customLoadAppConfig) withMySite
 --
-defaultDevelAppWith :: AppEnv e
+defaultDevelAppWith :: (Show e, Read e)
                     => IO (AppConfig e) -- ^ A means to load your development @'AppConfig'@
                     -> (AppConfig e -> Logger -> (Application -> IO ()) -> IO ()) -- ^ Your @withMySite@ function
                     -> ((Int, Application) -> IO ()) -> IO ()
