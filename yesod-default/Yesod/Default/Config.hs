@@ -19,6 +19,7 @@ import System.Console.CmdArgs hiding (args)
 --   Production environments
 data DefaultEnv = Development
                 | Testing
+                | Staging
                 | Production deriving (Read, Show, Enum, Bounded)
 
 -- | Setup commandline arguments for environment and port
