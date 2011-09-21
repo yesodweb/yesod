@@ -413,8 +413,8 @@ optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 optionsPersist :: ( YesodPersist master, PersistEntity a, PersistBackend (YesodPersistBackend master) (GGHandler sub master IO)
                   , SinglePiece (Key (YesodPersistBackend master) a)
                   )
-               => [Filter a] -> [SelectOpt a] -> (a -> Text) -> GGHandler sub master IO [Option (Key (YesodPersistBackend master) a, a)]
-optionsPersist filts ords toDisplay = do
+               => [Filter a] -> [SelectOpt a] -> (a -> Text) -> GGHandler sub master IO (OptionList (Key (YesodPersistBackend master) a, a))
+optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     pairs <- runDB $ selectList filts ords
     return $ map (\(key, value) -> Option
         { optionDisplay = toDisplay value
