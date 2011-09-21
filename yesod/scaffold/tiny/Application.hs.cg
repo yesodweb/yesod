@@ -11,11 +11,12 @@ module Application
 import Foundation
 import Settings
 import Yesod.Static
-import Yesod.Logger (makeLogger, flushLogger, Logger, logLazyText, logString)
+import Yesod.Default.Config
+import Yesod.Default.Main (defaultDevelApp)
+import Yesod.Logger (Logger)
 import Data.ByteString (ByteString)
 import Network.Wai (Application)
 import Data.Dynamic (Dynamic, toDyn)
-import Network.Wai.Middleware.Debug (debugHandle)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -37,7 +38,7 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig -> Logger -> (Application -> IO a) -> IO a
+with~sitearg~ :: AppConfig DefaultEnv -> Logger -> (Application -> IO a) -> IO a
 with~sitearg~ conf logger f = do
 #ifdef PRODUCTION
     s <- static Settings.staticDir
@@ -49,16 +50,4 @@ with~sitearg~ conf logger f = do
 
 -- for yesod devel
 withDevelAppPort :: Dynamic
-withDevelAppPort =
-    toDyn go
-  where
-    go :: ((Int, Application) -> IO ()) -> IO ()
-    go f = do
-        conf <- Settings.loadConfig Settings.Development
-        let port = appPort conf
-        logger <- makeLogger
-        logString logger $ "Devel application launched, listening on port " ++ show port
-        with~sitearg~ conf logger $ \app -> f (port, debugHandle (logHandle logger) app)
-        flushLogger logger
-      where
-        logHandle logger msg = logLazyText logger msg >> flushLogger logger
+withDevelAppPort = toDyn $ defaultDevelApp with~sitearg~
