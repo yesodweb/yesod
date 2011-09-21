@@ -30,8 +30,7 @@ data AppConfig e = AppConfig
 
 -- | Information required to connect to a postgres database
 data PostgresConf = PostgresConf
-    { pgConnStr  :: String
-    , pgDatabase :: String
+    { pgConnStr  :: Text
     , pgPoolSize :: Int
     }
 
@@ -126,11 +125,11 @@ loadPostgresql env = withYamlEnvironment "config/postgresql.yml" env $ \e -> do
     -- TODO: default host/port?
     connparts <- forM ["user", "password", "host", "port"] $ \k -> do
         v <- lookupScalar k e
-        return $ k ++ "=" ++ v
+        return $ k ++ "=" ++ v ++ " "
 
     conn <- return $ concat connparts
 
-    return $ PostgresConf conn db pool
+    return $ PostgresConf (T.pack $ conn ++ " dbname=" ++ db) pool
 
 -- | Load a @'SqliteConf'@ from @config\/sqlite.yml@.
 --
