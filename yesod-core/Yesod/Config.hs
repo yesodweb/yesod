@@ -36,7 +36,7 @@ data PostgresConf = PostgresConf
 
 -- | Information required to connect to a sqlite database
 data SqliteConf = SqliteConf
-    { sqlDatabase :: String
+    { sqlDatabase :: Text
     , sqlPoolSize :: Int
     }
 
@@ -142,7 +142,7 @@ loadSqlite env = withYamlEnvironment "config/sqlite.yml" env $ \e -> do
     db   <- lookupScalar "database" e
     pool <- safeRead =<< lookupScalar "poolsize" e
 
-    return $ SqliteConf db pool
+    return $ SqliteConf (T.pack db) pool
 
 -- | Load a @'MongoConf'@ from @config\/mongoDB.yml@.
 --
