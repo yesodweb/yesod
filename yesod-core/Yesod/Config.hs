@@ -1,21 +1,21 @@
-{-# OPTIONS -fno-warn-missing-signatures #-}
-{-# LANGUAGE QuasiQuotes                 #-}
 module Yesod.Config
     ( AppConfig(..)
+    , PostgresConf(..)
+    , SqliteConf(..)
+    , MongoConf(..)
     , loadConfig
-    , loadPostgresqlConnStr
-    , loadSqliteConnStr
-    , loadMongoConnParams
+    , loadPostgresql
+    , loadSqlite
+    , loadMongo
     ) where
 
-import Control.Monad (join)
+import Control.Monad (join, forM)
 import Data.Maybe (fromMaybe)
 import Data.Object
 import Data.Object.Yaml
-import Data.Text (Text)
---import Text.Shakespeare.Text (st)
 
-import qualified Data.Text        as T
+import Data.Text (Text)
+import qualified Data.Text as T
 
 -- | Dynamic per-environment configuration which can be loaded at
 --   run-time negating the need to recompile between environments.
@@ -25,15 +25,58 @@ data AppConfig e = AppConfig
     , appRoot :: Text
     } deriving (Show)
 
--- | Dynamic per-environment database configuration which can be loaded
---   at run-time
-data DbConfig = PostgresConf String String Int -- ^ Connection string, Database, Pool size
-              | SqliteConf String Int          -- ^ Database, Pool size
-              | MongoConf (String,String) Int  -- ^ (Database,Host), Pool size
+-- separate types means more code here, but it's easier to use in the
+-- scaffold
 
--- | Load an @'AppConfig'@ from a YAML-formatted file located at
---   @config\/settings.yml@. @'show'@ will be called on the first
---   parameter to determine which environment block to load
+-- | Information required to connect to a postgres database
+data PostgresConf = PostgresConf
+    { pgConnStr  :: String
+    , pgDatabase :: String
+    , pgPoolSize :: Int
+    }
+
+-- | Information required to connect to a sqlite database
+data SqliteConf = SqliteConf
+    { sqlDatabase :: String
+    , sqlPoolSize :: Int
+    }
+
+-- | Information required to connect to a mongo database
+data MongoConf = MongoConf
+    { mgDatabase :: String
+    , mgHost     :: String
+    , mgPoolSize :: Int
+    }
+
+-- | Load an @'AppConfig'@ from @config\/settings.yml@.
+--
+--   Some examples:
+--
+--   > -- typical local development
+--   > Development:
+--   >   host: localhost
+--   >   port: 3000
+--   >
+--   >   -- ssl: will default false
+--   >   -- approot: will default to "http://localhost:3000"
+--
+--   > -- typical outward-facing production box
+--   > Production:
+--   >   host: www.example.com
+--   >
+--   >   -- ssl: will default false
+--   >   -- port: will default 80
+--   >   -- approot: will default "http://www.example.com"
+--
+--   > -- maybe you're reverse proxying connections to the running app
+--   > -- on some other port
+--   > Production:
+--   >   port: 8080
+--   >   approot: "http://example.com"
+--   >
+--   > -- approot is specified so that the non-80 port is not appended
+--   > -- automatically.
+--
 loadConfig :: Show e => e -> IO (AppConfig e)
 loadConfig env = withYamlEnvironment "config/settings.yml" env $ \e -> do
     let mssl     = lookupScalar "ssl"     e
@@ -42,12 +85,12 @@ loadConfig env = withYamlEnvironment "config/settings.yml" env $ \e -> do
     let mapproot = lookupScalar "approot" e
 
     -- set some default arguments
-    let ssl = toBool $ fromMaybe "false" mssl
+    let ssl = maybe False toBool mssl
     port <- safeRead $ fromMaybe (if ssl then "443" else "80") mport
 
     approot <- case (mhost, mapproot) of
         (_        , Just ar) -> Just ar
-        (Just host, _      ) -> Just $ (if ssl then "http://" else "https://") ++ host ++ (addPort ssl port)
+        (Just host, _      ) -> Just $ (if ssl then "https://" else "http://") ++ host ++ (addPort ssl port)
         _                    -> Nothing
 
     return $ AppConfig
@@ -60,45 +103,73 @@ loadConfig env = withYamlEnvironment "config/settings.yml" env $ \e -> do
         toBool :: String -> Bool
         toBool = (`elem` ["true", "TRUE", "yes", "YES", "Y", "1"])
 
-        safeRead :: String -> Maybe Int
-        safeRead = undefined
-
         addPort :: Bool -> Int -> String
         addPort True  443 = ""
         addPort False 80  = ""
         addPort _     p   = ":" ++ show p
 
-loadPostgresqlConnStr :: Show e => e -> IO DbConfig
-loadPostgresqlConnStr env = withYamlEnvironment "config/postgresql.yml" env $ \e -> do
+-- | Load a @'PostgresConf'@ from @config\/postgresql.yml@.
+-- 
+--   > Production:
+--   >   user: jsmith
+--   >   password: secret
+--   >   host: localhost
+--   >   port: 5432
+--   >   database: some_db
+--   >   poolsize: 100
+--
+loadPostgresql :: Show e => e -> IO PostgresConf
+loadPostgresql env = withYamlEnvironment "config/postgresql.yml" env $ \e -> do
     db   <- lookupScalar "database" e
-    pool <- lookupScalar "poolsize" e
+    pool <- safeRead =<< lookupScalar "poolsize" e
 
-    -- TODO: the rest of this
-    return $ PostgresConf "todo" db (read pool)
+    -- TODO: default host/port?
+    connparts <- forM ["user", "password", "host", "port"] $ \k -> do
+        v <- lookupScalar k e
+        return $ k ++ "=" ++ v
 
-    {-connPart <- fmap T.concat $ (flip mapM) ["user", "password", "host", "port"] $ \key -> do-}
-      {-value <- lookupScalar key settings-}
-      {-return $ [st| #{key}=#{value} |]-}
-    {-return $ [st|#{connPart} dbname=#{database}|]-}
+    conn <- return $ concat connparts
 
-loadSqliteConnStr :: Show e => e -> IO DbConfig
-loadSqliteConnStr env = withYamlEnvironment "config/sqlite.yml" env $ \e -> do
+    return $ PostgresConf conn db pool
+
+-- | Load a @'SqliteConf'@ from @config\/sqlite.yml@.
+--
+--   > Production:
+--   >   database: foo.s3db
+--   >   poolsize: 100
+--
+loadSqlite :: Show e => e -> IO SqliteConf
+loadSqlite env = withYamlEnvironment "config/sqlite.yml" env $ \e -> do
     db   <- lookupScalar "database" e
-    pool <- lookupScalar "poolsize" e
+    pool <- safeRead =<< lookupScalar "poolsize" e
 
-    -- TODO: safer read
-    return $ SqliteConf db (read pool)
+    return $ SqliteConf db pool
 
-loadMongoConnParams :: Show e => e -> IO DbConfig
-loadMongoConnParams env = withYamlEnvironment "config/mongoDB.yml" env $ \e -> do
+-- | Load a @'MongoConf'@ from @config\/mongoDB.yml@.
+--
+--   > Production:
+--   >   database: some_db
+--   >   host:     localhost
+--   >   poolsize: 100
+--
+loadMongo :: Show e => e -> IO MongoConf
+loadMongo env = withYamlEnvironment "config/mongoDB.yml" env $ \e -> do
     db   <- lookupScalar "database" e
     host <- lookupScalar "host"     e
-    pool <- lookupScalar "poolsize" e
+    pool <- safeRead =<< lookupScalar "poolsize" e
 
-    -- TODO: safer read
-    return $ MongoConf (db, host) (read pool)
+    return $ MongoConf db host pool
 
--- TODO: type sig -- ghci and I disagree here...
+-- | Loads the configuration block in the passed file named by the
+--   passed environment, yeilds to the passed function as a mapping.
+--
+--   Errors in the case of a bad load or if your function returns
+--   @Nothing@.
+withYamlEnvironment :: (IsYamlScalar v, Show e)
+                    => FilePath -- ^ the yaml file
+                    -> e        -- ^ the environment you want to load
+                    -> ([(String, Object String v)] -> Maybe a) -- ^ what to do with the mapping
+                    -> IO a
 withYamlEnvironment fp env f = do
     obj <- join $ decodeFile fp
     case go obj env of
@@ -110,3 +181,9 @@ withYamlEnvironment fp env f = do
             envs <- fromMapping o
             conf <- lookupMapping (show e) envs
             f conf
+
+-- | Returns Nothing if read fails
+safeRead :: String -> Maybe Int
+safeRead s = case reads s of
+    (i, _):_ -> Just i
+    []       -> Nothing
