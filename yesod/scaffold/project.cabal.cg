@@ -58,6 +58,7 @@ executable         ~project~
                  , yesod-core
                  , yesod-auth
                  , yesod-static
+                 , yesod-default
                  , blaze-html
                  , yesod-form
                  , mime-mail

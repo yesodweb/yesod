@@ -12,6 +12,8 @@ import Foundation
 import Settings
 import Settings.StaticFiles (static)
 import Yesod.Auth
+import Yesod.Default.Config
+import Yesod.Default.Main
 import Yesod.Logger (Logger)
 import Database.Persist.~importGenericDB~
 import Data.ByteString (ByteString)
@@ -43,7 +45,7 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig -> Logger -> (Application -> IO a) -> IO ()
+with~sitearg~ :: AppConfig DefaultEnv -> Logger -> (Application -> IO a) -> IO ()
 with~sitearg~ conf logger f = do
     s <- static Settings.staticDir
     Settings.withConnectionPool conf $ \p -> do~runMigration~

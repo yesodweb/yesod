@@ -1,8 +1,8 @@
 runConnectionPool :: MonadControlIO m => Action m a -> ConnectionPool -> m a
 runConnectionPool = runMongoDBConn (ConfirmWrites [u"j" =: True])
 
-withConnectionPool :: (MonadControlIO m, Applicative m) => AppConfig -> (ConnectionPool -> m b) -> m b
+withConnectionPool :: (MonadControlIO m, Applicative m) => AppConfig DefaultEnv -> (ConnectionPool -> m b) -> m b
 withConnectionPool conf f = do
-    (database,host) <- liftIO $ loadMongoConnParams (appEnv conf)
-    withMongoDBPool (u database) host (connectionPoolSize conf) f
+    dbConf <- liftIO $ loadMongo (appEnv conf)
+    withMongoDBPool (u $ mgDatabase dbConf) (mgHost dbConf) (mgPoolSize dbConf) f
 
