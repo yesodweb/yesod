@@ -173,10 +173,10 @@ thResourceFromResource (Resource n _ _) =
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This is the same as 'toWaiAppPlain', except it includes three
--- middlewares: GZIP compression, JSON-P and path cleaning. This is the
+-- middlewares: GZIP compression, JSON-P and autohead. This is the
 -- recommended approach for most users.
 toWaiApp :: (Yesod y, YesodDispatch y y) => y -> IO W.Application
-toWaiApp y = gzip False . jsonp . autohead <$> toWaiAppPlain y
+toWaiApp y = gzip (gzipCompressFiles y) . jsonp . autohead <$> toWaiAppPlain y
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This differs from 'toWaiApp' in that it uses no middlewares.

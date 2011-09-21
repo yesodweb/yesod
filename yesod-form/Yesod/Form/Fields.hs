@@ -31,6 +31,15 @@ module Yesod.Form.Fields
       -- * File 'AForm's
     , fileAFormReq
     , fileAFormOpt
+      -- * Options
+    , selectField'
+    , radioField'
+    , Option (..)
+    , OptionList (..)
+    , mkOptionList
+    , optionsPersist
+    , optionsPairs
+    , optionsEnum
     ) where
 
 import Yesod.Form.Types
@@ -48,7 +57,7 @@ import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.List (intersect, nub)
 import Data.Either (rights)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, listToMaybe)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -60,11 +69,16 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
 
 import Control.Applicative ((<$>))
 import qualified Data.Map as Map
-import Yesod.Handler (newIdent)
+import Yesod.Handler (newIdent, liftIOHandler)
 import Yesod.Request (FileInfo)
+
+import Yesod.Core (toSinglePiece, GGHandler, SinglePiece)
+import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistBackend)
+import Control.Arrow ((&&&))
 
 #if __GLASGOW_HASKELL__ >= 700
 #define WHAMLET whamlet
@@ -290,10 +304,13 @@ urlField = Field
     }
 
 selectField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
-selectField = selectFieldHelper
-    (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|])
-    (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|])
-    (\_theId _name value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected>#{text}|])
+selectField = selectField' . optionsPairs
+
+selectField' :: (Eq a, RenderMessage master FormMessage) => GGHandler sub master IO (OptionList a) -> Field sub master a
+selectField' = selectFieldHelper
+    (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|]) -- outside
+    (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
+    (\_theId _name value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected>#{text}|]) -- inside
 
 multiSelectField :: (Show a, Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master [a]
 multiSelectField = multiSelectFieldHelper
@@ -301,7 +318,10 @@ multiSelectField = multiSelectFieldHelper
     (\_theId _name value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected>#{text}|])
 
 radioField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
-radioField = selectFieldHelper
+radioField = radioField' . optionsPairs
+
+radioField' :: (Eq a, RenderMessage master FormMessage) => GGHandler sub master IO (OptionList a) -> Field sub master a
+radioField' = selectFieldHelper
     (\theId _name inside -> [WHAMLET|<div ##{theId}>^{inside}|])
     (\theId name isSel -> [WHAMLET|
 <div>
@@ -363,39 +383,76 @@ multiSelectFieldHelper outside inside opts = Field
     selectParser xs | not $ null (["", "none"] `intersect` xs) = Right Nothing
                     | otherwise = (Right . Just . map snd . catMaybes . map (\y -> lookup y pairs) . nub . map fst . rights . map Data.Text.Read.decimal) xs
 
+data OptionList a = OptionList
+    { olOptions :: [Option a]
+    , olReadExternal :: Text -> Maybe a
+    }
+
+mkOptionList :: [Option a] -> OptionList a
+mkOptionList os = OptionList
+    { olOptions = os
+    , olReadExternal = flip Map.lookup $ Map.fromList $ map (optionExternalValue &&& optionInternalValue) os
+    }
+
+data Option a = Option
+    { optionDisplay :: Text
+    , optionInternalValue :: a
+    , optionExternalValue :: Text
+    }
+
+optionsPairs :: [(Text, a)] -> GGHandler sub master IO (OptionList a)
+optionsPairs = return . mkOptionList . zipWith (\external (display, internal) -> Option
+    { optionDisplay = display
+    , optionInternalValue = internal
+    , optionExternalValue = pack $ show external
+    }) [1 :: Int ..]
+
+optionsEnum :: (Show a, Enum a, Bounded a) => GGHandler sub master IO (OptionList a)
+optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
+
+optionsPersist :: ( YesodPersist master, PersistEntity a, PersistBackend (YesodPersistBackend master) (GGHandler sub master IO)
+                  , SinglePiece (Key (YesodPersistBackend master) a)
+                  )
+               => [Filter a] -> [SelectOpt a] -> (a -> Text) -> GGHandler sub master IO (OptionList (Key (YesodPersistBackend master) a, a))
+optionsPersist filts ords toDisplay = fmap mkOptionList $ do
+    pairs <- runDB $ selectList filts ords
+    return $ map (\(key, value) -> Option
+        { optionDisplay = toDisplay value
+        , optionInternalValue = (key, value)
+        , optionExternalValue = toSinglePiece key
+        }) pairs
+
 selectFieldHelper
         :: (Eq a, RenderMessage master FormMessage)
         => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
         -> (Text -> Text -> Bool -> GWidget sub master ())
         -> (Text -> Text -> Text -> Bool -> Text -> GWidget sub master ())
-        -> [(Text, a)] -> Field sub master a
-selectFieldHelper outside onOpt inside opts = Field
-    { fieldParse = return . selectParser
-    , fieldView = \theId name val isReq ->
+        -> GGHandler sub master IO (OptionList a) -> Field sub master a
+selectFieldHelper outside onOpt inside opts' = Field
+    { fieldParse = \x -> do
+        opts <- opts'
+        return $ selectParser opts x
+    , fieldView = \theId name val isReq -> do
+        opts <- fmap olOptions $ lift $ liftIOHandler opts'
         outside theId name $ do
-            unless isReq $ onOpt theId name $ not $ (render val) `elem` map (pack . show . fst) pairs
-            flip mapM_ pairs $ \pair -> inside
+            unless isReq $ onOpt theId name $ not $ render opts val `elem` map optionExternalValue opts
+            flip mapM_ opts $ \opt -> inside
                 theId
                 name
-                (pack $ show $ fst pair)
-                ((render val) == pack (show $ fst pair))
-                (fst $ snd pair)
+                (optionExternalValue opt)
+                ((render opts val) == optionExternalValue opt)
+                (optionDisplay opt)
     }
   where
-    pairs = zip [1 :: Int ..] opts -- FIXME use IntMap
-    rpairs = zip (map snd opts) [1 :: Int ..]
-    render (Left _) = ""
-    render (Right a) = maybe "" (pack . show) $ lookup a rpairs
-    selectParser [] = Right Nothing
-    selectParser (s:_) = case s of
+    render _ (Left _) = ""
+    render opts (Right a) = maybe "" optionExternalValue $ listToMaybe $ filter ((== a) . optionInternalValue) opts
+    selectParser _ [] = Right Nothing
+    selectParser opts (s:_) = case s of
             "" -> Right Nothing
             "none" -> Right Nothing
-            x -> case Data.Text.Read.decimal x of
-                    Right (a, "") ->
-                        case lookup a pairs of
-                            Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
-                            Just y -> Right $ Just $ snd y
-                    _ -> Left $ SomeMessage $ MsgInvalidNumber x
+            x -> case olReadExternal opts x of
+                    Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
+                    Just y -> Right $ Just y
 
 fileAFormReq :: (RenderMessage master msg, RenderMessage master FormMessage) => FieldSettings msg -> AForm sub master FileInfo
 fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
