@@ -6,13 +6,15 @@ import Test.Widget
 import Test.Media
 import Test.Links
 import Test.NoOverloadedStrings
+import Test.InternalRequest
 
 main :: IO ()
-main = hspecX $ descriptions $ 
+main = hspecX $ descriptions $
     [ cleanPathTest
     , exceptionsTest
     , widgetTest
     , mediaTest
     , linksTest
     , noOverloadedTest
+    , internalRequestTest
     ]
