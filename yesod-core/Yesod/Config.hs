@@ -1,8 +1,7 @@
 {-# OPTIONS -fno-warn-missing-signatures #-}
 {-# LANGUAGE QuasiQuotes                 #-}
 module Yesod.Config
-    ( AppEnv(..)
-    , AppConfig(..)
+    ( AppConfig(..)
     , loadConfig
     , loadPostgresqlConnStr
     , loadSqliteConnStr
@@ -10,88 +9,104 @@ module Yesod.Config
     ) where
 
 import Control.Monad (join)
+import Data.Maybe (fromMaybe)
 import Data.Object
+import Data.Object.Yaml
 import Data.Text (Text)
-import Text.Shakespeare.Text (st)
+--import Text.Shakespeare.Text (st)
 
-import qualified Data.Object.Yaml as YAML
 import qualified Data.Text        as T
-
-class AppEnv e where
-    displayPort :: e -> Bool
 
 -- | Dynamic per-environment configuration which can be loaded at
 --   run-time negating the need to recompile between environments.
 data AppConfig e = AppConfig
     { appEnv  :: e
     , appPort :: Int
-
-    -- TODO: put this in db configs
-    , connectionPoolSize :: Int
-
-    -- | The base URL for your application. This will usually be
-    --   different for development and production. Yesod automatically
-    --   constructs URLs for you, so this value must be accurate to
-    --   create valid links.
-    --
-    --   If your domain name was "yesod.com", you would probably want it
-    --   to be:
-    --
-    --   > "http://yesod.com"
-    --
     , appRoot :: Text
     } deriving (Show)
 
+-- | Dynamic per-environment database configuration which can be loaded
+--   at run-time
+data DbConfig = PostgresConf String String Int -- ^ Connection string, Database, Pool size
+              | SqliteConf String Int          -- ^ Database, Pool size
+              | MongoConf (String,String) Int  -- ^ (Database,Host), Pool size
 
 -- | Load an @'AppConfig'@ from a YAML-formatted file located at
---   @config\/settings.yml@.
-loadConfig :: AppEnv e => e -> IO (AppConfig e)
-loadConfig env = do
-    allSettings <- (join $ YAML.decodeFile ("config/settings.yml" :: String)) >>= fromMapping
-    settings    <- lookupMapping (show env) allSettings
-    hostS       <- lookupScalar "host" settings
-    port        <- fmap read $ lookupScalar "port" settings
-    connectionPoolSizeS <- lookupScalar "connectionPoolSize" settings
+--   @config\/settings.yml@. @'show'@ will be called on the first
+--   parameter to determine which environment block to load
+loadConfig :: Show e => e -> IO (AppConfig e)
+loadConfig env = withYamlEnvironment "config/settings.yml" env $ \e -> do
+    let mssl     = lookupScalar "ssl"     e
+    let mhost    = lookupScalar "host"    e
+    let mport    = lookupScalar "port"    e
+    let mapproot = lookupScalar "approot" e
+
+    -- set some default arguments
+    let ssl = toBool $ fromMaybe "false" mssl
+    port <- safeRead $ fromMaybe (if ssl then "443" else "80") mport
+
+    approot <- case (mhost, mapproot) of
+        (_        , Just ar) -> Just ar
+        (Just host, _      ) -> Just $ (if ssl then "http://" else "https://") ++ host ++ (addPort ssl port)
+        _                    -> Nothing
 
     return $ AppConfig
         { appEnv  = env
         , appPort = port
-        , appRoot = T.pack $ hostS ++ addPort port
-        , connectionPoolSize = read connectionPoolSizeS
+        , appRoot = T.pack approot
         }
 
     where
-        addPort :: Int -> String
-        addPort p = if displayPort env
-                        then ":" ++ show p else ""
+        toBool :: String -> Bool
+        toBool = (`elem` ["true", "TRUE", "yes", "YES", "Y", "1"])
 
--- | Load Postgresql settings from a YAML-formatted file located at
---   @config\/postgresql.yml@.
-loadPostgresqlConnStr :: Show e => e -> IO Text
-loadPostgresqlConnStr env = do
-    allSettings <- (join $ YAML.decodeFile ("config/postgresql.yml" :: String)) >>= fromMapping
-    settings    <- lookupMapping (show env) allSettings
-    database    <- lookupScalar "database" settings :: IO Text
+        safeRead :: String -> Maybe Int
+        safeRead = undefined
 
-    connPart <- fmap T.concat $ (flip mapM) ["user", "password", "host", "port"] $ \key -> do
-      value <- lookupScalar key settings
-      return $ [st| #{key}=#{value} |]
-    return $ [st|#{connPart} dbname=#{database}|]
+        addPort :: Bool -> Int -> String
+        addPort True  443 = ""
+        addPort False 80  = ""
+        addPort _     p   = ":" ++ show p
 
--- | Load Sqlite settings from a YAML-formatted file located at
---   @config\/sqlite.yml@.
-loadSqliteConnStr :: Show e => e -> IO Text
-loadSqliteConnStr env = do
-    allSettings <- (join $ YAML.decodeFile ("config/sqlite.yml" :: String)) >>= fromMapping
-    settings    <- lookupMapping (show env) allSettings
-    lookupScalar "database" settings
+loadPostgresqlConnStr :: Show e => e -> IO DbConfig
+loadPostgresqlConnStr env = withYamlEnvironment "config/postgresql.yml" env $ \e -> do
+    db   <- lookupScalar "database" e
+    pool <- lookupScalar "poolsize" e
 
--- note: no type signature to avoid an extra Persistent.MongoDB dep for
--- those that don't need it
---loadMongoConnParams :: AppEnvironment -> IO (Database, HostName)
-loadMongoConnParams env = do
-    allSettings <- (join $ YAML.decodeFile ("config/mongoDB.yml" :: String)) >>= fromMapping
-    settings    <- lookupMapping (show env) allSettings
-    database    <- lookupScalar "database" settings
-    host        <- lookupScalar "host" settings
-    return (database, host)
+    -- TODO: the rest of this
+    return $ PostgresConf "todo" db (read pool)
+
+    {-connPart <- fmap T.concat $ (flip mapM) ["user", "password", "host", "port"] $ \key -> do-}
+      {-value <- lookupScalar key settings-}
+      {-return $ [st| #{key}=#{value} |]-}
+    {-return $ [st|#{connPart} dbname=#{database}|]-}
+
+loadSqliteConnStr :: Show e => e -> IO DbConfig
+loadSqliteConnStr env = withYamlEnvironment "config/sqlite.yml" env $ \e -> do
+    db   <- lookupScalar "database" e
+    pool <- lookupScalar "poolsize" e
+
+    -- TODO: safer read
+    return $ SqliteConf db (read pool)
+
+loadMongoConnParams :: Show e => e -> IO DbConfig
+loadMongoConnParams env = withYamlEnvironment "config/mongoDB.yml" env $ \e -> do
+    db   <- lookupScalar "database" e
+    host <- lookupScalar "host"     e
+    pool <- lookupScalar "poolsize" e
+
+    -- TODO: safer read
+    return $ MongoConf (db, host) (read pool)
+
+-- TODO: type sig -- ghci and I disagree here...
+withYamlEnvironment fp env f = do
+    obj <- join $ decodeFile fp
+    case go obj env of
+        Just v  -> return v
+        Nothing -> error $ fp ++ ": invalid configuration file."
+
+    where
+        go o e = do
+            envs <- fromMapping o
+            conf <- lookupMapping (show e) envs
+            f conf

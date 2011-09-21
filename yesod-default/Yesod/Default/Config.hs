@@ -21,10 +21,6 @@ data DefaultEnv = Development
                 | Testing
                 | Production deriving (Read, Show, Enum, Bounded)
 
-instance AppEnv DefaultEnv where
-    displayPort Production = False
-    displayPort _          = True
-
 -- | Setup commandline arguments for environment and port
 data ArgConfig = ArgConfig
     { environment :: String
@@ -55,7 +51,7 @@ defaultArgConfig =
 fromArgs :: IO (AppConfig DefaultEnv)
 fromArgs = fromArgsWith defaultArgConfig
 
-fromArgsWith :: AppEnv e => ArgConfig -> IO (AppConfig e)
+fromArgsWith :: (Read e, Show e) => ArgConfig -> IO (AppConfig e)
 fromArgsWith argConfig = do
     args   <- cmdArgs argConfig
 
