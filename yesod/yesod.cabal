@@ -17,8 +17,8 @@ homepage:        http://www.yesodweb.com/
 
 extra-source-files:
   input/*.cg
-  scaffold/cassius/default-layout.cassius.cg
-  scaffold/cassius/homepage.cassius.cg
+  scaffold/lucius/default-layout.lucius.cg
+  scaffold/lucius/homepage.lucius.cg
   scaffold/Model.hs.cg
   scaffold/Foundation.hs.cg
   scaffold/LICENSE.cg
