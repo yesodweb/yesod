@@ -1,5 +1,6 @@
 Default: &defaults
   database: ~project~.sqlite3
+  poolsize: 10
 
 Development:
   <<: *defaults
@@ -10,8 +11,10 @@ Test:
 
 Staging:
   database: ~project~_staging.sqlite3
+  poolsize: 100
   <<: *defaults
 
 Production:
   database: ~project~_production.sqlite3
+  poolsize: 100
   <<: *defaults

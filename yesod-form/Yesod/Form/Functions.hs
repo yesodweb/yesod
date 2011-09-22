@@ -31,6 +31,7 @@ module Yesod.Form.Functions
     , check
     , checkBool
     , checkM
+    , customErrorMessage
     ) where
 
 import Yesod.Form.Types
@@ -309,3 +310,8 @@ checkM f field = field
             Right Nothing -> return $ Right Nothing
             Right (Just a) -> fmap (either (Left . SomeMessage) (Right . Just)) $ f a
     }
+
+-- | Allows you to overwrite the error message on parse error.
+customErrorMessage :: SomeMessage master -> Field sub master a -> Field sub master a
+customErrorMessage msg field = field { fieldParse = \ts -> fmap (either
+(const $ Left msg) Right) $ fieldParse field ts }

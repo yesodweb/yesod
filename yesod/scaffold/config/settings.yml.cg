@@ -1,7 +1,6 @@
 Default: &defaults
-  host: "http://localhost"
+  host: "localhost"
   port: 3000
-  connectionPoolSize: 10
 
 Development:
   <<: *defaults
@@ -13,4 +12,5 @@ Staging:
   <<: *defaults
 
 Production:
+  approot: "http://www.example.com"
   <<: *defaults
