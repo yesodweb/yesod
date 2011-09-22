@@ -50,6 +50,7 @@ extra-source-files:
   scaffold/config/routes.cg
   scaffold/Settings.hs.cg
   scaffold/Settings/StaticFiles.hs.cg
+  scaffold/messages/en.msg.cg
 
 
 flag ghc7

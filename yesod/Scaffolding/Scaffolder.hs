@@ -120,6 +120,7 @@ scaffold = do
     mkDir "Model"
     mkDir "deploy"
     mkDir "Settings"
+    mkDir "messages"
      
     writeFile' ("deploy/Procfile") $(codegen "deploy/Procfile")
 
@@ -156,7 +157,8 @@ scaffold = do
     writeFile' "lucius/homepage.lucius" $(codegen "lucius/homepage.lucius")
     writeFile' "julius/homepage.julius" $(codegen "julius/homepage.julius")
     unless isTiny $ writeFile' "config/models" $(codegen "config/models")
-  
+    writeFile' "messages/en.msg" $(codegen "messages/en.msg")
+
     S.writeFile (dir ++ "/config/favicon.ico")
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do
             pack <- [|S.pack|]
