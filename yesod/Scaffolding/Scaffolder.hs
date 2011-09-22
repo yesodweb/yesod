@@ -139,7 +139,7 @@ scaffold = do
     writeFile' "LICENSE" $(codegen "LICENSE")
     writeFile' ("Foundation.hs") $ ifTiny $(codegen "tiny/Foundation.hs") $(codegen "Foundation.hs")
     writeFile' "Application.hs" $ ifTiny $(codegen "tiny/Application.hs") $(codegen "Application.hs")
-    writeFile' "Handler/Root.hs" $ ifTiny $(codegen "tiny/Handler/Root.hs") $(codegen "Handler/Root.hs")
+    writeFile' "Handler/Root.hs" $(codegen "Handler/Root.hs")
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "Settings.hs" $ ifTiny $(codegen "tiny/Settings.hs") $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
@@ -151,7 +151,7 @@ scaffold = do
         $(codegen "hamlet/boilerplate-layout.hamlet")
     writeFile' "lucius/normalize.lucius"
         $(codegen "lucius/normalize.lucius")
-    writeFile' "hamlet/homepage.hamlet" $ ifTiny $(codegen "tiny/hamlet/homepage.hamlet") $(codegen "hamlet/homepage.hamlet")
+    writeFile' "hamlet/homepage.hamlet" $(codegen "hamlet/homepage.hamlet")
     writeFile' "config/routes" $ ifTiny $(codegen "tiny/config/routes") $(codegen "config/routes")
     writeFile' "cassius/homepage.cassius" $(codegen "cassius/homepage.cassius")
     writeFile' "julius/homepage.julius" $(codegen "julius/homepage.julius")
