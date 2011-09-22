@@ -149,8 +149,8 @@ scaffold = do
         $(codegen "hamlet/default-layout.hamlet")
     writeFile' "hamlet/boilerplate-layout.hamlet"
         $(codegen "hamlet/boilerplate-layout.hamlet")
-    writeFile' "static/css/normalize.css"
-        $(codegen "static/css/normalize.css")
+    writeFile' "lucius/normalize.lucius"
+        $(codegen "lucius/normalize.lucius")
     writeFile' "hamlet/homepage.hamlet" $ ifTiny $(codegen "tiny/hamlet/homepage.hamlet") $(codegen "hamlet/homepage.hamlet")
     writeFile' "config/routes" $ ifTiny $(codegen "tiny/config/routes") $(codegen "config/routes")
     writeFile' "cassius/homepage.cassius" $(codegen "cassius/homepage.cassius")

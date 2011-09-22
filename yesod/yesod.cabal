@@ -30,7 +30,7 @@ extra-source-files:
   scaffold/tiny/Handler/Root.hs.cg
   scaffold/tiny/config/routes.cg
   scaffold/tiny/Settings.hs.cg
-  scaffold/static/css/normalize.css.cg
+  scaffold/lucius/normalize.lucius.cg
   scaffold/postgresqlConnPool.cg
   scaffold/sqliteConnPool.cg
   scaffold/.ghci.cg
