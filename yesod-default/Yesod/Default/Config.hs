@@ -32,8 +32,7 @@ data ArgConfig = ArgConfig
 defaultArgConfig :: ArgConfig
 defaultArgConfig =
     ArgConfig
-        { environment = def 
-            &= opt "development"
+        { environment = "development"
             &= help ("application environment, one of: " ++ environments)
             &= typ   "ENVIRONMENT"
         , port = def
@@ -56,7 +55,10 @@ fromArgsWith :: (Read e, Show e) => ArgConfig -> IO (AppConfig e)
 fromArgsWith argConfig = do
     args   <- cmdArgs argConfig
 
-    let env = read $ capitalize $ environment args
+    env <-
+        case reads $ capitalize $ environment args of
+            (e, _):_ -> return e
+            [] -> error $ "Invalid environment: " ++ environment args
 
     config <- loadConfig env
 
