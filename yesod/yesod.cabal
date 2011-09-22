@@ -17,8 +17,8 @@ homepage:        http://www.yesodweb.com/
 
 extra-source-files:
   input/*.cg
-  scaffold/cassius/default-layout.cassius.cg
-  scaffold/cassius/homepage.cassius.cg
+  scaffold/lucius/default-layout.lucius.cg
+  scaffold/lucius/homepage.lucius.cg
   scaffold/Model.hs.cg
   scaffold/Foundation.hs.cg
   scaffold/LICENSE.cg
@@ -26,11 +26,9 @@ extra-source-files:
   scaffold/tiny/Foundation.hs.cg
   scaffold/tiny/project.cabal.cg
   scaffold/tiny/Application.hs.cg
-  scaffold/tiny/hamlet/homepage.hamlet.cg
-  scaffold/tiny/Handler/Root.hs.cg
   scaffold/tiny/config/routes.cg
   scaffold/tiny/Settings.hs.cg
-  scaffold/static/css/normalize.css.cg
+  scaffold/lucius/normalize.lucius.cg
   scaffold/postgresqlConnPool.cg
   scaffold/sqliteConnPool.cg
   scaffold/.ghci.cg
@@ -52,6 +50,7 @@ extra-source-files:
   scaffold/config/routes.cg
   scaffold/Settings.hs.cg
   scaffold/Settings/StaticFiles.hs.cg
+  scaffold/messages/en.msg.cg
 
 
 flag ghc7
