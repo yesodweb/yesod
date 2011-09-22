@@ -85,12 +85,12 @@ loadConfig env = withYamlEnvironment "config/settings.yml" env $ \e -> do
 
     -- set some default arguments
     let ssl = maybe False toBool mssl
-    port <- safeRead $ fromMaybe (if ssl then "443" else "80") mport
+    port <- safeRead "port" $ fromMaybe (if ssl then "443" else "80") mport
 
     approot <- case (mhost, mapproot) of
-        (_        , Just ar) -> Just ar
-        (Just host, _      ) -> Just $ (if ssl then "https://" else "http://") ++ host ++ (addPort ssl port)
-        _                    -> Nothing
+        (_        , Just ar) -> return ar
+        (Just host, _      ) -> return $ (if ssl then "https://" else "http://") ++ host ++ (addPort ssl port)
+        _                    -> fail "You must supply either a host or approot"
 
     return $ AppConfig
         { appEnv  = env
@@ -120,7 +120,7 @@ loadConfig env = withYamlEnvironment "config/settings.yml" env $ \e -> do
 loadPostgresql :: Show e => e -> IO PostgresConf
 loadPostgresql env = withYamlEnvironment "config/postgresql.yml" env $ \e -> do
     db   <- lookupScalar "database" e
-    pool <- safeRead =<< lookupScalar "poolsize" e
+    pool <- safeRead "poolsize" =<< lookupScalar "poolsize" e
 
     -- TODO: default host/port?
     connparts <- forM ["user", "password", "host", "port"] $ \k -> do
@@ -140,7 +140,7 @@ loadPostgresql env = withYamlEnvironment "config/postgresql.yml" env $ \e -> do
 loadSqlite :: Show e => e -> IO SqliteConf
 loadSqlite env = withYamlEnvironment "config/sqlite.yml" env $ \e -> do
     db   <- lookupScalar "database" e
-    pool <- safeRead =<< lookupScalar "poolsize" e
+    pool <- safeRead "poolsize" =<< lookupScalar "poolsize" e
 
     return $ SqliteConf (T.pack db) pool
 
@@ -155,7 +155,7 @@ loadMongo :: Show e => e -> IO MongoConf
 loadMongo env = withYamlEnvironment "config/mongoDB.yml" env $ \e -> do
     db   <- lookupScalar "database" e
     host <- lookupScalar "host"     e
-    pool <- safeRead =<< lookupScalar "poolsize" e
+    pool <- safeRead "poolsize" =<< lookupScalar "poolsize" e
 
     return $ MongoConf db host pool
 
@@ -167,22 +167,16 @@ loadMongo env = withYamlEnvironment "config/mongoDB.yml" env $ \e -> do
 withYamlEnvironment :: (IsYamlScalar v, Show e)
                     => FilePath -- ^ the yaml file
                     -> e        -- ^ the environment you want to load
-                    -> ([(String, Object String v)] -> Maybe a) -- ^ what to do with the mapping
+                    -> ([(String, Object String v)] -> IO a) -- ^ what to do with the mapping
                     -> IO a
 withYamlEnvironment fp env f = do
     obj <- join $ decodeFile fp
-    case go obj env of
-        Just v  -> return v
-        Nothing -> error $ fp ++ ": invalid configuration file."
+    envs <- fromMapping obj
+    conf <- lookupMapping (show env) envs
+    f conf
 
-    where
-        go o e = do
-            envs <- fromMapping o
-            conf <- lookupMapping (show e) envs
-            f conf
-
--- | Returns Nothing if read fails
-safeRead :: String -> Maybe Int
-safeRead s = case reads s of
-    (i, _):_ -> Just i
-    []       -> Nothing
+-- | Returns 'fail' if read fails
+safeRead :: Monad m => String -> String -> m Int
+safeRead name s = case reads s of
+    (i, _):_ -> return i
+    []       -> fail $ concat ["Invalid value for ", name, ": ", s]
