@@ -1,5 +1,5 @@
 Default: &defaults
-  host: "http://localhost"
+  host: "localhost"
   port: 3000
 
 Development:
@@ -12,4 +12,5 @@ Staging:
   <<: *defaults
 
 Production:
+  approot: "http://www.example.com"
   <<: *defaults
