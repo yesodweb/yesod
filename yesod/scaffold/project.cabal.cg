@@ -37,6 +37,8 @@ library
                      Settings.StaticFiles
                      Handler.Root
 
+    ghc-options:   -Wall -threaded -O0
+
 executable         ~project~
     if flag(devel)
         Buildable: False
@@ -45,7 +47,7 @@ executable         ~project~
         cpp-options:   -DPRODUCTION
         ghc-options:   -Wall -threaded -O2
     else
-        ghc-options:   -Wall -threaded
+        ghc-options:   -Wall -threaded -O0
 
     if os(windows)
         cpp-options: -DWINDOWS
