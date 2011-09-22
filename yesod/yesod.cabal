@@ -26,8 +26,6 @@ extra-source-files:
   scaffold/tiny/Foundation.hs.cg
   scaffold/tiny/project.cabal.cg
   scaffold/tiny/Application.hs.cg
-  scaffold/tiny/hamlet/homepage.hamlet.cg
-  scaffold/tiny/Handler/Root.hs.cg
   scaffold/tiny/config/routes.cg
   scaffold/tiny/Settings.hs.cg
   scaffold/lucius/normalize.lucius.cg
