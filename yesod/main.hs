@@ -36,7 +36,7 @@ main = do
 #endif
         ["devel"] -> devel isDev
         ["version"] -> putStrLn "0.9"
-        "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
+        "configure":rest -> rawSystem cmd ("configure":"--disable-library-profiling":rest) >>= exitWith
         _ -> do
             putStrLn "Usage: yesod <command>"
             putStrLn "Available commands:"
