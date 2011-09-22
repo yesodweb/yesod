@@ -84,8 +84,8 @@ instance Yesod ~sitearg~ where
         mmsg <- getMessage
         pc <- widgetToPageContent $ do
             widget
-            addLucius $(luciusFile "normalize")
-            addCassius $(cassiusFile "default-layout")
+            toWidget $(luciusFile "normalize")
+            toWidget $(luciusFile "default-layout")
         hamletToRepHtml $(hamletFile "default-layout")
 
     -- This is done to provide an optimization for serving static files from

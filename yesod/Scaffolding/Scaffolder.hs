@@ -143,8 +143,8 @@ scaffold = do
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "Settings.hs" $ ifTiny $(codegen "tiny/Settings.hs") $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
-    writeFile' "cassius/default-layout.cassius"
-        $(codegen "cassius/default-layout.cassius")
+    writeFile' "lucius/default-layout.lucius"
+        $(codegen "lucius/default-layout.lucius")
     writeFile' "hamlet/default-layout.hamlet"
         $(codegen "hamlet/default-layout.hamlet")
     writeFile' "hamlet/boilerplate-layout.hamlet"
@@ -153,7 +153,7 @@ scaffold = do
         $(codegen "lucius/normalize.lucius")
     writeFile' "hamlet/homepage.hamlet" $(codegen "hamlet/homepage.hamlet")
     writeFile' "config/routes" $ ifTiny $(codegen "tiny/config/routes") $(codegen "config/routes")
-    writeFile' "cassius/homepage.cassius" $(codegen "cassius/homepage.cassius")
+    writeFile' "lucius/homepage.lucius" $(codegen "lucius/homepage.lucius")
     writeFile' "julius/homepage.julius" $(codegen "julius/homepage.julius")
     unless isTiny $ writeFile' "config/models" $(codegen "config/models")
   
