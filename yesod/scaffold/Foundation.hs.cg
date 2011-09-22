@@ -23,19 +23,18 @@ import Yesod.Auth
 import Yesod.Auth.OpenId
 import Yesod.Auth.Email
 import Yesod.Default.Config
+import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Logger (Logger, logLazyText)
 import qualified Settings
-import System.Directory
 import qualified Data.ByteString.Lazy as L
 import Database.Persist.~importGenericDB~
 import Settings (hamletFile, cassiusFile, luciusFile, juliusFile, widgetFile)
 import Model
 import Data.Maybe (isJust)
-import Control.Monad (join, unless)
+import Control.Monad (join)
 import Network.Mail.Mime
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
-import qualified Data.Text as T
 import Web.ClientSession (getKey)
 import Text.Blaze.Renderer.Utf8 (renderHtml)
 import Text.Hamlet (shamlet)
@@ -104,21 +103,7 @@ instance Yesod ~sitearg~ where
     -- and names them based on a hash of their content. This allows
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
-    addStaticContent ext' _ content = do
-        let fn = base64md5 content ++ '.' : T.unpack ext'
-        let content' =
-                if ext' == "js"
-                    then case minifym content of
-                            Left _ -> content
-                            Right y -> y
-                    else content
-        let statictmp = Settings.staticDir ++ "/tmp/"
-        liftIO $ createDirectoryIfMissing True statictmp
-        let fn' = statictmp ++ fn
-        exists <- liftIO $ doesFileExist fn'
-        unless exists $ liftIO $ L.writeFile fn' content'
-        return $ Just $ Right (StaticR $ StaticRoute ["tmp", T.pack fn] [], [])
-
+    addStaticContent = addStaticContentExternal minifym base64md5 Settings.staticDir (StaticR . flip StaticRoute [])
 
 -- How to run database actions.
 instance YesodPersist ~sitearg~ where
