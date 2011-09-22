@@ -30,16 +30,16 @@ g = undefined
 
 nonceSpecs :: [Spec]
 nonceSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqNonce)"
-  [ it "is Nothing for unsecure sessions" noUnsecureNonce
-  , it "ignores pre-existing nonce for unsecure sessions" ignoreUnsecureNonce
-  , it "uses preexisting nonce for secure sessions" useOldNonce
-  , it "generates a new nonce for secure sessions without nonce" generateNonce
+  [ it "is Nothing if sessions are disabled" noDisabledNonce
+  , it "ignores pre-existing nonce if sessions are disabled" ignoreDisabledNonce
+  , it "uses preexisting nonce in session" useOldNonce
+  , it "generates a new nonce for sessions without nonce" generateNonce
   ]
 
-noUnsecureNonce = reqNonce r == Nothing where
+noDisabledNonce = reqNonce r == Nothing where
   r = parseWaiRequest' defaultRequest [] Nothing g
 
-ignoreUnsecureNonce = reqNonce r == Nothing where
+ignoreDisabledNonce = reqNonce r == Nothing where
   r = parseWaiRequest' defaultRequest [("_NONCE", "old")] Nothing g
 
 useOldNonce = reqNonce r == Just "old" where
