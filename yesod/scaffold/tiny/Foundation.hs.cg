@@ -1,8 +1,9 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, MultiParamTypeClasses #-}
 module Foundation
     ( ~sitearg~ (..)
     , ~sitearg~Route (..)
+    , ~sitearg~Message (..)
     , resources~sitearg~
     , Handler
     , Widget
@@ -34,6 +35,9 @@ data ~sitearg~ = ~sitearg~
     , getLogger :: Logger
     , getStatic :: Static -- ^ Settings for static file serving.
     }
+
+-- Set up i18n messages. See the message folder.
+mkMessage "~sitearg~" "messages" "en"
 
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
