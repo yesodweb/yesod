@@ -29,6 +29,7 @@ module Yesod.Static
     , embed
       -- * Template Haskell helpers
     , staticFiles
+    , staticFilesList
     , publicFiles
       -- * Hashing
     , base64md5
@@ -155,6 +156,25 @@ getFileListPieces = flip go id
 staticFiles :: Prelude.FilePath -> Q [Dec]
 staticFiles dir = mkStaticFiles dir
 
+-- | Same as 'staticFiles', but takes an explicit list of files to create
+-- identifiers for. The files are given relative to the static folder. For
+-- example, to get the files \"static/js/jquery.js\" and
+-- \"static/css/normalize.css\", you would use:
+--
+-- > staticFilesList "static" ["js/jquery.js"], ["css/normalize.css"]]
+--
+-- This can be useful when you have a very large number of static files, but
+-- only need to refer to a few of them from Haskell.
+staticFilesList :: Prelude.FilePath -> [Prelude.FilePath] -> Q [Dec]
+staticFilesList dir fs =
+    mkStaticFilesList dir (map split fs) "StaticRoute" True
+  where
+    split :: Prelude.FilePath -> [String]
+    split [] = []
+    split x =
+        let (a, b) = break (== '/') x
+         in a : split (drop 1 b)
+
 -- | like staticFiles, but doesn't append an etag to the query string
 -- This will compile faster, but doesn't achieve as great of caching.
 -- The browser can avoid downloading the file, but it always needs to send a request with the etag value or the last-modified value to the server to see if its copy is up to dat
@@ -212,6 +232,15 @@ mkStaticFiles' :: Prelude.FilePath -- ^ static directory
                -> Q [Dec]
 mkStaticFiles' fp routeConName makeHash = do
     fs <- qRunIO $ getFileListPieces fp
+    mkStaticFilesList fp fs routeConName makeHash
+
+mkStaticFilesList
+    :: Prelude.FilePath -- ^ static directory
+    -> [[String]] -- ^ list of files to create identifiers for
+    -> String   -- ^ route constructor "StaticRoute"
+    -> Bool     -- ^ append checksum query parameter
+    -> Q [Dec]
+mkStaticFilesList fp fs routeConName makeHash = do
     concat `fmap` mapM mkRoute fs
   where
     replace' c
@@ -233,7 +262,6 @@ mkStaticFiles' fp routeConName makeHash = do
         pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
-        -- FIXME hash <- qRunIO . calcHash $ fp ++ '/' : intercalate "/" f
                             [|[(pack $(lift hash), mempty)]|]
                     else return $ ListE []
         return
