@@ -11,6 +11,8 @@ cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Static file serving subsite for Yesod Web Framework.
+extra-source-files:
+  tests/runtests.hs
 
 flag test
   description: Build the executable to run unit tests
