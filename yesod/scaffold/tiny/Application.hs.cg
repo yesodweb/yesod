@@ -12,8 +12,7 @@ import Foundation
 import Settings
 import Yesod.Static
 import Yesod.Default.Config
-import Yesod.Default.Main (defaultDevelApp)
-import Yesod.Default.Util (runWaiApp)
+import Yesod.Default.Main (defaultDevelApp, defaultRunner)
 import Yesod.Logger (Logger)
 import Data.ByteString (ByteString)
 import Network.Wai (Application)
@@ -47,8 +46,7 @@ with~sitearg~ conf logger f = do
     s <- staticDevel Settings.staticDir
 #endif
     let h = ~sitearg~ conf logger s
-    app <- toWaiApp h
-    runWaiApp f app
+    defaultRunner f h
 
 -- for yesod devel
 withDevelAppPort :: Dynamic
