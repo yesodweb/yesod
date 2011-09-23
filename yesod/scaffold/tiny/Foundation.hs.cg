@@ -21,10 +21,11 @@ import Yesod.Static (Static, base64md5, StaticRoute(..))
 import Settings.StaticFiles
 import Yesod.Logger (Logger, logLazyText)
 import qualified Settings
-import Settings (hamletFile, cassiusFile, luciusFile, juliusFile, widgetFile)
+import Settings (widgetFile)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import Web.ClientSession (getKey)
+import Text.Hamlet (hamletFile)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -70,11 +71,17 @@ instance Yesod ~sitearg~ where
 
     defaultLayout widget = do
         mmsg <- getMessage
+
+        -- We break up the default layout into two components:
+        -- default-layout is the contents of the body tag, and
+        -- default-layout-wrapper is the entire page. Since the final
+        -- value passed to hamletToRepHtml cannot be a widget, this allows
+        -- you to use normal widget features in default-layout.
+
         pc <- widgetToPageContent $ do
-            widget
-            toWidget $(luciusFile "normalize")
-            toWidget $(luciusFile "default-layout")
-        hamletToRepHtml $(hamletFile "default-layout")
+            $(widgetFile "normalize")
+            $(widgetFile "default-layout")
+        hamletToRepHtml $(hamletFile "hamlet/default-layout-wrapper.hamlet")
 
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticroot setting in Settings.hs

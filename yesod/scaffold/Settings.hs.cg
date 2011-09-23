@@ -7,12 +7,7 @@
 -- by overriding methods in the Yesod typeclass. That instance is
 -- declared in the Foundation.hs file.
 module Settings
-    ( hamletFile
-    , cassiusFile
-    , juliusFile
-    , luciusFile
-    , textFile
-    , widgetFile
+    ( widgetFile
     , ConnectionPool
     , withConnectionPool
     , runConnectionPool
@@ -20,20 +15,13 @@ module Settings
     , staticDir
     ) where
 
-import qualified Text.Hamlet as S
-import qualified Text.Cassius as S
-import qualified Text.Julius as S
-import qualified Text.Lucius as S
-import qualified Text.Shakespeare.Text as S
 import Text.Shakespeare.Text (st)
 import Language.Haskell.TH.Syntax
 import Database.Persist.~importPersist~
-import Yesod (liftIO, MonadControlIO, addWidget, addCassius, addJulius, addLucius, whamletFile)
+import Yesod (liftIO, MonadControlIO)
 import Yesod.Default.Config
-import Data.Monoid (mempty)
-import System.Directory (doesFileExist)
+import qualified Yesod.Default.Util
 import Data.Text (Text)
-
 
 -- Static setting below. Changing these requires a recompile
 
@@ -68,66 +56,9 @@ staticRoot conf = [st|#{appRoot conf}/static|]
 -- them yourself.
 ~withConnectionPool~
 
--- The following functions are used for calling HTML, CSS,
--- Javascript, and plain text templates from your Haskell code. During development,
--- the "Debug" versions of these functions are used so that changes to
--- the templates are immediately reflected in an already running
--- application. When making a production compile, the non-debug version
--- is used for increased performance.
---
--- You can see an example of how to call these functions in Handler/Root.hs
---
--- Note: due to polymorphic Hamlet templates, hamletFileDebug is no longer
--- used; to get the same auto-loading effect, it is recommended that you
--- use the devel server.
-
--- | expects a root folder for each type, e.g: hamlet/ lucius/ julius/
-globFile :: String -> String -> FilePath
-globFile kind x = kind ++ "/" ++ x ++ "." ++ kind
-
-hamletFile :: FilePath -> Q Exp
-hamletFile = S.hamletFile . globFile "hamlet"
-
-cassiusFile :: FilePath -> Q Exp
-cassiusFile = 
-#ifdef PRODUCTION
-  S.cassiusFile . globFile "cassius"
+widgetFile :: String -> Q Exp
+#if PRODUCTION
+widgetFile = Yesod.Default.Util.widgetFileProduction
 #else
-  S.cassiusFileDebug . globFile "cassius"
+widgetFile = Yesod.Default.Util.widgetFileDebug
 #endif
-
-luciusFile :: FilePath -> Q Exp
-luciusFile = 
-#ifdef PRODUCTION
-  S.luciusFile . globFile "lucius"
-#else
-  S.luciusFileDebug . globFile "lucius"
-#endif
-
-juliusFile :: FilePath -> Q Exp
-juliusFile =
-#ifdef PRODUCTION
-  S.juliusFile . globFile "julius"
-#else
-  S.juliusFileDebug . globFile "julius"
-#endif
-
-textFile :: FilePath -> Q Exp
-textFile =
-#ifdef PRODUCTION
-  S.textFile . globFile "text"
-#else
-  S.textFileDebug . globFile "text"
-#endif
-
-widgetFile :: FilePath -> Q Exp
-widgetFile x = do
-    let h = whenExists (globFile "hamlet")  (whamletFile . globFile "hamlet")
-    let c = whenExists (globFile "cassius") cassiusFile
-    let j = whenExists (globFile "julius")  juliusFile
-    let l = whenExists (globFile "lucius")  luciusFile
-    [|addWidget $h >> addCassius $c >> addJulius $j >> addLucius $l|]
-  where
-    whenExists tofn f = do
-        e <- qRunIO $ doesFileExist $ tofn x
-        if e then f x else [|mempty|]

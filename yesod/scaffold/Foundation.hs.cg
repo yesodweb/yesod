@@ -28,11 +28,12 @@ import Yesod.Logger (Logger, logLazyText)
 import qualified Settings
 import qualified Data.ByteString.Lazy as L
 import Database.Persist.~importGenericDB~
-import Settings (hamletFile, cassiusFile, luciusFile, juliusFile, widgetFile)
+import Settings (widgetFile)
 import Model
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 import Web.ClientSession (getKey)
+import Text.Hamlet (hamletFile)
 #if PRODUCTION
 import Network.Mail.Mime (sendmail)
 #endif
@@ -82,11 +83,17 @@ instance Yesod ~sitearg~ where
 
     defaultLayout widget = do
         mmsg <- getMessage
+
+        -- We break up the default layout into two components:
+        -- default-layout is the contents of the body tag, and
+        -- default-layout-wrapper is the entire page. Since the final
+        -- value passed to hamletToRepHtml cannot be a widget, this allows
+        -- you to use normal widget features in default-layout.
+
         pc <- widgetToPageContent $ do
-            widget
-            toWidget $(luciusFile "normalize")
-            toWidget $(luciusFile "default-layout")
-        hamletToRepHtml $(hamletFile "default-layout")
+            $(widgetFile "normalize")
+            $(widgetFile "default-layout")
+        hamletToRepHtml $(hamletFile "hamlet/default-layout-wrapper.hamlet")
 
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticRoot setting in Settings.hs
