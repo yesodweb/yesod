@@ -14,6 +14,16 @@ stability:       Stable
 cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
+extra-source-files:
+  test/en.msg
+  test/Test/NoOverloadedStrings.hs
+  test/Test/Media.hs
+  test/Test/Exceptions.hs
+  test/Test/Widget.hs
+  test/Test/CleanPath.hs
+  test/Test/Links.hs
+  test/Test/InternalRequest.hs
+  test/main.hs
 
 flag test
   description: Build the executable to run unit tests
