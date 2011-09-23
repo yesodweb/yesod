@@ -22,7 +22,6 @@ import Yesod.Static (Static, base64md5, StaticRoute(..))
 import Settings.StaticFiles
 import Yesod.Auth
 import Yesod.Auth.OpenId
-import Yesod.Auth.Email
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Logger (Logger, logLazyText)
@@ -31,15 +30,12 @@ import qualified Data.ByteString.Lazy as L
 import Database.Persist.~importGenericDB~
 import Settings (hamletFile, cassiusFile, luciusFile, juliusFile, widgetFile)
 import Model
-import Data.Maybe (isJust)
-import Control.Monad (join)
-import Network.Mail.Mime
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 import Web.ClientSession (getKey)
-import Text.Blaze.Renderer.Utf8 (renderHtml)
-import Text.Hamlet (shamlet)
-import Text.Shakespeare.Text (stext)
+#if PRODUCTION
+import Network.Mail.Mime (sendmail)
+#endif
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -131,9 +127,8 @@ instance YesodAuth ~sitearg~ where
             Nothing -> do
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
-    authPlugins = [ authOpenId
-                  , authEmail
-                  ]
+    -- You can add other plugins like BrowserID, email or OAuth here
+    authPlugins = [authOpenId]
 
 -- Sends off your mail. Requires sendmail in production!
 deliver :: ~sitearg~ -> L.ByteString -> IO ()
@@ -143,76 +138,7 @@ deliver _ = sendmail
 deliver y = logLazyText (getLogger y) . Data.Text.Lazy.Encoding.decodeUtf8
 #endif
 
-instance YesodAuthEmail ~sitearg~ where
-    type AuthEmailId ~sitearg~ = EmailId
-
-    addUnverified email verkey =
-        runDB $ insert $ Email email Nothing $ Just verkey
-
-    sendVerifyEmail email _ verurl = do
-        y <- getYesod
-        liftIO $ deliver y =<< renderMail' Mail
-            {
-              mailHeaders =
-                [ ("From", "noreply")
-                , ("To", email)
-                , ("Subject", "Verify your email address")
-                ]
-            , mailParts = [[textPart, htmlPart]]
-            }
-      where
-        textPart = Part
-            { partType = "text/plain; charset=utf-8"
-            , partEncoding = None
-            , partFilename = Nothing
-            , partContent = Data.Text.Lazy.Encoding.encodeUtf8 [stext|
-Please confirm your email address by clicking on the link below.
-
-\#{verurl}
-
-Thank you
-|]
-            , partHeaders = []
-            }
-        htmlPart = Part
-            { partType = "text/html; charset=utf-8"
-            , partEncoding = None
-            , partFilename = Nothing
-            , partContent = renderHtml [~qq~shamlet|
-<p>Please confirm your email address by clicking on the link below.
-<p>
-    <a href=#{verurl}>#{verurl}
-<p>Thank you
-|]
-            , partHeaders = []
-            }
-    getVerifyKey = runDB . fmap (join . fmap emailVerkey) . get
-    setVerifyKey eid key = runDB $ update eid [EmailVerkey =. Just key]
-    verifyAccount eid = runDB $ do
-        me <- get eid
-        case me of
-            Nothing -> return Nothing
-            Just e -> do
-                let email = emailEmail e
-                case emailUser e of
-                    Just uid -> return $ Just uid
-                    Nothing -> do
-                        uid <- insert $ User email Nothing
-                        update eid [EmailUser =. Just uid, EmailVerkey =. Nothing]
-                        return $ Just uid
-    getPassword = runDB . fmap (join . fmap userPassword) . get
-    setPassword uid pass = runDB $ update uid [UserPassword =. Just pass]
-    getEmailCreds email = runDB $ do
-        me <- getBy $ UniqueEmail email
-        case me of
-            Nothing -> return Nothing
-            Just (eid, e) -> return $ Just EmailCreds
-                { emailCredsId = eid
-                , emailCredsAuthId = emailUser e
-                , emailCredsStatus = isJust $ emailUser e
-                , emailCredsVerkey = emailVerkey e
-                }
-    getEmail = runDB . fmap (fmap emailEmail) . get
-
+-- This instance is required to use forms. You can modify renderMessage to
+-- achieve customized and internationalized form validation messages.
 instance RenderMessage ~sitearg~ FormMessage where
     renderMessage _ _ = defaultFormMessage
