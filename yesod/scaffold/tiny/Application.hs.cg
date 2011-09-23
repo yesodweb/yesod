@@ -13,6 +13,7 @@ import Settings
 import Yesod.Static
 import Yesod.Default.Config
 import Yesod.Default.Main (defaultDevelApp)
+import Yesod.Default.Util (runWaiApp)
 import Yesod.Logger (Logger)
 import Data.ByteString (ByteString)
 import Network.Wai (Application)
@@ -38,7 +39,7 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig DefaultEnv -> Logger -> (Application -> IO a) -> IO a
+with~sitearg~ :: AppConfig DefaultEnv -> Logger -> (Application -> IO ()) -> IO ()
 with~sitearg~ conf logger f = do
 #ifdef PRODUCTION
     s <- static Settings.staticDir
@@ -46,7 +47,8 @@ with~sitearg~ conf logger f = do
     s <- staticDevel Settings.staticDir
 #endif
     let h = ~sitearg~ conf logger s
-    toWaiApp h >>= f
+    app <- toWaiApp h
+    runWaiApp f app
 
 -- for yesod devel
 withDevelAppPort :: Dynamic

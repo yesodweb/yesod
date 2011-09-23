@@ -1,11 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 -- | Various utilities used in the scaffolded site.
 module Yesod.Default.Util
     ( addStaticContentExternal
     , globFile
     , widgetFileProduction
     , widgetFileDebug
+    , runWaiApp
     ) where
 
 import Control.Monad.IO.Class (liftIO)
@@ -19,6 +21,13 @@ import Text.Lucius (luciusFile, luciusFileDebug)
 import Text.Julius (juliusFile, juliusFileDebug)
 import Text.Cassius (cassiusFile, cassiusFileDebug)
 import Data.Monoid (mempty)
+import Network.Wai (Application)
+
+#ifndef WINDOWS
+import qualified System.Posix.Signals as Signal
+import Control.Concurrent (forkIO, killThread)
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+#endif
 
 -- | An implementation of 'addStaticContent' which stores the contents in an
 -- external file. Files are created in the given static folder with names based
@@ -76,3 +85,21 @@ whenExists x glob f = do
     let fn = globFile glob x
     e <- qRunIO $ doesFileExist fn
     if e then f fn else [|mempty|]
+
+-- | A signal-aware runner for WAI applications. On Windows, this doesn't do
+-- anything special. On POSIX systems, this installs a signal handler for INT
+-- and automatically kills the application when the signal is received. This
+-- allows you to add cleanup code (like log flushing) after an application
+-- exits.
+runWaiApp :: (Application -> IO ()) -> Application -> IO ()
+#ifdef WINDOWS
+runWaiApp f app = f app
+#else
+runWaiApp f app = do
+    tid <- forkIO $ f app >> return ()
+    flag <- newEmptyMVar
+    _ <- Signal.installHandler Signal.sigINT (Signal.CatchOnce $ do
+        killThread tid
+        putMVar flag ()) Nothing
+    takeMVar flag
+#endif
