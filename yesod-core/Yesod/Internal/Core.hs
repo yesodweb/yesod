@@ -570,7 +570,7 @@ $maybe eyn <- yepnopeJs master
     $maybe complete <- mcomplete
         <script>yepnope({load:#{ynscripts},complete:function(){^{complete}}})
     $nothing
-        <script>yepnope({load:#{ynscripts})
+        <script>yepnope({load:#{ynscripts}})
 |]
     return $ PageContent title head'' bodyYN
 
