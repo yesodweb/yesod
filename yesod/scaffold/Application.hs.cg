@@ -14,7 +14,6 @@ import Yesod.Static
 import Yesod.Auth
 import Yesod.Default.Config
 import Yesod.Default.Main
-import Yesod.Default.Util (runWaiApp)
 import Yesod.Logger (Logger)
 import Database.Persist.~importGenericDB~
 import Data.ByteString (ByteString)
@@ -49,8 +48,7 @@ with~sitearg~ conf logger f = do
 #endif
     Settings.withConnectionPool conf $ \p -> do~runMigration~
         let h = ~sitearg~ conf logger s p
-        app <- toWaiApp h
-        runWaiApp f app
+        defaultRunner f h
 
 -- for yesod devel
 withDevelAppPort :: Dynamic
