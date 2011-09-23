@@ -148,6 +148,8 @@ scaffold = do
         $(codegen "lucius/default-layout.lucius")
     writeFile' "hamlet/default-layout.hamlet"
         $(codegen "hamlet/default-layout.hamlet")
+    writeFile' "hamlet/default-layout-wrapper.hamlet"
+        $(codegen "hamlet/default-layout-wrapper.hamlet")
     writeFile' "hamlet/boilerplate-layout.hamlet"
         $(codegen "hamlet/boilerplate-layout.hamlet")
     writeFile' "lucius/normalize.lucius"

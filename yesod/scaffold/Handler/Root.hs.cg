@@ -15,4 +15,4 @@ getRootR = do
     defaultLayout $ do
         h2id <- lift newIdent
         setTitle "~project~ homepage"
-        addWidget $(widgetFile "homepage")
+        $(widgetFile "homepage")

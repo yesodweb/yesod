@@ -1,0 +1,8 @@
+!!!
+<html>
+    <head
+        <title>#{pageTitle pc}
+        ^{pageHead pc}
+    <body
+        ^{pageBody pc}
+
