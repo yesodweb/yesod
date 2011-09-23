@@ -28,6 +28,11 @@ library
                    , shakespeare-js    >= 0.10     && < 0.11
                    , template-haskell
 
+    if os(windows)
+        cpp-options: -DWINDOWS
+    else
+        build-depends: unix
+
     exposed-modules: Yesod.Default.Config
                    , Yesod.Default.Main
                    , Yesod.Default.Util

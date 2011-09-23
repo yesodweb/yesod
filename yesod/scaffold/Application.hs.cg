@@ -10,20 +10,15 @@ module Application
 
 import Foundation
 import Settings
-import Settings.StaticFiles (static)
+import Yesod.Static
 import Yesod.Auth
 import Yesod.Default.Config
 import Yesod.Default.Main
+import Yesod.Default.Util (runWaiApp)
 import Yesod.Logger (Logger)
 import Database.Persist.~importGenericDB~
 import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
-
-#ifndef WINDOWS
-import qualified System.Posix.Signals as Signal
-import Control.Concurrent (forkIO, killThread)
-import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
-#endif
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -45,22 +40,17 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig DefaultEnv -> Logger -> (Application -> IO a) -> IO ()
+with~sitearg~ :: AppConfig DefaultEnv -> Logger -> (Application -> IO ()) -> IO ()
 with~sitearg~ conf logger f = do
+#ifdef PRODUCTION
     s <- static Settings.staticDir
+#else
+    s <- staticDevel Settings.staticDir
+#endif
     Settings.withConnectionPool conf $ \p -> do~runMigration~
         let h = ~sitearg~ conf logger s p
-#ifdef WINDOWS
-        toWaiApp h >>= f >> return ()
-#else
-        tid <- forkIO $ toWaiApp h >>= f >> return ()
-        flag <- newEmptyMVar
-        _ <- Signal.installHandler Signal.sigINT (Signal.CatchOnce $ do
-            putStrLn "Caught an interrupt"
-            killThread tid
-            putMVar flag ()) Nothing
-        takeMVar flag
-#endif
+        app <- toWaiApp h
+        runWaiApp f app
 
 -- for yesod devel
 withDevelAppPort :: Dynamic
