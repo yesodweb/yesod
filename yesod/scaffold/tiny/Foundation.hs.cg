@@ -97,3 +97,6 @@ instance Yesod ~sitearg~ where
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
     addStaticContent = addStaticContentExternal (const $ Left ()) base64md5 Settings.staticDir (StaticR . flip StaticRoute [])
+
+    -- Enable Javascript async loading
+    yepnopeJs _ = Just $ Right $ StaticR js_modernizr_js

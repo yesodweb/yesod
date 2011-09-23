@@ -1,4 +1,2 @@
-window.onload = function(){
-    document.getElementById("#{h2id}").innerHTML = "<i>Added from JavaScript.</i>";
-}
+document.getElementById("#{h2id}").innerHTML = "<i>Added from JavaScript.</i>";
 

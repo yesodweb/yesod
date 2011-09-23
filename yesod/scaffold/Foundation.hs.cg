@@ -30,12 +30,13 @@ import qualified Data.ByteString.Lazy as L
 import Database.Persist.~importGenericDB~
 import Settings (widgetFile)
 import Model
-import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 import Web.ClientSession (getKey)
 import Text.Hamlet (hamletFile)
 #if PRODUCTION
 import Network.Mail.Mime (sendmail)
+#else
+import qualified Data.Text.Lazy.Encoding
 #endif
 
 -- | The site argument for your application. This can be a good place to
@@ -112,6 +113,9 @@ instance Yesod ~sitearg~ where
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
     addStaticContent = addStaticContentExternal minifym base64md5 Settings.staticDir (StaticR . flip StaticRoute [])
+
+    -- Enable Javascript async loading
+    yepnopeJs _ = Just $ Right $ StaticR js_modernizr_js
 
 -- How to run database actions.
 instance YesodPersist ~sitearg~ where
