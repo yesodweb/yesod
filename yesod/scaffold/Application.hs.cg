@@ -15,9 +15,9 @@ import Yesod.Auth
 import Yesod.Default.Config
 import Yesod.Default.Main
 import Yesod.Logger (Logger)
-import Database.Persist.~importGenericDB~
 import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
+import qualified Database.Persist.Base~importMigration~
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -46,7 +46,9 @@ with~sitearg~ conf logger f = do
 #else
     s <- staticDevel Settings.staticDir
 #endif
-    Settings.withConnectionPool conf $ \p -> do~runMigration~
+    dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
+            $ either error return . Database.Persist.Base.loadConfig
+    Database.Persist.Base.withPool (dbconf :: Settings.PersistConfig) $ \p -> do~runMigration~
         let h = ~sitearg~ conf logger s p
         defaultRunner f h
 
