@@ -8,20 +8,20 @@
 -- declared in the Foundation.hs file.
 module Settings
     ( widgetFile
-    , ConnectionPool
-    , withConnectionPool
-    , runConnectionPool
+    , PersistConfig
     , staticRoot
     , staticDir
     ) where
 
 import Text.Shakespeare.Text (st)
 import Language.Haskell.TH.Syntax
-import Database.Persist.~importPersist~
-import Yesod (liftIO, MonadControlIO)
+import Database.Persist.~importPersist~ (~configPersist~)
 import Yesod.Default.Config
 import qualified Yesod.Default.Util
 import Data.Text (Text)
+
+-- | Which Persistent backend this site is using.
+type PersistConfig = ~configPersist~
 
 -- Static setting below. Changing these requires a recompile
 
@@ -49,12 +49,6 @@ staticRoot conf = [st|#{appRoot conf}/static|]
 
 -- The rest of this file contains settings which rarely need changing by a
 -- user.
-
--- The next functions are for allocating a connection pool and running
--- database actions using a pool, respectively. They are used internally
--- by the scaffolded application, and therefore you will rarely need to use
--- them yourself.
-~withConnectionPool~
 
 widgetFile :: String -> Q Exp
 #if PRODUCTION

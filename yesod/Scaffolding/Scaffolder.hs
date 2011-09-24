@@ -66,9 +66,9 @@ scaffold = do
     backendC <- prompt $ flip elem $ map (return . toLower . head . show) backends
     let (backend, importGenericDB, dbMonad, importPersist, mkPersistSettings) =
             case backendC of
-                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite\n", "sqlSettings")
-                "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql\n", "sqlSettings")
-                "m" -> (MongoDB,    "MongoDB", "Action", "MongoDB\nimport Control.Applicative (Applicative)\n", "MkPersistSettings { mpsBackend = ConT ''Action }")
+                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite", "sqlSettings")
+                "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql", "sqlSettings")
+                "m" -> (MongoDB,    "MongoDB", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
                 "t" -> (Tiny, "","","",undefined)
                 _ -> error $ "Invalid backend: " ++ backendC
         (modelImports) = case backend of
@@ -84,7 +84,26 @@ scaffold = do
     let runMigration  =
           case backend of
             MongoDB -> ""
-            _ -> "\n        runConnectionPool (runMigration migrateAll) p"
+            _ -> "\n        Database.Persist.Base.runPool dbconf (runMigration migrateAll) p"
+
+    let importMigration =
+          case backend of
+            MongoDB -> ""
+            _ -> "\nimport Database.Persist.GenericSql (runMigration)"
+
+    let dbConfigFile =
+          case backend of
+            MongoDB -> "mongoDB"
+            Sqlite -> "sqlite"
+            Postgresql -> "postgres"
+            Tiny -> error "Accessing dbConfigFile for Tiny"
+
+    let configPersist =
+          case backend of
+            MongoDB -> "MongoConf"
+            Sqlite -> "SqliteConf"
+            Postgresql -> "PostgresConf"
+            Tiny -> error "Accessing configPersist for Tiny"
 
     putStrLn "That's it! I'm creating your files now..."
 

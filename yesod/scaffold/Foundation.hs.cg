@@ -27,6 +27,7 @@ import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Logger (Logger, logLazyText)
 import qualified Settings
 import qualified Data.ByteString.Lazy as L
+import qualified Database.Persist.Base
 import Database.Persist.~importGenericDB~
 import Settings (widgetFile)
 import Model
@@ -47,7 +48,7 @@ data ~sitearg~ = ~sitearg~
     { settings :: AppConfig DefaultEnv
     , getLogger :: Logger
     , getStatic :: Static -- ^ Settings for static file serving.
-    , connPool :: Settings.ConnectionPool -- ^ Database connection pool.
+    , connPool :: Database.Persist.Base.PersistConfigPool Settings.PersistConfig -- ^ Database connection pool.
     }
 
 -- Set up i18n messages. See the message folder.
@@ -121,7 +122,7 @@ instance Yesod ~sitearg~ where
 instance YesodPersist ~sitearg~ where
     type YesodPersistBackend ~sitearg~ = ~dbMonad~
     runDB f = liftIOHandler
-            $ fmap connPool getYesod >>= Settings.runConnectionPool f
+            $ fmap connPool getYesod >>= Database.Persist.Base.runPool (undefined :: Settings.PersistConfig) f
 
 instance YesodAuth ~sitearg~ where
     type AuthId ~sitearg~ = UserId
