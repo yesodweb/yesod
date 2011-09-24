@@ -10,6 +10,8 @@ import Data.Text (Text)
 data AuthMessage =
       NoOpenID
     | LoginOpenID
+    | LoginGoogle
+    | LoginYahoo
     | Email
     | Password
     | Register
@@ -37,6 +39,8 @@ data AuthMessage =
 defaultMessage :: AuthMessage -> Text
 defaultMessage NoOpenID = "No OpenID identifier found"
 defaultMessage LoginOpenID = "Login via OpenID"
+defaultMessage LoginGoogle = "Login via Google"
+defaultMessage LoginYahoo = "Login via Yahoo"
 defaultMessage Email = "Email"
 defaultMessage Password = "Password"
 defaultMessage Register = "Register"
