@@ -4,7 +4,12 @@ runghc main.hs init
 
 (
   cd foobar
-  cabal install
-  cabal install -fdevel
-  cabal install -fproduction
+  cabal configure || cabal install
+  cabal build
+  cabal clean
+  cabal configure -fdevel
+  cabal build
+  cabal clean
+  cabal configure -fproduction
+  cabal build
 )
