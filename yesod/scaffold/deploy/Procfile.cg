@@ -4,7 +4,7 @@
 #
 #   This could mean using a virtual machine. Give your VM as much memory as you can to speed up linking.
 #
-# Yesod setup:
+# Basic Yesod setup:
 #
 # * Move this file out of the deploy directory and into your root directory
 #
@@ -13,6 +13,8 @@
 # * Create an empty package.json
 #     echo '{ "name": "~project~", "version": "0.0.1", "dependencies": {} }' >> package.json
 # 
+# Postgresql Yesod setup:
+#
 # * add code to read DATABASE_URL environment variable.
 # 
 #   import System.Environment
@@ -21,6 +23,8 @@
 #     # parse env variable
 #     # pass settings to withConnectionPool instead of directly using loadConnStr
 #
+# * add a dependency on the "heroku" package in your cabal file
+#     
 # * add code in Settings.hs to turn that url into connection parameters. The below works for Postgresql.
 #
 #     #ifdef PRODUCTION
@@ -49,7 +53,7 @@
 # Repeat these steps to deploy:
 # * add your web executable binary (referenced below) to the git repository
 #
-#     git checkout deply
+#     git checkout deploy
 #     git add ./dist/build/~project~/~project~
 #     git commit -m deploy
 #
