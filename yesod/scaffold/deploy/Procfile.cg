@@ -1,4 +1,4 @@
-# Simple and free deployment to Heroku.
+# Free deployment to Heroku.
 #
 #   !! Warning: You must use a 64 bit machine to compile !!
 #
@@ -10,17 +10,30 @@
 #
 #     mv deploy/Procfile ./
 #
-# * Create an empty Gemfile and Gemfile.lock
-#
-#    touch Gemfile && touch Gemfile.lock
-#
-# * TODO: code to read DATABASE_URL environment variable.
+# * Create an empty package.json
+#     echo '{ "name": "~project~", "version": "0.0.1", "dependencies": {} }' >> package.json
+# 
+# * add code to read DATABASE_URL environment variable.
 # 
 #   import System.Environment
 #   main = do
 #     durl <- getEnv "DATABASE_URL"
 #     # parse env variable
 #     # pass settings to withConnectionPool instead of directly using loadConnStr
+#
+# * add code in Settings.hs to turn that url into connection parameters. The below works for Postgresql.
+#
+#     #ifdef PRODUCTION
+#     import qualified Web.Heroku
+#     #endif
+#
+#     dbConnParams :: AppEnvironment -> IO [(Text, Text)]
+#     #ifdef PRODUCTION
+#     dbConnParams _ = Web.Heroku.dbConnParams
+#     #else
+#     dbConnParams env = do
+#       ...
+#
 #
 # Heroku setup:
 # Find the Heroku guide. Roughly:
@@ -36,7 +49,9 @@
 # Repeat these steps to deploy:
 # * add your web executable binary (referenced below) to the git repository
 #
+#     git checkout deply
 #     git add ./dist/build/~project~/~project~
+#     git commit -m deploy
 #
 # * push to Heroku
 #
