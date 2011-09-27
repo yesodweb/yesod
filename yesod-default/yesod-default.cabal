@@ -37,6 +37,7 @@ library
     exposed-modules: Yesod.Default.Config
                    , Yesod.Default.Main
                    , Yesod.Default.Util
+                   , Yesod.Default.Handlers
 
     ghc-options:     -Wall
 
