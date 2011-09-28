@@ -35,7 +35,14 @@ bcToDispatch (ByCount vec rest) sub mkey ts master toMaster =
     rhs = fromMaybe rest $ vec V.!? len
 
     go [] = Nothing
-    go (x:xs) = maybe (go xs) Just $ rhHandler x sub mkey ts master toMaster
+    go (x:xs) = maybe (go xs) Just $ if checkStatics ts (rhPieces x) (rhHasMulti x) then rhHandler x sub mkey ts master toMaster else Nothing
+
+    checkStatics [] [] _ = True
+    checkStatics [] _ _ = False
+    checkStatics _ [] isMulti = isMulti
+    checkStatics (_:paths) (SinglePiece:pieces) isMulti = checkStatics paths pieces isMulti
+    checkStatics (path:paths) (StaticPiece piece:pieces) isMulti =
+        path == piece && checkStatics paths pieces isMulti
 
 data ByCount sub master res = ByCount
     { bcVector :: !(V.Vector [RouteHandler sub master res])
