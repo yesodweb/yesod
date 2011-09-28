@@ -57,6 +57,10 @@ extra-source-files:
 
 flag ghc7
 
+flag threaded
+    default: True
+    description: Build with support for multithreaded execution
+
 library
     if flag(ghc7)
         build-depends:   base                  >= 4.3      && < 5
@@ -103,7 +107,9 @@ executable             yesod
                      , blaze-builder      >= 0.2          && < 0.4
                      , filepath           >= 1.1          && < 1.3
                      , process
-    ghc-options:       -Wall -threaded
+    ghc-options:       -Wall
+    if flag(threaded)
+        ghc-options:    -threaded
     main-is:           main.hs
     other-modules:     Scaffolding.CodeGen
                        Scaffolding.Scaffolder
