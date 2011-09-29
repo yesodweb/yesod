@@ -30,7 +30,7 @@ for repo in hamlet persistent wai yesod; do
   (
     cd $repo
     git submodule update --init
-    ./script/install
+    ./scripts/install
   )
 done
 ~~~
