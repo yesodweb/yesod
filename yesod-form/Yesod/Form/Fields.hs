@@ -486,7 +486,6 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
 
 fileAFormOpt :: (RenderMessage master msg, RenderMessage master FormMessage) => FieldSettings msg -> AForm sub master (Maybe FileInfo)
 fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
-    liftIO $ print menvs
     let (name, ints') =
             case fsName fs of
                 Just x -> (x, ints)
