@@ -68,7 +68,6 @@ import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 
 import Control.Applicative ((<$>))
