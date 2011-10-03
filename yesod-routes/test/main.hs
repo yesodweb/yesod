@@ -2,7 +2,7 @@
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 import Test.HUnit ((@?=))
-import Data.Text (Text)
+import Data.Text (Text, unpack)
 import Yesod.Routes
 
 data Dummy = Dummy
@@ -27,6 +27,18 @@ multi = toDispatch
     , RouteHandler [StaticPiece "bar"] True $ result $ const $ Just 5
     ]
 
+dynamic :: Dispatch Dummy Dummy Int
+dynamic = toDispatch
+    [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 6
+    , RouteHandler [SinglePiece] False $ result $ \ts ->
+        case ts of
+            [t] ->
+                case reads $ unpack t of
+                    [] -> Nothing
+                    (i, _):_ -> Just i
+            _ -> error $ "Called dynamic with: " ++ show ts
+    ]
+
 test :: Dispatch Dummy Dummy Int -> [Text] -> Maybe Int
 test dispatch ts = dispatch Dummy Nothing ts Dummy id
 
@@ -46,3 +58,10 @@ main = hspecX $ do
         it "dispatches correctly to bar/baz" $ test multi ["bar", "baz"] @?= Just 5
         it "fails correctly (1)" $ test multi [] @?= Nothing
         it "fails correctly (2)" $ test multi ["foo", "baz"] @?= Nothing
+    describe "dynamic" $ do
+        it "dispatches correctly to foo" $ test dynamic ["foo"] @?= Just 6
+        it "dispatches correctly to 7" $ test dynamic ["7"] @?= Just 7
+        it "dispatches correctly to 42" $ test dynamic ["42"] @?= Just 42
+        it "fails correctly on five" $ test dynamic ["five"] @?= Nothing
+        it "fails correctly on too many" $ test dynamic ["foo", "baz"] @?= Nothing
+        it "fails correctly on too few" $ test dynamic [] @?= Nothing

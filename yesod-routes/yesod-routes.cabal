@@ -31,7 +31,7 @@ test-suite runtests
                  , yesod-routes
                  , text                      >= 0.5      && < 0.12
                  , HUnit                     >= 1.2      && < 1.3
-                 , hspec                     >= 0.6      && < 0.9
+                 , hspec                     >= 0.6      && < 0.10
     ghc-options:     -Wall
 
 source-repository head
