@@ -10,6 +10,7 @@ import Web.ClientSession (Key)
 import Yesod.Core (Route)
 import qualified Data.Vector as V
 import Data.Maybe (fromMaybe)
+import qualified Data.Map as Map
 
 data Piece = StaticPiece Text | SinglePiece
 
@@ -43,6 +44,14 @@ bcToDispatch (ByCount vec rest) sub mkey ts master toMaster =
     checkStatics (_:paths) (SinglePiece:pieces) isMulti = checkStatics paths pieces isMulti
     checkStatics (path:paths) (StaticPiece piece:pieces) isMulti =
         path == piece && checkStatics paths pieces isMulti
+
+data PieceMap sub master res = PieceMap
+    { pmHandlers :: Either (PieceMap sub master res) [(Int, RouteHandler sub master res)]
+    , pmStatic :: Map.Map Text (PieceMap sub master res)
+    }
+
+toPieceMap :: [RouteHandler sub master res] -> PieceMap sub master res
+toPieceMap = undefined
 
 data ByCount sub master res = ByCount
     { bcVector :: !(V.Vector [RouteHandler sub master res])
