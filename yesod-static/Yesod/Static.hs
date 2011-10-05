@@ -65,6 +65,9 @@ import qualified Data.ByteString as S
 import Network.HTTP.Types (status301)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
+import qualified Data.Enumerator as E
+import qualified Data.Enumerator.List as EL
+import qualified Data.Enumerator.Binary as EB
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -271,22 +274,35 @@ mkStaticFilesList fp fs routeConName makeHash = do
                 ]
             ]
 
+-- don't use L.readFile here, since it doesn't close handles quickly enough if
+-- there are lots of files in the static folder, it will cause exhausted file
+-- descriptors
 base64md5File :: Prelude.FilePath -> IO String
 base64md5File file = do
-  contents <- L.readFile file
-  return $ base64md5 contents
+    bss <- E.run_ $ EB.enumFile file E.$$ EL.consume
+    return $ base64md5 $ L.fromChunks bss
+    -- FIXME I'd like something streaming instead
+    {-
+    fmap (base64 . finalize) $ E.run_ $
+    EB.enumFile file E.$$ EL.fold go (md5InitialContext, "")
+  where
+    go (context, prev) next = (md5Update context prev, next)
+    finalize (context, end) = md5Finalize context end
+    -}
 
 -- | md5-hashes the given lazy bytestring and returns the hash as
 -- base64url-encoded string.
 --
 -- This function returns the first 8 characters of the hash.
 base64md5 :: L.ByteString -> String
-base64md5 = map tr
-          . take 8
-          . S8.unpack
-          . Data.ByteString.Base64.encode
-          . Data.Serialize.encode
-          . md5
+base64md5 = base64 . md5
+
+base64 :: MD5Digest -> String
+base64 = map tr
+       . take 8
+       . S8.unpack
+       . Data.ByteString.Base64.encode
+       . Data.Serialize.encode
   where
     tr '+' = '-'
     tr '/' = '_'

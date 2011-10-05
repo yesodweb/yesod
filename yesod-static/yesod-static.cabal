@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         0.3.1
+version:         0.3.1.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -36,6 +36,7 @@ library
                    , file-embed                >= 0.0.4.1  && < 0.5
                    , http-types                >= 0.6.5    && < 0.7
                    , unix-compat               >= 0.2      && < 0.3
+                   , enumerator                >= 0.4.14   && < 0.5
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
 
