@@ -20,14 +20,20 @@ mkYesod "BID" [parseRoutes|
 /auth AuthR Auth getAuth
 |]
 
-getRootR :: Handler ()
-getRootR = redirect RedirectTemporary $ AuthR LoginR
+getRootR :: Handler RepHtml
+getRootR = getAfterLoginR
 
 getAfterLoginR :: Handler RepHtml
 getAfterLoginR = do
     mauth <- maybeAuthId
     defaultLayout $ addHamlet [hamlet|
 <p>Auth: #{show mauth}
+$maybe _ <- mauth
+    <p>
+        <a href=@{AuthR LogoutR}>Logout
+$nothing
+    <p>
+        <a href=@{AuthR LoginR}>Login
 |]
 
 instance Yesod BID where
