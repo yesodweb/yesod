@@ -96,6 +96,11 @@ class (Yesod m, SinglePiece (AuthId m), RenderMessage m FormMessage) => YesodAut
                       -> AuthMessage -> Text
     renderAuthMessage _ _ = defaultMessage
 
+    -- | After login and logout, redirect to the referring page, instead of
+    -- 'loginDest' and 'logoutDest'. Default is 'False'.
+    redirectToReferer :: m -> Bool
+    redirectToReferer _ = False
+
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
@@ -149,11 +154,16 @@ $nothing
             [ (T.pack "logged_in", Bool $ maybe False (const True) creds)
             ]
 
+setUltDestReferer' :: YesodAuth master => GHandler sub master ()
+setUltDestReferer' = do
+    m <- getYesod
+    when (redirectToReferer m) setUltDestReferer
+
 getLoginR :: YesodAuth m => GHandler Auth m RepHtml
-getLoginR = setUltDestReferer >> loginHandler
+getLoginR = setUltDestReferer' >> loginHandler
 
 getLogoutR :: YesodAuth m => GHandler Auth m ()
-getLogoutR = setUltDestReferer >> postLogoutR -- FIXME redirect to post
+getLogoutR = setUltDestReferer' >> postLogoutR -- FIXME redirect to post
 
 postLogoutR :: YesodAuth m => GHandler Auth m ()
 postLogoutR = do
