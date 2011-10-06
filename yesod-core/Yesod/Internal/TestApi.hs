@@ -11,7 +11,7 @@ module Yesod.Internal.TestApi
 
 import Yesod.Internal.Request (randomString, parseWaiRequest')
 import Control.Exception (Exception, catch)
-import Data.Enumerator (Iteratee (..))
+import Data.Enumerator (Iteratee (..), Step (..))
 import Data.ByteString (ByteString)
 import Prelude hiding (catch)
 
@@ -19,4 +19,9 @@ catchIter :: Exception e
           => Iteratee ByteString IO a
           -> (e -> Iteratee ByteString IO a)
           -> Iteratee ByteString IO a
-catchIter (Iteratee mstep) f = Iteratee $ mstep `catch` (runIteratee . f)
+catchIter (Iteratee mstep) f = Iteratee $ do
+    step <- mstep `catch` (runIteratee . f)
+    return $ case step of
+        Continue k -> Continue $ \s -> catchIter (k s) f
+        Yield b s -> Yield b s
+        Error e -> Error e

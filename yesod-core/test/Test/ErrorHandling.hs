@@ -100,7 +100,7 @@ caseAfter = runner $ do
         , simpleRequestBody = content
         }
     assertStatus 500 res
-    assertBodyContains "There was an error 2.71828" res
+    assertBodyContains "bin12345" res
 
 caseCatchIter :: IO ()
 caseCatchIter = E.run_ $ E.enumList 8 (replicate 1000 "foo") E.$$ flip catchIter ignorer $ do
