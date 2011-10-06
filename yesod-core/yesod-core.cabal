@@ -23,6 +23,7 @@ extra-source-files:
   test/Test/CleanPath.hs
   test/Test/Links.hs
   test/Test/InternalRequest.hs
+  test/Test/ErrorHandling.hs
   test/main.hs
 
 flag test
@@ -107,8 +108,8 @@ test-suite runtests
         build-depends:   base                      >= 4        && < 4.3
         main-is:         main.hs
     cpp-options:   -DTEST
-    build-depends: hspec >= 0.8 && < 0.9
-                  ,wai-test
+    build-depends: hspec >= 0.8 && < 0.10
+                  ,wai-test >= 0.1.2 && < 0.2
                   ,wai
                   ,yesod-core
                   ,bytestring
