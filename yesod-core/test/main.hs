@@ -7,6 +7,7 @@ import Test.Media
 import Test.Links
 import Test.NoOverloadedStrings
 import Test.InternalRequest
+import Test.ErrorHandling
 
 main :: IO ()
 main = hspecX $ descriptions $
@@ -17,4 +18,5 @@ main = hspecX $ descriptions $
     , linksTest
     , noOverloadedTest
     , internalRequestTest
+    , errorHandlingTest
     ]
