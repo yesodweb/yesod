@@ -119,7 +119,6 @@ import Yesod.Internal
 import Data.Time (UTCTime)
 
 import Control.Exception hiding (Handler, catch, finally)
-import qualified Control.Exception as E
 import Control.Applicative
 
 import Control.Monad (liftM, join, MonadPlus)

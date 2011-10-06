@@ -121,6 +121,7 @@ test-suite runtests
                   , random
                   ,HUnit
                   ,QuickCheck >= 2 && < 3
+                  , enumerator
     ghc-options:     -Wall
 
 source-repository head
