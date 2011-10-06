@@ -6,6 +6,17 @@
 --
 module Yesod.Internal.TestApi
   ( randomString, parseWaiRequest'
+  , catchIter
   ) where
 
 import Yesod.Internal.Request (randomString, parseWaiRequest')
+import Control.Exception (Exception, catch)
+import Data.Enumerator (Iteratee (..))
+import Data.ByteString (ByteString)
+import Prelude hiding (catch)
+
+catchIter :: Exception e
+          => Iteratee ByteString IO a
+          -> (e -> Iteratee ByteString IO a)
+          -> Iteratee ByteString IO a
+catchIter (Iteratee mstep) f = Iteratee $ mstep `catch` (runIteratee . f)

@@ -164,6 +164,7 @@ import Data.Text (Text)
 import Yesod.Message (RenderMessage (..))
 
 import Text.Blaze (toHtml, preEscapedText)
+import Yesod.Internal.TestApi (catchIter)
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -419,12 +420,6 @@ runHandler handler mrender sroute tomr ma sa =
                 emptyContent
                 finalSession
         HCWai r -> return $ YARWai r
-
-catchIter :: Exception e
-          => Iteratee ByteString IO a
-          -> (e -> Iteratee ByteString IO a)
-          -> Iteratee ByteString IO a
-catchIter (Iteratee mstep) f = Iteratee $ mstep `E.catch` (runIteratee . f)
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ session -> do
