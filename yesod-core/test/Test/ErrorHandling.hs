@@ -11,6 +11,10 @@ import Network.Wai.Test
 import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
+import Yesod.Internal.TestApi
+import qualified Data.Enumerator as E
+import qualified Data.Enumerator.List as EL
+import Control.Exception (SomeException)
 
 data App = App
 
@@ -57,6 +61,7 @@ errorHandlingTest = describe "Test.ErrorHandling"
     [ it "says not found" caseNotFound
     , it "says 'There was an error' before runRequestBody" caseBefore
     , it "says 'There was an error' after runRequestBody" caseAfter
+    , it "catchIter handles internal exceptions" caseCatchIter
     ]
 
 runner :: Session () -> IO ()
@@ -96,3 +101,11 @@ caseAfter = runner $ do
         }
     assertStatus 500 res
     assertBodyContains "There was an error 2.71828" res
+
+caseCatchIter :: IO ()
+caseCatchIter = E.run_ $ E.enumList 8 (replicate 1000 "foo") E.$$ flip catchIter ignorer $ do
+    _ <- EL.consume
+    error "foo"
+  where
+    ignorer :: SomeException -> E.Iteratee a IO ()
+    ignorer _ = return ()
