@@ -11,13 +11,18 @@ module Yesod.Routes.TH
       -- ** RenderRoute
     , mkRenderRouteClauses
     , mkRenderRouteInstance
+      -- ** Dispatch
+    , mkDispatchClause
     ) where
 
 import Language.Haskell.TH.Syntax
-import Yesod.Core (Route, RenderRoute (renderRoute), toSinglePiece, toMultiPiece)
+import Yesod.Core
+    ( Route, RenderRoute (renderRoute), toSinglePiece, toMultiPiece
+    )
 import Data.Maybe (maybeToList)
 import Control.Monad (replicateM)
 import Data.Text (pack)
+import qualified Yesod.Routes.Dispatch as D
 
 data Resource = Resource
     { resourceName :: String
@@ -115,3 +120,36 @@ mkRenderRouteInstance name ress = do
     return $ InstanceD [] (ConT ''RenderRoute `AppT` ConT (mkName name))
         [ FunD (mkName "renderRoute") cls
         ]
+
+mkDispatchClause :: [Resource] -> Q Clause
+mkDispatchClause ress = do
+    let routes = fmap ListE $ mapM toRoute ress
+    sub <- newName "sub"
+    mkey <- newName "mkey"
+    ts <- newName "ts"
+    master <- newName "master"
+    toMaster <- newName "toMaster"
+    let pats =
+            [ VarP sub
+            , VarP mkey
+            , VarP ts
+            , VarP master
+            , VarP toMaster
+            ]
+
+    dispatch <- newName "dispatch"
+    body <- [|D.toDispatch $(routes)|]
+    return $ Clause
+        pats
+        (NormalB $ VarE dispatch `AppE` VarE ts `AppE` TupE (map VarE [sub, mkey, master, toMaster]))
+        [FunD dispatch [Clause [] (NormalB body) []]]
+  where
+    toRoute :: Resource -> Q Exp
+    toRoute res = do
+        let ps = fmap ListE $ mapM toPiece $ resourcePieces res
+        let m = maybe [|False|] (const [|True|]) $ resourceMulti res
+        [|D.Route $(ps) $(m) undefined|]
+
+    toPiece :: Piece -> Q Exp
+    toPiece (Static s) = [|D.Static $ pack $(lift s)|]
+    toPiece Dynamic{} = [|D.Dynamic|]

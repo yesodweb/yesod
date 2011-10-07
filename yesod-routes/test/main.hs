@@ -69,9 +69,11 @@ do
             , Resource "SubsiteR" [Static "subsite"] Nothing $ Subsite (ConT ''MySub) "getMySub"
             ]
     rrinst <- mkRenderRouteInstance "MyAppRoute" ress
+    dispatch <- mkDispatchClause ress
     return
         [ mkRouteType "MyAppRoute" ress
         , rrinst
+        , FunD (mkName "thDispatch") [dispatch]
         ]
 
 main :: IO ()
@@ -109,3 +111,7 @@ main = hspecX $ do
         it "renders wiki correctly" $ YC.renderRoute (WikiR ["foo", "bar"]) @?= (["wiki", "foo", "bar"], [])
         it "renders subsite correctly" $ YC.renderRoute (SubsiteR $ MySubRoute (["foo", "bar"], [("baz", "bin")]))
             @?= (["subsite", "foo", "bar"], [("baz", "bin")])
+
+    describe "thDispatch" $ do
+        let disp x = thDispatch () () [] () ()
+        it "routes to root" $ disp [] @?= Just "this is the root"
