@@ -18,8 +18,10 @@ library
                    , vector                    >= 0.8      && < 0.10
                    , clientsession             >= 0.7      && < 0.8
                    , containers                >= 0.2      && < 0.5
+                   , template-haskell
 
     exposed-modules: Yesod.Routes.Dispatch
+                     Yesod.Routes.TH
     ghc-options:     -Wall
 
 test-suite runtests
@@ -32,6 +34,7 @@ test-suite runtests
                  , text                      >= 0.5      && < 0.12
                  , HUnit                     >= 1.2      && < 1.3
                  , hspec                     >= 0.6      && < 0.10
+                 , yesod-core                >= 0.9.3    && < 0.10
     ghc-options:     -Wall
 
 source-repository head
