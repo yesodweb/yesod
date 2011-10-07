@@ -3,7 +3,7 @@ import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 import Test.HUnit ((@?=))
 import Data.Text (Text, unpack)
-import Yesod.Routes
+import Yesod.Routes.Dispatch
 
 result :: ([Text] -> Maybe Int) -> Dispatch () Int
 result f ts () = f ts
