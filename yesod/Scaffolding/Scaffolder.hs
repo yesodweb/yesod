@@ -95,7 +95,7 @@ scaffold = do
           case backend of
             MongoDB -> "mongoDB"
             Sqlite -> "sqlite"
-            Postgresql -> "postgres"
+            Postgresql -> "postgresql"
             Tiny -> error "Accessing dbConfigFile for Tiny"
 
     let configPersist =
