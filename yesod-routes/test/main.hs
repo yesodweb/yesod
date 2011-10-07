@@ -1,9 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 import Test.HUnit ((@?=))
 import Data.Text (Text, unpack)
-import Yesod.Routes.Dispatch
+import Yesod.Routes.Dispatch hiding (Static, Dynamic)
+import qualified Yesod.Routes.Dispatch as D
+import Yesod.Routes.TH hiding (Dispatch)
+import qualified Yesod.Core as YC
+import Language.Haskell.TH.Syntax
 
 result :: ([Text] -> Maybe Int) -> Dispatch () Int
 result f ts () = f ts
@@ -15,20 +21,20 @@ justRoot = toDispatch
 
 twoStatics :: Dispatch () Int
 twoStatics = toDispatch
-    [ Route [Static "foo"] False $ result $ const $ Just 2
-    , Route [Static "bar"] False $ result $ const $ Just 3
+    [ Route [D.Static "foo"] False $ result $ const $ Just 2
+    , Route [D.Static "bar"] False $ result $ const $ Just 3
     ]
 
 multi :: Dispatch () Int
 multi = toDispatch
-    [ Route [Static "foo"] False $ result $ const $ Just 4
-    , Route [Static "bar"] True $ result $ const $ Just 5
+    [ Route [D.Static "foo"] False $ result $ const $ Just 4
+    , Route [D.Static "bar"] True $ result $ const $ Just 5
     ]
 
 dynamic :: Dispatch () Int
 dynamic = toDispatch
-    [ Route [Static "foo"] False $ result $ const $ Just 6
-    , Route [Dynamic] False $ result $ \ts ->
+    [ Route [D.Static "foo"] False $ result $ const $ Just 6
+    , Route [D.Dynamic] False $ result $ \ts ->
         case ts of
             [t] ->
                 case reads $ unpack t of
@@ -39,13 +45,34 @@ dynamic = toDispatch
 
 overlap :: Dispatch () Int
 overlap = toDispatch
-    [ Route [Static "foo"] False $ result $ const $ Just 20
-    , Route [Static "foo"] True $ result $ const $ Just 21
+    [ Route [D.Static "foo"] False $ result $ const $ Just 20
+    , Route [D.Static "foo"] True $ result $ const $ Just 21
     , Route [] True $ result $ const $ Just 22
     ]
 
 test :: Dispatch () Int -> [Text] -> Maybe Int
 test dispatch ts = dispatch ts ()
+
+data MySub = MySub
+data MySubRoute = MySubRoute ([Text], [(Text, Text)])
+    deriving (Show, Read, Eq)
+type instance YC.Route MySub = MySubRoute
+instance YC.RenderRoute MySubRoute where
+    renderRoute (MySubRoute x) = x
+
+do
+    texts <- [t|[Text]|]
+    let ress =
+            [ Resource "RootR" [] Nothing $ Methods ["GET"]
+            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] Nothing $ Methods ["GET"]
+            , Resource "WikiR" [Static "wiki"] (Just texts) AllMethods
+            , Resource "SubsiteR" [Static "subsite"] Nothing $ Subsite (ConT ''MySub) "getMySub"
+            ]
+    rrinst <- mkRenderRouteInstance "MyAppRoute" ress
+    return
+        [ mkRouteType "MyAppRoute" ress
+        , rrinst
+        ]
 
 main :: IO ()
 main = hspecX $ do
@@ -75,3 +102,10 @@ main = hspecX $ do
         it "dispatches correctly to foo/bar" $ test overlap ["foo", "bar"] @?= Just 21
         it "dispatches correctly to bar" $ test overlap ["bar"] @?= Just 22
         it "dispatches correctly to []" $ test overlap [] @?= Just 22
+
+    describe "RenderRoute instance" $ do
+        it "renders root correctly" $ YC.renderRoute RootR @?= ([], [])
+        it "renders blog post correctly" $ YC.renderRoute (BlogPostR "foo") @?= (["blog", "foo"], [])
+        it "renders wiki correctly" $ YC.renderRoute (WikiR ["foo", "bar"]) @?= (["wiki", "foo", "bar"], [])
+        it "renders subsite correctly" $ YC.renderRoute (SubsiteR $ MySubRoute (["foo", "bar"], [("baz", "bin")]))
+            @?= (["subsite", "foo", "bar"], [("baz", "bin")])
