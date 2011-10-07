@@ -19,7 +19,7 @@ library
                    , clientsession             >= 0.7      && < 0.8
                    , containers                >= 0.2      && < 0.5
 
-    exposed-modules: Yesod.Routes
+    exposed-modules: Yesod.Routes.Dispatch
     ghc-options:     -Wall
 
 test-suite runtests
