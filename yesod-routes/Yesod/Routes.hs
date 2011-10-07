@@ -1,13 +1,11 @@
 module Yesod.Routes
     ( Piece (..)
     , RouteHandler (..)
-    , toDispatch
     , Dispatch
+    , toDispatch
     ) where
 
 import Data.Text (Text)
-import Web.ClientSession (Key)
-import Yesod.Core (Route)
 import qualified Data.Vector as V
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Map as Map
@@ -16,45 +14,41 @@ import Data.Ord (comparing)
 import Control.Arrow (second)
 
 data Piece = StaticPiece Text | SinglePiece
+type Dispatch req res = [Text] -> req -> Maybe res
 
-data RouteHandler sub master res = RouteHandler
+data RouteHandler req res = RouteHandler
     { rhPieces :: [Piece]
     , rhHasMulti :: Bool
-    , rhHandler :: Dispatch sub master res
+    , rhDispatch :: Dispatch req res
     }
 
-type Dispatch sub master res = sub -> Maybe Key -> [Text] -> master -> (Route sub -> Route master) -> Maybe res
-
-toDispatch :: [RouteHandler sub master res] -> Dispatch sub master res
+toDispatch :: [RouteHandler req res] -> [Text] -> req -> Maybe res
 toDispatch rhs =
     bcToDispatch bc
   where
     bc = toBC rhs
 
-bcToDispatch :: ByCount sub master res -> Dispatch sub master res
-bcToDispatch (ByCount vec rest) sub mkey ts master toMaster =
-    go (\x -> x sub mkey ts master toMaster) ts pm
+bcToDispatch :: ByCount req res -> Dispatch req res
+bcToDispatch (ByCount vec rest) ts0 req =
+    bcToDispatch' ts0 pm0
   where
-    --pm :: PieceMap sub master res
-    pm = fromMaybe rest $ vec V.!? length ts
+    --pm0 :: PieceMap sub master res
+    pm0 = fromMaybe rest $ vec V.!? length ts0
 
-go :: (Dispatch sub master res -> Maybe res)
-   -> [Text]
-   -> PieceMap sub master res
-   -> Maybe res
-go runDispatch _ (PieceMapEnd r) =
-    firstJust runDispatch $ map snd $ sortBy (comparing fst) r
-go runDispatch (t:ts) (PieceMap dyn sta) = go runDispatch ts $
-    case Map.lookup t sta of
-        Nothing -> dyn
-        Just pm -> append dyn pm
-go _ [] _ = Nothing
+    --bcToDispatch' :: [Text] -> PieceMap req res -> Maybe res
+    bcToDispatch' _ (PieceMapEnd r) =
+        firstJust (\f -> f ts0 req) $ map snd $ sortBy (comparing fst) r
+    bcToDispatch' (t:ts) (PieceMap dyn sta) = bcToDispatch' ts $
+        case Map.lookup t sta of
+            Nothing -> dyn
+            Just pm -> append dyn pm
+    bcToDispatch' [] _ = Nothing
 
 firstJust :: (a -> Maybe b) -> [a] -> Maybe b
 firstJust _ [] = Nothing
 firstJust f (a:as) = maybe (firstJust f as) Just $ f a
 
-append :: PieceMap a b c -> PieceMap a b c -> PieceMap a b c
+append :: PieceMap a b -> PieceMap a b -> PieceMap a b
 append (PieceMapEnd a) (PieceMapEnd b) = PieceMapEnd $ a ++ b
 append (PieceMap a x) (PieceMap b y) =
     PieceMap (append a b) (Map.unionWith append x y)
@@ -62,19 +56,19 @@ append (PieceMap a x) (PieceMap b y) =
 -- to ensure this never happens.
 append _ _ = error "Mismatched PieceMaps for append"
 
-data PieceMap sub master res = PieceMap
-    { pmDynamic :: PieceMap sub master res
-    , pmStatic :: Map.Map Text (PieceMap sub master res)
-    } | PieceMapEnd [(Int, Dispatch sub master res)]
+data PieceMap req res = PieceMap
+    { pmDynamic :: PieceMap req res
+    , pmStatic :: Map.Map Text (PieceMap req res)
+    } | PieceMapEnd [(Int, Dispatch req res)]
 
-toPieceMap :: Int -> [RouteHandler sub master res] -> PieceMap sub master res
+toPieceMap :: Int -> [RouteHandler req res] -> PieceMap req res
 toPieceMap depth = toPieceMap' depth . zip [1..]
 
 toPieceMap' :: Int
-            -> [(Int, RouteHandler sub master res)]
-            -> PieceMap sub master res
+            -> [(Int, RouteHandler req res)]
+            -> PieceMap req res
 toPieceMap' 0 rhs =
-    PieceMapEnd $ map (second rhHandler)
+    PieceMapEnd $ map (second rhDispatch)
                 $ sortBy (comparing fst) rhs
 toPieceMap' depth rhs = PieceMap
     { pmDynamic = toPieceMap' depth' dynamics
@@ -97,12 +91,12 @@ toPieceMap' depth rhs = PieceMap
     getStatic _ = Nothing
     statics = Map.unionsWith (++) $ mapMaybe getStatic pairs
 
-data ByCount sub master res = ByCount
-    { bcVector :: !(V.Vector (PieceMap sub master res))
-    , bcRest :: !(PieceMap sub master res)
+data ByCount req res = ByCount
+    { bcVector :: !(V.Vector (PieceMap req res))
+    , bcRest :: !(PieceMap req res)
     }
 
-toBC :: [RouteHandler sub master res] -> ByCount sub master res
+toBC :: [RouteHandler req res] -> ByCount req res
 toBC rhs =
     ByCount
         { bcVector = V.map (\i -> toPieceMap i $ filter (canHaveLength i) rhs)

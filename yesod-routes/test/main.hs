@@ -5,29 +5,27 @@ import Test.HUnit ((@?=))
 import Data.Text (Text, unpack)
 import Yesod.Routes
 
-data Dummy = Dummy
+result :: ([Text] -> Maybe Int) -> Dispatch () Int
+result f ts () = f ts
 
-result :: ([Text] -> Maybe Int) -> Dispatch sub master Int
-result f _ _ ts _ _ = f ts
-
-justRoot :: Dispatch Dummy Dummy Int
+justRoot :: Dispatch () Int
 justRoot = toDispatch
     [ RouteHandler [] False $ result $ const $ Just 1
     ]
 
-twoStatics :: Dispatch Dummy Dummy Int
+twoStatics :: Dispatch () Int
 twoStatics = toDispatch
     [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 2
     , RouteHandler [StaticPiece "bar"] False $ result $ const $ Just 3
     ]
 
-multi :: Dispatch Dummy Dummy Int
+multi :: Dispatch () Int
 multi = toDispatch
     [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 4
     , RouteHandler [StaticPiece "bar"] True $ result $ const $ Just 5
     ]
 
-dynamic :: Dispatch Dummy Dummy Int
+dynamic :: Dispatch () Int
 dynamic = toDispatch
     [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 6
     , RouteHandler [SinglePiece] False $ result $ \ts ->
@@ -39,15 +37,15 @@ dynamic = toDispatch
             _ -> error $ "Called dynamic with: " ++ show ts
     ]
 
-overlap :: Dispatch Dummy Dummy Int
+overlap :: Dispatch () Int
 overlap = toDispatch
     [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 20
     , RouteHandler [StaticPiece "foo"] True $ result $ const $ Just 21
     , RouteHandler [] True $ result $ const $ Just 22
     ]
 
-test :: Dispatch Dummy Dummy Int -> [Text] -> Maybe Int
-test dispatch ts = dispatch Dummy Nothing ts Dummy id
+test :: Dispatch () Int -> [Text] -> Maybe Int
+test dispatch ts = dispatch ts ()
 
 main :: IO ()
 main = hspecX $ do
