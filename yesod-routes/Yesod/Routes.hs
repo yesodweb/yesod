@@ -9,7 +9,7 @@ import Data.Text (Text)
 import Web.ClientSession (Key)
 import Yesod.Core (Route)
 import qualified Data.Vector as V
-import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Map as Map
 import Data.List (sortBy)
 import Data.Ord (comparing)
@@ -33,28 +33,33 @@ toDispatch rhs =
 
 bcToDispatch :: ByCount sub master res -> Dispatch sub master res
 bcToDispatch (ByCount vec rest) sub mkey ts master toMaster =
-    case go ts rhs of
-        Nothing -> Nothing
-        Just dispatch -> dispatch sub mkey ts master toMaster
+    go (\x -> x sub mkey ts master toMaster) ts pm
   where
-    len = length ts
-    rhs = fromMaybe rest $ vec V.!? len
+    --pm :: PieceMap sub master res
+    pm = fromMaybe rest $ vec V.!? length ts
 
-go :: [Text]
+go :: (Dispatch sub master res -> Maybe res)
+   -> [Text]
    -> PieceMap sub master res
-   -> Maybe (Dispatch sub master res)
-go _ (PieceMapEnd r) =
-    listToMaybe $ map snd $ sortBy (comparing fst) r
-go (t:ts) (PieceMap dyn sta) = go ts $
+   -> Maybe res
+go runDispatch _ (PieceMapEnd r) =
+    firstJust runDispatch $ map snd $ sortBy (comparing fst) r
+go runDispatch (t:ts) (PieceMap dyn sta) = go runDispatch ts $
     case Map.lookup t sta of
         Nothing -> dyn
         Just pm -> append dyn pm
-go [] _ = Nothing
+go _ [] _ = Nothing
+
+firstJust :: (a -> Maybe b) -> [a] -> Maybe b
+firstJust _ [] = Nothing
+firstJust f (a:as) = maybe (firstJust f as) Just $ f a
 
 append :: PieceMap a b c -> PieceMap a b c -> PieceMap a b c
 append (PieceMapEnd a) (PieceMapEnd b) = PieceMapEnd $ a ++ b
 append (PieceMap a x) (PieceMap b y) =
     PieceMap (append a b) (Map.unionWith append x y)
+-- I'm sure there's some nice type-level trickery we could employ here somehow
+-- to ensure this never happens.
 append _ _ = error "Mismatched PieceMaps for append"
 
 data PieceMap sub master res = PieceMap
@@ -69,8 +74,7 @@ toPieceMap' :: Int
             -> [(Int, RouteHandler sub master res)]
             -> PieceMap sub master res
 toPieceMap' 0 rhs =
-    PieceMapEnd $ take 1
-                $ map (second rhHandler)
+    PieceMapEnd $ map (second rhHandler)
                 $ sortBy (comparing fst) rhs
 toPieceMap' depth rhs = PieceMap
     { pmDynamic = toPieceMap' depth' dynamics
@@ -81,7 +85,9 @@ toPieceMap' depth rhs = PieceMap
 
     pairs = map toPair rhs
     toPair (i, RouteHandler (p:ps) b c) = (p, (i, RouteHandler ps b c))
-    toPair _ = error "toPieceMap' received a route with empty pieces"
+    -- if we have no more pieces, that means this is a rhHasMulti, so fill in
+    -- with dynamic
+    toPair (i, RouteHandler [] b c) = (SinglePiece, (i, RouteHandler [] b c))
 
     getDynamic (SinglePiece, rh) = Just rh
     getDynamic _ = Nothing
