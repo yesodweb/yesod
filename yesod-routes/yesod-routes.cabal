@@ -27,7 +27,6 @@ test-suite runtests
     main-is: main.hs
     hs-source-dirs: test
 
-    type: exitcode-stdio-1.0
     build-depends: base                      >= 4.3      && < 5
                  , yesod-routes
                  , text                      >= 0.5      && < 0.12

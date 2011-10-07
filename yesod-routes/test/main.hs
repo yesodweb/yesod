@@ -10,25 +10,25 @@ result f ts () = f ts
 
 justRoot :: Dispatch () Int
 justRoot = toDispatch
-    [ RouteHandler [] False $ result $ const $ Just 1
+    [ Route [] False $ result $ const $ Just 1
     ]
 
 twoStatics :: Dispatch () Int
 twoStatics = toDispatch
-    [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 2
-    , RouteHandler [StaticPiece "bar"] False $ result $ const $ Just 3
+    [ Route [Static "foo"] False $ result $ const $ Just 2
+    , Route [Static "bar"] False $ result $ const $ Just 3
     ]
 
 multi :: Dispatch () Int
 multi = toDispatch
-    [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 4
-    , RouteHandler [StaticPiece "bar"] True $ result $ const $ Just 5
+    [ Route [Static "foo"] False $ result $ const $ Just 4
+    , Route [Static "bar"] True $ result $ const $ Just 5
     ]
 
 dynamic :: Dispatch () Int
 dynamic = toDispatch
-    [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 6
-    , RouteHandler [SinglePiece] False $ result $ \ts ->
+    [ Route [Static "foo"] False $ result $ const $ Just 6
+    , Route [Dynamic] False $ result $ \ts ->
         case ts of
             [t] ->
                 case reads $ unpack t of
@@ -39,9 +39,9 @@ dynamic = toDispatch
 
 overlap :: Dispatch () Int
 overlap = toDispatch
-    [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 20
-    , RouteHandler [StaticPiece "foo"] True $ result $ const $ Just 21
-    , RouteHandler [] True $ result $ const $ Just 22
+    [ Route [Static "foo"] False $ result $ const $ Just 20
+    , Route [Static "foo"] True $ result $ const $ Just 21
+    , Route [] True $ result $ const $ Just 22
     ]
 
 test :: Dispatch () Int -> [Text] -> Maybe Int
