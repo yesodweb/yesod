@@ -39,6 +39,13 @@ dynamic = toDispatch
             _ -> error $ "Called dynamic with: " ++ show ts
     ]
 
+overlap :: Dispatch Dummy Dummy Int
+overlap = toDispatch
+    [ RouteHandler [StaticPiece "foo"] False $ result $ const $ Just 20
+    , RouteHandler [StaticPiece "foo"] True $ result $ const $ Just 21
+    , RouteHandler [] True $ result $ const $ Just 22
+    ]
+
 test :: Dispatch Dummy Dummy Int -> [Text] -> Maybe Int
 test dispatch ts = dispatch Dummy Nothing ts Dummy id
 
@@ -65,3 +72,8 @@ main = hspecX $ do
         it "fails correctly on five" $ test dynamic ["five"] @?= Nothing
         it "fails correctly on too many" $ test dynamic ["foo", "baz"] @?= Nothing
         it "fails correctly on too few" $ test dynamic [] @?= Nothing
+    describe "overlap" $ do
+        it "dispatches correctly to foo" $ test overlap ["foo"] @?= Just 20
+        it "dispatches correctly to foo/bar" $ test overlap ["foo", "bar"] @?= Just 21
+        it "dispatches correctly to bar" $ test overlap ["bar"] @?= Just 22
+        it "dispatches correctly to []" $ test overlap [] @?= Just 22
