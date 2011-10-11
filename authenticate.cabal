@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.10.2.1
+version:         0.10.2.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii, Arash Rouhani
@@ -34,7 +34,7 @@ library
                      xml-enumerator >= 0.4 && < 0.5,
                      blaze-builder >= 0.2 && < 0.4,
                      attoparsec >= 0.9   && < 0.10,
-                     tls >= 0.7 && < 0.8,
+                     tls >= 0.7 && < 0.9,
                      containers,
                      process >= 1.0.1.1 && < 1.2
     exposed-modules: Web.Authenticate.Rpxnow,
