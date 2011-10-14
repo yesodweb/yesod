@@ -14,7 +14,6 @@ import Yesod.Default.Config
 import Yesod.Default.Main (defaultDevelApp, defaultRunner)
 import Yesod.Default.Handlers (getFaviconR, getRobotsR)
 import Yesod.Logger (Logger)
-import Data.ByteString (ByteString)
 import Network.Wai (Application)
 import Data.Dynamic (Dynamic, toDyn)
 

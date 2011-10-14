@@ -58,18 +58,18 @@ globFile kind x = kind ++ "/" ++ x ++ "." ++ kind
 
 widgetFileProduction :: FilePath -> Q Exp
 widgetFileProduction x = do
-    let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x "cassius" cassiusFile
-    let j = whenExists x "julius"  juliusFile
-    let l = whenExists x "lucius"  luciusFile
+    let h = whenExists x "templates"  whamletFile
+    let c = whenExists x "templates" cassiusFile
+    let j = whenExists x "templates"  juliusFile
+    let l = whenExists x "templates"  luciusFile
     [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
 
 widgetFileDebug :: FilePath -> Q Exp
 widgetFileDebug x = do
-    let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x "cassius" cassiusFileDebug
-    let j = whenExists x "julius"  juliusFileDebug
-    let l = whenExists x "lucius"  luciusFileDebug
+    let h = whenExists x "templates"  whamletFile
+    let c = whenExists x "templates" cassiusFileDebug
+    let j = whenExists x "templates"  juliusFileDebug
+    let l = whenExists x "templates"  luciusFileDebug
     [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
 
 whenExists :: String -> String -> (FilePath -> Q Exp) -> Q Exp
