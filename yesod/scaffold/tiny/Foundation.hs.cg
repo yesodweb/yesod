@@ -81,7 +81,7 @@ instance Yesod ~sitearg~ where
         pc <- widgetToPageContent $ do
             $(widgetFile "normalize")
             $(widgetFile "default-layout")
-        hamletToRepHtml $(hamletFile "hamlet/default-layout-wrapper.hamlet")
+        hamletToRepHtml $(hamletFile "templates/default-layout-wrapper.hamlet")
 
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticroot setting in Settings.hs
