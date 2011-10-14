@@ -52,24 +52,24 @@ addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
         | ext' == "js" = either (const content) id $ minify content
         | otherwise = content
 
--- | expects a root folder for each type, e.g: hamlet/ lucius/ julius/
+-- | expects a file extension for each type, e.g: hamlet lucius julius
 globFile :: String -> String -> FilePath
-globFile kind x = kind ++ "/" ++ x ++ "." ++ kind
+globFile kind x = "templates/" ++ x ++ "." ++ kind
 
 widgetFileProduction :: FilePath -> Q Exp
 widgetFileProduction x = do
-    let h = whenExists x "templates"  whamletFile
-    let c = whenExists x "templates" cassiusFile
-    let j = whenExists x "templates"  juliusFile
-    let l = whenExists x "templates"  luciusFile
+    let h = whenExists x "hamlet"  whamletFile
+    let c = whenExists x "cassius" cassiusFile
+    let j = whenExists x "julius"  juliusFile
+    let l = whenExists x "lucius"  luciusFile
     [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
 
 widgetFileDebug :: FilePath -> Q Exp
 widgetFileDebug x = do
-    let h = whenExists x "templates"  whamletFile
-    let c = whenExists x "templates" cassiusFileDebug
-    let j = whenExists x "templates"  juliusFileDebug
-    let l = whenExists x "templates"  luciusFileDebug
+    let h = whenExists x "hamlet"  whamletFile
+    let c = whenExists x "cassius" cassiusFileDebug
+    let j = whenExists x "julius"  juliusFileDebug
+    let l = whenExists x "lucius"  luciusFileDebug
     [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
 
 whenExists :: String -> String -> (FilePath -> Q Exp) -> Q Exp
