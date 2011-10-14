@@ -10,6 +10,7 @@ import qualified Yesod.Routes.Dispatch as D
 import Yesod.Routes.TH hiding (Dispatch)
 import qualified Yesod.Core as YC
 import Language.Haskell.TH.Syntax
+import qualified Data.Map as Map
 
 result :: ([Text] -> Maybe Int) -> Dispatch () Int
 result f ts () = f ts
@@ -60,16 +61,19 @@ type instance YC.Route MySub = MySubRoute
 instance YC.RenderRoute MySubRoute where
     renderRoute (MySubRoute x) = x
 
+dispatchHelper :: Either String (Map.Map Text String) -> Maybe String
+dispatchHelper = undefined
+
 do
     texts <- [t|[Text]|]
     let ress =
-            [ Resource "RootR" [] Nothing $ Methods ["GET"]
-            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] Nothing $ Methods ["GET"]
-            , Resource "WikiR" [Static "wiki"] (Just texts) AllMethods
-            , Resource "SubsiteR" [Static "subsite"] Nothing $ Subsite (ConT ''MySub) "getMySub"
+            [ Resource "RootR" [] $ Methods Nothing ["GET"]
+            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] $ Methods Nothing ["GET"]
+            , Resource "WikiR" [Static "wiki"] $ Methods (Just texts) []
+            , Resource "SubsiteR" [Static "subsite"] $ Subsite (ConT ''MySub) "getMySub"
             ]
     rrinst <- mkRenderRouteInstance "MyAppRoute" ress
-    dispatch <- mkDispatchClause ress
+    dispatch <- mkDispatchClause ress [|dispatchHelper|]
     return
         [ mkRouteType "MyAppRoute" ress
         , rrinst
@@ -115,3 +119,17 @@ main = hspecX $ do
     describe "thDispatch" $ do
         let disp x = thDispatch () () [] () ()
         it "routes to root" $ disp [] @?= Just "this is the root"
+        it "routes to blog post" $ disp ["blog", "somepost"] @?= Just "some blog post: somepost"
+
+getRootR :: String
+getRootR = "this is the root"
+
+{- FIXME
+getBlogPostR :: Text -> String
+getBlogPostR t = "some blog post: " ++ unpack t
+-}
+getBlogPostR = undefined
+
+handleWikiR = "the wiki"
+
+handleSubsiteR = "a subsite"
