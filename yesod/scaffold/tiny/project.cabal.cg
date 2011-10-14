@@ -34,6 +34,15 @@ library
 
     ghc-options:   -Wall -threaded -O0
 
+    extensions: TemplateHaskell
+                QuasiQuotes
+                OverloadedStrings
+                NoImplicitPrelude
+                CPP
+                OverloadedStrings
+                MultiParamTypeClasses
+                TypeFamilies
+
 executable         ~project~
     if flag(devel)
         Buildable: False
@@ -45,6 +54,15 @@ executable         ~project~
         ghc-options:   -Wall -threaded -O0
 
     main-is:       main.hs
+
+    extensions: TemplateHaskell
+                QuasiQuotes
+                OverloadedStrings
+                NoImplicitPrelude
+                CPP
+                OverloadedStrings
+                MultiParamTypeClasses
+                TypeFamilies
 
     build-depends: base                          >= 4          && < 5
                  , yesod-core                    >= 0.9.3      && < 0.10
