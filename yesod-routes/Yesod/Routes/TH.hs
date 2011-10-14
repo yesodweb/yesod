@@ -19,24 +19,28 @@ import Language.Haskell.TH.Syntax
 import Yesod.Core
     ( Route, RenderRoute (renderRoute), toSinglePiece, toMultiPiece
     )
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, catMaybes)
 import Control.Monad (replicateM)
 import Data.Text (pack)
 import qualified Yesod.Routes.Dispatch as D
+import qualified Data.Map as Map
+import Data.Char (toLower)
 
 data Resource = Resource
     { resourceName :: String
     , resourcePieces :: [Piece]
-    , resourceMulti :: Maybe Type
     , resourceDispatch :: Dispatch
     }
 
 data Piece = Static String | Dynamic Type
 
-data Dispatch = AllMethods | Methods [String] | Subsite
+data Dispatch = Methods (Maybe Type) [String] | Subsite
     { subsiteType :: Type
     , subsiteFunc :: String
     }
+
+resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
+resourceMulti _ = Nothing
 
 mkRouteCons :: [Resource] -> [Con]
 mkRouteCons =
@@ -121,8 +125,10 @@ mkRenderRouteInstance name ress = do
         [ FunD (mkName "renderRoute") cls
         ]
 
-mkDispatchClause :: [Resource] -> Q Clause
-mkDispatchClause ress = do
+mkDispatchClause :: [Resource]
+                 -> Q Exp -- ^ convert handler to application
+                 -> Q Clause
+mkDispatchClause ress toApp = do
     let routes = fmap ListE $ mapM toRoute ress
     sub <- newName "sub"
     mkey <- newName "mkey"
@@ -148,8 +154,50 @@ mkDispatchClause ress = do
     toRoute res = do
         let ps = fmap ListE $ mapM toPiece $ resourcePieces res
         let m = maybe [|False|] (const [|True|]) $ resourceMulti res
-        [|D.Route $(ps) $(m) undefined|]
+        case resourceDispatch res of
+            Methods mmulti mds -> do
+                let toPair m = do
+                        key <- [|pack $(lift m)|]
+                        let value = VarE $ mkName $ map toLower m ++ resourceName res
+                        return $ TupE [key, value]
+                let handler =
+                        if null mds
+                            then [|Left $(return $ VarE $ mkName $ "handle" ++ resourceName res)|]
+                            else [|Right $ Map.fromList $(fmap ListE $ mapM toPair mds)|]
+                sub <- newName "sub"
+                mkey <- newName "mkey"
+                (dyns, mend, tsPattern) <- mkTsPattern (resourcePieces res) mmulti
+                master <- newName "master"
+                toMaster <- newName "toMaster"
+                body <- [|$(toApp) $(handler)|]
+                let func = LamE
+                            [ tsPattern
+                            , TupP
+                                [ VarP sub
+                                , VarP mkey
+                                , VarP master
+                                , VarP toMaster
+                                ]
+                            ]
+                            body
+                [|D.Route $(ps) $(m) $(return func)|]
+            Subsite _ func -> [|D.Route $(ps) $(m) $ $(toApp) $(return $ VarE $ mkName $ "handle" ++ resourceName res)|] -- FIXME
 
     toPiece :: Piece -> Q Exp
     toPiece (Static s) = [|D.Static $ pack $(lift s)|]
     toPiece Dynamic{} = [|D.Dynamic|]
+
+mkTsPattern pieces mmulti = do
+    end <-
+        case mmulti of
+            Nothing -> return (Nothing, ConP (mkName "[]") [])
+            Just{} -> do
+                end <- newName "end"
+                return (Just end, VarP end)
+    pieces' <- mapM go pieces
+    return (catMaybes $ map fst pieces', fst end, foldr (flip InfixP $ mkName ":") (snd end) $ map snd pieces')
+  where
+    go Static{} = return (Nothing, WildP)
+    go Dynamic{} = do
+        dyn <- newName "dyn"
+        return (Just dyn, VarP dyn)
