@@ -27,6 +27,7 @@ library
         Buildable: False
     exposed-modules: Application
     other-modules:   Foundation
+                     Import
                      Settings
                      Settings.StaticFiles
                      Handler.Root

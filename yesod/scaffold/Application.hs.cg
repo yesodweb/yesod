@@ -15,7 +15,6 @@ import Yesod.Default.Config
 import Yesod.Default.Main
 import Yesod.Default.Handlers
 import Yesod.Logger (Logger)
-import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
 import qualified Database.Persist.Base~importMigration~
 
