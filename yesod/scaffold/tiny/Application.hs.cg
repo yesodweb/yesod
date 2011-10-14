@@ -1,13 +1,10 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
     ( with~sitearg~
     , withDevelAppPort
     ) where
 
-import Foundation
+import Import
 import Settings
 import Yesod.Static
 import Yesod.Default.Config
