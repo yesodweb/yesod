@@ -20,6 +20,7 @@ extra-source-files:
   scaffold/templates/default-layout.lucius.cg
   scaffold/templates/homepage.lucius.cg
   scaffold/Model.hs.cg
+  scaffold/Import.hs.cg
   scaffold/Foundation.hs.cg
   scaffold/LICENSE.cg
   scaffold/mongoDBConnPool.cg

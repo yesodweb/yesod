@@ -28,6 +28,7 @@ library
 
     exposed-modules: Application
     other-modules:   Foundation
+                     Import
                      Model
                      Settings
                      Settings.StaticFiles
