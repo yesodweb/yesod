@@ -189,5 +189,9 @@ scaffold = do
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do
             pack <- [|S.pack|]
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
+
+    S.writeFile (dir ++ "/config/robots.txt")
+        $(runIO (S.readFile "scaffold/config/robots.txt.cg") >>= \bs -> do
+            [|S.pack $(return $ LitE $ StringL $ S.unpack bs)|])
     
     puts $(codegenDir "input" "done")
