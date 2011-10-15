@@ -5,10 +5,10 @@ module Yesod.Default.Handlers
     ) where
 
 import Yesod.Handler (GHandler, sendFile)
-import Yesod.Content (RepPlain(..), ToContent(..))
+import Yesod.Content (RepPlain(..))
 
 getFaviconR :: GHandler s m ()
 getFaviconR = sendFile "image/x-icon" "config/favicon.ico"
 
 getRobotsR :: GHandler s m RepPlain
-getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: String)
+getRobotsR = sendFile "text/plain" "config/robots.txt"
