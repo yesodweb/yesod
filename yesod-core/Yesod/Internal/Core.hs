@@ -50,7 +50,6 @@ import qualified Data.ByteString.Lazy as L
 import Data.Monoid
 import Control.Monad.Trans.RWS
 import Text.Hamlet
-import Text.Cassius
 import Text.Julius
 import Text.Blaze ((!), customAttribute, textTag, toValue, unsafeLazyByteString)
 import qualified Text.Blaze.Html5 as TBH
@@ -504,7 +503,7 @@ widgetToPageContent (GWidget w) = do
                 Just (Left s) -> Just s
                 Just (Right (u, p)) -> Just $ render u p
     css <- forM (Map.toList style) $ \(mmedia, content) -> do
-        let rendered = renderCssUrl render content
+        let rendered = toLazyText $ content render
         x <- addStaticContent "css" "text/css; charset=utf-8"
            $ encodeUtf8 rendered
         return (mmedia,
