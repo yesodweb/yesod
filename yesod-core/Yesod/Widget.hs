@@ -192,7 +192,7 @@ addWidget = id
 
 -- | Add some raw CSS to the style tag. Applies to all media types.
 addCassius :: Monad m => CssUrl (Route master) -> GGWidget master m ()
-addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing x) mempty mempty
+addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
 
 -- | Identical to 'addCassius'.
 addLucius :: Monad m => CssUrl (Route master) -> GGWidget master m ()
@@ -200,7 +200,7 @@ addLucius = addCassius
 
 -- | Add some raw CSS to the style tag, for a specific media type.
 addCassiusMedia :: Monad m => Text -> CssUrl (Route master) -> GGWidget master m ()
-addCassiusMedia m x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) x) mempty mempty
+addCassiusMedia m x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
 
 -- | Identical to 'addCassiusMedia'.
 addLuciusMedia :: Monad m => Text -> CssUrl (Route master) -> GGWidget master m ()

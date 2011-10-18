@@ -52,9 +52,9 @@ addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
         | ext' == "js" = either (const content) id $ minify content
         | otherwise = content
 
--- | expects a root folder for each type, e.g: hamlet/ lucius/ julius/
+-- | expects a file extension for each type, e.g: hamlet lucius julius
 globFile :: String -> String -> FilePath
-globFile kind x = kind ++ "/" ++ x ++ "." ++ kind
+globFile kind x = "templates/" ++ x ++ "." ++ kind
 
 widgetFileProduction :: FilePath -> Q Exp
 widgetFileProduction x = do

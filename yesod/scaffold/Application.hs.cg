@@ -1,13 +1,10 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
     ( with~sitearg~
     , withDevelAppPort
     ) where
 
-import Foundation
+import Import
 import Settings
 import Yesod.Static
 import Yesod.Auth
@@ -15,7 +12,6 @@ import Yesod.Default.Config
 import Yesod.Default.Main
 import Yesod.Default.Handlers
 import Yesod.Logger (Logger)
-import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
 import qualified Database.Persist.Base~importMigration~
 

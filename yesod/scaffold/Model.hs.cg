@@ -1,6 +1,6 @@
-{-# LANGUAGE QuasiQuotes, TypeFamilies, GeneralizedNewtypeDeriving, TemplateHaskell, GADTs #-}
 module Model where
 
+import Prelude
 import Yesod
 import Data.Text (Text)
 ~modelImports~

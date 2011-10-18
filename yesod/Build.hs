@@ -125,7 +125,7 @@ determineHamletDeps x = do
         A.Fail{} -> return []
         A.Done _ r -> mapM go r >>= filterM doesFileExist . concat
   where
-    go (Just (Hamlet, f)) = return [f, "hamlet/" ++ f ++ ".hamlet"]
+    go (Just (Hamlet, f)) = return [f, "templates/" ++ f ++ ".hamlet"]
     go (Just (Verbatim, f)) = return [f]
     go (Just (Messages f, _)) = return [f]
     go (Just (StaticFiles fp, _)) = getFolderContents fp

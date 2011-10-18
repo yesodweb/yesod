@@ -128,10 +128,7 @@ scaffold = do
         mkDir fp = createDirectoryIfMissing True $ dir ++ '/' : fp
 
     mkDir "Handler"
-    mkDir "hamlet"
-    mkDir "cassius"
-    mkDir "lucius"
-    mkDir "julius"
+    mkDir "templates"
     mkDir "static"
     mkDir "static/css"
     mkDir "static/js"
@@ -158,25 +155,29 @@ scaffold = do
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
     writeFile' ("Foundation.hs") $ ifTiny $(codegen "tiny/Foundation.hs") $(codegen "Foundation.hs")
+    writeFile' "Import.hs" $(codegen "Import.hs")
     writeFile' "Application.hs" $ ifTiny $(codegen "tiny/Application.hs") $(codegen "Application.hs")
     writeFile' "Handler/Root.hs" $(codegen "Handler/Root.hs")
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "Settings.hs" $ ifTiny $(codegen "tiny/Settings.hs") $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
-    writeFile' "lucius/default-layout.lucius"
-        $(codegen "lucius/default-layout.lucius")
-    writeFile' "hamlet/default-layout.hamlet"
-        $(codegen "hamlet/default-layout.hamlet")
-    writeFile' "hamlet/default-layout-wrapper.hamlet"
-        $(codegen "hamlet/default-layout-wrapper.hamlet")
-    writeFile' "hamlet/boilerplate-layout.hamlet"
-        $(codegen "hamlet/boilerplate-layout.hamlet")
-    writeFile' "lucius/normalize.lucius"
-        $(codegen "lucius/normalize.lucius")
-    writeFile' "hamlet/homepage.hamlet" $(codegen "hamlet/homepage.hamlet")
+    writeFile' "templates/default-layout.lucius"
+        $(codegen "templates/default-layout.lucius")
+    writeFile' "templates/default-layout.hamlet"
+        $(codegen "templates/default-layout.hamlet")
+    writeFile' "templates/default-layout-wrapper.hamlet"
+        $(codegen "templates/default-layout-wrapper.hamlet")
+    writeFile' "templates/boilerplate-layout.hamlet"
+        $(codegen "templates/boilerplate-layout.hamlet")
+    writeFile' "templates/normalize.lucius"
+        $(codegen "templates/normalize.lucius")
+    writeFile' "templates/homepage.hamlet"
+        $(codegen "templates/homepage.hamlet")
     writeFile' "config/routes" $ ifTiny $(codegen "tiny/config/routes") $(codegen "config/routes")
-    writeFile' "lucius/homepage.lucius" $(codegen "lucius/homepage.lucius")
-    writeFile' "julius/homepage.julius" $(codegen "julius/homepage.julius")
+    writeFile' "templates/homepage.lucius"
+        $(codegen "templates/homepage.lucius")
+    writeFile' "templates/homepage.julius"
+        $(codegen "templates/homepage.julius")
     unless isTiny $ writeFile' "config/models" $(codegen "config/models")
     writeFile' "messages/en.msg" $(codegen "messages/en.msg")
 
@@ -188,5 +189,9 @@ scaffold = do
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do
             pack <- [|S.pack|]
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
+
+    S.writeFile (dir ++ "/config/robots.txt")
+        $(runIO (S.readFile "scaffold/config/robots.txt.cg") >>= \bs -> do
+            [|S.pack $(return $ LitE $ StringL $ S.unpack bs)|])
     
     puts $(codegenDir "input" "done")

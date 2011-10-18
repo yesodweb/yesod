@@ -27,11 +27,21 @@ library
         Buildable: False
     exposed-modules: Application
     other-modules:   Foundation
+                     Import
                      Settings
                      Settings.StaticFiles
                      Handler.Root
 
     ghc-options:   -Wall -threaded -O0
+
+    extensions: TemplateHaskell
+                QuasiQuotes
+                OverloadedStrings
+                NoImplicitPrelude
+                CPP
+                OverloadedStrings
+                MultiParamTypeClasses
+                TypeFamilies
 
 executable         ~project~
     if flag(devel)
@@ -45,10 +55,19 @@ executable         ~project~
 
     main-is:       main.hs
 
+    extensions: TemplateHaskell
+                QuasiQuotes
+                OverloadedStrings
+                NoImplicitPrelude
+                CPP
+                OverloadedStrings
+                MultiParamTypeClasses
+                TypeFamilies
+
     build-depends: base                          >= 4          && < 5
                  , yesod-core                    >= 0.9.3      && < 0.10
                  , yesod-static                  >= 0.3.1      && < 0.4
-                 , yesod-default                 >= 0.3.1      && < 0.4
+                 , yesod-default                 >= 0.4        && < 0.5
                  , clientsession                 >= 0.7.3      && < 0.8
                  , bytestring                    >= 0.9        && < 0.10
                  , text                          >= 0.11       && < 0.12
