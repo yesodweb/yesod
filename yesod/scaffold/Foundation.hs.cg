@@ -1,6 +1,3 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings, MultiParamTypeClasses #-}
-{-# LANGUAGE CPP #-}
 module Foundation
     ( ~sitearg~ (..)
     , ~sitearg~Route (..)
@@ -17,6 +14,7 @@ module Foundation
     , AuthRoute (..)
     ) where
 
+import Prelude
 import Yesod
 import Yesod.Static (Static, base64md5, StaticRoute(..))
 import Settings.StaticFiles
@@ -95,7 +93,7 @@ instance Yesod ~sitearg~ where
         pc <- widgetToPageContent $ do
             $(widgetFile "normalize")
             $(widgetFile "default-layout")
-        hamletToRepHtml $(hamletFile "hamlet/default-layout-wrapper.hamlet")
+        hamletToRepHtml $(hamletFile "templates/default-layout-wrapper.hamlet")
 
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticRoot setting in Settings.hs

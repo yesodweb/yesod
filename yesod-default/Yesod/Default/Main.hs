@@ -13,6 +13,11 @@ import Yesod.Logger (Logger, makeLogger, logString, logLazyText, flushLogger)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Middleware.Debug (debugHandle)
+import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
+import Network.Wai.Middleware.Gzip (gzip', GzipFiles (GzipCacheFolder), gzipFiles, def)
+import Network.Wai.Middleware.Autohead (autohead)
+import Network.Wai.Middleware.Jsonp (jsonp)
+import Control.Monad (when)
 
 #ifndef WINDOWS
 import qualified System.Posix.Signals as Signal
@@ -55,19 +60,25 @@ defaultRunner :: (YesodDispatch y y, Yesod y)
               => (Application -> IO a)
               -> y -- ^ your foundation type
               -> IO ()
-defaultRunner f h =
+defaultRunner f h = do
+    -- clear the .static-cache so we don't have stale content
+    exists <- doesDirectoryExist staticCache
+    when exists $ removeDirectoryRecursive staticCache
 #ifdef WINDOWS
-    toWaiApp h >>= f >> return ()
+    toWaiAppPlain h >>= f . middlewares >> return ()
 #else
-    do
-        tid <- forkIO $ toWaiApp h >>= f >> return ()
-        flag <- newEmptyMVar
-        _ <- Signal.installHandler Signal.sigINT (Signal.CatchOnce $ do
-            putStrLn "Caught an interrupt"
-            killThread tid
-            putMVar flag ()) Nothing
-        takeMVar flag
+    tid <- forkIO $ toWaiAppPlain h >>= f . middlewares >> return ()
+    flag <- newEmptyMVar
+    _ <- Signal.installHandler Signal.sigINT (Signal.CatchOnce $ do
+        putStrLn "Caught an interrupt"
+        killThread tid
+        putMVar flag ()) Nothing
+    takeMVar flag
 #endif
+  where
+    middlewares = gzip' gset . jsonp . autohead
+    gset = def { gzipFiles = GzipCacheFolder staticCache }
+    staticCache = ".static-cache"
 
 -- | Run your development app using the provided @'DefaultEnv'@ type
 --

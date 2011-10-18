@@ -17,9 +17,10 @@ homepage:        http://www.yesodweb.com/
 
 extra-source-files:
   input/*.cg
-  scaffold/lucius/default-layout.lucius.cg
-  scaffold/lucius/homepage.lucius.cg
+  scaffold/templates/default-layout.lucius.cg
+  scaffold/templates/homepage.lucius.cg
   scaffold/Model.hs.cg
+  scaffold/Import.hs.cg
   scaffold/Foundation.hs.cg
   scaffold/LICENSE.cg
   scaffold/mongoDBConnPool.cg
@@ -28,17 +29,17 @@ extra-source-files:
   scaffold/tiny/Application.hs.cg
   scaffold/tiny/config/routes.cg
   scaffold/tiny/Settings.hs.cg
-  scaffold/lucius/normalize.lucius.cg
+  scaffold/templates/normalize.lucius.cg
   scaffold/postgresqlConnPool.cg
   scaffold/sqliteConnPool.cg
   scaffold/.ghci.cg
   scaffold/project.cabal.cg
   scaffold/Application.hs.cg
-  scaffold/julius/homepage.julius.cg
-  scaffold/hamlet/homepage.hamlet.cg
-  scaffold/hamlet/default-layout.hamlet.cg
-  scaffold/hamlet/default-layout-wrapper.hamlet.cg
-  scaffold/hamlet/boilerplate-layout.hamlet.cg
+  scaffold/templates/homepage.julius.cg
+  scaffold/templates/homepage.hamlet.cg
+  scaffold/templates/default-layout.hamlet.cg
+  scaffold/templates/default-layout-wrapper.hamlet.cg
+  scaffold/templates/boilerplate-layout.hamlet.cg
   scaffold/deploy/Procfile.cg
   scaffold/main.hs.cg
   scaffold/Handler/Root.hs.cg

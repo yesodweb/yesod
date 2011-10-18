@@ -1,5 +1,5 @@
 name:            yesod-default
-version:         0.3.1
+version:         0.4.0
 license:         BSD3
 license-file:    LICENSE
 author:          Patrick Brisbin
@@ -22,7 +22,7 @@ library
                    , cmdargs           >= 0.8 && < 0.9
                    , warp              >= 0.4 && < 0.5
                    , wai               >= 0.4 && < 0.5
-                   , wai-extra         >= 0.4 && < 0.5
+                   , wai-extra         >= 0.4.4 && < 0.5
                    , bytestring        >= 0.9 && < 0.10
                    , transformers      >= 0.2 && < 0.3
                    , text              >= 0.9 && < 1.0
