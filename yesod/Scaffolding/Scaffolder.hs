@@ -167,8 +167,8 @@ scaffold = do
         $(codegen "templates/default-layout.hamlet")
     writeFile' "templates/default-layout-wrapper.hamlet"
         $(codegen "templates/default-layout-wrapper.hamlet")
-    writeFile' "templates/boilerplate-layout.hamlet"
-        $(codegen "templates/boilerplate-layout.hamlet")
+    writeFile' "templates/boilerplate-wrapper.hamlet"
+        $(codegen "templates/boilerplate-wrapper.hamlet")
     writeFile' "templates/normalize.lucius"
         $(codegen "templates/normalize.lucius")
     writeFile' "templates/homepage.hamlet"
