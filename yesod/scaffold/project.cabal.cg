@@ -12,19 +12,15 @@ cabal-version:     >= 1.6
 build-type:        Simple
 homepage:          http://~project~.yesodweb.com/
 
-Flag production
-    Description:   Build the production executable.
-    Default:       False
-
 Flag devel
     Description:   Build for use with "yesod devel"
     Default:       False
 
 library
-    if flag(devel)
-        Buildable: True
-    else
+    if !flag(devel)
         Buildable: False
+
+    cpp-options:   -DDEVELOPMENT
 
     exposed-modules: Application
     other-modules:   Foundation
@@ -51,11 +47,7 @@ executable         ~project~
     if flag(devel)
         Buildable: False
 
-    if flag(production)
-        cpp-options:   -DPRODUCTION
-        ghc-options:   -Wall -threaded -O2
-    else
-        ghc-options:   -Wall -threaded -O0
+    ghc-options:   -Wall -threaded -O2
 
     main-is:       main.hs
 
