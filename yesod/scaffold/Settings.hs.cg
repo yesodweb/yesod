@@ -49,8 +49,8 @@ staticRoot conf = [st|#{appRoot conf}/static|]
 -- user.
 
 widgetFile :: String -> Q Exp
-#if PRODUCTION
-widgetFile = Yesod.Default.Util.widgetFileProduction
-#else
+#if DEVELOPMENT
 widgetFile = Yesod.Default.Util.widgetFileDebug
+#else
+widgetFile = Yesod.Default.Util.widgetFileProduction
 #endif
