@@ -42,7 +42,7 @@ staticDir = "static"
 --
 -- To see how this value is used, see urlRenderOverride in Foundation.hs
 staticRoot :: AppConfig DefaultEnv ->  Text
-staticRoot conf = [st|#{appRoot conf}/static|]
+staticRoot conf = [~qq~st|#{appRoot conf}/static|]
 
 
 -- The rest of this file contains settings which rarely need changing by a
