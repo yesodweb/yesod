@@ -35,7 +35,7 @@ staticDir = "static"
 --
 -- To see how this value is used, see urlRenderOverride in ~project~.hs
 staticRoot :: AppConfig DefaultEnv ->  Text
-staticRoot conf = [st|#{appRoot conf}/static|]
+staticRoot conf = [~qq~st|#{appRoot conf}/static|]
 
 widgetFile :: String -> Q Exp
 #if PRODUCTION
