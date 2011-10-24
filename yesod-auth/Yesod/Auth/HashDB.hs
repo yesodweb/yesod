@@ -98,16 +98,18 @@ class HashDBUser user where
   userPasswordHash :: user -> Maybe Text
   -- | Retrieve salt for password
   userPasswordSalt :: user -> Maybe Text
-  -- | Set hash and password
+
+  -- | Deprecated for the better named setSaltAndPasswordHash 
   setUserHashAndSalt :: Text    -- ^ Salt
                      -> Text    -- ^ Password hash
                      -> user -> user
-  setUserHashAndSalt = setSaltAndUserHash
+  setUserHashAndSalt = setSaltAndPasswordHash
 
-  setSaltAndUserHash :: Text    -- ^ Salt
+  -- | a callback for setPassword
+  setSaltAndPasswordHash :: Text    -- ^ Salt
                      -> Text    -- ^ Password hash
                      -> user -> user
-  setSaltAndUserHash = setUserHashAndSalt
+  setSaltAndPasswordHash = setUserHashAndSalt
 
 -- | Generate random salt. Length of 8 is chosen arbitrarily
 randomSalt :: MonadIO m => m Text
@@ -124,7 +126,7 @@ saltedHash salt =
 --   passwords. It generates random salt and calculates proper hashes.
 setPassword :: (MonadIO m, HashDBUser user) => Text -> user -> m user
 setPassword pwd u = do salt <- randomSalt
-                       return $ setSaltAndUserHash salt (saltedHash salt pwd) u
+                       return $ setSaltAndPasswordHash salt (saltedHash salt pwd) u
 
 
 ----------------------------------------------------------------
@@ -262,6 +264,6 @@ User
 instance HashDBUser (UserGeneric backend) where
   userPasswordHash = Just . userPassword
   userPasswordSalt = Just . userSalt
-  setSaltAndUserHash s h u = u { userSalt     = s
+  setSaltAndPasswordHash s h u = u { userSalt     = s
                                , userPassword = h
                                }
