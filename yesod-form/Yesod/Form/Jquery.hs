@@ -20,6 +20,7 @@ import Yesod.Form
 import Yesod.Widget
 import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,
                   timeToTimeOfDay)
+import qualified Data.Text as T (null)
 import Data.Char (isSpace)
 import Data.Default
 import Text.Hamlet (shamlet)
@@ -78,9 +79,9 @@ jqueryDayField jds = Field
                   Right
               . readMay
               . unpack
-    , fieldView = \theId name val isReq -> do
+    , fieldView = \theId name theClass val isReq -> do
         addHtml [HTML|\
-<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -129,9 +130,9 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
 jqueryDayTimeField :: (RenderMessage master FormMessage, YesodJquery master) => Field sub master UTCTime
 jqueryDayTimeField = Field
     { fieldParse  = blank $ parseUTCTime . unpack
-    , fieldView = \theId name val isReq -> do
+    , fieldView = \theId name theClass val isReq -> do
         addHtml [HTML|\
-<input id="#{theId}" name="#{name}" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -159,9 +160,9 @@ jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master
                         => Route master -> Field sub master Text
 jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
-    , fieldView = \theId name val isReq -> do
+    , fieldView = \theId name theClass val isReq -> do
         addHtml [HTML|\
-<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
+<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
