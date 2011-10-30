@@ -50,6 +50,7 @@ extra-source-files:
   scaffold/config/postgresql.yml.cg
   scaffold/config/mongoDB.yml.cg
   scaffold/config/routes.cg
+  scaffold/config/robots.txt.cg
   scaffold/Settings.hs.cg
   scaffold/Settings/StaticFiles.hs.cg
   scaffold/messages/en.msg.cg
