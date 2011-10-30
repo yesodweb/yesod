@@ -5,7 +5,7 @@ Default: &defaults
 Development:
   <<: *defaults
 
-Test:
+Testing:
   database: ~project~_test.sqlite3
   <<: *defaults
 
