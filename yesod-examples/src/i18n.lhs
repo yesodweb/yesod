@@ -24,8 +24,8 @@
 >     let hello = chooseHello ls
 >     let choices =
 >             [ ("en", "English") :: (Text, Text)
->             , ("es", "Spanish")
->             , ("he", "Hebrew")
+>             , ("es", "Español")
+>             , ("he", "עִבְרִית")
 >             ]
 >     defaultLayout $ do
 >       setTitle "I18N Homepage"
@@ -40,8 +40,8 @@
 
 > chooseHello :: [Text] -> Text
 > chooseHello [] = "Hello"
-> chooseHello ("he":_) = "Shalom"
-> chooseHello ("es":_) = "Hola"
+> chooseHello ("he":_) = "שלום"
+> chooseHello ("es":_) = "¡Hola!"
 > chooseHello (_:rest) = chooseHello rest
 
 > getSetLangR :: Text -> Handler ()
