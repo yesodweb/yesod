@@ -10,7 +10,7 @@
 
 > data I18N = I18N
 
-> mkYesod "I18N" [$parseRoutes|
+> mkYesod "I18N" [parseRoutes|
 > /            HomepageR GET
 > /set/#Text SetLangR  GET
 > |]
@@ -29,7 +29,7 @@
 >             ]
 >     defaultLayout $ do
 >       setTitle "I18N Homepage"
->       addHamlet [$hamlet|
+>       addHamlet [hamlet|
 > <h1>#{hello}
 > <p>In other languages:
 > <ul>
