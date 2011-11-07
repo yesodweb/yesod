@@ -3,14 +3,23 @@
 > {-# LANGUAGE TypeFamilies #-}
 > {-# LANGUAGE MultiParamTypeClasses #-}
 > {-# LANGUAGE OverloadedStrings #-}
+> {-# LANGUAGE CPP #-}
 
 > import Yesod
 > import Data.Monoid (mempty)
 > import Data.Text (Text)
 
+To work on both ghc6 and ghc7
+
+#if GHC7
+# define QQ(x) x
+#else
+# define QQ(x) $x
+#endif
+
 > data I18N = I18N
 
-> mkYesod "I18N" [$parseRoutes|
+> mkYesod "I18N" [QQ(parseRoutes)|
 > /            HomepageR GET
 > /set/#Text SetLangR  GET
 > |]
@@ -29,7 +38,7 @@
 >             ]
 >     defaultLayout $ do
 >       setTitle "I18N Homepage"
->       addHamlet [$hamlet|
+>       addHamlet [QQ(hamlet)|
 > <h1>#{hello}
 > <p>In other languages:
 > <ul>
