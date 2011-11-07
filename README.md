@@ -12,6 +12,8 @@ featuring:
 
 ## Installation: http://www.yesodweb.com/page/five-minutes
 
+    cabal update && cabal install yesod
+
 ## Create a new project after installing
 
     yesod init
@@ -19,8 +21,10 @@ featuring:
 
 ## Installing the latest development version from github
 
-Yesod is built upon many smaller packages, all of which can be installed 
-with:
+If you are concerned about mucking with your installed packages, you might try using the new [virthualenv](http://hackage.haskell.org/package/virthualenv) tool to isolate a custom yesod build to a particular application.
+
+Yesod is broken up into 4 separate repos and built upon many smaller packages.
+All of them can be installed with the below command.
 
 ~~~ { .bash }
 cabal update
