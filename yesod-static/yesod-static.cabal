@@ -47,7 +47,7 @@ test-suite runtests
     cpp-options:   -DTEST
     build-depends:   yesod-static
                    , base >= 4 && < 5
-                   , hspec >= 0.8   && < 0.9
+                   , hspec >= 0.8   && < 0.10
                    , HUnit
     ghc-options:     -Wall
     main-is:         runtests.hs
