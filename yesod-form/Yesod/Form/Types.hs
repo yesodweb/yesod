@@ -11,6 +11,7 @@ module Yesod.Form.Types
     , Ints (..)
       -- * Form
     , Form
+    , MForm
     , AForm (..)
       -- * Build forms
     , Field (..)
@@ -75,6 +76,8 @@ type FileEnv = Map.Map Text FileInfo
 
 type Lang = Text
 type Form sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GGHandler sub master IO) a
+{-# DEPRECATE Form "Use MForm instead" #-}
+type MForm sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GGHandler sub master IO) a
 
 newtype AForm sub master a = AForm
     { unAForm :: (master, [Text]) -> Maybe (Env, FileEnv) -> Ints -> GGHandler sub master IO (FormResult a, [FieldView sub master] -> [FieldView sub master], Ints, Enctype)
