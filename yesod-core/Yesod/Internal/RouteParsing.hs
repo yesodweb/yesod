@@ -331,7 +331,7 @@ pieceFromString ('#':x) = SinglePiece x
 pieceFromString ('*':x) = MultiPiece x
 pieceFromString x = StaticPiece x
 
--- this is n^2, should be a way to speed it up
+-- n^2, should be a way to speed it up
 findOverlaps :: [Resource] -> [(Resource, Resource)]
 findOverlaps = go . map justPieces
   where
@@ -341,7 +341,7 @@ findOverlaps = go . map justPieces
     go [] = []
     go (x:xs) = mapMaybe (mOverlap x) xs ++ go xs
 
-    mOverlap :: ([Piece], Resource) -> ([Piece], Resource) -> 
+    mOverlap :: ([Piece], Resource) -> ([Piece], Resource) ->
                 Maybe (Resource, Resource)
     mOverlap (StaticPiece x:xs, xr) (StaticPiece y:ys, yr)
         | x == y = mOverlap (xs, xr) (ys, yr)
