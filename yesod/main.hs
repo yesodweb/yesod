@@ -35,7 +35,7 @@ main = do
         ["touch"] -> touch
 #endif
         ["devel"] -> devel isDev
-        ["version"] -> putStrLn "0.9"
+        ["version"] -> putStrLn "0.9.3"
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         _ -> do
             putStrLn "Usage: yesod <command>"
