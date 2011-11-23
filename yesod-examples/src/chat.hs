@@ -6,7 +6,7 @@
 module Main where
 
 import Yesod
-import Yesod.Helpers.Static
+import Yesod.Static
 
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan
@@ -17,8 +17,6 @@ import Data.Text (Text, unpack)
 
 -- speaker and content
 data Message = Message Text Text
-
-type Handler yesod = GHandler yesod yesod
 
 -- all those TChans are dupes, so writing to any one writes to them all, but reading is separate
 data Chat = Chat
@@ -54,7 +52,7 @@ instance Yesod Chat where
     \
 |]
 
-getHomeR :: Handler Chat RepHtml
+getHomeR :: Handler RepHtml
 getHomeR = do
   Chat clients next _ <- getYesod
   client <- liftIO . atomically $ do
@@ -68,7 +66,7 @@ getHomeR = do
     return c
   defaultLayout $ do
     setTitle "Chat Page"
-    addWidget [$hamlet|\
+    toWidget [$hamlet|\
 \<!DOCTYPE html>
 
 <h1>Chat Example
@@ -81,7 +79,7 @@ getHomeR = do
 <script>var clientNumber = #{show client}
 |]
 
-getCheckR :: Handler Chat RepJson
+getCheckR :: Handler RepJson
 getCheckR = do
   liftIO $ putStrLn "Check"
   Chat clients _ _ <- getYesod
@@ -101,7 +99,7 @@ getCheckR = do
 
 zipJson x y = jsonMap $ map (unpack *** jsonScalar . unpack) $ zip x y
 
-getPostR :: Handler Chat RepJson
+getPostR :: Handler RepJson
 getPostR = do
   liftIO $ putStrLn "Post"
   Chat clients _ _ <- getYesod
@@ -122,4 +120,5 @@ main :: IO ()
 main = do
   clients <- newTVarIO []
   next <- newTVarIO 0
-  warpDebug 3000 $ Chat clients next $ static "static"
+  s <- static "static"
+  warpDebug 3000 $ Chat clients next s
