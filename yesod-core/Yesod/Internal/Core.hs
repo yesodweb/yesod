@@ -35,8 +35,6 @@ import Yesod.Handler
 
 import Control.Arrow ((***))
 import Control.Monad (forM)
-import qualified Paths_yesod_core
-import Data.Version (showVersion)
 import Yesod.Widget
 import Yesod.Request
 import qualified Network.Wai as W
@@ -77,6 +75,17 @@ import Text.Blaze (preEscapedLazyText)
 import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
 import qualified Data.Vector as Vector
+
+-- mega repo can't access this
+#ifndef MEGA
+import qualified Paths_yesod_core
+import Data.Version (showVersion)
+yesodVersion :: String
+yesodVersion = showVersion Paths_yesod_core.version
+#else
+yesodVersion :: String
+yesodVersion = "0.9.3.2"
+#endif
 
 #if GHC7
 #define HAMLET hamlet
@@ -595,9 +604,6 @@ ynHelper render scripts jscript jsLoc =
                 case jscript of
                     Nothing -> Nothing
                     Just j -> Just $ jelper j
-
-yesodVersion :: String
-yesodVersion = showVersion Paths_yesod_core.version
 
 yesodRender :: Yesod y
             => y
