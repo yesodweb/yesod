@@ -25,19 +25,20 @@ Executable yesod-blog
 Executable yesod-ajax
   Main-is:             src/ajax.lhs
   Build-depends:       yesod-static,
-                       blaze-html,
+                       blaze-html  >= 0.4.1.3  && < 0.5,
                        yesod >= 0.9
 
 Executable yesod-file-echo
   Main-is:             src/file-echo.lhs
-  Build-depends:       text,
+  Build-depends:     
+                       text              >= 0.9   && < 0.12
                        yesod >= 0.9
 
 Executable yesod-pretty-yaml
   Main-is:             src/pretty-yaml.lhs
   Build-depends:       data-object-yaml >= 0.3.0 && < 0.4,
                        data-object >= 0.3.1 && < 0.4,
-                       bytestring >= 0.9 && < 0.10,
+                       bytestring                >= 0.9.1.4  && < 0.10,
                        yesod >= 0.9
 
 Executable yesod-i18n
@@ -60,9 +61,9 @@ Executable yesod-form
 
 Executable yesod-persistent-synopsis
   Main-is:             synopsis/persistent.lhs
-  Build-depends:       transformers >= 0.2.1 && < 0.3,
-                       persistent-sqlite >= 0.6,
-                       persistent-template
+  Build-depends:       transformers >= 0.2.2 && < 0.3,
+                       persistent-sqlite   >= 0.6, && < 0.7
+                       persistent-template >= 0.6, && < 0.7
 
 Executable yesod-hamlet-synopsis
   Main-is:             synopsis/hamlet.lhs
