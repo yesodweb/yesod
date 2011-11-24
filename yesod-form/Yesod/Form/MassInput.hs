@@ -35,7 +35,7 @@ import Data.Maybe (listToMaybe)
 #define WHAMLET $whamlet
 #endif
 
-down :: Int -> Form sub master ()
+down :: Int -> MForm sub master ()
 down 0 = return ()
 down i | i < 0 = error "called down with a negative number"
 down i = do
@@ -43,7 +43,7 @@ down i = do
     put $ IntCons 0 is
     down $ i - 1
 
-up :: Int -> Form sub master ()
+up :: Int -> MForm sub master ()
 up 0 = return ()
 up i | i < 0 = error "called down with a negative number"
 up i = do
@@ -98,7 +98,7 @@ inputList label fixXml single mdef = formToAForm $ do
 
 withDelete :: (xml ~ GWidget sub master (), RenderMessage master FormMessage)
            => AForm sub master a
-           -> Form sub master (Either xml (FormResult a, [FieldView sub master]))
+           -> MForm sub master (Either xml (FormResult a, [FieldView sub master]))
 withDelete af = do
     down 1
     deleteName <- newFormIdent
