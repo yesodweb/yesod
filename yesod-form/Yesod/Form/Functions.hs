@@ -62,7 +62,7 @@ import qualified Data.ByteString.Lazy as L
 #endif
 
 -- | Get a unique identifier.
-newFormIdent :: Form sub master Text
+newFormIdent :: MForm sub master Text
 newFormIdent = do
     i <- get
     let i' = incrInts i
@@ -72,12 +72,12 @@ newFormIdent = do
     incrInts (IntSingle i) = IntSingle $ i + 1
     incrInts (IntCons i is) = (i + 1) `IntCons` is
 
-formToAForm :: Form sub master (FormResult a, FieldView sub master) -> AForm sub master a
+formToAForm :: MForm sub master (FormResult a, FieldView sub master) -> AForm sub master a
 formToAForm form = AForm $ \(master, langs) env ints -> do
     ((a, xml), ints', enc) <- runRWST form (env, master, langs) ints
     return (a, (:) xml, ints', enc)
 
-aFormToForm :: AForm sub master a -> Form sub master (FormResult a, [FieldView sub master] -> [FieldView sub master])
+aFormToForm :: AForm sub master a -> MForm sub master (FormResult a, [FieldView sub master] -> [FieldView sub master])
 aFormToForm (AForm aform) = do
     ints <- get
     (env, master, langs) <- ask
@@ -86,24 +86,24 @@ aFormToForm (AForm aform) = do
     tell enc
     return (a, xml)
 
-askParams :: Form sub master (Maybe Env)
+askParams :: MForm sub master (Maybe Env)
 askParams = do
     (x, _, _) <- ask
     return $ liftM fst x
 
-askFiles :: Form sub master (Maybe FileEnv)
+askFiles :: MForm sub master (Maybe FileEnv)
 askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
 mreq :: (RenderMessage master msg, RenderMessage master FormMessage)
      => Field sub master a -> FieldSettings msg -> Maybe a
-     -> Form sub master (FormResult a, FieldView sub master)
+     -> MForm sub master (FormResult a, FieldView sub master)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
 mopt :: RenderMessage master msg
      => Field sub master a -> FieldSettings msg -> Maybe (Maybe a)
-     -> Form sub master (FormResult (Maybe a), FieldView sub master)
+     -> MForm sub master (FormResult (Maybe a), FieldView sub master)
 mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
 mhelper :: RenderMessage master msg
@@ -113,7 +113,7 @@ mhelper :: RenderMessage master msg
         -> (master -> [Text] -> FormResult b) -- ^ on missing
         -> (a -> FormResult b) -- ^ on success
         -> Bool -- ^ is it required?
-        -> Form sub master (FormResult b, FieldView sub master)
+        -> MForm sub master (FormResult b, FieldView sub master)
 
 mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     mp <- askParams
@@ -157,7 +157,7 @@ aopt :: RenderMessage master msg
      -> AForm sub master (Maybe a)
 aopt a b = formToAForm . mopt a b
 
-runFormGeneric :: MonadIO m => Form sub master a -> master -> [Text] -> Maybe (Env, FileEnv) -> GGHandler sub master m (a, Enctype)
+runFormGeneric :: MonadIO m => MForm sub master a -> master -> [Text] -> Maybe (Env, FileEnv) -> GGHandler sub master m (a, Enctype)
 runFormGeneric form master langs env = liftIOHandler $ evalRWST form (env, master, langs) (IntSingle 1)
 
 -- | This function is used to both initially render a form and to later extract
@@ -170,14 +170,14 @@ runFormGeneric form master langs env = liftIOHandler $ evalRWST form (env, maste
 -- the form submit to a POST page. In such a case, both the GET and POST
 -- handlers should use 'runFormPost'.
 runFormPost :: RenderMessage master FormMessage
-            => (Html -> Form sub master (FormResult a, xml))
+            => (Html -> MForm sub master (FormResult a, xml))
             -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPost form = do
     env <- postEnv
     postHelper form env
 
 postHelper  :: RenderMessage master FormMessage
-            => (Html -> Form sub master (FormResult a, xml))
+            => (Html -> MForm sub master (FormResult a, xml))
             -> Maybe (Env, FileEnv)
             -> GHandler sub master ((FormResult a, xml), Enctype)
 postHelper form env = do
@@ -204,7 +204,7 @@ postHelper form env = do
 -- general usage, you can stick with @runFormPost@.
 generateFormPost
     :: RenderMessage master FormMessage
-    => (Html -> Form sub master (FormResult a, xml))
+    => (Html -> MForm sub master (FormResult a, xml))
     -> GHandler sub master ((FormResult a, xml), Enctype)
 generateFormPost form = postHelper form Nothing
 
@@ -220,14 +220,14 @@ postEnv = do
   where
     notEmpty = not . L.null . fileContent
 
-runFormPostNoNonce :: (Html -> Form sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
+runFormPostNoNonce :: (Html -> MForm sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoNonce form = do
     langs <- languages
     m <- getYesod
     env <- postEnv
     runFormGeneric (form mempty) m langs env
 
-runFormGet :: (Html -> Form sub master a) -> GHandler sub master (a, Enctype)
+runFormGet :: (Html -> MForm sub master a) -> GHandler sub master (a, Enctype)
 runFormGet form = do
     gets <- liftM reqGetParams getRequest
     let env =
@@ -236,13 +236,13 @@ runFormGet form = do
                 Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
     getHelper form env
 
-generateFormGet :: (Html -> Form sub master a) -> GHandler sub master (a, Enctype)
+generateFormGet :: (Html -> MForm sub master a) -> GHandler sub master (a, Enctype)
 generateFormGet form = getHelper form Nothing
 
 getKey :: Text
 getKey = "_hasdata"
 
-getHelper :: (Html -> Form sub master a) -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
+getHelper :: (Html -> MForm sub master a) -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
 getHelper form env = do
     let fragment = [HTML|<input type=hidden name=#{getKey}>|]
     langs <- languages
@@ -252,7 +252,7 @@ getHelper form env = do
 type FormRender sub master a =
        AForm sub master a
     -> Html
-    -> Form sub master (FormResult a, GWidget sub master ())
+    -> MForm sub master (FormResult a, GWidget sub master ())
 
 renderTable, renderDivs :: FormRender sub master a
 renderTable aform fragment = do
