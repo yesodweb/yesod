@@ -1,4 +1,5 @@
 *.o
+*.o_p
 *.hi
 dist
 *.swp
