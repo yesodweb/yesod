@@ -343,12 +343,12 @@ defaultYesodRunner _ m toMaster _ murl _ req
             [] -> Nothing
             (x, _):_ -> Just x
 defaultYesodRunner s master toMasterRoute mkey murl handler req = do
-    now <- liftIO getCurrentTime
-    let getExpires m = fromIntegral (m * 60) `addUTCTime` now
-    let exp' = getExpires $ clientSessionDuration master
-    let rh = takeWhile (/= ':') $ show $ W.remoteHost req
+    now <- {-# SCC "getCurrentTime" #-} liftIO getCurrentTime
+    let getExpires m = {-# SCC "getExpires" #-} fromIntegral (m * 60) `addUTCTime` now
+    let exp' = {-# SCC "exp'" #-} getExpires $ clientSessionDuration master
+    let rh = {-# SCC "rh" #-} takeWhile (/= ':') $ show $ W.remoteHost req
     let host = if sessionIpAddress master then S8.pack rh else ""
-    let session' =
+    let session' = {-# SCC "session'" #-}
             case mkey of
                 Nothing -> []
                 Just key -> fromMaybe [] $ do
@@ -356,7 +356,7 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                     val <- lookup sessionName $ parseCookies raw
                     decodeSession key now host val
     rr <- liftIO $ parseWaiRequest req session' mkey
-    let h = do
+    let h = {-# SCC "h" #-} do
           case murl of
             Nothing -> handler
             Just url -> do
@@ -377,7 +377,8 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                    $ filter (\(x, _) -> x /= nonceKey) session'
     yar <- handlerToYAR master s toMasterRoute (yesodRender master) errorHandler rr murl sessionMap h
     let mnonce = reqNonce rr
-    iv <- liftIO CS.randomIV
+    -- FIXME should we be caching this IV value and reusing it for efficiency?
+    iv <- {-# SCC "iv" #-} maybe (return $ error "Should not be used") (const $ liftIO CS.randomIV) mkey
     return $ yarToResponse (hr iv mnonce getExpires host exp') yar
   where
     hr iv mnonce getExpires host exp' hs ct sm =
