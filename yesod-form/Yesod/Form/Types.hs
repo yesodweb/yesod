@@ -76,7 +76,7 @@ type FileEnv = Map.Map Text FileInfo
 
 type Lang = Text
 type Form sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GGHandler sub master IO) a
-{-# DEPRECATE Form "Use MForm instead" #-}
+{-# DEPRECATED Form "Use MForm instead" #-}
 type MForm sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GGHandler sub master IO) a
 
 newtype AForm sub master a = AForm
