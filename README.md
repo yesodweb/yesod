@@ -21,7 +21,23 @@ featuring:
 
 ## Installing the latest development version from github
 
-If you are concerned about mucking with your installed packages, you might try using the new [virthualenv](http://hackage.haskell.org/package/virthualenv) tool to isolate a custom yesod build to a particular application.
+Currently there is a very annoying issue that aeson, a Yesod dependency requires deepseq < 1.2
+A new version of aeson should be released fairly soon.
+This means that before installing Yesod you should
+
+~~~
+cabal install deepseq-1.1.0.2
+~~~
+
+To ensure that cabal prefers this package you need to first start from a clean slate.
+The easiest way to do that is to use [virthualenv](http://hackage.haskell.org/package/virthualenv), which will prevent any conflicts with presently installed packages by creating an isolated install environment.
+
+~~~
+cabal install virthualenv
+mkdir yesodweb
+cd yesodweb
+virthualenv --name=yesod
+~~~
 
 Yesod is broken up into 4 separate repos and built upon many smaller packages.
 All of them can be installed with the below command.
