@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Test.Media (mediaTest, Widget) where
+module YesodCoreTest.Media (mediaTest, Widget) where
 
 import Test.Hspec
 import Test.Hspec.HUnit ()

@@ -93,20 +93,20 @@ library
     if flag(test)
         Buildable: False
 
-test-suite runtests
+test-suite tests
     type: exitcode-stdio-1.0
-    main-is: main.hs
+    main-is: ../test.hs
     hs-source-dirs: test
 
     if flag(ghc7)
         type: exitcode-stdio-1.0
         build-depends:   base                      >= 4.3      && < 5
         cpp-options:     -DGHC7
-        main-is:         main.hs
+        main-is:         test.hs
     else
         type: exitcode-stdio-1.0
         build-depends:   base                      >= 4        && < 4.3
-        main-is:         main.hs
+        main-is:         test.hs
     cpp-options:   -DTEST
     build-depends: hspec >= 0.8 && < 0.10
                   ,wai-test >= 0.1.2 && < 0.2

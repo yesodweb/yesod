@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Test.CleanPath (cleanPathTest, Widget) where
+module YesodCoreTest.CleanPath (cleanPathTest, Widget) where
 
 import Test.Hspec
 import Test.Hspec.HUnit()
