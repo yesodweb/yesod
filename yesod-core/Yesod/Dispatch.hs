@@ -34,7 +34,6 @@ import Yesod.Internal.RouteParsing (THResource, Pieces (..), createRoutes, creat
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
-import Network.Wai.Middleware.Jsonp
 import Network.Wai.Middleware.Gzip
 import Network.Wai.Middleware.Autohead
 
@@ -172,11 +171,11 @@ thResourceFromResource (Resource n _ _) =
     error $ "Invalid attributes for resource: " ++ n
 
 -- | Convert the given argument into a WAI application, executable with any WAI
--- handler. This is the same as 'toWaiAppPlain', except it includes three
--- middlewares: GZIP compression, JSON-P and autohead. This is the
+-- handler. This is the same as 'toWaiAppPlain', except it includes two
+-- middlewares: GZIP compression and autohead. This is the
 -- recommended approach for most users.
 toWaiApp :: (Yesod y, YesodDispatch y y) => y -> IO W.Application
-toWaiApp y = gzip (gzipCompressFiles y) . jsonp . autohead <$> toWaiAppPlain y
+toWaiApp y = gzip (gzipCompressFiles y) . autohead <$> toWaiAppPlain y
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This differs from 'toWaiApp' in that it uses no middlewares.
