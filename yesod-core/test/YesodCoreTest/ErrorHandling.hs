@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
-module Test.ErrorHandling
+module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
     , Widget
     ) where

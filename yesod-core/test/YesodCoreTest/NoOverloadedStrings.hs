@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Test.NoOverloadedStrings (noOverloadedTest, Widget) where
+module YesodCoreTest.NoOverloadedStrings (noOverloadedTest, Widget) where
 
 import Test.Hspec
 import Test.Hspec.HUnit ()

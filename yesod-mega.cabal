@@ -10,7 +10,7 @@ description:
 
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6
+cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 
@@ -84,7 +84,9 @@ library
                      Yesod.RssFeed
                      Yesod.Feed
 
-    other-modules: 
+    other-modules:
+                     -- yesod-newsfeed
+                     Yesod.FeedTypes
                      -- yesod-core
                      Yesod.Internal
                      Yesod.Internal.Core
@@ -117,9 +119,9 @@ library
                    -- yesod
                      Cabal              >= 1.8          && < 1.13
                    , shakespeare-text   >= 0.10     && < 0.11
-                   , attoparsec-text    >= 0.8.5        && < 0.9
                    , filepath           >= 1.1          && < 1.3
                    , process
+                   , attoparsec-text    >= 0.8.5        && < 0.8.5.2
                    -- yesod-sitemap
                    -- empty
 
@@ -185,6 +187,38 @@ library
                    , aeson-native          >= 0.3.3.1  && < 0.4
     ghc-options:     -Wall
 
+test-suite tests
+    type: exitcode-stdio-1.0
+    main-is: main.hs
+    hs-source-dirs: 
+                    test
+                    yesod-core/test
+
+    if flag(ghc7)
+        type: exitcode-stdio-1.0
+        build-depends:   base                      >= 4.3      && < 5
+        cpp-options:     -DGHC7
+        main-is:         test.hs
+    else
+        type: exitcode-stdio-1.0
+        build-depends:   base                      >= 4        && < 4.3
+        main-is:         test.hs
+    cpp-options:   -DTEST
+    build-depends: yesod-mega
+                  ,hspec >= 0.8 && < 0.10
+                  ,wai-test >= 0.1.2 && < 0.2
+                  ,wai
+                  ,bytestring
+                  ,hamlet
+                  ,shakespeare-css
+                  ,shakespeare-js
+                  ,text
+                  ,http-types
+                  , random
+                  ,HUnit
+                  ,QuickCheck >= 2 && < 3
+                  , enumerator
+    ghc-options:     -Wall
 
 source-repository head
   type:     git

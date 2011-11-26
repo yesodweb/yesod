@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Test.InternalRequest (internalRequestTest) where
+module YesodCoreTest.InternalRequest (internalRequestTest) where
 
 import Data.List (nub)
 import System.Random (StdGen, mkStdGen)

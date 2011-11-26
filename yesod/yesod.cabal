@@ -104,7 +104,7 @@ executable             yesod
                      , Cabal              >= 1.8          && < 1.13
                      , unix-compat        >= 0.2          && < 0.4
                      , containers         >= 0.2          && < 0.5
-                     , attoparsec-text    >= 0.8.5        && < 0.9
+                     , attoparsec-text    >= 0.8.5        && < 0.8.5.2
                      , http-types         >= 0.6.1        && < 0.7
                      , blaze-builder      >= 0.2.1.4      && < 0.4
                      , filepath           >= 1.1          && < 1.3
