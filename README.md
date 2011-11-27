@@ -90,7 +90,7 @@ cabal install deepseq-1.1.0.2
 
 #### Mega repos
 
-Yesod consists of four mega repos: yesod, wai, persistent, and hamlet
+Yesod consists of four mega repos: yesod, wai, persistent, and hamlet.
 Each mega repo contains multiple cabal packages, and a mega cabal package.
 You will likely find development much easier if you compile and test with the mega repo.
 Installing a mega repo helps cabal align all the dependencies correctly.
@@ -129,7 +129,7 @@ cabal-dev works very well if you are working on a single package, but it can be 
 
 ### Use your development version of Yesod in your application
 
-Note that we have told you to instal Yesod into a sandboxed virthualenv or cabal-dev environment.
+Note that we have told you to install Yesod into a sandboxed virthualenv or cabal-dev environment.
 This means it is not available through your user/global cabal database for your application.
 Instead you should use `cabal-dev add-source-list` to retrieve these packages.
 cd to your application directory, and the reference the source list.
