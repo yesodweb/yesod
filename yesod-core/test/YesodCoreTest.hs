@@ -12,7 +12,7 @@ import YesodCoreTest.ErrorHandling
 import Test.Hspec
 
 specs :: [Specs]
-specs = -- concat
+specs = 
     [ cleanPathTest
     , exceptionsTest
     , widgetTest
