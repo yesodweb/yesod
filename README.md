@@ -104,7 +104,7 @@ Installing a mega repo helps cabal align all the dependencies correctly.
 cd hamlet
 
 # build and test the mega repo
-cabal install --enable-tests
+cabal configure -ftest --enable-tests
 cabal build
 cabal test
 ~~~
@@ -121,7 +121,7 @@ If you first install the mega repo, then it should be easier to work on an indiv
 cd shakespeare-text
 
 # build and test the individual package
-cabal configure --enable-tests
+cabal configure -ftest --enable-tests
 cabal build
 cabal test
 ~~~

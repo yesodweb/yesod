@@ -90,8 +90,6 @@ library
                      Yesod.Internal.RouteParsing
                      Paths_yesod_core
     ghc-options:     -Wall
-    if flag(test)
-        Buildable: False
 
 test-suite tests
     type: exitcode-stdio-1.0
