@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.10.2.2
+version:         0.10.3
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii, Arash Rouhani
@@ -15,7 +15,7 @@ homepage:        http://github.com/snoyberg/authenticate/tree/master
 
 library
     build-depends:   base >= 4 && < 5,
-                     aeson-native >= 0.3.2.11 && < 0.4,
+                     aeson >= 0.3.2.11,
                      http-enumerator >= 0.6.5.4 && < 0.8,
                      tagsoup >= 0.12 && < 0.13,
                      failure >= 0.0.0 && < 0.2,
