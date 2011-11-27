@@ -53,10 +53,11 @@ virthualenv works at the shell level, so every shell must activate the virthuale
 ~~~ { .bash }
 # update your package database if you haven't recently
 cabal update
-# latest version of cabal-dev is required
+# install required libraries
 cabal install Cabal cabal-install cabal-dev virthualenv
 
-# finally build Yesod. Note: this is a completely sandboxed, except it installs the latest vesion of cabal-dev
+# finally build Yesod.
+# this is completely sandboxed, except that it installs an unreleased vesion of cabal-dev
 git clone http://github.com/yesodweb/install yesodweb && cd yesodweb
 cd install && cabal-dev install && dist/build/install/install && cd ..
 ~~~
@@ -70,11 +71,13 @@ To prevent Yesod from conflicting with your other installs, you should use virth
 ~~~ { .bash }
 cabal update
 cabal install virthualenv
+cd yesodweb
 virthualenv --name=yesod
 ./virthualenv/bin/activate
 
-# from the yesodweb directory, install the mega-mega repo to align all your dependencies
+# prevent dependency issue
 cabal install deepseq-1.1.0.2
+# from the yesodweb directory, install the mega-mega repo to align all your dependencies
 cabal install
 ~~~
 
@@ -92,9 +95,9 @@ cabal install deepseq-1.1.0.2
 
 Yesod consists of four mega repos: yesod, wai, persistent, and hamlet.
 Each mega repo contains multiple cabal packages, and a mega cabal package.
-You will likely find development much easier if you compile and test with the mega repo.
-Installing a mega repo helps cabal align all the dependencies correctly.
 The yesodweb folder is also a mega-mega repo that will compile all four mega repos at once.
+You may find development easier if you compile and test with a mega repo.
+Installing a mega repo helps cabal align all the dependencies correctly.
 
 ~~~ { .bash }
 # Move to which one of the four repos you are working on.
