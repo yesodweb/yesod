@@ -70,7 +70,7 @@ library
                    -- for logger. Probably logger should be a separate package
                    , strict-concurrency    >= 0.2.4    && < 0.2.5
                    , vector                >= 0.9      && < 0.10
-                   , aeson-native          >= 0.3.3.1  && < 0.4
+                   , aeson                 >= 0.3
 
     exposed-modules: Yesod.Content
                      Yesod.Core
