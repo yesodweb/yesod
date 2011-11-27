@@ -4,7 +4,9 @@
 module Yesod.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
+    , parseRoutesNoCheck
     , parseRoutesFile
+    , parseRoutesFileNoCheck
     , mkYesod
     , mkYesodSub
       -- ** More fine-grained
@@ -30,7 +32,7 @@ import Yesod.Internal.Dispatch
 import Yesod.Widget (GWidget)
 
 import Web.PathPieces (SinglePiece (..), MultiPiece (..))
-import Yesod.Internal.RouteParsing (THResource, Pieces (..), createRoutes, createRender, Resource (..), parseRoutes, parseRoutesFile)
+import Yesod.Internal.RouteParsing (THResource, Pieces (..), createRoutes, createRender, Resource (..), parseRoutes, parseRoutesNoCheck, parseRoutesFile, parseRoutesFileNoCheck)
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
