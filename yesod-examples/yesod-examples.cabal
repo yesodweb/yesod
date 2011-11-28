@@ -30,8 +30,7 @@ Executable yesod-ajax
 
 Executable yesod-file-echo
   Main-is:             src/file-echo.lhs
-  Build-depends:     
-                       text              >= 0.9   && < 0.12
+  Build-depends:       text              >= 0.9   && < 0.12,
                        yesod >= 0.9
 
 Executable yesod-pretty-yaml
@@ -62,8 +61,8 @@ Executable yesod-form
 Executable yesod-persistent-synopsis
   Main-is:             synopsis/persistent.lhs
   Build-depends:       transformers >= 0.2.2 && < 0.3,
-                       persistent-sqlite   >= 0.6, && < 0.7
-                       persistent-template >= 0.6, && < 0.7
+                       persistent-sqlite   >= 0.6 && < 0.7,
+                       persistent-template >= 0.6 && < 0.7
 
 Executable yesod-hamlet-synopsis
   Main-is:             synopsis/hamlet.lhs
