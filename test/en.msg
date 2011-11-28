@@ -1,1 +1,1 @@
-yesod-core/en.msg
+../yesod-core/test/en.msg

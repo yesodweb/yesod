@@ -15,10 +15,13 @@ extra-source-files:
   tests/runtests.hs
 
 flag test
-  description: Build the executable to run unit tests
+  description: Build for use with running tests
   default: False
 
 library
+    if flag(test)
+      cpp-options:   -DTEST
+
     build-depends:   base                  >= 4        && < 5
                    , containers            >= 0.2      && < 0.5
                    , old-time              >= 1.0
@@ -40,9 +43,9 @@ library
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
 
-test-suite runtests
-    hs-source-dirs: tests
-    main-is: runtests.hs
+test-suite tests
+    hs-source-dirs: test
+    main-is: ../tests.hs
     type: exitcode-stdio-1.0
     cpp-options:   -DTEST
     build-depends:   yesod-static
@@ -50,7 +53,6 @@ test-suite runtests
                    , hspec >= 0.8   && < 0.10
                    , HUnit
     ghc-options:     -Wall
-    main-is:         runtests.hs
 
 source-repository head
   type:     git
