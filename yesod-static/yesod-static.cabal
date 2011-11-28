@@ -39,7 +39,7 @@ library
                    , text                  >= 0.9      && < 0.12
                    , file-embed            >= 0.0.4.1  && < 0.5
                    , http-types            >= 0.6.5    && < 0.7
-                   , unix-compat           >= 0.2      && < 0.3
+                   , unix-compat           >= 0.2
                    , enumerator            >= 0.4.8    && < 0.5
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
