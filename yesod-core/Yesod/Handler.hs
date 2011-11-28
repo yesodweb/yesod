@@ -97,6 +97,12 @@ module Yesod.Handler
     , liftIOHandler
       -- * i18n
     , getMessageRender
+      -- * Per-request caching
+    , CacheKey
+    , mkCacheKey
+    , cacheLookup
+    , cacheInsert
+    , cacheDelete
       -- * Internal Yesod
     , runHandler
     , YesodApp (..)
@@ -162,6 +168,9 @@ import Yesod.Message (RenderMessage (..))
 
 import Text.Blaze (toHtml, preEscapedText)
 import Yesod.Internal.TestApi (catchIter)
+
+import qualified Yesod.Internal.Cache as Cache
+import Yesod.Internal.Cache (mkCacheKey, CacheKey)
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -259,6 +268,7 @@ data GHState = GHState
     { ghsSession :: SessionMap
     , ghsRBC :: Maybe RequestBodyContents
     , ghsIdent :: Int
+    , ghsCache :: Cache.Cache
     }
 
 type GHInner s m monad =
@@ -380,7 +390,7 @@ runHandler handler mrender sroute tomr ma sa =
             , handlerRender = mrender
             , handlerToMaster = tomr
             }
-    let initSession' = GHState initSession Nothing 1
+    let initSession' = GHState initSession Nothing 1 mempty
     (contents', finalSession, headers) <- catchIter (
         fmap (\(a, b, c) -> (a, ghsSession b, c))
       $ (\m -> runRWST m hd initSession')
@@ -882,3 +892,16 @@ getMessageRender = do
     m <- getYesod
     l <- reqLangs `liftM` getRequest
     return $ renderMessage m l
+
+cacheLookup :: Monad mo => CacheKey a -> GGHandler sub master mo (Maybe a)
+cacheLookup k = do
+    gs <- GHandler $ lift get
+    return $ Cache.lookup k $ ghsCache gs
+
+cacheInsert :: Monad mo => CacheKey a -> a -> GGHandler sub master mo ()
+cacheInsert k v = GHandler $ lift $ modify $ \gs ->
+    gs { ghsCache = Cache.insert k v $ ghsCache gs }
+
+cacheDelete :: Monad mo => CacheKey a -> GGHandler sub master mo ()
+cacheDelete k = GHandler $ lift $ modify $ \gs ->
+    gs { ghsCache = Cache.delete k $ ghsCache gs }
