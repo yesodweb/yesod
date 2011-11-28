@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.7.4
+version:         0.7.5
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
