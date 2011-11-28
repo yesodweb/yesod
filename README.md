@@ -47,13 +47,18 @@ cabal-dev isolates a single cabal package, but virthualenv isolates multiple pac
 
 virthualenv works at the shell level, so every shell must activate the virthualenv.
 
+### cabal-src
+
+Michael just released the cabal-src tool. Whenever you would use `cabal install` for a local package, use `cabal-src-install` instead.
+Our installer script now uses cabal-src-install when it is available.
+
 ### Building Yesod
 
 ~~~ { .bash }
 # update your package database if you haven't recently
 cabal update
 # install required libraries
-cabal install Cabal cabal-install cabal-dev virthualenv
+cabal install Cabal cabal-install cabal-dev cabal-src virthualenv
 
 # finally build Yesod.
 # this is completely sandboxed, except that it installs an unreleased vesion of cabal-dev
