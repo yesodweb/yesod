@@ -16,15 +16,15 @@ build-type:      Simple
 homepage:        http://www.yesodweb.com/
 extra-source-files:
   test/en.msg
-  test/Test/NoOverloadedStrings.hs
-  test/Test/Media.hs
-  test/Test/Exceptions.hs
-  test/Test/Widget.hs
-  test/Test/CleanPath.hs
-  test/Test/Links.hs
-  test/Test/InternalRequest.hs
-  test/Test/ErrorHandling.hs
-  test/main.hs
+  test/YesodCoreTest/NoOverloadedStrings.hs
+  test/YesodCoreTest/Media.hs
+  test/YesodCoreTest/Exceptions.hs
+  test/YesodCoreTest/Widget.hs
+  test/YesodCoreTest/CleanPath.hs
+  test/YesodCoreTest/Links.hs
+  test/YesodCoreTest/InternalRequest.hs
+  test/YesodCoreTest/ErrorHandling.hs
+  test.hs
 
 flag test
   description: Build the executable to run unit tests
