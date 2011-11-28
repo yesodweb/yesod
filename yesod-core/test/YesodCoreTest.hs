@@ -8,6 +8,7 @@ import YesodCoreTest.Links
 import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
+import YesodCoreTest.Cache
 
 import Test.Hspec
 
@@ -21,4 +22,5 @@ specs =
     , noOverloadedTest
     , internalRequestTest
     , errorHandlingTest
+    , cacheTest
     ]
