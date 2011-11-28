@@ -12,7 +12,8 @@ build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Static file serving subsite for Yesod Web Framework.
 extra-source-files:
-  tests/runtests.hs
+  test/YesodStaticTest.hs
+  tests.hs
 
 flag test
   description: Build for use with running tests
