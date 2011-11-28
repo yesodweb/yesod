@@ -38,6 +38,12 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base              >= 4        && < 4.3
+
+    -- Work around a bug in cabal. Without this, wai-test doesn't get built and
+    -- we have a missing dependency during --enable-tests builds.
+    if flag(test)
+        build-depends: wai-test
+
     build-depends:   time                  >= 1.1.4
                    , wai                   >= 0.4      && < 0.5
                    , wai-extra             >= 0.4.1    && < 0.5
