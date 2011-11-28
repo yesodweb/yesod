@@ -33,6 +33,9 @@ module Yesod.Static
     , publicFiles
       -- * Hashing
     , base64md5
+#ifdef TEST
+    , getFileListPieces 
+#endif
     ) where
 
 import Prelude hiding (FilePath)
