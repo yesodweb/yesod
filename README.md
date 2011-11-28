@@ -1,5 +1,4 @@
-A next generation web framework using the Haskell programming language, 
-featuring:
+An advanced web framework using the Haskell programming language. Featuring:
 
   * safety & security guaranteed at compile time
   * performance
