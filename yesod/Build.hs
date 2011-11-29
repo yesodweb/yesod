@@ -10,7 +10,7 @@ module Build
 -- FIXME there's a bug when getFileStatus applies to a file
 -- temporary deleted (e.g., Vim saving a file)
 
-import           Control.Applicative ((<|>))
+import           Control.Applicative ((<|>), many)
 import           Control.Exception (SomeException, try)
 import           Control.Monad (when, filterM, forM, forM_)
 
@@ -120,7 +120,7 @@ data TempType = Hamlet | Verbatim | Messages FilePath | StaticFiles FilePath
 determineHamletDeps :: FilePath -> IO [FilePath]
 determineHamletDeps x = do
     y <- TIO.readFile x -- FIXME catch IO exceptions
-    let z = A.parse (A.many $ (parser <|> (A.anyChar >> return Nothing))) y
+    let z = A.parse (many $ (parser <|> (A.anyChar >> return Nothing))) y
     case z of
         A.Fail{} -> return []
         A.Done _ r -> mapM go r >>= filterM doesFileExist . concat
