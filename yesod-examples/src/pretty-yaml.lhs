@@ -10,14 +10,14 @@
 
 > data PY = PY
 
-> mkYesod "PY" [$parseRoutes|
+> mkYesod "PY" [parseRoutes|
 > / Homepage GET POST
 > |]
 
 > instance Yesod PY where approot _ = ""
 
 > template :: Maybe (HtmlUrl url) -> HtmlUrl url
-> template myaml = [$hamlet|
+> template myaml = [hamlet|
 > !!!
 > 
 > <html>
@@ -46,13 +46,13 @@
 >     hamletToRepHtml $ template $ Just $ objToHamlet so
 
 > objToHamlet :: StringObject -> HtmlUrl url
-> objToHamlet (Scalar s) = [$hamlet|#{s}|]
-> objToHamlet (Sequence list) = [$hamlet|
+> objToHamlet (Scalar s) = [hamlet|#{s}|]
+> objToHamlet (Sequence list) = [hamlet|
 > <ul
 >     $forall o <- list
 >         <li>^{objToHamlet o}
 > |]
-> objToHamlet (Mapping pairs) = [$hamlet|
+> objToHamlet (Mapping pairs) = [hamlet|
 > <dl
 >     $forall pair <- pairs
 >         <dt>#{fst pair}
@@ -61,3 +61,6 @@
 
 > main :: IO ()
 > main = warpDebug 3000 PY
+
+> _ignored :: Widget
+> _ignored = undefined

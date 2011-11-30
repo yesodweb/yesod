@@ -6,20 +6,11 @@
 > {-# LANGUAGE CPP #-}
 
 > import Yesod
-> import Data.Monoid (mempty)
 > import Data.Text (Text)
-
-To work on both ghc6 and ghc7
-
-#if GHC7
-# define QQ(x) x
-#else
-# define QQ(x) $x
-#endif
 
 > data I18N = I18N
 
-> mkYesod "I18N" [QQ(parseRoutes)|
+> mkYesod "I18N" [parseRoutes|
 > /            HomepageR GET
 > /set/#Text SetLangR  GET
 > |]
@@ -38,7 +29,7 @@ To work on both ghc6 and ghc7
 >             ]
 >     defaultLayout $ do
 >       setTitle "I18N Homepage"
->       addHamlet [QQ(hamlet)|
+>       addHamlet [hamlet|
 > <h1>#{hello}
 > <p>In other languages:
 > <ul>
@@ -60,3 +51,6 @@ To work on both ghc6 and ghc7
 
 > main :: IO ()
 > main = warpDebug 3000 I18N
+
+> _ignored :: Widget
+> _ignored = undefined

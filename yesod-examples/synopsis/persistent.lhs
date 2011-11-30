@@ -37,3 +37,6 @@ Just (Person {personName = "Michael", personAge = 25})
 Just (Person {personName = "Michael", personAge = 26})
 [(PersonId 1,Person {personName = "Michael", personAge = 26})]
 []</pre></code>
+
+> _ignored :: PersonId
+> _ignored = undefined personName personAge

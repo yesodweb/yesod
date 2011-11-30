@@ -113,3 +113,8 @@ All that's left now is the main function. Yesod is built on top of WAI, so you c
 > main = do
 >   entries <- loadEntries
 >   warpDebug 3000 $ Blog entries
+
+And this is just to avoid some warnings...
+
+> _ignored :: Widget
+> _ignored = undefined blogEntries

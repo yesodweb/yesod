@@ -2,7 +2,6 @@
 {-# LANGUAGE QuasiQuotes, OverloadedStrings #-}
 
 import Text.Hamlet
-import Yesod.Widget
 import Data.Text (Text, cons)
 import qualified Data.Text.Lazy.IO as L
 import Text.Blaze.Renderer.Text (renderHtml)
@@ -19,15 +18,15 @@ data PersonUrls = Homepage | PersonPage Text
 
 renderUrls :: PersonUrls -> [(Text, Text)] -> Text
 renderUrls Homepage _ = "/"
-renderUrls (PersonPage name) _ = '/' `cons` name
+renderUrls (PersonPage name') _ = '/' `cons` name'
 
 footer :: HtmlUrl url
-footer = [$hamlet|\
+footer = [hamlet|
 <div id="footer">Thank you, come again
 |]
 
 template :: Person -> HtmlUrl PersonUrls
-template person = [$hamlet|
+template person = [hamlet|
 !!!
 
 <html>
