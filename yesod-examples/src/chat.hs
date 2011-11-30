@@ -9,8 +9,6 @@ import Yesod
 import Yesod.Static
 
 import Control.Concurrent.STM
-import Control.Concurrent.STM.TChan
-import Control.Concurrent.STM.TVar
 
 import Control.Arrow ((***))
 import Data.Text (Text, unpack)
@@ -27,7 +25,7 @@ data Chat = Chat
 
 staticFiles "static"
 
-mkYesod "Chat" [$parseRoutes|
+mkYesod "Chat" [parseRoutes|
 /          HomeR   GET
 /check     CheckR  GET
 /post      PostR   GET
@@ -38,18 +36,17 @@ instance Yesod Chat where
   approot _ = ""
   defaultLayout widget = do
     content <- widgetToPageContent widget
-    hamletToRepHtml [$hamlet|\
-    \<!DOCTYPE html>
+    hamletToRepHtml [hamlet|
+!!!
 
-    <html>
-        <head>
-            <title>#{pageTitle content}
-            <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
-            <script src="@{StaticR chat_js}">
-            \^{pageHead content}
-        <body>
-            \^{pageBody content}
-    \
+<html>
+    <head>
+        <title>#{pageTitle content}
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
+        <script src="@{StaticR chat_js}">
+        ^{pageHead content}
+    <body>
+        ^{pageBody content}
 |]
 
 getHomeR :: Handler RepHtml
@@ -66,8 +63,8 @@ getHomeR = do
     return c
   defaultLayout $ do
     setTitle "Chat Page"
-    toWidget [$hamlet|\
-\<!DOCTYPE html>
+    toWidget [hamlet|
+!!!
 
 <h1>Chat Example
 <form>
@@ -97,6 +94,7 @@ getCheckR = do
   let Message s c = first
   jsonToRepJson $ zipJson ["sender", "content"] [s,c]
 
+zipJson :: [Text] -> [Text] -> Json
 zipJson x y = jsonMap $ map (unpack *** jsonScalar . unpack) $ zip x y
 
 getPostR :: Handler RepJson

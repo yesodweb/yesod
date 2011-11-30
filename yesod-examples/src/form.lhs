@@ -2,7 +2,7 @@
 
 
 > {-# LANGUAGE TypeFamilies, QuasiQuotes, OverloadedStrings, MultiParamTypeClasses, TemplateHaskell #-}
-> import Yesod
+> import Yesod hiding (Form)
 > import Control.Applicative
 > import Data.Text (Text)
 
@@ -10,6 +10,8 @@
 > mkYesod "FormExample" [parseRoutes|
 > / RootR GET
 > |]
+> type Form a = Html -> MForm FormExample FormExample (FormResult a, Widget)
+> type Formlet a = Maybe a -> Form a
 > instance Yesod FormExample where approot _ = ""
 > instance RenderMessage FormExample FormMessage where
 >    renderMessage _ _ = defaultFormMessage
@@ -18,6 +20,7 @@ Next, we'll declare a Person datatype with a name and age. After that, we'll cre
 
 > data Person = Person { name :: Text, age :: Int }
 >     deriving Show
+> personFormlet :: Formlet Person
 > personFormlet p = renderTable $ Person
 >     <$> areq textField "Name" (fmap name p)
 >     <*> areq intField "Age" (fmap age p)
@@ -38,14 +41,15 @@ We use an applicative approach and stay mostly declarative. The "fmap name p" bi
 
 <p>extractBody returns the HTML of a widget and "passes" all of the other declarations (the CSS, Javascript, etc) up to the parent widget. The rest of this is just standard Hamlet code and our main function.</p>
 
->         addHamlet [$hamlet|
+>         addHamlet [hamlet|
 > <p>Last result: #{show res}
 > <form enctype="#{enctype}">
 >     <table>
->         \^{form}
+>         ^{form}
 >         <tr>
 >             <td colspan="2">
 >                 <input type="submit">
 > |]
 > 
+> main :: IO ()
 > main = warpDebug 3000 FormExample

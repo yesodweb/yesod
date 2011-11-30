@@ -52,9 +52,6 @@ Executable yesod-session
 --  Main-is:             src/widgets.lhs
 --  Build-depends:       yesod-form
 
-Executable yesod-generalized-hamlet
-  Main-is:             src/generalized-hamlet.lhs
-
 Executable yesod-form
   Main-is:             src/form.lhs
 
@@ -63,6 +60,7 @@ Executable yesod-persistent-synopsis
   Build-depends:       transformers >= 0.2.2 && < 0.3,
                        persistent-sqlite   >= 0.6 && < 0.7,
                        persistent-template >= 0.6 && < 0.7
+  extra-libraries:     sqlite3
 
 Executable yesod-hamlet-synopsis
   Main-is:             synopsis/hamlet.lhs
