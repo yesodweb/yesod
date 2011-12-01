@@ -1,5 +1,5 @@
 name:            yesod-json
-version:         0.2.2
+version:         0.2.2.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -20,6 +20,7 @@ library
                    , shakespeare-js       >= 0.10     && < 0.11
                    , vector               >= 0.9
                    , containers           >= 0.2      && < 0.5
+                   , unordered-containers
     exposed-modules: Yesod.Json
     ghc-options:     -Wall
 
