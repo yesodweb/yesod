@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.10.3
+version:         0.10.3.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii, Arash Rouhani
@@ -36,6 +36,7 @@ library
                      attoparsec >= 0.9,
                      tls >= 0.7 && < 0.9,
                      containers,
+                     unordered-containers,
                      process >= 1.0.1.1 && < 1.2
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,

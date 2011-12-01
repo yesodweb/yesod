@@ -38,7 +38,11 @@ import Data.Attoparsec.Lazy (parse)
 import qualified Data.Attoparsec.Lazy as AT
 import Data.Text (Text)
 import qualified Data.Aeson.Types
+#if MIN_VERSION_aeson(0, 4, 0)
+import qualified Data.HashMap.Lazy as Map
+#else
 import qualified Data.Map as Map
+#endif
 import Control.Applicative ((<$>), (<*>))
 
 -- | Information received from Rpxnow after a valid login.
