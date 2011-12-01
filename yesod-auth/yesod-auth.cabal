@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.7.6.1
+version:         0.7.6.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -36,7 +36,8 @@ library
                    , hamlet                  >= 0.10      && < 0.11
                    , shakespeare-css         >= 0.10      && < 0.11
                    , yesod-json              >= 0.2       && < 0.3
-                   , containers              >= 0.2       && < 0.5
+                   , containers
+                   , unordered-containers
                    , yesod-form              >= 0.3       && < 0.4
                    , transformers            >= 0.2.2     && < 0.3
                    , persistent              >= 0.6       && < 0.7

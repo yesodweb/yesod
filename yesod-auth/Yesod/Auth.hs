@@ -34,7 +34,11 @@ import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import           Data.Text (Text)
 import qualified Data.Text as T
+#if MIN_VERSION_aeson(0, 4, 0)
+import qualified Data.HashMap.Lazy as Map
+#else
 import qualified Data.Map as Map
+#endif
 
 import Language.Haskell.TH.Syntax hiding (lift)
 
