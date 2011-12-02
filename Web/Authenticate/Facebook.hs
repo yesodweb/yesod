@@ -47,15 +47,15 @@ getForwardUrlParams fb params =
     copyByteString "https://graph.facebook.com/oauth/authorize"
     `mappend`
     renderQueryText True
-        ([ ("client_id", Just $ facebookClientId fb)
-         , ("redirect_uri", Just $ facebookRedirectUri fb)
-         ] ++ map (id *** Just) params)
+        (  ("client_id", Just $ facebookClientId fb)
+         : ("redirect_uri", Just $ facebookRedirectUri fb)
+         : map (id *** Just) params)
 
 -- Internal function used to simplify getForwardUrl & getForwardUrlWithState
 getForwardUrlWithExtra_ :: Facebook -> [Text] -> [(Text, Text)] -> Text
 getForwardUrlWithExtra_ fb perms extra = getForwardUrlParams fb $ (if null perms
-                                                                   then []
-                                                                   else [("scope", T.intercalate "," perms)]) ++ extra
+                                                                   then id
+                                                                   else (("scope", T.intercalate "," perms):)) extra
 
 getForwardUrlWithState :: Facebook -> [Text] -> Text -> Text
 getForwardUrlWithState fb perms state = getForwardUrlWithExtra_ fb perms [("state", state)]
