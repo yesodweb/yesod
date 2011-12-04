@@ -170,9 +170,9 @@ class RenderRoute (Route a) => Yesod a where
 
     -- | Determine if a request is authorized or not.
     --
-    -- Return 'Nothing' is the request is authorized, 'Just' a message if
-    -- unauthorized. If authentication is required, you should use a redirect;
-    -- the Auth helper provides this functionality automatically.
+    -- Return 'Authorized' if the request is authorized,
+    -- 'Unauthorized' a message if unauthorized.
+    -- If authentication is required, return 'AuthenticationRequired'.
     isAuthorized :: Route a
                  -> Bool -- ^ is this a write request?
                  -> GHandler s a AuthResult
