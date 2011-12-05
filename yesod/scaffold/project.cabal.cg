@@ -91,4 +91,4 @@ executable         ~project~
                  , shakespeare-js                >= 0.10       && < 0.11
                  , shakespeare-text              >= 0.10       && < 0.11
                  , hjsmin                        >= 0.0.14     && < 0.1
-                 , monad-control                 >= 0.3        && < 0.4
+                 , monad-control                 ~monadControlVersion~
