@@ -76,4 +76,5 @@ executable         ~project~
                  , shakespeare-text              >= 0.10       && < 0.11
                  , wai                           >= 0.4.2      && < 0.5
                  , transformers                  >= 0.2        && < 0.3
+                 , monad-control                 >= 0.3        && < 0.4
 

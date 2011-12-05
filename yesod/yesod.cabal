@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.9.3.3
+version:         0.9.3.4
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -76,7 +76,7 @@ library
                    , yesod-json                >= 0.2.2    && < 0.3
                    , yesod-persistent          >= 0.2      && < 0.3
                    , yesod-form                >= 0.3      && < 0.4
-                   , monad-control             >= 0.2      && < 0.3
+                   , monad-control             >= 0.2      && < 0.4
                    , transformers              >= 0.2.2    && < 0.3
                    , wai                       >= 0.4      && < 0.5
                    , wai-extra                 >= 0.4.1    && < 0.5
