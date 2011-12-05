@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
@@ -78,16 +79,41 @@ import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE), Pat (VarP), newName)
 
+#if MIN_VERSION_monad_control(0, 3, 0)
+import Control.Monad.Trans.Control (MonadTransControl (..), MonadBaseControl (..), defaultLiftBaseWith, defaultRestoreM, ComposeSt)
+#else
 import Control.Monad.IO.Control (MonadControlIO)
+#endif
 import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze (toHtml, preEscapedLazyText)
+import Control.Monad.Base (MonadBase (liftBase))
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
 -- dependencies along with a 'StateT' to track unique identifiers.
 newtype GGWidget m monad a = GWidget { unGWidget :: GWInner m monad a }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadControlIO)
+    deriving (Functor, Applicative, Monad, MonadIO
+#if !MIN_VERSION_monad_control(0, 3, 0)
+    , MonadControlIO
+#endif
+    )
+
+instance MonadBase b m => MonadBase b (GGWidget master m) where
+    liftBase = lift . liftBase
+#if MIN_VERSION_monad_control(0, 3, 0)
+instance MonadTransControl (GGWidget master) where
+    newtype StT (GGWidget master) a = StRWS {unStRWS :: (a, Int, GWData (Route master))}
+    liftWith f = GWidget $ RWST $ \r s -> liftM (\x -> (x, s, mempty))
+                                     (f $ \t -> liftM StRWS $ runRWST (unGWidget t) r s)
+    restoreT mSt = GWidget $ RWST $ \_ _ -> liftM unStRWS mSt
+    {-# INLINE liftWith #-}
+    {-# INLINE restoreT #-}
+instance MonadBaseControl b m => MonadBaseControl b (GGWidget master m) where
+     newtype StM (GGWidget master m) a = StMT {unStMT :: ComposeSt (GGWidget master) m a}
+     liftBaseWith = defaultLiftBaseWith StMT
+     restoreM     = defaultRestoreM   unStMT
+#endif
 
 instance MonadTrans (GGWidget m) where
     lift = GWidget . lift
