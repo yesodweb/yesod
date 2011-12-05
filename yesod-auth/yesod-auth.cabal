@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.7.6.2
+version:         0.7.7
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -58,6 +58,7 @@ library
                      Yesod.Auth.HashDB
                      Yesod.Auth.Message
                      Yesod.Auth.Kerberos
+                     Yesod.Auth.GoogleEmail
     ghc-options:     -Wall
     include-dirs: include
 
