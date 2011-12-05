@@ -46,6 +46,7 @@ library
                 TypeFamilies
                 GADTs
                 GeneralizedNewtypeDeriving
+                FlexibleContexts
 
 executable         ~project~
     if flag(devel)
@@ -69,9 +70,10 @@ executable         ~project~
                 TypeFamilies
                 GADTs
                 GeneralizedNewtypeDeriving
+                FlexibleContexts
 
     build-depends: base                          >= 4          && < 5
-                 , yesod                         >= 0.9        && < 0.10
+                 , yesod                         >= 0.9.3.4    && < 0.10
                  , yesod-core                    >= 0.9.3      && < 0.10
                  , yesod-auth                    >= 0.7.3      && < 0.8
                  , yesod-static                  >= 0.3.1      && < 0.4
@@ -89,3 +91,4 @@ executable         ~project~
                  , shakespeare-js                >= 0.10       && < 0.11
                  , shakespeare-text              >= 0.10       && < 0.11
                  , hjsmin                        >= 0.0.14     && < 0.1
+                 , monad-control                 >= 0.3        && < 0.4

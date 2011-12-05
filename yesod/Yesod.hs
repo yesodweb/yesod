@@ -15,7 +15,11 @@ module Yesod
     , Application
     , lift
     , liftIO
+#if MIN_VERSION_monad_control(0, 3, 0)
+    , MonadBaseControl
+#else
     , MonadControlIO
+#endif
       -- * Utilities
     , showIntegral
     , readIntegral
@@ -50,7 +54,11 @@ import Network.Wai (Application)
 import Network.Wai.Middleware.Debug
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
+#if MIN_VERSION_monad_control(0, 3, 0)
+import Control.Monad.Trans.Control (MonadBaseControl)
+#else
 import Control.Monad.IO.Control (MonadControlIO)
+#endif
 
 import Network.Wai.Handler.Warp (run)
 import System.IO (stderr, hPutStrLn)
