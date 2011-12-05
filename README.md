@@ -79,38 +79,8 @@ cd yesodweb
 virthualenv --name=yesod
 ./virthualenv/bin/activate
 
-# prevent dependency issue
-cabal install deepseq-1.1.0.2
 # from the yesodweb directory, install the mega-mega repo to align all your dependencies
 cabal install
-~~~
-
-#### aeson deepseq
-
-Currently there is a very annoying issue that aeson, a Yesod dependency requires deepseq < 1.2
-A new version of aeson should be released fairly soon.
-This means that before installing Yesod you should install deepseq from a clean slate (using virthualenv)
-
-~~~ { .bash }
-cabal install deepseq-1.1.0.2
-~~~
-
-#### Mega repos
-
-Yesod consists of four mega repos: yesod, wai, persistent, and hamlet.
-Each mega repo contains multiple cabal packages, and a mega cabal package.
-The yesodweb folder is also a mega-mega repo that will compile all four mega repos at once.
-You may find development easier if you compile and test with a mega repo.
-Installing a mega repo helps cabal align all the dependencies correctly.
-
-~~~ { .bash }
-# Move to which one of the four repos you are working on.
-cd hamlet
-
-# build and test the mega repo
-cabal configure -ftest --enable-tests
-cabal build
-cabal test
 ~~~
 
 #### individual cabal packages
@@ -142,5 +112,5 @@ Instead you should use `cabal-dev add-source-list` to retrieve these packages.
 cd to your application directory, and the reference the source list.
 
 ~~~ { .bash }
-cabal-dev add-source-list /path/to/yesodweb/sources.txt
+cabal-dev install /path/to/yesodweb/yesod/*(/)
 ~~~
