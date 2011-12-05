@@ -118,6 +118,11 @@ scaffold = do
             then "                 , persistent-mongoDB >= 0.6.1 && < 0.7\n                 , mongoDB >= 1.1\n                 , bson >= 0.1.5\n"
             else "                 , persistent-" ++ backendLower ++ " >= 0.6 && < 0.7"
 
+        monadControlVersion =
+          if backend == MongoDB
+              then "== 0.2.*"
+              else "== 0.3.*"
+
 
     let fst3 (x, _, _) = x
     year <- show . fst3 . toGregorian . utctDay <$> getCurrentTime
