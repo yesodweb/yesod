@@ -7,11 +7,13 @@ import Test.Hspec
 import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
+import Network.Wai
 import Network.Wai.Test
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
 / RootR GET
+/redirect RedirR GET
 |]
 
 instance Yesod Y where
@@ -22,9 +24,15 @@ instance Yesod Y where
 getRootR :: Handler ()
 getRootR = error "FOOBAR" >> return ()
 
+getRedirR :: Handler ()
+getRedirR = do
+    setHeader "foo" "bar"
+    redirect RedirectPermanent RootR
+
 exceptionsTest :: [Spec]
 exceptionsTest = describe "Test.Exceptions"
     [ it "500" case500
+    , it "redirect keeps headers" caseRedirect
     ]
 
 runner :: Session () -> IO ()
@@ -35,3 +43,9 @@ case500 = runner $ do
     res <- request defaultRequest
     assertStatus 500 res
     assertBody "FOOBAR" res
+
+caseRedirect :: IO ()
+caseRedirect = runner $ do
+    res <- request defaultRequest { pathInfo = ["redirect"] }
+    assertStatus 301 res
+    assertHeader "foo" "bar" res
