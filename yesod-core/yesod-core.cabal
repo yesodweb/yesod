@@ -102,7 +102,7 @@ library
 
 test-suite tests
     type: exitcode-stdio-1.0
-    main-is: ../test.hs
+    main-is: test.hs
     hs-source-dirs: test
 
     if flag(ghc7)
