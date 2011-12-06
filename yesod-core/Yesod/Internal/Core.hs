@@ -46,7 +46,7 @@ import qualified Web.ClientSession as CS
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import Data.Monoid
-import Control.Monad.Trans.RWS
+import Control.Monad.Trans.Writer (runWriterT)
 import Text.Hamlet
 import Text.Julius
 import Text.Blaze ((!), customAttribute, textTag, toValue, unsafeLazyByteString)
@@ -501,7 +501,7 @@ widgetToPageContent :: (Eq (Route master), Yesod master)
                     -> GHandler sub master (PageContent (Route master))
 widgetToPageContent (GWidget w) = do
     master <- getYesod
-    ((), _, GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- runRWST w () 0
+    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- runWriterT w
     let title = maybe mempty unTitle mTitle
     let scripts = runUniqueList scripts'
     let stylesheets = runUniqueList stylesheets'
