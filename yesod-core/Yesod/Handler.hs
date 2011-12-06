@@ -132,7 +132,7 @@ import Control.Monad (liftM)
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.RWS
+import Control.Monad.Trans.Reader
 
 import System.IO
 import qualified Network.Wai as W
@@ -170,6 +170,7 @@ import Yesod.Internal.TestApi (catchIter)
 import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey, CacheKey)
 import Data.Typeable (Typeable)
+import qualified Data.IORef as I
 
 -- | The type-safe URLs associated with a site argument.
 type family Route a
@@ -184,6 +185,7 @@ data HandlerData sub master = HandlerData
     , handlerRoute    :: Maybe (Route sub)
     , handlerRender   :: Route master -> [(Text, Text)] -> Text
     , handlerToMaster :: Route sub -> Route master
+    , handlerState    :: I.IORef GHState
     }
 
 handlerSubData :: (Route sub -> Route master)
@@ -204,10 +206,23 @@ handlerSubDataMaybe tm ts route hd = hd
     , handlerRoute = route
     }
 
-withReaderT :: (HandlerData s m -> HandlerData s' m)
-            -> GGHandler s' m mo a
-            -> GGHandler s m mo a
-withReaderT f = withRWST (\r s -> (f r, s))
+get :: MonadIO monad => GGHandler sub master monad GHState
+get = do
+    hd <- ask
+    liftIO $ I.readIORef $ handlerState hd
+
+put :: MonadIO monad => GHState -> GGHandler sub master monad ()
+put g = do
+    hd <- ask
+    liftIO $ I.writeIORef (handlerState hd) g
+
+modify :: MonadIO monad => (GHState -> GHState) -> GGHandler sub master monad ()
+modify f = do
+    hd <- ask
+    liftIO $ I.atomicModifyIORef (handlerState hd) $ \g -> (f g, ())
+
+tell :: MonadIO monad => Endo [Header] -> GGHandler sub master monad ()
+tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
 
 -- | Used internally for promoting subsite handler functions to master site
 -- handler functions. Should not be needed by users.
@@ -252,7 +267,7 @@ toMasterHandlerMaybe tm ts route = withReaderT (handlerSubDataMaybe tm ts route)
 -- 'WriterT' for headers and session, and an 'MEitherT' monad for handling
 -- special responses. It is declared as a newtype to make compiler errors more
 -- readable.
-type GGHandler sub master = RWST (HandlerData sub master) (Endo [Header]) GHState
+type GGHandler sub master = ReaderT (HandlerData sub master)
 
 type GHandler sub master = GGHandler sub master (Iteratee ByteString IO)
 
@@ -261,6 +276,7 @@ data GHState = GHState
     , ghsRBC :: Maybe RequestBodyContents
     , ghsIdent :: Int
     , ghsCache :: Cache.Cache
+    , ghsHeaders :: Endo [Header]
     }
 
 type SessionMap = Map.Map Text Text
@@ -367,6 +383,13 @@ runHandler handler mrender sroute tomr ma sa =
             case fromException e of
                 Just x -> x
                 Nothing -> InternalError $ T.pack $ show e
+    istate <- liftIO $ I.newIORef GHState
+        { ghsSession = initSession
+        , ghsRBC = Nothing
+        , ghsIdent = 1
+        , ghsCache = mempty
+        , ghsHeaders = mempty
+        }
     let hd = HandlerData
             { handlerRequest = rr
             , handlerSub = sa
@@ -374,16 +397,14 @@ runHandler handler mrender sroute tomr ma sa =
             , handlerRoute = sroute
             , handlerRender = mrender
             , handlerToMaster = tomr
+            , handlerState = istate
             }
-    let initSession' = GHState initSession Nothing 1 mempty
-    (contents', finalSession, headers) <- catchIter (
-        fmap (\(a, b, c) -> (Right a, ghsSession b, c))
-      $ runRWST handler hd initSession'
-        ) (\e -> return (
-                case fromException e of
-                    Just x -> Left x
-                    Nothing -> Left $ HCError $ toErrorHandler e
-                , initSession, mempty))
+    contents' <- catchIter (fmap Right $ runReaderT handler hd)
+        (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
+                      $ fromException e)
+    state <- liftIO $ I.readIORef istate
+    let finalSession = ghsSession state
+    let headers = ghsHeaders state
     let contents = either id (HCContent H.status200 . chooseRep) contents'
     let handleError e = do
             yar <- unYesodApp (eh e) safeEh rr cts finalSession
@@ -452,16 +473,16 @@ ultDestKey = "_ULT"
 --
 -- An ultimate destination is stored in the user session and can be loaded
 -- later by 'redirectUltDest'.
-setUltDest :: Monad mo => Route master -> GGHandler sub master mo ()
+setUltDest :: MonadIO mo => Route master -> GGHandler sub master mo ()
 setUltDest dest = do
     render <- getUrlRender
     setUltDestString $ render dest
 
 -- | Same as 'setUltDest', but use the given string.
-setUltDestText :: Monad mo => Text -> GGHandler sub master mo ()
+setUltDestText :: MonadIO mo => Text -> GGHandler sub master mo ()
 setUltDestText = setSession ultDestKey
 
-setUltDestString :: Monad mo => Text -> GGHandler sub master mo ()
+setUltDestString :: MonadIO mo => Text -> GGHandler sub master mo ()
 setUltDestString = setSession ultDestKey
 {-# DEPRECATED setUltDestString "Use setUltDestText instead" #-}
 
@@ -469,7 +490,7 @@ setUltDestString = setSession ultDestKey
 --
 -- If this is a 404 handler, there is no current page, and then this call does
 -- nothing.
-setUltDest' :: Monad mo => GGHandler sub master mo ()
+setUltDest' :: MonadIO mo => GGHandler sub master mo ()
 setUltDest' = do
     route <- getCurrentRoute
     case route of
@@ -483,7 +504,7 @@ setUltDest' = do
 -- | Sets the ultimate destination to the referer request header, if present.
 --
 -- This function will not overwrite an existing ultdest.
-setUltDestReferer :: Monad mo => GGHandler sub master mo ()
+setUltDestReferer :: MonadIO mo => GGHandler sub master mo ()
 setUltDestReferer = do
     mdest <- lookupSession ultDestKey
     maybe
@@ -507,7 +528,7 @@ redirectUltDest rt def = do
     maybe (redirect rt def) (redirectText rt) mdest
 
 -- | Remove a previously set ultimate destination. See 'setUltDest'.
-clearUltDest :: Monad mo => GGHandler sub master mo ()
+clearUltDest :: MonadIO mo => GGHandler sub master mo ()
 clearUltDest = deleteSession ultDestKey
 
 msgKey :: Text
@@ -516,13 +537,13 @@ msgKey = "_MSG"
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessage :: Monad mo => Html -> GGHandler sub master mo ()
+setMessage :: MonadIO mo => Html -> GGHandler sub master mo ()
 setMessage = setSession msgKey . T.concat . TL.toChunks . Text.Blaze.Renderer.Text.renderHtml
 
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessageI :: (RenderMessage y msg, Monad mo) => msg -> GGHandler sub y mo ()
+setMessageI :: (RenderMessage y msg, MonadIO mo) => msg -> GGHandler sub y mo ()
 setMessageI msg = do
     mr <- getMessageRender
     setMessage $ toHtml $ mr msg
@@ -531,7 +552,7 @@ setMessageI msg = do
 -- variable.
 --
 -- See 'setMessage'.
-getMessage :: Monad mo => GGHandler sub master mo (Maybe Html)
+getMessage :: MonadIO mo => GGHandler sub master mo (Maybe Html)
 getMessage = do
     mmsg <- liftM (fmap preEscapedText) $ lookupSession msgKey
     deleteSession msgKey
@@ -613,7 +634,7 @@ invalidArgsI msg = do
 
 ------- Headers
 -- | Set the cookie on the client.
-setCookie :: Monad mo
+setCookie :: MonadIO mo
           => Int -- ^ minutes to timeout
           -> H.Ascii -- ^ key
           -> H.Ascii -- ^ value
@@ -621,22 +642,22 @@ setCookie :: Monad mo
 setCookie a b = addHeader . AddCookie a b
 
 -- | Unset the cookie on the client.
-deleteCookie :: Monad mo => H.Ascii -> GGHandler sub master mo ()
+deleteCookie :: MonadIO mo => H.Ascii -> GGHandler sub master mo ()
 deleteCookie = addHeader . DeleteCookie
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
-setLanguage :: Monad mo => Text -> GGHandler sub master mo ()
+setLanguage :: MonadIO mo => Text -> GGHandler sub master mo ()
 setLanguage = setSession langKey
 
 -- | Set an arbitrary response header.
-setHeader :: Monad mo
+setHeader :: MonadIO mo
           => CI H.Ascii -> H.Ascii -> GGHandler sub master mo ()
 setHeader a = addHeader . Header a
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
-cacheSeconds :: Monad mo => Int -> GGHandler s m mo ()
+cacheSeconds :: MonadIO mo => Int -> GGHandler s m mo ()
 cacheSeconds i = setHeader "Cache-Control" $ S8.pack $ concat
     [ "max-age="
     , show i
@@ -645,16 +666,16 @@ cacheSeconds i = setHeader "Cache-Control" $ S8.pack $ concat
 
 -- | Set the Expires header to some date in 2037. In other words, this content
 -- is never (realistically) expired.
-neverExpires :: Monad mo => GGHandler s m mo ()
+neverExpires :: MonadIO mo => GGHandler s m mo ()
 neverExpires = setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
 
 -- | Set an Expires header in the past, meaning this content should not be
 -- cached.
-alreadyExpired :: Monad mo => GGHandler s m mo ()
+alreadyExpired :: MonadIO mo => GGHandler s m mo ()
 alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
-expiresAt :: Monad mo => UTCTime -> GGHandler s m mo ()
+expiresAt :: MonadIO mo => UTCTime -> GGHandler s m mo ()
 expiresAt = setHeader "Expires" . encodeUtf8 . formatRFC1123
 
 -- | Set a variable in the user's session.
@@ -662,21 +683,21 @@ expiresAt = setHeader "Expires" . encodeUtf8 . formatRFC1123
 -- The session is handled by the clientsession package: it sets an encrypted
 -- and hashed cookie on the client. This ensures that all data is secure and
 -- not tampered with.
-setSession :: Monad mo
+setSession :: MonadIO mo
            => Text -- ^ key
            -> Text -- ^ value
            -> GGHandler sub master mo ()
 setSession k = modify . modSession . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
-deleteSession :: Monad mo => Text -> GGHandler sub master mo ()
+deleteSession :: MonadIO mo => Text -> GGHandler sub master mo ()
 deleteSession = modify . modSession . Map.delete
 
 modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
 modSession f x = x { ghsSession = f $ ghsSession x }
 
 -- | Internal use only, not to be confused with 'setHeader'.
-addHeader :: Monad mo => Header -> GGHandler sub master mo ()
+addHeader :: MonadIO mo => Header -> GGHandler sub master mo ()
 addHeader = tell . Endo . (:)
 
 getStatus :: ErrorResponse -> H.Status
@@ -702,13 +723,13 @@ localNoCurrent =
     local (\hd -> hd { handlerRoute = Nothing })
 
 -- | Lookup for session data.
-lookupSession :: Monad mo => Text -> GGHandler s m mo (Maybe Text)
+lookupSession :: MonadIO mo => Text -> GGHandler s m mo (Maybe Text)
 lookupSession n = do
     m <- liftM ghsSession get
     return $ Map.lookup n m
 
 -- | Get all session variables.
-getSession :: Monad mo => GGHandler s m mo SessionMap
+getSession :: MonadIO mo => GGHandler s m mo SessionMap
 getSession = liftM ghsSession get
 
 handlerToYAR :: (HasReps a, HasReps b)
@@ -799,7 +820,7 @@ headerToPair cp _ (DeleteCookie key) =
 headerToPair _ _ (Header key value) = (key, value)
 
 -- | Get a unique identifier.
-newIdent :: Monad mo => GGHandler sub master mo String -- FIXME use Text
+newIdent :: MonadIO mo => GGHandler sub master mo String -- FIXME use Text
 newIdent = do
     x <- get
     let i' = ghsIdent x + 1
@@ -809,8 +830,7 @@ newIdent = do
 liftIOHandler :: MonadIO mo
               => GGHandler sub master IO a
               -> GGHandler sub master mo a
-liftIOHandler (RWST m) = RWST $ \r s ->
-                    liftIO (m r s)
+liftIOHandler (ReaderT m) = ReaderT $ \r -> liftIO $ m r
 
 -- | Redirect to a POST resource.
 --
@@ -860,15 +880,15 @@ getMessageRender = do
     l <- reqLangs `liftM` getRequest
     return $ renderMessage m l
 
-cacheLookup :: Monad mo => CacheKey a -> GGHandler sub master mo (Maybe a)
+cacheLookup :: MonadIO mo => CacheKey a -> GGHandler sub master mo (Maybe a)
 cacheLookup k = do
     gs <- get
     return $ Cache.lookup k $ ghsCache gs
 
-cacheInsert :: Monad mo => CacheKey a -> a -> GGHandler sub master mo ()
+cacheInsert :: MonadIO mo => CacheKey a -> a -> GGHandler sub master mo ()
 cacheInsert k v = modify $ \gs ->
     gs { ghsCache = Cache.insert k v $ ghsCache gs }
 
-cacheDelete :: Monad mo => CacheKey a -> GGHandler sub master mo ()
+cacheDelete :: MonadIO mo => CacheKey a -> GGHandler sub master mo ()
 cacheDelete k = modify $ \gs ->
     gs { ghsCache = Cache.delete k $ ghsCache gs }
