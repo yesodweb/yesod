@@ -57,7 +57,7 @@ module Yesod.Widget
     ) where
 
 import Data.Monoid
-import Control.Monad.Trans.RWS
+import Control.Monad.Trans.Writer
 import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
@@ -103,10 +103,11 @@ instance MonadBase b m => MonadBase b (GGWidget master m) where
     liftBase = lift . liftBase
 #if MIN_VERSION_monad_control(0, 3, 0)
 instance MonadTransControl (GGWidget master) where
-    newtype StT (GGWidget master) a = StRWS {unStRWS :: (a, Int, GWData (Route master))}
-    liftWith f = GWidget $ RWST $ \r s -> liftM (\x -> (x, s, mempty))
-                                     (f $ \t -> liftM StRWS $ runRWST (unGWidget t) r s)
-    restoreT mSt = GWidget $ RWST $ \_ _ -> liftM unStRWS mSt
+    newtype StT (GGWidget master) a =
+       StWidget {unStWidget :: StT (GWInner master) a}
+    liftWith f = GWidget $ liftWith $ \run ->
+                  f $ liftM StWidget . run . unGWidget
+    restoreT = GWidget . restoreT . liftM unStWidget
     {-# INLINE liftWith #-}
     {-# INLINE restoreT #-}
 instance MonadBaseControl b m => MonadBaseControl b (GGWidget master m) where
@@ -119,7 +120,7 @@ instance MonadTrans (GGWidget m) where
     lift = GWidget . lift
 
 type GWidget s m = GGWidget m (GHandler s m)
-type GWInner master = RWST () (GWData (Route master)) Int
+type GWInner master = WriterT (GWData (Route master))
 
 instance (Monad monad, a ~ ()) => Monoid (GGWidget master monad a) where
     mempty = return ()
@@ -129,9 +130,7 @@ addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWi
 addSubWidget sub (GWidget w) = do
     master <- lift getYesod
     let sr = fromSubRoute sub master
-    s <- GWidget get
-    (a, s', w') <- lift $ toMasterHandlerMaybe sr (const sub) Nothing $ runRWST w () s
-    GWidget $ put s'
+    (a, w') <- lift $ toMasterHandlerMaybe sr (const sub) Nothing $ runWriterT w
     GWidget $ tell w'
     return a
 
@@ -299,9 +298,9 @@ addCoffeeBody c = do
 -- manipulations. It can be easier to use this sometimes than 'wrapWidget'.
 extractBody :: Monad mo => GGWidget m mo () -> GGWidget m mo (HtmlUrl (Route m))
 extractBody (GWidget w) =
-    GWidget $ mapRWST (liftM go) w
+    GWidget $ mapWriterT (liftM go) w
   where
-    go ((), s, GWData (Body h) b c d e f g) = (h, s, GWData (Body mempty) b c d e f g)
+    go ((), GWData (Body h) b c d e f g) = (h, GWData (Body mempty) b c d e f g)
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:
