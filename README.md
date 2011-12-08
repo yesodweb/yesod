@@ -54,16 +54,30 @@ Our installer script now uses cabal-src-install when it is available.
 
 ### Building Yesod
 
+#### guided installer
+~~~ { .bash }
+git clone http://github.com/yesodweb/install yesodweb && cd yesodweb
+cd install && cabal install --only-dependencies && cabal build && cd .. && install/dist/build/install/yesodweb-install
+~~~
+
+#### manual install
+
 ~~~ { .bash }
 # update your package database if you haven't recently
 cabal update
 # install required libraries
-cabal install Cabal cabal-install cabal-dev cabal-src virthualenv
+cabal install Cabal cabal-install cabal-src virthualenv
 
-# finally build Yesod.
-# this is completely sandboxed, except that it installs an unreleased vesion of cabal-dev
-git clone http://github.com/yesodweb/install yesodweb && cd yesodweb
-cd install && cabal-dev install && dist/build/install/install && cd ..
+# clone and install all repos
+# see below about first using virthualenv before running ./scripts/install
+for repo in hamlet persistent wai yesod; do
+  git clone http://github.com/yesodweb/$repo
+  (
+    cd $repo
+    git submodule update --init
+    ./scripts/install
+  )
+done
 ~~~
 
 ### Hacking on Yesod
@@ -78,17 +92,12 @@ cabal install virthualenv
 cd yesodweb
 virthualenv --name=yesod
 ./virthualenv/bin/activate
-
-# from the yesodweb directory, install the mega-mega repo to align all your dependencies
-cabal install
 ~~~
 
 #### individual cabal packages
 
-If you first install the mega repo, then it should be easier to work on an individual package rather than the mega.
-
 ~~~ { .bash }
-# build all packages individually
+# install and test all packages
 ./scripts/install
 
 # move to the individual package you are working on
@@ -106,9 +115,9 @@ cabal-dev works very well if you are working on a single package, but it can be 
 
 ### Use your development version of Yesod in your application
 
-Note that we have told you to install Yesod into a sandboxed virthualenv or cabal-dev environment.
+Note that we have told you to install Yesod into a sandboxed virthualenv environment.
 This means it is not available through your user/global cabal database for your application.
-Instead you should use `cabal-dev add-source-list` to retrieve these packages.
+Instead you should use `cabal-dev install` to retrieve these packages.
 cd to your application directory, and the reference the source list.
 
 ~~~ { .bash }
