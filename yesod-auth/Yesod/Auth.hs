@@ -143,7 +143,7 @@ getCheckR = do
     creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle "Authentication Status"
-        addHtml $ html' creds) (json' creds)
+        addHtml $ html' creds) (jsonCreds creds)
   where
     html' creds =
         [QQ(shamlet)|
@@ -153,7 +153,7 @@ $maybe _ <- creds
 $nothing
     <p>Not logged in.
 |]
-    json' creds =
+    jsonCreds creds =
         Object $ Map.fromList
             [ (T.pack "logged_in", Bool $ maybe False (const True) creds)
             ]
