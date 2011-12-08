@@ -54,14 +54,6 @@ Our installer script now uses cabal-src-install when it is available.
 
 ### Building Yesod
 
-#### guided installer
-~~~ { .bash }
-git clone http://github.com/yesodweb/install yesodweb && cd yesodweb
-cd install && cabal install --only-dependencies && cabal build && cd .. && install/dist/build/install/yesodweb-install
-~~~
-
-#### manual install
-
 ~~~ { .bash }
 # update your package database if you haven't recently
 cabal update
