@@ -10,7 +10,6 @@ import Web.Authenticate.Facebook
 import Yesod.Form
 
 data FB = FB Facebook
-type Handler = GHandler FB FB
 
 fb :: FB
 fb = FB Facebook
