@@ -67,8 +67,8 @@ parseCreds :: Text -> Value -> Data.Aeson.Types.Parser (Creds m)
 parseCreds at' (Object m) = do
     id' <- m .: "id"
     let id'' = "http://graph.facebook.com/" `mappend` id'
-    name <- m .: "name"
-    email <- m .: "email"
+    name <- m .:? "name"
+    email <- m .:? "email"
     return
         $ Creds "facebook" id''
         $ maybe id (\x -> (:) ("verifiedEmail", x)) email
