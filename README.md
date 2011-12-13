@@ -23,6 +23,7 @@ An advanced web framework using the Haskell programming language. Featuring:
 cabal-dev creates a sandboxed environment for an individual cabal package.
 Your application is a cabal package and you should use cabal-dev with your Yesod application.
 Instead of using the `cabal` command, use the `cabal-dev` command.
+
 Use `yesod-devel --dev` when developing your application.
 
 ## Installing the latest development version from github
