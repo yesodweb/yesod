@@ -27,12 +27,12 @@
 #     
 # * add code in Settings.hs to turn that url into connection parameters. The below works for Postgresql.
 #
-#     #ifdef PRODUCTION
+#     #ifndef DEVELOPMENT
 #     import qualified Web.Heroku
 #     #endif
 #
 #     dbConnParams :: AppEnvironment -> IO [(Text, Text)]
-#     #ifdef PRODUCTION
+#     #ifndef DEVELOPMENT
 #     dbConnParams _ = Web.Heroku.dbConnParams
 #     #else
 #     dbConnParams env = do
