@@ -66,8 +66,18 @@ devel isDevel = do
       checkCabalFile gpd
 
       _ <- if isDevel
-        then rawSystem "cabal-dev" ["configure", "--cabal-install-arg=-fdevel", "--disable-library-profiling"]
-        else rawSystem "cabal"     ["configure", "-fdevel", "--disable-library-profiling"]
+        then rawSystem "cabal-dev"
+            [ "configure"
+            , "--cabal-install-arg=-fdevel" -- legacy
+            , "--cabal-install-arg=-flibrary-only"
+            , "--disable-library-profiling"
+            ]
+        else rawSystem "cabal"
+            [ "configure"
+            , "-fdevel" -- legacy
+            , "-flibrary-only"
+            , "--disable-library-profiling"
+            ]
 
       T.writeFile "dist/devel.hs" (develFile pid)
 

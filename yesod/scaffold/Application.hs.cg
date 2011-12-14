@@ -29,10 +29,10 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- migrations handled by Yesod.
 with~sitearg~ :: AppConfig DefaultEnv () -> Logger -> (Application -> IO ()) -> IO ()
 with~sitearg~ conf logger f = do
-#ifdef PRODUCTION
-    s <- static Settings.staticDir
-#else
+#ifdef DEV
     s <- staticDevel Settings.staticDir
+#else
+    s <- static Settings.staticDir
 #endif
     dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
             $ either error return . Database.Persist.Base.loadConfig

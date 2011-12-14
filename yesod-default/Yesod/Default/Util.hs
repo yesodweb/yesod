@@ -5,8 +5,8 @@
 module Yesod.Default.Util
     ( addStaticContentExternal
     , globFile
-    , widgetFileProduction
-    , widgetFileDebug
+    , widgetFileNoReload
+    , widgetFileReload
     ) where
 
 import Control.Monad.IO.Class (liftIO)
@@ -16,9 +16,9 @@ import Yesod.Core -- purposely using complete import so that Haddock will see ad
 import Control.Monad (unless)
 import System.Directory (doesFileExist, createDirectoryIfMissing)
 import Language.Haskell.TH.Syntax
-import Text.Lucius (luciusFile, luciusFileDebug)
-import Text.Julius (juliusFile, juliusFileDebug)
-import Text.Cassius (cassiusFile, cassiusFileDebug)
+import Text.Lucius (luciusFile, luciusFileReload)
+import Text.Julius (juliusFile, juliusFileReload)
+import Text.Cassius (cassiusFile, cassiusFileReload)
 import Data.Monoid (mempty)
 
 -- | An implementation of 'addStaticContent' which stores the contents in an
@@ -56,20 +56,20 @@ addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
 globFile :: String -> String -> FilePath
 globFile kind x = "templates/" ++ x ++ "." ++ kind
 
-widgetFileProduction :: FilePath -> Q Exp
-widgetFileProduction x = do
+widgetFileNoReload :: FilePath -> Q Exp
+widgetFileNoReload x = do
     let h = whenExists x "hamlet"  whamletFile
     let c = whenExists x "cassius" cassiusFile
     let j = whenExists x "julius"  juliusFile
     let l = whenExists x "lucius"  luciusFile
     [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
 
-widgetFileDebug :: FilePath -> Q Exp
-widgetFileDebug x = do
+widgetFileReload :: FilePath -> Q Exp
+widgetFileReload x = do
     let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x "cassius" cassiusFileDebug
-    let j = whenExists x "julius"  juliusFileDebug
-    let l = whenExists x "lucius"  luciusFileDebug
+    let c = whenExists x "cassius" cassiusFileReload
+    let j = whenExists x "julius"  juliusFileReload
+    let l = whenExists x "lucius"  luciusFileReload
     [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
 
 whenExists :: String -> String -> (FilePath -> Q Exp) -> Q Exp

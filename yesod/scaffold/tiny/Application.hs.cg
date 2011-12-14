@@ -28,10 +28,10 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- migrations handled by Yesod.
 with~sitearg~ :: AppConfig DefaultEnv () -> Logger -> (Application -> IO ()) -> IO ()
 with~sitearg~ conf logger f = do
-#ifdef PRODUCTION
-    s <- static Settings.staticDir
-#else
+#ifdef DEV
     s <- staticDevel Settings.staticDir
+#else
+    s <- static Settings.staticDir
 #endif
     let h = ~sitearg~ conf logger s
     defaultRunner f h
