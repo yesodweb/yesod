@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Yesod.Config
+    {-# DEPRECATED "This code has been moved to yesod-default. This module will be removed in the next major version bump." #-}
     ( AppConfig(..)
     , loadConfig
     , withYamlEnvironment

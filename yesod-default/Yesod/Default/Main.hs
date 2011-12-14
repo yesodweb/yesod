@@ -7,7 +7,7 @@ module Yesod.Default.Main
     , defaultDevelAppWith
     ) where
 
-import Yesod.Core
+import Yesod.Core hiding (AppConfig (..))
 import Yesod.Default.Config
 import Yesod.Logger (Logger, makeLogger, logString, logLazyText, flushLogger)
 import Network.Wai (Application)
@@ -39,7 +39,10 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 --   > main :: IO ()
 --   > main = defaultMain (fromArgsWith customArgConfig) withMySite
 --
-defaultMain :: (Show e, Read e) => IO (AppConfig e) -> (AppConfig e -> Logger -> (Application -> IO ()) -> IO ()) -> IO ()
+defaultMain :: (Show env, Read env)
+            => IO (AppConfig env extra)
+            -> (AppConfig env extra -> Logger -> (Application -> IO ()) -> IO ())
+            -> IO ()
 defaultMain load withSite = do
     config <- load
     logger <- makeLogger
@@ -85,7 +88,7 @@ defaultRunner f h = do
 --   > withDevelAppPort :: Dynamic
 --   > withDevelAppPort = toDyn $ defaultDevelApp withMySite
 --
-defaultDevelApp :: (AppConfig DefaultEnv -> Logger -> (Application -> IO ()) -> IO ())
+defaultDevelApp :: (AppConfig DefaultEnv () -> Logger -> (Application -> IO ()) -> IO ())
                 -> ((Int, Application) -> IO ())
                 -> IO ()
 defaultDevelApp = defaultDevelAppWith loadDevelopmentConfig
@@ -96,9 +99,9 @@ defaultDevelApp = defaultDevelAppWith loadDevelopmentConfig
 --   > withDevelAppPort :: Dynamic
 --   > withDevelAppPort = toDyn $ (defaultDevelAppWith customLoadAppConfig) withMySite
 --
-defaultDevelAppWith :: (Show e, Read e)
-                    => IO (AppConfig e) -- ^ A means to load your development @'AppConfig'@
-                    -> (AppConfig e -> Logger -> (Application -> IO ()) -> IO ()) -- ^ Your @withMySite@ function
+defaultDevelAppWith :: (Show env, Read env)
+                    => IO (AppConfig env extra) -- ^ A means to load your development @'AppConfig'@
+                    -> (AppConfig env extra -> Logger -> (Application -> IO ()) -> IO ()) -- ^ Your @withMySite@ function
                     -> ((Int, Application) -> IO ()) -> IO ()
 defaultDevelAppWith load withSite f = do
         conf   <- load
