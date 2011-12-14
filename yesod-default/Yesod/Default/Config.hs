@@ -48,12 +48,6 @@ defaultArgConfig =
             &= typ  "PORT"
         }
 
-    where
-        environments :: String
-        environments = foldl1 (\a b -> a ++ ", " ++ b)
-                     . map ((map toLower) . show)
-                     $ ([minBound..maxBound] :: [DefaultEnv])
-
 -- | Load an @'AppConfig'@ using the @'DefaultEnv'@ environments from
 --   commandline arguments.
 fromArgs :: IO (AppConfig DefaultEnv ())
