@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 module Yesod.Core
     ( -- * Type classes
       Yesod (..)
