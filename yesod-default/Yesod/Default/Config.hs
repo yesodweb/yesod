@@ -42,7 +42,6 @@ defaultArgConfig =
     ArgConfig
         { environment = def
             &= argPos 0
-            &= help ("application environment, one of: " ++ environments)
             &= typ   "ENVIRONMENT"
         , port = def
             &= help "the port to listen on"
