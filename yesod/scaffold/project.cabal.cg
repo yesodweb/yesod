@@ -35,7 +35,7 @@ library
                      Handler.Root
 
     ghc-options:   -Wall -threaded -O0
-    cpp-options:   -DDEV
+    cpp-options:   -DDEVELOPMENT
 
     extensions: TemplateHaskell
                 QuasiQuotes
@@ -54,7 +54,7 @@ executable         ~project~
         Buildable: False
 
     if flag(dev)
-        cpp-options:   -DDEV
+        cpp-options:   -DDEVELOPMENT
         ghc-options:   -Wall -threaded -O0
     else
         ghc-options:   -Wall -threaded

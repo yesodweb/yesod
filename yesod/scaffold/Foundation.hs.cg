@@ -33,7 +33,7 @@ import Model
 import Text.Jasmine (minifym)
 import Web.ClientSession (getKey)
 import Text.Hamlet (hamletFile)
-#if DEV
+#if DEVELOPMENT
 import qualified Data.Text.Lazy.Encoding
 #else
 import Network.Mail.Mime (sendmail)
@@ -145,7 +145,7 @@ instance YesodAuth ~sitearg~ where
 
 -- Sends off your mail. Requires sendmail in production!
 deliver :: ~sitearg~ -> L.ByteString -> IO ()
-#ifdef DEV
+#ifdef DEVELOPMENT
 deliver y = logLazyText (getLogger y) . Data.Text.Lazy.Encoding.decodeUtf8
 #else
 deliver _ = sendmail

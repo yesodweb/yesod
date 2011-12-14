@@ -49,7 +49,7 @@ staticRoot conf = [~qq~st|#{appRoot conf}/static|]
 -- user.
 
 widgetFile :: String -> Q Exp
-#if DEV
+#if DEVELOPMENT
 widgetFile = Yesod.Default.Util.widgetFileReload
 #else
 widgetFile = Yesod.Default.Util.widgetFileNoReload
