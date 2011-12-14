@@ -56,6 +56,7 @@ library
                    , shakespeare           >= 0.10     && < 0.11
                    , shakespeare-js        >= 0.10     && < 0.11
                    , shakespeare-css       >= 0.10     && < 0.11
+                   , shakespeare-i18n      >= 0.0      && < 0.1
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , transformers          >= 0.2.2    && < 0.3
                    , clientsession         >= 0.7.3.1  && < 0.8
