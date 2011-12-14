@@ -27,8 +27,8 @@ library
                    , transformers          >= 0.2.2 && < 0.3
                    , text                  >= 0.9
                    , directory             >= 1.0
-                   , shakespeare-css       >= 0.10  && < 0.11
-                   , shakespeare-js        >= 0.10  && < 0.11
+                   , shakespeare-css       >= 0.10.5 && < 0.11
+                   , shakespeare-js        >= 0.10.4 && < 0.11
                    , template-haskell
                    , data-object           >= 0.3      && < 0.4
                    , data-object-yaml      >= 0.3      && < 0.4

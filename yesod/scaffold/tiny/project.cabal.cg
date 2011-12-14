@@ -12,16 +12,16 @@ cabal-version:     >= 1.6
 build-type:        Simple
 homepage:          http://~project~.yesodweb.com/
 
-Flag production
-    Description:   Build the production executable.
+Flag dev
+    Description:   Turn on development settings, like auto-reload templates.
     Default:       False
 
-Flag devel
+Flag library-only
     Description:   Build for use with "yesod devel"
     Default:       False
 
 library
-    if flag(devel)
+    if flag(library-only)
         Buildable: True
     else
         Buildable: False
@@ -33,6 +33,7 @@ library
                      Handler.Root
 
     ghc-options:   -Wall -threaded -O0
+    cpp-options:   -DDEV
 
     extensions: TemplateHaskell
                 QuasiQuotes
@@ -44,14 +45,14 @@ library
                 TypeFamilies
 
 executable         ~project~
-    if flag(devel)
+    if flag(library-only)
         Buildable: False
 
-    if flag(production)
-        cpp-options:   -DPRODUCTION
-        ghc-options:   -Wall -threaded -O2
-    else
+    if flag(dev)
+        cpp-options:   -DDEV
         ghc-options:   -Wall -threaded -O0
+    else
+        ghc-options:   -Wall -threaded
 
     main-is:       main.hs
 
