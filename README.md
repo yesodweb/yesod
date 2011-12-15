@@ -84,7 +84,7 @@ cabal update
 cabal install virthualenv
 cd yesodweb
 virthualenv --name=yesod
-./virthualenv/bin/activate
+. .virthualenv/bin/activate
 ~~~
 
 #### individual cabal packages
