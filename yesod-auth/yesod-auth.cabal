@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.7.7.2
+version:         0.7.8
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -21,9 +21,9 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                >= 4        && < 4.3
-    build-depends:   authenticate            >= 0.10.3    && < 0.11
+    build-depends:   authenticate            >= 0.10.4    && < 0.11
                    , bytestring              >= 0.9.1.4   && < 0.10
-                   , yesod-core              >= 0.9       && < 0.10
+                   , yesod-core              >= 0.9.3.4   && < 0.10
                    , wai                     >= 0.4       && < 0.5
                    , template-haskell
                    , pureMD5                 >= 2.0       && < 2.2
