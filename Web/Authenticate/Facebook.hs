@@ -10,6 +10,7 @@ module Web.Authenticate.Facebook
     , getAccessToken
     , getGraphData
     , getGraphData_
+    , getLogoutUrl
     ) where
 
 import Network.HTTP.Enumerator
@@ -103,3 +104,12 @@ getGraphData_ a b = getGraphData a b >>= either (throwIO . InvalidJsonException)
 data InvalidJsonException = InvalidJsonException String
     deriving (Show, Typeable)
 instance Exception InvalidJsonException
+
+-- | Logs out the user from their Facebook session.
+getLogoutUrl :: AccessToken
+             -> Text -- ^ URL the user should be directed to in your site domain.
+             -> Text -- ^ Logout URL in @https://www.facebook.com/@.
+getLogoutUrl (AccessToken s) next =
+    TE.decodeUtf8 $ toByteString $
+    copyByteString "https://www.facebook.com/logout.php"
+    `mappend` renderQueryText True [("next", Just next), ("access_token", Just s)]
