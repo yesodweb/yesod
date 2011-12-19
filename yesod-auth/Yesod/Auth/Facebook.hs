@@ -4,6 +4,7 @@
 module Yesod.Auth.Facebook
     ( authFacebook
     , facebookLogin
+    , facebookUrl
     , facebookLogout
     , getFacebookAccessToken
     ) where
@@ -30,6 +31,12 @@ import qualified Yesod.Auth.Message as Msg
 -- | Route for login using this authentication plugin.
 facebookLogin :: AuthRoute
 facebookLogin = PluginR "facebook" ["forward"]
+
+-- | This is just a synonym of 'facebookLogin'.  Deprecated since
+-- @yesod-auth 0.7.8@, please use 'facebookLogin' instead.
+facebookUrl :: AuthRoute
+facebookUrl = facebookLogin
+{-# DEPRECATED facebookUrl "Please use facebookLogin instead." #-}
 
 -- | Route for logout using this authentication plugin.  Per
 -- Facebook's policies
