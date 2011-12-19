@@ -128,7 +128,10 @@ getTemporaryCredential' hook oa = do
 authorizeUrl :: OAuth           -- ^ OAuth Application
              -> Credential      -- ^ Temporary Credential (Request Token & Secret)
              -> String          -- ^ URL to authorize
-authorizeUrl oa cr = oauthAuthorizeUri oa ++ BS.unpack (renderSimpleQuery True [("oauth_token", token cr)])
+authorizeUrl oa cr = oauthAuthorizeUri oa ++ BS.unpack (renderSimpleQuery True queries)
+  where queries = case oauthCallback oa of
+                    Nothing       -> [("oauth_token", token cr)]
+                    Just callback -> [("oauth_token", token cr), ("oauth_callback", callback)]
 
 -- | Get Access token.
 getAccessToken, getTokenCredential
