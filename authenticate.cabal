@@ -11,7 +11,7 @@ category:        Web
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
-homepage:        http://github.com/snoyberg/authenticate/tree/master
+homepage:        http://github.com/yesodweb/authenticate
 
 library
     build-depends:   base >= 4 && < 5,
@@ -54,4 +54,4 @@ library
 
 source-repository head
   type:     git
-  location: git://github.com/snoyberg/authenticate.git
+  location: git://github.com/yesodweb/authenticate.git
