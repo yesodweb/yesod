@@ -4,10 +4,13 @@
 module Web.Authenticate.Facebook
     ( Facebook (..)
     , AccessToken (..)
+    , getForwardUrlParams
+    , getForwardUrlWithState
     , getForwardUrl
     , getAccessToken
     , getGraphData
     , getGraphData_
+    , getLogoutUrl
     ) where
 
 import Network.HTTP.Enumerator
@@ -27,6 +30,7 @@ import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Network.HTTP.Types (renderQueryText)
 import Data.Monoid (mappend)
 import Data.ByteString (ByteString)
+import Control.Arrow ((***))
 
 data Facebook = Facebook
     { facebookClientId :: Text
@@ -38,18 +42,27 @@ data Facebook = Facebook
 newtype AccessToken = AccessToken { unAccessToken :: Text }
     deriving (Show, Eq, Read, Ord, Data, Typeable)
 
-getForwardUrl :: Facebook -> [Text] -> Text
-getForwardUrl fb perms =
+getForwardUrlParams :: Facebook -> [(Text, Text)] -> Text
+getForwardUrlParams fb params =
     TE.decodeUtf8 $ toByteString $
     copyByteString "https://graph.facebook.com/oauth/authorize"
     `mappend`
     renderQueryText True
-        ( ("client_id", Just $ facebookClientId fb)
-        : ("redirect_uri", Just $ facebookRedirectUri fb)
-        : if null perms
-            then []
-            else [("scope", Just $ T.intercalate "," perms)])
+        (  ("client_id", Just $ facebookClientId fb)
+         : ("redirect_uri", Just $ facebookRedirectUri fb)
+         : map (id *** Just) params)
 
+-- Internal function used to simplify getForwardUrl & getForwardUrlWithState
+getForwardUrlWithExtra_ :: Facebook -> [Text] -> [(Text, Text)] -> Text
+getForwardUrlWithExtra_ fb perms extra = getForwardUrlParams fb $ (if null perms
+                                                                   then id
+                                                                   else (("scope", T.intercalate "," perms):)) extra
+
+getForwardUrlWithState :: Facebook -> [Text] -> Text -> Text
+getForwardUrlWithState fb perms state = getForwardUrlWithExtra_ fb perms [("state", state)]
+
+getForwardUrl :: Facebook -> [Text] -> Text
+getForwardUrl fb perms = getForwardUrlWithExtra_ fb perms []
 
 accessTokenUrl :: Facebook -> Text -> ByteString
 accessTokenUrl fb code =
@@ -91,3 +104,12 @@ getGraphData_ a b = getGraphData a b >>= either (throwIO . InvalidJsonException)
 data InvalidJsonException = InvalidJsonException String
     deriving (Show, Typeable)
 instance Exception InvalidJsonException
+
+-- | Logs out the user from their Facebook session.
+getLogoutUrl :: AccessToken
+             -> Text -- ^ URL the user should be directed to in your site domain.
+             -> Text -- ^ Logout URL in @https://www.facebook.com/@.
+getLogoutUrl (AccessToken s) next =
+    TE.decodeUtf8 $ toByteString $
+    copyByteString "https://www.facebook.com/logout.php"
+    `mappend` renderQueryText True [("next", Just next), ("access_token", Just s)]
