@@ -34,7 +34,11 @@ import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import           Data.Text (Text)
 import qualified Data.Text as T
+#if MIN_VERSION_aeson(0, 4, 0)
+import qualified Data.HashMap.Lazy as Map
+#else
 import qualified Data.Map as Map
+#endif
 
 import Language.Haskell.TH.Syntax hiding (lift)
 
@@ -96,6 +100,11 @@ class (Yesod m, SinglePiece (AuthId m), RenderMessage m FormMessage) => YesodAut
                       -> AuthMessage -> Text
     renderAuthMessage _ _ = defaultMessage
 
+    -- | After login and logout, redirect to the referring page, instead of
+    -- 'loginDest' and 'logoutDest'. Default is 'False'.
+    redirectToReferer :: m -> Bool
+    redirectToReferer _ = False
+
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
@@ -134,7 +143,7 @@ getCheckR = do
     creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle "Authentication Status"
-        addHtml $ html' creds) (json' creds)
+        addHtml $ html' creds) (jsonCreds creds)
   where
     html' creds =
         [QQ(shamlet)|
@@ -144,16 +153,21 @@ $maybe _ <- creds
 $nothing
     <p>Not logged in.
 |]
-    json' creds =
+    jsonCreds creds =
         Object $ Map.fromList
             [ (T.pack "logged_in", Bool $ maybe False (const True) creds)
             ]
 
+setUltDestReferer' :: YesodAuth master => GHandler sub master ()
+setUltDestReferer' = do
+    m <- getYesod
+    when (redirectToReferer m) setUltDestReferer
+
 getLoginR :: YesodAuth m => GHandler Auth m RepHtml
-getLoginR = setUltDestReferer >> loginHandler
+getLoginR = setUltDestReferer' >> loginHandler
 
 getLogoutR :: YesodAuth m => GHandler Auth m ()
-getLogoutR = setUltDestReferer >> postLogoutR -- FIXME redirect to post
+getLogoutR = setUltDestReferer' >> postLogoutR -- FIXME redirect to post
 
 postLogoutR :: YesodAuth m => GHandler Auth m ()
 postLogoutR = do

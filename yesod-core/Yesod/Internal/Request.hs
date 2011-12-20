@@ -60,9 +60,9 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonc
                        , lookup langKey cookies'     -- Cookie _LANG
                        , lookup langKey session'     -- Session _LANG
                        ] ++ langs                    -- Accept-Language(s)
-    -- If the session is not secure a nonce should not be
-    -- used (any nonce present in the session is ignored).
-    -- If a secure session has no nonceKey a new one is
+    -- If sessions are disabled nonces should not be used (any
+    -- nonceKey present in the session is ignored). If sessions
+    -- are enabled and a session has no nonceKey a new one is
     -- generated.
     nonce = case (key', lookup nonceKey session') of
                 (Nothing, _) -> Nothing
@@ -75,7 +75,10 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonc
 randomString :: RandomGen g => Int -> g -> String
 randomString len = take len . map toChar . randomRs (0, 61)
   where
-    toChar i = (['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']) !! i
+    toChar i
+        | i < 26 = toEnum $ i + fromEnum 'A'
+        | i < 52 = toEnum $ i + fromEnum 'a' - 26
+        | otherwise = toEnum $ i + fromEnum '0' - 52
 
 -- | A tuple containing both the POST parameters and submitted files.
 type RequestBodyContents =

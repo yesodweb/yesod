@@ -4,18 +4,21 @@ Default: &defaults
   host: localhost
   port: 27017
   database: ~project~
+  poolsize: 10
 
 Development:
   <<: *defaults
 
-Test:
+Testing:
   database: ~project~_test
   <<: *defaults
 
 Staging:
   database: ~project~_staging
+  poolsize: 100
   <<: *defaults
 
 Production:
   database: ~project~_production
+  poolsize: 100
   <<: *defaults

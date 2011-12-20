@@ -5,15 +5,14 @@
 > {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 > import Yesod
 > import Yesod.Static
-> import Data.Monoid (mempty)
-> import Text.Blaze (string)
+> import Data.Text (Text, unpack)
 
 Like the blog example, we'll define some data first.
 
 > data Page = Page
->   { pageName :: String
->   , pageSlug :: String
->   , pageContent :: String
+>   { pageName :: Text
+>   , pageSlug :: Text
+>   , pageContent :: Text
 >   }
 
 > loadPages :: IO [Page]
@@ -36,7 +35,7 @@ Now the routes; we'll have a homepage, a pattern for the pages, and use a static
 
 > mkYesod "Ajax" [parseRoutes|
 > /                  HomeR   GET
-> /page/#String      PageR   GET
+> /page/#Text        PageR   GET
 > /static            StaticR Static ajaxStatic
 > |]
 
@@ -49,7 +48,7 @@ Now the routes; we'll have a homepage, a pattern for the pages, and use a static
 >   defaultLayout widget = do
 >   Ajax pages _ <- getYesod
 >   content <- widgetToPageContent widget
->   hamletToRepHtml [$hamlet|
+>   hamletToRepHtml [hamlet|
 > \<!DOCTYPE html>
 > 
 > <html>
@@ -80,23 +79,23 @@ Now the routes; we'll have a homepage, a pattern for the pages, and use a static
 
 And now the cool part: a handler that returns either HTML or JSON data, depending on the request headers.
 
-> getPageR :: String -> Handler RepHtmlJson
+> getPageR :: Text -> Handler RepHtmlJson
 > getPageR slug = do
 >   Ajax pages _ <- getYesod
 >   case filter (\e -> pageSlug e == slug) pages of
 >       [] -> notFound
 >       page:_ -> defaultLayoutJson (do
->           setTitle $ string $ pageName page
+>           setTitle $ toHtml $ pageName page
 >           addHamlet $ html page
 >           ) (json page)
 >  where
->   html page = [$hamlet|
+>   html page = [hamlet|
 > <h1>#{pageName page}
 > <article>#{pageContent page}
 > |]
 >   json page = jsonMap
->       [ ("name", jsonScalar $ pageName page)
->       , ("content", jsonScalar $ pageContent page)
+>       [ ("name", jsonScalar $ unpack $ pageName page)
+>       , ("content", jsonScalar $ unpack $ pageContent page)
 >       ]
 
 <p>We first try and find the appropriate Page, returning a 404 if it's not there. We then use the applyLayoutJson function, which is really the heart of this example. It allows you an easy way to create responses that will be either HTML or JSON, and which use the default layout in the HTML responses. It takes four arguments: 1) the title of the HTML page, 2) some value, 3) a function from that value to a Hamlet value, and 4) a function from that value to a Json value.</p>
@@ -110,3 +109,8 @@ And now the cool part: a handler that returns either HTML or JSON data, dependin
 >   pages <- loadPages
 >   s <- static "static/yesod/ajax"
 >   warpDebug 3000 $ Ajax pages s
+
+And just to avoid some warnings...
+
+> _ignored :: Widget
+> _ignored = undefined ajaxPages

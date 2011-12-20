@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Json
     ( -- * Convert from a JSON value
@@ -23,7 +24,11 @@ import qualified Data.Aeson.Encode as JE
 import Data.Aeson.Encode (fromValue)
 import Data.Text (pack)
 import Control.Arrow (first)
+#if MIN_VERSION_aeson(0, 4, 0)
+import Data.HashMap.Strict (fromList)
+#else
 import Data.Map (fromList)
+#endif
 import qualified Data.Vector as V
 import Text.Julius (ToJavascript (..))
 import Data.Text.Lazy.Builder (fromLazyText)

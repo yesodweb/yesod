@@ -1,0 +1,48 @@
+name:            yesod-default
+version:         0.5.0
+license:         BSD3
+license-file:    LICENSE
+author:          Patrick Brisbin
+maintainer:      Patrick Brisbin <pbrisbin@gmail.com>
+synopsis:        Default config and main functions for your yesod application
+category:        Web, Yesod
+stability:       Stable
+cabal-version:   >= 1.6
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+description:     Convenient wrappers for your the configuration and
+                 execution of your yesod application
+
+library
+    if os(windows)
+        cpp-options: -DWINDOWS
+
+    build-depends:   base                  >= 4     && < 5
+                   , yesod-core            >= 0.9.4 && < 0.10
+                   , cmdargs               >= 0.8
+                   , warp                  >= 0.4   && < 0.5
+                   , wai                   >= 0.4   && < 0.5
+                   , wai-extra             >= 0.4.4 && < 0.5
+                   , bytestring            >= 0.9.1.4
+                   , transformers          >= 0.2.2 && < 0.3
+                   , text                  >= 0.9
+                   , directory             >= 1.0
+                   , shakespeare-css       >= 0.10.5 && < 0.11
+                   , shakespeare-js        >= 0.10.4 && < 0.11
+                   , template-haskell
+                   , data-object           >= 0.3      && < 0.4
+                   , data-object-yaml      >= 0.3      && < 0.4
+
+    if !os(windows)
+         build-depends: unix
+
+    exposed-modules: Yesod.Default.Config
+                   , Yesod.Default.Main
+                   , Yesod.Default.Util
+                   , Yesod.Default.Handlers
+
+    ghc-options:     -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/yesodweb/yesod.git

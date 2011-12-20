@@ -203,7 +203,7 @@ getPasswordR = do
         Just _ -> return ()
         Nothing -> do
             setMessageI Msg.BadSetPass
-            redirect RedirectTemporary $ toMaster loginR
+            redirect RedirectTemporary $ toMaster LoginR
     defaultLayout $ do
         setTitleI Msg.SetPassTitle
         addWidget
@@ -238,7 +238,7 @@ postPasswordR = do
     aid <- case maid of
             Nothing -> do
                 setMessageI Msg.BadSetPass
-                redirect RedirectTemporary $ toMaster loginR
+                redirect RedirectTemporary $ toMaster LoginR
             Just aid -> return aid
     salted <- liftIO $ saltPass new
     setPassword aid salted

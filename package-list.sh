@@ -1,0 +1,12 @@
+#!/bin/bash
+
+pkgs=(      ./yesod-core
+            ./yesod-json
+            ./yesod-static
+            ./yesod-persistent
+            ./yesod-newsfeed
+            ./yesod-form
+            ./yesod-auth
+            ./yesod-sitemap
+            ./yesod-default
+            ./yesod                 )

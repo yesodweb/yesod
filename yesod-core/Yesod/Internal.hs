@@ -29,7 +29,6 @@ module Yesod.Internal
     ) where
 
 import Text.Hamlet (HtmlUrl, hamlet, Html)
-import Text.Cassius (CssUrl)
 import Text.Julius (JavascriptUrl)
 import Data.Monoid (Monoid (..), Last)
 import Data.List (nub)
@@ -44,6 +43,7 @@ import qualified Network.HTTP.Types as A
 import Data.CaseInsensitive (CI)
 import Data.String (IsString)
 import qualified Data.Map as Map
+import Data.Text.Lazy.Builder (Builder)
 
 #if GHC7
 #define HAMLET hamlet
@@ -107,12 +107,14 @@ nonceKey = "_NONCE"
 sessionName :: IsString a => a
 sessionName = "_SESSION"
 
+type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> Builder
+
 data GWData a = GWData
     !(Body a)
     !(Last Title)
     !(UniqueList (Script a))
     !(UniqueList (Stylesheet a))
-    !(Map.Map (Maybe Text) (CssUrl a)) -- media type
+    !(Map.Map (Maybe Text) (CssBuilderUrl a)) -- media type
     !(Maybe (JavascriptUrl a))
     !(Head a)
 instance Monoid (GWData a) where

@@ -35,8 +35,6 @@ import Yesod.Handler
 
 import Control.Arrow ((***))
 import Control.Monad (forM)
-import qualified Paths_yesod_core
-import Data.Version (showVersion)
 import Yesod.Widget
 import Yesod.Request
 import qualified Network.Wai as W
@@ -48,11 +46,10 @@ import qualified Web.ClientSession as CS
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import Data.Monoid
-import Control.Monad.Trans.RWS
+import Control.Monad.Trans.Writer (runWriterT)
 import Text.Hamlet
-import Text.Cassius
 import Text.Julius
-import Text.Blaze ((!), customAttribute, textTag, toValue)
+import Text.Blaze ((!), customAttribute, textTag, toValue, unsafeLazyByteString)
 import qualified Text.Blaze.Html5 as TBH
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
@@ -75,6 +72,20 @@ import qualified Data.Text.Lazy.IO
 import qualified Data.Text.Lazy.Builder as TB
 import Language.Haskell.TH.Syntax (Loc (..), Lift (..))
 import Text.Blaze (preEscapedLazyText)
+import Data.Aeson (Value (Array, String))
+import Data.Aeson.Encode (encode)
+import qualified Data.Vector as Vector
+
+-- mega repo can't access this
+#ifndef MEGA
+import qualified Paths_yesod_core
+import Data.Version (showVersion)
+yesodVersion :: String
+yesodVersion = showVersion Paths_yesod_core.version
+#else
+yesodVersion :: String
+yesodVersion = "0.9.3.2"
+#endif
 
 #if GHC7
 #define HAMLET hamlet
@@ -159,9 +170,9 @@ class RenderRoute (Route a) => Yesod a where
 
     -- | Determine if a request is authorized or not.
     --
-    -- Return 'Nothing' is the request is authorized, 'Just' a message if
-    -- unauthorized. If authentication is required, you should use a redirect;
-    -- the Auth helper provides this functionality automatically.
+    -- Return 'Authorized' if the request is authorized,
+    -- 'Unauthorized' a message if unauthorized.
+    -- If authentication is required, return 'AuthenticationRequired'.
     isAuthorized :: Route a
                  -> Bool -- ^ is this a write request?
                  -> GHandler s a AuthResult
@@ -264,6 +275,11 @@ class RenderRoute (Route a) => Yesod a where
     gzipCompressFiles :: a -> Bool
     gzipCompressFiles _ = False
 
+    -- | Location of yepnope.js, if any. If one is provided, then all
+    -- Javascript files will be loaded asynchronously.
+    yepnopeJs :: a -> Maybe (Either Text (Route a))
+    yepnopeJs _ = Nothing
+
 messageLoggerHandler :: (Yesod m, MonadIO mo)
                      => Loc -> LogLevel -> Text -> GGHandler s m mo ()
 messageLoggerHandler loc level msg = do
@@ -327,12 +343,12 @@ defaultYesodRunner _ m toMaster _ murl _ req
             [] -> Nothing
             (x, _):_ -> Just x
 defaultYesodRunner s master toMasterRoute mkey murl handler req = do
-    now <- liftIO getCurrentTime
-    let getExpires m = fromIntegral (m * 60) `addUTCTime` now
-    let exp' = getExpires $ clientSessionDuration master
-    let rh = takeWhile (/= ':') $ show $ W.remoteHost req
+    now <- {-# SCC "getCurrentTime" #-} liftIO getCurrentTime
+    let getExpires m = {-# SCC "getExpires" #-} fromIntegral (m * 60) `addUTCTime` now
+    let exp' = {-# SCC "exp'" #-} getExpires $ clientSessionDuration master
+    let rh = {-# SCC "rh" #-} takeWhile (/= ':') $ show $ W.remoteHost req
     let host = if sessionIpAddress master then S8.pack rh else ""
-    let session' =
+    let session' = {-# SCC "session'" #-}
             case mkey of
                 Nothing -> []
                 Just key -> fromMaybe [] $ do
@@ -340,7 +356,7 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                     val <- lookup sessionName $ parseCookies raw
                     decodeSession key now host val
     rr <- liftIO $ parseWaiRequest req session' mkey
-    let h = do
+    let h = {-# SCC "h" #-} do
           case murl of
             Nothing -> handler
             Just url -> do
@@ -361,7 +377,8 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                    $ filter (\(x, _) -> x /= nonceKey) session'
     yar <- handlerToYAR master s toMasterRoute (yesodRender master) errorHandler rr murl sessionMap h
     let mnonce = reqNonce rr
-    iv <- liftIO CS.randomIV
+    -- FIXME should we be caching this IV value and reusing it for efficiency?
+    iv <- {-# SCC "iv" #-} maybe (return $ error "Should not be used") (const $ liftIO CS.randomIV) mkey
     return $ yarToResponse (hr iv mnonce getExpires host exp') yar
   where
     hr iv mnonce getExpires host exp' hs ct sm =
@@ -472,18 +489,22 @@ maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
 
+jsToHtml :: Javascript -> Html
+jsToHtml (Javascript b) = preEscapedLazyText $ toLazyText b
+
+jelper :: JavascriptUrl url -> HtmlUrl url
+jelper = fmap jsToHtml
+
 -- | Convert a widget to a 'PageContent'.
 widgetToPageContent :: (Eq (Route master), Yesod master)
                     => GWidget sub master ()
                     -> GHandler sub master (PageContent (Route master))
 widgetToPageContent (GWidget w) = do
-    ((), _, GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- runRWST w () 0
+    master <- getYesod
+    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- runWriterT w
     let title = maybe mempty unTitle mTitle
     let scripts = runUniqueList scripts'
     let stylesheets = runUniqueList stylesheets'
-    let jsToHtml (Javascript b) = preEscapedLazyText $ toLazyText b
-        jelper :: JavascriptUrl url -> HtmlUrl url
-        jelper = fmap jsToHtml
 
     render <- getUrlRenderParams
     let renderLoc x =
@@ -492,7 +513,7 @@ widgetToPageContent (GWidget w) = do
                 Just (Left s) -> Just s
                 Just (Right (u, p)) -> Just $ render u p
     css <- forM (Map.toList style) $ \(mmedia, content) -> do
-        let rendered = renderCssUrl render content
+        let rendered = toLazyText $ content render
         x <- addStaticContent "css" "text/css; charset=utf-8"
            $ encodeUtf8 rendered
         return (mmedia,
@@ -536,19 +557,54 @@ $forall s <- css
             <style media=#{media}>#{content}
         $nothing
             <style>#{content}
-$forall s <- scripts
-    ^{mkScriptTag s}
-$maybe j <- jscript
-    $maybe s <- jsLoc
-        <script src="#{s}">
-    $nothing
-        <script>^{jelper j}
+$maybe _ <- yepnopeJs master
+$nothing
+    $forall s <- scripts
+        ^{mkScriptTag s}
+    $maybe j <- jscript
+        $maybe s <- jsLoc
+            <script src="#{s}">
+        $nothing
+            <script>^{jelper j}
 \^{head'}
 |]
-    return $ PageContent title head'' body
+    let (mcomplete, ynscripts) = ynHelper render scripts jscript jsLoc
+    let bodyYN = [HAMLET|
+^{body}
+$maybe eyn <- yepnopeJs master
+    $maybe yn <- left eyn
+        <script src=#{yn}>
+    $maybe yn <- right eyn
+        <script src=@{yn}>
+    $maybe complete <- mcomplete
+        <script>yepnope({load:#{ynscripts},complete:function(){^{complete}}})
+    $nothing
+        <script>yepnope({load:#{ynscripts}})
+|]
+    return $ PageContent title head'' bodyYN
 
-yesodVersion :: String
-yesodVersion = showVersion Paths_yesod_core.version
+ynHelper :: (url -> [x] -> Text)
+         -> [Script (url)]
+         -> Maybe (JavascriptUrl (url))
+         -> Maybe Text
+         -> (Maybe (HtmlUrl (url)), Html)
+ynHelper render scripts jscript jsLoc =
+    (mcomplete, unsafeLazyByteString $ encode $ Array $ Vector.fromList $ map String scripts'')
+  where
+    scripts' = map goScript scripts
+    scripts'' =
+        case jsLoc of
+            Just s -> scripts' ++ [s]
+            Nothing -> scripts'
+    goScript (Script (Local url) _) = render url []
+    goScript (Script (Remote s) _) = s
+    mcomplete =
+        case jsLoc of
+            Just{} -> Nothing
+            Nothing ->
+                case jscript of
+                    Nothing -> Nothing
+                    Just j -> Just $ jelper j
 
 yesodRender :: Yesod y
             => y

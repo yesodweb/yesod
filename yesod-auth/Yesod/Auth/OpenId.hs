@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Yesod.Auth.OpenId
     ( authOpenId
+    , authOpenIdExtended
     , forwardUrl
     ) where
 
@@ -26,7 +27,10 @@ forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
 
 authOpenId :: YesodAuth m => AuthPlugin m
-authOpenId =
+authOpenId = authOpenIdExtended []
+
+authOpenIdExtended :: YesodAuth m => [(Text, Text)] -> AuthPlugin m
+authOpenIdExtended extensionFields =
     AuthPlugin "openid" dispatch login
   where
     complete = PluginR "openid" ["complete"]
@@ -40,6 +44,12 @@ authOpenId =
 |]
         [QQ(whamlet)|
 <form method="get" action="@{tm forwardUrl}">
+    <input type="hidden" name="openid_identifier" value="https://www.google.com/accounts/o8/id">
+    <button .openid-google>_{Msg.LoginGoogle}
+<form method="get" action="@{tm forwardUrl}">
+    <input type="hidden" name="openid_identifier" value="http://me.yahoo.com">
+    <button .openid-yahoo>_{Msg.LoginYahoo}
+<form method="get" action="@{tm forwardUrl}">
     <label for="#{ident}">OpenID: #
     <input id="#{ident}" type="text" name="#{name}" value="http://">
     <input type="submit" value="_{Msg.LoginOpenID}">
@@ -51,7 +61,7 @@ authOpenId =
                 render <- getUrlRender
                 toMaster <- getRouteToMaster
                 let complete' = render $ toMaster complete
-                res <- runAttemptT $ OpenId.getForwardUrl oid complete' Nothing []
+                res <- runAttemptT $ OpenId.getForwardUrl oid complete' Nothing extensionFields 
                 attempt
                   (\err -> do
                         setMessage $ toHtml $ show err
@@ -81,5 +91,5 @@ completeHelper gets' = do
             setMessage $ toHtml $ show err
             redirect RedirectTemporary $ toMaster LoginR
         let onSuccess (OpenId.Identifier ident, _) =
-                setCreds True $ Creds "openid" ident []
+                setCreds True $ Creds "openid" ident gets'
         attempt onFailure onSuccess res
