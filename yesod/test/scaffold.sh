@@ -7,9 +7,12 @@ runghc main.hs init
   cabal configure || cabal install
   cabal build
   cabal clean
-  cabal configure -fdevel
+  cabal configure -fdev
   cabal build
   cabal clean
-  cabal configure -fproduction
+  cabal configure -flibrary-only
+  cabal build
+  cabal clean
+  cabal configure
   cabal build
 )
