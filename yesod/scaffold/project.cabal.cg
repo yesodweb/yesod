@@ -12,11 +12,11 @@ cabal-version:     >= 1.6
 build-type:        Simple
 homepage:          http://~project~.yesodweb.com/
 
-Flag production
-    Description:   Build the production executable.
+Flag dev
+    Description:   Turn on development settings, like auto-reload templates.
     Default:       False
 
-Flag devel
+Flag library-only
     Description:   Build for use with "yesod devel"
     Default:       False
 

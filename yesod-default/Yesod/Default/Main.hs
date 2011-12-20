@@ -47,7 +47,7 @@ defaultMain :: (Show env, Read env)
 defaultMain load withSite = do
     config <- load
     logger <- makeLogger
-    withSite config logger $ runSettings
+    withSite config logger $ runSettings defaultSettings
         { settingsHost = "0.0.0.0"
         , settingsPort = appPort config
         }
