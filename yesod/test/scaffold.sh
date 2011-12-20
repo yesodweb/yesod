@@ -1,12 +1,15 @@
 #!/bin/bash -ex
 
-rm -rf foobar
 runghc main.hs init
 
 (
   cd foobar
-  cabal install
-  cabal install -fdevel
+  cabal configure || cabal install
+  cabal build
+  cabal clean
+  cabal configure -fdevel
+  cabal build
+  cabal clean
+  cabal configure -fproduction
+  cabal build
 )
-
-ghc-pkg unregister foobar

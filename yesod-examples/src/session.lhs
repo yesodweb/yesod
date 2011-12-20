@@ -17,7 +17,7 @@
 > getRoot :: Handler RepHtml
 > getRoot = do
 >     sess <- getSession
->     hamletToRepHtml [$hamlet|
+>     hamletToRepHtml [hamlet|
 > <form method=post
 >     <input type=text name=key
 >     <input type=text name=val
@@ -32,4 +32,8 @@
 >       liftIO $ print (key, val)
 >       redirect RedirectTemporary Root
 >
+> main :: IO ()
 > main = warpDebug 3000 Session
+
+> _ignored :: Widget
+> _ignored = undefined

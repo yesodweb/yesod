@@ -6,19 +6,15 @@
 module Main where
 
 import Yesod
-import Yesod.Helpers.Static
+import Yesod.Static
 
 import Control.Concurrent.STM
-import Control.Concurrent.STM.TChan
-import Control.Concurrent.STM.TVar
 
 import Control.Arrow ((***))
 import Data.Text (Text, unpack)
 
 -- speaker and content
 data Message = Message Text Text
-
-type Handler yesod = GHandler yesod yesod
 
 -- all those TChans are dupes, so writing to any one writes to them all, but reading is separate
 data Chat = Chat
@@ -29,7 +25,7 @@ data Chat = Chat
 
 staticFiles "static"
 
-mkYesod "Chat" [$parseRoutes|
+mkYesod "Chat" [parseRoutes|
 /          HomeR   GET
 /check     CheckR  GET
 /post      PostR   GET
@@ -40,21 +36,20 @@ instance Yesod Chat where
   approot _ = ""
   defaultLayout widget = do
     content <- widgetToPageContent widget
-    hamletToRepHtml [$hamlet|\
-    \<!DOCTYPE html>
+    hamletToRepHtml [hamlet|
+!!!
 
-    <html>
-        <head>
-            <title>#{pageTitle content}
-            <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
-            <script src="@{StaticR chat_js}">
-            \^{pageHead content}
-        <body>
-            \^{pageBody content}
-    \
+<html>
+    <head>
+        <title>#{pageTitle content}
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js">
+        <script src="@{StaticR chat_js}">
+        ^{pageHead content}
+    <body>
+        ^{pageBody content}
 |]
 
-getHomeR :: Handler Chat RepHtml
+getHomeR :: Handler RepHtml
 getHomeR = do
   Chat clients next _ <- getYesod
   client <- liftIO . atomically $ do
@@ -68,8 +63,8 @@ getHomeR = do
     return c
   defaultLayout $ do
     setTitle "Chat Page"
-    addWidget [$hamlet|\
-\<!DOCTYPE html>
+    toWidget [hamlet|
+!!!
 
 <h1>Chat Example
 <form>
@@ -81,7 +76,7 @@ getHomeR = do
 <script>var clientNumber = #{show client}
 |]
 
-getCheckR :: Handler Chat RepJson
+getCheckR :: Handler RepJson
 getCheckR = do
   liftIO $ putStrLn "Check"
   Chat clients _ _ <- getYesod
@@ -99,9 +94,10 @@ getCheckR = do
   let Message s c = first
   jsonToRepJson $ zipJson ["sender", "content"] [s,c]
 
+zipJson :: [Text] -> [Text] -> Json
 zipJson x y = jsonMap $ map (unpack *** jsonScalar . unpack) $ zip x y
 
-getPostR :: Handler Chat RepJson
+getPostR :: Handler RepJson
 getPostR = do
   liftIO $ putStrLn "Post"
   Chat clients _ _ <- getYesod
@@ -122,4 +118,5 @@ main :: IO ()
 main = do
   clients <- newTVarIO []
   next <- newTVarIO 0
-  warpDebug 3000 $ Chat clients next $ static "static"
+  s <- static "static"
+  warpDebug 3000 $ Chat clients next s

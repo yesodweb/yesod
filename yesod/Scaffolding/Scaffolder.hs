@@ -66,9 +66,9 @@ scaffold = do
     backendC <- prompt $ flip elem $ map (return . toLower . head . show) backends
     let (backend, importGenericDB, dbMonad, importPersist, mkPersistSettings) =
             case backendC of
-                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite\n", "sqlSettings")
-                "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql\n", "sqlSettings")
-                "m" -> (MongoDB,    "MongoDB", "Action", "MongoDB\nimport Control.Applicative (Applicative)\n", "MkPersistSettings { mpsBackend = ConT ''Action }")
+                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite", "sqlSettings")
+                "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql", "sqlSettings")
+                "m" -> (MongoDB,    "MongoDB", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
                 "t" -> (Tiny, "","","",undefined)
                 _ -> error $ "Invalid backend: " ++ backendC
         (modelImports) = case backend of
@@ -84,7 +84,26 @@ scaffold = do
     let runMigration  =
           case backend of
             MongoDB -> ""
-            _ -> "\n        runConnectionPool (runMigration migrateAll) p"
+            _ -> "\n        Database.Persist.Base.runPool dbconf (runMigration migrateAll) p"
+
+    let importMigration =
+          case backend of
+            MongoDB -> ""
+            _ -> "\nimport Database.Persist.GenericSql (runMigration)"
+
+    let dbConfigFile =
+          case backend of
+            MongoDB -> "mongoDB"
+            Sqlite -> "sqlite"
+            Postgresql -> "postgresql"
+            Tiny -> error "Accessing dbConfigFile for Tiny"
+
+    let configPersist =
+          case backend of
+            MongoDB -> "MongoConf"
+            Sqlite -> "SqliteConf"
+            Postgresql -> "PostgresConf"
+            Tiny -> error "Accessing configPersist for Tiny"
 
     putStrLn "That's it! I'm creating your files now..."
 
@@ -94,14 +113,15 @@ scaffold = do
           MongoDB    -> $(codegen $ "mongoDBConnPool")
           Tiny       -> ""
 
-        settingsTextImport = case backend of
-          Postgresql -> "import Data.Text (Text, pack, concat)\nimport Prelude hiding (concat)"
-          _          -> "import Data.Text (Text, pack)"
-
         packages =
           if backend == MongoDB
             then "                 , persistent-mongoDB >= 0.6.1 && < 0.7\n                 , mongoDB >= 1.1\n                 , bson >= 0.1.5\n"
             else "                 , persistent-" ++ backendLower ++ " >= 0.6 && < 0.7"
+
+        monadControlVersion =
+          if backend == MongoDB
+              then "== 0.2.*"
+              else "== 0.3.*"
 
 
     let fst3 (x, _, _) = x
@@ -113,10 +133,7 @@ scaffold = do
         mkDir fp = createDirectoryIfMissing True $ dir ++ '/' : fp
 
     mkDir "Handler"
-    mkDir "hamlet"
-    mkDir "cassius"
-    mkDir "lucius"
-    mkDir "julius"
+    mkDir "templates"
     mkDir "static"
     mkDir "static/css"
     mkDir "static/js"
@@ -124,6 +141,7 @@ scaffold = do
     mkDir "Model"
     mkDir "deploy"
     mkDir "Settings"
+    mkDir "messages"
      
     writeFile' ("deploy/Procfile") $(codegen "deploy/Procfile")
 
@@ -142,28 +160,43 @@ scaffold = do
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
     writeFile' ("Foundation.hs") $ ifTiny $(codegen "tiny/Foundation.hs") $(codegen "Foundation.hs")
+    writeFile' "Import.hs" $(codegen "Import.hs")
     writeFile' "Application.hs" $ ifTiny $(codegen "tiny/Application.hs") $(codegen "Application.hs")
-    writeFile' "Handler/Root.hs" $ ifTiny $(codegen "tiny/Handler/Root.hs") $(codegen "Handler/Root.hs")
+    writeFile' "Handler/Root.hs" $(codegen "Handler/Root.hs")
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "Settings.hs" $ ifTiny $(codegen "tiny/Settings.hs") $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
-    writeFile' "cassius/default-layout.cassius"
-        $(codegen "cassius/default-layout.cassius")
-    writeFile' "hamlet/default-layout.hamlet"
-        $(codegen "hamlet/default-layout.hamlet")
-    writeFile' "hamlet/boilerplate-layout.hamlet"
-        $(codegen "hamlet/boilerplate-layout.hamlet")
-    writeFile' "static/css/normalize.css"
-        $(codegen "static/css/normalize.css")
-    writeFile' "hamlet/homepage.hamlet" $ ifTiny $(codegen "tiny/hamlet/homepage.hamlet") $(codegen "hamlet/homepage.hamlet")
+    writeFile' "templates/default-layout.lucius"
+        $(codegen "templates/default-layout.lucius")
+    writeFile' "templates/default-layout.hamlet"
+        $(codegen "templates/default-layout.hamlet")
+    writeFile' "templates/default-layout-wrapper.hamlet"
+        $(codegen "templates/default-layout-wrapper.hamlet")
+    writeFile' "templates/boilerplate-wrapper.hamlet"
+        $(codegen "templates/boilerplate-wrapper.hamlet")
+    writeFile' "templates/normalize.lucius"
+        $(codegen "templates/normalize.lucius")
+    writeFile' "templates/homepage.hamlet"
+        $(codegen "templates/homepage.hamlet")
     writeFile' "config/routes" $ ifTiny $(codegen "tiny/config/routes") $(codegen "config/routes")
-    writeFile' "cassius/homepage.cassius" $(codegen "cassius/homepage.cassius")
-    writeFile' "julius/homepage.julius" $(codegen "julius/homepage.julius")
+    writeFile' "templates/homepage.lucius"
+        $(codegen "templates/homepage.lucius")
+    writeFile' "templates/homepage.julius"
+        $(codegen "templates/homepage.julius")
     unless isTiny $ writeFile' "config/models" $(codegen "config/models")
-  
+    writeFile' "messages/en.msg" $(codegen "messages/en.msg")
+
+    S.writeFile (dir ++ "/static/js/modernizr.js")
+        $(runIO (S.readFile "scaffold/static/js/modernizr.js.cg") >>= \bs ->
+            [|S.pack $(return $ LitE $ StringL $ S.unpack bs)|])
+
     S.writeFile (dir ++ "/config/favicon.ico")
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do
             pack <- [|S.pack|]
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
+
+    S.writeFile (dir ++ "/config/robots.txt")
+        $(runIO (S.readFile "scaffold/config/robots.txt.cg") >>= \bs -> do
+            [|S.pack $(return $ LitE $ StringL $ S.unpack bs)|])
     
     puts $(codegenDir "input" "done")

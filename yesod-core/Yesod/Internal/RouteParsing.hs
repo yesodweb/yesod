@@ -331,18 +331,24 @@ pieceFromString ('#':x) = SinglePiece x
 pieceFromString ('*':x) = MultiPiece x
 pieceFromString x = StaticPiece x
 
+-- n^2, should be a way to speed it up
 findOverlaps :: [Resource] -> [(Resource, Resource)]
-findOverlaps = gos . map justPieces
+findOverlaps = go . map justPieces
   where
+    justPieces :: Resource -> ([Piece], Resource)
     justPieces r@(Resource _ ps _) = (ps, r)
-    gos [] = []
-    gos (x:xs) = mapMaybe (go x) xs ++ gos xs
-    go (StaticPiece x:xs, xr) (StaticPiece y:ys, yr)
-        | x == y = go (xs, xr) (ys, yr)
+
+    go [] = []
+    go (x:xs) = mapMaybe (mOverlap x) xs ++ go xs
+
+    mOverlap :: ([Piece], Resource) -> ([Piece], Resource) ->
+                Maybe (Resource, Resource)
+    mOverlap (StaticPiece x:xs, xr) (StaticPiece y:ys, yr)
+        | x == y = mOverlap (xs, xr) (ys, yr)
         | otherwise = Nothing
-    go (MultiPiece _:_, xr) (_, yr) = Just (xr, yr)
-    go (_, xr) (MultiPiece _:_, yr) = Just (xr, yr)
-    go ([], xr) ([], yr) = Just (xr, yr)
-    go ([], _) (_, _) = Nothing
-    go (_, _) ([], _) = Nothing
-    go (_:xs, xr) (_:ys, yr) = go (xs, xr) (ys, yr)
+    mOverlap (MultiPiece _:_, xr) (_, yr) = Just (xr, yr)
+    mOverlap (_, xr) (MultiPiece _:_, yr) = Just (xr, yr)
+    mOverlap ([], xr) ([], yr) = Just (xr, yr)
+    mOverlap ([], _) (_, _) = Nothing
+    mOverlap (_, _) ([], _) = Nothing
+    mOverlap (_:xs, xr) (_:ys, yr) = mOverlap (xs, xr) (ys, yr)

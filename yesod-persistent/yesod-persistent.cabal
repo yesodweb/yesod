@@ -1,5 +1,5 @@
 name:            yesod-persistent
-version:         0.2.1
+version:         0.2.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -18,7 +18,7 @@ library
                    , persistent                >= 0.6      && < 0.7
                    , persistent-template       >= 0.6      && < 0.7
                    , failure                   >= 0.1      && < 0.2
-                   , transformers              >= 0.2      && < 0.3
+                   , transformers              >= 0.2.2    && < 0.3
     exposed-modules: Yesod.Persist
     ghc-options:     -Wall
 

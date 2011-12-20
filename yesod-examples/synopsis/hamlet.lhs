@@ -2,8 +2,10 @@
 {-# LANGUAGE QuasiQuotes, OverloadedStrings #-}
 
 import Text.Hamlet
-import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, cons)
+import qualified Data.Text.Lazy.IO as L
+import Text.Blaze.Renderer.Text (renderHtml)
+
 
 data Person = Person
     { name :: String
@@ -16,23 +18,23 @@ data PersonUrls = Homepage | PersonPage Text
 
 renderUrls :: PersonUrls -> [(Text, Text)] -> Text
 renderUrls Homepage _ = "/"
-renderUrls (PersonPage name) _ = '/' `cons` name
+renderUrls (PersonPage name') _ = '/' `cons` name'
 
-footer :: Hamlet url
-footer = [$hamlet|\
+footer :: HtmlUrl url
+footer = [hamlet|
 <div id="footer">Thank you, come again
 |]
 
-template :: Person -> Hamlet PersonUrls
-template person = [$hamlet|
+template :: Person -> HtmlUrl PersonUrls
+template person = [hamlet|
 !!!
 
 <html>
     <head>
         <title>Hamlet Demo
     <body>
-        <h1>Information on #{string (name person)}
-        <p>#{string (name person)} is #{string (age person)} years old.
+        <h1>Information on #{name person}
+        <p>#{name person} is #{age person} years old.
         <h2>
             $if isMarried person
                 \Married
@@ -40,7 +42,7 @@ template person = [$hamlet|
                 \Not married
         <ul>
             $forall child <- children person
-                <li>#{string child}
+                <li>#{child}
         <p>
             <a href="@{page person}">See the page.
         \^{footer}
@@ -55,7 +57,7 @@ main = do
             , isMarried = True
             , children = ["Adam", "Ben", "Chris"]
             }
-    L.putStrLn $ renderHamlet renderUrls $ template person
+    L.putStrLn $ renderHtml $ (template person) renderUrls 
 \end{code}
 
 Outputs (new lines added for readability):

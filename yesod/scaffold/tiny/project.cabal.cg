@@ -12,58 +12,70 @@ cabal-version:     >= 1.6
 build-type:        Simple
 homepage:          http://~project~.yesodweb.com/
 
-Flag production
-    Description:   Build the production executable.
+Flag dev
+    Description:   Turn on development settings, like auto-reload templates.
     Default:       False
 
-Flag devel
+Flag library-only
     Description:   Build for use with "yesod devel"
     Default:       False
 
 library
-    if flag(devel)
+    if flag(library-only)
         Buildable: True
     else
         Buildable: False
     exposed-modules: Application
-    hs-source-dirs: .
     other-modules:   Foundation
+                     Import
                      Settings
                      Settings.StaticFiles
                      Handler.Root
 
+    ghc-options:   -Wall -threaded -O0
+    cpp-options:   -DDEVELOPMENT
+
+    extensions: TemplateHaskell
+                QuasiQuotes
+                OverloadedStrings
+                NoImplicitPrelude
+                CPP
+                OverloadedStrings
+                MultiParamTypeClasses
+                TypeFamilies
+
 executable         ~project~
-    if flag(devel)
+    if flag(library-only)
         Buildable: False
 
-    if flag(production)
-        cpp-options:   -DPRODUCTION
-        ghc-options:   -Wall -threaded -O2
+    if flag(dev)
+        cpp-options:   -DDEVELOPMENT
+        ghc-options:   -Wall -threaded -O0
     else
         ghc-options:   -Wall -threaded
 
     main-is:       main.hs
-    hs-source-dirs: .
 
-    build-depends: base         >= 4       && < 5
-                 , yesod-core   >= 0.9     && < 0.10
-                 , yesod-static
-                 , clientsession
-                 , wai-extra
-                 , directory
-                 , bytestring
-                 , text
+    extensions: TemplateHaskell
+                QuasiQuotes
+                OverloadedStrings
+                NoImplicitPrelude
+                CPP
+                OverloadedStrings
+                MultiParamTypeClasses
+                TypeFamilies
+
+    build-depends: base                          >= 4          && < 5
+                 , yesod-core                    >= 0.9.3      && < 0.10
+                 , yesod-static                  >= 0.3.1      && < 0.4
+                 , yesod-default                 >= 0.5        && < 0.6
+                 , clientsession                 >= 0.7.3      && < 0.8
+                 , bytestring                    >= 0.9        && < 0.10
+                 , text                          >= 0.11       && < 0.12
                  , template-haskell
-                 , hamlet               >= 0.10     && < 0.11
-                 , shakespeare-css      >= 0.10     && < 0.11
-                 , shakespeare-js       >= 0.10     && < 0.11
-                 , shakespeare-text     >= 0.10     && < 0.11
-                 , transformers
-                 , data-object
-                 , data-object-yaml
-                 , wai
-                 , warp
-                 , blaze-builder
-                 , cmdargs
-                 , data-object
-                 , data-object-yaml
+                 , hamlet                        >= 0.10       && < 0.11
+                 , shakespeare-text              >= 0.10       && < 0.11
+                 , wai                           >= 0.4.2      && < 0.5
+                 , transformers                  >= 0.2        && < 0.3
+                 , monad-control                 >= 0.3        && < 0.4
+

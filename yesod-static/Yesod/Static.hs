@@ -29,9 +29,13 @@ module Yesod.Static
     , embed
       -- * Template Haskell helpers
     , staticFiles
+    , staticFilesList
     , publicFiles
       -- * Hashing
     , base64md5
+#ifdef TEST
+    , getFileListPieces 
+#endif
     ) where
 
 import Prelude hiding (FilePath)
@@ -64,6 +68,9 @@ import qualified Data.ByteString as S
 import Network.HTTP.Types (status301)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
+import qualified Data.Enumerator as E
+import qualified Data.Enumerator.List as EL
+import qualified Data.Enumerator.Binary as EB
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -155,6 +162,25 @@ getFileListPieces = flip go id
 staticFiles :: Prelude.FilePath -> Q [Dec]
 staticFiles dir = mkStaticFiles dir
 
+-- | Same as 'staticFiles', but takes an explicit list of files to create
+-- identifiers for. The files are given relative to the static folder. For
+-- example, to get the files \"static/js/jquery.js\" and
+-- \"static/css/normalize.css\", you would use:
+--
+-- > staticFilesList "static" ["js/jquery.js"], ["css/normalize.css"]]
+--
+-- This can be useful when you have a very large number of static files, but
+-- only need to refer to a few of them from Haskell.
+staticFilesList :: Prelude.FilePath -> [Prelude.FilePath] -> Q [Dec]
+staticFilesList dir fs =
+    mkStaticFilesList dir (map split fs) "StaticRoute" True
+  where
+    split :: Prelude.FilePath -> [String]
+    split [] = []
+    split x =
+        let (a, b) = break (== '/') x
+         in a : split (drop 1 b)
+
 -- | like staticFiles, but doesn't append an etag to the query string
 -- This will compile faster, but doesn't achieve as great of caching.
 -- The browser can avoid downloading the file, but it always needs to send a request with the etag value or the last-modified value to the server to see if its copy is up to dat
@@ -212,6 +238,15 @@ mkStaticFiles' :: Prelude.FilePath -- ^ static directory
                -> Q [Dec]
 mkStaticFiles' fp routeConName makeHash = do
     fs <- qRunIO $ getFileListPieces fp
+    mkStaticFilesList fp fs routeConName makeHash
+
+mkStaticFilesList
+    :: Prelude.FilePath -- ^ static directory
+    -> [[String]] -- ^ list of files to create identifiers for
+    -> String   -- ^ route constructor "StaticRoute"
+    -> Bool     -- ^ append checksum query parameter
+    -> Q [Dec]
+mkStaticFilesList fp fs routeConName makeHash = do
     concat `fmap` mapM mkRoute fs
   where
     replace' c
@@ -233,7 +268,6 @@ mkStaticFiles' fp routeConName makeHash = do
         pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
-        -- FIXME hash <- qRunIO . calcHash $ fp ++ '/' : intercalate "/" f
                             [|[(pack $(lift hash), mempty)]|]
                     else return $ ListE []
         return
@@ -243,22 +277,35 @@ mkStaticFiles' fp routeConName makeHash = do
                 ]
             ]
 
+-- don't use L.readFile here, since it doesn't close handles quickly enough if
+-- there are lots of files in the static folder, it will cause exhausted file
+-- descriptors
 base64md5File :: Prelude.FilePath -> IO String
 base64md5File file = do
-  contents <- L.readFile file
-  return $ base64md5 contents
+    bss <- E.run_ $ EB.enumFile file E.$$ EL.consume
+    return $ base64md5 $ L.fromChunks bss
+    -- FIXME I'd like something streaming instead
+    {-
+    fmap (base64 . finalize) $ E.run_ $
+    EB.enumFile file E.$$ EL.fold go (md5InitialContext, "")
+  where
+    go (context, prev) next = (md5Update context prev, next)
+    finalize (context, end) = md5Finalize context end
+    -}
 
 -- | md5-hashes the given lazy bytestring and returns the hash as
 -- base64url-encoded string.
 --
 -- This function returns the first 8 characters of the hash.
 base64md5 :: L.ByteString -> String
-base64md5 = map tr
-          . take 8
-          . S8.unpack
-          . Data.ByteString.Base64.encode
-          . Data.Serialize.encode
-          . md5
+base64md5 = base64 . md5
+
+base64 :: MD5Digest -> String
+base64 = map tr
+       . take 8
+       . S8.unpack
+       . Data.ByteString.Base64.encode
+       . Data.Serialize.encode
   where
     tr '+' = '-'
     tr '/' = '_'

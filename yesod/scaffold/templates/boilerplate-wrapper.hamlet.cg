@@ -1,0 +1,42 @@
+\<!doctype html>
+\<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]-->
+\<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]-->
+\<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en"> <![endif]-->
+\<!--[if gt IE 8]><!-->
+<html class="no-js" lang="en"> <!--<![endif]-->
+    <head>
+        <meta charset="UTF-8">
+
+        <title>#{pageTitle pc}
+        <meta name="description" content="">
+        <meta name="author" content="">
+
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+
+        ^{pageHead pc}
+
+        \<!--[if lt IE 9]>
+        \<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        \<![endif]-->
+
+        <script>
+          document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/,'js');
+    <body>
+        <div id="container">
+            <header>
+            <div id="main" role="main">
+              ^{pageBody pc}
+            <footer>
+
+        \<!-- Change UA-XXXXX-X to be your site's ID -->
+        <script>
+            window._gaq = [['_setAccount','UAXXXXXXXX1'],['_trackPageview'],['_trackPageLoadTime']];
+            YepNope.load({
+            \  load: ('https:' == location.protocol ? '//ssl' : '//www') + '.google-analytics.com/ga.js'
+            });
+        \<!-- Prompt IE 6 users to install Chrome Frame. Remove this if you want to support IE 6.  chromium.org/developers/how-tos/chrome-frame-getting-started -->
+        \<!--[if lt IE 7 ]>
+            <script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js">
+            <script>
+                window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})
+        \<![endif]-->

@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
@@ -56,7 +57,7 @@ module Yesod.Widget
     ) where
 
 import Data.Monoid
-import Control.Monad.Trans.RWS
+import Control.Monad.Trans.Writer
 import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
@@ -78,22 +79,48 @@ import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE), Pat (VarP), newName)
 
+#if MIN_VERSION_monad_control(0, 3, 0)
+import Control.Monad.Trans.Control (MonadTransControl (..), MonadBaseControl (..), defaultLiftBaseWith, defaultRestoreM, ComposeSt)
+#else
 import Control.Monad.IO.Control (MonadControlIO)
+#endif
 import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze (toHtml, preEscapedLazyText)
+import Control.Monad.Base (MonadBase (liftBase))
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. This is basically a large 'WriterT' stack keeping track of
 -- dependencies along with a 'StateT' to track unique identifiers.
 newtype GGWidget m monad a = GWidget { unGWidget :: GWInner m monad a }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadControlIO)
+    deriving (Functor, Applicative, Monad, MonadIO
+#if !MIN_VERSION_monad_control(0, 3, 0)
+    , MonadControlIO
+#endif
+    )
+
+instance MonadBase b m => MonadBase b (GGWidget master m) where
+    liftBase = lift . liftBase
+#if MIN_VERSION_monad_control(0, 3, 0)
+instance MonadTransControl (GGWidget master) where
+    newtype StT (GGWidget master) a =
+       StWidget {unStWidget :: StT (GWInner master) a}
+    liftWith f = GWidget $ liftWith $ \run ->
+                  f $ liftM StWidget . run . unGWidget
+    restoreT = GWidget . restoreT . liftM unStWidget
+    {-# INLINE liftWith #-}
+    {-# INLINE restoreT #-}
+instance MonadBaseControl b m => MonadBaseControl b (GGWidget master m) where
+     newtype StM (GGWidget master m) a = StMT {unStMT :: ComposeSt (GGWidget master) m a}
+     liftBaseWith = defaultLiftBaseWith StMT
+     restoreM     = defaultRestoreM   unStMT
+#endif
 
 instance MonadTrans (GGWidget m) where
     lift = GWidget . lift
 
 type GWidget s m = GGWidget m (GHandler s m)
-type GWInner master = RWST () (GWData (Route master)) Int
+type GWInner master = WriterT (GWData (Route master))
 
 instance (Monad monad, a ~ ()) => Monoid (GGWidget master monad a) where
     mempty = return ()
@@ -103,9 +130,7 @@ addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWi
 addSubWidget sub (GWidget w) = do
     master <- lift getYesod
     let sr = fromSubRoute sub master
-    s <- GWidget get
-    (a, s', w') <- lift $ toMasterHandlerMaybe sr (const sub) Nothing $ runRWST w () s
-    GWidget $ put s'
+    (a, w') <- lift $ toMasterHandlerMaybe sr (const sub) Nothing $ runWriterT w
     GWidget $ tell w'
     return a
 
@@ -192,7 +217,7 @@ addWidget = id
 
 -- | Add some raw CSS to the style tag. Applies to all media types.
 addCassius :: Monad m => CssUrl (Route master) -> GGWidget master m ()
-addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing x) mempty mempty
+addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
 
 -- | Identical to 'addCassius'.
 addLucius :: Monad m => CssUrl (Route master) -> GGWidget master m ()
@@ -200,7 +225,7 @@ addLucius = addCassius
 
 -- | Add some raw CSS to the style tag, for a specific media type.
 addCassiusMedia :: Monad m => Text -> CssUrl (Route master) -> GGWidget master m ()
-addCassiusMedia m x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) x) mempty mempty
+addCassiusMedia m x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
 
 -- | Identical to 'addCassiusMedia'.
 addLuciusMedia :: Monad m => Text -> CssUrl (Route master) -> GGWidget master m ()
@@ -273,9 +298,9 @@ addCoffeeBody c = do
 -- manipulations. It can be easier to use this sometimes than 'wrapWidget'.
 extractBody :: Monad mo => GGWidget m mo () -> GGWidget m mo (HtmlUrl (Route m))
 extractBody (GWidget w) =
-    GWidget $ mapRWST (liftM go) w
+    GWidget $ mapWriterT (liftM go) w
   where
-    go ((), s, GWData (Body h) b c d e f g) = (h, s, GWData (Body mempty) b c d e f g)
+    go ((), GWData (Body h) b c d e f g) = (h, GWData (Body mempty) b c d e f g)
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:
