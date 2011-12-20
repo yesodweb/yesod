@@ -25,6 +25,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 import           System.Directory (createDirectoryIfMissing, removeFile,
+                                           doesFileExist,
                                            getDirectoryContents)
 import           System.Exit (exitFailure, exitSuccess)
 import           System.Posix.Types (EpochTime)
@@ -35,6 +36,7 @@ import           System.Process (runCommand, terminateProcess,
 import Text.Shakespeare.Text (st)
 
 import Build (recompDeps, getDeps,findHaskellFiles)
+import Control.Monad (unless)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define ST st
@@ -79,7 +81,8 @@ devel isDevel = do
             , "--disable-library-profiling"
             ]
 
-      T.writeFile "dist/devel.hs" (develFile pid)
+      exists <- doesFileExist "dist/devel.hs"
+      unless exists $ T.writeFile "dist/devel.hs" (develFile pid)
 
       mainLoop isDevel
 
@@ -169,7 +172,10 @@ main :: IO ()
 main = do
   putStrLn "Starting devel application"
   wdap <- (return . fromJust . fromDynamic) withDevelAppPort
-  forkIO . wdap $ \(port, app) -> run port app
+  forkIO . wdap $ \(port, app) -> runSettings defaultSettings
+    { settingsPort = port
+    , settingsHost = "0.0.0.0"
+    } app
   loop
 
 loop :: IO ()
