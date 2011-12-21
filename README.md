@@ -1,11 +1,13 @@
 An advanced web framework using the Haskell programming language. Featuring:
 
   * safety & security guaranteed at compile time
-  * performance
+  * developer productivity: tools for all your basic web development needs
+  * raw performance
     * fast, compiled code
-    * a greater concurrent load than any other web application server
-  * developer productivity: tools for all your basic web development 
-    needs
+    * techniques for constant-space memory consumption
+  * asynchronous IO
+    * this is built in to the Haskell programming language (like Erlang)
+    * handles a greater concurrent load than any other web application server
 
 ## Learn more: http://yesodweb.com/
 
