@@ -39,19 +39,22 @@ Please note that cabal-dev will not work in a virthualenv shell - you can't use 
 
 ### virthualenv
 
+virthualenv will not work on Windows - Windows users should use only cabal-dev.
+
 To just install Yesod from github, we only need cabal-dev. However, cabal-dev may be more hassle than it is worth when hacking on Yesod.
 
 We recommend using [virthualenv](http://hackage.haskell.org/package/virthualenv) when hacking on Yesod.
 This is optional, but prevents your custom build of Yesod from interfering with your currently installed cabal packages.
 virthualenv creates an isolated environment like cabal-dev.
-cabal-dev isolates a single cabal package, but virthualenv isolates multiple packages together.
+cabal-dev by default isolates a single cabal package, but virthualenv isolates multiple packages together.
+cabal-dev can isolate multiple packages together by using the -s sandbox argument
 
 virthualenv works at the shell level, so every shell must activate the virthualenv.
 
 ### cabal-src
 
-Michael just released the cabal-src tool. Whenever you would use `cabal install` for a local package, use `cabal-src-install` instead.
-Our installer script now uses cabal-src-install when it is available.
+Michael Snoyman just released the cabal-src tool, which helps resolve dependency conflicts when installing local packages.
+Whenever you would use `cabal install` for a local package, use `cabal-src-install` instead. Our installer script now uses cabal-src-install when it is available.
 
 ### Building Yesod
 
@@ -108,9 +111,11 @@ cabal-dev works very well if you are working on a single package, but it can be 
 
 ### Use your development version of Yesod in your application
 
-Note that we have told you to install Yesod into a sandboxed virthualenv environment.
-This means it is not available through your user/global cabal database for your application.
-Instead you should use `cabal-dev install` to retrieve these packages.
+Note that we have recommended to you to install Yesod into a sandboxed virthualenv environment.
+This is great for development, but when you want to use these development versions in your application that means they are not available through your user/global cabal database for your application.
+You should just continue to use your yesod virthualenv shell for your application.
+
+You can also use `cabal-dev install` to retrieve these packages.
 cd to your application directory, and the reference the source list.
 
 ~~~ { .bash }
