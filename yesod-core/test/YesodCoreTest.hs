@@ -9,6 +9,7 @@ import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
+import qualified YesodCoreTest.Redirect as Redirect
 
 import Test.Hspec
 
@@ -23,4 +24,5 @@ specs =
     , internalRequestTest
     , errorHandlingTest
     , cacheTest
+    , Redirect.specs
     ]
