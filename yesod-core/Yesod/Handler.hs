@@ -377,7 +377,7 @@ runHandler :: HasReps c
            -> master
            -> sub
            -> YesodApp
-runHandler handler mrender sroute tomr ma sa =
+runHandler handler mrender sroute tomr master sub =
   YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler e =
             case fromException e of
@@ -392,8 +392,8 @@ runHandler handler mrender sroute tomr ma sa =
         }
     let hd = HandlerData
             { handlerRequest = rr
-            , handlerSub = sa
-            , handlerMaster = ma
+            , handlerSub = sub
+            , handlerMaster = master
             , handlerRoute = sroute
             , handlerRender = mrender
             , handlerToMaster = tomr
@@ -423,7 +423,7 @@ runHandler handler mrender sroute tomr ma sa =
         HCRedirect rt loc -> do
             let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
             return $ YARPlain
-                (getRedirectStatus rt) hs typePlain emptyContent
+                (getRedirectStatus rt $ reqWaiRequest rr) hs typePlain emptyContent
                 finalSession
         HCSendFile ct fp p -> catchIter
             (sendFile' ct fp p)
@@ -707,10 +707,12 @@ getStatus (InvalidArgs _) = H.status400
 getStatus (PermissionDenied _) = H.status403
 getStatus (BadMethod _) = H.status405
 
-getRedirectStatus :: RedirectType -> H.Status
-getRedirectStatus RedirectPermanent = H.status301
-getRedirectStatus RedirectTemporary = H.status302
-getRedirectStatus RedirectSeeOther = H.status303
+getRedirectStatus :: RedirectType ->  W.Request -> H.Status
+getRedirectStatus RedirectPermanent _ = H.status301
+getRedirectStatus RedirectTemporary r
+    | W.httpVersion r == H.http11 = H.status307
+    | otherwise                  = H.status302
+getRedirectStatus RedirectSeeOther  _ = H.status303
 
 -- | Different types of redirects.
 data RedirectType = RedirectPermanent
