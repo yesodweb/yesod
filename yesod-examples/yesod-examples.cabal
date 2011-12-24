@@ -72,4 +72,4 @@ Executable yesod-chat
 
 source-repository head
   type:     git
-  location: git://github.com/snoyberg/yesod-examples.git
+  location: git://github.com/yesodweb/yesod.git
