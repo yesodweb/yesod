@@ -76,4 +76,4 @@ test-suite tests
 
 source-repository head
   type:     git
-  location: git://github.com/snoyberg/yesod-static.git
+  location: git://github.com/yesodweb/yesod.git
