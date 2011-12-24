@@ -44,6 +44,7 @@ library
                      Yesod.Form.Nic
                      Yesod.Form.MassInput
                      Yesod.Form.I18n.English
+                     Yesod.Form.I18n.Portuguese
                      Yesod.Form.I18n.Swedish
                      -- FIXME Yesod.Helpers.Crud
     ghc-options:     -Wall
