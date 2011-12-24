@@ -1,5 +1,5 @@
 name:            yesod-json
-version:         0.2.2.1
+version:         0.2.2.2
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -21,6 +21,7 @@ library
                    , vector               >= 0.9
                    , containers           >= 0.2      && < 0.5
                    , unordered-containers
+                   , blaze-builder
     exposed-modules: Yesod.Json
     ghc-options:     -Wall
 

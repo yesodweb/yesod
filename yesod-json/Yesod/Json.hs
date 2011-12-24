@@ -33,9 +33,20 @@ import qualified Data.Vector as V
 import Text.Julius (ToJavascript (..))
 import Data.Text.Lazy.Builder (fromLazyText)
 import Data.Text.Lazy.Encoding (decodeUtf8)
+#if MIN_VERSION_aeson(0, 5, 0)
+import Data.Text.Lazy.Builder (toLazyText)
+import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
+#endif
 
 instance ToContent J.Value where
+#if MIN_VERSION_aeson(0, 5, 0)
+    toContent = flip ContentBuilder Nothing
+              . Blaze.fromLazyText
+              . toLazyText
+              . fromValue
+#else
     toContent = flip ContentBuilder Nothing . fromValue
+#endif
 
 -- | Provide both an HTML and JSON representation for a piece of data, using
 -- the default layout for the HTML output ('defaultLayout').
