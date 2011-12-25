@@ -23,7 +23,7 @@ import Yesod.Auth
 import Yesod.Auth.OpenId
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
-import Yesod.Logger (Logger, logLazyText)
+import Yesod.Logger (Logger, writeLogMsg, formatLogText, logLazyText)
 import qualified Settings
 import qualified Data.ByteString.Lazy as L
 import qualified Database.Persist.Base
@@ -108,7 +108,7 @@ instance Yesod ~sitearg~ where
     authRoute _ = Just $ AuthR LoginR
 
     messageLogger y loc level msg =
-      formatLogMessage loc level msg >>= logLazyText (getLogger y)
+      formatLogText (getLogger y) loc level msg >>= writeLogMsg (getLogger y)
 
     -- This function creates static content files in the static folder
     -- and names them based on a hash of their content. This allows

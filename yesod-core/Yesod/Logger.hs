@@ -1,68 +1,92 @@
--- blantantly taken from hakyll
--- http://hackage.haskell.org/packages/archive/hakyll/3.1.1.0/doc/html/src/Hakyll-Core-Logger.html
---
--- | Produce pretty, thread-safe logs
---
 {-# LANGUAGE BangPatterns #-}
 module Yesod.Logger
     ( Logger
     , makeLogger
+    , makeDefaultLogger
     , flushLogger
     , timed
     , logText
     , logLazyText
     , logString
+    , logBS
+    , logMsg
+    , formatLogText
     ) where
 
-import Control.Monad (forever)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Applicative ((<$>), (<*>))
-import Control.Concurrent (forkIO)
-import Control.Concurrent.Chan.Strict (Chan, newChan, readChan, writeChan)
-import Control.Concurrent.MVar.Strict (MVar, newEmptyMVar, takeMVar, putMVar)
-import Text.Printf (printf)
-import Data.Text
+import System.IO (Handle, stdout, hFlush)
+import Data.ByteString (ByteString)
+import Data.ByteString.Char8 (pack)
+import Data.ByteString.Lazy (toChunks)
 import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.IO
+import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8)
+import qualified Data.Text.Lazy.Encoding as TLE
+import System.Log.FastLogger
+import Network.Wai.Logger.Date (DateRef, dateInit, getDate)
+
+-- for timed logging
 import Data.Time (getCurrentTime, diffUTCTime)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Text.Printf (printf)
+import Data.Text (unpack)
 
-data Logger = Logger
-    { loggerChan :: Chan (Maybe TL.Text)  -- Nothing marks the end
-    , loggerSync :: MVar ()               -- Used for sync on quit
-    }
+-- for formatter
+import Language.Haskell.TH.Syntax (Loc)
+import Yesod.Core (LogLevel, fileLocationToString)
 
-makeLogger :: IO Logger
-makeLogger = do
-    logger <- Logger <$> newChan <*> newEmptyMVar
-    _ <- forkIO $ loggerThread logger
-    return logger
-  where
-    loggerThread logger = forever $ do
-        msg <- readChan $ loggerChan logger
-        case msg of
-            -- Stop: sync
-            Nothing -> putMVar (loggerSync logger) ()
-            -- Print and continue
-            Just m  -> Data.Text.Lazy.IO.putStrLn m
+data Logger = Logger {
+    loggerHandle  :: Handle
+  , loggerDateRef :: DateRef
+  }
 
--- | Flush the logger (blocks until flushed)
---
+makeLogger :: Handle -> IO Logger
+makeLogger handle = dateInit >>= return . Logger handle
+
+-- | uses stdout handle
+makeDefaultLogger :: IO Logger
+makeDefaultLogger = makeLogger stdout
+
 flushLogger :: Logger -> IO ()
-flushLogger logger = do
-    writeChan (loggerChan logger) Nothing
-    () <- takeMVar $ loggerSync logger
-    return ()
+flushLogger = hFlush . loggerHandle
 
--- | Send a raw message to the logger
---   Native format is lazy text
+logMsg :: Logger -> [LogStr] -> IO ()
+logMsg = hPutLogStr . loggerHandle
+
 logLazyText :: Logger -> TL.Text -> IO ()
-logLazyText logger = writeChan (loggerChan logger) . Just
+logLazyText logger msg = logMsg logger $
+  map LB (toChunks $ TLE.encodeUtf8 msg) ++ [newLine]
 
 logText :: Logger -> Text -> IO ()
-logText logger = logLazyText logger . TL.fromStrict
+logText logger = logBS logger . encodeUtf8
+
+logBS :: Logger -> ByteString -> IO ()
+logBS logger msg = logMsg logger [LB msg, newLine]
 
 logString :: Logger -> String -> IO ()
-logString logger = logLazyText logger . TL.pack
+logString logger msg = logMsg logger [LS msg, newLine]
+
+formatLogText :: Logger -> Loc -> LogLevel -> Text -> IO [LogStr]
+formatLogText logger loc level msg = formatLogMsg logger loc level (toLB msg)
+
+toLB :: Text -> LogStr
+toLB = LB . encodeUtf8
+
+formatLogMsg :: Logger -> Loc -> LogLevel -> LogStr -> IO [LogStr]
+formatLogMsg logger loc level msg = do
+    date <- liftIO $ getDate $ loggerDateRef logger
+    return
+        [ LB date
+        , LB $ pack" ["
+        , LS (drop 5 $ show level)
+        , LB $ pack "] "
+        , msg
+        , LB $ pack " @("
+        , LS (fileLocationToString loc)
+        , LB $ pack ") "
+        ]
+
+newLine :: LogStr
+newLine = LB $ pack "\"\n"
 
 -- | Execute a monadic action and log the duration
 --

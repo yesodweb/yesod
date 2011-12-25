@@ -18,7 +18,7 @@ import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Static (Static, base64md5, StaticRoute(..))
 import Settings.StaticFiles
-import Yesod.Logger (Logger, logLazyText)
+import Yesod.Logger (Logger, writeLogMsg, formatLogText, logLazyText)
 import qualified Settings
 import Settings (widgetFile)
 import Control.Monad.Trans.Class (lift)
@@ -89,7 +89,7 @@ instance Yesod ~sitearg~ where
     urlRenderOverride _ _ = Nothing
 
     messageLogger y loc level msg =
-      formatLogMessage loc level msg >>= logLazyText (getLogger y)
+      formatLogText (getLogger y) loc level msg >>= writeLogMsg (getLogger y)
 
     -- This function creates static content files in the static folder
     -- and names them based on a hash of their content. This allows
