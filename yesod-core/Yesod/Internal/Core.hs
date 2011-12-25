@@ -84,7 +84,7 @@ yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version
 #else
 yesodVersion :: String
-yesodVersion = "0.9.3.2"
+yesodVersion = "0.9.4"
 #endif
 
 #if GHC7
