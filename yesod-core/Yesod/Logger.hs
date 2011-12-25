@@ -2,6 +2,7 @@
 module Yesod.Logger
     ( Logger
     , makeLogger
+    , makeLoggerWithHandle
     , makeDefaultLogger
     , flushLogger
     , timed
@@ -39,12 +40,16 @@ data Logger = Logger {
   , loggerDateRef :: DateRef
   }
 
-makeLogger :: Handle -> IO Logger
-makeLogger handle = dateInit >>= return . Logger handle
+makeLogger :: IO Logger
+makeLogger = makeDefaultLogger
+{-# DEPRECATED makeLogger "Use makeDefaultLogger instead" #-}
+
+makeLoggerWithHandle :: Handle -> IO Logger
+makeLoggerWithHandle handle = dateInit >>= return . Logger handle
 
 -- | uses stdout handle
 makeDefaultLogger :: IO Logger
-makeDefaultLogger = makeLogger stdout
+makeDefaultLogger = makeLoggerWithHandle stdout
 
 flushLogger :: Logger -> IO ()
 flushLogger = hFlush . loggerHandle
