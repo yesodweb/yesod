@@ -59,7 +59,7 @@ import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
 import Data.Time
 import Network.HTTP.Types (encodePath)
-import qualified Data.Text as TS
+import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TEE
@@ -214,15 +214,15 @@ class RenderRoute (Route a) => Yesod a where
             then Right s
             else Left corrected
       where
-        corrected = filter (not . TS.null) s
+        corrected = filter (not . T.null) s
 
     -- | Builds an absolute URL by concatenating the application root with the  
     -- pieces of a path and a query string, if any. 
     -- Note that the pieces of the path have been previously cleaned up by 'cleanPath'.
     joinPath :: a
-             -> TS.Text -- ^ application root
-             -> [TS.Text] -- ^ path pieces
-             -> [(TS.Text, TS.Text)] -- ^ query string
+             -> T.Text -- ^ application root
+             -> [T.Text] -- ^ path pieces
+             -> [(T.Text, T.Text)] -- ^ query string
              -> Builder
     joinPath _ ar pieces' qs' = fromText ar `mappend` encodePath pieces qs
       where
@@ -261,7 +261,7 @@ class RenderRoute (Route a) => Yesod a where
     maximumContentLength :: a -> Maybe (Route a) -> Int
     maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
 
-    -- | Send a message to the log. By default, prints to stderr.
+    -- | Send a message to the log. By default, prints to stdout.
     messageLogger :: a
                   -> Loc -- ^ position in source code
                   -> LogLevel
@@ -294,7 +294,7 @@ instance Lift LogLevel where
     lift LevelInfo = [|LevelInfo|]
     lift LevelWarn = [|LevelWarn|]
     lift LevelError = [|LevelError|]
-    lift (LevelOther x) = [|LevelOther $ TS.pack $(lift $ TS.unpack x)|]
+    lift (LevelOther x) = [|LevelOther $ T.pack $(lift $ T.unpack x)|]
 
 formatLogMessage :: Loc
                  -> LogLevel
@@ -303,13 +303,13 @@ formatLogMessage :: Loc
 formatLogMessage loc level msg = do
     now <- getCurrentTime
     return $ TB.toLazyText $
-        TB.fromText (TS.pack $ show now)
+        TB.fromText (T.pack $ show now)
         `mappend` TB.fromText " ["
-        `mappend` TB.fromText (TS.pack $ drop 5 $ show level)
+        `mappend` TB.fromText (T.pack $ drop 5 $ show level)
         `mappend` TB.fromText "] "
         `mappend` TB.fromText msg
         `mappend` TB.fromText " @("
-        `mappend` TB.fromText (TS.pack $ fileLocationToString loc)
+        `mappend` TB.fromText (T.pack $ fileLocationToString loc)
         `mappend` TB.fromText ") "
 
 -- taken from file-location package
