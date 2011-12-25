@@ -4,6 +4,7 @@ import Scaffolding.Scaffolder
 import System.Environment (getArgs)
 import System.Exit (exitWith)
 import System.Process (rawSystem)
+import Yesod.Core(yesodVersion)
 
 #ifndef WINDOWS
 import Build (touch)
@@ -35,7 +36,7 @@ main = do
         ["touch"] -> touch
 #endif
         ["devel"] -> devel isDev
-        ["version"] -> putStrLn "0.9.3"
+        ["version"] -> putStrLn yesodVersion
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         _ -> do
             putStrLn "Usage: yesod <command>"
