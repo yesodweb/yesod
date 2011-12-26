@@ -1,11 +1,12 @@
 module Settings.StaticFiles where
 
+import Prelude (IO)
 import Yesod.Static (staticFiles, StaticRoute (StaticRoute))
 import qualified Yesod.Static as Static
 import Settings (staticDir)
 
 -- | use this to create your static file serving site
-staticSite :: IO Static
+staticSite :: IO Static.Static
 staticSite =
 #ifdef DEVELOPMENT
   Static.staticDevel staticDir
