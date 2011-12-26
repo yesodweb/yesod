@@ -51,7 +51,7 @@ import Yesod.Form
 import Yesod.Json
 import Yesod.Persist
 import Network.Wai (Application)
-import Network.Wai.Middleware.Debug
+import Network.Wai.Middleware.RequestLogger
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 #if MIN_VERSION_monad_control(0, 3, 0)
@@ -78,12 +78,12 @@ readIntegral s =
 warp :: (Yesod a, YesodDispatch a a) => Int -> a -> IO ()
 warp port a = toWaiApp a >>= run port
 
--- | Same as 'warp', but also sends a message to stderr for each request, and
+-- | Same as 'warp', but also sends a message to stdout for each request, and
 -- an \"application launched\" message as well. Can be useful for development.
 warpDebug :: (Yesod a, YesodDispatch a a) => Int -> a -> IO ()
 warpDebug port a = do
     hPutStrLn stderr $ "Application launched, listening on port " ++ show port
-    toWaiApp a >>= run port . debug
+    toWaiApp a >>= run port . logStdout
 
 -- | Run a development server, where your code changes are automatically
 -- reloaded.
