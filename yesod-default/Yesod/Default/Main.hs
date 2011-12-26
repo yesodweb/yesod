@@ -9,11 +9,11 @@ module Yesod.Default.Main
 
 import Yesod.Core hiding (AppConfig (..))
 import Yesod.Default.Config
-import Yesod.Logger (Logger, makeDefaultLogger, logString, logLazyText, flushLogger)
+import Yesod.Logger (Logger, makeDefaultLogger, logString, logBS, flushLogger)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
     (runSettings, defaultSettings, settingsPort, settingsHost)
-import Network.Wai.Middleware.Debug (debugHandle)
+import Network.Wai.Middleware.RequestLogger (logHandle)
 import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 import Network.Wai.Middleware.Gzip (gzip', GzipFiles (GzipCacheFolder), gzipFiles, def)
 import Network.Wai.Middleware.Autohead (autohead)
@@ -109,8 +109,7 @@ defaultDevelAppWith load withSite f = do
         logger <- makeDefaultLogger
         let p = appPort conf
         logString logger $ "Devel application launched, listening on port " ++ show p
-        withSite conf logger $ \app -> f (p, debugHandle (logHandle logger) app)
+        withSite conf logger $ \app -> f (p, logHandle (logToHandle logger) app)
         flushLogger logger
-
-        where
-            logHandle logger msg = logLazyText logger msg >> flushLogger logger
+      where
+        logToHandle logger msg = logBS logger msg >> flushLogger logger
