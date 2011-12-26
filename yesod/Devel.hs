@@ -210,7 +210,7 @@ lookupDevelLib :: D.CondTree D.ConfVar c a -> Maybe a
 lookupDevelLib ct = listToMaybe . map (\(_,x,_) -> D.condTreeData x) .
                     filter isDevelLib . D.condTreeComponents  $ ct
   where
-    isDevelLib ((D.Var (D.Flag (D.FlagName "devel"))), _, _) = True
-    isDevelLib _                                             = False
+    isDevelLib ((D.Var (D.Flag (D.FlagName f))), _, _) = f `elem` ["library-only", "devel"]
+    isDevelLib _                                       = False
 
 
