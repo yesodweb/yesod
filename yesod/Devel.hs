@@ -161,7 +161,8 @@ develFile pid = [ST|
 {-# LANGUAGE PackageImports #-}
 import "#{showPkgName pid}" Application (withDevelAppPort)
 import Data.Dynamic (fromDynamic)
-import Network.Wai.Handler.Warp (run)
+import Network.Wai.Handler.Warp
+    (runSettings, defaultSettings, settingsPort, settingsHost)
 import Data.Maybe (fromJust)
 import Control.Concurrent (forkIO)
 import System.Directory (doesFileExist, removeFile)
