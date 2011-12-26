@@ -60,9 +60,6 @@ defaultMain load withSite = do
 --   >     Settings.withConnectionPool conf $ \p -> do
 --   >         runConnectionPool (runMigration yourMigration) p
 --   >         defaultRunner f $ YourSite conf logger p
---
---   TODO: ifdef WINDOWS
---
 defaultRunner :: (YesodDispatch y y, Yesod y)
               => (Application -> IO a)
               -> y -- ^ your foundation type

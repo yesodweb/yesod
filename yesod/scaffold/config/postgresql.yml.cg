@@ -9,7 +9,7 @@ Default: &defaults
 Development:
   <<: *defaults
 
-Testing:
+Test:
   database: ~project~_test
   <<: *defaults
 
