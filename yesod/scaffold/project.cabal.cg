@@ -93,3 +93,5 @@ executable         ~project~
                  , shakespeare-text              >= 0.10       && < 0.11
                  , hjsmin                        >= 0.0.14     && < 0.1
                  , monad-control                 ~monadControlVersion~
+                 , wai-extra                     >= 0.4.6      && < 0.5
+

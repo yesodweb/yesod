@@ -5,7 +5,6 @@ module Application
     ) where
 
 import Import
-import Settings
 import Settings.StaticFiles (staticSite)
 import Yesod.Default.Config
 import Yesod.Default.Main (defaultDevelApp, defaultRunner)
