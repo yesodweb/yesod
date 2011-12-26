@@ -52,7 +52,7 @@ library
                    , text                  >= 0.7      && < 0.12
                    , template-haskell
                    , path-pieces           >= 0.0      && < 0.1
-                   , hamlet                >= 0.10     && < 0.11
+                   , hamlet                >= 0.10.6   && < 0.11
                    , shakespeare           >= 0.10     && < 0.11
                    , shakespeare-js        >= 0.10.4   && < 0.11
                    , shakespeare-css       >= 0.10.5   && < 0.11
