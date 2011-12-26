@@ -6,7 +6,7 @@ module Application
 
 import Import
 import Settings
-import Yesod.Static
+import Settings.StaticFiles (staticSite)
 import Yesod.Auth
 import Yesod.Default.Config
 import Yesod.Default.Main
@@ -29,11 +29,7 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- migrations handled by Yesod.
 with~sitearg~ :: AppConfig DefaultEnv () -> Logger -> (Application -> IO ()) -> IO ()
 with~sitearg~ conf logger f = do
-#ifdef DEVELOPMENT
-    s <- staticDevel Settings.staticDir
-#else
-    s <- static Settings.staticDir
-#endif
+    s <- staticSite
     dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
             $ either error return . Database.Persist.Base.loadConfig
     Database.Persist.Base.withPool (dbconf :: Settings.PersistConfig) $ \p -> do~runMigration~

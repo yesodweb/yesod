@@ -6,7 +6,7 @@ module Application
 
 import Import
 import Settings
-import Yesod.Static
+import Settings.StaticFiles (staticSite)
 import Yesod.Default.Config
 import Yesod.Default.Main (defaultDevelApp, defaultRunner)
 import Yesod.Default.Handlers (getFaviconR, getRobotsR)
@@ -28,11 +28,7 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- migrations handled by Yesod.
 with~sitearg~ :: AppConfig DefaultEnv () -> Logger -> (Application -> IO ()) -> IO ()
 with~sitearg~ conf logger f = do
-#ifdef DEVELOPMENT
-    s <- staticDevel Settings.staticDir
-#else
-    s <- static Settings.staticDir
-#endif
+    s <- staticSite
     let h = ~sitearg~ conf logger s
     defaultRunner f h
 
