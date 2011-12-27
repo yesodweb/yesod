@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.9.4
+version:         0.9.4.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -79,7 +79,7 @@ library
                    , monad-control             >= 0.2      && < 0.4
                    , transformers              >= 0.2.2    && < 0.3
                    , wai                       >= 0.4      && < 0.5
-                   , wai-extra                 >= 0.4.1    && < 0.5
+                   , wai-extra                 >= 0.4.6    && < 0.5
                    , hamlet                    >= 0.10     && < 0.11
                    , shakespeare-js            >= 0.10     && < 0.11
                    , shakespeare-css           >= 0.10     && < 0.11
