@@ -75,8 +75,8 @@ import qualified Data.Map as Map
 import Yesod.Handler (newIdent, liftIOHandler)
 import Yesod.Request (FileInfo)
 
-import Yesod.Core (toSinglePiece, GGHandler, SinglePiece)
-import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistBackend)
+import Yesod.Core (toPathPiece, GHandler, GHandlerT, PathPiece)
+import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery)
 import Control.Arrow ((&&&))
 
 #if __GLASGOW_HASKELL__ >= 700
@@ -305,7 +305,7 @@ urlField = Field
 selectField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 selectField = selectField' . optionsPairs
 
-selectField' :: (Eq a, RenderMessage master FormMessage) => GGHandler sub master IO (OptionList a) -> Field sub master a
+selectField' :: (Eq a, RenderMessage master FormMessage) => GHandlerT sub master IO (OptionList a) -> Field sub master a
 selectField' = selectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|]) -- outside
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
@@ -319,7 +319,7 @@ multiSelectField = multiSelectFieldHelper
 radioField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 radioField = radioField' . optionsPairs
 
-radioField' :: (Eq a, RenderMessage master FormMessage) => GGHandler sub master IO (OptionList a) -> Field sub master a
+radioField' :: (Eq a, RenderMessage master FormMessage) => GHandlerT sub master IO (OptionList a) -> Field sub master a
 radioField' = selectFieldHelper
     (\theId _name inside -> [WHAMLET|<div ##{theId}>^{inside}|])
     (\theId name isSel -> [WHAMLET|
@@ -399,26 +399,27 @@ data Option a = Option
     , optionExternalValue :: Text
     }
 
-optionsPairs :: [(Text, a)] -> GGHandler sub master IO (OptionList a)
+optionsPairs :: [(Text, a)] -> GHandlerT sub master IO (OptionList a)
 optionsPairs = return . mkOptionList . zipWith (\external (display, internal) -> Option
     { optionDisplay = display
     , optionInternalValue = internal
     , optionExternalValue = pack $ show external
     }) [1 :: Int ..]
 
-optionsEnum :: (Show a, Enum a, Bounded a) => GGHandler sub master IO (OptionList a)
+optionsEnum :: (Show a, Enum a, Bounded a) => GHandlerT sub master IO (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
-optionsPersist :: ( YesodPersist master, PersistEntity a, PersistBackend (YesodPersistBackend master) (GGHandler sub master IO)
-                  , SinglePiece (Key (YesodPersistBackend master) a)
+optionsPersist :: ( YesodPersist master, PersistEntity a
+                  , PersistQuery (YesodPersistBackend master) (GHandler sub master)
+                  , PathPiece (Key (YesodPersistBackend master) a)
                   )
-               => [Filter a] -> [SelectOpt a] -> (a -> Text) -> GGHandler sub master IO (OptionList (Key (YesodPersistBackend master) a, a))
+               => [Filter a] -> [SelectOpt a] -> (a -> Text) -> GHandler sub master (OptionList (Key (YesodPersistBackend master) a, a))
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     pairs <- runDB $ selectList filts ords
     return $ map (\(key, value) -> Option
         { optionDisplay = toDisplay value
         , optionInternalValue = (key, value)
-        , optionExternalValue = toSinglePiece key
+        , optionExternalValue = toPathPiece key
         }) pairs
 
 selectFieldHelper
@@ -426,7 +427,7 @@ selectFieldHelper
         => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
         -> (Text -> Text -> Bool -> GWidget sub master ())
         -> (Text -> Text -> Text -> Bool -> Text -> GWidget sub master ())
-        -> GGHandler sub master IO (OptionList a) -> Field sub master a
+        -> GHandlerT sub master IO (OptionList a) -> Field sub master a
 selectFieldHelper outside onOpt inside opts' = Field
     { fieldParse = \x -> do
         opts <- opts'

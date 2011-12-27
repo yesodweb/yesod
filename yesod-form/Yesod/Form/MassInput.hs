@@ -14,7 +14,7 @@ import Yesod.Form.Functions
 import Yesod.Form.Fields (boolField)
 import Yesod.Widget (GWidget, whamlet)
 import Yesod.Message (RenderMessage)
-import Yesod.Handler (newIdent, GGHandler)
+import Yesod.Handler (newIdent, GHandler)
 import Text.Blaze (Html)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (pack)
@@ -53,7 +53,7 @@ up i = do
         IntCons _ is' -> put is' >> newFormIdent >> return ()
     up $ i - 1
 
-inputList :: (m ~ GGHandler sub master IO, xml ~ GWidget sub master (), RenderMessage master FormMessage)
+inputList :: (m ~ GHandler sub master, xml ~ GWidget sub master (), RenderMessage master FormMessage)
           => Html
           -> ([[FieldView sub master]] -> xml)
           -> (Maybe a -> AForm sub master a)

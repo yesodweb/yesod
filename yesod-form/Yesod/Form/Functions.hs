@@ -40,7 +40,7 @@ import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM, join)
 import Text.Blaze (Html, toHtml)
-import Yesod.Handler (GHandler, GGHandler, getRequest, runRequestBody, newIdent, getYesod)
+import Yesod.Handler (GHandler, GHandlerT, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, liftIOHandler, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
 import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages, FileInfo (..))
@@ -157,7 +157,7 @@ aopt :: RenderMessage master msg
      -> AForm sub master (Maybe a)
 aopt a b = formToAForm . mopt a b
 
-runFormGeneric :: MonadIO m => MForm sub master a -> master -> [Text] -> Maybe (Env, FileEnv) -> GGHandler sub master m (a, Enctype)
+runFormGeneric :: MonadIO m => MForm sub master a -> master -> [Text] -> Maybe (Env, FileEnv) -> GHandlerT sub master m (a, Enctype)
 runFormGeneric form master langs env = liftIOHandler $ evalRWST form (env, master, langs) (IntSingle 1)
 
 -- | This function is used to both initially render a form and to later extract
@@ -299,7 +299,7 @@ checkBool :: RenderMessage master msg
 checkBool b s = check $ \x -> if b x then Right x else Left s
 
 checkM :: RenderMessage master msg
-       => (a -> GGHandler sub master IO (Either msg a))
+       => (a -> GHandlerT sub master IO (Either msg a))
        -> Field sub master a
        -> Field sub master a
 checkM f field = field

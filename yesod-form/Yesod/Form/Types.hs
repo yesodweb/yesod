@@ -27,7 +27,7 @@ import Text.Blaze (Html, ToHtml (toHtml))
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad (liftM)
 import Data.String (IsString (..))
-import Yesod.Core (GGHandler, GWidget, SomeMessage)
+import Yesod.Core (GHandlerT, GWidget, SomeMessage)
 import qualified Data.Map as Map
 
 -- | A form can produce three different results: there was no data available,
@@ -75,12 +75,12 @@ type Env = Map.Map Text [Text]
 type FileEnv = Map.Map Text FileInfo
 
 type Lang = Text
-type Form sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GGHandler sub master IO) a
+type Form sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GHandlerT sub master IO) a
 {-# DEPRECATED Form "Use MForm instead" #-}
-type MForm sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GGHandler sub master IO) a
+type MForm sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GHandlerT sub master IO) a
 
 newtype AForm sub master a = AForm
-    { unAForm :: (master, [Text]) -> Maybe (Env, FileEnv) -> Ints -> GGHandler sub master IO (FormResult a, [FieldView sub master] -> [FieldView sub master], Ints, Enctype)
+    { unAForm :: (master, [Text]) -> Maybe (Env, FileEnv) -> Ints -> GHandlerT sub master IO (FormResult a, [FieldView sub master] -> [FieldView sub master], Ints, Enctype)
     }
 instance Functor (AForm sub master) where
     fmap f (AForm a) =
@@ -117,7 +117,7 @@ data FieldView sub master = FieldView
     }
 
 data Field sub master a = Field
-    { fieldParse :: [Text] -> GGHandler sub master IO (Either (SomeMessage master) (Maybe a))
+    { fieldParse :: [Text] -> GHandlerT sub master IO (Either (SomeMessage master) (Maybe a))
     -- | ID, name, (invalid text OR legimiate result), required?
     , fieldView :: Text
                 -> Text
