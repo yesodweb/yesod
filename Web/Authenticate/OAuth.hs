@@ -16,7 +16,7 @@ module Web.Authenticate.OAuth
       -- * Utility Methods
       paramEncode, addScope, addMaybeProxy
     ) where
-import Network.HTTP.Enumerator
+import Network.HTTP.Conduit
 import Data.Data
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -36,11 +36,12 @@ import Codec.Crypto.RSA (rsassa_pkcs1_v1_5_sign, ha_SHA1, PrivateKey(..))
 import Network.HTTP.Types (Header)
 import Control.Arrow (second)
 import Blaze.ByteString.Builder (toByteString)
-import Data.Enumerator (($$), run_, Stream (..), continue)
-import Data.Monoid (mconcat)
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.IORef (newIORef, readIORef, atomicModifyIORef)
+import Control.Monad.IO.Class (MonadIO)
 import Network.HTTP.Types (renderSimpleQuery)
+import Data.Conduit (ResourceIO, runResourceT, ($$), ($=), Source)
+import qualified Data.Conduit.List as CL
+import Data.Conduit.Blaze (builderToByteString)
+import Blaze.ByteString.Builder (Builder)
 
 -- | Data type for OAuth client (consumer).
 data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name
@@ -226,7 +227,7 @@ injectOAuthToCred oa cred =
             , ("oauth_version", "1.0")
             ] cred
 
-genSign :: MonadIO m => OAuth -> Credential -> Request m -> m BS.ByteString
+genSign :: ResourceIO m => OAuth -> Credential -> Request m -> m BS.ByteString
 genSign oa tok req =
   case oauthSignatureMethod oa of
     HMACSHA1 -> do
@@ -254,7 +255,7 @@ paramEncode = BS.concatMap escape
                                oct = '%' : replicate (2 - length num) '0' ++ num
                            in BS.pack oct
 
-getBaseString :: MonadIO m => Credential -> Request m -> m BSL.ByteString
+getBaseString :: ResourceIO m => Credential -> Request m -> m BSL.ByteString
 getBaseString tok req = do
   let bsMtd  = BS.map toUpper $ method req
       isHttps = secure req
@@ -274,23 +275,15 @@ getBaseString tok req = do
   -- So this is OK.
   return $ BSL.intercalate "&" $ map (fromStrict.paramEncode) [bsMtd, bsURI, bsParams]
 
-toLBS :: MonadIO m => RequestBody m -> m BS.ByteString
+toLBS :: ResourceIO m => RequestBody m -> m BS.ByteString
 toLBS (RequestBodyLBS l) = return $ toStrict l
 toLBS (RequestBodyBS s) = return s
 toLBS (RequestBodyBuilder _ b) = return $ toByteString b
-toLBS (RequestBodyEnum _ enum) = do
-    i <- liftIO $ newIORef id
-    run_ $ enum $$ go i
-    liftIO $ liftM (toByteString . mconcat . ($ [])) $ readIORef i
-  where
-    go i =
-        continue go'
-      where
-        go' (Chunks []) = continue go'
-        go' (Chunks x) = do
-            liftIO (atomicModifyIORef i $ \y -> (y . (x ++), ()))
-            continue go'
-        go' EOF = return ()
+toLBS (RequestBodySource _ src) = toLBS' src
+toLBS (RequestBodySourceChunked src) = toLBS' src
+
+toLBS' :: ResourceIO m => Source m Builder -> m BS.ByteString
+toLBS' src = fmap BS.concat $ runResourceT $ src $= builderToByteString $$ CL.consume
 
 isBodyFormEncoded :: [Header] -> Bool
 isBodyFormEncoded = maybe False (=="application/x-www-form-urlencoded") . lookup "Content-Type"

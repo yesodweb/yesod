@@ -1,19 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 module Web.Authenticate.BrowserId
     ( browserIdJs
     , checkAssertion
     ) where
 
 import Data.Text (Text)
-import Network.HTTP.Enumerator (parseUrl, responseBody, httpLbs, withManager, method, urlEncodedBody)
+import Network.HTTP.Conduit (parseUrl, responseBody, httpLbs, withManager, method, urlEncodedBody)
 import Data.Aeson (json, Value (Object, String))
 import Data.Attoparsec.Lazy (parse, maybeResult)
-#if MIN_VERSION_aeson(0, 4, 0)
 import qualified Data.HashMap.Lazy as Map
-#else
-import qualified Data.Map as Map
-#endif
 import Data.Text.Encoding (encodeUtf8)
 
 -- | Location of the Javascript file hosted by browserid.org

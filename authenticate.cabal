@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.10.4
+version:         0.11.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii, Arash Rouhani
@@ -15,8 +15,8 @@ homepage:        http://github.com/yesodweb/authenticate
 
 library
     build-depends:   base >= 4 && < 5,
-                     aeson >= 0.3.2.11,
-                     http-enumerator >= 0.6.5.4 && < 0.8,
+                     aeson >= 0.5,
+                     http-conduit >= 1.0 && < 1.1,
                      tagsoup >= 0.12 && < 0.13,
                      failure >= 0.0.0 && < 0.2,
                      transformers >= 0.1 && < 0.3,
@@ -30,14 +30,15 @@ library
                      random >= 1.0 && < 1.1,
                      text >= 0.5 && < 1.0,
                      http-types >= 0.6 && < 0.7,
-                     enumerator >= 0.4.7 && < 0.5,
-                     xml-enumerator >= 0.4 && < 0.5,
+                     xml-conduit >= 0.5 && < 0.6,
                      blaze-builder >= 0.2 && < 0.4,
                      attoparsec >= 0.9,
                      tls >= 0.7 && < 0.9,
                      containers,
                      unordered-containers,
-                     process >= 1.0.1.1 && < 1.2
+                     process >= 1.0.1.1 && < 1.2,
+                     conduit >= 0.0 && < 0.1,
+                     blaze-builder-conduit >= 0.0 && < 0.1
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
                      Web.Authenticate.BrowserId,

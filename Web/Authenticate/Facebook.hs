@@ -13,7 +13,7 @@ module Web.Authenticate.Facebook
     , getLogoutUrl
     ) where
 
-import Network.HTTP.Enumerator
+import Network.HTTP.Conduit
 import Network.HTTP.Types (parseSimpleQuery)
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as L8

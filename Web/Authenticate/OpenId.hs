@@ -16,7 +16,7 @@ import Control.Monad (unless)
 import Data.Text.Lazy.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.Text.Lazy (toStrict)
-import Network.HTTP.Enumerator
+import Network.HTTP.Conduit
     ( parseUrl, urlEncodedBody, responseBody, httpLbsRedirect
     , HttpException, withManager
     )
@@ -41,7 +41,7 @@ getForwardUrl
     -> m Text -- ^ URL to send the user to.
 getForwardUrl openid' complete mrealm params = do
     let realm = fromMaybe complete mrealm
-    disc <- normalize openid' >>= discover
+    disc <- liftIO $ normalize openid' >>= discover
     let helper s q = return $ s `mappend` decodeUtf8 (toByteString $ renderQueryText True $ map (second Just) q)
     case disc of
         Discovery1 server mdelegate -> helper server
@@ -86,7 +86,7 @@ authenticate params = do
                 Just i -> return i
                 Nothing ->
                     failure $ AuthenticationException "Missing identity"
-    disc <- normalize ident >>= discover
+    disc <- liftIO $ normalize ident >>= discover
     let endpoint = case disc of
                     Discovery1 p _ -> p
                     Discovery2 (Provider p) _ _ -> p

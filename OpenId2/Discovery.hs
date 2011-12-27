@@ -26,7 +26,7 @@ import Debug.Trace
 -- Libraries
 import Data.Char
 import Data.Maybe
-import Network.HTTP.Enumerator
+import Network.HTTP.Conduit
 import qualified Data.ByteString.Char8 as S8
 import Control.Arrow (first)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -46,12 +46,7 @@ data Discovery = Discovery1 Text (Maybe Text)
     deriving Show
 
 -- | Attempt to resolve an OpenID endpoint, and user identifier.
-discover :: ( MonadIO m
-            , Failure AuthenticateException m
-            , Failure HttpException m
-            )
-         => Identifier
-         -> m Discovery
+discover :: Identifier -> IO Discovery
 discover ident@(Identifier i) = do
     res1 <- discoverYADIS ident Nothing 10
     case res1 of
@@ -66,13 +61,10 @@ discover ident@(Identifier i) = do
 
 -- | Attempt a YADIS based discovery, given a valid identifier.  The result is
 --   an OpenID endpoint, and the actual identifier for the user.
-discoverYADIS :: ( MonadIO m
-                 , Failure HttpException m
-                 )
-              => Identifier
+discoverYADIS :: Identifier
               -> Maybe String
               -> Int -- ^ remaining redirects
-              -> m (Maybe (Provider, Identifier, IdentType))
+              -> IO (Maybe (Provider, Identifier, IdentType))
 discoverYADIS _ _ 0 = failure TooManyRedirects
 discoverYADIS ident mb_loc redirects = do
     let uri = fromMaybe (unpack $ identifier ident) mb_loc
@@ -120,9 +112,7 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
 
 -- | Attempt to discover an OpenID endpoint, from an HTML document.  The result
 -- will be an endpoint on success, and the actual identifier of the user.
-discoverHTML :: ( MonadIO m, Failure HttpException m)
-             => Identifier
-             -> m (Maybe Discovery)
+discoverHTML :: Identifier -> IO (Maybe Discovery)
 discoverHTML ident'@(Identifier ident) =
     (parseHTML ident' . toStrict . decodeUtf8With lenientDecode) `liftM` simpleHttp (unpack ident)
 

@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 ---------------------------------------------------------
@@ -23,8 +22,8 @@ module Web.Authenticate.Rpxnow
     ) where
 
 import Data.Aeson
-import Network.HTTP.Enumerator
-import "transformers" Control.Monad.IO.Class
+import Network.HTTP.Conduit
+import Control.Monad.IO.Class
 import Control.Failure
 import Data.Maybe
 import Control.Monad
