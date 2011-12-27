@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.9.4.1
+version:         0.10.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -71,19 +71,19 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                  >= 4        && < 4.3
-    build-depends:   yesod-core                >= 0.9.3.4  && < 0.10
-                   , yesod-auth                >= 0.7      && < 0.8
-                   , yesod-json                >= 0.2.2    && < 0.3
-                   , yesod-persistent          >= 0.2      && < 0.3
-                   , yesod-form                >= 0.3      && < 0.4
-                   , monad-control             >= 0.2      && < 0.4
+    build-depends:   yesod-core                >= 0.10     && < 0.11
+                   , yesod-auth                >= 0.8      && < 0.9
+                   , yesod-json                >= 0.3      && < 0.4
+                   , yesod-persistent          >= 0.3      && < 0.4
+                   , yesod-form                >= 0.4      && < 0.5
+                   , monad-control             >= 0.3      && < 0.4
                    , transformers              >= 0.2.2    && < 0.3
-                   , wai                       >= 0.4      && < 0.5
-                   , wai-extra                 >= 0.4.6    && < 0.5
+                   , wai                       >= 1.0      && < 1.1
+                   , wai-extra                 >= 1.0      && < 1.1
                    , hamlet                    >= 0.10     && < 0.11
                    , shakespeare-js            >= 0.10     && < 0.11
                    , shakespeare-css           >= 0.10     && < 0.11
-                   , warp                      >= 0.4      && < 0.5
+                   , warp                      >= 1.0      && < 1.1
                    , blaze-html                >= 0.4.1.3  && < 0.5
     exposed-modules: Yesod
     ghc-options:     -Wall
