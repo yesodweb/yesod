@@ -197,7 +197,7 @@ checkCabalFile gpd = case D.condLibrary gpd of
     Just ct ->
       case lookupDevelLib ct of
         Nothing   -> do
-          putStrLn "Error: no library configuration for -fdevel"
+          putStrLn "Error: no development flag found in your configuration file. Expected a 'library-only' flag or the older 'devel' flag"
           exitFailure
         Just dLib ->
          case (D.hsSourceDirs . D.libBuildInfo) dLib of
