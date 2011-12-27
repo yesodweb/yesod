@@ -6,7 +6,6 @@ module YesodCoreTest.YesodTest
   , module Network.Wai
   , module Network.Wai.Test
   , module Test.Hspec
-  , module Test.Hspec.HUnit
 ) where
 
 import Yesod.Core hiding (Request)
