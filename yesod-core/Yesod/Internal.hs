@@ -39,11 +39,10 @@ import Data.Typeable (Typeable)
 import Control.Exception (Exception)
 
 import qualified Network.HTTP.Types as H
-import qualified Network.HTTP.Types as A
-import Data.CaseInsensitive (CI)
 import Data.String (IsString)
 import qualified Data.Map as Map
 import Data.Text.Lazy.Builder (Builder)
+import Network.HTTP.Types (Ascii)
 
 #if GHC7
 #define HAMLET hamlet
@@ -65,9 +64,9 @@ instance Exception ErrorResponse
 ----- header stuff
 -- | Headers to be added to a 'Result'.
 data Header =
-    AddCookie Int A.Ascii A.Ascii
-    | DeleteCookie A.Ascii
-    | Header (CI A.Ascii) A.Ascii
+    AddCookie Int Ascii Ascii
+    | DeleteCookie Ascii
+    | Header Ascii Ascii
     deriving (Eq, Show)
 
 langKey :: IsString a => a

@@ -158,6 +158,7 @@ import qualified Network.Wai.Parse as NWP
 import Data.Monoid (mappend, mempty, Endo (..))
 import qualified Data.ByteString.Char8 as S8
 import Data.CaseInsensitive (CI)
+import qualified Data.CaseInsensitive as CI
 import Blaze.ByteString.Builder (toByteString)
 import Data.Text (Text)
 import Yesod.Message (RenderMessage (..))
@@ -635,16 +636,19 @@ invalidArgsI msg = do
 
 ------- Headers
 -- | Set the cookie on the client.
+--
+-- Note: although the value used for key and value is 'Text', you should only
+-- use ASCII values to be HTTP compliant.
 setCookie :: MonadIO mo
           => Int -- ^ minutes to timeout
-          -> H.Ascii -- ^ key
-          -> H.Ascii -- ^ value
+          -> Text -- ^ key
+          -> Text -- ^ value
           -> GHandlerT sub master mo ()
-setCookie a b = addHeader . AddCookie a b
+setCookie a b = addHeader . AddCookie a (encodeUtf8 b) . encodeUtf8
 
 -- | Unset the cookie on the client.
-deleteCookie :: MonadIO mo => H.Ascii -> GHandlerT sub master mo ()
-deleteCookie = addHeader . DeleteCookie
+deleteCookie :: MonadIO mo => Text -> GHandlerT sub master mo ()
+deleteCookie = addHeader . DeleteCookie . encodeUtf8
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
@@ -652,16 +656,19 @@ setLanguage :: MonadIO mo => Text -> GHandlerT sub master mo ()
 setLanguage = setSession langKey
 
 -- | Set an arbitrary response header.
+--
+-- Note that, while the data type used here is 'Text', you must provide only
+-- ASCII value to be HTTP compliant.
 setHeader :: MonadIO mo
-          => CI H.Ascii -> H.Ascii -> GHandlerT sub master mo ()
-setHeader a = addHeader . Header a
+          => Text -> Text -> GHandlerT sub master mo ()
+setHeader a = addHeader . Header (encodeUtf8 a) . encodeUtf8
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
 cacheSeconds :: MonadIO mo => Int -> GHandlerT s m mo ()
-cacheSeconds i = setHeader "Cache-Control" $ S8.pack $ concat
+cacheSeconds i = setHeader "Cache-Control" $ T.concat
     [ "max-age="
-    , show i
+    , T.pack $ show i
     , ", public"
     ]
 
@@ -677,7 +684,7 @@ alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
 expiresAt :: MonadIO mo => UTCTime -> GHandlerT s m mo ()
-expiresAt = setHeader "Expires" . encodeUtf8 . formatRFC1123
+expiresAt = setHeader "Expires" . formatRFC1123
 
 -- | Set a variable in the user's session.
 --
@@ -817,9 +824,14 @@ headerToPair cp getExpires (AddCookie minutes key value) =
         })
 headerToPair cp _ (DeleteCookie key) =
     ( "Set-Cookie"
-    , key `mappend` "=; path=" `mappend` cp `mappend` "; expires=Thu, 01-Jan-1970 00:00:00 GMT"
+    , S.concat
+        [ key
+        , "=; path="
+        , cp
+        , "; expires=Thu, 01-Jan-1970 00:00:00 GMT"
+        ]
     )
-headerToPair _ _ (Header key value) = (key, value)
+headerToPair _ _ (Header key value) = (CI.mk key, value)
 
 -- | Get a unique identifier.
 newIdent :: MonadIO mo => GHandlerT sub master mo String -- FIXME use Text
