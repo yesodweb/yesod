@@ -13,7 +13,7 @@ module Yesod.Json
     , toArray
     ) where
 
-import Yesod.Handler (GHandler)
+import Yesod.Handler (GHandler, waiRequest)
 import Yesod.Content
     ( ToContent (toContent), RepHtmlJson (RepHtmlJson), RepHtml (RepHtml)
     , RepJson (RepJson), Content (ContentBuilder)
@@ -23,9 +23,8 @@ import Yesod.Widget (GWidget)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encode as JE
 import Data.Aeson.Encode (fromValue)
-import Data.Attoparsec.Enumerator (iterParser)
-import Data.Text (text, pack)
-import Control.Arrow (first)
+import Data.Conduit.Attoparsec (sinkParser)
+import Data.Text (Text)
 import Control.Monad.Trans.Class (lift)
 import Data.HashMap.Strict (fromList)
 import qualified Data.Vector as V
@@ -34,6 +33,8 @@ import Data.Text.Lazy.Builder (fromLazyText)
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.Text.Lazy.Builder (toLazyText)
 import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
+import Data.Conduit (($$))
+import Network.Wai (requestBody)
 
 instance ToContent J.Value where
     toContent = flip ContentBuilder Nothing
@@ -59,8 +60,9 @@ jsonToRepJson = return . RepJson . toContent
 --
 -- /Since: 0.2.3/
 parseJsonBody :: GHandler sub master J.Value
-parseJsonBody = lift $ iterParser J.json'
-
+parseJsonBody = do
+    req <- waiRequest
+    lift $ requestBody req $$ sinkParser J.json'
 
 instance ToJavascript J.Value where
     toJavascript = fromLazyText . decodeUtf8 . JE.encode
