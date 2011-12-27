@@ -11,7 +11,7 @@ module Yesod.Form.Input
 import Yesod.Form.Types
 import Data.Text (Text)
 import Control.Applicative (Applicative (..))
-import Yesod.Handler (GHandler, GGHandler, invalidArgs, runRequestBody, getRequest, getYesod, liftIOHandler)
+import Yesod.Handler (GHandler, GHandlerT, invalidArgs, runRequestBody, getRequest, getYesod, liftIOHandler)
 import Yesod.Request (reqGetParams, languages)
 import Control.Monad (liftM)
 import Yesod.Message (RenderMessage (..), SomeMessage (..))
@@ -19,7 +19,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 
 type DText = [Text] -> [Text]
-newtype FormInput sub master a = FormInput { unFormInput :: master -> [Text] -> Env -> GGHandler sub master IO (Either DText a) }
+newtype FormInput sub master a = FormInput { unFormInput :: master -> [Text] -> Env -> GHandlerT sub master IO (Either DText a) }
 instance Functor (FormInput sub master) where
     fmap a (FormInput f) = FormInput $ \c d e -> fmap (either Left (Right . a)) $ f c d e
 instance Applicative (FormInput sub master) where

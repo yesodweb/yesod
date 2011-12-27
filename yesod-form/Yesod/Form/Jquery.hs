@@ -171,7 +171,7 @@ $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     }
 
-addScript' :: Monad m => (t -> Either (Route master) Text) -> GGWidget master (GGHandler sub t m) ()
+addScript' :: (master -> Either (Route master) Text) -> GWidget sub master ()
 addScript' f = do
     y <- lift getYesod
     addScriptEither $ f y
