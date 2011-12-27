@@ -52,7 +52,7 @@ executable         ~project~
         cpp-options:   -DDEVELOPMENT
         ghc-options:   -Wall -threaded -O0
     else
-        ghc-options:   -Wall -threaded
+        ghc-options:   -Wall -threaded -O2
 
     main-is:       main.hs
 
