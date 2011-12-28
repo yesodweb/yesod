@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternGuards #-}
 module Yesod.Default.Config
     ( DefaultEnv (..)
     , fromArgs
@@ -18,10 +19,9 @@ import Data.Char (toUpper, toLower)
 import System.Console.CmdArgs hiding (args)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Control.Monad (join)
-import Data.Object
-import Data.Object.Yaml
+import Data.Yaml
 import Data.Maybe (fromMaybe)
+import qualified Data.HashMap.Strict as M
 
 -- | A yesod-provided @'AppEnv'@, allows for Development, Testing, and
 --   Production environments
@@ -55,13 +55,13 @@ fromArgs = fromArgsExtra (const $ const $ return ())
 
 -- | Same as 'fromArgs', but allows you to specify how to parse the 'appExtra'
 -- record.
-fromArgsExtra :: (DefaultEnv -> TextObject -> IO extra)
+fromArgsExtra :: (DefaultEnv -> Value -> IO extra)
               -> IO (AppConfig DefaultEnv extra)
 fromArgsExtra = fromArgsWith defaultArgConfig
 
 fromArgsWith :: (Read env, Show env)
              => ArgConfig
-             -> (env -> TextObject -> IO extra)
+             -> (env -> Value -> IO extra)
              -> IO (AppConfig env extra)
 fromArgsWith argConfig getExtra = do
     args   <- cmdArgs argConfig
@@ -103,12 +103,12 @@ data ConfigSettings environment extra = ConfigSettings
     -- environment. Usually, you will use 'DefaultEnv' for this type.
        csEnv :: environment
     -- | Load any extra data, to be used by the application.
-    , csLoadExtra :: environment -> TextObject -> IO extra
+    , csLoadExtra :: environment -> Value -> IO extra
     -- | Return the path to the YAML config file.
     , csFile :: environment -> IO FilePath
     -- | Get the sub-object (if relevant) from the given YAML source which
     -- contains the specific settings for the current environment.
-    , csGetObject :: environment -> TextObject -> IO TextObject
+    , csGetObject :: environment -> Value -> IO Value
     }
 
 -- | Default config settings.
@@ -117,14 +117,17 @@ configSettings env0 = ConfigSettings
     { csEnv = env0
     , csLoadExtra = \_ _ -> return ()
     , csFile = \_ -> return "config/settings.yml"
-    , csGetObject = \env obj -> do
-        envs <- fromMapping obj
+    , csGetObject = \env v -> do
+        envs <-
+            case v of
+                Object obj -> return obj
+                _ -> fail "Expected Object"
         let senv = show env
             tenv = T.pack senv
         maybe
             (error $ "Could not find environment: " ++ senv)
             return
-            (lookup tenv envs)
+            (M.lookup tenv envs)
     }
 
 -- | Load an @'AppConfig'@.
@@ -160,10 +163,14 @@ loadConfig :: ConfigSettings environment extra
            -> IO (AppConfig environment extra)
 loadConfig (ConfigSettings env loadExtra getFile getObject) = do
     fp <- getFile env
-    topObj <- join $ decodeFile fp
+    mtopObj <- decodeFile fp
+    topObj <- maybe (fail "Invalid YAML file") return mtopObj
     obj <- getObject env topObj
+    m <-
+        case obj of
+            Object m -> return m
+            _ -> fail "Expected map"
 
-    m <- maybe (fail "Expected map") return $ fromMapping obj
     let mssl     = lookupScalar "ssl"     m
     let mhost    = lookupScalar "host"    m
     let mport    = lookupScalar "port"    m
@@ -192,6 +199,11 @@ loadConfig (ConfigSettings env loadExtra getFile getObject) = do
         }
 
     where
+        lookupScalar k m =
+            case M.lookup k m of
+                Just (String t) -> return t
+                Just _ -> fail $ "Invalid value for: " ++ show k
+                Nothing -> fail $ "Not found: " ++ show k
         toBool :: Text -> Bool
         toBool = (`elem` ["true", "TRUE", "yes", "YES", "Y", "1"])
 
@@ -216,11 +228,12 @@ safeRead name' t = case reads s of
 withYamlEnvironment :: Show e
                     => FilePath -- ^ the yaml file
                     -> e        -- ^ the environment you want to load
-                    -> (TextObject -> IO a) -- ^ what to do with the mapping
+                    -> (Value -> IO a) -- ^ what to do with the mapping
                     -> IO a
 withYamlEnvironment fp env f = do
-    obj <- join $ decodeFile fp
-    envs <- fromMapping obj
-    conf <- maybe (fail $ "Could not find environment: " ++ show env) return
-          $ lookup (T.pack $ show env) envs
-    f conf
+    mval <- decodeFile fp
+    case mval of
+        Nothing -> fail $ "Invalid YAML file: " ++ show fp
+        Just (Object obj)
+            | Just v <- M.lookup (T.pack $ show env) obj -> f v
+        _ -> fail $ "Could not find environment: " ++ show env

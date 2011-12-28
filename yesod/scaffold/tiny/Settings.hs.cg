@@ -7,14 +7,17 @@ module Settings
     ( widgetFile
     , staticRoot
     , staticDir
+    , Extra (..)
+    , loadExtra
     ) where
 
-import Prelude (FilePath, String)
+import Prelude
 import Text.Shakespeare.Text (st)
 import Language.Haskell.TH.Syntax
 import Yesod.Default.Config
 import qualified Yesod.Default.Util
 import Data.Text (Text)
+import Data.Yaml
 
 -- | The location of static files on your system. This is a file system
 -- path. The default value works properly with your scaffolded site.
@@ -43,3 +46,8 @@ widgetFile = Yesod.Default.Util.widgetFileReload
 #else
 widgetFile = Yesod.Default.Util.widgetFileNoReload
 #endif
+
+data Extra = Extra
+
+loadExtra :: DefaultEnv -> Value -> IO Extra
+loadExtra _ _ = return Extra

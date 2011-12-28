@@ -5,9 +5,10 @@ module Application
     ) where
 
 import Import
+import Settings (loadExtra)
 import Settings.StaticFiles (staticSite)
 import Yesod.Default.Config
-import Yesod.Default.Main (defaultDevelApp, defaultRunner)
+import Yesod.Default.Main (defaultDevelAppWith, defaultRunner)
 import Yesod.Default.Handlers (getFaviconR, getRobotsR)
 import Yesod.Logger (Logger)
 import Network.Wai (Application)
@@ -25,7 +26,7 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig DefaultEnv () -> Logger -> (Application -> IO ()) -> IO ()
+with~sitearg~ :: AppConfig DefaultEnv Extra -> Logger -> (Application -> IO ()) -> IO ()
 with~sitearg~ conf logger f = do
     s <- staticSite
     let h = ~sitearg~ conf logger s
@@ -33,4 +34,10 @@ with~sitearg~ conf logger f = do
 
 -- for yesod devel
 withDevelAppPort :: Dynamic
-withDevelAppPort = toDyn $ defaultDevelApp with~sitearg~
+withDevelAppPort =
+    toDyn $ defaultDevelAppWith loader withFoobar
+  where
+    loader = loadConfig (configSettings Development)
+        { csLoadExtra = loadExtra
+        }
+

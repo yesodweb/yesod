@@ -73,8 +73,6 @@ library
                    , case-insensitive      >= 0.2
                    , parsec                >= 2        && < 3.2
                    , directory             >= 1        && < 1.2
-                   , data-object           >= 0.3      && < 0.4
-                   , data-object-yaml      >= 0.3      && < 0.4
                    , vector                >= 0.9      && < 0.10
                    , aeson                 >= 0.5
                    , fast-logger           >= 0.0.1
