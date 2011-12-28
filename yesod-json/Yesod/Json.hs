@@ -9,8 +9,8 @@ module Yesod.Json
     , parseJsonBody
       -- * Produce JSON values
     , J.Value (..)
-    , toObject
-    , toArray
+    , object
+    , array
     ) where
 
 import Yesod.Handler (GHandler, waiRequest)
@@ -26,7 +26,6 @@ import Data.Aeson.Encode (fromValue)
 import Data.Conduit.Attoparsec (sinkParser)
 import Data.Text (Text)
 import Control.Monad.Trans.Class (lift)
-import Data.HashMap.Strict (fromList)
 import qualified Data.Vector as V
 import Text.Julius (ToJavascript (..))
 import Data.Text.Lazy.Builder (fromLazyText)
@@ -68,9 +67,9 @@ instance ToJavascript J.Value where
     toJavascript = fromLazyText . decodeUtf8 . JE.encode
 
 -- | Convert a list of pairs to an 'J.Object'.
-toObject :: [(Text, J.Value)] -> J.Value
-toObject = J.Object . fromList
+object :: [(Text, J.Value)] -> J.Value
+object = J.object
 
 -- | Convert a list of values to an 'J.Array'.
-toArray :: [J.Value] -> J.Value
-toArray = J.Array . V.fromList
+array :: [J.Value] -> J.Value
+array = J.Array . V.fromList

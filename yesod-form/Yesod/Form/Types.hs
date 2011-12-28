@@ -10,7 +10,6 @@ module Yesod.Form.Types
     , FileEnv
     , Ints (..)
       -- * Form
-    , Form
     , MForm
     , AForm (..)
       -- * Build forms
@@ -75,8 +74,6 @@ type Env = Map.Map Text [Text]
 type FileEnv = Map.Map Text FileInfo
 
 type Lang = Text
-type Form sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GHandlerT sub master IO) a
-{-# DEPRECATED Form "Use MForm instead" #-}
 type MForm sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GHandlerT sub master IO) a
 
 newtype AForm sub master a = AForm

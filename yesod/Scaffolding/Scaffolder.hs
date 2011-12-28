@@ -66,8 +66,8 @@ scaffold = do
     backendC <- prompt $ flip elem $ map (return . toLower . head . show) backends
     let (backend, importGenericDB, dbMonad, importPersist, mkPersistSettings) =
             case backendC of
-                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite", "sqlSettings")
-                "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql", "sqlSettings")
+                "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite", "sqlMkSettings")
+                "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql", "sqlMkSettings")
                 "m" -> (MongoDB,    "MongoDB", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
                 "t" -> (Tiny, "","","",undefined)
                 _ -> error $ "Invalid backend: " ++ backendC
