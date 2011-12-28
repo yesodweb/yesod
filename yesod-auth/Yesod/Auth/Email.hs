@@ -60,7 +60,7 @@ data EmailCreds m = EmailCreds
     , emailCredsVerkey :: Maybe VerKey
     }
 
-class (YesodAuth m, SinglePiece (AuthEmailId m)) => YesodAuthEmail m where
+class (YesodAuth m, PathPiece (AuthEmailId m)) => YesodAuthEmail m where
     type AuthEmailId m
 
     addUnverified :: Email -> VerKey -> GHandler Auth m (AuthEmailId m)
@@ -102,7 +102,7 @@ authEmail =
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
     dispatch "POST" ["register"] = postRegisterR >>= sendResponse
     dispatch "GET" ["verify", eid, verkey] =
-        case fromSinglePiece eid of
+        case fromPathPiece eid of
             Nothing -> notFound
             Just eid' -> getVerifyR eid' verkey >>= sendResponse
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
@@ -142,7 +142,7 @@ postRegisterR = do
                 return (lid, key)
     render <- getUrlRender
     tm <- getRouteToMaster
-    let verUrl = render $ tm $ verify (toSinglePiece lid) verKey
+    let verUrl = render $ tm $ verify (toPathPiece lid) verKey
     sendVerifyEmail email verKey verUrl
     defaultLayout $ do
         setTitleI Msg.ConfirmationEmailSentTitle

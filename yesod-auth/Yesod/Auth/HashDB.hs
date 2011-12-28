@@ -137,7 +137,8 @@ setPassword pwd u = do salt <- randomSalt
 --   the database values.
 validateUser :: ( YesodPersist yesod
                 , b ~ YesodPersistBackend yesod
-                , PersistBackend b (GGHandler sub yesod IO)
+                , PersistStore b (GHandler sub yesod)
+                , PersistUnique b (GHandler sub yesod)
                 , PersistEntity user
                 , HashDBUser    user
                 ) => 
@@ -163,7 +164,8 @@ login = PluginR "hashdb" ["login"]
 postLoginR :: ( YesodAuth y, YesodPersist y
               , b ~ YesodPersistBackend y
               , HashDBUser user, PersistEntity user
-              , PersistBackend b (GGHandler Auth y IO))
+              , PersistStore b (GHandler Auth y)
+              , PersistUnique b (GHandler Auth y))
            => (Text -> Maybe (Unique user b)) 
            -> GHandler Auth y ()
 postLoginR uniq = do
@@ -186,7 +188,8 @@ getAuthIdHashDB :: ( YesodAuth master, YesodPersist master
                    , HashDBUser user, PersistEntity user
                    , Key b user ~ AuthId master
                    , b ~ YesodPersistBackend master
-                   , PersistBackend b (GGHandler sub master IO))
+                   , PersistUnique b (GHandler sub master)
+                   , PersistStore b (GHandler sub master))
                 => (AuthRoute -> Route master)   -- ^ your site's Auth Route
                 -> (Text -> Maybe (Unique user b)) -- ^ gets user ID
                 -> Creds master                  -- ^ the creds argument
@@ -213,7 +216,8 @@ authHashDB :: ( YesodAuth m, YesodPersist m
               , HashDBUser user
               , PersistEntity user
               , b ~ YesodPersistBackend m
-              , PersistBackend b (GGHandler Auth m IO))
+              , PersistStore b (GHandler Auth m)
+              , PersistUnique b (GHandler Auth m))
            => (Text -> Maybe (Unique user b)) -> AuthPlugin m
 authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
     [QQ(hamlet)|
@@ -252,8 +256,8 @@ authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
 ----------------------------------------------------------------
 
 -- | Generate data base instances for a valid user
-share2 (mkPersist sqlSettings) (mkMigrate "migrateUsers")
-         [QQ(persist)|
+share2 (mkPersist sqlMkSettings) (mkMigrate "migrateUsers")
+         [QQ(persistUpperCase)|
 User
     username Text Eq
     password Text

@@ -68,9 +68,9 @@ import qualified Data.ByteString as S
 import Network.HTTP.Types (status301)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
-import qualified Data.Enumerator as E
-import qualified Data.Enumerator.List as EL
-import qualified Data.Enumerator.Binary as EB
+import qualified Data.Conduit as C
+import qualified Data.Conduit.Binary as CB
+import qualified Data.Conduit.List as CL
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -282,7 +282,7 @@ mkStaticFilesList fp fs routeConName makeHash = do
 -- descriptors
 base64md5File :: Prelude.FilePath -> IO String
 base64md5File file = do
-    bss <- E.run_ $ EB.enumFile file E.$$ EL.consume
+    bss <- C.runResourceT $ CB.sourceFile file C.$$ CL.consume
     return $ base64md5 $ L.fromChunks bss
     -- FIXME I'd like something streaming instead
     {-

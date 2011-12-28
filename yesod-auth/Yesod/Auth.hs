@@ -73,7 +73,7 @@ data Creds m = Creds
     , credsExtra :: [(Text, Text)]
     }
 
-class (Yesod m, SinglePiece (AuthId m), RenderMessage m FormMessage) => YesodAuth m where
+class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth m where
     type AuthId m
 
     -- | Default destination on successful login, if no other
@@ -133,7 +133,7 @@ setCreds doRedirects creds = do
               Just ar -> do setMessageI Msg.InvalidLogin
                             redirect RedirectTemporary ar
         Just aid -> do
-            setSession credsKey $ toSinglePiece aid
+            setSession credsKey $ toPathPiece aid
             when doRedirects $ do
               setMessageI Msg.NowLoggedIn
               redirectUltDest RedirectTemporary $ loginDest y
@@ -189,12 +189,12 @@ maybeAuthId = do
     ms <- lookupSession credsKey
     case ms of
         Nothing -> return Nothing
-        Just s -> return $ fromSinglePiece s
+        Just s -> return $ fromPathPiece s
 
 maybeAuth :: ( YesodAuth m
              , b ~ YesodPersistBackend m
              , Key b val ~ AuthId m
-             , PersistBackend b (GGHandler s m IO)
+             , PersistStore b (GHandler s m)
              , PersistEntity val
              , YesodPersist m
              ) => GHandler s m (Maybe (Key b val, val))
@@ -209,7 +209,7 @@ requireAuthId = maybeAuthId >>= maybe redirectLogin return
 requireAuth :: ( YesodAuth m
                , b ~ YesodPersistBackend m
                , Key b val ~ AuthId m
-               , PersistBackend b (GGHandler s m IO)
+               , PersistStore b (GHandler s m)
                , PersistEntity val
                , YesodPersist m
                ) => GHandler s m (Key b val, val)

@@ -7,7 +7,7 @@ module Yesod.Default.Main
     , defaultDevelAppWith
     ) where
 
-import Yesod.Core hiding (AppConfig (..))
+import Yesod.Core
 import Yesod.Default.Config
 import Yesod.Logger (Logger, makeDefaultLogger, logString, flushLogger)
 import Network.Wai (Application)
