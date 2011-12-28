@@ -35,7 +35,7 @@ with~sitearg~ conf logger f = do
 -- for yesod devel
 withDevelAppPort :: Dynamic
 withDevelAppPort =
-    toDyn $ defaultDevelAppWith loader withFoobar
+    toDyn $ defaultDevelAppWith loader with~sitearg~
   where
     loader = loadConfig (configSettings Development)
         { csLoadExtra = loadExtra
