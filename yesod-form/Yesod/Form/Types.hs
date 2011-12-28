@@ -102,10 +102,11 @@ data FieldSettings msg = FieldSettings
     , fsTooltip :: Maybe msg
     , fsId :: Maybe Text
     , fsName :: Maybe Text
+    , fsClass :: Text
     }
 
 instance (a ~ Text) => IsString (FieldSettings a) where
-    fromString s = FieldSettings (fromString s) Nothing Nothing Nothing
+    fromString s = FieldSettings (fromString s) Nothing Nothing Nothing ""
 
 data FieldView sub master = FieldView
     { fvLabel :: Html
@@ -118,8 +119,9 @@ data FieldView sub master = FieldView
 
 data Field sub master a = Field
     { fieldParse :: [Text] -> GGHandler sub master IO (Either (SomeMessage master) (Maybe a))
-    -- | ID, name, (invalid text OR legimiate result), required?
+    -- | ID, name, class, (invalid text OR legimiate result), required?
     , fieldView :: Text
+                -> Text
                 -> Text
                 -> Either Text a
                 -> Bool
