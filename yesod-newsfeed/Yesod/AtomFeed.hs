@@ -34,7 +34,7 @@ newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
     chooseRep (RepAtom c) _ = return (typeAtom, c)
 
-atomFeed :: Monad mo => Feed (Route master) -> GGHandler sub master mo RepAtom
+atomFeed :: Feed (Route master) -> GHandler sub master RepAtom
 atomFeed = liftM RepAtom . hamletToContent . template
 
 template :: Feed url -> HtmlUrl url
