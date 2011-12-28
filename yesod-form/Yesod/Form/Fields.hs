@@ -67,7 +67,7 @@ import Text.Blaze.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
-import qualified Data.Text as T (null)
+import qualified Data.Text as T
 import qualified Data.Text.Read
 import Control.Monad.Trans.Class (lift)
 
@@ -113,7 +113,7 @@ intField = Field
 
     , fieldView = \theId name theClass val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="number" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="number" :isReq:required="" value="#{showVal val}">
 |]
     }
   where
@@ -129,7 +129,7 @@ doubleField = Field
 
     , fieldView = \theId name theClass val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="text" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="text" :isReq:required="" value="#{showVal val}">
 |]
     }
   where showVal = either id (pack . show)
@@ -139,7 +139,7 @@ dayField = Field
     { fieldParse = blank $ parseDate . unpack
     , fieldView = \theId name theClass val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="date" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="date" :isReq:required="" value="#{showVal val}">
 |]
     }
   where showVal = either id (pack . show)
@@ -149,7 +149,7 @@ timeField = Field
     { fieldParse = blank $ parseTime . unpack
     , fieldView = \theId name theClass val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate "" theClass}" :isReq:required="" value="#{showVal val}">
 |]
     }
   where
@@ -165,7 +165,7 @@ htmlField = Field
     , fieldView = \theId name theClass val _isReq -> addHamlet
         -- FIXME: There was a class="html" attribute, for what purpose?
         [HAMLET|\
-<textarea id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}">#{showVal val}
+<textarea id="#{theId}" name="#{name}" :not (null theClass):class=#{T.intercalate " " theClass}>#{showVal val}
 |]
     }
   where showVal = either id (pack . renderHtml)
@@ -193,7 +193,7 @@ textareaField = Field
     { fieldParse =  blank $ Right . Textarea
     , fieldView = \theId name theClass val _isReq -> addHamlet
         [HAMLET|\
-<textarea id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}">#{either id unTextarea val}
+<textarea id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}">#{either id unTextarea val}
 |]
     }
 
@@ -202,7 +202,7 @@ hiddenField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name theClass val _isReq -> addHamlet
         [HAMLET|\
-<input type="hidden" id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" value="#{either id id val}">
+<input type="hidden" id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" value="#{either id id val}">
 |]
     }
 
@@ -211,7 +211,7 @@ textField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name theClass val isReq ->
         [WHAMLET|
-<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="text" :isReq:required value="#{either id id val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="text" :isReq:required value="#{either id id val}">
 |]
     }
 
@@ -220,7 +220,7 @@ passwordField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name theClass val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="password" :isReq:required="" value="#{either id id val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="password" :isReq:required="" value="#{either id id val}">
 |]
     }
 
@@ -270,7 +270,7 @@ emailField = Field
                 else Left $ MsgInvalidEmail s
     , fieldView = \theId name theClass val isReq -> addHamlet
         [HAMLET|\
-<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="email" :isReq:required="" value="#{either id id val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="email" :isReq:required="" value="#{either id id val}">
 |]
     }
 
@@ -280,7 +280,7 @@ searchField autoFocus = Field
     { fieldParse = blank Right
     , fieldView = \theId name theClass val isReq -> do
         [WHAMLET|\
-<input id="#{theId}" name="#{name}" :T.null theClass:class="#{theClass}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
         when autoFocus $ do
           -- we want this javascript to be placed immediately after the field
@@ -300,7 +300,7 @@ urlField = Field
             Just _ -> Right s
     , fieldView = \theId name theClass val isReq ->
         [WHAMLET|
-<input ##{theId} name=#{name} :T.null theClass:class="#{theClass}" type=url :isReq:required value=#{either id id val}>
+<input ##{theId} name=#{name} :not (null theClass):class="#{T.intercalate " " theClass}" type=url :isReq:required value=#{either id id val}>
 |]
     }
 
@@ -311,12 +311,12 @@ selectField' :: (Eq a, RenderMessage master FormMessage) => GHandlerT sub master
 selectField' = selectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|]) -- outside
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
-    (\_theId _name theClass value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected :T.null theClass:class"#{theClass}">#{text}|]) -- inside
+    (\_theId _name theClass value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected :not (null theClass):class="#{T.intercalate " " theClass}">#{text}|]) -- inside
 
 multiSelectField :: (Show a, Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master [a]
 multiSelectField = multiSelectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} multiple name=#{name}>^{inside}|])
-    (\_theId _name theClass value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected :T.null theClass:class="#{theClass}">#{text}|])
+    (\_theId _name theClass value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected :not (null theClass):class="#{T.intercalate " " theClass}">#{text}|])
 
 radioField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 radioField = radioField' . optionsPairs
@@ -331,7 +331,7 @@ radioField' = selectFieldHelper
 |])
     (\theId name theClass value isSel text -> [WHAMLET|
 <div>
-    <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked :T.null theClass:class="#{theClass}">
+    <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked :not (null theClass):class="#{T.intercalate " " theClass}">
     <label for=#{theId}-#{value}>#{text}
 |])
 
@@ -340,14 +340,14 @@ boolField = Field
       { fieldParse = return . boolParser
       , fieldView = \theId name theClass val isReq -> [WHAMLET|
   $if not isReq
-      <input id=#{theId}-none :T.null theClass:class="#{theClass}" type=radio name=#{name} value=none checked>
+      <input id=#{theId}-none :not (null theClass):class="#{T.intercalate " " theClass}" type=radio name=#{name} value=none checked>
       <label for=#{theId}-none>_{MsgSelectNone}
 
 
-<input id=#{theId}-yes :T.null theClass:class="#{theClass}" type=radio name=#{name} value=yes :showVal id val:checked>
+<input id=#{theId}-yes :not (null theClass):class="#{T.intercalate " " theClass}" type=radio name=#{name} value=yes :showVal id val:checked>
 <label for=#{theId}-yes>_{MsgBoolYes}
 
-<input id=#{theId}-no :T.null theClass:class="#{theClass}" type=radio name=#{name} value=no :showVal not val:checked>
+<input id=#{theId}-no :not (null theClass):class="#{T.intercalate " " theClass}" type=radio name=#{name} value=no :showVal not val:checked>
 <label for=#{theId}-no>_{MsgBoolNo}
 |]
     }
@@ -363,7 +363,7 @@ boolField = Field
 
 multiSelectFieldHelper :: (Show a, Eq a)
         => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
-        -> (Text -> Text -> Text -> Text -> Bool -> Text -> GWidget sub master ())
+        -> (Text -> Text -> [Text] -> Text -> Bool -> Text -> GWidget sub master ())
         -> [(Text, a)] -> Field sub master [a]
 multiSelectFieldHelper outside inside opts = Field
     { fieldParse = return . selectParser
@@ -429,7 +429,7 @@ selectFieldHelper
         :: (Eq a, RenderMessage master FormMessage)
         => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
         -> (Text -> Text -> Bool -> GWidget sub master ())
-        -> (Text -> Text -> Text -> Text -> Bool -> Text -> GWidget sub master ())
+        -> (Text -> Text -> [Text] -> Text -> Bool -> Text -> GWidget sub master ())
         -> GHandlerT sub master IO (OptionList a) -> Field sub master a
 selectFieldHelper outside onOpt inside opts' = Field
     { fieldParse = \x -> do
@@ -482,7 +482,7 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
             , fvId = id'
             , fvInput = [WHAMLET|
-<input type=file name=#{name} ##{id'} :T.null theClass:class="#{theClass}">
+<input type=file name=#{name} ##{id'} :not (null theClass):class="#{T.intercalate " " theClass}">
 |]
             , fvErrors = errs
             , fvRequired = True
@@ -511,7 +511,7 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
             , fvId = id'
             , fvInput = [WHAMLET|
-<input type=file name=#{name} ##{id'} :T.null theClass:class="#{theClass}">
+<input type=file name=#{name} ##{id'} :not (null theClass):class="#{T.intercalate " " theClass}">
 |]
             , fvErrors = errs
             , fvRequired = False

@@ -20,7 +20,7 @@ import Text.Blaze.Renderer.String (renderHtml)
 import Text.Blaze (preEscapedText)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack)
-import qualified Data.Text as T (null)
+import qualified Data.Text as T
 import Data.Maybe (listToMaybe)
 
 class YesodNic a where
@@ -38,7 +38,7 @@ nicHtmlField = Field
 #else
                 [$shamlet|
 #endif
-    <textarea id="#{theId}" :T.null theClass:class="#{theClass}" name="#{name}" .html>#{showVal val}
+    <textarea id="#{theId}" :not (null theClass):class="#{T.intercalate " " theClass}" name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit
         addJulius
