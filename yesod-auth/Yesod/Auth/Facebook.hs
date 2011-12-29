@@ -21,7 +21,6 @@ import Yesod.Form
 import Yesod.Handler
 import Yesod.Widget
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Trans.Class (lift)
 import Data.Text (Text)
 import Control.Monad (liftM, mzero, when)
 import Data.Monoid (mappend)
@@ -100,7 +99,7 @@ authFacebook cid secret perms =
             redirectText RedirectTemporary logout
     dispatch _ _ = notFound
     login tm = do
-        render <- lift getUrlRender
+        render <- liftWidget getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
         [QQ(whamlet)|

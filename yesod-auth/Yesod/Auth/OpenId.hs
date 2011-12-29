@@ -19,7 +19,6 @@ import Yesod.Widget
 import Yesod.Request
 import Text.Cassius (cassius)
 import Text.Blaze (toHtml)
-import Control.Monad.Trans.Class (lift)
 import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
 
@@ -36,7 +35,7 @@ authOpenIdExtended extensionFields =
     complete = PluginR "openid" ["complete"]
     name = "openid_identifier"
     login tm = do
-        ident <- lift newIdent
+        ident <- liftWidget newIdent
         addCassius
             [QQ(cassius)|##{ident}
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;

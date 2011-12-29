@@ -13,7 +13,7 @@ module Yesod.Json
     , array
     ) where
 
-import Yesod.Handler (GHandler, waiRequest)
+import Yesod.Handler (GHandler, waiRequest, liftHandler)
 import Yesod.Content
     ( ToContent (toContent), RepHtmlJson (RepHtmlJson), RepHtml (RepHtml)
     , RepJson (RepJson), Content (ContentBuilder)
@@ -25,7 +25,6 @@ import qualified Data.Aeson.Encode as JE
 import Data.Aeson.Encode (fromValue)
 import Data.Conduit.Attoparsec (sinkParser)
 import Data.Text (Text)
-import Control.Monad.Trans.Class (lift)
 import qualified Data.Vector as V
 import Text.Julius (ToJavascript (..))
 import Data.Text.Lazy.Builder (fromLazyText)
@@ -61,7 +60,7 @@ jsonToRepJson = return . RepJson . toContent
 parseJsonBody :: GHandler sub master J.Value
 parseJsonBody = do
     req <- waiRequest
-    lift $ requestBody req $$ sinkParser J.json'
+    liftHandler $ requestBody req $$ sinkParser J.json'
 
 instance ToJavascript J.Value where
     toJavascript = fromLazyText . decodeUtf8 . JE.encode
