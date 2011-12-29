@@ -20,6 +20,7 @@ import Text.Blaze.Renderer.String (renderHtml)
 import Text.Blaze (preEscapedText)
 import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack)
+import qualified Data.Text as T
 import Data.Maybe (listToMaybe)
 
 class YesodNic a where
@@ -30,14 +31,14 @@ class YesodNic a where
 nicHtmlField :: YesodNic master => Field sub master Html
 nicHtmlField = Field
     { fieldParse = return . Right . fmap (preEscapedText . sanitizeBalance) . listToMaybe
-    , fieldView = \theId name val _isReq -> do
+    , fieldView = \theId name theClass val _isReq -> do
         addHtml
 #if __GLASGOW_HASKELL__ >= 700
                 [shamlet|
 #else
                 [$shamlet|
 #endif
-    <textarea id="#{theId}" name="#{name}" .html>#{showVal val}
+    <textarea id="#{theId}" :not (null theClass):class="#{T.intercalate " " theClass}" name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit
         addJulius

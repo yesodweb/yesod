@@ -1,7 +1,8 @@
-import Yesod.Default.Config (fromArgs)
-import Yesod.Default.Main   (defaultMain)
-import Application          (with~sitearg~)
 import Prelude              (IO)
+import Yesod.Default.Config (fromArgsExtra)
+import Yesod.Default.Main   (defaultMain)
+import Settings             (loadExtra)
+import Application          (with~sitearg~)
 
 main :: IO ()
-main = defaultMain fromArgs with~sitearg~
+main = defaultMain (fromArgsExtra loadExtra) with~sitearg~

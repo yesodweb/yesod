@@ -25,7 +25,7 @@ import Yesod.FeedTypes
 import Yesod.AtomFeed
 import Yesod.RssFeed
 import Yesod.Content (HasReps (chooseRep), typeAtom, typeRss)
-import Yesod.Handler (Route, GGHandler)
+import Yesod.Handler (Route, GHandler)
 
 data RepAtomRss = RepAtomRss RepAtom RepRss
 instance HasReps RepAtomRss where
@@ -33,7 +33,7 @@ instance HasReps RepAtomRss where
         [ (typeAtom, a)
         , (typeRss, r)
         ]
-newsFeed :: Monad mo => Feed (Route master) -> GGHandler sub master mo RepAtomRss
+newsFeed :: Feed (Route master) -> GHandler sub master RepAtomRss
 newsFeed f = do
     a <- atomFeed f
     r <- rssFeed f

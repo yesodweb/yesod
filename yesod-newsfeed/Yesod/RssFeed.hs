@@ -31,7 +31,7 @@ instance HasReps RepRss where
     chooseRep (RepRss c) _ = return (typeRss, c)
 
 -- | Generate the feed
-rssFeed :: Monad mo => Feed (Route master) -> GGHandler sub master mo RepRss
+rssFeed :: Feed (Route master) -> GHandler sub master RepRss
 rssFeed = liftM RepRss . hamletToContent . template
 
 template :: Feed url -> HtmlUrl url

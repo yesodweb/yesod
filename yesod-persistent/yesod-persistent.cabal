@@ -1,5 +1,5 @@
 name:            yesod-persistent
-version:         0.2.2
+version:         0.3.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -14,9 +14,9 @@ description:     Some helpers for using Persistent from Yesod.
 
 library
     build-depends:   base                      >= 4        && < 5
-                   , yesod-core                >= 0.8      && < 0.10
-                   , persistent                >= 0.6      && < 0.7
-                   , persistent-template       >= 0.6      && < 0.7
+                   , yesod-core                >= 0.10     && < 0.11
+                   , persistent                >= 0.7      && < 0.8
+                   , persistent-template       >= 0.7      && < 0.8
                    , failure                   >= 0.1      && < 0.2
                    , transformers              >= 0.2.2    && < 0.3
     exposed-modules: Yesod.Persist

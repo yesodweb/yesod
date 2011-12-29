@@ -54,7 +54,6 @@ import System.Locale
 import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy.Encoding
 
-import Data.Enumerator (Enumerator)
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
 import Data.Monoid (mempty)
 
@@ -62,9 +61,10 @@ import Text.Hamlet (Html)
 import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
 import Data.String (IsString (fromString))
 import Network.Wai (FilePart)
+import Data.Conduit (Source)
 
 data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional content length.
-             | ContentEnum (forall a. Enumerator Builder IO a)
+             | ContentSource (Source IO Builder)
              | ContentFile FilePath (Maybe FilePart)
 
 -- | Zero-length enumerator.

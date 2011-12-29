@@ -1,5 +1,5 @@
 name:            yesod-json
-version:         0.2.3
+version:         0.3.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -14,16 +14,17 @@ description:     Generate content for Yesod using the aeson package.
 
 library
     build-depends:   base                  >= 4        && < 5
-                   , yesod-core            >= 0.9      && < 0.10
-                   , aeson                 >= 0.3
-                   , text                  >= 0.8      && < 0.12
+                   , yesod-core            >= 0.10     && < 0.11
+                   , aeson                 >= 0.5
+                   , text                  >= 0.8      && < 1.0
                    , shakespeare-js        >= 0.10     && < 0.11
                    , vector                >= 0.9
-                   , containers            >= 0.2      && < 0.5
-                   , unordered-containers
+                   , containers            >= 0.2
                    , blaze-builder
-                   , attoparsec-enumerator >= 0.3      && < 0.4
+                   , attoparsec-conduit    >= 0.0      && < 0.1
+                   , conduit               >= 0.0      && < 0.1
                    , transformers          >= 0.2.2    && < 0.3
+                   , wai                   >= 1.0      && < 1.1
     exposed-modules: Yesod.Json
     ghc-options:     -Wall
 

@@ -7,14 +7,13 @@ module Yesod.Json
     , jsonToRepJson
       -- * Convert to a JSON value
     , parseJsonBody
-      -- * Compatibility wrapper for old API
-    , Json
-    , jsonScalar
-    , jsonList
-    , jsonMap
+      -- * Produce JSON values
+    , J.Value (..)
+    , object
+    , array
     ) where
 
-import Yesod.Handler (GHandler)
+import Yesod.Handler (GHandler, waiRequest)
 import Yesod.Content
     ( ToContent (toContent), RepHtmlJson (RepHtmlJson), RepHtml (RepHtml)
     , RepJson (RepJson), Content (ContentBuilder)
@@ -24,33 +23,23 @@ import Yesod.Widget (GWidget)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Encode as JE
 import Data.Aeson.Encode (fromValue)
-import Data.Attoparsec.Enumerator (iterParser)
-import Data.Text (pack)
-import Control.Arrow (first)
+import Data.Conduit.Attoparsec (sinkParser)
+import Data.Text (Text)
 import Control.Monad.Trans.Class (lift)
-#if MIN_VERSION_aeson(0, 4, 0)
-import Data.HashMap.Strict (fromList)
-#else
-import Data.Map (fromList)
-#endif
 import qualified Data.Vector as V
 import Text.Julius (ToJavascript (..))
 import Data.Text.Lazy.Builder (fromLazyText)
 import Data.Text.Lazy.Encoding (decodeUtf8)
-#if MIN_VERSION_aeson(0, 5, 0)
 import Data.Text.Lazy.Builder (toLazyText)
 import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
-#endif
+import Data.Conduit (($$))
+import Network.Wai (requestBody)
 
 instance ToContent J.Value where
-#if MIN_VERSION_aeson(0, 5, 0)
     toContent = flip ContentBuilder Nothing
               . Blaze.fromLazyText
               . toLazyText
               . fromValue
-#else
-    toContent = flip ContentBuilder Nothing . fromValue
-#endif
 
 -- | Provide both an HTML and JSON representation for a piece of data, using
 -- the default layout for the HTML output ('defaultLayout').
@@ -70,19 +59,17 @@ jsonToRepJson = return . RepJson . toContent
 --
 -- /Since: 0.2.3/
 parseJsonBody :: GHandler sub master J.Value
-parseJsonBody = lift $ iterParser J.json'
-
-
-type Json = J.Value
-
-jsonScalar :: String -> Json
-jsonScalar = J.String . pack
-
-jsonList :: [Json] -> Json
-jsonList = J.Array . V.fromList
-
-jsonMap :: [(String, Json)] -> Json
-jsonMap = J.Object . fromList . map (first pack)
+parseJsonBody = do
+    req <- waiRequest
+    lift $ requestBody req $$ sinkParser J.json'
 
 instance ToJavascript J.Value where
     toJavascript = fromLazyText . decodeUtf8 . JE.encode
+
+-- | Convert a list of pairs to an 'J.Object'.
+object :: [(Text, J.Value)] -> J.Value
+object = J.object
+
+-- | Convert a list of values to an 'J.Array'.
+array :: [J.Value] -> J.Value
+array = J.Array . V.fromList

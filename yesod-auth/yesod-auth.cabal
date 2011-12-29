@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.7.9
+version:         0.8.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -21,10 +21,10 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                >= 4        && < 4.3
-    build-depends:   authenticate            >= 0.10.4    && < 0.11
+    build-depends:   authenticate            >= 0.11      && < 0.12
                    , bytestring              >= 0.9.1.4   && < 0.10
-                   , yesod-core              >= 0.9.3.4   && < 0.10
-                   , wai                     >= 0.4       && < 0.5
+                   , yesod-core              >= 0.10      && < 0.11
+                   , wai                     >= 1.0       && < 1.1
                    , template-haskell
                    , pureMD5                 >= 2.0       && < 2.2
                    , random                  >= 1.0.0.2  && < 1.1
@@ -32,19 +32,19 @@ library
                    , text                    >= 0.7       && < 0.12
                    , mime-mail               >= 0.3       && < 0.5
                    , blaze-html              >= 0.4.1.3   && < 0.5
-                   , yesod-persistent        >= 0.2       && < 0.3
+                   , yesod-persistent        >= 0.3       && < 0.4
                    , hamlet                  >= 0.10      && < 0.11
                    , shakespeare-css         >= 0.10      && < 0.11
-                   , yesod-json              >= 0.2       && < 0.3
+                   , yesod-json              >= 0.3       && < 0.4
                    , containers
                    , unordered-containers
-                   , yesod-form              >= 0.3       && < 0.4
+                   , yesod-form              >= 0.4       && < 0.5
                    , transformers            >= 0.2.2     && < 0.3
-                   , persistent              >= 0.6       && < 0.7
-                   , persistent-template     >= 0.6       && < 0.7
+                   , persistent              >= 0.7       && < 0.8
+                   , persistent-template     >= 0.7       && < 0.8
                    , SHA                     >= 1.4.1.3   && < 1.6
-                   , http-enumerator         >= 0.6       && < 0.8
-                   , aeson                   >= 0.3
+                   , http-conduit            >= 1.0       && < 1.1
+                   , aeson                   >= 0.5
                    , pwstore-fast            >= 2.2       && < 3
 
     exposed-modules: Yesod.Auth

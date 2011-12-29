@@ -281,7 +281,7 @@ class RenderRoute (Route a) => Yesod a where
     yepnopeJs _ = Nothing
 
 messageLoggerHandler :: (Yesod m, MonadIO mo)
-                     => Loc -> LogLevel -> Text -> GGHandler s m mo ()
+                     => Loc -> LogLevel -> Text -> GHandlerT s m mo ()
 messageLoggerHandler loc level msg = do
     y <- getYesod
     liftIO $ messageLogger y loc level msg
