@@ -6,12 +6,13 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE CPP #-}
+-- FIXME Should we remove the older names here (addJulius, etc)?
+
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
     ( -- * Datatype
       GWidget
-    , GGWidget (..)
     , PageContent (..)
       -- * Special Hamlet quasiquoter/TH for Widgets
     , whamlet
@@ -53,25 +54,25 @@ module Yesod.Widget
     , addScriptRemoteAttrs
     , addScriptEither
       -- * Utilities
-    , extractBody
+    , liftWidget
+      -- * Internal
+    , unGWidget
     ) where
 
 import Data.Monoid
-import Control.Monad.Trans.Writer
 import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 import Text.Coffee
 import Yesod.Handler
-    (Route, GHandler, GHandlerT, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
+    ( Route, GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
     , getMessageRender, getUrlRenderParams
     )
 import Yesod.Message (RenderMessage)
 import Yesod.Content (RepHtml (..), toContent)
-import Control.Applicative (Applicative)
+import Control.Applicative (Applicative (..), (<$>))
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Class (MonadTrans (lift))
 import Yesod.Internal
 import Control.Monad (liftM)
 import Data.Text (Text)
@@ -79,59 +80,32 @@ import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE), Pat (VarP), newName)
 
-#if MIN_VERSION_monad_control(0, 3, 0)
-import Control.Monad.Trans.Control (MonadTransControl (..), MonadBaseControl (..), defaultLiftBaseWith, defaultRestoreM, ComposeSt)
-#else
-import Control.Monad.IO.Control (MonadControlIO)
-#endif
+import Control.Monad.Trans.Control (MonadBaseControl (..))
 import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze (toHtml, preEscapedLazyText)
 import Control.Monad.Base (MonadBase (liftBase))
 
 -- | A generic widget, allowing specification of both the subsite and master
--- site datatypes. This is basically a large 'WriterT' stack keeping track of
--- dependencies along with a 'StateT' to track unique identifiers.
-newtype GGWidget m monad a = GWidget { unGWidget :: GWInner m monad a }
-    deriving (Functor, Applicative, Monad, MonadIO
-#if !MIN_VERSION_monad_control(0, 3, 0)
-    , MonadControlIO
-#endif
-    )
+-- site datatypes. While this is simply a @WriterT@, we define a newtype for
+-- better error messages.
+--
+-- Note that you must use 'liftWidget' instead of @lift@ since this is not a
+-- monad transformer.
+newtype GWidget sub master a = GWidget
+    { unGWidget :: GHandler sub master (a, GWData (Route master))
+    }
 
-instance MonadBase b m => MonadBase b (GGWidget master m) where
-    liftBase = lift . liftBase
-#if MIN_VERSION_monad_control(0, 3, 0)
-instance MonadTransControl (GGWidget master) where
-    newtype StT (GGWidget master) a =
-       StWidget {unStWidget :: StT (GWInner master) a}
-    liftWith f = GWidget $ liftWith $ \run ->
-                  f $ liftM StWidget . run . unGWidget
-    restoreT = GWidget . restoreT . liftM unStWidget
-    {-# INLINE liftWith #-}
-    {-# INLINE restoreT #-}
-instance MonadBaseControl b m => MonadBaseControl b (GGWidget master m) where
-     newtype StM (GGWidget master m) a = StMT {unStMT :: ComposeSt (GGWidget master) m a}
-     liftBaseWith = defaultLiftBaseWith StMT
-     restoreM     = defaultRestoreM   unStMT
-#endif
-
-instance MonadTrans (GGWidget m) where
-    lift = GWidget . lift
-
-type GWidget s m = GGWidget m (GHandler s m)
-type GWInner master = WriterT (GWData (Route master))
-
-instance (Monad monad, a ~ ()) => Monoid (GGWidget master monad a) where
+instance (a ~ ()) => Monoid (GWidget sub master a) where
     mempty = return ()
     mappend x y = x >> y
 
 addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWidget sub' master a
 addSubWidget sub (GWidget w) = do
-    master <- lift getYesod
+    master <- liftWidget getYesod
     let sr = fromSubRoute sub master
-    (a, w') <- lift $ toMasterHandlerMaybe sr (const sub) Nothing $ runWriterT w
-    GWidget $ tell w'
+    (a, w') <- liftWidget $ toMasterHandlerMaybe sr (const sub) Nothing w
+    tell w'
     return a
 
 class ToWidget sub master a where
@@ -184,123 +158,115 @@ instance render ~ RY master => ToWidgetHead sub master (render -> Coffeescript) 
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitle :: Monad m => Html -> GGWidget master m ()
-setTitle x = GWidget $ tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
+setTitle :: Html -> GWidget sub master ()
+setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitleI :: (RenderMessage master msg, Monad m) => msg -> GGWidget master (GHandlerT sub master m) ()
+setTitleI :: RenderMessage master msg => msg -> GWidget sub master ()
 setTitleI msg = do
-    mr <- lift getMessageRender
+    mr <- liftWidget getMessageRender
     setTitle $ toHtml $ mr msg
 
 -- | Add a 'Hamlet' to the head tag.
-addHamletHead :: Monad m => HtmlUrl (Route master) -> GGWidget master m ()
-addHamletHead = GWidget . tell . GWData mempty mempty mempty mempty mempty mempty . Head
+addHamletHead :: HtmlUrl (Route master) -> GWidget sub master ()
+addHamletHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
 
 -- | Add a 'Html' to the head tag.
-addHtmlHead :: Monad m => Html -> GGWidget master m ()
+addHtmlHead :: Html -> GWidget sub master ()
 addHtmlHead = addHamletHead . const
 
 -- | Add a 'Hamlet' to the body tag.
-addHamlet :: Monad m => HtmlUrl (Route master) -> GGWidget master m ()
-addHamlet x = GWidget $ tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
+addHamlet :: HtmlUrl (Route master) -> GWidget sub master ()
+addHamlet x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
 
 -- | Add a 'Html' to the body tag.
-addHtml :: Monad m => Html -> GGWidget master m ()
+addHtml :: Html -> GWidget sub master ()
 addHtml = addHamlet . const
 
 -- | Add another widget. This is defined as 'id', by can help with types, and
 -- makes widget blocks look more consistent.
-addWidget :: Monad mo => GGWidget m mo () -> GGWidget m mo ()
+addWidget :: GWidget sub master () -> GWidget sub master ()
 addWidget = id
 
 -- | Add some raw CSS to the style tag. Applies to all media types.
-addCassius :: Monad m => CssUrl (Route master) -> GGWidget master m ()
-addCassius x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
+addCassius :: CssUrl (Route master) -> GWidget sub master ()
+addCassius x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
 
 -- | Identical to 'addCassius'.
-addLucius :: Monad m => CssUrl (Route master) -> GGWidget master m ()
+addLucius :: CssUrl (Route master) -> GWidget sub master ()
 addLucius = addCassius
 
 -- | Add some raw CSS to the style tag, for a specific media type.
-addCassiusMedia :: Monad m => Text -> CssUrl (Route master) -> GGWidget master m ()
-addCassiusMedia m x = GWidget $ tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
+addCassiusMedia :: Text -> CssUrl (Route master) -> GWidget sub master ()
+addCassiusMedia m x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
 
 -- | Identical to 'addCassiusMedia'.
-addLuciusMedia :: Monad m => Text -> CssUrl (Route master) -> GGWidget master m ()
+addLuciusMedia :: Text -> CssUrl (Route master) -> GWidget sub master ()
 addLuciusMedia = addCassiusMedia
 
 -- | Link to the specified local stylesheet.
-addStylesheet :: Monad m => Route master -> GGWidget master m ()
+addStylesheet :: Route master -> GWidget sub master ()
 addStylesheet = flip addStylesheetAttrs []
 
 -- | Link to the specified local stylesheet.
-addStylesheetAttrs :: Monad m => Route master -> [(Text, Text)] -> GGWidget master m ()
-addStylesheetAttrs x y = GWidget $ tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
+addStylesheetAttrs :: Route master -> [(Text, Text)] -> GWidget sub master ()
+addStylesheetAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemote :: Monad m => Text -> GGWidget master m ()
+addStylesheetRemote :: Text -> GWidget sub master ()
 addStylesheetRemote = flip addStylesheetRemoteAttrs []
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemoteAttrs :: Monad m => Text -> [(Text, Text)] -> GGWidget master m ()
-addStylesheetRemoteAttrs x y = GWidget $ tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
+addStylesheetRemoteAttrs :: Text -> [(Text, Text)] -> GWidget sub master ()
+addStylesheetRemoteAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
 
-addStylesheetEither :: Monad m => Either (Route master) Text -> GGWidget master m ()
+addStylesheetEither :: Either (Route master) Text -> GWidget sub master ()
 addStylesheetEither = either addStylesheet addStylesheetRemote
 
-addScriptEither :: Monad m => Either (Route master) Text -> GGWidget master m ()
+addScriptEither :: Either (Route master) Text -> GWidget sub master ()
 addScriptEither = either addScript addScriptRemote
 
 -- | Link to the specified local script.
-addScript :: Monad m => Route master -> GGWidget master m ()
+addScript :: Route master -> GWidget sub master ()
 addScript = flip addScriptAttrs []
 
 -- | Link to the specified local script.
-addScriptAttrs :: Monad m => Route master -> [(Text, Text)] -> GGWidget master m ()
-addScriptAttrs x y = GWidget $ tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
+addScriptAttrs :: Route master -> [(Text, Text)] -> GWidget sub master ()
+addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
-addScriptRemote :: Monad m => Text -> GGWidget master m ()
+addScriptRemote :: Text -> GWidget sub master ()
 addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
-addScriptRemoteAttrs :: Monad m => Text -> [(Text, Text)] -> GGWidget master m ()
-addScriptRemoteAttrs x y = GWidget $ tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
+addScriptRemoteAttrs :: Text -> [(Text, Text)] -> GWidget sub master ()
+addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
 -- | Include raw Javascript in the page's script tag.
-addJulius :: Monad m => JavascriptUrl (Route master) -> GGWidget master m ()
-addJulius x = GWidget $ tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
+addJulius :: JavascriptUrl (Route master) -> GWidget sub master ()
+addJulius x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
 
 -- | Add a new script tag to the body with the contents of this 'Julius'
 -- template.
-addJuliusBody :: Monad m => JavascriptUrl (Route master) -> GGWidget master m ()
+addJuliusBody :: JavascriptUrl (Route master) -> GWidget sub master ()
 addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 
 -- | Add Coffesscript to the page's script tag. Requires the coffeescript
 -- executable to be present at runtime.
-addCoffee :: MonadIO m => CoffeeUrl (Route master) -> GGWidget master (GHandlerT sub master m) ()
+addCoffee :: CoffeeUrl (Route master) -> GWidget sub master ()
 addCoffee c = do
-    render <- lift getUrlRenderParams
+    render <- liftWidget getUrlRenderParams
     t <- liftIO $ renderCoffee render c
     addJulius $ const $ Javascript $ fromLazyText t
 
 -- | Add a new script tag to the body with the contents of this Coffesscript
 -- template. Requires the coffeescript executable to be present at runtime.
-addCoffeeBody :: MonadIO m => CoffeeUrl (Route master) -> GGWidget master (GHandlerT sub master m) ()
+addCoffeeBody :: CoffeeUrl (Route master) -> GWidget sub master ()
 addCoffeeBody c = do
-    render <- lift getUrlRenderParams
+    render <- liftWidget getUrlRenderParams
     t <- liftIO $ renderCoffee render c
     addJuliusBody $ const $ Javascript $ fromLazyText t
-
--- | Pull out the HTML tag contents and return it. Useful for performing some
--- manipulations. It can be easier to use this sometimes than 'wrapWidget'.
-extractBody :: Monad mo => GGWidget m mo () -> GGWidget m mo (HtmlUrl (Route m))
-extractBody (GWidget w) =
-    GWidget $ mapWriterT (liftM go) w
-  where
-    go ((), GWData (Body h) b c d e f g) = (h, GWData (Body mempty) b c d e f g)
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:
@@ -330,16 +296,55 @@ rules = do
             return $ InfixE (Just g) bind (Just e')
     let ur f = do
             let env = NP.Env
-                    (Just $ helper [|lift getUrlRenderParams|])
-                    (Just $ helper [|liftM (toHtml .) $ lift getMessageRender|])
+                    (Just $ helper [|liftWidget getUrlRenderParams|])
+                    (Just $ helper [|liftM (toHtml .) $ liftWidget getMessageRender|])
             f env
     return $ NP.HamletRules ah ur $ \_ b -> return b
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-ihamletToRepHtml :: (Monad mo, RenderMessage master message)
+ihamletToRepHtml :: RenderMessage master message
                  => HtmlUrlI18n message (Route master)
-                 -> GHandlerT sub master mo RepHtml
+                 -> GHandler sub master RepHtml
 ihamletToRepHtml ih = do
     urender <- getUrlRenderParams
     mrender <- getMessageRender
     return $ RepHtml $ toContent $ ih (toHtml . mrender) urender
+
+tell :: GWData (Route master) -> GWidget sub master ()
+tell w = GWidget $ return ((), w)
+
+mapWriterT :: (GHandler sub master (a, GWData (Route master))
+                -> GHandler sub' master' (b, GWData (Route master')))
+           -> GWidget sub master a
+           -> GWidget sub' master' b
+mapWriterT = undefined
+
+liftWidget :: GHandler sub master a -> GWidget sub master a
+liftWidget = GWidget . fmap (\x -> (x, mempty))
+
+-- Instances for GWidget
+instance Functor (GWidget sub master) where
+    fmap f = mapWriterT $ fmap $ \ (a, w) -> (f a, w)
+instance Applicative (GWidget sub master) where
+    pure a = GWidget $ pure (a, mempty)
+    GWidget f <*> GWidget v =
+        GWidget $ k <$> f <*> v
+      where
+        k (a, wa) (b, wb) = (a b, wa `mappend` wb)
+instance Monad (GWidget sub master) where
+    return = pure
+    GWidget x >>= f = GWidget $ do
+        (a, wa) <- x
+        (b, wb) <- unGWidget (f a)
+        return (b, wa `mappend` wb)
+instance MonadIO (GWidget sub master) where
+    liftIO = GWidget . fmap (\a -> (a, mempty)) . liftIO
+instance MonadBase IO (GWidget sub master) where
+    liftBase = GWidget . fmap (\a -> (a, mempty)) . liftBase
+instance MonadBaseControl IO (GWidget sub master) where
+    data StM (GWidget sub master) a =
+        StW (StM (GHandler sub master) (a, GWData (Route master)))
+    liftBaseWith f = GWidget $ liftBaseWith $ \runInBase ->
+        liftM (\x -> (x, mempty))
+        (f $ liftM StW . runInBase . unGWidget)
+    restoreM (StW base) = GWidget $ restoreM base

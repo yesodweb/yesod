@@ -52,20 +52,20 @@ import Data.Text (Text)
 -- * Accept-Language HTTP header.
 --
 -- This is handled by parseWaiRequest (not exposed).
-languages :: Monad mo => GHandlerT s m mo [Text]
+languages :: GHandler s m [Text]
 languages = reqLangs `liftM` getRequest
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
 lookup' a = map snd . filter (\x -> a == fst x)
 
 -- | Lookup for GET parameters.
-lookupGetParams :: Monad mo => Text -> GHandlerT s m mo [Text]
+lookupGetParams :: Text -> GHandler s m [Text]
 lookupGetParams pn = do
     rr <- getRequest
     return $ lookup' pn $ reqGetParams rr
 
 -- | Lookup for GET parameters.
-lookupGetParam :: Monad mo => Text -> GHandlerT s m mo (Maybe Text)
+lookupGetParam :: Text -> GHandler s m (Maybe Text)
 lookupGetParam = liftM listToMaybe . lookupGetParams
 
 -- | Lookup for POST parameters.
@@ -91,11 +91,11 @@ lookupFiles pn = do
     return $ lookup' pn files
 
 -- | Lookup for cookie data.
-lookupCookie :: Monad mo => Text -> GHandlerT s m mo (Maybe Text)
+lookupCookie :: Text -> GHandler s m (Maybe Text)
 lookupCookie = liftM listToMaybe . lookupCookies
 
 -- | Lookup for cookie data.
-lookupCookies :: Monad mo => Text -> GHandlerT s m mo [Text]
+lookupCookies :: Text -> GHandler s m [Text]
 lookupCookies pn = do
     rr <- getRequest
     return $ lookup' pn $ reqCookies rr
