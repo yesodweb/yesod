@@ -85,7 +85,7 @@ createParse res = do
     mkPat' :: Exp -> [Piece] -> Exp -> Q ([Pat], Exp)
     mkPat' be [MultiPiece s] parse = do
         v <- newName $ "var" ++ s
-        fmp <- [|fromMultiPiece|]
+        fmp <- [|fromPathMultiPiece|]
         let parse' = InfixE (Just parse) be $ Just $ fmp `AppE` VarE v
         return ([VarP v], parse')
     mkPat' _ (MultiPiece _:_) _parse = error "MultiPiece must be last"
@@ -94,7 +94,7 @@ createParse res = do
         let sp = LitP $ StringL s
         return (sp : x, parse')
     mkPat' be (SinglePiece s:rest) parse = do
-        fsp <- [|fromSinglePiece|]
+        fsp <- [|fromPathPiece|]
         v <- newName $ "var" ++ s
         let parse' = InfixE (Just parse) be $ Just $ fsp `AppE` VarE v
         (x, parse'') <- mkPat' be rest parse'
@@ -137,13 +137,13 @@ createRender = mapM go
         return $ ConE (mkName ":") `AppE` (pack `AppE` x') `AppE` xs'
     mkBod ((i, SinglePiece _):xs) = do
         let x' = VarE $ mkName $ "var" ++ show i
-        tsp <- [|toSinglePiece|]
+        tsp <- [|toPathPiece|]
         let x'' = tsp `AppE` x'
         xs' <- mkBod xs
         return $ ConE (mkName ":") `AppE` x'' `AppE` xs'
     mkBod ((i, MultiPiece _):_) = do
         let x' = VarE $ mkName $ "var" ++ show i
-        tmp <- [|toMultiPiece|]
+        tmp <- [|toPathMultiPiece|]
         return $ tmp `AppE` x'
 
 -- | Whether the set of resources cover all possible URLs.

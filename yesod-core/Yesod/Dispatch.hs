@@ -15,8 +15,8 @@ module Yesod.Dispatch
     , mkYesodDispatch
     , mkYesodSubDispatch
       -- ** Path pieces
-    , SinglePiece (..)
-    , MultiPiece (..)
+    , PathPiece (..)
+    , PathMultiPiece (..)
     , Texts
       -- * Convert to WAI
     , toWaiApp
@@ -31,7 +31,7 @@ import Yesod.Handler
 import Yesod.Internal.Dispatch
 import Yesod.Widget (GWidget)
 
-import Web.PathPieces (SinglePiece (..), MultiPiece (..))
+import Web.PathPieces
 import Yesod.Internal.RouteParsing (THResource, Pieces (..), createRoutes, createRender, Resource (..), parseRoutes, parseRoutesNoCheck, parseRoutesFile, parseRoutesFileNoCheck)
 import Language.Haskell.TH.Syntax
 

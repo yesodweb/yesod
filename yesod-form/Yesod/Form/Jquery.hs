@@ -20,6 +20,7 @@ import Yesod.Form
 import Yesod.Widget
 import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,
                   timeToTimeOfDay)
+import qualified Data.Text as T
 import Data.Char (isSpace)
 import Data.Default
 import Text.Hamlet (shamlet)
@@ -78,9 +79,9 @@ jqueryDayField jds = Field
                   Right
               . readMay
               . unpack
-    , fieldView = \theId name val isReq -> do
+    , fieldView = \theId name theClass val isReq -> do
         addHtml [HTML|\
-<input id="#{theId}" name="#{name}" type="date" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -129,9 +130,9 @@ jqueryDayTimeUTCTime (UTCTime day utcTime) =
 jqueryDayTimeField :: (RenderMessage master FormMessage, YesodJquery master) => Field sub master UTCTime
 jqueryDayTimeField = Field
     { fieldParse  = blank $ parseUTCTime . unpack
-    , fieldView = \theId name val isReq -> do
+    , fieldView = \theId name theClass val isReq -> do
         addHtml [HTML|\
-<input id="#{theId}" name="#{name}" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -159,9 +160,9 @@ jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master
                         => Route master -> Field sub master Text
 jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
-    , fieldView = \theId name val isReq -> do
+    , fieldView = \theId name theClass val isReq -> do
         addHtml [HTML|\
-<input id="#{theId}" name="#{name}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
+<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -171,7 +172,7 @@ $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     }
 
-addScript' :: Monad m => (t -> Either (Route master) Text) -> GGWidget master (GGHandler sub t m) ()
+addScript' :: (master -> Either (Route master) Text) -> GWidget sub master ()
 addScript' f = do
     y <- lift getYesod
     addScriptEither $ f y

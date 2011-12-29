@@ -49,7 +49,7 @@ facebookLogout = PluginR "facebook" ["logout"]
 -- @Nothing@ if it's not found (probably because the user is not
 -- logged in via Facebook).  Note that the returned access token
 -- may have expired.
-getFacebookAccessToken :: MonadIO mo => GGHandler sub master mo (Maybe Facebook.AccessToken)
+getFacebookAccessToken :: GHandler sub master (Maybe Facebook.AccessToken)
 getFacebookAccessToken =
     liftM (fmap Facebook.AccessToken) (lookupSession facebookAccessTokenKey)
 

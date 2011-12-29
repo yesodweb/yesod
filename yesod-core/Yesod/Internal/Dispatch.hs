@@ -30,7 +30,7 @@ import qualified Data.Text
 Alright, let's explain how routing works. We want to take a [String] and found
 out which route it applies to. For static pieces, we need to ensure an exact
 match against the segment. For a single or multi piece, we need to check the
-result of fromSinglePiece/fromMultiPiece, respectively.
+result of fromPathPiece/fromMultiPathPiece, respectively.
 
 We want to create a tree of case statements basically resembling:
 
@@ -51,7 +51,7 @@ case segments of
         case as of
             [] -> Nothing
             b:bs ->
-                case fromSinglePiece b of
+                case fromPathPiece b of
                     Left _ -> Nothing
                     Right name ->
                         case bs of
@@ -59,7 +59,7 @@ case segments of
                                 case cs of
                                     [] -> Nothing
                                     d:ds ->
-                                        case fromSinglePiece d of
+                                        case fromPathPiece d of
                                             Left _ -> Nothing
                                             Right age ->
                                                 case ds of
@@ -219,7 +219,7 @@ mkSimpleExp segments (SinglePiece _:pieces) frontVars x = do
     innerExp <- mkSimpleExp (VarE srest) pieces (frontVars . (:) (VarE next')) x
     nothing <- [|Nothing|]
     next <- newName "next"
-    fsp <- [|fromSinglePiece|]
+    fsp <- [|fromPathPiece|]
     let exp' = CaseE (fsp `AppE` VarE next)
                 [ Match
                     (ConP (mkName "Nothing") [])
@@ -243,7 +243,7 @@ mkSimpleExp segments [MultiPiece _] frontVars x = do
     srest <- [|[]|]
     innerExp <- mkSimpleExp srest [] (frontVars . (:) (VarE next')) x
     nothing <- [|Nothing|]
-    fmp <- [|fromMultiPiece|]
+    fmp <- [|fromPathMultiPiece|]
     let exp = CaseE (fmp `AppE` segments)
                 [ Match
                     (ConP (mkName "Nothing") [])
@@ -301,7 +301,7 @@ mkSubsiteExp segments (SinglePiece _:pieces) frontVars x = do
     innerExp <- mkSubsiteExp srest pieces (frontVars . (:) (VarE next')) x
     nothing <- [|Nothing|]
     next <- newName "next"
-    fsp <- [|fromSinglePiece|]
+    fsp <- [|fromPathPiece|]
     let exp' = CaseE (fsp `AppE` VarE next)
                 [ Match
                     (ConP (mkName "Nothing") [])

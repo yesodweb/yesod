@@ -66,16 +66,17 @@ executable         ~project~
                 TypeFamilies
 
     build-depends: base                          >= 4          && < 5
-                 , yesod-core                    >= 0.9.3      && < 0.10
-                 , yesod-static                  >= 0.3.1      && < 0.4
-                 , yesod-default                 >= 0.5        && < 0.6
+                 , yesod-core                    >= 0.10       && < 0.11
+                 , yesod-static                  >= 0.10       && < 0.11
+                 , yesod-default                 >= 0.6        && < 0.7
                  , clientsession                 >= 0.7.3      && < 0.8
                  , bytestring                    >= 0.9        && < 0.10
                  , text                          >= 0.11       && < 0.12
                  , template-haskell
                  , hamlet                        >= 0.10       && < 0.11
                  , shakespeare-text              >= 0.10       && < 0.11
-                 , wai                           >= 0.4.2      && < 0.5
+                 , wai                           >= 1.0        && < 1.1
                  , transformers                  >= 0.2        && < 0.3
                  , monad-control                 >= 0.3        && < 0.4
+                 , yaml                          >= 0.5        && < 0.6
 
