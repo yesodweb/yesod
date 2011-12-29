@@ -26,7 +26,6 @@ module Yesod.Auth
 #include "qq.h"
 
 import Control.Monad                 (when)  
-import Control.Monad.Trans.Class     (lift)
 import Control.Monad.Trans.Maybe
 
 import Data.Aeson
@@ -92,7 +91,7 @@ class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth 
     loginHandler :: GHandler Auth m RepHtml
     loginHandler = defaultLayout $ do
         setTitleI Msg.LoginTitle
-        tm <- lift getRouteToMaster
+        tm <- liftWidget getRouteToMaster
         mapM_ (flip apLogin tm) authPlugins
 
     renderAuthMessage :: m

@@ -20,7 +20,6 @@ import Data.String
 import Data.ByteString.Char8 (pack)
 import Control.Arrow ((***))
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -66,7 +65,7 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         setCreds True creds
     dispatch _ _ = notFound
     login tm = do
-        render <- lift getUrlRender
+        render <- liftWidget getUrlRender
         let oaUrl = render $ tm $ oauthUrl name
         addHtml
           [QQ(shamlet)| <a href=#{oaUrl}>Login with #{name} |]
