@@ -280,8 +280,8 @@ class RenderRoute (Route a) => Yesod a where
     yepnopeJs :: a -> Maybe (Either Text (Route a))
     yepnopeJs _ = Nothing
 
-messageLoggerHandler :: (Yesod m, MonadIO mo)
-                     => Loc -> LogLevel -> Text -> GHandlerT s m mo ()
+messageLoggerHandler :: Yesod m
+                     => Loc -> LogLevel -> Text -> GHandler s m ()
 messageLoggerHandler loc level msg = do
     y <- getYesod
     liftIO $ messageLogger y loc level msg
@@ -499,9 +499,9 @@ jelper = fmap jsToHtml
 widgetToPageContent :: (Eq (Route master), Yesod master)
                     => GWidget sub master ()
                     -> GHandler sub master (PageContent (Route master))
-widgetToPageContent (GWidget w) = do
+widgetToPageContent w = do
     master <- getYesod
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- runWriterT w
+    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- unGWidget w
     let title = maybe mempty unTitle mTitle
     let scripts = runUniqueList scripts'
     let stylesheets = runUniqueList stylesheets'
