@@ -34,7 +34,6 @@ import Data.Time
 import Numeric
 import Codec.Crypto.RSA (rsassa_pkcs1_v1_5_sign, ha_SHA1, PrivateKey(..))
 import Network.HTTP.Types (Header)
-import Control.Arrow (second)
 import Blaze.ByteString.Builder (toByteString)
 import Control.Monad.IO.Class (MonadIO)
 import Network.HTTP.Types (renderSimpleQuery)
@@ -263,7 +262,7 @@ getBaseString tok req = do
       bsPort = if (isHttps && port req /= 443) || (not isHttps && port req /= 80)
                  then ':' `BS.cons` BS.pack (show $ port req) else ""
       bsURI = BS.concat [scheme, "://", host req, bsPort, path req]
-      bsQuery = map (second $ fromMaybe "") $ queryString req
+      bsQuery = parseSimpleQuery $ queryString req
   bsBodyQ <- if isBodyFormEncoded $ requestHeaders req
                   then liftM parseSimpleQuery $ toLBS (requestBody req)
                   else return []
