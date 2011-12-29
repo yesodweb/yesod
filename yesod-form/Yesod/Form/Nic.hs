@@ -18,7 +18,6 @@ import Text.Hamlet (Html, shamlet)
 import Text.Julius (julius)
 import Text.Blaze.Renderer.String (renderHtml)
 import Text.Blaze (preEscapedText)
-import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack)
 import qualified Data.Text as T
 import Data.Maybe (listToMaybe)
@@ -55,5 +54,5 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{th
 
 addScript' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addScript' f = do
-    y <- lift getYesod
+    y <- liftWidget getYesod
     addScriptEither $ f y

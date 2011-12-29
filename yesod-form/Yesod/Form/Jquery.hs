@@ -25,7 +25,6 @@ import Data.Char (isSpace)
 import Data.Default
 import Text.Hamlet (shamlet)
 import Text.Julius (julius)
-import Control.Monad.Trans.Class (lift)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
 import Yesod.Core (RenderMessage, SomeMessage (..))
@@ -174,12 +173,12 @@ $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 
 addScript' :: (master -> Either (Route master) Text) -> GWidget sub master ()
 addScript' f = do
-    y <- lift getYesod
+    y <- liftWidget getYesod
     addScriptEither $ f y
 
 addStylesheet' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addStylesheet' f = do
-    y <- lift getYesod
+    y <- liftWidget getYesod
     addStylesheetEither $ f y
 
 readMay :: Read a => String -> Maybe a

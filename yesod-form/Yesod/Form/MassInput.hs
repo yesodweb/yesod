@@ -17,7 +17,6 @@ import Yesod.Message (RenderMessage)
 import Yesod.Handler (newIdent, GHandler)
 import Text.Blaze (Html)
 import Control.Monad.Trans.Class (lift)
-import Data.Text (pack)
 import Control.Monad.Trans.RWS (get, put, ask)
 import Data.Maybe (fromMaybe)
 import Data.Text.Read (decimal)
@@ -82,7 +81,7 @@ inputList label fixXml single mdef = formToAForm $ do
     return (res, FieldView
         { fvLabel = label
         , fvTooltip = Nothing
-        , fvId = pack theId
+        , fvId = theId
         , fvInput = [WHAMLET|
 ^{fixXml views}
 <p>

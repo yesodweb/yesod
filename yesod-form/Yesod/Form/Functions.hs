@@ -40,8 +40,8 @@ import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM, join)
 import Text.Blaze (Html, toHtml)
-import Yesod.Handler (GHandler, GHandlerT, getRequest, runRequestBody, newIdent, getYesod)
-import Yesod.Core (RenderMessage, liftIOHandler, SomeMessage (..))
+import Yesod.Handler (GHandler, getRequest, runRequestBody, newIdent, getYesod)
+import Yesod.Core (RenderMessage, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
 import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages, FileInfo (..))
 import Network.Wai (requestMethod)
@@ -49,7 +49,6 @@ import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
-import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as L
 
@@ -118,7 +117,7 @@ mhelper :: RenderMessage master msg
 mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     mp <- askParams
     name <- maybe newFormIdent return fsName
-    theId <- lift $ maybe (liftM pack newIdent) return fsId
+    theId <- lift $ maybe newIdent return fsId
     (_, master, langs) <- ask
     let mr2 = renderMessage master langs
     (res, val) <-
@@ -157,8 +156,8 @@ aopt :: RenderMessage master msg
      -> AForm sub master (Maybe a)
 aopt a b = formToAForm . mopt a b
 
-runFormGeneric :: MonadIO m => MForm sub master a -> master -> [Text] -> Maybe (Env, FileEnv) -> GHandlerT sub master m (a, Enctype)
-runFormGeneric form master langs env = liftIOHandler $ evalRWST form (env, master, langs) (IntSingle 1)
+runFormGeneric :: MForm sub master a -> master -> [Text] -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
+runFormGeneric form master langs env = evalRWST form (env, master, langs) (IntSingle 1)
 
 -- | This function is used to both initially render a form and to later extract
 -- results from it. Note that, due to CSRF protection and a few other issues,
@@ -299,7 +298,7 @@ checkBool :: RenderMessage master msg
 checkBool b s = check $ \x -> if b x then Right x else Left s
 
 checkM :: RenderMessage master msg
-       => (a -> GHandlerT sub master IO (Either msg a))
+       => (a -> GHandler sub master (Either msg a))
        -> Field sub master a
        -> Field sub master a
 checkM f field = field

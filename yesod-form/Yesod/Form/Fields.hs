@@ -69,14 +69,12 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text as T
 import qualified Data.Text.Read
-import Control.Monad.Trans.Class (lift)
 
-import Control.Applicative ((<$>))
 import qualified Data.Map as Map
-import Yesod.Handler (newIdent, liftIOHandler)
+import Yesod.Handler (newIdent)
 import Yesod.Request (FileInfo)
 
-import Yesod.Core (toPathPiece, GHandler, GHandlerT, PathPiece)
+import Yesod.Core (toPathPiece, GHandler, PathPiece)
 import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery)
 import Control.Arrow ((&&&))
 
@@ -307,7 +305,7 @@ urlField = Field
 selectField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 selectField = selectField' . optionsPairs
 
-selectField' :: (Eq a, RenderMessage master FormMessage) => GHandlerT sub master IO (OptionList a) -> Field sub master a
+selectField' :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
 selectField' = selectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|]) -- outside
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
@@ -321,7 +319,7 @@ multiSelectField = multiSelectFieldHelper
 radioField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
 radioField = radioField' . optionsPairs
 
-radioField' :: (Eq a, RenderMessage master FormMessage) => GHandlerT sub master IO (OptionList a) -> Field sub master a
+radioField' :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
 radioField' = selectFieldHelper
     (\theId _name inside -> [WHAMLET|<div ##{theId}>^{inside}|])
     (\theId name isSel -> [WHAMLET|
@@ -402,14 +400,14 @@ data Option a = Option
     , optionExternalValue :: Text
     }
 
-optionsPairs :: [(Text, a)] -> GHandlerT sub master IO (OptionList a)
+optionsPairs :: [(Text, a)] -> GHandler sub master (OptionList a)
 optionsPairs = return . mkOptionList . zipWith (\external (display, internal) -> Option
     { optionDisplay = display
     , optionInternalValue = internal
     , optionExternalValue = pack $ show external
     }) [1 :: Int ..]
 
-optionsEnum :: (Show a, Enum a, Bounded a) => GHandlerT sub master IO (OptionList a)
+optionsEnum :: (Show a, Enum a, Bounded a) => GHandler sub master (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
 optionsPersist :: ( YesodPersist master, PersistEntity a
@@ -430,13 +428,13 @@ selectFieldHelper
         => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
         -> (Text -> Text -> Bool -> GWidget sub master ())
         -> (Text -> Text -> [Text] -> Text -> Bool -> Text -> GWidget sub master ())
-        -> GHandlerT sub master IO (OptionList a) -> Field sub master a
+        -> GHandler sub master (OptionList a) -> Field sub master a
 selectFieldHelper outside onOpt inside opts' = Field
     { fieldParse = \x -> do
         opts <- opts'
         return $ selectParser opts x
     , fieldView = \theId name theClass val isReq -> do
-        opts <- fmap olOptions $ lift $ liftIOHandler opts'
+        opts <- fmap olOptions $ liftWidget opts'
         outside theId name $ do
             unless isReq $ onOpt theId name $ not $ render opts val `elem` map optionExternalValue opts
             flip mapM_ opts $ \opt -> inside
@@ -466,7 +464,7 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
                 Nothing ->
                     let i' = incrInts ints
                      in (pack $ 'f' : show i', i')
-    id' <- maybe (pack <$> newIdent) return $ fsId fs
+    id' <- maybe newIdent return $ fsId fs
     let (res, errs) =
             case menvs of
                 Nothing -> (FormMissing, Nothing)
@@ -497,7 +495,7 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
                 Nothing ->
                     let i' = incrInts ints
                      in (pack $ 'f' : show i', i')
-    id' <- maybe (pack <$> newIdent) return $ fsId fs
+    id' <- maybe newIdent return $ fsId fs
     let (res, errs) =
             case menvs of
                 Nothing -> (FormMissing, Nothing)
