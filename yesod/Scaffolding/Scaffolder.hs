@@ -84,7 +84,7 @@ scaffold = do
     let runMigration  =
           case backend of
             MongoDB -> ""
-            _ -> "\n        Database.Persist.Base.runPool dbconf (runMigration migrateAll) p"
+            _ -> "\n        Database.Persist.Store.runPool dbconf (runMigration migrateAll) p"
 
     let importMigration =
           case backend of
