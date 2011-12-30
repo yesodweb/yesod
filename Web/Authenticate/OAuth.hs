@@ -51,6 +51,7 @@ data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name
                    , oauthConsumerKey     :: BS.ByteString -- ^ Consumer key
                    , oauthConsumerSecret  :: BS.ByteString -- ^ Consumer Secret
                    , oauthCallback        :: Maybe BS.ByteString -- ^ Callback uri to redirect after authentication
+                   , oauthRealm           :: Maybe BS.ByteString -- ^ Optional authorization realm
                    } deriving (Show, Eq, Ord, Read, Data, Typeable)
 
 
@@ -197,7 +198,11 @@ signOAuth oa crd req = do
   crd' <- addTimeStamp =<< addNonce crd
   let tok = injectOAuthToCred oa crd'
   sign <- genSign oa tok req
-  return $ addAuthHeader (insert "oauth_signature" sign tok) req
+  return $ addAuthHeader prefix (insert "oauth_signature" sign tok) req
+  where
+    prefix = case oauthRealm oa of
+      Nothing -> "OAuth "
+      Just v  -> "OAuth realm=\"" `BS.append` v `BS.append` "\","
 
 baseTime :: UTCTime
 baseTime = UTCTime day 0
@@ -238,12 +243,12 @@ genSign oa tok req =
     RSASHA1 pr ->
       liftM (encode . toStrict . rsassa_pkcs1_v1_5_sign ha_SHA1 pr) (getBaseString tok req)
 
-addAuthHeader :: Credential -> Request a -> Request a
-addAuthHeader (Credential cred) req =
-  req { requestHeaders = insertMap "Authorization" (renderAuthHeader cred) $ requestHeaders req }
+addAuthHeader :: BS.ByteString -> Credential -> Request a -> Request a
+addAuthHeader prefix (Credential cred) req =
+  req { requestHeaders = insertMap "Authorization" (renderAuthHeader prefix cred) $ requestHeaders req }
 
-renderAuthHeader :: [(BS.ByteString, BS.ByteString)] -> BS.ByteString
-renderAuthHeader = ("OAuth " `BS.append`). BS.intercalate "," . map (\(a,b) -> BS.concat [paramEncode a, "=\"",  paramEncode b, "\""]) . filter ((`elem` ["realm", "oauth_token", "oauth_verifier", "oauth_consumer_key", "oauth_signature_method", "oauth_timestamp", "oauth_nonce", "oauth_version", "oauth_callback", "oauth_signature"]) . fst)
+renderAuthHeader :: BS.ByteString -> [(BS.ByteString, BS.ByteString)] -> BS.ByteString
+renderAuthHeader prefix = (prefix `BS.append`). BS.intercalate "," . map (\(a,b) -> BS.concat [paramEncode a, "=\"",  paramEncode b, "\""]) . filter ((`elem` ["oauth_token", "oauth_verifier", "oauth_consumer_key", "oauth_signature_method", "oauth_timestamp", "oauth_nonce", "oauth_version", "oauth_callback", "oauth_signature"]) . fst)
 
 -- | Encode a string using the percent encoding method for OAuth.
 paramEncode :: BS.ByteString -> BS.ByteString
