@@ -99,7 +99,7 @@ authFacebook cid secret perms =
             redirectText RedirectTemporary logout
     dispatch _ _ = notFound
     login tm = do
-        render <- liftWidget getUrlRender
+        render <- lift getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
         let furl = Facebook.getForwardUrl fb $ perms
         [QQ(whamlet)|

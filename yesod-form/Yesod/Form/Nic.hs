@@ -54,5 +54,5 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{th
 
 addScript' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addScript' f = do
-    y <- liftWidget getYesod
+    y <- lift getYesod
     addScriptEither $ f y

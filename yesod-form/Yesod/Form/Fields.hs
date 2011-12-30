@@ -71,7 +71,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
-import Yesod.Handler (newIdent)
+import Yesod.Handler (newIdent, lift)
 import Yesod.Request (FileInfo)
 
 import Yesod.Core (toPathPiece, GHandler, PathPiece)
@@ -434,7 +434,7 @@ selectFieldHelper outside onOpt inside opts' = Field
         opts <- opts'
         return $ selectParser opts x
     , fieldView = \theId name theClass val isReq -> do
-        opts <- fmap olOptions $ liftWidget opts'
+        opts <- fmap olOptions $ lift opts'
         outside theId name $ do
             unless isReq $ onOpt theId name $ not $ render opts val `elem` map optionExternalValue opts
             flip mapM_ opts $ \opt -> inside

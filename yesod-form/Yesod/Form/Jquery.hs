@@ -173,12 +173,12 @@ $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 
 addScript' :: (master -> Either (Route master) Text) -> GWidget sub master ()
 addScript' f = do
-    y <- liftWidget getYesod
+    y <- lift getYesod
     addScriptEither $ f y
 
 addStylesheet' :: (y -> Either (Route y) Text) -> GWidget sub y ()
 addStylesheet' f = do
-    y <- liftWidget getYesod
+    y <- lift getYesod
     addStylesheetEither $ f y
 
 readMay :: Read a => String -> Maybe a

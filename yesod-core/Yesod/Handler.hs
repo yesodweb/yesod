@@ -94,7 +94,8 @@ module Yesod.Handler
     , hamletToRepHtml
       -- ** Misc
     , newIdent
-    , liftHandler
+      -- * Lifting
+    , MonadLift (..)
       -- * i18n
     , getMessageRender
       -- * Per-request caching
@@ -130,12 +131,12 @@ import Control.Applicative
 import Control.Monad (liftM)
 
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
+import Control.Monad.Trans.Class (MonadTrans)
+import qualified Control.Monad.Trans.Class
 
 import System.IO
 import qualified Network.Wai as W
 import qualified Network.HTTP.Types as H
-import Control.Failure (Failure (failure))
 
 import Text.Hamlet
 import qualified Text.Blaze.Renderer.Text
@@ -167,7 +168,7 @@ import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey, CacheKey)
 import Data.Typeable (Typeable)
 import qualified Data.IORef as I
-import Control.Monad.Trans.Resource (ResourceT)
+import Control.Monad.Trans.Resource
 import Control.Exception.Lifted (catch)
 import Network.Wai (requestBody)
 import Data.Conduit (($$))
@@ -266,10 +267,6 @@ toMasterHandlerMaybe tm ts route = local (handlerSubDataMaybe tm ts route)
 
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
---
--- Note that, in order to lift actions from the inner monad, you must use
--- 'liftHandler' instead of just @lift@, since @GHandler@ is not in fact a
--- monad transformer.
 newtype GHandler sub master a = GHandler
     { unGHandler :: HandlerData sub master -> ResourceT IO a
     }
@@ -316,8 +313,8 @@ instance Exception HandlerContents
 getRequest :: GHandler s m Request
 getRequest = handlerRequest `liftM` ask
 
-instance Failure ErrorResponse (GHandler sub master) where
-    failure = liftIO . throwIO . HCError
+hcError :: ErrorResponse -> GHandler sub master a
+hcError = liftIO . throwIO . HCError
 
 runRequestBody :: GHandler s m RequestBodyContents
 runRequestBody = do
@@ -326,7 +323,7 @@ runRequestBody = do
         Just rbc -> return rbc
         Nothing -> do
             rr <- waiRequest
-            rbc <- liftHandler $ rbHelper rr
+            rbc <- lift $ rbHelper rr
             put x { ghsRBC = Just rbc }
             return rbc
 
@@ -602,28 +599,28 @@ sendWaiResponse :: W.Response -> GHandler s m b
 sendWaiResponse = liftIO . throwIO . HCWai
 
 -- | Return a 404 not found page. Also denotes no handler available.
-notFound :: Failure ErrorResponse m => m a
-notFound = failure NotFound
+notFound :: GHandler sub master a
+notFound = hcError NotFound
 
 -- | Return a 405 method not supported page.
 badMethod :: GHandler s m a
 badMethod = do
     w <- waiRequest
-    failure $ BadMethod $ W.requestMethod w
+    hcError $ BadMethod $ W.requestMethod w
 
 -- | Return a 403 permission denied page.
-permissionDenied :: Failure ErrorResponse m => Text -> m a
-permissionDenied = failure . PermissionDenied
+permissionDenied :: Text -> GHandler sub master a
+permissionDenied = hcError . PermissionDenied
 
 -- | Return a 403 permission denied page.
-permissionDeniedI :: RenderMessage y msg => msg -> GHandler s y a
+permissionDeniedI :: RenderMessage master msg => msg -> GHandler sub master a
 permissionDeniedI msg = do
     mr <- getMessageRender
     permissionDenied $ mr msg
 
 -- | Return a 400 invalid arguments page.
-invalidArgs :: Failure ErrorResponse m => [Text] -> m a
-invalidArgs = failure . InvalidArgs
+invalidArgs :: [Text] -> GHandler sub master a
+invalidArgs = hcError . InvalidArgs
 
 -- | Return a 400 invalid arguments page.
 invalidArgsI :: RenderMessage y msg => [msg] -> GHandler s y a
@@ -902,8 +899,16 @@ local :: (HandlerData sub' master' -> HandlerData sub master)
       -> GHandler sub' master' a
 local f (GHandler x) = GHandler $ \r -> x $ f r
 
-liftHandler :: ResourceT IO a -> GHandler sub master a
-liftHandler = GHandler . const
+-- | The standard @MonadTrans@ class only allows lifting for monad
+-- transformers. While @GHandler@ and @GWidget@ should allow lifting, their
+-- types do not express that they actually are transformers. This replacement
+-- class accounts for this.
+class MonadLift base m | m -> base where
+    lift :: base a -> m a
+instance (Monad m, MonadTrans t) => MonadLift m (t m) where
+    lift = Control.Monad.Trans.Class.lift
+instance MonadLift (ResourceT IO) (GHandler sub master) where
+    lift = GHandler . const
 
 -- Instances for GHandler
 instance Functor (GHandler sub master) where
@@ -924,3 +929,13 @@ instance MonadBaseControl IO (GHandler sub master) where
         liftBaseWith $ \runInBase ->
             f $ liftM StH . runInBase . (\(GHandler r) -> r reader)
     restoreM (StH base) = GHandler $ const $ restoreM base
+
+instance Resource (GHandler sub master) where
+    type Base (GHandler sub master) = IO
+    resourceLiftBase = liftIO
+    resourceBracket_ a b c = control $ \run -> resourceBracket_ a b (run c)
+instance ResourceUnsafeIO (GHandler sub master) where
+    unsafeFromIO = liftIO
+instance ResourceThrow (GHandler sub master) where
+    resourceThrow = liftIO . throwIO
+instance ResourceIO (GHandler sub master)

@@ -45,14 +45,15 @@ import Yesod.Widget
 import Yesod.Message
 
 import Language.Haskell.TH.Syntax
+import qualified Language.Haskell.TH.Syntax as TH
 import Data.Text (Text)
 
 logTH :: LogLevel -> Q Exp
 logTH level =
-    [|messageLoggerHandler $(qLocation >>= liftLoc) $(lift level)|]
+    [|messageLoggerHandler $(qLocation >>= liftLoc) $(TH.lift level)|]
   where
     liftLoc :: Loc -> Q Exp
-    liftLoc (Loc a b c d e) = [|Loc $(lift a) $(lift b) $(lift c) $(lift d) $(lift e)|]
+    liftLoc (Loc a b c d e) = [|Loc $(TH.lift a) $(TH.lift b) $(TH.lift c) $(TH.lift d) $(TH.lift e)|]
 
 -- | Generates a function that takes a 'Text' and logs a 'LevelDebug' message. Usage:
 --

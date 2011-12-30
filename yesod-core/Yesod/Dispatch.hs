@@ -27,7 +27,7 @@ import Data.Functor   ((<$>))
 import Data.Either    (partitionEithers)
 import Prelude hiding (exp)
 import Yesod.Internal.Core
-import Yesod.Handler
+import Yesod.Handler hiding (lift)
 import Yesod.Internal.Dispatch
 import Yesod.Widget (GWidget)
 

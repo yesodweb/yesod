@@ -65,7 +65,7 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         setCreds True creds
     dispatch _ _ = notFound
     login tm = do
-        render <- liftWidget getUrlRender
+        render <- lift getUrlRender
         let oaUrl = render $ tm $ oauthUrl name
         addHtml
           [QQ(shamlet)| <a href=#{oaUrl}>Login with #{name} |]

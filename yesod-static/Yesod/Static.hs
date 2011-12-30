@@ -45,8 +45,7 @@ import System.Directory
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
-import Yesod.Handler
-import Yesod.Core
+import Yesod.Core hiding (lift)
 
 import Data.List (intercalate)
 import Language.Haskell.TH

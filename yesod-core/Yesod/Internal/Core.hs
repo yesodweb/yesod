@@ -31,7 +31,7 @@ module Yesod.Internal.Core
     ) where
 
 import Yesod.Content
-import Yesod.Handler
+import Yesod.Handler hiding (lift)
 
 import Control.Arrow ((***))
 import Control.Monad (forM)
@@ -46,7 +46,6 @@ import qualified Web.ClientSession as CS
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import Data.Monoid
-import Control.Monad.Trans.Writer (runWriterT)
 import Text.Hamlet
 import Text.Julius
 import Text.Blaze ((!), customAttribute, textTag, toValue, unsafeLazyByteString)
