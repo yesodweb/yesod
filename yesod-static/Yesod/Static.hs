@@ -9,16 +9,23 @@
 --
 -- | Serve static files from a Yesod app.
 --
--- This is great for developming your application, but also for a dead-simple deployment.
--- Caching headers are automatically taken care of.
+-- This is great for developing your application, but also for a
+-- dead-simple deployment.  Caching headers are automatically
+-- taken care of.
 --
 -- If you are running a proxy server (like Apache or Nginx),
 -- you may want to have that server do the static serving instead.
 --
--- In fact, in an ideal setup you'll serve your static files from a separate
--- domain name to save time on transmitting cookies. In that case, you may wish
--- to use 'urlRenderOverride' to redirect requests to this subsite to a
--- separate domain name.
+-- In fact, in an ideal setup you'll serve your static files from
+-- a separate domain name to save time on transmitting
+-- cookies. In that case, you may wish to use 'urlRenderOverride'
+-- to redirect requests to this subsite to a separate domain
+-- name.
+--
+-- Note that this module's static subsite ignores all files and
+-- directories that are hidden by Unix conventions (i.e. start
+-- with a dot, such as @\".ssh\"@) and the directory "tmp" on the
+-- root of the directory with static files.
 module Yesod.Static
     ( -- * Subsite
       Static (..)
@@ -34,14 +41,13 @@ module Yesod.Static
       -- * Hashing
     , base64md5
 #ifdef TEST
-    , getFileListPieces 
+    , getFileListPieces
 #endif
     ) where
 
 import Prelude hiding (FilePath)
 import qualified Prelude
 import System.Directory
---import qualified System.Time
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
@@ -84,25 +90,30 @@ import Network.Wai.Application.Static
     , webAppSettingsWithLookup
     )
 
+-- | Type used for the subsite with static contents.
 newtype Static = Static StaticSettings
 
--- | Default value of 'Static' for a given file folder.
+-- | Produce a default value of 'Static' for a given file
+-- folder.
 --
--- Does not have index files or directory listings.
--- Expects static files to *never* change
+-- Does not have index files or directory listings.  The static
+-- files' contents /must not/ change, however new files can be
+-- added.
 static :: Prelude.FilePath -> IO Static
 static dir = do
     hashLookup <- cachedETagLookup dir
     return $ Static $ webAppSettingsWithLookup (toFilePath dir) hashLookup
 
--- | like static, but checks to see if the file has changed
+-- | Same as 'static', but does not assumes that the files do not
+-- change and checks their modification time whenever a request
+-- is made.
 staticDevel :: Prelude.FilePath -> IO Static
 staticDevel dir = do
     hashLookup <- cachedETagLookupDevel dir
     return $ Static $ webAppSettingsWithLookup (toFilePath dir) hashLookup
 
--- | Produces a 'Static' based on embedding file contents in the executable at
--- compile time.
+-- | Produce a 'Static' based on embedding all of the static
+-- files' contents in the executable at compile time.
 embed :: Prelude.FilePath -> Q Exp
 embed fp =
     [|Static (defaultWebAppSettings
@@ -110,13 +121,20 @@ embed fp =
         })|]
 
 
--- | Manually construct a static route.
--- The first argument is a sub-path to the file being served whereas the second argument is the key value pairs in the query string.
--- For example,
--- > StaticRoute $ StaticR ["thumb001.jpg"] [("foo", "5"), ("bar", "choc")]
--- would generate a url such as 'http://site.com/static/thumb001.jpg?foo=5&bar=choc'
--- The StaticRoute constructor can be used when url's cannot be statically generated at compile-time.
--- E.g. When generating image galleries.
+-- | A route on the static subsite (see also 'staticFiles').
+--
+-- You may use this constructor directly to manually link to a
+-- static file.  The first argument is the sub-path to the file
+-- being served whereas the second argument is the key-value
+-- pairs in the query string.  For example,
+--
+-- > StaticRoute $ StaticR [\"thumb001.jpg\"] [(\"foo\", \"5\"), (\"bar\", \"choc\")]
+--
+-- would generate a url such as
+-- @http://www.example.com/static/thumb001.jpg?foo=5&bar=choc@
+-- The StaticRoute constructor can be used when the URL cannot be
+-- statically generated at compile-time (e.g. when generating
+-- image galleries).
 data StaticRoute = StaticRoute [Text] [(Text, Text)]
     deriving (Eq, Show, Read)
 
@@ -154,22 +172,36 @@ getFileListPieces = flip go id
         dirs' <- mapM (\f -> go (fullPath f) (front . (:) f)) dirs
         return $ concat $ files' : dirs'
 
--- | This piece of Template Haskell will find all of the files in the given directory and create Haskell identifiers for them. For example, if you have the files \"static\/style.css\" and \"static\/js\/script.js\", it will essentailly create:
+-- | Template Haskell function that automatically creates routes
+-- for all of your static files.
 --
--- > style_css = StaticRoute ["style.css"] []
+-- For example, if you used
+--
+-- > staticFiles "static/"
+--
+-- and you had files @\"static\/style.css\"@ and
+-- @\"static\/js\/script.js\"@, then the following top-level
+-- definitions would be created:
+--
+-- > style_css    = StaticRoute ["style.css"]    []
 -- > js_script_js = StaticRoute ["js/script.js"] []
+--
+-- Note that dots (@.@), dashes (@-@) and slashes (@\/@) are
+-- replaced by underscores (@\_@) to create valid Haskell
+-- identifiers.
 staticFiles :: Prelude.FilePath -> Q [Dec]
 staticFiles dir = mkStaticFiles dir
 
--- | Same as 'staticFiles', but takes an explicit list of files to create
--- identifiers for. The files are given relative to the static folder. For
--- example, to get the files \"static/js/jquery.js\" and
--- \"static/css/normalize.css\", you would use:
+-- | Same as 'staticFiles', but takes an explicit list of files
+-- to create identifiers for. The files path given are relative
+-- to the static folder. For example, to create routes for the
+-- files @\"static/js/jquery.js\"@ and
+-- @\"static/css/normalize.css\"@, you would use:
 --
--- > staticFilesList "static" ["js/jquery.js"], ["css/normalize.css"]]
+-- > staticFilesList \"static\" [\"js\/jquery.js\", \"css\/normalize.css\"]
 --
--- This can be useful when you have a very large number of static files, but
--- only need to refer to a few of them from Haskell.
+-- This can be useful when you have a very large number of static
+-- files, but only need to refer to a few of them from Haskell.
 staticFilesList :: Prelude.FilePath -> [Prelude.FilePath] -> Q [Dec]
 staticFilesList dir fs =
     mkStaticFilesList dir (map split fs) "StaticRoute" True
@@ -180,9 +212,16 @@ staticFilesList dir fs =
         let (a, b) = break (== '/') x
          in a : split (drop 1 b)
 
--- | like staticFiles, but doesn't append an etag to the query string
--- This will compile faster, but doesn't achieve as great of caching.
--- The browser can avoid downloading the file, but it always needs to send a request with the etag value or the last-modified value to the server to see if its copy is up to dat
+-- | Same as 'staticFiles', but doesn't append an ETag to the
+-- query string.
+--
+-- Using 'publicFiles' will speed up the compilation, since there
+-- won't be any need for hashing files during compile-time.
+-- However, since the ETag ceases to be part of the URL, the
+-- 'Static' subsite won't be able to set the expire date too far
+-- on the future.  Browsers still will be able to cache the
+-- contents, however they'll need send a request to the server to
+-- see if their copy is up-to-date.
 publicFiles :: Prelude.FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles' dir "StaticRoute" False
 
@@ -276,9 +315,6 @@ mkStaticFilesList fp fs routeConName makeHash = do
                 ]
             ]
 
--- don't use L.readFile here, since it doesn't close handles quickly enough if
--- there are lots of files in the static folder, it will cause exhausted file
--- descriptors
 base64md5File :: Prelude.FilePath -> IO String
 base64md5File file = do
     bss <- C.runResourceT $ CB.sourceFile file C.$$ CL.consume
@@ -292,10 +328,9 @@ base64md5File file = do
     finalize (context, end) = md5Finalize context end
     -}
 
--- | md5-hashes the given lazy bytestring and returns the hash as
--- base64url-encoded string.
---
--- This function returns the first 8 characters of the hash.
+-- | Calculates the MD5 hash of the given lazy bytestring,
+-- encodes it using Base64 and then return the 8 first
+-- characters.
 base64md5 :: L.ByteString -> String
 base64md5 = base64 . md5
 
@@ -324,7 +359,7 @@ base64 = map tr
 -- */ end CPP comment
 getStaticHandler :: Static -> (StaticRoute -> Route sub) -> [String] -> GHandler sub y ChooseRep
 getStaticHandler static toSubR pieces = do
-  toMasterR <- getRouteToMaster   
+  toMasterR <- getRouteToMaster
   toMasterHandler (toMasterR . toSubR) toSub route handler
   where route = StaticRoute pieces []
         toSub _ = static
