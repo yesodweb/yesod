@@ -31,7 +31,7 @@ import qualified Settings
 import qualified Data.ByteString.Lazy as L
 import qualified Database.Persist.Store
 import Database.Persist.~importGenericDB~
-import Settings (widgetFile, Extra)
+import Settings (widgetFile, Extra (..))
 import Model
 import Text.Jasmine (minifym)
 import Web.ClientSession (getKey)
@@ -88,6 +88,7 @@ instance Yesod ~sitearg~ where
     encryptKey _ = fmap Just $ getKey "config/client_session_key.aes"
 
     defaultLayout widget = do
+        y <- getYesod
         mmsg <- getMessage
 
         -- We break up the default layout into two components:

@@ -1,8 +1,8 @@
 !!!
 <html>
-    <head
+    <head>
         <title>#{pageTitle pc}
         ^{pageHead pc}
-    <body
+    <body>
         ^{pageBody pc}
 

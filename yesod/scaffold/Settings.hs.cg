@@ -9,7 +9,7 @@ module Settings
     , staticRoot
     , staticDir
     , Extra (..)
-    , loadExtra
+    , parseExtra
     ) where
 
 import Prelude
@@ -20,6 +20,7 @@ import Yesod.Default.Config
 import qualified Yesod.Default.Util
 import Data.Text (Text)
 import Data.Yaml
+import Control.Applicative
 
 -- | Which Persistent backend this site is using.
 type PersistConfig = ~configPersist~
@@ -59,7 +60,9 @@ widgetFile = Yesod.Default.Util.widgetFileNoReload
 #endif
 
 data Extra = Extra
+    { extraCopyright :: Text
+    }
 
-loadExtra :: DefaultEnv -> Value -> IO Extra
-loadExtra _ _ = return Extra
+parseExtra :: DefaultEnv -> Object -> Parser Extra
+parseExtra _ o = Extra <$> o .: "copyright"
 

@@ -5,7 +5,7 @@ module Application
     ) where
 
 import Import
-import Settings (loadExtra)
+import Settings (parseExtra)
 import Settings.StaticFiles (staticSite)
 import Yesod.Default.Config
 import Yesod.Default.Main (defaultDevelAppWith, defaultRunner)
@@ -38,6 +38,6 @@ withDevelAppPort =
     toDyn $ defaultDevelAppWith loader with~sitearg~
   where
     loader = loadConfig (configSettings Development)
-        { csLoadExtra = loadExtra
+        { csParseExtra = parseExtra
         }
 

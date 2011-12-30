@@ -55,13 +55,13 @@ fromArgs = fromArgsExtra (const $ const $ return ())
 
 -- | Same as 'fromArgs', but allows you to specify how to parse the 'appExtra'
 -- record.
-fromArgsExtra :: (DefaultEnv -> Value -> IO extra)
+fromArgsExtra :: (DefaultEnv -> Object -> Parser extra)
               -> IO (AppConfig DefaultEnv extra)
 fromArgsExtra = fromArgsWith defaultArgConfig
 
 fromArgsWith :: (Read env, Show env)
              => ArgConfig
-             -> (env -> Value -> IO extra)
+             -> (env -> Object -> Parser extra)
              -> IO (AppConfig env extra)
 fromArgsWith argConfig getExtra = do
     args   <- cmdArgs argConfig
@@ -72,7 +72,7 @@ fromArgsWith argConfig getExtra = do
             [] -> error $ "Invalid environment: " ++ environment args
 
     let cs = (configSettings env)
-                { csLoadExtra = getExtra
+                { csParseExtra = getExtra
                 }
     config <- loadConfig cs
 
@@ -103,7 +103,7 @@ data ConfigSettings environment extra = ConfigSettings
     -- environment. Usually, you will use 'DefaultEnv' for this type.
        csEnv :: environment
     -- | Load any extra data, to be used by the application.
-    , csLoadExtra :: environment -> Value -> IO extra
+    , csParseExtra :: environment -> Object -> Parser extra
     -- | Return the path to the YAML config file.
     , csFile :: environment -> IO FilePath
     -- | Get the sub-object (if relevant) from the given YAML source which
@@ -115,7 +115,7 @@ data ConfigSettings environment extra = ConfigSettings
 configSettings :: Show env => env -> ConfigSettings env ()
 configSettings env0 = ConfigSettings
     { csEnv = env0
-    , csLoadExtra = \_ _ -> return ()
+    , csParseExtra = \_ _ -> return ()
     , csFile = \_ -> return "config/settings.yml"
     , csGetObject = \env v -> do
         envs <-
@@ -161,7 +161,7 @@ configSettings env0 = ConfigSettings
 --
 loadConfig :: ConfigSettings environment extra
            -> IO (AppConfig environment extra)
-loadConfig (ConfigSettings env loadExtra getFile getObject) = do
+loadConfig (ConfigSettings env parseExtra getFile getObject) = do
     fp <- getFile env
     mtopObj <- decodeFile fp
     topObj <- maybe (fail "Invalid YAML file") return mtopObj
@@ -173,14 +173,14 @@ loadConfig (ConfigSettings env loadExtra getFile getObject) = do
 
     let mssl     = lookupScalar "ssl"     m
     let mhost    = lookupScalar "host"    m
-    let mport    = lookupScalar "port"    m
+    mport <- parseMonad (\x -> x .: "port") m
     let mapproot = lookupScalar "approot" m
 
-    extra <- loadExtra env obj
+    extra <- parseMonad (parseExtra env) m
 
     -- set some default arguments
     let ssl = maybe False toBool mssl
-    port' <- safeRead "port" $ fromMaybe (if ssl then "443" else "80") mport
+    let port' = fromMaybe (if ssl then 443 else 80) mport
 
     approot <- case (mhost, mapproot) of
         (_        , Just ar) -> return ar
@@ -212,14 +212,6 @@ loadConfig (ConfigSettings env loadExtra getFile getObject) = do
         addPort False 80  = ""
         addPort _     p   = T.pack $ ':' : show p
 
--- | Returns 'fail' if read fails
-safeRead :: Monad m => String -> Text -> m Int
-safeRead name' t = case reads s of
-    (i, _):_ -> return i
-    []       -> fail $ concat ["Invalid value for ", name', ": ", s]
-  where
-    s = T.unpack t
-
 -- | Loads the configuration block in the passed file named by the
 --   passed environment, yeilds to the passed function as a mapping.
 --
@@ -228,12 +220,12 @@ safeRead name' t = case reads s of
 withYamlEnvironment :: Show e
                     => FilePath -- ^ the yaml file
                     -> e        -- ^ the environment you want to load
-                    -> (Value -> IO a) -- ^ what to do with the mapping
+                    -> (Value -> Parser a) -- ^ what to do with the mapping
                     -> IO a
 withYamlEnvironment fp env f = do
     mval <- decodeFile fp
     case mval of
         Nothing -> fail $ "Invalid YAML file: " ++ show fp
         Just (Object obj)
-            | Just v <- M.lookup (T.pack $ show env) obj -> f v
+            | Just v <- M.lookup (T.pack $ show env) obj -> parseMonad f v
         _ -> fail $ "Could not find environment: " ++ show env

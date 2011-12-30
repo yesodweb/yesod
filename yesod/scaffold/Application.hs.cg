@@ -37,7 +37,7 @@ with~sitearg~ :: AppConfig DefaultEnv Extra -> Logger -> (Application -> IO ()) 
 with~sitearg~ conf logger f = do
     s <- staticSite
     dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
-            $ either error return . Database.Persist.Store.loadConfig
+              Database.Persist.Store.loadConfig
     Database.Persist.Store.withPool (dbconf :: Settings.PersistConfig) $ \p -> do~runMigration~
         let h = ~sitearg~ conf logger s p
         defaultRunner (f . logWare) h
@@ -54,6 +54,6 @@ withDevelAppPort =
     toDyn $ defaultDevelAppWith loader  with~sitearg~
   where
     loader = loadConfig (configSettings Development)
-        { csLoadExtra = loadExtra
+        { csParseExtra = parseExtra
         }
 
