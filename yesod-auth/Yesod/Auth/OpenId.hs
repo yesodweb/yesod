@@ -35,7 +35,7 @@ authOpenIdExtended extensionFields =
     complete = PluginR "openid" ["complete"]
     name = "openid_identifier"
     login tm = do
-        ident <- liftWidget newIdent
+        ident <- lift newIdent
         addCassius
             [QQ(cassius)|##{ident}
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;

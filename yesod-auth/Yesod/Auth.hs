@@ -91,7 +91,7 @@ class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth 
     loginHandler :: GHandler Auth m RepHtml
     loginHandler = defaultLayout $ do
         setTitleI Msg.LoginTitle
-        tm <- liftWidget getRouteToMaster
+        tm <- lift getRouteToMaster
         mapM_ (flip apLogin tm) authPlugins
 
     renderAuthMessage :: m

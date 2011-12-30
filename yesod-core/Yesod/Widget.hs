@@ -53,8 +53,6 @@ module Yesod.Widget
     , addScriptRemote
     , addScriptRemoteAttrs
     , addScriptEither
-      -- * Utilities
-    , liftWidget
       -- * Internal
     , unGWidget
     ) where
@@ -67,7 +65,7 @@ import Text.Julius
 import Text.Coffee
 import Yesod.Handler
     ( Route, GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
-    , getMessageRender, getUrlRenderParams
+    , getMessageRender, getUrlRenderParams, MonadLift (..)
     )
 import Yesod.Message (RenderMessage)
 import Yesod.Content (RepHtml (..), toContent)
@@ -80,7 +78,9 @@ import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE), Pat (VarP), newName)
 
-import Control.Monad.Trans.Control (MonadBaseControl (..))
+import Control.Monad.Trans.Control (MonadBaseControl (..), control)
+import Control.Monad.Trans.Resource
+import Control.Exception (throwIO)
 import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze (toHtml, preEscapedLazyText)
@@ -89,9 +89,6 @@ import Control.Monad.Base (MonadBase (liftBase))
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
 -- better error messages.
---
--- Note that you must use 'liftWidget' instead of @lift@ since this is not a
--- monad transformer.
 newtype GWidget sub master a = GWidget
     { unGWidget :: GHandler sub master (a, GWData (Route master))
     }
@@ -102,9 +99,9 @@ instance (a ~ ()) => Monoid (GWidget sub master a) where
 
 addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWidget sub' master a
 addSubWidget sub (GWidget w) = do
-    master <- liftWidget getYesod
+    master <- lift getYesod
     let sr = fromSubRoute sub master
-    (a, w') <- liftWidget $ toMasterHandlerMaybe sr (const sub) Nothing w
+    (a, w') <- lift $ toMasterHandlerMaybe sr (const sub) Nothing w
     tell w'
     return a
 
@@ -165,7 +162,7 @@ setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty m
 -- set values.
 setTitleI :: RenderMessage master msg => msg -> GWidget sub master ()
 setTitleI msg = do
-    mr <- liftWidget getMessageRender
+    mr <- lift getMessageRender
     setTitle $ toHtml $ mr msg
 
 -- | Add a 'Hamlet' to the head tag.
@@ -256,7 +253,7 @@ addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJavasc
 -- executable to be present at runtime.
 addCoffee :: CoffeeUrl (Route master) -> GWidget sub master ()
 addCoffee c = do
-    render <- liftWidget getUrlRenderParams
+    render <- lift getUrlRenderParams
     t <- liftIO $ renderCoffee render c
     addJulius $ const $ Javascript $ fromLazyText t
 
@@ -264,7 +261,7 @@ addCoffee c = do
 -- template. Requires the coffeescript executable to be present at runtime.
 addCoffeeBody :: CoffeeUrl (Route master) -> GWidget sub master ()
 addCoffeeBody c = do
-    render <- liftWidget getUrlRenderParams
+    render <- lift getUrlRenderParams
     t <- liftIO $ renderCoffee render c
     addJuliusBody $ const $ Javascript $ fromLazyText t
 
@@ -296,8 +293,8 @@ rules = do
             return $ InfixE (Just g) bind (Just e')
     let ur f = do
             let env = NP.Env
-                    (Just $ helper [|liftWidget getUrlRenderParams|])
-                    (Just $ helper [|liftM (toHtml .) $ liftWidget getMessageRender|])
+                    (Just $ helper [|liftW getUrlRenderParams|])
+                    (Just $ helper [|liftM (toHtml .) $ liftW getMessageRender|])
             f env
     return $ NP.HamletRules ah ur $ \_ b -> return b
 
@@ -319,8 +316,12 @@ mapWriterT :: (GHandler sub master (a, GWData (Route master))
            -> GWidget sub' master' b
 mapWriterT = undefined
 
-liftWidget :: GHandler sub master a -> GWidget sub master a
-liftWidget = GWidget . fmap (\x -> (x, mempty))
+instance MonadLift (GHandler sub master) (GWidget sub master) where
+    lift = GWidget . fmap (\x -> (x, mempty))
+
+-- | Type-restricted version of @lift@
+liftW :: GHandler sub master a -> GWidget sub master a
+liftW = lift
 
 -- Instances for GWidget
 instance Functor (GWidget sub master) where
@@ -348,3 +349,13 @@ instance MonadBaseControl IO (GWidget sub master) where
         liftM (\x -> (x, mempty))
         (f $ liftM StW . runInBase . unGWidget)
     restoreM (StW base) = GWidget $ restoreM base
+
+instance Resource (GWidget sub master) where
+    type Base (GWidget sub master) = IO
+    resourceLiftBase = liftIO
+    resourceBracket_ a b c = control $ \run -> resourceBracket_ a b (run c)
+instance ResourceUnsafeIO (GWidget sub master) where
+    unsafeFromIO = liftIO
+instance ResourceThrow (GWidget sub master) where
+    resourceThrow = liftIO . throwIO
+instance ResourceIO (GWidget sub master)

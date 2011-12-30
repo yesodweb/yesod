@@ -8,7 +8,6 @@ module Foundation
     , module Yesod.Core
     , module Settings
     , StaticRoute (..)
-    , lift
     , liftIO
     ) where
 
@@ -21,7 +20,6 @@ import Settings.StaticFiles
 import Yesod.Logger (Logger, logMsg, formatLogText)
 import qualified Settings
 import Settings (Extra, widgetFile)
-import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import Web.ClientSession (getKey)
 import Text.Hamlet (hamletFile)

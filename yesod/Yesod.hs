@@ -12,7 +12,6 @@ module Yesod
     , develServer
       -- * Commonly referenced functions/datatypes
     , Application
-    , lift
     , liftIO
     , MonadBaseControl
       -- * Utilities
@@ -47,7 +46,6 @@ import Yesod.Json
 import Yesod.Persist
 import Network.Wai (Application)
 import Network.Wai.Middleware.RequestLogger
-import Control.Monad.Trans.Class (lift)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Control (MonadBaseControl)
 
