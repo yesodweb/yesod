@@ -2,9 +2,9 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Web.Authenticate.OAuth
     ( -- * Data types
-      OAuth(..), SignMethod(..), Credential(..), OAuthException(..),
+      OAuth(..), newOAuth, SignMethod(..), Credential(..), OAuthException(..),
       -- * Operations for credentials
-      emptyCredential, insert, delete, inserts,
+      newCredential, emptyCredential, insert, delete, inserts,
       -- * Signature
       signOAuth, genSign,
       -- * Url & operation for authentication
@@ -43,17 +43,25 @@ import Data.Conduit.Blaze (builderToByteString)
 import Blaze.ByteString.Builder (Builder)
 
 -- | Data type for OAuth client (consumer).
-data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name
-                   , oauthRequestUri      :: String        -- ^ URI to request temporary credential
-                   , oauthAccessTokenUri  :: String        -- ^ Uri to obtain access token
-                   , oauthAuthorizeUri    :: String        -- ^ Uri to authorize
-                   , oauthSignatureMethod :: SignMethod    -- ^ Signature Method
-                   , oauthConsumerKey     :: BS.ByteString -- ^ Consumer key
-                   , oauthConsumerSecret  :: BS.ByteString -- ^ Consumer Secret
-                   , oauthCallback        :: Maybe BS.ByteString -- ^ Callback uri to redirect after authentication
-                   , oauthRealm           :: Maybe BS.ByteString -- ^ Optional authorization realm
+-- The default values apply when you use 'newOAuth'
+data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name (You MUST specify)
+                   , oauthRequestUri      :: String        -- ^ URI to request temporary credential (You MUST specify)
+                   , oauthAccessTokenUri  :: String        -- ^ Uri to obtain access token (You MUST specify)
+                   , oauthAuthorizeUri    :: String        -- ^ Uri to authorize (You MUST specify)
+                   , oauthSignatureMethod :: SignMethod    -- ^ Signature Method (default: 'HMACSHA1')
+                   , oauthConsumerKey     :: BS.ByteString -- ^ Consumer key (You MUST specify)
+                   , oauthConsumerSecret  :: BS.ByteString -- ^ Consumer Secret (You MUST specify)
+                   , oauthCallback        :: Maybe BS.ByteString -- ^ Callback uri to redirect after authentication (default: 'Nothing')
+                   , oauthRealm           :: Maybe BS.ByteString -- ^ Optional authorization realm (default: 'Nothing')
                    } deriving (Show, Eq, Ord, Read, Data, Typeable)
 
+-- | Default value for OAuth datatype.
+-- You must specify at least oauthServerName, URIs and Tokens.
+newOAuth :: OAuth
+newOAuth = OAuth { oauthSignatureMethod = HMACSHA1
+                 , oauthCallback = Nothing
+                 , oauthRealm    = Nothing
+                 }
 
 -- | Data type for signature method.
 data SignMethod = PLAINTEXT
@@ -74,6 +82,12 @@ data Credential = Credential { unCredential :: [(BS.ByteString, BS.ByteString)] 
 -- | Empty credential.
 emptyCredential :: Credential
 emptyCredential = Credential []
+
+-- | Convenient function to create 'Credential' with OAuth Token and Token Secret.
+newCredential :: BS.ByteString -- ^ value for oauth_token
+              -> BS.ByteString -- ^ value for oauth_token_secret
+              -> Credential
+newCredential tok sec = Credential [("oauth_token", tok), ("oauth_token_secret", sec)]
 
 token, tokenSecret :: Credential -> BS.ByteString
 token = fromMaybe "" . lookup "oauth_token" . unCredential
