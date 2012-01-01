@@ -1,14 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 import Test.HUnit ((@?=))
 import Data.Text (Text, unpack)
 import Yesod.Routes.Dispatch hiding (Static, Dynamic)
+import Yesod.Routes.Class hiding (Route)
+import qualified Yesod.Routes.Class as YRC
 import qualified Yesod.Routes.Dispatch as D
 import Yesod.Routes.TH hiding (Dispatch)
-import qualified Yesod.Core as YC
 import Language.Haskell.TH.Syntax
 import qualified Data.Map as Map
 
@@ -55,10 +57,9 @@ test :: Dispatch () Int -> [Text] -> Maybe Int
 test dispatch ts = dispatch ts ()
 
 data MySub = MySub
-data MySubRoute = MySubRoute ([Text], [(Text, Text)])
-    deriving (Show, Read, Eq)
-type instance YC.Route MySub = MySubRoute
-instance YC.RenderRoute MySubRoute where
+data instance YRC.Route MySub = MySubRoute ([Text], [(Text, Text)])
+    deriving (Show, Eq, Read)
+instance RenderRoute (YRC.Route MySub) where
     renderRoute (MySubRoute x) = x
 
 dispatchHelper :: Either String (Map.Map Text String) -> Maybe String
@@ -110,10 +111,10 @@ main = hspecX $ do
         it "dispatches correctly to []" $ test overlap [] @?= Just 22
 
     describe "RenderRoute instance" $ do
-        it "renders root correctly" $ YC.renderRoute RootR @?= ([], [])
-        it "renders blog post correctly" $ YC.renderRoute (BlogPostR "foo") @?= (["blog", "foo"], [])
-        it "renders wiki correctly" $ YC.renderRoute (WikiR ["foo", "bar"]) @?= (["wiki", "foo", "bar"], [])
-        it "renders subsite correctly" $ YC.renderRoute (SubsiteR $ MySubRoute (["foo", "bar"], [("baz", "bin")]))
+        it "renders root correctly" $ renderRoute RootR @?= ([], [])
+        it "renders blog post correctly" $ renderRoute (BlogPostR "foo") @?= (["blog", "foo"], [])
+        it "renders wiki correctly" $ renderRoute (WikiR ["foo", "bar"]) @?= (["wiki", "foo", "bar"], [])
+        it "renders subsite correctly" $ renderRoute (SubsiteR $ MySubRoute (["foo", "bar"], [("baz", "bin")]))
             @?= (["subsite", "foo", "bar"], [("baz", "bin")])
 
     describe "thDispatch" $ do

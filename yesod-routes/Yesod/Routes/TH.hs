@@ -16,15 +16,14 @@ module Yesod.Routes.TH
     ) where
 
 import Language.Haskell.TH.Syntax
-import Yesod.Core
-    ( Route, RenderRoute (renderRoute), toSinglePiece, toMultiPiece
-    )
 import Data.Maybe (maybeToList, catMaybes)
 import Control.Monad (replicateM)
 import Data.Text (pack)
 import qualified Yesod.Routes.Dispatch as D
 import qualified Data.Map as Map
 import Data.Char (toLower)
+import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
+import Yesod.Routes.Class
 
 data Resource = Resource
     { resourceName :: String
@@ -85,14 +84,14 @@ mkRenderRouteClauses =
         let pat = ConP (mkName $ resourceName res) $ map VarP $ dyns ++ sub
 
         pack <- [|pack|]
-        tsp <- [|toSinglePiece|]
+        tsp <- [|toPathPiece|]
         let piecesSingle = mkPieces (AppE pack . LitE . StringL) tsp (resourcePieces res) dyns
 
         piecesMulti <-
             case resourceMulti res of
                 Nothing -> return $ ListE []
                 Just{} -> do
-                    tmp <- [|toMultiPiece|]
+                    tmp <- [|toPathMultiPiece|]
                     return $ tmp `AppE` VarE (last dyns)
 
         body <-
