@@ -14,27 +14,27 @@ import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
 import qualified Data.Map as Map
 
-result :: ([Text] -> Maybe Int) -> Dispatch () Int
-result f ts () = f ts
+result :: ([Text] -> Maybe Int) -> Dispatch Int
+result f ts = f ts
 
-justRoot :: Dispatch () Int
+justRoot :: Dispatch Int
 justRoot = toDispatch
     [ Route [] False $ result $ const $ Just 1
     ]
 
-twoStatics :: Dispatch () Int
+twoStatics :: Dispatch Int
 twoStatics = toDispatch
     [ Route [D.Static "foo"] False $ result $ const $ Just 2
     , Route [D.Static "bar"] False $ result $ const $ Just 3
     ]
 
-multi :: Dispatch () Int
+multi :: Dispatch Int
 multi = toDispatch
     [ Route [D.Static "foo"] False $ result $ const $ Just 4
     , Route [D.Static "bar"] True $ result $ const $ Just 5
     ]
 
-dynamic :: Dispatch () Int
+dynamic :: Dispatch Int
 dynamic = toDispatch
     [ Route [D.Static "foo"] False $ result $ const $ Just 6
     , Route [D.Dynamic] False $ result $ \ts ->
@@ -46,15 +46,15 @@ dynamic = toDispatch
             _ -> error $ "Called dynamic with: " ++ show ts
     ]
 
-overlap :: Dispatch () Int
+overlap :: Dispatch Int
 overlap = toDispatch
     [ Route [D.Static "foo"] False $ result $ const $ Just 20
     , Route [D.Static "foo"] True $ result $ const $ Just 21
     , Route [] True $ result $ const $ Just 22
     ]
 
-test :: Dispatch () Int -> [Text] -> Maybe Int
-test dispatch ts = dispatch ts ()
+test :: Dispatch Int -> [Text] -> Maybe Int
+test dispatch ts = dispatch ts
 
 data MyApp = MyApp
 

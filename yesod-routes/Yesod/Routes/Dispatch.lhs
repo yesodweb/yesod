@@ -41,12 +41,12 @@ will want to match integers, or slugs, or some other limited format. This
 brings us nicely to the dispatch function. Each route provides a function of
 type:
 
-> type Dispatch req res = [Text] -> req -> Maybe res
+> type Dispatch res = [Text] -> Maybe res
 
-The req and res arguments are application-specific. For example, in a simple
-WAI application, they could be the Request and Respone datatypes. The important
+The res argument is application-specific. For example, in a simple
+WAI application, it could be the Application datatype. The important
 thing to point out about Dispatch is that is takes a list of 'Text's and
-returns its response in a Maybe. This gives you a chance to having
+returns its response in a Maybe. This gives you a chance to have
 finer-grained control over how individual components are parsed. If you don't
 want to deal with it, you return 'Nothing' and routing continues.
 
@@ -55,16 +55,16 @@ module handles that for you automatically.
 
 So each route is specified by:
 
-> data Route req res = Route
+> data Route res = Route
 >     { rhPieces :: [Piece]
 >     , rhHasMulti :: Bool
->     , rhDispatch :: Dispatch req res
+>     , rhDispatch :: Dispatch res
 >     }
 
 Your application needs to provide this moudle with a list of routes, and then
 this module will give you back a new dispatch function. In other words:
 
-> toDispatch :: [Route req res] -> Dispatch req res
+> toDispatch :: [Route res] -> Dispatch res
 > toDispatch rhs =
 >     bcToDispatch bc
 >   where
@@ -98,9 +98,9 @@ application), 1 - *max(n)* groups, and a final extra group containing all
 routes that can match more than *max(n)* components. This group will consist of
 all the routes with rhHasMulti, and only those routes.
 
-> data ByCount req res = ByCount
->     { bcVector :: !(V.Vector (PieceMap req res))
->     , bcRest :: !(PieceMap req res)
+> data ByCount res = ByCount
+>     { bcVector :: !(V.Vector (PieceMap res))
+>     , bcRest :: !(PieceMap res)
 >     }
 
 We haven't covered PieceMap yet; it is used for the second optimization. We'll
@@ -109,7 +109,7 @@ discuss it below.
 The following function breaks up a list of routes into groups. Again, please
 ignore the PieceMap references for the moment.
 
-> toBC :: [Route req res] -> ByCount req res
+> toBC :: [Route res] -> ByCount res
 > toBC rhs =
 >     ByCount
 >         { bcVector = groups
@@ -135,7 +135,7 @@ have rhHasMulti set to True.
 >     groups = V.map group $ V.enumFromN 0 (maxLen + 1)
 >     group i = toPieceMap i $ filter (canHaveLength i) rhs
 >
->     canHaveLength :: Int -> Route req res -> Bool
+>     canHaveLength :: Int -> Route res -> Bool
 >     canHaveLength i rh =
 >         len == i || (len < i && rhHasMulti rh)
 >       where
@@ -190,10 +190,10 @@ What we need is then two extra features on our datatype:
 
 What we end up with is:
 
-> data PieceMap req res = PieceMap
->     { pmDynamic :: PieceMap req res
->     , pmStatic :: Map.Map Text (PieceMap req res)
->     } | PieceMapEnd [(Int, Dispatch req res)]
+> data PieceMap res = PieceMap
+>     { pmDynamic :: PieceMap res
+>     , pmStatic :: Map.Map Text (PieceMap res)
+>     } | PieceMapEnd [(Int, Dispatch res)]
 
 Note that the PieceMapEnd is a list of pairs, including an Int. Since the map
 process will confuse the original order of our routes, we need some way to get
@@ -203,12 +203,12 @@ We'll need two pieces of information to make a PieceMap: the depth to drill
 down to, and the routes in the current group. We'll immediately zip up those
 routes with an Int to indicate route priority.
 
-> toPieceMap :: Int -> [Route req res] -> PieceMap req res
+> toPieceMap :: Int -> [Route res] -> PieceMap res
 > toPieceMap depth = toPieceMap' depth . zip [1..]
 >
 > toPieceMap' :: Int
->             -> [(Int, Route req res)]
->             -> PieceMap req res
+>             -> [(Int, Route res)]
+>             -> PieceMap res
 
 The stopping case: we've exhausted the full depth, so let's put together a
 PieceMapEnd. Technically speaking, the sort here is unnecessary, since we'll
@@ -260,8 +260,8 @@ appropriate here, since it would only keep one route per Text.
 
 The time has come to actually dispatch.
 
-> bcToDispatch :: ByCount req res -> Dispatch req res
-> bcToDispatch (ByCount vec rest) ts0 req =
+> bcToDispatch :: ByCount res -> Dispatch res
+> bcToDispatch (ByCount vec rest) ts0 =
 >     bcToDispatch' ts0 pm0
 >   where
 
@@ -274,7 +274,7 @@ Stopping case: we've found our list of routes. Sort them, then starting
 applying their dispatch functions. If the first one returns Nothing, go to the
 next, and so on.
 
->     bcToDispatch' _ (PieceMapEnd r) = firstJust (\f -> f ts0 req) $ map snd r
+>     bcToDispatch' _ (PieceMapEnd r) = firstJust (\f -> f ts0) $ map snd r
 
 For each component, get the static PieceMap and the dynamic one, combine them
 together, and then continue dispatching.
@@ -296,7 +296,7 @@ Helper function: get the first Just response.
 
 Combine two PieceMaps together.
 
-> append :: PieceMap a b -> PieceMap a b -> PieceMap a b
+> append :: PieceMap res -> PieceMap res -> PieceMap res
 
 At the end, just combine the list of routes. But we combine them in such a way
 so as to preserve their order. Since a and b come presorted (as mentioned
