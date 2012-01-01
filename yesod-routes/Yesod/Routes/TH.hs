@@ -5,14 +5,12 @@ module Yesod.Routes.TH
     , Piece (..)
     , Dispatch (..)
       -- * Functions
-      -- ** Route data type
-    , mkRouteType
-    , mkRouteCons
       -- ** RenderRoute
-    , mkRenderRouteClauses
     , mkRenderRouteInstance
+    , mkRouteCons
+    , mkRenderRouteClauses
       -- ** Dispatch
-    , mkDispatchClause
+    --, mkDispatchClause
     ) where
 
 import Language.Haskell.TH.Syntax
@@ -38,9 +36,11 @@ data Dispatch = Methods (Maybe Type) [String] | Subsite
     , subsiteFunc :: String
     }
 
+resourceMulti :: Resource -> Maybe Type
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
 resourceMulti _ = Nothing
 
+-- | Generate the constructors of a route data type.
 mkRouteCons :: [Resource] -> [Con]
 mkRouteCons =
     map mkRouteCon
@@ -61,12 +61,7 @@ mkRouteCons =
                 Subsite { subsiteType = typ } -> [ConT ''Route `AppT` typ]
                 _ -> []
 
-mkRouteType :: String -> [Resource] -> Dec
-mkRouteType name res =
-    DataD [] (mkName name) [] (mkRouteCons res) clazzes
-  where
-    clazzes = [''Show, ''Eq, ''Read]
-
+-- | Clauses for the 'renderRoute' method.
 mkRenderRouteClauses :: [Resource] -> Q [Clause]
 mkRenderRouteClauses =
     mapM go
@@ -83,9 +78,9 @@ mkRenderRouteClauses =
                 _ -> return []
         let pat = ConP (mkName $ resourceName res) $ map VarP $ dyns ++ sub
 
-        pack <- [|pack|]
+        pack' <- [|pack|]
         tsp <- [|toPathPiece|]
-        let piecesSingle = mkPieces (AppE pack . LitE . StringL) tsp (resourcePieces res) dyns
+        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp (resourcePieces res) dyns
 
         piecesMulti <-
             case resourceMulti res of
@@ -102,7 +97,7 @@ mkRenderRouteClauses =
                     b <- newName "b"
 
                     colon <- [|(:)|]
-                    let cons a b = InfixE (Just a) colon (Just b)
+                    let cons y ys = InfixE (Just y) colon (Just ys)
                     let pieces = foldr cons (VarE a) piecesSingle
 
                     return $ LamE [TupP [VarP a, VarP b]] (TupE [pieces, VarE b]) `AppE` (rr `AppE` VarE x)
@@ -116,14 +111,23 @@ mkRenderRouteClauses =
     mkPieces _ _ [] _ = []
     mkPieces toText tsp (Static s:ps) dyns = toText s : mkPieces toText tsp ps dyns
     mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = tsp `AppE` VarE d : mkPieces toText tsp ps dyns
+    mkPieces _ _ ((Dynamic _) : _) [] = error "mkPieces 120"
 
-mkRenderRouteInstance :: String -> [Resource] -> Q Dec
-mkRenderRouteInstance name ress = do
+-- | Generate the 'RenderRoute' instance.
+--
+-- This includes both the 'Route' associated type and the 'renderRoute' method.
+-- This function uses both 'mkRouteCons' and 'mkRenderRouteClasses'.
+mkRenderRouteInstance :: Type -> [Resource] -> Q Dec
+mkRenderRouteInstance typ ress = do
     cls <- mkRenderRouteClauses ress
-    return $ InstanceD [] (ConT ''RenderRoute `AppT` ConT (mkName name))
-        [ FunD (mkName "renderRoute") cls
+    return $ InstanceD [] (ConT ''RenderRoute `AppT` typ)
+        [ DataInstD [] ''Route [typ] (mkRouteCons ress) clazzes
+        , FunD (mkName "renderRoute") cls
         ]
+  where
+    clazzes = [''Show, ''Eq, ''Read]
 
+{- FIXME
 mkDispatchClause :: [Resource]
                  -> Q Exp -- ^ convert handler to application
                  -> Q Clause
@@ -155,9 +159,9 @@ mkDispatchClause ress toApp = do
         let m = maybe [|False|] (const [|True|]) $ resourceMulti res
         case resourceDispatch res of
             Methods mmulti mds -> do
-                let toPair m = do
-                        key <- [|pack $(lift m)|]
-                        let value = VarE $ mkName $ map toLower m ++ resourceName res
+                let toPair m' = do
+                        key <- [|pack $(lift m')|]
+                        let value = VarE $ mkName $ map toLower m' ++ resourceName res
                         return $ TupE [key, value]
                 let handler =
                         if null mds
@@ -186,6 +190,7 @@ mkDispatchClause ress toApp = do
     toPiece (Static s) = [|D.Static $ pack $(lift s)|]
     toPiece Dynamic{} = [|D.Dynamic|]
 
+mkTsPattern :: [Piece] -> Maybe t -> Q ([Name], Maybe Name, Pat)
 mkTsPattern pieces mmulti = do
     end <-
         case mmulti of
@@ -200,3 +205,4 @@ mkTsPattern pieces mmulti = do
     go Dynamic{} = do
         dyn <- newName "dyn"
         return (Just dyn, VarP dyn)
+-}
