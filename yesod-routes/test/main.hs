@@ -56,10 +56,12 @@ overlap = toDispatch
 test :: Dispatch () Int -> [Text] -> Maybe Int
 test dispatch ts = dispatch ts ()
 
+data MyApp = MyApp
+
 data MySub = MySub
-data instance YRC.Route MySub = MySubRoute ([Text], [(Text, Text)])
-    deriving (Show, Eq, Read)
-instance RenderRoute (YRC.Route MySub) where
+instance RenderRoute MySub where
+    data YRC.Route MySub = MySubRoute ([Text], [(Text, Text)])
+        deriving (Show, Eq, Read)
     renderRoute (MySubRoute x) = x
 
 dispatchHelper :: Either String (Map.Map Text String) -> Maybe String
@@ -73,12 +75,11 @@ do
             , Resource "WikiR" [Static "wiki"] $ Methods (Just texts) []
             , Resource "SubsiteR" [Static "subsite"] $ Subsite (ConT ''MySub) "getMySub"
             ]
-    rrinst <- mkRenderRouteInstance "MyAppRoute" ress
-    dispatch <- mkDispatchClause ress [|error "FIXME" dispatchHelper|]
+    rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
+    dispatch <- [|error "FIXME dispatch"|]
     return
-        [ mkRouteType "MyAppRoute" ress
-        , rrinst
-        , FunD (mkName "thDispatch") [dispatch]
+        [ rrinst
+        , FunD (mkName "thDispatch") [Clause [] (NormalB dispatch) []]
         ]
 
 main :: IO ()
