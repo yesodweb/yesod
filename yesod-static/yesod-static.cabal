@@ -44,36 +44,6 @@ library
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
 
-test-suite tests
-    hs-source-dirs: test
-    main-is: tests.hs
-    type: exitcode-stdio-1.0
-    cpp-options:   -DTEST
-    build-depends:
-                     hspec >= 0.8   && < 0.10
-                   , HUnit
-                   , yesod-static
-                   -- copy from above
-                   , base
-                   , containers
-                   , old-time
-                   , yesod-core
-                   , base64-bytestring
-                   , pureMD5
-                   , cereal
-                   , bytestring
-                   , template-haskell
-                   , directory
-                   , transformers
-                   , wai-app-static
-                   , wai
-                   , text
-                   , file-embed
-                   , http-types
-                   , unix-compat
-
-    ghc-options:     -Wall
-
 source-repository head
   type:     git
   location: git://github.com/yesodweb/yesod.git
