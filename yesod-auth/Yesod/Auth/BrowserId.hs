@@ -4,6 +4,7 @@
 module Yesod.Auth.BrowserId
     ( authBrowserId
     , authBrowserId'
+    , authBrowserIdAudience
     ) where
 
 import Yesod.Auth
@@ -23,10 +24,10 @@ pid = "browserid"
 complete :: AuthRoute
 complete = PluginR pid []
 
-authBrowserId :: YesodAuth m
+authBrowserIdAudience :: YesodAuth m
               => Text -- ^ audience
               -> AuthPlugin m
-authBrowserId audience = AuthPlugin
+authBrowserIdAudience audience = AuthPlugin
     { apName = pid
     , apDispatch = \m ps ->
         case (m, ps) of
@@ -50,8 +51,8 @@ authBrowserId audience = AuthPlugin
 |]
     }
 
-authBrowserId' :: YesodAuth m => AuthPlugin m
-authBrowserId' = AuthPlugin
+authBrowserId :: YesodAuth m => AuthPlugin m
+authBrowserId = AuthPlugin
     { apName = pid
     , apDispatch = \m ps ->
         case (m, ps) of
@@ -79,3 +80,7 @@ authBrowserId' = AuthPlugin
     }
   where
     stripScheme t = fromMaybe t $ T.stripPrefix "//" $ snd $ T.breakOn "//" t
+
+authBrowserId' :: YesodAuth m => AuthPlugin m
+authBrowserId' = authBrowserId
+{-# DEPRECATED authBrowserId' "Use authBrowserId instead" #-}
