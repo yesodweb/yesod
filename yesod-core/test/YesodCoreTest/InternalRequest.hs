@@ -18,8 +18,10 @@ randomStringSpecs = describe "Yesod.Internal.Request.randomString"
 
 -- NOTE: this testcase may break on other systems/architectures if
 -- mkStdGen is not identical everywhere (is it?).
+looksRandom :: Bool
 looksRandom = randomString 20 (mkStdGen 0) == "VH9SkhtptqPs6GqtofVg"
 
+noRepeat :: Int -> Int -> Bool
 noRepeat len n = length (nub $ map (randomString len . mkStdGen) [1..n]) == n
 
 
@@ -36,15 +38,19 @@ nonceSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqNonce)"
   , it "generates a new nonce for sessions without nonce" generateNonce
   ]
 
+noDisabledNonce :: Bool
 noDisabledNonce = reqNonce r == Nothing where
   r = parseWaiRequest' defaultRequest [] Nothing g
 
+ignoreDisabledNonce :: Bool
 ignoreDisabledNonce = reqNonce r == Nothing where
   r = parseWaiRequest' defaultRequest [("_NONCE", "old")] Nothing g
 
+useOldNonce :: Bool
 useOldNonce = reqNonce r == Just "old" where
   r = parseWaiRequest' defaultRequest [("_NONCE", "old")] (Just undefined) g
 
+generateNonce :: Bool
 generateNonce = reqNonce r /= Nothing where
   r = parseWaiRequest' defaultRequest [("_NONCE", "old")] (Just undefined) g
 
@@ -58,21 +64,26 @@ langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)"
   , it "prioritizes correctly" prioritizeLangs
   ]
 
+respectAcceptLangs :: Bool
 respectAcceptLangs = reqLangs r == ["accept1", "accept2"] where
   r = parseWaiRequest' defaultRequest
         { requestHeaders = [("Accept-Language", "accept1, accept2")] } [] Nothing g
 
+respectSessionLang :: Bool
 respectSessionLang = reqLangs r == ["session"] where
   r = parseWaiRequest' defaultRequest [("_LANG", "session")] Nothing g
 
+respectCookieLang :: Bool
 respectCookieLang = reqLangs r == ["cookie"] where
   r = parseWaiRequest' defaultRequest
         { requestHeaders = [("Cookie", "_LANG=cookie")]
         } [] Nothing g
 
+respectQueryLang :: Bool
 respectQueryLang = reqLangs r == ["query"] where
   r = parseWaiRequest' defaultRequest { queryString = [("_LANG", Just "query")] } [] Nothing g
 
+prioritizeLangs :: Bool
 prioritizeLangs = reqLangs r == ["query", "cookie", "session", "accept1", "accept2"] where
   r = parseWaiRequest' defaultRequest
         { requestHeaders = [ ("Accept-Language", "accept1, accept2")
@@ -87,5 +98,3 @@ internalRequestTest = descriptions [ randomStringSpecs
                                    , nonceSpecs
                                    , langSpecs
                                    ]
-
-main = hspec internalRequestTest
