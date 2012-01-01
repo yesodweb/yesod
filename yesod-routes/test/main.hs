@@ -73,7 +73,7 @@ do
             , Resource "SubsiteR" [Static "subsite"] $ Subsite (ConT ''MySub) "getMySub"
             ]
     rrinst <- mkRenderRouteInstance "MyAppRoute" ress
-    dispatch <- mkDispatchClause ress [|dispatchHelper|]
+    dispatch <- mkDispatchClause ress [|error "FIXME" dispatchHelper|]
     return
         [ mkRouteType "MyAppRoute" ress
         , rrinst
