@@ -87,7 +87,7 @@ To prevent Yesod from conflicting with your other installs, you should use virth
 ~~~ { .bash }
 cabal update
 cabal install virthualenv
-cd yesodweb
+cd yesodweb # the folder where you put the yesod, persistent, hamlet & wai repos
 virthualenv --name=yesod
 . .virthualenv/bin/activate
 ~~~
