@@ -64,9 +64,6 @@ instance RenderRoute MySub where
         deriving (Show, Eq, Read)
     renderRoute (MySubRoute x) = x
 
-dispatchHelper :: Either String (Map.Map Text String) -> Maybe String
-dispatchHelper = undefined
-
 do
     texts <- [t|[Text]|]
     let ress =
@@ -76,11 +73,33 @@ do
             , Resource "SubsiteR" [Static "subsite"] $ Subsite (ConT ''MySub) "getMySub"
             ]
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
-    dispatch <- [|error "FIXME dispatch"|]
+    dispatch <- mkDispatchClause ress
     return
         [ rrinst
-        , FunD (mkName "thDispatch") [Clause [] (NormalB dispatch) []]
+        , FunD (mkName "thDispatch") [dispatch]
         ]
+
+type RunHandler handler master sub app =
+        handler
+     -> master
+     -> sub
+     -> YRC.Route sub
+     -> (YRC.Route sub -> YRC.Route master)
+     -> app
+
+thDispatchAlias
+    :: (master ~ MyApp, handler ~ String)
+    => master
+    -> sub
+    -> (YRC.Route sub -> YRC.Route master)
+    -> RunHandler handler master sub app
+    -> app
+    -> [Text]
+    -> app
+thDispatchAlias = thDispatch
+
+runHandler :: RunHandler String MyApp sub (String, Maybe (YRC.Route MyApp))
+runHandler h _ _ subRoute toMaster = (h, Just $ toMaster subRoute)
 
 main :: IO ()
 main = hspecX $ do
@@ -119,9 +138,10 @@ main = hspecX $ do
             @?= (["subsite", "foo", "bar"], [("baz", "bin")])
 
     describe "thDispatch" $ do
-        let disp x = thDispatch () () [] () ()
-        it "routes to root" $ disp [] @?= Just "this is the root"
-        it "routes to blog post" $ disp ["blog", "somepost"] @?= Just "some blog post: somepost"
+        let disp = thDispatchAlias MyApp MyApp id runHandler ("404", Nothing)
+        it "routes to root" $ disp [] @?= ("this is the root", Just RootR)
+        it "routes to blog post" $ disp ["blog", "somepost"]
+            @?= ("some blog post: somepost", Just $ BlogPostR "somepost")
 
 getRootR :: String
 getRootR = "this is the root"
