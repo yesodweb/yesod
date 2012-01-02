@@ -41,7 +41,7 @@ authGoogleEmail =
         [whamlet|
 <form method=get action=@{tm forwardUrl}>
     <input type=hidden name=openid_identifier value=https://www.google.com/accounts/o8/id>
-    <input type=submit value=_{Msg.LoginTitle}>
+    <input type=submit value=_{Msg.LoginGoogle}>
 |]
     dispatch "GET" ["forward"] = do
         roid <- runInputGet $ iopt textField name
