@@ -15,30 +15,62 @@
 # 
 # Postgresql Yesod setup:
 #
-# * add code to read DATABASE_URL environment variable.
+# * add code to read the DATABASE_URL environment variable.
 # 
 #   import System.Environment
 #   main = do
-#     durl <- getEnv "DATABASE_URL"
 #     # parse env variable
+#     durl <- getEnv "DATABASE_URL"
 #     # pass settings to withConnectionPool instead of directly using loadConnStr
+#     defaultMain (fromArgsExtra loadExtra) withYesodHeroku
 #
 # * add a dependency on the "heroku" package in your cabal file
 #     
-# * add code in Settings.hs to turn that url into connection parameters. The below works for Postgresql.
+# * add code in Application.hs to turn the url into connection parameters. The below works for Postgresql.
 #
 #     #ifdef !DEVELOPMENT
 #     import qualified Web.Heroku
 #     #endif
 #
-#     dbConnParams :: AppEnvironment -> IO [(Text, Text)]
-#     #ifdef !DEVELOPMENT
-#     dbConnParams _ = Web.Heroku.dbConnParams
+#
+#     canonicalizeKey :: (Text, val) -> (Text, val)
+#     canonicalizeKey ("dbname", val) = ("database", val)
+#     canonicalizeKey pair = pair
+#
+#     toMapping :: [(key, val)] -> DO.Object key val
+#     toMapping = DO.Mapping . map (\(key, val) -> (key, DO.Scalar val))
+#
+#     combineMappings :: DO.Object key val -> DO.Object key val -> DO.Object key val
+#     combineMappings (DO.Mapping m1) (DO.Mapping m2) = DO.Mapping $ m1 ++ m2
+#     combineMappings _ _ = error "Data.Object is not a Mapping."
+#
+#     loadHerokuConfig :: DO.TextObject -> IO Settings.PersistConfig
+#     loadHerokuConfig ymlenv = do
+#     #if DEVELOPMENT
+#       let urlMap = DO.Mapping []
 #     #else
-#     dbConnParams env = do
-#       ...
+#       urlMap <- Web.Heroku.dbConnParams >>= return . toMapping . map canonicalizeKey
+#     #endif
+#       either error return $ Database.Persist.Base.loadConfig (combineMappings urlMap ymlenv)
 #
 #
+#     withYesodHeroku :: AppConfig DefaultEnv () -> Logger -> (Application -> IO ()) -> IO ()
+#     withYesodHeroku conf logger f = do
+#        s <- staticSite
+#        dbconf <- withYamlEnvironment "config/postgresql.yml" (appEnv conf) loadHerokuConfig
+#        Database.Persist.Base.withPool (dbconf :: Settings.PersistConfig) $ \p -> do
+#            Database.Persist.Base.runPool dbconf (runMigration migrateAll) p
+#            let h = YesodHeroku conf logger s p
+#            defaultRunner (f . logWare) h
+#      where
+#     #ifdef DEVELOPMENT
+#        logWare = logHandleDev (\msg -> logBS logger msg >> flushLogger logger)
+#     #else
+#        logWare = logStdout
+#     #endif
+
+
+
 # Heroku setup:
 # Find the Heroku guide. Roughly:
 #
