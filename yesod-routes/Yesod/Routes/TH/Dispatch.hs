@@ -4,17 +4,16 @@ module Yesod.Routes.TH.Dispatch
       mkDispatchClause
     ) where
 
+import Prelude hiding (exp)
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH.Syntax
-import Data.Maybe (maybeToList, catMaybes)
-import Control.Monad (replicateM, forM)
+import Data.Maybe (catMaybes)
+import Control.Monad (forM)
 import Data.Text (pack)
 import qualified Yesod.Routes.Dispatch as D
 import qualified Data.Map as Map
 import Data.Char (toLower)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
-import Yesod.Routes.Class
-import Data.Maybe (catMaybes)
 import Control.Applicative ((<$>))
 import Data.List (foldl')
 
@@ -60,6 +59,10 @@ mkDispatchClause runHandler dispatcher ress = do
     u <- [|case $(return dispatched) of
             Just f -> f $(return $ VarE master0)
                         $(return $ VarE sub0)
+                        $(return $ VarE toMaster0)
+                        $(return $ VarE app4040)
+                        $(return $ VarE handler4050)
+                        $(return $ VarE method0)
             Nothing -> $(return $ VarE app4040)
           |]
     return $ Clause pats (NormalB u) $ dispatchFun : methodMaps
@@ -95,6 +98,12 @@ buildRoute runHandler dispatcher (Resource name resPieces resDisp) = do
 
     [|D.Route $(return routePieces) $(return isMulti) $(routeArg3 runHandler dispatcher name resPieces resDisp)|]
 
+routeArg3 :: Q Exp -- ^ runHandler
+          -> Q Exp -- ^ dispatcher
+          -> String -- ^ name of resource
+          -> [Piece]
+          -> Dispatch
+          -> Q Exp
 routeArg3 runHandler dispatcher name resPieces resDisp = do
     pieces <- newName "pieces"
 
@@ -134,7 +143,7 @@ routeArg3 runHandler dispatcher name resPieces resDisp = do
             _ -> return ([], [])
 
     -- The final expression that actually uses the values we've computed
-    caller <- buildCaller runHandler dispatcher name resDisp $ map snd ys ++ yrest'
+    caller <- buildCaller runHandler dispatcher xrest name resDisp $ map snd ys ++ yrest'
 
     -- Put together all the statements
     just <- [|Just|]
@@ -153,13 +162,20 @@ routeArg3 runHandler dispatcher name resPieces resDisp = do
     return $ LamE [VarP pieces] $ CaseE (VarE pieces) matches
 
 -- | The final expression in the individual Route definitions.
-buildCaller runHandler dispatcher name resDisp ys = do
+buildCaller :: Q Exp -- ^ runHandler
+            -> Q Exp -- ^ dispatcher
+            -> Name -- ^ xrest
+            -> String -- ^ name of resource
+            -> Dispatch
+            -> [Name] -- ^ ys
+            -> Q Exp
+buildCaller runHandler dispatcher xrest name resDisp ys = do
     master <- newName "master"
     sub <- newName "sub"
     toMaster <- newName "toMaster"
-    app404 <- newName "app404"
-    handler405 <- newName "handler405"
-    method <- newName "method"
+    app404 <- newName "_app404"
+    handler405 <- newName "_handler405"
+    method <- newName "_method"
 
     let pat = map VarP [master, sub, toMaster, app404, handler405, method]
 
@@ -202,6 +218,7 @@ buildCaller runHandler dispatcher name resDisp ys = do
                     $(return $ VarE app404)
                     $(return $ VarE handler405)
                     $(return $ VarE method)
+                    $(return $ VarE xrest)
                  |]
 
     return $ LamE pat exp
