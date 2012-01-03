@@ -43,6 +43,8 @@ import Data.ByteString.Lazy.Char8 ()
 import Web.ClientSession
 import Data.Char (isUpper)
 import Data.Text (Text)
+import Data.Text.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
 import Data.Monoid (mappend)
 import qualified Data.ByteString as S
 import qualified Blaze.ByteString.Builder
@@ -170,8 +172,8 @@ toWaiApp' y key' env =
     yesodDispatch y y id app404 handler405 method (W.pathInfo env) key' env
   where
     app404 = yesodRunner notFound y y Nothing id
-    handler405 = error "handler405"
-    method = error "method"
+    handler405 route = yesodRunner badMethod y y (Just route) id
+    method = decodeUtf8With lenientDecode $ W.requestMethod env
 
 sendRedirect :: Yesod master => master -> [Text] -> W.Application
 sendRedirect y segments' env =

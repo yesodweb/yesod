@@ -600,7 +600,7 @@ notFound :: GHandler sub master a
 notFound = hcError NotFound
 
 -- | Return a 405 method not supported page.
-badMethod :: GHandler s m a
+badMethod :: GHandler sub master a
 badMethod = do
     w <- waiRequest
     hcError $ BadMethod $ W.requestMethod w
