@@ -81,22 +81,6 @@ instance RenderRoute MySubParam where
 getMySubParam :: MyApp -> Int -> MySubParam
 getMySubParam _ = MySubParam
 
-do
-    texts <- [t|[Text]|]
-    let ress =
-            [ Resource "RootR" [] $ Methods Nothing ["GET"]
-            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] $ Methods Nothing ["GET", "POST"]
-            , Resource "WikiR" [Static "wiki"] $ Methods (Just texts) []
-            , Resource "SubsiteR" [Static "subsite"] $ Subsite (ConT ''MySub) "getMySub"
-            , Resource "SubparamR" [Static "subparam", Dynamic $ ConT ''Int] $ Subsite (ConT ''MySubParam) "getMySubParam"
-            ]
-    rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
-    dispatch <- mkDispatchClause ress
-    return
-        [ rrinst
-        , FunD (mkName "thDispatch") [dispatch]
-        ]
-
 class Dispatcher handler master sub app where
     dispatcher
         :: master
@@ -117,8 +101,25 @@ class RunHandler handler master sub app where
         -> (YRC.Route sub -> YRC.Route master)
         -> app
 
+do
+    texts <- [t|[Text]|]
+    let ress =
+            [ Resource "RootR" [] $ Methods Nothing ["GET"]
+            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] $ Methods Nothing ["GET", "POST"]
+            , Resource "WikiR" [Static "wiki"] $ Methods (Just texts) []
+            , Resource "SubsiteR" [Static "subsite"] $ Subsite (ConT ''MySub) "getMySub"
+            , Resource "SubparamR" [Static "subparam", Dynamic $ ConT ''Int] $ Subsite (ConT ''MySubParam) "getMySubParam"
+            ]
+    rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
+    dispatch <- mkDispatchClause [|runHandler|] [|dispatcher|] ress
+    return
+        [ rrinst
+        , FunD (mkName "thDispatch") [dispatch]
+        ]
+
 instance Dispatcher [Char] MyApp MyApp ([Char], Maybe (YRC.Route MyApp)) where
     dispatcher = thDispatchAlias
+    --dispatcher = thDispatch
 
 instance RunHandler [Char] MyApp MyApp ([Char], Maybe (YRC.Route MyApp)) where
     runHandler h _ _ subRoute toMaster = (h, Just $ toMaster subRoute)
