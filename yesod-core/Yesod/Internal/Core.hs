@@ -33,6 +33,8 @@ module Yesod.Internal.Core
 import Yesod.Content
 import Yesod.Handler hiding (lift)
 
+import Yesod.Routes.Class
+
 import Control.Arrow ((***))
 import Control.Monad (forM)
 import Yesod.Widget
@@ -92,31 +94,34 @@ yesodVersion = "0.9.4"
 #define HAMLET $hamlet
 #endif
 
-class Eq u => RenderRoute u where
-    renderRoute :: u -> ([Text], [(Text, Text)])
-
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
-class YesodDispatch a master where
+class YesodDispatch sub master where
     yesodDispatch
         :: Yesod master
-        => a
+        => master
+        -> sub
+        -> (Route sub -> Route master)
+        -> (Maybe CS.Key -> W.Application) -- ^ 404 handler
+        -> (Route sub -> Maybe CS.Key -> W.Application) -- ^ 405 handler
+        -> Text -- ^ request method
+        -> [Text] -- ^ pieces
         -> Maybe CS.Key
-        -> [Text]
-        -> master
-        -> (Route a -> Route master)
-        -> Maybe W.Application
+        -> W.Application
 
     yesodRunner :: Yesod master
-                => a
+                => GHandler sub master ChooseRep
                 -> master
-                -> (Route a -> Route master)
-                -> Maybe CS.Key -> Maybe (Route a) -> GHandler a master ChooseRep -> W.Application
+                -> sub
+                -> Maybe (Route sub)
+                -> (Route sub -> Route master)
+                -> Maybe CS.Key
+                -> W.Application
     yesodRunner = defaultYesodRunner
 
 -- | Define settings for a Yesod applications. The only required setting is
 -- 'approot'; other than that, there are intelligent defaults.
-class RenderRoute (Route a) => Yesod a where
+class RenderRoute a => Yesod a where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --
@@ -322,14 +327,14 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
     char = show . snd . loc_start
 
 defaultYesodRunner :: Yesod master
-                   => a
+                   => GHandler sub master ChooseRep
                    -> master
-                   -> (Route a -> Route master)
+                   -> sub
+                   -> Maybe (Route sub)
+                   -> (Route sub -> Route master)
                    -> Maybe CS.Key
-                   -> Maybe (Route a)
-                   -> GHandler a master ChooseRep
                    -> W.Application
-defaultYesodRunner _ m toMaster _ murl _ req
+defaultYesodRunner _ m _ murl toMaster _ req
     | maximumContentLength m (fmap toMaster murl) < len =
         return $ W.responseLBS
             (H.Status 413 "Too Large")
@@ -341,7 +346,7 @@ defaultYesodRunner _ m toMaster _ murl _ req
         case reads $ S8.unpack s of
             [] -> Nothing
             (x, _):_ -> Just x
-defaultYesodRunner s master toMasterRoute mkey murl handler req = do
+defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
     now <- {-# SCC "getCurrentTime" #-} liftIO getCurrentTime
     let getExpires m = {-# SCC "getExpires" #-} fromIntegral (m * 60) `addUTCTime` now
     let exp' = {-# SCC "exp'" #-} getExpires $ clientSessionDuration master
@@ -374,7 +379,7 @@ defaultYesodRunner s master toMasterRoute mkey murl handler req = do
                 handler
     let sessionMap = Map.fromList
                    $ filter (\(x, _) -> x /= nonceKey) session'
-    yar <- handlerToYAR master s toMasterRoute (yesodRender master) errorHandler rr murl sessionMap h
+    yar <- handlerToYAR master sub toMasterRoute (yesodRender master) errorHandler rr murl sessionMap h
     let mnonce = reqNonce rr
     -- FIXME should we be caching this IV value and reusing it for efficiency?
     iv <- {-# SCC "iv" #-} maybe (return $ error "Should not be used") (const $ liftIO CS.randomIV) mkey

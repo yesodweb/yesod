@@ -63,8 +63,9 @@ import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 import Text.Coffee
+import Yesod.Routes.Class
 import Yesod.Handler
-    ( Route, GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
+    ( GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
     , getMessageRender, getUrlRenderParams, MonadLift (..)
     )
 import Yesod.Message (RenderMessage)
