@@ -17,7 +17,9 @@ import Yesod.Routes.Class
 
 mkDispatchClause :: [Resource]
                  -> Q Clause
-mkDispatchClause ress = undefined
+mkDispatchClause ress = do
+    u <- [|error "mkDispatchClause"|]
+    return $ Clause [] (NormalB u) []
 {- FIXME
     let routes = fmap ListE $ mapM toRoute ress
     sub <- newName "sub"
@@ -56,7 +58,6 @@ mkTsPattern pieces mmulti = do
     go Dynamic{} = do
         dyn <- newName "dyn"
         return (Just dyn, VarP dyn)
--}
 
 -- | Convert a 'Piece' into a 'D.Piece'.
 toPiece :: Piece -> Q Exp
@@ -96,3 +97,4 @@ toRoute res = do
                         body
             [|D.Route $(ps) $(m) $(return func)|]
         Subsite _ func -> [|D.Route $(ps) $(m) $ $(toApp) $(return $ VarE $ mkName $ "handle" ++ resourceName res)|] -- FIXME
+-}
