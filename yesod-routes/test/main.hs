@@ -145,47 +145,50 @@ thDispatchAlias
 --thDispatchAlias = thDispatch
 thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
     case dispatch pieces0 of
-        Just (Left (route, mhandler)) ->
-            let handler = fromMaybe handler405 $ mhandler method0
-             in runHandler handler master sub route toMaster
-        Just (Right f) -> f master sub toMaster app404 handler405 method0
+        Just f -> f master sub toMaster app404 handler405 method0
         Nothing -> app404
   where
     dispatch = toDispatch
         [ Route [] False $ \pieces ->
             case pieces of
                 [] -> do
-                    Just $ Left (RootR, \method ->
-                        case Map.lookup method methodsRootR of
-                            Just f -> Just f
-                            Nothing -> Nothing)
+                    Just $ \master' sub' toMaster' app404' handler405' method ->
+                        let handler =
+                                case Map.lookup method methodsRootR of
+                                    Just f -> f
+                                    Nothing -> handler405'
+                         in runHandler handler master' sub' RootR toMaster'
                 _ -> error "Invariant violated"
         , Route [D.Static "blog", D.Dynamic] False $ \pieces ->
             case pieces of
                 [_, x2] -> do
                     y2 <- fromPathPiece x2
-                    Just $ Left (BlogPostR y2, \method ->
-                        case Map.lookup method methodsBlogPostR of
-                            Just f -> Just (f y2)
-                            Nothing -> Nothing)
+                    Just $ \master' sub' toMaster' app404' handler405' method ->
+                        let handler =
+                                case Map.lookup method methodsBlogPostR of
+                                    Just f -> f y2
+                                    Nothing -> handler405'
+                         in runHandler handler master' sub' (BlogPostR y2) toMaster'
                 _ -> error "Invariant violated"
         , Route [D.Static "wiki"] True $ \pieces ->
             case pieces of
                 _:x2 -> do
                     y2 <- fromPathMultiPiece x2
-                    Just $ Left (WikiR y2, const $ Just $ handleWikiR y2)
+                    Just $ \master' sub' toMaster' app404' handler405' method ->
+                        let handler = handleWikiR y2
+                         in runHandler handler master' sub' (WikiR y2) toMaster'
                 _ -> error "Invariant violated"
         , Route [D.Static "subsite"] True $ \pieces ->
             case pieces of
                 _:x2 -> do
-                    Just $ Right $ \master' sub' toMaster' app404' handler405' method ->
+                    Just $ \master' sub' toMaster' app404' handler405' method ->
                         dispatcher master' (getMySub sub') (toMaster' . SubsiteR) app404' handler405' method x2
                 _ -> error "Invariant violated"
         , Route [D.Static "subparam", D.Dynamic] True $ \pieces ->
             case pieces of
                 _:x2:x3 -> do
                     y2 <- fromPathPiece x2
-                    Just $ Right $ \master' sub' toMaster' app404' handler405' method ->
+                    Just $ \master' sub' toMaster' app404' handler405' method ->
                         dispatcher master' (getMySubParam sub' y2) (toMaster' . SubparamR y2) app404' handler405' method x3
                 _ -> error "Invariant violated"
         ]
