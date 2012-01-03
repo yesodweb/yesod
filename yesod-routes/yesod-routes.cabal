@@ -39,6 +39,7 @@ test-suite runtests
                  , hspec                     >= 0.6      && < 0.10
                  , containers
                  , template-haskell
+                 , path-pieces
     ghc-options:     -Wall
 
 source-repository head

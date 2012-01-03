@@ -2,17 +2,22 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 import Test.HUnit ((@?=))
-import Data.Text (Text, unpack)
+import Data.Text (Text, unpack, singleton)
 import Yesod.Routes.Dispatch hiding (Static, Dynamic)
 import Yesod.Routes.Class hiding (Route)
 import qualified Yesod.Routes.Class as YRC
+import Web.PathPieces
 import qualified Yesod.Routes.Dispatch as D
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
@@ -64,13 +69,26 @@ instance RenderRoute MySub where
         deriving (Show, Eq, Read)
     renderRoute (MySubRoute x) = x
 
+getMySub :: MyApp -> MySub
+getMySub MyApp = MySub
+
+data MySubParam = MySubParam Int
+instance RenderRoute MySubParam where
+    data YRC.Route MySubParam = ParamRoute Char
+        deriving (Show, Eq, Read)
+    renderRoute (ParamRoute x) = ([singleton x], [])
+
+getMySubParam :: MyApp -> Int -> MySubParam
+getMySubParam _ = MySubParam
+
 do
     texts <- [t|[Text]|]
     let ress =
             [ Resource "RootR" [] $ Methods Nothing ["GET"]
-            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] $ Methods Nothing ["GET"]
+            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] $ Methods Nothing ["GET", "POST"]
             , Resource "WikiR" [Static "wiki"] $ Methods (Just texts) []
             , Resource "SubsiteR" [Static "subsite"] $ Subsite (ConT ''MySub) "getMySub"
+            , Resource "SubparamR" [Static "subparam", Dynamic $ ConT ''Int] $ Subsite (ConT ''MySubParam) "getMySubParam"
             ]
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
     dispatch <- mkDispatchClause ress
@@ -79,27 +97,100 @@ do
         , FunD (mkName "thDispatch") [dispatch]
         ]
 
-type RunHandler handler master sub app =
-        handler
-     -> master
-     -> sub
-     -> YRC.Route sub
-     -> (YRC.Route sub -> YRC.Route master)
-     -> app
+class Dispatcher handler master sub app where
+    dispatcher
+        :: master
+        -> sub
+        -> (YRC.Route sub -> YRC.Route master)
+        -> app -- ^ 404 page
+        -> handler -- ^ 405 page
+        -> Text -- ^ method
+        -> [Text]
+        -> app
+
+class RunHandler handler master sub app where
+    runHandler
+        :: handler
+        -> master
+        -> sub
+        -> YRC.Route sub
+        -> (YRC.Route sub -> YRC.Route master)
+        -> app
+
+instance Dispatcher [Char] MyApp MyApp ([Char], Maybe (YRC.Route MyApp)) where
+    dispatcher = thDispatchAlias
+
+instance RunHandler [Char] MyApp MyApp ([Char], Maybe (YRC.Route MyApp)) where
+    runHandler h _ _ subRoute toMaster = (h, Just $ toMaster subRoute)
+
+instance Dispatcher [Char] master MySub ([Char], Maybe (YRC.Route master)) where
+    dispatcher _ _ toMaster _ _ _ pieces = ("subsite: " ++ show pieces, Just $ toMaster $ MySubRoute (pieces, []))
+
+instance Dispatcher [Char] master MySubParam ([Char], Maybe (YRC.Route master)) where
+    dispatcher _ (MySubParam i) toMaster app404 _ _ pieces =
+        case map unpack pieces of
+            [[c]] -> ("subparam " ++ show i ++ ' ' : [c], Just $ toMaster $ ParamRoute c)
+            _ -> app404
 
 thDispatchAlias
-    :: (master ~ MyApp, handler ~ String)
+    :: (master ~ MyApp, sub ~ MyApp, handler ~ String, app ~ (String, Maybe (YRC.Route MyApp)))
     => master
     -> sub
     -> (YRC.Route sub -> YRC.Route master)
-    -> RunHandler handler master sub app
-    -> app
+    -> app -- ^ 404 page
+    -> handler -- ^ 405 page
+    -> Text -- ^ method
     -> [Text]
     -> app
-thDispatchAlias = thDispatch
-
-runHandler :: RunHandler String MyApp sub (String, Maybe (YRC.Route MyApp))
-runHandler h _ _ subRoute toMaster = (h, Just $ toMaster subRoute)
+--thDispatchAlias = thDispatch
+thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
+    case dispatch pieces0 of
+        Just (Left (route, mhandler)) ->
+            let handler = fromMaybe handler405 $ mhandler method0
+             in runHandler handler master sub route toMaster
+        Just (Right f) -> f master sub toMaster app404 handler405 method0
+        Nothing -> app404
+  where
+    dispatch = toDispatch
+        [ Route [] False $ \pieces ->
+            case pieces of
+                [] -> do
+                    Just $ Left (RootR, \method ->
+                        case Map.lookup method methodsRootR of
+                            Just f -> Just f
+                            Nothing -> Nothing)
+                _ -> error "Invariant violated"
+        , Route [D.Static "blog", D.Dynamic] False $ \pieces ->
+            case pieces of
+                [_, x2] -> do
+                    y2 <- fromPathPiece x2
+                    Just $ Left (BlogPostR y2, \method ->
+                        case Map.lookup method methodsBlogPostR of
+                            Just f -> Just (f y2)
+                            Nothing -> Nothing)
+                _ -> error "Invariant violated"
+        , Route [D.Static "wiki"] True $ \pieces ->
+            case pieces of
+                _:x2 -> do
+                    y2 <- fromPathMultiPiece x2
+                    Just $ Left (WikiR y2, const $ Just $ handleWikiR y2)
+                _ -> error "Invariant violated"
+        , Route [D.Static "subsite"] True $ \pieces ->
+            case pieces of
+                _:x2 -> do
+                    Just $ Right $ \master' sub' toMaster' app404' handler405' method ->
+                        dispatcher master' (getMySub sub') (toMaster' . SubsiteR) app404' handler405' method x2
+                _ -> error "Invariant violated"
+        , Route [D.Static "subparam", D.Dynamic] True $ \pieces ->
+            case pieces of
+                _:x2:x3 -> do
+                    y2 <- fromPathPiece x2
+                    Just $ Right $ \master' sub' toMaster' app404' handler405' method ->
+                        dispatcher master' (getMySubParam sub' y2) (toMaster' . SubparamR y2) app404' handler405' method x3
+                _ -> error "Invariant violated"
+        ]
+    methodsRootR = Map.fromList [("GET", getRootR)]
+    methodsBlogPostR = Map.fromList [("GET", getBlogPostR), ("POST", postBlogPostR)]
 
 main :: IO ()
 main = hspecX $ do
@@ -136,22 +227,33 @@ main = hspecX $ do
         it "renders wiki correctly" $ renderRoute (WikiR ["foo", "bar"]) @?= (["wiki", "foo", "bar"], [])
         it "renders subsite correctly" $ renderRoute (SubsiteR $ MySubRoute (["foo", "bar"], [("baz", "bin")]))
             @?= (["subsite", "foo", "bar"], [("baz", "bin")])
+        it "renders subsite param correctly" $ renderRoute (SubparamR 6 $ ParamRoute 'c')
+            @?= (["subparam", "6", "c"], [])
 
     describe "thDispatch" $ do
-        let disp = thDispatchAlias MyApp MyApp id runHandler ("404", Nothing)
-        it "routes to root" $ disp [] @?= ("this is the root", Just RootR)
-        it "routes to blog post" $ disp ["blog", "somepost"]
+        let disp = thDispatchAlias MyApp MyApp id ("404", Nothing) "405"
+        it "routes to root" $ disp "GET" [] @?= ("this is the root", Just RootR)
+        it "POST root is 405" $ disp "POST" [] @?= ("405", Just RootR)
+        it "invalid page is a 404" $ disp "GET" ["not-found"] @?= ("404", Nothing)
+        it "routes to blog post" $ disp "GET" ["blog", "somepost"]
             @?= ("some blog post: somepost", Just $ BlogPostR "somepost")
+        it "routes to blog post, POST method" $ disp "POST" ["blog", "somepost2"]
+            @?= ("POST some blog post: somepost2", Just $ BlogPostR "somepost2")
+        it "routes to wiki" $ disp "DELETE" ["wiki", "foo", "bar"]
+            @?= ("the wiki: [\"foo\",\"bar\"]", Just $ WikiR ["foo", "bar"])
+        it "routes to subsite" $ disp "PUT" ["subsite", "baz"]
+            @?= ("subsite: [\"baz\"]", Just $ SubsiteR $ MySubRoute (["baz"], []))
+        it "routes to subparam" $ disp "PUT" ["subparam", "6", "q"]
+            @?= ("subparam 6 q", Just $ SubparamR 6 $ ParamRoute 'q')
 
 getRootR :: String
 getRootR = "this is the root"
 
-{- FIXME
 getBlogPostR :: Text -> String
 getBlogPostR t = "some blog post: " ++ unpack t
--}
-getBlogPostR = undefined
 
-handleWikiR = "the wiki"
+postBlogPostR :: Text -> String
+postBlogPostR t = "POST some blog post: " ++ unpack t
 
-handleSubsiteR = "a subsite"
+handleWikiR :: [Text] -> String
+handleWikiR ts = "the wiki: " ++ show ts
