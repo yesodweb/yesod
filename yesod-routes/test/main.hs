@@ -5,6 +5,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 import Test.HUnit ((@?=))
@@ -17,7 +19,6 @@ import qualified Yesod.Routes.Dispatch as D
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
 
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
@@ -81,25 +82,28 @@ instance RenderRoute MySubParam where
 getMySubParam :: MyApp -> Int -> MySubParam
 getMySubParam _ = MySubParam
 
-class Dispatcher handler master sub app where
+type Handler sub master = String
+type App sub master = (String, Maybe (YRC.Route master))
+
+class Dispatcher sub master where
     dispatcher
         :: master
         -> sub
         -> (YRC.Route sub -> YRC.Route master)
-        -> app -- ^ 404 page
-        -> handler -- ^ 405 page
+        -> App sub master -- ^ 404 page
+        -> Handler sub master -- ^ 405 page
         -> Text -- ^ method
         -> [Text]
-        -> app
+        -> App sub master
 
-class RunHandler handler master sub app where
+class RunHandler sub master where
     runHandler
-        :: handler
+        :: Handler sub master
         -> master
         -> sub
         -> YRC.Route sub
         -> (YRC.Route sub -> YRC.Route master)
-        -> app
+        -> App sub master
 
 do
     texts <- [t|[Text]|]
@@ -114,20 +118,21 @@ do
     dispatch <- mkDispatchClause [|runHandler|] [|dispatcher|] ress
     return
         [ rrinst
-        , FunD (mkName "thDispatch") [dispatch]
+        , InstanceD
+            []
+            (ConT ''Dispatcher
+                `AppT` ConT ''MyApp
+                `AppT` ConT ''MyApp)
+            [FunD (mkName "dispatcher") [dispatch]]
         ]
 
-instance Dispatcher [Char] MyApp MyApp ([Char], Maybe (YRC.Route MyApp)) where
-    dispatcher = thDispatchAlias
-    --dispatcher = thDispatch
-
-instance RunHandler [Char] MyApp MyApp ([Char], Maybe (YRC.Route MyApp)) where
+instance RunHandler MyApp master where
     runHandler h _ _ subRoute toMaster = (h, Just $ toMaster subRoute)
 
-instance Dispatcher [Char] master MySub ([Char], Maybe (YRC.Route master)) where
+instance Dispatcher MySub master where
     dispatcher _ _ toMaster _ _ _ pieces = ("subsite: " ++ show pieces, Just $ toMaster $ MySubRoute (pieces, []))
 
-instance Dispatcher [Char] master MySubParam ([Char], Maybe (YRC.Route master)) where
+instance Dispatcher MySubParam master where
     dispatcher _ (MySubParam i) toMaster app404 _ _ pieces =
         case map unpack pieces of
             [[c]] -> ("subparam " ++ show i ++ ' ' : [c], Just $ toMaster $ ParamRoute c)
@@ -153,7 +158,7 @@ thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
         [ Route [] False $ \pieces ->
             case pieces of
                 [] -> do
-                    Just $ \master' sub' toMaster' app404' handler405' method ->
+                    Just $ \master' sub' toMaster' _app404' handler405' method ->
                         let handler =
                                 case Map.lookup method methodsRootR of
                                     Just f -> f
@@ -164,7 +169,7 @@ thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
             case pieces of
                 [_, x2] -> do
                     y2 <- fromPathPiece x2
-                    Just $ \master' sub' toMaster' app404' handler405' method ->
+                    Just $ \master' sub' toMaster' _app404' handler405' method ->
                         let handler =
                                 case Map.lookup method methodsBlogPostR of
                                     Just f -> f y2
@@ -175,7 +180,7 @@ thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
             case pieces of
                 _:x2 -> do
                     y2 <- fromPathMultiPiece x2
-                    Just $ \master' sub' toMaster' app404' handler405' method ->
+                    Just $ \master' sub' toMaster' _app404' _handler405' _method ->
                         let handler = handleWikiR y2
                          in runHandler handler master' sub' (WikiR y2) toMaster'
                 _ -> error "Invariant violated"
@@ -235,7 +240,7 @@ main = hspecX $ do
             @?= (["subparam", "6", "c"], [])
 
     describe "thDispatch" $ do
-        let disp = thDispatchAlias MyApp MyApp id ("404", Nothing) "405"
+        let disp = dispatcher MyApp MyApp id ("404" :: String, Nothing) "405"
         it "routes to root" $ disp "GET" [] @?= ("this is the root", Just RootR)
         it "POST root is 405" $ disp "POST" [] @?= ("405", Just RootR)
         it "invalid page is a 404" $ disp "GET" ["not-found"] @?= ("404", Nothing)
