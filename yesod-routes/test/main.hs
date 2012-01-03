@@ -14,11 +14,9 @@ import Data.Text (Text, unpack, singleton)
 import Yesod.Routes.Dispatch hiding (Static, Dynamic)
 import Yesod.Routes.Class hiding (Route)
 import qualified Yesod.Routes.Class as YRC
-import Web.PathPieces
 import qualified Yesod.Routes.Dispatch as D
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
-import qualified Data.Map as Map
 
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
@@ -138,6 +136,7 @@ instance Dispatcher MySubParam master where
             [[c]] -> ("subparam " ++ show i ++ ' ' : [c], Just $ toMaster $ ParamRoute c)
             _ -> app404
 
+{-
 thDispatchAlias
     :: (master ~ MyApp, sub ~ MyApp, handler ~ String, app ~ (String, Maybe (YRC.Route MyApp)))
     => master
@@ -200,6 +199,7 @@ thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
         ]
     methodsRootR = Map.fromList [("GET", getRootR)]
     methodsBlogPostR = Map.fromList [("GET", getBlogPostR), ("POST", postBlogPostR)]
+-}
 
 main :: IO ()
 main = hspecX $ do

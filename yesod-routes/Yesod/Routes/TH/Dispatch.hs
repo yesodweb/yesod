@@ -17,6 +17,53 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Control.Applicative ((<$>))
 import Data.List (foldl')
 
+-- |
+--
+-- This function will generate a single clause that will address all your
+-- routing needs. It takes three arguments. The third (a list of 'Resource's)
+-- is self-explanatory. We\'ll discuss the first two. But first, let\'s cover
+-- the terminology.
+--
+-- Dispatching involves a master type and a sub type. When you dispatch to the
+-- top level type, master and sub are the same. Each time to dispatch to
+-- another subsite, the sub changes. This requires two changes:
+--
+-- * Getting the new sub value. This is handled via 'subsiteFunc'.
+--
+-- * Figure out a way to convert sub routes to the original master route. To
+-- address this, we keep a toMaster function, and each time we dispatch to a
+-- new subsite, we compose it with the constructor for that subsite.
+--
+-- Dispatching acts on two different components: the request method and a list
+-- of path pieces. If we cannot match the path pieces, we need to return a 404
+-- response. If the path pieces match, but the method is not supported, we need
+-- to return a 405 response.
+--
+-- The final result of dispatch is going to be an application type. A simple
+-- example would be the WAI Application type. However, our handler functions
+-- will need more input: the master/subsite, the toMaster function, and the
+-- type-safe route. Therefore, we need to have another type, the handler type,
+-- and a function that turns a handler into an application, i.e.
+--
+-- > runHandler :: handler sub master -> master -> sub -> Route sub -> (Route sub -> Route master) -> app
+--
+-- This is the first argument to our function. Note that this will almost
+-- certainly need to be a method of a typeclass, since it will want to behave
+-- differently based on the subsite.
+--
+-- Note that the 404 response passed in is an application, while the 405
+-- response is a handler, since the former can\'t be passed the type-safe
+-- route.
+--
+-- In the case of a subsite, we don\'t directly deal with a handler function.
+-- Instead, we redispatch to the subsite, passing on the updated sub value and
+-- toMaster function, as well as any remaining, unparsed path pieces. This
+-- function looks like:
+--
+-- > dispatcher :: master -> sub -> (Route sub -> Route master) -> app -> handler sub master -> Text -> [Text] -> app
+--
+-- Where the parameters mean master, sub, toMaster, 404 response, 405 response,
+-- request method and path pieces.
 mkDispatchClause :: Q Exp -- ^ runHandler function
                  -> Q Exp -- ^ dispatcher function
                  -> [Resource]
