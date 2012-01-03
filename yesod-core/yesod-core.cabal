@@ -46,6 +46,7 @@ library
         build-depends: wai-test
 
     build-depends:   time                  >= 1.1.4
+                   , yesod-routes          >= 0.0      && < 0.1
                    , wai                   >= 1.0      && < 1.1
                    , wai-extra             >= 1.0      && < 1.1
                    , bytestring            >= 0.9.1.4  && < 0.10
@@ -94,7 +95,6 @@ library
                      Yesod.Internal.Core
                      Yesod.Internal.Session
                      Yesod.Internal.Request
-                     Yesod.Internal.Dispatch
                      Yesod.Internal.RouteParsing
                      Paths_yesod_core
     ghc-options:     -Wall
