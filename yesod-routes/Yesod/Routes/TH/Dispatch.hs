@@ -14,12 +14,66 @@ import qualified Data.Map as Map
 import Data.Char (toLower)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
+import Data.Maybe (catMaybes)
+import Control.Applicative ((<$>))
 
 mkDispatchClause :: [Resource]
                  -> Q Clause
 mkDispatchClause ress = do
+    -- Allocate the names to be used. Start off with the names passed to the
+    -- function itself (with a 0 suffix).
+    master0 <- newName "master0"
+    sub0 <- newName "sub0"
+    toMaster0 <- newName "toMaster0"
+    app4040 <- newName "app4040"
+    handler4050 <- newName "handler4050"
+    method0 <- newName "method0"
+    pieces0 <- newName "pieces0"
+
+    -- The following names will be used internally. We don't reuse names so as
+    -- to avoid shadowing names (triggers warnings with -Wall). Additionally,
+    -- we want to ensure that none of the code passed to toDispatch uses
+    -- variables from the closure to prevent the dispatch data structure from
+    -- being rebuilt on each run.
+    master <- newName "master"
+    sub <- newName "sub"
+    toMaster <- newName "toMaster"
+    app404 <- newName "app404"
+    handler405 <- newName "handler405"
+    method <- newName "method"
+    pieces <- newName "pieces"
+
+    -- Name of the dispatch function itself
+    dispatch <- newName "dispatch"
+
+    -- The input to the clause.
+    let pats = map VarP [master0, sub0, toMaster0, app4040, handler4050, method0, pieces0]
+
+    -- For each resource that dispatches based on methods, build up a map for handling the dispatching.
+    methodMaps <- catMaybes <$> mapM buildMethodMap ress
+
     u <- [|error "mkDispatchClause"|]
-    return $ Clause [] (NormalB u) []
+    return $ Clause pats (NormalB u) methodMaps
+
+-- | Determine the name of the method map for a given resource name.
+methodMapName :: String -> Name
+methodMapName s = mkName $ "methods" ++ s
+
+buildMethodMap :: Resource -> Q (Maybe Dec)
+buildMethodMap (Resource _ _ (Methods _ [])) = return Nothing -- single handle function
+buildMethodMap (Resource name _ (Methods _ methods)) = do
+    fromList <- [|Map.fromList|]
+    methods' <- mapM go methods
+    let exp = fromList `AppE` ListE methods'
+    let fun = FunD (methodMapName name) [Clause [] (NormalB exp) []]
+    return $ Just fun
+  where
+    go method = do
+        let func = VarE $ mkName $ map toLower method ++ name
+        pack' <- [|pack|]
+        return $ TupE [pack' `AppE` LitE (StringL method), func]
+buildMethodMap (Resource _ _ Subsite{}) = return Nothing
+
 {- FIXME
     let routes = fmap ListE $ mapM toRoute ress
     sub <- newName "sub"
