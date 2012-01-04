@@ -9,7 +9,6 @@ import Yesod.Form
 import Yesod.Auth.Kerberos
 
 data Kerberos = Kerberos
-type Handler = GHandler Kerberos Kerberos
 
 mkYesod "Kerberos" [parseRoutes|
 / RootR GET
