@@ -5,6 +5,7 @@ license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Efficient routing for Yesod.
+description:     Provides an efficient routing system, a parser and TH code generation.
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.8
