@@ -9,8 +9,9 @@
 module Yesod.Auth
     ( -- * Subsite
       Auth
+    , AuthRoute
+    , Route (..)
     , AuthPlugin (..)
-    , AuthRoute (..)
     , getAuth
     , YesodAuth (..)
       -- * Plugin interface
@@ -52,6 +53,8 @@ import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
 
 data Auth = Auth
+
+type AuthRoute = Route Auth
 
 type Method = Text
 type Piece = Text

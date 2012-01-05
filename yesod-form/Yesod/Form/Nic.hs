@@ -11,6 +11,7 @@ module Yesod.Form.Nic
     ) where
 
 import Yesod.Handler
+import Yesod.Core (Route)
 import Yesod.Form
 import Yesod.Widget
 import Text.HTML.SanitizeXSS (sanitizeBalance)

@@ -16,6 +16,7 @@ module Yesod.Form.Jquery
     ) where
 
 import Yesod.Handler
+import Yesod.Core (Route)
 import Yesod.Form
 import Yesod.Widget
 import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,

@@ -22,9 +22,7 @@ module Yesod.AtomFeed
     , module Yesod.FeedTypes
     ) where
 
-import Yesod.Content
-import Yesod.Handler
-import Yesod.Widget
+import Yesod.Core
 import Yesod.FeedTypes
 import Text.Hamlet (HtmlUrl, xhamlet, hamlet)
 import qualified Data.ByteString.Char8 as S8
