@@ -26,7 +26,7 @@ module Yesod.Sitemap
     ) where
 
 import Yesod.Content (RepXml (..), RepPlain (..), toContent, formatW3)
-import Yesod.Handler (Route, GHandler, getUrlRender)
+import Yesod.Core (Route, GHandler, getUrlRender)
 import Yesod.Handler (hamletToContent)
 import Text.Hamlet (HtmlUrl, xhamlet)
 import Data.Time (UTCTime)

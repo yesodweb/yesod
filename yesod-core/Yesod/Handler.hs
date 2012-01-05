@@ -24,8 +24,7 @@
 ---------------------------------------------------------
 module Yesod.Handler
     ( -- * Type families
-      Route
-    , YesodSubRoute (..)
+      YesodSubRoute (..)
       -- * Handler monad
     , GHandler
       -- ** Read information from handler
@@ -174,9 +173,7 @@ import Network.Wai (requestBody)
 import Data.Conduit (($$))
 import Control.Monad.Trans.Control
 import Control.Monad.Base
-
--- | The type-safe URLs associated with a site argument.
-type family Route a
+import Yesod.Routes.Class
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
@@ -603,7 +600,7 @@ notFound :: GHandler sub master a
 notFound = hcError NotFound
 
 -- | Return a 405 method not supported page.
-badMethod :: GHandler s m a
+badMethod :: GHandler sub master a
 badMethod = do
     w <- waiRequest
     hcError $ BadMethod $ W.requestMethod w

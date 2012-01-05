@@ -21,7 +21,7 @@ import Data.Maybe (fromMaybe)
 pid :: Text
 pid = "browserid"
 
-complete :: AuthRoute
+complete :: Route Auth
 complete = PluginR pid []
 
 authBrowserIdAudience :: YesodAuth m

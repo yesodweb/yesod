@@ -29,7 +29,7 @@
 module Yesod.Static
     ( -- * Subsite
       Static (..)
-    , StaticRoute (..)
+    , Route (..)
       -- * Smart constructor
     , static
     , staticDevel
@@ -120,36 +120,32 @@ embed fp =
         { ssFolder = embeddedLookup (toEmbedded $(embedDir fp))
         })|]
 
-
--- | A route on the static subsite (see also 'staticFiles').
---
--- You may use this constructor directly to manually link to a
--- static file.  The first argument is the sub-path to the file
--- being served whereas the second argument is the key-value
--- pairs in the query string.  For example,
---
--- > StaticRoute $ StaticR [\"thumb001.jpg\"] [(\"foo\", \"5\"), (\"bar\", \"choc\")]
---
--- would generate a url such as
--- @http://www.example.com/static/thumb001.jpg?foo=5&bar=choc@
--- The StaticRoute constructor can be used when the URL cannot be
--- statically generated at compile-time (e.g. when generating
--- image galleries).
-data StaticRoute = StaticRoute [Text] [(Text, Text)]
-    deriving (Eq, Show, Read)
-
-type instance Route Static = StaticRoute
-
-instance RenderRoute StaticRoute where
+instance RenderRoute Static where
+    -- | A route on the static subsite (see also 'staticFiles').
+    --
+    -- You may use this constructor directly to manually link to a
+    -- static file.  The first argument is the sub-path to the file
+    -- being served whereas the second argument is the key-value
+    -- pairs in the query string.  For example,
+    --
+    -- > StaticRoute $ StaticR [\"thumb001.jpg\"] [(\"foo\", \"5\"), (\"bar\", \"choc\")]
+    --
+    -- would generate a url such as
+    -- @http://www.example.com/static/thumb001.jpg?foo=5&bar=choc@
+    -- The StaticRoute constructor can be used when the URL cannot be
+    -- statically generated at compile-time (e.g. when generating
+    -- image galleries).
+    data Route Static = StaticRoute [Text] [(Text, Text)]
+        deriving (Eq, Show, Read)
     renderRoute (StaticRoute x y) = (x, y)
 
 instance Yesod master => YesodDispatch Static master where
     -- Need to append trailing slash to make relative links work
-    yesodDispatch _ _ [] _ _ = Just $
-        \req -> return $ responseLBS status301 [("Location", rawPathInfo req `S.append` "/")] ""
+    yesodDispatch _ _ _ _ _ _ [] _ req =
+        return $ responseLBS status301 [("Location", rawPathInfo req `S.append` "/")] ""
 
-    yesodDispatch (Static set) _ textPieces  _ _ = Just $
-        \req -> staticApp set req { pathInfo = textPieces }
+    yesodDispatch _ (Static set) _ _ _ _ textPieces  _ req =
+        staticApp set req { pathInfo = textPieces }
 
 notHidden :: Prelude.FilePath -> Bool
 notHidden "tmp" = False
