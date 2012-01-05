@@ -9,15 +9,10 @@ module Yesod.Routes.Parse
     , parseType
     ) where
 
-import Web.PathPieces
 import Language.Haskell.TH.Syntax
 import Data.Maybe
-import Data.Either
-import Data.List
-import Data.Char (toLower, isUpper)
-import qualified Data.Text
+import Data.Char (isUpper)
 import Language.Haskell.TH.Quote
-import Data.Data
 import qualified System.IO as SIO
 import Yesod.Routes.TH
 
@@ -79,7 +74,7 @@ dispatchFromString rest mmulti
     | all (all isUpper) rest = Methods mmulti rest
 dispatchFromString [subTyp, subFun] Nothing =
     Subsite subTyp subFun
-dispatchFromString [subTyp, subFun] Just{} =
+dispatchFromString [_, _] Just{} =
     error "Subsites cannot have a multipiece"
 dispatchFromString rest _ = error $ "Invalid list of methods: " ++ show rest
 
@@ -92,7 +87,7 @@ piecesFromString "" = ([], Nothing)
 piecesFromString x =
     case (this, rest) of
         (Left typ, ([], Nothing)) -> ([], Just typ)
-        (Left typ, _) -> error "Multipiece must be last piece"
+        (Left _, _) -> error "Multipiece must be last piece"
         (Right piece, (pieces, mtyp)) -> (piece:pieces, mtyp)
   where
     (y, z) = break (== '/') x
