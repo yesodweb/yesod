@@ -24,14 +24,12 @@ module Yesod.Dispatch
     ) where
 
 import Data.Functor   ((<$>))
-import Data.Either    (partitionEithers)
 import Prelude hiding (exp)
 import Yesod.Internal.Core
 import Yesod.Handler hiding (lift)
 import Yesod.Widget (GWidget)
 
 import Web.PathPieces
-import Yesod.Routes.Parse (parseRoutes, parseRoutesNoCheck, parseRoutesFile, parseRoutesFileNoCheck)
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
@@ -41,7 +39,6 @@ import Network.Wai.Middleware.Autohead
 import Data.ByteString.Lazy.Char8 ()
 
 import Web.ClientSession
-import Data.Char (isUpper)
 import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -126,10 +123,10 @@ mkYesodGeneral name args clazzes isSub resS = do
     let ytyp = if isSub
                 then ConT ''YesodDispatch `AppT` arg `AppT` VarT master
                 else ConT ''YesodDispatch `AppT` arg `AppT` arg
-    let yesodDispatch =
+    let yesodDispatch' =
             InstanceD ctx ytyp [FunD (mkName "yesodDispatch") [disp]]
 
-    return (renderRouteDec : masterTypSyns, [yesodDispatch])
+    return (renderRouteDec : masterTypSyns, [yesodDispatch'])
   where
     name' = mkName name
     masterTypSyns
