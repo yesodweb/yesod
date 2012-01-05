@@ -25,7 +25,7 @@ import Yesod.FeedTypes
 import Yesod.AtomFeed
 import Yesod.RssFeed
 import Yesod.Content (HasReps (chooseRep), typeAtom, typeRss)
-import Yesod.Handler (Route, GHandler)
+import Yesod.Core (Route, GHandler)
 
 data RepAtomRss = RepAtomRss RepAtom RepRss
 instance HasReps RepAtomRss where

@@ -20,14 +20,13 @@ data Subsite = Subsite
 getSubsite :: a -> Subsite
 getSubsite = const Subsite
 
-data SubsiteRoute = SubsiteRoute [TS.Text]
-    deriving (Eq, Show, Read)
-type instance Route Subsite = SubsiteRoute
-instance RenderRoute SubsiteRoute where
+instance RenderRoute Subsite where
+    data Route Subsite = SubsiteRoute [TS.Text]
+        deriving (Eq, Show, Read)
     renderRoute (SubsiteRoute x) = (x, [])
 
 instance YesodDispatch Subsite master where
-    yesodDispatch _ _ pieces _ _ = Just $ const $ return $ responseLBS
+    yesodDispatch _ _ _ _ _ _ pieces _ _ = return $ responseLBS
         status200
         [ ("Content-Type", "SUBSITE")
         ] $ L8.pack $ show pieces
@@ -43,6 +42,7 @@ mkYesod "Y" [parseRoutes|
 
 instance Yesod Y where
     approot _ = "http://test"
+    cleanPath _ s@("subsite":_) = Right s
     cleanPath _ ["bar", ""] = Right ["bar"]
     cleanPath _ ["bar"] = Left ["bar", ""]
     cleanPath _ s =
