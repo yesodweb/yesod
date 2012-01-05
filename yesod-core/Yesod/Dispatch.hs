@@ -169,7 +169,10 @@ toWaiApp' :: ( Yesod master
           -> Maybe Key
           -> W.Application
 toWaiApp' y key' env =
-    yesodDispatch y y id app404 handler405 method (W.pathInfo env) key' env
+    case cleanPath y $ W.pathInfo env of
+        Left pieces -> sendRedirect y pieces env
+        Right pieces ->
+            yesodDispatch y y id app404 handler405 method pieces key' env
   where
     app404 = yesodRunner notFound y y Nothing id
     handler405 route = yesodRunner badMethod y y (Just route) id
