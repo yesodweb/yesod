@@ -15,7 +15,7 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 
 -- | Generate the constructors of a route data type.
-mkRouteCons :: [Resource] -> [Con]
+mkRouteCons :: [Resource Type] -> [Con]
 mkRouteCons =
     map mkRouteCon
   where
@@ -36,7 +36,7 @@ mkRouteCons =
                 _ -> []
 
 -- | Clauses for the 'renderRoute' method.
-mkRenderRouteClauses :: [Resource] -> Q [Clause]
+mkRenderRouteClauses :: [Resource Type] -> Q [Clause]
 mkRenderRouteClauses =
     mapM go
   where
@@ -91,7 +91,7 @@ mkRenderRouteClauses =
 --
 -- This includes both the 'Route' associated type and the 'renderRoute' method.
 -- This function uses both 'mkRouteCons' and 'mkRenderRouteClasses'.
-mkRenderRouteInstance :: Type -> [Resource] -> Q Dec
+mkRenderRouteInstance :: Type -> [Resource Type] -> Q Dec
 mkRenderRouteInstance typ ress = do
     cls <- mkRenderRouteClauses ress
     return $ InstanceD [] (ConT ''RenderRoute `AppT` typ)

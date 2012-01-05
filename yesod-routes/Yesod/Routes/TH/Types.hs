@@ -10,67 +10,50 @@ module Yesod.Routes.TH.Types
 
 import Language.Haskell.TH.Syntax
 
-liftOccName :: OccName -> Q Exp
-liftOccName oc = [|mkOccName $(lift $ occString oc)|]
-
-liftNameFlavour :: NameFlavour -> Q Exp
-liftNameFlavour NameS = [|NameS|]
-
-liftName :: Name -> Q Exp
-liftName (Name a b) = [|Name $(liftOccName a) $(liftNameFlavour b)|]
-
-liftType :: Type -> Q Exp
-liftType (VarT name) = [|VarT $(liftName name)|]
-liftType (ConT name) = [|ConT $(liftName name)|]
-liftType (TupleT i) = [|TupleT $(lift i)|]
-liftType ArrowT = [|ArrowT|]
-liftType ListT = [|ListT|]
-liftType (AppT a b) = [|AppT $(liftType a) $(liftType b)|]
-liftType (SigT a b) = [|SigT $(liftType a) $(liftKind b)|]
-
-liftKind :: Kind -> Q Exp
-liftKind StarK = [|StarK|]
-liftKind (ArrowK a b) = [|ArrowK $(liftKind a) $(liftKind b)|]
-
-data Resource = Resource
+data Resource typ = Resource
     { resourceName :: String
-    , resourcePieces :: [Piece]
-    , resourceDispatch :: Dispatch
+    , resourcePieces :: [Piece typ]
+    , resourceDispatch :: Dispatch typ
     }
     deriving Show
 
-{-
-instance Lift Resource where
-    lift (Resource a b c) = [|Resource $(lift a) $(lift b) $(lift c)|]
--}
+instance Functor Resource where
+    fmap f (Resource a b c) = Resource a (map (fmap f) b) (fmap f c)
 
-data Piece = Static String | Dynamic Type
+instance Lift t => Lift (Resource t) where
+    lift (Resource a b c) = [|Resource $(lift a) $(lift b) $(lift c)|]
+
+data Piece typ = Static String | Dynamic typ
     deriving Show
 
-{-
-instance Lift Piece where
-    lift (Static s) = [|Static $(lift s)|]
-    lift (Dynamic t) = [|Static $(liftType t)|]
--}
+instance Functor Piece where
+    fmap _ (Static s) = (Static s)
+    fmap f (Dynamic t) = Dynamic (f t)
 
-data Dispatch =
+instance Lift t => Lift (Piece t) where
+    lift (Static s) = [|Static $(lift s)|]
+    lift (Dynamic t) = [|Dynamic $(lift t)|]
+
+data Dispatch typ =
     Methods
-        { methodsMulti :: Maybe Type -- ^ type of the multi piece at the end
+        { methodsMulti :: Maybe typ -- ^ type of the multi piece at the end
         , methodsMethods :: [String] -- ^ supported request methods
         }
     | Subsite
-        { subsiteType :: Type
+        { subsiteType :: typ
         , subsiteFunc :: String
         }
     deriving Show
 
-{-
-instance Lift Dispatch where
-    lift (Methods Nothing b) = [|Methods Nothing $(lift b)|]
-    lift (Methods (Just t) b) = [|Methods (Just $(liftType t)) $(lift b)|]
-    lift (Subsite t b) = [|Subsite $(liftType t) $(lift b)|]
--}
+instance Functor Dispatch where
+    fmap f (Methods a b) = Methods (fmap f a) b
+    fmap f (Subsite a b) = Subsite (f a) b
 
-resourceMulti :: Resource -> Maybe Type
+instance Lift t => Lift (Dispatch t) where
+    lift (Methods Nothing b) = [|Methods Nothing $(lift b)|]
+    lift (Methods (Just t) b) = [|Methods (Just $(lift t)) $(lift b)|]
+    lift (Subsite t b) = [|Subsite $(lift t) $(lift b)|]
+
+resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
 resourceMulti _ = Nothing

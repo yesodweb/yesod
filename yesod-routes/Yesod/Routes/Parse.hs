@@ -1,13 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-} -- QuasiQuoter
-module Yesod.Internal.RouteParsing
+module Yesod.Routes.Parse
     ( parseRoutes
     , parseRoutesFile
     , parseRoutesNoCheck
     , parseRoutesFileNoCheck
-    , RouteString
-    , parseRouteString
+    , parseType
     ) where
 
 import Web.PathPieces
@@ -33,19 +32,8 @@ parseRoutes = QuasiQuoter
     x s = do
         let res = resourcesFromString s
         case findOverlaps res of
-            [] -> liftParse s
+            [] -> lift res
             z -> error $ "Overlapping routes: " ++ unlines (map (unwords . map resourceName) z)
-
-newtype RouteString = RouteString String
-
-liftParse :: String -> Q Exp
-liftParse s = [|RouteString s|]
-
-parseRouteString :: RouteString -> [Resource]
-parseRouteString (RouteString s) = resourcesFromString s
-
-instance Lift RouteString where
-    lift (RouteString s) = [|RouteString $(lift s)|]
 
 parseRoutesFile :: FilePath -> Q Exp
 parseRoutesFile fp = do
@@ -66,13 +54,13 @@ readUtf8File fp = do
 -- | Same as 'parseRoutes', but performs no overlap checking.
 parseRoutesNoCheck :: QuasiQuoter
 parseRoutesNoCheck = QuasiQuoter
-    { quoteExp = liftParse
+    { quoteExp = lift . resourcesFromString
     }
 
 -- | Convert a multi-line string to a set of resources. See documentation for
 -- the format of this string. This is a partial function which calls 'error' on
 -- invalid input.
-resourcesFromString :: String -> [Resource]
+resourcesFromString :: String -> [Resource String]
 resourcesFromString =
     mapMaybe go . lines
   where
@@ -85,12 +73,12 @@ resourcesFromString =
             [] -> Nothing
             _ -> error $ "Invalid resource line: " ++ s
 
-dispatchFromString :: [String] -> Maybe Type -> Dispatch
+dispatchFromString :: [String] -> Maybe String -> Dispatch String
 dispatchFromString rest mmulti
     | null rest = Methods mmulti []
     | all (all isUpper) rest = Methods mmulti rest
 dispatchFromString [subTyp, subFun] Nothing =
-    Subsite (parseType subTyp) subFun
+    Subsite subTyp subFun
 dispatchFromString [subTyp, subFun] Just{} =
     error "Subsites cannot have a multipiece"
 dispatchFromString rest _ = error $ "Invalid list of methods: " ++ show rest
@@ -99,7 +87,7 @@ drop1Slash :: String -> String
 drop1Slash ('/':x) = x
 drop1Slash x = x
 
-piecesFromString :: String -> ([Piece], Maybe Type)
+piecesFromString :: String -> ([Piece String], Maybe String)
 piecesFromString "" = ([], Nothing)
 piecesFromString x =
     case (this, rest) of
@@ -114,23 +102,23 @@ piecesFromString x =
 parseType :: String -> Type
 parseType = ConT . mkName -- FIXME handle more complicated stuff
 
-pieceFromString :: String -> Either Type Piece
-pieceFromString ('#':x) = Right $ Dynamic $ parseType x
-pieceFromString ('*':x) = Left $ parseType x
+pieceFromString :: String -> Either String (Piece String)
+pieceFromString ('#':x) = Right $ Dynamic x
+pieceFromString ('*':x) = Left x
 pieceFromString x = Right $ Static x
 
 -- n^2, should be a way to speed it up
-findOverlaps :: [Resource] -> [[Resource]]
+findOverlaps :: [Resource a] -> [[Resource a]]
 findOverlaps = go . map justPieces
   where
-    justPieces :: Resource -> ([Piece], Resource)
+    justPieces :: Resource a -> ([Piece a], Resource a)
     justPieces r@(Resource _ ps _) = (ps, r)
 
     go [] = []
     go (x:xs) = mapMaybe (mOverlap x) xs ++ go xs
 
-    mOverlap :: ([Piece], Resource) -> ([Piece], Resource) ->
-                Maybe [Resource]
+    mOverlap :: ([Piece a], Resource a) -> ([Piece a], Resource a) ->
+                Maybe [Resource a]
     mOverlap _ _ = Nothing
                 {- FIXME mOverlap
     mOverlap (Static x:xs, xr) (Static y:ys, yr)

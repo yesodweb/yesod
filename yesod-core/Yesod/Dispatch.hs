@@ -31,7 +31,7 @@ import Yesod.Handler hiding (lift)
 import Yesod.Widget (GWidget)
 
 import Web.PathPieces
-import Yesod.Internal.RouteParsing (parseRoutes, parseRoutesNoCheck, parseRoutesFile, parseRoutesFileNoCheck)
+import Yesod.Routes.Parse (parseRoutes, parseRoutesNoCheck, parseRoutesFile, parseRoutesFileNoCheck)
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
@@ -51,7 +51,7 @@ import qualified Blaze.ByteString.Builder
 import Network.HTTP.Types (status301)
 import Yesod.Routes.TH
 import Yesod.Content (chooseRep)
-import Yesod.Internal.RouteParsing
+import Yesod.Routes.Parse
 
 type Texts = [Text]
 
@@ -59,7 +59,7 @@ type Texts = [Text]
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
 -- Use 'parseRoutes' to create the 'Resource's.
 mkYesod :: String -- ^ name of the argument datatype
-        -> RouteString
+        -> [Resource String]
         -> Q [Dec]
 mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 
@@ -70,7 +70,7 @@ mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 -- be embedded in other sites.
 mkYesodSub :: String -- ^ name of the argument datatype
            -> Cxt
-           -> RouteString
+           -> [Resource String]
            -> Q [Dec]
 mkYesodSub name clazzes =
     fmap (uncurry (++)) . mkYesodGeneral name' rest clazzes True
@@ -81,28 +81,28 @@ mkYesodSub name clazzes =
 -- your handlers elsewhere. For example, this is the only way to break up a
 -- monolithic file into smaller parts. Use this function, paired with
 -- 'mkYesodDispatch', to do just that.
-mkYesodData :: String -> RouteString -> Q [Dec]
+mkYesodData :: String -> [Resource String] -> Q [Dec]
 mkYesodData name res = mkYesodDataGeneral name [] False res
 
-mkYesodSubData :: String -> Cxt -> RouteString -> Q [Dec]
+mkYesodSubData :: String -> Cxt -> [Resource String] -> Q [Dec]
 mkYesodSubData name clazzes res = mkYesodDataGeneral name clazzes True res
 
-mkYesodDataGeneral :: String -> Cxt -> Bool -> RouteString -> Q [Dec]
+mkYesodDataGeneral :: String -> Cxt -> Bool -> [Resource String] -> Q [Dec]
 mkYesodDataGeneral name clazzes isSub res = do
     let (name':rest) = words name
     (x, _) <- mkYesodGeneral name' rest clazzes isSub res
     let rname = mkName $ "resources" ++ name
-    eres <- [|parseRouteString $(lift res)|]
+    eres <- [|fmap parseType $(lift res)|]
     let y = [ SigD rname $ ListT `AppT` ConT ''Resource
             , FunD rname [Clause [] (NormalB eres) []]
             ]
     return $ x ++ y
 
 -- | See 'mkYesodData'.
-mkYesodDispatch :: String -> RouteString -> Q [Dec]
+mkYesodDispatch :: String -> [Resource String] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
 
-mkYesodSubDispatch :: String -> Cxt -> RouteString -> Q [Dec]
+mkYesodSubDispatch :: String -> Cxt -> [Resource String] -> Q [Dec]
 mkYesodSubDispatch name clazzes = fmap snd . mkYesodGeneral name' rest clazzes True 
   where (name':rest) = words name
 
@@ -110,10 +110,10 @@ mkYesodGeneral :: String -- ^ foundation name
                -> [String] -- ^ parameters for foundation
                -> Cxt -- ^ classes
                -> Bool -- ^ is subsite?
-               -> RouteString
+               -> [Resource String]
                -> Q ([Dec], [Dec])
 mkYesodGeneral name args clazzes isSub resS = do
-    let res = parseRouteString resS
+    let res = map (fmap parseType) resS
     renderRouteDec <- mkRenderRouteInstance (ConT name') res
 
     disp <- mkDispatchClause [|yesodRunner|] [|yesodDispatch|] [|fmap chooseRep|] res

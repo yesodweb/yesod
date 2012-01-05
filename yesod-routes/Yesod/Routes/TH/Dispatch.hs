@@ -67,7 +67,7 @@ import Data.List (foldl')
 mkDispatchClause :: Q Exp -- ^ runHandler function
                  -> Q Exp -- ^ dispatcher function
                  -> Q Exp -- ^ fixHandler function
-                 -> [Resource]
+                 -> [Resource a]
                  -> Q Clause
 mkDispatchClause runHandler dispatcher fixHandler ress = do
     -- Allocate the names to be used. Start off with the names passed to the
@@ -120,7 +120,7 @@ methodMapName :: String -> Name
 methodMapName s = mkName $ "methods" ++ s
 
 buildMethodMap :: Q Exp -- ^ fixHandler
-               -> Resource
+               -> Resource a
                -> Q (Maybe Dec)
 buildMethodMap _ (Resource _ _ (Methods _ [])) = return Nothing -- single handle function
 buildMethodMap fixHandler (Resource name pieces (Methods mmulti methods)) = do
@@ -143,7 +143,7 @@ buildMethodMap fixHandler (Resource name pieces (Methods mmulti methods)) = do
 buildMethodMap _ (Resource _ _ Subsite{}) = return Nothing
 
 -- | Build a single 'D.Route' expression.
-buildRoute :: Q Exp -> Q Exp -> Q Exp -> Resource -> Q Exp
+buildRoute :: Q Exp -> Q Exp -> Q Exp -> Resource a -> Q Exp
 buildRoute runHandler dispatcher fixHandler (Resource name resPieces resDisp) = do
     -- First two arguments to D.Route
     routePieces <- ListE <$> mapM convertPiece resPieces
@@ -158,8 +158,8 @@ routeArg3 :: Q Exp -- ^ runHandler
           -> Q Exp -- ^ dispatcher
           -> Q Exp -- ^ fixHandler
           -> String -- ^ name of resource
-          -> [Piece]
-          -> Dispatch
+          -> [Piece a]
+          -> Dispatch a
           -> Q Exp
 routeArg3 runHandler dispatcher fixHandler name resPieces resDisp = do
     pieces <- newName "pieces"
@@ -224,7 +224,7 @@ buildCaller :: Q Exp -- ^ runHandler
             -> Q Exp -- ^ fixHandler
             -> Name -- ^ xrest
             -> String -- ^ name of resource
-            -> Dispatch
+            -> Dispatch a
             -> [Name] -- ^ ys
             -> Q Exp
 buildCaller runHandler dispatcher fixHandler xrest name resDisp ys = do
@@ -290,6 +290,6 @@ buildCaller runHandler dispatcher fixHandler xrest name resDisp ys = do
     return $ LamE pat exp
 
 -- | Convert a 'Piece' to a 'D.Piece'
-convertPiece :: Piece -> Q Exp
+convertPiece :: Piece a -> Q Exp
 convertPiece (Static s) = [|D.Static (pack $(lift s))|]
 convertPiece (Dynamic _) = [|D.Dynamic|]
