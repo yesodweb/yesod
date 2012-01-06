@@ -76,6 +76,7 @@ import Text.Blaze (preEscapedLazyText)
 import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
 import qualified Data.Vector as Vector
+import Network.Wai.Middleware.Gzip (GzipSettings, def)
 
 -- mega repo can't access this
 #ifndef MEGA
@@ -275,9 +276,9 @@ class RenderRoute a => Yesod a where
         formatLogMessage loc level msg >>=
         Data.Text.Lazy.IO.putStrLn
 
-    -- | Apply gzip compression to files. Default is false.
-    gzipCompressFiles :: a -> Bool
-    gzipCompressFiles _ = False
+    -- | GZIP settings.
+    gzipSettings :: a -> GzipSettings
+    gzipSettings _ = def
 
     -- | Location of yepnope.js, if any. If one is provided, then all
     -- Javascript files will be loaded asynchronously.
