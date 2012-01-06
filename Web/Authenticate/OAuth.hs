@@ -36,7 +36,7 @@ import Codec.Crypto.RSA (rsassa_pkcs1_v1_5_sign, ha_SHA1, PrivateKey(..))
 import Network.HTTP.Types (Header)
 import Blaze.ByteString.Builder (toByteString)
 import Control.Monad.IO.Class (MonadIO)
-import Network.HTTP.Types (renderSimpleQuery)
+import Network.HTTP.Types (renderSimpleQuery, status200)
 import Data.Conduit (ResourceIO, runResourceT, ($$), ($=), Source)
 import qualified Data.Conduit.List as CL
 import Data.Conduit.Blaze (builderToByteString)
@@ -133,7 +133,7 @@ getTemporaryCredential' hook oa = do
       crd = maybe id (insert "oauth_callback") (oauthCallback oa) $ emptyCredential
   req' <- signOAuth oa crd $ hook (req { method = "POST" }) 
   rsp <- withManager . httpLbs $ req'
-  if statusCode rsp == 200
+  if statusCode rsp == status200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
       return $ Credential dic
@@ -170,7 +170,7 @@ getAccessToken' :: (Request IO -> Request IO) -- ^ Request Hook
 getAccessToken' hook oa cr = do
   let req = hook (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
   rsp <- withManager . httpLbs =<< signOAuth oa cr req
-  if statusCode rsp == 200
+  if statusCode rsp == status200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
       return $ Credential dic

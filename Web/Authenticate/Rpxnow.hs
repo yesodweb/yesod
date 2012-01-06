@@ -29,7 +29,6 @@ import Data.Maybe
 import Control.Monad
 import qualified Data.ByteString.Char8 as S
 import qualified Data.ByteString.Lazy.Char8 as L
-import Control.Exception (throwIO)
 import Web.Authenticate.Internal
 import Data.Data (Data)
 import Data.Typeable (Typeable)
@@ -75,10 +74,8 @@ authenticate apiKey token = do
                     ]
                 , requestBody = RequestBodyLBS body
                 }
-    res <- liftIO $ withManager $ httpLbsRedirect req
+    res <- liftIO $ withManager $ httpLbs req
     let b = responseBody res
-    unless (200 <= statusCode res && statusCode res < 300) $
-        liftIO $ throwIO $ StatusCodeException (statusCode res) b
     o <- unResult $ parse json b
     --m <- fromMapping o
     let mstat = flip Data.Aeson.Types.parse o $ \v ->

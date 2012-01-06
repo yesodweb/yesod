@@ -17,7 +17,7 @@ import Data.Text.Lazy.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.Text.Lazy (toStrict)
 import Network.HTTP.Conduit
-    ( parseUrl, urlEncodedBody, responseBody, httpLbsRedirect
+    ( parseUrl, urlEncodedBody, responseBody, httpLbs
     , HttpException, withManager
     )
 import Control.Arrow ((***), second)
@@ -95,7 +95,7 @@ authenticate params = do
                 : filter (\(k, _) -> k /= "openid.mode") params
     req' <- parseUrl $ unpack endpoint
     let req = urlEncodedBody params' req'
-    rsp <- liftIO $ withManager $ httpLbsRedirect req
+    rsp <- liftIO $ withManager $ httpLbs req
     let rps = parseDirectResponse $ toStrict $ decodeUtf8With lenientDecode $ responseBody rsp
     case lookup "is_valid" rps of
         Just "true" -> return (Identifier ident, rps)

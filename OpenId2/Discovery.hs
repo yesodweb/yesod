@@ -40,6 +40,7 @@ import Data.Text.Lazy.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Text.HTML.TagSoup (parseTags, Tag (TagOpen))
 import Control.Applicative ((<$>), (<*>))
+import Network.HTTP.Types (status200)
 
 data Discovery = Discovery1 Text (Maybe Text)
                | Discovery2 Provider Identifier IdentType
@@ -69,14 +70,14 @@ discoverYADIS _ _ 0 = failure TooManyRedirects
 discoverYADIS ident mb_loc redirects = do
     let uri = fromMaybe (unpack $ identifier ident) mb_loc
     req <- parseUrl uri
-    res <- liftIO $ withManager $ httpLbs req
+    res <- liftIO $ withManager $ httpLbs req { checkStatus = \_ _ -> Nothing }
     let mloc = fmap S8.unpack
              $ lookup "x-xrds-location"
              $ map (first $ map toLower . S8.unpack . CI.original)
              $ responseHeaders res
     let mloc' = if mloc == mb_loc then Nothing else mloc
-    case statusCode res of
-        200 ->
+    if statusCode res == status200
+        then
           case mloc' of
             Just loc -> discoverYADIS ident (Just loc) (redirects - 1)
             Nothing  -> do
@@ -84,7 +85,7 @@ discoverYADIS ident mb_loc redirects = do
               case mdoc of
                   Just doc -> return $ parseYADIS ident doc
                   Nothing -> return Nothing
-        _ -> return Nothing
+        else return Nothing
 
 
 -- | Parse out an OpenID endpoint, and actual identifier from a YADIS xml
