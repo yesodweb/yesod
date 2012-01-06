@@ -14,7 +14,7 @@ import Network.Wai (Application)
 import Network.Wai.Handler.Warp
     (runSettings, defaultSettings, settingsPort, settingsHost)
 import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
-import Network.Wai.Middleware.Gzip (gzip', GzipFiles (GzipCacheFolder), gzipFiles, def)
+import Network.Wai.Middleware.Gzip (gzip, GzipFiles (GzipCacheFolder), gzipFiles, def)
 import Network.Wai.Middleware.Autohead (autohead)
 import Network.Wai.Middleware.Jsonp (jsonp)
 import Control.Monad (when)
@@ -79,7 +79,7 @@ defaultRunner f h = do
     takeMVar flag
 #endif
   where
-    middlewares = gzip' gset . jsonp . autohead
+    middlewares = gzip gset . jsonp . autohead
 
     gset = def { gzipFiles = GzipCacheFolder staticCache }
     staticCache = ".static-cache"

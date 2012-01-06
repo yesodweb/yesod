@@ -149,7 +149,7 @@ mkYesodGeneral name args clazzes isSub resS = do
 toWaiApp :: ( Yesod master
             , YesodDispatch master master
             ) => master -> IO W.Application
-toWaiApp y = gzip (gzipCompressFiles y) . autohead <$> toWaiAppPlain y
+toWaiApp y = gzip (gzipSettings y) . autohead <$> toWaiAppPlain y
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This differs from 'toWaiApp' in that it uses no middlewares.
