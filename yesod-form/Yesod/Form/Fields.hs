@@ -53,6 +53,7 @@ import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
 import Network.URI (parseURI)
 import Database.Persist (PersistField)
+import Database.Persist.Query (Entity (..))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.List (intersect, nub)
@@ -414,12 +415,12 @@ optionsPersist :: ( YesodPersist master, PersistEntity a
                   , PersistQuery (YesodPersistBackend master) (GHandler sub master)
                   , PathPiece (Key (YesodPersistBackend master) a)
                   )
-               => [Filter a] -> [SelectOpt a] -> (a -> Text) -> GHandler sub master (OptionList (Key (YesodPersistBackend master) a, a))
+               => [Filter a] -> [SelectOpt a] -> (a -> Text) -> GHandler sub master (OptionList (Entity (YesodPersistBackend master) a))
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     pairs <- runDB $ selectList filts ords
-    return $ map (\(key, value) -> Option
+    return $ map (\(Entity key value) -> Option
         { optionDisplay = toDisplay value
-        , optionInternalValue = (key, value)
+        , optionInternalValue = Entity key value
         , optionExternalValue = toPathPiece key
         }) pairs
 
