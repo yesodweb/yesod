@@ -23,6 +23,8 @@ import Network.HTTP.Types (queryToQueryText)
 import Control.Monad (join)
 import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.ByteString.Lazy as L
+import qualified Data.Set as Set
+import qualified Data.Text as T
 
 -- | The parsed request information.
 data Request = Request
@@ -47,7 +49,7 @@ parseWaiRequest' :: RandomGen g
                  -> Maybe a
                  -> g
                  -> Request
-parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonce
+parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs'' nonce
   where
     gets' = queryToQueryText $ W.queryString env
     gets'' = map (second $ fromMaybe "") gets'
@@ -60,6 +62,11 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonc
                        , lookup langKey cookies'     -- Cookie _LANG
                        , lookup langKey session'     -- Session _LANG
                        ] ++ langs                    -- Accept-Language(s)
+
+    -- Github issue #195. We want to add an extra two-letter version of any
+    -- language in the list.
+    langs'' = addTwoLetters (id, Set.empty) langs'
+
     -- If sessions are disabled nonces should not be used (any
     -- nonceKey present in the session is ignored). If sessions
     -- are enabled and a session has no nonceKey a new one is
@@ -68,6 +75,16 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs' nonc
                 (Nothing, _) -> Nothing
                 (_, Just x)  -> Just x
                 _            -> Just $ pack $ randomString 10 gen
+
+addTwoLetters :: ([Text] -> [Text], Set.Set Text) -> [Text] -> [Text]
+addTwoLetters (toAdd, exist) [] =
+    filter (flip Set.notMember exist) $ toAdd []
+addTwoLetters (toAdd, exist) (l:ls) =
+    l : addTwoLetters (toAdd', exist') ls
+  where
+    (toAdd', exist')
+        | T.length l > 2 = (toAdd . (T.take 2 l:), exist)
+        | otherwise = (toAdd, Set.insert l exist)
 
 -- | Generate a random String of alphanumerical characters
 -- (a-z, A-Z, and 0-9) of the given length using the given
