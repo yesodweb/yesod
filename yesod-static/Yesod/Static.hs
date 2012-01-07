@@ -30,6 +30,7 @@ module Yesod.Static
     ( -- * Subsite
       Static (..)
     , Route (..)
+    , StaticRoute
       -- * Smart constructor
     , static
     , staticDevel
@@ -39,7 +40,6 @@ module Yesod.Static
     , staticFilesList
     , publicFiles
       -- * Hashing
-    , base64md5
 #ifdef TEST
     , getFileListPieces
 #endif
@@ -60,7 +60,6 @@ import Language.Haskell.TH.Syntax
 import Crypto.Conduit (hashFile)
 import Crypto.Hash.MD5 (MD5)
 
-import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Serialize
@@ -75,9 +74,6 @@ import qualified Data.ByteString as S
 import Network.HTTP.Types (status301)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
-import qualified Data.Conduit as C
-import qualified Data.Conduit.Binary as CB
-import qualified Data.Conduit.List as CL
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -94,6 +90,8 @@ import Network.Wai.Application.Static
 
 -- | Type used for the subsite with static contents.
 newtype Static = Static StaticSettings
+
+type StaticRoute = Route Static
 
 -- | Produce a default value of 'Static' for a given file
 -- folder.
@@ -317,12 +315,11 @@ base64md5File :: Prelude.FilePath -> IO String
 base64md5File = fmap (base64 . encode) . hashFile
     where encode d = Data.Serialize.encode (d :: MD5)
 
-base64 :: MD5Digest -> String
+base64 :: S.ByteString -> String
 base64 = map tr
        . take 8
        . S8.unpack
        . Data.ByteString.Base64.encode
-       . Data.Serialize.encode
   where
     tr '+' = '-'
     tr '/' = '_'
