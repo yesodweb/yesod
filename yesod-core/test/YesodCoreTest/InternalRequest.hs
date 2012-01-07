@@ -65,32 +65,32 @@ langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)"
   ]
 
 respectAcceptLangs :: Bool
-respectAcceptLangs = reqLangs r == ["accept1", "accept2"] where
+respectAcceptLangs = reqLangs r == ["en-US", "es", "en"] where
   r = parseWaiRequest' defaultRequest
-        { requestHeaders = [("Accept-Language", "accept1, accept2")] } [] Nothing g
+        { requestHeaders = [("Accept-Language", "en-US, es")] } [] Nothing g
 
 respectSessionLang :: Bool
-respectSessionLang = reqLangs r == ["session"] where
-  r = parseWaiRequest' defaultRequest [("_LANG", "session")] Nothing g
+respectSessionLang = reqLangs r == ["en"] where
+  r = parseWaiRequest' defaultRequest [("_LANG", "en")] Nothing g
 
 respectCookieLang :: Bool
-respectCookieLang = reqLangs r == ["cookie"] where
+respectCookieLang = reqLangs r == ["en"] where
   r = parseWaiRequest' defaultRequest
-        { requestHeaders = [("Cookie", "_LANG=cookie")]
+        { requestHeaders = [("Cookie", "_LANG=en")]
         } [] Nothing g
 
 respectQueryLang :: Bool
-respectQueryLang = reqLangs r == ["query"] where
-  r = parseWaiRequest' defaultRequest { queryString = [("_LANG", Just "query")] } [] Nothing g
+respectQueryLang = reqLangs r == ["en-US", "en"] where
+  r = parseWaiRequest' defaultRequest { queryString = [("_LANG", Just "en-US")] } [] Nothing g
 
 prioritizeLangs :: Bool
-prioritizeLangs = reqLangs r == ["query", "cookie", "session", "accept1", "accept2"] where
+prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "es"] where
   r = parseWaiRequest' defaultRequest
-        { requestHeaders = [ ("Accept-Language", "accept1, accept2")
-                           , ("Cookie", "_LANG=cookie")
+        { requestHeaders = [ ("Accept-Language", "en, es")
+                           , ("Cookie", "_LANG=en-COOKIE")
                            ]
-        , queryString = [("_LANG", Just "query")]
-        } [("_LANG", "session")] Nothing g
+        , queryString = [("_LANG", Just "en-QUERY")]
+        } [("_LANG", "en-SESSION")] Nothing g
 
 
 internalRequestTest :: [Spec]

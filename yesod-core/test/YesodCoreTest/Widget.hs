@@ -73,6 +73,7 @@ widgetTest :: [Spec]
 widgetTest = describe "Test.Widget"
     [ it "addJuliusBody" case_addJuliusBody
     , it "whamlet" case_whamlet
+    , it "two letter lang codes" case_two_letter_lang
     ]
 
 runner :: Session () -> IO ()
@@ -88,5 +89,13 @@ case_whamlet = runner $ do
     res <- request defaultRequest
         { pathInfo = ["whamlet"]
         , requestHeaders = [("Accept-Language", "es")]
+        }
+    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><h1>Test</h1><h2>http://test/whamlet</h2><h3>Adios</h3><h3>String</h3><h4>Embed</h4></body></html>" res
+
+case_two_letter_lang :: IO ()
+case_two_letter_lang = runner $ do
+    res <- request defaultRequest
+        { pathInfo = ["whamlet"]
+        , requestHeaders = [("Accept-Language", "es-ES")]
         }
     assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><h1>Test</h1><h2>http://test/whamlet</h2><h3>Adios</h3><h3>String</h3><h4>Embed</h4></body></html>" res
