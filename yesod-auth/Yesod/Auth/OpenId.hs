@@ -64,14 +64,14 @@ authOpenIdExtended extensionFields =
                 attempt
                   (\err -> do
                         setMessage $ toHtml $ show err
-                        redirect RedirectTemporary $ toMaster LoginR
+                        redirect $ toMaster LoginR
                         )
-                  (redirectText RedirectTemporary)
+                  redirect
                   res
             Nothing -> do
                 toMaster <- getRouteToMaster
                 setMessageI Msg.NoOpenID
-                redirect RedirectTemporary $ toMaster LoginR
+                redirect $ toMaster LoginR
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do
         rr <- getRequest
@@ -88,7 +88,7 @@ completeHelper gets' = do
         toMaster <- getRouteToMaster
         let onFailure err = do
             setMessage $ toHtml $ show err
-            redirect RedirectTemporary $ toMaster LoginR
+            redirect $ toMaster LoginR
         let onSuccess (OpenId.Identifier ident, _) =
                 setCreds True $ Creds "openid" ident gets'
         attempt onFailure onSuccess res

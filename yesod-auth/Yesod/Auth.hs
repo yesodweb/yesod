@@ -133,12 +133,12 @@ setCreds doRedirects creds = do
               Nothing -> do rh <- defaultLayout $ addHtml [QQ(shamlet)| <h1>Invalid login |]
                             sendResponse rh
               Just ar -> do setMessageI Msg.InvalidLogin
-                            redirect RedirectTemporary ar
+                            redirect ar
         Just aid -> do
             setSession credsKey $ toPathPiece aid
             when doRedirects $ do
               setMessageI Msg.NowLoggedIn
-              redirectUltDest RedirectTemporary $ loginDest y
+              redirectUltDest $ loginDest y
 
 getCheckR :: YesodAuth m => GHandler Auth m RepHtmlJson
 getCheckR = do
@@ -175,7 +175,7 @@ postLogoutR :: YesodAuth m => GHandler Auth m ()
 postLogoutR = do
     y <- getYesod
     deleteSession credsKey
-    redirectUltDest RedirectTemporary $ logoutDest y
+    redirectUltDest $ logoutDest y
 
 handlePluginR :: YesodAuth m => Text -> [Text] -> GHandler Auth m ()
 handlePluginR plugin pieces = do
@@ -222,7 +222,7 @@ redirectLogin = do
     y <- getYesod
     setUltDest'
     case authRoute y of
-        Just z -> redirect RedirectTemporary z
+        Just z -> redirect z
         Nothing -> permissionDenied "Please configure authRoute"
 
 instance YesodAuth m => RenderMessage m AuthMessage where

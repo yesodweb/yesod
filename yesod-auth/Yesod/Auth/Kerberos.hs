@@ -99,7 +99,7 @@ postLoginR config = do
     let errorMessage (message :: Text) = do
         setMessage [QQ(shamlet)|Error: #{message}|]
         toMaster <- getRouteToMaster
-        redirect RedirectTemporary $ toMaster LoginR
+        redirect $ toMaster LoginR
 
     case (mu,mp) of
         (Nothing, _      ) -> errorMessage "Please fill in your username"

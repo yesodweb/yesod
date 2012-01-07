@@ -61,14 +61,14 @@ authGoogleEmail =
                 attempt
                   (\err -> do
                         setMessage $ toHtml $ show err
-                        redirect RedirectTemporary $ toMaster LoginR
+                        redirect $ toMaster LoginR
                         )
-                  (redirectText RedirectTemporary)
+                  redirect
                   res
             Nothing -> do
                 toMaster <- getRouteToMaster
                 setMessageI Msg.NoOpenID
-                redirect RedirectTemporary $ toMaster LoginR
+                redirect $ toMaster LoginR
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do
         rr <- getRequest
@@ -85,15 +85,15 @@ completeHelper gets' = do
         toMaster <- getRouteToMaster
         let onFailure err = do
             setMessage $ toHtml $ show err
-            redirect RedirectTemporary $ toMaster LoginR
+            redirect $ toMaster LoginR
         let onSuccess (OpenId.Identifier ident, _) = do
                 memail <- lookupGetParam "openid.ext1.value.email"
                 case (memail, "https://www.google.com/accounts/o8/id" `T.isPrefixOf` ident) of
                     (Just email, True) -> setCreds True $ Creds "openid" email []
                     (_, False) -> do
                         setMessage "Only Google login is supported"
-                        redirect RedirectTemporary $ toMaster LoginR
+                        redirect $ toMaster LoginR
                     (Nothing, _) -> do
                         setMessage "No email address provided"
-                        redirect RedirectTemporary $ toMaster LoginR
+                        redirect $ toMaster LoginR
         attempt onFailure onSuccess res

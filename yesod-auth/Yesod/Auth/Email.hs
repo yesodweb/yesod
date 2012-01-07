@@ -163,7 +163,7 @@ getVerifyR lid key = do
                     setCreds False $ Creds "email" email [("verifiedEmail", email)] -- FIXME uid?
                     toMaster <- getRouteToMaster
                     setMessageI Msg.AddressVerified
-                    redirect RedirectTemporary $ toMaster setpassR
+                    redirect $ toMaster setpassR
         _ -> return ()
     defaultLayout $ do
         setTitleI Msg.InvalidKey
@@ -193,7 +193,7 @@ postLoginR = do
         Nothing -> do
             setMessageI Msg.InvalidEmailPass
             toMaster <- getRouteToMaster
-            redirect RedirectTemporary $ toMaster LoginR
+            redirect $ toMaster LoginR
 
 getPasswordR :: YesodAuthEmail master => GHandler Auth master RepHtml
 getPasswordR = do
@@ -203,7 +203,7 @@ getPasswordR = do
         Just _ -> return ()
         Nothing -> do
             setMessageI Msg.BadSetPass
-            redirect RedirectTemporary $ toMaster LoginR
+            redirect $ toMaster LoginR
     defaultLayout $ do
         setTitleI Msg.SetPassTitle
         addWidget
@@ -233,17 +233,17 @@ postPasswordR = do
     y <- getYesod
     when (new /= confirm) $ do
         setMessageI Msg.PassMismatch
-        redirect RedirectTemporary $ toMaster setpassR
+        redirect $ toMaster setpassR
     maid <- maybeAuthId
     aid <- case maid of
             Nothing -> do
                 setMessageI Msg.BadSetPass
-                redirect RedirectTemporary $ toMaster LoginR
+                redirect $ toMaster LoginR
             Just aid -> return aid
     salted <- liftIO $ saltPass new
     setPassword aid salted
     setMessageI Msg.PassUpdated
-    redirect RedirectTemporary $ loginDest y
+    redirect $ loginDest y
 
 saltLength :: Int
 saltLength = 5

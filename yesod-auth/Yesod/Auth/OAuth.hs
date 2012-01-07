@@ -53,7 +53,7 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         tm <- getRouteToMaster
         let oauth' = oauth { oauthCallback = Just $ encodeUtf8 $ render $ tm url }
         tok <- liftIO $ getTemporaryCredential oauth'
-        redirectText RedirectTemporary (fromString $ authorizeUrl oauth' tok)
+        redirect $ authorizeUrl oauth' tok
     dispatch "GET" [] = do
         (verifier, oaTok) <- runInputGet $ (,)
             <$> ireq textField "oauth_verifier"
