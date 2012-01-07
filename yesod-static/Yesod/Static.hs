@@ -57,8 +57,10 @@ import Data.List (intercalate)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
+import Crypto.Conduit (hashFile)
+import Crypto.Hash.MD5 (MD5)
+
 import qualified Data.ByteString.Lazy as L
-import Data.Digest.Pure.MD5
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Serialize
@@ -312,23 +314,8 @@ mkStaticFilesList fp fs routeConName makeHash = do
             ]
 
 base64md5File :: Prelude.FilePath -> IO String
-base64md5File file = do
-    bss <- C.runResourceT $ CB.sourceFile file C.$$ CL.consume
-    return $ base64md5 $ L.fromChunks bss
-    -- FIXME I'd like something streaming instead
-    {-
-    fmap (base64 . finalize) $ E.run_ $
-    EB.enumFile file E.$$ EL.fold go (md5InitialContext, "")
-  where
-    go (context, prev) next = (md5Update context prev, next)
-    finalize (context, end) = md5Finalize context end
-    -}
-
--- | Calculates the MD5 hash of the given lazy bytestring,
--- encodes it using Base64 and then return the 8 first
--- characters.
-base64md5 :: L.ByteString -> String
-base64md5 = base64 . md5
+base64md5File = fmap (base64 . encode) . hashFile
+    where encode d = Data.Serialize.encode (d :: MD5)
 
 base64 :: MD5Digest -> String
 base64 = map tr
