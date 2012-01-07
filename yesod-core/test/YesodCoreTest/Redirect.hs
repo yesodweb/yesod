@@ -2,7 +2,7 @@
 module YesodCoreTest.Redirect (specs, Widget) where
 
 import YesodCoreTest.YesodTest
-import Yesod.Handler (RedirectType(..))
+import Yesod.Handler (redirectWith)
 import qualified Network.HTTP.Types as H
 
 data Y = Y
@@ -11,6 +11,7 @@ mkYesod "Y" [parseRoutes|
 /r301 R301 GET
 /r303 R303 GET
 /r307 R307 GET
+/rregular RRegular GET
 |]
 instance Yesod Y where approot _ = "http://test"
 app :: Session () -> IO ()
@@ -19,11 +20,11 @@ app = yesod Y
 getRootR :: Handler ()
 getRootR = return ()
 
-getR301, getR303, getR307 :: Handler ()
-getR301 = redirect RedirectPermanent RootR
-getR303 = redirect RedirectSeeOther RootR
-getR307 = redirect RedirectTemporary RootR
-
+getR301, getR303, getR307, getRRegular :: Handler ()
+getR301 = redirectWith H.status301 RootR
+getR303 = redirectWith H.status303 RootR
+getR307 = redirectWith H.status307 RootR
+getRRegular = redirect RootR
 
 specs :: [Spec]
 specs = describe "Redirect" [
@@ -42,9 +43,9 @@ specs = describe "Redirect" [
       assertStatus 307 res
       assertBodyContains "" res
 
-  , it "302 redirect instead of 307 for http 1.0" $ app $ do
+  , it "302 redirect for regular" $ app $ do
       res <- request defaultRequest {
-        pathInfo = ["r307"], httpVersion = H.http10
+        pathInfo = ["rregular"]
       }
       assertStatus 302 res
       assertBodyContains "" res

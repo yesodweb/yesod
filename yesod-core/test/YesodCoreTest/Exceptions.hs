@@ -9,6 +9,7 @@ import Test.Hspec.HUnit ()
 import Yesod.Core hiding (Request)
 import Network.Wai
 import Network.Wai.Test
+import Network.HTTP.Types (status301)
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
@@ -27,7 +28,7 @@ getRootR = error "FOOBAR" >> return ()
 getRedirR :: Handler ()
 getRedirR = do
     setHeader "foo" "bar"
-    redirect RedirectPermanent RootR
+    redirectWith status301 RootR
 
 exceptionsTest :: [Spec]
 exceptionsTest = describe "Test.Exceptions"

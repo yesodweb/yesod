@@ -375,7 +375,7 @@ defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
                                 permissionDenied "Authentication required"
                             Just url' -> do
                                 setUltDest'
-                                redirect RedirectTemporary url'
+                                redirect url'
                     Unauthorized s' -> permissionDenied s'
                 handler
     let sessionMap = Map.fromList

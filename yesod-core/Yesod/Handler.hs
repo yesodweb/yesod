@@ -39,11 +39,9 @@ module Yesod.Handler
     , runRequestBody
       -- * Special responses
       -- ** Redirecting
-    , RedirectType (..)
+    , RedirectUrl (..)
     , redirect
-    , redirectParams
-    , redirectString
-    , redirectText
+    , redirectWith
     , redirectToPost
       -- ** Errors
     , notFound
@@ -77,8 +75,6 @@ module Yesod.Handler
     , deleteSession
       -- ** Ultimate destination
     , setUltDest
-    , setUltDestString
-    , setUltDestText
     , setUltDest'
     , setUltDestReferer
     , redirectUltDest
@@ -298,7 +294,7 @@ data HandlerContents =
       HCContent H.Status ChooseRep
     | HCError ErrorResponse
     | HCSendFile ContentType FilePath (Maybe W.FilePart) -- FIXME replace FilePath with opaque type from system-filepath?
-    | HCRedirect RedirectType Text
+    | HCRedirect H.Status Text
     | HCCreated Text
     | HCWai W.Response
     deriving Typeable
@@ -416,10 +412,10 @@ runHandler handler mrender sroute tomr master sub =
             (ct, c) <- liftIO $ a cts
             return $ YARPlain status (appEndo headers []) ct c finalSession
         HCError e -> handleError e
-        HCRedirect rt loc -> do
+        HCRedirect status loc -> do
             let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
             return $ YARPlain
-                (getRedirectStatus rt $ reqWaiRequest rr) hs typePlain emptyContent
+                status hs typePlain emptyContent
                 finalSession
         HCSendFile ct fp p -> catch
             (sendFile' ct fp p)
@@ -444,22 +440,28 @@ safeEh er = YesodApp $ \_ _ _ session -> do
         (toContent ("Internal Server Error" :: S.ByteString))
         session
 
--- | Redirect to the given route.
-redirect :: RedirectType -> Route master -> GHandler sub master a
-redirect rt url = redirectParams rt url []
+-- | Redirect to the given route. The redirect will be a temporary redirect to
+-- a GET request. This is the appropriate choice for a get-following-post
+-- technique, which should be the usual use case. This function currently uses
+-- a 302 status code, though the implementation is free to change in the future
+-- to an equivalent code with the same semantics (e.g., 303).
+--
+-- If you want direct control of the final status code, or need a different
+-- status code, please use 'redirectWith'.
+--
+-- Note: According to the HTTP spec, a 302 does /not/ have the semantics
+-- described here. However, this has been historically how clients treated a
+-- 302. 303 is not understood by older clients, which is why we have opted for
+-- a 302. If at some future date it is determined that virtually all clients
+-- understand 303, this implementation will switch to that status code.
+redirect :: RedirectUrl master url => url -> GHandler sub master a
+redirect = redirectWith H.status302
 
--- | Redirects to the given route with the associated query-string parameters.
-redirectParams :: RedirectType -> Route master -> [(Text, Text)]
-               -> GHandler sub master a
-redirectParams rt url params = do
-    r <- getUrlRenderParams
-    redirectString rt $ r url params
-
--- | Redirect to the given URL.
-redirectString, redirectText :: RedirectType -> Text -> GHandler sub master a
-redirectText rt = liftIO . throwIO . HCRedirect rt
-redirectString = redirectText
-{-# DEPRECATED redirectString "Use redirectText instead" #-}
+-- | Redirect to the given URL with the specified status code.
+redirectWith :: RedirectUrl master url => H.Status -> url -> GHandler sub master a
+redirectWith status url = do
+    urlText <- toTextUrl url
+    liftIO $ throwIO $ HCRedirect status urlText
 
 ultDestKey :: Text
 ultDestKey = "_ULT"
@@ -468,18 +470,10 @@ ultDestKey = "_ULT"
 --
 -- An ultimate destination is stored in the user session and can be loaded
 -- later by 'redirectUltDest'.
-setUltDest :: Route master -> GHandler sub master ()
-setUltDest dest = do
-    render <- getUrlRender
-    setUltDestString $ render dest
-
--- | Same as 'setUltDest', but use the given string.
-setUltDestText :: Text -> GHandler sub master ()
-setUltDestText = setSession ultDestKey
-
-setUltDestString :: Text -> GHandler sub master ()
-setUltDestString = setSession ultDestKey
-{-# DEPRECATED setUltDestString "Use setUltDestText instead" #-}
+setUltDest :: RedirectUrl master url => url -> GHandler sub master ()
+setUltDest url = do
+    urlText <- toTextUrl url
+    setSession ultDestKey urlText
 
 -- | Same as 'setUltDest', but uses the current page.
 --
@@ -493,8 +487,7 @@ setUltDest' = do
         Just r -> do
             tm <- getRouteToMaster
             gets' <- reqGetParams `liftM` handlerRequest `liftM` ask
-            render <- getUrlRenderParams
-            setUltDestString $ render (tm r) gets'
+            setUltDest (tm r, gets')
 
 -- | Sets the ultimate destination to the referer request header, if present.
 --
@@ -507,19 +500,22 @@ setUltDestReferer = do
         (const $ return ())
         mdest
   where
-    setUltDestBS = setUltDestText . T.pack . S8.unpack
+    setUltDestBS = setUltDest . T.pack . S8.unpack
 
 -- | Redirect to the ultimate destination in the user's session. Clear the
 -- value from the session.
 --
 -- The ultimate destination is set with 'setUltDest'.
-redirectUltDest :: RedirectType
-                -> Route master -- ^ default destination if nothing in session
+--
+-- This function uses 'redirect', and thus will perform a temporary redirect to
+-- a GET request.
+redirectUltDest :: RedirectUrl master url
+                => url -- ^ default destination if nothing in session
                 -> GHandler sub master a
-redirectUltDest rt def = do
+redirectUltDest def = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
-    maybe (redirect rt def) (redirectText rt) mdest
+    maybe (redirect def) redirect mdest
 
 -- | Remove a previously set ultimate destination. See 'setUltDest'.
 clearUltDest :: GHandler sub master ()
@@ -703,18 +699,26 @@ getStatus (InvalidArgs _) = H.status400
 getStatus (PermissionDenied _) = H.status403
 getStatus (BadMethod _) = H.status405
 
-getRedirectStatus :: RedirectType ->  W.Request -> H.Status
-getRedirectStatus RedirectPermanent _ = H.status301
-getRedirectStatus RedirectTemporary r
-    | W.httpVersion r == H.http11 = H.status307
-    | otherwise                  = H.status302
-getRedirectStatus RedirectSeeOther  _ = H.status303
+-- | Some value which can be turned into a URL for redirects.
+class RedirectUrl master a where
+    -- | Converts the value to the URL and a list of query-string parameters.
+    toTextUrl :: a -> GHandler sub master Text
 
--- | Different types of redirects.
-data RedirectType = RedirectPermanent
-                  | RedirectTemporary
-                  | RedirectSeeOther
-    deriving (Show, Eq)
+instance RedirectUrl master Text where
+    toTextUrl = return
+
+instance RedirectUrl master String where
+    toTextUrl = toTextUrl . T.pack
+
+instance RedirectUrl master (Route master) where
+    toTextUrl u = do
+        r <- getUrlRender
+        return $ r u
+
+instance t ~ Text => RedirectUrl master (Route master, [(t, t)]) where
+    toTextUrl (u, ps) = do
+        r <- getUrlRenderParams
+        return $ r u ps
 
 localNoCurrent :: GHandler s m a -> GHandler s m a
 localNoCurrent =
@@ -835,8 +839,10 @@ newIdent = do
 -- POST form, and some Javascript to automatically submit the form. This can be
 -- useful when you need to post a plain link somewhere that needs to cause
 -- changes on the server.
-redirectToPost :: Route master -> GHandler sub master a
-redirectToPost dest = hamletToRepHtml
+redirectToPost :: RedirectUrl master url => url -> GHandler sub master a
+redirectToPost url = do
+    urlText <- toTextUrl url
+    hamletToRepHtml
 #if GHC7
             [hamlet|
 #else
@@ -848,7 +854,7 @@ redirectToPost dest = hamletToRepHtml
     <head>
         <title>Redirecting...
     <body onload="document.getElementById('form').submit()">
-        <form id="form" method="post" action="@{dest}">
+        <form id="form" method="post" action=#{urlText}>
             <noscript>
                 <p>Javascript has been disabled; please click on the button below to be redirected.
             <input type="submit" value="Continue">
