@@ -46,6 +46,7 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
                   , oauthSignatureMethod = HMACSHA1
                   , oauthConsumerKey = fromString key, oauthConsumerSecret = fromString sec
                   , oauthCallback = Nothing
+                  , oauthRealm = Nothing
                   }
     dispatch "GET" ["forward"] = do
         render <- getUrlRender
