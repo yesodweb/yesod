@@ -9,16 +9,21 @@ import Network.Wai.Application.Static
 
 staticFiles "."
 
-data Sample = Sample
-getStatic _ = Static $ defaultFileServerSettings { ssFolder = fileSystemLookup $ toFilePath "tests" }
+data Sample = Sample { getStatic :: Static }
+
+--getStatic _ = Static $ defaultFileServerSettings { ssFolder = fileSystemLookup $ toFilePath "." }
 mkYesod "Sample" [parseRoutes|
 / RootR GET
 /static StaticR Static getStatic
 |]
-instance Yesod Sample where approot _ = ""
+instance Yesod Sample where
+    approot _ = ""
+    cleanPath _ = Right -- FIXME make this unnecessary perhaps
 
 getRootR = do
     redirectText RedirectPermanent "static"
     return ()
 
-main = toWaiApp Sample >>= run 3000
+main = do
+    s <- static "."
+    toWaiApp (Sample s) >>= run 3000
