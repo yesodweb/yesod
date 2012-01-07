@@ -71,7 +71,7 @@ authFacebook cid secret perms =
         tm <- getRouteToMaster
         render <- getUrlRender
         let fb = Facebook.Facebook cid secret $ render $ tm url
-        redirectText RedirectTemporary $ Facebook.getForwardUrl fb perms
+        redirect $ Facebook.getForwardUrl fb perms
     dispatch "GET" [] = do
         render <- getUrlRender
         tm <- getRouteToMaster
@@ -92,11 +92,11 @@ authFacebook cid secret perms =
         case mtoken of
           Nothing -> do
             -- Well... then just logout from our app.
-            redirect RedirectTemporary (tm LogoutR)
+            redirect (tm LogoutR)
           Just at -> do
             render <- getUrlRender
             let logout = Facebook.getLogoutUrl at (render $ tm LogoutR)
-            redirectText RedirectTemporary logout
+            redirect logout
     dispatch _ _ = notFound
     login tm = do
         render <- lift getUrlRender

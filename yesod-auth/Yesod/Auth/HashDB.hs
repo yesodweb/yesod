@@ -179,7 +179,7 @@ postLoginR uniq = do
        then setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
        else do setMessage [QQ(shamlet)| Invalid username/password |]
                toMaster <- getRouteToMaster
-               redirect RedirectTemporary $ toMaster LoginR
+               redirect $ toMaster LoginR
 
 
 -- | A drop in for the getAuthId method of your YesodAuth instance which
@@ -208,7 +208,7 @@ getAuthIdHashDB authR uniq creds = do
                 Just (uid, _) -> return $ Just uid
                 Nothing       -> do
                     setMessage [QQ(shamlet)| User not found |]
-                    redirect RedirectTemporary $ authR LoginR
+                    redirect $ authR LoginR
 
 -- | Prompt for username and password, validate that against a database
 --   which holds the username and a hash of the password
