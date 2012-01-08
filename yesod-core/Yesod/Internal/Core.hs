@@ -272,9 +272,17 @@ class RenderRoute a => Yesod a where
                   -> LogLevel
                   -> Text -- ^ message
                   -> IO ()
-    messageLogger _ loc level msg =
-        formatLogMessage loc level msg >>=
-        Data.Text.Lazy.IO.putStrLn
+    messageLogger a loc level msg =
+        if level < logLevel a
+            then return ()
+            else
+                formatLogMessage loc level msg >>=
+                Data.Text.Lazy.IO.putStrLn
+
+    -- | The logging level in place for this application. Any messages below
+    -- this level will simply be ignored.
+    logLevel :: a -> LogLevel
+    logLevel _ = LevelInfo
 
     -- | GZIP settings.
     gzipSettings :: a -> GzipSettings
