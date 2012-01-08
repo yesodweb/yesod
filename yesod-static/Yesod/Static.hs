@@ -40,6 +40,7 @@ module Yesod.Static
     , staticFilesList
     , publicFiles
       -- * Hashing
+    , base64md5
 #ifdef TEST
     , getFileListPieces
 #endif
@@ -57,11 +58,12 @@ import Data.List (intercalate)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
-import Crypto.Conduit (hashFile)
+import Crypto.Conduit (hashFile, sinkHash)
 import Crypto.Hash.MD5 (MD5)
 
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.ByteString.Lazy as L
 import qualified Data.Serialize
 import Data.Text (Text, pack)
 import Data.Monoid (mempty)
@@ -74,6 +76,9 @@ import qualified Data.ByteString as S
 import Network.HTTP.Types (status301)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
+import Data.Conduit (($$), runResourceT)
+import Data.Conduit.List (sourceList)
+import Control.Monad.ST (runST)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -314,6 +319,14 @@ mkStaticFilesList fp fs routeConName makeHash = do
 base64md5File :: Prelude.FilePath -> IO String
 base64md5File = fmap (base64 . encode) . hashFile
     where encode d = Data.Serialize.encode (d :: MD5)
+
+base64md5 :: L.ByteString -> String
+base64md5 lbs =
+            base64 $ encode
+          $ runST $ runResourceT
+          $ sourceList (L.toChunks lbs) $$ sinkHash
+  where
+    encode d = Data.Serialize.encode (d :: MD5)
 
 base64 :: S.ByteString -> String
 base64 = map tr

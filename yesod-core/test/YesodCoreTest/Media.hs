@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module YesodCoreTest.Media (mediaTest, Widget) where
 
 import Test.Hspec
@@ -9,12 +10,9 @@ import Yesod.Core hiding (Request)
 import Network.Wai
 import Network.Wai.Test
 import Text.Lucius
+import YesodCoreTest.MediaData
 
-data Y = Y
-mkYesod "Y" [parseRoutes|
-/ RootR GET
-/static StaticR GET
-|]
+mkYesodDispatch "Y" resourcesY
 
 instance Yesod Y where
     approot _ = ""
