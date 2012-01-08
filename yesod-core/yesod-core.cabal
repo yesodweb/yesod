@@ -18,6 +18,7 @@ extra-source-files:
   test/en.msg
   test/YesodCoreTest/NoOverloadedStrings.hs
   test/YesodCoreTest/Media.hs
+  test/YesodCoreTest/MediaData.hs
   test/YesodCoreTest/Exceptions.hs
   test/YesodCoreTest/Widget.hs
   test/YesodCoreTest/CleanPath.hs

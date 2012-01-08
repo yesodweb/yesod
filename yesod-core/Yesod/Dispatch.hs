@@ -89,8 +89,8 @@ mkYesodDataGeneral name clazzes isSub res = do
     let (name':rest) = words name
     (x, _) <- mkYesodGeneral name' rest clazzes isSub res
     let rname = mkName $ "resources" ++ name
-    eres <- [|fmap parseType $(lift res)|]
-    let y = [ SigD rname $ ListT `AppT` ConT ''Resource
+    eres <- lift res
+    let y = [ SigD rname $ ListT `AppT` (ConT ''Resource `AppT` ConT ''String)
             , FunD rname [Clause [] (NormalB eres) []]
             ]
     return $ x ++ y
