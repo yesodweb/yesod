@@ -1,5 +1,5 @@
 name:            authenticate
-version:         0.11.1
+version:         1.0.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii, Arash Rouhani
@@ -14,31 +14,31 @@ build-type:      Simple
 homepage:        http://github.com/yesodweb/authenticate
 
 library
-    build-depends:   base >= 4 && < 5,
-                     aeson >= 0.5,
-                     http-conduit >= 1.1 && < 1.2,
-                     tagsoup >= 0.12 && < 0.13,
-                     failure >= 0.0.0 && < 0.2,
-                     transformers >= 0.1 && < 0.3,
-                     bytestring >= 0.9 && < 0.10,
-                     network >= 2.2.1 && < 2.4,
-                     case-insensitive >= 0.2,
-                     RSA >= 1.0 && < 1.1,
-                     time >= 1.1,
-                     base64-bytestring >= 0.1 && < 0.2,
-                     SHA >= 1.4 && < 1.6,
-                     random >= 1.0 && < 1.1,
-                     text >= 0.5 && < 1.0,
-                     http-types >= 0.6 && < 0.7,
-                     xml-conduit >= 0.5 && < 0.6,
-                     blaze-builder >= 0.2 && < 0.4,
-                     attoparsec >= 0.9,
-                     tls >= 0.7 && < 0.9,
-                     containers,
-                     unordered-containers,
-                     process >= 1.0.1.1 && < 1.2,
-                     conduit >= 0.0 && < 0.1,
-                     blaze-builder-conduit >= 0.0 && < 0.1
+    build-depends:   base                          >= 4        && < 5
+                   , aeson                         >= 0.5
+                   , http-conduit                  >= 1.1      && < 1.2
+                   , tagsoup                       >= 0.12     && < 0.13
+                   , failure                       >= 0.0.0    && < 0.2
+                   , transformers                  >= 0.1      && < 0.3
+                   , bytestring                    >= 0.9
+                   , network
+                   , case-insensitive              >= 0.2
+                   , RSA                           >= 1.0      && < 1.1
+                   , time
+                   , base64-bytestring             >= 0.1      && < 0.2
+                   , SHA                           >= 1.4      && < 1.6
+                   , random
+                   , text
+                   , http-types                    >= 0.6      && < 0.7
+                   , xml-conduit                   >= 0.5      && < 0.6
+                   , blaze-builder
+                   , attoparsec
+                   , tls                           >= 0.7      && < 0.9
+                   , containers
+                   , unordered-containers
+                   , process
+                   , conduit                       >= 0.0      && < 0.1
+                   , blaze-builder-conduit         >= 0.0      && < 0.1
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
                      Web.Authenticate.BrowserId,
