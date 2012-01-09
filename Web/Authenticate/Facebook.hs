@@ -14,6 +14,8 @@ module Web.Authenticate.Facebook
     ) where
 
 import Network.HTTP.Conduit
+import Data.Conduit (ResourceT)
+import Control.Monad.IO.Class (liftIO)
 import Network.HTTP.Types (parseSimpleQuery)
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as L8
@@ -76,10 +78,11 @@ accessTokenUrl fb code =
         , ("client_secret", Just $ facebookClientSecret fb)
         ]
 
-getAccessToken :: Facebook -> Text -> IO AccessToken
-getAccessToken fb code = do
+getAccessToken :: Facebook -> Text -> Manager -> ResourceT IO AccessToken
+getAccessToken fb code manager = do
     let url = accessTokenUrl fb code
-    b <- simpleHttp $ S8.unpack url
+    req <- liftIO $ parseUrl $ S8.unpack url
+    Response _ _ b <- httpLbs req manager
     let params = parseSimpleQuery $ S8.concat $ L8.toChunks b
     case lookup "access_token" params of
         Just x -> return $ AccessToken $ T.pack $ S8.unpack x
@@ -92,14 +95,15 @@ graphUrl (AccessToken s) func =
     `mappend` fromText func
     `mappend` renderQueryText True [("access_token", Just s)]
 
-getGraphData :: AccessToken -> Text -> IO (Either String Value)
-getGraphData at func = do
+getGraphData :: AccessToken -> Text -> Manager -> ResourceT IO (Either String Value)
+getGraphData at func manager = do
     let url = graphUrl at func
-    b <- simpleHttp $ S8.unpack url
+    req <- liftIO $ parseUrl $ S8.unpack url
+    Response _ _ b <- httpLbs req manager
     return $ eitherResult $ parse json b
 
-getGraphData_ :: AccessToken -> Text -> IO Value
-getGraphData_ a b = getGraphData a b >>= either (throwIO . InvalidJsonException) return
+getGraphData_ :: AccessToken -> Text -> Manager -> ResourceT IO Value
+getGraphData_ a b m = getGraphData a b m >>= either (liftIO . throwIO . InvalidJsonException) return
 
 data InvalidJsonException = InvalidJsonException String
     deriving (Show, Typeable)

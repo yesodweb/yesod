@@ -23,8 +23,8 @@ module Web.Authenticate.Rpxnow
 
 import Data.Aeson
 import Network.HTTP.Conduit
+import Data.Conduit (ResourceT, ResourceIO)
 import Control.Monad.IO.Class
-import Control.Failure
 import Data.Maybe
 import Control.Monad
 import qualified Data.ByteString.Char8 as S
@@ -36,12 +36,9 @@ import Data.Attoparsec.Lazy (parse)
 import qualified Data.Attoparsec.Lazy as AT
 import Data.Text (Text)
 import qualified Data.Aeson.Types
-#if MIN_VERSION_aeson(0, 4, 0)
 import qualified Data.HashMap.Lazy as Map
-#else
-import qualified Data.Map as Map
-#endif
 import Control.Applicative ((<$>), (<*>))
+import Control.Exception (throwIO)
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -51,20 +48,19 @@ data Identifier = Identifier
     deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- | Attempt to log a user in.
-authenticate :: (MonadIO m,
-                 Failure HttpException m,
-                 Failure AuthenticateException m)
+authenticate :: ResourceIO m
              => String -- ^ API key given by RPXNOW.
              -> String -- ^ Token passed by client.
-             -> m Identifier
-authenticate apiKey token = do
+             -> Manager
+             -> ResourceT m Identifier
+authenticate apiKey token manager = do
     let body = L.fromChunks
             [ "apiKey="
             , S.pack apiKey
             , "&token="
             , S.pack token
             ]
-    req' <- parseUrl "https://rpxnow.com"
+    req' <- liftIO $ parseUrl "https://rpxnow.com"
     let req =
             req'
                 { method = "POST"
@@ -74,7 +70,7 @@ authenticate apiKey token = do
                     ]
                 , requestBody = RequestBodyLBS body
                 }
-    res <- liftIO $ withManager $ httpLbs req
+    res <- httpLbs req manager
     let b = responseBody res
     o <- unResult $ parse json b
     --m <- fromMapping o
@@ -84,15 +80,15 @@ authenticate apiKey token = do
                     _ -> mzero
     case mstat of
         Success "ok" -> return ()
-        Success stat -> failure $ RpxnowException $
+        Success stat -> liftIO $ throwIO $ RpxnowException $
             "Rpxnow login not accepted: " ++ stat ++ "\n" ++ L.unpack b
-        _ -> failure $ RpxnowException "Now stat value found on Rpxnow response"
+        _ -> liftIO $ throwIO $ RpxnowException "Now stat value found on Rpxnow response"
     case Data.Aeson.Types.parse parseProfile o of
         Success x -> return x
-        Error e -> failure $ RpxnowException $ "Unable to parse Rpxnow response: " ++ e
+        Error e -> liftIO $ throwIO $ RpxnowException $ "Unable to parse Rpxnow response: " ++ e
 
-unResult :: Failure AuthenticateException m => AT.Result a -> m a
-unResult = either (failure . RpxnowException) return . AT.eitherResult
+unResult :: MonadIO m => AT.Result a -> m a
+unResult = either (liftIO . throwIO . RpxnowException) return . AT.eitherResult
 
 parseProfile :: Value -> Data.Aeson.Types.Parser Identifier
 parseProfile (Object m) = do

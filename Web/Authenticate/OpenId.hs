@@ -10,7 +10,6 @@ module Web.Authenticate.OpenId
 import Control.Monad.IO.Class
 import OpenId2.Normalization (normalize)
 import OpenId2.Discovery (discover, Discovery (..))
-import Control.Failure (Failure (failure))
 import OpenId2.Types
 import Control.Monad (unless)
 import Data.Text.Lazy.Encoding (decodeUtf8With)
@@ -18,8 +17,9 @@ import Data.Text.Encoding.Error (lenientDecode)
 import Data.Text.Lazy (toStrict)
 import Network.HTTP.Conduit
     ( parseUrl, urlEncodedBody, responseBody, httpLbs
-    , HttpException, withManager
+    , HttpException, Manager
     )
+import Data.Conduit (ResourceT, ResourceIO)
 import Control.Arrow ((***), second)
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
@@ -28,20 +28,19 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Blaze.ByteString.Builder (toByteString)
 import Network.HTTP.Types (renderQueryText)
 import Data.Monoid (mappend)
+import Control.Exception (throwIO)
 
 getForwardUrl
-    :: ( MonadIO m
-       , Failure AuthenticateException m
-       , Failure HttpException m
-       )
+    :: ResourceIO m
     => Text -- ^ The openid the user provided.
     -> Text -- ^ The URL for this application\'s complete page.
     -> Maybe Text -- ^ Optional realm
     -> [(Text, Text)] -- ^ Additional parameters to send to the OpenID provider. These can be useful for using extensions.
-    -> m Text -- ^ URL to send the user to.
-getForwardUrl openid' complete mrealm params = do
+    -> Manager
+    -> ResourceT m Text -- ^ URL to send the user to.
+getForwardUrl openid' complete mrealm params manager = do
     let realm = fromMaybe complete mrealm
-    disc <- liftIO $ normalize openid' >>= discover
+    disc <- normalize openid' >>= flip discover manager
     let helper s q = return $ s `mappend` decodeUtf8 (toByteString $ renderQueryText True $ map (second Just) q)
     case disc of
         Discovery1 server mdelegate -> helper server
@@ -66,15 +65,13 @@ getForwardUrl openid' complete mrealm params = do
                 : params
 
 authenticate
-    :: ( MonadIO m
-       , Failure AuthenticateException m
-       , Failure HttpException m
-       )
+    :: ResourceIO m
     => [(Text, Text)]
-    -> m (Identifier, [(Text, Text)])
-authenticate params = do
+    -> Manager
+    -> ResourceT m (Identifier, [(Text, Text)])
+authenticate params manager = do
     unless (lookup "openid.mode" params == Just "id_res")
-        $ failure $ case lookup "openid.mode" params of
+        $ liftIO $ throwIO $ case lookup "openid.mode" params of
                       Nothing -> AuthenticationException "openid.mode was not found in the params."
                       (Just m)
                             | m == "error" ->
@@ -85,21 +82,21 @@ authenticate params = do
     ident <- case lookup "openid.identity" params of
                 Just i -> return i
                 Nothing ->
-                    failure $ AuthenticationException "Missing identity"
-    disc <- liftIO $ normalize ident >>= discover
+                    liftIO $ throwIO $ AuthenticationException "Missing identity"
+    disc <- normalize ident >>= flip discover manager
     let endpoint = case disc of
                     Discovery1 p _ -> p
                     Discovery2 (Provider p) _ _ -> p
     let params' = map (encodeUtf8 *** encodeUtf8)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params
-    req' <- parseUrl $ unpack endpoint
+    req' <- liftIO $ parseUrl $ unpack endpoint
     let req = urlEncodedBody params' req'
-    rsp <- liftIO $ withManager $ httpLbs req
+    rsp <- httpLbs req manager
     let rps = parseDirectResponse $ toStrict $ decodeUtf8With lenientDecode $ responseBody rsp
     case lookup "is_valid" rps of
         Just "true" -> return (Identifier ident, rps)
-        _ -> failure $ AuthenticationException "OpenID provider did not validate"
+        _ -> liftIO $ throwIO $ AuthenticationException "OpenID provider did not validate"
 
 -- | Turn a response body into a list of parameters.
 parseDirectResponse :: Text -> [(Text, Text)]

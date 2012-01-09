@@ -21,18 +21,19 @@ import OpenId2.Types
 import Control.Applicative
 import Control.Monad
 import Data.List
-import Control.Failure (Failure (..))
 import Network.URI
     ( uriToString, normalizeCase, normalizeEscape
     , normalizePathSegments, parseURI, uriPath, uriScheme, uriFragment
     )
 import Data.Text (Text, pack, unpack)
+import Control.Monad.IO.Class
+import Control.Exception (throwIO)
 
-normalize :: Failure AuthenticateException m => Text -> m Identifier
+normalize :: MonadIO m => Text -> m Identifier
 normalize ident =
     case normalizeIdentifier $ Identifier ident of
         Just i -> return i
-        Nothing -> failure $ NormalizationException $ unpack ident
+        Nothing -> liftIO $ throwIO $ NormalizationException $ unpack ident
 
 -- | Normalize an identifier, discarding XRIs.
 normalizeIdentifier :: Identifier -> Maybe Identifier

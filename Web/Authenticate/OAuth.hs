@@ -37,10 +37,11 @@ import Network.HTTP.Types (Header)
 import Blaze.ByteString.Builder (toByteString)
 import Control.Monad.IO.Class (MonadIO)
 import Network.HTTP.Types (renderSimpleQuery, status200)
-import Data.Conduit (ResourceIO, runResourceT, ($$), ($=), Source)
+import Data.Conduit (ResourceT, ResourceIO, ($$), ($=), Source)
 import qualified Data.Conduit.List as CL
 import Data.Conduit.Blaze (builderToByteString)
 import Blaze.ByteString.Builder (Builder)
+import Control.Monad.IO.Class (liftIO)
 
 -- | Data type for OAuth client (consumer).
 -- The default values apply when you use 'newOAuth'
@@ -105,39 +106,47 @@ fromStrict :: BS.ByteString -> BSL.ByteString
 fromStrict = BSL.fromChunks . return
 
 -- | Get temporary credential for requesting acces token.
-getTemporaryCredential :: OAuth         -- ^ OAuth Application
-                       -> IO Credential -- ^ Temporary Credential (Request Token & Secret).
+getTemporaryCredential :: ResourceIO m
+                       => OAuth         -- ^ OAuth Application
+                       -> Manager
+                       -> ResourceT m Credential -- ^ Temporary Credential (Request Token & Secret).
 getTemporaryCredential = getTemporaryCredential' id
 
 -- | Get temporary credential for requesting access token with Scope parameter.
-getTemporaryCredentialWithScope :: BS.ByteString -- ^ Scope parameter string
+getTemporaryCredentialWithScope :: ResourceIO m
+                                => BS.ByteString -- ^ Scope parameter string
                                 -> OAuth         -- ^ OAuth Application
-                                -> IO Credential -- ^ Temporay Credential (Request Token & Secret).
-getTemporaryCredentialWithScope = getTemporaryCredential' . addScope
+                                -> Manager
+                                -> ResourceT m Credential -- ^ Temporay Credential (Request Token & Secret).
+getTemporaryCredentialWithScope bs = getTemporaryCredential' (addScope bs)
 
 addScope :: (MonadIO m) => BS.ByteString -> Request m -> Request m
 addScope scope req | BS.null scope = req
                    | otherwise     = urlEncodedBody [("scope", scope)] req
 
 -- | Get temporary credential for requesting access token via the proxy.
-getTemporaryCredentialProxy :: Maybe Proxy   -- ^ Proxy
+getTemporaryCredentialProxy :: ResourceIO m
+                            => Maybe Proxy   -- ^ Proxy
                             -> OAuth         -- ^ OAuth Application
-                            -> IO Credential -- ^ Temporary Credential (Request Token & Secret).
-getTemporaryCredentialProxy p = getTemporaryCredential' $ addMaybeProxy p
+                            -> Manager
+                            -> ResourceT m Credential -- ^ Temporary Credential (Request Token & Secret).
+getTemporaryCredentialProxy p oa m = getTemporaryCredential' (addMaybeProxy p) oa m
 
-getTemporaryCredential' :: (Request IO -> Request IO) -- ^ Request Hook
+getTemporaryCredential' :: ResourceIO m
+                        => (Request m -> Request m)   -- ^ Request Hook
                         -> OAuth                      -- ^ OAuth Application
-                        -> IO Credential              -- ^ Temporary Credential (Request Token & Secret).
-getTemporaryCredential' hook oa = do
+                        -> Manager
+                        -> ResourceT m Credential    -- ^ Temporary Credential (Request Token & Secret).
+getTemporaryCredential' hook oa manager = do
   let req = fromJust $ parseUrl $ oauthRequestUri oa
       crd = maybe id (insert "oauth_callback") (oauthCallback oa) $ emptyCredential
   req' <- signOAuth oa crd $ hook (req { method = "POST" }) 
-  rsp <- withManager . httpLbs $ req'
+  rsp <- httpLbs req' manager
   if statusCode rsp == status200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
       return $ Credential dic
-    else throwIO . OAuthException $ "Gaining OAuth Temporary Credential Failed: " ++ BSL.unpack (responseBody rsp)
+    else liftIO . throwIO . OAuthException $ "Gaining OAuth Temporary Credential Failed: " ++ BSL.unpack (responseBody rsp)
 
 -- | URL to obtain OAuth verifier.
 authorizeUrl :: OAuth           -- ^ OAuth Application
@@ -150,31 +159,37 @@ authorizeUrl oa cr = oauthAuthorizeUri oa ++ BS.unpack (renderSimpleQuery True q
 
 -- | Get Access token.
 getAccessToken, getTokenCredential
-               :: OAuth         -- ^ OAuth Application
+               :: ResourceIO m
+               => OAuth         -- ^ OAuth Application
                -> Credential    -- ^ Temporary Credential with oauth_verifier
-               -> IO Credential -- ^ Token Credential (Access Token & Secret)
+               -> Manager
+               -> ResourceT m Credential -- ^ Token Credential (Access Token & Secret)
 getAccessToken = getAccessToken' id
 
 -- | Get Access token via the proxy.
 getAccessTokenProxy, getTokenCredentialProxy
-               :: Maybe Proxy   -- ^ Proxy
+               :: ResourceIO m
+               => Maybe Proxy   -- ^ Proxy
                -> OAuth         -- ^ OAuth Application
                -> Credential    -- ^ Temporary Credential with oauth_verifier
-               -> IO Credential -- ^ Token Credential (Access Token & Secret)
+               -> Manager
+               -> ResourceT m Credential -- ^ Token Credential (Access Token & Secret)
 getAccessTokenProxy p = getAccessToken' $ addMaybeProxy p
 
-getAccessToken' :: (Request IO -> Request IO) -- ^ Request Hook
+getAccessToken' :: ResourceIO m
+                => (Request m -> Request m)   -- ^ Request Hook
                 -> OAuth                      -- ^ OAuth Application
                 -> Credential                 -- ^ Temporary Credential with oauth_verifier
-                -> IO Credential              -- ^ Token Credential (Access Token & Secret)
-getAccessToken' hook oa cr = do
+                -> Manager
+                -> ResourceT m Credential     -- ^ Token Credential (Access Token & Secret)
+getAccessToken' hook oa cr manager = do
   let req = hook (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
-  rsp <- withManager . httpLbs =<< signOAuth oa cr req
+  rsp <- flip httpLbs manager =<< signOAuth oa cr req
   if statusCode rsp == status200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
       return $ Credential dic
-    else throwIO . OAuthException $ "Gaining OAuth Token Credential Failed: " ++ BSL.unpack (responseBody rsp)
+    else liftIO . throwIO . OAuthException $ "Gaining OAuth Token Credential Failed: " ++ BSL.unpack (responseBody rsp)
 
 
 getTokenCredential = getAccessToken
@@ -204,10 +219,11 @@ delete :: BS.ByteString -- ^ Parameter name
 delete key = Credential . deleteMap key . unCredential
 
 -- | Add OAuth headers & sign to 'Request'.
-signOAuth :: OAuth              -- ^ OAuth Application
+signOAuth :: ResourceIO m
+          => OAuth              -- ^ OAuth Application
           -> Credential         -- ^ Credential
-          -> Request IO         -- ^ Original Request
-          -> IO (Request IO)    -- ^ Signed OAuth Request
+          -> Request m          -- ^ Original Request
+          -> ResourceT m (Request m)    -- ^ Signed OAuth Request
 signOAuth oa crd req = do
   crd' <- addTimeStamp =<< addNonce crd
   let tok = injectOAuthToCred oa crd'
@@ -228,15 +244,15 @@ showSigMtd PLAINTEXT = "PLAINTEXT"
 showSigMtd HMACSHA1  = "HMAC-SHA1"
 showSigMtd (RSASHA1 _) = "RSA-SHA1"
 
-addNonce :: Credential -> IO Credential
+addNonce :: ResourceIO m => Credential -> ResourceT m Credential
 addNonce cred = do
-  nonce <- replicateM 10 (randomRIO ('a','z'))
+  nonce <- liftIO $ replicateM 10 (randomRIO ('a','z')) -- FIXME very inefficient
   return $ insert "oauth_nonce" (BS.pack nonce) cred
 
-addTimeStamp :: Credential -> IO Credential
+addTimeStamp :: ResourceIO m => Credential -> ResourceT m Credential
 addTimeStamp cred = do
-  stamp <- floor . (`diffUTCTime` baseTime) <$> getCurrentTime :: IO Integer
-  return $ insert "oauth_timestamp" (BS.pack $ show stamp) cred
+  stamp <- floor . (`diffUTCTime` baseTime) <$> liftIO getCurrentTime
+  return $ insert "oauth_timestamp" (BS.pack $ show (stamp :: Integer)) cred
 
 injectOAuthToCred :: OAuth -> Credential -> Credential
 injectOAuthToCred oa cred =
@@ -245,7 +261,7 @@ injectOAuthToCred oa cred =
             , ("oauth_version", "1.0")
             ] cred
 
-genSign :: ResourceIO m => OAuth -> Credential -> Request m -> m BS.ByteString
+genSign :: ResourceIO m => OAuth -> Credential -> Request m -> ResourceT m BS.ByteString
 genSign oa tok req =
   case oauthSignatureMethod oa of
     HMACSHA1 -> do
@@ -273,7 +289,7 @@ paramEncode = BS.concatMap escape
                                oct = '%' : replicate (2 - length num) '0' ++ num
                            in BS.pack oct
 
-getBaseString :: ResourceIO m => Credential -> Request m -> m BSL.ByteString
+getBaseString :: ResourceIO m => Credential -> Request m -> ResourceT m BSL.ByteString
 getBaseString tok req = do
   let bsMtd  = BS.map toUpper $ method req
       isHttps = secure req
@@ -293,15 +309,15 @@ getBaseString tok req = do
   -- So this is OK.
   return $ BSL.intercalate "&" $ map (fromStrict.paramEncode) [bsMtd, bsURI, bsParams]
 
-toLBS :: ResourceIO m => RequestBody m -> m BS.ByteString
+toLBS :: ResourceIO m => RequestBody m -> ResourceT m BS.ByteString
 toLBS (RequestBodyLBS l) = return $ toStrict l
 toLBS (RequestBodyBS s) = return s
 toLBS (RequestBodyBuilder _ b) = return $ toByteString b
 toLBS (RequestBodySource _ src) = toLBS' src
 toLBS (RequestBodySourceChunked src) = toLBS' src
 
-toLBS' :: ResourceIO m => Source m Builder -> m BS.ByteString
-toLBS' src = fmap BS.concat $ runResourceT $ src $= builderToByteString $$ CL.consume
+toLBS' :: ResourceIO m => Source m Builder -> ResourceT m BS.ByteString
+toLBS' src = fmap BS.concat $ src $= builderToByteString $$ CL.consume
 
 isBodyFormEncoded :: [Header] -> Bool
 isBodyFormEncoded = maybe False (=="application/x-www-form-urlencoded") . lookup "Content-Type"

@@ -18,7 +18,6 @@ library
                    , aeson                         >= 0.5
                    , http-conduit                  >= 1.1      && < 1.2
                    , tagsoup                       >= 0.12     && < 0.13
-                   , failure                       >= 0.0.0    && < 0.2
                    , transformers                  >= 0.1      && < 0.3
                    , bytestring                    >= 0.9
                    , network

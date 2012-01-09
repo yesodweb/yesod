@@ -27,11 +27,11 @@ import Debug.Trace
 import Data.Char
 import Data.Maybe
 import Network.HTTP.Conduit
+import Data.Conduit (ResourceT, ResourceIO)
 import qualified Data.ByteString.Char8 as S8
 import Control.Arrow (first)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Failure (Failure (failure))
-import Control.Monad (mplus, liftM)
+import Control.Monad (mplus)
 import qualified Data.CaseInsensitive as CI
 import Data.Text (Text, unpack)
 import Data.Text.Lazy (toStrict)
@@ -41,36 +41,39 @@ import Data.Text.Encoding.Error (lenientDecode)
 import Text.HTML.TagSoup (parseTags, Tag (TagOpen))
 import Control.Applicative ((<$>), (<*>))
 import Network.HTTP.Types (status200)
+import Control.Exception (throwIO)
 
 data Discovery = Discovery1 Text (Maybe Text)
                | Discovery2 Provider Identifier IdentType
     deriving Show
 
 -- | Attempt to resolve an OpenID endpoint, and user identifier.
-discover :: Identifier -> IO Discovery
-discover ident@(Identifier i) = do
-    res1 <- discoverYADIS ident Nothing 10
+discover :: ResourceIO m => Identifier -> Manager -> ResourceT m Discovery
+discover ident@(Identifier i) manager = do
+    res1 <- discoverYADIS ident Nothing 10 manager
     case res1 of
         Just (x, y, z) -> return $ Discovery2 x y z
         Nothing -> do
-            res2 <- discoverHTML ident
+            res2 <- discoverHTML ident manager
             case res2 of
                 Just x -> return x
-                Nothing -> failure $ DiscoveryException $ unpack i
+                Nothing -> liftIO $ throwIO $ DiscoveryException $ unpack i
 
 -- YADIS-Based Discovery -------------------------------------------------------
 
 -- | Attempt a YADIS based discovery, given a valid identifier.  The result is
 --   an OpenID endpoint, and the actual identifier for the user.
-discoverYADIS :: Identifier
+discoverYADIS :: ResourceIO m
+              => Identifier
               -> Maybe String
               -> Int -- ^ remaining redirects
-              -> IO (Maybe (Provider, Identifier, IdentType))
-discoverYADIS _ _ 0 = failure TooManyRedirects
-discoverYADIS ident mb_loc redirects = do
+              -> Manager
+              -> ResourceT m (Maybe (Provider, Identifier, IdentType))
+discoverYADIS _ _ 0 _ = liftIO $ throwIO TooManyRedirects
+discoverYADIS ident mb_loc redirects manager = do
     let uri = fromMaybe (unpack $ identifier ident) mb_loc
-    req <- parseUrl uri
-    res <- liftIO $ withManager $ httpLbs req { checkStatus = \_ _ -> Nothing }
+    req <- liftIO $ parseUrl uri
+    res <- httpLbs req { checkStatus = \_ _ -> Nothing } manager
     let mloc = fmap S8.unpack
              $ lookup "x-xrds-location"
              $ map (first $ map toLower . S8.unpack . CI.original)
@@ -79,7 +82,7 @@ discoverYADIS ident mb_loc redirects = do
     if statusCode res == status200
         then
           case mloc' of
-            Just loc -> discoverYADIS ident (Just loc) (redirects - 1)
+            Just loc -> discoverYADIS ident (Just loc) (redirects - 1) manager
             Nothing  -> do
               let mdoc = parseXRDS $ responseBody res
               case mdoc of
@@ -113,9 +116,11 @@ parseYADIS ident = listToMaybe . mapMaybe isOpenId . concat
 
 -- | Attempt to discover an OpenID endpoint, from an HTML document.  The result
 -- will be an endpoint on success, and the actual identifier of the user.
-discoverHTML :: Identifier -> IO (Maybe Discovery)
-discoverHTML ident'@(Identifier ident) =
-    (parseHTML ident' . toStrict . decodeUtf8With lenientDecode) `liftM` simpleHttp (unpack ident)
+discoverHTML :: ResourceIO m => Identifier -> Manager -> ResourceT m (Maybe Discovery)
+discoverHTML ident'@(Identifier ident) manager = do
+    req <- liftIO $ parseUrl $ unpack ident
+    Response _ _ lbs <- httpLbs req manager
+    return $ parseHTML ident' . toStrict . decodeUtf8With lenientDecode $ lbs
 
 -- | Parse out an OpenID endpoint and an actual identifier from an HTML
 -- document.
