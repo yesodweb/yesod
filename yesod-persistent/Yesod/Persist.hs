@@ -12,6 +12,7 @@ module Yesod.Persist
 
 import Database.Persist
 import Database.Persist.Query
+import Database.Persist.Store (Entity (..))
 import Database.Persist.TH
 import Control.Monad.Trans.Class (MonadTrans)
 
@@ -45,7 +46,7 @@ getBy404 :: ( PersistUnique b m
             , Monad (b m)
             , MonadTrans b
             )
-         => Unique val b -> b m (Key b val, val)
+         => Unique val b -> b m (Entity b val)
 getBy404 key = do
     mres <- getBy key
     case mres of

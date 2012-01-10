@@ -90,7 +90,7 @@ import Data.Digest.Pure.SHA        (sha1, showDigest)
 import Data.Text                   (Text, pack, unpack, append)
 import Data.Maybe                  (fromMaybe)
 import System.Random               (randomRIO)
-
+import Database.Persist.Store      (Entity (..))
 
 -- | Interface for data type which holds user info. It's just a
 --   collection of getters and setters
@@ -153,7 +153,7 @@ validateUser userID passwd = do
                       return $ hash == saltedHash salt passwd
   -- Get user data
   user <- runDB $ getBy userID
-  return $ fromMaybe False $ validate . snd =<< user
+  return $ fromMaybe False $ validate . entityVal =<< user
 
 
 login :: AuthRoute
@@ -206,7 +206,7 @@ getAuthIdHashDB authR uniq creds = do
                    Just u  -> runDB (getBy u)
             case x of
                 -- user exists
-                Just (uid, _) -> return $ Just uid
+                Just (Entity uid _) -> return $ Just uid
                 Nothing       -> do
                     setMessage [QQ(shamlet)| User not found |]
                     redirect $ authR LoginR
