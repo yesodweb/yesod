@@ -8,6 +8,7 @@ module Yesod.Json
 
       -- * Convert to a JSON value
     , parseJsonBody
+    , parseJsonBody_
 
       -- * Produce JSON values
     , J.Value (..)
@@ -15,7 +16,7 @@ module Yesod.Json
     , array
     ) where
 
-import Yesod.Handler (GHandler, waiRequest, lift)
+import Yesod.Handler (GHandler, waiRequest, lift, invalidArgs)
 import Yesod.Content
     ( ToContent (toContent), RepHtmlJson (RepHtmlJson), RepHtml (RepHtml)
     , RepJson (RepJson), Content (ContentBuilder)
@@ -27,7 +28,7 @@ import qualified Data.Aeson as J
 import qualified Data.Aeson.Encode as JE
 import Data.Aeson.Encode (fromValue)
 import Data.Conduit.Attoparsec (sinkParser)
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import qualified Data.Vector as V
 import Text.Julius (ToJavascript (..))
 import Data.Text.Lazy.Builder (fromLazyText)
@@ -73,6 +74,15 @@ parseJsonBody :: J.FromJSON a => GHandler sub master (J.Result a)
 parseJsonBody = do
     req <- waiRequest
     fmap J.fromJSON $ lift $ requestBody req $$ sinkParser J.json'
+
+-- | Same as 'parseJsonBody', but return an invalid args response on a parse
+-- error.
+parseJsonBody_ :: J.FromJSON a => GHandler sub master a
+parseJsonBody_ = do
+    ra <- parseJsonBody
+    case ra of
+        J.Error s -> invalidArgs [pack s]
+        J.Success a -> return a
 
 instance ToJavascript J.Value where
     toJavascript = fromLazyText . decodeUtf8 . JE.encode
