@@ -6,9 +6,36 @@ module Yesod.Routes.Overlap
 
 import Yesod.Routes.TH.Types
 import Control.Arrow ((***))
+import Data.Maybe (mapMaybe)
 
 findOverlaps :: [Resource t] -> [(Resource t, Resource t)]
-findOverlaps = undefined
+findOverlaps [] = []
+findOverlaps (x:xs) = mapMaybe (findOverlap x) xs ++ findOverlaps xs
+
+findOverlap :: Resource t -> Resource t -> Maybe (Resource t, Resource t)
+findOverlap x y
+    | overlaps (resourcePieces x) (resourcePieces y) (hasSuffix x) (hasSuffix y) = Just (x, y)
+    | otherwise = Nothing
+
+hasSuffix :: Resource t -> Bool
+hasSuffix r =
+    case resourceDispatch r of
+        Subsite{} -> True
+        Methods Just{} _ -> True
+        Methods Nothing _ -> False
+
+overlaps :: [(CheckOverlap, Piece t)] -> [(CheckOverlap, Piece t)] -> Bool -> Bool -> Bool
+overlaps [] [] False False = False
+overlaps [] _ suffixX _ = suffixX
+overlaps _ [] _ suffixY = suffixY
+overlaps ((False, _):xs) (_:ys) suffixX suffixY = overlaps xs ys suffixX suffixY
+overlaps (_:xs) ((False, _):ys) suffixX suffixY = overlaps xs ys suffixX suffixY
+overlaps ((True, pieceX):xs) ((True, pieceY):ys) suffixX suffixY =
+    piecesOverlap pieceX pieceY || overlaps xs ys suffixX suffixY
+
+piecesOverlap :: Piece t -> Piece t -> Bool
+piecesOverlap (Static x) (Static y) = x == y
+piecesOverlap _ _ = True
 
 findOverlapNames :: [Resource t] -> [(String, String)]
 findOverlapNames = map (resourceName *** resourceName) . findOverlaps

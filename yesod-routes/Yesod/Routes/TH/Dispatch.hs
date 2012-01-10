@@ -136,7 +136,7 @@ buildMethodMap fixHandler (Resource name pieces (Methods mmulti methods)) = do
         pack' <- [|pack|]
         let isDynamic Dynamic{} = True
             isDynamic _ = False
-        let argCount = length (filter isDynamic pieces) + maybe 0 (const 1) mmulti
+        let argCount = length (filter (isDynamic . snd) pieces) + maybe 0 (const 1) mmulti
         xs <- replicateM argCount $ newName "arg"
         let rhs = LamE (map VarP xs) $ fh `AppE` (foldl' AppE func $ map VarE xs)
         return $ TupE [pack' `AppE` LitE (StringL method), rhs]
@@ -146,13 +146,13 @@ buildMethodMap _ (Resource _ _ Subsite{}) = return Nothing
 buildRoute :: Q Exp -> Q Exp -> Q Exp -> Resource a -> Q Exp
 buildRoute runHandler dispatcher fixHandler (Resource name resPieces resDisp) = do
     -- First two arguments to D.Route
-    routePieces <- ListE <$> mapM convertPiece resPieces
+    routePieces <- ListE <$> mapM (convertPiece . snd) resPieces
     isMulti <-
         case resDisp of
             Methods Nothing _ -> [|False|]
             _ -> [|True|]
 
-    [|D.Route $(return routePieces) $(return isMulti) $(routeArg3 runHandler dispatcher fixHandler name resPieces resDisp)|]
+    [|D.Route $(return routePieces) $(return isMulti) $(routeArg3 runHandler dispatcher fixHandler name (map snd resPieces) resDisp)|]
 
 routeArg3 :: Q Exp -- ^ runHandler
           -> Q Exp -- ^ dispatcher

@@ -4,21 +4,25 @@ module Yesod.Routes.TH.Types
       Resource (..)
     , Piece (..)
     , Dispatch (..)
+    , CheckOverlap
       -- ** Helper functions
     , resourceMulti
     ) where
 
 import Language.Haskell.TH.Syntax
+import Control.Arrow (second)
 
 data Resource typ = Resource
     { resourceName :: String
-    , resourcePieces :: [Piece typ]
+    , resourcePieces :: [(CheckOverlap, Piece typ)]
     , resourceDispatch :: Dispatch typ
     }
     deriving Show
 
+type CheckOverlap = Bool
+
 instance Functor Resource where
-    fmap f (Resource a b c) = Resource a (map (fmap f) b) (fmap f c)
+    fmap f (Resource a b c) = Resource a (map (second $ fmap f) b) (fmap f c)
 
 instance Lift t => Lift (Resource t) where
     lift (Resource a b c) = [|Resource $(lift a) $(lift b) $(lift c)|]

@@ -6,6 +6,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE QuasiQuotes #-}
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 import Test.HUnit ((@?=))
@@ -14,6 +15,8 @@ import Yesod.Routes.Dispatch hiding (Static, Dynamic)
 import Yesod.Routes.Class hiding (Route)
 import qualified Yesod.Routes.Class as YRC
 import qualified Yesod.Routes.Dispatch as D
+import Yesod.Routes.Parse (parseRoutesNoCheck)
+import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
 
@@ -112,11 +115,12 @@ do
     texts <- [t|[Text]|]
     let ress =
             [ Resource "RootR" [] $ Methods Nothing ["GET"]
-            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] $ Methods Nothing ["GET", "POST"]
-            , Resource "WikiR" [Static "wiki"] $ Methods (Just texts) []
-            , Resource "SubsiteR" [Static "subsite"] $ Subsite (ConT ''MySub) "getMySub"
-            , Resource "SubparamR" [Static "subparam", Dynamic $ ConT ''Int] $ Subsite (ConT ''MySubParam) "getMySubParam"
+            , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) $ Methods Nothing ["GET", "POST"]
+            , Resource "WikiR" (addCheck [Static "wiki"]) $ Methods (Just texts) []
+            , Resource "SubsiteR" (addCheck [Static "subsite"]) $ Subsite (ConT ''MySub) "getMySub"
+            , Resource "SubparamR" (addCheck [Static "subparam", Dynamic $ ConT ''Int]) $ Subsite (ConT ''MySubParam) "getMySubParam"
             ]
+        addCheck = map ((,) True)
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
     dispatch <- mkDispatchClause [|runHandler|] [|dispatcher|] [|toText|] ress
     return
@@ -259,6 +263,51 @@ main = hspecX $ do
             @?= (pack "subsite: [\"baz\"]", Just $ SubsiteR $ MySubRoute ([pack "baz"], []))
         it "routes to subparam" $ disp "PUT" ["subparam", "6", "q"]
             @?= (pack "subparam 6 q", Just $ SubparamR 6 $ ParamRoute 'q')
+
+    describe "overlap checking" $ do
+        it "catches overlapping statics" $ do
+            let routes = [parseRoutesNoCheck|
+/foo Foo1
+/foo Foo2
+|]
+            findOverlapNames routes @?= [("Foo1", "Foo2")]
+        it "catches overlapping dynamics" $ do
+            let routes = [parseRoutesNoCheck|
+/#Int Foo1
+/#String Foo2
+|]
+            findOverlapNames routes @?= [("Foo1", "Foo2")]
+        it "catches overlapping statics and dynamics" $ do
+            let routes = [parseRoutesNoCheck|
+/foo Foo1
+/#String Foo2
+|]
+            findOverlapNames routes @?= [("Foo1", "Foo2")]
+        it "catches overlapping multi" $ do
+            let routes = [parseRoutesNoCheck|
+/foo Foo1
+/*Strings Foo2
+|]
+            findOverlapNames routes @?= [("Foo1", "Foo2")]
+        it "catches overlapping subsite" $ do
+            let routes = [parseRoutesNoCheck|
+/foo Foo1
+/foo Foo2 Subsite getSubsite
+|]
+            findOverlapNames routes @?= [("Foo1", "Foo2")]
+        it "no false positives" $ do
+            let routes = [parseRoutesNoCheck|
+/foo Foo1
+/bar/#String Foo2
+|]
+            findOverlapNames routes @?= []
+        it "obeys ignore rules" $ do
+            let routes = [parseRoutesNoCheck|
+/foo Foo1
+/#!String Foo2
+/!foo Foo3
+|]
+            findOverlapNames routes @?= []
 
 getRootR :: Text
 getRootR = pack "this is the root"

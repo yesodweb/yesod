@@ -24,6 +24,7 @@ library
                      Yesod.Routes.TH
                      Yesod.Routes.Class
                      Yesod.Routes.Parse
+                     Yesod.Routes.Overlap
     other-modules:   Yesod.Routes.TH.Dispatch
                      Yesod.Routes.TH.RenderRoute
                      Yesod.Routes.TH.Types
