@@ -8,7 +8,6 @@
 module Yesod.Form.Jquery
     ( YesodJquery (..)
     , jqueryDayField
-    , jqueryDayTimeField
     , jqueryAutocompleteField
     , googleHostedJqueryUiCss
     , JqueryDaySettings (..)
@@ -19,10 +18,8 @@ import Yesod.Handler
 import Yesod.Core (Route)
 import Yesod.Form
 import Yesod.Widget
-import Data.Time (UTCTime (..), Day, TimeOfDay (..), timeOfDayToTime,
-                  timeToTimeOfDay)
+import Data.Time (Day)
 import qualified Data.Text as T
-import Data.Char (isSpace)
 import Data.Default
 import Text.Hamlet (shamlet)
 import Text.Julius (julius)
@@ -109,53 +106,6 @@ $(function(){$("##{theId}").datepicker({
         , "]"
         ]
 
-ifRight :: Either a b -> (b -> c) -> Either a c
-ifRight e f = case e of
-            Left l  -> Left l
-            Right r -> Right $ f r
-
-showLeadingZero :: (Show a) => a -> String
-showLeadingZero time = let t = show time in if length t == 1 then "0" ++ t else t
-
--- use A.M/P.M and drop seconds and "UTC" (as opposed to normal UTCTime show)
-jqueryDayTimeUTCTime :: UTCTime -> String
-jqueryDayTimeUTCTime (UTCTime day utcTime) =
-  let timeOfDay = timeToTimeOfDay utcTime
-  in (replace '-' '/' (show day)) ++ " " ++ showTimeOfDay timeOfDay
-  where
-    showTimeOfDay (TimeOfDay hour minute _) =
-      let (h, apm) = if hour < 12 then (hour, "AM") else (hour - 12, "PM")
-      in (showLeadingZero h) ++ ":" ++ (showLeadingZero minute) ++ " " ++ apm
-
-jqueryDayTimeField :: (RenderMessage master FormMessage, YesodJquery master) => Field sub master UTCTime
-jqueryDayTimeField = Field
-    { fieldParse  = blank $ parseUTCTime . unpack
-    , fieldView = \theId name theClass val isReq -> do
-        addHtml [HTML|\
-<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" :isReq:required="" value="#{showVal val}">
-|]
-        addScript' urlJqueryJs
-        addScript' urlJqueryUiJs
-        addScript' urlJqueryUiDateTimePicker
-        addStylesheet' urlJqueryUiCss
-        addJulius [JULIUS|
-$(function(){$("##{theId}").datetimepicker({dateFormat : "yyyy/mm/dd hh:MM TT"})});
-|]
-    }
-  where
-   showVal  = either id (pack . jqueryDayTimeUTCTime)
-
-parseUTCTime :: String -> Either FormMessage UTCTime
-parseUTCTime s =
-    let (dateS, timeS') = break isSpace (dropWhile isSpace s)
-        timeS = drop 1 timeS'
-        dateE = parseDate dateS
-     in case dateE of
-            Left l -> Left l
-            Right date ->
-                ifRight (parseTime timeS)
-                    (UTCTime date . timeOfDayToTime)
-
 jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master)
                         => Route master -> Field sub master Text
 jqueryAutocompleteField src = Field
@@ -186,11 +136,6 @@ readMay :: Read a => String -> Maybe a
 readMay s = case reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
-
--- | Replaces all instances of a value in a list by another value.
--- from http://hackage.haskell.org/packages/archive/cgi/3001.1.7.1/doc/html/src/Network-CGI-Protocol.html#replace
-replace :: Eq a => a -> a -> [a] -> [a]
-replace x y = map (\z -> if z == x then y else z)
 
 data JqueryDaySettings = JqueryDaySettings
     { jdsChangeMonth :: Bool
