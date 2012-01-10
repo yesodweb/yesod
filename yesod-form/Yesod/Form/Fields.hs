@@ -53,7 +53,7 @@ import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
 import Network.URI (parseURI)
 import Database.Persist (PersistField)
-import Database.Persist.Query (Entity (..))
+import Database.Persist.Store (Entity (..))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.List (intersect, nub)
