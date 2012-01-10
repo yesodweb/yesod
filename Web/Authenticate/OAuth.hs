@@ -62,6 +62,12 @@ newOAuth :: OAuth
 newOAuth = OAuth { oauthSignatureMethod = HMACSHA1
                  , oauthCallback = Nothing
                  , oauthRealm    = Nothing
+                 , oauthServerName = error "oauthServerName"
+                 , oauthRequestUri = error "oauthRequestUri"
+                 , oauthAccessTokenUri = error "oauthAccessTokenUri"
+                 , oauthAuthorizeUri = error "oauthAuthorizeUri"
+                 , oauthConsumerKey = error "oauthConsumerKey"
+                 , oauthConsumerSecret = error "oauthConsumerSecret"
                  }
 
 -- | Data type for signature method.

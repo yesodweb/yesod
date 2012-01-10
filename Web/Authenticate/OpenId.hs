@@ -17,7 +17,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import Data.Text.Lazy (toStrict)
 import Network.HTTP.Conduit
     ( parseUrl, urlEncodedBody, responseBody, httpLbs
-    , HttpException, Manager
+    , Manager
     )
 import Data.Conduit (ResourceT, ResourceIO)
 import Control.Arrow ((***), second)
