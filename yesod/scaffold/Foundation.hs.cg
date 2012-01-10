@@ -1,6 +1,6 @@
 module Foundation
     ( ~sitearg~ (..)
-    , ~sitearg~Route (..)
+    , Route (..)
     , ~sitearg~Message (..)
     , resources~sitearg~
     , Handler
@@ -11,13 +11,11 @@ module Foundation
     , module Yesod
     , module Settings
     , module Model
-    , StaticRoute (..)
-    , AuthRoute (..)
     ) where
 
 import Prelude
 import Yesod
-import Yesod.Static (Static, base64md5, StaticRoute(..))
+import Yesod.Static
 import Settings.StaticFiles
 import Yesod.Auth
 import Yesod.Auth.BrowserId
@@ -25,6 +23,7 @@ import Yesod.Auth.GoogleEmail
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Logger (Logger, logMsg, formatLogText)
+import Network.HTTP.Conduit (Manager)
 #ifdef DEVELOPMENT
 import Yesod.Logger (logLazyText)
 #endif
@@ -52,6 +51,7 @@ data ~sitearg~ = ~sitearg~
     , getLogger :: Logger
     , getStatic :: Static -- ^ Settings for static file serving.
     , connPool :: Database.Persist.Store.PersistConfigPool Settings.PersistConfig -- ^ Database connection pool.
+    , httpManager :: Manager
     }
 
 -- Set up i18n messages. See the message folder.
@@ -140,12 +140,14 @@ instance YesodAuth ~sitearg~ where
     getAuthId creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
         case x of
-            Just (uid, _) -> return $ Just uid
+            Just (Entity uid _) -> return $ Just uid
             Nothing -> do
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
     -- You can add other plugins like BrowserID, email or OAuth here
     authPlugins = [authBrowserId, authGoogleEmail]
+
+    authHttpManager = httpManager
 
 -- Sends off your mail. Requires sendmail in production!
 deliver :: ~sitearg~ -> L.ByteString -> IO ()

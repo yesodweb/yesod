@@ -20,7 +20,6 @@ import Data.Maybe (fromMaybe)
 import Yesod.Form
 import Yesod.Handler
 import Yesod.Widget
-import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Text (Text)
 import Control.Monad (liftM, mzero, when)
 import Data.Monoid (mappend)

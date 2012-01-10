@@ -15,7 +15,6 @@ import Yesod.Handler
 import Yesod.Widget
 import Yesod.Request
 import Text.Hamlet (hamlet)
-import Control.Monad.IO.Class (liftIO)
 import Data.Text (pack, unpack)
 import Control.Arrow ((***))
 
