@@ -19,7 +19,6 @@ import Data.Maybe
 import Data.String
 import Data.ByteString.Char8 (pack)
 import Control.Arrow ((***))
-import Control.Monad.IO.Class (liftIO)
 import Data.Text (Text, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -52,15 +51,17 @@ authOAuth name ident reqUrl accUrl authUrl key sec = AuthPlugin name dispatch lo
         render <- getUrlRender
         tm <- getRouteToMaster
         let oauth' = oauth { oauthCallback = Just $ encodeUtf8 $ render $ tm url }
-        tok <- liftIO $ getTemporaryCredential oauth'
+        master <- getYesod
+        tok <- lift $ getTemporaryCredential oauth' (authHttpManager master)
         redirect $ authorizeUrl oauth' tok
     dispatch "GET" [] = do
         (verifier, oaTok) <- runInputGet $ (,)
             <$> ireq textField "oauth_verifier"
             <*> ireq textField "oauth_token"
         let reqTok = Credential [ ("oauth_verifier", encodeUtf8 verifier), ("oauth_token", encodeUtf8 oaTok)
-                                ] 
-        accTok <- liftIO $ getAccessToken oauth reqTok
+                                ]
+        master <- getYesod
+        accTok <- lift $ getAccessToken oauth reqTok (authHttpManager master)
         let crId = decodeUtf8With lenientDecode $ fromJust $ lookup (pack ident) $ unCredential accTok
             creds = Creds name crId $ map (bsToText *** bsToText ) $ unCredential accTok
         setCreds True creds

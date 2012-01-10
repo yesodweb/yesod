@@ -12,7 +12,6 @@ import Web.Authenticate.BrowserId
 import Data.Text (Text)
 import Yesod.Core
 import Text.Hamlet (hamlet)
-import Control.Monad.IO.Class (liftIO)
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
 
@@ -32,7 +31,8 @@ authBrowserIdAudience audience = AuthPlugin
     , apDispatch = \m ps ->
         case (m, ps) of
             ("GET", [assertion]) -> do
-                memail <- liftIO $ checkAssertion audience assertion
+                master <- getYesod
+                memail <- lift $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
                     Nothing -> error "Invalid assertion"
                     Just email -> setCreds True Creds
@@ -60,7 +60,8 @@ authBrowserId = AuthPlugin
                 tm <- getRouteToMaster
                 r <- getUrlRender
                 let audience = T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
-                memail <- liftIO $ checkAssertion audience assertion
+                master <- getYesod
+                memail <- lift $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
                     Nothing -> error "Invalid assertion"
                     Just email -> setCreds True Creds

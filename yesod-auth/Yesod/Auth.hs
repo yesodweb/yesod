@@ -34,11 +34,8 @@ import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import           Data.Text (Text)
 import qualified Data.Text as T
-#if MIN_VERSION_aeson(0, 4, 0)
 import qualified Data.HashMap.Lazy as Map
-#else
-import qualified Data.Map as Map
-#endif
+import Network.HTTP.Conduit (Manager)
 
 import Language.Haskell.TH.Syntax hiding (lift)
 
@@ -86,8 +83,10 @@ class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth 
     -- destination exists.
     logoutDest :: m -> Route m
 
+    -- | Determine the ID associated with the set of credentials.
     getAuthId :: Creds m -> GHandler s m (Maybe (AuthId m))
 
+    -- | Which authentication backends to use.
     authPlugins :: [AuthPlugin m]
 
     -- | What to show on the login page.
@@ -97,6 +96,7 @@ class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth 
         tm <- lift getRouteToMaster
         mapM_ (flip apLogin tm) authPlugins
 
+    -- | Used for i18n of messages provided by this package.
     renderAuthMessage :: m
                       -> [Text] -- ^ languages
                       -> AuthMessage -> Text
@@ -106,6 +106,12 @@ class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth 
     -- 'loginDest' and 'logoutDest'. Default is 'False'.
     redirectToReferer :: m -> Bool
     redirectToReferer _ = False
+
+    -- | Return an HTTP connection manager that is stored in the foundation
+    -- type. This allows backends to reuse persistent connections. If none of
+    -- the backends you're using use HTTP connections, you can safely return
+    -- @error \"authHttpManager"@ here.
+    authHttpManager :: m -> Manager
 
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]

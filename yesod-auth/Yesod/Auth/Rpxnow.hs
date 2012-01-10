@@ -38,7 +38,8 @@ authRpxnow app apiKey =
         token <- case token1 ++ token2 of
                         [] -> invalidArgs ["token: Value not supplied"]
                         x:_ -> return $ unpack x
-        Rpxnow.Identifier ident extra <- liftIO $ Rpxnow.authenticate apiKey token
+        master <- getYesod
+        Rpxnow.Identifier ident extra <- lift $ Rpxnow.authenticate apiKey token (authHttpManager master)
         let creds =
                 Creds "rpxnow" ident
                 $ maybe id (\x -> (:) ("verifiedEmail", x))
