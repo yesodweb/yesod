@@ -59,6 +59,7 @@
 -------------------------------------------------------------------------------
 module Yesod.Auth.HashDB
     ( HashDBUser(..)
+    , Unique (..)
     , setPassword
       -- * Authentification
     , validateUser
