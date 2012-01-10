@@ -77,10 +77,11 @@ authFacebook cid secret perms =
         tm <- getRouteToMaster
         let fb = Facebook.Facebook cid secret $ render $ tm url
         code <- runInputGet $ ireq textField "code"
-        at <- liftIO $ Facebook.getAccessToken fb code
+        master <- getYesod
+        at <- lift $ Facebook.getAccessToken fb code (authHttpManager master)
         let Facebook.AccessToken at' = at
         setSession facebookAccessTokenKey at'
-        so <- liftIO $ Facebook.getGraphData at "me"
+        so <- lift $ Facebook.getGraphData at "me" (authHttpManager master)
         let c = fromMaybe (error "Invalid response from Facebook")
                 $ parseMaybe (parseCreds at') $ either error id so
         setCreds True c

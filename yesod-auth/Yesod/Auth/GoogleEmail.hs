@@ -17,7 +17,6 @@ module Yesod.Auth.GoogleEmail
 
 import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
-import Control.Monad.Attempt
 
 import Yesod.Form
 import Yesod.Handler
@@ -27,6 +26,7 @@ import Text.Blaze (toHtml)
 import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
 import qualified Data.Text as T
+import Control.Exception.Lifted (try, SomeException)
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "googleemail" ["forward"]
@@ -50,21 +50,22 @@ authGoogleEmail =
                 render <- getUrlRender
                 toMaster <- getRouteToMaster
                 let complete' = render $ toMaster complete
-                res <- runAttemptT $ OpenId.getForwardUrl oid complete' Nothing
+                master <- getYesod
+                eres <- lift $ try $ OpenId.getForwardUrl oid complete' Nothing
                     [ ("openid.ax.type.email", "http://schema.openid.net/contact/email")
                     , ("openid.ns.ax", "http://openid.net/srv/ax/1.0")
                     , ("openid.ns.ax.required", "email")
                     , ("openid.ax.mode", "fetch_request")
                     , ("openid.ax.required", "email")
                     , ("openid.ui.icon", "true")
-                    ]
-                attempt
+                    ] (authHttpManager master)
+                either
                   (\err -> do
-                        setMessage $ toHtml $ show err
+                        setMessage $ toHtml $ show (err :: SomeException)
                         redirect $ toMaster LoginR
                         )
                   redirect
-                  res
+                  eres
             Nothing -> do
                 toMaster <- getRouteToMaster
                 setMessageI Msg.NoOpenID
@@ -81,10 +82,11 @@ authGoogleEmail =
 
 completeHelper :: YesodAuth m => [(Text, Text)] -> GHandler Auth m ()
 completeHelper gets' = do
-        res <- runAttemptT $ OpenId.authenticate gets'
+        master <- getYesod
+        eres <- lift $ try $ OpenId.authenticate gets' (authHttpManager master)
         toMaster <- getRouteToMaster
         let onFailure err = do
-            setMessage $ toHtml $ show err
+            setMessage $ toHtml $ show (err :: SomeException)
             redirect $ toMaster LoginR
         let onSuccess (OpenId.Identifier ident, _) = do
                 memail <- lookupGetParam "openid.ext1.value.email"
@@ -96,4 +98,4 @@ completeHelper gets' = do
                     (Nothing, _) -> do
                         setMessage "No email address provided"
                         redirect $ toMaster LoginR
-        attempt onFailure onSuccess res
+        either onFailure onSuccess eres

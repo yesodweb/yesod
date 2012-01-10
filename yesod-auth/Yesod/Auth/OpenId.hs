@@ -11,7 +11,6 @@ module Yesod.Auth.OpenId
 
 import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
-import Control.Monad.Attempt
 
 import Yesod.Form
 import Yesod.Handler
@@ -21,6 +20,7 @@ import Text.Cassius (cassius)
 import Text.Blaze (toHtml)
 import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
+import Control.Exception.Lifted (SomeException, try)
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
@@ -60,14 +60,13 @@ authOpenIdExtended extensionFields =
                 render <- getUrlRender
                 toMaster <- getRouteToMaster
                 let complete' = render $ toMaster complete
-                res <- runAttemptT $ OpenId.getForwardUrl oid complete' Nothing extensionFields 
-                attempt
-                  (\err -> do
-                        setMessage $ toHtml $ show err
+                master <- getYesod
+                eres <- lift $ try $ OpenId.getForwardUrl oid complete' Nothing extensionFields (authHttpManager master)
+                case eres of
+                    Left err -> do
+                        setMessage $ toHtml $ show (err :: SomeException)
                         redirect $ toMaster LoginR
-                        )
-                  redirect
-                  res
+                    Right x -> redirect x
             Nothing -> do
                 toMaster <- getRouteToMaster
                 setMessageI Msg.NoOpenID
@@ -84,11 +83,12 @@ authOpenIdExtended extensionFields =
 
 completeHelper :: YesodAuth m => [(Text, Text)] -> GHandler Auth m ()
 completeHelper gets' = do
-        res <- runAttemptT $ OpenId.authenticate gets'
+        master <- getYesod
+        eres <- lift $ try $ OpenId.authenticate gets' (authHttpManager master)
         toMaster <- getRouteToMaster
         let onFailure err = do
-            setMessage $ toHtml $ show err
+            setMessage $ toHtml $ show (err :: SomeException)
             redirect $ toMaster LoginR
         let onSuccess (OpenId.Identifier ident, _) =
                 setCreds True $ Creds "openid" ident gets'
-        attempt onFailure onSuccess res
+        either onFailure onSuccess eres

@@ -7,6 +7,7 @@ pkgs=(      ./yesod-routes
             ./yesod-persistent
             ./yesod-newsfeed
             ./yesod-form
+            ./authenticate
             ./yesod-auth
             ./yesod-sitemap
             ./yesod-default
