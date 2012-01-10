@@ -25,15 +25,28 @@ hasSuffix r =
         Methods Nothing _ -> False
 
 overlaps :: [(CheckOverlap, Piece t)] -> [(CheckOverlap, Piece t)] -> Bool -> Bool -> Bool
-overlaps [] [] False False = False
+
+-- No pieces on either side, will overlap regardless of suffix
+overlaps [] [] _ _ = True
+
+-- No pieces on the left, will overlap if the left side has a suffix
 overlaps [] _ suffixX _ = suffixX
+
+-- Ditto for the right
 overlaps _ [] _ suffixY = suffixY
-overlaps ((False, _):xs) (_:ys) suffixX suffixY = overlaps xs ys suffixX suffixY
-overlaps (_:xs) ((False, _):ys) suffixX suffixY = overlaps xs ys suffixX suffixY
+
+-- As soon as we ignore a single piece (via CheckOverlap == False), we say that
+-- the routes don't overlap at all. In other words, disabling overlap checking
+-- on a single piece disables it on the whole route.
+overlaps ((False, _):_) _ _ _ = False
+overlaps _ ((False, _):_) _ _ = False
+
+-- Compare the actual pieces
 overlaps ((True, pieceX):xs) ((True, pieceY):ys) suffixX suffixY =
-    piecesOverlap pieceX pieceY || overlaps xs ys suffixX suffixY
+    piecesOverlap pieceX pieceY && overlaps xs ys suffixX suffixY
 
 piecesOverlap :: Piece t -> Piece t -> Bool
+-- Statics only match if they equal. Dynamics match with anything
 piecesOverlap (Static x) (Static y) = x == y
 piecesOverlap _ _ = True
 
