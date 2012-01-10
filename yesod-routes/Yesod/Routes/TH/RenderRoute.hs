@@ -24,7 +24,7 @@ mkRouteCons =
             $ map (\x -> (NotStrict, x))
             $ concat [singles, multi, sub]
       where
-        singles = concatMap toSingle $ resourcePieces res
+        singles = concatMap (toSingle . snd) $ resourcePieces res
         toSingle Static{} = []
         toSingle (Dynamic typ) = [typ]
 
@@ -44,7 +44,7 @@ mkRenderRouteClauses =
     isDynamic _ = False
 
     go res = do
-        let cnt = length (filter isDynamic $ resourcePieces res) + maybe 0 (const 1) (resourceMulti res)
+        let cnt = length (filter (isDynamic . snd) $ resourcePieces res) + maybe 0 (const 1) (resourceMulti res)
         dyns <- replicateM cnt $ newName "dyn"
         sub <-
             case resourceDispatch res of
@@ -54,7 +54,7 @@ mkRenderRouteClauses =
 
         pack' <- [|pack|]
         tsp <- [|toPathPiece|]
-        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp (resourcePieces res) dyns
+        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp (map snd $ resourcePieces res) dyns
 
         piecesMulti <-
             case resourceMulti res of

@@ -15,6 +15,7 @@ import Data.Char (isUpper)
 import Language.Haskell.TH.Quote
 import qualified System.IO as SIO
 import Yesod.Routes.TH
+import Yesod.Routes.Overlap (findOverlapNames)
 
 -- | A quasi-quoter to parse a string into a list of 'Resource's. Checks for
 -- overlapping routes, failing if present; use 'parseRoutesNoCheck' to skip the
@@ -26,9 +27,9 @@ parseRoutes = QuasiQuoter
   where
     x s = do
         let res = resourcesFromString s
-        case findOverlaps res of
+        case findOverlapNames res of
             [] -> lift res
-            z -> error $ "Overlapping routes: " ++ unlines (map (unwords . map resourceName) z)
+            z -> error $ "Overlapping routes: " ++ unlines (map show z)
 
 parseRoutesFile :: FilePath -> Q Exp
 parseRoutesFile fp = do
@@ -82,7 +83,7 @@ drop1Slash :: String -> String
 drop1Slash ('/':x) = x
 drop1Slash x = x
 
-piecesFromString :: String -> ([Piece String], Maybe String)
+piecesFromString :: String -> ([(CheckOverlap, Piece String)], Maybe String)
 piecesFromString "" = ([], Nothing)
 piecesFromString x =
     case (this, rest) of
@@ -97,32 +98,9 @@ piecesFromString x =
 parseType :: String -> Type
 parseType = ConT . mkName -- FIXME handle more complicated stuff
 
-pieceFromString :: String -> Either String (Piece String)
-pieceFromString ('#':x) = Right $ Dynamic x
+pieceFromString :: String -> Either String (CheckOverlap, Piece String)
+pieceFromString ('#':'!':x) = Right $ (False, Dynamic x)
+pieceFromString ('#':x) = Right $ (True, Dynamic x)
 pieceFromString ('*':x) = Left x
-pieceFromString x = Right $ Static x
-
--- n^2, should be a way to speed it up
-findOverlaps :: [Resource a] -> [[Resource a]]
-findOverlaps = go . map justPieces
-  where
-    justPieces :: Resource a -> ([Piece a], Resource a)
-    justPieces r@(Resource _ ps _) = (ps, r)
-
-    go [] = []
-    go (x:xs) = mapMaybe (mOverlap x) xs ++ go xs
-
-    mOverlap :: ([Piece a], Resource a) -> ([Piece a], Resource a) ->
-                Maybe [Resource a]
-    mOverlap _ _ = Nothing
-                {- FIXME mOverlap
-    mOverlap (Static x:xs, xr) (Static y:ys, yr)
-        | x == y = mOverlap (xs, xr) (ys, yr)
-        | otherwise = Nothing
-    mOverlap (MultiPiece _:_, xr) (_, yr) = Just (xr, yr)
-    mOverlap (_, xr) (MultiPiece _:_, yr) = Just (xr, yr)
-    mOverlap ([], xr) ([], yr) = Just (xr, yr)
-    mOverlap ([], _) (_, _) = Nothing
-    mOverlap (_, _) ([], _) = Nothing
-    mOverlap (_:xs, xr) (_:ys, yr) = mOverlap (xs, xr) (ys, yr)
-    -}
+pieceFromString ('!':x) = Right $ (False, Static x)
+pieceFromString x = Right $ (True, Static x)
