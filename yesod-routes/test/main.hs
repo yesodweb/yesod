@@ -308,6 +308,13 @@ main = hspecX $ do
 /!foo Foo3
 |]
             findOverlapNames routes @?= []
+        it "proper boolean logic" $ do
+            let routes = [parseRoutesNoCheck|
+/foo/bar Foo1
+/foo/baz Foo2
+/bar/baz Foo3
+|]
+            findOverlapNames routes @?= []
 
 getRootR :: Text
 getRootR = pack "this is the root"
