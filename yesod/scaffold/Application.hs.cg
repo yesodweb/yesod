@@ -20,6 +20,7 @@ import Yesod.Logger (Logger)
 import Network.Wai.Middleware.RequestLogger (logStdout)
 #endif
 import qualified Database.Persist.Store~importMigration~
+import Network.HTTP.Conduit (withManager)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -34,12 +35,12 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
 with~sitearg~ :: AppConfig DefaultEnv Extra -> Logger -> (Application -> IO ()) -> IO ()
-with~sitearg~ conf logger f = do
+with~sitearg~ conf logger f = withManager $ \manager -> lift $ do
     s <- staticSite
     dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
               Database.Persist.Store.loadConfig
     Database.Persist.Store.withPool (dbconf :: Settings.PersistConfig) $ \p -> do~runMigration~
-        let h = ~sitearg~ conf logger s p
+        let h = ~sitearg~ conf logger s p manager
         defaultRunner (f . logWare) h
   where
 #ifdef DEVELOPMENT

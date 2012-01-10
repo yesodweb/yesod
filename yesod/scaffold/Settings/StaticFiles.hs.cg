@@ -1,7 +1,7 @@
 module Settings.StaticFiles where
 
 import Prelude (IO)
-import Yesod.Static (staticFiles, StaticRoute (StaticRoute))
+import Yesod.Static
 import qualified Yesod.Static as Static
 import Settings (staticDir)
 
