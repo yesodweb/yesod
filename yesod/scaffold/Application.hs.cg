@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
-    ( with~sitearg~
+    ( getApplication
     , withDevelAppPort
     ) where
 
@@ -20,7 +20,7 @@ import Yesod.Logger (Logger)
 import Network.Wai.Middleware.RequestLogger (logStdout)
 #endif
 import qualified Database.Persist.Store~importMigration~
-import Network.HTTP.Conduit (withManager)
+import Network.HTTP.Conduit (newManagerIO)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -34,14 +34,16 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig DefaultEnv Extra -> Logger -> (Application -> IO ()) -> IO ()
-with~sitearg~ conf logger f = withManager $ \manager -> lift $ do
+getApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
+getApplication conf logger = do
+    manager <- newManagerIO 10
     s <- staticSite
     dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
               Database.Persist.Store.loadConfig
-    Database.Persist.Store.withPool (dbconf :: Settings.PersistConfig) $ \p -> do~runMigration~
-        let h = ~sitearg~ conf logger s p manager
-        defaultRunner (f . logWare) h
+    p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)~runMigration~
+    let foundation = ~sitearg~ conf logger s p manager
+    app <- toWaiAppPlain foundation
+    return $ logWare app
   where
 #ifdef DEVELOPMENT
     logWare = logHandleDev (\msg -> logBS logger msg >> flushLogger logger)
@@ -52,7 +54,7 @@ with~sitearg~ conf logger f = withManager $ \manager -> lift $ do
 -- for yesod devel
 withDevelAppPort :: Dynamic
 withDevelAppPort =
-    toDyn $ defaultDevelAppWith loader  with~sitearg~
+    toDyn $ defaultDevelApp loader getApplication
   where
     loader = loadConfig (configSettings Development)
         { csParseExtra = parseExtra

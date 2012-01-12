@@ -4,3 +4,6 @@
 [submodule "authenticate"]
 	path = authenticate
 	url = https://github.com/yesodweb/authenticate.git
+[submodule "http-conduit"]
+	path = http-conduit
+	url = https://github.com/snoyberg/http-conduit.git
