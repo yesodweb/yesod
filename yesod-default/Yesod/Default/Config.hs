@@ -40,12 +40,12 @@ parseArgConfig :: IO ArgConfig
 parseArgConfig = do
     args <- getArgs
     (portS, args') <- getPort id args
-    port <-
+    portI <-
         case reads portS of
             (i, _):_ -> return i
             [] -> error $ "Invalid port value: " ++ show portS
-    case args of
-        [e] -> return $ ArgConfig e port
+    case args' of
+        [e] -> return $ ArgConfig e portI
         _ -> do
             pn <- getProgName
             putStrLn $ "Usage: " ++ pn ++ " <environment> [--port <port>]"
