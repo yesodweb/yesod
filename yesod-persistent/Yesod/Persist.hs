@@ -12,7 +12,6 @@ module Yesod.Persist
 
 import Database.Persist
 import Database.Persist.Query
-import Database.Persist.Store (Entity (..))
 import Database.Persist.TH
 import Control.Monad.Trans.Class (MonadTrans)
 
