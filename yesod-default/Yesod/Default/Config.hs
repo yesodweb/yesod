@@ -31,13 +31,14 @@ data DefaultEnv = Development
                 | Production deriving (Read, Show, Enum, Bounded)
 
 -- | Setup commandline arguments for environment and port
-data ArgConfig = ArgConfig
-    { environment :: String
+data ArgConfig env = ArgConfig
+    { environment :: env
     , port        :: Int
     } deriving Show
 
-parseArgConfig :: IO ArgConfig
+parseArgConfig :: (Show env, Read env, Enum env, Bounded env) => IO (ArgConfig env)
 parseArgConfig = do
+    let envs = [minBound..maxBound]
     args <- getArgs
     (portS, args') <- getPort id args
     portI <-
@@ -45,10 +46,17 @@ parseArgConfig = do
             (i, _):_ -> return i
             [] -> error $ "Invalid port value: " ++ show portS
     case args' of
-        [e] -> return $ ArgConfig e portI
+        [e] -> do
+            case reads $ capitalize e of
+                (e', _):_ -> return $ ArgConfig e' portI
+                [] -> do
+                    () <- error $ "Invalid environment, valid entries are: " ++ show envs
+                    -- next line just provided to force the type of envs
+                    return $ ArgConfig (head envs) 0
         _ -> do
             pn <- getProgName
             putStrLn $ "Usage: " ++ pn ++ " <environment> [--port <port>]"
+            putStrLn $ "Valid environments: " ++ show envs
             exitFailure
   where
     getPort front [] = do
@@ -58,17 +66,17 @@ parseArgConfig = do
     getPort front ("-p":p:rest) = return (p, front rest)
     getPort front (arg:rest) = getPort (front . (arg:)) rest
 
+    capitalize [] = []
+    capitalize (x:xs) = toUpper x : map toLower xs
+
 -- | Load the app config from command line parameters
-fromArgs :: (Read env, Show env)
+fromArgs :: (Read env, Show env, Enum env, Bounded env)
          => (env -> Object -> Parser extra)
          -> IO (AppConfig env extra)
 fromArgs getExtra = do
     args <- parseArgConfig
 
-    env <-
-        case reads $ capitalize $ environment args of
-            (e, _):_ -> return e
-            [] -> error $ "Invalid environment: " ++ environment args
+    let env = environment args
 
     let cs = (configSettings env)
                 { csParseExtra = getExtra
@@ -78,10 +86,6 @@ fromArgs getExtra = do
     return $ if port args /= 0
                 then config { appPort = port args }
                 else config
-
-    where
-        capitalize [] = []
-        capitalize (x:xs) = toUpper x : map toLower xs
 
 -- | Load your development config (when using @'DefaultEnv'@)
 loadDevelopmentConfig :: IO (AppConfig DefaultEnv ())
