@@ -2,7 +2,7 @@ import Prelude              (IO)
 import Yesod.Default.Config (fromArgsExtra)
 import Yesod.Default.Main   (defaultMain)
 import Settings             (parseExtra)
-import Application          (with~sitearg~)
+import Application          (getApplication)
 
 main :: IO ()
-main = defaultMain (fromArgsExtra parseExtra) with~sitearg~
+main = defaultMain (fromArgsExtra parseExtra) getApplication

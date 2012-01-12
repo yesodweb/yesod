@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
-    ( with~sitearg~
+    ( getApplication
     , withDevelAppPort
     ) where
 
@@ -8,9 +8,15 @@ import Import
 import Settings (parseExtra)
 import Settings.StaticFiles (staticSite)
 import Yesod.Default.Config
-import Yesod.Default.Main (defaultDevelAppWith, defaultRunner)
+import Yesod.Default.Main (defaultDevelApp)
 import Yesod.Default.Handlers (getFaviconR, getRobotsR)
+#if DEVELOPMENT
+import Yesod.Logger (Logger, logBS, flushLogger)
+import Network.Wai.Middleware.RequestLogger (logHandleDev)
+#else
 import Yesod.Logger (Logger)
+import Network.Wai.Middleware.RequestLogger (logStdout)
+#endif
 import Network.Wai (Application)
 import Data.Dynamic (Dynamic, toDyn)
 
@@ -26,16 +32,23 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-with~sitearg~ :: AppConfig DefaultEnv Extra -> Logger -> (Application -> IO ()) -> IO ()
-with~sitearg~ conf logger f = do
+getApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
+getApplication conf logger = do
     s <- staticSite
-    let h = ~sitearg~ conf logger s
-    defaultRunner f h
+    let foundation = ~sitearg~ conf logger s
+    app <- toWaiAppPlain foundation
+    return $ logWare app
+  where
+#ifdef DEVELOPMENT
+    logWare = logHandleDev (\msg -> logBS logger msg >> flushLogger logger)
+#else
+    logWare = logStdout
+#endif
 
 -- for yesod devel
 withDevelAppPort :: Dynamic
 withDevelAppPort =
-    toDyn $ defaultDevelAppWith loader with~sitearg~
+    toDyn $ defaultDevelApp loader getApplication
   where
     loader = loadConfig (configSettings Development)
         { csParseExtra = parseExtra
