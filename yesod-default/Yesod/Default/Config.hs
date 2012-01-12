@@ -4,7 +4,6 @@
 module Yesod.Default.Config
     ( DefaultEnv (..)
     , fromArgs
-    , fromArgsExtra
     , loadDevelopmentConfig
 
     -- reexport
@@ -16,12 +15,13 @@ module Yesod.Default.Config
     ) where
 
 import Data.Char (toUpper, toLower)
-import System.Console.CmdArgs hiding (args)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Yaml
 import Data.Maybe (fromMaybe)
 import qualified Data.HashMap.Strict as M
+import System.Environment (getArgs, getProgName, getEnvironment)
+import System.Exit (exitFailure)
 
 -- | A yesod-provided @'AppEnv'@, allows for Development, Testing, and
 --   Production environments
@@ -34,37 +34,36 @@ data DefaultEnv = Development
 data ArgConfig = ArgConfig
     { environment :: String
     , port        :: Int
-    } deriving (Show, Data, Typeable)
+    } deriving Show
 
--- | A default @'ArgConfig'@ if using the provided @'DefaultEnv'@ type.
-defaultArgConfig :: ArgConfig
-defaultArgConfig =
-    ArgConfig
-        { environment = def
-            &= argPos 0
-            &= typ   "ENVIRONMENT"
-        , port = def
-            &= help "the port to listen on"
-            &= typ  "PORT"
-        }
+parseArgConfig :: IO ArgConfig
+parseArgConfig = do
+    args <- getArgs
+    (portS, args') <- getPort id args
+    port <-
+        case reads portS of
+            (i, _):_ -> return i
+            [] -> error $ "Invalid port value: " ++ show portS
+    case args of
+        [e] -> return $ ArgConfig e port
+        _ -> do
+            pn <- getProgName
+            putStrLn $ "Usage: " ++ pn ++ " <environment> [--port <port>]"
+            exitFailure
+  where
+    getPort front [] = do
+        env <- getEnvironment
+        return (fromMaybe "0" $ lookup "PORT" env, front [])
+    getPort front ("--port":p:rest) = return (p, front rest)
+    getPort front ("-p":p:rest) = return (p, front rest)
+    getPort front (arg:rest) = getPort (front . (arg:)) rest
 
--- | Load an @'AppConfig'@ using the @'DefaultEnv'@ environments from
---   commandline arguments.
-fromArgs :: IO (AppConfig DefaultEnv ())
-fromArgs = fromArgsExtra (const $ const $ return ())
-
--- | Same as 'fromArgs', but allows you to specify how to parse the 'appExtra'
--- record.
-fromArgsExtra :: (DefaultEnv -> Object -> Parser extra)
-              -> IO (AppConfig DefaultEnv extra)
-fromArgsExtra = fromArgsWith defaultArgConfig
-
-fromArgsWith :: (Read env, Show env)
-             => ArgConfig
-             -> (env -> Object -> Parser extra)
-             -> IO (AppConfig env extra)
-fromArgsWith argConfig getExtra = do
-    args   <- cmdArgs argConfig
+-- | Load the app config from command line parameters
+fromArgs :: (Read env, Show env)
+         => (env -> Object -> Parser extra)
+         -> IO (AppConfig env extra)
+fromArgs getExtra = do
+    args <- parseArgConfig
 
     env <-
         case reads $ capitalize $ environment args of

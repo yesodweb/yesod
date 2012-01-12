@@ -4,13 +4,13 @@ runghc main.hs init
 
 (
   cd foobar
-  cabal configure || cabal install
+  cabal configure --disable-optimization || cabal install
   cabal build
   cabal clean
-  cabal configure -fdev
+  cabal configure -fdev --disable-optimization
   cabal build
   cabal clean
-  cabal configure -flibrary-only
+  cabal configure -flibrary-only --disable-optimization
   cabal build
   cabal clean
   cabal configure
