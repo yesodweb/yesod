@@ -90,7 +90,6 @@ import Data.Digest.Pure.SHA        (sha1, showDigest)
 import Data.Text                   (Text, pack, unpack, append)
 import Data.Maybe                  (fromMaybe)
 import System.Random               (randomRIO)
-import Database.Persist.Store      (Entity (..))
 
 -- | Interface for data type which holds user info. It's just a
 --   collection of getters and setters
