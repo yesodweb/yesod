@@ -15,6 +15,7 @@ module Yesod.Core
     , defaultErrorHandler
       -- * Data types
     , AuthResult (..)
+    , unauthorizedI
       -- * Logging
     , LogLevel (..)
     , formatLogMessage
@@ -76,3 +77,9 @@ logError = logTH LevelError
 -- > $(logOther "My new level") "This is a log message"
 logOther :: Text -> Q Exp
 logOther = logTH . LevelOther
+
+-- | Return an 'Unauthorized' value, with the given i18n message.
+unauthorizedI :: RenderMessage master msg => msg -> GHandler sub master AuthResult
+unauthorizedI msg =do
+    mr <- getMessageRender
+    return $ Unauthorized $ mr msg
