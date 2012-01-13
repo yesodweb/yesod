@@ -107,8 +107,7 @@ array = J.Array . V.fromList . map J.toJSON
 -- | jsonOrRedirect simplifies the scenario where a POST handler sends a different
 -- response based on Accept headers:
 --
---     1. 200 with JSON data if the client prefers application/json (i.e. is an
---     AJAX request)
+--     1. 200 with JSON data if the client prefers application/json (e.g. AJAX).
 --
 --     2. 3xx otherwise, following the PRG pattern.
 jsonOrRedirect :: (Yesod master, J.ToJSON a)
