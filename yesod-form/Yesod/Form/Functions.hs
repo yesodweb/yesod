@@ -32,6 +32,9 @@ module Yesod.Form.Functions
     , checkBool
     , checkM
     , customErrorMessage
+      -- * Utilities
+    , fieldSettingsLabel
+    , aformM
     ) where
 
 import Yesod.Form.Types
@@ -314,3 +317,13 @@ checkM f field = field
 customErrorMessage :: SomeMessage master -> Field sub master a -> Field sub master a
 customErrorMessage msg field = field { fieldParse = \ts -> fmap (either
 (const $ Left msg) Right) $ fieldParse field ts }
+
+-- | Generate a 'FieldSettings' from the given label.
+fieldSettingsLabel :: msg -> FieldSettings msg
+fieldSettingsLabel msg = FieldSettings msg Nothing Nothing Nothing []
+
+-- | Generate an 'AForm' that gets its value from the given action.
+aformM :: GHandler sub master a -> AForm sub master a
+aformM action = AForm $ \_ _ ints -> do
+    value <- action
+    return (FormSuccess value, id, ints, mempty)
