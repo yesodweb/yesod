@@ -64,7 +64,7 @@
 #            defaultRunner (f . logWare) h
 #      where
 #     #ifdef DEVELOPMENT
-#        logWare = logHandleDev (\msg -> logBS logger msg >> flushLogger logger)
+#        logWare = logStdoutDev
 #     #else
 #        logWare = logStdout
 #     #endif
