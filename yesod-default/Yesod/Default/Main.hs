@@ -7,7 +7,7 @@ module Yesod.Default.Main
     ) where
 
 import Yesod.Default.Config
-import Yesod.Logger (Logger, makeDefaultLogger, logString, flushLogger)
+import Yesod.Logger (Logger, defaultDevelopmentLogger, logString, flushLogger)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
     (runSettings, defaultSettings, settingsPort, settingsHost)
@@ -43,7 +43,7 @@ defaultMain :: (Show env, Read env)
             -> IO ()
 defaultMain load getApp = do
     config <- load
-    logger <- makeDefaultLogger
+    logger <- defaultDevelopmentLogger
     app <- getApp config logger
     runSettings defaultSettings
         { settingsHost = "0.0.0.0"
@@ -93,7 +93,7 @@ defaultDevelApp
     -> ((Int, Application) -> IO ()) -> IO ()
 defaultDevelApp load getApp f = do
     conf   <- load
-    logger <- makeDefaultLogger
+    logger <- defaultDevelopmentLogger
     let p = appPort conf
     logString logger $ "Devel application launched, listening on port " ++ show p
     app <- getApp conf logger

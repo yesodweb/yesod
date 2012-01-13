@@ -1,17 +1,21 @@
 {-# LANGUAGE BangPatterns #-}
 module Yesod.Logger
     ( Logger
-    , makeLogger
-    , makeLoggerWithHandle
-    , makeDefaultLogger
+    , handle
+    , developmentLogger, productionLogger
+    , defaultDevelopmentLogger, defaultProductionLogger
+    , toProduction
     , flushLogger
-    , timed
     , logText
     , logLazyText
     , logString
     , logBS
     , logMsg
     , formatLogText
+    , timed
+    -- * Deprecated
+    , makeLoggerWithHandle
+    , makeDefaultLogger
     ) where
 
 import System.IO (Handle, stdout, hFlush)
@@ -36,39 +40,62 @@ import Language.Haskell.TH.Syntax (Loc)
 import Yesod.Core (LogLevel, fileLocationToString)
 
 data Logger = Logger {
-    loggerHandle  :: Handle
-  , loggerDateRef :: DateRef
+    loggerLogFun   :: [LogStr] -> IO ()
+  , loggerHandle   :: Handle
+  , loggerDateRef  :: DateRef
   }
 
-makeLogger :: IO Logger
-makeLogger = makeDefaultLogger
-{-# DEPRECATED makeLogger "Use makeDefaultLogger instead" #-}
-
-makeLoggerWithHandle :: Handle -> IO Logger
-makeLoggerWithHandle handle = dateInit >>= return . Logger handle
-
--- | uses stdout handle
-makeDefaultLogger :: IO Logger
-makeDefaultLogger = makeLoggerWithHandle stdout
+handle :: Logger -> Handle
+handle = loggerHandle
 
 flushLogger :: Logger -> IO ()
 flushLogger = hFlush . loggerHandle
 
+makeDefaultLogger :: IO Logger
+makeDefaultLogger = defaultDevelopmentLogger
+{-# DEPRECATED makeDefaultLogger "Use defaultProductionLogger or defaultDevelopmentLogger instead" #-}
+
+makeLoggerWithHandle, developmentLogger, productionLogger :: Handle -> IO Logger
+makeLoggerWithHandle = productionLogger
+{-# DEPRECATED makeLoggerWithHandle "Use productionLogger or developmentLogger instead" #-}
+
+-- | uses stdout handle
+defaultProductionLogger, defaultDevelopmentLogger :: IO Logger
+defaultProductionLogger = productionLogger stdout
+defaultDevelopmentLogger = developmentLogger stdout
+
+
+productionLogger h = mkLogger h (handleToLogFun h)
+-- | a development logger gets automatically flushed
+developmentLogger h = mkLogger h (\bs -> (handleToLogFun h) bs >> hFlush h)
+
+mkLogger :: Handle -> ([LogStr] -> IO ()) -> IO Logger
+mkLogger h logFun = do
+    initHandle h
+    dateInit >>= return . Logger logFun h
+
+-- convert (a development) logger to production settings
+toProduction :: Logger -> Logger
+toProduction (Logger _ h d) = Logger (handleToLogFun h) h d
+
+handleToLogFun :: Handle -> ([LogStr] -> IO ())
+handleToLogFun = hPutLogStr
+
 logMsg :: Logger -> [LogStr] -> IO ()
-logMsg = hPutLogStr . loggerHandle
+logMsg = hPutLogStr . handle
 
 logLazyText :: Logger -> TL.Text -> IO ()
-logLazyText logger msg = logMsg logger $
+logLazyText logger msg = loggerLogFun logger $
   map LB (toChunks $ TLE.encodeUtf8 msg) ++ [newLine]
 
 logText :: Logger -> Text -> IO ()
 logText logger = logBS logger . encodeUtf8
 
 logBS :: Logger -> ByteString -> IO ()
-logBS logger msg = logMsg logger [LB msg, newLine]
+logBS logger msg = loggerLogFun logger $ [LB msg, newLine]
 
 logString :: Logger -> String -> IO ()
-logString logger msg = logMsg logger [LS msg, newLine]
+logString logger msg = loggerLogFun logger $ [LS msg, newLine]
 
 formatLogText :: Logger -> Loc -> LogLevel -> Text -> IO [LogStr]
 formatLogText logger loc level msg = formatLogMsg logger loc level (toLB msg)

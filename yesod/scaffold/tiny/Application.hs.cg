@@ -11,11 +11,11 @@ import Yesod.Default.Config
 import Yesod.Default.Main (defaultDevelApp)
 import Yesod.Default.Handlers (getFaviconR, getRobotsR)
 #if DEVELOPMENT
-import Yesod.Logger (Logger, logBS, flushLogger)
+import Yesod.Logger (Logger, logBS)
 import Network.Wai.Middleware.RequestLogger (logHandleDev)
 #else
-import Yesod.Logger (Logger)
-import Network.Wai.Middleware.RequestLogger (logStdout)
+import Yesod.Logger (Logger, logBS, toProduction)
+import Network.Wai.Middleware.RequestLogger (logHandle)
 #endif
 import Network.Wai (Application)
 import Data.Dynamic (Dynamic, toDyn)
@@ -35,14 +35,16 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 getApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
 getApplication conf logger = do
     s <- staticSite
-    let foundation = ~sitearg~ conf logger s
+    let foundation = ~sitearg~ conf setLogger s
     app <- toWaiAppPlain foundation
     return $ logWare app
   where
 #ifdef DEVELOPMENT
-    logWare = logHandleDev (\msg -> logBS logger msg >> flushLogger logger)
+    logWare = logHandleDev (logBS setLogger)
+    setLogger = logger
 #else
-    logWare = logStdout
+    setLogger = toProduction logger -- by default the logger is set for development
+    logWare = logHandle (logBS setLogger)
 #endif
 
 -- for yesod devel
