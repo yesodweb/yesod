@@ -256,7 +256,7 @@ authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
 ----------------------------------------------------------------
 
 -- | Generate data base instances for a valid user
-share2 (mkPersist sqlMkSettings) (mkMigrate "migrateUsers")
+share [mkPersist sqlSettings, mkMigrate "migrateUsers"]
          [QQ(persistUpperCase)|
 User
     username Text Eq
