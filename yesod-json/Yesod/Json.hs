@@ -44,7 +44,7 @@ import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Conduit (($$))
 import Network.Wai (requestBody, requestHeaders)
 import Network.Wai.Parse (parseHttpAccept)
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B8
 import Safe (headMay)
 
 instance ToContent J.Value where
@@ -119,7 +119,7 @@ jsonOrRedirect r j = do
     if q then jsonToRepJson (J.toJSON j)
          else redirect r
   where
-    acceptsJson = maybe False ("application/json" `B.isPrefixOf`)
+    acceptsJson = maybe False ((== "application/json") . B8.takeWhile (/= ';'))
                 . join
                 . fmap (headMay . parseHttpAccept)
                 . lookup "Accept" . requestHeaders
