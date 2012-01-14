@@ -119,7 +119,8 @@ jsonOrRedirect r j = do
     if q then jsonToRepJson (J.toJSON j)
          else redirect r
   where
-    acceptsJson = maybe False ("application/json" `B.isPrefixOf`) <$> firstAccept
-    firstAccept = return . join
+    acceptsJson = maybe False ("application/json" `B.isPrefixOf`)
+                . join
                 . fmap (headMay . parseHttpAccept)
-                =<< lookup "Accept" . requestHeaders <$> waiRequest
+                . lookup "Accept" . requestHeaders
+                <$> waiRequest
