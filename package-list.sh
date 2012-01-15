@@ -10,4 +10,5 @@ pkgs=(      ./yesod-routes
             ./yesod-auth
             ./yesod-sitemap
             ./yesod-default
-            ./yesod                 )
+            ./yesod
+            ./yesod-test            )
