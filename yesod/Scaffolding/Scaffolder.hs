@@ -5,7 +5,7 @@ module Scaffolding.Scaffolder (scaffold) where
 import Scaffolding.CodeGen
 
 import Language.Haskell.TH.Syntax
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import qualified Data.ByteString.Lazy as L
@@ -83,6 +83,11 @@ scaffold = do
         uncapitalize s = toLower (head s) : tail s
         backendLower = uncapitalize $ show backend 
         upper = show backend
+    
+    puts $(codegenDir "input" "use-tests")
+    useTestsC <- prompt $ flip elem $ [return 'y', return 'n']
+    let useTests = useTestsC == "y"
+    let testsDep = if useTests then ", yesod-test" else ""
 
     let runMigration  =
           case backend of
@@ -145,6 +150,7 @@ scaffold = do
     mkDir "deploy"
     mkDir "Settings"
     mkDir "messages"
+    mkDir "tests"
      
     writeFile' ("deploy/Procfile") $(codegen "deploy/Procfile")
 
@@ -188,6 +194,7 @@ scaffold = do
         $(codegen "templates/homepage.julius")
     unless isTiny $ writeFile' "config/models" $(codegen "config/models")
     writeFile' "messages/en.msg" $(codegen "messages/en.msg")
+    when useTests $ writeFile' "Tests.hs" $(codegen "Tests.hs")
 
     S.writeFile (dir ++ "/static/js/modernizr.js")
         $(runIO (S.readFile "scaffold/static/js/modernizr.js.cg") >>= \bs ->
