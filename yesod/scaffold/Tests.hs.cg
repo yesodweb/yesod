@@ -1,0 +1,37 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
+module Testing (main) where
+
+import Import
+import Settings
+import Yesod
+import Yesod.Static
+import Yesod.Logger (makeLogger)
+import qualified Database.Persist.Base
+import Database.Persist.GenericSql (runMigration)
+import Yesod.Default.Config
+import Yesod.Test
+import Application
+
+main :: IO a
+main = do
+    conf <- loadConfig Testing
+    logger <- makeLogger
+    dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
+            $ either error return . Database.Persist.Base.loadConfig
+    s <- static Settings.staticDir
+    Database.Persist.Base.withPool (dbconf :: Settings.PersistConfig) $ \p -> do
+        Database.Persist.Base.runPool dbconf ~runMigration~ p
+        app <- toWaiAppPlain $ ~sitearg~ conf logger s p
+        runTests app p allTests
+
+allTests = do
+  describe "These are some example tests" $ do
+    it "loads the index and checks it looks right" $ do
+      doGet_ "."
+      printBody
+      statusIs 200
+      htmlCount "form" 1
+      htmlAllContain "h1" "Welcome to Yesod!"
+

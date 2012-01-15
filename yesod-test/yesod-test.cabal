@@ -1,0 +1,40 @@
+name:               yesod-test
+version:            0.1
+license:            BSD3
+license-file:       LICENSE
+author:             Nubis <nubis@woobiz.com.ar>
+maintainer:         Nubis <nubis@woobiz.com.ar>
+synopsis:           Behaviour Oriented integration Testing for Yesod Applications 
+category:           Web, Yesod, Testing
+stability:          Experimental
+cabal-version:      >= 1.6
+build-type:         Simple
+homepage:           http://www.yesodweb.com
+description:        Behaviour Oriented integration Testing for Yesod Applications 
+extra-source-files: README.md, LICENSE
+
+library
+    build-depends:   hxt >= 9.1.5
+                   , parsec >= 3.1.1
+                   , base
+                   , containers
+                   , filepath
+                   , persistent >= 0.6.4
+                   , monad-control >= 0.2
+                   , transformers >= 0.2
+                   , wai-test
+                   , wai >= 0.4
+                   , ascii
+                   , network
+                   , http-types >= 0.6
+                   , hspec >= 0.9
+                   , HUnit >= 1.0
+                   , bytestring
+                   , text
+                   , monads-tf
+    exposed-modules: Yesod.Test
+    ghc-options:  -Wall
+
+source-repository head
+  type: git
+  location: git://github.com/yesodweb/yesod.git
