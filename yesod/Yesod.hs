@@ -44,13 +44,16 @@ import Text.Julius
 import Yesod.Form
 import Yesod.Json
 import Yesod.Persist
+import Network.HTTP.Types (status200)
 import Network.Wai (Application)
-import Network.Wai.Middleware.RequestLogger
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (liftIO, MonadIO(..))
 import Control.Monad.Trans.Control (MonadBaseControl)
 
+import Network.Wai
+import Network.Wai.Logger
 import Network.Wai.Handler.Warp (run)
-import System.IO (stderr, hPutStrLn)
+import System.IO (stderr, stdout, hFlush, hPutStrLn)
+import System.Log.FastLogger
 import Text.Blaze (toHtml)
 
 showIntegral :: Integral a => a -> String
@@ -70,9 +73,26 @@ warp port a = toWaiApp a >>= run port
 -- | Same as 'warp', but also sends a message to stdout for each request, and
 -- an \"application launched\" message as well. Can be useful for development.
 warpDebug :: (Yesod a, YesodDispatch a a) => Int -> a -> IO ()
-warpDebug port a = do
-    hPutStrLn stderr $ "Application launched, listening on port " ++ show port
-    toWaiApp a >>= run port . logStdout
+warpDebug port app = do
+  hPutStrLn stderr $ "Application launched, listening on port " ++ show port
+  waiApp <- toWaiApp app
+  dateRef <- dateInit
+  run port $ (logStdout dateRef) waiApp
+
+logStdout :: DateRef -> Middleware
+logStdout dateRef waiApp =
+  \req -> do
+    logRequest dateRef req
+    waiApp req
+
+logRequest  :: Control.Monad.IO.Class.MonadIO m =>
+               DateRef -> Network.Wai.Request -> m ()
+logRequest dateRef req = do
+  date <- liftIO $ getDate dateRef
+  let status = status200
+      len = 4
+  liftIO $ hPutLogStr stdout $ apacheFormat FromSocket date req status (Just len)
+  liftIO $ hFlush stdout
 
 -- | Run a development server, where your code changes are automatically
 -- reloaded.
