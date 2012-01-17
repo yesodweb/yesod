@@ -311,12 +311,6 @@ ihamletToRepHtml ih = do
 tell :: GWData (Route master) -> GWidget sub master ()
 tell w = GWidget $ return ((), w)
 
-mapWriterT :: (GHandler sub master (a, GWData (Route master))
-                -> GHandler sub' master' (b, GWData (Route master')))
-           -> GWidget sub master a
-           -> GWidget sub' master' b
-mapWriterT = undefined
-
 instance MonadLift (GHandler sub master) (GWidget sub master) where
     lift = GWidget . fmap (\x -> (x, mempty))
 
@@ -326,7 +320,7 @@ liftW = lift
 
 -- Instances for GWidget
 instance Functor (GWidget sub master) where
-    fmap f = mapWriterT $ fmap $ \ (a, w) -> (f a, w)
+    fmap f (GWidget x) = GWidget (fmap (\(a, w) -> (f a, w)) x)
 instance Applicative (GWidget sub master) where
     pure a = GWidget $ pure (a, mempty)
     GWidget f <*> GWidget v =
