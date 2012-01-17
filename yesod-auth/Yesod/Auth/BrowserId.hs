@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Yesod.Auth.BrowserId
     ( authBrowserId
-    , authBrowserId'
     , authBrowserIdAudience
     ) where
 
@@ -23,44 +22,34 @@ pid = "browserid"
 complete :: Route Auth
 complete = PluginR pid []
 
-authBrowserIdAudience :: YesodAuth m
-              => Text -- ^ audience
-              -> AuthPlugin m
-authBrowserIdAudience audience = AuthPlugin
-    { apName = pid
-    , apDispatch = \m ps ->
-        case (m, ps) of
-            ("GET", [assertion]) -> do
-                master <- getYesod
-                memail <- lift $ checkAssertion audience assertion (authHttpManager master)
-                case memail of
-                    Nothing -> error "Invalid assertion"
-                    Just email -> setCreds True Creds
-                        { credsPlugin = pid
-                        , credsIdent = email
-                        , credsExtra = []
-                        }
-            (_, []) -> badMethod
-            _ -> notFound
-    , apLogin = \toMaster -> do
-        addScriptRemote browserIdJs
-        addHamlet [QQ(hamlet)|
-<p>
-    <a href="javascript:navigator.id.getVerifiedEmail(function(a){if(a)document.location='@{toMaster complete}/'+a});">
-        <img src="https://browserid.org/i/sign_in_green.png">
-|]
-    }
-
+-- | Log into browser ID with an audience value determined from the 'approot'.
 authBrowserId :: YesodAuth m => AuthPlugin m
-authBrowserId = AuthPlugin
+authBrowserId = helper Nothing
+
+-- | Log into browser ID with the given audience value. Note that this must be
+-- your actual hostname, or login will fail.
+authBrowserIdAudience
+    :: YesodAuth m
+    => Text -- ^ audience
+    -> AuthPlugin m
+authBrowserIdAudience = helper . Just
+
+helper :: YesodAuth m
+       => Maybe Text -- ^ audience
+       -> AuthPlugin m
+helper maudience = AuthPlugin
     { apName = pid
     , apDispatch = \m ps ->
         case (m, ps) of
             ("GET", [assertion]) -> do
-                tm <- getRouteToMaster
-                r <- getUrlRender
-                let audience = T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
                 master <- getYesod
+                audience <-
+                    case maudience of
+                        Just a -> return a
+                        Nothing -> do
+                            tm <- getRouteToMaster
+                            r <- getUrlRender
+                            return $ T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
                 memail <- lift $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
                     Nothing -> error "Invalid assertion"
@@ -81,7 +70,3 @@ authBrowserId = AuthPlugin
     }
   where
     stripScheme t = fromMaybe t $ T.stripPrefix "//" $ snd $ T.breakOn "//" t
-
-authBrowserId' :: YesodAuth m => AuthPlugin m
-authBrowserId' = authBrowserId
-{-# DEPRECATED authBrowserId' "Use authBrowserId instead" #-}
