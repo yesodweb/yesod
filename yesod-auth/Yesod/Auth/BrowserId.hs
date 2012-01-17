@@ -13,6 +13,8 @@ import Yesod.Core
 import Text.Hamlet (hamlet)
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
+import Control.Monad.IO.Class (liftIO)
+import Control.Exception (throwIO)
 
 #include "qq.h"
 
@@ -52,7 +54,7 @@ helper maudience = AuthPlugin
                             return $ T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
                 memail <- lift $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
-                    Nothing -> error "Invalid assertion"
+                    Nothing -> liftIO $ throwIO InvalidBrowserIDAssertion
                     Just email -> setCreds True Creds
                         { credsPlugin = pid
                         , credsIdent = email

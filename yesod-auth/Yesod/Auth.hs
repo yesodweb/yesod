@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Auth
     ( -- * Subsite
@@ -22,6 +23,8 @@ module Yesod.Auth
     , maybeAuth
     , requireAuthId
     , requireAuth
+      -- * Exception
+    , AuthException (..)
     ) where
 
 #include "qq.h"
@@ -48,6 +51,8 @@ import Yesod.Json
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
+import Data.Typeable (Typeable)
+import Control.Exception (Exception)
 
 data Auth = Auth
 
@@ -233,3 +238,8 @@ redirectLogin = do
 
 instance YesodAuth m => RenderMessage m AuthMessage where
     renderMessage = renderAuthMessage
+
+data AuthException = InvalidBrowserIDAssertion
+                   | InvalidFacebookResponse
+    deriving (Show, Typeable)
+instance Exception AuthException

@@ -15,7 +15,6 @@ import Yesod.Auth
 import qualified Web.Authenticate.Facebook as Facebook
 import Data.Aeson
 import Data.Aeson.Types (parseMaybe)
-import Data.Maybe (fromMaybe)
 
 import Yesod.Form
 import Yesod.Handler
@@ -25,6 +24,8 @@ import Control.Monad (liftM, mzero, when)
 import Data.Monoid (mappend)
 import qualified Data.Aeson.Types
 import qualified Yesod.Auth.Message as Msg
+import Control.Monad.IO.Class (liftIO)
+import Control.Exception (throwIO)
 
 -- | Route for login using this authentication plugin.
 facebookLogin :: AuthRoute
@@ -81,8 +82,10 @@ authFacebook cid secret perms =
         let Facebook.AccessToken at' = at
         setSession facebookAccessTokenKey at'
         so <- lift $ Facebook.getGraphData at "me" (authHttpManager master)
-        let c = fromMaybe (error "Invalid response from Facebook")
-                $ parseMaybe (parseCreds at') $ either error id so
+        c <- maybe
+                (liftIO $ throwIO InvalidFacebookResponse)
+                return
+                $ either (const Nothing) Just so >>= parseMaybe (parseCreds at')
         setCreds True c
     dispatch "GET" ["logout"] = do
         m <- getYesod
