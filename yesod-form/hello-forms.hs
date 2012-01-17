@@ -27,12 +27,12 @@ myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,)
     <*> areq boolField "Bool field" Nothing
     <*> aopt boolField "Opt bool field" Nothing
     <*> areq textField "Text field" Nothing
-    <*> areq (selectField fruits) "Select field" Nothing
-    <*> aopt (selectField fruits) "Opt select field" Nothing
-    <*> areq (multiSelectField fruits) "Multi select field" Nothing
-    <*> aopt (multiSelectField fruits) "Opt multi select field" Nothing
+    <*> areq (selectFieldList fruits) "Select field" Nothing
+    <*> aopt (selectFieldList fruits) "Opt select field" Nothing
+    <*> areq (multiSelectFieldList fruits) "Multi select field" Nothing
+    <*> aopt (multiSelectFieldList fruits) "Opt multi select field" Nothing
     <*> aopt intField "Opt int field" Nothing
-    <*> aopt (radioField fruits) "Opt radio" Nothing
+    <*> aopt (radioFieldList fruits) "Opt radio" Nothing
 
 data HelloForms = HelloForms
 

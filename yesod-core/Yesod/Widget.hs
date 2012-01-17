@@ -86,6 +86,7 @@ import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze (toHtml, preEscapedLazyText)
 import Control.Monad.Base (MonadBase (liftBase))
+import Control.Arrow (first)
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
@@ -320,7 +321,7 @@ liftW = lift
 
 -- Instances for GWidget
 instance Functor (GWidget sub master) where
-    fmap f (GWidget x) = GWidget (fmap (\(a, w) -> (f a, w)) x)
+    fmap f (GWidget x) = GWidget (fmap (first f) x)
 instance Applicative (GWidget sub master) where
     pure a = GWidget $ pure (a, mempty)
     GWidget f <*> GWidget v =
