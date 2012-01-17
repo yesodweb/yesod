@@ -455,7 +455,13 @@ safeEh er = YesodApp $ \_ _ _ session -> do
 -- a 302. If at some future date it is determined that virtually all clients
 -- understand 303, this implementation will switch to that status code.
 redirect :: RedirectUrl master url => url -> GHandler sub master a
-redirect = redirectWith H.status302
+redirect url = do
+    req <- waiRequest
+    let status =
+            if W.httpVersion req == H.http11
+                then H.status303
+                else H.status302
+    redirectWith status url
 
 -- | Redirect to the given URL with the specified status code.
 redirectWith :: RedirectUrl master url => H.Status -> url -> GHandler sub master a
