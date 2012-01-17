@@ -81,7 +81,6 @@ library
                    , wai-logger            >= 0.0.1
                    , conduit               >= 0.0      && < 0.1
                    , lifted-base           >= 0.1      && < 0.2
-
     exposed-modules: Yesod.Content
                      Yesod.Core
                      Yesod.Dispatch
