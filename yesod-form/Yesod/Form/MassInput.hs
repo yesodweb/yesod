@@ -78,7 +78,7 @@ inputList label fixXml single mdef = formToAForm $ do
     let count = length vals
     (res, xmls, views) <- liftM fixme $ mapM (withDelete . single) vals
     up 1
-    return (res, FieldView
+    return (res, [FieldView
         { fvLabel = label
         , fvTooltip = Nothing
         , fvId = theId
@@ -93,7 +93,7 @@ inputList label fixXml single mdef = formToAForm $ do
 |]
         , fvErrors = Nothing
         , fvRequired = False
-        })
+        }])
 
 withDelete :: (xml ~ GWidget sub master (), RenderMessage master FormMessage)
            => AForm sub master a
