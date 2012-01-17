@@ -27,6 +27,7 @@ module Yesod.Form.Functions
     , FormRender
     , renderTable
     , renderDivs
+    , renderBootstrap
       -- * Validation
     , check
     , checkBool
@@ -289,6 +290,41 @@ $forall view <- views
         ^{fvInput view}
         $maybe err <- fvErrors view
             <div .errors>#{err}
+|]
+    return (res, widget)
+
+-- | Render a form using Bootstrap-friendly HTML syntax.
+--
+-- Sample Hamlet:
+--
+-- >        <form method=post action=@{ActionR} enctype=#{formEnctype}>
+-- >          <fieldset>
+-- >            <legend>_{MsgLegend}
+-- >            $case result
+-- >              $of FormFailure reasons
+-- >                $forall reason <- reasons
+-- >                  <div .alert-message .error>#{reason}
+-- >              $of _
+-- >            ^{formWidget}
+-- >            <div .actions>
+-- >              <input .btn .primary type=submit value=_{MsgSubmit}>
+renderBootstrap :: FormRender sub master a
+renderBootstrap aform fragment = do
+    (res, views') <- aFormToForm aform
+    let views = views' []
+        has (Just _) = True
+        has Nothing  = False
+    let widget = [whamlet|
+\#{fragment}
+$forall view <- views
+    <div .clearfix :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>
+        <label for=#{fvId view}>#{fvLabel view}
+        <div.input>
+            ^{fvInput view}
+            $maybe tt <- fvTooltip view
+                <span .help-block>#{tt}
+            $maybe err <- fvErrors view
+                <span .help-block>#{err}
 |]
     return (res, widget)
 
