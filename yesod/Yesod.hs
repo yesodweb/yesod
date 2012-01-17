@@ -45,7 +45,6 @@ import Yesod.Form
 import Yesod.Json
 import Yesod.Persist
 import Network.HTTP.Types (status200)
-import Network.Wai (Application)
 import Control.Monad.IO.Class (liftIO, MonadIO(..))
 import Control.Monad.Trans.Control (MonadBaseControl)
 
