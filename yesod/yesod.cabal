@@ -80,6 +80,7 @@ library
                    , transformers              >= 0.2.2    && < 0.3
                    , wai                       >= 1.0      && < 1.1
                    , wai-extra                 >= 1.0      && < 1.1
+                   , wai-logger                >= 0.1.2
                    , hamlet                    >= 0.10     && < 0.11
                    , shakespeare-js            >= 0.10     && < 0.11
                    , shakespeare-css           >= 0.10     && < 0.11
