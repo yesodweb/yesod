@@ -39,6 +39,7 @@ module Yesod.Form.Functions
 
 import Yesod.Form.Types
 import Data.Text (Text, pack)
+import Control.Arrow (second)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM, join)
@@ -74,10 +75,10 @@ newFormIdent = do
     incrInts (IntSingle i) = IntSingle $ i + 1
     incrInts (IntCons i is) = (i + 1) `IntCons` is
 
-formToAForm :: MForm sub master (FormResult a, FieldView sub master) -> AForm sub master a
+formToAForm :: MForm sub master (FormResult a, [FieldView sub master]) -> AForm sub master a
 formToAForm form = AForm $ \(master, langs) env ints -> do
-    ((a, xml), ints', enc) <- runRWST form (env, master, langs) ints
-    return (a, (:) xml, ints', enc)
+    ((a, xmls), ints', enc) <- runRWST form (env, master, langs) ints
+    return (a, (++) xmls, ints', enc)
 
 aFormToForm :: AForm sub master a -> MForm sub master (FormResult a, [FieldView sub master] -> [FieldView sub master])
 aFormToForm (AForm aform) = do
@@ -150,14 +151,14 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
 areq :: (RenderMessage master msg, RenderMessage master FormMessage)
      => Field sub master a -> FieldSettings msg -> Maybe a
      -> AForm sub master a
-areq a b = formToAForm . mreq a b
+areq a b = formToAForm . fmap (second return) . mreq a b
 
 aopt :: RenderMessage master msg
      => Field sub master a
      -> FieldSettings msg
      -> Maybe (Maybe a)
      -> AForm sub master (Maybe a)
-aopt a b = formToAForm . mopt a b
+aopt a b = formToAForm . fmap (second return) . mopt a b
 
 runFormGeneric :: MForm sub master a -> master -> [Text] -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
 runFormGeneric form master langs env = evalRWST form (env, master, langs) (IntSingle 1)
