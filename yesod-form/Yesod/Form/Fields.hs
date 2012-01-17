@@ -57,9 +57,7 @@ import Database.Persist (PersistField)
 import Database.Persist.Store (Entity (..))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
-import Data.List (intersect, nub)
-import Data.Either (rights)
-import Data.Maybe (catMaybes, listToMaybe)
+import Data.Maybe (listToMaybe)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
