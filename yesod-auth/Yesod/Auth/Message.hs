@@ -111,5 +111,5 @@ portugueseMessage LoginViaEmail = "Entrar via e-mail"
 portugueseMessage InvalidLogin = "Informações de login inválidas"
 portugueseMessage NowLoggedIn = "Você acaba de entrar no site com sucesso!"
 portugueseMessage LoginTitle = "Entrar no site"
-portugueseMessage PleaseProvideUsername = englishMessage PleaseProvideUsername
-portugueseMessage PleaseProvidePassword = englishMessage PleaseProvidePassword
+portugueseMessage PleaseProvideUsername = "Por favor digite seu nome de usuário"
+portugueseMessage PleaseProvidePassword = "Por favor digite sua senha"
