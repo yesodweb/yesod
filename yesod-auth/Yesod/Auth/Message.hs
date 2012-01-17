@@ -39,6 +39,8 @@ data AuthMessage =
     | InvalidLogin
     | NowLoggedIn
     | LoginTitle
+    | PleaseProvideUsername
+    | PleaseProvidePassword
 
 -- | Defaults to 'englishMessage'.
 defaultMessage :: AuthMessage -> Text
@@ -75,6 +77,8 @@ englishMessage LoginViaEmail = "Login via email"
 englishMessage InvalidLogin = "Invalid login"
 englishMessage NowLoggedIn = "You are now logged in"
 englishMessage LoginTitle = "Login"
+englishMessage PleaseProvideUsername = "Please fill in your username"
+englishMessage PleaseProvidePassword = "Please fill in your password"
 
 portugueseMessage :: AuthMessage -> Text
 portugueseMessage NoOpenID = "Nenhum identificador OpenID encontrado"
@@ -107,3 +111,5 @@ portugueseMessage LoginViaEmail = "Entrar via e-mail"
 portugueseMessage InvalidLogin = "Informações de login inválidas"
 portugueseMessage NowLoggedIn = "Você acaba de entrar no site com sucesso!"
 portugueseMessage LoginTitle = "Entrar no site"
+portugueseMessage PleaseProvideUsername = englishMessage PleaseProvideUsername
+portugueseMessage PleaseProvidePassword = englishMessage PleaseProvidePassword

@@ -28,6 +28,7 @@ module Yesod.Auth.Kerberos
 #include "qq.h"
 
 import Yesod.Auth
+import Yesod.Auth.Message
 import Web.Authenticate.Kerberos
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -102,8 +103,12 @@ postLoginR config = do
         redirect $ toMaster LoginR
 
     case (mu,mp) of
-        (Nothing, _      ) -> errorMessage "Please fill in your username"
-        (_      , Nothing) -> errorMessage "Please fill in your password"
+        (Nothing, _      ) -> do
+            mr <- getMessageRender
+            errorMessage $ mr PleaseProvideUsername
+        (_      , Nothing) -> do
+            mr <- getMessageRender
+            errorMessage $ mr PleaseProvidePassword
         (Just u , Just p ) -> do
           result <- liftIO $ loginKerberos (usernameModifier config u) p
           case result of
