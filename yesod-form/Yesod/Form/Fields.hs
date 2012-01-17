@@ -18,22 +18,23 @@ module Yesod.Form.Fields
     , htmlField
     , emailField
     , searchField
-    , selectField
-    , multiSelectField
     , AutoFocus
     , urlField
     , doubleField
     , parseDate
     , parseTime
     , Textarea (..)
-    , radioField
     , boolField
       -- * File 'AForm's
     , fileAFormReq
     , fileAFormOpt
       -- * Options
-    , selectField'
-    , radioField'
+    , selectField
+    , selectFieldList
+    , radioField
+    , radioFieldList
+    , multiSelectField
+    , multiSelectFieldList
     , Option (..)
     , OptionList (..)
     , mkOptionList
@@ -93,6 +94,7 @@ import Control.Arrow ((&&&))
 #define HTML $html
 #endif
 
+import Control.Applicative ((<$>))
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
@@ -303,25 +305,48 @@ urlField = Field
 |]
     }
 
-selectField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
-selectField = selectField' . optionsPairs
+selectFieldList :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
+selectFieldList = selectField . optionsPairs
 
-selectField' :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
-selectField' = selectFieldHelper
+selectField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
+selectField = selectFieldHelper
     (\theId name inside -> [WHAMLET|<select ##{theId} name=#{name}>^{inside}|]) -- outside
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
     (\_theId _name theClass value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected :not (null theClass):class="#{T.intercalate " " theClass}">#{text}|]) -- inside
 
-multiSelectField :: (Show a, Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master [a]
-multiSelectField = multiSelectFieldHelper
-    (\theId name inside -> [WHAMLET|<select ##{theId} multiple name=#{name}>^{inside}|])
-    (\_theId _name theClass value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected :not (null theClass):class="#{T.intercalate " " theClass}">#{text}|])
+multiSelectFieldList :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master [a]
+multiSelectFieldList = multiSelectField . optionsPairs
 
-radioField :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
-radioField = radioField' . optionsPairs
+multiSelectField :: (Eq a, RenderMessage master FormMessage)
+                 => GHandler sub master (OptionList a)
+                 -> Field sub master [a]
+multiSelectField ioptlist =
+    Field parse view
+  where
+    parse [] = return $ Right Nothing
+    parse optlist = do
+        mapopt <- olReadExternal <$> ioptlist
+        case mapM mapopt optlist of
+             Nothing -> return $ Left "Error parsing values"
+             Just res -> return $ Right $ Just res
 
-radioField' :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
-radioField' = selectFieldHelper
+    view theId name theClass val isReq = do
+        opts <- fmap olOptions $ lift ioptlist
+        let selOpts = map (id &&& (optselected val)) opts
+        [whamlet|
+            <select ##{theId} name=#{name} :isReq:required multiple :not (null theClass):class=#{T.intercalate " " theClass}>
+                $forall (opt, optsel) <- selOpts
+                    <option value=#{optionExternalValue opt} :optsel:selected>#{optionDisplay opt}
+                |]
+        where
+            optselected (Left _) _ = False
+            optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
+
+radioFieldList :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
+radioFieldList = radioField . optionsPairs
+
+radioField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
+radioField = selectFieldHelper
     (\theId _name inside -> [WHAMLET|<div ##{theId}>^{inside}|])
     (\theId name isSel -> [WHAMLET|
 <div>
@@ -359,30 +384,6 @@ boolField = Field
       "no" -> Right $ Just False
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
-
-multiSelectFieldHelper :: (Show a, Eq a)
-        => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
-        -> (Text -> Text -> [Text] -> Text -> Bool -> Text -> GWidget sub master ())
-        -> [(Text, a)] -> Field sub master [a]
-multiSelectFieldHelper outside inside opts = Field
-    { fieldParse = return . selectParser
-    , fieldView = \theId name theClass vals _ ->
-        outside theId name $ do
-            flip mapM_ pairs $ \pair -> inside
-                theId
-                name
-                theClass
-                (pack $ show $ fst pair)
-                ((fst pair) `elem` (either (\_ -> []) selectedVals vals)) -- We are presuming that select fields can't hold invalid values
-                (fst $ snd pair)
-    }
-  where
-    pairs = zip [1 :: Int ..] opts -- FIXME use IntMap
-    rpairs = zip (map snd opts) [1 :: Int ..]
-    selectedVals vals = map snd $ filter (\y -> fst y `elem` vals) rpairs
-    selectParser [] = Right Nothing
-    selectParser xs | not $ null (["", "none"] `intersect` xs) = Right Nothing
-                    | otherwise = (Right . Just . map snd . catMaybes . map (\y -> lookup y pairs) . nub . map fst . rights . map Data.Text.Read.decimal) xs
 
 data OptionList a = OptionList
     { olOptions :: [Option a]
