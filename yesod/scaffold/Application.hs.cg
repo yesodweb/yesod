@@ -20,7 +20,7 @@ import Yesod.Logger (Logger, logBS, toProduction)
 import Network.Wai.Middleware.RequestLogger (logHandle)
 #endif
 import qualified Database.Persist.Store~importMigration~
-import Network.HTTP.Conduit (newManagerIO)
+import Network.HTTP.Conduit (newManager, def)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -36,10 +36,11 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- migrations handled by Yesod.
 getApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
 getApplication conf logger = do
-    manager <- newManagerIO 10
+    manager <- newManager def
     s <- staticSite
     dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
-              Database.Persist.Store.loadConfig
+              Database.Persist.Store.loadConfig >>=
+              Database.Persist.Store.applyEnv
     p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)~runMigration~
     let foundation = ~sitearg~ conf setLogger s p manager
     app <- toWaiAppPlain foundation
