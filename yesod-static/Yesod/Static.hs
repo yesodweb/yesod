@@ -196,8 +196,8 @@ staticFiles dir = mkStaticFiles dir
 -- | Same as 'staticFiles', but takes an explicit list of files
 -- to create identifiers for. The files path given are relative
 -- to the static folder. For example, to create routes for the
--- files @\"static/js/jquery.js\"@ and
--- @\"static/css/normalize.css\"@, you would use:
+-- files @\"static\/js\/jquery.js\"@ and
+-- @\"static\/css\/normalize.css\"@, you would use:
 --
 -- > staticFilesList \"static\" [\"js\/jquery.js\", \"css\/normalize.css\"]
 --
