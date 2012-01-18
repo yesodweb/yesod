@@ -23,7 +23,7 @@ library
                    , containers            >= 0.2
                    , blaze-builder
                    , attoparsec-conduit    >= 0.0      && < 0.1
-                   , conduit               >= 0.0      && < 0.1
+                   , conduit               >= 0.0      && < 0.2
                    , transformers          >= 0.2.2    && < 0.3
                    , wai                   >= 1.0      && < 1.1
                    , wai-extra             >= 1.0      && < 1.1

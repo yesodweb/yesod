@@ -1,6 +1,7 @@
 #!/bin/bash
 
-pkgs=(      ./yesod-routes
+pkgs=(      ./http-conduit
+            ./yesod-routes
             ./yesod-core
             ./yesod-json
             ./yesod-static
