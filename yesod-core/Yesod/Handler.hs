@@ -444,6 +444,9 @@ safeEh er = YesodApp $ \_ _ _ session -> do
 -- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
 -- This is the appropriate choice for a get-following-post
 -- technique, which should be the usual use case.
+--
+-- If you want direct control of the final status code, or need a different
+-- status code, please use 'redirectWith'.
 redirect :: RedirectUrl master url => url -> GHandler sub master a
 redirect url = do
     req <- waiRequest
