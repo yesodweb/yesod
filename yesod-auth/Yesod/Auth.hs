@@ -118,6 +118,15 @@ class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth 
     -- @error \"authHttpManager"@ here.
     authHttpManager :: m -> Manager
 
+    -- | Called on a successful login. By default, calls
+    -- @setMessageI NowLoggedIn@.
+    onLogin :: GHandler s m ()
+    onLogin = setMessageI Msg.NowLoggedIn
+
+    -- | Called on logout. By default, does nothing
+    onLogout :: GHandler s m ()
+    onLogout = return ()
+
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
@@ -148,7 +157,7 @@ setCreds doRedirects creds = do
         Just aid -> do
             setSession credsKey $ toPathPiece aid
             when doRedirects $ do
-              setMessageI Msg.NowLoggedIn
+              onLogin
               redirectUltDest $ loginDest y
 
 getCheckR :: YesodAuth m => GHandler Auth m RepHtmlJson
@@ -186,6 +195,7 @@ postLogoutR :: YesodAuth m => GHandler Auth m ()
 postLogoutR = do
     y <- getYesod
     deleteSession credsKey
+    onLogout
     redirectUltDest $ logoutDest y
 
 handlePluginR :: YesodAuth m => Text -> [Text] -> GHandler Auth m ()
