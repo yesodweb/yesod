@@ -440,20 +440,10 @@ safeEh er = YesodApp $ \_ _ _ session -> do
         (toContent ("Internal Server Error" :: S.ByteString))
         session
 
--- | Redirect to the given route. The redirect will be a temporary redirect to
--- a GET request. This is the appropriate choice for a get-following-post
--- technique, which should be the usual use case. This function currently uses
--- a 302 status code, though the implementation is free to change in the future
--- to an equivalent code with the same semantics (e.g., 303).
---
--- If you want direct control of the final status code, or need a different
--- status code, please use 'redirectWith'.
---
--- Note: According to the HTTP spec, a 302 does /not/ have the semantics
--- described here. However, this has been historically how clients treated a
--- 302. 303 is not understood by older clients, which is why we have opted for
--- a 302. If at some future date it is determined that virtually all clients
--- understand 303, this implementation will switch to that status code.
+-- | Redirect to the given route.
+-- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
+-- This is the appropriate choice for a get-following-post
+-- technique, which should be the usual use case.
 redirect :: RedirectUrl master url => url -> GHandler sub master a
 redirect url = do
     req <- waiRequest
