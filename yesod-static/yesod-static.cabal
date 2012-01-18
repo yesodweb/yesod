@@ -40,7 +40,7 @@ library
                    , http-types            >= 0.6.5    && < 0.7
                    , unix-compat           >= 0.2
                    , conduit               >= 0.0
-                   , crypto-conduit        >= 0.1.1    && < 0.2
+                   , crypto-conduit        >= 0.1.1.2  && < 0.2
                    , cryptohash            >= 0.6.1
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
