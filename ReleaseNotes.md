@@ -7,3 +7,4 @@ Yesod 0.10
 * Enumerators are gone, in come conduits, now you can catch exceptions!
 * Move from pool to resource-pool
 * Rework of the redirect system
+* Configure database parameters via environment variables.
