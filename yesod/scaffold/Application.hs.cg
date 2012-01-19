@@ -42,7 +42,7 @@ getApplication conf logger = do
               Database.Persist.Store.loadConfig >>=
               Database.Persist.Store.applyEnv
     p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)~runMigration~
-    let foundation = ~sitearg~ conf setLogger s p manager
+    let foundation = ~sitearg~ conf setLogger s p manager dbconf
     app <- toWaiAppPlain foundation
     return $ logWare app
   where

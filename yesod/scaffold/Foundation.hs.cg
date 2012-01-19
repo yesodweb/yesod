@@ -52,6 +52,7 @@ data ~sitearg~ = ~sitearg~
     , getStatic :: Static -- ^ Settings for static file serving.
     , connPool :: Database.Persist.Store.PersistConfigPool Settings.PersistConfig -- ^ Database connection pool.
     , httpManager :: Manager
+    , persistConfig :: Settings.PersistConfig
     }
 
 -- Set up i18n messages. See the message folder.
@@ -127,7 +128,12 @@ instance Yesod ~sitearg~ where
 -- How to run database actions.
 instance YesodPersist ~sitearg~ where
     type YesodPersistBackend ~sitearg~ = ~dbMonad~
-    runDB f = fmap connPool getYesod >>= Database.Persist.Store.runPool (undefined :: Settings.PersistConfig) f
+    runDB f = do
+        master <- getYesod
+        Database.Persist.Store.runPool
+            (persistConfig master)
+            f
+            (connPool master)
 
 instance YesodAuth ~sitearg~ where
     type AuthId ~sitearg~ = UserId
