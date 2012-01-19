@@ -29,7 +29,7 @@ library
                    , random
                    , text
                    , http-types                    >= 0.6      && < 0.7
-                   , xml-conduit                   >= 0.5.1.1  && < 0.6
+                   , xml-conduit                   >= 0.5.1.2  && < 0.6
                    , blaze-builder
                    , attoparsec
                    , tls                           >= 0.7      && < 0.9
