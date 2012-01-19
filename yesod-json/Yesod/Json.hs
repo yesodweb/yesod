@@ -14,6 +14,7 @@ module Yesod.Json
     , J.Value (..)
     , object
     , array
+    , (.=)
 
       -- * Convenience functions
     , jsonOrRedirect
@@ -31,6 +32,7 @@ import Control.Arrow (second)
 import Control.Applicative ((<$>))
 import Control.Monad (join)
 import qualified Data.Aeson as J
+import Data.Aeson ((.=))
 import qualified Data.Aeson.Encode as JE
 import Data.Aeson.Encode (fromValue)
 import Data.Conduit.Attoparsec (sinkParser)
