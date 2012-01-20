@@ -8,7 +8,6 @@ module Foundation
     , Form
     , maybeAuth
     , requireAuth
-    , module Yesod
     , module Settings
     , module Model
     ) where
