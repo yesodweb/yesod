@@ -26,6 +26,7 @@ extra-source-files:
   scaffold/Foundation.hs.cg
   scaffold/LICENSE.cg
   scaffold/mongoDBConnPool.cg
+  scaffold/tiny/Import.hs.cg
   scaffold/tiny/Foundation.hs.cg
   scaffold/tiny/project.cabal.cg
   scaffold/tiny/Application.hs.cg
