@@ -8,3 +8,5 @@ Yesod 0.10
 * Move from pool to resource-pool
 * Rework of the redirect system
 * Configure database parameters via environment variables.
+* Fully reworked routing, much more efficient.
+* Cleaned up EntityDef, making it more resilient to renamings.
