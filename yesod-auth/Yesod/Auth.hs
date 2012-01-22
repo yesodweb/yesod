@@ -92,14 +92,15 @@ class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth 
     getAuthId :: Creds m -> GHandler s m (Maybe (AuthId m))
 
     -- | Which authentication backends to use.
-    authPlugins :: [AuthPlugin m]
+    authPlugins :: m -> [AuthPlugin m]
 
     -- | What to show on the login page.
     loginHandler :: GHandler Auth m RepHtml
     loginHandler = defaultLayout $ do
         setTitleI Msg.LoginTitle
         tm <- lift getRouteToMaster
-        mapM_ (flip apLogin tm) authPlugins
+        master <- lift getYesod
+        mapM_ (flip apLogin tm) (authPlugins master)
 
     -- | Used for i18n of messages provided by this package.
     renderAuthMessage :: m
@@ -200,9 +201,10 @@ postLogoutR = do
 
 handlePluginR :: YesodAuth m => Text -> [Text] -> GHandler Auth m ()
 handlePluginR plugin pieces = do
+    master <- getYesod
     env <- waiRequest
     let method = decodeUtf8With lenientDecode $ W.requestMethod env
-    case filter (\x -> apName x == plugin) authPlugins of
+    case filter (\x -> apName x == plugin) (authPlugins master) of
         [] -> notFound
         ap:_ -> apDispatch ap method pieces
 
