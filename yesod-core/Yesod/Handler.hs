@@ -75,7 +75,7 @@ module Yesod.Handler
     , deleteSession
       -- ** Ultimate destination
     , setUltDest
-    , setUltDest'
+    , setUltDestCurrent
     , setUltDestReferer
     , redirectUltDest
     , clearUltDest
@@ -478,8 +478,8 @@ setUltDest url = do
 --
 -- If this is a 404 handler, there is no current page, and then this call does
 -- nothing.
-setUltDest' :: GHandler sub master ()
-setUltDest' = do
+setUltDestCurrent :: GHandler sub master ()
+setUltDestCurrent = do
     route <- getCurrentRoute
     case route of
         Nothing -> return ()

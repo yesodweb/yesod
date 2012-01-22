@@ -241,7 +241,7 @@ requireAuth = maybeAuth >>= maybe redirectLogin return
 redirectLogin :: Yesod m => GHandler s m a
 redirectLogin = do
     y <- getYesod
-    setUltDest'
+    setUltDestCurrent
     case authRoute y of
         Just z -> redirect z
         Nothing -> permissionDenied "Please configure authRoute"
