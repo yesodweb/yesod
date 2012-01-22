@@ -382,7 +382,7 @@ defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
                             Nothing ->
                                 permissionDenied "Authentication required"
                             Just url' -> do
-                                setUltDest'
+                                setUltDestCurrent
                                 redirect url'
                     Unauthorized s' -> permissionDenied s'
                 handler

@@ -2,5 +2,5 @@ $maybe msg <- mmsg
     <div #message>#{msg}
 ^{widget}
 <footer>
-    #{extraCopyright $ appExtra $ settings y}
+    #{extraCopyright $ appExtra $ settings master}
 
