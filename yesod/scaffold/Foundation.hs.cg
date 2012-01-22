@@ -150,7 +150,7 @@ instance YesodAuth ~sitearg~ where
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
     -- You can add other plugins like BrowserID, email or OAuth here
-    authPlugins = [authBrowserId, authGoogleEmail]
+    authPlugins _ = [authBrowserId, authGoogleEmail]
 
     authHttpManager = httpManager
 
