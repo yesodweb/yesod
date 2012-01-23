@@ -7,7 +7,7 @@ module Yesod.Default.Main
     ) where
 
 import Yesod.Default.Config
-import Yesod.Logger (Logger, defaultDevelopmentLogger, logString, flushLogger)
+import Yesod.Logger (Logger, defaultDevelopmentLogger, logString)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
     (runSettings, defaultSettings, settingsPort, settingsHost)
@@ -82,20 +82,15 @@ defaultRunner f app = do
 
 -- | Run your development app using a custom environment type and loader
 --   function
---
---   > withDevelAppPort :: Dynamic
---   > withDevelAppPort = toDyn $ defaultDevelApp customLoadAppConfig withMySite
---
 defaultDevelApp
     :: (Show env, Read env)
     => IO (AppConfig env extra) -- ^ A means to load your development @'AppConfig'@
     -> (AppConfig env extra -> Logger -> IO Application) -- ^ Get your @Application@
-    -> ((Int, Application) -> IO ()) -> IO ()
-defaultDevelApp load getApp f = do
+    -> IO (Int, Application)
+defaultDevelApp load getApp = do
     conf   <- load
     logger <- defaultDevelopmentLogger
     let p = appPort conf
     logString logger $ "Devel application launched, listening on port " ++ show p
     app <- getApp conf logger
-    f (p, app)
-    flushLogger logger
+    return (p, app)

@@ -159,11 +159,9 @@ showPkgName = (\(D.PackageName n) -> n) . D.pkgName
 develFile :: D.PackageId -> T.Text
 develFile pid = [ST|
 {-# LANGUAGE PackageImports #-}
-import "#{showPkgName pid}" Application (withDevelAppPort)
-import Data.Dynamic (fromDynamic)
+import "#{showPkgName pid}" Application (getApplicationDev)
 import Network.Wai.Handler.Warp
     (runSettings, defaultSettings, settingsPort, settingsHost)
-import Data.Maybe (fromJust)
 import Control.Concurrent (forkIO)
 import System.Directory (doesFileExist, removeFile)
 import System.Exit (exitSuccess)
@@ -171,13 +169,13 @@ import Control.Concurrent (threadDelay)
 
 main :: IO ()
 main = do
-  putStrLn "Starting devel application"
-  wdap <- (return . fromJust . fromDynamic) withDevelAppPort
-  forkIO . wdap $ \(port, app) -> runSettings defaultSettings
-    { settingsPort = port
-    , settingsHost = "0.0.0.0"
-    } app
-  loop
+    putStrLn "Starting devel application"
+    (port, app) <- getApplicationDev
+    forkIO $ runSettings defaultSettings
+        { settingsPort = port
+        , settingsHost = "0.0.0.0"
+        } app
+    loop
 
 loop :: IO ()
 loop = do
