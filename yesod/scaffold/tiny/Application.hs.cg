@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
     ( getApplication
-    , withDevelAppPort
+    , getApplicationDev
     ) where
 
 import Import
@@ -18,7 +18,6 @@ import Yesod.Logger (Logger, logBS, toProduction)
 import Network.Wai.Middleware.RequestLogger (logHandle)
 #endif
 import Network.Wai (Application)
-import Data.Dynamic (Dynamic, toDyn)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -48,9 +47,9 @@ getApplication conf logger = do
 #endif
 
 -- for yesod devel
-withDevelAppPort :: Dynamic
-withDevelAppPort =
-    toDyn $ defaultDevelApp loader getApplication
+getApplicationDev :: IO (Int, Application)
+getApplicationDev =
+    defaultDevelApp loader getApplication
   where
     loader = loadConfig (configSettings Development)
         { csParseExtra = parseExtra
