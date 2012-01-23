@@ -42,7 +42,6 @@ extra-source-files:
   scaffold/templates/homepage.hamlet.cg
   scaffold/templates/default-layout.hamlet.cg
   scaffold/templates/default-layout-wrapper.hamlet.cg
-  scaffold/templates/boilerplate-wrapper.hamlet.cg
   scaffold/deploy/Procfile.cg
   scaffold/main.hs.cg
   scaffold/Handler/Root.hs.cg
