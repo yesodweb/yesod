@@ -118,7 +118,7 @@ formatLogMsg logger loc level msg = do
         ]
 
 newLine :: LogStr
-newLine = LB $ pack "\"\n"
+newLine = LB $ pack "\n"
 
 -- | Execute a monadic action and log the duration
 --
