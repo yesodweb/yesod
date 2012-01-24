@@ -9,13 +9,14 @@ import Data.Time
 import Data.ByteString (ByteString)
 import Control.Monad (guard)
 import Data.Text (Text, pack, unpack)
-import Control.Arrow ((***))
+import Control.Arrow (first)
+import Control.Applicative ((<$>))
 
 encodeSession :: CS.Key
               -> CS.IV
               -> UTCTime -- ^ expire time
               -> ByteString -- ^ remote host
-              -> [(Text, Text)] -- ^ session
+              -> [(Text, ByteString)] -- ^ session
               -> ByteString -- ^ cookie value
 encodeSession key iv expire rhost session' =
     CS.encrypt key iv $ encode $ SessionCookie expire rhost session'
@@ -24,7 +25,7 @@ decodeSession :: CS.Key
               -> UTCTime -- ^ current time
               -> ByteString -- ^ remote host field
               -> ByteString -- ^ cookie value
-              -> Maybe [(Text, Text)]
+              -> Maybe [(Text, ByteString)]
 decodeSession key now rhost encrypted = do
     decrypted <- CS.decrypt key encrypted
     SessionCookie expire rhost' session' <-
@@ -33,14 +34,14 @@ decodeSession key now rhost encrypted = do
     guard $ rhost' == rhost
     return session'
 
-data SessionCookie = SessionCookie UTCTime ByteString [(Text, Text)]
+data SessionCookie = SessionCookie UTCTime ByteString [(Text, ByteString)]
     deriving (Show, Read)
 instance Serialize SessionCookie where
-    put (SessionCookie a b c) = putTime a >> put b >> put (map (unpack *** unpack) c)
+    put (SessionCookie a b c) = putTime a >> put b >> put (map (first unpack) c)
     get = do
         a <- getTime
         b <- get
-        c <- map (pack *** pack) `fmap` get
+        c <- map (first pack) <$> get
         return $ SessionCookie a b c
 
 putTime :: Putter UTCTime

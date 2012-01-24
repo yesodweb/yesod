@@ -402,7 +402,7 @@ defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
                 (Just key, Just nonce)
                     -> encodeSession key iv exp' host
                      $ Map.toList
-                     $ Map.insert nonceKey nonce sm
+                     $ Map.insert nonceKey (TE.encodeUtf8 nonce) sm
                 _ -> mempty
         hs' =
             case mkey of
