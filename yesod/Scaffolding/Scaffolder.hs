@@ -135,10 +135,12 @@ scaffold = do
     let fst3 (x, _, _) = x
     year <- show . fst3 . toGregorian . utctDay <$> getCurrentTime
 
-    let writeFile' fp s = do
+    let changeFile fileFunc fp s = do
             putStrLn $ "Generating " ++ fp
-            L.writeFile (dir ++ '/' : fp) $ LT.encodeUtf8 $ LT.pack s
+            fileFunc (dir ++ '/' : fp) $ LT.encodeUtf8 $ LT.pack s
         mkDir fp = createDirectoryIfMissing True $ dir ++ '/' : fp
+        writeFile' = changeFile L.writeFile
+        appendFile' = changeFile L.appendFile
 
     mkDir "Handler"
     mkDir "templates"
@@ -150,7 +152,6 @@ scaffold = do
     mkDir "deploy"
     mkDir "Settings"
     mkDir "messages"
-    mkDir "tests"
      
     writeFile' ("deploy/Procfile") $(codegen "deploy/Procfile")
 
@@ -168,6 +169,9 @@ scaffold = do
     writeFile' ("main.hs") $(codegen "main.hs")
     writeFile' ("devel.hs") $(codegen "devel.hs")
     writeFile' (project ++ ".cabal") $ ifTiny $(codegen "tiny/project.cabal") $(codegen "project.cabal")
+    when useTests $ do
+      appendFile' (project ++ ".cabal") $(codegen "cabal_test_suite")
+
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
     writeFile' ("Foundation.hs") $ ifTiny $(codegen "tiny/Foundation.hs") $(codegen "Foundation.hs")
@@ -194,7 +198,10 @@ scaffold = do
         $(codegen "templates/homepage.julius")
     unless isTiny $ writeFile' "config/models" $(codegen "config/models")
     writeFile' "messages/en.msg" $(codegen "messages/en.msg")
-    when useTests $ writeFile' "Tests.hs" $(codegen "Tests.hs")
+
+    when useTests $ do
+      mkDir "tests"
+      writeFile' "tests/main.hs" $(codegen "tests_main.hs")
 
     S.writeFile (dir ++ "/static/js/modernizr.js")
         $(runIO (S.readFile "scaffold/static/js/modernizr.js.cg") >>= \bs ->
