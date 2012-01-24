@@ -1,0 +1,39 @@
+name:            yesod-auth-kerberos
+version:         0.8.0
+license:         BSD3
+license-file:    LICENSE
+author:          Arash Rouhani
+maintainer:      Arash Rouhani
+synopsis:        Kerberos Authentication for Yesod.
+category:        Web, Yesod
+stability:       Stable
+cabal-version:   >= 1.6.0
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+extra-source-files: include/qq.h
+description:     Kerberos Authentication for Yesod.
+
+flag ghc7
+
+library
+    if flag(ghc7)
+        build-depends:   base                >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base                >= 4        && < 4.3
+    build-depends:   authenticate-kerberos   >= 1.0       && < 1.1
+                   , bytestring              >= 0.9.1.4   && < 0.10
+                   , yesod-core              >= 0.10      && < 0.11
+                   , yesod-auth              >= 0.8       && < 0.9
+                   , text                    >= 0.7       && < 0.12
+                   , hamlet                  >= 0.10      && < 0.11
+                   , yesod-form              >= 0.4       && < 0.5
+                   , transformers            >= 0.2.2     && < 0.3
+
+    exposed-modules: Yesod.Auth.Kerberos
+    ghc-options:     -Wall
+    include-dirs: include
+
+source-repository head
+  type:     git
+  location: https://github.com/yesodweb/yesod

@@ -1,0 +1,38 @@
+name:            yesod-auth-oauth
+version:         0.8.0
+license:         BSD3
+license-file:    LICENSE
+author:          Hiromi Ishii
+maintainer:      Hiromi Ishii
+synopsis:        OAuth Authentication for Yesod.
+category:        Web, Yesod
+stability:       Stable
+cabal-version:   >= 1.6.0
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+extra-source-files: include/qq.h
+description:     Authentication for Yesod.
+
+flag ghc7
+
+library
+    if flag(ghc7)
+        build-depends:   base                >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base                >= 4        && < 4.3
+    build-depends:   authenticate-oauth      >= 1.0       && < 1.1
+                   , bytestring              >= 0.9.1.4   && < 0.10
+                   , yesod-core              >= 0.10      && < 0.11
+                   , yesod-auth              >= 0.8       && < 0.9
+                   , text                    >= 0.7       && < 0.12
+                   , hamlet                  >= 0.10      && < 0.11
+                   , yesod-form              >= 0.4       && < 0.5
+
+    exposed-modules: Yesod.Auth.OAuth
+    ghc-options:     -Wall
+    include-dirs: include
+
+source-repository head
+  type:     git
+  location: https://github.com/yesodweb/yesod
