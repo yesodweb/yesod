@@ -70,8 +70,10 @@ module Yesod.Handler
       -- * Session
     , SessionMap
     , lookupSession
+    , lookupSessionBS
     , getSession
     , setSession
+    , setSessionBS
     , deleteSession
       -- ** Ultimate destination
     , setUltDest
@@ -272,7 +274,7 @@ data GHState = GHState
     , ghsHeaders :: Endo [Header]
     }
 
-type SessionMap = Map.Map Text Text
+type SessionMap = Map.Map Text S.ByteString
 
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
 -- features needed by Yesod. Users should never need to use this directly, as
@@ -678,7 +680,13 @@ expiresAt = setHeader "Expires" . formatRFC1123
 setSession :: Text -- ^ key
            -> Text -- ^ value
            -> GHandler sub master ()
-setSession k = modify . modSession . Map.insert k
+setSession k = setSessionBS k . encodeUtf8
+
+-- | Same as 'setSession', but uses binary data for the value.
+setSessionBS :: Text
+             -> S.ByteString
+             -> GHandler sub master ()
+setSessionBS k = modify . modSession . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
 deleteSession :: Text -> GHandler sub master ()
@@ -725,7 +733,11 @@ localNoCurrent =
 
 -- | Lookup for session data.
 lookupSession :: Text -> GHandler s m (Maybe Text)
-lookupSession n = do
+lookupSession = (fmap . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
+
+-- | Lookup for session data in binary format.
+lookupSessionBS :: Text -> GHandler s m (Maybe S.ByteString)
+lookupSessionBS n = do
     m <- liftM ghsSession get
     return $ Map.lookup n m
 

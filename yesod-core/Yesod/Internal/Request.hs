@@ -17,6 +17,7 @@ import Yesod.Internal
 import qualified Network.Wai as W
 import System.Random (RandomGen, newStdGen, randomRs)
 import Web.Cookie (parseCookiesText)
+import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text, pack)
 import Network.HTTP.Types (queryToQueryText)
@@ -25,6 +26,8 @@ import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
 
 -- | The parsed request information.
 data Request = Request
@@ -38,14 +41,14 @@ data Request = Request
     }
 
 parseWaiRequest :: W.Request
-                -> [(Text, Text)] -- ^ session
+                -> [(Text, ByteString)] -- ^ session
                 -> Maybe a
                 -> IO Request
 parseWaiRequest env session' key' = parseWaiRequest' env session' key' <$> newStdGen
 
 parseWaiRequest' :: RandomGen g
                  => W.Request
-                 -> [(Text, Text)] -- ^ session
+                 -> [(Text, ByteString)] -- ^ session
                  -> Maybe a
                  -> g
                  -> Request
@@ -57,10 +60,13 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs'' non
     cookies' = maybe [] parseCookiesText reqCookie
     acceptLang = lookup "Accept-Language" $ W.requestHeaders env
     langs = map (pack . S8.unpack) $ maybe [] NWP.parseHttpAccept acceptLang
+
+    lookupText k = fmap (decodeUtf8With lenientDecode) . lookup k
+
     -- The language preferences are prioritized as follows:
     langs' = catMaybes [ join $ lookup langKey gets' -- Query _LANG
                        , lookup langKey cookies'     -- Cookie _LANG
-                       , lookup langKey session'     -- Session _LANG
+                       , lookupText langKey session' -- Session _LANG
                        ] ++ langs                    -- Accept-Language(s)
 
     -- Github issue #195. We want to add an extra two-letter version of any
@@ -73,7 +79,7 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs'' non
     -- generated.
     nonce = case (key', lookup nonceKey session') of
                 (Nothing, _) -> Nothing
-                (_, Just x)  -> Just x
+                (_, Just x)  -> Just $ decodeUtf8With lenientDecode x
                 _            -> Just $ pack $ randomString 10 gen
 
 addTwoLetters :: ([Text] -> [Text], Set.Set Text) -> [Text] -> [Text]
