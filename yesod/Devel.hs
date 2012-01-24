@@ -81,9 +81,6 @@ devel isDevel = do
             , "--disable-library-profiling"
             ]
 
-      exists <- doesFileExist "dist/devel.hs"
-      unless exists $ T.writeFile "dist/devel.hs" (develFile pid)
-
       mainLoop isDevel
 
     _ <- getLine
@@ -106,7 +103,7 @@ mainLoop isDevel = forever $ do
    removeLock
    putStrLn "Starting development server..."
    pkg <- pkgConfigs isDevel
-   ph <- runCommand $ concat ["runghc ", pkg, " dist/devel.hs"]
+   ph <- runCommand $ concat ["runghc ", pkg, " devel.hs"]
    watchTid <- forkIO . try_ $ do
      watchForChanges list
      putStrLn "Stopping development server..."
@@ -155,37 +152,6 @@ watchForChanges list = do
 
 showPkgName :: D.PackageId -> String
 showPkgName = (\(D.PackageName n) -> n) . D.pkgName
-
-develFile :: D.PackageId -> T.Text
-develFile pid = [ST|
-{-# LANGUAGE PackageImports #-}
-import "#{showPkgName pid}" Application (getApplicationDev)
-import Network.Wai.Handler.Warp
-    (runSettings, defaultSettings, settingsPort, settingsHost)
-import Control.Concurrent (forkIO)
-import System.Directory (doesFileExist, removeFile)
-import System.Exit (exitSuccess)
-import Control.Concurrent (threadDelay)
-
-main :: IO ()
-main = do
-    putStrLn "Starting devel application"
-    (port, app) <- getApplicationDev
-    forkIO $ runSettings defaultSettings
-        { settingsPort = port
-        , settingsHost = "0.0.0.0"
-        } app
-    loop
-
-loop :: IO ()
-loop = do
-  threadDelay 100000
-  e <- doesFileExist "dist/devel-terminate"
-  if e then terminateDevel else loop
-
-terminateDevel :: IO ()
-terminateDevel = exitSuccess
-|]
 
 checkCabalFile :: D.GenericPackageDescription -> IO ()
 checkCabalFile gpd = case D.condLibrary gpd of

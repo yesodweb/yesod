@@ -156,6 +156,7 @@ scaffold = do
 
     writeFile' ("config/settings.yml") $(codegen "config/settings.yml")
     writeFile' ("main.hs") $(codegen "main.hs")
+    writeFile' ("devel.hs") $(codegen "devel.hs")
     writeFile' (project ++ ".cabal") $ ifTiny $(codegen "tiny/project.cabal") $(codegen "project.cabal")
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
