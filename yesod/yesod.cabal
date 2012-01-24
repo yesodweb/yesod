@@ -44,6 +44,7 @@ extra-source-files:
   scaffold/templates/default-layout-wrapper.hamlet.cg
   scaffold/deploy/Procfile.cg
   scaffold/main.hs.cg
+  scaffold/devel.hs.cg
   scaffold/Handler/Root.hs.cg
   scaffold/config/models.cg
   scaffold/config/sqlite.yml.cg
