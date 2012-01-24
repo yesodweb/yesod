@@ -4,5 +4,5 @@
         <title>#{pageTitle pc}
         ^{pageHead pc}
     <body>
+      <div .content>
         ^{pageBody pc}
-

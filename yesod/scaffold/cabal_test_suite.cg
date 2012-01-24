@@ -1,66 +1,8 @@
-name:              ~project~
-version:           0.0.0
-license:           BSD3
-license-file:      LICENSE
-author:            ~name~
-maintainer:        ~name~
-synopsis:          The greatest Yesod web application ever.
-description:       I'm sure you can say something clever here if you try.
-category:          Web
-stability:         Experimental
-cabal-version:     >= 1.6
-build-type:        Simple
-homepage:          http://~project~.yesodweb.com/
-
-Flag dev
-    Description:   Turn on development settings, like auto-reload templates.
-    Default:       False
-
-Flag library-only
-    Description:   Build for use with "yesod devel"
-    Default:       False
-
-library
-    if flag(library-only)
-        Buildable: True
-    else
-        Buildable: False
-
-    exposed-modules: Application
-    other-modules:   Foundation
-                     Import
-                     Model
-                     Settings
-                     Settings.StaticFiles
-                     Handler.Root
-
-    ghc-options:   -Wall -threaded -O0
-    cpp-options:   -DDEVELOPMENT
-
-    extensions: TemplateHaskell
-                QuasiQuotes
-                OverloadedStrings
-                NoImplicitPrelude
-                CPP
-                OverloadedStrings
-                MultiParamTypeClasses
-                TypeFamilies
-                GADTs
-                GeneralizedNewtypeDeriving
-                FlexibleContexts
-
-executable         ~project~
-    if flag(library-only)
-        Buildable: False
-
-    if flag(dev)
-        cpp-options:   -DDEVELOPMENT
-        ghc-options:   -Wall -threaded -O0
-    else
-        ghc-options:   -Wall -threaded -O2
-
-    main-is:       main.hs
-
+test-suite integration-tests
+    type: exitcode-stdio-1.0
+    main-is:        main.hs
+    hs-source-dirs: tests .
+    ghc-options:     -Wall
     extensions: TemplateHaskell
                 QuasiQuotes
                 OverloadedStrings
@@ -80,12 +22,13 @@ executable         ~project~
                  , yesod-static                  >= 0.10       && < 0.11
                  , yesod-default                 >= 0.6        && < 0.7
                  , yesod-form                    >= 0.4        && < 0.5
+                 , yesod-test                    >= 0.1        && < 0.2
                  , mime-mail                     >= 0.3.0.3    && < 0.5
                  , clientsession                 >= 0.7.3      && < 0.8
                  , bytestring                    >= 0.9        && < 0.10
                  , text                          >= 0.11       && < 0.12
                  , persistent                    >= 0.7        && < 0.8
-                 , persistent-~backendLower~     >= 0.7        && < 0.8
+                 , persistent-sqlite     >= 0.7        && < 0.8
                  , template-haskell
                  , hamlet                        >= 0.10       && < 0.11
                  , shakespeare-css               >= 0.10       && < 0.11
@@ -96,4 +39,4 @@ executable         ~project~
                  , wai-extra                     >= 1.0        && < 1.1
                  , yaml                          >= 0.5        && < 0.6
                  , http-conduit                  >= 1.1        && < 1.2
-
+                 , haskell98
