@@ -5,8 +5,7 @@ license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii, Arash Rouhani
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Authentication methods for Haskell web applications.
-description:     Focus is on third-party authentication methods, such as OpenID,
-                 rpxnow and Facebook.
+description:     Focus is on third-party authentication methods, such as OpenID and BrowserID.
 category:        Web
 stability:       Stable
 cabal-version:   >= 1.6
@@ -43,7 +42,6 @@ library
                      Web.Authenticate.BrowserId,
                      Web.Authenticate.OpenId.Providers,
                      Web.Authenticate.OAuth,
-                     Web.Authenticate.Facebook
                      Web.Authenticate.Kerberos
     other-modules:   Web.Authenticate.Internal,
                      OpenId2.Discovery,
