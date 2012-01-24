@@ -10,7 +10,6 @@ module Devel
 
 import qualified Distribution.Simple.Utils as D
 import qualified Distribution.Verbosity as D
-import qualified Distribution.Package as D
 import qualified Distribution.PackageDescription.Parse as D
 import qualified Distribution.PackageDescription as D
 
@@ -21,11 +20,8 @@ import           Control.Monad (forever)
 import qualified Data.List as L
 import qualified Data.Map as Map
 import           Data.Maybe (listToMaybe)
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
 
 import           System.Directory (createDirectoryIfMissing, removeFile,
-                                           doesFileExist,
                                            getDirectoryContents)
 import           System.Exit (exitFailure, exitSuccess)
 import           System.Posix.Types (EpochTime)
@@ -33,10 +29,7 @@ import           System.PosixCompat.Files (modificationTime, getFileStatus)
 import           System.Process (runCommand, terminateProcess,
                                            waitForProcess, rawSystem)
 
-import Text.Shakespeare.Text (st)
-
 import Build (recompDeps, getDeps,findHaskellFiles)
-import Control.Monad (unless)
 
 #if __GLASGOW_HASKELL__ >= 700
 #define ST st
@@ -63,7 +56,6 @@ devel isDevel = do
     _ <- forkIO $ do
       cabal <- D.findPackageDesc "."
       gpd   <- D.readPackageDescription D.normal cabal
-      let pid = (D.package . D.packageDescription) gpd
 
       checkCabalFile gpd
 
@@ -149,9 +141,6 @@ watchForChanges list = do
     if list /= newList
       then return ()
       else threadDelay 1000000 >> watchForChanges list
-
-showPkgName :: D.PackageId -> String
-showPkgName = (\(D.PackageName n) -> n) . D.pkgName
 
 checkCabalFile :: D.GenericPackageDescription -> IO ()
 checkCabalFile gpd = case D.condLibrary gpd of
