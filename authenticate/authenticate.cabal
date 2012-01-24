@@ -21,27 +21,19 @@ library
                    , bytestring                    >= 0.9
                    , network
                    , case-insensitive              >= 0.2
-                   , RSA                           >= 1.0      && < 1.1
-                   , time
-                   , base64-bytestring             >= 0.1      && < 0.2
-                   , SHA                           >= 1.4      && < 1.6
-                   , random
                    , text
                    , http-types                    >= 0.6      && < 0.7
                    , xml-conduit                   >= 0.5.1.2  && < 0.6
                    , blaze-builder
                    , attoparsec
-                   , tls                           >= 0.7      && < 0.9
                    , containers
                    , unordered-containers
-                   , process
                    , conduit                       >= 0.0      && < 0.2
                    , blaze-builder-conduit         >= 0.0      && < 0.1
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
                      Web.Authenticate.BrowserId,
-                     Web.Authenticate.OpenId.Providers,
-                     Web.Authenticate.Kerberos
+                     Web.Authenticate.OpenId.Providers
     other-modules:   Web.Authenticate.Internal,
                      OpenId2.Discovery,
                      OpenId2.Normalization,

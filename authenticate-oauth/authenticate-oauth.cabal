@@ -5,7 +5,7 @@ license-file:    LICENSE
 author:          Hiromi Ishii
 maintainer:      Hiromi Ishii
 synopsis:        Authentication methods for Haskell web applications.
-description:     Focus is on third-party authentication methods, such as OpenID and BrowserID.
+description:     OAuth authentication, e.g. Twitter.
 category:        Web
 stability:       Stable
 cabal-version:   >= 1.6

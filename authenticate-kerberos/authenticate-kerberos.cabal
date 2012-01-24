@@ -1,0 +1,24 @@
+name:            authenticate-kerberos
+version:         1.0.0
+license:         BSD3
+license-file:    LICENSE
+author:          Arash Rouhani
+maintainer:      Arash Rouhani
+synopsis:        Authentication methods for Haskell web applications.
+description:     Kerberos authenticate.
+category:        Web
+stability:       Stable
+cabal-version:   >= 1.6
+build-type:      Simple
+homepage:        http://github.com/yesodweb/authenticate
+
+library
+    build-depends:   base                          >= 4        && < 5
+                   , text
+                   , process
+    exposed-modules: Web.Authenticate.Kerberos
+    ghc-options:     -Wall
+
+source-repository head
+  type:     git
+  location: git://github.com/yesodweb/authenticate.git
