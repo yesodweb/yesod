@@ -19,9 +19,9 @@ library
 
     build-depends:   base                  >= 4     && < 5
                    , yesod-core            >= 0.10  && < 0.11
-                   , warp                  >= 1.0   && < 1.1
-                   , wai                   >= 1.0   && < 1.1
-                   , wai-extra             >= 1.0   && < 1.1
+                   , warp                  >= 1.1   && < 1.2
+                   , wai                   >= 1.1   && < 1.2
+                   , wai-extra             >= 1.1   && < 1.2
                    , bytestring            >= 0.9.1.4
                    , transformers          >= 0.2.2 && < 0.3
                    , text                  >= 0.9

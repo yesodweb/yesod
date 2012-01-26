@@ -24,7 +24,7 @@ library
     build-depends:   authenticate            >= 1.0       && < 1.1
                    , bytestring              >= 0.9.1.4   && < 0.10
                    , yesod-core              >= 0.10      && < 0.11
-                   , wai                     >= 1.0       && < 1.1
+                   , wai                     >= 1.1       && < 1.2
                    , template-haskell
                    , pureMD5                 >= 2.0       && < 2.2
                    , random                  >= 1.0.0.2  && < 1.1

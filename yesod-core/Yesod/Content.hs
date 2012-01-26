@@ -61,10 +61,10 @@ import Text.Hamlet (Html)
 import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
 import Data.String (IsString (fromString))
 import Network.Wai (FilePart)
-import Data.Conduit (Source)
+import Data.Conduit (Source, Flush)
 
 data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional content length.
-             | ContentSource (Source IO Builder)
+             | ContentSource (Source IO (Flush Builder))
              | ContentFile FilePath (Maybe FilePart)
 
 -- | Zero-length enumerator.
