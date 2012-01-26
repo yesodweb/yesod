@@ -45,6 +45,7 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Types
 import Yesod.Form.I18n.English
+import Yesod.Handler (getMessageRender)
 import Yesod.Widget
 import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
 import Text.Hamlet
@@ -303,7 +304,7 @@ urlField = Field
 |]
     }
 
-selectFieldList :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
+selectFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master a
 selectFieldList = selectField . optionsPairs
 
 selectField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
@@ -312,7 +313,7 @@ selectField = selectFieldHelper
     (\_theId _name isSel -> [WHAMLET|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
     (\_theId _name theClass value isSel text -> [WHAMLET|<option value=#{value} :isSel:selected :not (null theClass):class="#{T.intercalate " " theClass}">#{text}|]) -- inside
 
-multiSelectFieldList :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master [a]
+multiSelectFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master [a]
 multiSelectFieldList = multiSelectField . optionsPairs
 
 multiSelectField :: (Eq a, RenderMessage master FormMessage)
@@ -340,7 +341,7 @@ multiSelectField ioptlist =
             optselected (Left _) _ = False
             optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
 
-radioFieldList :: (Eq a, RenderMessage master FormMessage) => [(Text, a)] -> Field sub master a
+radioFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master a
 radioFieldList = radioField . optionsPairs
 
 radioField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
@@ -400,12 +401,15 @@ data Option a = Option
     , optionExternalValue :: Text
     }
 
-optionsPairs :: [(Text, a)] -> GHandler sub master (OptionList a)
-optionsPairs = return . mkOptionList . zipWith (\external (display, internal) -> Option
-    { optionDisplay = display
-    , optionInternalValue = internal
-    , optionExternalValue = pack $ show external
-    }) [1 :: Int ..]
+optionsPairs :: RenderMessage master msg => [(msg, a)] -> GHandler sub master (OptionList a)
+optionsPairs opts = do
+  mr <- getMessageRender
+  let mkOption external (display, internal) =
+          Option { optionDisplay       = mr display
+                 , optionInternalValue = internal
+                 , optionExternalValue = pack $ show external
+                 }
+  return $ mkOptionList (zipWith mkOption [1 :: Int ..] opts)
 
 optionsEnum :: (Show a, Enum a, Bounded a) => GHandler sub master (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
@@ -413,12 +417,14 @@ optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 optionsPersist :: ( YesodPersist master, PersistEntity a
                   , PersistQuery (YesodPersistBackend master) (GHandler sub master)
                   , PathPiece (Key (YesodPersistBackend master) a)
+                  , RenderMessage master msg
                   )
-               => [Filter a] -> [SelectOpt a] -> (a -> Text) -> GHandler sub master (OptionList (Entity (YesodPersistBackend master) a))
+               => [Filter a] -> [SelectOpt a] -> (a -> msg) -> GHandler sub master (OptionList (Entity (YesodPersistBackend master) a))
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
+    mr <- getMessageRender
     pairs <- runDB $ selectList filts ords
     return $ map (\(Entity key value) -> Option
-        { optionDisplay = toDisplay value
+        { optionDisplay = mr (toDisplay value)
         , optionInternalValue = Entity key value
         , optionExternalValue = toPathPiece key
         }) pairs
