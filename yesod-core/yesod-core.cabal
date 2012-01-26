@@ -48,8 +48,8 @@ library
 
     build-depends:   time                  >= 1.1.4
                    , yesod-routes          >= 0.0      && < 0.1
-                   , wai                   >= 1.0      && < 1.1
-                   , wai-extra             >= 1.0      && < 1.1
+                   , wai                   >= 1.1      && < 1.2
+                   , wai-extra             >= 1.1      && < 1.2
                    , bytestring            >= 0.9.1.4  && < 0.10
                    , text                  >= 0.7      && < 0.12
                    , template-haskell

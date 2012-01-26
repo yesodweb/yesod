@@ -326,7 +326,7 @@ rbHelper :: W.Request -> ResourceT IO RequestBodyContents
 rbHelper req =
     (map fix1 *** map fix2) <$> (requestBody req $$ iter)
   where
-    iter = NWP.parseRequestBody NWP.lbsSink req
+    iter = NWP.parseRequestBody NWP.lbsBackEnd req
     fix1 = go *** go
     fix2 (x, NWP.FileInfo a b c) =
         (go x, FileInfo (go a) (go b) c)
