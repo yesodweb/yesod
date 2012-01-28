@@ -25,6 +25,7 @@ module Yesod.Form.Fields
     , parseTime
     , Textarea (..)
     , boolField
+    , checkBoxField
       -- * File 'AForm's
     , fileAFormReq
     , fileAFormOpt
@@ -383,6 +384,29 @@ boolField = Field
       "no" -> Right $ Just False
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
+
+-- | While the default @'boolField'@ implements a radio button so you
+--   can differentiate between an empty response (Nothing) and a no
+--   response (Just False), this simpler checkbox field returns an empty
+--   response as Just False.
+--
+--   Note that this makes the field always optional.
+--
+checkBoxField :: RenderMessage m FormMessage => Field s m Bool
+checkBoxField = Field
+    { fieldParse = return . checkBoxParser
+    , fieldView  = \theId name theClass val _ -> [whamlet|
+<input id=#{theId} :not (null theClass):class="#{T.intercalate " " theClass}" type=checkbox name=#{name} value=yes :showVal id val:checked>
+|]
+    }
+
+    where
+        checkBoxParser [] = Right $ Just False
+        checkBoxParser (x:_) = case x of
+            "yes" -> Right $ Just True
+            _     -> Right $ Just False
+
+        showVal = either (\_ -> False)
 
 data OptionList a = OptionList
     { olOptions :: [Option a]
