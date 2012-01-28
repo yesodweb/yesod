@@ -6,4 +6,13 @@
 	url = https://github.com/yesodweb/authenticate.git
 [submodule "http-conduit"]
 	path = http-conduit
-	url = https://github.com/snoyberg/http-conduit.git
+	url = https://github.com/snoyberg/http-conduit
+[submodule "xml"]
+	path = xml
+	url = https://github.com/snoyberg/xml
+[submodule "crypto-conduit"]
+	path = crypto-conduit
+	url = https://github.com/snoyberg/crypto-conduit
+[submodule "yaml"]
+	path = yaml
+	url = https://github.com/snoyberg/yaml

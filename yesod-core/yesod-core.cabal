@@ -79,7 +79,7 @@ library
                    , aeson                 >= 0.5
                    , fast-logger           >= 0.0.1
                    , wai-logger            >= 0.0.1
-                   , conduit               >= 0.0      && < 0.2
+                   , conduit               >= 0.2      && < 0.3
                    , lifted-base           >= 0.1      && < 0.2
 
     exposed-modules: Yesod.Content
