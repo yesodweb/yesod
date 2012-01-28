@@ -7,6 +7,10 @@ pkgs=(      ./yesod-routes
             ./yesod-persistent
             ./yesod-newsfeed
             ./yesod-form
+            ./yaml
+            ./http-conduit
+            ./crypto-conduit
+            ./xml/xml-conduit
             ./authenticate/authenticate
             ./authenticate/authenticate-oauth
             ./authenticate/authenticate-kerberos
