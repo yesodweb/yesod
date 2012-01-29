@@ -59,6 +59,7 @@ module Yesod.Handler
     , sendWaiResponse
       -- * Setting headers
     , setCookie
+    , getExpires
     , deleteCookie
     , setHeader
     , setLanguage
@@ -120,7 +121,7 @@ module Yesod.Handler
 import Prelude hiding (catch)
 import Yesod.Internal.Request
 import Yesod.Internal
-import Data.Time (UTCTime)
+import Data.Time (UTCTime, getCurrentTime, addUTCTime)
 
 import Control.Exception hiding (Handler, catch, finally)
 import Control.Applicative
@@ -629,6 +630,14 @@ setCookie :: SetCookie
           -> GHandler sub master ()
 setCookie = addHeader . AddCookie
 
+-- | Helper function for setCookieExpires value
+getExpires :: Int -- ^ minutes
+          -> IO UTCTime
+getExpires m = do
+    now <- liftIO getCurrentTime
+    return $ fromIntegral (m * 60) `addUTCTime` now
+
+
 -- | Unset the cookie on the client.
 --
 -- Note: although the value used for key and path is 'Text', you should only
@@ -637,6 +646,7 @@ deleteCookie :: Text -- ^ key
              -> Text -- ^ path
              -> GHandler sub master ()
 deleteCookie a = addHeader . DeleteCookie (encodeUtf8 a) . encodeUtf8
+
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
@@ -783,25 +793,7 @@ yarToResponse renderHeaders (YARPlain s hs ct c sessionFinal) =
     finalHeaders = renderHeaders hs ct sessionFinal
     finalHeaders' len = ("Content-Length", S8.pack $ show len)
                       : finalHeaders
-    {-
-    getExpires m = fromIntegral (m * 60) `addUTCTime` now
-    sessionVal =
-        case key' of
-            Nothing -> B.empty
-            Just key'' -> encodeSession key'' exp' host
-                        $ Map.toList
-                        $ Map.insert nonceKey (reqNonce rr) sessionFinal
-    hs' =
-            case key' of
-                Nothing -> hs
-                Just _ -> AddCookie
-                        (clientSessionDuration y)
-                        sessionName
-                        (bsToChars sessionVal)
-                      : hs
-    hs'' = map (headerToPair getExpires) hs'
-    hs''' = ("Content-Type", charsToBs ct) : hs''
-    -}
+
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = parseHttpAccept
