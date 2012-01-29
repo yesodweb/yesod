@@ -68,6 +68,7 @@ import Blaze.ByteString.Builder (Builder, toByteString)
 import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Data.List (foldl')
 import qualified Network.HTTP.Types as H
+import Web.Cookie (SetCookie (..))
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO
 import qualified Data.Text.Lazy.Builder as TB
@@ -407,12 +408,16 @@ defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
         hs' =
             case mkey of
                 Nothing -> hs
-                Just _ -> AddCookie
-                            (clientSessionDuration master)
-                            sessionName
-                            sessionVal
+                Just _ -> AddCookie SetCookie
+                            { setCookieName = sessionName
+                            , setCookieValue = sessionVal
+                            , setCookiePath = Just (cookiePath master)
+                            , setCookieExpires = Just $ getExpires (clientSessionDuration master)
+                            , setCookieDomain = Nothing
+                            , setCookieHttpOnly = True
+                            }
                           : hs
-        hs'' = map (headerToPair (cookiePath master) getExpires) hs'
+        hs'' = map headerToPair hs'
         hs''' = ("Content-Type", ct) : hs''
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
