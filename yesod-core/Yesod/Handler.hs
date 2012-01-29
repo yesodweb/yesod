@@ -624,18 +624,19 @@ invalidArgsI msg = do
 
 ------- Headers
 -- | Set the cookie on the client.
---
--- Note: although the value used for key and value is 'Text', you should only
--- use ASCII values to be HTTP compliant.
-setCookie :: Int -- ^ minutes to timeout
-          -> Text -- ^ key
-          -> Text -- ^ value
+
+setCookie :: SetCookie
           -> GHandler sub master ()
-setCookie a b = addHeader . AddCookie a (encodeUtf8 b) . encodeUtf8
+setCookie = addHeader . AddCookie
 
 -- | Unset the cookie on the client.
-deleteCookie :: Text -> GHandler sub master ()
-deleteCookie = addHeader . DeleteCookie . encodeUtf8
+--
+-- Note: although the value used for key and path is 'Text', you should only
+-- use ASCII values to be HTTP compliant.
+deleteCookie :: Text -- ^ key 
+             -> Text -- ^ path
+             -> GHandler sub master ()
+deleteCookie a = addHeader . DeleteCookie (encodeUtf8 a) . encodeUtf8
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
@@ -809,32 +810,20 @@ httpAccept = parseHttpAccept
            . W.requestHeaders
 
 -- | Convert Header to a key/value pair.
-headerToPair :: S.ByteString -- ^ cookie path
-             -> (Int -> UTCTime) -- ^ minutes -> expiration time
-             -> Header
+headerToPair :: Header
              -> (CI H.Ascii, H.Ascii)
-headerToPair cp getExpires (AddCookie minutes key value) =
-    ("Set-Cookie", toByteString $ renderSetCookie $ SetCookie
-        { setCookieName = key
-        , setCookieValue = value
-        , setCookiePath = Just cp
-        , setCookieExpires =
-            if minutes == 0
-                then Nothing
-                else Just $ getExpires minutes
-        , setCookieDomain = Nothing
-        , setCookieHttpOnly = True
-        })
-headerToPair cp _ (DeleteCookie key) =
+headerToPair (AddCookie sc) =
+    ("Set-Cookie", toByteString $ renderSetCookie $ sc)
+headerToPair (DeleteCookie key path) =
     ( "Set-Cookie"
     , S.concat
         [ key
         , "=; path="
-        , cp
+        , path
         , "; expires=Thu, 01-Jan-1970 00:00:00 GMT"
         ]
     )
-headerToPair _ _ (Header key value) = (CI.mk key, value)
+headerToPair (Header key value) = (CI.mk key, value)
 
 -- | Get a unique identifier.
 newIdent :: GHandler sub master Text
