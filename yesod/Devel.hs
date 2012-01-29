@@ -49,7 +49,7 @@ removeLock :: IO ()
 removeLock = try_ (removeFile lockFile)
 
 devel :: Bool -> IO ()
-devel isDevel = do
+devel isCabalDev = do
     writeLock
 
     putStrLn "Yesod devel server. Press ENTER to quit"
@@ -59,7 +59,7 @@ devel isDevel = do
 
       checkCabalFile gpd
 
-      _ <- if isDevel
+      _ <- if isCabalDev
         then rawSystem "cabal-dev"
             [ "configure"
             , "--cabal-install-arg=-fdevel" -- legacy
@@ -73,7 +73,7 @@ devel isDevel = do
             , "--disable-library-profiling"
             ]
 
-      mainLoop isDevel
+      mainLoop isCabalDev
 
     _ <- getLine
     writeLock
@@ -82,20 +82,21 @@ devel isDevel = do
 
 
 mainLoop :: Bool -> IO ()
-mainLoop isDevel = forever $ do
+mainLoop isCabalDev = forever $ do
    putStrLn "Rebuilding application..."
 
    recompDeps
 
    list <- getFileList
-   _ <- if isDevel
+   _ <- if isCabalDev
      then rawSystem "cabal-dev" ["build"]
      else rawSystem "cabal"     ["build"]
 
    removeLock
-   putStrLn "Starting development server..."
-   pkg <- pkgConfigs isDevel
-   ph <- runCommand $ concat ["runghc ", pkg, " devel.hs"]
+   pkg <- pkgConfigs isCabalDev
+   let start = concat ["runghc ", pkg, " devel.hs"]
+   putStrLn $ "Starting development server: " ++ start
+   ph <- runCommand start
    watchTid <- forkIO . try_ $ do
      watchForChanges list
      putStrLn "Stopping development server..."
