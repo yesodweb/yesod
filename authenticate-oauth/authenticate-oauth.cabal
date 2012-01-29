@@ -24,8 +24,8 @@ library
                    , random
                    , http-types                    >= 0.6      && < 0.7
                    , blaze-builder
-                   , conduit                       >= 0.0      && < 0.2
-                   , blaze-builder-conduit         >= 0.0      && < 0.1
+                   , conduit                       >= 0.2      && < 0.3
+                   , blaze-builder-conduit         >= 0.2      && < 0.3
     exposed-modules: Web.Authenticate.OAuth
     ghc-options:     -Wall
 

@@ -28,8 +28,8 @@ library
                    , attoparsec
                    , containers
                    , unordered-containers
-                   , conduit                       >= 0.0      && < 0.2
-                   , blaze-builder-conduit         >= 0.0      && < 0.1
+                   , conduit                       >= 0.2      && < 0.3
+                   , blaze-builder-conduit         >= 0.2      && < 0.3
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
                      Web.Authenticate.BrowserId,
