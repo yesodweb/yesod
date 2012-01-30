@@ -254,9 +254,13 @@ class RenderRoute a => Yesod a where
     addStaticContent _ _ _ = return Nothing
 
     -- | Whether or not to tie a session to a specific IP address. Defaults to
-    -- 'True'.
+    -- 'False'.
+    --
+    -- Note: This setting has two known problems: it does not work correctly
+    -- when behind a reverse proxy (including load balancers), and it may not
+    -- function correctly if the user is behind a proxy.
     sessionIpAddress :: a -> Bool
-    sessionIpAddress _ = True
+    sessionIpAddress _ = False
 
     -- | The path value to set for cookies. By default, uses \"\/\", meaning
     -- cookies will be sent to every page on the current domain.
