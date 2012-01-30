@@ -31,7 +31,7 @@ module Yesod.Internal.Core
     ) where
 
 import Yesod.Content
-import Yesod.Handler hiding (lift)
+import Yesod.Handler hiding (lift, getExpires)
 
 import Yesod.Routes.Class
 
