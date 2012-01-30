@@ -43,6 +43,7 @@ import Data.String (IsString)
 import qualified Data.Map as Map
 import Data.Text.Lazy.Builder (Builder)
 import Network.HTTP.Types (Ascii)
+import Web.Cookie (SetCookie (..))
 
 #if GHC7
 #define HAMLET hamlet
@@ -64,8 +65,8 @@ instance Exception ErrorResponse
 ----- header stuff
 -- | Headers to be added to a 'Result'.
 data Header =
-    AddCookie Int Ascii Ascii
-    | DeleteCookie Ascii
+    AddCookie SetCookie
+    | DeleteCookie Ascii Ascii
     | Header Ascii Ascii
     deriving (Eq, Show)
 
