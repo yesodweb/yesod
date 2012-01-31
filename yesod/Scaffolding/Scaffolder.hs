@@ -32,7 +32,7 @@ qq = ""
 qq = "$"
 #endif
 
-data Backend = Sqlite | Postgresql | MongoDB | Tiny
+data Backend = Sqlite | Postgresql | Mysql | MongoDB | Tiny
   deriving (Eq, Read, Show, Enum, Bounded)
 
 puts :: String -> IO ()
@@ -63,18 +63,20 @@ scaffold = do
 
     puts $(codegenDir "input" "database")
     
-    backendC <- prompt $ flip elem $ map (return . toLower . head . show) backends
+    backendC <- prompt $ flip elem $ words "s p mysql mongo t"
     let (backend, importGenericDB, dbMonad, importPersist, mkPersistSettings) =
             case backendC of
                 "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite", "sqlSettings")
                 "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql", "sqlSettings")
-                "m" -> (MongoDB,    "MongoDB", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
+                "mysql" -> (Mysql, "GenericSql", "SqlPersist", "MySQL", "sqlSettings")
+                "mongo" -> (MongoDB,    "MongoDB", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
                 "t" -> (Tiny, "","","",undefined)
                 _ -> error $ "Invalid backend: " ++ backendC
         (modelImports) = case backend of
           MongoDB -> "import Database.Persist." ++ importGenericDB ++ "\nimport Language.Haskell.TH.Syntax"
           Sqlite -> ""
           Postgresql -> ""
+          Mysql -> ""
           Tiny -> undefined
 
         uncapitalize s = toLower (head s) : tail s
@@ -96,6 +98,7 @@ scaffold = do
             MongoDB -> "mongoDB"
             Sqlite -> "sqlite"
             Postgresql -> "postgresql"
+            Mysql -> "mysql"
             Tiny -> error "Accessing dbConfigFile for Tiny"
 
     let configPersist =
@@ -103,6 +106,7 @@ scaffold = do
             MongoDB -> "MongoConf"
             Sqlite -> "SqliteConf"
             Postgresql -> "PostgresConf"
+            Mysql -> "MySQLConf"
             Tiny -> error "Accessing configPersist for Tiny"
 
     putStrLn "That's it! I'm creating your files now..."
@@ -110,6 +114,7 @@ scaffold = do
     let withConnectionPool = case backend of
           Sqlite     -> $(codegen $ "sqliteConnPool")
           Postgresql -> $(codegen $ "postgresqlConnPool")
+          Mysql      -> ""
           MongoDB    -> $(codegen $ "mongoDBConnPool")
           Tiny       -> ""
 
@@ -146,6 +151,7 @@ scaffold = do
       Sqlite     -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/sqlite.yml"))
       Postgresql -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/postgresql.yml"))
       MongoDB    -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/mongoDB.yml"))
+      Mysql      -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/mysql.yml"))
       Tiny       -> return ()
 
     let isTiny = backend == Tiny
