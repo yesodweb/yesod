@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE CPP #-}
@@ -64,6 +65,7 @@ import Data.Maybe (listToMaybe)
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
+import Database.Persist.Store (PersistEntityBackend)
 
 import Text.Blaze.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
@@ -442,8 +444,9 @@ optionsPersist :: ( YesodPersist master, PersistEntity a
                   , PersistQuery (YesodPersistBackend master) (GHandler sub master)
                   , PathPiece (Key (YesodPersistBackend master) a)
                   , RenderMessage master msg
+                  , PersistEntityBackend a ~ YesodPersistBackend master
                   )
-               => [Filter a] -> [SelectOpt a] -> (a -> msg) -> GHandler sub master (OptionList (Entity (YesodPersistBackend master) a))
+               => [Filter a] -> [SelectOpt a] -> (a -> msg) -> GHandler sub master (OptionList (Entity a))
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     mr <- getMessageRender
     pairs <- runDB $ selectList filts ords

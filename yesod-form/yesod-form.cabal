@@ -20,7 +20,7 @@ library
                    , hamlet                >= 0.10     && < 0.11
                    , shakespeare-css       >= 0.10     && < 0.11
                    , shakespeare-js        >= 0.10     && < 0.11
-                   , persistent            >= 0.7      && < 0.8
+                   , persistent            >= 0.8      && < 0.9
                    , template-haskell
                    , transformers          >= 0.2.2    && < 0.3
                    , data-default          >= 0.3      && < 0.4

@@ -42,8 +42,9 @@ getBy404 :: ( PersistUnique b m
             , m ~ GHandler sub master
             , Monad (b m)
             , MonadTrans b
+            , PersistEntityBackend val ~ b
             )
-         => Unique val b -> b m (Entity b val)
+         => Unique val b -> b m (Entity val)
 getBy404 key = do
     mres <- getBy key
     case mres of

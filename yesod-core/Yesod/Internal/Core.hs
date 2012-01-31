@@ -253,6 +253,7 @@ class RenderRoute a => Yesod a where
                      -> GHandler sub a (Maybe (Either Text (Route a, [(Text, Text)])))
     addStaticContent _ _ _ = return Nothing
 
+    {- Temporarily disabled until we have a better interface.
     -- | Whether or not to tie a session to a specific IP address. Defaults to
     -- 'False'.
     --
@@ -261,6 +262,7 @@ class RenderRoute a => Yesod a where
     -- function correctly if the user is behind a proxy.
     sessionIpAddress :: a -> Bool
     sessionIpAddress _ = False
+    -}
 
     -- | The path value to set for cookies. By default, uses \"\/\", meaning
     -- cookies will be sent to every page on the current domain.
@@ -364,8 +366,8 @@ defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
     now <- {-# SCC "getCurrentTime" #-} liftIO getCurrentTime
     let getExpires m = {-# SCC "getExpires" #-} fromIntegral (m * 60) `addUTCTime` now
     let exp' = {-# SCC "exp'" #-} getExpires $ clientSessionDuration master
-    let rh = {-# SCC "rh" #-} takeWhile (/= ':') $ show $ W.remoteHost req
-    let host = if sessionIpAddress master then S8.pack rh else ""
+    --let rh = {-# SCC "rh" #-} takeWhile (/= ':') $ show $ W.remoteHost req
+    let host = "" -- FIXME if sessionIpAddress master then S8.pack rh else ""
     let session' = {-# SCC "session'" #-}
             case mkey of
                 Nothing -> []
