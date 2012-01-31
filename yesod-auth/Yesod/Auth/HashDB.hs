@@ -198,10 +198,10 @@ getAuthIdHashDB :: ( YesodAuth master, YesodPersist master
                 -> Creds master                  -- ^ the creds argument
                 -> GHandler sub master (Maybe (AuthId master))
 getAuthIdHashDB authR uniq creds = do
-    muid <- maybeAuth
+    muid <- maybeAuthId
     case muid of
         -- user already authenticated
-        Just (uid, _) -> return $ Just uid
+        Just uid -> return $ Just uid
         Nothing       -> do
             x <- case uniq (credsIdent creds) of
                    Nothing -> return Nothing
