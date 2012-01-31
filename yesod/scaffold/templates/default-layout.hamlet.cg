@@ -3,4 +3,3 @@ $maybe msg <- mmsg
 ^{widget}
 <footer>
     #{extraCopyright $ appExtra $ settings master}
-
