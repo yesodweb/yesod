@@ -84,7 +84,7 @@ library
                    , wai-extra                 >= 1.1      && < 1.2
                    , wai-logger                >= 0.1.2
                    , hamlet                    >= 0.10     && < 0.11
-                   , shakespeare-js            >= 0.10     && < 0.11
+                   , shakespeare-js            >= 0.11     && < 0.12
                    , shakespeare-css           >= 0.10     && < 0.11
                    , warp                      >= 1.1      && < 1.2
                    , blaze-html                >= 0.4.1.3  && < 0.5

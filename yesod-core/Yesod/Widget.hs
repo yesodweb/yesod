@@ -256,16 +256,14 @@ addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJavasc
 addCoffee :: CoffeeUrl (Route master) -> GWidget sub master ()
 addCoffee c = do
     render <- lift getUrlRenderParams
-    t <- liftIO $ renderCoffee render c
-    addJulius $ const $ Javascript $ fromLazyText t
+    addJulius $ const $ Javascript $ fromLazyText $ renderCoffeeUrl render c
 
 -- | Add a new script tag to the body with the contents of this Coffesscript
 -- template. Requires the coffeescript executable to be present at runtime.
 addCoffeeBody :: CoffeeUrl (Route master) -> GWidget sub master ()
 addCoffeeBody c = do
     render <- lift getUrlRenderParams
-    t <- liftIO $ renderCoffee render c
-    addJuliusBody $ const $ Javascript $ fromLazyText t
+    addJuliusBody $ const $ Javascript $ fromLazyText $ renderCoffeeUrl render c
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:

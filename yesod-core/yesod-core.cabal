@@ -56,7 +56,7 @@ library
                    , path-pieces           >= 0.1      && < 0.2
                    , hamlet                >= 0.10.7   && < 0.11
                    , shakespeare           >= 0.10     && < 0.11
-                   , shakespeare-js        >= 0.10.4   && < 0.11
+                   , shakespeare-js        >= 0.11     && < 0.12
                    , shakespeare-css       >= 0.10.5   && < 0.11
                    , shakespeare-i18n      >= 0.0      && < 0.1
                    , blaze-builder         >= 0.2.1.4  && < 0.4
