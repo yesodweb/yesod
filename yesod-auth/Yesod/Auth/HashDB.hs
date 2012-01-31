@@ -137,6 +137,7 @@ setPassword pwd u = do salt <- randomSalt
 --   the database values.
 validateUser :: ( YesodPersist yesod
                 , b ~ YesodPersistBackend yesod
+                , b ~ PersistEntityBackend user
                 , PersistStore b (GHandler sub yesod)
                 , PersistUnique b (GHandler sub yesod)
                 , PersistEntity user
@@ -163,6 +164,7 @@ login = PluginR "hashdb" ["login"]
 --   username (whatever it might be) to unique user ID.
 postLoginR :: ( YesodAuth y, YesodPersist y
               , b ~ YesodPersistBackend y
+              , b ~ PersistEntityBackend user
               , HashDBUser user, PersistEntity user
               , PersistStore b (GHandler Auth y)
               , PersistUnique b (GHandler Auth y))
@@ -188,6 +190,7 @@ getAuthIdHashDB :: ( YesodAuth master, YesodPersist master
                    , HashDBUser user, PersistEntity user
                    , Key b user ~ AuthId master
                    , b ~ YesodPersistBackend master
+                   , b ~ PersistEntityBackend user
                    , PersistUnique b (GHandler sub master)
                    , PersistStore b (GHandler sub master))
                 => (AuthRoute -> Route master)   -- ^ your site's Auth Route
@@ -216,6 +219,7 @@ authHashDB :: ( YesodAuth m, YesodPersist m
               , HashDBUser user
               , PersistEntity user
               , b ~ YesodPersistBackend m
+              , b ~ PersistEntityBackend user
               , PersistStore b (GHandler Auth m)
               , PersistUnique b (GHandler Auth m))
            => (Text -> Maybe (Unique user b)) -> AuthPlugin m
