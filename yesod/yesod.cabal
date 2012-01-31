@@ -51,6 +51,7 @@ extra-source-files:
   scaffold/config/settings.yml.cg
   scaffold/config/favicon.ico.cg
   scaffold/config/postgresql.yml.cg
+  scaffold/config/mysql.yml.cg
   scaffold/config/mongoDB.yml.cg
   scaffold/config/routes.cg
   scaffold/config/robots.txt.cg
