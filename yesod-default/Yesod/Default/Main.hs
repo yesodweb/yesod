@@ -10,7 +10,7 @@ import Yesod.Default.Config
 import Yesod.Logger (Logger, defaultDevelopmentLogger, logString)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
-    (runSettings, defaultSettings, settingsPort, settingsHost)
+    (runSettings, defaultSettings, settingsPort)
 import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 import Network.Wai.Middleware.Gzip (gzip, GzipFiles (GzipCacheFolder), gzipFiles, def)
 import Network.Wai.Middleware.Autohead (autohead)
@@ -46,8 +46,7 @@ defaultMain load getApp = do
     logger <- defaultDevelopmentLogger
     app <- getApp config logger
     runSettings defaultSettings
-        { settingsHost = "0.0.0.0"
-        , settingsPort = appPort config
+        { settingsPort = appPort config
         } app
 
 -- | Run your application continously, listening for SIGINT and exiting
