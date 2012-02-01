@@ -14,7 +14,7 @@ data Token = VarToken String | LitToken String | EmptyToken
 codegenDir :: FilePath -> FilePath -> Q Exp
 codegenDir dir fp = do
     s' <- qRunIO $ L.readFile $ (dir ++ "/" ++ fp ++ ".cg")
-    let s = init $ LT.unpack $ LT.decodeUtf8 s'
+    let s = LT.unpack $ LT.decodeUtf8 s'
     case parse (many parseToken) s s of
         Left e -> error $ show e
         Right tokens' -> do
