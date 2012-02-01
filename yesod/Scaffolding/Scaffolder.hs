@@ -22,7 +22,8 @@ prompt f = do
     if f s
         then return s
         else do
-            putStrLn "That was not a valid entry, please try again: "
+            putStr "That was not a valid entry, please try again: "
+            hFlush stdout
             prompt f
 
 qq :: String
@@ -45,7 +46,7 @@ backends = [minBound .. maxBound]
 scaffold :: IO ()
 scaffold = do
     puts $(codegenDir "input" "welcome")
-    name <- getLine
+    name <- prompt $ not . null
 
     puts $(codegenDir "input" "project-name")
     let validPN c
@@ -54,7 +55,7 @@ scaffold = do
             | '0' <= c && c <= '9' = True
         validPN '-' = True
         validPN _ = False
-    project <- prompt $ all validPN
+    project <- prompt $ \s -> all validPN s && not (null s)
     let dir = project
 
     puts $(codegenDir "input" "site-arg")

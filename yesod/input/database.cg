@@ -5,5 +5,10 @@ We recommend starting with SQLite: it has no dependencies.
 We have another option: a tiny project with minimal dependencies.
 Mostly this means no database and no authentication.
 
-So, what'll it be?
-s for sqlite, p for postgresql, m for mongodb, or t for tiny: 
+    s     = sqlite
+    p     = postgresql
+    mongo = mongodb
+    t     = tiny
+    mysql = MySQL (experimental)
+
+So, what'll it be? 
