@@ -36,7 +36,7 @@ data Backend = Sqlite | Postgresql | Mysql | MongoDB | Tiny
   deriving (Eq, Read, Show, Enum, Bounded)
 
 puts :: String -> IO ()
-puts s = putStr s >> hFlush stdout
+puts s = putStr (init s) >> hFlush stdout
 
 backends :: [Backend]
 backends = [minBound .. maxBound]
@@ -201,4 +201,4 @@ scaffold = do
         $(runIO (S.readFile "scaffold/config/robots.txt.cg") >>= \bs -> do
             [|S.pack $(return $ LitE $ StringL $ S.unpack bs)|])
     
-    puts $(codegenDir "input" "done")
+    putStr $(codegenDir "input" "done")
