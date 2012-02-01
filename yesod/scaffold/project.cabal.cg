@@ -89,7 +89,7 @@ executable         ~project~
                  , template-haskell
                  , hamlet                        >= 0.10       && < 0.11
                  , shakespeare-css               >= 0.10       && < 0.11
-                 , shakespeare-js                >= 0.10       && < 0.11
+                 , shakespeare-js                >= 0.11       && < 0.12
                  , shakespeare-text              >= 0.10       && < 0.11
                  , hjsmin                        >= 0.0.14     && < 0.1
                  , monad-control                 >= 0.3        && < 0.4
