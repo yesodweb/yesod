@@ -2,13 +2,16 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Web.Authenticate.OAuth
     ( -- * Data types
-      OAuth(..), newOAuth, SignMethod(..), Credential(..), OAuthException(..),
+      OAuth(oauthServerName, oauthRequestUri, oauthAccessTokenUri, oauthAuthorizeUri,
+            oauthSignatureMethod, oauthConsumerKey, oauthConsumerSecret, oauthCallback,
+            oauthRealm),
+      def, newOAuth, SignMethod(..), Credential(..), OAuthException(..),
       -- * Operations for credentials
       newCredential, emptyCredential, insert, delete, inserts,
       -- * Signature
       signOAuth, genSign,
       -- * Url & operation for authentication
-      authorizeUrl, getAccessToken, getTemporaryCredential,
+      authorizeUrl, authorizeUrl', getAccessToken, getTemporaryCredential,
       getTokenCredential, getTemporaryCredentialWithScope,
       getAccessTokenProxy, getTemporaryCredentialProxy,
       getTokenCredentialProxy, 
@@ -22,7 +25,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Maybe
 import Control.Applicative
-import Network.HTTP.Types (parseSimpleQuery)
+import Network.HTTP.Types (parseSimpleQuery, SimpleQuery)
 import Control.Exception
 import Control.Monad
 import Data.List (sortBy)
@@ -42,18 +45,38 @@ import qualified Data.Conduit.List as CL
 import Data.Conduit.Blaze (builderToByteString)
 import Blaze.ByteString.Builder (Builder)
 import Control.Monad.IO.Class (liftIO)
+import Data.Default
 
 -- | Data type for OAuth client (consumer).
--- The default values apply when you use 'newOAuth'
-data OAuth = OAuth { oauthServerName      :: String        -- ^ Service name (You MUST specify)
-                   , oauthRequestUri      :: String        -- ^ URI to request temporary credential (You MUST specify)
-                   , oauthAccessTokenUri  :: String        -- ^ Uri to obtain access token (You MUST specify)
-                   , oauthAuthorizeUri    :: String        -- ^ Uri to authorize (You MUST specify)
-                   , oauthSignatureMethod :: SignMethod    -- ^ Signature Method (default: 'HMACSHA1')
-                   , oauthConsumerKey     :: BS.ByteString -- ^ Consumer key (You MUST specify)
-                   , oauthConsumerSecret  :: BS.ByteString -- ^ Consumer Secret (You MUST specify)
-                   , oauthCallback        :: Maybe BS.ByteString -- ^ Callback uri to redirect after authentication (default: 'Nothing')
-                   , oauthRealm           :: Maybe BS.ByteString -- ^ Optional authorization realm (default: 'Nothing')
+-- 
+-- The constructor for this data type is not exposed. 
+-- Instead, you should use the 'def' method or 'newOAuth' function to retrieve a default instance, 
+-- and then use the records below to make modifications.
+-- This approach allows us to add configuration options without breaking backwards compatibility.
+data OAuth = OAuth { oauthServerName      :: String
+                   -- ^ Service name (default: @""@)
+                   , oauthRequestUri      :: String
+                   -- ^ URI to request temporary credential (default: @""@).
+                   --   You MUST specify if you use 'getTemporaryCredential\'', 'getTemporaryCredentialProxy'
+                   --   or 'getTemporaryCredential'; otherwise you can just leave this empty.
+                   , oauthAccessTokenUri  :: String
+                   -- ^ Uri to obtain access token (default: @""@).
+                   --   You MUST specify if you use 'getAcessToken' or 'getAccessToken\'';
+                   --   otherwise you can just leave this empty.
+                   , oauthAuthorizeUri    :: String
+                   -- ^ Uri to authorize (default: @""@).
+                   --   You MUST specify if you use 'authorizeUrl' or 'authorizeUrl\'';
+                   --   otherwise you can just leave this empty. 
+                   , oauthSignatureMethod :: SignMethod
+                   -- ^ Signature Method (default: 'HMACSHA1')
+                   , oauthConsumerKey     :: BS.ByteString
+                   -- ^ Consumer key (You MUST specify)
+                   , oauthConsumerSecret  :: BS.ByteString
+                   -- ^ Consumer Secret (You MUST specify)
+                   , oauthCallback        :: Maybe BS.ByteString
+                   -- ^ Callback uri to redirect after authentication (default: @Nothing@)
+                   , oauthRealm           :: Maybe BS.ByteString
+                   -- ^ Optional authorization realm (default: @Nothing@)
                    } deriving (Show, Eq, Ord, Read, Data, Typeable)
 
 -- | Default value for OAuth datatype.
@@ -62,13 +85,16 @@ newOAuth :: OAuth
 newOAuth = OAuth { oauthSignatureMethod = HMACSHA1
                  , oauthCallback = Nothing
                  , oauthRealm    = Nothing
-                 , oauthServerName = error "oauthServerName"
-                 , oauthRequestUri = error "oauthRequestUri"
-                 , oauthAccessTokenUri = error "oauthAccessTokenUri"
-                 , oauthAuthorizeUri = error "oauthAuthorizeUri"
-                 , oauthConsumerKey = error "oauthConsumerKey"
-                 , oauthConsumerSecret = error "oauthConsumerSecret"
+                 , oauthServerName = ""
+                 , oauthRequestUri = ""
+                 , oauthAccessTokenUri = ""
+                 , oauthAuthorizeUri = ""
+                 , oauthConsumerKey = error "You MUST specify oauthConsumerKey parameter."
+                 , oauthConsumerSecret = error "You MUST specify oauthConsumerSecret parameter."
                  }
+
+instance Default OAuth where
+  def = newOAuth
 
 -- | Data type for signature method.
 data SignMethod = PLAINTEXT
@@ -158,10 +184,22 @@ getTemporaryCredential' hook oa manager = do
 authorizeUrl :: OAuth           -- ^ OAuth Application
              -> Credential      -- ^ Temporary Credential (Request Token & Secret)
              -> String          -- ^ URL to authorize
-authorizeUrl oa cr = oauthAuthorizeUri oa ++ BS.unpack (renderSimpleQuery True queries)
-  where queries = case oauthCallback oa of
-                    Nothing       -> [("oauth_token", token cr)]
-                    Just callback -> [("oauth_token", token cr), ("oauth_callback", callback)]
+authorizeUrl = authorizeUrl' $ \oa -> const [("oauth_consumer_key", oauthConsumerKey oa)]
+
+-- | Convert OAuth and Credential to URL to obatin OAuth Verifier.
+--   This takes function to choice parameter to pass to the server other than
+--   /oauth_callback/ or /oauth_token/.
+authorizeUrl' :: (OAuth -> Credential -> SimpleQuery)
+              -> OAuth           -- ^ OAuth Application
+              -> Credential      -- ^ Temporary Credential (Request Token & Secret)
+              -> String          -- ^ URL to authorize
+authorizeUrl' f oa cr = oauthAuthorizeUri oa ++ BS.unpack (renderSimpleQuery True queries)
+  where fixed   = ("oauth_token", token cr):f oa cr
+        queries = 
+          case oauthCallback oa of
+            Nothing       -> fixed
+            Just callback -> ("oauth_callback", callback):fixed
+
 
 -- | Get Access token.
 getAccessToken, getTokenCredential

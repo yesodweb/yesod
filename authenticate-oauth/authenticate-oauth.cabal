@@ -19,6 +19,7 @@ library
                    , bytestring                    >= 0.9
                    , RSA                           >= 1.0      && < 1.1
                    , time
+                   , data-default                  >= 0.3      && < 0.4
                    , base64-bytestring             >= 0.1      && < 0.2
                    , SHA                           >= 1.4      && < 1.6
                    , random
@@ -26,7 +27,7 @@ library
                    , blaze-builder
                    , conduit                       >= 0.2      && < 0.3
                    , blaze-builder-conduit         >= 0.2      && < 0.3
-    exposed-modules: Web.Authenticate.OAuth
+    exposed-modules: Web.Authenticate.OAuth, Web.Authenticate.OAuth.IO
     ghc-options:     -Wall
 
 source-repository head
