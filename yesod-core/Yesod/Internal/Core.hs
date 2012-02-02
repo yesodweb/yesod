@@ -350,8 +350,8 @@ defaultYesodRunner :: Yesod master
                    -> (Route sub -> Route master)
                    -> Maybe CS.Key
                    -> W.Application
-defaultYesodRunner _ m _ murl toMaster _ req
-    | maximumContentLength m (fmap toMaster murl) < len =
+defaultYesodRunner _ master _ murl toMaster _ req
+    | maximumContentLength master (fmap toMaster murl) < len =
         return $ W.responseLBS
             (H.Status 413 "Too Large")
             [("Content-Type", "text/plain")]
@@ -633,13 +633,13 @@ ynHelper render scripts jscript jsLoc =
 yesodRender :: Yesod y
             => y
             -> Route y
-            -> [(Text, Text)]
+            -> [(Text, Text)] -- ^ url query string
             -> Text
-yesodRender y u qs =
+yesodRender y url params =
     TE.decodeUtf8 $ toByteString $
     fromMaybe
         (joinPath y (approot y) ps
-          $ qs ++ qs')
-        (urlRenderOverride y u)
+          $ params ++ params')
+        (urlRenderOverride y url)
   where
-    (ps, qs') = renderRoute u
+    (ps, params') = renderRoute url

@@ -753,19 +753,19 @@ lookupSessionBS n = do
     return $ Map.lookup n m
 
 -- | Get all session variables.
-getSession :: GHandler s m SessionMap
+getSession :: GHandler sub master SessionMap
 getSession = liftM ghsSession get
 
 handlerToYAR :: (HasReps a, HasReps b)
-             => m -- ^ master site foundation
-             -> s -- ^ sub site foundation
-             -> (Route s -> Route m)
-             -> (Route m -> [(Text, Text)] -> Text)
-             -> (ErrorResponse -> GHandler s m a)
+             => master -- ^ master site foundation
+             -> sub    -- ^ sub site foundation
+             -> (Route sub -> Route master)
+             -> (Route master -> [(Text, Text)] -> Text) -- route renderer
+             -> (ErrorResponse -> GHandler sub master a)
              -> Request
-             -> Maybe (Route s)
+             -> Maybe (Route sub)
              -> SessionMap
-             -> GHandler s m b
+             -> GHandler sub master b
              -> ResourceT IO YesodAppResult
 handlerToYAR y s toMasterRoute render errorHandler rr murl sessionMap h =
     unYesodApp ya eh' rr types sessionMap
