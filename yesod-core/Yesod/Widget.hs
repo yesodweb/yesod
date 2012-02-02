@@ -46,8 +46,6 @@ module Yesod.Widget
       -- ** Javascript
     , addJulius
     , addJuliusBody
-    , addCoffee
-    , addCoffeeBody
     , addScript
     , addScriptAttrs
     , addScriptRemote
@@ -62,7 +60,6 @@ import qualified Text.Blaze.Html5 as H
 import Text.Hamlet
 import Text.Cassius
 import Text.Julius
-import Text.Coffee
 import Yesod.Routes.Class
 import Yesod.Handler
     ( GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
@@ -126,8 +123,6 @@ instance ToWidget sub master (GWidget sub master ()) where
     toWidget = id
 instance ToWidget sub master Html where
     toWidget = addHtml
-instance render ~ RY master => ToWidget sub master (render -> Coffeescript) where
-    toWidget = addCoffee
 
 class ToWidgetBody sub master a where
     toWidgetBody :: a -> GWidget sub master ()
@@ -138,8 +133,6 @@ instance render ~ RY master => ToWidgetBody sub master (render -> Javascript) wh
     toWidgetBody = addJuliusBody
 instance ToWidgetBody sub master Html where
     toWidgetBody = addHtml
-instance render ~ RY master => ToWidgetBody sub master (render -> Coffeescript) where
-    toWidgetBody = addCoffeeBody
 
 class ToWidgetHead sub master a where
     toWidgetHead :: a -> GWidget sub master ()
@@ -152,8 +145,6 @@ instance render ~ RY master => ToWidgetHead sub master (render -> Javascript) wh
     toWidgetHead = addJulius
 instance ToWidgetHead sub master Html where
     toWidgetHead = addHtmlHead
-instance render ~ RY master => ToWidgetHead sub master (render -> Coffeescript) where
-    toWidgetHead = addCoffee
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
@@ -250,20 +241,6 @@ addJulius x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
 -- template.
 addJuliusBody :: JavascriptUrl (Route master) -> GWidget sub master ()
 addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
-
--- | Add Coffesscript to the page's script tag. Requires the coffeescript
--- executable to be present at runtime.
-addCoffee :: CoffeeUrl (Route master) -> GWidget sub master ()
-addCoffee c = do
-    render <- lift getUrlRenderParams
-    addJulius $ const $ Javascript $ fromLazyText $ renderCoffeeUrl render c
-
--- | Add a new script tag to the body with the contents of this Coffesscript
--- template. Requires the coffeescript executable to be present at runtime.
-addCoffeeBody :: CoffeeUrl (Route master) -> GWidget sub master ()
-addCoffeeBody c = do
-    render <- lift getUrlRenderParams
-    addJuliusBody $ const $ Javascript $ fromLazyText $ renderCoffeeUrl render c
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:
