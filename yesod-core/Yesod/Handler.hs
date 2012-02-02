@@ -168,8 +168,6 @@ import Data.Typeable (Typeable)
 import qualified Data.IORef as I
 import Control.Monad.Trans.Resource
 import Control.Exception.Lifted (catch)
-import Network.Wai (requestBody)
-import Data.Conduit (($$))
 import Control.Monad.Trans.Control
 import Control.Monad.Base
 import Yesod.Routes.Class
@@ -325,9 +323,8 @@ runRequestBody = do
 
 rbHelper :: W.Request -> ResourceT IO RequestBodyContents
 rbHelper req =
-    (map fix1 *** map fix2) <$> (requestBody req $$ iter)
+    (map fix1 *** map fix2) <$> (NWP.parseRequestBody NWP.lbsBackEnd req)
   where
-    iter = NWP.parseRequestBody NWP.lbsBackEnd req
     fix1 = go *** go
     fix2 (x, NWP.FileInfo a b c) =
         (go x, FileInfo (go a) (go b) c)
