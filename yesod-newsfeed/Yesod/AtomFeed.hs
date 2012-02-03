@@ -75,11 +75,11 @@ entryTemplate arg =
 atomLink :: Route m
          -> String -- ^ title
          -> GWidget s m ()
-atomLink u title = addHamletHead
+atomLink r title = addHamletHead
 #if __GLASGOW_HASKELL__ >= 700
                 [hamlet|
 #else
                 [$hamlet|
 #endif
-<link href=@{u} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}
+<link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}
 |]

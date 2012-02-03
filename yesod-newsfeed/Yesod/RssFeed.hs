@@ -72,11 +72,11 @@ entryTemplate arg =
 rssLink :: Route m
         -> String -- ^ title
         -> GWidget s m ()
-rssLink u title = addHamletHead
+rssLink r title = addHamletHead
 #if __GLASGOW_HASKELL__ >= 700
     [hamlet|
 #else
     [$hamlet|
 #endif
-    <link href=@{u} type=#{S8.unpack typeRss} rel="alternate" title=#{title}
+    <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}
     |]
