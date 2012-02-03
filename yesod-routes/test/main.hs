@@ -72,7 +72,7 @@ data MyApp = MyApp
 
 data MySub = MySub
 instance RenderRoute MySub where
-    data YRC.Route MySub = MySubRoute ([Text], [(Text, Text)])
+    data Route MySub = MySubRoute ([Text], [(Text, Text)])
         deriving (Show, Eq, Read)
     renderRoute (MySubRoute x) = x
 
@@ -81,7 +81,7 @@ getMySub MyApp = MySub
 
 data MySubParam = MySubParam Int
 instance RenderRoute MySubParam where
-    data YRC.Route MySubParam = ParamRoute Char
+    data Route MySubParam = ParamRoute Char
         deriving (Show, Eq, Read)
     renderRoute (ParamRoute x) = ([singleton x], [])
 
