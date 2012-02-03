@@ -7,6 +7,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE CPP #-}
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 import Test.HUnit ((@?=))
@@ -72,7 +73,13 @@ data MyApp = MyApp
 
 data MySub = MySub
 instance RenderRoute MySub where
-    data Route MySub = MySubRoute ([Text], [(Text, Text)])
+    data
+#if MIN_VERSION_base(4,7,0)
+        Route
+#else
+        YRC.Route
+#endif
+        MySub = MySubRoute ([Text], [(Text, Text)])
         deriving (Show, Eq, Read)
     renderRoute (MySubRoute x) = x
 
@@ -81,7 +88,13 @@ getMySub MyApp = MySub
 
 data MySubParam = MySubParam Int
 instance RenderRoute MySubParam where
-    data Route MySubParam = ParamRoute Char
+    data
+#if MIN_VERSION_base(4,7,0)
+        Route
+#else
+        YRC.Route
+#endif
+        MySubParam = ParamRoute Char
         deriving (Show, Eq, Read)
     renderRoute (ParamRoute x) = ([singleton x], [])
 
@@ -286,7 +299,7 @@ main = hspecX $ do
         it "catches overlapping multi" $ do
             let routes = [parseRoutesNoCheck|
 /foo Foo1
-/*Strings Foo2
+/##*Strings Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping subsite" $ do
