@@ -74,7 +74,7 @@ data MyApp = MyApp
 data MySub = MySub
 instance RenderRoute MySub where
     data
-#if MIN_VERSION_base(4,7,0)
+#if MIN_VERSION_base(4,5,0)
         Route
 #else
         YRC.Route
@@ -89,7 +89,7 @@ getMySub MyApp = MySub
 data MySubParam = MySubParam Int
 instance RenderRoute MySubParam where
     data
-#if MIN_VERSION_base(4,7,0)
+#if MIN_VERSION_base(4,5,0)
         Route
 #else
         YRC.Route
