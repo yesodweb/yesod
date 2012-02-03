@@ -2,10 +2,10 @@
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Web.Authenticate.OAuth
     ( -- * Data types
-      OAuth(oauthServerName, oauthRequestUri, oauthAccessTokenUri, oauthAuthorizeUri,
-            oauthSignatureMethod, oauthConsumerKey, oauthConsumerSecret, oauthCallback,
-            oauthRealm),
-      def, newOAuth, SignMethod(..), Credential(..), OAuthException(..),
+      OAuth, def, newOAuth, oauthServerName, oauthRequestUri, oauthAccessTokenUri,
+      oauthAuthorizeUri, oauthSignatureMethod, oauthConsumerKey,
+      oauthConsumerSecret, oauthCallback, oauthRealm,
+      SignMethod(..), Credential(..), OAuthException(..),
       -- * Operations for credentials
       newCredential, emptyCredential, insert, delete, inserts,
       -- * Signature
@@ -53,19 +53,18 @@ import Data.Default
 -- Instead, you should use the 'def' method or 'newOAuth' function to retrieve a default instance, 
 -- and then use the records below to make modifications.
 -- This approach allows us to add configuration options without breaking backwards compatibility.
-data OAuth = OAuth { oauthServerName      :: String
-                   -- ^ Service name (default: @""@)
+data OAuth = OAuth { oauthServerName      :: String -- ^ Service name (default: @\"\"@)
                    , oauthRequestUri      :: String
-                   -- ^ URI to request temporary credential (default: @""@).
-                   --   You MUST specify if you use 'getTemporaryCredential\'', 'getTemporaryCredentialProxy'
+                   -- ^ URI to request temporary credential (default: @\"\"@).
+                   --   You MUST specify if you use 'getTemporaryCredential'', 'getTemporaryCredentialProxy'
                    --   or 'getTemporaryCredential'; otherwise you can just leave this empty.
                    , oauthAccessTokenUri  :: String
-                   -- ^ Uri to obtain access token (default: @""@).
-                   --   You MUST specify if you use 'getAcessToken' or 'getAccessToken\'';
+                   -- ^ Uri to obtain access token (default: @\"\"@).
+                   --   You MUST specify if you use 'getAcessToken' or 'getAccessToken'';
                    --   otherwise you can just leave this empty.
                    , oauthAuthorizeUri    :: String
-                   -- ^ Uri to authorize (default: @""@).
-                   --   You MUST specify if you use 'authorizeUrl' or 'authorizeUrl\'';
+                   -- ^ Uri to authorize (default: @\"\"@).
+                   --   You MUST specify if you use 'authorizeUrl' or 'authorizeUrl'';
                    --   otherwise you can just leave this empty. 
                    , oauthSignatureMethod :: SignMethod
                    -- ^ Signature Method (default: 'HMACSHA1')
