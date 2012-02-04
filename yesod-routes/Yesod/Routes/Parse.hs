@@ -21,9 +21,7 @@ import Yesod.Routes.Overlap (findOverlapNames)
 -- overlapping routes, failing if present; use 'parseRoutesNoCheck' to skip the
 -- checking. See documentation site for details on syntax.
 parseRoutes :: QuasiQuoter
-parseRoutes = QuasiQuoter
-    { quoteExp = x
-    }
+parseRoutes = QuasiQuoter { quoteExp = x }
   where
     x s = do
         let res = resourcesFromString s
@@ -32,14 +30,15 @@ parseRoutes = QuasiQuoter
             z -> error $ "Overlapping routes: " ++ unlines (map show z)
 
 parseRoutesFile :: FilePath -> Q Exp
-parseRoutesFile fp = do
-    s <- qRunIO $ readUtf8File fp
-    quoteExp parseRoutes s
+parseRoutesFile parseRoutesFileWith parseRoutes
 
 parseRoutesFileNoCheck :: FilePath -> Q Exp
-parseRoutesFileNoCheck fp = do
+parseRoutesFileNoCheck = parseRoutesFileWith parseRoutesNoCheck
+
+parseRoutesFileWith :: QuasiQuoter -> FilePath -> Q Exp
+parseRoutesFileWith qq fp = do
     s <- qRunIO $ readUtf8File fp
-    quoteExp parseRoutesNoCheck s
+    quoteExp qq s
 
 readUtf8File :: FilePath -> IO String
 readUtf8File fp = do
