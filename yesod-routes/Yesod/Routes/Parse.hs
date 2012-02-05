@@ -30,7 +30,7 @@ parseRoutes = QuasiQuoter { quoteExp = x }
             z -> error $ "Overlapping routes: " ++ unlines (map show z)
 
 parseRoutesFile :: FilePath -> Q Exp
-parseRoutesFile parseRoutesFileWith parseRoutes
+parseRoutesFile = parseRoutesFileWith parseRoutes
 
 parseRoutesFileNoCheck :: FilePath -> Q Exp
 parseRoutesFileNoCheck = parseRoutesFileWith parseRoutesNoCheck
