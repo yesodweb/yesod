@@ -41,7 +41,7 @@ module Yesod.Static
     , publicFiles
       -- * Hashing
     , base64md5
-#ifdef TEST
+#ifdef TEST_EXPORT
     , getFileListPieces
 #endif
     ) where
