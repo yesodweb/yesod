@@ -103,23 +103,23 @@ mkYesodSubDispatch :: String -> Cxt -> [Resource String] -> Q [Dec]
 mkYesodSubDispatch name clazzes = fmap snd . mkYesodGeneral name' rest clazzes True 
   where (name':rest) = words name
 
-mkYesodGeneral :: String -- ^ foundation name
-               -> [String] -- ^ parameters for foundation
+mkYesodGeneral :: String -- ^ foundation type
+               -> [String]
                -> Cxt -- ^ classes
                -> Bool -- ^ is subsite?
                -> [Resource String]
                -> Q ([Dec], [Dec])
 mkYesodGeneral name args clazzes isSub resS = do
+    let args' = map mkName args
+        arg = foldl AppT (ConT name') $ map VarT args'
     let res = map (fmap parseType) resS
-    renderRouteDec <- mkRenderRouteInstance (ConT name') res
+    renderRouteDec <- mkRenderRouteInstance arg res
 
     disp <- mkDispatchClause [|yesodRunner|] [|yesodDispatch|] [|fmap chooseRep|] res
     let master = mkName "master"
     let ctx = if isSub
                 then ClassP (mkName "Yesod") [VarT master] : clazzes
                 else []
-    let args' = map mkName args
-        arg = foldl AppT (ConT name') $ map VarT args'
     let ytyp = if isSub
                 then ConT ''YesodDispatch `AppT` arg `AppT` VarT master
                 else ConT ''YesodDispatch `AppT` arg `AppT` arg
