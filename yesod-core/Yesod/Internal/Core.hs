@@ -414,7 +414,7 @@ defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
         hs' =
             case mkey of
                 Nothing -> hs
-                Just _ -> AddCookie SetCookie
+                Just _ -> AddCookie def
                             { setCookieName = sessionName
                             , setCookieValue = sessionVal
                             , setCookiePath = Just (cookiePath master)
