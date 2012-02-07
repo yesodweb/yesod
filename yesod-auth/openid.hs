@@ -11,8 +11,9 @@ import Text.Hamlet (hamlet)
 import Control.Monad.IO.Class (liftIO)
 import Yesod.Form
 import Network.Wai.Handler.Warp (run)
+import Network.HTTP.Conduit
 
-data BID = BID
+data BID = BID { httpManager :: Manager }
 
 mkYesod "BID" [parseRoutes|
 / RootR GET
@@ -44,11 +45,14 @@ instance YesodAuth BID where
     loginDest _ = AfterLoginR
     logoutDest _ = AuthR LoginR
     getAuthId = return . Just . credsIdent
-    authPlugins = [authOpenId]
+    authPlugins _ = [authOpenId]
+    authHttpManager = httpManager
 
 instance RenderMessage BID FormMessage where
     renderMessage _ _ = defaultFormMessage
 
 main :: IO ()
-main = toWaiApp BID >>= run 3000
+main = do
+    m <- newManager def
+    toWaiApp (BID m) >>= run 3000
 
