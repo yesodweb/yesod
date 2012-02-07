@@ -581,7 +581,11 @@ $forall s <- css
             <style media=#{media}>#{content}
         $nothing
             <style>#{content}
-$maybe _ <- yepnopeJs master
+$maybe eyn <- yepnopeJs master
+    $maybe yn <- left eyn
+        <script src=#{yn}>
+    $maybe yn <- right eyn
+        <script src=@{yn}>
 $nothing
     $forall s <- scripts
         ^{mkScriptTag s}
@@ -595,11 +599,7 @@ $nothing
     let (mcomplete, ynscripts) = ynHelper render scripts jscript jsLoc
     let bodyYN = [HAMLET|
 ^{body}
-$maybe eyn <- yepnopeJs master
-    $maybe yn <- left eyn
-        <script src=#{yn}>
-    $maybe yn <- right eyn
-        <script src=@{yn}>
+$maybe _eyn <- yepnopeJs master
     $maybe complete <- mcomplete
         <script>yepnope({load:#{ynscripts},complete:function(){^{complete}}})
     $nothing
