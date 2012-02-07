@@ -527,8 +527,8 @@ widgetToPageContent w = do
     master <- getYesod
     ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- unGWidget w
     let title = maybe mempty unTitle mTitle
-    let scripts = runUniqueList scripts'
-    let stylesheets = runUniqueList stylesheets'
+        scripts = runUniqueList scripts'
+        stylesheets = runUniqueList stylesheets'
 
     render <- getUrlRenderParams
     let renderLoc x =
@@ -552,22 +552,11 @@ widgetToPageContent w = do
                    $ encodeUtf8 $ renderJavascriptUrl render s
                 return $ renderLoc x
 
-    let addAttr x (y, z) = x ! customAttribute (textTag y) (toValue z)
-    let renderLoc' render' (Local url) = render' url []
-        renderLoc' _ (Remote s) = s
-    let mkScriptTag (Script loc attrs) render' =
-            foldl' addAttr TBH.script (("src", renderLoc' render' loc) : attrs) $ return ()
-    let mkLinkTag (Stylesheet loc attrs) render' =
-            foldl' addAttr TBH.link
-                ( ("rel", "stylesheet")
-                : ("href", renderLoc' render' loc)
-                : attrs
-                )
-    let left (Left x) = Just x
-        left _ = Nothing
-        right (Right x) = Just x
-        right _ = Nothing
-    let head'' = [HAMLET|
+    -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
+    -- the asynchronous loader means your page doesn't have to wait for all the js to load
+    let (mcomplete, ynscripts) = ynHelper render scripts jscript jsLoc
+        headAll = [HAMLET|
+\^{head'}
 $forall s <- stylesheets
     ^{mkLinkTag s}
 $forall s <- css
@@ -581,20 +570,6 @@ $forall s <- css
             <style media=#{media}>#{content}
         $nothing
             <style>#{content}
-$maybe _ <- yepnopeJs master
-$nothing
-    $forall s <- scripts
-        ^{mkScriptTag s}
-    $maybe j <- jscript
-        $maybe s <- jsLoc
-            <script src="#{s}">
-        $nothing
-            <script>^{jelper j}
-\^{head'}
-|]
-    let (mcomplete, ynscripts) = ynHelper render scripts jscript jsLoc
-    let bodyYN = [HAMLET|
-^{body}
 $maybe eyn <- yepnopeJs master
     $maybe yn <- left eyn
         <script src=#{yn}>
@@ -604,8 +579,34 @@ $maybe eyn <- yepnopeJs master
         <script>yepnope({load:#{ynscripts},complete:function(){^{complete}}})
     $nothing
         <script>yepnope({load:#{ynscripts}})
+$nothing
+    $forall s <- scripts
+        ^{mkScriptTag s}
+    $maybe j <- jscript
+        $maybe s <- jsLoc
+            <script src="#{s}">
+        $nothing
+            <script>^{jelper j}
 |]
-    return $ PageContent title head'' bodyYN
+    return $ PageContent title headAll body
+  where
+    left (Left x) = Just x
+    left _ = Nothing
+    right (Right x) = Just x
+    right _ = Nothing
+
+    renderLoc' render' (Local url) = render' url []
+    renderLoc' _ (Remote s) = s
+
+    addAttr x (y, z) = x ! customAttribute (textTag y) (toValue z)
+    mkScriptTag (Script loc attrs) render' =
+        foldl' addAttr TBH.script (("src", renderLoc' render' loc) : attrs) $ return ()
+    mkLinkTag (Stylesheet loc attrs) render' =
+        foldl' addAttr TBH.link
+            ( ("rel", "stylesheet")
+            : ("href", renderLoc' render' loc)
+            : attrs
+            )
 
 ynHelper :: (url -> [x] -> Text)
          -> [Script (url)]
