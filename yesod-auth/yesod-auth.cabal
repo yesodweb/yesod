@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.8.0
+version:         0.8.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -23,7 +23,7 @@ library
         build-depends:   base                >= 4        && < 4.3
     build-depends:   authenticate            >= 1.0       && < 1.1
                    , bytestring              >= 0.9.1.4   && < 0.10
-                   , yesod-core              >= 0.10      && < 0.11
+                   , yesod-core              >= 0.10.1    && < 0.11
                    , wai                     >= 1.1       && < 1.2
                    , template-haskell
                    , pureMD5                 >= 2.0       && < 2.2
@@ -31,13 +31,13 @@ library
                    , text                    >= 0.7       && < 0.12
                    , mime-mail               >= 0.3       && < 0.5
                    , blaze-html              >= 0.4.1.3   && < 0.5
-                   , yesod-persistent        >= 0.3       && < 0.4
+                   , yesod-persistent        >= 0.3.1     && < 0.4
                    , hamlet                  >= 0.10      && < 0.11
                    , shakespeare-css         >= 0.10      && < 0.11
-                   , yesod-json              >= 0.3       && < 0.4
+                   , yesod-json              >= 0.3.1     && < 0.4
                    , containers
                    , unordered-containers
-                   , yesod-form              >= 0.4       && < 0.5
+                   , yesod-form              >= 0.4.1     && < 0.5
                    , transformers            >= 0.2.2     && < 0.3
                    , persistent              >= 0.8       && < 0.9
                    , persistent-template     >= 0.8       && < 0.9
