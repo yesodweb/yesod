@@ -28,7 +28,7 @@ mkYesod "Y" [parseRoutes|
 |]
 
 instance Yesod Y where
-    approot _ = "http://test"
+    approot = ApprootStatic "http://test"
 
 getRootR :: Handler RepHtml
 getRootR = defaultLayout $ toWidgetBody [julius|<not escaped>|]
