@@ -8,6 +8,8 @@ module Yesod.Core
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs
+      -- * Types
+    , Approot (..)
       -- * Utitlities
     , maybeAuthorized
     , widgetToPageContent

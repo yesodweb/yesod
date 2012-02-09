@@ -3,6 +3,7 @@ module YesodCoreTest.YesodTest
 (   yesod
   , parseRoutes, mkYesod, yesodDispatch, renderRoute, Yesod(..)
   , redirect
+  , Approot (..)
   , module Network.Wai
   , module Network.Wai.Test
   , module Test.Hspec

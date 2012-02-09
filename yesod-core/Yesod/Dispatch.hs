@@ -182,7 +182,7 @@ sendRedirect y segments' env =
             , ("Location", Blaze.ByteString.Builder.toByteString dest')
             ] "Redirecting"
   where
-    dest = joinPath y (approot y) segments' []
+    dest = joinPath y (resolveApproot y env) segments' []
     dest' =
         if S.null (W.rawQueryString env)
             then dest

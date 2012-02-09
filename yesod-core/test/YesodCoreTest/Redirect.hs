@@ -13,7 +13,7 @@ mkYesod "Y" [parseRoutes|
 /r307 R307 GET
 /rregular RRegular GET
 |]
-instance Yesod Y where approot _ = "http://test"
+instance Yesod Y where approot = ApprootStatic "http://test"
 app :: Session () -> IO ()
 app = yesod Y
 

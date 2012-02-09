@@ -41,7 +41,7 @@ mkYesod "Y" [parseRoutes|
 |]
 
 instance Yesod Y where
-    approot _ = "http://test"
+    approot = ApprootStatic "http://test"
     cleanPath _ s@("subsite":_) = Right s
     cleanPath _ ["bar", ""] = Right ["bar"]
     cleanPath _ ["bar"] = Left ["bar", ""]
