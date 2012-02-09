@@ -45,7 +45,7 @@ staticDir = "static"
 -- have to make a corresponding change here.
 --
 -- To see how this value is used, see urlRenderOverride in Foundation.hs
-staticRoot :: AppConfig DefaultEnv x ->  Text
+staticRoot :: AppConfig DefaultEnv x -> Text
 staticRoot conf = [~qq~st|#{appRoot conf}/static|]
 
 
@@ -62,7 +62,7 @@ widgetFile = Yesod.Default.Util.widgetFileNoReload
 data Extra = Extra
     { extraCopyright :: Text
     , extraAnalytics :: Maybe Text -- ^ Google Analytics
-    }
+    } deriving Show
 
 parseExtra :: DefaultEnv -> Object -> Parser Extra
 parseExtra _ o = Extra
