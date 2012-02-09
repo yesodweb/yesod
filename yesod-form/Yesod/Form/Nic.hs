@@ -11,7 +11,7 @@ module Yesod.Form.Nic
     ) where
 
 import Yesod.Handler
-import Yesod.Core (Route)
+import Yesod.Core (Route, yepnopeJs, Yesod)
 import Yesod.Form
 import Yesod.Widget
 import Text.HTML.SanitizeXSS (sanitizeBalance)
@@ -23,7 +23,7 @@ import Data.Text (Text, pack)
 import qualified Data.Text as T
 import Data.Maybe (listToMaybe)
 
-class YesodNic a where
+class Yesod a => YesodNic a where
     -- | NIC Editor Javascript file.
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
@@ -41,13 +41,24 @@ nicHtmlField = Field
     <textarea id="#{theId}" :not (null theClass):class="#{T.intercalate " " theClass}" name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit
-        addJulius
+        master <- lift getYesod
+        addJulius $
+          case yepnopeJs master of
+            Nothing ->
 #if __GLASGOW_HASKELL__ >= 700
                 [julius|
 #else
                 [$julius|
 #endif
 bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")});
+|]
+            Just _ ->
+#if __GLASGOW_HASKELL__ >= 700
+                [julius|
+#else
+                [$julius|
+#endif
+(function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")})();
 |]
     }
   where
