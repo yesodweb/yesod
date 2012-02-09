@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         0.10.0
+version:         0.10.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -19,7 +19,7 @@ library
     build-depends:   base                  >= 4        && < 5
                    , containers            >= 0.2      && < 0.5
                    , old-time              >= 1.0
-                   , yesod-core            >= 0.10     && < 0.11
+                   , yesod-core            >= 0.10.1   && < 0.11
                    , base64-bytestring     >= 0.1.0.1  && < 0.2
                    , cereal                >= 0.3      && < 0.4
                    , bytestring            >= 0.9.1.4  && < 0.10
