@@ -61,7 +61,7 @@ So each route is specified by:
 >     , rhDispatch :: Dispatch res
 >     }
 
-Your application needs to provide this moudle with a list of routes, and then
+Your application needs to provide this module with a list of routes, and then
 this module will give you back a new dispatch function. In other words:
 
 > toDispatch :: [Route res] -> Dispatch res
