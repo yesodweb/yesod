@@ -42,17 +42,19 @@ data Request = Request
 
 parseWaiRequest :: W.Request
                 -> [(Text, ByteString)] -- ^ session
-                -> Maybe a
+                -> Bool
                 -> IO Request
-parseWaiRequest env session' key' = parseWaiRequest' env session' key' <$> newStdGen
+parseWaiRequest env session' useNonce =
+    parseWaiRequest' env session' useNonce <$> newStdGen
 
 parseWaiRequest' :: RandomGen g
                  => W.Request
                  -> [(Text, ByteString)] -- ^ session
-                 -> Maybe a
+                 -> Bool
                  -> g
                  -> Request
-parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs'' nonce
+parseWaiRequest' env session' useNonce gen = 
+    Request gets'' cookies' env langs'' nonce
   where
     gets' = queryToQueryText $ W.queryString env
     gets'' = map (second $ fromMaybe "") gets'
@@ -77,10 +79,10 @@ parseWaiRequest' env session' key' gen = Request gets'' cookies' env langs'' non
     -- nonceKey present in the session is ignored). If sessions
     -- are enabled and a session has no nonceKey a new one is
     -- generated.
-    nonce = case (key', lookup nonceKey session') of
-                (Nothing, _) -> Nothing
-                (_, Just x)  -> Just $ decodeUtf8With lenientDecode x
-                _            -> Just $ pack $ randomString 10 gen
+    nonce = case (useNonce, lookup nonceKey session') of
+                (False, _)  -> Nothing
+                (_, Just x) -> Just $ decodeUtf8With lenientDecode x
+                _           -> Just $ pack $ randomString 10 gen
 
 addTwoLetters :: ([Text] -> [Text], Set.Set Text) -> [Text] -> [Text]
 addTwoLetters (toAdd, exist) [] =
