@@ -7,15 +7,12 @@ module Yesod.Routes.Parse
     , parseRoutesNoCheck
     , parseRoutesFileNoCheck
     , parseType
-    , staticPageRoutes
-    , staticPageRoutesFile
-    , StaticPageRoute (..)
+    , parseRoutePaths
     ) where
 
 import Language.Haskell.TH.Syntax
 import Data.Maybe
 import Data.Char (isUpper, isSpace)
-import Data.List (intercalate)
 import Language.Haskell.TH.Quote
 import qualified System.IO as SIO
 import Yesod.Routes.TH
@@ -55,37 +52,26 @@ parseRoutesNoCheck :: QuasiQuoter
 parseRoutesNoCheck = QuasiQuoter
     { quoteExp = lift . resourcesFromString }
 
--- | QuasiQuoter for 'staticPageRoutesFromString'
-staticPageRoutes :: QuasiQuoter
-staticPageRoutes = QuasiQuoter
-    { quoteExp = lift . staticPageRoutesFromString }
-
--- | parse a file with 'staticPageRoutesFromString'
-staticPageRoutesFile :: FilePath -> Q Exp
-staticPageRoutesFile fp = do
-    s <- qRunIO $ readUtf8File fp
-    quoteExp staticPageRoutes s
-
-data StaticPageRoute = StaticGet String | StaticResource (Resource String)
-instance Lift StaticPageRoute where
-    lift (StaticGet str)    = [|StaticGet $(lift str)|]
-    lift (StaticResource r) = [|StaticResource $(lift r)|]
-
--- | Convert a multi-line string to a set of routes.
--- like normal route parsing, but there are just route paths, no route constructors
+-- | Convert a multi-line string to a set of route paths.
+-- like normal route parsing, but there are just route paths, no route constructors or HTTP methods
+-- This can be used as a DSL for generating route paths that
+-- * closely matches your current routes file
+-- * allows indentation to imply prefixes
+--
 -- This is a partial function which calls 'error' on invalid input.
-staticPageRoutesFromString :: String -> [StaticPageRoute]
-staticPageRoutesFromString = parseRoutesFromString staticPageRoute
+parseRoutePaths :: String -> [String]
+parseRoutePaths = parseRoutesFromString staticPageRoute
   where
-    staticPageRoute r [] = Just (StaticGet r)
-    staticPageRoute r rest = fmap StaticResource $ resourceFromLine r rest
+    staticPageRoute :: String -> [String] -> Maybe String
+    staticPageRoute r [] = Just r
+    staticPageRoute r rest = error $ "line starting with: " ++ r ++ "\ndid not expect: " ++ show rest
 
 -- | Convert a multi-line string to a set of resources. See documentation for
 -- the format of this string. This is a partial function which calls 'error' on
 -- invalid input.
 resourcesFromString :: String -> [Resource String]
 resourcesFromString =
-    parseRoutesFromString justResourceFromLine
+    parseRoutesFromString resourceFromLine
 
 resourceFromLine :: String -> [String] -> Maybe (Resource String)
 resourceFromLine fullRoute (constr:rest) =
@@ -94,12 +80,6 @@ resourceFromLine fullRoute (constr:rest) =
              in Just $ Resource constr pieces disp
 resourceFromLine _ [] = Nothing -- an indenter: there should be indented routes afterwards
 
-
-justResourceFromLine :: String -> [String] -> Maybe (Resource String)
-justResourceFromLine x xs =
-    case resourceFromLine x xs of
-      Nothing -> error $ "Invalid resource line: " ++ (intercalate " " (x:xs))
-      r -> r
 
 -- | used by 'resourcesFromString' and 'staticPageRoutesFromString'
 parseRoutesFromString :: (String  -- ^ route pattern
