@@ -127,7 +127,6 @@ test-suite tests
                   , random
                   ,HUnit
                   ,QuickCheck >= 2 && < 3
-                  , yesod-routes          >= 0.0      && < 0.1
     ghc-options:     -Wall
 
 source-repository head

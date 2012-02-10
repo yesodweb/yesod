@@ -14,7 +14,6 @@ module Yesod.Dispatch
     , mkYesodSubData
     , mkYesodDispatch
     , mkYesodSubDispatch
-    , mkYesodStaticPages
       -- ** Path pieces
     , PathPiece (..)
     , PathMultiPiece (..)
@@ -50,28 +49,8 @@ import Network.HTTP.Types (status301)
 import Yesod.Routes.TH
 import Yesod.Content (chooseRep)
 import Yesod.Routes.Parse
-import Data.List (partition)
 
 type Texts = [Text]
-
-mkYesodStaticPages :: String -> [StaticPageRoute] -> Q [Dec]
-mkYesodStaticPages name routes =
-    let (staticGets, staticResources) = partition isGet routes
-        gets = ListE (map (LitE . StringL . toString) staticGets)
-        getsD = ValD (VarP (mkName "staticPageRoutePaths")) (NormalB gets) []
-    in  do yesod <- mkYesod name (map toResource staticResources)
-           return $ [getsD] ++ yesod
-
-  where
-    isGet (StaticGet _)      = True
-    isGet (StaticResource _) = False
-    toResource (StaticResource r) = r
-    toResource (StaticGet _) = error "expected resource"
-    toString (StaticGet str) = dropSlashes str
-    toString (StaticResource _) = error "did not expect resource"
-    dropSlashes str | last str == '/' = dropSlashes $ init str
-                    | head str == '/' = dropSlashes $ tail str
-                    | otherwise = str
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
