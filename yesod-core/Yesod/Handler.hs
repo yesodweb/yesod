@@ -726,14 +726,14 @@ instance RedirectUrl master String where
     toTextUrl = toTextUrl . T.pack
 
 instance RedirectUrl master (Route master) where
-    toTextUrl u = do
+    toTextUrl url = do
         r <- getUrlRender
-        return $ r u
+        return $ r url
 
-instance t ~ Text => RedirectUrl master (Route master, [(t, t)]) where
-    toTextUrl (u, ps) = do
+instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, [(key, val)]) where
+    toTextUrl (url, params) = do
         r <- getUrlRenderParams
-        return $ r u ps
+        return $ r url params
 
 localNoCurrent :: GHandler s m a -> GHandler s m a
 localNoCurrent =
