@@ -21,7 +21,7 @@ mkYesod "App" [parseRoutes|
 /after_runRequestBody AfterRunRequestBodyR POST
 |]
 
-instance Yesod App where approot _ = ""
+instance Yesod App
 
 getHomeR :: Handler RepHtml
 getHomeR = defaultLayout $ toWidget [hamlet|

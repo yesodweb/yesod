@@ -15,7 +15,6 @@ import YesodCoreTest.MediaData
 mkYesodDispatch "Y" resourcesY
 
 instance Yesod Y where
-    approot _ = ""
     addStaticContent _ _ content = do
         tm <- getRouteToMaster
         route <- getCurrentRoute

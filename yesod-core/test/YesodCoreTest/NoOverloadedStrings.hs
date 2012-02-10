@@ -8,7 +8,6 @@ import Test.Hspec.HUnit ()
 import Yesod.Core hiding (Request)
 import Network.Wai.Test
 import Data.Monoid (mempty)
-import Data.String (fromString)
 
 data Subsite = Subsite
 
@@ -29,8 +28,7 @@ mkYesod "Y" [parseRoutes|
 /subsite SubsiteR Subsite getSubsite
 |]
 
-instance Yesod Y where
-    approot _ = fromString ""
+instance Yesod Y
 
 getRootR :: Handler ()
 getRootR = return ()

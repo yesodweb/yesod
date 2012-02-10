@@ -21,7 +21,7 @@ key2 = $(mkCacheKey)
 
 mkYesod "C" [parseRoutes|/ RootR GET|]
 
-instance Yesod C where approot _ = ""
+instance Yesod C
 
 getRootR :: Handler ()
 getRootR = do

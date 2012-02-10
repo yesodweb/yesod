@@ -15,8 +15,7 @@ mkYesod "Y" [parseRoutes|
 / RootR GET
 |]
 
-instance Yesod Y where
-    approot _ = ""
+instance Yesod Y
 
 getRootR :: Handler RepHtml
 getRootR = defaultLayout $ addHamlet [hamlet|<a href=@{RootR}>|]

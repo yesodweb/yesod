@@ -18,7 +18,7 @@ mkYesod "Y" [parseRoutes|
 |]
 
 instance Yesod Y where
-    approot _ = "http://test"
+    approot = ApprootStatic "http://test"
     errorHandler (InternalError e) = return $ chooseRep $ RepPlain $ toContent e
     errorHandler x = defaultErrorHandler x
 

@@ -28,6 +28,8 @@ module Yesod.Internal.Core
       -- * Misc
     , yesodVersion
     , yesodRender
+    , resolveApproot
+    , Approot (..)
     ) where
 
 import Yesod.Content
@@ -121,20 +123,36 @@ class YesodDispatch sub master where
                 -> W.Application
     yesodRunner = defaultYesodRunner
 
--- | Define settings for a Yesod applications. The only required setting is
--- 'approot'; other than that, there are intelligent defaults.
+-- | How to determine the root of the application for constructing URLs.
+--
+-- Note that future versions of Yesod may add new constructors without bumping
+-- the major version number. As a result, you should /not/ pattern match on
+-- @Approot@ values.
+data Approot master = ApprootRelative -- ^ No application root.
+                    | ApprootStatic Text
+                    | ApprootMaster (master -> Text)
+                    | ApprootRequest (master -> W.Request -> Text)
+
+type ResolvedApproot = Text
+
+-- | Define settings for a Yesod applications. All methods have intelligent
+-- defaults, and therefore no implementation is required.
 class RenderRoute a => Yesod a where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --
-    -- If you want to be lazy, you can supply an empty string under the
-    -- following conditions:
+    -- Default value: 'ApprootRelative'. This is valid under the following
+    -- conditions:
     --
     -- * Your application is served from the root of the domain.
     --
     -- * You do not use any features that require absolute URLs, such as Atom
     -- feeds and XML sitemaps.
-    approot :: a -> Text
+    --
+    -- If this is not true, you should override with a different
+    -- implementation.
+    approot :: Approot a
+    approot = ApprootRelative
 
     -- | The encryption key to be used for encrypting client sessions.
     -- Returning 'Nothing' disables sessions.
@@ -395,7 +413,8 @@ defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
                 handler
     let sessionMap = Map.fromList
                    $ filter (\(x, _) -> x /= nonceKey) session'
-    yar <- handlerToYAR master sub toMasterRoute (yesodRender master) errorHandler rr murl sessionMap h
+    let ra = resolveApproot master req
+    yar <- handlerToYAR master sub toMasterRoute (yesodRender master ra) errorHandler rr murl sessionMap h
     let mnonce = reqNonce rr
     -- FIXME should we be caching this IV value and reusing it for efficiency?
     iv <- {-# SCC "iv" #-} maybe (return $ error "Should not be used") (const $ liftIO CS.randomIV) mkey
@@ -633,14 +652,23 @@ ynHelper render scripts jscript jsLoc =
 
 yesodRender :: Yesod y
             => y
+            -> ResolvedApproot
             -> Route y
             -> [(Text, Text)] -- ^ url query string
             -> Text
-yesodRender y url params =
+yesodRender y ar url params =
     TE.decodeUtf8 $ toByteString $
     fromMaybe
-        (joinPath y (approot y) ps
+        (joinPath y ar ps
           $ params ++ params')
         (urlRenderOverride y url)
   where
     (ps, params') = renderRoute url
+
+resolveApproot :: Yesod master => master -> W.Request -> ResolvedApproot
+resolveApproot master req =
+    case approot of
+        ApprootRelative -> ""
+        ApprootStatic t -> t
+        ApprootMaster f -> f master
+        ApprootRequest f -> f master req
