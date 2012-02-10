@@ -38,7 +38,6 @@ import Network.Wai.Middleware.Autohead
 
 import Data.ByteString.Lazy.Char8 ()
 
-import Web.ClientSession
 import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -156,20 +155,20 @@ toWaiApp y = gzip (gzipSettings y) . autohead <$> toWaiAppPlain y
 toWaiAppPlain :: ( Yesod master
                  , YesodDispatch master master
                  ) => master -> IO W.Application
-toWaiAppPlain a = toWaiApp' a <$> encryptKey a
+toWaiAppPlain a = toWaiApp' a <$> makeSessionBackend a
 
 
 toWaiApp' :: ( Yesod master
              , YesodDispatch master master
              )
           => master
-          -> Maybe Key
+          -> Maybe (SessionBackend master)
           -> W.Application
-toWaiApp' y key' env =
+toWaiApp' y sb env =
     case cleanPath y $ W.pathInfo env of
         Left pieces -> sendRedirect y pieces env
         Right pieces ->
-            yesodDispatch y y id app404 handler405 method pieces key' env
+            yesodDispatch y y id app404 handler405 method pieces sb env
   where
     app404 = yesodRunner notFound y y Nothing id
     handler405 route = yesodRunner badMethod y y (Just route) id

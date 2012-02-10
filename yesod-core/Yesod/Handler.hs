@@ -772,14 +772,9 @@ handlerToYAR y s toMasterRoute render errorHandler rr murl sessionMap h =
     types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 
-type HeaderRenderer = [Header]
-                   -> ContentType
-                   -> SessionMap
-                   -> [(CI H.Ascii, H.Ascii)]
-
-yarToResponse :: HeaderRenderer -> YesodAppResult -> W.Response
-yarToResponse _ (YARWai a) = a
-yarToResponse renderHeaders (YARPlain s hs ct c sessionFinal) =
+yarToResponse :: YesodAppResult -> [(CI H.Ascii, H.Ascii)] -> W.Response
+yarToResponse (YARWai a) _ = a
+yarToResponse (YARPlain s hs _ c _) extraHeaders =
     case c of
         ContentBuilder b mlen ->
             let hs' = maybe finalHeaders finalHeaders' mlen
@@ -787,10 +782,9 @@ yarToResponse renderHeaders (YARPlain s hs ct c sessionFinal) =
         ContentFile fp p -> W.ResponseFile s finalHeaders fp p
         ContentSource body -> W.ResponseSource s finalHeaders body
   where
-    finalHeaders = renderHeaders hs ct sessionFinal
+    finalHeaders = extraHeaders ++ map headerToPair hs
     finalHeaders' len = ("Content-Length", S8.pack $ show len)
                       : finalHeaders
-
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = parseHttpAccept
