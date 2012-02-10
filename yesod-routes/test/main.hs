@@ -228,7 +228,7 @@ main :: IO ()
 main = hspecX $  do
     describe "parseRoutePaths" $
         it "lists static page routes" $
-          ["/pages/","/pages/about","/pages/data","/pages/faq"] @=? parseRoutePaths (intercalate "\n" [
+          ["pages","pages/about","pages/data","pages/faq"] @=? parseRoutePaths (intercalate "\n" [
                "/pages/"
               ,"       about"
               ,"       data"

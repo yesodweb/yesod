@@ -19,6 +19,7 @@ library
                    , containers                >= 0.2      && < 0.5
                    , template-haskell
                    , path-pieces               >= 0.1      && < 0.2
+                   , filepath                  >= 1
 
     exposed-modules: Yesod.Routes.Dispatch
                      Yesod.Routes.TH

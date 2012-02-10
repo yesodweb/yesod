@@ -17,6 +17,7 @@ import Language.Haskell.TH.Quote
 import qualified System.IO as SIO
 import Yesod.Routes.TH
 import Yesod.Routes.Overlap (findOverlapNames)
+import System.FilePath.Posix ((</>))
 
 -- | A quasi-quoter to parse a string into a list of 'Resource's. Checks for
 -- overlapping routes, failing if present; use 'parseRoutesNoCheck' to skip the
@@ -63,8 +64,9 @@ parseRoutePaths :: String -> [String]
 parseRoutePaths = parseRoutesFromString staticPageRoute
   where
     staticPageRoute :: String -> [String] -> Maybe String
-    staticPageRoute r [] = Just r
+    staticPageRoute r [] = Just $ stripEndSlash r
     staticPageRoute r rest = error $ "line starting with: " ++ r ++ "\ndid not expect: " ++ show rest
+    stripEndSlash r = if last r == '/' then init r else r
 
 -- | Convert a multi-line string to a set of resources. See documentation for
 -- the format of this string. This is a partial function which calls 'error' on
@@ -75,7 +77,7 @@ resourcesFromString =
 
 resourceFromLine :: String -> [String] -> Maybe (Resource String)
 resourceFromLine fullRoute (constr:rest) =
-            let (pieces, mmulti) = piecesFromString $ drop1Slash fullRoute
+            let (pieces, mmulti) = piecesFromString $ fullRoute
                 disp = dispatchFromString rest mmulti
              in Just $ Resource constr pieces disp
 resourceFromLine _ [] = Nothing -- an indenter: there should be indented routes afterwards
@@ -99,16 +101,11 @@ parseRoutesFromString mkRoute =
                 let (newNoIndent, fullRoute) =
                         if indents l == 0
                           -- important: the check is done lazily
-                          then (checkEndSlash route, route)
-                          else (noIndent, noIndent ++ route)
-                 in mkRoute fullRoute rest : parseLines newNoIndent ls
+                          then (route, route)
+                          else (noIndent, noIndent </> route)
+                 in mkRoute (dropPreSlash fullRoute) rest : parseLines newNoIndent ls
             [] -> parseLines noIndent ls
     parseLines _ [] = []
-
-    checkEndSlash route =
-        if last route /= '/'
-            then error "the route indenter was expected to have a slash: " ++ route
-            else route
 
 dispatchFromString :: [String] -> Maybe String -> Dispatch String
 dispatchFromString rest mmulti
@@ -120,9 +117,9 @@ dispatchFromString [_, _] Just{} =
     error "Subsites cannot have a multipiece"
 dispatchFromString rest _ = error $ "Invalid list of methods: " ++ show rest
 
-drop1Slash :: String -> String
-drop1Slash ('/':x) = x
-drop1Slash x = x
+dropPreSlash :: String -> String
+dropPreSlash ('/':x) = x
+dropPreSlash x = x
 
 piecesFromString :: String -> ([(CheckOverlap, Piece String)], Maybe String)
 piecesFromString "" = ([], Nothing)
