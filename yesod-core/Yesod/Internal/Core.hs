@@ -160,6 +160,18 @@ class RenderRoute a => Yesod a where
     approot :: Approot a
     approot = ApprootRelative
 
+    -- | The encryption key to be used for encrypting client sessions.
+    -- Returning 'Nothing' disables sessions.
+    -- this method will be removed in Yesod 1.0, use makeSessionBackend instead
+    encryptKey :: a -> IO (Maybe CS.Key)
+    encryptKey _ = fmap Just $ CS.getKey CS.defaultKeyFile
+
+    -- | Number of minutes before a client session times out. Defaults to
+    -- 120 (2 hours).
+    -- this method will be removed in Yesod 1.0, use makeSessionBackend instead
+    clientSessionDuration :: a -> Int
+    clientSessionDuration = const 120
+
     -- | Output error response pages.
     errorHandler :: ErrorResponse -> GHandler sub a ChooseRep
     errorHandler = defaultErrorHandler
@@ -316,7 +328,10 @@ class RenderRoute a => Yesod a where
 
     -- | Create a session backend
     makeSessionBackend :: a -> IO (Maybe (SessionBackend a))
-    makeSessionBackend _ = Just <$> defaultClientSessionBackend
+    makeSessionBackend a = do
+        key <- encryptKey a
+        return $
+            (\k -> clientSessionBackend k (clientSessionDuration a)) <$> key
 
 type Session = [(Text, S8.ByteString)]
 
