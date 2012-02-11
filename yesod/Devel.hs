@@ -12,30 +12,26 @@ import qualified Distribution.Simple.Utils as D
 import qualified Distribution.Verbosity as D
 import qualified Distribution.PackageDescription.Parse as D
 import qualified Distribution.PackageDescription as D
+import qualified Distribution.ModuleName as D
 
 import           Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Exception as Ex
-import           Control.Monad (forever)
+import           Control.Monad (forever, when)
 
+import           Data.Char (isUpper, isNumber)
 import qualified Data.List as L
 import qualified Data.Map as Map
-import           Data.Maybe (listToMaybe)
+import qualified Data.Set as Set
 
-import           System.Directory (createDirectoryIfMissing, removeFile,
-                                           getDirectoryContents)
+import           System.Directory
 import           System.Exit (exitFailure, exitSuccess)
+import           System.FilePath (splitDirectories, dropExtension, takeExtension)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
-import           System.Process (runCommand, terminateProcess,
+import           System.Process (runCommand, terminateProcess, readProcess,
                                            waitForProcess, rawSystem)
 
 import Build (recompDeps, getDeps,findHaskellFiles)
-
-#if __GLASGOW_HASKELL__ >= 700
-#define ST st
-#else
-#define ST $st
-#endif
 
 lockFile :: FilePath
 lockFile = "dist/devel-terminate"
@@ -50,6 +46,9 @@ removeLock = try_ (removeFile lockFile)
 
 devel :: Bool -> IO ()
 devel isCabalDev = do
+
+    checkDevelFile
+
     writeLock
 
     putStrLn "Yesod devel server. Press ENTER to quit"
@@ -79,51 +78,46 @@ devel isCabalDev = do
     writeLock
     exitSuccess
 
-
-
 mainLoop :: Bool -> IO ()
-mainLoop isCabalDev = forever $ do
-   putStrLn "Rebuilding application..."
+mainLoop isCabalDev = do
+   ghcVer <- ghcVersion
+   forever $ do
+       putStrLn "Rebuilding application..."
 
-   recompDeps
+       recompDeps
 
-   list <- getFileList
-   _ <- if isCabalDev
-     then rawSystem "cabal-dev" ["build"]
-     else rawSystem "cabal"     ["build"]
+       list <- getFileList
+       _ <- if isCabalDev
+            then rawSystem "cabal-dev" ["build"]
+            else rawSystem "cabal"     ["build"]
 
-   removeLock
-   pkg <- pkgConfigs isCabalDev
-   let start = concat ["runghc ", pkg, " devel.hs"]
-   putStrLn $ "Starting development server: " ++ start
-   ph <- runCommand start
-   watchTid <- forkIO . try_ $ do
-     watchForChanges list
-     putStrLn "Stopping development server..."
-     writeLock
-     threadDelay 1000000
-     putStrLn "Terminating development server..."
-     terminateProcess ph
-   ec <- waitForProcess ph
-   putStrLn $ "Exit code: " ++ show ec
-   Ex.throwTo watchTid (userError "process finished")
-   watchForChanges list
+       removeLock
+       let pkg = pkgConfigs isCabalDev ghcVer
+       let start = concat ["runghc ", pkg, " devel.hs"]
+       putStrLn $ "Starting development server: " ++ start
+       ph <- runCommand start
+       watchTid <- forkIO . try_ $ do
+                     watchForChanges list
+                     putStrLn "Stopping development server..."
+                     writeLock
+                     threadDelay 1000000
+                     putStrLn "Terminating development server..."
+                     terminateProcess ph
+       ec <- waitForProcess ph
+       putStrLn $ "Exit code: " ++ show ec
+       Ex.throwTo watchTid (userError "process finished")
+       watchForChanges list
 
 try_ :: forall a. IO a -> IO ()
 try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
 
-pkgConfigs :: Bool -> IO String
-pkgConfigs isDev
-  | isDev = do
-      devContents <- getDirectoryContents "cabal-dev"
-      let confs = filter isConfig devContents
-      return . unwords $ inplacePkg :
-             map ("-package-confcabal-dev/"++) confs
-  | otherwise = return inplacePkg
+pkgConfigs :: Bool -> String -> String
+pkgConfigs isCabalDev ghcVer
+  | isCabalDev = unwords ["-package-confcabal-dev/packages-" ++ ghcVer ++ ".conf", inplacePkg]
+  | otherwise  = inplacePkg
   where
     inplacePkg = "-package-confdist/package.conf.inplace"
-    isConfig dir = "packages-" `L.isPrefixOf` dir &&
-                   ".conf"     `L.isSuffixOf` dir
+
 
 type FileList = Map.Map FilePath EpochTime
 
@@ -143,29 +137,73 @@ watchForChanges list = do
       then return ()
       else threadDelay 1000000 >> watchForChanges list
 
+checkDevelFile :: IO ()
+checkDevelFile = do
+  e <- doesFileExist "devel.hs"
+  when (not e) $ failWith "file devel.hs not found"
+
 checkCabalFile :: D.GenericPackageDescription -> IO ()
 checkCabalFile gpd = case D.condLibrary gpd of
-    Nothing -> do
-      putStrLn "Error: incorrect cabal file, no library"
-      exitFailure
+    Nothing -> failWith "incorrect cabal file, no library"
     Just ct ->
       case lookupDevelLib ct of
-        Nothing   -> do
-          putStrLn "Error: no development flag found in your configuration file. Expected a 'library-only' flag or the older 'devel' flag"
-          exitFailure
-        Just dLib ->
+        Nothing   ->
+          failWith "no development flag found in your configuration file. Expected a 'library-only' flag or the older 'devel' flag"
+        Just dLib -> do
          case (D.hsSourceDirs . D.libBuildInfo) dLib of
            []     -> return ()
            ["."]  -> return ()
            _      ->
              putStrLn $ "WARNING: yesod devel may not work correctly with " ++
                         "custom hs-source-dirs"
+         fl <- getFileList
+         print (allModules dLib)
+         let unlisted = checkFileList fl dLib
+         print fl
+         when (not . null $ unlisted) $ do
+              putStrLn "WARNING: the following source files are not listed in exposed-modules or other-modules:"
+              mapM_ putStrLn unlisted
+         when (D.fromString "Application" `notElem` D.exposedModules dLib) $ do
+              putStrLn "WARNING: no exposed module Application"
+              print (D.exposedModules dLib)
+              print dLib
+
+failWith :: String -> IO a
+failWith msg = do
+    putStrLn $ "ERROR: " ++ msg
+    exitFailure
+
+checkFileList :: FileList -> D.Library -> [FilePath]
+checkFileList fl lib = filter isUnlisted . filter isSrcFile $ sourceFiles
+  where
+    al = allModules lib
+    -- a file is only a possible 'module file' if all path pieces start with a capital letter
+    sourceFiles = filter isSrcFile . map fst . Map.toList $ fl
+    isSrcFile file = let dirs = filter (/=".") $ splitDirectories file
+                     in  all (isUpper . head) dirs && (takeExtension file `elem` [".hs", ".lhs"])
+    isUnlisted file = not (toModuleName file `Set.member` al)
+    toModuleName = L.intercalate "." . filter (/=".") . splitDirectories . dropExtension
+
+allModules :: D.Library -> Set.Set String
+allModules lib = Set.fromList $ map toString $ D.exposedModules lib ++ (D.otherModules . D.libBuildInfo) lib
+    where
+      toString = L.intercalate "." . D.components
+
+ghcVersion :: IO String
+ghcVersion = fmap getNumber $ readProcess "runghc" ["--numeric-version", "0"] []
+    where
+      getNumber = filter (\x -> isNumber x || x == '.')
+
 
 lookupDevelLib :: D.CondTree D.ConfVar c a -> Maybe a
-lookupDevelLib ct = listToMaybe . map (\(_,x,_) -> D.condTreeData x) .
-                    filter isDevelLib . D.condTreeComponents  $ ct
+lookupDevelLib ct | found     = Just (D.condTreeData ct)
+                  | otherwise = Nothing
   where
+    found = not . null . map (\(_,x,_) -> D.condTreeData x) .
+            filter isDevelLib . D.condTreeComponents  $ ct
     isDevelLib ((D.Var (D.Flag (D.FlagName f))), _, _) = f `elem` ["library-only", "devel"]
     isDevelLib _                                       = False
+
+
 
 
