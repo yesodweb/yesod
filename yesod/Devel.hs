@@ -24,7 +24,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import           System.Directory
-import           System.Exit (exitFailure, exitSuccess)
+import           System.Exit (exitFailure, exitSuccess, ExitCode (..))
 import           System.FilePath (splitDirectories, dropExtension, takeExtension)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
@@ -87,25 +87,28 @@ mainLoop isCabalDev = do
        recompDeps
 
        list <- getFileList
-       _ <- if isCabalDev
-            then rawSystem "cabal-dev" ["build"]
-            else rawSystem "cabal"     ["build"]
+       exit <- if isCabalDev
+               then rawSystem "cabal-dev" ["build"]
+               else rawSystem "cabal"     ["build"]
 
-       removeLock
-       let pkg = pkgConfigs isCabalDev ghcVer
-       let start = concat ["runghc ", pkg, " devel.hs"]
-       putStrLn $ "Starting development server: " ++ start
-       ph <- runCommand start
-       watchTid <- forkIO . try_ $ do
+       case exit of
+         ExitFailure _ -> putStrLn "Build failure, pausing..."
+         _ -> do
+               removeLock
+               let pkg = pkgConfigs isCabalDev ghcVer
+               let start = concat ["runghc ", pkg, " devel.hs"]
+               putStrLn $ "Starting development server: " ++ start
+               ph <- runCommand start
+               watchTid <- forkIO . try_ $ do
                      watchForChanges list
                      putStrLn "Stopping development server..."
                      writeLock
                      threadDelay 1000000
                      putStrLn "Terminating development server..."
                      terminateProcess ph
-       ec <- waitForProcess ph
-       putStrLn $ "Exit code: " ++ show ec
-       Ex.throwTo watchTid (userError "process finished")
+               ec <- waitForProcess ph
+               putStrLn $ "Exit code: " ++ show ec
+               Ex.throwTo watchTid (userError "process finished")
        watchForChanges list
 
 try_ :: forall a. IO a -> IO ()
@@ -157,16 +160,12 @@ checkCabalFile gpd = case D.condLibrary gpd of
              putStrLn $ "WARNING: yesod devel may not work correctly with " ++
                         "custom hs-source-dirs"
          fl <- getFileList
-         print (allModules dLib)
          let unlisted = checkFileList fl dLib
-         print fl
          when (not . null $ unlisted) $ do
               putStrLn "WARNING: the following source files are not listed in exposed-modules or other-modules:"
               mapM_ putStrLn unlisted
          when (D.fromString "Application" `notElem` D.exposedModules dLib) $ do
               putStrLn "WARNING: no exposed module Application"
-              print (D.exposedModules dLib)
-              print dLib
 
 failWith :: String -> IO a
 failWith msg = do
