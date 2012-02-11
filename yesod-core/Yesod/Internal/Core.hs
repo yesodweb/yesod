@@ -326,7 +326,7 @@ class RenderRoute a => Yesod a where
     yepnopeJs :: a -> Maybe (Either Text (Route a))
     yepnopeJs _ = Nothing
 
-    -- | Create a session backend
+    -- | Create a session backend. Returning `Nothing' disables sessions.
     makeSessionBackend :: a -> IO (Maybe (SessionBackend a))
     makeSessionBackend a = do
         key <- encryptKey a
