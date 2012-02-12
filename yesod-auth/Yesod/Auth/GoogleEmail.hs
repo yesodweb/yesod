@@ -31,45 +31,37 @@ import Control.Exception.Lifted (try, SomeException)
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "googleemail" ["forward"]
 
+googleIdent :: Text
+googleIdent = "https://www.google.com/accounts/o8/id"
+
 authGoogleEmail :: YesodAuth m => AuthPlugin m
 authGoogleEmail =
     AuthPlugin "googleemail" dispatch login
   where
     complete = PluginR "googleemail" ["complete"]
     name = "openid_identifier"
-    login tm = do
-        [whamlet|
-<form method=get action=@{tm forwardUrl}>
-    <input type=hidden name=openid_identifier value=https://www.google.com/accounts/o8/id>
-    <input type=submit value=_{Msg.LoginGoogle}>
-|]
+    login tm =
+        [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
     dispatch "GET" ["forward"] = do
-        roid <- runInputGet $ iopt textField name
-        case roid of
-            Just oid -> do
-                render <- getUrlRender
-                toMaster <- getRouteToMaster
-                let complete' = render $ toMaster complete
-                master <- getYesod
-                eres <- lift $ try $ OpenId.getForwardUrl oid complete' Nothing
-                    [ ("openid.ax.type.email", "http://schema.openid.net/contact/email")
-                    , ("openid.ns.ax", "http://openid.net/srv/ax/1.0")
-                    , ("openid.ns.ax.required", "email")
-                    , ("openid.ax.mode", "fetch_request")
-                    , ("openid.ax.required", "email")
-                    , ("openid.ui.icon", "true")
-                    ] (authHttpManager master)
-                either
-                  (\err -> do
-                        setMessage $ toHtml $ show (err :: SomeException)
-                        redirect $ toMaster LoginR
-                        )
-                  redirect
-                  eres
-            Nothing -> do
-                toMaster <- getRouteToMaster
-                setMessageI Msg.NoOpenID
+        render <- getUrlRender
+        toMaster <- getRouteToMaster
+        let complete' = render $ toMaster complete
+        master <- getYesod
+        eres <- lift $ try $ OpenId.getForwardUrl googleIdent complete' Nothing
+            [ ("openid.ax.type.email", "http://schema.openid.net/contact/email")
+            , ("openid.ns.ax", "http://openid.net/srv/ax/1.0")
+            , ("openid.ns.ax.required", "email")
+            , ("openid.ax.mode", "fetch_request")
+            , ("openid.ax.required", "email")
+            , ("openid.ui.icon", "true")
+            ] (authHttpManager master)
+        either
+          (\err -> do
+                setMessage $ toHtml $ show (err :: SomeException)
                 redirect $ toMaster LoginR
+                )
+          redirect
+          eres
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do
         rr <- getRequest
