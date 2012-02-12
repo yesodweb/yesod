@@ -11,7 +11,7 @@ module Yesod.Form.Nic
     ) where
 
 import Yesod.Handler
-import Yesod.Core (Route, yepnopeJs, Yesod)
+import Yesod.Core (Route, ScriptLoadPosition(..), jsLoader, Yesod)
 import Yesod.Form
 import Yesod.Widget
 import Text.HTML.SanitizeXSS (sanitizeBalance)
@@ -43,8 +43,8 @@ nicHtmlField = Field
         addScript' urlNicEdit
         master <- lift getYesod
         addJulius $
-          case yepnopeJs master of
-            Nothing ->
+          case jsLoader master of
+            BottomOfHeadBlocking ->
 #if __GLASGOW_HASKELL__ >= 700
                 [julius|
 #else
@@ -52,7 +52,7 @@ nicHtmlField = Field
 #endif
 bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")});
 |]
-            Just _ ->
+            _ ->
 #if __GLASGOW_HASKELL__ >= 700
                 [julius|
 #else
