@@ -27,6 +27,9 @@ module Yesod.Core
     , logWarn
     , logError
     , logOther
+    -- * JS loaders
+    , loadJsYepnope
+    , ScriptLoadPosition (..)
       -- * Misc
     , yesodVersion
     , yesodRender

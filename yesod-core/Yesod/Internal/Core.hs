@@ -25,6 +25,9 @@ module Yesod.Internal.Core
     , formatLogMessage
     , fileLocationToString
     , messageLoggerHandler
+      -- * jsLoader
+    , ScriptLoadPosition (..)
+    , loadJsYepnope
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -313,10 +316,19 @@ class RenderRoute a => Yesod a where
     gzipSettings :: a -> GzipSettings
     gzipSettings _ = def
 
-    -- | Location of yepnope.js, if any. If one is provided, then all
+    -- | Deprecated. Use 'jsloader'. To use yepnope: jsLoader = BottomOfHeadAsync (loadJsYepnope eyn)
+    -- Location of yepnope.js, if any. If one is provided, then all
     -- Javascript files will be loaded asynchronously.
     yepnopeJs :: a -> Maybe (Either Text (Route a))
     yepnopeJs _ = Nothing
+
+    -- | Where to Load sripts from. We recommend changing this to 'BottomOfBody'
+    -- Alternatively use the built in async yepnope loader: BottomOfHeadAsync (loadJsYepnope eyn)
+    -- Or write your own async js loader: see 'loadJsYepnope'
+    jsLoader :: a -> ScriptLoadPosition a
+    jsLoader y = case yepnopeJs y of
+                   Nothing  -> BottomOfHeadBlocking
+                   Just eyn -> BottomOfHeadAsync (loadJsYepnope eyn)
 
 messageLoggerHandler :: Yesod m
                      => Loc -> LogLevel -> Text -> GHandler s m ()
@@ -573,7 +585,16 @@ widgetToPageContent w = do
 
     -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
     -- the asynchronous loader means your page doesn't have to wait for all the js to load
-    let (mcomplete, ynscripts) = ynHelper render scripts jscript jsLoc
+    let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
+        regularScriptLoad = [HAMLET|
+$forall s <- scripts
+    ^{mkScriptTag s}
+$maybe j <- jscript
+    $maybe s <- jsLoc
+        <script src="#{s}">
+    $nothing
+        <script>^{jelper j}
+|]
         headAll = [HAMLET|
 \^{head'}
 $forall s <- stylesheets
@@ -589,31 +610,21 @@ $forall s <- css
             <style media=#{media}>#{content}
         $nothing
             <style>#{content}
-$maybe eyn <- yepnopeJs master
-    $maybe yn <- left eyn
-        <script src=#{yn}>
-    $maybe yn <- right eyn
-        <script src=@{yn}>
-    $maybe complete <- mcomplete
-        <script>yepnope({load:#{ynscripts},complete:function(){^{complete}}})
-    $nothing
-        <script>yepnope({load:#{ynscripts}})
-$nothing
-    $forall s <- scripts
-        ^{mkScriptTag s}
-    $maybe j <- jscript
-        $maybe s <- jsLoc
-            <script src="#{s}">
-        $nothing
-            <script>^{jelper j}
+$case jsLoader master
+  $of BottomOfHeadAsync asyncJsLoader
+      ^{asyncJsLoader asyncScripts mcomplete}
+  $of BottomOfHeadBlocking
+      ^{regularScriptLoad}
+  $of BottomOfBody
 |]
-    return $ PageContent title headAll body
+    let bodyScript = [HAMLET|
+^{body}
+^{regularScriptLoad}
+|]
+    return $ PageContent title headAll (case jsLoader master of
+      BottomOfBody -> bodyScript
+      _ -> body)
   where
-    left (Left x) = Just x
-    left _ = Nothing
-    right (Right x) = Just x
-    right _ = Nothing
-
     renderLoc' render' (Local url) = render' url []
     renderLoc' _ (Remote s) = s
 
@@ -627,13 +638,44 @@ $nothing
             : attrs
             )
 
-ynHelper :: (url -> [x] -> Text)
+data Yesod master => ScriptLoadPosition master = BottomOfBody | BottomOfHeadBlocking | BottomOfHeadAsync (
+                  [Text] -- ^ urls to load asynchronously
+                  -> Maybe (HtmlUrl (Route master)) -- ^ widget of js to run on async completion
+                  -> (HtmlUrl (Route master)) -- ^ widget to insert at the bottom of <head>
+                  )
+
+left :: Either a b -> Maybe a
+left (Left x) = Just x
+left _ = Nothing
+
+right :: Either a b -> Maybe b
+right (Right x) = Just x
+right _ = Nothing
+
+jsonArray :: [Text] -> Html
+jsonArray = unsafeLazyByteString . encode . Array . Vector.fromList . map String
+
+-- | For use with setting 'jsLoader' to 'BottomOfHeadAsync'
+loadJsYepnope :: Yesod master => Either Text (Route master) -> [Text] -> Maybe (HtmlUrl (Route master)) -> (HtmlUrl (Route master))
+loadJsYepnope eyn scripts mcomplete =
+  [HAMLET|
+    $maybe yn <- left eyn
+        <script src=#{yn}>
+    $maybe yn <- right eyn
+        <script src=@{yn}>
+    $maybe complete <- mcomplete
+        <script>yepnope({load:#{jsonArray scripts},complete:function(){^{complete}}});
+    $nothing
+        <script>yepnope({load:#{jsonArray scripts}});
+|]
+
+asyncHelper :: (url -> [x] -> Text)
          -> [Script (url)]
          -> Maybe (JavascriptUrl (url))
          -> Maybe Text
-         -> (Maybe (HtmlUrl (url)), Html)
-ynHelper render scripts jscript jsLoc =
-    (mcomplete, unsafeLazyByteString $ encode $ Array $ Vector.fromList $ map String scripts'')
+         -> (Maybe (HtmlUrl url), [Text])
+asyncHelper render scripts jscript jsLoc =
+    (mcomplete, scripts'')
   where
     scripts' = map goScript scripts
     scripts'' =
