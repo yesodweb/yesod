@@ -9,3 +9,5 @@ Email
     UniqueEmail email
 
  -- By default this file is used in Model.hs (which is imported by Foundation.hs)
+ -- If you are using the devel server, and don't see your changes being generated,
+ -- you need to 'touch' the Model.hs file
