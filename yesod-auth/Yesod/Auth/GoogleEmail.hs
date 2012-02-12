@@ -18,7 +18,6 @@ module Yesod.Auth.GoogleEmail
 import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
-import Yesod.Form
 import Yesod.Handler
 import Yesod.Widget
 import Yesod.Request
@@ -39,7 +38,6 @@ authGoogleEmail =
     AuthPlugin "googleemail" dispatch login
   where
     complete = PluginR "googleemail" ["complete"]
-    name = "openid_identifier"
     login tm =
         [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
     dispatch "GET" ["forward"] = do
