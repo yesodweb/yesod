@@ -306,7 +306,7 @@ $forall view <- views
 -- >            <div .alert .alert-error>#{reason}
 -- >        $of _
 -- >      ^{formWidget}
--- >      <div .actions>
+-- >      <div .form-actions>
 -- >        <input .btn .primary type=submit value=_{MsgSubmit}>
 renderBootstrap :: FormRender sub master a
 renderBootstrap aform fragment = do
