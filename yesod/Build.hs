@@ -140,9 +140,9 @@ determineHamletDeps x = do
            <|> (A.string "$(Settings.widgetFile " >> return Hamlet)
            <|> (A.string "$(parseRoutesFile " >> return Verbatim)
            <|> (A.string "$(persistFile " >> return Verbatim)
-           <|> (do 
-                   A.string "$(persistFileWith " 
-                   A.many1 $ A.satisfy (/= '"')
+           <|> (
+                   A.string "$(persistFileWith " >>
+                   A.many1 (A.satisfy (/= '"')) >>
                    return Verbatim)
            <|> (do
                     _ <- A.string "\nmkMessage \""
