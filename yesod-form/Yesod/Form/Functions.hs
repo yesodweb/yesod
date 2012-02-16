@@ -317,9 +317,9 @@ renderBootstrap aform fragment = do
     let widget = [whamlet|
 \#{fragment}
 $forall view <- views
-    <div .clearfix :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>
-        <label for=#{fvId view}>#{fvLabel view}
-        <div.input>
+    <div .control-group .clearfix :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>
+        <label .control-label for=#{fvId view}>#{fvLabel view}
+        <div .controls .input>
             ^{fvInput view}
             $maybe tt <- fvTooltip view
                 <span .help-block>#{tt}
