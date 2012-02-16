@@ -297,17 +297,17 @@ $forall view <- views
 --
 -- Sample Hamlet:
 --
--- >        <form method=post action=@{ActionR} enctype=#{formEnctype}>
--- >          <fieldset>
--- >            <legend>_{MsgLegend}
--- >            $case result
--- >              $of FormFailure reasons
--- >                $forall reason <- reasons
--- >                  <div .alert-message .error>#{reason}
--- >              $of _
--- >            ^{formWidget}
--- >            <div .actions>
--- >              <input .btn .primary type=submit value=_{MsgSubmit}>
+-- >  <form .form-horizontal method=post action=@{ActionR} enctype=#{formEnctype}>
+-- >    <fieldset>
+-- >      <legend>_{MsgLegend}
+-- >      $case result
+-- >        $of FormFailure reasons
+-- >          $forall reason <- reasons
+-- >            <div .alert .alert-error>#{reason}
+-- >        $of _
+-- >      ^{formWidget}
+-- >      <div .actions>
+-- >        <input .btn .primary type=submit value=_{MsgSubmit}>
 renderBootstrap :: FormRender sub master a
 renderBootstrap aform fragment = do
     (res, views') <- aFormToForm aform
