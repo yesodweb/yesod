@@ -323,7 +323,10 @@ class RenderRoute a => Yesod a where
     yepnopeJs _ = Nothing
 
     -- | Where to Load sripts from. We recommend changing this to 'BottomOfBody'
-    -- Alternatively use the built in async yepnope loader: BottomOfHeadAsync (loadJsYepnope eyn)
+    -- Alternatively use the built in async yepnope loader:
+    --
+    -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
+    --
     -- Or write your own async js loader: see 'loadJsYepnope'
     jsLoader :: a -> ScriptLoadPosition a
     jsLoader y = case yepnopeJs y of
