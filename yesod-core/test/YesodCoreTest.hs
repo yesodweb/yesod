@@ -10,6 +10,7 @@ import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
 import YesodCoreTest.Cache
 import qualified YesodCoreTest.Redirect as Redirect
+import qualified YesodCoreTest.JsLoader as JsLoader
 
 import Test.Hspec
 
@@ -25,4 +26,5 @@ specs =
     , errorHandlingTest
     , cacheTest
     , Redirect.specs
+    , JsLoader.specs
     ]
