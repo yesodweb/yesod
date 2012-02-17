@@ -28,7 +28,7 @@ import           System.Exit (exitFailure, exitSuccess, ExitCode (..))
 import           System.FilePath (splitDirectories, dropExtension, takeExtension)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
-import           System.Process (runCommand, terminateProcess, readProcess,
+import           System.Process (createProcess, proc, terminateProcess, readProcess,
                                            waitForProcess, rawSystem)
 
 import Build (recompDeps, getDeps,findHaskellFiles)
@@ -44,8 +44,8 @@ writeLock = do
 removeLock :: IO ()
 removeLock = try_ (removeFile lockFile)
 
-devel :: Bool -> IO ()
-devel isCabalDev = do
+devel :: Bool -> [String] -> IO ()
+devel isCabalDev passThroughArgs = do
 
     checkDevelFile
 
@@ -58,58 +58,57 @@ devel isCabalDev = do
 
       checkCabalFile gpd
 
-      _ <- if isCabalDev
-        then rawSystem "cabal-dev"
-            [ "configure"
-            , "--cabal-install-arg=-fdevel" -- legacy
-            , "--cabal-install-arg=-flibrary-only"
-            , "--disable-library-profiling"
-            ]
-        else rawSystem "cabal"
-            [ "configure"
-            , "-fdevel" -- legacy
-            , "-flibrary-only"
-            , "--disable-library-profiling"
-            ]
+      _<- rawSystem cmd args
 
-      mainLoop isCabalDev
+      mainLoop
 
     _ <- getLine
     writeLock
     exitSuccess
+  where
+    cmd | isCabalDev == True = "cabal-dev"
+        | otherwise  = "cabal"
 
-mainLoop :: Bool -> IO ()
-mainLoop isCabalDev = do
-   ghcVer <- ghcVersion
-   forever $ do
-       putStrLn "Rebuilding application..."
+    diffArgs | isCabalDev == True = [
+              "--cabal-install-arg=-fdevel" -- legacy
+            , "--cabal-install-arg=-flibrary-only"
+            ]
+             | otherwise  = [
+              "-fdevel" -- legacy
+            , "-flibrary-only"
+            ]
+    args = "configure":diffArgs ++ ["--disable-library-profiling" ]
 
-       recompDeps
+    mainLoop :: IO ()
+    mainLoop = do
+       ghcVer <- ghcVersion
+       forever $ do
+           putStrLn "Rebuilding application..."
 
-       list <- getFileList
-       exit <- if isCabalDev
-               then rawSystem "cabal-dev" ["build"]
-               else rawSystem "cabal"     ["build"]
+           recompDeps
 
-       case exit of
-         ExitFailure _ -> putStrLn "Build failure, pausing..."
-         _ -> do
-               removeLock
-               let pkg = pkgConfigs isCabalDev ghcVer
-               let start = concat ["runghc ", pkg, " devel.hs"]
-               putStrLn $ "Starting development server: " ++ start
-               ph <- runCommand start
-               watchTid <- forkIO . try_ $ do
-                     watchForChanges list
-                     putStrLn "Stopping development server..."
-                     writeLock
-                     threadDelay 1000000
-                     putStrLn "Terminating development server..."
-                     terminateProcess ph
-               ec <- waitForProcess ph
-               putStrLn $ "Exit code: " ++ show ec
-               Ex.throwTo watchTid (userError "process finished")
-       watchForChanges list
+           list <- getFileList
+           exit <- rawSystem cmd ["build"]
+
+           case exit of
+             ExitFailure _ -> putStrLn "Build failure, pausing..."
+             _ -> do
+                   removeLock
+                   let pkg = pkgConfigs isCabalDev ghcVer
+                   let dev_args = ([pkg, "devel.hs"] ++ passThroughArgs)
+                   putStrLn $ "Starting development server: runghc " ++ L.intercalate " " dev_args
+                   (_,_,_,ph) <- createProcess $ proc "runghc" dev_args
+                   watchTid <- forkIO . try_ $ do
+                         watchForChanges list
+                         putStrLn "Stopping development server..."
+                         writeLock
+                         threadDelay 1000000
+                         putStrLn "Terminating development server..."
+                         terminateProcess ph
+                   ec <- waitForProcess ph
+                   putStrLn $ "Exit code: " ++ show ec
+                   Ex.throwTo watchTid (userError "process finished")
+           watchForChanges list
 
 try_ :: forall a. IO a -> IO ()
 try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()

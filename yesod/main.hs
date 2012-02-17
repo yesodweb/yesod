@@ -35,7 +35,7 @@ main = do
         "build":rest -> touch >> build rest >>= exitWith
         ["touch"] -> touch
 #endif
-        ["devel"] -> devel isDev
+        "devel":rest -> devel isDev rest
         ["version"] -> putStrLn yesodVersion
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         _ -> do
