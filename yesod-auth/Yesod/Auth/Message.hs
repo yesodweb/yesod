@@ -6,6 +6,7 @@ module Yesod.Auth.Message
       -- * All languages
     , englishMessage
     , portugueseMessage
+    , swedishMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -113,3 +114,37 @@ portugueseMessage NowLoggedIn = "Você acaba de entrar no site com sucesso!"
 portugueseMessage LoginTitle = "Entrar no site"
 portugueseMessage PleaseProvideUsername = "Por favor digite seu nome de usuário"
 portugueseMessage PleaseProvidePassword = "Por favor digite sua senha"
+
+swedishMessage :: AuthMessage -> Text
+swedishMessage NoOpenID = "Fann ej OpenID identifierare"
+swedishMessage LoginOpenID = "Logga in via OpenID"
+swedishMessage LoginGoogle = "Logga in via Google"
+swedishMessage LoginYahoo = "Logga in via Yahoo"
+swedishMessage Email = "Epost"
+swedishMessage Password = "Lösenord"
+swedishMessage Register = "Registrera"
+swedishMessage RegisterLong = "Registrera ett nytt konto"
+swedishMessage EnterEmail = "Skriv in din epost nedan så kommer ett konfirmationsmail skickas till adressen."
+swedishMessage ConfirmationEmailSentTitle = "Konfirmationsmail skickat"
+swedishMessage (ConfirmationEmailSent email) =
+    "Ett konfirmationsmeddelande har skickats till" `mappend`
+    email `mappend`
+    "."
+swedishMessage AddressVerified = "Adress verifierad, vänligen välj nytt lösenord"
+swedishMessage InvalidKeyTitle = "Ogiltig verifikationsnyckel"
+swedishMessage InvalidKey = "Tyvärr, du angav en ogiltig verifimationsnyckel."
+swedishMessage InvalidEmailPass = "Ogiltig epost/lösenord kombination"
+swedishMessage BadSetPass = "Du måste vara inloggad för att ange ett lösenord"
+swedishMessage SetPassTitle = "Ange lösenord"
+swedishMessage SetPass = "Ange nytt lösenord"
+swedishMessage NewPass = "Nytt lösenord"
+swedishMessage ConfirmPass = "Godkänn"
+swedishMessage PassMismatch = "Lösenorden matcha ej, vänligen försök igen"
+swedishMessage PassUpdated = "Lösenord updaterades"
+swedishMessage Facebook = "Logga in med Facebook"
+swedishMessage LoginViaEmail = "Logga in via epost"
+swedishMessage InvalidLogin = "Ogiltigt login"
+swedishMessage NowLoggedIn = "Du är nu inloggad"
+swedishMessage LoginTitle = "Logga in"
+swedishMessage PleaseProvideUsername = "Vänligen fyll i användarnamn"
+swedishMessage PleaseProvidePassword = "Vänligen fyll i lösenord"
