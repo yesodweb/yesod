@@ -19,6 +19,7 @@ module Yesod.Content
     , typeJpeg
     , typePng
     , typeGif
+    , typeSvg
     , typeJavascript
     , typeCss
     , typeFlv
@@ -195,6 +196,9 @@ typePng = "image/png"
 
 typeGif :: ContentType
 typeGif = "image/gif"
+
+typeSvg :: ContentType
+typeSvg = "image/svg+xml"
 
 typeJavascript :: ContentType
 typeJavascript = "text/javascript; charset=utf-8"
