@@ -27,6 +27,7 @@ module Yesod.Internal.Core
     , messageLoggerHandler
       -- * jsLoader
     , ScriptLoadPosition (..)
+    , BottomOfHeadAsync
     , loadJsYepnope
       -- * Misc
     , yesodVersion
@@ -641,11 +642,15 @@ $case jsLoader master
             : attrs
             )
 
-data Yesod master => ScriptLoadPosition master = BottomOfBody | BottomOfHeadBlocking | BottomOfHeadAsync (
-                  [Text] -- ^ urls to load asynchronously
-                  -> Maybe (HtmlUrl (Route master)) -- ^ widget of js to run on async completion
-                  -> (HtmlUrl (Route master)) -- ^ widget to insert at the bottom of <head>
-                  )
+data ScriptLoadPosition master
+    = BottomOfBody
+    | BottomOfHeadBlocking
+    | BottomOfHeadAsync (BottomOfHeadAsync master)
+
+type BottomOfHeadAsync master
+       = [Text] -- ^ urls to load asynchronously
+      -> Maybe (HtmlUrl (Route master)) -- ^ widget of js to run on async completion
+      -> (HtmlUrl (Route master)) -- ^ widget to insert at the bottom of <head>
 
 left :: Either a b -> Maybe a
 left (Left x) = Just x
