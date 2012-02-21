@@ -30,6 +30,7 @@ module Yesod.Core
     -- * JS loaders
     , loadJsYepnope
     , ScriptLoadPosition (..)
+    , BottomOfHeadAsync
       -- * Misc
     , yesodVersion
     , yesodRender
