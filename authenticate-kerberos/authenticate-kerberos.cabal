@@ -9,7 +9,7 @@ description:     Kerberos authenticate.
 category:        Web
 stability:       Stable
 cabal-version:   >= 1.6
-build-type:      Simple
+build-type:      Custom
 homepage:        http://github.com/yesodweb/authenticate
 
 library

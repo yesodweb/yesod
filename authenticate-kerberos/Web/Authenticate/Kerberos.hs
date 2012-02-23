@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
+#include "../../config.h"
 -- | Module for using a kerberos authentication service.
 --
 -- Please note that all configuration should have been done
@@ -65,7 +67,11 @@ loginKerberos username password = do
     fetch :: IO KerberosAuthResult
     fetch = do
       (exitCode, _out, err) <- readProcessWithExitCode
+#ifdef HAVE_HEIMDAL
+          "kinit" ["--password-file=STDIN", T.unpack username] (T.unpack password)
+#else
           "kinit" [T.unpack username] (T.unpack password)
+#endif
       case exitCode of
         ExitSuccess   -> return Ok
         ExitFailure x -> return $ interpretError x (T.pack err)
