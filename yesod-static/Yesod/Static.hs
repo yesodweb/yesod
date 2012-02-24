@@ -34,6 +34,8 @@ module Yesod.Static
       -- * Smart constructor
     , static
     , staticDevel
+    , staticAssumeHtml
+    , staticAssumeHtmlDevel
     , embed
       -- * Template Haskell helpers
     , staticFiles
@@ -90,7 +92,9 @@ import Network.Wai.Application.Static
     , fromFilePath
     , FilePath
     , ETagLookup
-    , webAppSettingsWithLookup
+    , webAppSettingsLookupConf
+    , WebAppLookupConf(..)
+    , defaultMimeTypeLookup
     )
 
 -- | Type used for the subsite with static contents.
@@ -106,8 +110,24 @@ type StaticRoute = Route Static
 -- added.
 static :: Prelude.FilePath -> IO Static
 static dir = do
-    hashLookup <- cachedETagLookup dir
-    return $ Static $ webAppSettingsWithLookup (toFilePath dir) hashLookup
+  hashLookup <- cachedETagLookup dir
+  staticFromSettings dir False hashLookup
+
+staticFromSettings :: Prelude.FilePath -> Bool -> ETagLookup -> IO Static
+staticFromSettings dir shouldAppend hashLookup = do
+    return $ Static $ webAppSettingsLookupConf WebAppLookupConf {
+      assumeHtml = shouldAppend,
+      prefixDir = (toFilePath dir),
+      etagLookup = hashLookup,
+      mimeTypeLookup = defaultMimeTypeLookup
+    }
+
+-- | same as static, but if there is no file extension in the request then assume html
+staticAssumeHtml :: Prelude.FilePath -> IO Static
+staticAssumeHtml dir = do
+  hashLookup <- cachedETagLookup dir
+  staticFromSettings dir True hashLookup
+
 
 -- | Same as 'static', but does not assumes that the files do not
 -- change and checks their modification time whenever a request
@@ -115,7 +135,13 @@ static dir = do
 staticDevel :: Prelude.FilePath -> IO Static
 staticDevel dir = do
     hashLookup <- cachedETagLookupDevel dir
-    return $ Static $ webAppSettingsWithLookup (toFilePath dir) hashLookup
+    staticFromSettings dir False hashLookup
+
+-- | same as staticDevel, but if there is no file extension in the request then assume html
+staticAssumeHtmlDevel :: Prelude.FilePath -> IO Static
+staticAssumeHtmlDevel dir = do
+    hashLookup <- cachedETagLookupDevel dir
+    staticFromSettings dir True hashLookup
 
 -- | Produce a 'Static' based on embedding all of the static
 -- files' contents in the executable at compile time.
