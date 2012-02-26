@@ -7,6 +7,7 @@ module Yesod.Default.Util
     , globFile
     , widgetFileNoReload
     , widgetFileReload
+    , widgetFileJsCss
     ) where
 
 import Control.Monad.IO.Class (liftIO)
@@ -72,8 +73,21 @@ widgetFileReload x = do
     let l = whenExists x "lucius"  luciusFileReload
     [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
 
+widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
+                -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("julius", juliusFileReload)
+                -> FilePath -> Q Exp
+widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = do
+    let h = whenExists x "hamlet"  whamletFile
+    let c = whenExists x csExt csLoad
+    let j = whenExists x jsExt jsLoad
+    [|$h >> addCassius $c >> addJulius $j|]
+
 whenExists :: String -> String -> (FilePath -> Q Exp) -> Q Exp
-whenExists x glob f = do
+whenExists = warnUnlessExists False
+
+warnUnlessExists :: Bool -> String -> String -> (FilePath -> Q Exp) -> Q Exp
+warnUnlessExists shouldWarn x glob f = do
     let fn = globFile glob x
     e <- qRunIO $ doesFileExist fn
+    unless (shouldWarn && e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
     if e then f fn else [|mempty|]
