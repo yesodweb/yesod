@@ -27,6 +27,7 @@ library
                    , yesod-auth              >= 0.8       && < 0.9
                    , text                    >= 0.7       && < 0.12
                    , hamlet                  >= 0.10      && < 0.11
+                   , conduit                 >= 0.2       && < 0.3
                    , yesod-form              >= 0.4       && < 0.5
 
     exposed-modules: Yesod.Auth.OAuth
