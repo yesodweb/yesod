@@ -599,6 +599,7 @@ $maybe j <- jscript
     $nothing
         <script>^{jelper j}
 |]
+
         headAll = [HAMLET|
 \^{head'}
 $forall s <- stylesheets
@@ -615,16 +616,17 @@ $forall s <- css
         $nothing
             <style>#{content}
 $case jsLoader master
+  $of BottomOfBody
   $of BottomOfHeadAsync asyncJsLoader
       ^{asyncJsLoader asyncScripts mcomplete}
   $of BottomOfHeadBlocking
       ^{regularScriptLoad}
-  $of BottomOfBody
 |]
     let bodyScript = [HAMLET|
 ^{body}
 ^{regularScriptLoad}
 |]
+
     return $ PageContent title headAll (case jsLoader master of
       BottomOfBody -> bodyScript
       _ -> body)
