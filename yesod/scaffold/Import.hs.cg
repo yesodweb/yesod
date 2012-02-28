@@ -6,6 +6,7 @@ module Import
     , Text
     , module Data.Monoid
     , module Control.Applicative
+    , module Settings.StaticField
     ) where
 
 import Prelude hiding (writeFile, readFile, head, tail, init, last)
@@ -14,6 +15,7 @@ import Foundation
 import Data.Monoid (Monoid (mappend, mempty, mconcat))
 import Control.Applicative ((<$>), (<*>), pure)
 import Data.Text (Text)
+import Settings.StaticField
 
 infixr 5 <>
 (<>) :: Monoid m => m -> m -> m
