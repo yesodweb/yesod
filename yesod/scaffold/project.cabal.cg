@@ -42,7 +42,6 @@ library
                 OverloadedStrings
                 NoImplicitPrelude
                 CPP
-                OverloadedStrings
                 MultiParamTypeClasses
                 TypeFamilies
                 GADTs
