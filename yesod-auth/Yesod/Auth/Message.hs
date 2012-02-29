@@ -7,6 +7,7 @@ module Yesod.Auth.Message
     , englishMessage
     , portugueseMessage
     , swedishMessage
+    , germanMessage
     ) where
 
 import Data.Monoid (mappend)
