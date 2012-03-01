@@ -6,7 +6,6 @@ module Application
 
 import Import
 import Settings
-import Settings.StaticFiles (staticSite)
 import Yesod.Auth
 import Yesod.Default.Config
 import Yesod.Default.Main

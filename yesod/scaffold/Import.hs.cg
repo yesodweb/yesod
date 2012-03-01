@@ -2,9 +2,9 @@ module Import
     ( module Prelude
     , module Yesod
     , module Foundation
+    , module Settings.StaticFiles
     , module Data.Monoid
     , module Control.Applicative
-    , module Settings.StaticFiles
     , Text
 #if __GLASGOW_HASKELL__ < 740
     , (<>)
