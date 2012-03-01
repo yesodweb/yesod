@@ -15,7 +15,6 @@ module Foundation
 import Prelude
 import Yesod
 import Yesod.Static
-import Settings.StaticFiles
 import Yesod.Auth
 import Yesod.Auth.BrowserId
 import Yesod.Auth.GoogleEmail
