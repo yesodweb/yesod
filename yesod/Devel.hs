@@ -95,7 +95,7 @@ devel isCabalDev passThroughArgs = do
              _ -> do
                    removeLock
                    let pkg = pkgConfigs isCabalDev ghcVer
-                   let dev_args = ([pkg, "devel.hs"] ++ passThroughArgs)
+                   let dev_args = pkg ++ ["devel.hs"] ++ passThroughArgs
                    putStrLn $ "Starting development server: runghc " ++ L.intercalate " " dev_args
                    (_,_,_,ph) <- createProcess $ proc "runghc" dev_args
                    watchTid <- forkIO . try_ $ do
@@ -113,10 +113,10 @@ devel isCabalDev passThroughArgs = do
 try_ :: forall a. IO a -> IO ()
 try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
 
-pkgConfigs :: Bool -> String -> String
+pkgConfigs :: Bool -> String -> [String]
 pkgConfigs isCabalDev ghcVer
-  | isCabalDev = unwords ["-package-confcabal-dev/packages-" ++ ghcVer ++ ".conf", inplacePkg]
-  | otherwise  = inplacePkg
+  | isCabalDev = ["-package-confcabal-dev/packages-" ++ ghcVer ++ ".conf", inplacePkg]
+  | otherwise  = [inplacePkg]
   where
     inplacePkg = "-package-confdist/package.conf.inplace"
 
