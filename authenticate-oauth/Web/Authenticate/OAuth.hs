@@ -4,10 +4,10 @@ module Web.Authenticate.OAuth
     ( -- * Data types
       OAuth, def, newOAuth, oauthServerName, oauthRequestUri, oauthAccessTokenUri,
       oauthAuthorizeUri, oauthSignatureMethod, oauthConsumerKey,
-      oauthConsumerSecret, oauthCallback, oauthRealm,
-      SignMethod(..), Credential(..), OAuthException(..),
+      oauthConsumerSecret, oauthCallback, oauthRealm, oauthVersion,
+      OAuthVersion(..), SignMethod(..), Credential(..), OAuthException(..),
       -- * Operations for credentials
-      newCredential, emptyCredential, insert, delete, inserts,
+      newCredential, emptyCredential, insert, delete, inserts, injectVerifier,
       -- * Signature
       signOAuth, genSign,
       -- * Url & operation for authentication
@@ -76,7 +76,13 @@ data OAuth = OAuth { oauthServerName      :: String -- ^ Service name (default: 
                    -- ^ Callback uri to redirect after authentication (default: @Nothing@)
                    , oauthRealm           :: Maybe BS.ByteString
                    -- ^ Optional authorization realm (default: @Nothing@)
+                   , oauthVersion         :: OAuthVersion
+                   -- ^ OAuth spec version (default: 'OAuth10a')
                    } deriving (Show, Eq, Ord, Read, Data, Typeable)
+
+data OAuthVersion = OAuth10     -- ^ OAuth protocol ver 1.0 (no oauth_verifier; differs from RFC 5849).
+                  | OAuth10a    -- ^ OAuth protocol ver 1.0a. This corresponds to community's 1.0a spec and RFC 5849.
+                    deriving (Show, Eq, Ord, Data, Typeable, Read)
 
 -- | Default value for OAuth datatype.
 -- You must specify at least oauthServerName, URIs and Tokens.
@@ -90,6 +96,7 @@ newOAuth = OAuth { oauthSignatureMethod = HMACSHA1
                  , oauthAuthorizeUri = ""
                  , oauthConsumerKey = error "You MUST specify oauthConsumerKey parameter."
                  , oauthConsumerSecret = error "You MUST specify oauthConsumerSecret parameter."
+                 , oauthVersion = OAuth10a
                  }
 
 instance Default OAuth where
@@ -185,7 +192,7 @@ authorizeUrl :: OAuth           -- ^ OAuth Application
              -> String          -- ^ URL to authorize
 authorizeUrl = authorizeUrl' $ \oa -> const [("oauth_consumer_key", oauthConsumerKey oa)]
 
--- | Convert OAuth and Credential to URL to obatin OAuth Verifier.
+-- | Convert OAuth and Credential to URL to authorize.
 --   This takes function to choice parameter to pass to the server other than
 --   /oauth_callback/ or /oauth_token/.
 authorizeUrl' :: (OAuth -> Credential -> SimpleQuery)
@@ -204,7 +211,7 @@ authorizeUrl' f oa cr = oauthAuthorizeUri oa ++ BS.unpack (renderSimpleQuery Tru
 getAccessToken, getTokenCredential
                :: ResourceIO m
                => OAuth         -- ^ OAuth Application
-               -> Credential    -- ^ Temporary Credential with oauth_verifier
+               -> Credential    -- ^ Temporary Credential (with oauth_verifier if >= 1.0a)
                -> Manager
                -> ResourceT m Credential -- ^ Token Credential (Access Token & Secret)
 getAccessToken = getAccessToken' id
@@ -214,7 +221,7 @@ getAccessTokenProxy, getTokenCredentialProxy
                :: ResourceIO m
                => Maybe Proxy   -- ^ Proxy
                -> OAuth         -- ^ OAuth Application
-               -> Credential    -- ^ Temporary Credential with oauth_verifier
+               -> Credential    -- ^ Temporary Credential (with oauth_verifier if >= 1.0a)
                -> Manager
                -> ResourceT m Credential -- ^ Token Credential (Access Token & Secret)
 getAccessTokenProxy p = getAccessToken' $ addMaybeProxy p
@@ -222,18 +229,17 @@ getAccessTokenProxy p = getAccessToken' $ addMaybeProxy p
 getAccessToken' :: ResourceIO m
                 => (Request m -> Request m)   -- ^ Request Hook
                 -> OAuth                      -- ^ OAuth Application
-                -> Credential                 -- ^ Temporary Credential with oauth_verifier
+                -> Credential                 -- ^ Temporary Credential (with oauth_verifier if >= 1.0a)
                 -> Manager
                 -> ResourceT m Credential     -- ^ Token Credential (Access Token & Secret)
 getAccessToken' hook oa cr manager = do
   let req = hook (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
-  rsp <- flip httpLbs manager =<< signOAuth oa cr req
+  rsp <- flip httpLbs manager =<< signOAuth oa (if oauthVersion oa == OAuth10 then delete "oauth_verifier" cr else cr) req
   if statusCode rsp == status200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
       return $ Credential dic
     else liftIO . throwIO . OAuthException $ "Gaining OAuth Token Credential Failed: " ++ BSL.unpack (responseBody rsp)
-
 
 getTokenCredential = getAccessToken
 getTokenCredentialProxy = getAccessTokenProxy
@@ -260,6 +266,9 @@ delete :: BS.ByteString -- ^ Parameter name
        -> Credential    -- ^ Credential
        -> Credential    -- ^ Result
 delete key = Credential . deleteMap key . unCredential
+
+injectVerifier :: BS.ByteString -> Credential -> Credential
+injectVerifier = insert "oauth_verifier"
 
 -- | Add OAuth headers & sign to 'Request'.
 signOAuth :: ResourceIO m
