@@ -173,7 +173,7 @@ htmlField = Field
     }
   where showVal = either id (pack . renderHtml)
 
--- | A newtype wrapper around a 'String' that converts newlines to HTML
+-- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
     deriving (Show, Read, Eq, PersistField)
