@@ -12,6 +12,7 @@ import OpenId2.Normalization (normalize)
 import OpenId2.Discovery (discover, Discovery (..))
 import OpenId2.Types
 import Control.Monad (unless)
+import qualified Data.Text as T
 import Data.Text.Lazy.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.Text.Lazy (toStrict)
@@ -41,7 +42,11 @@ getForwardUrl
 getForwardUrl openid' complete mrealm params manager = do
     let realm = fromMaybe complete mrealm
     disc <- normalize openid' >>= flip discover manager
-    let helper s q = return $ s `mappend` decodeUtf8 (toByteString $ renderQueryText True $ map (second Just) q)
+    let helper s q = return $ T.concat
+            [ s
+            , if "?" `T.isInfixOf` s then "&" else "?"
+            , decodeUtf8 (toByteString $ renderQueryText False $ map (second Just) q)
+            ]
     case disc of
         Discovery1 server mdelegate -> helper server
                 $ ("openid.mode", "checkid_setup")
