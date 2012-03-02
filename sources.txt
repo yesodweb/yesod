@@ -1,3 +1,4 @@
+yesod-routes
 yesod-core
 yesod-json
 yesod-static
