@@ -48,19 +48,29 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
         setSession oauthSessionName $ lookupTokenSecret tok
         redirect $ authorizeUrl oauth' tok
     dispatch "GET" [] = do
-        (verifier, oaTok) <- runInputGet $ (,)
-            <$> ireq textField "oauth_verifier"
-            <*> ireq textField "oauth_token"
-        tokSec <- fromJust <$> lookupSession oauthSessionName
-        deleteSession oauthSessionName
-        let reqTok = Credential [ ("oauth_verifier", encodeUtf8 verifier)
+      reqTok <-
+        if oauthVersion oauth == OAuth10
+          then do
+            oaTok  <- runInputGet $ ireq textField "oauth_token"
+            tokSec <- fromJust <$> lookupSession oauthSessionName
+            deleteSession oauthSessionName
+            return $ Credential [ ("oauth_token", encodeUtf8 oaTok)
+                                , ("oauth_token_secret", encodeUtf8 tokSec)
+                                ]
+          else do
+            (verifier, oaTok) <-
+                runInputGet $ (,) <$> ireq textField "oauth_verifier"
+                                  <*> ireq textField "oauth_token"
+            tokSec <- fromJust <$> lookupSession oauthSessionName
+            deleteSession oauthSessionName
+            return $ Credential [ ("oauth_verifier", encodeUtf8 verifier)
                                 , ("oauth_token", encodeUtf8 oaTok)
                                 , ("oauth_token_secret", encodeUtf8 tokSec)
                                 ]
-        master <- getYesod
-        accTok <- lift $ getAccessToken oauth reqTok (authHttpManager master)
-        creds  <- resourceLiftBase $ mkCreds accTok
-        setCreds True creds
+      master <- getYesod
+      accTok <- lift $ getAccessToken oauth reqTok (authHttpManager master)
+      creds  <- resourceLiftBase $ mkCreds accTok
+      setCreds True creds
     dispatch _ _ = notFound
     login tm = do
         render <- lift getUrlRender
@@ -80,6 +90,7 @@ authTwitter key secret = authOAuth
                           , oauthSignatureMethod = HMACSHA1
                           , oauthConsumerKey     = key
                           , oauthConsumerSecret  = secret
+                          , oauthVersion         = OAuth10a
                           })
                 extractCreds
   where
