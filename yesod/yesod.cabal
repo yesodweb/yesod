@@ -101,7 +101,7 @@ executable             yesod
         cpp-options:     -DWINDOWS
     build-depends:     parsec             >= 2.1          && < 4
                      , text               >= 0.11         && < 0.12
-                     , shakespeare-text   >= 0.10         && < 0.11
+                     , shakespeare-text   >= 0.10         && < 0.12
                      , bytestring         >= 0.9.1.4  && < 0.10
                      , time               >= 1.1.4
                      , template-haskell
