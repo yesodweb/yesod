@@ -27,6 +27,7 @@ import Yesod.FeedTypes
 import Text.Hamlet (HtmlUrl, xhamlet, hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Control.Monad (liftM)
+import Data.Text (Text)
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
@@ -73,7 +74,7 @@ entryTemplate arg =
 
 -- | Generates a link tag in the head of a widget.
 atomLink :: Route m
-         -> String -- ^ title
+         -> Text -- ^ title
          -> GWidget s m ()
 atomLink r title = addHamletHead
 #if __GLASGOW_HASKELL__ >= 700
