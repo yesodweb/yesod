@@ -14,5 +14,7 @@ Staging:
   <<: *defaults
 
 Production:
+  host: "*4" # any IPv4 host
+  port: 3000
   approot: "http://www.example.com"
   <<: *defaults
