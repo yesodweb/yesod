@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         0.8.1.1
+version:         1.0.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -10,39 +10,34 @@ stability:       Stable
 cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-extra-source-files: include/qq.h
 description:     Authentication for Yesod.
 
 flag ghc7
 
 library
-    if flag(ghc7)
-        build-depends:   base                >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base                >= 4        && < 4.3
-    build-depends:   authenticate            >= 1.0       && < 1.1
+    build-depends:   base                    >= 4         && < 5
+                   , authenticate            >= 1.1       && < 1.2
                    , bytestring              >= 0.9.1.4   && < 0.10
-                   , yesod-core              >= 0.10.1    && < 0.11
-                   , wai                     >= 1.1       && < 1.2
+                   , yesod-core              >= 1.0       && < 1.1
+                   , wai                     >= 1.2       && < 1.3
                    , template-haskell
                    , pureMD5                 >= 2.0       && < 2.2
                    , random                  >= 1.0.0.2  && < 1.1
                    , text                    >= 0.7       && < 0.12
                    , mime-mail               >= 0.3       && < 0.5
                    , blaze-html              >= 0.4.1.3   && < 0.5
-                   , yesod-persistent        >= 0.3.1     && < 0.4
+                   , yesod-persistent        >= 1.0       && < 1.1
                    , hamlet                  >= 0.10      && < 0.11
                    , shakespeare-css         >= 0.10      && < 0.11
-                   , yesod-json              >= 0.3.1     && < 0.4
+                   , yesod-json              >= 1.0       && < 1.1
                    , containers
                    , unordered-containers
-                   , yesod-form              >= 0.4.1     && < 0.5
+                   , yesod-form              >= 1.0       && < 1.1
                    , transformers            >= 0.2.2     && < 0.3
-                   , persistent              >= 0.8       && < 0.9
-                   , persistent-template     >= 0.8       && < 0.9
+                   , persistent              >= 0.9       && < 0.10
+                   , persistent-template     >= 0.9       && < 0.10
                    , SHA                     >= 1.4.1.3   && < 1.6
-                   , http-conduit            >= 1.2.5     && < 1.3
+                   , http-conduit            >= 1.3       && < 1.4
                    , aeson                   >= 0.5
                    , pwstore-fast            >= 2.2       && < 3
                    , lifted-base             >= 0.1       && < 0.2
@@ -57,7 +52,6 @@ library
                      Yesod.Auth.Message
                      Yesod.Auth.GoogleEmail
     ghc-options:     -Wall
-    include-dirs: include
 
 source-repository head
   type:     git

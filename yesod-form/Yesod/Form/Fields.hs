@@ -273,9 +273,8 @@ searchField autoFocus = Field
 |]
         when autoFocus $ do
           -- we want this javascript to be placed immediately after the field
-          [whamlet|\<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}</script> 
-|]
-          addCassius [CASSIUS|
+          [whamlet|<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}|]
+          addCassius [cassius|
             #{theId}
               -webkit-appearance: textfield
             |]

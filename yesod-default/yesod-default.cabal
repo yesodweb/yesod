@@ -1,5 +1,5 @@
 name:            yesod-default
-version:         0.6.1
+version:         1.0.0
 license:         BSD3
 license-file:    LICENSE
 author:          Patrick Brisbin
@@ -18,10 +18,10 @@ library
         cpp-options: -DWINDOWS
 
     build-depends:   base                  >= 4     && < 5
-                   , yesod-core            >= 0.10.1&& < 0.11
-                   , warp                  >= 1.1   && < 1.2
-                   , wai                   >= 1.1   && < 1.2
-                   , wai-extra             >= 1.1   && < 1.3
+                   , yesod-core            >= 1.0   && < 1.1
+                   , warp                  >= 1.2   && < 1.3
+                   , wai                   >= 1.2   && < 1.3
+                   , wai-extra             >= 1.2   && < 1.3
                    , bytestring            >= 0.9.1.4
                    , transformers          >= 0.2.2 && < 0.3
                    , text                  >= 0.9
@@ -29,7 +29,7 @@ library
                    , shakespeare-css       >= 0.10.5 && < 0.11
                    , shakespeare-js        >= 0.11   && < 0.12
                    , template-haskell
-                   , yaml                  >= 0.5.1.2  && < 0.6
+                   , yaml                  >= 0.6    && < 0.7
                    , unordered-containers
 
     if !os(windows)

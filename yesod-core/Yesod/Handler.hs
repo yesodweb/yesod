@@ -166,9 +166,9 @@ import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey, CacheKey)
 import Data.Typeable (Typeable)
 import qualified Data.IORef as I
-import Control.Monad.Trans.Resource
 import Control.Exception.Lifted (catch)
 import Control.Monad.Trans.Control
+import Control.Monad.Trans.Resource
 import Control.Monad.Base
 import Yesod.Routes.Class
 
@@ -831,13 +831,8 @@ newIdent = do
 redirectToPost :: RedirectUrl master url => url -> GHandler sub master a
 redirectToPost url = do
     urlText <- toTextUrl url
-    hamletToRepHtml
-#if GHC7
-            [hamlet|
-#else
-            [$hamlet|
-#endif
-\<!DOCTYPE html>
+    hamletToRepHtml [hamlet|
+$doctype 5
 
 <html>
     <head>
@@ -922,12 +917,12 @@ instance MonadBaseControl IO (GHandler sub master) where
             f $ liftM StH . runInBase . (\(GHandler r) -> r reader)
     restoreM (StH base) = GHandler $ const $ restoreM base
 
-instance Resource (GHandler sub master) where
-    type Base (GHandler sub master) = IO
-    resourceLiftBase = liftIO
-    resourceBracket_ a b c = control $ \run -> resourceBracket_ a b (run c)
-instance ResourceUnsafeIO (GHandler sub master) where
-    unsafeFromIO = liftIO
-instance ResourceThrow (GHandler sub master) where
-    resourceThrow = liftIO . throwIO
-instance ResourceIO (GHandler sub master)
+instance MonadUnsafeIO (GHandler sub master) where
+    unsafeLiftIO = liftIO
+instance MonadThrow (GHandler sub master) where
+    monadThrow = liftIO . throwIO
+instance MonadResource (GHandler sub master) where
+    allocate a = lift . allocate a
+    register = lift . register
+    release = lift . release
+    resourceMask = lift . resourceMask

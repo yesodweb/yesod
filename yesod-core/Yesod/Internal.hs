@@ -45,12 +45,6 @@ import Data.Text.Lazy.Builder (Builder)
 import Network.HTTP.Types (Ascii)
 import Web.Cookie (SetCookie (..))
 
-#if GHC7
-#define HAMLET hamlet
-#else
-#define HAMLET $hamlet
-#endif
-
 -- | Responses to indicate some form of an error occurred. These are different
 -- from 'SpecialResponse' in that they allow for custom error pages.
 data ErrorResponse =
@@ -76,9 +70,9 @@ langKey = "_LANG"
 data Location url = Local url | Remote Text
     deriving (Show, Eq)
 locationToHtmlUrl :: Location url -> HtmlUrl url
-locationToHtmlUrl (Local url) = [HAMLET|\@{url}
+locationToHtmlUrl (Local url) = [hamlet|\@{url}
 |]
-locationToHtmlUrl (Remote s) = [HAMLET|\#{s}
+locationToHtmlUrl (Remote s) = [hamlet|\#{s}
 |]
 
 newtype UniqueList x = UniqueList ([x] -> [x])
