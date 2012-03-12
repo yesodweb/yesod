@@ -30,7 +30,7 @@ library
                      Import
                      Settings
                      Settings.StaticFiles
-                     Handler.Root
+                     Handler.Home
 
     ghc-options:   -Wall -threaded -O0
     cpp-options:   -DDEVELOPMENT
