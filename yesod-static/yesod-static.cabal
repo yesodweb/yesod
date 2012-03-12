@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         0.10.1
+version:         1.0.0
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -19,21 +19,21 @@ library
     build-depends:   base                  >= 4        && < 5
                    , containers            >= 0.2      && < 0.5
                    , old-time              >= 1.0
-                   , yesod-core            >= 0.10.1   && < 0.11
+                   , yesod-core            >= 1.0      && < 1.1
                    , base64-bytestring     >= 0.1.0.1  && < 0.2
                    , cereal                >= 0.3      && < 0.4
                    , bytestring            >= 0.9.1.4  && < 0.10
                    , template-haskell
                    , directory             >= 1.0      && < 1.2
                    , transformers          >= 0.2.2    && < 0.3
-                   , wai-app-static        >= 1.1      && < 1.2
-                   , wai                   >= 1.1      && < 1.2
+                   , wai-app-static        >= 1.2      && < 1.3
+                   , wai                   >= 1.2      && < 1.3
                    , text                  >= 0.9      && < 1.0
                    , file-embed            >= 0.0.4.1  && < 0.5
                    , http-types            >= 0.6.5    && < 0.7
                    , unix-compat           >= 0.2
                    , conduit               >= 0.2
-                   , crypto-conduit        >= 0.1.1.2  && < 0.2
+                   , crypto-conduit        >= 0.2      && < 0.3
                    , cryptohash            >= 0.6.1
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
@@ -49,21 +49,21 @@ test-suite tests
                    -- copy from above
                    , containers            >= 0.2      && < 0.5
                    , old-time              >= 1.0
-                   , yesod-core            >= 0.10     && < 0.11
+                   , yesod-core
                    , base64-bytestring     >= 0.1.0.1  && < 0.2
                    , cereal                >= 0.3      && < 0.4
                    , bytestring            >= 0.9.1.4  && < 0.10
                    , template-haskell
                    , directory             >= 1.0      && < 1.2
                    , transformers          >= 0.2.2    && < 0.3
-                   , wai-app-static        >= 1.1      && < 1.2
-                   , wai                   >= 1.1      && < 1.2
+                   , wai-app-static
+                   , wai
                    , text                  >= 0.9      && < 1.0
                    , file-embed            >= 0.0.4.1  && < 0.5
                    , http-types            >= 0.6.5    && < 0.7
                    , unix-compat           >= 0.2
                    , conduit               >= 0.2
-                   , crypto-conduit        >= 0.1.1.2  && < 0.2
+                   , crypto-conduit        >= 0.2      && < 0.3
                    , cryptohash            >= 0.6.1
 
     ghc-options:     -Wall

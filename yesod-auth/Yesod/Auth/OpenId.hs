@@ -7,8 +7,6 @@ module Yesod.Auth.OpenId
     , forwardUrl
     ) where
 
-#include "qq.h"
-
 import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
@@ -37,11 +35,11 @@ authOpenIdExtended extensionFields =
     login tm = do
         ident <- lift newIdent
         addCassius
-            [QQ(cassius)|##{ident}
+            [cassius|##{ident}
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
-        [QQ(whamlet)|
+        [whamlet|
 <form method="get" action="@{tm forwardUrl}">
     <input type="hidden" name="openid_identifier" value="https://www.google.com/accounts/o8/id">
     <button .openid-google>_{Msg.LoginGoogle}

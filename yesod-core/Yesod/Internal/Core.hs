@@ -84,23 +84,11 @@ import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
 import qualified Data.Vector as Vector
 import Network.Wai.Middleware.Gzip (GzipSettings, def)
-
--- mega repo can't access this
-#ifndef MEGA
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
+
 yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version
-#else
-yesodVersion :: String
-yesodVersion = "0.9.4"
-#endif
-
-#if GHC7
-#define HAMLET hamlet
-#else
-#define HAMLET $hamlet
-#endif
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -177,7 +165,7 @@ class RenderRoute a => Yesod a where
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
-        hamletToRepHtml [HAMLET|
+        hamletToRepHtml [hamlet|
 !!!
 
 <html>
@@ -505,19 +493,19 @@ defaultErrorHandler NotFound = do
     r <- waiRequest
     let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
     applyLayout' "Not Found"
-        [HAMLET|
+        [hamlet|
 <h1>Not Found
 <p>#{path'}
 |]
 defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied"
-        [HAMLET|
+        [hamlet|
 <h1>Permission denied
 <p>#{msg}
 |]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments"
-        [HAMLET|
+        [hamlet|
 <h1>Invalid Arguments
 <ul>
     $forall msg <- ia
@@ -525,13 +513,13 @@ defaultErrorHandler (InvalidArgs ia) =
 |]
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error"
-        [HAMLET|
+        [hamlet|
 <h1>Internal Server Error
 <p>#{e}
 |]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method"
-        [HAMLET|
+        [hamlet|
 <h1>Method Not Supported
 <p>Method "#{S8.unpack m}" not supported
 |]
@@ -590,7 +578,7 @@ widgetToPageContent w = do
     -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
     -- the asynchronous loader means your page doesn't have to wait for all the js to load
     let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
-        regularScriptLoad = [HAMLET|
+        regularScriptLoad = [hamlet|
 $forall s <- scripts
     ^{mkScriptTag s}
 $maybe j <- jscript
@@ -600,7 +588,7 @@ $maybe j <- jscript
         <script>^{jelper j}
 |]
 
-        headAll = [HAMLET|
+        headAll = [hamlet|
 \^{head'}
 $forall s <- stylesheets
     ^{mkLinkTag s}
@@ -622,7 +610,7 @@ $case jsLoader master
   $of BottomOfHeadBlocking
       ^{regularScriptLoad}
 |]
-    let bodyScript = [HAMLET|
+    let bodyScript = [hamlet|
 ^{body}
 ^{regularScriptLoad}
 |]
@@ -668,7 +656,7 @@ jsonArray = unsafeLazyByteString . encode . Array . Vector.fromList . map String
 -- | For use with setting 'jsLoader' to 'BottomOfHeadAsync'
 loadJsYepnope :: Yesod master => Either Text (Route master) -> [Text] -> Maybe (HtmlUrl (Route master)) -> (HtmlUrl (Route master))
 loadJsYepnope eyn scripts mcomplete =
-  [HAMLET|
+  [hamlet|
     $maybe yn <- left eyn
         <script src=#{yn}>
     $maybe yn <- right eyn

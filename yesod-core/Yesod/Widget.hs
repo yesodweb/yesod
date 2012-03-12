@@ -76,14 +76,14 @@ import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE), Pat (VarP), newName)
 
-import Control.Monad.Trans.Control (MonadBaseControl (..), control)
-import Control.Monad.Trans.Resource
+import Control.Monad.Trans.Control (MonadBaseControl (..))
 import Control.Exception (throwIO)
 import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze (toHtml, preEscapedLazyText)
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Arrow (first)
+import Control.Monad.Trans.Resource
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
@@ -321,12 +321,12 @@ instance MonadBaseControl IO (GWidget sub master) where
         (f $ liftM StW . runInBase . unGWidget)
     restoreM (StW base) = GWidget $ restoreM base
 
-instance Resource (GWidget sub master) where
-    type Base (GWidget sub master) = IO
-    resourceLiftBase = liftIO
-    resourceBracket_ a b c = control $ \run -> resourceBracket_ a b (run c)
-instance ResourceUnsafeIO (GWidget sub master) where
-    unsafeFromIO = liftIO
-instance ResourceThrow (GWidget sub master) where
-    resourceThrow = liftIO . throwIO
-instance ResourceIO (GWidget sub master)
+instance MonadUnsafeIO (GWidget sub master) where
+    unsafeLiftIO = liftIO
+instance MonadThrow (GWidget sub master) where
+    monadThrow = liftIO . throwIO
+instance MonadResource (GWidget sub master) where
+    allocate a = lift . allocate a
+    register = lift . register
+    release = lift . release
+    resourceMask = lift . resourceMask

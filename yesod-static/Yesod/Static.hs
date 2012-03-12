@@ -76,9 +76,9 @@ import qualified Data.ByteString as S
 import Network.HTTP.Types (status301)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
-import Data.Conduit (($$), runResourceT)
+import Data.Conduit (($$))
 import Data.Conduit.List (sourceList)
-import Control.Monad.ST (runST)
+import Data.Functor.Identity (runIdentity)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -323,7 +323,7 @@ base64md5File = fmap (base64 . encode) . hashFile
 base64md5 :: L.ByteString -> String
 base64md5 lbs =
             base64 $ encode
-          $ runST $ runResourceT
+          $ runIdentity
           $ sourceList (L.toChunks lbs) $$ sinkHash
   where
     encode d = Data.Serialize.encode (d :: MD5)
