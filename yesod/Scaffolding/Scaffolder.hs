@@ -160,7 +160,7 @@ scaffold = do
     writeFile' ("Foundation.hs") $ ifTiny $(codegen "tiny/Foundation.hs") $(codegen "Foundation.hs")
     writeFile' ("Import.hs") $ ifTiny $(codegen "tiny/Import.hs") $(codegen "Import.hs")
     writeFile' "Application.hs" $ ifTiny $(codegen "tiny/Application.hs") $(codegen "Application.hs")
-    writeFile' "Handler/Root.hs" $(codegen "Handler/Root.hs")
+    writeFile' "Handler/Home.hs" $(codegen "Handler/Home.hs")
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "Settings.hs" $ ifTiny $(codegen "tiny/Settings.hs") $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")

@@ -45,7 +45,7 @@ extra-source-files:
   scaffold/deploy/Procfile.cg
   scaffold/main.hs.cg
   scaffold/devel.hs.cg
-  scaffold/Handler/Root.hs.cg
+  scaffold/Handler/Home.hs.cg
   scaffold/config/models.cg
   scaffold/config/sqlite.yml.cg
   scaffold/config/settings.yml.cg
