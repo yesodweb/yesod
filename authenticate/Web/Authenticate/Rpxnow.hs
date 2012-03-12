@@ -23,7 +23,6 @@ module Web.Authenticate.Rpxnow
 
 import Data.Aeson
 import Network.HTTP.Conduit
-import Data.Conduit (ResourceT, ResourceIO)
 import Control.Monad.IO.Class
 import Data.Maybe
 import Control.Monad
@@ -39,6 +38,8 @@ import qualified Data.Aeson.Types
 import qualified Data.HashMap.Lazy as Map
 import Control.Applicative ((<$>), (<*>))
 import Control.Exception (throwIO)
+import Control.Monad.Trans.Control (MonadBaseControl)
+import Control.Monad.Trans.Resource (MonadResource)
 
 -- | Information received from Rpxnow after a valid login.
 data Identifier = Identifier
@@ -48,11 +49,11 @@ data Identifier = Identifier
     deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- | Attempt to log a user in.
-authenticate :: ResourceIO m
+authenticate :: (MonadResource m, MonadBaseControl IO m)
              => String -- ^ API key given by RPXNOW.
              -> String -- ^ Token passed by client.
              -> Manager
-             -> ResourceT m Identifier
+             -> m Identifier
 authenticate apiKey token manager = do
     let body = L.fromChunks
             [ "apiKey="

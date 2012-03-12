@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Web.Authenticate.BrowserId
     ( browserIdJs
     , checkAssertion
@@ -6,22 +7,23 @@ module Web.Authenticate.BrowserId
 
 import Data.Text (Text)
 import Network.HTTP.Conduit (parseUrl, responseBody, httpLbs, Manager, method, urlEncodedBody)
-import Data.Conduit (ResourceT, ResourceIO)
 import Data.Aeson (json, Value (Object, String))
 import Data.Attoparsec.Lazy (parse, maybeResult)
 import qualified Data.HashMap.Lazy as Map
 import Data.Text.Encoding (encodeUtf8)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Control (MonadBaseControl)
+import Control.Monad.Trans.Resource (MonadResource)
 
 -- | Location of the Javascript file hosted by browserid.org
 browserIdJs :: Text
 browserIdJs = "https://browserid.org/include.js"
 
-checkAssertion :: ResourceIO m
+checkAssertion :: (MonadResource m, MonadBaseControl IO m)
                => Text -- ^ audience
                -> Text -- ^ assertion
                -> Manager
-               -> ResourceT m (Maybe Text)
+               -> m (Maybe Text)
 checkAssertion audience assertion manager = do
     req' <- liftIO $ parseUrl "https://browserid.org/verify"
     let req = urlEncodedBody
