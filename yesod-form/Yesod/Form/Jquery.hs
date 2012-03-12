@@ -27,18 +27,6 @@ import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
 import Yesod.Core (RenderMessage, SomeMessage (..))
 
-#if __GLASGOW_HASKELL__ >= 700
-#define HTML shamlet
-#define HAMLET hamlet
-#define CASSIUS cassius
-#define JULIUS julius
-#else
-#define HTML $shamlet
-#define HAMLET $hamlet
-#define CASSIUS $cassius
-#define JULIUS $julius
-#endif
-
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
 googleHostedJqueryUiCss theme = mconcat
@@ -77,13 +65,13 @@ jqueryDayField jds = Field
               . readMay
               . unpack
     , fieldView = \theId name theClass val isReq -> do
-        addHtml [HTML|\
+        addHtml [shamlet|\
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJulius [JULIUS|
+        addJulius [julius|
 $(function(){
     var i = $("##{theId}");
     if (i.attr("type") != "date") {
@@ -116,13 +104,13 @@ jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master
 jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name theClass val isReq -> do
-        addHtml [HTML|\
+        addHtml [shamlet|\
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJulius [JULIUS|
+        addJulius [julius|
 $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     }

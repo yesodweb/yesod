@@ -40,12 +40,7 @@ mkYesodSub "Crud master item"
     [ ClassP ''Item [VarT $ mkName "item"]
     , ClassP ''SinglePiece [ConT ''Key `AppT` VarT (mkName "item")]
     , ClassP ''ToForm [VarT $ mkName "item", VarT $ mkName "master"]
-    ]
-#if __GLASGOW_HASKELL__ >= 700
-                [parseRoutes|
-#else
-                [$parseRoutes|
-#endif
+    ] [parseRoutes|
 /               CrudListR        GET
 /add            CrudAddR         GET POST
 /edit/#Text     CrudEditR        GET POST
@@ -59,12 +54,7 @@ getCrudListR = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitle "Items"
-        addWidget
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+        addWidget [hamlet|
 <h1>Items
 <ul>
     $forall item <- items
@@ -124,12 +114,7 @@ getCrudDeleteR s = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitle "Confirm delete"
-        addWidget
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+        addWidget [hamlet|
 <form method="post" action="@{toMaster (CrudDeleteR s)}">
     <h1>Really delete?
     <p>Do you really want to delete #{itemTitle item}?
@@ -168,12 +153,7 @@ crudHelper title me isPost = do
         _ -> return ()
     defaultLayout $ do
         setTitle $ toHtml title
-        addWidget
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+        addWidget [hamlet|
 <p>
     <a href="@{toMaster CrudListR}">Return to list
 <h1>#{title}

@@ -34,12 +34,7 @@ rssFeed :: Feed (Route master) -> GHandler sub master RepRss
 rssFeed = liftM RepRss . hamletToContent . template
 
 template :: Feed url -> HtmlUrl url
-template arg = 
-#if __GLASGOW_HASKELL__ >= 700
-    [xhamlet|
-#else
-    [$xhamlet|
-#endif
+template arg = [xhamlet|
     \<?xml version="1.0" encoding="utf-8"?> 
     <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"
         <channel
@@ -55,12 +50,7 @@ template arg =
     |]
 
 entryTemplate :: FeedEntry url -> HtmlUrl url
-entryTemplate arg = 
-#if __GLASGOW_HASKELL__ >= 700
-    [xhamlet|
-#else
-    [$xhamlet|
-#endif
+entryTemplate arg = [xhamlet|
     <item
         <title>      #{feedEntryTitle arg}
         <link>       @{feedEntryLink arg}
@@ -73,11 +63,6 @@ entryTemplate arg =
 rssLink :: Route m
         -> Text -- ^ title
         -> GWidget s m ()
-rssLink r title = addHamletHead
-#if __GLASGOW_HASKELL__ >= 700
-    [hamlet|
-#else
-    [$hamlet|
-#endif
+rssLink r title = addHamletHead [hamlet|
     <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}
     |]
