@@ -22,6 +22,8 @@ import Data.Maybe (fromMaybe)
 import qualified Data.HashMap.Strict as M
 import System.Environment (getArgs, getProgName, getEnvironment)
 import System.Exit (exitFailure)
+import Data.Conduit.Network (HostPreference)
+import Data.String (fromString)
 
 -- | A yesod-provided @'AppEnv'@, allows for Development, Testing, and
 --   Production environments
@@ -97,6 +99,7 @@ data AppConfig environment extra = AppConfig
     { appEnv   :: environment
     , appPort  :: Int
     , appRoot  :: Text
+    , appHost  :: HostPreference
     , appExtra :: extra
     } deriving (Show)
 
@@ -142,15 +145,14 @@ configSettings env0 = ConfigSettings
 --   >   host: localhost
 --   >   port: 3000
 --   >
---   >   -- ssl: will default false
---   >   -- approot: will default to "http://localhost:3000"
+--   >   -- approot: will default to ""
 --
 --   > -- typical outward-facing production box
 --   > Production:
 --   >   host: www.example.com
 --   >
---   >   -- ssl: will default false
 --   >   -- port: will default 80
+--   >   -- host: will default to "*"
 --   >   -- approot: will default "http://www.example.com"
 --
 --   > -- maybe you're reverse proxying connections to the running app
@@ -158,10 +160,7 @@ configSettings env0 = ConfigSettings
 --   > Production:
 --   >   port: 8080
 --   >   approot: "http://example.com"
---   >
---   > -- approot is specified so that the non-80 port is not appended
---   > -- automatically.
---
+--   >   host: "localhost"
 loadConfig :: ConfigSettings environment extra
            -> IO (AppConfig environment extra)
 loadConfig (ConfigSettings env parseExtra getFile getObject) = do
@@ -174,30 +173,20 @@ loadConfig (ConfigSettings env parseExtra getFile getObject) = do
             Object m -> return m
             _ -> fail "Expected map"
 
-    let mssl     = lookupScalar "ssl"     m
-    let mhost    = lookupScalar "host"    m
+    let host    = fromString $ T.unpack $ fromMaybe "*" $ lookupScalar "host"    m
     mport <- parseMonad (\x -> x .: "port") m
-    let mapproot = lookupScalar "approot" m
+    let approot = fromMaybe "" $ lookupScalar "approot" m
 
     extra <- parseMonad (parseExtra env) m
 
     -- set some default arguments
-    let ssl = maybe False toBool mssl
-    let port' = fromMaybe (if ssl then 443 else 80) mport
-
-    approot <- case (mhost, mapproot) of
-        (_        , Just ar) -> return ar
-        (Just host, _      ) -> return $ T.concat
-            [ if ssl then "https://" else "http://"
-            , host
-            , addPort ssl port'
-            ]
-        _ -> fail "You must supply either a host or approot"
+    let port' = fromMaybe 80 mport
 
     return $ AppConfig
         { appEnv   = env
         , appPort  = port'
         , appRoot  = approot
+        , appHost  = host
         , appExtra = extra
         }
 
@@ -207,13 +196,6 @@ loadConfig (ConfigSettings env parseExtra getFile getObject) = do
                 Just (String t) -> return t
                 Just _ -> fail $ "Invalid value for: " ++ show k
                 Nothing -> fail $ "Not found: " ++ show k
-        toBool :: Text -> Bool
-        toBool = (`elem` ["true", "TRUE", "yes", "YES", "Y", "1"])
-
-        addPort :: Bool -> Int -> Text
-        addPort True  443 = ""
-        addPort False 80  = ""
-        addPort _     p   = T.pack $ ':' : show p
 
 -- | Loads the configuration block in the passed file named by the
 --   passed environment, yeilds to the passed function as a mapping.
