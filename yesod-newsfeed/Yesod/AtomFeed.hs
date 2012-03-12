@@ -37,12 +37,7 @@ atomFeed :: Feed (Route master) -> GHandler sub master RepAtom
 atomFeed = liftM RepAtom . hamletToContent . template
 
 template :: Feed url -> HtmlUrl url
-template arg =
-#if __GLASGOW_HASKELL__ >= 700
-                [xhamlet|
-#else
-                [$xhamlet|
-#endif
+template arg = [xhamlet|
 \<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"
     <title>#{feedTitle arg}
@@ -55,12 +50,7 @@ template arg =
 |]
 
 entryTemplate :: FeedEntry url -> HtmlUrl url
-entryTemplate arg =
-#if __GLASGOW_HASKELL__ >= 700
-                [xhamlet|
-#else
-                [$xhamlet|
-#endif
+entryTemplate arg = [xhamlet|
 <entry
     <id>@{feedEntryLink arg}
     <link href=@{feedEntryLink arg}
@@ -76,11 +66,6 @@ entryTemplate arg =
 atomLink :: Route m
          -> Text -- ^ title
          -> GWidget s m ()
-atomLink r title = addHamletHead
-#if __GLASGOW_HASKELL__ >= 700
-                [hamlet|
-#else
-                [$hamlet|
-#endif
+atomLink r title = addHamletHead [hamlet|
 <link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}
 |]

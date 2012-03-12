@@ -26,13 +26,6 @@ prompt f = do
             hFlush stdout
             prompt f
 
-qq :: String
-#if __GLASGOW_HASKELL__ >= 700
-qq = ""
-#else
-qq = "$"
-#endif
-
 data Backend = Sqlite | Postgresql | Mysql | MongoDB | Tiny
   deriving (Eq, Read, Show, Enum, Bounded)
 

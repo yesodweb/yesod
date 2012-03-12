@@ -57,12 +57,7 @@ data SitemapUrl url = SitemapUrl
     }
 
 template :: [SitemapUrl url] -> HtmlUrl url
-template urls =
-#if __GLASGOW_HASKELL__ >= 700
-                [xhamlet|
-#else
-                [$xhamlet|
-#endif
+template urls = [xhamlet|
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     $forall url <- urls
         <url>
