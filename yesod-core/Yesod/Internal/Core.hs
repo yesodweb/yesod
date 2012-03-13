@@ -47,7 +47,6 @@ import Yesod.Handler hiding (lift, getExpires)
 
 import Yesod.Routes.Class
 
-import Control.Applicative ((<$>))
 import Control.Arrow ((***))
 import Control.Monad (forM)
 import Yesod.Widget
@@ -151,18 +150,6 @@ class RenderRoute a => Yesod a where
     -- implementation.
     approot :: Approot a
     approot = ApprootRelative
-
-    -- | The encryption key to be used for encrypting client sessions.
-    -- Returning 'Nothing' disables sessions.
-    -- this method will be removed in Yesod 1.0, use makeSessionBackend instead
-    encryptKey :: a -> IO (Maybe CS.Key)
-    encryptKey _ = fmap Just $ CS.getKey CS.defaultKeyFile
-
-    -- | Number of minutes before a client session times out. Defaults to
-    -- 120 (2 hours).
-    -- this method will be removed in Yesod 1.0, use makeSessionBackend instead
-    clientSessionDuration :: a -> Int
-    clientSessionDuration = const 120
 
     -- | Output error response pages.
     errorHandler :: ErrorResponse -> GHandler sub a ChooseRep
@@ -313,29 +300,22 @@ class RenderRoute a => Yesod a where
     gzipSettings :: a -> GzipSettings
     gzipSettings _ = def
 
-    -- | Deprecated. Use 'jsloader'. To use yepnope: jsLoader = BottomOfHeadAsync (loadJsYepnope eyn)
-    -- Location of yepnope.js, if any. If one is provided, then all
-    -- Javascript files will be loaded asynchronously.
-    yepnopeJs :: a -> Maybe (Either Text (Route a))
-    yepnopeJs _ = Nothing
-
-    -- | Where to Load sripts from. We recommend changing this to 'BottomOfBody'
-    -- Alternatively use the built in async yepnope loader:
+    -- | Where to Load sripts from. We recommend the default value,
+    -- 'BottomOfBody'.  Alternatively use the built in async yepnope loader:
     --
     -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
     --
     -- Or write your own async js loader: see 'loadJsYepnope'
     jsLoader :: a -> ScriptLoadPosition a
-    jsLoader y = case yepnopeJs y of
-                   Nothing  -> BottomOfHeadBlocking
-                   Just eyn -> BottomOfHeadAsync (loadJsYepnope eyn)
+    jsLoader _ = BottomOfBody
 
     -- | Create a session backend. Returning `Nothing' disables sessions.
+    --
+    -- Default: Uses clientsession with a 2 hour timeout.
     makeSessionBackend :: a -> IO (Maybe (SessionBackend a))
-    makeSessionBackend a = do
-        key <- encryptKey a
-        return $
-            (\k -> clientSessionBackend k (clientSessionDuration a)) <$> key
+    makeSessionBackend _ = do
+        key <- CS.getKey CS.defaultKeyFile
+        return $ Just $ clientSessionBackend key 120
 
 type Session = [(Text, S8.ByteString)]
 
