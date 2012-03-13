@@ -12,7 +12,7 @@ import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Form
 import Yesod.Handler
-import Yesod.Widget
+import Yesod.Widget (toWidget, whamlet)
 import Yesod.Request
 import Text.Cassius (cassius)
 import Text.Blaze (toHtml)
@@ -34,8 +34,7 @@ authOpenIdExtended extensionFields =
     name = "openid_identifier"
     login tm = do
         ident <- lift newIdent
-        addCassius
-            [cassius|##{ident}
+        toWidget [cassius|##{ident}
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
 |]
