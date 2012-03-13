@@ -40,19 +40,19 @@ nonceSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqNonce)"
 
 noDisabledNonce :: Bool
 noDisabledNonce = reqNonce r == Nothing where
-  r = parseWaiRequest' defaultRequest [] Nothing g
+  r = parseWaiRequest' defaultRequest [] False g
 
 ignoreDisabledNonce :: Bool
 ignoreDisabledNonce = reqNonce r == Nothing where
-  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] Nothing g
+  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] False g
 
 useOldNonce :: Bool
 useOldNonce = reqNonce r == Just "old" where
-  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] (Just undefined) g
+  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] True g
 
 generateNonce :: Bool
 generateNonce = reqNonce r /= Nothing where
-  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] (Just undefined) g
+  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] True g
 
 
 langSpecs :: [Spec]
@@ -67,21 +67,21 @@ langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)"
 respectAcceptLangs :: Bool
 respectAcceptLangs = reqLangs r == ["en-US", "es", "en"] where
   r = parseWaiRequest' defaultRequest
-        { requestHeaders = [("Accept-Language", "en-US, es")] } [] Nothing g
+        { requestHeaders = [("Accept-Language", "en-US, es")] } [] False g
 
 respectSessionLang :: Bool
 respectSessionLang = reqLangs r == ["en"] where
-  r = parseWaiRequest' defaultRequest [("_LANG", "en")] Nothing g
+  r = parseWaiRequest' defaultRequest [("_LANG", "en")] False g
 
 respectCookieLang :: Bool
 respectCookieLang = reqLangs r == ["en"] where
   r = parseWaiRequest' defaultRequest
         { requestHeaders = [("Cookie", "_LANG=en")]
-        } [] Nothing g
+        } [] False g
 
 respectQueryLang :: Bool
 respectQueryLang = reqLangs r == ["en-US", "en"] where
-  r = parseWaiRequest' defaultRequest { queryString = [("_LANG", Just "en-US")] } [] Nothing g
+  r = parseWaiRequest' defaultRequest { queryString = [("_LANG", Just "en-US")] } [] False g
 
 prioritizeLangs :: Bool
 prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "es"] where
@@ -90,7 +90,7 @@ prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "e
                            , ("Cookie", "_LANG=en-COOKIE")
                            ]
         , queryString = [("_LANG", Just "en-QUERY")]
-        } [("_LANG", "en-SESSION")] Nothing g
+        } [("_LANG", "en-SESSION")] False g
 
 
 internalRequestTest :: [Spec]
