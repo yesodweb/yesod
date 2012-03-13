@@ -25,6 +25,12 @@ module Yesod.Internal.Core
     , formatLogMessage
     , fileLocationToString
     , messageLoggerHandler
+      -- * Sessions
+    , SessionBackend (..)
+    , defaultClientSessionBackend
+    , clientSessionBackend
+    , saveClientSession
+    , loadClientSession
       -- * jsLoader
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
@@ -41,6 +47,7 @@ import Yesod.Handler hiding (lift, getExpires)
 
 import Yesod.Routes.Class
 
+import Control.Applicative ((<$>))
 import Control.Arrow ((***))
 import Control.Monad (forM)
 import Yesod.Widget
@@ -49,7 +56,6 @@ import qualified Network.Wai as W
 import Yesod.Internal
 import Yesod.Internal.Session
 import Yesod.Internal.Request
-import Web.ClientSession (getKey, defaultKeyFile)
 import qualified Web.ClientSession as CS
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
@@ -60,7 +66,7 @@ import Text.Blaze ((!), customAttribute, textTag, toValue, unsafeLazyByteString)
 import qualified Text.Blaze.Html5 as TBH
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
@@ -98,11 +104,11 @@ class YesodDispatch sub master where
         => master
         -> sub
         -> (Route sub -> Route master)
-        -> (Maybe CS.Key -> W.Application) -- ^ 404 handler
-        -> (Route sub -> Maybe CS.Key -> W.Application) -- ^ 405 handler
+        -> (Maybe (SessionBackend master) -> W.Application) -- ^ 404 handler
+        -> (Route sub -> Maybe (SessionBackend master) -> W.Application) -- ^ 405 handler
         -> Text -- ^ request method
         -> [Text] -- ^ pieces
-        -> Maybe CS.Key
+        -> Maybe (SessionBackend master)
         -> W.Application
 
     yesodRunner :: Yesod master
@@ -111,7 +117,7 @@ class YesodDispatch sub master where
                 -> sub
                 -> Maybe (Route sub)
                 -> (Route sub -> Route master)
-                -> Maybe CS.Key
+                -> Maybe (SessionBackend master)
                 -> W.Application
     yesodRunner = defaultYesodRunner
 
@@ -148,11 +154,13 @@ class RenderRoute a => Yesod a where
 
     -- | The encryption key to be used for encrypting client sessions.
     -- Returning 'Nothing' disables sessions.
+    -- this method will be removed in Yesod 1.0, use makeSessionBackend instead
     encryptKey :: a -> IO (Maybe CS.Key)
-    encryptKey _ = fmap Just $ getKey defaultKeyFile
+    encryptKey _ = fmap Just $ CS.getKey CS.defaultKeyFile
 
     -- | Number of minutes before a client session times out. Defaults to
     -- 120 (2 hours).
+    -- this method will be removed in Yesod 1.0, use makeSessionBackend instead
     clientSessionDuration :: a -> Int
     clientSessionDuration = const 120
 
@@ -322,6 +330,28 @@ class RenderRoute a => Yesod a where
                    Nothing  -> BottomOfHeadBlocking
                    Just eyn -> BottomOfHeadAsync (loadJsYepnope eyn)
 
+    -- | Create a session backend. Returning `Nothing' disables sessions.
+    makeSessionBackend :: a -> IO (Maybe (SessionBackend a))
+    makeSessionBackend a = do
+        key <- encryptKey a
+        return $
+            (\k -> clientSessionBackend k (clientSessionDuration a)) <$> key
+
+type Session = [(Text, S8.ByteString)]
+
+data SessionBackend master = SessionBackend
+    { sbSaveSession :: master
+                    -> W.Request
+                    -> UTCTime -- ^ The current time
+                    -> Session -- ^ The old session (before running handler)
+                    -> Session -- ^ The final session
+                    -> IO [Header]
+    , sbLoadSession :: master
+                    -> W.Request
+                    -> UTCTime -- ^ The current time
+                    -> IO Session
+    }
+
 messageLoggerHandler :: Yesod m
                      => Loc -> LogLevel -> Text -> GHandler s m ()
 messageLoggerHandler loc level msg = do
@@ -370,7 +400,7 @@ defaultYesodRunner :: Yesod master
                    -> sub
                    -> Maybe (Route sub)
                    -> (Route sub -> Route master)
-                   -> Maybe CS.Key
+                   -> Maybe (SessionBackend master)
                    -> W.Application
 defaultYesodRunner _ master _ murl toMaster _ req
     | maximumContentLength master (fmap toMaster murl) < len =
@@ -384,20 +414,11 @@ defaultYesodRunner _ master _ murl toMaster _ req
         case reads $ S8.unpack s of
             [] -> Nothing
             (x, _):_ -> Just x
-defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
-    now <- {-# SCC "getCurrentTime" #-} liftIO getCurrentTime
-    let getExpires m = {-# SCC "getExpires" #-} fromIntegral (m * 60) `addUTCTime` now
-    let exp' = {-# SCC "exp'" #-} getExpires $ clientSessionDuration master
-    --let rh = {-# SCC "rh" #-} takeWhile (/= ':') $ show $ W.remoteHost req
-    let host = "" -- FIXME if sessionIpAddress master then S8.pack rh else ""
-    let session' = {-# SCC "session'" #-}
-            case mkey of
-                Nothing -> []
-                Just key -> fromMaybe [] $ do
-                    raw <- lookup "Cookie" $ W.requestHeaders req
-                    val <- lookup sessionName $ parseCookies raw
-                    decodeSession key now host val
-    rr <- liftIO $ parseWaiRequest req session' mkey
+defaultYesodRunner handler master sub murl toMasterRoute msb req = do
+    now <- liftIO getCurrentTime
+    session <- liftIO $
+        maybe (return []) (\sb -> sbLoadSession sb master req now) msb
+    rr <- liftIO $ parseWaiRequest req session (isJust msb)
     let h = {-# SCC "h" #-} do
           case murl of
             Nothing -> handler
@@ -415,39 +436,23 @@ defaultYesodRunner handler master sub murl toMasterRoute mkey req = do
                                 redirect url'
                     Unauthorized s' -> permissionDenied s'
                 handler
-    let sessionMap = Map.fromList
-                   $ filter (\(x, _) -> x /= nonceKey) session'
+    let sessionMap = Map.fromList . filter ((/=) nonceKey . fst) $ session
     let ra = resolveApproot master req
-    yar <- handlerToYAR master sub toMasterRoute (yesodRender master ra) errorHandler rr murl sessionMap h
-    let mnonce = reqNonce rr
-    -- FIXME should we be caching this IV value and reusing it for efficiency?
-    iv <- {-# SCC "iv" #-} maybe (return $ error "Should not be used") (const $ liftIO CS.randomIV) mkey
-    return $ yarToResponse (hr iv mnonce getExpires host exp') yar
-  where
-    hr iv mnonce getExpires host exp' hs ct sm =
-        hs'''
-      where
-        sessionVal =
-            case (mkey, mnonce) of
-                (Just key, Just nonce)
-                    -> encodeSession key iv exp' host
-                     $ Map.toList
-                     $ Map.insert nonceKey (TE.encodeUtf8 nonce) sm
-                _ -> mempty
-        hs' =
-            case mkey of
-                Nothing -> hs
-                Just _ -> AddCookie def
-                            { setCookieName = sessionName
-                            , setCookieValue = sessionVal
-                            , setCookiePath = Just (cookiePath master)
-                            , setCookieExpires = Just $ getExpires (clientSessionDuration master)
-                            , setCookieDomain = Nothing
-                            , setCookieHttpOnly = True
-                            }
-                          : hs
-        hs'' = map headerToPair hs'
-        hs''' = ("Content-Type", ct) : hs''
+    yar <- handlerToYAR master sub toMasterRoute
+        (yesodRender master ra) errorHandler rr murl sessionMap h
+    extraHeaders <- case yar of
+        (YARPlain _ _ ct _ newSess) -> do
+            let nsNonce = Map.toList $ maybe
+                    newSess
+                    (\n -> Map.insert nonceKey (TE.encodeUtf8 n) newSess)
+                    (reqNonce rr)
+            sessionHeaders <- liftIO $ maybe
+                (return [])
+                (\sb -> sbSaveSession sb master req now session nsNonce)
+                msb
+            return $ ("Content-Type", ct) : map headerToPair sessionHeaders
+        _ -> return []
+    return $ yarToResponse yar extraHeaders
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
     deriving (Eq, Show, Read)
@@ -712,3 +717,56 @@ resolveApproot master req =
         ApprootStatic t -> t
         ApprootMaster f -> f master
         ApprootRequest f -> f master req
+
+defaultClientSessionBackend :: Yesod master => IO (SessionBackend master)
+defaultClientSessionBackend = do
+  key <- CS.getKey CS.defaultKeyFile
+  let timeout = 120 -- 120 minutes
+  return $ clientSessionBackend key timeout
+
+clientSessionBackend :: Yesod master 
+                     => CS.Key  -- ^ The encryption key
+                     -> Int -- ^ Inactive session valitity in minutes
+                     -> SessionBackend master
+clientSessionBackend key timeout = SessionBackend
+    { sbSaveSession = saveClientSession key timeout
+    , sbLoadSession = loadClientSession key
+    }
+
+loadClientSession :: Yesod master
+                  => CS.Key
+                  -> master
+                  -> W.Request
+                  -> UTCTime
+                  -> IO Session
+loadClientSession key _ req now = return . fromMaybe [] $ do
+    raw <- lookup "Cookie" $ W.requestHeaders req
+    val <- lookup sessionName $ parseCookies raw
+    let host = "" -- fixme, properly lock sessions to client address
+    decodeClientSession key now host val
+
+saveClientSession :: Yesod master
+                  => CS.Key
+                  -> Int
+                  -> master
+                  -> W.Request
+                  -> UTCTime
+                  -> Session
+                  -> Session
+                  -> IO [Header]
+saveClientSession key timeout master _ now _ sess = do
+    -- fixme should we be caching this?
+    iv <- liftIO $ CS.randomIV
+    return [AddCookie def 
+        { setCookieName = sessionName
+        , setCookieValue = sessionVal iv
+        , setCookiePath = Just (cookiePath master)
+        , setCookieExpires = Just expires
+        , setCookieDomain = Nothing
+        , setCookieHttpOnly = True
+        }]
+  where
+    host = "" -- fixme, properly lock sessions to client address
+    expires = fromIntegral (timeout * 60) `addUTCTime` now
+    sessionVal iv = encodeClientSession key iv expires host sess
+
