@@ -27,6 +27,12 @@ module Yesod.Core
     , logWarn
     , logError
     , logOther
+      -- * Sessions
+    , SessionBackend (..)
+    , defaultClientSessionBackend
+    , clientSessionBackend
+    , saveClientSession
+    , loadClientSession
     -- * JS loaders
     , loadJsYepnope
     , ScriptLoadPosition (..)

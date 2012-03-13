@@ -1,6 +1,6 @@
 module Yesod.Internal.Session
-    ( encodeSession
-    , decodeSession
+    ( encodeClientSession
+    , decodeClientSession
     ) where
 
 import qualified Web.ClientSession as CS
@@ -12,21 +12,21 @@ import Data.Text (Text, pack, unpack)
 import Control.Arrow (first)
 import Control.Applicative ((<$>))
 
-encodeSession :: CS.Key
-              -> CS.IV
-              -> UTCTime -- ^ expire time
-              -> ByteString -- ^ remote host
-              -> [(Text, ByteString)] -- ^ session
-              -> ByteString -- ^ cookie value
-encodeSession key iv expire rhost session' =
+encodeClientSession :: CS.Key
+                    -> CS.IV
+                    -> UTCTime -- ^ expire time
+                    -> ByteString -- ^ remote host
+                    -> [(Text, ByteString)] -- ^ session
+                    -> ByteString -- ^ cookie value
+encodeClientSession key iv expire rhost session' =
     CS.encrypt key iv $ encode $ SessionCookie expire rhost session'
 
-decodeSession :: CS.Key
-              -> UTCTime -- ^ current time
-              -> ByteString -- ^ remote host field
-              -> ByteString -- ^ cookie value
-              -> Maybe [(Text, ByteString)]
-decodeSession key now rhost encrypted = do
+decodeClientSession :: CS.Key
+                    -> UTCTime -- ^ current time
+                    -> ByteString -- ^ remote host field
+                    -> ByteString -- ^ cookie value
+                    -> Maybe [(Text, ByteString)]
+decodeClientSession key now rhost encrypted = do
     decrypted <- CS.decrypt key encrypted
     SessionCookie expire rhost' session' <-
         either (const Nothing) Just $ decode decrypted
