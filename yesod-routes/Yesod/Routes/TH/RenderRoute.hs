@@ -2,6 +2,7 @@
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
       mkRenderRouteInstance
+    , mkRenderRouteInstance'
     , mkRouteCons
     , mkRenderRouteClauses
     ) where
@@ -89,12 +90,19 @@ mkRenderRouteClauses =
 
 -- | Generate the 'RenderRoute' instance.
 --
--- This includes both the 'Route' associated type and the 'renderRoute' method.
--- This function uses both 'mkRouteCons' and 'mkRenderRouteClasses'.
+-- This includes both the 'Route' associated type and the
+-- 'renderRoute' method.  This function uses both 'mkRouteCons' and
+-- 'mkRenderRouteClasses'.
 mkRenderRouteInstance :: Type -> [Resource Type] -> Q Dec
-mkRenderRouteInstance typ ress = do
+mkRenderRouteInstance = mkRenderRouteInstance' []
+
+-- | A more general version of 'mkRenderRouteInstance' which takes an
+-- additional context.
+
+mkRenderRouteInstance' :: Cxt -> Type -> [Resource Type] -> Q Dec
+mkRenderRouteInstance' cxt typ ress = do
     cls <- mkRenderRouteClauses ress
-    return $ InstanceD [] (ConT ''RenderRoute `AppT` typ)
+    return $ InstanceD cxt (ConT ''RenderRoute `AppT` typ)
         [ DataInstD [] ''Route [typ] (mkRouteCons ress) clazzes
         , FunD (mkName "renderRoute") cls
         ]

@@ -6,6 +6,8 @@ module Yesod.Auth.Message
       -- * All languages
     , englishMessage
     , portugueseMessage
+    , swedishMessage
+    , germanMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -113,3 +115,71 @@ portugueseMessage NowLoggedIn = "Você acaba de entrar no site com sucesso!"
 portugueseMessage LoginTitle = "Entrar no site"
 portugueseMessage PleaseProvideUsername = "Por favor digite seu nome de usuário"
 portugueseMessage PleaseProvidePassword = "Por favor digite sua senha"
+
+swedishMessage :: AuthMessage -> Text
+swedishMessage NoOpenID = "Fann ej OpenID identifierare"
+swedishMessage LoginOpenID = "Logga in via OpenID"
+swedishMessage LoginGoogle = "Logga in via Google"
+swedishMessage LoginYahoo = "Logga in via Yahoo"
+swedishMessage Email = "Epost"
+swedishMessage Password = "Lösenord"
+swedishMessage Register = "Registrera"
+swedishMessage RegisterLong = "Registrera ett nytt konto"
+swedishMessage EnterEmail = "Skriv in din epost nedan så kommer ett konfirmationsmail skickas till adressen."
+swedishMessage ConfirmationEmailSentTitle = "Konfirmationsmail skickat"
+swedishMessage (ConfirmationEmailSent email) =
+    "Ett konfirmationsmeddelande har skickats till" `mappend`
+    email `mappend`
+    "."
+swedishMessage AddressVerified = "Adress verifierad, vänligen välj nytt lösenord"
+swedishMessage InvalidKeyTitle = "Ogiltig verifikationsnyckel"
+swedishMessage InvalidKey = "Tyvärr, du angav en ogiltig verifimationsnyckel."
+swedishMessage InvalidEmailPass = "Ogiltig epost/lösenord kombination"
+swedishMessage BadSetPass = "Du måste vara inloggad för att ange ett lösenord"
+swedishMessage SetPassTitle = "Ange lösenord"
+swedishMessage SetPass = "Ange nytt lösenord"
+swedishMessage NewPass = "Nytt lösenord"
+swedishMessage ConfirmPass = "Godkänn"
+swedishMessage PassMismatch = "Lösenorden matcha ej, vänligen försök igen"
+swedishMessage PassUpdated = "Lösenord updaterades"
+swedishMessage Facebook = "Logga in med Facebook"
+swedishMessage LoginViaEmail = "Logga in via epost"
+swedishMessage InvalidLogin = "Ogiltigt login"
+swedishMessage NowLoggedIn = "Du är nu inloggad"
+swedishMessage LoginTitle = "Logga in"
+swedishMessage PleaseProvideUsername = "Vänligen fyll i användarnamn"
+swedishMessage PleaseProvidePassword = "Vänligen fyll i lösenord"
+
+germanMessage :: AuthMessage -> Text
+germanMessage NoOpenID = "Kein OpenID-Identifier gefunden"
+germanMessage LoginOpenID = "Login via OpenID"
+germanMessage LoginGoogle = "Login via Google"
+germanMessage LoginYahoo = "Login via Yahoo"
+germanMessage Email = "Email"
+germanMessage Password = "Passwort"
+germanMessage Register = "Registrieren"
+germanMessage RegisterLong = "Neuen Account registrieren"
+germanMessage EnterEmail = "Bitte die e-Mail Adresse angeben, eine Bestätigungsmail wird verschickt."
+germanMessage ConfirmationEmailSentTitle = "Bestätigung verschickt."
+germanMessage (ConfirmationEmailSent email) =
+    "Eine Bestätigung wurde an " `mappend`
+    email `mappend`
+    "versandt."
+germanMessage AddressVerified = "Adresse bestätigt, bitte neues Passwort angeben"
+germanMessage InvalidKeyTitle = "Ungültiger Bestätigungsschlüssel"
+germanMessage InvalidKey = "Das war leider ein ungültiger Bestätigungsschlüssel"
+germanMessage InvalidEmailPass = "Ungültiger Nutzername oder Passwort"
+germanMessage BadSetPass = "Um das Passwort zu ändern muss man eingeloggt sein"
+germanMessage SetPassTitle = "Passwort angeben"
+germanMessage SetPass = "Neues Passwort angeben"
+germanMessage NewPass = "Neues Passwort"
+germanMessage ConfirmPass = "Bestätigen"
+germanMessage PassMismatch = "Die Passwörter stimmten nicht überein"
+germanMessage PassUpdated = "Passwort überschrieben"
+germanMessage Facebook = "Login über Facebook"
+germanMessage LoginViaEmail = "Login via e-Mail"
+germanMessage InvalidLogin = "Ungültiger Login"
+germanMessage NowLoggedIn = "Login erfolgreich"
+germanMessage LoginTitle = "Login"
+germanMessage PleaseProvideUsername = "Bitte Nutzername angeben"
+germanMessage PleaseProvidePassword = "Bitte Passwort angeben"
