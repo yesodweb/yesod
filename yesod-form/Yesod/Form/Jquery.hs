@@ -65,13 +65,13 @@ jqueryDayField jds = Field
               . readMay
               . unpack
     , fieldView = \theId name theClass val isReq -> do
-        addHtml [shamlet|\
+        toWidget [shamlet|
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJulius [julius|
+        toWidget [julius|
 $(function(){
     var i = $("##{theId}");
     if (i.attr("type") != "date") {
@@ -104,13 +104,13 @@ jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master
 jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name theClass val isReq -> do
-        addHtml [shamlet|\
+        toWidget [shamlet|
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        addJulius [julius|
+        toWidget [julius|
 $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     }

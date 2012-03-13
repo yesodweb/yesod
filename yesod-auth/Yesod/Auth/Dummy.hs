@@ -12,7 +12,7 @@ import Yesod.Auth
 import Yesod.Form (runInputPost, textField, ireq)
 import Yesod.Handler (notFound)
 import Text.Hamlet (hamlet)
-import Yesod.Widget (addHamlet)
+import Yesod.Widget (toWidget)
 
 authDummy :: YesodAuth m => AuthPlugin m
 authDummy =
@@ -24,7 +24,7 @@ authDummy =
     dispatch _ _ = notFound
     url = PluginR "dummy" []
     login authToMaster =
-        addHamlet [hamlet|
+        toWidget [hamlet|
 <form method="post" action="@{authToMaster url}">
     Your new identifier is: #
     <input type="text" name="ident">

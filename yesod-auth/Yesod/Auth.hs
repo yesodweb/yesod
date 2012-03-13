@@ -149,7 +149,7 @@ setCreds doRedirects creds = do
         Nothing ->
           when doRedirects $ do
             case authRoute y of
-              Nothing -> do rh <- defaultLayout $ addHtml [shamlet| <h1>Invalid login |]
+              Nothing -> do rh <- defaultLayout $ toWidget [shamlet| <h1>Invalid login |]
                             sendResponse rh
               Just ar -> do setMessageI Msg.InvalidLogin
                             redirect ar
@@ -164,7 +164,7 @@ getCheckR = do
     creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle "Authentication Status"
-        addHtml $ html' creds) (jsonCreds creds)
+        toWidget $ html' creds) (jsonCreds creds)
   where
     html' creds =
         [shamlet|
