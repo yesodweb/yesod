@@ -5,6 +5,8 @@ module Yesod.Auth.OAuth
     , oauthUrl
     , authTwitter
     , twitterUrl
+	, authTumblr
+	, tumblrUrl
     , module Web.Authenticate.OAuth
     ) where
 
@@ -100,6 +102,29 @@ authTwitter key secret = authOAuth
 
 twitterUrl :: AuthRoute
 twitterUrl = oauthUrl "twitter"
+
+authTumblr :: YesodAuth m
+            => ByteString -- ^ Consumer Key
+            -> ByteString -- ^ Consumer Secret
+            -> AuthPlugin m
+authTumblr key secret = authOAuth
+                (newOAuth { oauthServerName      = "tumblr"
+                          , oauthRequestUri      = "http://www.tumblr.com/oauth/request_token"
+                          , oauthAccessTokenUri  = "http://www.tumblr.com/oauth/access_token"
+                          , oauthAuthorizeUri    = "http://www.tumblr.com/oauth/authorize"
+                          , oauthSignatureMethod = HMACSHA1
+                          , oauthConsumerKey     = key
+                          , oauthConsumerSecret  = secret
+                          , oauthVersion         = OAuth10a
+                          })
+                extractCreds
+  where
+    extractCreds (Credential dic) = do
+        let crId = decodeUtf8With lenientDecode $ fromJust $ lookup "name" dic
+        return $ Creds "tumblr" crId $ map (bsToText *** bsToText ) dic
+
+tumblrUrl :: AuthRoute
+tumblrUrl = oauthUrl "tumblr"
 
 bsToText :: ByteString -> Text
 bsToText = decodeUtf8With lenientDecode
