@@ -16,13 +16,14 @@ data H = H
 mkYesod "H" [parseRoutes|
 / HeadR GET
 |]
-instance Yesod H
+instance Yesod H where
+    jsLoader _ = BottomOfHeadBlocking
 
 getHeadR :: Handler RepHtml
 getHeadR = defaultLayout $ addScriptRemote "load.js"
 
 specs :: [Spec]
-specs = describe "Test.Links" [
+specs = describe "Test.JsLoader" [
     it "link from head" $ runner H $ do
       res <- request defaultRequest
       assertBody "<!DOCTYPE html>\n<html><head><title></title><script src=\"load.js\"></script></head><body></body></html>" res
