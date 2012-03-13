@@ -79,10 +79,12 @@ parseWaiRequest' env session' useNonce gen =
     -- nonceKey present in the session is ignored). If sessions
     -- are enabled and a session has no nonceKey a new one is
     -- generated.
-    nonce = case (useNonce, lookup nonceKey session') of
-                (False, _)  -> Nothing
-                (_, Just x) -> Just $ decodeUtf8With lenientDecode x
-                _           -> Just $ pack $ randomString 10 gen
+    nonce = if not useNonce
+              then Nothing
+              else Just $ maybe
+                            (pack $ randomString 10 gen)
+                            (decodeUtf8With lenientDecode)
+                            (lookup nonceKey session')
 
 addTwoLetters :: ([Text] -> [Text], Set.Set Text) -> [Text] -> [Text]
 addTwoLetters (toAdd, exist) [] =
