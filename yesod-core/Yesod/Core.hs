@@ -33,6 +33,10 @@ module Yesod.Core
     , clientSessionBackend
     , saveClientSession
     , loadClientSession
+    -- * JS loaders
+    , loadJsYepnope
+    , ScriptLoadPosition (..)
+    , BottomOfHeadAsync
       -- * Misc
     , yesodVersion
     , yesodRender

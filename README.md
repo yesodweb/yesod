@@ -95,8 +95,11 @@ virthualenv --name=yesod
 #### individual cabal packages
 
 ~~~ { .bash }
-# install and test all packages
+# install and test all packages in a repo
 ./scripts/install
+
+# If things seem weird, you may need to do a clean.
+./scripts/install --clean
 
 # move to the individual package you are working on
 cd shakespeare-text
@@ -109,17 +112,12 @@ cabal test
 
 #### cabal-dev
 
-cabal-dev works very well if you are working on a single package, but it can be very cumbersome to work on multiple packages at once.
+cabal-dev works very well if you are working on a single package.
+For working on multiple packages at once (installing Yesod), you need to use the shared sandbox feature.
 
 ### Use your development version of Yesod in your application
 
 Note that we have recommended to you to install Yesod into a sandboxed virthualenv environment.
 This is great for development, but when you want to use these development versions in your application that means they are not available through your user/global cabal database for your application.
 You should just continue to use your yesod virthualenv shell for your application.
-
-You can also use `cabal-dev install` to retrieve these packages.
-cd to your application directory, and the reference the source list.
-
-~~~ { .bash }
-cabal-dev install /path/to/yesodweb/yesod/*(/)
-~~~
+You can also use the same`cabal-dev shared sandbox.

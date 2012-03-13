@@ -98,5 +98,5 @@ instance Yesod ~sitearg~ where
     -- users receiving stale content.
     addStaticContent = addStaticContentExternal (const $ Left ()) base64md5 Settings.staticDir (StaticR . flip StaticRoute [])
 
-    -- Enable Javascript async loading
-    yepnopeJs _ = Just $ Right $ StaticR js_modernizr_js
+    -- Place Javascript at bottom of the body tag so the rest of the page loads first
+    jsLoader _ = BottomOfBody

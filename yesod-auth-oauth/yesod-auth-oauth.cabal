@@ -1,5 +1,5 @@
 name:            yesod-auth-oauth
-version:         0.8.0
+version:         0.8.1
 license:         BSD3
 license-file:    LICENSE
 author:          Hiromi Ishii
@@ -21,12 +21,13 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                >= 4        && < 4.3
-    build-depends:   authenticate-oauth      >= 1.0       && < 1.1
+    build-depends:   authenticate-oauth      >= 1.1       && < 1.2
                    , bytestring              >= 0.9.1.4   && < 0.10
                    , yesod-core              >= 0.10      && < 0.11
                    , yesod-auth              >= 0.8       && < 0.9
                    , text                    >= 0.7       && < 0.12
                    , hamlet                  >= 0.10      && < 0.11
+                   , conduit                 >= 0.2       && < 0.3
                    , yesod-form              >= 0.4       && < 0.5
 
     exposed-modules: Yesod.Auth.OAuth
