@@ -63,7 +63,7 @@ widgetFileNoReload x = do
     let c = whenExists x "cassius" cassiusFile
     let j = whenExists x "julius"  juliusFile
     let l = whenExists x "lucius"  luciusFile
-    [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
+    [|$h >> toWidget $c >> toWidget $j >> toWidget $l|]
 
 widgetFileReload :: FilePath -> Q Exp
 widgetFileReload x = do
@@ -71,7 +71,7 @@ widgetFileReload x = do
     let c = whenExists x "cassius" cassiusFileReload
     let j = whenExists x "julius"  juliusFileReload
     let l = whenExists x "lucius"  luciusFileReload
-    [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
+    [|$h >> toWidget $c >> toWidget $j >> toWidget $l|]
 
 widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
                 -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("julius", juliusFileReload)
@@ -80,7 +80,7 @@ widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = do
     let h = whenExists x "hamlet"  whamletFile
     let c = whenExists x csExt csLoad
     let j = whenExists x jsExt jsLoad
-    [|$h >> addCassius $c >> addJulius $j|]
+    [|$h >> toWidget $c >> toWidget $j|]
 
 whenExists :: String -> String -> (FilePath -> Q Exp) -> Q Exp
 whenExists = warnUnlessExists False

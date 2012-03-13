@@ -76,7 +76,7 @@ import Yesod.Persist
 import Yesod.Handler
 import Yesod.Form
 import Yesod.Auth
-import Yesod.Widget (addHamlet)
+import Yesod.Widget (toWidget)
 import Text.Hamlet (hamlet, shamlet)
 
 import Control.Applicative         ((<$>), (<*>))
@@ -221,8 +221,7 @@ authHashDB :: ( YesodAuth m, YesodPersist m
               , PersistStore b (GHandler Auth m)
               , PersistUnique b (GHandler Auth m))
            => (Text -> Maybe (Unique user b)) -> AuthPlugin m
-authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
-    [hamlet|
+authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> toWidget [hamlet|
     <div id="header">
         <h1>Login
 

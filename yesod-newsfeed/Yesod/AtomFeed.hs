@@ -66,6 +66,6 @@ entryTemplate arg = [xhamlet|
 atomLink :: Route m
          -> Text -- ^ title
          -> GWidget s m ()
-atomLink r title = addHamletHead [hamlet|
+atomLink r title = toWidgetHead [hamlet|
 <link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}
 |]

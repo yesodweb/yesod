@@ -114,37 +114,37 @@ class ToWidget sub master a where
 type RY master = Route master -> [(Text, Text)] -> Text
 
 instance render ~ RY master => ToWidget sub master (render -> Html) where
-    toWidget = addHamlet
+    toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
 instance render ~ RY master => ToWidget sub master (render -> Css) where
-    toWidget = addCassius
+    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
 instance render ~ RY master => ToWidget sub master (render -> Javascript) where
-    toWidget = addJulius
+    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
 instance ToWidget sub master (GWidget sub master ()) where
     toWidget = id
 instance ToWidget sub master Html where
-    toWidget = addHtml
+    toWidget = toWidget . const
 
 class ToWidgetBody sub master a where
     toWidgetBody :: a -> GWidget sub master ()
 
 instance render ~ RY master => ToWidgetBody sub master (render -> Html) where
-    toWidgetBody = addHamlet
+    toWidgetBody = toWidget
 instance render ~ RY master => ToWidgetBody sub master (render -> Javascript) where
-    toWidgetBody = addJuliusBody
+    toWidgetBody j = toWidget $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 instance ToWidgetBody sub master Html where
-    toWidgetBody = addHtml
+    toWidgetBody = toWidget
 
 class ToWidgetHead sub master a where
     toWidgetHead :: a -> GWidget sub master ()
 
 instance render ~ RY master => ToWidgetHead sub master (render -> Html) where
-    toWidgetHead = addHamletHead
+    toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
 instance render ~ RY master => ToWidgetHead sub master (render -> Css) where
-    toWidgetHead = addCassius
+    toWidgetHead = toWidget
 instance render ~ RY master => ToWidgetHead sub master (render -> Javascript) where
-    toWidgetHead = addJulius
+    toWidgetHead = toWidget
 instance ToWidgetHead sub master Html where
-    toWidgetHead = addHtmlHead
+    toWidgetHead = toWidgetHead . const
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
@@ -164,19 +164,19 @@ setTitleI msg = do
 
 -- | Add a 'Hamlet' to the head tag.
 addHamletHead :: HtmlUrl (Route master) -> GWidget sub master ()
-addHamletHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
+addHamletHead = toWidgetHead
 
 -- | Add a 'Html' to the head tag.
 addHtmlHead :: Html -> GWidget sub master ()
-addHtmlHead = addHamletHead . const
+addHtmlHead = toWidgetHead . const
 
 -- | Add a 'Hamlet' to the body tag.
 addHamlet :: HtmlUrl (Route master) -> GWidget sub master ()
-addHamlet x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
+addHamlet = toWidget
 
 -- | Add a 'Html' to the body tag.
 addHtml :: Html -> GWidget sub master ()
-addHtml = addHamlet . const
+addHtml = toWidget
 
 -- | Add another widget. This is defined as 'id', by can help with types, and
 -- makes widget blocks look more consistent.
@@ -185,11 +185,11 @@ addWidget = id
 
 -- | Add some raw CSS to the style tag. Applies to all media types.
 addCassius :: CssUrl (Route master) -> GWidget sub master ()
-addCassius x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
+addCassius = toWidget
 
 -- | Identical to 'addCassius'.
 addLucius :: CssUrl (Route master) -> GWidget sub master ()
-addLucius = addCassius
+addLucius = toWidget
 
 -- | Add some raw CSS to the style tag, for a specific media type.
 addCassiusMedia :: Text -> CssUrl (Route master) -> GWidget sub master ()
@@ -239,12 +239,12 @@ addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remot
 
 -- | Include raw Javascript in the page's script tag.
 addJulius :: JavascriptUrl (Route master) -> GWidget sub master ()
-addJulius x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
+addJulius = toWidget
 
 -- | Add a new script tag to the body with the contents of this 'Julius'
 -- template.
 addJuliusBody :: JavascriptUrl (Route master) -> GWidget sub master ()
-addJuliusBody j = addHamlet $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
+addJuliusBody = toWidgetBody
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:
@@ -264,7 +264,7 @@ whamletFile = NP.hamletFileWithSettings rules NP.defaultHamletSettings
 
 rules :: Q NP.HamletRules
 rules = do
-    ah <- [|addHtml|]
+    ah <- [|toWidget|]
     let helper qg f = do
             x <- newName "urender"
             e <- f $ VarE x

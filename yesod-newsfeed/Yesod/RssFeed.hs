@@ -63,6 +63,6 @@ entryTemplate arg = [xhamlet|
 rssLink :: Route m
         -> Text -- ^ title
         -> GWidget s m ()
-rssLink r title = addHamletHead [hamlet|
+rssLink r title = toWidgetHead [hamlet|
     <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}
     |]
