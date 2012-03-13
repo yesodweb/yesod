@@ -85,7 +85,7 @@ instance Yesod ~sitearg~ where
     approot = ApprootMaster $ appRoot . settings
 
     -- Store session data on the client in encrypted cookies,
-    -- place the encryption key file in the config folder
+    -- default session idle timeout is 120 minutes
     makeSessionBackend _ = do
         key <- getKey "config/client_session_key.aes"
         return . Just $ clientSessionBackend key 120
