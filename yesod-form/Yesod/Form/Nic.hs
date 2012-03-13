@@ -32,12 +32,12 @@ nicHtmlField :: YesodNic master => Field sub master Html
 nicHtmlField = Field
     { fieldParse = return . Right . fmap (preEscapedText . sanitizeBalance) . listToMaybe
     , fieldView = \theId name theClass val _isReq -> do
-        addHtml [shamlet|
+        toWidget [shamlet|
     <textarea id="#{theId}" :not (null theClass):class="#{T.intercalate " " theClass}" name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit
         master <- lift getYesod
-        addJulius $
+        toWidget $
           case jsLoader master of
             BottomOfHeadBlocking -> [julius|
 bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")});

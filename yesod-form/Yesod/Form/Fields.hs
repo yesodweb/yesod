@@ -48,7 +48,7 @@ module Yesod.Form.Fields
 import Yesod.Form.Types
 import Yesod.Form.I18n.English
 import Yesod.Handler (getMessageRender)
-import Yesod.Widget
+import Yesod.Widget (toWidget, whamlet, GWidget)
 import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
 import Text.Hamlet
 import Text.Blaze (ToHtml (..), preEscapedText, unsafeByteString)
@@ -100,8 +100,7 @@ intField = Field
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidInteger s
 
-    , fieldView = \theId name theClass val isReq -> addHamlet
-        [hamlet|
+    , fieldView = \theId name theClass val isReq -> toWidget [hamlet|
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="number" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -116,8 +115,7 @@ doubleField = Field
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidNumber s
 
-    , fieldView = \theId name theClass val isReq -> addHamlet
-        [hamlet|
+    , fieldView = \theId name theClass val isReq -> toWidget [hamlet|
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="text" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -126,8 +124,7 @@ doubleField = Field
 dayField :: RenderMessage master FormMessage => Field sub master Day
 dayField = Field
     { fieldParse = blank $ parseDate . unpack
-    , fieldView = \theId name theClass val isReq -> addHamlet
-        [hamlet|
+    , fieldView = \theId name theClass val isReq -> toWidget [hamlet|
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="date" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -136,8 +133,7 @@ dayField = Field
 timeField :: RenderMessage master FormMessage => Field sub master TimeOfDay
 timeField = Field
     { fieldParse = blank $ parseTime . unpack
-    , fieldView = \theId name theClass val isReq -> addHamlet
-        [hamlet|
+    , fieldView = \theId name theClass val isReq -> toWidget [hamlet|
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate "" theClass}" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -151,9 +147,8 @@ timeField = Field
 htmlField :: RenderMessage master FormMessage => Field sub master Html
 htmlField = Field
     { fieldParse = blank $ Right . preEscapedText . sanitizeBalance
-    , fieldView = \theId name theClass val _isReq -> addHamlet
+    , fieldView = \theId name theClass val _isReq -> toWidget [hamlet|
         -- FIXME: There was a class="html" attribute, for what purpose?
-        [hamlet|\
 <textarea id="#{theId}" name="#{name}" :not (null theClass):class=#{T.intercalate " " theClass}>#{showVal val}
 |]
     }
@@ -180,8 +175,7 @@ instance ToHtml Textarea where
 textareaField :: RenderMessage master FormMessage => Field sub master Textarea
 textareaField = Field
     { fieldParse =  blank $ Right . Textarea
-    , fieldView = \theId name theClass val _isReq -> addHamlet
-        [hamlet|\
+    , fieldView = \theId name theClass val _isReq -> toWidget [hamlet|
 <textarea id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}">#{either id unTextarea val}
 |]
     }
@@ -189,8 +183,7 @@ textareaField = Field
 hiddenField :: RenderMessage master FormMessage => Field sub master Text
 hiddenField = Field
     { fieldParse = blank $ Right
-    , fieldView = \theId name theClass val _isReq -> addHamlet
-        [hamlet|\
+    , fieldView = \theId name theClass val _isReq -> toWidget [hamlet|
 <input type="hidden" id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" value="#{either id id val}">
 |]
     }
@@ -207,8 +200,7 @@ textField = Field
 passwordField :: RenderMessage master FormMessage => Field sub master Text
 passwordField = Field
     { fieldParse = blank $ Right
-    , fieldView = \theId name theClass val isReq -> addHamlet
-        [hamlet|\
+    , fieldView = \theId name theClass val isReq -> toWidget [hamlet|
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="password" :isReq:required="" value="#{either id id val}">
 |]
     }
@@ -257,8 +249,7 @@ emailField = Field
         \s -> if Email.isValid (unpack s)
                 then Right s
                 else Left $ MsgInvalidEmail s
-    , fieldView = \theId name theClass val isReq -> addHamlet
-        [hamlet|\
+    , fieldView = \theId name theClass val isReq -> toWidget [hamlet|
 <input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="email" :isReq:required="" value="#{either id id val}">
 |]
     }
@@ -274,7 +265,7 @@ searchField autoFocus = Field
         when autoFocus $ do
           -- we want this javascript to be placed immediately after the field
           [whamlet|<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}|]
-          addCassius [cassius|
+          toWidget [cassius|
             #{theId}
               -webkit-appearance: textfield
             |]

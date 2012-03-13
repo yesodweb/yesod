@@ -62,7 +62,7 @@ helper maudience = AuthPlugin
             _ -> notFound
     , apLogin = \toMaster -> do
         addScriptRemote browserIdJs
-        addHamlet [hamlet|
+        toWidget [hamlet|
 <p>
     <a href="javascript:navigator.id.getVerifiedEmail(function(a){if(a)document.location='@{toMaster complete}/'+a});">
         <img src="https://browserid.org/i/sign_in_green.png">
