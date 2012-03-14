@@ -6,7 +6,7 @@ module Import
     , module Data.Monoid
     , module Control.Applicative
     , Text
-#if __GLASGOW_HASKELL__ < 740
+#if __GLASGOW_HASKELL__ < 704
     , (<>)
 #endif
     ) where
@@ -19,7 +19,7 @@ import Control.Applicative ((<$>), (<*>), pure)
 import Data.Text (Text)
 import Settings.StaticFiles
 
-#if __GLASGOW_HASKELL__ < 740
+#if __GLASGOW_HASKELL__ < 704
 infixr 5 <>
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
