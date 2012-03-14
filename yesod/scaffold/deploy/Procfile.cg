@@ -20,7 +20,7 @@
 # * add code in Application.hs to use the heroku package and load the connection parameters.
 #   The below works for Postgresql.
 #
-#   #if !DEVELOPMENT
+#   #ifndef DEVELOPMENT
 #   import qualified Web.Heroku
 #   #endif
 #
@@ -47,7 +47,7 @@
 #    logWare = logCallback (logBS setLogger)
 ##endif
 #
-#   #if !DEVELOPMENT
+#   #ifndef DEVELOPMENT
 #   canonicalizeKey :: (Text, val) -> (Text, val)
 #   canonicalizeKey ("dbname", val) = ("database", val)
 #   canonicalizeKey pair = pair
@@ -62,7 +62,7 @@
 #
 #   loadHerokuConfig :: IO AT.Value
 #   loadHerokuConfig = do
-#   #if DEVELOPMENT
+#   #ifdef DEVELOPMENT
 #       return $ AT.Object M.empty
 #   #else
 #       Web.Heroku.dbConnParams >>= return . toMapping . map canonicalizeKey
