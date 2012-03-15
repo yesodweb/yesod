@@ -81,12 +81,11 @@ executable         ~project~
                  , yesod-static                  >= 1.0        && < 1.1
                  , yesod-default                 >= 1.0        && < 1.1
                  , yesod-form                    >= 1.0        && < 1.1
-                 , mime-mail                     >= 0.3.0.3    && < 0.5
                  , clientsession                 >= 0.7.3      && < 0.8
                  , bytestring                    >= 0.9        && < 0.10
                  , text                          >= 0.11       && < 0.12
-                 , persistent                    >= 0.8        && < 0.9
-                 , persistent-~backendLower~     >= 0.8        && < 0.9
+                 , persistent                    >= 0.9        && < 0.10
+                 , persistent-~backendLower~     >= 0.9        && < 0.10
                  , template-haskell
                  , hamlet                        >= 0.10       && < 0.11
                  , shakespeare-css               >= 0.10       && < 0.11
@@ -96,5 +95,5 @@ executable         ~project~
                  , monad-control                 >= 0.3        && < 0.4
                  , wai-extra                     >= 1.2        && < 1.3
                  , yaml                          >= 0.6        && < 0.7
-                 , http-conduit                  >= 1.2        && < 1.3
+                 , http-conduit                  >= 1.3        && < 1.4
 
