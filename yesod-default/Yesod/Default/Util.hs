@@ -59,27 +59,27 @@ globFile kind x = "templates/" ++ x ++ "." ++ kind
 
 widgetFileNoReload :: FilePath -> Q Exp
 widgetFileNoReload x = combine
-    [ whenExists x "hamlet"  whamletFile
-    , whenExists x "cassius" cassiusFile
-    , whenExists x "julius"  juliusFile
-    , whenExists x "lucius"  luciusFile
+    [ whenExists x False "hamlet"  whamletFile
+    , whenExists x True  "cassius" cassiusFile
+    , whenExists x True  "julius"  juliusFile
+    , whenExists x True  "lucius"  luciusFile
     ]
 
 widgetFileReload :: FilePath -> Q Exp
 widgetFileReload x = combine
-    [ whenExists x "hamlet"  whamletFile
-    , whenExists x "cassius" cassiusFileReload
-    , whenExists x "julius"  juliusFileReload
-    , whenExists x "lucius"  luciusFileReload
+    [ whenExists x False "hamlet"  whamletFile
+    , whenExists x True  "cassius" cassiusFileReload
+    , whenExists x True  "julius"  juliusFileReload
+    , whenExists x True  "lucius"  luciusFileReload
     ]
 
 widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
                 -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("julius", juliusFileReload)
                 -> FilePath -> Q Exp
 widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = combine
-    [ whenExists x "hamlet"  whamletFile
-    , whenExists x csExt csLoad
-    , whenExists x jsExt jsLoad
+    [ whenExists x False "hamlet"  whamletFile
+    , whenExists x True  csExt csLoad
+    , whenExists x True  jsExt jsLoad
     ]
 
 combine :: [Q (Maybe Exp)] -> Q Exp
@@ -87,17 +87,27 @@ combine qmexps = do
     mexps <- sequence qmexps
     case catMaybes mexps of
         [] -> [|return ()|]
-        exps -> do
-            tw <- [|toWidget|]
-            let exps' = map (AppE tw) exps
-            return $ DoE $ map NoBindS exps'
+        exps -> return $ DoE $ map NoBindS exps
 
-whenExists :: String -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
+whenExists :: String
+           -> Bool -- ^ requires toWidget wrap
+           -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
 whenExists = warnUnlessExists False
 
-warnUnlessExists :: Bool -> String -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
-warnUnlessExists shouldWarn x glob f = do
+warnUnlessExists :: Bool
+                 -> String
+                 -> Bool -- ^ requires toWidget wrap
+                 -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
+warnUnlessExists shouldWarn x wrap glob f = do
     let fn = globFile glob x
     e <- qRunIO $ doesFileExist fn
     when (shouldWarn && not e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
-    if e then fmap Just $ f fn else return Nothing
+    if e
+        then do
+            ex <- f fn
+            if wrap
+                then do
+                    tw <- [|toWidget|]
+                    return $ Just $ tw `AppE` ex
+                else return $ Just ex
+        else return Nothing
