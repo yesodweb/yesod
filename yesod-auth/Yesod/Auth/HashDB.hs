@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE GADTs                      #-}
@@ -71,8 +70,6 @@ module Yesod.Auth.HashDB
     , UserId
     , migrateUsers
     ) where
-
-#include "qq.h"
 
 import Yesod.Persist
 import Yesod.Handler
@@ -179,7 +176,7 @@ postLoginR uniq = do
                  (validateUser <$> (uniq =<< mu) <*> mp)
     if isValid 
        then setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
-       else do setMessage [QQ(shamlet)| Invalid username/password |]
+       else do setMessage [shamlet| Invalid username/password |]
                toMaster <- getRouteToMaster
                redirect $ toMaster LoginR
 
@@ -210,7 +207,7 @@ getAuthIdHashDB authR uniq creds = do
                 -- user exists
                 Just (Entity uid _) -> return $ Just uid
                 Nothing       -> do
-                    setMessage [QQ(shamlet)| User not found |]
+                    setMessage [shamlet| User not found |]
                     redirect $ authR LoginR
 
 -- | Prompt for username and password, validate that against a database
@@ -224,7 +221,7 @@ authHashDB :: ( YesodAuth m, YesodPersist m
               , PersistUnique b (GHandler Auth m))
            => (Text -> Maybe (Unique user b)) -> AuthPlugin m
 authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
-    [QQ(hamlet)|
+    [hamlet|
     <div id="header">
         <h1>Login
 
@@ -261,7 +258,7 @@ authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> addHamlet
 
 -- | Generate data base instances for a valid user
 share [mkPersist sqlSettings, mkMigrate "migrateUsers"]
-         [QQ(persistUpperCase)|
+         [persistUpperCase|
 User
     username Text Eq
     password Text
