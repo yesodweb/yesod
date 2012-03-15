@@ -58,7 +58,7 @@ globFile :: String -> String -> FilePath
 globFile kind x = "templates/" ++ x ++ "." ++ kind
 
 widgetFileNoReload :: FilePath -> Q Exp
-widgetFileNoReload x = combine
+widgetFileNoReload x = combine "widgetFileNoReload" x
     [ whenExists x False "hamlet"  whamletFile
     , whenExists x True  "cassius" cassiusFile
     , whenExists x True  "julius"  juliusFile
@@ -66,7 +66,7 @@ widgetFileNoReload x = combine
     ]
 
 widgetFileReload :: FilePath -> Q Exp
-widgetFileReload x = combine
+widgetFileReload x = combine "widgetFileReload" x
     [ whenExists x False "hamlet"  whamletFile
     , whenExists x True  "cassius" cassiusFileReload
     , whenExists x True  "julius"  juliusFileReload
@@ -76,17 +76,23 @@ widgetFileReload x = combine
 widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
                 -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("julius", juliusFileReload)
                 -> FilePath -> Q Exp
-widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = combine
+widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = combine "widgetFileJsCss" x
     [ whenExists x False "hamlet"  whamletFile
     , whenExists x True  csExt csLoad
     , whenExists x True  jsExt jsLoad
     ]
 
-combine :: [Q (Maybe Exp)] -> Q Exp
-combine qmexps = do
+combine :: String -> String -> [Q (Maybe Exp)] -> Q Exp
+combine func file qmexps = do
     mexps <- sequence qmexps
     case catMaybes mexps of
-        [] -> [|return ()|]
+        [] -> error $ concat
+            [ "Called "
+            , func
+            , " on "
+            , show file
+            , ", but no template were found."
+            ]
         exps -> return $ DoE $ map NoBindS exps
 
 whenExists :: String
