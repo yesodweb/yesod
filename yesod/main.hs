@@ -36,7 +36,7 @@ main = do
         ["touch"] -> touch
 #endif
         "devel":rest -> devel isDev rest
-        ["version"] -> putStrLn yesodVersion
+        ["version"] -> putStrLn $ "yesod-core version:" ++ yesodVersion
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         _ -> do
             putStrLn "Usage: yesod <command>"
