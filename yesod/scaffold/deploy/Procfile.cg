@@ -12,62 +12,61 @@
 #
 # * Create an empty package.json
 #     echo '{ "name": "~project~", "version": "0.0.1", "dependencies": {} }' >> package.json
-# 
+#
 # Postgresql Yesod setup:
 #
-# * add code to read the DATABASE_URL environment variable.
-# 
-#   import System.Environment
-#   main = do
-#     # parse env variable
-#     durl <- getEnv "DATABASE_URL"
-#     # pass settings to withConnectionPool instead of directly using loadConnStr
-#     defaultMain (fromArgsExtra loadExtra) withYesodHeroku
-#
 # * add a dependency on the "heroku" package in your cabal file
-#     
-# * add code in Application.hs to turn the url into connection parameters. The below works for Postgresql.
 #
-#     #ifdef !DEVELOPMENT
-#     import qualified Web.Heroku
-#     #endif
+# * add code in Application.hs to use the heroku package and load the connection parameters.
+#   The below works for Postgresql.
 #
-#
-#     canonicalizeKey :: (Text, val) -> (Text, val)
-#     canonicalizeKey ("dbname", val) = ("database", val)
-#     canonicalizeKey pair = pair
-#
-#     toMapping :: [(key, val)] -> DO.Object key val
-#     toMapping = DO.Mapping . map (\(key, val) -> (key, DO.Scalar val))
-#
-#     combineMappings :: DO.Object key val -> DO.Object key val -> DO.Object key val
-#     combineMappings (DO.Mapping m1) (DO.Mapping m2) = DO.Mapping $ m1 ++ m2
-#     combineMappings _ _ = error "Data.Object is not a Mapping."
-#
-#     loadHerokuConfig :: DO.TextObject -> IO Settings.PersistConfig
-#     loadHerokuConfig ymlenv = do
-#     #if DEVELOPMENT
-#       let urlMap = DO.Mapping []
-#     #else
-#       urlMap <- Web.Heroku.dbConnParams >>= return . toMapping . map canonicalizeKey
-#     #endif
-#       either error return $ Database.Persist.Base.loadConfig (combineMappings urlMap ymlenv)
+#   #ifndef DEVELOPMENT
+#   import qualified Web.Heroku
+#   #endif
 #
 #
-#     withYesodHeroku :: AppConfig DefaultEnv () -> Logger -> (Application -> IO ()) -> IO ()
-#     withYesodHeroku conf logger f = do
-#        s <- staticSite
-#        dbconf <- withYamlEnvironment "config/postgresql.yml" (appEnv conf) loadHerokuConfig
-#        Database.Persist.Base.withPool (dbconf :: Settings.PersistConfig) $ \p -> do
-#            Database.Persist.Base.runPool dbconf (runMigration migrateAll) p
-#            let h = YesodHeroku conf logger s p
-#            defaultRunner (f . logWare) h
-#      where
-#     #ifdef DEVELOPMENT
-#        logWare = logStdoutDev
-#     #else
-#        logWare = logStdout
-#     #endif
+#   getApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
+#   getApplication conf logger = do
+#       manager <- newManager def
+#       s <- staticSite
+#       hconfig <- loadHerokuConfig
+#       dbconf <- withYamlEnvironment "config/postgresql.yml" (appEnv conf)
+#                 (Database.Persist.Store.loadConfig . combineMappings hconfig) >>=
+#                 Database.Persist.Store.applyEnv
+#       p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)
+#       Database.Persist.Store.runPool dbconf (runMigration migrateAll) p
+#    let foundation = ~sitearg~ conf setLogger s p manager dbconf
+#    app <- toWaiAppPlain foundation
+#    return $ logWare app
+#  where
+##ifdef DEVELOPMENT
+#    logWare = logCallbackDev (logBS setLogger)
+#    setLogger = logger
+##else
+#    setLogger = toProduction logger -- by default the logger is set for development
+#    logWare = logCallback (logBS setLogger)
+##endif
+#
+#   #ifndef DEVELOPMENT
+#   canonicalizeKey :: (Text, val) -> (Text, val)
+#   canonicalizeKey ("dbname", val) = ("database", val)
+#   canonicalizeKey pair = pair
+#
+#   toMapping :: [(Text, Text)] -> AT.Value
+#   toMapping xs = AT.Object $ M.fromList $ map (\(key, val) -> (key, AT.String val)) xs
+#   #endif
+#
+#   combineMappings :: AT.Value -> AT.Value -> AT.Value
+#   combineMappings (AT.Object m1) (AT.Object m2) = AT.Object $ m1 `M.union` m2
+#   combineMappings _ _ = error "Data.Object is not a Mapping."
+#
+#   loadHerokuConfig :: IO AT.Value
+#   loadHerokuConfig = do
+#   #ifdef DEVELOPMENT
+#       return $ AT.Object M.empty
+#   #else
+#       Web.Heroku.dbConnParams >>= return . toMapping . map canonicalizeKey
+#   #endif
 
 
 
