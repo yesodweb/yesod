@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Auth.Email
@@ -14,8 +13,6 @@ module Yesod.Auth.Email
     , setpassR
     , isValidPass
     ) where
-
-#include "qq.h"
 
 import Network.Mail.Mime (randomString)
 import Yesod.Auth
@@ -82,7 +79,7 @@ class (YesodAuth m, PathPiece (AuthEmailId m)) => YesodAuthEmail m where
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch $ \tm ->
-        [QQ(whamlet)|
+        [whamlet|
 <form method="post" action="@{tm loginR}">
     <table>
         <tr>
@@ -116,7 +113,7 @@ getRegisterR = do
     defaultLayout $ do
         setTitleI Msg.RegisterLong
         addWidget
-            [QQ(whamlet)|
+            [whamlet|
 <p>_{Msg.EnterEmail}
 <form method="post" action="@{toMaster registerR}">
     <label for="email">_{Msg.Email}
@@ -147,7 +144,7 @@ postRegisterR = do
     defaultLayout $ do
         setTitleI Msg.ConfirmationEmailSentTitle
         addWidget
-            [QQ(whamlet)| <p>_{Msg.ConfirmationEmailSent email} |]
+            [whamlet| <p>_{Msg.ConfirmationEmailSent email} |]
 
 getVerifyR :: YesodAuthEmail m
            => AuthEmailId m -> Text -> GHandler Auth m RepHtml
@@ -168,7 +165,7 @@ getVerifyR lid key = do
     defaultLayout $ do
         setTitleI Msg.InvalidKey
         addWidget
-            [QQ(whamlet)| <p>_{Msg.InvalidKey} |]
+            [whamlet| <p>_{Msg.InvalidKey} |]
 
 postLoginR :: YesodAuthEmail master => GHandler Auth master ()
 postLoginR = do
@@ -207,7 +204,7 @@ getPasswordR = do
     defaultLayout $ do
         setTitleI Msg.SetPassTitle
         addWidget
-            [QQ(whamlet)|
+            [whamlet|
 <h3>_{Msg.SetPass}
 <form method="post" action="@{toMaster setpassR}">
     <table>

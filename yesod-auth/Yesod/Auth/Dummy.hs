@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | Provides a dummy authentication module that simply lets a user specify
 -- his/her identifier. This is not intended for real world use, just for
@@ -7,8 +6,6 @@
 module Yesod.Auth.Dummy
     ( authDummy
     ) where
-
-#include "qq.h"
 
 import Yesod.Auth
 import Yesod.Form (runInputPost, textField, ireq)
@@ -26,7 +23,7 @@ authDummy =
     dispatch _ _ = notFound
     url = PluginR "dummy" []
     login authToMaster =
-        addHamlet [QQ(hamlet)|
+        addHamlet [hamlet|
 <form method="post" action="@{authToMaster url}">
     \Your new identifier is: 
     <input type="text" name="ident">
