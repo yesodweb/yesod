@@ -14,7 +14,7 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, pack, unpack)
 import Yesod.Core -- purposely using complete import so that Haddock will see addStaticContent
-import Control.Monad (unless)
+import Control.Monad (when, unless)
 import System.Directory (doesFileExist, createDirectoryIfMissing)
 import Language.Haskell.TH.Syntax
 import Text.Lucius (luciusFile, luciusFileReload)
@@ -99,5 +99,5 @@ warnUnlessExists :: Bool -> String -> String -> (FilePath -> Q Exp) -> Q (Maybe 
 warnUnlessExists shouldWarn x glob f = do
     let fn = globFile glob x
     e <- qRunIO $ doesFileExist fn
-    unless (shouldWarn && e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
+    when (shouldWarn && not e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
     if e then fmap Just $ f fn else return Nothing
