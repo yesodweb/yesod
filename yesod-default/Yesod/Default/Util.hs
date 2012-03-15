@@ -20,7 +20,7 @@ import Language.Haskell.TH.Syntax
 import Text.Lucius (luciusFile, luciusFileReload)
 import Text.Julius (juliusFile, juliusFileReload)
 import Text.Cassius (cassiusFile, cassiusFileReload)
-import Data.Monoid (mempty)
+import Data.Maybe (catMaybes)
 
 -- | An implementation of 'addStaticContent' which stores the contents in an
 -- external file. Files are created in the given static folder with names based
@@ -58,36 +58,46 @@ globFile :: String -> String -> FilePath
 globFile kind x = "templates/" ++ x ++ "." ++ kind
 
 widgetFileNoReload :: FilePath -> Q Exp
-widgetFileNoReload x = do
-    let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x "cassius" cassiusFile
-    let j = whenExists x "julius"  juliusFile
-    let l = whenExists x "lucius"  luciusFile
-    [|$h >> toWidget $c >> toWidget $j >> toWidget $l|]
+widgetFileNoReload x = combine
+    [ whenExists x "hamlet"  whamletFile
+    , whenExists x "cassius" cassiusFile
+    , whenExists x "julius"  juliusFile
+    , whenExists x "lucius"  luciusFile
+    ]
 
 widgetFileReload :: FilePath -> Q Exp
-widgetFileReload x = do
-    let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x "cassius" cassiusFileReload
-    let j = whenExists x "julius"  juliusFileReload
-    let l = whenExists x "lucius"  luciusFileReload
-    [|$h >> toWidget $c >> toWidget $j >> toWidget $l|]
+widgetFileReload x = combine
+    [ whenExists x "hamlet"  whamletFile
+    , whenExists x "cassius" cassiusFileReload
+    , whenExists x "julius"  juliusFileReload
+    , whenExists x "lucius"  luciusFileReload
+    ]
 
 widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
                 -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("julius", juliusFileReload)
                 -> FilePath -> Q Exp
-widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = do
-    let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x csExt csLoad
-    let j = whenExists x jsExt jsLoad
-    [|$h >> toWidget $c >> toWidget $j|]
+widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = combine
+    [ whenExists x "hamlet"  whamletFile
+    , whenExists x csExt csLoad
+    , whenExists x jsExt jsLoad
+    ]
 
-whenExists :: String -> String -> (FilePath -> Q Exp) -> Q Exp
+combine :: [Q (Maybe Exp)] -> Q Exp
+combine qmexps = do
+    mexps <- sequence qmexps
+    case catMaybes mexps of
+        [] -> [|return ()|]
+        exps -> do
+            tw <- [|toWidget|]
+            let exps' = map (AppE tw) exps
+            return $ DoE $ map NoBindS exps'
+
+whenExists :: String -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
 whenExists = warnUnlessExists False
 
-warnUnlessExists :: Bool -> String -> String -> (FilePath -> Q Exp) -> Q Exp
+warnUnlessExists :: Bool -> String -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
 warnUnlessExists shouldWarn x glob f = do
     let fn = globFile glob x
     e <- qRunIO $ doesFileExist fn
     unless (shouldWarn && e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
-    if e then f fn else [|mempty|]
+    if e then fmap Just $ f fn else return Nothing
