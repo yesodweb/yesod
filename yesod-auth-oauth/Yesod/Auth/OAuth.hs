@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, QuasiQuotes, OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes, OverloadedStrings #-}
 {-# OPTIONS_GHC -fwarn-unused-imports #-}
 module Yesod.Auth.OAuth
     ( authOAuth
@@ -9,8 +9,6 @@ module Yesod.Auth.OAuth
 	, tumblrUrl
     , module Web.Authenticate.OAuth
     ) where
-
-#include "qq.h"
 
 import Yesod.Auth
 import Yesod.Form
@@ -78,7 +76,7 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
         render <- lift getUrlRender
         let oaUrl = render $ tm $ oauthUrl name
         addHtml
-          [QQ(shamlet)| <a href=#{oaUrl}>Login via #{name} |]
+          [shamlet| <a href=#{oaUrl}>Login via #{name} |]
 
 authTwitter :: YesodAuth m
             => ByteString -- ^ Consumer Key
