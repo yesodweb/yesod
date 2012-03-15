@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -25,14 +24,6 @@ import Data.Either (partitionEithers)
 import Data.Traversable (sequenceA)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
-
-#if __GLASGOW_HASKELL__ >= 700
-#define WHAMLET whamlet
-#define HTML html
-#else
-#define HTML $html
-#define WHAMLET $whamlet
-#endif
 
 down :: Int -> MForm sub master ()
 down 0 = return ()
@@ -82,7 +73,7 @@ inputList label fixXml single mdef = formToAForm $ do
         { fvLabel = label
         , fvTooltip = Nothing
         , fvId = theId
-        , fvInput = [WHAMLET|
+        , fvInput = [whamlet|
 ^{fixXml views}
 <p>
     $forall xml <- xmls
@@ -103,7 +94,7 @@ withDelete af = do
     deleteName <- newFormIdent
     (menv, _, _) <- ask
     res <- case menv >>= Map.lookup deleteName . fst of
-        Just ("yes":_) -> return $ Left [WHAMLET|<input type=hidden name=#{deleteName} value=yes>|]
+        Just ("yes":_) -> return $ Left [whamlet|<input type=hidden name=#{deleteName} value=yes>|]
         _ -> do
             (_, xml2) <- aFormToForm $ areq boolField FieldSettings
                 { fsLabel = MsgDelete
@@ -129,7 +120,7 @@ fixme eithers =
 massDivs, massTable
          :: [[FieldView sub master]]
          -> GWidget sub master ()
-massDivs viewss = [WHAMLET|
+massDivs viewss = [whamlet|
 $forall views <- viewss
     <fieldset>
         $forall view <- views
@@ -142,7 +133,7 @@ $forall views <- viewss
                     <div .errors>#{err}
 |]
 
-massTable viewss = [WHAMLET|
+massTable viewss = [whamlet|
 $forall views <- viewss
     <fieldset>
         <table>
