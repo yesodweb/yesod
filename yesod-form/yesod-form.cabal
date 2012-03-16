@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.0.0
+version:         1.0.0.20120316
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
