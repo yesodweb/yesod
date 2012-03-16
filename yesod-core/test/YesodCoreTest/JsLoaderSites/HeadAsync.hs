@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module YesodCoreTest.JsLoaderSites.HeadAsync (HA(..)) where
+module YesodCoreTest.JsLoaderSites.HeadAsync (HA(..), Widget) where
 
 import Yesod.Core
 

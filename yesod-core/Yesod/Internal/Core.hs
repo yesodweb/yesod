@@ -416,19 +416,19 @@ defaultYesodRunner handler master sub murl toMasterRoute msb req = do
                                 redirect url'
                     Unauthorized s' -> permissionDenied s'
                 handler
-    let sessionMap = Map.fromList . filter ((/=) nonceKey . fst) $ session
+    let sessionMap = Map.fromList . filter ((/=) tokenKey . fst) $ session
     let ra = resolveApproot master req
     yar <- handlerToYAR master sub toMasterRoute
         (yesodRender master ra) errorHandler rr murl sessionMap h
     extraHeaders <- case yar of
         (YARPlain _ _ ct _ newSess) -> do
-            let nsNonce = Map.toList $ maybe
+            let nsToken = Map.toList $ maybe
                     newSess
-                    (\n -> Map.insert nonceKey (TE.encodeUtf8 n) newSess)
-                    (reqNonce rr)
+                    (\n -> Map.insert tokenKey (TE.encodeUtf8 n) newSess)
+                    (reqToken rr)
             sessionHeaders <- liftIO $ maybe
                 (return [])
-                (\sb -> sbSaveSession sb master req now session nsNonce)
+                (\sb -> sbSaveSession sb master req now session nsToken)
                 msb
             return $ ("Content-Type", ct) : map headerToPair sessionHeaders
         _ -> return []

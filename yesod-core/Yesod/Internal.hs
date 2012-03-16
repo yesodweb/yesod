@@ -25,7 +25,7 @@ module Yesod.Internal
     , toUnique
       -- * Names
     , sessionName
-    , nonceKey
+    , tokenKey
     ) where
 
 import Text.Hamlet (HtmlUrl, hamlet, Html)
@@ -95,8 +95,8 @@ newtype Head url = Head (HtmlUrl url)
 newtype Body url = Body (HtmlUrl url)
     deriving Monoid
 
-nonceKey :: IsString a => a
-nonceKey = "_NONCE"
+tokenKey :: IsString a => a
+tokenKey = "_TOKEN"
 
 sessionName :: IsString a => a
 sessionName = "_SESSION"

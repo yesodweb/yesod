@@ -36,16 +36,16 @@ data Request = Request
     , reqWaiRequest :: W.Request
       -- | Languages which the client supports.
     , reqLangs :: [Text]
-      -- | A random, session-specific nonce used to prevent CSRF attacks.
-    , reqNonce :: Maybe Text
+      -- | A random, session-specific token used to prevent CSRF attacks.
+    , reqToken :: Maybe Text
     }
 
 parseWaiRequest :: W.Request
                 -> [(Text, ByteString)] -- ^ session
                 -> Bool
                 -> IO Request
-parseWaiRequest env session' useNonce =
-    parseWaiRequest' env session' useNonce <$> newStdGen
+parseWaiRequest env session' useToken =
+    parseWaiRequest' env session' useToken <$> newStdGen
 
 parseWaiRequest' :: RandomGen g
                  => W.Request
@@ -53,8 +53,8 @@ parseWaiRequest' :: RandomGen g
                  -> Bool
                  -> g
                  -> Request
-parseWaiRequest' env session' useNonce gen = 
-    Request gets'' cookies' env langs'' nonce
+parseWaiRequest' env session' useToken gen = 
+    Request gets'' cookies' env langs'' token
   where
     gets' = queryToQueryText $ W.queryString env
     gets'' = map (second $ fromMaybe "") gets'
@@ -75,16 +75,16 @@ parseWaiRequest' env session' useNonce gen =
     -- language in the list.
     langs'' = addTwoLetters (id, Set.empty) langs'
 
-    -- If sessions are disabled nonces should not be used (any
-    -- nonceKey present in the session is ignored). If sessions
-    -- are enabled and a session has no nonceKey a new one is
+    -- If sessions are disabled tokens should not be used (any
+    -- tokenKey present in the session is ignored). If sessions
+    -- are enabled and a session has no tokenKey a new one is
     -- generated.
-    nonce = if not useNonce
+    token = if not useToken
               then Nothing
               else Just $ maybe
                             (pack $ randomString 10 gen)
                             (decodeUtf8With lenientDecode)
-                            (lookup nonceKey session')
+                            (lookup tokenKey session')
 
 addTwoLetters :: ([Text] -> [Text], Set.Set Text) -> [Text] -> [Text]
 addTwoLetters (toAdd, exist) [] =
