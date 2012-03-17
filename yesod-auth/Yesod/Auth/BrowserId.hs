@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Yesod.Auth.BrowserId
     ( authBrowserId
@@ -15,8 +14,6 @@ import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
 import Control.Monad.IO.Class (liftIO)
 import Control.Exception (throwIO)
-
-#include "qq.h"
 
 pid :: Text
 pid = "browserid"
@@ -64,7 +61,7 @@ helper maudience = AuthPlugin
             _ -> notFound
     , apLogin = \toMaster -> do
         addScriptRemote browserIdJs
-        addHamlet [QQ(hamlet)|
+        addHamlet [hamlet|
 <p>
     <a href="javascript:navigator.id.getVerifiedEmail(function(a){if(a)document.location='@{toMaster complete}/'+a});">
         <img src="https://browserid.org/i/sign_in_green.png">

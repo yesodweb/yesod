@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -56,14 +55,6 @@ import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as L
-
-#if __GLASGOW_HASKELL__ >= 700
-#define WHAMLET whamlet
-#define HTML shamlet
-#else
-#define HTML $shamlet
-#define WHAMLET $whamlet
-#endif
 
 -- | Get a unique identifier.
 newFormIdent :: MForm sub master Text
@@ -190,7 +181,7 @@ postHelper form env = do
     let nonce =
             case reqNonce req of
                 Nothing -> mempty
-                Just n -> [HTML|<input type=hidden name=#{nonceKey} value=#{n}>|]
+                Just n -> [shamlet|<input type=hidden name=#{nonceKey} value=#{n}>|]
     m <- getYesod
     langs <- languages
     ((res, xml), enctype) <- runFormGeneric (form nonce) m langs env
@@ -248,7 +239,7 @@ getKey = "_hasdata"
 
 getHelper :: (Html -> MForm sub master a) -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
 getHelper form env = do
-    let fragment = [HTML|<input type=hidden name=#{getKey}>|]
+    let fragment = [shamlet|<input type=hidden name=#{getKey}>|]
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env
@@ -263,7 +254,7 @@ renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
     -- FIXME non-valid HTML
-    let widget = [WHAMLET|
+    let widget = [whamlet|
 \#{fragment}
 $forall view <- views
     <tr :fvRequired view:.required :not $ fvRequired view:.optional>
@@ -280,7 +271,7 @@ $forall view <- views
 renderDivs aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
-    let widget = [WHAMLET|
+    let widget = [whamlet|
 \#{fragment}
 $forall view <- views
     <div :fvRequired view:.required :not $ fvRequired view:.optional>
