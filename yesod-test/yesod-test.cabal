@@ -4,7 +4,7 @@ license:            BSD3
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
 maintainer:         Nubis <nubis@woobiz.com.ar>
-synopsis:           Behaviour Oriented integration Testing for Yesod Applications 
+synopsis:           integration testing for WAI/Yesod Applications 
 category:           Web, Yesod, Testing
 stability:          Experimental
 cabal-version:      >= 1.6

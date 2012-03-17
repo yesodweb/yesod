@@ -16,27 +16,4 @@ test-suite integration-tests
                 FlexibleContexts
 
     build-depends: base                          >= 4          && < 5
-                 , yesod                         >= 0.10       && < 0.11
-                 , yesod-core                    >= 0.10       && < 0.11
-                 , yesod-auth                    >= 0.8        && < 0.9
-                 , yesod-static                  >= 0.10       && < 0.11
-                 , yesod-default                 >= 0.6        && < 0.7
-                 , yesod-form                    >= 0.4        && < 0.5
                  , yesod-test                    >= 0.1        && < 0.2
-                 , mime-mail                     >= 0.3.0.3    && < 0.5
-                 , clientsession                 >= 0.7.3      && < 0.8
-                 , bytestring                    >= 0.9        && < 0.10
-                 , text                          >= 0.11       && < 0.12
-                 , persistent                    >= 0.7        && < 0.8
-                 , persistent-sqlite     >= 0.7        && < 0.8
-                 , template-haskell
-                 , hamlet                        >= 0.10       && < 0.11
-                 , shakespeare-css               >= 0.10       && < 0.11
-                 , shakespeare-js                >= 0.10       && < 0.11
-                 , shakespeare-text              >= 0.10       && < 0.11
-                 , hjsmin                        >= 0.0.14     && < 0.1
-                 , monad-control                 >= 0.3        && < 0.4
-                 , wai-extra                     >= 1.0        && < 1.1
-                 , yaml                          >= 0.5        && < 0.6
-                 , http-conduit                  >= 1.1        && < 1.2
-                 , haskell98

@@ -38,7 +38,7 @@ This is the helloworld and kitchen sink. In this case for testing a yesod app.
   mySuite = do
     describe "Basic navigation and assertions" $ do
       it "Gets a page that has a form, with auto generated fields and token" $ do
-        doGet_ "url/of/page/with/form" -- Load a page
+        get_ "url/of/page/with/form" -- Load a page
         statusIs 200 -- Assert the status was success
 
         bodyContains "Hello Person" -- Assert any part of the document contains some text.
@@ -48,7 +48,7 @@ This is the helloworld and kitchen sink. In this case for testing a yesod app.
         htmlAllContain "h1#mainTitle" "Sign Up Now!" -- All matches have some text
 
         -- Performs the post using the current page to extract field values:
-        doPost "url/to/post/to" $ do
+        post "url/to/post/to" $ do
           addNonce -- Add the _nonce field with the currently shown value
 
           -- Lookup field by the text on the labels pointing to them.
@@ -57,7 +57,7 @@ This is the helloworld and kitchen sink. In this case for testing a yesod app.
           byLabel "Confirm:" "secret"
 
       it "Sends another form, this one has a file" $ do
-        doPost "url/to/post/file/to" $ do
+        post "url/to/post/file/to" $ do
           -- You can add files this easy, you still have to provide the mime type manually though.
           addFile "file_field_name" "path/to/local/file" "image/jpeg"
           
