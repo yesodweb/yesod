@@ -84,9 +84,7 @@ scaffold = do
         backendLower = uncapitalize $ show backend 
         upper = show backend
     
-    puts $(codegenDir "input" "use-tests")
-    useTestsC <- prompt $ flip elem $ [return 'y', return 'n']
-    let useTests = useTestsC == "y"
+    let useTests = True
     let testsDep = if useTests then ", yesod-test" else ""
 
     let runMigration  =
