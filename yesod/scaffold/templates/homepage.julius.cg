@@ -1,1 +1,1 @@
-document.getElementById("#{h2id}").innerHTML = "<i>Added from JavaScript.</i>";
+document.getElementById("#{aDomId}").innerHTML = "This text was added by the Javascript part of the homepage widget.";

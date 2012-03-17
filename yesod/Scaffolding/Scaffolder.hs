@@ -199,7 +199,7 @@ scaffold = do
 
     when useTests $ do
       mkDir "tests"
-      writeFile' "tests/main.hs" $(codegen "tests_main.hs")
+      writeFile' "tests/main.hs" $(codegen "tests/main.hs")
 
     S.writeFile (dir ++ "/static/js/modernizr.js")
         $(runIO (S.readFile "scaffold/static/js/modernizr.js.cg") >>= \bs ->
