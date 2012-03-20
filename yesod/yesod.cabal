@@ -89,9 +89,9 @@ library
                    , wai                       >= 1.2      && < 1.3
                    , wai-extra                 >= 1.2      && < 1.3
                    , wai-logger                >= 0.1.2
-                   , hamlet                    >= 0.10     && < 0.11
-                   , shakespeare-js            >= 0.11     && < 0.12
-                   , shakespeare-css           >= 0.10     && < 0.11
+                   , hamlet                    >= 1.0      && < 1.1
+                   , shakespeare-js            >= 1.0      && < 1.1
+                   , shakespeare-css           >= 1.0      && < 1.1
                    , warp                      >= 1.2      && < 1.3
                    , blaze-html                >= 0.4.1.3  && < 0.5
     exposed-modules: Yesod
@@ -107,7 +107,7 @@ executable             yesod
         cpp-options:     -DWINDOWS
     build-depends:     parsec             >= 2.1          && < 4
                      , text               >= 0.11         && < 0.12
-                     , shakespeare-text   >= 0.10         && < 0.12
+                     , shakespeare-text   >= 1.0          && < 1.1
                      , bytestring         >= 0.9.1.4  && < 0.10
                      , time               >= 1.1.4
                      , template-haskell
