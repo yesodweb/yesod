@@ -82,7 +82,6 @@ library
                    , conduit               >= 0.3      && < 0.4
                    , resourcet             >= 0.3      && < 0.4
                    , lifted-base           >= 0.1      && < 0.2
-
     exposed-modules: Yesod.Content
                      Yesod.Core
                      Yesod.Dispatch
