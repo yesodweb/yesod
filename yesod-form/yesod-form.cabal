@@ -17,9 +17,9 @@ library
                    , yesod-core            >= 1.0      && < 1.1
                    , yesod-persistent      >= 1.0      && < 1.1
                    , time                  >= 1.1.4
-                   , hamlet                >= 0.10     && < 0.11
-                   , shakespeare-css       >= 0.10     && < 0.11
-                   , shakespeare-js        >= 0.11     && < 0.12
+                   , hamlet                >= 1.0      && < 1.1
+                   , shakespeare-css       >= 1.0      && < 1.1
+                   , shakespeare-js        >= 1.0      && < 1.1
                    , persistent            >= 0.9      && < 0.10
                    , template-haskell
                    , transformers          >= 0.2.2    && < 0.3

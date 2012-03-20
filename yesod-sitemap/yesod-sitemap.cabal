@@ -16,7 +16,7 @@ library
     build-depends:   base                      >= 4        && < 5
                    , yesod-core                >= 1.0      && < 1.1
                    , time                      >= 1.1.4
-                   , hamlet                    >= 0.10     && < 0.11
+                   , hamlet                    >= 1.0      && < 1.1
     exposed-modules: Yesod.Sitemap
     ghc-options:     -Wall
 

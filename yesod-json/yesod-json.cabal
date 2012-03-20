@@ -18,7 +18,7 @@ library
                    , yesod-routes          >= 1.0      && < 1.1
                    , aeson                 >= 0.5
                    , text                  >= 0.8      && < 1.0
-                   , shakespeare-js        >= 0.11     && < 0.12
+                   , shakespeare-js        >= 1.0      && < 1.1
                    , vector                >= 0.9
                    , containers            >= 0.2
                    , blaze-builder

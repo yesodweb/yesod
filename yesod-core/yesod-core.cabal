@@ -54,11 +54,11 @@ library
                    , text                  >= 0.7      && < 0.12
                    , template-haskell
                    , path-pieces           >= 0.1      && < 0.2
-                   , hamlet                >= 0.10.7   && < 0.11
-                   , shakespeare           >= 0.10     && < 0.12
-                   , shakespeare-js        >= 0.11     && < 0.12
-                   , shakespeare-css       >= 0.10.5   && < 0.11
-                   , shakespeare-i18n      >= 0.0      && < 0.1
+                   , hamlet                >= 1.0      && < 1.1
+                   , shakespeare           >= 1.0      && < 1.1
+                   , shakespeare-js        >= 1.0      && < 1.1
+                   , shakespeare-css       >= 1.0      && < 1.1
+                   , shakespeare-i18n      >= 1.0      && < 1.1
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , transformers          >= 0.2.2    && < 0.3
                    , clientsession         >= 0.7.3.1  && < 0.8
