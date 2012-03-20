@@ -1,0 +1,46 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
+module Main where
+
+import Import
+import Settings
+import Yesod.Static
+import Yesod.Logger (defaultDevelopmentLogger)
+import qualified Database.Persist.Store
+import Database.Persist.GenericSql (runMigration)
+import Yesod.Default.Config
+import Yesod.Test
+import Network.HTTP.Conduit (newManager, def)
+import Application()
+
+main :: IO a
+main = do
+    conf <- loadConfig $ (configSettings Testing) { csParseExtra = parseExtra }
+    manager <- newManager def
+    logger <- defaultDevelopmentLogger
+    dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
+              Database.Persist.Store.loadConfig
+    s <- static Settings.staticDir
+    p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)~runMigration~
+    app <- toWaiAppPlain $ ~sitearg~ conf logger s p manager dbconf
+    runTests app p allTests
+
+allTests :: Specs
+allTests = do
+  describe "These are some example tests" $ do
+    it "loads the index and checks it looks right" $ do
+      get_ "/"
+      statusIs 200
+      htmlAllContain "h1" "Hello"
+
+      post "/" $ do
+        addNonce
+        fileByLabel "Choose a file" "tests/main.hs" "text/plain" -- talk about self-reference
+        byLabel "What's on the file?" "Some Content"
+
+      statusIs 200
+      htmlCount ".message" 1
+      htmlAllContain ".message" "Some Content"
+      htmlAllContain ".message" "text/plain"

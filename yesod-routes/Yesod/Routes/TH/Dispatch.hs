@@ -19,10 +19,10 @@ import Data.List (foldl')
 
 -- |
 --
--- This function will generate a single clause that will address all your
--- routing needs. It takes three arguments. The third (a list of 'Resource's)
--- is self-explanatory. We\'ll discuss the first two. But first, let\'s cover
--- the terminology.
+-- This function will generate a single clause that will address all
+-- your routing needs. It takes four arguments. The fourth (a list of
+-- 'Resource's) is self-explanatory. We\'ll discuss the first
+-- three. But first, let\'s cover the terminology.
 --
 -- Dispatching involves a master type and a sub type. When you dispatch to the
 -- top level type, master and sub are the same. Each time to dispatch to
@@ -63,7 +63,23 @@ import Data.List (foldl')
 -- > dispatcher :: master -> sub -> (Route sub -> Route master) -> app -> handler sub master -> Text -> [Text] -> app
 --
 -- Where the parameters mean master, sub, toMaster, 404 response, 405 response,
--- request method and path pieces.
+-- request method and path pieces. This is the second argument of our function.
+--
+-- Finally, we need a way to decide which of the possible formats
+-- should the handler send the data out. Think of each URL holding an
+-- abstract object which has multiple representation (JSON, plain HTML
+-- etc). Each client might have a preference on which format it wants
+-- the abstract object in. For example, a javascript making a request
+-- (on behalf of a browser) might prefer a JSON object over a plain
+-- HTML file where as a user browsing with javascript disabled would
+-- want the page in HTML. The third argument is a function that
+-- converts the abstract object to the desired representation
+-- depending on the preferences sent by the client.
+--
+-- The typical values for the first three arguments are,
+-- @'yesodRunner'@ for the first, @'yesodDispatch'@ for the second and
+-- @fmap 'chooseRep'@.
+
 mkDispatchClause :: Q Exp -- ^ runHandler function
                  -> Q Exp -- ^ dispatcher function
                  -> Q Exp -- ^ fixHandler function

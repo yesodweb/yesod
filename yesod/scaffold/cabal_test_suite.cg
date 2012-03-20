@@ -1,0 +1,19 @@
+test-suite integration-tests
+    type: exitcode-stdio-1.0
+    main-is:        main.hs
+    hs-source-dirs: tests .
+    ghc-options:     -Wall
+    extensions: TemplateHaskell
+                QuasiQuotes
+                OverloadedStrings
+                NoImplicitPrelude
+                CPP
+                OverloadedStrings
+                MultiParamTypeClasses
+                TypeFamilies
+                GADTs
+                GeneralizedNewtypeDeriving
+                FlexibleContexts
+
+    build-depends: base                          >= 4          && < 5
+                 , yesod-test                    >= 0.1        && < 0.2

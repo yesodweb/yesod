@@ -19,46 +19,52 @@ homepage:        http://www.yesodweb.com/
 
 extra-source-files:
   input/*.cg
-  scaffold/templates/default-layout.lucius.cg
-  scaffold/templates/homepage.lucius.cg
   scaffold/Model.hs.cg
-  scaffold/Import.hs.cg
-  scaffold/Foundation.hs.cg
   scaffold/LICENSE.cg
+  scaffold/project.cabal.cg
   scaffold/mongoDBConnPool.cg
-  scaffold/tiny/Import.hs.cg
-  scaffold/tiny/Foundation.hs.cg
+  scaffold/main.hs.cg
+  scaffold/static/js/modernizr.js.cg
+  scaffold/postgresqlConnPool.cg
+  scaffold/Foundation.hs.cg
   scaffold/tiny/project.cabal.cg
+  scaffold/tiny/Foundation.hs.cg
+  scaffold/tiny/Import.hs.cg
+  scaffold/tiny/Settings.hs.cg
   scaffold/tiny/Application.hs.cg
   scaffold/tiny/config/routes.cg
-  scaffold/tiny/Settings.hs.cg
-  scaffold/templates/normalize.lucius.cg
-  scaffold/postgresqlConnPool.cg
   scaffold/sqliteConnPool.cg
+  scaffold/cabal_test_suite.cg
+  scaffold/Import.hs.cg
   scaffold/.ghci.cg
-  scaffold/project.cabal.cg
+  scaffold/tests/main.hs.cg
+  scaffold/Settings.hs.cg
+  scaffold/Settings/StaticFiles.hs.cg
   scaffold/Application.hs.cg
-  scaffold/templates/homepage.julius.cg
+  scaffold/deploy/Procfile.cg
   scaffold/templates/homepage.hamlet.cg
+  scaffold/templates/default-layout.lucius.cg
   scaffold/templates/default-layout.hamlet.cg
+  scaffold/templates/homepage.julius.cg
   scaffold/templates/default-layout-wrapper.hamlet.cg
   scaffold/deploy/Procfile.cg
   scaffold/main.hs.cg
   scaffold/devel.hs.cg
   scaffold/Handler/Home.hs.cg
+  scaffold/templates/normalize.lucius.cg
+  scaffold/templates/boilerplate-wrapper.hamlet.cg
+  scaffold/templates/homepage.lucius.cg
+  scaffold/messages/en.msg.cg
   scaffold/config/models.cg
+  scaffold/config/mysql.yml.cg
   scaffold/config/sqlite.yml.cg
   scaffold/config/settings.yml.cg
   scaffold/config/favicon.ico.cg
   scaffold/config/postgresql.yml.cg
-  scaffold/config/mysql.yml.cg
-  scaffold/config/mongoDB.yml.cg
   scaffold/config/routes.cg
   scaffold/config/robots.txt.cg
-  scaffold/Settings.hs.cg
-  scaffold/Settings/StaticFiles.hs.cg
-  scaffold/messages/en.msg.cg
-  scaffold/static/js/modernizr.js.cg
+  scaffold/config/mongoDB.yml.cg
+  scaffold/devel.hs.cg
 
 
 flag ghc7
