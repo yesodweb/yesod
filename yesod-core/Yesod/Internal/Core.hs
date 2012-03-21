@@ -274,6 +274,12 @@ class RenderRoute a => Yesod a where
     cookiePath :: a -> S8.ByteString
     cookiePath _ = "/"
 
+    -- | The domain value to set for cookies. By default, the
+    -- domain is not set, meaning cookies will be sent only to
+    -- the current domain.
+    cookieDomain :: a -> Maybe S8.ByteString
+    cookieDomain _ = Nothing
+
     -- | Maximum allowed length of the request body, in bytes.
     maximumContentLength :: a -> Maybe (Route a) -> Int
     maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
@@ -742,7 +748,7 @@ saveClientSession key timeout master _ now _ sess = do
         , setCookieValue = sessionVal iv
         , setCookiePath = Just (cookiePath master)
         , setCookieExpires = Just expires
-        , setCookieDomain = Nothing
+        , setCookieDomain = cookieDomain master
         , setCookieHttpOnly = True
         }]
   where
