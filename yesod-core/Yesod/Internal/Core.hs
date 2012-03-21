@@ -227,8 +227,8 @@ class RenderRoute a => Yesod a where
       where
         corrected = filter (not . T.null) s
 
-    -- | Builds an absolute URL by concatenating the application root with the  
-    -- pieces of a path and a query string, if any. 
+    -- | Builds an absolute URL by concatenating the application root with the
+    -- pieces of a path and a query string, if any.
     -- Note that the pieces of the path have been previously cleaned up by 'cleanPath'.
     joinPath :: a
              -> T.Text -- ^ application root
@@ -273,6 +273,12 @@ class RenderRoute a => Yesod a where
     -- cookies will be sent to every page on the current domain.
     cookiePath :: a -> S8.ByteString
     cookiePath _ = "/"
+
+    -- | The domain value to set for cookies. By default, the
+    -- domain is not set, meaning cookies will be sent only to
+    -- the current domain.
+    cookieDomain :: a -> Maybe S8.ByteString
+    cookieDomain _ = Nothing
 
     -- | Maximum allowed length of the request body, in bytes.
     maximumContentLength :: a -> Maybe (Route a) -> Int
@@ -368,7 +374,7 @@ formatLogMessage loc level msg = do
 -- turn the TH Loc loaction information into a human readable string
 -- leaving out the loc_end parameter
 fileLocationToString :: Loc -> String
-fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++  
+fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
   ' ' : (loc_filename loc) ++ ':' : (line loc) ++ ':' : (char loc)
   where
     line = show . fst . loc_start
@@ -704,7 +710,7 @@ defaultClientSessionBackend = do
   let timeout = 120 -- 120 minutes
   return $ clientSessionBackend key timeout
 
-clientSessionBackend :: Yesod master 
+clientSessionBackend :: Yesod master
                      => CS.Key  -- ^ The encryption key
                      -> Int -- ^ Inactive session valitity in minutes
                      -> SessionBackend master
@@ -737,12 +743,12 @@ saveClientSession :: Yesod master
 saveClientSession key timeout master _ now _ sess = do
     -- fixme should we be caching this?
     iv <- liftIO $ CS.randomIV
-    return [AddCookie def 
+    return [AddCookie def
         { setCookieName = sessionName
         , setCookieValue = sessionVal iv
         , setCookiePath = Just (cookiePath master)
         , setCookieExpires = Just expires
-        , setCookieDomain = Nothing
+        , setCookieDomain = cookieDomain master
         , setCookieHttpOnly = True
         }]
   where
