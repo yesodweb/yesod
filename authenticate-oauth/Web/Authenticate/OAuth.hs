@@ -82,7 +82,6 @@ data OAuth = OAuth { oauthServerName      :: String -- ^ Service name (default: 
 
 data OAuthVersion = OAuth10     -- ^ OAuth protocol ver 1.0 (no oauth_verifier; differs from RFC 5849).
                   | OAuth10a    -- ^ OAuth protocol ver 1.0a. This corresponds to community's 1.0a spec and RFC 5849.
-                  | OAuth20     -- ^ OAuth protocol ver 2.0, currently based on community's draft-ietf-oauth-v2-25.
                     deriving (Show, Eq, Ord, Data, Typeable, Read)
 
 -- | Default value for OAuth datatype.
