@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, StandaloneDeriving #-}
+{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, StandaloneDeriving, FlexibleContexts #-}
 {-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Web.Authenticate.OAuth
     ( -- * Data types
@@ -24,7 +24,6 @@ import Data.Data
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Maybe
-import Control.Applicative
 import Network.HTTP.Types (parseSimpleQuery, SimpleQuery)
 import Control.Exception
 import Control.Monad
@@ -40,11 +39,12 @@ import Network.HTTP.Types (Header)
 import Blaze.ByteString.Builder (toByteString)
 import Control.Monad.IO.Class (MonadIO)
 import Network.HTTP.Types (renderSimpleQuery, status200)
-import Data.Conduit (ResourceT, ResourceIO, ($$), ($=), Source)
+import Data.Conduit (MonadResource, ($$), ($=), Source)
 import qualified Data.Conduit.List as CL
 import Data.Conduit.Blaze (builderToByteString)
 import Blaze.ByteString.Builder (Builder)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Control
 import Data.Default
 
 -- | Data type for OAuth client (consumer).
@@ -82,6 +82,7 @@ data OAuth = OAuth { oauthServerName      :: String -- ^ Service name (default: 
 
 data OAuthVersion = OAuth10     -- ^ OAuth protocol ver 1.0 (no oauth_verifier; differs from RFC 5849).
                   | OAuth10a    -- ^ OAuth protocol ver 1.0a. This corresponds to community's 1.0a spec and RFC 5849.
+                  | OAuth20     -- ^ OAuth protocol ver 2.0, currently based on community's draft-ietf-oauth-v2-25.
                     deriving (Show, Eq, Ord, Data, Typeable, Read)
 
 -- | Default value for OAuth datatype.
@@ -144,18 +145,18 @@ fromStrict :: BS.ByteString -> BSL.ByteString
 fromStrict = BSL.fromChunks . return
 
 -- | Get temporary credential for requesting acces token.
-getTemporaryCredential :: ResourceIO m
+getTemporaryCredential :: (MonadResource m, MonadBaseControl IO m)
                        => OAuth         -- ^ OAuth Application
                        -> Manager
-                       -> ResourceT m Credential -- ^ Temporary Credential (Request Token & Secret).
+                       -> m Credential -- ^ Temporary Credential (Request Token & Secret).
 getTemporaryCredential = getTemporaryCredential' id
 
 -- | Get temporary credential for requesting access token with Scope parameter.
-getTemporaryCredentialWithScope :: ResourceIO m
+getTemporaryCredentialWithScope :: (MonadResource m, MonadBaseControl IO m)
                                 => BS.ByteString -- ^ Scope parameter string
                                 -> OAuth         -- ^ OAuth Application
                                 -> Manager
-                                -> ResourceT m Credential -- ^ Temporay Credential (Request Token & Secret).
+                                -> m Credential -- ^ Temporay Credential (Request Token & Secret).
 getTemporaryCredentialWithScope bs = getTemporaryCredential' (addScope bs)
 
 addScope :: (MonadIO m) => BS.ByteString -> Request m -> Request m
@@ -163,24 +164,24 @@ addScope scope req | BS.null scope = req
                    | otherwise     = urlEncodedBody [("scope", scope)] req
 
 -- | Get temporary credential for requesting access token via the proxy.
-getTemporaryCredentialProxy :: ResourceIO m
+getTemporaryCredentialProxy :: (MonadResource m, MonadBaseControl IO m)
                             => Maybe Proxy   -- ^ Proxy
                             -> OAuth         -- ^ OAuth Application
                             -> Manager
-                            -> ResourceT m Credential -- ^ Temporary Credential (Request Token & Secret).
+                            -> m Credential -- ^ Temporary Credential (Request Token & Secret).
 getTemporaryCredentialProxy p oa m = getTemporaryCredential' (addMaybeProxy p) oa m
 
-getTemporaryCredential' :: ResourceIO m
+getTemporaryCredential' :: (MonadResource m, MonadBaseControl IO m)
                         => (Request m -> Request m)   -- ^ Request Hook
                         -> OAuth                      -- ^ OAuth Application
                         -> Manager
-                        -> ResourceT m Credential    -- ^ Temporary Credential (Request Token & Secret).
+                        -> m Credential    -- ^ Temporary Credential (Request Token & Secret).
 getTemporaryCredential' hook oa manager = do
   let req = fromJust $ parseUrl $ oauthRequestUri oa
       crd = maybe id (insert "oauth_callback") (oauthCallback oa) $ emptyCredential
   req' <- signOAuth oa crd $ hook (req { method = "POST" }) 
   rsp <- httpLbs req' manager
-  if statusCode rsp == status200
+  if responseStatus rsp == status200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
       return $ Credential dic
@@ -209,33 +210,33 @@ authorizeUrl' f oa cr = oauthAuthorizeUri oa ++ BS.unpack (renderSimpleQuery Tru
 
 -- | Get Access token.
 getAccessToken, getTokenCredential
-               :: ResourceIO m
+               :: (MonadResource m, MonadBaseControl IO m)
                => OAuth         -- ^ OAuth Application
                -> Credential    -- ^ Temporary Credential (with oauth_verifier if >= 1.0a)
                -> Manager
-               -> ResourceT m Credential -- ^ Token Credential (Access Token & Secret)
+               -> m Credential -- ^ Token Credential (Access Token & Secret)
 getAccessToken = getAccessToken' id
 
 -- | Get Access token via the proxy.
 getAccessTokenProxy, getTokenCredentialProxy
-               :: ResourceIO m
+               :: (MonadResource m, MonadBaseControl IO m)
                => Maybe Proxy   -- ^ Proxy
                -> OAuth         -- ^ OAuth Application
                -> Credential    -- ^ Temporary Credential (with oauth_verifier if >= 1.0a)
                -> Manager
-               -> ResourceT m Credential -- ^ Token Credential (Access Token & Secret)
+               -> m Credential -- ^ Token Credential (Access Token & Secret)
 getAccessTokenProxy p = getAccessToken' $ addMaybeProxy p
 
-getAccessToken' :: ResourceIO m
+getAccessToken' :: (MonadResource m, MonadBaseControl IO m)
                 => (Request m -> Request m)   -- ^ Request Hook
                 -> OAuth                      -- ^ OAuth Application
                 -> Credential                 -- ^ Temporary Credential (with oauth_verifier if >= 1.0a)
                 -> Manager
-                -> ResourceT m Credential     -- ^ Token Credential (Access Token & Secret)
+                -> m Credential     -- ^ Token Credential (Access Token & Secret)
 getAccessToken' hook oa cr manager = do
   let req = hook (fromJust $ parseUrl $ oauthAccessTokenUri oa) { method = "POST" }
   rsp <- flip httpLbs manager =<< signOAuth oa (if oauthVersion oa == OAuth10 then delete "oauth_verifier" cr else cr) req
-  if statusCode rsp == status200
+  if responseStatus rsp == status200
     then do
       let dic = parseSimpleQuery . toStrict . responseBody $ rsp
       return $ Credential dic
@@ -271,11 +272,11 @@ injectVerifier :: BS.ByteString -> Credential -> Credential
 injectVerifier = insert "oauth_verifier"
 
 -- | Add OAuth headers & sign to 'Request'.
-signOAuth :: ResourceIO m
+signOAuth :: (MonadResource m)
           => OAuth              -- ^ OAuth Application
           -> Credential         -- ^ Credential
           -> Request m          -- ^ Original Request
-          -> ResourceT m (Request m)    -- ^ Signed OAuth Request
+          -> m (Request m)    -- ^ Signed OAuth Request
 signOAuth oa crd req = do
   crd' <- addTimeStamp =<< addNonce crd
   let tok = injectOAuthToCred oa crd'
@@ -296,14 +297,14 @@ showSigMtd PLAINTEXT = "PLAINTEXT"
 showSigMtd HMACSHA1  = "HMAC-SHA1"
 showSigMtd (RSASHA1 _) = "RSA-SHA1"
 
-addNonce :: ResourceIO m => Credential -> ResourceT m Credential
+addNonce :: MonadResource m => Credential -> m Credential
 addNonce cred = do
   nonce <- liftIO $ replicateM 10 (randomRIO ('a','z')) -- FIXME very inefficient
   return $ insert "oauth_nonce" (BS.pack nonce) cred
 
-addTimeStamp :: ResourceIO m => Credential -> ResourceT m Credential
+addTimeStamp :: MonadResource m => Credential -> m Credential
 addTimeStamp cred = do
-  stamp <- floor . (`diffUTCTime` baseTime) <$> liftIO getCurrentTime
+  stamp <- (floor . (`diffUTCTime` baseTime)) `liftM` liftIO getCurrentTime
   return $ insert "oauth_timestamp" (BS.pack $ show (stamp :: Integer)) cred
 
 injectOAuthToCred :: OAuth -> Credential -> Credential
@@ -313,7 +314,7 @@ injectOAuthToCred oa cred =
             , ("oauth_version", "1.0")
             ] cred
 
-genSign :: ResourceIO m => OAuth -> Credential -> Request m -> ResourceT m BS.ByteString
+genSign :: MonadResource m => OAuth -> Credential -> Request m -> m BS.ByteString
 genSign oa tok req =
   case oauthSignatureMethod oa of
     HMACSHA1 -> do
@@ -341,7 +342,7 @@ paramEncode = BS.concatMap escape
                                oct = '%' : replicate (2 - length num) '0' ++ num
                            in BS.pack oct
 
-getBaseString :: ResourceIO m => Credential -> Request m -> ResourceT m BSL.ByteString
+getBaseString :: MonadResource m => Credential -> Request m -> m BSL.ByteString
 getBaseString tok req = do
   let bsMtd  = BS.map toUpper $ method req
       isHttps = secure req
@@ -361,15 +362,15 @@ getBaseString tok req = do
   -- So this is OK.
   return $ BSL.intercalate "&" $ map (fromStrict.paramEncode) [bsMtd, bsURI, bsParams]
 
-toLBS :: ResourceIO m => RequestBody m -> ResourceT m BS.ByteString
+toLBS :: MonadResource m => RequestBody m -> m BS.ByteString
 toLBS (RequestBodyLBS l) = return $ toStrict l
 toLBS (RequestBodyBS s) = return s
 toLBS (RequestBodyBuilder _ b) = return $ toByteString b
 toLBS (RequestBodySource _ src) = toLBS' src
 toLBS (RequestBodySourceChunked src) = toLBS' src
 
-toLBS' :: ResourceIO m => Source m Builder -> ResourceT m BS.ByteString
-toLBS' src = fmap BS.concat $ src $= builderToByteString $$ CL.consume
+toLBS' :: MonadResource m => Source m Builder -> m BS.ByteString
+toLBS' src = liftM BS.concat $ src $= builderToByteString $$ CL.consume
 
 isBodyFormEncoded :: [Header] -> Bool
 isBodyFormEncoded = maybe False (=="application/x-www-form-urlencoded") . lookup "Content-Type"
