@@ -591,7 +591,7 @@ $forall s <- css
             <link rel=stylesheet href=#{t}>
     $maybe content <- left $ snd s
         $maybe media <- fst s
-            <style media=#{media}>#{content}>
+            <style media=#{media}>#{content}
         $nothing
             <style>#{content}
 $case jsLoader master
