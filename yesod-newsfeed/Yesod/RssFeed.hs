@@ -35,10 +35,10 @@ rssFeed = liftM RepRss . hamletToContent . template
 
 template :: Feed url -> HtmlUrl url
 template arg = [xhamlet|
-    \<?xml version="1.0" encoding="utf-8"?> 
-    <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"
-        <channel
-            <atom:link href=@{feedLinkSelf arg} rel="self" type=#{S8.unpack typeRss}
+    \<?xml version="1.0" encoding="utf-8"?>
+    <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+        <channel>
+            <atom:link href=@{feedLinkSelf arg} rel="self" type=#{S8.unpack typeRss}>
             <title>        #{feedTitle arg}
             <link>         @{feedLinkHome arg}
             <description>  #{feedDescription arg}
@@ -51,7 +51,7 @@ template arg = [xhamlet|
 
 entryTemplate :: FeedEntry url -> HtmlUrl url
 entryTemplate arg = [xhamlet|
-    <item
+    <item>
         <title>      #{feedEntryTitle arg}
         <link>       @{feedEntryLink arg}
         <guid>       @{feedEntryLink arg}
@@ -64,5 +64,5 @@ rssLink :: Route m
         -> Text -- ^ title
         -> GWidget s m ()
 rssLink r title = toWidgetHead [hamlet|
-    <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}
+    <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}>
     |]

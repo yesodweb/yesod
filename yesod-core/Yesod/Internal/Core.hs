@@ -586,12 +586,12 @@ $forall s <- stylesheets
 $forall s <- css
     $maybe t <- right $ snd s
         $maybe media <- fst s
-            <link rel=stylesheet media=#{media} href=#{t}
+            <link rel=stylesheet media=#{media} href=#{t}>
         $nothing
-            <link rel=stylesheet href=#{t}
+            <link rel=stylesheet href=#{t}>
     $maybe content <- left $ snd s
         $maybe media <- fst s
-            <style media=#{media}>#{content}
+            <style media=#{media}>#{content}>
         $nothing
             <style>#{content}
 $case jsLoader master
