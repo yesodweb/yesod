@@ -28,6 +28,7 @@ module Yesod.Core
     , logError
     , logOther
       -- * Sessions
+    , Session
     , SessionBackend (..)
     , defaultClientSessionBackend
     , clientSessionBackend
