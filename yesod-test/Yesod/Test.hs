@@ -50,14 +50,15 @@ module Yesod.Test (
   runDB,
 
   -- * Assertions
-  assertEqual, statusIs, bodyContains, htmlAllContain, htmlCount,
+  assertEqual, assertHeader, assertNoHeader, statusIs, bodyEquals, bodyContains,
+  htmlAllContain, htmlCount,
 
   -- * Utils for debugging tests
   printBody, printMatches,
 
   -- * Utils for building your own assertions
   -- | Please consider generalizing and contributing the assertions you write.
-  htmlQuery, parseHTML
+  htmlQuery, parseHTML, withResponse
 
 )
 
@@ -75,9 +76,10 @@ import qualified Test.HUnit as HUnit
 import qualified Test.Hspec.HUnit ()
 import qualified Network.HTTP.Types as H
 import qualified Network.Socket.Internal as Sock
+import Data.CaseInsensitive (CI)
 import Text.XML.HXT.Core hiding (app, err)
 import Network.Wai
-import Network.Wai.Test
+import Network.Wai.Test hiding (assertHeader, assertNoHeader)
 import qualified Control.Monad.Trans.State as ST
 import Control.Monad.IO.Class
 import System.IO
@@ -150,7 +152,8 @@ it label action = do
         return ()
   ST.put $ SpecsData app conn (specs++spec)
 
--- Performs a given action using the last response.
+-- Performs a given action using the last response. Use this to create
+-- response-level assertions
 withResponse :: HoldsResponse a => (SResponse -> ST.StateT a IO b) -> ST.StateT a IO b
 withResponse f = maybe err f =<< fmap readResponse ST.get
  where err = failure "There was no response, you should make a request"
@@ -178,6 +181,45 @@ statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
     [ "Expected status was ", show number
     , " but received status was ", show $ H.statusCode s
     ]
+
+-- | Assert the given header key/value pair was returned.
+assertHeader :: HoldsResponse a => CI BS8.ByteString -> BS8.ByteString -> ST.StateT a IO ()
+assertHeader header value = withResponse $ \ SResponse { simpleHeaders = h } ->
+  case lookup header h of
+    Nothing -> failure $ concat
+        [ "Expected header "
+        , show header
+        , " to be "
+        , show value
+        , ", but it was not present"
+        ]
+    Just value' -> liftIO $ flip HUnit.assertBool (value == value') $ concat
+        [ "Expected header "
+        , show header
+        , " to be "
+        , show value
+        , ", but received "
+        , show value'
+        ]
+
+-- | Assert the given header was not included in the response.
+assertNoHeader :: HoldsResponse a => CI BS8.ByteString -> ST.StateT a IO ()
+assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
+  case lookup header h of
+    Nothing -> return ()
+    Just s  -> failure $ concat
+        [ "Unexpected header "
+        , show header
+        , " containing "
+        , show s
+        ]
+
+-- | Assert the last response is exactly equal to the given text. This is
+-- useful for testing API responses.
+bodyEquals :: HoldsResponse a => String -> ST.StateT a IO ()
+bodyEquals text = withResponse $ \ res ->
+  liftIO $ HUnit.assertBool ("Expected body to equal " ++ text) $
+    (simpleBody res) == BSL8.pack text
 
 -- | Assert the last response has the given text. The check is performed using the response
 -- body in full text form.
