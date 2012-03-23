@@ -41,22 +41,27 @@ Please note that cabal-dev will not work in a virthualenv shell - you can't use 
 
 ### virthualenv
 
-virthualenv will not work on Windows - Windows users should use only cabal-dev.
-
-To just install Yesod from github, we only need cabal-dev. However, cabal-dev may be more hassle than it is worth when hacking on Yesod.
-
 We recommend using [virthualenv](http://hackage.haskell.org/package/virthualenv) when hacking on Yesod.
 This is optional, but prevents your custom build of Yesod from interfering with your currently installed cabal packages.
-virthualenv creates an isolated environment like cabal-dev.
-cabal-dev by default isolates a single cabal package, but virthualenv isolates multiple packages together.
-cabal-dev can isolate multiple packages together by using the -s sandbox argument
 
-virthualenv works at the shell level, so every shell must activate the virthualenv.
+virthualenv will not work on Windows - Windows users should use only cabal-dev.
+
+* virthualenv creates an isolated environment like cabal-dev
+* virthualenv works at the shell level, so every shell must activate the virthualenv
+* cabal-dev by default isolates a single cabal package, but virthualenv isolates multiple packages together.
+* cabal-dev can isolate multiple packages together by using the -s sandbox argument
+
+To just install Yesod from github, we only need cabal-dev. For hacking we prefer virthualenv: it is more convenient to just use normal cabal commands rather than `cabal-dev -s`.
+
 
 ### cabal-src
 
-Michael Snoyman just released the cabal-src tool, which helps resolve dependency conflicts when installing local packages.
+Michael Snoyman just released the cabal-src tool, which helps resolve dependency conflicts when installing local packages. This capability is already built in if you are using cabal-dev. Otherwise install it with:
+
+    cabal install cabal-src
+
 Whenever you would use `cabal install` for a local package, use `cabal-src-install` instead. Our installer script now uses cabal-src-install when it is available.
+
 
 ### Building Yesod
 
@@ -64,10 +69,19 @@ Whenever you would use `cabal install` for a local package, use `cabal-src-insta
 # update your package database if you haven't recently
 cabal update
 # install required libraries
-cabal install Cabal cabal-install cabal-src virthualenv
+cabal install Cabal cabal-install
+
+# use cabal-dev
+cabal install cabal-dev
+
+# or use virthualenv
+cabal install cabal-src virthualenv
+cd yesodweb # the folder where you put the yesod, persistent, hamlet & wai repos
+virthualenv --name=yesod
+. .virthualenv/bin/activate
 
 # clone and install all repos
-# see below about first using virthualenv before running ./scripts/install
+# see below about first using virthualenv/cabal-dev before running ./scripts/install
 for repo in hamlet persistent wai yesod; do
   git clone http://github.com/yesodweb/$repo
   (
@@ -78,21 +92,8 @@ for repo in hamlet persistent wai yesod; do
 done
 ~~~
 
-### Hacking on Yesod
 
-To prevent Yesod from conflicting with your other installs, you should use virthualenv, although it is optional.
-
-#### virthualenv
-
-~~~ { .bash }
-cabal update
-cabal install virthualenv
-cd yesodweb # the folder where you put the yesod, persistent, hamlet & wai repos
-virthualenv --name=yesod
-. .virthualenv/bin/activate
-~~~
-
-#### individual cabal packages
+#### installing repo packages
 
 ~~~ { .bash }
 # install and test all packages in a repo
@@ -110,10 +111,6 @@ cabal build
 cabal test
 ~~~
 
-#### cabal-dev
-
-cabal-dev works very well if you are working on a single package.
-For working on multiple packages at once (installing Yesod), you need to use the shared sandbox feature.
 
 ### Use your development version of Yesod in your application
 
