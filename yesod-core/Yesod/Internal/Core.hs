@@ -26,6 +26,7 @@ module Yesod.Internal.Core
     , fileLocationToString
     , messageLoggerHandler
       -- * Sessions
+    , Session
     , SessionBackend (..)
     , defaultClientSessionBackend
     , clientSessionBackend
