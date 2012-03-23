@@ -58,7 +58,7 @@ module Yesod.Test (
 
   -- * Utils for building your own assertions
   -- | Please consider generalizing and contributing the assertions you write.
-  htmlQuery, parseHTML
+  htmlQuery, parseHTML, withResponse
 
 )
 
@@ -152,7 +152,8 @@ it label action = do
         return ()
   ST.put $ SpecsData app conn (specs++spec)
 
--- Performs a given action using the last response.
+-- Performs a given action using the last response. Use this to create
+-- response-level assertions
 withResponse :: HoldsResponse a => (SResponse -> ST.StateT a IO b) -> ST.StateT a IO b
 withResponse f = maybe err f =<< fmap readResponse ST.get
  where err = failure "There was no response, you should make a request"
