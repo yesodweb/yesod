@@ -50,7 +50,8 @@ module Yesod.Test (
   runDB,
 
   -- * Assertions
-  assertEqual, statusIs, bodyEquals, bodyContains, htmlAllContain, htmlCount,
+  assertEqual, assertHeader, assertNoHeader, statusIs, bodyEquals, bodyContains,
+  htmlAllContain, htmlCount,
 
   -- * Utils for debugging tests
   printBody, printMatches,
@@ -75,9 +76,10 @@ import qualified Test.HUnit as HUnit
 import qualified Test.Hspec.HUnit ()
 import qualified Network.HTTP.Types as H
 import qualified Network.Socket.Internal as Sock
+import Data.CaseInsensitive (CI)
 import Text.XML.HXT.Core hiding (app, err)
 import Network.Wai
-import Network.Wai.Test
+import Network.Wai.Test hiding (assertHeader, assertNoHeader)
 import qualified Control.Monad.Trans.State as ST
 import Control.Monad.IO.Class
 import System.IO
@@ -178,6 +180,38 @@ statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
     [ "Expected status was ", show number
     , " but received status was ", show $ H.statusCode s
     ]
+
+-- | Assert the given header key/value pair was returned.
+assertHeader :: HoldsResponse a => CI BS8.ByteString -> BS8.ByteString -> ST.StateT a IO ()
+assertHeader header value = withResponse $ \ SResponse { simpleHeaders = h } ->
+  case lookup header h of
+    Nothing -> failure $ concat
+        [ "Expected header "
+        , show header
+        , " to be "
+        , show value
+        , ", but it was not present"
+        ]
+    Just value' -> liftIO $ flip HUnit.assertBool (value == value') $ concat
+        [ "Expected header "
+        , show header
+        , " to be "
+        , show value
+        , ", but received "
+        , show value'
+        ]
+
+-- | Assert the given header was not included in the response.
+assertNoHeader :: HoldsResponse a => CI BS8.ByteString -> ST.StateT a IO ()
+assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
+  case lookup header h of
+    Nothing -> return ()
+    Just s  -> failure $ concat
+        [ "Unexpected header "
+        , show header
+        , " containing "
+        , show s
+        ]
 
 -- | Assert the last response is exactly equal to the given text. This is
 -- useful for testing API responses.
