@@ -50,7 +50,7 @@ module Yesod.Test (
   runDB,
 
   -- * Assertions
-  assertEqual, statusIs, bodyContains, htmlAllContain, htmlCount,
+  assertEqual, statusIs, bodyEquals, bodyContains, htmlAllContain, htmlCount,
 
   -- * Utils for debugging tests
   printBody, printMatches,
@@ -178,6 +178,13 @@ statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
     [ "Expected status was ", show number
     , " but received status was ", show $ H.statusCode s
     ]
+
+-- | Assert the last response is exactly equal to the given text. This is
+-- useful for testing API responses.
+bodyEquals :: HoldsResponse a => String -> ST.StateT a IO ()
+bodyEquals text = withResponse $ \ res ->
+  liftIO $ HUnit.assertBool ("Expected body to equal " ++ text) $
+    (simpleBody res) == BSL8.pack text
 
 -- | Assert the last response has the given text. The check is performed using the response
 -- body in full text form.
