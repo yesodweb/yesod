@@ -5,7 +5,7 @@ module Scaffolding.Scaffolder (scaffold) where
 import Scaffolding.CodeGen
 
 import Language.Haskell.TH.Syntax
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import qualified Data.ByteString.Lazy as L
@@ -25,13 +25,6 @@ prompt f = do
             putStr "That was not a valid entry, please try again: "
             hFlush stdout
             prompt f
-
-qq :: String
-#if __GLASGOW_HASKELL__ >= 700
-qq = ""
-#else
-qq = "$"
-#endif
 
 data Backend = Sqlite | Postgresql | Mysql | MongoDB | Tiny
   deriving (Eq, Read, Show, Enum, Bounded)
@@ -83,6 +76,9 @@ scaffold = do
         uncapitalize s = toLower (head s) : tail s
         backendLower = uncapitalize $ show backend 
         upper = show backend
+    
+    let useTests = True
+    let testsDep = if useTests then ", yesod-test" else ""
 
     let runMigration  =
           case backend of
@@ -130,10 +126,12 @@ scaffold = do
     let fst3 (x, _, _) = x
     year <- show . fst3 . toGregorian . utctDay <$> getCurrentTime
 
-    let writeFile' fp s = do
+    let changeFile fileFunc fp s = do
             putStrLn $ "Generating " ++ fp
-            L.writeFile (dir ++ '/' : fp) $ LT.encodeUtf8 $ LT.pack s
+            fileFunc (dir ++ '/' : fp) $ LT.encodeUtf8 $ LT.pack s
         mkDir fp = createDirectoryIfMissing True $ dir ++ '/' : fp
+        writeFile' = changeFile L.writeFile
+        appendFile' = changeFile L.appendFile
 
     mkDir "Handler"
     mkDir "templates"
@@ -162,12 +160,15 @@ scaffold = do
     writeFile' ("main.hs") $(codegen "main.hs")
     writeFile' ("devel.hs") $(codegen "devel.hs")
     writeFile' (project ++ ".cabal") $ ifTiny $(codegen "tiny/project.cabal") $(codegen "project.cabal")
+    when useTests $ do
+      appendFile' (project ++ ".cabal") $(codegen "cabal_test_suite")
+
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
     writeFile' ("Foundation.hs") $ ifTiny $(codegen "tiny/Foundation.hs") $(codegen "Foundation.hs")
     writeFile' ("Import.hs") $ ifTiny $(codegen "tiny/Import.hs") $(codegen "Import.hs")
     writeFile' "Application.hs" $ ifTiny $(codegen "tiny/Application.hs") $(codegen "Application.hs")
-    writeFile' "Handler/Root.hs" $(codegen "Handler/Root.hs")
+    writeFile' "Handler/Home.hs" $(codegen "Handler/Home.hs")
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "Settings.hs" $ ifTiny $(codegen "tiny/Settings.hs") $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
@@ -188,6 +189,10 @@ scaffold = do
         $(codegen "templates/homepage.julius")
     unless isTiny $ writeFile' "config/models" $(codegen "config/models")
     writeFile' "messages/en.msg" $(codegen "messages/en.msg")
+
+    when useTests $ do
+      mkDir "tests"
+      writeFile' "tests/main.hs" $(codegen "tests/main.hs")
 
     S.writeFile (dir ++ "/static/js/modernizr.js")
         $(runIO (S.readFile "scaffold/static/js/modernizr.js.cg") >>= \bs ->

@@ -14,13 +14,13 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, pack, unpack)
 import Yesod.Core -- purposely using complete import so that Haddock will see addStaticContent
-import Control.Monad (unless)
+import Control.Monad (when, unless)
 import System.Directory (doesFileExist, createDirectoryIfMissing)
 import Language.Haskell.TH.Syntax
 import Text.Lucius (luciusFile, luciusFileReload)
 import Text.Julius (juliusFile, juliusFileReload)
 import Text.Cassius (cassiusFile, cassiusFileReload)
-import Data.Monoid (mempty)
+import Data.Maybe (catMaybes)
 
 -- | An implementation of 'addStaticContent' which stores the contents in an
 -- external file. Files are created in the given static folder with names based
@@ -58,36 +58,62 @@ globFile :: String -> String -> FilePath
 globFile kind x = "templates/" ++ x ++ "." ++ kind
 
 widgetFileNoReload :: FilePath -> Q Exp
-widgetFileNoReload x = do
-    let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x "cassius" cassiusFile
-    let j = whenExists x "julius"  juliusFile
-    let l = whenExists x "lucius"  luciusFile
-    [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
+widgetFileNoReload x = combine "widgetFileNoReload" x
+    [ whenExists x False "hamlet"  whamletFile
+    , whenExists x True  "cassius" cassiusFile
+    , whenExists x True  "julius"  juliusFile
+    , whenExists x True  "lucius"  luciusFile
+    ]
 
 widgetFileReload :: FilePath -> Q Exp
-widgetFileReload x = do
-    let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x "cassius" cassiusFileReload
-    let j = whenExists x "julius"  juliusFileReload
-    let l = whenExists x "lucius"  luciusFileReload
-    [|$h >> addCassius $c >> addJulius $j >> addLucius $l|]
+widgetFileReload x = combine "widgetFileReload" x
+    [ whenExists x False "hamlet"  whamletFile
+    , whenExists x True  "cassius" cassiusFileReload
+    , whenExists x True  "julius"  juliusFileReload
+    , whenExists x True  "lucius"  luciusFileReload
+    ]
 
 widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
                 -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("julius", juliusFileReload)
                 -> FilePath -> Q Exp
-widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = do
-    let h = whenExists x "hamlet"  whamletFile
-    let c = whenExists x csExt csLoad
-    let j = whenExists x jsExt jsLoad
-    [|$h >> addCassius $c >> addJulius $j|]
+widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = combine "widgetFileJsCss" x
+    [ whenExists x False "hamlet"  whamletFile
+    , whenExists x True  csExt csLoad
+    , whenExists x True  jsExt jsLoad
+    ]
 
-whenExists :: String -> String -> (FilePath -> Q Exp) -> Q Exp
+combine :: String -> String -> [Q (Maybe Exp)] -> Q Exp
+combine func file qmexps = do
+    mexps <- sequence qmexps
+    case catMaybes mexps of
+        [] -> error $ concat
+            [ "Called "
+            , func
+            , " on "
+            , show file
+            , ", but no template were found."
+            ]
+        exps -> return $ DoE $ map NoBindS exps
+
+whenExists :: String
+           -> Bool -- ^ requires toWidget wrap
+           -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
 whenExists = warnUnlessExists False
 
-warnUnlessExists :: Bool -> String -> String -> (FilePath -> Q Exp) -> Q Exp
-warnUnlessExists shouldWarn x glob f = do
+warnUnlessExists :: Bool
+                 -> String
+                 -> Bool -- ^ requires toWidget wrap
+                 -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
+warnUnlessExists shouldWarn x wrap glob f = do
     let fn = globFile glob x
     e <- qRunIO $ doesFileExist fn
-    unless (shouldWarn && e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
-    if e then f fn else [|mempty|]
+    when (shouldWarn && not e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
+    if e
+        then do
+            ex <- f fn
+            if wrap
+                then do
+                    tw <- [|toWidget|]
+                    return $ Just $ tw `AppE` ex
+                else return $ Just ex
+        else return Nothing

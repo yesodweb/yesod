@@ -47,7 +47,6 @@ import Yesod.Handler hiding (lift, getExpires)
 
 import Yesod.Routes.Class
 
-import Control.Applicative ((<$>))
 import Control.Arrow ((***))
 import Control.Monad (forM)
 import Yesod.Widget
@@ -90,23 +89,11 @@ import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
 import qualified Data.Vector as Vector
 import Network.Wai.Middleware.Gzip (GzipSettings, def)
-
--- mega repo can't access this
-#ifndef MEGA
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
+
 yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version
-#else
-yesodVersion :: String
-yesodVersion = "0.9.4"
-#endif
-
-#if GHC7
-#define HAMLET hamlet
-#else
-#define HAMLET $hamlet
-#endif
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -164,18 +151,6 @@ class RenderRoute a => Yesod a where
     approot :: Approot a
     approot = ApprootRelative
 
-    -- | The encryption key to be used for encrypting client sessions.
-    -- Returning 'Nothing' disables sessions.
-    -- this method will be removed in Yesod 1.0, use makeSessionBackend instead
-    encryptKey :: a -> IO (Maybe CS.Key)
-    encryptKey _ = fmap Just $ CS.getKey CS.defaultKeyFile
-
-    -- | Number of minutes before a client session times out. Defaults to
-    -- 120 (2 hours).
-    -- this method will be removed in Yesod 1.0, use makeSessionBackend instead
-    clientSessionDuration :: a -> Int
-    clientSessionDuration = const 120
-
     -- | Output error response pages.
     errorHandler :: ErrorResponse -> GHandler sub a ChooseRep
     errorHandler = defaultErrorHandler
@@ -185,7 +160,7 @@ class RenderRoute a => Yesod a where
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
-        hamletToRepHtml [HAMLET|
+        hamletToRepHtml [hamlet|
 !!!
 
 <html>
@@ -252,8 +227,8 @@ class RenderRoute a => Yesod a where
       where
         corrected = filter (not . T.null) s
 
-    -- | Builds an absolute URL by concatenating the application root with the  
-    -- pieces of a path and a query string, if any. 
+    -- | Builds an absolute URL by concatenating the application root with the
+    -- pieces of a path and a query string, if any.
     -- Note that the pieces of the path have been previously cleaned up by 'cleanPath'.
     joinPath :: a
              -> T.Text -- ^ application root
@@ -299,6 +274,12 @@ class RenderRoute a => Yesod a where
     cookiePath :: a -> S8.ByteString
     cookiePath _ = "/"
 
+    -- | The domain value to set for cookies. By default, the
+    -- domain is not set, meaning cookies will be sent only to
+    -- the current domain.
+    cookieDomain :: a -> Maybe S8.ByteString
+    cookieDomain _ = Nothing
+
     -- | Maximum allowed length of the request body, in bytes.
     maximumContentLength :: a -> Maybe (Route a) -> Int
     maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
@@ -325,29 +306,22 @@ class RenderRoute a => Yesod a where
     gzipSettings :: a -> GzipSettings
     gzipSettings _ = def
 
-    -- | Deprecated. Use 'jsloader'. To use yepnope: jsLoader = BottomOfHeadAsync (loadJsYepnope eyn)
-    -- Location of yepnope.js, if any. If one is provided, then all
-    -- Javascript files will be loaded asynchronously.
-    yepnopeJs :: a -> Maybe (Either Text (Route a))
-    yepnopeJs _ = Nothing
-
-    -- | Where to Load sripts from. We recommend changing this to 'BottomOfBody'
-    -- Alternatively use the built in async yepnope loader:
+    -- | Where to Load sripts from. We recommend the default value,
+    -- 'BottomOfBody'.  Alternatively use the built in async yepnope loader:
     --
     -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
     --
     -- Or write your own async js loader: see 'loadJsYepnope'
     jsLoader :: a -> ScriptLoadPosition a
-    jsLoader y = case yepnopeJs y of
-                   Nothing  -> BottomOfHeadBlocking
-                   Just eyn -> BottomOfHeadAsync (loadJsYepnope eyn)
+    jsLoader _ = BottomOfBody
 
     -- | Create a session backend. Returning `Nothing' disables sessions.
+    --
+    -- Default: Uses clientsession with a 2 hour timeout.
     makeSessionBackend :: a -> IO (Maybe (SessionBackend a))
-    makeSessionBackend a = do
-        key <- encryptKey a
-        return $
-            (\k -> clientSessionBackend k (clientSessionDuration a)) <$> key
+    makeSessionBackend _ = do
+        key <- CS.getKey CS.defaultKeyFile
+        return $ Just $ clientSessionBackend key 120
 
 type Session = [(Text, S8.ByteString)]
 
@@ -400,7 +374,7 @@ formatLogMessage loc level msg = do
 -- turn the TH Loc loaction information into a human readable string
 -- leaving out the loc_end parameter
 fileLocationToString :: Loc -> String
-fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++  
+fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
   ' ' : (loc_filename loc) ++ ':' : (line loc) ++ ':' : (char loc)
   where
     line = show . fst . loc_start
@@ -448,19 +422,19 @@ defaultYesodRunner handler master sub murl toMasterRoute msb req = do
                                 redirect url'
                     Unauthorized s' -> permissionDenied s'
                 handler
-    let sessionMap = Map.fromList . filter ((/=) nonceKey . fst) $ session
+    let sessionMap = Map.fromList . filter ((/=) tokenKey . fst) $ session
     let ra = resolveApproot master req
     yar <- handlerToYAR master sub toMasterRoute
         (yesodRender master ra) errorHandler rr murl sessionMap h
     extraHeaders <- case yar of
         (YARPlain _ _ ct _ newSess) -> do
-            let nsNonce = Map.toList $ maybe
+            let nsToken = Map.toList $ maybe
                     newSess
-                    (\n -> Map.insert nonceKey (TE.encodeUtf8 n) newSess)
-                    (reqNonce rr)
+                    (\n -> Map.insert tokenKey (TE.encodeUtf8 n) newSess)
+                    (reqToken rr)
             sessionHeaders <- liftIO $ maybe
                 (return [])
-                (\sb -> sbSaveSession sb master req now session nsNonce)
+                (\sb -> sbSaveSession sb master req now session nsToken)
                 msb
             return $ ("Content-Type", ct) : map headerToPair sessionHeaders
         _ -> return []
@@ -502,7 +476,7 @@ applyLayout' :: Yesod master
              -> GHandler sub master ChooseRep
 applyLayout' title body = fmap chooseRep $ defaultLayout $ do
     setTitle title
-    addHamlet body
+    toWidget body
 
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
@@ -510,19 +484,19 @@ defaultErrorHandler NotFound = do
     r <- waiRequest
     let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
     applyLayout' "Not Found"
-        [HAMLET|
+        [hamlet|
 <h1>Not Found
 <p>#{path'}
 |]
 defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied"
-        [HAMLET|
+        [hamlet|
 <h1>Permission denied
 <p>#{msg}
 |]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments"
-        [HAMLET|
+        [hamlet|
 <h1>Invalid Arguments
 <ul>
     $forall msg <- ia
@@ -530,13 +504,13 @@ defaultErrorHandler (InvalidArgs ia) =
 |]
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error"
-        [HAMLET|
+        [hamlet|
 <h1>Internal Server Error
 <p>#{e}
 |]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method"
-        [HAMLET|
+        [hamlet|
 <h1>Method Not Supported
 <p>Method "#{S8.unpack m}" not supported
 |]
@@ -595,7 +569,7 @@ widgetToPageContent w = do
     -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
     -- the asynchronous loader means your page doesn't have to wait for all the js to load
     let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
-        regularScriptLoad = [HAMLET|
+        regularScriptLoad = [hamlet|
 $forall s <- scripts
     ^{mkScriptTag s}
 $maybe j <- jscript
@@ -605,7 +579,7 @@ $maybe j <- jscript
         <script>^{jelper j}
 |]
 
-        headAll = [HAMLET|
+        headAll = [hamlet|
 \^{head'}
 $forall s <- stylesheets
     ^{mkLinkTag s}
@@ -627,7 +601,7 @@ $case jsLoader master
   $of BottomOfHeadBlocking
       ^{regularScriptLoad}
 |]
-    let bodyScript = [HAMLET|
+    let bodyScript = [hamlet|
 ^{body}
 ^{regularScriptLoad}
 |]
@@ -673,7 +647,7 @@ jsonArray = unsafeLazyByteString . encode . Array . Vector.fromList . map String
 -- | For use with setting 'jsLoader' to 'BottomOfHeadAsync'
 loadJsYepnope :: Yesod master => Either Text (Route master) -> [Text] -> Maybe (HtmlUrl (Route master)) -> (HtmlUrl (Route master))
 loadJsYepnope eyn scripts mcomplete =
-  [HAMLET|
+  [hamlet|
     $maybe yn <- left eyn
         <script src=#{yn}>
     $maybe yn <- right eyn
@@ -736,7 +710,7 @@ defaultClientSessionBackend = do
   let timeout = 120 -- 120 minutes
   return $ clientSessionBackend key timeout
 
-clientSessionBackend :: Yesod master 
+clientSessionBackend :: Yesod master
                      => CS.Key  -- ^ The encryption key
                      -> Int -- ^ Inactive session valitity in minutes
                      -> SessionBackend master
@@ -769,12 +743,12 @@ saveClientSession :: Yesod master
 saveClientSession key timeout master _ now _ sess = do
     -- fixme should we be caching this?
     iv <- liftIO $ CS.randomIV
-    return [AddCookie def 
+    return [AddCookie def
         { setCookieName = sessionName
         , setCookieValue = sessionVal iv
         , setCookiePath = Just (cookiePath master)
         , setCookieExpires = Just expires
-        , setCookieDomain = Nothing
+        , setCookieDomain = cookieDomain master
         , setCookieHttpOnly = True
         }]
   where

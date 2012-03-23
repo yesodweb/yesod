@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         0.10.2.2
+version:         1.0.0.20120320
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -47,18 +47,18 @@ library
         build-depends: wai-test
 
     build-depends:   time                  >= 1.1.4
-                   , yesod-routes          >= 0.0.1    && < 0.1
-                   , wai                   >= 1.1      && < 1.2
-                   , wai-extra             >= 1.1      && < 1.3
+                   , yesod-routes          >= 1.0      && < 1.1
+                   , wai                   >= 1.2      && < 1.3
+                   , wai-extra             >= 1.2      && < 1.3
                    , bytestring            >= 0.9.1.4  && < 0.10
                    , text                  >= 0.7      && < 0.12
                    , template-haskell
                    , path-pieces           >= 0.1      && < 0.2
-                   , hamlet                >= 0.10.7   && < 0.11
-                   , shakespeare           >= 0.10     && < 0.12
-                   , shakespeare-js        >= 0.11     && < 0.12
-                   , shakespeare-css       >= 0.10.5   && < 0.11
-                   , shakespeare-i18n      >= 0.0      && < 0.1
+                   , hamlet                >= 1.0      && < 1.1
+                   , shakespeare           >= 1.0      && < 1.1
+                   , shakespeare-js        >= 1.0      && < 1.1
+                   , shakespeare-css       >= 1.0      && < 1.1
+                   , shakespeare-i18n      >= 1.0      && < 1.1
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , transformers          >= 0.2.2    && < 0.3
                    , clientsession         >= 0.7.3.1  && < 0.8
@@ -79,9 +79,9 @@ library
                    , aeson                 >= 0.5
                    , fast-logger           >= 0.0.2
                    , wai-logger            >= 0.0.1
-                   , conduit               >= 0.2      && < 0.3
+                   , conduit               >= 0.3      && < 0.4
+                   , resourcet             >= 0.3      && < 0.4
                    , lifted-base           >= 0.1      && < 0.2
-
     exposed-modules: Yesod.Content
                      Yesod.Core
                      Yesod.Dispatch

@@ -1,6 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
@@ -21,6 +24,8 @@ module Yesod.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
+      -- * WAI subsites
+    , WaiSubsite (..)
     ) where
 
 import Data.Functor   ((<$>))
@@ -187,3 +192,14 @@ sendRedirect y segments' env =
             then dest
             else (dest `mappend`
                  Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
+
+-- | Wrap up a normal WAI application as a Yesod subsite.
+newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
+
+instance RenderRoute WaiSubsite where
+    data Route WaiSubsite = WaiSubsiteRoute [Text] [(Text, Text)]
+        deriving (Show, Eq, Read, Ord)
+    renderRoute (WaiSubsiteRoute ps qs) = (ps, qs)
+
+instance YesodDispatch WaiSubsite master where
+    yesodDispatch _master (WaiSubsite app) _tomaster _404 _405 _method _pieces _session = app

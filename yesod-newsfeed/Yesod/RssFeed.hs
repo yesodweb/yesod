@@ -23,6 +23,7 @@ import Yesod.FeedTypes
 import Text.Hamlet (HtmlUrl, xhamlet, hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Control.Monad (liftM)
+import Data.Text (Text)
 
 newtype RepRss = RepRss Content
 instance HasReps RepRss where
@@ -33,12 +34,7 @@ rssFeed :: Feed (Route master) -> GHandler sub master RepRss
 rssFeed = liftM RepRss . hamletToContent . template
 
 template :: Feed url -> HtmlUrl url
-template arg = 
-#if __GLASGOW_HASKELL__ >= 700
-    [xhamlet|
-#else
-    [$xhamlet|
-#endif
+template arg = [xhamlet|
     \<?xml version="1.0" encoding="utf-8"?> 
     <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"
         <channel
@@ -54,12 +50,7 @@ template arg =
     |]
 
 entryTemplate :: FeedEntry url -> HtmlUrl url
-entryTemplate arg = 
-#if __GLASGOW_HASKELL__ >= 700
-    [xhamlet|
-#else
-    [$xhamlet|
-#endif
+entryTemplate arg = [xhamlet|
     <item
         <title>      #{feedEntryTitle arg}
         <link>       @{feedEntryLink arg}
@@ -70,13 +61,8 @@ entryTemplate arg =
 
 -- | Generates a link tag in the head of a widget.
 rssLink :: Route m
-        -> String -- ^ title
+        -> Text -- ^ title
         -> GWidget s m ()
-rssLink r title = addHamletHead
-#if __GLASGOW_HASKELL__ >= 700
-    [hamlet|
-#else
-    [$hamlet|
-#endif
+rssLink r title = toWidgetHead [hamlet|
     <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}
     |]

@@ -26,7 +26,6 @@ import Network.HTTP.Conduit (Manager)
 import Yesod.Logger (logLazyText)
 #endif
 import qualified Settings
-import qualified Data.ByteString.Lazy as L
 import qualified Database.Persist.Store
 import Database.Persist.~importGenericDB~
 import Settings (widgetFile, Extra (..))
@@ -34,11 +33,6 @@ import Model
 import Text.Jasmine (minifym)
 import Web.ClientSession (getKey)
 import Text.Hamlet (hamletFile)
-#if DEVELOPMENT
-import qualified Data.Text.Lazy.Encoding
-#else
-import Network.Mail.Mime (sendmail)
-#endif
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -140,9 +134,9 @@ instance YesodAuth ~sitearg~ where
     type AuthId ~sitearg~ = UserId
 
     -- Where to send a user after successful login
-    loginDest _ = RootR
+    loginDest _ = HomeR
     -- Where to send a user after logout
-    logoutDest _ = RootR
+    logoutDest _ = HomeR
 
     getAuthId creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
@@ -156,15 +150,14 @@ instance YesodAuth ~sitearg~ where
 
     authHttpManager = httpManager
 
--- Sends off your mail. Requires sendmail in production!
-deliver :: ~sitearg~ -> L.ByteString -> IO ()
-#ifdef DEVELOPMENT
-deliver y = logLazyText (getLogger y) . Data.Text.Lazy.Encoding.decodeUtf8
-#else
-deliver _ = sendmail
-#endif
-
 -- This instance is required to use forms. You can modify renderMessage to
 -- achieve customized and internationalized form validation messages.
 instance RenderMessage ~sitearg~ FormMessage where
     renderMessage _ _ = defaultFormMessage
+
+-- Note: previous versions of the scaffolding included a deliver function to
+-- send emails. Unfortunately, there are too many different options for us to
+-- give a reasonable default. Instead, the information is available on the
+-- wiki:
+--
+-- https://github.com/yesodweb/yesod/wiki/Sending-email

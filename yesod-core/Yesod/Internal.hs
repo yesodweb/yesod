@@ -25,7 +25,7 @@ module Yesod.Internal
     , toUnique
       -- * Names
     , sessionName
-    , nonceKey
+    , tokenKey
     ) where
 
 import Text.Hamlet (HtmlUrl, hamlet, Html)
@@ -44,12 +44,6 @@ import qualified Data.Map as Map
 import Data.Text.Lazy.Builder (Builder)
 import Network.HTTP.Types (Ascii)
 import Web.Cookie (SetCookie (..))
-
-#if GHC7
-#define HAMLET hamlet
-#else
-#define HAMLET $hamlet
-#endif
 
 -- | Responses to indicate some form of an error occurred. These are different
 -- from 'SpecialResponse' in that they allow for custom error pages.
@@ -76,9 +70,9 @@ langKey = "_LANG"
 data Location url = Local url | Remote Text
     deriving (Show, Eq)
 locationToHtmlUrl :: Location url -> HtmlUrl url
-locationToHtmlUrl (Local url) = [HAMLET|\@{url}
+locationToHtmlUrl (Local url) = [hamlet|\@{url}
 |]
-locationToHtmlUrl (Remote s) = [HAMLET|\#{s}
+locationToHtmlUrl (Remote s) = [hamlet|\#{s}
 |]
 
 newtype UniqueList x = UniqueList ([x] -> [x])
@@ -101,8 +95,8 @@ newtype Head url = Head (HtmlUrl url)
 newtype Body url = Body (HtmlUrl url)
     deriving Monoid
 
-nonceKey :: IsString a => a
-nonceKey = "_NONCE"
+tokenKey :: IsString a => a
+tokenKey = "_TOKEN"
 
 sessionName :: IsString a => a
 sessionName = "_SESSION"

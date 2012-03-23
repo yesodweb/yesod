@@ -8,13 +8,11 @@ module Yesod.Auth.Dummy
     ( authDummy
     ) where
 
-#include "qq.h"
-
 import Yesod.Auth
 import Yesod.Form (runInputPost, textField, ireq)
 import Yesod.Handler (notFound)
 import Text.Hamlet (hamlet)
-import Yesod.Widget (addHamlet)
+import Yesod.Widget (toWidget)
 
 authDummy :: YesodAuth m => AuthPlugin m
 authDummy =
@@ -26,9 +24,9 @@ authDummy =
     dispatch _ _ = notFound
     url = PluginR "dummy" []
     login authToMaster =
-        addHamlet [QQ(hamlet)|
+        toWidget [hamlet|
 <form method="post" action="@{authToMaster url}">
-    \Your new identifier is: 
+    Your new identifier is: #
     <input type="text" name="ident">
     <input type="submit" value="Dummy Login">
 |]

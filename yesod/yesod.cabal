@@ -1,5 +1,5 @@
 name:            yesod
-version:         0.10.1.4
+version:         1.0.0.20120315
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -19,46 +19,52 @@ homepage:        http://www.yesodweb.com/
 
 extra-source-files:
   input/*.cg
-  scaffold/templates/default-layout.lucius.cg
-  scaffold/templates/homepage.lucius.cg
   scaffold/Model.hs.cg
-  scaffold/Import.hs.cg
-  scaffold/Foundation.hs.cg
   scaffold/LICENSE.cg
+  scaffold/project.cabal.cg
   scaffold/mongoDBConnPool.cg
-  scaffold/tiny/Import.hs.cg
-  scaffold/tiny/Foundation.hs.cg
+  scaffold/main.hs.cg
+  scaffold/static/js/modernizr.js.cg
+  scaffold/postgresqlConnPool.cg
+  scaffold/Foundation.hs.cg
   scaffold/tiny/project.cabal.cg
+  scaffold/tiny/Foundation.hs.cg
+  scaffold/tiny/Import.hs.cg
+  scaffold/tiny/Settings.hs.cg
   scaffold/tiny/Application.hs.cg
   scaffold/tiny/config/routes.cg
-  scaffold/tiny/Settings.hs.cg
-  scaffold/templates/normalize.lucius.cg
-  scaffold/postgresqlConnPool.cg
   scaffold/sqliteConnPool.cg
+  scaffold/cabal_test_suite.cg
+  scaffold/Import.hs.cg
   scaffold/.ghci.cg
-  scaffold/project.cabal.cg
+  scaffold/tests/main.hs.cg
+  scaffold/Settings.hs.cg
+  scaffold/Settings/StaticFiles.hs.cg
   scaffold/Application.hs.cg
-  scaffold/templates/homepage.julius.cg
+  scaffold/deploy/Procfile.cg
   scaffold/templates/homepage.hamlet.cg
+  scaffold/templates/default-layout.lucius.cg
   scaffold/templates/default-layout.hamlet.cg
+  scaffold/templates/homepage.julius.cg
   scaffold/templates/default-layout-wrapper.hamlet.cg
   scaffold/deploy/Procfile.cg
   scaffold/main.hs.cg
   scaffold/devel.hs.cg
-  scaffold/Handler/Root.hs.cg
+  scaffold/Handler/Home.hs.cg
+  scaffold/templates/normalize.lucius.cg
+  scaffold/templates/boilerplate-wrapper.hamlet.cg
+  scaffold/templates/homepage.lucius.cg
+  scaffold/messages/en.msg.cg
   scaffold/config/models.cg
+  scaffold/config/mysql.yml.cg
   scaffold/config/sqlite.yml.cg
   scaffold/config/settings.yml.cg
   scaffold/config/favicon.ico.cg
   scaffold/config/postgresql.yml.cg
-  scaffold/config/mysql.yml.cg
-  scaffold/config/mongoDB.yml.cg
   scaffold/config/routes.cg
   scaffold/config/robots.txt.cg
-  scaffold/Settings.hs.cg
-  scaffold/Settings/StaticFiles.hs.cg
-  scaffold/messages/en.msg.cg
-  scaffold/static/js/modernizr.js.cg
+  scaffold/config/mongoDB.yml.cg
+  scaffold/devel.hs.cg
 
 
 flag ghc7
@@ -73,20 +79,20 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                  >= 4        && < 4.3
-    build-depends:   yesod-core                >= 0.10.1   && < 0.11
-                   , yesod-auth                >= 0.8.1    && < 0.9
-                   , yesod-json                >= 0.3.1    && < 0.4
-                   , yesod-persistent          >= 0.3.1    && < 0.4
-                   , yesod-form                >= 0.4.1    && < 0.5
+    build-depends:   yesod-core                >= 1.0      && < 1.1
+                   , yesod-auth                >= 1.0      && < 1.1
+                   , yesod-json                >= 1.0      && < 1.1
+                   , yesod-persistent          >= 1.0      && < 1.1
+                   , yesod-form                >= 1.0      && < 1.1
                    , monad-control             >= 0.3      && < 0.4
                    , transformers              >= 0.2.2    && < 0.3
-                   , wai                       >= 1.1      && < 1.2
-                   , wai-extra                 >= 1.1      && < 1.3
+                   , wai                       >= 1.2      && < 1.3
+                   , wai-extra                 >= 1.2      && < 1.3
                    , wai-logger                >= 0.1.2
-                   , hamlet                    >= 0.10     && < 0.11
-                   , shakespeare-js            >= 0.11     && < 0.12
-                   , shakespeare-css           >= 0.10     && < 0.11
-                   , warp                      >= 1.1      && < 1.2
+                   , hamlet                    >= 1.0      && < 1.1
+                   , shakespeare-js            >= 1.0      && < 1.1
+                   , shakespeare-css           >= 1.0      && < 1.1
+                   , warp                      >= 1.2      && < 1.3
                    , blaze-html                >= 0.4.1.3  && < 0.5
     exposed-modules: Yesod
     ghc-options:     -Wall
@@ -101,7 +107,7 @@ executable             yesod
         cpp-options:     -DWINDOWS
     build-depends:     parsec             >= 2.1          && < 4
                      , text               >= 0.11         && < 0.12
-                     , shakespeare-text   >= 0.10         && < 0.12
+                     , shakespeare-text   >= 1.0          && < 1.1
                      , bytestring         >= 0.9.1.4  && < 0.10
                      , time               >= 1.1.4
                      , template-haskell

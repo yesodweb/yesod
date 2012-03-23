@@ -1,3 +1,8 @@
+./crypto-conduit
+./authenticate/authenticate
+./http-conduit
+./xml/xml-conduit
+./yaml
 ./yesod-routes
 ./yesod-core
 ./yesod-json

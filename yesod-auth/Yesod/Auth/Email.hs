@@ -15,8 +15,6 @@ module Yesod.Auth.Email
     , isValidPass
     ) where
 
-#include "qq.h"
-
 import Network.Mail.Mime (randomString)
 import Yesod.Auth
 import System.Random
@@ -33,8 +31,7 @@ import qualified Data.Text.Encoding as DTE
 import Yesod.Form
 import Yesod.Handler
 import Yesod.Content
-import Yesod.Widget
-import Yesod.Core
+import Yesod.Core (PathPiece, fromPathPiece, whamlet, defaultLayout, setTitleI, toPathPiece)
 import Control.Monad.IO.Class (liftIO)
 import qualified Yesod.Auth.Message as Msg
 
@@ -82,7 +79,7 @@ class (YesodAuth m, PathPiece (AuthEmailId m)) => YesodAuthEmail m where
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch $ \tm ->
-        [QQ(whamlet)|
+        [whamlet|
 <form method="post" action="@{tm loginR}">
     <table>
         <tr>
@@ -115,8 +112,7 @@ getRegisterR = do
     toMaster <- getRouteToMaster
     defaultLayout $ do
         setTitleI Msg.RegisterLong
-        addWidget
-            [QQ(whamlet)|
+        [whamlet|
 <p>_{Msg.EnterEmail}
 <form method="post" action="@{toMaster registerR}">
     <label for="email">_{Msg.Email}
@@ -146,8 +142,7 @@ postRegisterR = do
     sendVerifyEmail email verKey verUrl
     defaultLayout $ do
         setTitleI Msg.ConfirmationEmailSentTitle
-        addWidget
-            [QQ(whamlet)| <p>_{Msg.ConfirmationEmailSent email} |]
+        [whamlet| <p>_{Msg.ConfirmationEmailSent email} |]
 
 getVerifyR :: YesodAuthEmail m
            => AuthEmailId m -> Text -> GHandler Auth m RepHtml
@@ -167,8 +162,7 @@ getVerifyR lid key = do
         _ -> return ()
     defaultLayout $ do
         setTitleI Msg.InvalidKey
-        addWidget
-            [QQ(whamlet)| <p>_{Msg.InvalidKey} |]
+        [whamlet| <p>_{Msg.InvalidKey} |]
 
 postLoginR :: YesodAuthEmail master => GHandler Auth master ()
 postLoginR = do
@@ -206,8 +200,7 @@ getPasswordR = do
             redirect $ toMaster LoginR
     defaultLayout $ do
         setTitleI Msg.SetPassTitle
-        addWidget
-            [QQ(whamlet)|
+        [whamlet|
 <h3>_{Msg.SetPass}
 <form method="post" action="@{toMaster setpassR}">
     <table>

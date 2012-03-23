@@ -18,7 +18,7 @@ mkYesod "Y" [parseRoutes|
 instance Yesod Y
 
 getRootR :: Handler RepHtml
-getRootR = defaultLayout $ addHamlet [hamlet|<a href=@{RootR}>|]
+getRootR = defaultLayout $ toWidget [hamlet|<a href=@{RootR}>|]
 
 linksTest :: [Spec]
 linksTest = describe "Test.Links"

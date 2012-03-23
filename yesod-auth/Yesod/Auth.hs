@@ -27,8 +27,6 @@ module Yesod.Auth
     , AuthException (..)
     ) where
 
-#include "qq.h"
-
 import Control.Monad                 (when)  
 import Control.Monad.Trans.Maybe
 
@@ -132,7 +130,7 @@ mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
 #define STRINGS *Texts
-    [QQ(parseRoutes)|
+    [parseRoutes|
 /check                 CheckR      GET
 /login                 LoginR      GET
 /logout                LogoutR     GET POST
@@ -151,7 +149,7 @@ setCreds doRedirects creds = do
         Nothing ->
           when doRedirects $ do
             case authRoute y of
-              Nothing -> do rh <- defaultLayout $ addHtml [QQ(shamlet)| <h1>Invalid login |]
+              Nothing -> do rh <- defaultLayout $ toWidget [shamlet| <h1>Invalid login |]
                             sendResponse rh
               Just ar -> do setMessageI Msg.InvalidLogin
                             redirect ar
@@ -166,10 +164,10 @@ getCheckR = do
     creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle "Authentication Status"
-        addHtml $ html' creds) (jsonCreds creds)
+        toWidget $ html' creds) (jsonCreds creds)
   where
     html' creds =
-        [QQ(shamlet)|
+        [shamlet|
 <h1>Authentication Status
 $maybe _ <- creds
     <p>Logged in.

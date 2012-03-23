@@ -19,7 +19,7 @@ import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Handler
-import Yesod.Widget
+import Yesod.Widget (whamlet)
 import Yesod.Request
 import Text.Blaze (toHtml)
 import Data.Text (Text)

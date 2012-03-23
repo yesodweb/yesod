@@ -5,8 +5,6 @@ module Yesod.Auth.Rpxnow
     ( authRpxnow
     ) where
 
-#include "qq.h"
-
 import Yesod.Auth
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import Control.Monad (mplus)
@@ -27,8 +25,7 @@ authRpxnow app apiKey =
   where
     login tm = do
         let url = {- FIXME urlEncode $ -} tm $ PluginR "rpxnow" []
-        addHamlet
-            [QQ(hamlet)|
+        toWidget [hamlet|
 <iframe src="http://#{app}.rpxnow.com/openid/embed?token_url=@{url}" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px">
 |]
     dispatch _ [] = do

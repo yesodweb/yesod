@@ -27,32 +27,32 @@ noRepeat len n = length (nub $ map (randomString len . mkStdGen) [1..n]) == n
 
 -- For convenience instead of "(undefined :: StdGen)".
 g :: StdGen
-g = undefined
+g = error "test/YesodCoreTest/InternalRequest.g"
 
 
-nonceSpecs :: [Spec]
-nonceSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqNonce)"
-  [ it "is Nothing if sessions are disabled" noDisabledNonce
-  , it "ignores pre-existing nonce if sessions are disabled" ignoreDisabledNonce
-  , it "uses preexisting nonce in session" useOldNonce
-  , it "generates a new nonce for sessions without nonce" generateNonce
+tokenSpecs :: [Spec]
+tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)"
+  [ it "is Nothing if sessions are disabled" noDisabledToken
+  , it "ignores pre-existing token if sessions are disabled" ignoreDisabledToken
+  , it "uses preexisting token in session" useOldToken
+  , it "generates a new token for sessions without token" generateToken
   ]
 
-noDisabledNonce :: Bool
-noDisabledNonce = reqNonce r == Nothing where
+noDisabledToken :: Bool
+noDisabledToken = reqToken r == Nothing where
   r = parseWaiRequest' defaultRequest [] False g
 
-ignoreDisabledNonce :: Bool
-ignoreDisabledNonce = reqNonce r == Nothing where
-  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] False g
+ignoreDisabledToken :: Bool
+ignoreDisabledToken = reqToken r == Nothing where
+  r = parseWaiRequest' defaultRequest [("_TOKEN", "old")] False g
 
-useOldNonce :: Bool
-useOldNonce = reqNonce r == Just "old" where
-  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] True g
+useOldToken :: Bool
+useOldToken = reqToken r == Just "old" where
+  r = parseWaiRequest' defaultRequest [("_TOKEN", "old")] True g
 
-generateNonce :: Bool
-generateNonce = reqNonce r /= Nothing where
-  r = parseWaiRequest' defaultRequest [("_NONCE", "old")] True g
+generateToken :: Bool
+generateToken = reqToken r /= Nothing where
+  r = parseWaiRequest' defaultRequest [("_TOKEN", "old")] True g
 
 
 langSpecs :: [Spec]
@@ -95,6 +95,6 @@ prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "e
 
 internalRequestTest :: [Spec]
 internalRequestTest = descriptions [ randomStringSpecs
-                                   , nonceSpecs
+                                   , tokenSpecs
                                    , langSpecs
                                    ]

@@ -18,7 +18,7 @@ module Yesod.Form.Functions
     , aopt
       -- * Run a form
     , runFormPost
-    , runFormPostNoNonce
+    , runFormPostNoToken
     , runFormGet
       -- * Generate a blank form
     , generateFormPost
@@ -48,7 +48,7 @@ import Text.Blaze (Html, toHtml)
 import Yesod.Handler (GHandler, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
-import Yesod.Request (reqNonce, reqWaiRequest, reqGetParams, languages, FileInfo (..))
+import Yesod.Request (reqToken, reqWaiRequest, reqGetParams, languages, FileInfo (..))
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
@@ -56,14 +56,6 @@ import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as L
-
-#if __GLASGOW_HASKELL__ >= 700
-#define WHAMLET whamlet
-#define HTML shamlet
-#else
-#define HTML $shamlet
-#define WHAMLET $whamlet
-#endif
 
 -- | Get a unique identifier.
 newFormIdent :: MForm sub master Text
@@ -186,18 +178,18 @@ postHelper  :: RenderMessage master FormMessage
             -> GHandler sub master ((FormResult a, xml), Enctype)
 postHelper form env = do
     req <- getRequest
-    let nonceKey = "_nonce"
-    let nonce =
-            case reqNonce req of
+    let tokenKey = "_token"
+    let token =
+            case reqToken req of
                 Nothing -> mempty
-                Just n -> [HTML|<input type=hidden name=#{nonceKey} value=#{n}>|]
+                Just n -> [shamlet|<input type=hidden name=#{tokenKey} value=#{n}>|]
     m <- getYesod
     langs <- languages
-    ((res, xml), enctype) <- runFormGeneric (form nonce) m langs env
+    ((res, xml), enctype) <- runFormGeneric (form token) m langs env
     let res' =
             case (res, env) of
                 (FormSuccess{}, Just (params, _))
-                    | Map.lookup nonceKey params /= fmap return (reqNonce req) ->
+                    | Map.lookup tokenKey params /= fmap return (reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
     return ((res', xml), enctype)
@@ -224,8 +216,8 @@ postEnv = do
   where
     notEmpty = not . L.null . fileContent
 
-runFormPostNoNonce :: (Html -> MForm sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
-runFormPostNoNonce form = do
+runFormPostNoToken :: (Html -> MForm sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
+runFormPostNoToken form = do
     langs <- languages
     m <- getYesod
     env <- postEnv
@@ -248,7 +240,7 @@ getKey = "_hasdata"
 
 getHelper :: (Html -> MForm sub master a) -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
 getHelper form env = do
-    let fragment = [HTML|<input type=hidden name=#{getKey}>|]
+    let fragment = [shamlet|<input type=hidden name=#{getKey}>|]
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env
@@ -262,8 +254,8 @@ renderTable, renderDivs :: FormRender sub master a
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
-    -- FIXME non-valid HTML
-    let widget = [WHAMLET|
+    -- FIXME non-valid shamlet
+    let widget = [whamlet|
 \#{fragment}
 $forall view <- views
     <tr :fvRequired view:.required :not $ fvRequired view:.optional>
@@ -280,7 +272,7 @@ $forall view <- views
 renderDivs aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
-    let widget = [WHAMLET|
+    let widget = [whamlet|
 \#{fragment}
 $forall view <- views
     <div :fvRequired view:.required :not $ fvRequired view:.optional>
@@ -293,7 +285,7 @@ $forall view <- views
 |]
     return (res, widget)
 
--- | Render a form using Bootstrap-friendly HTML syntax.
+-- | Render a form using Bootstrap-friendly shamlet syntax.
 --
 -- Sample Hamlet:
 --

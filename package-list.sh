@@ -3,6 +3,8 @@
 pkgs=(      ./yesod-routes
             ./yesod-core
             ./yesod-json
+            ./crypto-conduit
+            ./authenticate/authenticate
             ./yesod-static
             ./yesod-persistent
             ./yesod-newsfeed
@@ -10,4 +12,4 @@ pkgs=(      ./yesod-routes
             ./yesod-auth
             ./yesod-sitemap
             ./yesod-default
-            ./yesod                 )
+            ./yesod )
