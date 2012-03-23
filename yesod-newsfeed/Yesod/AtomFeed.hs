@@ -39,10 +39,10 @@ atomFeed = liftM RepAtom . hamletToContent . template
 template :: Feed url -> HtmlUrl url
 template arg = [xhamlet|
 \<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"
+<feed xmlns="http://www.w3.org/2005/Atom">
     <title>#{feedTitle arg}
-    <link rel=self href=@{feedLinkSelf arg}
-    <link href=@{feedLinkHome arg}
+    <link rel=self href=@{feedLinkSelf arg}>
+    <link href=@{feedLinkHome arg}>
     <updated>#{formatW3 $ feedUpdated arg}
     <id>@{feedLinkHome arg}
     $forall entry <- feedEntries arg
@@ -51,9 +51,9 @@ template arg = [xhamlet|
 
 entryTemplate :: FeedEntry url -> HtmlUrl url
 entryTemplate arg = [xhamlet|
-<entry
+<entry>
     <id>@{feedEntryLink arg}
-    <link href=@{feedEntryLink arg}
+    <link href=@{feedEntryLink arg}>
     <updated>#{formatW3 $ feedEntryUpdated arg}
     <title>#{feedEntryTitle arg}
     <content type=html>
@@ -67,5 +67,5 @@ atomLink :: Route m
          -> Text -- ^ title
          -> GWidget s m ()
 atomLink r title = toWidgetHead [hamlet|
-<link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}
+<link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}>
 |]

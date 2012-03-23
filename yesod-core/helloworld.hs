@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 import Yesod.Core
+import Control.Monad.IO.Class (liftIO)
 import Network.Wai.Handler.Warp (run)
 import Data.Text (unpack)
 import Text.Julius (julius)
@@ -31,13 +32,14 @@ handleSubMultiR x = do
     return . RepPlain . toContent . show $ (x, y)
 
 data HelloWorld = HelloWorld { getSubsite :: String -> Subsite }
-mkYesod "HelloWorld" [$parseRoutes|
+mkYesod "HelloWorld" [parseRoutes|
 / RootR GET
 /subsite/#String SubsiteR Subsite getSubsite
 |]
 instance Yesod HelloWorld where
-    approot _ = ""
-    yepnopeJs _ = Just $ Left "http://cdnjs.cloudflare.com/ajax/libs/modernizr/2.0.6/modernizr.min.js"
+    addStaticContent a b c = do
+        liftIO $ print (a, b, c)
+        return Nothing
 
 getRootR = do
     $(logOther "HAHAHA") "Here I am"
