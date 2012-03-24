@@ -1,18 +1,3 @@
 [submodule "scripts"]
 	path = scripts
 	url = git://github.com/yesodweb/scripts.git
-[submodule "authenticate"]
-	path = authenticate
-	url = https://github.com/yesodweb/authenticate.git
-[submodule "http-conduit"]
-	path = http-conduit
-	url = https://github.com/snoyberg/http-conduit
-[submodule "xml"]
-	path = xml
-	url = https://github.com/snoyberg/xml
-[submodule "crypto-conduit"]
-	path = crypto-conduit
-	url = https://github.com/snoyberg/crypto-conduit.git
-[submodule "yaml"]
-	path = yaml
-	url = https://github.com/snoyberg/yaml
