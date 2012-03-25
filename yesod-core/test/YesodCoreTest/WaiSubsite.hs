@@ -2,8 +2,9 @@
 module YesodCoreTest.WaiSubsite (specs, Widget) where
 
 import YesodCoreTest.YesodTest
-import Yesod.Core hiding (Session)
+import Yesod.Core
 import qualified Network.HTTP.Types as H
+import Network.Wai
 
 myApp :: Application
 myApp _ = return $ responseLBS H.status200 [("Content-type", "text/plain")] "WAI"

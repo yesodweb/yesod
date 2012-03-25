@@ -6,7 +6,7 @@ module YesodCoreTest.Links (linksTest, Widget) where
 import Test.Hspec
 import Test.Hspec.HUnit ()
 
-import Yesod.Core hiding (Request, Session)
+import Yesod.Core hiding (Request)
 import Text.Hamlet
 import Network.Wai.Test
 

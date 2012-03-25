@@ -9,7 +9,7 @@ import Test.Hspec.HUnit()
 import Network.Wai
 import Network.Wai.Test
 
-import Yesod.Core hiding (Session)
+import Yesod.Core
 
 data C = C
 
