@@ -194,10 +194,6 @@ scaffold = do
       mkDir "tests"
       writeFile' "tests/main.hs" $(codegen "tests/main.hs")
 
-    S.writeFile (dir ++ "/static/js/modernizr.js")
-        $(runIO (S.readFile "scaffold/static/js/modernizr.js.cg") >>= \bs ->
-            [|S.pack $(return $ LitE $ StringL $ S.unpack bs)|])
-
     S.writeFile (dir ++ "/config/favicon.ico")
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do
             pack <- [|S.pack|]
