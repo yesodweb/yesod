@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Yesod.Auth.Email
