@@ -162,7 +162,7 @@ class RenderRoute a => Yesod a where
         p <- widgetToPageContent w
         mmsg <- getMessage
         hamletToRepHtml [hamlet|
-!!!
+doctype 5
 
 <html>
     <head>
