@@ -24,7 +24,6 @@ extra-source-files:
   scaffold/project.cabal.cg
   scaffold/mongoDBConnPool.cg
   scaffold/main.hs.cg
-  scaffold/static/js/modernizr.js.cg
   scaffold/postgresqlConnPool.cg
   scaffold/Foundation.hs.cg
   scaffold/tiny/project.cabal.cg
