@@ -28,11 +28,13 @@ module Yesod.Core
     , logError
     , logOther
       -- * Sessions
+    , Session
     , SessionBackend (..)
     , defaultClientSessionBackend
     , clientSessionBackend
     , saveClientSession
     , loadClientSession
+    , Header(..)
     -- * JS loaders
     , loadJsYepnope
     , ScriptLoadPosition (..)
@@ -50,6 +52,7 @@ module Yesod.Core
     ) where
 
 import Yesod.Internal.Core
+import Yesod.Internal
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Handler
