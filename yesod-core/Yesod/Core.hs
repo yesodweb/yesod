@@ -52,7 +52,7 @@ module Yesod.Core
     ) where
 
 import Yesod.Internal.Core
-import Yesod.Internal
+import Yesod.Internal (Header(..))
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Handler
