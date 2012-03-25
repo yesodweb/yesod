@@ -31,6 +31,7 @@ module Yesod.Internal.Core
     , clientSessionBackend
     , saveClientSession
     , loadClientSession
+    , BackendSession
       -- * jsLoader
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
@@ -323,20 +324,6 @@ $doctype 5
         key <- CS.getKey CS.defaultKeyFile
         return $ Just $ clientSessionBackend key 120
 
-type Session = [(Text, S8.ByteString)]
-
-data SessionBackend master = SessionBackend
-    { sbSaveSession :: master
-                    -> W.Request
-                    -> UTCTime -- ^ The current time
-                    -> Session -- ^ The old session (before running handler)
-                    -> Session -- ^ The final session
-                    -> IO [Header]
-    , sbLoadSession :: master
-                    -> W.Request
-                    -> UTCTime -- ^ The current time
-                    -> IO Session
-    }
 
 messageLoggerHandler :: Yesod m
                      => Loc -> LogLevel -> Text -> GHandler s m ()
@@ -724,7 +711,7 @@ loadClientSession :: Yesod master
                   -> master
                   -> W.Request
                   -> UTCTime
-                  -> IO Session
+                  -> IO BackendSession
 loadClientSession key _ req now = return . fromMaybe [] $ do
     raw <- lookup "Cookie" $ W.requestHeaders req
     val <- lookup sessionName $ parseCookies raw
@@ -737,12 +724,12 @@ saveClientSession :: Yesod master
                   -> master
                   -> W.Request
                   -> UTCTime
-                  -> Session
-                  -> Session
+                  -> BackendSession
+                  -> BackendSession
                   -> IO [Header]
 saveClientSession key timeout master _ now _ sess = do
     -- fixme should we be caching this?
-    iv <- liftIO $ CS.randomIV
+    iv <- liftIO CS.randomIV
     return [AddCookie def
         { setCookieName = sessionName
         , setCookieValue = sessionVal iv

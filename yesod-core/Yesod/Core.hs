@@ -33,6 +33,8 @@ module Yesod.Core
     , clientSessionBackend
     , saveClientSession
     , loadClientSession
+    , Header(..)
+    , BackendSession
     -- * JS loaders
     , loadJsYepnope
     , ScriptLoadPosition (..)
@@ -50,6 +52,7 @@ module Yesod.Core
     ) where
 
 import Yesod.Internal.Core
+import Yesod.Internal (Header(..))
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Handler
