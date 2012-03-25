@@ -132,7 +132,7 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         { fvLabel = toHtml $ mr2 fsLabel
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
         , fvId = theId
-        , fvInput = fieldView theId name fsClass val isReq
+        , fvInput = fieldView theId name fsAttrs val isReq
         , fvErrors =
             case res of
                 FormFailure [e] -> Just $ toHtml e

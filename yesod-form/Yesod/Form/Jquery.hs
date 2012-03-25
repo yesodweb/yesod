@@ -18,7 +18,6 @@ import Yesod.Core (Route)
 import Yesod.Form
 import Yesod.Widget
 import Data.Time (Day)
-import qualified Data.Text as T
 import Data.Default
 import Text.Hamlet (shamlet)
 import Text.Julius (julius)
@@ -63,9 +62,9 @@ jqueryDayField jds = Field
                   Right
               . readMay
               . unpack
-    , fieldView = \theId name theClass val isReq -> do
+    , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
-<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="date" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" *{attrs} type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
@@ -102,9 +101,9 @@ jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master
                         => Route master -> Field sub master Text
 jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
-    , fieldView = \theId name theClass val isReq -> do
+    , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
-<input id="#{theId}" name="#{name}" :not (null theClass):class="#{T.intercalate " " theClass}" type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
+<input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs

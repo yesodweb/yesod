@@ -19,7 +19,6 @@ import Text.Julius (julius)
 import Text.Blaze.Renderer.String (renderHtml)
 import Text.Blaze (preEscapedText)
 import Data.Text (Text, pack)
-import qualified Data.Text as T
 import Data.Maybe (listToMaybe)
 
 class Yesod a => YesodNic a where
@@ -30,9 +29,9 @@ class Yesod a => YesodNic a where
 nicHtmlField :: YesodNic master => Field sub master Html
 nicHtmlField = Field
     { fieldParse = return . Right . fmap (preEscapedText . sanitizeBalance) . listToMaybe
-    , fieldView = \theId name theClass val _isReq -> do
+    , fieldView = \theId name attrs val _isReq -> do
         toWidget [shamlet|
-    <textarea id="#{theId}" :not (null theClass):class="#{T.intercalate " " theClass}" name="#{name}" .html>#{showVal val}
+    <textarea id="#{theId}" *{attrs} name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit
         master <- lift getYesod

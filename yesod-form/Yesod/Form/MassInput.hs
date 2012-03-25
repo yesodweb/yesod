@@ -101,7 +101,7 @@ withDelete af = do
                 , fsTooltip = Nothing
                 , fsName = Just deleteName
                 , fsId = Nothing
-                , fsClass = []
+                , fsAttrs = []
                 } $ Just False
             (res, xml) <- aFormToForm af
             return $ Right (res, xml $ xml2 [])
