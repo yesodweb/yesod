@@ -28,11 +28,13 @@ module Yesod.Core
     , logError
     , logOther
       -- * Sessions
+    , Session
     , SessionBackend (..)
     , defaultClientSessionBackend
     , clientSessionBackend
     , saveClientSession
     , loadClientSession
+	, Header(..)
     -- * JS loaders
     , loadJsYepnope
     , ScriptLoadPosition (..)
@@ -56,6 +58,7 @@ import Yesod.Handler
 import Yesod.Request
 import Yesod.Widget
 import Yesod.Message
+import Yesod.Internal (Header(..))
 
 import Language.Haskell.TH.Syntax
 import qualified Language.Haskell.TH.Syntax as TH
