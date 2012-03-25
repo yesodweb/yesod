@@ -99,7 +99,7 @@ data FieldSettings msg = FieldSettings
     , fsTooltip :: Maybe msg
     , fsId :: Maybe Text
     , fsName :: Maybe Text
-    , fsClass :: [Text]
+    , fsAttrs :: [(Text, Text)]
     }
 
 instance (a ~ Text) => IsString (FieldSettings a) where
@@ -116,10 +116,10 @@ data FieldView sub master = FieldView
 
 data Field sub master a = Field
     { fieldParse :: [Text] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
-    -- | ID, name, class, (invalid text OR legimiate result), required?
+    -- | ID, name, attrs, (invalid text OR legimiate result), required?
     , fieldView :: Text
                 -> Text
-                -> [Text]
+                -> [(Text, Text)]
                 -> Either Text a
                 -> Bool
                 -> GWidget sub master ()
