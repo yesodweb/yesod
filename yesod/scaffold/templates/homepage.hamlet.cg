@@ -29,7 +29,7 @@
     $maybe (info,con) <- submission
       <div .message>
         Your file's type was <em>#{fileContentType info}</em>. You say it has: <em>#{con}</em>
-    <form method=post action=@{RootR}#form enctype=#{formEnctype}>
+    <form method=post action=@{HomeR}#form enctype=#{formEnctype}>
       ^{formWidget}
       <input type="submit" value="Send it!">
 

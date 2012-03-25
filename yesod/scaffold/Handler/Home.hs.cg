@@ -14,16 +14,16 @@ getHomeR :: Handler RepHtml
 getHomeR = do
     ((_, formWidget), formEnctype) <- generateFormPost sampleForm
     let submission = Nothing :: Maybe (FileInfo, Text)
-        handlerName = "getRootR" :: Text
+        handlerName = "getHomeR" :: Text
     defaultLayout $ do
         aDomId <- lift newIdent
         setTitle "Welcome To Yesod!"
         $(widgetFile "homepage")
 
-postRootR :: Handler RepHtml
-postRootR = do
+postHomeR :: Handler RepHtml
+postHomeR = do
     ((result, formWidget), formEnctype) <- runFormPost sampleForm
-    let handlerName = "postRootR" :: Text
+    let handlerName = "postHomeR" :: Text
         submission = case result of
             FormSuccess res -> Just res
             _ -> Nothing
