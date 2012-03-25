@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -254,7 +253,7 @@ renderTable, renderDivs :: FormRender sub master a
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
-    -- FIXME non-valid shamlet
+    -- FIXME non-valid HTML
     let widget = [whamlet|
 \#{fragment}
 $forall view <- views

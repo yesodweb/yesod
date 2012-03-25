@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE CPP #-}
 -------------------------------------------------------------------------------
 --
 -- Module        : Yesod.RssFeed
