@@ -1,8 +1,11 @@
 module Yesod.Internal.Session
     ( encodeClientSession
     , decodeClientSession
+    , BackendSession
+    , SessionBackend(..)
     ) where
 
+import Yesod.Internal (Header(..))
 import qualified Web.ClientSession as CS
 import Data.Serialize
 import Data.Time
@@ -11,6 +14,24 @@ import Control.Monad (guard)
 import Data.Text (Text, pack, unpack)
 import Control.Arrow (first)
 import Control.Applicative ((<$>))
+
+import qualified Data.ByteString.Char8 as S8
+import qualified Network.Wai as W
+
+type BackendSession = [(Text, S8.ByteString)]
+
+data SessionBackend master = SessionBackend
+    { sbSaveSession :: master
+                    -> W.Request
+                    -> UTCTime -- ^ The current time
+                    -> BackendSession -- ^ The old session (before running handler)
+                    -> BackendSession -- ^ The final session
+                    -> IO [Header]
+    , sbLoadSession :: master
+                    -> W.Request
+                    -> UTCTime -- ^ The current time
+                    -> IO BackendSession
+    }
 
 encodeClientSession :: CS.Key
                     -> CS.IV
