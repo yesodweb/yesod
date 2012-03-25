@@ -25,7 +25,7 @@ instance Yesod App
 
 getHomeR :: Handler RepHtml
 getHomeR = defaultLayout $ toWidget [hamlet|
-doctype 5
+$doctype 5
 
 <html>
   <body>
