@@ -463,7 +463,7 @@ selectFieldHelper outside onOpt inside opts' = Field
                     Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
                     Just y -> Right $ Just y
 
-fileAFormReq :: (RenderMessage master msg, RenderMessage master FormMessage) => FieldSettings msg -> AForm sub master FileInfo
+fileAFormReq :: RenderMessage master FormMessage => FieldSettings master -> AForm sub master FileInfo
 fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
     let (name, ints') =
             case fsName fs of
@@ -493,7 +493,7 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
             }
     return (res, (fv :), ints', Multipart)
 
-fileAFormOpt :: (RenderMessage master msg, RenderMessage master FormMessage) => FieldSettings msg -> AForm sub master (Maybe FileInfo)
+fileAFormOpt :: RenderMessage master FormMessage => FieldSettings master -> AForm sub master (Maybe FileInfo)
 fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
     let (name, ints') =
             case fsName fs of

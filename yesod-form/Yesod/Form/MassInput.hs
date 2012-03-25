@@ -24,6 +24,7 @@ import Data.Either (partitionEithers)
 import Data.Traversable (sequenceA)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
+import Yesod.Core (SomeMessage (SomeMessage))
 
 down :: Int -> MForm sub master ()
 down 0 = return ()
@@ -97,7 +98,7 @@ withDelete af = do
         Just ("yes":_) -> return $ Left [whamlet|<input type=hidden name=#{deleteName} value=yes>|]
         _ -> do
             (_, xml2) <- aFormToForm $ areq boolField FieldSettings
-                { fsLabel = MsgDelete
+                { fsLabel = SomeMessage MsgDelete
                 , fsTooltip = Nothing
                 , fsName = Just deleteName
                 , fsId = Nothing

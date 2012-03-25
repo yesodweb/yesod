@@ -22,8 +22,8 @@ class ToForm a where
 -}
 
 class ToField a master where
-    toField :: (RenderMessage master msg, RenderMessage master FormMessage)
-            => FieldSettings msg -> Maybe a -> AForm sub master a
+    toField :: RenderMessage master FormMessage
+            => FieldSettings master -> Maybe a -> AForm sub master a
 
 {- FIXME
 instance ToFormField String y where
