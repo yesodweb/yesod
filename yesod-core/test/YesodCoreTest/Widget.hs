@@ -6,7 +6,7 @@ module YesodCoreTest.Widget (widgetTest) where
 import Test.Hspec
 import Test.Hspec.HUnit ()
 
-import Yesod.Core hiding (Request, Session)
+import Yesod.Core hiding (Request)
 import Text.Julius
 import Text.Lucius
 import Text.Hamlet

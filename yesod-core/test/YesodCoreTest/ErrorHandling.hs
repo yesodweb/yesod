@@ -3,7 +3,7 @@ module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
     , Widget
     ) where
-import Yesod.Core hiding (Session)
+import Yesod.Core
 import Test.Hspec
 import Test.Hspec.HUnit()
 import Network.Wai
