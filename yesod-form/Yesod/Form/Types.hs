@@ -94,9 +94,9 @@ instance Monoid a => Monoid (AForm sub master a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
 
-data FieldSettings msg = FieldSettings
-    { fsLabel :: msg -- FIXME switch to SomeMessage?
-    , fsTooltip :: Maybe msg
+data FieldSettings master = FieldSettings
+    { fsLabel :: SomeMessage master
+    , fsTooltip :: Maybe (SomeMessage master)
     , fsId :: Maybe Text
     , fsName :: Maybe Text
     , fsAttrs :: [(Text, Text)]

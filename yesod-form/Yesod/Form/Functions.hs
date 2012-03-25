@@ -91,19 +91,17 @@ askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
-mreq :: (RenderMessage master msg, RenderMessage master FormMessage)
-     => Field sub master a -> FieldSettings msg -> Maybe a
+mreq :: RenderMessage master FormMessage
+     => Field sub master a -> FieldSettings master -> Maybe a
      -> MForm sub master (FormResult a, FieldView sub master)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
-mopt :: RenderMessage master msg
-     => Field sub master a -> FieldSettings msg -> Maybe (Maybe a)
+mopt :: Field sub master a -> FieldSettings master -> Maybe (Maybe a)
      -> MForm sub master (FormResult (Maybe a), FieldView sub master)
 mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
-mhelper :: RenderMessage master msg
-        => Field sub master a
-        -> FieldSettings msg
+mhelper :: Field sub master a
+        -> FieldSettings master
         -> Maybe a
         -> (master -> [Text] -> FormResult b) -- ^ on missing
         -> (a -> FormResult b) -- ^ on success
@@ -140,14 +138,13 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
-areq :: (RenderMessage master msg, RenderMessage master FormMessage)
-     => Field sub master a -> FieldSettings msg -> Maybe a
+areq :: RenderMessage master FormMessage
+     => Field sub master a -> FieldSettings master -> Maybe a
      -> AForm sub master a
 areq a b = formToAForm . fmap (second return) . mreq a b
 
-aopt :: RenderMessage master msg
-     => Field sub master a
-     -> FieldSettings msg
+aopt :: Field sub master a
+     -> FieldSettings master
      -> Maybe (Maybe a)
      -> AForm sub master (Maybe a)
 aopt a b = formToAForm . fmap (second return) . mopt a b
@@ -347,7 +344,7 @@ customErrorMessage msg field = field { fieldParse = \ts -> fmap (either
 (const $ Left msg) Right) $ fieldParse field ts }
 
 -- | Generate a 'FieldSettings' from the given label.
-fieldSettingsLabel :: msg -> FieldSettings msg
+fieldSettingsLabel :: SomeMessage master -> FieldSettings master
 fieldSettingsLabel msg = FieldSettings msg Nothing Nothing Nothing []
 
 -- | Generate an 'AForm' that gets its value from the given action.
