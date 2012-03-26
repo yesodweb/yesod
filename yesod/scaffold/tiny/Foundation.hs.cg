@@ -13,6 +13,7 @@ module Foundation
 
 import Prelude
 import Yesod.Core hiding (Route)
+import Yesod.Form
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Static

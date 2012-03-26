@@ -67,6 +67,7 @@ executable         ~project~
 
     build-depends: base                          >= 4          && < 5
                  , yesod-core                    >= 1.0        && < 1.1
+                 , yesod-form                    >= 1.0        && < 1.1
                  , yesod-static                  >= 1.0        && < 1.1
                  , yesod-default                 >= 1.0        && < 1.1
                  , clientsession                 >= 0.7.3      && < 0.8
