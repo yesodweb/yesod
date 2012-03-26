@@ -9,3 +9,4 @@
 ./yesod-sitemap
 ./yesod-default
 ./yesod
+./yesod-test
