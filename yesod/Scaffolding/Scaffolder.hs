@@ -109,10 +109,10 @@ scaffold = do
     putStrLn "That's it! I'm creating your files now..."
 
     let withConnectionPool = case backend of
-          Sqlite     -> $(codegen $ "sqliteConnPool")
-          Postgresql -> $(codegen $ "postgresqlConnPool")
+          Sqlite     -> $(codegen "sqliteConnPool")
+          Postgresql -> $(codegen "postgresqlConnPool")
           Mysql      -> ""
-          MongoDB    -> $(codegen $ "mongoDBConnPool")
+          MongoDB    -> $(codegen "mongoDBConnPool")
           Tiny       -> ""
 
         packages =
@@ -144,29 +144,29 @@ scaffold = do
     mkDir "Settings"
     mkDir "messages"
      
-    writeFile' ("deploy/Procfile") $(codegen "deploy/Procfile")
+    writeFile' "deploy/Procfile" $(codegen "deploy/Procfile")
 
     case backend of
-      Sqlite     -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/sqlite.yml"))
-      Postgresql -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/postgresql.yml"))
-      MongoDB    -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/mongoDB.yml"))
-      Mysql      -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen ("config/mysql.yml"))
+      Sqlite     -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen "config/sqlite.yml")
+      Postgresql -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen "config/postgresql.yml")
+      MongoDB    -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen "config/mongoDB.yml")
+      Mysql      -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen "config/mysql.yml")
       Tiny       -> return ()
 
     let isTiny = backend == Tiny
         ifTiny a b = if isTiny then a else b
 
-    writeFile' ("config/settings.yml") $(codegen "config/settings.yml")
-    writeFile' ("main.hs") $(codegen "main.hs")
-    writeFile' ("devel.hs") $(codegen "devel.hs")
+    writeFile' "config/settings.yml" $(codegen "config/settings.yml")
+    writeFile' "main.hs" $(codegen "main.hs")
+    writeFile' "devel.hs" $(codegen "devel.hs")
     writeFile' (project ++ ".cabal") $ ifTiny $(codegen "tiny/project.cabal") $(codegen "project.cabal")
-    when useTests $ do
+    when useTests $
       appendFile' (project ++ ".cabal") $(codegen "cabal_test_suite")
 
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
-    writeFile' ("Foundation.hs") $ ifTiny $(codegen "tiny/Foundation.hs") $(codegen "Foundation.hs")
-    writeFile' ("Import.hs") $ ifTiny $(codegen "tiny/Import.hs") $(codegen "Import.hs")
+    writeFile' "Foundation.hs" $ ifTiny $(codegen "tiny/Foundation.hs") $(codegen "Foundation.hs")
+    writeFile' "Import.hs" $ ifTiny $(codegen "tiny/Import.hs") $(codegen "Import.hs")
     writeFile' "Application.hs" $ ifTiny $(codegen "tiny/Application.hs") $(codegen "Application.hs")
     writeFile' "Handler/Home.hs" $(codegen "Handler/Home.hs")
     unless isTiny $ writeFile' "Model.hs" $(codegen "Model.hs")
@@ -200,7 +200,7 @@ scaffold = do
             return $ pack `AppE` LitE (StringL $ S.unpack bs))
 
     S.writeFile (dir ++ "/config/robots.txt")
-        $(runIO (S.readFile "scaffold/config/robots.txt.cg") >>= \bs -> do
+        $(runIO (S.readFile "scaffold/config/robots.txt.cg") >>= \bs ->
             [|S.pack $(return $ LitE $ StringL $ S.unpack bs)|])
     
     putStr $(codegenDir "input" "done")
