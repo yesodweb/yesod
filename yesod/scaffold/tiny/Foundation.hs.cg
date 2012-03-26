@@ -5,6 +5,7 @@ module Foundation
     , resources~sitearg~
     , Handler
     , Widget
+    , Form
     , module Yesod.Core
     , module Settings
     , liftIO
@@ -56,6 +57,8 @@ mkMessage "~sitearg~" "messages" "en"
 -- usually require access to the ~sitearg~Route datatype. Therefore, we
 -- split these actions into two functions and place them in separate files.
 mkYesodData "~sitearg~" $(parseRoutesFile "config/routes")
+
+type Form x = Html -> MForm ~sitearg~ ~sitearg~ (FormResult x, Widget)
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
