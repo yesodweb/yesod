@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
-    ( getApplication
+    ( makeApplication
     , getApplicationDev
     ) where
 
@@ -27,14 +27,18 @@ import Handler.Home
 -- the comments there for more details.
 mkYesodDispatch "~sitearg~" resources~sitearg~
 
+makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO ~sitearg~
+makeFoundation conf _ = do
+    s <- staticSite
+    return $ ~sitearg~ conf setLogger s
+
 -- This function allocates resources (such as a database connection pool),
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-getApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
-getApplication conf logger = do
-    s <- staticSite
-    let foundation = ~sitearg~ conf setLogger s
+makeApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
+makeApplication conf logger = do
+    foundation <- makeFoundation
     app <- toWaiAppPlain foundation
     return $ logWare app
   where
@@ -49,7 +53,7 @@ getApplication conf logger = do
 -- for yesod devel
 getApplicationDev :: IO (Int, Application)
 getApplicationDev =
-    defaultDevelApp loader getApplication
+    defaultDevelApp loader makeApplication
   where
     loader = loadConfig (configSettings Development)
         { csParseExtra = parseExtra
