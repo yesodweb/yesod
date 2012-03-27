@@ -92,6 +92,6 @@ defaultDevelApp load getApp = do
     conf   <- load
     logger <- defaultDevelopmentLogger
     let p = appPort conf
-    logString logger $ "Devel application launched, listening on port " ++ show p
+    logString logger $ "Devel application launched at " ++ (show $ appRoot conf) ++ ", listening on port " ++ show p
     app <- getApp conf logger
     return (p, app)
