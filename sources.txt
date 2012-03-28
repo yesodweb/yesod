@@ -13,4 +13,5 @@
 ./yesod-auth
 ./yesod-sitemap
 ./yesod-default
+./yesod-test
 ./yesod
