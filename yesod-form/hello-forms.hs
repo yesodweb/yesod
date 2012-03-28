@@ -39,8 +39,7 @@ data HelloForms = HelloForms
 instance RenderMessage HelloForms FormMessage where
     renderMessage _ _ = defaultFormMessage
 
-instance Yesod HelloForms where
-    approot _ = ""
+instance Yesod HelloForms
 
 fixType :: Handler a -> Handler a
 fixType = id
