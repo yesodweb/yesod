@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | Parsing CSS selectors into queries.
 module Yesod.Test.CssQuery
     ( SelectorGroup (..)
@@ -5,8 +6,10 @@ module Yesod.Test.CssQuery
     , parseQuery
     ) where
 
-import Text.ParserCombinators.Parsec
-import Text.Parsec.Prim (Parsec)
+import Prelude hiding (takeWhile)
+import Data.Text (Text)
+import Data.Attoparsec.Text
+import Control.Applicative (many, (<|>), optional)
 
 data SelectorGroup
   = DirectChildren [Selector]
@@ -14,14 +17,14 @@ data SelectorGroup
   deriving (Show, Eq)
 
 data Selector
-  = ById String
-  | ByClass String
-  | ByTagName String
-  | ByAttrExists String
-  | ByAttrEquals String String
-  | ByAttrContains String String
-  | ByAttrStarts String String
-  | ByAttrEnds String String
+  = ById Text
+  | ByClass Text
+  | ByTagName Text
+  | ByAttrExists Text
+  | ByAttrEquals Text Text
+  | ByAttrContains Text Text
+  | ByAttrStarts Text Text
+  | ByAttrEnds Text Text
   deriving (Show, Eq)
 
 -- | Parses a query into an intermediate format which is easy to feed to HXT
@@ -32,18 +35,18 @@ data Selector
 --   with spaces or > like these three: /table.main.odd tr.even > td.big/
 --
 -- * A SelectorGroup as a list of Selector items, following the above example
---   the selectors in the group are: /table/, /.main/ and /.odd/ 
-parseQuery :: String -> Either ParseError [[SelectorGroup]]
-parseQuery = parse cssQuery "" 
+--   the selectors in the group are: /table/, /.main/ and /.odd/
+parseQuery :: Text -> Either String [[SelectorGroup]]
+parseQuery = parseOnly cssQuery
 
 -- Below this line is the Parsec parser for css queries.
-cssQuery :: Parsec String u [[SelectorGroup]]
+cssQuery :: Parser [[SelectorGroup]]
 cssQuery = sepBy rules (char ',' >> (optional (char ' ')))
 
-rules :: Parsec String u [SelectorGroup]
+rules :: Parser [SelectorGroup]
 rules = many $ directChildren <|> deepChildren
 
-directChildren :: Parsec String u SelectorGroup
+directChildren :: Parser SelectorGroup
 directChildren = do
   _ <- char '>'
   _ <- char ' '
@@ -51,53 +54,53 @@ directChildren = do
   optional $ char ' '
   return $ DirectChildren sels
 
-deepChildren :: Parsec String u SelectorGroup
+deepChildren :: Parser SelectorGroup
 deepChildren = do 
   sels <- selectors
   optional $ char ' '
   return $ DeepChildren sels
   
-selectors :: Parsec String u [Selector]
+selectors :: Parser [Selector]
 selectors = many1 $ parseId
   <|> parseClass
   <|> parseTag
   <|> parseAttr
 
-parseId :: Parsec String u Selector
+parseId :: Parser Selector
 parseId = do
   _ <- char '#'
-  x <- many $ noneOf ",#.[ >"
+  x <- takeWhile $ flip notElem ",#.[ >"
   return $ ById x
 
-parseClass :: Parsec String u Selector
+parseClass :: Parser Selector
 parseClass = do
   _ <- char '.'
-  x <- many $ noneOf ",#.[ >"
+  x <- takeWhile $ flip notElem ",#.[ >"
   return $ ByClass x
 
-parseTag :: Parsec String u Selector
+parseTag :: Parser Selector
 parseTag = do
-  x <- many1 $ noneOf ",#.[ >"
+  x <- takeWhile1 $ flip notElem ",#.[ >"
   return $ ByTagName x
 
-parseAttr :: Parsec String u Selector
+parseAttr :: Parser Selector
 parseAttr = do
   _ <- char '['
-  name <- many $ noneOf ",#.=$^*]"
+  name <- takeWhile $ flip notElem ",#.=$^*]"
   (parseAttrExists name)
     <|> (parseAttrWith "=" ByAttrEquals name)
     <|> (parseAttrWith "*=" ByAttrContains name)
     <|> (parseAttrWith "^=" ByAttrStarts name)
     <|> (parseAttrWith "$=" ByAttrEnds name)
 
-parseAttrExists :: String -> Parsec String u Selector
+parseAttrExists :: Text -> Parser Selector
 parseAttrExists attrname = do
   _ <- char ']'
   return $ ByAttrExists attrname
 
-parseAttrWith :: String -> (String -> String -> Selector) -> String -> Parsec String u Selector
+parseAttrWith :: Text -> (Text -> Text -> Selector) -> Text -> Parser Selector
 parseAttrWith sign constructor name = do
   _ <- string sign
-  value <- many $ noneOf ",#.]"
+  value <- takeWhile $ flip notElem ",#.]"
   _ <- char ']'
   return $ constructor name value

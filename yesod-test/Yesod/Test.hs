@@ -85,6 +85,7 @@ import Control.Monad.IO.Class
 import System.IO
 import Yesod.Test.TransversingCSS
 import Database.Persist.GenericSql
+import Data.Monoid (mappend)
 
 -- | The state used in 'describe' to build a list of specs
 data SpecsData = SpecsData Application ConnectionPool [Core.Spec]
@@ -167,7 +168,7 @@ parseHTML html p = runLA (hread >>> p ) html
 htmlQuery :: HoldsResponse a => Query -> ST.StateT a IO [Html]
 htmlQuery query = withResponse $ \ res ->
   case findBySelector (BSL8.unpack $ simpleBody res) query of
-    Left err -> failure $ query ++ " did not parse: " ++ (show err)
+    Left err -> failure $ T.unpack query ++ " did not parse: " ++ (show err)
     Right matches -> return matches
 
 -- | Asserts that the two given values are equal.
@@ -237,8 +238,8 @@ htmlAllContain :: HoldsResponse a => Query -> String -> ST.StateT a IO ()
 htmlAllContain query search = do
   matches <- htmlQuery query
   case matches of
-    [] -> failure $ "Nothing matched css query: "++query
-    _ -> liftIO $ HUnit.assertBool ("Not all "++query++" contain "++search) $
+    [] -> failure $ "Nothing matched css query: "++T.unpack query
+    _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search) $
           DL.all (DL.isInfixOf search) matches
 
 -- | Performs a css query on the last response and asserts the matched elements
@@ -247,7 +248,7 @@ htmlCount :: HoldsResponse a => Query -> Int -> ST.StateT a IO ()
 htmlCount query count = do
   matches <- fmap DL.length $ htmlQuery query
   liftIO $ flip HUnit.assertBool (matches == count)
-    ("Expected "++(show count)++" elements to match "++query++", found "++(show matches))
+    ("Expected "++(show count)++" elements to match "++T.unpack query++", found "++(show matches))
 
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec)
 printBody :: HoldsResponse a => ST.StateT a IO ()
@@ -319,9 +320,9 @@ fileByLabel label path mime = do
 
 -- | Lookup a _nonce form field and add it's value to the params. 
 -- Receives a CSS selector that should resolve to the form element containing the nonce.
-addNonce_ :: String -> RequestBuilder ()
+addNonce_ :: Query -> RequestBuilder ()
 addNonce_ scope = do
-  matches <- htmlQuery $ scope ++ "input[name=_nonce][type=hidden][value]"
+  matches <- htmlQuery $ scope `mappend` "input[name=_nonce][type=hidden][value]"
   case matches of
     [] -> failure $ "No nonce found in the current page"
     element:[] -> byName "_nonce" $ head $ parseHTML element $ getAttrValue "value"

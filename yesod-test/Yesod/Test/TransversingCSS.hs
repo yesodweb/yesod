@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {- |
 This module uses HXT to transverse an HTML document using CSS selectors.
 
@@ -41,17 +42,18 @@ where
 import Text.XML.HXT.Core
 import qualified Data.List as DL
 import Yesod.Test.CssQuery
-import Text.ParserCombinators.Parsec (ParseError)
+import Data.Text (unpack)
+import qualified Data.Text as T
 
 type Html = String
-type Query = String
+type Query = T.Text
  
 -- | Perform a css 'Query' on 'Html'. Returns Either
 --
 -- * Left: Query parse error.
 --
 -- * Right: List of matching Html fragments.
-findBySelector :: Html-> Query -> Either ParseError [Html]
+findBySelector :: Html-> Query -> Either String [Html]
 findBySelector html query = fmap (runQuery html) (parseQuery query)
 
 -- Run a compiled query on Html, returning a list of matching Html fragments.
@@ -72,11 +74,11 @@ queryToArrow commaSeparated =
     accum >>> getChildren >>> multi (DL.foldl applySelectors this $ sels)
   applySelectors accum selector = accum >>> (toArrow selector)
   toArrow selector = case selector of
-    ById v -> hasAttrValue "id" (==v)
-    ByClass v -> hasAttrValue "class" ((DL.elem v) . words)
-    ByTagName v -> hasName v
-    ByAttrExists n -> hasAttr n
-    ByAttrEquals n v -> hasAttrValue n (==v)
-    ByAttrContains n v -> hasAttrValue n (DL.isInfixOf v)
-    ByAttrStarts n v -> hasAttrValue n (DL.isPrefixOf v)
-    ByAttrEnds n v -> hasAttrValue n (DL.isSuffixOf v)
+    ById v -> hasAttrValue "id" (== unpack v)
+    ByClass v -> hasAttrValue "class" ((DL.elem $ unpack v) . words)
+    ByTagName v -> hasName $ unpack v
+    ByAttrExists n -> hasAttr $ unpack n
+    ByAttrEquals n v -> hasAttrValue (unpack n) (== unpack v)
+    ByAttrContains n v -> hasAttrValue (unpack n) (DL.isInfixOf $ unpack v)
+    ByAttrStarts n v -> hasAttrValue (unpack n) (DL.isPrefixOf $ unpack v)
+    ByAttrEnds n v -> hasAttrValue (unpack n) (DL.isSuffixOf $ unpack v)
