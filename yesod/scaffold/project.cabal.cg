@@ -81,6 +81,7 @@ executable         ~project~
                  , yesod-static                  >= 1.0        && < 1.1
                  , yesod-default                 >= 1.0        && < 1.1
                  , yesod-form                    >= 1.0        && < 1.1
+                 , yesod-test                    >= 0.2        && < 0.3
                  , clientsession                 >= 0.7.3      && < 0.8
                  , bytestring                    >= 0.9        && < 0.10
                  , text                          >= 0.11       && < 0.12
