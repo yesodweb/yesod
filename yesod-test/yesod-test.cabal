@@ -7,7 +7,7 @@ maintainer:         Nubis <nubis@woobiz.com.ar>
 synopsis:           integration testing for WAI/Yesod Applications 
 category:           Web, Yesod, Testing
 stability:          Experimental
-cabal-version:      >= 1.6
+cabal-version:      >= 1.8
 build-type:         Simple
 homepage:           http://www.yesodweb.com
 description:        Behaviour Oriented integration Testing for Yesod Applications 
@@ -35,8 +35,18 @@ library
                    , case-insensitive          >= 0.2
                    , text
     exposed-modules: Yesod.Test
+                     Yesod.Test.CssQuery
     other-modules: Yesod.Test.TransversingCSS
     ghc-options:  -Wall
+
+test-suite test
+    type: exitcode-stdio-1.0
+    main-is: main.hs
+    hs-source-dirs: test
+    build-depends:          base
+                          , yesod-test
+                          , hspec >= 0.9 && < 0.10
+                          , HUnit
 
 source-repository head
   type: git
