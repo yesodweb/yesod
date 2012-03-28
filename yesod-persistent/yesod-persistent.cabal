@@ -17,7 +17,7 @@ library
                    , yesod-core                >= 1.0      && < 1.1
                    , persistent                >= 0.9      && < 0.10
                    , persistent-template       >= 0.9      && < 0.10
-                   , transformers              >= 0.2.2    && < 0.3
+                   , transformers              >= 0.2.2    && < 0.4
     exposed-modules: Yesod.Persist
     ghc-options:     -Wall
 

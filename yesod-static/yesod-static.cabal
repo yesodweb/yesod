@@ -55,7 +55,7 @@ test-suite tests
                    , bytestring            >= 0.9.1.4  && < 0.10
                    , template-haskell
                    , directory             >= 1.0      && < 1.2
-                   , transformers          >= 0.2.2    && < 0.3
+                   , transformers          >= 0.2.2    && < 0.4
                    , wai-app-static
                    , wai
                    , text                  >= 0.9      && < 1.0

@@ -22,7 +22,7 @@ library
                    , wai                       >= 0.4      && < 0.5
                    , bytestring                >= 0.9.1.4  && < 0.10
                    , http-types                >= 0.6      && < 0.7
-                   , transformers              >= 0.2.2    && < 0.3
+                   , transformers              >= 0.2.2    && < 0.4
                    , unix-compat               >= 0.2      && < 0.3
                    , directory                 >= 1.0      && < 1.2
                    , containers                >= 0.2      && < 0.5
@@ -62,7 +62,7 @@ test-suite runtests
                    , network                   >= 2.2      && < 2.4
                    , bytestring                >= 0.9.1.4  && < 0.10
                    , text                      >= 0.5      && < 0.12
-                   , transformers              >= 0.2.2    && < 0.3
+                   , transformers              >= 0.2.2    && < 0.4
                    -- , containers
   ghc-options:   -Wall
 
