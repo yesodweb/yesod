@@ -34,9 +34,16 @@ library
                    , bytestring                >= 0.9
                    , case-insensitive          >= 0.2
                    , text
+                   , tagstream-conduit         >= 0.3      && < 0.4
+                   , conduit                   >= 0.4      && < 0.5
+                   , resourcet                 >= 0.3      && < 0.4
+                   , xml-conduit               >= 0.7      && < 0.8
+                   , xml-types                 >= 0.3      && < 0.4
+                   , containers
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
                      Yesod.Test.TransversingCSS
+                     Yesod.Test.HtmlParse
     ghc-options:  -Wall
 
 test-suite test
@@ -47,6 +54,7 @@ test-suite test
                           , yesod-test
                           , hspec >= 0.9 && < 0.10
                           , HUnit
+                          , xml-conduit
 
 source-repository head
   type: git

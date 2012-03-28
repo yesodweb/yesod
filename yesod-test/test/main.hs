@@ -5,9 +5,12 @@ import Test.Hspec.HUnit ()
 
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
+import Yesod.Test.HtmlParse
+import Text.XML
 
 parseQuery_ = either error id . parseQuery
 findBySelector_ x = either error id . findBySelector x
+parseHtml_ = either error id . parseHtml
 
 main :: IO ()
 main = hspecX $ do
@@ -24,3 +27,33 @@ main = hspecX $ do
             let html = "<html><head><title>foo</title></head><body><br><p>Hello World</p></body></html>"
                 query = "body > p"
              in findBySelector_ html query @?= ["<p>Hello World</p>"]
+    describe "HTML parsing" $ do
+        it "XHTML" $
+            let html = "<html><head><title>foo</title></head><body><p>Hello World</p></body></html>"
+                doc = Document (Prologue [] Nothing []) root []
+                root = Element "html" []
+                    [ NodeElement $ Element "head" []
+                        [ NodeElement $ Element "title" []
+                            [NodeContent "foo"]
+                        ]
+                    , NodeElement $ Element "body" []
+                        [ NodeElement $ Element "p" []
+                            [NodeContent "Hello World"]
+                        ]
+                    ]
+             in parseHtml_ html @?= doc
+        it "HTML" $
+            let html = "<html><head><title>foo</title></head><body><br><p>Hello World</p></body></html>"
+                doc = Document (Prologue [] Nothing []) root []
+                root = Element "html" []
+                    [ NodeElement $ Element "head" []
+                        [ NodeElement $ Element "title" []
+                            [NodeContent "foo"]
+                        ]
+                    , NodeElement $ Element "body" []
+                        [ NodeElement $ Element "br" [] []
+                        , NodeElement $ Element "p" []
+                            [NodeContent "Hello World"]
+                        ]
+                    ]
+             in parseHtml_ html @?= doc
