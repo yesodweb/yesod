@@ -102,7 +102,7 @@ data FieldSettings master = FieldSettings
     , fsAttrs :: [(Text, Text)]
     }
 
-instance (a ~ Text) => IsString (FieldSettings a) where
+instance IsString (FieldSettings a) where
     fromString s = FieldSettings (fromString s) Nothing Nothing Nothing []
 
 data FieldView sub master = FieldView
