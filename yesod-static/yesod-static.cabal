@@ -32,8 +32,8 @@ library
                    , file-embed            >= 0.0.4.1  && < 0.5
                    , http-types            >= 0.6.5    && < 0.7
                    , unix-compat           >= 0.2
-                   , conduit               >= 0.2
-                   , crypto-conduit        >= 0.2      && < 0.3
+                   , conduit               >= 0.4      && < 0.5
+                   , crypto-conduit        >= 0.3      && < 0.4
                    , cryptohash            >= 0.6.1
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
@@ -62,8 +62,8 @@ test-suite tests
                    , file-embed            >= 0.0.4.1  && < 0.5
                    , http-types            >= 0.6.5    && < 0.7
                    , unix-compat           >= 0.2
-                   , conduit               >= 0.2
-                   , crypto-conduit        >= 0.2      && < 0.3
+                   , conduit
+                   , crypto-conduit
                    , cryptohash            >= 0.6.1
 
     ghc-options:     -Wall

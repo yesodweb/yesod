@@ -29,8 +29,8 @@ library
                    , shakespeare-css       >= 1.0     && < 1.1
                    , shakespeare-js        >= 1.0     && < 1.1
                    , template-haskell
-                   , yaml                  >= 0.6     && < 0.7
-                   , network-conduit       >= 0.3     && < 0.4
+                   , yaml                  >= 0.7     && < 0.8
+                   , network-conduit       >= 0.4     && < 0.5
                    , unordered-containers
 
     if !os(windows)

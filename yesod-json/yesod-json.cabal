@@ -22,8 +22,8 @@ library
                    , vector                >= 0.9
                    , containers            >= 0.2
                    , blaze-builder
-                   , attoparsec-conduit    >= 0.3      && < 0.4
-                   , conduit               >= 0.3      && < 0.4
+                   , attoparsec-conduit    >= 0.4      && < 0.5
+                   , conduit               >= 0.4      && < 0.5
                    , transformers          >= 0.2.2    && < 0.3
                    , wai                   >= 1.2      && < 1.3
                    , wai-extra             >= 1.2      && < 1.3
