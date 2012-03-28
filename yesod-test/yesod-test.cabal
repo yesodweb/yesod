@@ -40,6 +40,8 @@ library
                    , xml-conduit               >= 0.7      && < 0.8
                    , xml-types                 >= 0.3      && < 0.4
                    , containers
+                   , blaze-html                >= 0.4      && < 0.5
+                   , xml2html                  >= 0.1.2    && < 0.2
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
                      Yesod.Test.TransversingCSS
