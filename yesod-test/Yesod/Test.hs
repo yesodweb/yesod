@@ -86,6 +86,8 @@ import System.IO
 import Yesod.Test.TransversingCSS
 import Database.Persist.GenericSql
 import Data.Monoid (mappend)
+import qualified Data.Text.Lazy as TL
+import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 
 -- | The state used in 'describe' to build a list of specs
 data SpecsData = SpecsData Application ConnectionPool [Core.Spec]
@@ -161,15 +163,15 @@ withResponse f = maybe err f =<< fmap readResponse ST.get
 
 -- | Use HXT to parse a value from an html tag.
 -- Check for usage examples in this module's source.
-parseHTML :: String -> LA XmlTree a -> [a]
-parseHTML html p = runLA (hread >>> p ) html
+parseHTML :: Html -> LA XmlTree a -> [a]
+parseHTML html p = runLA (hread >>> p ) (TL.unpack $ decodeUtf8 html)
 
 -- | Query the last response using css selectors, returns a list of matched fragments
 htmlQuery :: HoldsResponse a => Query -> ST.StateT a IO [Html]
 htmlQuery query = withResponse $ \ res ->
-  case findBySelector (BSL8.unpack $ simpleBody res) query of
+  case findBySelector (simpleBody res) query of
     Left err -> failure $ T.unpack query ++ " did not parse: " ++ (show err)
-    Right matches -> return matches
+    Right matches -> return $ map (encodeUtf8 . TL.pack) matches
 
 -- | Asserts that the two given values are equal.
 assertEqual :: (Eq a) => String -> a -> a -> OneSpec ()
@@ -240,7 +242,7 @@ htmlAllContain query search = do
   case matches of
     [] -> failure $ "Nothing matched css query: "++T.unpack query
     _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search) $
-          DL.all (DL.isInfixOf search) matches
+          DL.all (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
 
 -- | Performs a css query on the last response and asserts the matched elements
 -- are as many as expected.
@@ -280,7 +282,7 @@ fileByName name path mimetype = do
 nameFromLabel :: String -> RequestBuilder String
 nameFromLabel label = withResponse $ \ res -> do
   let
-    body = BSL8.unpack $ simpleBody res
+    body = simpleBody res
     escaped = escapeHtmlEntities label
     mfor = parseHTML body $ deep $ hasName "label"
         >>> filterA (xshow this >>> mkText >>> hasText (DL.isInfixOf escaped))
