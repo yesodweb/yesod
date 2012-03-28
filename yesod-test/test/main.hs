@@ -1,10 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
 import Test.HUnit hiding (Test)
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
 
 import Yesod.Test.CssQuery
 
-parseQuery_ = either (error . show) id . parseQuery
+parseQuery_ = either error id . parseQuery
 
 main :: IO ()
 main = hspecX $ do
