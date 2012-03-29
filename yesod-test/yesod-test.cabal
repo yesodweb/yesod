@@ -57,6 +57,7 @@ test-suite test
                           , hspec >= 0.9 && < 0.10
                           , HUnit
                           , xml-conduit
+                          , bytestring
 
 source-repository head
   type: git
