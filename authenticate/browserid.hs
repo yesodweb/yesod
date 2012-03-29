@@ -3,7 +3,7 @@ import Yesod
 import Web.Authenticate.BrowserId
 import Data.Object
 import Data.Maybe (fromMaybe)
-import Network.HTTP.Enumerator
+import Network.HTTP.Conduit
 import Data.Text (Text)
 
 data BID = BID
