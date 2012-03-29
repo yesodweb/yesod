@@ -16,3 +16,6 @@
 [submodule "tagstream-conduit"]
 	path = tagstream-conduit
 	url = https://github.com/snoyberg/tagstream-conduit
+[submodule "yaml"]
+	path = yaml
+	url = https://github.com/snoyberg/yaml
