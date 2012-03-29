@@ -38,10 +38,7 @@ module Yesod.Test.TransversingCSS (
   )
 where
 
-import Text.XML.HXT.Core
-import qualified Data.List as DL
 import Yesod.Test.CssQuery
-import Data.Text (unpack)
 import qualified Data.Text as T
 import Yesod.Test.HtmlParse (parseHtml)
 import Control.Applicative ((<$>), (<*>))
