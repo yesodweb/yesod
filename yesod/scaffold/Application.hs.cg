@@ -47,7 +47,7 @@ makeApplication conf logger = do
 #endif
 
 makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO ~sitearg~
-makeFoundation conf _ = do
+makeFoundation conf setLogger = do
     manager <- newManager def
     s <- staticSite
     dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
