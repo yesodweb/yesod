@@ -13,3 +13,6 @@
 [submodule "crypto-conduit"]
 	path = crypto-conduit
 	url = https://github.com/snoyberg/crypto-conduit
+[submodule "tagstream-conduit"]
+	path = tagstream-conduit
+	url = https://github.com/snoyberg/tagstream-conduit

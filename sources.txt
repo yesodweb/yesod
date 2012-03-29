@@ -1,7 +1,9 @@
 ./http-conduit
 ./xml/xml-conduit
+./xml/xml2html
 ./authenticate/authenticate
 ./crypto-conduit
+./tagstream-conduit
 ./yaml
 ./yesod-routes
 ./yesod-core
