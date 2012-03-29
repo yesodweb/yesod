@@ -8,6 +8,8 @@ import Yesod.Test.TransversingCSS
 import Yesod.Test.HtmlParse
 import Text.XML
 
+import Data.ByteString.Lazy.Char8 ()
+
 parseQuery_ = either error id . parseQuery
 findBySelector_ x = either error id . findBySelector x
 parseHtml_ = either error id . parseHtml
