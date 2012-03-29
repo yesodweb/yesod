@@ -24,6 +24,7 @@ import Yesod.Logger (Logger, logMsg, formatLogText)
 import Network.HTTP.Conduit (Manager)
 import qualified Settings
 import qualified Database.Persist.Store
+import Settings.StaticFiles
 import Database.Persist.~importGenericDB~
 import Settings (widgetFile, Extra (..))
 import Model
@@ -93,6 +94,7 @@ instance Yesod ~sitearg~ where
 
         pc <- widgetToPageContent $ do
             $(widgetFile "normalize")
+            addStylesheet $ StaticR css_bootstrap_css
             $(widgetFile "default-layout")
         hamletToRepHtml $(hamletFile "templates/default-layout-wrapper.hamlet")
 

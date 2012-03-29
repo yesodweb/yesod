@@ -26,12 +26,6 @@ extra-source-files:
   scaffold/main.hs.cg
   scaffold/postgresqlConnPool.cg
   scaffold/Foundation.hs.cg
-  scaffold/tiny/project.cabal.cg
-  scaffold/tiny/Foundation.hs.cg
-  scaffold/tiny/Import.hs.cg
-  scaffold/tiny/Settings.hs.cg
-  scaffold/tiny/Application.hs.cg
-  scaffold/tiny/config/routes.cg
   scaffold/sqliteConnPool.cg
   scaffold/cabal_test_suite.cg
   scaffold/Import.hs.cg
@@ -42,7 +36,7 @@ extra-source-files:
   scaffold/Application.hs.cg
   scaffold/deploy/Procfile.cg
   scaffold/templates/homepage.hamlet.cg
-  scaffold/templates/default-layout.lucius.cg
+  scaffold/static/css/bootstrap.css.cg
   scaffold/templates/default-layout.hamlet.cg
   scaffold/templates/homepage.julius.cg
   scaffold/templates/default-layout-wrapper.hamlet.cg
