@@ -28,13 +28,13 @@ module Yesod.Core
     , logError
     , logOther
       -- * Sessions
-    , Session
     , SessionBackend (..)
     , defaultClientSessionBackend
     , clientSessionBackend
     , saveClientSession
     , loadClientSession
     , Header(..)
+    , BackendSession
     -- * JS loaders
     , loadJsYepnope
     , ScriptLoadPosition (..)

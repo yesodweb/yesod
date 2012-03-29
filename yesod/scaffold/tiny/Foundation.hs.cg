@@ -5,6 +5,7 @@ module Foundation
     , resources~sitearg~
     , Handler
     , Widget
+    , Form
     , module Yesod.Core
     , module Settings
     , liftIO
@@ -12,6 +13,7 @@ module Foundation
 
 import Prelude
 import Yesod.Core hiding (Route)
+import Yesod.Form
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Static
@@ -56,6 +58,8 @@ mkMessage "~sitearg~" "messages" "en"
 -- usually require access to the ~sitearg~Route datatype. Therefore, we
 -- split these actions into two functions and place them in separate files.
 mkYesodData "~sitearg~" $(parseRoutesFile "config/routes")
+
+type Form x = Html -> MForm ~sitearg~ ~sitearg~ (FormResult x, Widget)
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.

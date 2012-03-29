@@ -2,7 +2,7 @@
 module YesodCoreTest.WaiSubsite (specs, Widget) where
 
 import YesodCoreTest.YesodTest
-import Yesod.Core hiding (Session)
+import Yesod.Core
 import qualified Network.HTTP.Types as H
 
 myApp :: Application
