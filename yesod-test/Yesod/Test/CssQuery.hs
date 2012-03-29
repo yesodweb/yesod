@@ -51,13 +51,13 @@ directChildren = do
   _ <- char '>'
   _ <- char ' '
   sels <- selectors
-  optional $ char ' '
+  _ <- optional $ char ' '
   return $ DirectChildren sels
 
 deepChildren :: Parser SelectorGroup
 deepChildren = do 
   sels <- selectors
-  optional $ char ' '
+  _ <- optional $ char ' '
   return $ DeepChildren sels
   
 selectors :: Parser [Selector]
