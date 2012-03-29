@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
-    ( getApplication
+    ( makeApplication
     , getApplicationDev
     ) where
 
@@ -32,15 +32,9 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-getApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
-getApplication conf logger = do
-    manager <- newManager def
-    s <- staticSite
-    dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
-              Database.Persist.Store.loadConfig >>=
-              Database.Persist.Store.applyEnv
-    p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)~runMigration~
-    let foundation = ~sitearg~ conf setLogger s p manager dbconf
+makeApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
+makeApplication conf logger = do
+    foundation <- makeFoundation conf logger
     app <- toWaiAppPlain foundation
     return $ logWare app
   where
@@ -52,10 +46,20 @@ getApplication conf logger = do
     logWare = logCallback (logBS setLogger)
 #endif
 
+makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO ~sitearg~
+makeFoundation conf _ = do
+    manager <- newManager def
+    s <- staticSite
+    dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
+              Database.Persist.Store.loadConfig >>=
+              Database.Persist.Store.applyEnv
+    p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)~runMigration~
+    return $ ~sitearg~ conf setLogger s p manager dbconf
+
 -- for yesod devel
 getApplicationDev :: IO (Int, Application)
 getApplicationDev =
-    defaultDevelApp loader getApplication
+    defaultDevelApp loader makeApplication
   where
     loader = loadConfig (configSettings Development)
         { csParseExtra = parseExtra

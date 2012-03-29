@@ -17,3 +17,4 @@
 ./yesod-default
 ./yesod-test
 ./yesod
+./yesod-test
