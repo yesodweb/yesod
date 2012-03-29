@@ -5,7 +5,7 @@ module Scaffolding.Scaffolder (scaffold) where
 import Scaffolding.CodeGen
 
 import Language.Haskell.TH.Syntax
-import Control.Monad (unless, when)
+import Control.Monad (when)
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import qualified Data.ByteString.Lazy as L
