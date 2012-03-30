@@ -14,17 +14,16 @@ import Yesod.Auth
 import Yesod.Form
 import Yesod.Handler
 import Yesod.Widget
-import Text.Hamlet (shamlet)
 import Web.Authenticate.OAuth
 import Data.Maybe
 import Control.Arrow ((***))
+import Control.Monad.IO.Class
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.ByteString (ByteString)
 import Control.Applicative ((<$>), (<*>))
-import Data.Conduit
 
 oauthUrl :: Text -> AuthRoute
 oauthUrl name = PluginR name ["forward"]
@@ -69,14 +68,14 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
                                 ]
       master <- getYesod
       accTok <- lift $ getAccessToken oauth reqTok (authHttpManager master)
-      creds  <- resourceLiftBase $ mkCreds accTok
+      creds  <- liftIO $ mkCreds accTok
       setCreds True creds
     dispatch _ _ = notFound
     login tm = do
         render <- lift getUrlRender
         let oaUrl = render $ tm $ oauthUrl name
-        addHtml
-          [shamlet| <a href=#{oaUrl}>Login via #{name} |]
+        addWidget
+          [whamlet| <a href=#{oaUrl}>Login via #{name} |]
 
 authTwitter :: YesodAuth m
             => ByteString -- ^ Consumer Key
