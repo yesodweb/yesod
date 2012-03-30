@@ -2,6 +2,7 @@ module Yesod.Internal.Session
     ( encodeClientSession
     , decodeClientSession
     , BackendSession
+    , SaveSession
     , SessionBackend(..)
     ) where
 
@@ -20,17 +21,15 @@ import qualified Network.Wai as W
 
 type BackendSession = [(Text, S8.ByteString)]
 
-data SessionBackend master = SessionBackend
-    { sbSaveSession :: master
+type SaveSession = BackendSession -> -- ^ The session contents after running the handler
+                   UTCTime ->        -- ^ current time
+                   IO [Header]
+
+newtype SessionBackend master = SessionBackend
+    { sbLoadSession :: master
                     -> W.Request
-                    -> UTCTime -- ^ The current time
-                    -> BackendSession -- ^ The old session (before running handler)
-                    -> BackendSession -- ^ The final session
-                    -> IO [Header]
-    , sbLoadSession :: master
-                    -> W.Request
-                    -> UTCTime -- ^ The current time
-                    -> IO BackendSession
+                    -> UTCTime
+                    -> IO (BackendSession, SaveSession) -- ^ Return the session data and a function to save the session
     }
 
 encodeClientSession :: CS.Key

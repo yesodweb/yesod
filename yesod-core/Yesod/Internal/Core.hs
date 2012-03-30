@@ -29,7 +29,6 @@ module Yesod.Internal.Core
     , SessionBackend (..)
     , defaultClientSessionBackend
     , clientSessionBackend
-    , saveClientSession
     , loadClientSession
     , BackendSession
       -- * jsLoader
@@ -389,8 +388,9 @@ defaultYesodRunner _ master _ murl toMaster _ req
             (x, _):_ -> Just x
 defaultYesodRunner handler master sub murl toMasterRoute msb req = do
     now <- liftIO getCurrentTime
-    session <- liftIO $
-        maybe (return []) (\sb -> sbLoadSession sb master req now) msb
+    let dontSaveSession _ _ = return []
+    (session, saveSession) <- liftIO $
+        maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req now) msb
     rr <- liftIO $ parseWaiRequest req session (isJust msb)
     let h = {-# SCC "h" #-} do
           case murl of
@@ -419,10 +419,7 @@ defaultYesodRunner handler master sub murl toMasterRoute msb req = do
                     newSess
                     (\n -> Map.insert tokenKey (TE.encodeUtf8 n) newSess)
                     (reqToken rr)
-            sessionHeaders <- liftIO $ maybe
-                (return [])
-                (\sb -> sbSaveSession sb master req now session nsToken)
-                msb
+            sessionHeaders <- liftIO (saveSession nsToken now)
             return $ ("Content-Type", ct) : map headerToPair sessionHeaders
         _ -> return []
     return $ yarToResponse yar extraHeaders
@@ -702,44 +699,36 @@ clientSessionBackend :: Yesod master
                      -> Int -- ^ Inactive session valitity in minutes
                      -> SessionBackend master
 clientSessionBackend key timeout = SessionBackend
-    { sbSaveSession = saveClientSession key timeout
-    , sbLoadSession = loadClientSession key
+    { sbLoadSession = loadClientSession key timeout
     }
 
 loadClientSession :: Yesod master
-                  => CS.Key
-                  -> master
-                  -> W.Request
-                  -> UTCTime
-                  -> IO BackendSession
-loadClientSession key _ req now = return . fromMaybe [] $ do
-    raw <- lookup "Cookie" $ W.requestHeaders req
-    val <- lookup sessionName $ parseCookies raw
-    let host = "" -- fixme, properly lock sessions to client address
-    decodeClientSession key now host val
-
-saveClientSession :: Yesod master
                   => CS.Key
                   -> Int
                   -> master
                   -> W.Request
                   -> UTCTime
-                  -> BackendSession
-                  -> BackendSession
-                  -> IO [Header]
-saveClientSession key timeout master _ now _ sess = do
-    -- fixme should we be caching this?
-    iv <- liftIO CS.randomIV
-    return [AddCookie def
-        { setCookieName = sessionName
-        , setCookieValue = sessionVal iv
-        , setCookiePath = Just (cookiePath master)
-        , setCookieExpires = Just expires
-        , setCookieDomain = cookieDomain master
-        , setCookieHttpOnly = True
-        }]
+                  -> IO (BackendSession, SaveSession)
+loadClientSession key timeout master req now = return (sess, save)
   where
-    host = "" -- fixme, properly lock sessions to client address
-    expires = fromIntegral (timeout * 60) `addUTCTime` now
-    sessionVal iv = encodeClientSession key iv expires host sess
+    sess = fromMaybe [] $ do
+      raw <- lookup "Cookie" $ W.requestHeaders req
+      val <- lookup sessionName $ parseCookies raw
+      let host = "" -- fixme, properly lock sessions to client address
+      decodeClientSession key now host val
+    save sess' now' = do
+      -- fixme should we be caching this?
+      iv <- liftIO CS.randomIV
+      return [AddCookie def
+          { setCookieName = sessionName
+          , setCookieValue = sessionVal iv
+          , setCookiePath = Just (cookiePath master)
+          , setCookieExpires = Just expires
+          , setCookieDomain = cookieDomain master
+          , setCookieHttpOnly = True
+          }]
+        where
+          host = "" -- fixme, properly lock sessions to client address
+          expires = fromIntegral (timeout * 60) `addUTCTime` now'
+          sessionVal iv = encodeClientSession key iv expires host sess'
 
