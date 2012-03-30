@@ -34,7 +34,7 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- migrations handled by Yesod.
 makeApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
 makeApplication conf logger = do
-    foundation <- makeFoundation conf logger
+    foundation <- makeFoundation conf setLogger
     app <- toWaiAppPlain foundation
     return $ logWare app
   where
