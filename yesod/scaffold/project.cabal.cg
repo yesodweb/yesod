@@ -97,5 +97,7 @@ executable         ~project~
                  , wai-extra                     >= 1.2        && < 1.3
                  , yaml                          >= 0.7        && < 0.8
                  , http-conduit                  >= 1.4        && < 1.5
+                 , directory                     >= 1.1        && < 1.2
+                 , warp                          >= 1.2        && < 1.3
 
                  ~testsDep~

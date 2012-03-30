@@ -43,7 +43,6 @@ writeLock = do
 
 removeLock :: IO ()
 removeLock = try_ (removeFile lockFile)
-
 devel :: Bool -> [String] -> IO ()
 devel isCabalDev passThroughArgs = do
 
@@ -82,6 +81,9 @@ devel isCabalDev passThroughArgs = do
     mainLoop :: IO ()
     mainLoop = do
        ghcVer <- ghcVersion
+       when isCabalDev (rawSystem cmd ["build"] >> return ())  -- cabal-dev fails with strange errors sometimes if we cabal-dev buildinfo before cabal-dev build
+       pkgArgs <- ghcPackageArgs isCabalDev ghcVer
+       let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
        forever $ do
            putStrLn "Rebuilding application..."
 
@@ -94,10 +96,8 @@ devel isCabalDev passThroughArgs = do
              ExitFailure _ -> putStrLn "Build failure, pausing..."
              _ -> do
                    removeLock
-                   let pkg = pkgConfigs isCabalDev ghcVer
-                   let dev_args = pkg ++ ["devel.hs"] ++ passThroughArgs
-                   putStrLn $ "Starting development server: runghc " ++ L.intercalate " " dev_args
-                   (_,_,_,ph) <- createProcess $ proc "runghc" dev_args
+                   putStrLn $ "Starting development server: runghc " ++ L.intercalate " " devArgs
+                   (_,_,_,ph) <- createProcess $ proc "runghc" devArgs
                    watchTid <- forkIO . try_ $ do
                          watchForChanges list
                          putStrLn "Stopping development server..."
@@ -112,14 +112,6 @@ devel isCabalDev passThroughArgs = do
 
 try_ :: forall a. IO a -> IO ()
 try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
-
-pkgConfigs :: Bool -> String -> [String]
-pkgConfigs isCabalDev ghcVer
-  | isCabalDev = ["-package-confcabal-dev/packages-" ++ ghcVer ++ ".conf", inplacePkg]
-  | otherwise  = [inplacePkg]
-  where
-    inplacePkg = "-package-confdist/package.conf.inplace"
-
 
 type FileList = Map.Map FilePath EpochTime
 
@@ -192,6 +184,22 @@ ghcVersion = fmap getNumber $ readProcess "runghc" ["--numeric-version", "0"] []
     where
       getNumber = filter (\x -> isNumber x || x == '.')
 
+ghcPackageArgs :: Bool -> String -> IO [String]
+ghcPackageArgs isCabalDev ghcVer
+  | isCabalDev = do
+      r <- readProcess "cabal-dev" ["buildopts"] []
+      let opts = L.lines r
+      return $ "-hide-all-packages" : "-no-user-package-conf" : inplacePkg : cabaldevConf : pkgid opts : depPkgIds opts
+  | otherwise = return [inplacePkg]
+      where
+        pkgid opts      = let (_,p) = head (selectOpts ["-package-name"] opts) in "-package-id" ++ p ++ "-inplace"
+        depPkgIds opts  = map (uncurry (++)) (selectOpts ["-package-id"] opts)
+        inplacePkg   = "-package-confdist/package.conf.inplace"
+        cabaldevConf = "-package-confcabal-dev/packages-" ++ ghcVer ++ ".conf"
+        selectOpts opts (x1:x2:xs)
+           | x1 `elem` opts = (x1,x2):selectOpts opts xs
+           | otherwise      = selectOpts opts (x2:xs)
+        selectOpts _ _ = []
 
 lookupDevelLib :: D.CondTree D.ConfVar c a -> Maybe a
 lookupDevelLib ct | found     = Just (D.condTreeData ct)
