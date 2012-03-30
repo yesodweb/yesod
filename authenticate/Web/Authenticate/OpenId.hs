@@ -20,7 +20,6 @@ import Network.HTTP.Conduit
     ( parseUrl, urlEncodedBody, responseBody, httpLbs
     , Manager
     )
-import Data.Conduit (ResourceT, ResourceIO)
 import Control.Arrow ((***), second)
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
@@ -28,17 +27,18 @@ import Data.Text (Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Blaze.ByteString.Builder (toByteString)
 import Network.HTTP.Types (renderQueryText)
-import Data.Monoid (mappend)
 import Control.Exception (throwIO)
+import Control.Monad.Trans.Control (MonadBaseControl)
+import Control.Monad.Trans.Resource (MonadResource)
 
 getForwardUrl
-    :: ResourceIO m
+    :: (MonadResource m, MonadBaseControl IO m)
     => Text -- ^ The openid the user provided.
     -> Text -- ^ The URL for this application\'s complete page.
     -> Maybe Text -- ^ Optional realm
     -> [(Text, Text)] -- ^ Additional parameters to send to the OpenID provider. These can be useful for using extensions.
     -> Manager
-    -> ResourceT m Text -- ^ URL to send the user to.
+    -> m Text -- ^ URL to send the user to.
 getForwardUrl openid' complete mrealm params manager = do
     let realm = fromMaybe complete mrealm
     disc <- normalize openid' >>= flip discover manager
@@ -70,10 +70,10 @@ getForwardUrl openid' complete mrealm params manager = do
                 : params
 
 authenticate
-    :: ResourceIO m
+    :: (MonadBaseControl IO m, MonadResource m, MonadIO m)
     => [(Text, Text)]
     -> Manager
-    -> ResourceT m (Identifier, [(Text, Text)])
+    -> m (Identifier, [(Text, Text)])
 authenticate params manager = do
     unless (lookup "openid.mode" params == Just "id_res")
         $ liftIO $ throwIO $ case lookup "openid.mode" params of
