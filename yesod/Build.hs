@@ -1,46 +1,52 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 module Build
     ( getDeps
     , touchDeps
     , touch
     , recompDeps
-    , findHaskellFiles
     ) where
 
 -- FIXME there's a bug when getFileStatus applies to a file
 -- temporary deleted (e.g., Vim saving a file)
 
 import           Control.Applicative ((<|>), many)
-import           Control.Exception (SomeException, try)
-import           Control.Monad (when, filterM, forM, forM_)
-
 import qualified Data.Attoparsec.Text.Lazy as A
 import           Data.Char (isSpace)
+import qualified Data.Text.Lazy.IO as TIO
+
+import           Control.Exception (SomeException, try)
+import           Control.Monad (when, filterM, forM, forM_, (>=>))
+
 import           Data.Monoid (mappend)
 import           Data.List (isSuffixOf)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.Text.Lazy.IO as TIO
 
 import qualified System.Posix.Types
 import           System.Directory
 import           System.FilePath (replaceExtension, (</>))
 import           System.PosixCompat.Files (getFileStatus, setFileTimes,
                                              accessTime, modificationTime)
+import Data.Char (isUpper)
+
 
 touch :: IO ()
-touch = touchDeps id updateFileTime =<< getDeps
+touch = touchDeps id updateFileTime =<< fmap snd (getDeps [])
 
-recompDeps :: IO ()
-recompDeps = touchDeps hiFile removeHi =<< getDeps
+recompDeps :: [FilePath] -> IO ()
+recompDeps = getDeps >=> touchDeps hiFile removeHi . snd
 
 type Deps = Map.Map FilePath (Set.Set FilePath)
 
-getDeps :: IO Deps
-getDeps = do
-    hss <- findHaskellFiles "."
-    deps' <- mapM determineHamletDeps hss
-    return $ fixDeps $ zip hss deps'
+getDeps :: [FilePath] -> IO ([FilePath], Deps)
+getDeps hsSourceDirs = do
+    let defSrcDirs = case hsSourceDirs of
+                        [] -> ["."]
+                        ds -> ds
+    hss <- fmap concat $ mapM findHaskellFiles defSrcDirs
+    deps' <- mapM determineDeps hss
+    return $ (hss, fixDeps $ zip hss deps')
 
 touchDeps :: (FilePath -> FilePath) ->
              (FilePath -> FilePath -> IO ()) ->
@@ -103,42 +109,56 @@ findHaskellFiles path = do
     fmap concat $ mapM go contents
   where
     go ('.':_)          = return []
-    go ('c':"abal-dev") = return []
-    go ('d':"ist")      = return []
-    go x = do
-        let y = path </> x
-        d <- doesDirectoryExist y
-        if d
-            then findHaskellFiles y
-            else if ".hs" `isSuffixOf` x || ".lhs" `isSuffixOf` x
-                    then return [y]
-                    else return []
+    go filename = do
+        d <- doesDirectoryExist full
+        if not d
+          then return []
+          else if isHaskellDir
+                 then findHaskellFiles full
+                 else if isHaskellFile
+                        then return [full]
+                        else return []
+      where
+        -- this could fail on unicode
+        isHaskellDir = isUpper (head filename)
+        isHaskellFile = ".hs" `isSuffixOf` filename || ".lhs" `isSuffixOf` filename
+        full = path </> filename
 
-data TempType = Hamlet | Verbatim | Messages FilePath | StaticFiles FilePath
+data TempType = Verbatim | Messages FilePath | StaticFiles FilePath
+#if __GLASGOW_HASKELL__ < 704
+              | Hamlet 
+#endif
     deriving Show
 
-determineHamletDeps :: FilePath -> IO [FilePath]
-determineHamletDeps x = do
+determineDeps :: FilePath -> IO [FilePath]
+determineDeps x = do
     y <- TIO.readFile x -- FIXME catch IO exceptions
     let z = A.parse (many $ (parser <|> (A.anyChar >> return Nothing))) y
     case z of
         A.Fail{} -> return []
         A.Done _ r -> mapM go r >>= filterM doesFileExist . concat
   where
+#if __GLASGOW_HASKELL__ < 704
     go (Just (Hamlet, f)) = return [f, "templates/" ++ f ++ ".hamlet"]
+#endif
     go (Just (Verbatim, f)) = return [f]
     go (Just (Messages f, _)) = return [f]
     go (Just (StaticFiles fp, _)) = getFolderContents fp
     go Nothing = return []
+
     parser = do
-        ty <- (A.string "$(hamletFile " >> return Hamlet)
+        ty <- (A.string "$(parseRoutesFile " >> return Verbatim)
+#if __GLASGOW_HASKELL__ < 704
+           <|> (A.string "$(hamletFile " >> return Hamlet)
            <|> (A.string "$(ihamletFile " >> return Hamlet)
            <|> (A.string "$(whamletFile " >> return Hamlet)
            <|> (A.string "$(html " >> return Hamlet)
            <|> (A.string "$(widgetFile " >> return Hamlet)
            <|> (A.string "$(Settings.hamletFile " >> return Hamlet)
            <|> (A.string "$(Settings.widgetFile " >> return Hamlet)
-           <|> (A.string "$(parseRoutesFile " >> return Verbatim)
+#endif
+
+           
            <|> (A.string "$(persistFile " >> return Verbatim)
            <|> (
                    A.string "$(persistFileWith " >>
@@ -169,13 +189,13 @@ determineHamletDeps x = do
                 _ <- A.char ')'
                 return $ Just (ty, y)
 
-getFolderContents :: FilePath -> IO [FilePath]
-getFolderContents fp = do
-    cs <- getDirectoryContents fp
-    let notHidden ('.':_) = False
-        notHidden ('t':"mp") = False
-        notHidden _ = True
-    fmap concat $ forM (filter notHidden cs) $ \c -> do
-        let f = fp ++ '/' : c
-        isFile <- doesFileExist f
-        if isFile then return [f] else getFolderContents f
+    getFolderContents :: FilePath -> IO [FilePath]
+    getFolderContents fp = do
+        cs <- getDirectoryContents fp
+        let notHidden ('.':_) = False
+            notHidden ('t':"mp") = False
+            notHidden _ = True
+        fmap concat $ forM (filter notHidden cs) $ \c -> do
+            let f = fp ++ '/' : c
+            isFile <- doesFileExist f
+            if isFile then return [f] else getFolderContents f
