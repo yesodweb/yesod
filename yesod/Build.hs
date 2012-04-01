@@ -28,6 +28,8 @@ import           System.Directory
 import           System.FilePath (replaceExtension, (</>))
 import           System.PosixCompat.Files (getFileStatus, setFileTimes,
                                              accessTime, modificationTime)
+import Data.Char (isUpper)
+
 
 touch :: IO ()
 touch = touchDeps id updateFileTime =<< fmap snd (getDeps [])
@@ -107,16 +109,20 @@ findHaskellFiles path = do
     fmap concat $ mapM go contents
   where
     go ('.':_)          = return []
-    go ('c':"abal-dev") = return []
-    go ('d':"ist")      = return []
-    go x = do
-        let y = path </> x
-        d <- doesDirectoryExist y
-        if d
-            then findHaskellFiles y
-            else if ".hs" `isSuffixOf` x || ".lhs" `isSuffixOf` x
-                    then return [y]
-                    else return []
+    go filename = do
+        d <- doesDirectoryExist full
+        if not d
+          then return []
+          else if isHaskellDir
+                 then findHaskellFiles full
+                 else if isHaskellFile
+                        then return [full]
+                        else return []
+      where
+        -- this could fail on unicode
+        isHaskellDir = isUpper (head filename)
+        isHaskellFile = ".hs" `isSuffixOf` filename || ".lhs" `isSuffixOf` filename
+        full = path </> filename
 
 data TempType = Verbatim | Messages FilePath | StaticFiles FilePath
 #if __GLASGOW_HASKELL__ < 704
