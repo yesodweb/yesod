@@ -55,6 +55,8 @@ import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as L
+import Control.Applicative ((<$>))
+import Control.Arrow (first)
 
 -- | Get a unique identifier.
 newFormIdent :: MForm sub master Text
@@ -197,8 +199,8 @@ postHelper form env = do
 generateFormPost
     :: RenderMessage master FormMessage
     => (Html -> MForm sub master (FormResult a, xml))
-    -> GHandler sub master ((FormResult a, xml), Enctype)
-generateFormPost form = postHelper form Nothing
+    -> GHandler sub master (xml, Enctype)
+generateFormPost form = first snd <$> postHelper form Nothing
 
 postEnv :: GHandler sub master (Maybe (Env, FileEnv))
 postEnv = do
