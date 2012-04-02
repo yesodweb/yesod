@@ -1,4 +1,3 @@
 Michael
 foobar
-Foobar
 mysql

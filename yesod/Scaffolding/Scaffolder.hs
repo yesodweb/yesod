@@ -51,9 +51,7 @@ scaffold = do
     project <- prompt $ \s -> all validPN s && not (null s)
     let dir = project
 
-    puts $(codegenDir "input" "site-arg")
-    let isUpperAZ c = 'A' <= c && c <= 'Z'
-    sitearg <- prompt $ \s -> not (null s) && all validPN s && isUpperAZ (head s) && s /= "Main"
+    let sitearg = "App"
 
     puts $(codegenDir "input" "database")
     
