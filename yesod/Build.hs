@@ -112,12 +112,12 @@ findHaskellFiles path = do
     go filename = do
         d <- doesDirectoryExist full
         if not d
-          then return []
+          then if isHaskellFile
+                  then return [full]
+                  else return []
           else if isHaskellDir
                  then findHaskellFiles full
-                 else if isHaskellFile
-                        then return [full]
-                        else return []
+                 else return []
       where
         -- this could fail on unicode
         isHaskellDir = isUpper (head filename)
@@ -147,8 +147,11 @@ determineDeps x = do
     go Nothing = return []
 
     parser = do
-        ty <- (A.string "$(parseRoutesFile " >> return Verbatim)
+        ty <- (do _ <- A.string "\nstaticFiles \""
+                  x' <- A.many1 $ A.satisfy (/= '"')
+                  return $ StaticFiles x')
 #if __GLASGOW_HASKELL__ < 704
+           <|> (A.string "$(parseRoutesFile " >> return Verbatim)
            <|> (A.string "$(hamletFile " >> return Hamlet)
            <|> (A.string "$(ihamletFile " >> return Hamlet)
            <|> (A.string "$(whamletFile " >> return Hamlet)
@@ -156,9 +159,6 @@ determineDeps x = do
            <|> (A.string "$(widgetFile " >> return Hamlet)
            <|> (A.string "$(Settings.hamletFile " >> return Hamlet)
            <|> (A.string "$(Settings.widgetFile " >> return Hamlet)
-#endif
-
-           
            <|> (A.string "$(persistFile " >> return Verbatim)
            <|> (
                    A.string "$(persistFileWith " >>
@@ -173,10 +173,7 @@ determineDeps x = do
                     y <- A.many1 $ A.satisfy (/= '"')
                     _ <- A.string "\""
                     return $ Messages $ concat [x', "/", y, ".msg"])
-           <|> (do
-                    _ <- A.string "\nstaticFiles \""
-                    x' <- A.many1 $ A.satisfy (/= '"')
-                    return $ StaticFiles x')
+#endif
         case ty of
             Messages{} -> return $ Just (ty, "")
             StaticFiles{} -> return $ Just (ty, "")
