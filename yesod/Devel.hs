@@ -1,6 +1,4 @@
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP                 #-}
 module Devel
@@ -16,7 +14,7 @@ import qualified Distribution.ModuleName as D
 
 import           Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Exception as Ex
-import           Control.Monad (forever, when)
+import           Control.Monad (forever, when, unless)
 
 import           Data.Char (isUpper, isNumber)
 import qualified Data.List as L
@@ -31,7 +29,7 @@ import           System.PosixCompat.Files (modificationTime, getFileStatus)
 import           System.Process (createProcess, proc, terminateProcess, readProcess,
                                            waitForProcess, rawSystem)
 
-import Build (recompDeps, getDeps,findHaskellFiles)
+import Build (recompDeps, getDeps)
 
 lockFile :: FilePath
 lockFile = "dist/devel-terminate"
@@ -43,11 +41,10 @@ writeLock = do
 
 removeLock :: IO ()
 removeLock = try_ (removeFile lockFile)
+
 devel :: Bool -> [String] -> IO ()
 devel isCabalDev passThroughArgs = do
-
     checkDevelFile
-
     writeLock
 
     putStrLn "Yesod devel server. Press ENTER to quit"
@@ -55,20 +52,20 @@ devel isCabalDev passThroughArgs = do
       cabal <- D.findPackageDesc "."
       gpd   <- D.readPackageDescription D.normal cabal
 
-      checkCabalFile gpd
+      hsSourceDirs <- checkCabalFile gpd
 
       _<- rawSystem cmd args
 
-      mainLoop
+      mainLoop hsSourceDirs
 
     _ <- getLine
     writeLock
     exitSuccess
   where
-    cmd | isCabalDev == True = "cabal-dev"
+    cmd | isCabalDev = "cabal-dev"
         | otherwise  = "cabal"
 
-    diffArgs | isCabalDev == True = [
+    diffArgs | isCabalDev = [
               "--cabal-install-arg=-fdevel" -- legacy
             , "--cabal-install-arg=-flibrary-only"
             ]
@@ -78,8 +75,8 @@ devel isCabalDev passThroughArgs = do
             ]
     args = "configure":diffArgs ++ ["--disable-library-profiling" ]
 
-    mainLoop :: IO ()
-    mainLoop = do
+    mainLoop :: [FilePath] -> IO ()
+    mainLoop hsSourceDirs = do
        ghcVer <- ghcVersion
        when isCabalDev (rawSystem cmd ["build"] >> return ())  -- cabal-dev fails with strange errors sometimes if we cabal-dev buildinfo before cabal-dev build
        pkgArgs <- ghcPackageArgs isCabalDev ghcVer
@@ -87,19 +84,19 @@ devel isCabalDev passThroughArgs = do
        forever $ do
            putStrLn "Rebuilding application..."
 
-           recompDeps
+           recompDeps hsSourceDirs
 
-           list <- getFileList
+           list <- getFileList hsSourceDirs
            exit <- rawSystem cmd ["build"]
 
            case exit of
              ExitFailure _ -> putStrLn "Build failure, pausing..."
              _ -> do
                    removeLock
-                   putStrLn $ "Starting development server: runghc " ++ L.intercalate " " devArgs
+                   putStrLn $ "Starting development server: runghc " ++ L.unwords devArgs
                    (_,_,_,ph) <- createProcess $ proc "runghc" devArgs
                    watchTid <- forkIO . try_ $ do
-                         watchForChanges list
+                         watchForChanges hsSourceDirs list
                          putStrLn "Stopping development server..."
                          writeLock
                          threadDelay 1000000
@@ -108,17 +105,16 @@ devel isCabalDev passThroughArgs = do
                    ec <- waitForProcess ph
                    putStrLn $ "Exit code: " ++ show ec
                    Ex.throwTo watchTid (userError "process finished")
-           watchForChanges list
+           watchForChanges hsSourceDirs list
 
 try_ :: forall a. IO a -> IO ()
 try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
 
 type FileList = Map.Map FilePath EpochTime
 
-getFileList :: IO FileList
-getFileList = do
-    files <- findHaskellFiles "."
-    deps <- getDeps
+getFileList :: [FilePath] -> IO FileList
+getFileList hsSourceDirs = do
+    (files, deps) <- getDeps hsSourceDirs
     let files' = files ++ map fst (Map.toList deps)
     fmap Map.fromList $ flip mapM files' $ \f -> do
         efs <- Ex.try $ getFileStatus f
@@ -126,19 +122,19 @@ getFileList = do
             Left (_ :: Ex.SomeException) -> (f, 0)
             Right fs -> (f, modificationTime fs)
 
-watchForChanges :: FileList -> IO ()
-watchForChanges list = do
-    newList <- getFileList
+watchForChanges :: [FilePath] ->  FileList -> IO ()
+watchForChanges hsSourceDirs list = do
+    newList <- getFileList hsSourceDirs
     if list /= newList
       then return ()
-      else threadDelay 1000000 >> watchForChanges list
+      else threadDelay 1000000 >> watchForChanges hsSourceDirs list
 
 checkDevelFile :: IO ()
 checkDevelFile = do
   e <- doesFileExist "devel.hs"
-  when (not e) $ failWith "file devel.hs not found"
+  unless e $ failWith "file devel.hs not found"
 
-checkCabalFile :: D.GenericPackageDescription -> IO ()
+checkCabalFile :: D.GenericPackageDescription -> IO [FilePath]
 checkCabalFile gpd = case D.condLibrary gpd of
     Nothing -> failWith "incorrect cabal file, no library"
     Just ct ->
@@ -146,19 +142,15 @@ checkCabalFile gpd = case D.condLibrary gpd of
         Nothing   ->
           failWith "no development flag found in your configuration file. Expected a 'library-only' flag or the older 'devel' flag"
         Just dLib -> do
-         case (D.hsSourceDirs . D.libBuildInfo) dLib of
-           []     -> return ()
-           ["."]  -> return ()
-           _      ->
-             putStrLn $ "WARNING: yesod devel may not work correctly with " ++
-                        "custom hs-source-dirs"
-         fl <- getFileList
-         let unlisted = checkFileList fl dLib
-         when (not . null $ unlisted) $ do
-              putStrLn "WARNING: the following source files are not listed in exposed-modules or other-modules:"
-              mapM_ putStrLn unlisted
-         when (D.fromString "Application" `notElem` D.exposedModules dLib) $ do
-              putStrLn "WARNING: no exposed module Application"
+           let hsSourceDirs = D.hsSourceDirs . D.libBuildInfo $ dLib
+           fl <- getFileList hsSourceDirs
+           let unlisted = checkFileList fl dLib
+           unless (null unlisted) $ do
+                putStrLn "WARNING: the following source files are not listed in exposed-modules or other-modules:"
+                mapM_ putStrLn unlisted
+           when (D.fromString "Application" `notElem` D.exposedModules dLib) $
+                putStrLn "WARNING: no exposed module Application"
+           return hsSourceDirs
 
 failWith :: String -> IO a
 failWith msg = do
@@ -209,7 +201,7 @@ lookupDevelLib ct | found     = Just (D.condTreeData ct)
   where
     found = not . null . map (\(_,x,_) -> D.condTreeData x) .
             filter isDevelLib . D.condTreeComponents  $ ct
-    isDevelLib ((D.Var (D.Flag (D.FlagName f))), _, _) = f `elem` ["library-only", "devel"]
+    isDevelLib (D.Var (D.Flag (D.FlagName f)), _, _) = f `elem` ["library-only", "devel"]
     isDevelLib _                                       = False
 
 
