@@ -121,8 +121,10 @@ getFileList = do
     deps <- getDeps
     let files' = files ++ map fst (Map.toList deps)
     fmap Map.fromList $ flip mapM files' $ \f -> do
-        fs <- getFileStatus f
-        return (f, modificationTime fs)
+        efs <- Ex.try $ getFileStatus f
+        return $ case efs of
+            Left (_ :: Ex.SomeException) -> (f, 0)
+            Right fs -> (f, modificationTime fs)
 
 watchForChanges :: FileList -> IO ()
 watchForChanges list = do
