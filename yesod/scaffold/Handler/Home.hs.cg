@@ -12,7 +12,7 @@ import Import
 -- inclined, or create a single monolithic file.
 getHomeR :: Handler RepHtml
 getHomeR = do
-    ((_, formWidget), formEnctype) <- generateFormPost sampleForm
+    (formWidget, formEnctype) <- generateFormPost sampleForm
     let submission = Nothing :: Maybe (FileInfo, Text)
         handlerName = "getHomeR" :: Text
     defaultLayout $ do
