@@ -12,14 +12,13 @@ module Build
 
 import           Control.Applicative ((<|>), many)
 import qualified Data.Attoparsec.Text.Lazy as A
-import           Data.Char (isSpace)
+import           Data.Char (isSpace, isUpper)
 import qualified Data.Text.Lazy.IO as TIO
 
 import           Control.Exception (SomeException, try)
 import           Control.Monad (when, filterM, forM, forM_, (>=>))
 
 import           Data.Monoid (mappend)
-import           Data.List (isSuffixOf)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -28,7 +27,6 @@ import           System.Directory
 import           System.FilePath (takeExtension, replaceExtension, (</>))
 import           System.PosixCompat.Files (getFileStatus, setFileTimes,
                                              accessTime, modificationTime)
-import Data.Char (isUpper)
 
 
 touch :: IO ()
