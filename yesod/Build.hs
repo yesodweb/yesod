@@ -25,7 +25,7 @@ import qualified Data.Set as Set
 
 import qualified System.Posix.Types
 import           System.Directory
-import           System.FilePath (replaceExtension, (</>))
+import           System.FilePath (takeExtension, replaceExtension, (</>))
 import           System.PosixCompat.Files (getFileStatus, setFileTimes,
                                              accessTime, modificationTime)
 import Data.Char (isUpper)
@@ -120,14 +120,13 @@ findHaskellFiles path = do
                  else return []
       where
         -- this could fail on unicode
-        isHaskellDir = isUpper (head filename)
-        isHaskellFile = ".hs" `isSuffixOf` filename || ".lhs" `isSuffixOf` filename
+        isHaskellDir  = isUpper (head filename)
+        isHaskellFile = takeExtension filename `elem` watch_files
         full = path </> filename
+        watch_files = [".hs", ".lhs"]
 
-data TempType = Verbatim | Messages FilePath | StaticFiles FilePath
-#if __GLASGOW_HASKELL__ < 704
-              | Hamlet 
-#endif
+data TempType = StaticFiles FilePath
+              | Verbatim | Messages FilePath | Hamlet 
     deriving Show
 
 determineDeps :: FilePath -> IO [FilePath]
@@ -138,19 +137,16 @@ determineDeps x = do
         A.Fail{} -> return []
         A.Done _ r -> mapM go r >>= filterM doesFileExist . concat
   where
-#if __GLASGOW_HASKELL__ < 704
+    go (Just (StaticFiles fp, _)) = getFolderContents fp
     go (Just (Hamlet, f)) = return [f, "templates/" ++ f ++ ".hamlet"]
-#endif
     go (Just (Verbatim, f)) = return [f]
     go (Just (Messages f, _)) = return [f]
-    go (Just (StaticFiles fp, _)) = getFolderContents fp
     go Nothing = return []
 
     parser = do
         ty <- (do _ <- A.string "\nstaticFiles \""
                   x' <- A.many1 $ A.satisfy (/= '"')
                   return $ StaticFiles x')
-#if __GLASGOW_HASKELL__ < 704
            <|> (A.string "$(parseRoutesFile " >> return Verbatim)
            <|> (A.string "$(hamletFile " >> return Hamlet)
            <|> (A.string "$(ihamletFile " >> return Hamlet)
@@ -173,7 +169,6 @@ determineDeps x = do
                     y <- A.many1 $ A.satisfy (/= '"')
                     _ <- A.string "\""
                     return $ Messages $ concat [x', "/", y, ".msg"])
-#endif
         case ty of
             Messages{} -> return $ Just (ty, "")
             StaticFiles{} -> return $ Just (ty, "")
