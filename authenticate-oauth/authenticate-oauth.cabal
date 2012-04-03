@@ -5,7 +5,7 @@ license:         BSD3
 license-file:    LICENSE
 author:          Hiromi Ishii
 maintainer:      Hiromi Ishii
-synopsis:        Library to authenticate via OAuth for Haskell web applications.
+synopsis:        Library to authenticate with OAuth for Haskell web applications.
 description:     OAuth authentication, e.g. Twitter.
 category:        Web
 stability:       Stable
@@ -27,6 +27,7 @@ library
                    , http-types                    >= 0.6      && < 0.7
                    , blaze-builder
                    , conduit                       >= 0.4      && < 0.5
+                   , resourcet                     >= 0.3      && < 0.4
                    , blaze-builder-conduit         >= 0.4      && < 0.5
                    , monad-control                 >= 0.3      && < 0.4
     exposed-modules: Web.Authenticate.OAuth, Web.Authenticate.OAuth.IO
