@@ -26,8 +26,8 @@ import           System.Exit (exitFailure, exitSuccess, ExitCode (..))
 import           System.FilePath (splitDirectories, dropExtension, takeExtension)
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
-import           System.Process (createProcess, proc, terminateProcess, readProcess,
-                                           waitForProcess, rawSystem, runInteractiveProcess)
+import           System.Process (createProcess, proc, terminateProcess, readProcess, ProcessHandle,
+                                       getProcessExitCode,waitForProcess, rawSystem, runInteractiveProcess)
 import           System.IO (hClose, hIsEOF, hGetLine, stdout, stderr, hPutStrLn)
 
 import           Build (recompDeps, getDeps, isNewerThan)
@@ -113,7 +113,7 @@ devel isCabalDev passThroughArgs = do
                          threadDelay 1000000
                          putStrLn "Terminating development server..."
                          terminateProcess ph
-                   ec <- waitForProcess ph
+                   ec <- waitForProcess' ph
                    putStrLn $ "Exit code: " ++ show ec
                    Ex.throwTo watchTid (userError "process finished")
            watchForChanges hsSourceDirs list
@@ -258,6 +258,15 @@ rawSystemFilter command args = do
                     go handlein handleout
     _ <- forkIO $ go outh stdout
     _ <- forkIO $ go errh stderr
-    waitForProcess ph
+    waitForProcess' ph
 
+-- nonblocking version
+waitForProcess' :: ProcessHandle -> IO ExitCode
+waitForProcess' pid = go
+  where
+    go = do
+      mec <- getProcessExitCode pid
+      case mec of
+        Just ec -> return ec
+        Nothing -> threadDelay 100000 >> go
 
