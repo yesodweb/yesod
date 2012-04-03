@@ -27,7 +27,8 @@ import           System.FilePath (splitDirectories, dropExtension, takeExtension
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
 import           System.Process (createProcess, proc, terminateProcess, readProcess,
-                                           waitForProcess, rawSystem)
+                                           waitForProcess, rawSystem, runInteractiveProcess)
+import           System.IO (hClose, hIsEOF, hGetLine)
 
 import Build (recompDeps, getDeps)
 
@@ -78,7 +79,7 @@ devel isCabalDev passThroughArgs = do
     mainLoop :: [FilePath] -> IO ()
     mainLoop hsSourceDirs = do
        ghcVer <- ghcVersion
-       when isCabalDev (rawSystem cmd ["build"] >> return ())  -- cabal-dev fails with strange errors sometimes if we cabal-dev buildinfo before cabal-dev build
+       when isCabalDev (rawSystemFilter cmd ["build"] >> return ())  -- cabal-dev fails with strange errors sometimes if we cabal-dev buildinfo before cabal-dev build
        pkgArgs <- ghcPackageArgs isCabalDev ghcVer
        let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
        forever $ do
@@ -87,7 +88,7 @@ devel isCabalDev passThroughArgs = do
            recompDeps hsSourceDirs
 
            list <- getFileList hsSourceDirs
-           exit <- rawSystem cmd ["build"]
+           exit <- rawSystemFilter cmd ["build"]
 
            case exit of
              ExitFailure _ -> putStrLn "Build failure, pausing..."
@@ -204,6 +205,19 @@ lookupDevelLib ct | found     = Just (D.condTreeData ct)
     isDevelLib (D.Var (D.Flag (D.FlagName f)), _, _) = f `elem` ["library-only", "devel"]
     isDevelLib _                                       = False
 
-
-
-
+-- | Acts like @rawSystem@, but filters out lines from the output that we're not interested in seeing.
+rawSystemFilter :: String -> [String] -> IO ExitCode
+rawSystemFilter command args = do
+    (inh, outh, errh, ph) <- runInteractiveProcess command args Nothing Nothing
+    hClose inh
+    hClose errh
+    let go = do
+            isEof <- hIsEOF outh
+            if isEof
+                then hClose outh
+                else do
+                    line <- hGetLine outh
+                    unless ("Loading package " `L.isPrefixOf` line) $ putStrLn line
+                    go
+    forkIO go
+    waitForProcess ph
