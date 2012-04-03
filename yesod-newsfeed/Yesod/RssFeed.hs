@@ -1,4 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 -------------------------------------------------------------------------------
 --
 -- Module        : Yesod.RssFeed
@@ -19,10 +21,12 @@ module Yesod.RssFeed
 
 import Yesod.Core
 import Yesod.FeedTypes
-import Text.Hamlet (HtmlUrl, xhamlet, hamlet)
+import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Char8 as S8
-import Control.Monad (liftM)
-import Data.Text (Text)
+import Data.Text (Text, pack)
+import Data.Text.Lazy (toStrict)
+import Text.XML
+import Text.Blaze.Renderer.Text (renderHtml)
 
 newtype RepRss = RepRss Content
 instance HasReps RepRss where
@@ -30,33 +34,35 @@ instance HasReps RepRss where
 
 -- | Generate the feed
 rssFeed :: Feed (Route master) -> GHandler sub master RepRss
-rssFeed = liftM RepRss . hamletToContent . template
+rssFeed feed = do
+    render <- getUrlRender
+    return $ RepRss $ toContent $ renderLBS def $ template feed render
 
-template :: Feed url -> HtmlUrl url
-template arg = [xhamlet|
-    \<?xml version="1.0" encoding="utf-8"?>
-    <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-        <channel>
-            <atom:link href=@{feedLinkSelf arg} rel="self" type=#{S8.unpack typeRss}>
-            <title>        #{feedTitle arg}
-            <link>         @{feedLinkHome arg}
-            <description>  #{feedDescription arg}
-            <lastBuildDate>#{formatRFC822 $ feedUpdated arg}
-            <language>     #{feedLanguage arg}
+template :: Feed url -> (url -> Text) -> Document
+template Feed {..} render =
+    Document (Prologue [] Nothing []) root []
+  where
+    root = Element "rss" [("version", "2.0")] $ return $ NodeElement $ Element "channel" [] $ map NodeElement
+        $ Element "{http://www.w3.org/2005/Atom}link"
+            [ ("href", render feedLinkSelf)
+            , ("rel", "self")
+            , ("type", pack $ S8.unpack typeRss)
+            ] []
+        : Element "title" [] [NodeContent feedTitle]
+        : Element "link" [] [NodeContent $ render feedLinkHome]
+        : Element "description" [] [NodeContent $ toStrict $ renderHtml feedDescription]
+        : Element "lastBuildDate" [] [NodeContent $ formatRFC822 feedUpdated]
+        : Element "language" [] [NodeContent feedLanguage]
+        : map (flip entryTemplate render) feedEntries
 
-            $forall entry <- feedEntries arg
-                ^{entryTemplate entry}
-    |]
-
-entryTemplate :: FeedEntry url -> HtmlUrl url
-entryTemplate arg = [xhamlet|
-    <item>
-        <title>      #{feedEntryTitle arg}
-        <link>       @{feedEntryLink arg}
-        <guid>       @{feedEntryLink arg}
-        <pubDate>    #{formatRFC822 $ feedEntryUpdated arg}
-        <description>#{feedEntryContent arg}
-    |]
+entryTemplate :: FeedEntry url -> (url -> Text) -> Element
+entryTemplate FeedEntry {..} render = Element "item" [] $ map NodeElement
+    [ Element "title" [] [NodeContent feedEntryTitle]
+    , Element "link" [] [NodeContent $ render feedEntryLink]
+    , Element "guid" [] [NodeContent $ render feedEntryLink]
+    , Element "pubDate" [] [NodeContent $ formatRFC822 feedEntryUpdated]
+    , Element "description" [] [NodeContent $ toStrict $ renderHtml feedEntryContent]
+    ]
 
 -- | Generates a link tag in the head of a widget.
 rssLink :: Route m
