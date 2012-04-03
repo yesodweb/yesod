@@ -1,4 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.AtomFeed
@@ -23,43 +25,47 @@ module Yesod.AtomFeed
 
 import Yesod.Core
 import Yesod.FeedTypes
-import Text.Hamlet (HtmlUrl, xhamlet, hamlet)
+import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Char8 as S8
-import Control.Monad (liftM)
 import Data.Text (Text)
+import Data.Text.Lazy (toStrict)
+import Text.XML
+import Text.Blaze.Renderer.Text (renderHtml)
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
     chooseRep (RepAtom c) _ = return (typeAtom, c)
 
 atomFeed :: Feed (Route master) -> GHandler sub master RepAtom
-atomFeed = liftM RepAtom . hamletToContent . template
+atomFeed feed = do
+    render <- getUrlRender
+    return $ RepAtom $ toContent $ renderLBS def $ template feed render
 
-template :: Feed url -> HtmlUrl url
-template arg = [xhamlet|
-\<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-    <title>#{feedTitle arg}
-    <link rel=self href=@{feedLinkSelf arg}>
-    <link href=@{feedLinkHome arg}>
-    <updated>#{formatW3 $ feedUpdated arg}
-    <id>@{feedLinkHome arg}
-    $forall entry <- feedEntries arg
-        ^{entryTemplate entry}
-|]
+template :: Feed url -> (url -> Text) -> Document
+template Feed {..} render =
+    Document (Prologue [] Nothing []) (addNS root) []
+  where
+    addNS (Element (Name ln _ _) as ns) = Element (Name ln (Just namespace) Nothing) as (map addNS' ns)
+    addNS' (NodeElement e) = NodeElement $ addNS e
+    addNS' n = n
+    namespace = "http://www.w3.org/2005/Atom"
 
-entryTemplate :: FeedEntry url -> HtmlUrl url
-entryTemplate arg = [xhamlet|
-<entry>
-    <id>@{feedEntryLink arg}
-    <link href=@{feedEntryLink arg}>
-    <updated>#{formatW3 $ feedEntryUpdated arg}
-    <title>#{feedEntryTitle arg}
-    <content type=html>
-        \<![CDATA[
-        \#{feedEntryContent arg}
-        ]]>
-|]
+    root = Element "feed" [] $ map NodeElement
+        $ Element "title" [] [NodeContent feedTitle]
+        : Element "link" [("rel", "self"), ("href", render feedLinkSelf)] []
+        : Element "link" [("href", render feedLinkHome)] []
+        : Element "updated" [] [NodeContent $ formatW3 feedUpdated]
+        : Element "id" [] [NodeContent $ render feedLinkHome]
+        : map (flip entryTemplate render) feedEntries
+
+entryTemplate :: FeedEntry url -> (url -> Text) -> Element
+entryTemplate FeedEntry {..} render = Element "entry" [] $ map NodeElement
+    [ Element "id" [] [NodeContent $ render feedEntryLink]
+    , Element "link" [("href", render feedEntryLink)] []
+    , Element "updated" [] [NodeContent $ formatW3 feedEntryUpdated]
+    , Element "title" [] [NodeContent feedEntryTitle]
+    , Element "content" [("type", "html")] [NodeContent $ toStrict $ renderHtml feedEntryContent]
+    ]
 
 -- | Generates a link tag in the head of a widget.
 atomLink :: Route m
