@@ -1,4 +1,14 @@
-{-# LANGUAGE CPP, ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds #-}
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+{-# OPTIONS_GHC -fno-warn-unused-matches #-}
+{-
+  There is a lot of code copied from GHC here, and some conditional
+  compilation. Instead of fixing all warnings and making it much more
+  difficult to compare the code to the original, just ignore unused
+  binds and imports.
+-}
+{-# LANGUAGE CPP, ScopedTypeVariables, PatternGuards #-}
 
 {-
   build package with the GHC API
@@ -43,6 +53,7 @@ buildPackage a = buildPackage' a `Ex.catch` \(e::Ex.SomeException) -> do
   putStrLn ("exception building package: " ++ show e)
   return False
 
+buildPackage' :: [Located String] -> IO Bool
 buildPackage' argv2 = do
   (mode, argv3, modeFlagWarnings) <- parseModeFlags argv2
   GHC.runGhc (Just libdir) $ do
@@ -85,12 +96,13 @@ buildPackage' argv2 = do
       else liftIO linkPkg >> return True
 
 -- fixme, find default ar and ld versions
+linkPkg :: IO ()
 linkPkg = do
   arargs <- fmap read $ readFile "dist/arargs.txt"
   rawSystem "ar" arargs
   ldargs <- fmap read $ readFile "dist/ldargs.txt"
   rawSystem "ld" ldargs
-
+  return ()
 
 --------------------------------------------------------------------------------------------
 -- stuff below copied from ghc main.hs
