@@ -30,10 +30,11 @@ import           System.Process (createProcess, proc, terminateProcess, readProc
                                            waitForProcess, rawSystem, runInteractiveProcess)
 import           System.IO (hClose, hIsEOF, hGetLine, stdout, stderr, hPutStrLn)
 
-import Build (recompDeps, getDeps, isNewerThan)
-import GhcBuild (getBuildFlags, buildPackage)
+import           Build (recompDeps, getDeps, isNewerThan)
+import           GhcBuild (getBuildFlags, buildPackage)
 
 import qualified Config as GHC
+import           SrcLoc (Located)
 
 lockFile :: FilePath
 lockFile = "dist/devel-terminate"
@@ -90,7 +91,7 @@ devel isCabalDev passThroughArgs = do
     mainLoop :: [FilePath] -> FilePath -> IO ()
     mainLoop hsSourceDirs cabal = do
        ghcVer <- ghcVersion
-       rebuildCabal cmd
+       _ <- rebuildCabal cmd
        pkgArgs <- ghcPackageArgs isCabalDev ghcVer
        rebuild <- mkRebuild ghcVer cabal cmd
        let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
@@ -132,10 +133,12 @@ mkRebuild ghcVer cabalFile cabalCmd
                   putStrLn "WARNING: yesod is compiled with a different ghc version, falling back to cabal"
                   rebuildCabal cabalCmd
 
+rebuildGhc :: [Located String] -> IO Bool
 rebuildGhc bf = do
   putStrLn "Rebuilding application... (GHC API)"
   buildPackage bf
 
+rebuildCabal :: String -> IO Bool
 rebuildCabal cmd = do
   putStrLn "Rebuilding application... (cabal)"
   exit <- rawSystemFilter cmd ["build"]
