@@ -130,7 +130,7 @@ executable             yesod
                      , filepath           >= 1.1
                      , fast-logger        >= 0.0.2        && < 0.1
                      , process
-                     , ghc                >= 7.4.1
+                     , ghc                >= 7.0.3
                      , ghc-paths          >= 0.1.0.8
     ghc-options:       -Wall
     if flag(threaded)

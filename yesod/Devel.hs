@@ -71,6 +71,7 @@ devel isCabalDev passThroughArgs = do
 
     diffArgs | isCabalDev = [
               "--cabal-install-arg=--with-compiler=yesod-ghc-wrapper"
+            , "--cabal-install-arg=--with-hc-pkg=ghc-pkg"
             , "--cabal-install-arg=--with-ld=yesod-ld-wrapper"
             , "--cabal-install-arg=--with-ar=yesod-ar-wrapper"
             , "--cabal-install-arg=-fdevel" -- legacy
@@ -78,6 +79,7 @@ devel isCabalDev passThroughArgs = do
             ]
              | otherwise  = [
               "--with-compiler=yesod-ghc-wrapper"
+            , "--with-hc-pkg=ghc-pkg"
             , "--with-ld=yesod-ld-wrapper"
             , "--with-ar=yesod-ar-wrapper"
             , "-fdevel" -- legacy
@@ -120,8 +122,10 @@ mkRebuild ghcVer cabalFile cabalCmd
   | GHC.cProjectVersion == ghcVer = do
       bf <- getBuildFlags
       return $ do
-        n <- cabalFile `isNewerThan` "dist/ghcargs.txt"
-        if n
+        n1 <- cabalFile `isNewerThan` "dist/ghcargs.txt"
+        n2 <- cabalFile `isNewerThan` "dist/arargs.txt"
+        n3 <- cabalFile `isNewerThan` "dist/ldargs.txt"
+        if n1 || n2 || n3
           then rebuildCabal cabalCmd
           else rebuildGhc bf
   | otherwise = return $ do

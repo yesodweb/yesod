@@ -26,6 +26,7 @@ import Data.Char (toLower)
 import Data.Maybe (fromMaybe)
 import Panic (panic, ghcError)
 import Data.List (partition, isPrefixOf)
+import qualified DynFlags
 
 getBuildFlags :: IO [Located String]
 getBuildFlags = do
@@ -60,12 +61,20 @@ buildPackage' argv2 = do
         haskellish (f,Nothing) =
           looksLikeModuleName f || isHaskellSrcFilename f || '.' `notElem` f
         haskellish (_,Just phase) =
+#if MIN_VERSION_ghc(7,4,0)
           phase `notElem` [As, Cc, Cobjc, Cobjcpp, CmmCpp, Cmm, StopLn]
+#else
+          phase `notElem` [As, Cc, CmmCpp, Cmm, StopLn]
+#endif
     hsc_env <- GHC.getSession
 --    if (null hs_srcs)
 --       then liftIO (oneShot hsc_env StopLn srcs)
 --       else do
+#if MIN_VERSION_ghc(7,2,0)
     o_files <- mapM (\x -> liftIO $ compileFile hsc_env StopLn x)
+#else
+    o_files <- mapM (\x -> compileFile hsc_env StopLn x)
+#endif
                  non_hs_srcs
     liftIO $ mapM_ (consIORef v_Ld_inputs) (reverse o_files)
     targets <- mapM (uncurry GHC.guessTarget) hs_srcs
@@ -290,7 +299,14 @@ showInfoMode = mkPreLoadMode ShowInfo
 printSetting :: String -> Mode
 printSetting k = mkPreLoadMode (PrintWithDynFlags f)
     where f dflags = fromMaybe (panic ("Setting not found: " ++ show k))
+#if MIN_VERSION_ghc(7,2,0)
                    $ lookup k (compilerInfo dflags)
+#else
+                   $ fmap convertPrintable (lookup k compilerInfo)
+              where
+                convertPrintable (DynFlags.String s) = s
+                convertPrintable (DynFlags.FromDynFlags f) = f dflags
+#endif
 
 mkPreLoadMode :: PreLoadMode -> Mode
 mkPreLoadMode = Right . Left
