@@ -1,5 +1,5 @@
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Sitemap
@@ -26,10 +26,10 @@ module Yesod.Sitemap
 
 import Yesod.Content (RepXml (..), RepPlain (..), toContent, formatW3)
 import Yesod.Core (Route, GHandler, getUrlRender)
-import Yesod.Handler (hamletToContent)
-import Text.Hamlet (HtmlUrl, xhamlet)
 import Data.Time (UTCTime)
 import Data.Monoid (mappend)
+import Text.XML
+import Data.Text (Text, pack)
 
 data SitemapChangeFreq = Always
                        | Hourly
@@ -39,7 +39,7 @@ data SitemapChangeFreq = Always
                        | Yearly
                        | Never
 
-showFreq :: SitemapChangeFreq -> String
+showFreq :: SitemapChangeFreq -> Text
 showFreq Always  = "always"
 showFreq Hourly  = "hourly"
 showFreq Daily   = "daily"
@@ -52,22 +52,34 @@ data SitemapUrl url = SitemapUrl
     { sitemapLoc :: url
     , sitemapLastMod :: UTCTime
     , sitemapChangeFreq :: SitemapChangeFreq
-    , priority :: Double
+    , sitemapPriority :: Double
     }
 
-template :: [SitemapUrl url] -> HtmlUrl url
-template urls = [xhamlet|
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    $forall url <- urls
-        <url>
-            <loc>@{sitemapLoc url}
-            <lastmod>#{formatW3 (sitemapLastMod url)}
-            <changefreq>#{showFreq (sitemapChangeFreq url)}
-            <priority>#{show (priority url)}
-|]
+template :: [SitemapUrl url]
+         -> (url -> Text)
+         -> Document
+template urls render =
+    Document (Prologue [] Nothing []) (addNS root) []
+  where
+    addNS (Element (Name ln _ _) as ns) = Element (Name ln (Just namespace) Nothing) as (map addNS' ns)
+    addNS' (NodeElement e) = NodeElement (addNS e)
+    addNS' n = n
+    namespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
+
+    root = Element "urlset" [] $ map go urls
+
+    go SitemapUrl {..} = NodeElement $ Element "url" [] $ map NodeElement
+        [ Element "loc" [] [NodeContent $ render sitemapLoc]
+        , Element "lastmod" [] [NodeContent $ formatW3 sitemapLastMod]
+        , Element "changefreq" [] [NodeContent $ showFreq sitemapChangeFreq]
+        , Element "priority" [] [NodeContent $ pack $ show sitemapPriority]
+        ]
 
 sitemap :: [SitemapUrl (Route master)] -> GHandler sub master RepXml
-sitemap = fmap RepXml . hamletToContent . template
+sitemap urls = do
+    render <- getUrlRender
+    let doc = template urls render
+    return $ RepXml $ toContent $ renderLBS def doc
 
 -- | A basic robots file which just lists the "Sitemap: " line.
 robots :: Route master -- ^ sitemap url
