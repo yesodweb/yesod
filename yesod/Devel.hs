@@ -30,7 +30,10 @@ import           System.Process (createProcess, proc, terminateProcess, readProc
                                            waitForProcess, rawSystem, runInteractiveProcess)
 import           System.IO (hClose, hIsEOF, hGetLine, stdout, stderr, hPutStrLn)
 
-import Build (recompDeps, getDeps)
+import Build (recompDeps, getDeps, isNewerThan)
+import GhcBuild (getBuildFlags, buildPackage)
+
+import qualified Config as GHC
 
 lockFile :: FilePath
 lockFile = "dist/devel-terminate"
@@ -57,7 +60,7 @@ devel isCabalDev passThroughArgs = do
 
       _<- rawSystem cmd args
 
-      mainLoop hsSourceDirs
+      mainLoop hsSourceDirs cabal
 
     _ <- getLine
     writeLock
@@ -67,32 +70,36 @@ devel isCabalDev passThroughArgs = do
         | otherwise  = "cabal"
 
     diffArgs | isCabalDev = [
-              "--cabal-install-arg=-fdevel" -- legacy
+              "--cabal-install-arg=--with-compiler=yesod-ghc-wrapper"
+            , "--cabal-install-arg=--with-ld=yesod-ld-wrapper"
+            , "--cabal-install-arg=--with-ar=yesod-ar-wrapper"
+            , "--cabal-install-arg=-fdevel" -- legacy
             , "--cabal-install-arg=-flibrary-only"
             ]
              | otherwise  = [
-              "-fdevel" -- legacy
+              "--with-compiler=yesod-ghc-wrapper"
+            , "--with-ld=yesod-ld-wrapper"
+            , "--with-ar=yesod-ar-wrapper"
+            , "-fdevel" -- legacy
             , "-flibrary-only"
             ]
     args = "configure":diffArgs ++ ["--disable-library-profiling" ]
 
-    mainLoop :: [FilePath] -> IO ()
-    mainLoop hsSourceDirs = do
+    mainLoop :: [FilePath] -> FilePath -> IO ()
+    mainLoop hsSourceDirs cabal = do
        ghcVer <- ghcVersion
-       when isCabalDev (rawSystemFilter cmd ["build"] >> return ())  -- cabal-dev fails with strange errors sometimes if we cabal-dev buildinfo before cabal-dev build
+       rebuildCabal cmd
        pkgArgs <- ghcPackageArgs isCabalDev ghcVer
+       rebuild <- mkRebuild ghcVer cabal cmd
        let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
        forever $ do
-           putStrLn "Rebuilding application..."
-
            recompDeps hsSourceDirs
 
            list <- getFileList hsSourceDirs
-           exit <- rawSystemFilter cmd ["build"]
-
-           case exit of
-             ExitFailure _ -> putStrLn "Build failure, pausing..."
-             _ -> do
+           success <- rebuild
+           if not success
+             then putStrLn "Build failure, pausing..."
+             else do
                    removeLock
                    putStrLn $ "Starting development server: runghc " ++ L.unwords devArgs
                    (_,_,_,ph) <- createProcess $ proc "runghc" devArgs
@@ -107,6 +114,30 @@ devel isCabalDev passThroughArgs = do
                    putStrLn $ "Exit code: " ++ show ec
                    Ex.throwTo watchTid (userError "process finished")
            watchForChanges hsSourceDirs list
+
+mkRebuild :: String -> FilePath -> String -> IO (IO Bool)
+mkRebuild ghcVer cabalFile cabalCmd
+  | GHC.cProjectVersion == ghcVer = do
+      bf <- getBuildFlags
+      return $ do
+        n <- cabalFile `isNewerThan` "dist/ghcargs.txt"
+        if n
+          then rebuildCabal cabalCmd
+          else rebuildGhc bf
+  | otherwise = return $ do
+                  putStrLn "WARNING: yesod is compiled with a different ghc version, falling back to cabal"
+                  rebuildCabal cabalCmd
+
+rebuildGhc bf = do
+  putStrLn "Rebuilding application... (GHC API)"
+  buildPackage bf
+
+rebuildCabal cmd = do
+  putStrLn "Rebuilding application... (cabal)"
+  exit <- rawSystemFilter cmd ["build"]
+  return $ case exit of
+             ExitSuccess -> True
+             _           -> False
 
 try_ :: forall a. IO a -> IO ()
 try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
@@ -221,3 +252,5 @@ rawSystemFilter command args = do
     _ <- forkIO $ go outh stdout
     _ <- forkIO $ go errh stderr
     waitForProcess ph
+
+

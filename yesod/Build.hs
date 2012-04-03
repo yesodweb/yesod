@@ -5,6 +5,7 @@ module Build
     , touchDeps
     , touch
     , recompDeps
+    , isNewerThan
     ) where
 
 -- FIXME there's a bug when getFileStatus applies to a file
