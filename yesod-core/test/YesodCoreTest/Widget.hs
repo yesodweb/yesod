@@ -25,6 +25,7 @@ mkYesod "Y" [parseRoutes|
 /foo/*Strings MultiR GET
 /whamlet WhamletR GET
 /towidget TowidgetR GET
+/auto AutoR GET
 |]
 
 instance Yesod Y where
@@ -69,11 +70,19 @@ getWhamletR = defaultLayout [whamlet|
   where
     embed = [whamlet|<h4>Embed|]
 
+getAutoR :: Handler RepHtml
+getAutoR = defaultLayout [whamlet|
+^{someHtml}
+|]
+  where
+    someHtml = [shamlet|somehtml|]
+
 widgetTest :: [Spec]
 widgetTest = describe "Test.Widget"
     [ it "addJuliusBody" case_addJuliusBody
     , it "whamlet" case_whamlet
     , it "two letter lang codes" case_two_letter_lang
+    , it "automatically applies toWidget" case_auto
     ]
 
 runner :: Session () -> IO ()
@@ -99,3 +108,11 @@ case_two_letter_lang = runner $ do
         , requestHeaders = [("Accept-Language", "es-ES")]
         }
     assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><h1>Test</h1><h2>http://test/whamlet</h2><h3>Adios</h3><h3>String</h3><h4>Embed</h4></body></html>" res
+
+case_auto :: IO ()
+case_auto = runner $ do
+    res <- request defaultRequest
+        { pathInfo = ["auto"]
+        , requestHeaders = [("Accept-Language", "es")]
+        }
+    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body>somehtml</body></html>" res
