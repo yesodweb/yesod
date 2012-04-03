@@ -90,6 +90,22 @@ library
     exposed-modules: Yesod
     ghc-options:     -Wall
 
+executable             yesod-ghc-wrapper
+    main-is: ghcwrapper.hs
+    build-depends:
+                   base                       >= 4         && < 5
+
+executable             yesod-ld-wrapper
+    main-is: ghcwrapper.hs
+    cpp-options:     -DLDCMD
+    build-depends:
+                   base                       >= 4         && < 5
+executable             yesod-ar-wrapper
+    main-is: ghcwrapper.hs
+    cpp-options:     -DARCMD
+    build-depends:
+                   base                       >= 4         && < 5
+
 executable             yesod
     if flag(ghc7)
         build-depends:   base                  >= 4.3      && < 5
@@ -114,6 +130,8 @@ executable             yesod
                      , filepath           >= 1.1
                      , fast-logger        >= 0.0.2        && < 0.1
                      , process
+                     , ghc                >= 7.4.1
+                     , ghc-paths          >= 0.1.0.8
     ghc-options:       -Wall
     if flag(threaded)
         ghc-options:    -threaded
@@ -122,6 +140,7 @@ executable             yesod
                        Scaffolding.Scaffolder
                        Devel
                        Build
+                       GhcBuild
 
 source-repository head
   type:     git
