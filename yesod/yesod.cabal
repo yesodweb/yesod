@@ -62,8 +62,9 @@ extra-source-files:
 
 flag ghc7
 
+-- OS X does not like the threaded runtime with the GHC API
 flag threaded
-    default: True
+    default: False
     description: Build with support for multithreaded execution
 
 library
