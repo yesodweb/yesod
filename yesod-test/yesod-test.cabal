@@ -1,6 +1,6 @@
 name:               yesod-test
 version:            0.2.0
-license:            BSD3
+license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
 maintainer:         Nubis <nubis@woobiz.com.ar>

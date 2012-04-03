@@ -1,6 +1,6 @@
 name:            yesod-default
 version:         1.0.0
-license:         BSD3
+license:         MIT
 license-file:    LICENSE
 author:          Patrick Brisbin
 maintainer:      Patrick Brisbin <pbrisbin@gmail.com>
