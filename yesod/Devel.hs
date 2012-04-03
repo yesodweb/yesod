@@ -28,7 +28,7 @@ import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
 import           System.Process (createProcess, proc, terminateProcess, readProcess,
                                            waitForProcess, rawSystem, runInteractiveProcess)
-import           System.IO (hClose, hIsEOF, hGetLine)
+import           System.IO (hClose, hIsEOF, hGetLine, stdout, stderr, hPutStrLn)
 
 import Build (recompDeps, getDeps)
 
@@ -210,14 +210,14 @@ rawSystemFilter :: String -> [String] -> IO ExitCode
 rawSystemFilter command args = do
     (inh, outh, errh, ph) <- runInteractiveProcess command args Nothing Nothing
     hClose inh
-    hClose errh
-    let go = do
-            isEof <- hIsEOF outh
+    let go handlein handleout = do
+            isEof <- hIsEOF handlein
             if isEof
-                then hClose outh
+                then hClose handlein
                 else do
-                    line <- hGetLine outh
-                    unless ("Loading package " `L.isPrefixOf` line) $ putStrLn line
-                    go
-    forkIO go
+                    line <- hGetLine handlein
+                    unless ("Loading package " `L.isPrefixOf` line) $ hPutStrLn handleout line
+                    go handlein handleout
+    _ <- forkIO $ go outh stdout
+    _ <- forkIO $ go errh stderr
     waitForProcess ph
