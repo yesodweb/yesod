@@ -94,18 +94,21 @@ library
 executable             yesod-ghc-wrapper
     main-is: ghcwrapper.hs
     build-depends:
-                   base                       >= 4         && < 5
+                    base                       >= 4         && < 5
+                  , Cabal                      >= 1.10      && < 1.16
 
 executable             yesod-ld-wrapper
     main-is: ghcwrapper.hs
     cpp-options:     -DLDCMD
     build-depends:
-                   base                       >= 4         && < 5
+                    base                       >= 4         && < 5
+                  , Cabal                      >= 1.10      && < 1.16
 executable             yesod-ar-wrapper
     main-is: ghcwrapper.hs
     cpp-options:     -DARCMD
     build-depends:
-                   base                       >= 4         && < 5
+                     base                       >= 4         && < 5
+                   , Cabal                      >= 1.10      && < 1.16
 
 executable             yesod
     if flag(ghc7)
