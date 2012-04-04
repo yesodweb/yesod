@@ -12,7 +12,7 @@ import Distribution.Compiler (CompilerFlavor(..))
 import Distribution.Simple.Configure (configCompiler)
 import Distribution.Simple.Program (defaultProgramConfiguration, programPath, ghcProgram,
                                     ldProgram, arProgram)
-import Distribution.Simple.Program.Db (lookupProgram, configureProgram)
+import Distribution.Simple.Program.Db (lookupProgram, configureAllKnownPrograms)
 import Distribution.Simple.Program.Types (Program(..))
 import Distribution.Verbosity (silent)
 
@@ -42,7 +42,7 @@ outFile = "dist/ghcargs.txt"
 runProgram :: Program -> [String] -> IO ExitCode
 runProgram pgm args = do
   (comp, pgmc) <- configCompiler (Just GHC) Nothing Nothing defaultProgramConfiguration silent
-  pgmc' <- configureProgram silent pgm pgmc
+  pgmc' <- configureAllKnownPrograms silent pgmc
   case lookupProgram pgm pgmc' of
     Nothing -> do
       hPutStrLn stderr ("cannot find program '" ++ programName pgm ++ "'")
