@@ -11,7 +11,11 @@ import qualified Distribution.Verbosity as D
 import qualified Distribution.PackageDescription.Parse as D
 import qualified Distribution.PackageDescription as D
 import qualified Distribution.ModuleName as D
+import qualified Distribution.Simple.Configure as D
+import qualified Distribution.Simple.Program as D
+import qualified Distribution.Compiler as D
 
+import           Control.Applicative ((<$>), (<*>))
 import           Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Exception as Ex
 import           Control.Monad (forever, when, unless)
@@ -57,11 +61,12 @@ devel isCabalDev passThroughArgs = do
       cabal <- D.findPackageDesc "."
       gpd   <- D.readPackageDescription D.normal cabal
 
+      ldar <- lookupLdAr
       hsSourceDirs <- checkCabalFile gpd
 
       _<- rawSystem cmd args
 
-      mainLoop hsSourceDirs cabal
+      mainLoop hsSourceDirs cabal ldar
 
     _ <- getLine
     writeLock
@@ -88,12 +93,12 @@ devel isCabalDev passThroughArgs = do
             ]
     args = "configure":diffArgs ++ ["--disable-library-profiling" ]
 
-    mainLoop :: [FilePath] -> FilePath -> IO ()
-    mainLoop hsSourceDirs cabal = do
+    mainLoop :: [FilePath] -> FilePath -> (FilePath, FilePath) -> IO ()
+    mainLoop hsSourceDirs cabal ldar = do
        ghcVer <- ghcVersion
        _ <- rebuildCabal cmd
        pkgArgs <- ghcPackageArgs isCabalDev ghcVer
-       rebuild <- mkRebuild ghcVer cabal cmd
+       rebuild <- mkRebuild ghcVer cabal cmd ldar
        let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
        forever $ do
            recompDeps hsSourceDirs
@@ -118,8 +123,8 @@ devel isCabalDev passThroughArgs = do
                    Ex.throwTo watchTid (userError "process finished")
            watchForChanges hsSourceDirs list
 
-mkRebuild :: String -> FilePath -> String -> IO (IO Bool)
-mkRebuild ghcVer cabalFile cabalCmd
+mkRebuild :: String -> FilePath -> String -> (FilePath, FilePath) -> IO (IO Bool)
+mkRebuild ghcVer cabalFile cabalCmd (ldPath, arPath)
   | GHC.cProjectVersion == ghcVer = do
       bf <- getBuildFlags
       return $ do
@@ -128,15 +133,15 @@ mkRebuild ghcVer cabalFile cabalCmd
         n3 <- cabalFile `isNewerThan` "dist/ldargs.txt"
         if n1 || n2 || n3
           then rebuildCabal cabalCmd
-          else rebuildGhc bf
+          else rebuildGhc bf ldPath arPath
   | otherwise = return $ do
                   putStrLn "WARNING: yesod is compiled with a different ghc version, falling back to cabal"
                   rebuildCabal cabalCmd
 
-rebuildGhc :: [Located String] -> IO Bool
-rebuildGhc bf = do
+rebuildGhc :: [Located String] -> FilePath -> FilePath -> IO Bool
+rebuildGhc bf ld ar = do
   putStrLn "Rebuilding application... (GHC API)"
-  buildPackage bf
+  buildPackage bf ld ar
 
 rebuildCabal :: String -> IO Bool
 rebuildCabal cmd = do
@@ -242,6 +247,22 @@ lookupDevelLib ct | found     = Just (D.condTreeData ct)
             filter isDevelLib . D.condTreeComponents  $ ct
     isDevelLib (D.Var (D.Flag (D.FlagName f)), _, _) = f `elem` ["library-only", "devel"]
     isDevelLib _                                       = False
+
+-- location of `ld' and `ar' programs
+lookupLdAr :: IO (FilePath, FilePath)
+lookupLdAr = do 
+  mla <- lookupLdAr'
+  case mla of
+    Nothing -> failWith "Cannot determine location of `ar' or `ld' program"
+    Just la -> return la
+
+lookupLdAr' :: IO (Maybe (FilePath, FilePath))
+lookupLdAr' = do
+  (comp, pgmc) <- D.configCompiler (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent
+  pgmc' <- D.configureAllKnownPrograms D.silent pgmc
+  return $ (,) <$> look D.ldProgram pgmc' <*> look D.arProgram pgmc'
+     where
+       look pgm pdb = fmap D.programPath (D.lookupProgram pgm pdb)
 
 -- | Acts like @rawSystem@, but filters out lines from the output that we're not interested in seeing.
 rawSystemFilter :: String -> [String] -> IO ExitCode

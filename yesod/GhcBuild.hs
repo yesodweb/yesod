@@ -48,13 +48,13 @@ getBuildFlags = do
   (argv2, staticFlagWarnings) <- GHC.parseStaticFlags argv1'
   return argv2
 
-buildPackage :: [Located String] -> IO Bool
-buildPackage a = buildPackage' a `Ex.catch` \(e::Ex.SomeException) -> do
+buildPackage :: [Located String] -> FilePath -> FilePath -> IO Bool
+buildPackage a ld ar = buildPackage' a ld ar `Ex.catch` \(e::Ex.SomeException) -> do
   putStrLn ("exception building package: " ++ show e)
   return False
 
-buildPackage' :: [Located String] -> IO Bool
-buildPackage' argv2 = do
+buildPackage' :: [Located String] -> FilePath -> FilePath -> IO Bool
+buildPackage' argv2 ld ar = do
   (mode, argv3, modeFlagWarnings) <- parseModeFlags argv2
   GHC.runGhc (Just libdir) $ do
     dflags0 <- GHC.getSessionDynFlags
@@ -93,15 +93,14 @@ buildPackage' argv2 = do
     ok_flag <- GHC.load GHC.LoadAllTargets
     if GHC.failed ok_flag
       then return False
-      else liftIO linkPkg >> return True
+      else liftIO (linkPkg ld ar) >> return True
 
--- fixme, find default ar and ld versions
-linkPkg :: IO ()
-linkPkg = do
+linkPkg :: FilePath -> FilePath -> IO ()
+linkPkg ld ar = do
   arargs <- fmap read $ readFile "dist/arargs.txt"
-  rawSystem "ar" arargs
+  rawSystem ar arargs
   ldargs <- fmap read $ readFile "dist/ldargs.txt"
-  rawSystem "ld" ldargs
+  rawSystem ld ldargs
   return ()
 
 --------------------------------------------------------------------------------------------
