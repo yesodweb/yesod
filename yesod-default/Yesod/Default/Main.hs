@@ -26,16 +26,10 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 -- | Run your app, taking environment and port settings from the
 --   commandline.
 --
---   Use @'fromArgs'@ when using the provided @'DefaultEnv'@ type, or
---   @'fromArgsWith'@ when using a custom type
+--   @'fromArgs'@ helps parse a custom configuration
 --
 --   > main :: IO ()
---   > main = defaultMain fromArgs withMySite
---
---   or
---
---   > main :: IO ()
---   > main = defaultMain (fromArgsWith customArgConfig) withMySite
+--   > main = defaultMain (fromArgs parseExtra) makeApplication
 --
 defaultMain :: (Show env, Read env)
             => IO (AppConfig env extra)
