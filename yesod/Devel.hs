@@ -103,7 +103,7 @@ devel isCabalDev forceCabal passThroughArgs = do
        forever $ do
            recompDeps hsSourceDirs
 
-           list <- getFileList hsSourceDirs
+           list <- getFileList hsSourceDirs [cabal]
            success <- rebuild
            if not success
              then putStrLn "Build failure, pausing..."
@@ -112,7 +112,7 @@ devel isCabalDev forceCabal passThroughArgs = do
                    putStrLn $ "Starting development server: runghc " ++ L.unwords devArgs
                    (_,_,_,ph) <- createProcess $ proc "runghc" devArgs
                    watchTid <- forkIO . try_ $ do
-                         watchForChanges hsSourceDirs list
+                         watchForChanges hsSourceDirs [cabal] list
                          putStrLn "Stopping development server..."
                          writeLock
                          threadDelay 1000000
@@ -121,7 +121,7 @@ devel isCabalDev forceCabal passThroughArgs = do
                    ec <- waitForProcess' ph
                    putStrLn $ "Exit code: " ++ show ec
                    Ex.throwTo watchTid (userError "process finished")
-           watchForChanges hsSourceDirs list
+           watchForChanges hsSourceDirs [cabal] list
 
 mkRebuild :: String -> FilePath -> String -> Bool -> (FilePath, FilePath) -> IO (IO Bool)
 mkRebuild ghcVer cabalFile cabalCmd forceCabal (ldPath, arPath)
@@ -157,22 +157,22 @@ try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
 
 type FileList = Map.Map FilePath EpochTime
 
-getFileList :: [FilePath] -> IO FileList
-getFileList hsSourceDirs = do
+getFileList :: [FilePath] -> [FilePath] -> IO FileList
+getFileList hsSourceDirs extraFiles = do
     (files, deps) <- getDeps hsSourceDirs
-    let files' = files ++ map fst (Map.toList deps)
+    let files' = extraFiles ++ files ++ map fst (Map.toList deps)
     fmap Map.fromList $ flip mapM files' $ \f -> do
         efs <- Ex.try $ getFileStatus f
         return $ case efs of
             Left (_ :: Ex.SomeException) -> (f, 0)
             Right fs -> (f, modificationTime fs)
 
-watchForChanges :: [FilePath] ->  FileList -> IO ()
-watchForChanges hsSourceDirs list = do
-    newList <- getFileList hsSourceDirs
+watchForChanges :: [FilePath] -> [FilePath] -> FileList -> IO ()
+watchForChanges hsSourceDirs extraFiles list = do
+    newList <- getFileList hsSourceDirs extraFiles
     if list /= newList
       then return ()
-      else threadDelay 1000000 >> watchForChanges hsSourceDirs list
+      else threadDelay 1000000 >> watchForChanges hsSourceDirs extraFiles list
 
 checkDevelFile :: IO ()
 checkDevelFile = do
@@ -188,7 +188,7 @@ checkCabalFile gpd = case D.condLibrary gpd of
           failWith "no development flag found in your configuration file. Expected a 'library-only' flag or the older 'devel' flag"
         Just dLib -> do
            let hsSourceDirs = D.hsSourceDirs . D.libBuildInfo $ dLib
-           fl <- getFileList hsSourceDirs
+           fl <- getFileList hsSourceDirs []
            let unlisted = checkFileList fl dLib
            unless (null unlisted) $ do
                 putStrLn "WARNING: the following source files are not listed in exposed-modules or other-modules:"
