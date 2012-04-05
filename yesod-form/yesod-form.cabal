@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.0.0
+version:         1.0.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -23,7 +23,7 @@ library
                    , persistent            >= 0.9      && < 0.10
                    , template-haskell
                    , transformers          >= 0.2.2    && < 0.4
-                   , data-default          >= 0.3      && < 0.4
+                   , data-default          >= 0.3      && < 0.5
                    , xss-sanitize          >= 0.3.0.1  && < 0.4
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , network               >= 2.2      && < 2.4
