@@ -145,7 +145,7 @@ rebuildGhc bf ld ar = do
 
 rebuildCabal :: String -> IO Bool
 rebuildCabal cmd = do
-  putStrLn "Rebuilding application... (cabal)"
+  putStrLn $ "Rebuilding application... (" ++ cmd ++ ")"
   exit <- rawSystemFilter cmd ["build"]
   return $ case exit of
              ExitSuccess -> True
