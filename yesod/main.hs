@@ -34,6 +34,7 @@ cabalCommand mopt
   | optCabalDev mopt = "cabal-dev"
   | otherwise        = "cabal"
 
+main :: IO ()
 main = runSubcommand'
       [ subcommand "init"      cmdInit
       , subcommand "configure" cmdConfigure
@@ -60,7 +61,7 @@ cmdTouch :: MainOptions -> TouchOptions -> [String] -> IO ()
 cmdTouch _ _ _ = touch
 
 cmdDevel :: MainOptions -> DevelOptions -> [String] -> IO ()
-cmdDevel mopt opts args = devel (optCabalDev mopt) args
+cmdDevel mopt opts args = devel (optCabalDev mopt) forceCabal args
     where
       forceCabal = develOptNoApi opts
 
@@ -97,3 +98,4 @@ describeSubcommands = unlines
   , "  devel        Run project with the devel server"
   , "  version      Print the version of Yesod"
   ]
+

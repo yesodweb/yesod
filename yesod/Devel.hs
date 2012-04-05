@@ -51,8 +51,8 @@ writeLock = do
 removeLock :: IO ()
 removeLock = try_ (removeFile lockFile)
 
-devel :: Bool -> [String] -> IO ()
-devel isCabalDev passThroughArgs = do
+devel :: Bool -> Bool -> [String] -> IO ()
+devel isCabalDev forceCabal passThroughArgs = do
     checkDevelFile
     writeLock
 
@@ -98,7 +98,7 @@ devel isCabalDev passThroughArgs = do
        ghcVer <- ghcVersion
        _ <- rebuildCabal cmd
        pkgArgs <- ghcPackageArgs isCabalDev ghcVer
-       rebuild <- mkRebuild ghcVer cabal cmd ldar
+       rebuild <- mkRebuild ghcVer cabal cmd forceCabal ldar
        let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
        forever $ do
            recompDeps hsSourceDirs
@@ -123,8 +123,9 @@ devel isCabalDev passThroughArgs = do
                    Ex.throwTo watchTid (userError "process finished")
            watchForChanges hsSourceDirs list
 
-mkRebuild :: String -> FilePath -> String -> (FilePath, FilePath) -> IO (IO Bool)
-mkRebuild ghcVer cabalFile cabalCmd (ldPath, arPath)
+mkRebuild :: String -> FilePath -> String -> Bool -> (FilePath, FilePath) -> IO (IO Bool)
+mkRebuild ghcVer cabalFile cabalCmd forceCabal (ldPath, arPath)
+  | forceCabal = return (rebuildCabal cabalCmd)
   | GHC.cProjectVersion == ghcVer = do
       bf <- getBuildFlags
       return $ do
