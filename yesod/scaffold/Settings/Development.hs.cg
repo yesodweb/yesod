@@ -10,3 +10,9 @@ development =
 
 dev :: a -> a -> a
 dev a b = if development then a else b
+
+production :: Bool
+production = not development
+
+prod :: a -> a -> a
+prod a b = if production then a else b
