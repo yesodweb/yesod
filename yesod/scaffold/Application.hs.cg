@@ -10,13 +10,8 @@ import Yesod.Auth
 import Yesod.Default.Config
 import Yesod.Default.Main
 import Yesod.Default.Handlers
-#if DEVELOPMENT
-import Yesod.Logger (Logger, logBS)
-import Network.Wai.Middleware.RequestLogger (logCallbackDev)
-#else
 import Yesod.Logger (Logger, logBS, toProduction)
-import Network.Wai.Middleware.RequestLogger (logCallback)
-#endif
+import Network.Wai.Middleware.RequestLogger (logCallback, logCallbackDev)
 import qualified Database.Persist.Store~importMigration~
 import Network.HTTP.Conduit (newManager, def)
 
@@ -38,13 +33,8 @@ makeApplication conf logger = do
     app <- toWaiAppPlain foundation
     return $ logWare app
   where
-#ifdef DEVELOPMENT
-    logWare = logCallbackDev (logBS setLogger)
-    setLogger = logger
-#else
-    setLogger = toProduction logger -- by default the logger is set for development
-    logWare = logCallback (logBS setLogger)
-#endif
+    logWare = dev logCallbackDev logCallback (logBS setLogger)
+    setLogger = dev id toProduction logger
 
 makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO ~sitearg~
 makeFoundation conf setLogger = do
