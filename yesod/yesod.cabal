@@ -146,6 +146,7 @@ executable             yesod
                        Devel
                        Build
                        GhcBuild
+                       Types
 
 source-repository head
   type:     git
