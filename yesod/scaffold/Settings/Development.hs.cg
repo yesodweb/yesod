@@ -1,0 +1,12 @@
+module Settings.Development where
+
+development :: Bool
+development =
+#if DEVELOPMENT
+  True
+#else
+  False
+#endif
+
+dev :: a -> a -> a
+dev a b = if development then a else b
