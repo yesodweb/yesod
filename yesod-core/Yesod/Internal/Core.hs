@@ -699,17 +699,18 @@ clientSessionBackend :: Yesod master
                      -> Int -- ^ Inactive session valitity in minutes
                      -> SessionBackend master
 clientSessionBackend key timeout = SessionBackend
-    { sbLoadSession = loadClientSession key timeout
+    { sbLoadSession = loadClientSession key timeout "_SESSION"
     }
 
 loadClientSession :: Yesod master
                   => CS.Key
-                  -> Int
+                  -> Int -- ^ timeout
+                  -> S8.ByteString -- ^ session name
                   -> master
                   -> W.Request
                   -> UTCTime
                   -> IO (BackendSession, SaveSession)
-loadClientSession key timeout master req now = return (sess, save)
+loadClientSession key timeout sessionName master req now = return (sess, save)
   where
     sess = fromMaybe [] $ do
       raw <- lookup "Cookie" $ W.requestHeaders req

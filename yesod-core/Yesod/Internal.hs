@@ -24,7 +24,6 @@ module Yesod.Internal
     , runUniqueList
     , toUnique
       -- * Names
-    , sessionName
     , tokenKey
     ) where
 
@@ -97,9 +96,6 @@ newtype Body url = Body (HtmlUrl url)
 
 tokenKey :: IsString a => a
 tokenKey = "_TOKEN"
-
-sessionName :: IsString a => a
-sessionName = "_SESSION"
 
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> Builder
 
