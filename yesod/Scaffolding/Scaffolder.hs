@@ -161,6 +161,7 @@ scaffold = do
     writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "Settings.hs" $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
+    writeFile' "Settings/Development.hs" $(codegen "Settings/Development.hs")
     writeFile' "static/css/bootstrap.css"
         $(codegen "static/css/bootstrap.css")
     writeFile' "templates/default-layout.hamlet"

@@ -3,6 +3,7 @@ module Import
     , module Yesod
     , module Foundation
     , module Settings.StaticFiles
+    , module Settings.Development
     , module Data.Monoid
     , module Control.Applicative
     , Text
