@@ -10,7 +10,7 @@ main = do
         <$> getContents
     putStrLn "name:            yesod-platform"
     putStrLn "version:         FIXME"
-    putStrLn "license:         BSD3"
+    putStrLn "license:         MIT"
     putStrLn "license-file:    LICENSE"
     putStrLn "author:          Michael Snoyman <michael@snoyman.com>"
     putStrLn "maintainer:      Michael Snoyman <michael@snoyman.com>"
