@@ -54,8 +54,9 @@ staticRoot conf = [st|#{appRoot conf}/static|]
 -- user.
 
 widgetFile :: String -> Q Exp
-widgetFile = dev Yesod.Default.Util.widgetFileReload
-                 Yesod.Default.Util.widgetFileNoReload
+widgetFile
+    | development = Yesod.Default.Util.widgetFileReload
+    | production  = Yesod.Default.Util.widgetFileNoReload
 
 data Extra = Extra
     { extraCopyright :: Text

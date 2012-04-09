@@ -8,7 +8,9 @@ import Settings.Development
 
 -- | use this to create your static file serving site
 staticSite :: IO Static.Static
-staticSite = dev Static.staticDevel Static.static staticDir
+staticSite
+    | development = Static.staticDevel staticDir
+    | production  = Static.static      staticDir
 
 -- | This generates easy references to files in the static directory at compile time,
 --   giving you compile-time verification that referenced files exist.
