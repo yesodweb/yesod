@@ -35,7 +35,7 @@ makeApplication conf logger = do
   where
     (logWare, setLogger)
         | development = (logCallbackDev (logBS setLogger), logger)
-        | production  = (logCallback    (logBS setLogger), logger)
+        | production  = (logCallback    (logBS setLogger), toProduction logger)
 
 makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO ~sitearg~
 makeFoundation conf setLogger = do
