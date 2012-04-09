@@ -33,8 +33,9 @@ makeApplication conf logger = do
     app <- toWaiAppPlain foundation
     return $ logWare app
   where
-    logWare = dev logCallbackDev logCallback (logBS setLogger)
-    setLogger = dev id toProduction logger
+    (logWare, setLogger)
+        | development = (logCallbackDev (logBS setLogger), logger)
+        | production  = (logCallback    (logBS setLogger), logger)
 
 makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO ~sitearg~
 makeFoundation conf setLogger = do
