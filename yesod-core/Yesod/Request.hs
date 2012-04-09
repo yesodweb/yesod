@@ -51,6 +51,10 @@ import Data.Text (Text)
 --
 -- * Accept-Language HTTP header.
 --
+-- In returned list the Yesod will seek the first language matched with languages supporting by your application. This language will be used to render i18n templates.
+-- If such language is not found the default language will be used. 
+--
+--
 -- This is handled by parseWaiRequest (not exposed).
 languages :: GHandler s m [Text]
 languages = reqLangs `liftM` getRequest
