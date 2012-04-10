@@ -76,6 +76,7 @@ module Yesod.Handler
     , setSession
     , setSessionBS
     , deleteSession
+    , clearSession
       -- ** Ultimate destination
     , setUltDest
     , setUltDestCurrent
@@ -699,6 +700,12 @@ setSessionBS k = modify . modSession . Map.insert k
 -- | Unsets a session variable. See 'setSession'.
 deleteSession :: Text -> GHandler sub master ()
 deleteSession = modify . modSession . Map.delete
+
+-- | Clear all session variables.
+--
+-- Since: 1.0.1
+clearSession :: GHandler sub master ()
+clearSession = modify $ \x -> x { ghsSession = Map.empty }
 
 modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
 modSession f x = x { ghsSession = f $ ghsSession x }
