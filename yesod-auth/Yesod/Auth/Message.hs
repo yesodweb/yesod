@@ -8,6 +8,7 @@ module Yesod.Auth.Message
     , portugueseMessage
     , swedishMessage
     , germanMessage
+    , frenchMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -183,3 +184,39 @@ germanMessage NowLoggedIn = "Login erfolgreich"
 germanMessage LoginTitle = "Login"
 germanMessage PleaseProvideUsername = "Bitte Nutzername angeben"
 germanMessage PleaseProvidePassword = "Bitte Passwort angeben"
+
+
+
+frenchMessage :: AuthMessage -> Text
+frenchMessage NoOpenID = "Aucun fournisseur OpenID n'a été trouvé"
+frenchMessage LoginOpenID = "Se connecter avec OpenID"
+frenchMessage LoginGoogle = "Se connecter avec Google"
+frenchMessage LoginYahoo = "Se connecter avec Yahoo"
+frenchMessage Email = "Adresse électronique"
+frenchMessage Password = "Mot de passe"
+frenchMessage Register = "S'inscrire"
+frenchMessage RegisterLong = "Créer un compte"
+frenchMessage EnterEmail = "Entrez ci-dessous votre adresse électronique, et un message de confirmation vous sera envoyé"
+frenchMessage ConfirmationEmailSentTitle = "Message de confirmation"
+frenchMessage (ConfirmationEmailSent email) =
+    "Un message de confirmation a été envoyé à " `mappend`
+    email `mappend`
+    "."
+frenchMessage AddressVerified = "Votre adresse électronique a été validée, merci de choisir un nouveau mot de passe."
+frenchMessage InvalidKeyTitle = "Clef de validation incorrecte"
+frenchMessage InvalidKey = "Désolé, mais cette clef de validation est incorrecte"
+frenchMessage InvalidEmailPass = "Le couple mot de passe/adresse électronique n'est pas correct"
+frenchMessage BadSetPass = "Vous devez être connecté pour choisir un mot de passe"
+frenchMessage SetPassTitle = "Changer de mot de passe"
+frenchMessage SetPass = "Choisir un nouveau mot de passe"
+frenchMessage NewPass = "Nouveau mot de passe"
+frenchMessage ConfirmPass = "Confirmation du mot de passe"
+frenchMessage PassMismatch = "Le deux mots de passe sont différents, veuillez les corriger"
+frenchMessage PassUpdated = "Le mot de passe a bien été changé"
+frenchMessage Facebook = "Se connecter avec Facebook"
+frenchMessage LoginViaEmail = "Se connecter à l'aide d'une adresse électronique"
+frenchMessage InvalidLogin = "Nom d'utilisateur incorrect"
+frenchMessage NowLoggedIn = "Vous êtes maintenant connecté"
+frenchMessage LoginTitle = "Se connecter"
+frenchMessage PleaseProvideUsername = "Merci de renseigner votre nom d'utilisateur"
+frenchMessage PleaseProvidePassword = "Merci de spécifier un mot de passe"
