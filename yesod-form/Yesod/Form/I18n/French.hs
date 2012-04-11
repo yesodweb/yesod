@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Yesod.Form.I18n.French where
+module Yesod.Form.I18n.Frencih (frenchFormMessage) where
 
 import Yesod.Form.Types (FormMessage (..))
 import Data.Monoid (mappend)
