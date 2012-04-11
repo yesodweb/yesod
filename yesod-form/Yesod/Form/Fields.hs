@@ -146,7 +146,7 @@ htmlField :: RenderMessage master FormMessage => Field sub master Html
 htmlField = Field
     { fieldParse = blank $ Right . preEscapedText . sanitizeBalance
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
-        -- FIXME: There was a class="html" attribute, for what purpose?
+$# FIXME: There was a class="html" attribute, for what purpose?
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{showVal val}
 |]
     }
