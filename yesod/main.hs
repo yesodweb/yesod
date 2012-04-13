@@ -10,7 +10,7 @@ import Options
 import Types
 
 import Build (touch)
-import Devel (devel)
+import Devel (devel, DevelOpts(..))
 import System.IO (stdout, stderr, hPutStr, hPutStrLn)
 import System.Exit (exitSuccess, exitFailure)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -18,10 +18,12 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 defineOptions "NoOptions" (return ())
 
 defineOptions "DevelOptions" $ do
-  mkOptNoApi    "develOptNoApi"
+  mkOptApi        "develOptApi"
+--  mkOptNoApi    "develOptNoApi"  -- use this later when flag is enabled by default
 
 defineOptions "MainOptions" $ do
   mkOptCabalDev "optCabalDev"
+  mkOptVerbose  "optVerbose"
 
 type InitOptions      = NoOptions
 type ConfigureOptions = NoOptions
@@ -50,10 +52,10 @@ cmdInit :: MainOptions -> InitOptions -> [String] -> IO ()
 cmdInit _ _ _ = scaffold
 
 cmdConfigure :: MainOptions -> ConfigureOptions -> [String] -> IO ()
-cmdConfigure mopt opts args = exitWith =<< rawSystem (cabalCommand mopt) ("configure":args)
+cmdConfigure mopt _ args = exitWith =<< rawSystem (cabalCommand mopt) ("configure":args)
 
 cmdBuild :: MainOptions -> BuildOptions -> [String] -> IO ()
-cmdBuild mopt opts args = do
+cmdBuild mopt _ args = do
   touch
   exitWith =<< rawSystem (cabalCommand mopt) ("build":args)
 
@@ -61,9 +63,11 @@ cmdTouch :: MainOptions -> TouchOptions -> [String] -> IO ()
 cmdTouch _ _ _ = touch
 
 cmdDevel :: MainOptions -> DevelOptions -> [String] -> IO ()
-cmdDevel mopt opts args = devel (optCabalDev mopt) forceCabal args
+cmdDevel mopt opts args = devel dopts args
     where
-      forceCabal = develOptNoApi opts
+      dopts      = DevelOpts (optCabalDev mopt) forceCabal (optVerbose mopt)
+      forceCabal = not (develOptApi opts)
+--      forceCabal = develOptNoApi opts
 
 cmdVersion :: MainOptions -> VersionOptions -> [String] -> IO ()
 cmdVersion _ _ _ = putStrLn $ "yesod-core version: " ++ yesodVersion
