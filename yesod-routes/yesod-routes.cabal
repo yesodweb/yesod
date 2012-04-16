@@ -11,6 +11,8 @@ stability:       Stable
 cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
+extra-source-files:
+  test/main.hs
 
 library
     build-depends:   base                      >= 4        && < 5

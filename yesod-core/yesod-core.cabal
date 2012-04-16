@@ -15,18 +15,26 @@ cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 extra-source-files:
-  test/en.msg
-  test/YesodCoreTest/NoOverloadedStrings.hs
+  test.hs
+  test/YesodCoreTest.hs
+  test/YesodCoreTest/Cache.hs
+  test/YesodCoreTest/CleanPath.hs
+  test/YesodCoreTest/ErrorHandling.hs
+  test/YesodCoreTest/Exceptions.hs
+  test/YesodCoreTest/InternalRequest.hs
+  test/YesodCoreTest/JsLoader.hs
+  test/YesodCoreTest/JsLoaderSites/Bottom.hs
+  test/YesodCoreTest/JsLoaderSites/HeadAsync.hs
+  test/YesodCoreTest/Links.hs
   test/YesodCoreTest/Media.hs
   test/YesodCoreTest/MediaData.hs
-  test/YesodCoreTest/Exceptions.hs
+  test/YesodCoreTest/NoOverloadedStrings.hs
+  test/YesodCoreTest/Redirect.hs
+  test/YesodCoreTest/WaiSubsite.hs
   test/YesodCoreTest/Widget.hs
-  test/YesodCoreTest/CleanPath.hs
-  test/YesodCoreTest/Links.hs
-  test/YesodCoreTest/InternalRequest.hs
-  test/YesodCoreTest/ErrorHandling.hs
-  test/YesodCoreTest/Cache.hs
-  test.hs
+  test/YesodCoreTest/YesodTest.hs
+  test/en.msg
+  test/test.hs
 
 flag test
   description: Build the executable to run unit tests
