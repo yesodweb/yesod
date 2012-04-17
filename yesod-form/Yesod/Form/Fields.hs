@@ -76,7 +76,7 @@ import qualified Data.Map as Map
 import Yesod.Handler (newIdent, lift)
 import Yesod.Request (FileInfo)
 
-import Yesod.Core (toPathPiece, GHandler, PathPiece)
+import Yesod.Core (toPathPiece, GHandler, PathPiece, fromPathPiece)
 import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery)
 import Control.Arrow ((&&&))
 
@@ -178,11 +178,12 @@ textareaField = Field
 |]
     }
 
-hiddenField :: RenderMessage master FormMessage => Field sub master Text
+hiddenField :: (PathPiece p, RenderMessage master FormMessage)
+            => Field sub master p
 hiddenField = Field
-    { fieldParse = blank $ Right
+    { fieldParse = blank $ maybe (Left MsgValueRequired) Right . fromPathPiece
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
-<input type="hidden" id="#{theId}" name="#{name}" *{attrs} value="#{either id id val}">
+<input type="hidden" id="#{theId}" name="#{name}" *{attrs} value="#{either id toPathPiece val}">
 |]
     }
 
