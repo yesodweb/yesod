@@ -33,7 +33,7 @@ mkOptSuccessHook name = option name (\o -> o
   , optionShortFlags   = ['s']
   , optionType         = optionTypeMaybe optionTypeString
   , optionDefault      = ""
-  , optionDescription  = "Command to run when compilation succeeds (e.g. 'beep')"
+  , optionDescription  = "Shell command to run when compilation succeeds (e.g. 'beep')"
   })
 
 mkOptFailHook name = option name (\o -> o
@@ -41,7 +41,7 @@ mkOptFailHook name = option name (\o -> o
   , optionShortFlags   = ['f']
   , optionType         = optionTypeMaybe optionTypeString
   , optionDefault      = ""
-  , optionDescription  = "Command to run when compilation fails (e.g. 'beep')"
+  , optionDescription  = "Shell command to run when compilation fails (e.g. 'beep')"
   })
 
 mkOptVerbose name = option name (\o -> o

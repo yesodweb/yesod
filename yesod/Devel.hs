@@ -41,7 +41,8 @@ import           System.FilePath (splitDirectories, dropExtension, takeExtension
 import           System.Posix.Types (EpochTime)
 import           System.PosixCompat.Files (modificationTime, getFileStatus)
 import           System.Process (createProcess, proc, terminateProcess, readProcess, ProcessHandle,
-                                       getProcessExitCode,waitForProcess, rawSystem, runInteractiveProcess)
+                                 getProcessExitCode,waitForProcess, rawSystem, 
+                                 runInteractiveProcess, system)
 import           System.IO (hClose, hIsEOF, hGetLine, stdout, stderr, hPutStrLn)
 import           System.IO.Error (isDoesNotExistError)
 
@@ -111,8 +112,11 @@ devel opts passThroughArgs = do
            pkgArgs <- ghcPackageArgs opts ghcVer (D.packageDescription gpd) lib
            let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
            if not success
-             then putStrLn "Build failure, pausing..."
+             then do 
+                   putStrLn "Build failure, pausing..."
+                   runBuildHook $ failHook opts 
              else do
+                   runBuildHook $ successHook opts
                    removeLock
                    putStrLn $ if verbose opts then "Starting development server: runghc " ++ L.unwords devArgs
                                               else "Starting development server..."
@@ -125,9 +129,18 @@ devel opts passThroughArgs = do
                          putStrLn "Terminating development server..."
                          terminateProcess ph
                    ec <- waitForProcess' ph
-                   putStrLn $ "Exit code: " ++ show ec
                    Ex.throwTo watchTid (userError "process finished")
            watchForChanges hsSourceDirs [cabal] list
+
+runBuildHook :: Maybe String -> IO ()
+runBuildHook m = case m of 
+                    Just s   -> do 
+                                  ret <- system s
+                                  case ret of
+                                      ExitFailure f -> putStrLn $ "Error executing hook: " ++ s
+                                      otherwise     -> return ()
+                    Nothing  -> return ()
+
 
 
 {-
