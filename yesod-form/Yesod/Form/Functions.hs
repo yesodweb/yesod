@@ -346,8 +346,8 @@ customErrorMessage msg field = field { fieldParse = \ts -> fmap (either
 (const $ Left msg) Right) $ fieldParse field ts }
 
 -- | Generate a 'FieldSettings' from the given label.
-fieldSettingsLabel :: SomeMessage master -> FieldSettings master
-fieldSettingsLabel msg = FieldSettings msg Nothing Nothing Nothing []
+fieldSettingsLabel :: RenderMessage master msg => msg -> FieldSettings master
+fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing []
 
 -- | Generate an 'AForm' that gets its value from the given action.
 aformM :: GHandler sub master a -> AForm sub master a
