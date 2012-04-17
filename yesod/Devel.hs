@@ -63,16 +63,18 @@ removeLock :: IO ()
 removeLock = removeFileIfExists lockFile
 
 data DevelOpts = DevelOpts
-      { isCabalDev :: Bool
-      , forceCabal :: Bool
-      , verbose    :: Bool
+      { isCabalDev  :: Bool
+      , forceCabal  :: Bool
+      , verbose     :: Bool
+      , successHook :: Maybe String
+      , failHook    :: Maybe String
       } deriving (Show, Eq)
 
 cabalCommand :: DevelOpts -> FilePath
 cabalCommand opts | isCabalDev opts = "cabal-dev"
                   | otherwise       = "cabal"
 
-defaultDevelOpts = DevelOpts False False False
+defaultDevelOpts = DevelOpts False False False Nothing Nothing
 
 devel :: DevelOpts -> [String] -> IO ()
 devel opts passThroughArgs = do
