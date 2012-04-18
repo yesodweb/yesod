@@ -28,6 +28,22 @@ mkOptApi name = option name (\o -> o
   , optionDescription  = "use the GHC API to build (faster, but experimental)"
   })
 
+mkOptSuccessHook name = option name (\o -> o
+  { optionLongFlags    = ["success-hook"]
+  , optionShortFlags   = ['s']
+  , optionType         = optionTypeMaybe optionTypeString
+  , optionDefault      = ""
+  , optionDescription  = "Shell command to run when compilation succeeds (e.g. 'beep')"
+  })
+
+mkOptFailHook name = option name (\o -> o
+  { optionLongFlags    = ["fail-hook"]
+  , optionShortFlags   = ['f']
+  , optionType         = optionTypeMaybe optionTypeString
+  , optionDefault      = ""
+  , optionDescription  = "Shell command to run when compilation fails (e.g. 'beep')"
+  })
+
 mkOptVerbose name = option name (\o -> o
   { optionLongFlags    = ["verbose"]
   , optionShortFlags   = ['v']

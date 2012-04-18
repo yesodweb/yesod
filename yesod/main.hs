@@ -20,10 +20,12 @@ defineOptions "NoOptions" (return ())
 defineOptions "DevelOptions" $ do
   mkOptApi        "develOptApi"
 --  mkOptNoApi    "develOptNoApi"  -- use this later when flag is enabled by default
+  mkOptSuccessHook "optSuccessHook"
+  mkOptFailHook    "optFailHook" 
 
 defineOptions "MainOptions" $ do
-  mkOptCabalDev "optCabalDev"
-  mkOptVerbose  "optVerbose"
+  mkOptCabalDev    "optCabalDev"
+  mkOptVerbose     "optVerbose"
 
 type InitOptions      = NoOptions
 type ConfigureOptions = NoOptions
@@ -65,8 +67,10 @@ cmdTouch _ _ _ = touch
 cmdDevel :: MainOptions -> DevelOptions -> [String] -> IO ()
 cmdDevel mopt opts args = devel dopts args
     where
-      dopts      = DevelOpts (optCabalDev mopt) forceCabal (optVerbose mopt)
-      forceCabal = not (develOptApi opts)
+      dopts       = DevelOpts (optCabalDev mopt) forceCabal (optVerbose mopt) successHook failHook 
+      successHook = optSuccessHook opts
+      failHook    = optFailHook opts
+      forceCabal  = not (develOptApi opts)
 --      forceCabal = develOptNoApi opts
 
 cmdVersion :: MainOptions -> VersionOptions -> [String] -> IO ()
