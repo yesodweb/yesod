@@ -129,19 +129,17 @@ devel opts passThroughArgs = do
                          putStrLn "Terminating development server..."
                          terminateProcess ph
                    ec <- waitForProcess' ph
+                   putStrLn $ "Exit code: " ++ show ec
                    Ex.throwTo watchTid (userError "process finished")
            watchForChanges hsSourceDirs [cabal] list
 
 runBuildHook :: Maybe String -> IO ()
-runBuildHook m = case m of 
-                    Just s   -> do 
-                                  ret <- system s
-                                  case ret of
-                                      ExitFailure f -> putStrLn $ "Error executing hook: " ++ s
-                                      otherwise     -> return ()
-                    Nothing  -> return ()
-
-
+runBuildHook (Just s) = do 
+                        ret <- system s
+                        case ret of
+                            ExitFailure f -> putStrLn $ "Error executing hook: " ++ s
+                            otherwise     -> return ()
+runBuildHook Nothing = return ()
 
 {-
   configure with the built-in Cabal lib for non-cabal-dev, since
