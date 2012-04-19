@@ -1,0 +1,130 @@
+name:            yesod-platform
+version:         1.0.1
+license:         MIT
+license-file:    LICENSE
+author:          Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>
+synopsis:        Meta package for Yesod
+description:     Instead of allowing version ranges of dependencies, this package requires specific versions to avoid dependency hell
+category:        Web, Yesod
+stability:       Stable
+cabal-version:   >= 1.6
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+
+library
+    build-depends: base >= 4 && < 5
+                 , SHA == 1.5.0.1
+                 , aeson == 0.6.0.2
+                 , ansi-terminal == 0.5.5
+                 , asn1-data == 0.6.1.3
+                 , attoparsec == 0.10.1.1
+                 , attoparsec-conduit == 0.4.0
+                 , attoparsec-enumerator == 0.3
+                 , authenticate == 1.2.0.1
+                 , base-unicode-symbols == 0.2.2.3
+                 , base64-bytestring == 0.1.1.1
+                 , binary == 0.5.1.0
+                 , blaze-builder == 0.3.1.0
+                 , blaze-builder-conduit == 0.4.0.1
+                 , blaze-html == 0.4.3.3
+                 , byteorder == 1.0.3
+                 , case-insensitive == 0.4.0.1
+                 , cereal == 0.3.5.1
+                 , certificate == 1.2.1
+                 , clientsession == 0.7.4.3
+                 , conduit == 0.4.1.1
+                 , cookie == 0.4.0
+                 , cprng-aes == 0.2.3
+                 , crypto-api == 0.9
+                 , crypto-conduit == 0.3.1
+                 , crypto-pubkey-types == 0.1.1
+                 , cryptocipher == 0.3.0
+                 , cryptohash == 0.7.4
+                 , css-text == 0.1.1
+                 , data-default == 0.4.0
+                 , dlist == 0.5
+                 , email-validate == 0.2.8
+                 , entropy == 0.2.1
+                 , enumerator == 0.4.19
+                 , failure == 0.2.0.1
+                 , fast-logger == 0.0.2
+                 , file-embed == 0.0.4.2
+                 , hamlet == 1.0.1
+                 , hashable == 1.1.2.3
+                 , hjsmin == 0.1.0
+                 , http-conduit == 1.4.1.2
+                 , http-date == 0.0.2
+                 , http-types == 0.6.10
+                 , language-javascript == 0.5.1
+                 , largeword == 1.0.1
+                 , lifted-base == 0.1.0.3
+                 , mime-mail == 0.4.1.1
+                 , monad-control == 0.3.1.1
+                 , mtl == 2.0.1.0
+                 , network-conduit == 0.4.0
+                 , path-pieces == 0.1.1
+                 , pem == 0.1.0
+                 , persistent == 0.9.0.2
+                 , persistent-template == 0.9.0.1
+                 , pool-conduit == 0.1.0.1
+                 , primitive == 0.4.1
+                 , pureMD5 == 2.1.0.3
+                 , pwstore-fast == 2.2
+                 , ranges == 0.2.4
+                 , regex-compat == 0.95.1
+                 , resource-pool == 0.2.1.0
+                 , resourcet == 0.3.2
+                 , safe == 0.3.3
+                 , semigroups == 0.8.3
+                 , shakespeare == 1.0.0.1
+                 , shakespeare-css == 1.0.1.1
+                 , shakespeare-i18n == 1.0.0.1
+                 , shakespeare-js == 1.0.0.1
+                 , shakespeare-text == 1.0.0.1
+                 , simple-sendfile == 0.2.3
+                 , skein == 0.1.0.5
+                 , socks == 0.4.1
+                 , stm == 2.3
+                 , system-filepath == 0.4.6
+                 , tagged == 0.2.3
+                 , tagsoup == 0.12.6
+                 , text == 0.11.2.0
+                 , tls == 0.9.3
+                 , tls-extra == 0.4.5
+                 , transformers == 0.2.2.0
+                 , transformers-base == 0.4.1
+                 , unix-compat == 0.3.0.1
+                 , unordered-containers == 0.2.1.0
+                 , utf8-light == 0.4.0.1
+                 , utf8-string == 0.3.7
+                 , vault == 0.1.0.0
+                 , vector == 0.9.1
+                 , void == 0.5.5.1
+                 , wai == 1.2.0.1
+                 , wai-app-static == 1.2.0.1
+                 , wai-extra == 1.2.0.3
+                 , wai-logger == 0.1.4
+                 , warp == 1.2.0.1
+                 , xml-conduit == 0.7.0.1
+                 , xml-types == 0.3.1
+                 , xss-sanitize == 0.3.1.1
+                 , yaml == 0.7.0
+                 , yesod == 1.0.1.1
+                 , yesod-auth == 1.0.1
+                 , yesod-core == 1.0.1
+                 , yesod-default == 1.0.1
+                 , yesod-form == 1.0.0.2
+                 , yesod-json == 1.0.0
+                 , yesod-persistent == 1.0.0
+                 , yesod-routes == 1.0.1
+                 , yesod-static == 1.0.0.1
+                 , zlib == 0.5.3.3
+                 , zlib-bindings == 0.1.0.1
+                 , zlib-conduit == 0.4.0.1
+
+    exposed-modules: Yesod.Platform
+
+source-repository head
+  type:     git
+  location: https://github.com/yesodweb/yesod
