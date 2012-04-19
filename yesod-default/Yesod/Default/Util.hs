@@ -73,8 +73,8 @@ widgetFileReload x = combine "widgetFileReload" x
     , whenExists x True  "lucius"  luciusFileReload
     ]
 
-widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
-                -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("julius", juliusFileReload)
+widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ JavaScript file extenstion and loading function. example: ("julius", juliusFileReload)
+                -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
                 -> FilePath -> Q Exp
 widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = combine "widgetFileJsCss" x
     [ whenExists x False "hamlet"  whamletFile
