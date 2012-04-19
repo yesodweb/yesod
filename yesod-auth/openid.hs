@@ -38,7 +38,7 @@ $nothing
 |]
 
 instance Yesod BID where
-    approot _ = "http://localhost:3000"
+    approot = ApprootStatic "http://localhost:3000"
 
 instance YesodAuth BID where
     type AuthId BID = Text
