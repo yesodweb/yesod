@@ -1,9 +1,11 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
-import Yesod
+import Yesod.Core
 import Web.Authenticate.OpenId
-import Data.Object
-import Data.Maybe (fromMaybe)
-import Network.HTTP.Enumerator
+import qualified Web.Authenticate.OpenId.Providers as P
+import Network.HTTP.Conduit
+import Yesod.Form
+import Network.Wai.Handler.Warp (run)
+import Text.Lucius (lucius)
 
 data OID = OID
 mkYesod "OID" [parseRoutes|
@@ -12,25 +14,71 @@ mkYesod "OID" [parseRoutes|
 /complete CompleteR GET
 |]
 
-instance Yesod OID where approot _ = "http://10.0.0.3:3000"
+instance Yesod OID where
+    approot = ApprootStatic "http://localhost:3000"
 
-getRootR = defaultLayout [hamlet|\
+getRootR :: Handler RepHtml
+getRootR = defaultLayout [whamlet|
 <form action="@{ForwardR}">
-    \OpenId: 
+    OpenId: #
     <input type="text" name="openid_identifier" value="http://">
     <input type="submit">
+<form action="@{ForwardR}">
+    <input type="hidden" name="openid_identifier" value=#{P.google}>
+    <input type="submit" value=Google>
 |]
 
-getForwardR = do
-    openid <- runFormGet' $ stringInput "openid_identifier"
-    render <- getUrlRender
-    url <- liftIO $ getForwardUrl openid (render CompleteR) Nothing []
-    redirectText RedirectTemporary url
-    return ()
+instance RenderMessage OID FormMessage where
+    renderMessage _ _ = defaultFormMessage
 
+getForwardR :: Handler ()
+getForwardR = do
+    openid <- runInputGet $ ireq textField "openid_identifier"
+    render <- getUrlRender
+    url <- withManager $ getForwardUrl openid (render CompleteR) Nothing []
+    redirect url
+
+getCompleteR :: Handler RepHtml
 getCompleteR = do
     params <- reqGetParams `fmap` getRequest
-    ident <- liftIO $ authenticate params
-    return $ RepPlain $ toContent $ show ident
+    (ident, retparams) <- withManager $ authenticate params
+    defaultLayout $ do
+        toWidget [lucius|
+table {
+    border-collapse: collapse;
+}
+th, td {
+    border: 1px solid #666;
+    padding: 5px;
+    vertical-align: top;
+}
+th {
+    text-align: right;
+}
+|]
+        [whamlet|
+<p>Successfully logged in.
+<table>
+    <tr>
+        <th>Ident
+        <td>#{show ident}
+    <tr>
+        <th>Params
+        <td>
+            <table>
+                $forall (k, v) <- retparams
+                    <tr>
+                        <th>#{k}
+                        <td>#{v}
+    <tr>
+        <th>GET params
+        <td>
+            <table>
+                $forall (k, v) <- params
+                    <tr>
+                        <th>#{k}
+                        <td>#{v}
+|]
 
-main = warp 3000 OID
+main :: IO ()
+main = toWaiApp OID >>= run 3000
