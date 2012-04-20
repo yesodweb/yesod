@@ -1,10 +1,18 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Web.Authenticate.OpenId
-    ( getForwardUrl
+    ( -- * Functions
+      getForwardUrl
     , authenticate
+    , authenticateClaimed
+      -- * Types
     , AuthenticateException (..)
     , Identifier (..)
+      -- ** Response
+    , OpenIdResponse
+    , oirOpLocal
+    , oirParams
+    , oirClaimed
     ) where
 
 import Control.Monad.IO.Class
@@ -77,7 +85,23 @@ authenticate
     => [(Text, Text)]
     -> Manager
     -> m (Identifier, [(Text, Text)])
-authenticate params manager = do
+authenticate ps m = do
+    x <- authenticateClaimed ps m
+    return (oirOpLocal x, oirParams x)
+{-# DEPRECATED authenticate "Use authenticateClaimed" #-}
+
+data OpenIdResponse = OpenIdResponse
+    { oirOpLocal :: Identifier
+    , oirParams :: [(Text, Text)]
+    , oirClaimed :: Maybe Identifier
+    }
+
+authenticateClaimed
+    :: (MonadBaseControl IO m, MonadResource m, MonadIO m)
+    => [(Text, Text)]
+    -> Manager
+    -> m OpenIdResponse
+authenticateClaimed params manager = do
     unless (lookup "openid.mode" params == Just "id_res")
         $ liftIO $ throwIO $ case lookup "openid.mode" params of
                       Nothing -> AuthenticationException "openid.mode was not found in the params."
@@ -91,19 +115,39 @@ authenticate params manager = do
                 Just i -> return i
                 Nothing ->
                     liftIO $ throwIO $ AuthenticationException "Missing identity"
-    disc <- normalize ident >>= flip discover manager
-    let endpoint = case disc of
-                    Discovery1 p _ -> p
-                    Discovery2 (Provider p) _ _ -> p
+    discOP <- normalize ident >>= flip discover manager
+
+    let endpoint d =
+            case d of
+                Discovery1 p _ -> p
+                Discovery2 (Provider p) _ _ -> p
     let params' = map (encodeUtf8 *** encodeUtf8)
                 $ ("openid.mode", "check_authentication")
                 : filter (\(k, _) -> k /= "openid.mode") params
-    req' <- liftIO $ parseUrl $ unpack endpoint
+    req' <- liftIO $ parseUrl $ unpack $ endpoint discOP
     let req = urlEncodedBody params' req'
     rsp <- httpLbs req manager
     let rps = parseDirectResponse $ toStrict $ decodeUtf8With lenientDecode $ responseBody rsp
+
+    claimed <-
+        case lookup "openid.claimed_id" params of
+            Nothing -> return Nothing
+            Just claimed' -> do
+                -- need to validate that this provider can speak for the given
+                -- claimed identifier
+                claimedN <- normalize claimed'
+                discC <- discover claimedN manager
+                return $
+                    if endpoint discOP == endpoint discC
+                        then Just claimedN
+                        else Nothing
+
     case lookup "is_valid" rps of
-        Just "true" -> return (Identifier ident, rps)
+        Just "true" -> return OpenIdResponse
+            { oirOpLocal = Identifier ident
+            , oirParams  = rps
+            , oirClaimed = claimed
+            }
         _ -> liftIO $ throwIO $ AuthenticationException "OpenID provider did not validate"
 
 -- | Turn a response body into a list of parameters.

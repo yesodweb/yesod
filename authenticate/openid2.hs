@@ -41,7 +41,7 @@ getForwardR = do
 getCompleteR :: Handler RepHtml
 getCompleteR = do
     params <- reqGetParams `fmap` getRequest
-    (ident, retparams) <- withManager $ authenticate params
+    oir <- withManager $ authenticateClaimed params
     defaultLayout $ do
         toWidget [lucius|
 table {
@@ -60,13 +60,20 @@ th {
 <p>Successfully logged in.
 <table>
     <tr>
-        <th>Ident
-        <td>#{show ident}
+        <th>OP Local
+        <td>#{identifier $ oirOpLocal oir}
+    <tr>
+        <th>Claimed
+        <td>
+            $maybe c <- oirClaimed oir
+                \#{identifier c}
+            $nothing
+                <i>none
     <tr>
         <th>Params
         <td>
             <table>
-                $forall (k, v) <- retparams
+                $forall (k, v) <- oirParams oir
                     <tr>
                         <th>#{k}
                         <td>#{v}
