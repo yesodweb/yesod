@@ -41,7 +41,8 @@ getForwardUrl
     -> m Text -- ^ URL to send the user to.
 getForwardUrl openid' complete mrealm params manager = do
     let realm = fromMaybe complete mrealm
-    disc <- normalize openid' >>= flip discover manager
+    claimed <- normalize openid'
+    disc <- discover claimed manager
     let helper s q = return $ T.concat
             [ s
             , if "?" `T.isInfixOf` s then "&" else "?"
@@ -50,21 +51,23 @@ getForwardUrl openid' complete mrealm params manager = do
     case disc of
         Discovery1 server mdelegate -> helper server
                 $ ("openid.mode", "checkid_setup")
-                : ("openid.identity", maybe openid' id mdelegate)
+                : ("openid.identity", maybe (identifier claimed) id mdelegate)
                 : ("openid.return_to", complete)
                 : ("openid.realm", realm)
                 : ("openid.trust_root", complete)
                 : params
         Discovery2 (Provider p) (Identifier i) itype -> do
-            let i' =
+            let (claimed', identity') =
                     case itype of
-                        ClaimedIdent -> i
-                        OPIdent -> "http://specs.openid.net/auth/2.0/identifier_select"
+                        ClaimedIdent -> (identifier claimed, i)
+                        OPIdent ->
+                            let x = "http://specs.openid.net/auth/2.0/identifier_select"
+                             in (x, x)
             helper p
                 $ ("openid.ns", "http://specs.openid.net/auth/2.0")
                 : ("openid.mode", "checkid_setup")
-                : ("openid.claimed_id", i')
-                : ("openid.identity", i')
+                : ("openid.claimed_id", claimed')
+                : ("openid.identity", identity')
                 : ("openid.return_to", complete)
                 : ("openid.realm", realm)
                 : params
