@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 {- |
 This module uses HXT to transverse an HTML document using CSS selectors.
 
@@ -45,8 +46,13 @@ import Control.Applicative ((<$>), (<*>))
 import Text.XML
 import Text.XML.Cursor
 import qualified Data.ByteString.Lazy as L
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html (toHtml)
+import Text.Blaze.Html.Renderer.String (renderHtml)
+#else
 import Text.Blaze (toHtml)
 import Text.Blaze.Renderer.String (renderHtml)
+#endif
 import Text.XML.Xml2Html ()
 
 type Query = T.Text
