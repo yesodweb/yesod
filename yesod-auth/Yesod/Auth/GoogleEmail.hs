@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 -- | Use an email address as an identifier via Google's OpenID login system.
 --
 -- This backend will not use the OpenID identifier at all. It only uses OpenID
@@ -20,7 +21,11 @@ import qualified Web.Authenticate.OpenId as OpenId
 import Yesod.Handler
 import Yesod.Widget (whamlet)
 import Yesod.Request
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html (toHtml)
+#else
 import Text.Blaze (toHtml)
+#endif
 import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
 import qualified Data.Text as T
