@@ -72,12 +72,13 @@ authGoogleEmail =
 completeHelper :: YesodAuth m => [(Text, Text)] -> GHandler Auth m ()
 completeHelper gets' = do
         master <- getYesod
-        eres <- lift $ try $ OpenId.authenticate gets' (authHttpManager master)
+        eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
         toMaster <- getRouteToMaster
         let onFailure err = do
             setMessage $ toHtml $ show (err :: SomeException)
             redirect $ toMaster LoginR
-        let onSuccess (OpenId.Identifier ident, _) = do
+        let onSuccess oir = do
+                let OpenId.Identifier ident = OpenId.oirOpLocal oir
                 memail <- lookupGetParam "openid.ext1.value.email"
                 case (memail, "https://www.google.com/accounts/o8/id" `T.isPrefixOf` ident) of
                     (Just email, True) -> setCreds True $ Creds "openid" email []

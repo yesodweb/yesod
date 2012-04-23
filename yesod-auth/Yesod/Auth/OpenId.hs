@@ -92,7 +92,7 @@ completeHelper gets' = do
                 let claimed =
                         case OpenId.oirClaimed oir of
                             Nothing -> id
-                            Just (OpenId.Identifier i) -> ((claimedKey, i):)
+                            Just (OpenId.Identifier i') -> ((claimedKey, i'):)
                     gets'' = claimed $ filter (\(k, _) -> not $ "__" `isPrefixOf` k) gets'
                     i = OpenId.identifier $ OpenId.oirOpLocal oir
                 setCreds True $ Creds "openid" i gets''
@@ -118,5 +118,10 @@ claimedKey = "__CLAIMED"
 --
 -- Since 1.0.2
 credsIdentClaimed :: Creds m -> Text
+
+-- Prevent other backends from overloading the __CLAIMED value, which could
+-- possibly open us to security holes.
+credsIdentClaimed c | credsPlugin c /= "openid" = credsIdent c
+
 credsIdentClaimed c = fromMaybe (credsIdent c)
                     $ lookup claimedKey (credsExtra c)
