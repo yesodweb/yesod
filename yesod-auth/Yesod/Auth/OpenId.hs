@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Auth.OpenId
     ( authOpenId
     , authOpenIdExtended
@@ -16,7 +17,11 @@ import Yesod.Handler
 import Yesod.Widget (toWidget, whamlet)
 import Yesod.Request
 import Text.Cassius (cassius)
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html (toHtml)
+#else
 import Text.Blaze (toHtml)
+#endif
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
 import Control.Exception.Lifted (SomeException, try)
