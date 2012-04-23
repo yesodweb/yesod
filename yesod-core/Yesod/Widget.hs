@@ -80,10 +80,20 @@ import Control.Monad.Trans.Control (MonadBaseControl (..))
 import Control.Exception (throwIO)
 import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html (toHtml, preEscapedToMarkup)
+import qualified Data.Text.Lazy as TL
+#else
 import Text.Blaze (toHtml, preEscapedLazyText)
+#endif
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Arrow (first)
 import Control.Monad.Trans.Resource
+
+#if MIN_VERSION_blaze_html(0, 5, 0)
+preEscapedLazyText :: TL.Text -> Html
+preEscapedLazyText = preEscapedToMarkup
+#endif
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for

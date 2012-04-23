@@ -84,13 +84,22 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO
 import qualified Data.Text.Lazy.Builder as TB
 import Language.Haskell.TH.Syntax (Loc (..), Lift (..))
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze (preEscapedToMarkup)
+#else
 import Text.Blaze (preEscapedLazyText)
+#endif
 import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
 import qualified Data.Vector as Vector
 import Network.Wai.Middleware.Gzip (GzipSettings, def)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
+
+#if MIN_VERSION_blaze_html(0, 5, 0)
+preEscapedLazyText :: TL.Text -> Html
+preEscapedLazyText = preEscapedToMarkup
+#endif
 
 yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version

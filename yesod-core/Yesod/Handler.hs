@@ -138,7 +138,11 @@ import qualified Network.Wai as W
 import qualified Network.HTTP.Types as H
 
 import Text.Hamlet
-import qualified Text.Blaze.Renderer.Text
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import qualified Text.Blaze.Html.Renderer.Text as RenderText
+#else
+import qualified Text.Blaze.Renderer.Text as RenderText
+#endif
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -161,7 +165,12 @@ import Blaze.ByteString.Builder (toByteString)
 import Data.Text (Text)
 import Yesod.Message (RenderMessage (..))
 
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html (toHtml, preEscapedToMarkup)
+#define preEscapedText preEscapedToMarkup
+#else
 import Text.Blaze (toHtml, preEscapedText)
+#endif
 
 import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey, CacheKey)
@@ -528,7 +537,7 @@ msgKey = "_MSG"
 --
 -- See 'getMessage'.
 setMessage :: Html -> GHandler sub master ()
-setMessage = setSession msgKey . T.concat . TL.toChunks . Text.Blaze.Renderer.Text.renderHtml
+setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
 
 -- | Sets a message in the user's session.
 --
