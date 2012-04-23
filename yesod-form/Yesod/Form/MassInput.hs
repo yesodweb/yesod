@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP#-}
 module Yesod.Form.MassInput
     ( inputList
     , massDivs
@@ -14,7 +15,11 @@ import Yesod.Form.Fields (boolField)
 import Yesod.Widget (GWidget, whamlet)
 import Yesod.Message (RenderMessage)
 import Yesod.Handler (newIdent, GHandler)
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html (Html)
+#else
 import Text.Blaze (Html)
+#endif
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.RWS (get, put, ask)
 import Data.Maybe (fromMaybe)

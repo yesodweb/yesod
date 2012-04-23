@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Form.Fields
     ( -- * i18n
       FormMessage (..)
@@ -50,7 +51,14 @@ import Yesod.Handler (getMessageRender)
 import Yesod.Widget (toWidget, whamlet, GWidget)
 import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
 import Text.Hamlet
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze (ToMarkup (toMarkup), preEscapedToMarkup, unsafeByteString)
+#define ToHtml ToMarkup
+#define toHtml toMarkup
+#define preEscapedText preEscapedToMarkup
+#else
 import Text.Blaze (ToHtml (..), preEscapedText, unsafeByteString)
+#endif
 import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
