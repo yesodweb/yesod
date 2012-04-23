@@ -3,7 +3,7 @@ import Control.Applicative ((<$>))
 
 main = do
     pkgs <- map (intercalate " == ")
-          . filter (\xs -> not $ ["parsec"] `isPrefixOf` xs)
+          . filter (\xs -> not $ ["parsec", "text"] `isPrefixOf` xs)
           . map words
           . filter (not . null)
           . lines
