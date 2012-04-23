@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Content
     ( -- * Content
       Content (..)
@@ -59,7 +60,11 @@ import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
 import Data.Monoid (mempty)
 
 import Text.Hamlet (Html)
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
+#else
 import Text.Blaze.Renderer.Utf8 (renderHtmlBuilder)
+#endif
 import Data.String (IsString (fromString))
 import Network.Wai (FilePart)
 import Data.Conduit (Source, ResourceT, Flush)
