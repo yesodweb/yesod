@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 -- | This module simply re-exports from other modules for your convenience.
 module Yesod
     ( -- * Re-exports from yesod-core
@@ -53,7 +54,11 @@ import Network.Wai.Logger
 import Network.Wai.Handler.Warp (run)
 import System.IO (stderr, stdout, hFlush, hPutStrLn)
 import System.Log.FastLogger
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html (toHtml)
+#else
 import Text.Blaze (toHtml)
+#endif
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)
