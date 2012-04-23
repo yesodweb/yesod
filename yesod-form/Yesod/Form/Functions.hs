@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Form.Functions
     ( -- * Running in MForm monad
       newFormIdent
@@ -43,7 +44,13 @@ import Control.Arrow (second)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM, join)
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze (Markup, toMarkup)
+#define Html Markup
+#define toHtml toMarkup
+#else
 import Text.Blaze (Html, toHtml)
+#endif
 import Yesod.Handler (GHandler, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)

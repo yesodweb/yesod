@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME remove
+{-# LANGUAGE CPP #-}
 -- | Provide the user with a rich text editor.
 module Yesod.Form.Nic
     ( YesodNic (..)
@@ -16,8 +17,14 @@ import Yesod.Widget
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Text.Hamlet (Html, shamlet)
 import Text.Julius (julius)
-import Text.Blaze.Renderer.String (renderHtml)
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze (preEscapedToMarkup)
+import Text.Blaze.Html.Renderer.String (renderHtml)
+#define preEscapedText preEscapedToMarkup
+#else
 import Text.Blaze (preEscapedText)
+import Text.Blaze.Renderer.String (renderHtml)
+#endif
 import Data.Text (Text, pack)
 import Data.Maybe (listToMaybe)
 
