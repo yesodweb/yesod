@@ -1,5 +1,5 @@
 name:            yesod-newsfeed
-version:         1.0.0
+version:         1.0.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -12,6 +12,10 @@ build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Helper functions and data types for producing News feeds.
 
+flag blaze_html_0_5
+    description: use blaze-html 0.5 and blaze-markup 0.5
+    default: False
+
 library
     build-depends:   base                 >= 4        && < 5
                    , yesod-core           >= 1.0      && < 1.1
@@ -20,7 +24,15 @@ library
                    , bytestring           >= 0.9.1.4  && < 0.10
                    , text                 >= 0.9      && < 0.12
                    , xml-conduit          >= 0.7      && < 0.8
-                   , blaze-html           >= 0.4      && < 0.5
+
+    if flag(blaze_html_0_5)
+        build-depends:
+                     blaze-html               >= 0.5     && < 0.6
+                   , blaze-markup             >= 0.5.1   && < 0.6
+    else
+        build-depends:
+                     blaze-html               >= 0.4     && < 0.5
+
     exposed-modules: Yesod.AtomFeed
                    , Yesod.RssFeed
                    , Yesod.Feed

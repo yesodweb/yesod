@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.AtomFeed
@@ -30,7 +31,11 @@ import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text)
 import Data.Text.Lazy (toStrict)
 import Text.XML
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html.Renderer.Text (renderHtml)
+#else
 import Text.Blaze.Renderer.Text (renderHtml)
+#endif
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
