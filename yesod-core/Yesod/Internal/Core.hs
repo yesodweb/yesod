@@ -727,7 +727,7 @@ loadClientSession key timeout sessionName master req now = return (sess, save)
       let host = "" -- fixme, properly lock sessions to client address
       decodeClientSession key now host val
     save sess' now' = do
-      -- fixme should we be caching this?
+      -- We should never cache the IV!  Be careful!
       iv <- liftIO CS.randomIV
       return [AddCookie def
           { setCookieName = sessionName
