@@ -1,4 +1,6 @@
-module TestHome (homeSpecs) where
+module HomeTest
+    ( homeSpecs
+    ) where
 
 import Import
 import Yesod.Test
