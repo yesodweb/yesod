@@ -16,4 +16,4 @@ test-suite integration-tests
                 FlexibleContexts
 
     build-depends: base                          >= 4          && < 5
-                 , yesod-test                    >= 0.1        && < 0.2
+                 , yesod-test

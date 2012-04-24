@@ -2,6 +2,7 @@
 module Application
     ( makeApplication
     , getApplicationDev
+    , makeFoundation
     ) where
 
 import Import

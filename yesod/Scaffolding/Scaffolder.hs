@@ -182,6 +182,7 @@ scaffold = do
     when useTests $ do
       mkDir "tests"
       writeFile' "tests/main.hs" $(codegen "tests/main.hs")
+      writeFile' "tests/HomeTest.hs" $(codegen "tests/HomeTest.hs")
 
     S.writeFile (dir ++ "/config/favicon.ico")
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do
