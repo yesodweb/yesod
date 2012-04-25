@@ -13,20 +13,14 @@ homepage:           http://www.yesodweb.com
 description:        Behaviour Oriented integration Testing for Yesod Applications 
 extra-source-files: README.md, LICENSE
 
-flag ghc7
-
 flag blaze_html_0_5
     description: use blaze-html 0.5 and blaze-markup 0.5
     default: False
 
 
 library
-    if flag(ghc7)
-        build-depends:   base                  >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base                  >= 4        && < 4.3
-    build-depends:   hxt >= 9.1.6
+    build-depends:   base                      >= 4.3      && < 5
+                   , hxt                       >= 9.1.6
                    , attoparsec                >= 0.10     && < 0.11
                    , persistent                >= 0.9      && < 0.10
                    , transformers              >= 0.2.2    && < 0.4
@@ -67,7 +61,7 @@ test-suite test
     hs-source-dirs: test
     build-depends:          base
                           , yesod-test
-                          , hspec >= 0.9 && < 0.10
+                          , hspec
                           , HUnit
                           , xml-conduit
                           , bytestring
