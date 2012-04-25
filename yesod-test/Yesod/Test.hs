@@ -324,10 +324,10 @@ fileByLabel label path mime = do
 -- Receives a CSS selector that should resolve to the form element containing the nonce.
 addNonce_ :: Query -> RequestBuilder ()
 addNonce_ scope = do
-  matches <- htmlQuery $ scope `mappend` "input[name=_nonce][type=hidden][value]"
+  matches <- htmlQuery $ scope `mappend` "input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No nonce found in the current page"
-    element:[] -> byName "_nonce" $ head $ parseHTML element $ getAttrValue "value"
+    element:[] -> byName "_token" $ head $ parseHTML element $ getAttrValue "value"
     _ -> failure $ "More than one nonce found in the page"
 
 -- | For responses that display a single form, just lookup the only nonce available.
