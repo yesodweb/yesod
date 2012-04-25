@@ -27,6 +27,7 @@ library
                      Model
                      Settings
                      Settings.StaticFiles
+                     Settings.Development
                      Handler.Home
 
     if flag(dev) || flag(library-only)
