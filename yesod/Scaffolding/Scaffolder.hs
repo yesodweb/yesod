@@ -5,7 +5,6 @@ module Scaffolding.Scaffolder (scaffold) where
 import Scaffolding.CodeGen
 
 import Language.Haskell.TH.Syntax
-import Control.Monad (when)
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import qualified Data.ByteString.Lazy as L
@@ -72,9 +71,6 @@ scaffold = do
         uncapitalize s = toLower (head s) : tail s
         backendLower = uncapitalize $ show backend 
         upper = show backend
-    
-    let useTests = True
-    let testsDep = if useTests then ", yesod-test" else ""
 
     let runMigration  =
           case backend of
@@ -149,8 +145,6 @@ scaffold = do
     writeFile' "main.hs" $(codegen "main.hs")
     writeFile' "devel.hs" $(codegen "devel.hs")
     writeFile' (project ++ ".cabal") $(codegen "project.cabal")
-    when useTests $
-      appendFile' (project ++ ".cabal") $(codegen "cabal_test_suite")
 
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
@@ -179,10 +173,9 @@ scaffold = do
     writeFile' "config/models" $(codegen "config/models")
     writeFile' "messages/en.msg" $(codegen "messages/en.msg")
 
-    when useTests $ do
-      mkDir "tests"
-      writeFile' "tests/main.hs" $(codegen "tests/main.hs")
-      writeFile' "tests/HomeTest.hs" $(codegen "tests/HomeTest.hs")
+    mkDir "tests"
+    writeFile' "tests/main.hs" $(codegen "tests/main.hs")
+    writeFile' "tests/HomeTest.hs" $(codegen "tests/HomeTest.hs")
 
     S.writeFile (dir ++ "/config/favicon.ico")
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do
