@@ -90,7 +90,7 @@ import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 
 -- | The state used in 'describe' to build a list of specs
-data SpecsData = SpecsData Application ConnectionPool [Core.Spec]
+data SpecsData = SpecsData Application ConnectionPool [Core.Spec Core.AnyExample]
 
 -- | The specs state monad is where 'describe' runs.
 type Specs = ST.StateT SpecsData IO ()
@@ -144,7 +144,7 @@ describe :: String -> Specs -> Specs
 describe label action = do
   sData <- ST.get
   SpecsData app conn specs <- liftIO $ ST.execStateT action sData
-  ST.put $ SpecsData app conn (Core.describe label [specs])
+  ST.put $ SpecsData app conn [Core.describe label specs]
 
 -- | Describe a single test that keeps cookies, and a reference to the last response.
 it :: String -> OneSpec () -> Specs
@@ -153,7 +153,7 @@ it label action = do
   let spec = Core.it label $ do
         _ <- ST.execStateT action $ OneSpecData app conn "" Nothing
         return ()
-  ST.put $ SpecsData app conn (specs++spec)
+  ST.put $ SpecsData app conn $ spec : specs
 
 -- Performs a given action using the last response. Use this to create
 -- response-level assertions
