@@ -27,7 +27,6 @@ extra-source-files:
   scaffold/postgresqlConnPool.cg
   scaffold/Foundation.hs.cg
   scaffold/sqliteConnPool.cg
-  scaffold/cabal_test_suite.cg
   scaffold/Import.hs.cg
   scaffold/.ghci.cg
   scaffold/tests/main.hs.cg
