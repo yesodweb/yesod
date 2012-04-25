@@ -139,7 +139,7 @@ checkCabalFile :: D.GenericPackageDescription -> IO [FilePath]
 checkCabalFile gpd = case D.condLibrary gpd of
     Nothing -> failWith "incorrect cabal file, no library"
     Just ct ->
-      case lookupDevelLib ct of
+      case lookupDevelLib gpd ct of
         Nothing   ->
           failWith "no development flag found in your configuration file. Expected a 'library-only' flag or the older 'devel' flag"
         Just dLib -> do
@@ -196,14 +196,13 @@ ghcPackageArgs isCabalDev ghcVer
            | otherwise      = selectOpts opts (x2:xs)
         selectOpts _ _ = []
 
-lookupDevelLib :: D.CondTree D.ConfVar c a -> Maybe a
-lookupDevelLib ct | found     = Just (D.condTreeData ct)
-                  | otherwise = Nothing
+lookupDevelLib :: D.GenericPackageDescription -> D.CondTree D.ConfVar c a -> Maybe a
+lookupDevelLib gpd ct | found     = Just (D.condTreeData ct)
+                      | otherwise = Nothing
   where
-    found = not . null . map (\(_,x,_) -> D.condTreeData x) .
-            filter isDevelLib . D.condTreeComponents  $ ct
-    isDevelLib (D.Var (D.Flag (D.FlagName f)), _, _) = f `elem` ["library-only", "devel"]
-    isDevelLib _                                       = False
+    flags = map (unFlagName . D.flagName) $ D.genPackageFlags gpd
+    unFlagName (D.FlagName x) = x
+    found = any (`elem` ["library-only", "devel"]) flags
 
 -- | Acts like @rawSystem@, but filters out lines from the output that we're not interested in seeing.
 rawSystemFilter :: String -> [String] -> IO ExitCode
