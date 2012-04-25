@@ -38,7 +38,9 @@ main = do
 #endif
         "devel":rest -> devel isDev rest
         "test":_ -> do
+#ifndef WINDOWS
             touch
+#endif
             rawSystem' cmd ["configure", "--enable-tests", "-flibrary-only"]
             rawSystem' cmd ["build"]
             rawSystem' cmd ["test"]
