@@ -60,24 +60,13 @@ extra-source-files:
   scaffold/config/mongoDB.yml.cg
   scaffold/devel.hs.cg
 
-
-flag ghc7
-
-flag threaded
-    default: True
-    description: Build with support for multithreaded execution
-
 flag blaze_html_0_5
     description: use blaze-html 0.5 and blaze-markup 0.5
     default: False
 
 library
-    if flag(ghc7)
-        build-depends:   base                  >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base                  >= 4        && < 4.3
-    build-depends:   yesod-core                >= 1.0      && < 1.1
+    build-depends:   base                      >= 4.3      && < 5
+                   , yesod-core                >= 1.0      && < 1.1
                    , yesod-auth                >= 1.0      && < 1.1
                    , yesod-json                >= 1.0      && < 1.1
                    , yesod-persistent          >= 1.0      && < 1.1
@@ -104,17 +93,13 @@ library
     ghc-options:     -Wall
 
 executable             yesod
-    if flag(ghc7)
-        build-depends:   base                  >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base                  >= 4        && < 4.3
     if os(windows)
         cpp-options:     -DWINDOWS
-    build-depends:     parsec             >= 2.1          && < 4
+    build-depends:     base               >= 4.3          && < 5
+                     , parsec             >= 2.1          && < 4
                      , text               >= 0.11         && < 0.12
                      , shakespeare-text   >= 1.0          && < 1.1
-                     , bytestring         >= 0.9.1.4  && < 0.10
+                     , bytestring         >= 0.9.1.4      && < 0.10
                      , time               >= 1.1.4
                      , template-haskell
                      , directory          >= 1.0          && < 1.2
@@ -127,9 +112,7 @@ executable             yesod
                      , filepath           >= 1.1
                      , fast-logger        >= 0.0.2        && < 0.1
                      , process
-    ghc-options:       -Wall
-    if flag(threaded)
-        ghc-options:    -threaded
+    ghc-options:       -Wall -threaded
     main-is:           main.hs
     other-modules:     Scaffolding.CodeGen
                        Scaffolding.Scaffolder
