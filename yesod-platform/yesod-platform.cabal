@@ -1,5 +1,5 @@
 name:            yesod-platform
-version:         1.0.2
+version:         1.0.3.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -14,6 +14,8 @@ homepage:        http://www.yesodweb.com/
 
 library
     build-depends: base >= 4 && < 5
+                 , HUnit == 1.2.4.2
+                 , QuickCheck == 2.4.2
                  , SHA == 1.5.0.1
                  , aeson == 0.6.0.2
                  , ansi-terminal == 0.5.5
@@ -33,7 +35,7 @@ library
                  , case-insensitive == 0.4.0.1
                  , cereal == 0.3.5.1
                  , certificate == 1.2.1
-                 , clientsession == 0.7.4.3
+                 , clientsession == 0.7.5
                  , conduit == 0.4.1.1
                  , cookie == 0.4.0
                  , cprng-aes == 0.2.3
@@ -54,10 +56,15 @@ library
                  , hamlet == 1.0.1.1
                  , hashable == 1.1.2.3
                  , hjsmin == 0.1.0
+                 , hspec == 1.0.0.1
                  , http-conduit == 1.4.1.2
                  , http-date == 0.0.2
                  , http-types == 0.6.10
-                 , language-javascript == 0.5.2
+                 , hxt == 9.2.2
+                 , hxt-charproperties == 9.1.1
+                 , hxt-regex-xmlschema == 9.0.4
+                 , hxt-unicode == 9.0.2
+                 , language-javascript == 0.5.3
                  , largeword == 1.0.1
                  , lifted-base == 0.1.0.4
                  , mime-mail == 0.4.1.1
@@ -74,7 +81,7 @@ library
                  , ranges == 0.2.4
                  , regex-compat == 0.95.1
                  , resource-pool == 0.2.1.0
-                 , resourcet == 0.3.2
+                 , resourcet == 0.3.2.1
                  , safe == 0.3.3
                  , semigroups == 0.8.3
                  , shakespeare == 1.0.0.1
@@ -82,6 +89,7 @@ library
                  , shakespeare-i18n == 1.0.0.1
                  , shakespeare-js == 1.0.0.1
                  , shakespeare-text == 1.0.0.1
+                 , silently == 1.1.5
                  , simple-sendfile == 0.2.3
                  , skein == 0.1.0.7
                  , socks == 0.4.1
@@ -89,6 +97,7 @@ library
                  , system-filepath == 0.4.6
                  , tagged == 0.4.2
                  , tagsoup == 0.12.6
+                 , tagstream-conduit == 0.3.0
                  , tls == 0.9.5
                  , tls-extra == 0.4.6
                  , transformers-base == 0.4.1
@@ -103,12 +112,14 @@ library
                  , wai-app-static == 1.2.0.2
                  , wai-extra == 1.2.0.3
                  , wai-logger == 0.1.4
+                 , wai-test == 1.2.0.1
                  , warp == 1.2.0.1
                  , xml-conduit == 0.7.0.1
                  , xml-types == 0.3.1
+                 , xml2html == 0.1.2.2
                  , xss-sanitize == 0.3.1.1
                  , yaml == 0.7.0
-                 , yesod == 1.0.1.2
+                 , yesod == 1.0.1.4
                  , yesod-auth == 1.0.2
                  , yesod-core == 1.0.1.1
                  , yesod-default == 1.0.1
@@ -117,6 +128,7 @@ library
                  , yesod-persistent == 1.0.0
                  , yesod-routes == 1.0.1
                  , yesod-static == 1.0.0.1
+                 , yesod-test == 0.2.0.5
                  , zlib == 0.5.3.3
                  , zlib-bindings == 0.1.0.1
                  , zlib-conduit == 0.4.0.1
