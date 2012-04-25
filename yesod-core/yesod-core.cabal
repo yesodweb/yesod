@@ -44,21 +44,14 @@ flag blaze_html_0_5
     description: use blaze-html 0.5 and blaze-markup 0.5
     default: False
 
-flag ghc7
-
 library
-    if flag(ghc7)
-        build-depends:   base              >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base              >= 4        && < 4.3
-
     -- Work around a bug in cabal. Without this, wai-test doesn't get built and
     -- we have a missing dependency during --enable-tests builds.
     if flag(test)
         build-depends: wai-test
 
-    build-depends:   time                  >= 1.1.4
+    build-depends:   base                  >= 4.3      && < 5
+                   , time                  >= 1.1.4
                    , yesod-routes          >= 1.0      && < 1.1
                    , wai                   >= 1.2      && < 1.3
                    , wai-extra             >= 1.2      && < 1.3
@@ -124,17 +117,9 @@ test-suite tests
     main-is: test.hs
     hs-source-dirs: test
 
-    if flag(ghc7)
-        type: exitcode-stdio-1.0
-        build-depends:   base                      >= 4.3      && < 5
-        cpp-options:     -DGHC7
-        main-is:         test.hs
-    else
-        type: exitcode-stdio-1.0
-        build-depends:   base                      >= 4        && < 4.3
-        main-is:         test.hs
     cpp-options:   -DTEST
-    build-depends: hspec >= 0.8 && < 0.10
+    build-depends: base
+                  ,hspec >= 0.8 && < 0.10
                   ,wai-test
                   ,wai
                   ,yesod-core

@@ -12,8 +12,6 @@ build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Authentication for Yesod.
 
-flag ghc7
-
 flag blaze_html_0_5
     description: use blaze-html 0.5 and blaze-markup 0.5
     default: False
