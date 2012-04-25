@@ -2,9 +2,10 @@
 
 import Scaffolding.Scaffolder
 import System.Environment (getArgs)
-import System.Exit (exitWith)
+import System.Exit (exitWith, ExitCode (ExitSuccess))
 import System.Process (rawSystem)
-import Yesod.Core(yesodVersion)
+import Yesod.Core (yesodVersion)
+import Control.Monad (unless)
 
 #ifndef WINDOWS
 import Build (touch)
@@ -36,6 +37,11 @@ main = do
         ["touch"] -> touch
 #endif
         "devel":rest -> devel isDev rest
+        "test":_ -> do
+            touch
+            rawSystem' cmd ["configure", "--enable-tests", "-flibrary-only"]
+            rawSystem' cmd ["build"]
+            rawSystem' cmd ["test"]
         ["version"] -> putStrLn $ "yesod-core version:" ++ yesodVersion
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         _ -> do
@@ -49,5 +55,12 @@ main = do
                 ++ windowsWarning
             putStrLn "    devel        Run project with the devel server"
             putStrLn "                    use --dev devel to build with cabal-dev"
+            putStrLn "    test         Build and run the integration tests"
+            putStrLn "                    use --dev devel to build with cabal-dev"
             putStrLn "    version      Print the version of Yesod"
 
+-- | Like @rawSystem@, but exits if it receives a non-success result.
+rawSystem' :: String -> [String] -> IO ()
+rawSystem' x y = do
+    res <- rawSystem x y
+    unless (res == ExitSuccess) $ exitWith res
