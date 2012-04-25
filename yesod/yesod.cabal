@@ -32,6 +32,7 @@ extra-source-files:
   scaffold/tests/main.hs.cg
   scaffold/tests/HomeTest.hs.cg
   scaffold/Settings.hs.cg
+  scaffold/Settings/Development.hs.cg
   scaffold/Settings/StaticFiles.hs.cg
   scaffold/Application.hs.cg
   scaffold/deploy/Procfile.cg
