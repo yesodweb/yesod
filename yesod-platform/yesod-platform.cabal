@@ -1,5 +1,5 @@
 name:            yesod-platform
-version:         1.0.3.3
+version:         1.0.3.4
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -39,7 +39,7 @@ library
                  , conduit == 0.4.1.1
                  , cookie == 0.4.0
                  , cprng-aes == 0.2.3
-                 , crypto-api == 0.10.1
+                 , crypto-api == 0.10.2
                  , crypto-conduit == 0.3.2
                  , crypto-pubkey-types == 0.1.1
                  , cryptocipher == 0.3.0
@@ -55,7 +55,7 @@ library
                  , file-embed == 0.0.4.2
                  , hamlet == 1.0.1.1
                  , hashable == 1.1.2.3
-                 , hjsmin == 0.1.0
+                 , hjsmin == 0.1.1
                  , hspec == 1.0.0.1
                  , http-conduit == 1.4.1.2
                  , http-date == 0.0.2
@@ -64,7 +64,7 @@ library
                  , hxt-charproperties == 9.1.1
                  , hxt-regex-xmlschema == 9.0.4
                  , hxt-unicode == 9.0.2
-                 , language-javascript == 0.5.3
+                 , language-javascript == 0.5.4
                  , largeword == 1.0.1
                  , lifted-base == 0.1.0.4
                  , mime-mail == 0.4.1.1
