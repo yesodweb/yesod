@@ -38,6 +38,8 @@ extra-source-files:
   scaffold/deploy/Procfile.cg
   scaffold/templates/homepage.hamlet.cg
   scaffold/static/css/bootstrap.css.cg
+  scaffold/static/img/glyphicons-halflings.png
+  scaffold/static/img/glyphicons-halflings-white.png
   scaffold/templates/default-layout.hamlet.cg
   scaffold/templates/homepage.julius.cg
   scaffold/templates/default-layout-wrapper.hamlet.cg

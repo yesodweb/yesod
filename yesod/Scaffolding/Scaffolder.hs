@@ -126,6 +126,7 @@ scaffold = do
     mkDir "templates"
     mkDir "static"
     mkDir "static/css"
+    mkDir "static/img"
     mkDir "static/js"
     mkDir "config"
     mkDir "Model"
@@ -156,8 +157,18 @@ scaffold = do
     writeFile' "Settings.hs" $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
     writeFile' "Settings/Development.hs" $(codegen "Settings/Development.hs")
+
     writeFile' "static/css/bootstrap.css"
         $(codegen "static/css/bootstrap.css")
+    S.writeFile (dir ++ "/static/img/glyphicons-halflings.png")
+        $(runIO (S.readFile "scaffold/static/img/glyphicons-halflings.png") >>= \bs -> do
+            pack <- [|S.pack|]
+            return $ pack `AppE` LitE (StringL $ S.unpack bs))
+    S.writeFile (dir ++ "/static/img/glyphicons-halflings-white.png")
+        $(runIO (S.readFile "scaffold/static/img/glyphicons-halflings-white.png") >>= \bs -> do
+            pack <- [|S.pack|]
+            return $ pack `AppE` LitE (StringL $ S.unpack bs))
+
     writeFile' "templates/default-layout.hamlet"
         $(codegen "templates/default-layout.hamlet")
     writeFile' "templates/default-layout-wrapper.hamlet"
