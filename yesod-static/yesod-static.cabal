@@ -22,7 +22,7 @@ library
                    , yesod-core            >= 1.0      && < 1.1
                    , base64-bytestring     >= 0.1.0.1  && < 0.2
                    , cereal                >= 0.3      && < 0.4
-                   , bytestring            >= 0.9.1.4  && < 0.10
+                   , bytestring            >= 0.9.1.4
                    , template-haskell
                    , directory             >= 1.0      && < 1.2
                    , transformers          >= 0.2.2    && < 0.4
@@ -52,7 +52,7 @@ test-suite tests
                    , yesod-core
                    , base64-bytestring     >= 0.1.0.1  && < 0.2
                    , cereal                >= 0.3      && < 0.4
-                   , bytestring            >= 0.9.1.4  && < 0.10
+                   , bytestring            >= 0.9.1.4
                    , template-haskell
                    , directory             >= 1.0      && < 1.2
                    , transformers          >= 0.2.2    && < 0.4
