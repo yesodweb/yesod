@@ -10,16 +10,17 @@
 {-# LANGUAGE CPP #-}
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
-import Test.HUnit ((@?=))
+import Test.HUnit ((@?=), (@=?))
 import Data.Text (Text, pack, unpack, singleton)
 import Yesod.Routes.Dispatch hiding (Static, Dynamic)
 import Yesod.Routes.Class hiding (Route)
 import qualified Yesod.Routes.Class as YRC
 import qualified Yesod.Routes.Dispatch as D
-import Yesod.Routes.Parse (parseRoutesNoCheck)
+import Yesod.Routes.Parse (parseRoutesNoCheck, parseRoutePaths)
 import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
+import Data.List (intercalate)
 
 class ToText a where
     toText :: a -> Text
@@ -224,7 +225,15 @@ thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
 -}
 
 main :: IO ()
-main = hspecX $ do
+main = hspecX $  do
+    describe "parseRoutePaths" $
+        it "lists static page routes" $
+          ["pages","pages/about","pages/data","pages/faq"] @=? parseRoutePaths (intercalate "\n" [
+               "/pages/"
+              ,"       about"
+              ,"       data"
+              ,"       faq"
+              ])
     describe "justRoot" $ do
         it "dispatches correctly" $ test justRoot [] @?= Just 1
         it "fails correctly" $ test justRoot ["foo"] @?= Nothing
