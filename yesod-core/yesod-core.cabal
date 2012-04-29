@@ -55,7 +55,7 @@ library
                    , yesod-routes          >= 1.0      && < 1.1
                    , wai                   >= 1.2      && < 1.3
                    , wai-extra             >= 1.2      && < 1.3
-                   , bytestring            >= 0.9.1.4  && < 0.10
+                   , bytestring            >= 0.9.1.4
                    , text                  >= 0.7      && < 0.12
                    , template-haskell
                    , path-pieces           >= 0.1      && < 0.2

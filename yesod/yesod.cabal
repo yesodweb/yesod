@@ -99,7 +99,7 @@ executable             yesod
                      , parsec             >= 2.1          && < 4
                      , text               >= 0.11         && < 0.12
                      , shakespeare-text   >= 1.0          && < 1.1
-                     , bytestring         >= 0.9.1.4      && < 0.10
+                     , bytestring         >= 0.9.1.4
                      , time               >= 1.1.4
                      , template-haskell
                      , directory          >= 1.0          && < 1.2
