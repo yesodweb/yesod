@@ -9,8 +9,9 @@ import Network.Wai.Test
 import Yesod.Internal.TestApi (randomString, parseWaiRequest')
 import Yesod.Request (Request (..))
 import Test.Hspec
+import Test.Hspec.Core (UnevaluatedSpec)
 
-randomStringSpecs :: [Spec]
+randomStringSpecs :: UnevaluatedSpec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString"
   [ it "looks reasonably random" looksRandom
   , it "does not repeat itself" $ noRepeat 10 100
@@ -30,7 +31,7 @@ g :: StdGen
 g = error "test/YesodCoreTest/InternalRequest.g"
 
 
-tokenSpecs :: [Spec]
+tokenSpecs :: UnevaluatedSpec
 tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)"
   [ it "is Nothing if sessions are disabled" noDisabledToken
   , it "ignores pre-existing token if sessions are disabled" ignoreDisabledToken
@@ -55,7 +56,7 @@ generateToken = reqToken r /= Nothing where
   r = parseWaiRequest' defaultRequest [("_TOKEN", "old")] True g
 
 
-langSpecs :: [Spec]
+langSpecs :: UnevaluatedSpec
 langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)"
   [ it "respects Accept-Language" respectAcceptLangs
   , it "respects sessions" respectSessionLang
@@ -93,8 +94,9 @@ prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "e
         } [("_LANG", "en-SESSION")] False g
 
 
-internalRequestTest :: [Spec]
-internalRequestTest = descriptions [ randomStringSpecs
-                                   , tokenSpecs
-                                   , langSpecs
-                                   ]
+internalRequestTest :: UnevaluatedSpec
+internalRequestTest = describe "Test.InternalRequestTest" 
+    [ randomStringSpecs
+    , tokenSpecs
+    , langSpecs
+    ]

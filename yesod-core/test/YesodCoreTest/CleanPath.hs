@@ -4,6 +4,7 @@
 module YesodCoreTest.CleanPath (cleanPathTest, Widget) where
 
 import Test.Hspec
+import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit()
 
 import Yesod.Core hiding (Request)
@@ -62,7 +63,7 @@ getBarR, getPlainR :: Handler RepPlain
 getBarR = return $ RepPlain "bar"
 getPlainR = return $ RepPlain "plain"
 
-cleanPathTest :: [Spec]
+cleanPathTest :: UnevaluatedSpec
 cleanPathTest =
   describe "Test.CleanPath"
     [ it "remove trailing slash" removeTrailingSlash

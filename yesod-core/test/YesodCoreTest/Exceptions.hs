@@ -4,6 +4,7 @@
 module YesodCoreTest.Exceptions (exceptionsTest, Widget) where
 
 import Test.Hspec
+import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
@@ -30,7 +31,7 @@ getRedirR = do
     setHeader "foo" "bar"
     redirectWith status301 RootR
 
-exceptionsTest :: [Spec]
+exceptionsTest :: UnevaluatedSpec
 exceptionsTest = describe "Test.Exceptions"
     [ it "500" case500
     , it "redirect keeps headers" caseRedirect
