@@ -4,7 +4,6 @@
 module YesodCoreTest.Links (linksTest, Widget) where
 
 import Test.Hspec
-import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
@@ -21,7 +20,7 @@ instance Yesod Y
 getRootR :: Handler RepHtml
 getRootR = defaultLayout $ toWidget [hamlet|<a href=@{RootR}>|]
 
-linksTest :: UnevaluatedSpec
+linksTest :: Spec
 linksTest = describe "Test.Links"
     [ it "linkToHome" case_linkToHome
     ]

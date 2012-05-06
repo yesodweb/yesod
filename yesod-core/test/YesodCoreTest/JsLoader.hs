@@ -7,7 +7,6 @@ import YesodCoreTest.JsLoaderSites.HeadAsync (HA(..))
 import YesodCoreTest.JsLoaderSites.Bottom (B(..))
 
 import Test.Hspec
-import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
@@ -23,7 +22,7 @@ instance Yesod H where
 getHeadR :: Handler RepHtml
 getHeadR = defaultLayout $ addScriptRemote "load.js"
 
-specs :: UnevaluatedSpec
+specs :: Spec
 specs = describe "Test.JsLoader" [
     it "link from head" $ runner H $ do
       res <- request defaultRequest
