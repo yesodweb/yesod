@@ -119,7 +119,7 @@ test-suite tests
 
     cpp-options:   -DTEST
     build-depends: base
-                  ,hspec >= 0.8 && < 0.10
+                  ,hspec >= 1.0 && < 1.1
                   ,wai-test
                   ,wai
                   ,yesod-core

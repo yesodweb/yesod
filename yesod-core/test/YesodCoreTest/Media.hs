@@ -5,6 +5,7 @@
 module YesodCoreTest.Media (mediaTest, Widget) where
 
 import Test.Hspec
+import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit ()
 import Yesod.Core hiding (Request)
 import Network.Wai
@@ -49,7 +50,7 @@ caseMediaLink = runner $ do
     assertStatus 200 res
     flip assertBody res "<!DOCTYPE html>\n<html><head><title></title><link rel=\"stylesheet\" href=\"all.css\"><link rel=\"stylesheet\" media=\"screen\" href=\"screen.css\"></head><body></body></html>"
 
-mediaTest :: [Spec]
+mediaTest :: UnevaluatedSpec
 mediaTest = describe "Test.Media"
     [ it "media" caseMedia
     , it "media link" caseMediaLink
