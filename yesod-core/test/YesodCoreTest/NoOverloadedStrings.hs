@@ -3,6 +3,7 @@
 module YesodCoreTest.NoOverloadedStrings (noOverloadedTest, Widget) where
 
 import Test.Hspec
+import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
@@ -44,7 +45,7 @@ case_sanity = runner $ do
     res <- request defaultRequest
     assertBody mempty res
 
-noOverloadedTest :: [Spec]
+noOverloadedTest :: UnevaluatedSpec
 noOverloadedTest = describe "Test.NoOverloadedStrings"
     [ it "sanity" case_sanity
     ]

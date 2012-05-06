@@ -4,6 +4,7 @@
 module YesodCoreTest.Cache (cacheTest, Widget) where
 
 import Test.Hspec
+import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit()
 
 import Network.Wai
@@ -35,7 +36,7 @@ getRootR = do
     Nothing <- cacheLookup key
     return ()
 
-cacheTest :: [Spec]
+cacheTest :: UnevaluatedSpec
 cacheTest =
   describe "Test.Cache"
     [ it "works" works

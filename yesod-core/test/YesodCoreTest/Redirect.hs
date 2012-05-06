@@ -4,6 +4,7 @@ module YesodCoreTest.Redirect (specs, Widget) where
 import YesodCoreTest.YesodTest
 import Yesod.Handler (redirectWith)
 import qualified Network.HTTP.Types as H
+import Test.Hspec.Core (UnevaluatedSpec)
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
@@ -26,7 +27,7 @@ getR303 = redirectWith H.status303 RootR
 getR307 = redirectWith H.status307 RootR
 getRRegular = redirect RootR
 
-specs :: [Spec]
+specs :: UnevaluatedSpec
 specs = describe "Redirect" [
     it "301 redirect" $ app $ do
       res <- request defaultRequest { pathInfo = ["r301"] }
