@@ -11,7 +11,7 @@ cabal-version:      >= 1.8
 build-type:         Simple
 homepage:           http://www.yesodweb.com
 description:        Behaviour Oriented integration Testing for Yesod Applications 
-extra-source-files: README.md, LICENSE
+extra-source-files: README.md, LICENSE, test/main.hs
 
 flag blaze_html_0_5
     description: use blaze-html 0.5 and blaze-markup 0.5
