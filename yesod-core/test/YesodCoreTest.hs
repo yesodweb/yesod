@@ -13,9 +13,9 @@ import qualified YesodCoreTest.WaiSubsite as WaiSubsite
 import qualified YesodCoreTest.Redirect as Redirect
 import qualified YesodCoreTest.JsLoader as JsLoader
 
-import Test.Hspec.Core (UnevaluatedSpec)
+import Test.Hspec
 
-specs :: [UnevaluatedSpec]
+specs :: [Spec]
 specs = 
     [ cleanPathTest
     , exceptionsTest
