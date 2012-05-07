@@ -4,7 +4,6 @@ module YesodCoreTest.WaiSubsite (specs, Widget) where
 import YesodCoreTest.YesodTest
 import Yesod.Core
 import qualified Network.HTTP.Types as H
-import Test.Hspec.Core (UnevaluatedSpec)
 
 myApp :: Application
 myApp _ = return $ responseLBS H.status200 [("Content-type", "text/plain")] "WAI"
@@ -26,7 +25,7 @@ app = yesod Y
 getRootR :: Handler ()
 getRootR = return ()
 
-specs :: UnevaluatedSpec
+specs :: Spec
 specs = describe "WaiSubsite" [
     it "root" $ app $ do
       res <- request defaultRequest { pathInfo = [] }

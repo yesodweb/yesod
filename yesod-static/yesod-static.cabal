@@ -44,7 +44,7 @@ test-suite tests
     type: exitcode-stdio-1.0
     cpp-options:   -DTEST_EXPORT
     build-depends:   base
-                   , hspec >= 0.8   && < 0.10
+                   , hspec >= 1.0   && < 1.2
                    , HUnit
                    -- copy from above
                    , containers            >= 0.2      && < 0.5

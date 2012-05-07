@@ -90,7 +90,7 @@ import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 
 -- | The state used in 'describe' to build a list of specs
-data SpecsData = SpecsData Application ConnectionPool [Core.Spec Core.AnyExample]
+data SpecsData = SpecsData Application ConnectionPool [Core.Spec]
 
 -- | The specs state monad is where 'describe' runs.
 type Specs = ST.StateT SpecsData IO ()
