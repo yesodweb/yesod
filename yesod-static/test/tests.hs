@@ -4,4 +4,4 @@ import Test.Hspec
 import YesodStaticTest (specs)
 
 main :: IO ()
-main = hspecX $ descriptions specs
+main = hspecX specs

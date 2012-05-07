@@ -6,7 +6,7 @@ import Test.Hspec.HUnit ( )
 
 import Yesod.Static (getFileListPieces)
 
-specs :: [Specs]
+specs :: Specs
 specs = [
     describe "get file list" [
       it "pieces" $ do

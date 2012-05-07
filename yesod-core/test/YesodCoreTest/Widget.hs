@@ -4,7 +4,6 @@
 module YesodCoreTest.Widget (widgetTest) where
 
 import Test.Hspec
-import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
@@ -78,7 +77,7 @@ getAutoR = defaultLayout [whamlet|
   where
     someHtml = [shamlet|somehtml|]
 
-widgetTest :: UnevaluatedSpec
+widgetTest :: Spec
 widgetTest = describe "Test.Widget"
     [ it "addJuliusBody" case_addJuliusBody
     , it "whamlet" case_whamlet
