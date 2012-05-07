@@ -5,7 +5,6 @@ module YesodCoreTest.ErrorHandling
     ) where
 import Yesod.Core
 import Test.Hspec
-import Test.Hspec.Core (UnevaluatedSpec)
 import Test.Hspec.HUnit()
 import Network.Wai
 import Network.Wai.Test
@@ -53,7 +52,7 @@ postAfterRunRequestBodyR = do
    _ <- error $ show x
    getHomeR
 
-errorHandlingTest :: UnevaluatedSpec
+errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling"
     [ it "says not found" caseNotFound
     , it "says 'There was an error' before runRequestBody" caseBefore
