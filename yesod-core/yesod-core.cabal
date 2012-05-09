@@ -42,7 +42,7 @@ flag test
 
 flag blaze_html_0_5
     description: use blaze-html 0.5 and blaze-markup 0.5
-    default: False
+    default: True
 
 library
     -- Work around a bug in cabal. Without this, wai-test doesn't get built and
