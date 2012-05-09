@@ -33,13 +33,11 @@ library
                    , bytestring                >= 0.9
                    , case-insensitive          >= 0.2
                    , text
-                   , tagstream-conduit         >= 0.3      && < 0.4
-                   , conduit                   >= 0.4      && < 0.5
-                   , resourcet                 >= 0.3      && < 0.4
                    , xml-conduit               >= 0.7      && < 0.8
                    , xml-types                 >= 0.3      && < 0.4
                    , containers
-                   , xml2html                  >= 0.1.2    && < 0.2
+                   , xml2html                  >= 0.1.2.3  && < 0.2
+                   , html-conduit              >= 0.0.1    && < 0.1
 
     if flag(blaze_html_0_5)
         build-depends:
