@@ -17,7 +17,7 @@ extra-source-files:
 
 library
     build-depends:   base                  >= 4        && < 5
-                   , containers            >= 0.2      && < 0.5
+                   , containers            >= 0.2
                    , old-time              >= 1.0
                    , yesod-core            >= 1.0      && < 1.1
                    , base64-bytestring     >= 0.1.0.1  && < 0.2
@@ -47,7 +47,7 @@ test-suite tests
                    , hspec >= 1.0   && < 1.2
                    , HUnit
                    -- copy from above
-                   , containers            >= 0.2      && < 0.5
+                   , containers            >= 0.2
                    , old-time              >= 1.0
                    , yesod-core
                    , base64-bytestring     >= 0.1.0.1  && < 0.2

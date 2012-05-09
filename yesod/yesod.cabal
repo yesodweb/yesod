@@ -107,7 +107,7 @@ executable             yesod
                      , directory          >= 1.0          && < 1.2
                      , Cabal
                      , unix-compat        >= 0.2          && < 0.4
-                     , containers         >= 0.2          && < 0.5
+                     , containers         >= 0.2
                      , attoparsec         >= 0.10
                      , http-types         >= 0.6.1        && < 0.7
                      , blaze-builder      >= 0.2.1.4      && < 0.4
