@@ -74,7 +74,11 @@ import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
 import Database.Persist.Store (PersistEntityBackend)
 
+#if MIN_VERSION_blaze_html(0, 5, 0)
+import Text.Blaze.Html.Renderer.String (renderHtml)
+#else
 import Text.Blaze.Renderer.String (renderHtml)
+#endif
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
