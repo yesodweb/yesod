@@ -1,11 +1,14 @@
 name:            authenticate
-version:         1.2.1
+version:         1.2.1.1
 license:         BSD3
 license-file:    LICENSE
 author:          Michael Snoyman, Hiromi Ishii, Arash Rouhani
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Authentication methods for Haskell web applications.
-description:     Focus is on third-party authentication methods, such as OpenID and BrowserID.
+description:
+    Focus is on third-party authentication methods, such as OpenID and BrowserID.
+    .
+    Note: Facebook support is now provided by the fb package: <http://hackage.haskell.org/package/fb>.
 category:        Web
 stability:       Stable
 cabal-version:   >= 1.6
