@@ -1,5 +1,5 @@
 name:            yesod-routes
-version:         1.0.1.1
+version:         1.0.1.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -18,7 +18,7 @@ library
     build-depends:   base                      >= 4        && < 5
                    , text                      >= 0.5      && < 0.12
                    , vector                    >= 0.8      && < 0.10
-                   , containers                >= 0.2      && < 0.5
+                   , containers                >= 0.2
                    , template-haskell
                    , path-pieces               >= 0.1      && < 0.2
 
