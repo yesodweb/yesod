@@ -32,9 +32,9 @@ library
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
-        ghc-options:   -Wall -threaded -O0
+        ghc-options:   -Wall -O0
     else
-        ghc-options:   -Wall -threaded -O2
+        ghc-options:   -Wall -O2
 
     extensions: TemplateHaskell
                 QuasiQuotes
@@ -85,6 +85,8 @@ executable         ~project~
     build-depends:     base
                      , ~project~
                      , yesod-default
+
+    ghc-options:       -threaded -O2
 
 test-suite test
     type:              exitcode-stdio-1.0
