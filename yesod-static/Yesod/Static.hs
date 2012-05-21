@@ -66,7 +66,6 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Serialize
 import Data.Text (Text, pack)
-import Data.Monoid (mempty)
 import qualified Data.Map as M
 import Data.IORef (readIORef, newIORef, writeIORef)
 import Network.Wai (pathInfo, rawPathInfo, responseLBS)
