@@ -5,6 +5,6 @@ We recommend starting with SQLite: it has no dependencies.
     s     = sqlite
     p     = postgresql
     mongo = mongodb
-    mysql = MySQL (experimental)
+    mysql = MySQL
 
 So, what'll it be? 
