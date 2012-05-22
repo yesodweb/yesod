@@ -71,9 +71,9 @@ jqueryDayField jds = Field
         addStylesheet' urlJqueryUiCss
         toWidget [julius|
 $(function(){
-    var i = $("##{theId}");
-    if (i.attr("type") != "date") {
-        i.datepicker({
+    var i = document.getElementById("#{theId}");
+    if (i.type != "date") {
+        $(i).datepicker({
             dateFormat:'yy-mm-dd',
             changeMonth:#{jsBool $ jdsChangeMonth jds},
             changeYear:#{jsBool $ jdsChangeYear jds},
