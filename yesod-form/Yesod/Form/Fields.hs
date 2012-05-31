@@ -167,7 +167,7 @@ $# FIXME: There was a class="html" attribute, for what purpose?
 -- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField)
+    deriving (Show, Read, Eq, PersistField, Ord)
 instance ToHtml Textarea where
     toHtml =
         unsafeByteString
