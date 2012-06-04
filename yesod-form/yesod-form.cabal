@@ -59,6 +59,7 @@ library
                      Yesod.Form.I18n.Swedish
                      Yesod.Form.I18n.German
                      Yesod.Form.I18n.French
+                     Yesod.Form.I18n.Japanese
                      -- FIXME Yesod.Helpers.Crud
     ghc-options:     -Wall
 

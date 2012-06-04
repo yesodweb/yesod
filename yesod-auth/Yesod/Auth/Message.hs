@@ -9,6 +9,7 @@ module Yesod.Auth.Message
     , swedishMessage
     , germanMessage
     , frenchMessage
+    , japaneseMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -220,3 +221,37 @@ frenchMessage NowLoggedIn = "Vous êtes maintenant connecté"
 frenchMessage LoginTitle = "Se connecter"
 frenchMessage PleaseProvideUsername = "Merci de renseigner votre nom d'utilisateur"
 frenchMessage PleaseProvidePassword = "Merci de spécifier un mot de passe"
+
+japaneseMessage :: AuthMessage -> Text
+japaneseMessage NoOpenID = "OpenID識別子がありません"
+japaneseMessage LoginOpenID = "OpenIDでログイン"
+japaneseMessage LoginGoogle = "Googleでログイン"
+japaneseMessage LoginYahoo = "Yahooでログイン"
+japaneseMessage Email = "Eメール"
+japaneseMessage Password = "パスワード"
+japaneseMessage Register = "登録"
+japaneseMessage RegisterLong = "新規アカウント登録"
+japaneseMessage EnterEmail = "メールアドレスを入力してください。確認メールが送られます"
+japaneseMessage ConfirmationEmailSentTitle = "確認メールを送信しました"
+japaneseMessage (ConfirmationEmailSent email) =
+    "確認メールを " `mappend`
+    email `mappend`
+    " に送信しました"
+japaneseMessage AddressVerified = "アドレスは認証されました。新しいパスワードを設定してください"
+japaneseMessage InvalidKeyTitle = "認証キーが無効です"
+japaneseMessage InvalidKey = "申し訳ありません。無効な認証キーです"
+japaneseMessage InvalidEmailPass = "メールアドレスまたはパスワードが無効です"
+japaneseMessage BadSetPass = "パスワードを設定するためには、ログインしてください"
+japaneseMessage SetPassTitle = "パスワードの設定"
+japaneseMessage SetPass = "新しいパスワードを設定する"
+japaneseMessage NewPass = "新しいパスワード"
+japaneseMessage ConfirmPass = "確認"
+japaneseMessage PassMismatch = "パスワードが合いません。もう一度試してください"
+japaneseMessage PassUpdated = "パスワードは更新されました"
+japaneseMessage Facebook = "Facebookでログイン"
+japaneseMessage LoginViaEmail = "Eメールでログイン"
+japaneseMessage InvalidLogin = "無効なログインです"
+japaneseMessage NowLoggedIn = "ログインしました"
+japaneseMessage LoginTitle = "ログイン"
+japaneseMessage PleaseProvideUsername = "ユーザ名を入力してください"
+japaneseMessage PleaseProvidePassword = "パスワードを入力してください"
