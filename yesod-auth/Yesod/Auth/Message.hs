@@ -9,6 +9,7 @@ module Yesod.Auth.Message
     , swedishMessage
     , germanMessage
     , frenchMessage
+    , norwegianBokmålMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -220,3 +221,37 @@ frenchMessage NowLoggedIn = "Vous êtes maintenant connecté"
 frenchMessage LoginTitle = "Se connecter"
 frenchMessage PleaseProvideUsername = "Merci de renseigner votre nom d'utilisateur"
 frenchMessage PleaseProvidePassword = "Merci de spécifier un mot de passe"
+
+norwegianBokmålMessage :: AuthMessage -> Text
+norwegianBokmålMessage NoOpenID = "Ingen OpenID-identifiserer funnet"
+norwegianBokmålMessage LoginOpenID = "Logg inn med OpenID"
+norwegianBokmålMessage LoginGoogle = "Logg inn med Google"
+norwegianBokmålMessage LoginYahoo = "Logg inn med Yahoo"
+norwegianBokmålMessage Email = "E-post"
+norwegianBokmålMessage Password = "Passord"
+norwegianBokmålMessage Register = "Registrer"
+norwegianBokmålMessage RegisterLong = "Registrer en ny konto"
+norwegianBokmålMessage EnterEmail = "Skriv inn e-postadressen din nedenfor og en e-postkonfirmasjon vil bli sendt."
+norwegianBokmålMessage ConfirmationEmailSentTitle = "E-postkonfirmasjon sendt."
+norwegianBokmålMessage (ConfirmationEmailSent email) =
+    "En e-postkonfirmasjon har blitt sendt til " `mappend`
+    email `mappend`
+    "."
+norwegianBokmålMessage AddressVerified = "Adresse verifisert, vennligst sett et nytt passord."
+norwegianBokmålMessage InvalidKeyTitle = "Ugyldig verifiseringsnøkkel"
+norwegianBokmålMessage InvalidKey = "Beklager, men det var en ugyldig verifiseringsnøkkel."
+norwegianBokmålMessage InvalidEmailPass = "Ugyldig e-post/passord-kombinasjon"
+norwegianBokmålMessage BadSetPass = "Du må være logget inn for å sette et passord."
+norwegianBokmålMessage SetPassTitle = "Sett passord"
+norwegianBokmålMessage SetPass = "Sett et nytt passord"
+norwegianBokmålMessage NewPass = "Nytt passord"
+norwegianBokmålMessage ConfirmPass = "Bekreft"
+norwegianBokmålMessage PassMismatch = "Passordene stemte ikke overens, vennligst prøv igjen"
+norwegianBokmålMessage PassUpdated = "Passord oppdatert"
+norwegianBokmålMessage Facebook = "Logg inn med Facebook"
+norwegianBokmålMessage LoginViaEmail = "Logg inn med e-post"
+norwegianBokmålMessage InvalidLogin = "Ugyldig innlogging"
+norwegianBokmålMessage NowLoggedIn = "Du er nå logget inn"
+norwegianBokmålMessage LoginTitle = "Logg inn"
+norwegianBokmålMessage PleaseProvideUsername = "Vennligst fyll inn ditt brukernavn"
+norwegianBokmålMessage PleaseProvidePassword = "Vennligst fyll inn ditt passord"
