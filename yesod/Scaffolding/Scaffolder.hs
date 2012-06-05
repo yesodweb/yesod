@@ -47,7 +47,7 @@ scaffold = do
             | '0' <= c && c <= '9' = True
         validPN '-' = True
         validPN _ = False
-    project <- prompt $ \s -> all validPN s && not (null s)
+    project <- prompt $ \s -> all validPN s && not (null s) && s /= "test"
     let dir = project
 
     let sitearg = "App"
