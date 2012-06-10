@@ -18,7 +18,8 @@ library
                    , http-conduit                  >= 1.4      && < 1.5
                    , transformers                  >= 0.1      && < 0.4
                    , bytestring                    >= 0.9
-                   , RSA                           >= 1.0      && < 1.1
+                   , crypto-pubkey-types           >= 0.1      && < 0.2
+                   , RSA                           >= 1.2      && < 1.3
                    , time
                    , data-default                  >= 0.3      && < 0.5
                    , base64-bytestring             >= 0.1      && < 0.2
