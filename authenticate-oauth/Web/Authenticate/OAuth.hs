@@ -34,7 +34,8 @@ import Data.Digest.Pure.SHA
 import Data.ByteString.Base64
 import Data.Time
 import Numeric
-import Codec.Crypto.RSA (rsassa_pkcs1_v1_5_sign, ha_SHA1, PrivateKey(..))
+import Codec.Crypto.RSA (rsassa_pkcs1_v1_5_sign, ha_SHA1)
+import Crypto.Types.PubKey.RSA (PrivateKey(..))
 import Network.HTTP.Types (Header)
 import Blaze.ByteString.Builder (toByteString)
 import Control.Monad.IO.Class (MonadIO)
@@ -108,13 +109,7 @@ data SignMethod = PLAINTEXT
                 | HMACSHA1
                 | RSASHA1 PrivateKey
                   deriving (Show, Eq, Ord, Read, Data, Typeable)
-
-deriving instance Typeable PrivateKey
-deriving instance Data PrivateKey
-deriving instance Read PrivateKey
 deriving instance Ord PrivateKey
-deriving instance Eq PrivateKey
-
 -- | Data type for redential.
 data Credential = Credential { unCredential :: [(BS.ByteString, BS.ByteString)] }
                   deriving (Show, Eq, Ord, Read, Data, Typeable)
