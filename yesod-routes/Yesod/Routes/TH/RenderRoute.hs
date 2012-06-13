@@ -14,17 +14,19 @@ import Control.Monad (replicateM)
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
+import Data.Monoid (mconcat)
 
 -- | Generate the constructors of a route data type.
-mkRouteCons :: [Resource Type] -> [Con]
+mkRouteCons :: [ResourceTree Type] -> ([Con], [Dec])
 mkRouteCons =
-    map mkRouteCon
+    mconcat . map mkRouteCon
   where
-    mkRouteCon res =
-        NormalC (mkName $ resourceName res)
+    mkRouteCon (ResourceLeaf res) =
+        ([con], [])
+      where
+        con = NormalC (mkName $ resourceName res)
             $ map (\x -> (NotStrict, x))
             $ concat [singles, multi, sub]
-      where
         singles = concatMap (toSingle . snd) $ resourcePieces res
         toSingle Static{} = []
         toSingle (Dynamic typ) = [typ]
@@ -35,16 +37,53 @@ mkRouteCons =
             case resourceDispatch res of
                 Subsite { subsiteType = typ } -> [ConT ''Route `AppT` typ]
                 _ -> []
+    mkRouteCon (ResourceParent name pieces children) =
+        ([con], dec : decs)
+      where
+        (cons, decs) = mkRouteCons children
+        con = NormalC (mkName name)
+            $ map (\x -> (NotStrict, x))
+            $ concat [singles, [ConT $ mkName name]]
+        dec = DataD [] (mkName name) [] cons [''Show, ''Read, ''Eq]
+
+        singles = concatMap (toSingle . snd) pieces
+        toSingle Static{} = []
+        toSingle (Dynamic typ) = [typ]
 
 -- | Clauses for the 'renderRoute' method.
-mkRenderRouteClauses :: [Resource Type] -> Q [Clause]
+mkRenderRouteClauses :: [ResourceTree Type] -> Q [Clause]
 mkRenderRouteClauses =
     mapM go
   where
     isDynamic Dynamic{} = True
     isDynamic _ = False
 
-    go res = do
+    go (ResourceParent name pieces children) = do
+        let cnt = length $ filter (isDynamic . snd) pieces
+        dyns <- replicateM cnt $ newName "dyn"
+        child <- newName "child"
+        let pat = ConP (mkName name) $ map VarP $ dyns ++ [child]
+
+        pack' <- [|pack|]
+        tsp <- [|toPathPiece|]
+        let piecesSingle = mkPieces (AppE pack' . LitE . StringL) tsp (map snd pieces) dyns
+
+        childRender <- newName "childRender"
+        let rr = VarE childRender
+        childClauses <- mkRenderRouteClauses children
+
+        a <- newName "a"
+        b <- newName "b"
+
+        colon <- [|(:)|]
+        let cons y ys = InfixE (Just y) colon (Just ys)
+        let pieces = foldr cons (VarE a) piecesSingle
+
+        let body = LamE [TupP [VarP a, VarP b]] (TupE [pieces, VarE b]) `AppE` (rr `AppE` VarE child)
+
+        return $ Clause [pat] (NormalB body) [FunD childRender childClauses]
+
+    go (ResourceLeaf res) = do
         let cnt = length (filter (isDynamic . snd) $ resourcePieces res) + maybe 0 (const 1) (resourceMulti res)
         dyns <- replicateM cnt $ newName "dyn"
         sub <-
@@ -93,18 +132,19 @@ mkRenderRouteClauses =
 -- This includes both the 'Route' associated type and the
 -- 'renderRoute' method.  This function uses both 'mkRouteCons' and
 -- 'mkRenderRouteClasses'.
-mkRenderRouteInstance :: Type -> [Resource Type] -> Q Dec
+mkRenderRouteInstance :: Type -> [ResourceTree Type] -> Q [Dec]
 mkRenderRouteInstance = mkRenderRouteInstance' []
 
 -- | A more general version of 'mkRenderRouteInstance' which takes an
 -- additional context.
 
-mkRenderRouteInstance' :: Cxt -> Type -> [Resource Type] -> Q Dec
+mkRenderRouteInstance' :: Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
 mkRenderRouteInstance' cxt typ ress = do
     cls <- mkRenderRouteClauses ress
+    let (cons, decs) = mkRouteCons ress
     return $ InstanceD cxt (ConT ''RenderRoute `AppT` typ)
-        [ DataInstD [] ''Route [typ] (mkRouteCons ress) clazzes
+        [ DataInstD [] ''Route [typ] cons clazzes
         , FunD (mkName "renderRoute") cls
-        ]
+        ] : decs
   where
     clazzes = [''Show, ''Eq, ''Read]
