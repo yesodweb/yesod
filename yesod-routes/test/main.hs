@@ -20,6 +20,7 @@ import Yesod.Routes.Parse (parseRoutesNoCheck)
 import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
+import Hierarchy
 
 class ToText a where
     toText :: a -> Text
@@ -126,7 +127,7 @@ class RunHandler sub master where
 
 do
     texts <- [t|[Text]|]
-    let ress =
+    let ress = map ResourceLeaf
             [ Resource "RootR" [] $ Methods Nothing ["GET"]
             , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) $ Methods Nothing ["GET", "POST"]
             , Resource "WikiR" (addCheck [Static "wiki"]) $ Methods (Just texts) []
@@ -137,14 +138,13 @@ do
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
     dispatch <- mkDispatchClause [|runHandler|] [|dispatcher|] [|toText|] ress
     return
-        [ rrinst
-        , InstanceD
+        $ InstanceD
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''MyApp
                 `AppT` ConT ''MyApp)
             [FunD (mkName "dispatcher") [dispatch]]
-        ]
+        : rrinst
 
 instance RunHandler MyApp master where
     runHandler h _ _ subRoute toMaster = (h, fmap toMaster subRoute)
@@ -328,6 +328,7 @@ main = hspecX $ do
 /bar/baz Foo3
 |]
             findOverlapNames routes @?= []
+    hierarchy
 
 getRootR :: Text
 getRootR = pack "this is the root"

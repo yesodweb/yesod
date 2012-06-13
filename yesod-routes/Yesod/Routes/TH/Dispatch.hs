@@ -17,6 +17,16 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Control.Applicative ((<$>))
 import Data.List (foldl')
 
+data FlatResource a = FlatResource ([String] -> [String]) String [(CheckOverlap, Piece a)] (Dispatch a)
+
+flatten :: [ResourceTree a] -> [FlatResource a]
+flatten =
+    concatMap (go id id)
+  where
+    go front1 front2 (ResourceLeaf (Resource a b c)) = [FlatResource front1 a (front2 b) c]
+    go front1 front2 (ResourceParent name pieces children) =
+        concatMap (go (front1 . (name:)) (front2 . (pieces++))) children
+
 -- |
 --
 -- This function will generate a single clause that will address all
@@ -83,9 +93,9 @@ import Data.List (foldl')
 mkDispatchClause :: Q Exp -- ^ runHandler function
                  -> Q Exp -- ^ dispatcher function
                  -> Q Exp -- ^ fixHandler function
-                 -> [Resource a]
+                 -> [ResourceTree a]
                  -> Q Clause
-mkDispatchClause runHandler dispatcher fixHandler ress = do
+mkDispatchClause runHandler dispatcher fixHandler ress' = do
     -- Allocate the names to be used. Start off with the names passed to the
     -- function itself (with a 0 suffix).
     --
@@ -130,16 +140,18 @@ mkDispatchClause runHandler dispatcher fixHandler ress = do
             Nothing -> $(return $ VarE app4040)
           |]
     return $ Clause pats (NormalB u) $ dispatchFun : methodMaps
+  where
+    ress = flatten ress'
 
 -- | Determine the name of the method map for a given resource name.
 methodMapName :: String -> Name
 methodMapName s = mkName $ "methods" ++ s
 
 buildMethodMap :: Q Exp -- ^ fixHandler
-               -> Resource a
+               -> FlatResource a
                -> Q (Maybe Dec)
-buildMethodMap _ (Resource _ _ (Methods _ [])) = return Nothing -- single handle function
-buildMethodMap fixHandler (Resource name pieces (Methods mmulti methods)) = do
+buildMethodMap _ (FlatResource _ _ _ (Methods _ [])) = return Nothing -- single handle function
+buildMethodMap fixHandler (FlatResource names name pieces (Methods mmulti methods)) = do
     fromList <- [|Map.fromList|]
     methods' <- mapM go methods
     let exp = fromList `AppE` ListE methods'
@@ -156,11 +168,11 @@ buildMethodMap fixHandler (Resource name pieces (Methods mmulti methods)) = do
         xs <- replicateM argCount $ newName "arg"
         let rhs = LamE (map VarP xs) $ fh `AppE` (foldl' AppE func $ map VarE xs)
         return $ TupE [pack' `AppE` LitE (StringL method), rhs]
-buildMethodMap _ (Resource _ _ Subsite{}) = return Nothing
+buildMethodMap _ (FlatResource _ _ _ Subsite{}) = return Nothing
 
 -- | Build a single 'D.Route' expression.
-buildRoute :: Q Exp -> Q Exp -> Q Exp -> Resource a -> Q Exp
-buildRoute runHandler dispatcher fixHandler (Resource name resPieces resDisp) = do
+buildRoute :: Q Exp -> Q Exp -> Q Exp -> FlatResource a -> Q Exp
+buildRoute runHandler dispatcher fixHandler (FlatResource names name resPieces resDisp) = do
     -- First two arguments to D.Route
     routePieces <- ListE <$> mapM (convertPiece . snd) resPieces
     isMulti <-

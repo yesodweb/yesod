@@ -36,6 +36,7 @@ test-suite runtests
     type: exitcode-stdio-1.0
     main-is: main.hs
     hs-source-dirs: test
+    other-modules: Hierarchy
 
     build-depends: base                      >= 4.3      && < 5
                  , yesod-routes
