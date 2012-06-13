@@ -22,12 +22,6 @@ import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
 import Hierarchy
 
-class ToText a where
-    toText :: a -> Text
-
-instance ToText Text where toText = id
-instance ToText String where toText = pack
-
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
 
@@ -101,29 +95,6 @@ instance RenderRoute MySubParam where
 
 getMySubParam :: MyApp -> Int -> MySubParam
 getMySubParam _ = MySubParam
-
-type Handler sub master = Text
-type App sub master = (Text, Maybe (YRC.Route master))
-
-class Dispatcher sub master where
-    dispatcher
-        :: master
-        -> sub
-        -> (YRC.Route sub -> YRC.Route master)
-        -> App sub master -- ^ 404 page
-        -> (YRC.Route sub -> App sub master) -- ^ 405 page
-        -> Text -- ^ method
-        -> [Text]
-        -> App sub master
-
-class RunHandler sub master where
-    runHandler
-        :: Handler sub master
-        -> master
-        -> sub
-        -> Maybe (YRC.Route sub)
-        -> (YRC.Route sub -> YRC.Route master)
-        -> App sub master
 
 do
     texts <- [t|[Text]|]
