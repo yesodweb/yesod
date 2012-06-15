@@ -27,6 +27,7 @@ module Yesod.Form.Functions
     , FormRender
     , renderTable
     , renderDivs
+    , renderDivsNoLabels 
     , renderBootstrap
       -- * Validation
     , check
@@ -255,7 +256,7 @@ type FormRender sub master a =
     -> Html
     -> MForm sub master (FormResult a, GWidget sub master ())
 
-renderTable, renderDivs :: FormRender sub master a
+renderTable, renderDivs, renderDivsNoLabels :: FormRender sub master a
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
@@ -274,14 +275,22 @@ $forall view <- views
 |]
     return (res, widget)
 
-renderDivs aform fragment = do
+-- | render a field inside a div
+renderDivs = renderDivsMaybeLabels True
+
+-- | render a field inside a div, not displaying any label
+renderDivsNoLabels = renderDivsMaybeLabels False
+
+renderDivsMaybeLabels :: Bool -> FormRender sub master a
+renderDivsMaybeLabels withLabels aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
     let widget = [whamlet|
 \#{fragment}
 $forall view <- views
     <div :fvRequired view:.required :not $ fvRequired view:.optional>
-        <label for=#{fvId view}>#{fvLabel view}
+        $if withLabels
+                <label for=#{fvId view}>#{fvLabel view}
         $maybe tt <- fvTooltip view
             <div .tooltip>#{tt}
         ^{fvInput view}
