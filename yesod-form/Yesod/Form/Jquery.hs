@@ -34,9 +34,15 @@ googleHostedJqueryUiCss theme = mconcat
     ]
 
 class YesodJquery a where
-    -- | The jQuery 1.4 Javascript file.
+    -- | The jQuery Javascript file. Note that in upgrades to this library, the
+    -- version of jQuery referenced, or where it is downloaded from, may be
+    -- changed without warning. If you are relying on a specific version of
+    -- jQuery, you should give an explicit URL instead of relying on the
+    -- default value.
+    --
+    -- Currently, the default value is jQuery 1.7 from Google\'s CDN.
     urlJqueryJs :: a -> Either (Route a) Text
-    urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"
+    urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"
 
     -- | The jQuery UI 1.8 Javascript file.
     urlJqueryUiJs :: a -> Either (Route a) Text
