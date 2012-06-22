@@ -30,6 +30,7 @@ import Data.Time (UTCTime)
 import Data.Monoid (mappend)
 import Text.XML
 import Data.Text (Text, pack)
+import qualified Data.Map as Map
 
 data SitemapChangeFreq = Always
                        | Hourly
@@ -66,13 +67,13 @@ template urls render =
     addNS' n = n
     namespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
 
-    root = Element "urlset" [] $ map go urls
+    root = Element "urlset" Map.empty $ map go urls
 
-    go SitemapUrl {..} = NodeElement $ Element "url" [] $ map NodeElement
-        [ Element "loc" [] [NodeContent $ render sitemapLoc]
-        , Element "lastmod" [] [NodeContent $ formatW3 sitemapLastMod]
-        , Element "changefreq" [] [NodeContent $ showFreq sitemapChangeFreq]
-        , Element "priority" [] [NodeContent $ pack $ show sitemapPriority]
+    go SitemapUrl {..} = NodeElement $ Element "url" Map.empty $ map NodeElement
+        [ Element "loc" Map.empty [NodeContent $ render sitemapLoc]
+        , Element "lastmod" Map.empty [NodeContent $ formatW3 sitemapLastMod]
+        , Element "changefreq" Map.empty [NodeContent $ showFreq sitemapChangeFreq]
+        , Element "priority" Map.empty [NodeContent $ pack $ show sitemapPriority]
         ]
 
 sitemap :: [SitemapUrl (Route master)] -> GHandler sub master RepXml

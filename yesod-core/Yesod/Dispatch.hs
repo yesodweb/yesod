@@ -60,7 +60,7 @@ type Texts = [Text]
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
 -- Use 'parseRoutes' to create the 'Resource's.
 mkYesod :: String -- ^ name of the argument datatype
-        -> [Resource String]
+        -> [ResourceTree String]
         -> Q [Dec]
 mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 
@@ -71,7 +71,7 @@ mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 -- be embedded in other sites.
 mkYesodSub :: String -- ^ name of the argument datatype
            -> Cxt
-           -> [Resource String]
+           -> [ResourceTree String]
            -> Q [Dec]
 mkYesodSub name clazzes =
     fmap (uncurry (++)) . mkYesodGeneral name' rest clazzes True
@@ -82,28 +82,28 @@ mkYesodSub name clazzes =
 -- your handlers elsewhere. For example, this is the only way to break up a
 -- monolithic file into smaller parts. Use this function, paired with
 -- 'mkYesodDispatch', to do just that.
-mkYesodData :: String -> [Resource String] -> Q [Dec]
+mkYesodData :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodData name res = mkYesodDataGeneral name [] False res
 
-mkYesodSubData :: String -> Cxt -> [Resource String] -> Q [Dec]
+mkYesodSubData :: String -> Cxt -> [ResourceTree String] -> Q [Dec]
 mkYesodSubData name clazzes res = mkYesodDataGeneral name clazzes True res
 
-mkYesodDataGeneral :: String -> Cxt -> Bool -> [Resource String] -> Q [Dec]
+mkYesodDataGeneral :: String -> Cxt -> Bool -> [ResourceTree String] -> Q [Dec]
 mkYesodDataGeneral name clazzes isSub res = do
     let (name':rest) = words name
     (x, _) <- mkYesodGeneral name' rest clazzes isSub res
     let rname = mkName $ "resources" ++ name
     eres <- lift res
-    let y = [ SigD rname $ ListT `AppT` (ConT ''Resource `AppT` ConT ''String)
+    let y = [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
             , FunD rname [Clause [] (NormalB eres) []]
             ]
     return $ x ++ y
 
 -- | See 'mkYesodData'.
-mkYesodDispatch :: String -> [Resource String] -> Q [Dec]
+mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
 
-mkYesodSubDispatch :: String -> Cxt -> [Resource String] -> Q [Dec]
+mkYesodSubDispatch :: String -> Cxt -> [ResourceTree String] -> Q [Dec]
 mkYesodSubDispatch name clazzes = fmap snd . mkYesodGeneral name' rest clazzes True 
   where (name':rest) = words name
 
@@ -111,7 +111,7 @@ mkYesodGeneral :: String -- ^ foundation type
                -> [String]
                -> Cxt -- ^ classes
                -> Bool -- ^ is subsite?
-               -> [Resource String]
+               -> [ResourceTree String]
                -> Q ([Dec], [Dec])
 mkYesodGeneral name args clazzes isSub resS = do
     let args' = map mkName args
@@ -130,7 +130,7 @@ mkYesodGeneral name args clazzes isSub resS = do
     let yesodDispatch' =
             InstanceD ctx ytyp [FunD (mkName "yesodDispatch") [disp]]
 
-    return (renderRouteDec : masterTypSyns, [yesodDispatch'])
+    return (renderRouteDec ++ masterTypSyns, [yesodDispatch'])
   where
     name' = mkName name
     masterTypSyns

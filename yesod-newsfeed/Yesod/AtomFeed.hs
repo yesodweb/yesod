@@ -31,11 +31,8 @@ import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text)
 import Data.Text.Lazy (toStrict)
 import Text.XML
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
-#else
-import Text.Blaze.Renderer.Text (renderHtml)
-#endif
+import qualified Data.Map as Map
 
 newtype RepAtom = RepAtom Content
 instance HasReps RepAtom where
@@ -55,21 +52,21 @@ template Feed {..} render =
     addNS' n = n
     namespace = "http://www.w3.org/2005/Atom"
 
-    root = Element "feed" [] $ map NodeElement
-        $ Element "title" [] [NodeContent feedTitle]
-        : Element "link" [("rel", "self"), ("href", render feedLinkSelf)] []
-        : Element "link" [("href", render feedLinkHome)] []
-        : Element "updated" [] [NodeContent $ formatW3 feedUpdated]
-        : Element "id" [] [NodeContent $ render feedLinkHome]
+    root = Element "feed" Map.empty $ map NodeElement
+        $ Element "title" Map.empty [NodeContent feedTitle]
+        : Element "link" (Map.fromList [("rel", "self"), ("href", render feedLinkSelf)]) []
+        : Element "link" (Map.singleton "href" $ render feedLinkHome) []
+        : Element "updated" Map.empty [NodeContent $ formatW3 feedUpdated]
+        : Element "id" Map.empty [NodeContent $ render feedLinkHome]
         : map (flip entryTemplate render) feedEntries
 
 entryTemplate :: FeedEntry url -> (url -> Text) -> Element
-entryTemplate FeedEntry {..} render = Element "entry" [] $ map NodeElement
-    [ Element "id" [] [NodeContent $ render feedEntryLink]
-    , Element "link" [("href", render feedEntryLink)] []
-    , Element "updated" [] [NodeContent $ formatW3 feedEntryUpdated]
-    , Element "title" [] [NodeContent feedEntryTitle]
-    , Element "content" [("type", "html")] [NodeContent $ toStrict $ renderHtml feedEntryContent]
+entryTemplate FeedEntry {..} render = Element "entry" Map.empty $ map NodeElement
+    [ Element "id" Map.empty [NodeContent $ render feedEntryLink]
+    , Element "link" (Map.singleton "href" $ render feedEntryLink) []
+    , Element "updated" Map.empty [NodeContent $ formatW3 feedEntryUpdated]
+    , Element "title" Map.empty [NodeContent feedEntryTitle]
+    , Element "content" (Map.singleton "type" "html") [NodeContent $ toStrict $ renderHtml feedEntryContent]
     ]
 
 -- | Generates a link tag in the head of a widget.

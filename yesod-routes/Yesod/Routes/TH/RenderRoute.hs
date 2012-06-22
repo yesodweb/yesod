@@ -77,9 +77,9 @@ mkRenderRouteClauses =
 
         colon <- [|(:)|]
         let cons y ys = InfixE (Just y) colon (Just ys)
-        let pieces = foldr cons (VarE a) piecesSingle
+        let pieces' = foldr cons (VarE a) piecesSingle
 
-        let body = LamE [TupP [VarP a, VarP b]] (TupE [pieces, VarE b]) `AppE` (rr `AppE` VarE child)
+        let body = LamE [TupP [VarP a, VarP b]] (TupE [pieces', VarE b]) `AppE` (rr `AppE` VarE child)
 
         return $ Clause [pat] (NormalB body) [FunD childRender childClauses]
 
