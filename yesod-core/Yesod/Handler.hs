@@ -333,7 +333,7 @@ runRequestBody = do
 
 rbHelper :: W.Request -> ResourceT IO RequestBodyContents
 rbHelper req =
-    (map fix1 *** map fix2) <$> (NWP.parseRequestBody NWP.lbsBackEnd req)
+    (map fix1 *** map fix2) <$> (NWP.parseRequestBody NWP.lbsSink req) -- FIXME allow control over which backend to use
   where
     fix1 = go *** go
     fix2 (x, NWP.FileInfo a b c) =

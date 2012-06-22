@@ -53,7 +53,6 @@ import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Blaze (toHtml)
 import Text.Blaze.Renderer.String (renderHtml)
 #endif
-import Text.XML.Xml2Html ()
 
 type Query = T.Text
 type Html = L.ByteString

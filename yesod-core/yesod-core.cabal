@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.0.1.2
+version:         1.1.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -40,10 +40,6 @@ flag test
   description: Build the executable to run unit tests
   default: False
 
-flag blaze_html_0_5
-    description: use blaze-html 0.5 and blaze-markup 0.5
-    default: True
-
 library
     -- Work around a bug in cabal. Without this, wai-test doesn't get built and
     -- we have a missing dependency during --enable-tests builds.
@@ -52,9 +48,9 @@ library
 
     build-depends:   base                  >= 4.3      && < 5
                    , time                  >= 1.1.4
-                   , yesod-routes          >= 1.0      && < 1.1
-                   , wai                   >= 1.2      && < 1.3
-                   , wai-extra             >= 1.2      && < 1.3
+                   , yesod-routes          >= 1.1      && < 1.2
+                   , wai                   >= 1.3      && < 1.4
+                   , wai-extra             >= 1.3      && < 1.4
                    , bytestring            >= 0.9.1.4
                    , text                  >= 0.7      && < 0.12
                    , template-haskell
@@ -83,17 +79,11 @@ library
                    , aeson                 >= 0.5
                    , fast-logger           >= 0.0.2
                    , wai-logger            >= 0.0.1
-                   , conduit               >= 0.4      && < 0.5
+                   , conduit               >= 0.5      && < 0.6
                    , resourcet             >= 0.3      && < 0.4
                    , lifted-base           >= 0.1      && < 0.2
-
-    if flag(blaze_html_0_5)
-        build-depends:
-                     blaze-html               >= 0.5     && < 0.6
-                   , blaze-markup             >= 0.5.1   && < 0.6
-    else
-        build-depends:
-                     blaze-html               >= 0.4     && < 0.5
+                   , blaze-html            >= 0.5      && < 0.6
+                   , blaze-markup          >= 0.5.1    && < 0.6
 
     exposed-modules: Yesod.Content
                      Yesod.Core
