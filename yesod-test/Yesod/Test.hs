@@ -133,10 +133,10 @@ type CookieValue = H.Ascii
 -- 
 -- Look at the examples directory on this package to get an idea of the (small) amount of
 -- boilerplate code you'll need to write before calling this.
-runTests :: Application -> ConnectionPool -> Specs -> IO a
+runTests :: Application -> ConnectionPool -> Specs -> IO ()
 runTests app connection specsDef = do
   (SpecsData _ _ specs) <- ST.execStateT specsDef (SpecsData app connection [])
-  Runner.hspecX specs
+  Runner.hspec specs
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
