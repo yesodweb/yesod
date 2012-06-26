@@ -85,22 +85,13 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO
 import qualified Data.Text.Lazy.Builder as TB
 import Language.Haskell.TH.Syntax (Loc (..), Lift (..))
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze (preEscapedToMarkup)
-#else
-import Text.Blaze (preEscapedLazyText)
-#endif
 import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
 import qualified Data.Vector as Vector
 import Network.Wai.Middleware.Gzip (GzipSettings, def)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
-
-#if MIN_VERSION_blaze_html(0, 5, 0)
-preEscapedLazyText :: TL.Text -> Html
-preEscapedLazyText = preEscapedToMarkup
-#endif
 
 yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version
@@ -522,7 +513,7 @@ maybeAuthorized r isWrite = do
     return $ if x == Authorized then Just r else Nothing
 
 jsToHtml :: Javascript -> Html
-jsToHtml (Javascript b) = preEscapedLazyText $ toLazyText b
+jsToHtml (Javascript b) = preEscapedToMarkup $ toLazyText b
 
 jelper :: JavascriptUrl url -> HtmlUrl url
 jelper = fmap jsToHtml
@@ -550,7 +541,7 @@ widgetToPageContent w = do
            $ encodeUtf8 rendered
         return (mmedia,
             case x of
-                Nothing -> Left $ preEscapedLazyText rendered
+                Nothing -> Left $ preEscapedToMarkup rendered
                 Just y -> Right $ either id (uncurry render) y)
     jsLoc <-
         case jscript of
