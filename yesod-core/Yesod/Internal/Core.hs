@@ -47,6 +47,7 @@ import Yesod.Handler hiding (lift, getExpires)
 
 import Yesod.Routes.Class
 
+import Data.Word (Word64)
 import Control.Arrow ((***))
 import Control.Monad (forM)
 import Yesod.Widget
@@ -290,7 +291,7 @@ $doctype 5
     cookieDomain _ = Nothing
 
     -- | Maximum allowed length of the request body, in bytes.
-    maximumContentLength :: a -> Maybe (Route a) -> Int
+    maximumContentLength :: a -> Maybe (Route a) -> Word64
     maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
 
     -- | Send a message to the log. By default, prints to stdout.
