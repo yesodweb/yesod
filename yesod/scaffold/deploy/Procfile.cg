@@ -15,18 +15,21 @@
 #
 # Postgresql Yesod setup:
 #
-# * add a dependency on the "heroku" package in your cabal file
+# * add dependencies on the "heroku", "aeson" and "unordered-containers" packages in your cabal file
 #
 # * add code in Application.hs to use the heroku package and load the connection parameters.
 #   The below works for Postgresql.
 #
+#   import Data.HashMap.Strict as H
+#   import Data.Aeson.Types as AT
 #   #ifndef DEVELOPMENT
 #   import qualified Web.Heroku
 #   #endif
 #
 #
-#   makeApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
-#   makeApplication conf logger = do
+#
+#   makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO App
+#   makeFoundation conf setLogger = do
 #       manager <- newManager def
 #       s <- staticSite
 #       hconfig <- loadHerokuConfig
@@ -35,17 +38,7 @@
 #                 Database.Persist.Store.applyEnv
 #       p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)
 #       Database.Persist.Store.runPool dbconf (runMigration migrateAll) p
-#    let foundation = ~sitearg~ conf setLogger s p manager dbconf
-#    app <- toWaiAppPlain foundation
-#    return $ logWare app
-#  where
-##ifdef DEVELOPMENT
-#    logWare = logCallbackDev (logBS setLogger)
-#    setLogger = logger
-##else
-#    setLogger = toProduction logger -- by default the logger is set for development
-#    logWare = logCallback (logBS setLogger)
-##endif
+#       return $ App conf setLogger s p manager dbconf
 #
 #   #ifndef DEVELOPMENT
 #   canonicalizeKey :: (Text, val) -> (Text, val)
