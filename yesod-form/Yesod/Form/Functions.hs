@@ -338,13 +338,21 @@ checkM :: RenderMessage master msg
        => (a -> GHandler sub master (Either msg a))
        -> Field sub master a
        -> Field sub master a
-checkM f field = field
+checkM f = checkM' f id
+
+checkM' :: RenderMessage master msg
+        => (a -> GHandler sub master (Either msg b))
+        -> (b -> a)
+        -> Field sub master a
+        -> Field sub master b
+checkM' f inv field = field
     { fieldParse = \ts -> do
         e1 <- fieldParse field ts
         case e1 of
             Left msg -> return $ Left msg
             Right Nothing -> return $ Right Nothing
             Right (Just a) -> fmap (either (Left . SomeMessage) (Right . Just)) $ f a
+    , fieldView = \i n a eres req -> fieldView field i n a (fmap inv eres) req
     }
 
 -- | Allows you to overwrite the error message on parse error.
