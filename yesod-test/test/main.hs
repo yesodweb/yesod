@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 import Test.HUnit hiding (Test)
 import Test.Hspec.Monadic
 import Test.Hspec.HUnit ()
@@ -15,7 +16,13 @@ findBySelector_ x = either error id . findBySelector x
 parseHtml_ = either error id . parseHtml
 
 main :: IO ()
-main = hspecX $ do
+main =
+#if MIN_VERSION_hspec(1,2,0)
+  hspec
+#else
+  hspecX
+#endif
+   $ do
     describe "CSS selector parsing" $ do
         it "elements" $ parseQuery_ "strong" @?= [[DeepChildren [ByTagName "strong"]]]
         it "child elements" $ parseQuery_ "strong > i" @?= [[DeepChildren [ByTagName "strong"], DirectChildren [ByTagName "i"]]]
