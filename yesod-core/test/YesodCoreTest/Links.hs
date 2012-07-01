@@ -31,4 +31,4 @@ runner f = toWaiApp Y >>= runSession f
 case_linkToHome :: IO ()
 case_linkToHome = runner $ do
     res <- request defaultRequest
-    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><a href=\"/\"></a></body></html>" res
+    assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><a href=\"/\"></a>\n</body></html>" res

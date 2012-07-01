@@ -38,6 +38,7 @@ nicHtmlField = Field
     { fieldParse = return . Right . fmap (preEscapedText . sanitizeBalance) . listToMaybe
     , fieldView = \theId name attrs val _isReq -> do
         toWidget [shamlet|
+$newline never
     <textarea id="#{theId}" *{attrs} name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit

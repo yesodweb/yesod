@@ -187,7 +187,10 @@ postHelper form env = do
     let token =
             case reqToken req of
                 Nothing -> mempty
-                Just n -> [shamlet|<input type=hidden name=#{tokenKey} value=#{n}>|]
+                Just n -> [shamlet|
+$newline never
+<input type=hidden name=#{tokenKey} value=#{n}>
+|]
     m <- getYesod
     langs <- languages
     ((res, xml), enctype) <- runFormGeneric (form token) m langs env
@@ -245,7 +248,10 @@ getKey = "_hasdata"
 
 getHelper :: (Html -> MForm sub master a) -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
 getHelper form env = do
-    let fragment = [shamlet|<input type=hidden name=#{getKey}>|]
+    let fragment = [shamlet|
+$newline never
+<input type=hidden name=#{getKey}>
+|]
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env
@@ -261,6 +267,7 @@ renderTable aform fragment = do
     let views = views' []
     -- FIXME non-valid HTML
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <tr :fvRequired view:.required :not $ fvRequired view:.optional>
@@ -278,6 +285,7 @@ renderDivs aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <div :fvRequired view:.required :not $ fvRequired view:.optional>
@@ -312,6 +320,7 @@ renderBootstrap aform fragment = do
         has (Just _) = True
         has Nothing  = False
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <div .control-group .clearfix :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>

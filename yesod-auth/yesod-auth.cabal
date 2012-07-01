@@ -24,7 +24,7 @@ library
                    , text                    >= 0.7       && < 0.12
                    , mime-mail               >= 0.3       && < 0.5
                    , yesod-persistent        >= 1.1       && < 1.2
-                   , hamlet                  >= 1.0       && < 1.1
+                   , hamlet                  >= 1.1       && < 1.2
                    , shakespeare-css         >= 1.0       && < 1.1
                    , yesod-json              >= 1.1       && < 1.2
                    , containers

@@ -162,6 +162,7 @@ class RenderRoute a => Yesod a where
         p <- widgetToPageContent w
         mmsg <- getMessage
         hamletToRepHtml [hamlet|
+$newline never
 $doctype 5
 
 <html>
@@ -470,18 +471,21 @@ defaultErrorHandler NotFound = do
     let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
     applyLayout' "Not Found"
         [hamlet|
+$newline never
 <h1>Not Found
 <p>#{path'}
 |]
 defaultErrorHandler (PermissionDenied msg) =
     applyLayout' "Permission Denied"
         [hamlet|
+$newline never
 <h1>Permission denied
 <p>#{msg}
 |]
 defaultErrorHandler (InvalidArgs ia) =
     applyLayout' "Invalid Arguments"
         [hamlet|
+$newline never
 <h1>Invalid Arguments
 <ul>
     $forall msg <- ia
@@ -490,12 +494,14 @@ defaultErrorHandler (InvalidArgs ia) =
 defaultErrorHandler (InternalError e) =
     applyLayout' "Internal Server Error"
         [hamlet|
+$newline never
 <h1>Internal Server Error
 <p>#{e}
 |]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method"
         [hamlet|
+$newline never
 <h1>Method Not Supported
 <p>Method "#{S8.unpack m}" not supported
 |]
@@ -555,6 +561,7 @@ widgetToPageContent w = do
     -- the asynchronous loader means your page doesn't have to wait for all the js to load
     let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
         regularScriptLoad = [hamlet|
+$newline never
 $forall s <- scripts
     ^{mkScriptTag s}
 $maybe j <- jscript
@@ -565,6 +572,7 @@ $maybe j <- jscript
 |]
 
         headAll = [hamlet|
+$newline never
 \^{head'}
 $forall s <- stylesheets
     ^{mkLinkTag s}
@@ -587,6 +595,7 @@ $case jsLoader master
       ^{regularScriptLoad}
 |]
     let bodyScript = [hamlet|
+$newline never
 ^{body}
 ^{regularScriptLoad}
 |]
@@ -633,6 +642,7 @@ jsonArray = unsafeLazyByteString . encode . Array . Vector.fromList . map String
 loadJsYepnope :: Yesod master => Either Text (Route master) -> [Text] -> Maybe (HtmlUrl (Route master)) -> (HtmlUrl (Route master))
 loadJsYepnope eyn scripts mcomplete =
   [hamlet|
+$newline never
     $maybe yn <- left eyn
         <script src=#{yn}>
     $maybe yn <- right eyn

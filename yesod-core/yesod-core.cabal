@@ -55,14 +55,14 @@ library
                    , text                  >= 0.7      && < 0.12
                    , template-haskell
                    , path-pieces           >= 0.1      && < 0.2
-                   , hamlet                >= 1.0      && < 1.1
+                   , hamlet                >= 1.1      && < 1.2
                    , shakespeare           >= 1.0      && < 1.1
                    , shakespeare-js        >= 1.0      && < 1.1
                    , shakespeare-css       >= 1.0      && < 1.1
                    , shakespeare-i18n      >= 1.0      && < 1.1
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , transformers          >= 0.2.2    && < 0.4
-                   , clientsession         >= 0.7.3.1  && < 0.8
+                   , clientsession         >= 0.8      && < 0.9
                    , random                >= 1.0.0.2  && < 1.1
                    , cereal                >= 0.3      && < 0.4
                    , old-locale            >= 1.0.0.2  && < 1.1

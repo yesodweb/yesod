@@ -46,7 +46,10 @@ authGoogleEmail =
   where
     complete = PluginR pid ["complete"]
     login tm =
-        [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
+        [whamlet|
+$newline never
+<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}
+|]
     dispatch "GET" ["forward"] = do
         render <- getUrlRender
         toMaster <- getRouteToMaster

@@ -71,5 +71,6 @@ rssLink :: Route m
         -> Text -- ^ title
         -> GWidget s m ()
 rssLink r title = toWidgetHead [hamlet|
+$newline never
     <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}>
     |]
