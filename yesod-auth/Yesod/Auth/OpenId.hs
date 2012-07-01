@@ -46,6 +46,7 @@ authOpenIdExtended extensionFields =
     padding-left: 18px;
 |]
         [whamlet|
+$newline never
 <form method="get" action="@{tm forwardUrl}">
     <input type="hidden" name="openid_identifier" value="https://www.google.com/accounts/o8/id">
     <button .openid-google>_{Msg.LoginGoogle}

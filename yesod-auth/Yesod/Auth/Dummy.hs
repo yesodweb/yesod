@@ -24,6 +24,7 @@ authDummy =
     url = PluginR "dummy" []
     login authToMaster =
         toWidget [hamlet|
+$newline never
 <form method="post" action="@{authToMaster url}">
     Your new identifier is: #
     <input type="text" name="ident">

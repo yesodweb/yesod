@@ -64,6 +64,7 @@ jqueryDayField jds = Field
               . unpack
     , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
@@ -103,6 +104,7 @@ jqueryAutocompleteField src = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs

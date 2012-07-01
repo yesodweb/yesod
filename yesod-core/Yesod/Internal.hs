@@ -27,7 +27,8 @@ module Yesod.Internal
     , tokenKey
     ) where
 
-import Text.Hamlet (HtmlUrl, hamlet, Html)
+import Text.Hamlet (HtmlUrl, Html)
+import Text.Blaze.Html (toHtml)
 import Text.Julius (JavascriptUrl)
 import Data.Monoid (Monoid (..), Last)
 import Data.List (nub)
@@ -69,10 +70,8 @@ langKey = "_LANG"
 data Location url = Local url | Remote Text
     deriving (Show, Eq)
 locationToHtmlUrl :: Location url -> HtmlUrl url
-locationToHtmlUrl (Local url) = [hamlet|\@{url}
-|]
-locationToHtmlUrl (Remote s) = [hamlet|\#{s}
-|]
+locationToHtmlUrl (Local url) render = toHtml $ render url []
+locationToHtmlUrl (Remote s) _ = toHtml s
 
 newtype UniqueList x = UniqueList ([x] -> [x])
 instance Monoid (UniqueList x) where

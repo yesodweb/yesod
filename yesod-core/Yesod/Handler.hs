@@ -842,6 +842,7 @@ redirectToPost :: RedirectUrl master url => url -> GHandler sub master a
 redirectToPost url = do
     urlText <- toTextUrl url
     hamletToRepHtml [hamlet|
+$newline never
 $doctype 5
 
 <html>

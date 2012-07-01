@@ -17,7 +17,7 @@ library
                    , yesod-core            >= 1.1      && < 1.2
                    , yesod-persistent      >= 1.1      && < 1.2
                    , time                  >= 1.1.4
-                   , hamlet                >= 1.0      && < 1.1
+                   , hamlet                >= 1.1      && < 1.2
                    , shakespeare-css       >= 1.0      && < 1.1
                    , shakespeare-js        >= 1.0      && < 1.1
                    , persistent            >= 1.0      && < 1.1

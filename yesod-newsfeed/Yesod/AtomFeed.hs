@@ -74,5 +74,6 @@ atomLink :: Route m
          -> Text -- ^ title
          -> GWidget s m ()
 atomLink r title = toWidgetHead [hamlet|
+$newline never
 <link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}>
 |]
