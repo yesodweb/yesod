@@ -343,6 +343,7 @@ rbHelper upload =
     case upload of
         FileUploadMemory s -> rbHelper' s mkFileInfoLBS
         FileUploadDisk s -> rbHelper' s mkFileInfoFile
+        FileUploadSource s -> rbHelper' s mkFileInfoSource
 
 rbHelper' :: Sink S8.ByteString (ResourceT IO) x
           -> (Text -> Text -> x -> FileInfo)
