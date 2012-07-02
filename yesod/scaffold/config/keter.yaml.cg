@@ -1,0 +1,4 @@
+exec: ../dist/build/~project~/~project~
+args:
+    - production
+host: ~project~.yesodweb.com
