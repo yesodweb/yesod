@@ -53,6 +53,7 @@ module Yesod.Widget
     , addScriptEither
       -- * Internal
     , unGWidget
+    , whamletFileWithSettings
     ) where
 
 import Data.Monoid
@@ -271,6 +272,9 @@ whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
 
 whamletFile :: FilePath -> Q Exp
 whamletFile = NP.hamletFileWithSettings rules NP.defaultHamletSettings
+
+whamletFileWithSettings :: NP.HamletSettings -> FilePath -> Q Exp
+whamletFileWithSettings = NP.hamletFileWithSettings rules
 
 rules :: Q NP.HamletRules
 rules = do

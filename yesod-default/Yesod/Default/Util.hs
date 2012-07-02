@@ -7,7 +7,11 @@ module Yesod.Default.Util
     , globFile
     , widgetFileNoReload
     , widgetFileReload
-    , widgetFileJsCss
+    , TemplateLanguage (..)
+    , defaultTemplateLanguages
+    , WidgetFileSettings
+    , wfsLanguages
+    , wfsHamletSettings
     ) where
 
 import Control.Monad.IO.Class (liftIO)
@@ -20,7 +24,9 @@ import Language.Haskell.TH.Syntax
 import Text.Lucius (luciusFile, luciusFileReload)
 import Text.Julius (juliusFile, juliusFileReload)
 import Text.Cassius (cassiusFile, cassiusFileReload)
+import Text.Hamlet (HamletSettings, defaultHamletSettings)
 import Data.Maybe (catMaybes)
+import Data.Default (Default (def))
 
 -- | An implementation of 'addStaticContent' which stores the contents in an
 -- external file. Files are created in the given static folder with names based
@@ -57,34 +63,40 @@ addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
 globFile :: String -> String -> FilePath
 globFile kind x = "templates/" ++ x ++ "." ++ kind
 
-widgetFileNoReload :: FilePath -> Q Exp
-widgetFileNoReload x = combine "widgetFileNoReload" x
-    [ whenExists x False "hamlet"  whamletFile
-    , whenExists x True  "cassius" cassiusFile
-    , whenExists x True  "julius"  juliusFile
-    , whenExists x True  "lucius"  luciusFile
-    ]
+data TemplateLanguage = TemplateLanguage
+    { tlRequiresToWidget :: Bool
+    , tlExtension :: String
+    , tlNoReload :: FilePath -> Q Exp
+    , tlReload :: FilePath -> Q Exp
+    }
 
-widgetFileReload :: FilePath -> Q Exp
-widgetFileReload x = combine "widgetFileReload" x
-    [ whenExists x False "hamlet"  whamletFile
-    , whenExists x True  "cassius" cassiusFileReload
-    , whenExists x True  "julius"  juliusFileReload
-    , whenExists x True  "lucius"  luciusFileReload
+defaultTemplateLanguages :: HamletSettings -> [TemplateLanguage]
+defaultTemplateLanguages hset =
+    [ TemplateLanguage False "hamlet"  whamletFile' whamletFile'
+    , TemplateLanguage True  "cassius" cassiusFile  cassiusFileReload
+    , TemplateLanguage True  "julius"  juliusFile   juliusFileReload
+    , TemplateLanguage True  "lucius"  luciusFile   luciusFileReload
     ]
+  where
+    whamletFile' = whamletFileWithSettings hset
 
-widgetFileJsCss :: (String, FilePath -> Q Exp) -- ^ JavaScript file extenstion and loading function. example: ("julius", juliusFileReload)
-                -> (String, FilePath -> Q Exp) -- ^ Css file extenstion and loading function. example: ("cassius", cassiusFileReload)
-                -> FilePath -> Q Exp
-widgetFileJsCss (jsExt, jsLoad) (csExt, csLoad) x = combine "widgetFileJsCss" x
-    [ whenExists x False "hamlet"  whamletFile
-    , whenExists x True  csExt csLoad
-    , whenExists x True  jsExt jsLoad
-    ]
+data WidgetFileSettings = WidgetFileSettings
+    { wfsLanguages :: HamletSettings -> [TemplateLanguage]
+    , wfsHamletSettings :: HamletSettings
+    }
 
-combine :: String -> String -> [Q (Maybe Exp)] -> Q Exp
-combine func file qmexps = do
-    mexps <- sequence qmexps
+instance Default WidgetFileSettings where
+    def = WidgetFileSettings defaultTemplateLanguages defaultHamletSettings
+
+widgetFileNoReload :: WidgetFileSettings -> FilePath -> Q Exp
+widgetFileNoReload wfs x = combine "widgetFileNoReload" x False $ wfsLanguages wfs $ wfsHamletSettings wfs
+
+widgetFileReload :: WidgetFileSettings -> FilePath -> Q Exp
+widgetFileReload wfs x = combine "widgetFileReload" x True $ wfsLanguages wfs $ wfsHamletSettings wfs
+
+combine :: String -> String -> Bool -> [TemplateLanguage] -> Q Exp
+combine func file isReload tls = do
+    mexps <- qmexps
     case catMaybes mexps of
         [] -> error $ concat
             [ "Called "
@@ -94,6 +106,12 @@ combine func file qmexps = do
             , ", but no template were found."
             ]
         exps -> return $ DoE $ map NoBindS exps
+  where
+    qmexps :: Q [Maybe Exp]
+    qmexps = mapM go tls
+
+    go :: TemplateLanguage -> Q (Maybe Exp)
+    go tl = whenExists file (tlRequiresToWidget tl) (tlExtension tl) ((if isReload then tlReload else tlNoReload) tl)
 
 whenExists :: String
            -> Bool -- ^ requires toWidget wrap
