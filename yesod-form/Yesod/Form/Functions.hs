@@ -54,14 +54,13 @@ import Text.Blaze (Html, toHtml)
 import Yesod.Handler (GHandler, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
-import Yesod.Request (reqToken, reqWaiRequest, reqGetParams, languages, FileInfo (..))
+import Yesod.Request (reqToken, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import qualified Data.Map as Map
-import qualified Data.ByteString.Lazy as L
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
 
@@ -220,9 +219,7 @@ postEnv = do
         else do
             (p, f) <- runRequestBody
             let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
-            return $ Just (p', Map.fromList $ filter (notEmpty . snd) f)
-  where
-    notEmpty = not . L.null . fileContent
+            return $ Just (p', Map.fromList f)
 
 runFormPostNoToken :: (Html -> MForm sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoToken form = do
