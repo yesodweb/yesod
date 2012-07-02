@@ -16,7 +16,11 @@ module Yesod.Request
       -- * Request datatype
       RequestBodyContents
     , Request (..)
-    , FileInfo (..)
+    , FileInfo
+    , fileName
+    , fileContentType
+    , fileSource
+    , fileMove
       -- * Convenience functions
     , languages
       -- * Lookup parameters
