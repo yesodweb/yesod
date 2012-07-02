@@ -181,6 +181,8 @@ import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import Control.Monad.Base
 import Yesod.Routes.Class
+import Data.Word (Word64)
+import Data.Conduit (Sink)
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
@@ -193,6 +195,7 @@ data HandlerData sub master = HandlerData
     , handlerRender   :: Route master -> [(Text, Text)] -> Text
     , handlerToMaster :: Route sub -> Route master
     , handlerState    :: I.IORef GHState
+    , handlerUpload   :: Word64 -> FileUpload
     }
 
 handlerSubData :: (Route sub -> Route master)
@@ -322,22 +325,35 @@ hcError = liftIO . throwIO . HCError
 
 runRequestBody :: GHandler s m RequestBodyContents
 runRequestBody = do
+    hd <- ask
+    let getUpload = handlerUpload hd
+        len = reqBodySize $ handlerRequest hd
+        upload = getUpload len
     x <- get
     case ghsRBC x of
         Just rbc -> return rbc
         Nothing -> do
             rr <- waiRequest
-            rbc <- lift $ rbHelper rr
+            rbc <- lift $ rbHelper upload rr
             put x { ghsRBC = Just rbc }
             return rbc
 
-rbHelper :: W.Request -> ResourceT IO RequestBodyContents
-rbHelper req =
-    (map fix1 *** map fix2) <$> (NWP.parseRequestBody NWP.lbsSink req) -- FIXME allow control over which backend to use
+rbHelper :: FileUpload -> W.Request -> ResourceT IO RequestBodyContents
+rbHelper upload =
+    case upload of
+        FileUploadMemory s -> rbHelper' s mkFileInfoLBS
+        FileUploadDisk s -> rbHelper' s mkFileInfoFile
+
+rbHelper' :: Sink S8.ByteString (ResourceT IO) x
+          -> (Text -> Text -> x -> FileInfo)
+          -> W.Request
+          -> ResourceT IO ([(Text, Text)], [(Text, FileInfo)])
+rbHelper' sink mkFI req =
+    (map fix1 *** map fix2) <$> (NWP.parseRequestBody sink req)
   where
     fix1 = go *** go
     fix2 (x, NWP.FileInfo a b c) =
-        (go x, FileInfo (go a) (go b) c)
+        (go x, mkFI (go a) (go b) c)
     go = decodeUtf8With lenientDecode
 
 -- | Get the sub application argument.
@@ -378,8 +394,9 @@ runHandler :: HasReps c
            -> (Route sub -> Route master)
            -> master
            -> sub
+           -> (Word64 -> FileUpload)
            -> YesodApp
-runHandler handler mrender sroute tomr master sub =
+runHandler handler mrender sroute tomr master sub upload =
   YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler e =
             case fromException e of
@@ -400,6 +417,7 @@ runHandler handler mrender sroute tomr master sub =
             , handlerRender = mrender
             , handlerToMaster = tomr
             , handlerState = istate
+            , handlerUpload = upload
             }
     contents' <- catch (fmap Right $ unGHandler handler hd)
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
@@ -772,6 +790,7 @@ getSession = liftM ghsSession get
 handlerToYAR :: (HasReps a, HasReps b)
              => master -- ^ master site foundation
              -> sub    -- ^ sub site foundation
+             -> (Word64 -> FileUpload)
              -> (Route sub -> Route master)
              -> (Route master -> [(Text, Text)] -> Text) -- route renderer
              -> (ErrorResponse -> GHandler sub master a)
@@ -780,11 +799,11 @@ handlerToYAR :: (HasReps a, HasReps b)
              -> SessionMap
              -> GHandler sub master b
              -> ResourceT IO YesodAppResult
-handlerToYAR y s toMasterRoute render errorHandler rr murl sessionMap h =
+handlerToYAR y s upload toMasterRoute render errorHandler rr murl sessionMap h =
     unYesodApp ya eh' rr types sessionMap
   where
-    ya = runHandler h render murl toMasterRoute y s
-    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s
+    ya = runHandler h render murl toMasterRoute y s upload
+    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload
     types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 

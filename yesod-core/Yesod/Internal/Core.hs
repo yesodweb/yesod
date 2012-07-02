@@ -40,6 +40,7 @@ module Yesod.Internal.Core
     , yesodRender
     , resolveApproot
     , Approot (..)
+    , FileUpload (..)
     ) where
 
 import Yesod.Content
@@ -90,6 +91,7 @@ import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
 import qualified Data.Vector as Vector
 import Network.Wai.Middleware.Gzip (GzipSettings, def)
+import Network.Wai.Parse (tempFileSink, lbsSink)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 
@@ -325,6 +327,16 @@ $doctype 5
         key <- CS.getKey CS.defaultKeyFile
         return $ Just $ clientSessionBackend key 120
 
+    -- | How to store uploaded files.
+    --
+    -- Default: Whe nthe request body is greater than 50kb, store in a temp
+    -- file. Otherwise, store in memory.
+    fileUpload :: a
+               -> Word64 -- ^ request body size
+               -> FileUpload
+    fileUpload _ size
+        | size > 50000 = FileUploadDisk tempFileSink
+        | otherwise = FileUploadMemory lbsSink
 
 messageLoggerHandler :: Yesod m
                      => Loc -> LogLevel -> Text -> GHandler s m ()
@@ -376,24 +388,18 @@ defaultYesodRunner :: Yesod master
                    -> (Route sub -> Route master)
                    -> Maybe (SessionBackend master)
                    -> W.Application
-defaultYesodRunner _ master _ murl toMaster _ req
-    | maximumContentLength master (fmap toMaster murl) < len =
+defaultYesodRunner handler master sub murl toMasterRoute msb req
+  | maximumContentLength master (fmap toMasterRoute murl) < len =
         return $ W.responseLBS
             (H.Status 413 "Too Large")
             [("Content-Type", "text/plain")]
             "Request body too large to be processed."
-  where
-    len = fromMaybe 0 $ lookup "content-length" (W.requestHeaders req) >>= readMay
-    readMay s =
-        case reads $ S8.unpack s of
-            [] -> Nothing
-            (x, _):_ -> Just x
-defaultYesodRunner handler master sub murl toMasterRoute msb req = do
+  | otherwise = do
     now <- liftIO getCurrentTime
     let dontSaveSession _ _ = return []
     (session, saveSession) <- liftIO $
         maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req now) msb
-    rr <- liftIO $ parseWaiRequest req session (isJust msb)
+    rr <- liftIO $ parseWaiRequest req session (isJust msb) len
     let h = {-# SCC "h" #-} do
           case murl of
             Nothing -> handler
@@ -413,7 +419,7 @@ defaultYesodRunner handler master sub murl toMasterRoute msb req = do
                 handler
     let sessionMap = Map.fromList . filter ((/=) tokenKey . fst) $ session
     let ra = resolveApproot master req
-    yar <- handlerToYAR master sub toMasterRoute
+    yar <- handlerToYAR master sub (fileUpload master) toMasterRoute
         (yesodRender master ra) errorHandler rr murl sessionMap h
     extraHeaders <- case yar of
         (YARPlain _ _ ct _ newSess) -> do
@@ -425,6 +431,12 @@ defaultYesodRunner handler master sub murl toMasterRoute msb req = do
             return $ ("Content-Type", ct) : map headerToPair sessionHeaders
         _ -> return []
     return $ yarToResponse yar extraHeaders
+  where
+    len = fromMaybe 0 $ lookup "content-length" (W.requestHeaders req) >>= readMay
+    readMay s =
+        case reads $ S8.unpack s of
+            [] -> Nothing
+            (x, _):_ -> Just x
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
     deriving (Eq, Show, Read)
