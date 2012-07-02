@@ -12,6 +12,7 @@ data Feed url = Feed
     { feedTitle       :: Text
     , feedLinkSelf    :: url
     , feedLinkHome    :: url
+    , feedAuthor      :: Text
 
 
     -- | note: currently only used for Rss
