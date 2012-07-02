@@ -94,17 +94,6 @@ test-suite test
     main-is:           main.hs
     hs-source-dirs:    tests
     ghc-options:       -Wall
-    extensions:        TemplateHaskell
-                       QuasiQuotes
-                       OverloadedStrings
-                       NoImplicitPrelude
-                       CPP
-                       OverloadedStrings
-                       MultiParamTypeClasses
-                       TypeFamilies
-                       GADTs
-                       GeneralizedNewtypeDeriving
-                       FlexibleContexts
 
     build-depends: base
                  , ~project~
