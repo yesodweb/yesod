@@ -11,6 +11,7 @@ module Yesod.Internal.Request
     , fileMove
     , mkFileInfoLBS
     , mkFileInfoFile
+    , mkFileInfoSource
     , FileUpload (..)
     -- The below are exported for testing.
     , randomString
@@ -141,5 +142,9 @@ mkFileInfoLBS name ct lbs = FileInfo name ct (sourceList $ L.toChunks lbs) (\fp 
 mkFileInfoFile :: Text -> Text -> FilePath -> FileInfo
 mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourceT $ sourceFile fp $$ sinkFile dst)
 
+mkFileInfoSource :: Text -> Text -> Source (ResourceT IO) ByteString -> FileInfo
+mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runResourceT $ src $$ sinkFile dst)
+
 data FileUpload = FileUploadMemory (Sink ByteString (ResourceT IO) L.ByteString)
                 | FileUploadDisk (Sink ByteString (ResourceT IO) FilePath)
+                | FileUploadSource (Sink ByteString (ResourceT IO) (Source (ResourceT IO) ByteString))
