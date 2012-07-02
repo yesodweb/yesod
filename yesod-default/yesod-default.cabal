@@ -32,6 +32,8 @@ library
                    , yaml                  >= 0.8     && < 0.9
                    , network-conduit       >= 0.5     && < 0.6
                    , unordered-containers
+                   , hamlet                >= 1.1     && < 1.2
+                   , data-default
 
     if !os(windows)
          build-depends: unix
