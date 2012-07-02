@@ -13,7 +13,7 @@ import Application (makeFoundation)
 
 import HomeTest
 
-main :: IO a
+main :: IO ()
 main = do
     conf <- loadConfig $ (configSettings Testing) { csParseExtra = parseExtra }
     logger <- defaultDevelopmentLogger
