@@ -111,6 +111,7 @@ executable             yesod
                        Scaffolding.Scaffolder
                        Devel
                        Build
+                       AddHandler
 
 source-repository head
   type:     git
