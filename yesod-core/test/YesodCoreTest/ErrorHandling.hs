@@ -49,7 +49,7 @@ postFirstThingR = do
 
 postAfterRunRequestBodyR = do
    x <- runRequestBody
-   _ <- error $ show x
+   _ <- error $ show $ fst x
    getHomeR
 
 errorHandlingTest :: Spec
