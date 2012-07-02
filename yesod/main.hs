@@ -11,6 +11,7 @@ import Control.Monad (unless)
 import Build (touch)
 #endif
 import Devel (devel)
+import AddHandler (addHandler)
 
 windowsWarning :: String
 #ifdef WINDOWS
@@ -46,6 +47,7 @@ main = do
             rawSystem' cmd ["test"]
         ["version"] -> putStrLn $ "yesod-core version:" ++ yesodVersion
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
+        ["add-handler"] -> addHandler
         _ -> do
             putStrLn "Usage: yesod <command>"
             putStrLn "Available commands:"
@@ -59,6 +61,7 @@ main = do
             putStrLn "                    use --dev devel to build with cabal-dev"
             putStrLn "    test         Build and run the integration tests"
             putStrLn "                    use --dev devel to build with cabal-dev"
+            putStrLn "    add-handler  Add a new handler and module to your project"
             putStrLn "    version      Print the version of Yesod"
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
