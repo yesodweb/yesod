@@ -26,6 +26,7 @@ mkYesod "Y" [parseRoutes|
 /whamlet WhamletR GET
 /towidget TowidgetR GET
 /auto AutoR GET
+/jshead JSHeadR GET
 |]
 
 instance Yesod Y where
@@ -77,12 +78,16 @@ getAutoR = defaultLayout [whamlet|
   where
     someHtml = [shamlet|somehtml|]
 
+getJSHeadR :: Handler RepHtml
+getJSHeadR = defaultLayout $ toWidgetHead [julius|alert("hello");|]
+
 widgetTest :: Spec
 widgetTest = describe "Test.Widget"
     [ it "addJuliusBody" case_addJuliusBody
     , it "whamlet" case_whamlet
     , it "two letter lang codes" case_two_letter_lang
     , it "automatically applies toWidget" case_auto
+    , it "toWidgetHead puts JS in head" case_jshead
     ]
 
 runner :: Session () -> IO ()
@@ -116,3 +121,10 @@ case_auto = runner $ do
         , requestHeaders = [("Accept-Language", "es")]
         }
     assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body>somehtml</body></html>" res
+
+case_jshead :: IO ()
+case_jshead = runner $ do
+    res <- request defaultRequest
+        { pathInfo = ["jshead"]
+        }
+    assertBody "<!DOCTYPE html>\n<html><head><title></title><script>alert(\"hello\");</script></head><body></body></html>" res

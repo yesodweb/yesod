@@ -152,7 +152,7 @@ instance render ~ RY master => ToWidgetHead sub master (render -> Html) where
 instance render ~ RY master => ToWidgetHead sub master (render -> Css) where
     toWidgetHead = toWidget
 instance render ~ RY master => ToWidgetHead sub master (render -> Javascript) where
-    toWidgetHead = toWidget
+    toWidgetHead j = toWidgetHead $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 instance ToWidgetHead sub master Html where
     toWidgetHead = toWidgetHead . const
 
