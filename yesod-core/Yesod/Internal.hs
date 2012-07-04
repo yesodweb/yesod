@@ -99,13 +99,14 @@ tokenKey = "_TOKEN"
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> Builder
 
 data GWData a = GWData
-    !(Body a)
-    !(Last Title)
-    !(UniqueList (Script a))
-    !(UniqueList (Stylesheet a))
-    !(Map.Map (Maybe Text) (CssBuilderUrl a)) -- media type
-    !(Maybe (JavascriptUrl a))
-    !(Head a)
+    { gwdBody :: !(Body a)
+    , gwdTitle :: !(Last Title)
+    , gwdScripts :: !(UniqueList (Script a))
+    , gwdStylesheets :: !(UniqueList (Stylesheet a))
+    , gwdCss :: !(Map.Map (Maybe Text) (CssBuilderUrl a)) -- media type
+    , gwdJavascript :: !(Maybe (JavascriptUrl a))
+    , gwdHead :: !(Head a)
+    }
 instance Monoid (GWData a) where
     mempty = GWData mempty mempty mempty mempty mempty mempty mempty
     mappend (GWData a1 a2 a3 a4 a5 a6 a7)
