@@ -36,6 +36,7 @@ module Yesod.Form.Functions
       -- * Utilities
     , fieldSettingsLabel
     , aformM
+    , blank
     ) where
 
 import Yesod.Form.Types
@@ -361,3 +362,9 @@ aformM :: GHandler sub master a -> AForm sub master a
 aformM action = AForm $ \_ _ ints -> do
     value <- action
     return (FormSuccess value, id, ints, mempty)
+
+blank :: (Monad m, RenderMessage master FormMessage)
+      => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))
+blank _ [] = return $ Right Nothing
+blank _ ("":_) = return $ Right Nothing
+blank f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x
