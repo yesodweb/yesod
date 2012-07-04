@@ -26,7 +26,7 @@ library
                    , case-insensitive              >= 0.2
                    , text
                    , http-types                    >= 0.6      && < 0.7
-                   , xml-conduit                   >= 0.8      && < 0.9
+                   , xml-conduit                   >= 1.0      && < 1.1
                    , blaze-builder
                    , attoparsec
                    , containers
