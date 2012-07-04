@@ -47,6 +47,7 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Types
 import Yesod.Form.I18n.English
+import Yesod.Form.Functions (blank)
 import Yesod.Handler (getMessageRender)
 import Yesod.Widget (toWidget, whamlet, GWidget)
 import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
@@ -97,11 +98,6 @@ import Control.Applicative ((<$>))
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
-blank :: (Monad m, RenderMessage master FormMessage)
-      => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))
-blank _ [] = return $ Right Nothing
-blank _ ("":_) = return $ Right Nothing
-blank f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x
 
 intField :: (Integral i, RenderMessage master FormMessage) => Field sub master i
 intField = Field
