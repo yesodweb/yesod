@@ -370,6 +370,7 @@ boolField = Field
       "" -> Right Nothing
       "none" -> Right Nothing
       "yes" -> Right $ Just True
+      "on" -> Right $ Just True
       "no" -> Right $ Just False
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
@@ -393,6 +394,7 @@ checkBoxField = Field
         checkBoxParser [] = Right $ Just False
         checkBoxParser (x:_) = case x of
             "yes" -> Right $ Just True
+            "on" -> Right $ Just True
             _     -> Right $ Just False
 
         showVal = either (\_ -> False)
