@@ -165,6 +165,7 @@ import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 #define preEscapedText preEscapedToMarkup
 
 import System.Log.FastLogger
+import Control.Monad.Logger
 
 import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey, CacheKey)
@@ -957,7 +958,7 @@ instance MonadResource (GHandler sub master) where
     release = lift . release
     resourceMask = lift . resourceMask
 
-instance MonadLogging (GHandler sub master) where
-    monadLoggingLog a b c = do
+instance MonadLogger (GHandler sub master) where
+    monadLoggerLog a b c = do
         hd <- ask
         liftIO $ handlerLog hd a b (toLogStr c)

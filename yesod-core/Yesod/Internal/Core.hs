@@ -86,7 +86,8 @@ import Network.Wai.Middleware.Gzip (GzipSettings, def)
 import Network.Wai.Parse (tempFileSink, lbsSink)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
-import System.Log.FastLogger (LogLevel (LevelInfo), Logger, mkLogger, loggerDateRef, LogStr (..), loggerPutStr)
+import System.Log.FastLogger (Logger, mkLogger, loggerDateRef, LogStr (..), loggerPutStr)
+import Control.Monad.Logger (LogLevel (LevelInfo, LevelOther))
 import System.Log.FastLogger.Date (getDate, DateRef)
 import System.IO (stdout)
 
@@ -352,7 +353,10 @@ formatLogMessage dateref loc level msg = do
     return
         [ LB now
         , LB " ["
-        , LS $ drop 5 $ show level
+        , LS $
+            case level of
+                LevelOther t -> T.unpack t
+                _ -> drop 5 $ show level
         , LB "] "
         , msg
         , LB " @("
