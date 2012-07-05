@@ -45,15 +45,13 @@ import Text.Julius
 import Yesod.Form
 import Yesod.Json
 import Yesod.Persist
-import Network.HTTP.Types (status200)
 import Control.Monad.IO.Class (liftIO, MonadIO(..))
 import Control.Monad.Trans.Control (MonadBaseControl)
 
 import Network.Wai
-import Network.Wai.Logger
+import Network.Wai.Middleware.RequestLogger (logStdout)
 import Network.Wai.Handler.Warp (run)
-import System.IO (stderr, stdout, hFlush, hPutStrLn)
-import System.Log.FastLogger
+import System.IO (stderr, hPutStrLn)
 #if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml)
 #else
@@ -80,23 +78,7 @@ warpDebug :: (Yesod a, YesodDispatch a a) => Int -> a -> IO ()
 warpDebug port app = do
   hPutStrLn stderr $ "Application launched, listening on port " ++ show port
   waiApp <- toWaiApp app
-  dateRef <- dateInit
-  run port $ (logStdout dateRef) waiApp
-
-logStdout :: DateRef -> Middleware
-logStdout dateRef waiApp =
-  \req -> do
-    logRequest dateRef req
-    waiApp req
-
-logRequest  :: Control.Monad.IO.Class.MonadIO m =>
-               DateRef -> Network.Wai.Request -> m ()
-logRequest dateRef req = do
-  date <- liftIO $ getDate dateRef
-  let status = status200
-      len = 4
-  liftIO $ hPutLogStr stdout $ apacheFormat FromSocket date req status (Just len)
-  liftIO $ hFlush stdout
+  run port $ logStdout waiApp
 
 -- | Run a development server, where your code changes are automatically
 -- reloaded.
