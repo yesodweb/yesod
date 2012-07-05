@@ -138,11 +138,7 @@ import qualified Network.Wai as W
 import qualified Network.HTTP.Types as H
 
 import Text.Hamlet
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import qualified Text.Blaze.Html.Renderer.Text as RenderText
-#else
-import qualified Text.Blaze.Renderer.Text as RenderText
-#endif
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -165,12 +161,10 @@ import Blaze.ByteString.Builder (toByteString)
 import Data.Text (Text)
 import Yesod.Message (RenderMessage (..))
 
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 #define preEscapedText preEscapedToMarkup
-#else
-import Text.Blaze (toHtml, preEscapedText)
-#endif
+
+import System.Log.FastLogger
 
 import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey, CacheKey)
@@ -183,6 +177,7 @@ import Control.Monad.Base
 import Yesod.Routes.Class
 import Data.Word (Word64)
 import Data.Conduit (Sink)
+import Language.Haskell.TH.Syntax (Loc)
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
@@ -196,6 +191,7 @@ data HandlerData sub master = HandlerData
     , handlerToMaster :: Route sub -> Route master
     , handlerState    :: I.IORef GHState
     , handlerUpload   :: Word64 -> FileUpload
+    , handlerLog      :: Loc -> LogLevel -> LogStr -> IO ()
     }
 
 handlerSubData :: (Route sub -> Route master)
@@ -396,8 +392,9 @@ runHandler :: HasReps c
            -> master
            -> sub
            -> (Word64 -> FileUpload)
+           -> (Loc -> LogLevel -> LogStr -> IO ())
            -> YesodApp
-runHandler handler mrender sroute tomr master sub upload =
+runHandler handler mrender sroute tomr master sub upload log' =
   YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler e =
             case fromException e of
@@ -419,6 +416,7 @@ runHandler handler mrender sroute tomr master sub upload =
             , handlerToMaster = tomr
             , handlerState = istate
             , handlerUpload = upload
+            , handlerLog = log'
             }
     contents' <- catch (fmap Right $ unGHandler handler hd)
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
@@ -792,6 +790,7 @@ handlerToYAR :: (HasReps a, HasReps b)
              => master -- ^ master site foundation
              -> sub    -- ^ sub site foundation
              -> (Word64 -> FileUpload)
+             -> (Loc -> LogLevel -> LogStr -> IO ())
              -> (Route sub -> Route master)
              -> (Route master -> [(Text, Text)] -> Text) -- route renderer
              -> (ErrorResponse -> GHandler sub master a)
@@ -800,11 +799,11 @@ handlerToYAR :: (HasReps a, HasReps b)
              -> SessionMap
              -> GHandler sub master b
              -> ResourceT IO YesodAppResult
-handlerToYAR y s upload toMasterRoute render errorHandler rr murl sessionMap h =
+handlerToYAR y s upload log' toMasterRoute render errorHandler rr murl sessionMap h =
     unYesodApp ya eh' rr types sessionMap
   where
-    ya = runHandler h render murl toMasterRoute y s upload
-    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload
+    ya = runHandler h render murl toMasterRoute y s upload log'
+    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log'
     types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 
@@ -957,3 +956,8 @@ instance MonadResource (GHandler sub master) where
     register = lift . register
     release = lift . release
     resourceMask = lift . resourceMask
+
+instance MonadLogging (GHandler sub master) where
+    monadLoggingLog a b c = do
+        hd <- ask
+        liftIO $ handlerLog hd a b (toLogStr c)

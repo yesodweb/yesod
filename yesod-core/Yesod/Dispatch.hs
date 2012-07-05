@@ -28,7 +28,7 @@ module Yesod.Dispatch
     , WaiSubsite (..)
     ) where
 
-import Data.Functor   ((<$>))
+import Control.Applicative ((<$>), (<*>))
 import Prelude hiding (exp)
 import Yesod.Internal.Core
 import Yesod.Handler hiding (lift)
@@ -53,6 +53,7 @@ import Network.HTTP.Types (status301)
 import Yesod.Routes.TH
 import Yesod.Content (chooseRep)
 import Yesod.Routes.Parse
+import System.Log.FastLogger (Logger)
 
 type Texts = [Text]
 
@@ -119,7 +120,13 @@ mkYesodGeneral name args clazzes isSub resS = do
     let res = map (fmap parseType) resS
     renderRouteDec <- mkRenderRouteInstance arg res
 
-    disp <- mkDispatchClause [|yesodRunner|] [|yesodDispatch|] [|fmap chooseRep|] res
+    let logger = mkName "logger"
+    Clause pat body decs <- mkDispatchClause
+        [|yesodRunner $(return $ VarE logger)|]
+        [|yesodDispatch $(return $ VarE logger)|]
+        [|fmap chooseRep|]
+        res
+    let disp = Clause (VarP logger : pat) body decs
     let master = mkName "master"
     let ctx = if isSub
                 then ClassP (mkName "Yesod") [VarT master] : clazzes
@@ -160,23 +167,24 @@ toWaiApp y = gzip (gzipSettings y) . autohead <$> toWaiAppPlain y
 toWaiAppPlain :: ( Yesod master
                  , YesodDispatch master master
                  ) => master -> IO W.Application
-toWaiAppPlain a = toWaiApp' a <$> makeSessionBackend a
+toWaiAppPlain a = toWaiApp' a <$> getLogger a <*> makeSessionBackend a
 
 
 toWaiApp' :: ( Yesod master
              , YesodDispatch master master
              )
           => master
+          -> Logger
           -> Maybe (SessionBackend master)
           -> W.Application
-toWaiApp' y sb env =
+toWaiApp' y logger sb env =
     case cleanPath y $ W.pathInfo env of
         Left pieces -> sendRedirect y pieces env
         Right pieces ->
-            yesodDispatch y y id app404 handler405 method pieces sb env
+            yesodDispatch logger y y id app404 handler405 method pieces sb env
   where
-    app404 = yesodRunner notFound y y Nothing id
-    handler405 route = yesodRunner badMethod y y (Just route) id
+    app404 = yesodRunner logger notFound y y Nothing id
+    handler405 route = yesodRunner logger badMethod y y (Just route) id
     method = decodeUtf8With lenientDecode $ W.requestMethod env
 
 sendRedirect :: Yesod master => master -> [Text] -> W.Application
@@ -202,4 +210,4 @@ instance RenderRoute WaiSubsite where
     renderRoute (WaiSubsiteRoute ps qs) = (ps, qs)
 
 instance YesodDispatch WaiSubsite master where
-    yesodDispatch _master (WaiSubsite app) _tomaster _404 _405 _method _pieces _session = app
+    yesodDispatch _logger _master (WaiSubsite app) _tomaster _404 _405 _method _pieces _session = app

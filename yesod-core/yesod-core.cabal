@@ -77,8 +77,7 @@ library
                    , directory             >= 1        && < 1.2
                    , vector                >= 0.9      && < 0.10
                    , aeson                 >= 0.5
-                   , fast-logger           >= 0.0.2
-                   , wai-logger            >= 0.0.1
+                   , fast-logger           >= 0.1      && < 0.2
                    , conduit               >= 0.5      && < 0.6
                    , resourcet             >= 0.3      && < 0.4
                    , lifted-base           >= 0.1      && < 0.2
@@ -89,7 +88,6 @@ library
                      Yesod.Core
                      Yesod.Dispatch
                      Yesod.Handler
-                     Yesod.Logger
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Message
