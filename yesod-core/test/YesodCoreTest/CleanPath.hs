@@ -26,7 +26,7 @@ instance RenderRoute Subsite where
     renderRoute (SubsiteRoute x) = (x, [])
 
 instance YesodDispatch Subsite master where
-    yesodDispatch _ _ _ _ _ _ pieces _ _ = return $ responseLBS
+    yesodDispatch _ _ _ _ _ _ _ pieces _ _ = return $ responseLBS
         status200
         [ ("Content-Type", "SUBSITE")
         ] $ L8.pack $ show pieces

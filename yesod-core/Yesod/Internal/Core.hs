@@ -20,11 +20,6 @@ module Yesod.Internal.Core
     , defaultErrorHandler
       -- * Data types
     , AuthResult (..)
-      -- * Logging
-    , LogLevel (..)
-    , formatLogMessage
-    , fileLocationToString
-    , messageLoggerHandler
       -- * Sessions
     , SessionBackend (..)
     , defaultClientSessionBackend
@@ -82,10 +77,7 @@ import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Data.List (foldl')
 import qualified Network.HTTP.Types as H
 import Web.Cookie (SetCookie (..))
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.IO
-import qualified Data.Text.Lazy.Builder as TB
-import Language.Haskell.TH.Syntax (Loc (..), Lift (..))
+import Language.Haskell.TH.Syntax (Loc (..))
 import Text.Blaze (preEscapedToMarkup)
 import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
@@ -94,6 +86,9 @@ import Network.Wai.Middleware.Gzip (GzipSettings, def)
 import Network.Wai.Parse (tempFileSink, lbsSink)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
+import System.Log.FastLogger (LogLevel (LevelInfo), Logger, mkLogger, loggerDateRef, LogStr (..), loggerPutStr)
+import System.Log.FastLogger.Date (getDate, DateRef)
+import System.IO (stdout)
 
 yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version
@@ -103,7 +98,8 @@ yesodVersion = showVersion Paths_yesod_core.version
 class YesodDispatch sub master where
     yesodDispatch
         :: Yesod master
-        => master
+        => Logger
+        -> master
         -> sub
         -> (Route sub -> Route master)
         -> (Maybe (SessionBackend master) -> W.Application) -- ^ 404 handler
@@ -114,7 +110,8 @@ class YesodDispatch sub master where
         -> W.Application
 
     yesodRunner :: Yesod master
-                => GHandler sub master ChooseRep
+                => Logger
+                -> GHandler sub master ChooseRep
                 -> master
                 -> sub
                 -> Maybe (Route sub)
@@ -285,21 +282,28 @@ $doctype 5
     cookieDomain _ = Nothing
 
     -- | Maximum allowed length of the request body, in bytes.
+    --
+    -- Default: 2 megabytes.
     maximumContentLength :: a -> Maybe (Route a) -> Word64
     maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
 
-    -- | Send a message to the log. By default, prints to stdout.
+    -- | Returns a @Logger@ to use for log messages.
+    --
+    -- Default: Sends to stdout and automatically flushes on each write.
+    getLogger :: a -> IO Logger
+    getLogger _ = mkLogger True stdout
+
+    -- | Send a message to the @Logger@ provided by @getLogger@.
     messageLogger :: a
+                  -> Logger
                   -> Loc -- ^ position in source code
                   -> LogLevel
-                  -> Text -- ^ message
+                  -> LogStr -- ^ message
                   -> IO ()
-    messageLogger a loc level msg =
+    messageLogger a logger loc level msg =
         if level < logLevel a
             then return ()
-            else
-                formatLogMessage loc level msg >>=
-                Data.Text.Lazy.IO.putStrLn
+            else formatLogMessage (loggerDateRef logger) loc level msg >>= loggerPutStr logger
 
     -- | The logging level in place for this application. Any messages below
     -- this level will simply be ignored.
@@ -338,37 +342,23 @@ $doctype 5
         | size > 50000 = FileUploadDisk tempFileSink
         | otherwise = FileUploadMemory lbsSink
 
-messageLoggerHandler :: Yesod m
-                     => Loc -> LogLevel -> Text -> GHandler s m ()
-messageLoggerHandler loc level msg = do
-    y <- getYesod
-    liftIO $ messageLogger y loc level msg
-
-data LogLevel = LevelDebug | LevelInfo | LevelWarn | LevelError | LevelOther Text
-    deriving (Eq, Show, Read, Ord)
-
-instance Lift LogLevel where
-    lift LevelDebug = [|LevelDebug|]
-    lift LevelInfo = [|LevelInfo|]
-    lift LevelWarn = [|LevelWarn|]
-    lift LevelError = [|LevelError|]
-    lift (LevelOther x) = [|LevelOther $ T.pack $(lift $ T.unpack x)|]
-
-formatLogMessage :: Loc
+formatLogMessage :: DateRef
+                 -> Loc
                  -> LogLevel
-                 -> Text -- ^ message
-                 -> IO TL.Text
-formatLogMessage loc level msg = do
-    now <- getCurrentTime
-    return $ TB.toLazyText $
-        TB.fromText (T.pack $ show now)
-        `mappend` TB.fromText " ["
-        `mappend` TB.fromText (T.pack $ drop 5 $ show level)
-        `mappend` TB.fromText "] "
-        `mappend` TB.fromText msg
-        `mappend` TB.fromText " @("
-        `mappend` TB.fromText (T.pack $ fileLocationToString loc)
-        `mappend` TB.fromText ") "
+                 -> LogStr -- ^ message
+                 -> IO [LogStr]
+formatLogMessage dateref loc level msg = do
+    now <- getDate dateref
+    return
+        [ LB now
+        , LB " ["
+        , LS $ drop 5 $ show level
+        , LB "] "
+        , msg
+        , LB " @("
+        , LS $ fileLocationToString loc
+        , LB ")\n"
+        ]
 
 -- taken from file-location package
 -- turn the TH Loc loaction information into a human readable string
@@ -381,14 +371,15 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
     char = show . snd . loc_start
 
 defaultYesodRunner :: Yesod master
-                   => GHandler sub master ChooseRep
+                   => Logger
+                   -> GHandler sub master ChooseRep
                    -> master
                    -> sub
                    -> Maybe (Route sub)
                    -> (Route sub -> Route master)
                    -> Maybe (SessionBackend master)
                    -> W.Application
-defaultYesodRunner handler master sub murl toMasterRoute msb req
+defaultYesodRunner logger handler master sub murl toMasterRoute msb req
   | maximumContentLength master (fmap toMasterRoute murl) < len =
         return $ W.responseLBS
             (H.Status 413 "Too Large")
@@ -419,7 +410,8 @@ defaultYesodRunner handler master sub murl toMasterRoute msb req
                 handler
     let sessionMap = Map.fromList . filter ((/=) tokenKey . fst) $ session
     let ra = resolveApproot master req
-    yar <- handlerToYAR master sub (fileUpload master) toMasterRoute
+    let log' = messageLogger master logger
+    yar <- handlerToYAR master sub (fileUpload master) log' toMasterRoute
         (yesodRender master ra) errorHandler rr murl sessionMap h
     extraHeaders <- case yar of
         (YARPlain _ _ ct _ newSess) -> do
