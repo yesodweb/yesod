@@ -118,6 +118,11 @@ staticDevel dir = do
 
 -- | Produce a 'Static' based on embedding all of the static
 -- files' contents in the executable at compile time.
+--
+-- Nota Bene: if you replace the scaffolded `static` call in Settings/StaticFiles.hs
+-- you will need to change the scaffolded addStaticContent.  Otherwise, some of your 
+-- assets will be 404'ed as embedded statics dont support runtime file addition.  
+-- you can easil change addStaticContent to \_ _ _ -> return Nothing as a workaround.
 embed :: Prelude.FilePath -> Q Exp
 embed fp =
     [|Static (defaultWebAppSettings
