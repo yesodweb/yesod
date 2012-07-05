@@ -57,7 +57,7 @@ import Yesod.Request
 import Yesod.Widget
 import Yesod.Message
 
-import System.Log.FastLogger
+import Control.Monad.Logger
 
 -- | Return an 'Unauthorized' value, with the given i18n message.
 unauthorizedI :: RenderMessage master msg => msg -> GHandler sub master AuthResult

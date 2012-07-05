@@ -87,7 +87,7 @@ import Control.Monad.Base (MonadBase (liftBase))
 import Control.Arrow (first)
 import Control.Monad.Trans.Resource
 
-import System.Log.FastLogger
+import Control.Monad.Logger
 
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
@@ -345,5 +345,5 @@ instance MonadResource (GWidget sub master) where
     release = lift . release
     resourceMask = lift . resourceMask
 
-instance MonadLogging (GWidget sub master) where
-    monadLoggingLog a b = lift . monadLoggingLog a b
+instance MonadLogger (GWidget sub master) where
+    monadLoggerLog a b = lift . monadLoggerLog a b
