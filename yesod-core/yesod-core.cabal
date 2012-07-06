@@ -71,7 +71,7 @@ library
                    , monad-control         >= 0.3      && < 0.4
                    , transformers-base     >= 0.4
                    , cookie                >= 0.4      && < 0.5
-                   , http-types            >= 0.6.5    && < 0.7
+                   , http-types            >= 0.7      && < 0.8
                    , case-insensitive      >= 0.2
                    , parsec                >= 2        && < 3.2
                    , directory             >= 1        && < 1.2

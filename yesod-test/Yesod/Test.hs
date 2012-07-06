@@ -69,6 +69,7 @@ import qualified Test.Hspec.Runner as Runner
 import qualified Data.List as DL
 import qualified Data.Maybe as DY
 import qualified Data.ByteString.Char8 as BS8
+import Data.ByteString (ByteString)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Lazy.Char8 as BSL8
@@ -123,7 +124,7 @@ instance HoldsResponse OneSpecData where
 instance HoldsResponse RequestBuilderData where
   readResponse (RequestBuilderData _ x) = x
   
-type CookieValue = H.Ascii
+type CookieValue = ByteString
 
 -- | Runs your test suite, using you wai 'Application' and 'ConnectionPool' for performing 
 -- the database queries in your tests.
