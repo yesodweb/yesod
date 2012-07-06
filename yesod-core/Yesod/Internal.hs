@@ -42,8 +42,8 @@ import qualified Network.HTTP.Types as H
 import Data.String (IsString)
 import qualified Data.Map as Map
 import Data.Text.Lazy.Builder (Builder)
-import Network.HTTP.Types (Ascii)
 import Web.Cookie (SetCookie (..))
+import Data.ByteString (ByteString)
 
 -- | Responses to indicate some form of an error occurred. These are different
 -- from 'SpecialResponse' in that they allow for custom error pages.
@@ -60,8 +60,8 @@ instance Exception ErrorResponse
 -- | Headers to be added to a 'Result'.
 data Header =
     AddCookie SetCookie
-    | DeleteCookie Ascii Ascii
-    | Header Ascii Ascii
+    | DeleteCookie ByteString ByteString
+    | Header ByteString ByteString
     deriving (Eq, Show)
 
 langKey :: IsString a => a

@@ -155,6 +155,7 @@ import Control.Arrow ((***))
 import qualified Network.Wai.Parse as NWP
 import Data.Monoid (mappend, mempty, Endo (..))
 import qualified Data.ByteString.Char8 as S8
+import Data.ByteString (ByteString)
 import Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
 import Blaze.ByteString.Builder (toByteString)
@@ -808,7 +809,7 @@ handlerToYAR y s upload log' toMasterRoute render errorHandler rr murl sessionMa
     types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 
-yarToResponse :: YesodAppResult -> [(CI H.Ascii, H.Ascii)] -> W.Response
+yarToResponse :: YesodAppResult -> [(CI ByteString, ByteString)] -> W.Response
 yarToResponse (YARWai a) _ = a
 yarToResponse (YARPlain s hs _ c _) extraHeaders =
     case c of
@@ -830,7 +831,7 @@ httpAccept = parseHttpAccept
 
 -- | Convert Header to a key/value pair.
 headerToPair :: Header
-             -> (CI H.Ascii, H.Ascii)
+             -> (CI ByteString, ByteString)
 headerToPair (AddCookie sc) =
     ("Set-Cookie", toByteString $ renderSetCookie $ sc)
 headerToPair (DeleteCookie key path) =
