@@ -15,7 +15,6 @@ extra-source-files: README.md, LICENSE, test/main.hs
 
 library
     build-depends:   base                      >= 4.3      && < 5
-                   , hxt                       >= 9.1.6
                    , attoparsec                >= 0.10     && < 0.11
                    , persistent                >= 1.0      && < 1.1
                    , transformers              >= 0.2.2    && < 0.4
