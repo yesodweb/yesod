@@ -38,7 +38,6 @@ library
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
                      Yesod.Test.TransversingCSS
-                     Yesod.Test.HtmlParse
     ghc-options:  -Wall
 
 test-suite test
@@ -52,6 +51,7 @@ test-suite test
                           , xml-conduit
                           , bytestring
                           , containers
+                          , html-conduit
 
 source-repository head
   type: git
