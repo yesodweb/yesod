@@ -86,9 +86,9 @@ import Network.Wai.Middleware.Gzip (GzipSettings, def)
 import Network.Wai.Parse (tempFileSink, lbsSink)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
-import System.Log.FastLogger (Logger, mkLogger, loggerDateRef, LogStr (..), loggerPutStr)
+import System.Log.FastLogger (Logger, mkLogger, loggerDate, LogStr (..), loggerPutStr)
 import Control.Monad.Logger (LogLevel (LevelInfo, LevelOther))
-import System.Log.FastLogger.Date (getDate, DateRef)
+import System.Log.FastLogger.Date (ZonedDate)
 import System.IO (stdout)
 
 yesodVersion :: String
@@ -304,7 +304,7 @@ $doctype 5
     messageLogger a logger loc level msg =
         if level < logLevel a
             then return ()
-            else formatLogMessage (loggerDateRef logger) loc level msg >>= loggerPutStr logger
+            else formatLogMessage (loggerDate logger) loc level msg >>= loggerPutStr logger
 
     -- | The logging level in place for this application. Any messages below
     -- this level will simply be ignored.
@@ -343,13 +343,13 @@ $doctype 5
         | size > 50000 = FileUploadDisk tempFileSink
         | otherwise = FileUploadMemory lbsSink
 
-formatLogMessage :: DateRef
+formatLogMessage :: IO ZonedDate
                  -> Loc
                  -> LogLevel
                  -> LogStr -- ^ message
                  -> IO [LogStr]
-formatLogMessage dateref loc level msg = do
-    now <- getDate dateref
+formatLogMessage getdate loc level msg = do
+    now <- getdate
     return
         [ LB now
         , LB " ["
