@@ -10,6 +10,7 @@ module Yesod.Core
     , breadcrumbs
       -- * Types
     , Approot (..)
+    , FileUpload (..)
       -- * Utitlities
     , maybeAuthorized
     , widgetToPageContent
