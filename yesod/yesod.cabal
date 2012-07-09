@@ -51,7 +51,7 @@ extra-source-files:
   scaffold/templates/boilerplate-wrapper.hamlet.cg
   scaffold/templates/homepage.lucius.cg
   scaffold/messages/en.msg.cg
-  scaffold/config/keter.conf.cg
+  scaffold/config/keter.yaml.cg
   scaffold/config/models.cg
   scaffold/config/mysql.yml.cg
   scaffold/config/sqlite.yml.cg
