@@ -5,18 +5,18 @@ import Test.Hspec.HUnit ()
 
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
-import Yesod.Test.HtmlParse
 import Text.XML
 
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
+import qualified Text.HTML.DOM as HD
 
 parseQuery_ = either error id . parseQuery
 findBySelector_ x = either error id . findBySelector x
-parseHtml_ = either error id . parseHtml
+parseHtml_ = HD.parseLBS
 
 main :: IO ()
-main = hspecX $ do
+main = hspec $ do
     describe "CSS selector parsing" $ do
         it "elements" $ parseQuery_ "strong" @?= [[DeepChildren [ByTagName "strong"]]]
         it "child elements" $ parseQuery_ "strong > i" @?= [[DeepChildren [ByTagName "strong"], DirectChildren [ByTagName "i"]]]

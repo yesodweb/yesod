@@ -41,11 +41,11 @@ where
 
 import Yesod.Test.CssQuery
 import qualified Data.Text as T
-import Yesod.Test.HtmlParse (parseHtml)
 import Control.Applicative ((<$>), (<*>))
 import Text.XML
 import Text.XML.Cursor
 import qualified Data.ByteString.Lazy as L
+import qualified Text.HTML.DOM as HD
 #if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml)
 import Text.Blaze.Html.Renderer.String (renderHtml)
@@ -64,7 +64,7 @@ type Html = L.ByteString
 -- * Right: List of matching Html fragments.
 findBySelector :: Html -> Query -> Either String [String]
 findBySelector html query = (\x -> map (renderHtml . toHtml . node) . runQuery x)
-    <$> (fromDocument <$> parseHtml html)
+    <$> (Right $ fromDocument $ HD.parseLBS html)
     <*> parseQuery query
 
 -- Run a compiled query on Html, returning a list of matching Html fragments.
