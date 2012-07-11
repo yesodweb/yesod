@@ -178,7 +178,6 @@ import Control.Monad.Trans.Resource
 import Control.Monad.Base
 import Yesod.Routes.Class
 import Data.Word (Word64)
-import Data.Conduit (Sink)
 import Language.Haskell.TH.Syntax (Loc)
 
 class YesodSubRoute s y where
@@ -343,12 +342,12 @@ rbHelper upload =
         FileUploadDisk s -> rbHelper' s mkFileInfoFile
         FileUploadSource s -> rbHelper' s mkFileInfoSource
 
-rbHelper' :: Sink S8.ByteString (ResourceT IO) x
+rbHelper' :: NWP.BackEnd x
           -> (Text -> Text -> x -> FileInfo)
           -> W.Request
           -> ResourceT IO ([(Text, Text)], [(Text, FileInfo)])
-rbHelper' sink mkFI req =
-    (map fix1 *** map fix2) <$> (NWP.parseRequestBody sink req)
+rbHelper' backend mkFI req =
+    (map fix1 *** map fix2) <$> (NWP.parseRequestBody backend req)
   where
     fix1 = go *** go
     fix2 (x, NWP.FileInfo a b c) =

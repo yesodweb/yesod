@@ -145,6 +145,6 @@ mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourc
 mkFileInfoSource :: Text -> Text -> Source (ResourceT IO) ByteString -> FileInfo
 mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runResourceT $ src $$ sinkFile dst)
 
-data FileUpload = FileUploadMemory (Sink ByteString (ResourceT IO) L.ByteString)
-                | FileUploadDisk (Sink ByteString (ResourceT IO) FilePath)
-                | FileUploadSource (Sink ByteString (ResourceT IO) (Source (ResourceT IO) ByteString))
+data FileUpload = FileUploadMemory (NWP.BackEnd L.ByteString)
+                | FileUploadDisk (NWP.BackEnd FilePath)
+                | FileUploadSource (NWP.BackEnd (Source (ResourceT IO) ByteString))
