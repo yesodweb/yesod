@@ -79,6 +79,7 @@ authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch $ \tm ->
         [whamlet|
+$newline never
 <form method="post" action="@{tm loginR}">
     <table>
         <tr>
@@ -112,6 +113,7 @@ getRegisterR = do
     defaultLayout $ do
         setTitleI Msg.RegisterLong
         [whamlet|
+$newline never
 <p>_{Msg.EnterEmail}
 <form method="post" action="@{toMaster registerR}">
     <label for="email">_{Msg.Email}
@@ -141,7 +143,10 @@ postRegisterR = do
     sendVerifyEmail email verKey verUrl
     defaultLayout $ do
         setTitleI Msg.ConfirmationEmailSentTitle
-        [whamlet| <p>_{Msg.ConfirmationEmailSent email} |]
+        [whamlet|
+$newline never
+<p>_{Msg.ConfirmationEmailSent email}
+|]
 
 getVerifyR :: YesodAuthEmail m
            => AuthEmailId m -> Text -> GHandler Auth m RepHtml
@@ -161,7 +166,10 @@ getVerifyR lid key = do
         _ -> return ()
     defaultLayout $ do
         setTitleI Msg.InvalidKey
-        [whamlet| <p>_{Msg.InvalidKey} |]
+        [whamlet|
+$newline never
+<p>_{Msg.InvalidKey}
+|]
 
 postLoginR :: YesodAuthEmail master => GHandler Auth master ()
 postLoginR = do
@@ -200,6 +208,7 @@ getPasswordR = do
     defaultLayout $ do
         setTitleI Msg.SetPassTitle
         [whamlet|
+$newline never
 <h3>_{Msg.SetPass}
 <form method="post" action="@{toMaster setpassR}">
     <table>

@@ -149,7 +149,10 @@ setCreds doRedirects creds = do
         Nothing ->
           when doRedirects $ do
             case authRoute y of
-              Nothing -> do rh <- defaultLayout $ toWidget [shamlet| <h1>Invalid login |]
+              Nothing -> do rh <- defaultLayout $ toWidget [shamlet|
+$newline never
+<h1>Invalid login
+|]
                             sendResponse rh
               Just ar -> do setMessageI Msg.InvalidLogin
                             redirect ar
@@ -168,6 +171,7 @@ getCheckR = do
   where
     html' creds =
         [shamlet|
+$newline never
 <h1>Authentication Status
 $maybe _ <- creds
     <p>Logged in.

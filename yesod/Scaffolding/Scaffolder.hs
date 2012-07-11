@@ -143,6 +143,7 @@ scaffold = do
       Mysql      -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen "config/mysql.yml")
 
     writeFile' "config/settings.yml" $(codegen "config/settings.yml")
+    writeFile' "config/keter.yaml" $(codegen "config/keter.yaml")
     writeFile' "main.hs" $(codegen "main.hs")
     writeFile' "devel.hs" $(codegen "devel.hs")
     writeFile' (project ++ ".cabal") $(codegen "project.cabal")

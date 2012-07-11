@@ -69,6 +69,7 @@ import qualified Test.Hspec.Runner as Runner
 import qualified Data.List as DL
 import qualified Data.Maybe as DY
 import qualified Data.ByteString.Char8 as BS8
+import Data.ByteString (ByteString)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Lazy.Char8 as BSL8
@@ -77,7 +78,6 @@ import qualified Test.Hspec.HUnit ()
 import qualified Network.HTTP.Types as H
 import qualified Network.Socket.Internal as Sock
 import Data.CaseInsensitive (CI)
-import Text.XML.HXT.Core hiding (app, err)
 import Network.Wai
 import Network.Wai.Test hiding (assertHeader, assertNoHeader)
 import qualified Control.Monad.Trans.State as ST
@@ -88,6 +88,8 @@ import Database.Persist.GenericSql
 import Data.Monoid (mappend)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
+import Text.XML.Cursor hiding (element)
+import qualified Text.HTML.DOM as HD
 
 -- | The state used in 'describe' to build a list of specs
 data SpecsData = SpecsData Application ConnectionPool [Core.Spec]
@@ -105,8 +107,8 @@ data RequestBuilderData = RequestBuilderData [RequestPart] (Maybe SResponse)
 
 -- | Request parts let us discern regular key/values from files sent in the request.
 data RequestPart
-  = ReqPlainPart String String
-  | ReqFilePart String FilePath BSL8.ByteString String
+  = ReqPlainPart T.Text T.Text
+  | ReqFilePart T.Text FilePath BSL8.ByteString T.Text
 
 -- | The RequestBuilder state monad constructs an url encoded string of arguments
 -- to send with your requests. Some of the functions that run on it use the current
@@ -123,7 +125,7 @@ instance HoldsResponse OneSpecData where
 instance HoldsResponse RequestBuilderData where
   readResponse (RequestBuilderData _ x) = x
   
-type CookieValue = H.Ascii
+type CookieValue = ByteString
 
 -- | Runs your test suite, using you wai 'Application' and 'ConnectionPool' for performing 
 -- the database queries in your tests.
@@ -136,12 +138,7 @@ type CookieValue = H.Ascii
 runTests :: Application -> ConnectionPool -> Specs -> IO ()
 runTests app connection specsDef = do
   (SpecsData _ _ specs) <- ST.execStateT specsDef (SpecsData app connection [])
-#if MIN_VERSION_hspec(1,2,0)
-  Runner.hspec
-#else
-  Runner.hspecX
-#endif
-    specs
+  Runner.hspec specs
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
@@ -168,14 +165,14 @@ withResponse f = maybe err f =<< fmap readResponse ST.get
 
 -- | Use HXT to parse a value from an html tag.
 -- Check for usage examples in this module's source.
-parseHTML :: Html -> LA XmlTree a -> [a]
-parseHTML html p = runLA (hread >>> p ) (TL.unpack $ decodeUtf8 html)
+parseHTML :: Html -> (Cursor -> [a]) -> [a]
+parseHTML html p = p $ fromDocument $ HD.parseLBS html
 
 -- | Query the last response using css selectors, returns a list of matched fragments
 htmlQuery :: HoldsResponse a => Query -> ST.StateT a IO [Html]
 htmlQuery query = withResponse $ \ res ->
   case findBySelector (simpleBody res) query of
-    Left err -> failure $ T.unpack query ++ " did not parse: " ++ (show err)
+    Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
     Right matches -> return $ map (encodeUtf8 . TL.pack) matches
 
 -- | Asserts that the two given values are equal.
@@ -194,7 +191,7 @@ statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
 assertHeader :: HoldsResponse a => CI BS8.ByteString -> BS8.ByteString -> ST.StateT a IO ()
 assertHeader header value = withResponse $ \ SResponse { simpleHeaders = h } ->
   case lookup header h of
-    Nothing -> failure $ concat
+    Nothing -> failure $ T.pack $ concat
         [ "Expected header "
         , show header
         , " to be "
@@ -215,7 +212,7 @@ assertNoHeader :: HoldsResponse a => CI BS8.ByteString -> ST.StateT a IO ()
 assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
   case lookup header h of
     Nothing -> return ()
-    Just s  -> failure $ concat
+    Just s  -> failure $ T.pack $ concat
         [ "Unexpected header "
         , show header
         , " containing "
@@ -245,7 +242,7 @@ htmlAllContain :: HoldsResponse a => Query -> String -> ST.StateT a IO ()
 htmlAllContain query search = do
   matches <- htmlQuery query
   case matches of
-    [] -> failure $ "Nothing matched css query: "++T.unpack query
+    [] -> failure $ "Nothing matched css query: " <> query
     _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search) $
           DL.all (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
 
@@ -269,7 +266,7 @@ printMatches query = do
   liftIO $ hPutStrLn stderr $ show matches
 
 -- | Add a parameter with the given name and value.
-byName :: String -> String -> RequestBuilder ()
+byName :: T.Text -> T.Text -> RequestBuilder ()
 byName name value = do
   RequestBuilderData parts r <- ST.get
   ST.put $ RequestBuilderData ((ReqPlainPart name value):parts) r
@@ -277,50 +274,67 @@ byName name value = do
 -- | Add a file to be posted with the current request
 --
 -- Adding a file will automatically change your request content-type to be multipart/form-data
-fileByName :: String -> FilePath -> String -> RequestBuilder ()
+fileByName :: T.Text -> FilePath -> T.Text -> RequestBuilder ()
 fileByName name path mimetype = do
   RequestBuilderData parts r <- ST.get
   contents <- liftIO $ BSL8.readFile path
   ST.put $ RequestBuilderData ((ReqFilePart name path contents mimetype):parts) r
 
 -- This looks up the name of a field based on the contents of the label pointing to it.
-nameFromLabel :: String -> RequestBuilder String
+nameFromLabel :: T.Text -> RequestBuilder T.Text
 nameFromLabel label = withResponse $ \ res -> do
   let
     body = simpleBody res
     escaped = escapeHtmlEntities label
-    mfor = parseHTML body $ deep $ hasName "label"
-        >>> filterA (xshow this >>> mkText >>> hasText (DL.isInfixOf escaped))
-        >>> getAttrValue "for"
+    mfor = parseHTML body $ \c -> c
+                $// attributeIs "name" "label"
+                >=> contentContains escaped
+                >=> attribute "for"
+
+    contentContains x c
+        | x `T.isInfixOf` T.concat (c $// content) = [c]
+        | otherwise = []
 
   case mfor of
     for:[] -> do
-      let mname = parseHTML body $ deep $ hasAttrValue "id" (==for) >>> getAttrValue "name"
+      let mname = parseHTML body $ \c -> c
+                    $// attributeIs "id" for
+                    >=> attribute "name"
       case mname of
-        "":_ -> failure $ "Label "++label++" resolved to id "++for++" which was not found. "
+        "":_ -> failure $ T.concat
+            [ "Label "
+            , label
+            , " resolved to id "
+            , for
+            , " which was not found. "
+            ]
         name:_ -> return name
-        _ -> failure $ "More than one input with id " ++ for
-    [] -> failure $ "No label contained: "++label
-    _ -> failure $ "More than one label contained "++label
+        _ -> failure $ "More than one input with id " <> for
+    [] -> failure $ "No label contained: " <> label
+    _ -> failure $ "More than one label contained " <> label
+
+(<>) :: T.Text -> T.Text -> T.Text
+(<>) = T.append
 
 -- | Escape HTML entities in a string, so you can write the text you want in
 -- label lookups without worrying about the fact that yesod escapes some characters.
-escapeHtmlEntities :: String -> String 
-escapeHtmlEntities "" = ""
-escapeHtmlEntities (c:cs) = case c of
-  '<'  -> '&' : 'l' : 't' : ';'             : escapeHtmlEntities cs
-  '>'  -> '&' : 'g' : 't' : ';'             : escapeHtmlEntities cs
-  '&'  -> '&' : 'a' : 'm' : 'p' : ';'       : escapeHtmlEntities cs
-  '"'  -> '&' : 'q' : 'u' : 'o' : 't' : ';' : escapeHtmlEntities cs
-  '\'' -> '&' : '#' : '3' : '9' : ';'       : escapeHtmlEntities cs
-  x    -> x                                 : escapeHtmlEntities cs
+escapeHtmlEntities :: T.Text -> T.Text
+escapeHtmlEntities =
+    T.concatMap go
+  where
+    go '<' = "&lt;"
+    go '>' = "&gt;"
+    go '&' = "&amp;"
+    go '"' = "&quot;"
+    go '\'' = "&#39;"
+    go x = T.singleton x
 
-byLabel :: String -> String -> RequestBuilder ()
+byLabel :: T.Text -> T.Text -> RequestBuilder ()
 byLabel label value = do
   name <- nameFromLabel label
   byName name value
 
-fileByLabel :: String -> FilePath -> String -> RequestBuilder ()
+fileByLabel :: T.Text -> FilePath -> T.Text -> RequestBuilder ()
 fileByLabel label path mime = do
   name <- nameFromLabel label
   fileByName name path mime
@@ -332,7 +346,7 @@ addNonce_ scope = do
   matches <- htmlQuery $ scope `mappend` "input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No nonce found in the current page"
-    element:[] -> byName "_token" $ head $ parseHTML element $ getAttrValue "value"
+    element:[] -> byName "_token" $ head $ parseHTML element $ attribute "value"
     _ -> failure $ "More than one nonce found in the page"
 
 -- | For responses that display a single form, just lookup the only nonce available.
@@ -384,22 +398,22 @@ doRequest method url paramsBuild = do
     BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
   multipartPart (ReqPlainPart k v) = BS8.concat
     [ "Content-Disposition: form-data; "
-    , "name=\"", (BS8.pack k), "\"\r\n\r\n"
-    , (BS8.pack v), "\r\n"]
+    , "name=\"", TE.encodeUtf8 k, "\"\r\n\r\n"
+    , TE.encodeUtf8 v, "\r\n"]
   multipartPart (ReqFilePart k v bytes mime) = BS8.concat
     [ "Content-Disposition: form-data; "
-    , "name=\"", BS8.pack k, "\"; "
+    , "name=\"", TE.encodeUtf8 k, "\"; "
     , "filename=\"", BS8.pack v, "\"\r\n"
-    , "Content-Type: ", BS8.pack mime, "\r\n\r\n"
+    , "Content-Type: ", TE.encodeUtf8 mime, "\r\n\r\n"
     , BS8.concat $ BSL8.toChunks bytes, "\r\n"]
 
   -- For building the regular non-multipart requests
   makeSinglepart cookie parts = SRequest (mkRequest 
     [("Cookie",cookie), ("Content-Type", "application/x-www-form-urlencoded")]) $
-    BSL8.pack $ DL.concat $ DL.intersperse "&" $ map singlepartPart parts
+    BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&" $ map singlepartPart parts
 
   singlepartPart (ReqFilePart _ _ _ _) = ""
-  singlepartPart (ReqPlainPart k v) = concat [k,"=",v]
+  singlepartPart (ReqPlainPart k v) = T.concat [k,"=",v]
 
   -- General request making 
   mkRequest headers = defaultRequest
@@ -418,5 +432,5 @@ runDB query = do
   liftIO $ runSqlPool query pool
 
 -- Yes, just a shortcut
-failure :: (MonadIO a) => String -> a b
-failure reason = (liftIO $ HUnit.assertFailure reason) >> error ""
+failure :: (MonadIO a) => T.Text -> a b
+failure reason = (liftIO $ HUnit.assertFailure $ T.unpack reason) >> error ""

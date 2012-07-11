@@ -10,7 +10,6 @@ module Yesod.Routes.Parse
     ) where
 
 import Language.Haskell.TH.Syntax
-import Data.Maybe
 import Data.Char (isUpper)
 import Language.Haskell.TH.Quote
 import qualified System.IO as SIO
@@ -55,18 +54,29 @@ parseRoutesNoCheck = QuasiQuoter
 -- | Convert a multi-line string to a set of resources. See documentation for
 -- the format of this string. This is a partial function which calls 'error' on
 -- invalid input.
-resourcesFromString :: String -> [Resource String]
+resourcesFromString :: String -> [ResourceTree String]
 resourcesFromString =
-    mapMaybe go . lines
+    fst . parse 0 . lines
   where
-    go s =
-        case takeWhile (/= "--") $ words s of
-            (pattern:constr:rest) ->
-                let (pieces, mmulti) = piecesFromString $ drop1Slash pattern
-                    disp = dispatchFromString rest mmulti
-                 in Just $ Resource constr pieces disp
-            [] -> Nothing
-            _ -> error $ "Invalid resource line: " ++ s
+    parse _ [] = ([], [])
+    parse indent (thisLine:otherLines)
+        | length spaces < indent = ([], thisLine : otherLines)
+        | otherwise = (this others, remainder)
+      where
+        spaces = takeWhile (== ' ') thisLine
+        (others, remainder) = parse indent otherLines'
+        (this, otherLines') =
+            case takeWhile (/= "--") $ words thisLine of
+                [pattern, constr] | last constr == ':' ->
+                    let (children, otherLines'') = parse (length spaces + 1) otherLines
+                        (pieces, Nothing) = piecesFromString $ drop1Slash pattern
+                     in ((ResourceParent (init constr) pieces children :), otherLines'')
+                (pattern:constr:rest) ->
+                    let (pieces, mmulti) = piecesFromString $ drop1Slash pattern
+                        disp = dispatchFromString rest mmulti
+                     in ((ResourceLeaf (Resource constr pieces disp):), otherLines)
+                [] -> (id, otherLines)
+                _ -> error $ "Invalid resource line: " ++ thisLine
 
 dispatchFromString :: [String] -> Maybe String -> Dispatch String
 dispatchFromString rest mmulti

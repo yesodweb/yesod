@@ -55,14 +55,13 @@ import Text.Blaze (Html, toHtml)
 import Yesod.Handler (GHandler, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
-import Yesod.Request (reqToken, reqWaiRequest, reqGetParams, languages, FileInfo (..))
+import Yesod.Request (reqToken, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import qualified Data.Map as Map
-import qualified Data.ByteString.Lazy as L
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
 
@@ -188,7 +187,10 @@ postHelper form env = do
     let token =
             case reqToken req of
                 Nothing -> mempty
-                Just n -> [shamlet|<input type=hidden name=#{tokenKey} value=#{n}>|]
+                Just n -> [shamlet|
+$newline never
+<input type=hidden name=#{tokenKey} value=#{n}>
+|]
     m <- getYesod
     langs <- languages
     ((res, xml), enctype) <- runFormGeneric (form token) m langs env
@@ -218,9 +220,7 @@ postEnv = do
         else do
             (p, f) <- runRequestBody
             let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
-            return $ Just (p', Map.fromList $ filter (notEmpty . snd) f)
-  where
-    notEmpty = not . L.null . fileContent
+            return $ Just (p', Map.fromList f)
 
 runFormPostNoToken :: (Html -> MForm sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoToken form = do
@@ -246,7 +246,10 @@ getKey = "_hasdata"
 
 getHelper :: (Html -> MForm sub master a) -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
 getHelper form env = do
-    let fragment = [shamlet|<input type=hidden name=#{getKey}>|]
+    let fragment = [shamlet|
+$newline never
+<input type=hidden name=#{getKey}>
+|]
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env
@@ -262,6 +265,7 @@ renderTable aform fragment = do
     let views = views' []
     -- FIXME non-valid HTML
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <tr :fvRequired view:.required :not $ fvRequired view:.optional>
@@ -286,6 +290,7 @@ renderDivsMaybeLabels withLabels aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <div :fvRequired view:.required :not $ fvRequired view:.optional>
@@ -321,6 +326,7 @@ renderBootstrap aform fragment = do
         has (Just _) = True
         has Nothing  = False
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <div .control-group .clearfix :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>
@@ -347,13 +353,21 @@ checkM :: RenderMessage master msg
        => (a -> GHandler sub master (Either msg a))
        -> Field sub master a
        -> Field sub master a
-checkM f field = field
+checkM f = checkM' f id
+
+checkM' :: RenderMessage master msg
+        => (a -> GHandler sub master (Either msg b))
+        -> (b -> a)
+        -> Field sub master a
+        -> Field sub master b
+checkM' f inv field = field
     { fieldParse = \ts -> do
         e1 <- fieldParse field ts
         case e1 of
             Left msg -> return $ Left msg
             Right Nothing -> return $ Right Nothing
             Right (Just a) -> fmap (either (Left . SomeMessage) (Right . Just)) $ f a
+    , fieldView = \i n a eres req -> fieldView field i n a (fmap inv eres) req
     }
 
 -- | Allows you to overwrite the error message on parse error.

@@ -111,6 +111,7 @@ intField = Field
             _ -> Left $ MsgInvalidInteger s
 
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="number" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -126,6 +127,7 @@ doubleField = Field
             _ -> Left $ MsgInvalidNumber s
 
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -135,6 +137,7 @@ dayField :: RenderMessage master FormMessage => Field sub master Day
 dayField = Field
     { fieldParse = blank $ parseDate . unpack
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="date" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -144,6 +147,7 @@ timeField :: RenderMessage master FormMessage => Field sub master TimeOfDay
 timeField = Field
     { fieldParse = blank $ parseTime . unpack
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -158,6 +162,7 @@ htmlField :: RenderMessage master FormMessage => Field sub master Html
 htmlField = Field
     { fieldParse = blank $ Right . preEscapedText . sanitizeBalance
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
+$newline never
 $# FIXME: There was a class="html" attribute, for what purpose?
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{showVal val}
 |]
@@ -186,6 +191,7 @@ textareaField :: RenderMessage master FormMessage => Field sub master Textarea
 textareaField = Field
     { fieldParse =  blank $ Right . Textarea
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
+$newline never
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{either id unTextarea val}
 |]
     }
@@ -195,6 +201,7 @@ hiddenField :: (PathPiece p, RenderMessage master FormMessage)
 hiddenField = Field
     { fieldParse = blank $ maybe (Left MsgValueRequired) Right . fromPathPiece
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
+$newline never
 <input type="hidden" id="#{theId}" name="#{name}" *{attrs} value="#{either id toPathPiece val}">
 |]
     }
@@ -204,6 +211,7 @@ textField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name attrs val isReq ->
         [whamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required value="#{either id id val}">
 |]
     }
@@ -212,6 +220,7 @@ passwordField :: RenderMessage master FormMessage => Field sub master Text
 passwordField = Field
     { fieldParse = blank $ Right
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="" value="#{either id id val}">
 |]
     }
@@ -261,6 +270,7 @@ emailField = Field
                 then Right s
                 else Left $ MsgInvalidEmail s
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="email" :isReq:required="" value="#{either id id val}">
 |]
     }
@@ -271,11 +281,15 @@ searchField autoFocus = Field
     { fieldParse = blank Right
     , fieldView = \theId name attrs val isReq -> do
         [whamlet|\
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
         when autoFocus $ do
           -- we want this javascript to be placed immediately after the field
-          [whamlet|<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}|]
+          [whamlet|
+$newline never
+<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}
+|]
           toWidget [cassius|
             #{theId}
               -webkit-appearance: textfield
@@ -290,6 +304,7 @@ urlField = Field
             Just _ -> Right s
     , fieldView = \theId name attrs val isReq ->
         [whamlet|
+$newline never
 <input ##{theId} name=#{name} *{attrs} type=url :isReq:required value=#{either id id val}>
 |]
     }
@@ -299,9 +314,18 @@ selectFieldList = selectField . optionsPairs
 
 selectField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
 selectField = selectFieldHelper
-    (\theId name inside -> [whamlet|<select ##{theId} name=#{name}>^{inside}|]) -- outside
-    (\_theId _name isSel -> [whamlet|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
-    (\_theId _name attrs value isSel text -> [whamlet|<option value=#{value} :isSel:selected *{attrs}>#{text}|]) -- inside
+    (\theId name inside -> [whamlet|
+$newline never
+<select ##{theId} name=#{name}>^{inside}
+|]) -- outside
+    (\_theId _name isSel -> [whamlet|
+$newline never
+<option value=none :isSel:selected>_{MsgSelectNone}
+|]) -- onOpt
+    (\_theId _name attrs value isSel text -> [whamlet|
+$newline never
+<option value=#{value} :isSel:selected *{attrs}>#{text}
+|]) -- inside
 
 multiSelectFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master [a]
 multiSelectFieldList = multiSelectField . optionsPairs
@@ -323,6 +347,7 @@ multiSelectField ioptlist =
         opts <- fmap olOptions $ lift ioptlist
         let selOpts = map (id &&& (optselected val)) opts
         [whamlet|
+$newline never
             <select ##{theId} name=#{name} :isReq:required multiple *{attrs}>
                 $forall (opt, optsel) <- selOpts
                     <option value=#{optionExternalValue opt} :optsel:selected>#{optionDisplay opt}
@@ -336,13 +361,18 @@ radioFieldList = radioField . optionsPairs
 
 radioField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
 radioField = selectFieldHelper
-    (\theId _name inside -> [whamlet|<div ##{theId}>^{inside}|])
+    (\theId _name inside -> [whamlet|
+$newline never
+<div ##{theId}>^{inside}
+|])
     (\theId name isSel -> [whamlet|
+$newline never
 <div>
     <input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
     <label for=#{theId}-none>_{MsgSelectNone}
 |])
     (\theId name attrs value isSel text -> [whamlet|
+$newline never
 <div>
     <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked *{attrs}>
     <label for=#{theId}-#{value}>#{text}
@@ -352,6 +382,7 @@ boolField :: RenderMessage master FormMessage => Field sub master Bool
 boolField = Field
       { fieldParse = return . boolParser
       , fieldView = \theId name attrs val isReq -> [whamlet|
+$newline never
   $if not isReq
       <input id=#{theId}-none *{attrs} type=radio name=#{name} value=none checked>
       <label for=#{theId}-none>_{MsgSelectNone}
@@ -386,6 +417,7 @@ checkBoxField :: RenderMessage m FormMessage => Field s m Bool
 checkBoxField = Field
     { fieldParse = return . checkBoxParser
     , fieldView  = \theId name attrs val _ -> [whamlet|
+$newline never
 <input id=#{theId} *{attrs} type=checkbox name=#{name} value=yes :showVal id val:checked>
 |]
     }
@@ -501,6 +533,7 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
             , fvId = id'
             , fvInput = [whamlet|
+$newline never
 <input type=file name=#{name} ##{id'} *{fsAttrs fs}>
 |]
             , fvErrors = errs
@@ -529,6 +562,7 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
             , fvId = id'
             , fvInput = [whamlet|
+$newline never
 <input type=file name=#{name} ##{id'} *{fsAttrs fs}>
 |]
             , fvErrors = errs

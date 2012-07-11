@@ -56,12 +56,13 @@ getTowidgetR = defaultLayout $ do
     toWidget [lucius|foo{bar:baz}|]
     toWidgetHead [lucius|foo{bar:baz}|]
 
-    toWidget [hamlet|<foo>|] :: Widget
+    toWidget [hamlet|<foo>|]
     toWidgetHead [hamlet|<foo>|]
     toWidgetBody [hamlet|<foo>|]
 
 getWhamletR :: Handler RepHtml
 getWhamletR = defaultLayout [whamlet|
+$newline never
 <h1>Test
 <h2>@{WhamletR}
 <h3>_{Goodbye}
@@ -69,10 +70,14 @@ getWhamletR = defaultLayout [whamlet|
 ^{embed}
 |]
   where
-    embed = [whamlet|<h4>Embed|]
+    embed = [whamlet|
+$newline never
+<h4>Embed
+|]
 
 getAutoR :: Handler RepHtml
 getAutoR = defaultLayout [whamlet|
+$newline never
 ^{someHtml}
 |]
   where

@@ -1,5 +1,5 @@
 name:            yesod-sitemap
-version:         1.0.0.1
+version:         1.1.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -14,10 +14,11 @@ description:     Generate XML sitemaps.
 
 library
     build-depends:   base                      >= 4        && < 5
-                   , yesod-core                >= 1.0      && < 1.1
+                   , yesod-core                >= 1.1      && < 1.2
                    , time                      >= 1.1.4
-                   , xml-conduit               >= 0.7      && < 0.8
+                   , xml-conduit               >= 1.0      && < 1.1
                    , text
+                   , containers
     exposed-modules: Yesod.Sitemap
     ghc-options:     -Wall
 
