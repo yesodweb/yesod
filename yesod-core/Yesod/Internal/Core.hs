@@ -83,7 +83,7 @@ import Data.Aeson (Value (Array, String))
 import Data.Aeson.Encode (encode)
 import qualified Data.Vector as Vector
 import Network.Wai.Middleware.Gzip (GzipSettings, def)
-import Network.Wai.Parse (tempFileSink, lbsSink)
+import Network.Wai.Parse (tempFileBackEnd, lbsBackEnd)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import System.Log.FastLogger (Logger, mkLogger, loggerDate, LogStr (..), loggerPutStr)
@@ -340,8 +340,8 @@ $doctype 5
                -> Word64 -- ^ request body size
                -> FileUpload
     fileUpload _ size
-        | size > 50000 = FileUploadDisk tempFileSink
-        | otherwise = FileUploadMemory lbsSink
+        | size > 50000 = FileUploadDisk tempFileBackEnd
+        | otherwise = FileUploadMemory lbsBackEnd
 
 formatLogMessage :: IO ZonedDate
                  -> Loc
