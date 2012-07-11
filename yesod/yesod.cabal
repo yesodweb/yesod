@@ -103,12 +103,19 @@ executable             yesod
                      , blaze-builder      >= 0.2.1.4      && < 0.4
                      , filepath           >= 1.1
                      , process
+                     , zlib               >= 0.5          && < 0.6
+                     , tar                >= 0.4          && < 0.5
+                     , system-filepath    >= 0.4          && < 0.5
+                     , system-fileio      >= 0.3          && < 0.4
+                     , unordered-containers
+                     , yaml               >= 0.8          && < 0.9
     ghc-options:       -Wall -threaded
     main-is:           main.hs
     other-modules:     Scaffolding.CodeGen
                        Scaffolding.Scaffolder
                        Devel
                        Build
+                       Keter
                        AddHandler
 
 source-repository head
