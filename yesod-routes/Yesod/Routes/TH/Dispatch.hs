@@ -17,6 +17,16 @@ import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Control.Applicative ((<$>))
 import Data.List (foldl')
 
+data FlatResource a = FlatResource [(String, [(CheckOverlap, Piece a)])] String [(CheckOverlap, Piece a)] (Dispatch a)
+
+flatten :: [ResourceTree a] -> [FlatResource a]
+flatten =
+    concatMap (go id)
+  where
+    go front (ResourceLeaf (Resource a b c)) = [FlatResource (front []) a b c]
+    go front (ResourceParent name pieces children) =
+        concatMap (go (front . ((name, pieces):))) children
+
 -- |
 --
 -- This function will generate a single clause that will address all
@@ -83,9 +93,9 @@ import Data.List (foldl')
 mkDispatchClause :: Q Exp -- ^ runHandler function
                  -> Q Exp -- ^ dispatcher function
                  -> Q Exp -- ^ fixHandler function
-                 -> [Resource a]
+                 -> [ResourceTree a]
                  -> Q Clause
-mkDispatchClause runHandler dispatcher fixHandler ress = do
+mkDispatchClause runHandler dispatcher fixHandler ress' = do
     -- Allocate the names to be used. Start off with the names passed to the
     -- function itself (with a 0 suffix).
     --
@@ -130,22 +140,25 @@ mkDispatchClause runHandler dispatcher fixHandler ress = do
             Nothing -> $(return $ VarE app4040)
           |]
     return $ Clause pats (NormalB u) $ dispatchFun : methodMaps
+  where
+    ress = flatten ress'
 
 -- | Determine the name of the method map for a given resource name.
 methodMapName :: String -> Name
 methodMapName s = mkName $ "methods" ++ s
 
 buildMethodMap :: Q Exp -- ^ fixHandler
-               -> Resource a
+               -> FlatResource a
                -> Q (Maybe Dec)
-buildMethodMap _ (Resource _ _ (Methods _ [])) = return Nothing -- single handle function
-buildMethodMap fixHandler (Resource name pieces (Methods mmulti methods)) = do
+buildMethodMap _ (FlatResource _ _ _ (Methods _ [])) = return Nothing -- single handle function
+buildMethodMap fixHandler (FlatResource parents name pieces' (Methods mmulti methods)) = do
     fromList <- [|Map.fromList|]
     methods' <- mapM go methods
     let exp = fromList `AppE` ListE methods'
     let fun = FunD (methodMapName name) [Clause [] (NormalB exp) []]
     return $ Just fun
   where
+    pieces = concat $ map snd parents ++ [pieces']
     go method = do
         fh <- fixHandler
         let func = VarE $ mkName $ map toLower method ++ name
@@ -156,28 +169,31 @@ buildMethodMap fixHandler (Resource name pieces (Methods mmulti methods)) = do
         xs <- replicateM argCount $ newName "arg"
         let rhs = LamE (map VarP xs) $ fh `AppE` (foldl' AppE func $ map VarE xs)
         return $ TupE [pack' `AppE` LitE (StringL method), rhs]
-buildMethodMap _ (Resource _ _ Subsite{}) = return Nothing
+buildMethodMap _ (FlatResource _ _ _ Subsite{}) = return Nothing
 
 -- | Build a single 'D.Route' expression.
-buildRoute :: Q Exp -> Q Exp -> Q Exp -> Resource a -> Q Exp
-buildRoute runHandler dispatcher fixHandler (Resource name resPieces resDisp) = do
+buildRoute :: Q Exp -> Q Exp -> Q Exp -> FlatResource a -> Q Exp
+buildRoute runHandler dispatcher fixHandler (FlatResource parents name resPieces resDisp) = do
     -- First two arguments to D.Route
-    routePieces <- ListE <$> mapM (convertPiece . snd) resPieces
+    routePieces <- ListE <$> mapM (convertPiece . snd) allPieces
     isMulti <-
         case resDisp of
             Methods Nothing _ -> [|False|]
             _ -> [|True|]
 
-    [|D.Route $(return routePieces) $(return isMulti) $(routeArg3 runHandler dispatcher fixHandler name (map snd resPieces) resDisp)|]
+    [|D.Route $(return routePieces) $(return isMulti) $(routeArg3 runHandler dispatcher fixHandler parents name (map snd allPieces) resDisp)|]
+  where
+    allPieces = concat $ map snd parents ++ [resPieces]
 
 routeArg3 :: Q Exp -- ^ runHandler
           -> Q Exp -- ^ dispatcher
           -> Q Exp -- ^ fixHandler
+          -> [(String, [(CheckOverlap, Piece a)])]
           -> String -- ^ name of resource
           -> [Piece a]
           -> Dispatch a
           -> Q Exp
-routeArg3 runHandler dispatcher fixHandler name resPieces resDisp = do
+routeArg3 runHandler dispatcher fixHandler parents name resPieces resDisp = do
     pieces <- newName "pieces"
 
     -- Allocate input piece variables (xs) and variables that have been
@@ -216,7 +232,7 @@ routeArg3 runHandler dispatcher fixHandler name resPieces resDisp = do
             _ -> return ([], [])
 
     -- The final expression that actually uses the values we've computed
-    caller <- buildCaller runHandler dispatcher fixHandler xrest name resDisp $ map snd ys ++ yrest'
+    caller <- buildCaller runHandler dispatcher fixHandler xrest parents name resDisp $ map snd ys ++ yrest'
 
     -- Put together all the statements
     just <- [|Just|]
@@ -239,11 +255,12 @@ buildCaller :: Q Exp -- ^ runHandler
             -> Q Exp -- ^ dispatcher
             -> Q Exp -- ^ fixHandler
             -> Name -- ^ xrest
+            -> [(String, [(CheckOverlap, Piece a)])]
             -> String -- ^ name of resource
             -> Dispatch a
             -> [Name] -- ^ ys
             -> Q Exp
-buildCaller runHandler dispatcher fixHandler xrest name resDisp ys = do
+buildCaller runHandler dispatcher fixHandler xrest parents name resDisp ys = do
     master <- newName "master"
     sub <- newName "sub"
     toMaster <- newName "toMaster"
@@ -254,7 +271,7 @@ buildCaller runHandler dispatcher fixHandler xrest name resDisp ys = do
     let pat = map VarP [master, sub, toMaster, app404, handler405, method]
 
     -- Create the route
-    let route = foldl' (\a b -> a `AppE` VarE b) (ConE $ mkName name) ys
+    let route = routeFromDynamics parents name ys
 
     exp <-
         case resDisp of
@@ -309,3 +326,16 @@ buildCaller runHandler dispatcher fixHandler xrest name resDisp ys = do
 convertPiece :: Piece a -> Q Exp
 convertPiece (Static s) = [|D.Static (pack $(lift s))|]
 convertPiece (Dynamic _) = [|D.Dynamic|]
+
+routeFromDynamics :: [(String, [(CheckOverlap, Piece a)])] -- ^ parents
+                  -> String -- ^ constructor name
+                  -> [Name]
+                  -> Exp
+routeFromDynamics [] name ys = foldl' (\a b -> a `AppE` VarE b) (ConE $ mkName name) ys
+routeFromDynamics ((parent, pieces):rest) name ys =
+    foldl' (\a b -> a `AppE` b) (ConE $ mkName parent) here
+  where
+    (here', ys') = splitAt (length $ filter (isDynamic . snd) pieces) ys
+    isDynamic Dynamic{} = True
+    isDynamic _ = False
+    here = map VarE here' ++ [routeFromDynamics rest name ys']

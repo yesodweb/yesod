@@ -78,19 +78,15 @@ import System.Posix.Types (EpochTime)
 import Data.Conduit (($$))
 import Data.Conduit.List (sourceList)
 import Data.Functor.Identity (runIdentity)
+import qualified Filesystem.Path.CurrentOS as F
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
-    , defaultWebAppSettings
     , staticApp
-    , embeddedLookup
-    , toEmbedded
-    , toFilePath
-    , fromFilePath
-    , FilePath
-    , ETagLookup
     , webAppSettingsWithLookup
+    , embeddedSettings
     )
+import WaiAppStatic.Storage.Filesystem (ETagLookup)
 
 -- | Type used for the subsite with static contents.
 newtype Static = Static StaticSettings
@@ -106,7 +102,7 @@ type StaticRoute = Route Static
 static :: Prelude.FilePath -> IO Static
 static dir = do
     hashLookup <- cachedETagLookup dir
-    return $ Static $ webAppSettingsWithLookup (toFilePath dir) hashLookup
+    return $ Static $ webAppSettingsWithLookup (F.decodeString dir) hashLookup
 
 -- | Same as 'static', but does not assumes that the files do not
 -- change and checks their modification time whenever a request
@@ -114,7 +110,7 @@ static dir = do
 staticDevel :: Prelude.FilePath -> IO Static
 staticDevel dir = do
     hashLookup <- cachedETagLookupDevel dir
-    return $ Static $ webAppSettingsWithLookup (toFilePath dir) hashLookup
+    return $ Static $ webAppSettingsWithLookup (F.decodeString dir) hashLookup
 
 -- | Produce a 'Static' based on embedding all of the static
 -- files' contents in the executable at compile time.
@@ -126,10 +122,7 @@ staticDevel dir = do
 -- You can easily change @addStaticContent@ to @\_ _ _ -> return Nothing@ as a workaround.
 -- This will cause yesod to embed those assets into the generated HTML file itself.  
 embed :: Prelude.FilePath -> Q Exp
-embed fp =
-    [|Static (defaultWebAppSettings
-        { ssFolder = embeddedLookup (toEmbedded $(embedDir fp))
-        })|]
+embed fp = [|Static (embeddedSettings $(embedDir fp))|]
 
 instance RenderRoute Static where
     -- | A route on the static subsite (see also 'staticFiles').
@@ -152,10 +145,10 @@ instance RenderRoute Static where
 
 instance Yesod master => YesodDispatch Static master where
     -- Need to append trailing slash to make relative links work
-    yesodDispatch _ _ _ _ _ _ [] _ req =
+    yesodDispatch _ _ _ _ _ _ _ [] _ req =
         return $ responseLBS status301 [("Location", rawPathInfo req `S.append` "/")] ""
 
-    yesodDispatch _ (Static set) _ _ _ _ textPieces  _ req =
+    yesodDispatch _ _ (Static set) _ _ _ _ textPieces  _ req =
         staticApp set req { pathInfo = textPieces }
 
 notHidden :: Prelude.FilePath -> Bool
@@ -233,18 +226,18 @@ publicFiles :: Prelude.FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles' dir "StaticRoute" False
 
 
-mkHashMap :: Prelude.FilePath -> IO (M.Map FilePath S8.ByteString)
+mkHashMap :: Prelude.FilePath -> IO (M.Map F.FilePath S8.ByteString)
 mkHashMap dir = do
     fs <- getFileListPieces dir
     hashAlist fs >>= return . M.fromList
   where
-    hashAlist :: [[String]] -> IO [(FilePath, S8.ByteString)]
+    hashAlist :: [[String]] -> IO [(F.FilePath, S8.ByteString)]
     hashAlist fs = mapM hashPair fs
       where
-        hashPair :: [String] -> IO (FilePath, S8.ByteString)
+        hashPair :: [String] -> IO (F.FilePath, S8.ByteString)
         hashPair pieces = do let file = pathFromRawPieces dir pieces
                              h <- base64md5File file
-                             return (toFilePath file, S8.pack h)
+                             return (F.decodeString file, S8.pack h)
 
 pathFromRawPieces :: Prelude.FilePath -> [String] -> Prelude.FilePath
 pathFromRawPieces =
@@ -255,12 +248,12 @@ pathFromRawPieces =
 cachedETagLookupDevel :: Prelude.FilePath -> IO ETagLookup
 cachedETagLookupDevel dir = do
     etags <- mkHashMap dir
-    mtimeVar <- newIORef (M.empty :: M.Map FilePath EpochTime)
+    mtimeVar <- newIORef (M.empty :: M.Map F.FilePath EpochTime)
     return $ \f ->
       case M.lookup f etags of
         Nothing -> return Nothing
         Just checksum -> do
-          fs <- getFileStatus $ fromFilePath f
+          fs <- getFileStatus $ F.encodeString f
           let newt = modificationTime fs
           mtimes <- readIORef mtimeVar
           oldt <- case M.lookup f mtimes of

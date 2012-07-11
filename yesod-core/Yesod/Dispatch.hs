@@ -28,7 +28,7 @@ module Yesod.Dispatch
     , WaiSubsite (..)
     ) where
 
-import Data.Functor   ((<$>))
+import Control.Applicative ((<$>), (<*>))
 import Prelude hiding (exp)
 import Yesod.Internal.Core
 import Yesod.Handler hiding (lift)
@@ -53,6 +53,7 @@ import Network.HTTP.Types (status301)
 import Yesod.Routes.TH
 import Yesod.Content (chooseRep)
 import Yesod.Routes.Parse
+import System.Log.FastLogger (Logger)
 
 type Texts = [Text]
 
@@ -60,7 +61,7 @@ type Texts = [Text]
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
 -- Use 'parseRoutes' to create the 'Resource's.
 mkYesod :: String -- ^ name of the argument datatype
-        -> [Resource String]
+        -> [ResourceTree String]
         -> Q [Dec]
 mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 
@@ -71,7 +72,7 @@ mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
 -- be embedded in other sites.
 mkYesodSub :: String -- ^ name of the argument datatype
            -> Cxt
-           -> [Resource String]
+           -> [ResourceTree String]
            -> Q [Dec]
 mkYesodSub name clazzes =
     fmap (uncurry (++)) . mkYesodGeneral name' rest clazzes True
@@ -82,28 +83,28 @@ mkYesodSub name clazzes =
 -- your handlers elsewhere. For example, this is the only way to break up a
 -- monolithic file into smaller parts. Use this function, paired with
 -- 'mkYesodDispatch', to do just that.
-mkYesodData :: String -> [Resource String] -> Q [Dec]
+mkYesodData :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodData name res = mkYesodDataGeneral name [] False res
 
-mkYesodSubData :: String -> Cxt -> [Resource String] -> Q [Dec]
+mkYesodSubData :: String -> Cxt -> [ResourceTree String] -> Q [Dec]
 mkYesodSubData name clazzes res = mkYesodDataGeneral name clazzes True res
 
-mkYesodDataGeneral :: String -> Cxt -> Bool -> [Resource String] -> Q [Dec]
+mkYesodDataGeneral :: String -> Cxt -> Bool -> [ResourceTree String] -> Q [Dec]
 mkYesodDataGeneral name clazzes isSub res = do
     let (name':rest) = words name
     (x, _) <- mkYesodGeneral name' rest clazzes isSub res
     let rname = mkName $ "resources" ++ name
     eres <- lift res
-    let y = [ SigD rname $ ListT `AppT` (ConT ''Resource `AppT` ConT ''String)
+    let y = [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
             , FunD rname [Clause [] (NormalB eres) []]
             ]
     return $ x ++ y
 
 -- | See 'mkYesodData'.
-mkYesodDispatch :: String -> [Resource String] -> Q [Dec]
+mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
 
-mkYesodSubDispatch :: String -> Cxt -> [Resource String] -> Q [Dec]
+mkYesodSubDispatch :: String -> Cxt -> [ResourceTree String] -> Q [Dec]
 mkYesodSubDispatch name clazzes = fmap snd . mkYesodGeneral name' rest clazzes True 
   where (name':rest) = words name
 
@@ -111,7 +112,7 @@ mkYesodGeneral :: String -- ^ foundation type
                -> [String]
                -> Cxt -- ^ classes
                -> Bool -- ^ is subsite?
-               -> [Resource String]
+               -> [ResourceTree String]
                -> Q ([Dec], [Dec])
 mkYesodGeneral name args clazzes isSub resS = do
     let args' = map mkName args
@@ -119,7 +120,13 @@ mkYesodGeneral name args clazzes isSub resS = do
     let res = map (fmap parseType) resS
     renderRouteDec <- mkRenderRouteInstance arg res
 
-    disp <- mkDispatchClause [|yesodRunner|] [|yesodDispatch|] [|fmap chooseRep|] res
+    let logger = mkName "logger"
+    Clause pat body decs <- mkDispatchClause
+        [|yesodRunner $(return $ VarE logger)|]
+        [|yesodDispatch $(return $ VarE logger)|]
+        [|fmap chooseRep|]
+        res
+    let disp = Clause (VarP logger : pat) body decs
     let master = mkName "master"
     let ctx = if isSub
                 then ClassP (mkName "Yesod") [VarT master] : clazzes
@@ -130,7 +137,7 @@ mkYesodGeneral name args clazzes isSub resS = do
     let yesodDispatch' =
             InstanceD ctx ytyp [FunD (mkName "yesodDispatch") [disp]]
 
-    return (renderRouteDec : masterTypSyns, [yesodDispatch'])
+    return (renderRouteDec ++ masterTypSyns, [yesodDispatch'])
   where
     name' = mkName name
     masterTypSyns
@@ -160,23 +167,24 @@ toWaiApp y = gzip (gzipSettings y) . autohead <$> toWaiAppPlain y
 toWaiAppPlain :: ( Yesod master
                  , YesodDispatch master master
                  ) => master -> IO W.Application
-toWaiAppPlain a = toWaiApp' a <$> makeSessionBackend a
+toWaiAppPlain a = toWaiApp' a <$> getLogger a <*> makeSessionBackend a
 
 
 toWaiApp' :: ( Yesod master
              , YesodDispatch master master
              )
           => master
+          -> Logger
           -> Maybe (SessionBackend master)
           -> W.Application
-toWaiApp' y sb env =
+toWaiApp' y logger sb env =
     case cleanPath y $ W.pathInfo env of
         Left pieces -> sendRedirect y pieces env
         Right pieces ->
-            yesodDispatch y y id app404 handler405 method pieces sb env
+            yesodDispatch logger y y id app404 handler405 method pieces sb env
   where
-    app404 = yesodRunner notFound y y Nothing id
-    handler405 route = yesodRunner badMethod y y (Just route) id
+    app404 = yesodRunner logger notFound y y Nothing id
+    handler405 route = yesodRunner logger badMethod y y (Just route) id
     method = decodeUtf8With lenientDecode $ W.requestMethod env
 
 sendRedirect :: Yesod master => master -> [Text] -> W.Application
@@ -202,4 +210,4 @@ instance RenderRoute WaiSubsite where
     renderRoute (WaiSubsiteRoute ps qs) = (ps, qs)
 
 instance YesodDispatch WaiSubsite master where
-    yesodDispatch _master (WaiSubsite app) _tomaster _404 _405 _method _pieces _session = app
+    yesodDispatch _logger _master (WaiSubsite app) _tomaster _404 _405 _method _pieces _session = app

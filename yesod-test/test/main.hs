@@ -6,23 +6,18 @@ import Test.Hspec.HUnit ()
 
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
-import Yesod.Test.HtmlParse
 import Text.XML
 
 import Data.ByteString.Lazy.Char8 ()
+import qualified Data.Map as Map
+import qualified Text.HTML.DOM as HD
 
 parseQuery_ = either error id . parseQuery
 findBySelector_ x = either error id . findBySelector x
-parseHtml_ = either error id . parseHtml
+parseHtml_ = HD.parseLBS
 
 main :: IO ()
-main =
-#if MIN_VERSION_hspec(1,2,0)
-  hspec
-#else
-  hspecX
-#endif
-   $ do
+main = hspec $ do
     describe "CSS selector parsing" $ do
         it "elements" $ parseQuery_ "strong" @?= [[DeepChildren [ByTagName "strong"]]]
         it "child elements" $ parseQuery_ "strong > i" @?= [[DeepChildren [ByTagName "strong"], DirectChildren [ByTagName "i"]]]
@@ -40,13 +35,13 @@ main =
         it "XHTML" $
             let html = "<html><head><title>foo</title></head><body><p>Hello World</p></body></html>"
                 doc = Document (Prologue [] Nothing []) root []
-                root = Element "html" []
-                    [ NodeElement $ Element "head" []
-                        [ NodeElement $ Element "title" []
+                root = Element "html" Map.empty
+                    [ NodeElement $ Element "head" Map.empty
+                        [ NodeElement $ Element "title" Map.empty
                             [NodeContent "foo"]
                         ]
-                    , NodeElement $ Element "body" []
-                        [ NodeElement $ Element "p" []
+                    , NodeElement $ Element "body" Map.empty
+                        [ NodeElement $ Element "p" Map.empty
                             [NodeContent "Hello World"]
                         ]
                     ]
@@ -54,14 +49,14 @@ main =
         it "HTML" $
             let html = "<html><head><title>foo</title></head><body><br><p>Hello World</p></body></html>"
                 doc = Document (Prologue [] Nothing []) root []
-                root = Element "html" []
-                    [ NodeElement $ Element "head" []
-                        [ NodeElement $ Element "title" []
+                root = Element "html" Map.empty
+                    [ NodeElement $ Element "head" Map.empty
+                        [ NodeElement $ Element "title" Map.empty
                             [NodeContent "foo"]
                         ]
-                    , NodeElement $ Element "body" []
-                        [ NodeElement $ Element "br" [] []
-                        , NodeElement $ Element "p" []
+                    , NodeElement $ Element "body" Map.empty
+                        [ NodeElement $ Element "br" Map.empty []
+                        , NodeElement $ Element "p" Map.empty
                             [NodeContent "Hello World"]
                         ]
                     ]

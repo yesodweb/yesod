@@ -11,8 +11,7 @@ import Yesod.Auth
 import Yesod.Default.Config
 import Yesod.Default.Main
 import Yesod.Default.Handlers
-import Yesod.Logger (Logger, logBS, toProduction)
-import Network.Wai.Middleware.RequestLogger (logCallback, logCallbackDev)
+import Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 import qualified Database.Persist.Store~importMigration~
 import Network.HTTP.Conduit (newManager, def)
 
@@ -29,25 +28,24 @@ mkYesodDispatch "~sitearg~" resources~sitearg~
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-makeApplication :: AppConfig DefaultEnv Extra -> Logger -> IO Application
-makeApplication conf logger = do
-    foundation <- makeFoundation conf setLogger
+makeApplication :: AppConfig DefaultEnv Extra -> IO Application
+makeApplication conf = do
+    foundation <- makeFoundation conf
     app <- toWaiAppPlain foundation
     return $ logWare app
   where
-    setLogger = if development then logger else toProduction logger
-    logWare   = if development then logCallbackDev (logBS setLogger)
-                               else logCallback    (logBS setLogger)
+    logWare   = if development then logStdoutDev
+                               else logStdout
 
-makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO ~sitearg~
-makeFoundation conf setLogger = do
+makeFoundation :: AppConfig DefaultEnv Extra -> IO ~sitearg~
+makeFoundation conf = do
     manager <- newManager def
     s <- staticSite
     dbconf <- withYamlEnvironment "config/~dbConfigFile~.yml" (appEnv conf)
               Database.Persist.Store.loadConfig >>=
               Database.Persist.Store.applyEnv
     p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)~runMigration~
-    return $ ~sitearg~ conf setLogger s p manager dbconf
+    return $ ~sitearg~ conf s p manager dbconf
 
 -- for yesod devel
 getApplicationDev :: IO (Int, Application)

@@ -53,6 +53,7 @@ module Yesod.Widget
     , addScriptEither
       -- * Internal
     , unGWidget
+    , whamletFileWithSettings
     ) where
 
 import Data.Monoid
@@ -80,20 +81,16 @@ import Control.Monad.Trans.Control (MonadBaseControl (..))
 import Control.Exception (throwIO)
 import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 import qualified Data.Text.Lazy as TL
-#else
-import Text.Blaze (toHtml, preEscapedLazyText)
-#endif
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Arrow (first)
 import Control.Monad.Trans.Resource
 
-#if MIN_VERSION_blaze_html(0, 5, 0)
+import Control.Monad.Logger
+
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
-#endif
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
@@ -272,6 +269,9 @@ whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
 whamletFile :: FilePath -> Q Exp
 whamletFile = NP.hamletFileWithSettings rules NP.defaultHamletSettings
 
+whamletFileWithSettings :: NP.HamletSettings -> FilePath -> Q Exp
+whamletFileWithSettings = NP.hamletFileWithSettings rules
+
 rules :: Q NP.HamletRules
 rules = do
     ah <- [|toWidget|]
@@ -344,3 +344,6 @@ instance MonadResource (GWidget sub master) where
     register = lift . register
     release = lift . release
     resourceMask = lift . resourceMask
+
+instance MonadLogger (GWidget sub master) where
+    monadLoggerLog a b = lift . monadLoggerLog a b

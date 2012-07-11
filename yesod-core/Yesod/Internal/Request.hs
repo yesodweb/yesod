@@ -4,7 +4,15 @@ module Yesod.Internal.Request
     ( parseWaiRequest
     , Request (..)
     , RequestBodyContents
-    , FileInfo (..)
+    , FileInfo
+    , fileName
+    , fileContentType
+    , fileSource
+    , fileMove
+    , mkFileInfoLBS
+    , mkFileInfoFile
+    , mkFileInfoSource
+    , FileUpload (..)
     -- The below are exported for testing.
     , randomString
     , parseWaiRequest'
@@ -28,6 +36,10 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
+import Data.Conduit
+import Data.Conduit.List (sourceList)
+import Data.Conduit.Binary (sourceFile, sinkFile)
+import Data.Word (Word64)
 
 -- | The parsed request information.
 data Request = Request
@@ -38,23 +50,27 @@ data Request = Request
     , reqLangs :: [Text]
       -- | A random, session-specific token used to prevent CSRF attacks.
     , reqToken :: Maybe Text
+      -- | Size of the request body.
+    , reqBodySize :: Word64
     }
 
 parseWaiRequest :: W.Request
                 -> [(Text, ByteString)] -- ^ session
                 -> Bool
+                -> Word64
                 -> IO Request
-parseWaiRequest env session' useToken =
-    parseWaiRequest' env session' useToken <$> newStdGen
+parseWaiRequest env session' useToken bodySize =
+    parseWaiRequest' env session' useToken bodySize <$> newStdGen
 
 parseWaiRequest' :: RandomGen g
                  => W.Request
                  -> [(Text, ByteString)] -- ^ session
                  -> Bool
+                 -> Word64
                  -> g
                  -> Request
-parseWaiRequest' env session' useToken gen = 
-    Request gets'' cookies' env langs'' token
+parseWaiRequest' env session' useToken bodySize gen =
+    Request gets'' cookies' env langs'' token bodySize
   where
     gets' = queryToQueryText $ W.queryString env
     gets'' = map (second $ fromMaybe "") gets'
@@ -116,6 +132,19 @@ type RequestBodyContents =
 data FileInfo = FileInfo
     { fileName :: Text
     , fileContentType :: Text
-    , fileContent :: L.ByteString
+    , fileSource :: Source (ResourceT IO) ByteString
+    , fileMove :: FilePath -> IO ()
     }
-    deriving (Eq, Show)
+
+mkFileInfoLBS :: Text -> Text -> L.ByteString -> FileInfo
+mkFileInfoLBS name ct lbs = FileInfo name ct (sourceList $ L.toChunks lbs) (\fp -> L.writeFile fp lbs)
+
+mkFileInfoFile :: Text -> Text -> FilePath -> FileInfo
+mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourceT $ sourceFile fp $$ sinkFile dst)
+
+mkFileInfoSource :: Text -> Text -> Source (ResourceT IO) ByteString -> FileInfo
+mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runResourceT $ src $$ sinkFile dst)
+
+data FileUpload = FileUploadMemory (Sink ByteString (ResourceT IO) L.ByteString)
+                | FileUploadDisk (Sink ByteString (ResourceT IO) FilePath)
+                | FileUploadSource (Sink ByteString (ResourceT IO) (Source (ResourceT IO) ByteString))

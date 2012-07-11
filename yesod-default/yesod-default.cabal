@@ -1,5 +1,5 @@
 name:            yesod-default
-version:         1.0.1.1
+version:         1.1.0
 license:         MIT
 license-file:    LICENSE
 author:          Patrick Brisbin
@@ -18,10 +18,10 @@ library
         cpp-options: -DWINDOWS
 
     build-depends:   base                  >= 4       && < 5
-                   , yesod-core            >= 1.0     && < 1.1
-                   , warp                  >= 1.2     && < 1.3
-                   , wai                   >= 1.2     && < 1.3
-                   , wai-extra             >= 1.2     && < 1.3
+                   , yesod-core            >= 1.1     && < 1.2
+                   , warp                  >= 1.3     && < 1.4
+                   , wai                   >= 1.3     && < 1.4
+                   , wai-extra             >= 1.3     && < 1.4
                    , bytestring            >= 0.9.1.4
                    , transformers          >= 0.2.2   && < 0.4
                    , text                  >= 0.9
@@ -29,9 +29,11 @@ library
                    , shakespeare-css       >= 1.0     && < 1.1
                    , shakespeare-js        >= 1.0     && < 1.1
                    , template-haskell
-                   , yaml                  >= 0.7     && < 0.8
-                   , network-conduit       >= 0.4     && < 0.5
+                   , yaml                  >= 0.8     && < 0.9
+                   , network-conduit       >= 0.5     && < 0.6
                    , unordered-containers
+                   , hamlet                >= 1.1     && < 1.2
+                   , data-default
 
     if !os(windows)
          build-depends: unix

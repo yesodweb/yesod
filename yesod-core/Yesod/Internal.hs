@@ -27,7 +27,8 @@ module Yesod.Internal
     , tokenKey
     ) where
 
-import Text.Hamlet (HtmlUrl, hamlet, Html)
+import Text.Hamlet (HtmlUrl, Html)
+import Text.Blaze.Html (toHtml)
 import Text.Julius (JavascriptUrl)
 import Data.Monoid (Monoid (..), Last)
 import Data.List (nub)
@@ -41,8 +42,8 @@ import qualified Network.HTTP.Types as H
 import Data.String (IsString)
 import qualified Data.Map as Map
 import Data.Text.Lazy.Builder (Builder)
-import Network.HTTP.Types (Ascii)
 import Web.Cookie (SetCookie (..))
+import Data.ByteString (ByteString)
 
 -- | Responses to indicate some form of an error occurred. These are different
 -- from 'SpecialResponse' in that they allow for custom error pages.
@@ -59,8 +60,8 @@ instance Exception ErrorResponse
 -- | Headers to be added to a 'Result'.
 data Header =
     AddCookie SetCookie
-    | DeleteCookie Ascii Ascii
-    | Header Ascii Ascii
+    | DeleteCookie ByteString ByteString
+    | Header ByteString ByteString
     deriving (Eq, Show)
 
 langKey :: IsString a => a
@@ -69,10 +70,8 @@ langKey = "_LANG"
 data Location url = Local url | Remote Text
     deriving (Show, Eq)
 locationToHtmlUrl :: Location url -> HtmlUrl url
-locationToHtmlUrl (Local url) = [hamlet|\@{url}
-|]
-locationToHtmlUrl (Remote s) = [hamlet|\#{s}
-|]
+locationToHtmlUrl (Local url) render = toHtml $ render url []
+locationToHtmlUrl (Remote s) _ = toHtml s
 
 newtype UniqueList x = UniqueList ([x] -> [x])
 instance Monoid (UniqueList x) where
@@ -100,13 +99,14 @@ tokenKey = "_TOKEN"
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> Builder
 
 data GWData a = GWData
-    !(Body a)
-    !(Last Title)
-    !(UniqueList (Script a))
-    !(UniqueList (Stylesheet a))
-    !(Map.Map (Maybe Text) (CssBuilderUrl a)) -- media type
-    !(Maybe (JavascriptUrl a))
-    !(Head a)
+    { gwdBody :: !(Body a)
+    , gwdTitle :: !(Last Title)
+    , gwdScripts :: !(UniqueList (Script a))
+    , gwdStylesheets :: !(UniqueList (Stylesheet a))
+    , gwdCss :: !(Map.Map (Maybe Text) (CssBuilderUrl a)) -- media type
+    , gwdJavascript :: !(Maybe (JavascriptUrl a))
+    , gwdHead :: !(Head a)
+    }
 instance Monoid (GWData a) where
     mempty = GWData mempty mempty mempty mempty mempty mempty mempty
     mappend (GWData a1 a2 a3 a4 a5 a6 a7)

@@ -2,15 +2,36 @@
 module Yesod.Routes.TH.Types
     ( -- * Data types
       Resource (..)
+    , ResourceTree (..)
     , Piece (..)
     , Dispatch (..)
     , CheckOverlap
       -- ** Helper functions
     , resourceMulti
+    , resourceTreePieces
+    , resourceTreeName
     ) where
 
 import Language.Haskell.TH.Syntax
 import Control.Arrow (second)
+
+data ResourceTree typ = ResourceLeaf (Resource typ) | ResourceParent String [(CheckOverlap, Piece typ)] [ResourceTree typ]
+
+resourceTreePieces :: ResourceTree typ -> [(CheckOverlap, Piece typ)]
+resourceTreePieces (ResourceLeaf r) = resourcePieces r
+resourceTreePieces (ResourceParent _ x _) = x
+
+resourceTreeName :: ResourceTree typ -> String
+resourceTreeName (ResourceLeaf r) = resourceName r
+resourceTreeName (ResourceParent x _ _) = x
+
+instance Functor ResourceTree where
+    fmap f (ResourceLeaf r) = ResourceLeaf (fmap f r)
+    fmap f (ResourceParent a b c) = ResourceParent a (map (second $ fmap f) b) $ map (fmap f) c
+
+instance Lift t => Lift (ResourceTree t) where
+    lift (ResourceLeaf r) = [|ResourceLeaf $(lift r)|]
+    lift (ResourceParent a b c) = [|ResourceParent $(lift a) $(lift b) $(lift c)|]
 
 data Resource typ = Resource
     { resourceName :: String

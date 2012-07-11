@@ -24,7 +24,9 @@ mkYesod "App" [parseRoutes|
 instance Yesod App
 
 getHomeR :: Handler RepHtml
-getHomeR = defaultLayout $ toWidget [hamlet|
+getHomeR = do
+    $logDebug "Testing logging"
+    defaultLayout $ toWidget [hamlet|
 $doctype 5
 
 <html>
@@ -49,7 +51,7 @@ postFirstThingR = do
 
 postAfterRunRequestBodyR = do
    x <- runRequestBody
-   _ <- error $ show x
+   _ <- error $ show $ fst x
    getHomeR
 
 errorHandlingTest :: Spec

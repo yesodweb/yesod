@@ -3,10 +3,11 @@
 {-# LANGUAGE CPP #-}
 module Yesod.Auth.OpenId
     ( authOpenId
-    , authOpenIdExtended
     , forwardUrl
     , claimedKey
+    , opLocalKey
     , credsIdentClaimed
+    , IdentifierType (..)
     ) where
 
 import Yesod.Auth
@@ -30,11 +31,13 @@ import Data.Maybe (fromMaybe)
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
 
-authOpenId :: YesodAuth m => AuthPlugin m
-authOpenId = authOpenIdExtended []
+data IdentifierType = Claimed | OPLocal
 
-authOpenIdExtended :: YesodAuth m => [(Text, Text)] -> AuthPlugin m
-authOpenIdExtended extensionFields =
+authOpenId :: YesodAuth m
+           => IdentifierType
+           -> [(Text, Text)] -- ^ extension fields
+           -> AuthPlugin m
+authOpenId idType extensionFields =
     AuthPlugin "openid" dispatch login
   where
     complete = PluginR "openid" ["complete"]
@@ -46,6 +49,7 @@ authOpenIdExtended extensionFields =
     padding-left: 18px;
 |]
         [whamlet|
+$newline never
 <form method="get" action="@{tm forwardUrl}">
     <input type="hidden" name="openid_identifier" value="https://www.google.com/accounts/o8/id">
     <button .openid-google>_{Msg.LoginGoogle}
@@ -78,15 +82,15 @@ authOpenIdExtended extensionFields =
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do
         rr <- getRequest
-        completeHelper $ reqGetParams rr
+        completeHelper idType $ reqGetParams rr
     dispatch "POST" ["complete", ""] = dispatch "POST" ["complete"] -- compatibility issues
     dispatch "POST" ["complete"] = do
         (posts, _) <- runRequestBody
-        completeHelper posts
+        completeHelper idType posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth m => [(Text, Text)] -> GHandler Auth m ()
-completeHelper gets' = do
+completeHelper :: YesodAuth m => IdentifierType -> [(Text, Text)] -> GHandler Auth m ()
+completeHelper idType gets' = do
         master <- getYesod
         eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
         toMaster <- getRouteToMaster
@@ -98,8 +102,14 @@ completeHelper gets' = do
                         case OpenId.oirClaimed oir of
                             Nothing -> id
                             Just (OpenId.Identifier i') -> ((claimedKey, i'):)
-                    gets'' = claimed $ filter (\(k, _) -> not $ "__" `isPrefixOf` k) gets'
-                    i = OpenId.identifier $ OpenId.oirOpLocal oir
+                    oplocal =
+                        case OpenId.oirOpLocal oir of
+                            OpenId.Identifier i' -> ((opLocalKey, i'):)
+                    gets'' = oplocal $ claimed $ filter (\(k, _) -> not $ "__" `isPrefixOf` k) gets'
+                    i = OpenId.identifier $
+                            case idType of
+                                OPLocal -> OpenId.oirOpLocal oir
+                                Claimed -> fromMaybe (OpenId.oirOpLocal oir) $ OpenId.oirClaimed oir
                 setCreds True $ Creds "openid" i gets''
         either onFailure onSuccess eres
 
@@ -116,6 +126,9 @@ completeHelper gets' = do
 -- Since 1.0.2
 claimedKey :: Text
 claimedKey = "__CLAIMED"
+
+opLocalKey :: Text
+opLocalKey = "__OPLOCAL"
 
 -- | A helper function which will get the claimed identifier, if available, falling back to the OP local identifier.
 --

@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.0.0.4
+version:         1.1.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -12,19 +12,15 @@ build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Form handling support for Yesod Web Framework
 
-flag blaze_html_0_5
-    description: use blaze-html 0.5 and blaze-markup 0.5
-    default: True
-
 library
     build-depends:   base                  >= 4        && < 5
-                   , yesod-core            >= 1.0      && < 1.1
-                   , yesod-persistent      >= 1.0      && < 1.1
+                   , yesod-core            >= 1.1      && < 1.2
+                   , yesod-persistent      >= 1.1      && < 1.2
                    , time                  >= 1.1.4
-                   , hamlet                >= 1.0      && < 1.1
+                   , hamlet                >= 1.1      && < 1.2
                    , shakespeare-css       >= 1.0      && < 1.1
                    , shakespeare-js        >= 1.0      && < 1.1
-                   , persistent            >= 0.9      && < 0.10
+                   , persistent            >= 1.0      && < 1.1
                    , template-haskell
                    , transformers          >= 0.2.2    && < 0.4
                    , data-default
@@ -34,16 +30,10 @@ library
                    , email-validate        >= 0.2.6    && < 0.3
                    , bytestring            >= 0.9.1.4
                    , text                  >= 0.9      && < 1.0
-                   , wai                   >= 1.2      && < 1.3
+                   , wai                   >= 1.3      && < 1.4
                    , containers            >= 0.2
-
-    if flag(blaze_html_0_5)
-        build-depends:
-                     blaze-html               >= 0.5     && < 0.6
-                   , blaze-markup             >= 0.5.1   && < 0.6
-    else
-        build-depends:
-                     blaze-html               >= 0.4     && < 0.5
+                   , blaze-html            >= 0.5      && < 0.6
+                   , blaze-markup          >= 0.5.1    && < 0.6
 
     exposed-modules: Yesod.Form
                      Yesod.Form.Class
