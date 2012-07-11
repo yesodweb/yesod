@@ -12,6 +12,7 @@ import Build (touch)
 #endif
 import Devel (devel)
 import AddHandler (addHandler)
+import Keter (keter)
 
 windowsWarning :: String
 #ifdef WINDOWS
@@ -48,6 +49,8 @@ main = do
         ["version"] -> putStrLn $ "yesod-core version:" ++ yesodVersion
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         ["add-handler"] -> addHandler
+        ["keter"] -> keter cmd False
+        ["keter", "--nobuild"] -> keter cmd True
         _ -> do
             putStrLn "Usage: yesod <command>"
             putStrLn "Available commands:"
@@ -62,6 +65,9 @@ main = do
             putStrLn "    test         Build and run the integration tests"
             putStrLn "                    use --dev devel to build with cabal-dev"
             putStrLn "    add-handler  Add a new handler and module to your project"
+            putStrLn "    keter        Build a keter bundle"
+            putStrLn "                    use --dev devel to build with cabal-dev"
+            putStrLn "                    use --nobuild to skip rebuilding"
             putStrLn "    version      Print the version of Yesod"
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
