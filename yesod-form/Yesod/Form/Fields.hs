@@ -94,7 +94,7 @@ import Control.Arrow ((&&&))
 
 import Control.Applicative ((<$>), (<|>))
 
-import Data.Attoparsec.Text
+import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
