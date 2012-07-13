@@ -7,7 +7,7 @@ maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Form handling support for Yesod Web Framework
 category:        Web, Yesod
 stability:       Stable
-cabal-version:   >= 1.6
+cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Form handling support for Yesod Web Framework
@@ -34,6 +34,7 @@ library
                    , containers            >= 0.2
                    , blaze-html            >= 0.5      && < 0.6
                    , blaze-markup          >= 0.5.1    && < 0.6
+                   , attoparsec            >= 0.10     && < 0.11
 
     exposed-modules: Yesod.Form
                      Yesod.Form.Class
@@ -53,6 +54,17 @@ library
                      Yesod.Form.I18n.Japanese
                      -- FIXME Yesod.Helpers.Crud
     ghc-options:     -Wall
+
+test-suite test
+    type: exitcode-stdio-1.0
+    main-is: main.hs
+    hs-source-dirs: test
+    build-depends:          base
+                          , yesod-form
+                          , time
+                          , hspec
+                          , HUnit
+                          , text
 
 source-repository head
   type:     git
