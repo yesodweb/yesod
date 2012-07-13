@@ -151,3 +151,4 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgBoolYes
                  | MsgBoolNo
                  | MsgDelete
+    deriving (Show, Eq, Read)

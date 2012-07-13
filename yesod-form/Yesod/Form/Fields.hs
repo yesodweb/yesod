@@ -67,7 +67,7 @@ import Database.Persist (PersistField)
 import Database.Persist.Store (Entity (..))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, fromMaybe)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -92,7 +92,9 @@ import Yesod.Core (toPathPiece, GHandler, PathPiece, fromPathPiece)
 import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery)
 import Control.Arrow ((&&&))
 
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<|>))
+
+import Data.Attoparsec.Text
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
@@ -145,7 +147,7 @@ $newline never
 
 timeField :: RenderMessage master FormMessage => Field sub master TimeOfDay
 timeField = Field
-    { fieldParse = blank $ parseTime . unpack
+    { fieldParse = blank parseTime
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} :isReq:required="" value="#{showVal val}">
@@ -239,29 +241,51 @@ parseDate = maybe (Left MsgInvalidDay) Right
 replace :: Eq a => a -> a -> [a] -> [a]
 replace x y = map (\z -> if z == x then y else z)
 
-parseTime :: String -> Either FormMessage TimeOfDay
-parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:' ':'A':'M':[]) =
-    parseTimeHelper (h1, h2, m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:' ':'P':'M':[]) =
-    let [h1', h2'] = show $ (read [h1, h2] :: Int) + 12
-    in parseTimeHelper (h1', h2', m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
-    parseTimeHelper (h1, h2, m1, m2, s1, s2)
-parseTime _ = Left MsgInvalidTimeFormat
+parseTime :: Text -> Either FormMessage TimeOfDay
+parseTime = either (Left . fromMaybe MsgInvalidTimeFormat . readMay . drop 2 . dropWhile (/= ':')) Right . parseOnly timeParser
 
-parseTimeHelper :: (Char, Char, Char, Char, Char, Char)
-                -> Either FormMessage TimeOfDay
-parseTimeHelper (h1, h2, m1, m2, s1, s2)
-    | h < 0 || h > 23 = Left $ MsgInvalidHour $ pack [h1, h2]
-    | m < 0 || m > 59 = Left $ MsgInvalidMinute $ pack [m1, m2]
-    | s < 0 || s > 59 = Left $ MsgInvalidSecond $ pack [s1, s2]
-    | otherwise = Right $ TimeOfDay h m s
+timeParser :: Parser TimeOfDay
+timeParser = do
+    skipSpace
+    h <- hour
+    _ <- char ':'
+    m <- minsec MsgInvalidMinute
+    hasSec <- (char ':' >> return True) <|> return False
+    s <- if hasSec then minsec MsgInvalidSecond else return 0
+    skipSpace
+    isPM <-
+        (string "am" >> return (Just False)) <|>
+        (string "AM" >> return (Just False)) <|>
+        (string "pm" >> return (Just True)) <|>
+        (string "PM" >> return (Just True)) <|>
+        return Nothing
+    h' <-
+        case isPM of
+            Nothing -> return h
+            Just x
+                | h <= 0 || h > 12 -> fail $ show $ MsgInvalidHour $ pack $ show h
+                | h == 12 -> return $ if x then 12 else 0
+                | otherwise -> return $ h + (if x then 12 else 0)
+    skipSpace
+    endOfInput
+    return $ TimeOfDay h' m s
   where
-    h = read [h1, h2] -- FIXME isn't this a really bad idea?
-    m = read [m1, m2]
-    s = fromInteger $ read [s1, s2]
+    hour = do
+        x <- digit
+        y <- (return <$> digit) <|> return []
+        let xy = x : y
+        let i = read xy
+        if i < 0 || i >= 24
+            then fail $ show $ MsgInvalidHour $ pack xy
+            else return i
+    minsec msg = do
+        x <- digit
+        y <- digit <|> fail (show $ msg $ pack [x])
+        let xy = [x, y]
+        let i = read xy
+        if i < 0 || i >= 60
+            then fail $ show $ msg $ pack xy
+            else return i
 
 emailField :: RenderMessage master FormMessage => Field sub master Text
 emailField = Field
