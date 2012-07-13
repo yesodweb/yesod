@@ -66,7 +66,7 @@ data OAuth = OAuth { oauthServerName      :: String -- ^ Service name (default: 
                    --   otherwise you can just leave this empty.
                    , oauthAuthorizeUri    :: String
                    -- ^ Uri to authorize (default: @\"\"@).
-                   --   You MUST specify if you use 'authorizeUrl' or 'authorizeUrl'';
+                   --   You MUST specify if you use 'authorizeUrl' or 'authorizeZUrl'';
                    --   otherwise you can just leave this empty. 
                    , oauthSignatureMethod :: SignMethod
                    -- ^ Signature Method (default: 'HMACSHA1')
