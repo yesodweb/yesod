@@ -24,6 +24,7 @@ main = hspec $
         , ("1:00:01", Right $ TimeOfDay 1 0 1)
         , ("1:00:02 AM", Right $ TimeOfDay 1 0 2)
         , ("1:00:04 am", Right $ TimeOfDay 1 0 4)
+        , ("1:00:05 am", Right $ read "01:00:05")
         , ("1:00:64 am", Left $ MsgInvalidSecond "64")
         , ("1:00:4 am", Left $ MsgInvalidSecond "4")
         , ("0:00", Right $ TimeOfDay 0 0 0)
