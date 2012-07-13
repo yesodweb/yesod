@@ -278,6 +278,7 @@ timeParser = do
         if i < 0 || i >= 24
             then fail $ show $ MsgInvalidHour $ pack xy
             else return i
+    minsec :: (Num a, Read a, Ord a) => (Text -> FormMessage) -> Parser a
     minsec msg = do
         x <- digit
         y <- digit <|> fail (show $ msg $ pack [x])
