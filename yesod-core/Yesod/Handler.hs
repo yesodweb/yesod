@@ -146,6 +146,7 @@ import qualified Data.Text.Lazy as TL
 
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy as L
 import Network.Wai.Parse (parseHttpAccept)
 
 import Yesod.Content
@@ -158,7 +159,7 @@ import qualified Data.ByteString.Char8 as S8
 import Data.ByteString (ByteString)
 import Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
-import Blaze.ByteString.Builder (toByteString)
+import Blaze.ByteString.Builder (toByteString, toLazyByteString, fromLazyByteString)
 import Data.Text (Text)
 import Yesod.Message (RenderMessage (..))
 
@@ -394,8 +395,9 @@ runHandler :: HasReps c
            -> sub
            -> (Word64 -> FileUpload)
            -> (Loc -> LogLevel -> LogStr -> IO ())
+           -> Bool -- ^ to eval body?
            -> YesodApp
-runHandler handler mrender sroute tomr master sub upload log' =
+runHandler handler mrender sroute tomr master sub upload log' toEval =
   YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler e =
             case fromException e of
@@ -438,7 +440,10 @@ runHandler handler mrender sroute tomr master sub upload log' =
     case contents of
         HCContent status a -> do
             (ct, c) <- liftIO $ a cts
-            return $ YARPlain status (appEndo headers []) ct c finalSession
+            ec' <- if toEval then liftIO $ evaluateContent c else return (Right c)
+            case ec' of
+                Left e -> handleError e
+                Right c' -> return $ YARPlain status (appEndo headers []) ct c' finalSession
         HCError e -> handleError e
         HCRedirect status loc -> do
             let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
@@ -457,6 +462,15 @@ runHandler handler mrender sroute tomr master sub upload log' =
                 emptyContent
                 finalSession
         HCWai r -> return $ YARWai r
+
+evaluateContent :: Content -> IO (Either ErrorResponse Content)
+evaluateContent (ContentBuilder b mlen) = Control.Exception.handle f $ do
+    let lbs = toLazyByteString b
+    L.length lbs `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen)
+  where
+    f :: SomeException -> IO (Either ErrorResponse Content)
+    f = return . Left . InternalError . T.pack . show
+evaluateContent c = return (Right c)
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ session -> do
@@ -792,6 +806,7 @@ handlerToYAR :: (HasReps a, HasReps b)
              -> sub    -- ^ sub site foundation
              -> (Word64 -> FileUpload)
              -> (Loc -> LogLevel -> LogStr -> IO ())
+             -> Bool -- ^ to eval body?
              -> (Route sub -> Route master)
              -> (Route master -> [(Text, Text)] -> Text) -- route renderer
              -> (ErrorResponse -> GHandler sub master a)
@@ -800,11 +815,11 @@ handlerToYAR :: (HasReps a, HasReps b)
              -> SessionMap
              -> GHandler sub master b
              -> ResourceT IO YesodAppResult
-handlerToYAR y s upload log' toMasterRoute render errorHandler rr murl sessionMap h =
+handlerToYAR y s upload log' toEval toMasterRoute render errorHandler rr murl sessionMap h =
     unYesodApp ya eh' rr types sessionMap
   where
-    ya = runHandler h render murl toMasterRoute y s upload log'
-    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log'
+    ya = runHandler h render murl toMasterRoute y s upload log' toEval
+    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log' toEval
     types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 
