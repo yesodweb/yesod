@@ -10,6 +10,7 @@ module Foundation
     , requireAuth
     , module Settings
     , module Model
+    , getExtra
     ) where
 
 import Prelude
@@ -148,6 +149,10 @@ instance YesodAuth ~sitearg~ where
 -- achieve customized and internationalized form validation messages.
 instance RenderMessage ~sitearg~ FormMessage where
     renderMessage _ _ = defaultFormMessage
+
+-- | Get the 'Extra' value, used to hold data from the settings.yml file.
+getExtra :: Handler Extra
+getExtra = fmap (appExtra . settings) getYesod
 
 -- Note: previous versions of the scaffolding included a deliver function to
 -- send emails. Unfortunately, there are too many different options for us to
