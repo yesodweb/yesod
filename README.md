@@ -82,7 +82,7 @@ Our installer script now uses cabal-src-install when it is available.
 #### Cloning the repos
 
 ~~~ { .bash }
-for repo in hamlet persistent wai yesod; do
+for repo in shakespeare persistent wai yesod; do
   git clone http://github.com/yesodweb/$repo
   (
     cd $repo
@@ -94,7 +94,7 @@ done
 #### install all repos
 
 ~~~ { .bash }
-for repo in hamlet persistent wai yesod; do
+for repo in shakespeare persistent wai yesod; do
     ./scripts/install
 done
 ~~~
