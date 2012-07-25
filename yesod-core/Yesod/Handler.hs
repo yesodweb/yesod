@@ -395,9 +395,8 @@ runHandler :: HasReps c
            -> sub
            -> (Word64 -> FileUpload)
            -> (Loc -> LogLevel -> LogStr -> IO ())
-           -> Bool -- ^ to eval body?
            -> YesodApp
-runHandler handler mrender sroute tomr master sub upload log' toEval =
+runHandler handler mrender sroute tomr master sub upload log' =
   YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler e =
             case fromException e of
@@ -440,7 +439,7 @@ runHandler handler mrender sroute tomr master sub upload log' toEval =
     case contents of
         HCContent status a -> do
             (ct, c) <- liftIO $ a cts
-            ec' <- if toEval then liftIO $ evaluateContent c else return (Right c)
+            ec' <- liftIO $ evaluateContent c
             case ec' of
                 Left e -> handleError e
                 Right c' -> return $ YARPlain status (appEndo headers []) ct c' finalSession
@@ -806,7 +805,6 @@ handlerToYAR :: (HasReps a, HasReps b)
              -> sub    -- ^ sub site foundation
              -> (Word64 -> FileUpload)
              -> (Loc -> LogLevel -> LogStr -> IO ())
-             -> Bool -- ^ to eval body?
              -> (Route sub -> Route master)
              -> (Route master -> [(Text, Text)] -> Text) -- route renderer
              -> (ErrorResponse -> GHandler sub master a)
@@ -815,27 +813,30 @@ handlerToYAR :: (HasReps a, HasReps b)
              -> SessionMap
              -> GHandler sub master b
              -> ResourceT IO YesodAppResult
-handlerToYAR y s upload log' toEval toMasterRoute render errorHandler rr murl sessionMap h =
+handlerToYAR y s upload log' toMasterRoute render errorHandler rr murl sessionMap h =
     unYesodApp ya eh' rr types sessionMap
   where
-    ya = runHandler h render murl toMasterRoute y s upload log' toEval
-    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log' toEval
+    ya = runHandler h render murl toMasterRoute y s upload log'
+    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log'
     types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 
 yarToResponse :: YesodAppResult -> [(CI ByteString, ByteString)] -> W.Response
 yarToResponse (YARWai a) _ = a
 yarToResponse (YARPlain s hs _ c _) extraHeaders =
-    case c of
-        ContentBuilder b mlen ->
-            let hs' = maybe finalHeaders finalHeaders' mlen
-             in W.ResponseBuilder s hs' b
-        ContentFile fp p -> W.ResponseFile s finalHeaders fp p
-        ContentSource body -> W.ResponseSource s finalHeaders body
+    go c
   where
     finalHeaders = extraHeaders ++ map headerToPair hs
     finalHeaders' len = ("Content-Length", S8.pack $ show len)
                       : finalHeaders
+
+    go (ContentBuilder b mlen) =
+        W.ResponseBuilder s hs' b
+      where
+        hs' = maybe finalHeaders finalHeaders' mlen
+    go (ContentFile fp p) = W.ResponseFile s finalHeaders fp p
+    go (ContentSource body) = W.ResponseSource s finalHeaders body
+    go (ContentDontEvaluate c') = go c'
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = parseHttpAccept
