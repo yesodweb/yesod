@@ -25,9 +25,7 @@ mkYesod "App" [parseRoutes|
 /error-in-body-noeval ErrorInBodyNoEvalR GET
 |]
 
-instance Yesod App where
-    fullyEvaluateBody _ ErrorInBodyNoEvalR = False
-    fullyEvaluateBody _ _ = True
+instance Yesod App
 
 getHomeR :: Handler RepHtml
 getHomeR = do
@@ -60,11 +58,13 @@ postAfterRunRequestBodyR = do
    _ <- error $ show $ fst x
    getHomeR
 
+getErrorInBodyR :: Handler RepHtml
 getErrorInBodyR = do
     let foo = error "error in body 19328" :: String
     defaultLayout [whamlet|#{foo}|]
 
-getErrorInBodyNoEvalR = getErrorInBodyR
+getErrorInBodyNoEvalR :: Handler (DontFullyEvaluate RepHtml)
+getErrorInBodyNoEvalR = fmap DontFullyEvaluate getErrorInBodyR
 
 errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling"

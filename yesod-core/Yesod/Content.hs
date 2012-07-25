@@ -28,6 +28,8 @@ module Yesod.Content
     , typeOctet
       -- * Utilities
     , simpleContentType
+      -- * Evaluation strategy
+    , DontFullyEvaluate (..)
       -- * Representations
     , ChooseRep
     , HasReps (..)
@@ -68,6 +70,7 @@ import Data.Conduit (Source, ResourceT, Flush)
 data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional content length.
              | ContentSource (Source (ResourceT IO) (Flush Builder))
              | ContentFile FilePath (Maybe FilePart)
+             | ContentDontEvaluate Content
 
 -- | Zero-length enumerator.
 emptyContent :: Content
@@ -235,3 +238,15 @@ formatRFC1123 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
 -- | Format as per RFC 822.
 formatRFC822 :: UTCTime -> T.Text
 formatRFC822 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
+
+-- | Prevents a response body from being fully evaluated before sending the
+-- request.
+--
+-- Since 1.1.0
+newtype DontFullyEvaluate a = DontFullyEvaluate a
+
+instance HasReps a => HasReps (DontFullyEvaluate a) where
+    chooseRep (DontFullyEvaluate a) = fmap (fmap (fmap ContentDontEvaluate)) $ chooseRep a
+
+instance ToContent a => ToContent (DontFullyEvaluate a) where
+    toContent (DontFullyEvaluate a) = ContentDontEvaluate $ toContent a

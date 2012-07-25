@@ -343,23 +343,6 @@ $doctype 5
         | size > 50000 = FileUploadDisk tempFileBackEnd
         | otherwise = FileUploadMemory lbsBackEnd
 
-    -- | Whether or not to fully evaluate response bodies before sending.
-    --
-    -- By fully evaluating, you will be forcing the contents into memory, which
-    -- will negatively impact performance. However, it means that if any
-    -- exceptions are thrown from pure code, they will be caught before sending
-    -- the response to the client, resulting in a proper 500 error page instead
-    -- of just getting an empty response.
-    --
-    -- In general, it's recommend to leave the default value in place. However,
-    -- if you have a route that generates large responses, and you are
-    -- confident that no exceptions are thrown from pure code, you can safely
-    -- turn this off for that route.
-    --
-    -- Default: On for all routes.
-    fullyEvaluateBody :: a -> Route a -> Bool
-    fullyEvaluateBody _ _ = True
-
 formatLogMessage :: IO ZonedDate
                  -> Loc
                  -> LogLevel
@@ -432,8 +415,7 @@ defaultYesodRunner logger handler master sub murl toMasterRoute msb req
     let sessionMap = Map.fromList . filter ((/=) tokenKey . fst) $ session
     let ra = resolveApproot master req
     let log' = messageLogger master logger
-        toEval = maybe True (fullyEvaluateBody master) (fmap toMasterRoute murl)
-    yar <- handlerToYAR master sub (fileUpload master) log' toEval toMasterRoute
+    yar <- handlerToYAR master sub (fileUpload master) log' toMasterRoute
         (yesodRender master ra) errorHandler rr murl sessionMap h
     extraHeaders <- case yar of
         (YARPlain _ _ ct _ newSess) -> do
