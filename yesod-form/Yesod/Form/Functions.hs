@@ -45,6 +45,7 @@ import Control.Arrow (second)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM, join)
+import Crypto.Classes (constTimeEq)
 #if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze (Markup, toMarkup)
 #define Html Markup
@@ -62,6 +63,7 @@ import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import qualified Data.Map as Map
+import qualified Data.Text.Encoding as TE
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
 
@@ -197,9 +199,12 @@ $newline never
     let res' =
             case (res, env) of
                 (FormSuccess{}, Just (params, _))
-                    | Map.lookup tokenKey params /= fmap return (reqToken req) ->
+                    | not (Map.lookup tokenKey params === reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
+            where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constTimeEq` TE.encodeUtf8 t2
+                  Nothing     === Nothing   = True   -- ^ It's important to use constTimeEq
+                  _           === _         = False  -- in order to avoid timing attacks.
     return ((res', xml), enctype)
 
 -- | Similar to 'runFormPost', except it always ignore the currently available
