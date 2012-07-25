@@ -67,10 +67,10 @@ import Data.String (IsString (fromString))
 import Network.Wai (FilePart)
 import Data.Conduit (Source, ResourceT, Flush)
 
-data Content = ContentBuilder Builder (Maybe Int) -- ^ The content and optional content length.
-             | ContentSource (Source (ResourceT IO) (Flush Builder))
-             | ContentFile FilePath (Maybe FilePart)
-             | ContentDontEvaluate Content
+data Content = ContentBuilder !Builder !(Maybe Int) -- ^ The content and optional content length.
+             | ContentSource !(Source (ResourceT IO) (Flush Builder))
+             | ContentFile !FilePath !(Maybe FilePart)
+             | ContentDontEvaluate !Content
 
 -- | Zero-length enumerator.
 emptyContent :: Content
