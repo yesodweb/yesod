@@ -35,6 +35,7 @@ library
                    , blaze-html            >= 0.5      && < 0.6
                    , blaze-markup          >= 0.5.1    && < 0.6
                    , attoparsec            >= 0.10     && < 0.11
+                   , crypto-api            >= 0.8      && < 0.11
 
     exposed-modules: Yesod.Form
                      Yesod.Form.Class
