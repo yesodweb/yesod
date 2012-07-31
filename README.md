@@ -46,7 +46,9 @@ In your application folder, create a `sources.txt` file with the following conte
 `./` means build your app. The yesod repos will be cloned and placed in a `vendor` repo.
 Now run: `cabal-meta install`. If you use `cabal-dev`, run `cabal-meta --dev install`
 
-You should be good now!
+This should work almost all of the time. You can read more on [cabal-meta](https://github.com/yesodweb/cabal-meta)
+If you aren't building from an application, remove the `./` and create a new directory for your sources.txt first.
+
 Install conflicts are unfortunately common in Haskell development.
 If you are not using any sandbox tools, you may discover that some of the other haskell installs on your system are broken.
 You can prevent this by using sandbox tools. `cabal-dev` was already mentioned.
