@@ -52,13 +52,12 @@ If you aren't building from an application, remove the `./` and create a new dir
 Install conflicts are unfortunately common in Haskell development.
 If you are not using any sandbox tools, you may discover that some of the other haskell installs on your system are broken.
 You can prevent this by using sandbox tools. `cabal-dev` was already mentioned.
-Another alternative is `virthualenv`.
+Another alternative is `virthualenv`, now being renamed to `hsenv`.
 
 
 ### virthualenv
 
-We recommend using [virthualenv](http://hackage.haskell.org/package/virthualenv) when hacking on Yesod from Linux.
-This is optional, but prevents your custom build of Yesod from interfering with your currently installed cabal packages.
+We recommend using [virthualenv](http://hackage.haskell.org/package/virthualenv)/[hsenv](https://github.com/Paczesiowa/hsenv) when hacking on Yesod from Linux. This is optional, but prevents your custom build of Yesod from interfering with your currently installed cabal packages.
 
 virthualenv will not work on Windows and maybe not Mac. Use cabal-dev instead
 
@@ -79,9 +78,10 @@ Whenever you would use `cabal install` to install a local package, use `cabal-sr
 Our installer script now uses cabal-src-install when it is available.
 
 
-### Building your changes to Yesod
+### Cloning the repos
 
-#### Cloning the repos
+The above instructions for building the latest should work well.
+But you can clone the repos without the help of cabal-meta:
 
 ~~~ { .bash }
 for repo in shakespeare persistent wai yesod; do
@@ -93,7 +93,11 @@ for repo in shakespeare persistent wai yesod; do
 done
 ~~~~
 
-#### install all repos
+### Building your changes to Yesod
+
+Yesod is composed of 4 "mega-repos", each with multiple cabal packages. `./script/install` will run tests against each package and install each package.
+
+#### install package in all repos
 
 ~~~ { .bash }
 for repo in shakespeare persistent wai yesod; do
@@ -101,14 +105,9 @@ for repo in shakespeare persistent wai yesod; do
 done
 ~~~
 
-
-#### installing repo packages
+#### Clean build (sometimes necessary)
 
 ~~~ { .bash }
-# install and test all packages in a repo
-./scripts/install
-
-# If things seem weird, you may need to do a clean.
 ./scripts/install --clean
 ~~~
 
