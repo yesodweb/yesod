@@ -47,7 +47,7 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Types
 import Yesod.Form.I18n.English
-import Yesod.Form.Functions (blank)
+import Yesod.Form.Functions (parseHelper)
 import Yesod.Handler (getMessageRender)
 import Yesod.Widget (toWidget, whamlet, GWidget)
 import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
@@ -103,7 +103,7 @@ defaultFormMessage = englishFormMessage
 
 intField :: (Integral i, RenderMessage master FormMessage) => Field sub master i
 intField = Field
-    { fieldParse = blank $ \s ->
+    { fieldParse = parseHelper $ \s ->
         case Data.Text.Read.signed Data.Text.Read.decimal s of
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidInteger s
@@ -119,7 +119,7 @@ $newline never
 
 doubleField :: RenderMessage master FormMessage => Field sub master Double
 doubleField = Field
-    { fieldParse = blank $ \s ->
+    { fieldParse = parseHelper $ \s ->
         case Data.Text.Read.double s of
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidNumber s
@@ -133,7 +133,7 @@ $newline never
 
 dayField :: RenderMessage master FormMessage => Field sub master Day
 dayField = Field
-    { fieldParse = blank $ parseDate . unpack
+    { fieldParse = parseHelper $ parseDate . unpack
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="date" :isReq:required="" value="#{showVal val}">
@@ -143,7 +143,7 @@ $newline never
 
 timeField :: RenderMessage master FormMessage => Field sub master TimeOfDay
 timeField = Field
-    { fieldParse = blank parseTime
+    { fieldParse = parseHelper parseTime
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} :isReq:required="" value="#{showVal val}">
@@ -158,7 +158,7 @@ $newline never
 
 htmlField :: RenderMessage master FormMessage => Field sub master Html
 htmlField = Field
-    { fieldParse = blank $ Right . preEscapedText . sanitizeBalance
+    { fieldParse = parseHelper $ Right . preEscapedText . sanitizeBalance
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
 $newline never
 $# FIXME: There was a class="html" attribute, for what purpose?
@@ -187,7 +187,7 @@ instance ToHtml Textarea where
 
 textareaField :: RenderMessage master FormMessage => Field sub master Textarea
 textareaField = Field
-    { fieldParse =  blank $ Right . Textarea
+    { fieldParse = parseHelper $ Right . Textarea
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
 $newline never
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{either id unTextarea val}
@@ -197,7 +197,7 @@ $newline never
 hiddenField :: (PathPiece p, RenderMessage master FormMessage)
             => Field sub master p
 hiddenField = Field
-    { fieldParse = blank $ maybe (Left MsgValueRequired) Right . fromPathPiece
+    { fieldParse = parseHelper $ maybe (Left MsgValueRequired) Right . fromPathPiece
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
 $newline never
 <input type="hidden" id="#{theId}" name="#{name}" *{attrs} value="#{either id toPathPiece val}">
@@ -206,7 +206,7 @@ $newline never
 
 textField :: RenderMessage master FormMessage => Field sub master Text
 textField = Field
-    { fieldParse = blank $ Right
+    { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq ->
         [whamlet|
 $newline never
@@ -216,7 +216,7 @@ $newline never
 
 passwordField :: RenderMessage master FormMessage => Field sub master Text
 passwordField = Field
-    { fieldParse = blank $ Right
+    { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="" value="#{either id id val}">
@@ -286,7 +286,7 @@ timeParser = do
 
 emailField :: RenderMessage master FormMessage => Field sub master Text
 emailField = Field
-    { fieldParse = blank $
+    { fieldParse = parseHelper $
         \s -> if Email.isValid (unpack s)
                 then Right s
                 else Left $ MsgInvalidEmail s
@@ -299,7 +299,7 @@ $newline never
 type AutoFocus = Bool
 searchField :: RenderMessage master FormMessage => AutoFocus -> Field sub master Text
 searchField autoFocus = Field
-    { fieldParse = blank Right
+    { fieldParse = parseHelper Right
     , fieldView = \theId name attrs val isReq -> do
         [whamlet|\
 $newline never
@@ -319,7 +319,7 @@ $newline never
 
 urlField :: RenderMessage master FormMessage => Field sub master Text
 urlField = Field
-    { fieldParse = blank $ \s ->
+    { fieldParse = parseHelper $ \s ->
         case parseURI $ unpack s of
             Nothing -> Left $ MsgInvalidUrl s
             Just _ -> Right s
