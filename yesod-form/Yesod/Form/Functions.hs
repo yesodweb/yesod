@@ -37,7 +37,7 @@ module Yesod.Form.Functions
       -- * Utilities
     , fieldSettingsLabel
     , aformM
-    , blank
+    , parseHelper
     ) where
 
 import Yesod.Form.Types
@@ -391,8 +391,15 @@ aformM action = AForm $ \_ _ ints -> do
     value <- action
     return (FormSuccess value, id, ints, mempty)
 
-blank :: (Monad m, RenderMessage master FormMessage)
-      => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))
-blank _ [] = return $ Right Nothing
-blank _ ("":_) = return $ Right Nothing
-blank f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x
+-- | A helper function for creating custom fields.
+--
+-- This is intended to help with the common case where a single input value is
+-- required, such as when parsing a text field.
+--
+-- Since 1.1
+parseHelper :: (Monad m, RenderMessage master FormMessage)
+            => (Text -> Either FormMessage a)
+            -> [Text] -> m (Either (SomeMessage master) (Maybe a))
+parseHelper _ [] = return $ Right Nothing
+parseHelper _ ("":_) = return $ Right Nothing
+parseHelper f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x

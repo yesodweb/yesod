@@ -23,7 +23,7 @@ import Text.Hamlet (shamlet)
 import Text.Julius (julius)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
-import Yesod.Core (RenderMessage, SomeMessage (..))
+import Yesod.Core (RenderMessage)
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
@@ -58,7 +58,7 @@ class YesodJquery a where
 
 jqueryDayField :: (RenderMessage master FormMessage, YesodJquery master) => JqueryDaySettings -> Field sub master Day
 jqueryDayField jds = Field
-    { fieldParse = blank $ maybe
+    { fieldParse = parseHelper $ maybe
                   (Left MsgInvalidDay)
                   Right
               . readMay
@@ -102,7 +102,7 @@ $(function(){
 jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master)
                         => Route master -> Field sub master Text
 jqueryAutocompleteField src = Field
-    { fieldParse = blank $ Right
+    { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
 $newline never
