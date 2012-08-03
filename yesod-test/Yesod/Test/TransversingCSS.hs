@@ -46,13 +46,8 @@ import Text.XML
 import Text.XML.Cursor
 import qualified Data.ByteString.Lazy as L
 import qualified Text.HTML.DOM as HD
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml)
 import Text.Blaze.Html.Renderer.String (renderHtml)
-#else
-import Text.Blaze (toHtml)
-import Text.Blaze.Renderer.String (renderHtml)
-#endif
 
 type Query = T.Text
 type Html = L.ByteString

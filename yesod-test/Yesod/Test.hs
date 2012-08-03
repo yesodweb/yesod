@@ -89,6 +89,7 @@ import Data.Monoid (mappend)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import Text.XML.Cursor hiding (element)
+import qualified Text.XML.Cursor as C
 import qualified Text.HTML.DOM as HD
 
 -- | The state used in 'describe' to build a list of specs
@@ -165,8 +166,8 @@ withResponse f = maybe err f =<< fmap readResponse ST.get
 
 -- | Use HXT to parse a value from an html tag.
 -- Check for usage examples in this module's source.
-parseHTML :: Html -> (Cursor -> [a]) -> [a]
-parseHTML html p = p $ fromDocument $ HD.parseLBS html
+parseHTML :: Html -> Cursor
+parseHTML html = fromDocument $ HD.parseLBS html
 
 -- | Query the last response using css selectors, returns a list of matched fragments
 htmlQuery :: HoldsResponse a => Query -> ST.StateT a IO [Html]
@@ -285,10 +286,9 @@ nameFromLabel :: T.Text -> RequestBuilder T.Text
 nameFromLabel label = withResponse $ \ res -> do
   let
     body = simpleBody res
-    escaped = escapeHtmlEntities label
-    mfor = parseHTML body $ \c -> c
-                $// attributeIs "name" "label"
-                >=> contentContains escaped
+    mfor = parseHTML body
+                $// C.element "label"
+                >=> contentContains label
                 >=> attribute "for"
 
     contentContains x c
@@ -297,7 +297,7 @@ nameFromLabel label = withResponse $ \ res -> do
 
   case mfor of
     for:[] -> do
-      let mname = parseHTML body $ \c -> c
+      let mname = parseHTML body
                     $// attributeIs "id" for
                     >=> attribute "name"
       case mname of
@@ -346,7 +346,7 @@ addNonce_ scope = do
   matches <- htmlQuery $ scope `mappend` "input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No nonce found in the current page"
-    element:[] -> byName "_token" $ head $ parseHTML element $ attribute "value"
+    element:[] -> byName "_token" $ head $ attribute "value" $ parseHTML element
     _ -> failure $ "More than one nonce found in the page"
 
 -- | For responses that display a single form, just lookup the only nonce available.
