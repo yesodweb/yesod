@@ -168,6 +168,7 @@ setTitleI msg = do
 {-# DEPRECATED addHamletHead, addHtmlHead "Use toWidgetHead instead" #-}
 {-# DEPRECATED addHamlet, addHtml, addCassius, addLucius, addJulius "Use toWidget instead" #-}
 {-# DEPRECATED addJuliusBody "Use toWidgetBody instead" #-}
+{-# DEPRECATED addWidget "addWidget can be omitted" #-}
 
 -- | Add a 'Hamlet' to the head tag.
 addHamletHead :: HtmlUrl (Route master) -> GWidget sub master ()
