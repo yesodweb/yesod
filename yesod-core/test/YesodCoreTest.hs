@@ -15,18 +15,17 @@ import qualified YesodCoreTest.JsLoader as JsLoader
 
 import Test.Hspec
 
-specs :: [Spec]
-specs = 
-    [ cleanPathTest
-    , exceptionsTest
-    , widgetTest
-    , mediaTest
-    , linksTest
-    , noOverloadedTest
-    , internalRequestTest
-    , errorHandlingTest
-    , cacheTest
-    , WaiSubsite.specs
-    , Redirect.specs
-    , JsLoader.specs
-    ]
+specs :: Spec
+specs = do
+      cleanPathTest
+      exceptionsTest
+      widgetTest
+      mediaTest
+      linksTest
+      noOverloadedTest
+      internalRequestTest
+      errorHandlingTest
+      cacheTest
+      WaiSubsite.specs
+      Redirect.specs
+      JsLoader.specs

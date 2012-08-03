@@ -21,9 +21,8 @@ getRootR :: Handler RepHtml
 getRootR = defaultLayout $ toWidget [hamlet|<a href=@{RootR}>|]
 
 linksTest :: Spec
-linksTest = describe "Test.Links"
-    [ it "linkToHome" case_linkToHome
-    ]
+linksTest = describe "Test.Links" $ do
+      it "linkToHome" case_linkToHome
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f

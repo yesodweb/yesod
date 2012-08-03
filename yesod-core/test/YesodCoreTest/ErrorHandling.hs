@@ -67,13 +67,12 @@ getErrorInBodyNoEvalR :: Handler (DontFullyEvaluate RepHtml)
 getErrorInBodyNoEvalR = fmap DontFullyEvaluate getErrorInBodyR
 
 errorHandlingTest :: Spec
-errorHandlingTest = describe "Test.ErrorHandling"
-    [ it "says not found" caseNotFound
-    , it "says 'There was an error' before runRequestBody" caseBefore
-    , it "says 'There was an error' after runRequestBody" caseAfter
-    , it "error in body == 500" caseErrorInBody
-    , it "error in body, no eval == 200" caseErrorInBodyNoEval
-    ]
+errorHandlingTest = describe "Test.ErrorHandling" $ do
+      it "says not found" caseNotFound
+      it "says 'There was an error' before runRequestBody" caseBefore
+      it "says 'There was an error' after runRequestBody" caseAfter
+      it "error in body == 500" caseErrorInBody
+      it "error in body, no eval == 200" caseErrorInBodyNoEval
 
 runner :: Session () -> IO ()
 runner f = toWaiApp App >>= runSession f

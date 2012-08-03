@@ -11,10 +11,9 @@ import Yesod.Request (Request (..))
 import Test.Hspec
 
 randomStringSpecs :: Spec
-randomStringSpecs = describe "Yesod.Internal.Request.randomString"
-  [ it "looks reasonably random" looksRandom
-  , it "does not repeat itself" $ noRepeat 10 100
-  ]
+randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
+    it "looks reasonably random" looksRandom
+    it "does not repeat itself" $ noRepeat 10 100
 
 -- NOTE: this testcase may break on other systems/architectures if
 -- mkStdGen is not identical everywhere (is it?).
@@ -31,12 +30,11 @@ g = error "test/YesodCoreTest/InternalRequest.g"
 
 
 tokenSpecs :: Spec
-tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)"
-  [ it "is Nothing if sessions are disabled" noDisabledToken
-  , it "ignores pre-existing token if sessions are disabled" ignoreDisabledToken
-  , it "uses preexisting token in session" useOldToken
-  , it "generates a new token for sessions without token" generateToken
-  ]
+tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)" $ do
+    it "is Nothing if sessions are disabled" noDisabledToken
+    it "ignores pre-existing token if sessions are disabled" ignoreDisabledToken
+    it "uses preexisting token in session" useOldToken
+    it "generates a new token for sessions without token" generateToken
 
 noDisabledToken :: Bool
 noDisabledToken = reqToken r == Nothing where
@@ -56,13 +54,12 @@ generateToken = reqToken r /= Nothing where
 
 
 langSpecs :: Spec
-langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)"
-  [ it "respects Accept-Language" respectAcceptLangs
-  , it "respects sessions" respectSessionLang
-  , it "respects cookies" respectCookieLang
-  , it "respects queries" respectQueryLang
-  , it "prioritizes correctly" prioritizeLangs
-  ]
+langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)" $ do
+    it "respects Accept-Language" respectAcceptLangs
+    it "respects sessions" respectSessionLang
+    it "respects cookies" respectCookieLang
+    it "respects queries" respectQueryLang
+    it "prioritizes correctly" prioritizeLangs
 
 respectAcceptLangs :: Bool
 respectAcceptLangs = reqLangs r == ["en-US", "es", "en"] where
@@ -94,8 +91,7 @@ prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "e
 
 
 internalRequestTest :: Spec
-internalRequestTest = describe "Test.InternalRequestTest" 
-    [ randomStringSpecs
-    , tokenSpecs
-    , langSpecs
-    ]
+internalRequestTest = describe "Test.InternalRequestTest" $ do
+      randomStringSpecs
+      tokenSpecs
+      langSpecs

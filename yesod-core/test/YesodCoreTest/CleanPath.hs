@@ -64,15 +64,14 @@ getPlainR = return $ RepPlain "plain"
 
 cleanPathTest :: Spec
 cleanPathTest =
-  describe "Test.CleanPath"
-    [ it "remove trailing slash" removeTrailingSlash
-    , it "noTrailingSlash" noTrailingSlash
-    , it "add trailing slash" addTrailingSlash
-    , it "has trailing slash" hasTrailingSlash
-    , it "/foo/something" fooSomething
-    , it "subsite dispatch" subsiteDispatch
-    , it "redirect with query string" redQueryString
-    ]
+  describe "Test.CleanPath" $ do
+      it "remove trailing slash" removeTrailingSlash
+      it "noTrailingSlash" noTrailingSlash
+      it "add trailing slash" addTrailingSlash
+      it "has trailing slash" hasTrailingSlash
+      it "/foo/something" fooSomething
+      it "subsite dispatch" subsiteDispatch
+      it "redirect with query string" redQueryString
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f

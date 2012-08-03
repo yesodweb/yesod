@@ -26,14 +26,13 @@ getRootR :: Handler ()
 getRootR = return ()
 
 specs :: Spec
-specs = describe "WaiSubsite" [
+specs = describe "WaiSubsite" $ do
     it "root" $ app $ do
       res <- request defaultRequest { pathInfo = [] }
       assertStatus 200 res
       assertBodyContains "" res
 
-  , it "subsite" $ app $ do
+    it "subsite" $ app $ do
       res <- request defaultRequest { pathInfo = ["sub", "foo"] }
       assertStatus 200 res
       assertBodyContains "WAI" res
-  ]

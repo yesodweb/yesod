@@ -37,9 +37,8 @@ getRootR = do
 
 cacheTest :: Spec
 cacheTest =
-  describe "Test.Cache"
-    [ it "works" works
-    ]
+  describe "Test.Cache" $ do
+      it "works" works
 
 runner :: Session () -> IO ()
 runner f = toWaiApp C >>= runSession f
