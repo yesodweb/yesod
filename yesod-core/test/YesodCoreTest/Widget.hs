@@ -87,13 +87,12 @@ getJSHeadR :: Handler RepHtml
 getJSHeadR = defaultLayout $ toWidgetHead [julius|alert("hello");|]
 
 widgetTest :: Spec
-widgetTest = describe "Test.Widget"
-    [ it "addJuliusBody" case_addJuliusBody
-    , it "whamlet" case_whamlet
-    , it "two letter lang codes" case_two_letter_lang
-    , it "automatically applies toWidget" case_auto
-    , it "toWidgetHead puts JS in head" case_jshead
-    ]
+widgetTest = describe "Test.Widget" $ do
+      it "addJuliusBody" case_addJuliusBody
+      it "whamlet" case_whamlet
+      it "two letter lang codes" case_two_letter_lang
+      it "automatically applies toWidget" case_auto
+      it "toWidgetHead puts JS in head" case_jshead
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f

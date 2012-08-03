@@ -45,6 +45,5 @@ case_sanity = runner $ do
     assertBody mempty res
 
 noOverloadedTest :: Spec
-noOverloadedTest = describe "Test.NoOverloadedStrings"
-    [ it "sanity" case_sanity
-    ]
+noOverloadedTest = describe "Test.NoOverloadedStrings" $ do
+      it "sanity" case_sanity

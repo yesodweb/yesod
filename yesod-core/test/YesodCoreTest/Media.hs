@@ -50,7 +50,6 @@ caseMediaLink = runner $ do
     flip assertBody res "<!DOCTYPE html>\n<html><head><title></title><link rel=\"stylesheet\" href=\"all.css\"><link rel=\"stylesheet\" media=\"screen\" href=\"screen.css\"></head><body></body></html>"
 
 mediaTest :: Spec
-mediaTest = describe "Test.Media"
-    [ it "media" caseMedia
-    , it "media link" caseMediaLink
-    ]
+mediaTest = describe "Test.Media" $ do
+      it "media" caseMedia
+      it "media link" caseMediaLink

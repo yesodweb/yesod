@@ -27,33 +27,32 @@ getR307 = redirectWith H.status307 RootR
 getRRegular = redirect RootR
 
 specs :: Spec
-specs = describe "Redirect" [
+specs = describe "Redirect" $ do
     it "301 redirect" $ app $ do
       res <- request defaultRequest { pathInfo = ["r301"] }
       assertStatus 301 res
       assertBodyContains "" res
 
-  , it "303 redirect" $ app $ do
+    it "303 redirect" $ app $ do
       res <- request defaultRequest { pathInfo = ["r303"] }
       assertStatus 303 res
       assertBodyContains "" res
 
-  , it "307 redirect" $ app $ do
+    it "307 redirect" $ app $ do
       res <- request defaultRequest { pathInfo = ["r307"] }
       assertStatus 307 res
       assertBodyContains "" res
 
-  , it "303 redirect for regular, HTTP 1.1" $ app $ do
+    it "303 redirect for regular, HTTP 1.1" $ app $ do
       res <- request defaultRequest {
         pathInfo = ["rregular"]
       }
       assertStatus 303 res
       assertBodyContains "" res
-  , it "302 redirect for regular, HTTP 1.0" $ app $ do
+    it "302 redirect for regular, HTTP 1.0" $ app $ do
       res <- request defaultRequest {
         pathInfo = ["rregular"]
       , httpVersion = H.http10
       }
       assertStatus 302 res
       assertBodyContains "" res
-  ]

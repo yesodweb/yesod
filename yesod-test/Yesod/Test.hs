@@ -316,19 +316,6 @@ nameFromLabel label = withResponse $ \ res -> do
 (<>) :: T.Text -> T.Text -> T.Text
 (<>) = T.append
 
--- | Escape HTML entities in a string, so you can write the text you want in
--- label lookups without worrying about the fact that yesod escapes some characters.
-escapeHtmlEntities :: T.Text -> T.Text
-escapeHtmlEntities =
-    T.concatMap go
-  where
-    go '<' = "&lt;"
-    go '>' = "&gt;"
-    go '&' = "&amp;"
-    go '"' = "&quot;"
-    go '\'' = "&#39;"
-    go x = T.singleton x
-
 byLabel :: T.Text -> T.Text -> RequestBuilder ()
 byLabel label value = do
   name <- nameFromLabel label

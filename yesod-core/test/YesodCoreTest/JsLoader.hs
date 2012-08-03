@@ -23,19 +23,18 @@ getHeadR :: Handler RepHtml
 getHeadR = defaultLayout $ addScriptRemote "load.js"
 
 specs :: Spec
-specs = describe "Test.JsLoader" [
+specs = describe "Test.JsLoader" $ do
     it "link from head" $ runner H $ do
       res <- request defaultRequest
       assertBody "<!DOCTYPE html>\n<html><head><title></title><script src=\"load.js\"></script></head><body></body></html>" res
 
-  , it "link from head async" $ runner HA $ do
+    it "link from head async" $ runner HA $ do
       res <- request defaultRequest
       assertBody "<!DOCTYPE html>\n<html><head><title></title><script src=\"yepnope.js\"></script><script>yepnope({load:[\"load.js\"]});</script></head><body></body></html>" res
 
-  , it "link from bottom" $ runner B $ do
+    it "link from bottom" $ runner B $ do
       res <- request defaultRequest
       assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><script src=\"load.js\"></script></body></html>" res
-  ]
 
 runner :: (YesodDispatch master master, Yesod master) => master -> Session () -> IO ()
 runner app f = toWaiApp app >>= runSession f
