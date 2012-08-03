@@ -60,7 +60,7 @@ scaffold = do
                 "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite", "sqlSettings")
                 "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql", "sqlSettings")
                 "mysql" -> (Mysql, "GenericSql", "SqlPersist", "MySQL", "sqlSettings")
-                "mongo" -> (MongoDB,    "MongoDB", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
+                "mongo" -> (MongoDB,    "MongoDB hiding (master)", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
                 _ -> error $ "Invalid backend: " ++ backendC
         (modelImports) = case backend of
           MongoDB -> "import Database.Persist." ++ importGenericDB ++ "\nimport Language.Haskell.TH.Syntax"
