@@ -2,9 +2,8 @@ Default: &defaults
   user: ~project~
   password: ~project~
   host: localhost
-  port: 27017
   database: ~project~
-  poolsize: 10
+  connections: 10
 
 Development:
   <<: *defaults
@@ -15,10 +14,11 @@ Testing:
 
 Staging:
   database: ~project~_staging
-  poolsize: 100
+  connections: 100
   <<: *defaults
 
 Production:
   database: ~project~_production
-  poolsize: 100
+  connections: 100
+  host: localhost
   <<: *defaults
