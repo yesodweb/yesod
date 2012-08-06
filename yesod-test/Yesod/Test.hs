@@ -24,7 +24,7 @@ backend pre-conditions, or to assert that your session is having the desired eff
 
 module Yesod.Test (
   -- * Declaring and running your test suite
-  runTests, describe, it, Specs, OneSpec,
+  runTests, describe, it, SpecsConn, OneSpec,
 
   -- * Making requests
   -- | To make a request you need to point to an url and pass in some parameters.
@@ -98,7 +98,9 @@ import Control.Monad.Trans.Control (MonadBaseControl)
 data SpecsData conn = SpecsData Application (Pool conn) [Core.Spec]
 
 -- | The specs state monad is where 'describe' runs.
-type Specs conn = ST.StateT (SpecsData conn) IO ()
+-- parameterized by a database connection.
+-- You should create type Specs = SpecsConn MyDBConnection
+type SpecsConn conn = ST.StateT (SpecsData conn) IO ()
 
 -- | The state used in a single test case defined using 'it'
 data OneSpecData conn = OneSpecData Application (Pool conn) CookieValue (Maybe SResponse)
@@ -138,21 +140,21 @@ type CookieValue = ByteString
 -- 
 -- Look at the examples directory on this package to get an idea of the (small) amount of
 -- boilerplate code you'll need to write before calling this.
-runTests :: Application -> Pool conn -> Specs conn -> IO ()
+runTests :: Application -> Pool conn -> SpecsConn conn -> IO ()
 runTests app connection specsDef = do
   (SpecsData _ _ specs) <- ST.execStateT specsDef (SpecsData app connection [])
   Runner.hspec specs
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
-describe :: String -> Specs conn -> Specs conn
+describe :: String -> SpecsConn conn -> SpecsConn conn
 describe label action = do
   sData <- ST.get
   SpecsData app conn specs <- liftIO $ ST.execStateT action sData
   ST.put $ SpecsData app conn [Core.describe label specs]
 
 -- | Describe a single test that keeps cookies, and a reference to the last response.
-it :: String -> OneSpec conn () -> Specs conn
+it :: String -> OneSpec conn () -> SpecsConn conn
 it label action = do
   SpecsData app conn specs <- ST.get
   let spec = Core.it label $ do

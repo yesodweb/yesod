@@ -100,3 +100,4 @@ test-suite test
                  , yesod-test
                  , yesod-default
                  , yesod-core
+                 , persistent-~backendLower~     >= 1.0        && < 1.1
