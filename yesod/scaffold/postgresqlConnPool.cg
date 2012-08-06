@@ -1,6 +1,3 @@
-runConnectionPool :: MonadControlIO m => SqlPersist m a -> ConnectionPool -> m a
-runConnectionPool = runSqlPool
-
 withConnectionPool :: MonadControlIO m => AppConfig DefaultEnv -> (ConnectionPool -> m a) -> m a
 withConnectionPool conf f = do
     dbConf <- liftIO $ load~upper~ (appEnv conf)

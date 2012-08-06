@@ -72,6 +72,10 @@ scaffold = do
         backendLower = uncapitalize $ show backend 
         upper = show backend
 
+        poolRunner = case backend of
+          MongoDB -> "runMongoDBPoolDef"
+          _ -> "runSqlPool"
+
     let runMigration  =
           case backend of
             MongoDB -> ""
@@ -189,6 +193,7 @@ scaffold = do
     mkDir "tests"
     writeFile' "tests/main.hs" $(codegen "tests/main.hs")
     writeFile' "tests/HomeTest.hs" $(codegen "tests/HomeTest.hs")
+    writeFile' "tests/TestImport.hs" $(codegen "tests/TestImport.hs")
 
     S.writeFile (dir ++ "/config/favicon.ico")
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do

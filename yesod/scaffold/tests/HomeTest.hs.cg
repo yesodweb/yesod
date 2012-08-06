@@ -3,7 +3,7 @@ module HomeTest
     ( homeSpecs
     ) where
 
-import Yesod.Test
+import TestImport
 
 homeSpecs :: Specs
 homeSpecs =
