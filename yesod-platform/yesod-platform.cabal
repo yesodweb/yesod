@@ -33,7 +33,7 @@ library
                  , cereal == 0.3.5.2
                  , certificate == 1.2.4
                  , clientsession == 0.8.0
-                 , conduit == 0.5.2.2
+                 , conduit == 0.5.2.3
                  , cookie == 0.4.0
                  , cprng-aes == 0.2.3
                  , cpu == 0.1.1
@@ -49,7 +49,7 @@ library
                  , entropy == 0.2.1
                  , enumerator == 0.4.19
                  , failure == 0.2.0.1
-                 , fast-logger == 0.2.0
+                 , fast-logger == 0.2.1
                  , file-embed == 0.0.4.4
                  , filesystem-conduit == 0.5.0
                  , hamlet == 1.1.0
@@ -78,7 +78,6 @@ library
                  , pureMD5 == 2.1.0.3
                  , pwstore-fast == 2.2
                  , ranges == 0.2.4
-                 , regex-compat == 0.95.1
                  , resource-pool == 0.2.1.0
                  , resourcet == 0.3.3.1
                  , safe == 0.3.3
@@ -92,7 +91,6 @@ library
                  , simple-sendfile == 0.2.5
                  , skein == 0.1.0.7
                  , socks == 0.4.2
-                 , stm == 2.4
                  , stringsearch == 0.3.6.3
                  , system-fileio == 0.3.9
                  , system-filepath == 0.4.6
@@ -130,7 +128,6 @@ library
                  , yesod-routes == 1.1.0
                  , yesod-static == 1.1.0
                  , yesod-test == 0.3.0
-                 , zlib == 0.5.3.3
                  , zlib-bindings == 0.1.0.1
                  , zlib-conduit == 0.5.0
 
