@@ -23,14 +23,10 @@ import Control.Monad.Trans.RWS (RWST)
 import Yesod.Request (FileInfo)
 import Data.Text (Text)
 import Data.Monoid (Monoid (..))
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze (Markup, ToMarkup (toMarkup))
 #define Html Markup
 #define ToHtml ToMarkup
 #define toHtml toMarkup
-#else
-import Text.Blaze (Html, ToHtml (toHtml))
-#endif
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad (liftM)
 import Data.String (IsString (..))

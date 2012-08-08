@@ -52,14 +52,10 @@ import Yesod.Handler (getMessageRender)
 import Yesod.Widget (toWidget, whamlet, GWidget)
 import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
 import Text.Hamlet
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze (ToMarkup (toMarkup), preEscapedToMarkup, unsafeByteString)
 #define ToHtml ToMarkup
 #define toHtml toMarkup
 #define preEscapedText preEscapedToMarkup
-#else
-import Text.Blaze (ToHtml (..), preEscapedText, unsafeByteString)
-#endif
 import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
@@ -75,11 +71,7 @@ import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
 import Database.Persist.Store (PersistEntityBackend)
 
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html.Renderer.String (renderHtml)
-#else
-import Text.Blaze.Renderer.String (renderHtml)
-#endif
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
