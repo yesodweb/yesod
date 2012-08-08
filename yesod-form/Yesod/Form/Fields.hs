@@ -380,15 +380,17 @@ $newline never
 |])
     (\theId name isSel -> [whamlet|
 $newline never
-<div>
-    <input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
-    <label for=#{theId}-none>_{MsgSelectNone}
+<label .radio for=#{theId}-none>
+    <div>
+        <input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
+        _{MsgSelectNone}
 |])
     (\theId name attrs value isSel text -> [whamlet|
 $newline never
-<div>
-    <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked *{attrs}>
-    <label for=#{theId}-#{value}>#{text}
+<label .radio for=#{theId}-#{value}>
+    <div>
+        <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked *{attrs}>
+        \#{text}
 |])
 
 boolField :: RenderMessage master FormMessage => Field sub master Bool
