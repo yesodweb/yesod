@@ -11,6 +11,7 @@ module Yesod.Auth.Message
     , frenchMessage
     , norwegianBokmålMessage
     , japaneseMessage
+    , finnishMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -290,3 +291,39 @@ japaneseMessage NowLoggedIn = "ログインしました"
 japaneseMessage LoginTitle = "ログイン"
 japaneseMessage PleaseProvideUsername = "ユーザ名を入力してください"
 japaneseMessage PleaseProvidePassword = "パスワードを入力してください"
+
+finnishMessage :: AuthMessage -> Text
+finnishMessage NoOpenID = "OpenID-tunnistetta ei löydy"
+finnishMessage LoginOpenID = "Kirjaudu OpenID-tilillä"
+finnishMessage LoginGoogle = "Kirjaudu Google-tilillä"
+finnishMessage LoginYahoo = "Kirjaudu Yahoo-tilillä"
+finnishMessage Email = "Sähköposti"
+finnishMessage Password = "Salasana"
+finnishMessage Register = "Luo uusi"
+finnishMessage RegisterLong = "Luo uusi tili"
+finnishMessage EnterEmail = "Kirjoita alle sähköpostiosoitteesi, johon vahvistussähköposti lähetetään."
+finnishMessage ConfirmationEmailSentTitle = "Vahvistussähköposti lähetetty."
+finnishMessage (ConfirmationEmailSent email) =
+    "Vahvistussähköposti on lähetty osoitteeseen " `mappend`
+    email `mappend`
+    "."
+finnishMessage AddressVerified = "Sähköpostiosoite vahvistettu. Anna uusi salasana"
+finnishMessage InvalidKeyTitle = "Virheellinen varmistusavain"
+finnishMessage InvalidKey = "Valitettavasti varmistusavain on virheellinen."
+finnishMessage InvalidEmailPass = "Virheellinen sähköposti tai salasana."
+finnishMessage BadSetPass = "Kirjaudu ensin sisään asettaaksesi salasanan"
+finnishMessage SetPassTitle = "Salasanan asettaminen"
+finnishMessage SetPass = "Aseta uusi salasana"
+finnishMessage NewPass = "Uusi salasana"
+finnishMessage ConfirmPass = "Vahvista"
+finnishMessage PassMismatch = "Salasanat eivät täsmää"
+finnishMessage PassUpdated = "Salasana vaihdettu"
+finnishMessage Facebook = "Kirjaudu Facebook-tilillä"
+finnishMessage LoginViaEmail = "Kirjaudu sähköpostitilillä"
+finnishMessage InvalidLogin = "Kirjautuminen epäonnistui"
+finnishMessage NowLoggedIn = "Olet nyt kirjautunut sisään"
+finnishMessage LoginTitle = "Kirjautuminen"
+finnishMessage PleaseProvideUsername = "Käyttäjänimi puuttuu"
+finnishMessage PleaseProvidePassword = "Salasana puuttuu"
+
+
