@@ -150,7 +150,7 @@ import qualified Data.ByteString.Lazy as L
 import Network.Wai.Parse (parseHttpAccept)
 
 import Yesod.Content
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Web.Cookie (SetCookie (..), renderSetCookie)
 import Control.Arrow ((***))
 import qualified Network.Wai.Parse as NWP
@@ -348,11 +348,18 @@ rbHelper' :: NWP.BackEnd x
           -> W.Request
           -> ResourceT IO ([(Text, Text)], [(Text, FileInfo)])
 rbHelper' backend mkFI req =
-    (map fix1 *** map fix2) <$> (NWP.parseRequestBody backend req)
+    (map fix1 *** mapMaybe fix2) <$> (NWP.parseRequestBody backend req)
   where
     fix1 = go *** go
-    fix2 (x, NWP.FileInfo a b c) =
-        (go x, mkFI (go a) (go b) c)
+    fix2 (x, NWP.FileInfo a' b c)
+        | S.null a = Nothing
+        | otherwise = Just (go x, mkFI (go a) (go b) c)
+      where
+        a
+            | S.length a' < 2 = a'
+            | S8.head a' == '"' && S8.last a' == '"' = S.tail $ S.init a'
+            | S8.head a' == '\'' && S8.last a' == '\'' = S.tail $ S.init a'
+            | otherwise = a'
     go = decodeUtf8With lenientDecode
 
 -- | Get the sub application argument.
