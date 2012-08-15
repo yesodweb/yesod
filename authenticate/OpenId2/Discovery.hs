@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 --------------------------------------------------------------------------------
 -- |
@@ -69,7 +70,10 @@ discoverYADIS :: (MonadResource m, MonadBaseControl IO m)
               -> Int -- ^ remaining redirects
               -> Manager
               -> m (Maybe (Provider, Identifier, IdentType))
-discoverYADIS _ _ 0 _ = liftIO $ throwIO TooManyRedirects
+discoverYADIS _ _ 0 _ = liftIO $ throwIO $ TooManyRedirects
+#if MIN_VERSION_http_conduit(1,6,0)
+    []
+#endif
 discoverYADIS ident mb_loc redirects manager = do
     let uri = fromMaybe (unpack $ identifier ident) mb_loc
     req <- liftIO $ parseUrl uri
