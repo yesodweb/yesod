@@ -166,7 +166,7 @@ determineDeps x = do
                     _ <- A.string "\" \""
                     _y <- A.many1 $ A.satisfy (/= '"')
                     _ <- A.string "\""
-                    return $ Messages $ concat x'
+                    return $ Messages x')
         case ty of
             Messages{} -> return $ Just (ty, "")
             StaticFiles{} -> return $ Just (ty, "")
