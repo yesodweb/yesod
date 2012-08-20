@@ -178,7 +178,6 @@ import Control.Exception.Lifted (catch)
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import Control.Monad.Base
-import Data.Conduit.List (sourceList)
 import Yesod.Routes.Class
 import Data.Word (Word64)
 import Language.Haskell.TH.Syntax (Loc)
@@ -436,7 +435,7 @@ handlerToIO =
     -- Let go of the request body, cache and response headers.
     let oldReq    = handlerRequest oldHandlerData
         oldWaiReq = reqWaiRequest oldReq
-        newWaiReq = oldWaiReq { W.requestBody = sourceList [] }
+        newWaiReq = oldWaiReq { W.requestBody = mempty }
         newReq    = oldReq { reqWaiRequest = newWaiReq
                            , reqBodySize   = 0 }
     newState <- liftIO $ do
