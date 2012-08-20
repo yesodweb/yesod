@@ -22,8 +22,8 @@ import qualified Network.Wai.EventSource.EventStream as ES
 
 
 
--- | Phantom type used for 'Handler'@s@ that are @EventSources@
--- (e.g. 'repEventSource' and 'ioToRepEventSource').
+-- | Data type representing a response of server-sent events
+-- (e.g., see 'repEventSource' and 'ioToRepEventSource').
 newtype RepEventSource =
   RepEventSource (C.Source (C.ResourceT IO) (C.Flush Builder))
 
