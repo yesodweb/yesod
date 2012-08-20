@@ -403,8 +403,8 @@ getRouteToMaster = handlerToMaster `liftM` ask
 -- @
 -- getFooR :: Handler RepHtml
 -- getFooR = do
---   runHandler <- handlerToIO
---   liftIO $ forkIO $ runHandler $ do
+--   runInnerHandler <- handlerToIO
+--   liftIO $ forkIO $ runInnerHandler $ do
 --     /Code here runs inside GHandler but on a new thread./
 --     /This is the inner GHandler./
 --     ...
