@@ -68,10 +68,13 @@ ioToRepEventSource initial act = do
   let -- Get new events to be sent.
       getEvents s = do
         (evs, s') <- liftIO (act polyfill s)
-        let (builder, continue) = joinEvents evs []
-        C.yield (C.Chunk builder)
-        C.yield C.Flush
-        when continue (getEvents s')
+        case evs of
+          [] -> getEvents s'
+          _  -> do
+            let (builder, continue) = joinEvents evs []
+            C.yield (C.Chunk builder)
+            C.yield C.Flush
+            when continue (getEvents s')
 
       -- Join all events in a single Builder.  Returns @False@
       -- when we the connection should be closed.
