@@ -12,7 +12,7 @@ import Blaze.ByteString.Builder (Builder)
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Functor ((<$>))
-import Data.Monoid (mconcat)
+import Data.Monoid (mappend, mempty)
 import Yesod.Content
 import Yesod.Core
 import qualified Data.Conduit as C
@@ -71,7 +71,7 @@ ioToRepEventSource initial act = do
         case evs of
           [] -> getEvents s'
           _  -> do
-            let (builder, continue) = joinEvents evs []
+            let (builder, continue) = joinEvents evs mempty
             C.yield (C.Chunk builder)
             C.yield C.Flush
             when continue (getEvents s')
@@ -80,9 +80,9 @@ ioToRepEventSource initial act = do
       -- when we the connection should be closed.
       joinEvents (ev:evs) acc =
         case ES.eventToBuilder ev of
-          Just b  -> joinEvents evs (b:acc)
+          Just b  -> joinEvents evs (acc `mappend` b)
           Nothing -> (fst $ joinEvents [] acc, False)
-      joinEvents [] acc = (mconcat (reverse acc), True)
+      joinEvents [] acc = (acc, True)
 
   return $ RepEventSource $ getEvents initial
 
