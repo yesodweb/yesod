@@ -54,7 +54,7 @@ repEventSource src = RepEventSource . ES.sourceToSource . src <$> prepareForEven
 
 
 -- | Return a Server-Sent Event stream given an @IO@ action that
--- is repeatedly called.  An state is threaded for the action so
+-- is repeatedly called.  A state is threaded for the action so
 -- that it may avoid using @IORefs@.  The @IO@ action may sleep
 -- or block while waiting for more data.  The HTTP socket is
 -- flushed after every list of simultaneous events.  The
