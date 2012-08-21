@@ -95,6 +95,7 @@ module Yesod.Handler
     , newIdent
       -- * Lifting
     , MonadLift (..)
+    , handlerToIO
       -- * i18n
     , getMessageRender
       -- * Per-request caching
@@ -390,6 +391,68 @@ getCurrentRoute = handlerRoute `liftM` ask
 -- master site.
 getRouteToMaster :: GHandler sub master (Route sub -> Route master)
 getRouteToMaster = handlerToMaster `liftM` ask
+
+
+-- | Returns a function that runs 'GHandler' actions inside @IO@.
+--
+-- Sometimes you want to run an inner 'GHandler' action outside
+-- the control flow of an HTTP request (on the outer 'GHandler'
+-- action).  For example, you may want to spawn a new thread:
+--
+-- @
+-- getFooR :: Handler RepHtml
+-- getFooR = do
+--   runInnerHandler <- handlerToIO
+--   liftIO $ forkIO $ runInnerHandler $ do
+--     /Code here runs inside GHandler but on a new thread./
+--     /This is the inner GHandler./
+--     ...
+--   /Code here runs inside the request's control flow./
+--   /This is the outer GHandler./
+--   ...
+-- @
+--
+-- Another use case for this function is creating a stream of
+-- server-sent events using 'GHandler' actions (see
+-- @yesod-eventsource@).
+--
+-- Most of the environment from the outer 'GHandler' is preserved
+-- on the inner 'GHandler', however:
+--
+--  * The request body is cleared (otherwise it would be very
+--  difficult to prevent huge memory leaks).
+--
+--  * The cache is cleared (see 'CacheKey').
+--
+-- Changes to the response made inside the inner 'GHandler' are
+-- ignored (e.g., session variables, cookies, response headers).
+-- This allows the inner 'GHandler' to outlive the outer
+-- 'GHandler' (e.g., on the @forkIO@ example above, a response
+-- may be sent to the client without killing the new thread).
+handlerToIO :: MonadIO m => GHandler sub master (GHandler sub master a -> m a)
+handlerToIO =
+  GHandler $ \oldHandlerData -> do
+    -- Let go of the request body, cache and response headers.
+    let oldReq    = handlerRequest oldHandlerData
+        oldWaiReq = reqWaiRequest oldReq
+        newWaiReq = oldWaiReq { W.requestBody = mempty }
+        newReq    = oldReq { reqWaiRequest = newWaiReq
+                           , reqBodySize   = 0 }
+    newState <- liftIO $ do
+      oldState <- I.readIORef (handlerState oldHandlerData)
+      return $ oldState { ghsRBC = Nothing
+                        , ghsIdent = 1
+                        , ghsCache = mempty
+                        , ghsHeaders = mempty }
+
+    -- Return GHandler running function.
+    return $ \(GHandler f) -> liftIO $ do
+      -- The state IORef needs to be created here, otherwise it
+      -- will be shared by different invocations of this function.
+      newStateIORef <- I.newIORef newState
+      runResourceT $ f oldHandlerData { handlerRequest = newReq
+                                      , handlerState   = newStateIORef }
+
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
