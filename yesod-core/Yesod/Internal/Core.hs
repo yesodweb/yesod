@@ -756,15 +756,26 @@ loadClientSession key timeout sessionName master req now = return (sess, save)
           sessionVal iv = encodeClientSession key iv expires host sess'
 
 
--- | Runs a 'GHandler' completely outside of Yesod.  This
+-- | Run a 'GHandler' completely outside of Yesod.  This
 -- function comes with many caveats and you shouldn't use it
--- unless you understand what it's doing and how it works.
+-- unless you fully understand what it's doing and how it works.
 --
 -- As of now, there's only one reason to use this function at
 -- all: in order to run unit tests of functions inside 'GHandler'
 -- but that aren't easily testable with a full HTTP request.
 -- Even so, it's better to use @wai-test@ or @yesod-test@ instead
 -- of using this function.
+--
+-- This function will create a fake HTTP request (both @wai@'s
+-- 'W.Request' and @yesod@'s 'Request') and feed it to the
+-- @GHandler@.  The only useful information the @GHandler@ may
+-- get from the request is the session map, which you must supply
+-- as argument to @runFakeHandler@.  All other fields contain
+-- fake information, which means that they can be accessed but
+-- won't have any useful information.  The response of the
+-- @GHandler@ is completely ignored, including changes to the
+-- session, cookies or headers.  We only return you the
+-- @GHandler@'s return value.
 runFakeHandler :: (Yesod master, MonadIO m) =>
                   SessionMap
                -> (master -> Logger)
