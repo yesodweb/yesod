@@ -36,6 +36,7 @@ module Yesod.Internal.Core
     , resolveApproot
     , Approot (..)
     , FileUpload (..)
+    , runFakeHandler
     ) where
 
 import Yesod.Content
@@ -55,6 +56,7 @@ import Yesod.Internal.Request
 import qualified Web.ClientSession as CS
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
+import qualified Data.IORef as I
 import Data.Monoid
 import Text.Hamlet
 import Text.Julius
@@ -64,6 +66,7 @@ import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Maybe (fromMaybe, isJust)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Resource (runResourceT)
 import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
 import Data.Time
@@ -752,3 +755,82 @@ loadClientSession key timeout sessionName master req now = return (sess, save)
           expires = fromIntegral (timeout * 60) `addUTCTime` now'
           sessionVal iv = encodeClientSession key iv expires host sess'
 
+
+-- | Run a 'GHandler' completely outside of Yesod.  This
+-- function comes with many caveats and you shouldn't use it
+-- unless you fully understand what it's doing and how it works.
+--
+-- As of now, there's only one reason to use this function at
+-- all: in order to run unit tests of functions inside 'GHandler'
+-- but that aren't easily testable with a full HTTP request.
+-- Even so, it's better to use @wai-test@ or @yesod-test@ instead
+-- of using this function.
+--
+-- This function will create a fake HTTP request (both @wai@'s
+-- 'W.Request' and @yesod@'s 'Request') and feed it to the
+-- @GHandler@.  The only useful information the @GHandler@ may
+-- get from the request is the session map, which you must supply
+-- as argument to @runFakeHandler@.  All other fields contain
+-- fake information, which means that they can be accessed but
+-- won't have any useful information.  The response of the
+-- @GHandler@ is completely ignored, including changes to the
+-- session, cookies or headers.  We only return you the
+-- @GHandler@'s return value.
+runFakeHandler :: (Yesod master, MonadIO m) =>
+                  SessionMap
+               -> (master -> Logger)
+               -> master
+               -> GHandler master master a
+               -> m (Either ErrorResponse a)
+runFakeHandler fakeSessionMap logger master handler = liftIO $ do
+  ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
+  let handler' = do liftIO . I.writeIORef ret . Right =<< handler
+                    return ()
+  let YesodApp yapp =
+        runHandler
+          handler'
+          (yesodRender master "")
+          Nothing
+          id
+          master
+          master
+          (fileUpload master)
+          (messageLogger master $ logger master)
+      errHandler err =
+        YesodApp $ \_ _ _ session -> do
+          liftIO $ I.writeIORef ret (Left err)
+          return $ YARPlain
+                     H.status500
+                     []
+                     typePlain
+                     (toContent ("runFakeHandler: errHandler" :: S8.ByteString))
+                     session
+      fakeWaiRequest =
+        W.Request
+          { W.requestMethod  = "POST"
+          , W.httpVersion    = H.http11
+          , W.rawPathInfo    = "/runFakeHandler/pathInfo"
+          , W.rawQueryString = ""
+          , W.serverName     = "runFakeHandler-serverName"
+          , W.serverPort     = 80
+          , W.requestHeaders = []
+          , W.isSecure       = False
+          , W.remoteHost     = error "runFakeHandler-remoteHost"
+          , W.pathInfo       = ["runFakeHandler", "pathInfo"]
+          , W.queryString    = []
+          , W.requestBody    = mempty
+          , W.vault          = mempty
+          }
+      fakeRequest =
+        Request
+          { reqGetParams  = []
+          , reqCookies    = []
+          , reqWaiRequest = fakeWaiRequest
+          , reqLangs      = []
+          , reqToken      = Just "NaN" -- not a nonce =)
+          , reqBodySize   = 0
+          }
+      fakeContentType = []
+  _ <- runResourceT $ yapp errHandler fakeRequest fakeContentType fakeSessionMap
+  I.readIORef ret
+{-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
