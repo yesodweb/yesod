@@ -33,6 +33,7 @@ module Yesod.Form.Functions
     , check
     , checkBool
     , checkM
+    , checkMMod
     , customErrorMessage
       -- * Utilities
     , fieldSettingsLabel
@@ -355,14 +356,20 @@ checkM :: RenderMessage master msg
        => (a -> GHandler sub master (Either msg a))
        -> Field sub master a
        -> Field sub master a
-checkM f = checkM' f id
+checkM f = checkMMod f id
 
-checkM' :: RenderMessage master msg
-        => (a -> GHandler sub master (Either msg b))
-        -> (b -> a)
-        -> Field sub master a
-        -> Field sub master b
-checkM' f inv field = field
+-- | Same as 'checkM', but modifies the datatype.
+--
+-- In order to make this work, you must provide a function to convert back from
+-- the new datatype to the old one (the second argument to this function).
+--
+-- Since 1.1.1
+checkMMod :: RenderMessage master msg
+          => (a -> GHandler sub master (Either msg b))
+          -> (b -> a)
+          -> Field sub master a
+          -> Field sub master b
+checkMMod f inv field = field
     { fieldParse = \ts -> do
         e1 <- fieldParse field ts
         case e1 of
