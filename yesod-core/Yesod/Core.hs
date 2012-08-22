@@ -40,6 +40,7 @@ module Yesod.Core
       -- * Misc
     , yesodVersion
     , yesodRender
+    , runFakeHandler
       -- * Re-exports
     , module Yesod.Content
     , module Yesod.Dispatch
