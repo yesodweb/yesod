@@ -29,10 +29,10 @@ addHandler = do
         c:_
             | isLower c -> error "Name must start with an upper case letter"
             | otherwise -> return ()
-    putStr "Enter route pattern: "
+    putStr "Enter route pattern (ex: /entry/#EntryId): "
     hFlush stdout
     pattern <- getLine
-    putStr "Enter space-separated list of methods: "
+    putStr "Enter space-separated list of methods (ex: GET POST): "
     hFlush stdout
     methods <- getLine
 
