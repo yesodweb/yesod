@@ -757,7 +757,7 @@ getExpires m = do
 --
 -- Note: although the value used for key and path is 'Text', you should only
 -- use ASCII values to be HTTP compliant.
-deleteCookie :: Text -- ^ key 
+deleteCookie :: Text -- ^ key
              -> Text -- ^ path
              -> GHandler sub master ()
 deleteCookie a = addHeader . DeleteCookie (encodeUtf8 a) . encodeUtf8
