@@ -438,6 +438,12 @@ handlerToIO =
         newWaiReq = oldWaiReq { W.requestBody = mempty }
         newReq    = oldReq { reqWaiRequest = newWaiReq
                            , reqBodySize   = 0 }
+        clearedOldHandlerData =
+          oldHandlerData { handlerRequest = err "handlerRequest never here"
+                         , handlerState   = err "handlerState never here" }
+            where
+              err :: String -> a
+              err = error . ("handlerToIO: clearedOldHandlerData/" ++)
     newState <- liftIO $ do
       oldState <- I.readIORef (handlerState oldHandlerData)
       return $ oldState { ghsRBC = Nothing
@@ -450,8 +456,9 @@ handlerToIO =
       -- The state IORef needs to be created here, otherwise it
       -- will be shared by different invocations of this function.
       newStateIORef <- I.newIORef newState
-      runResourceT $ f oldHandlerData { handlerRequest = newReq
-                                      , handlerState   = newStateIORef }
+      runResourceT $ f clearedOldHandlerData
+                         { handlerRequest = newReq
+                         , handlerState   = newStateIORef }
 
 
 -- | Function used internally by Yesod in the process of converting a
