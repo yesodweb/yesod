@@ -33,6 +33,7 @@ module Yesod.Form.Functions
     , check
     , checkBool
     , checkM
+    , checkMMap
     , checkMMod
     , customErrorMessage
       -- * Utilities
@@ -356,20 +357,20 @@ checkM :: RenderMessage master msg
        => (a -> GHandler sub master (Either msg a))
        -> Field sub master a
        -> Field sub master a
-checkM f = checkMMod f id
+checkM f = checkMMap f id
 
 -- | Same as 'checkM', but modifies the datatype.
 --
 -- In order to make this work, you must provide a function to convert back from
 -- the new datatype to the old one (the second argument to this function).
 --
--- Since 1.1.1
-checkMMod :: RenderMessage master msg
+-- Since 1.1.2
+checkMMap :: RenderMessage master msg
           => (a -> GHandler sub master (Either msg b))
           -> (b -> a)
           -> Field sub master a
           -> Field sub master b
-checkMMod f inv field = field
+checkMMap f inv field = field
     { fieldParse = \ts -> do
         e1 <- fieldParse field ts
         case e1 of
@@ -378,6 +379,17 @@ checkMMod f inv field = field
             Right (Just a) -> fmap (either (Left . SomeMessage) (Right . Just)) $ f a
     , fieldView = \i n a eres req -> fieldView field i n a (fmap inv eres) req
     }
+
+-- | Deprecated synonym for 'checkMMap'.
+--
+-- Since 1.1.1
+checkMMod :: RenderMessage master msg
+          => (a -> GHandler sub master (Either msg b))
+          -> (b -> a)
+          -> Field sub master a
+          -> Field sub master b
+checkMMod = checkMMap
+{-# DEPRECATED checkMMod "Please use checkMMap instead" #-}
 
 -- | Allows you to overwrite the error message on parse error.
 customErrorMessage :: SomeMessage master -> Field sub master a -> Field sub master a
