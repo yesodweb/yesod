@@ -69,7 +69,6 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Resource (runResourceT)
 import Web.Cookie (parseCookies)
 import qualified Data.Map as Map
-import Data.Time
 import Network.HTTP.Types (encodePath)
 import qualified Data.Text as T
 import Data.Text (Text)
@@ -331,9 +330,7 @@ $doctype 5
     --
     -- Default: Uses clientsession with a 2 hour timeout.
     makeSessionBackend :: a -> IO (Maybe (SessionBackend a))
-    makeSessionBackend _ = do
-        key <- CS.getKey CS.defaultKeyFile
-        return $ Just $ clientSessionBackend key 120
+    makeSessionBackend _ = fmap Just defaultClientSessionBackend
 
     -- | How to store uploaded files.
     --
@@ -393,10 +390,9 @@ defaultYesodRunner logger handler master sub murl toMasterRoute msb req
             [("Content-Type", "text/plain")]
             "Request body too large to be processed."
   | otherwise = do
-    now <- liftIO getCurrentTime
-    let dontSaveSession _ _ = return []
+    let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $
-        maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req now) msb
+        maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req) msb
     rr <- liftIO $ parseWaiRequest req session (isJust msb) len
     let h = {-# SCC "h" #-} do
           case murl of
@@ -426,7 +422,7 @@ defaultYesodRunner logger handler master sub murl toMasterRoute msb req
                     newSess
                     (\n -> Map.insert tokenKey (TE.encodeUtf8 n) newSess)
                     (reqToken rr)
-            sessionHeaders <- liftIO (saveSession nsToken now)
+            sessionHeaders <- liftIO (saveSession nsToken)
             return $ ("Content-Type", ct) : map headerToPair sessionHeaders
         _ -> return []
     return $ yarToResponse yar extraHeaders
@@ -713,47 +709,49 @@ resolveApproot master req =
 defaultClientSessionBackend :: Yesod master => IO (SessionBackend master)
 defaultClientSessionBackend = do
   key <- CS.getKey CS.defaultKeyFile
-  let timeout = 120 -- 120 minutes
-  return $ clientSessionBackend key timeout
+  let timeout = fromIntegral (120 * 60 :: Int) -- 120 minutes
+  (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
+  return $ clientSessionBackend key getCachedDate
 
 clientSessionBackend :: Yesod master
                      => CS.Key  -- ^ The encryption key
-                     -> Int -- ^ Inactive session valitity in minutes
+                     -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'
                      -> SessionBackend master
-clientSessionBackend key timeout = SessionBackend
-    { sbLoadSession = loadClientSession key timeout "_SESSION"
-    }
+clientSessionBackend key getCachedDate =
+  SessionBackend {
+    sbLoadSession = loadClientSession key getCachedDate "_SESSION"
+  }
 
 loadClientSession :: Yesod master
                   => CS.Key
-                  -> Int -- ^ timeout
+                  -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'
                   -> S8.ByteString -- ^ session name
                   -> master
                   -> W.Request
-                  -> UTCTime
                   -> IO (BackendSession, SaveSession)
-loadClientSession key timeout sessionName master req now = return (sess, save)
+loadClientSession key getCachedDate sessionName master req = load
   where
-    sess = fromMaybe [] $ do
+    load = do
+      date <- getCachedDate
+      return (sess date, save date)
+    sess date = fromMaybe [] $ do
       raw <- lookup "Cookie" $ W.requestHeaders req
       val <- lookup sessionName $ parseCookies raw
       let host = "" -- fixme, properly lock sessions to client address
-      decodeClientSession key now host val
-    save sess' now' = do
+      decodeClientSession key date host val
+    save date sess' = do
       -- We should never cache the IV!  Be careful!
       iv <- liftIO CS.randomIV
       return [AddCookie def
           { setCookieName = sessionName
-          , setCookieValue = sessionVal iv
+          , setCookieValue = encodeClientSession key iv date host sess'
           , setCookiePath = Just (cookiePath master)
-          , setCookieExpires = Just expires
+          , setCookieExpires = Just (csdcExpires date)
           , setCookieDomain = cookieDomain master
           , setCookieHttpOnly = True
           }]
         where
           host = "" -- fixme, properly lock sessions to client address
-          expires = fromIntegral (timeout * 60) `addUTCTime` now'
-          sessionVal iv = encodeClientSession key iv expires host sess'
 
 
 -- | Run a 'GHandler' completely outside of Yesod.  This
