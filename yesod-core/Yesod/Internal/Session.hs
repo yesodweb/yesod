@@ -8,6 +8,7 @@ module Yesod.Internal.Session
 
 import Yesod.Internal (Header(..))
 import qualified Web.ClientSession as CS
+import Data.Int (Int64)
 import Data.Serialize
 import Data.Time
 import Data.ByteString (ByteString)
@@ -64,14 +65,26 @@ instance Serialize SessionCookie where
         c <- map (first pack) <$> get
         return $ SessionCookie a b c
 
+
+----------------------------------------------------------------------
+
+
 putTime :: Putter UTCTime
-putTime t@(UTCTime d _) = do
-    put $ toModifiedJulianDay d
-    let ndt = diffUTCTime t $ UTCTime d 0
-    put $ toRational ndt
+putTime (UTCTime d t) =
+  let d' = fromInteger  $ toModifiedJulianDay d
+      t' = fromIntegral $ fromEnum (t / diffTimeScale)
+  in put (d' * posixDayLength_int64 + min posixDayLength_int64 t')
 
 getTime :: Get UTCTime
 getTime = do
-    d <- get
-    ndt <- get
-    return $ fromRational ndt `addUTCTime` UTCTime (ModifiedJulianDay d) 0
+  val <- get
+  let (d, t) = val `divMod` posixDayLength_int64
+      d' = ModifiedJulianDay $! fromIntegral d
+      t' = fromIntegral t
+  d' `seq` t' `seq` return (UTCTime d' t')
+
+posixDayLength_int64 :: Int64
+posixDayLength_int64 = 86400
+
+diffTimeScale :: DiffTime
+diffTimeScale = 1e12
