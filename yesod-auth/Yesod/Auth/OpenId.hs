@@ -44,10 +44,14 @@ authOpenId idType extensionFields =
     name = "openid_identifier"
     login tm = do
         ident <- lift newIdent
-        toWidget [cassius|##{ident}
+        -- FIXME this is a hack to get GHC 7.6's type checker to allow the
+        -- code, but it shouldn't be necessary
+        let y :: a -> [(Text, Text)] -> Text
+            y = undefined
+        toWidget (\x -> [cassius|##{ident}
     background: #fff url(http://www.myopenid.com/static/openid-icon-small.gif) no-repeat scroll 0pt 50%;
     padding-left: 18px;
-|]
+|] $ x `asTypeOf` y)
         [whamlet|
 $newline never
 <form method="get" action="@{tm forwardUrl}">

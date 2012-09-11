@@ -1046,10 +1046,14 @@ instance MonadUnsafeIO (GHandler sub master) where
 instance MonadThrow (GHandler sub master) where
     monadThrow = liftIO . throwIO
 instance MonadResource (GHandler sub master) where
+#if MIN_VERSION_resourcet(0,4,0)
+    liftResourceT = lift . liftResourceT
+#else
     allocate a = lift . allocate a
     register = lift . register
     release = lift . release
     resourceMask = lift . resourceMask
+#endif
 
 instance MonadLogger (GHandler sub master) where
     monadLoggerLog a b c = do

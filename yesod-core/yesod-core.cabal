@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.1.1.1
+version:         1.1.1.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -74,13 +74,13 @@ library
                    , http-types            >= 0.7      && < 0.8
                    , case-insensitive      >= 0.2
                    , parsec                >= 2        && < 3.2
-                   , directory             >= 1        && < 1.2
+                   , directory             >= 1
                    , vector                >= 0.9      && < 0.10
                    , aeson                 >= 0.5
-                   , fast-logger           >= 0.2      && < 0.3
+                   , fast-logger           >= 0.2
                    , monad-logger          >= 0.2      && < 0.3
                    , conduit               >= 0.5      && < 0.6
-                   , resourcet             >= 0.3      && < 0.4
+                   , resourcet             >= 0.3      && < 0.5
                    , lifted-base           >= 0.1      && < 0.2
                    , blaze-html            >= 0.5      && < 0.6
                    , blaze-markup          >= 0.5.1    && < 0.6
