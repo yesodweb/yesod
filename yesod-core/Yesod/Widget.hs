@@ -341,10 +341,14 @@ instance MonadUnsafeIO (GWidget sub master) where
 instance MonadThrow (GWidget sub master) where
     monadThrow = liftIO . throwIO
 instance MonadResource (GWidget sub master) where
+#if MIN_VERSION_resourcet(0,4,0)
+    liftResourceT = lift . liftResourceT
+#else
     allocate a = lift . allocate a
     register = lift . register
     release = lift . release
     resourceMask = lift . resourceMask
+#endif
 
 instance MonadLogger (GWidget sub master) where
     monadLoggerLog a b = lift . monadLoggerLog a b
