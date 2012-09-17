@@ -68,7 +68,6 @@ where
 import qualified Test.Hspec.Core as Core
 import qualified Test.Hspec.Runner as Runner
 import qualified Data.List as DL
-import qualified Data.Maybe as DY
 import qualified Data.ByteString.Char8 as BS8
 import Data.ByteString (ByteString)
 import qualified Data.Text as T
@@ -93,6 +92,10 @@ import qualified Text.XML.Cursor as C
 import qualified Text.HTML.DOM as HD
 import Data.Conduit.Pool (Pool)
 import Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Data.Map as M
+import qualified Web.Cookie as Cookie
+import qualified Blaze.ByteString.Builder as Builder
+import Data.Time.Clock (getCurrentTime)
 
 -- | The state used in 'describe' to build a list of specs
 data SpecsData conn = SpecsData Application (Pool conn) [Core.Spec]
@@ -103,7 +106,7 @@ data SpecsData conn = SpecsData Application (Pool conn) [Core.Spec]
 type SpecsConn conn = ST.StateT (SpecsData conn) IO ()
 
 -- | The state used in a single test case defined using 'it'
-data OneSpecData conn = OneSpecData Application (Pool conn) CookieValue (Maybe SResponse)
+data OneSpecData conn = OneSpecData Application (Pool conn) Cookies (Maybe SResponse)
 
 -- | The OneSpec state monad is where 'it' runs.
 type OneSpec conn = ST.StateT (OneSpecData conn) IO
@@ -129,8 +132,8 @@ instance HoldsResponse (OneSpecData conn) where
   readResponse (OneSpecData _ _ _ x) = x
 instance HoldsResponse RequestBuilderData where
   readResponse (RequestBuilderData _ x) = x
-  
-type CookieValue = ByteString
+
+type Cookies = M.Map ByteString Cookie.SetCookie
 
 -- | Runs your test suite, using you wai 'Application' and 'ConnectionPool' for performing 
 -- the database queries in your tests.
@@ -158,7 +161,7 @@ it :: String -> OneSpec conn () -> SpecsConn conn
 it label action = do
   SpecsData app conn specs <- ST.get
   let spec = Core.it label $ do
-        _ <- ST.execStateT action $ OneSpecData app conn "" Nothing
+        _ <- ST.execStateT action $ OneSpecData app conn M.empty Nothing
         return ()
   ST.put $ SpecsData app conn $ spec : specs
 
@@ -364,26 +367,41 @@ get_ = flip get $ return ()
 -- | General interface to performing requests, letting you specify the request method and extra headers.
 doRequest :: H.Method -> BS8.ByteString -> RequestBuilder a -> OneSpec conn ()
 doRequest method url paramsBuild = do
-  OneSpecData app conn cookie mRes <- ST.get
+  OneSpecData app conn oldCookies mRes <- ST.get
+
+  -- expire cookies and filter them for the current path. TODO: support max age
+  currentUtc <- liftIO getCurrentTime
+  let cookies = M.filter (checkCookieTime currentUtc) oldCookies
+      cookiesForPath = M.filter checkCookiePath cookies
+
   RequestBuilderData parts _ <- liftIO $ ST.execStateT paramsBuild $ RequestBuilderData [] mRes
   let req = if DL.any isFile parts
-          then makeMultipart cookie parts
-          else makeSinglepart cookie parts
+          then makeMultipart cookiesForPath parts
+          else makeSinglepart cookiesForPath parts
 
   response <- liftIO $ runSession (srequest req) app
-  let cookie' = DY.fromMaybe cookie $ fmap snd $ DL.find (("Set-Cookie"==) . fst) $ simpleHeaders response
-  ST.put $ OneSpecData app conn cookie' (Just response)
+  let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
+      cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
+  ST.put $ OneSpecData app conn cookies' (Just response)
  where
   isFile (ReqFilePart _ _ _ _) = True
   isFile _ = False
+
+  checkCookieTime t c = case Cookie.setCookieExpires c of
+                            Nothing -> True
+                            Just t' -> t < t'
+  checkCookiePath c = case Cookie.setCookiePath c of
+                            Nothing -> True
+                            Just x  -> x `BS8.isPrefixOf` url
 
   -- For building the multi-part requests
   boundary :: String
   boundary = "*******noneedtomakethisrandom"
   separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
-  makeMultipart cookie parts =
+  makeMultipart cookies parts =
     flip SRequest (BSL8.fromChunks [multiPartBody parts]) $ mkRequest
-      [ ("Cookie", cookie)
+      [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
+            [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
       , ("Content-Type", BS8.pack $ "multipart/form-data; boundary=" ++ boundary)]
   multiPartBody parts =
     BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
@@ -399,8 +417,10 @@ doRequest method url paramsBuild = do
     , BS8.concat $ BSL8.toChunks bytes, "\r\n"]
 
   -- For building the regular non-multipart requests
-  makeSinglepart cookie parts = SRequest (mkRequest 
-    [("Cookie",cookie), ("Content-Type", "application/x-www-form-urlencoded")]) $
+  makeSinglepart cookies parts = SRequest (mkRequest 
+    [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
+            [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
+    , ("Content-Type", "application/x-www-form-urlencoded")]) $
     BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&" $ map singlepartPart parts
 
   singlepartPart (ReqFilePart _ _ _ _) = ""
