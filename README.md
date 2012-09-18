@@ -108,7 +108,9 @@ Yesod is composed of 4 "mega-repos", each with multiple cabal packages. `./scrip
 
 ~~~ { .bash }
 for repo in shakespeare persistent wai yesod; do
+    pushd $repo
     ./scripts/install
+    popd
 done
 ~~~
 
