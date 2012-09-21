@@ -90,7 +90,7 @@ import Network.Wai.Parse (tempFileBackEnd, lbsBackEnd)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import System.Log.FastLogger (Logger, mkLogger, loggerDate, LogStr (..), loggerPutStr)
-import Control.Monad.Logger (LogLevel (LevelInfo, LevelOther))
+import Control.Monad.Logger (LogLevel (LevelInfo, LevelOther), LogSource)
 import System.Log.FastLogger.Date (ZonedDate)
 import System.IO (stdout)
 
@@ -305,16 +305,29 @@ $doctype 5
     getLogger _ = mkLogger True stdout
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
+    --
+    -- Note: This method is no longer used. Instead, you should override
+    -- 'messageLoggerSource'.
     messageLogger :: a
                   -> Logger
                   -> Loc -- ^ position in source code
                   -> LogLevel
                   -> LogStr -- ^ message
                   -> IO ()
-    messageLogger a logger loc level msg =
-        if level < logLevel a
-            then return ()
-            else formatLogMessage (loggerDate logger) loc level msg >>= loggerPutStr logger
+    messageLogger a logger loc = messageLoggerSource a logger loc ""
+
+    -- | Send a message to the @Logger@ provided by @getLogger@.
+    messageLoggerSource :: a
+                        -> Logger
+                        -> Loc -- ^ position in source code
+                        -> LogSource
+                        -> LogLevel
+                        -> LogStr -- ^ message
+                        -> IO ()
+    messageLoggerSource a logger loc source level msg =
+        if shouldLog a source level
+            then formatLogMessage (loggerDate logger) loc level msg >>= loggerPutStr logger
+            else return ()
 
     -- | The logging level in place for this application. Any messages below
     -- this level will simply be ignored.
@@ -352,6 +365,12 @@ $doctype 5
     fileUpload _ size
         | size > 50000 = FileUploadDisk tempFileBackEnd
         | otherwise = FileUploadMemory lbsBackEnd
+
+    -- | Should we log the given log source/level combination.
+    --
+    -- Default: Logs everything at or above 'logLevel'
+    shouldLog :: a -> LogSource -> LogLevel -> Bool
+    shouldLog a _ level = level >= logLevel a
 
 formatLogMessage :: IO ZonedDate
                  -> Loc
@@ -424,7 +443,7 @@ defaultYesodRunner logger handler master sub murl toMasterRoute msb req
                 handler
     let sessionMap = Map.fromList . filter ((/=) tokenKey . fst) $ session
     let ra = resolveApproot master req
-    let log' = messageLogger master logger
+    let log' = messageLoggerSource master logger
     yar <- handlerToYAR master sub (fileUpload master) log' toMasterRoute
         (yesodRender master ra) errorHandler rr murl sessionMap h
     extraHeaders <- case yar of
@@ -802,7 +821,7 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
           master
           master
           (fileUpload master)
-          (messageLogger master $ logger master)
+          (messageLoggerSource master $ logger master)
       errHandler err =
         YesodApp $ \_ _ _ session -> do
           liftIO $ I.writeIORef ret (Left err)
