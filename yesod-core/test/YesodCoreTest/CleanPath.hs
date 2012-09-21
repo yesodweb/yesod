@@ -14,6 +14,11 @@ import Network.HTTP.Types (status200, decodePathSegments)
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Text as TS
+import qualified Data.Text.Encoding as TE
+import Control.Arrow ((***))
+import Network.HTTP.Types (encodePath)
+import Data.Monoid (mappend)
+import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 
 data Subsite = Subsite
 
@@ -51,6 +56,14 @@ instance Yesod Y where
             else Left corrected
       where
         corrected = filter (not . TS.null) s
+
+    joinPath Y ar pieces' qs' =
+        fromText ar `mappend` encodePath pieces qs
+      where
+        pieces = if null pieces' then [""] else pieces'
+        qs = map (TE.encodeUtf8 *** go) qs'
+        go "" = Nothing
+        go x = Just $ TE.encodeUtf8 x
 
 getFooR :: Handler RepPlain
 getFooR = return $ RepPlain "foo"
