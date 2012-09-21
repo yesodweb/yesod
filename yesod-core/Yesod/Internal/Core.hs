@@ -227,10 +227,13 @@ $doctype 5
     cleanPath :: a -> [Text] -> Either [Text] [Text]
     cleanPath _ s =
         if corrected == s
-            then Right s
+            then Right $ map dropDash s
             else Left corrected
       where
         corrected = filter (not . T.null) s
+        dropDash t
+            | T.all (== '-') t = T.drop 1 t
+            | otherwise = t
 
     -- | Builds an absolute URL by concatenating the application root with the
     -- pieces of a path and a query string, if any.
@@ -240,12 +243,16 @@ $doctype 5
              -> [T.Text] -- ^ path pieces
              -> [(T.Text, T.Text)] -- ^ query string
              -> Builder
-    joinPath _ ar pieces' qs' = fromText ar `mappend` encodePath pieces qs
+    joinPath _ ar pieces' qs' =
+        fromText ar `mappend` encodePath pieces qs
       where
-        pieces = if null pieces' then [""] else pieces'
+        pieces = if null pieces' then [""] else map addDash pieces'
         qs = map (TE.encodeUtf8 *** go) qs'
         go "" = Nothing
         go x = Just $ TE.encodeUtf8 x
+        addDash t
+            | T.all (== '-') t = T.cons '-' t
+            | otherwise = t
 
     -- | This function is used to store some static content to be served as an
     -- external file. The most common case of this is stashing CSS and

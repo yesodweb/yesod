@@ -119,8 +119,10 @@ test-suite tests
                   ,text
                   ,http-types
                   , random
+                  , blaze-builder
                   ,HUnit
                   ,QuickCheck >= 2 && < 3
+                  ,transformers
     ghc-options:     -Wall
 
 source-repository head
