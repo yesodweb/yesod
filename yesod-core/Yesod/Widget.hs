@@ -352,3 +352,4 @@ instance MonadResource (GWidget sub master) where
 
 instance MonadLogger (GWidget sub master) where
     monadLoggerLog a b = lift . monadLoggerLog a b
+    monadLoggerLogSource a b c = lift . monadLoggerLogSource a b c

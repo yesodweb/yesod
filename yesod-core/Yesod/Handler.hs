@@ -194,7 +194,7 @@ data HandlerData sub master = HandlerData
     , handlerToMaster :: Route sub -> Route master
     , handlerState    :: I.IORef GHState
     , handlerUpload   :: Word64 -> FileUpload
-    , handlerLog      :: Loc -> LogLevel -> LogStr -> IO ()
+    , handlerLog      :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
     }
 
 handlerSubData :: (Route sub -> Route master)
@@ -471,7 +471,7 @@ runHandler :: HasReps c
            -> master
            -> sub
            -> (Word64 -> FileUpload)
-           -> (Loc -> LogLevel -> LogStr -> IO ())
+           -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
            -> YesodApp
 runHandler handler mrender sroute tomr master sub upload log' =
   YesodApp $ \eh rr cts initSession -> do
@@ -881,7 +881,7 @@ handlerToYAR :: (HasReps a, HasReps b)
              => master -- ^ master site foundation
              -> sub    -- ^ sub site foundation
              -> (Word64 -> FileUpload)
-             -> (Loc -> LogLevel -> LogStr -> IO ())
+             -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
              -> (Route sub -> Route master)
              -> (Route master -> [(Text, Text)] -> Text) -- route renderer
              -> (ErrorResponse -> GHandler sub master a)
@@ -1056,6 +1056,7 @@ instance MonadResource (GHandler sub master) where
 #endif
 
 instance MonadLogger (GHandler sub master) where
-    monadLoggerLog a b c = do
+    monadLoggerLog a c d = monadLoggerLogSource a "" c d
+    monadLoggerLogSource a b c d = do
         hd <- ask
-        liftIO $ handlerLog hd a b (toLogStr c)
+        liftIO $ handlerLog hd a b c (toLogStr d)
