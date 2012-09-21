@@ -315,6 +315,7 @@ $doctype 5
                   -> LogStr -- ^ message
                   -> IO ()
     messageLogger a logger loc = messageLoggerSource a logger loc ""
+    {-# DEPRECATED messageLogger "Please use messageLoggerSource (since yesod-core 1.1.2" #-}
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
     messageLoggerSource :: a
