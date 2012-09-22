@@ -125,12 +125,11 @@ data FieldView sub master = FieldView
 
 data Field sub master a = Field
     { fieldParse :: [Text] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
-    -- | ID, name, attrs, (invalid text OR legimiate result), required?
-    , fieldView :: Text
-                -> Text
-                -> [(Text, Text)]
-                -> Either Text a
-                -> Bool
+    , fieldView :: Text -- ^ ID
+                -> Text -- ^ Name
+                -> [(Text, Text)] -- ^ Attributes
+                -> Either Text a -- ^ Either (invalid text) or (legitimate result)
+                -> Bool -- ^ Required?
                 -> GWidget sub master ()
     }
 
