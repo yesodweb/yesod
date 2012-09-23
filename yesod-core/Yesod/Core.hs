@@ -26,6 +26,11 @@ module Yesod.Core
     , logWarn
     , logError
     , logOther
+    , logDebugS
+    , logInfoS
+    , logWarnS
+    , logErrorS
+    , logOtherS
       -- * Sessions
     , SessionBackend (..)
     , defaultClientSessionBackend
