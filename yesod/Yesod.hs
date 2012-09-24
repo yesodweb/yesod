@@ -10,6 +10,7 @@ module Yesod
       -- * Running your application
     , warp
     , warpDebug
+    , warpEnv
     , develServer
       -- * Commonly referenced functions/datatypes
     , Application
@@ -58,6 +59,8 @@ import Text.Blaze.Html (toHtml)
 import Text.Blaze (toHtml)
 #endif
 
+import System.Environment (getEnv)
+
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)
 
@@ -79,6 +82,19 @@ warpDebug port app = do
   hPutStrLn stderr $ "Application launched, listening on port " ++ show port
   waiApp <- toWaiApp app
   run port $ logStdout waiApp
+
+-- | Runs your application using default middlewares (i.e., via 'toWaiApp'). It
+-- reads port information from the PORT environment variable, as used by tools
+-- such as Keter.
+--
+-- Note that the exact behavior of this function may be modified slightly over
+-- time to work correctly with external tools, without a change to the type
+-- signature.
+warpEnv :: (Yesod a, YesodDispatch a a) => a -> IO ()
+warpEnv master = do
+    port <- getEnv "PORT" >>= readIO
+    app <- toWaiApp master
+    run port app
 
 -- | Run a development server, where your code changes are automatically
 -- reloaded.
