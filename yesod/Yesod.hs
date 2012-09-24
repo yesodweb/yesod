@@ -53,12 +53,7 @@ import Network.Wai
 import Network.Wai.Middleware.RequestLogger (logStdout)
 import Network.Wai.Handler.Warp (run)
 import System.IO (stderr, hPutStrLn)
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml)
-#else
-import Text.Blaze (toHtml)
-#endif
-
 import System.Environment (getEnv)
 
 showIntegral :: Integral a => a -> String
