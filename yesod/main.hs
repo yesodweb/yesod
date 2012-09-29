@@ -6,6 +6,8 @@ import System.Exit (exitWith, ExitCode (ExitSuccess))
 import System.Process (rawSystem)
 import Yesod.Core (yesodVersion)
 import Control.Monad (unless)
+import qualified Paths_yesod
+import Data.Version (showVersion)
 
 #ifndef WINDOWS
 import Build (touch)
@@ -46,7 +48,9 @@ main = do
             rawSystem' cmd ["configure", "--enable-tests", "-flibrary-only"]
             rawSystem' cmd ["build"]
             rawSystem' cmd ["test"]
-        ["version"] -> putStrLn $ "yesod-core version:" ++ yesodVersion
+        ["version"] -> do
+            putStrLn $ "yesod-core version:" ++ yesodVersion
+            putStrLn $ "yesod version:" ++ showVersion Paths_yesod.version
         "configure":rest -> rawSystem cmd ("configure":rest) >>= exitWith
         ["add-handler"] -> addHandler
         ["keter"] -> keter cmd False
