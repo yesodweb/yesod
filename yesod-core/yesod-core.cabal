@@ -54,7 +54,7 @@ library
                    , bytestring            >= 0.9.1.4
                    , text                  >= 0.7      && < 0.12
                    , template-haskell
-                   , path-pieces           >= 0.1      && < 0.2
+                   , path-pieces           >= 0.1.2    && < 0.2
                    , hamlet                >= 1.1      && < 1.2
                    , shakespeare           >= 1.0      && < 1.1
                    , shakespeare-js        >= 1.0      && < 1.1
