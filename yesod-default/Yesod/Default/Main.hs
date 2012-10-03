@@ -37,7 +37,6 @@ defaultMain :: (Show env, Read env)
 defaultMain load getApp = do
     config <- load
     app <- getApp config
-    print $ appHost config
     runSettings defaultSettings
         { settingsPort = appPort config
         , settingsHost = appHost config
