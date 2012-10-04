@@ -1,5 +1,5 @@
 name:            yesod-default
-version:         1.1.0.1
+version:         1.1.0.2
 license:         MIT
 license-file:    LICENSE
 author:          Patrick Brisbin
@@ -30,7 +30,7 @@ library
                    , shakespeare-js        >= 1.0     && < 1.1
                    , template-haskell
                    , yaml                  >= 0.8     && < 0.9
-                   , network-conduit       >= 0.5     && < 0.6
+                   , network-conduit       >= 0.5     && < 0.7
                    , unordered-containers
                    , hamlet                >= 1.1     && < 1.2
                    , data-default
