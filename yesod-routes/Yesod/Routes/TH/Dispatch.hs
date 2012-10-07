@@ -2,10 +2,12 @@
 module Yesod.Routes.TH.Dispatch
     ( -- ** Dispatch
       mkDispatchClause
+    , mkDispatchInstance
     ) where
 
 import Prelude hiding (exp)
 import Yesod.Routes.TH.Types
+import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 import Data.Maybe (catMaybes)
 import Control.Monad (forM, replicateM)
@@ -26,6 +28,43 @@ flatten =
     go front (ResourceLeaf (Resource a b c)) = [FlatResource (front []) a b c]
     go front (ResourceParent name pieces children) =
         concatMap (go (front . ((name, pieces):))) children
+
+
+{- Developer note:
+
+The class YesodDispatch is not defined in this package. Therefore one
+cannot use the names 'yesodDispatch directly.
+
+-}
+
+-- | Generate an instance of @'YesodDispatch'@.
+mkDispatchInstance :: CxtQ                -- ^ The context
+                   -> TypeQ               -- ^ subsite
+                   -> TypeQ               -- ^ master site
+                   -> [ResourceTree Type] -- ^ The resource
+                   -> DecsQ
+mkDispatchInstance context sub master res = do
+  logger <- newName "logger"
+  let loggerE = varE logger
+      loggerP = VarP logger
+      thisDispatch = do
+            Clause pat body decs <- mkDispatchClause
+                                    [|$yesodRunnerE   $loggerE |]
+                                    [|$yesodDispatchE $loggerE |]
+                                    [|fmap $chooseRepE|]
+                                    res
+            return $ FunD yesodDispatchN
+                         [ Clause (loggerP:pat)
+                                  body
+                                  decs
+                         ]
+      in sequence [instanceD context yDispatch [thisDispatch]]
+  where yesodRunnerE    = varE $ mkName "yesodRunner"
+        chooseRepE      = varE $ mkName "chooseRep"
+        yesodDispatchE  = varE $ yesodDispatchN
+        yesodDispatchCT = varT $ mkName "YesodDispatch"
+        yesodDispatchN  = mkName "yesodDispatch"
+        yDispatch       = [t| $yesodDispatchCT $sub $master |]
 
 -- |
 --
