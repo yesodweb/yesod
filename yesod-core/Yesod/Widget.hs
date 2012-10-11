@@ -43,6 +43,7 @@ module Yesod.Widget
     , addStylesheetRemote
     , addStylesheetRemoteAttrs
     , addStylesheetEither
+    , CssBuilder (..)
       -- ** Javascript
     , addJulius
     , addJuliusBody
@@ -80,7 +81,7 @@ import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP)
 import Control.Monad.Trans.Control (MonadBaseControl (..))
 import Control.Exception (throwIO)
 import qualified Text.Hamlet as NP
-import Data.Text.Lazy.Builder (fromLazyText)
+import Data.Text.Lazy.Builder (fromLazyText, Builder)
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 import qualified Data.Text.Lazy as TL
 import Control.Monad.Base (MonadBase (liftBase))
@@ -120,10 +121,21 @@ class ToWidget sub master a where
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
+-- | Newtype wrapper allowing injection of arbitrary content into CSS.
+--
+-- Usage:
+--
+-- > toWidget $ CssBuilder "p { color: red }"
+--
+-- Since: 1.1.3
+newtype CssBuilder = CssBuilder { unCssBuilder :: Builder }
+
 instance render ~ RY master => ToWidget sub master (render -> Html) where
     toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
 instance render ~ RY master => ToWidget sub master (render -> Css) where
-    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
+    toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . x
+instance render ~ RY master => ToWidget sub master (render -> CssBuilder) where
+    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
 instance render ~ RY master => ToWidget sub master (render -> Javascript) where
     toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
 instance (sub' ~ sub, master' ~ master) => ToWidget sub' master' (GWidget sub master ()) where
@@ -147,6 +159,8 @@ class ToWidgetHead sub master a where
 instance render ~ RY master => ToWidgetHead sub master (render -> Html) where
     toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
 instance render ~ RY master => ToWidgetHead sub master (render -> Css) where
+    toWidgetHead = toWidget
+instance render ~ RY master => ToWidgetHead sub master (render -> CssBuilder) where
     toWidgetHead = toWidget
 instance render ~ RY master => ToWidgetHead sub master (render -> Javascript) where
     toWidgetHead j = toWidgetHead $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j

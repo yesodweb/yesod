@@ -4,6 +4,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 -- | Normal users should never need access to these.
+--
+-- Note that no guarantees of API stability are provided on this module. Use at your own risk.
 module Yesod.Internal
     ( -- * Error responses
       ErrorResponse (..)
