@@ -23,7 +23,7 @@ extra-source-files:
   scaffold/LICENSE.cg
   scaffold/project.cabal.cg
   scaffold/mongoDBConnPool.cg
-  scaffold/main.hs.cg
+  scaffold/app/main.hs.cg
   scaffold/postgresqlConnPool.cg
   scaffold/Foundation.hs.cg
   scaffold/sqliteConnPool.cg
@@ -45,7 +45,6 @@ extra-source-files:
   scaffold/templates/homepage.julius.cg
   scaffold/templates/default-layout-wrapper.hamlet.cg
   scaffold/deploy/Procfile.cg
-  scaffold/main.hs.cg
   scaffold/devel.hs.cg
   scaffold/Handler/Home.hs.cg
   scaffold/templates/normalize.lucius.cg

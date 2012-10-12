@@ -81,8 +81,8 @@ executable         ~project~
     if flag(library-only)
         Buildable: False
 
-    main-is:           ../main.hs
-    hs-source-dirs:    dist
+    main-is:           main.hs
+    hs-source-dirs:    app
     build-depends:     base
                      , ~project~
                      , yesod-default

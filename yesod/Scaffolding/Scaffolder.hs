@@ -137,7 +137,8 @@ scaffold = do
     mkDir "deploy"
     mkDir "Settings"
     mkDir "messages"
-     
+    mkDir "app"
+
     writeFile' "deploy/Procfile" $(codegen "deploy/Procfile")
 
     case backend of
@@ -148,7 +149,7 @@ scaffold = do
 
     writeFile' "config/settings.yml" $(codegen "config/settings.yml")
     writeFile' "config/keter.yaml" $(codegen "config/keter.yaml")
-    writeFile' "main.hs" $(codegen "main.hs")
+    writeFile' "app/main.hs" $(codegen "app/main.hs")
     writeFile' "devel.hs" $(codegen "devel.hs")
     writeFile' (project ++ ".cabal") $(codegen "project.cabal")
 
