@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-runghc main.hs init
+runghc -i. -idist/build/autogen main.hs init
 
 (
   cd foobar
