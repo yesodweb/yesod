@@ -5,7 +5,6 @@
 module Main where
 
 import Import
-import Settings
 import Yesod.Default.Config
 import Yesod.Test
 import Application (makeFoundation)
