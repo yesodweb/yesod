@@ -203,8 +203,11 @@ routeArg3 runHandler dispatcher fixHandler parents name resPieces resDisp = do
             Static _ -> return Nothing
             Dynamic _ -> Just <$> newName "x"
 
-    ys <- forM (catMaybes xs) $ \x -> do
-        y <- newName "y"
+    -- Note: the zipping with Ints is just a workaround for (apparently) a bug
+    -- in GHC where the identifiers are considered to be overlapping. Using
+    -- newName should avoid the problem, but it doesn't.
+    ys <- forM (zip (catMaybes xs) [1..]) $ \(x, i) -> do
+        y <- newName $ "y" ++ show (i :: Int)
         return (x, y)
 
     -- In case we have multi pieces at the end
