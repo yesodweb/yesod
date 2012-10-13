@@ -43,6 +43,7 @@ instance Yesod HelloWorld where
 
 getRootR = do
     $(logOther "HAHAHA") "Here I am"
+    $logOtherS "source" "level" "message"
     defaultLayout $ do
         addScriptRemote "https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"
         toWidget [julius|$(function(){$("#mypara").css("color", "red")});|]
