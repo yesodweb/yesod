@@ -326,7 +326,7 @@ $doctype 5
                         -> IO ()
     messageLoggerSource a logger loc source level msg =
         if shouldLog a source level
-            then formatLogMessage (loggerDate logger) loc level msg >>= loggerPutStr logger
+            then formatLogMessage (loggerDate logger) loc source level msg >>= loggerPutStr logger
             else return ()
 
     -- | The logging level in place for this application. Any messages below
@@ -376,10 +376,11 @@ $doctype 5
 
 formatLogMessage :: IO ZonedDate
                  -> Loc
+                 -> LogSource
                  -> LogLevel
                  -> LogStr -- ^ message
                  -> IO [LogStr]
-formatLogMessage getdate loc level msg = do
+formatLogMessage getdate loc src level msg = do
     now <- getdate
     return
         [ LB now
@@ -388,6 +389,10 @@ formatLogMessage getdate loc level msg = do
             case level of
                 LevelOther t -> T.unpack t
                 _ -> drop 5 $ show level
+        , LS $
+            if T.null src
+                then ""
+                else "#" ++ T.unpack src
         , LB "] "
         , msg
         , LB " @("
