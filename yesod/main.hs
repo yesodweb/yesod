@@ -51,6 +51,7 @@ data Command = Init
              | Devel { _develDisableApi  :: Bool
                      , _develSuccessHook :: Maybe String
                      , _develFailHook    :: Maybe String
+                     , _develRescan      :: Int
                      }
              | Test
              | AddHandler
@@ -62,19 +63,19 @@ main = do
   o <- execParser optParser'
   let cabal xs = rawSystem' (cabalCommand o) xs
   case optCommand o of
-    Init              -> scaffold
-    Configure         -> cabal ["configure"]
-    Build             -> touch' >> cabal ["build"] -- fixme passthrough remaining args
-    Touch             -> touch'
-    (Devel da s f)    -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) s f) [] -- fixme, passthrough remaining args
-    (Keter noRebuild) -> keter (cabalCommand o) noRebuild
-    Version           -> do putStrLn ("yesod-core version:" ++ yesodVersion)
-                            putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
-    AddHandler        -> addHandler
-    Test              -> do touch'
-                            cabal ["configure", "--enable-tests", "-flibrary-only"]
-                            cabal ["build"]
-                            cabal ["test"]
+    Init                -> scaffold
+    Configure           -> cabal ["configure"]
+    Build               -> touch' >> cabal ["build"] -- fixme passthrough remaining args
+    Touch               -> touch'
+    (Devel da s f r)    -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f) [] -- fixme, passthrough remaining args
+    (Keter noRebuild)   -> keter (cabalCommand o) noRebuild
+    Version             -> do putStrLn ("yesod-core version:" ++ yesodVersion)
+                              putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
+    AddHandler          -> addHandler
+    Test                -> do touch'
+                              cabal ["configure", "--enable-tests", "-flibrary-only"]
+                              cabal ["build"]
+                              cabal ["test"]
 
 optParser' :: ParserInfo Options
 optParser' = info (helper <*> optParser) ( fullDesc <> header "Yesod Web Framework command line utility" )
@@ -107,9 +108,14 @@ keterOptions :: Parser Command
 keterOptions = Keter <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebuilding" )
 
 develOptions :: Parser Command
-develOptions = Devel <$> switch ( long "disable-api"  <> short 'd' <> help "Disable fast GHC API rebuilding")
-                     <*> optStr ( long "success-hook" <> short 's' <> help "Run command after rebuild succeeds")
-                     <*> optStr ( long "failure-hook" <> short 'f' <> help "Run command when rebuild fails")
+develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
+                            <> help "Disable fast GHC API rebuilding")
+                     <*> optStr ( long "success-hook" <> short 's'
+                            <> help "Run command after rebuild succeeds")
+                     <*> optStr ( long "failure-hook" <> short 'f'
+                            <> help "Run command when rebuild fails")
+                     <*> option ( long "event-timeout" <> short 't' <> value (-1) <> metavar "N"
+                            <> help "Force rescan of files every N seconds" )
 
 -- | Optional @String@ argument
 optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)

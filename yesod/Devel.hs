@@ -4,35 +4,36 @@
 module Devel
     ( devel
     , DevelOpts(..)
+    , defaultDevelOpts
     ) where
 
 
 import qualified Distribution.Compiler                 as D
+import qualified Distribution.InstalledPackageInfo     as IPI
 import qualified Distribution.ModuleName               as D
+import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
 import qualified Distribution.PackageDescription.Parse as D
 import qualified Distribution.Simple.Build             as D
 import qualified Distribution.Simple.Configure         as D
+import qualified Distribution.Simple.LocalBuildInfo    as D
 import qualified Distribution.Simple.Program           as D
 import qualified Distribution.Simple.Register          as D
 import qualified Distribution.Simple.Setup             as DSS
 import qualified Distribution.Simple.Utils             as D
 import qualified Distribution.Verbosity                as D
--- import qualified Distribution.InstalledPackageInfo as D
-import qualified Distribution.InstalledPackageInfo     as IPI
-import qualified Distribution.Package                  as D
-import qualified Distribution.Simple.LocalBuildInfo    as D
-import qualified Distribution.Verbosity                as D
 
 import           Control.Applicative                   ((<$>), (<*>))
 import           Control.Concurrent                    (forkIO, threadDelay)
+import           Control.Concurrent.MVar               (MVar, newEmptyMVar,
+                                                        takeMVar, tryPutMVar)
 import qualified Control.Exception                     as Ex
-import           Control.Monad                         (forever, unless, when)
+import           Control.Monad                         (forever, unless, void,
+                                                        when)
 
 import           Data.Char                             (isNumber, isUpper)
 import qualified Data.List                             as L
 import qualified Data.Map                              as Map
-import           Data.Maybe                            (fromMaybe)
 import qualified Data.Set                              as Set
 
 import           System.Directory
@@ -42,6 +43,7 @@ import           System.Exit                           (ExitCode (..),
 import           System.FilePath                       (dropExtension,
                                                         splitDirectories,
                                                         takeExtension)
+import           System.FSNotify
 import           System.IO                             (hClose, hGetLine,
                                                         hIsEOF, hPutStrLn,
                                                         stderr, stdout)
@@ -56,8 +58,8 @@ import           System.Process                        (ProcessHandle,
                                                         readProcess,
                                                         runInteractiveProcess,
                                                         system,
-                                                        terminateProcess,
-                                                        waitForProcess)
+                                                        terminateProcess)
+import           System.Timeout                        (timeout)
 
 import           Build                                 (getDeps, isNewerThan,
                                                         recompDeps)
@@ -79,21 +81,23 @@ removeLock :: IO ()
 removeLock = removeFileIfExists lockFile
 
 data DevelOpts = DevelOpts
-      { isCabalDev  :: Bool
-      , forceCabal  :: Bool
-      , verbose     :: Bool
-      , successHook :: Maybe String
-      , failHook    :: Maybe String
+      { isCabalDev   :: Bool
+      , forceCabal   :: Bool
+      , verbose      :: Bool
+      , eventTimeout :: Int -- negative value for no timeout
+      , successHook  :: Maybe String
+      , failHook     :: Maybe String
       } deriving (Show, Eq)
 
 cabalCommand :: DevelOpts -> FilePath
 cabalCommand opts | isCabalDev opts = "cabal-dev"
                   | otherwise       = "cabal"
 
-defaultDevelOpts = DevelOpts False False False Nothing Nothing
+defaultDevelOpts :: DevelOpts
+defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing
 
 devel :: DevelOpts -> [String] -> IO ()
-devel opts passThroughArgs = do
+devel opts passThroughArgs = withManager $ \manager -> do
     checkDevelFile
     writeLock
 
@@ -110,14 +114,22 @@ devel opts passThroughArgs = do
       removeFileIfExists "dist/ghcargs.txt"  -- these files contain the wrong data after
       removeFileIfExists "dist/arargs.txt"   -- the configure step, remove them to force
       removeFileIfExists "dist/ldargs.txt"   -- a cabal build first
-      mainLoop hsSourceDirs cabal gpd lib ldar
+      filesModified <- newEmptyMVar
+      watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
+      mainLoop hsSourceDirs filesModified cabal gpd lib ldar
 
     _ <- getLine
     writeLock
     exitSuccess
   where
-    mainLoop :: [FilePath] -> FilePath -> D.GenericPackageDescription -> D.Library -> (FilePath, FilePath) -> IO ()
-    mainLoop hsSourceDirs cabal gpd lib ldar = do
+    mainLoop :: [FilePath]
+             -> MVar ()
+             -> FilePath
+             -> D.GenericPackageDescription
+             -> D.Library
+             -> (FilePath, FilePath)
+             -> IO ()
+    mainLoop hsSourceDirs filesModified cabal gpd lib ldar = do
        ghcVer <- ghcVersion
        rebuild <- mkRebuild gpd ghcVer cabal opts ldar
        forever $ do
@@ -137,7 +149,7 @@ devel opts passThroughArgs = do
                                               else "Starting development server..."
                    (_,_,_,ph) <- createProcess $ proc "runghc" devArgs
                    watchTid <- forkIO . try_ $ do
-                         watchForChanges hsSourceDirs [cabal] list
+                         watchForChanges filesModified hsSourceDirs [cabal] list (eventTimeout opts)
                          putStrLn "Stopping development server..."
                          writeLock
                          threadDelay 1000000
@@ -146,14 +158,14 @@ devel opts passThroughArgs = do
                    ec <- waitForProcess' ph
                    putStrLn $ "Exit code: " ++ show ec
                    Ex.throwTo watchTid (userError "process finished")
-           watchForChanges hsSourceDirs [cabal] list
+           watchForChanges filesModified hsSourceDirs [cabal] list (eventTimeout opts)
 
 runBuildHook :: Maybe String -> IO ()
 runBuildHook (Just s) = do
-                        ret <- system s
-                        case ret of
-                            ExitFailure f -> putStrLn $ "Error executing hook: " ++ s
-                            otherwise     -> return ()
+             ret <- system s
+             case ret of
+                  ExitFailure _ -> putStrLn ("Error executing hook: " ++ s)
+                  _             -> return ()
 runBuildHook Nothing = return ()
 
 {-
@@ -164,7 +176,7 @@ runBuildHook Nothing = return ()
   cabal-dev buildopts if required
 -}
 configure :: FilePath -> D.GenericPackageDescription -> DevelOpts -> IO ()
-configure cabal gpd opts
+configure _cabalFile gpd opts
   | isCabalDev opts = rawSystem (cabalCommand opts) args >> return ()
   | otherwise       = do
                         lbi <- D.configure (gpd, hookedBuildInfo) configFlags
@@ -191,9 +203,9 @@ configure cabal gpd opts
                }
     cabalArgs
         | isCabalDev opts = map ("--cabal-install-arg=" ++) args
-        | otherwise       = args
+        | otherwise       = as
         where
-          args =
+          as =
             [ "-fdevel" -- legacy
             , "-flibrary-only"
             ] ++ wrapperArgs
@@ -238,7 +250,7 @@ rebuildGhc bf ld ar = do
   buildPackage bf ld ar
 
 rebuildCabal :: D.GenericPackageDescription -> DevelOpts -> IO Bool
-rebuildCabal gpd opts
+rebuildCabal _gpd opts
     | isCabalDev opts = do
        let cmd = cabalCommand opts
        putStrLn $ "Rebuilding application... (using " ++ cmd ++ ")"
@@ -253,6 +265,7 @@ rebuildCabal gpd opts
                       | otherwise    = DSS.defaultBuildFlags { DSS.buildVerbosity = DSS.Flag D.silent }
        tryBool $ D.build (D.localPkgDescr lbi) lbi buildFlags []
 
+tryBool :: IO a -> IO Bool
 tryBool a = (a >> return True) `Ex.catch` \(e::Ex.SomeException) -> do
   putStrLn $ "Exception: " ++ show e
   return False
@@ -272,12 +285,13 @@ getFileList hsSourceDirs extraFiles = do
             Left (_ :: Ex.SomeException) -> (f, 0)
             Right fs -> (f, modificationTime fs)
 
-watchForChanges :: [FilePath] -> [FilePath] -> FileList -> IO ()
-watchForChanges hsSourceDirs extraFiles list = do
+watchForChanges :: MVar () -> [FilePath] -> [FilePath] -> FileList -> Int -> IO ()
+watchForChanges filesModified hsSourceDirs extraFiles list t = do
     newList <- getFileList hsSourceDirs extraFiles
     if list /= newList
       then return ()
-      else threadDelay 1000000 >> watchForChanges hsSourceDirs extraFiles list
+      else timeout (1000000*t) (takeMVar filesModified) >>
+           watchForChanges filesModified hsSourceDirs extraFiles list t
 
 checkDevelFile :: IO ()
 checkDevelFile = do
@@ -337,7 +351,7 @@ ghcPackageArgs opts ghcVer cabal lib = do
      else return ("-hide-all-packages" : inplaceConf : selfPkgArg lbi : depArgs lbi cbi)
       where
         selfPkgArg lbi  = pkgArg . D.inplacePackageId . D.package . D.localPkgDescr $ lbi
-        pkgArg (D.InstalledPackageId id) = "-package-id" ++ id
+        pkgArg (D.InstalledPackageId pkgId) = "-package-id" ++ pkgId
         depArgs lbi cbi = map pkgArg (deps lbi cbi)
         deps lbi cbi    = let pkgInfo = D.inplaceInstalledPackageInfo "." "dist" cabal lib lbi cbi
                           in  IPI.depends $ pkgInfo
@@ -374,7 +388,7 @@ lookupLdAr = do
 
 lookupLdAr' :: IO (Maybe (FilePath, FilePath))
 lookupLdAr' = do
-  (comp, pgmc) <- D.configCompiler (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent
+  (_, pgmc) <- D.configCompiler (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent
   pgmc' <- D.configureAllKnownPrograms D.silent pgmc
   return $ (,) <$> look D.ldProgram pgmc' <*> look D.arProgram pgmc'
      where
@@ -397,7 +411,7 @@ rawSystemFilter command args = do
     _ <- forkIO $ go errh stderr
     waitForProcess' ph
 
--- nonblocking version
+-- | nonblocking version of @waitForProcess@
 waitForProcess' :: ProcessHandle -> IO ExitCode
 waitForProcess' pid = go
   where
