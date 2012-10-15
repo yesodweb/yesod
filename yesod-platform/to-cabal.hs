@@ -3,14 +3,14 @@ import Control.Applicative ((<$>))
 
 main = do
     pkgs <- map (intercalate " == ")
-          . filter (\xs -> not $ ["parsec"] `isPrefixOf` xs)
+          . filter (\xs -> not $ any (`isPrefixOf` xs) $ map return ["parsec", "text", "transformers", "mtl", "HUnit", "QuickCheck", "binary", "zlib", "stm", "regex-compat"])
           . map words
           . filter (not . null)
           . lines
         <$> getContents
     putStrLn "name:            yesod-platform"
     putStrLn "version:         FIXME"
-    putStrLn "license:         BSD3"
+    putStrLn "license:         MIT"
     putStrLn "license-file:    LICENSE"
     putStrLn "author:          Michael Snoyman <michael@snoyman.com>"
     putStrLn "maintainer:      Michael Snoyman <michael@snoyman.com>"

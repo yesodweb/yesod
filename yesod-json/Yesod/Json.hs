@@ -18,6 +18,7 @@ module Yesod.Json
 
       -- * Convenience functions
     , jsonOrRedirect
+    , acceptsJson
     ) where
 
 import Yesod.Handler (GHandler, waiRequest, lift, invalidArgs, redirect)
@@ -109,7 +110,8 @@ array = J.Array . V.fromList . map J.toJSON
 -- | jsonOrRedirect simplifies the scenario where a POST handler sends a different
 -- response based on Accept headers:
 --
---     1. 200 with JSON data if the client prefers application/json (e.g. AJAX).
+--     1. 200 with JSON data if the client prefers
+--     @application\/json@ (e.g. AJAX, see 'acceptsJSON').
 --
 --     2. 3xx otherwise, following the PRG pattern.
 jsonOrRedirect :: (Yesod master, J.ToJSON a)
@@ -120,9 +122,12 @@ jsonOrRedirect r j = do
     q <- acceptsJson
     if q then jsonToRepJson (J.toJSON j)
          else redirect r
-  where
-    acceptsJson = maybe False ((== "application/json") . B8.takeWhile (/= ';'))
-                . join
-                . fmap (headMay . parseHttpAccept)
-                . lookup "Accept" . requestHeaders
-                <$> waiRequest
+
+-- | Returns @True@ if the client prefers @application\/json@ as
+-- indicated by the @Accept@ HTTP header.
+acceptsJson :: Yesod master => GHandler sub master Bool
+acceptsJson =  maybe False ((== "application/json") . B8.takeWhile (/= ';'))
+            .  join
+            .  fmap (headMay . parseHttpAccept)
+            .  lookup "Accept" . requestHeaders
+           <$> waiRequest

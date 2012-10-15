@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.0.0
+version:         1.1.1.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -23,31 +23,35 @@ extra-source-files:
   scaffold/LICENSE.cg
   scaffold/project.cabal.cg
   scaffold/mongoDBConnPool.cg
-  scaffold/main.hs.cg
+  scaffold/app/main.hs.cg
   scaffold/postgresqlConnPool.cg
   scaffold/Foundation.hs.cg
   scaffold/sqliteConnPool.cg
-  scaffold/cabal_test_suite.cg
   scaffold/Import.hs.cg
   scaffold/.ghci.cg
   scaffold/tests/main.hs.cg
+  scaffold/tests/HomeTest.hs.cg
+  scaffold/tests/TestImport.hs.cg
   scaffold/Settings.hs.cg
+  scaffold/Settings/Development.hs.cg
   scaffold/Settings/StaticFiles.hs.cg
   scaffold/Application.hs.cg
   scaffold/deploy/Procfile.cg
   scaffold/templates/homepage.hamlet.cg
   scaffold/static/css/bootstrap.css.cg
+  scaffold/static/img/glyphicons-halflings.png
+  scaffold/static/img/glyphicons-halflings-white.png
   scaffold/templates/default-layout.hamlet.cg
   scaffold/templates/homepage.julius.cg
   scaffold/templates/default-layout-wrapper.hamlet.cg
   scaffold/deploy/Procfile.cg
-  scaffold/main.hs.cg
   scaffold/devel.hs.cg
   scaffold/Handler/Home.hs.cg
   scaffold/templates/normalize.lucius.cg
   scaffold/templates/boilerplate-wrapper.hamlet.cg
   scaffold/templates/homepage.lucius.cg
   scaffold/messages/en.msg.cg
+  scaffold/config/keter.yaml.cg
   scaffold/config/models.cg
   scaffold/config/mysql.yml.cg
   scaffold/config/sqlite.yml.cg
@@ -59,36 +63,24 @@ extra-source-files:
   scaffold/config/mongoDB.yml.cg
   scaffold/devel.hs.cg
 
-
-flag ghc7
-
--- OS X does not like the threaded runtime with the GHC API
-flag threaded
-    default: False
-    description: Build with support for multithreaded execution
-
 library
-    if flag(ghc7)
-        build-depends:   base                  >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base                  >= 4        && < 4.3
-    build-depends:   yesod-core                >= 1.0      && < 1.1
-                   , yesod-auth                >= 1.0      && < 1.1
-                   , yesod-json                >= 1.0      && < 1.1
-                   , yesod-persistent          >= 1.0      && < 1.1
-                   , yesod-form                >= 1.0      && < 1.1
+    build-depends:   base                      >= 4.3      && < 5
+                   , yesod-core                >= 1.1      && < 1.2
+                   , yesod-auth                >= 1.1      && < 1.2
+                   , yesod-json                >= 1.1      && < 1.2
+                   , yesod-persistent          >= 1.1      && < 1.2
+                   , yesod-form                >= 1.1      && < 1.2
                    , monad-control             >= 0.3      && < 0.4
                    , transformers              >= 0.2.2    && < 0.4
-                   , wai                       >= 1.2      && < 1.3
-                   , wai-extra                 >= 1.2      && < 1.3
-                   , wai-logger                >= 0.1.2
-                   , hamlet                    >= 1.0      && < 1.1
+                   , wai                       >= 1.3      && < 1.4
+                   , wai-extra                 >= 1.3      && < 1.4
+                   , hamlet                    >= 1.1      && < 1.2
                    , shakespeare-js            >= 1.0      && < 1.1
                    , shakespeare-css           >= 1.0      && < 1.1
-                   , warp                      >= 1.2      && < 1.3
-                   , blaze-html                >= 0.4.1.3  && < 0.5
-                   , options                   >= 0.1      && < 0.2
+                   , warp                      >= 1.3      && < 1.4
+                   , blaze-html                >= 0.5      && < 0.6
+                   , blaze-markup              >= 0.5.1    && < 0.6
+
     exposed-modules: Yesod
     ghc-options:     -Wall
 
@@ -96,57 +88,60 @@ executable             yesod-ghc-wrapper
     main-is: ghcwrapper.hs
     build-depends:
                     base                       >= 4         && < 5
-                  , Cabal                      >= 1.10      && < 1.16
+                  , Cabal
 
 executable             yesod-ld-wrapper
     main-is: ghcwrapper.hs
     cpp-options:     -DLDCMD
     build-depends:
                     base                       >= 4         && < 5
-                  , Cabal                      >= 1.10      && < 1.16
+                  , Cabal
 executable             yesod-ar-wrapper
     main-is: ghcwrapper.hs
     cpp-options:     -DARCMD
     build-depends:
                      base                       >= 4         && < 5
-                   , Cabal                      >= 1.10      && < 1.16
+                   , Cabal
 
 executable             yesod
-    if flag(ghc7)
-        build-depends:   base                  >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base                  >= 4        && < 4.3
     if os(windows)
         cpp-options:     -DWINDOWS
-    build-depends:     parsec             >= 2.1          && < 4
-                     , text               >= 0.11         && < 0.12
+    build-depends:     base               >= 4.3          && < 5
+                     , ghc                >= 7.0.3        && < 7.8
+                     , ghc-paths          >= 0.1
+                     , parsec             >= 2.1          && < 4
+                     , text               >= 0.11
                      , shakespeare-text   >= 1.0          && < 1.1
-                     , bytestring         >= 0.9.1.4  && < 0.10
+                     , bytestring         >= 0.9.1.4
                      , time               >= 1.1.4
                      , template-haskell
-                     , directory          >= 1.0          && < 1.2
+                     , directory          >= 1.0
                      , Cabal
-                     , unix-compat        >= 0.2          && < 0.4
-                     , containers         >= 0.2          && < 0.5
+                     , unix-compat        >= 0.2          && < 0.5
+                     , containers         >= 0.2
                      , attoparsec         >= 0.10
-                     , http-types         >= 0.6.1        && < 0.7
+                     , http-types         >= 0.7          && < 0.8
                      , blaze-builder      >= 0.2.1.4      && < 0.4
                      , filepath           >= 1.1
-                     , fast-logger        >= 0.0.2        && < 0.1
                      , process
-                     , ghc                >= 7.0.3
-                     , ghc-paths          >= 0.1.0.8
-    ghc-options:       -Wall
-    if flag(threaded)
-        ghc-options:    -threaded
+                     , zlib               >= 0.5          && < 0.6
+                     , tar                >= 0.4          && < 0.5
+                     , system-filepath    >= 0.4          && < 0.5
+                     , system-fileio      >= 0.3          && < 0.4
+                     , unordered-containers
+                     , yaml               >= 0.8          && < 0.9
+                     , optparse-applicative >= 0.4        && < 0.5
+    ghc-options:       -Wall -threaded
     main-is:           main.hs
     other-modules:     Scaffolding.CodeGen
                        Scaffolding.Scaffolder
                        Devel
                        Build
                        GhcBuild
-                       Types
+                       Keter
+                       AddHandler
+                       Paths_yesod
+
 
 source-repository head
   type:     git

@@ -1,109 +1,123 @@
-{-# LANGUAGE CPP, TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 
-import Scaffolding.Scaffolder
-import System.Environment (getArgs)
-import System.Exit (exitWith)
-import System.Process (rawSystem)
-import Yesod.Core(yesodVersion)
+import           Control.Monad          (unless)
+import           Data.Monoid
+import           Data.Version           (showVersion)
+import           Options.Applicative
+import           System.Exit            (ExitCode (ExitSuccess), exitWith)
+import           System.Process         (rawSystem)
 
-import Options
-import Types
+import           Yesod.Core             (yesodVersion)
 
-import Build (touch)
-import Devel (devel, DevelOpts(..))
-import System.IO (stdout, stderr, hPutStr, hPutStrLn)
-import System.Exit (exitSuccess, exitFailure)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import           AddHandler             (addHandler)
+import           Devel                  (DevelOpts (..), devel)
+import           Keter                  (keter)
+import qualified Paths_yesod
+import           Scaffolding.Scaffolder
 
-defineOptions "NoOptions" (return ())
+#ifndef WINDOWS
+import           Build                  (touch)
 
-defineOptions "DevelOptions" $ do
-  mkOptApi        "develOptApi"
---  mkOptNoApi    "develOptNoApi"  -- use this later when flag is enabled by default
-  mkOptSuccessHook "optSuccessHook"
-  mkOptFailHook    "optFailHook" 
+touch' :: IO ()
+touch' = touch
 
-defineOptions "MainOptions" $ do
-  mkOptCabalDev    "optCabalDev"
-  mkOptVerbose     "optVerbose"
+windowsWarning :: String
+windowsWarning = ""
+#else
+touch' :: IO ()
+touch'  = return ()
 
-type InitOptions      = NoOptions
-type ConfigureOptions = NoOptions
-type BuildOptions     = NoOptions
-type TouchOptions     = NoOptions
-type VersionOptions   = NoOptions
+windowsWarning :: String
+windowsWarning = " (does not work on Windows)"
+#endif
 
-cabalCommand :: MainOptions -> String
+cabalCommand :: Options -> String
 cabalCommand mopt
-  | optCabalDev mopt = "cabal-dev"
-  | otherwise        = "cabal"
+  | optCabalPgm mopt == CabalDev = "cabal-dev"
+  | otherwise                    = "cabal"
+
+data CabalPgm = Cabal | CabalDev deriving Eq
+
+data Options = Options
+               { optCabalPgm :: CabalPgm
+               , optVerbose  :: Bool
+               , optCommand  :: Command
+               }
+
+data Command = Init
+             | Configure
+             | Build
+             | Touch
+             | Devel { _develDisableApi  :: Bool
+                     , _develSuccessHook :: Maybe String
+                     , _develFailHook    :: Maybe String
+                     }
+             | Test
+             | AddHandler
+             | Keter { _keterNoRebuild :: Bool }
+             | Version
 
 main :: IO ()
-main = runSubcommand'
-      [ subcommand "init"      cmdInit
-      , subcommand "configure" cmdConfigure
-#ifndef WINDOWS
-      , subcommand "build"     cmdBuild
-      , subcommand "touch"     cmdTouch
-#endif
-      , subcommand "devel"     cmdDevel
-      , subcommand "version"   cmdVersion
-      ]
+main = do
+  o <- execParser optParser'
+  let cabal xs = rawSystem' (cabalCommand o) xs
+  case optCommand o of
+    Init              -> scaffold
+    Configure         -> cabal ["configure"]
+    Build             -> touch' >> cabal ["build"] -- fixme passthrough remaining args
+    Touch             -> touch'
+    (Devel da s f)    -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) s f) [] -- fixme, passthrough remaining args
+    (Keter noRebuild) -> keter (cabalCommand o) noRebuild
+    Version           -> do putStrLn ("yesod-core version:" ++ yesodVersion)
+                            putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
+    AddHandler        -> addHandler
+    Test              -> do touch'
+                            cabal ["configure", "--enable-tests", "-flibrary-only"]
+                            cabal ["build"]
+                            cabal ["test"]
 
-cmdInit :: MainOptions -> InitOptions -> [String] -> IO ()
-cmdInit _ _ _ = scaffold
+optParser' :: ParserInfo Options
+optParser' = info (helper <*> optParser) ( fullDesc <> header "Yesod Web Framework command line utility" )
 
-cmdConfigure :: MainOptions -> ConfigureOptions -> [String] -> IO ()
-cmdConfigure mopt _ args = exitWith =<< rawSystem (cabalCommand mopt) ("configure":args)
+optParser :: Parser Options
+optParser = Options
+        <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
+        <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
+        <*> subparser ( command "init"      (info (pure Init)
+                            (progDesc "Scaffold a new site"))
+                      <> command "configure" (info (pure Configure)
+                            (progDesc "Configure a project for building"))
+                      <> command "build"     (info (pure Build)
+                            (progDesc $ "Build project (performs TH dependency analysis)" ++ windowsWarning))
+                      <> command "touch"     (info (pure Touch)
+                            (progDesc $ "Touch any files with altered TH dependencies but do not build" ++ windowsWarning))
+                      <> command "devel"     (info develOptions
+                            (progDesc "Run project with the devel server"))
+                      <> command "test"      (info (pure Test)
+                            (progDesc "Build and run the integration tests"))
+                      <> command "add-handler" (info (pure AddHandler)
+                            (progDesc "Add a new handler and module to the project"))
+                      <> command "keter"       (info keterOptions
+                            (progDesc "Build a keter bundle"))
+                      <> command "version"     (info (pure Version)
+                            (progDesc "Print the version of Yesod"))
+                      )
 
-cmdBuild :: MainOptions -> BuildOptions -> [String] -> IO ()
-cmdBuild mopt _ args = do
-  touch
-  exitWith =<< rawSystem (cabalCommand mopt) ("build":args)
+keterOptions :: Parser Command
+keterOptions = Keter <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebuilding" )
 
-cmdTouch :: MainOptions -> TouchOptions -> [String] -> IO ()
-cmdTouch _ _ _ = touch
+develOptions :: Parser Command
+develOptions = Devel <$> switch ( long "disable-api"  <> short 'd' <> help "Disable fast GHC API rebuilding")
+                     <*> optStr ( long "success-hook" <> short 's' <> help "Run command after rebuild succeeds")
+                     <*> optStr ( long "failure-hook" <> short 'f' <> help "Run command when rebuild fails")
 
-cmdDevel :: MainOptions -> DevelOptions -> [String] -> IO ()
-cmdDevel mopt opts args = devel dopts args
-    where
-      dopts       = DevelOpts (optCabalDev mopt) forceCabal (optVerbose mopt) successHook failHook 
-      successHook = optSuccessHook opts
-      failHook    = optFailHook opts
-      forceCabal  = not (develOptApi opts)
---      forceCabal = develOptNoApi opts
+-- | Optional @String@ argument
+optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
+optStr m = nullOption $ value Nothing <> reader (Just . str)  <> m
 
-cmdVersion :: MainOptions -> VersionOptions -> [String] -> IO ()
-cmdVersion _ _ _ = putStrLn $ "yesod-core version: " ++ yesodVersion
-
--- temporary hack to describe subcommands, remove once options supports subcommand descriptions
-runSubcommand' :: (Options opts, MonadIO m) => [Subcommand opts (m a)] -> m a
-runSubcommand' subcommands = do
-  argv <- liftIO System.Environment.getArgs
-  let parsed = parseSubcommand subcommands argv
-  case parsedSubcommand parsed of
-    Just cmd -> cmd
-    Nothing -> liftIO $ case parsedError parsed of
-                          Just err -> do
-                                 hPutStrLn stderr (parsedHelp parsed)
-                                 hPutStrLn stderr describeSubcommands
-                                 hPutStrLn stderr err
-                                 exitFailure
-                          Nothing -> do
-                                 hPutStr stdout (parsedHelp parsed)
-                                 hPutStr stdout describeSubcommands
-                                 exitSuccess
-
-describeSubcommands :: String
-describeSubcommands = unlines
-  [ "Available subcommands, use `yesod --help subcommand' to get more information"
-  , "  init         Scaffold a new site"
-  , "  configure    Configure a project for building"
-#ifndef WINDOWS
-  , "  build        Build project (performs TH dependency analysis)"
-  , "  touch        Touch any files with altered TH dependencies but do not build"
-#endif
-  , "  devel        Run project with the devel server"
-  , "  version      Print the version of Yesod"
-  ]
+-- | Like @rawSystem@, but exits if it receives a non-success result.
+rawSystem' :: String -> [String] -> IO ()
+rawSystem' x y = do
+    res <- rawSystem x y
+    unless (res == ExitSuccess) $ exitWith res
 

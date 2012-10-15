@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-runghc main.hs init
+runghc -i. -idist/build/autogen main.hs init
 
 (
   cd foobar
@@ -13,6 +13,7 @@ runghc main.hs init
   cabal configure -flibrary-only --disable-optimization
   cabal build
   cabal clean
-  cabal configure
+  cabal configure --enable-tests
   cabal build
+  cabal test
 )

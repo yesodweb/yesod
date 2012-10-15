@@ -1,16 +1,4 @@
-module Foundation
-    ( ~sitearg~ (..)
-    , Route (..)
-    , ~sitearg~Message (..)
-    , resources~sitearg~
-    , Handler
-    , Widget
-    , Form
-    , maybeAuth
-    , requireAuth
-    , module Settings
-    , module Model
-    ) where
+module Foundation where
 
 import Prelude
 import Yesod
@@ -20,9 +8,9 @@ import Yesod.Auth.BrowserId
 import Yesod.Auth.GoogleEmail
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
-import Yesod.Logger (Logger, logMsg, formatLogText)
 import Network.HTTP.Conduit (Manager)
 import qualified Settings
+import Settings.Development (development)
 import qualified Database.Persist.Store
 import Settings.StaticFiles
 import Database.Persist.~importGenericDB~
@@ -38,7 +26,6 @@ import Text.Hamlet (hamletFile)
 -- access to the data present here.
 data ~sitearg~ = ~sitearg~
     { settings :: AppConfig DefaultEnv Extra
-    , getLogger :: Logger
     , getStatic :: Static -- ^ Settings for static file serving.
     , connPool :: Database.Persist.Store.PersistConfigPool Settings.PersistConfig -- ^ Database connection pool.
     , httpManager :: Manager
@@ -107,9 +94,6 @@ instance Yesod ~sitearg~ where
     -- The page to be redirected to when authentication is required.
     authRoute _ = Just $ AuthR LoginR
 
-    messageLogger y loc level msg =
-      formatLogText (getLogger y) loc level msg >>= logMsg (getLogger y)
-
     -- This function creates static content files in the static folder
     -- and names them based on a hash of their content. This allows
     -- expiration dates to be set far in the future without worry of
@@ -118,6 +102,11 @@ instance Yesod ~sitearg~ where
 
     -- Place Javascript at bottom of the body tag so the rest of the page loads first
     jsLoader _ = BottomOfBody
+
+    -- What messages should be logged. The following includes all messages when
+    -- in development, and warnings and errors in production.
+    shouldLog _ _source level =
+        development || level == LevelWarn || level == LevelError
 
 -- How to run database actions.
 instance YesodPersist ~sitearg~ where
@@ -153,6 +142,10 @@ instance YesodAuth ~sitearg~ where
 -- achieve customized and internationalized form validation messages.
 instance RenderMessage ~sitearg~ FormMessage where
     renderMessage _ _ = defaultFormMessage
+
+-- | Get the 'Extra' value, used to hold data from the settings.yml file.
+getExtra :: Handler Extra
+getExtra = fmap (appExtra . settings) getYesod
 
 -- Note: previous versions of the scaffolding included a deliver function to
 -- send emails. Unfortunately, there are too many different options for us to

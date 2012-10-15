@@ -20,12 +20,7 @@ import Yesod.Routes.Parse (parseRoutesNoCheck)
 import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
-
-class ToText a where
-    toText :: a -> Text
-
-instance ToText Text where toText = id
-instance ToText String where toText = pack
+import Hierarchy
 
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
@@ -101,32 +96,9 @@ instance RenderRoute MySubParam where
 getMySubParam :: MyApp -> Int -> MySubParam
 getMySubParam _ = MySubParam
 
-type Handler sub master = Text
-type App sub master = (Text, Maybe (YRC.Route master))
-
-class Dispatcher sub master where
-    dispatcher
-        :: master
-        -> sub
-        -> (YRC.Route sub -> YRC.Route master)
-        -> App sub master -- ^ 404 page
-        -> (YRC.Route sub -> App sub master) -- ^ 405 page
-        -> Text -- ^ method
-        -> [Text]
-        -> App sub master
-
-class RunHandler sub master where
-    runHandler
-        :: Handler sub master
-        -> master
-        -> sub
-        -> Maybe (YRC.Route sub)
-        -> (YRC.Route sub -> YRC.Route master)
-        -> App sub master
-
 do
     texts <- [t|[Text]|]
-    let ress =
+    let ress = map ResourceLeaf
             [ Resource "RootR" [] $ Methods Nothing ["GET"]
             , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) $ Methods Nothing ["GET", "POST"]
             , Resource "WikiR" (addCheck [Static "wiki"]) $ Methods (Just texts) []
@@ -137,14 +109,13 @@ do
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
     dispatch <- mkDispatchClause [|runHandler|] [|dispatcher|] [|toText|] ress
     return
-        [ rrinst
-        , InstanceD
+        $ InstanceD
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''MyApp
                 `AppT` ConT ''MyApp)
             [FunD (mkName "dispatcher") [dispatch]]
-        ]
+        : rrinst
 
 instance RunHandler MyApp master where
     runHandler h _ _ subRoute toMaster = (h, fmap toMaster subRoute)
@@ -328,6 +299,7 @@ main = hspecX $ do
 /bar/baz Foo3
 |]
             findOverlapNames routes @?= []
+    hierarchy
 
 getRootR :: Text
 getRootR = pack "this is the root"

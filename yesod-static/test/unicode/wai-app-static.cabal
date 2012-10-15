@@ -20,7 +20,7 @@ Flag print
 library
     build-depends:   base                      >= 4        && < 5
                    , wai                       >= 0.4      && < 0.5
-                   , bytestring                >= 0.9.1.4  && < 0.10
+                   , bytestring                >= 0.9.1.4
                    , http-types                >= 0.6      && < 0.7
                    , transformers              >= 0.2.2    && < 0.4
                    , unix-compat               >= 0.2      && < 0.3

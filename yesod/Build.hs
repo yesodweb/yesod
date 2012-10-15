@@ -139,7 +139,7 @@ determineDeps x = do
     go (Just (StaticFiles fp, _)) = getFolderContents fp
     go (Just (Hamlet, f)) = return [f, "templates/" ++ f ++ ".hamlet"]
     go (Just (Verbatim, f)) = return [f]
-    go (Just (Messages f, _)) = return [f]
+    go (Just (Messages f, _)) = getFolderContents f
     go Nothing = return []
 
     parser = do
@@ -165,9 +165,9 @@ determineDeps x = do
                     _ <- A.string "\" \""
                     x' <- A.many1 $ A.satisfy (/= '"')
                     _ <- A.string "\" \""
-                    y <- A.many1 $ A.satisfy (/= '"')
+                    _y <- A.many1 $ A.satisfy (/= '"')
                     _ <- A.string "\""
-                    return $ Messages $ concat [x', "/", y, ".msg"])
+                    return $ Messages x')
         case ty of
             Messages{} -> return $ Just (ty, "")
             StaticFiles{} -> return $ Just (ty, "")

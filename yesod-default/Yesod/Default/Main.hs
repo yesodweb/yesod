@@ -7,7 +7,6 @@ module Yesod.Default.Main
     ) where
 
 import Yesod.Default.Config
-import Yesod.Logger (Logger, defaultDevelopmentLogger, logString)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
     (runSettings, defaultSettings, settingsPort, settingsHost)
@@ -26,26 +25,18 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 -- | Run your app, taking environment and port settings from the
 --   commandline.
 --
---   Use @'fromArgs'@ when using the provided @'DefaultEnv'@ type, or
---   @'fromArgsWith'@ when using a custom type
+--   @'fromArgs'@ helps parse a custom configuration
 --
 --   > main :: IO ()
---   > main = defaultMain fromArgs withMySite
---
---   or
---
---   > main :: IO ()
---   > main = defaultMain (fromArgsWith customArgConfig) withMySite
+--   > main = defaultMain (fromArgs parseExtra) makeApplication
 --
 defaultMain :: (Show env, Read env)
             => IO (AppConfig env extra)
-            -> (AppConfig env extra -> Logger -> IO Application)
+            -> (AppConfig env extra -> IO Application)
             -> IO ()
 defaultMain load getApp = do
     config <- load
-    logger <- defaultDevelopmentLogger
-    app <- getApp config logger
-    print $ appHost config
+    app <- getApp config
     runSettings defaultSettings
         { settingsPort = appPort config
         , settingsHost = appHost config
@@ -86,12 +77,11 @@ defaultRunner f app = do
 defaultDevelApp
     :: (Show env, Read env)
     => IO (AppConfig env extra) -- ^ A means to load your development @'AppConfig'@
-    -> (AppConfig env extra -> Logger -> IO Application) -- ^ Get your @Application@
+    -> (AppConfig env extra -> IO Application) -- ^ Get your @Application@
     -> IO (Int, Application)
 defaultDevelApp load getApp = do
     conf   <- load
-    logger <- defaultDevelopmentLogger
     let p = appPort conf
-    logString logger $ "Devel application launched: http://localhost:" ++ show p
-    app <- getApp conf logger
+    putStrLn $ "Devel application launched: http://localhost:" ++ show p
+    app <- getApp conf
     return (p, app)

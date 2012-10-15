@@ -85,9 +85,15 @@ fromArgs getExtra = do
                 }
     config <- loadConfig cs
 
+    env' <- getEnvironment
+    let config' =
+            case lookup "APPROOT" env' of
+                Nothing -> config
+                Just ar -> config { appRoot = T.pack ar }
+
     return $ if port args /= 0
-                then config { appPort = port args }
-                else config
+                then config' { appPort = port args }
+                else config'
 
 -- | Load your development config (when using @'DefaultEnv'@)
 loadDevelopmentConfig :: IO (AppConfig DefaultEnv ())

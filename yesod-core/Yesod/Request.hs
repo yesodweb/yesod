@@ -16,7 +16,11 @@ module Yesod.Request
       -- * Request datatype
       RequestBodyContents
     , Request (..)
-    , FileInfo (..)
+    , FileInfo
+    , fileName
+    , fileContentType
+    , fileSource
+    , fileMove
       -- * Convenience functions
     , languages
       -- * Lookup parameters
@@ -50,6 +54,9 @@ import Data.Text (Text)
 -- * The _LANG user session variable.
 --
 -- * Accept-Language HTTP header.
+--
+-- Yesod will seek the first language from the returned list matched with languages supporting by your application. This language will be used to render i18n templates.
+-- If a matching language is not found the default language will be used.
 --
 -- This is handled by parseWaiRequest (not exposed).
 languages :: GHandler s m [Text]

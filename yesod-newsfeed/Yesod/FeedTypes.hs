@@ -7,11 +7,12 @@ import Text.Hamlet      (Html)
 import Data.Time.Clock  (UTCTime)
 import Data.Text        (Text)
 
--- | The overal feed
+-- | The overall feed
 data Feed url = Feed
     { feedTitle       :: Text
     , feedLinkSelf    :: url
     , feedLinkHome    :: url
+    , feedAuthor      :: Text
 
 
     -- | note: currently only used for Rss
