@@ -202,7 +202,7 @@ configure _cabalFile gpd opts
                , DSS.configUserInstall = DSS.Flag True
                }
     cabalArgs
-        | isCabalDev opts = map ("--cabal-install-arg=" ++) args
+        | isCabalDev opts = map ("--cabal-install-arg=" ++) as
         | otherwise       = as
         where
           as =
