@@ -36,27 +36,30 @@ cabalCommand mopt
   | optCabalPgm mopt == CabalDev = "cabal-dev"
   | otherwise                    = "cabal"
 
-data CabalPgm = Cabal | CabalDev deriving Eq
+data CabalPgm = Cabal | CabalDev deriving (Show, Eq)
 
 data Options = Options
                { optCabalPgm :: CabalPgm
                , optVerbose  :: Bool
                , optCommand  :: Command
                }
+  deriving (Show, Eq)
 
 data Command = Init
              | Configure
-             | Build
+             | Build { _buildExtraArgs :: [String] }
              | Touch
              | Devel { _develDisableApi  :: Bool
                      , _develSuccessHook :: Maybe String
                      , _develFailHook    :: Maybe String
                      , _develRescan      :: Int
+                     , _develExtraArgs   :: [String]
                      }
              | Test
              | AddHandler
              | Keter { _keterNoRebuild :: Bool }
              | Version
+  deriving (Show, Eq)
 
 main :: IO ()
 main = do
@@ -65,10 +68,10 @@ main = do
   case optCommand o of
     Init                -> scaffold
     Configure           -> cabal ["configure"]
-    Build               -> touch' >> cabal ["build"] -- fixme passthrough remaining args
+    Build es            -> touch' >> cabal ("build":es)
     Touch               -> touch'
-    (Devel da s f r)    -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f) [] -- fixme, passthrough remaining args
-    (Keter noRebuild)   -> keter (cabalCommand o) noRebuild
+    Devel da s f r es   -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f) es
+    Keter noRebuild     -> keter (cabalCommand o) noRebuild
     Version             -> do putStrLn ("yesod-core version:" ++ yesodVersion)
                               putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
     AddHandler          -> addHandler
@@ -88,7 +91,7 @@ optParser = Options
                             (progDesc "Scaffold a new site"))
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
-                      <> command "build"     (info (pure Build)
+                      <> command "build"     (info (Build <$> extraCabalArgs)
                             (progDesc $ "Build project (performs TH dependency analysis)" ++ windowsWarning))
                       <> command "touch"     (info (pure Touch)
                             (progDesc $ "Touch any files with altered TH dependencies but do not build" ++ windowsWarning))
@@ -110,12 +113,18 @@ keterOptions = Keter <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebu
 develOptions :: Parser Command
 develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Disable fast GHC API rebuilding")
-                     <*> optStr ( long "success-hook" <> short 's'
-                            <> help "Run command after rebuild succeeds")
-                     <*> optStr ( long "failure-hook" <> short 'f'
-                            <> help "Run command when rebuild fails")
+                     <*> optStr ( long "success-hook" <> short 's' <> metavar "COMMAND"
+                            <> help "Run COMMAND after rebuild succeeds")
+                     <*> optStr ( long "failure-hook" <> short 'f' <> metavar "COMMAND"
+                            <> help "Run COMMAND when rebuild fails")
                      <*> option ( long "event-timeout" <> short 't' <> value (-1) <> metavar "N"
                             <> help "Force rescan of files every N seconds" )
+                     <*> extraCabalArgs
+
+extraCabalArgs :: Parser [String]
+extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"
+                                   <> help "pass extra argument ARG to cabal")
+                      )
 
 -- | Optional @String@ argument
 optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
