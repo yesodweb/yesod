@@ -1,56 +1,71 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE CPP                 #-}
 module Devel
     ( devel
     , DevelOpts(..)
     ) where
 
 
-import qualified Distribution.Simple.Utils as D
-import qualified Distribution.Verbosity as D
+import qualified Distribution.Compiler                 as D
+import qualified Distribution.ModuleName               as D
+import qualified Distribution.PackageDescription       as D
 import qualified Distribution.PackageDescription.Parse as D
-import qualified Distribution.PackageDescription as D
-import qualified Distribution.ModuleName as D
-import qualified Distribution.Simple.Setup as DSS
-import qualified Distribution.Simple.Configure as D
-import qualified Distribution.Simple.Program as D
-import qualified Distribution.Simple.Build as D
-import qualified Distribution.Simple.Register as D
-import qualified Distribution.Compiler as D
+import qualified Distribution.Simple.Build             as D
+import qualified Distribution.Simple.Configure         as D
+import qualified Distribution.Simple.Program           as D
+import qualified Distribution.Simple.Register          as D
+import qualified Distribution.Simple.Setup             as DSS
+import qualified Distribution.Simple.Utils             as D
+import qualified Distribution.Verbosity                as D
 -- import qualified Distribution.InstalledPackageInfo as D
-import qualified Distribution.InstalledPackageInfo as IPI
-import qualified Distribution.Simple.LocalBuildInfo as D
-import qualified Distribution.Package as D
-import qualified Distribution.Verbosity as D
+import qualified Distribution.InstalledPackageInfo     as IPI
+import qualified Distribution.Package                  as D
+import qualified Distribution.Simple.LocalBuildInfo    as D
+import qualified Distribution.Verbosity                as D
 
-import           Control.Applicative ((<$>), (<*>))
-import           Control.Concurrent (forkIO, threadDelay)
-import qualified Control.Exception as Ex
-import           Control.Monad (forever, when, unless)
+import           Control.Applicative                   ((<$>), (<*>))
+import           Control.Concurrent                    (forkIO, threadDelay)
+import qualified Control.Exception                     as Ex
+import           Control.Monad                         (forever, unless, when)
 
-import           Data.Char (isUpper, isNumber)
-import qualified Data.List as L
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import           Data.Maybe (fromMaybe)
+import           Data.Char                             (isNumber, isUpper)
+import qualified Data.List                             as L
+import qualified Data.Map                              as Map
+import           Data.Maybe                            (fromMaybe)
+import qualified Data.Set                              as Set
 
 import           System.Directory
-import           System.Exit (exitFailure, exitSuccess, ExitCode (..))
-import           System.FilePath (splitDirectories, dropExtension, takeExtension)
-import           System.Posix.Types (EpochTime)
-import           System.PosixCompat.Files (modificationTime, getFileStatus)
-import           System.Process (createProcess, proc, terminateProcess, readProcess, ProcessHandle,
-                                 getProcessExitCode,waitForProcess, rawSystem, 
-                                 runInteractiveProcess, system)
-import           System.IO (hClose, hIsEOF, hGetLine, stdout, stderr, hPutStrLn)
-import           System.IO.Error (isDoesNotExistError)
+import           System.Exit                           (ExitCode (..),
+                                                        exitFailure,
+                                                        exitSuccess)
+import           System.FilePath                       (dropExtension,
+                                                        splitDirectories,
+                                                        takeExtension)
+import           System.IO                             (hClose, hGetLine,
+                                                        hIsEOF, hPutStrLn,
+                                                        stderr, stdout)
+import           System.IO.Error                       (isDoesNotExistError)
+import           System.Posix.Types                    (EpochTime)
+import           System.PosixCompat.Files              (getFileStatus,
+                                                        modificationTime)
+import           System.Process                        (ProcessHandle,
+                                                        createProcess,
+                                                        getProcessExitCode,
+                                                        proc, rawSystem,
+                                                        readProcess,
+                                                        runInteractiveProcess,
+                                                        system,
+                                                        terminateProcess,
+                                                        waitForProcess)
 
-import           Build (recompDeps, getDeps, isNewerThan)
-import           GhcBuild (getBuildFlags, buildPackage)
+import           Build                                 (getDeps, isNewerThan,
+                                                        recompDeps)
+import           GhcBuild                              (buildPackage,
+                                                        getBuildFlags)
 
-import qualified Config as GHC
-import           SrcLoc (Located)
+import qualified Config                                as GHC
+import           SrcLoc                                (Located)
 
 lockFile :: FilePath
 lockFile = "dist/devel-terminate"
@@ -112,9 +127,9 @@ devel opts passThroughArgs = do
            pkgArgs <- ghcPackageArgs opts ghcVer (D.packageDescription gpd) lib
            let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
            if not success
-             then do 
+             then do
                    putStrLn "Build failure, pausing..."
-                   runBuildHook $ failHook opts 
+                   runBuildHook $ failHook opts
              else do
                    runBuildHook $ successHook opts
                    removeLock
@@ -134,7 +149,7 @@ devel opts passThroughArgs = do
            watchForChanges hsSourceDirs [cabal] list
 
 runBuildHook :: Maybe String -> IO ()
-runBuildHook (Just s) = do 
+runBuildHook (Just s) = do
                         ret <- system s
                         case ret of
                             ExitFailure f -> putStrLn $ "Error executing hook: " ++ s
@@ -203,7 +218,7 @@ removeFileIfExists file = removeFile file `Ex.catch` handler
 
 mkRebuild :: D.GenericPackageDescription -> String -> FilePath -> DevelOpts -> (FilePath, FilePath) -> IO (IO Bool)
 mkRebuild gpd ghcVer cabalFile opts (ldPath, arPath)
-  | GHC.cProjectVersion /= ghcVer = failWith "yesod has been compiled with a different GHC version, please reinstall"
+  | GHC.cProjectVersion /= ghcVer = failWith "Yesod has been compiled with a different GHC version, please reinstall"
   | forceCabal opts               = return (rebuildCabal gpd opts)
   | otherwise                     = do
       return $ do
@@ -219,20 +234,20 @@ mkRebuild gpd ghcVer cabalFile opts (ldPath, arPath)
 
 rebuildGhc :: [Located String] -> FilePath -> FilePath -> IO Bool
 rebuildGhc bf ld ar = do
-  putStrLn "Rebuilding application... (GHC API)"
+  putStrLn "Rebuilding application... (using GHC API)"
   buildPackage bf ld ar
 
 rebuildCabal :: D.GenericPackageDescription -> DevelOpts -> IO Bool
 rebuildCabal gpd opts
     | isCabalDev opts = do
        let cmd = cabalCommand opts
-       putStrLn $ "Rebuilding application... (" ++ cmd ++ ")"
+       putStrLn $ "Rebuilding application... (using " ++ cmd ++ ")"
        exit <- (if verbose opts then rawSystem else rawSystemFilter) cmd ["build"]
        return $ case exit of
              ExitSuccess -> True
              _           -> False
     | otherwise = do
-       putStrLn $ "Rebuilding application... (Cabal library)"
+       putStrLn $ "Rebuilding application... (using Cabal library)"
        lbi <- getPersistBuildConfig "dist" -- fixme we could cache this from the configure step
        let buildFlags | verbose opts = DSS.defaultBuildFlags
                       | otherwise    = DSS.defaultBuildFlags { DSS.buildVerbosity = DSS.Flag D.silent }
@@ -351,7 +366,7 @@ lookupDevelLib gpd ct | found     = Just (D.condTreeData ct)
 
 -- location of `ld' and `ar' programs
 lookupLdAr :: IO (FilePath, FilePath)
-lookupLdAr = do 
+lookupLdAr = do
   mla <- lookupLdAr'
   case mla of
     Nothing -> failWith "Cannot determine location of `ar' or `ld' program"
