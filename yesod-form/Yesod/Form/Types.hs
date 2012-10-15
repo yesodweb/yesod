@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.Form.Types
     ( -- * Helpers
       Enctype (..)
@@ -22,11 +24,14 @@ import Control.Monad.Trans.RWS (RWST)
 import Yesod.Request (FileInfo)
 import Data.Text (Text)
 import Data.Monoid (Monoid (..))
-import Text.Blaze (Html, ToHtml (toHtml))
+import Text.Blaze (Markup, ToMarkup (toMarkup))
+#define Html Markup
+#define ToHtml ToMarkup
+#define toHtml toMarkup
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad (liftM)
 import Data.String (IsString (..))
-import Yesod.Core (GHandler, GWidget, SomeMessage)
+import Yesod.Core (GHandler, GWidget, SomeMessage, MonadLift (..))
 import qualified Data.Map as Map
 
 -- | A form can produce three different results: there was no data available,
@@ -93,6 +98,10 @@ instance Applicative (AForm sub master) where
 instance Monoid a => Monoid (AForm sub master a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
+instance MonadLift (GHandler sub master) (AForm sub master) where
+    lift f = AForm $ \_ _ ints -> do
+        x <- f
+        return (FormSuccess x, id, ints, mempty)
 
 data FieldSettings master = FieldSettings
     { fsLabel :: SomeMessage master
@@ -116,12 +125,11 @@ data FieldView sub master = FieldView
 
 data Field sub master a = Field
     { fieldParse :: [Text] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
-    -- | ID, name, attrs, (invalid text OR legimiate result), required?
-    , fieldView :: Text
-                -> Text
-                -> [(Text, Text)]
-                -> Either Text a
-                -> Bool
+    , fieldView :: Text -- ^ ID
+                -> Text -- ^ Name
+                -> [(Text, Text)] -- ^ Attributes
+                -> Either Text a -- ^ Either (invalid text) or (legitimate result)
+                -> Bool -- ^ Required?
                 -> GWidget sub master ()
     }
 
@@ -143,3 +151,4 @@ data FormMessage = MsgInvalidInteger Text
                  | MsgBoolYes
                  | MsgBoolNo
                  | MsgDelete
+    deriving (Show, Eq, Read)

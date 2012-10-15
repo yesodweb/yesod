@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Form.Functions
     ( -- * Running in MForm monad
       newFormIdent
@@ -26,15 +27,19 @@ module Yesod.Form.Functions
     , FormRender
     , renderTable
     , renderDivs
+    , renderDivsNoLabels 
     , renderBootstrap
       -- * Validation
     , check
     , checkBool
     , checkM
+    , checkMMap
+    , checkMMod
     , customErrorMessage
       -- * Utilities
     , fieldSettingsLabel
     , aformM
+    , parseHelper
     ) where
 
 import Yesod.Form.Types
@@ -43,18 +48,21 @@ import Control.Arrow (second)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM, join)
-import Text.Blaze (Html, toHtml)
+import Crypto.Classes (constTimeEq)
+import Text.Blaze (Markup, toMarkup)
+#define Html Markup
+#define toHtml toMarkup
 import Yesod.Handler (GHandler, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
-import Yesod.Request (reqToken, reqWaiRequest, reqGetParams, languages, FileInfo (..))
+import Yesod.Request (reqToken, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import Yesod.Message (RenderMessage (..))
 import qualified Data.Map as Map
-import qualified Data.ByteString.Lazy as L
+import qualified Data.Text.Encoding as TE
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
 
@@ -180,16 +188,22 @@ postHelper form env = do
     let token =
             case reqToken req of
                 Nothing -> mempty
-                Just n -> [shamlet|<input type=hidden name=#{tokenKey} value=#{n}>|]
+                Just n -> [shamlet|
+$newline never
+<input type=hidden name=#{tokenKey} value=#{n}>
+|]
     m <- getYesod
     langs <- languages
     ((res, xml), enctype) <- runFormGeneric (form token) m langs env
     let res' =
             case (res, env) of
                 (FormSuccess{}, Just (params, _))
-                    | Map.lookup tokenKey params /= fmap return (reqToken req) ->
+                    | not (Map.lookup tokenKey params === reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
+            where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constTimeEq` TE.encodeUtf8 t2
+                  Nothing     === Nothing   = True   -- ^ It's important to use constTimeEq
+                  _           === _         = False  -- in order to avoid timing attacks.
     return ((res', xml), enctype)
 
 -- | Similar to 'runFormPost', except it always ignore the currently available
@@ -210,9 +224,7 @@ postEnv = do
         else do
             (p, f) <- runRequestBody
             let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
-            return $ Just (p', Map.fromList $ filter (notEmpty . snd) f)
-  where
-    notEmpty = not . L.null . fileContent
+            return $ Just (p', Map.fromList f)
 
 runFormPostNoToken :: (Html -> MForm sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoToken form = do
@@ -238,7 +250,10 @@ getKey = "_hasdata"
 
 getHelper :: (Html -> MForm sub master a) -> Maybe (Env, FileEnv) -> GHandler sub master (a, Enctype)
 getHelper form env = do
-    let fragment = [shamlet|<input type=hidden name=#{getKey}>|]
+    let fragment = [shamlet|
+$newline never
+<input type=hidden name=#{getKey}>
+|]
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env
@@ -248,12 +263,13 @@ type FormRender sub master a =
     -> Html
     -> MForm sub master (FormResult a, GWidget sub master ())
 
-renderTable, renderDivs :: FormRender sub master a
+renderTable, renderDivs, renderDivsNoLabels :: FormRender sub master a
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
     -- FIXME non-valid HTML
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <tr :fvRequired view:.required :not $ fvRequired view:.optional>
@@ -267,14 +283,23 @@ $forall view <- views
 |]
     return (res, widget)
 
-renderDivs aform fragment = do
+-- | render a field inside a div
+renderDivs = renderDivsMaybeLabels True
+
+-- | render a field inside a div, not displaying any label
+renderDivsNoLabels = renderDivsMaybeLabels False
+
+renderDivsMaybeLabels :: Bool -> FormRender sub master a
+renderDivsMaybeLabels withLabels aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <div :fvRequired view:.required :not $ fvRequired view:.optional>
-        <label for=#{fvId view}>#{fvLabel view}
+        $if withLabels
+                <label for=#{fvId view}>#{fvLabel view}
         $maybe tt <- fvTooltip view
             <div .tooltip>#{tt}
         ^{fvInput view}
@@ -305,6 +330,7 @@ renderBootstrap aform fragment = do
         has (Just _) = True
         has Nothing  = False
     let widget = [whamlet|
+$newline never
 \#{fragment}
 $forall view <- views
     <div .control-group .clearfix :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>
@@ -331,14 +357,39 @@ checkM :: RenderMessage master msg
        => (a -> GHandler sub master (Either msg a))
        -> Field sub master a
        -> Field sub master a
-checkM f field = field
+checkM f = checkMMap f id
+
+-- | Same as 'checkM', but modifies the datatype.
+--
+-- In order to make this work, you must provide a function to convert back from
+-- the new datatype to the old one (the second argument to this function).
+--
+-- Since 1.1.2
+checkMMap :: RenderMessage master msg
+          => (a -> GHandler sub master (Either msg b))
+          -> (b -> a)
+          -> Field sub master a
+          -> Field sub master b
+checkMMap f inv field = field
     { fieldParse = \ts -> do
         e1 <- fieldParse field ts
         case e1 of
             Left msg -> return $ Left msg
             Right Nothing -> return $ Right Nothing
             Right (Just a) -> fmap (either (Left . SomeMessage) (Right . Just)) $ f a
+    , fieldView = \i n a eres req -> fieldView field i n a (fmap inv eres) req
     }
+
+-- | Deprecated synonym for 'checkMMap'.
+--
+-- Since 1.1.1
+checkMMod :: RenderMessage master msg
+          => (a -> GHandler sub master (Either msg b))
+          -> (b -> a)
+          -> Field sub master a
+          -> Field sub master b
+checkMMod = checkMMap
+{-# DEPRECATED checkMMod "Please use checkMMap instead" #-}
 
 -- | Allows you to overwrite the error message on parse error.
 customErrorMessage :: SomeMessage master -> Field sub master a -> Field sub master a
@@ -346,11 +397,24 @@ customErrorMessage msg field = field { fieldParse = \ts -> fmap (either
 (const $ Left msg) Right) $ fieldParse field ts }
 
 -- | Generate a 'FieldSettings' from the given label.
-fieldSettingsLabel :: SomeMessage master -> FieldSettings master
-fieldSettingsLabel msg = FieldSettings msg Nothing Nothing Nothing []
+fieldSettingsLabel :: RenderMessage master msg => msg -> FieldSettings master
+fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing []
 
 -- | Generate an 'AForm' that gets its value from the given action.
 aformM :: GHandler sub master a -> AForm sub master a
 aformM action = AForm $ \_ _ ints -> do
     value <- action
     return (FormSuccess value, id, ints, mempty)
+
+-- | A helper function for creating custom fields.
+--
+-- This is intended to help with the common case where a single input value is
+-- required, such as when parsing a text field.
+--
+-- Since 1.1
+parseHelper :: (Monad m, RenderMessage master FormMessage)
+            => (Text -> Either FormMessage a)
+            -> [Text] -> m (Either (SomeMessage master) (Maybe a))
+parseHelper _ [] = return $ Right Nothing
+parseHelper _ ("":_) = return $ Right Nothing
+parseHelper f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x

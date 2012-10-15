@@ -76,6 +76,7 @@ module Yesod.Handler
     , setSession
     , setSessionBS
     , deleteSession
+    , clearSession
       -- ** Ultimate destination
     , setUltDest
     , setUltDestCurrent
@@ -94,6 +95,7 @@ module Yesod.Handler
     , newIdent
       -- * Lifting
     , MonadLift (..)
+    , handlerToIO
       -- * i18n
     , getMessageRender
       -- * Per-request caching
@@ -137,7 +139,7 @@ import qualified Network.Wai as W
 import qualified Network.HTTP.Types as H
 
 import Text.Hamlet
-import qualified Text.Blaze.Renderer.Text
+import qualified Text.Blaze.Html.Renderer.Text as RenderText
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -145,22 +147,28 @@ import qualified Data.Text.Lazy as TL
 
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy as L
 import Network.Wai.Parse (parseHttpAccept)
 
 import Yesod.Content
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Web.Cookie (SetCookie (..), renderSetCookie)
 import Control.Arrow ((***))
 import qualified Network.Wai.Parse as NWP
 import Data.Monoid (mappend, mempty, Endo (..))
 import qualified Data.ByteString.Char8 as S8
+import Data.ByteString (ByteString)
 import Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
-import Blaze.ByteString.Builder (toByteString)
+import Blaze.ByteString.Builder (toByteString, toLazyByteString, fromLazyByteString)
 import Data.Text (Text)
 import Yesod.Message (RenderMessage (..))
 
-import Text.Blaze (toHtml, preEscapedText)
+import Text.Blaze.Html (toHtml, preEscapedToMarkup)
+#define preEscapedText preEscapedToMarkup
+
+import System.Log.FastLogger
+import Control.Monad.Logger
 
 import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey, CacheKey)
@@ -171,6 +179,8 @@ import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import Control.Monad.Base
 import Yesod.Routes.Class
+import Data.Word (Word64)
+import Language.Haskell.TH.Syntax (Loc)
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
@@ -183,6 +193,8 @@ data HandlerData sub master = HandlerData
     , handlerRender   :: Route master -> [(Text, Text)] -> Text
     , handlerToMaster :: Route sub -> Route master
     , handlerState    :: I.IORef GHState
+    , handlerUpload   :: Word64 -> FileUpload
+    , handlerLog      :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
     }
 
 handlerSubData :: (Route sub -> Route master)
@@ -312,22 +324,43 @@ hcError = liftIO . throwIO . HCError
 
 runRequestBody :: GHandler s m RequestBodyContents
 runRequestBody = do
+    hd <- ask
+    let getUpload = handlerUpload hd
+        len = reqBodySize $ handlerRequest hd
+        upload = getUpload len
     x <- get
     case ghsRBC x of
         Just rbc -> return rbc
         Nothing -> do
             rr <- waiRequest
-            rbc <- lift $ rbHelper rr
+            rbc <- lift $ rbHelper upload rr
             put x { ghsRBC = Just rbc }
             return rbc
 
-rbHelper :: W.Request -> ResourceT IO RequestBodyContents
-rbHelper req =
-    (map fix1 *** map fix2) <$> (NWP.parseRequestBody NWP.lbsBackEnd req)
+rbHelper :: FileUpload -> W.Request -> ResourceT IO RequestBodyContents
+rbHelper upload =
+    case upload of
+        FileUploadMemory s -> rbHelper' s mkFileInfoLBS
+        FileUploadDisk s -> rbHelper' s mkFileInfoFile
+        FileUploadSource s -> rbHelper' s mkFileInfoSource
+
+rbHelper' :: NWP.BackEnd x
+          -> (Text -> Text -> x -> FileInfo)
+          -> W.Request
+          -> ResourceT IO ([(Text, Text)], [(Text, FileInfo)])
+rbHelper' backend mkFI req =
+    (map fix1 *** mapMaybe fix2) <$> (NWP.parseRequestBody backend req)
   where
     fix1 = go *** go
-    fix2 (x, NWP.FileInfo a b c) =
-        (go x, FileInfo (go a) (go b) c)
+    fix2 (x, NWP.FileInfo a' b c)
+        | S.null a = Nothing
+        | otherwise = Just (go x, mkFI (go a) (go b) c)
+      where
+        a
+            | S.length a' < 2 = a'
+            | S8.head a' == '"' && S8.last a' == '"' = S.tail $ S.init a'
+            | S8.head a' == '\'' && S8.last a' == '\'' = S.tail $ S.init a'
+            | otherwise = a'
     go = decodeUtf8With lenientDecode
 
 -- | Get the sub application argument.
@@ -359,6 +392,75 @@ getCurrentRoute = handlerRoute `liftM` ask
 getRouteToMaster :: GHandler sub master (Route sub -> Route master)
 getRouteToMaster = handlerToMaster `liftM` ask
 
+
+-- | Returns a function that runs 'GHandler' actions inside @IO@.
+--
+-- Sometimes you want to run an inner 'GHandler' action outside
+-- the control flow of an HTTP request (on the outer 'GHandler'
+-- action).  For example, you may want to spawn a new thread:
+--
+-- @
+-- getFooR :: Handler RepHtml
+-- getFooR = do
+--   runInnerHandler <- handlerToIO
+--   liftIO $ forkIO $ runInnerHandler $ do
+--     /Code here runs inside GHandler but on a new thread./
+--     /This is the inner GHandler./
+--     ...
+--   /Code here runs inside the request's control flow./
+--   /This is the outer GHandler./
+--   ...
+-- @
+--
+-- Another use case for this function is creating a stream of
+-- server-sent events using 'GHandler' actions (see
+-- @yesod-eventsource@).
+--
+-- Most of the environment from the outer 'GHandler' is preserved
+-- on the inner 'GHandler', however:
+--
+--  * The request body is cleared (otherwise it would be very
+--  difficult to prevent huge memory leaks).
+--
+--  * The cache is cleared (see 'CacheKey').
+--
+-- Changes to the response made inside the inner 'GHandler' are
+-- ignored (e.g., session variables, cookies, response headers).
+-- This allows the inner 'GHandler' to outlive the outer
+-- 'GHandler' (e.g., on the @forkIO@ example above, a response
+-- may be sent to the client without killing the new thread).
+handlerToIO :: MonadIO m => GHandler sub master (GHandler sub master a -> m a)
+handlerToIO =
+  GHandler $ \oldHandlerData -> do
+    -- Let go of the request body, cache and response headers.
+    let oldReq    = handlerRequest oldHandlerData
+        oldWaiReq = reqWaiRequest oldReq
+        newWaiReq = oldWaiReq { W.requestBody = mempty }
+        newReq    = oldReq { reqWaiRequest = newWaiReq
+                           , reqBodySize   = 0 }
+        clearedOldHandlerData =
+          oldHandlerData { handlerRequest = err "handlerRequest never here"
+                         , handlerState   = err "handlerState never here" }
+            where
+              err :: String -> a
+              err = error . ("handlerToIO: clearedOldHandlerData/" ++)
+    newState <- liftIO $ do
+      oldState <- I.readIORef (handlerState oldHandlerData)
+      return $ oldState { ghsRBC = Nothing
+                        , ghsIdent = 1
+                        , ghsCache = mempty
+                        , ghsHeaders = mempty }
+
+    -- Return GHandler running function.
+    return $ \(GHandler f) -> liftIO $ do
+      -- The state IORef needs to be created here, otherwise it
+      -- will be shared by different invocations of this function.
+      newStateIORef <- I.newIORef newState
+      runResourceT $ f clearedOldHandlerData
+                         { handlerRequest = newReq
+                         , handlerState   = newStateIORef }
+
+
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'W.Application'. Should not be needed by users.
 runHandler :: HasReps c
@@ -368,8 +470,10 @@ runHandler :: HasReps c
            -> (Route sub -> Route master)
            -> master
            -> sub
+           -> (Word64 -> FileUpload)
+           -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
            -> YesodApp
-runHandler handler mrender sroute tomr master sub =
+runHandler handler mrender sroute tomr master sub upload log' =
   YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler e =
             case fromException e of
@@ -390,6 +494,8 @@ runHandler handler mrender sroute tomr master sub =
             , handlerRender = mrender
             , handlerToMaster = tomr
             , handlerState = istate
+            , handlerUpload = upload
+            , handlerLog = log'
             }
     contents' <- catch (fmap Right $ unGHandler handler hd)
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
@@ -410,7 +516,10 @@ runHandler handler mrender sroute tomr master sub =
     case contents of
         HCContent status a -> do
             (ct, c) <- liftIO $ a cts
-            return $ YARPlain status (appEndo headers []) ct c finalSession
+            ec' <- liftIO $ evaluateContent c
+            case ec' of
+                Left e -> handleError e
+                Right c' -> return $ YARPlain status (appEndo headers []) ct c' finalSession
         HCError e -> handleError e
         HCRedirect status loc -> do
             let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
@@ -429,6 +538,15 @@ runHandler handler mrender sroute tomr master sub =
                 emptyContent
                 finalSession
         HCWai r -> return $ YARWai r
+
+evaluateContent :: Content -> IO (Either ErrorResponse Content)
+evaluateContent (ContentBuilder b mlen) = Control.Exception.handle f $ do
+    let lbs = toLazyByteString b
+    L.length lbs `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen)
+  where
+    f :: SomeException -> IO (Either ErrorResponse Content)
+    f = return . Left . InternalError . T.pack . show
+evaluateContent c = return (Right c)
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er = YesodApp $ \_ _ _ session -> do
@@ -527,7 +645,7 @@ msgKey = "_MSG"
 --
 -- See 'getMessage'.
 setMessage :: Html -> GHandler sub master ()
-setMessage = setSession msgKey . T.concat . TL.toChunks . Text.Blaze.Renderer.Text.renderHtml
+setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
 
 -- | Sets a message in the user's session.
 --
@@ -639,7 +757,7 @@ getExpires m = do
 --
 -- Note: although the value used for key and path is 'Text', you should only
 -- use ASCII values to be HTTP compliant.
-deleteCookie :: Text -- ^ key 
+deleteCookie :: Text -- ^ key
              -> Text -- ^ path
              -> GHandler sub master ()
 deleteCookie a = addHeader . DeleteCookie (encodeUtf8 a) . encodeUtf8
@@ -700,6 +818,12 @@ setSessionBS k = modify . modSession . Map.insert k
 deleteSession :: Text -> GHandler sub master ()
 deleteSession = modify . modSession . Map.delete
 
+-- | Clear all session variables.
+--
+-- Since: 1.0.1
+clearSession :: GHandler sub master ()
+clearSession = modify $ \x -> x { ghsSession = Map.empty }
+
 modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
 modSession f x = x { ghsSession = f $ ghsSession x }
 
@@ -756,6 +880,8 @@ getSession = liftM ghsSession get
 handlerToYAR :: (HasReps a, HasReps b)
              => master -- ^ master site foundation
              -> sub    -- ^ sub site foundation
+             -> (Word64 -> FileUpload)
+             -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
              -> (Route sub -> Route master)
              -> (Route master -> [(Text, Text)] -> Text) -- route renderer
              -> (ErrorResponse -> GHandler sub master a)
@@ -764,27 +890,30 @@ handlerToYAR :: (HasReps a, HasReps b)
              -> SessionMap
              -> GHandler sub master b
              -> ResourceT IO YesodAppResult
-handlerToYAR y s toMasterRoute render errorHandler rr murl sessionMap h =
+handlerToYAR y s upload log' toMasterRoute render errorHandler rr murl sessionMap h =
     unYesodApp ya eh' rr types sessionMap
   where
-    ya = runHandler h render murl toMasterRoute y s
-    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s
+    ya = runHandler h render murl toMasterRoute y s upload log'
+    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log'
     types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 
-yarToResponse :: YesodAppResult -> [(CI H.Ascii, H.Ascii)] -> W.Response
+yarToResponse :: YesodAppResult -> [(CI ByteString, ByteString)] -> W.Response
 yarToResponse (YARWai a) _ = a
 yarToResponse (YARPlain s hs _ c _) extraHeaders =
-    case c of
-        ContentBuilder b mlen ->
-            let hs' = maybe finalHeaders finalHeaders' mlen
-             in W.ResponseBuilder s hs' b
-        ContentFile fp p -> W.ResponseFile s finalHeaders fp p
-        ContentSource body -> W.ResponseSource s finalHeaders body
+    go c
   where
     finalHeaders = extraHeaders ++ map headerToPair hs
     finalHeaders' len = ("Content-Length", S8.pack $ show len)
                       : finalHeaders
+
+    go (ContentBuilder b mlen) =
+        W.ResponseBuilder s hs' b
+      where
+        hs' = maybe finalHeaders finalHeaders' mlen
+    go (ContentFile fp p) = W.ResponseFile s finalHeaders fp p
+    go (ContentSource body) = W.ResponseSource s finalHeaders body
+    go (ContentDontEvaluate c') = go c'
 
 httpAccept :: W.Request -> [ContentType]
 httpAccept = parseHttpAccept
@@ -794,7 +923,7 @@ httpAccept = parseHttpAccept
 
 -- | Convert Header to a key/value pair.
 headerToPair :: Header
-             -> (CI H.Ascii, H.Ascii)
+             -> (CI ByteString, ByteString)
 headerToPair (AddCookie sc) =
     ("Set-Cookie", toByteString $ renderSetCookie $ sc)
 headerToPair (DeleteCookie key path) =
@@ -826,6 +955,7 @@ redirectToPost :: RedirectUrl master url => url -> GHandler sub master a
 redirectToPost url = do
     urlText <- toTextUrl url
     hamletToRepHtml [hamlet|
+$newline never
 $doctype 5
 
 <html>
@@ -916,7 +1046,17 @@ instance MonadUnsafeIO (GHandler sub master) where
 instance MonadThrow (GHandler sub master) where
     monadThrow = liftIO . throwIO
 instance MonadResource (GHandler sub master) where
+#if MIN_VERSION_resourcet(0,4,0)
+    liftResourceT = lift . liftResourceT
+#else
     allocate a = lift . allocate a
     register = lift . register
     release = lift . release
     resourceMask = lift . resourceMask
+#endif
+
+instance MonadLogger (GHandler sub master) where
+    monadLoggerLog a c d = monadLoggerLogSource a "" c d
+    monadLoggerLogSource a b c d = do
+        hd <- ask
+        liftIO $ handlerLog hd a b c (toLogStr d)

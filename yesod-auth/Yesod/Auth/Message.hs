@@ -8,6 +8,10 @@ module Yesod.Auth.Message
     , portugueseMessage
     , swedishMessage
     , germanMessage
+    , frenchMessage
+    , norwegianBokmålMessage
+    , japaneseMessage
+    , finnishMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -183,3 +187,143 @@ germanMessage NowLoggedIn = "Login erfolgreich"
 germanMessage LoginTitle = "Login"
 germanMessage PleaseProvideUsername = "Bitte Nutzername angeben"
 germanMessage PleaseProvidePassword = "Bitte Passwort angeben"
+
+
+
+frenchMessage :: AuthMessage -> Text
+frenchMessage NoOpenID = "Aucun fournisseur OpenID n'a été trouvé"
+frenchMessage LoginOpenID = "Se connecter avec OpenID"
+frenchMessage LoginGoogle = "Se connecter avec Google"
+frenchMessage LoginYahoo = "Se connecter avec Yahoo"
+frenchMessage Email = "Adresse électronique"
+frenchMessage Password = "Mot de passe"
+frenchMessage Register = "S'inscrire"
+frenchMessage RegisterLong = "Créer un compte"
+frenchMessage EnterEmail = "Entrez ci-dessous votre adresse électronique, et un message de confirmation vous sera envoyé"
+frenchMessage ConfirmationEmailSentTitle = "Message de confirmation"
+frenchMessage (ConfirmationEmailSent email) =
+    "Un message de confirmation a été envoyé à " `mappend`
+    email `mappend`
+    "."
+frenchMessage AddressVerified = "Votre adresse électronique a été validée, merci de choisir un nouveau mot de passe."
+frenchMessage InvalidKeyTitle = "Clef de validation incorrecte"
+frenchMessage InvalidKey = "Désolé, mais cette clef de validation est incorrecte"
+frenchMessage InvalidEmailPass = "Le couple mot de passe/adresse électronique n'est pas correct"
+frenchMessage BadSetPass = "Vous devez être connecté pour choisir un mot de passe"
+frenchMessage SetPassTitle = "Changer de mot de passe"
+frenchMessage SetPass = "Choisir un nouveau mot de passe"
+frenchMessage NewPass = "Nouveau mot de passe"
+frenchMessage ConfirmPass = "Confirmation du mot de passe"
+frenchMessage PassMismatch = "Le deux mots de passe sont différents, veuillez les corriger"
+frenchMessage PassUpdated = "Le mot de passe a bien été changé"
+frenchMessage Facebook = "Se connecter avec Facebook"
+frenchMessage LoginViaEmail = "Se connecter à l'aide d'une adresse électronique"
+frenchMessage InvalidLogin = "Nom d'utilisateur incorrect"
+frenchMessage NowLoggedIn = "Vous êtes maintenant connecté"
+frenchMessage LoginTitle = "Se connecter"
+frenchMessage PleaseProvideUsername = "Merci de renseigner votre nom d'utilisateur"
+frenchMessage PleaseProvidePassword = "Merci de spécifier un mot de passe"
+
+norwegianBokmålMessage :: AuthMessage -> Text
+norwegianBokmålMessage NoOpenID = "Ingen OpenID-identifiserer funnet"
+norwegianBokmålMessage LoginOpenID = "Logg inn med OpenID"
+norwegianBokmålMessage LoginGoogle = "Logg inn med Google"
+norwegianBokmålMessage LoginYahoo = "Logg inn med Yahoo"
+norwegianBokmålMessage Email = "E-post"
+norwegianBokmålMessage Password = "Passord"
+norwegianBokmålMessage Register = "Registrer"
+norwegianBokmålMessage RegisterLong = "Registrer en ny konto"
+norwegianBokmålMessage EnterEmail = "Skriv inn e-postadressen din nedenfor og en e-postkonfirmasjon vil bli sendt."
+norwegianBokmålMessage ConfirmationEmailSentTitle = "E-postkonfirmasjon sendt."
+norwegianBokmålMessage (ConfirmationEmailSent email) =
+    "En e-postkonfirmasjon har blitt sendt til " `mappend`
+    email `mappend`
+    "."
+norwegianBokmålMessage AddressVerified = "Adresse verifisert, vennligst sett et nytt passord."
+norwegianBokmålMessage InvalidKeyTitle = "Ugyldig verifiseringsnøkkel"
+norwegianBokmålMessage InvalidKey = "Beklager, men det var en ugyldig verifiseringsnøkkel."
+norwegianBokmålMessage InvalidEmailPass = "Ugyldig e-post/passord-kombinasjon"
+norwegianBokmålMessage BadSetPass = "Du må være logget inn for å sette et passord."
+norwegianBokmålMessage SetPassTitle = "Sett passord"
+norwegianBokmålMessage SetPass = "Sett et nytt passord"
+norwegianBokmålMessage NewPass = "Nytt passord"
+norwegianBokmålMessage ConfirmPass = "Bekreft"
+norwegianBokmålMessage PassMismatch = "Passordene stemte ikke overens, vennligst prøv igjen"
+norwegianBokmålMessage PassUpdated = "Passord oppdatert"
+norwegianBokmålMessage Facebook = "Logg inn med Facebook"
+norwegianBokmålMessage LoginViaEmail = "Logg inn med e-post"
+norwegianBokmålMessage InvalidLogin = "Ugyldig innlogging"
+norwegianBokmålMessage NowLoggedIn = "Du er nå logget inn"
+norwegianBokmålMessage LoginTitle = "Logg inn"
+norwegianBokmålMessage PleaseProvideUsername = "Vennligst fyll inn ditt brukernavn"
+norwegianBokmålMessage PleaseProvidePassword = "Vennligst fyll inn ditt passord"
+
+japaneseMessage :: AuthMessage -> Text
+japaneseMessage NoOpenID = "OpenID識別子がありません"
+japaneseMessage LoginOpenID = "OpenIDでログイン"
+japaneseMessage LoginGoogle = "Googleでログイン"
+japaneseMessage LoginYahoo = "Yahooでログイン"
+japaneseMessage Email = "Eメール"
+japaneseMessage Password = "パスワード"
+japaneseMessage Register = "登録"
+japaneseMessage RegisterLong = "新規アカウント登録"
+japaneseMessage EnterEmail = "メールアドレスを入力してください。確認メールが送られます"
+japaneseMessage ConfirmationEmailSentTitle = "確認メールを送信しました"
+japaneseMessage (ConfirmationEmailSent email) =
+    "確認メールを " `mappend`
+    email `mappend`
+    " に送信しました"
+japaneseMessage AddressVerified = "アドレスは認証されました。新しいパスワードを設定してください"
+japaneseMessage InvalidKeyTitle = "認証キーが無効です"
+japaneseMessage InvalidKey = "申し訳ありません。無効な認証キーです"
+japaneseMessage InvalidEmailPass = "メールアドレスまたはパスワードが無効です"
+japaneseMessage BadSetPass = "パスワードを設定するためには、ログインしてください"
+japaneseMessage SetPassTitle = "パスワードの設定"
+japaneseMessage SetPass = "新しいパスワードを設定する"
+japaneseMessage NewPass = "新しいパスワード"
+japaneseMessage ConfirmPass = "確認"
+japaneseMessage PassMismatch = "パスワードが合いません。もう一度試してください"
+japaneseMessage PassUpdated = "パスワードは更新されました"
+japaneseMessage Facebook = "Facebookでログイン"
+japaneseMessage LoginViaEmail = "Eメールでログイン"
+japaneseMessage InvalidLogin = "無効なログインです"
+japaneseMessage NowLoggedIn = "ログインしました"
+japaneseMessage LoginTitle = "ログイン"
+japaneseMessage PleaseProvideUsername = "ユーザ名を入力してください"
+japaneseMessage PleaseProvidePassword = "パスワードを入力してください"
+
+finnishMessage :: AuthMessage -> Text
+finnishMessage NoOpenID = "OpenID-tunnistetta ei löydy"
+finnishMessage LoginOpenID = "Kirjaudu OpenID-tilillä"
+finnishMessage LoginGoogle = "Kirjaudu Google-tilillä"
+finnishMessage LoginYahoo = "Kirjaudu Yahoo-tilillä"
+finnishMessage Email = "Sähköposti"
+finnishMessage Password = "Salasana"
+finnishMessage Register = "Luo uusi"
+finnishMessage RegisterLong = "Luo uusi tili"
+finnishMessage EnterEmail = "Kirjoita alle sähköpostiosoitteesi, johon vahvistussähköposti lähetetään."
+finnishMessage ConfirmationEmailSentTitle = "Vahvistussähköposti lähetetty."
+finnishMessage (ConfirmationEmailSent email) =
+    "Vahvistussähköposti on lähetty osoitteeseen " `mappend`
+    email `mappend`
+    "."
+finnishMessage AddressVerified = "Sähköpostiosoite vahvistettu. Anna uusi salasana"
+finnishMessage InvalidKeyTitle = "Virheellinen varmistusavain"
+finnishMessage InvalidKey = "Valitettavasti varmistusavain on virheellinen."
+finnishMessage InvalidEmailPass = "Virheellinen sähköposti tai salasana."
+finnishMessage BadSetPass = "Kirjaudu ensin sisään asettaaksesi salasanan"
+finnishMessage SetPassTitle = "Salasanan asettaminen"
+finnishMessage SetPass = "Aseta uusi salasana"
+finnishMessage NewPass = "Uusi salasana"
+finnishMessage ConfirmPass = "Vahvista"
+finnishMessage PassMismatch = "Salasanat eivät täsmää"
+finnishMessage PassUpdated = "Salasana vaihdettu"
+finnishMessage Facebook = "Kirjaudu Facebook-tilillä"
+finnishMessage LoginViaEmail = "Kirjaudu sähköpostitilillä"
+finnishMessage InvalidLogin = "Kirjautuminen epäonnistui"
+finnishMessage NowLoggedIn = "Olet nyt kirjautunut sisään"
+finnishMessage LoginTitle = "Kirjautuminen"
+finnishMessage PleaseProvideUsername = "Käyttäjänimi puuttuu"
+finnishMessage PleaseProvidePassword = "Salasana puuttuu"
+
+

@@ -5,7 +5,6 @@ module Scaffolding.Scaffolder (scaffold) where
 import Scaffolding.CodeGen
 
 import Language.Haskell.TH.Syntax
-import Control.Monad (when)
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import qualified Data.ByteString.Lazy as L
@@ -48,7 +47,7 @@ scaffold = do
             | '0' <= c && c <= '9' = True
         validPN '-' = True
         validPN _ = False
-    project <- prompt $ \s -> all validPN s && not (null s)
+    project <- prompt $ \s -> all validPN s && not (null s) && s /= "test"
     let dir = project
 
     let sitearg = "App"
@@ -61,7 +60,7 @@ scaffold = do
                 "s" -> (Sqlite,     "GenericSql", "SqlPersist", "Sqlite", "sqlSettings")
                 "p" -> (Postgresql, "GenericSql", "SqlPersist", "Postgresql", "sqlSettings")
                 "mysql" -> (Mysql, "GenericSql", "SqlPersist", "MySQL", "sqlSettings")
-                "mongo" -> (MongoDB,    "MongoDB", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
+                "mongo" -> (MongoDB,    "MongoDB hiding (master)", "Action", "MongoDB", "MkPersistSettings { mpsBackend = ConT ''Action }")
                 _ -> error $ "Invalid backend: " ++ backendC
         (modelImports) = case backend of
           MongoDB -> "import Database.Persist." ++ importGenericDB ++ "\nimport Language.Haskell.TH.Syntax"
@@ -72,9 +71,10 @@ scaffold = do
         uncapitalize s = toLower (head s) : tail s
         backendLower = uncapitalize $ show backend 
         upper = show backend
-    
-    let useTests = True
-    let testsDep = if useTests then ", yesod-test" else ""
+
+        poolRunner = case backend of
+          MongoDB -> "runMongoDBPoolDef"
+          _ -> "runSqlPool"
 
     let runMigration  =
           case backend of
@@ -130,13 +130,15 @@ scaffold = do
     mkDir "templates"
     mkDir "static"
     mkDir "static/css"
+    mkDir "static/img"
     mkDir "static/js"
     mkDir "config"
     mkDir "Model"
     mkDir "deploy"
     mkDir "Settings"
     mkDir "messages"
-     
+    mkDir "app"
+
     writeFile' "deploy/Procfile" $(codegen "deploy/Procfile")
 
     case backend of
@@ -146,11 +148,10 @@ scaffold = do
       Mysql      -> writeFile' ("config/" ++ backendLower ++ ".yml") $(codegen "config/mysql.yml")
 
     writeFile' "config/settings.yml" $(codegen "config/settings.yml")
-    writeFile' "main.hs" $(codegen "main.hs")
+    writeFile' "config/keter.yaml" $(codegen "config/keter.yaml")
+    writeFile' "app/main.hs" $(codegen "app/main.hs")
     writeFile' "devel.hs" $(codegen "devel.hs")
     writeFile' (project ++ ".cabal") $(codegen "project.cabal")
-    when useTests $
-      appendFile' (project ++ ".cabal") $(codegen "cabal_test_suite")
 
     writeFile' ".ghci" $(codegen ".ghci")
     writeFile' "LICENSE" $(codegen "LICENSE")
@@ -161,8 +162,19 @@ scaffold = do
     writeFile' "Model.hs" $(codegen "Model.hs")
     writeFile' "Settings.hs" $(codegen "Settings.hs")
     writeFile' "Settings/StaticFiles.hs" $(codegen "Settings/StaticFiles.hs")
+    writeFile' "Settings/Development.hs" $(codegen "Settings/Development.hs")
+
     writeFile' "static/css/bootstrap.css"
         $(codegen "static/css/bootstrap.css")
+    S.writeFile (dir ++ "/static/img/glyphicons-halflings.png")
+        $(runIO (S.readFile "scaffold/static/img/glyphicons-halflings.png") >>= \bs -> do
+            pack <- [|S.pack|]
+            return $ pack `AppE` LitE (StringL $ S.unpack bs))
+    S.writeFile (dir ++ "/static/img/glyphicons-halflings-white.png")
+        $(runIO (S.readFile "scaffold/static/img/glyphicons-halflings-white.png") >>= \bs -> do
+            pack <- [|S.pack|]
+            return $ pack `AppE` LitE (StringL $ S.unpack bs))
+
     writeFile' "templates/default-layout.hamlet"
         $(codegen "templates/default-layout.hamlet")
     writeFile' "templates/default-layout-wrapper.hamlet"
@@ -179,9 +191,10 @@ scaffold = do
     writeFile' "config/models" $(codegen "config/models")
     writeFile' "messages/en.msg" $(codegen "messages/en.msg")
 
-    when useTests $ do
-      mkDir "tests"
-      writeFile' "tests/main.hs" $(codegen "tests/main.hs")
+    mkDir "tests"
+    writeFile' "tests/main.hs" $(codegen "tests/main.hs")
+    writeFile' "tests/HomeTest.hs" $(codegen "tests/HomeTest.hs")
+    writeFile' "tests/TestImport.hs" $(codegen "tests/TestImport.hs")
 
     S.writeFile (dir ++ "/config/favicon.ico")
         $(runIO (S.readFile "scaffold/config/favicon.ico.cg") >>= \bs -> do

@@ -30,11 +30,10 @@ getRedirR = do
     setHeader "foo" "bar"
     redirectWith status301 RootR
 
-exceptionsTest :: [Spec]
-exceptionsTest = describe "Test.Exceptions"
-    [ it "500" case500
-    , it "redirect keeps headers" caseRedirect
-    ]
+exceptionsTest :: Spec
+exceptionsTest = describe "Test.Exceptions" $ do
+      it "500" case500
+      it "redirect keeps headers" caseRedirect
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f

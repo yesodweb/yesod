@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Form.Fields
     ( -- * i18n
       FormMessage (..)
@@ -46,11 +47,15 @@ module Yesod.Form.Fields
 
 import Yesod.Form.Types
 import Yesod.Form.I18n.English
+import Yesod.Form.Functions (parseHelper)
 import Yesod.Handler (getMessageRender)
 import Yesod.Widget (toWidget, whamlet, GWidget)
 import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
 import Text.Hamlet
-import Text.Blaze (ToHtml (..), preEscapedText, unsafeByteString)
+import Text.Blaze (ToMarkup (toMarkup), preEscapedToMarkup, unsafeByteString)
+#define ToHtml ToMarkup
+#define toHtml toMarkup
+#define preEscapedText preEscapedToMarkup
 import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
@@ -59,14 +64,14 @@ import Database.Persist (PersistField)
 import Database.Persist.Store (Entity (..))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, fromMaybe)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
 import Database.Persist.Store (PersistEntityBackend)
 
-import Text.Blaze.Renderer.String (renderHtml)
+import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
@@ -76,29 +81,27 @@ import qualified Data.Map as Map
 import Yesod.Handler (newIdent, lift)
 import Yesod.Request (FileInfo)
 
-import Yesod.Core (toPathPiece, GHandler, PathPiece)
+import Yesod.Core (toPathPiece, GHandler, PathPiece, fromPathPiece)
 import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery)
 import Control.Arrow ((&&&))
 
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<|>))
+
+import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
-blank :: (Monad m, RenderMessage master FormMessage)
-      => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))
-blank _ [] = return $ Right Nothing
-blank _ ("":_) = return $ Right Nothing
-blank f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x
 
 intField :: (Integral i, RenderMessage master FormMessage) => Field sub master i
 intField = Field
-    { fieldParse = blank $ \s ->
+    { fieldParse = parseHelper $ \s ->
         case Data.Text.Read.signed Data.Text.Read.decimal s of
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidInteger s
 
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="number" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -108,12 +111,13 @@ intField = Field
 
 doubleField :: RenderMessage master FormMessage => Field sub master Double
 doubleField = Field
-    { fieldParse = blank $ \s ->
+    { fieldParse = parseHelper $ \s ->
         case Data.Text.Read.double s of
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidNumber s
 
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -121,8 +125,9 @@ doubleField = Field
 
 dayField :: RenderMessage master FormMessage => Field sub master Day
 dayField = Field
-    { fieldParse = blank $ parseDate . unpack
+    { fieldParse = parseHelper $ parseDate . unpack
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="date" :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -130,8 +135,9 @@ dayField = Field
 
 timeField :: RenderMessage master FormMessage => Field sub master TimeOfDay
 timeField = Field
-    { fieldParse = blank $ parseTime . unpack
+    { fieldParse = parseHelper parseTime
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} :isReq:required="" value="#{showVal val}">
 |]
     }
@@ -144,9 +150,10 @@ timeField = Field
 
 htmlField :: RenderMessage master FormMessage => Field sub master Html
 htmlField = Field
-    { fieldParse = blank $ Right . preEscapedText . sanitizeBalance
+    { fieldParse = parseHelper $ Right . preEscapedText . sanitizeBalance
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
-        -- FIXME: There was a class="html" attribute, for what purpose?
+$newline never
+$# FIXME: There was a class="html" attribute, for what purpose?
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{showVal val}
 |]
     }
@@ -155,7 +162,7 @@ htmlField = Field
 -- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField)
+    deriving (Show, Read, Eq, PersistField, Ord)
 instance ToHtml Textarea where
     toHtml =
         unsafeByteString
@@ -172,33 +179,38 @@ instance ToHtml Textarea where
 
 textareaField :: RenderMessage master FormMessage => Field sub master Textarea
 textareaField = Field
-    { fieldParse =  blank $ Right . Textarea
+    { fieldParse = parseHelper $ Right . Textarea
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
+$newline never
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{either id unTextarea val}
 |]
     }
 
-hiddenField :: RenderMessage master FormMessage => Field sub master Text
+hiddenField :: (PathPiece p, RenderMessage master FormMessage)
+            => Field sub master p
 hiddenField = Field
-    { fieldParse = blank $ Right
+    { fieldParse = parseHelper $ maybe (Left MsgValueRequired) Right . fromPathPiece
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
-<input type="hidden" id="#{theId}" name="#{name}" *{attrs} value="#{either id id val}">
+$newline never
+<input type="hidden" id="#{theId}" name="#{name}" *{attrs} value="#{either id toPathPiece val}">
 |]
     }
 
 textField :: RenderMessage master FormMessage => Field sub master Text
 textField = Field
-    { fieldParse = blank $ Right
+    { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq ->
         [whamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required value="#{either id id val}">
 |]
     }
 
 passwordField :: RenderMessage master FormMessage => Field sub master Text
 passwordField = Field
-    { fieldParse = blank $ Right
+    { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="" value="#{either id id val}">
 |]
     }
@@ -217,37 +229,61 @@ parseDate = maybe (Left MsgInvalidDay) Right
 replace :: Eq a => a -> a -> [a] -> [a]
 replace x y = map (\z -> if z == x then y else z)
 
-parseTime :: String -> Either FormMessage TimeOfDay
-parseTime (h2:':':m1:m2:[]) = parseTimeHelper ('0', h2, m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:[]) = parseTimeHelper (h1, h2, m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:' ':'A':'M':[]) =
-    parseTimeHelper (h1, h2, m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:' ':'P':'M':[]) =
-    let [h1', h2'] = show $ (read [h1, h2] :: Int) + 12
-    in parseTimeHelper (h1', h2', m1, m2, '0', '0')
-parseTime (h1:h2:':':m1:m2:':':s1:s2:[]) =
-    parseTimeHelper (h1, h2, m1, m2, s1, s2)
-parseTime _ = Left MsgInvalidTimeFormat
+parseTime :: Text -> Either FormMessage TimeOfDay
+parseTime = either (Left . fromMaybe MsgInvalidTimeFormat . readMay . drop 2 . dropWhile (/= ':')) Right . parseOnly timeParser
 
-parseTimeHelper :: (Char, Char, Char, Char, Char, Char)
-                -> Either FormMessage TimeOfDay
-parseTimeHelper (h1, h2, m1, m2, s1, s2)
-    | h < 0 || h > 23 = Left $ MsgInvalidHour $ pack [h1, h2]
-    | m < 0 || m > 59 = Left $ MsgInvalidMinute $ pack [m1, m2]
-    | s < 0 || s > 59 = Left $ MsgInvalidSecond $ pack [s1, s2]
-    | otherwise = Right $ TimeOfDay h m s
+timeParser :: Parser TimeOfDay
+timeParser = do
+    skipSpace
+    h <- hour
+    _ <- char ':'
+    m <- minsec MsgInvalidMinute
+    hasSec <- (char ':' >> return True) <|> return False
+    s <- if hasSec then minsec MsgInvalidSecond else return 0
+    skipSpace
+    isPM <-
+        (string "am" >> return (Just False)) <|>
+        (string "AM" >> return (Just False)) <|>
+        (string "pm" >> return (Just True)) <|>
+        (string "PM" >> return (Just True)) <|>
+        return Nothing
+    h' <-
+        case isPM of
+            Nothing -> return h
+            Just x
+                | h <= 0 || h > 12 -> fail $ show $ MsgInvalidHour $ pack $ show h
+                | h == 12 -> return $ if x then 12 else 0
+                | otherwise -> return $ h + (if x then 12 else 0)
+    skipSpace
+    endOfInput
+    return $ TimeOfDay h' m s
   where
-    h = read [h1, h2] -- FIXME isn't this a really bad idea?
-    m = read [m1, m2]
-    s = fromInteger $ read [s1, s2]
+    hour = do
+        x <- digit
+        y <- (return <$> digit) <|> return []
+        let xy = x : y
+        let i = read xy
+        if i < 0 || i >= 24
+            then fail $ show $ MsgInvalidHour $ pack xy
+            else return i
+    minsec :: Num a => (Text -> FormMessage) -> Parser a
+    minsec msg = do
+        x <- digit
+        y <- digit <|> fail (show $ msg $ pack [x])
+        let xy = [x, y]
+        let i = read xy
+        if i < 0 || i >= 60
+            then fail $ show $ msg $ pack xy
+            else return $ fromIntegral (i :: Int)
 
 emailField :: RenderMessage master FormMessage => Field sub master Text
 emailField = Field
-    { fieldParse = blank $
+    { fieldParse = parseHelper $
         \s -> if Email.isValid (unpack s)
                 then Right s
                 else Left $ MsgInvalidEmail s
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="email" :isReq:required="" value="#{either id id val}">
 |]
     }
@@ -255,14 +291,18 @@ emailField = Field
 type AutoFocus = Bool
 searchField :: RenderMessage master FormMessage => AutoFocus -> Field sub master Text
 searchField autoFocus = Field
-    { fieldParse = blank Right
+    { fieldParse = parseHelper Right
     , fieldView = \theId name attrs val isReq -> do
         [whamlet|\
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
         when autoFocus $ do
           -- we want this javascript to be placed immediately after the field
-          [whamlet|<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}|]
+          [whamlet|
+$newline never
+<script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}
+|]
           toWidget [cassius|
             #{theId}
               -webkit-appearance: textfield
@@ -271,12 +311,13 @@ searchField autoFocus = Field
 
 urlField :: RenderMessage master FormMessage => Field sub master Text
 urlField = Field
-    { fieldParse = blank $ \s ->
+    { fieldParse = parseHelper $ \s ->
         case parseURI $ unpack s of
             Nothing -> Left $ MsgInvalidUrl s
             Just _ -> Right s
     , fieldView = \theId name attrs val isReq ->
         [whamlet|
+$newline never
 <input ##{theId} name=#{name} *{attrs} type=url :isReq:required value=#{either id id val}>
 |]
     }
@@ -286,9 +327,18 @@ selectFieldList = selectField . optionsPairs
 
 selectField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
 selectField = selectFieldHelper
-    (\theId name inside -> [whamlet|<select ##{theId} name=#{name}>^{inside}|]) -- outside
-    (\_theId _name isSel -> [whamlet|<option value=none :isSel:selected>_{MsgSelectNone}|]) -- onOpt
-    (\_theId _name attrs value isSel text -> [whamlet|<option value=#{value} :isSel:selected *{attrs}>#{text}|]) -- inside
+    (\theId name inside -> [whamlet|
+$newline never
+<select ##{theId} name=#{name}>^{inside}
+|]) -- outside
+    (\_theId _name isSel -> [whamlet|
+$newline never
+<option value=none :isSel:selected>_{MsgSelectNone}
+|]) -- onOpt
+    (\_theId _name attrs value isSel text -> [whamlet|
+$newline never
+<option value=#{value} :isSel:selected *{attrs}>#{text}
+|]) -- inside
 
 multiSelectFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master [a]
 multiSelectFieldList = multiSelectField . optionsPairs
@@ -310,6 +360,7 @@ multiSelectField ioptlist =
         opts <- fmap olOptions $ lift ioptlist
         let selOpts = map (id &&& (optselected val)) opts
         [whamlet|
+$newline never
             <select ##{theId} name=#{name} :isReq:required multiple *{attrs}>
                 $forall (opt, optsel) <- selOpts
                     <option value=#{optionExternalValue opt} :optsel:selected>#{optionDisplay opt}
@@ -323,22 +374,30 @@ radioFieldList = radioField . optionsPairs
 
 radioField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
 radioField = selectFieldHelper
-    (\theId _name inside -> [whamlet|<div ##{theId}>^{inside}|])
+    (\theId _name inside -> [whamlet|
+$newline never
+<div ##{theId}>^{inside}
+|])
     (\theId name isSel -> [whamlet|
-<div>
-    <input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
-    <label for=#{theId}-none>_{MsgSelectNone}
+$newline never
+<label .radio for=#{theId}-none>
+    <div>
+        <input id=#{theId}-none type=radio name=#{name} value=none :isSel:checked>
+        _{MsgSelectNone}
 |])
     (\theId name attrs value isSel text -> [whamlet|
-<div>
-    <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked *{attrs}>
-    <label for=#{theId}-#{value}>#{text}
+$newline never
+<label .radio for=#{theId}-#{value}>
+    <div>
+        <input id=#{theId}-#{value} type=radio name=#{name} value=#{value} :isSel:checked *{attrs}>
+        \#{text}
 |])
 
 boolField :: RenderMessage master FormMessage => Field sub master Bool
 boolField = Field
       { fieldParse = return . boolParser
       , fieldView = \theId name attrs val isReq -> [whamlet|
+$newline never
   $if not isReq
       <input id=#{theId}-none *{attrs} type=radio name=#{name} value=none checked>
       <label for=#{theId}-none>_{MsgSelectNone}
@@ -357,6 +416,7 @@ boolField = Field
       "" -> Right Nothing
       "none" -> Right Nothing
       "yes" -> Right $ Just True
+      "on" -> Right $ Just True
       "no" -> Right $ Just False
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
@@ -372,6 +432,7 @@ checkBoxField :: RenderMessage m FormMessage => Field s m Bool
 checkBoxField = Field
     { fieldParse = return . checkBoxParser
     , fieldView  = \theId name attrs val _ -> [whamlet|
+$newline never
 <input id=#{theId} *{attrs} type=checkbox name=#{name} value=yes :showVal id val:checked>
 |]
     }
@@ -380,6 +441,7 @@ checkBoxField = Field
         checkBoxParser [] = Right $ Just False
         checkBoxParser (x:_) = case x of
             "yes" -> Right $ Just True
+            "on" -> Right $ Just True
             _     -> Right $ Just False
 
         showVal = either (\_ -> False)
@@ -486,6 +548,7 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
             , fvId = id'
             , fvInput = [whamlet|
+$newline never
 <input type=file name=#{name} ##{id'} *{fsAttrs fs}>
 |]
             , fvErrors = errs
@@ -514,6 +577,7 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
             , fvId = id'
             , fvInput = [whamlet|
+$newline never
 <input type=file name=#{name} ##{id'} *{fsAttrs fs}>
 |]
             , fvErrors = errs

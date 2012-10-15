@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP#-}
 module Yesod.Form.MassInput
     ( inputList
     , massDivs
@@ -14,7 +15,7 @@ import Yesod.Form.Fields (boolField)
 import Yesod.Widget (GWidget, whamlet)
 import Yesod.Message (RenderMessage)
 import Yesod.Handler (newIdent, GHandler)
-import Text.Blaze (Html)
+import Text.Blaze.Html (Html)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.RWS (get, put, ask)
 import Data.Maybe (fromMaybe)
@@ -75,6 +76,7 @@ inputList label fixXml single mdef = formToAForm $ do
         , fvTooltip = Nothing
         , fvId = theId
         , fvInput = [whamlet|
+$newline never
 ^{fixXml views}
 <p>
     $forall xml <- xmls
@@ -95,7 +97,10 @@ withDelete af = do
     deleteName <- newFormIdent
     (menv, _, _) <- ask
     res <- case menv >>= Map.lookup deleteName . fst of
-        Just ("yes":_) -> return $ Left [whamlet|<input type=hidden name=#{deleteName} value=yes>|]
+        Just ("yes":_) -> return $ Left [whamlet|
+$newline never
+<input type=hidden name=#{deleteName} value=yes>
+|]
         _ -> do
             (_, xml2) <- aFormToForm $ areq boolField FieldSettings
                 { fsLabel = SomeMessage MsgDelete
@@ -122,6 +127,7 @@ massDivs, massTable
          :: [[FieldView sub master]]
          -> GWidget sub master ()
 massDivs viewss = [whamlet|
+$newline never
 $forall views <- viewss
     <fieldset>
         $forall view <- views
@@ -135,6 +141,7 @@ $forall views <- viewss
 |]
 
 massTable viewss = [whamlet|
+$newline never
 $forall views <- viewss
     <fieldset>
         <table>

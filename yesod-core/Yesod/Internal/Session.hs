@@ -21,9 +21,9 @@ import qualified Network.Wai as W
 
 type BackendSession = [(Text, S8.ByteString)]
 
-type SaveSession = BackendSession -> -- ^ The session contents after running the handler
-                   UTCTime ->        -- ^ current time
-                   IO [Header]
+type SaveSession = BackendSession    -- ^ The session contents after running the handler
+                -> UTCTime           -- ^ current time
+                -> IO [Header]
 
 newtype SessionBackend master = SessionBackend
     { sbLoadSession :: master

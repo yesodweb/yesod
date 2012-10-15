@@ -38,13 +38,13 @@ $nothing
 |]
 
 instance Yesod BID where
-    approot _ = "http://localhost:3000"
+    approot = ApprootStatic "http://localhost:3000"
 
 instance YesodAuth BID where
     type AuthId BID = Text
     loginDest _ = AfterLoginR
     logoutDest _ = AuthR LoginR
-    getAuthId = return . Just . credsIdent
+    getAuthId = return . Just . credsIdentClaimed
     authPlugins _ = [authOpenId]
     authHttpManager = httpManager
 

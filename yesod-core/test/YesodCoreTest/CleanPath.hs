@@ -14,6 +14,11 @@ import Network.HTTP.Types (status200, decodePathSegments)
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Text as TS
+import qualified Data.Text.Encoding as TE
+import Control.Arrow ((***))
+import Network.HTTP.Types (encodePath)
+import Data.Monoid (mappend)
+import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 
 data Subsite = Subsite
 
@@ -26,7 +31,7 @@ instance RenderRoute Subsite where
     renderRoute (SubsiteRoute x) = (x, [])
 
 instance YesodDispatch Subsite master where
-    yesodDispatch _ _ _ _ _ _ pieces _ _ = return $ responseLBS
+    yesodDispatch _ _ _ _ _ _ _ pieces _ _ = return $ responseLBS
         status200
         [ ("Content-Type", "SUBSITE")
         ] $ L8.pack $ show pieces
@@ -52,6 +57,14 @@ instance Yesod Y where
       where
         corrected = filter (not . TS.null) s
 
+    joinPath Y ar pieces' qs' =
+        fromText ar `mappend` encodePath pieces qs
+      where
+        pieces = if null pieces' then [""] else pieces'
+        qs = map (TE.encodeUtf8 *** go) qs'
+        go "" = Nothing
+        go x = Just $ TE.encodeUtf8 x
+
 getFooR :: Handler RepPlain
 getFooR = return $ RepPlain "foo"
 
@@ -62,17 +75,16 @@ getBarR, getPlainR :: Handler RepPlain
 getBarR = return $ RepPlain "bar"
 getPlainR = return $ RepPlain "plain"
 
-cleanPathTest :: [Spec]
+cleanPathTest :: Spec
 cleanPathTest =
-  describe "Test.CleanPath"
-    [ it "remove trailing slash" removeTrailingSlash
-    , it "noTrailingSlash" noTrailingSlash
-    , it "add trailing slash" addTrailingSlash
-    , it "has trailing slash" hasTrailingSlash
-    , it "/foo/something" fooSomething
-    , it "subsite dispatch" subsiteDispatch
-    , it "redirect with query string" redQueryString
-    ]
+  describe "Test.CleanPath" $ do
+      it "remove trailing slash" removeTrailingSlash
+      it "noTrailingSlash" noTrailingSlash
+      it "add trailing slash" addTrailingSlash
+      it "has trailing slash" hasTrailingSlash
+      it "/foo/something" fooSomething
+      it "subsite dispatch" subsiteDispatch
+      it "redirect with query string" redQueryString
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f

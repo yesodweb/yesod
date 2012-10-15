@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 -- | This module simply re-exports from other modules for your convenience.
 module Yesod
     ( -- * Re-exports from yesod-core
@@ -9,6 +10,7 @@ module Yesod
       -- * Running your application
     , warp
     , warpDebug
+    , warpEnv
     , develServer
       -- * Commonly referenced functions/datatypes
     , Application
@@ -44,16 +46,15 @@ import Text.Julius
 import Yesod.Form
 import Yesod.Json
 import Yesod.Persist
-import Network.HTTP.Types (status200)
 import Control.Monad.IO.Class (liftIO, MonadIO(..))
 import Control.Monad.Trans.Control (MonadBaseControl)
 
 import Network.Wai
-import Network.Wai.Logger
+import Network.Wai.Middleware.RequestLogger (logStdout)
 import Network.Wai.Handler.Warp (run)
-import System.IO (stderr, stdout, hFlush, hPutStrLn)
-import System.Log.FastLogger
-import Text.Blaze (toHtml)
+import System.IO (stderr, hPutStrLn)
+import Text.Blaze.Html (toHtml)
+import System.Environment (getEnv)
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)
@@ -75,23 +76,20 @@ warpDebug :: (Yesod a, YesodDispatch a a) => Int -> a -> IO ()
 warpDebug port app = do
   hPutStrLn stderr $ "Application launched, listening on port " ++ show port
   waiApp <- toWaiApp app
-  dateRef <- dateInit
-  run port $ (logStdout dateRef) waiApp
+  run port $ logStdout waiApp
 
-logStdout :: DateRef -> Middleware
-logStdout dateRef waiApp =
-  \req -> do
-    logRequest dateRef req
-    waiApp req
-
-logRequest  :: Control.Monad.IO.Class.MonadIO m =>
-               DateRef -> Network.Wai.Request -> m ()
-logRequest dateRef req = do
-  date <- liftIO $ getDate dateRef
-  let status = status200
-      len = 4
-  liftIO $ hPutLogStr stdout $ apacheFormat FromSocket date req status (Just len)
-  liftIO $ hFlush stdout
+-- | Runs your application using default middlewares (i.e., via 'toWaiApp'). It
+-- reads port information from the PORT environment variable, as used by tools
+-- such as Keter.
+--
+-- Note that the exact behavior of this function may be modified slightly over
+-- time to work correctly with external tools, without a change to the type
+-- signature.
+warpEnv :: (Yesod a, YesodDispatch a a) => a -> IO ()
+warpEnv master = do
+    port <- getEnv "PORT" >>= readIO
+    app <- toWaiApp master
+    run port app
 
 -- | Run a development server, where your code changes are automatically
 -- reloaded.

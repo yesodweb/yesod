@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.0.0
+version:         1.1.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -15,78 +15,80 @@ cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 extra-source-files:
-  test/en.msg
-  test/YesodCoreTest/NoOverloadedStrings.hs
+  test.hs
+  test/YesodCoreTest.hs
+  test/YesodCoreTest/Cache.hs
+  test/YesodCoreTest/CleanPath.hs
+  test/YesodCoreTest/ErrorHandling.hs
+  test/YesodCoreTest/Exceptions.hs
+  test/YesodCoreTest/InternalRequest.hs
+  test/YesodCoreTest/JsLoader.hs
+  test/YesodCoreTest/JsLoaderSites/Bottom.hs
+  test/YesodCoreTest/JsLoaderSites/HeadAsync.hs
+  test/YesodCoreTest/Links.hs
   test/YesodCoreTest/Media.hs
   test/YesodCoreTest/MediaData.hs
-  test/YesodCoreTest/Exceptions.hs
+  test/YesodCoreTest/NoOverloadedStrings.hs
+  test/YesodCoreTest/Redirect.hs
+  test/YesodCoreTest/WaiSubsite.hs
   test/YesodCoreTest/Widget.hs
-  test/YesodCoreTest/CleanPath.hs
-  test/YesodCoreTest/Links.hs
-  test/YesodCoreTest/InternalRequest.hs
-  test/YesodCoreTest/ErrorHandling.hs
-  test/YesodCoreTest/Cache.hs
-  test.hs
+  test/YesodCoreTest/YesodTest.hs
+  test/en.msg
+  test/test.hs
 
 flag test
   description: Build the executable to run unit tests
   default: False
 
-flag ghc7
-
 library
-    if flag(ghc7)
-        build-depends:   base              >= 4.3      && < 5
-        cpp-options:     -DGHC7
-    else
-        build-depends:   base              >= 4        && < 4.3
-
     -- Work around a bug in cabal. Without this, wai-test doesn't get built and
     -- we have a missing dependency during --enable-tests builds.
     if flag(test)
         build-depends: wai-test
 
-    build-depends:   time                  >= 1.1.4
-                   , yesod-routes          >= 1.0      && < 1.1
-                   , wai                   >= 1.2      && < 1.3
-                   , wai-extra             >= 1.2      && < 1.3
-                   , bytestring            >= 0.9.1.4  && < 0.10
+    build-depends:   base                  >= 4.3      && < 5
+                   , time                  >= 1.1.4
+                   , yesod-routes          >= 1.1      && < 1.2
+                   , wai                   >= 1.3      && < 1.4
+                   , wai-extra             >= 1.3      && < 1.4
+                   , bytestring            >= 0.9.1.4
                    , text                  >= 0.7      && < 0.12
                    , template-haskell
-                   , path-pieces           >= 0.1      && < 0.2
-                   , hamlet                >= 1.0      && < 1.1
+                   , path-pieces           >= 0.1.2    && < 0.2
+                   , hamlet                >= 1.1      && < 1.2
                    , shakespeare           >= 1.0      && < 1.1
                    , shakespeare-js        >= 1.0      && < 1.1
                    , shakespeare-css       >= 1.0      && < 1.1
                    , shakespeare-i18n      >= 1.0      && < 1.1
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , transformers          >= 0.2.2    && < 0.4
-                   , clientsession         >= 0.7.3.1  && < 0.8
+                   , clientsession         >= 0.8      && < 0.9
                    , random                >= 1.0.0.2  && < 1.1
                    , cereal                >= 0.3      && < 0.4
                    , old-locale            >= 1.0.0.2  && < 1.1
                    , failure               >= 0.2      && < 0.3
-                   , containers            >= 0.2      && < 0.5
+                   , containers            >= 0.2
                    , monad-control         >= 0.3      && < 0.4
                    , transformers-base     >= 0.4
                    , cookie                >= 0.4      && < 0.5
-                   , blaze-html            >= 0.4.1.3  && < 0.5
-                   , http-types            >= 0.6.5    && < 0.7
+                   , http-types            >= 0.7      && < 0.8
                    , case-insensitive      >= 0.2
                    , parsec                >= 2        && < 3.2
-                   , directory             >= 1        && < 1.2
-                   , vector                >= 0.9      && < 0.10
+                   , directory             >= 1
+                   , vector                >= 0.9      && < 0.11
                    , aeson                 >= 0.5
-                   , fast-logger           >= 0.0.2
-                   , wai-logger            >= 0.0.1
-                   , conduit               >= 0.4      && < 0.5
-                   , resourcet             >= 0.3      && < 0.4
-                   , lifted-base           >= 0.1      && < 0.2
+                   , fast-logger           >= 0.2
+                   , monad-logger          >= 0.2.1    && < 0.3
+                   , conduit               >= 0.5      && < 0.6
+                   , resourcet             >= 0.3      && < 0.5
+                   , lifted-base           >= 0.1
+                   , blaze-html            >= 0.5      && < 0.6
+                   , blaze-markup          >= 0.5.1    && < 0.6
+
     exposed-modules: Yesod.Content
                      Yesod.Core
                      Yesod.Dispatch
                      Yesod.Handler
-                     Yesod.Logger
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Message
@@ -104,17 +106,9 @@ test-suite tests
     main-is: test.hs
     hs-source-dirs: test
 
-    if flag(ghc7)
-        type: exitcode-stdio-1.0
-        build-depends:   base                      >= 4.3      && < 5
-        cpp-options:     -DGHC7
-        main-is:         test.hs
-    else
-        type: exitcode-stdio-1.0
-        build-depends:   base                      >= 4        && < 4.3
-        main-is:         test.hs
     cpp-options:   -DTEST
-    build-depends: hspec >= 0.8 && < 0.10
+    build-depends: base
+                  ,hspec >= 1.3 && < 1.4
                   ,wai-test
                   ,wai
                   ,yesod-core
@@ -125,8 +119,10 @@ test-suite tests
                   ,text
                   ,http-types
                   , random
+                  , blaze-builder
                   ,HUnit
                   ,QuickCheck >= 2 && < 3
+                  ,transformers
     ghc-options:     -Wall
 
 source-repository head

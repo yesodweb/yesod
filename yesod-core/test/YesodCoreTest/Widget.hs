@@ -26,6 +26,7 @@ mkYesod "Y" [parseRoutes|
 /whamlet WhamletR GET
 /towidget TowidgetR GET
 /auto AutoR GET
+/jshead JSHeadR GET
 |]
 
 instance Yesod Y where
@@ -55,12 +56,13 @@ getTowidgetR = defaultLayout $ do
     toWidget [lucius|foo{bar:baz}|]
     toWidgetHead [lucius|foo{bar:baz}|]
 
-    toWidget [hamlet|<foo>|] :: Widget
+    toWidget [hamlet|<foo>|]
     toWidgetHead [hamlet|<foo>|]
     toWidgetBody [hamlet|<foo>|]
 
 getWhamletR :: Handler RepHtml
 getWhamletR = defaultLayout [whamlet|
+$newline never
 <h1>Test
 <h2>@{WhamletR}
 <h3>_{Goodbye}
@@ -68,22 +70,29 @@ getWhamletR = defaultLayout [whamlet|
 ^{embed}
 |]
   where
-    embed = [whamlet|<h4>Embed|]
+    embed = [whamlet|
+$newline never
+<h4>Embed
+|]
 
 getAutoR :: Handler RepHtml
 getAutoR = defaultLayout [whamlet|
+$newline never
 ^{someHtml}
 |]
   where
     someHtml = [shamlet|somehtml|]
 
-widgetTest :: [Spec]
-widgetTest = describe "Test.Widget"
-    [ it "addJuliusBody" case_addJuliusBody
-    , it "whamlet" case_whamlet
-    , it "two letter lang codes" case_two_letter_lang
-    , it "automatically applies toWidget" case_auto
-    ]
+getJSHeadR :: Handler RepHtml
+getJSHeadR = defaultLayout $ toWidgetHead [julius|alert("hello");|]
+
+widgetTest :: Spec
+widgetTest = describe "Test.Widget" $ do
+      it "addJuliusBody" case_addJuliusBody
+      it "whamlet" case_whamlet
+      it "two letter lang codes" case_two_letter_lang
+      it "automatically applies toWidget" case_auto
+      it "toWidgetHead puts JS in head" case_jshead
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f
@@ -116,3 +125,10 @@ case_auto = runner $ do
         , requestHeaders = [("Accept-Language", "es")]
         }
     assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body>somehtml</body></html>" res
+
+case_jshead :: IO ()
+case_jshead = runner $ do
+    res <- request defaultRequest
+        { pathInfo = ["jshead"]
+        }
+    assertBody "<!DOCTYPE html>\n<html><head><title></title><script>alert(\"hello\");</script></head><body></body></html>" res

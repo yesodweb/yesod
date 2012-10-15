@@ -2,27 +2,41 @@
 module Yesod.Routes.Overlap
     ( findOverlaps
     , findOverlapNames
+    , Overlap (..)
     ) where
 
 import Yesod.Routes.TH.Types
-import Control.Arrow ((***))
-import Data.Maybe (mapMaybe)
+import Data.List (intercalate)
 
-findOverlaps :: [Resource t] -> [(Resource t, Resource t)]
-findOverlaps [] = []
-findOverlaps (x:xs) = mapMaybe (findOverlap x) xs ++ findOverlaps xs
+data Overlap t = Overlap
+    { overlapParents :: [String] -> [String] -- ^ parent resource trees
+    , overlap1 :: ResourceTree t
+    , overlap2 :: ResourceTree t
+    }
 
-findOverlap :: Resource t -> Resource t -> Maybe (Resource t, Resource t)
-findOverlap x y
-    | overlaps (resourcePieces x) (resourcePieces y) (hasSuffix x) (hasSuffix y) = Just (x, y)
-    | otherwise = Nothing
+findOverlaps :: ([String] -> [String]) -> [ResourceTree t] -> [Overlap t]
+findOverlaps _ [] = []
+findOverlaps front (x:xs) = concatMap (findOverlap front x) xs ++ findOverlaps front xs
 
-hasSuffix :: Resource t -> Bool
-hasSuffix r =
+findOverlap :: ([String] -> [String]) -> ResourceTree t -> ResourceTree t -> [Overlap t]
+findOverlap front x y =
+    here rest
+  where
+    here
+        | overlaps (resourceTreePieces x) (resourceTreePieces y) (hasSuffix x) (hasSuffix y) = (Overlap front x y:)
+        | otherwise = id
+    rest =
+        case x of
+            ResourceParent name _ children -> findOverlaps (front . (name:)) children
+            ResourceLeaf{} -> []
+
+hasSuffix :: ResourceTree t -> Bool
+hasSuffix (ResourceLeaf r) =
     case resourceDispatch r of
         Subsite{} -> True
         Methods Just{} _ -> True
         Methods Nothing _ -> False
+hasSuffix ResourceParent{} = True
 
 overlaps :: [(CheckOverlap, Piece t)] -> [(CheckOverlap, Piece t)] -> Bool -> Bool -> Bool
 
@@ -50,9 +64,14 @@ piecesOverlap :: Piece t -> Piece t -> Bool
 piecesOverlap (Static x) (Static y) = x == y
 piecesOverlap _ _ = True
 
-findOverlapNames :: [Resource t] -> [(String, String)]
-findOverlapNames = map (resourceName *** resourceName) . findOverlaps
-
+findOverlapNames :: [ResourceTree t] -> [(String, String)]
+findOverlapNames =
+    map go . findOverlaps id
+  where
+    go (Overlap front x y) =
+        (go' $ resourceTreeName x, go' $ resourceTreeName y)
+      where
+        go' = intercalate "/" . front . return
 {-
 -- n^2, should be a way to speed it up
 findOverlaps :: [Resource a] -> [[Resource a]]

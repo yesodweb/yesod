@@ -1,3 +1,4 @@
+$newline never
 \<!doctype html>
 \<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]-->
 \<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]-->
@@ -22,7 +23,7 @@
         <script>
           document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/,'js');
     <body>
-        <div id="container">
+        <div class="container">
             <header>
             <div id="main" role="main">
               ^{pageBody pc}

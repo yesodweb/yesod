@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
     , Widget
@@ -11,6 +12,7 @@ import Network.Wai.Test
 import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
+import Control.Exception (SomeException, try)
 
 data App = App
 
@@ -19,12 +21,16 @@ mkYesod "App" [parseRoutes|
 /not_found      NotFoundR POST
 /first_thing    FirstThingR POST
 /after_runRequestBody AfterRunRequestBodyR POST
+/error-in-body ErrorInBodyR GET
+/error-in-body-noeval ErrorInBodyNoEvalR GET
 |]
 
 instance Yesod App
 
 getHomeR :: Handler RepHtml
-getHomeR = defaultLayout $ toWidget [hamlet|
+getHomeR = do
+    $logDebug "Testing logging"
+    defaultLayout $ toWidget [hamlet|
 $doctype 5
 
 <html>
@@ -49,15 +55,24 @@ postFirstThingR = do
 
 postAfterRunRequestBodyR = do
    x <- runRequestBody
-   _ <- error $ show x
+   _ <- error $ show $ fst x
    getHomeR
 
-errorHandlingTest :: [Spec]
-errorHandlingTest = describe "Test.ErrorHandling"
-    [ it "says not found" caseNotFound
-    , it "says 'There was an error' before runRequestBody" caseBefore
-    , it "says 'There was an error' after runRequestBody" caseAfter
-    ]
+getErrorInBodyR :: Handler RepHtml
+getErrorInBodyR = do
+    let foo = error "error in body 19328" :: String
+    defaultLayout [whamlet|#{foo}|]
+
+getErrorInBodyNoEvalR :: Handler (DontFullyEvaluate RepHtml)
+getErrorInBodyNoEvalR = fmap DontFullyEvaluate getErrorInBodyR
+
+errorHandlingTest :: Spec
+errorHandlingTest = describe "Test.ErrorHandling" $ do
+      it "says not found" caseNotFound
+      it "says 'There was an error' before runRequestBody" caseBefore
+      it "says 'There was an error' after runRequestBody" caseAfter
+      it "error in body == 500" caseErrorInBody
+      it "error in body, no eval == 200" caseErrorInBodyNoEval
 
 runner :: Session () -> IO ()
 runner f = toWaiApp App >>= runSession f
@@ -96,3 +111,18 @@ caseAfter = runner $ do
         }
     assertStatus 500 res
     assertBodyContains "bin12345" res
+
+caseErrorInBody :: IO ()
+caseErrorInBody = runner $ do
+    res <- request defaultRequest { pathInfo = ["error-in-body"] }
+    assertStatus 500 res
+    assertBodyContains "error in body 19328" res
+
+caseErrorInBodyNoEval :: IO ()
+caseErrorInBodyNoEval = do
+    eres <- try $ runner $ do
+        _ <- request defaultRequest { pathInfo = ["error-in-body-noeval"] }
+        return ()
+    case eres of
+        Left (_ :: SomeException) -> return ()
+        Right _ -> error "Expected an exception"

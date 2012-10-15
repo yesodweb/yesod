@@ -44,7 +44,6 @@ case_sanity = runner $ do
     res <- request defaultRequest
     assertBody mempty res
 
-noOverloadedTest :: [Spec]
-noOverloadedTest = describe "Test.NoOverloadedStrings"
-    [ it "sanity" case_sanity
-    ]
+noOverloadedTest :: Spec
+noOverloadedTest = describe "Test.NoOverloadedStrings" $ do
+      it "sanity" case_sanity

@@ -43,6 +43,7 @@ module Yesod.Widget
     , addStylesheetRemote
     , addStylesheetRemoteAttrs
     , addStylesheetEither
+    , CssBuilder (..)
       -- ** Javascript
     , addJulius
     , addJuliusBody
@@ -53,6 +54,7 @@ module Yesod.Widget
     , addScriptEither
       -- * Internal
     , unGWidget
+    , whamletFileWithSettings
     ) where
 
 import Data.Monoid
@@ -79,11 +81,17 @@ import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP)
 import Control.Monad.Trans.Control (MonadBaseControl (..))
 import Control.Exception (throwIO)
 import qualified Text.Hamlet as NP
-import Data.Text.Lazy.Builder (fromLazyText)
-import Text.Blaze (toHtml, preEscapedLazyText)
+import Data.Text.Lazy.Builder (fromLazyText, Builder)
+import Text.Blaze.Html (toHtml, preEscapedToMarkup)
+import qualified Data.Text.Lazy as TL
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Arrow (first)
 import Control.Monad.Trans.Resource
+
+import Control.Monad.Logger
+
+preEscapedLazyText :: TL.Text -> Html
+preEscapedLazyText = preEscapedToMarkup
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
@@ -113,10 +121,21 @@ class ToWidget sub master a where
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
+-- | Newtype wrapper allowing injection of arbitrary content into CSS.
+--
+-- Usage:
+--
+-- > toWidget $ CssBuilder "p { color: red }"
+--
+-- Since: 1.1.3
+newtype CssBuilder = CssBuilder { unCssBuilder :: Builder }
+
 instance render ~ RY master => ToWidget sub master (render -> Html) where
     toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
 instance render ~ RY master => ToWidget sub master (render -> Css) where
-    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
+    toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . x
+instance render ~ RY master => ToWidget sub master (render -> CssBuilder) where
+    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
 instance render ~ RY master => ToWidget sub master (render -> Javascript) where
     toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
 instance (sub' ~ sub, master' ~ master) => ToWidget sub' master' (GWidget sub master ()) where
@@ -141,8 +160,10 @@ instance render ~ RY master => ToWidgetHead sub master (render -> Html) where
     toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
 instance render ~ RY master => ToWidgetHead sub master (render -> Css) where
     toWidgetHead = toWidget
-instance render ~ RY master => ToWidgetHead sub master (render -> Javascript) where
+instance render ~ RY master => ToWidgetHead sub master (render -> CssBuilder) where
     toWidgetHead = toWidget
+instance render ~ RY master => ToWidgetHead sub master (render -> Javascript) where
+    toWidgetHead j = toWidgetHead $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
 instance ToWidgetHead sub master Html where
     toWidgetHead = toWidgetHead . const
 
@@ -161,6 +182,7 @@ setTitleI msg = do
 {-# DEPRECATED addHamletHead, addHtmlHead "Use toWidgetHead instead" #-}
 {-# DEPRECATED addHamlet, addHtml, addCassius, addLucius, addJulius "Use toWidget instead" #-}
 {-# DEPRECATED addJuliusBody "Use toWidgetBody instead" #-}
+{-# DEPRECATED addWidget "addWidget can be omitted" #-}
 
 -- | Add a 'Hamlet' to the head tag.
 addHamletHead :: HtmlUrl (Route master) -> GWidget sub master ()
@@ -262,6 +284,9 @@ whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
 whamletFile :: FilePath -> Q Exp
 whamletFile = NP.hamletFileWithSettings rules NP.defaultHamletSettings
 
+whamletFileWithSettings :: NP.HamletSettings -> FilePath -> Q Exp
+whamletFileWithSettings = NP.hamletFileWithSettings rules
+
 rules :: Q NP.HamletRules
 rules = do
     ah <- [|toWidget|]
@@ -330,7 +355,15 @@ instance MonadUnsafeIO (GWidget sub master) where
 instance MonadThrow (GWidget sub master) where
     monadThrow = liftIO . throwIO
 instance MonadResource (GWidget sub master) where
+#if MIN_VERSION_resourcet(0,4,0)
+    liftResourceT = lift . liftResourceT
+#else
     allocate a = lift . allocate a
     register = lift . register
     release = lift . release
     resourceMask = lift . resourceMask
+#endif
+
+instance MonadLogger (GWidget sub master) where
+    monadLoggerLog a b = lift . monadLoggerLog a b
+    monadLoggerLogSource a b c = lift . monadLoggerLogSource a b c

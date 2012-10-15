@@ -1,11 +1,12 @@
-# TestWaiPersistent - Pragmatic integration tests for haskell web applications using WAI and Persistent
+# yesod-test
 
-yesod-test is designed for testing web applications built using wai and persistent.
+Pragmatic integration tests for haskell web applications using WAI and optionally a database (Persistent).
+
 It's main goal is to encourage integration and system testing of web applications by making everything /easy to test/. 
 
 Your tests are like browser sessions that keep track of cookies and the last
-visited page. You can perform assertions on the content of HTML responses,
-using css selectors to explore the document more easily.
+visited page. You can perform assertions on the content of HTML responses
+using css selectors.
 
 You can also easily build requests using forms present in the current page.
 This is very useful for testing web applications built in yesod for example,
@@ -15,7 +16,7 @@ generated "\_token" field.
 Your database is also directly available so you can use runDB to set up
 backend pre-conditions, or to assert that your session is having the desired effect.
 
-The testing facilities behind the scenes are HUnit and HSpec.
+The testing facilities behind the scenes are HSpec (on top of HUnit).
 
 This is the helloworld and kitchen sink. In this case for testing a yesod app.
 

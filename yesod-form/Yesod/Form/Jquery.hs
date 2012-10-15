@@ -23,7 +23,7 @@ import Text.Hamlet (shamlet)
 import Text.Julius (julius)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
-import Yesod.Core (RenderMessage, SomeMessage (..))
+import Yesod.Core (RenderMessage)
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
@@ -34,9 +34,15 @@ googleHostedJqueryUiCss theme = mconcat
     ]
 
 class YesodJquery a where
-    -- | The jQuery 1.4 Javascript file.
+    -- | The jQuery Javascript file. Note that in upgrades to this library, the
+    -- version of jQuery referenced, or where it is downloaded from, may be
+    -- changed without warning. If you are relying on a specific version of
+    -- jQuery, you should give an explicit URL instead of relying on the
+    -- default value.
+    --
+    -- Currently, the default value is jQuery 1.7 from Google\'s CDN.
     urlJqueryJs :: a -> Either (Route a) Text
-    urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"
+    urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"
 
     -- | The jQuery UI 1.8 Javascript file.
     urlJqueryUiJs :: a -> Either (Route a) Text
@@ -50,20 +56,16 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-blank :: (RenderMessage master FormMessage, Monad m) => (Text -> Either FormMessage a) -> [Text] -> m (Either (SomeMessage master) (Maybe a))
-blank _ [] = return $ Right Nothing
-blank _ ("":_) = return $ Right Nothing
-blank f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x
-
 jqueryDayField :: (RenderMessage master FormMessage, YesodJquery master) => JqueryDaySettings -> Field sub master Day
 jqueryDayField jds = Field
-    { fieldParse = blank $ maybe
+    { fieldParse = parseHelper $ maybe
                   (Left MsgInvalidDay)
                   Right
               . readMay
               . unpack
     , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="date" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
@@ -71,9 +73,9 @@ jqueryDayField jds = Field
         addStylesheet' urlJqueryUiCss
         toWidget [julius|
 $(function(){
-    var i = $("##{theId}");
-    if (i.attr("type") != "date") {
-        i.datepicker({
+    var i = document.getElementById("#{theId}");
+    if (i.type != "date") {
+        $(i).datepicker({
             dateFormat:'yy-mm-dd',
             changeMonth:#{jsBool $ jdsChangeMonth jds},
             changeYear:#{jsBool $ jdsChangeYear jds},
@@ -100,9 +102,10 @@ $(function(){
 jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master)
                         => Route master -> Field sub master Text
 jqueryAutocompleteField src = Field
-    { fieldParse = blank $ Right
+    { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
+$newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
 |]
         addScript' urlJqueryJs
