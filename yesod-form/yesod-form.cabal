@@ -64,7 +64,6 @@ test-suite test
                           , yesod-form
                           , time
                           , hspec
-                          , HUnit
                           , text
 
 source-repository head

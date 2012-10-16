@@ -14,8 +14,7 @@ module Hierarchy
     , toText
     ) where
 
-import Test.Hspec.Monadic
-import Test.Hspec.HUnit ()
+import Test.Hspec
 import Test.HUnit
 import Yesod.Routes.Parse
 import Yesod.Routes.TH
@@ -92,7 +91,7 @@ getTableR _ t = append "TableR " t
 instance RunHandler Hierarchy master where
     runHandler h _ _ subRoute toMaster = (h, fmap toMaster subRoute)
 
-hierarchy :: Specs
+hierarchy :: Spec
 hierarchy = describe "hierarchy" $ do
     it "renders root correctly" $
         renderRoute (AdminR 5 AdminRootR) @?= (["admin", "5"], [])
