@@ -13,7 +13,6 @@ import Yesod.Core hiding (Request)
 import Network.Wai.Test
 import Network.Wai
 import Test.Hspec
-import Test.Hspec.HUnit()
 
 yesod :: (YesodDispatch y y, Yesod y) => y -> Session a -> IO a
 yesod app f = toWaiApp app >>= runSession f
