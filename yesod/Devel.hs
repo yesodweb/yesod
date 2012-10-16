@@ -359,16 +359,36 @@ ghcPackageArgs opts ghcVer cabal lib = do
         cabalDevConf    = "-package-confcabal-dev/packages-" ++ ghcVer ++ ".conf"
         inplaceConf     = "-package-confdist/package.conf.inplace"
 
-getPersistBuildConfig :: FilePath ->IO D.LocalBuildInfo
-getPersistBuildConfig path = fromMaybeErr errLbi =<< D.maybeGetPersistBuildConfig path
+getPersistBuildConfig :: FilePath -> IO D.LocalBuildInfo
+getPersistBuildConfig path = fromRightErr errLbi =<< getPersistConfigLenient path -- D.maybeGetPersistBuildConfig path
     where
         errLbi          = "Could not read BuildInfo file: " ++ D.localBuildInfoFile "dist" ++
-                          "\nMake sure that cabal-install has been compiled with the same GHC version as yesod."
+                          "\nMake sure that cabal-install has been compiled with the same GHC version as yesod." ++
+                          "\nand that the Cabal library used by GHC is the same version"
 
+-- there can be slight differences in the cabal version, ignore those when loading the file as long as we can parse it
+getPersistConfigLenient :: FilePath -> IO (Either String D.LocalBuildInfo)
+getPersistConfigLenient fp = do
+  let file = fp ++ "/setup-config"
+  exists <- doesFileExist file
+  if not exists
+    then return (Left $ "file does not exist: " ++ fp)
+    else do
+      xs <- readFile file
+      return $ case lines xs of
+                 [_,l2]  -> -- two lines, header and serialized rest
+                   case reads l2 of
+                     [(bi,_)] -> Right bi
+                     _        -> (Left "cannot parse contents")
+                 _       -> (Left "not a valid header/content file")
 
 fromMaybeErr :: String -> Maybe b -> IO b
 fromMaybeErr err Nothing = failWith err
 fromMaybeErr _  (Just x) = return x
+
+fromRightErr :: String -> Either String b -> IO b
+fromRightErr str (Left err) = failWith (str ++ "\n" ++ err)
+fromRightErr _   (Right b)  = return b
 
 lookupDevelLib :: D.GenericPackageDescription -> D.CondTree D.ConfVar c a -> Maybe a
 lookupDevelLib gpd ct | found     = Just (D.condTreeData ct)
