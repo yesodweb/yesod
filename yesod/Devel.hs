@@ -34,6 +34,7 @@ import           Control.Monad                         (forever, unless, void,
 import           Data.Char                             (isNumber, isUpper)
 import qualified Data.List                             as L
 import qualified Data.Map                              as Map
+import           Data.Maybe                            (fromMaybe)
 import qualified Data.Set                              as Set
 
 import           System.Directory
@@ -42,7 +43,7 @@ import           System.Exit                           (ExitCode (..),
                                                         exitSuccess)
 import           System.FilePath                       (dropExtension,
                                                         splitDirectories,
-                                                        takeExtension)
+                                                        takeExtension, (</>))
 import           System.FSNotify
 import           System.IO                             (hClose, hGetLine,
                                                         hIsEOF, hPutStrLn,
@@ -69,16 +70,20 @@ import           GhcBuild                              (buildPackage,
 import qualified Config                                as GHC
 import           SrcLoc                                (Located)
 
-lockFile :: FilePath
-lockFile = "dist/devel-terminate"
+lockFile :: DevelOpts -> FilePath
+lockFile _opts =  "yesod-devel/devel-terminate"
 
-writeLock :: IO ()
-writeLock = do
-    createDirectoryIfMissing True "dist"
-    writeFile lockFile ""
+writeLock :: DevelOpts -> IO ()
+writeLock opts = do
+    createDirectoryIfMissing True "yesod-devel"
+    writeFile (lockFile opts) ""
+    createDirectoryIfMissing True "dist" -- for compatibility with old devel.hs
+    writeFile "dist/devel-terminate" ""
 
-removeLock :: IO ()
-removeLock = removeFileIfExists lockFile
+removeLock :: DevelOpts -> IO ()
+removeLock opts = do
+    removeFileIfExists (lockFile opts)
+    removeFileIfExists "dist/devel-terminate"  -- for compatibility with old devel.hs
 
 data DevelOpts = DevelOpts
       { isCabalDev   :: Bool
@@ -87,19 +92,23 @@ data DevelOpts = DevelOpts
       , eventTimeout :: Int -- negative value for no timeout
       , successHook  :: Maybe String
       , failHook     :: Maybe String
+      , buildDir     :: Maybe String
       } deriving (Show, Eq)
+
+getBuildDir :: DevelOpts -> String
+getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 cabalCommand :: DevelOpts -> FilePath
 cabalCommand opts | isCabalDev opts = "cabal-dev"
                   | otherwise       = "cabal"
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing
+defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing
 
 devel :: DevelOpts -> [String] -> IO ()
 devel opts passThroughArgs = withManager $ \manager -> do
     checkDevelFile
-    writeLock
+    writeLock opts
 
     putStrLn "Yesod devel server. Press ENTER to quit"
     _ <- forkIO $ do
@@ -109,19 +118,20 @@ devel opts passThroughArgs = withManager $ \manager -> do
       ldar <- lookupLdAr
       (hsSourceDirs, lib) <- checkCabalFile gpd
 
-      removeFileIfExists "dist/setup-config"
+      removeFileIfExists (bd </> "setup-config")
       configure cabal gpd opts
-      removeFileIfExists "dist/ghcargs.txt"  -- these files contain the wrong data after
-      removeFileIfExists "dist/arargs.txt"   -- the configure step, remove them to force
-      removeFileIfExists "dist/ldargs.txt"   -- a cabal build first
+      removeFileIfExists "yesod-devel/ghcargs.txt"  -- these files contain the wrong data after
+      removeFileIfExists "yesod-devel/arargs.txt"   -- the configure step, remove them to force
+      removeFileIfExists "yesod-devel/ldargs.txt"   -- a cabal build first
       filesModified <- newEmptyMVar
       watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
       mainLoop hsSourceDirs filesModified cabal gpd lib ldar
 
     _ <- getLine
-    writeLock
+    writeLock opts
     exitSuccess
   where
+    bd = getBuildDir opts
     mainLoop :: [FilePath]
              -> MVar ()
              -> FilePath
@@ -144,14 +154,14 @@ devel opts passThroughArgs = withManager $ \manager -> do
                    runBuildHook $ failHook opts
              else do
                    runBuildHook $ successHook opts
-                   removeLock
+                   removeLock opts
                    putStrLn $ if verbose opts then "Starting development server: runghc " ++ L.unwords devArgs
                                               else "Starting development server..."
                    (_,_,_,ph) <- createProcess $ proc "runghc" devArgs
                    watchTid <- forkIO . try_ $ do
                          watchForChanges filesModified hsSourceDirs [cabal] list (eventTimeout opts)
                          putStrLn "Stopping development server..."
-                         writeLock
+                         writeLock opts
                          threadDelay 1000000
                          putStrLn "Terminating development server..."
                          terminateProcess ph
@@ -180,7 +190,7 @@ configure _cabalFile gpd opts
   | isCabalDev opts = rawSystem (cabalCommand opts) args >> return ()
   | otherwise       = do
                         lbi <- D.configure (gpd, hookedBuildInfo) configFlags
-                        D.writePersistBuildConfig "dist" lbi -- fixme we could keep this in memory instead of file
+                        D.writePersistBuildConfig (getBuildDir opts) lbi -- fixme we could keep this in memory instead of file
   where
     hookedBuildInfo = (Nothing, [])
     configFlags | forceCabal opts = config
@@ -234,9 +244,9 @@ mkRebuild gpd ghcVer cabalFile opts (ldPath, arPath)
   | forceCabal opts               = return (rebuildCabal gpd opts)
   | otherwise                     = do
       return $ do
-        n1 <- cabalFile `isNewerThan` "dist/ghcargs.txt"
-        n2 <- cabalFile `isNewerThan` "dist/arargs.txt"
-        n3 <- cabalFile `isNewerThan` "dist/ldargs.txt"
+        n1 <- cabalFile `isNewerThan` "yesod-devel/ghcargs.txt"
+        n2 <- cabalFile `isNewerThan` "yesod-devel/arargs.txt"
+        n3 <- cabalFile `isNewerThan` "yesod-devel/ldargs.txt"
         if n1 || n2 || n3
           then rebuildCabal gpd opts
           else do
@@ -260,7 +270,7 @@ rebuildCabal _gpd opts
              _           -> False
     | otherwise = do
        putStrLn $ "Rebuilding application... (using Cabal library)"
-       lbi <- getPersistBuildConfig "dist" -- fixme we could cache this from the configure step
+       lbi <- getPersistBuildConfig opts -- fixme we could cache this from the configure step
        let buildFlags | verbose opts = DSS.defaultBuildFlags
                       | otherwise    = DSS.defaultBuildFlags { DSS.buildVerbosity = DSS.Flag D.silent }
        tryBool $ D.build (D.localPkgDescr lbi) lbi buildFlags []
@@ -344,7 +354,7 @@ ghcVersion = fmap getNumber $ readProcess "runghc" ["--numeric-version", "0"] []
 
 ghcPackageArgs :: DevelOpts -> String -> D.PackageDescription -> D.Library -> IO [String]
 ghcPackageArgs opts ghcVer cabal lib = do
-   lbi <- getPersistBuildConfig "dist"
+   lbi <- getPersistBuildConfig opts
    cbi <- fromMaybeErr errCbi (D.libraryConfig lbi)
    if isCabalDev opts
      then return ("-hide-all-packages" : "-no-user-package-conf" : inplaceConf : selfPkgArg lbi : cabalDevConf : depArgs lbi cbi)
@@ -353,26 +363,26 @@ ghcPackageArgs opts ghcVer cabal lib = do
         selfPkgArg lbi  = pkgArg . D.inplacePackageId . D.package . D.localPkgDescr $ lbi
         pkgArg (D.InstalledPackageId pkgId) = "-package-id" ++ pkgId
         depArgs lbi cbi = map pkgArg (deps lbi cbi)
-        deps lbi cbi    = let pkgInfo = D.inplaceInstalledPackageInfo "." "dist" cabal lib lbi cbi
+        deps lbi cbi    = let pkgInfo = D.inplaceInstalledPackageInfo "." (getBuildDir opts) cabal lib lbi cbi
                           in  IPI.depends $ pkgInfo
         errCbi          = "No library ComponentBuildInfo"
         cabalDevConf    = "-package-confcabal-dev/packages-" ++ ghcVer ++ ".conf"
-        inplaceConf     = "-package-confdist/package.conf.inplace"
+        inplaceConf     = "-package-conf" ++ (getBuildDir opts</>"package.conf.inplace")
 
-getPersistBuildConfig :: FilePath -> IO D.LocalBuildInfo
-getPersistBuildConfig path = fromRightErr errLbi =<< getPersistConfigLenient path -- D.maybeGetPersistBuildConfig path
+getPersistBuildConfig :: DevelOpts -> IO D.LocalBuildInfo
+getPersistBuildConfig opts = fromRightErr errLbi =<< getPersistConfigLenient opts -- D.maybeGetPersistBuildConfig path
     where
-        errLbi          = "Could not read BuildInfo file: " ++ D.localBuildInfoFile "dist" ++
+        errLbi          = "Could not read BuildInfo file: " ++ D.localBuildInfoFile (getBuildDir opts) ++
                           "\nMake sure that cabal-install has been compiled with the same GHC version as yesod." ++
                           "\nand that the Cabal library used by GHC is the same version"
 
 -- there can be slight differences in the cabal version, ignore those when loading the file as long as we can parse it
-getPersistConfigLenient :: FilePath -> IO (Either String D.LocalBuildInfo)
-getPersistConfigLenient fp = do
-  let file = fp ++ "/setup-config"
+getPersistConfigLenient :: DevelOpts -> IO (Either String D.LocalBuildInfo)
+getPersistConfigLenient opts = do
+  let file = D.localBuildInfoFile (getBuildDir opts)
   exists <- doesFileExist file
   if not exists
-    then return (Left $ "file does not exist: " ++ fp)
+    then return (Left $ "file does not exist: " ++ file)
     else do
       xs <- readFile file
       return $ case lines xs of

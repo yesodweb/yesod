@@ -19,7 +19,7 @@ main = do
 loop :: IO ()
 loop = do
   threadDelay 100000
-  e <- doesFileExist "dist/devel-terminate"
+  e <- doesFileExist "yesod-devel/devel-terminate"
   if e then terminateDevel else loop
 
 terminateDevel :: IO ()
