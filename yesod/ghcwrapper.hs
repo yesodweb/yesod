@@ -5,37 +5,40 @@
 {-# LANGUAGE CPP #-}
 module Main where
 
-import Control.Monad (when)
-import Data.Maybe (fromMaybe)
+import           Control.Monad                     (when)
+import           Data.Maybe                        (fromMaybe)
 
-import Distribution.Compiler (CompilerFlavor(..))
-import Distribution.Simple.Configure (configCompiler)
-import Distribution.Simple.Program (defaultProgramConfiguration, programPath, ghcProgram,
-                                    ldProgram, arProgram)
-import Distribution.Simple.Program.Db (lookupProgram, configureAllKnownPrograms)
-import Distribution.Simple.Program.Types (Program(..))
-import Distribution.Verbosity (silent)
+import           Distribution.Compiler             (CompilerFlavor (..))
+import           Distribution.Simple.Configure     (configCompiler)
+import           Distribution.Simple.Program       (arProgram,
+                                                    defaultProgramConfiguration,
+                                                    ghcProgram, ldProgram,
+                                                    programPath)
+import           Distribution.Simple.Program.Db    (configureAllKnownPrograms,
+                                                    lookupProgram)
+import           Distribution.Simple.Program.Types (Program (..))
+import           Distribution.Verbosity            (silent)
 
-import System.Directory (doesDirectoryExist)
-import System.Environment (getArgs)
-import System.Exit (exitWith, ExitCode(..))
-import System.IO (hPutStrLn, stderr)
-import System.Process (rawSystem, readProcess)
+import           System.Directory                  (doesDirectoryExist)
+import           System.Environment                (getArgs)
+import           System.Exit                       (ExitCode (..), exitWith)
+import           System.IO                         (hPutStrLn, stderr)
+import           System.Process                    (rawSystem, readProcess)
 
 
 #ifdef LDCMD
 cmd :: Program
 cmd = ldProgram
-outFile = "dist/ldargs.txt"
+outFile = "yesod-devel/ldargs.txt"
 #else
 #ifdef ARCMD
 cmd :: Program
 cmd = arProgram
-outFile ="dist/arargs.txt"
+outFile ="yesod-devel/arargs.txt"
 #else
 cmd :: Program
 cmd = ghcProgram
-outFile = "dist/ghcargs.txt"
+outFile = "yesod-devel/ghcargs.txt"
 #endif
 #endif
 
@@ -51,7 +54,7 @@ runProgram pgm args = do
 
 main = do
   args <- getArgs
-  e <- doesDirectoryExist "dist"
+  e <- doesDirectoryExist "yesod-devel"
   when e $ writeFile outFile (show args ++ "\n")
   ex <- runProgram cmd args
   exitWith ex
