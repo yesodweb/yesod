@@ -7,7 +7,6 @@ import YesodCoreTest.JsLoaderSites.HeadAsync (HA(..))
 import YesodCoreTest.JsLoaderSites.Bottom (B(..))
 
 import Test.Hspec
-import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
 import Network.Wai.Test

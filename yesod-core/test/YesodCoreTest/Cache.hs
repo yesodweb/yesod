@@ -4,7 +4,6 @@
 module YesodCoreTest.Cache (cacheTest, Widget) where
 
 import Test.Hspec
-import Test.Hspec.HUnit()
 
 import Network.Wai
 import Network.Wai.Test
