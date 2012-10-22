@@ -6,7 +6,6 @@ module YesodCoreTest.ErrorHandling
     ) where
 import Yesod.Core
 import Test.Hspec
-import Test.Hspec.HUnit()
 import Network.Wai
 import Network.Wai.Test
 import Text.Hamlet (hamlet)

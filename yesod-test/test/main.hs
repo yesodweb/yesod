@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 import Test.HUnit hiding (Test)
-import Test.Hspec.Monadic
-import Test.Hspec.HUnit ()
+import Test.Hspec
 
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS

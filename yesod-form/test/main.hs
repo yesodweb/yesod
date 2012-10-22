@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-import Test.HUnit
-import Test.Hspec.Monadic
-import Test.Hspec.HUnit ()
+import Test.Hspec
 import Data.Time (TimeOfDay (TimeOfDay))
 import Data.Text (pack)
 
@@ -10,7 +8,7 @@ import Yesod.Form.Types
 
 main :: IO ()
 main = hspec $
-    describe "parseTime" $ mapM_ (\(s, e) -> it s $ parseTime (pack s) @?= e)
+    describe "parseTime" $ mapM_ (\(s, e) -> it s $ parseTime (pack s) `shouldBe` e)
         [ ("01:00:00", Right $ TimeOfDay 1 0 0)
         , ("1:00", Right $ TimeOfDay 1 0 0)
         , ("1:00 AM", Right $ TimeOfDay 1 0 0)
