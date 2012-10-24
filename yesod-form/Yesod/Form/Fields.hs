@@ -329,7 +329,7 @@ selectField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (
 selectField = selectFieldHelper
     (\theId name inside -> [whamlet|
 $newline never
-<select ##{theId} name=#{name}>^{inside}
+<select ##{theId} name=#{name} *{attrs}>^{inside}
 |]) -- outside
     (\_theId _name isSel -> [whamlet|
 $newline never
@@ -337,7 +337,7 @@ $newline never
 |]) -- onOpt
     (\_theId _name attrs value isSel text -> [whamlet|
 $newline never
-<option value=#{value} :isSel:selected *{attrs}>#{text}
+<option value=#{value} :isSel:selected>#{text}
 |]) -- inside
 
 multiSelectFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master [a]
