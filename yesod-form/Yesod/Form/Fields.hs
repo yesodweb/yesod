@@ -327,7 +327,7 @@ selectFieldList = selectField . optionsPairs
 
 selectField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
 selectField = selectFieldHelper
-    (\theId name inside -> [whamlet|
+    (\theId name attrs inside -> [whamlet|
 $newline never
 <select ##{theId} name=#{name} *{attrs}>^{inside}
 |]) -- outside
@@ -335,7 +335,7 @@ $newline never
 $newline never
 <option value=none :isSel:selected>_{MsgSelectNone}
 |]) -- onOpt
-    (\_theId _name attrs value isSel text -> [whamlet|
+    (\_theId _name _attrs value isSel text -> [whamlet|
 $newline never
 <option value=#{value} :isSel:selected>#{text}
 |]) -- inside
@@ -374,7 +374,7 @@ radioFieldList = radioField . optionsPairs
 
 radioField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
 radioField = selectFieldHelper
-    (\theId _name inside -> [whamlet|
+    (\theId _name _attrs inside -> [whamlet|
 $newline never
 <div ##{theId}>^{inside}
 |])
@@ -494,7 +494,7 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
 
 selectFieldHelper
         :: (Eq a, RenderMessage master FormMessage)
-        => (Text -> Text -> GWidget sub master () -> GWidget sub master ())
+        => (Text -> Text -> [(Text, Text)] -> GWidget sub master () -> GWidget sub master ())
         -> (Text -> Text -> Bool -> GWidget sub master ())
         -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> GWidget sub master ())
         -> GHandler sub master (OptionList a) -> Field sub master a
@@ -504,7 +504,7 @@ selectFieldHelper outside onOpt inside opts' = Field
         return $ selectParser opts x
     , fieldView = \theId name attrs val isReq -> do
         opts <- fmap olOptions $ lift opts'
-        outside theId name $ do
+        outside theId name attrs $ do
             unless isReq $ onOpt theId name $ not $ render opts val `elem` map optionExternalValue opts
             flip mapM_ opts $ \opt -> inside
                 theId
