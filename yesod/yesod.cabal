@@ -62,6 +62,7 @@ extra-source-files:
   scaffold/config/robots.txt.cg
   scaffold/config/mongoDB.yml.cg
   scaffold/devel.hs.cg
+  scaffold/.gitignore.cg
 
 library
     build-depends:   base                      >= 4.3      && < 5
