@@ -144,10 +144,6 @@ instance RenderRoute Static where
     renderRoute (StaticRoute x y) = (x, y)
 
 instance Yesod master => YesodDispatch Static master where
-    -- Need to append trailing slash to make relative links work
-    yesodDispatch _ _ _ _ _ _ _ [] _ req =
-        return $ responseLBS status301 [("Location", rawPathInfo req `S.append` "/")] ""
-
     yesodDispatch _ _ (Static set) _ _ _ _ textPieces  _ req =
         staticApp set req { pathInfo = textPieces }
 
