@@ -4,7 +4,6 @@ import           Control.Monad          (unless)
 import           Data.Monoid
 import           Data.Version           (showVersion)
 import           Options.Applicative
-import           System.Environment     (getEnvironment)
 import           System.Exit            (ExitCode (ExitSuccess), exitWith)
 import           System.Process         (rawSystem)
 
@@ -13,6 +12,7 @@ import           Yesod.Core             (yesodVersion)
 import           AddHandler             (addHandler)
 import           Devel                  (DevelOpts (..), devel)
 import           Keter                  (keter)
+import           Options                (injectDefaults)
 import qualified Paths_yesod
 import           Scaffolding.Scaffolder
 
@@ -63,12 +63,10 @@ data Command = Init
              | Version
   deriving (Show, Eq)
 
-type Environment = [(String, String)]
-
 main :: IO ()
 main = do
-  env <- getEnvironment
-  o <- execParser (optParser' env)
+  o <- execParser =<< injectDefaults "yesod" optParser'
+  print o
   let cabal xs = rawSystem' (cabalCommand o) xs
   case optCommand o of
     Init                -> scaffold
@@ -85,11 +83,11 @@ main = do
                               cabal ["build"]
                               cabal ["test"]
 
-optParser' :: Environment -> ParserInfo Options
-optParser' env = info (helper <*> optParser env) ( fullDesc <> header "Yesod Web Framework command line utility" )
+optParser' :: ParserInfo Options
+optParser' = info (helper <*> optParser) ( fullDesc <> header "Yesod Web Framework command line utility" )
 
-optParser :: Environment -> Parser Options
-optParser env = Options
+optParser :: Parser Options
+optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
         <*> subparser ( command "init"      (info (pure Init)
@@ -100,7 +98,7 @@ optParser env = Options
                             (progDesc $ "Build project (performs TH dependency analysis)" ++ windowsWarning))
                       <> command "touch"     (info (pure Touch)
                             (progDesc $ "Touch any files with altered TH dependencies but do not build" ++ windowsWarning))
-                      <> command "devel"     (info (develOptions env)
+                      <> command "devel"     (info develOptions
                             (progDesc "Run project with the devel server"))
                       <> command "test"      (info (pure Test)
                             (progDesc "Build and run the integration tests"))
@@ -115,19 +113,18 @@ optParser env = Options
 keterOptions :: Parser Command
 keterOptions = Keter <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebuilding" )
 
-develOptions :: Environment -> Parser Command
-develOptions env = Devel <$> switch ( long "disable-api"  <> short 'd'
-                                <> help "Disable fast GHC API rebuilding")
-                         <*> optStr ( long "success-hook" <> short 's' <> metavar "COMMAND"
-                                <> help "Run COMMAND after rebuild succeeds")
-                         <*> optStr ( long "failure-hook" <> short 'f' <> metavar "COMMAND"
-                                <> help "Run COMMAND when rebuild fails")
-                         <*> option ( long "event-timeout" <> short 't' <> value (-1) <> metavar "N"
-                                <> help "Force rescan of files every N seconds" )
-
-                         <*> optStrEnv env "CABAL_BUILDDIR" ( long "builddir" <> short 'b'
-                                <> help "Set custom cabal build directory, default `dist' or the CABAL_BUILDDIR environment variable")
-                         <*> extraCabalArgs
+develOptions :: Parser Command
+develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
+                            <> help "Disable fast GHC API rebuilding")
+                     <*> optStr ( long "success-hook" <> short 's' <> metavar "COMMAND"
+                            <> help "Run COMMAND after rebuild succeeds")
+                     <*> optStr ( long "failure-hook" <> short 'f' <> metavar "COMMAND"
+                            <> help "Run COMMAND when rebuild fails")
+                     <*> option ( long "event-timeout" <> short 't' <> value (-1) <> metavar "N"
+                            <> help "Force rescan of files every N seconds" )
+                     <*> optStr ( long "builddir" <> short 'b'
+                            <> help "Set custom cabal build directory, default `dist'")
+                     <*> extraCabalArgs
 
 extraCabalArgs :: Parser [String]
 extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"
@@ -137,12 +134,6 @@ extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metava
 -- | Optional @String@ argument
 optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
 optStr m = nullOption $ value Nothing <> reader (Just . str)  <> m
-
-optStrEnv :: Environment
-          -> String
-          -> Mod OptionFields (Maybe String)
-          -> Parser (Maybe String)
-optStrEnv env v m = nullOption $ value (lookup v env) <> reader (Just . str) <> m
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
 rawSystem' :: String -> [String] -> IO ()

@@ -132,6 +132,7 @@ executable             yesod
                      , yaml               >= 0.8          && < 0.9
                      , optparse-applicative >= 0.4        && < 0.5
                      , fsnotify           >= 0.0          && < 0.1
+                     , split              >= 0.2          && < 0.3
 
     ghc-options:       -Wall -threaded
     main-is:           main.hs
@@ -143,7 +144,7 @@ executable             yesod
                        Keter
                        AddHandler
                        Paths_yesod
-
+                       Options
 
 source-repository head
   type:     git
