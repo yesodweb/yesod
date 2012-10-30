@@ -138,6 +138,9 @@ executable             yesod
                      , fsnotify           >= 0.0          && < 0.1
                      , split              >= 0.2          && < 0.3
                      , lifted-base
+                     , http-reverse-proxy >= 0.1.0.4
+                     , network
+                     , http-conduit
 
     ghc-options:       -Wall -threaded
     main-is:           main.hs

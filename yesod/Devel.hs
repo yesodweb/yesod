@@ -41,6 +41,7 @@ import           Data.Maybe                            (fromMaybe)
 import qualified Data.Set                              as Set
 
 import           System.Directory
+import           System.Environment                    (getEnvironment)
 import           System.Exit                           (ExitCode (..),
                                                         exitFailure,
                                                         exitSuccess)
@@ -62,7 +63,8 @@ import           System.Process                        (ProcessHandle,
                                                         readProcess,
                                                         runInteractiveProcess,
                                                         system,
-                                                        terminateProcess)
+                                                        terminateProcess,
+                                                        env)
 import           System.Timeout                        (timeout)
 
 import           Build                                 (getDeps, isNewerThan,
@@ -72,6 +74,12 @@ import           GhcBuild                              (buildPackage,
 
 import qualified Config                                as GHC
 import           SrcLoc                                (Located)
+import           Network.HTTP.ReverseProxy             (waiProxyTo, ProxyDest (ProxyDest))
+import           Network                               (withSocketsDo)
+import           Network.Wai                           (responseLBS)
+import           Network.HTTP.Types                    (status200)
+import           Network.Wai.Handler.Warp              (run)
+import           Network.HTTP.Conduit                  (newManager, def)
 
 lockFile :: DevelOpts -> FilePath
 lockFile _opts =  "yesod-devel/devel-terminate"
@@ -108,8 +116,26 @@ cabalCommand opts | isCabalDev opts = "cabal-dev"
 defaultDevelOpts :: DevelOpts
 defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing
 
+-- | Run a reverse proxy from port 3000 to 3001. If there is no response on
+-- 3001, give an appropriate message to the user.
+reverseProxy :: IO ()
+reverseProxy = withSocketsDo $ do
+    manager <- newManager def
+    run 3000 $ waiProxyTo
+        (const $ return $ Right $ ProxyDest "localhost" 3001)
+        onExc
+        manager
+  where
+    onExc _ _ = return $ responseLBS
+        status200
+        [ ("content-type", "text/html")
+        , ("Refresh", "1")
+        ]
+        "<h1>App not ready, please refresh</h1>"
+
 devel :: DevelOpts -> [String] -> IO ()
 devel opts passThroughArgs = withManager $ \manager -> do
+    _ <- forkIO reverseProxy
     checkDevelFile
     writeLock opts
 
@@ -162,7 +188,10 @@ devel opts passThroughArgs = withManager $ \manager -> do
                    liftIO $ putStrLn
                             $ if verbose opts then "Starting development server: runghc " ++ L.unwords devArgs
                                               else "Starting development server..."
-                   (_,_,_,ph) <- liftIO $ createProcess $ proc "runghc" devArgs
+                   env0 <- liftIO getEnvironment
+                   (_,_,_,ph) <- liftIO $ createProcess (proc "runghc" devArgs)
+                        { env = Just $ ("PORT", "3001") : ("DISPLAY_PORT", "3000") : env0
+                        }
                    derefMap <- get
                    watchTid <- liftIO . forkIO . try_ $ flip evalStateT derefMap $ do
                       loop list
