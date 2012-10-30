@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Build
     ( getDeps
     , touchDeps
@@ -11,32 +12,53 @@ module Build
 -- FIXME there's a bug when getFileStatus applies to a file
 -- temporary deleted (e.g., Vim saving a file)
 
-import           Control.Applicative ((<|>), many)
+import           Control.Applicative ((<|>), many, (<$>))
 import qualified Data.Attoparsec.Text.Lazy as A
 import           Data.Char (isSpace, isUpper)
 import qualified Data.Text.Lazy.IO as TIO
 
 import           Control.Exception (SomeException, try)
+import           Control.Exception.Lifted (handle)
 import           Control.Monad (when, filterM, forM, forM_, (>=>))
+import           Control.Monad.Trans.State (StateT, get, put, execStateT)
+import           Control.Monad.Trans.Writer (WriterT, tell, execWriterT)
+import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.Trans.Class (lift)
 
-import           Data.Monoid (mappend)
+import           Data.Monoid (Monoid (mappend, mempty))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import qualified System.Posix.Types
 import           System.Directory
-import           System.FilePath (takeExtension, replaceExtension, (</>))
+import           System.FilePath (takeExtension, replaceExtension, (</>), takeDirectory)
 import           System.PosixCompat.Files (getFileStatus, setFileTimes,
                                              accessTime, modificationTime)
 
+import           Text.Shakespeare (Deref)
+import           Text.Julius      (juliusUsedIdentifiers)
+import           Text.Cassius     (cassiusUsedIdentifiers)
+import           Text.Lucius      (luciusUsedIdentifiers)
 
 touch :: IO ()
-touch = touchDeps id updateFileTime =<< fmap snd (getDeps [])
+touch = do
+    m <- handle (\(_ :: SomeException) -> return Map.empty) $ readFile touchCache >>= readIO
+    x <- fmap snd (getDeps [])
+    m' <- execStateT (execWriterT $ touchDeps id updateFileTime x) m
+    createDirectoryIfMissing True $ takeDirectory touchCache
+    writeFile touchCache $ show m'
+  where
+    touchCache = "dist/touchCache.txt"
 
-recompDeps :: [FilePath] -> IO ()
-recompDeps = getDeps >=> touchDeps hiFile removeHi . snd
+-- | Returns True if any files were touched, otherwise False
+recompDeps :: [FilePath] -> StateT (Map.Map FilePath (Set.Set Deref)) IO Bool
+recompDeps =
+    fmap toBool . execWriterT . (liftIO . getDeps >=> touchDeps hiFile removeHi . snd)
+  where
+    toBool NoFilesTouched = False
+    toBool SomeFilesTouched = True
 
-type Deps = Map.Map FilePath (Set.Set FilePath)
+type Deps = Map.Map FilePath ([FilePath], ComparisonType)
 
 getDeps :: [FilePath] -> IO ([FilePath], Deps)
 getDeps hsSourceDirs = do
@@ -47,17 +69,35 @@ getDeps hsSourceDirs = do
     deps' <- mapM determineDeps hss
     return $ (hss, fixDeps $ zip hss deps')
 
+data AnyFilesTouched = NoFilesTouched | SomeFilesTouched
+instance Monoid AnyFilesTouched where
+    mempty = NoFilesTouched
+    mappend NoFilesTouched NoFilesTouched = mempty
+    mappend _ _ = SomeFilesTouched
+
 touchDeps :: (FilePath -> FilePath) ->
              (FilePath -> FilePath -> IO ()) ->
-             Deps -> IO ()
+             Deps -> WriterT AnyFilesTouched (StateT (Map.Map FilePath (Set.Set Deref)) IO) ()
 touchDeps f action deps = (mapM_ go . Map.toList) deps
   where
-    go (x, ys) =
-        forM_ (Set.toList ys) $ \y -> do
-            n <- x `isNewerThan` f y
+    go (x, (ys, ct)) = do
+        isChanged <- handle (\(_ :: SomeException) -> return True) $ lift $
+            case ct of
+                AlwaysOutdated -> return True
+                CompareUsedIdentifiers getDerefs -> do
+                    derefMap <- get
+                    s <- liftIO $ readFile x
+                    let newDerefs = Set.fromList $ getDerefs s
+                    put $ Map.insert x newDerefs derefMap
+                    case Map.lookup x derefMap of
+                        Just oldDerefs | oldDerefs == newDerefs -> return False
+                        _ -> return True
+        when isChanged $ forM_ ys $ \y -> do
+            n <- liftIO $ x `isNewerThan` f y
             when n $ do
-              putStrLn ("Forcing recompile for " ++ y ++ " because of " ++ x)
-              action x y
+                liftIO $ putStrLn ("Forcing recompile for " ++ y ++ " because of " ++ x)
+                liftIO $ action x y
+                tell SomeFilesTouched
 
 -- | remove the .hi files for a .hs file, thereby forcing a recompile
 removeHi :: FilePath -> FilePath -> IO ()
@@ -95,12 +135,14 @@ getFileStatus' fp = do
         Left _ -> return (0, 0)
         Right fs -> return (accessTime fs, modificationTime fs)
 
-fixDeps :: [(FilePath, [FilePath])] -> Deps
+fixDeps :: [(FilePath, [(ComparisonType, FilePath)])] -> Deps
 fixDeps =
-    Map.unionsWith mappend . map go
+    Map.unionsWith combine . map go
   where
-    go :: (FilePath, [FilePath]) -> Deps
-    go (x, ys) = Map.fromList $ map (\y -> (y, Set.singleton x)) ys
+    go :: (FilePath, [(ComparisonType, FilePath)]) -> Deps
+    go (x, ys) = Map.fromList $ map (\(ct, y) -> (y, ([x], ct))) ys
+
+    combine (ys1, ct) (ys2, _) = (ys1 `mappend` ys2, ct)
 
 findHaskellFiles :: FilePath -> IO [FilePath]
 findHaskellFiles path = do
@@ -125,21 +167,34 @@ findHaskellFiles path = do
         watch_files = [".hs", ".lhs"]
 
 data TempType = StaticFiles FilePath
-              | Verbatim | Messages FilePath | Hamlet 
+              | Verbatim | Messages FilePath | Hamlet | Widget | Julius | Cassius | Lucius
     deriving Show
 
-determineDeps :: FilePath -> IO [FilePath]
+-- | How to tell if a file is outdated.
+data ComparisonType = AlwaysOutdated
+                    | CompareUsedIdentifiers (String -> [Deref])
+
+determineDeps :: FilePath -> IO [(ComparisonType, FilePath)]
 determineDeps x = do
     y <- TIO.readFile x -- FIXME catch IO exceptions
     let z = A.parse (many $ (parser <|> (A.anyChar >> return Nothing))) y
     case z of
         A.Fail{} -> return []
-        A.Done _ r -> mapM go r >>= filterM doesFileExist . concat
+        A.Done _ r -> mapM go r >>= filterM (doesFileExist . snd) . concat
   where
-    go (Just (StaticFiles fp, _)) = getFolderContents fp
-    go (Just (Hamlet, f)) = return [f, "templates/" ++ f ++ ".hamlet"]
-    go (Just (Verbatim, f)) = return [f]
-    go (Just (Messages f, _)) = getFolderContents f
+    go (Just (StaticFiles fp, _)) = map ((,) AlwaysOutdated) <$> getFolderContents fp
+    go (Just (Hamlet, f)) = return [(AlwaysOutdated, f)]
+    go (Just (Widget, f)) = return
+        [ (AlwaysOutdated, "templates/" ++ f ++ ".hamlet")
+        , (CompareUsedIdentifiers $ map fst . juliusUsedIdentifiers, "templates/" ++ f ++ ".julius")
+        , (CompareUsedIdentifiers $ map fst . luciusUsedIdentifiers, "templates/" ++ f ++ ".lucius")
+        , (CompareUsedIdentifiers $ map fst . cassiusUsedIdentifiers, "templates/" ++ f ++ ".cassius")
+        ]
+    go (Just (Julius, f)) = return [(CompareUsedIdentifiers $ map fst . juliusUsedIdentifiers, f)]
+    go (Just (Cassius, f)) = return [(CompareUsedIdentifiers $ map fst . cassiusUsedIdentifiers, f)]
+    go (Just (Lucius, f)) = return [(CompareUsedIdentifiers $ map fst . luciusUsedIdentifiers, f)]
+    go (Just (Verbatim, f)) = return [(AlwaysOutdated, f)]
+    go (Just (Messages f, _)) = map ((,) AlwaysOutdated) <$> getFolderContents f
     go Nothing = return []
 
     parser = do
@@ -151,9 +206,12 @@ determineDeps x = do
            <|> (A.string "$(ihamletFile " >> return Hamlet)
            <|> (A.string "$(whamletFile " >> return Hamlet)
            <|> (A.string "$(html " >> return Hamlet)
-           <|> (A.string "$(widgetFile " >> return Hamlet)
+           <|> (A.string "$(widgetFile " >> return Widget)
            <|> (A.string "$(Settings.hamletFile " >> return Hamlet)
-           <|> (A.string "$(Settings.widgetFile " >> return Hamlet)
+           <|> (A.string "$(Settings.widgetFile " >> return Widget)
+           <|> (A.string "$(juliusFile " >> return Julius)
+           <|> (A.string "$(cassiusFile " >> return Cassius)
+           <|> (A.string "$(luciusFile " >> return Lucius)
            <|> (A.string "$(persistFile " >> return Verbatim)
            <|> (
                    A.string "$(persistFileWith " >>
