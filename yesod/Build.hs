@@ -243,6 +243,7 @@ determineDeps x = do
         cs <- getDirectoryContents fp
         let notHidden ('.':_) = False
             notHidden ('t':"mp") = False
+            notHidden ('f':"ay") = False
             notHidden _ = True
         fmap concat $ forM (filter notHidden cs) $ \c -> do
             let f = fp ++ '/' : c
