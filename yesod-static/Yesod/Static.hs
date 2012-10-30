@@ -68,11 +68,10 @@ import qualified Data.Serialize
 import Data.Text (Text, pack)
 import qualified Data.Map as M
 import Data.IORef (readIORef, newIORef, writeIORef)
-import Network.Wai (pathInfo, rawPathInfo, responseLBS)
+import Network.Wai (pathInfo)
 import Data.Char (isLower, isDigit)
 import Data.List (foldl')
 import qualified Data.ByteString as S
-import Network.HTTP.Types (status301)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
 import Data.Conduit (($$))
