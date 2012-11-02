@@ -1,5 +1,7 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE TemplateHaskell #-}
 
+import           Control.Lens           hiding (value)
 import           Control.Monad          (unless)
 import           Data.Monoid
 import           Data.Version           (showVersion)
@@ -32,17 +34,12 @@ windowsWarning :: String
 windowsWarning = " (does not work on Windows)"
 #endif
 
-cabalCommand :: Options -> String
-cabalCommand mopt
-  | optCabalPgm mopt == CabalDev = "cabal-dev"
-  | otherwise                    = "cabal"
-
 data CabalPgm = Cabal | CabalDev deriving (Show, Eq)
 
 data Options = Options
-               { optCabalPgm :: CabalPgm
-               , optVerbose  :: Bool
-               , optCommand  :: Command
+               { _optCabalPgm :: CabalPgm
+               , _optVerbose  :: Bool
+               , _optCommand  :: Command
                }
   deriving (Show, Eq)
 
@@ -55,6 +52,7 @@ data Command = Init
                      , _develFailHook    :: Maybe String
                      , _develRescan      :: Int
                      , _develBuildDir    :: Maybe String
+                     , _develIgnore      :: [String]
                      , _develExtraArgs   :: [String]
                      }
              | Test
@@ -63,25 +61,36 @@ data Command = Init
              | Version
   deriving (Show, Eq)
 
+makeLenses ''Options
+makeLenses ''Command
+
+cabalCommand :: Options -> String
+cabalCommand mopt
+  | mopt^.optCabalPgm == CabalDev = "cabal-dev"
+  | otherwise                     = "cabal"
+
+
 main :: IO ()
 main = do
-  o <- execParser =<< injectDefaults "yesod" optParser'
+  o <- execParser =<< injectDefaults "yesod" [ ("yesod.devel.extracabalarg" , optCommand . develExtraArgs)
+                                             , ("yesod.devel.ignore"        , optCommand . develIgnore)
+                                             ] optParser'
   print o
   let cabal xs = rawSystem' (cabalCommand o) xs
-  case optCommand o of
-    Init                -> scaffold
-    Configure           -> cabal ["configure"]
-    Build es            -> touch' >> cabal ("build":es)
-    Touch               -> touch'
-    Devel da s f r b es -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f b) es
-    Keter noRebuild     -> keter (cabalCommand o) noRebuild
-    Version             -> do putStrLn ("yesod-core version:" ++ yesodVersion)
-                              putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
-    AddHandler          -> addHandler
-    Test                -> do touch'
-                              cabal ["configure", "--enable-tests", "-flibrary-only"]
-                              cabal ["build"]
-                              cabal ["test"]
+  case o^.optCommand of
+    Init                    -> scaffold
+    Configure               -> cabal ["configure"]
+    Build es                -> touch' >> cabal ("build":es)
+    Touch                   -> touch'
+    Devel da s f r b ign es -> devel (DevelOpts (o^.optCabalPgm == CabalDev) da (o^.optVerbose) r s f b) es
+    Keter noRebuild         -> keter (cabalCommand o) noRebuild
+    Version                 -> do putStrLn ("yesod-core version:" ++ yesodVersion)
+                                  putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
+    AddHandler              -> addHandler
+    Test                    -> do touch'
+                                  cabal ["configure", "--enable-tests", "-flibrary-only"]
+                                  cabal ["build"]
+                                  cabal ["test"]
 
 optParser' :: ParserInfo Options
 optParser' = info (helper <*> optParser) ( fullDesc <> header "Yesod Web Framework command line utility" )
@@ -124,6 +133,9 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Force rescan of files every N seconds" )
                      <*> optStr ( long "builddir" <> short 'b'
                             <> help "Set custom cabal build directory, default `dist'")
+                     <*> many ( strOption ( long "ignore" <> short 'i' <> metavar "DIR"
+                                   <> help "ignore file changes in DIR" )
+                              )
                      <*> extraCabalArgs
 
 extraCabalArgs :: Parser [String]
