@@ -74,6 +74,7 @@ main :: IO ()
 main = do
   o <- execParser =<< injectDefaults "yesod" [ ("yesod.devel.extracabalarg" , optCommand . develExtraArgs)
                                              , ("yesod.devel.ignore"        , optCommand . develIgnore)
+                                             , ("yesod.build.extracabalarg" , optCommand . buildExtraArgs)
                                              ] optParser'
   print o
   let cabal xs = rawSystem' (cabalCommand o) xs
