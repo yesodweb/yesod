@@ -5,12 +5,15 @@ module Options (injectDefaults) where
 
 import           Control.Applicative
 import qualified Control.Exception         as E
+import           Control.Lens
 import           Control.Monad
 import           Data.Char                 (isAlphaNum, isSpace, toLower)
+import           Data.List                 (foldl')
 import           Data.List.Split           (splitOn)
 import qualified Data.Map                  as M
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid
+import           Data.Monoid.Lens
 import           Options.Applicative
 import           Options.Applicative.Types
 import           System.Directory
@@ -22,16 +25,31 @@ import           System.FilePath           ((</>))
 --    1. command line arguments: --long-option=value
 --    2. environment variables: PREFIX_COMMAND_LONGOPTION=value
 --    3. $HOME/.prefix/config:  prefix.command.longoption=value
-injectDefaults :: String -> ParserInfo a -> IO (ParserInfo a)
-injectDefaults prefix parser = do
+--
+-- note: this automatically injects values for standard options and flags
+--       (also inside subcommands), but not for more complex parsers that use BindP
+--       (like `many'). As a workaround a single special case is supported,
+--       for `many' arguments that generate a list of strings.
+
+injectDefaults :: String                                     -- ^ prefix, program name
+               -> [(String, Setting a a [String] [String])]  -- ^ append extra options for arguments that are lists of strings
+               -> ParserInfo a                               -- ^ original parsers
+               -> IO (ParserInfo a)
+injectDefaults prefix lenses parser = do
   e      <- getEnvironment
   config <- (readFile . (</> "config") =<< getAppUserDataDirectory prefix)
               `E.catch` \(_::E.SomeException) -> return ""
   let env = M.fromList . filter ((==[prefix]) . take 1 . fst) $
                configLines config <>                              -- config first
                map (\(k,v) -> (splitOn "_" $ map toLower k, v)) e -- env vars override config
-  print env
-  return $ parser { infoParser = injectDefaultP env [prefix] (infoParser parser) }
+      p' =  parser { infoParser = injectDefaultP env [prefix] (infoParser parser) }
+  return $ foldl' (\p (key,l) -> fmap (updateA env key l) p) p' lenses
+
+updateA :: M.Map [String] String -> String -> Setting a a [String] [String] -> a -> a
+updateA env key upd a =
+  case M.lookup (splitOn "." key) env of
+    Nothing -> a
+    Just v  -> upd <>~ (splitOn ":" v) $ a
 
 -- | really simple key/value file reader:   x.y = z -> (["x","y"],"z")
 configLines :: String -> [([String], String)]
@@ -62,8 +80,7 @@ injectDefaultP env path (MultP p1 p2) =
    MultP (injectDefaultP env path p1) (injectDefaultP env path p2)
 injectDefaultP env path (AltP p1 p2) =
    AltP (injectDefaultP env path p1) (injectDefaultP env path p2)
-injectDefaultP env path (BindP p1 f) =
-   BindP (injectDefaultP env path p1) (\a -> injectDefaultP env path (f a))
+injectDefaultP _env _path b@(BindP {}) = b
 
 getEnvValue :: M.Map [String] String -> [String] -> OptName -> Maybe String
 getEnvValue env path (OptLong l) = M.lookup (path ++ [normalizeName l]) env
@@ -71,3 +88,4 @@ getEnvValue _ _ _                = Nothing
 
 normalizeName :: String -> String
 normalizeName = map toLower . filter isAlphaNum
+
