@@ -8,8 +8,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
-import Test.Hspec.Monadic
-import Test.Hspec.HUnit ()
+import Test.Hspec
 import Test.HUnit ((@?=))
 import Data.Text (Text, pack, unpack, singleton)
 import Yesod.Routes.Dispatch hiding (Static, Dynamic)
@@ -195,7 +194,7 @@ thDispatchAlias master sub toMaster app404 handler405 method0 pieces0 =
 -}
 
 main :: IO ()
-main = hspecX $ do
+main = hspec $ do
     describe "justRoot" $ do
         it "dispatches correctly" $ test justRoot [] @?= Just 1
         it "fails correctly" $ test justRoot ["foo"] @?= Nothing

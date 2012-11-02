@@ -151,6 +151,7 @@ scaffold = do
     writeFile' "config/keter.yaml" $(codegen "config/keter.yaml")
     writeFile' "app/main.hs" $(codegen "app/main.hs")
     writeFile' "devel.hs" $(codegen "devel.hs")
+    writeFile' ".gitignore" $(codegen ".gitignore")
     writeFile' (project ++ ".cabal") $(codegen "project.cabal")
 
     writeFile' ".ghci" $(codegen ".ghci")

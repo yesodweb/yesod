@@ -4,7 +4,6 @@
 module YesodCoreTest.Links (linksTest, Widget) where
 
 import Test.Hspec
-import Test.Hspec.HUnit ()
 
 import Yesod.Core hiding (Request)
 import Text.Hamlet
