@@ -65,8 +65,22 @@ module Yesod.Test (
 
 where
 
+-- In in Hspec < 1.3 the Example instance for IO () (== Assertion/Expectation)
+-- is orphan and only export from Test.Hspec.HUnit.
+--
+-- In Hspec 1.3.* it is still orphan, but re-exported from Test.Hspec.
+--
+-- Starting with Hspec 1.4.0 it is not orphan anymore.
+--
+-- As we only support Hspec >= 1.3, we import Test.Hspec to bring the orphan
+-- instance into scope.  This is better than importing Test.Hspec.HUnit, as
+-- Test.Hspec.HUnit may be removed in the future.
+--
+-- As soon as we decide to drop support for Hspec 1.3.*, we can remove this
+-- comment and the following import.
+import qualified Test.Hspec ()
+
 import qualified Test.Hspec.Core as Core
-import qualified Test.Hspec.Runner as Runner
 import qualified Data.List as DL
 import qualified Data.Maybe as DY
 import qualified Data.ByteString.Char8 as BS8
@@ -75,7 +89,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Test.HUnit as HUnit
-import qualified Test.Hspec.HUnit ()
 import qualified Network.HTTP.Types as H
 import qualified Network.Socket.Internal as Sock
 import Data.CaseInsensitive (CI)
@@ -143,7 +156,7 @@ type CookieValue = ByteString
 runTests :: Application -> Pool conn -> SpecsConn conn -> IO ()
 runTests app connection specsDef = do
   (SpecsData _ _ specs) <- ST.execStateT specsDef (SpecsData app connection [])
-  Runner.hspec specs
+  Core.hspec specs
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'

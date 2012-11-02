@@ -5,7 +5,6 @@
 module YesodCoreTest.Media (mediaTest, Widget) where
 
 import Test.Hspec
-import Test.Hspec.HUnit ()
 import Yesod.Core hiding (Request)
 import Network.Wai
 import Network.Wai.Test
