@@ -76,7 +76,6 @@ main = do
                                              , ("yesod.devel.ignore"        , optCommand . develIgnore)
                                              , ("yesod.build.extracabalarg" , optCommand . buildExtraArgs)
                                              ] optParser'
-  print o
   let cabal xs = rawSystem' (cabalCommand o) xs
   case o^.optCommand of
     Init                    -> scaffold

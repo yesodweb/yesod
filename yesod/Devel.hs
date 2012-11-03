@@ -112,37 +112,34 @@ devel opts passThroughArgs = withManager $ \manager -> do
 
     putStrLn "Yesod devel server. Press ENTER to quit"
     _ <- forkIO $ do
-      cabal <- D.findPackageDesc "."
-      gpd   <- D.readPackageDescription D.normal cabal
-
-      ldar <- lookupLdAr
-      (hsSourceDirs, lib) <- checkCabalFile gpd
-
-      removeFileIfExists (bd </> "setup-config")
-      configure cabal gpd opts
-      removeFileIfExists "yesod-devel/ghcargs.txt"  -- these files contain the wrong data after
-      removeFileIfExists "yesod-devel/arargs.txt"   -- the configure step, remove them to force
-      removeFileIfExists "yesod-devel/ldargs.txt"   -- a cabal build first
       filesModified <- newEmptyMVar
       watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
-      mainLoop hsSourceDirs filesModified cabal gpd lib ldar
-
+      mainOuterLoop filesModified
     _ <- getLine
     writeLock opts
     exitSuccess
   where
     bd = getBuildDir opts
-    mainLoop :: [FilePath]
-             -> MVar ()
-             -> FilePath
-             -> D.GenericPackageDescription
-             -> D.Library
-             -> (FilePath, FilePath)
-             -> IO ()
-    mainLoop hsSourceDirs filesModified cabal gpd lib ldar = do
-       ghcVer <- ghcVersion
-       rebuild <- mkRebuild gpd ghcVer cabal opts ldar
-       forever $ do
+
+    -- outer loop re-reads the cabal file
+    mainOuterLoop filesModified = do
+      cabal <- D.findPackageDesc "."
+      gpd   <- D.readPackageDescription D.normal cabal
+      ldar <- lookupLdAr
+      (hsSourceDirs, lib) <- checkCabalFile gpd
+      removeFileIfExists (bd </> "setup-config")
+      configure cabal gpd opts
+      removeFileIfExists "yesod-devel/ghcargs.txt"  -- these files contain the wrong data after
+      removeFileIfExists "yesod-devel/arargs.txt"   -- the configure step, remove them to force
+      removeFileIfExists "yesod-devel/ldargs.txt"   -- a cabal build first
+      ghcVer <- ghcVersion
+      rebuild <- mkRebuild gpd ghcVer cabal opts ldar
+      mainInnerLoop hsSourceDirs filesModified cabal gpd lib ghcVer rebuild
+
+    -- inner loop rebuilds after files change
+    mainInnerLoop hsSourceDirs filesModified cabal gpd lib ghcVer rebuild = go
+       where
+         go = do
            recompDeps hsSourceDirs
            list <- getFileList hsSourceDirs [cabal]
            success <- rebuild
@@ -169,6 +166,8 @@ devel opts passThroughArgs = withManager $ \manager -> do
                    putStrLn $ "Exit code: " ++ show ec
                    Ex.throwTo watchTid (userError "process finished")
            watchForChanges filesModified hsSourceDirs [cabal] list (eventTimeout opts)
+           n <- cabal `isNewerThan` (bd </> "setup-config")
+           if n then mainOuterLoop filesModified else go
 
 runBuildHook :: Maybe String -> IO ()
 runBuildHook (Just s) = do
