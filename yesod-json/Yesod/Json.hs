@@ -33,6 +33,7 @@ import Control.Arrow (second)
 import Control.Applicative ((<$>))
 import Control.Monad (join)
 import qualified Data.Aeson as J
+import qualified Data.Aeson.Parser as JP
 import Data.Aeson ((.=))
 import qualified Data.Aeson.Encode as JE
 import Data.Aeson.Encode (fromValue)
@@ -85,7 +86,7 @@ jsonToRepJson = return . RepJson . toContent . J.toJSON
 parseJsonBody :: J.FromJSON a => GHandler sub master (J.Result a)
 parseJsonBody = do
     req <- waiRequest
-    fmap J.fromJSON $ lift $ requestBody req $$ sinkParser J.json'
+    fmap J.fromJSON $ lift $ requestBody req $$ sinkParser JP.value'
 
 -- | Same as 'parseJsonBody', but return an invalid args response on a parse
 -- error.
