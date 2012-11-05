@@ -24,9 +24,9 @@ Take part in the community: http://yesodweb.com/page/community
 
 Start your project:
 
-   cd ~project~ && cabal install && yesod devel
+   cd PROJECTNAME && cabal install && yesod devel
 
 or if you use cabal-dev:
 
-   cd ~project~ && cabal-dev install && yesod --dev devel
+   cd PROJECTNAME && cabal-dev install && yesod --dev devel
 
