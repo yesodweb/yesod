@@ -5,7 +5,6 @@ module Options (injectDefaults) where
 
 import           Control.Applicative
 import qualified Control.Exception         as E
-import           Control.Lens
 import           Control.Monad
 import           Data.Char                 (isAlphaNum, isSpace, toLower)
 import           Data.List                 (foldl')
@@ -13,7 +12,6 @@ import           Data.List.Split           (splitOn)
 import qualified Data.Map                  as M
 import           Data.Maybe                (catMaybes)
 import           Data.Monoid
-import           Data.Monoid.Lens
 import           Options.Applicative
 import           Options.Applicative.Types
 import           System.Directory
@@ -32,7 +30,7 @@ import           System.FilePath           ((</>))
 --       for `many' arguments that generate a list of strings.
 
 injectDefaults :: String                                     -- ^ prefix, program name
-               -> [(String, Setting a a [String] [String])]  -- ^ append extra options for arguments that are lists of strings
+               -> [(String, a -> [String] -> a)]             -- ^ append extra options for arguments that are lists of strings
                -> ParserInfo a                               -- ^ original parsers
                -> IO (ParserInfo a)
 injectDefaults prefix lenses parser = do
@@ -45,11 +43,11 @@ injectDefaults prefix lenses parser = do
       p' =  parser { infoParser = injectDefaultP env [prefix] (infoParser parser) }
   return $ foldl' (\p (key,l) -> fmap (updateA env key l) p) p' lenses
 
-updateA :: M.Map [String] String -> String -> Setting a a [String] [String] -> a -> a
+updateA :: M.Map [String] String -> String -> (a -> [String] -> a) -> a -> a
 updateA env key upd a =
   case M.lookup (splitOn "." key) env of
     Nothing -> a
-    Just v  -> upd <>~ (splitOn ":" v) $ a
+    Just v  -> upd a (splitOn ":" v)
 
 -- | really simple key/value file reader:   x.y = z -> (["x","y"],"z")
 configLines :: String -> [([String], String)]

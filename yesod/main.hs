@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-import           Control.Lens           hiding (value)
 import           Control.Monad          (unless)
 import           Data.Monoid
 import           Data.Version           (showVersion)
@@ -37,23 +36,23 @@ windowsWarning = " (does not work on Windows)"
 data CabalPgm = Cabal | CabalDev deriving (Show, Eq)
 
 data Options = Options
-               { _optCabalPgm :: CabalPgm
-               , _optVerbose  :: Bool
-               , _optCommand  :: Command
+               { optCabalPgm :: CabalPgm
+               , optVerbose  :: Bool
+               , optCommand  :: Command
                }
   deriving (Show, Eq)
 
 data Command = Init
              | Configure
-             | Build { _buildExtraArgs :: [String] }
+             | Build { buildExtraArgs   :: [String] }
              | Touch
              | Devel { _develDisableApi  :: Bool
                      , _develSuccessHook :: Maybe String
                      , _develFailHook    :: Maybe String
                      , _develRescan      :: Int
                      , _develBuildDir    :: Maybe String
-                     , _develIgnore      :: [String]
-                     , _develExtraArgs   :: [String]
+                     , develIgnore       :: [String]
+                     , develExtraArgs    :: [String]
                      }
              | Test
              | AddHandler
@@ -61,28 +60,37 @@ data Command = Init
              | Version
   deriving (Show, Eq)
 
-makeLenses ''Options
-makeLenses ''Command
-
 cabalCommand :: Options -> String
 cabalCommand mopt
-  | mopt^.optCabalPgm == CabalDev = "cabal-dev"
-  | otherwise                     = "cabal"
+  | optCabalPgm mopt == CabalDev = "cabal-dev"
+  | otherwise                    = "cabal"
 
 
 main :: IO ()
 main = do
-  o <- execParser =<< injectDefaults "yesod" [ ("yesod.devel.extracabalarg" , optCommand . develExtraArgs)
-                                             , ("yesod.devel.ignore"        , optCommand . develIgnore)
-                                             , ("yesod.build.extracabalarg" , optCommand . buildExtraArgs)
+  o <- execParser =<< injectDefaults "yesod" [ ("yesod.devel.extracabalarg" , \o args -> o { optCommand =
+                                                    case optCommand o of
+                                                        d@Devel{} -> d { develExtraArgs = args }
+                                                        c -> c
+                                                    })
+                                             , ("yesod.devel.ignore"        , \o args -> o { optCommand =
+                                                    case optCommand o of
+                                                        d@Devel{} -> d { develIgnore = args }
+                                                        c -> c
+                                                    })
+                                             , ("yesod.build.extracabalarg" , \o args -> o { optCommand =
+                                                    case optCommand o of
+                                                        b@Build{} -> b { buildExtraArgs = args }
+                                                        c -> c
+                                                    })
                                              ] optParser'
   let cabal xs = rawSystem' (cabalCommand o) xs
-  case o^.optCommand of
+  case optCommand o of
     Init                    -> scaffold
     Configure               -> cabal ["configure"]
     Build es                -> touch' >> cabal ("build":es)
     Touch                   -> touch'
-    Devel da s f r b ign es -> devel (DevelOpts (o^.optCabalPgm == CabalDev) da (o^.optVerbose) r s f b) es
+    Devel da s f r b _ig es -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f b) es
     Keter noRebuild         -> keter (cabalCommand o) noRebuild
     Version                 -> do putStrLn ("yesod-core version:" ++ yesodVersion)
                                   putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
