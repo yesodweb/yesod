@@ -55,7 +55,7 @@ library
                  , yesod-core                    >= 1.1.2      && < 1.2
                  , yesod-auth                    >= 1.1        && < 1.2
                  , yesod-static                  >= 1.1        && < 1.2
-                 , yesod-default                 >= 1.1        && < 1.2
+                 , yesod-default                 >= 1.1.1      && < 1.2
                  , yesod-form                    >= 1.1        && < 1.2
                  , yesod-test                    >= 0.3        && < 0.4
                  , clientsession                 >= 0.8        && < 0.9
