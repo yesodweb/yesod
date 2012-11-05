@@ -1,2 +1,0 @@
-:set -i.:config:dist/build/autogen
-:set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls

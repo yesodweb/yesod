@@ -1,6 +1,6 @@
 Welcome to the Yesod scaffolder.
 I'm going to be creating a skeleton Yesod project for you.
 
-What is your name? We're going to put this in the cabal and LICENSE files.
+What do you want to call your project? We'll use this for the cabal name.
 
-Your name: 
+Project name: 

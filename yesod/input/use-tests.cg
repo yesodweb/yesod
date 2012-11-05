@@ -1,6 +1,0 @@
-Yesod also comes with an optional integration tests tool.
-You should always test your application, the only reason
-not to use the yesod testing facilities is because you
-already have some other testing tool that you like better.
-
-Include tests?: 

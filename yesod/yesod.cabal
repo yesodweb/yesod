@@ -19,50 +19,11 @@ homepage:        http://www.yesodweb.com/
 
 extra-source-files:
   input/*.cg
-  scaffold/Model.hs.cg
-  scaffold/LICENSE.cg
-  scaffold/project.cabal.cg
-  scaffold/mongoDBConnPool.cg
-  scaffold/app/main.hs.cg
-  scaffold/postgresqlConnPool.cg
-  scaffold/Foundation.hs.cg
-  scaffold/sqliteConnPool.cg
-  scaffold/Import.hs.cg
-  scaffold/.ghci.cg
-  scaffold/tests/main.hs.cg
-  scaffold/tests/HomeTest.hs.cg
-  scaffold/tests/TestImport.hs.cg
-  scaffold/Settings.hs.cg
-  scaffold/Settings/Development.hs.cg
-  scaffold/Settings/StaticFiles.hs.cg
-  scaffold/Application.hs.cg
-  scaffold/deploy/Procfile.cg
-  scaffold/templates/homepage.hamlet.cg
-  scaffold/static/css/bootstrap.css.cg
-  scaffold/static/img/glyphicons-halflings.png
-  scaffold/static/img/glyphicons-halflings-white.png
-  scaffold/templates/default-layout.hamlet.cg
-  scaffold/templates/homepage.julius.cg
-  scaffold/templates/default-layout-wrapper.hamlet.cg
-  scaffold/deploy/Procfile.cg
-  scaffold/devel.hs.cg
-  scaffold/Handler/Home.hs.cg
-  scaffold/templates/normalize.lucius.cg
-  scaffold/templates/boilerplate-wrapper.hamlet.cg
-  scaffold/templates/homepage.lucius.cg
-  scaffold/messages/en.msg.cg
-  scaffold/config/keter.yaml.cg
-  scaffold/config/models.cg
-  scaffold/config/mysql.yml.cg
-  scaffold/config/sqlite.yml.cg
-  scaffold/config/settings.yml.cg
-  scaffold/config/favicon.ico.cg
-  scaffold/config/postgresql.yml.cg
-  scaffold/config/routes.cg
-  scaffold/config/robots.txt.cg
-  scaffold/config/mongoDB.yml.cg
-  scaffold/devel.hs.cg
-  scaffold/.gitignore.cg
+  hsfiles/mongo.hsfiles
+  hsfiles/mysql.hsfiles
+  hsfiles/postgres.hsfiles
+  hsfiles/simple.hsfiles
+  hsfiles/sqlite.hsfiles
 
 library
     build-depends:   base                      >= 4.3      && < 5
@@ -134,10 +95,14 @@ executable             yesod
                      , optparse-applicative >= 0.4        && < 0.5
                      , fsnotify           >= 0.0          && < 0.1
                      , split              >= 0.2          && < 0.3
+                     , file-embed
+                     , conduit            >= 0.5          && < 0.6
+                     , resourcet          >= 0.3          && < 0.5
+                     , base64-bytestring
 
     ghc-options:       -Wall -threaded
     main-is:           main.hs
-    other-modules:     Scaffolding.CodeGen
+    other-modules:     MultiFile
                        Scaffolding.Scaffolder
                        Devel
                        Build

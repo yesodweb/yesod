@@ -1,5 +1,0 @@
-withConnectionPool :: (MonadControlIO m, Applicative m) => AppConfig DefaultEnv -> (ConnectionPool -> m b) -> m b
-withConnectionPool conf f = do
-    dbConf <- liftIO $ loadMongo (appEnv conf)
-    withMongoDBPool (mgDatabase dbConf) (mgHost dbConf) (mgPoolSize dbConf) f
-
