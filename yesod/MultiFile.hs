@@ -1,23 +1,27 @@
+-- FIXME: Depend on the not-yet-released project-template library.
 {-# LANGUAGE OverloadedStrings #-}
 module MultiFile where
 
-import Prelude hiding (FilePath)
-import Data.Conduit (yield, (=$), ($$), awaitForever, Conduit, leftover, await, Sink, MonadResource)
-import Data.Text (Text)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.Functor.Identity (runIdentity)
-import qualified Data.ByteString.Base64 as B64
-import qualified Data.ByteString as S
-import Control.Monad (unless)
-import Data.Conduit.List (sinkNull)
-import qualified Data.Conduit.Text as CT
-import qualified Data.Conduit.List as CL
-import Filesystem.Path.CurrentOS (encode, directory, fromText, (</>), FilePath, encodeString)
-import Filesystem (createTree)
-import Control.Monad.Trans.Resource (runExceptionT)
-import Data.Conduit.Binary (sinkFile)
-import Data.Text.Encoding (encodeUtf8)
-import qualified Data.Text as T
+import           Control.Monad                (unless)
+import           Control.Monad.IO.Class       (MonadIO, liftIO)
+import           Control.Monad.Trans.Resource (runExceptionT)
+import qualified Data.ByteString              as S
+import qualified Data.ByteString.Base64       as B64
+import           Data.Conduit                 (Conduit, MonadResource, Sink,
+                                               await, awaitForever, leftover,
+                                               yield, ($$), (=$))
+import           Data.Conduit.Binary          (sinkFile)
+import           Data.Conduit.List            (sinkNull)
+import qualified Data.Conduit.List            as CL
+import qualified Data.Conduit.Text            as CT
+import           Data.Functor.Identity        (runIdentity)
+import           Data.Text                    (Text)
+import qualified Data.Text                    as T
+import           Data.Text.Encoding           (encodeUtf8)
+import           Filesystem                   (createTree)
+import           Filesystem.Path.CurrentOS    (FilePath, directory, encode,
+                                               encodeString, fromText, (</>))
+import           Prelude                      hiding (FilePath)
 
 unpackMultiFile
     :: MonadResource m

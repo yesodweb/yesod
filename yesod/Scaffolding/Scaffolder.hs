@@ -1,18 +1,18 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Scaffolding.Scaffolder (scaffold) where
 
-import qualified Data.Text.Lazy as LT
+import           Control.Arrow         ((&&&))
 import qualified Data.ByteString.Char8 as S
-import System.IO
-import Text.Shakespeare.Text (textFile, renderTextUrl)
-import qualified Data.Text as T
-import qualified Data.Text.Lazy.IO as TLIO
-import Control.Arrow ((&&&))
-import Data.FileEmbed (embedFile)
-import Data.String (fromString)
-import MultiFile (unpackMultiFile)
-import Data.Conduit (yield, ($$), runResourceT)
+import           Data.Conduit          (runResourceT, yield, ($$))
+import           Data.FileEmbed        (embedFile)
+import           Data.String           (fromString)
+import qualified Data.Text             as T
+import qualified Data.Text.Lazy        as LT
+import qualified Data.Text.Lazy.IO     as TLIO
+import           MultiFile             (unpackMultiFile)
+import           System.IO
+import           Text.Shakespeare.Text (renderTextUrl, textFile)
 
 prompt :: (String -> Maybe a) -> IO a
 prompt f = do
