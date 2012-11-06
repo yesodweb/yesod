@@ -43,7 +43,7 @@ defaultMain load getApp = do
         } app
 
 -- | Run your application continously, listening for SIGINT and exiting
---   when recieved
+--   when received
 --
 --   > withYourSite :: AppConfig DefaultEnv -> Logger -> (Application -> IO a) -> IO ()
 --   > withYourSite conf logger f = do
