@@ -76,7 +76,7 @@ instance Show Ints where
     show (IntCons i is) = show i ++ ('-' : show is)
 
 type Env = Map.Map Text [Text]
-type FileEnv = Map.Map Text FileInfo
+type FileEnv = Map.Map Text [FileInfo]
 
 type Lang = Text
 type MForm sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GHandler sub master) a

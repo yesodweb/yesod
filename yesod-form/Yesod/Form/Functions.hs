@@ -224,7 +224,7 @@ postEnv = do
         else do
             (p, f) <- runRequestBody
             let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
-            return $ Just (p', Map.fromList f)
+            return $ Just (p', Map.unionsWith (++) $ map (\(k, v) -> Map.singleton k [v]) f)
 
 runFormPostNoToken :: (Html -> MForm sub master (FormResult a, xml)) -> GHandler sub master ((FormResult a, xml), Enctype)
 runFormPostNoToken form = do

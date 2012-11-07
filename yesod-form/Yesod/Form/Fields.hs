@@ -539,10 +539,10 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
                 Nothing -> (FormMissing, Nothing)
                 Just (_, fenv) ->
                     case Map.lookup name fenv of
-                        Nothing ->
+                        Just (fi:_) -> (FormSuccess fi, Nothing)
+                        _ ->
                             let t = renderMessage master langs MsgValueRequired
                              in (FormFailure [t], Just $ toHtml t)
-                        Just fi -> (FormSuccess fi, Nothing)
     let fv = FieldView
             { fvLabel = toHtml $ renderMessage master langs $ fsLabel fs
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
@@ -570,8 +570,8 @@ fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
                 Nothing -> (FormMissing, Nothing)
                 Just (_, fenv) ->
                     case Map.lookup name fenv of
-                        Nothing -> (FormSuccess Nothing, Nothing)
-                        Just fi -> (FormSuccess $ Just fi, Nothing)
+                        Just (fi:_) -> (FormSuccess $ Just fi, Nothing)
+                        _ -> (FormSuccess Nothing, Nothing)
     let fv = FieldView
             { fvLabel = toHtml $ renderMessage master langs $ fsLabel fs
             , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
