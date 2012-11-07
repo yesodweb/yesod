@@ -106,11 +106,11 @@ executable             yesod
                      , http-reverse-proxy >= 0.1.0.4
                      , network
                      , http-conduit
+                     , project-template   >= 0.1
 
     ghc-options:       -Wall -threaded
     main-is:           main.hs
-    other-modules:     MultiFile
-                       Scaffolding.Scaffolder
+    other-modules:     Scaffolding.Scaffolder
                        Devel
                        Build
                        GhcBuild
