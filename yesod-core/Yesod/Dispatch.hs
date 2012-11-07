@@ -110,51 +110,30 @@ mkYesodSubDispatch :: String -> Cxt -> [ResourceTree String] -> Q [Dec]
 mkYesodSubDispatch name clazzes = fmap snd . mkYesodGeneral name' rest clazzes True 
   where (name':rest) = words name
 
-mkYesodGeneral :: String -- ^ foundation type
-               -> [String]
-               -> Cxt -- ^ classes
-               -> Bool -- ^ is subsite?
+mkYesodGeneral :: String                   -- ^ foundation type
+               -> [String]                 -- ^ arguments for the type
+               -> Cxt                      -- ^ the type constraints
+               -> Bool                     -- ^ it this a subsite
                -> [ResourceTree String]
-               -> Q ([Dec], [Dec])
+               -> Q([Dec],[Dec])
 mkYesodGeneral name args clazzes isSub resS = do
-    let args' = map mkName args
-        arg = foldl AppT (ConT name') $ map VarT args'
-    let res = map (fmap parseType) resS
-    renderRouteDec <- mkRenderRouteInstance arg res
-
-    let logger = mkName "logger"
-    Clause pat body decs <- mkDispatchClause
-        [|yesodRunner $(return $ VarE logger)|]
-        [|yesodDispatch $(return $ VarE logger)|]
-        [|fmap chooseRep|]
-        res
-    let disp = Clause (VarP logger : pat) body decs
-    let master = mkName "master"
-    let ctx = if isSub
-                then ClassP (mkName "Yesod") [VarT master] : clazzes
-                else []
-    let ytyp = if isSub
-                then ConT ''YesodDispatch `AppT` arg `AppT` VarT master
-                else ConT ''YesodDispatch `AppT` arg `AppT` arg
-    let yesodDispatch' =
-            InstanceD ctx ytyp [FunD (mkName "yesodDispatch") [disp]]
-
-    return (renderRouteDec ++ masterTypSyns, [yesodDispatch'])
-  where
-    name' = mkName name
-    masterTypSyns
-        | isSub = []
-        | otherwise =
-            [ TySynD
-                (mkName "Handler")
-                []
-                (ConT ''GHandler `AppT` ConT name' `AppT` ConT name')
-            , TySynD
-                (mkName "Widget")
-                []
-                (ConT ''GWidget `AppT` ConT name' `AppT` ConT name' `AppT` TupleT 0)
-            ]
-
+     subsite        <- sub
+     masterTypeSyns <- if isSub then return   [] 
+                                else sequence [handler, widget]
+     renderRouteDec <- mkRenderRouteInstance subsite res
+     dispatchDec    <- mkDispatchInstance context sub master res
+     return (renderRouteDec ++ masterTypeSyns, dispatchDec)
+  where sub     = foldl appT subCons subArgs
+        master  = if isSub then (varT $ mkName "master") else sub
+        context = if isSub then cxt $ yesod : map return clazzes
+                           else return []
+        yesod   = classP ''Yesod [master]
+        handler = tySynD (mkName "Handler") [] [t| GHandler $master $master    |]
+        widget  = tySynD (mkName "Widget")  [] [t| GWidget  $master $master () |]
+        res     = map (fmap parseType) resS
+        subCons = conT $ mkName name
+        subArgs = map (varT. mkName) args
+        
 -- | If the generation of @'YesodDispatch'@ instance require finer
 -- control of the types, contexts etc. using this combinator. You will
 -- hardly need this generality. However, in certain situations, like
