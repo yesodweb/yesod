@@ -4,7 +4,7 @@ module Scaffolding.Scaffolder (scaffold) where
 
 import           Control.Arrow         ((&&&))
 import qualified Data.ByteString.Char8 as S
-import           Data.Conduit          (runResourceT, yield, ($$))
+import           Data.Conduit          (runResourceT, yield, ($$), ($$+-))
 import           Data.FileEmbed        (embedFile)
 import           Data.String           (fromString)
 import qualified Data.Text             as T
@@ -13,6 +13,7 @@ import qualified Data.Text.Lazy.IO     as TLIO
 import           Text.ProjectTemplate  (unpackTemplate, receiveFS)
 import           System.IO
 import           Text.Shakespeare.Text (renderTextUrl, textFile)
+import Network.HTTP.Conduit (withManager, http, parseUrl, responseBody)
 
 prompt :: (String -> Maybe a) -> IO a
 prompt f = do
@@ -70,13 +71,24 @@ scaffold = do
 
     puts $ renderTextUrl undefined $(textFile "input/database.cg")
 
-    backend <- prompt readBackend
+    ebackend' <- prompt $ \s -> if s == "url" then Just (Left ()) else fmap Right $ readBackend s
+
+    ebackend <-
+        case ebackend' of
+            Left () -> do
+                puts "Please enter the URL:  "
+                fmap Left $ prompt parseUrl
+            Right backend -> return $ Right backend
 
     putStrLn "That's it! I'm creating your files now..."
 
     let sink = unpackTemplate
                 (receiveFS $ fromString project)
                 (T.replace "PROJECTNAME" (T.pack project))
-    runResourceT $ yield (backendBS backend) $$ sink
+    case ebackend of
+        Left req -> withManager $ \m -> do
+            res <- http req m
+            responseBody res $$+- sink
+        Right backend -> runResourceT $ yield (backendBS backend) $$ sink
 
     TLIO.putStr $ LT.replace "PROJECTNAME" (LT.pack project) $ renderTextUrl undefined $(textFile "input/done.cg")
