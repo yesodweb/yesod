@@ -15,6 +15,9 @@ import Network.Wai.Middleware.Gzip (gzip, GzipFiles (GzipCacheFolder), gzipFiles
 import Network.Wai.Middleware.Autohead (autohead)
 import Network.Wai.Middleware.Jsonp (jsonp)
 import Control.Monad (when)
+import System.Environment (getEnvironment)
+import Data.Maybe (fromMaybe)
+import Safe (readMay)
 
 #ifndef WINDOWS
 import qualified System.Posix.Signals as Signal
@@ -81,7 +84,9 @@ defaultDevelApp
     -> IO (Int, Application)
 defaultDevelApp load getApp = do
     conf   <- load
-    let p = appPort conf
-    putStrLn $ "Devel application launched: http://localhost:" ++ show p
+    env <- getEnvironment
+    let p = fromMaybe (appPort conf) $ lookup "PORT" env >>= readMay
+        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMay
+    putStrLn $ "Devel application launched: http://localhost:" ++ show pdisplay
     app <- getApp conf
     return (p, app)

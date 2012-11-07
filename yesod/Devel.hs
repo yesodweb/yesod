@@ -28,8 +28,11 @@ import           Control.Concurrent                    (forkIO, threadDelay)
 import           Control.Concurrent.MVar               (MVar, newEmptyMVar,
                                                         takeMVar, tryPutMVar)
 import qualified Control.Exception                     as Ex
-import           Control.Monad                         (forever, unless, void,
+import           Control.Monad                         (unless, void,
                                                         when)
+
+import           Control.Monad.Trans.State             (evalStateT, get)
+import           Control.Monad.IO.Class                (liftIO)
 
 import           Data.Char                             (isNumber, isUpper)
 import qualified Data.List                             as L
@@ -38,6 +41,7 @@ import           Data.Maybe                            (fromMaybe)
 import qualified Data.Set                              as Set
 
 import           System.Directory
+import           System.Environment                    (getEnvironment)
 import           System.Exit                           (ExitCode (..),
                                                         exitFailure,
                                                         exitSuccess)
@@ -59,7 +63,8 @@ import           System.Process                        (ProcessHandle,
                                                         readProcess,
                                                         runInteractiveProcess,
                                                         system,
-                                                        terminateProcess)
+                                                        terminateProcess,
+                                                        env)
 import           System.Timeout                        (timeout)
 
 import           Build                                 (getDeps, isNewerThan,
@@ -69,6 +74,12 @@ import           GhcBuild                              (buildPackage,
 
 import qualified Config                                as GHC
 import           SrcLoc                                (Located)
+import           Network.HTTP.ReverseProxy             (waiProxyTo, ProxyDest (ProxyDest))
+import           Network                               (withSocketsDo)
+import           Network.Wai                           (responseLBS)
+import           Network.HTTP.Types                    (status200)
+import           Network.Wai.Handler.Warp              (run)
+import           Network.HTTP.Conduit                  (newManager, def)
 
 lockFile :: DevelOpts -> FilePath
 lockFile _opts =  "yesod-devel/devel-terminate"
@@ -105,8 +116,26 @@ cabalCommand opts | isCabalDev opts = "cabal-dev"
 defaultDevelOpts :: DevelOpts
 defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing
 
+-- | Run a reverse proxy from port 3000 to 3001. If there is no response on
+-- 3001, give an appropriate message to the user.
+reverseProxy :: IO ()
+reverseProxy = withSocketsDo $ do
+    manager <- newManager def
+    run 3000 $ waiProxyTo
+        (const $ return $ Right $ ProxyDest "localhost" 3001)
+        onExc
+        manager
+  where
+    onExc _ _ = return $ responseLBS
+        status200
+        [ ("content-type", "text/html")
+        , ("Refresh", "1")
+        ]
+        "<h1>App not ready, please refresh</h1>"
+
 devel :: DevelOpts -> [String] -> IO ()
 devel opts passThroughArgs = withManager $ \manager -> do
+    _ <- forkIO reverseProxy
     checkDevelFile
     writeLock opts
 
@@ -114,7 +143,7 @@ devel opts passThroughArgs = withManager $ \manager -> do
     _ <- forkIO $ do
       filesModified <- newEmptyMVar
       watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
-      mainOuterLoop filesModified
+      evalStateT (mainOuterLoop filesModified) Map.empty
     _ <- getLine
     writeLock opts
     exitSuccess
@@ -123,50 +152,60 @@ devel opts passThroughArgs = withManager $ \manager -> do
 
     -- outer loop re-reads the cabal file
     mainOuterLoop filesModified = do
-      cabal <- D.findPackageDesc "."
-      gpd   <- D.readPackageDescription D.normal cabal
-      ldar <- lookupLdAr
-      (hsSourceDirs, lib) <- checkCabalFile gpd
-      removeFileIfExists (bd </> "setup-config")
-      configure cabal gpd opts
-      removeFileIfExists "yesod-devel/ghcargs.txt"  -- these files contain the wrong data after
-      removeFileIfExists "yesod-devel/arargs.txt"   -- the configure step, remove them to force
-      removeFileIfExists "yesod-devel/ldargs.txt"   -- a cabal build first
-      ghcVer <- ghcVersion
-      rebuild <- mkRebuild gpd ghcVer cabal opts ldar
+      cabal <- liftIO $ D.findPackageDesc "."
+      gpd   <- liftIO $ D.readPackageDescription D.normal cabal
+      ldar <- liftIO lookupLdAr
+      (hsSourceDirs, lib) <- liftIO $ checkCabalFile gpd
+      liftIO $ removeFileIfExists (bd </> "setup-config")
+      liftIO $ configure cabal gpd opts
+      liftIO $ removeFileIfExists "yesod-devel/ghcargs.txt"  -- these files contain the wrong data after
+      liftIO $ removeFileIfExists "yesod-devel/arargs.txt"   -- the configure step, remove them to force
+      liftIO $ removeFileIfExists "yesod-devel/ldargs.txt"   -- a cabal build first
+      ghcVer <- liftIO ghcVersion
+      rebuild <- liftIO $ mkRebuild gpd ghcVer cabal opts ldar
       mainInnerLoop hsSourceDirs filesModified cabal gpd lib ghcVer rebuild
 
     -- inner loop rebuilds after files change
     mainInnerLoop hsSourceDirs filesModified cabal gpd lib ghcVer rebuild = go
        where
          go = do
-           recompDeps hsSourceDirs
-           list <- getFileList hsSourceDirs [cabal]
-           success <- rebuild
-           pkgArgs <- ghcPackageArgs opts ghcVer (D.packageDescription gpd) lib
+           _ <- recompDeps hsSourceDirs
+           list <- liftIO $ getFileList hsSourceDirs [cabal]
+           success <- liftIO rebuild
+           pkgArgs <- liftIO $ ghcPackageArgs opts ghcVer (D.packageDescription gpd) lib
            let devArgs = pkgArgs ++ ["devel.hs"] ++ passThroughArgs
+           let loop list0 = do
+                   (haskellFileChanged, list1) <- liftIO $ watchForChanges filesModified hsSourceDirs [cabal] list0 (eventTimeout opts)
+                   anyTouched <- recompDeps hsSourceDirs
+                   unless (anyTouched || haskellFileChanged) $ loop list1
            if not success
-             then do
+             then liftIO $ do
                    putStrLn "Build failure, pausing..."
                    runBuildHook $ failHook opts
              else do
-                   runBuildHook $ successHook opts
-                   removeLock opts
-                   putStrLn $ if verbose opts then "Starting development server: runghc " ++ L.unwords devArgs
+                   liftIO $ runBuildHook $ successHook opts
+                   liftIO $ removeLock opts
+                   liftIO $ putStrLn
+                            $ if verbose opts then "Starting development server: runghc " ++ L.unwords devArgs
                                               else "Starting development server..."
-                   (_,_,_,ph) <- createProcess $ proc "runghc" devArgs
-                   watchTid <- forkIO . try_ $ do
-                         watchForChanges filesModified hsSourceDirs [cabal] list (eventTimeout opts)
+                   env0 <- liftIO getEnvironment
+                   (_,_,_,ph) <- liftIO $ createProcess (proc "runghc" devArgs)
+                        { env = Just $ ("PORT", "3001") : ("DISPLAY_PORT", "3000") : env0
+                        }
+                   derefMap <- get
+                   watchTid <- liftIO . forkIO . try_ $ flip evalStateT derefMap $ do
+                      loop list
+                      liftIO $ do
                          putStrLn "Stopping development server..."
                          writeLock opts
                          threadDelay 1000000
                          putStrLn "Terminating development server..."
                          terminateProcess ph
-                   ec <- waitForProcess' ph
-                   putStrLn $ "Exit code: " ++ show ec
-                   Ex.throwTo watchTid (userError "process finished")
-           watchForChanges filesModified hsSourceDirs [cabal] list (eventTimeout opts)
-           n <- cabal `isNewerThan` (bd </> "setup-config")
+                   ec <- liftIO $ waitForProcess' ph
+                   liftIO $ putStrLn $ "Exit code: " ++ show ec
+                   liftIO $ Ex.throwTo watchTid (userError "process finished")
+           loop list
+           n <- liftIO $ cabal `isNewerThan` (bd </> "setup-config")
            if n then mainOuterLoop filesModified else go
 
 runBuildHook :: Maybe String -> IO ()
@@ -294,13 +333,24 @@ getFileList hsSourceDirs extraFiles = do
             Left (_ :: Ex.SomeException) -> (f, 0)
             Right fs -> (f, modificationTime fs)
 
-watchForChanges :: MVar () -> [FilePath] -> [FilePath] -> FileList -> Int -> IO ()
+-- | Returns @True@ if a .hs file changed.
+watchForChanges :: MVar () -> [FilePath] -> [FilePath] -> FileList -> Int -> IO (Bool, FileList)
 watchForChanges filesModified hsSourceDirs extraFiles list t = do
     newList <- getFileList hsSourceDirs extraFiles
     if list /= newList
-      then return ()
+      then do
+        let haskellFileChanged = not $ Map.null $ Map.filterWithKey isHaskell $
+                Map.differenceWith compareTimes newList list `Map.union`
+                Map.differenceWith compareTimes list newList
+        return (haskellFileChanged, newList)
       else timeout (1000000*t) (takeMVar filesModified) >>
            watchForChanges filesModified hsSourceDirs extraFiles list t
+  where
+    compareTimes x y
+        | x == y = Nothing
+        | otherwise = Just x
+
+    isHaskell filename _ = takeExtension filename `elem` [".hs", ".lhs", ".hsc", ".cabal"]
 
 checkDevelFile :: IO ()
 checkDevelFile = do
