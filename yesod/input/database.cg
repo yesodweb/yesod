@@ -7,5 +7,6 @@ We recommend starting with SQLite: it has no dependencies.
     mongo  = mongodb
     mysql  = MySQL
     simple = no database, no auth
+    url    = Let me specify URL containing a site (advanced)
 
 So, what'll it be? 
