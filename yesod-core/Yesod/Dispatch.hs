@@ -17,6 +17,7 @@ module Yesod.Dispatch
     , mkYesodSubData
     , mkYesodDispatch
     , mkYesodSubDispatch
+    , mkDispatchInstance
       -- ** Path pieces
     , PathPiece (..)
     , PathMultiPiece (..)
@@ -35,6 +36,7 @@ import Yesod.Handler hiding (lift)
 import Yesod.Widget (GWidget)
 
 import Web.PathPieces
+import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
@@ -152,6 +154,35 @@ mkYesodGeneral name args clazzes isSub resS = do
                 []
                 (ConT ''GWidget `AppT` ConT name' `AppT` ConT name' `AppT` TupleT 0)
             ]
+
+-- | If the generation of @'YesodDispatch'@ instance require finer
+-- control of the types, contexts etc. using this combinator. You will
+-- hardly need this generality. However, in certain situations, like
+-- when writing library/plugin for yesod, this combinator becomes
+-- handy.
+mkDispatchInstance :: CxtQ                -- ^ The context
+                   -> TypeQ               -- ^ The subsite type
+                   -> TypeQ               -- ^ The master site type
+                   -> [ResourceTree a]    -- ^ The resource
+                   -> DecsQ
+mkDispatchInstance context sub master res = do
+  logger <- newName "logger"
+  let loggerE = varE logger
+      loggerP = VarP logger
+      yDispatch = conT ''YesodDispatch `appT` sub `appT` master
+      thisDispatch = do
+            Clause pat body decs <- mkDispatchClause
+                                    [|yesodRunner   $loggerE |]
+                                    [|yesodDispatch $loggerE |]
+                                    [|fmap chooseRep|]
+                                    res
+            return $ FunD 'yesodDispatch
+                         [ Clause (loggerP:pat)
+                                  body
+                                  decs
+                         ]
+      in sequence [instanceD context yDispatch [thisDispatch]]
+        
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This is the same as 'toWaiAppPlain', except it includes two
