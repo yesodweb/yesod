@@ -1034,6 +1034,10 @@ instance MonadIO (GHandler sub master) where
     liftIO = GHandler . const . lift
 instance MonadBase IO (GHandler sub master) where
     liftBase = GHandler . const . lift
+-- | Note: although we provide a @MonadBaseControl@ instance, @lifted-base@'s
+-- @fork@ function is incompatible with the underlying @ResourceT@ system.
+-- Instead, if you must fork a separate thread, you should use
+-- @resourceForkIO@.
 instance MonadBaseControl IO (GHandler sub master) where
     data StM (GHandler sub master) a = StH (StM (ResourceT IO) a)
     liftBaseWith f = GHandler $ \reader ->
