@@ -1038,6 +1038,10 @@ instance MonadBase IO (GHandler sub master) where
 -- @fork@ function is incompatible with the underlying @ResourceT@ system.
 -- Instead, if you must fork a separate thread, you should use
 -- @resourceForkIO@.
+--
+-- Using fork usually leads to an exception that says
+-- \"Control.Monad.Trans.Resource.register\': The mutable state is being accessed
+-- after cleanup. Please contact the maintainers.\"
 instance MonadBaseControl IO (GHandler sub master) where
     data StM (GHandler sub master) a = StH (StM (ResourceT IO) a)
     liftBaseWith f = GHandler $ \reader ->
