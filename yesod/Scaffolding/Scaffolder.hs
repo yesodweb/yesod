@@ -10,7 +10,7 @@ import           Data.String           (fromString)
 import qualified Data.Text             as T
 import qualified Data.Text.Lazy        as LT
 import qualified Data.Text.Lazy.IO     as TLIO
-import           MultiFile             (unpackMultiFile)
+import           Text.ProjectTemplate  (unpackTemplate, receiveFS)
 import           System.IO
 import           Text.Shakespeare.Text (renderTextUrl, textFile)
 
@@ -74,8 +74,8 @@ scaffold = do
 
     putStrLn "That's it! I'm creating your files now..."
 
-    let sink = unpackMultiFile
-                (fromString project)
+    let sink = unpackTemplate
+                (receiveFS $ fromString project)
                 (T.replace "PROJECTNAME" (T.pack project))
     runResourceT $ yield (backendBS backend) $$ sink
 
