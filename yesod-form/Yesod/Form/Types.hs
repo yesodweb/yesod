@@ -124,13 +124,14 @@ data FieldView sub master = FieldView
     }
 
 data Field sub master a = Field
-    { fieldParse :: [Text] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
+    { fieldParse :: [Text] -> [FileInfo] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
     , fieldView :: Text -- ^ ID
                 -> Text -- ^ Name
                 -> [(Text, Text)] -- ^ Attributes
                 -> Either Text a -- ^ Either (invalid text) or (legitimate result)
                 -> Bool -- ^ Required?
                 -> GWidget sub master ()
+    , fieldEnctype :: Enctype
     }
 
 data FormMessage = MsgInvalidInteger Text
