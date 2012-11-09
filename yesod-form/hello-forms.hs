@@ -111,8 +111,13 @@ getValidR = do
 main = toWaiApp HelloForms >>= run 3000
 
 fileForm = renderTable $ pure (,)
-    <*> fileAFormReq "Required file"
-    <*> fileAFormOpt "Optional file"
+    <*> (FileInfo' <$> areq fileField "Required file" Nothing)
+    <*> (fmap FileInfo' <$> aopt fileField "Optional file" Nothing)
+
+newtype FileInfo' = FileInfo' FileInfo
+
+instance Show FileInfo' where
+    show (FileInfo' f) = show (fileName f, fileContentType f)
 
 getFileR = do
     ((res, form), enctype) <- runFormPost fileForm
