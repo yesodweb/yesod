@@ -540,14 +540,14 @@ defaultErrorHandler (InternalError e) =
         [hamlet|
 $newline never
 <h1>Internal Server Error
-<p>#{e}
+<pre>#{e}
 |]
 defaultErrorHandler (BadMethod m) =
     applyLayout' "Bad Method"
         [hamlet|
 $newline never
 <h1>Method Not Supported
-<p>Method "#{S8.unpack m}" not supported
+<p>Method <code>#{S8.unpack m}</code> not supported
 |]
 
 -- | Return the same URL if the user is authorized to see it.
