@@ -18,6 +18,7 @@ module Yesod.Form.Types
     , Field (..)
     , FieldSettings (..)
     , FieldView (..)
+    , FieldViewFunc
     ) where
 
 import Control.Monad.Trans.RWS (RWST)
@@ -123,14 +124,17 @@ data FieldView sub master = FieldView
     , fvRequired :: Bool
     }
 
+type FieldViewFunc sub master a
+    = Text -- ^ ID
+   -> Text -- ^ Name
+   -> [(Text, Text)] -- ^ Attributes
+   -> Either Text a -- ^ Either (invalid text) or (legitimate result)
+   -> Bool -- ^ Required?
+   -> GWidget sub master ()
+
 data Field sub master a = Field
     { fieldParse :: [Text] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
-    , fieldView :: Text -- ^ ID
-                -> Text -- ^ Name
-                -> [(Text, Text)] -- ^ Attributes
-                -> Either Text a -- ^ Either (invalid text) or (legitimate result)
-                -> Bool -- ^ Required?
-                -> GWidget sub master ()
+    , fieldView :: FieldViewFunc sub master a
     }
 
 data FormMessage = MsgInvalidInteger Text
