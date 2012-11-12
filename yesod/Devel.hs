@@ -122,7 +122,7 @@ reverseProxy :: IO ()
 reverseProxy = withSocketsDo $ do
     manager <- newManager def
     run 3000 $ waiProxyTo
-        (const $ return $ Right $ ProxyDest "localhost" 3001)
+        (const $ return $ Right $ ProxyDest "127.0.0.1" 3001)
         onExc
         manager
   where
