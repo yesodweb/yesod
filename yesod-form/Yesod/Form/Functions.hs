@@ -202,7 +202,7 @@ $newline never
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
             where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constTimeEq` TE.encodeUtf8 t2
-                  Nothing     === Nothing   = True   -- ^ It's important to use constTimeEq
+                  Nothing     === Nothing   = True   -- It's important to use constTimeEq
                   _           === _         = False  -- in order to avoid timing attacks.
     return ((res', xml), enctype)
 
