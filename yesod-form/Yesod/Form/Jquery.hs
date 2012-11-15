@@ -85,6 +85,7 @@ $(function(){
     }
 });
 |]
+    , fieldEnctype = UrlEncoded
     }
   where
     showVal = either id (pack . show)
@@ -114,6 +115,7 @@ $newline never
         toWidget [julius|
 $(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
+    , fieldEnctype = UrlEncoded
     }
 
 addScript' :: (master -> Either (Route master) Text) -> GWidget sub master ()

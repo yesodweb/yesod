@@ -133,8 +133,9 @@ type FieldViewFunc sub master a
    -> GWidget sub master ()
 
 data Field sub master a = Field
-    { fieldParse :: [Text] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
+    { fieldParse :: [Text] -> [FileInfo] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
     , fieldView :: FieldViewFunc sub master a
+    , fieldEnctype :: Enctype
     }
 
 data FormMessage = MsgInvalidInteger Text

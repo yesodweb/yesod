@@ -65,6 +65,7 @@ import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
+import Yesod.Request (FileInfo)
 
 -- | Get a unique identifier.
 newFormIdent :: MForm sub master Text
@@ -119,6 +120,7 @@ mhelper :: Field sub master a
         -> MForm sub master (FormResult b, FieldView sub master)
 
 mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
+    tell fieldEnctype
     mp <- askParams
     name <- maybe newFormIdent return fsName
     theId <- lift $ maybe newIdent return fsId
@@ -128,8 +130,10 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         case mp of
             Nothing -> return (FormMissing, maybe (Left "") Right mdef)
             Just p -> do
+                mfs <- askFiles
                 let mvals = fromMaybe [] $ Map.lookup name p
-                emx <- lift $ fieldParse mvals
+                    files = fromMaybe [] $ mfs >>= Map.lookup name
+                emx <- lift $ fieldParse mvals files
                 return $ case emx of
                     Left (SomeMessage e) -> (FormFailure [renderMessage master langs e], maybe (Left "") Left (listToMaybe mvals))
                     Right mx ->
@@ -371,8 +375,8 @@ checkMMap :: RenderMessage master msg
           -> Field sub master a
           -> Field sub master b
 checkMMap f inv field = field
-    { fieldParse = \ts -> do
-        e1 <- fieldParse field ts
+    { fieldParse = \ts fs -> do
+        e1 <- fieldParse field ts fs
         case e1 of
             Left msg -> return $ Left msg
             Right Nothing -> return $ Right Nothing
@@ -393,8 +397,8 @@ checkMMod = checkMMap
 
 -- | Allows you to overwrite the error message on parse error.
 customErrorMessage :: SomeMessage master -> Field sub master a -> Field sub master a
-customErrorMessage msg field = field { fieldParse = \ts -> fmap (either
-(const $ Left msg) Right) $ fieldParse field ts }
+customErrorMessage msg field = field { fieldParse = \ts fs -> fmap (either
+(const $ Left msg) Right) $ fieldParse field ts fs }
 
 -- | Generate a 'FieldSettings' from the given label.
 fieldSettingsLabel :: RenderMessage master msg => msg -> FieldSettings master
@@ -414,7 +418,7 @@ aformM action = AForm $ \_ _ ints -> do
 -- Since 1.1
 parseHelper :: (Monad m, RenderMessage master FormMessage)
             => (Text -> Either FormMessage a)
-            -> [Text] -> m (Either (SomeMessage master) (Maybe a))
-parseHelper _ [] = return $ Right Nothing
-parseHelper _ ("":_) = return $ Right Nothing
-parseHelper f (x:_) = return $ either (Left . SomeMessage) (Right . Just) $ f x
+            -> [Text] -> [FileInfo] -> m (Either (SomeMessage master) (Maybe a))
+parseHelper _ [] _ = return $ Right Nothing
+parseHelper _ ("":_) _ = return $ Right Nothing
+parseHelper f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x
