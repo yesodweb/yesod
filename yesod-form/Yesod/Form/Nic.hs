@@ -35,7 +35,7 @@ class Yesod a => YesodNic a where
 
 nicHtmlField :: YesodNic master => Field sub master Html
 nicHtmlField = Field
-    { fieldParse = return . Right . fmap (preEscapedText . sanitizeBalance) . listToMaybe
+    { fieldParse = \e _ -> return . Right . fmap (preEscapedText . sanitizeBalance) . listToMaybe $ e
     , fieldView = \theId name attrs val _isReq -> do
         toWidget [shamlet|
 $newline never
@@ -51,6 +51,7 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{th
             _ -> [julius|
 (function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")})();
 |]
+    , fieldEnctype = UrlEncoded
     }
   where
     showVal = either id (pack . renderHtml)

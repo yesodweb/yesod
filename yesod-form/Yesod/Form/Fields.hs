@@ -27,6 +27,7 @@ module Yesod.Form.Fields
     , Textarea (..)
     , boolField
     , checkBoxField
+    , fileField
       -- * File 'AForm's
     , fileAFormReq
     , fileAFormOpt
@@ -104,6 +105,7 @@ intField = Field
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="number" :isReq:required="" value="#{showVal val}">
 |]
+    , fieldEnctype = UrlEncoded
     }
   where
     showVal = either id (pack . showI)
@@ -120,6 +122,7 @@ doubleField = Field
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required="" value="#{showVal val}">
 |]
+    , fieldEnctype = UrlEncoded
     }
   where showVal = either id (pack . show)
 
@@ -130,6 +133,7 @@ dayField = Field
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="date" :isReq:required="" value="#{showVal val}">
 |]
+    , fieldEnctype = UrlEncoded
     }
   where showVal = either id (pack . show)
 
@@ -140,6 +144,7 @@ timeField = Field
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} :isReq:required="" value="#{showVal val}">
 |]
+    , fieldEnctype = UrlEncoded
     }
   where
     showVal = either id (pack . show . roundFullSeconds)
@@ -156,6 +161,7 @@ $newline never
 $# FIXME: There was a class="html" attribute, for what purpose?
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{showVal val}
 |]
+    , fieldEnctype = UrlEncoded
     }
   where showVal = either id (pack . renderHtml)
 
@@ -184,6 +190,7 @@ textareaField = Field
 $newline never
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{either id unTextarea val}
 |]
+    , fieldEnctype = UrlEncoded
     }
 
 hiddenField :: (PathPiece p, RenderMessage master FormMessage)
@@ -194,6 +201,7 @@ hiddenField = Field
 $newline never
 <input type="hidden" id="#{theId}" name="#{name}" *{attrs} value="#{either id toPathPiece val}">
 |]
+    , fieldEnctype = UrlEncoded
     }
 
 textField :: RenderMessage master FormMessage => Field sub master Text
@@ -204,6 +212,7 @@ textField = Field
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required value="#{either id id val}">
 |]
+    , fieldEnctype = UrlEncoded
     }
 
 passwordField :: RenderMessage master FormMessage => Field sub master Text
@@ -213,6 +222,7 @@ passwordField = Field
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="" value="#{either id id val}">
 |]
+    , fieldEnctype = UrlEncoded
     }
 
 readMay :: Read a => String -> Maybe a
@@ -286,6 +296,7 @@ emailField = Field
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="email" :isReq:required="" value="#{either id id val}">
 |]
+    , fieldEnctype = UrlEncoded
     }
 
 type AutoFocus = Bool
@@ -307,6 +318,7 @@ $newline never
             #{theId}
               -webkit-appearance: textfield
             |]
+    , fieldEnctype = UrlEncoded
     }
 
 urlField :: RenderMessage master FormMessage => Field sub master Text
@@ -320,6 +332,7 @@ urlField = Field
 $newline never
 <input ##{theId} name=#{name} *{attrs} type=url :isReq:required value=#{either id id val}>
 |]
+    , fieldEnctype = UrlEncoded
     }
 
 selectFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master a
@@ -347,10 +360,10 @@ multiSelectField :: (Eq a, RenderMessage master FormMessage)
                  => GHandler sub master (OptionList a)
                  -> Field sub master [a]
 multiSelectField ioptlist =
-    Field parse view
+    Field parse view UrlEncoded
   where
-    parse [] = return $ Right Nothing
-    parse optlist = do
+    parse [] _ = return $ Right Nothing
+    parse optlist _ = do
         mapopt <- olReadExternal <$> ioptlist
         case mapM mapopt optlist of
              Nothing -> return $ Left "Error parsing values"
@@ -395,7 +408,7 @@ $newline never
 
 boolField :: RenderMessage master FormMessage => Field sub master Bool
 boolField = Field
-      { fieldParse = return . boolParser
+      { fieldParse = \e _ -> return $ boolParser e
       , fieldView = \theId name attrs val isReq -> [whamlet|
 $newline never
   $if not isReq
@@ -409,6 +422,7 @@ $newline never
 <input id=#{theId}-no *{attrs} type=radio name=#{name} value=no :showVal not val:checked>
 <label for=#{theId}-no>_{MsgBoolNo}
 |]
+    , fieldEnctype = UrlEncoded
     }
   where
     boolParser [] = Right Nothing
@@ -430,11 +444,12 @@ $newline never
 --
 checkBoxField :: RenderMessage m FormMessage => Field s m Bool
 checkBoxField = Field
-    { fieldParse = return . checkBoxParser
+    { fieldParse = \e _ -> return $ checkBoxParser e
     , fieldView  = \theId name attrs val _ -> [whamlet|
 $newline never
 <input id=#{theId} *{attrs} type=checkbox name=#{name} value=yes :showVal id val:checked>
 |]
+    , fieldEnctype = UrlEncoded
     }
 
     where
@@ -499,7 +514,7 @@ selectFieldHelper
         -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> GWidget sub master ())
         -> GHandler sub master (OptionList a) -> Field sub master a
 selectFieldHelper outside onOpt inside opts' = Field
-    { fieldParse = \x -> do
+    { fieldParse = \x _ -> do
         opts <- opts'
         return $ selectParser opts x
     , fieldView = \theId name attrs val isReq -> do
@@ -513,6 +528,7 @@ selectFieldHelper outside onOpt inside opts' = Field
                 (optionExternalValue opt)
                 ((render opts val) == optionExternalValue opt)
                 (optionDisplay opt)
+    , fieldEnctype = UrlEncoded
     }
   where
     render _ (Left _) = ""
@@ -524,6 +540,18 @@ selectFieldHelper outside onOpt inside opts' = Field
             x -> case olReadExternal opts x of
                     Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
                     Just y -> Right $ Just y
+
+fileField :: RenderMessage master FormMessage => Field sub master FileInfo
+fileField = Field
+    { fieldParse = \_ files -> return $
+        case files of
+            [] -> Right Nothing
+            file:_ -> Right $ Just file
+    , fieldView = \id' name attrs _ isReq -> toWidget [hamlet|
+            <input id=#{id'} name=#{name} *{attrs} type=file :isReq:required>
+        |]
+    , fieldEnctype = Multipart
+    }
 
 fileAFormReq :: RenderMessage master FormMessage => FieldSettings master -> AForm sub master FileInfo
 fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
