@@ -67,6 +67,11 @@ import Data.String (IsString (fromString))
 import Network.Wai (FilePart)
 import Data.Conduit (Source, ResourceT, Flush)
 
+import qualified Data.Aeson as J
+import Data.Aeson.Encode (fromValue)
+import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
+import Data.Text.Lazy.Builder (toLazyText)
+
 data Content = ContentBuilder !Builder !(Maybe Int) -- ^ The content and optional content length.
              | ContentSource !(Source (ResourceT IO) (Flush Builder))
              | ContentFile !FilePath !(Maybe FilePart)
@@ -250,3 +255,9 @@ instance HasReps a => HasReps (DontFullyEvaluate a) where
 
 instance ToContent a => ToContent (DontFullyEvaluate a) where
     toContent (DontFullyEvaluate a) = ContentDontEvaluate $ toContent a
+
+instance ToContent J.Value where
+    toContent = flip ContentBuilder Nothing
+              . Blaze.fromLazyText
+              . toLazyText
+              . fromValue

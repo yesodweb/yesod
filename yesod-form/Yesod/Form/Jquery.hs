@@ -20,10 +20,11 @@ import Yesod.Widget
 import Data.Time (Day)
 import Data.Default
 import Text.Hamlet (shamlet)
-import Text.Julius (julius)
+import Text.Julius (julius, rawJS)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
 import Yesod.Core (RenderMessage)
+import Data.Aeson (toJSON)
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
@@ -73,14 +74,14 @@ $newline never
         addStylesheet' urlJqueryUiCss
         toWidget [julius|
 $(function(){
-    var i = document.getElementById("#{theId}");
+    var i = document.getElementById("#{rawJS theId}");
     if (i.type != "date") {
         $(i).datepicker({
             dateFormat:'yy-mm-dd',
             changeMonth:#{jsBool $ jdsChangeMonth jds},
             changeYear:#{jsBool $ jdsChangeYear jds},
-            numberOfMonths:#{mos $ jdsNumberOfMonths jds},
-            yearRange:"#{jdsYearRange jds}"
+            numberOfMonths:#{rawJS $ mos $ jdsNumberOfMonths jds},
+            yearRange:#{toJSON $ jdsYearRange jds}
         });
     }
 });
@@ -89,8 +90,8 @@ $(function(){
     }
   where
     showVal = either id (pack . show)
-    jsBool True = "true" :: Text
-    jsBool False = "false" :: Text
+    jsBool True = toJSON True
+    jsBool False = toJSON False
     mos (Left i) = show i
     mos (Right (x, y)) = concat
         [ "["
@@ -113,7 +114,7 @@ $newline never
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
         toWidget [julius|
-$(function(){$("##{theId}").autocomplete({source:"@{src}",minLength:2})});
+$(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:2})});
 |]
     , fieldEnctype = UrlEncoded
     }
