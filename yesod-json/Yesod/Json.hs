@@ -51,11 +51,13 @@ import Network.Wai.Parse (parseHttpAccept)
 import qualified Data.ByteString.Char8 as B8
 import Safe (headMay)
 
+#if !MIN_VERSION_yesod_core(1, 1, 5)
 instance ToContent J.Value where
     toContent = flip ContentBuilder Nothing
               . Blaze.fromLazyText
               . toLazyText
               . fromValue
+#endif
 
 -- | Provide both an HTML and JSON representation for a piece of
 -- data, using the default layout for the HTML output
@@ -97,8 +99,10 @@ parseJsonBody_ = do
         J.Error s -> invalidArgs [pack s]
         J.Success a -> return a
 
+#if !MIN_VERSION_shakespeare_js(1, 0, 2)
 instance ToJavascript J.Value where
     toJavascript = fromLazyText . decodeUtf8 . JE.encode
+#endif
 
 -- | Convert a list of pairs to an 'J.Object'.
 object :: J.ToJSON a => [(Text, a)] -> J.Value

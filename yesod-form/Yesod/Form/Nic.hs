@@ -16,7 +16,7 @@ import Yesod.Form
 import Yesod.Widget
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Text.Hamlet (Html, shamlet)
-import Text.Julius (julius)
+import Text.Julius (julius, rawJS)
 #if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze (preEscapedToMarkup)
 import Text.Blaze.Html.Renderer.String (renderHtml)
@@ -46,10 +46,10 @@ $newline never
         toWidget $
           case jsLoader master of
             BottomOfHeadBlocking -> [julius|
-bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")});
+bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{rawJS theId}")});
 |]
             _ -> [julius|
-(function(){new nicEditor({fullPanel:true}).panelInstance("#{theId}")})();
+(function(){new nicEditor({fullPanel:true}).panelInstance("#{rawJS theId}")})();
 |]
     , fieldEnctype = UrlEncoded
     }

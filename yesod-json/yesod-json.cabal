@@ -1,5 +1,5 @@
 name:            yesod-json
-version:         1.1.1
+version:         1.1.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -18,7 +18,7 @@ library
                    , yesod-routes          >= 1.1      && < 1.2
                    , aeson                 >= 0.5
                    , text                  >= 0.8      && < 1.0
-                   , shakespeare-js        >= 1.0      && < 1.1
+                   , shakespeare-js        >= 1.0      && < 1.2
                    , vector                >= 0.9
                    , containers            >= 0.2
                    , blaze-builder
