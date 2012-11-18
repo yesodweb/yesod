@@ -13,7 +13,11 @@ import Text.Hamlet (hamlet)
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad (when)
 import Control.Exception (throwIO)
+import Text.Julius (julius, rawJS)
+import Data.Aeson (toJSON)
+import Network.URI (uriPath, parseURI)
 
 pid :: Text
 pid = "browserid"
@@ -61,12 +65,41 @@ helper maudience = AuthPlugin
             _ -> notFound
     , apLogin = \toMaster -> do
         addScriptRemote browserIdJs
+        onclick <- lift newIdent
+        render <- lift getUrlRender
+        let login = toJSON $ getPath $ render (toMaster LoginR)
+        toWidget [julius|
+function #{rawJS onclick}() {
+    navigator.id.watch({
+        onlogin: function (assertion) {
+            if (assertion) {
+                alert("@{toMaster complete}/" + assertion);
+                document.location = "@{toMaster complete}/" + assertion;
+            }
+        },
+        onlogout: function () {}
+    });
+    navigator.id.request({
+        returnTo: #{login} + "?autologin=true"
+    });
+}
+|]
+
+        autologin <- fmap (== Just "true") $ lift $ lookupGetParam "autologin"
+        when autologin $ toWidget [julius|
+#{rawJS onclick}();
+|]
+
         toWidget [hamlet|
 $newline never
 <p>
-    <a href="javascript:navigator.id.getVerifiedEmail(function(a){if(a)document.location='@{toMaster complete}/'+a});">
+    <a href="javascript:#{onclick}()">
         <img src="https://browserid.org/i/sign_in_green.png">
 |]
     }
   where
     stripScheme t = fromMaybe t $ T.stripPrefix "//" $ snd $ T.breakOn "//" t
+
+    getPath t = fromMaybe t $ do
+        uri <- parseURI $ T.unpack t
+        return $ T.pack $ uriPath uri
