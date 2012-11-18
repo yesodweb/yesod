@@ -13,6 +13,7 @@ import Yesod.Form
 import Network.Wai.Handler.Warp (run)
 import Network.HTTP.Conduit
 import Network.TLS
+import Network.Wai.Middleware.RequestLogger
 
 data BID = BID { httpManager :: Manager }
 
@@ -49,6 +50,4 @@ instance RenderMessage BID FormMessage where
 main :: IO ()
 main = do
     m <- newManager def
-        { managerCheckCerts = \_ _ -> return CertificateUsageAccept
-        }
-    toWaiApp (BID m) >>= run 3000
+    toWaiApp (BID m) >>= run 3000 . logStdoutDev

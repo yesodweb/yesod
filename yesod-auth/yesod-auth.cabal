@@ -26,6 +26,7 @@ library
                    , yesod-persistent        >= 1.1       && < 1.2
                    , hamlet                  >= 1.1       && < 1.2
                    , shakespeare-css         >= 1.0       && < 1.1
+                   , shakespeare-js          >= 1.0.2     && < 1.2
                    , yesod-json              >= 1.1       && < 1.2
                    , containers
                    , unordered-containers
@@ -40,6 +41,7 @@ library
                    , lifted-base             >= 0.1
                    , blaze-html              >= 0.5       && < 0.6
                    , blaze-markup            >= 0.5.1     && < 0.6
+                   , network
 
     exposed-modules: Yesod.Auth
                      Yesod.Auth.BrowserId
