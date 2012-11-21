@@ -372,6 +372,17 @@ $doctype 5
     shouldLog :: a -> LogSource -> LogLevel -> Bool
     shouldLog a _ level = level >= logLevel a
 
+    -- | A Yesod middleware, which will wrap every handler function. This
+    -- allows you to run code before and after a normal handler.
+    --
+    -- Default: Adds the response header \"Vary: Accept, Accept-Language\".
+    --
+    -- Since: 1.1.6
+    yesodMiddleware :: GHandler sub a res -> GHandler sub a res
+    yesodMiddleware handler = do
+        setHeader "Vary" "Accept, Accept-Language"
+        handler
+
 {-# DEPRECATED messageLogger "Please use messageLoggerSource (since yesod-core 1.1.2)" #-}
 
 formatLogMessage :: IO ZonedDate
@@ -419,7 +430,7 @@ defaultYesodRunner :: Yesod master
                    -> (Route sub -> Route master)
                    -> Maybe (SessionBackend master)
                    -> W.Application
-defaultYesodRunner logger handler master sub murl toMasterRoute msb req
+defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
   | maximumContentLength master (fmap toMasterRoute murl) < len =
         return $ W.responseLBS
             (H.Status 413 "Too Large")
@@ -469,6 +480,7 @@ defaultYesodRunner logger handler master sub murl toMasterRoute msb req
         case reads $ S8.unpack s of
             [] -> Nothing
             (x, _):_ -> Just x
+    handler = yesodMiddleware handler'
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
     deriving (Eq, Show, Read)
