@@ -131,3 +131,4 @@ case_jshead = runner $ do
         { pathInfo = ["jshead"]
         }
     assertBody "<!DOCTYPE html>\n<html><head><title></title><script>alert(\"hello\");</script></head><body></body></html>" res
+    assertHeader "Vary" "Accept, Accept-Language" res
