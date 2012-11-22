@@ -73,7 +73,6 @@ function #{rawJS onclick}() {
     navigator.id.watch({
         onlogin: function (assertion) {
             if (assertion) {
-                alert("@{toMaster complete}/" + assertion);
                 document.location = "@{toMaster complete}/" + assertion;
             }
         },
