@@ -522,11 +522,12 @@ runHandler handler mrender sroute tomr master sub upload log' =
                 Right c' -> return $ YARPlain status (appEndo headers []) ct c' finalSession
         HCError e -> handleError e
         HCRedirect status loc -> do
-            let hs =
+            let disable_caching =
                     [ Header "Cache-Control" "no-cache, must-revalidate"
                     , Header "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
-                    , Header "Location" (encodeUtf8 loc)
-                    ] ++ appEndo headers []
+                    ]
+                hs = (if status == H.movedPermanently301 then disable_caching else [])
+                      ++ Header "Location" (encodeUtf8 loc) : appEndo headers []
             return $ YARPlain
                 status hs typePlain emptyContent
                 finalSession
