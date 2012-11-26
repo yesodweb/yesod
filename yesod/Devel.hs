@@ -121,10 +121,14 @@ defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing
 reverseProxy :: IO ()
 reverseProxy = withSocketsDo $ do
     manager <- newManager def
-    run 3000 $ waiProxyTo
-        (const $ return $ Right $ ProxyDest "127.0.0.1" 3001)
-        onExc
-        manager
+    forever $ do
+        run 3000 $ waiProxyTo
+            (const $ return $ Right $ ProxyDest "127.0.0.1" 3001)
+            onExc
+            manager
+        putStrLn "Reverse proxy stopped, but it shouldn't"
+        threadDelay 1000000
+        putStrLn "Restarting reverse proxy"
   where
     onExc _ _ = return $ responseLBS
         status200
