@@ -29,7 +29,7 @@ import           Control.Concurrent.MVar               (MVar, newEmptyMVar,
                                                         takeMVar, tryPutMVar)
 import qualified Control.Exception                     as Ex
 import           Control.Monad                         (unless, void,
-                                                        when)
+                                                        when, forever)
 
 import           Control.Monad.Trans.State             (evalStateT, get)
 import           Control.Monad.IO.Class                (liftIO)
