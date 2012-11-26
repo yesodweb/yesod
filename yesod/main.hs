@@ -137,7 +137,7 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Run COMMAND after rebuild succeeds")
                      <*> optStr ( long "failure-hook" <> short 'f' <> metavar "COMMAND"
                             <> help "Run COMMAND when rebuild fails")
-                     <*> option ( long "event-timeout" <> short 't' <> value (-1) <> metavar "N"
+                     <*> option ( long "event-timeout" <> short 't' <> value 1 <> metavar "N"
                             <> help "Force rescan of files every N seconds" )
                      <*> optStr ( long "builddir" <> short 'b'
                             <> help "Set custom cabal build directory, default `dist'")
