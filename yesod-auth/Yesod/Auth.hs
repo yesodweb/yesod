@@ -19,7 +19,7 @@ module Yesod.Auth
     , Creds (..)
     , setCreds
       -- * User functions
-    , maybeAuthId
+    , defaultMaybeAuthId
     , maybeAuth
     , requireAuthId
     , requireAuth
@@ -126,6 +126,31 @@ class (Yesod m, PathPiece (AuthId m), RenderMessage m FormMessage) => YesodAuth 
     onLogout :: GHandler s m ()
     onLogout = return ()
 
+    -- | Retrieves user credentials, if user is authenticated.
+    --
+    -- By default, this calls 'defaultMaybeAuthId' to get the user ID from the
+    -- session. This can be overridden to allow authentication via other means,
+    -- such as checking for a special token in a request header. This is
+    -- especially useful for creating an API to be accessed via some means
+    -- other than a browser.
+    --
+    -- Since 1.1.2
+    maybeAuthId :: GHandler s m (Maybe (AuthId m))
+    maybeAuthId = defaultMaybeAuthId
+
+credsKey :: Text
+credsKey = "_ID"
+
+-- | Retrieves user credentials from the session, if user is authenticated.
+--
+-- Since 1.1.2
+defaultMaybeAuthId :: YesodAuth m => GHandler s m (Maybe (AuthId m))
+defaultMaybeAuthId = do
+    ms <- lookupSession credsKey
+    case ms of
+        Nothing -> return Nothing
+        Just s -> return $ fromPathPiece s
+
 mkYesodSub "Auth"
     [ ClassP ''YesodAuth [VarT $ mkName "master"]
     ]
@@ -136,9 +161,6 @@ mkYesodSub "Auth"
 /logout                LogoutR     GET POST
 /page/#Text/STRINGS PluginR
 |]
-
-credsKey :: Text
-credsKey = "_ID"
 
 -- | FIXME: won't show up till redirect
 setCreds :: YesodAuth m => Bool -> Creds m -> GHandler s m ()
@@ -209,14 +231,6 @@ handlePluginR plugin pieces = do
     case filter (\x -> apName x == plugin) (authPlugins master) of
         [] -> notFound
         ap:_ -> apDispatch ap method pieces
-
--- | Retrieves user credentials, if user is authenticated.
-maybeAuthId :: YesodAuth m => GHandler s m (Maybe (AuthId m))
-maybeAuthId = do
-    ms <- lookupSession credsKey
-    case ms of
-        Nothing -> return Nothing
-        Just s -> return $ fromPathPiece s
 
 maybeAuth :: ( YesodAuth m
              , b ~ YesodPersistBackend m
