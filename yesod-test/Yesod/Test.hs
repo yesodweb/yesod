@@ -81,6 +81,7 @@ where
 import qualified Test.Hspec ()
 
 import qualified Test.Hspec.Core as Core
+import qualified Test.Hspec.Runner as Runner
 import qualified Data.List as DL
 import qualified Data.Maybe as DY
 import qualified Data.ByteString.Char8 as BS8
@@ -108,7 +109,7 @@ import Data.Conduit.Pool (Pool)
 import Control.Monad.Trans.Control (MonadBaseControl)
 
 -- | The state used in 'describe' to build a list of specs
-data SpecsData conn = SpecsData Application (Pool conn) [Core.Spec]
+data SpecsData conn = SpecsData Application (Pool conn) [Core.SpecTree]
 
 -- | The specs state monad is where 'describe' runs.
 -- parameterized by a database connection.
@@ -156,7 +157,7 @@ type CookieValue = ByteString
 runTests :: Application -> Pool conn -> SpecsConn conn -> IO ()
 runTests app connection specsDef = do
   (SpecsData _ _ specs) <- ST.execStateT specsDef (SpecsData app connection [])
-  Core.hspec specs
+  (Runner.hspec . Core.fromSpecList) specs
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
