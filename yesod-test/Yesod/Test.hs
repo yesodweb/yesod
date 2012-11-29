@@ -65,21 +65,6 @@ module Yesod.Test (
 
 where
 
--- In in Hspec < 1.3 the Example instance for IO () (== Assertion/Expectation)
--- is orphan and only export from Test.Hspec.HUnit.
---
--- In Hspec 1.3.* it is still orphan, but re-exported from Test.Hspec.
---
--- Starting with Hspec 1.4.0 it is not orphan anymore.
---
--- As we only support Hspec >= 1.3, we import Test.Hspec to bring the orphan
--- instance into scope.  This is better than importing Test.Hspec.HUnit, as
--- Test.Hspec.HUnit may be removed in the future.
---
--- As soon as we decide to drop support for Hspec 1.3.*, we can remove this
--- comment and the following import.
-import qualified Test.Hspec ()
-
 import qualified Test.Hspec.Core as Core
 import qualified Test.Hspec.Runner as Runner
 import qualified Data.List as DL
