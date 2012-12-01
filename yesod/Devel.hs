@@ -15,6 +15,7 @@ import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
 import qualified Distribution.PackageDescription.Parse as D
 import qualified Distribution.Simple.Build             as D
+import qualified Distribution.Simple.Compiler          as D
 import qualified Distribution.Simple.Configure         as D
 import qualified Distribution.Simple.LocalBuildInfo    as D
 import qualified Distribution.Simple.Program           as D
@@ -28,11 +29,10 @@ import           Control.Concurrent                    (forkIO, threadDelay)
 import           Control.Concurrent.MVar               (MVar, newEmptyMVar,
                                                         takeMVar, tryPutMVar)
 import qualified Control.Exception                     as Ex
-import           Control.Monad                         (unless, void,
-                                                        when, forever)
-
-import           Control.Monad.Trans.State             (evalStateT, get)
+import           Control.Monad                         (forever, unless, void,
+                                                        when)
 import           Control.Monad.IO.Class                (liftIO)
+import           Control.Monad.Trans.State             (evalStateT, get)
 
 import           Data.Char                             (isNumber, isUpper)
 import qualified Data.List                             as L
@@ -49,22 +49,16 @@ import           System.FilePath                       (dropExtension,
                                                         splitDirectories,
                                                         takeExtension, (</>))
 import           System.FSNotify
-import           System.IO                             (hClose, hGetLine,
-                                                        hIsEOF, hPutStrLn,
-                                                        stderr, stdout)
 import           System.IO.Error                       (isDoesNotExistError)
 import           System.Posix.Types                    (EpochTime)
 import           System.PosixCompat.Files              (getFileStatus,
                                                         modificationTime)
 import           System.Process                        (ProcessHandle,
-                                                        createProcess,
+                                                        createProcess, env,
                                                         getProcessExitCode,
-                                                        proc, rawSystem,
-                                                        readProcess,
-                                                        runInteractiveProcess,
+                                                        proc, readProcess,
                                                         system,
-                                                        terminateProcess,
-                                                        env)
+                                                        terminateProcess)
 import           System.Timeout                        (timeout)
 
 import           Build                                 (getDeps, isNewerThan,
@@ -73,13 +67,14 @@ import           GhcBuild                              (buildPackage,
                                                         getBuildFlags)
 
 import qualified Config                                as GHC
-import           SrcLoc                                (Located)
-import           Network.HTTP.ReverseProxy             (waiProxyTo, ProxyDest (ProxyDest))
 import           Network                               (withSocketsDo)
-import           Network.Wai                           (responseLBS)
+import           Network.HTTP.Conduit                  (def, newManager)
+import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
+                                                        waiProxyTo)
 import           Network.HTTP.Types                    (status200)
+import           Network.Wai                           (responseLBS)
 import           Network.Wai.Handler.Warp              (run)
-import           Network.HTTP.Conduit                  (newManager, def)
+import           SrcLoc                                (Located)
 
 lockFile :: DevelOpts -> FilePath
 lockFile _opts =  "yesod-devel/devel-terminate"
@@ -108,10 +103,6 @@ data DevelOpts = DevelOpts
 
 getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
-
-cabalCommand :: DevelOpts -> FilePath
-cabalCommand opts | isCabalDev opts = "cabal-dev"
-                  | otherwise       = "cabal"
 
 defaultDevelOpts :: DevelOpts
 defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing
@@ -156,16 +147,16 @@ devel opts passThroughArgs = withManager $ \manager -> do
 
     -- outer loop re-reads the cabal file
     mainOuterLoop filesModified = do
-      cabal <- liftIO $ D.findPackageDesc "."
-      gpd   <- liftIO $ D.readPackageDescription D.normal cabal
-      ldar <- liftIO lookupLdAr
+      ghcVer <- liftIO ghcVersion
+      cabal  <- liftIO $ D.findPackageDesc "."
+      gpd    <- liftIO $ D.readPackageDescription D.normal cabal
+      ldar   <- liftIO lookupLdAr
       (hsSourceDirs, lib) <- liftIO $ checkCabalFile gpd
       liftIO $ removeFileIfExists (bd </> "setup-config")
-      liftIO $ configure cabal gpd opts
+      liftIO $ configure cabal ghcVer gpd opts
       liftIO $ removeFileIfExists "yesod-devel/ghcargs.txt"  -- these files contain the wrong data after
       liftIO $ removeFileIfExists "yesod-devel/arargs.txt"   -- the configure step, remove them to force
       liftIO $ removeFileIfExists "yesod-devel/ldargs.txt"   -- a cabal build first
-      ghcVer <- liftIO ghcVersion
       rebuild <- liftIO $ mkRebuild gpd ghcVer cabal opts ldar
       mainInnerLoop hsSourceDirs filesModified cabal gpd lib ghcVer rebuild
 
@@ -227,16 +218,15 @@ runBuildHook Nothing = return ()
   cabal-dev uses the command-line tool, we can fall back to
   cabal-dev buildopts if required
 -}
-configure :: FilePath -> D.GenericPackageDescription -> DevelOpts -> IO ()
-configure _cabalFile gpd opts
-  | isCabalDev opts = rawSystem (cabalCommand opts) args >> return ()
-  | otherwise       = do
-                        lbi <- D.configure (gpd, hookedBuildInfo) configFlags
-                        D.writePersistBuildConfig (getBuildDir opts) lbi -- fixme we could keep this in memory instead of file
+configure :: FilePath -> String -> D.GenericPackageDescription -> DevelOpts -> IO ()
+configure _cabalFile ghcVer gpd opts = do
+  print (DSS.configPackageDBs configFlags)
+  lbi <- D.configure (gpd, hookedBuildInfo) configFlags
+  D.writePersistBuildConfig (getBuildDir opts) lbi -- fixme we could keep this in memory instead of file
   where
     hookedBuildInfo = (Nothing, [])
-    configFlags | forceCabal opts = config
-                | otherwise       = config
+    configFlags0 | forceCabal opts = config
+                 | otherwise       = config
                        { DSS.configProgramPaths =
                              [ ("ar",  "yesod-ar-wrapper")
                              , ("ld", "yesod-ld-wrapper")
@@ -245,33 +235,24 @@ configure _cabalFile gpd opts
                        , DSS.configHcPkg = DSS.Flag "ghc-pkg"
                        }
 
+    configFlags | isCabalDev opts = configFlags0
+                       { DSS.configPackageDBs =
+
+                          [ Nothing
+                          , Just   D.GlobalPackageDB
+                          , Just $ D.SpecificPackageDB ("cabal-dev/packages-" ++ ghcVer ++ ".conf")
+                          ]
+                       }
+                | otherwise  = configFlags0
+
     config = (DSS.defaultConfigFlags D.defaultProgramConfiguration)
                { DSS.configConfigurationsFlags =
-                     [ (D.FlagName "devel", True)  -- legaxy
+                     [ (D.FlagName "devel", True)  -- legacy
                      , (D.FlagName "library-only", True)
                      ]
                , DSS.configProfLib     = DSS.Flag False
                , DSS.configUserInstall = DSS.Flag True
                }
-    cabalArgs
-        | isCabalDev opts = map ("--cabal-install-arg=" ++) as
-        | otherwise       = as
-        where
-          as =
-            [ "-fdevel" -- legacy
-            , "-flibrary-only"
-            ] ++ wrapperArgs
-          wrapperArgs
-              | forceCabal opts = []
-              | otherwise       =
-                  [ "--with-compiler=yesod-ghc-wrapper"
-                  , "--with-hc-pkg=ghc-pkg"
-                  , "--with-ld=yesod-ld-wrapper"
-                  , "--with-ar=yesod-ar-wrapper"
-                  ]
-    args :: [String]
-    args = "configure":cabalArgs ++ ["--disable-library-profiling" ]
-
 
 removeFileIfExists :: FilePath -> IO ()
 removeFileIfExists file = removeFile file `Ex.catch` handler
@@ -302,15 +283,7 @@ rebuildGhc bf ld ar = do
   buildPackage bf ld ar
 
 rebuildCabal :: D.GenericPackageDescription -> DevelOpts -> IO Bool
-rebuildCabal _gpd opts
-    | isCabalDev opts = do
-       let cmd = cabalCommand opts
-       putStrLn $ "Rebuilding application... (using " ++ cmd ++ ")"
-       exit <- (if verbose opts then rawSystem else rawSystemFilter) cmd ["build"]
-       return $ case exit of
-             ExitSuccess -> True
-             _           -> False
-    | otherwise = do
+rebuildCabal _gpd opts = do
        putStrLn $ "Rebuilding application... (using Cabal library)"
        lbi <- getPersistBuildConfig opts -- fixme we could cache this from the configure step
        let buildFlags | verbose opts = DSS.defaultBuildFlags
@@ -407,11 +380,12 @@ ghcVersion = fmap getNumber $ readProcess "runghc" ["--numeric-version", "0"] []
 
 ghcPackageArgs :: DevelOpts -> String -> D.PackageDescription -> D.Library -> IO [String]
 ghcPackageArgs opts ghcVer cabal lib = do
-   lbi <- getPersistBuildConfig opts
-   cbi <- fromMaybeErr errCbi (D.libraryConfig lbi)
-   if isCabalDev opts
-     then return ("-hide-all-packages" : "-no-user-package-conf" : inplaceConf : selfPkgArg lbi : cabalDevConf : depArgs lbi cbi)
-     else return ("-hide-all-packages" : inplaceConf : selfPkgArg lbi : depArgs lbi cbi)
+     lbi <- getPersistBuildConfig opts
+     cbi <- fromMaybeErr errCbi (D.libraryConfig lbi)
+     if isCabalDev opts
+       then return ("-hide-all-packages" : "-no-user-package-conf" : inplaceConf
+                       : selfPkgArg lbi : cabalDevConf : depArgs lbi cbi)
+       else return ("-hide-all-packages" : inplaceConf : selfPkgArg lbi : depArgs lbi cbi)
       where
         selfPkgArg lbi  = pkgArg . D.inplacePackageId . D.package . D.localPkgDescr $ lbi
         pkgArg (D.InstalledPackageId pkgId) = "-package-id" ++ pkgId
@@ -476,23 +450,6 @@ lookupLdAr' = do
   return $ (,) <$> look D.ldProgram pgmc' <*> look D.arProgram pgmc'
      where
        look pgm pdb = fmap D.programPath (D.lookupProgram pgm pdb)
-
--- | Acts like @rawSystem@, but filters out lines from the output that we're not interested in seeing.
-rawSystemFilter :: String -> [String] -> IO ExitCode
-rawSystemFilter command args = do
-    (inh, outh, errh, ph) <- runInteractiveProcess command args Nothing Nothing
-    hClose inh
-    let go handlein handleout = do
-            isEof <- hIsEOF handlein
-            if isEof
-                then hClose handlein
-                else do
-                    line <- hGetLine handlein
-                    unless ("Loading package " `L.isPrefixOf` line) $ hPutStrLn handleout line
-                    go handlein handleout
-    _ <- forkIO $ go outh stdout
-    _ <- forkIO $ go errh stderr
-    waitForProcess' ph
 
 -- | nonblocking version of @waitForProcess@
 waitForProcess' :: ProcessHandle -> IO ExitCode
