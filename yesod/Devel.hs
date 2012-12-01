@@ -220,7 +220,6 @@ runBuildHook Nothing = return ()
 -}
 configure :: FilePath -> String -> D.GenericPackageDescription -> DevelOpts -> IO ()
 configure _cabalFile ghcVer gpd opts = do
-  print (DSS.configPackageDBs configFlags)
   lbi <- D.configure (gpd, hookedBuildInfo) configFlags
   D.writePersistBuildConfig (getBuildDir opts) lbi -- fixme we could keep this in memory instead of file
   where
@@ -234,16 +233,23 @@ configure _cabalFile ghcVer gpd opts = do
                              ]
                        , DSS.configHcPkg = DSS.Flag "ghc-pkg"
                        }
-
+#if MIN_VERSION_Cabal(1,16,0)
     configFlags | isCabalDev opts = configFlags0
                        { DSS.configPackageDBs =
-
                           [ Nothing
-                          , Just   D.GlobalPackageDB
-                          , Just $ D.SpecificPackageDB ("cabal-dev/packages-" ++ ghcVer ++ ".conf")
+                          , Just D.GlobalPackageDB
+                          , Just cabalDevPackageDb
                           ]
                        }
+#else
+    configFlags | isCabalDev opts = configFlags0
+                       { DSS.configPackageDB = DSS.Flag cabalDevPackageDb
+                       }
+#endif
                 | otherwise  = configFlags0
+
+    cabalDevPackageDb = D.SpecificPackageDB ("cabal-dev/packages-" ++ ghcVer ++ ".conf")
+
 
     config = (DSS.defaultConfigFlags D.defaultProgramConfiguration)
                { DSS.configConfigurationsFlags =
