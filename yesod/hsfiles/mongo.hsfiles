@@ -313,7 +313,7 @@ import Language.Haskell.TH.Syntax
 -- You can find more information on persistent and how to declare entities
 -- at:
 -- http://www.yesodweb.com/book/persistent/
-share [mkPersist MkPersistSettings { mpsBackend = ConT ''Action }, mkMigrate "migrateAll"]
+share [mkPersist MkPersistSettings { mpsBackend = ConT ''MongoBackend }, mkMigrate "migrateAll"]
     $(persistFileWith lowerCaseSettings "config/models")
 
 {-# START_FILE PROJECTNAME.cabal #-}
@@ -370,8 +370,8 @@ library
                  , clientsession                 >= 0.8        && < 0.9
                  , bytestring                    >= 0.9        && < 0.11
                  , text                          >= 0.11       && < 0.12
-                 , persistent                    >= 1.0        && < 1.1
-                 , persistent-mongoDB            >= 1.0        && < 1.1
+                 , persistent                    >= 1.1        && < 1.2
+                 , persistent-mongoDB            >= 1.1        && < 1.2
                  , template-haskell
                  , hamlet                        >= 1.1        && < 1.2
                  , shakespeare-css               >= 1.0        && < 1.1
