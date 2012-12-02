@@ -65,22 +65,8 @@ module Yesod.Test (
 
 where
 
--- In in Hspec < 1.3 the Example instance for IO () (== Assertion/Expectation)
--- is orphan and only export from Test.Hspec.HUnit.
---
--- In Hspec 1.3.* it is still orphan, but re-exported from Test.Hspec.
---
--- Starting with Hspec 1.4.0 it is not orphan anymore.
---
--- As we only support Hspec >= 1.3, we import Test.Hspec to bring the orphan
--- instance into scope.  This is better than importing Test.Hspec.HUnit, as
--- Test.Hspec.HUnit may be removed in the future.
---
--- As soon as we decide to drop support for Hspec 1.3.*, we can remove this
--- comment and the following import.
-import qualified Test.Hspec ()
-
 import qualified Test.Hspec.Core as Core
+import qualified Test.Hspec.Runner as Runner
 import qualified Data.List as DL
 import qualified Data.Maybe as DY
 import qualified Data.ByteString.Char8 as BS8
@@ -108,7 +94,7 @@ import Data.Conduit.Pool (Pool)
 import Control.Monad.Trans.Control (MonadBaseControl)
 
 -- | The state used in 'describe' to build a list of specs
-data SpecsData conn = SpecsData Application (Pool conn) [Core.Spec]
+data SpecsData conn = SpecsData Application (Pool conn) [Core.SpecTree]
 
 -- | The specs state monad is where 'describe' runs.
 -- parameterized by a database connection.
@@ -156,7 +142,7 @@ type CookieValue = ByteString
 runTests :: Application -> Pool conn -> SpecsConn conn -> IO ()
 runTests app connection specsDef = do
   (SpecsData _ _ specs) <- ST.execStateT specsDef (SpecsData app connection [])
-  Core.hspec specs
+  (Runner.hspec . Core.fromSpecList) specs
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
