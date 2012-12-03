@@ -30,6 +30,7 @@ module Yesod
     , julius
     , JavascriptUrl
     , renderJavascriptUrl
+    , toJSON
       -- ** Cassius/Lucius
     , cassius
     , lucius
@@ -55,6 +56,7 @@ import Network.Wai.Handler.Warp (run)
 import System.IO (stderr, hPutStrLn)
 import Text.Blaze.Html (toHtml)
 import System.Environment (getEnv)
+import Data.Aeson (toJSON)
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)

@@ -71,6 +71,9 @@ import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
 import Database.Persist.Store (PersistEntityBackend)
+#if MIN_VERSION_persistent(1, 1, 0)
+import Database.Persist.Store (PersistMonadBackend)
+#endif
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
@@ -492,10 +495,16 @@ optionsEnum :: (Show a, Enum a, Bounded a) => GHandler sub master (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
 optionsPersist :: ( YesodPersist master, PersistEntity a
+#if MIN_VERSION_persistent(1, 1, 0)
+                  , PersistQuery (YesodPersistBackend master (GHandler sub master))
+                  , PathPiece (Key a)
+                  , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend master (GHandler sub master))
+#else
                   , PersistQuery (YesodPersistBackend master) (GHandler sub master)
                   , PathPiece (Key (YesodPersistBackend master) a)
-                  , RenderMessage master msg
                   , PersistEntityBackend a ~ YesodPersistBackend master
+#endif
+                  , RenderMessage master msg
                   )
                => [Filter a] -> [SelectOpt a] -> (a -> msg) -> GHandler sub master (OptionList (Entity a))
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
