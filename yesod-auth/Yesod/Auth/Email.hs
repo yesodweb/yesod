@@ -110,14 +110,15 @@ $newline never
 getRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
 getRegisterR = do
     toMaster <- getRouteToMaster
+    email <- newIdent
     defaultLayout $ do
         setTitleI Msg.RegisterLong
         [whamlet|
 $newline never
 <p>_{Msg.EnterEmail}
 <form method="post" action="@{toMaster registerR}">
-    <label for="email">_{Msg.Email}
-    <input type="email" name="email" width="150">
+    <label for=#{email}>_{Msg.Email}
+    <input ##{email} type="email" name="email" width="150">
     <input type="submit" value=_{Msg.Register}>
 |]
 
@@ -200,6 +201,8 @@ getPasswordR :: YesodAuthEmail master => GHandler Auth master RepHtml
 getPasswordR = do
     toMaster <- getRouteToMaster
     maid <- maybeAuthId
+    pass1 <- newIdent
+    pass2 <- newIdent
     case maid of
         Just _ -> return ()
         Nothing -> do
@@ -213,13 +216,15 @@ $newline never
 <form method="post" action="@{toMaster setpassR}">
     <table>
         <tr>
-            <th>_{Msg.NewPass}
+            <th>
+                <label for=#{pass1}>_{Msg.NewPass}
             <td>
-                <input type="password" name="new">
+                <input ##{pass1} type="password" name="new">
         <tr>
-            <th>_{Msg.ConfirmPass}
+            <th>
+                <label for=#{pass2}>_{Msg.ConfirmPass}
             <td>
-                <input type="password" name="confirm">
+                <input ##{pass2} type="password" name="confirm">
         <tr>
             <td colspan="2">
                 <input type="submit" value="_{Msg.SetPassTitle}">
