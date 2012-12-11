@@ -108,6 +108,7 @@ executable             yesod
                      , http-reverse-proxy >= 0.1.0.4
                      , network
                      , http-conduit
+                     , network-conduit
                      , project-template   >= 0.1.1
 
     ghc-options:       -Wall -threaded

@@ -62,8 +62,8 @@ getBuildFlags = do
   return argv2
 
 buildPackage :: [Located String] -> FilePath -> FilePath -> IO Bool
-buildPackage a ld ar = buildPackage' a ld ar `Ex.catch` \(e::Ex.SomeException) -> do
-  putStrLn ("exception building package: " ++ show e)
+buildPackage a ld ar = buildPackage' a ld ar `Ex.catch` \e -> do
+  putStrLn ("exception building package: " ++ show (e :: Ex.SomeException))
   return False
 
 buildPackage' :: [Located String] -> FilePath -> FilePath -> IO Bool
