@@ -53,6 +53,7 @@ data Command = Init
                      , _develBuildDir    :: Maybe String
                      , develIgnore       :: [String]
                      , develExtraArgs    :: [String]
+                     , _develPort        :: Int
                      }
              | Test
              | AddHandler
@@ -90,7 +91,7 @@ main = do
     Configure               -> cabal ["configure"]
     Build es                -> touch' >> cabal ("build":es)
     Touch                   -> touch'
-    Devel da s f r b _ig es -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f b) es
+    Devel da s f r b _ig es p -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f b p) es
     Keter noRebuild         -> keter (cabalCommand o) noRebuild
     Version                 -> do putStrLn ("yesod-core version:" ++ yesodVersion)
                                   putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
@@ -145,6 +146,8 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                                    <> help "ignore file changes in DIR" )
                               )
                      <*> extraCabalArgs
+                     <*> option ( long "port" <> short 'p' <> value 3000 <> metavar "N"
+                            <> help "Devel server listening port" )
 
 extraCabalArgs :: Parser [String]
 extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"

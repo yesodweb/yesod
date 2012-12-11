@@ -67,11 +67,14 @@ import           GhcBuild                              (buildPackage,
                                                         getBuildFlags)
 
 import qualified Config                                as GHC
+import           Data.Conduit.Network                  (HostPreference (HostIPv4),
+                                                        bindPort)
 import           Network                               (withSocketsDo)
 import           Network.HTTP.Conduit                  (def, newManager)
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
                                                         waiProxyTo)
 import           Network.HTTP.Types                    (status200)
+import           Network.Socket                        (sClose)
 import           Network.Wai                           (responseLBS)
 import           Network.Wai.Handler.Warp              (run)
 import           SrcLoc                                (Located)
@@ -99,27 +102,29 @@ data DevelOpts = DevelOpts
       , successHook  :: Maybe String
       , failHook     :: Maybe String
       , buildDir     :: Maybe String
+      , develPort    :: Int
       } deriving (Show, Eq)
 
 getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing
+defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000
 
 -- | Run a reverse proxy from port 3000 to 3001. If there is no response on
 -- 3001, give an appropriate message to the user.
-reverseProxy :: IO ()
-reverseProxy = withSocketsDo $ do
+reverseProxy :: DevelOpts -> Int -> IO ()
+reverseProxy opts appPort = do
     manager <- newManager def
-    forever $ do
-        run 3000 $ waiProxyTo
-            (const $ return $ Right $ ProxyDest "127.0.0.1" 3001)
-            onExc
-            manager
-        putStrLn "Reverse proxy stopped, but it shouldn't"
-        threadDelay 1000000
-        putStrLn "Restarting reverse proxy"
+    let loop = forever $ do
+            run (develPort opts) $ waiProxyTo
+                (const $ return $ Right $ ProxyDest "127.0.0.1" appPort)
+                onExc
+                manager
+            putStrLn "Reverse proxy stopped, but it shouldn't"
+            threadDelay 1000000
+            putStrLn "Restarting reverse proxy"
+    loop `Ex.onException` exitFailure
   where
     onExc _ _ = return $ responseLBS
         status200
@@ -128,9 +133,26 @@ reverseProxy = withSocketsDo $ do
         ]
         "<h1>App not ready, please refresh</h1>"
 
+checkPort :: Int -> IO Bool
+checkPort p = do
+    es <- Ex.try $ bindPort p HostIPv4
+    case es of
+        Left (_ :: Ex.IOException) -> return False
+        Right s -> do
+            sClose s
+            return True
+
+getPort :: Int -> IO Int
+getPort p = do
+    avail <- checkPort p
+    if avail then return p else getPort (succ p)
+
 devel :: DevelOpts -> [String] -> IO ()
-devel opts passThroughArgs = withManager $ \manager -> do
-    _ <- forkIO reverseProxy
+devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
+    avail <- checkPort $ develPort opts
+    unless avail $ error "devel port unavailable"
+    appPort <- getPort 17834
+    _ <- forkIO $ reverseProxy opts appPort
     checkDevelFile
     writeLock opts
 
@@ -138,7 +160,7 @@ devel opts passThroughArgs = withManager $ \manager -> do
     _ <- forkIO $ do
       filesModified <- newEmptyMVar
       watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
-      evalStateT (mainOuterLoop filesModified) Map.empty
+      evalStateT (mainOuterLoop appPort filesModified) Map.empty
     _ <- getLine
     writeLock opts
     exitSuccess
@@ -146,7 +168,7 @@ devel opts passThroughArgs = withManager $ \manager -> do
     bd = getBuildDir opts
 
     -- outer loop re-reads the cabal file
-    mainOuterLoop filesModified = do
+    mainOuterLoop appPort filesModified = do
       ghcVer <- liftIO ghcVersion
       cabal  <- liftIO $ D.findPackageDesc "."
       gpd    <- liftIO $ D.readPackageDescription D.normal cabal
@@ -158,10 +180,10 @@ devel opts passThroughArgs = withManager $ \manager -> do
       liftIO $ removeFileIfExists "yesod-devel/arargs.txt"   -- the configure step, remove them to force
       liftIO $ removeFileIfExists "yesod-devel/ldargs.txt"   -- a cabal build first
       rebuild <- liftIO $ mkRebuild gpd ghcVer cabal opts ldar
-      mainInnerLoop hsSourceDirs filesModified cabal gpd lib ghcVer rebuild
+      mainInnerLoop appPort hsSourceDirs filesModified cabal gpd lib ghcVer rebuild
 
     -- inner loop rebuilds after files change
-    mainInnerLoop hsSourceDirs filesModified cabal gpd lib ghcVer rebuild = go
+    mainInnerLoop appPort hsSourceDirs filesModified cabal gpd lib ghcVer rebuild = go
        where
          go = do
            _ <- recompDeps hsSourceDirs
@@ -185,7 +207,7 @@ devel opts passThroughArgs = withManager $ \manager -> do
                                               else "Starting development server..."
                    env0 <- liftIO getEnvironment
                    (_,_,_,ph) <- liftIO $ createProcess (proc "runghc" devArgs)
-                        { env = Just $ ("PORT", "3001") : ("DISPLAY_PORT", "3000") : env0
+                        { env = Just $ ("PORT", show appPort) : ("DISPLAY_PORT", show $ develPort opts) : env0
                         }
                    derefMap <- get
                    watchTid <- liftIO . forkIO . try_ $ flip evalStateT derefMap $ do
@@ -201,7 +223,7 @@ devel opts passThroughArgs = withManager $ \manager -> do
                    liftIO $ Ex.throwTo watchTid (userError "process finished")
            loop list
            n <- liftIO $ cabal `isNewerThan` (bd </> "setup-config")
-           if n then mainOuterLoop filesModified else go
+           if n then mainOuterLoop appPort filesModified else go
 
 runBuildHook :: Maybe String -> IO ()
 runBuildHook (Just s) = do
