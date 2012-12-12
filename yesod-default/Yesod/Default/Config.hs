@@ -181,7 +181,17 @@ loadConfig (ConfigSettings env parseExtra getFile getObject) = do
 
     let host    = fromString $ T.unpack $ fromMaybe "*" $ lookupScalar "host"    m
     mport <- parseMonad (\x -> x .: "port") m
-    let approot = fromMaybe "" $ lookupScalar "approot" m
+    let approot' = fromMaybe "" $ lookupScalar "approot" m
+
+    -- Handle the DISPLAY_PORT environment variable for yesod devel
+    approot <-
+        case T.stripSuffix ":3000" approot' of
+            Nothing -> return approot'
+            Just prefix -> do
+                envVars <- getEnvironment
+                case lookup "DISPLAY_PORT" envVars of
+                    Nothing -> return approot'
+                    Just p -> return $ prefix `T.append` T.pack (':' : p)
 
     extra <- parseMonad (parseExtra env) m
 
