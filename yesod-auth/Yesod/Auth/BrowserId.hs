@@ -3,6 +3,7 @@
 module Yesod.Auth.BrowserId
     ( authBrowserId
     , authBrowserIdAudience
+    , createOnClick
     ) where
 
 import Yesod.Auth
@@ -64,25 +65,7 @@ helper maudience = AuthPlugin
             (_, []) -> badMethod
             _ -> notFound
     , apLogin = \toMaster -> do
-        addScriptRemote browserIdJs
-        onclick <- lift newIdent
-        render <- lift getUrlRender
-        let login = toJSON $ getPath $ render (toMaster LoginR)
-        toWidget [julius|
-function #{rawJS onclick}() {
-    navigator.id.watch({
-        onlogin: function (assertion) {
-            if (assertion) {
-                document.location = "@{toMaster complete}/" + assertion;
-            }
-        },
-        onlogout: function () {}
-    });
-    navigator.id.request({
-        returnTo: #{login} + "?autologin=true"
-    });
-}
-|]
+        onclick <- createOnClick toMaster
 
         autologin <- fmap (== Just "true") $ lift $ lookupGetParam "autologin"
         when autologin $ toWidget [julius|
@@ -99,6 +82,34 @@ $newline never
   where
     stripScheme t = fromMaybe t $ T.stripPrefix "//" $ snd $ T.breakOn "//" t
 
+-- | Generates a function to handle on-click events, and returns that function
+-- name.
+createOnClick :: (Route Auth -> Route master) -> GWidget sub master Text
+createOnClick toMaster = do
+    addScriptRemote browserIdJs
+    onclick <- lift newIdent
+    render <- lift getUrlRender
+    let login = toJSON $ getPath $ render (toMaster LoginR)
+    toWidget [julius|
+        function #{rawJS onclick}() {
+            navigator.id.watch({
+                onlogin: function (assertion) {
+                    if (assertion) {
+                        document.location = "@{toMaster complete}/" + assertion;
+                    }
+                },
+                onlogout: function () {}
+            });
+            navigator.id.request({
+                returnTo: #{login} + "?autologin=true"
+            });
+        }
+    |]
+
+    autologin <- fmap (== Just "true") $ lift $ lookupGetParam "autologin"
+    when autologin $ toWidget [julius|#{rawJS onclick}();|]
+    return onclick
+  where
     getPath t = fromMaybe t $ do
         uri <- parseURI $ T.unpack t
         return $ T.pack $ uriPath uri
