@@ -7,22 +7,27 @@ module Build
     , touch
     , recompDeps
     , isNewerThan
+    , safeReadFile
     ) where
 
 -- FIXME there's a bug when getFileStatus applies to a file
 -- temporary deleted (e.g., Vim saving a file)
 
 import           Control.Applicative ((<|>), many, (<$>))
-import qualified Data.Attoparsec.Text.Lazy as A
+import qualified Data.Attoparsec.Text as A
 import           Data.Char (isSpace, isUpper)
-import qualified Data.Text.Lazy.IO as TIO
+import qualified Data.Text as T
+import           Data.Text.Encoding (decodeUtf8With)
+import           Data.Text.Encoding.Error (lenientDecode)
+import           Data.ByteString (ByteString)
+import qualified Data.ByteString as S
 
-import           Control.Exception (SomeException, try)
+import           Control.Exception (SomeException, try, IOException)
 import           Control.Exception.Lifted (handle)
 import           Control.Monad (when, filterM, forM, forM_, (>=>))
 import           Control.Monad.Trans.State (StateT, get, put, execStateT)
 import           Control.Monad.Trans.Writer (WriterT, tell, execWriterT)
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Class (lift)
 
 import           Data.Monoid (Monoid (mappend, mempty))
@@ -39,6 +44,9 @@ import           Text.Shakespeare (Deref)
 import           Text.Julius      (juliusUsedIdentifiers)
 import           Text.Cassius     (cassiusUsedIdentifiers)
 import           Text.Lucius      (luciusUsedIdentifiers)
+
+safeReadFile :: MonadIO m => FilePath -> m (Either IOException ByteString)
+safeReadFile = liftIO . try . S.readFile
 
 touch :: IO ()
 touch = do
@@ -86,8 +94,11 @@ touchDeps f action deps = (mapM_ go . Map.toList) deps
                 AlwaysOutdated -> return True
                 CompareUsedIdentifiers getDerefs -> do
                     derefMap <- get
-                    s <- liftIO $ readFile x
-                    let newDerefs = Set.fromList $ getDerefs s
+                    ebs <- safeReadFile x
+                    let newDerefs =
+                            case ebs of
+                                Left _ -> Set.empty
+                                Right bs -> Set.fromList $ getDerefs $ T.unpack $ decodeUtf8With lenientDecode bs
                     put $ Map.insert x newDerefs derefMap
                     case Map.lookup x derefMap of
                         Just oldDerefs | oldDerefs == newDerefs -> return False
@@ -176,11 +187,15 @@ data ComparisonType = AlwaysOutdated
 
 determineDeps :: FilePath -> IO [(ComparisonType, FilePath)]
 determineDeps x = do
-    y <- TIO.readFile x -- FIXME catch IO exceptions
-    let z = A.parse (many $ (parser <|> (A.anyChar >> return Nothing))) y
-    case z of
-        A.Fail{} -> return []
-        A.Done _ r -> mapM go r >>= filterM (doesFileExist . snd) . concat
+    y <- safeReadFile x
+    case y of
+        Left _ -> return []
+        Right bs -> do
+            let z = A.parseOnly (many $ (parser <|> (A.anyChar >> return Nothing)))
+                  $ decodeUtf8With lenientDecode bs
+            case z of
+                Left _ -> return []
+                Right r -> mapM go r >>= filterM (doesFileExist . snd) . concat
   where
     go (Just (StaticFiles fp, _)) = map ((,) AlwaysOutdated) <$> getFolderContents fp
     go (Just (Hamlet, f)) = return [(AlwaysOutdated, f)]

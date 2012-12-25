@@ -39,6 +39,9 @@ import qualified Data.List                             as L
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe)
 import qualified Data.Set                              as Set
+import qualified Data.Text as T
+import           Data.Text.Encoding (decodeUtf8With)
+import           Data.Text.Encoding.Error (lenientDecode)
 
 import           System.Directory
 import           System.Environment                    (getEnvironment)
@@ -62,7 +65,7 @@ import           System.Process                        (ProcessHandle,
 import           System.Timeout                        (timeout)
 
 import           Build                                 (getDeps, isNewerThan,
-                                                        recompDeps)
+                                                        recompDeps, safeReadFile)
 import           GhcBuild                              (buildPackage,
                                                         getBuildFlags)
 
@@ -439,13 +442,16 @@ getPersistConfigLenient opts = do
   if not exists
     then return (Left $ "file does not exist: " ++ file)
     else do
-      xs <- readFile file
-      return $ case lines xs of
-                 [_,l2]  -> -- two lines, header and serialized rest
-                   case reads l2 of
-                     [(bi,_)] -> Right bi
-                     _        -> (Left "cannot parse contents")
-                 _       -> (Left "not a valid header/content file")
+      xs <- safeReadFile file
+      case xs of
+        Left e -> return $ Left $ show e
+        Right bs ->
+          return $ case lines $ T.unpack $ decodeUtf8With lenientDecode bs of
+                     [_,l2]  -> -- two lines, header and serialized rest
+                       case reads l2 of
+                         [(bi,_)] -> Right bi
+                         _        -> (Left "cannot parse contents")
+                     _       -> (Left "not a valid header/content file")
 
 fromMaybeErr :: String -> Maybe b -> IO b
 fromMaybeErr err Nothing = failWith err
