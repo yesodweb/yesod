@@ -75,7 +75,7 @@ import           Data.Conduit.Network                  (HostPreference (HostIPv4
 import           Network                               (withSocketsDo)
 import           Network.HTTP.Conduit                  (def, newManager)
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
-                                                        waiProxyTo)
+                                                        waiProxyToSettings, wpsTimeout, wpsOnExc)
 import           Network.HTTP.Types                    (status200)
 import           Network.Socket                        (sClose)
 import           Network.Wai                           (responseLBS)
@@ -120,9 +120,12 @@ reverseProxy :: DevelOpts -> Int -> IO ()
 reverseProxy opts appPort = do
     manager <- newManager def
     let loop = forever $ do
-            run (develPort opts) $ waiProxyTo
+            run (develPort opts) $ waiProxyToSettings
                 (const $ return $ Right $ ProxyDest "127.0.0.1" appPort)
-                onExc
+                def
+                    { wpsOnExc = onExc
+                    , wpsTimeout = Just 2000000
+                    }
                 manager
             putStrLn "Reverse proxy stopped, but it shouldn't"
             threadDelay 1000000
