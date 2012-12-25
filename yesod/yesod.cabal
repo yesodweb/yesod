@@ -105,7 +105,7 @@ executable             yesod
                      , resourcet          >= 0.3          && < 0.5
                      , base64-bytestring
                      , lifted-base
-                     , http-reverse-proxy >= 0.1.0.4
+                     , http-reverse-proxy >= 0.1.1
                      , network
                      , http-conduit
                      , network-conduit
