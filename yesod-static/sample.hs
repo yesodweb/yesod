@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 import Yesod.Static
 import Yesod.Dispatch
@@ -17,11 +16,9 @@ mkYesod "Sample" [parseRoutes|
 /static StaticR Static getStatic
 |]
 instance Yesod Sample where
-    approot _ = ""
-    cleanPath _ = Right -- FIXME make this unnecessary perhaps
 
 getRootR = do
-    redirectText RedirectPermanent "static"
+    redirect "static"
     return ()
 
 main = do
