@@ -33,6 +33,7 @@ import           Control.Monad                         (forever, unless, void,
                                                         when)
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Trans.State             (evalStateT, get)
+import qualified Data.IORef                            as I
 
 import           Data.Char                             (isNumber, isUpper)
 import qualified Data.List                             as L
@@ -116,12 +117,14 @@ defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000
 
 -- | Run a reverse proxy from port 3000 to 3001. If there is no response on
 -- 3001, give an appropriate message to the user.
-reverseProxy :: DevelOpts -> Int -> IO ()
-reverseProxy opts appPort = do
+reverseProxy :: DevelOpts -> I.IORef Int -> IO ()
+reverseProxy opts iappPort = do
     manager <- newManager def
     let loop = forever $ do
             run (develPort opts) $ waiProxyToSettings
-                (const $ return $ Right $ ProxyDest "127.0.0.1" appPort)
+                (const $ do
+                    appPort <- liftIO $ I.readIORef iappPort
+                    return $ Right $ ProxyDest "127.0.0.1" appPort)
                 def
                     { wpsOnExc = onExc
                     , wpsTimeout = Just 10000000
@@ -157,8 +160,8 @@ devel :: DevelOpts -> [String] -> IO ()
 devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     avail <- checkPort $ develPort opts
     unless avail $ error "devel port unavailable"
-    appPort <- getPort 17834
-    _ <- forkIO $ reverseProxy opts appPort
+    iappPort <- getPort 17834 >>= I.newIORef
+    _ <- forkIO $ reverseProxy opts iappPort
     checkDevelFile
     writeLock opts
 
@@ -166,7 +169,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     _ <- forkIO $ do
       filesModified <- newEmptyMVar
       watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
-      evalStateT (mainOuterLoop appPort filesModified) Map.empty
+      evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     _ <- getLine
     writeLock opts
     exitSuccess
@@ -174,7 +177,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     bd = getBuildDir opts
 
     -- outer loop re-reads the cabal file
-    mainOuterLoop appPort filesModified = do
+    mainOuterLoop iappPort filesModified = do
       ghcVer <- liftIO ghcVersion
       cabal  <- liftIO $ D.findPackageDesc "."
       gpd    <- liftIO $ D.readPackageDescription D.normal cabal
@@ -186,10 +189,10 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
       liftIO $ removeFileIfExists "yesod-devel/arargs.txt"   -- the configure step, remove them to force
       liftIO $ removeFileIfExists "yesod-devel/ldargs.txt"   -- a cabal build first
       rebuild <- liftIO $ mkRebuild gpd ghcVer cabal opts ldar
-      mainInnerLoop appPort hsSourceDirs filesModified cabal gpd lib ghcVer rebuild
+      mainInnerLoop iappPort hsSourceDirs filesModified cabal gpd lib ghcVer rebuild
 
     -- inner loop rebuilds after files change
-    mainInnerLoop appPort hsSourceDirs filesModified cabal gpd lib ghcVer rebuild = go
+    mainInnerLoop iappPort hsSourceDirs filesModified cabal gpd lib ghcVer rebuild = go
        where
          go = do
            _ <- recompDeps hsSourceDirs
@@ -212,6 +215,11 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
                             $ if verbose opts then "Starting development server: runghc " ++ L.unwords devArgs
                                               else "Starting development server..."
                    env0 <- liftIO getEnvironment
+
+                   -- get a new port for the new process to listen on
+                   appPort <- liftIO $ I.readIORef iappPort >>= getPort . (+ 1)
+                   liftIO $ I.writeIORef iappPort appPort
+
                    (_,_,_,ph) <- liftIO $ createProcess (proc "runghc" devArgs)
                         { env = Just $ ("PORT", show appPort) : ("DISPLAY_PORT", show $ develPort opts) : env0
                         }
@@ -229,7 +237,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
                    liftIO $ Ex.throwTo watchTid (userError "process finished")
            loop list
            n <- liftIO $ cabal `isNewerThan` (bd </> "setup-config")
-           if n then mainOuterLoop appPort filesModified else go
+           if n then mainOuterLoop iappPort filesModified else go
 
 runBuildHook :: Maybe String -> IO ()
 runBuildHook (Just s) = do
