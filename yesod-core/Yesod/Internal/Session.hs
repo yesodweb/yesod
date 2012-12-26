@@ -1,10 +1,13 @@
 module Yesod.Internal.Session
     ( encodeClientSession
+    , encodeClientSessionOld
     , decodeClientSession
+    , decodeClientSessionOld
     , clientSessionDateCacher
     , ClientSessionDateCache(..)
     , BackendSession
     , SaveSession
+    , SaveSessionOld
     , SessionBackend(..)
     ) where
 
@@ -27,11 +30,17 @@ import qualified Network.Wai as W
 type BackendSession = [(Text, S8.ByteString)]
 
 type SaveSession = BackendSession    -- ^ The session contents after running the handler
+                -> UTCTime -- FIXME remove this in the next major version bump
+                -> IO [Header]
+
+type SaveSessionOld = BackendSession    -- ^ The session contents after running the handler
+                -> UTCTime
                 -> IO [Header]
 
 newtype SessionBackend master = SessionBackend
     { sbLoadSession :: master
                     -> W.Request
+                    -> UTCTime -- FIXME remove this in the next major version bump
                     -> IO (BackendSession, SaveSession) -- ^ Return the session data and a function to save the session
     }
 
@@ -128,3 +137,25 @@ posixDayLength_int64 = 86400
 
 diffTimeScale :: DiffTime
 diffTimeScale = 1e12
+
+encodeClientSessionOld :: CS.Key
+                    -> CS.IV
+                    -> UTCTime -- ^ expire time
+                    -> ByteString -- ^ remote host
+                    -> [(Text, ByteString)] -- ^ session
+                    -> ByteString -- ^ cookie value
+encodeClientSessionOld key iv expire rhost session' =
+    CS.encrypt key iv $ encode $ SessionCookie (Left expire) rhost session'
+
+decodeClientSessionOld :: CS.Key
+                    -> UTCTime -- ^ current time
+                    -> ByteString -- ^ remote host field
+                    -> ByteString -- ^ cookie value
+                    -> Maybe [(Text, ByteString)]
+decodeClientSessionOld key now rhost encrypted = do
+    decrypted <- CS.decrypt key encrypted
+    SessionCookie (Left expire) rhost' session' <-
+        either (const Nothing) Just $ decode decrypted
+    guard $ expire > now
+    guard $ rhost' == rhost
+    return session'
