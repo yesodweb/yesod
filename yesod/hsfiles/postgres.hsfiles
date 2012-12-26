@@ -141,7 +141,9 @@ instance Yesod App where
     -- default session idle timeout is 120 minutes
     makeSessionBackend _ = do
         key <- getKey "config/client_session_key.aes"
-        return . Just $ clientSessionBackend key 120
+        let timeout = 120 * 60 -- 120 minutes
+        (getCachedDate, _closeDateCache) <- clientSessionDateCacher timeout
+        return . Just $ clientSessionBackend2 key getCachedDate
 
     defaultLayout widget = do
         master <- getYesod
@@ -368,7 +370,7 @@ library
     build-depends: base                          >= 4          && < 5
                  -- , yesod-platform                >= 1.1        && < 1.2
                  , yesod                         >= 1.1.5      && < 1.2
-                 , yesod-core                    >= 1.1.5      && < 1.2
+                 , yesod-core                    >= 1.1.7      && < 1.2
                  , yesod-auth                    >= 1.1        && < 1.2
                  , yesod-static                  >= 1.1        && < 1.2
                  , yesod-default                 >= 1.1        && < 1.2
