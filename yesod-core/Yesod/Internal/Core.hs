@@ -41,6 +41,7 @@ module Yesod.Internal.Core
 
 import Yesod.Content
 import Yesod.Handler hiding (lift, getExpires)
+import Control.Monad.Logger (logErrorS)
 
 import Yesod.Routes.Class
 
@@ -547,7 +548,8 @@ $newline never
     $forall msg <- ia
         <li>#{msg}
 |]
-defaultErrorHandler (InternalError e) =
+defaultErrorHandler (InternalError e) = do
+    $logErrorS "yesod-core" e
     applyLayout' "Internal Server Error"
         [hamlet|
 $newline never
