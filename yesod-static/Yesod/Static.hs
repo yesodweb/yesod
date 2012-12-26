@@ -301,7 +301,7 @@ mkStaticFilesList fp fs routeConName makeHash = do
         pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
-                            [|[("etag" :: Text, pack $(lift hash))]|]
+                            [|[(pack "etag", pack $(lift hash))]|]
                     else return $ ListE []
         return
             [ SigD routeName $ ConT route
