@@ -359,7 +359,7 @@ $doctype 5
 
     -- | How to store uploaded files.
     --
-    -- Default: Whe nthe request body is greater than 50kb, store in a temp
+    -- Default: When the request body is greater than 50kb, store in a temp
     -- file. Otherwise, store in memory.
     fileUpload :: a
                -> Word64 -- ^ request body size
@@ -433,17 +433,13 @@ defaultYesodRunner :: Yesod master
                    -> Maybe (SessionBackend master)
                    -> W.Application
 defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
-  | maximumContentLength master (fmap toMasterRoute murl) < len =
-        return $ W.responseLBS
-            (H.Status 413 "Too Large")
-            [("Content-Type", "text/plain")]
-            "Request body too large to be processed."
+  | maxLen < len = return tooLargeResponse
   | otherwise = do
     let dontSaveSession _ _ = return []
     now <- liftIO getCurrentTime -- FIXME remove in next major version bump
     (session, saveSession) <- liftIO $ do
         maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req now) msb
-    rr <- liftIO $ parseWaiRequest req session (isJust msb) len
+    rr <- liftIO $ parseWaiRequest req session (isJust msb) len maxLen
     let h = {-# SCC "h" #-} do
           case murl of
             Nothing -> handler
@@ -477,6 +473,7 @@ defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
         _ -> return []
     return $ yarToResponse yar extraHeaders
   where
+    maxLen = maximumContentLength master $ fmap toMasterRoute murl
     len = fromMaybe 0 $ lookup "content-length" (W.requestHeaders req) >>= readMay
     readMay s =
         case reads $ S8.unpack s of

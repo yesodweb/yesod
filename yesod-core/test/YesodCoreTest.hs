@@ -12,6 +12,7 @@ import YesodCoreTest.Cache
 import qualified YesodCoreTest.WaiSubsite as WaiSubsite
 import qualified YesodCoreTest.Redirect as Redirect
 import qualified YesodCoreTest.JsLoader as JsLoader
+import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 
 import Test.Hspec
 
@@ -29,3 +30,4 @@ specs = do
       WaiSubsite.specs
       Redirect.specs
       JsLoader.specs
+      RequestBodySize.specs

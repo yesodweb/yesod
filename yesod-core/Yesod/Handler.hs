@@ -172,7 +172,6 @@ import Control.Monad.Logger
 
 import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey, CacheKey)
-import Data.Typeable (Typeable)
 import qualified Data.IORef as I
 import Control.Exception.Lifted (catch)
 import Control.Monad.Trans.Control
@@ -302,19 +301,6 @@ newtype YesodApp = YesodApp
 data YesodAppResult
     = YARWai W.Response
     | YARPlain H.Status [Header] ContentType Content SessionMap
-
-data HandlerContents =
-      HCContent H.Status ChooseRep
-    | HCError ErrorResponse
-    | HCSendFile ContentType FilePath (Maybe W.FilePart) -- FIXME replace FilePath with opaque type from system-filepath?
-    | HCRedirect H.Status Text
-    | HCCreated Text
-    | HCWai W.Response
-    deriving Typeable
-
-instance Show HandlerContents where
-    show _ = "Cannot show a HandlerContents"
-instance Exception HandlerContents
 
 getRequest :: GHandler s m Request
 getRequest = handlerRequest `liftM` ask

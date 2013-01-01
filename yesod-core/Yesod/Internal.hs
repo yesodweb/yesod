@@ -9,6 +9,7 @@
 module Yesod.Internal
     ( -- * Error responses
       ErrorResponse (..)
+    , HandlerContents (..)
       -- * Header
     , Header (..)
       -- * Cookie names
@@ -46,6 +47,8 @@ import qualified Data.Map as Map
 import Data.Text.Lazy.Builder (Builder)
 import Web.Cookie (SetCookie (..))
 import Data.ByteString (ByteString)
+import qualified Network.Wai as W
+import Yesod.Content (ChooseRep, ContentType)
 
 -- | Responses to indicate some form of an error occurred. These are different
 -- from 'SpecialResponse' in that they allow for custom error pages.
@@ -120,3 +123,16 @@ instance Monoid (GWData a) where
         (Map.unionWith mappend a5 b5)
         (a6 `mappend` b6)
         (a7 `mappend` b7)
+
+data HandlerContents =
+      HCContent H.Status ChooseRep
+    | HCError ErrorResponse
+    | HCSendFile ContentType FilePath (Maybe W.FilePart) -- FIXME replace FilePath with opaque type from system-filepath?
+    | HCRedirect H.Status Text
+    | HCCreated Text
+    | HCWai W.Response
+    deriving Typeable
+
+instance Show HandlerContents where
+    show _ = "Cannot show a HandlerContents"
+instance Exception HandlerContents

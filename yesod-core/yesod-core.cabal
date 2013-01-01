@@ -30,6 +30,7 @@ extra-source-files:
   test/YesodCoreTest/MediaData.hs
   test/YesodCoreTest/NoOverloadedStrings.hs
   test/YesodCoreTest/Redirect.hs
+  test/YesodCoreTest/RequestBodySize.hs
   test/YesodCoreTest/WaiSubsite.hs
   test/YesodCoreTest/Widget.hs
   test/YesodCoreTest/YesodTest.hs
@@ -123,6 +124,7 @@ test-suite tests
                   ,HUnit
                   ,QuickCheck >= 2 && < 3
                   ,transformers
+                  , conduit
     ghc-options:     -Wall
 
 source-repository head
