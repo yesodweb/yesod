@@ -13,6 +13,7 @@ module Yesod.Internal.Request
     , mkFileInfoFile
     , mkFileInfoSource
     , FileUpload (..)
+    , tooLargeResponse
     -- The below are exported for testing.
     , randomString
     , parseWaiRequest'
@@ -28,7 +29,7 @@ import Web.Cookie (parseCookiesText)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text, pack)
-import Network.HTTP.Types (queryToQueryText)
+import Network.HTTP.Types (queryToQueryText, Status (Status))
 import Control.Monad (join)
 import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.ByteString.Lazy as L
@@ -40,6 +41,8 @@ import Data.Conduit
 import Data.Conduit.List (sourceList)
 import Data.Conduit.Binary (sourceFile, sinkFile)
 import Data.Word (Word64)
+import Control.Monad.IO.Class (liftIO)
+import Control.Exception (throwIO)
 
 -- | The parsed request information.
 data Request = Request
@@ -51,26 +54,56 @@ data Request = Request
       -- | A random, session-specific token used to prevent CSRF attacks.
     , reqToken :: Maybe Text
       -- | Size of the request body.
-    , reqBodySize :: Word64
+      --
+      -- Note: in the presence of chunked request bodies, this value will be 0,
+      -- even though data is available.
+    , reqBodySize :: Word64 -- FIXME Consider in the future using a Maybe to represent chunked bodies
     }
 
 parseWaiRequest :: W.Request
                 -> [(Text, ByteString)] -- ^ session
                 -> Bool
-                -> Word64
+                -> Word64 -- ^ actual length... might be meaningless, see 'reqBodySize'
+                -> Word64 -- ^ maximum allowed body size
                 -> IO Request
-parseWaiRequest env session' useToken bodySize =
-    parseWaiRequest' env session' useToken bodySize <$> newStdGen
+parseWaiRequest env session' useToken bodySize maxBodySize =
+    parseWaiRequest' env session' useToken bodySize maxBodySize <$> newStdGen
+
+-- | Impose a limit on the size of the request body.
+limitRequestBody :: Word64 -> W.Request -> W.Request
+limitRequestBody maxLen req =
+    req { W.requestBody = W.requestBody req $= limit maxLen }
+  where
+    tooLarge = liftIO $ throwIO $ HCWai tooLargeResponse
+
+    limit 0 = tooLarge
+    limit remaining =
+        await >>= maybe (return ()) go
+      where
+        go bs = do
+            let len = fromIntegral $ S8.length bs
+            if len > remaining
+                then tooLarge
+                else do
+                    yield bs
+                    limit $ remaining - len
+
+tooLargeResponse :: W.Response
+tooLargeResponse = W.responseLBS
+    (Status 413 "Too Large")
+    [("Content-Type", "text/plain")]
+    "Request body too large to be processed."
 
 parseWaiRequest' :: RandomGen g
                  => W.Request
                  -> [(Text, ByteString)] -- ^ session
                  -> Bool
                  -> Word64
+                 -> Word64 -- ^ max body size
                  -> g
                  -> Request
-parseWaiRequest' env session' useToken bodySize gen =
-    Request gets'' cookies' env langs'' token bodySize
+parseWaiRequest' env session' useToken bodySize maxBodySize gen =
+    Request gets'' cookies' (limitRequestBody maxBodySize env) langs'' token bodySize
   where
     gets' = queryToQueryText $ W.queryString env
     gets'' = map (second $ fromMaybe "") gets'
