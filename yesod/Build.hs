@@ -10,9 +10,6 @@ module Build
     , safeReadFile
     ) where
 
--- FIXME there's a bug when getFileStatus applies to a file
--- temporary deleted (e.g., Vim saving a file)
-
 import           Control.Applicative ((<|>), many, (<$>))
 import qualified Data.Attoparsec.Text as A
 import           Data.Char (isSpace, isUpper)

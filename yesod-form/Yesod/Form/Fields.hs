@@ -161,7 +161,6 @@ htmlField = Field
     { fieldParse = parseHelper $ Right . preEscapedText . sanitizeBalance
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
 $newline never
-$# FIXME: There was a class="html" attribute, for what purpose?
 <textarea id="#{theId}" name="#{name}" *{attrs}>#{showVal val}
 |]
     , fieldEnctype = UrlEncoded

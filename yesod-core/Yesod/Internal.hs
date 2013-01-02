@@ -127,7 +127,7 @@ instance Monoid (GWData a) where
 data HandlerContents =
       HCContent H.Status ChooseRep
     | HCError ErrorResponse
-    | HCSendFile ContentType FilePath (Maybe W.FilePart) -- FIXME replace FilePath with opaque type from system-filepath?
+    | HCSendFile ContentType FilePath (Maybe W.FilePart)
     | HCRedirect H.Status Text
     | HCCreated Text
     | HCWai W.Response

@@ -271,7 +271,6 @@ renderTable, renderDivs, renderDivsNoLabels :: FormRender sub master a
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
-    -- FIXME non-valid HTML
     let widget = [whamlet|
 $newline never
 \#{fragment}

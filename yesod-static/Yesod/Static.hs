@@ -331,35 +331,3 @@ base64 = map tr
     tr '+' = '-'
     tr '/' = '_'
     tr c   = c
-
-{- FIXME
--- | Dispatch static route for a subsite
---
--- Subsites with static routes can't (yet) define Static routes the same way "master" sites can.
--- Instead of a subsite route:
--- /static StaticR Static getStatic
--- Use a normal route:
--- /static/*Strings StaticR GET
---
--- Then, define getStaticR something like:
--- getStaticR = getStaticHandler ($(mkEmbedFiles "static") typeByExt) StaticR
--- */ end CPP comment
-getStaticHandler :: Static -> (StaticRoute -> Route sub) -> [String] -> GHandler sub y ChooseRep
-getStaticHandler static toSubR pieces = do
-  toMasterR <- getRouteToMaster
-  toMasterHandler (toMasterR . toSubR) toSub route handler
-  where route = StaticRoute pieces []
-        toSub _ = static
-        staticSite = getSubSite :: Site (Route Static) (String -> Maybe (GHandler Static y ChooseRep))
-        handler = fromMaybe notFound $ handleSite staticSite (error "Yesod.Static: getSTaticHandler") route "GET"
--}
-
-
-{-
-calcHash :: Prelude.FilePath -> IO String
-calcHash fname =
-    withBinaryFile fname ReadMode hashHandle
-  where
-    hashHandle h = do s <- L.hGetContents h
-                      return $! base64md5 s
-                      -}
