@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME remove
 -- | Some fields spiced up with jQuery UI.
 module Yesod.Form.Jquery
     ( YesodJquery (..)

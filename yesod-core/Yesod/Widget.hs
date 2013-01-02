@@ -115,10 +115,6 @@ addSubWidget sub (GWidget w) = do
 class ToWidget sub master a where
     toWidget :: a -> GWidget sub master ()
 
--- FIXME At some point in the future, deprecate all the
--- addHamlet/Cassius/Lucius/Julius stuff. For the most part, toWidget* will be
--- sufficient. For somethings, like addLuciusMedia, create addCssUrlMedia.
-
 type RY master = Route master -> [(Text, Text)] -> Text
 
 -- | Newtype wrapper allowing injection of arbitrary content into CSS.

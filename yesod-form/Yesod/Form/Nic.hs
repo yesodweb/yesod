@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoMonomorphismRestriction #-} -- FIXME remove
 {-# LANGUAGE CPP #-}
 -- | Provide the user with a rich text editor.
 module Yesod.Form.Nic
