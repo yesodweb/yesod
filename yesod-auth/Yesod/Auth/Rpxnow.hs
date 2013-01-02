@@ -13,7 +13,10 @@ import Yesod.Widget
 import Yesod.Request
 import Text.Hamlet (hamlet)
 import Data.Text (pack, unpack)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
 import Control.Arrow ((***))
+import Network.HTTP.Types (renderQuery)
 
 authRpxnow :: YesodAuth m
            => String -- ^ app name
@@ -23,10 +26,12 @@ authRpxnow app apiKey =
     AuthPlugin "rpxnow" dispatch login
   where
     login tm = do
-        let url = {- FIXME urlEncode $ -} tm $ PluginR "rpxnow" []
+        render <- lift getUrlRender
+        let queryString = decodeUtf8With lenientDecode
+                        $ renderQuery True [("token_url", Just $ encodeUtf8 $ render $ tm $ PluginR "rpxnow" [])]
         toWidget [hamlet|
 $newline never
-<iframe src="http://#{app}.rpxnow.com/openid/embed?token_url=@{url}" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px">
+<iframe src="http://#{app}.rpxnow.com/openid/embed#{queryString}" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px">
 |]
     dispatch _ [] = do
         token1 <- lookupGetParams "token"

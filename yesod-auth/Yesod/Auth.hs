@@ -162,7 +162,6 @@ mkYesodSub "Auth"
 /page/#Text/STRINGS PluginR
 |]
 
--- | FIXME: won't show up till redirect
 setCreds :: YesodAuth m => Bool -> Creds m -> GHandler s m ()
 setCreds doRedirects creds = do
     y    <- getYesod
@@ -214,7 +213,9 @@ getLoginR :: YesodAuth m => GHandler Auth m RepHtml
 getLoginR = setUltDestReferer' >> loginHandler
 
 getLogoutR :: YesodAuth m => GHandler Auth m ()
-getLogoutR = setUltDestReferer' >> postLogoutR -- FIXME redirect to post
+getLogoutR = do
+    tm <- getRouteToMaster
+    setUltDestReferer' >> redirectToPost (tm LogoutR)
 
 postLogoutR :: YesodAuth m => GHandler Auth m ()
 postLogoutR = do
