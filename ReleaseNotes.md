@@ -1,12 +1,5 @@
-Yesod 0.10
-=======================
+Release notes are maintained on the wiki.
 
-* Replace lift with liftHandler and liftWidget
-* No more GGHandler or GGWidget
-* No more liftIOHandler
-* Enumerators are gone, in come conduits, now you can catch exceptions!
-* Move from pool to resource-pool
-* Rework of the redirect system
-* Configure database parameters via environment variables.
-* Fully reworked routing, much more efficient.
-* Cleaned up EntityDef, making it more resilient to renamings.
+https://github.com/yesodweb/yesod/wiki/Changelog (high level features)
+
+https://github.com/yesodweb/yesod/wiki/Detailed-change-list (see for breaking changes)
