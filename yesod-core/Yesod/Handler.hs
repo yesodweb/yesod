@@ -463,8 +463,8 @@ runHandler handler mrender sroute tomr master sub upload log' =
   YesodApp $ \eh rr cts initSession -> do
     let toErrorHandler e =
             case fromException e of
-                Just x -> x
-                Nothing -> InternalError $ T.pack $ show e
+                Just (HCError x) -> x
+                _ -> InternalError $ T.pack $ show e
     istate <- liftIO $ I.newIORef GHState
         { ghsSession = initSession
         , ghsRBC = Nothing
