@@ -6,8 +6,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE CPP #-}
--- FIXME Should we remove the older names here (addJulius, etc)?
-
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
 module Yesod.Widget
@@ -22,22 +20,14 @@ module Yesod.Widget
     , ToWidget (..)
     , ToWidgetHead (..)
     , ToWidgetBody (..)
+    , ToWidgetMedia (..)
       -- * Creating
       -- ** Head of page
     , setTitle
     , setTitleI
-    , addHamletHead
-    , addHtmlHead
       -- ** Body
-    , addHamlet
-    , addHtml
-    , addWidget
     , addSubWidget
       -- ** CSS
-    , addCassius
-    , addCassiusMedia
-    , addLucius
-    , addLuciusMedia
     , addStylesheet
     , addStylesheetAttrs
     , addStylesheetRemote
@@ -45,8 +35,6 @@ module Yesod.Widget
     , addStylesheetEither
     , CssBuilder (..)
       -- ** Javascript
-    , addJulius
-    , addJuliusBody
     , addScript
     , addScriptAttrs
     , addScriptRemote
@@ -139,6 +127,21 @@ instance (sub' ~ sub, master' ~ master) => ToWidget sub' master' (GWidget sub ma
 instance ToWidget sub master Html where
     toWidget = toWidget . const
 
+-- | Allows adding some CSS to the page with a specific media type.
+--
+-- Since 1.2
+class ToWidgetMedia sub master a where
+    -- | Add the given content to the page, but only for the given media type.
+    --
+    -- Since 1.2
+    toWidgetMedia :: Text -- ^ media value
+                  -> a
+                  -> GWidget sub master ()
+instance render ~ RY master => ToWidgetMedia sub master (render -> Css) where
+    toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . x
+instance render ~ RY master => ToWidgetMedia sub master (render -> CssBuilder) where
+    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
+
 class ToWidgetBody sub master a where
     toWidgetBody :: a -> GWidget sub master ()
 
@@ -174,48 +177,6 @@ setTitleI :: RenderMessage master msg => msg -> GWidget sub master ()
 setTitleI msg = do
     mr <- lift getMessageRender
     setTitle $ toHtml $ mr msg
-
-{-# DEPRECATED addHamletHead, addHtmlHead "Use toWidgetHead instead" #-}
-{-# DEPRECATED addHamlet, addHtml, addCassius, addLucius, addJulius "Use toWidget instead" #-}
-{-# DEPRECATED addJuliusBody "Use toWidgetBody instead" #-}
-{-# DEPRECATED addWidget "addWidget can be omitted" #-}
-
--- | Add a 'Hamlet' to the head tag.
-addHamletHead :: HtmlUrl (Route master) -> GWidget sub master ()
-addHamletHead = toWidgetHead
-
--- | Add a 'Html' to the head tag.
-addHtmlHead :: Html -> GWidget sub master ()
-addHtmlHead = toWidgetHead . const
-
--- | Add a 'Hamlet' to the body tag.
-addHamlet :: HtmlUrl (Route master) -> GWidget sub master ()
-addHamlet = toWidget
-
--- | Add a 'Html' to the body tag.
-addHtml :: Html -> GWidget sub master ()
-addHtml = toWidget
-
--- | Add another widget. This is defined as 'id', by can help with types, and
--- makes widget blocks look more consistent.
-addWidget :: GWidget sub master () -> GWidget sub master ()
-addWidget = id
-
--- | Add some raw CSS to the style tag. Applies to all media types.
-addCassius :: CssUrl (Route master) -> GWidget sub master ()
-addCassius = toWidget
-
--- | Identical to 'addCassius'.
-addLucius :: CssUrl (Route master) -> GWidget sub master ()
-addLucius = toWidget
-
--- | Add some raw CSS to the style tag, for a specific media type.
-addCassiusMedia :: Text -> CssUrl (Route master) -> GWidget sub master ()
-addCassiusMedia m x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just m) $ \r -> fromLazyText $ renderCss $ x r) mempty mempty
-
--- | Identical to 'addCassiusMedia'.
-addLuciusMedia :: Text -> CssUrl (Route master) -> GWidget sub master ()
-addLuciusMedia = addCassiusMedia
 
 -- | Link to the specified local stylesheet.
 addStylesheet :: Route master -> GWidget sub master ()
@@ -254,15 +215,6 @@ addScriptRemote = flip addScriptRemoteAttrs []
 -- | Link to the specified remote script.
 addScriptRemoteAttrs :: Text -> [(Text, Text)] -> GWidget sub master ()
 addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
-
--- | Include raw Javascript in the page's script tag.
-addJulius :: JavascriptUrl (Route master) -> GWidget sub master ()
-addJulius = toWidget
-
--- | Add a new script tag to the body with the contents of this 'Julius'
--- template.
-addJuliusBody :: JavascriptUrl (Route master) -> GWidget sub master ()
-addJuliusBody = toWidgetBody
 
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:

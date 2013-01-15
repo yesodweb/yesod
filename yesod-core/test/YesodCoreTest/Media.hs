@@ -27,7 +27,7 @@ instance Yesod Y where
 getRootR :: Handler RepHtml
 getRootR = defaultLayout $ do
     toWidget [lucius|foo1{bar:baz}|]
-    addCassiusMedia "screen" [lucius|foo2{bar:baz}|]
+    toWidgetMedia "screen" [lucius|foo2{bar:baz}|]
     toWidget [lucius|foo3{bar:baz}|]
 
 getStaticR :: Handler RepHtml
