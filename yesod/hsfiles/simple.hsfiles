@@ -3,12 +3,14 @@
 :set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls
 
 {-# START_FILE .gitignore #-}
-dist/
+dist*
 static/tmp/
 config/client_session_key.aes
 *.hi
 *.o
 *.sqlite3
+.hsenv*
+yesod-devel/
 
 {-# START_FILE Application.hs #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
