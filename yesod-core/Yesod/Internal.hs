@@ -59,7 +59,6 @@ data ErrorResponse =
     | PermissionDenied Text
     | BadMethod H.Method
     deriving (Show, Eq, Typeable)
-instance Exception ErrorResponse
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.
