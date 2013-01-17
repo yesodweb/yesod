@@ -62,15 +62,15 @@ If you aren't building from an application, remove the `./` and create a new dir
 
 
 
-## virthualenv
+## hsenv
 
-We recommend using [virthualenv](http://hackage.haskell.org/package/virthualenv)/[hsenv](https://github.com/Paczesiowa/hsenv) when hacking on Yesod from Linux. This is optional, but prevents your custom build of Yesod from interfering with your currently installed cabal packages.
+We recommend using [hsenv](http://hackage.haskell.org/package/hsenv) when hacking on Yesod from Linux. This is optional, but prevents your custom build of Yesod from interfering with your currently installed cabal packages.
 
-virthualenv will not work on Windows and maybe not Mac. Use cabal-dev instead
+hsenv will not work on Windows and maybe not Mac. Use cabal-dev instead
 
-* virthualenv creates an isolated environment like cabal-dev
-* virthualenv works at the shell level, so every shell must activate the virthualenv
-* cabal-dev by default isolates a single cabal package, but virthualenv isolates multiple packages together.
+* hsenv creates an isolated environment like cabal-dev
+* hsenv works at the shell level, so every shell must activate the hsenv
+* cabal-dev by default isolates a single cabal package, but hsenv isolates multiple packages together.
 * cabal-dev can isolate multiple packages together by using the -s sandbox argument
 
 
