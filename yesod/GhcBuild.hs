@@ -19,30 +19,30 @@
 module GhcBuild (getBuildFlags, buildPackage) where
 
 import qualified Control.Exception as Ex
-import           Control.Monad     (when)
+import           Control.Monad      (when)
 import           Data.IORef
-import           System.Process    (rawSystem)
+import           System.Process     (rawSystem)
 import           System.Environment (getEnvironment)
 
 import           CmdLineParser
-import           Data.Char         (toLower)
-import           Data.List         (isPrefixOf, partition)
-import           Data.Maybe        (fromMaybe)
-import           DriverPhases      (Phase (..), anyHsc, isHaskellSrcFilename,
-                                    isSourceFilename, startPhase)
-import           DriverPipeline    (compileFile, link, linkBinary, oneShot)
-import           DynFlags          (DynFlags, compilerInfo)
+import           Data.Char          (toLower)
+import           Data.List          (isPrefixOf, partition)
+import           Data.Maybe         (fromMaybe)
+import           DriverPhases       (Phase (..), anyHsc, isHaskellSrcFilename,
+                                     isSourceFilename, startPhase)
+import           DriverPipeline     (compileFile, link, linkBinary, oneShot)
+import           DynFlags           (DynFlags, compilerInfo)
 import qualified DynFlags
 import qualified GHC
-import           GHC.Paths         (libdir)
-import           HscTypes          (HscEnv (..), emptyHomePackageTable)
-import           MonadUtils        (liftIO)
-import           Panic             (ghcError, panic)
-import           SrcLoc            (Located, mkGeneralLocated)
-import           StaticFlags       (v_Ld_inputs)
+import           GHC.Paths          (libdir)
+import           HscTypes           (HscEnv (..), emptyHomePackageTable)
+import           MonadUtils         (liftIO)
+import           Panic              (ghcError, panic)
+import           SrcLoc             (Located, mkGeneralLocated)
+import           StaticFlags        (v_Ld_inputs)
 import qualified StaticFlags
-import           System.FilePath   (normalise, (</>))
-import           Util              (consIORef, looksLikeModuleName)
+import           System.FilePath    (normalise, (</>))
+import           Util               (consIORef, looksLikeModuleName)
 
 {-
   This contains a huge hack:
