@@ -62,12 +62,9 @@ If you aren't building from an application, remove the `./` and create a new dir
 
 
 
-## hsenv
+## hsenv (Linux only)
 
-Previously We recommended using [hsenv](http://hackage.haskell.org/package/hsenv) when hacking on Yesod from Linux.
-Unfortunately yesod devel's usage of the GHC API does not play nicely with the latest version, so we can only recommend cabal-dev now.
-
-hsenv will not work on Windows and maybe not Mac. Use cabal-dev instead
+[hsenv](http://hackage.haskell.org/package/hsenv) prevents your custom build of Yesod from interfering with your currently installed cabal packages:
 
 * hsenv creates an isolated environment like cabal-dev
 * hsenv works at the shell level, so every shell must activate the hsenv
