@@ -878,7 +878,7 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
   let YesodApp yapp =
         runHandler
           handler'
-          (yesodRender master "")
+          (yesodRender master $ resolveApproot master fakeWaiRequest)
           Nothing
           id
           master
