@@ -129,6 +129,7 @@ import Control.Exception hiding (Handler, catch, finally)
 import Control.Applicative
 
 import Control.Monad (liftM)
+import Control.Failure (Failure (failure))
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class (MonadTrans)
@@ -1059,3 +1060,6 @@ instance MonadLogger (GHandler sub master) where
     monadLoggerLogSource a b c d = do
         hd <- ask
         liftIO $ handlerLog hd a b c (toLogStr d)
+
+instance Exception e => Failure e (GHandler sub master) where
+    failure = liftIO . throwIO
