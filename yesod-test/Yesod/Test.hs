@@ -33,7 +33,7 @@ module Yesod.Test (
   -- add values, add files, lookup fields by label and find the current
   -- nonce value and add it to your request too.
   -- 
-  post, post_, get, get_, doRequest,
+  post, post_, get, get_, doRequest, doRequestHeaders,
   byName, fileByName,
 
   -- | Yesod cat auto generate field ids, so you are never sure what
@@ -363,9 +363,14 @@ get url paramsBuild = doRequest "GET" url paramsBuild
 get_ :: BS8.ByteString -> OneSpec conn ()
 get_ = flip get $ return ()
 
--- | General interface to performing requests, letting you specify the request method and extra headers.
+-- | General interface to performing requests, letting you specify the request method
 doRequest :: H.Method -> BS8.ByteString -> RequestBuilder a -> OneSpec conn ()
-doRequest method url paramsBuild = do
+doRequest method url paramsBuild = doRequestHeaders method url [] paramsBuild
+
+-- | General interface to performing requests, allowing you to add extra
+-- headers as well as letting you specify the request method.
+doRequestHeaders :: H.Method -> BS8.ByteString -> [H.Header] -> RequestBuilder a -> OneSpec conn ()
+doRequestHeaders method url extrahead paramsBuild = do
   OneSpecData app conn oldCookies mRes <- ST.get
 
   -- expire cookies and filter them for the current path. TODO: support max age
@@ -398,10 +403,11 @@ doRequest method url paramsBuild = do
   boundary = "*******noneedtomakethisrandom"
   separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
   makeMultipart cookies parts =
-    flip SRequest (BSL8.fromChunks [multiPartBody parts]) $ mkRequest
+    flip SRequest (BSL8.fromChunks [multiPartBody parts]) $ mkRequest $
       [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
             [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
-      , ("Content-Type", BS8.pack $ "multipart/form-data; boundary=" ++ boundary)]
+      , ("Content-Type", BS8.pack $ "multipart/form-data; boundary=" ++ boundary)
+      ] ++ extrahead
   multiPartBody parts =
     BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
   multipartPart (ReqPlainPart k v) = BS8.concat
@@ -416,10 +422,11 @@ doRequest method url paramsBuild = do
     , BS8.concat $ BSL8.toChunks bytes, "\r\n"]
 
   -- For building the regular non-multipart requests
-  makeSinglepart cookies parts = SRequest (mkRequest 
+  makeSinglepart cookies parts = SRequest (mkRequest $
     [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
             [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
-    , ("Content-Type", "application/x-www-form-urlencoded")]) $
+    , ("Content-Type", "application/x-www-form-urlencoded")
+    ] ++ extrahead) $
     BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&" $ map singlepartPart parts
 
   singlepartPart (ReqFilePart _ _ _ _) = ""
