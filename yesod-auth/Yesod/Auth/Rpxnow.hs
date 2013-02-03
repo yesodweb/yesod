@@ -1,5 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Auth.Rpxnow
     ( authRpxnow
     ) where
@@ -25,6 +27,10 @@ authRpxnow :: YesodAuth m
 authRpxnow app apiKey =
     AuthPlugin "rpxnow" dispatch login
   where
+    login ::
+        forall sub master.
+        ToWidget sub master (GWidget sub master ())
+        => (Route Auth -> Route master) -> GWidget sub master ()
     login tm = do
         render <- lift getUrlRender
         let queryString = decodeUtf8With lenientDecode
