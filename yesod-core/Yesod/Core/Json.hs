@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances, OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Yesod.Json
+module Yesod.Core.Json
     ( -- * Convert from a JSON value
       defaultLayoutJson
     , jsonToRepJson
@@ -26,7 +26,7 @@ import Yesod.Content
     ( ToContent (toContent), RepHtmlJson (RepHtmlJson), RepHtml (RepHtml)
     , RepJson (RepJson), Content (ContentBuilder)
     )
-import Yesod.Core (defaultLayout, Yesod)
+import Yesod.Internal.Core (defaultLayout, Yesod)
 import Yesod.Widget (GWidget)
 import Yesod.Routes.Class
 import Control.Arrow (second)
@@ -49,15 +49,7 @@ import Data.Conduit (($$))
 import Network.Wai (requestBody, requestHeaders)
 import Network.Wai.Parse (parseHttpAccept)
 import qualified Data.ByteString.Char8 as B8
-import Safe (headMay)
-
-#if !MIN_VERSION_yesod_core(1, 1, 5)
-instance ToContent J.Value where
-    toContent = flip ContentBuilder Nothing
-              . Blaze.fromLazyText
-              . toLazyText
-              . fromValue
-#endif
+import Data.Maybe (listToMaybe)
 
 -- | Provide both an HTML and JSON representation for a piece of
 -- data, using the default layout for the HTML output
@@ -133,6 +125,6 @@ jsonOrRedirect r j = do
 acceptsJson :: Yesod master => GHandler sub master Bool
 acceptsJson =  maybe False ((== "application/json") . B8.takeWhile (/= ';'))
             .  join
-            .  fmap (headMay . parseHttpAccept)
+            .  fmap (listToMaybe . parseHttpAccept)
             .  lookup "Accept" . requestHeaders
            <$> waiRequest
