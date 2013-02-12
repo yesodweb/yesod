@@ -107,13 +107,14 @@ data DevelOpts = DevelOpts
       , failHook     :: Maybe String
       , buildDir     :: Maybe String
       , develPort    :: Int
+      , proxyTimeout :: Int
       } deriving (Show, Eq)
 
 getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000
+defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10
 
 -- | Run a reverse proxy from port 3000 to 3001. If there is no response on
 -- 3001, give an appropriate message to the user.
@@ -127,7 +128,7 @@ reverseProxy opts iappPort = do
                     return $ Right $ ProxyDest "127.0.0.1" appPort)
                 def
                     { wpsOnExc = onExc
-                    , wpsTimeout = Just 10000000
+                    , wpsTimeout = Just (1000000 * proxyTimeout opts)
                     }
                 manager
             putStrLn "Reverse proxy stopped, but it shouldn't"

@@ -58,5 +58,3 @@ main = do
   when e $ writeFile outFile (show args ++ "\n")
   ex <- runProgram cmd args
   exitWith ex
-
-
