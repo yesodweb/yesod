@@ -58,6 +58,7 @@ data Command = Init
                      , develIgnore       :: [String]
                      , develExtraArgs    :: [String]
                      , _develPort        :: Int
+                     , _proxyTimeout     :: Int
                      }
              | Test
              | AddHandler
@@ -95,7 +96,7 @@ main = do
     Configure               -> cabal ["configure"]
     Build es                -> touch' >> cabal ("build":es)
     Touch                   -> touch'
-    Devel da s f r b _ig es p -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f b p) es
+    Devel da s f r b _ig es p t -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f b p t) es
     Keter noRebuild         -> keter (cabalCommand o) noRebuild
     Version                 -> do putStrLn ("yesod-core version:" ++ yesodVersion)
                                   putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
@@ -152,6 +153,8 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                      <*> extraCabalArgs
                      <*> option ( long "port" <> short 'p' <> value 3000 <> metavar "N"
                             <> help "Devel server listening port" )
+                     <*> option ( long "proxy-timeout" <> short 'x' <> value 10 <> metavar "N"
+                            <> help "Devel server timeout before returning 'not ready' message (in seconds)" )
 
 extraCabalArgs :: Parser [String]
 extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"

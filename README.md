@@ -27,7 +27,7 @@ Your application is a cabal package and you use `cabal` to install its dependenc
 
 Install conflicts are unfortunately common in Haskell development.
 If you are not using any sandbox tools, you may discover that some of the other haskell installs on your system are broken.
-You can prevent this by using sandbox tools: `cabal-dev` or `virthualenv`, now being renamed to `hsenv`.
+You can prevent this by using sandbox tools: `cabal-dev` or `hsenv`.
 
 Isolating an entire project with a virtual machine is also a great idea, you just need some tools to help that process.
 [Vagrant](http://vagrantup.com) is a great tool for that and there is a [Haskell Platform installer](https://bitbucket.org/puffnfresh/vagrant-haskell-heroku) for it.
@@ -62,15 +62,13 @@ If you aren't building from an application, remove the `./` and create a new dir
 
 
 
-## virthualenv
+## hsenv (Linux only)
 
-We recommend using [virthualenv](http://hackage.haskell.org/package/virthualenv)/[hsenv](https://github.com/Paczesiowa/hsenv) when hacking on Yesod from Linux. This is optional, but prevents your custom build of Yesod from interfering with your currently installed cabal packages.
+[hsenv](http://hackage.haskell.org/package/hsenv) prevents your custom build of Yesod from interfering with your currently installed cabal packages:
 
-virthualenv will not work on Windows and maybe not Mac. Use cabal-dev instead
-
-* virthualenv creates an isolated environment like cabal-dev
-* virthualenv works at the shell level, so every shell must activate the virthualenv
-* cabal-dev by default isolates a single cabal package, but virthualenv isolates multiple packages together.
+* hsenv creates an isolated environment like cabal-dev
+* hsenv works at the shell level, so every shell must activate the hsenv
+* cabal-dev by default isolates a single cabal package, but hsenv isolates multiple packages together.
 * cabal-dev can isolate multiple packages together by using the -s sandbox argument
 
 
