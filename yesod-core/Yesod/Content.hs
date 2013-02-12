@@ -65,7 +65,8 @@ import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.String (IsString (fromString))
 import Network.Wai (FilePart)
-import Data.Conduit (Source, ResourceT, Flush)
+import Data.Conduit (Source, ResourceT, Flush (Chunk), ResumableSource, mapOutput)
+import Data.Conduit.Internal (ResumableSource (ResumableSource))
 
 import qualified Data.Aeson as J
 import Data.Aeson.Encode (fromValue)
@@ -109,6 +110,17 @@ instance ToContent String where
     toContent = toContent . pack
 instance ToContent Html where
     toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
+
+instance ToFlushBuilder builder => ToContent (Source (ResourceT IO) builder) where
+    toContent src = ContentSource $ mapOutput toFlushBuilder src
+instance ToFlushBuilder builder => ToContent (ResumableSource (ResourceT IO) builder) where
+    toContent (ResumableSource src _) = toContent src
+
+class ToFlushBuilder a where toFlushBuilder :: a -> Flush Builder
+instance ToFlushBuilder (Flush Builder) where toFlushBuilder = id
+instance ToFlushBuilder Builder where toFlushBuilder = Chunk
+instance ToFlushBuilder (Flush B.ByteString) where toFlushBuilder = fmap fromByteString
+instance ToFlushBuilder B.ByteString where toFlushBuilder = Chunk . fromByteString
 
 -- | A function which gives targetted representations of content based on the
 -- content-types the user accepts.
