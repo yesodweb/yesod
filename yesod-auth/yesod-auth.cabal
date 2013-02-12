@@ -27,7 +27,6 @@ library
                    , hamlet                  >= 1.1       && < 1.2
                    , shakespeare-css         >= 1.0       && < 1.1
                    , shakespeare-js          >= 1.0.2     && < 1.2
-                   , yesod-json              >= 1.1       && < 1.2
                    , containers
                    , unordered-containers
                    , yesod-form              >= 1.1       && < 1.3
