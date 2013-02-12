@@ -55,6 +55,7 @@ module Yesod.Core
     , module Yesod.Request
     , module Yesod.Widget
     , module Yesod.Message
+    , module Yesod.Core.Json
     ) where
 
 import Yesod.Internal.Core
@@ -65,6 +66,7 @@ import Yesod.Handler
 import Yesod.Request
 import Yesod.Widget
 import Yesod.Message
+import Yesod.Core.Json
 
 import Control.Monad.Logger
 

@@ -85,9 +85,11 @@ library
                    , lifted-base           >= 0.1
                    , blaze-html            >= 0.5      && < 0.6
                    , blaze-markup          >= 0.5.1    && < 0.6
+                   , attoparsec-conduit
 
     exposed-modules: Yesod.Content
                      Yesod.Core
+                     Yesod.Core.Json
                      Yesod.Dispatch
                      Yesod.Handler
                      Yesod.Request

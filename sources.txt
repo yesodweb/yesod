@@ -1,6 +1,5 @@
 ./yesod-routes
 ./yesod-core
-./yesod-json
 ./yesod-static
 ./yesod-persistent
 ./yesod-newsfeed
