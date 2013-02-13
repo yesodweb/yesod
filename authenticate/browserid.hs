@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 import Yesod
 import Web.Authenticate.BrowserId
-import Data.Object
 import Data.Maybe (fromMaybe)
 import Network.HTTP.Conduit
 import Data.Text (Text)
@@ -12,7 +11,7 @@ mkYesod "BID" [parseRoutes|
 /complete/#Text CompleteR GET
 |]
 
-instance Yesod BID where approot _ = "http://localhost:3000"
+instance Yesod BID where approot = ApprootStatic "http://localhost:3000"
 
 getRootR = defaultLayout $ do
     addScriptRemote browserIdJs
@@ -20,7 +19,7 @@ getRootR = defaultLayout $ do
 function bidClick() {
     navigator.id.getVerifiedEmail(function(assertion) {
         if (assertion) {
-            document.location = "@{CompleteR ""}" + assertion;
+            document.location = "/complete/" + assertion;
         } else {
             alert("Invalid BrowserId login");
         }
@@ -34,7 +33,7 @@ function bidClick() {
 |]
 
 getCompleteR assertion = do
-    memail <- liftIO $ checkAssertion "localhost:3000" assertion
+    memail <- withManager $ checkAssertion "localhost:3000" assertion
     defaultLayout $ addHamlet [hamlet|
 <p>You tried to log in, let's see if it worked.
 $maybe email <- memail
