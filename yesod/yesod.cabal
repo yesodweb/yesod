@@ -101,7 +101,7 @@ executable             yesod
                      , fsnotify           >= 0.0          && < 0.1
                      , split              >= 0.2          && < 0.3
                      , file-embed
-                     , conduit            >= 0.5          && < 0.6
+                     , conduit            >= 0.5          && < 1.1
                      , resourcet          >= 0.3          && < 0.5
                      , base64-bytestring
                      , lifted-base

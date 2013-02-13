@@ -79,8 +79,8 @@ library
                    , vector                >= 0.9      && < 0.11
                    , aeson                 >= 0.5
                    , fast-logger           >= 0.2
-                   , monad-logger          >= 0.2.1    && < 0.3
-                   , conduit               >= 0.5      && < 0.6
+                   , monad-logger          >= 0.2.1    && < 0.4
+                   , conduit               >= 0.5
                    , resourcet             >= 0.3      && < 0.5
                    , lifted-base           >= 0.1
                    , blaze-html            >= 0.5      && < 0.6

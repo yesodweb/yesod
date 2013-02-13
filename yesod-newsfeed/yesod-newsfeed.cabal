@@ -18,10 +18,10 @@ library
                    , time                 >= 1.1.4
                    , hamlet               >= 1.1      && < 1.2
                    , bytestring           >= 0.9.1.4
-                   , text                 >= 0.9      && < 0.12
-                   , xml-conduit          >= 1.0      && < 1.1
-                   , blaze-html           >= 0.5      && < 0.6
-                   , blaze-markup         >= 0.5.1    && < 0.6
+                   , text                 >= 0.9
+                   , xml-conduit          >= 1.0
+                   , blaze-html           >= 0.5
+                   , blaze-markup         >= 0.5.1
                    , containers
 
     exposed-modules: Yesod.AtomFeed

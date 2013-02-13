@@ -36,8 +36,8 @@ library
                    , file-embed            >= 0.0.4.1  && < 0.5
                    , http-types            >= 0.7
                    , unix-compat           >= 0.2
-                   , conduit               >= 0.5      && < 0.6
-                   , crypto-conduit        >= 0.4      && < 0.5
+                   , conduit               >= 0.5
+                   , crypto-conduit        >= 0.4
                    , cryptohash            >= 0.6.1
                    , system-filepath       >= 0.4.6    && < 0.5
     exposed-modules: Yesod.Static

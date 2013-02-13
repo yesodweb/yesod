@@ -1056,10 +1056,16 @@ instance MonadResource (GHandler sub master) where
 #endif
 
 instance MonadLogger (GHandler sub master) where
+#if MIN_VERSION_monad_logger(0, 3, 0)
+    monadLoggerLog a b c d = do
+        hd <- ask
+        liftIO $ handlerLog hd a b c (toLogStr d)
+#else
     monadLoggerLog a c d = monadLoggerLogSource a "" c d
     monadLoggerLogSource a b c d = do
         hd <- ask
         liftIO $ handlerLog hd a b c (toLogStr d)
+#endif
 
 instance Exception e => Failure e (GHandler sub master) where
     failure = liftIO . throwIO
