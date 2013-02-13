@@ -26,15 +26,15 @@ library
                    , case-insensitive              >= 0.2
                    , text
                    , http-types                    >= 0.6
-                   , xml-conduit                   >= 1.0      && < 1.1
+                   , xml-conduit                   >= 1.0
                    , blaze-builder
                    , attoparsec
                    , containers
                    , unordered-containers
-                   , conduit                       >= 0.5      && < 0.6
+                   , conduit                       >= 0.5
                    , resourcet                     >= 0.3
                    , monad-control                 >= 0.3
-                   , blaze-builder-conduit         >= 0.5      && < 0.6
+                   , blaze-builder-conduit         >= 0.5
     exposed-modules: Web.Authenticate.Rpxnow,
                      Web.Authenticate.OpenId,
                      Web.Authenticate.BrowserId,
