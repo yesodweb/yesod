@@ -17,7 +17,7 @@ import Control.Monad.Trans.Resource (MonadResource)
 
 -- | Location of the Javascript file hosted by browserid.org
 browserIdJs :: Text
-browserIdJs = "https://browserid.org/include.js"
+browserIdJs = "https://login.persona.org/include.js"
 
 checkAssertion :: (MonadResource m, MonadBaseControl IO m)
                => Text -- ^ audience
@@ -25,7 +25,7 @@ checkAssertion :: (MonadResource m, MonadBaseControl IO m)
                -> Manager
                -> m (Maybe Text)
 checkAssertion audience assertion manager = do
-    req' <- liftIO $ parseUrl "https://browserid.org/verify"
+    req' <- liftIO $ parseUrl "https://verifier.login.persona.org/verify"
     let req = urlEncodedBody
                 [ ("audience", encodeUtf8 audience)
                 , ("assertion", encodeUtf8 assertion)
