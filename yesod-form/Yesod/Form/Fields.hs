@@ -328,7 +328,7 @@ $newline never
 <script>if (!('autofocus' in document.createElement('input'))) {document.getElementById('#{theId}').focus();}
 |]
           toWidget [cassius|
-            #{theId}
+            ##{theId}
               -webkit-appearance: textfield
             |]
     , fieldEnctype = UrlEncoded
