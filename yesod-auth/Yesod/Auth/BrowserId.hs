@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Yesod.Auth.BrowserId
     ( authBrowserId
     , authBrowserIdAudience
@@ -19,6 +20,8 @@ import Control.Exception (throwIO)
 import Text.Julius (julius, rawJS)
 import Data.Aeson (toJSON)
 import Network.URI (uriPath, parseURI)
+import Data.FileEmbed (embedFile)
+import Data.ByteString (ByteString)
 
 pid :: Text
 pid = "browserid"
@@ -62,6 +65,10 @@ helper maudience = AuthPlugin
                         , credsIdent = email
                         , credsExtra = []
                         }
+            ("GET", ["static", "sign-in.png"]) -> sendResponse
+                ( "image/png" :: ByteString
+                , toContent $(embedFile "persona_sign_in_blue.png")
+                )
             (_, []) -> badMethod
             _ -> notFound
     , apLogin = \toMaster -> do
@@ -76,10 +83,11 @@ helper maudience = AuthPlugin
 $newline never
 <p>
     <a href="javascript:#{onclick}()">
-        <img src="https://browserid.org/i/sign_in_green.png">
+        <img src=@{toMaster loginIcon}>
 |]
     }
   where
+    loginIcon = PluginR pid ["static", "sign-in.png"]
     stripScheme t = fromMaybe t $ T.stripPrefix "//" $ snd $ T.breakOn "//" t
 
 -- | Generates a function to handle on-click events, and returns that function

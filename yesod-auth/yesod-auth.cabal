@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.1.4.1
+version:         1.1.5
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -11,6 +11,7 @@ cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Authentication for Yesod.
+extra-source-files: persona_sign_in_blue.png
 
 library
     build-depends:   base                    >= 4         && < 5
