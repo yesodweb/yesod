@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.1.5.1
+version:         1.1.5.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -40,8 +40,8 @@ library
                    , aeson                   >= 0.5
                    , pwstore-fast            >= 2.2       && < 3
                    , lifted-base             >= 0.1
-                   , blaze-html              >= 0.5       && < 0.6
-                   , blaze-markup            >= 0.5.1     && < 0.6
+                   , blaze-html              >= 0.5
+                   , blaze-markup            >= 0.5.1
                    , network
                    , http-types
                    , file-embed
