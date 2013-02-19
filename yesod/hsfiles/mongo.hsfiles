@@ -26,9 +26,11 @@ import Yesod.Auth
 import Yesod.Default.Config
 import Yesod.Default.Main
 import Yesod.Default.Handlers
-import Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
+import Network.Wai.Middleware.RequestLogger
 import qualified Database.Persist.Store
 import Network.HTTP.Conduit (newManager, def)
+import System.IO (stdout)
+import System.Log.FastLogger (mkLogger)
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
@@ -46,12 +48,22 @@ mkYesodDispatch "App" resourcesApp
 makeApplication :: AppConfig DefaultEnv Extra -> IO Application
 makeApplication conf = do
     foundation <- makeFoundation conf
+
+    -- Initialize the logging middleware
+    logWare <- mkRequestLogger def
+        { outputFormat =
+            if development
+                then Detailed True
+                else Apache FromSocket
+        , destination = Logger $ appLogger foundation
+        }
+
+    -- Create the WAI application and apply middlewares
     app <- toWaiAppPlain foundation
     return $ logWare app
-  where
-    logWare   = if development then logStdoutDev
-                               else logStdout
 
+-- | Loads up any necessary settings, creates your foundation datatype, and
+-- performs some initialization.
 makeFoundation :: AppConfig DefaultEnv Extra -> IO App
 makeFoundation conf = do
     manager <- newManager def
@@ -60,7 +72,10 @@ makeFoundation conf = do
               Database.Persist.Store.loadConfig >>=
               Database.Persist.Store.applyEnv
     p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)
-    return $ App conf s p manager dbconf
+    logger <- mkLogger True stdout
+    let foundation = App conf s p manager dbconf logger
+
+    return foundation
 
 -- for yesod devel
 getApplicationDev :: IO (Int, Application)
@@ -93,6 +108,7 @@ import Model
 import Text.Jasmine (minifym)
 import Web.ClientSession (getKey)
 import Text.Hamlet (hamletFile)
+import System.Log.FastLogger (Logger)
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -104,6 +120,7 @@ data App = App
     , connPool :: Database.Persist.Store.PersistConfigPool Settings.PersistConfig -- ^ Database connection pool.
     , httpManager :: Manager
     , persistConfig :: Settings.PersistConfig
+    , appLogger :: Logger
     }
 
 -- Set up i18n messages. See the message folder.
@@ -399,6 +416,9 @@ library
                  , warp                          >= 1.3        && < 1.4
                  , data-default
                  , aeson
+                 , conduit                       >= 1.0
+                 , monad-logger                  >= 0.3
+                 , fast-logger                   >= 0.3
 
 executable         PROJECTNAME
     if flag(library-only)
@@ -426,6 +446,7 @@ test-suite test
                  , persistent
                  , persistent-mongoDB
                  , resourcet
+                 , monad-logger
 
 {-# START_FILE Settings.hs #-}
 -- | Settings are centralized, as much as possible, into this file. This
@@ -5773,15 +5794,18 @@ import Yesod.Test
 import Database.Persist hiding (get)
 import Database.Persist.MongoDB hiding (master)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import Control.Monad.Logger (NoLoggingT, runNoLoggingT)
 
 import Model
 
 type Specs = SpecsConn Connection
 
-runDB :: Action (ResourceT IO) a -> OneSpec Connection a
+runDB :: Action (NoLoggingT (ResourceT IO)) a -> OneSpec Connection a
 runDB = runDBRunner poolRunner
   where
-    poolRunner query pool = runResourceT $ runMongoDBPoolDef query pool
+    poolRunner query pool = runResourceT
+                          $ runNoLoggingT
+                          $ runMongoDBPoolDef query pool
 
 {-# START_FILE tests/main.hs #-}
 {-# LANGUAGE OverloadedStrings #-}
