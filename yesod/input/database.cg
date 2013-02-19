@@ -4,6 +4,7 @@ We recommend starting with SQLite: it has no dependencies.
 
     s      = sqlite
     p      = postgresql
+    pf     = postgresql + Fay (experimental)
     mongo  = mongodb
     mysql  = MySQL
     simple = no database, no auth
