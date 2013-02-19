@@ -218,6 +218,8 @@ instance Yesod App where
     shouldLog _ _source level =
         development || level == LevelWarn || level == LevelError
 
+    getLogger = return . appLogger
+
 instance YesodJquery App
 instance YesodFay App where
 
