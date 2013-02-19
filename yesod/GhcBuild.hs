@@ -16,7 +16,7 @@
   build package with the GHC API
 -}
 
-module GhcBuild (getBuildFlags, buildPackage) where
+module GhcBuild (getBuildFlags, buildPackage, getPackageArgs) where
 
 import qualified Control.Exception as Ex
 import           Control.Monad      (when)
@@ -33,14 +33,16 @@ import           DriverPhases       (Phase (..), anyHsc, isHaskellSrcFilename,
 import           DriverPipeline     (compileFile, link, linkBinary, oneShot)
 import           DynFlags           (DynFlags, compilerInfo)
 import qualified DynFlags
+import qualified DynFlags           as DF
 import qualified GHC
 import           GHC.Paths          (libdir)
 import           HscTypes           (HscEnv (..), emptyHomePackageTable)
+import qualified Module
 import           MonadUtils         (liftIO)
 import           Panic              (ghcError, panic)
 import           SrcLoc             (Located, mkGeneralLocated)
-import           StaticFlags        (v_Ld_inputs)
 import qualified StaticFlags
+import           StaticFlags        (v_Ld_inputs)
 import           System.FilePath    (normalise, (</>))
 import           Util               (consIORef, looksLikeModuleName)
 
@@ -70,6 +72,42 @@ prependHsenvArgv argv = do
              Nothing -> argv
              _       -> hsenvArgv ++ argv
                  where hsenvArgv = words $ fromMaybe "" (lookup "PACKAGE_DB_FOR_GHC" env)
+
+-- construct a command line for loading the right packages
+getPackageArgs :: [Located String] -> IO [String]
+getPackageArgs argv2 = do
+  (mode, argv3, modeFlagWarnings) <- parseModeFlags argv2
+  GHC.runGhc (Just libdir) $ do
+    dflags0 <- GHC.getSessionDynFlags
+    (dflags1, _, _) <- GHC.parseDynamicFlags dflags0 argv3
+    let pkgFlags = map convertPkgFlag (GHC.packageFlags dflags1)
+        hideAll | gopt DF.Opt_HideAllPackages dflags1 = [ "-hide-all-packages"]
+                | otherwise                           = []
+        ownPkg = "-package" ++ Module.packageIdString (DF.thisPackage dflags1)
+    return (extra dflags1 ++ hideAll ++ pkgFlags ++ [ownPkg])
+  where
+    convertPkgFlag (DF.ExposePackage p)   = "-package" ++ p
+    convertPkgFlag (DF.ExposePackageId p) = "-package-id" ++ p
+    convertPkgFlag (DF.HidePackage p)     = "-hide-package" ++ p
+    convertPkgFlag (DF.IgnorePackage p)   = "-ignore-package" ++ p
+    convertPkgFlag (DF.TrustPackage p)    = "-trust" ++ p
+    convertPkgFlag (DF.DistrustPackage p) ="-distrust" ++ p
+#if __GLASGOW_HASKELL__ >= 705
+    extra df = concatMap convertExtra (extraConfs df)
+    extraConfs df = GHC.extraPkgConfs df []
+    convertExtra DF.GlobalPkgConf      = [ ]
+    convertExtra DF.UserPkgConf        = [ ]
+    convertExtra (DF.PkgConfFile file) = [ "-package-db" ++ file ]
+#else
+    extra df = map ("-package-conf"++) (GHC.extraPkgConfs df)
+#endif
+
+#if __GLASGOW_HASKELL__ >= 707
+    gopt = DF.gopt
+#else
+    gopt = DF.dopt
+#endif
+
 
 buildPackage :: [Located String] -> FilePath -> FilePath -> IO Bool
 buildPackage a ld ar = buildPackage' a ld ar `Ex.catch` \e -> do
