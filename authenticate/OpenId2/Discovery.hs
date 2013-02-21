@@ -76,7 +76,13 @@ discoverYADIS _ _ 0 _ = liftIO $ throwIO $ TooManyRedirects
 discoverYADIS ident mb_loc redirects manager = do
     let uri = fromMaybe (unpack $ identifier ident) mb_loc
     req <- liftIO $ parseUrl uri
-    res <- httpLbs req { checkStatus = \_ _ -> Nothing } manager
+    res <- httpLbs req
+#if MIN_VERSION_http_conduit(1, 9, 0)
+        { checkStatus = \_ _ _ -> Nothing
+#else
+        { checkStatus = \_ _ -> Nothing
+#endif
+        } manager
     let mloc = fmap S8.unpack
              $ lookup "x-xrds-location"
              $ map (first $ map toLower . S8.unpack . CI.original)
