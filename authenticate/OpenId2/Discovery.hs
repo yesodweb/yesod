@@ -41,8 +41,7 @@ import Text.HTML.TagSoup (parseTags, Tag (TagOpen))
 import Control.Applicative ((<$>), (<*>))
 import Network.HTTP.Types (status200)
 import Control.Exception (throwIO)
-import Control.Monad.Trans.Resource (MonadResource)
-import Control.Monad.Trans.Control (MonadBaseControl)
+import Data.Conduit (MonadBaseControl, MonadResource)
 
 data Discovery = Discovery1 Text (Maybe Text)
                | Discovery2 Provider Identifier IdentType

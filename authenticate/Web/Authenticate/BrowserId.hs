@@ -12,8 +12,7 @@ import Data.Attoparsec.Lazy (parse, maybeResult)
 import qualified Data.HashMap.Lazy as Map
 import Data.Text.Encoding (encodeUtf8)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Control (MonadBaseControl)
-import Control.Monad.Trans.Resource (MonadResource)
+import Data.Conduit (MonadBaseControl, MonadResource)
 
 -- | Location of the Javascript file hosted by browserid.org
 browserIdJs :: Text

@@ -36,8 +36,7 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Blaze.ByteString.Builder (toByteString)
 import Network.HTTP.Types (renderQueryText)
 import Control.Exception (throwIO)
-import Control.Monad.Trans.Control (MonadBaseControl)
-import Control.Monad.Trans.Resource (MonadResource)
+import Data.Conduit (MonadBaseControl, MonadResource)
 
 getForwardUrl
     :: (MonadResource m, MonadBaseControl IO m)
