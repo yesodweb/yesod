@@ -37,7 +37,7 @@ Isolating an entire project with a virtual machine is also a great idea, you jus
 cabal-dev creates a sandboxed environment for an individual cabal package.
 Instead of using the `cabal` command, use the `cabal-dev` command which will use the sandbox.
 
-Use `yesod-devel --dev` when developing your application.
+Use `yesod devel --dev` when developing your application.
 
 
 
