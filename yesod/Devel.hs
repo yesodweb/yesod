@@ -260,6 +260,7 @@ configure opts extraArgs =
                                 ([ "configure"
                                  , "-flibrary-only"
                                  , "-fdevel"
+                                 , "--disable-library-profiling"
                                  , "--with-ld=yesod-ld-wrapper"
                                  , "--with-ghc=yesod-ghc-wrapper"
                                  , "--with-ar=yesod-ar-wrapper"
