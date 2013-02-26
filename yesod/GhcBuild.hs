@@ -83,7 +83,7 @@ getPackageArgs argv2 = do
     let pkgFlags = map convertPkgFlag (GHC.packageFlags dflags1)
         hideAll | gopt DF.Opt_HideAllPackages dflags1 = [ "-hide-all-packages"]
                 | otherwise                           = []
-        ownPkg = "-package" ++ Module.packageIdString (DF.thisPackage dflags1)
+        ownPkg = "-package-id" ++ Module.packageIdString (DF.thisPackage dflags1) ++ "-inplace"
     return (extra dflags1 ++ hideAll ++ pkgFlags ++ [ownPkg])
   where
     convertPkgFlag (DF.ExposePackage p)   = "-package" ++ p
