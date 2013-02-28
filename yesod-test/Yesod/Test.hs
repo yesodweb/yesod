@@ -437,9 +437,13 @@ doRequestHeaders method url extrahead paramsBuild = do
     { requestMethod = method
     , remoteHost = Sock.SockAddrInet 1 2
     , requestHeaders = headers
-    , rawPathInfo = url
-    , pathInfo = DL.filter (/="") $ T.split (== '/') $ TE.decodeUtf8 url
+    , rawPathInfo = urlPath
+    , pathInfo = DL.filter (/="") $ T.split (== '/') $ TE.decodeUtf8 urlPath
+    , rawQueryString = urlQuery
+    , queryString = H.parseQuery urlQuery
     }
+
+  (urlPath, urlQuery) = BS8.break (== '?') url
   
 -- | Run a persistent db query. For asserting on the results of performed actions
 -- or setting up pre-conditions. At the moment this part is still very raw.
