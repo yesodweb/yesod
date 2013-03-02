@@ -26,7 +26,7 @@ import           System.Environment (getEnvironment)
 
 import           CmdLineParser
 import           Data.Char          (toLower)
-import           Data.List          (isPrefixOf, partition)
+import           Data.List          (isPrefixOf, isSuffixOf, partition)
 import           Data.Maybe         (fromMaybe)
 import           DriverPhases       (Phase (..), anyHsc, isHaskellSrcFilename,
                                      isSourceFilename, startPhase)
@@ -74,8 +74,8 @@ prependHsenvArgv argv = do
                  where hsenvArgv = words $ fromMaybe "" (lookup "PACKAGE_DB_FOR_GHC" env)
 
 -- construct a command line for loading the right packages
-getPackageArgs :: [Located String] -> IO [String]
-getPackageArgs argv2 = do
+getPackageArgs :: Maybe String -> [Located String] -> IO [String]
+getPackageArgs buildDir argv2 = do
   (mode, argv3, modeFlagWarnings) <- parseModeFlags argv2
   GHC.runGhc (Just libdir) $ do
     dflags0 <- GHC.getSessionDynFlags
@@ -93,13 +93,27 @@ getPackageArgs argv2 = do
     convertPkgFlag (DF.TrustPackage p)    = "-trust" ++ p
     convertPkgFlag (DF.DistrustPackage p) ="-distrust" ++ p
 #if __GLASGOW_HASKELL__ >= 705
-    extra df = concatMap convertExtra (extraConfs df)
+    extra df = inplaceConf ++ extra'
+      where
+         extra' = concatMap convertExtra (extraConfs df)
+         -- old cabal-install sometimes misses the .inplace db, fix it here
+         inplaceConf
+           | any (".inplace" `isSuffixOf`) extra' = []
+           | otherwise = ["-package-db" ++ fromMaybe "dist" buildDir
+                           ++ "/package.conf.inplace"]
     extraConfs df = GHC.extraPkgConfs df []
     convertExtra DF.GlobalPkgConf      = [ ]
     convertExtra DF.UserPkgConf        = [ ]
     convertExtra (DF.PkgConfFile file) = [ "-package-db" ++ file ]
 #else
-    extra df = map ("-package-conf"++) (GHC.extraPkgConfs df)
+    extra df  = inplaceConf ++ extra'
+      where
+        extra' = map ("-package-conf"++) (GHC.extraPkgConfs df)
+         -- old cabal-install sometimes misses the .inplace db, fix it here
+        inplaceConf
+          | any (".inplace" `isSuffixOf`) extra' = []
+          | otherwise = ["-package-conf" ++ fromMaybe "dist" buildDir
+                           ++ "/package.conf.inplace"]
 #endif
 
 #if __GLASGOW_HASKELL__ >= 707

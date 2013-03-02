@@ -201,7 +201,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
            _ <- recompDeps hsSourceDirs
            list <- liftIO $ getFileList hsSourceDirs [cabal]
            success <- liftIO rebuild
-           pkgArgs <- liftIO ghcPackageArgs
+           pkgArgs <- liftIO (ghcPackageArgs opts)
            let devArgs = pkgArgs ++ ["devel.hs"]
            let loop list0 = do
                    (haskellFileChanged, list1) <- liftIO $
@@ -387,8 +387,8 @@ ghcVersion = fmap getNumber $ readProcess "runghc" ["--numeric-version", "0"] []
     where
       getNumber = filter (\x -> isNumber x || x == '.')
 
-ghcPackageArgs :: IO [String]
-ghcPackageArgs = getBuildFlags >>= getPackageArgs
+ghcPackageArgs :: DevelOpts -> IO [String]
+ghcPackageArgs opts = getBuildFlags >>= getPackageArgs (buildDir opts)
 
 lookupDevelLib :: D.GenericPackageDescription -> D.CondTree D.ConfVar c a -> Maybe a
 lookupDevelLib gpd ct | found     = Just (D.condTreeData ct)
