@@ -52,7 +52,7 @@ module Yesod.Test (
 
   -- * Assertions
   assertEqual, assertHeader, assertNoHeader, statusIs, bodyEquals, bodyContains,
-  htmlAllContain, htmlCount,
+  htmlAllContain, htmlAnyContain, htmlCount,
 
   -- * Utils for debugging tests
   printBody, printMatches,
