@@ -1,6 +1,6 @@
 
 name:            authenticate-oauth
-version:         1.4.0.4
+version:         1.4.0.5
 license:         BSD3
 license-file:    LICENSE
 author:          Hiromi Ishii
@@ -15,7 +15,7 @@ homepage:        http://github.com/yesodweb/authenticate
 
 library
     build-depends:   base                          >= 4        && < 5
-                   , http-conduit                  >= 1.4      && < 1.9
+                   , http-conduit                  >= 1.4
                    , transformers                  >= 0.1      && < 0.4
                    , bytestring                    >= 0.9
                    , crypto-pubkey-types           >= 0.1      && < 0.3
@@ -25,11 +25,11 @@ library
                    , base64-bytestring             >= 0.1      && < 1.1
                    , SHA                           >= 1.4      && < 1.7
                    , random
-                   , http-types                    >= 0.6      && < 0.8
+                   , http-types                    >= 0.6      && < 0.9
                    , blaze-builder
-                   , conduit                       >= 0.4      && < 0.6
+                   , conduit                       >= 0.4
                    , resourcet                     >= 0.3      && < 0.5
-                   , blaze-builder-conduit         >= 0.4      && < 0.6
+                   , blaze-builder-conduit         >= 0.4
                    , monad-control                 >= 0.3      && < 0.4
     exposed-modules: Web.Authenticate.OAuth, Web.Authenticate.OAuth.IO
     ghc-options:     -Wall
