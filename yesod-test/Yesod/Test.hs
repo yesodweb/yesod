@@ -52,7 +52,7 @@ module Yesod.Test (
 
   -- * Assertions
   assertEqual, assertHeader, assertNoHeader, statusIs, bodyEquals, bodyContains,
-  htmlAllContain, htmlCount,
+  htmlAllContain, htmlAnyContain, htmlCount,
 
   -- * Utils for debugging tests
   printBody, printMatches,
@@ -252,6 +252,16 @@ htmlAllContain query search = do
     [] -> failure $ "Nothing matched css query: " <> query
     _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search) $
           DL.all (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+
+-- | Queries the html using a css selector, and passes if any matched
+-- element contains the given string.
+htmlAnyContain :: HoldsResponse a => Query -> String -> ST.StateT a IO ()
+htmlAnyContain query search = do
+  matches <- htmlQuery query
+  case matches of
+    [] -> failure $ "Nothing matched css query: " <> query
+    _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search) $
+          DL.any (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
 
 -- | Performs a css query on the last response and asserts the matched elements
 -- are as many as expected.
