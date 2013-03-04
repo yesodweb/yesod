@@ -255,6 +255,8 @@ htmlAllContain query search = do
 
 -- | Queries the html using a css selector, and passes if any matched
 -- element contains the given string.
+--
+-- Since 0.3.5
 htmlAnyContain :: HoldsResponse a => Query -> String -> ST.StateT a IO ()
 htmlAnyContain query search = do
   matches <- htmlQuery query
