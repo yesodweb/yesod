@@ -31,6 +31,7 @@ import Yesod.Widget (GWidget)
 import Yesod.Routes.Class
 import Control.Arrow (second)
 import Control.Applicative ((<$>))
+import qualified Control.Exception as EX
 import Control.Monad (join)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Parser as JP
@@ -98,6 +99,16 @@ parseJsonBody_ = do
     case ra of
         J.Error s -> invalidArgs [pack s]
         J.Success a -> return a
+        
+-- | Unlike parseJsonBody, which throw ParseError and close connection 
+-- when parse fail. This function allow server admin to handle failure respond.
+maybeJsonBody :: Handler (Maybe Value)
+maybeJsonBody = do
+    req <- requestBody <$> waiRequest  
+    let iov = runResourceT $ req $$ sinkParser JP.value' :: IO Value
+    liftIO $ EX.catch (Just <$> iov) handler
+    where handler :: ParseError -> IO (Maybe Value)
+          handler _ = return Nothing
 
 #if !MIN_VERSION_shakespeare_js(1, 0, 2)
 instance ToJavascript J.Value where
