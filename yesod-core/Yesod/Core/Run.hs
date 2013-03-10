@@ -14,7 +14,6 @@ import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel, LogSource)
 import           Control.Monad.Trans.Resource (runResourceT)
-import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
@@ -48,26 +47,6 @@ import           Yesod.Internal               (tokenKey)
 import           Yesod.Internal.Request       (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
-
-handlerToYAR :: (HasReps a, HasReps b)
-             => master -- ^ master site foundation
-             -> sub    -- ^ sub site foundation
-             -> (RequestBodyLength -> FileUpload)
-             -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
-             -> (Route sub -> Route master)
-             -> (Route master -> [(Text, Text)] -> Text) -- route renderer
-             -> (ErrorResponse -> GHandler sub master a)
-             -> YesodRequest
-             -> Maybe (Route sub)
-             -> SessionMap
-             -> GHandler sub master b
-             -> ResourceT IO YesodResponse
-handlerToYAR y s upload log' toMasterRoute render errorHandler0 rr murl sessionMap h =
-    ya rr { reqOnError = eh', reqSession = sessionMap }
-  where
-    ya = runHandler h render murl toMasterRoute y s upload log'
-    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log'
-    errorHandler' = localNoCurrent . errorHandler0
 
 yarToResponse :: YesodResponse -> [(CI ByteString, ByteString)] -> Response
 yarToResponse (YRWai a) _ = a
@@ -111,19 +90,23 @@ local :: (HandlerData sub' master' -> HandlerData sub master)
       -> GHandler sub' master' a
 local f (GHandler x) = GHandler $ \r -> x $ f r
 
+data RunHandlerEnv sub master = RunHandlerEnv -- FIXME merge with YesodRunnerEnv? Or HandlerData
+    { rheRender :: !(Route master -> [(Text, Text)] -> Text)
+    , rheRoute :: !(Maybe (Route sub))
+    , rheToMaster :: !(Route sub -> Route master)
+    , rheMaster :: !master
+    , rheSub :: !sub
+    , rheUpload :: !(RequestBodyLength -> FileUpload)
+    , rheLog :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+    }
+
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'Application'. Should not be needed by users.
 runHandler :: HasReps c
-           => GHandler sub master c
-           -> (Route master -> [(Text, Text)] -> Text)
-           -> Maybe (Route sub)
-           -> (Route sub -> Route master)
-           -> master
-           -> sub
-           -> (RequestBodyLength -> FileUpload)
-           -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+           => RunHandlerEnv sub master
+           -> GHandler sub master c
            -> YesodApp
-runHandler handler mrender sroute tomr master sub upload log' req = do
+runHandler RunHandlerEnv {..} handler yreq = do
     let toErrorHandler e =
             case fromException e of
                 Just (HCError x) -> x
@@ -136,15 +119,15 @@ runHandler handler mrender sroute tomr master sub upload log' req = do
         , ghsHeaders = mempty
         }
     let hd = HandlerData
-            { handlerRequest = req
-            , handlerSub = sub
-            , handlerMaster = master
-            , handlerRoute = sroute
-            , handlerRender = mrender
-            , handlerToMaster = tomr
+            { handlerRequest = yreq
+            , handlerSub = rheSub
+            , handlerMaster = rheMaster
+            , handlerRoute = rheRoute
+            , handlerRender = rheRender
+            , handlerToMaster = rheToMaster
             , handlerState = istate
-            , handlerUpload = upload
-            , handlerLog = log'
+            , handlerUpload = rheUpload
+            , handlerLog = rheLog
             }
     contents' <- catch (fmap Right $ unGHandler handler hd)
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
@@ -154,7 +137,7 @@ runHandler handler mrender sroute tomr master sub upload log' req = do
     let headers = ghsHeaders state
     let contents = either id (HCContent H.status200 . chooseRep) contents'
     let handleError e = do
-            yar <- eh e req
+            yar <- eh e yreq
                 { reqOnError = safeEh
                 , reqSession = finalSession
                 }
@@ -196,9 +179,9 @@ runHandler handler mrender sroute tomr master sub upload log' req = do
                 finalSession
         HCWai r -> return $ YRWai r
   where
-    eh = reqOnError req
-    cts = reqAccept req
-    initSession = reqSession req
+    eh = reqOnError yreq
+    cts = reqAccept yreq
+    initSession = reqSession yreq
 
 safeEh :: ErrorResponse -> YesodApp
 safeEh er req = do
@@ -256,16 +239,17 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
   let handler' = do liftIO . I.writeIORef ret . Right =<< handler
                     return ()
-  let yapp =
-        runHandler
-          handler'
-          (yesodRender master $ resolveApproot master fakeWaiRequest)
-          Nothing
-          id
-          master
-          master
-          (fileUpload master)
-          (messageLoggerSource master $ logger master)
+  let yapp = runHandler
+         RunHandlerEnv
+            { rheRender = yesodRender master $ resolveApproot master fakeWaiRequest
+            , rheRoute = Nothing
+            , rheToMaster = id
+            , rheMaster = master
+            , rheSub = master
+            , rheUpload = fileUpload master
+            , rheLog = messageLoggerSource master $ logger master
+            }
+        handler'
       errHandler err req = do
           liftIO $ I.writeIORef ret (Left err)
           return $ YRPlain
@@ -344,11 +328,20 @@ defaultYesodRunner YesodRunnerEnv {..} handler' req
                                 redirect url'
                     Unauthorized s' -> permissionDenied s'
                 handler
-    let sessionMap = Map.filterWithKey (\k _v -> k /= tokenKey) $ session
     let ra = resolveApproot yreMaster req
     let log' = messageLoggerSource yreMaster yreLogger
-    yar <- handlerToYAR yreMaster yreSub (fileUpload yreMaster) log' yreToMaster
-        (yesodRender yreMaster ra) errorHandler rr yreRoute sessionMap h
+        rhe = RunHandlerEnv
+            { rheRender = yesodRender yreMaster ra
+            , rheRoute = yreRoute
+            , rheToMaster = yreToMaster
+            , rheMaster = yreMaster
+            , rheSub = yreSub
+            , rheUpload = fileUpload yreMaster
+            , rheLog = log'
+            }
+    yar <- runHandler rhe h rr
+        { reqOnError = runHandler rhe . localNoCurrent . errorHandler
+        }
     extraHeaders <- case yar of
         (YRPlain _ _ ct _ newSess) -> do
             let nsToken = maybe

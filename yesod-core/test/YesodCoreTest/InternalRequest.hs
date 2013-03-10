@@ -11,6 +11,7 @@ import Yesod.Request (YesodRequest (..))
 import Test.Hspec
 import Data.Monoid (mempty)
 import Data.Map (singleton)
+import Yesod.Core.Types (YesodApp, ErrorResponse)
 
 randomStringSpecs :: Spec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
@@ -91,8 +92,8 @@ prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "e
         , queryString = [("_LANG", Just "en-QUERY")]
         } (singleton "_LANG" "en-SESSION") onError False 10000 g
 
-onError :: a
-onError = error "Yesod.InternalRequest.onError"
+onError :: ErrorResponse -> YesodApp
+onError _ = error "Yesod.InternalRequest.onError"
 
 internalRequestTest :: Spec
 internalRequestTest = describe "Test.InternalRequestTest" $ do

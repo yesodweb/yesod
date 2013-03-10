@@ -82,7 +82,9 @@ parseWaiRequest env session onError useToken maxBodySize gen =
         , reqWaiRequest = limitRequestBody maxBodySize env
         , reqLangs      = langs''
         , reqToken      = token
-        , reqSession    = session
+        , reqSession    = if useToken
+                            then Map.delete tokenKey session
+                            else session
         , reqAccept     = httpAccept env
         , reqOnError    = onError
         }
