@@ -93,7 +93,6 @@ library
                      Yesod.Core.Json
                      Yesod.Dispatch
                      Yesod.Handler
-                     Yesod.Request
                      Yesod.Widget
                      Yesod.Internal.TestApi
     other-modules:   Yesod.Internal
