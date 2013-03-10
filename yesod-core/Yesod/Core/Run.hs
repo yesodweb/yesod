@@ -2,7 +2,7 @@
 {-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Yesod.Core.Run where
 
 import           Blaze.ByteString.Builder     (fromLazyByteString, toByteString,
@@ -13,6 +13,8 @@ import           Control.Exception            (SomeException, fromException,
 import           Control.Exception.Lifted     (catch)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
+import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
+                                               liftLoc)
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as S
@@ -30,22 +32,20 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8)
 import           Data.Text.Encoding           (decodeUtf8With)
 import           Data.Text.Encoding.Error     (lenientDecode)
+import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
 import           Prelude                      hiding (catch)
 import           System.Log.FastLogger        (Logger)
+import           System.Log.FastLogger        (LogStr, toLogStr)
 import           System.Random                (newStdGen)
 import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Content
 import           Yesod.Core.Class
 import           Yesod.Core.Types
-import           Yesod.Internal               (tokenKey)
-import           Yesod.Internal.Request       (parseWaiRequest,
+import           Yesod.Internal.Request       (parseWaiRequest, tokenKey,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
-import Language.Haskell.TH.Syntax (Loc, qLocation)
-import Control.Monad.Logger (LogSource, LogLevel (LevelError), liftLoc)
-import System.Log.FastLogger (LogStr, toLogStr)
 
 yarToResponse :: YesodResponse -> [(CI ByteString, ByteString)] -> Response
 yarToResponse (YRWai a) _ = a

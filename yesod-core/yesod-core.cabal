@@ -95,8 +95,7 @@ library
                      Yesod.Handler
                      Yesod.Widget
                      Yesod.Internal.TestApi
-    other-modules:   Yesod.Internal
-                     Yesod.Internal.Core
+    other-modules:   Yesod.Internal.Core
                      Yesod.Internal.Session
                      Yesod.Internal.Request
                      Yesod.Core.Time

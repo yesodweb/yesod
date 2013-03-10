@@ -20,6 +20,7 @@ import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelO
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import           Data.List                          (foldl')
+import           Data.List                          (nub)
 import qualified Data.Map                           as Map
 import           Data.Maybe                         (fromMaybe)
 import           Data.Monoid
@@ -51,7 +52,6 @@ import qualified Web.ClientSession                  as CS
 import           Web.Cookie                         (parseCookies)
 import           Web.Cookie                         (SetCookie (..))
 import           Yesod.Core.Types
-import           Yesod.Internal
 import           Yesod.Internal.Session
 import           Yesod.Widget
 
@@ -398,6 +398,9 @@ $newline never
             : ("href", renderLoc' render' loc)
             : attrs
             )
+
+    runUniqueList :: Eq x => UniqueList x -> [x]
+    runUniqueList (UniqueList x) = nub $ x []
 
 -- | Helper function for 'defaultErrorHandler'.
 applyLayout' :: Yesod master

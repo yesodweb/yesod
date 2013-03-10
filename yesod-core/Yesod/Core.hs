@@ -55,12 +55,12 @@ module Yesod.Core
     ) where
 
 import Yesod.Internal.Core
-import Yesod.Internal (Header(..))
 import Yesod.Content
 import Yesod.Dispatch
 import Yesod.Handler
 import Yesod.Widget
 import Yesod.Core.Json
+import Yesod.Core.Types
 import Text.Shakespeare.I18N
 
 import Control.Monad.Logger
