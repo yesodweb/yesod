@@ -24,11 +24,11 @@ import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, MonadThrow (..),
                                                      MonadUnsafeIO (..),
                                                      ResourceT, Source)
-import           Data.IntMap                        (IntMap)
+import           Data.Dynamic                       (Dynamic)
 import           Data.IORef                         (IORef)
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
-import           Data.Monoid                        (Any, Endo (..), Last (..),
+import           Data.Monoid                        (Endo (..), Last (..),
                                                      Monoid (..))
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
@@ -38,13 +38,14 @@ import qualified Data.Text                          as T
 import qualified Data.Text.Lazy.Builder             as TBuilder
 import           Data.Time                          (UTCTime)
 import           Data.Typeable                      (Typeable)
+import           Data.Typeable                      (TypeRep)
 import           Language.Haskell.TH.Syntax         (Loc)
 import qualified Network.HTTP.Types                 as H
 import           Network.Wai                        (FilePart,
                                                      RequestBodyLength)
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
-import           System.Log.FastLogger              (LogStr, toLogStr, Logger)
+import           System.Log.FastLogger              (LogStr, Logger, toLogStr)
 import           Text.Blaze.Html                    (Html)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
@@ -155,10 +156,8 @@ type BottomOfHeadAsync master
       -> Maybe (HtmlUrl (Route master)) -- ^ widget of js to run on async completion
       -> (HtmlUrl (Route master)) -- ^ widget to insert at the bottom of <head>
 
-newtype Cache = Cache (IntMap Any)
+newtype Cache = Cache (Map TypeRep Dynamic)
     deriving Monoid
-
-newtype CacheKey a = CacheKey Int
 
 type Texts = [Text]
 
@@ -180,9 +179,9 @@ data RunHandlerEnv sub master = RunHandlerEnv
     }
 
 data HandlerData sub master = HandlerData
-    { handlerRequest  :: !YesodRequest
-    , handlerEnv      :: !(RunHandlerEnv sub master)
-    , handlerState    :: !(IORef GHState)
+    { handlerRequest :: !YesodRequest
+    , handlerEnv     :: !(RunHandlerEnv sub master)
+    , handlerState   :: !(IORef GHState)
     }
 
 data YesodRunnerEnv sub master = YesodRunnerEnv
