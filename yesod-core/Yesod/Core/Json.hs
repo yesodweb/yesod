@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeSynonymInstances, OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Core.Json
     ( -- * Convert from a JSON value
@@ -89,11 +88,6 @@ parseJsonBody_ = do
     case ra of
         J.Error s -> invalidArgs [pack s]
         J.Success a -> return a
-
-#if !MIN_VERSION_shakespeare_js(1, 0, 2)
-instance ToJavascript J.Value where
-    toJavascript = fromLazyText . decodeUtf8 . JE.encode
-#endif
 
 -- | Convert a list of pairs to an 'J.Object'.
 object :: J.ToJSON a => [(Text, a)] -> J.Value
