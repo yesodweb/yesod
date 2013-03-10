@@ -44,7 +44,7 @@ import           Network.Wai                        (FilePart,
                                                      RequestBodyLength)
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
-import           System.Log.FastLogger              (LogStr, toLogStr)
+import           System.Log.FastLogger              (LogStr, toLogStr, Logger)
 import           Text.Blaze.Html                    (Html)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
@@ -114,8 +114,8 @@ data YesodRequest = YesodRequest
 -- | An augmented WAI 'W.Response'. This can either be a standard @Response@,
 -- or a higher-level data structure which Yesod will turn into a @Response@.
 data YesodResponse
-    = YRWai W.Response
-    | YRPlain H.Status [Header] ContentType Content SessionMap
+    = YRWai !W.Response
+    | YRPlain !H.Status ![Header] !ContentType !Content !SessionMap
 
 -- | A tuple containing both the POST parameters and submitted files.
 type RequestBodyContents =
@@ -124,15 +124,15 @@ type RequestBodyContents =
     )
 
 data FileInfo = FileInfo
-    { fileName        :: Text
-    , fileContentType :: Text
-    , fileSource      :: Source (ResourceT IO) ByteString
-    , fileMove        :: FilePath -> IO ()
+    { fileName        :: !Text
+    , fileContentType :: !Text
+    , fileSource      :: !(Source (ResourceT IO) ByteString)
+    , fileMove        :: !(FilePath -> IO ())
     }
 
-data FileUpload = FileUploadMemory (NWP.BackEnd L.ByteString)
-                | FileUploadDisk (NWP.BackEnd FilePath)
-                | FileUploadSource (NWP.BackEnd (Source (ResourceT IO) ByteString))
+data FileUpload = FileUploadMemory !(NWP.BackEnd L.ByteString)
+                | FileUploadDisk !(NWP.BackEnd FilePath)
+                | FileUploadSource !(NWP.BackEnd (Source (ResourceT IO) ByteString))
 
 -- | How to determine the root of the application for constructing URLs.
 --
@@ -140,9 +140,9 @@ data FileUpload = FileUploadMemory (NWP.BackEnd L.ByteString)
 -- the major version number. As a result, you should /not/ pattern match on
 -- @Approot@ values.
 data Approot master = ApprootRelative -- ^ No application root.
-                    | ApprootStatic Text
-                    | ApprootMaster (master -> Text)
-                    | ApprootRequest (master -> W.Request -> Text)
+                    | ApprootStatic !Text
+                    | ApprootMaster !(master -> Text)
+                    | ApprootRequest !(master -> W.Request -> Text)
 
 type ResolvedApproot = Text
 
@@ -169,16 +169,29 @@ type Texts = [Text]
 -- | Wrap up a normal WAI application as a Yesod subsite.
 newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 
+data RunHandlerEnv sub master = RunHandlerEnv
+    { rheRender   :: !(Route master -> [(Text, Text)] -> Text)
+    , rheRoute    :: !(Maybe (Route sub))
+    , rheToMaster :: !(Route sub -> Route master)
+    , rheMaster   :: !master
+    , rheSub      :: !sub
+    , rheUpload   :: !(RequestBodyLength -> FileUpload)
+    , rheLog      :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+    }
+
 data HandlerData sub master = HandlerData
-    { handlerRequest  :: YesodRequest
-    , handlerSub      :: sub
-    , handlerMaster   :: master
-    , handlerRoute    :: Maybe (Route sub)
-    , handlerRender   :: Route master -> [(Text, Text)] -> Text
-    , handlerToMaster :: Route sub -> Route master
-    , handlerState    :: IORef GHState
-    , handlerUpload   :: RequestBodyLength -> FileUpload
-    , handlerLog      :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+    { handlerRequest  :: !YesodRequest
+    , handlerEnv      :: !(RunHandlerEnv sub master)
+    , handlerState    :: !(IORef GHState)
+    }
+
+data YesodRunnerEnv sub master = YesodRunnerEnv
+    { yreLogger         :: !Logger
+    , yreMaster         :: !master
+    , yreSub            :: !sub
+    , yreRoute          :: !(Maybe (Route sub))
+    , yreToMaster       :: !(Route sub -> Route master)
+    , yreSessionBackend :: !(Maybe (SessionBackend master))
     }
 
 -- | A generic handler monad, which can have a different subsite and master
@@ -407,7 +420,7 @@ instance MonadResource (GHandler sub master) where
 
 instance MonadLogger (GHandler sub master) where
     monadLoggerLog a b c d = GHandler $ \hd ->
-        liftIO $ handlerLog hd a b c (toLogStr d)
+        liftIO $ rheLog (handlerEnv hd) a b c (toLogStr d)
 
 instance Exception e => Failure e (GHandler sub master) where
     failure = liftIO . throwIO
