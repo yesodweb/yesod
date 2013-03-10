@@ -45,7 +45,7 @@ import Data.Text.Lazy.Builder (fromLazyText)
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.Text.Lazy.Builder (toLazyText)
 import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
-import Data.Conduit (($$))
+import Data.Conduit
 import Network.Wai (requestBody, requestHeaders)
 import Network.Wai.Parse (parseHttpAccept)
 import qualified Data.ByteString.Char8 as B8
@@ -88,7 +88,13 @@ jsonToRepJson = return . RepJson . toContent . J.toJSON
 parseJsonBody :: J.FromJSON a => GHandler sub master (J.Result a)
 parseJsonBody = do
     req <- waiRequest
-    fmap J.fromJSON $ lift $ requestBody req $$ sinkParser JP.value'
+    eValue <- lift
+            $ runExceptionT
+            $ transPipe lift (requestBody req)
+           $$ sinkParser JP.value'
+    return $ case eValue of
+        Left e -> J.Error $ show e
+        Right value -> J.fromJSON value
 
 -- | Same as 'parseJsonBody', but return an invalid args response on a parse
 -- error.
