@@ -12,7 +12,6 @@ import           Control.Exception            (SomeException, fromException,
 import           Control.Exception.Lifted     (catch)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
-import           Control.Monad.Logger         (LogLevel, LogSource)
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as S
@@ -30,12 +29,10 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8)
 import           Data.Text.Encoding           (decodeUtf8With)
 import           Data.Text.Encoding.Error     (lenientDecode)
-import           Language.Haskell.TH.Syntax   (Loc)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
 import           Prelude                      hiding (catch)
 import           System.IO                    (hPutStrLn, stderr)
-import           System.Log.FastLogger        (LogStr)
 import           System.Log.FastLogger        (Logger)
 import           System.Random                (newStdGen)
 import           Web.Cookie                   (renderSetCookie)
@@ -83,22 +80,12 @@ headerToPair (Header key value) = (CI.mk key, value)
 
 localNoCurrent :: GHandler s m a -> GHandler s m a
 localNoCurrent =
-    local (\hd -> hd { handlerRoute = Nothing })
+    local (\hd -> hd { handlerEnv = (handlerEnv hd) { rheRoute = Nothing }})
 
 local :: (HandlerData sub' master' -> HandlerData sub master)
       -> GHandler sub master a
       -> GHandler sub' master' a
 local f (GHandler x) = GHandler $ \r -> x $ f r
-
-data RunHandlerEnv sub master = RunHandlerEnv -- FIXME merge with YesodRunnerEnv? Or HandlerData
-    { rheRender :: !(Route master -> [(Text, Text)] -> Text)
-    , rheRoute :: !(Maybe (Route sub))
-    , rheToMaster :: !(Route sub -> Route master)
-    , rheMaster :: !master
-    , rheSub :: !sub
-    , rheUpload :: !(RequestBodyLength -> FileUpload)
-    , rheLog :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
-    }
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'Application'. Should not be needed by users.
@@ -106,7 +93,7 @@ runHandler :: HasReps c
            => RunHandlerEnv sub master
            -> GHandler sub master c
            -> YesodApp
-runHandler RunHandlerEnv {..} handler yreq = do
+runHandler rhe@RunHandlerEnv {..} handler yreq = do
     let toErrorHandler e =
             case fromException e of
                 Just (HCError x) -> x
@@ -120,14 +107,8 @@ runHandler RunHandlerEnv {..} handler yreq = do
         }
     let hd = HandlerData
             { handlerRequest = yreq
-            , handlerSub = rheSub
-            , handlerMaster = rheMaster
-            , handlerRoute = rheRoute
-            , handlerRender = rheRender
-            , handlerToMaster = rheToMaster
-            , handlerState = istate
-            , handlerUpload = rheUpload
-            , handlerLog = rheLog
+            , handlerEnv     = rhe
+            , handlerState   = istate
             }
     contents' <- catch (fmap Right $ unGHandler handler hd)
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
@@ -290,15 +271,6 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
   I.readIORef ret
 {-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
 
-data YesodRunnerEnv sub master = YesodRunnerEnv
-    { yreLogger         :: !Logger
-    , yreMaster         :: !master
-    , yreSub            :: !sub
-    , yreRoute          :: !(Maybe (Route sub))
-    , yreToMaster       :: !(Route sub -> Route master)
-    , yreSessionBackend :: !(Maybe (SessionBackend master))
-    }
-
 defaultYesodRunner :: Yesod master
                    => YesodRunnerEnv sub master
                    -> GHandler sub master ChooseRep
@@ -410,9 +382,11 @@ handlerSubDataMaybe :: (Route sub -> Route master)
                     -> HandlerData oldSub master
                     -> HandlerData sub master
 handlerSubDataMaybe tm ts route hd = hd
-    { handlerSub = ts $ handlerMaster hd
-    , handlerToMaster = tm
-    , handlerRoute = route
+    { handlerEnv = (handlerEnv hd)
+        { rheSub      = ts $ rheMaster $ handlerEnv hd
+        , rheToMaster = tm
+        , rheRoute    = route
+        }
     }
 
 resolveApproot :: Yesod master => master -> Request -> ResolvedApproot

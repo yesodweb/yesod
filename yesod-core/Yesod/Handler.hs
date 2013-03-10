@@ -199,7 +199,7 @@ hcError = liftIO . throwIO . HCError
 runRequestBody :: GHandler s m RequestBodyContents
 runRequestBody = do
     hd <- ask
-    let getUpload = handlerUpload hd
+    let getUpload = rheUpload $ handlerEnv hd
         len = W.requestBodyLength
             $ reqWaiRequest
             $ handlerRequest hd
@@ -241,32 +241,32 @@ rbHelper' backend mkFI req =
 
 -- | Get the sub application argument.
 getYesodSub :: GHandler sub master sub
-getYesodSub = handlerSub `liftM` ask
+getYesodSub = (rheSub . handlerEnv) `liftM` ask
 
 -- | Get the master site appliation argument.
 getYesod :: GHandler sub master master
-getYesod = handlerMaster `liftM` ask
+getYesod = (rheMaster . handlerEnv) `liftM` ask
 
 -- | Get the URL rendering function.
 getUrlRender :: GHandler sub master (Route master -> Text)
 getUrlRender = do
-    x <- handlerRender `liftM` ask
+    x <- (rheRender . handlerEnv) `liftM` ask
     return $ flip x []
 
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
     :: GHandler sub master (Route master -> [(Text, Text)] -> Text)
-getUrlRenderParams = handlerRender `liftM` ask
+getUrlRenderParams = (rheRender . handlerEnv) `liftM` ask
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
 getCurrentRoute :: GHandler sub master (Maybe (Route sub))
-getCurrentRoute = handlerRoute `liftM` ask
+getCurrentRoute = (rheRoute . handlerEnv) `liftM` ask
 
 -- | Get the function to promote a route for a subsite to a route for the
 -- master site.
 getRouteToMaster :: GHandler sub master (Route sub -> Route master)
-getRouteToMaster = handlerToMaster `liftM` ask
+getRouteToMaster = (rheToMaster . handlerEnv) `liftM` ask
 
 
 -- | Returns a function that runs 'GHandler' actions inside @IO@.
