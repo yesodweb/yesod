@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.1.8
+version:         1.1.8.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -50,7 +50,7 @@ library
     build-depends:   base                  >= 4.3      && < 5
                    , time                  >= 1.1.4
                    , yesod-routes          >= 1.1      && < 1.2
-                   , wai                   >= 1.3      && < 1.4
+                   , wai                   >= 1.3      && < 1.5
                    , wai-extra             >= 1.3      && < 1.4
                    , bytestring            >= 0.9.1.4
                    , text                  >= 0.7      && < 0.12
@@ -79,13 +79,13 @@ library
                    , vector                >= 0.9      && < 0.11
                    , aeson                 >= 0.5
                    , fast-logger           >= 0.2
-                   , monad-logger          >= 0.2.1    && < 0.3
-                   , conduit               >= 0.5      && < 0.6
+                   , monad-logger          >= 0.2.1    && < 0.4
+                   , conduit               >= 0.5
                    , resourcet             >= 0.3      && < 0.5
                    , lifted-base           >= 0.1
-                   , blaze-html            >= 0.5      && < 0.6
-                   , blaze-markup          >= 0.5.1    && < 0.6
                    , attoparsec-conduit
+                   , blaze-html            >= 0.5
+                   , blaze-markup          >= 0.5.1
 
     exposed-modules: Yesod.Content
                      Yesod.Core

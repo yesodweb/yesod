@@ -25,7 +25,12 @@ prompt f = do
             hFlush stdout
             prompt f
 
-data Backend = Sqlite | Postgresql | Mysql | MongoDB | Simple
+data Backend = Sqlite
+             | Postgresql
+             | PostgresqlFay
+             | Mysql
+             | MongoDB
+             | Simple
   deriving (Eq, Read, Show, Enum, Bounded)
 
 puts :: LT.Text -> IO ()
@@ -37,6 +42,7 @@ backends = [minBound .. maxBound]
 showBackend :: Backend -> String
 showBackend Sqlite = "s"
 showBackend Postgresql = "p"
+showBackend PostgresqlFay = "pf"
 showBackend Mysql = "mysql"
 showBackend MongoDB = "mongo"
 showBackend Simple = "simple"
@@ -47,6 +53,7 @@ readBackend s = lookup s $ map (showBackend &&& id) backends
 backendBS :: Backend -> S.ByteString
 backendBS Sqlite = $(embedFile "hsfiles/sqlite.hsfiles")
 backendBS Postgresql = $(embedFile "hsfiles/postgres.hsfiles")
+backendBS PostgresqlFay = $(embedFile "hsfiles/postgres-fay.hsfiles")
 backendBS Mysql = $(embedFile "hsfiles/mysql.hsfiles")
 backendBS MongoDB = $(embedFile "hsfiles/mongo.hsfiles")
 backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")

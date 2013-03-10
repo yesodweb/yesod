@@ -52,7 +52,7 @@ module Yesod.Test (
 
   -- * Assertions
   assertEqual, assertHeader, assertNoHeader, statusIs, bodyEquals, bodyContains,
-  htmlAllContain, htmlCount,
+  htmlAllContain, htmlAnyContain, htmlCount,
 
   -- * Utils for debugging tests
   printBody, printMatches,
@@ -253,6 +253,18 @@ htmlAllContain query search = do
     _ -> liftIO $ HUnit.assertBool ("Not all "++T.unpack query++" contain "++search) $
           DL.all (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
 
+-- | Queries the html using a css selector, and passes if any matched
+-- element contains the given string.
+--
+-- Since 0.3.5
+htmlAnyContain :: HoldsResponse a => Query -> String -> ST.StateT a IO ()
+htmlAnyContain query search = do
+  matches <- htmlQuery query
+  case matches of
+    [] -> failure $ "Nothing matched css query: " <> query
+    _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search) $
+          DL.any (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+
 -- | Performs a css query on the last response and asserts the matched elements
 -- are as many as expected.
 htmlCount :: HoldsResponse a => Query -> Int -> ST.StateT a IO ()
@@ -437,9 +449,13 @@ doRequestHeaders method url extrahead paramsBuild = do
     { requestMethod = method
     , remoteHost = Sock.SockAddrInet 1 2
     , requestHeaders = headers
-    , rawPathInfo = url
-    , pathInfo = DL.filter (/="") $ T.split (== '/') $ TE.decodeUtf8 url
+    , rawPathInfo = urlPath
+    , pathInfo = DL.filter (/="") $ T.split (== '/') $ TE.decodeUtf8 urlPath
+    , rawQueryString = urlQuery
+    , queryString = H.parseQuery urlQuery
     }
+
+  (urlPath, urlQuery) = BS8.break (== '?') url
   
 -- | Run a persistent db query. For asserting on the results of performed actions
 -- or setting up pre-conditions. At the moment this part is still very raw.

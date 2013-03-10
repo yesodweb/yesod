@@ -16,7 +16,7 @@
   build package with the GHC API
 -}
 
-module GhcBuild (getBuildFlags, buildPackage) where
+module GhcBuild (getBuildFlags, buildPackage, getPackageArgs) where
 
 import qualified Control.Exception as Ex
 import           Control.Monad      (when)
@@ -26,21 +26,23 @@ import           System.Environment (getEnvironment)
 
 import           CmdLineParser
 import           Data.Char          (toLower)
-import           Data.List          (isPrefixOf, partition)
+import           Data.List          (isPrefixOf, isSuffixOf, partition)
 import           Data.Maybe         (fromMaybe)
 import           DriverPhases       (Phase (..), anyHsc, isHaskellSrcFilename,
                                      isSourceFilename, startPhase)
 import           DriverPipeline     (compileFile, link, linkBinary, oneShot)
 import           DynFlags           (DynFlags, compilerInfo)
 import qualified DynFlags
+import qualified DynFlags           as DF
 import qualified GHC
 import           GHC.Paths          (libdir)
 import           HscTypes           (HscEnv (..), emptyHomePackageTable)
+import qualified Module
 import           MonadUtils         (liftIO)
 import           Panic              (ghcError, panic)
 import           SrcLoc             (Located, mkGeneralLocated)
-import           StaticFlags        (v_Ld_inputs)
 import qualified StaticFlags
+import           StaticFlags        (v_Ld_inputs)
 import           System.FilePath    (normalise, (</>))
 import           Util               (consIORef, looksLikeModuleName)
 
@@ -70,6 +72,56 @@ prependHsenvArgv argv = do
              Nothing -> argv
              _       -> hsenvArgv ++ argv
                  where hsenvArgv = words $ fromMaybe "" (lookup "PACKAGE_DB_FOR_GHC" env)
+
+-- construct a command line for loading the right packages
+getPackageArgs :: Maybe String -> [Located String] -> IO [String]
+getPackageArgs buildDir argv2 = do
+  (mode, argv3, modeFlagWarnings) <- parseModeFlags argv2
+  GHC.runGhc (Just libdir) $ do
+    dflags0 <- GHC.getSessionDynFlags
+    (dflags1, _, _) <- GHC.parseDynamicFlags dflags0 argv3
+    let pkgFlags = map convertPkgFlag (GHC.packageFlags dflags1)
+        hideAll | gopt DF.Opt_HideAllPackages dflags1 = [ "-hide-all-packages"]
+                | otherwise                           = []
+        ownPkg = "-package-id" ++ Module.packageIdString (DF.thisPackage dflags1) ++ "-inplace"
+    return (extra dflags1 ++ hideAll ++ pkgFlags ++ [ownPkg])
+  where
+    convertPkgFlag (DF.ExposePackage p)   = "-package" ++ p
+    convertPkgFlag (DF.ExposePackageId p) = "-package-id" ++ p
+    convertPkgFlag (DF.HidePackage p)     = "-hide-package" ++ p
+    convertPkgFlag (DF.IgnorePackage p)   = "-ignore-package" ++ p
+    convertPkgFlag (DF.TrustPackage p)    = "-trust" ++ p
+    convertPkgFlag (DF.DistrustPackage p) ="-distrust" ++ p
+#if __GLASGOW_HASKELL__ >= 705
+    extra df = inplaceConf ++ extra'
+      where
+         extra' = concatMap convertExtra (extraConfs df)
+         -- old cabal-install sometimes misses the .inplace db, fix it here
+         inplaceConf
+           | any (".inplace" `isSuffixOf`) extra' = []
+           | otherwise = ["-package-db" ++ fromMaybe "dist" buildDir
+                           ++ "/package.conf.inplace"]
+    extraConfs df = GHC.extraPkgConfs df []
+    convertExtra DF.GlobalPkgConf      = [ ]
+    convertExtra DF.UserPkgConf        = [ ]
+    convertExtra (DF.PkgConfFile file) = [ "-package-db" ++ file ]
+#else
+    extra df  = inplaceConf ++ extra'
+      where
+        extra' = map ("-package-conf"++) (GHC.extraPkgConfs df)
+         -- old cabal-install sometimes misses the .inplace db, fix it here
+        inplaceConf
+          | any (".inplace" `isSuffixOf`) extra' = []
+          | otherwise = ["-package-conf" ++ fromMaybe "dist" buildDir
+                           ++ "/package.conf.inplace"]
+#endif
+
+#if __GLASGOW_HASKELL__ >= 707
+    gopt = DF.gopt
+#else
+    gopt = DF.dopt
+#endif
+
 
 buildPackage :: [Located String] -> FilePath -> FilePath -> IO Bool
 buildPackage a ld ar = buildPackage' a ld ar `Ex.catch` \e -> do
