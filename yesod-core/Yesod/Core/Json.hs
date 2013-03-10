@@ -24,7 +24,7 @@ module Yesod.Core.Json
 import Yesod.Handler (GHandler, waiRequest, lift, invalidArgs, redirect)
 import Yesod.Content
     ( ToContent (toContent), RepHtmlJson (RepHtmlJson), RepHtml (RepHtml)
-    , RepJson (RepJson), Content (ContentBuilder)
+    , RepJson (RepJson)
     )
 import Yesod.Internal.Core (defaultLayout, Yesod)
 import Yesod.Widget (GWidget)
@@ -35,16 +35,9 @@ import Control.Monad (join)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Parser as JP
 import Data.Aeson ((.=))
-import qualified Data.Aeson.Encode as JE
-import Data.Aeson.Encode (fromValue)
 import Data.Conduit.Attoparsec (sinkParser)
 import Data.Text (Text, pack)
 import qualified Data.Vector as V
-import Text.Julius (ToJavascript (..))
-import Data.Text.Lazy.Builder (fromLazyText)
-import Data.Text.Lazy.Encoding (decodeUtf8)
-import Data.Text.Lazy.Builder (toLazyText)
-import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Conduit
 import Network.Wai (requestBody, requestHeaders)
 import Network.Wai.Parse (parseHttpAccept)

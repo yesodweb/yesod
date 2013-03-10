@@ -43,17 +43,7 @@ import Data.Conduit.Binary (sourceFile, sinkFile)
 import Data.Word (Word64)
 import Control.Monad.IO.Class (liftIO)
 import Control.Exception (throwIO)
-
--- | The parsed request information.
-data Request = Request
-    { reqGetParams :: [(Text, Text)]
-    , reqCookies :: [(Text, Text)]
-    , reqWaiRequest :: W.Request
-      -- | Languages which the client supports.
-    , reqLangs :: [Text]
-      -- | A random, session-specific token used to prevent CSRF attacks.
-    , reqToken :: Maybe Text
-    }
+import Yesod.Core.Types
 
 parseWaiRequest :: W.Request
                 -> [(Text, ByteString)] -- ^ session
@@ -149,19 +139,6 @@ randomString len = take len . map toChar . randomRs (0, 61)
         | i < 52 = toEnum $ i + fromEnum 'a' - 26
         | otherwise = toEnum $ i + fromEnum '0' - 52
 
--- | A tuple containing both the POST parameters and submitted files.
-type RequestBodyContents =
-    ( [(Text, Text)]
-    , [(Text, FileInfo)]
-    )
-
-data FileInfo = FileInfo
-    { fileName :: Text
-    , fileContentType :: Text
-    , fileSource :: Source (ResourceT IO) ByteString
-    , fileMove :: FilePath -> IO ()
-    }
-
 mkFileInfoLBS :: Text -> Text -> L.ByteString -> FileInfo
 mkFileInfoLBS name ct lbs = FileInfo name ct (sourceList $ L.toChunks lbs) (\fp -> L.writeFile fp lbs)
 
@@ -170,7 +147,3 @@ mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourc
 
 mkFileInfoSource :: Text -> Text -> Source (ResourceT IO) ByteString -> FileInfo
 mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runResourceT $ src $$ sinkFile dst)
-
-data FileUpload = FileUploadMemory (NWP.BackEnd L.ByteString)
-                | FileUploadDisk (NWP.BackEnd FilePath)
-                | FileUploadSource (NWP.BackEnd (Source (ResourceT IO) ByteString))

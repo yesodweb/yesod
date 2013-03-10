@@ -63,8 +63,6 @@ import Data.Monoid (mempty)
 
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
-import Data.String (IsString (fromString))
-import Network.Wai (FilePart)
 import Data.Conduit (Source, ResourceT, Flush (Chunk), ResumableSource, mapOutput)
 import Data.Conduit.Internal (ResumableSource (ResumableSource))
 
@@ -72,18 +70,11 @@ import qualified Data.Aeson as J
 import Data.Aeson.Encode (fromValue)
 import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Text.Lazy.Builder (toLazyText)
-
-data Content = ContentBuilder !Builder !(Maybe Int) -- ^ The content and optional content length.
-             | ContentSource !(Source (ResourceT IO) (Flush Builder))
-             | ContentFile !FilePath !(Maybe FilePart)
-             | ContentDontEvaluate !Content
+import Yesod.Core.Types
 
 -- | Zero-length enumerator.
 emptyContent :: Content
 emptyContent = ContentBuilder mempty $ Just 0
-
-instance IsString Content where
-    fromString = toContent
 
 -- | Anything which can be converted into 'Content'. Most of the time, you will
 -- want to use the 'ContentBuilder' constructor. An easier approach will be to use
@@ -121,12 +112,6 @@ instance ToFlushBuilder (Flush Builder) where toFlushBuilder = id
 instance ToFlushBuilder Builder where toFlushBuilder = Chunk
 instance ToFlushBuilder (Flush B.ByteString) where toFlushBuilder = fmap fromByteString
 instance ToFlushBuilder B.ByteString where toFlushBuilder = Chunk . fromByteString
-
--- | A function which gives targetted representations of content based on the
--- content-types the user accepts.
-type ChooseRep =
-    [ContentType] -- ^ list of content-types user accepts, ordered by preference
- -> IO (ContentType, Content)
 
 -- | Any type which can be converted to representations.
 class HasReps a where
@@ -170,26 +155,19 @@ instance HasReps [(ContentType, Content)] where
       where
         go = simpleContentType
 
-newtype RepHtml = RepHtml Content
 instance HasReps RepHtml where
     chooseRep (RepHtml c) _ = return (typeHtml, c)
-newtype RepJson = RepJson Content
 instance HasReps RepJson where
     chooseRep (RepJson c) _ = return (typeJson, c)
-data RepHtmlJson = RepHtmlJson Content Content
 instance HasReps RepHtmlJson where
     chooseRep (RepHtmlJson html json) = chooseRep
         [ (typeHtml, html)
         , (typeJson, json)
         ]
-newtype RepPlain = RepPlain Content
 instance HasReps RepPlain where
     chooseRep (RepPlain c) _ = return (typePlain, c)
-newtype RepXml = RepXml Content
 instance HasReps RepXml where
     chooseRep (RepXml c) _ = return (typeXml, c)
-
-type ContentType = B.ByteString -- FIXME Text?
 
 typeHtml :: ContentType
 typeHtml = "text/html; charset=utf-8"
@@ -255,12 +233,6 @@ formatRFC1123 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
 -- | Format as per RFC 822.
 formatRFC822 :: UTCTime -> T.Text
 formatRFC822 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
-
--- | Prevents a response body from being fully evaluated before sending the
--- request.
---
--- Since 1.1.0
-newtype DontFullyEvaluate a = DontFullyEvaluate a
 
 instance HasReps a => HasReps (DontFullyEvaluate a) where
     chooseRep (DontFullyEvaluate a) = fmap (fmap (fmap ContentDontEvaluate)) $ chooseRep a

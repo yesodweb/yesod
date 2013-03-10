@@ -14,15 +14,9 @@ import qualified Data.IntMap as Map
 import Language.Haskell.TH.Syntax (Q, Exp, runIO, Exp (LitE), Lit (IntegerL))
 import Language.Haskell.TH (appE)
 import Data.Unique (hashUnique, newUnique)
-import GHC.Exts (Any)
 import Unsafe.Coerce (unsafeCoerce)
-import Data.Monoid (Monoid)
 import Control.Applicative ((<$>))
-
-newtype Cache = Cache (Map.IntMap Any)
-    deriving Monoid
-
-newtype CacheKey a = CacheKey Int
+import Yesod.Core.Types
 
 -- | Generate a new 'CacheKey'. Be sure to give a full type signature.
 mkCacheKey :: Q Exp

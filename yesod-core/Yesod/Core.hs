@@ -53,8 +53,8 @@ module Yesod.Core
     , module Yesod.Handler
     , module Yesod.Request
     , module Yesod.Widget
-    , module Yesod.Message
     , module Yesod.Core.Json
+    , module Text.Shakespeare.I18N
     ) where
 
 import Yesod.Internal.Core
@@ -64,8 +64,8 @@ import Yesod.Dispatch
 import Yesod.Handler
 import Yesod.Request
 import Yesod.Widget
-import Yesod.Message
 import Yesod.Core.Json
+import Text.Shakespeare.I18N
 
 import Control.Monad.Logger
 

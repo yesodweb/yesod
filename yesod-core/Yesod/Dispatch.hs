@@ -33,7 +33,6 @@ import Control.Applicative ((<$>), (<*>))
 import Prelude hiding (exp)
 import Yesod.Internal.Core
 import Yesod.Handler hiding (lift)
-import Yesod.Widget (GWidget)
 
 import Web.PathPieces
 import Language.Haskell.TH
@@ -56,8 +55,7 @@ import Yesod.Routes.TH
 import Yesod.Content (chooseRep)
 import Yesod.Routes.Parse
 import System.Log.FastLogger (Logger)
-
-type Texts = [Text]
+import Yesod.Core.Types
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
@@ -210,14 +208,3 @@ sendRedirect y segments' env =
             then dest
             else (dest `mappend`
                  Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
-
--- | Wrap up a normal WAI application as a Yesod subsite.
-newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
-
-instance RenderRoute WaiSubsite where
-    data Route WaiSubsite = WaiSubsiteRoute [Text] [(Text, Text)]
-        deriving (Show, Eq, Read, Ord)
-    renderRoute (WaiSubsiteRoute ps qs) = (ps, qs)
-
-instance YesodDispatch WaiSubsite master where
-    yesodDispatch _logger _master (WaiSubsite app) _tomaster _404 _405 _method _pieces _session = app
