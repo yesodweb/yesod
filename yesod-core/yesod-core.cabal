@@ -96,12 +96,12 @@ library
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Internal.TestApi
+                     Yesod.Core.Types
     other-modules:   Yesod.Internal
                      Yesod.Internal.Cache
                      Yesod.Internal.Core
                      Yesod.Internal.Session
                      Yesod.Internal.Request
-                     Yesod.Core.Types
                      Yesod.Core.Time
                      Yesod.Core.Trans.Class
                      Yesod.Core.Run
