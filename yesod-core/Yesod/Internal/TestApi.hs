@@ -5,7 +5,7 @@
 -- imported by library users.
 --
 module Yesod.Internal.TestApi
-  ( randomString, parseWaiRequest'
+  ( randomString, parseWaiRequest
   ) where
 
-import Yesod.Internal.Request (randomString, parseWaiRequest')
+import Yesod.Internal.Request (randomString, parseWaiRequest)

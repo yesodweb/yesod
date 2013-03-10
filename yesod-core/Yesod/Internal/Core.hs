@@ -44,6 +44,8 @@ module Yesod.Internal.Core
 import Yesod.Content
 import Yesod.Handler hiding (lift, getExpires)
 import Control.Monad.Logger (logErrorS)
+import Control.Applicative ((<$>))
+import System.Random (newStdGen)
 
 import Yesod.Routes.Class
 
@@ -422,9 +424,10 @@ defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
   | W.KnownLength len <- W.requestBodyLength req, maxLen < len = return tooLargeResponse
   | otherwise = do
     let dontSaveSession _ = return []
+    let onError _ = error "FIXME: Yesod.Internal.Core.defaultYesodRunner.onError"
     (session, saveSession) <- liftIO $ do
         maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb master req) msb
-    rr <- liftIO $ parseWaiRequest req session (isJust msb) maxLen
+    rr <- liftIO $ parseWaiRequest req session onError (isJust msb) maxLen <$> newStdGen
     let h = {-# SCC "h" #-} do
           case murl of
             Nothing -> handler
@@ -448,7 +451,7 @@ defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
     yar <- handlerToYAR master sub (fileUpload master) log' toMasterRoute
         (yesodRender master ra) errorHandler rr murl sessionMap h
     extraHeaders <- case yar of
-        (YARPlain _ _ ct _ newSess) -> do
+        (YRPlain _ _ ct _ newSess) -> do
             let nsToken = maybe
                     newSess
                     (\n -> Map.insert tokenKey (TE.encodeUtf8 n) newSess)
@@ -800,7 +803,7 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
   let handler' = do liftIO . I.writeIORef ret . Right =<< handler
                     return ()
-  let YesodApp yapp =
+  let yapp =
         runHandler
           handler'
           (yesodRender master $ resolveApproot master fakeWaiRequest)
@@ -810,15 +813,14 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
           master
           (fileUpload master)
           (messageLoggerSource master $ logger master)
-      errHandler err =
-        YesodApp $ \_ _ _ session -> do
+      errHandler err req = do
           liftIO $ I.writeIORef ret (Left err)
-          return $ YARPlain
+          return $ YRPlain
                      H.status500
                      []
                      typePlain
                      (toContent ("runFakeHandler: errHandler" :: S8.ByteString))
-                     session
+                     (reqSession req)
       fakeWaiRequest =
         W.Request
           { W.requestMethod  = "POST"
@@ -839,15 +841,17 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
 #endif
           }
       fakeRequest =
-        Request
+        YesodRequest
           { reqGetParams  = []
           , reqCookies    = []
           , reqWaiRequest = fakeWaiRequest
           , reqLangs      = []
           , reqToken      = Just "NaN" -- not a nonce =)
+          , reqOnError    = errHandler
+          , reqAccept     = []
+          , reqSession    = fakeSessionMap
           }
-      fakeContentType = []
-  _ <- runResourceT $ yapp errHandler fakeRequest fakeContentType fakeSessionMap
+  _ <- runResourceT $ yapp fakeRequest
   I.readIORef ret
 {-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
 

@@ -9,7 +9,7 @@ module YesodCoreTest.YesodTest
   , module Test.Hspec
 ) where
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 import Network.Wai.Test
 import Network.Wai
 import Test.Hspec

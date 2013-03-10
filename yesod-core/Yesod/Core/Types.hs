@@ -86,16 +86,36 @@ data ClientSessionDateCache =
   , csdcExpiresSerialized :: !ByteString
   } deriving (Eq, Show)
 
--- | The parsed request information.
-data Request = Request
-    { reqGetParams  :: [(Text, Text)]
-    , reqCookies    :: [(Text, Text)]
-    , reqWaiRequest :: W.Request
-      -- | Languages which the client supports.
-    , reqLangs      :: [Text]
-      -- | A random, session-specific token used to prevent CSRF attacks.
-    , reqToken      :: Maybe Text
+-- | The parsed request information. This type augments the standard WAI
+-- 'W.Request' with additional information.
+data YesodRequest = YesodRequest
+    { reqGetParams  :: ![(Text, Text)]
+      -- ^ Same as 'W.queryString', but decoded to @Text@.
+    , reqCookies    :: ![(Text, Text)]
+    , reqWaiRequest :: !W.Request
+    , reqLangs      :: ![Text]
+      -- ^ Languages which the client supports. This is an ordered list by preference.
+    , reqToken      :: !(Maybe Text)
+      -- ^ A random, session-specific token used to prevent CSRF attacks.
+    , reqSession    :: !SessionMap
+      -- ^ Initial session sent from the client.
+      --
+      -- Since 1.2.0
+    , reqAccept     :: ![ContentType]
+      -- ^ An ordered list of the accepted content types.
+      --
+      -- Since 1.2.0
+    , reqOnError    :: !(ErrorResponse -> YesodApp)
+      -- ^ How to respond when an error is thrown internally.
+      --
+      -- Since 1.2.0
     }
+
+-- | An augmented WAI 'W.Response'. This can either be a standard @Response@,
+-- or a higher-level data structure which Yesod will turn into a @Response@.
+data YesodResponse
+    = YRWai W.Response
+    | YRPlain H.Status [Header] ContentType Content SessionMap
 
 -- | A tuple containing both the POST parameters and submitted files.
 type RequestBodyContents =
@@ -150,7 +170,7 @@ type Texts = [Text]
 newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 
 data HandlerData sub master = HandlerData
-    { handlerRequest  :: Request
+    { handlerRequest  :: YesodRequest
     , handlerSub      :: sub
     , handlerMaster   :: master
     , handlerRoute    :: Maybe (Route sub)
@@ -178,18 +198,7 @@ data GHState = GHState
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
 -- features needed by Yesod. Users should never need to use this directly, as
 -- the 'GHandler' monad and template haskell code should hide it away.
-newtype YesodApp = YesodApp
-    { unYesodApp
-    :: (ErrorResponse -> YesodApp)
-    -> Request
-    -> [ContentType]
-    -> SessionMap
-    -> ResourceT IO YesodAppResult
-    }
-
-data YesodAppResult
-    = YARWai W.Response
-    | YARPlain H.Status [Header] ContentType Content SessionMap
+type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for

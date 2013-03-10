@@ -6,8 +6,8 @@ import System.Random (StdGen, mkStdGen)
 
 import Network.Wai as W
 import Network.Wai.Test
-import Yesod.Internal.TestApi (randomString, parseWaiRequest')
-import Yesod.Request (Request (..))
+import Yesod.Internal.TestApi (randomString, parseWaiRequest)
+import Yesod.Request (YesodRequest (..))
 import Test.Hspec
 import Data.Monoid (mempty)
 import Data.Map (singleton)
@@ -40,19 +40,19 @@ tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)" $ do
 
 noDisabledToken :: Bool
 noDisabledToken = reqToken r == Nothing where
-  r = parseWaiRequest' defaultRequest mempty False 1000 g
+  r = parseWaiRequest defaultRequest mempty onError False 1000 g
 
 ignoreDisabledToken :: Bool
 ignoreDisabledToken = reqToken r == Nothing where
-  r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") False 1000 g
+  r = parseWaiRequest defaultRequest (singleton "_TOKEN" "old") onError False 1000 g
 
 useOldToken :: Bool
 useOldToken = reqToken r == Just "old" where
-  r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") True 1000 g
+  r = parseWaiRequest defaultRequest (singleton "_TOKEN" "old") onError True 1000 g
 
 generateToken :: Bool
 generateToken = reqToken r /= Nothing where
-  r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") True 1000 g
+  r = parseWaiRequest defaultRequest (singleton "_TOKEN" "old") onError True 1000 g
 
 
 langSpecs :: Spec
@@ -65,32 +65,34 @@ langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)" $ do
 
 respectAcceptLangs :: Bool
 respectAcceptLangs = reqLangs r == ["en-US", "es", "en"] where
-  r = parseWaiRequest' defaultRequest
-        { requestHeaders = [("Accept-Language", "en-US, es")] } mempty False 1000 g
+  r = parseWaiRequest defaultRequest
+        { requestHeaders = [("Accept-Language", "en-US, es")] } mempty onError False 1000 g
 
 respectSessionLang :: Bool
 respectSessionLang = reqLangs r == ["en"] where
-  r = parseWaiRequest' defaultRequest (singleton "_LANG" "en") False 1000 g
+  r = parseWaiRequest defaultRequest (singleton "_LANG" "en") onError False 1000 g
 
 respectCookieLang :: Bool
 respectCookieLang = reqLangs r == ["en"] where
-  r = parseWaiRequest' defaultRequest
+  r = parseWaiRequest defaultRequest
         { requestHeaders = [("Cookie", "_LANG=en")]
-        } mempty False 1000 g
+        } mempty onError False 1000 g
 
 respectQueryLang :: Bool
 respectQueryLang = reqLangs r == ["en-US", "en"] where
-  r = parseWaiRequest' defaultRequest { queryString = [("_LANG", Just "en-US")] } mempty False 1000 g
+  r = parseWaiRequest defaultRequest { queryString = [("_LANG", Just "en-US")] } mempty onError False 1000 g
 
 prioritizeLangs :: Bool
 prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "es"] where
-  r = parseWaiRequest' defaultRequest
+  r = parseWaiRequest defaultRequest
         { requestHeaders = [ ("Accept-Language", "en, es")
                            , ("Cookie", "_LANG=en-COOKIE")
                            ]
         , queryString = [("_LANG", Just "en-QUERY")]
-        } (singleton "_LANG" "en-SESSION") False 10000 g
+        } (singleton "_LANG" "en-SESSION") onError False 10000 g
 
+onError :: a
+onError = error "Yesod.InternalRequest.onError"
 
 internalRequestTest :: Spec
 internalRequestTest = describe "Test.InternalRequestTest" $ do

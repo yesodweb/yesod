@@ -8,7 +8,7 @@ import YesodCoreTest.JsLoaderSites.Bottom (B(..))
 
 import Test.Hspec
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 import Network.Wai.Test
 
 data H = H

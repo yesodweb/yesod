@@ -2,7 +2,6 @@
 {-# LANGUAGE CPP #-}
 module Yesod.Internal.Request
     ( parseWaiRequest
-    , Request (..)
     , RequestBodyContents
     , FileInfo
     , fileName
@@ -16,21 +15,18 @@ module Yesod.Internal.Request
     , tooLargeResponse
     -- The below are exported for testing.
     , randomString
-    , parseWaiRequest'
     ) where
 
-import Control.Applicative ((<$>))
 import Control.Arrow (second)
 import qualified Network.Wai.Parse as NWP
 import Yesod.Internal
 import qualified Network.Wai as W
-import System.Random (RandomGen, newStdGen, randomRs)
+import System.Random (RandomGen, randomRs)
 import Web.Cookie (parseCookiesText)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text, pack)
 import Network.HTTP.Types (queryToQueryText, Status (Status))
-import Control.Monad (join)
 import Data.Maybe (fromMaybe, catMaybes)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Set as Set
@@ -45,14 +41,6 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Exception (throwIO)
 import Yesod.Core.Types
 import qualified Data.Map as Map
-
-parseWaiRequest :: W.Request
-                -> SessionMap
-                -> Bool
-                -> Word64 -- ^ maximum allowed body size
-                -> IO Request
-parseWaiRequest env session' useToken maxBodySize =
-    parseWaiRequest' env session' useToken maxBodySize <$> newStdGen
 
 -- | Impose a limit on the size of the request body.
 limitRequestBody :: Word64 -> W.Request -> W.Request
@@ -79,29 +67,40 @@ tooLargeResponse = W.responseLBS
     [("Content-Type", "text/plain")]
     "Request body too large to be processed."
 
-parseWaiRequest' :: RandomGen g
-                 => W.Request
-                 -> SessionMap
-                 -> Bool
-                 -> Word64 -- ^ max body size
-                 -> g
-                 -> Request
-parseWaiRequest' env session' useToken maxBodySize gen =
-    Request gets'' cookies' (limitRequestBody maxBodySize env) langs'' token
+parseWaiRequest :: RandomGen g
+                => W.Request
+                -> SessionMap
+                -> (ErrorResponse -> YesodApp)
+                -> Bool
+                -> Word64 -- ^ max body size
+                -> g
+                -> YesodRequest
+parseWaiRequest env session onError useToken maxBodySize gen =
+    YesodRequest
+        { reqGetParams  = gets
+        , reqCookies    = cookies
+        , reqWaiRequest = limitRequestBody maxBodySize env
+        , reqLangs      = langs''
+        , reqToken      = token
+        , reqSession    = session
+        , reqAccept     = httpAccept env
+        , reqOnError    = onError
+        }
   where
-    gets' = queryToQueryText $ W.queryString env
-    gets'' = map (second $ fromMaybe "") gets'
+    gets = map (second $ fromMaybe "")
+         $ queryToQueryText
+         $ W.queryString env
     reqCookie = lookup "Cookie" $ W.requestHeaders env
-    cookies' = maybe [] parseCookiesText reqCookie
+    cookies = maybe [] parseCookiesText reqCookie
     acceptLang = lookup "Accept-Language" $ W.requestHeaders env
     langs = map (pack . S8.unpack) $ maybe [] NWP.parseHttpAccept acceptLang
 
     lookupText k = fmap (decodeUtf8With lenientDecode) . Map.lookup k
 
     -- The language preferences are prioritized as follows:
-    langs' = catMaybes [ join $ lookup langKey gets' -- Query _LANG
-                       , lookup langKey cookies'     -- Cookie _LANG
-                       , lookupText langKey session' -- Session _LANG
+    langs' = catMaybes [ lookup langKey gets -- Query _LANG
+                       , lookup langKey cookies     -- Cookie _LANG
+                       , lookupText langKey session -- Session _LANG
                        ] ++ langs                    -- Accept-Language(s)
 
     -- Github issue #195. We want to add an extra two-letter version of any
@@ -117,7 +116,17 @@ parseWaiRequest' env session' useToken maxBodySize gen =
               else Just $ maybe
                             (pack $ randomString 10 gen)
                             (decodeUtf8With lenientDecode)
-                            (Map.lookup tokenKey session')
+                            (Map.lookup tokenKey session)
+
+-- | Get the list of accepted content types from the WAI Request\'s Accept
+-- header.
+--
+-- Since 1.2.0
+httpAccept :: W.Request -> [ContentType]
+httpAccept = NWP.parseHttpAccept
+           . fromMaybe S8.empty
+           . lookup "Accept"
+           . W.requestHeaders
 
 addTwoLetters :: ([Text] -> [Text], Set.Set Text) -> [Text] -> [Text]
 addTwoLetters (toAdd, exist) [] =

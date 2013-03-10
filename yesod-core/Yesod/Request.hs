@@ -15,7 +15,7 @@ module Yesod.Request
     (
       -- * Request datatype
       RequestBodyContents
-    , Request (..)
+    , YesodRequest (..)
     , FileInfo
     , fileName
     , fileContentType
@@ -41,6 +41,7 @@ import Control.Monad (liftM)
 import Control.Monad.Instances () -- I'm missing the instance Monad ((->) r
 import Data.Maybe (listToMaybe)
 import Data.Text (Text)
+import Yesod.Core.Types
 
 -- | Get the list of supported languages supplied by the user.
 --
