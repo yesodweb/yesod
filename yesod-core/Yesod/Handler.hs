@@ -120,11 +120,7 @@ module Yesod.Handler
       -- * i18n
     , getMessageRender
       -- * Per-request caching
-    , CacheKey
-    , mkCacheKey
-    , cacheLookup
-    , cacheInsert
-    , cacheDelete
+    , cached
       -- * Internal Yesod
     , YesodApp
     , runSubsiteGetter
@@ -170,14 +166,14 @@ import Text.Shakespeare.I18N (RenderMessage (..))
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 #define preEscapedText preEscapedToMarkup
 
-import qualified Yesod.Internal.Cache as Cache
-import Yesod.Internal.Cache (mkCacheKey)
 import qualified Data.IORef as I
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Yesod.Routes.Class (Route)
 import Yesod.Core.Types
 import Yesod.Core.Trans.Class
 import Data.Maybe (listToMaybe)
+import Data.Typeable (Typeable, typeOf)
+import Data.Dynamic (fromDynamic, toDyn)
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
@@ -723,18 +719,34 @@ getMessageRender = do
     l <- reqLangs `liftM` getRequest
     return $ renderMessage m l
 
-cacheLookup :: CacheKey a -> GHandler sub master (Maybe a)
-cacheLookup k = do
+-- | Use a per-request cache to avoid performing the same action multiple
+-- times. Note that values are stored by their type. Therefore, you should use
+-- newtype wrappers to distinguish logically different types.
+--
+-- Since 1.2.0
+cached :: Typeable a
+       => GHandler sub master a
+       -> GHandler sub master a
+cached f = do
     gs <- get
-    return $ Cache.lookup k $ ghsCache gs
+    let cache = ghsCache gs
+    case clookup cache of
+        Just val -> return val
+        Nothing -> do
+            val <- f
+            put $ gs { ghsCache = cinsert val cache }
+            return val
+  where
+    clookup :: Typeable a => Cache -> Maybe a
+    clookup (Cache m) =
+        res
+      where
+        res = Map.lookup (typeOf $ fromJust res) m >>= fromDynamic
+        fromJust :: Maybe a -> a
+        fromJust = error "Yesod.Handler.cached.fromJust: Argument to typeOf was evaluated"
 
-cacheInsert :: CacheKey a -> a -> GHandler sub master ()
-cacheInsert k v = modify $ \gs ->
-    gs { ghsCache = Cache.insert k v $ ghsCache gs }
-
-cacheDelete :: CacheKey a -> GHandler sub master ()
-cacheDelete k = modify $ \gs ->
-    gs { ghsCache = Cache.delete k $ ghsCache gs }
+    cinsert :: Typeable a => a -> Cache -> Cache
+    cinsert v (Cache m) = Cache (Map.insert (typeOf v) (toDyn v) m)
 
 ask :: GHandler sub master (HandlerData sub master)
 ask = GHandler return

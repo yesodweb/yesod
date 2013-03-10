@@ -96,7 +96,6 @@ library
                      Yesod.Widget
                      Yesod.Internal.TestApi
     other-modules:   Yesod.Internal
-                     Yesod.Internal.Cache
                      Yesod.Internal.Core
                      Yesod.Internal.Session
                      Yesod.Internal.Request
@@ -132,6 +131,7 @@ test-suite tests
                   ,transformers
                   , conduit
                   , containers
+                  , lifted-base
     ghc-options:     -Wall
 
 source-repository head
