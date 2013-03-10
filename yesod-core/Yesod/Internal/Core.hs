@@ -5,6 +5,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE FlexibleInstances #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Internal.Core
     ( -- * Type classes
@@ -95,6 +96,7 @@ import System.Log.FastLogger (Logger, mkLogger, loggerDate, LogStr (..), loggerP
 import Control.Monad.Logger (LogLevel (LevelInfo, LevelOther), LogSource)
 import System.Log.FastLogger.Date (ZonedDate)
 import System.IO (stdout)
+import Yesod.Core.Types
 
 yesodVersion :: String
 yesodVersion = showVersion Paths_yesod_core.version
@@ -125,18 +127,6 @@ class YesodDispatch sub master where
                 -> Maybe (SessionBackend master)
                 -> W.Application
     yesodRunner = defaultYesodRunner
-
--- | How to determine the root of the application for constructing URLs.
---
--- Note that future versions of Yesod may add new constructors without bumping
--- the major version number. As a result, you should /not/ pattern match on
--- @Approot@ values.
-data Approot master = ApprootRelative -- ^ No application root.
-                    | ApprootStatic Text
-                    | ApprootMaster (master -> Text)
-                    | ApprootRequest (master -> W.Request -> Text)
-
-type ResolvedApproot = Text
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -472,9 +462,6 @@ defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
     maxLen = maximumContentLength master $ fmap toMasterRoute murl
     handler = yesodMiddleware handler'
 
-data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
-    deriving (Eq, Show, Read)
-
 -- | A type-safe, concise method of creating breadcrumbs for pages. For each
 -- resource, you declare the title of the page and the parent resource (if
 -- present).
@@ -663,16 +650,6 @@ $newline never
             : ("href", renderLoc' render' loc)
             : attrs
             )
-
-data ScriptLoadPosition master
-    = BottomOfBody
-    | BottomOfHeadBlocking
-    | BottomOfHeadAsync (BottomOfHeadAsync master)
-
-type BottomOfHeadAsync master
-       = [Text] -- ^ urls to load asynchronously
-      -> Maybe (HtmlUrl (Route master)) -- ^ widget of js to run on async completion
-      -> (HtmlUrl (Route master)) -- ^ widget to insert at the bottom of <head>
 
 left :: Either a b -> Maybe a
 left (Left x) = Just x
@@ -874,3 +851,6 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
   _ <- runResourceT $ yapp errHandler fakeRequest fakeContentType fakeSessionMap
   I.readIORef ret
 {-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
+
+instance YesodDispatch WaiSubsite master where
+    yesodDispatch _logger _master (WaiSubsite app) _tomaster _404 _405 _method _pieces _session = app

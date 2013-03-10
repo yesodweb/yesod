@@ -52,13 +52,11 @@ import Text.Cassius
 import Text.Julius
 import Yesod.Routes.Class
 import Yesod.Handler
-    ( GHandler, YesodSubRoute(..), toMasterHandlerMaybe, getYesod
+    ( YesodSubRoute(..), toMasterHandlerMaybe, getYesod
     , getMessageRender, getUrlRenderParams, MonadLift (..)
     )
-import Yesod.Message (RenderMessage)
-import Yesod.Content (RepHtml (..), toContent)
-import Control.Applicative (Applicative (..), (<$>))
-import Control.Monad.IO.Class (MonadIO (liftIO))
+import Text.Shakespeare.I18N (RenderMessage)
+import Yesod.Content (toContent)
 import Yesod.Internal
 import Control.Monad (liftM)
 import Data.Text (Text)
@@ -66,31 +64,15 @@ import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
 import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP), newName)
 
-import Control.Monad.Trans.Control (MonadBaseControl (..))
-import Control.Exception (throwIO)
 import qualified Text.Hamlet as NP
-import Data.Text.Lazy.Builder (fromLazyText, Builder)
+import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 import qualified Data.Text.Lazy as TL
-import Control.Monad.Base (MonadBase (liftBase))
-import Control.Arrow (first)
-import Control.Monad.Trans.Resource
 
-import Control.Monad.Logger
+import Yesod.Core.Types
 
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
-
--- | A generic widget, allowing specification of both the subsite and master
--- site datatypes. While this is simply a @WriterT@, we define a newtype for
--- better error messages.
-newtype GWidget sub master a = GWidget
-    { unGWidget :: GHandler sub master (a, GWData (Route master))
-    }
-
-instance (a ~ ()) => Monoid (GWidget sub master a) where
-    mempty = return ()
-    mappend x y = x >> y
 
 addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWidget sub' master a
 addSubWidget sub (GWidget w) = do
@@ -102,17 +84,6 @@ addSubWidget sub (GWidget w) = do
 
 class ToWidget sub master a where
     toWidget :: a -> GWidget sub master ()
-
-type RY master = Route master -> [(Text, Text)] -> Text
-
--- | Newtype wrapper allowing injection of arbitrary content into CSS.
---
--- Usage:
---
--- > toWidget $ CssBuilder "p { color: red }"
---
--- Since: 1.1.3
-newtype CssBuilder = CssBuilder { unCssBuilder :: Builder }
 
 instance render ~ RY master => ToWidget sub master (render -> Html) where
     toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
@@ -216,16 +187,6 @@ addScriptRemote = flip addScriptRemoteAttrs []
 addScriptRemoteAttrs :: Text -> [(Text, Text)] -> GWidget sub master ()
 addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
--- | Content for a web page. By providing this datatype, we can easily create
--- generic site templates, which would have the type signature:
---
--- > PageContent url -> HtmlUrl url
-data PageContent url = PageContent
-    { pageTitle :: Html
-    , pageHead :: HtmlUrl url
-    , pageBody :: HtmlUrl url
-    }
-
 whamlet :: QuasiQuoter
 whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
 
@@ -264,58 +225,6 @@ ihamletToRepHtml ih = do
 tell :: GWData (Route master) -> GWidget sub master ()
 tell w = GWidget $ return ((), w)
 
-instance MonadLift (GHandler sub master) (GWidget sub master) where
-    lift = GWidget . fmap (\x -> (x, mempty))
-
 -- | Type-restricted version of @lift@
 liftW :: GHandler sub master a -> GWidget sub master a
 liftW = lift
-
--- Instances for GWidget
-instance Functor (GWidget sub master) where
-    fmap f (GWidget x) = GWidget (fmap (first f) x)
-instance Applicative (GWidget sub master) where
-    pure a = GWidget $ pure (a, mempty)
-    GWidget f <*> GWidget v =
-        GWidget $ k <$> f <*> v
-      where
-        k (a, wa) (b, wb) = (a b, wa `mappend` wb)
-instance Monad (GWidget sub master) where
-    return = pure
-    GWidget x >>= f = GWidget $ do
-        (a, wa) <- x
-        (b, wb) <- unGWidget (f a)
-        return (b, wa `mappend` wb)
-instance MonadIO (GWidget sub master) where
-    liftIO = GWidget . fmap (\a -> (a, mempty)) . liftIO
-instance MonadBase IO (GWidget sub master) where
-    liftBase = GWidget . fmap (\a -> (a, mempty)) . liftBase
-instance MonadBaseControl IO (GWidget sub master) where
-    data StM (GWidget sub master) a =
-        StW (StM (GHandler sub master) (a, GWData (Route master)))
-    liftBaseWith f = GWidget $ liftBaseWith $ \runInBase ->
-        liftM (\x -> (x, mempty))
-        (f $ liftM StW . runInBase . unGWidget)
-    restoreM (StW base) = GWidget $ restoreM base
-
-instance MonadUnsafeIO (GWidget sub master) where
-    unsafeLiftIO = liftIO
-instance MonadThrow (GWidget sub master) where
-    monadThrow = liftIO . throwIO
-instance MonadResource (GWidget sub master) where
-#if MIN_VERSION_resourcet(0,4,0)
-    liftResourceT = lift . liftResourceT
-#else
-    allocate a = lift . allocate a
-    register = lift . register
-    release = lift . release
-    resourceMask = lift . resourceMask
-#endif
-
-instance MonadLogger (GWidget sub master) where
-#if MIN_VERSION_monad_logger(0, 3, 0)
-    monadLoggerLog a b c = lift . monadLoggerLog a b c
-#else
-    monadLoggerLog a b = lift . monadLoggerLog a b
-    monadLoggerLogSource a b c = lift . monadLoggerLogSource a b c
-#endif

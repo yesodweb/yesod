@@ -129,11 +129,8 @@ import Control.Exception hiding (Handler, catch, finally)
 import Control.Applicative
 
 import Control.Monad (liftM)
-import Control.Failure (Failure (failure))
 
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Class (MonadTrans)
-import qualified Control.Monad.Trans.Class
 
 import System.IO
 import qualified Network.Wai as W
@@ -163,7 +160,7 @@ import Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
 import Blaze.ByteString.Builder (toByteString, toLazyByteString, fromLazyByteString)
 import Data.Text (Text)
-import Yesod.Message (RenderMessage (..))
+import Text.Shakespeare.I18N (RenderMessage (..))
 
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 #define preEscapedText preEscapedToMarkup
@@ -172,29 +169,17 @@ import System.Log.FastLogger
 import Control.Monad.Logger
 
 import qualified Yesod.Internal.Cache as Cache
-import Yesod.Internal.Cache (mkCacheKey, CacheKey)
+import Yesod.Internal.Cache (mkCacheKey)
 import qualified Data.IORef as I
 import Control.Exception.Lifted (catch)
-import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
-import Control.Monad.Base
 import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax (Loc)
+import Yesod.Core.Types
+import Yesod.Core.Trans.Class
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
-
-data HandlerData sub master = HandlerData
-    { handlerRequest  :: Request
-    , handlerSub      :: sub
-    , handlerMaster   :: master
-    , handlerRoute    :: Maybe (Route sub)
-    , handlerRender   :: Route master -> [(Text, Text)] -> Text
-    , handlerToMaster :: Route sub -> Route master
-    , handlerState    :: I.IORef GHState
-    , handlerUpload   :: W.RequestBodyLength -> FileUpload
-    , handlerLog      :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
-    }
 
 handlerSubData :: (Route sub -> Route master)
                -> (master -> sub)
@@ -269,38 +254,6 @@ toMasterHandlerMaybe :: (Route sub -> Route master)
                      -> GHandler sub master a
                      -> GHandler sub' master a
 toMasterHandlerMaybe tm ts route = local (handlerSubDataMaybe tm ts route)
-
--- | A generic handler monad, which can have a different subsite and master
--- site. We define a newtype for better error message.
-newtype GHandler sub master a = GHandler
-    { unGHandler :: HandlerData sub master -> ResourceT IO a
-    }
-
-data GHState = GHState
-    { ghsSession :: SessionMap
-    , ghsRBC :: Maybe RequestBodyContents
-    , ghsIdent :: Int
-    , ghsCache :: Cache.Cache
-    , ghsHeaders :: Endo [Header]
-    }
-
-type SessionMap = Map.Map Text S.ByteString
-
--- | An extension of the basic WAI 'W.Application' datatype to provide extra
--- features needed by Yesod. Users should never need to use this directly, as
--- the 'GHandler' monad and template haskell code should hide it away.
-newtype YesodApp = YesodApp
-    { unYesodApp
-    :: (ErrorResponse -> YesodApp)
-    -> Request
-    -> [ContentType]
-    -> SessionMap
-    -> ResourceT IO YesodAppResult
-    }
-
-data YesodAppResult
-    = YARWai W.Response
-    | YARPlain H.Status [Header] ContentType Content SessionMap
 
 getRequest :: GHandler s m Request
 getRequest = handlerRequest `liftM` ask
@@ -1003,71 +956,3 @@ local :: (HandlerData sub' master' -> HandlerData sub master)
       -> GHandler sub master a
       -> GHandler sub' master' a
 local f (GHandler x) = GHandler $ \r -> x $ f r
-
--- | The standard @MonadTrans@ class only allows lifting for monad
--- transformers. While @GHandler@ and @GWidget@ should allow lifting, their
--- types do not express that they actually are transformers. This replacement
--- class accounts for this.
-class MonadLift base m | m -> base where
-    lift :: base a -> m a
-instance (Monad m, MonadTrans t) => MonadLift m (t m) where
-    lift = Control.Monad.Trans.Class.lift
-instance MonadLift (ResourceT IO) (GHandler sub master) where
-    lift = GHandler . const
-
--- Instances for GHandler
-instance Functor (GHandler sub master) where
-    fmap f (GHandler x) = GHandler $ \r -> fmap f (x r)
-instance Applicative (GHandler sub master) where
-    pure = GHandler . const . pure
-    GHandler f <*> GHandler x = GHandler $ \r -> f r <*> x r
-instance Monad (GHandler sub master) where
-    return = pure
-    GHandler x >>= f = GHandler $ \r -> x r >>= \x' -> unGHandler (f x') r
-instance MonadIO (GHandler sub master) where
-    liftIO = GHandler . const . lift
-instance MonadBase IO (GHandler sub master) where
-    liftBase = GHandler . const . lift
--- | Note: although we provide a @MonadBaseControl@ instance, @lifted-base@'s
--- @fork@ function is incompatible with the underlying @ResourceT@ system.
--- Instead, if you must fork a separate thread, you should use
--- @resourceForkIO@.
---
--- Using fork usually leads to an exception that says
--- \"Control.Monad.Trans.Resource.register\': The mutable state is being accessed
--- after cleanup. Please contact the maintainers.\"
-instance MonadBaseControl IO (GHandler sub master) where
-    data StM (GHandler sub master) a = StH (StM (ResourceT IO) a)
-    liftBaseWith f = GHandler $ \reader ->
-        liftBaseWith $ \runInBase ->
-            f $ liftM StH . runInBase . (\(GHandler r) -> r reader)
-    restoreM (StH base) = GHandler $ const $ restoreM base
-
-instance MonadUnsafeIO (GHandler sub master) where
-    unsafeLiftIO = liftIO
-instance MonadThrow (GHandler sub master) where
-    monadThrow = liftIO . throwIO
-instance MonadResource (GHandler sub master) where
-#if MIN_VERSION_resourcet(0,4,0)
-    liftResourceT = lift . liftResourceT
-#else
-    allocate a = lift . allocate a
-    register = lift . register
-    release = lift . release
-    resourceMask = lift . resourceMask
-#endif
-
-instance MonadLogger (GHandler sub master) where
-#if MIN_VERSION_monad_logger(0, 3, 0)
-    monadLoggerLog a b c d = do
-        hd <- ask
-        liftIO $ handlerLog hd a b c (toLogStr d)
-#else
-    monadLoggerLog a c d = monadLoggerLogSource a "" c d
-    monadLoggerLogSource a b c d = do
-        hd <- ask
-        liftIO $ handlerLog hd a b c (toLogStr d)
-#endif
-
-instance Exception e => Failure e (GHandler sub master) where
-    failure = liftIO . throwIO
