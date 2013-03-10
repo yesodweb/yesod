@@ -44,9 +44,10 @@ import Data.Word (Word64)
 import Control.Monad.IO.Class (liftIO)
 import Control.Exception (throwIO)
 import Yesod.Core.Types
+import qualified Data.Map as Map
 
 parseWaiRequest :: W.Request
-                -> [(Text, ByteString)] -- ^ session
+                -> SessionMap
                 -> Bool
                 -> Word64 -- ^ maximum allowed body size
                 -> IO Request
@@ -80,7 +81,7 @@ tooLargeResponse = W.responseLBS
 
 parseWaiRequest' :: RandomGen g
                  => W.Request
-                 -> [(Text, ByteString)] -- ^ session
+                 -> SessionMap
                  -> Bool
                  -> Word64 -- ^ max body size
                  -> g
@@ -95,7 +96,7 @@ parseWaiRequest' env session' useToken maxBodySize gen =
     acceptLang = lookup "Accept-Language" $ W.requestHeaders env
     langs = map (pack . S8.unpack) $ maybe [] NWP.parseHttpAccept acceptLang
 
-    lookupText k = fmap (decodeUtf8With lenientDecode) . lookup k
+    lookupText k = fmap (decodeUtf8With lenientDecode) . Map.lookup k
 
     -- The language preferences are prioritized as follows:
     langs' = catMaybes [ join $ lookup langKey gets' -- Query _LANG
@@ -116,7 +117,7 @@ parseWaiRequest' env session' useToken maxBodySize gen =
               else Just $ maybe
                             (pack $ randomString 10 gen)
                             (decodeUtf8With lenientDecode)
-                            (lookup tokenKey session')
+                            (Map.lookup tokenKey session')
 
 addTwoLetters :: ([Text] -> [Text], Set.Set Text) -> [Text] -> [Text]
 addTwoLetters (toAdd, exist) [] =

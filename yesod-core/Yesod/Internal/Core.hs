@@ -28,7 +28,6 @@ module Yesod.Internal.Core
     , clientSessionBackend
     , loadClientSession
     , clientSessionDateCacher
-    , BackendSession
       -- * jsLoader
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
@@ -424,7 +423,7 @@ defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
   | otherwise = do
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
-        maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req) msb
+        maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb master req) msb
     rr <- liftIO $ parseWaiRequest req session (isJust msb) maxLen
     let h = {-# SCC "h" #-} do
           case murl of
@@ -443,14 +442,14 @@ defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
                                 redirect url'
                     Unauthorized s' -> permissionDenied s'
                 handler
-    let sessionMap = Map.fromList . filter ((/=) tokenKey . fst) $ session
+    let sessionMap = Map.filterWithKey (\k _v -> k /= tokenKey) $ session
     let ra = resolveApproot master req
     let log' = messageLoggerSource master logger
     yar <- handlerToYAR master sub (fileUpload master) log' toMasterRoute
         (yesodRender master ra) errorHandler rr murl sessionMap h
     extraHeaders <- case yar of
         (YARPlain _ _ ct _ newSess) -> do
-            let nsToken = Map.toList $ maybe
+            let nsToken = maybe
                     newSess
                     (\n -> Map.insert tokenKey (TE.encodeUtf8 n) newSess)
                     (reqToken rr)
@@ -745,13 +744,13 @@ loadClientSession :: Yesod master
                   -> S8.ByteString -- ^ session name
                   -> master
                   -> W.Request
-                  -> IO (BackendSession, SaveSession)
+                  -> IO (SessionMap, SaveSession)
 loadClientSession key getCachedDate sessionName master req = load
   where
     load = do
       date <- getCachedDate
       return (sess date, save date)
-    sess date = fromMaybe [] $ do
+    sess date = fromMaybe Map.empty $ do
       raw <- lookup "Cookie" $ W.requestHeaders req
       val <- lookup sessionName $ parseCookies raw
       let host = "" -- fixme, properly lock sessions to client address

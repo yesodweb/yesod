@@ -3,7 +3,6 @@ module Yesod.Internal.Session
     , decodeClientSession
     , clientSessionDateCacher
     , ClientSessionDateCache(..)
-    , BackendSession
     , SaveSession
     , SessionBackend(..)
     ) where
@@ -14,7 +13,6 @@ import Data.Time
 import Data.ByteString (ByteString)
 import Control.Concurrent (forkIO, killThread, threadDelay)
 import Control.Monad (forever, guard)
-import Data.Text (Text)
 import Yesod.Core.Types
 import Yesod.Core.Time
 import qualified Data.IORef as I
@@ -23,7 +21,7 @@ encodeClientSession :: CS.Key
                     -> CS.IV
                     -> ClientSessionDateCache  -- ^ expire time
                     -> ByteString -- ^ remote host
-                    -> [(Text, ByteString)] -- ^ session
+                    -> SessionMap -- ^ session
                     -> ByteString -- ^ cookie value
 encodeClientSession key iv date rhost session' =
     CS.encrypt key iv $ encode $ SessionCookie expires rhost session'
@@ -33,7 +31,7 @@ decodeClientSession :: CS.Key
                     -> ClientSessionDateCache  -- ^ current time
                     -> ByteString -- ^ remote host field
                     -> ByteString -- ^ cookie value
-                    -> Maybe [(Text, ByteString)]
+                    -> Maybe SessionMap
 decodeClientSession key date rhost encrypted = do
     decrypted <- CS.decrypt key encrypted
     SessionCookie (Left expire) rhost' session' <-

@@ -38,7 +38,6 @@ module Yesod.Core
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
-    , BackendSession
     -- * JS loaders
     , loadJsYepnope
     , ScriptLoadPosition (..)
