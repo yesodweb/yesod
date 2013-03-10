@@ -104,6 +104,8 @@ library
                      Yesod.Core.Types
                      Yesod.Core.Time
                      Yesod.Core.Trans.Class
+                     Yesod.Core.Run
+                     Yesod.Core.Class
                      Paths_yesod_core
     ghc-options:     -Wall
 

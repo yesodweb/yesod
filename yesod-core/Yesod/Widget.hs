@@ -52,7 +52,7 @@ import Text.Cassius
 import Text.Julius
 import Yesod.Routes.Class
 import Yesod.Handler
-    ( YesodSubRoute(..), toMasterHandlerMaybe, getYesod
+    ( YesodSubRoute(..), getYesod
     , getMessageRender, getUrlRenderParams, MonadLift (..)
     )
 import Text.Shakespeare.I18N (RenderMessage)
@@ -78,7 +78,7 @@ addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWi
 addSubWidget sub (GWidget w) = do
     master <- lift getYesod
     let sr = fromSubRoute sub master
-    (a, w') <- lift $ toMasterHandlerMaybe sr (const sub) Nothing w
+    (a, w') <- lift $ error "FIXME Yesod.Widget.toMasterHandlerMaybe" sr (const sub) Nothing w
     tell w'
     return a
 
