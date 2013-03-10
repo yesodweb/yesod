@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 module YesodCoreTest.JsLoader (specs, Widget) where
 
-import YesodCoreTest.JsLoaderSites.HeadAsync (HA(..))
 import YesodCoreTest.JsLoaderSites.Bottom (B(..))
 
 import Test.Hspec
@@ -26,10 +25,6 @@ specs = describe "Test.JsLoader" $ do
     it "link from head" $ runner H $ do
       res <- request defaultRequest
       assertBody "<!DOCTYPE html>\n<html><head><title></title><script src=\"load.js\"></script></head><body></body></html>" res
-
-    it "link from head async" $ runner HA $ do
-      res <- request defaultRequest
-      assertBody "<!DOCTYPE html>\n<html><head><title></title><script src=\"yepnope.js\"></script><script>yepnope({load:[\"load.js\"]});</script></head><body></body></html>" res
 
     it "link from bottom" $ runner B $ do
       res <- request defaultRequest
