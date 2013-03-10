@@ -31,7 +31,6 @@ module Yesod.Internal.Core
       -- * jsLoader
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
-    , loadJsYepnope
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -49,12 +48,7 @@ import Yesod.Routes.Class
 import qualified Network.Wai as W
 import Yesod.Internal.Session
 import Yesod.Internal.Request
-import Text.Hamlet
-import Text.Blaze (unsafeLazyByteString)
 import Data.Text (Text)
-import Data.Aeson (Value (Array, String))
-import Data.Aeson.Encode (encode)
-import qualified Data.Vector as Vector
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import System.Log.FastLogger (Logger)
@@ -103,24 +97,6 @@ maybeAuthorized :: Yesod a
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
-
-jsonArray :: [Text] -> Html
-jsonArray = unsafeLazyByteString . encode . Array . Vector.fromList . map String
-
--- | For use with setting 'jsLoader' to 'BottomOfHeadAsync'
-loadJsYepnope :: Yesod master => Either Text (Route master) -> [Text] -> Maybe (HtmlUrl (Route master)) -> (HtmlUrl (Route master))
-loadJsYepnope eyn scripts mcomplete =
-  [hamlet|
-$newline never
-    $maybe yn <- left eyn
-        <script src=#{yn}>
-    $maybe yn <- right eyn
-        <script src=@{yn}>
-    $maybe complete <- mcomplete
-        <script>yepnope({load:#{jsonArray scripts},complete:function(){^{complete}}});
-    $nothing
-        <script>yepnope({load:#{jsonArray scripts}});
-|]
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.

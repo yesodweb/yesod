@@ -39,7 +39,6 @@ module Yesod.Core
     , loadClientSession
     , Header(..)
     -- * JS loaders
-    , loadJsYepnope
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
       -- * Misc

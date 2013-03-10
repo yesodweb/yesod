@@ -25,7 +25,6 @@ extra-source-files:
   test/YesodCoreTest/Json.hs
   test/YesodCoreTest/JsLoader.hs
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
-  test/YesodCoreTest/JsLoaderSites/HeadAsync.hs
   test/YesodCoreTest/Links.hs
   test/YesodCoreTest/Media.hs
   test/YesodCoreTest/MediaData.hs
