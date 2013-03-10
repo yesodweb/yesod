@@ -37,6 +37,27 @@ module Yesod.Handler
     , getRequest
     , waiRequest
     , runRequestBody
+      -- ** Request information
+      -- *** Request datatype
+    , RequestBodyContents
+    , YesodRequest (..)
+    , FileInfo
+    , fileName
+    , fileContentType
+    , fileSource
+    , fileMove
+      -- *** Convenience functions
+    , languages
+      -- *** Lookup parameters
+    , lookupGetParam
+    , lookupPostParam
+    , lookupCookie
+    , lookupFile
+      -- **** Multi-lookup
+    , lookupGetParams
+    , lookupPostParams
+    , lookupCookies
+    , lookupFiles
       -- * Special responses
       -- ** Redirecting
     , RedirectUrl (..)
@@ -156,6 +177,7 @@ import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Yesod.Routes.Class (Route)
 import Yesod.Core.Types
 import Yesod.Core.Trans.Class
+import Data.Maybe (listToMaybe)
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
@@ -716,3 +738,68 @@ cacheDelete k = modify $ \gs ->
 
 ask :: GHandler sub master (HandlerData sub master)
 ask = GHandler return
+
+-- | Get the list of supported languages supplied by the user.
+--
+-- Languages are determined based on the following three (in descending order
+-- of preference):
+--
+-- * The _LANG get parameter.
+--
+-- * The _LANG cookie.
+--
+-- * The _LANG user session variable.
+--
+-- * Accept-Language HTTP header.
+--
+-- Yesod will seek the first language from the returned list matched with languages supporting by your application. This language will be used to render i18n templates.
+-- If a matching language is not found the default language will be used.
+--
+-- This is handled by parseWaiRequest (not exposed).
+languages :: GHandler s m [Text]
+languages = reqLangs `liftM` getRequest
+
+lookup' :: Eq a => a -> [(a, b)] -> [b]
+lookup' a = map snd . filter (\x -> a == fst x)
+
+-- | Lookup for GET parameters.
+lookupGetParams :: Text -> GHandler s m [Text]
+lookupGetParams pn = do
+    rr <- getRequest
+    return $ lookup' pn $ reqGetParams rr
+
+-- | Lookup for GET parameters.
+lookupGetParam :: Text -> GHandler s m (Maybe Text)
+lookupGetParam = liftM listToMaybe . lookupGetParams
+
+-- | Lookup for POST parameters.
+lookupPostParams :: Text -> GHandler s m [Text]
+lookupPostParams pn = do
+    (pp, _) <- runRequestBody
+    return $ lookup' pn pp
+
+lookupPostParam :: Text
+                -> GHandler s m (Maybe Text)
+lookupPostParam = liftM listToMaybe . lookupPostParams
+
+-- | Lookup for POSTed files.
+lookupFile :: Text
+           -> GHandler s m (Maybe FileInfo)
+lookupFile = liftM listToMaybe . lookupFiles
+
+-- | Lookup for POSTed files.
+lookupFiles :: Text
+            -> GHandler s m [FileInfo]
+lookupFiles pn = do
+    (_, files) <- runRequestBody
+    return $ lookup' pn files
+
+-- | Lookup for cookie data.
+lookupCookie :: Text -> GHandler s m (Maybe Text)
+lookupCookie = liftM listToMaybe . lookupCookies
+
+-- | Lookup for cookie data.
+lookupCookies :: Text -> GHandler s m [Text]
+lookupCookies pn = do
+    rr <- getRequest
+    return $ lookup' pn $ reqCookies rr

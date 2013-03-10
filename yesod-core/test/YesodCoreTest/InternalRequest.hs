@@ -7,11 +7,10 @@ import System.Random (StdGen, mkStdGen)
 import Network.Wai as W
 import Network.Wai.Test
 import Yesod.Internal.TestApi (randomString, parseWaiRequest)
-import Yesod.Request (YesodRequest (..))
 import Test.Hspec
 import Data.Monoid (mempty)
 import Data.Map (singleton)
-import Yesod.Core (SessionMap)
+import Yesod.Core
 import Data.Word (Word64)
 
 randomStringSpecs :: Spec
