@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE PatternGuards #-}
 -- | The basic typeclass for a Yesod application.
 module Yesod.Internal.Core
     ( -- * Type classes
@@ -360,13 +361,12 @@ $doctype 5
     -- | How to store uploaded files.
     --
     -- Default: When the request body is greater than 50kb, store in a temp
-    -- file. Otherwise, store in memory.
-    fileUpload :: a
-               -> Word64 -- ^ request body size
-               -> FileUpload
-    fileUpload _ size
-        | size > 50000 = FileUploadDisk tempFileBackEnd
-        | otherwise = FileUploadMemory lbsBackEnd
+    -- file. For chunked request bodies, store in a temp file. Otherwise, store
+    -- in memory.
+    fileUpload :: a -> W.RequestBodyLength -> FileUpload
+    fileUpload _ (W.KnownLength size)
+        | size <= 50000 = FileUploadMemory lbsBackEnd
+    fileUpload _ _ = FileUploadDisk tempFileBackEnd
 
     -- | Should we log the given log source/level combination.
     --
@@ -433,13 +433,13 @@ defaultYesodRunner :: Yesod master
                    -> Maybe (SessionBackend master)
                    -> W.Application
 defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
-  | maxLen < len = return tooLargeResponse
+  | W.KnownLength len <- W.requestBodyLength req, maxLen < len = return tooLargeResponse
   | otherwise = do
     let dontSaveSession _ _ = return []
     now <- liftIO getCurrentTime -- FIXME remove in next major version bump
     (session, saveSession) <- liftIO $ do
         maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req now) msb
-    rr <- liftIO $ parseWaiRequest req session (isJust msb) len maxLen
+    rr <- liftIO $ parseWaiRequest req session (isJust msb) maxLen
     let h = {-# SCC "h" #-} do
           case murl of
             Nothing -> handler
@@ -474,11 +474,6 @@ defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
     return $ yarToResponse yar extraHeaders
   where
     maxLen = maximumContentLength master $ fmap toMasterRoute murl
-    len = fromMaybe 0 $ lookup "content-length" (W.requestHeaders req) >>= readMay
-    readMay s =
-        case reads $ S8.unpack s of
-            [] -> Nothing
-            (x, _):_ -> Just x
     handler = yesodMiddleware handler'
 
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
@@ -920,7 +915,6 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
           , reqWaiRequest = fakeWaiRequest
           , reqLangs      = []
           , reqToken      = Just "NaN" -- not a nonce =)
-          , reqBodySize   = 0
           }
       fakeContentType = []
   _ <- runResourceT $ yapp errHandler fakeRequest fakeContentType fakeSessionMap

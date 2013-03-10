@@ -53,21 +53,15 @@ data Request = Request
     , reqLangs :: [Text]
       -- | A random, session-specific token used to prevent CSRF attacks.
     , reqToken :: Maybe Text
-      -- | Size of the request body.
-      --
-      -- Note: in the presence of chunked request bodies, this value will be 0,
-      -- even though data is available.
-    , reqBodySize :: Word64 -- FIXME Consider in the future using a Maybe to represent chunked bodies
     }
 
 parseWaiRequest :: W.Request
                 -> [(Text, ByteString)] -- ^ session
                 -> Bool
-                -> Word64 -- ^ actual length... might be meaningless, see 'reqBodySize'
                 -> Word64 -- ^ maximum allowed body size
                 -> IO Request
-parseWaiRequest env session' useToken bodySize maxBodySize =
-    parseWaiRequest' env session' useToken bodySize maxBodySize <$> newStdGen
+parseWaiRequest env session' useToken maxBodySize =
+    parseWaiRequest' env session' useToken maxBodySize <$> newStdGen
 
 -- | Impose a limit on the size of the request body.
 limitRequestBody :: Word64 -> W.Request -> W.Request
@@ -98,12 +92,11 @@ parseWaiRequest' :: RandomGen g
                  => W.Request
                  -> [(Text, ByteString)] -- ^ session
                  -> Bool
-                 -> Word64
                  -> Word64 -- ^ max body size
                  -> g
                  -> Request
-parseWaiRequest' env session' useToken bodySize maxBodySize gen =
-    Request gets'' cookies' (limitRequestBody maxBodySize env) langs'' token bodySize
+parseWaiRequest' env session' useToken maxBodySize gen =
+    Request gets'' cookies' (limitRequestBody maxBodySize env) langs'' token
   where
     gets' = queryToQueryText $ W.queryString env
     gets'' = map (second $ fromMaybe "") gets'
