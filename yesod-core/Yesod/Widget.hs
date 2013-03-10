@@ -57,7 +57,6 @@ import Yesod.Handler
     )
 import Text.Shakespeare.I18N (RenderMessage)
 import Yesod.Content (toContent)
-import Yesod.Internal
 import Control.Monad (liftM)
 import Data.Text (Text)
 import qualified Data.Map as Map
@@ -229,3 +228,6 @@ tell w = GWidget $ return ((), w)
 -- messages.
 liftW :: GHandler sub master a -> GWidget sub master a
 liftW = lift
+
+toUnique :: x -> UniqueList x
+toUnique = UniqueList . (:)

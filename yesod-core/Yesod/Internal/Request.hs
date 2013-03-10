@@ -13,13 +13,15 @@ module Yesod.Internal.Request
     , mkFileInfoSource
     , FileUpload (..)
     , tooLargeResponse
+    , tokenKey
+    , langKey
     -- The below are exported for testing.
     , randomString
     ) where
 
+import Data.String (IsString)
 import Control.Arrow (second)
 import qualified Network.Wai.Parse as NWP
-import Yesod.Internal
 import qualified Network.Wai as W
 import System.Random (RandomGen, randomRs)
 import Web.Cookie (parseCookiesText)
@@ -165,3 +167,9 @@ mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourc
 
 mkFileInfoSource :: Text -> Text -> Source (ResourceT IO) ByteString -> FileInfo
 mkFileInfoSource name ct src = FileInfo name ct src (\dst -> runResourceT $ src $$ sinkFile dst)
+
+tokenKey :: IsString a => a
+tokenKey = "_TOKEN"
+
+langKey :: IsString a => a
+langKey = "_LANG"
