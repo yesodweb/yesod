@@ -225,6 +225,7 @@ ihamletToRepHtml ih = do
 tell :: GWData (Route master) -> GWidget sub master ()
 tell w = GWidget $ return ((), w)
 
--- | Type-restricted version of @lift@
+-- | Type-restricted version of @lift@. Used internally to create better error
+-- messages.
 liftW :: GHandler sub master a -> GWidget sub master a
 liftW = lift
