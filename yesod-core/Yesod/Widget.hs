@@ -313,5 +313,9 @@ instance MonadResource (GWidget sub master) where
 #endif
 
 instance MonadLogger (GWidget sub master) where
+#if MIN_VERSION_monad_logger(0, 3, 0)
+    monadLoggerLog a b c = lift . monadLoggerLog a b c
+#else
     monadLoggerLog a b = lift . monadLoggerLog a b
     monadLoggerLogSource a b c = lift . monadLoggerLogSource a b c
+#endif

@@ -9,6 +9,7 @@ config/client_session_key.aes
 *.hi
 *.o
 *.sqlite3
+fay/Language/Fay/Yesod.hs
 .hsenv*
 yesod-devel/
 
@@ -28,12 +29,16 @@ import Yesod.Default.Main
 import Yesod.Default.Handlers
 import Network.Wai.Middleware.RequestLogger
 import qualified Database.Persist.Store
+import Database.Persist.GenericSql (runMigration)
 import Network.HTTP.Conduit (newManager, def)
+import Yesod.Fay (getFaySite)
+import Control.Monad.Logger (runLoggingT)
 import System.IO (stdout)
 import System.Log.FastLogger (mkLogger)
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
+import Handler.Fay
 import Handler.Home
 
 -- This line actually creates our YesodDispatch instance. It is the second half
@@ -68,12 +73,17 @@ makeFoundation :: AppConfig DefaultEnv Extra -> IO App
 makeFoundation conf = do
     manager <- newManager def
     s <- staticSite
-    dbconf <- withYamlEnvironment "config/mongoDB.yml" (appEnv conf)
+    dbconf <- withYamlEnvironment "config/postgresql.yml" (appEnv conf)
               Database.Persist.Store.loadConfig >>=
               Database.Persist.Store.applyEnv
     p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)
     logger <- mkLogger True stdout
-    let foundation = App conf s p manager dbconf logger
+    let foundation = App conf s p manager dbconf onCommand logger
+
+    -- Perform database migration using our application's logging settings.
+    runLoggingT
+        (Database.Persist.Store.runPool dbconf (runMigration migrateAll) p)
+        (messageLoggerSource foundation logger)
 
     return foundation
 
@@ -102,12 +112,12 @@ import qualified Settings
 import Settings.Development (development)
 import qualified Database.Persist.Store
 import Settings.StaticFiles
-import Database.Persist.MongoDB hiding (master)
+import Database.Persist.GenericSql
 import Settings (widgetFile, Extra (..))
 import Model
-import Text.Jasmine (minifym)
 import Web.ClientSession (getKey)
 import Text.Hamlet (hamletFile)
+import Yesod.Fay
 import System.Log.FastLogger (Logger)
 
 -- | The site argument for your application. This can be a good place to
@@ -120,6 +130,7 @@ data App = App
     , connPool :: Database.Persist.Store.PersistConfigPool Settings.PersistConfig -- ^ Database connection pool.
     , httpManager :: Manager
     , persistConfig :: Settings.PersistConfig
+    , fayCommandHandler :: CommandHandler App App
     , appLogger :: Logger
     }
 
@@ -192,7 +203,7 @@ instance Yesod App where
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
     addStaticContent =
-        addStaticContentExternal minifym genFileName Settings.staticDir (StaticR . flip StaticRoute [])
+        addStaticContentExternal Right genFileName Settings.staticDir (StaticR . flip StaticRoute [])
       where
         -- Generate a unique filename based on the content itself
         genFileName lbs
@@ -209,9 +220,18 @@ instance Yesod App where
 
     getLogger = return . appLogger
 
+instance YesodJquery App
+instance YesodFay App where
+
+    fayRoute = FaySiteR
+
+    yesodFayCommand render command = do
+        master <- getYesod
+        fayCommandHandler master render command
+
 -- How to run database actions.
 instance YesodPersist App where
-    type YesodPersistBackend App = Action
+    type YesodPersistBackend App = SqlPersist
     runDB f = do
         master <- getYesod
         Database.Persist.Store.runPool
@@ -255,11 +275,28 @@ getExtra = fmap (appExtra . settings) getYesod
 --
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
 
+{-# START_FILE Handler/Fay.hs #-}
+module Handler.Fay where
+
+import Import
+import Yesod.Fay
+import Fay.Convert (readFromFay)
+
+fibs :: [Int]
+fibs = 0 : 1 : zipWith (+) fibs (drop 1 fibs)
+
+onCommand :: CommandHandler App App
+onCommand render command =
+    case readFromFay command of
+      Just (GetFib index r) -> render r $ fibs !! index
+      Nothing               -> invalidArgs ["Invalid command"]
+
 {-# START_FILE Handler/Home.hs #-}
 {-# LANGUAGE TupleSections, OverloadedStrings #-}
 module Handler.Home where
 
 import Import
+import Language.Haskell.TH ( Exp(..) )
 
 -- This is a handler function for the GET request method on the HomeR
 -- resource pattern. All of your resource patterns are defined in
@@ -277,6 +314,7 @@ getHomeR = do
         aDomId <- lift newIdent
         setTitle "Welcome To Yesod!"
         $(widgetFile "homepage")
+        $(fayFile' (ConE 'StaticR) "Home")
 
 postHomeR :: Handler RepHtml
 postHomeR = do
@@ -313,6 +351,7 @@ import           Model                as Import
 import           Settings             as Import
 import           Settings.Development as Import
 import           Settings.StaticFiles as Import
+import           SharedTypes          as Import
 
 #if __GLASGOW_HASKELL__ >= 704
 import           Data.Monoid          as Import
@@ -334,17 +373,13 @@ import Prelude
 import Yesod
 import Data.Text (Text)
 import Database.Persist.Quasi
-import Database.Persist.MongoDB hiding (master)
-import Language.Haskell.TH.Syntax
+
 
 -- You can define all of your database entities in the entities file.
 -- You can find more information on persistent and how to declare entities
 -- at:
 -- http://www.yesodweb.com/book/persistent/
-let mongoSettings = (mkPersistSettings (ConT ''MongoBackend))
-                        { mpsGeneric = False
-                        }
- in share [mkPersist mongoSettings]
+share [mkPersist sqlOnlySettings, mkMigrate "migrateAll"]
     $(persistFileWith lowerCaseSettings "config/models")
 
 {-# START_FILE PROJECTNAME.cabal #-}
@@ -362,6 +397,7 @@ Flag library-only
     Default:       False
 
 library
+    hs-source-dirs: ., fay-shared
     exposed-modules: Application
                      Foundation
                      Import
@@ -369,6 +405,8 @@ library
                      Settings
                      Settings.StaticFiles
                      Settings.Development
+                     SharedTypes
+                     Handler.Fay
                      Handler.Home
 
     if flag(dev) || flag(library-only)
@@ -389,6 +427,7 @@ library
                 FlexibleContexts
                 EmptyDataDecls
                 NoMonomorphismRestriction
+                RankNTypes
 
     build-depends: base                          >= 4          && < 5
                  -- , yesod-platform                >= 1.1        && < 1.2
@@ -398,18 +437,19 @@ library
                  , yesod-static                  >= 1.1        && < 1.2
                  , yesod-default                 >= 1.1        && < 1.2
                  , yesod-form                    >= 1.1        && < 1.3
+                 , yesod-fay                     >= 0.1
+                 , fay                           >= 0.9
                  , clientsession                 >= 0.8        && < 0.9
                  , bytestring                    >= 0.9        && < 0.11
                  , text                          >= 0.11       && < 0.12
                  , persistent                    >= 1.1        && < 1.2
-                 , persistent-mongoDB            >= 1.1        && < 1.2
+                 , persistent-postgresql         >= 1.1        && < 1.2
                  , persistent-template           >= 1.1.1      && < 1.2
                  , template-haskell
                  , hamlet                        >= 1.1        && < 1.2
                  , shakespeare-css               >= 1.0        && < 1.1
                  , shakespeare-js                >= 1.0.2      && < 1.2
                  , shakespeare-text              >= 1.0        && < 1.1
-                 , hjsmin                        >= 0.1        && < 0.2
                  , monad-control                 >= 0.3        && < 0.4
                  , wai-extra                     >= 1.3        && < 1.4
                  , yaml                          >= 0.8        && < 0.9
@@ -446,7 +486,7 @@ test-suite test
                  , yesod-default
                  , yesod-core
                  , persistent
-                 , persistent-mongoDB
+                 , persistent-postgresql
                  , resourcet
                  , monad-logger
 
@@ -461,7 +501,7 @@ module Settings where
 import Prelude
 import Text.Shakespeare.Text (st)
 import Language.Haskell.TH.Syntax
-import Database.Persist.MongoDB (MongoConf)
+import Database.Persist.Postgresql (PostgresConf)
 import Yesod.Default.Config
 import Yesod.Default.Util
 import Data.Text (Text)
@@ -470,9 +510,10 @@ import Control.Applicative
 import Settings.Development
 import Data.Default (def)
 import Text.Hamlet
+import Yesod.Fay
 
 -- | Which Persistent backend this site is using.
-type PersistConfig = MongoConf
+type PersistConfig = PostgresConf
 
 -- Static setting below. Changing these requires a recompile
 
@@ -517,6 +558,17 @@ widgetFile :: String -> Q Exp
 widgetFile = (if development then widgetFileReload
                              else widgetFileNoReload)
               widgetFileSettings
+
+fayFile' :: Exp -> FayFile
+fayFile' staticR moduleName
+    | development = fayFileReload settings
+    | otherwise   = fayFileProd settings
+  where
+    settings = (yesodFaySettings moduleName)
+        { yfsSeparateRuntime = Just ("static", staticR)
+        -- , yfsPostProcess = readProcess "java" ["-jar", "closure-compiler.jar"]
+        , yfsExternal = Just ("static", staticR)
+        }
 
 data Extra = Extra
     { extraCopyright :: Text
@@ -623,13 +675,14 @@ Email
 
  -- By default this file is used in Model.hs (which is imported by Foundation.hs)
 
-{-# START_FILE config/mongoDB.yml #-}
+{-# START_FILE config/postgresql.yml #-}
 Default: &defaults
   user: PROJECTNAME
   password: PROJECTNAME
   host: localhost
+  port: 5432
   database: PROJECTNAME
-  connections: 10
+  poolsize: 10
 
 Development:
   <<: *defaults
@@ -640,21 +693,21 @@ Testing:
 
 Staging:
   database: PROJECTNAME_staging
-  connections: 100
+  poolsize: 100
   <<: *defaults
 
 Production:
   database: PROJECTNAME_production
-  connections: 100
-  host: localhost
+  poolsize: 100
   <<: *defaults
 
 {-# START_FILE config/robots.txt #-}
 User-agent: *
 
 {-# START_FILE config/routes #-}
-/static StaticR Static getStatic
-/auth   AuthR   Auth   getAuth
+/static      StaticR  Static  getStatic
+/auth        AuthR    Auth    getAuth
+/fay-command FaySiteR FaySite getFaySite
 
 /favicon.ico FaviconR GET
 /robots.txt RobotsR GET
@@ -801,6 +854,63 @@ loop = do
 
 terminateDevel :: IO ()
 terminateDevel = exitSuccess
+
+{-# START_FILE fay-shared/SharedTypes.hs #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+module SharedTypes where
+
+import Prelude
+import Data.Data
+import Language.Fay.Yesod
+#ifdef FAY
+import FFI
+#else
+import Language.Fay.FFI
+#endif
+
+data Command = GetFib Int (Returns Int)
+    deriving (Read, Typeable, Data)
+
+
+{-# START_FILE fay/Home.hs #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE EmptyDataDecls    #-}
+module Home where
+
+import Prelude
+import Language.Fay.FFI
+import Language.Fay.Yesod
+import SharedTypes
+
+data Element
+
+getElementById :: String -> Fay Element
+getElementById = ffi "document.getElementById(%1)"
+
+getAttribute :: String -> Element -> Fay String
+getAttribute = ffi "%2[%1]"
+
+setInnerHTML :: Element -> String -> Fay ()
+setInnerHTML = ffi "%1.innerHTML=%2"
+
+onKeyUp :: Element -> Fay () -> Fay ()
+onKeyUp = ffi "%1.onkeyup=%2"
+
+alert :: String -> Fay ()
+alert = ffi "window.alert(%1)"
+
+parseInt :: String -> Fay Int
+parseInt = ffi "window.parseInt(%1, 10)"
+
+main :: Fay ()
+main = do
+    input <- getElementById "fibindex"
+    result <- getElementById "fibresult"
+    onKeyUp input $ do
+        indexS <- getAttribute "value" input
+        index <- parseInt indexS
+        call (GetFib index) $ setInnerHTML result . show
 
 {-# START_FILE messages/en.msg #-}
 Hello: Hello
@@ -5293,6 +5403,11 @@ $maybe msg <- mmsg
     test suite that performs tests on this page. #
     You can run your tests by doing: <pre>yesod test</pre>
 
+  <li>
+    Let's test out some Fay! Enter a number in this box and we'll calculate the Fibonacci value.
+    <input #fibindex placeholder="Fibonacci Index">
+    <span #fibresult>
+
 {-# START_FILE templates/homepage.julius #-}
 document.getElementById(#{toJSON aDomId}).innerHTML = "This text was added by the Javascript part of the homepage widget.";
 
@@ -5794,7 +5909,7 @@ module TestImport
 
 import Yesod.Test
 import Database.Persist hiding (get)
-import Database.Persist.MongoDB hiding (master)
+import Database.Persist.GenericSql (runSqlPool, SqlPersist, Connection)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Control.Monad.Logger (NoLoggingT, runNoLoggingT)
 
@@ -5802,12 +5917,12 @@ import Model
 
 type Specs = SpecsConn Connection
 
-runDB :: Action (NoLoggingT (ResourceT IO)) a -> OneSpec Connection a
+runDB :: SqlPersist (NoLoggingT (ResourceT IO)) a -> OneSpec Connection a
 runDB = runDBRunner poolRunner
   where
     poolRunner query pool = runResourceT
                           $ runNoLoggingT
-                          $ runMongoDBPoolDef query pool
+                          $ runSqlPool query pool
 
 {-# START_FILE tests/main.hs #-}
 {-# LANGUAGE OverloadedStrings #-}

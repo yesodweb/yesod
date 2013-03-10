@@ -909,6 +909,9 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
           , W.queryString    = []
           , W.requestBody    = mempty
           , W.vault          = mempty
+#if MIN_VERSION_wai(1, 4, 0)
+          , W.requestBodyLength = W.KnownLength 0
+#endif
           }
       fakeRequest =
         Request
