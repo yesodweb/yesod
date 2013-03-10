@@ -284,7 +284,11 @@ defaultYesodRunner YesodRunnerEnv {..} handler' req
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
         maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb yreMaster req) yreSessionBackend
-    yreq <- liftIO $ parseWaiRequest req session (isJust yreSessionBackend) maxLen <$> newStdGen
+    let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) maxLen
+    yreq <-
+        case mkYesodReq of
+            Left yreq -> return yreq
+            Right needGen -> liftIO $ needGen <$> newStdGen
     let ra = resolveApproot yreMaster req
     let log' = messageLoggerSource yreMaster yreLogger
         -- We set up two environments: the first one has a "safe" error handler

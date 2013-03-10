@@ -72,21 +72,27 @@ parseWaiRequest :: RandomGen g
                 -> SessionMap
                 -> Bool
                 -> Word64 -- ^ max body size
-                -> g
-                -> YesodRequest
-parseWaiRequest env session useToken maxBodySize gen =
-    YesodRequest
+                -> (Either YesodRequest (g -> YesodRequest))
+parseWaiRequest env session useToken maxBodySize =
+    -- In most cases, we won't need to generate any random values. Therefore,
+    -- we split our results: if we need a random generator, return a Right
+    -- value, otherwise return a Left and avoid the relatively costly generator
+    -- acquisition.
+    case etoken of
+        Left token -> Left $ mkRequest token
+        Right mkToken -> Right $ mkRequest . mkToken
+  where
+    mkRequest token' = YesodRequest
         { reqGetParams  = gets
         , reqCookies    = cookies
         , reqWaiRequest = limitRequestBody maxBodySize env
         , reqLangs      = langs''
-        , reqToken      = token
+        , reqToken      = token'
         , reqSession    = if useToken
                             then Map.delete tokenKey session
                             else session
         , reqAccept     = httpAccept env
         }
-  where
     gets = map (second $ fromMaybe "")
          $ queryToQueryText
          $ W.queryString env
@@ -111,12 +117,14 @@ parseWaiRequest env session useToken maxBodySize gen =
     -- tokenKey present in the session is ignored). If sessions
     -- are enabled and a session has no tokenKey a new one is
     -- generated.
-    token = if not useToken
-              then Nothing
-              else Just $ maybe
-                            (pack $ randomString 10 gen)
-                            (decodeUtf8With lenientDecode)
-                            (Map.lookup tokenKey session)
+    etoken
+        | useToken =
+            case Map.lookup tokenKey session of
+                -- Already have a token, use it.
+                Just bs -> Left $ Just $ decodeUtf8With lenientDecode bs
+                -- Don't have a token, get a random generator and make a new one.
+                Nothing -> Right $ Just . pack . randomString 10
+        | otherwise = Left Nothing
 
 -- | Get the list of accepted content types from the WAI Request\'s Accept
 -- header.
