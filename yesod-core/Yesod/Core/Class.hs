@@ -291,13 +291,32 @@ $doctype 5
     -- | A Yesod middleware, which will wrap every handler function. This
     -- allows you to run code before and after a normal handler.
     --
-    -- Default: Adds the response header \"Vary: Accept, Accept-Language\".
+    -- Default: Adds the response header \"Vary: Accept, Accept-Language\" and
+    -- performs authorization checks.
     --
     -- Since: 1.1.6
     yesodMiddleware :: GHandler sub a res -> GHandler sub a res
     yesodMiddleware handler = do
         setHeader "Vary" "Accept, Accept-Language"
-        handler
+        route <- getCurrentRoute
+        toMaster <- getRouteToMaster
+        case fmap toMaster route of
+            Nothing -> handler
+            Just url -> do
+                isWrite <- isWriteRequest url
+                ar <- isAuthorized url isWrite
+                case ar of
+                    Authorized -> return ()
+                    AuthenticationRequired -> do
+                        master <- getYesod
+                        case authRoute master of
+                            Nothing ->
+                                permissionDenied "Authentication required"
+                            Just url' -> do
+                                setUltDestCurrent
+                                redirect url'
+                    Unauthorized s' -> permissionDenied s'
+                handler
 
 -- | Convert a widget to a 'PageContent'.
 widgetToPageContent :: (Eq (Route master), Yesod master)

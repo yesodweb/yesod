@@ -105,10 +105,6 @@ data YesodRequest = YesodRequest
       -- ^ An ordered list of the accepted content types.
       --
       -- Since 1.2.0
-    , reqOnError    :: !(ErrorResponse -> YesodApp)
-      -- ^ How to respond when an error is thrown internally.
-      --
-      -- Since 1.2.0
     }
 
 -- | An augmented WAI 'W.Response'. This can either be a standard @Response@,
@@ -177,6 +173,10 @@ data RunHandlerEnv sub master = RunHandlerEnv
     , rheSub      :: !sub
     , rheUpload   :: !(RequestBodyLength -> FileUpload)
     , rheLog      :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+    , rheOnError  :: !(ErrorResponse -> YesodApp)
+      -- ^ How to respond when an error is thrown internally.
+      --
+      -- Since 1.2.0
     }
 
 data HandlerData sub master = HandlerData

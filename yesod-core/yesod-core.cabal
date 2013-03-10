@@ -97,7 +97,6 @@ library
                      Yesod.Request
                      Yesod.Widget
                      Yesod.Internal.TestApi
-                     Yesod.Core.Types
     other-modules:   Yesod.Internal
                      Yesod.Internal.Cache
                      Yesod.Internal.Core
@@ -107,6 +106,7 @@ library
                      Yesod.Core.Trans.Class
                      Yesod.Core.Run
                      Yesod.Core.Class
+                     Yesod.Core.Types
                      Paths_yesod_core
     ghc-options:     -Wall
 
