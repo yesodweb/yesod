@@ -224,18 +224,6 @@ $doctype 5
     getLogger _ = mkLogger True stdout
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
-    --
-    -- Note: This method is no longer used. Instead, you should override
-    -- 'messageLoggerSource'.
-    messageLogger :: a
-                  -> Logger
-                  -> Loc -- ^ position in source code
-                  -> LogLevel
-                  -> LogStr -- ^ message
-                  -> IO ()
-    messageLogger a logger loc = messageLoggerSource a logger loc ""
-
-    -- | Send a message to the @Logger@ provided by @getLogger@.
     messageLoggerSource :: a
                         -> Logger
                         -> Loc -- ^ position in source code
@@ -582,5 +570,3 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
   where
     line = show . fst . loc_start
     char = show . snd . loc_start
-
-{-# DEPRECATED messageLogger "Please use messageLoggerSource (since yesod-core 1.1.2)" #-}
