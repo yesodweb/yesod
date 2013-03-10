@@ -129,7 +129,7 @@ module Yesod.Handler
     ) where
 
 import Prelude hiding (catch)
-import Yesod.Internal.Request
+import Yesod.Core.Internal.Request
 import Data.Time (UTCTime, getCurrentTime, addUTCTime)
 
 import Control.Exception hiding (Handler, catch, finally)

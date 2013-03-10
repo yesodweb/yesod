@@ -94,10 +94,9 @@ library
                      Yesod.Dispatch
                      Yesod.Handler
                      Yesod.Widget
-                     Yesod.Internal.TestApi
+                     Yesod.Core.Internal.Request
     other-modules:   Yesod.Internal.Core
                      Yesod.Internal.Session
-                     Yesod.Internal.Request
                      Yesod.Core.Time
                      Yesod.Core.Trans.Class
                      Yesod.Core.Run

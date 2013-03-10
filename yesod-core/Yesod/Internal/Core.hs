@@ -47,7 +47,7 @@ import Yesod.Routes.Class
 
 import qualified Network.Wai as W
 import Yesod.Internal.Session
-import Yesod.Internal.Request
+import Yesod.Core.Internal.Request
 import Data.Text (Text)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
