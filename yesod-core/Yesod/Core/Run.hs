@@ -2,6 +2,7 @@
 {-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Yesod.Core.Run where
 
 import           Blaze.ByteString.Builder     (fromLazyByteString, toByteString,
@@ -32,7 +33,6 @@ import           Data.Text.Encoding.Error     (lenientDecode)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
 import           Prelude                      hiding (catch)
-import           System.IO                    (hPutStrLn, stderr)
 import           System.Log.FastLogger        (Logger)
 import           System.Random                (newStdGen)
 import           Web.Cookie                   (renderSetCookie)
@@ -43,6 +43,9 @@ import           Yesod.Internal               (tokenKey)
 import           Yesod.Internal.Request       (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
+import Language.Haskell.TH.Syntax (Loc, qLocation)
+import Control.Monad.Logger (LogSource, LogLevel (LevelError), liftLoc)
+import System.Log.FastLogger (LogStr, toLogStr)
 
 yarToResponse :: YesodResponse -> [(CI ByteString, ByteString)] -> Response
 yarToResponse (YRWai a) _ = a
@@ -161,9 +164,12 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
     cts = reqAccept yreq
     initSession = reqSession yreq
 
-safeEh :: ErrorResponse -> YesodApp
-safeEh er req = do
-    liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
+safeEh :: (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+       -> ErrorResponse
+       -> YesodApp
+safeEh log' er req = do
+    liftIO $ log' $(qLocation >>= liftLoc) "yesod-core" LevelError
+           $ toLogStr $ "Error handler errored out: " ++ show er
     return $ YRPlain
         H.status500
         []
@@ -293,7 +299,7 @@ defaultYesodRunner YesodRunnerEnv {..} handler' req
             , rheSub = yreSub
             , rheUpload = fileUpload yreMaster
             , rheLog = log'
-            , rheOnError = safeEh
+            , rheOnError = safeEh log'
             }
         rhe = rheSafe
             { rheOnError = runHandler rheSafe . localNoCurrent . errorHandler
