@@ -106,7 +106,7 @@ module Yesod.Handler
     , cacheDelete
       -- * Internal Yesod
     , runHandler
-    , YesodApp (..)
+    , YesodApp
     , runSubsiteGetter
     , toMasterHandler
     , toMasterHandlerDyn
@@ -114,7 +114,6 @@ module Yesod.Handler
     , localNoCurrent
     , HandlerData
     , ErrorResponse (..)
-    , YesodAppResult (..)
     , handlerToYAR
     , yarToResponse
     , headerToPair
@@ -146,10 +145,9 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
-import Network.Wai.Parse (parseHttpAccept)
 
 import Yesod.Content
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (mapMaybe)
 import Web.Cookie (SetCookie (..), renderSetCookie)
 import Control.Arrow ((***))
 import qualified Network.Wai.Parse as NWP
@@ -255,7 +253,7 @@ toMasterHandlerMaybe :: (Route sub -> Route master)
                      -> GHandler sub' master a
 toMasterHandlerMaybe tm ts route = local (handlerSubDataMaybe tm ts route)
 
-getRequest :: GHandler s m Request
+getRequest :: GHandler s m YesodRequest
 getRequest = handlerRequest `liftM` ask
 
 hcError :: ErrorResponse -> GHandler sub master a
@@ -415,8 +413,7 @@ runHandler :: HasReps c
            -> (W.RequestBodyLength -> FileUpload)
            -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
            -> YesodApp
-runHandler handler mrender sroute tomr master sub upload log' =
-  YesodApp $ \eh rr cts initSession -> do
+runHandler handler mrender sroute tomr master sub upload log' req = do
     let toErrorHandler e =
             case fromException e of
                 Just (HCError x) -> x
@@ -429,7 +426,7 @@ runHandler handler mrender sroute tomr master sub upload log' =
         , ghsHeaders = mempty
         }
     let hd = HandlerData
-            { handlerRequest = rr
+            { handlerRequest = req
             , handlerSub = sub
             , handlerMaster = master
             , handlerRoute = sroute
@@ -447,21 +444,24 @@ runHandler handler mrender sroute tomr master sub upload log' =
     let headers = ghsHeaders state
     let contents = either id (HCContent H.status200 . chooseRep) contents'
     let handleError e = do
-            yar <- unYesodApp (eh e) safeEh rr cts finalSession
+            yar <- eh e req
+                { reqOnError = safeEh
+                , reqSession = finalSession
+                }
             case yar of
-                YARPlain _ hs ct c sess ->
+                YRPlain _ hs ct c sess ->
                     let hs' = appEndo headers hs
-                     in return $ YARPlain (getStatus e) hs' ct c sess
-                YARWai _ -> return yar
+                     in return $ YRPlain (getStatus e) hs' ct c sess
+                YRWai _ -> return yar
     let sendFile' ct fp p =
-            return $ YARPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession
+            return $ YRPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession
     case contents of
         HCContent status a -> do
             (ct, c) <- liftIO $ a cts
             ec' <- liftIO $ evaluateContent c
             case ec' of
                 Left e -> handleError e
-                Right c' -> return $ YARPlain status (appEndo headers []) ct c' finalSession
+                Right c' -> return $ YRPlain status (appEndo headers []) ct c' finalSession
         HCError e -> handleError e
         HCRedirect status loc -> do
             let disable_caching x =
@@ -470,7 +470,7 @@ runHandler handler mrender sroute tomr master sub upload log' =
                     : x
                 hs = (if status /= H.movedPermanently301 then disable_caching else id)
                       $ Header "Location" (encodeUtf8 loc) : appEndo headers []
-            return $ YARPlain
+            return $ YRPlain
                 status hs typePlain emptyContent
                 finalSession
         HCSendFile ct fp p -> catch
@@ -478,13 +478,17 @@ runHandler handler mrender sroute tomr master sub upload log' =
             (handleError . toErrorHandler)
         HCCreated loc -> do
             let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
-            return $ YARPlain
+            return $ YRPlain
                 H.status201
                 hs
                 typePlain
                 emptyContent
                 finalSession
-        HCWai r -> return $ YARWai r
+        HCWai r -> return $ YRWai r
+  where
+    eh = reqOnError req
+    cts = reqAccept req
+    initSession = reqSession req
 
 evaluateContent :: Content -> IO (Either ErrorResponse Content)
 evaluateContent (ContentBuilder b mlen) = Control.Exception.handle f $ do
@@ -496,14 +500,14 @@ evaluateContent (ContentBuilder b mlen) = Control.Exception.handle f $ do
 evaluateContent c = return (Right c)
 
 safeEh :: ErrorResponse -> YesodApp
-safeEh er = YesodApp $ \_ _ _ session -> do
+safeEh er req = do
     liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return $ YARPlain
+    return $ YRPlain
         H.status500
         []
         typePlain
         (toContent ("Internal Server Error" :: S.ByteString))
-        session
+        (reqSession req)
 
 -- | Redirect to the given route.
 -- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
@@ -806,6 +810,9 @@ instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, [(key, va
         r <- getUrlRenderParams
         return $ r url params
 
+instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, Map.Map key val) where
+    toTextUrl (url, params) = toTextUrl (url, Map.toList params)
+
 localNoCurrent :: GHandler s m a -> GHandler s m a
 localNoCurrent =
     local (\hd -> hd { handlerRoute = Nothing })
@@ -832,22 +839,21 @@ handlerToYAR :: (HasReps a, HasReps b)
              -> (Route sub -> Route master)
              -> (Route master -> [(Text, Text)] -> Text) -- route renderer
              -> (ErrorResponse -> GHandler sub master a)
-             -> Request
+             -> YesodRequest
              -> Maybe (Route sub)
              -> SessionMap
              -> GHandler sub master b
-             -> ResourceT IO YesodAppResult
+             -> ResourceT IO YesodResponse
 handlerToYAR y s upload log' toMasterRoute render errorHandler rr murl sessionMap h =
-    unYesodApp ya eh' rr types sessionMap
+    ya rr { reqOnError = eh', reqSession = sessionMap }
   where
     ya = runHandler h render murl toMasterRoute y s upload log'
     eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log'
-    types = httpAccept $ reqWaiRequest rr
     errorHandler' = localNoCurrent . errorHandler
 
-yarToResponse :: YesodAppResult -> [(CI ByteString, ByteString)] -> W.Response
-yarToResponse (YARWai a) _ = a
-yarToResponse (YARPlain s hs _ c _) extraHeaders =
+yarToResponse :: YesodResponse -> [(CI ByteString, ByteString)] -> W.Response
+yarToResponse (YRWai a) _ = a
+yarToResponse (YRPlain s hs _ c _) extraHeaders =
     go c
   where
     finalHeaders = extraHeaders ++ map headerToPair hs
@@ -861,12 +867,6 @@ yarToResponse (YARPlain s hs _ c _) extraHeaders =
     go (ContentFile fp p) = W.ResponseFile s finalHeaders fp p
     go (ContentSource body) = W.ResponseSource s finalHeaders body
     go (ContentDontEvaluate c') = go c'
-
-httpAccept :: W.Request -> [ContentType]
-httpAccept = parseHttpAccept
-           . fromMaybe mempty
-           . lookup "Accept"
-           . W.requestHeaders
 
 -- | Convert Header to a key/value pair.
 headerToPair :: Header

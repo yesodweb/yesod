@@ -4,7 +4,7 @@ module YesodCoreTest.NoOverloadedStrings (noOverloadedTest, Widget) where
 
 import Test.Hspec
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 import Network.Wai.Test
 import Data.Monoid (mempty)
 

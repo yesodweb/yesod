@@ -5,7 +5,7 @@ module YesodCoreTest.RequestBodySize (specs, Widget) where
 
 import Test.Hspec
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 
 import Network.Wai
 import Network.Wai.Test
