@@ -75,6 +75,10 @@ caseHelper name path body statusChunked statusNonChunked = describe name $ do
                 then [("content-length", S8.pack $ show $ S.length body)]
                 else []
         , requestMethod = "POST"
+        , requestBodyLength =
+            if includeLength
+                then KnownLength $ fromIntegral $ S.length body
+                else ChunkedBody
         } $ L.fromChunks $ map S.singleton $ S.unpack body
 
 specs :: Spec

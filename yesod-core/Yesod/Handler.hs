@@ -179,7 +179,6 @@ import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource
 import Control.Monad.Base
 import Yesod.Routes.Class
-import Data.Word (Word64)
 import Language.Haskell.TH.Syntax (Loc)
 
 class YesodSubRoute s y where
@@ -193,7 +192,7 @@ data HandlerData sub master = HandlerData
     , handlerRender   :: Route master -> [(Text, Text)] -> Text
     , handlerToMaster :: Route sub -> Route master
     , handlerState    :: I.IORef GHState
-    , handlerUpload   :: Word64 -> FileUpload
+    , handlerUpload   :: W.RequestBodyLength -> FileUpload
     , handlerLog      :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
     }
 
@@ -313,7 +312,9 @@ runRequestBody :: GHandler s m RequestBodyContents
 runRequestBody = do
     hd <- ask
     let getUpload = handlerUpload hd
-        len = reqBodySize $ handlerRequest hd
+        len = W.requestBodyLength
+            $ reqWaiRequest
+            $ handlerRequest hd
         upload = getUpload len
     x <- get
     case ghsRBC x of
@@ -422,9 +423,10 @@ handlerToIO =
     -- Let go of the request body, cache and response headers.
     let oldReq    = handlerRequest oldHandlerData
         oldWaiReq = reqWaiRequest oldReq
-        newWaiReq = oldWaiReq { W.requestBody = mempty }
-        newReq    = oldReq { reqWaiRequest = newWaiReq
-                           , reqBodySize   = 0 }
+        newWaiReq = oldWaiReq { W.requestBody = mempty
+                              , W.requestBodyLength = W.KnownLength 0
+                              }
+        newReq    = oldReq { reqWaiRequest = newWaiReq }
         clearedOldHandlerData =
           oldHandlerData { handlerRequest = err "handlerRequest never here"
                          , handlerState   = err "handlerState never here" }
@@ -457,7 +459,7 @@ runHandler :: HasReps c
            -> (Route sub -> Route master)
            -> master
            -> sub
-           -> (Word64 -> FileUpload)
+           -> (W.RequestBodyLength -> FileUpload)
            -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
            -> YesodApp
 runHandler handler mrender sroute tomr master sub upload log' =
@@ -872,7 +874,7 @@ getSession = liftM ghsSession get
 handlerToYAR :: (HasReps a, HasReps b)
              => master -- ^ master site foundation
              -> sub    -- ^ sub site foundation
-             -> (Word64 -> FileUpload)
+             -> (W.RequestBodyLength -> FileUpload)
              -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
              -> (Route sub -> Route master)
              -> (Route master -> [(Text, Text)] -> Text) -- route renderer
