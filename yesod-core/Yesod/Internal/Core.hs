@@ -26,8 +26,6 @@ module Yesod.Internal.Core
     , defaultClientSessionBackend
     , clientSessionBackend
     , loadClientSession
-    , clientSessionBackend2
-    , loadClientSession2
     , clientSessionDateCacher
     , BackendSession
       -- * jsLoader
@@ -48,7 +46,6 @@ import Yesod.Handler hiding (lift, getExpires)
 import Control.Monad.Logger (logErrorS)
 
 import Yesod.Routes.Class
-import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 
 import Data.Word (Word64)
 import Control.Arrow ((***))
@@ -435,10 +432,9 @@ defaultYesodRunner :: Yesod master
 defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
   | W.KnownLength len <- W.requestBodyLength req, maxLen < len = return tooLargeResponse
   | otherwise = do
-    let dontSaveSession _ _ = return []
-    now <- liftIO getCurrentTime -- FIXME remove in next major version bump
+    let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
-        maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req now) msb
+        maybe (return ([], dontSaveSession)) (\sb -> sbLoadSession sb master req) msb
     rr <- liftIO $ parseWaiRequest req session (isJust msb) maxLen
     let h = {-# SCC "h" #-} do
           case murl of
@@ -468,7 +464,7 @@ defaultYesodRunner logger handler' master sub murl toMasterRoute msb req
                     newSess
                     (\n -> Map.insert tokenKey (TE.encodeUtf8 n) newSess)
                     (reqToken rr)
-            sessionHeaders <- liftIO (saveSession nsToken now)
+            sessionHeaders <- liftIO (saveSession nsToken)
             return $ ("Content-Type", ct) : map headerToPair sessionHeaders
         _ -> return []
     return $ yarToResponse yar extraHeaders
@@ -755,67 +751,25 @@ defaultClientSessionBackend = do
   key <- CS.getKey CS.defaultKeyFile
   let timeout = fromIntegral (120 * 60 :: Int) -- 120 minutes
   (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
-  return $ clientSessionBackend2 key getCachedDate
-
+  return $ clientSessionBackend key getCachedDate
 
 clientSessionBackend :: Yesod master
                      => CS.Key  -- ^ The encryption key
-                     -> Int -- ^ Inactive session valitity in minutes
-                     -> SessionBackend master
-clientSessionBackend key timeout = SessionBackend
-    { sbLoadSession = loadClientSession key timeout "_SESSION"
-    }
-{-# DEPRECATED clientSessionBackend "Please use clientSessionBackend2, which is more efficient." #-}
-
-loadClientSession :: Yesod master
-                  => CS.Key
-                  -> Int -- ^ timeout
-                  -> S8.ByteString -- ^ session name
-                  -> master
-                  -> W.Request
-                  -> UTCTime
-                  -> IO (BackendSession, SaveSession)
-loadClientSession key timeout sessionName master req now = return (sess, save)
-  where
-    sess = fromMaybe [] $ do
-      raw <- lookup "Cookie" $ W.requestHeaders req
-      val <- lookup sessionName $ parseCookies raw
-      let host = "" -- fixme, properly lock sessions to client address
-      decodeClientSessionOld key now host val
-    save sess' now' = do
-      -- We should never cache the IV!  Be careful!
-      iv <- liftIO CS.randomIV
-      return [AddCookie def
-          { setCookieName = sessionName
-          , setCookieValue = sessionVal iv
-          , setCookiePath = Just (cookiePath master)
-          , setCookieExpires = Just expires
-          , setCookieDomain = cookieDomain master
-          , setCookieHttpOnly = True
-          }]
-        where
-          host = "" -- fixme, properly lock sessions to client address
-          expires = fromIntegral (timeout * 60) `addUTCTime` now'
-          sessionVal iv = encodeClientSessionOld key iv expires host sess'
-{-# DEPRECATED loadClientSession "Please use loadClientSession2, which is more efficient." #-}
-
-clientSessionBackend2 :: Yesod master
-                     => CS.Key  -- ^ The encryption key
                      -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'
                      -> SessionBackend master
-clientSessionBackend2 key getCachedDate =
+clientSessionBackend key getCachedDate =
   SessionBackend {
-    sbLoadSession = \master req -> const $ loadClientSession2 key getCachedDate "_SESSION" master req
+    sbLoadSession = \master req -> loadClientSession key getCachedDate "_SESSION" master req
   }
 
-loadClientSession2 :: Yesod master
+loadClientSession :: Yesod master
                   => CS.Key
                   -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'
                   -> S8.ByteString -- ^ session name
                   -> master
                   -> W.Request
                   -> IO (BackendSession, SaveSession)
-loadClientSession2 key getCachedDate sessionName master req = load
+loadClientSession key getCachedDate sessionName master req = load
   where
     load = do
       date <- getCachedDate
@@ -825,7 +779,7 @@ loadClientSession2 key getCachedDate sessionName master req = load
       val <- lookup sessionName $ parseCookies raw
       let host = "" -- fixme, properly lock sessions to client address
       decodeClientSession key date host val
-    save date sess' _ = do
+    save date sess' = do
       -- We should never cache the IV!  Be careful!
       iv <- liftIO CS.randomIV
       return [AddCookie def

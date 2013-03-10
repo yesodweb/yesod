@@ -35,7 +35,6 @@ module Yesod.Core
     , SessionBackend (..)
     , defaultClientSessionBackend
     , clientSessionBackend
-    , clientSessionBackend2
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
