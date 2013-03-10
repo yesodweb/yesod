@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
-module Yesod.Internal.Request
+module Yesod.Core.Internal.Request
     ( parseWaiRequest
     , RequestBodyContents
     , FileInfo

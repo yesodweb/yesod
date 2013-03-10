@@ -43,7 +43,7 @@ import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Content
 import           Yesod.Core.Class
 import           Yesod.Core.Types
-import           Yesod.Internal.Request       (parseWaiRequest, tokenKey,
+import           Yesod.Core.Internal.Request  (parseWaiRequest, tokenKey,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
 
