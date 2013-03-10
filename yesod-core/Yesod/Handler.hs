@@ -105,18 +105,10 @@ module Yesod.Handler
     , cacheInsert
     , cacheDelete
       -- * Internal Yesod
-    , runHandler
     , YesodApp
     , runSubsiteGetter
-    , toMasterHandler
-    , toMasterHandlerDyn
-    , toMasterHandlerMaybe
-    , localNoCurrent
     , HandlerData
     , ErrorResponse (..)
-    , handlerToYAR
-    , yarToResponse
-    , headerToPair
     ) where
 
 import Prelude hiding (catch)
@@ -131,7 +123,6 @@ import Control.Monad (liftM)
 
 import Control.Monad.IO.Class
 
-import System.IO
 import qualified Network.Wai as W
 import qualified Network.HTTP.Types as H
 
@@ -144,58 +135,30 @@ import qualified Data.Text.Lazy as TL
 
 import qualified Data.Map as Map
 import qualified Data.ByteString as S
-import qualified Data.ByteString.Lazy as L
 
 import Yesod.Content
 import Data.Maybe (mapMaybe)
-import Web.Cookie (SetCookie (..), renderSetCookie)
+import Web.Cookie (SetCookie (..))
 import Control.Arrow ((***))
 import qualified Network.Wai.Parse as NWP
 import Data.Monoid (mappend, mempty, Endo (..))
 import qualified Data.ByteString.Char8 as S8
-import Data.ByteString (ByteString)
-import Data.CaseInsensitive (CI)
-import qualified Data.CaseInsensitive as CI
-import Blaze.ByteString.Builder (toByteString, toLazyByteString, fromLazyByteString)
 import Data.Text (Text)
 import Text.Shakespeare.I18N (RenderMessage (..))
 
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 #define preEscapedText preEscapedToMarkup
 
-import System.Log.FastLogger
-import Control.Monad.Logger
-
 import qualified Yesod.Internal.Cache as Cache
 import Yesod.Internal.Cache (mkCacheKey)
 import qualified Data.IORef as I
-import Control.Exception.Lifted (catch)
-import Control.Monad.Trans.Resource
-import Yesod.Routes.Class
-import Language.Haskell.TH.Syntax (Loc)
+import Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import Yesod.Routes.Class (Route)
 import Yesod.Core.Types
 import Yesod.Core.Trans.Class
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
-
-handlerSubData :: (Route sub -> Route master)
-               -> (master -> sub)
-               -> Route sub
-               -> HandlerData oldSub master
-               -> HandlerData sub master
-handlerSubData tm ts = handlerSubDataMaybe tm ts . Just
-
-handlerSubDataMaybe :: (Route sub -> Route master)
-                    -> (master -> sub)
-                    -> Maybe (Route sub)
-                    -> HandlerData oldSub master
-                    -> HandlerData sub master
-handlerSubDataMaybe tm ts route hd = hd
-    { handlerSub = ts $ handlerMaster hd
-    , handlerToMaster = tm
-    , handlerRoute = route
-    }
 
 get :: GHandler sub master GHState
 get = do
@@ -215,25 +178,6 @@ modify f = do
 tell :: Endo [Header] -> GHandler sub master ()
 tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
 
--- | Used internally for promoting subsite handler functions to master site
--- handler functions. Should not be needed by users.
-toMasterHandler :: (Route sub -> Route master)
-                -> (master -> sub)
-                -> Route sub
-                -> GHandler sub master a
-                -> GHandler sub' master a
-toMasterHandler tm ts route = local (handlerSubData tm ts route)
-
--- | FIXME do we need this?
-toMasterHandlerDyn :: (Route sub -> Route master)
-                   -> GHandler sub' master sub
-                   -> Route sub
-                   -> GHandler sub master a
-                   -> GHandler sub' master a
-toMasterHandlerDyn tm getSub route h = do
-    sub <- getSub
-    local (handlerSubData tm (const sub) route) h
-
 class SubsiteGetter g m s | g -> s where
   runSubsiteGetter :: g -> m s
 
@@ -245,13 +189,6 @@ instance (anySub ~ anySub'
          ,master ~ master'
          ) => SubsiteGetter (GHandler anySub master sub) (GHandler anySub' master') sub where
   runSubsiteGetter = id
-
-toMasterHandlerMaybe :: (Route sub -> Route master)
-                     -> (master -> sub)
-                     -> Maybe (Route sub)
-                     -> GHandler sub master a
-                     -> GHandler sub' master a
-toMasterHandlerMaybe tm ts route = local (handlerSubDataMaybe tm ts route)
 
 getRequest :: GHandler s m YesodRequest
 getRequest = handlerRequest `liftM` ask
@@ -400,114 +337,6 @@ handlerToIO =
                          { handlerRequest = newReq
                          , handlerState   = newStateIORef }
 
-
--- | Function used internally by Yesod in the process of converting a
--- 'GHandler' into an 'W.Application'. Should not be needed by users.
-runHandler :: HasReps c
-           => GHandler sub master c
-           -> (Route master -> [(Text, Text)] -> Text)
-           -> Maybe (Route sub)
-           -> (Route sub -> Route master)
-           -> master
-           -> sub
-           -> (W.RequestBodyLength -> FileUpload)
-           -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
-           -> YesodApp
-runHandler handler mrender sroute tomr master sub upload log' req = do
-    let toErrorHandler e =
-            case fromException e of
-                Just (HCError x) -> x
-                _ -> InternalError $ T.pack $ show e
-    istate <- liftIO $ I.newIORef GHState
-        { ghsSession = initSession
-        , ghsRBC = Nothing
-        , ghsIdent = 1
-        , ghsCache = mempty
-        , ghsHeaders = mempty
-        }
-    let hd = HandlerData
-            { handlerRequest = req
-            , handlerSub = sub
-            , handlerMaster = master
-            , handlerRoute = sroute
-            , handlerRender = mrender
-            , handlerToMaster = tomr
-            , handlerState = istate
-            , handlerUpload = upload
-            , handlerLog = log'
-            }
-    contents' <- catch (fmap Right $ unGHandler handler hd)
-        (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
-                      $ fromException e)
-    state <- liftIO $ I.readIORef istate
-    let finalSession = ghsSession state
-    let headers = ghsHeaders state
-    let contents = either id (HCContent H.status200 . chooseRep) contents'
-    let handleError e = do
-            yar <- eh e req
-                { reqOnError = safeEh
-                , reqSession = finalSession
-                }
-            case yar of
-                YRPlain _ hs ct c sess ->
-                    let hs' = appEndo headers hs
-                     in return $ YRPlain (getStatus e) hs' ct c sess
-                YRWai _ -> return yar
-    let sendFile' ct fp p =
-            return $ YRPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession
-    case contents of
-        HCContent status a -> do
-            (ct, c) <- liftIO $ a cts
-            ec' <- liftIO $ evaluateContent c
-            case ec' of
-                Left e -> handleError e
-                Right c' -> return $ YRPlain status (appEndo headers []) ct c' finalSession
-        HCError e -> handleError e
-        HCRedirect status loc -> do
-            let disable_caching x =
-                      Header "Cache-Control" "no-cache, must-revalidate"
-                    : Header "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
-                    : x
-                hs = (if status /= H.movedPermanently301 then disable_caching else id)
-                      $ Header "Location" (encodeUtf8 loc) : appEndo headers []
-            return $ YRPlain
-                status hs typePlain emptyContent
-                finalSession
-        HCSendFile ct fp p -> catch
-            (sendFile' ct fp p)
-            (handleError . toErrorHandler)
-        HCCreated loc -> do
-            let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
-            return $ YRPlain
-                H.status201
-                hs
-                typePlain
-                emptyContent
-                finalSession
-        HCWai r -> return $ YRWai r
-  where
-    eh = reqOnError req
-    cts = reqAccept req
-    initSession = reqSession req
-
-evaluateContent :: Content -> IO (Either ErrorResponse Content)
-evaluateContent (ContentBuilder b mlen) = Control.Exception.handle f $ do
-    let lbs = toLazyByteString b
-    L.length lbs `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen)
-  where
-    f :: SomeException -> IO (Either ErrorResponse Content)
-    f = return . Left . InternalError . T.pack . show
-evaluateContent c = return (Right c)
-
-safeEh :: ErrorResponse -> YesodApp
-safeEh er req = do
-    liftIO $ hPutStrLn stderr $ "Error handler errored out: " ++ show er
-    return $ YRPlain
-        H.status500
-        []
-        typePlain
-        (toContent ("Internal Server Error" :: S.ByteString))
-        (reqSession req)
 
 -- | Redirect to the given route.
 -- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
@@ -782,13 +611,6 @@ modSession f x = x { ghsSession = f $ ghsSession x }
 addHeader :: Header -> GHandler sub master ()
 addHeader = tell . Endo . (:)
 
-getStatus :: ErrorResponse -> H.Status
-getStatus NotFound = H.status404
-getStatus (InternalError _) = H.status500
-getStatus (InvalidArgs _) = H.status400
-getStatus (PermissionDenied _) = H.status403
-getStatus (BadMethod _) = H.status405
-
 -- | Some value which can be turned into a URL for redirects.
 class RedirectUrl master a where
     -- | Converts the value to the URL and a list of query-string parameters.
@@ -813,10 +635,6 @@ instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, [(key, va
 instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, Map.Map key val) where
     toTextUrl (url, params) = toTextUrl (url, Map.toList params)
 
-localNoCurrent :: GHandler s m a -> GHandler s m a
-localNoCurrent =
-    local (\hd -> hd { handlerRoute = Nothing })
-
 -- | Lookup for session data.
 lookupSession :: Text -> GHandler s m (Maybe Text)
 lookupSession = (fmap . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
@@ -830,59 +648,6 @@ lookupSessionBS n = do
 -- | Get all session variables.
 getSession :: GHandler sub master SessionMap
 getSession = liftM ghsSession get
-
-handlerToYAR :: (HasReps a, HasReps b)
-             => master -- ^ master site foundation
-             -> sub    -- ^ sub site foundation
-             -> (W.RequestBodyLength -> FileUpload)
-             -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
-             -> (Route sub -> Route master)
-             -> (Route master -> [(Text, Text)] -> Text) -- route renderer
-             -> (ErrorResponse -> GHandler sub master a)
-             -> YesodRequest
-             -> Maybe (Route sub)
-             -> SessionMap
-             -> GHandler sub master b
-             -> ResourceT IO YesodResponse
-handlerToYAR y s upload log' toMasterRoute render errorHandler rr murl sessionMap h =
-    ya rr { reqOnError = eh', reqSession = sessionMap }
-  where
-    ya = runHandler h render murl toMasterRoute y s upload log'
-    eh' er = runHandler (errorHandler' er) render murl toMasterRoute y s upload log'
-    errorHandler' = localNoCurrent . errorHandler
-
-yarToResponse :: YesodResponse -> [(CI ByteString, ByteString)] -> W.Response
-yarToResponse (YRWai a) _ = a
-yarToResponse (YRPlain s hs _ c _) extraHeaders =
-    go c
-  where
-    finalHeaders = extraHeaders ++ map headerToPair hs
-    finalHeaders' len = ("Content-Length", S8.pack $ show len)
-                      : finalHeaders
-
-    go (ContentBuilder b mlen) =
-        W.ResponseBuilder s hs' b
-      where
-        hs' = maybe finalHeaders finalHeaders' mlen
-    go (ContentFile fp p) = W.ResponseFile s finalHeaders fp p
-    go (ContentSource body) = W.ResponseSource s finalHeaders body
-    go (ContentDontEvaluate c') = go c'
-
--- | Convert Header to a key/value pair.
-headerToPair :: Header
-             -> (CI ByteString, ByteString)
-headerToPair (AddCookie sc) =
-    ("Set-Cookie", toByteString $ renderSetCookie $ sc)
-headerToPair (DeleteCookie key path) =
-    ( "Set-Cookie"
-    , S.concat
-        [ key
-        , "=; path="
-        , path
-        , "; expires=Thu, 01-Jan-1970 00:00:00 GMT"
-        ]
-    )
-headerToPair (Header key value) = (CI.mk key, value)
 
 -- | Get a unique identifier.
 newIdent :: GHandler sub master Text
@@ -951,8 +716,3 @@ cacheDelete k = modify $ \gs ->
 
 ask :: GHandler sub master (HandlerData sub master)
 ask = GHandler return
-
-local :: (HandlerData sub' master' -> HandlerData sub master)
-      -> GHandler sub master a
-      -> GHandler sub' master' a
-local f (GHandler x) = GHandler $ \r -> x $ f r
