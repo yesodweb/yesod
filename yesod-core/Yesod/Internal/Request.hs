@@ -70,12 +70,11 @@ tooLargeResponse = W.responseLBS
 parseWaiRequest :: RandomGen g
                 => W.Request
                 -> SessionMap
-                -> (ErrorResponse -> YesodApp)
                 -> Bool
                 -> Word64 -- ^ max body size
                 -> g
                 -> YesodRequest
-parseWaiRequest env session onError useToken maxBodySize gen =
+parseWaiRequest env session useToken maxBodySize gen =
     YesodRequest
         { reqGetParams  = gets
         , reqCookies    = cookies
@@ -86,7 +85,6 @@ parseWaiRequest env session onError useToken maxBodySize gen =
                             then Map.delete tokenKey session
                             else session
         , reqAccept     = httpAccept env
-        , reqOnError    = onError
         }
   where
     gets = map (second $ fromMaybe "")

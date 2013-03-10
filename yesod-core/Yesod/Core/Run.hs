@@ -39,7 +39,6 @@ import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Content
 import           Yesod.Core.Class
 import           Yesod.Core.Types
-import           Yesod.Handler
 import           Yesod.Internal               (tokenKey)
 import           Yesod.Internal.Request       (parseWaiRequest,
                                                tooLargeResponse)
@@ -118,9 +117,8 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
     let headers = ghsHeaders state
     let contents = either id (HCContent H.status200 . chooseRep) contents'
     let handleError e = do
-            yar <- eh e yreq
-                { reqOnError = safeEh
-                , reqSession = finalSession
+            yar <- rheOnError e yreq
+                { reqSession = finalSession
                 }
             case yar of
                 YRPlain _ hs ct c sess ->
@@ -160,7 +158,6 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
                 finalSession
         HCWai r -> return $ YRWai r
   where
-    eh = reqOnError yreq
     cts = reqAccept yreq
     initSession = reqSession yreq
 
@@ -229,6 +226,7 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
             , rheSub = master
             , rheUpload = fileUpload master
             , rheLog = messageLoggerSource master $ logger master
+            , rheOnError = errHandler
             }
         handler'
       errHandler err req = do
@@ -263,7 +261,6 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
           , reqWaiRequest = fakeWaiRequest
           , reqLangs      = []
           , reqToken      = Just "NaN" -- not a nonce =)
-          , reqOnError    = errHandler
           , reqAccept     = []
           , reqSession    = fakeSessionMap
           }
@@ -279,30 +276,16 @@ defaultYesodRunner YesodRunnerEnv {..} handler' req
   | KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
   | otherwise = do
     let dontSaveSession _ = return []
-    let onError _ = error "FIXME: Yesod.Internal.Core.defaultYesodRunner.onError"
     (session, saveSession) <- liftIO $ do
         maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb yreMaster req) yreSessionBackend
-    rr <- liftIO $ parseWaiRequest req session onError (isJust yreSessionBackend) maxLen <$> newStdGen
-    let h = {-# SCC "h" #-} do
-          case yreRoute of
-            Nothing -> handler
-            Just url -> do
-                isWrite <- isWriteRequest $ yreToMaster url
-                ar <- isAuthorized (yreToMaster url) isWrite
-                case ar of
-                    Authorized -> return ()
-                    AuthenticationRequired ->
-                        case authRoute yreMaster of
-                            Nothing ->
-                                permissionDenied "Authentication required"
-                            Just url' -> do
-                                setUltDestCurrent
-                                redirect url'
-                    Unauthorized s' -> permissionDenied s'
-                handler
+    yreq <- liftIO $ parseWaiRequest req session (isJust yreSessionBackend) maxLen <$> newStdGen
     let ra = resolveApproot yreMaster req
     let log' = messageLoggerSource yreMaster yreLogger
-        rhe = RunHandlerEnv
+        -- We set up two environments: the first one has a "safe" error handler
+        -- which will never throw an exception. The second one uses the
+        -- user-provided errorHandler function. If that errorHandler function
+        -- errors out, it will use the safeEh below to recover.
+        rheSafe = RunHandlerEnv
             { rheRender = yesodRender yreMaster ra
             , rheRoute = yreRoute
             , rheToMaster = yreToMaster
@@ -310,16 +293,18 @@ defaultYesodRunner YesodRunnerEnv {..} handler' req
             , rheSub = yreSub
             , rheUpload = fileUpload yreMaster
             , rheLog = log'
+            , rheOnError = safeEh
             }
-    yar <- runHandler rhe h rr
-        { reqOnError = runHandler rhe . localNoCurrent . errorHandler
-        }
+        rhe = rheSafe
+            { rheOnError = runHandler rheSafe . localNoCurrent . errorHandler
+            }
+    yar <- runHandler rhe handler yreq
     extraHeaders <- case yar of
         (YRPlain _ _ ct _ newSess) -> do
             let nsToken = maybe
                     newSess
                     (\n -> Map.insert tokenKey (encodeUtf8 n) newSess)
-                    (reqToken rr)
+                    (reqToken yreq)
             sessionHeaders <- liftIO (saveSession nsToken)
             return $ ("Content-Type", ct) : map headerToPair sessionHeaders
         _ -> return []
