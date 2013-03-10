@@ -14,6 +14,7 @@ import qualified YesodCoreTest.Redirect as Redirect
 import qualified YesodCoreTest.JsLoader as JsLoader
 import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
+import qualified YesodCoreTest.Auth as Auth
 
 import Test.Hspec
 
@@ -33,3 +34,4 @@ specs = do
       JsLoader.specs
       RequestBodySize.specs
       Json.specs
+      Auth.specs
