@@ -27,6 +27,7 @@ import           Data.Conduit                       (Flush, MonadThrow (..),
 import           Data.IntMap                        (IntMap)
 import           Data.IORef                         (IORef)
 import           Data.Map                           (Map, unionWith)
+import qualified Data.Map                           as Map
 import           Data.Monoid                        (Any, Endo (..), Last (..),
                                                      Monoid (..))
 import           Data.Serialize                     (Serialize (..),
@@ -53,30 +54,30 @@ import           Yesod.Core.Trans.Class             (MonadLift (..))
 import           Yesod.Routes.Class                 (RenderRoute (..))
 
 -- Sessions
-type BackendSession = [(Text, ByteString)]
+type SessionMap = Map Text ByteString
 
-type SaveSession = BackendSession    -- ^ The session contents after running the handler
+type SaveSession = SessionMap -- ^ The session contents after running the handler
                 -> IO [Header]
 
 newtype SessionBackend master = SessionBackend
     { sbLoadSession :: master
                     -> W.Request
-                    -> IO (BackendSession, SaveSession) -- ^ Return the session data and a function to save the session
+                    -> IO (SessionMap, SaveSession) -- ^ Return the session data and a function to save the session
     }
 
-data SessionCookie = SessionCookie (Either UTCTime ByteString) ByteString [(Text, ByteString)]
+data SessionCookie = SessionCookie (Either UTCTime ByteString) ByteString SessionMap
     deriving (Show, Read)
 instance Serialize SessionCookie where
     put (SessionCookie a b c) = do
         either putTime putByteString a
         put b
-        put (map (first T.unpack) c)
+        put (map (first T.unpack) $ Map.toList c)
 
     get = do
         a <- getTime
         b <- get
         c <- map (first T.pack) <$> get
-        return $ SessionCookie (Left a) b c
+        return $ SessionCookie (Left a) b (Map.fromList c)
 
 data ClientSessionDateCache =
   ClientSessionDateCache {
@@ -173,8 +174,6 @@ data GHState = GHState
     , ghsCache   :: Cache
     , ghsHeaders :: Endo [Header]
     }
-
-type SessionMap = Map Text ByteString
 
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
 -- features needed by Yesod. Users should never need to use this directly, as
