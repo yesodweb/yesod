@@ -22,6 +22,7 @@ extra-source-files:
   test/YesodCoreTest/ErrorHandling.hs
   test/YesodCoreTest/Exceptions.hs
   test/YesodCoreTest/InternalRequest.hs
+  test/YesodCoreTest/Json.hs
   test/YesodCoreTest/JsLoader.hs
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
   test/YesodCoreTest/JsLoaderSites/HeadAsync.hs
@@ -127,6 +128,7 @@ test-suite tests
                   ,QuickCheck >= 2 && < 3
                   ,transformers
                   , conduit
+                  , containers
     ghc-options:     -Wall
 
 source-repository head
