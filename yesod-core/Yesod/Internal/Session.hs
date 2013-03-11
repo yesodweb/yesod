@@ -14,7 +14,7 @@ import Data.ByteString (ByteString)
 import Control.Concurrent (forkIO, killThread, threadDelay)
 import Control.Monad (forever, guard)
 import Yesod.Core.Types
-import Yesod.Core.Time
+import Yesod.Core.Internal.Util
 import qualified Data.IORef as I
 
 encodeClientSession :: CS.Key

@@ -1,16 +1,11 @@
-{-# LANGUAGE CPP                        #-}
-{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -157,8 +152,8 @@ import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
 import           Yesod.Content                 (HasReps, chooseRep,
-                                                formatRFC1123, toContent)
-
+                                                toContent)
+import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
 import           Control.Monad.Trans.Resource  (ResourceT, runResourceT)

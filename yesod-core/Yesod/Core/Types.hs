@@ -50,7 +50,7 @@ import           Text.Blaze.Html                    (Html)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
-import           Yesod.Core.Time                    (getTime, putTime)
+import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Yesod.Core.Trans.Class             (MonadLift (..))
 import           Yesod.Routes.Class                 (RenderRoute (..))
 

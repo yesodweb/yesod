@@ -98,7 +98,7 @@ library
                      Yesod.Core.Internal.Request
     other-modules:   Yesod.Internal.Core
                      Yesod.Internal.Session
-                     Yesod.Core.Time
+                     Yesod.Core.Internal.Util
                      Yesod.Core.Trans.Class
                      Yesod.Core.Run
                      Yesod.Core.Class
