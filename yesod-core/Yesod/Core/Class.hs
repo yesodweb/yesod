@@ -75,7 +75,7 @@ class RenderRoute a => Yesod a where
     approot = ApprootRelative
 
     -- | Output error response pages.
-    errorHandler :: ErrorResponse -> GHandler sub a ChooseRep
+    errorHandler :: ErrorResponse -> GHandler sub a TypedContent
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
@@ -405,13 +405,13 @@ $newline never
 applyLayout' :: Yesod master
              => Html -- ^ title
              -> HtmlUrl (Route master) -- ^ body
-             -> GHandler sub master ChooseRep
-applyLayout' title body = fmap chooseRep $ defaultLayout $ do
+             -> GHandler sub master TypedContent
+applyLayout' title body = fmap toTypedContent $ defaultLayout $ do
     setTitle title
     toWidget body
 
 -- | The default error handler for 'errorHandler'.
-defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y ChooseRep
+defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y TypedContent
 defaultErrorHandler NotFound = do
     r <- waiRequest
     let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r

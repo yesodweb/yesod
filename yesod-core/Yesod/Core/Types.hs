@@ -249,15 +249,10 @@ data Content = ContentBuilder !BBuilder.Builder !(Maybe Int) -- ^ The content an
              | ContentFile !FilePath !(Maybe FilePart)
              | ContentDontEvaluate !Content
 
--- | A function which gives targetted representations of content based on the
--- content-types the user accepts.
-type ChooseRep =
-    [ContentType] -- ^ list of content-types user accepts, ordered by preference
- -> IO (ContentType, Content)
+data TypedContent = TypedContent !ContentType !Content
 
 newtype RepHtml = RepHtml Content
 newtype RepJson = RepJson Content
-data RepHtmlJson = RepHtmlJson Content Content
 newtype RepPlain = RepPlain Content
 newtype RepXml = RepXml Content
 
@@ -267,7 +262,7 @@ type ContentType = ByteString -- FIXME Text?
 -- request.
 --
 -- Since 1.1.0
-newtype DontFullyEvaluate a = DontFullyEvaluate a
+newtype DontFullyEvaluate a = DontFullyEvaluate { unDontFullyEvaluate :: a }
 
 -- | Responses to indicate some form of an error occurred. These are different
 -- from 'SpecialResponse' in that they allow for custom error pages.
@@ -327,7 +322,7 @@ instance Monoid (GWData a) where
         (a7 `mappend` b7)
 
 data HandlerContents =
-      HCContent H.Status ChooseRep
+      HCContent H.Status !TypedContent
     | HCError ErrorResponse
     | HCSendFile ContentType FilePath (Maybe FilePart)
     | HCRedirect H.Status Text

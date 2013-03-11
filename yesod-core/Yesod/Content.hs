@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -31,22 +33,26 @@ module Yesod.Content
       -- * Evaluation strategy
     , DontFullyEvaluate (..)
       -- * Representations
-    , ChooseRep
-    , HasReps (..)
-    , defChooseRep
+    , TypedContent (..)
+    , ToTypedContent (..)
+    , HasContentType (..)
       -- ** Specific content types
     , RepHtml (..)
     , RepJson (..)
-    , RepHtmlJson (..)
     , RepPlain (..)
     , RepXml (..)
+      -- ** Smart constructors
+    , repHtml
+    , repJson
+    , repPlain
+    , repXml
     ) where
 
-import Data.Maybe (mapMaybe)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
+import Control.Monad (liftM)
 
 import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy.Encoding
@@ -80,6 +86,8 @@ emptyContent = ContentBuilder mempty $ Just 0
 class ToContent a where
     toContent :: a -> Content
 
+instance ToContent Content where
+    toContent = id
 instance ToContent Builder where
     toContent = flip ContentBuilder Nothing
 instance ToContent B.ByteString where
@@ -94,6 +102,12 @@ instance ToContent String where
     toContent = toContent . pack
 instance ToContent Html where
     toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
+instance ToContent () where
+    toContent () = toContent B.empty
+instance ToContent (ContentType, Content) where
+    toContent = snd
+instance ToContent TypedContent where
+    toContent (TypedContent _ c) = c
 
 instance ToFlushBuilder builder => ToContent (Source (ResourceT IO) builder) where
     toContent src = ContentSource $ mapOutput toFlushBuilder src
@@ -106,61 +120,37 @@ instance ToFlushBuilder Builder where toFlushBuilder = Chunk
 instance ToFlushBuilder (Flush B.ByteString) where toFlushBuilder = fmap fromByteString
 instance ToFlushBuilder B.ByteString where toFlushBuilder = Chunk . fromByteString
 
--- | Any type which can be converted to representations.
-class HasReps a where
-    chooseRep :: a -> ChooseRep
+repHtml :: ToContent a => a -> RepHtml
+repHtml = RepHtml . toContent
 
--- | A helper method for generating 'HasReps' instances.
---
--- This function should be given a list of pairs of content type and conversion
--- functions. If none of the content types match, the first pair is used.
-defChooseRep :: [(ContentType, a -> IO Content)] -> a -> ChooseRep
-defChooseRep reps a ts = do
-  let (ct, c) =
-        case mapMaybe helper ts of
-            (x:_) -> x
-            [] -> case reps of
-                    [] -> error "Empty reps to defChooseRep"
-                    (x:_) -> x
-  c' <- c a
-  return (ct, c')
-        where
-            helper ct = do
-                c <- lookup ct reps
-                return (ct, c)
+repJson :: ToContent a => a -> RepJson
+repJson = RepJson . toContent
 
-instance HasReps ChooseRep where
-    chooseRep = id
+repPlain :: ToContent a => a -> RepPlain
+repPlain = RepPlain . toContent
 
-instance HasReps () where
-    chooseRep = defChooseRep [(typePlain, const $ return $ toContent B.empty)]
+repXml :: ToContent a => a -> RepXml
+repXml = RepXml . toContent
 
-instance HasReps (ContentType, Content) where
-    chooseRep = const . return
+class ToTypedContent a => HasContentType a where
+    getContentType :: Monad m => m a -> ContentType
 
-instance HasReps [(ContentType, Content)] where
-    chooseRep a cts = return $
-        case filter (\(ct, _) -> go ct `elem` map go cts) a of
-            ((ct, c):_) -> (ct, c)
-            _ -> case a of
-                    (x:_) -> x
-                    _ -> error "chooseRep [(ContentType, Content)] of empty"
-      where
-        go = simpleContentType
+instance HasContentType RepHtml where
+    getContentType _ = typeHtml
+deriving instance ToContent RepHtml
 
-instance HasReps RepHtml where
-    chooseRep (RepHtml c) _ = return (typeHtml, c)
-instance HasReps RepJson where
-    chooseRep (RepJson c) _ = return (typeJson, c)
-instance HasReps RepHtmlJson where
-    chooseRep (RepHtmlJson html json) = chooseRep
-        [ (typeHtml, html)
-        , (typeJson, json)
-        ]
-instance HasReps RepPlain where
-    chooseRep (RepPlain c) _ = return (typePlain, c)
-instance HasReps RepXml where
-    chooseRep (RepXml c) _ = return (typeXml, c)
+instance HasContentType RepJson where
+    getContentType _ = typeJson
+deriving instance ToContent RepJson
+
+instance HasContentType RepPlain where
+    getContentType _ = typePlain
+deriving instance ToContent RepPlain
+
+instance HasContentType RepXml where
+    getContentType _ = typeXml
+deriving instance ToContent RepXml
+
 
 typeHtml :: ContentType
 typeHtml = "text/html; charset=utf-8"
@@ -215,8 +205,8 @@ typeOctet = "application/octet-stream"
 simpleContentType :: ContentType -> ContentType
 simpleContentType = fst . B.breakByte 59 -- 59 == ;
 
-instance HasReps a => HasReps (DontFullyEvaluate a) where
-    chooseRep (DontFullyEvaluate a) = fmap (fmap (fmap ContentDontEvaluate)) $ chooseRep a
+instance HasContentType a => HasContentType (DontFullyEvaluate a) where
+    getContentType = getContentType . liftM unDontFullyEvaluate
 
 instance ToContent a => ToContent (DontFullyEvaluate a) where
     toContent (DontFullyEvaluate a) = ContentDontEvaluate $ toContent a
@@ -226,3 +216,47 @@ instance ToContent J.Value where
               . Blaze.fromLazyText
               . toLazyText
               . fromValue
+instance HasContentType J.Value where
+    getContentType _ = typeJson
+
+instance HasContentType Html where
+    getContentType _ = typeHtml
+
+instance HasContentType Text where
+    getContentType _ = typePlain
+
+instance HasContentType T.Text where
+    getContentType _ = typePlain
+
+-- | Any type which can be converted to 'TypedContent'.
+--
+-- Since 1.2.0
+class ToContent a => ToTypedContent a where
+    toTypedContent :: a -> TypedContent
+
+instance ToTypedContent TypedContent where
+    toTypedContent = id
+instance ToTypedContent () where
+    toTypedContent () = TypedContent typePlain (toContent ())
+instance ToTypedContent (ContentType, Content) where
+    toTypedContent (ct, content) = TypedContent ct content
+instance ToTypedContent RepHtml where
+    toTypedContent (RepHtml c) = TypedContent typeHtml c
+instance ToTypedContent RepJson where
+    toTypedContent (RepJson c) = TypedContent typeJson c
+instance ToTypedContent RepPlain where
+    toTypedContent (RepPlain c) = TypedContent typePlain c
+instance ToTypedContent RepXml where
+    toTypedContent (RepXml c) = TypedContent typeXml c
+instance ToTypedContent J.Value where
+    toTypedContent v = TypedContent typeJson (toContent v)
+instance ToTypedContent Html where
+    toTypedContent h = TypedContent typeHtml (toContent h)
+instance ToTypedContent T.Text where
+    toTypedContent t = TypedContent typePlain (toContent t)
+instance ToTypedContent Text where
+    toTypedContent t = TypedContent typePlain (toContent t)
+instance ToTypedContent a => ToTypedContent (DontFullyEvaluate a) where
+    toTypedContent (DontFullyEvaluate a) =
+        let TypedContent ct c = toTypedContent a
+         in TypedContent ct (ContentDontEvaluate c)

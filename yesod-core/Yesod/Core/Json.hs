@@ -20,12 +20,9 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Handler (GHandler, waiRequest, invalidArgs, redirect)
+import Yesod.Handler (GHandler, waiRequest, invalidArgs, redirect, selectRep, provideRep)
 import Yesod.Core.Trans.Class (lift)
-import Yesod.Content
-    ( ToContent (toContent), RepHtmlJson (RepHtmlJson), RepHtml (RepHtml)
-    , RepJson (RepJson)
-    )
+import Yesod.Content (TypedContent)
 import Yesod.Internal.Core (defaultLayout, Yesod)
 import Yesod.Widget (GWidget)
 import Yesod.Routes.Class
@@ -52,17 +49,17 @@ import Data.Maybe (listToMaybe)
 defaultLayoutJson :: (Yesod master, J.ToJSON a)
                   => GWidget sub master ()  -- ^ HTML
                   -> a                      -- ^ JSON
-                  -> GHandler sub master RepHtmlJson
-defaultLayoutJson w json = do
-    RepHtml html' <- defaultLayout w
-    return $ RepHtmlJson html' $ toContent (J.toJSON json)
+                  -> GHandler sub master TypedContent
+defaultLayoutJson w json = selectRep $ do
+    provideRep $ defaultLayout w
+    provideRep $ return $ J.toJSON json
 
 -- | Wraps a data type in a 'RepJson'.  The data type must
 -- support conversion to JSON via 'J.ToJSON'.
 --
 -- /Since: 0.3.0/
-jsonToRepJson :: J.ToJSON a => a -> GHandler sub master RepJson
-jsonToRepJson = return . RepJson . toContent . J.toJSON
+jsonToRepJson :: J.ToJSON a => a -> GHandler sub master J.Value
+jsonToRepJson = return . J.toJSON
 
 -- | Parse the request body to a data type as a JSON value.  The
 -- data type must support conversion from JSON via 'J.FromJSON'.
@@ -108,7 +105,7 @@ array = J.Array . V.fromList . map J.toJSON
 jsonOrRedirect :: (Yesod master, J.ToJSON a)
                => Route master -- ^ Redirect target
                -> a            -- ^ Data to send via JSON
-               -> GHandler sub master RepJson
+               -> GHandler sub master J.Value
 jsonOrRedirect r j = do
     q <- acceptsJson
     if q then jsonToRepJson (J.toJSON j)
