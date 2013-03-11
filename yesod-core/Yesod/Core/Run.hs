@@ -91,7 +91,7 @@ local f (GHandler x) = GHandler $ \r -> x $ f r
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'Application'. Should not be needed by users.
-runHandler :: HasReps c
+runHandler :: ToTypedContent c
            => RunHandlerEnv sub master
            -> GHandler sub master c
            -> YesodApp
@@ -101,7 +101,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
                 Just (HCError x) -> x
                 _ -> InternalError $ T.pack $ show e
     istate <- liftIO $ I.newIORef GHState
-        { ghsSession = initSession
+        { ghsSession = reqSession yreq
         , ghsRBC = Nothing
         , ghsIdent = 1
         , ghsCache = mempty
@@ -118,7 +118,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
     state <- liftIO $ I.readIORef istate
     let finalSession = ghsSession state
     let headers = ghsHeaders state
-    let contents = either id (HCContent H.status200 . chooseRep) contents'
+    let contents = either id (HCContent H.status200 . toTypedContent) contents'
     let handleError e = do
             yar <- rheOnError e yreq
                 { reqSession = finalSession
@@ -131,8 +131,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
     let sendFile' ct fp p =
             return $ YRPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession
     case contents of
-        HCContent status a -> do
-            (ct, c) <- liftIO $ a cts
+        HCContent status (TypedContent ct c) -> do
             ec' <- liftIO $ evaluateContent c
             case ec' of
                 Left e -> handleError e
@@ -160,9 +159,6 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
                 emptyContent
                 finalSession
         HCWai r -> return $ YRWai r
-  where
-    cts = reqAccept yreq
-    initSession = reqSession yreq
 
 safeEh :: (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
        -> ErrorResponse
@@ -276,7 +272,7 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
 
 defaultYesodRunner :: Yesod master
                    => YesodRunnerEnv sub master
-                   -> GHandler sub master ChooseRep
+                   -> GHandler sub master TypedContent
                    -> Application
 defaultYesodRunner YesodRunnerEnv {..} handler' req
   | KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse

@@ -78,6 +78,7 @@ module Yesod.Handler
       -- $representations
     , selectRep
     , provideRep
+    , provideRepType
     , ProvidedRep
       -- * Setting headers
     , setCookie
@@ -157,8 +158,7 @@ import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
-import           Yesod.Content                 (HasReps, chooseRep,
-                                                toContent, typePlain, simpleContentType)
+import           Yesod.Content                 (ToTypedContent (..), simpleContentType, HasContentType (..), ToContent (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
@@ -467,13 +467,13 @@ sendFilePart ct fp off count =
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
-sendResponse :: (HandlerError m, HasReps c) => c -> m a
-sendResponse = handlerError . HCContent H.status200 . chooseRep
+sendResponse :: (HandlerError m, ToTypedContent c) => c -> m a
+sendResponse = handlerError . HCContent H.status200 . toTypedContent
 
 -- | Bypass remaining handler code and output the given content with the given
 -- status code.
-sendResponseStatus :: (HandlerError m, HasReps c) => H.Status -> c -> m a
-sendResponseStatus s = handlerError . HCContent s . chooseRep
+sendResponseStatus :: (HandlerError m, ToTypedContent c) => H.Status -> c -> m a
+sendResponseStatus s = handlerError . HCContent s . toTypedContent
 
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
@@ -831,19 +831,19 @@ lookupCookies pn = do
 -- Since 1.2.0
 selectRep :: HandlerReader m
           => Writer.Writer (Endo [ProvidedRep m]) ()
-          -> m (ContentType, Content)
+          -> m TypedContent
 selectRep w = do
     cts <- liftM reqAccept askYesodRequest
     case mapMaybe tryAccept cts of
         [] ->
             case reps of
-                [] -> return (typePlain, "No reps provided to selectRep")
+                [] -> return $ toTypedContent ("No reps provided to selectRep" :: Text)
                 rep:_ -> returnRep rep
         rep:_ -> returnRep rep
   where
     returnRep (ProvidedRep ct mcontent) = do
         content <- mcontent
-        return (ct, content)
+        return $ TypedContent ct content
 
     reps = appEndo (Writer.execWriter w) []
     repMap = Map.unions $ map (\v@(ProvidedRep k _) -> Map.fromList
@@ -868,14 +868,22 @@ data ProvidedRep m = ProvidedRep !ContentType !(m Content)
 -- client. Should be used together with 'selectRep'.
 --
 -- Since 1.2.0
-provideRep :: (MonadIO m, HasReps a)
-           => ContentType
-           -> m a
+provideRep :: (MonadIO m, HasContentType a)
+           => m a
            -> Writer.Writer (Endo [ProvidedRep m]) ()
-provideRep ct handler =
-    Writer.tell $ Endo $ (ProvidedRep ct (grabContent handler):)
-  where
-    grabContent f = do
-        rep <- f
-        (_, content) <- liftIO $ chooseRep rep [ct]
-        return content
+provideRep handler = provideRepType (getContentType handler) handler
+
+-- | Same as 'provideRep', but instead of determining the content type from the
+-- type of the value itself, you provide the content type separately. This can
+-- be a convenience instead of creating newtype wrappers for uncommonly used
+-- content types.
+--
+-- > provideRepType "application/x-special-format" "This is the content"
+--
+-- Since 1.2.0
+provideRepType :: (MonadIO m, ToContent a)
+               => ContentType
+               -> m a
+               -> Writer.Writer (Endo [ProvidedRep m]) ()
+provideRepType ct handler =
+    Writer.tell $ Endo $ (ProvidedRep ct (liftM toContent handler):)

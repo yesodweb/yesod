@@ -8,6 +8,7 @@ import Network.Wai.Test
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import Data.String (IsString)
+import Data.Text (Text)
 
 data App = App
 
@@ -20,12 +21,13 @@ instance Yesod App
 specialHtml :: IsString a => a
 specialHtml = "text/html; charset=special"
 
-getHomeR :: Handler (ContentType, Content)
+getHomeR :: Handler TypedContent
 getHomeR = selectRep $ do
-    provideRep typeHtml $ return $ RepPlain "HTML"
-    provideRep specialHtml $ return $ RepPlain "HTMLSPECIAL"
-    provideRep typeJson $ return $ RepPlain "JSON"
-    provideRep typeXml $ return $ RepPlain "XML"
+    let go ct t = provideRepType ct $ return (t :: Text)
+    go typeHtml "HTML"
+    go specialHtml "HTMLSPECIAL"
+    go typeJson "JSON"
+    go typeXml "XML"
 
 test :: String -- ^ accept header
      -> ByteString -- ^ expected body

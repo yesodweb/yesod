@@ -114,7 +114,7 @@ class YesodDispatch sub master where
 
     yesodRunner :: Yesod master
                 => Logger
-                -> GHandler sub master ChooseRep
+                -> GHandler sub master TypedContent
                 -> master
                 -> sub
                 -> Maybe (Route sub)

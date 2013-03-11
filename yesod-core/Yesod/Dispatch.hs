@@ -52,7 +52,7 @@ import qualified Data.ByteString as S
 import qualified Blaze.ByteString.Builder
 import Network.HTTP.Types (status301)
 import Yesod.Routes.TH
-import Yesod.Content (chooseRep)
+import Yesod.Content (toTypedContent)
 import Yesod.Routes.Parse
 import System.Log.FastLogger (Logger)
 import Yesod.Core.Types
@@ -151,7 +151,7 @@ mkDispatchInstance context sub master res = do
             Clause pat body decs <- mkDispatchClause
                                     [|yesodRunner   $loggerE |]
                                     [|yesodDispatch $loggerE |]
-                                    [|fmap chooseRep|]
+                                    [|fmap toTypedContent|]
                                     res
             return $ FunD 'yesodDispatch
                          [ Clause (loggerP:pat)
