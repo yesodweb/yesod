@@ -11,7 +11,6 @@ module Yesod.Core.Json
 
       -- * Produce JSON values
     , J.Value (..)
-    , object
     , array
     , (.=)
 
@@ -26,14 +25,13 @@ import Yesod.Content (TypedContent)
 import Yesod.Internal.Core (defaultLayout, Yesod)
 import Yesod.Widget (GWidget)
 import Yesod.Routes.Class
-import Control.Arrow (second)
 import Control.Applicative ((<$>))
 import Control.Monad (join)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Parser as JP
 import Data.Aeson ((.=))
 import Data.Conduit.Attoparsec (sinkParser)
-import Data.Text (Text, pack)
+import Data.Text (pack)
 import qualified Data.Vector as V
 import Data.Conduit
 import Network.Wai (requestBody, requestHeaders)
@@ -86,10 +84,6 @@ parseJsonBody_ = do
     case ra of
         J.Error s -> invalidArgs [pack s]
         J.Success a -> return a
-
--- | Convert a list of pairs to an 'J.Object'.
-object :: J.ToJSON a => [(Text, a)] -> J.Value
-object = J.object . map (second J.toJSON)
 
 -- | Convert a list of values to an 'J.Array'.
 array :: J.ToJSON a => [a] -> J.Value

@@ -162,26 +162,39 @@ mkYesodSub "Auth"
 /page/#Text/STRINGS PluginR
 |]
 
-setCreds :: YesodAuth master => Bool -> Creds master -> GHandler sub master ()
+setCreds :: YesodAuth master
+         => Bool
+         -> Creds master
+         -> GHandler sub master ()
 setCreds doRedirects creds = do
     y    <- getYesod
     maid <- getAuthId creds
     case maid of
-        Nothing ->
-          when doRedirects $ do
+        Nothing -> when doRedirects $ do
             case authRoute y of
-              Nothing -> do rh <- defaultLayout $ toWidget [shamlet|
-$newline never
-<h1>Invalid login
-|]
-                            sendResponse rh
-              Just ar -> do setMessageI Msg.InvalidLogin
-                            redirect ar
+                Nothing -> do
+                    res <- selectRep $ do
+                        provideRep $ defaultLayout $ toWidget [shamlet|<h1>Invalid login|]
+                        provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
+                    sendResponse res
+                Just ar -> do
+                    res <- selectRep $ do
+                        provideRepType typeHtml $ do
+                            setMessageI Msg.InvalidLogin
+                            _ <- redirect ar
+                            return ()
+                        provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
+                    sendResponse res
         Just aid -> do
             setSession credsKey $ toPathPiece aid
             when doRedirects $ do
-              onLogin
-              redirectUltDest $ loginDest y
+                onLogin
+                res <- selectRep $ do
+                    provideRepType typeHtml $ do
+                        _ <- redirectUltDest $ loginDest y
+                        return ()
+                    provideRep $ return $ object ["message" .= ("Login Successful" :: Text)]
+                sendResponse res
 
 getCheckR :: YesodAuth master => GHandler Auth master TypedContent
 getCheckR = do
