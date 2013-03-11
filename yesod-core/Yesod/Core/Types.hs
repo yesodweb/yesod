@@ -251,7 +251,7 @@ data Content = ContentBuilder !BBuilder.Builder !(Maybe Int) -- ^ The content an
 
 data TypedContent = TypedContent !ContentType !Content
 
-newtype RepHtml = RepHtml Content
+type RepHtml = Html
 newtype RepJson = RepJson Content
 newtype RepPlain = RepPlain Content
 newtype RepXml = RepXml Content
