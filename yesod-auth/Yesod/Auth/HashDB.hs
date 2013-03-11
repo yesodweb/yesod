@@ -134,24 +134,13 @@ setPassword pwd u = do salt <- randomSalt
 -- | Given a user ID and password in plaintext, validate them against
 --   the database values.
 validateUser :: ( YesodPersist yesod
-#if MIN_VERSION_persistent(1, 1, 0)
                 , b ~ YesodPersistBackend yesod
                 , PersistMonadBackend (b (GHandler sub yesod)) ~ PersistEntityBackend user
                 , PersistUnique (b (GHandler sub yesod))
-#else
-                , b ~ YesodPersistBackend yesod
-                , b ~ PersistEntityBackend user
-                , PersistStore b (GHandler sub yesod)
-                , PersistUnique b (GHandler sub yesod)
-#endif
                 , PersistEntity user
                 , HashDBUser    user
                 ) => 
-#if MIN_VERSION_persistent(1, 1, 0)
                 Unique user     -- ^ User unique identifier
-#else
-                Unique user b   -- ^ User unique identifier
-#endif
              -> Text            -- ^ Password in plaint-text
              -> GHandler sub yesod Bool
 validateUser userID passwd = do
@@ -172,22 +161,11 @@ login = PluginR "hashdb" ["login"]
 --   username (whatever it might be) to unique user ID.
 postLoginR :: ( YesodAuth y, YesodPersist y
               , HashDBUser user, PersistEntity user
-#if MIN_VERSION_persistent(1, 1, 0)
               , b ~ YesodPersistBackend y
               , PersistMonadBackend (b (GHandler Auth y)) ~ PersistEntityBackend user
               , PersistUnique (b (GHandler Auth y))
-#else
-              , b ~ YesodPersistBackend y
-              , b ~ PersistEntityBackend user
-              , PersistStore b (GHandler Auth y)
-              , PersistUnique b (GHandler Auth y)
-#endif
               )
-#if MIN_VERSION_persistent(1, 1, 0)
            => (Text -> Maybe (Unique user))
-#else
-           => (Text -> Maybe (Unique user b))
-#endif
            -> GHandler Auth y ()
 postLoginR uniq = do
     (mu,mp) <- runInputPost $ (,)
@@ -207,25 +185,13 @@ postLoginR uniq = do
 --   can be used if authHashDB is the only plugin in use.
 getAuthIdHashDB :: ( YesodAuth master, YesodPersist master
                    , HashDBUser user, PersistEntity user
-#if MIN_VERSION_persistent(1, 1, 0)
                    , Key user ~ AuthId master
                    , b ~ YesodPersistBackend master
                    , PersistMonadBackend (b (GHandler sub master)) ~ PersistEntityBackend user
                    , PersistUnique (b (GHandler sub master))
-#else
-                   , Key b user ~ AuthId master
-                   , b ~ YesodPersistBackend master
-                   , b ~ PersistEntityBackend user
-                   , PersistUnique b (GHandler sub master)
-                   , PersistStore b (GHandler sub master)
-#endif
                    )
                 => (AuthRoute -> Route master)   -- ^ your site's Auth Route
-#if MIN_VERSION_persistent(1, 1, 0)
                 -> (Text -> Maybe (Unique user)) -- ^ gets user ID
-#else
-                -> (Text -> Maybe (Unique user b)) -- ^ gets user ID
-#endif
                 -> Creds master                  -- ^ the creds argument
                 -> GHandler sub master (Maybe (AuthId master))
 getAuthIdHashDB authR uniq creds = do
@@ -249,18 +215,10 @@ getAuthIdHashDB authR uniq creds = do
 authHashDB :: ( YesodAuth m, YesodPersist m
               , HashDBUser user
               , PersistEntity user
-#if MIN_VERSION_persistent(1, 1, 0)
               , b ~ YesodPersistBackend m
               , PersistMonadBackend (b (GHandler Auth m)) ~ PersistEntityBackend user
               , PersistUnique (b (GHandler Auth m)))
            => (Text -> Maybe (Unique user)) -> AuthPlugin m
-#else
-              , b ~ YesodPersistBackend m
-              , b ~ PersistEntityBackend user
-              , PersistStore b (GHandler Auth m)
-              , PersistUnique b (GHandler Auth m))
-           => (Text -> Maybe (Unique user b)) -> AuthPlugin m
-#endif
 authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> toWidget [hamlet|
 $newline never
     <div id="header">

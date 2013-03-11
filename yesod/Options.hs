@@ -70,13 +70,8 @@ injectDefaultP env path p@(OptP o)
            let (Just parseri) = f cmd
            in  parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
      in  OptP (Option (CmdReader cmds (`M.lookup` cmdMap)) props)
-#if MIN_VERSION_optparse_applicative(0, 5, 0)
   | (Option (OptReader names (CReader _ rdr) _) _) <- o =
      p <|> either (const empty) pure (msum $ map (rdr <=< (maybe (Left $ ErrorMsg "Missing environment variable") Right . getEnvValue env path)) names)
-#else
-  | (Option (OptReader names (CReader _ rdr)) _) <- o =
-     p <|> maybe empty pure (msum $ map (rdr <=< getEnvValue env path) names)
-#endif
   | (Option (FlagReader names a) _) <- o =
      p <|> if any ((==Just "1") . getEnvValue env path) names then pure a else empty
   | otherwise = p

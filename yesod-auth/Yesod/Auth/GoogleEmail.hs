@@ -19,11 +19,7 @@ import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Core
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml)
-#else
-import Text.Blaze (toHtml)
-#endif
 import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
 import qualified Data.Text as T

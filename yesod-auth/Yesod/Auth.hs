@@ -247,17 +247,10 @@ handlePluginR plugin pieces = do
         ap:_ -> apDispatch ap method pieces
 
 maybeAuth :: ( YesodAuth master
-#if MIN_VERSION_persistent(1, 1, 0)
              , PersistMonadBackend (b (GHandler sub master)) ~ PersistEntityBackend val
              , b ~ YesodPersistBackend master
              , Key val ~ AuthId master
              , PersistStore (b (GHandler sub master))
-#else
-             , b ~ YesodPersistBackend master
-             , b ~ PersistEntityBackend val
-             , Key b val ~ AuthId master
-             , PersistStore b (GHandler sub master)
-#endif
              , PersistEntity val
              , YesodPersist master
              ) => GHandler sub master (Maybe (Entity val))
@@ -271,15 +264,9 @@ requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
 requireAuth :: ( YesodAuth master
                , b ~ YesodPersistBackend master
-#if MIN_VERSION_persistent(1, 1, 0)
                , PersistMonadBackend (b (GHandler sub master)) ~ PersistEntityBackend val
                , Key val ~ AuthId master
                , PersistStore (b (GHandler sub master))
-#else
-               , b ~ PersistEntityBackend val
-               , Key b val ~ AuthId master
-               , PersistStore b (GHandler sub master)
-#endif
                , PersistEntity val
                , YesodPersist master
                ) => GHandler sub master (Entity val)
