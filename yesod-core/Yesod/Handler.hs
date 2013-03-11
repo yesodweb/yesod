@@ -1,16 +1,16 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE QuasiQuotes                #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -117,7 +117,6 @@ module Yesod.Handler
       -- ** Misc
     , newIdent
       -- * Lifting
-    , MonadLift (..)
     , handlerToIO
       -- * i18n
     , getMessageRender
@@ -130,53 +129,52 @@ module Yesod.Handler
     , ErrorResponse (..)
     ) where
 
-import Prelude hiding (catch)
-import Yesod.Core.Internal.Request
-import Data.Time (UTCTime, getCurrentTime, addUTCTime)
+import           Data.Time                     (UTCTime, addUTCTime,
+                                                getCurrentTime)
+import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
+                                                mkFileInfoLBS, mkFileInfoSource)
 
-import Control.Exception hiding (Handler, catch, finally)
-import Control.Applicative
+import           Control.Applicative           ((<$>))
 
-import Control.Monad (liftM)
+import           Control.Monad                 (liftM)
 
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Resource (MonadResource, liftResourceT)
+import           Control.Monad.IO.Class        (MonadIO, liftIO)
+import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT)
 
-import qualified Network.Wai as W
-import qualified Network.HTTP.Types as H
+import qualified Network.HTTP.Types            as H
+import qualified Network.Wai                   as W
 
-import Text.Hamlet
+import qualified Data.Text                     as T
+import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
+import           Data.Text.Encoding.Error      (lenientDecode)
+import qualified Data.Text.Lazy                as TL
 import qualified Text.Blaze.Html.Renderer.Text as RenderText
-import qualified Data.Text as T
-import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
-import Data.Text.Encoding.Error (lenientDecode)
-import qualified Data.Text.Lazy as TL
+import           Text.Hamlet                   (Html, HtmlUrl, hamlet)
 
-import qualified Data.Map as Map
-import qualified Data.ByteString as S
+import qualified Data.ByteString               as S
+import qualified Data.Map                      as Map
 
-import Yesod.Content
-import Data.Maybe (mapMaybe)
-import Web.Cookie (SetCookie (..))
-import Control.Arrow ((***))
-import qualified Network.Wai.Parse as NWP
-import Data.Monoid (mappend, mempty, Endo (..))
-import qualified Data.ByteString.Char8 as S8
-import Data.Text (Text)
-import Text.Shakespeare.I18N (RenderMessage (..))
+import           Control.Arrow                 ((***))
+import qualified Data.ByteString.Char8         as S8
+import           Data.Maybe                    (mapMaybe)
+import           Data.Monoid                   (Endo (..), mappend, mempty)
+import           Data.Text                     (Text)
+import qualified Network.Wai.Parse             as NWP
+import           Text.Shakespeare.I18N         (RenderMessage (..))
+import           Web.Cookie                    (SetCookie (..))
+import           Yesod.Content                 (HasReps, chooseRep,
+                                                formatRFC1123, toContent)
 
-import Text.Blaze.Html (toHtml, preEscapedToMarkup)
-#define preEscapedText preEscapedToMarkup
+import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
-import qualified Data.IORef as I
-import Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import Yesod.Routes.Class (Route)
-import Yesod.Core.Types
-import Yesod.Core.Trans.Class
-import Data.Maybe (listToMaybe)
-import Data.Typeable (Typeable, typeOf)
-import Data.Dynamic (fromDynamic, toDyn)
-import Yesod.Core.Handler.Class
+import           Control.Monad.Trans.Resource  (ResourceT, runResourceT)
+import           Data.Dynamic                  (fromDynamic, toDyn)
+import qualified Data.IORef                    as I
+import           Data.Maybe                    (listToMaybe)
+import           Data.Typeable                 (Typeable, typeOf)
+import           Yesod.Core.Handler.Class
+import           Yesod.Core.Types
+import           Yesod.Routes.Class            (Route)
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
@@ -194,7 +192,7 @@ tell :: HandlerState m => Endo [Header] -> m ()
 tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
 
 hcError :: HandlerError m => ErrorResponse -> m a
-hcError = handlerError
+hcError = handlerError . HCError
 
 class SubsiteGetter g m s | g -> s where
   runSubsiteGetter :: g -> m s
@@ -254,32 +252,33 @@ rbHelper' backend mkFI req =
     go = decodeUtf8With lenientDecode
 
 -- | Get the sub application argument.
-getYesodSub :: HandlerReader m => m (HandlerReaderSub m)
+getYesodSub :: HandlerReader m => m (HandlerSub m)
 getYesodSub = rheSub `liftM` askHandlerEnv
 
 -- | Get the master site appliation argument.
-getYesod :: HandlerReader m => m (HandlerReaderMaster m)
+getYesod :: HandlerReader m => m (HandlerMaster m)
 getYesod = rheMaster `liftM` askHandlerEnv
 
 -- | Get the URL rendering function.
-getUrlRender :: GHandler sub master (Route master -> Text)
+getUrlRender :: HandlerReader m => m (Route (HandlerMaster m) -> Text)
 getUrlRender = do
     x <- rheRender `liftM` askHandlerEnv
     return $ flip x []
 
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
-    :: GHandler sub master (Route master -> [(Text, Text)] -> Text)
+    :: HandlerReader m
+    => m (Route (HandlerMaster m) -> [(Text, Text)] -> Text)
 getUrlRenderParams = rheRender `liftM` askHandlerEnv
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
-getCurrentRoute :: GHandler sub master (Maybe (Route sub))
+getCurrentRoute :: HandlerReader m => m (Maybe (Route (HandlerSub m)))
 getCurrentRoute = rheRoute `liftM` askHandlerEnv
 
 -- | Get the function to promote a route for a subsite to a route for the
 -- master site.
-getRouteToMaster :: GHandler sub master (Route sub -> Route master)
+getRouteToMaster :: HandlerReader m => m (Route (HandlerSub m) -> Route (HandlerMaster m))
 getRouteToMaster = rheToMaster `liftM` askHandlerEnv
 
 
@@ -359,7 +358,8 @@ handlerToIO =
 --
 -- If you want direct control of the final status code, or need a different
 -- status code, please use 'redirectWith'.
-redirect :: RedirectUrl master url => url -> GHandler sub master a
+redirect :: (HandlerError m, RedirectUrl (HandlerMaster m) url, HandlerReader m)
+         => url -> m a
 redirect url = do
     req <- waiRequest
     let status =
@@ -369,10 +369,13 @@ redirect url = do
     redirectWith status url
 
 -- | Redirect to the given URL with the specified status code.
-redirectWith :: RedirectUrl master url => H.Status -> url -> GHandler sub master a
+redirectWith :: (HandlerError m, RedirectUrl (HandlerMaster m) url, HandlerReader m)
+             => H.Status
+             -> url
+             -> m a
 redirectWith status url = do
     urlText <- toTextUrl url
-    liftIO $ throwIO $ HCRedirect status urlText
+    handlerError $ HCRedirect status urlText
 
 ultDestKey :: Text
 ultDestKey = "_ULT"
@@ -381,7 +384,9 @@ ultDestKey = "_ULT"
 --
 -- An ultimate destination is stored in the user session and can be loaded
 -- later by 'redirectUltDest'.
-setUltDest :: RedirectUrl master url => url -> GHandler sub master ()
+setUltDest :: (HandlerState m, RedirectUrl (HandlerMaster m) url)
+           => url
+           -> m ()
 setUltDest url = do
     urlText <- toTextUrl url
     setSession ultDestKey urlText
@@ -390,7 +395,7 @@ setUltDest url = do
 --
 -- If this is a 404 handler, there is no current page, and then this call does
 -- nothing.
-setUltDestCurrent :: GHandler sub master ()
+setUltDestCurrent :: HandlerState m => m ()
 setUltDestCurrent = do
     route <- getCurrentRoute
     case route of
@@ -403,7 +408,7 @@ setUltDestCurrent = do
 -- | Sets the ultimate destination to the referer request header, if present.
 --
 -- This function will not overwrite an existing ultdest.
-setUltDestReferer :: GHandler sub master ()
+setUltDestReferer :: HandlerState m => m ()
 setUltDestReferer = do
     mdest <- lookupSession ultDestKey
     maybe
@@ -420,16 +425,16 @@ setUltDestReferer = do
 --
 -- This function uses 'redirect', and thus will perform a temporary redirect to
 -- a GET request.
-redirectUltDest :: RedirectUrl master url
+redirectUltDest :: (RedirectUrl (HandlerMaster m) url, HandlerState m, HandlerError m)
                 => url -- ^ default destination if nothing in session
-                -> GHandler sub master a
+                -> m a
 redirectUltDest def = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
     maybe (redirect def) redirect mdest
 
 -- | Remove a previously set ultimate destination. See 'setUltDest'.
-clearUltDest :: GHandler sub master ()
+clearUltDest :: HandlerState m => m ()
 clearUltDest = deleteSession ultDestKey
 
 msgKey :: Text
@@ -438,13 +443,14 @@ msgKey = "_MSG"
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessage :: Html -> GHandler sub master ()
+setMessage :: HandlerState m => Html -> m ()
 setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
 
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessageI :: (RenderMessage y msg) => msg -> GHandler sub y ()
+setMessageI :: (HandlerState m, RenderMessage (HandlerMaster m) msg)
+            => msg -> m ()
 setMessageI msg = do
     mr <- getMessageRender
     setMessage $ toHtml $ mr msg
@@ -453,9 +459,9 @@ setMessageI msg = do
 -- variable.
 --
 -- See 'setMessage'.
-getMessage :: GHandler sub master (Maybe Html)
+getMessage :: HandlerState m => m (Maybe Html)
 getMessage = do
-    mmsg <- liftM (fmap preEscapedText) $ lookupSession msgKey
+    mmsg <- liftM (fmap preEscapedToMarkup) $ lookupSession msgKey
     deleteSession msgKey
     return mmsg
 
@@ -463,71 +469,72 @@ getMessage = do
 --
 -- For some backends, this is more efficient than reading in the file to
 -- memory, since they can optimize file sending via a system call to sendfile.
-sendFile :: ContentType -> FilePath -> GHandler sub master a
-sendFile ct fp = liftIO . throwIO $ HCSendFile ct fp Nothing
+sendFile :: HandlerError m => ContentType -> FilePath -> m a
+sendFile ct fp = handlerError $ HCSendFile ct fp Nothing
 
 -- | Same as 'sendFile', but only sends part of a file.
-sendFilePart :: ContentType
+sendFilePart :: HandlerError m
+             => ContentType
              -> FilePath
              -> Integer -- ^ offset
              -> Integer -- ^ count
-             -> GHandler sub master a
+             -> m a
 sendFilePart ct fp off count =
-    liftIO . throwIO $ HCSendFile ct fp $ Just $ W.FilePart off count
+    handlerError $ HCSendFile ct fp $ Just $ W.FilePart off count
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
-sendResponse :: HasReps c => c -> GHandler sub master a
-sendResponse = liftIO . throwIO . HCContent H.status200
-             . chooseRep
+sendResponse :: (HandlerError m, HasReps c) => c -> m a
+sendResponse = handlerError . HCContent H.status200 . chooseRep
 
 -- | Bypass remaining handler code and output the given content with the given
 -- status code.
-sendResponseStatus :: HasReps c => H.Status -> c -> GHandler s m a
-sendResponseStatus s = liftIO . throwIO . HCContent s
-                     . chooseRep
+sendResponseStatus :: (HandlerError m, HasReps c) => H.Status -> c -> m a
+sendResponseStatus s = handlerError . HCContent s . chooseRep
 
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
-sendResponseCreated :: Route m -> GHandler s m a
+sendResponseCreated :: HandlerError m => Route (HandlerMaster m) -> m a
 sendResponseCreated url = do
     r <- getUrlRender
-    liftIO . throwIO $ HCCreated $ r url
+    handlerError $ HCCreated $ r url
 
 -- | Send a 'W.Response'. Please note: this function is rarely
 -- necessary, and will /disregard/ any changes to response headers and session
 -- that you have already specified. This function short-circuits. It should be
 -- considered only for very specific needs. If you are not sure if you need it,
 -- you don't.
-sendWaiResponse :: W.Response -> GHandler s m b
-sendWaiResponse = liftIO . throwIO . HCWai
+sendWaiResponse :: HandlerError m => W.Response -> m b
+sendWaiResponse = handlerError . HCWai
 
 -- | Return a 404 not found page. Also denotes no handler available.
-notFound :: GHandler sub master a
+notFound :: HandlerError m => m a
 notFound = hcError NotFound
 
 -- | Return a 405 method not supported page.
-badMethod :: GHandler sub master a
+badMethod :: HandlerError m => m a
 badMethod = do
     w <- waiRequest
     hcError $ BadMethod $ W.requestMethod w
 
 -- | Return a 403 permission denied page.
-permissionDenied :: Text -> GHandler sub master a
+permissionDenied :: HandlerError m => Text -> m a
 permissionDenied = hcError . PermissionDenied
 
 -- | Return a 403 permission denied page.
-permissionDeniedI :: RenderMessage master msg => msg -> GHandler sub master a
+permissionDeniedI :: (RenderMessage (HandlerMaster m) msg, HandlerError m)
+                  => msg
+                  -> m a
 permissionDeniedI msg = do
     mr <- getMessageRender
     permissionDenied $ mr msg
 
 -- | Return a 400 invalid arguments page.
-invalidArgs :: [Text] -> GHandler sub master a
+invalidArgs :: HandlerError m => [Text] -> m a
 invalidArgs = hcError . InvalidArgs
 
 -- | Return a 400 invalid arguments page.
-invalidArgsI :: RenderMessage y msg => [msg] -> GHandler s y a
+invalidArgsI :: (HandlerError m, RenderMessage (HandlerMaster m) msg) => [msg] -> m a
 invalidArgsI msg = do
     mr <- getMessageRender
     invalidArgs $ map mr msg
@@ -535,13 +542,13 @@ invalidArgsI msg = do
 ------- Headers
 -- | Set the cookie on the client.
 
-setCookie :: SetCookie
-          -> GHandler sub master ()
+setCookie :: HandlerState m => SetCookie -> m ()
 setCookie = addHeader . AddCookie
 
 -- | Helper function for setCookieExpires value
-getExpires :: Int -- ^ minutes
-          -> IO UTCTime
+getExpires :: MonadIO m
+           => Int -- ^ minutes
+           -> m UTCTime
 getExpires m = do
     now <- liftIO getCurrentTime
     return $ fromIntegral (m * 60) `addUTCTime` now
@@ -551,27 +558,28 @@ getExpires m = do
 --
 -- Note: although the value used for key and path is 'Text', you should only
 -- use ASCII values to be HTTP compliant.
-deleteCookie :: Text -- ^ key
+deleteCookie :: HandlerState m
+             => Text -- ^ key
              -> Text -- ^ path
-             -> GHandler sub master ()
+             -> m ()
 deleteCookie a = addHeader . DeleteCookie (encodeUtf8 a) . encodeUtf8
 
 
 -- | Set the language in the user session. Will show up in 'languages' on the
 -- next request.
-setLanguage :: Text -> GHandler sub master ()
+setLanguage :: HandlerState m => Text -> m ()
 setLanguage = setSession langKey
 
 -- | Set an arbitrary response header.
 --
 -- Note that, while the data type used here is 'Text', you must provide only
 -- ASCII value to be HTTP compliant.
-setHeader :: Text -> Text -> GHandler sub master ()
+setHeader :: HandlerState m => Text -> Text -> m ()
 setHeader a = addHeader . Header (encodeUtf8 a) . encodeUtf8
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
-cacheSeconds :: Int -> GHandler s m ()
+cacheSeconds :: HandlerState m => Int -> m ()
 cacheSeconds i = setHeader "Cache-Control" $ T.concat
     [ "max-age="
     , T.pack $ show i
@@ -580,16 +588,16 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
 
 -- | Set the Expires header to some date in 2037. In other words, this content
 -- is never (realistically) expired.
-neverExpires :: GHandler s m ()
+neverExpires :: HandlerState m => m ()
 neverExpires = setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
 
 -- | Set an Expires header in the past, meaning this content should not be
 -- cached.
-alreadyExpired :: GHandler s m ()
+alreadyExpired :: HandlerState m => m ()
 alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 
 -- | Set an Expires header to the given date.
-expiresAt :: UTCTime -> GHandler s m ()
+expiresAt :: HandlerState m => UTCTime -> m ()
 expiresAt = setHeader "Expires" . formatRFC1123
 
 -- | Set a variable in the user's session.
@@ -597,38 +605,40 @@ expiresAt = setHeader "Expires" . formatRFC1123
 -- The session is handled by the clientsession package: it sets an encrypted
 -- and hashed cookie on the client. This ensures that all data is secure and
 -- not tampered with.
-setSession :: Text -- ^ key
+setSession :: HandlerState m
+           => Text -- ^ key
            -> Text -- ^ value
-           -> GHandler sub master ()
+           -> m ()
 setSession k = setSessionBS k . encodeUtf8
 
 -- | Same as 'setSession', but uses binary data for the value.
-setSessionBS :: Text
+setSessionBS :: HandlerState m
+             => Text
              -> S.ByteString
-             -> GHandler sub master ()
+             -> m ()
 setSessionBS k = modify . modSession . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
-deleteSession :: Text -> GHandler sub master ()
+deleteSession :: HandlerState m => Text -> m ()
 deleteSession = modify . modSession . Map.delete
 
 -- | Clear all session variables.
 --
 -- Since: 1.0.1
-clearSession :: GHandler sub master ()
+clearSession :: HandlerState m => m ()
 clearSession = modify $ \x -> x { ghsSession = Map.empty }
 
 modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
 modSession f x = x { ghsSession = f $ ghsSession x }
 
 -- | Internal use only, not to be confused with 'setHeader'.
-addHeader :: Header -> GHandler sub master ()
+addHeader :: HandlerState m => Header -> m ()
 addHeader = tell . Endo . (:)
 
 -- | Some value which can be turned into a URL for redirects.
 class RedirectUrl master a where
     -- | Converts the value to the URL and a list of query-string parameters.
-    toTextUrl :: a -> GHandler sub master Text
+    toTextUrl :: (HandlerReader m, HandlerMaster m ~ master) => a -> m Text
 
 instance RedirectUrl master Text where
     toTextUrl = return
@@ -650,21 +660,21 @@ instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, Map.Map k
     toTextUrl (url, params) = toTextUrl (url, Map.toList params)
 
 -- | Lookup for session data.
-lookupSession :: Text -> GHandler s m (Maybe Text)
-lookupSession = (fmap . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
+lookupSession :: HandlerState m => Text -> m (Maybe Text)
+lookupSession = (liftM . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
 
 -- | Lookup for session data in binary format.
-lookupSessionBS :: Text -> GHandler s m (Maybe S.ByteString)
+lookupSessionBS :: HandlerState m => Text -> m (Maybe S.ByteString)
 lookupSessionBS n = do
     m <- liftM ghsSession get
     return $ Map.lookup n m
 
 -- | Get all session variables.
-getSession :: GHandler sub master SessionMap
+getSession :: HandlerState m => m SessionMap
 getSession = liftM ghsSession get
 
 -- | Get a unique identifier.
-newIdent :: GHandler sub master Text
+newIdent :: HandlerState m => m Text
 newIdent = do
     x <- get
     let i' = ghsIdent x + 1
@@ -677,7 +687,9 @@ newIdent = do
 -- POST form, and some Javascript to automatically submit the form. This can be
 -- useful when you need to post a plain link somewhere that needs to cause
 -- changes on the server.
-redirectToPost :: RedirectUrl master url => url -> GHandler sub master a
+redirectToPost :: (HandlerError m, RedirectUrl (HandlerMaster m) url)
+               => url
+               -> m a
 redirectToPost url = do
     urlText <- toTextUrl url
     hamletToRepHtml [hamlet|
@@ -696,20 +708,21 @@ $doctype 5
 
 -- | Converts the given Hamlet template into 'Content', which can be used in a
 -- Yesod 'Response'.
-hamletToContent :: HtmlUrl (Route master) -> GHandler sub master Content
+hamletToContent :: HandlerReader m => HtmlUrl (Route (HandlerMaster m)) -> m Content
 hamletToContent h = do
     render <- getUrlRenderParams
     return $ toContent $ h render
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-hamletToRepHtml :: HtmlUrl (Route master) -> GHandler sub master RepHtml
+hamletToRepHtml :: HandlerReader m => HtmlUrl (Route (HandlerMaster m)) -> m RepHtml
 hamletToRepHtml = liftM RepHtml . hamletToContent
 
 -- | Get the request\'s 'W.Request' value.
 waiRequest :: HandlerReader m => m W.Request
 waiRequest = reqWaiRequest `liftM` getRequest
 
-getMessageRender :: RenderMessage master message => GHandler s master (message -> Text)
+getMessageRender :: (HandlerReader m, RenderMessage (HandlerMaster m) message)
+                 => m (message -> Text)
 getMessageRender = do
     m <- getYesod
     l <- reqLangs `liftM` getRequest
@@ -720,9 +733,9 @@ getMessageRender = do
 -- newtype wrappers to distinguish logically different types.
 --
 -- Since 1.2.0
-cached :: Typeable a
-       => GHandler sub master a
-       -> GHandler sub master a
+cached :: (HandlerState m, Typeable a)
+       => m a
+       -> m a
 cached f = do
     gs <- get
     let cache = ghsCache gs
@@ -761,50 +774,53 @@ cached f = do
 -- If a matching language is not found the default language will be used.
 --
 -- This is handled by parseWaiRequest (not exposed).
-languages :: GHandler s m [Text]
+languages :: HandlerReader m => m [Text]
 languages = reqLangs `liftM` getRequest
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
 lookup' a = map snd . filter (\x -> a == fst x)
 
 -- | Lookup for GET parameters.
-lookupGetParams :: Text -> GHandler s m [Text]
+lookupGetParams :: HandlerReader m => Text -> m [Text]
 lookupGetParams pn = do
     rr <- getRequest
     return $ lookup' pn $ reqGetParams rr
 
 -- | Lookup for GET parameters.
-lookupGetParam :: Text -> GHandler s m (Maybe Text)
+lookupGetParam :: HandlerReader m => Text -> m (Maybe Text)
 lookupGetParam = liftM listToMaybe . lookupGetParams
 
 -- | Lookup for POST parameters.
-lookupPostParams :: Text -> GHandler s m [Text]
+lookupPostParams :: (MonadResource m, HandlerState m) => Text -> m [Text]
 lookupPostParams pn = do
     (pp, _) <- runRequestBody
     return $ lookup' pn pp
 
-lookupPostParam :: Text
-                -> GHandler s m (Maybe Text)
+lookupPostParam :: (MonadResource m, HandlerState m)
+                => Text
+                -> m (Maybe Text)
 lookupPostParam = liftM listToMaybe . lookupPostParams
 
 -- | Lookup for POSTed files.
-lookupFile :: Text
-           -> GHandler s m (Maybe FileInfo)
+lookupFile :: (HandlerState m, MonadResource m)
+           => Text
+           -> m (Maybe FileInfo)
 lookupFile = liftM listToMaybe . lookupFiles
 
 -- | Lookup for POSTed files.
-lookupFiles :: Text
-            -> GHandler s m [FileInfo]
+lookupFiles :: (HandlerState m, MonadResource m)
+            => Text
+            -> m [FileInfo]
 lookupFiles pn = do
     (_, files) <- runRequestBody
     return $ lookup' pn files
 
 -- | Lookup for cookie data.
-lookupCookie :: Text -> GHandler s m (Maybe Text)
+lookupCookie :: HandlerReader m => Text -> m (Maybe Text)
 lookupCookie = liftM listToMaybe . lookupCookies
 
 -- | Lookup for cookie data.
-lookupCookies :: Text -> GHandler s m [Text]
+lookupCookies :: HandlerReader m => Text -> m [Text]
 lookupCookies pn = do
     rr <- getRequest
     return $ lookup' pn $ reqCookies rr

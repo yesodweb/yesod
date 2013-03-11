@@ -6,7 +6,7 @@ module Yesod.Core.Class where
 
 import           Control.Monad.Logger               (logErrorS)
 import           Yesod.Content
-import           Yesod.Handler                      hiding (getExpires, lift)
+import           Yesod.Handler                      hiding (getExpires)
 
 import           Yesod.Routes.Class
 
