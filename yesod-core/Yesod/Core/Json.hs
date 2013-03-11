@@ -48,11 +48,11 @@ import Data.Maybe (listToMaybe)
 -- /Since: 0.3.0/
 defaultLayoutJson :: (Yesod master, J.ToJSON a)
                   => GWidget sub master ()  -- ^ HTML
-                  -> a                      -- ^ JSON
+                  -> GHandler sub master a  -- ^ JSON
                   -> GHandler sub master TypedContent
 defaultLayoutJson w json = selectRep $ do
     provideRep $ defaultLayout w
-    provideRep $ return $ J.toJSON json
+    provideRep $ fmap J.toJSON json
 
 -- | Wraps a data type in a 'RepJson'.  The data type must
 -- support conversion to JSON via 'J.ToJSON'.

@@ -19,6 +19,7 @@ import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelO
                                                      LogSource)
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
+import Data.Aeson (object, (.=))
 import           Data.List                          (foldl')
 import           Data.List                          (nub)
 import qualified Data.Map                           as Map
@@ -54,6 +55,7 @@ import           Web.Cookie                         (SetCookie (..))
 import           Yesod.Core.Types
 import           Yesod.Internal.Session
 import           Yesod.Widget
+import           Yesod.Core.Trans.Class (lift)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -401,57 +403,54 @@ $newline never
     runUniqueList :: Eq x => UniqueList x -> [x]
     runUniqueList (UniqueList x) = nub $ x []
 
--- | Helper function for 'defaultErrorHandler'.
-applyLayout' :: Yesod master
-             => Html -- ^ title
-             -> HtmlUrl (Route master) -- ^ body
-             -> GHandler sub master TypedContent
-applyLayout' title body = fmap toTypedContent $ defaultLayout $ do
-    setTitle title
-    toWidget body
-
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y TypedContent
-defaultErrorHandler NotFound = do
-    r <- waiRequest
-    let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
-    applyLayout' "Not Found"
-        [hamlet|
-$newline never
-<h1>Not Found
-<p>#{path'}
-|]
-defaultErrorHandler (PermissionDenied msg) =
-    applyLayout' "Permission Denied"
-        [hamlet|
-$newline never
-<h1>Permission denied
-<p>#{msg}
-|]
-defaultErrorHandler (InvalidArgs ia) =
-    applyLayout' "Invalid Arguments"
-        [hamlet|
-$newline never
-<h1>Invalid Arguments
-<ul>
-    $forall msg <- ia
-        <li>#{msg}
-|]
+defaultErrorHandler NotFound = selectRep $ do
+    provideRep $ defaultLayout $ do
+        r <- lift waiRequest
+        let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
+        setTitle "Not Found"
+        toWidget [hamlet|
+            <h1>Not Found
+            <p>#{path'}
+        |]
+    provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
+defaultErrorHandler (PermissionDenied msg) = selectRep $ do
+    provideRep $ defaultLayout $ do
+        setTitle "Permission Denied"
+        toWidget [hamlet|
+            <h1>Permission denied
+            <p>#{msg}
+        |]
+    provideRep $ return $ object ["message" .= ("Permission Denied" :: Text)]
+defaultErrorHandler (InvalidArgs ia) = selectRep $ do
+    provideRep $ defaultLayout $ do
+        setTitle "Invalid Arguments"
+        toWidget [hamlet|
+            <h1>Invalid Arguments
+            <ul>
+                $forall msg <- ia
+                    <li>#{msg}
+        |]
+    provideRep $ return $ object ["message" .= ("Invalid Arguments" :: Text), "errors" .= ia]
 defaultErrorHandler (InternalError e) = do
     $logErrorS "yesod-core" e
-    applyLayout' "Internal Server Error"
-        [hamlet|
-$newline never
-<h1>Internal Server Error
-<pre>#{e}
-|]
-defaultErrorHandler (BadMethod m) =
-    applyLayout' "Bad Method"
-        [hamlet|
-$newline never
-<h1>Method Not Supported
-<p>Method <code>#{S8.unpack m}</code> not supported
-|]
+    selectRep $ do
+        provideRep $ defaultLayout $ do
+            setTitle "Internal Server Error"
+            toWidget [hamlet|
+                <h1>Internal Server Error
+                <pre>#{e}
+            |]
+        provideRep $ return $ object ["message" .= ("Internal Server Error" :: Text), "error" .= e]
+defaultErrorHandler (BadMethod m) = selectRep $ do
+    provideRep $ defaultLayout $ do
+        setTitle"Bad Method"
+        toWidget [hamlet|
+            <h1>Method Not Supported
+            <p>Method <code>#{S8.unpack m}</code> not supported
+        |]
+    provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= m]
 
 asyncHelper :: (url -> [x] -> Text)
          -> [Script (url)]
