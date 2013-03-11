@@ -14,7 +14,7 @@ import Yesod.Form.Functions (areq, aopt)
 import Data.Int (Int64)
 import Data.Time (Day, TimeOfDay)
 import Data.Text (Text)
-import Yesod.Message (RenderMessage)
+import Yesod.Core (RenderMessage)
 
 {-
 class ToForm a where

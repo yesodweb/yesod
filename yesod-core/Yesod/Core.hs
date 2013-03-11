@@ -54,6 +54,7 @@ module Yesod.Core
     , module Yesod.Core.Json
     , module Yesod.Core.Trans.Class
     , module Text.Shakespeare.I18N
+    , module Yesod.Core.Internal.Util
     ) where
 
 import Yesod.Internal.Core
@@ -65,6 +66,7 @@ import Yesod.Core.Json
 import Yesod.Core.Types
 import Yesod.Core.Trans.Class
 import Text.Shakespeare.I18N
+import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
 
 import Control.Monad.Logger
 

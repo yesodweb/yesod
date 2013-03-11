@@ -12,17 +12,14 @@ module Yesod.Form.Jquery
     , Default (..)
     ) where
 
-import Yesod.Handler
-import Yesod.Core (Route)
+import Yesod.Core
 import Yesod.Form
-import Yesod.Widget
 import Data.Time (Day)
 import Data.Default
 import Text.Hamlet (shamlet)
 import Text.Julius (julius, rawJS)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
-import Yesod.Core (RenderMessage)
 import Data.Aeson (toJSON)
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.

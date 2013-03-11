@@ -12,9 +12,9 @@ import Yesod.Form.Types
 import Data.Text (Text)
 import Control.Applicative (Applicative (..))
 import Yesod.Handler (GHandler, invalidArgs, runRequestBody, getRequest, getYesod)
-import Yesod.Request (reqGetParams, languages)
+import Yesod.Core (reqGetParams, languages)
 import Control.Monad (liftM)
-import Yesod.Message (RenderMessage (..), SomeMessage (..))
+import Yesod.Core (RenderMessage (..), SomeMessage (..))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Control.Arrow ((***))
