@@ -16,11 +16,7 @@ import qualified Web.Authenticate.OpenId as OpenId
 import Yesod.Form
 import Yesod.Core
 import Text.Cassius (cassius)
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml)
-#else
-import Text.Blaze (toHtml)
-#endif
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
 import Control.Exception.Lifted (SomeException, try)

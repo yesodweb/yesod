@@ -60,10 +60,8 @@ import Text.Blaze (ToMarkup (toMarkup), preEscapedToMarkup, unsafeByteString)
 import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
-#if MIN_VERSION_email_validate(1, 0, 0)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
-#endif
 import Network.URI (parseURI)
 import Database.Persist (PersistField)
 import Database.Persist.Store (Entity (..))
@@ -75,9 +73,7 @@ import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
 import Database.Persist.Store (PersistEntityBackend)
-#if MIN_VERSION_persistent(1, 1, 0)
 import Database.Persist.Store (PersistMonadBackend)
-#endif
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
@@ -295,16 +291,10 @@ timeParser = do
 emailField :: RenderMessage master FormMessage => Field sub master Text
 emailField = Field
     { fieldParse = parseHelper $
-#if MIN_VERSION_email_validate(1, 0, 0)
         \s ->
             case Email.canonicalizeEmail $ encodeUtf8 s of
                 Just e -> Right $ decodeUtf8With lenientDecode e
                 Nothing -> Left $ MsgInvalidEmail s
-#else
-        \s -> if Email.isValid (unpack s)
-                then Right s
-                else Left $ MsgInvalidEmail s
-#endif
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="email" :isReq:required="" value="#{either id id val}">
@@ -505,15 +495,9 @@ optionsEnum :: (Show a, Enum a, Bounded a) => GHandler sub master (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
 optionsPersist :: ( YesodPersist master, PersistEntity a
-#if MIN_VERSION_persistent(1, 1, 0)
                   , PersistQuery (YesodPersistBackend master (GHandler sub master))
                   , PathPiece (Key a)
                   , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend master (GHandler sub master))
-#else
-                  , PersistQuery (YesodPersistBackend master) (GHandler sub master)
-                  , PathPiece (Key (YesodPersistBackend master) a)
-                  , PersistEntityBackend a ~ YesodPersistBackend master
-#endif
                   , RenderMessage master msg
                   )
                => [Filter a] -> [SelectOpt a] -> (a -> msg) -> GHandler sub master (OptionList (Entity a))

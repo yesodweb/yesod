@@ -14,14 +14,8 @@ import Yesod.Form
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Text.Hamlet (Html, shamlet)
 import Text.Julius (julius, rawJS)
-#if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze (preEscapedToMarkup)
 import Text.Blaze.Html.Renderer.String (renderHtml)
-#define preEscapedText preEscapedToMarkup
-#else
-import Text.Blaze (preEscapedText)
-import Text.Blaze.Renderer.String (renderHtml)
-#endif
 import Data.Text (Text, pack)
 import Data.Maybe (listToMaybe)
 
@@ -32,7 +26,7 @@ class Yesod a => YesodNic a where
 
 nicHtmlField :: YesodNic master => Field sub master Html
 nicHtmlField = Field
-    { fieldParse = \e _ -> return . Right . fmap (preEscapedText . sanitizeBalance) . listToMaybe $ e
+    { fieldParse = \e _ -> return . Right . fmap (preEscapedToMarkup . sanitizeBalance) . listToMaybe $ e
     , fieldView = \theId name attrs val _isReq -> do
         toWidget [shamlet|
 $newline never

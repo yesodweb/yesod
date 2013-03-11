@@ -15,8 +15,8 @@ description:     Some helpers for using Persistent from Yesod.
 library
     build-depends:   base                      >= 4        && < 5
                    , yesod-core                >= 1.1      && < 1.2
-                   , persistent                >= 1.0      && < 1.2
-                   , persistent-template       >= 1.0      && < 1.2
+                   , persistent                >= 1.1      && < 1.2
+                   , persistent-template       >= 1.1      && < 1.2
                    , transformers              >= 0.2.2    && < 0.4
     exposed-modules: Yesod.Persist
     ghc-options:     -Wall

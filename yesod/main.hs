@@ -17,9 +17,7 @@ import           Options                (injectDefaults)
 import qualified Paths_yesod
 import           Scaffolding.Scaffolder
 
-#if MIN_VERSION_optparse_applicative(0, 5, 0)
 import           Options.Applicative.Builder.Internal (Mod, OptionFields)
-#endif
 
 #ifndef WINDOWS
 import           Build                  (touch)
@@ -166,11 +164,7 @@ optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
 optStr m =
     nullOption $ value Nothing <> reader (success . str)  <> m
   where
-#if MIN_VERSION_optparse_applicative(0, 5, 0)
     success = Right
-#else
-    success = Just
-#endif
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
 rawSystem' :: String -> [String] -> IO ()
