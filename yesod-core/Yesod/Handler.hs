@@ -74,6 +74,11 @@ module Yesod.Handler
     , sendResponseStatus
     , sendResponseCreated
     , sendWaiResponse
+      -- * Different representations
+      -- $representations
+    , selectRep
+    , provideRep
+    , ProvidedRep
       -- * Setting headers
     , setCookie
     , getExpires
@@ -123,9 +128,10 @@ import           Data.Time                     (UTCTime, addUTCTime,
 import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
-import           Control.Applicative           ((<$>))
+import           Control.Applicative           ((<$>), (<|>))
 
 import           Control.Monad                 (ap, liftM)
+import qualified Control.Monad.Trans.Writer    as Writer
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
 import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT)
@@ -152,7 +158,7 @@ import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
 import           Yesod.Content                 (HasReps, chooseRep,
-                                                toContent)
+                                                toContent, typePlain, simpleContentType)
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
@@ -801,3 +807,75 @@ lookupCookies :: HandlerReader m => Text -> m [Text]
 lookupCookies pn = do
     rr <- getRequest
     return $ lookup' pn $ reqCookies rr
+
+-- $representations
+--
+-- HTTP allows content negotation to determine what /representation/ of data
+-- you would like to use. The most common example of this is providing both a
+-- user-facing HTML page and an API facing JSON response from the same URL. The
+-- means of achieving this is the Accept HTTP header, which provides a list of
+-- content types the client will accept, sorted by preference.
+--
+-- By using 'selectRep' and 'provideRep', you can provide a number of different
+-- representations, e.g.:
+--
+-- > selectRep $ do
+-- >   provideRep typeHtml $ produceHtmlOutput
+-- >   provideRep typeJson $ produceJsonOutput
+--
+-- The first provided representation will be used if no matches are found.
+
+-- | Select a representation to send to the client based on the representations
+-- provided inside this do-block. Should be used together with 'provideRep'.
+--
+-- Since 1.2.0
+selectRep :: HandlerReader m
+          => Writer.Writer (Endo [ProvidedRep m]) ()
+          -> m (ContentType, Content)
+selectRep w = do
+    cts <- liftM reqAccept askYesodRequest
+    case mapMaybe tryAccept cts of
+        [] ->
+            case reps of
+                [] -> return (typePlain, "No reps provided to selectRep")
+                rep:_ -> returnRep rep
+        rep:_ -> returnRep rep
+  where
+    returnRep (ProvidedRep ct mcontent) = do
+        content <- mcontent
+        return (ct, content)
+
+    reps = appEndo (Writer.execWriter w) []
+    repMap = Map.unions $ map (\v@(ProvidedRep k _) -> Map.fromList
+        [ (k, v)
+        , (noSpace k, v)
+        , (simpleContentType k, v)
+        ]) reps
+    tryAccept ct = Map.lookup ct repMap <|>
+                   Map.lookup (noSpace ct) repMap <|>
+                   Map.lookup (simpleContentType ct) repMap
+
+    -- Mime types such as "text/html; charset=foo" get converted to
+    -- "text/html;charset=foo"
+    noSpace = S8.filter (/= ' ')
+
+-- | Internal representation of a single provided representation.
+--
+-- Since 1.2.0
+data ProvidedRep m = ProvidedRep !ContentType !(m Content)
+
+-- | Provide a single representation to be used, based on the request of the
+-- client. Should be used together with 'selectRep'.
+--
+-- Since 1.2.0
+provideRep :: (MonadIO m, HasReps a)
+           => ContentType
+           -> m a
+           -> Writer.Writer (Endo [ProvidedRep m]) ()
+provideRep ct handler =
+    Writer.tell $ Endo $ (ProvidedRep ct (grabContent handler):)
+  where
+    grabContent f = do
+        rep <- f
+        (_, content) <- liftIO $ chooseRep rep [ct]
+        return content
