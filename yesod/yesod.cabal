@@ -32,7 +32,6 @@ library
                    , yesod-auth                >= 1.2      && < 1.3
                    , yesod-persistent          >= 1.2      && < 1.3
                    , yesod-form                >= 1.3      && < 1.4
-                   , yesod-default             >= 1.2      && < 1.3
                    , monad-control             >= 0.3      && < 0.4
                    , transformers              >= 0.2.2    && < 0.4
                    , wai                       >= 1.3      && < 1.5
@@ -44,9 +43,18 @@ library
                    , blaze-html                >= 0.5
                    , blaze-markup              >= 0.5.1
                    , aeson
+                   , safe
+                   , data-default
 
     exposed-modules: Yesod
+                   , Yesod.Default.Config
+                   , Yesod.Default.Main
+                   , Yesod.Default.Util
+                   , Yesod.Default.Handlers
     ghc-options:     -Wall
+
+    if !os(windows)
+         build-depends: unix
 
 executable             yesod-ghc-wrapper
     main-is: ghcwrapper.hs
