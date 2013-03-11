@@ -14,9 +14,7 @@ import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Form
-import Yesod.Handler
-import Yesod.Widget (toWidget, whamlet)
-import Yesod.Request
+import Yesod.Core
 import Text.Cassius (cassius)
 #if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml)

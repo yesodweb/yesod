@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.AtomFeed
@@ -35,8 +36,11 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Data.Map as Map
 
 newtype RepAtom = RepAtom Content
-instance HasReps RepAtom where
-    chooseRep (RepAtom c) _ = return (typeAtom, c)
+    deriving ToContent
+instance HasContentType RepAtom where
+    getContentType _ = typeAtom
+instance ToTypedContent RepAtom where
+    toTypedContent = TypedContent typeAtom . toContent
 
 atomFeed :: Feed (Route master) -> GHandler sub master RepAtom
 atomFeed feed = do

@@ -14,7 +14,7 @@ import Database.Persist
 import Database.Persist.TH
 import Control.Monad.Trans.Class (MonadTrans)
 
-import Yesod.Handler
+import Yesod.Core
 
 type YesodDB sub master = YesodPersistBackend master (GHandler sub master)
 

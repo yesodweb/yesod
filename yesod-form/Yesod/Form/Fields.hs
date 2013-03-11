@@ -51,7 +51,7 @@ import Yesod.Form.I18n.English
 import Yesod.Form.Functions (parseHelper)
 import Yesod.Handler (getMessageRender)
 import Yesod.Widget (toWidget, whamlet, GWidget)
-import Yesod.Message (RenderMessage (renderMessage), SomeMessage (..))
+import Yesod.Core (RenderMessage (renderMessage), SomeMessage (..))
 import Text.Hamlet
 import Text.Blaze (ToMarkup (toMarkup), preEscapedToMarkup, unsafeByteString)
 #define ToHtml ToMarkup
@@ -86,8 +86,8 @@ import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
-import Yesod.Handler (newIdent, lift)
-import Yesod.Request (FileInfo)
+import Yesod.Core (newIdent, lift)
+import Yesod.Core (FileInfo)
 
 import Yesod.Core (toPathPiece, GHandler, PathPiece, fromPathPiece)
 import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery)

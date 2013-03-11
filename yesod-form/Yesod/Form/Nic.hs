@@ -9,10 +9,8 @@ module Yesod.Form.Nic
     , nicHtmlField
     ) where
 
-import Yesod.Handler
-import Yesod.Core (Route, ScriptLoadPosition(..), jsLoader, Yesod)
+import Yesod.Core
 import Yesod.Form
-import Yesod.Widget
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Text.Hamlet (Html, shamlet)
 import Text.Julius (julius, rawJS)

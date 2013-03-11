@@ -55,17 +55,17 @@ import Text.Blaze (Markup, toMarkup)
 import Yesod.Handler (GHandler, getRequest, runRequestBody, newIdent, getYesod)
 import Yesod.Core (RenderMessage, SomeMessage (..))
 import Yesod.Widget (GWidget, whamlet)
-import Yesod.Request (reqToken, reqWaiRequest, reqGetParams, languages)
+import Yesod.Core (reqToken, reqWaiRequest, reqGetParams, languages)
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
-import Yesod.Message (RenderMessage (..))
+import Yesod.Core (RenderMessage (..))
 import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
 import Control.Applicative ((<$>))
 import Control.Arrow (first)
-import Yesod.Request (FileInfo)
+import Yesod.Core (FileInfo)
 
 -- | Get a unique identifier.
 newFormIdent :: MForm sub master Text

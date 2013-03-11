@@ -10,9 +10,7 @@ import Yesod.Auth
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import Control.Monad (mplus)
 
-import Yesod.Handler
-import Yesod.Widget
-import Yesod.Request
+import Yesod.Core
 import Text.Hamlet (hamlet)
 import Data.Text (pack, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)

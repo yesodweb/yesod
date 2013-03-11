@@ -45,7 +45,6 @@ import Text.Hamlet (shamlet)
 
 import Yesod.Core
 import Yesod.Persist
-import Yesod.Json
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
@@ -184,12 +183,12 @@ $newline never
               onLogin
               redirectUltDest $ loginDest y
 
-getCheckR :: YesodAuth master => GHandler Auth master RepHtmlJson
+getCheckR :: YesodAuth master => GHandler Auth master TypedContent
 getCheckR = do
     creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle "Authentication Status"
-        toWidget $ html' creds) (jsonCreds creds)
+        toWidget $ html' creds) (return $ jsonCreds creds)
   where
     html' creds =
         [shamlet|

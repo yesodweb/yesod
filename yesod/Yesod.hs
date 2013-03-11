@@ -5,7 +5,6 @@ module Yesod
     ( -- * Re-exports from yesod-core
       module Yesod.Core
     , module Yesod.Form
-    , module Yesod.Json
     , module Yesod.Persist
       -- * Running your application
     , warp
@@ -45,7 +44,6 @@ import Text.Lucius
 import Text.Julius
 
 import Yesod.Form
-import Yesod.Json
 import Yesod.Persist
 import Control.Monad.IO.Class (liftIO, MonadIO(..))
 import Control.Monad.Trans.Control (MonadBaseControl)

@@ -18,9 +18,7 @@ module Yesod.Auth.GoogleEmail
 import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
-import Yesod.Handler
-import Yesod.Widget (whamlet)
-import Yesod.Request
+import Yesod.Core
 #if MIN_VERSION_blaze_html(0, 5, 0)
 import Text.Blaze.Html (toHtml)
 #else

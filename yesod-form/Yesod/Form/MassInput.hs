@@ -13,7 +13,7 @@ import Yesod.Form.Types
 import Yesod.Form.Functions
 import Yesod.Form.Fields (boolField)
 import Yesod.Widget (GWidget, whamlet)
-import Yesod.Message (RenderMessage)
+import Yesod.Core (RenderMessage)
 import Yesod.Handler (newIdent, GHandler)
 import Text.Blaze.Html (Html)
 import Control.Monad.Trans.Class (lift)

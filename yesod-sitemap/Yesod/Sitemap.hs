@@ -24,8 +24,7 @@ module Yesod.Sitemap
     , SitemapChangeFreq (..)
     ) where
 
-import Yesod.Content (RepXml (..), RepPlain (..), toContent, formatW3)
-import Yesod.Core (Route, GHandler, getUrlRender)
+import Yesod.Core (RepXml (..), RepPlain (..), toContent, formatW3, Route, GHandler, getUrlRender)
 import Data.Time (UTCTime)
 import Data.Monoid (mappend)
 import Text.XML
