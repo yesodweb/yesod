@@ -253,11 +253,20 @@ maybeAuth :: ( YesodAuth master
              , PersistStore (b (GHandler sub master))
              , PersistEntity val
              , YesodPersist master
+             , Typeable val
              ) => GHandler sub master (Maybe (Entity val))
 maybeAuth = runMaybeT $ do
     aid <- MaybeT $ maybeAuthId
-    a   <- MaybeT $ runDB $ get aid
+    a   <- MaybeT
+         $ fmap unCachedMaybeAuth
+         $ cached
+         $ fmap CachedMaybeAuth
+         $ runDB
+         $ get aid
     return $ Entity aid a
+
+newtype CachedMaybeAuth val = CachedMaybeAuth { unCachedMaybeAuth :: Maybe val }
+    deriving Typeable
 
 requireAuthId :: YesodAuth master => GHandler sub master (AuthId master)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
@@ -269,6 +278,7 @@ requireAuth :: ( YesodAuth master
                , PersistStore (b (GHandler sub master))
                , PersistEntity val
                , YesodPersist master
+               , Typeable val
                ) => GHandler sub master (Entity val)
 requireAuth = maybeAuth >>= maybe redirectLogin return
 
