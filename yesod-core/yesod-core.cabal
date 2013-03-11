@@ -91,6 +91,7 @@ library
     exposed-modules: Yesod.Content
                      Yesod.Core
                      Yesod.Core.Json
+                     Yesod.Core.Handler.Class
                      Yesod.Dispatch
                      Yesod.Handler
                      Yesod.Widget
