@@ -1,4 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -138,6 +140,7 @@ import Control.Applicative
 import Control.Monad (liftM)
 
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Resource (MonadResource, liftResourceT)
 
 import qualified Network.Wai as W
 import qualified Network.HTTP.Types as H
@@ -173,27 +176,25 @@ import Yesod.Core.Trans.Class
 import Data.Maybe (listToMaybe)
 import Data.Typeable (Typeable, typeOf)
 import Data.Dynamic (fromDynamic, toDyn)
+import Yesod.Core.Handler.Class
 
 class YesodSubRoute s y where
     fromSubRoute :: s -> y -> Route s -> Route y
 
-get :: GHandler sub master GHState
-get = do
-    hd <- ask
-    liftIO $ I.readIORef $ handlerState hd
+get :: HandlerState m => m GHState
+get = getGHState
 
-put :: GHState -> GHandler sub master ()
-put g = do
-    hd <- ask
-    liftIO $ I.writeIORef (handlerState hd) g
+put :: HandlerState m => GHState -> m ()
+put = putGHState
 
-modify :: (GHState -> GHState) -> GHandler sub master ()
-modify f = do
-    hd <- ask
-    liftIO $ I.atomicModifyIORef (handlerState hd) $ \g -> (f g, ())
+modify :: HandlerState m => (GHState -> GHState) -> m ()
+modify = stateGHState . (((), ) .)
 
-tell :: Endo [Header] -> GHandler sub master ()
+tell :: HandlerState m => Endo [Header] -> m ()
 tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
+
+hcError :: HandlerError m => ErrorResponse -> m a
+hcError = handlerError
 
 class SubsiteGetter g m s | g -> s where
   runSubsiteGetter :: g -> m s
@@ -207,26 +208,22 @@ instance (anySub ~ anySub'
          ) => SubsiteGetter (GHandler anySub master sub) (GHandler anySub' master') sub where
   runSubsiteGetter = id
 
-getRequest :: GHandler s m YesodRequest
-getRequest = handlerRequest `liftM` ask
+getRequest :: HandlerReader m => m YesodRequest
+getRequest = askYesodRequest
 
-hcError :: ErrorResponse -> GHandler sub master a
-hcError = liftIO . throwIO . HCError
-
-runRequestBody :: GHandler s m RequestBodyContents
+runRequestBody :: (MonadResource m, HandlerReader m, HandlerState m)
+               => m RequestBodyContents
 runRequestBody = do
-    hd <- ask
-    let getUpload = rheUpload $ handlerEnv hd
-        len = W.requestBodyLength
-            $ reqWaiRequest
-            $ handlerRequest hd
-        upload = getUpload len
+    RunHandlerEnv {..} <- askHandlerEnv
+    req <- askYesodRequest
+    let len = W.requestBodyLength $ reqWaiRequest req
+        upload = rheUpload len
     x <- get
     case ghsRBC x of
         Just rbc -> return rbc
         Nothing -> do
             rr <- waiRequest
-            rbc <- lift $ rbHelper upload rr
+            rbc <- liftResourceT $ rbHelper upload rr
             put x { ghsRBC = Just rbc }
             return rbc
 
@@ -257,33 +254,33 @@ rbHelper' backend mkFI req =
     go = decodeUtf8With lenientDecode
 
 -- | Get the sub application argument.
-getYesodSub :: GHandler sub master sub
-getYesodSub = (rheSub . handlerEnv) `liftM` ask
+getYesodSub :: HandlerReader m => m (HandlerReaderSub m)
+getYesodSub = rheSub `liftM` askHandlerEnv
 
 -- | Get the master site appliation argument.
-getYesod :: GHandler sub master master
-getYesod = (rheMaster . handlerEnv) `liftM` ask
+getYesod :: HandlerReader m => m (HandlerReaderMaster m)
+getYesod = rheMaster `liftM` askHandlerEnv
 
 -- | Get the URL rendering function.
 getUrlRender :: GHandler sub master (Route master -> Text)
 getUrlRender = do
-    x <- (rheRender . handlerEnv) `liftM` ask
+    x <- rheRender `liftM` askHandlerEnv
     return $ flip x []
 
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
     :: GHandler sub master (Route master -> [(Text, Text)] -> Text)
-getUrlRenderParams = (rheRender . handlerEnv) `liftM` ask
+getUrlRenderParams = rheRender `liftM` askHandlerEnv
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
 getCurrentRoute :: GHandler sub master (Maybe (Route sub))
-getCurrentRoute = (rheRoute . handlerEnv) `liftM` ask
+getCurrentRoute = rheRoute `liftM` askHandlerEnv
 
 -- | Get the function to promote a route for a subsite to a route for the
 -- master site.
 getRouteToMaster :: GHandler sub master (Route sub -> Route master)
-getRouteToMaster = (rheToMaster . handlerEnv) `liftM` ask
+getRouteToMaster = rheToMaster `liftM` askHandlerEnv
 
 
 -- | Returns a function that runs 'GHandler' actions inside @IO@.
@@ -400,7 +397,7 @@ setUltDestCurrent = do
         Nothing -> return ()
         Just r -> do
             tm <- getRouteToMaster
-            gets' <- reqGetParams `liftM` handlerRequest `liftM` ask
+            gets' <- reqGetParams `liftM` askYesodRequest
             setUltDest (tm r, gets')
 
 -- | Sets the ultimate destination to the referer request header, if present.
@@ -709,7 +706,7 @@ hamletToRepHtml :: HtmlUrl (Route master) -> GHandler sub master RepHtml
 hamletToRepHtml = liftM RepHtml . hamletToContent
 
 -- | Get the request\'s 'W.Request' value.
-waiRequest :: GHandler sub master W.Request
+waiRequest :: HandlerReader m => m W.Request
 waiRequest = reqWaiRequest `liftM` getRequest
 
 getMessageRender :: RenderMessage master message => GHandler s master (message -> Text)
@@ -746,9 +743,6 @@ cached f = do
 
     cinsert :: Typeable a => a -> Cache -> Cache
     cinsert v (Cache m) = Cache (Map.insert (typeOf v) (toDyn v) m)
-
-ask :: GHandler sub master (HandlerData sub master)
-ask = GHandler return
 
 -- | Get the list of supported languages supplied by the user.
 --
