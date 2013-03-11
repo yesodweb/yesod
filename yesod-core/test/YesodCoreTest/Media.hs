@@ -15,9 +15,8 @@ mkYesodDispatch "Y" resourcesY
 
 instance Yesod Y where
     addStaticContent _ _ content = do
-        tm <- getRouteToMaster
         route <- getCurrentRoute
-        case fmap tm route of
+        case route of
             Just StaticR -> return $ Just $ Left $
                         if content == "foo2{bar:baz}"
                             then "screen.css"

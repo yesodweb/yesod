@@ -51,10 +51,7 @@ import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 import Yesod.Routes.Class
-import Yesod.Handler
-    ( YesodSubRoute(..), getYesod
-    , getMessageRender, getUrlRenderParams
-    )
+import Yesod.Handler (getMessageRender, getUrlRenderParams)
 import Yesod.Core.Trans.Class (lift)
 import Text.Shakespeare.I18N (RenderMessage)
 import Yesod.Content (toContent)
@@ -74,13 +71,17 @@ import Yesod.Core.Types
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
 
-addSubWidget :: (YesodSubRoute sub master) => sub -> GWidget sub master a -> GWidget sub' master a
-addSubWidget sub (GWidget w) = do
-    master <- lift getYesod
-    let sr = fromSubRoute sub master
-    (a, w') <- lift $ error "FIXME Yesod.Widget.toMasterHandlerMaybe" sr (const sub) Nothing w
-    tell w'
-    return a
+addSubWidget :: (Route sub -> Route master) -> sub -> GWidget sub master a -> GWidget sub' master a
+addSubWidget toMaster sub (GWidget (GHandler f)) =
+    GWidget $ GHandler $ f . modHD
+  where
+    modHD hd = hd
+        { handlerEnv = (handlerEnv hd)
+            { rheRoute = Nothing
+            , rheSub = sub
+            , rheToMaster = toMaster
+            }
+        }
 
 class ToWidget sub master a where
     toWidget :: a -> GWidget sub master ()

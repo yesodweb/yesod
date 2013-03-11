@@ -71,9 +71,7 @@ class YesodBreadcrumbs y where
 -- along with their respective titles.
 breadcrumbs :: YesodBreadcrumbs y => GHandler sub y (Text, [(Route y, Text)])
 breadcrumbs = do
-    x' <- getCurrentRoute
-    tm <- getRouteToMaster
-    let x = fmap tm x'
+    x <- getCurrentRoute
     case x of
         Nothing -> return ("Not found", [])
         Just y -> do

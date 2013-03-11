@@ -25,16 +25,15 @@
 --
 ---------------------------------------------------------
 module Yesod.Handler
-    ( -- * Type families
-      YesodSubRoute (..)
-      -- * Handler monad
-    , GHandler
+    ( -- * Handler monad
+      GHandler
       -- ** Read information from handler
     , getYesod
     , getYesodSub
     , getUrlRender
     , getUrlRenderParams
     , getCurrentRoute
+    , getCurrentRouteSub
     , getRouteToMaster
     , getRequest
     , waiRequest
@@ -122,11 +121,6 @@ module Yesod.Handler
     , getMessageRender
       -- * Per-request caching
     , cached
-      -- * Internal Yesod
-    , YesodApp
-    , runSubsiteGetter
-    , HandlerData
-    , ErrorResponse (..)
     ) where
 
 import           Data.Time                     (UTCTime, addUTCTime,
@@ -136,7 +130,7 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
 
 import           Control.Applicative           ((<$>))
 
-import           Control.Monad                 (liftM)
+import           Control.Monad                 (ap, liftM)
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
 import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT)
@@ -176,9 +170,6 @@ import           Yesod.Core.Handler.Class
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
 
-class YesodSubRoute s y where
-    fromSubRoute :: s -> y -> Route s -> Route y
-
 get :: HandlerState m => m GHState
 get = getGHState
 
@@ -193,18 +184,6 @@ tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
 
 hcError :: HandlerError m => ErrorResponse -> m a
 hcError = handlerError . HCError
-
-class SubsiteGetter g m s | g -> s where
-  runSubsiteGetter :: g -> m s
-
-instance (master ~ master'
-         ) => SubsiteGetter (master -> sub) (GHandler anySub master') sub where
-  runSubsiteGetter getter = getter <$> getYesod
-
-instance (anySub ~ anySub'
-         ,master ~ master'
-         ) => SubsiteGetter (GHandler anySub master sub) (GHandler anySub' master') sub where
-  runSubsiteGetter = id
 
 getRequest :: HandlerReader m => m YesodRequest
 getRequest = askYesodRequest
@@ -273,8 +252,12 @@ getUrlRenderParams = rheRender `liftM` askHandlerEnv
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
-getCurrentRoute :: HandlerReader m => m (Maybe (Route (HandlerSub m)))
-getCurrentRoute = rheRoute `liftM` askHandlerEnv
+getCurrentRoute :: HandlerReader m => m (Maybe (Route (HandlerMaster m)))
+getCurrentRoute = fmap `liftM` getRouteToMaster `ap` getCurrentRouteSub
+
+-- | Same as 'getCurrentRoute', but for the subsite.
+getCurrentRouteSub :: HandlerReader m => m (Maybe (Route (HandlerSub m)))
+getCurrentRouteSub = rheRoute `liftM` askHandlerEnv
 
 -- | Get the function to promote a route for a subsite to a route for the
 -- master site.
@@ -401,9 +384,8 @@ setUltDestCurrent = do
     case route of
         Nothing -> return ()
         Just r -> do
-            tm <- getRouteToMaster
             gets' <- reqGetParams `liftM` askYesodRequest
-            setUltDest (tm r, gets')
+            setUltDest (r, gets')
 
 -- | Sets the ultimate destination to the referer request header, if present.
 --
