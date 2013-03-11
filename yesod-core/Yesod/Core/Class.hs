@@ -287,8 +287,7 @@ $doctype 5
     yesodMiddleware handler = do
         setHeader "Vary" "Accept, Accept-Language"
         route <- getCurrentRoute
-        toMaster <- getRouteToMaster
-        case fmap toMaster route of
+        case route of
             Nothing -> handler
             Just url -> do
                 isWrite <- isWriteRequest url
