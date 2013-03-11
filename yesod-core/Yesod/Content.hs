@@ -37,12 +37,11 @@ module Yesod.Content
     , ToTypedContent (..)
     , HasContentType (..)
       -- ** Specific content types
-    , RepHtml (..)
+    , RepHtml
     , RepJson (..)
     , RepPlain (..)
     , RepXml (..)
       -- ** Smart constructors
-    , repHtml
     , repJson
     , repPlain
     , repXml
@@ -120,9 +119,6 @@ instance ToFlushBuilder Builder where toFlushBuilder = Chunk
 instance ToFlushBuilder (Flush B.ByteString) where toFlushBuilder = fmap fromByteString
 instance ToFlushBuilder B.ByteString where toFlushBuilder = Chunk . fromByteString
 
-repHtml :: ToContent a => a -> RepHtml
-repHtml = RepHtml . toContent
-
 repJson :: ToContent a => a -> RepJson
 repJson = RepJson . toContent
 
@@ -134,10 +130,6 @@ repXml = RepXml . toContent
 
 class ToTypedContent a => HasContentType a where
     getContentType :: Monad m => m a -> ContentType
-
-instance HasContentType RepHtml where
-    getContentType _ = typeHtml
-deriving instance ToContent RepHtml
 
 instance HasContentType RepJson where
     getContentType _ = typeJson
@@ -240,8 +232,6 @@ instance ToTypedContent () where
     toTypedContent () = TypedContent typePlain (toContent ())
 instance ToTypedContent (ContentType, Content) where
     toTypedContent (ct, content) = TypedContent ct content
-instance ToTypedContent RepHtml where
-    toTypedContent (RepHtml c) = TypedContent typeHtml c
 instance ToTypedContent RepJson where
     toTypedContent (RepJson c) = TypedContent typeJson c
 instance ToTypedContent RepPlain where
