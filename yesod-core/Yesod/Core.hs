@@ -51,6 +51,7 @@ module Yesod.Core
     , module Yesod.Handler
     , module Yesod.Widget
     , module Yesod.Core.Json
+    , module Yesod.Core.Trans.Class
     , module Text.Shakespeare.I18N
     ) where
 
@@ -61,6 +62,7 @@ import Yesod.Handler
 import Yesod.Widget
 import Yesod.Core.Json
 import Yesod.Core.Types
+import Yesod.Core.Trans.Class
 import Text.Shakespeare.I18N
 
 import Control.Monad.Logger

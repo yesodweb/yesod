@@ -53,8 +53,9 @@ import Text.Julius
 import Yesod.Routes.Class
 import Yesod.Handler
     ( YesodSubRoute(..), getYesod
-    , getMessageRender, getUrlRenderParams, MonadLift (..)
+    , getMessageRender, getUrlRenderParams
     )
+import Yesod.Core.Trans.Class (lift)
 import Text.Shakespeare.I18N (RenderMessage)
 import Yesod.Content (toContent)
 import Control.Monad (liftM)

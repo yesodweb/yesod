@@ -32,7 +32,7 @@ module Yesod.Dispatch
 import Control.Applicative ((<$>), (<*>))
 import Prelude hiding (exp)
 import Yesod.Internal.Core
-import Yesod.Handler hiding (lift)
+import Yesod.Handler
 
 import Web.PathPieces
 import Language.Haskell.TH

@@ -20,7 +20,8 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Handler (GHandler, waiRequest, lift, invalidArgs, redirect)
+import Yesod.Handler (GHandler, waiRequest, invalidArgs, redirect)
+import Yesod.Core.Trans.Class (lift)
 import Yesod.Content
     ( ToContent (toContent), RepHtmlJson (RepHtmlJson), RepHtml (RepHtml)
     , RepJson (RepJson)
