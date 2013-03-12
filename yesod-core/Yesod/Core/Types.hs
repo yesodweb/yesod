@@ -60,9 +60,8 @@ type SessionMap = Map Text ByteString
 type SaveSession = SessionMap -- ^ The session contents after running the handler
                 -> IO [Header]
 
-newtype SessionBackend master = SessionBackend
-    { sbLoadSession :: master
-                    -> W.Request
+newtype SessionBackend = SessionBackend
+    { sbLoadSession :: W.Request
                     -> IO (SessionMap, SaveSession) -- ^ Return the session data and a function to save the session
     }
 
@@ -190,7 +189,7 @@ data YesodRunnerEnv sub master = YesodRunnerEnv
     , yreSub            :: !sub
     , yreRoute          :: !(Maybe (Route sub))
     , yreToMaster       :: !(Route sub -> Route master)
-    , yreSessionBackend :: !(Maybe (SessionBackend master))
+    , yreSessionBackend :: !(Maybe SessionBackend)
     }
 
 -- | A generic handler monad, which can have a different subsite and master
