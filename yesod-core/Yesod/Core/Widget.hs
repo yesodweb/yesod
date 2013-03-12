@@ -8,7 +8,7 @@
 {-# LANGUAGE CPP #-}
 -- | Widgets combine HTML with JS and CSS dependencies with a unique identifier
 -- generator, allowing you to create truly modular HTML components.
-module Yesod.Widget
+module Yesod.Core.Widget
     ( -- * Datatype
       GWidget
     , PageContent (..)
@@ -51,8 +51,8 @@ import Text.Hamlet
 import Text.Cassius
 import Text.Julius
 import Yesod.Routes.Class
-import Yesod.Handler (getMessageRender, getUrlRenderParams)
-import Yesod.Core.Trans.Class (lift)
+import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
+import Yesod.Core.Class.MonadLift (lift)
 import Text.Shakespeare.I18N (RenderMessage)
 import Control.Monad (liftM)
 import Data.Text (Text)

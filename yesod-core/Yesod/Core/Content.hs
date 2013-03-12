@@ -5,7 +5,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
-module Yesod.Content
+module Yesod.Core.Content
     ( -- * Content
       Content (..)
     , emptyContent

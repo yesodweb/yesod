@@ -1,10 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-module Yesod.Dispatch
+module Yesod.Core.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
     , parseRoutesNoCheck
@@ -31,8 +30,7 @@ module Yesod.Dispatch
 
 import Control.Applicative ((<$>), (<*>))
 import Prelude hiding (exp)
-import Yesod.Internal.Core
-import Yesod.Handler
+import Yesod.Core.Handler
 
 import Web.PathPieces
 import Language.Haskell.TH
@@ -52,10 +50,13 @@ import qualified Data.ByteString as S
 import qualified Blaze.ByteString.Builder
 import Network.HTTP.Types (status301)
 import Yesod.Routes.TH
-import Yesod.Content (toTypedContent)
+import Yesod.Core.Content (toTypedContent)
 import Yesod.Routes.Parse
 import System.Log.FastLogger (Logger)
 import Yesod.Core.Types
+import Yesod.Core.Class.Yesod
+import Yesod.Core.Class.Dispatch
+import Yesod.Core.Internal.Run
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.

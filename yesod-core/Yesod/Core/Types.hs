@@ -51,7 +51,7 @@ import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
-import           Yesod.Core.Trans.Class             (MonadLift (..))
+import           Yesod.Core.Class.MonadLift         (MonadLift (..))
 import           Yesod.Routes.Class                 (RenderRoute (..))
 
 -- Sessions

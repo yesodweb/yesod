@@ -2,7 +2,7 @@
 module YesodCoreTest.Redirect (specs, Widget) where
 
 import YesodCoreTest.YesodTest
-import Yesod.Handler (redirectWith)
+import Yesod.Core.Handler (redirectWith)
 import qualified Network.HTTP.Types as H
 
 data Y = Y

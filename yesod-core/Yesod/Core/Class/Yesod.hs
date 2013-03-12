@@ -2,11 +2,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
-module Yesod.Core.Class where
+module Yesod.Core.Class.Yesod where
 
 import           Control.Monad.Logger               (logErrorS)
-import           Yesod.Content
-import           Yesod.Handler                      hiding (getExpires)
+import           Yesod.Core.Content
+import           Yesod.Core.Handler                 hiding (getExpires)
 
 import           Yesod.Routes.Class
 
@@ -53,9 +53,9 @@ import qualified Web.ClientSession                  as CS
 import           Web.Cookie                         (parseCookies)
 import           Web.Cookie                         (SetCookie (..))
 import           Yesod.Core.Types
-import           Yesod.Internal.Session
-import           Yesod.Widget
-import           Yesod.Core.Trans.Class (lift)
+import           Yesod.Core.Internal.Session
+import           Yesod.Core.Widget
+import           Yesod.Core.Class.MonadLift         (lift)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
