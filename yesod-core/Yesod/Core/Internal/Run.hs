@@ -37,7 +37,7 @@ import           System.Random                (newStdGen)
 import           Yesod.Core.Content
 import           Yesod.Core.Class.Yesod
 import           Yesod.Core.Types
-import           Yesod.Core.Internal.Request  (parseWaiRequest, tokenKey,
+import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
 
@@ -241,16 +241,7 @@ yesodRunner handler' YesodRunnerEnv {..} req
             { rheOnError = runHandler rheSafe . errorHandler
             }
     yar <- runHandler rhe handler yreq
-    extraHeaders <- case yar of
-        (YRPlain _ _ ct _ newSess) -> do
-            let nsToken = maybe
-                    newSess
-                    (\n -> Map.insert tokenKey (encodeUtf8 n) newSess)
-                    (reqToken yreq)
-            sessionHeaders <- liftIO (saveSession nsToken)
-            return $ ("Content-Type", ct) : map headerToPair sessionHeaders
-        _ -> return []
-    return $ yarToResponse yar extraHeaders
+    liftIO $ yarToResponse yar saveSession yreq
   where
     maxLen = maximumContentLength yreMaster $ fmap yreToMaster yreRoute
     handler = yesodMiddleware handler'

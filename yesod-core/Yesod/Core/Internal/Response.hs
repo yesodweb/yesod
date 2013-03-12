@@ -22,23 +22,34 @@ import           Control.Exception            (SomeException, handle)
 import           Blaze.ByteString.Builder     (fromLazyByteString,
                                                toLazyByteString)
 import qualified Data.ByteString.Lazy         as L
+import qualified Data.Map                     as Map
+import           Yesod.Core.Internal.Request  (tokenKey)
+import           Data.Text.Encoding           (encodeUtf8)
 
-yarToResponse :: YesodResponse -> [(CI ByteString, ByteString)] -> Response
-yarToResponse (YRWai a) _ = a
-yarToResponse (YRPlain s hs _ c _) extraHeaders =
-    go c
-  where
-    finalHeaders = extraHeaders ++ map headerToPair hs
-    finalHeaders' len = ("Content-Length", S8.pack $ show len)
-                      : finalHeaders
-
-    go (ContentBuilder b mlen) =
-        ResponseBuilder s hs' b
-      where
-        hs' = maybe finalHeaders finalHeaders' mlen
-    go (ContentFile fp p) = ResponseFile s finalHeaders fp p
-    go (ContentSource body) = ResponseSource s finalHeaders body
-    go (ContentDontEvaluate c') = go c'
+yarToResponse :: Monad m
+              => YesodResponse
+              -> (SessionMap -> m [Header]) -- ^ save session
+              -> YesodRequest
+              -> m Response
+yarToResponse (YRWai a) _ _ = return a
+yarToResponse (YRPlain s hs ct c newSess) saveSession yreq = do
+    extraHeaders <- do
+        let nsToken = maybe
+                newSess
+                (\n -> Map.insert tokenKey (encodeUtf8 n) newSess)
+                (reqToken yreq)
+        sessionHeaders <- saveSession nsToken
+        return $ ("Content-Type", ct) : map headerToPair sessionHeaders
+    let finalHeaders = extraHeaders ++ map headerToPair hs
+        finalHeaders' len = ("Content-Length", S8.pack $ show len)
+                          : finalHeaders
+    let go (ContentBuilder b mlen) =
+            let hs' = maybe finalHeaders finalHeaders' mlen
+             in ResponseBuilder s hs' b
+        go (ContentFile fp p) = ResponseFile s finalHeaders fp p
+        go (ContentSource body) = ResponseSource s finalHeaders body
+        go (ContentDontEvaluate c') = go c'
+    return $ go c
 
 -- | Convert Header to a key/value pair.
 headerToPair :: Header
