@@ -234,11 +234,11 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
   I.readIORef ret
 {-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
 
-defaultYesodRunner :: Yesod master
-                   => YesodRunnerEnv sub master
-                   -> GHandler sub master TypedContent
-                   -> Application
-defaultYesodRunner YesodRunnerEnv {..} handler' req
+yesodRunner :: (ToTypedContent res, Yesod master)
+            => GHandler sub master res
+            -> YesodRunnerEnv sub master
+            -> Application
+yesodRunner handler' YesodRunnerEnv {..} req
   | KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
   | otherwise = do
     let dontSaveSession _ = return []
@@ -351,3 +351,16 @@ resolveApproot master req =
         ApprootStatic t -> t
         ApprootMaster f -> f master
         ApprootRequest f -> f master req
+
+fixEnv :: (oldSub -> newSub)
+       -> (Route newSub -> Route oldSub)
+       -> (Route oldSub -> YesodRunnerEnv oldSub master)
+       -> (Route newSub -> YesodRunnerEnv newSub master)
+fixEnv toNewSub toOldRoute getEnvOld newRoute =
+    go (getEnvOld $ toOldRoute newRoute)
+  where
+    go env = env
+        { yreSub = toNewSub $ yreSub env
+        , yreToMaster = yreToMaster env . toOldRoute
+        , yreRoute = Just newRoute
+        }

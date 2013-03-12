@@ -15,6 +15,7 @@ module Yesod.Core.Internal.Request
     , tooLargeResponse
     , tokenKey
     , langKey
+    , textQueryString
     -- The below are exported for testing.
     , randomString
     ) where
@@ -95,9 +96,7 @@ parseWaiRequest env session useToken maxBodySize =
                             else session
         , reqAccept     = httpAccept env
         }
-    gets = map (second $ fromMaybe "")
-         $ queryToQueryText
-         $ W.queryString env
+    gets = textQueryString env
     reqCookie = lookup "Cookie" $ W.requestHeaders env
     cookies = maybe [] parseCookiesText reqCookie
     acceptLang = lookup "Accept-Language" $ W.requestHeaders env
@@ -127,6 +126,9 @@ parseWaiRequest env session useToken maxBodySize =
                 -- Don't have a token, get a random generator and make a new one.
                 Nothing -> Right $ Just . pack . randomString 10
         | otherwise = Left Nothing
+
+textQueryString :: W.Request -> [(Text, Text)]
+textQueryString = map (second $ fromMaybe "") . queryToQueryText . W.queryString
 
 -- | Get the list of accepted content types from the WAI Request\'s Accept
 -- header.

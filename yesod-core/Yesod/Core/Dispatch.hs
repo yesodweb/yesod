@@ -43,14 +43,11 @@ import Network.Wai.Middleware.Autohead
 import Data.ByteString.Lazy.Char8 ()
 
 import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8With)
-import Data.Text.Encoding.Error (lenientDecode)
 import Data.Monoid (mappend)
 import qualified Data.ByteString as S
 import qualified Blaze.ByteString.Builder
 import Network.HTTP.Types (status301)
 import Yesod.Routes.TH
-import Yesod.Core.Content (toTypedContent)
 import Yesod.Routes.Parse
 import System.Log.FastLogger (Logger)
 import Yesod.Core.Types
@@ -132,7 +129,7 @@ mkYesodGeneral name args clazzes isSub resS = do
         res     = map (fmap parseType) resS
         subCons = conT $ mkName name
         subArgs = map (varT. mkName) args
-        
+
 -- | If the generation of @'YesodDispatch'@ instance require finer
 -- control of the types, contexts etc. using this combinator. You will
 -- hardly need this generality. However, in certain situations, like
@@ -144,23 +141,18 @@ mkDispatchInstance :: CxtQ                -- ^ The context
                    -> [ResourceTree a]    -- ^ The resource
                    -> DecsQ
 mkDispatchInstance context sub master res = do
-  logger <- newName "logger"
-  let loggerE = varE logger
-      loggerP = VarP logger
-      yDispatch = conT ''YesodDispatch `appT` sub `appT` master
+  let yDispatch = conT ''YesodDispatch `appT` sub `appT` master
       thisDispatch = do
-            Clause pat body decs <- mkDispatchClause
-                                    [|yesodRunner   $loggerE |]
-                                    [|yesodDispatch $loggerE |]
-                                    [|fmap toTypedContent|]
-                                    res
-            return $ FunD 'yesodDispatch
-                         [ Clause (loggerP:pat)
-                                  body
-                                  decs
-                         ]
-      in sequence [instanceD context yDispatch [thisDispatch]]
-        
+            clause' <- mkDispatchClause MkDispatchSettings
+                { mdsRunHandler = [|yesodRunner|]
+                , mdsDispatcher = [|yesodDispatch |]
+                , mdsFixEnv = [|fixEnv|]
+                , mdsGetPathInfo = [|W.pathInfo|]
+                , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
+                , mdsMethod = [|W.requestMethod|]
+                } res
+            return $ FunD 'yesodDispatch [clause']
+   in sequence [instanceD context yDispatch [thisDispatch]]
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This is the same as 'toWaiAppPlain', except it includes two
@@ -186,15 +178,23 @@ toWaiApp' :: ( Yesod master
           -> Logger
           -> Maybe (SessionBackend master)
           -> W.Application
-toWaiApp' y logger sb env =
-    case cleanPath y $ W.pathInfo env of
-        Left pieces -> sendRedirect y pieces env
-        Right pieces ->
-            yesodDispatch logger y y id app404 handler405 method pieces sb env
+toWaiApp' y logger sb req =
+    case cleanPath y $ W.pathInfo req of
+        Left pieces -> sendRedirect y pieces req
+        Right pieces -> yesodDispatch app404 handler405 (yre . Just) req
+            { W.pathInfo = pieces
+            }
   where
-    app404 = yesodRunner logger notFound y y Nothing id
-    handler405 route = yesodRunner logger badMethod y y (Just route) id
-    method = decodeUtf8With lenientDecode $ W.requestMethod env
+    yre route = YesodRunnerEnv
+        { yreLogger = logger
+        , yreMaster = y
+        , yreSub = y
+        , yreToMaster = id
+        , yreSessionBackend = sb
+        , yreRoute = route
+        }
+    app404 = yesodRunner (notFound >> return ()) $ yre Nothing
+    handler405 = yesodRunner (badMethod >> return ()) . yre . Just
 
 sendRedirect :: Yesod master => master -> [Text] -> W.Application
 sendRedirect y segments' env =

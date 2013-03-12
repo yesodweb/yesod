@@ -30,10 +30,10 @@ instance RenderRoute Subsite where
     renderRoute (SubsiteRoute x) = (x, [])
 
 instance YesodDispatch Subsite master where
-    yesodDispatch _ _ _ _ _ _ _ pieces _ _ = return $ responseLBS
+    yesodDispatch _404 _405 _getEnv req = return $ responseLBS
         status200
         [ ("Content-Type", "SUBSITE")
-        ] $ L8.pack $ show pieces
+        ] $ L8.pack $ show (pathInfo req)
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
