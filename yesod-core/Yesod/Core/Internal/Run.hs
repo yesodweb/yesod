@@ -41,15 +41,6 @@ import           Yesod.Core.Internal.Request  (parseWaiRequest, tokenKey,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
 
-localNoCurrent :: GHandler s m a -> GHandler s m a
-localNoCurrent =
-    local (\hd -> hd { handlerEnv = (handlerEnv hd) { rheRoute = Nothing }})
-
-local :: (HandlerData sub' master' -> HandlerData sub master)
-      -> GHandler sub master a
-      -> GHandler sub' master' a
-local f (GHandler x) = GHandler $ \r -> x $ f r
-
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'Application'. Should not be needed by users.
 runHandler :: ToTypedContent c
@@ -247,7 +238,7 @@ yesodRunner handler' YesodRunnerEnv {..} req
             , rheOnError = safeEh log'
             }
         rhe = rheSafe
-            { rheOnError = runHandler rheSafe . localNoCurrent . errorHandler
+            { rheOnError = runHandler rheSafe . errorHandler
             }
     yar <- runHandler rhe handler yreq
     extraHeaders <- case yar of
