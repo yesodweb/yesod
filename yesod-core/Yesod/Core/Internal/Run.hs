@@ -3,18 +3,22 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE FlexibleContexts  #-}
 module Yesod.Core.Internal.Run where
 
 import Yesod.Core.Internal.Response
+import Yesod.Core.Class.Handler
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
 import           Control.Exception            (fromException)
-import           Control.Exception.Lifted     (catch)
+import           Control.Exception.Lifted     (catch, finally)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
+import           Control.Monad.Base           (liftBase)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
 import           Control.Monad.Trans.Resource (runResourceT)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.IORef                   as I
@@ -281,3 +285,29 @@ fixEnv toNewSub toOldRoute getEnvOld newRoute =
         , yreToMaster = yreToMaster env . toOldRoute
         , yreRoute = Just newRoute
         }
+
+stripHandlerT :: (HandlerReader m, HandlerState m, MonadBaseControl IO m)
+              => HandlerT sub m a
+              -> (HandlerMaster m -> sub)
+              -> (Route sub -> Route (HandlerMaster m))
+              -> Maybe (Route sub)
+              -> m a
+stripHandlerT (HandlerT f) getSub toMaster newRoute = do
+    yreq <- askYesodRequest
+    env <- askHandlerEnv
+    ghs <- getGHState
+    ighs <- liftBase $ I.newIORef ghs
+
+    let sub = getSub $ rheMaster env
+        hd = HandlerData
+            { handlerRequest = yreq
+            , handlerEnv = env
+                { rheMaster = sub
+                , rheSub = sub
+                , rheToMaster = id
+                , rheRoute = newRoute
+                , rheRender = \url params -> rheRender env (toMaster url) params
+                }
+            , handlerState = ighs
+            }
+    f hd `finally` (liftBase (I.readIORef ighs) >>= putGHState)

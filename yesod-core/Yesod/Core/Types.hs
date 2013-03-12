@@ -199,6 +199,10 @@ newtype GHandler sub master a = GHandler
     { unGHandler :: HandlerData sub master -> ResourceT IO a
     }
 
+newtype HandlerT sub m a = HandlerT
+    { unHandlerT :: HandlerData sub sub -> m a
+    }
+
 data GHState = GHState
     { ghsSession :: SessionMap
     , ghsRBC     :: Maybe RequestBodyContents
