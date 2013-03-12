@@ -298,52 +298,6 @@ yesodRender y ar url params =
   where
     (ps, params') = renderRoute url
 
-toMasterHandlerMaybe :: (Route sub -> Route master)
-                     -> (master -> sub)
-                     -> Maybe (Route sub)
-                     -> GHandler sub master a
-                     -> GHandler sub' master a
-toMasterHandlerMaybe tm ts route = local (handlerSubDataMaybe tm ts route)
-
--- | FIXME do we need this?
-toMasterHandlerDyn :: (Route sub -> Route master)
-                   -> GHandler sub' master sub
-                   -> Route sub
-                   -> GHandler sub master a
-                   -> GHandler sub' master a
-toMasterHandlerDyn tm getSub route h = do
-    sub <- getSub
-    local (handlerSubData tm (const sub) route) h
-
--- | Used internally for promoting subsite handler functions to master site
--- handler functions. Should not be needed by users.
-toMasterHandler :: (Route sub -> Route master)
-                -> (master -> sub)
-                -> Route sub
-                -> GHandler sub master a
-                -> GHandler sub' master a
-toMasterHandler tm ts route = local (handlerSubData tm ts route)
-
-handlerSubData :: (Route sub -> Route master)
-               -> (master -> sub)
-               -> Route sub
-               -> HandlerData oldSub master
-               -> HandlerData sub master
-handlerSubData tm ts = handlerSubDataMaybe tm ts . Just
-
-handlerSubDataMaybe :: (Route sub -> Route master)
-                    -> (master -> sub)
-                    -> Maybe (Route sub)
-                    -> HandlerData oldSub master
-                    -> HandlerData sub master
-handlerSubDataMaybe tm ts route hd = hd
-    { handlerEnv = (handlerEnv hd)
-        { rheSub      = ts $ rheMaster $ handlerEnv hd
-        , rheToMaster = tm
-        , rheRoute    = route
-        }
-    }
-
 resolveApproot :: Yesod master => master -> Request -> ResolvedApproot
 resolveApproot master req =
     case approot of
