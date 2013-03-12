@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -20,6 +21,7 @@ import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
 import Hierarchy
+import qualified Data.ByteString.Char8 as S8
 
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
@@ -106,7 +108,14 @@ do
             ]
         addCheck = map ((,) True)
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
-    dispatch <- mkDispatchClause [|runHandler|] [|dispatcher|] [|toText|] ress
+    dispatch <- mkDispatchClause MkDispatchSettings
+        { mdsRunHandler = [|runHandler|]
+        , mdsDispatcher = [|dispatcher|]
+        , mdsFixEnv = [|fixEnv|]
+        , mdsGetPathInfo = [|fst|]
+        , mdsMethod = [|snd|]
+        , mdsSetPathInfo = [|\p (_, m) -> (p, m)|]
+        } ress
     return
         $ InstanceD
             []
@@ -117,16 +126,29 @@ do
         : rrinst
 
 instance RunHandler MyApp master where
-    runHandler h _ _ subRoute toMaster = (h, fmap toMaster subRoute)
+    runHandler h Env {..} = const (toText h, fmap envToMaster envRoute)
 
 instance Dispatcher MySub master where
-    dispatcher _ _ toMaster _ _ _ pieces = (pack $ "subsite: " ++ show pieces, Just $ toMaster $ MySubRoute (pieces, []))
+    dispatcher _404 _405 getEnv (pieces, _method) =
+        ( pack $ "subsite: " ++ show pieces
+        , Just $ envToMaster env route
+        )
+      where
+        route = MySubRoute (pieces, [])
+        env = getEnv route
 
 instance Dispatcher MySubParam master where
-    dispatcher _ (MySubParam i) toMaster app404 _ _ pieces =
+    dispatcher app404 _405 getEnv (pieces, method) =
         case map unpack pieces of
-            [[c]] -> (pack $ "subparam " ++ show i ++ ' ' : [c], Just $ toMaster $ ParamRoute c)
-            _ -> app404
+            [[c]] ->
+                let route = ParamRoute c
+                    env = getEnv route
+                    toMaster = envToMaster env
+                    MySubParam i = envSub env
+                 in ( pack $ "subparam " ++ show i ++ ' ' : [c]
+                    , Just $ toMaster route
+                    )
+            _ -> app404 (pieces, method)
 
 {-
 thDispatchAlias
@@ -232,10 +254,19 @@ main = hspec $ do
             @?= (map pack ["subparam", "6", "c"], [])
 
     describe "thDispatch" $ do
-        let disp m ps = dispatcher MyApp MyApp id (pack "404", Nothing) (\route -> (pack "405", Just route)) (pack m) (map pack ps)
+        let disp m ps = dispatcher
+                (const (pack "404", Nothing))
+                ((\route -> const (pack "405", Just route)))
+                (\route -> Env
+                    { envRoute = Just route
+                    , envToMaster = id
+                    , envMaster = MyApp
+                    , envSub = MyApp
+                    })
+                (map pack ps, S8.pack m)
         it "routes to root" $ disp "GET" [] @?= (pack "this is the root", Just RootR)
         it "POST root is 405" $ disp "POST" [] @?= (pack "405", Just RootR)
-        it "invalid page is a 404" $ disp "GET" ["not-found"] @?= (pack "404", Nothing)
+        it "invalid page is a 404" $ disp "GET" ["not-found"] @?= (pack "404", Nothing :: Maybe (YRC.Route MyApp))
         it "routes to blog post" $ disp "GET" ["blog", "somepost"]
             @?= (pack "some blog post: somepost", Just $ BlogPostR $ pack "somepost")
         it "routes to blog post, POST method" $ disp "POST" ["blog", "somepost2"]
