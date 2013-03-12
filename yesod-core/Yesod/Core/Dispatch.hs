@@ -176,7 +176,7 @@ toWaiApp' :: ( Yesod master
              )
           => master
           -> Logger
-          -> Maybe (SessionBackend master)
+          -> Maybe SessionBackend
           -> W.Application
 toWaiApp' y logger sb req =
     case cleanPath y $ W.pathInfo req of

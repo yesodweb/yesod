@@ -219,7 +219,7 @@ yesodRunner handler' YesodRunnerEnv {..} req
   | otherwise = do
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
-        maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb yreMaster req) yreSessionBackend
+        maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb req) yreSessionBackend
     let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) maxLen
     yreq <-
         case mkYesodReq of

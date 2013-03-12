@@ -202,17 +202,6 @@ $doctype 5
     sessionIpAddress _ = False
     -}
 
-    -- | The path value to set for cookies. By default, uses \"\/\", meaning
-    -- cookies will be sent to every page on the current domain.
-    cookiePath :: a -> S8.ByteString
-    cookiePath _ = "/"
-
-    -- | The domain value to set for cookies. By default, the
-    -- domain is not set, meaning cookies will be sent only to
-    -- the current domain.
-    cookieDomain :: a -> Maybe S8.ByteString
-    cookieDomain _ = Nothing
-
     -- | Maximum allowed length of the request body, in bytes.
     --
     -- Default: 2 megabytes.
@@ -259,7 +248,7 @@ $doctype 5
     -- | Create a session backend. Returning `Nothing' disables sessions.
     --
     -- Default: Uses clientsession with a 2 hour timeout.
-    makeSessionBackend :: a -> IO (Maybe (SessionBackend a))
+    makeSessionBackend :: a -> IO (Maybe SessionBackend)
     makeSessionBackend _ = fmap Just defaultClientSessionBackend
 
     -- | How to store uploaded files.
@@ -501,7 +490,7 @@ formatLogMessage getdate loc src level msg = do
         , LB ")\n"
         ]
 
-defaultClientSessionBackend :: Yesod master => IO (SessionBackend master)
+defaultClientSessionBackend :: IO SessionBackend
 defaultClientSessionBackend = do
   key <- CS.getKey CS.defaultKeyFile
   let timeout = fromIntegral (120 * 60 :: Int) -- 120 minutes
@@ -522,23 +511,20 @@ right :: Either a b -> Maybe b
 right (Right x) = Just x
 right _ = Nothing
 
-clientSessionBackend :: Yesod master
-                     => CS.Key  -- ^ The encryption key
+clientSessionBackend :: CS.Key  -- ^ The encryption key
                      -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'
-                     -> SessionBackend master
+                     -> SessionBackend
 clientSessionBackend key getCachedDate =
   SessionBackend {
-    sbLoadSession = \master req -> loadClientSession key getCachedDate "_SESSION" master req
+    sbLoadSession = loadClientSession key getCachedDate "_SESSION"
   }
 
-loadClientSession :: Yesod master
-                  => CS.Key
+loadClientSession :: CS.Key
                   -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'
                   -> S8.ByteString -- ^ session name
-                  -> master
                   -> W.Request
                   -> IO (SessionMap, SaveSession)
-loadClientSession key getCachedDate sessionName master req = load
+loadClientSession key getCachedDate sessionName req = load
   where
     load = do
       date <- getCachedDate
@@ -554,9 +540,9 @@ loadClientSession key getCachedDate sessionName master req = load
       return [AddCookie def
           { setCookieName = sessionName
           , setCookieValue = encodeClientSession key iv date host sess'
-          , setCookiePath = Just (cookiePath master)
+          , setCookiePath = Just "/"
           , setCookieExpires = Just (csdcExpires date)
-          , setCookieDomain = cookieDomain master
+          , setCookieDomain = Nothing
           , setCookieHttpOnly = True
           }]
         where
