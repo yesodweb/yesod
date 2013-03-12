@@ -1,4 +1,4 @@
-module Yesod.Internal.Session
+module Yesod.Core.Internal.Session
     ( encodeClientSession
     , decodeClientSession
     , clientSessionDateCacher

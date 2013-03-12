@@ -88,20 +88,23 @@ library
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.5.1
 
-    exposed-modules: Yesod.Content
-                     Yesod.Core
+    exposed-modules: Yesod.Core
+                     Yesod.Core.Content
+                     Yesod.Core.Dispatch
+                     Yesod.Core.Handler
                      Yesod.Core.Json
-                     Yesod.Core.Handler.Class
-                     Yesod.Dispatch
-                     Yesod.Handler
-                     Yesod.Widget
+                     Yesod.Core.Widget
+                     Yesod.Core.Internal
+    other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
-    other-modules:   Yesod.Internal.Core
-                     Yesod.Internal.Session
+                     Yesod.Core.Class.Handler
                      Yesod.Core.Internal.Util
-                     Yesod.Core.Trans.Class
-                     Yesod.Core.Run
-                     Yesod.Core.Class
+                     Yesod.Core.Internal.Response
+                     Yesod.Core.Class.MonadLift
+                     Yesod.Core.Internal.Run
+                     Yesod.Core.Class.Yesod
+                     Yesod.Core.Class.Dispatch
+                     Yesod.Core.Class.Breadcrumbs
                      Yesod.Core.Types
                      Paths_yesod_core
     ghc-options:     -Wall

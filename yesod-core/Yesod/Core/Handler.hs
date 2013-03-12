@@ -19,7 +19,7 @@
 -- Define Handler stuff.
 --
 ---------------------------------------------------------
-module Yesod.Handler
+module Yesod.Core.Handler
     ( -- * Handler monad
       GHandler
       -- ** Read information from handler
@@ -158,7 +158,7 @@ import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
-import           Yesod.Content                 (ToTypedContent (..), simpleContentType, HasContentType (..), ToContent (..))
+import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, HasContentType (..), ToContent (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
@@ -167,7 +167,7 @@ import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef                    as I
 import           Data.Maybe                    (listToMaybe)
 import           Data.Typeable                 (Typeable, typeOf)
-import           Yesod.Core.Handler.Class
+import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
 

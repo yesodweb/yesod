@@ -19,11 +19,11 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Handler (GHandler, waiRequest, invalidArgs, redirect, selectRep, provideRep)
-import Yesod.Core.Trans.Class (lift)
-import Yesod.Content (TypedContent)
-import Yesod.Internal.Core (defaultLayout, Yesod)
-import Yesod.Widget (GWidget)
+import Yesod.Core.Handler (GHandler, waiRequest, invalidArgs, redirect, selectRep, provideRep)
+import Yesod.Core.Class.MonadLift (lift)
+import Yesod.Core.Content (TypedContent)
+import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
+import Yesod.Core.Widget (GWidget)
 import Yesod.Routes.Class
 import Control.Applicative ((<$>))
 import Control.Monad (join)

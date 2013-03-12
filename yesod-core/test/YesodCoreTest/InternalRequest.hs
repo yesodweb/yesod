@@ -6,7 +6,7 @@ import System.Random (StdGen, mkStdGen)
 
 import Network.Wai as W
 import Network.Wai.Test
-import Yesod.Core.Internal.Request (randomString, parseWaiRequest)
+import Yesod.Core.Internal (randomString, parseWaiRequest)
 import Test.Hspec
 import Data.Monoid (mempty)
 import Data.Map (singleton)

@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Yesod.Core.Trans.Class (MonadLift (..)) where
+module Yesod.Core.Class.MonadLift (MonadLift (..)) where
 
 import Control.Monad.Trans.Class
 

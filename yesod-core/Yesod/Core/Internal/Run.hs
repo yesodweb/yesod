@@ -3,8 +3,9 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
-module Yesod.Core.Run where
+module Yesod.Core.Internal.Run where
 
+import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (fromLazyByteString, toByteString,
                                                toLazyByteString)
 import           Control.Applicative          ((<$>))
@@ -16,12 +17,9 @@ import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
 import           Control.Monad.Trans.Resource (runResourceT)
-import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.ByteString.Lazy         as L
-import           Data.CaseInsensitive         (CI)
-import qualified Data.CaseInsensitive         as CI
 import qualified Data.IORef                   as I
 import qualified Data.Map                     as Map
 import           Data.Maybe                   (isJust)
@@ -39,46 +37,12 @@ import           Prelude                      hiding (catch)
 import           System.Log.FastLogger        (Logger)
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           System.Random                (newStdGen)
-import           Web.Cookie                   (renderSetCookie)
-import           Yesod.Content
-import           Yesod.Core.Class
+import           Yesod.Core.Content
+import           Yesod.Core.Class.Yesod
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest, tokenKey,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
-
-yarToResponse :: YesodResponse -> [(CI ByteString, ByteString)] -> Response
-yarToResponse (YRWai a) _ = a
-yarToResponse (YRPlain s hs _ c _) extraHeaders =
-    go c
-  where
-    finalHeaders = extraHeaders ++ map headerToPair hs
-    finalHeaders' len = ("Content-Length", S8.pack $ show len)
-                      : finalHeaders
-
-    go (ContentBuilder b mlen) =
-        ResponseBuilder s hs' b
-      where
-        hs' = maybe finalHeaders finalHeaders' mlen
-    go (ContentFile fp p) = ResponseFile s finalHeaders fp p
-    go (ContentSource body) = ResponseSource s finalHeaders body
-    go (ContentDontEvaluate c') = go c'
-
--- | Convert Header to a key/value pair.
-headerToPair :: Header
-             -> (CI ByteString, ByteString)
-headerToPair (AddCookie sc) =
-    ("Set-Cookie", toByteString $ renderSetCookie $ sc)
-headerToPair (DeleteCookie key path) =
-    ( "Set-Cookie"
-    , S.concat
-        [ key
-        , "=; path="
-        , path
-        , "; expires=Thu, 01-Jan-1970 00:00:00 GMT"
-        ]
-    )
-headerToPair (Header key value) = (CI.mk key, value)
 
 localNoCurrent :: GHandler s m a -> GHandler s m a
 localNoCurrent =

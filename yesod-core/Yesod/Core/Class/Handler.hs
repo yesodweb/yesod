@@ -2,10 +2,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Yesod.Core.Handler.Class where
+module Yesod.Core.Class.Handler where
 
 import Yesod.Core.Types
-import Yesod.Core.Trans.Class (lift)
+import Yesod.Core.Class.MonadLift (lift)
 import Control.Monad.Trans.Class (MonadTrans)
 import Data.IORef.Lifted (atomicModifyIORef)
 import Control.Exception.Lifted (throwIO)
