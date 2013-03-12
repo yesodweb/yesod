@@ -6,11 +6,9 @@
 module Yesod.Core.Internal.Run where
 
 import Yesod.Core.Internal.Response
-import           Blaze.ByteString.Builder     (fromLazyByteString, toByteString,
-                                               toLazyByteString)
+import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
-import           Control.Exception            (SomeException, fromException,
-                                               handle)
+import           Control.Exception            (fromException)
 import           Control.Exception.Lifted     (catch)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
@@ -19,7 +17,6 @@ import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
 import           Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
-import qualified Data.ByteString.Lazy         as L
 import qualified Data.IORef                   as I
 import qualified Data.Map                     as Map
 import           Data.Maybe                   (isJust)
@@ -136,22 +133,6 @@ safeEh log' er req = do
         typePlain
         (toContent ("Internal Server Error" :: S.ByteString))
         (reqSession req)
-
-evaluateContent :: Content -> IO (Either ErrorResponse Content)
-evaluateContent (ContentBuilder b mlen) = Control.Exception.handle f $ do
-    let lbs = toLazyByteString b
-    L.length lbs `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen)
-  where
-    f :: SomeException -> IO (Either ErrorResponse Content)
-    f = return . Left . InternalError . T.pack . show
-evaluateContent c = return (Right c)
-
-getStatus :: ErrorResponse -> H.Status
-getStatus NotFound = H.status404
-getStatus (InternalError _) = H.status500
-getStatus (InvalidArgs _) = H.status400
-getStatus (PermissionDenied _) = H.status403
-getStatus (BadMethod _) = H.status405
 
 -- | Run a 'GHandler' completely outside of Yesod.  This
 -- function comes with many caveats and you shouldn't use it

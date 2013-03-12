@@ -16,6 +16,12 @@ import           Prelude                      hiding (catch)
 import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Core.Content
 import           Yesod.Core.Types
+import qualified Network.HTTP.Types           as H
+import qualified Data.Text                    as T
+import           Control.Exception            (SomeException, handle)
+import           Blaze.ByteString.Builder     (fromLazyByteString,
+                                               toLazyByteString)
+import qualified Data.ByteString.Lazy         as L
 
 yarToResponse :: YesodResponse -> [(CI ByteString, ByteString)] -> Response
 yarToResponse (YRWai a) _ = a
@@ -49,3 +55,19 @@ headerToPair (DeleteCookie key path) =
         ]
     )
 headerToPair (Header key value) = (CI.mk key, value)
+
+evaluateContent :: Content -> IO (Either ErrorResponse Content)
+evaluateContent (ContentBuilder b mlen) = handle f $ do
+    let lbs = toLazyByteString b
+    L.length lbs `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen)
+  where
+    f :: SomeException -> IO (Either ErrorResponse Content)
+    f = return . Left . InternalError . T.pack . show
+evaluateContent c = return (Right c)
+
+getStatus :: ErrorResponse -> H.Status
+getStatus NotFound = H.status404
+getStatus (InternalError _) = H.status500
+getStatus (InvalidArgs _) = H.status400
+getStatus (PermissionDenied _) = H.status403
+getStatus (BadMethod _) = H.status405
