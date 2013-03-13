@@ -14,13 +14,11 @@ import Yesod.Core.Internal.Request (textQueryString)
 class YesodDispatch sub master where
     yesodDispatch
         :: Yesod master
-        => W.Application -- ^ 404 handler
-        -> (Route sub -> W.Application) -- ^ 405 handler
-        -> (Route sub -> YesodRunnerEnv sub master)
+        => (Maybe (Route sub) -> YesodRunnerEnv sub master)
         -> W.Application
 
 instance YesodDispatch WaiSubsite master where
-    yesodDispatch _404 _405 getEnv req =
+    yesodDispatch getEnv req =
         app req
       where
-        YesodRunnerEnv { yreSub = WaiSubsite app } = getEnv $ WaiSubsiteRoute (W.pathInfo req) (textQueryString req)
+        YesodRunnerEnv { yreSub = WaiSubsite app } = getEnv $ Just $ WaiSubsiteRoute (W.pathInfo req) (textQueryString req)

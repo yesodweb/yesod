@@ -36,6 +36,8 @@ data MkDispatchSettings = MkDispatchSettings
     , mdsGetPathInfo :: Q Exp
     , mdsSetPathInfo :: Q Exp
     , mdsMethod :: Q Exp
+    , mds404 :: Q Exp
+    , mds405 :: Q Exp
     }
 
 -- |
@@ -112,8 +114,6 @@ mkDispatchClause mds ress' = do
     -- with -Wall). Additionally, we want to ensure that none of the code
     -- passed to toDispatch uses variables from the closure to prevent the
     -- dispatch data structure from being rebuilt on each run.
-    app4040 <- newName "app4040"
-    handler4050 <- newName "handler4050"
     getEnv0 <- newName "getEnv0"
     req0 <- newName "req0"
     pieces <- [|$(mdsGetPathInfo mds) $(return $ VarE req0)|]
@@ -137,17 +137,15 @@ mkDispatchClause mds ress' = do
             ]
 
     -- The input to the clause.
-    let pats = map VarP [app4040, handler4050, getEnv0, req0]
+    let pats = map VarP [getEnv0, req0]
 
     -- For each resource that dispatches based on methods, build up a map for handling the dispatching.
     methodMaps <- catMaybes <$> mapM (buildMethodMap mds) ress
 
     u <- [|case $(return dispatched) of
-            Just f -> f $(return $ VarE app4040)
-                        $(return $ VarE handler4050)
-                        $(return $ VarE getEnv0)
+            Just f -> f $(return $ VarE getEnv0)
                         $(return $ VarE req0)
-            Nothing -> $(return $ VarE app4040 `AppE` VarE req0)
+            Nothing -> $(mds404 mds) $(return $ VarE getEnv0) $(return $ VarE req0)
           |]
     return $ Clause pats (NormalB u) $ dispatchFun : methodMaps
   where
@@ -287,13 +285,11 @@ buildCaller :: MkDispatchSettings
             -> Q Exp
 buildCaller mds xrest parents name resDisp ys = do
     getEnv <- newName "getEnv"
-    app404 <- newName "_app404"
-    handler405 <- newName "_handler405"
     req <- newName "req"
 
     method <- [|$(mdsMethod mds) $(return $ VarE req)|]
 
-    let pat = map VarP [app404, handler405, getEnv, req]
+    let pat = map VarP [getEnv, req]
 
     -- Create the route
     let route = routeFromDynamics parents name ys
@@ -303,7 +299,7 @@ buildCaller mds xrest parents name resDisp ys = do
             Methods _ ms -> do
                 handler <- newName "handler"
 
-                let env = VarE getEnv `AppE` route
+                env <- [|$(return $ VarE getEnv) (Just $(return route))|]
 
                 -- Run the whole thing
                 runner <- [|$(return $ VarE handler)
@@ -325,10 +321,12 @@ buildCaller mds xrest parents name resDisp ys = do
                         mf <- [|Map.lookup $(return method) $(return $ VarE $ methodMapName name)|]
                         f <- newName "f"
                         let apply = foldl' (\a b -> a `AppE` VarE b) (VarE f) ys
-                        let body405 =
-                                VarE handler405
-                                `AppE` route
-                                `AppE` VarE req
+                        body405 <-
+                            [|$(mds405 mds)
+                                $(return $ VarE getEnv)
+                                $(return route)
+                                $(return $ VarE req)
+                             |]
                         return $ CaseE mf
                             [ Match (ConP 'Just [VarP f]) (NormalB $ myLet apply) []
                             , Match (ConP 'Nothing []) (NormalB body405) []
@@ -339,8 +337,6 @@ buildCaller mds xrest parents name resDisp ys = do
                 let sub2 = LamE [VarP sub]
                         (foldl' (\a b -> a `AppE` VarE b) (VarE (mkName getSub) `AppE` VarE sub) ys)
                 [|$(mdsDispatcher mds)
-                    $(return $ VarE app404)
-                    ($(return $ VarE handler405) . $(return route))
                     ($(mdsFixEnv mds)
                         $(return sub2)
                         $(return route)

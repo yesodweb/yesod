@@ -275,15 +275,15 @@ resolveApproot master req =
 
 fixEnv :: (oldSub -> newSub)
        -> (Route newSub -> Route oldSub)
-       -> (Route oldSub -> YesodRunnerEnv oldSub master)
-       -> (Route newSub -> YesodRunnerEnv newSub master)
+       -> (Maybe (Route oldSub) -> YesodRunnerEnv oldSub master)
+       -> (Maybe (Route newSub) -> YesodRunnerEnv newSub master)
 fixEnv toNewSub toOldRoute getEnvOld newRoute =
-    go (getEnvOld $ toOldRoute newRoute)
+    go (getEnvOld $ fmap toOldRoute newRoute)
   where
     go env = env
         { yreSub = toNewSub $ yreSub env
         , yreToMaster = yreToMaster env . toOldRoute
-        , yreRoute = Just newRoute
+        , yreRoute = newRoute
         }
 
 stripHandlerT :: (HandlerReader m, HandlerState m, MonadBaseControl IO m)
