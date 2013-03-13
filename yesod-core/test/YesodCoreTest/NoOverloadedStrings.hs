@@ -24,6 +24,13 @@ getBarR = return $ T.pack "BarR"
 getBazR :: Yesod master => HandlerT Subsite (GHandler master master) RepHtml
 getBazR = lift $ defaultLayout [whamlet|Used Default Layout|]
 
+getBinR :: MonadHandlerBase m => HandlerT Subsite m RepHtml
+getBinR = defaultLayoutT
+    [whamlet|
+        <p>Used defaultLayoutT
+        <a href=@{BazR}>Baz
+    |]
+
 data Y = Y
 mkYesod "Y" [parseRoutes|
 / RootR GET
@@ -63,8 +70,17 @@ case_deflayout = runner $ do
     assertBodyContains (L8.pack "Used Default Layout") res
     assertStatus 200 res
 
+case_deflayoutT :: IO ()
+case_deflayoutT = runner $ do
+    res <- request defaultRequest
+        { pathInfo = map T.pack ["subsite", "bin"]
+        }
+    assertBodyContains (L8.pack "Used defaultLayoutT") res
+    assertStatus 200 res
+
 noOverloadedTest :: Spec
 noOverloadedTest = describe "Test.NoOverloadedStrings" $ do
       it "sanity" case_sanity
       it "subsite" case_subsite
       it "deflayout" case_deflayout
+      it "deflayoutT" case_deflayoutT

@@ -14,4 +14,5 @@ data Subsite = Subsite
 mkYesodSubData "Subsite" [parseRoutes|
 /bar BarR GET
 /baz BazR GET
+/bin BinR GET
 |]
