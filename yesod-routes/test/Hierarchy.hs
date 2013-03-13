@@ -9,12 +9,12 @@
 module Hierarchy
     ( hierarchy
     , Dispatcher (..)
-    , RunHandler (..)
+    , runHandler
     , Handler
     , App
     , toText
     , Env (..)
-    , fixEnv
+    , subDispatch
     ) where
 
 import Test.Hspec
@@ -38,38 +38,37 @@ type Handler sub master a = a
 type Request = ([Text], ByteString) -- path info, method
 type App sub master = Request -> (Text, Maybe (YRC.Route master))
 data Env sub master = Env
-    { envRoute :: Maybe (YRC.Route sub)
-    , envToMaster :: YRC.Route sub -> YRC.Route master
+    { envToMaster :: YRC.Route sub -> YRC.Route master
     , envSub :: sub
     , envMaster :: master
     }
 
-fixEnv :: (oldSub -> newSub)
-       -> (YRC.Route newSub -> YRC.Route oldSub)
-       -> (YRC.Route oldSub -> Env oldSub master)
-       -> (YRC.Route newSub -> Env newSub master)
-fixEnv toSub toRoute getEnv newRoute =
-    go (getEnv $ toRoute newRoute)
+subDispatch
+    :: (Env sub master -> App sub master)
+    -> (Handler sub master Text -> Env sub master -> Maybe (YRC.Route sub) -> App sub master)
+    -> (master -> sub)
+    -> (YRC.Route sub -> YRC.Route master)
+    -> Env master master
+    -> App sub master
+subDispatch handler _runHandler getSub toMaster env req =
+    handler env' req
   where
-    go env = env
-        { envRoute = Just newRoute
-        , envToMaster = envToMaster env . toRoute
-        , envSub = toSub $ envSub env
+    env' = env
+        { envToMaster = envToMaster env . toMaster
+        , envSub = getSub $ envMaster env
         }
 
 class Dispatcher sub master where
-    dispatcher
-        :: App sub master -- ^ 404 page
-        -> (YRC.Route sub -> App sub master) -- ^ 405 page
-        -> (YRC.Route sub -> Env sub master)
-        -> App sub master
+    dispatcher :: Env sub master -> App sub master
 
-class RunHandler sub master where
-    runHandler
-        :: ToText a
-        => Handler sub master a
-        -> Env sub master
-        -> App sub master
+runHandler
+    :: ToText a
+    => Handler sub master a
+    -> Env sub master
+    -> Maybe (Route sub)
+    -> App sub master
+runHandler h Env {..} route _ = (toText h, fmap envToMaster route)
+
 
 data Hierarchy = Hierarchy
 
@@ -84,11 +83,12 @@ do
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
-        , mdsDispatcher = [|dispatcher|]
-        , mdsFixEnv = [|fixEnv|]
+        , mdsSubDispatcher = [|subDispatch|]
         , mdsGetPathInfo = [|fst|]
         , mdsMethod = [|snd|]
         , mdsSetPathInfo = [|\p (_, m) -> (p, m)|]
+        , mds404 = [|pack "404"|]
+        , mds405 = [|pack "405"|]
         } resources
     return
         $ InstanceD
@@ -114,9 +114,6 @@ postLoginR i = pack $ "post login: " ++ show i
 getTableR :: Int -> Text -> Handler sub master Text
 getTableR _ t = append "TableR " t
 
-instance RunHandler Hierarchy master where
-    runHandler h Env {..} _ = (toText h, fmap envToMaster envRoute)
-
 hierarchy :: Spec
 hierarchy = describe "hierarchy" $ do
     it "renders root correctly" $
@@ -124,11 +121,8 @@ hierarchy = describe "hierarchy" $ do
     it "renders table correctly" $
         renderRoute (AdminR 6 $ TableR "foo") @?= (["admin", "6", "table", "foo"], [])
     let disp m ps = dispatcher
-            (const (pack "404", Nothing))
-            (\route -> const (pack "405", Just route))
-            (\route -> Env
-                { envRoute = Just route
-                , envToMaster = id
+            (Env
+                { envToMaster = id
                 , envMaster = Hierarchy
                 , envSub = Hierarchy
                 })
