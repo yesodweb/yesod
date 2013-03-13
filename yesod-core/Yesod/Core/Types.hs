@@ -187,7 +187,6 @@ data YesodRunnerEnv sub master = YesodRunnerEnv
     { yreLogger         :: !Logger
     , yreMaster         :: !master
     , yreSub            :: !sub
-    , yreRoute          :: !(Maybe (Route sub))
     , yreToMaster       :: !(Route sub -> Route master)
     , yreSessionBackend :: !(Maybe SessionBackend)
     }

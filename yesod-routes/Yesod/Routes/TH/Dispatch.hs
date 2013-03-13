@@ -303,7 +303,8 @@ buildCaller mds xrest parents name resDisp ys = do
 
                 -- Run the whole thing
                 runner <- [|$(return $ VarE handler)
-                                $(return env)
+                                $(return $ VarE getEnv)
+                                (Just $(return route))
                                 $(return $ VarE req)
                                 |]
 

@@ -150,8 +150,8 @@ mkDispatchInstance context sub master res = do
                 , mdsGetPathInfo = [|W.pathInfo|]
                 , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
                 , mdsMethod = [|W.requestMethod|]
-                , mds404 = [|\getEnv -> yesodRunner (notFound >> return ()) $ getEnv Nothing|]
-                , mds405 = [|\getEnv route -> yesodRunner (badMethod >> return ()) (getEnv $ Just route)|]
+                , mds404 = [|\env -> yesodRunner (notFound >> return ()) env Nothing|]
+                , mds405 = [|\env route -> yesodRunner (badMethod >> return ()) env (Just route)|]
                 } res
             return $ FunD 'yesodDispatch [clause']
    in sequence [instanceD context yDispatch [thisDispatch]]
@@ -187,13 +187,12 @@ toWaiApp' y logger sb req =
             { W.pathInfo = pieces
             }
   where
-    yre route = YesodRunnerEnv
+    yre = YesodRunnerEnv
         { yreLogger = logger
         , yreMaster = y
         , yreSub = y
         , yreToMaster = id
         , yreSessionBackend = sb
-        , yreRoute = route
         }
 
 sendRedirect :: Yesod master => master -> [Text] -> W.Application
