@@ -49,7 +49,7 @@ module Yesod.Core
     , BottomOfHeadAsync
       -- * Subsites
     , defaultLayoutT
-    , MonadHandlerBase (..)
+    , MonadHandler (..)
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -92,8 +92,8 @@ import Data.Version (showVersion)
 import Yesod.Routes.Class (RenderRoute (..))
 
 -- | Return an 'Unauthorized' value, with the given i18n message.
-unauthorizedI :: RenderMessage master msg => msg -> GHandler sub master AuthResult
-unauthorizedI msg =do
+unauthorizedI :: RenderMessage site msg => msg -> GHandler site AuthResult
+unauthorizedI msg = do
     mr <- getMessageRender
     return $ Unauthorized $ mr msg
 
@@ -104,37 +104,19 @@ yesodVersion = showVersion Paths_yesod_core.version
 --
 -- Built on top of 'isAuthorized'. This is useful for building page that only
 -- contain links to pages the user is allowed to see.
-maybeAuthorized :: Yesod a
-                => Route a
+maybeAuthorized :: Yesod site
+                => Route site
                 -> Bool -- ^ is this a write request?
-                -> GHandler s a (Maybe (Route a))
+                -> GHandler site (Maybe (Route site))
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
 
-class (MonadResource m, HandlerState m, Yesod (HandlerBase m)) => MonadHandlerBase m where
-    type HandlerBase m
-    type HandlerSite m
-    liftHandler :: GHandler (HandlerBase m) (HandlerBase m) a -> m a
-    askHandlerData :: m (HandlerData (HandlerSite m) (HandlerSite m))
-instance Yesod master => MonadHandlerBase (GHandler master master) where
-    type HandlerBase (GHandler master master) = master
-    type HandlerSite (GHandler master master) = master
-    liftHandler = id
-    askHandlerData = GHandler return
-instance MonadHandlerBase m => MonadHandlerBase (HandlerT sub m) where
-    type HandlerBase (HandlerT sub m) = HandlerBase m
-    type HandlerSite (HandlerT sub m) = sub
-    liftHandler = lift . liftHandler
-    askHandlerData = HandlerT return
-
-defaultLayoutT :: ( HandlerState m
-                  , HandlerSite m ~ sub
-                  , Yesod (HandlerBase m)
-                  , MonadHandlerBase m
-                  , MonadResource m
+defaultLayoutT :: ( HandlerSite m ~ sub
+                  , Yesod (HandlerMaster m)
+                  , MonadHandler m
                   )
-               => GWidget sub sub ()
+               => GWidget sub ()
                -> m RepHtml
 defaultLayoutT (GWidget (GHandler f)) = do
     hd <- askHandlerData

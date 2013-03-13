@@ -11,10 +11,9 @@ import Yesod.Core.Class.Handler
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
 import           Control.Exception            (fromException)
-import           Control.Exception.Lifted     (catch, finally)
+import           Control.Exception.Lifted     (catch)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
-import           Control.Monad.Base           (liftBase)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
 import           Control.Monad.Trans.Resource (runResourceT)
@@ -48,8 +47,8 @@ import           Yesod.Routes.Class           (Route, renderRoute)
 -- | Function used internally by Yesod in the process of converting a
 -- 'GHandler' into an 'Application'. Should not be needed by users.
 runHandler :: ToTypedContent c
-           => RunHandlerEnv sub master
-           -> GHandler sub master c
+           => RunHandlerEnv site
+           -> GHandler site c
            -> YesodApp
 runHandler rhe@RunHandlerEnv {..} handler yreq = do
     let toErrorHandler e =
@@ -149,25 +148,23 @@ safeEh log' er req = do
 -- @GHandler@ is completely ignored, including changes to the
 -- session, cookies or headers.  We only return you the
 -- @GHandler@'s return value.
-runFakeHandler :: (Yesod master, MonadIO m) =>
+runFakeHandler :: (Yesod site, MonadIO m) =>
                   SessionMap
-               -> (master -> Logger)
-               -> master
-               -> GHandler master master a
+               -> (site -> Logger)
+               -> site
+               -> GHandler site a
                -> m (Either ErrorResponse a)
-runFakeHandler fakeSessionMap logger master handler = liftIO $ do
+runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
   let handler' = do liftIO . I.writeIORef ret . Right =<< handler
                     return ()
   let yapp = runHandler
          RunHandlerEnv
-            { rheRender = yesodRender master $ resolveApproot master fakeWaiRequest
+            { rheRender = yesodRender site $ resolveApproot site fakeWaiRequest
             , rheRoute = Nothing
-            , rheToMaster = id
-            , rheMaster = master
-            , rheSub = master
-            , rheUpload = fileUpload master
-            , rheLog = messageLoggerSource master $ logger master
+            , rheSite = site
+            , rheUpload = fileUpload site
+            , rheLog = messageLoggerSource site $ logger site
             , rheOnError = errHandler
             }
         handler'
@@ -210,10 +207,10 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
   I.readIORef ret
 {-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
 
-yesodRunner :: (ToTypedContent res, Yesod master)
-            => GHandler sub master res
-            -> YesodRunnerEnv sub master
-            -> Maybe (Route sub)
+yesodRunner :: (ToTypedContent res, Yesod site)
+            => GHandler site res
+            -> YesodRunnerEnv site
+            -> Maybe (Route site)
             -> Application
 yesodRunner handler' YesodRunnerEnv {..} route req
   | KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
@@ -226,19 +223,17 @@ yesodRunner handler' YesodRunnerEnv {..} route req
         case mkYesodReq of
             Left yreq -> return yreq
             Right needGen -> liftIO $ needGen <$> newStdGen
-    let ra = resolveApproot yreMaster req
-    let log' = messageLoggerSource yreMaster yreLogger
+    let ra = resolveApproot yreSite req
+    let log' = messageLoggerSource yreSite yreLogger
         -- We set up two environments: the first one has a "safe" error handler
         -- which will never throw an exception. The second one uses the
         -- user-provided errorHandler function. If that errorHandler function
         -- errors out, it will use the safeEh below to recover.
         rheSafe = RunHandlerEnv
-            { rheRender = yesodRender yreMaster ra
+            { rheRender = yesodRender yreSite ra
             , rheRoute = route
-            , rheToMaster = yreToMaster
-            , rheMaster = yreMaster
-            , rheSub = yreSub
-            , rheUpload = fileUpload yreMaster
+            , rheSite = yreSite
+            , rheUpload = fileUpload yreSite
             , rheLog = log'
             , rheOnError = safeEh log'
             }
@@ -248,7 +243,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req
     yar <- runHandler rhe handler yreq
     liftIO $ yarToResponse yar saveSession yreq
   where
-    maxLen = maximumContentLength yreMaster $ fmap yreToMaster route
+    maxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'
 
 yesodRender :: Yesod y
@@ -274,38 +269,20 @@ resolveApproot master req =
         ApprootMaster f -> f master
         ApprootRequest f -> f master req
 
-fixEnv :: (oldSub -> newSub)
-       -> (Route newSub -> Route oldSub)
-       -> YesodRunnerEnv oldSub master
-       -> YesodRunnerEnv newSub master
-fixEnv toNewSub toOldRoute envOld =
-    envOld
-        { yreSub = toNewSub $ yreSub envOld
-        , yreToMaster = yreToMaster envOld . toOldRoute
-        }
-
-stripHandlerT :: (HandlerState m, MonadBaseControl IO m)
+stripHandlerT :: (MonadHandler m, MonadBaseControl IO m)
               => HandlerT sub m a
-              -> (HandlerMaster m -> sub)
-              -> (Route sub -> Route (HandlerMaster m))
+              -> (HandlerSite m -> sub)
+              -> (Route sub -> Route (HandlerSite m))
               -> Maybe (Route sub)
               -> m a
 stripHandlerT (HandlerT f) getSub toMaster newRoute = do
-    yreq <- askYesodRequest
-    env <- askHandlerEnv
-    ghs <- getGHState
-    ighs <- liftBase $ I.newIORef ghs
+    hd <- askHandlerData
 
-    let sub = getSub $ rheMaster env
-        hd = HandlerData
-            { handlerRequest = yreq
-            , handlerEnv = env
-                { rheMaster = sub
-                , rheSub = sub
-                , rheToMaster = id
-                , rheRoute = newRoute
-                , rheRender = \url params -> rheRender env (toMaster url) params
-                }
-            , handlerState = ighs
+    let env = handlerEnv hd
+    f hd
+        { handlerEnv = env
+            { rheSite = getSub $ rheSite env
+            , rheRoute = newRoute
+            , rheRender = \url params -> rheRender env (toMaster url) params
             }
-    f hd `finally` (liftBase (I.readIORef ighs) >>= putGHState)
+        }

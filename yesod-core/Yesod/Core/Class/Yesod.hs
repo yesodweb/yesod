@@ -6,7 +6,8 @@ module Yesod.Core.Class.Yesod where
 
 import           Control.Monad.Logger               (logErrorS)
 import           Yesod.Core.Content
-import           Yesod.Core.Handler                 hiding (getExpires)
+import           Yesod.Core.Handler
+import           Yesod.Core.Class.Handler
 
 import           Yesod.Routes.Class
 
@@ -17,6 +18,8 @@ import           Control.Monad                      (forM)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
                                                      LogSource)
+import Control.Monad.Trans.Resource
+import Control.Monad.Trans.Control
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))
@@ -77,11 +80,11 @@ class RenderRoute a => Yesod a where
     approot = ApprootRelative
 
     -- | Output error response pages.
-    errorHandler :: ErrorResponse -> GHandler sub a TypedContent
+    errorHandler :: ErrorResponse -> GHandler a TypedContent
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: GWidget sub a () -> GHandler sub a RepHtml
+    defaultLayout :: GWidget a () -> GHandler a RepHtml
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
@@ -112,7 +115,7 @@ $doctype 5
     -- If authentication is required, return 'AuthenticationRequired'.
     isAuthorized :: Route a
                  -> Bool -- ^ is this a write request?
-                 -> GHandler s a AuthResult
+                 -> GHandler a AuthResult
     isAuthorized _ _ = return Authorized
 
     -- | Determines whether the current request is a write request. By default,
@@ -122,7 +125,7 @@ $doctype 5
     --
     -- This function is used to determine if a request is authorized; see
     -- 'isAuthorized'.
-    isWriteRequest :: Route a -> GHandler s a Bool
+    isWriteRequest :: Route a -> GHandler a Bool
     isWriteRequest _ = do
         wai <- waiRequest
         return $ W.requestMethod wai `notElem`
@@ -188,7 +191,7 @@ $doctype 5
     addStaticContent :: Text -- ^ filename extension
                      -> Text -- ^ mime-type
                      -> L.ByteString -- ^ content
-                     -> GHandler sub a (Maybe (Either Text (Route a, [(Text, Text)])))
+                     -> GHandler a (Maybe (Either Text (Route a, [(Text, Text)])))
     addStaticContent _ _ _ = return Nothing
 
     {- Temporarily disabled until we have a better interface.
@@ -274,7 +277,7 @@ $doctype 5
     -- performs authorization checks.
     --
     -- Since: 1.1.6
-    yesodMiddleware :: GHandler sub a res -> GHandler sub a res
+    yesodMiddleware :: GHandler a res -> GHandler a res
     yesodMiddleware handler = do
         setHeader "Vary" "Accept, Accept-Language"
         route <- getCurrentRoute
@@ -297,9 +300,9 @@ $doctype 5
                 handler
 
 -- | Convert a widget to a 'PageContent'.
-widgetToPageContent :: (Eq (Route master), Yesod master)
-                    => GWidget sub master ()
-                    -> GHandler sub master (PageContent (Route master))
+widgetToPageContent :: (Eq (Route site), Yesod site)
+                    => GWidget site ()
+                    -> GHandler site (PageContent (Route site))
 widgetToPageContent w = do
     master <- getYesod
     ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- unGWidget w
@@ -393,7 +396,7 @@ $newline never
     runUniqueList (UniqueList x) = nub $ x []
 
 -- | The default error handler for 'errorHandler'.
-defaultErrorHandler :: Yesod y => ErrorResponse -> GHandler sub y TypedContent
+defaultErrorHandler :: Yesod site => ErrorResponse -> GHandler site TypedContent
 defaultErrorHandler NotFound = selectRep $ do
     provideRep $ defaultLayout $ do
         r <- lift waiRequest
@@ -557,3 +560,14 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
   where
     line = show . fst . loc_start
     char = show . snd . loc_start
+
+class (MonadBaseControl IO m, HandlerState m, HandlerError m, MonadResource m, Yesod (HandlerMaster m)) => MonadHandler m where
+    liftHandler :: GHandler (HandlerMaster m) a -> m a
+    askHandlerData :: m (HandlerData (HandlerSite m))
+
+instance Yesod site => MonadHandler (GHandler site) where
+    liftHandler = id
+    askHandlerData = GHandler return
+instance MonadHandler m => MonadHandler (HandlerT site m) where
+    liftHandler = lift . liftHandler
+    askHandlerData = HandlerT return

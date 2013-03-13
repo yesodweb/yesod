@@ -122,8 +122,8 @@ mkYesodGeneral name args clazzes isSub resS = do
         context = if isSub then cxt $ yesod : map return clazzes
                            else return []
         yesod   = classP ''HandlerReader [master]
-        handler = tySynD (mkName "Handler") [] [t| GHandler $master $master    |]
-        widget  = tySynD (mkName "Widget")  [] [t| GWidget  $master $master () |]
+        handler = tySynD (mkName "Handler") [] [t| GHandler $master    |]
+        widget  = tySynD (mkName "Widget")  [] [t| GWidget  $master () |]
         res     = map (fmap parseType) resS
         subCons = conT $ mkName name
         subArgs = map (varT. mkName) args
@@ -139,7 +139,7 @@ mkDispatchInstance :: CxtQ                -- ^ The context
                    -> [ResourceTree a]    -- ^ The resource
                    -> DecsQ
 mkDispatchInstance context _sub master res = do
-  let yDispatch = conT ''YesodDispatch `appT` master `appT` master
+  let yDispatch = conT ''YesodDispatch `appT` master
       thisDispatch = do
             clause' <- mkDispatchClause MkDispatchSettings
                 { mdsRunHandler = [|yesodRunner|]
@@ -199,38 +199,30 @@ mkYesodSubDispatch res = do
 -- handler. This is the same as 'toWaiAppPlain', except it includes two
 -- middlewares: GZIP compression and autohead. This is the
 -- recommended approach for most users.
-toWaiApp :: ( Yesod master
-            , YesodDispatch master master
-            ) => master -> IO W.Application
+toWaiApp :: YesodDispatch site => site -> IO W.Application
 toWaiApp y = gzip (gzipSettings y) . autohead <$> toWaiAppPlain y
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This differs from 'toWaiApp' in that it uses no middlewares.
-toWaiAppPlain :: ( Yesod master
-                 , YesodDispatch master master
-                 ) => master -> IO W.Application
+toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
 toWaiAppPlain a = toWaiApp' a <$> getLogger a <*> makeSessionBackend a
 
 
-toWaiApp' :: ( Yesod master
-             , YesodDispatch master master
-             )
-          => master
+toWaiApp' :: YesodDispatch site
+          => site
           -> Logger
           -> Maybe SessionBackend
           -> W.Application
-toWaiApp' y logger sb req =
-    case cleanPath y $ W.pathInfo req of
-        Left pieces -> sendRedirect y pieces req
+toWaiApp' site logger sb req =
+    case cleanPath site $ W.pathInfo req of
+        Left pieces -> sendRedirect site pieces req
         Right pieces -> yesodDispatch yre req
             { W.pathInfo = pieces
             }
   where
     yre = YesodRunnerEnv
         { yreLogger = logger
-        , yreMaster = y
-        , yreSub = y
-        , yreToMaster = id
+        , yreSite = site
         , yreSessionBackend = sb
         }
 

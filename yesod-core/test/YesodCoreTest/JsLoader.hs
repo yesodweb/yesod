@@ -30,5 +30,5 @@ specs = describe "Test.JsLoader" $ do
       res <- request defaultRequest
       assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><script src=\"load.js\"></script></body></html>" res
 
-runner :: (YesodDispatch master master, Yesod master) => master -> Session () -> IO ()
+runner :: YesodDispatch master => master -> Session () -> IO ()
 runner app f = toWaiApp app >>= runSession f
