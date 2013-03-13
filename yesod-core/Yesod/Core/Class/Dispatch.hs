@@ -14,11 +14,9 @@ import Yesod.Core.Internal.Request (textQueryString)
 class YesodDispatch sub master where
     yesodDispatch
         :: Yesod master
-        => (Maybe (Route sub) -> YesodRunnerEnv sub master)
+        => YesodRunnerEnv sub master
         -> W.Application
 
 instance YesodDispatch WaiSubsite master where
-    yesodDispatch getEnv req =
+    yesodDispatch YesodRunnerEnv { yreSub = WaiSubsite app } req =
         app req
-      where
-        YesodRunnerEnv { yreSub = WaiSubsite app } = getEnv $ Just $ WaiSubsiteRoute (W.pathInfo req) (textQueryString req)

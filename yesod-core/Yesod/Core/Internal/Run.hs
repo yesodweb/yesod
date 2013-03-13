@@ -213,8 +213,9 @@ runFakeHandler fakeSessionMap logger master handler = liftIO $ do
 yesodRunner :: (ToTypedContent res, Yesod master)
             => GHandler sub master res
             -> YesodRunnerEnv sub master
+            -> Maybe (Route sub)
             -> Application
-yesodRunner handler' YesodRunnerEnv {..} req
+yesodRunner handler' YesodRunnerEnv {..} route req
   | KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
   | otherwise = do
     let dontSaveSession _ = return []
@@ -233,7 +234,7 @@ yesodRunner handler' YesodRunnerEnv {..} req
         -- errors out, it will use the safeEh below to recover.
         rheSafe = RunHandlerEnv
             { rheRender = yesodRender yreMaster ra
-            , rheRoute = yreRoute
+            , rheRoute = route
             , rheToMaster = yreToMaster
             , rheMaster = yreMaster
             , rheSub = yreSub
@@ -247,7 +248,7 @@ yesodRunner handler' YesodRunnerEnv {..} req
     yar <- runHandler rhe handler yreq
     liftIO $ yarToResponse yar saveSession yreq
   where
-    maxLen = maximumContentLength yreMaster $ fmap yreToMaster yreRoute
+    maxLen = maximumContentLength yreMaster $ fmap yreToMaster route
     handler = yesodMiddleware handler'
 
 yesodRender :: Yesod y
@@ -275,15 +276,12 @@ resolveApproot master req =
 
 fixEnv :: (oldSub -> newSub)
        -> (Route newSub -> Route oldSub)
-       -> (Maybe (Route oldSub) -> YesodRunnerEnv oldSub master)
-       -> (Maybe (Route newSub) -> YesodRunnerEnv newSub master)
-fixEnv toNewSub toOldRoute getEnvOld newRoute =
-    go (getEnvOld $ fmap toOldRoute newRoute)
-  where
-    go env = env
-        { yreSub = toNewSub $ yreSub env
-        , yreToMaster = yreToMaster env . toOldRoute
-        , yreRoute = newRoute
+       -> YesodRunnerEnv oldSub master
+       -> YesodRunnerEnv newSub master
+fixEnv toNewSub toOldRoute envOld =
+    envOld
+        { yreSub = toNewSub $ yreSub envOld
+        , yreToMaster = yreToMaster envOld . toOldRoute
         }
 
 stripHandlerT :: (HandlerReader m, HandlerState m, MonadBaseControl IO m)
