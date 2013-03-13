@@ -110,11 +110,12 @@ do
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
-        , mdsDispatcher = [|dispatcher|]
-        , mdsFixEnv = [|fixEnv|]
+        , mdsSubDispatcher = [|subDispatch dispatcher|]
         , mdsGetPathInfo = [|fst|]
         , mdsMethod = [|snd|]
         , mdsSetPathInfo = [|\p (_, m) -> (p, m)|]
+        , mds404 = [|pack "404"|]
+        , mds405 = [|pack "405"|]
         } ress
     return
         $ InstanceD
@@ -125,30 +126,25 @@ do
             [FunD (mkName "dispatcher") [dispatch]]
         : rrinst
 
-instance RunHandler MyApp master where
-    runHandler h Env {..} = const (toText h, fmap envToMaster envRoute)
-
 instance Dispatcher MySub master where
-    dispatcher _404 _405 getEnv (pieces, _method) =
+    dispatcher env (pieces, _method) =
         ( pack $ "subsite: " ++ show pieces
         , Just $ envToMaster env route
         )
       where
         route = MySubRoute (pieces, [])
-        env = getEnv route
 
 instance Dispatcher MySubParam master where
-    dispatcher app404 _405 getEnv (pieces, method) =
+    dispatcher env (pieces, method) =
         case map unpack pieces of
             [[c]] ->
                 let route = ParamRoute c
-                    env = getEnv route
                     toMaster = envToMaster env
                     MySubParam i = envSub env
                  in ( pack $ "subparam " ++ show i ++ ' ' : [c]
                     , Just $ toMaster route
                     )
-            _ -> app404 (pieces, method)
+            _ -> (pack "404", Nothing)
 
 {-
 thDispatchAlias
@@ -255,11 +251,8 @@ main = hspec $ do
 
     describe "thDispatch" $ do
         let disp m ps = dispatcher
-                (const (pack "404", Nothing))
-                ((\route -> const (pack "405", Just route)))
-                (\route -> Env
-                    { envRoute = Just route
-                    , envToMaster = id
+                (Env
+                    { envToMaster = id
                     , envMaster = MyApp
                     , envSub = MyApp
                     })
