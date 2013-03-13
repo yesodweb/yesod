@@ -53,6 +53,7 @@ import Control.Monad
 import Data.FileEmbed (embedDir)
 
 import Yesod.Core hiding (lift)
+import Yesod.Core.Types
 
 import Data.List (intercalate)
 import Language.Haskell.TH
@@ -142,9 +143,11 @@ instance RenderRoute Static where
         deriving (Eq, Show, Read)
     renderRoute (StaticRoute x y) = (x, y)
 
-instance Yesod master => YesodDispatch Static master where
-    yesodDispatch _ _ (Static set) _ _ _ _ textPieces  _ req =
-        staticApp set req { pathInfo = textPieces }
+instance YesodSubDispatch Static m where
+    yesodSubDispatch _run getSub _toMaster env req =
+        staticApp set req
+      where
+        Static set = getSub $ yreSite env
 
 notHidden :: Prelude.FilePath -> Bool
 notHidden "tmp" = False

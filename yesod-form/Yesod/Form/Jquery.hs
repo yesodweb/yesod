@@ -53,7 +53,7 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField :: (RenderMessage master FormMessage, YesodJquery master) => JqueryDaySettings -> Field sub master Day
+jqueryDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field site Day
 jqueryDayField jds = Field
     { fieldParse = parseHelper $ maybe
                   (Left MsgInvalidDay)
@@ -97,8 +97,8 @@ $(function(){
         , "]"
         ]
 
-jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master)
-                        => Route master -> Field sub master Text
+jqueryAutocompleteField :: (RenderMessage site FormMessage, YesodJquery site)
+                        => Route site -> Field site Text
 jqueryAutocompleteField src = Field
     { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> do
@@ -115,12 +115,12 @@ $(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:2})});
     , fieldEnctype = UrlEncoded
     }
 
-addScript' :: (master -> Either (Route master) Text) -> GWidget sub master ()
+addScript' :: (site -> Either (Route site) Text) -> GWidget site ()
 addScript' f = do
     y <- lift getYesod
     addScriptEither $ f y
 
-addStylesheet' :: (y -> Either (Route y) Text) -> GWidget sub y ()
+addStylesheet' :: (site -> Either (Route site) Text) -> GWidget site ()
 addStylesheet' f = do
     y <- lift getYesod
     addStylesheetEither $ f y

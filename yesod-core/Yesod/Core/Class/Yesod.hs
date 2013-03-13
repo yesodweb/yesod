@@ -562,12 +562,18 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
     char = show . snd . loc_start
 
 class (MonadBaseControl IO m, HandlerState m, HandlerError m, MonadResource m, Yesod (HandlerMaster m)) => MonadHandler m where
-    liftHandler :: GHandler (HandlerMaster m) a -> m a
+    liftHandler :: GHandler (HandlerSite m) a -> m a
+    liftHandler (GHandler f) = do
+        hd <- askHandlerData
+        liftResourceT $ f hd
+
+    liftHandlerMaster :: GHandler (HandlerMaster m) a -> m a
     askHandlerData :: m (HandlerData (HandlerSite m))
 
 instance Yesod site => MonadHandler (GHandler site) where
     liftHandler = id
+    liftHandlerMaster = id
     askHandlerData = GHandler return
 instance MonadHandler m => MonadHandler (HandlerT site m) where
-    liftHandler = lift . liftHandler
+    liftHandlerMaster = lift . liftHandlerMaster
     askHandlerData = HandlerT return

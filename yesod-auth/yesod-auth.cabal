@@ -54,6 +54,7 @@ library
                      Yesod.Auth.HashDB
                      Yesod.Auth.Message
                      Yesod.Auth.GoogleEmail
+    other-modules:   Yesod.Auth.Routes
     ghc-options:     -Wall
 
 source-repository head

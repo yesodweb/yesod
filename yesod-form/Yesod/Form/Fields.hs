@@ -49,9 +49,7 @@ module Yesod.Form.Fields
 import Yesod.Form.Types
 import Yesod.Form.I18n.English
 import Yesod.Form.Functions (parseHelper)
-import Yesod.Handler (getMessageRender)
-import Yesod.Widget (toWidget, whamlet, GWidget)
-import Yesod.Core (RenderMessage (renderMessage), SomeMessage (..))
+import Yesod.Core
 import Text.Hamlet
 import Text.Blaze (ToMarkup (toMarkup), preEscapedToMarkup, unsafeByteString)
 #define ToHtml ToMarkup
@@ -82,10 +80,6 @@ import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
-import Yesod.Core (newIdent, lift)
-import Yesod.Core (FileInfo)
-
-import Yesod.Core (toPathPiece, GHandler, PathPiece, fromPathPiece)
 import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery)
 import Control.Arrow ((&&&))
 
@@ -97,7 +91,7 @@ defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
 
-intField :: (Integral i, RenderMessage master FormMessage) => Field sub master i
+intField :: (Integral i, RenderMessage site FormMessage) => Field site i
 intField = Field
     { fieldParse = parseHelper $ \s ->
         case Data.Text.Read.signed Data.Text.Read.decimal s of
@@ -114,7 +108,7 @@ $newline never
     showVal = either id (pack . showI)
     showI x = show (fromIntegral x :: Integer)
 
-doubleField :: RenderMessage master FormMessage => Field sub master Double
+doubleField :: RenderMessage site FormMessage => Field site Double
 doubleField = Field
     { fieldParse = parseHelper $ \s ->
         case Data.Text.Read.double s of
@@ -129,7 +123,7 @@ $newline never
     }
   where showVal = either id (pack . show)
 
-dayField :: RenderMessage master FormMessage => Field sub master Day
+dayField :: RenderMessage site FormMessage => Field site Day
 dayField = Field
     { fieldParse = parseHelper $ parseDate . unpack
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
@@ -140,7 +134,7 @@ $newline never
     }
   where showVal = either id (pack . show)
 
-timeField :: RenderMessage master FormMessage => Field sub master TimeOfDay
+timeField :: RenderMessage site FormMessage => Field site TimeOfDay
 timeField = Field
     { fieldParse = parseHelper parseTime
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
@@ -156,7 +150,7 @@ $newline never
       where
         fullSec = fromInteger $ floor $ todSec tod
 
-htmlField :: RenderMessage master FormMessage => Field sub master Html
+htmlField :: RenderMessage site FormMessage => Field site Html
 htmlField = Field
     { fieldParse = parseHelper $ Right . preEscapedText . sanitizeBalance
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
@@ -185,7 +179,7 @@ instance ToHtml Textarea where
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
-textareaField :: RenderMessage master FormMessage => Field sub master Textarea
+textareaField :: RenderMessage site FormMessage => Field site Textarea
 textareaField = Field
     { fieldParse = parseHelper $ Right . Textarea
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
@@ -195,8 +189,8 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
-hiddenField :: (PathPiece p, RenderMessage master FormMessage)
-            => Field sub master p
+hiddenField :: (PathPiece p, RenderMessage site FormMessage)
+            => Field site p
 hiddenField = Field
     { fieldParse = parseHelper $ maybe (Left MsgValueRequired) Right . fromPathPiece
     , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
@@ -206,7 +200,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
-textField :: RenderMessage master FormMessage => Field sub master Text
+textField :: RenderMessage site FormMessage => Field site Text
 textField = Field
     { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq ->
@@ -217,7 +211,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
-passwordField :: RenderMessage master FormMessage => Field sub master Text
+passwordField :: RenderMessage site FormMessage => Field site Text
 passwordField = Field
     { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
@@ -288,7 +282,7 @@ timeParser = do
             then fail $ show $ msg $ pack xy
             else return $ fromIntegral (i :: Int)
 
-emailField :: RenderMessage master FormMessage => Field sub master Text
+emailField :: RenderMessage site FormMessage => Field site Text
 emailField = Field
     { fieldParse = parseHelper $
         \s ->
@@ -303,7 +297,7 @@ $newline never
     }
 
 type AutoFocus = Bool
-searchField :: RenderMessage master FormMessage => AutoFocus -> Field sub master Text
+searchField :: RenderMessage site FormMessage => AutoFocus -> Field site Text
 searchField autoFocus = Field
     { fieldParse = parseHelper Right
     , fieldView = \theId name attrs val isReq -> do
@@ -324,7 +318,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
-urlField :: RenderMessage master FormMessage => Field sub master Text
+urlField :: RenderMessage site FormMessage => Field site Text
 urlField = Field
     { fieldParse = parseHelper $ \s ->
         case parseURI $ unpack s of
@@ -338,10 +332,10 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
-selectFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master a
+selectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)] -> Field site a
 selectFieldList = selectField . optionsPairs
 
-selectField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
+selectField :: (Eq a, RenderMessage site FormMessage) => GHandler site (OptionList a) -> Field site a
 selectField = selectFieldHelper
     (\theId name attrs inside -> [whamlet|
 $newline never
@@ -356,12 +350,12 @@ $newline never
 <option value=#{value} :isSel:selected>#{text}
 |]) -- inside
 
-multiSelectFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master [a]
+multiSelectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)] -> Field site [a]
 multiSelectFieldList = multiSelectField . optionsPairs
 
-multiSelectField :: (Eq a, RenderMessage master FormMessage)
-                 => GHandler sub master (OptionList a)
-                 -> Field sub master [a]
+multiSelectField :: (Eq a, RenderMessage site FormMessage)
+                 => GHandler site (OptionList a)
+                 -> Field site [a]
 multiSelectField ioptlist =
     Field parse view UrlEncoded
   where
@@ -385,10 +379,10 @@ $newline never
             optselected (Left _) _ = False
             optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
 
-radioFieldList :: (Eq a, RenderMessage master FormMessage, RenderMessage master msg) => [(msg, a)] -> Field sub master a
+radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)] -> Field site a
 radioFieldList = radioField . optionsPairs
 
-radioField :: (Eq a, RenderMessage master FormMessage) => GHandler sub master (OptionList a) -> Field sub master a
+radioField :: (Eq a, RenderMessage site FormMessage) => GHandler site (OptionList a) -> Field site a
 radioField = selectFieldHelper
     (\theId _name _attrs inside -> [whamlet|
 $newline never
@@ -409,7 +403,7 @@ $newline never
         \#{text}
 |])
 
-boolField :: RenderMessage master FormMessage => Field sub master Bool
+boolField :: RenderMessage site FormMessage => Field site Bool
 boolField = Field
       { fieldParse = \e _ -> return $ boolParser e
       , fieldView = \theId name attrs val isReq -> [whamlet|
@@ -445,7 +439,7 @@ $newline never
 --
 --   Note that this makes the field always optional.
 --
-checkBoxField :: RenderMessage m FormMessage => Field s m Bool
+checkBoxField :: RenderMessage site FormMessage => Field site Bool
 checkBoxField = Field
     { fieldParse = \e _ -> return $ checkBoxParser e
     , fieldView  = \theId name attrs val _ -> [whamlet|
@@ -481,7 +475,7 @@ data Option a = Option
     , optionExternalValue :: Text
     }
 
-optionsPairs :: RenderMessage master msg => [(msg, a)] -> GHandler sub master (OptionList a)
+optionsPairs :: RenderMessage site msg => [(msg, a)] -> GHandler site (OptionList a)
 optionsPairs opts = do
   mr <- getMessageRender
   let mkOption external (display, internal) =
@@ -491,16 +485,16 @@ optionsPairs opts = do
                  }
   return $ mkOptionList (zipWith mkOption [1 :: Int ..] opts)
 
-optionsEnum :: (Show a, Enum a, Bounded a) => GHandler sub master (OptionList a)
+optionsEnum :: (Show a, Enum a, Bounded a) => GHandler site (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
-optionsPersist :: ( YesodPersist master, PersistEntity a
-                  , PersistQuery (YesodPersistBackend master (GHandler sub master))
+optionsPersist :: ( YesodPersist site, PersistEntity a
+                  , PersistQuery (YesodPersistBackend site (GHandler site))
                   , PathPiece (Key a)
-                  , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend master (GHandler sub master))
-                  , RenderMessage master msg
+                  , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend site (GHandler site))
+                  , RenderMessage site msg
                   )
-               => [Filter a] -> [SelectOpt a] -> (a -> msg) -> GHandler sub master (OptionList (Entity a))
+               => [Filter a] -> [SelectOpt a] -> (a -> msg) -> GHandler site (OptionList (Entity a))
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     mr <- getMessageRender
     pairs <- runDB $ selectList filts ords
@@ -511,11 +505,11 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
         }) pairs
 
 selectFieldHelper
-        :: (Eq a, RenderMessage master FormMessage)
-        => (Text -> Text -> [(Text, Text)] -> GWidget sub master () -> GWidget sub master ())
-        -> (Text -> Text -> Bool -> GWidget sub master ())
-        -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> GWidget sub master ())
-        -> GHandler sub master (OptionList a) -> Field sub master a
+        :: (Eq a, RenderMessage site FormMessage)
+        => (Text -> Text -> [(Text, Text)] -> GWidget site () -> GWidget site ())
+        -> (Text -> Text -> Bool -> GWidget site ())
+        -> (Text -> Text -> [(Text, Text)] -> Text -> Bool -> Text -> GWidget site ())
+        -> GHandler site (OptionList a) -> Field site a
 selectFieldHelper outside onOpt inside opts' = Field
     { fieldParse = \x _ -> do
         opts <- opts'
@@ -544,7 +538,7 @@ selectFieldHelper outside onOpt inside opts' = Field
                     Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
                     Just y -> Right $ Just y
 
-fileField :: RenderMessage master FormMessage => Field sub master FileInfo
+fileField :: RenderMessage site FormMessage => Field site FileInfo
 fileField = Field
     { fieldParse = \_ files -> return $
         case files of
@@ -556,8 +550,8 @@ fileField = Field
     , fieldEnctype = Multipart
     }
 
-fileAFormReq :: RenderMessage master FormMessage => FieldSettings master -> AForm sub master FileInfo
-fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
+fileAFormReq :: RenderMessage site FormMessage => FieldSettings site -> AForm site FileInfo
+fileAFormReq fs = AForm $ \(site, langs) menvs ints -> do
     let (name, ints') =
             case fsName fs of
                 Just x -> (x, ints)
@@ -572,11 +566,11 @@ fileAFormReq fs = AForm $ \(master, langs) menvs ints -> do
                     case Map.lookup name fenv of
                         Just (fi:_) -> (FormSuccess fi, Nothing)
                         _ ->
-                            let t = renderMessage master langs MsgValueRequired
+                            let t = renderMessage site langs MsgValueRequired
                              in (FormFailure [t], Just $ toHtml t)
     let fv = FieldView
-            { fvLabel = toHtml $ renderMessage master langs $ fsLabel fs
-            , fvTooltip = fmap (toHtml . renderMessage master langs) $ fsTooltip fs
+            { fvLabel = toHtml $ renderMessage site langs $ fsLabel fs
+            , fvTooltip = fmap (toHtml . renderMessage site langs) $ fsTooltip fs
             , fvId = id'
             , fvInput = [whamlet|
 $newline never
@@ -587,7 +581,7 @@ $newline never
             }
     return (res, (fv :), ints', Multipart)
 
-fileAFormOpt :: RenderMessage master FormMessage => FieldSettings master -> AForm sub master (Maybe FileInfo)
+fileAFormOpt :: RenderMessage site FormMessage => FieldSettings site -> AForm site (Maybe FileInfo)
 fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do
     let (name, ints') =
             case fsName fs of

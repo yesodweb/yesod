@@ -40,15 +40,11 @@ authGoogleEmail =
   where
     complete = PluginR pid ["complete"]
     login tm =
-        [whamlet|
-$newline never
-<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}
-|]
+        [whamlet|<a href=#{tm forwardUrl}>_{Msg.LoginGoogle}|]
     dispatch "GET" ["forward"] = do
         render <- getUrlRender
-        toMaster <- getRouteToMaster
-        let complete' = render $ toMaster complete
-        master <- getYesod
+        let complete' = render complete
+        master <- lift getYesod
         eres <- lift $ try $ OpenId.getForwardUrl googleIdent complete' Nothing
             [ ("openid.ax.type.email", "http://schema.openid.net/contact/email")
             , ("openid.ns.ax", "http://openid.net/srv/ax/1.0")
@@ -60,7 +56,7 @@ $newline never
         either
           (\err -> do
                 setMessage $ toHtml $ show (err :: SomeException)
-                redirect $ toMaster LoginR
+                redirect LoginR
                 )
           redirect
           eres
@@ -74,14 +70,13 @@ $newline never
         completeHelper posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth m => [(Text, Text)] -> GHandler Auth m ()
+completeHelper :: YesodAuth m => [(Text, Text)] -> HandlerT Auth (GHandler m) ()
 completeHelper gets' = do
-        master <- getYesod
+        master <- lift getYesod
         eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
-        toMaster <- getRouteToMaster
         let onFailure err = do
             setMessage $ toHtml $ show (err :: SomeException)
-            redirect $ toMaster LoginR
+            redirect LoginR
         let onSuccess oir = do
                 let OpenId.Identifier ident = OpenId.oirOpLocal oir
                 memail <- lookupGetParam "openid.ext1.value.email"
@@ -89,8 +84,8 @@ completeHelper gets' = do
                     (Just email, True) -> setCreds True $ Creds pid email []
                     (_, False) -> do
                         setMessage "Only Google login is supported"
-                        redirect $ toMaster LoginR
+                        redirect LoginR
                     (Nothing, _) -> do
                         setMessage "No email address provided"
-                        redirect $ toMaster LoginR
+                        redirect LoginR
         either onFailure onSuccess eres

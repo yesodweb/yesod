@@ -75,15 +75,15 @@ template urls render =
         , Element "priority" Map.empty [NodeContent $ pack $ show sitemapPriority]
         ]
 
-sitemap :: [SitemapUrl (Route master)] -> GHandler sub master RepXml
+sitemap :: [SitemapUrl (Route site)] -> GHandler site RepXml
 sitemap urls = do
     render <- getUrlRender
     let doc = template urls render
     return $ RepXml $ toContent $ renderLBS def doc
 
 -- | A basic robots file which just lists the "Sitemap: " line.
-robots :: Route master -- ^ sitemap url
-       -> GHandler sub master RepPlain
+robots :: Route site -- ^ sitemap url
+       -> GHandler site RepPlain
 robots smurl = do
     render <- getUrlRender
     return $ RepPlain $ toContent $ "Sitemap: " `mappend` render smurl

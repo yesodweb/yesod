@@ -4,11 +4,10 @@ module Yesod.Default.Handlers
     , getRobotsR
     ) where
 
-import Yesod.Handler (GHandler, sendFile)
-import Yesod.Content (RepPlain(..))
+import Yesod.Core
 
-getFaviconR :: GHandler s m ()
+getFaviconR :: HandlerError m => m ()
 getFaviconR = sendFile "image/x-icon" "config/favicon.ico"
 
-getRobotsR :: GHandler s m RepPlain
+getRobotsR :: HandlerError m => m ()
 getRobotsR = sendFile "text/plain" "config/robots.txt"

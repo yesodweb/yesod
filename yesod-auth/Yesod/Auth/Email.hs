@@ -17,6 +17,7 @@ module Yesod.Auth.Email
 import Network.Mail.Mime (randomString)
 import Yesod.Auth
 import System.Random
+import Text.Blaze.Html (toHtml)
 import Control.Monad (when)
 import Control.Applicative ((<$>), (<*>))
 import Data.Digest.Pure.MD5
@@ -28,9 +29,7 @@ import qualified Crypto.PasswordStore as PS
 import qualified Data.Text.Encoding as DTE
 
 import Yesod.Form
-import Yesod.Handler
-import Yesod.Content
-import Yesod.Core (PathPiece, fromPathPiece, whamlet, defaultLayout, setTitleI, toPathPiece)
+import Yesod.Core
 import Control.Monad.IO.Class (liftIO)
 import qualified Yesod.Auth.Message as Msg
 
@@ -59,15 +58,15 @@ data EmailCreds m = EmailCreds
 class (YesodAuth m, PathPiece (AuthEmailId m)) => YesodAuthEmail m where
     type AuthEmailId m
 
-    addUnverified :: Email -> VerKey -> GHandler Auth m (AuthEmailId m)
-    sendVerifyEmail :: Email -> VerKey -> VerUrl -> GHandler Auth m ()
-    getVerifyKey :: AuthEmailId m -> GHandler Auth m (Maybe VerKey)
-    setVerifyKey :: AuthEmailId m -> VerKey -> GHandler Auth m ()
-    verifyAccount :: AuthEmailId m -> GHandler Auth m (Maybe (AuthId m))
-    getPassword :: AuthId m -> GHandler Auth m (Maybe SaltedPass)
-    setPassword :: AuthId m -> SaltedPass -> GHandler Auth m ()
-    getEmailCreds :: Email -> GHandler Auth m (Maybe (EmailCreds m))
-    getEmail :: AuthEmailId m -> GHandler Auth m (Maybe Email)
+    addUnverified :: Email -> VerKey -> GHandler m (AuthEmailId m)
+    sendVerifyEmail :: Email -> VerKey -> VerUrl -> GHandler m ()
+    getVerifyKey :: AuthEmailId m -> GHandler m (Maybe VerKey)
+    setVerifyKey :: AuthEmailId m -> VerKey -> GHandler m ()
+    verifyAccount :: AuthEmailId m -> GHandler m (Maybe (AuthId m))
+    getPassword :: AuthId m -> GHandler m (Maybe SaltedPass)
+    setPassword :: AuthId m -> SaltedPass -> GHandler m ()
+    getEmailCreds :: Email -> GHandler m (Maybe (EmailCreds m))
+    getEmail :: AuthEmailId m -> GHandler m (Maybe Email)
 
     -- | Generate a random alphanumeric string.
     randomKey :: m -> IO Text
@@ -80,7 +79,7 @@ authEmail =
     AuthPlugin "email" dispatch $ \tm ->
         [whamlet|
 $newline never
-<form method="post" action="@{tm loginR}">
+<form method="post" action="#{tm loginR}">
     <table>
         <tr>
             <th>_{Msg.Email}
@@ -93,7 +92,7 @@ $newline never
         <tr>
             <td colspan="2">
                 <input type="submit" value=_{Msg.LoginViaEmail}>
-                <a href="@{tm registerR}">I don't have an account
+                <a href="#{tm registerR}">I don't have an account
 |]
   where
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
@@ -107,81 +106,75 @@ $newline never
     dispatch "POST" ["set-password"] = postPasswordR >>= sendResponse
     dispatch _ _ = notFound
 
-getRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
+getRegisterR :: YesodAuthEmail master => HandlerT Auth (GHandler master) RepHtml
 getRegisterR = do
-    toMaster <- getRouteToMaster
     email <- newIdent
-    defaultLayout $ do
-        setTitleI Msg.RegisterLong
+    mrender <- getMessageRender
+    defaultLayoutT $ do
+        setTitle $ toHtml $ mrender Msg.RegisterLong
         [whamlet|
-$newline never
-<p>_{Msg.EnterEmail}
-<form method="post" action="@{toMaster registerR}">
-    <label for=#{email}>_{Msg.Email}
-    <input ##{email} type="email" name="email" width="150">
-    <input type="submit" value=_{Msg.Register}>
-|]
+            <p>#{mrender Msg.EnterEmail}
+            <form method="post" action="@{registerR}">
+                <label for=#{email}>#{mrender Msg.Email}
+                <input ##{email} type="email" name="email" width="150">
+                <input type="submit" value=#{mrender Msg.Register}>
+        |]
 
-postRegisterR :: YesodAuthEmail master => GHandler Auth master RepHtml
+postRegisterR :: YesodAuthEmail master => HandlerT Auth (GHandler master) RepHtml
 postRegisterR = do
-    y <- getYesod
-    email <- runInputPost $ ireq emailField "email"
-    mecreds <- getEmailCreds email
+    y <- lift getYesod
+    email <- lift $ runInputPost $ ireq emailField "email"
+    mecreds <- lift $ getEmailCreds email
     (lid, verKey) <-
         case mecreds of
             Just (EmailCreds lid _ _ (Just key)) -> return (lid, key)
             Just (EmailCreds lid _ _ Nothing) -> do
                 key <- liftIO $ randomKey y
-                setVerifyKey lid key
+                lift $ setVerifyKey lid key
                 return (lid, key)
             Nothing -> do
                 key <- liftIO $ randomKey y
-                lid <- addUnverified email key
+                lid <- lift $ addUnverified email key
                 return (lid, key)
     render <- getUrlRender
-    tm <- getRouteToMaster
-    let verUrl = render $ tm $ verify (toPathPiece lid) verKey
-    sendVerifyEmail email verKey verUrl
-    defaultLayout $ do
+    let verUrl = render $ verify (toPathPiece lid) verKey
+    lift $ sendVerifyEmail email verKey verUrl
+    lift $ defaultLayout $ do
         setTitleI Msg.ConfirmationEmailSentTitle
-        [whamlet|
-$newline never
-<p>_{Msg.ConfirmationEmailSent email}
-|]
+        [whamlet|<p>_{Msg.ConfirmationEmailSent email}|]
 
 getVerifyR :: YesodAuthEmail m
-           => AuthEmailId m -> Text -> GHandler Auth m RepHtml
+           => AuthEmailId m
+           -> Text
+           -> HandlerT Auth (GHandler m) RepHtml
 getVerifyR lid key = do
-    realKey <- getVerifyKey lid
-    memail <- getEmail lid
+    realKey <- lift $ getVerifyKey lid
+    memail <- lift $ getEmail lid
     case (realKey == Just key, memail) of
         (True, Just email) -> do
-            muid <- verifyAccount lid
+            muid <- lift $ verifyAccount lid
             case muid of
                 Nothing -> return ()
                 Just _uid -> do
                     setCreds False $ Creds "email" email [("verifiedEmail", email)] -- FIXME uid?
-                    toMaster <- getRouteToMaster
-                    setMessageI Msg.AddressVerified
-                    redirect $ toMaster setpassR
+                    mrender <- lift getMessageRender
+                    setMessage $ toHtml $ mrender Msg.AddressVerified
+                    redirect setpassR
         _ -> return ()
-    defaultLayout $ do
+    lift $ defaultLayout $ do
         setTitleI Msg.InvalidKey
-        [whamlet|
-$newline never
-<p>_{Msg.InvalidKey}
-|]
+        [whamlet|<p>_{Msg.InvalidKey}|]
 
-postLoginR :: YesodAuthEmail master => GHandler Auth master ()
+postLoginR :: YesodAuthEmail master => HandlerT Auth (GHandler master) ()
 postLoginR = do
-    (email, pass) <- runInputPost $ (,)
+    (email, pass) <- lift $ runInputPost $ (,)
         <$> ireq emailField "email"
         <*> ireq textField "password"
-    mecreds <- getEmailCreds email
+    mecreds <- lift $ getEmailCreds email
     maid <-
         case (mecreds >>= emailCredsAuthId, fmap emailCredsStatus mecreds) of
             (Just aid, Just True) -> do
-                mrealpass <- getPassword aid
+                mrealpass <- lift $ getPassword aid
                 case mrealpass of
                     Nothing -> return Nothing
                     Just realpass -> return $
@@ -193,63 +186,63 @@ postLoginR = do
         Just _aid ->
             setCreds True $ Creds "email" email [("verifiedEmail", email)] -- FIXME aid?
         Nothing -> do
-            setMessageI Msg.InvalidEmailPass
-            toMaster <- getRouteToMaster
-            redirect $ toMaster LoginR
+            mrender <- lift getMessageRender
+            setMessage $ toHtml $ mrender Msg.InvalidEmailPass
+            redirect LoginR
 
-getPasswordR :: YesodAuthEmail master => GHandler Auth master RepHtml
+getPasswordR :: YesodAuthEmail master => HandlerT Auth (GHandler master) RepHtml
 getPasswordR = do
-    toMaster <- getRouteToMaster
-    maid <- maybeAuthId
+    maid <- lift maybeAuthId
     pass1 <- newIdent
     pass2 <- newIdent
+    mrender <- lift getMessageRender
     case maid of
         Just _ -> return ()
         Nothing -> do
-            setMessageI Msg.BadSetPass
-            redirect $ toMaster LoginR
-    defaultLayout $ do
-        setTitleI Msg.SetPassTitle
+            setMessage $ toHtml $ mrender Msg.BadSetPass
+            redirect LoginR
+    defaultLayoutT $ do
+        setTitle $ toHtml $ mrender Msg.SetPassTitle -- FIXME make setTitleI more intelligent
         [whamlet|
 $newline never
-<h3>_{Msg.SetPass}
-<form method="post" action="@{toMaster setpassR}">
+<h3>#{mrender Msg.SetPass}
+<form method="post" action="@{setpassR}">
     <table>
         <tr>
             <th>
-                <label for=#{pass1}>_{Msg.NewPass}
+                <label for=#{pass1}>#{mrender Msg.NewPass}
             <td>
                 <input ##{pass1} type="password" name="new">
         <tr>
             <th>
-                <label for=#{pass2}>_{Msg.ConfirmPass}
+                <label for=#{pass2}>#{mrender Msg.ConfirmPass}
             <td>
                 <input ##{pass2} type="password" name="confirm">
         <tr>
             <td colspan="2">
-                <input type="submit" value="_{Msg.SetPassTitle}">
+                <input type="submit" value=#{mrender Msg.SetPassTitle}>
 |]
 
-postPasswordR :: YesodAuthEmail master => GHandler Auth master ()
+postPasswordR :: YesodAuthEmail master => HandlerT Auth (GHandler master) ()
 postPasswordR = do
-    (new, confirm) <- runInputPost $ (,)
+    (new, confirm) <- lift $ runInputPost $ (,)
         <$> ireq textField "new"
         <*> ireq textField "confirm"
-    toMaster <- getRouteToMaster
-    y <- getYesod
     when (new /= confirm) $ do
-        setMessageI Msg.PassMismatch
-        redirect $ toMaster setpassR
-    maid <- maybeAuthId
+        lift $ setMessageI Msg.PassMismatch
+        redirect setpassR
+    maid <- lift maybeAuthId
     aid <- case maid of
             Nothing -> do
-                setMessageI Msg.BadSetPass
-                redirect $ toMaster LoginR
+                lift $ setMessageI Msg.BadSetPass
+                redirect LoginR
             Just aid -> return aid
     salted <- liftIO $ saltPass new
-    setPassword aid salted
-    setMessageI Msg.PassUpdated
-    redirect $ loginDest y
+    lift $ do
+        y <- getYesod
+        setPassword aid salted
+        setMessageI Msg.PassUpdated
+        redirect $ loginDest y
 
 saltLength :: Int
 saltLength = 5

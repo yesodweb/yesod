@@ -48,35 +48,33 @@ authOpenId idType extensionFields =
 |] $ x `asTypeOf` y)
         [whamlet|
 $newline never
-<form method="get" action="@{tm forwardUrl}">
+<form method="get" action="#{tm forwardUrl}">
     <input type="hidden" name="openid_identifier" value="https://www.google.com/accounts/o8/id">
     <button .openid-google>_{Msg.LoginGoogle}
-<form method="get" action="@{tm forwardUrl}">
+<form method="get" action="#{tm forwardUrl}">
     <input type="hidden" name="openid_identifier" value="http://me.yahoo.com">
     <button .openid-yahoo>_{Msg.LoginYahoo}
-<form method="get" action="@{tm forwardUrl}">
+<form method="get" action="#{tm forwardUrl}">
     <label for="#{ident}">OpenID: #
     <input id="#{ident}" type="text" name="#{name}" value="http://">
     <input type="submit" value="_{Msg.LoginOpenID}">
 |]
     dispatch "GET" ["forward"] = do
-        roid <- runInputGet $ iopt textField name
+        roid <- lift $ runInputGet $ iopt textField name
         case roid of
             Just oid -> do
                 render <- getUrlRender
-                toMaster <- getRouteToMaster
-                let complete' = render $ toMaster complete
-                master <- getYesod
+                let complete' = render complete
+                master <- lift getYesod
                 eres <- lift $ try $ OpenId.getForwardUrl oid complete' Nothing extensionFields (authHttpManager master)
                 case eres of
                     Left err -> do
                         setMessage $ toHtml $ show (err :: SomeException)
-                        redirect $ toMaster LoginR
+                        redirect LoginR
                     Right x -> redirect x
             Nothing -> do
-                toMaster <- getRouteToMaster
                 setMessageI Msg.NoOpenID
-                redirect $ toMaster LoginR
+                redirect LoginR
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do
         rr <- getRequest
@@ -87,14 +85,13 @@ $newline never
         completeHelper idType posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth m => IdentifierType -> [(Text, Text)] -> GHandler Auth m ()
+completeHelper :: YesodAuth master => IdentifierType -> [(Text, Text)] -> HandlerT Auth (GHandler master) ()
 completeHelper idType gets' = do
-        master <- getYesod
-        eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
-        toMaster <- getRouteToMaster
+        master <- lift getYesod
+        eres <- try $ OpenId.authenticateClaimed gets' (authHttpManager master)
         let onFailure err = do
             setMessage $ toHtml $ show (err :: SomeException)
-            redirect $ toMaster LoginR
+            redirect LoginR
         let onSuccess oir = do
                 let claimed =
                         case OpenId.oirClaimed oir of
