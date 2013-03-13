@@ -5,8 +5,11 @@ module YesodCoreTest.NoOverloadedStrings (noOverloadedTest, Widget) where
 import Test.Hspec
 
 import Yesod.Core
+import Network.Wai
 import Network.Wai.Test
 import Data.Monoid (mempty)
+import qualified Data.Text as T
+import qualified Data.ByteString.Lazy.Char8 as L8
 
 data Subsite = Subsite
 
@@ -17,8 +20,8 @@ mkYesodSub "Subsite" [] [parseRoutes|
 /bar BarR GET
 |]
 
-getBarR :: GHandler Subsite m ()
-getBarR = return ()
+getBarR :: Monad m => m T.Text
+getBarR = return $ T.pack "BarR"
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
@@ -43,6 +46,15 @@ case_sanity = runner $ do
     res <- request defaultRequest
     assertBody mempty res
 
+case_subsite :: IO ()
+case_subsite = runner $ do
+    res <- request defaultRequest
+        { pathInfo = map T.pack ["subsite", "bar"]
+        }
+    assertStatus 200 res
+    assertBody (L8.pack "BarR") res
+
 noOverloadedTest :: Spec
 noOverloadedTest = describe "Test.NoOverloadedStrings" $ do
       it "sanity" case_sanity
+      it "subsite" case_subsite
