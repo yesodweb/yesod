@@ -51,9 +51,11 @@ import Yesod.Routes.TH
 import Yesod.Routes.Parse
 import System.Log.FastLogger (Logger)
 import Yesod.Core.Types
+import Yesod.Core.Content
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
+import Yesod.Core.Class.Handler
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
@@ -117,13 +119,13 @@ mkYesodGeneral name args clazzes isSub resS = do
      masterTypeSyns <- if isSub then return   [] 
                                 else sequence [handler, widget]
      renderRouteDec <- mkRenderRouteInstance subsite res
-     dispatchDec    <- mkDispatchInstance context sub master res
+     dispatchDec    <- mkDispatchInstance context (if isSub then Just sub else Nothing) master res
      return (renderRouteDec ++ masterTypeSyns, dispatchDec)
   where sub     = foldl appT subCons subArgs
         master  = if isSub then (varT $ mkName "master") else sub
         context = if isSub then cxt $ yesod : map return clazzes
                            else return []
-        yesod   = classP ''Yesod [master]
+        yesod   = classP ''HandlerReader [master]
         handler = tySynD (mkName "Handler") [] [t| GHandler $master $master    |]
         widget  = tySynD (mkName "Widget")  [] [t| GWidget  $master $master () |]
         res     = map (fmap parseType) resS
@@ -136,25 +138,65 @@ mkYesodGeneral name args clazzes isSub resS = do
 -- when writing library/plugin for yesod, this combinator becomes
 -- handy.
 mkDispatchInstance :: CxtQ                -- ^ The context
-                   -> TypeQ               -- ^ The subsite type
+                   -> Maybe TypeQ         -- ^ The subsite type
                    -> TypeQ               -- ^ The master site type
                    -> [ResourceTree a]    -- ^ The resource
                    -> DecsQ
-mkDispatchInstance context sub master res = do
-  let yDispatch = conT ''YesodDispatch `appT` sub `appT` master
+mkDispatchInstance context Nothing master res = do
+  let yDispatch = conT ''YesodDispatch `appT` master `appT` master
       thisDispatch = do
             clause' <- mkDispatchClause MkDispatchSettings
                 { mdsRunHandler = [|yesodRunner|]
-                , mdsDispatcher = [|yesodDispatch |]
-                , mdsFixEnv = [|fixEnv|]
+                , mdsSubDispatcher = [|yesodSubDispatch|]
                 , mdsGetPathInfo = [|W.pathInfo|]
                 , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
                 , mdsMethod = [|W.requestMethod|]
-                , mds404 = [|\env -> yesodRunner (notFound >> return ()) env Nothing|]
-                , mds405 = [|\env route -> yesodRunner (badMethod >> return ()) env (Just route)|]
+                , mds404 = [|notFound >> return ()|]
+                , mds405 = [|badMethod >> return ()|]
                 } res
             return $ FunD 'yesodDispatch [clause']
    in sequence [instanceD context yDispatch [thisDispatch]]
+mkDispatchInstance context (Just sub) master res = do
+    yDispatch <- conT ''YesodSubDispatch `appT` sub `appT` master
+    parentRunner <- newName "parentRunner"
+    getSub <- newName "getSub"
+    toMaster <- newName "toMaster"
+    runner <- newName "runner"
+    clause' <- mkDispatchClause MkDispatchSettings
+        { mdsRunHandler = [|subHelper
+                                $(return $ VarE parentRunner)
+                                $(return $ VarE getSub)
+                                $(return $ VarE toMaster)
+                                . fmap toTypedContent
+                            |]
+        , mdsSubDispatcher = [|yesodSubDispatch|]
+        , mdsGetPathInfo = [|W.pathInfo|]
+        , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
+        , mdsMethod = [|W.requestMethod|]
+        , mds404 = [|notFound >> return ()|]
+        , mds405 = [|badMethod >> return ()|]
+        } res
+    inner <- newName "inner"
+    err <- [|error "FIXME"|]
+    let innerFun = FunD inner [clause']
+        runnerFun = FunD runner
+            [ Clause
+                []
+                (NormalB $ VarE 'subHelper
+                    `AppE` VarE parentRunner
+                    `AppE` VarE getSub
+                    `AppE` VarE toMaster
+                )
+                []
+            ]
+    context' <- context
+    let fun = FunD 'yesodSubDispatch
+                [ Clause
+                    [VarP parentRunner, VarP getSub, VarP toMaster]
+                    (NormalB $ VarE inner)
+                    [innerFun, runnerFun]
+                ]
+    return [InstanceD context' yDispatch [fun]]
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This is the same as 'toWaiAppPlain', except it includes two

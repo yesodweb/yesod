@@ -13,6 +13,7 @@ import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception, throwIO)
 import           Control.Failure                    (Failure (..))
 import           Control.Monad                      (liftM)
+import           Control.Monad.Trans.Class          (MonadTrans)
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
@@ -200,6 +201,13 @@ newtype GHandler sub master a = GHandler
 newtype HandlerT sub m a = HandlerT
     { unHandlerT :: HandlerData sub sub -> m a
     }
+
+instance MonadTrans (HandlerT sub)
+instance Monad m => Monad (HandlerT sub m) where
+    return = HandlerT . const . return
+    HandlerT f >>= g = HandlerT $ \hd -> f hd >>= \x -> unHandlerT (g x) hd
+instance Monad m => Functor (HandlerT sub m) where
+    fmap = liftM
 
 data GHState = GHState
     { ghsSession :: SessionMap

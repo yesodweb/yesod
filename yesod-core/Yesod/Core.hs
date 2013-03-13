@@ -4,6 +4,7 @@ module Yesod.Core
     ( -- * Type classes
       Yesod (..)
     , YesodDispatch (..)
+    , YesodSubDispatch (..)
     , RenderRoute (..)
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
