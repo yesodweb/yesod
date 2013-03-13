@@ -3,6 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Yesod.Core.Types where
 
 import qualified Blaze.ByteString.Builder           as BBuilder
@@ -12,7 +13,7 @@ import           Control.Applicative                ((<$>))
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception, throwIO)
 import           Control.Failure                    (Failure (..))
-import           Control.Monad                      (liftM)
+import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Trans.Class          (MonadTrans)
 import qualified Control.Monad.Trans.Class          as Trans
 import           Control.Monad.Base                 (MonadBase (liftBase))
@@ -208,6 +209,9 @@ instance Monad m => Monad (HandlerT sub m) where
     HandlerT f >>= g = HandlerT $ \hd -> f hd >>= \x -> unHandlerT (g x) hd
 instance Monad m => Functor (HandlerT sub m) where
     fmap = liftM
+instance Monad m => Applicative (HandlerT sub m) where
+    pure = return
+    (<*>) = ap
 
 data GHState = GHState
     { ghsSession :: SessionMap
