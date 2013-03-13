@@ -284,7 +284,7 @@ fixEnv toNewSub toOldRoute envOld =
         , yreToMaster = yreToMaster envOld . toOldRoute
         }
 
-stripHandlerT :: (HandlerReader m, HandlerState m, MonadBaseControl IO m)
+stripHandlerT :: (HandlerState m, MonadBaseControl IO m)
               => HandlerT sub m a
               -> (HandlerMaster m -> sub)
               -> (Route sub -> Route (HandlerMaster m))

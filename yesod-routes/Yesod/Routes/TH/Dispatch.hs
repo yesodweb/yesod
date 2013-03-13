@@ -31,8 +31,7 @@ flatten =
 
 data MkDispatchSettings = MkDispatchSettings
     { mdsRunHandler :: Q Exp
-    , mdsDispatcher :: Q Exp
-    , mdsFixEnv :: Q Exp
+    , mdsSubDispatcher :: Q Exp
     , mdsGetPathInfo :: Q Exp
     , mdsSetPathInfo :: Q Exp
     , mdsMethod :: Q Exp
@@ -145,7 +144,11 @@ mkDispatchClause mds ress' = do
     u <- [|case $(return dispatched) of
             Just f -> f $(return $ VarE getEnv0)
                         $(return $ VarE req0)
-            Nothing -> $(mds404 mds) $(return $ VarE getEnv0) $(return $ VarE req0)
+            Nothing -> $(mdsRunHandler mds)
+                            $(mds404 mds)
+                            $(return $ VarE getEnv0)
+                            Nothing
+                            $(return $ VarE req0)
           |]
     return $ Clause pats (NormalB u) $ dispatchFun : methodMaps
   where
@@ -323,9 +326,10 @@ buildCaller mds xrest parents name resDisp ys = do
                         f <- newName "f"
                         let apply = foldl' (\a b -> a `AppE` VarE b) (VarE f) ys
                         body405 <-
-                            [|$(mds405 mds)
+                            [|$(mdsRunHandler mds)
+                                $(mds405 mds)
                                 $(return $ VarE getEnv)
-                                $(return route)
+                                (Just $(return route))
                                 $(return $ VarE req)
                              |]
                         return $ CaseE mf
@@ -337,12 +341,11 @@ buildCaller mds xrest parents name resDisp ys = do
                 sub <- newName "sub"
                 let sub2 = LamE [VarP sub]
                         (foldl' (\a b -> a `AppE` VarE b) (VarE (mkName getSub) `AppE` VarE sub) ys)
-                [|$(mdsDispatcher mds)
-                    ($(mdsFixEnv mds)
-                        $(return sub2)
-                        $(return route)
-                        $(return $ VarE getEnv)
-                        )
+                [|$(mdsSubDispatcher mds)
+                    $(mdsRunHandler mds)
+                    $(return sub2)
+                    $(return route)
+                    $(return $ VarE getEnv)
                     ($(mdsSetPathInfo mds)
                         $(return $ VarE xrest)
                         $(return $ VarE req)

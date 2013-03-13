@@ -51,8 +51,8 @@ case_subsite = runner $ do
     res <- request defaultRequest
         { pathInfo = map T.pack ["subsite", "bar"]
         }
-    assertStatus 200 res
     assertBody (L8.pack "BarR") res
+    assertStatus 200 res
 
 noOverloadedTest :: Spec
 noOverloadedTest = describe "Test.NoOverloadedStrings" $ do
