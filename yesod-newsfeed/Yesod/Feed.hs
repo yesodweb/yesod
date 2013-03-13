@@ -25,7 +25,7 @@ import Yesod.AtomFeed
 import Yesod.RssFeed
 import Yesod.Core
 
-newsFeed :: Feed (Route master) -> GHandler sub master TypedContent
+newsFeed :: Feed (Route site) -> GHandler site TypedContent
 newsFeed f = selectRep $ do
     provideRep $ atomFeed f
     provideRep $ rssFeed f

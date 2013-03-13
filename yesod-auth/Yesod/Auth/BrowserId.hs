@@ -49,14 +49,13 @@ helper maudience = AuthPlugin
     , apDispatch = \m ps ->
         case (m, ps) of
             ("GET", [assertion]) -> do
-                master <- getYesod
+                master <- lift getYesod
                 audience <-
                     case maudience of
                         Just a -> return a
                         Nothing -> do
-                            tm <- getRouteToMaster
                             r <- getUrlRender
-                            return $ T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
+                            return $ T.takeWhile (/= '/') $ stripScheme $ r LoginR
                 memail <- lift $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
                     Nothing -> liftIO $ throwIO InvalidBrowserIDAssertion
@@ -83,7 +82,7 @@ helper maudience = AuthPlugin
 $newline never
 <p>
     <a href="javascript:#{onclick}()">
-        <img src=@{toMaster loginIcon}>
+        <img src=#{toMaster loginIcon}>
 |]
     }
   where
@@ -92,18 +91,18 @@ $newline never
 
 -- | Generates a function to handle on-click events, and returns that function
 -- name.
-createOnClick :: (Route Auth -> Route master) -> GWidget sub master Text
+createOnClick :: (Route Auth -> Text) -> GWidget master Text
 createOnClick toMaster = do
     addScriptRemote browserIdJs
-    onclick <- lift newIdent
-    render <- lift getUrlRender
-    let login = toJSON $ getPath $ render (toMaster LoginR)
+    onclick <- newIdent
+    render <- getUrlRender
+    let login = toJSON $ getPath $ toMaster LoginR
     toWidget [julius|
         function #{rawJS onclick}() {
             navigator.id.watch({
                 onlogin: function (assertion) {
                     if (assertion) {
-                        document.location = "@{toMaster complete}/" + assertion;
+                        document.location = #{toJSON $ toMaster complete} + "/" + assertion;
                     }
                 },
                 onlogout: function () {}

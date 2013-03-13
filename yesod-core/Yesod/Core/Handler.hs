@@ -417,7 +417,7 @@ setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessageI :: (HandlerState m, RenderMessage (HandlerSite m) msg)
+setMessageI :: (HandlerState m, RenderMessage (HandlerMaster m) msg)
             => msg -> m ()
 setMessageI msg = do
     mr <- getMessageRender
@@ -490,7 +490,7 @@ permissionDenied :: HandlerError m => Text -> m a
 permissionDenied = hcError . PermissionDenied
 
 -- | Return a 403 permission denied page.
-permissionDeniedI :: (RenderMessage (HandlerSite m) msg, HandlerError m)
+permissionDeniedI :: (RenderMessage (HandlerMaster m) msg, HandlerError m)
                   => msg
                   -> m a
 permissionDeniedI msg = do
@@ -502,7 +502,7 @@ invalidArgs :: HandlerError m => [Text] -> m a
 invalidArgs = hcError . InvalidArgs
 
 -- | Return a 400 invalid arguments page.
-invalidArgsI :: (HandlerError m, RenderMessage (HandlerSite m) msg) => [msg] -> m a
+invalidArgsI :: (HandlerError m, RenderMessage (HandlerMaster m) msg) => [msg] -> m a
 invalidArgsI msg = do
     mr <- getMessageRender
     invalidArgs $ map mr msg
@@ -693,12 +693,12 @@ giveUrlRenderer f = do
 waiRequest :: HandlerReader m => m W.Request
 waiRequest = reqWaiRequest `liftM` getRequest
 
-getMessageRender :: (HandlerReader m, RenderMessage (HandlerSite m) message)
+getMessageRender :: (HandlerReader m, RenderMessage (HandlerMaster m) message)
                  => m (message -> Text)
 getMessageRender = do
-    m <- getYesod
+    env <- askHandlerEnvMaster
     l <- reqLangs `liftM` getRequest
-    return $ renderMessage m l
+    return $ renderMessage (rheSite env) l
 
 -- | Use a per-request cache to avoid performing the same action multiple
 -- times. Note that values are stored by their type. Therefore, you should use

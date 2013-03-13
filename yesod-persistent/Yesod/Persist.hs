@@ -16,17 +16,17 @@ import Control.Monad.Trans.Class (MonadTrans)
 
 import Yesod.Core
 
-type YesodDB sub master = YesodPersistBackend master (GHandler sub master)
+type YesodDB site = YesodPersistBackend site (GHandler site)
 
-class YesodPersist master where
-    type YesodPersistBackend master :: (* -> *) -> * -> *
-    runDB :: YesodDB sub master a -> GHandler sub master a
+class YesodPersist site where
+    type YesodPersistBackend site :: (* -> *) -> * -> *
+    runDB :: YesodDB site a -> GHandler site a
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
 get404 :: ( PersistStore (t m)
           , PersistEntity val
           , Monad (t m)
-          , m ~ GHandler sub master
+          , m ~ GHandler site
           , MonadTrans t
           , PersistMonadBackend (t m) ~ PersistEntityBackend val
           )
@@ -41,7 +41,7 @@ get404 key = do
 --   exist.
 getBy404 :: ( PersistUnique (t m)
             , PersistEntity val
-            , m ~ GHandler sub master
+            , m ~ GHandler site
             , Monad (t m)
             , MonadTrans t
             , PersistEntityBackend val ~ PersistMonadBackend (t m)

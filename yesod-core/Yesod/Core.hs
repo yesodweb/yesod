@@ -50,6 +50,9 @@ module Yesod.Core
       -- * Subsites
     , defaultLayoutT
     , MonadHandler (..)
+    , HandlerReader (..)
+    , HandlerState (..)
+    , HandlerError (..)
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -121,7 +124,7 @@ defaultLayoutT :: ( HandlerSite m ~ sub
 defaultLayoutT (GWidget (GHandler f)) = do
     hd <- askHandlerData
     ((), gwdata) <- liftResourceT $ f hd
-    liftHandler $ defaultLayout $ GWidget $ return ((), renderGWData (rheRender $ handlerEnv hd) gwdata)
+    liftHandlerMaster $ defaultLayout $ GWidget $ return ((), renderGWData (rheRender $ handlerEnv hd) gwdata)
 
 renderGWData :: (x -> [(Text, Text)] -> Text) -> GWData x -> GWData y
 renderGWData render gwd = GWData

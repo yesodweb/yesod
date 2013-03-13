@@ -9,23 +9,22 @@ module Yesod.Auth.Dummy
 
 import Yesod.Auth
 import Yesod.Form (runInputPost, textField, ireq)
-import Yesod.Handler (notFound)
 import Text.Hamlet (hamlet)
-import Yesod.Widget (toWidget)
+import Yesod.Core
 
 authDummy :: YesodAuth m => AuthPlugin m
 authDummy =
     AuthPlugin "dummy" dispatch login
   where
     dispatch "POST" [] = do
-        ident <- runInputPost $ ireq textField "ident"
+        ident <- lift $ runInputPost $ ireq textField "ident"
         setCreds True $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
     login authToMaster =
         toWidget [hamlet|
 $newline never
-<form method="post" action="@{authToMaster url}">
+<form method="post" action="#{authToMaster url}">
     Your new identifier is: #
     <input type="text" name="ident">
     <input type="submit" value="Dummy Login">

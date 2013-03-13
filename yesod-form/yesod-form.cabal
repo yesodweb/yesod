@@ -37,6 +37,7 @@ library
                    , attoparsec            >= 0.10
                    , crypto-api            >= 0.8
                    , aeson
+                   , resourcet
 
     exposed-modules: Yesod.Form
                      Yesod.Form.Class

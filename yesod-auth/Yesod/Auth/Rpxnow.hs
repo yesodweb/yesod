@@ -12,7 +12,7 @@ import Control.Monad (mplus)
 
 import Yesod.Core
 import Text.Hamlet (hamlet)
-import Data.Text (pack, unpack)
+import Data.Text (pack, unpack, Text)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Control.Arrow ((***))
@@ -26,13 +26,12 @@ authRpxnow app apiKey =
     AuthPlugin "rpxnow" dispatch login
   where
     login ::
-        forall sub master.
-        ToWidget sub master (GWidget sub master ())
-        => (Route Auth -> Route master) -> GWidget sub master ()
+        forall master.
+        ToWidget master (GWidget master ())
+        => (Route Auth -> Text) -> GWidget master ()
     login tm = do
-        render <- lift getUrlRender
         let queryString = decodeUtf8With lenientDecode
-                        $ renderQuery True [("token_url", Just $ encodeUtf8 $ render $ tm $ PluginR "rpxnow" [])]
+                        $ renderQuery True [("token_url", Just $ encodeUtf8 $ tm $ PluginR "rpxnow" [])]
         toWidget [hamlet|
 $newline never
 <iframe src="http://#{app}.rpxnow.com/openid/embed#{queryString}" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px">
@@ -43,7 +42,7 @@ $newline never
         token <- case token1 ++ token2 of
                         [] -> invalidArgs ["token: Value not supplied"]
                         x:_ -> return $ unpack x
-        master <- getYesod
+        master <- lift getYesod
         Rpxnow.Identifier ident extra <- lift $ Rpxnow.authenticate apiKey token (authHttpManager master)
         let creds =
                 Creds "rpxnow" ident

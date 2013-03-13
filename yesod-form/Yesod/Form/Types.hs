@@ -80,26 +80,26 @@ type Env = Map.Map Text [Text]
 type FileEnv = Map.Map Text [FileInfo]
 
 type Lang = Text
-type MForm sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GHandler sub master) a
+type MForm site a = RWST (Maybe (Env, FileEnv), site, [Lang]) Enctype Ints (GHandler site) a
 
-newtype AForm sub master a = AForm
-    { unAForm :: (master, [Text]) -> Maybe (Env, FileEnv) -> Ints -> GHandler sub master (FormResult a, [FieldView sub master] -> [FieldView sub master], Ints, Enctype)
+newtype AForm site a = AForm
+    { unAForm :: (site, [Text]) -> Maybe (Env, FileEnv) -> Ints -> GHandler site (FormResult a, [FieldView site] -> [FieldView site], Ints, Enctype)
     }
-instance Functor (AForm sub master) where
+instance Functor (AForm site) where
     fmap f (AForm a) =
         AForm $ \x y z -> liftM go $ a x y z
       where
         go (w, x, y, z) = (fmap f w, x, y, z)
-instance Applicative (AForm sub master) where
+instance Applicative (AForm site) where
     pure x = AForm $ const $ const $ \ints -> return (FormSuccess x, mempty, ints, mempty)
     (AForm f) <*> (AForm g) = AForm $ \mr env ints -> do
         (a, b, ints', c) <- f mr env ints
         (x, y, ints'', z) <- g mr env ints'
         return (a <*> x, b `mappend` y, ints'', c `mappend` z)
-instance Monoid a => Monoid (AForm sub master a) where
+instance Monoid a => Monoid (AForm site a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
-instance MonadLift (GHandler sub master) (AForm sub master) where
+instance MonadLift (GHandler site) (AForm site) where
     lift f = AForm $ \_ _ ints -> do
         x <- f
         return (FormSuccess x, id, ints, mempty)
@@ -115,26 +115,26 @@ data FieldSettings master = FieldSettings
 instance IsString (FieldSettings a) where
     fromString s = FieldSettings (fromString s) Nothing Nothing Nothing []
 
-data FieldView sub master = FieldView
+data FieldView site = FieldView
     { fvLabel :: Html
     , fvTooltip :: Maybe Html
     , fvId :: Text
-    , fvInput :: GWidget sub master ()
+    , fvInput :: GWidget site ()
     , fvErrors :: Maybe Html
     , fvRequired :: Bool
     }
 
-type FieldViewFunc sub master a
+type FieldViewFunc site a
     = Text -- ^ ID
    -> Text -- ^ Name
    -> [(Text, Text)] -- ^ Attributes
    -> Either Text a -- ^ Either (invalid text) or (legitimate result)
    -> Bool -- ^ Required?
-   -> GWidget sub master ()
+   -> GWidget site ()
 
-data Field sub master a = Field
-    { fieldParse :: [Text] -> [FileInfo] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
-    , fieldView :: FieldViewFunc sub master a
+data Field site a = Field
+    { fieldParse :: [Text] -> [FileInfo] -> GHandler site (Either (SomeMessage site) (Maybe a))
+    , fieldView :: FieldViewFunc site a
     , fieldEnctype :: Enctype
     }
 

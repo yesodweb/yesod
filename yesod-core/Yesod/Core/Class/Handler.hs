@@ -19,6 +19,7 @@ class Monad m => HandlerReader m where
 
     askYesodRequest :: m YesodRequest
     askHandlerEnv :: m (RunHandlerEnv (HandlerSite m))
+    askHandlerEnvMaster :: m (RunHandlerEnv (HandlerMaster m))
 
 instance HandlerReader (GHandler site) where
     type HandlerSite (GHandler site) = site
@@ -26,6 +27,7 @@ instance HandlerReader (GHandler site) where
 
     askYesodRequest = GHandler $ return . handlerRequest
     askHandlerEnv = GHandler $ return . handlerEnv
+    askHandlerEnvMaster = GHandler $ return . handlerEnv
 
 instance HandlerReader m => HandlerReader (HandlerT site m) where
     type HandlerSite (HandlerT site m) = site
@@ -33,6 +35,7 @@ instance HandlerReader m => HandlerReader (HandlerT site m) where
 
     askYesodRequest = HandlerT $ return . handlerRequest
     askHandlerEnv = HandlerT $ return . handlerEnv
+    askHandlerEnvMaster = lift askHandlerEnvMaster
 
 instance HandlerReader (GWidget site) where
     type HandlerSite (GWidget site) = site
@@ -40,6 +43,7 @@ instance HandlerReader (GWidget site) where
 
     askYesodRequest = lift askYesodRequest
     askHandlerEnv = lift askHandlerEnv
+    askHandlerEnvMaster = lift askHandlerEnvMaster
 
 class HandlerReader m => HandlerState m where
     stateGHState :: (GHState -> (a, GHState)) -> m a

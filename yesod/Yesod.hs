@@ -67,12 +67,12 @@ readIntegral s =
 
 -- | A convenience method to run an application using the Warp webserver on the
 -- specified port. Automatically calls 'toWaiApp'.
-warp :: (Yesod a, YesodDispatch a a) => Int -> a -> IO ()
+warp :: YesodDispatch site => Int -> site -> IO ()
 warp port a = toWaiApp a >>= run port
 
 -- | Same as 'warp', but also sends a message to stdout for each request, and
 -- an \"application launched\" message as well. Can be useful for development.
-warpDebug :: (Yesod a, YesodDispatch a a) => Int -> a -> IO ()
+warpDebug :: YesodDispatch site => Int -> site -> IO ()
 warpDebug port app = do
   hPutStrLn stderr $ "Application launched, listening on port " ++ show port
   waiApp <- toWaiApp app
@@ -85,7 +85,7 @@ warpDebug port app = do
 -- Note that the exact behavior of this function may be modified slightly over
 -- time to work correctly with external tools, without a change to the type
 -- signature.
-warpEnv :: (Yesod a, YesodDispatch a a) => a -> IO ()
+warpEnv :: YesodDispatch site => site -> IO ()
 warpEnv master = do
     port <- getEnv "PORT" >>= readIO
     app <- toWaiApp master

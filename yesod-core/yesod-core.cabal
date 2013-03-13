@@ -95,6 +95,7 @@ library
                      Yesod.Core.Json
                      Yesod.Core.Widget
                      Yesod.Core.Internal
+                     Yesod.Core.Types
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
                      Yesod.Core.Class.Handler
@@ -105,7 +106,6 @@ library
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs
-                     Yesod.Core.Types
                      Yesod.Core.Types.Orphan
                      Paths_yesod_core
     ghc-options:     -Wall
