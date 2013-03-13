@@ -3,6 +3,7 @@
 module YesodCoreTest.NoOverloadedStrings (noOverloadedTest, Widget) where
 
 import Test.Hspec
+import YesodCoreTest.NoOverloadedStringsSub
 
 import Yesod.Core
 import Network.Wai
@@ -11,17 +12,17 @@ import Data.Monoid (mempty)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as L8
 
-data Subsite = Subsite
-
 getSubsite :: a -> Subsite
 getSubsite = const Subsite
 
-mkYesodSub "Subsite" [] [parseRoutes|
-/bar BarR GET
-|]
+instance YesodSubDispatch Subsite (GHandler master master) where
+    yesodSubDispatch = $(mkYesodSubDispatch resourcesSubsite)
 
 getBarR :: Monad m => m T.Text
 getBarR = return $ T.pack "BarR"
+
+getBazR :: Yesod master => HandlerT Subsite (GHandler master master) RepHtml
+getBazR = lift $ defaultLayout [whamlet|Used Default Layout|]
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
@@ -54,7 +55,16 @@ case_subsite = runner $ do
     assertBody (L8.pack "BarR") res
     assertStatus 200 res
 
+case_deflayout :: IO ()
+case_deflayout = runner $ do
+    res <- request defaultRequest
+        { pathInfo = map T.pack ["subsite", "baz"]
+        }
+    assertBodyContains (L8.pack "Used Default Layout") res
+    assertStatus 200 res
+
 noOverloadedTest :: Spec
 noOverloadedTest = describe "Test.NoOverloadedStrings" $ do
       it "sanity" case_sanity
       it "subsite" case_subsite
+      it "deflayout" case_deflayout
