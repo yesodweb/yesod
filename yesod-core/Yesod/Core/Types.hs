@@ -14,6 +14,7 @@ import           Control.Exception                  (Exception, throwIO)
 import           Control.Failure                    (Failure (..))
 import           Control.Monad                      (liftM)
 import           Control.Monad.Trans.Class          (MonadTrans)
+import qualified Control.Monad.Trans.Class          as Trans
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
@@ -202,7 +203,6 @@ newtype HandlerT sub m a = HandlerT
     { unHandlerT :: HandlerData sub sub -> m a
     }
 
-instance MonadTrans (HandlerT sub)
 instance Monad m => Monad (HandlerT sub m) where
     return = HandlerT . const . return
     HandlerT f >>= g = HandlerT $ \hd -> f hd >>= \x -> unHandlerT (g x) hd

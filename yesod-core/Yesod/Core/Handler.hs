@@ -22,6 +22,7 @@
 module Yesod.Core.Handler
     ( -- * Handler monad
       GHandler
+    , HandlerT
       -- ** Read information from handler
     , getYesod
     , getYesodSub
@@ -169,6 +170,7 @@ import           Data.Maybe                    (listToMaybe)
 import           Data.Typeable                 (Typeable, typeOf)
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
+import           Yesod.Core.Types.Orphan ()
 import           Yesod.Routes.Class            (Route)
 
 get :: HandlerState m => m GHState

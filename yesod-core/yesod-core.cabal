@@ -106,6 +106,7 @@ library
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs
                      Yesod.Core.Types
+                     Yesod.Core.Types.Orphan
                      Paths_yesod_core
     ghc-options:     -Wall
 

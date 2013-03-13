@@ -86,8 +86,8 @@ mkYesodSub name clazzes =
 mkYesodData :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodData name res = mkYesodDataGeneral name [] False res
 
-mkYesodSubData :: String -> Cxt -> [ResourceTree String] -> Q [Dec]
-mkYesodSubData name clazzes res = mkYesodDataGeneral name clazzes True res
+mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
+mkYesodSubData name res = mkYesodDataGeneral name [] True res
 
 mkYesodDataGeneral :: String -> Cxt -> Bool -> [ResourceTree String] -> Q [Dec]
 mkYesodDataGeneral name clazzes isSub res = do
@@ -104,10 +104,6 @@ mkYesodDataGeneral name clazzes isSub res = do
 mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
 
-mkYesodSubDispatch :: String -> Cxt -> [ResourceTree String] -> Q [Dec]
-mkYesodSubDispatch name clazzes = fmap snd . mkYesodGeneral name' rest clazzes True 
-  where (name':rest) = words name
-
 mkYesodGeneral :: String                   -- ^ foundation type
                -> [String]                 -- ^ arguments for the type
                -> Cxt                      -- ^ the type constraints
@@ -122,7 +118,7 @@ mkYesodGeneral name args clazzes isSub resS = do
      dispatchDec    <- mkDispatchInstance context (if isSub then Just sub else Nothing) master res
      return (renderRouteDec ++ masterTypeSyns, dispatchDec)
   where sub     = foldl appT subCons subArgs
-        master  = if isSub then (varT $ mkName "master") else sub
+        master  = if isSub then (varT $ mkName "m") else sub
         context = if isSub then cxt $ yesod : map return clazzes
                            else return []
         yesod   = classP ''HandlerReader [master]
@@ -142,7 +138,7 @@ mkDispatchInstance :: CxtQ                -- ^ The context
                    -> TypeQ               -- ^ The master site type
                    -> [ResourceTree a]    -- ^ The resource
                    -> DecsQ
-mkDispatchInstance context Nothing master res = do
+mkDispatchInstance context _sub master res = do
   let yDispatch = conT ''YesodDispatch `appT` master `appT` master
       thisDispatch = do
             clause' <- mkDispatchClause MkDispatchSettings
@@ -156,8 +152,10 @@ mkDispatchInstance context Nothing master res = do
                 } res
             return $ FunD 'yesodDispatch [clause']
    in sequence [instanceD context yDispatch [thisDispatch]]
-mkDispatchInstance context (Just sub) master res = do
-    yDispatch <- conT ''YesodSubDispatch `appT` sub `appT` master
+
+
+mkYesodSubDispatch :: [ResourceTree String] -> Q Exp
+mkYesodSubDispatch res = do
     parentRunner <- newName "parentRunner"
     getSub <- newName "getSub"
     toMaster <- newName "toMaster"
@@ -177,7 +175,6 @@ mkDispatchInstance context (Just sub) master res = do
         , mds405 = [|badMethod >> return ()|]
         } res
     inner <- newName "inner"
-    err <- [|error "FIXME"|]
     let innerFun = FunD inner [clause']
         runnerFun = FunD runner
             [ Clause
@@ -189,14 +186,14 @@ mkDispatchInstance context (Just sub) master res = do
                 )
                 []
             ]
-    context' <- context
-    let fun = FunD 'yesodSubDispatch
+    helper <- newName "helper"
+    let fun = FunD helper
                 [ Clause
                     [VarP parentRunner, VarP getSub, VarP toMaster]
                     (NormalB $ VarE inner)
                     [innerFun, runnerFun]
                 ]
-    return [InstanceD context' yDispatch [fun]]
+    return $ LetE [fun] (VarE helper)
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This is the same as 'toWaiAppPlain', except it includes two
