@@ -14,5 +14,5 @@ import Network.Wai.Test
 import Network.Wai
 import Test.Hspec
 
-yesod :: (YesodDispatch y y, Yesod y) => y -> Session a -> IO a
+yesod :: YesodDispatch y => y -> Session a -> IO a
 yesod app f = toWaiApp app >>= runSession f

@@ -15,16 +15,16 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 getSubsite :: a -> Subsite
 getSubsite = const Subsite
 
-instance YesodSubDispatch Subsite (GHandler master master) where
+instance YesodSubDispatch Subsite (GHandler master) where
     yesodSubDispatch = $(mkYesodSubDispatch resourcesSubsite)
 
 getBarR :: Monad m => m T.Text
 getBarR = return $ T.pack "BarR"
 
-getBazR :: Yesod master => HandlerT Subsite (GHandler master master) RepHtml
+getBazR :: Yesod master => HandlerT Subsite (GHandler master) RepHtml
 getBazR = lift $ defaultLayout [whamlet|Used Default Layout|]
 
-getBinR :: MonadHandlerBase m => HandlerT Subsite m RepHtml
+getBinR :: MonadHandler m => HandlerT Subsite m RepHtml
 getBinR = defaultLayoutT
     [whamlet|
         <p>Used defaultLayoutT

@@ -25,12 +25,9 @@ module Yesod.Core.Handler
     , HandlerT
       -- ** Read information from handler
     , getYesod
-    , getYesodSub
     , getUrlRender
     , getUrlRenderParams
     , getCurrentRoute
-    , getCurrentRouteSub
-    , getRouteToMaster
     , getRequest
     , waiRequest
     , runRequestBody
@@ -132,7 +129,7 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
 
 import           Control.Applicative           ((<$>), (<|>))
 
-import           Control.Monad                 (ap, liftM)
+import           Control.Monad                 (liftM)
 import qualified Control.Monad.Trans.Writer    as Writer
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
@@ -233,16 +230,12 @@ rbHelper' backend mkFI req =
             | otherwise = a'
     go = decodeUtf8With lenientDecode
 
--- | Get the sub application argument.
-getYesodSub :: HandlerReader m => m (HandlerSub m)
-getYesodSub = rheSub `liftM` askHandlerEnv
-
 -- | Get the master site appliation argument.
-getYesod :: HandlerReader m => m (HandlerMaster m)
-getYesod = rheMaster `liftM` askHandlerEnv
+getYesod :: HandlerReader m => m (HandlerSite m)
+getYesod = rheSite `liftM` askHandlerEnv
 
 -- | Get the URL rendering function.
-getUrlRender :: HandlerReader m => m (Route (HandlerMaster m) -> Text)
+getUrlRender :: HandlerReader m => m (Route (HandlerSite m) -> Text)
 getUrlRender = do
     x <- rheRender `liftM` askHandlerEnv
     return $ flip x []
@@ -250,23 +243,13 @@ getUrlRender = do
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
     :: HandlerReader m
-    => m (Route (HandlerMaster m) -> [(Text, Text)] -> Text)
+    => m (Route (HandlerSite m) -> [(Text, Text)] -> Text)
 getUrlRenderParams = rheRender `liftM` askHandlerEnv
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
-getCurrentRoute :: HandlerReader m => m (Maybe (Route (HandlerMaster m)))
-getCurrentRoute = fmap `liftM` getRouteToMaster `ap` getCurrentRouteSub
-
--- | Same as 'getCurrentRoute', but for the subsite.
-getCurrentRouteSub :: HandlerReader m => m (Maybe (Route (HandlerSub m)))
-getCurrentRouteSub = rheRoute `liftM` askHandlerEnv
-
--- | Get the function to promote a route for a subsite to a route for the
--- master site.
-getRouteToMaster :: HandlerReader m => m (Route (HandlerSub m) -> Route (HandlerMaster m))
-getRouteToMaster = rheToMaster `liftM` askHandlerEnv
-
+getCurrentRoute :: HandlerReader m => m (Maybe (Route (HandlerSite m)))
+getCurrentRoute = rheRoute `liftM` askHandlerEnv
 
 -- | Returns a function that runs 'GHandler' actions inside @IO@.
 --
@@ -304,7 +287,7 @@ getRouteToMaster = rheToMaster `liftM` askHandlerEnv
 -- This allows the inner 'GHandler' to outlive the outer
 -- 'GHandler' (e.g., on the @forkIO@ example above, a response
 -- may be sent to the client without killing the new thread).
-handlerToIO :: MonadIO m => GHandler sub master (GHandler sub master a -> m a)
+handlerToIO :: MonadIO m => GHandler site (GHandler site a -> m a)
 handlerToIO =
   GHandler $ \oldHandlerData -> do
     -- Let go of the request body, cache and response headers.
@@ -344,7 +327,7 @@ handlerToIO =
 --
 -- If you want direct control of the final status code, or need a different
 -- status code, please use 'redirectWith'.
-redirect :: (HandlerError m, RedirectUrl (HandlerMaster m) url, HandlerReader m)
+redirect :: (HandlerError m, RedirectUrl (HandlerSite m) url, HandlerReader m)
          => url -> m a
 redirect url = do
     req <- waiRequest
@@ -355,7 +338,7 @@ redirect url = do
     redirectWith status url
 
 -- | Redirect to the given URL with the specified status code.
-redirectWith :: (HandlerError m, RedirectUrl (HandlerMaster m) url, HandlerReader m)
+redirectWith :: (HandlerError m, RedirectUrl (HandlerSite m) url, HandlerReader m)
              => H.Status
              -> url
              -> m a
@@ -370,7 +353,7 @@ ultDestKey = "_ULT"
 --
 -- An ultimate destination is stored in the user session and can be loaded
 -- later by 'redirectUltDest'.
-setUltDest :: (HandlerState m, RedirectUrl (HandlerMaster m) url)
+setUltDest :: (HandlerState m, RedirectUrl (HandlerSite m) url)
            => url
            -> m ()
 setUltDest url = do
@@ -410,7 +393,7 @@ setUltDestReferer = do
 --
 -- This function uses 'redirect', and thus will perform a temporary redirect to
 -- a GET request.
-redirectUltDest :: (RedirectUrl (HandlerMaster m) url, HandlerState m, HandlerError m)
+redirectUltDest :: (RedirectUrl (HandlerSite m) url, HandlerState m, HandlerError m)
                 => url -- ^ default destination if nothing in session
                 -> m a
 redirectUltDest def = do
@@ -434,7 +417,7 @@ setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessageI :: (HandlerState m, RenderMessage (HandlerMaster m) msg)
+setMessageI :: (HandlerState m, RenderMessage (HandlerSite m) msg)
             => msg -> m ()
 setMessageI msg = do
     mr <- getMessageRender
@@ -479,7 +462,7 @@ sendResponseStatus s = handlerError . HCContent s . toTypedContent
 
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
-sendResponseCreated :: HandlerError m => Route (HandlerMaster m) -> m a
+sendResponseCreated :: HandlerError m => Route (HandlerSite m) -> m a
 sendResponseCreated url = do
     r <- getUrlRender
     handlerError $ HCCreated $ r url
@@ -507,7 +490,7 @@ permissionDenied :: HandlerError m => Text -> m a
 permissionDenied = hcError . PermissionDenied
 
 -- | Return a 403 permission denied page.
-permissionDeniedI :: (RenderMessage (HandlerMaster m) msg, HandlerError m)
+permissionDeniedI :: (RenderMessage (HandlerSite m) msg, HandlerError m)
                   => msg
                   -> m a
 permissionDeniedI msg = do
@@ -519,7 +502,7 @@ invalidArgs :: HandlerError m => [Text] -> m a
 invalidArgs = hcError . InvalidArgs
 
 -- | Return a 400 invalid arguments page.
-invalidArgsI :: (HandlerError m, RenderMessage (HandlerMaster m) msg) => [msg] -> m a
+invalidArgsI :: (HandlerError m, RenderMessage (HandlerSite m) msg) => [msg] -> m a
 invalidArgsI msg = do
     mr <- getMessageRender
     invalidArgs $ map mr msg
@@ -623,7 +606,7 @@ addHeader = tell . Endo . (:)
 -- | Some value which can be turned into a URL for redirects.
 class RedirectUrl master a where
     -- | Converts the value to the URL and a list of query-string parameters.
-    toTextUrl :: (HandlerReader m, HandlerMaster m ~ master) => a -> m Text
+    toTextUrl :: (HandlerReader m, HandlerSite m ~ master) => a -> m Text
 
 instance RedirectUrl master Text where
     toTextUrl = return
@@ -672,7 +655,7 @@ newIdent = do
 -- POST form, and some Javascript to automatically submit the form. This can be
 -- useful when you need to post a plain link somewhere that needs to cause
 -- changes on the server.
-redirectToPost :: (HandlerError m, RedirectUrl (HandlerMaster m) url)
+redirectToPost :: (HandlerError m, RedirectUrl (HandlerSite m) url)
                => url
                -> m a
 redirectToPost url = do
@@ -692,7 +675,7 @@ $doctype 5
 |] >>= sendResponse
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-hamletToRepHtml :: HandlerReader m => HtmlUrl (Route (HandlerMaster m)) -> m Html
+hamletToRepHtml :: HandlerReader m => HtmlUrl (Route (HandlerSite m)) -> m Html
 hamletToRepHtml = giveUrlRenderer
 
 -- | Provide a URL rendering function to the given function and return the
@@ -700,7 +683,7 @@ hamletToRepHtml = giveUrlRenderer
 --
 -- Since 1.2.0
 giveUrlRenderer :: HandlerReader m
-                => ((Route (HandlerMaster m) -> [(Text, Text)] -> Text) -> output)
+                => ((Route (HandlerSite m) -> [(Text, Text)] -> Text) -> output)
                 -> m output
 giveUrlRenderer f = do
     render <- getUrlRenderParams
@@ -710,7 +693,7 @@ giveUrlRenderer f = do
 waiRequest :: HandlerReader m => m W.Request
 waiRequest = reqWaiRequest `liftM` getRequest
 
-getMessageRender :: (HandlerReader m, RenderMessage (HandlerMaster m) message)
+getMessageRender :: (HandlerReader m, RenderMessage (HandlerSite m) message)
                  => m (message -> Text)
 getMessageRender = do
     m <- getYesod

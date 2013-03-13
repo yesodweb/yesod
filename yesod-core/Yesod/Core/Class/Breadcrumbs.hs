@@ -8,14 +8,14 @@ import Data.Text (Text)
 -- | A type-safe, concise method of creating breadcrumbs for pages. For each
 -- resource, you declare the title of the page and the parent resource (if
 -- present).
-class YesodBreadcrumbs y where
+class YesodBreadcrumbs site where
     -- | Returns the title and the parent resource, if available. If you return
     -- a 'Nothing', then this is considered a top-level page.
-    breadcrumb :: Route y -> GHandler sub y (Text , Maybe (Route y))
+    breadcrumb :: Route site -> GHandler site (Text , Maybe (Route site))
 
 -- | Gets the title of the current page and the hierarchy of parent pages,
 -- along with their respective titles.
-breadcrumbs :: YesodBreadcrumbs y => GHandler sub y (Text, [(Route y, Text)])
+breadcrumbs :: YesodBreadcrumbs site => GHandler site (Text, [(Route site, Text)])
 breadcrumbs = do
     x <- getCurrentRoute
     case x of

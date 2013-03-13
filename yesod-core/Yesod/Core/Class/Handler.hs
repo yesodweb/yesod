@@ -5,35 +5,38 @@
 module Yesod.Core.Class.Handler where
 
 import Yesod.Core.Types
+import Yesod.Core.Types.Orphan ()
 import Yesod.Core.Class.MonadLift (lift)
 import Control.Monad.Trans.Class (MonadTrans)
+import Control.Monad.Trans.Resource
+import Control.Monad.Trans.Control
 import Data.IORef.Lifted (atomicModifyIORef)
 import Control.Exception.Lifted (throwIO)
 
 class Monad m => HandlerReader m where
-    type HandlerSub m
+    type HandlerSite m
     type HandlerMaster m
 
     askYesodRequest :: m YesodRequest
-    askHandlerEnv :: m (RunHandlerEnv (HandlerSub m) (HandlerMaster m))
+    askHandlerEnv :: m (RunHandlerEnv (HandlerSite m))
 
-instance HandlerReader (GHandler sub master) where
-    type HandlerSub (GHandler sub master) = sub
-    type HandlerMaster (GHandler sub master) = master
+instance HandlerReader (GHandler site) where
+    type HandlerSite (GHandler site) = site
+    type HandlerMaster (GHandler site) = site
 
     askYesodRequest = GHandler $ return . handlerRequest
     askHandlerEnv = GHandler $ return . handlerEnv
 
-instance HandlerReader (GWidget sub master) where
-    type HandlerSub (GWidget sub master) = sub
-    type HandlerMaster (GWidget sub master) = master
+instance HandlerReader m => HandlerReader (HandlerT site m) where
+    type HandlerSite (HandlerT site m) = site
+    type HandlerMaster (HandlerT site m) = HandlerMaster m
 
-    askYesodRequest = lift askYesodRequest
-    askHandlerEnv = lift askHandlerEnv
+    askYesodRequest = HandlerT $ return . handlerRequest
+    askHandlerEnv = HandlerT $ return . handlerEnv
 
-instance (MonadTrans t, HandlerReader m, Monad (t m)) => HandlerReader (t m) where
-    type HandlerSub (t m) = HandlerSub m
-    type HandlerMaster (t m) = HandlerMaster m
+instance HandlerReader (GWidget site) where
+    type HandlerSite (GWidget site) = site
+    type HandlerMaster (GWidget site) = site
 
     askYesodRequest = lift askYesodRequest
     askHandlerEnv = lift askHandlerEnv
@@ -47,26 +50,26 @@ class HandlerReader m => HandlerState m where
     putGHState :: GHState -> m ()
     putGHState s = stateGHState $ const ((), s)
 
-instance HandlerState (GHandler sub master) where
+instance HandlerState (GHandler site) where
     stateGHState f =
         GHandler $ flip atomicModifyIORef f' . handlerState
       where
         f' z = let (x, y) = f z in (y, x)
 
-instance HandlerState (GWidget sub master) where
+instance HandlerState (GWidget site) where
     stateGHState = lift . stateGHState
 
-instance (MonadTrans t, HandlerState m, Monad (t m)) => HandlerState (t m) where
+instance HandlerState m => HandlerState (HandlerT site m) where
     stateGHState = lift . stateGHState
 
 class HandlerReader m => HandlerError m where
     handlerError :: HandlerContents -> m a
 
-instance HandlerError (GHandler sub master) where
+instance HandlerError (GHandler site) where
     handlerError = throwIO
 
-instance HandlerError (GWidget sub master) where
+instance HandlerError (GWidget site) where
     handlerError = lift . handlerError
 
-instance (HandlerError m, MonadTrans t, Monad (t m)) => HandlerError (t m) where
+instance HandlerError m => HandlerError (HandlerT site m) where
     handlerError = lift . handlerError

@@ -25,8 +25,6 @@ module Yesod.Core.Widget
       -- ** Head of page
     , setTitle
     , setTitleI
-      -- ** Body
-    , addSubWidget
       -- ** CSS
     , addStylesheet
     , addStylesheetAttrs
@@ -70,121 +68,109 @@ import Yesod.Core.Types
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
 
-addSubWidget :: (Route sub -> Route master) -> sub -> GWidget sub master a -> GWidget sub' master a
-addSubWidget toMaster sub (GWidget (GHandler f)) =
-    GWidget $ GHandler $ f . modHD
-  where
-    modHD hd = hd
-        { handlerEnv = (handlerEnv hd)
-            { rheRoute = Nothing
-            , rheSub = sub
-            , rheToMaster = toMaster
-            }
-        }
+class ToWidget site a where
+    toWidget :: a -> GWidget site ()
 
-class ToWidget sub master a where
-    toWidget :: a -> GWidget sub master ()
-
-instance render ~ RY master => ToWidget sub master (render -> Html) where
+instance render ~ RY site => ToWidget site (render -> Html) where
     toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
-instance render ~ RY master => ToWidget sub master (render -> Css) where
+instance render ~ RY site => ToWidget site (render -> Css) where
     toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . x
-instance render ~ RY master => ToWidget sub master (render -> CssBuilder) where
+instance render ~ RY site => ToWidget site (render -> CssBuilder) where
     toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
-instance render ~ RY master => ToWidget sub master (render -> Javascript) where
+instance render ~ RY site => ToWidget site (render -> Javascript) where
     toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
-instance (sub' ~ sub, master' ~ master) => ToWidget sub' master' (GWidget sub master ()) where
+instance (site' ~ site) => ToWidget site' (GWidget site ()) where
     toWidget = id
-instance ToWidget sub master Html where
+instance ToWidget site Html where
     toWidget = toWidget . const
 
 -- | Allows adding some CSS to the page with a specific media type.
 --
 -- Since 1.2
-class ToWidgetMedia sub master a where
+class ToWidgetMedia site a where
     -- | Add the given content to the page, but only for the given media type.
     --
     -- Since 1.2
     toWidgetMedia :: Text -- ^ media value
                   -> a
-                  -> GWidget sub master ()
-instance render ~ RY master => ToWidgetMedia sub master (render -> Css) where
+                  -> GWidget site ()
+instance render ~ RY site => ToWidgetMedia site (render -> Css) where
     toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . x
-instance render ~ RY master => ToWidgetMedia sub master (render -> CssBuilder) where
+instance render ~ RY site => ToWidgetMedia site (render -> CssBuilder) where
     toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
 
-class ToWidgetBody sub master a where
-    toWidgetBody :: a -> GWidget sub master ()
+class ToWidgetBody site a where
+    toWidgetBody :: a -> GWidget site ()
 
-instance render ~ RY master => ToWidgetBody sub master (render -> Html) where
+instance render ~ RY site => ToWidgetBody site (render -> Html) where
     toWidgetBody = toWidget
-instance render ~ RY master => ToWidgetBody sub master (render -> Javascript) where
+instance render ~ RY site => ToWidgetBody site (render -> Javascript) where
     toWidgetBody j = toWidget $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
-instance ToWidgetBody sub master Html where
+instance ToWidgetBody site Html where
     toWidgetBody = toWidget
 
-class ToWidgetHead sub master a where
-    toWidgetHead :: a -> GWidget sub master ()
+class ToWidgetHead site a where
+    toWidgetHead :: a -> GWidget site ()
 
-instance render ~ RY master => ToWidgetHead sub master (render -> Html) where
+instance render ~ RY site => ToWidgetHead site (render -> Html) where
     toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
-instance render ~ RY master => ToWidgetHead sub master (render -> Css) where
+instance render ~ RY site => ToWidgetHead site (render -> Css) where
     toWidgetHead = toWidget
-instance render ~ RY master => ToWidgetHead sub master (render -> CssBuilder) where
+instance render ~ RY site => ToWidgetHead site (render -> CssBuilder) where
     toWidgetHead = toWidget
-instance render ~ RY master => ToWidgetHead sub master (render -> Javascript) where
+instance render ~ RY site => ToWidgetHead site (render -> Javascript) where
     toWidgetHead j = toWidgetHead $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
-instance ToWidgetHead sub master Html where
+instance ToWidgetHead site Html where
     toWidgetHead = toWidgetHead . const
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitle :: Html -> GWidget sub master ()
+setTitle :: Html -> GWidget site ()
 setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitleI :: RenderMessage master msg => msg -> GWidget sub master ()
+setTitleI :: RenderMessage site msg => msg -> GWidget site ()
 setTitleI msg = do
     mr <- lift getMessageRender
     setTitle $ toHtml $ mr msg
 
 -- | Link to the specified local stylesheet.
-addStylesheet :: Route master -> GWidget sub master ()
+addStylesheet :: Route site -> GWidget site ()
 addStylesheet = flip addStylesheetAttrs []
 
 -- | Link to the specified local stylesheet.
-addStylesheetAttrs :: Route master -> [(Text, Text)] -> GWidget sub master ()
+addStylesheetAttrs :: Route site -> [(Text, Text)] -> GWidget site ()
 addStylesheetAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemote :: Text -> GWidget sub master ()
+addStylesheetRemote :: Text -> GWidget site ()
 addStylesheetRemote = flip addStylesheetRemoteAttrs []
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemoteAttrs :: Text -> [(Text, Text)] -> GWidget sub master ()
+addStylesheetRemoteAttrs :: Text -> [(Text, Text)] -> GWidget site ()
 addStylesheetRemoteAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
 
-addStylesheetEither :: Either (Route master) Text -> GWidget sub master ()
+addStylesheetEither :: Either (Route site) Text -> GWidget site ()
 addStylesheetEither = either addStylesheet addStylesheetRemote
 
-addScriptEither :: Either (Route master) Text -> GWidget sub master ()
+addScriptEither :: Either (Route site) Text -> GWidget site ()
 addScriptEither = either addScript addScriptRemote
 
 -- | Link to the specified local script.
-addScript :: Route master -> GWidget sub master ()
+addScript :: Route site -> GWidget site ()
 addScript = flip addScriptAttrs []
 
 -- | Link to the specified local script.
-addScriptAttrs :: Route master -> [(Text, Text)] -> GWidget sub master ()
+addScriptAttrs :: Route site -> [(Text, Text)] -> GWidget site ()
 addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
-addScriptRemote :: Text -> GWidget sub master ()
+addScriptRemote :: Text -> GWidget site ()
 addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
-addScriptRemoteAttrs :: Text -> [(Text, Text)] -> GWidget sub master ()
+addScriptRemoteAttrs :: Text -> [(Text, Text)] -> GWidget site ()
 addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
 whamlet :: QuasiQuoter
@@ -214,20 +200,20 @@ rules = do
     return $ NP.HamletRules ah ur $ \_ b -> return $ ah `AppE` b
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-ihamletToRepHtml :: RenderMessage master message
-                 => HtmlUrlI18n message (Route master)
-                 -> GHandler sub master Html
+ihamletToRepHtml :: RenderMessage site message
+                 => HtmlUrlI18n message (Route site)
+                 -> GHandler site Html
 ihamletToRepHtml ih = do
     urender <- getUrlRenderParams
     mrender <- getMessageRender
     return $ ih (toHtml . mrender) urender
 
-tell :: GWData (Route master) -> GWidget sub master ()
+tell :: GWData (Route site) -> GWidget site ()
 tell w = GWidget $ return ((), w)
 
 -- | Type-restricted version of @lift@. Used internally to create better error
 -- messages.
-liftW :: GHandler sub master a -> GWidget sub master a
+liftW :: GHandler site a -> GWidget site a
 liftW = lift
 
 toUnique :: x -> UniqueList x

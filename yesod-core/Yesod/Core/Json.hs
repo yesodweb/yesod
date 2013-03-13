@@ -44,10 +44,10 @@ import Data.Maybe (listToMaybe)
 -- ('defaultLayout').
 --
 -- /Since: 0.3.0/
-defaultLayoutJson :: (Yesod master, J.ToJSON a)
-                  => GWidget sub master ()  -- ^ HTML
-                  -> GHandler sub master a  -- ^ JSON
-                  -> GHandler sub master TypedContent
+defaultLayoutJson :: (Yesod site, J.ToJSON a)
+                  => GWidget site ()  -- ^ HTML
+                  -> GHandler site a  -- ^ JSON
+                  -> GHandler site TypedContent
 defaultLayoutJson w json = selectRep $ do
     provideRep $ defaultLayout w
     provideRep $ fmap J.toJSON json
@@ -56,7 +56,7 @@ defaultLayoutJson w json = selectRep $ do
 -- support conversion to JSON via 'J.ToJSON'.
 --
 -- /Since: 0.3.0/
-jsonToRepJson :: J.ToJSON a => a -> GHandler sub master J.Value
+jsonToRepJson :: J.ToJSON a => a -> GHandler site J.Value
 jsonToRepJson = return . J.toJSON
 
 -- | Parse the request body to a data type as a JSON value.  The
@@ -65,7 +65,7 @@ jsonToRepJson = return . J.toJSON
 -- 'J.Value'@.
 --
 -- /Since: 0.3.0/
-parseJsonBody :: J.FromJSON a => GHandler sub master (J.Result a)
+parseJsonBody :: J.FromJSON a => GHandler site (J.Result a)
 parseJsonBody = do
     req <- waiRequest
     eValue <- lift
@@ -78,7 +78,7 @@ parseJsonBody = do
 
 -- | Same as 'parseJsonBody', but return an invalid args response on a parse
 -- error.
-parseJsonBody_ :: J.FromJSON a => GHandler sub master a
+parseJsonBody_ :: J.FromJSON a => GHandler site a
 parseJsonBody_ = do
     ra <- parseJsonBody
     case ra of
@@ -96,10 +96,10 @@ array = J.Array . V.fromList . map J.toJSON
 --     @application\/json@ (e.g. AJAX, see 'acceptsJSON').
 --
 --     2. 3xx otherwise, following the PRG pattern.
-jsonOrRedirect :: (Yesod master, J.ToJSON a)
-               => Route master -- ^ Redirect target
+jsonOrRedirect :: (Yesod site, J.ToJSON a)
+               => Route site   -- ^ Redirect target
                -> a            -- ^ Data to send via JSON
-               -> GHandler sub master J.Value
+               -> GHandler site J.Value
 jsonOrRedirect r j = do
     q <- acceptsJson
     if q then jsonToRepJson (J.toJSON j)
@@ -107,7 +107,7 @@ jsonOrRedirect r j = do
 
 -- | Returns @True@ if the client prefers @application\/json@ as
 -- indicated by the @Accept@ HTTP header.
-acceptsJson :: Yesod master => GHandler sub master Bool
+acceptsJson :: Yesod site => GHandler site Bool
 acceptsJson =  maybe False ((== "application/json") . B8.takeWhile (/= ';'))
             .  join
             .  fmap (listToMaybe . parseHttpAccept)

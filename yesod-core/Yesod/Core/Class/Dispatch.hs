@@ -18,56 +18,36 @@ import           Control.Monad.Trans.Control  (MonadBaseControl)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
-class YesodDispatch sub master where
-    yesodDispatch
-        :: Yesod master
-        => YesodRunnerEnv sub master
-        -> W.Application
-
-instance YesodDispatch WaiSubsite master where
-    yesodDispatch YesodRunnerEnv { yreSub = WaiSubsite app } req =
-        app req
+class Yesod site => YesodDispatch site where
+    yesodDispatch :: YesodRunnerEnv site -> W.Application
 
 class YesodSubDispatch sub m where
     yesodSubDispatch
-        :: (HandlerError m, HandlerState m, master ~ HandlerMaster m, Yesod master, MonadBaseControl IO m)
+        :: (MonadHandler m, master ~ HandlerMaster m, Yesod master)
         => (m TypedContent
-                -> YesodRunnerEnv master master
+                -> YesodRunnerEnv master
                 -> Maybe (Route master)
                 -> W.Application)
         -> (master -> sub)
         -> (Route sub -> Route master)
-        -> YesodRunnerEnv master master
+        -> YesodRunnerEnv master
         -> W.Application
 
 instance YesodSubDispatch WaiSubsite master where
-    yesodSubDispatch _ toSub _ YesodRunnerEnv { yreMaster = master } req =
+    yesodSubDispatch _ toSub _ YesodRunnerEnv { yreSite = site } req =
         app req
       where
-        WaiSubsite app = toSub master
+        WaiSubsite app = toSub site
 
-{-
-subHelper :: Yesod master => (YesodRunnerEnv sub master -> W.Application)
-        -> (forall res. ToTypedContent res
-                => m res
-                -> YesodRunnerEnv master master
-                -> Maybe (Route master)
-                -> W.Application)
-        -> (master -> sub)
-        -> (Route sub -> Route master)
-        -> W.Application
-subHelper runBase getSub toMaster = error "subHelper"
--}
-
-subHelper :: (HandlerMaster m ~ master, HandlerState m, MonadBaseControl IO m)
+subHelper :: (HandlerSite m ~ master, MonadHandler m)
           => (m TypedContent
-                -> YesodRunnerEnv master master
+                -> YesodRunnerEnv master
                 -> Maybe (Route master)
                 -> W.Application)
           -> (master -> sub)
           -> (Route sub -> Route master)
           -> HandlerT sub m TypedContent
-          -> YesodRunnerEnv master master
+          -> YesodRunnerEnv master
           -> Maybe (Route sub)
           -> W.Application
 subHelper parentRunner getSub toMaster handlert env route =
