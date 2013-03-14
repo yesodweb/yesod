@@ -889,3 +889,8 @@ rawRequestBody :: (HandlerReader m, MonadResource m) => Source m S.ByteString
 rawRequestBody = do
     req <- lift waiRequest
     transPipe liftResourceT $ W.requestBody req
+
+-- | Stream the data from the file. Since Yesod 1.2, this has been generalized
+-- to work in any @MonadResource@.
+fileSource :: MonadResource m => FileInfo -> Source m S.ByteString
+fileSource = transPipe liftResourceT . fileSourceRaw
