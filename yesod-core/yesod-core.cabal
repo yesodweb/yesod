@@ -87,6 +87,7 @@ library
                    , attoparsec-conduit
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.5.1
+                   , data-default
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content

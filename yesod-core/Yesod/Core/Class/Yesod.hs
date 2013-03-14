@@ -13,7 +13,7 @@ import           Yesod.Routes.Class
 import           Blaze.ByteString.Builder           (Builder)
 import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import           Control.Arrow                      ((***))
-import           Control.Monad                      (forM)
+import           Control.Monad                      (forM, when)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
                                                      LogSource)
@@ -35,7 +35,7 @@ import           Data.Word                          (Word64)
 import           Language.Haskell.TH.Syntax         (Loc (..))
 import           Network.HTTP.Types                 (encodePath)
 import qualified Network.Wai                        as W
-import           Network.Wai.Middleware.Gzip        (GzipSettings, def)
+import           Data.Default                       (def)
 import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
 import           System.IO                          (stdout)
@@ -77,6 +77,8 @@ class RenderRoute site => Yesod site where
     approot = ApprootRelative
 
     -- | Output error response pages.
+    --
+    -- Default value: 'defaultErrorHandler'.
     errorHandler :: ErrorResponse -> HandlerT site IO TypedContent
     errorHandler = defaultErrorHandler
 
@@ -190,30 +192,27 @@ class RenderRoute site => Yesod site where
                      -> HandlerT site IO (Maybe (Either Text (Route site, [(Text, Text)])))
     addStaticContent _ _ _ = return Nothing
 
-    {- Temporarily disabled until we have a better interface.
-    -- | Whether or not to tie a session to a specific IP address. Defaults to
-    -- 'False'.
-    --
-    -- Note: This setting has two known problems: it does not work correctly
-    -- when behind a reverse proxy (including load balancers), and it may not
-    -- function correctly if the user is behind a proxy.
-    sessionIpAddress :: a -> Bool
-    sessionIpAddress _ = False
-    -}
-
     -- | Maximum allowed length of the request body, in bytes.
     --
     -- Default: 2 megabytes.
     maximumContentLength :: site -> Maybe (Route site) -> Word64
     maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
 
-    -- | Returns a @Logger@ to use for log messages.
+    -- | Creates a @Logger@ to use for log messages.
+    --
+    -- Note that a common technique (endorsed by the scaffolding) is to create
+    -- a @Logger@ value and place it in your foundation datatype, and have this
+    -- method return that already created value. That way, you can use that
+    -- same @Logger@ for printing messages during app initialization.
     --
     -- Default: Sends to stdout and automatically flushes on each write.
-    getLogger :: site -> IO Logger
-    getLogger _ = mkLogger True stdout
+    makeLogger :: site -> IO Logger
+    makeLogger _ = mkLogger True stdout
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
+    --
+    -- Default implementation: checks if the message should be logged using
+    -- 'shouldLog' and, if so, formats using 'formatLogMessage'.
     messageLoggerSource :: site
                         -> Logger
                         -> Loc -- ^ position in source code
@@ -222,25 +221,15 @@ class RenderRoute site => Yesod site where
                         -> LogStr -- ^ message
                         -> IO ()
     messageLoggerSource a logger loc source level msg =
-        if shouldLog a source level
-            then formatLogMessage (loggerDate logger) loc source level msg >>= loggerPutStr logger
-            else return ()
-
-    -- | The logging level in place for this application. Any messages below
-    -- this level will simply be ignored.
-    logLevel :: site -> LogLevel
-    logLevel _ = LevelInfo
-
-    -- | GZIP settings.
-    gzipSettings :: site -> GzipSettings
-    gzipSettings _ = def
+        when (shouldLog a source level) $
+            formatLogMessage (loggerDate logger) loc source level msg >>= loggerPutStr logger
 
     -- | Where to Load sripts from. We recommend the default value,
     -- 'BottomOfBody'.  Alternatively use the built in async yepnope loader:
     --
     -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
     --
-    -- Or write your own async js loader: see 'loadJsYepnope'
+    -- Or write your own async js loader.
     jsLoader :: site -> ScriptLoadPosition site
     jsLoader _ = BottomOfBody
 
@@ -264,36 +253,49 @@ class RenderRoute site => Yesod site where
     --
     -- Default: Logs everything at or above 'logLevel'
     shouldLog :: site -> LogSource -> LogLevel -> Bool
-    shouldLog site _ level = level >= logLevel site
+    shouldLog _ _ level = level >= LevelInfo
 
     -- | A Yesod middleware, which will wrap every handler function. This
     -- allows you to run code before and after a normal handler.
     --
-    -- Default: Adds the response header \"Vary: Accept, Accept-Language\" and
-    -- performs authorization checks.
+    -- Default: the 'defaultYesodMiddleware' function.
     --
     -- Since: 1.1.6
     yesodMiddleware :: HandlerT site IO res -> HandlerT site IO res
-    yesodMiddleware handler = do
-        setHeader "Vary" "Accept, Accept-Language"
-        route <- getCurrentRoute
-        case route of
-            Nothing -> handler
-            Just url -> do
-                isWrite <- isWriteRequest url
-                ar <- isAuthorized url isWrite
-                case ar of
-                    Authorized -> return ()
-                    AuthenticationRequired -> do
-                        master <- getYesod
-                        case authRoute master of
-                            Nothing ->
-                                permissionDenied "Authentication required"
-                            Just url' -> do
-                                setUltDestCurrent
-                                redirect url'
-                    Unauthorized s' -> permissionDenied s'
-                handler
+    yesodMiddleware = defaultYesodMiddleware
+
+-- | Default implementation of 'yesodMiddleware'. Adds the response header
+-- \"Vary: Accept, Accept-Language\" and performs authorization checks.
+--
+-- Since 1.2.0
+defaultYesodMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultYesodMiddleware handler = do
+    setHeader "Vary" "Accept, Accept-Language"
+    authorizationCheck
+    handler
+
+-- | Check if a given request is authorized via 'isAuthorized' and
+-- 'isWriteRequest'.
+--
+-- Since 1.2.0
+authorizationCheck :: Yesod site => HandlerT site IO ()
+authorizationCheck = do
+    getCurrentRoute >>= maybe (return ()) checkUrl
+  where
+    checkUrl url = do
+        isWrite <- isWriteRequest url
+        ar <- isAuthorized url isWrite
+        case ar of
+            Authorized -> return ()
+            AuthenticationRequired -> do
+                master <- getYesod
+                case authRoute master of
+                    Nothing ->
+                        permissionDenied "Authentication required"
+                    Just url' -> do
+                        setUltDestCurrent
+                        redirect url'
+            Unauthorized s' -> permissionDenied s'
 
 -- | Convert a widget to a 'PageContent'.
 widgetToPageContent :: (Eq (Route site), Yesod site)
@@ -333,48 +335,49 @@ widgetToPageContent w = do
     -- the asynchronous loader means your page doesn't have to wait for all the js to load
     let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
         regularScriptLoad = [hamlet|
-$newline never
-$forall s <- scripts
-    ^{mkScriptTag s}
-$maybe j <- jscript
-    $maybe s <- jsLoc
-        <script src="#{s}">
-    $nothing
-        <script>^{jelper j}
-|]
+            $newline never
+            $forall s <- scripts
+                ^{mkScriptTag s}
+            $maybe j <- jscript
+                $maybe s <- jsLoc
+                    <script src="#{s}">
+                $nothing
+                    <script>^{jelper j}
+        |]
 
         headAll = [hamlet|
-$newline never
-\^{head'}
-$forall s <- stylesheets
-    ^{mkLinkTag s}
-$forall s <- css
-    $maybe t <- right $ snd s
-        $maybe media <- fst s
-            <link rel=stylesheet media=#{media} href=#{t}>
-        $nothing
-            <link rel=stylesheet href=#{t}>
-    $maybe content <- left $ snd s
-        $maybe media <- fst s
-            <style media=#{media}>#{content}
-        $nothing
-            <style>#{content}
-$case jsLoader master
-  $of BottomOfBody
-  $of BottomOfHeadAsync asyncJsLoader
-      ^{asyncJsLoader asyncScripts mcomplete}
-  $of BottomOfHeadBlocking
-      ^{regularScriptLoad}
-|]
+            $newline never
+            \^{head'}
+            $forall s <- stylesheets
+                ^{mkLinkTag s}
+            $forall s <- css
+                $maybe t <- right $ snd s
+                    $maybe media <- fst s
+                        <link rel=stylesheet media=#{media} href=#{t}>
+                    $nothing
+                        <link rel=stylesheet href=#{t}>
+                $maybe content <- left $ snd s
+                    $maybe media <- fst s
+                        <style media=#{media}>#{content}
+                    $nothing
+                        <style>#{content}
+            $case jsLoader master
+              $of BottomOfBody
+              $of BottomOfHeadAsync asyncJsLoader
+                  ^{asyncJsLoader asyncScripts mcomplete}
+              $of BottomOfHeadBlocking
+                  ^{regularScriptLoad}
+        |]
     let bodyScript = [hamlet|
-$newline never
-^{body}
-^{regularScriptLoad}
-|]
+            $newline never
+            ^{body}
+            ^{regularScriptLoad}
+        |]
 
-    return $ PageContent title headAll (case jsLoader master of
-      BottomOfBody -> bodyScript
-      _ -> body)
+    return $ PageContent title headAll $
+        case jsLoader master of
+            BottomOfBody -> bodyScript
+            _ -> body
   where
     renderLoc' render' (Local url) = render' url []
     renderLoc' _ (Remote s) = s
