@@ -12,21 +12,21 @@ module Yesod.Persist
 
 import Database.Persist
 import Database.Persist.TH
-import Control.Monad.Trans.Class (MonadTrans)
+import Control.Monad.Trans.Class (MonadTrans, lift)
 
 import Yesod.Core
 
-type YesodDB site = YesodPersistBackend site (GHandler site)
+type YesodDB site = YesodPersistBackend site (HandlerT site IO)
 
 class YesodPersist site where
     type YesodPersistBackend site :: (* -> *) -> * -> *
-    runDB :: YesodDB site a -> GHandler site a
+    runDB :: YesodDB site a -> HandlerT site IO a
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
 get404 :: ( PersistStore (t m)
           , PersistEntity val
           , Monad (t m)
-          , m ~ GHandler site
+          , m ~ HandlerT site IO
           , MonadTrans t
           , PersistMonadBackend (t m) ~ PersistEntityBackend val
           )
@@ -41,7 +41,7 @@ get404 key = do
 --   exist.
 getBy404 :: ( PersistUnique (t m)
             , PersistEntity val
-            , m ~ GHandler site
+            , m ~ HandlerT site IO
             , Monad (t m)
             , MonadTrans t
             , PersistEntityBackend val ~ PersistMonadBackend (t m)

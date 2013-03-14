@@ -22,6 +22,7 @@ import Data.Aeson (toJSON)
 import Network.URI (uriPath, parseURI)
 import Data.FileEmbed (embedFile)
 import Data.ByteString (ByteString)
+import Control.Monad.Trans.Class
 
 pid :: Text
 pid = "browserid"
@@ -59,7 +60,7 @@ helper maudience = AuthPlugin
                 memail <- lift $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
                     Nothing -> liftIO $ throwIO InvalidBrowserIDAssertion
-                    Just email -> setCreds True Creds
+                    Just email -> lift $ setCreds True Creds
                         { credsPlugin = pid
                         , credsIdent = email
                         , credsExtra = []
@@ -73,7 +74,7 @@ helper maudience = AuthPlugin
     , apLogin = \toMaster -> do
         onclick <- createOnClick toMaster
 
-        autologin <- fmap (== Just "true") $ lift $ lookupGetParam "autologin"
+        autologin <- fmap (== Just "true") $ lookupGetParam "autologin"
         when autologin $ toWidget [julius|
 #{rawJS onclick}();
 |]
@@ -82,7 +83,7 @@ helper maudience = AuthPlugin
 $newline never
 <p>
     <a href="javascript:#{onclick}()">
-        <img src=#{toMaster loginIcon}>
+        <img src=@{toMaster loginIcon}>
 |]
     }
   where
@@ -91,18 +92,18 @@ $newline never
 
 -- | Generates a function to handle on-click events, and returns that function
 -- name.
-createOnClick :: (Route Auth -> Text) -> GWidget master Text
+createOnClick :: (Route Auth -> Route master) -> WidgetT master IO Text
 createOnClick toMaster = do
     addScriptRemote browserIdJs
     onclick <- newIdent
     render <- getUrlRender
-    let login = toJSON $ getPath $ toMaster LoginR
+    let login = toJSON $ getPath $ render $ toMaster LoginR
     toWidget [julius|
         function #{rawJS onclick}() {
             navigator.id.watch({
                 onlogin: function (assertion) {
                     if (assertion) {
-                        document.location = #{toJSON $ toMaster complete} + "/" + assertion;
+                        document.location = "@{toMaster complete}" + "/" + assertion;
                     }
                 },
                 onlogout: function () {}
@@ -113,7 +114,7 @@ createOnClick toMaster = do
         }
     |]
 
-    autologin <- fmap (== Just "true") $ lift $ lookupGetParam "autologin"
+    autologin <- fmap (== Just "true") $ lookupGetParam "autologin"
     when autologin $ toWidget [julius|#{rawJS onclick}();|]
     return onclick
   where

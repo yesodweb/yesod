@@ -24,7 +24,7 @@ module Yesod.Sitemap
     , SitemapChangeFreq (..)
     ) where
 
-import Yesod.Core (RepXml (..), RepPlain (..), toContent, formatW3, Route, GHandler, getUrlRender)
+import Yesod.Core
 import Data.Time (UTCTime)
 import Data.Monoid (mappend)
 import Text.XML
@@ -75,15 +75,16 @@ template urls render =
         , Element "priority" Map.empty [NodeContent $ pack $ show sitemapPriority]
         ]
 
-sitemap :: [SitemapUrl (Route site)] -> GHandler site RepXml
+sitemap :: HandlerReader m => [SitemapUrl (Route (HandlerSite m))] -> m RepXml
 sitemap urls = do
     render <- getUrlRender
     let doc = template urls render
     return $ RepXml $ toContent $ renderLBS def doc
 
 -- | A basic robots file which just lists the "Sitemap: " line.
-robots :: Route site -- ^ sitemap url
-       -> GHandler site RepPlain
+robots :: HandlerReader m
+       => Route (HandlerSite m) -- ^ sitemap url
+       -> m RepPlain
 robots smurl = do
     render <- getUrlRender
     return $ RepPlain $ toContent $ "Sitemap: " `mappend` render smurl

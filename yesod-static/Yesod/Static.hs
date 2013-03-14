@@ -52,7 +52,7 @@ import System.Directory
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
-import Yesod.Core hiding (lift)
+import Yesod.Core
 import Yesod.Core.Types
 
 import Data.List (intercalate)

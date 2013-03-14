@@ -81,6 +81,7 @@ import Text.Hamlet (hamlet)
 import Control.Applicative         ((<$>), (<*>))
 import Control.Monad               (replicateM,liftM)
 import Control.Monad.IO.Class      (MonadIO, liftIO)
+import Control.Monad.Trans.Class   (lift)
 
 import qualified Data.ByteString.Lazy.Char8 as BS (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)
@@ -134,14 +135,14 @@ setPassword pwd u = do salt <- randomSalt
 --   the database values.
 validateUser :: ( YesodPersist yesod
                 , b ~ YesodPersistBackend yesod
-                , PersistMonadBackend (b (GHandler yesod)) ~ PersistEntityBackend user
-                , PersistUnique (b (GHandler yesod))
+                , PersistMonadBackend (b (HandlerT yesod IO)) ~ PersistEntityBackend user
+                , PersistUnique (b (HandlerT yesod IO))
                 , PersistEntity user
                 , HashDBUser    user
                 ) => 
                 Unique user     -- ^ User unique identifier
              -> Text            -- ^ Password in plaint-text
-             -> GHandler yesod Bool
+             -> HandlerT yesod IO Bool
 validateUser userID passwd = do
   -- Checks that hash and password match
   let validate u = do hash <- userPasswordHash u
@@ -161,11 +162,11 @@ login = PluginR "hashdb" ["login"]
 postLoginR :: ( YesodAuth y, YesodPersist y
               , HashDBUser user, PersistEntity user
               , b ~ YesodPersistBackend y
-              , PersistMonadBackend (b (GHandler y)) ~ PersistEntityBackend user
-              , PersistUnique (b (GHandler y))
+              , PersistMonadBackend (b (HandlerT y IO)) ~ PersistEntityBackend user
+              , PersistUnique (b (HandlerT y IO))
               )
            => (Text -> Maybe (Unique user))
-           -> HandlerT Auth (GHandler y) ()
+           -> HandlerT Auth (HandlerT y IO) ()
 postLoginR uniq = do
     (mu,mp) <- lift $ runInputPost $ (,)
         <$> iopt textField "username"
@@ -174,7 +175,7 @@ postLoginR uniq = do
     isValid <- lift $ fromMaybe (return False) 
                  (validateUser <$> (uniq =<< mu) <*> mp)
     if isValid 
-       then setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
+       then lift $ setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
        else do setMessage "Invalid username/password"
                redirect LoginR
 
@@ -185,13 +186,13 @@ getAuthIdHashDB :: ( YesodAuth master, YesodPersist master
                    , HashDBUser user, PersistEntity user
                    , Key user ~ AuthId master
                    , b ~ YesodPersistBackend master
-                   , PersistMonadBackend (b (GHandler master)) ~ PersistEntityBackend user
-                   , PersistUnique (b (GHandler master))
+                   , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend user
+                   , PersistUnique (b (HandlerT master IO))
                    )
                 => (AuthRoute -> Route master)   -- ^ your site's Auth Route
                 -> (Text -> Maybe (Unique user)) -- ^ gets user ID
                 -> Creds master                  -- ^ the creds argument
-                -> GHandler master (Maybe (AuthId master))
+                -> HandlerT master IO (Maybe (AuthId master))
 getAuthIdHashDB authR uniq creds = do
     muid <- maybeAuthId
     case muid of
@@ -214,8 +215,8 @@ authHashDB :: ( YesodAuth m, YesodPersist m
               , HashDBUser user
               , PersistEntity user
               , b ~ YesodPersistBackend m
-              , PersistMonadBackend (b (GHandler m)) ~ PersistEntityBackend user
-              , PersistUnique (b (GHandler m)))
+              , PersistMonadBackend (b (HandlerT m IO)) ~ PersistEntityBackend user
+              , PersistUnique (b (HandlerT m IO)))
            => (Text -> Maybe (Unique user)) -> AuthPlugin m
 authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> toWidget [hamlet|
 $newline never
@@ -223,7 +224,7 @@ $newline never
         <h1>Login
 
     <div id="login">
-        <form method="post" action="#{tm login}">
+        <form method="post" action="@{tm login}">
             <table>
                 <tr>
                     <th>Username:

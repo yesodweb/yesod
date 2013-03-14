@@ -51,6 +51,7 @@ module Yesod.Core
     , HandlerReader (..)
     , HandlerState (..)
     , HandlerError (..)
+    , getRouteToParent
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -110,3 +111,6 @@ maybeAuthorized :: Yesod site
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
+
+getRouteToParent :: Monad m => HandlerT child (HandlerT parent m) (Route child -> Route parent)
+getRouteToParent = HandlerT $ return . handlerToParent
