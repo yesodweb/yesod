@@ -137,6 +137,8 @@ import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
+import Control.Monad.Trans.Class (lift)
+import Data.Conduit (transPipe)
 
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
@@ -883,5 +885,7 @@ provideRepType ct handler =
 -- | Stream in the raw request body without any parsing.
 --
 -- Since 1.2.0
-rawRequestBody :: Source m S.ByteString
-rawRequestBody = error "rawRequestBody"
+rawRequestBody :: (HandlerReader m, MonadResource m) => Source m S.ByteString
+rawRequestBody = do
+    req <- lift waiRequest
+    transPipe liftResourceT $ W.requestBody req
