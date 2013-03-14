@@ -61,6 +61,7 @@ getTowidgetR = defaultLayout $ do
 
 getWhamletR :: Handler RepHtml
 getWhamletR = defaultLayout [whamlet|
+                    $newline never
                     <h1>Test
                     <h2>@{WhamletR}
                     <h3>_{Goodbye}
@@ -68,7 +69,10 @@ getWhamletR = defaultLayout [whamlet|
                     ^{embed}
                 |]
   where
-    embed = [whamlet|<h4>Embed|]
+    embed = [whamlet|
+                $newline never
+                <h4>Embed
+                |]
 
 getAutoR :: Handler RepHtml
 getAutoR = defaultLayout [whamlet|
