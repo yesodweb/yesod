@@ -124,7 +124,7 @@ type RequestBodyContents =
 data FileInfo = FileInfo
     { fileName        :: !Text
     , fileContentType :: !Text
-    , fileSource      :: !(Source (ResourceT IO) ByteString)
+    , fileSourceRaw   :: !(Source (ResourceT IO) ByteString)
     , fileMove        :: !(FilePath -> IO ())
     }
 

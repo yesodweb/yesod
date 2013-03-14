@@ -6,7 +6,6 @@ module Yesod.Core.Internal.Request
     , FileInfo
     , fileName
     , fileContentType
-    , fileSource
     , fileMove
     , mkFileInfoLBS
     , mkFileInfoFile
