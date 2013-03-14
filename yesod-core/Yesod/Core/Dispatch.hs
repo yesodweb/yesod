@@ -122,8 +122,8 @@ mkYesodGeneral name args clazzes isSub resS = do
         context = if isSub then cxt $ yesod : map return clazzes
                            else return []
         yesod   = classP ''HandlerReader [master]
-        handler = tySynD (mkName "Handler") [] [t| GHandler $master    |]
-        widget  = tySynD (mkName "Widget")  [] [t| GWidget  $master () |]
+        handler = tySynD (mkName "Handler") [] [t| HandlerT $master IO    |]
+        widget  = tySynD (mkName "Widget")  [] [t| WidgetT  $master IO () |]
         res     = map (fmap parseType) resS
         subCons = conT $ mkName name
         subArgs = map (varT. mkName) args

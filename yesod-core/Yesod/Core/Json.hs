@@ -48,9 +48,9 @@ import Control.Monad.Trans.Resource (liftResourceT)
 --
 -- /Since: 0.3.0/
 defaultLayoutJson :: (Yesod site, J.ToJSON a)
-                  => WidgetT site m ()  -- ^ HTML
-                  -> HandlerT site m a  -- ^ JSON
-                  -> HandlerT site m TypedContent
+                  => WidgetT site IO ()  -- ^ HTML
+                  -> HandlerT site IO a  -- ^ JSON
+                  -> HandlerT site IO TypedContent
 defaultLayoutJson w json = selectRep $ do
     provideRep $ defaultLayout w
     provideRep $ fmap J.toJSON json
@@ -59,7 +59,7 @@ defaultLayoutJson w json = selectRep $ do
 -- support conversion to JSON via 'J.ToJSON'.
 --
 -- /Since: 0.3.0/
-jsonToRepJson :: J.ToJSON a => a -> HandlerT site m J.Value
+jsonToRepJson :: (Monad m, J.ToJSON a) => a -> m J.Value
 jsonToRepJson = return . J.toJSON
 
 -- | Parse the request body to a data type as a JSON value.  The
@@ -68,7 +68,7 @@ jsonToRepJson = return . J.toJSON
 -- 'J.Value'@.
 --
 -- /Since: 0.3.0/
-parseJsonBody :: (MonadResource m, J.FromJSON a) => m (J.Result a)
+parseJsonBody :: (MonadResource m, HandlerReader m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = do
     req <- waiRequest
     eValue <- runExceptionT

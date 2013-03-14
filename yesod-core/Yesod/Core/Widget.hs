@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -50,6 +51,8 @@ import Text.Cassius
 import Text.Julius
 import Yesod.Routes.Class
 import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
+import Control.Monad.Trans.Resource (transResourceT)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Text.Shakespeare.I18N (RenderMessage)
 import Control.Monad (liftM)
 import Data.Text (Text)
@@ -215,3 +218,21 @@ tell w = WidgetT $ return ((), w)
 
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
+
+liftHandlerT :: MonadIO m
+             => HandlerT site IO a
+             -> HandlerT site m a
+liftHandlerT (HandlerT f) =
+    HandlerT $ transResourceT liftIO . f . fixToParent
+  where
+    fixToParent hd = hd { handlerToParent = const () }
+
+liftWidget :: MonadIO m
+           => WidgetT child IO a
+           -> HandlerT child (HandlerT parent m) (WidgetT parent m a)
+liftWidget (WidgetT f) = HandlerT $ \hd -> do
+    (a, gwd) <- unHandlerT (liftHandlerT f) hd
+    return $ WidgetT $ HandlerT $ const $ return (a, liftGWD (handlerToParent hd) gwd)
+
+liftGWD :: (child -> parent) -> GWData child -> GWData parent
+liftGWD = error "liftGWD"
