@@ -94,7 +94,7 @@ import Data.Version (showVersion)
 import Yesod.Routes.Class (RenderRoute (..))
 
 -- | Return an 'Unauthorized' value, with the given i18n message.
-unauthorizedI :: RenderMessage site msg => msg -> GHandler site AuthResult
+unauthorizedI :: (Monad m, RenderMessage site msg) => msg -> HandlerT site m AuthResult
 unauthorizedI msg = do
     mr <- getMessageRender
     return $ Unauthorized $ mr msg
@@ -109,44 +109,14 @@ yesodVersion = showVersion Paths_yesod_core.version
 maybeAuthorized :: Yesod site
                 => Route site
                 -> Bool -- ^ is this a write request?
-                -> GHandler site (Maybe (Route site))
+                -> HandlerT site IO (Maybe (Route site))
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
 
-defaultLayoutT :: ( HandlerSite m ~ sub
-                  , Yesod (HandlerMaster m)
-                  , MonadHandler m
-                  )
-               => GWidget sub ()
-               -> m RepHtml
-defaultLayoutT (GWidget (GHandler f)) = do
-    hd <- askHandlerData
+defaultLayoutT :: Yesod parent
+               => WidgetT child m ()
+               -> HandlerT parent m RepHtml
+defaultLayoutT (WidgetT (HandlerT f)) = HandlerT $ \hd -> do
     ((), gwdata) <- liftResourceT $ f hd
-    liftHandlerMaster $ defaultLayout $ GWidget $ return ((), renderGWData (rheRender $ handlerEnv hd) gwdata)
-
-renderGWData :: (x -> [(Text, Text)] -> Text) -> GWData x -> GWData y
-renderGWData render gwd = GWData
-    { gwdBody = fixBody $ gwdBody gwd
-    , gwdTitle = gwdTitle gwd
-    , gwdScripts = fixUnique fixScript $ gwdScripts gwd
-    , gwdStylesheets = fixUnique fixStyle $ gwdStylesheets gwd
-    , gwdCss = fmap fixCss $ gwdCss gwd
-    , gwdJavascript = fmap fixJS $ gwdJavascript gwd
-    , gwdHead = fixHead $ gwdHead gwd
-    }
-  where
-    fixBody (Body h) = Body $ const $ h render
-    fixHead (Head h) = Head $ const $ h render
-
-    fixUnique go (UniqueList f) = UniqueList (map go (f []) ++)
-
-    fixScript (Script loc attrs) = Script (fixLoc loc) attrs
-    fixStyle (Stylesheet loc attrs) = Stylesheet (fixLoc loc) attrs
-
-    fixLoc (Local url) = Remote $ render url []
-    fixLoc (Remote t) = Remote t
-
-    fixCss f = const $ f render
-
-    fixJS f = const $ f render
+    unHandlerT $ defaultLayout $ WidgetT $ return ((), renderGWData (rheRender $ handlerEnv hd) gwdata)

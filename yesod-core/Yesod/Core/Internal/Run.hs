@@ -12,11 +12,12 @@ import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
 import           Control.Exception            (fromException)
 import           Control.Exception.Lifted     (catch)
+import           Control.Monad (join)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
-import           Control.Monad.Trans.Resource (runResourceT)
+import           Control.Monad.Trans.Resource (runResourceT, transResourceT, ResourceT, joinResourceT)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
@@ -45,10 +46,10 @@ import           Yesod.Core.Internal.Request  (parseWaiRequest,
 import           Yesod.Routes.Class           (Route, renderRoute)
 
 -- | Function used internally by Yesod in the process of converting a
--- 'GHandler' into an 'Application'. Should not be needed by users.
+-- 'HandlerT' into an 'Application'. Should not be needed by users.
 runHandler :: ToTypedContent c
            => RunHandlerEnv site
-           -> GHandler site c
+           -> HandlerT site IO c
            -> YesodApp
 runHandler rhe@RunHandlerEnv {..} handler yreq = do
     let toErrorHandler e =
@@ -66,8 +67,9 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
             { handlerRequest = yreq
             , handlerEnv     = rhe
             , handlerState   = istate
+            , handlerToParent = const ()
             }
-    contents' <- catch (fmap Right $ unGHandler handler hd)
+    contents' <- catch (fmap Right $ unHandlerT handler hd)
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
                       $ fromException e)
     state <- liftIO $ I.readIORef istate
@@ -128,31 +130,31 @@ safeEh log' er req = do
         (toContent ("Internal Server Error" :: S.ByteString))
         (reqSession req)
 
--- | Run a 'GHandler' completely outside of Yesod.  This
+-- | Run a 'HandlerT' completely outside of Yesod.  This
 -- function comes with many caveats and you shouldn't use it
 -- unless you fully understand what it's doing and how it works.
 --
 -- As of now, there's only one reason to use this function at
--- all: in order to run unit tests of functions inside 'GHandler'
+-- all: in order to run unit tests of functions inside 'HandlerT'
 -- but that aren't easily testable with a full HTTP request.
 -- Even so, it's better to use @wai-test@ or @yesod-test@ instead
 -- of using this function.
 --
 -- This function will create a fake HTTP request (both @wai@'s
 -- 'Request' and @yesod@'s 'Request') and feed it to the
--- @GHandler@.  The only useful information the @GHandler@ may
+-- @HandlerT@.  The only useful information the @HandlerT@ may
 -- get from the request is the session map, which you must supply
 -- as argument to @runFakeHandler@.  All other fields contain
 -- fake information, which means that they can be accessed but
 -- won't have any useful information.  The response of the
--- @GHandler@ is completely ignored, including changes to the
+-- @HandlerT@ is completely ignored, including changes to the
 -- session, cookies or headers.  We only return you the
--- @GHandler@'s return value.
+-- @HandlerT@'s return value.
 runFakeHandler :: (Yesod site, MonadIO m) =>
                   SessionMap
                -> (site -> Logger)
                -> site
-               -> GHandler site a
+               -> HandlerT site IO a
                -> m (Either ErrorResponse a)
 runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
@@ -208,7 +210,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
 {-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
 
 yesodRunner :: (ToTypedContent res, Yesod site)
-            => GHandler site res
+            => HandlerT site IO res
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application
@@ -269,20 +271,18 @@ resolveApproot master req =
         ApprootMaster f -> f master
         ApprootRequest f -> f master req
 
-stripHandlerT :: (MonadHandler m, MonadBaseControl IO m)
-              => HandlerT sub m a
-              -> (HandlerSite m -> sub)
-              -> (Route sub -> Route (HandlerSite m))
-              -> Maybe (Route sub)
-              -> m a
-stripHandlerT (HandlerT f) getSub toMaster newRoute = do
-    hd <- askHandlerData
-
+stripHandlerT :: HandlerT child (HandlerT parent m) a
+              -> (parent -> child)
+              -> (Route child -> Route parent)
+              -> Maybe (Route child)
+              -> HandlerT parent m a
+stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
     let env = handlerEnv hd
-    f hd
+    joinResourceT $ transResourceT (($ hd) . unHandlerT) $ f hd
         { handlerEnv = env
             { rheSite = getSub $ rheSite env
             , rheRoute = newRoute
             , rheRender = \url params -> rheRender env (toMaster url) params
             }
+        , handlerToParent = toMaster
         }

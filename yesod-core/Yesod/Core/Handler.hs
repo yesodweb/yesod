@@ -297,7 +297,8 @@ handlerToIO =
         newReq    = oldReq { reqWaiRequest = newWaiReq }
         clearedOldHandlerData =
           oldHandlerData { handlerRequest = err "handlerRequest never here"
-                         , handlerState   = err "handlerState never here" }
+                         , handlerState   = err "handlerState never here"
+                         , handlerToParent = const () }
             where
               err :: String -> a
               err = error . ("handlerToIO: clearedOldHandlerData/" ++)

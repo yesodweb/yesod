@@ -21,16 +21,16 @@ import           Control.Monad.Trans.Control  (MonadBaseControl)
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
-class YesodSubDispatch sub m where
+class YesodSubDispatch sub parent where
     yesodSubDispatch
-        :: (MonadHandler m, master ~ HandlerMaster m, Yesod master)
-        => (m TypedContent
-                -> YesodRunnerEnv master
-                -> Maybe (Route master)
+        :: Monad m
+        => (HandlerT parent m TypedContent
+                -> YesodRunnerEnv parent
+                -> Maybe (Route parent)
                 -> W.Application)
-        -> (master -> sub)
-        -> (Route sub -> Route master)
-        -> YesodRunnerEnv master
+        -> (parent -> sub)
+        -> (Route sub -> Route parent)
+        -> YesodRunnerEnv parent
         -> W.Application
 
 instance YesodSubDispatch WaiSubsite master where
@@ -39,16 +39,18 @@ instance YesodSubDispatch WaiSubsite master where
       where
         WaiSubsite app = toSub site
 
-subHelper :: (HandlerSite m ~ master, MonadHandler m)
-          => (m TypedContent
-                -> YesodRunnerEnv master
-                -> Maybe (Route master)
+-- | A helper function for creating YesodSubDispatch instances, used by the
+-- internal generated code.
+subHelper :: Monad m
+          => (HandlerT parent m TypedContent
+                -> YesodRunnerEnv parent
+                -> Maybe (Route parent)
                 -> W.Application)
-          -> (master -> sub)
-          -> (Route sub -> Route master)
-          -> HandlerT sub m TypedContent
-          -> YesodRunnerEnv master
-          -> Maybe (Route sub)
+          -> (parent -> child)
+          -> (Route child -> Route parent)
+          -> HandlerT child (HandlerT parent m) TypedContent
+          -> YesodRunnerEnv parent
+          -> Maybe (Route child)
           -> W.Application
 subHelper parentRunner getSub toMaster handlert env route =
     parentRunner base env (fmap toMaster route)

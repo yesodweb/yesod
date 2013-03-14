@@ -179,10 +179,11 @@ data RunHandlerEnv site = RunHandlerEnv
       -- Since 1.2.0
     }
 
-data HandlerData site = HandlerData
-    { handlerRequest :: !YesodRequest
-    , handlerEnv     :: !(RunHandlerEnv site)
-    , handlerState   :: !(IORef GHState)
+data HandlerData site parentRoute = HandlerData
+    { handlerRequest  :: !YesodRequest
+    , handlerEnv      :: !(RunHandlerEnv site)
+    , handlerState    :: !(IORef GHState)
+    , handlerToParent :: !(Route site -> parentRoute)
     }
 
 data YesodRunnerEnv site = YesodRunnerEnv
@@ -194,8 +195,12 @@ data YesodRunnerEnv site = YesodRunnerEnv
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
 newtype HandlerT site m a = HandlerT
-    { unHandlerT :: HandlerData site -> ResourceT m a
+    { unHandlerT :: HandlerData site (MonadRoute m) -> ResourceT m a
     }
+
+type family MonadRoute (m :: * -> *)
+type instance MonadRoute IO = ()
+type instance MonadRoute (HandlerT site m) = (Route site)
 
 data GHState = GHState
     { ghsSession :: SessionMap
