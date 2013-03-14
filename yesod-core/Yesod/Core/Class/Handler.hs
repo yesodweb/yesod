@@ -6,9 +6,6 @@
 module Yesod.Core.Class.Handler where
 
 import Yesod.Core.Types
-import Control.Monad.Trans.Class (MonadTrans)
-import Control.Monad.Trans.Resource
-import Control.Monad.Trans.Control
 import Data.IORef.Lifted (atomicModifyIORef)
 import Control.Exception.Lifted (throwIO)
 import Control.Monad.Base

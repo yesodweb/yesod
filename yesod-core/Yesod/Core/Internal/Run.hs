@@ -7,18 +7,15 @@
 module Yesod.Core.Internal.Run where
 
 import Yesod.Core.Internal.Response
-import Yesod.Core.Class.Handler
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
 import           Control.Exception            (fromException)
 import           Control.Exception.Lifted     (catch)
-import           Control.Monad (join)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
-import           Control.Monad.Trans.Resource (runResourceT, transResourceT, ResourceT, joinResourceT, withInternalState, runInternalState)
-import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.IORef                   as I

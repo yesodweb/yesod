@@ -163,7 +163,7 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
-import           Control.Monad.Trans.Resource  (ResourceT, runResourceT)
+import           Control.Monad.Trans.Resource  (ResourceT)
 import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef                    as I
 import           Data.Maybe                    (listToMaybe)

@@ -55,7 +55,6 @@ import Text.Cassius
 import Text.Julius
 import Yesod.Routes.Class
 import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
-import Control.Monad.Trans.Resource (transResourceT)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Text.Shakespeare.I18N (RenderMessage)
 import Control.Monad (liftM)
@@ -71,7 +70,6 @@ import qualified Data.Text.Lazy as TL
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
-import Control.Monad.Trans.Class
 
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup

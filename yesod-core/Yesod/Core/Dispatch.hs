@@ -128,6 +128,25 @@ mkYesodGeneral name args clazzes isSub resS = do
         subCons = conT $ mkName name
         subArgs = map (varT. mkName) args
 
+mkMDS :: Q Exp -> MkDispatchSettings
+mkMDS rh = MkDispatchSettings
+    { mdsRunHandler = rh
+    , mdsSubDispatcher =
+        [|\parentRunner getSub toParent env -> yesodSubDispatch
+                                 YesodSubRunnerEnv
+                                    { ysreParentRunner = parentRunner
+                                    , ysreGetSub = getSub
+                                    , ysreToParentRoute = toParent
+                                    , ysreParentEnv = env
+                                    }
+                              |]
+    , mdsGetPathInfo = [|W.pathInfo|]
+    , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
+    , mdsMethod = [|W.requestMethod|]
+    , mds404 = [|notFound >> return ()|]
+    , mds405 = [|badMethod >> return ()|]
+    }
+
 -- | If the generation of @'YesodDispatch'@ instance require finer
 -- control of the types, contexts etc. using this combinator. You will
 -- hardly need this generality. However, in certain situations, like
@@ -141,57 +160,22 @@ mkDispatchInstance :: CxtQ                -- ^ The context
 mkDispatchInstance context _sub master res = do
   let yDispatch = conT ''YesodDispatch `appT` master
       thisDispatch = do
-            clause' <- mkDispatchClause MkDispatchSettings
-                { mdsRunHandler = [|yesodRunner|]
-                , mdsSubDispatcher = [|yesodSubDispatch|]
-                , mdsGetPathInfo = [|W.pathInfo|]
-                , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
-                , mdsMethod = [|W.requestMethod|]
-                , mds404 = [|notFound >> return ()|]
-                , mds405 = [|badMethod >> return ()|]
-                } res
+            clause' <- mkDispatchClause (mkMDS [|yesodRunner|]) res
             return $ FunD 'yesodDispatch [clause']
    in sequence [instanceD context yDispatch [thisDispatch]]
 
 
 mkYesodSubDispatch :: [ResourceTree String] -> Q Exp
 mkYesodSubDispatch res = do
-    parentRunner <- newName "parentRunner"
-    getSub <- newName "getSub"
-    toMaster <- newName "toMaster"
-    runner <- newName "runner"
-    clause' <- mkDispatchClause MkDispatchSettings
-        { mdsRunHandler = [|subHelper
-                                $(return $ VarE parentRunner)
-                                $(return $ VarE getSub)
-                                $(return $ VarE toMaster)
-                                . fmap toTypedContent
-                            |]
-        , mdsSubDispatcher = [|yesodSubDispatch|]
-        , mdsGetPathInfo = [|W.pathInfo|]
-        , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
-        , mdsMethod = [|W.requestMethod|]
-        , mds404 = [|notFound >> return ()|]
-        , mds405 = [|badMethod >> return ()|]
-        } res
+    clause' <- mkDispatchClause (mkMDS [|subHelper . fmap toTypedContent|]) res
     inner <- newName "inner"
     let innerFun = FunD inner [clause']
-        runnerFun = FunD runner
-            [ Clause
-                []
-                (NormalB $ VarE 'subHelper
-                    `AppE` VarE parentRunner
-                    `AppE` VarE getSub
-                    `AppE` VarE toMaster
-                )
-                []
-            ]
     helper <- newName "helper"
     let fun = FunD helper
                 [ Clause
-                    [VarP parentRunner, VarP getSub, VarP toMaster]
+                    []
                     (NormalB $ VarE inner)
-                    [innerFun, runnerFun]
+                    [innerFun]
                 ]
     return $ LetE [fun] (VarE helper)
 

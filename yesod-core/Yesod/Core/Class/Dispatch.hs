@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -12,9 +13,7 @@ import Yesod.Core.Types
 import Yesod.Core.Content
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Handler
-import Yesod.Core.Internal.Request (textQueryString)
 import Yesod.Core.Internal.Run
-import           Control.Monad.Trans.Control  (MonadBaseControl)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -22,36 +21,23 @@ class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
 class YesodSubDispatch sub m where
-    yesodSubDispatch
-        :: (m TypedContent
-                -> YesodRunnerEnv (HandlerSite m)
-                -> Maybe (Route (HandlerSite m))
-                -> W.Application)
-        -> (HandlerSite m -> sub)
-        -> (Route sub -> Route (HandlerSite m))
-        -> YesodRunnerEnv (HandlerSite m)
-        -> W.Application
+    yesodSubDispatch :: YesodSubRunnerEnv sub (HandlerSite m) m
+                     -> W.Application
 
 instance YesodSubDispatch WaiSubsite master where
-    yesodSubDispatch _ toSub _ YesodRunnerEnv { yreSite = site } req =
+    yesodSubDispatch YesodSubRunnerEnv {..} req =
         app req
       where
-        WaiSubsite app = toSub site
+        WaiSubsite app = ysreGetSub $ yreSite $ ysreParentEnv
 
 -- | A helper function for creating YesodSubDispatch instances, used by the
 -- internal generated code.
-subHelper :: Monad m
-          => (HandlerT parent m TypedContent
-                -> YesodRunnerEnv parent
-                -> Maybe (Route parent)
-                -> W.Application)
-          -> (parent -> child)
-          -> (Route child -> Route parent)
-          -> HandlerT child (HandlerT parent m) TypedContent
-          -> YesodRunnerEnv parent
+subHelper :: Monad m -- NOTE: This is incredibly similar in type signature to yesodRunner, should probably be pointed out/explained.
+          => HandlerT child (HandlerT parent m) TypedContent
+          -> YesodSubRunnerEnv child parent (HandlerT parent m)
           -> Maybe (Route child)
           -> W.Application
-subHelper parentRunner getSub toMaster handlert env route =
-    parentRunner base env (fmap toMaster route)
+subHelper handlert YesodSubRunnerEnv {..} route =
+    ysreParentRunner base ysreParentEnv (fmap ysreToParentRoute route)
   where
-    base = stripHandlerT (fmap toTypedContent handlert) getSub toMaster route
+    base = stripHandlerT (fmap toTypedContent handlert) ysreGetSub ysreToParentRoute route

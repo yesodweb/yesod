@@ -7,7 +7,6 @@ module Yesod.Core.Class.Yesod where
 import           Control.Monad.Logger               (logErrorS)
 import           Yesod.Core.Content
 import           Yesod.Core.Handler
-import           Yesod.Core.Class.Handler
 
 import           Yesod.Routes.Class
 
@@ -18,8 +17,6 @@ import           Control.Monad                      (forM)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
                                                      LogSource)
-import Control.Monad.Trans.Resource
-import Control.Monad.Trans.Control
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))

@@ -14,10 +14,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import Control.Monad.Trans.Class
 
 getSubsite :: a -> Subsite
-getSubsite = const Subsite
-
-instance Yesod master => YesodSubDispatch Subsite (HandlerT master IO) where
-    yesodSubDispatch = $(mkYesodSubDispatch resourcesSubsite)
+getSubsite _ = Subsite $(mkYesodSubDispatch resourcesSubsite)
 
 getBarR :: Monad m => m T.Text
 getBarR = return $ T.pack "BarR"
