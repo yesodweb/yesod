@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 ---------------------------------------------------------
 --
 -- | Serve static files from a Yesod app.
@@ -69,7 +70,6 @@ import qualified Data.Serialize
 import Data.Text (Text, pack)
 import qualified Data.Map as M
 import Data.IORef (readIORef, newIORef, writeIORef)
-import Network.Wai (pathInfo)
 import Data.Char (isLower, isDigit)
 import Data.List (foldl')
 import qualified Data.ByteString as S
@@ -144,10 +144,10 @@ instance RenderRoute Static where
     renderRoute (StaticRoute x y) = (x, y)
 
 instance YesodSubDispatch Static m where
-    yesodSubDispatch _run getSub _toMaster env req =
+    yesodSubDispatch YesodSubRunnerEnv {..} req =
         staticApp set req
       where
-        Static set = getSub $ yreSite env
+        Static set = ysreGetSub $ yreSite $ ysreParentEnv
 
 notHidden :: Prelude.FilePath -> Bool
 notHidden "tmp" = False
