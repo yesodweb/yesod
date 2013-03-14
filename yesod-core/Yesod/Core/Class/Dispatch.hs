@@ -21,16 +21,15 @@ import           Control.Monad.Trans.Control  (MonadBaseControl)
 class Yesod site => YesodDispatch site where
     yesodDispatch :: YesodRunnerEnv site -> W.Application
 
-class YesodSubDispatch sub parent where
+class YesodSubDispatch sub m where
     yesodSubDispatch
-        :: Monad m
-        => (HandlerT parent m TypedContent
-                -> YesodRunnerEnv parent
-                -> Maybe (Route parent)
+        :: (m TypedContent
+                -> YesodRunnerEnv (HandlerSite m)
+                -> Maybe (Route (HandlerSite m))
                 -> W.Application)
-        -> (parent -> sub)
-        -> (Route sub -> Route parent)
-        -> YesodRunnerEnv parent
+        -> (HandlerSite m -> sub)
+        -> (Route sub -> Route (HandlerSite m))
+        -> YesodRunnerEnv (HandlerSite m)
         -> W.Application
 
 instance YesodSubDispatch WaiSubsite master where

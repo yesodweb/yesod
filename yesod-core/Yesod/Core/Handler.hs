@@ -30,6 +30,7 @@ module Yesod.Core.Handler
     , getRequest
     , waiRequest
     , runRequestBody
+    , rawRequestBody
       -- ** Request information
       -- *** Request datatype
     , RequestBodyContents
@@ -147,6 +148,7 @@ import           Text.Hamlet                   (Html, HtmlUrl, hamlet)
 import qualified Data.ByteString               as S
 import qualified Data.Map                      as Map
 
+import Data.Conduit (Source)
 import           Control.Arrow                 ((***))
 import qualified Data.ByteString.Char8         as S8
 import           Data.Maybe                    (mapMaybe)
@@ -314,7 +316,9 @@ handlerToIO =
       -- The state IORef needs to be created here, otherwise it
       -- will be shared by different invocations of this function.
       newStateIORef <- I.newIORef newState
-      runResourceT $ f clearedOldHandlerData
+      -- FIXME previously runResourceT was used here, but that could mean resources might vanish...
+      -- Check if this new behavior is correct.
+      f clearedOldHandlerData
                          { handlerRequest = newReq
                          , handlerState   = newStateIORef }
 
@@ -875,3 +879,9 @@ provideRepType :: (MonadIO m, ToContent a)
                -> Writer.Writer (Endo [ProvidedRep m]) ()
 provideRepType ct handler =
     Writer.tell $ Endo $ (ProvidedRep ct (liftM toContent handler):)
+
+-- | Stream in the raw request body without any parsing.
+--
+-- Since 1.2.0
+rawRequestBody :: Source m S.ByteString
+rawRequestBody = error "rawRequestBody"

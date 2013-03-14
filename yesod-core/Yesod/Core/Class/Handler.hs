@@ -29,8 +29,8 @@ instance Monad m => HandlerReader (HandlerT site m) where
 instance Monad m => HandlerReader (WidgetT site m) where
     type HandlerSite (WidgetT site m) = site
 
-    askYesodRequest = WidgetT $ fmap (, mempty) $ askYesodRequest
-    askHandlerEnv = WidgetT $ fmap (, mempty) $ askHandlerEnv
+    askYesodRequest = WidgetT $ return . (, mempty) . handlerRequest
+    askHandlerEnv = WidgetT $ return . (, mempty) . handlerEnv
 
 class HandlerReader m => HandlerState m where
     stateGHState :: (GHState -> (a, GHState)) -> m a
@@ -48,7 +48,10 @@ instance MonadBase IO m => HandlerState (HandlerT site m) where
         f' z = let (x, y) = f z in (y, x)
 
 instance MonadBase IO m => HandlerState (WidgetT site m) where
-    stateGHState = WidgetT . fmap (, mempty) . stateGHState
+    stateGHState f =
+        WidgetT $ fmap (, mempty) . flip atomicModifyIORef f' . handlerState
+      where
+        f' z = let (x, y) = f z in (y, x)
 
 class HandlerReader m => HandlerError m where
     handlerError :: HandlerContents -> m a
