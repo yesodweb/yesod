@@ -23,12 +23,10 @@ module Yesod.Core.Dispatch
     , Texts
       -- * Convert to WAI
     , toWaiApp
-    , toWaiAppPlain
       -- * WAI subsites
     , WaiSubsite (..)
     ) where
 
-import Control.Applicative ((<$>), (<*>))
 import Prelude hiding (exp)
 import Yesod.Core.Handler
 
@@ -37,8 +35,6 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
-import Network.Wai.Middleware.Gzip
-import Network.Wai.Middleware.Autohead
 
 import Data.ByteString.Lazy.Char8 ()
 
@@ -49,7 +45,6 @@ import qualified Blaze.ByteString.Builder
 import Network.HTTP.Types (status301)
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
-import System.Log.FastLogger (Logger)
 import Yesod.Core.Types
 import Yesod.Core.Content
 import Yesod.Core.Class.Yesod
@@ -180,46 +175,35 @@ mkYesodSubDispatch res = do
     return $ LetE [fun] (VarE helper)
 
 -- | Convert the given argument into a WAI application, executable with any WAI
--- handler. This is the same as 'toWaiAppPlain', except it includes two
--- middlewares: GZIP compression and autohead. This is the
--- recommended approach for most users.
+-- handler. Note that, in versions of Yesod prior to 1.2, this would include
+-- some default middlewares (GZIP and autohead). This is no longer the case; if
+-- you want these middlewares, you should provide them yourself.
 toWaiApp :: YesodDispatch site => site -> IO W.Application
-toWaiApp y = gzip (gzipSettings y) . autohead <$> toWaiAppPlain y
-
--- | Convert the given argument into a WAI application, executable with any WAI
--- handler. This differs from 'toWaiApp' in that it uses no middlewares.
-toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
-toWaiAppPlain a = toWaiApp' a <$> getLogger a <*> makeSessionBackend a
-
-
-toWaiApp' :: YesodDispatch site
-          => site
-          -> Logger
-          -> Maybe SessionBackend
-          -> W.Application
-toWaiApp' site logger sb req =
-    case cleanPath site $ W.pathInfo req of
-        Left pieces -> sendRedirect site pieces req
-        Right pieces -> yesodDispatch yre req
-            { W.pathInfo = pieces
+toWaiApp site = do
+    logger <- makeLogger site
+    sb <- makeSessionBackend site
+    let yre = YesodRunnerEnv
+            { yreLogger = logger
+            , yreSite = site
+            , yreSessionBackend = sb
             }
+    return $ \req ->
+        case cleanPath site $ W.pathInfo req of
+            Left pieces -> sendRedirect site pieces req
+            Right pieces -> yesodDispatch yre req
+                { W.pathInfo = pieces
+                }
   where
-    yre = YesodRunnerEnv
-        { yreLogger = logger
-        , yreSite = site
-        , yreSessionBackend = sb
-        }
-
-sendRedirect :: Yesod master => master -> [Text] -> W.Application
-sendRedirect y segments' env =
-     return $ W.responseLBS status301
-            [ ("Content-Type", "text/plain")
-            , ("Location", Blaze.ByteString.Builder.toByteString dest')
-            ] "Redirecting"
-  where
-    dest = joinPath y (resolveApproot y env) segments' []
-    dest' =
-        if S.null (W.rawQueryString env)
-            then dest
-            else (dest `mappend`
-                 Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
+    sendRedirect :: Yesod master => master -> [Text] -> W.Application
+    sendRedirect y segments' env =
+         return $ W.responseLBS status301
+                [ ("Content-Type", "text/plain")
+                , ("Location", Blaze.ByteString.Builder.toByteString dest')
+                ] "Redirecting"
+      where
+        dest = joinPath y (resolveApproot y env) segments' []
+        dest' =
+            if S.null (W.rawQueryString env)
+                then dest
+                else (dest `mappend`
+                     Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
