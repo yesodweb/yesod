@@ -18,8 +18,6 @@ import qualified Data.Text as T
 import Data.Conduit
 import Data.Conduit.List (consume)
 import Data.Conduit.Binary (isolate)
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Resource
 
 data Y = Y
 

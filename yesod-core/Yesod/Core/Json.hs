@@ -25,7 +25,6 @@ import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
 import Yesod.Core.Class.Handler
 import Yesod.Core.Widget (WidgetT)
 import Yesod.Routes.Class
-import Control.Applicative ((<$>))
 import Control.Monad (join)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Parser as JP
@@ -38,7 +37,6 @@ import Network.Wai (requestBody, requestHeaders)
 import Network.Wai.Parse (parseHttpAccept)
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe (listToMaybe)
-import Control.Monad.Trans.Class (lift)
 import Control.Monad (liftM)
 import Control.Monad.Trans.Resource (liftResourceT)
 

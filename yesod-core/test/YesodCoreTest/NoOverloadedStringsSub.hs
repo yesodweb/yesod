@@ -1,18 +1,22 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RankNTypes #-}
 module YesodCoreTest.NoOverloadedStringsSub where
 
 import Yesod.Core
 import Network.Wai
-import Network.Wai.Test
-import Data.Monoid (mempty)
-import qualified Data.Text as T
-import qualified Data.ByteString.Lazy.Char8 as L8
+import Yesod.Core.Types
 
-data Subsite = Subsite
+data Subsite = Subsite (forall master. Yesod master => YesodSubRunnerEnv Subsite master (HandlerT master IO) -> Application)
 
 mkYesodSubData "Subsite" [parseRoutes|
 /bar BarR GET
 /baz BazR GET
 /bin BinR GET
 |]
+
+instance Yesod master => YesodSubDispatch Subsite (HandlerT master IO) where
+    yesodSubDispatch ysre =
+        f ysre
+      where
+        Subsite f = ysreGetSub ysre $ yreSite $ ysreParentEnv ysre

@@ -70,9 +70,6 @@ import Yesod.Core.Content
 import Yesod.Core.Dispatch
 import Yesod.Core.Handler
 import Yesod.Core.Class.Handler
-import Data.IORef (readIORef, newIORef)
-import Control.Monad.IO.Class (liftIO)
-import Data.Text (Text)
 import Yesod.Core.Widget
 import Yesod.Core.Json
 import Yesod.Core.Types
@@ -80,8 +77,6 @@ import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
 
 import Control.Monad.Logger
-import Control.Monad.Trans.Resource (MonadResource, liftResourceT)
-import Control.Monad.Trans.Class (MonadTrans)
 import Yesod.Core.Internal.Session
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch

@@ -12,17 +12,15 @@ import qualified Blaze.ByteString.Builder.Char.Utf8
 import           Control.Applicative                (Applicative (..))
 import           Control.Applicative                ((<$>))
 import           Control.Arrow                      (first)
-import           Control.Exception                  (Exception, throwIO)
+import           Control.Exception                  (Exception)
 import           Control.Failure                    (Failure (..))
 import           Control.Monad                      (liftM, ap)
-import           Control.Monad.Trans.Class          (MonadTrans)
-import qualified Control.Monad.Trans.Class          as Trans
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
 import           Control.Monad.Trans.Control        (MonadBaseControl (..))
-import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, MonadThrow (..),
@@ -55,7 +53,7 @@ import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
-import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..))
 
 -- Sessions
@@ -192,6 +190,19 @@ data YesodRunnerEnv site = YesodRunnerEnv
     , yreSite           :: !site
     , yreSessionBackend :: !(Maybe SessionBackend)
     }
+
+data YesodSubRunnerEnv sub parent parentMonad = YesodSubRunnerEnv
+    { ysreParentRunner  :: !(ParentRunner parent parentMonad)
+    , ysreGetSub        :: !(parent -> sub)
+    , ysreToParentRoute :: !(Route sub -> Route parent)
+    , ysreParentEnv     :: !(YesodRunnerEnv parent) -- FIXME maybe get rid of this and remove YesodRunnerEnv in ParentRunner?
+    }
+
+type ParentRunner parent m
+    = m TypedContent
+   -> YesodRunnerEnv parent
+   -> Maybe (Route parent)
+   -> W.Application
 
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
