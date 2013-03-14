@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -54,7 +55,7 @@ import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
-import           Yesod.Core.Class.MonadLift         (MonadLift (..))
+import           Control.Monad.Trans.Class
 import           Yesod.Routes.Class                 (RenderRoute (..))
 
 -- Sessions
@@ -192,22 +193,9 @@ data YesodRunnerEnv site = YesodRunnerEnv
 
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
-newtype GHandler site a = GHandler
-    { unGHandler :: HandlerData site -> ResourceT IO a
-    }
-
 newtype HandlerT site m a = HandlerT
-    { unHandlerT :: HandlerData site -> m a
+    { unHandlerT :: HandlerData site -> ResourceT m a
     }
-
-instance Monad m => Monad (HandlerT sub m) where
-    return = HandlerT . const . return
-    HandlerT f >>= g = HandlerT $ \hd -> f hd >>= \x -> unHandlerT (g x) hd
-instance Monad m => Functor (HandlerT sub m) where
-    fmap = liftM
-instance Monad m => Applicative (HandlerT sub m) where
-    pure = return
-    (<*>) = ap
 
 data GHState = GHState
     { ghsSession :: SessionMap
@@ -219,17 +207,17 @@ data GHState = GHState
 
 -- | An extension of the basic WAI 'W.Application' datatype to provide extra
 -- features needed by Yesod. Users should never need to use this directly, as
--- the 'GHandler' monad and template haskell code should hide it away.
+-- the 'HandlerT' monad and template haskell code should hide it away.
 type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
 -- better error messages.
-newtype GWidget site a = GWidget -- FIXME change to WidgetT?
-    { unGWidget :: GHandler site (a, GWData (Route site))
+newtype WidgetT site m a = WidgetT
+    { unWidgetT :: HandlerT site m (a, GWData (Route site))
     }
 
-instance (a ~ ()) => Monoid (GWidget site a) where
+instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mempty = return ()
     mappend x y = x >> y
 
@@ -344,62 +332,56 @@ instance Show HandlerContents where
     show _ = "Cannot show a HandlerContents"
 instance Exception HandlerContents
 
--- Instances for GWidget
-instance Functor (GWidget site) where
-    fmap f (GWidget x) = GWidget (fmap (first f) x)
-instance Applicative (GWidget site) where
-    pure a = GWidget $ pure (a, mempty)
-    GWidget f <*> GWidget v =
-        GWidget $ k <$> f <*> v
-      where
-        k (a, wa) (b, wb) = (a b, wa `mappend` wb)
-instance Monad (GWidget site) where
-    return = pure
-    GWidget x >>= f = GWidget $ do
+-- Instances for WidgetT
+instance Monad m => Functor (WidgetT site m) where
+    fmap = liftM
+instance Monad m => Applicative (WidgetT site m) where
+    pure = return
+    (<*>) = ap
+instance Monad m => Monad (WidgetT site m) where
+    return a = WidgetT $ pure (a, mempty)
+    WidgetT x >>= f = WidgetT $ do
         (a, wa) <- x
-        (b, wb) <- unGWidget (f a)
+        (b, wb) <- unWidgetT (f a)
         return (b, wa `mappend` wb)
-instance MonadIO (GWidget site) where
-    liftIO = GWidget . fmap (\a -> (a, mempty)) . liftIO
-instance MonadBase IO (GWidget site) where
-    liftBase = GWidget . fmap (\a -> (a, mempty)) . liftBase
-instance MonadBaseControl IO (GWidget site) where
-    data StM (GWidget site) a =
-        StW (StM (GHandler site) (a, GWData (Route site)))
-    liftBaseWith f = GWidget $ liftBaseWith $ \runInBase ->
+instance MonadIO m => MonadIO (WidgetT site m) where
+    liftIO = lift . liftIO
+instance MonadBase b m => MonadBase b (WidgetT site m) where
+    liftBase = WidgetT . fmap (\a -> (a, mempty)) . liftBase
+instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
+    data StM (WidgetT site m) a =
+        StW (StM (HandlerT site m) (a, GWData (Route site)))
+    liftBaseWith f = WidgetT $ liftBaseWith $ \runInBase ->
         liftM (\x -> (x, mempty))
-        (f $ liftM StW . runInBase . unGWidget)
-    restoreM (StW base) = GWidget $ restoreM base
+        (f $ liftM StW . runInBase . unWidgetT)
+    restoreM (StW base) = WidgetT $ restoreM base
 
-instance MonadUnsafeIO (GWidget site) where
-    unsafeLiftIO = liftIO
-instance MonadThrow (GWidget site) where
-    monadThrow = liftIO . throwIO
-instance MonadResource (GWidget site) where
-    liftResourceT = lift . liftResourceT
+instance MonadTrans (WidgetT site) where
+    lift = WidgetT . fmap (, mempty) . lift
+instance MonadThrow m => MonadThrow (WidgetT site m) where
+    monadThrow = lift . monadThrow
+instance (Applicative m, MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (WidgetT site m) where
+    liftResourceT = WidgetT . fmap (, mempty) . liftResourceT
 
-instance MonadLogger (GWidget site) where
-    monadLoggerLog a b c = lift . monadLoggerLog a b c
+instance MonadIO m => MonadLogger (WidgetT site m) where
+    monadLoggerLog a b c d = WidgetT $ fmap (, mempty) $ monadLoggerLog a b c d
 
-instance MonadLift (GHandler site) (GWidget site) where
-    lift = GWidget . fmap (\x -> (x, mempty))
+instance MonadTrans (HandlerT site) where
+    lift = HandlerT . const . lift
 
-instance MonadLift (ResourceT IO) (GHandler site) where
-    lift = GHandler . const
-
--- Instances for GHandler
-instance Functor (GHandler site) where
-    fmap f (GHandler x) = GHandler $ \r -> fmap f (x r)
-instance Applicative (GHandler site) where
-    pure = GHandler . const . pure
-    GHandler f <*> GHandler x = GHandler $ \r -> f r <*> x r
-instance Monad (GHandler site) where
-    return = pure
-    GHandler x >>= f = GHandler $ \r -> x r >>= \x' -> unGHandler (f x') r
-instance MonadIO (GHandler site) where
-    liftIO = GHandler . const . lift
-instance MonadBase IO (GHandler site) where
-    liftBase = GHandler . const . lift
+-- Instances for HandlerT
+instance Monad m => Functor (HandlerT site m) where
+    fmap = liftM
+instance Monad m => Applicative (HandlerT site m) where
+    pure = return
+    (<*>) = ap
+instance Monad m => Monad (HandlerT site m) where
+    return = HandlerT . const . return
+    HandlerT x >>= f = HandlerT $ \r -> x r >>= \x' -> unHandlerT (f x') r
+instance MonadIO m => MonadIO (HandlerT site m) where
+    liftIO = lift . liftIO
+instance MonadBase b m => MonadBase b (HandlerT site m) where
+    liftBase = lift . liftBase
 -- | Note: although we provide a @MonadBaseControl@ instance, @lifted-base@'s
 -- @fork@ function is incompatible with the underlying @ResourceT@ system.
 -- Instead, if you must fork a separate thread, you should use
@@ -408,26 +390,24 @@ instance MonadBase IO (GHandler site) where
 -- Using fork usually leads to an exception that says
 -- \"Control.Monad.Trans.Resource.register\': The mutable state is being accessed
 -- after cleanup. Please contact the maintainers.\"
-instance MonadBaseControl IO (GHandler site) where
-    data StM (GHandler site) a = StH (StM (ResourceT IO) a)
-    liftBaseWith f = GHandler $ \reader ->
+instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
+    data StM (HandlerT site m) a = StH (StM (ResourceT m) a)
+    liftBaseWith f = HandlerT $ \reader ->
         liftBaseWith $ \runInBase ->
-            f $ liftM StH . runInBase . (\(GHandler r) -> r reader)
-    restoreM (StH base) = GHandler $ const $ restoreM base
+            f $ liftM StH . runInBase . (\(HandlerT r) -> r reader)
+    restoreM (StH base) = HandlerT $ const $ restoreM base
 
-instance MonadUnsafeIO (GHandler site) where
-    unsafeLiftIO = liftIO
-instance MonadThrow (GHandler site) where
-    monadThrow = liftIO . throwIO
-instance MonadResource (GHandler site) where
-    liftResourceT = lift . liftResourceT
+instance MonadThrow m => MonadThrow (HandlerT site m) where
+    monadThrow = lift . monadThrow
+instance (MonadIO m, MonadUnsafeIO m, MonadThrow m, Applicative m) => MonadResource (HandlerT site m) where
+    liftResourceT = HandlerT . const . liftResourceT
 
-instance MonadLogger (GHandler site) where
-    monadLoggerLog a b c d = GHandler $ \hd ->
+instance MonadIO m => MonadLogger (HandlerT site m) where
+    monadLoggerLog a b c d = HandlerT $ \hd ->
         liftIO $ rheLog (handlerEnv hd) a b c (toLogStr d)
 
-instance Exception e => Failure e (GHandler site) where
-    failure = liftIO . throwIO
+instance Failure e m => Failure e (HandlerT site m) where
+    failure = lift . failure
 
 instance Monoid (UniqueList x) where
     mempty = UniqueList id

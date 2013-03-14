@@ -19,11 +19,11 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Core.Handler (GHandler, waiRequest, invalidArgs, redirect, selectRep, provideRep)
-import Yesod.Core.Class.MonadLift (lift)
+import Yesod.Core.Handler (HandlerT, waiRequest, invalidArgs, redirect, selectRep, provideRep)
 import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
-import Yesod.Core.Widget (GWidget)
+import Yesod.Core.Class.Handler
+import Yesod.Core.Widget (WidgetT)
 import Yesod.Routes.Class
 import Control.Applicative ((<$>))
 import Control.Monad (join)
@@ -38,6 +38,9 @@ import Network.Wai (requestBody, requestHeaders)
 import Network.Wai.Parse (parseHttpAccept)
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe (listToMaybe)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad (liftM)
+import Control.Monad.Trans.Resource (liftResourceT)
 
 -- | Provide both an HTML and JSON representation for a piece of
 -- data, using the default layout for the HTML output
@@ -45,9 +48,9 @@ import Data.Maybe (listToMaybe)
 --
 -- /Since: 0.3.0/
 defaultLayoutJson :: (Yesod site, J.ToJSON a)
-                  => GWidget site ()  -- ^ HTML
-                  -> GHandler site a  -- ^ JSON
-                  -> GHandler site TypedContent
+                  => WidgetT site m ()  -- ^ HTML
+                  -> HandlerT site m a  -- ^ JSON
+                  -> HandlerT site m TypedContent
 defaultLayoutJson w json = selectRep $ do
     provideRep $ defaultLayout w
     provideRep $ fmap J.toJSON json
@@ -56,7 +59,7 @@ defaultLayoutJson w json = selectRep $ do
 -- support conversion to JSON via 'J.ToJSON'.
 --
 -- /Since: 0.3.0/
-jsonToRepJson :: J.ToJSON a => a -> GHandler site J.Value
+jsonToRepJson :: J.ToJSON a => a -> HandlerT site m J.Value
 jsonToRepJson = return . J.toJSON
 
 -- | Parse the request body to a data type as a JSON value.  The
@@ -65,12 +68,11 @@ jsonToRepJson = return . J.toJSON
 -- 'J.Value'@.
 --
 -- /Since: 0.3.0/
-parseJsonBody :: J.FromJSON a => GHandler site (J.Result a)
+parseJsonBody :: (MonadResource m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = do
     req <- waiRequest
-    eValue <- lift
-            $ runExceptionT
-            $ transPipe lift (requestBody req)
+    eValue <- runExceptionT
+            $ transPipe liftResourceT (requestBody req)
            $$ sinkParser JP.value'
     return $ case eValue of
         Left e -> J.Error $ show e
@@ -78,7 +80,7 @@ parseJsonBody = do
 
 -- | Same as 'parseJsonBody', but return an invalid args response on a parse
 -- error.
-parseJsonBody_ :: J.FromJSON a => GHandler site a
+parseJsonBody_ :: (HandlerError m, J.FromJSON a, MonadResource m) => m a
 parseJsonBody_ = do
     ra <- parseJsonBody
     case ra of
@@ -96,20 +98,21 @@ array = J.Array . V.fromList . map J.toJSON
 --     @application\/json@ (e.g. AJAX, see 'acceptsJSON').
 --
 --     2. 3xx otherwise, following the PRG pattern.
-jsonOrRedirect :: (Yesod site, J.ToJSON a)
-               => Route site   -- ^ Redirect target
+jsonOrRedirect :: HandlerError m
+               => J.ToJSON a
+               => Route (HandlerSite m) -- ^ Redirect target
                -> a            -- ^ Data to send via JSON
-               -> GHandler site J.Value
+               -> m J.Value
 jsonOrRedirect r j = do
     q <- acceptsJson
-    if q then jsonToRepJson (J.toJSON j)
+    if q then return (J.toJSON j)
          else redirect r
 
 -- | Returns @True@ if the client prefers @application\/json@ as
 -- indicated by the @Accept@ HTTP header.
-acceptsJson :: Yesod site => GHandler site Bool
-acceptsJson =  maybe False ((== "application/json") . B8.takeWhile (/= ';'))
+acceptsJson :: HandlerReader m => m Bool
+acceptsJson =  (maybe False ((== "application/json") . B8.takeWhile (/= ';'))
             .  join
-            .  fmap (listToMaybe . parseHttpAccept)
-            .  lookup "Accept" . requestHeaders
-           <$> waiRequest
+            .  liftM (listToMaybe . parseHttpAccept)
+            .  lookup "Accept" . requestHeaders)
+           `liftM` waiRequest

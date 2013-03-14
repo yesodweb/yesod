@@ -58,11 +58,10 @@ import           Web.Cookie                         (SetCookie (..))
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
-import           Yesod.Core.Class.MonadLift         (lift)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
-class RenderRoute a => Yesod a where
+class RenderRoute site => Yesod site where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --
@@ -76,36 +75,34 @@ class RenderRoute a => Yesod a where
     --
     -- If this is not true, you should override with a different
     -- implementation.
-    approot :: Approot a
+    approot :: Approot site
     approot = ApprootRelative
 
     -- | Output error response pages.
-    errorHandler :: ErrorResponse -> GHandler a TypedContent
+    errorHandler :: ErrorResponse -> HandlerT site IO TypedContent
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: GWidget a () -> GHandler a RepHtml
+    defaultLayout :: WidgetT site IO () -> HandlerT site IO RepHtml
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
         hamletToRepHtml [hamlet|
-$newline never
-$doctype 5
-
-<html>
-    <head>
-        <title>#{pageTitle p}
-        ^{pageHead p}
-    <body>
-        $maybe msg <- mmsg
-            <p .message>#{msg}
-        ^{pageBody p}
-|]
+            $doctype 5
+            <html>
+                <head>
+                    <title>#{pageTitle p}
+                    ^{pageHead p}
+                <body>
+                    $maybe msg <- mmsg
+                        <p .message>#{msg}
+                    ^{pageBody p}
+            |]
 
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
-    urlRenderOverride :: a -> Route a -> Maybe Builder
+    urlRenderOverride :: site -> Route site -> Maybe Builder
     urlRenderOverride _ _ = Nothing
 
     -- | Determine if a request is authorized or not.
@@ -113,9 +110,9 @@ $doctype 5
     -- Return 'Authorized' if the request is authorized,
     -- 'Unauthorized' a message if unauthorized.
     -- If authentication is required, return 'AuthenticationRequired'.
-    isAuthorized :: Route a
+    isAuthorized :: Route site
                  -> Bool -- ^ is this a write request?
-                 -> GHandler a AuthResult
+                 -> HandlerT site IO AuthResult
     isAuthorized _ _ = return Authorized
 
     -- | Determines whether the current request is a write request. By default,
@@ -125,7 +122,7 @@ $doctype 5
     --
     -- This function is used to determine if a request is authorized; see
     -- 'isAuthorized'.
-    isWriteRequest :: Route a -> GHandler a Bool
+    isWriteRequest :: Route site -> HandlerT site IO Bool
     isWriteRequest _ = do
         wai <- waiRequest
         return $ W.requestMethod wai `notElem`
@@ -135,7 +132,7 @@ $doctype 5
     --
     -- Used in particular by 'isAuthorized', but library users can do whatever
     -- they want with it.
-    authRoute :: a -> Maybe (Route a)
+    authRoute :: site -> Maybe (Route site)
     authRoute _ = Nothing
 
     -- | A function used to clean up path segments. It returns 'Right' with a
@@ -148,7 +145,7 @@ $doctype 5
     --
     -- Note that versions of Yesod prior to 0.7 used a different set of rules
     -- involing trailing slashes.
-    cleanPath :: a -> [Text] -> Either [Text] [Text]
+    cleanPath :: site -> [Text] -> Either [Text] [Text]
     cleanPath _ s =
         if corrected == s
             then Right $ map dropDash s
@@ -162,7 +159,7 @@ $doctype 5
     -- | Builds an absolute URL by concatenating the application root with the
     -- pieces of a path and a query string, if any.
     -- Note that the pieces of the path have been previously cleaned up by 'cleanPath'.
-    joinPath :: a
+    joinPath :: site
              -> T.Text -- ^ application root
              -> [T.Text] -- ^ path pieces
              -> [(T.Text, T.Text)] -- ^ query string
@@ -191,7 +188,7 @@ $doctype 5
     addStaticContent :: Text -- ^ filename extension
                      -> Text -- ^ mime-type
                      -> L.ByteString -- ^ content
-                     -> GHandler a (Maybe (Either Text (Route a, [(Text, Text)])))
+                     -> HandlerT site IO (Maybe (Either Text (Route site, [(Text, Text)])))
     addStaticContent _ _ _ = return Nothing
 
     {- Temporarily disabled until we have a better interface.
@@ -208,17 +205,17 @@ $doctype 5
     -- | Maximum allowed length of the request body, in bytes.
     --
     -- Default: 2 megabytes.
-    maximumContentLength :: a -> Maybe (Route a) -> Word64
+    maximumContentLength :: site -> Maybe (Route site) -> Word64
     maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
 
     -- | Returns a @Logger@ to use for log messages.
     --
     -- Default: Sends to stdout and automatically flushes on each write.
-    getLogger :: a -> IO Logger
+    getLogger :: site -> IO Logger
     getLogger _ = mkLogger True stdout
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
-    messageLoggerSource :: a
+    messageLoggerSource :: site
                         -> Logger
                         -> Loc -- ^ position in source code
                         -> LogSource
@@ -232,11 +229,11 @@ $doctype 5
 
     -- | The logging level in place for this application. Any messages below
     -- this level will simply be ignored.
-    logLevel :: a -> LogLevel
+    logLevel :: site -> LogLevel
     logLevel _ = LevelInfo
 
     -- | GZIP settings.
-    gzipSettings :: a -> GzipSettings
+    gzipSettings :: site -> GzipSettings
     gzipSettings _ = def
 
     -- | Where to Load sripts from. We recommend the default value,
@@ -245,13 +242,13 @@ $doctype 5
     -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
     --
     -- Or write your own async js loader: see 'loadJsYepnope'
-    jsLoader :: a -> ScriptLoadPosition a
+    jsLoader :: site -> ScriptLoadPosition site
     jsLoader _ = BottomOfBody
 
     -- | Create a session backend. Returning `Nothing' disables sessions.
     --
     -- Default: Uses clientsession with a 2 hour timeout.
-    makeSessionBackend :: a -> IO (Maybe SessionBackend)
+    makeSessionBackend :: site -> IO (Maybe SessionBackend)
     makeSessionBackend _ = fmap Just defaultClientSessionBackend
 
     -- | How to store uploaded files.
@@ -259,7 +256,7 @@ $doctype 5
     -- Default: When the request body is greater than 50kb, store in a temp
     -- file. For chunked request bodies, store in a temp file. Otherwise, store
     -- in memory.
-    fileUpload :: a -> W.RequestBodyLength -> FileUpload
+    fileUpload :: site -> W.RequestBodyLength -> FileUpload
     fileUpload _ (W.KnownLength size)
         | size <= 50000 = FileUploadMemory lbsBackEnd
     fileUpload _ _ = FileUploadDisk tempFileBackEnd
@@ -267,8 +264,8 @@ $doctype 5
     -- | Should we log the given log source/level combination.
     --
     -- Default: Logs everything at or above 'logLevel'
-    shouldLog :: a -> LogSource -> LogLevel -> Bool
-    shouldLog a _ level = level >= logLevel a
+    shouldLog :: site -> LogSource -> LogLevel -> Bool
+    shouldLog site _ level = level >= logLevel site
 
     -- | A Yesod middleware, which will wrap every handler function. This
     -- allows you to run code before and after a normal handler.
@@ -277,7 +274,7 @@ $doctype 5
     -- performs authorization checks.
     --
     -- Since: 1.1.6
-    yesodMiddleware :: GHandler a res -> GHandler a res
+    yesodMiddleware :: HandlerT site IO res -> HandlerT site IO res
     yesodMiddleware handler = do
         setHeader "Vary" "Accept, Accept-Language"
         route <- getCurrentRoute
@@ -301,11 +298,11 @@ $doctype 5
 
 -- | Convert a widget to a 'PageContent'.
 widgetToPageContent :: (Eq (Route site), Yesod site)
-                    => GWidget site ()
-                    -> GHandler site (PageContent (Route site))
+                    => WidgetT site IO ()
+                    -> HandlerT site IO (PageContent (Route site))
 widgetToPageContent w = do
     master <- getYesod
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- unGWidget w
+    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- unWidgetT w
     let title = maybe mempty unTitle mTitle
         scripts = runUniqueList scripts'
         stylesheets = runUniqueList stylesheets'
@@ -396,10 +393,10 @@ $newline never
     runUniqueList (UniqueList x) = nub $ x []
 
 -- | The default error handler for 'errorHandler'.
-defaultErrorHandler :: Yesod site => ErrorResponse -> GHandler site TypedContent
+defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerT site IO TypedContent
 defaultErrorHandler NotFound = selectRep $ do
     provideRep $ defaultLayout $ do
-        r <- lift waiRequest
+        r <- waiRequest
         let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
         setTitle "Not Found"
         toWidget [hamlet|
@@ -560,20 +557,3 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
   where
     line = show . fst . loc_start
     char = show . snd . loc_start
-
-class (MonadBaseControl IO m, HandlerState m, HandlerError m, MonadResource m, Yesod (HandlerMaster m)) => MonadHandler m where
-    liftHandler :: GHandler (HandlerSite m) a -> m a
-    liftHandler (GHandler f) = do
-        hd <- askHandlerData
-        liftResourceT $ f hd
-
-    liftHandlerMaster :: GHandler (HandlerMaster m) a -> m a
-    askHandlerData :: m (HandlerData (HandlerSite m))
-
-instance Yesod site => MonadHandler (GHandler site) where
-    liftHandler = id
-    liftHandlerMaster = id
-    askHandlerData = GHandler return
-instance MonadHandler m => MonadHandler (HandlerT site m) where
-    liftHandlerMaster = lift . liftHandlerMaster
-    askHandlerData = HandlerT return

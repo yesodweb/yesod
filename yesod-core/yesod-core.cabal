@@ -82,7 +82,7 @@ library
                    , fast-logger           >= 0.2
                    , monad-logger          >= 0.3.1    && < 0.4
                    , conduit               >= 0.5
-                   , resourcet             >= 0.4      && < 0.5
+                   , resourcet             >= 0.4.6    && < 0.5
                    , lifted-base           >= 0.1
                    , attoparsec-conduit
                    , blaze-html            >= 0.5
@@ -101,12 +101,10 @@ library
                      Yesod.Core.Class.Handler
                      Yesod.Core.Internal.Util
                      Yesod.Core.Internal.Response
-                     Yesod.Core.Class.MonadLift
                      Yesod.Core.Internal.Run
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs
-                     Yesod.Core.Types.Orphan
                      Paths_yesod_core
     ghc-options:     -Wall
 
