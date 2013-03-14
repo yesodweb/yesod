@@ -89,6 +89,7 @@ class RenderRoute site => Yesod site where
         p <- widgetToPageContent w
         mmsg <- getMessage
         hamletToRepHtml [hamlet|
+            $newline never
             $doctype 5
             <html>
                 <head>
