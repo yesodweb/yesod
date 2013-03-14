@@ -48,8 +48,6 @@ module Yesod.Core
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
       -- * Subsites
-    , defaultLayoutT
-    , MonadHandler (..)
     , HandlerReader (..)
     , HandlerState (..)
     , HandlerError (..)
@@ -63,7 +61,6 @@ module Yesod.Core
     , module Yesod.Core.Handler
     , module Yesod.Core.Widget
     , module Yesod.Core.Json
-    , module Yesod.Core.Class.MonadLift
     , module Text.Shakespeare.I18N
     , module Yesod.Core.Internal.Util
     ) where
@@ -113,10 +110,3 @@ maybeAuthorized :: Yesod site
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
-
-defaultLayoutT :: Yesod parent
-               => WidgetT child m ()
-               -> HandlerT parent m RepHtml
-defaultLayoutT (WidgetT (HandlerT f)) = HandlerT $ \hd -> do
-    ((), gwdata) <- liftResourceT $ f hd
-    unHandlerT $ defaultLayout $ WidgetT $ return ((), renderGWData (rheRender $ handlerEnv hd) gwdata)

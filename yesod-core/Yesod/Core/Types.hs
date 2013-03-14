@@ -22,7 +22,7 @@ import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
 import           Control.Monad.Trans.Control        (MonadBaseControl (..))
-import           Control.Monad.Trans.Resource       (MonadResource (..))
+import           Control.Monad.Trans.Resource
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, MonadThrow (..),
@@ -184,6 +184,7 @@ data HandlerData site parentRoute = HandlerData
     , handlerEnv      :: !(RunHandlerEnv site)
     , handlerState    :: !(IORef GHState)
     , handlerToParent :: !(Route site -> parentRoute)
+    , handlerResource :: !InternalState
     }
 
 data YesodRunnerEnv site = YesodRunnerEnv
@@ -195,7 +196,7 @@ data YesodRunnerEnv site = YesodRunnerEnv
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
 newtype HandlerT site m a = HandlerT
-    { unHandlerT :: HandlerData site (MonadRoute m) -> ResourceT m a
+    { unHandlerT :: HandlerData site (MonadRoute m) -> m a
     }
 
 type family MonadRoute (m :: * -> *)
@@ -219,7 +220,7 @@ type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
 -- better error messages.
 newtype WidgetT site m a = WidgetT
-    { unWidgetT :: HandlerT site m (a, GWData (Route site))
+    { unWidgetT :: HandlerData site (MonadRoute m) -> m (a, GWData (Route site))
     }
 
 instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
@@ -344,35 +345,36 @@ instance Monad m => Applicative (WidgetT site m) where
     pure = return
     (<*>) = ap
 instance Monad m => Monad (WidgetT site m) where
-    return a = WidgetT $ pure (a, mempty)
-    WidgetT x >>= f = WidgetT $ do
-        (a, wa) <- x
-        (b, wb) <- unWidgetT (f a)
+    return a = WidgetT $ const $ return (a, mempty)
+    WidgetT x >>= f = WidgetT $ \r -> do
+        (a, wa) <- x r
+        (b, wb) <- unWidgetT (f a) r
         return (b, wa `mappend` wb)
 instance MonadIO m => MonadIO (WidgetT site m) where
     liftIO = lift . liftIO
 instance MonadBase b m => MonadBase b (WidgetT site m) where
-    liftBase = WidgetT . fmap (\a -> (a, mempty)) . liftBase
+    liftBase = WidgetT . const . liftBase . fmap (, mempty)
 instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
-    data StM (WidgetT site m) a =
-        StW (StM (HandlerT site m) (a, GWData (Route site)))
-    liftBaseWith f = WidgetT $ liftBaseWith $ \runInBase ->
-        liftM (\x -> (x, mempty))
-        (f $ liftM StW . runInBase . unWidgetT)
-    restoreM (StW base) = WidgetT $ restoreM base
+    data StM (WidgetT site m) a = StW (StM m (a, GWData (Route site)))
+    liftBaseWith f = WidgetT $ \reader ->
+        liftBaseWith $ \runInBase ->
+            liftM (\x -> (x, mempty))
+            (f $ liftM StW . runInBase . flip unWidgetT reader)
+    restoreM (StW base) = WidgetT $ const $ restoreM base
 
 instance MonadTrans (WidgetT site) where
-    lift = WidgetT . fmap (, mempty) . lift
+    lift = WidgetT . const . liftM (, mempty)
 instance MonadThrow m => MonadThrow (WidgetT site m) where
     monadThrow = lift . monadThrow
 instance (Applicative m, MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (WidgetT site m) where
-    liftResourceT = WidgetT . fmap (, mempty) . liftResourceT
+    liftResourceT f = WidgetT $ \hd -> liftIO $ fmap (, mempty) $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (WidgetT site m) where
-    monadLoggerLog a b c d = WidgetT $ fmap (, mempty) $ monadLoggerLog a b c d
+    monadLoggerLog a b c d = WidgetT $ \hd ->
+        liftIO $ fmap (, mempty) $ rheLog (handlerEnv hd) a b c (toLogStr d)
 
 instance MonadTrans (HandlerT site) where
-    lift = HandlerT . const . lift
+    lift = HandlerT . const
 
 -- Instances for HandlerT
 instance Monad m => Functor (HandlerT site m) where
@@ -396,7 +398,7 @@ instance MonadBase b m => MonadBase b (HandlerT site m) where
 -- \"Control.Monad.Trans.Resource.register\': The mutable state is being accessed
 -- after cleanup. Please contact the maintainers.\"
 instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
-    data StM (HandlerT site m) a = StH (StM (ResourceT m) a)
+    data StM (HandlerT site m) a = StH (StM m a)
     liftBaseWith f = HandlerT $ \reader ->
         liftBaseWith $ \runInBase ->
             f $ liftM StH . runInBase . (\(HandlerT r) -> r reader)
@@ -404,8 +406,8 @@ instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
 
 instance MonadThrow m => MonadThrow (HandlerT site m) where
     monadThrow = lift . monadThrow
-instance (MonadIO m, MonadUnsafeIO m, MonadThrow m, Applicative m) => MonadResource (HandlerT site m) where
-    liftResourceT = HandlerT . const . liftResourceT
+instance (MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (HandlerT site m) where
+    liftResourceT f = HandlerT $ \hd -> liftIO $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (HandlerT site m) where
     monadLoggerLog a b c d = HandlerT $ \hd ->

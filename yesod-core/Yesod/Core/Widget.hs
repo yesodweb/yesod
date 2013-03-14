@@ -40,6 +40,8 @@ module Yesod.Core.Widget
     , addScriptRemote
     , addScriptRemoteAttrs
     , addScriptEither
+      -- * Subsites
+    , liftWidget
       -- * Internal
     , whamletFileWithSettings
     ) where
@@ -83,7 +85,7 @@ instance (Monad m, render ~ RY site) => ToWidget site m (render -> CssBuilder) w
     toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
 instance (Monad m, render ~ RY site) => ToWidget site m (render -> Javascript) where
     toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
-instance (site' ~ site, Monad m) => ToWidget site' m (WidgetT site m ()) where
+instance (site' ~ site, Monad m, m' ~ m) => ToWidget site' m' (WidgetT site m ()) where
     toWidget = id
 instance Monad m => ToWidget site m Html where
     toWidget = toWidget . const
@@ -214,7 +216,7 @@ ihamletToRepHtml ih = do
     return $ ih (toHtml . mrender) urender
 
 tell :: Monad m => GWData (Route site) -> WidgetT site m ()
-tell w = WidgetT $ return ((), w)
+tell w = WidgetT $ const $ return ((), w)
 
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
@@ -223,7 +225,7 @@ liftHandlerT :: MonadIO m
              => HandlerT site IO a
              -> HandlerT site m a
 liftHandlerT (HandlerT f) =
-    HandlerT $ transResourceT liftIO . f . fixToParent
+    HandlerT $ liftIO . f . fixToParent
   where
     fixToParent hd = hd { handlerToParent = const () }
 
@@ -231,8 +233,33 @@ liftWidget :: MonadIO m
            => WidgetT child IO a
            -> HandlerT child (HandlerT parent m) (WidgetT parent m a)
 liftWidget (WidgetT f) = HandlerT $ \hd -> do
-    (a, gwd) <- unHandlerT (liftHandlerT f) hd
-    return $ WidgetT $ HandlerT $ const $ return (a, liftGWD (handlerToParent hd) gwd)
+    (a, gwd) <- liftIO $ f hd { handlerToParent = const () }
+    return $ WidgetT $ const $ return (a, liftGWD (handlerToParent hd) gwd)
 
 liftGWD :: (child -> parent) -> GWData child -> GWData parent
-liftGWD = error "liftGWD"
+liftGWD tp gwd = GWData
+    { gwdBody = fixBody $ gwdBody gwd
+    , gwdTitle = gwdTitle gwd
+    , gwdScripts = fixUnique fixScript $ gwdScripts gwd
+    , gwdStylesheets = fixUnique fixStyle $ gwdStylesheets gwd
+    , gwdCss = fmap fixCss $ gwdCss gwd
+    , gwdJavascript = fmap fixJS $ gwdJavascript gwd
+    , gwdHead = fixHead $ gwdHead gwd
+    }
+  where
+    fixRender f route params = f (tp route) params
+
+    fixBody (Body h) = Body $ h . fixRender
+    fixHead (Head h) = Head $ h . fixRender
+
+    fixUnique go (UniqueList f) = UniqueList (map go (f []) ++)
+
+    fixScript (Script loc attrs) = Script (fixLoc loc) attrs
+    fixStyle (Stylesheet loc attrs) = Stylesheet (fixLoc loc) attrs
+
+    fixLoc (Local url) = Local $ tp url
+    fixLoc (Remote t) = Remote t
+
+    fixCss f = f . fixRender
+
+    fixJS f = f . fixRender

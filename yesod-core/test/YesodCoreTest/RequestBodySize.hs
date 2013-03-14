@@ -18,6 +18,8 @@ import qualified Data.Text as T
 import Data.Conduit
 import Data.Conduit.List (consume)
 import Data.Conduit.Binary (isolate)
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Resource
 
 data Y = Y
 
@@ -38,13 +40,11 @@ postPostR = do
     return $ RepPlain $ toContent $ T.concat val
 
 postConsumeR = do
-    req <- waiRequest
-    body <- lift $ requestBody req $$ consume
+    body <- rawRequestBody $$ consume
     return $ RepPlain $ toContent $ S.concat body
 
 postPartialConsumeR = do
-    req <- waiRequest
-    body <- lift $ requestBody req $$ isolate 5 =$ consume
+    body <- rawRequestBody $$ isolate 5 =$ consume
     return $ RepPlain $ toContent $ S.concat body
 
 postUnusedR = return $ RepPlain ""

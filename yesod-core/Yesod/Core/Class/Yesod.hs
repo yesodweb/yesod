@@ -58,6 +58,7 @@ import           Web.Cookie                         (SetCookie (..))
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
+import Control.Monad.Trans.Class (lift)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -302,7 +303,8 @@ widgetToPageContent :: (Eq (Route site), Yesod site)
                     -> HandlerT site IO (PageContent (Route site))
 widgetToPageContent w = do
     master <- getYesod
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- unWidgetT w
+    hd <- HandlerT return
+    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- lift $ unWidgetT w hd
     let title = maybe mempty unTitle mTitle
         scripts = runUniqueList scripts'
         stylesheets = runUniqueList stylesheets'

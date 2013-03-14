@@ -11,25 +11,27 @@ import Network.Wai.Test
 import Data.Monoid (mempty)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as L8
+import Control.Monad.Trans.Class
 
 getSubsite :: a -> Subsite
 getSubsite = const Subsite
 
-instance YesodSubDispatch Subsite (GHandler master) where
+instance Yesod master => YesodSubDispatch Subsite (HandlerT master IO) where
     yesodSubDispatch = $(mkYesodSubDispatch resourcesSubsite)
 
 getBarR :: Monad m => m T.Text
 getBarR = return $ T.pack "BarR"
 
-getBazR :: Yesod master => HandlerT Subsite (GHandler master) RepHtml
+getBazR :: Yesod master => HandlerT Subsite (HandlerT master IO) RepHtml
 getBazR = lift $ defaultLayout [whamlet|Used Default Layout|]
 
-getBinR :: MonadHandler m => HandlerT Subsite m RepHtml
-getBinR = defaultLayoutT
-    [whamlet|
+getBinR :: Yesod master => HandlerT Subsite (HandlerT master IO) RepHtml
+getBinR = do
+    widget <- liftWidget [whamlet|
         <p>Used defaultLayoutT
         <a href=@{BazR}>Baz
     |]
+    lift $ defaultLayout widget
 
 data Y = Y
 mkYesod "Y" [parseRoutes|

@@ -17,7 +17,7 @@ import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
-import           Control.Monad.Trans.Resource (runResourceT, transResourceT, ResourceT, joinResourceT)
+import           Control.Monad.Trans.Resource (runResourceT, transResourceT, ResourceT, joinResourceT, withInternalState, runInternalState)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
@@ -51,7 +51,7 @@ runHandler :: ToTypedContent c
            => RunHandlerEnv site
            -> HandlerT site IO c
            -> YesodApp
-runHandler rhe@RunHandlerEnv {..} handler yreq = do
+runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -> do
     let toErrorHandler e =
             case fromException e of
                 Just (HCError x) -> x
@@ -68,6 +68,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
             , handlerEnv     = rhe
             , handlerState   = istate
             , handlerToParent = const ()
+            , handlerResource = resState
             }
     contents' <- catch (fmap Right $ unHandlerT handler hd)
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
@@ -76,7 +77,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = do
     let finalSession = ghsSession state
     let headers = ghsHeaders state
     let contents = either id (HCContent H.status200 . toTypedContent) contents'
-    let handleError e = do
+    let handleError e = flip runInternalState resState $ do
             yar <- rheOnError e yreq
                 { reqSession = finalSession
                 }
@@ -278,7 +279,7 @@ stripHandlerT :: HandlerT child (HandlerT parent m) a
               -> HandlerT parent m a
 stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
     let env = handlerEnv hd
-    joinResourceT $ transResourceT (($ hd) . unHandlerT) $ f hd
+    ($ hd) $ unHandlerT $ f hd
         { handlerEnv = env
             { rheSite = getSub $ rheSite env
             , rheRoute = newRoute
