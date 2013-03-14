@@ -1,49 +1,36 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Yesod.Core.Class.Handler where
 
 import Yesod.Core.Types
-import Yesod.Core.Types.Orphan ()
-import Yesod.Core.Class.MonadLift (lift)
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Resource
 import Control.Monad.Trans.Control
 import Data.IORef.Lifted (atomicModifyIORef)
 import Control.Exception.Lifted (throwIO)
+import Control.Monad.Base
+import Data.Monoid (mempty)
 
 class Monad m => HandlerReader m where
     type HandlerSite m
-    type HandlerMaster m
 
     askYesodRequest :: m YesodRequest
     askHandlerEnv :: m (RunHandlerEnv (HandlerSite m))
-    askHandlerEnvMaster :: m (RunHandlerEnv (HandlerMaster m))
 
-instance HandlerReader (GHandler site) where
-    type HandlerSite (GHandler site) = site
-    type HandlerMaster (GHandler site) = site
-
-    askYesodRequest = GHandler $ return . handlerRequest
-    askHandlerEnv = GHandler $ return . handlerEnv
-    askHandlerEnvMaster = GHandler $ return . handlerEnv
-
-instance HandlerReader m => HandlerReader (HandlerT site m) where
+instance Monad m => HandlerReader (HandlerT site m) where
     type HandlerSite (HandlerT site m) = site
-    type HandlerMaster (HandlerT site m) = HandlerMaster m
 
     askYesodRequest = HandlerT $ return . handlerRequest
     askHandlerEnv = HandlerT $ return . handlerEnv
-    askHandlerEnvMaster = lift askHandlerEnvMaster
 
-instance HandlerReader (GWidget site) where
-    type HandlerSite (GWidget site) = site
-    type HandlerMaster (GWidget site) = site
+instance Monad m => HandlerReader (WidgetT site m) where
+    type HandlerSite (WidgetT site m) = site
 
-    askYesodRequest = lift askYesodRequest
-    askHandlerEnv = lift askHandlerEnv
-    askHandlerEnvMaster = lift askHandlerEnvMaster
+    askYesodRequest = WidgetT $ fmap (, mempty) $ askYesodRequest
+    askHandlerEnv = WidgetT $ fmap (, mempty) $ askHandlerEnv
 
 class HandlerReader m => HandlerState m where
     stateGHState :: (GHState -> (a, GHState)) -> m a
@@ -54,26 +41,20 @@ class HandlerReader m => HandlerState m where
     putGHState :: GHState -> m ()
     putGHState s = stateGHState $ const ((), s)
 
-instance HandlerState (GHandler site) where
+instance MonadBase IO m => HandlerState (HandlerT site m) where
     stateGHState f =
-        GHandler $ flip atomicModifyIORef f' . handlerState
+        HandlerT $ flip atomicModifyIORef f' . handlerState
       where
         f' z = let (x, y) = f z in (y, x)
 
-instance HandlerState (GWidget site) where
-    stateGHState = lift . stateGHState
-
-instance HandlerState m => HandlerState (HandlerT site m) where
-    stateGHState = lift . stateGHState
+instance MonadBase IO m => HandlerState (WidgetT site m) where
+    stateGHState = WidgetT . fmap (, mempty) . stateGHState
 
 class HandlerReader m => HandlerError m where
     handlerError :: HandlerContents -> m a
 
-instance HandlerError (GHandler site) where
+instance MonadBase IO m => HandlerError (HandlerT site m) where
     handlerError = throwIO
 
-instance HandlerError (GWidget site) where
-    handlerError = lift . handlerError
-
-instance HandlerError m => HandlerError (HandlerT site m) where
-    handlerError = lift . handlerError
+instance MonadBase IO m => HandlerError (WidgetT site m) where
+    handlerError = throwIO

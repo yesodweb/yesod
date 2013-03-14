@@ -21,8 +21,7 @@
 ---------------------------------------------------------
 module Yesod.Core.Handler
     ( -- * Handler monad
-      GHandler
-    , HandlerT
+      HandlerT
       -- ** Read information from handler
     , getYesod
     , getUrlRender
@@ -167,7 +166,6 @@ import           Data.Maybe                    (listToMaybe)
 import           Data.Typeable                 (Typeable, typeOf)
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
-import           Yesod.Core.Types.Orphan ()
 import           Yesod.Routes.Class            (Route)
 
 get :: HandlerState m => m GHState
@@ -251,10 +249,10 @@ getUrlRenderParams = rheRender `liftM` askHandlerEnv
 getCurrentRoute :: HandlerReader m => m (Maybe (Route (HandlerSite m)))
 getCurrentRoute = rheRoute `liftM` askHandlerEnv
 
--- | Returns a function that runs 'GHandler' actions inside @IO@.
+-- | Returns a function that runs 'HandlerT' actions inside @IO@.
 --
--- Sometimes you want to run an inner 'GHandler' action outside
--- the control flow of an HTTP request (on the outer 'GHandler'
+-- Sometimes you want to run an inner 'HandlerT' action outside
+-- the control flow of an HTTP request (on the outer 'HandlerT'
 -- action).  For example, you may want to spawn a new thread:
 --
 -- @
@@ -287,9 +285,9 @@ getCurrentRoute = rheRoute `liftM` askHandlerEnv
 -- This allows the inner 'GHandler' to outlive the outer
 -- 'GHandler' (e.g., on the @forkIO@ example above, a response
 -- may be sent to the client without killing the new thread).
-handlerToIO :: MonadIO m => GHandler site (GHandler site a -> m a)
+handlerToIO :: (MonadIO m1, MonadIO m2) => HandlerT site m1 (HandlerT site IO a -> m2 a)
 handlerToIO =
-  GHandler $ \oldHandlerData -> do
+  HandlerT $ \oldHandlerData -> do
     -- Let go of the request body, cache and response headers.
     let oldReq    = handlerRequest oldHandlerData
         oldWaiReq = reqWaiRequest oldReq
@@ -311,7 +309,7 @@ handlerToIO =
                         , ghsHeaders = mempty }
 
     -- Return GHandler running function.
-    return $ \(GHandler f) -> liftIO $ do
+    return $ \(HandlerT f) -> liftIO $ do
       -- The state IORef needs to be created here, otherwise it
       -- will be shared by different invocations of this function.
       newStateIORef <- I.newIORef newState
@@ -417,7 +415,7 @@ setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
 -- | Sets a message in the user's session.
 --
 -- See 'getMessage'.
-setMessageI :: (HandlerState m, RenderMessage (HandlerMaster m) msg)
+setMessageI :: (HandlerState m, RenderMessage (HandlerSite m) msg)
             => msg -> m ()
 setMessageI msg = do
     mr <- getMessageRender
@@ -490,7 +488,7 @@ permissionDenied :: HandlerError m => Text -> m a
 permissionDenied = hcError . PermissionDenied
 
 -- | Return a 403 permission denied page.
-permissionDeniedI :: (RenderMessage (HandlerMaster m) msg, HandlerError m)
+permissionDeniedI :: (RenderMessage (HandlerSite m) msg, HandlerError m)
                   => msg
                   -> m a
 permissionDeniedI msg = do
@@ -502,7 +500,7 @@ invalidArgs :: HandlerError m => [Text] -> m a
 invalidArgs = hcError . InvalidArgs
 
 -- | Return a 400 invalid arguments page.
-invalidArgsI :: (HandlerError m, RenderMessage (HandlerMaster m) msg) => [msg] -> m a
+invalidArgsI :: (HandlerError m, RenderMessage (HandlerSite m) msg) => [msg] -> m a
 invalidArgsI msg = do
     mr <- getMessageRender
     invalidArgs $ map mr msg
@@ -693,10 +691,10 @@ giveUrlRenderer f = do
 waiRequest :: HandlerReader m => m W.Request
 waiRequest = reqWaiRequest `liftM` getRequest
 
-getMessageRender :: (HandlerReader m, RenderMessage (HandlerMaster m) message)
+getMessageRender :: (HandlerReader m, RenderMessage (HandlerSite m) message)
                  => m (message -> Text)
 getMessageRender = do
-    env <- askHandlerEnvMaster
+    env <- askHandlerEnv
     l <- reqLangs `liftM` getRequest
     return $ renderMessage (rheSite env) l
 

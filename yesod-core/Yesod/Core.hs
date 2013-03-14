@@ -78,7 +78,6 @@ import Data.Text (Text)
 import Yesod.Core.Widget
 import Yesod.Core.Json
 import Yesod.Core.Types
-import Yesod.Core.Class.MonadLift
 import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
 
