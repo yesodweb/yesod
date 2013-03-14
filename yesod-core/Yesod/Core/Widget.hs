@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -42,6 +43,7 @@ module Yesod.Core.Widget
     , addScriptEither
       -- * Subsites
     , liftWidget
+    , handlerToWidget
       -- * Internal
     , whamletFileWithSettings
     ) where
@@ -221,13 +223,8 @@ tell w = WidgetT $ const $ return ((), w)
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
 
-liftHandlerT :: MonadIO m
-             => HandlerT site IO a
-             -> HandlerT site m a
-liftHandlerT (HandlerT f) =
-    HandlerT $ liftIO . f . fixToParent
-  where
-    fixToParent hd = hd { handlerToParent = const () }
+handlerToWidget :: Monad m => HandlerT site m a -> WidgetT site m a
+handlerToWidget (HandlerT f) = WidgetT $ liftM (, mempty) . f
 
 liftWidget :: MonadIO m
            => WidgetT child IO a

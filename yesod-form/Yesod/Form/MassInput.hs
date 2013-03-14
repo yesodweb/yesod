@@ -22,8 +22,9 @@ import Data.Either (partitionEithers)
 import Data.Traversable (sequenceA)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
+import Control.Monad.Trans.Class
 
-down :: Int -> MForm site ()
+down :: Monad m => Int -> MForm m ()
 down 0 = return ()
 down i | i < 0 = error "called down with a negative number"
 down i = do
@@ -31,7 +32,7 @@ down i = do
     put $ IntCons 0 is
     down $ i - 1
 
-up :: Int -> MForm site ()
+up :: Monad m => Int -> MForm m ()
 up 0 = return ()
 up i | i < 0 = error "called down with a negative number"
 up i = do
@@ -41,11 +42,11 @@ up i = do
         IntCons _ is' -> put is' >> newFormIdent >> return ()
     up $ i - 1
 
-inputList :: (m ~ GHandler site, xml ~ GWidget site (), RenderMessage site FormMessage)
+inputList :: (m ~ HandlerT site IO, xml ~ WidgetT site IO (), RenderMessage site FormMessage)
           => Html
           -> ([[FieldView site]] -> xml)
-          -> (Maybe a -> AForm site a)
-          -> (Maybe [a] -> AForm site [a])
+          -> (Maybe a -> AForm (HandlerT site IO) a)
+          -> (Maybe [a] -> AForm (HandlerT site IO) [a])
 inputList label fixXml single mdef = formToAForm $ do
     theId <- lift newIdent
     down 1
@@ -85,9 +86,9 @@ $newline never
         , fvRequired = False
         }])
 
-withDelete :: (xml ~ GWidget site (), RenderMessage site FormMessage)
-           => AForm site a
-           -> MForm site (Either xml (FormResult a, [FieldView site]))
+withDelete :: (xml ~ WidgetT site IO (), RenderMessage site FormMessage)
+           => AForm (HandlerT site IO) a
+           -> MForm (HandlerT site IO) (Either xml (FormResult a, [FieldView site]))
 withDelete af = do
     down 1
     deleteName <- newFormIdent
@@ -110,7 +111,7 @@ $newline never
     up 1
     return res
 
-fixme :: (xml ~ GWidget site ())
+fixme :: (xml ~ WidgetT site IO ())
       => [Either xml (FormResult a, [FieldView site])]
       -> (FormResult [a], [xml], [[FieldView site]])
 fixme eithers =
@@ -121,7 +122,7 @@ fixme eithers =
 
 massDivs, massTable
          :: [[FieldView site]]
-         -> GWidget site ()
+         -> WidgetT site IO ()
 massDivs viewss = [whamlet|
 $newline never
 $forall views <- viewss

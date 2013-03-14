@@ -14,7 +14,7 @@ import Yesod.Form.Functions (areq, aopt)
 import Data.Int (Int64)
 import Data.Time (Day, TimeOfDay)
 import Data.Text (Text)
-import Yesod.Core (RenderMessage)
+import Yesod.Core (RenderMessage, HandlerT)
 
 {-
 class ToForm a where
@@ -23,7 +23,9 @@ class ToForm a where
 
 class ToField a master where
     toField :: RenderMessage master FormMessage
-            => FieldSettings master -> Maybe a -> AForm master a
+            => FieldSettings master
+            -> Maybe a
+            -> AForm (HandlerT master IO) a
 
 {- FIXME
 instance ToFormField String y where

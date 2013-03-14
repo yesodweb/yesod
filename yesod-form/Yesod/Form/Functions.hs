@@ -35,11 +35,9 @@ module Yesod.Form.Functions
     , checkBool
     , checkM
     , checkMMap
-    , checkMMod
     , customErrorMessage
       -- * Utilities
     , fieldSettingsLabel
-    , aformM
     , parseHelper
     ) where
 
@@ -48,6 +46,7 @@ import Yesod.Form.Types
 import Data.Text (Text, pack)
 import Control.Arrow (second)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
+import Control.Monad.Trans.Class
 import Control.Monad (liftM, join)
 import Crypto.Classes (constTimeEq)
 import Text.Blaze (Markup, toMarkup)
@@ -63,7 +62,7 @@ import qualified Data.Text.Encoding as TE
 import Control.Arrow (first)
 
 -- | Get a unique identifier.
-newFormIdent :: MForm site Text
+newFormIdent :: Monad m => MForm m Text
 newFormIdent = do
     i <- get
     let i' = incrInts i
@@ -73,12 +72,16 @@ newFormIdent = do
     incrInts (IntSingle i) = IntSingle $ i + 1
     incrInts (IntCons i is) = (i + 1) `IntCons` is
 
-formToAForm :: MForm site (FormResult a, [FieldView site]) -> AForm site a
+formToAForm :: (HandlerSite m ~ site, Monad m)
+            => MForm m (FormResult a, [FieldView site])
+            -> AForm m a
 formToAForm form = AForm $ \(site, langs) env ints -> do
     ((a, xmls), ints', enc) <- runRWST form (env, site, langs) ints
     return (a, (++) xmls, ints', enc)
 
-aFormToForm :: AForm site a -> MForm site (FormResult a, [FieldView site] -> [FieldView site])
+aFormToForm :: (Monad m, HandlerSite m ~ site)
+            => AForm m a
+            -> MForm m (FormResult a, [FieldView site] -> [FieldView site])
 aFormToForm (AForm aform) = do
     ints <- get
     (env, site, langs) <- ask
@@ -87,32 +90,38 @@ aFormToForm (AForm aform) = do
     tell enc
     return (a, xml)
 
-askParams :: MForm site (Maybe Env)
+askParams :: Monad m => MForm m (Maybe Env)
 askParams = do
     (x, _, _) <- ask
     return $ liftM fst x
 
-askFiles :: MForm site (Maybe FileEnv)
+askFiles :: Monad m => MForm m (Maybe FileEnv)
 askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
-mreq :: RenderMessage site FormMessage
-     => Field site a -> FieldSettings site -> Maybe a
-     -> MForm site (FormResult a, FieldView site)
+mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, HandlerState m)
+     => Field m a
+     -> FieldSettings site
+     -> Maybe a
+     -> MForm m (FormResult a, FieldView site)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
-mopt :: Field site a -> FieldSettings site -> Maybe (Maybe a)
-     -> MForm site (FormResult (Maybe a), FieldView site)
+mopt :: (site ~ HandlerSite m, HandlerState m)
+     => Field m a
+     -> FieldSettings site
+     -> Maybe (Maybe a)
+     -> MForm m (FormResult (Maybe a), FieldView site)
 mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
-mhelper :: Field site a
+mhelper :: (site ~ HandlerSite m, HandlerState m)
+        => Field m a
         -> FieldSettings site
         -> Maybe a
         -> (site -> [Text] -> FormResult b) -- ^ on missing
         -> (a -> FormResult b) -- ^ on success
         -> Bool -- ^ is it required?
-        -> MForm site (FormResult b, FieldView site)
+        -> MForm m (FormResult b, FieldView site)
 
 mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
     tell fieldEnctype
@@ -147,24 +156,27 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
-areq :: RenderMessage site FormMessage
-     => Field site a -> FieldSettings site -> Maybe a
-     -> AForm site a
-areq a b = formToAForm . fmap (second return) . mreq a b
-
-aopt :: Field site a
+areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, HandlerState m)
+     => Field m a
      -> FieldSettings site
-     -> Maybe (Maybe a)
-     -> AForm site (Maybe a)
-aopt a b = formToAForm . fmap (second return) . mopt a b
+     -> Maybe a
+     -> AForm m a
+areq a b = formToAForm . liftM (second return) . mreq a b
 
-runFormGeneric :: MonadHandler m
-               => MForm (HandlerSite m) a
+aopt :: HandlerState m
+     => Field m a
+     -> FieldSettings (HandlerSite m)
+     -> Maybe (Maybe a)
+     -> AForm m (Maybe a)
+aopt a b = formToAForm . liftM (second return) . mopt a b
+
+runFormGeneric :: Monad m
+               => MForm m a
                -> HandlerSite m
                -> [Text]
                -> Maybe (Env, FileEnv)
                -> m (a, Enctype)
-runFormGeneric form site langs env = liftHandler $ evalRWST form (env, site, langs) (IntSingle 1)
+runFormGeneric form site langs env = evalRWST form (env, site, langs) (IntSingle 1)
 
 -- | This function is used to both initially render a form and to later extract
 -- results from it. Note that, due to CSRF protection and a few other issues,
@@ -175,15 +187,15 @@ runFormGeneric form site langs env = liftHandler $ evalRWST form (env, site, lan
 -- For example, a common case is displaying a form on a GET request and having
 -- the form submit to a POST page. In such a case, both the GET and POST
 -- handlers should use 'runFormPost'.
-runFormPost :: (HandlerSite m ~ site, RenderMessage site FormMessage, MonadResource m, MonadHandler m)
-            => (Html -> MForm site (FormResult a, xml))
+runFormPost :: (RenderMessage (HandlerSite m) FormMessage, MonadResource m, HandlerState m)
+            => (Html -> MForm m (FormResult a, xml))
             -> m ((FormResult a, xml), Enctype)
 runFormPost form = do
     env <- postEnv
     postHelper form env
 
-postHelper  :: (site ~ HandlerSite m, RenderMessage site FormMessage, MonadHandler m)
-            => (Html -> MForm site (FormResult a, xml))
+postHelper  :: (HandlerReader m, RenderMessage (HandlerSite m) FormMessage)
+            => (Html -> MForm m (FormResult a, xml))
             -> Maybe (Env, FileEnv)
             -> m ((FormResult a, xml), Enctype)
 postHelper form env = do
@@ -212,8 +224,8 @@ postHelper form env = do
 -- page will both receive and incoming form and produce a new, blank form. For
 -- general usage, you can stick with @runFormPost@.
 generateFormPost
-    :: (MonadHandler m, RenderMessage (HandlerSite m) FormMessage)
-    => (Html -> MForm (HandlerSite m) (FormResult a, xml))
+    :: (RenderMessage (HandlerSite m) FormMessage, HandlerReader m)
+    => (Html -> MForm m (FormResult a, xml))
     -> m (xml, Enctype)
 generateFormPost form = first snd `liftM` postHelper form Nothing
 
@@ -228,8 +240,8 @@ postEnv = do
             let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
             return $ Just (p', Map.unionsWith (++) $ map (\(k, v) -> Map.singleton k [v]) f)
 
-runFormPostNoToken :: (MonadHandler m)
-                   => (Html -> MForm (HandlerSite m) (FormResult a, xml))
+runFormPostNoToken :: (HandlerState m, MonadResource m)
+                   => (Html -> MForm m (FormResult a, xml))
                    -> m ((FormResult a, xml), Enctype)
 runFormPostNoToken form = do
     langs <- languages
@@ -237,8 +249,8 @@ runFormPostNoToken form = do
     env <- postEnv
     runFormGeneric (form mempty) m langs env
 
-runFormGet :: MonadHandler m
-           => (Html -> MForm (HandlerSite m) a)
+runFormGet :: HandlerReader m
+           => (Html -> MForm m a)
            -> m (a, Enctype)
 runFormGet form = do
     gets <- liftM reqGetParams getRequest
@@ -248,16 +260,16 @@ runFormGet form = do
                 Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
     getHelper form env
 
-generateFormGet :: MonadHandler m
-                => (Html -> MForm (HandlerSite m) a)
+generateFormGet :: HandlerReader m
+                => (Html -> MForm m a)
                 -> m (a, Enctype)
 generateFormGet form = getHelper form Nothing
 
 getKey :: Text
 getKey = "_hasdata"
 
-getHelper :: MonadHandler m
-          => (Html -> MForm (HandlerSite m) a)
+getHelper :: HandlerReader m
+          => (Html -> MForm m a)
           -> Maybe (Env, FileEnv)
           -> m (a, Enctype)
 getHelper form env = do
@@ -266,12 +278,12 @@ getHelper form env = do
     m <- getYesod
     runFormGeneric (form fragment) m langs env
 
-type FormRender site a =
-       AForm site a
+type FormRender m a =
+       AForm m a
     -> Html
-    -> MForm site (FormResult a, GWidget site ())
+    -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ())
 
-renderTable, renderDivs, renderDivsNoLabels :: FormRender site a
+renderTable, renderDivs, renderDivsNoLabels :: Monad m => FormRender m a
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
@@ -296,7 +308,7 @@ renderDivs = renderDivsMaybeLabels True
 -- | render a field inside a div, not displaying any label
 renderDivsNoLabels = renderDivsMaybeLabels False
 
-renderDivsMaybeLabels :: Bool -> FormRender site a
+renderDivsMaybeLabels :: Monad m => Bool -> FormRender m a
 renderDivsMaybeLabels withLabels aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
@@ -330,40 +342,42 @@ $forall view <- views
 -- >      ^{formWidget}
 -- >      <div .form-actions>
 -- >        <input .btn .primary type=submit value=_{MsgSubmit}>
-renderBootstrap :: FormRender site a
+renderBootstrap :: Monad m => FormRender m a
 renderBootstrap aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
         has (Just _) = True
         has Nothing  = False
     let widget = [whamlet|
-$newline never
-\#{fragment}
-$forall view <- views
-    <div .control-group .clearfix :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>
-        <label .control-label for=#{fvId view}>#{fvLabel view}
-        <div .controls .input>
-            ^{fvInput view}
-            $maybe tt <- fvTooltip view
-                <span .help-block>#{tt}
-            $maybe err <- fvErrors view
-                <span .help-block>#{err}
-|]
+                $newline never
+                \#{fragment}
+                $forall view <- views
+                    <div .control-group .clearfix :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>
+                        <label .control-label for=#{fvId view}>#{fvLabel view}
+                        <div .controls .input>
+                            ^{fvInput view}
+                            $maybe tt <- fvTooltip view
+                                <span .help-block>#{tt}
+                            $maybe err <- fvErrors view
+                                <span .help-block>#{err}
+                |]
     return (res, widget)
 
-check :: RenderMessage site msg
-      => (a -> Either msg a) -> Field site a -> Field site a
+check :: (Monad m, RenderMessage (HandlerSite m) msg)
+      => (a -> Either msg a)
+      -> Field m a
+      -> Field m a
 check f = checkM $ return . f
 
 -- | Return the given error message if the predicate is false.
-checkBool :: RenderMessage site msg
-          => (a -> Bool) -> msg -> Field site a -> Field site a
+checkBool :: (Monad m, RenderMessage (HandlerSite m) msg)
+          => (a -> Bool) -> msg -> Field m a -> Field m a
 checkBool b s = check $ \x -> if b x then Right x else Left s
 
-checkM :: RenderMessage site msg
-       => (a -> GHandler site (Either msg a))
-       -> Field site a
-       -> Field site a
+checkM :: (Monad m, RenderMessage (HandlerSite m) msg)
+       => (a -> m (Either msg a))
+       -> Field m a
+       -> Field m a
 checkM f = checkMMap f id
 
 -- | Same as 'checkM', but modifies the datatype.
@@ -372,46 +386,32 @@ checkM f = checkMMap f id
 -- the new datatype to the old one (the second argument to this function).
 --
 -- Since 1.1.2
-checkMMap :: RenderMessage site msg
-          => (a -> GHandler site (Either msg b))
+checkMMap :: (Monad m, RenderMessage (HandlerSite m) msg)
+          => (a -> m (Either msg b))
           -> (b -> a)
-          -> Field site a
-          -> Field site b
+          -> Field m a
+          -> Field m b
 checkMMap f inv field = field
     { fieldParse = \ts fs -> do
         e1 <- fieldParse field ts fs
         case e1 of
             Left msg -> return $ Left msg
             Right Nothing -> return $ Right Nothing
-            Right (Just a) -> fmap (either (Left . SomeMessage) (Right . Just)) $ f a
+            Right (Just a) -> liftM (either (Left . SomeMessage) (Right . Just)) $ f a
     , fieldView = \i n a eres req -> fieldView field i n a (fmap inv eres) req
     }
 
--- | Deprecated synonym for 'checkMMap'.
---
--- Since 1.1.1
-checkMMod :: RenderMessage site msg
-          => (a -> GHandler site (Either msg b))
-          -> (b -> a)
-          -> Field site a
-          -> Field site b
-checkMMod = checkMMap
-{-# DEPRECATED checkMMod "Please use checkMMap instead" #-}
-
 -- | Allows you to overwrite the error message on parse error.
-customErrorMessage :: SomeMessage site -> Field site a -> Field site a
-customErrorMessage msg field = field { fieldParse = \ts fs -> fmap (either
-(const $ Left msg) Right) $ fieldParse field ts fs }
+customErrorMessage :: Monad m => SomeMessage (HandlerSite m) -> Field m a -> Field m a
+customErrorMessage msg field = field
+    { fieldParse = \ts fs ->
+        liftM (either (const $ Left msg) Right)
+      $ fieldParse field ts fs
+    }
 
 -- | Generate a 'FieldSettings' from the given label.
 fieldSettingsLabel :: RenderMessage site msg => msg -> FieldSettings site
 fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing []
-
--- | Generate an 'AForm' that gets its value from the given action.
-aformM :: GHandler site a -> AForm site a
-aformM action = AForm $ \_ _ ints -> do
-    value <- action
-    return (FormSuccess value, id, ints, mempty)
 
 -- | A helper function for creating custom fields.
 --

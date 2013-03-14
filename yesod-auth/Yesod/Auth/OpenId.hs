@@ -21,6 +21,7 @@ import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
 import Control.Exception.Lifted (SomeException, try)
 import Data.Maybe (fromMaybe)
+import Control.Monad.Trans.Class
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]
@@ -37,7 +38,7 @@ authOpenId idType extensionFields =
     complete = PluginR "openid" ["complete"]
     name = "openid_identifier"
     login tm = do
-        ident <- lift newIdent
+        ident <- newIdent
         -- FIXME this is a hack to get GHC 7.6's type checker to allow the
         -- code, but it shouldn't be necessary
         let y :: a -> [(Text, Text)] -> Text
@@ -48,13 +49,13 @@ authOpenId idType extensionFields =
 |] $ x `asTypeOf` y)
         [whamlet|
 $newline never
-<form method="get" action="#{tm forwardUrl}">
+<form method="get" action="@{tm forwardUrl}">
     <input type="hidden" name="openid_identifier" value="https://www.google.com/accounts/o8/id">
     <button .openid-google>_{Msg.LoginGoogle}
-<form method="get" action="#{tm forwardUrl}">
+<form method="get" action="@{tm forwardUrl}">
     <input type="hidden" name="openid_identifier" value="http://me.yahoo.com">
     <button .openid-yahoo>_{Msg.LoginYahoo}
-<form method="get" action="#{tm forwardUrl}">
+<form method="get" action="@{tm forwardUrl}">
     <label for="#{ident}">OpenID: #
     <input id="#{ident}" type="text" name="#{name}" value="http://">
     <input type="submit" value="_{Msg.LoginOpenID}">
@@ -73,7 +74,7 @@ $newline never
                         redirect LoginR
                     Right x -> redirect x
             Nothing -> do
-                setMessageI Msg.NoOpenID
+                lift $ setMessageI Msg.NoOpenID
                 redirect LoginR
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do
@@ -85,7 +86,7 @@ $newline never
         completeHelper idType posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth master => IdentifierType -> [(Text, Text)] -> HandlerT Auth (GHandler master) ()
+completeHelper :: IdentifierType -> [(Text, Text)] -> AuthHandler master ()
 completeHelper idType gets' = do
         master <- lift getYesod
         eres <- try $ OpenId.authenticateClaimed gets' (authHttpManager master)
@@ -105,7 +106,7 @@ completeHelper idType gets' = do
                             case idType of
                                 OPLocal -> OpenId.oirOpLocal oir
                                 Claimed -> fromMaybe (OpenId.oirOpLocal oir) $ OpenId.oirClaimed oir
-                setCreds True $ Creds "openid" i gets''
+                lift $ setCreds True $ Creds "openid" i gets''
         either onFailure onSuccess eres
 
 -- | The main identifier provided by the OpenID authentication plugin is the

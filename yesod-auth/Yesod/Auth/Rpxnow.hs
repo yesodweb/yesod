@@ -17,6 +17,7 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Control.Arrow ((***))
 import Network.HTTP.Types (renderQuery)
+import Control.Monad.Trans.Class
 
 authRpxnow :: YesodAuth m
            => String -- ^ app name
@@ -25,13 +26,10 @@ authRpxnow :: YesodAuth m
 authRpxnow app apiKey =
     AuthPlugin "rpxnow" dispatch login
   where
-    login ::
-        forall master.
-        ToWidget master (GWidget master ())
-        => (Route Auth -> Text) -> GWidget master ()
     login tm = do
+        render <- getUrlRender
         let queryString = decodeUtf8With lenientDecode
-                        $ renderQuery True [("token_url", Just $ encodeUtf8 $ tm $ PluginR "rpxnow" [])]
+                        $ renderQuery True [("token_url", Just $ encodeUtf8 $ render $ tm $ PluginR "rpxnow" [])]
         toWidget [hamlet|
 $newline never
 <iframe src="http://#{app}.rpxnow.com/openid/embed#{queryString}" scrolling="no" frameBorder="no" allowtransparency="true" style="width:400px;height:240px">
@@ -51,7 +49,7 @@ $newline never
                 $ maybe id (\x -> (:) ("displayName", x))
                     (fmap pack $ getDisplayName $ map (unpack *** unpack) extra)
                   []
-        setCreds True creds
+        lift $ setCreds True creds
     dispatch _ _ = notFound
 
 -- | Get some form of a display name.

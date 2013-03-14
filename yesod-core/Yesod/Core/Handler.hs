@@ -862,7 +862,7 @@ data ProvidedRep m = ProvidedRep !ContentType !(m Content)
 -- client. Should be used together with 'selectRep'.
 --
 -- Since 1.2.0
-provideRep :: (MonadIO m, HasContentType a)
+provideRep :: (Monad m, HasContentType a)
            => m a
            -> Writer.Writer (Endo [ProvidedRep m]) ()
 provideRep handler = provideRepType (getContentType handler) handler
@@ -875,7 +875,7 @@ provideRep handler = provideRepType (getContentType handler) handler
 -- > provideRepType "application/x-special-format" "This is the content"
 --
 -- Since 1.2.0
-provideRepType :: (MonadIO m, ToContent a)
+provideRepType :: (Monad m, ToContent a)
                => ContentType
                -> m a
                -> Writer.Writer (Endo [ProvidedRep m]) ()

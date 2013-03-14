@@ -24,6 +24,7 @@ import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
 import qualified Data.Text as T
 import Control.Exception.Lifted (try, SomeException)
+import Control.Monad.Trans.Class
 
 pid :: Text
 pid = "googleemail"
@@ -40,7 +41,7 @@ authGoogleEmail =
   where
     complete = PluginR pid ["complete"]
     login tm =
-        [whamlet|<a href=#{tm forwardUrl}>_{Msg.LoginGoogle}|]
+        [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
     dispatch "GET" ["forward"] = do
         render <- getUrlRender
         let complete' = render complete
@@ -70,7 +71,7 @@ authGoogleEmail =
         completeHelper posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth m => [(Text, Text)] -> HandlerT Auth (GHandler m) ()
+completeHelper :: YesodAuth master => [(Text, Text)] -> AuthHandler master ()
 completeHelper gets' = do
         master <- lift getYesod
         eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
@@ -81,7 +82,7 @@ completeHelper gets' = do
                 let OpenId.Identifier ident = OpenId.oirOpLocal oir
                 memail <- lookupGetParam "openid.ext1.value.email"
                 case (memail, "https://www.google.com/accounts/o8/id" `T.isPrefixOf` ident) of
-                    (Just email, True) -> setCreds True $ Creds pid email []
+                    (Just email, True) -> lift $ setCreds True $ Creds pid email []
                     (_, False) -> do
                         setMessage "Only Google login is supported"
                         redirect LoginR

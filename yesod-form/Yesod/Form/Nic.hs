@@ -24,7 +24,7 @@ class Yesod a => YesodNic a where
     urlNicEdit :: a -> Either (Route a) Text
     urlNicEdit _ = Right "http://js.nicedit.com/nicEdit-latest.js"
 
-nicHtmlField :: YesodNic site => Field site Html
+nicHtmlField :: YesodNic site => Field (HandlerT site IO) Html
 nicHtmlField = Field
     { fieldParse = \e _ -> return . Right . fmap (preEscapedToMarkup . sanitizeBalance) . listToMaybe $ e
     , fieldView = \theId name attrs val _isReq -> do
@@ -33,7 +33,7 @@ $newline never
     <textarea id="#{theId}" *{attrs} name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit
-        master <- lift getYesod
+        master <- getYesod
         toWidget $
           case jsLoader master of
             BottomOfHeadBlocking -> [julius|
@@ -47,7 +47,7 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{ra
   where
     showVal = either id (pack . renderHtml)
 
-addScript' :: (site -> Either (Route site) Text) -> GWidget site ()
+addScript' :: Monad m => (site -> Either (Route site) Text) -> WidgetT site m ()
 addScript' f = do
-    y <- lift getYesod
+    y <- getYesod
     addScriptEither $ f y

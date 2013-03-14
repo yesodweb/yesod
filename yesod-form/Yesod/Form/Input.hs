@@ -13,15 +13,16 @@ import Data.Text (Text)
 import Control.Applicative (Applicative (..))
 import Yesod.Core
 import Control.Monad (liftM)
+import Control.Monad.Trans.Resource
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Control.Arrow ((***))
 
 type DText = [Text] -> [Text]
-newtype FormInput site a = FormInput { unFormInput :: site -> [Text] -> Env -> FileEnv -> GHandler site (Either DText a) }
-instance Functor (FormInput site) where
-    fmap a (FormInput f) = FormInput $ \c d e e' -> fmap (either Left (Right . a)) $ f c d e e'
-instance Applicative (FormInput site) where
+newtype FormInput m a = FormInput { unFormInput :: HandlerSite m -> [Text] -> Env -> FileEnv -> m (Either DText a) }
+instance Monad m => Functor (FormInput m) where
+    fmap a (FormInput f) = FormInput $ \c d e e' -> liftM (either Left (Right . a)) $ f c d e e'
+instance Monad m => Applicative (FormInput m) where
     pure = FormInput . const . const . const . const . return . Right
     (FormInput f) <*> (FormInput x) = FormInput $ \c d e e' -> do
         res1 <- f c d e e'
@@ -32,7 +33,8 @@ instance Applicative (FormInput site) where
             (_, Left b) -> Left b
             (Right a, Right b) -> Right $ a b
 
-ireq :: (RenderMessage site FormMessage) => Field site a -> Text -> FormInput site a
+ireq :: (Monad m, RenderMessage (HandlerSite m) FormMessage)
+     => Field m a -> Text -> FormInput m a
 ireq field name = FormInput $ \m l env fenv -> do
       let filteredEnv = fromMaybe [] $ Map.lookup name env
           filteredFEnv = fromMaybe [] $ Map.lookup name fenv
@@ -42,7 +44,7 @@ ireq field name = FormInput $ \m l env fenv -> do
           Right Nothing -> Left $ (:) $ renderMessage m l $ MsgInputNotFound name
           Right (Just a) -> Right a
 
-iopt :: Field site a -> Text -> FormInput site (Maybe a)
+iopt :: Monad m => Field m a -> Text -> FormInput m (Maybe a)
 iopt field name = FormInput $ \m l env fenv -> do
       let filteredEnv = fromMaybe [] $ Map.lookup name env
           filteredFEnv = fromMaybe [] $ Map.lookup name fenv
@@ -51,12 +53,12 @@ iopt field name = FormInput $ \m l env fenv -> do
         Left (SomeMessage e) -> Left $ (:) $ renderMessage m l e
         Right x -> Right x
 
-runInputGet :: MonadHandler m => FormInput (HandlerSite m) a -> m a
+runInputGet :: HandlerError m => FormInput m a -> m a
 runInputGet (FormInput f) = do
     env <- liftM (toMap . reqGetParams) getRequest
     m <- getYesod
     l <- languages
-    emx <- liftHandler $ f m l env Map.empty
+    emx <- f m l env Map.empty
     case emx of
         Left errs -> invalidArgs $ errs []
         Right x -> return x
@@ -64,12 +66,12 @@ runInputGet (FormInput f) = do
 toMap :: [(Text, a)] -> Map.Map Text [a]
 toMap = Map.unionsWith (++) . map (\(x, y) -> Map.singleton x [y])
 
-runInputPost :: MonadHandler m => FormInput (HandlerSite m) a -> m a
+runInputPost :: (HandlerState m, HandlerError m, MonadResource m) => FormInput m a -> m a
 runInputPost (FormInput f) = do
     (env, fenv) <- liftM (toMap *** toMap) runRequestBody
     m <- getYesod
     l <- languages
-    emx <- liftHandler $ f m l env fenv
+    emx <- f m l env fenv
     case emx of
         Left errs -> invalidArgs $ errs []
         Right x -> return x
