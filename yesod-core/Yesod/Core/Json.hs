@@ -12,6 +12,7 @@ module Yesod.Core.Json
       -- * Produce JSON values
     , J.Value (..)
     , array
+    , object
     , (.=)
 
       -- * Convenience functions
@@ -28,7 +29,7 @@ import Yesod.Routes.Class
 import Control.Monad (join)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Parser as JP
-import Data.Aeson ((.=))
+import Data.Aeson ((.=), object)
 import Data.Conduit.Attoparsec (sinkParser)
 import Data.Text (pack)
 import qualified Data.Vector as V
