@@ -64,6 +64,7 @@ module Yesod.Core
     , module Yesod.Core.Json
     , module Text.Shakespeare.I18N
     , module Yesod.Core.Internal.Util
+    , lift
     ) where
 
 import Yesod.Core.Content
@@ -77,6 +78,7 @@ import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
 
 import Control.Monad.Logger
+import Control.Monad.Trans.Class (lift)
 import Yesod.Core.Internal.Session
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch

@@ -58,7 +58,7 @@ import Yesod.Core.Types
 
 import Data.List (intercalate)
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax as TH
 
 import Crypto.Conduit (hashFile, sinkHash)
 import Crypto.Hash.MD5 (MD5)
@@ -299,12 +299,12 @@ mkStaticFilesList fp fs routeConName makeHash = do
                         | isDigit (head name') -> '_' : name'
                         | isLower (head name') -> name'
                         | otherwise -> '_' : name'
-        f' <- [|map pack $(lift f)|]
+        f' <- [|map pack $(TH.lift f)|]
         let route = mkName routeConName
         pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
-                            [|[(pack "etag", pack $(lift hash))]|]
+                            [|[(pack "etag", pack $(TH.lift hash))]|]
                     else return $ ListE []
         return
             [ SigD routeName $ ConT route
