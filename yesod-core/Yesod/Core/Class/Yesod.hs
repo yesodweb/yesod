@@ -237,7 +237,7 @@ class RenderRoute site => Yesod site where
     --
     -- Default: Uses clientsession with a 2 hour timeout.
     makeSessionBackend :: site -> IO (Maybe SessionBackend)
-    makeSessionBackend _ = fmap Just defaultClientSessionBackend
+    makeSessionBackend _ = fmap Just $ defaultClientSessionBackend 120 CS.defaultKeyFile
 
     -- | How to store uploaded files.
     --
@@ -493,10 +493,12 @@ formatLogMessage getdate loc src level msg = do
         , LB ")\n"
         ]
 
-defaultClientSessionBackend :: IO SessionBackend
-defaultClientSessionBackend = do
-  key <- CS.getKey CS.defaultKeyFile
-  let timeout = fromIntegral (120 * 60 :: Int) -- 120 minutes
+defaultClientSessionBackend :: Int -- ^ minutes
+                            -> FilePath -- ^ key file
+                            -> IO SessionBackend
+defaultClientSessionBackend minutes fp = do
+  key <- CS.getKey fp
+  let timeout = fromIntegral (minutes * 60)
   (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
   return $ clientSessionBackend key getCachedDate
 
