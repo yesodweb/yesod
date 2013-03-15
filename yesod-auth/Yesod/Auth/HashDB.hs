@@ -69,6 +69,7 @@ module Yesod.Auth.HashDB
     , User
     , UserGeneric (..)
     , UserId
+    , EntityField (..)
     , migrateUsers
     ) where
 
