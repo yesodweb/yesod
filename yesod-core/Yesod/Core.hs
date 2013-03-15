@@ -52,6 +52,7 @@ module Yesod.Core
     , HandlerState (..)
     , HandlerError (..)
     , getRouteToParent
+    , liftDefaultLayout
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -76,6 +77,7 @@ import Yesod.Core.Json
 import Yesod.Core.Types
 import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
+import Text.Blaze.Html (Html)
 
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (lift)
@@ -109,5 +111,24 @@ maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
 
+-- | Get a function to convert a child site route to a parent site route.
+--
+-- Before Yesod 1.2, the @getRouteToMaster@ function did much the same thing.
+-- The difference here is that @getRouteToParent@ will convert only one layer
+-- in the subsite stack. In the common case of single-layer subsites,
+-- therefore, these two functions are identical.
+--
+-- Since 1.2.0
 getRouteToParent :: Monad m => HandlerT child (HandlerT parent m) (Route child -> Route parent)
 getRouteToParent = HandlerT $ return . handlerToParent
+
+-- | A common idiom for writing subsites is to create a widget, convert all
+-- routes in the widget to the parent site, pass it to 'defaultLayout', and
+-- then 'lift' into the child monad transformer. This function automates that
+-- process.
+--
+-- Since 1.2.0
+liftDefaultLayout :: Yesod parent
+                  => WidgetT child IO ()
+                  -> HandlerT child (HandlerT parent IO) Html
+liftDefaultLayout w = liftWidget w >>= lift . defaultLayout
