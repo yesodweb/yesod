@@ -26,9 +26,6 @@ import Yesod.Routes.Class
 import Data.Text (Text)
 import qualified Data.ByteString.Char8 as S8
 
-class RenderRoute a => ParseRoute a where
-    parseRoute :: ([Text], [(Text, Text)]) -> Maybe (Route a)
-
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
 -- Use 'parseRoutes' to create the 'Resource's.

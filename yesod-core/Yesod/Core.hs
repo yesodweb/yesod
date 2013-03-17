@@ -86,14 +86,13 @@ import Text.Blaze.Html (Html)
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Yesod.Core.Internal.Session
-import Yesod.Core.Internal.TH (ParseRoute (..))
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Class.Breadcrumbs
 import Yesod.Core.Internal.Run (yesodRender, runFakeHandler)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
-import Yesod.Routes.Class (RenderRoute (..))
+import Yesod.Routes.Class
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Base (MonadBase (..))
 import Control.Monad.Trans.Control (MonadBaseControl (..))

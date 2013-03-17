@@ -116,6 +116,7 @@ do
         , mdsSetPathInfo = [|\p (_, m) -> (p, m)|]
         , mds404 = [|pack "404"|]
         , mds405 = [|pack "405"|]
+        , mdsGetHandler = defaultGetHandler
         } ress
     return
         $ InstanceD

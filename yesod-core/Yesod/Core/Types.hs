@@ -53,7 +53,7 @@ import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Control.Monad.Trans.Class          (MonadTrans (..))
-import           Yesod.Routes.Class                 (RenderRoute (..))
+import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -434,3 +434,5 @@ instance RenderRoute WaiSubsite where
     data Route WaiSubsite = WaiSubsiteRoute [Text] [(Text, Text)]
         deriving (Show, Eq, Read, Ord)
     renderRoute (WaiSubsiteRoute ps qs) = (ps, qs)
+instance ParseRoute WaiSubsite where
+    parseRoute (x, y) = Just $ WaiSubsiteRoute x y
