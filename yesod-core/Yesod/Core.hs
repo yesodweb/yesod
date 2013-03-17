@@ -63,7 +63,10 @@ module Yesod.Core
     , module Yesod.Core.Json
     , module Text.Shakespeare.I18N
     , module Yesod.Core.Internal.Util
-    , lift
+    , MonadTrans (..)
+    , MonadIO (..)
+    , MonadBase (..)
+    , MonadBaseControl
     ) where
 
 import Yesod.Core.Content
@@ -77,7 +80,7 @@ import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
 
 import Control.Monad.Logger
-import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Class (MonadTrans (..))
 import Yesod.Core.Internal.Session
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
@@ -86,6 +89,9 @@ import Yesod.Core.Internal.Run (yesodRender, runFakeHandler)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Routes.Class (RenderRoute (..))
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Base (MonadBase (..))
+import Control.Monad.Trans.Control (MonadBaseControl (..))
 
 -- | Return an 'Unauthorized' value, with the given i18n message.
 unauthorizedI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => msg -> m AuthResult
