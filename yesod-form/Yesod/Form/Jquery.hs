@@ -115,12 +115,14 @@ $(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:2})});
     , fieldEnctype = UrlEncoded
     }
 
-addScript' :: Monad m => (site -> Either (Route site) Text) -> WidgetT site m ()
+addScript' :: (HandlerSite m ~ site, MonadWidget m) => (site -> Either (Route site) Text) -> m ()
 addScript' f = do
     y <- getYesod
     addScriptEither $ f y
 
-addStylesheet' :: Monad m => (site -> Either (Route site) Text) -> WidgetT site m ()
+addStylesheet' :: (MonadWidget m, HandlerSite m ~ site)
+               => (site -> Either (Route site) Text)
+               -> m ()
 addStylesheet' f = do
     y <- getYesod
     addStylesheetEither $ f y

@@ -17,17 +17,16 @@ mkYesodSub "Subsite" [] [parseRoutes|
 /multi/*Strings SubMultiR
 |]
 
-getSubRootR :: Yesod m => GHandler Subsite m RepPlain
+getSubRootR :: Yesod master => HandlerT Subsite (HandlerT master IO) RepPlain
 getSubRootR = do
-    Subsite s <- getYesodSub
-    tm <- getRouteToMaster
+    Subsite s <- getYesod
     render <- getUrlRender
     $logDebug "I'm in SubRootR"
-    return $ RepPlain $ toContent $ "Hello Sub World: " ++ s ++ ". " ++ unpack (render (tm SubRootR))
+    return $ RepPlain $ toContent $ "Hello Sub World: " ++ s ++ ". " ++ unpack (render SubRootR)
 
-handleSubMultiR :: Yesod m => Strings -> GHandler Subsite m RepPlain
+handleSubMultiR :: Yesod master => Strings -> HandlerT Subsite (HandlerT master IO) RepPlain
 handleSubMultiR x = do
-    Subsite y <- getYesodSub
+    Subsite y <- getYesod
     $logInfo "In SubMultiR"
     return . RepPlain . toContent . show $ (x, y)
 

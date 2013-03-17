@@ -114,9 +114,8 @@ mkYesodGeneral name args clazzes isSub resS = do
      return (renderRouteDec ++ masterTypeSyns, dispatchDec)
   where sub     = foldl appT subCons subArgs
         master  = if isSub then (varT $ mkName "m") else sub
-        context = if isSub then cxt $ yesod : map return clazzes
+        context = if isSub then cxt $ map return clazzes
                            else return []
-        yesod   = classP ''HandlerReader [master]
         handler = tySynD (mkName "Handler") [] [t| HandlerT $master IO    |]
         widget  = tySynD (mkName "Widget")  [] [t| WidgetT  $master IO () |]
         res     = map (fmap parseType) resS

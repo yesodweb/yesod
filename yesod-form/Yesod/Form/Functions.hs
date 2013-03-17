@@ -100,21 +100,21 @@ askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
-mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, HandlerState m)
+mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      => Field m a
      -> FieldSettings site
      -> Maybe a
      -> MForm m (FormResult a, FieldView site)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
-mopt :: (site ~ HandlerSite m, HandlerState m)
+mopt :: (site ~ HandlerSite m, MonadHandler m)
      => Field m a
      -> FieldSettings site
      -> Maybe (Maybe a)
      -> MForm m (FormResult (Maybe a), FieldView site)
 mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
 
-mhelper :: (site ~ HandlerSite m, HandlerState m)
+mhelper :: (site ~ HandlerSite m, MonadHandler m)
         => Field m a
         -> FieldSettings site
         -> Maybe a
@@ -156,14 +156,14 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
-areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, HandlerState m)
+areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      => Field m a
      -> FieldSettings site
      -> Maybe a
      -> AForm m a
 areq a b = formToAForm . liftM (second return) . mreq a b
 
-aopt :: HandlerState m
+aopt :: MonadHandler m
      => Field m a
      -> FieldSettings (HandlerSite m)
      -> Maybe (Maybe a)
@@ -187,14 +187,14 @@ runFormGeneric form site langs env = evalRWST form (env, site, langs) (IntSingle
 -- For example, a common case is displaying a form on a GET request and having
 -- the form submit to a POST page. In such a case, both the GET and POST
 -- handlers should use 'runFormPost'.
-runFormPost :: (RenderMessage (HandlerSite m) FormMessage, MonadResource m, HandlerState m)
+runFormPost :: (RenderMessage (HandlerSite m) FormMessage, MonadResource m, MonadHandler m)
             => (Html -> MForm m (FormResult a, xml))
             -> m ((FormResult a, xml), Enctype)
 runFormPost form = do
     env <- postEnv
     postHelper form env
 
-postHelper  :: (HandlerReader m, RenderMessage (HandlerSite m) FormMessage)
+postHelper  :: (MonadHandler m, RenderMessage (HandlerSite m) FormMessage)
             => (Html -> MForm m (FormResult a, xml))
             -> Maybe (Env, FileEnv)
             -> m ((FormResult a, xml), Enctype)
@@ -224,12 +224,12 @@ postHelper form env = do
 -- page will both receive and incoming form and produce a new, blank form. For
 -- general usage, you can stick with @runFormPost@.
 generateFormPost
-    :: (RenderMessage (HandlerSite m) FormMessage, HandlerReader m)
+    :: (RenderMessage (HandlerSite m) FormMessage, MonadHandler m)
     => (Html -> MForm m (FormResult a, xml))
     -> m (xml, Enctype)
 generateFormPost form = first snd `liftM` postHelper form Nothing
 
-postEnv :: (HandlerState m, MonadResource m)
+postEnv :: (MonadHandler m, MonadResource m)
         => m (Maybe (Env, FileEnv))
 postEnv = do
     req <- getRequest
@@ -240,7 +240,7 @@ postEnv = do
             let p' = Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) p
             return $ Just (p', Map.unionsWith (++) $ map (\(k, v) -> Map.singleton k [v]) f)
 
-runFormPostNoToken :: (HandlerState m, MonadResource m)
+runFormPostNoToken :: MonadHandler m
                    => (Html -> MForm m (FormResult a, xml))
                    -> m ((FormResult a, xml), Enctype)
 runFormPostNoToken form = do
@@ -249,7 +249,7 @@ runFormPostNoToken form = do
     env <- postEnv
     runFormGeneric (form mempty) m langs env
 
-runFormGet :: HandlerReader m
+runFormGet :: MonadHandler m
            => (Html -> MForm m a)
            -> m (a, Enctype)
 runFormGet form = do
@@ -260,7 +260,7 @@ runFormGet form = do
                 Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
     getHelper form env
 
-generateFormGet :: HandlerReader m
+generateFormGet :: MonadHandler m
                 => (Html -> MForm m a)
                 -> m (a, Enctype)
 generateFormGet form = getHelper form Nothing
@@ -268,7 +268,7 @@ generateFormGet form = getHelper form Nothing
 getKey :: Text
 getKey = "_hasdata"
 
-getHelper :: HandlerReader m
+getHelper :: MonadHandler m
           => (Html -> MForm m a)
           -> Maybe (Env, FileEnv)
           -> m (a, Enctype)

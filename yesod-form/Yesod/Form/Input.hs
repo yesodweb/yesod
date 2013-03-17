@@ -13,7 +13,6 @@ import Data.Text (Text)
 import Control.Applicative (Applicative (..))
 import Yesod.Core
 import Control.Monad (liftM)
-import Control.Monad.Trans.Resource
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Control.Arrow ((***))
@@ -53,7 +52,7 @@ iopt field name = FormInput $ \m l env fenv -> do
         Left (SomeMessage e) -> Left $ (:) $ renderMessage m l e
         Right x -> Right x
 
-runInputGet :: HandlerError m => FormInput m a -> m a
+runInputGet :: MonadHandler m => FormInput m a -> m a
 runInputGet (FormInput f) = do
     env <- liftM (toMap . reqGetParams) getRequest
     m <- getYesod
@@ -66,7 +65,7 @@ runInputGet (FormInput f) = do
 toMap :: [(Text, a)] -> Map.Map Text [a]
 toMap = Map.unionsWith (++) . map (\(x, y) -> Map.singleton x [y])
 
-runInputPost :: (HandlerState m, HandlerError m, MonadResource m) => FormInput m a -> m a
+runInputPost :: MonadHandler m => FormInput m a -> m a
 runInputPost (FormInput f) = do
     (env, fenv) <- liftM (toMap *** toMap) runRequestBody
     m <- getYesod

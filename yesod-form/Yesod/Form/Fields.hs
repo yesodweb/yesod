@@ -79,7 +79,6 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 
-import Control.Monad.Trans.Class
 import qualified Data.Map as Map
 import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery, YesodDB)
 import Control.Arrow ((&&&))
@@ -482,7 +481,7 @@ data Option a = Option
     , optionExternalValue :: Text
     }
 
-optionsPairs :: (HandlerReader m, RenderMessage (HandlerSite m) msg)
+optionsPairs :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
              => [(msg, a)] -> m (OptionList a)
 optionsPairs opts = do
   mr <- getMessageRender
@@ -493,7 +492,7 @@ optionsPairs opts = do
                  }
   return $ mkOptionList (zipWith mkOption [1 :: Int ..] opts)
 
-optionsEnum :: (HandlerReader m, Show a, Enum a, Bounded a) => m (OptionList a)
+optionsEnum :: (MonadHandler m, Show a, Enum a, Bounded a) => m (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
 optionsPersist :: ( YesodPersist site, PersistEntity a
@@ -563,7 +562,7 @@ fileField = Field
     , fieldEnctype = Multipart
     }
 
-fileAFormReq :: (HandlerState m, RenderMessage (HandlerSite m) FormMessage)
+fileAFormReq :: (MonadHandler m, RenderMessage (HandlerSite m) FormMessage)
              => FieldSettings (HandlerSite m) -> AForm m FileInfo
 fileAFormReq fs = AForm $ \(site, langs) menvs ints -> do
     let (name, ints') =
@@ -595,7 +594,7 @@ $newline never
             }
     return (res, (fv :), ints', Multipart)
 
-fileAFormOpt :: HandlerState m
+fileAFormOpt :: MonadHandler m
              => RenderMessage (HandlerSite m) FormMessage
              => FieldSettings (HandlerSite m)
              -> AForm m (Maybe FileInfo)

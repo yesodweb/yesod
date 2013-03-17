@@ -1,60 +1,48 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Yesod.Core.Class.Handler where
+module Yesod.Core.Class.Handler
+    ( MonadHandler (..)
+    , MonadWidget (..)
+    ) where
 
 import Yesod.Core.Types
 import Data.IORef.Lifted (atomicModifyIORef)
 import Control.Exception.Lifted (throwIO)
 import Control.Monad.Base
 import Data.Monoid (mempty)
+import Control.Monad (liftM)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Trans.Resource (MonadResource, MonadResourceBase, ExceptionT (..))
+import Control.Monad.Trans.Class (lift)
 
-class Monad m => HandlerReader m where
+class MonadResource m => MonadHandler m where
     type HandlerSite m
+    liftHandlerT :: HandlerT (HandlerSite m) IO a -> m a
 
-    askYesodRequest :: m YesodRequest
-    askHandlerEnv :: m (RunHandlerEnv (HandlerSite m))
+replaceToParent :: HandlerData site route -> HandlerData site ()
+replaceToParent hd = hd { handlerToParent = const () }
 
-instance Monad m => HandlerReader (HandlerT site m) where
+instance MonadResourceBase m => MonadHandler (HandlerT site m) where
     type HandlerSite (HandlerT site m) = site
+    liftHandlerT (HandlerT f) = HandlerT $ liftIO . f . replaceToParent
+{-# RULES "liftHandlerT (HandlerT site IO)" forall action. liftHandlerT action = id #-}
 
-    askYesodRequest = HandlerT $ return . handlerRequest
-    askHandlerEnv = HandlerT $ return . handlerEnv
-
-instance Monad m => HandlerReader (WidgetT site m) where
+instance MonadResourceBase m => MonadHandler (WidgetT site m) where
     type HandlerSite (WidgetT site m) = site
+    liftHandlerT (HandlerT f) = WidgetT $ liftIO . liftM (, mempty) . f . replaceToParent
+{-# RULES "liftHandlerT (WidgetT site IO)" forall f. liftHandlerT (HandlerT f) = WidgetT $ liftM (, mempty) . f #-}
 
-    askYesodRequest = WidgetT $ return . (, mempty) . handlerRequest
-    askHandlerEnv = WidgetT $ return . (, mempty) . handlerEnv
+instance MonadHandler m => MonadHandler (ExceptionT m) where
+    type HandlerSite (ExceptionT m) = HandlerSite m
+    liftHandlerT = lift . liftHandlerT
+-- FIXME add a bunch of transformer instances
 
-class HandlerReader m => HandlerState m where
-    stateGHState :: (GHState -> (a, GHState)) -> m a
-
-    getGHState :: m GHState
-    getGHState = stateGHState $ \s -> (s, s)
-
-    putGHState :: GHState -> m ()
-    putGHState s = stateGHState $ const ((), s)
-
-instance MonadBase IO m => HandlerState (HandlerT site m) where
-    stateGHState f =
-        HandlerT $ flip atomicModifyIORef f' . handlerState
-      where
-        f' z = let (x, y) = f z in (y, x)
-
-instance MonadBase IO m => HandlerState (WidgetT site m) where
-    stateGHState f =
-        WidgetT $ fmap (, mempty) . flip atomicModifyIORef f' . handlerState
-      where
-        f' z = let (x, y) = f z in (y, x)
-
-class HandlerReader m => HandlerError m where
-    handlerError :: HandlerContents -> m a
-
-instance MonadBase IO m => HandlerError (HandlerT site m) where
-    handlerError = throwIO
-
-instance MonadBase IO m => HandlerError (WidgetT site m) where
-    handlerError = throwIO
+class MonadHandler m => MonadWidget m where
+    liftWidgetT :: WidgetT (HandlerSite m) IO a -> m a
+instance MonadResourceBase m => MonadWidget (WidgetT site m) where
+    liftWidgetT (WidgetT f) = WidgetT $ liftIO . f . replaceToParent
+-- FIXME add a bunch of transformer instances
