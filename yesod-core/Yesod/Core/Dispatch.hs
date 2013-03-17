@@ -21,12 +21,18 @@ module Yesod.Core.Dispatch
     , Texts
       -- * Convert to WAI
     , toWaiApp
+    , toWaiAppPlain
+    , warp
+    , warpDebug
+    , warpEnv
+    , mkDefaultMiddlewares
       -- * WAI subsites
     , WaiSubsite (..)
     ) where
 
 import Prelude hiding (exp)
 import Yesod.Core.Internal.TH
+import Language.Haskell.TH.Syntax (qLocation)
 
 import Web.PathPieces
 
@@ -44,27 +50,41 @@ import Yesod.Core.Types
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
+import Safe (readMay)
+import System.Environment (getEnvironment)
+
+import Network.Wai.Middleware.Autohead
+import Network.Wai.Middleware.AcceptOverride
+import Network.Wai.Middleware.RequestLogger
+import Network.Wai.Middleware.Gzip
+import Network.Wai.Middleware.MethodOverride
+
+import qualified Network.Wai.Handler.Warp
+import System.Log.FastLogger
+import Control.Monad.Logger
 
 -- | Convert the given argument into a WAI application, executable with any WAI
--- handler. Note that, in versions of Yesod prior to 1.2, this would include
--- some default middlewares (GZIP and autohead). This is no longer the case; if
--- you want these middlewares, you should provide them yourself.
-toWaiApp :: YesodDispatch site => site -> IO W.Application
-toWaiApp site = do
+-- handler. This function will provide no middlewares; if you want commonly
+-- used middlewares, please use 'toWaiApp'.
+toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
+toWaiAppPlain site = do
     logger <- makeLogger site
     sb <- makeSessionBackend site
-    let yre = YesodRunnerEnv
+    return $ toWaiAppYre $ YesodRunnerEnv
             { yreLogger = logger
             , yreSite = site
             , yreSessionBackend = sb
             }
-    return $ \req ->
-        case cleanPath site $ W.pathInfo req of
-            Left pieces -> sendRedirect site pieces req
-            Right pieces -> yesodDispatch yre req
-                { W.pathInfo = pieces
-                }
+
+toWaiAppYre :: YesodDispatch site => YesodRunnerEnv site -> W.Application
+toWaiAppYre yre req =
+    case cleanPath site $ W.pathInfo req of
+        Left pieces -> sendRedirect site pieces req
+        Right pieces -> yesodDispatch yre req
+            { W.pathInfo = pieces
+            }
   where
+    site = yreSite yre
     sendRedirect :: Yesod master => master -> [Text] -> W.Application
     sendRedirect y segments' env =
          return $ W.responseLBS status301
@@ -78,3 +98,83 @@ toWaiApp site = do
                 then dest
                 else (dest `mappend`
                      Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
+
+-- | Same as 'toWaiAppPlain', but provides a default set of middlewares. This
+-- set may change with future releases, but currently covers:
+--
+-- * Logging
+--
+-- * GZIP compression
+--
+-- * Automatic HEAD method handling
+--
+-- * Request method override with the _method query string parameter
+--
+-- * Accept header override with the _accept query string parameter
+toWaiApp :: YesodDispatch site => site -> IO W.Application
+toWaiApp site = do
+    logger <- makeLogger site
+    sb <- makeSessionBackend site
+    let yre = YesodRunnerEnv
+                { yreLogger = logger
+                , yreSite = site
+                , yreSessionBackend = sb
+                }
+    messageLoggerSource
+        site
+        logger
+        $(qLocation >>= liftLoc)
+        "yesod-core"
+        LevelInfo
+        (toLogStr ("Application launched" :: S.ByteString))
+    middleware <- mkDefaultMiddlewares logger
+    return $ middleware $ toWaiAppYre yre
+
+-- | A convenience method to run an application using the Warp webserver on the
+-- specified port. Automatically calls 'toWaiApp'. Provides a default set of
+-- middlewares. This set may change at any point without a breaking version
+-- number. Currently, it includes:
+--
+-- If you need more fine-grained control of middlewares, please use 'toWaiApp'
+-- directly.
+--
+-- Since 1.2.0
+warp :: YesodDispatch site => Int -> site -> IO ()
+warp port site = toWaiApp site >>= Network.Wai.Handler.Warp.run port
+
+-- | A default set of middlewares.
+--
+-- Since 1.2.0
+mkDefaultMiddlewares :: Logger -> IO W.Middleware
+mkDefaultMiddlewares logger = do
+    logWare <- mkRequestLogger def
+        { destination = Logger logger
+        , outputFormat = Apache FromSocket
+        }
+    return $ logWare
+           . acceptOverride
+           . autohead
+           . gzip def
+           . methodOverride
+
+-- | Deprecated synonym for 'warp'.
+warpDebug :: YesodDispatch site => Int -> site -> IO ()
+warpDebug = warp
+{-# DEPRECATED warpDebug "Please use warp instead" #-}
+
+-- | Runs your application using default middlewares (i.e., via 'toWaiApp'). It
+-- reads port information from the PORT environment variable, as used by tools
+-- such as Keter and the FP Complete School of Haskell.
+--
+-- Note that the exact behavior of this function may be modified slightly over
+-- time to work correctly with external tools, without a change to the type
+-- signature.
+warpEnv :: YesodDispatch site => site -> IO ()
+warpEnv site = do
+    env <- getEnvironment
+    case lookup "PORT" env of
+        Nothing -> error $ "warpEnv: no PORT environment variable found"
+        Just portS ->
+            case readMay portS of
+                Nothing -> error $ "warpEnv: invalid PORT environment variable: " ++ show portS
+                Just port -> warp port site
