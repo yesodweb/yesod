@@ -42,7 +42,7 @@ module Yesod.Core.Widget
     , addScriptRemoteAttrs
     , addScriptEither
       -- * Subsites
-    , liftWidget
+    , widgetToParentWidget
     , handlerToWidget
       -- * Internal
     , whamletFileWithSettings
@@ -234,10 +234,10 @@ toUnique = UniqueList . (:)
 handlerToWidget :: Monad m => HandlerT site m a -> WidgetT site m a
 handlerToWidget (HandlerT f) = WidgetT $ liftM (, mempty) . f
 
-liftWidget :: MonadIO m
-           => WidgetT child IO a
-           -> HandlerT child (HandlerT parent m) (WidgetT parent m a)
-liftWidget (WidgetT f) = HandlerT $ \hd -> do
+widgetToParentWidget :: MonadIO m
+                     => WidgetT child IO a
+                     -> HandlerT child (HandlerT parent m) (WidgetT parent m a)
+widgetToParentWidget (WidgetT f) = HandlerT $ \hd -> do
     (a, gwd) <- liftIO $ f hd { handlerToParent = const () }
     return $ WidgetT $ const $ return (a, liftGWD (handlerToParent hd) gwd)
 
