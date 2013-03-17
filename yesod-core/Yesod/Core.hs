@@ -48,9 +48,8 @@ module Yesod.Core
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
       -- * Subsites
-    , HandlerReader (..)
-    , HandlerState (..)
-    , HandlerError (..)
+    , MonadHandler (..)
+    , MonadWidget (..)
     , getRouteToParent
       -- * Misc
     , yesodVersion
@@ -89,7 +88,7 @@ import Data.Version (showVersion)
 import Yesod.Routes.Class (RenderRoute (..))
 
 -- | Return an 'Unauthorized' value, with the given i18n message.
-unauthorizedI :: (Monad m, RenderMessage site msg) => msg -> HandlerT site m AuthResult
+unauthorizedI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => msg -> m AuthResult
 unauthorizedI msg = do
     mr <- getMessageRender
     return $ Unauthorized $ mr msg

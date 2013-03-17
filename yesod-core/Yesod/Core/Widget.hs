@@ -70,24 +70,25 @@ import qualified Data.Text.Lazy as TL
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
+import           Text.Shakespeare.I18N         (renderMessage)
 
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
 
-class Monad m => ToWidget site m a where
-    toWidget :: a -> WidgetT site m ()
+class ToWidget site a where
+    toWidget :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
-instance (Monad m, render ~ RY site) => ToWidget site m (render -> Html) where
+instance render ~ RY site => ToWidget site (render -> Html) where
     toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
-instance (Monad m, render ~ RY site) => ToWidget site m (render -> Css) where
+instance render ~ RY site => ToWidget site (render -> Css) where
     toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . x
-instance (Monad m, render ~ RY site) => ToWidget site m (render -> CssBuilder) where
+instance render ~ RY site => ToWidget site (render -> CssBuilder) where
     toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
-instance (Monad m, render ~ RY site) => ToWidget site m (render -> Javascript) where
+instance render ~ RY site => ToWidget site (render -> Javascript) where
     toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
-instance (site' ~ site, Monad m, m' ~ m) => ToWidget site' m' (WidgetT site m ()) where
-    toWidget = id
-instance Monad m => ToWidget site m Html where
+instance (site' ~ site, IO ~ m, a ~ ()) => ToWidget site' (WidgetT site m a) where
+    toWidget = liftWidgetT
+instance ToWidget site Html where
     toWidget = toWidget . const
 
 -- | Allows adding some CSS to the page with a specific media type.
@@ -97,17 +98,17 @@ class ToWidgetMedia site a where
     -- | Add the given content to the page, but only for the given media type.
     --
     -- Since 1.2
-    toWidgetMedia :: Monad m
+    toWidgetMedia :: (MonadWidget m, HandlerSite m ~ site)
                   => Text -- ^ media value
                   -> a
-                  -> WidgetT site m ()
+                  -> m ()
 instance render ~ RY site => ToWidgetMedia site (render -> Css) where
     toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . x
 instance render ~ RY site => ToWidgetMedia site (render -> CssBuilder) where
     toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
 
 class ToWidgetBody site a where
-    toWidgetBody :: Monad m => a -> WidgetT site m ()
+    toWidgetBody :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidgetBody site (render -> Html) where
     toWidgetBody = toWidget
@@ -117,7 +118,7 @@ instance ToWidgetBody site Html where
     toWidgetBody = toWidget
 
 class ToWidgetHead site a where
-    toWidgetHead :: Monad m => a -> WidgetT site m ()
+    toWidgetHead :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidgetHead site (render -> Html) where
     toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
@@ -132,52 +133,59 @@ instance ToWidgetHead site Html where
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitle :: Monad m => Html -> WidgetT site m ()
+setTitle :: MonadWidget m => Html -> m ()
 setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
-setTitleI :: (Monad m, RenderMessage site msg) => msg -> WidgetT site m ()
+setTitleI :: (MonadWidget m, RenderMessage (HandlerSite m) msg) => msg -> m ()
 setTitleI msg = do
     mr <- getMessageRender
     setTitle $ toHtml $ mr msg
 
 -- | Link to the specified local stylesheet.
-addStylesheet :: Monad m => Route site -> WidgetT site m ()
+addStylesheet :: MonadWidget m => Route (HandlerSite m) -> m ()
 addStylesheet = flip addStylesheetAttrs []
 
 -- | Link to the specified local stylesheet.
-addStylesheetAttrs :: Monad m => Route site -> [(Text, Text)] -> WidgetT site m ()
+addStylesheetAttrs :: MonadWidget m
+                   => Route (HandlerSite m)
+                   -> [(Text, Text)]
+                   -> m ()
 addStylesheetAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemote :: Monad m => Text -> WidgetT site m ()
+addStylesheetRemote :: MonadWidget m => Text -> m ()
 addStylesheetRemote = flip addStylesheetRemoteAttrs []
 
 -- | Link to the specified remote stylesheet.
-addStylesheetRemoteAttrs :: Monad m => Text -> [(Text, Text)] -> WidgetT site m ()
+addStylesheetRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
 addStylesheetRemoteAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
 
-addStylesheetEither :: Monad m => Either (Route site) Text -> WidgetT site m ()
+addStylesheetEither :: MonadWidget m
+                    => Either (Route (HandlerSite m)) Text
+                    -> m ()
 addStylesheetEither = either addStylesheet addStylesheetRemote
 
-addScriptEither :: Monad m => Either (Route site) Text -> WidgetT site m ()
+addScriptEither :: MonadWidget m
+                => Either (Route (HandlerSite m)) Text
+                -> m ()
 addScriptEither = either addScript addScriptRemote
 
 -- | Link to the specified local script.
-addScript :: Monad m => Route site -> WidgetT site m ()
+addScript :: MonadWidget m => Route (HandlerSite m) -> m ()
 addScript = flip addScriptAttrs []
 
 -- | Link to the specified local script.
-addScriptAttrs :: Monad m => Route site -> [(Text, Text)] -> WidgetT site m ()
+addScriptAttrs :: MonadWidget m => Route (HandlerSite m) -> [(Text, Text)] -> m ()
 addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
-addScriptRemote :: Monad m => Text -> WidgetT site m ()
+addScriptRemote :: MonadWidget m => Text -> m ()
 addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
-addScriptRemoteAttrs :: Monad m => Text -> [(Text, Text)] -> WidgetT site m ()
+addScriptRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
 addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
 whamlet :: QuasiQuoter
@@ -207,7 +215,7 @@ rules = do
     return $ NP.HamletRules ah ur $ \_ b -> return $ ah `AppE` b
 
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-ihamletToRepHtml :: (HandlerReader m, RenderMessage (HandlerSite m) message)
+ihamletToRepHtml :: (MonadHandler m, RenderMessage (HandlerSite m) message)
                  => HtmlUrlI18n message (Route (HandlerSite m))
                  -> m Html
 ihamletToRepHtml ih = do
@@ -215,8 +223,8 @@ ihamletToRepHtml ih = do
     mrender <- getMessageRender
     return $ ih (toHtml . mrender) urender
 
-tell :: Monad m => GWData (Route site) -> WidgetT site m ()
-tell w = WidgetT $ const $ return ((), w)
+tell :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
+tell w = liftWidgetT $ WidgetT $ const $ return ((), w)
 
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)

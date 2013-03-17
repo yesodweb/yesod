@@ -42,7 +42,7 @@ instance HasContentType RepAtom where
 instance ToTypedContent RepAtom where
     toTypedContent = TypedContent typeAtom . toContent
 
-atomFeed :: HandlerReader m => Feed (Route (HandlerSite m)) -> m RepAtom
+atomFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m RepAtom
 atomFeed feed = do
     render <- getUrlRender
     return $ RepAtom $ toContent $ renderLBS def $ template feed render
@@ -75,10 +75,10 @@ entryTemplate FeedEntry {..} render = Element "entry" Map.empty $ map NodeElemen
     ]
 
 -- | Generates a link tag in the head of a widget.
-atomLink :: Monad m
-         => Route site
+atomLink :: MonadWidget m
+         => Route (HandlerSite m)
          -> Text -- ^ title
-         -> WidgetT site m ()
+         -> m ()
 atomLink r title = toWidgetHead [hamlet|
     <link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}>
     |]

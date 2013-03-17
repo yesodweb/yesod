@@ -6,8 +6,8 @@ module Yesod.Default.Handlers
 
 import Yesod.Core
 
-getFaviconR :: HandlerError m => m ()
+getFaviconR :: MonadHandler m => m ()
 getFaviconR = sendFile "image/x-icon" "config/favicon.ico"
 
-getRobotsR :: HandlerError m => m ()
+getRobotsR :: MonadHandler m => m ()
 getRobotsR = sendFile "text/plain" "config/robots.txt"

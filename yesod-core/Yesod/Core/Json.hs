@@ -20,8 +20,9 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Core.Handler (HandlerT, waiRequest, invalidArgs, redirect, selectRep, provideRep)
+import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody)
 import Yesod.Core.Content (TypedContent)
+import Yesod.Core.Types (reqAccept)
 import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
 import Yesod.Core.Class.Handler
 import Yesod.Core.Widget (WidgetT)
@@ -67,19 +68,16 @@ jsonToRepJson = return . J.toJSON
 -- 'J.Value'@.
 --
 -- /Since: 0.3.0/
-parseJsonBody :: (MonadResource m, HandlerReader m, J.FromJSON a) => m (J.Result a)
+parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = do
-    req <- waiRequest
-    eValue <- runExceptionT
-            $ transPipe liftResourceT (requestBody req)
-           $$ sinkParser JP.value'
+    eValue <- runExceptionT $ rawRequestBody $$ sinkParser JP.value'
     return $ case eValue of
         Left e -> J.Error $ show e
         Right value -> J.fromJSON value
 
 -- | Same as 'parseJsonBody', but return an invalid args response on a parse
 -- error.
-parseJsonBody_ :: (HandlerError m, J.FromJSON a, MonadResource m) => m a
+parseJsonBody_ :: (MonadHandler m, J.FromJSON a) => m a
 parseJsonBody_ = do
     ra <- parseJsonBody
     case ra of
@@ -97,8 +95,7 @@ array = J.Array . V.fromList . map J.toJSON
 --     @application\/json@ (e.g. AJAX, see 'acceptsJSON').
 --
 --     2. 3xx otherwise, following the PRG pattern.
-jsonOrRedirect :: HandlerError m
-               => J.ToJSON a
+jsonOrRedirect :: (MonadHandler m, J.ToJSON a)
                => Route (HandlerSite m) -- ^ Redirect target
                -> a            -- ^ Data to send via JSON
                -> m J.Value
@@ -109,9 +106,8 @@ jsonOrRedirect r j = do
 
 -- | Returns @True@ if the client prefers @application\/json@ as
 -- indicated by the @Accept@ HTTP header.
-acceptsJson :: HandlerReader m => m Bool
+acceptsJson :: MonadHandler m => m Bool
 acceptsJson =  (maybe False ((== "application/json") . B8.takeWhile (/= ';'))
-            .  join
-            .  liftM (listToMaybe . parseHttpAccept)
-            .  lookup "Accept" . requestHeaders)
-           `liftM` waiRequest
+            .  listToMaybe
+            .  reqAccept)
+           `liftM` getRequest

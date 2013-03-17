@@ -39,7 +39,7 @@ instance ToTypedContent RepRss where
     toTypedContent = TypedContent typeRss . toContent
 
 -- | Generate the feed
-rssFeed :: HandlerReader m => Feed (Route (HandlerSite m)) -> m RepRss
+rssFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m RepRss
 rssFeed feed = do
     render <- getUrlRender
     return $ RepRss $ toContent $ renderLBS def $ template feed render
@@ -71,10 +71,10 @@ entryTemplate FeedEntry {..} render = Element "item" Map.empty $ map NodeElement
     ]
 
 -- | Generates a link tag in the head of a widget.
-rssLink :: Monad m
-        => Route site
+rssLink :: MonadWidget m
+        => Route (HandlerSite m)
         -> Text -- ^ title
-        -> WidgetT site m ()
+        -> m ()
 rssLink r title = toWidgetHead [hamlet|
     <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}>
     |]

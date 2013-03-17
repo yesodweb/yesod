@@ -13,7 +13,6 @@ import           Control.Applicative                (Applicative (..))
 import           Control.Applicative                ((<$>))
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
-import           Control.Failure                    (Failure (..))
 import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
@@ -423,9 +422,6 @@ instance (MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (HandlerT s
 instance MonadIO m => MonadLogger (HandlerT site m) where
     monadLoggerLog a b c d = HandlerT $ \hd ->
         liftIO $ rheLog (handlerEnv hd) a b c (toLogStr d)
-
-instance Failure e m => Failure e (HandlerT site m) where
-    failure = lift . failure
 
 instance Monoid (UniqueList x) where
     mempty = UniqueList id

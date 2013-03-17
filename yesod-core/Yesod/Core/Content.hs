@@ -244,6 +244,8 @@ instance ToTypedContent Html where
     toTypedContent h = TypedContent typeHtml (toContent h)
 instance ToTypedContent T.Text where
     toTypedContent t = TypedContent typePlain (toContent t)
+instance ToTypedContent [Char] where
+    toTypedContent = toTypedContent . pack
 instance ToTypedContent Text where
     toTypedContent t = TypedContent typePlain (toContent t)
 instance ToTypedContent a => ToTypedContent (DontFullyEvaluate a) where

@@ -47,7 +47,9 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{ra
   where
     showVal = either id (pack . renderHtml)
 
-addScript' :: Monad m => (site -> Either (Route site) Text) -> WidgetT site m ()
+addScript' :: (MonadWidget m, HandlerSite m ~ site)
+           => (site -> Either (Route site) Text)
+           -> m ()
 addScript' f = do
     y <- getYesod
     addScriptEither $ f y
