@@ -14,6 +14,7 @@ import Language.Haskell.TH.Syntax
 import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
+import Data.List (foldl')
 
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
@@ -28,36 +29,22 @@ import Yesod.Core.Internal.Run
 mkYesod :: String -- ^ name of the argument datatype
         -> [ResourceTree String]
         -> Q [Dec]
-mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] [] False
-
--- | Generates URL datatype and site function for the given 'Resource's. This
--- is used for creating subsites, /not/ sites. See 'mkYesod' for the latter.
--- Use 'parseRoutes' to create the 'Resource's. In general, a subsite is not
--- executable by itself, but instead provides functionality to
--- be embedded in other sites.
-mkYesodSub :: String -- ^ name of the argument datatype
-           -> Cxt
-           -> [ResourceTree String]
-           -> Q [Dec]
-mkYesodSub name clazzes =
-    fmap (uncurry (++)) . mkYesodGeneral name' rest clazzes True
-  where
-    (name':rest) = words name
+mkYesod name = fmap (uncurry (++)) . mkYesodGeneral name [] False
 
 -- | Sometimes, you will want to declare your routes in one file and define
 -- your handlers elsewhere. For example, this is the only way to break up a
 -- monolithic file into smaller parts. Use this function, paired with
 -- 'mkYesodDispatch', to do just that.
 mkYesodData :: String -> [ResourceTree String] -> Q [Dec]
-mkYesodData name res = mkYesodDataGeneral name [] False res
+mkYesodData name res = mkYesodDataGeneral name False res
 
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
-mkYesodSubData name res = mkYesodDataGeneral name [] True res
+mkYesodSubData name res = mkYesodDataGeneral name True res
 
-mkYesodDataGeneral :: String -> Cxt -> Bool -> [ResourceTree String] -> Q [Dec]
-mkYesodDataGeneral name clazzes isSub res = do
+mkYesodDataGeneral :: String -> Bool -> [ResourceTree String] -> Q [Dec]
+mkYesodDataGeneral name isSub res = do
     let (name':rest) = words name
-    (x, _) <- mkYesodGeneral name' rest clazzes isSub res
+    (x, _) <- mkYesodGeneral name' rest isSub res
     let rname = mkName $ "resources" ++ name
     eres <- lift res
     let y = [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
@@ -67,30 +54,28 @@ mkYesodDataGeneral name clazzes isSub res = do
 
 -- | See 'mkYesodData'.
 mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
-mkYesodDispatch name = fmap snd . mkYesodGeneral name [] [] False
+mkYesodDispatch name = fmap snd . mkYesodGeneral name [] False
+
+-- | Get the Handler and Widget type synonyms for the given site.
+masterTypeSyns :: Type -> [Dec]
+masterTypeSyns site =
+    [ TySynD (mkName "Handler") []
+      $ ConT ''HandlerT `AppT` site `AppT` ConT ''IO
+    , TySynD (mkName "Widget")  []
+      $ ConT ''WidgetT `AppT` site `AppT` ConT ''IO `AppT` ConT ''()
+    ]
 
 mkYesodGeneral :: String                   -- ^ foundation type
                -> [String]                 -- ^ arguments for the type
-               -> Cxt                      -- ^ the type constraints
                -> Bool                     -- ^ it this a subsite
                -> [ResourceTree String]
                -> Q([Dec],[Dec])
-mkYesodGeneral name args clazzes isSub resS = do
-     subsite        <- sub
-     masterTypeSyns <- if isSub then return   [] 
-                                else sequence [handler, widget]
-     renderRouteDec <- mkRenderRouteInstance subsite res
-     dispatchDec    <- mkDispatchInstance context (if isSub then Just sub else Nothing) master res
-     return (renderRouteDec ++ masterTypeSyns, dispatchDec)
-  where sub     = foldl appT subCons subArgs
-        master  = if isSub then (varT $ mkName "m") else sub
-        context = if isSub then cxt $ map return clazzes
-                           else return []
-        handler = tySynD (mkName "Handler") [] [t| HandlerT $master IO    |]
-        widget  = tySynD (mkName "Widget")  [] [t| WidgetT  $master IO () |]
+mkYesodGeneral name args isSub resS = do
+     renderRouteDec <- mkRenderRouteInstance site res
+     dispatchDec    <- mkDispatchInstance site res
+     return (renderRouteDec ++ if isSub then [] else masterTypeSyns site, dispatchDec)
+  where site    = foldl' AppT (ConT $ mkName name) (map (VarT . mkName) args)
         res     = map (fmap parseType) resS
-        subCons = conT $ mkName name
-        subArgs = map (varT. mkName) args
 
 mkMDS :: Q Exp -> MkDispatchSettings
 mkMDS rh = MkDispatchSettings
@@ -116,17 +101,15 @@ mkMDS rh = MkDispatchSettings
 -- hardly need this generality. However, in certain situations, like
 -- when writing library/plugin for yesod, this combinator becomes
 -- handy.
-mkDispatchInstance :: CxtQ                -- ^ The context
-                   -> Maybe TypeQ         -- ^ The subsite type
-                   -> TypeQ               -- ^ The master site type
+mkDispatchInstance :: Type                -- ^ The master site type
                    -> [ResourceTree a]    -- ^ The resource
                    -> DecsQ
-mkDispatchInstance context _sub master res = do
-  let yDispatch = conT ''YesodDispatch `appT` master
-      thisDispatch = do
-            clause' <- mkDispatchClause (mkMDS [|yesodRunner|]) res
-            return $ FunD 'yesodDispatch [clause']
-   in sequence [instanceD context yDispatch [thisDispatch]]
+mkDispatchInstance master res = do
+    clause' <- mkDispatchClause (mkMDS [|yesodRunner|]) res
+    let thisDispatch = FunD 'yesodDispatch [clause']
+    return [InstanceD [] yDispatch [thisDispatch]]
+  where
+    yDispatch = ConT ''YesodDispatch `AppT` master
 
 
 mkYesodSubDispatch :: [ResourceTree String] -> Q Exp
