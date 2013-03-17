@@ -10,13 +10,11 @@ module Yesod.Core.Dispatch
     , parseRoutesFile
     , parseRoutesFileNoCheck
     , mkYesod
-    , mkYesodSub
       -- ** More fine-grained
     , mkYesodData
     , mkYesodSubData
     , mkYesodDispatch
     , mkYesodSubDispatch
-    , mkDispatchInstance
       -- ** Path pieces
     , PathPiece (..)
     , PathMultiPiece (..)
