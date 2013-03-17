@@ -37,4 +37,4 @@ getHomeR = defaultLayout
 main :: IO ()
 main = do
     app <- App <$> newWiki
-    warpDebug 3000 app
+    warp 3000 app

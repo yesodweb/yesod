@@ -51,6 +51,7 @@ module Yesod.Core
     , MonadHandler (..)
     , MonadWidget (..)
     , getRouteToParent
+    , defaultLayoutSub
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -63,6 +64,7 @@ module Yesod.Core
     , module Yesod.Core.Json
     , module Text.Shakespeare.I18N
     , module Yesod.Core.Internal.Util
+    , module Text.Blaze.Html
     , MonadTrans (..)
     , MonadIO (..)
     , MonadBase (..)
@@ -78,6 +80,7 @@ import Yesod.Core.Json
 import Yesod.Core.Types
 import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
+import Text.Blaze.Html (Html)
 
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
@@ -116,3 +119,8 @@ maybeAuthorized r isWrite = do
 
 getRouteToParent :: Monad m => HandlerT child (HandlerT parent m) (Route child -> Route parent)
 getRouteToParent = HandlerT $ return . handlerToParent
+
+defaultLayoutSub :: Yesod parent
+                 => WidgetT child IO ()
+                 -> HandlerT child (HandlerT parent IO) Html
+defaultLayoutSub cwidget = widgetToParentWidget cwidget >>= lift . defaultLayout
