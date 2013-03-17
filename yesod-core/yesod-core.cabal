@@ -103,6 +103,7 @@ library
                      Yesod.Core.Internal.Util
                      Yesod.Core.Internal.Response
                      Yesod.Core.Internal.Run
+                     Yesod.Core.Internal.TH
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs

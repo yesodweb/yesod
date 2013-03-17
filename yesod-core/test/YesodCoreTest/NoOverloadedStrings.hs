@@ -11,7 +11,6 @@ import Network.Wai.Test
 import Data.Monoid (mempty)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as L8
-import Control.Monad.Trans.Class
 
 getSubsite :: a -> Subsite
 getSubsite _ = Subsite $(mkYesodSubDispatch resourcesSubsite)
