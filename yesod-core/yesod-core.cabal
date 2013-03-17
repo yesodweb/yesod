@@ -88,6 +88,8 @@ library
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.5.1
                    , data-default
+                   , safe
+                   , warp
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
