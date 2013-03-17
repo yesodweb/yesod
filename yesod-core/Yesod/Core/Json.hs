@@ -27,7 +27,6 @@ import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
 import Yesod.Core.Class.Handler
 import Yesod.Core.Widget (WidgetT)
 import Yesod.Routes.Class
-import Control.Monad (join)
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Parser as JP
 import Data.Aeson ((.=), object)
@@ -35,12 +34,9 @@ import Data.Conduit.Attoparsec (sinkParser)
 import Data.Text (pack)
 import qualified Data.Vector as V
 import Data.Conduit
-import Network.Wai (requestBody, requestHeaders)
-import Network.Wai.Parse (parseHttpAccept)
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe (listToMaybe)
 import Control.Monad (liftM)
-import Control.Monad.Trans.Resource (liftResourceT)
 
 -- | Provide both an HTML and JSON representation for a piece of
 -- data, using the default layout for the HTML output

@@ -10,7 +10,6 @@ import Text.Hamlet
 import Network.Wai
 import Network.Wai.Test
 import Data.Text (Text)
-import Control.Monad.IO.Class (liftIO)
 import Blaze.ByteString.Builder (toByteString)
 
 data Y = Y

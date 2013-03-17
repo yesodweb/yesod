@@ -10,9 +10,6 @@ module Yesod.Core.Class.Handler
     ) where
 
 import Yesod.Core.Types
-import Data.IORef.Lifted (atomicModifyIORef)
-import Control.Exception.Lifted (throwIO)
-import Control.Monad.Base
 import Data.Monoid (mempty)
 import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)

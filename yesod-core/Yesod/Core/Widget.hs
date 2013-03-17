@@ -70,7 +70,6 @@ import qualified Data.Text.Lazy as TL
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
-import           Text.Shakespeare.I18N         (renderMessage)
 
 preEscapedLazyText :: TL.Text -> Html
 preEscapedLazyText = preEscapedToMarkup
@@ -197,9 +196,12 @@ whamletFile = NP.hamletFileWithSettings rules NP.defaultHamletSettings
 whamletFileWithSettings :: NP.HamletSettings -> FilePath -> Q Exp
 whamletFileWithSettings = NP.hamletFileWithSettings rules
 
+asWidgetT :: WidgetT site m () -> WidgetT site m ()
+asWidgetT = id
+
 rules :: Q NP.HamletRules
 rules = do
-    ah <- [|toWidget|]
+    ah <- [|asWidgetT . toWidget|]
     let helper qg f = do
             x <- newName "urender"
             e <- f $ VarE x
