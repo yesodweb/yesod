@@ -22,6 +22,12 @@ import Yesod.Core.Types
 import Yesod.Core.Content
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
+import Yesod.Routes.Class
+import Data.Text (Text)
+import qualified Data.ByteString.Char8 as S8
+
+class RenderRoute a => ParseRoute a where
+    parseRoute :: ([Text], [(Text, Text)]) -> Maybe (Route a)
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
@@ -73,7 +79,8 @@ mkYesodGeneral :: String                   -- ^ foundation type
 mkYesodGeneral name args isSub resS = do
      renderRouteDec <- mkRenderRouteInstance site res
      dispatchDec    <- mkDispatchInstance site res
-     return (renderRouteDec ++ if isSub then [] else masterTypeSyns site, dispatchDec)
+     parse <- mkParseRoute site res
+     return (parse : renderRouteDec ++ if isSub then [] else masterTypeSyns site, dispatchDec)
   where site    = foldl' AppT (ConT $ mkName name) (map (VarT . mkName) args)
         res     = map (fmap parseType) resS
 
@@ -94,6 +101,7 @@ mkMDS rh = MkDispatchSettings
     , mdsMethod = [|W.requestMethod|]
     , mds404 = [|notFound >> return ()|]
     , mds405 = [|badMethod >> return ()|]
+    , mdsGetHandler = defaultGetHandler
     }
 
 -- | If the generation of @'YesodDispatch'@ instance require finer
@@ -111,8 +119,24 @@ mkDispatchInstance master res = do
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
+mkParseRoute :: Type -> [ResourceTree a] -> Q Dec
+mkParseRoute typ res = do
+    Clause [VarP getEnv, req] body decs <- mkDispatchClause mds res
+    let clause = Clause [req] body $ FunD getEnv [Clause [] (NormalB $ ConE '()) []] : decs
+    return $ InstanceD [] (ConT ''ParseRoute `AppT` typ) [FunD 'parseRoute [clause]]
+  where
+    mds = MkDispatchSettings
+        { mdsRunHandler = [|\_ _ route _ -> route |]
+        , mdsSubDispatcher = [|\_ _ toParent _ req -> fmap toParent $ parseRoute req|]
+        , mdsGetPathInfo = [|fst|]
+        , mdsSetPathInfo = [|\p (_, q) -> (p, q)|]
+        , mdsMethod = [|const $ S8.pack "GET"|]
+        , mds404 = [|const ()|]
+        , mds405 = [|const ()|]
+        , mdsGetHandler = \_ _ -> [|const ()|]
+        }
 
-mkYesodSubDispatch :: [ResourceTree String] -> Q Exp
+mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
     clause' <- mkDispatchClause (mkMDS [|subHelper . fmap toTypedContent|]) res
     inner <- newName "inner"
