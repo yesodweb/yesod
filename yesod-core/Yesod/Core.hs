@@ -10,6 +10,7 @@ module Yesod.Core
     , YesodDispatch (..)
     , YesodSubDispatch (..)
     , RenderRoute (..)
+    , ParseRoute (..)
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs
@@ -85,6 +86,7 @@ import Text.Blaze.Html (Html)
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Yesod.Core.Internal.Session
+import Yesod.Core.Internal.TH (ParseRoute (..))
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Class.Breadcrumbs

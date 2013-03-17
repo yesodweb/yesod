@@ -23,7 +23,7 @@ getBazR = lift $ defaultLayout [whamlet|Used Default Layout|]
 
 getBinR :: Yesod master => HandlerT Subsite (HandlerT master IO) RepHtml
 getBinR = do
-    widget <- liftWidget [whamlet|
+    widget <- widgetToParentWidget [whamlet|
         <p>Used defaultLayoutT
         <a href=@{BazR}>Baz
     |]

@@ -28,6 +28,8 @@ instance RenderRoute Subsite where
     data Route Subsite = SubsiteRoute [TS.Text]
         deriving (Eq, Show, Read)
     renderRoute (SubsiteRoute x) = (x, [])
+instance ParseRoute Subsite where
+    parseRoute (x, _) = Just $ SubsiteRoute x
 
 instance YesodSubDispatch Subsite master where
     yesodSubDispatch _ req = return $ responseLBS
@@ -84,6 +86,11 @@ cleanPathTest =
       it "/foo/something" fooSomething
       it "subsite dispatch" subsiteDispatch
       it "redirect with query string" redQueryString
+      it "parsing" $ do
+        parseRoute (["foo"], []) `shouldBe` Just FooR
+        parseRoute (["foo", "bar"], []) `shouldBe` Just (FooStringR "bar")
+        parseRoute (["subsite", "some", "path"], []) `shouldBe` Just (SubsiteR $ SubsiteRoute ["some", "path"])
+        parseRoute (["ignore", "me"], []) `shouldBe` (Nothing :: Maybe (Route Y))
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f

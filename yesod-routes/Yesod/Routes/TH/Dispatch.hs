@@ -3,6 +3,7 @@ module Yesod.Routes.TH.Dispatch
     ( -- ** Dispatch
       mkDispatchClause
     , MkDispatchSettings (..)
+    , defaultGetHandler
     ) where
 
 import Prelude hiding (exp)
@@ -37,7 +38,11 @@ data MkDispatchSettings = MkDispatchSettings
     , mdsMethod :: Q Exp
     , mds404 :: Q Exp
     , mds405 :: Q Exp
+    , mdsGetHandler :: Maybe String -> String -> Q Exp
     }
+
+defaultGetHandler Nothing s = return $ VarE $ mkName $ "handle" ++ s
+defaultGetHandler (Just method) s = return $ VarE $ mkName $ map toLower method ++ s
 
 -- |
 --
@@ -171,7 +176,7 @@ buildMethodMap mds (FlatResource parents name pieces' (Methods mmulti methods)) 
   where
     pieces = concat $ map snd parents ++ [pieces']
     go method = do
-        let func = VarE $ mkName $ map toLower method ++ name
+        func <- mdsGetHandler mds (Just method) name
         pack' <- [|encodeUtf8 . pack|]
         let isDynamic Dynamic{} = True
             isDynamic _ = False
@@ -317,7 +322,8 @@ buildCaller mds xrest parents name resDisp ys = do
                 if null ms
                     then do
                         -- Just a single handler
-                        let he = foldl' (\a b -> a `AppE` VarE b) (VarE $ mkName $ "handle" ++ name) ys
+                        base <- mdsGetHandler mds Nothing name
+                        let he = foldl' (\a b -> a `AppE` VarE b) base ys
                         runHandler <- mdsRunHandler mds
                         return $ myLet $ runHandler `AppE` he
                     else do
