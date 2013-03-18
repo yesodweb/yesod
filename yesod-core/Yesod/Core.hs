@@ -57,8 +57,8 @@ module Yesod.Core
     , yesodVersion
     , yesodRender
     , runFakeHandler
-      -- * SimpleApp
-    , module Yesod.Core.Internal.SimpleApp
+      -- * LiteApp
+    , module Yesod.Core.Internal.LiteApp
       -- * Re-exports
     , module Yesod.Core.Content
     , module Yesod.Core.Dispatch
@@ -98,7 +98,7 @@ import Yesod.Routes.Class
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Base (MonadBase (..))
 import Control.Monad.Trans.Control (MonadBaseControl (..))
-import Yesod.Core.Internal.SimpleApp
+import Yesod.Core.Internal.LiteApp
 
 -- | Return an 'Unauthorized' value, with the given i18n message.
 unauthorizedI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => msg -> m AuthResult
