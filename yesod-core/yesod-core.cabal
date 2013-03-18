@@ -35,7 +35,7 @@ extra-source-files:
   test/YesodCoreTest/Widget.hs
   test/YesodCoreTest/YesodTest.hs
   test/YesodCoreTest/Auth.hs
-  test/YesodCoreTest/SimpleApp.hs
+  test/YesodCoreTest/LiteApp.hs
   test/en.msg
   test/test.hs
 
@@ -107,7 +107,7 @@ library
                      Yesod.Core.Internal.Response
                      Yesod.Core.Internal.Run
                      Yesod.Core.Internal.TH
-                     Yesod.Core.Internal.SimpleApp
+                     Yesod.Core.Internal.LiteApp
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs

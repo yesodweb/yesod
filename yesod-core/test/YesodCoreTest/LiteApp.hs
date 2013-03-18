@@ -1,4 +1,4 @@
-module YesodCoreTest.SimpleApp (specs) where
+module YesodCoreTest.LiteApp (specs) where
 
 import Yesod.Core
 import Test.Hspec
@@ -14,7 +14,7 @@ iapp = toWaiApp $
     onMethod (S8.pack "GET") (dispatchTo $ return "GetHomepage") <>
     onMethod (S8.pack "POST") (dispatchTo $ return "PostHomepage") <>
     onStatic (T.pack "string") (withDynamic (\t -> dispatchTo $ return (t :: T.Text))) <>
-    onStatic (T.pack "multi") (withDynamicMulti (\[x, y] -> dispatchTo $ return (y :: T.Text)))
+    onStatic (T.pack "multi") (withDynamicMulti (\[_, y] -> dispatchTo $ return (y :: T.Text)))
 
 test :: String -- ^ method
      -> [String] -- ^ path
@@ -32,7 +32,7 @@ test method path expected = it (method ++ " " ++ show path) $ do
             Right b -> assertBody (L8.pack b) sres
 
 specs :: Spec
-specs = describe "SimpleApp" $ do
+specs = describe "LiteApp" $ do
     test "GET" [] $ Right "GetHomepage"
     test "POST" [] $ Right "PostHomepage"
     -- test "PUT" [] $ Left 405
