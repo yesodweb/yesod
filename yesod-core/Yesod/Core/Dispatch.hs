@@ -28,15 +28,6 @@ module Yesod.Core.Dispatch
     , mkDefaultMiddlewares
       -- * WAI subsites
     , WaiSubsite (..)
-      -- * Simpler apps
-    , SimpleApp
-    , SimpleHandler
-    , SimpleWidget
-    , serveHandler
-    , onMethod
-    , onStatic
-    , withDynamic
-    , withDynamicMulti
     ) where
 
 import Prelude hiding (exp)
@@ -60,6 +51,7 @@ import Yesod.Core.Content
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
+import Yesod.Routes.Class
 import Safe (readMay)
 import System.Environment (getEnvironment)
 import Data.Monoid (Monoid (..))
@@ -189,28 +181,3 @@ warpEnv site = do
             case readMay portS of
                 Nothing -> error $ "warpEnv: invalid PORT environment variable: " ++ show portS
                 Just port -> warp port site
-
-data SimpleApp = SimpleApp
-
-instance Yesod SimpleApp
-instance YesodDispatch SimpleApp
-
-instance Monoid SimpleApp where
-
-type SimpleHandler = HandlerT SimpleApp IO
-type SimpleWidget = WidgetT SimpleApp IO
-
-serveHandler :: ToTypedContent a => SimpleHandler a -> SimpleApp
-serveHandler = error "serveHandler"
-
-onMethod :: Text -> SimpleApp -> SimpleApp
-onMethod = error "onMethod"
-
-onStatic :: Text -> SimpleApp -> SimpleApp
-onStatic = error "onStatic"
-
-withDynamic :: PathPiece p => (p -> SimpleApp) -> SimpleApp
-withDynamic = error "withDynamic"
-
-withDynamicMulti :: PathMultiPiece ps => (ps -> SimpleApp) -> SimpleApp
-withDynamicMulti = error "withDynamicMulti"
