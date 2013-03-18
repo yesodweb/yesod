@@ -11,9 +11,10 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 
 iapp :: IO Application
 iapp = toWaiApp $
-    onMethod (T.pack "GET") (serveHandler $ return "GetHomepage") <>
-    onMethod (T.pack "POST") (serveHandler $ return "PostHomepage") <>
-    onStatic (T.pack "string") (withDynamic (\t -> serveHandler $ return (t :: T.Text)))
+    onMethod (S8.pack "GET") (dispatchTo $ return "GetHomepage") <>
+    onMethod (S8.pack "POST") (dispatchTo $ return "PostHomepage") <>
+    onStatic (T.pack "string") (withDynamic (\t -> dispatchTo $ return (t :: T.Text))) <>
+    onStatic (T.pack "multi") (withDynamicMulti (\[x, y] -> dispatchTo $ return (y :: T.Text)))
 
 test :: String -- ^ method
      -> [String] -- ^ path
@@ -34,6 +35,9 @@ specs :: Spec
 specs = describe "SimpleApp" $ do
     test "GET" [] $ Right "GetHomepage"
     test "POST" [] $ Right "PostHomepage"
-    test "PUT" [] $ Left 405
+    -- test "PUT" [] $ Left 405
     test "GET" ["string", "foo"] $ Right "foo"
+    test "DELETE" ["string", "bar"] $ Right "bar"
     test "GET" ["string!", "foo"] $ Left 404
+    test "GET" ["multi", "foo", "bar"] $ Right "bar"
+    test "GET" ["multi", "foo", "bar", "baz"] $ Left 500
