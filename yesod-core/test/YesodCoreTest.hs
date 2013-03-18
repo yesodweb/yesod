@@ -16,6 +16,7 @@ import qualified YesodCoreTest.RequestBodySize as RequestBodySize
 import qualified YesodCoreTest.Json as Json
 import qualified YesodCoreTest.Reps as Reps
 import qualified YesodCoreTest.Auth as Auth
+import qualified YesodCoreTest.SimpleApp as SimpleApp
 
 import Test.Hspec
 
@@ -37,3 +38,4 @@ specs = do
       Json.specs
       Reps.specs
       Auth.specs
+      SimpleApp.specs
