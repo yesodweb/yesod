@@ -142,6 +142,8 @@ instance RenderRoute Static where
     data Route Static = StaticRoute [Text] [(Text, Text)]
         deriving (Eq, Show, Read)
     renderRoute (StaticRoute x y) = (x, y)
+instance ParseRoute Static where
+    parseRoute (x, y) = Just $ StaticRoute x y
 
 instance YesodSubDispatch Static m where
     yesodSubDispatch YesodSubRunnerEnv {..} req =
