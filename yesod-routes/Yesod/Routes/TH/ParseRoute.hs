@@ -34,7 +34,7 @@ mkParseRouteClauses :: [ResourceTree a] -> Q [Clause]
 mkParseRouteClauses ress' = do
     pieces <- newName "pieces"
     dispatch <- newName "dispatch"
-    query <- newName "query"
+    query <- newName "_query"
 
     -- The 'D.Route's used in the dispatch function
     routes <- mapM (buildRoute query) ress
