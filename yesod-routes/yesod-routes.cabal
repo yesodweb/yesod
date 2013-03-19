@@ -29,6 +29,7 @@ library
                      Yesod.Routes.Overlap
     other-modules:   Yesod.Routes.TH.Dispatch
                      Yesod.Routes.TH.RenderRoute
+                     Yesod.Routes.TH.ParseRoute
                      Yesod.Routes.TH.Types
     ghc-options:     -Wall
 

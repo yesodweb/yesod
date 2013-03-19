@@ -20,16 +20,6 @@ import Control.Applicative ((<$>))
 import Data.List (foldl')
 import Data.Text.Encoding (encodeUtf8)
 
-data FlatResource a = FlatResource [(String, [(CheckOverlap, Piece a)])] String [(CheckOverlap, Piece a)] (Dispatch a)
-
-flatten :: [ResourceTree a] -> [FlatResource a]
-flatten =
-    concatMap (go id)
-  where
-    go front (ResourceLeaf (Resource a b c)) = [FlatResource (front []) a b c]
-    go front (ResourceParent name pieces children) =
-        concatMap (go (front . ((name, pieces):))) children
-
 data MkDispatchSettings = MkDispatchSettings
     { mdsRunHandler :: Q Exp
     , mdsSubDispatcher :: Q Exp

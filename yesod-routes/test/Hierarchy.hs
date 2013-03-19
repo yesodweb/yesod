@@ -81,6 +81,7 @@ do
     /table/#Text TableR GET
 |]
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
+    prinst <- mkParseRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
@@ -98,6 +99,7 @@ do
                 `AppT` ConT ''Hierarchy
                 `AppT` ConT ''Hierarchy)
             [FunD (mkName "dispatcher") [dispatch]]
+        : prinst
         : rrinst
 
 getHomeR :: Handler sub master String
@@ -130,3 +132,8 @@ hierarchy = describe "hierarchy" $ do
             (map pack ps, S8.pack m)
     it "dispatches root correctly" $ disp "GET" ["admin", "7"] @?= ("admin root: 7", Just $ AdminR 7 AdminRootR)
     it "dispatches table correctly" $ disp "GET" ["admin", "8", "table", "bar"] @?= ("TableR bar", Just $ AdminR 8 $ TableR "bar")
+    it "parses" $ do
+        parseRoute ([], []) @?= Just HomeR
+        parseRoute ([], [("foo", "bar")]) @?= Just HomeR
+        parseRoute (["admin", "5"], []) @?= Just (AdminR 5 AdminRootR)
+        parseRoute (["admin!", "5"], []) @?= (Nothing :: Maybe (Route Hierarchy))
