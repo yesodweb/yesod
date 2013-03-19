@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns#-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -78,6 +79,8 @@ instance RenderRoute MySub where
         MySub = MySubRoute ([Text], [(Text, Text)])
         deriving (Show, Eq, Read)
     renderRoute (MySubRoute x) = x
+instance ParseRoute MySub where
+    parseRoute = Just . MySubRoute
 
 getMySub :: MyApp -> MySub
 getMySub MyApp = MySub
@@ -93,6 +96,9 @@ instance RenderRoute MySubParam where
         MySubParam = ParamRoute Char
         deriving (Show, Eq, Read)
     renderRoute (ParamRoute x) = ([singleton x], [])
+instance ParseRoute MySubParam where
+    parseRoute ([unpack -> [x]], _) = Just $ ParamRoute x
+    parseRoute _ = Nothing
 
 getMySubParam :: MyApp -> Int -> MySubParam
 getMySubParam _ = MySubParam
@@ -108,6 +114,7 @@ do
             ]
         addCheck = map ((,) True)
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
+    prinst <- mkParseRouteInstance (ConT ''MyApp) ress
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch dispatcher|]
@@ -125,6 +132,7 @@ do
                 `AppT` ConT ''MyApp
                 `AppT` ConT ''MyApp)
             [FunD (mkName "dispatcher") [dispatch]]
+        : prinst
         : rrinst
 
 instance Dispatcher MySub master where
@@ -271,6 +279,11 @@ main = hspec $ do
             @?= (pack "subsite: [\"baz\"]", Just $ SubsiteR $ MySubRoute ([pack "baz"], []))
         it "routes to subparam" $ disp "PUT" ["subparam", "6", "q"]
             @?= (pack "subparam 6 q", Just $ SubparamR 6 $ ParamRoute 'q')
+
+    describe "parsing" $ do
+        it "subsites work" $ do
+            parseRoute ([pack "subsite", pack "foo"], [(pack "bar", pack "baz")]) @?=
+                Just (SubsiteR $ MySubRoute ([pack "foo"], [(pack "bar", pack "baz")]))
 
     describe "overlap checking" $ do
         it "catches overlapping statics" $ do
