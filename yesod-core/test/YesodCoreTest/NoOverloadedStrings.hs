@@ -29,6 +29,10 @@ getBinR = do
     |]
     lift $ defaultLayout widget
 
+getOnePiecesR _ = return ()
+getTwoPiecesR _ _ = return ()
+getThreePiecesR _ _ _ = return ()
+
 data Y = Y
 mkYesod "Y" [parseRoutes|
 / RootR GET
