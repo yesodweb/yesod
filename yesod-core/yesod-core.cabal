@@ -39,16 +39,7 @@ extra-source-files:
   test/en.msg
   test/test.hs
 
-flag test
-  description: Build the executable to run unit tests
-  default: False
-
 library
-    -- Work around a bug in cabal. Without this, wai-test doesn't get built and
-    -- we have a missing dependency during --enable-tests builds.
-    if flag(test)
-        build-depends: wai-test
-
     build-depends:   base                  >= 4.3      && < 5
                    , time                  >= 1.1.4
                    , yesod-routes          >= 1.2      && < 1.3
