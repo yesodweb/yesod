@@ -13,6 +13,9 @@ mkYesodSubData "Subsite" [parseRoutes|
 /bar BarR GET
 /baz BazR GET
 /bin BinR GET
+/has-one-piece/#Int OnePiecesR GET
+/has-two-pieces/#Int/#Int TwoPiecesR GET
+/has-three-pieces/#Int/#Int/#Int ThreePiecesR GET
 |]
 
 instance Yesod master => YesodSubDispatch Subsite (HandlerT master IO) where

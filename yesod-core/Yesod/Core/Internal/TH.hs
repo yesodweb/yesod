@@ -76,7 +76,7 @@ mkYesodGeneral :: String                   -- ^ foundation type
 mkYesodGeneral name args isSub resS = do
      renderRouteDec <- mkRenderRouteInstance site res
      dispatchDec    <- mkDispatchInstance site res
-     parse <- mkParseRoute site res
+     parse <- mkParseRouteInstance site res
      return (parse : renderRouteDec ++ if isSub then [] else masterTypeSyns site, dispatchDec)
   where site    = foldl' AppT (ConT $ mkName name) (map (VarT . mkName) args)
         res     = map (fmap parseType) resS
@@ -115,23 +115,6 @@ mkDispatchInstance master res = do
     return [InstanceD [] yDispatch [thisDispatch]]
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
-
-mkParseRoute :: Type -> [ResourceTree a] -> Q Dec
-mkParseRoute typ res = do
-    Clause [VarP getEnv, req] body decs <- mkDispatchClause mds res
-    let clause = Clause [req] body $ FunD getEnv [Clause [] (NormalB $ ConE '()) []] : decs
-    return $ InstanceD [] (ConT ''ParseRoute `AppT` typ) [FunD 'parseRoute [clause]]
-  where
-    mds = MkDispatchSettings
-        { mdsRunHandler = [|\_ _ route _ -> route |]
-        , mdsSubDispatcher = [|\_ _ toParent _ req -> fmap toParent $ parseRoute req|]
-        , mdsGetPathInfo = [|fst|]
-        , mdsSetPathInfo = [|\p (_, q) -> (p, q)|]
-        , mdsMethod = [|const $ S8.pack "GET"|]
-        , mds404 = [|const ()|]
-        , mds405 = [|const ()|]
-        , mdsGetHandler = \_ _ -> [|const ()|]
-        }
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do

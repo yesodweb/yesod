@@ -12,6 +12,7 @@ data App = App
 
 mkYesod "App" [parseRoutes|
 / HomeR GET
+/has-multiple-pieces/#Int/#Int MultiplePiecesR GET
 |]
 
 instance Yesod App
@@ -22,6 +23,8 @@ getHomeR = do
     case Map.lookup ("foo" :: Text) val of
         Nothing -> invalidArgs ["foo not found"]
         Just foo -> return $ RepPlain $ toContent (foo :: Text)
+
+getMultiplePiecesR _ _ = return ()
 
 test :: String
      -> ByteString
