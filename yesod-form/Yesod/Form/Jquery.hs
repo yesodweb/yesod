@@ -20,7 +20,6 @@ import Text.Hamlet (shamlet)
 import Text.Julius (julius, rawJS)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
-import Data.Aeson (toJSON)
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
