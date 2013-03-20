@@ -31,6 +31,7 @@ data MkDispatchSettings = MkDispatchSettings
     , mdsGetHandler :: Maybe String -> String -> Q Exp
     }
 
+defaultGetHandler :: Maybe String -> String -> Q Exp
 defaultGetHandler Nothing s = return $ VarE $ mkName $ "handle" ++ s
 defaultGetHandler (Just method) s = return $ VarE $ mkName $ map toLower method ++ s
 
@@ -108,7 +109,7 @@ mkDispatchClause mds ress' = do
     -- with -Wall). Additionally, we want to ensure that none of the code
     -- passed to toDispatch uses variables from the closure to prevent the
     -- dispatch data structure from being rebuilt on each run.
-    getEnv0 <- newName "getEnv0"
+    getEnv0 <- newName "yesod_dispatch_env0"
     req0 <- newName "req0"
     pieces <- [|$(mdsGetPathInfo mds) $(return $ VarE req0)|]
 
@@ -282,7 +283,7 @@ buildCaller :: MkDispatchSettings
             -> [Name] -- ^ ys
             -> Q Exp
 buildCaller mds xrest parents name resDisp ys = do
-    getEnv <- newName "getEnv"
+    getEnv <- newName "yesod_dispatch_env"
     req <- newName "req"
 
     method <- [|$(mdsMethod mds) $(return $ VarE req)|]
