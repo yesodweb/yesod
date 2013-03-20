@@ -26,10 +26,13 @@ module Yesod.Sitemap
 
 import Yesod.Core
 import Data.Time (UTCTime)
-import Data.Monoid (mappend)
-import Text.XML
+import Text.XML.Stream.Render (renderBuilder)
 import Data.Text (Text, pack)
-import qualified Data.Map as Map
+import Data.XML.Types
+import Data.Conduit
+import qualified Data.Conduit.List as CL
+import Data.Default (def)
+import qualified Data.Text as T
 
 data SitemapChangeFreq = Always
                        | Hourly
@@ -50,41 +53,48 @@ showFreq Never   = "never"
 
 data SitemapUrl url = SitemapUrl
     { sitemapLoc :: url
-    , sitemapLastMod :: UTCTime
-    , sitemapChangeFreq :: SitemapChangeFreq
-    , sitemapPriority :: Double
+    , sitemapLastMod :: Maybe UTCTime
+    , sitemapChangeFreq :: Maybe SitemapChangeFreq
+    , sitemapPriority :: Maybe Double
     }
-
-template :: [SitemapUrl url]
-         -> (url -> Text)
-         -> Document
-template urls render =
-    Document (Prologue [] Nothing []) (addNS root) []
-  where
-    addNS (Element (Name ln _ _) as ns) = Element (Name ln (Just namespace) Nothing) as (map addNS' ns)
-    addNS' (NodeElement e) = NodeElement (addNS e)
-    addNS' n = n
-    namespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
-
-    root = Element "urlset" Map.empty $ map go urls
-
-    go SitemapUrl {..} = NodeElement $ Element "url" Map.empty $ map NodeElement
-        [ Element "loc" Map.empty [NodeContent $ render sitemapLoc]
-        , Element "lastmod" Map.empty [NodeContent $ formatW3 sitemapLastMod]
-        , Element "changefreq" Map.empty [NodeContent $ showFreq sitemapChangeFreq]
-        , Element "priority" Map.empty [NodeContent $ pack $ show sitemapPriority]
-        ]
-
-sitemap :: MonadHandler m => [SitemapUrl (Route (HandlerSite m))] -> m RepXml
-sitemap urls = do
-    render <- getUrlRender
-    let doc = template urls render
-    return $ RepXml $ toContent $ renderLBS def doc
 
 -- | A basic robots file which just lists the "Sitemap: " line.
 robots :: MonadHandler m
        => Route (HandlerSite m) -- ^ sitemap url
-       -> m RepPlain
+       -> m Text
 robots smurl = do
+    ur <- getUrlRender
+    return $ T.unlines
+        [ "Sitemap: " `T.append` ur smurl
+        , "User-agent: *"
+        ]
+
+sitemap :: Source (HandlerT site IO) (SitemapUrl (Route site))
+        -> HandlerT site IO TypedContent
+sitemap urls = do
     render <- getUrlRender
-    return $ RepPlain $ toContent $ "Sitemap: " `mappend` render smurl
+    respondSource typeXml $ src render $= renderBuilder def $= CL.map Chunk
+  where
+    namespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
+    element name' attrs inside = do
+        yield $ EventBeginElement name attrs
+        () <- inside
+        yield $ EventEndElement name
+      where
+        name = Name name' (Just namespace) Nothing
+
+    src render = do
+        yield EventBeginDocument
+        element "urlset" [] $ do
+            urls $= awaitForever goUrl
+        yield EventEndDocument
+      where
+        goUrl SitemapUrl {..} = element "url" [] $ do
+            element "loc" [] $ yield $ EventContent $ ContentText $ render sitemapLoc
+            case sitemapLastMod of
+                Nothing -> return ()
+                Just lm -> element "lastmod" [] $ yield $ EventContent $ ContentText $ formatW3 lm
+            case sitemapChangeFreq of
+                Nothing -> return ()
+                Just scf -> element "changefreq" [] $ yield $ EventContent $ ContentText $ showFreq scf
+            element "priority" [] $ yield $ EventContent $ ContentText $ pack $ show sitemapPriority

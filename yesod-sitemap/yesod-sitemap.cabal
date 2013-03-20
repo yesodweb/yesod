@@ -19,6 +19,9 @@ library
                    , xml-conduit               >= 1.0
                    , text
                    , containers
+                   , data-default
+                   , conduit
+                   , xml-types
     exposed-modules: Yesod.Sitemap
     ghc-options:     -Wall
 
