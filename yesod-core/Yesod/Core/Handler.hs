@@ -54,6 +54,8 @@ module Yesod.Core.Handler
     , lookupCookies
     , lookupFiles
       -- * Special responses
+      -- ** Streaming
+    , respondSource
       -- ** Redirecting
     , RedirectUrl (..)
     , redirect
@@ -139,7 +141,7 @@ import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT)
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
 import Control.Monad.Trans.Class (lift)
-import Data.Conduit (transPipe)
+import Data.Conduit (transPipe, Flush)
 
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
@@ -173,6 +175,7 @@ import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
 import Control.Failure (failure)
+import Blaze.ByteString.Builder (Builder)
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -894,7 +897,7 @@ provideRepType ct handler =
 -- | Stream in the raw request body without any parsing.
 --
 -- Since 1.2.0
-rawRequestBody :: (MonadHandler m, MonadResource m) => Source m S.ByteString
+rawRequestBody :: MonadHandler m => Source m S.ByteString
 rawRequestBody = do
     req <- lift waiRequest
     transPipe liftResourceT $ W.requestBody req
@@ -903,3 +906,16 @@ rawRequestBody = do
 -- to work in any @MonadResource@.
 fileSource :: MonadResource m => FileInfo -> Source m S.ByteString
 fileSource = transPipe liftResourceT . fileSourceRaw
+
+-- | Use a @Source@ for the response body.
+--
+-- Since 1.2.0
+respondSource :: ContentType
+              -> Source (HandlerT site IO) (Flush Builder)
+              -> HandlerT site IO TypedContent
+respondSource ctype src = HandlerT $ \hd ->
+    -- Note that this implementation relies on the fact that the ResourceT
+    -- environment provided by the server is the same one used in HandlerT.
+    -- This is a safe assumption assuming the HandlerT is run correctly.
+    return $ TypedContent ctype $ ContentSource
+           $ transPipe (lift . flip unHandlerT hd) src
