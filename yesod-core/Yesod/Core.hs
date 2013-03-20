@@ -72,6 +72,8 @@ module Yesod.Core
     , MonadIO (..)
     , MonadBase (..)
     , MonadBaseControl
+    , MonadResource (..)
+    , MonadLogger
     ) where
 
 import Yesod.Core.Content
@@ -83,7 +85,7 @@ import Yesod.Core.Json
 import Yesod.Core.Types
 import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
-import Text.Blaze.Html (Html)
+import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
@@ -98,6 +100,8 @@ import Yesod.Routes.Class
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Base (MonadBase (..))
 import Control.Monad.Trans.Control (MonadBaseControl (..))
+
+import Control.Monad.Trans.Resource (MonadResource (..))
 import Yesod.Core.Internal.LiteApp
 
 -- | Return an 'Unauthorized' value, with the given i18n message.

@@ -14,7 +14,6 @@ import Yesod.Core
 import Text.Hamlet (hamlet)
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad (when)
 import Control.Exception (throwIO)
 import Text.Julius (julius, rawJS)
@@ -22,7 +21,6 @@ import Data.Aeson (toJSON)
 import Network.URI (uriPath, parseURI)
 import Data.FileEmbed (embedFile)
 import Data.ByteString (ByteString)
-import Control.Monad.Trans.Class
 
 pid :: Text
 pid = "browserid"

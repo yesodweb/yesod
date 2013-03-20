@@ -36,6 +36,13 @@ library
                    , aeson
                    , safe
                    , data-default
+                   , network-conduit
+                   , unordered-containers
+                   , yaml
+                   , text
+                   , directory
+                   , template-haskell
+                   , bytestring
 
     exposed-modules: Yesod
                    , Yesod.Default.Config

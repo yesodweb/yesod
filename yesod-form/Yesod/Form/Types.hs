@@ -22,7 +22,6 @@ module Yesod.Form.Types
     ) where
 
 import Control.Monad.Trans.RWS (RWST)
-import Yesod.Core (FileInfo)
 import Data.Text (Text)
 import Data.Monoid (Monoid (..))
 import Text.Blaze (Markup, ToMarkup (toMarkup))

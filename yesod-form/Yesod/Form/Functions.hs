@@ -28,7 +28,7 @@ module Yesod.Form.Functions
     , FormRender
     , renderTable
     , renderDivs
-    , renderDivsNoLabels 
+    , renderDivsNoLabels
     , renderBootstrap
       -- * Validation
     , check
@@ -41,7 +41,6 @@ module Yesod.Form.Functions
     , parseHelper
     ) where
 
-import Control.Monad.Trans.Resource (MonadResource)
 import Yesod.Form.Types
 import Data.Text (Text, pack)
 import Control.Arrow (second)

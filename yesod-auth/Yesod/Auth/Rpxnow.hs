@@ -12,12 +12,11 @@ import Control.Monad (mplus)
 
 import Yesod.Core
 import Text.Hamlet (hamlet)
-import Data.Text (pack, unpack, Text)
+import Data.Text (pack, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Control.Arrow ((***))
 import Network.HTTP.Types (renderQuery)
-import Control.Monad.Trans.Class
 
 authRpxnow :: YesodAuth m
            => String -- ^ app name

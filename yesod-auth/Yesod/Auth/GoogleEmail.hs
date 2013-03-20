@@ -19,12 +19,10 @@ import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Core
-import Text.Blaze.Html (toHtml)
 import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
 import qualified Data.Text as T
 import Control.Exception.Lifted (try, SomeException)
-import Control.Monad.Trans.Class
 
 pid :: Text
 pid = "googleemail"

@@ -51,7 +51,7 @@ import Yesod.Form.I18n.English
 import Yesod.Form.Functions (parseHelper)
 import Yesod.Core
 import Text.Hamlet
-import Text.Blaze (ToMarkup (toMarkup), preEscapedToMarkup, unsafeByteString)
+import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup
 #define toHtml toMarkup
 #define preEscapedText preEscapedToMarkup
@@ -80,7 +80,7 @@ import Data.Text (Text, unpack, pack)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
-import Yesod.Persist (selectList, runDB, Filter, SelectOpt, YesodPersistBackend, Key, YesodPersist, PersistEntity, PersistQuery, YesodDB)
+import Yesod.Persist (selectList, runDB, Filter, SelectOpt, Key, YesodPersist, PersistEntity, PersistQuery, YesodDB)
 import Control.Arrow ((&&&))
 
 import Control.Applicative ((<$>), (<|>))

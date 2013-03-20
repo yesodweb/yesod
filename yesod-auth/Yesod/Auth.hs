@@ -51,7 +51,6 @@ import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
-import Control.Monad.Trans.Class
 
 type AuthRoute = Route Auth
 
