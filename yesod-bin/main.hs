@@ -8,13 +8,11 @@ import           Options.Applicative
 import           System.Exit            (ExitCode (ExitSuccess), exitWith)
 import           System.Process         (rawSystem)
 
-import           Yesod.Core             (yesodVersion)
-
 import           AddHandler             (addHandler)
 import           Devel                  (DevelOpts (..), devel)
 import           Keter                  (keter)
 import           Options                (injectDefaults)
-import qualified Paths_yesod
+import qualified Paths_yesod_bin
 import           Scaffolding.Scaffolder
 
 import           Options.Applicative.Builder.Internal (Mod, OptionFields)
@@ -96,8 +94,7 @@ main = do
     Touch                   -> touch'
     Devel da s f r b _ig es p t -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f b p t) es
     Keter noRebuild         -> keter (cabalCommand o) noRebuild
-    Version                 -> do putStrLn ("yesod-core version:" ++ yesodVersion)
-                                  putStrLn ("yesod version:" ++ showVersion Paths_yesod.version)
+    Version                 -> do putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
     AddHandler              -> addHandler
     Test                    -> do touch'
                                   cabal ["configure", "--enable-tests", "-flibrary-only"]
