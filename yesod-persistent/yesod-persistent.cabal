@@ -7,7 +7,7 @@ maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Some helpers for using Persistent from Yesod.
 category:        Web, Yesod, Database
 stability:       Stable
-cabal-version:   >= 1.6
+cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Some helpers for using Persistent from Yesod.
@@ -18,8 +18,29 @@ library
                    , persistent                >= 1.1      && < 1.2
                    , persistent-template       >= 1.1      && < 1.2
                    , transformers              >= 0.2.2    && < 0.4
+                   , blaze-builder
+                   , conduit
+                   , lifted-base
+                   , pool-conduit
+                   , resourcet
     exposed-modules: Yesod.Persist
     ghc-options:     -Wall
+
+test-suite test
+    type: exitcode-stdio-1.0
+    main-is: Spec.hs
+    hs-source-dirs: test
+    other-modules: Yesod.PersistSpec
+    build-depends: base
+                 , hspec
+                 , wai-test
+                 , yesod-core
+                 , persistent-sqlite
+                 , yesod-persistent
+                 , conduit
+                 , blaze-builder
+                 , persistent
+                 , text
 
 source-repository head
   type:     git

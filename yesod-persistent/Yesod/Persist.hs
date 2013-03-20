@@ -1,8 +1,14 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE RankNTypes #-}
 module Yesod.Persist
     ( YesodPersist (..)
+    , defaultRunDB
+    , YesodPersistRunner (..)
+    , defaultGetDBRunner
+    , DBRunner (..)
+    , runDBSource
+    , respondSourceDB
     , YesodDB
     , get404
     , getBy404
@@ -11,15 +17,108 @@ module Yesod.Persist
     ) where
 
 import Database.Persist
+import Database.Persist.Store
 import Database.Persist.TH
+import Database.Persist.GenericSql (SqlPersist, unSqlPersist)
+import Control.Monad.Trans.Reader (runReaderT)
 
 import Yesod.Core
+import Data.Conduit
+import Blaze.ByteString.Builder (Builder)
+import Data.IORef.Lifted
+import Data.Conduit.Pool
+import Control.Monad.Trans.Resource
+import qualified Database.Persist.GenericSql.Internal as SQL
 
 type YesodDB site = YesodPersistBackend site (HandlerT site IO)
 
-class YesodPersist site where
+class Monad (YesodPersistBackend site (HandlerT site IO)) => YesodPersist site where
     type YesodPersistBackend site :: (* -> *) -> * -> *
     runDB :: YesodDB site a -> HandlerT site IO a
+
+-- | Helper for creating 'runDB'.
+--
+-- Since 1.2.0
+defaultRunDB :: PersistConfig c
+             => (site -> c)
+             -> (site -> PersistConfigPool c)
+             -> PersistConfigBackend c (HandlerT site IO) a
+             -> HandlerT site IO a
+defaultRunDB getConfig getPool f = do
+    master <- getYesod
+    Database.Persist.Store.runPool
+        (getConfig master)
+        f
+        (getPool master)
+
+-- |
+--
+-- Since 1.2.0
+class YesodPersist site => YesodPersistRunner site where
+    -- | This function differs from 'runDB' in that it returns a database
+    -- runner function, as opposed to simply running a single action. This will
+    -- usually mean that a connection is taken from a pool and then reused for
+    -- each invocation. This can be useful for creating streaming responses;
+    -- see 'runDBSource'.
+    --
+    -- It additionally returns a cleanup function to free the connection.  If
+    -- your code finishes successfully, you /must/ call this cleanup to
+    -- indicate changes should be committed. Otherwise, for SQL backends at
+    -- least, a rollback will be used instead.
+    --
+    -- Since 1.2.0
+    getDBRunner :: HandlerT site IO (DBRunner site, HandlerT site IO ())
+
+newtype DBRunner site = DBRunner
+    { runDBRunner :: forall a. YesodDB site a -> HandlerT site IO a
+    }
+
+-- | Helper for implementing 'getDBRunner'.
+--
+-- Since 1.2.0
+defaultGetDBRunner :: YesodPersistBackend site ~ SqlPersist
+                   => (site -> Pool SQL.Connection)
+                   -> HandlerT site IO (DBRunner site, HandlerT site IO ())
+defaultGetDBRunner getPool = do
+    ididSucceed <- newIORef False
+
+    pool <- fmap getPool getYesod
+    managedConn <- takeResource pool
+    let conn = mrValue managedConn
+
+    let withPrep f = f conn (SQL.prepare conn)
+    (finishTransaction, ()) <- allocate (withPrep SQL.begin) $ \() -> do
+        didSucceed <- readIORef ididSucceed
+        withPrep $ if didSucceed
+            then SQL.commitC
+            else SQL.rollbackC
+
+    let cleanup = do
+            writeIORef ididSucceed True
+            release finishTransaction
+            mrReuse managedConn True
+            mrRelease managedConn
+
+    return (DBRunner $ \x -> runReaderT (unSqlPersist x) conn, cleanup)
+
+-- | Like 'runDB', but transforms a @Source@. See 'respondSourceDB' for an
+-- example, practical use case.
+--
+-- Since 1.2.0
+runDBSource :: YesodPersistRunner site
+            => Source (YesodDB site) a
+            -> Source (HandlerT site IO) a
+runDBSource src = do
+    (dbrunner, cleanup) <- lift getDBRunner
+    transPipe (runDBRunner dbrunner) src
+    lift cleanup
+
+-- | Extends 'respondSource' to create a streaming database response body.
+respondSourceDB :: YesodPersistRunner site
+                => ContentType
+                -> Source (YesodDB site) (Flush Builder)
+                -> HandlerT site IO TypedContent
+respondSourceDB ctype = respondSource ctype . runDBSource
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
 get404 :: ( PersistStore (t m)
