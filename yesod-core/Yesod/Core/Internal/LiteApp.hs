@@ -2,7 +2,6 @@
 {-# LANGUAGE PatternGuards #-}
 module Yesod.Core.Internal.LiteApp where
 
-import Yesod.Routes.Dispatch
 import Yesod.Routes.Class
 import Data.Monoid
 import Yesod.Core.Class.Yesod
@@ -11,9 +10,6 @@ import Yesod.Core.Types
 import Yesod.Core.Content
 import Data.Text (Text)
 import Web.PathPieces
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.ByteString (ByteString)
 import Network.Wai
 import Yesod.Core.Handler
 import Yesod.Core.Internal.Run
