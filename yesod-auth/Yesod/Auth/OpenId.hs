@@ -16,12 +16,10 @@ import qualified Web.Authenticate.OpenId as OpenId
 import Yesod.Form
 import Yesod.Core
 import Text.Cassius (cassius)
-import Text.Blaze.Html (toHtml)
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
 import Control.Exception.Lifted (SomeException, try)
 import Data.Maybe (fromMaybe)
-import Control.Monad.Trans.Class
 
 forwardUrl :: AuthRoute
 forwardUrl = PluginR "openid" ["forward"]

@@ -17,7 +17,6 @@ module Yesod.Auth.Email
 import Network.Mail.Mime (randomString)
 import Yesod.Auth
 import System.Random
-import Text.Blaze.Html (toHtml)
 import Control.Monad (when)
 import Control.Applicative ((<$>), (<*>))
 import Data.Digest.Pure.MD5
@@ -31,7 +30,6 @@ import Control.Monad.Trans.Class
 
 import Yesod.Form
 import Yesod.Core
-import Control.Monad.IO.Class (liftIO)
 import qualified Yesod.Auth.Message as Msg
 
 loginR, registerR, setpassR :: AuthRoute

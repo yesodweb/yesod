@@ -11,7 +11,6 @@ import Yesod.Auth
 import Yesod.Form (runInputPost, textField, ireq)
 import Text.Hamlet (hamlet)
 import Yesod.Core
-import Control.Monad.Trans.Class
 
 authDummy :: YesodAuth m => AuthPlugin m
 authDummy =

@@ -13,7 +13,6 @@ import Yesod.Form.Types
 import Yesod.Form.Functions
 import Yesod.Form.Fields (boolField)
 import Yesod.Core
-import Text.Blaze.Html (Html)
 import Control.Monad.Trans.RWS (get, put, ask)
 import Data.Maybe (fromMaybe)
 import Data.Text.Read (decimal)
@@ -22,7 +21,6 @@ import Data.Either (partitionEithers)
 import Data.Traversable (sequenceA)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
-import Control.Monad.Trans.Class
 
 down :: Monad m => Int -> MForm m ()
 down 0 = return ()

@@ -80,8 +80,6 @@ import Text.Hamlet (hamlet)
 
 import Control.Applicative         ((<$>), (<*>))
 import Control.Monad               (replicateM,liftM)
-import Control.Monad.IO.Class      (MonadIO, liftIO)
-import Control.Monad.Trans.Class   (lift)
 
 import qualified Data.ByteString.Lazy.Char8 as BS (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)

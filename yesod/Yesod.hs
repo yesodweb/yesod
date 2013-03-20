@@ -8,8 +8,6 @@ module Yesod
     , module Yesod.Persist
       -- * Commonly referenced functions/datatypes
     , Application
-    , liftIO
-    , MonadBaseControl
       -- * Utilities
     , showIntegral
     , readIntegral
@@ -18,8 +16,6 @@ module Yesod
     , hamlet
     , xhamlet
     , HtmlUrl
-    , Html
-    , toHtml
       -- ** Julius
     , julius
     , JavascriptUrl
@@ -40,15 +36,8 @@ import Text.Julius
 
 import Yesod.Form
 import Yesod.Persist
-import Control.Monad.IO.Class (liftIO, MonadIO(..))
-import Control.Monad.Trans.Control (MonadBaseControl)
 
 import Network.Wai
-import Network.Wai.Middleware.RequestLogger (logStdout)
-import Network.Wai.Handler.Warp (run)
-import System.IO (stderr, hPutStrLn)
-import Text.Blaze.Html (toHtml)
-import System.Environment (getEnv)
 import Data.Aeson (toJSON)
 
 showIntegral :: Integral a => a -> String

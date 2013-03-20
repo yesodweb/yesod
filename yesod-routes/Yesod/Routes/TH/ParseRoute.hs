@@ -6,33 +6,20 @@ module Yesod.Routes.TH.ParseRoute
 
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH.Syntax
-import Data.Maybe (maybeToList)
-import Control.Monad (replicateM)
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
-import Data.Monoid (mconcat)
 import qualified Yesod.Routes.Dispatch as D
 import Data.List (foldl')
 import Control.Applicative ((<$>))
-import Yesod.Routes.TH.Types
-import Language.Haskell.TH.Syntax
 import Data.Maybe (catMaybes)
-import Control.Monad (forM, replicateM)
-import Data.Text (pack)
-import qualified Yesod.Routes.Dispatch as D
-import qualified Data.Map as Map
-import Data.Char (toLower)
-import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
-import Control.Applicative ((<$>))
-import Data.List (foldl')
-import Data.Text.Encoding (encodeUtf8)
+import Control.Monad (forM)
 import Control.Monad (join)
 
 -- | Clauses for the 'parseRoute' method.
 mkParseRouteClauses :: [ResourceTree a] -> Q [Clause]
 mkParseRouteClauses ress' = do
-    pieces <- newName "pieces"
+    pieces <- newName "pieces0"
     dispatch <- newName "dispatch"
     query <- newName "_query"
 

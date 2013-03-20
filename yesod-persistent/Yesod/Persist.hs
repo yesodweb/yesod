@@ -12,7 +12,6 @@ module Yesod.Persist
 
 import Database.Persist
 import Database.Persist.TH
-import Control.Monad.Trans.Class (MonadTrans, lift)
 
 import Yesod.Core
 

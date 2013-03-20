@@ -14,7 +14,6 @@ module Yesod.Default.Util
     , wfsHamletSettings
     ) where
 
-import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, pack, unpack)
 import Yesod.Core -- purposely using complete import so that Haddock will see addStaticContent

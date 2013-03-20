@@ -22,9 +22,6 @@ import Yesod.Core.Types
 import Yesod.Core.Content
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
-import Yesod.Routes.Class
-import Data.Text (Text)
-import qualified Data.ByteString.Char8 as S8
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.

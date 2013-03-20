@@ -47,14 +47,11 @@ import qualified Blaze.ByteString.Builder
 import Network.HTTP.Types (status301)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
-import Yesod.Core.Content
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
-import Yesod.Routes.Class
 import Safe (readMay)
 import System.Environment (getEnvironment)
-import Data.Monoid (Monoid (..))
 
 import Network.Wai.Middleware.Autohead
 import Network.Wai.Middleware.AcceptOverride

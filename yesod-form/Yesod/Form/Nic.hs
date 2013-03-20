@@ -12,9 +12,8 @@ module Yesod.Form.Nic
 import Yesod.Core
 import Yesod.Form
 import Text.HTML.SanitizeXSS (sanitizeBalance)
-import Text.Hamlet (Html, shamlet)
+import Text.Hamlet (shamlet)
 import Text.Julius (julius, rawJS)
-import Text.Blaze (preEscapedToMarkup)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Data.Text (Text, pack)
 import Data.Maybe (listToMaybe)
