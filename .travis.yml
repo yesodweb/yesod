@@ -3,6 +3,7 @@ language: haskell
 install:
     - cabal update
     - cabal install mega-sdist hspec cabal-meta cabal-src
+    - ghc-pkg unregister transformers --force
     - cabal-meta install --force-reinstalls
 
 script: mega-sdist --test
