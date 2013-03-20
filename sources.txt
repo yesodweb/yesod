@@ -7,4 +7,5 @@
 ./yesod-auth
 ./yesod-sitemap
 ./yesod-test
+./yesod-bin
 ./yesod
