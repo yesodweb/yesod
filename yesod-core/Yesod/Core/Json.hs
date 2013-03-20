@@ -11,9 +11,12 @@ module Yesod.Core.Json
 
       -- * Produce JSON values
     , J.Value (..)
+    , J.ToJSON (..)
+    , J.FromJSON (..)
     , array
     , object
     , (.=)
+    , (J..:)
 
       -- * Convenience functions
     , jsonOrRedirect

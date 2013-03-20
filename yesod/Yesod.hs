@@ -20,7 +20,6 @@ module Yesod
     , julius
     , JavascriptUrl
     , renderJavascriptUrl
-    , toJSON
       -- ** Cassius/Lucius
     , cassius
     , lucius
@@ -38,7 +37,6 @@ import Yesod.Form
 import Yesod.Persist
 
 import Network.Wai
-import Data.Aeson (toJSON)
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)
