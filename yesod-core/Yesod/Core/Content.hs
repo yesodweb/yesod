@@ -10,6 +10,7 @@ module Yesod.Core.Content
       Content (..)
     , emptyContent
     , ToContent (..)
+    , ToFlushBuilder (..)
       -- * Mime types
       -- ** Data type
     , ContentType
@@ -94,11 +95,11 @@ instance ToContent B.ByteString where
 instance ToContent L.ByteString where
     toContent = flip ContentBuilder Nothing . fromLazyByteString
 instance ToContent T.Text where
-    toContent = toContent . Data.Text.Encoding.encodeUtf8
+    toContent = toContent . Blaze.fromText
 instance ToContent Text where
-    toContent = toContent . Data.Text.Lazy.Encoding.encodeUtf8
+    toContent = toContent . Blaze.fromLazyText
 instance ToContent String where
-    toContent = toContent . pack
+    toContent = toContent . Blaze.fromString
 instance ToContent Html where
     toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
 instance ToContent () where
@@ -113,11 +114,25 @@ instance ToFlushBuilder builder => ToContent (Source (ResourceT IO) builder) whe
 instance ToFlushBuilder builder => ToContent (ResumableSource (ResourceT IO) builder) where
     toContent (ResumableSource src _) = toContent src
 
+-- | A class for all data which can be sent in a streaming response. Note that
+-- for textual data, instances must use UTF-8 encoding.
+--
+-- Since 1.2.0
 class ToFlushBuilder a where toFlushBuilder :: a -> Flush Builder
 instance ToFlushBuilder (Flush Builder) where toFlushBuilder = id
 instance ToFlushBuilder Builder where toFlushBuilder = Chunk
 instance ToFlushBuilder (Flush B.ByteString) where toFlushBuilder = fmap fromByteString
 instance ToFlushBuilder B.ByteString where toFlushBuilder = Chunk . fromByteString
+instance ToFlushBuilder (Flush L.ByteString) where toFlushBuilder = fmap fromLazyByteString
+instance ToFlushBuilder L.ByteString where toFlushBuilder = Chunk . fromLazyByteString
+instance ToFlushBuilder (Flush Text) where toFlushBuilder = fmap Blaze.fromLazyText
+instance ToFlushBuilder Text where toFlushBuilder = Chunk . Blaze.fromLazyText
+instance ToFlushBuilder (Flush T.Text) where toFlushBuilder = fmap Blaze.fromText
+instance ToFlushBuilder T.Text where toFlushBuilder = Chunk . Blaze.fromText
+instance ToFlushBuilder (Flush String) where toFlushBuilder = fmap Blaze.fromString
+instance ToFlushBuilder String where toFlushBuilder = Chunk . Blaze.fromString
+instance ToFlushBuilder (Flush Html) where toFlushBuilder = fmap renderHtmlBuilder
+instance ToFlushBuilder Html where toFlushBuilder = Chunk . renderHtmlBuilder
 
 repJson :: ToContent a => a -> RepJson
 repJson = RepJson . toContent
