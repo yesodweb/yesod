@@ -8,3 +8,5 @@ install:
     - cabal-src-install --src-only
     - cd ..
     - cabal-meta install --force-reinstalls --enable-tests
+
+script: []
