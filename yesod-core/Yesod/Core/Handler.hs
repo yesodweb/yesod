@@ -58,6 +58,11 @@ module Yesod.Core.Handler
     , respondSource
     , sendChunk
     , sendFlush
+    , sendChunkBS
+    , sendChunkLBS
+    , sendChunkText
+    , sendChunkLazyText
+    , sendChunkHtml
       -- ** Redirecting
     , RedirectUrl (..)
     , redirect
@@ -153,6 +158,7 @@ import qualified Text.Blaze.Html.Renderer.Text as RenderText
 import           Text.Hamlet                   (Html, HtmlUrl, hamlet)
 
 import qualified Data.ByteString               as S
+import qualified Data.ByteString.Lazy          as L
 import qualified Data.Map                      as Map
 
 import Data.Conduit (Source)
@@ -941,3 +947,33 @@ sendChunk = yield . toFlushBuilder
 -- Since 1.2.0
 sendFlush :: Source (HandlerT site IO) (Flush Builder)
 sendFlush = yield Flush
+
+-- | Type-specialized version of 'sendChunk' for strict @ByteString@s.
+--
+-- Since 1.2.0
+sendChunkBS :: S.ByteString -> Source (HandlerT site IO) (Flush Builder)
+sendChunkBS = sendChunk
+
+-- | Type-specialized version of 'sendChunk' for lazy @ByteString@s.
+--
+-- Since 1.2.0
+sendChunkLBS :: L.ByteString -> Source (HandlerT site IO) (Flush Builder)
+sendChunkLBS = sendChunk
+
+-- | Type-specialized version of 'sendChunk' for strict @Text@s.
+--
+-- Since 1.2.0
+sendChunkText :: T.Text -> Source (HandlerT site IO) (Flush Builder)
+sendChunkText = sendChunk
+
+-- | Type-specialized version of 'sendChunk' for lazy @Text@s.
+--
+-- Since 1.2.0
+sendChunkLazyText :: TL.Text -> Source (HandlerT site IO) (Flush Builder)
+sendChunkLazyText = sendChunk
+
+-- | Type-specialized version of 'sendChunk' for @Html@s.
+--
+-- Since 1.2.0
+sendChunkHtml :: Html -> Source (HandlerT site IO) (Flush Builder)
+sendChunkHtml = sendChunk
