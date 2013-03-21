@@ -13,7 +13,8 @@ app :: LiteApp
 app = dispatchTo $ respondSource typeHtml $ do
     sendChunk ("Hello " :: String)
     sendChunk ("World" :: ByteString)
-    sendChunk ("!" :: Text)
+    sendChunk ("!\n" :: Text)
+    sendChunkHtml "<&>"
 
 test :: String
      -> (SResponse -> Session ())
@@ -28,4 +29,4 @@ specs :: Spec
 specs = describe "Streaming" $ do
     test "works" $ \sres -> do
         assertStatus 200 sres
-        assertBody "Hello World!" sres
+        assertBody "Hello World!\n&lt;&amp;&gt;" sres
