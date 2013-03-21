@@ -909,6 +909,12 @@ fileSource = transPipe liftResourceT . fileSourceRaw
 
 -- | Use a @Source@ for the response body.
 --
+-- Note that, for ease of use, the underlying monad is a @HandlerT@. This
+-- implies that you can run any @HandlerT@ action. However, since a streaming
+-- response occurs after the response headers have already been sent, some
+-- actions make no sense here. For example: short-circuit responses, setting
+-- headers, changing status codes, etc.
+--
 -- Since 1.2.0
 respondSource :: ContentType
               -> Source (HandlerT site IO) (Flush Builder)
