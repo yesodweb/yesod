@@ -9,4 +9,5 @@ install:
     - cd ..
     - cabal-meta install --force-reinstalls --enable-tests
 
-script: []
+script:
+    - echo Done
