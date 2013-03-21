@@ -56,6 +56,8 @@ module Yesod.Core.Handler
       -- * Special responses
       -- ** Streaming
     , respondSource
+    , sendChunk
+    , sendFlush
       -- ** Redirecting
     , RedirectUrl (..)
     , redirect
@@ -141,7 +143,7 @@ import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT)
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
 import Control.Monad.Trans.Class (lift)
-import Data.Conduit (transPipe, Flush)
+import Data.Conduit (transPipe, Flush (Flush), yield)
 
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
@@ -162,7 +164,7 @@ import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
-import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, HasContentType (..), ToContent (..))
+import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
@@ -925,3 +927,17 @@ respondSource ctype src = HandlerT $ \hd ->
     -- This is a safe assumption assuming the HandlerT is run correctly.
     return $ TypedContent ctype $ ContentSource
            $ transPipe (lift . flip unHandlerT hd) src
+
+-- | In a streaming response, send a single chunk of data. This function works
+-- on most datatypes, such as @ByteString@ and @Html@.
+--
+-- Since 1.2.0
+sendChunk :: ToFlushBuilder a => a -> Source (HandlerT site IO) (Flush Builder)
+sendChunk = yield . toFlushBuilder
+
+-- | In a streaming response, send a flush command, causing all buffered data
+-- to be immediately sent to the client.
+--
+-- Since 1.2.0
+sendFlush :: Source (HandlerT site IO) (Flush Builder)
+sendFlush = yield Flush
