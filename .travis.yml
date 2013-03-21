@@ -7,6 +7,4 @@ install:
     - cd tagstream-conduit
     - cabal-src-install --src-only
     - cd ..
-    - cabal-meta install --force-reinstalls
-
-script: mega-sdist --test
+    - cabal-meta install --force-reinstalls --enable-tests
