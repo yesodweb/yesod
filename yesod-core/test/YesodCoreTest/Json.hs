@@ -24,6 +24,7 @@ getHomeR = do
         Nothing -> invalidArgs ["foo not found"]
         Just foo -> return $ RepPlain $ toContent (foo :: Text)
 
+getMultiplePiecesR :: Int -> Int -> Handler ()
 getMultiplePiecesR _ _ = return ()
 
 test :: String

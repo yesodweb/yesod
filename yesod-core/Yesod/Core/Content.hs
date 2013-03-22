@@ -54,9 +54,6 @@ import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
 import Control.Monad (liftM)
 
-import qualified Data.Text.Encoding
-import qualified Data.Text.Lazy.Encoding
-
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
 import Data.Monoid (mempty)
 

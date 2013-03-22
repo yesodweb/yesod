@@ -29,8 +29,13 @@ getBinR = do
     |]
     lift $ defaultLayout widget
 
+getOnePiecesR :: Monad m => Int -> m ()
 getOnePiecesR _ = return ()
+
+getTwoPiecesR :: Monad m => Int -> Int -> m ()
 getTwoPiecesR _ _ = return ()
+
+getThreePiecesR :: Monad m => Int -> Int -> Int -> m ()
 getThreePiecesR _ _ _ = return ()
 
 data Y = Y

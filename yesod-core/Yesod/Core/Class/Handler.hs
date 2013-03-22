@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TupleSections #-}
@@ -15,6 +16,20 @@ import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Resource (MonadResource, MonadResourceBase, ExceptionT (..))
 import Control.Monad.Trans.Class (lift)
+import Data.Monoid (Monoid)
+import Data.Conduit.Internal (Pipe, ConduitM)
+
+import Control.Monad.Trans.Identity ( IdentityT)
+import Control.Monad.Trans.List     ( ListT    )
+import Control.Monad.Trans.Maybe    ( MaybeT   )
+import Control.Monad.Trans.Error    ( ErrorT, Error)
+import Control.Monad.Trans.Reader   ( ReaderT  )
+import Control.Monad.Trans.State    ( StateT   )
+import Control.Monad.Trans.Writer   ( WriterT  )
+import Control.Monad.Trans.RWS      ( RWST     )
+import qualified Control.Monad.Trans.RWS.Strict    as Strict ( RWST   )
+import qualified Control.Monad.Trans.State.Strict  as Strict ( StateT )
+import qualified Control.Monad.Trans.Writer.Strict as Strict ( WriterT )
 
 class MonadResource m => MonadHandler m where
     type HandlerSite m
@@ -33,13 +48,45 @@ instance MonadResourceBase m => MonadHandler (WidgetT site m) where
     liftHandlerT (HandlerT f) = WidgetT $ liftIO . liftM (, mempty) . f . replaceToParent
 {-# RULES "liftHandlerT (WidgetT site IO)" forall f. liftHandlerT (HandlerT f) = WidgetT $ liftM (, mempty) . f #-}
 
-instance MonadHandler m => MonadHandler (ExceptionT m) where
-    type HandlerSite (ExceptionT m) = HandlerSite m
-    liftHandlerT = lift . liftHandlerT
--- FIXME add a bunch of transformer instances
+#define GO(T) instance MonadHandler m => MonadHandler (T m) where type HandlerSite (T m) = HandlerSite m; liftHandlerT = lift . liftHandlerT
+#define GOX(X, T) instance (X, MonadHandler m) => MonadHandler (T m) where type HandlerSite (T m) = HandlerSite m; liftHandlerT = lift . liftHandlerT
+GO(IdentityT)
+GO(ListT)
+GO(MaybeT)
+GOX(Error e, ErrorT e)
+GO(ReaderT r)
+GO(StateT s)
+GOX(Monoid w, WriterT w)
+GOX(Monoid w, RWST r w s)
+GOX(Monoid w, Strict.RWST r w s)
+GO(Strict.StateT s)
+GOX(Monoid w, Strict.WriterT w)
+GO(ExceptionT)
+GO(Pipe l i o u)
+GO(ConduitM i o)
+#undef GO
+#undef GOX
 
 class MonadHandler m => MonadWidget m where
     liftWidgetT :: WidgetT (HandlerSite m) IO a -> m a
 instance MonadResourceBase m => MonadWidget (WidgetT site m) where
     liftWidgetT (WidgetT f) = WidgetT $ liftIO . f . replaceToParent
--- FIXME add a bunch of transformer instances
+
+#define GO(T) instance MonadWidget m => MonadWidget (T m) where liftWidgetT = lift . liftWidgetT
+#define GOX(X, T) instance (X, MonadWidget m) => MonadWidget (T m) where liftWidgetT = lift . liftWidgetT
+GO(IdentityT)
+GO(ListT)
+GO(MaybeT)
+GOX(Error e, ErrorT e)
+GO(ReaderT r)
+GO(StateT s)
+GOX(Monoid w, WriterT w)
+GOX(Monoid w, RWST r w s)
+GOX(Monoid w, Strict.RWST r w s)
+GO(Strict.StateT s)
+GOX(Monoid w, Strict.WriterT w)
+GO(ExceptionT)
+GO(Pipe l i o u)
+GO(ConduitM i o)
+#undef GO
+#undef GOX
