@@ -53,7 +53,9 @@ module Yesod.Core.Handler
     , lookupPostParams
     , lookupCookies
     , lookupFiles
-      -- * Special responses
+      -- * Responses
+      -- ** Pure
+    , respond
       -- ** Streaming
     , respondSource
     , sendChunk
@@ -914,6 +916,14 @@ rawRequestBody = do
 -- to work in any @MonadResource@.
 fileSource :: MonadResource m => FileInfo -> Source m S.ByteString
 fileSource = transPipe liftResourceT . fileSourceRaw
+
+-- | Provide a pure value for the response body.
+--
+-- > respond ct = return . TypedContent ct . toContent
+--
+-- Since 1.2.0
+respond :: (Monad m, ToContent a) => ContentType -> a -> m TypedContent
+respond ct = return . TypedContent ct . toContent
 
 -- | Use a @Source@ for the response body.
 --
