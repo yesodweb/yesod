@@ -10,7 +10,6 @@ import Database.Persist.Store
 import Data.Conduit
 import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Yesod.Persist
-import qualified Data.Conduit.List as CL
 import Data.Text (Text)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persist|
@@ -39,9 +38,9 @@ getHomeR = do
     runDB $ do
         runMigration migrateAll
         deleteWhere ([] :: [Filter Person])
-        insert $ Person "Charlie"
-        insert $ Person "Alice"
-        insert $ Person "Bob"
+        insert_ $ Person "Charlie"
+        insert_ $ Person "Alice"
+        insert_ $ Person "Bob"
     respondSourceDB typePlain $ selectSource [] [Asc PersonName] $= awaitForever toBuilder
   where
     toBuilder (Entity _ (Person name)) = do

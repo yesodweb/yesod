@@ -4,10 +4,8 @@ module YesodCoreTest.Streaming (specs) where
 import Yesod.Core
 import Test.Hspec
 import Network.Wai.Test
-import Data.Conduit
 import Data.Text (Text)
 import Data.ByteString (ByteString)
-import Blaze.ByteString.Builder (fromByteString)
 
 app :: LiteApp
 app = dispatchTo $ respondSource typeHtml $ do

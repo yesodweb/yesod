@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Persist
     ( YesodPersist (..)
     , defaultRunDB
@@ -150,3 +151,9 @@ getBy404 key = do
     case mres of
         Nothing -> lift notFound
         Just res -> return res
+
+instance MonadHandler m => MonadHandler (SqlPersist m) where
+    type HandlerSite (SqlPersist m) = HandlerSite m
+    liftHandlerT = lift . liftHandlerT
+instance MonadWidget m => MonadWidget (SqlPersist m) where
+    liftWidgetT = lift . liftWidgetT
