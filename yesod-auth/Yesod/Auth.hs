@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -20,7 +21,6 @@ module Yesod.Auth
     , setCreds
       -- * User functions
     , defaultMaybeAuthId
-    , maybeAuthId
     , maybeAuth
     , requireAuthId
     , requireAuth
@@ -137,16 +137,21 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- especially useful for creating an API to be accessed via some means
     -- other than a browser.
     --
-    -- Note that, if the value in the session points to an invalid
-    -- authentication record, this value could be meaningless, and in conflict
-    -- with the result of 'maybeAuth'. As a result, it is recommended that you
-    -- use 'maybeAuthId' instead.
-    --
-    -- See https://github.com/yesodweb/yesod/issues/486 for more information.
-    --
     -- Since 1.2.0
-    maybeAuthIdRaw :: HandlerT master IO (Maybe (AuthId master))
-    maybeAuthIdRaw = defaultMaybeAuthId
+    maybeAuthId :: HandlerT master IO (Maybe (AuthId master))
+
+    default maybeAuthId
+        :: ( YesodAuth master
+           , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
+           , b ~ YesodPersistBackend master
+           , Key val ~ AuthId master
+           , PersistStore (b (HandlerT master IO))
+           , PersistEntity val
+           , YesodPersist master
+           , Typeable val
+           )
+        => HandlerT master IO (Maybe (AuthId master))
+    maybeAuthId = defaultMaybeAuthId
 
 credsKey :: Text
 credsKey = "_ID"
@@ -157,13 +162,41 @@ credsKey = "_ID"
 -- 'maybeAuthIdRaw' for more information.
 --
 -- Since 1.1.2
-defaultMaybeAuthId :: YesodAuth master
-                   => HandlerT master IO (Maybe (AuthId master))
+defaultMaybeAuthId
+          :: ( YesodAuth master
+             , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
+             , b ~ YesodPersistBackend master
+             , Key val ~ AuthId master
+             , PersistStore (b (HandlerT master IO))
+             , PersistEntity val
+             , YesodPersist master
+             , Typeable val
+             ) => HandlerT master IO (Maybe (AuthId master))
 defaultMaybeAuthId = do
     ms <- lookupSession credsKey
     case ms of
         Nothing -> return Nothing
-        Just s -> return $ fromPathPiece s
+        Just s ->
+            case fromPathPiece s of
+                Nothing -> return Nothing
+                Just aid -> fmap (fmap entityKey) $ cachedAuth aid
+
+cachedAuth :: ( YesodAuth master
+             , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
+             , b ~ YesodPersistBackend master
+             , Key val ~ AuthId master
+             , PersistStore (b (HandlerT master IO))
+             , PersistEntity val
+             , YesodPersist master
+             , Typeable val
+             ) => AuthId master -> HandlerT master IO (Maybe (Entity val))
+cachedAuth aid = runMaybeT $ do
+    a <- MaybeT $ fmap unCachedMaybeAuth
+                $ cached
+                $ fmap CachedMaybeAuth
+                $ runDB
+                $ get aid
+    return $ Entity aid a
 
 setCreds :: YesodAuth master => Bool -> Creds master -> HandlerT master IO ()
 setCreds doRedirects creds = do
@@ -198,7 +231,7 @@ setCreds doRedirects creds = do
 
 getCheckR :: AuthHandler master TypedContent
 getCheckR = lift $ do
-    creds <- maybeAuthIdRaw
+    creds <- maybeAuthId
     defaultLayoutJson (do
         setTitle "Authentication Status"
         toWidget $ html' creds) (return $ jsonCreds creds)
@@ -244,26 +277,6 @@ handlePluginR plugin pieces = do
         [] -> notFound
         ap:_ -> apDispatch ap method pieces
 
--- | Retrieves user credentials, if user is authenticated.
---
--- This is an improvement upon 'maybeAuthIdRaw', in that it verifies that the
--- credentials are valid. For example, if a user logs in, receives an auth ID
--- in his\/her session, and then the account is deleted, @maybeAuthIdRaw@ would
--- still return the old ID, whereas this function would not.
---
--- Since 1.2.0
-maybeAuthId :: ( YesodAuth master
-               , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
-               , b ~ YesodPersistBackend master
-               , Key val ~ AuthId master
-               , PersistStore (b (HandlerT master IO))
-               , PersistEntity val
-               , YesodPersist master
-               , Typeable val
-               )
-            => HandlerT master IO (Maybe (AuthId master))
-maybeAuthId = fmap (fmap entityKey) maybeAuth
-
 maybeAuth :: ( YesodAuth master
              , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
              , b ~ YesodPersistBackend master
@@ -274,14 +287,8 @@ maybeAuth :: ( YesodAuth master
              , Typeable val
              ) => HandlerT master IO (Maybe (Entity val))
 maybeAuth = runMaybeT $ do
-    aid <- MaybeT $ maybeAuthIdRaw
-    a   <- MaybeT
-         $ fmap unCachedMaybeAuth
-         $ cached
-         $ fmap CachedMaybeAuth
-         $ runDB
-         $ get aid
-    return $ Entity aid a
+    aid <- MaybeT maybeAuthId
+    MaybeT $ cachedAuth aid
 
 newtype CachedMaybeAuth val = CachedMaybeAuth { unCachedMaybeAuth :: Maybe val }
     deriving Typeable
