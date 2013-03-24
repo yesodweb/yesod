@@ -189,7 +189,7 @@ postLoginR = do
 
 getPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) RepHtml
 getPasswordR = do
-    maid <- lift maybeAuthIdRaw
+    maid <- lift maybeAuthId
     pass1 <- newIdent
     pass2 <- newIdent
     case maid of
@@ -228,7 +228,7 @@ postPasswordR = do
     when (new /= confirm) $ do
         lift $ setMessageI Msg.PassMismatch
         redirect setpassR
-    maid <- lift maybeAuthIdRaw
+    maid <- lift maybeAuthId
     aid <- case maid of
             Nothing -> do
                 lift $ setMessageI Msg.BadSetPass
