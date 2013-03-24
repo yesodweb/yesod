@@ -150,7 +150,7 @@ import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT)
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
 import Control.Monad.Trans.Class (lift)
-import Data.Conduit (transPipe, Flush (Flush), yield)
+import Data.Conduit (transPipe, Flush (Flush), yield, Producer)
 
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
@@ -948,42 +948,42 @@ respondSource ctype src = HandlerT $ \hd ->
 -- on most datatypes, such as @ByteString@ and @Html@.
 --
 -- Since 1.2.0
-sendChunk :: ToFlushBuilder a => a -> Source (HandlerT site IO) (Flush Builder)
+sendChunk :: ToFlushBuilder a => a -> Producer (HandlerT site IO) (Flush Builder)
 sendChunk = yield . toFlushBuilder
 
 -- | In a streaming response, send a flush command, causing all buffered data
 -- to be immediately sent to the client.
 --
 -- Since 1.2.0
-sendFlush :: Source (HandlerT site IO) (Flush Builder)
+sendFlush :: Producer (HandlerT site IO) (Flush Builder)
 sendFlush = yield Flush
 
 -- | Type-specialized version of 'sendChunk' for strict @ByteString@s.
 --
 -- Since 1.2.0
-sendChunkBS :: S.ByteString -> Source (HandlerT site IO) (Flush Builder)
+sendChunkBS :: S.ByteString -> Producer (HandlerT site IO) (Flush Builder)
 sendChunkBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @ByteString@s.
 --
 -- Since 1.2.0
-sendChunkLBS :: L.ByteString -> Source (HandlerT site IO) (Flush Builder)
+sendChunkLBS :: L.ByteString -> Producer (HandlerT site IO) (Flush Builder)
 sendChunkLBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for strict @Text@s.
 --
 -- Since 1.2.0
-sendChunkText :: T.Text -> Source (HandlerT site IO) (Flush Builder)
+sendChunkText :: T.Text -> Producer (HandlerT site IO) (Flush Builder)
 sendChunkText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @Text@s.
 --
 -- Since 1.2.0
-sendChunkLazyText :: TL.Text -> Source (HandlerT site IO) (Flush Builder)
+sendChunkLazyText :: TL.Text -> Producer (HandlerT site IO) (Flush Builder)
 sendChunkLazyText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for @Html@s.
 --
 -- Since 1.2.0
-sendChunkHtml :: Html -> Source (HandlerT site IO) (Flush Builder)
+sendChunkHtml :: Html -> Producer (HandlerT site IO) (Flush Builder)
 sendChunkHtml = sendChunk
