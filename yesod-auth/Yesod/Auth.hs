@@ -20,6 +20,7 @@ module Yesod.Auth
     , setCreds
       -- * User functions
     , defaultMaybeAuthId
+    , maybeAuthId
     , maybeAuth
     , requireAuthId
     , requireAuth
@@ -136,14 +137,24 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- especially useful for creating an API to be accessed via some means
     -- other than a browser.
     --
-    -- Since 1.1.2
-    maybeAuthId :: HandlerT master IO (Maybe (AuthId master))
-    maybeAuthId = defaultMaybeAuthId
+    -- Note that, if the value in the session points to an invalid
+    -- authentication record, this value could be meaningless, and in conflict
+    -- with the result of 'maybeAuth'. As a result, it is recommended that you
+    -- use 'maybeAuthId' instead.
+    --
+    -- See https://github.com/yesodweb/yesod/issues/486 for more information.
+    --
+    -- Since 1.2.0
+    maybeAuthIdRaw :: HandlerT master IO (Maybe (AuthId master))
+    maybeAuthIdRaw = defaultMaybeAuthId
 
 credsKey :: Text
 credsKey = "_ID"
 
 -- | Retrieves user credentials from the session, if user is authenticated.
+--
+-- This function does /not/ confirm that the credentials are valid, see
+-- 'maybeAuthIdRaw' for more information.
 --
 -- Since 1.1.2
 defaultMaybeAuthId :: YesodAuth master
@@ -187,7 +198,7 @@ setCreds doRedirects creds = do
 
 getCheckR :: AuthHandler master TypedContent
 getCheckR = lift $ do
-    creds <- maybeAuthId
+    creds <- maybeAuthIdRaw
     defaultLayoutJson (do
         setTitle "Authentication Status"
         toWidget $ html' creds) (return $ jsonCreds creds)
@@ -233,6 +244,26 @@ handlePluginR plugin pieces = do
         [] -> notFound
         ap:_ -> apDispatch ap method pieces
 
+-- | Retrieves user credentials, if user is authenticated.
+--
+-- This is an improvement upon 'maybeAuthIdRaw', in that it verifies that the
+-- credentials are valid. For example, if a user logs in, receives an auth ID
+-- in his\/her session, and then the account is deleted, @maybeAuthIdRaw@ would
+-- still return the old ID, whereas this function would not.
+--
+-- Since 1.2.0
+maybeAuthId :: ( YesodAuth master
+               , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
+               , b ~ YesodPersistBackend master
+               , Key val ~ AuthId master
+               , PersistStore (b (HandlerT master IO))
+               , PersistEntity val
+               , YesodPersist master
+               , Typeable val
+               )
+            => HandlerT master IO (Maybe (AuthId master))
+maybeAuthId = fmap (fmap entityKey) maybeAuth
+
 maybeAuth :: ( YesodAuth master
              , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
              , b ~ YesodPersistBackend master
@@ -243,7 +274,7 @@ maybeAuth :: ( YesodAuth master
              , Typeable val
              ) => HandlerT master IO (Maybe (Entity val))
 maybeAuth = runMaybeT $ do
-    aid <- MaybeT $ maybeAuthId
+    aid <- MaybeT $ maybeAuthIdRaw
     a   <- MaybeT
          $ fmap unCachedMaybeAuth
          $ cached
@@ -255,7 +286,20 @@ maybeAuth = runMaybeT $ do
 newtype CachedMaybeAuth val = CachedMaybeAuth { unCachedMaybeAuth :: Maybe val }
     deriving Typeable
 
-requireAuthId :: YesodAuth master => HandlerT master IO (AuthId master)
+-- | Similar to 'maybeAuthId', but redirects to a login page if user is not
+-- authenticated.
+--
+-- Since 1.1.0
+requireAuthId :: ( YesodAuth master
+                 , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
+                 , b ~ YesodPersistBackend master
+                 , Key val ~ AuthId master
+                 , PersistStore (b (HandlerT master IO))
+                 , PersistEntity val
+                 , YesodPersist master
+                 , Typeable val
+                 )
+              => HandlerT master IO (AuthId master)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
 requireAuth :: ( YesodAuth master
