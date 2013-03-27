@@ -8,7 +8,7 @@ import Data.Text (Text)
 import Data.ByteString (ByteString)
 
 app :: LiteApp
-app = dispatchTo $ respondSource typeHtml $ do
+app = liteApp $ dispatchTo $ respondSource typeHtml $ do
     sendChunk ("Hello " :: String)
     sendChunk ("World" :: ByteString)
     sendChunk ("!\n" :: Text)

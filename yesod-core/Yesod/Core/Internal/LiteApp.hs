@@ -16,6 +16,7 @@ import Yesod.Core.Internal.Run
 import Network.HTTP.Types (Method)
 import Data.Maybe (fromMaybe)
 import Control.Applicative ((<|>))
+import Control.Monad.Trans.Writer
 
 newtype LiteApp = LiteApp
     { unLiteApp :: Method -> [Text] -> Maybe (LiteHandler TypedContent)
@@ -47,32 +48,35 @@ instance Monoid LiteApp where
 type LiteHandler = HandlerT LiteApp IO
 type LiteWidget = WidgetT LiteApp IO
 
-dispatchTo :: ToTypedContent a => LiteHandler a -> LiteApp
-dispatchTo handler = LiteApp $ \_ ps ->
+liteApp :: Writer LiteApp () -> LiteApp
+liteApp = execWriter
+
+dispatchTo :: ToTypedContent a => LiteHandler a -> Writer LiteApp ()
+dispatchTo handler = tell $ LiteApp $ \_ ps ->
     if null ps
         then Just $ fmap toTypedContent handler
         else Nothing
 
-onMethod :: Method -> LiteApp -> LiteApp
-onMethod method (LiteApp f) = LiteApp $ \m ps ->
+onMethod :: Method -> Writer LiteApp () -> Writer LiteApp ()
+onMethod method f = tell $ LiteApp $ \m ps ->
     if method == m
-        then f m ps
+        then unLiteApp (liteApp f) m ps
         else Nothing
 
-onStatic :: Text -> LiteApp -> LiteApp
-onStatic p0 (LiteApp f) = LiteApp $ \m ps0 ->
+onStatic :: Text -> Writer LiteApp () -> Writer LiteApp ()
+onStatic p0 f = tell $ LiteApp $ \m ps0 ->
     case ps0 of
-        p:ps | p == p0 -> f m ps
+        p:ps | p == p0 -> unLiteApp (liteApp f) m ps
         _ -> Nothing
 
-withDynamic :: PathPiece p => (p -> LiteApp) -> LiteApp
-withDynamic f = LiteApp $ \m ps0 ->
+withDynamic :: PathPiece p => (p -> Writer LiteApp ()) -> Writer LiteApp ()
+withDynamic f = tell $ LiteApp $ \m ps0 ->
     case ps0 of
-        p:ps | Just v <- fromPathPiece p -> unLiteApp (f v) m ps
+        p:ps | Just v <- fromPathPiece p -> unLiteApp (liteApp $ f v) m ps
         _ -> Nothing
 
-withDynamicMulti :: PathMultiPiece ps => (ps -> LiteApp) -> LiteApp
-withDynamicMulti f = LiteApp $ \m ps ->
+withDynamicMulti :: PathMultiPiece ps => (ps -> Writer LiteApp ()) -> Writer LiteApp ()
+withDynamicMulti f = tell $ LiteApp $ \m ps ->
     case fromPathMultiPiece ps of
         Nothing -> Nothing
-        Just v -> unLiteApp (f v) m []
+        Just v -> unLiteApp (liteApp $ f v) m []
