@@ -6,14 +6,13 @@ import Network.Wai.Test
 import Network.Wai
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Text as T
-import Data.Monoid
 import qualified Data.ByteString.Lazy.Char8 as L8
 
 iapp :: IO Application
-iapp = toWaiApp $
-    onMethod (S8.pack "GET") (dispatchTo $ return "GetHomepage") <>
-    onMethod (S8.pack "POST") (dispatchTo $ return "PostHomepage") <>
-    onStatic (T.pack "string") (withDynamic (\t -> dispatchTo $ return (t :: T.Text))) <>
+iapp = toWaiApp $ liteApp $ do
+    onMethod (S8.pack "GET") (dispatchTo $ return "GetHomepage")
+    onMethod (S8.pack "POST") (dispatchTo $ return "PostHomepage")
+    onStatic (T.pack "string") (withDynamic (\t -> dispatchTo $ return (t :: T.Text)))
     onStatic (T.pack "multi") (withDynamicMulti (\[_, y] -> dispatchTo $ return (y :: T.Text)))
 
 test :: String -- ^ method

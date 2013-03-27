@@ -7,9 +7,9 @@ import Data.Text (Text, pack)
 people :: [(Text, Int)]
 people = [("Alice", 25), ("Bob", 43), ("Charlie", 37)]
 
-main = warp 3000 $
-    onStatic "people" (dispatchTo getPeople) <>
-    onStatic "person" (withDynamic $ dispatchTo . getPerson)
+main = warp 3000 $ liteApp $ do
+    onStatic "people" $ dispatchTo getPeople
+    onStatic "person" $ withDynamic $ dispatchTo . getPerson
 
 getPeople = return $ toJSON $ map fst people
 
