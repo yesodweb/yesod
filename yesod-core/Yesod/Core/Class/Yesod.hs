@@ -13,7 +13,7 @@ import           Yesod.Routes.Class
 import           Blaze.ByteString.Builder           (Builder)
 import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import           Control.Arrow                      ((***))
-import           Control.Monad                      (forM, when)
+import           Control.Monad                      (forM, when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
                                                      LogSource)
@@ -291,10 +291,14 @@ authorizationCheck = do
                 master <- getYesod
                 case authRoute master of
                     Nothing ->
-                        permissionDenied "Authentication required"
+                        void $ permissionDenied "Authentication required"
                     Just url' -> do
-                        setUltDestCurrent
-                        redirect url'
+                      void $ selectRep $ do
+                          provideRepType typeJson $ do
+                              void $ permissionDenied "Authentication required"
+                          provideRepType typeHtml $ do
+                              setUltDestCurrent
+                              void $ redirect url'
             Unauthorized s' -> permissionDenied s'
 
 -- | Convert a widget to a 'PageContent'.
@@ -407,6 +411,7 @@ defaultErrorHandler NotFound = selectRep $ do
             <p>#{path'}
         |]
     provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
+
 defaultErrorHandler (PermissionDenied msg) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Permission Denied"
@@ -414,7 +419,15 @@ defaultErrorHandler (PermissionDenied msg) = selectRep $ do
             <h1>Permission denied
             <p>#{msg}
         |]
-    provideRep $ return $ object ["message" .= ("Permission Denied" :: Text)]
+    provideRep $ do
+        site <- getYesod
+        rend <- getUrlRender
+        return $ object $ [
+          "message" .= ("Permission Denied. " <> msg)
+          ] ++ case authRoute site of
+              Nothing -> []
+              Just url -> ["auth_url" .= rend url]
+
 defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Invalid Arguments"
