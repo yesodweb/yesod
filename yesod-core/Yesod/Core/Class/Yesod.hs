@@ -293,8 +293,15 @@ authorizationCheck = do
                     Nothing ->
                         permissionDenied "Authentication required"
                     Just url' -> do
-                        setUltDestCurrent
-                        redirect url'
+                      _ <- selectRep $ do
+                          provideRepType typeJson $ do
+                              _ <- permissionDenied "Authentication required"
+                              return ()
+                          provideRepType typeHtml $ do
+                              setUltDestCurrent
+                              redirect url'
+                              return ()
+                      return ()
             Unauthorized s' -> permissionDenied s'
 
 -- | Convert a widget to a 'PageContent'.
@@ -407,6 +414,7 @@ defaultErrorHandler NotFound = selectRep $ do
             <p>#{path'}
         |]
     provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
+
 defaultErrorHandler (PermissionDenied msg) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Permission Denied"
@@ -414,7 +422,15 @@ defaultErrorHandler (PermissionDenied msg) = selectRep $ do
             <h1>Permission denied
             <p>#{msg}
         |]
-    provideRep $ return $ object ["message" .= ("Permission Denied" :: Text)]
+    provideRep $ do
+        site <- getYesod
+        rend <- getUrlRender
+        return $ object $ [
+          "message" .= ("Permission Denied. " <> msg)
+          ] ++ case authRoute site of
+              Nothing -> []
+              Just url -> ["auth_url" .= rend url]
+
 defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Invalid Arguments"
