@@ -13,7 +13,7 @@ import           Yesod.Routes.Class
 import           Blaze.ByteString.Builder           (Builder)
 import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import           Control.Arrow                      ((***))
-import           Control.Monad                      (forM, when)
+import           Control.Monad                      (forM, when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
                                                      LogSource)
@@ -111,10 +111,18 @@ class RenderRoute site => Yesod site where
     -- Return 'Authorized' if the request is authorized,
     -- 'Unauthorized' a message if unauthorized.
     -- If authentication is required, return 'AuthenticationRequired'.
-    isAuthorized :: Route site
+    isAuthorized :: Route site -> Bool -> HandlerT site IO AuthResult
+    isAuthorized _ _ = return Authorized
+
+    -- | Determine if a request is authorized or not.
+    --
+    -- Return 'Authorized' if the request is authorized,
+    -- 'Unauthorized' a message if unauthorized.
+    -- If authentication is required, return 'AuthenticationRequired'.
+    authenticationRequired :: Route site
                  -> Bool -- ^ is this a write request?
                  -> HandlerT site IO AuthResult
-    isAuthorized _ _ = return Authorized
+    authenticationRequired _ _ = return Authorized
 
     -- | Determines whether the current request is a write request. By default,
     -- this assumes you are following RESTful principles, and determines this
@@ -291,17 +299,14 @@ authorizationCheck = do
                 master <- getYesod
                 case authRoute master of
                     Nothing ->
-                        permissionDenied "Authentication required"
+                        void $ permissionDenied "Authentication required"
                     Just url' -> do
-                      _ <- selectRep $ do
+                      void $ selectRep $ do
                           provideRepType typeJson $ do
-                              _ <- permissionDenied "Authentication required"
-                              return ()
+                              void $ permissionDenied "Authentication required"
                           provideRepType typeHtml $ do
                               setUltDestCurrent
-                              redirect url'
-                              return ()
-                      return ()
+                              void $ redirect url'
             Unauthorized s' -> permissionDenied s'
 
 -- | Convert a widget to a 'PageContent'.

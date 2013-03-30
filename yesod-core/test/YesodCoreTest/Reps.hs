@@ -10,6 +10,8 @@ import qualified Data.ByteString.Char8 as S8
 import Data.String (IsString)
 import Data.Text (Text)
 import Data.Maybe (fromJust)
+import Data.Monoid (Endo (..))
+import qualified Control.Monad.Trans.Writer    as Writer
 
 data App = App
 
@@ -30,7 +32,7 @@ getHomeR = selectRep $ do
     rep typeXml "XML"
     rep typeJson "JSON"
 
--- rep :: forall (m :: * -> *).  Monad m => ContentType -> Text -> Control.Monad.Trans.Writer.Lazy.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
+rep :: Monad m => ContentType -> Text -> Writer.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
 rep ct t = provideRepType ct $ return (t :: Text)
 
 getJsonR :: Handler TypedContent
