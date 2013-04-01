@@ -56,7 +56,7 @@ library
                    , shakespeare-i18n      >= 1.0      && < 1.1
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , transformers          >= 0.2.2    && < 0.4
-                   , clientsession         >= 0.8      && < 0.9
+                   , clientsession         >= 0.9      && < 0.10
                    , random                >= 1.0.0.2  && < 1.1
                    , cereal                >= 0.3      && < 0.4
                    , old-locale            >= 1.0.0.2  && < 1.1
