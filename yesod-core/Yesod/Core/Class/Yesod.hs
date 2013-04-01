@@ -114,16 +114,6 @@ class RenderRoute site => Yesod site where
     isAuthorized :: Route site -> Bool -> HandlerT site IO AuthResult
     isAuthorized _ _ = return Authorized
 
-    -- | Determine if a request is authorized or not.
-    --
-    -- Return 'Authorized' if the request is authorized,
-    -- 'Unauthorized' a message if unauthorized.
-    -- If authentication is required, return 'AuthenticationRequired'.
-    authenticationRequired :: Route site
-                 -> Bool -- ^ is this a write request?
-                 -> HandlerT site IO AuthResult
-    authenticationRequired _ _ = return Authorized
-
     -- | Determines whether the current request is a write request. By default,
     -- this assumes you are following RESTful principles, and determines this
     -- from request method. In particular, all except the following request
