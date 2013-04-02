@@ -460,13 +460,12 @@ setUrl url' = do
         site
         (toTextUrl url')
     url <- either (error . show) return eurl
-    -- FIXME deal with complete URLs
     let (urlPath, urlQuery) = T.break (== '?') url
     ST.modify $ \rbd -> rbd
         { rbdPath =
             case DL.filter (/="") $ T.split (== '/') urlPath of
-                ("http":_:rest) -> rest
-                ("https":_:rest) -> rest
+                ("http:":_:rest) -> rest
+                ("https:":_:rest) -> rest
                 x -> x
         , rbdGets = rbdGets rbd ++ H.parseQuery (TE.encodeUtf8 urlQuery)
         }
