@@ -172,7 +172,7 @@ import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
-import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, contentTypeBaseType, HasContentType (..), ToContent (..), ToFlushBuilder (..))
+import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
@@ -857,13 +857,13 @@ selectRep w = do
             case reps of
                 [] -> return $ toTypedContent ("No reps provided to selectRep" :: Text)
                 rep:_ ->
-                  if null cts then returnRep rep
-                    else do
-                      let msg = "no match found for accept header" :: Text
-                      _ <- sendResponseStatus H.status406 msg
-                      return $ toTypedContent msg
+                  if null cts
+                    then returnRep rep
+                    else sendResponseStatus H.status406 explainUnaccepted
         rep:_ -> returnRep rep
   where
+    explainUnaccepted :: Text
+    explainUnaccepted = "no match found for accept header"
     returnRep (ProvidedRep ct mcontent) =
         mcontent >>= return . TypedContent ct
 
@@ -876,7 +876,7 @@ selectRep w = do
         ]) reps
 
     mainTypeMap = Map.fromList $ reverse $ map
-      (\v@(ProvidedRep ct _) -> (contentTypeBaseType ct, v)) reps
+      (\v@(ProvidedRep ct _) -> (fst $ contentTypeTypes ct, v)) reps
 
     tryAccept ct =
         if subType == "*"
