@@ -6,7 +6,7 @@ Yesod.Test is a pragmatic framework for testing web applications built
 using wai and persistent.
 
 By pragmatic I may also mean 'dirty'. It's main goal is to encourage integration
-and system testing of web applications by making everything /easy to test/. 
+and system testing of web applications by making everything /easy to test/.
 
 Your tests are like browser sessions that keep track of cookies and the last
 visited page. You can perform assertions on the content of HTML responses,
@@ -84,7 +84,7 @@ import qualified Control.Monad.Trans.State as ST
 import Control.Monad.IO.Class
 import System.IO
 import Yesod.Test.TransversingCSS
-import Yesod.Core (toWaiAppPlain, YesodDispatch)
+import Yesod.Core
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import Text.XML.Cursor hiding (element)
@@ -381,7 +381,7 @@ fileByLabel label path mime = do
   name <- nameFromLabel label
   fileByName name path mime
 
--- | Lookup a _nonce form field and add it's value to the params. 
+-- | Lookup a _nonce form field and add it's value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the nonce.
 addNonce_ :: Query -> RequestBuilder ()
 addNonce_ scope = do
@@ -396,107 +396,125 @@ addNonce :: RequestBuilder ()
 addNonce = addNonce_ ""
 
 -- | Perform a POST request to url, using params
-post :: BS8.ByteString -> RequestBuilder () -> YesodExample site ()
+post :: (Yesod site, RedirectUrl site url)
+     => url -> RequestBuilder () -> YesodExample site ()
 post url paramsBuild = do
   doRequest "POST" url paramsBuild
 
 -- | Perform a POST request without params
-post_ :: BS8.ByteString -> YesodExample site ()
+post_ :: (Yesod site, RedirectUrl site url) => url -> YesodExample site ()
 post_ = flip post $ return ()
- 
+
 -- | Perform a GET request to url, using params
-get :: BS8.ByteString -> RequestBuilder () -> YesodExample site ()
+get :: (Yesod site, RedirectUrl site url) => url -> RequestBuilder () -> YesodExample site ()
 get url paramsBuild = doRequest "GET" url paramsBuild
 
 -- | Perform a GET request without params
-get_ :: BS8.ByteString -> YesodExample site ()
+get_ :: (Yesod site, RedirectUrl site url) => url -> YesodExample site ()
 get_ = flip get $ return ()
 
 -- | General interface to performing requests, letting you specify the request method
-doRequest :: H.Method -> BS8.ByteString -> RequestBuilder a -> YesodExample site ()
+doRequest :: (Yesod site, RedirectUrl site url)
+          => H.Method -> url -> RequestBuilder a -> YesodExample site ()
 doRequest method url paramsBuild = doRequestHeaders method url [] paramsBuild
+
+fromHandler :: Yesod site => HandlerT site IO a -> YesodExample site a
+fromHandler h = do
+    site <- fmap yedSite ST.get
+    eres <- runFakeHandler
+        M.empty
+        (const $ error "Yesod.Test: No logger available")
+        site
+        h
+    either (error . show) return eres
 
 -- | General interface to performing requests, allowing you to add extra
 -- headers as well as letting you specify the request method.
-doRequestHeaders :: H.Method -> BS8.ByteString -> [H.Header] -> RequestBuilder a -> YesodExample site ()
-doRequestHeaders method url extrahead paramsBuild = do
-  YesodExampleData app conn oldCookies mRes <- ST.get
+doRequestHeaders :: (Yesod site, RedirectUrl site url)
+                 => H.Method
+                 -> url
+                 -> [H.Header]
+                 -> RequestBuilder a
+                 -> YesodExample site ()
+doRequestHeaders method url' extrahead paramsBuild = do
+    url <- fromHandler $ toTextUrl url'
+    let (urlPath, urlQuery) = T.break (== '?') url
+    YesodExampleData app conn oldCookies mRes <- ST.get
 
-  -- expire cookies and filter them for the current path. TODO: support max age
-  currentUtc <- liftIO getCurrentTime
-  let cookies = M.filter (checkCookieTime currentUtc) oldCookies
-      cookiesForPath = M.filter checkCookiePath cookies
+    -- expire cookies and filter them for the current path. TODO: support max age
+    currentUtc <- liftIO getCurrentTime
+    let cookies = M.filter (checkCookieTime currentUtc) oldCookies
+        cookiesForPath = M.filter (checkCookiePath url) cookies
 
-  RequestBuilderData parts _ <- liftIO $ ST.execStateT paramsBuild RequestBuilderData
-    { rbdPosts = []
-    , rbdResponse = mRes
-    }
-  let maker
-        | DL.any isFile parts = makeMultipart
-        | otherwise = makeSinglepart
-      req = maker cookiesForPath parts
+    RequestBuilderData parts _ <- liftIO $ ST.execStateT paramsBuild RequestBuilderData
+      { rbdPosts = []
+      , rbdResponse = mRes
+      }
+    let maker
+          | DL.any isFile parts = makeMultipart
+          | otherwise = makeSinglepart
+        req = maker cookiesForPath parts urlPath urlQuery
 
-  response <- liftIO $ runSession (srequest req) app
-  let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
-      cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
-  ST.put $ YesodExampleData app conn cookies' (Just response)
- where
-  isFile (ReqFilePart _ _ _ _) = True
-  isFile _ = False
+    response <- liftIO $ runSession (srequest req) app
+    let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
+        cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
+    ST.put $ YesodExampleData app conn cookies' (Just response)
+  where
+    isFile (ReqFilePart _ _ _ _) = True
+    isFile _ = False
 
-  checkCookieTime t c = case Cookie.setCookieExpires c of
-                            Nothing -> True
-                            Just t' -> t < t'
-  checkCookiePath c = case Cookie.setCookiePath c of
-                            Nothing -> True
-                            Just x  -> x `BS8.isPrefixOf` url
+    checkCookieTime t c = case Cookie.setCookieExpires c of
+                              Nothing -> True
+                              Just t' -> t < t'
+    checkCookiePath url c =
+      case Cookie.setCookiePath c of
+        Nothing -> True
+        Just x  -> x `BS8.isPrefixOf` TE.encodeUtf8 url
 
-  -- For building the multi-part requests
-  boundary :: String
-  boundary = "*******noneedtomakethisrandom"
-  separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
-  makeMultipart cookies parts =
-    flip SRequest (BSL8.fromChunks [multiPartBody parts]) $ mkRequest $
-      [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
-            [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
-      , ("Content-Type", BS8.pack $ "multipart/form-data; boundary=" ++ boundary)
-      ] ++ extrahead
-  multiPartBody parts =
-    BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
-  multipartPart (ReqPlainPart k v) = BS8.concat
-    [ "Content-Disposition: form-data; "
-    , "name=\"", TE.encodeUtf8 k, "\"\r\n\r\n"
-    , TE.encodeUtf8 v, "\r\n"]
-  multipartPart (ReqFilePart k v bytes mime) = BS8.concat
-    [ "Content-Disposition: form-data; "
-    , "name=\"", TE.encodeUtf8 k, "\"; "
-    , "filename=\"", BS8.pack v, "\"\r\n"
-    , "Content-Type: ", TE.encodeUtf8 mime, "\r\n\r\n"
-    , BS8.concat $ BSL8.toChunks bytes, "\r\n"]
+    -- For building the multi-part requests
+    boundary :: String
+    boundary = "*******noneedtomakethisrandom"
+    separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
+    makeMultipart cookies parts urlPath urlQuery =
+      flip SRequest (BSL8.fromChunks [multiPartBody parts]) $ mkRequest
+        ([ ("Cookie", Builder.toByteString $ Cookie.renderCookies
+              [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
+        , ("Content-Type", BS8.pack $ "multipart/form-data; boundary=" ++ boundary)
+        ] ++ extrahead) urlPath urlQuery
+    multiPartBody parts =
+      BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
+    multipartPart (ReqPlainPart k v) = BS8.concat
+      [ "Content-Disposition: form-data; "
+      , "name=\"", TE.encodeUtf8 k, "\"\r\n\r\n"
+      , TE.encodeUtf8 v, "\r\n"]
+    multipartPart (ReqFilePart k v bytes mime) = BS8.concat
+      [ "Content-Disposition: form-data; "
+      , "name=\"", TE.encodeUtf8 k, "\"; "
+      , "filename=\"", BS8.pack v, "\"\r\n"
+      , "Content-Type: ", TE.encodeUtf8 mime, "\r\n\r\n"
+      , BS8.concat $ BSL8.toChunks bytes, "\r\n"]
 
-  -- For building the regular non-multipart requests
-  makeSinglepart cookies parts = SRequest (mkRequest $
-    [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
-            [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
-    , ("Content-Type", "application/x-www-form-urlencoded")
-    ] ++ extrahead) $
-    BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&" $ map singlepartPart parts
+    -- For building the regular non-multipart requests
+    makeSinglepart cookies parts urlPath urlQuery = SRequest (mkRequest
+      ([ ("Cookie", Builder.toByteString $ Cookie.renderCookies
+              [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
+      , ("Content-Type", "application/x-www-form-urlencoded")
+      ] ++ extrahead) urlPath urlQuery) $
+      BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&" $ map singlepartPart parts
 
-  singlepartPart (ReqFilePart _ _ _ _) = ""
-  singlepartPart (ReqPlainPart k v) = T.concat [k,"=",v]
+    singlepartPart (ReqFilePart _ _ _ _) = ""
+    singlepartPart (ReqPlainPart k v) = T.concat [k,"=",v]
 
-  -- General request making 
-  mkRequest headers = defaultRequest
-    { requestMethod = method
-    , remoteHost = Sock.SockAddrInet 1 2
-    , requestHeaders = headers
-    , rawPathInfo = urlPath
-    , pathInfo = DL.filter (/="") $ T.split (== '/') $ TE.decodeUtf8 urlPath
-    , rawQueryString = urlQuery
-    , queryString = H.parseQuery urlQuery
-    }
-
-  (urlPath, urlQuery) = BS8.break (== '?') url
+    -- General request making
+    mkRequest headers urlPath urlQuery = defaultRequest
+      { requestMethod = method
+      , remoteHost = Sock.SockAddrInet 1 2
+      , requestHeaders = headers
+      , rawPathInfo = TE.encodeUtf8 urlPath
+      , pathInfo = DL.filter (/="") $ T.split (== '/') urlPath
+      , rawQueryString = TE.encodeUtf8 urlQuery
+      , queryString = H.parseQuery $ TE.encodeUtf8 urlQuery
+      }
 
 -- Yes, just a shortcut
 failure :: (MonadIO a) => T.Text -> a b

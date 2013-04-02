@@ -58,6 +58,7 @@ test-suite test
                           , containers
                           , html-conduit
                           , yesod-core
+                          , text
 
 source-repository head
   type: git
