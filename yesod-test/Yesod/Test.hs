@@ -22,49 +22,68 @@ backend pre-conditions, or to assert that your session is having the desired eff
 
 -}
 
-module Yesod.Test (
-  -- * Declaring and running your test suite
-  yesodSpec, YesodSpec, YesodSpecTree (..), ydescribe, yit,
+module Yesod.Test
+    ( -- * Declaring and running your test suite
+      yesodSpec
+    , YesodSpec
+    , YesodSpecTree (..)
+    , ydescribe
+    , yit
 
-  -- * Making requests
-  -- | To make a request you need to point to an url and pass in some parameters.
-  --
-  -- To build your parameters you will use the RequestBuilder monad that lets you
-  -- add values, add files, lookup fields by label and find the current
-  -- nonce value and add it to your request too.
-  --
-  post, post_, get, get_, doRequest, doRequestHeaders,
-  byName, fileByName,
+    -- * Making requests
+    -- | To make a request you need to point to an url and pass in some parameters.
+    --
+    -- To build your parameters you will use the RequestBuilder monad that lets you
+    -- add values, add files, lookup fields by label and find the current
+    -- nonce value and add it to your request too.
+    --
+    , post
+    , post_
+    , get
+    , get_
+    , doRequest
+    , doRequestHeaders
+    , byName
+    , fileByName
 
-  -- | Yesod cat auto generate field ids, so you are never sure what
-  -- the argument name should be for each one of your args when constructing
-  -- your requests. What you do know is the /label/ of the field.
-  -- These functions let you add parameters to your request based
-  -- on currently displayed label names.
-  byLabel, fileByLabel,
+    -- | Yesod can auto generate field ids, so you are never sure what
+    -- the argument name should be for each one of your args when constructing
+    -- your requests. What you do know is the /label/ of the field.
+    -- These functions let you add parameters to your request based
+    -- on currently displayed label names.
+    , byLabel
+    , fileByLabel
 
-  -- | Does the current form have a _nonce? Use any of these to add it to your
-  -- request parameters.
-  addNonce, addNonce_,
+    -- | Does the current form have a _nonce? Use any of these to add it to your
+    -- request parameters.
+    , addNonce
+    , addNonce_
 
-  -- * Assertions
-  assertEqual, assertHeader, assertNoHeader, statusIs, bodyEquals, bodyContains,
-  htmlAllContain, htmlAnyContain, htmlCount,
+    -- * Assertions
+    , assertEqual
+    , assertHeader
+    , assertNoHeader
+    , statusIs
+    , bodyEquals
+    , bodyContains
+    , htmlAllContain
+    , htmlAnyContain
+    , htmlCount
 
-  -- * Grab information
-  getTestYesod,
-  getResponse,
+    -- * Grab information
+    , getTestYesod
+    , getResponse
 
-  -- * Utils for debugging tests
-  printBody, printMatches,
+    -- * Debug output
+    , printBody
+    , printMatches
 
-  -- * Utils for building your own assertions
-  -- | Please consider generalizing and contributing the assertions you write.
-  htmlQuery, parseHTML, withResponse
-
-)
-
-where
+    -- * Utils for building your own assertions
+    -- | Please consider generalizing and contributing the assertions you write.
+    , htmlQuery
+    , parseHTML
+    , withResponse
+    ) where
 
 import qualified Test.Hspec as Hspec
 import qualified Test.Hspec.Core as Core
