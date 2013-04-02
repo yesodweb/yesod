@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
 using wai and persistent.
@@ -37,14 +38,16 @@ module Yesod.Test
     -- add values, add files, lookup fields by label and find the current
     -- nonce value and add it to your request too.
     --
-    , post
-    , post_
     , get
-    , get_
-    , doRequest
-    , doRequestHeaders
-    , byName
-    , fileByName
+    , post
+    , request
+    , addHeader
+    , setMethod
+    , addPostParam
+    , addGetParam
+    , addFile
+    , RequestBuilder
+    , setUrl
 
     -- | Yesod can auto generate field ids, so you are never sure what
     -- the argument name should be for each one of your args when constructing
@@ -98,7 +101,7 @@ import qualified Network.HTTP.Types as H
 import qualified Network.Socket.Internal as Sock
 import Data.CaseInsensitive (CI)
 import Network.Wai
-import Network.Wai.Test hiding (assertHeader, assertNoHeader)
+import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import qualified Control.Monad.Trans.State as ST
 import Control.Monad.IO.Class
 import System.IO
@@ -159,9 +162,14 @@ getTestYesod = fmap yedSite ST.get
 getResponse :: YesodExample site (Maybe SResponse)
 getResponse = fmap yedResponse ST.get
 
-data RequestBuilderData = RequestBuilderData
+data RequestBuilderData site = RequestBuilderData
     { rbdPosts :: [RequestPart]
     , rbdResponse :: (Maybe SResponse)
+    , rbdMethod :: H.Method
+    , rbdSite :: site
+    , rbdPath :: [T.Text]
+    , rbdGets :: H.Query
+    , rbdHeaders :: H.RequestHeaders
     }
 
 -- | Request parts let us discern regular key/values from files sent in the request.
@@ -172,7 +180,7 @@ data RequestPart
 -- | The RequestBuilder state monad constructs an url encoded string of arguments
 -- to send with your requests. Some of the functions that run on it use the current
 -- response to analize the forms that the server is expecting to receive.
-type RequestBuilder = ST.StateT RequestBuilderData IO
+type RequestBuilder site = ST.StateT (RequestBuilderData site) IO
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
@@ -336,22 +344,30 @@ printMatches query = do
   liftIO $ hPutStrLn stderr $ show matches
 
 -- | Add a parameter with the given name and value.
-byName :: T.Text -> T.Text -> RequestBuilder ()
-byName name value = do
-  RequestBuilderData parts r <- ST.get
-  ST.put $ RequestBuilderData ((ReqPlainPart name value):parts) r
+addPostParam :: T.Text -> T.Text -> RequestBuilder site ()
+addPostParam name value =
+    ST.modify $ \rbd -> rbd
+        { rbdPosts = ReqPlainPart name value : rbdPosts rbd
+        }
+
+addGetParam :: T.Text -> T.Text -> RequestBuilder site ()
+addGetParam name value = ST.modify $ \rbd -> rbd
+    { rbdGets = (TE.encodeUtf8 name, Just $ TE.encodeUtf8 value)
+              : rbdGets rbd
+    }
 
 -- | Add a file to be posted with the current request
 --
 -- Adding a file will automatically change your request content-type to be multipart/form-data
-fileByName :: T.Text -> FilePath -> T.Text -> RequestBuilder ()
-fileByName name path mimetype = do
-  RequestBuilderData parts r <- ST.get
+addFile :: T.Text -> FilePath -> T.Text -> RequestBuilder site ()
+addFile name path mimetype = do
   contents <- liftIO $ BSL8.readFile path
-  ST.put $ RequestBuilderData ((ReqFilePart name path contents mimetype):parts) r
+  ST.modify $ \rbd -> rbd
+    { rbdPosts = ReqFilePart name path contents mimetype : rbdPosts rbd
+    }
 
 -- This looks up the name of a field based on the contents of the label pointing to it.
-nameFromLabel :: T.Text -> RequestBuilder T.Text
+nameFromLabel :: T.Text -> RequestBuilder site T.Text
 nameFromLabel label = do
   mres <- fmap rbdResponse ST.get
   res <-
@@ -390,94 +406,109 @@ nameFromLabel label = do
 (<>) :: T.Text -> T.Text -> T.Text
 (<>) = T.append
 
-byLabel :: T.Text -> T.Text -> RequestBuilder ()
+byLabel :: T.Text -> T.Text -> RequestBuilder site ()
 byLabel label value = do
   name <- nameFromLabel label
-  byName name value
+  addPostParam name value
 
-fileByLabel :: T.Text -> FilePath -> T.Text -> RequestBuilder ()
+fileByLabel :: T.Text -> FilePath -> T.Text -> RequestBuilder site ()
 fileByLabel label path mime = do
   name <- nameFromLabel label
-  fileByName name path mime
+  addFile name path mime
 
 -- | Lookup a _nonce form field and add it's value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the nonce.
-addNonce_ :: Query -> RequestBuilder ()
+addNonce_ :: Query -> RequestBuilder site ()
 addNonce_ scope = do
   matches <- htmlQuery' rbdResponse $ scope <> "input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No nonce found in the current page"
-    element:[] -> byName "_token" $ head $ attribute "value" $ parseHTML element
+    element:[] -> addPostParam "_token" $ head $ attribute "value" $ parseHTML element
     _ -> failure $ "More than one nonce found in the page"
 
 -- | For responses that display a single form, just lookup the only nonce available.
-addNonce :: RequestBuilder ()
+addNonce :: RequestBuilder site ()
 addNonce = addNonce_ ""
 
--- | Perform a POST request to url, using params
+-- | Perform a POST request to url
 post :: (Yesod site, RedirectUrl site url)
-     => url -> RequestBuilder () -> YesodExample site ()
-post url paramsBuild = do
-  doRequest "POST" url paramsBuild
-
--- | Perform a POST request without params
-post_ :: (Yesod site, RedirectUrl site url) => url -> YesodExample site ()
-post_ = flip post $ return ()
+     => url
+     -> YesodExample site ()
+post url = request $ do
+    setMethod "POST"
+    setUrl url
 
 -- | Perform a GET request to url, using params
-get :: (Yesod site, RedirectUrl site url) => url -> RequestBuilder () -> YesodExample site ()
-get url paramsBuild = doRequest "GET" url paramsBuild
+get :: (Yesod site, RedirectUrl site url)
+    => url
+    -> YesodExample site ()
+get url = request $ do
+    setMethod "GET"
+    setUrl url
 
--- | Perform a GET request without params
-get_ :: (Yesod site, RedirectUrl site url) => url -> YesodExample site ()
-get_ = flip get $ return ()
+setMethod :: H.Method -> RequestBuilder site ()
+setMethod m = ST.modify $ \rbd -> rbd { rbdMethod = m }
 
--- | General interface to performing requests, letting you specify the request method
-doRequest :: (Yesod site, RedirectUrl site url)
-          => H.Method -> url -> RequestBuilder a -> YesodExample site ()
-doRequest method url paramsBuild = doRequestHeaders method url [] paramsBuild
-
-fromHandler :: Yesod site => HandlerT site IO a -> YesodExample site a
-fromHandler h = do
-    site <- fmap yedSite ST.get
-    eres <- runFakeHandler
+setUrl :: (Yesod site, RedirectUrl site url)
+       => url
+       -> RequestBuilder site ()
+setUrl url' = do
+    site <- fmap rbdSite ST.get
+    eurl <- runFakeHandler
         M.empty
         (const $ error "Yesod.Test: No logger available")
         site
-        h
-    either (error . show) return eres
+        (toTextUrl url')
+    url <- either (error . show) return eurl
+    -- FIXME deal with complete URLs
+    let (urlPath, urlQuery) = T.break (== '?') url
+    ST.modify $ \rbd -> rbd
+        { rbdPath =
+            case DL.filter (/="") $ T.split (== '/') urlPath of
+                ("http":_:rest) -> rest
+                ("https":_:rest) -> rest
+                x -> x
+        , rbdGets = rbdGets rbd ++ H.parseQuery (TE.encodeUtf8 urlQuery)
+        }
+
+addHeader :: H.Header -> RequestBuilder site ()
+addHeader header = ST.modify $ \rbd -> rbd
+    { rbdHeaders = header : rbdHeaders rbd
+    }
 
 -- | General interface to performing requests, allowing you to add extra
 -- headers as well as letting you specify the request method.
-doRequestHeaders :: (Yesod site, RedirectUrl site url)
-                 => H.Method
-                 -> url
-                 -> [H.Header]
-                 -> RequestBuilder a
-                 -> YesodExample site ()
-doRequestHeaders method url' extrahead paramsBuild = do
-    url <- fromHandler $ toTextUrl url'
-    let (urlPath, urlQuery) = T.break (== '?') url
-    YesodExampleData app conn oldCookies mRes <- ST.get
+request :: Yesod site
+        => RequestBuilder site ()
+        -> YesodExample site ()
+request reqBuilder = do
+    YesodExampleData app site oldCookies mRes <- ST.get
+
+    RequestBuilderData {..} <- liftIO $ ST.execStateT reqBuilder RequestBuilderData
+      { rbdPosts = []
+      , rbdResponse = mRes
+      , rbdMethod = "GET"
+      , rbdSite = site
+      , rbdPath = []
+      , rbdGets = []
+      , rbdHeaders = []
+      }
+    let path = T.cons '/' $ T.intercalate "/" rbdPath
 
     -- expire cookies and filter them for the current path. TODO: support max age
     currentUtc <- liftIO getCurrentTime
     let cookies = M.filter (checkCookieTime currentUtc) oldCookies
-        cookiesForPath = M.filter (checkCookiePath url) cookies
+        cookiesForPath = M.filter (checkCookiePath path) cookies
 
-    RequestBuilderData parts _ <- liftIO $ ST.execStateT paramsBuild RequestBuilderData
-      { rbdPosts = []
-      , rbdResponse = mRes
-      }
     let maker
-          | DL.any isFile parts = makeMultipart
+          | DL.any isFile rbdPosts = makeMultipart
           | otherwise = makeSinglepart
-        req = maker cookiesForPath parts urlPath urlQuery
+        req = maker cookiesForPath rbdPosts rbdMethod rbdHeaders path rbdGets
 
     response <- liftIO $ runSession (srequest req) app
     let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
-    ST.put $ YesodExampleData app conn cookies' (Just response)
+    ST.put $ YesodExampleData app site cookies' (Just response)
   where
     isFile (ReqFilePart _ _ _ _) = True
     isFile _ = False
@@ -494,12 +525,12 @@ doRequestHeaders method url' extrahead paramsBuild = do
     boundary :: String
     boundary = "*******noneedtomakethisrandom"
     separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
-    makeMultipart cookies parts urlPath urlQuery =
+    makeMultipart cookies parts method extraHeaders urlPath urlQuery =
       flip SRequest (BSL8.fromChunks [multiPartBody parts]) $ mkRequest
-        ([ ("Cookie", Builder.toByteString $ Cookie.renderCookies
+        [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
               [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
         , ("Content-Type", BS8.pack $ "multipart/form-data; boundary=" ++ boundary)
-        ] ++ extrahead) urlPath urlQuery
+        ] method extraHeaders urlPath urlQuery
     multiPartBody parts =
       BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
     multipartPart (ReqPlainPart k v) = BS8.concat
@@ -514,25 +545,25 @@ doRequestHeaders method url' extrahead paramsBuild = do
       , BS8.concat $ BSL8.toChunks bytes, "\r\n"]
 
     -- For building the regular non-multipart requests
-    makeSinglepart cookies parts urlPath urlQuery = SRequest (mkRequest
-      ([ ("Cookie", Builder.toByteString $ Cookie.renderCookies
+    makeSinglepart cookies parts method extraHeaders urlPath urlQuery = SRequest (mkRequest
+      [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
               [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
       , ("Content-Type", "application/x-www-form-urlencoded")
-      ] ++ extrahead) urlPath urlQuery) $
+      ] method extraHeaders urlPath urlQuery) $
       BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&" $ map singlepartPart parts
 
     singlepartPart (ReqFilePart _ _ _ _) = ""
     singlepartPart (ReqPlainPart k v) = T.concat [k,"=",v]
 
     -- General request making
-    mkRequest headers urlPath urlQuery = defaultRequest
+    mkRequest headers method extraHeaders urlPath urlQuery = defaultRequest
       { requestMethod = method
       , remoteHost = Sock.SockAddrInet 1 2
-      , requestHeaders = headers
+      , requestHeaders = headers ++ extraHeaders
       , rawPathInfo = TE.encodeUtf8 urlPath
       , pathInfo = DL.filter (/="") $ T.split (== '/') urlPath
-      , rawQueryString = TE.encodeUtf8 urlQuery
-      , queryString = H.parseQuery $ TE.encodeUtf8 urlQuery
+      , rawQueryString = H.renderQuery False urlQuery
+      , queryString = urlQuery
       }
 
 -- Yes, just a shortcut

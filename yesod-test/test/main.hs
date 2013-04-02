@@ -72,18 +72,18 @@ main = hspec $ do
     describe "basic usage" $ yesodSpec app $ do
         ydescribe "tests1" $ do
             yit "tests1a" $ do
-                get_ ("/" :: Text)
+                get ("/" :: Text)
                 statusIs 200
                 bodyEquals "Hello world!"
             yit "tests1b" $ do
-                get_ ("/foo" :: Text)
+                get ("/foo" :: Text)
                 statusIs 404
         ydescribe "tests2" $ do
             yit "type-safe URLs" $ do
-                get_ $ LiteAppRoute []
+                get $ LiteAppRoute []
                 statusIs 200
             yit "type-safe URLs with query-string" $ do
-                get_ (LiteAppRoute [], [("foo", "bar")])
+                get (LiteAppRoute [], [("foo", "bar")])
                 statusIs 200
                 bodyEquals "foo=bar"
             yit "tests2b" $ return ()
