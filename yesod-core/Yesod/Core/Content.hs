@@ -213,12 +213,12 @@ simpleContentType = fst . B.breakByte 59 -- 59 == ;
 -- Give just the media types as a pair.
 -- For example, \"text/html; charset=utf-8\" returns ("text", "html")
 contentTypeTypes :: ContentType -> (B.ByteString, B.ByteString)
-contentTypeTypes ct = (main, fst $ B.breakByte space (tailEmpty sub))
+contentTypeTypes ct = (main, fst $ B.breakByte semicolon (tailEmpty sub))
   where
     tailEmpty x = if B.null x then "" else B.tail x
     (main, sub) = B.breakByte slash ct
     slash = 47
-    space = 32
+    semicolon = 59
 
 
 instance HasContentType a => HasContentType (DontFullyEvaluate a) where
