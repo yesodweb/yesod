@@ -43,6 +43,7 @@ import Data.ByteString.Lazy.Char8 ()
 import Data.Text (Text)
 import Data.Monoid (mappend)
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Char8 as S8
 import qualified Blaze.ByteString.Builder
 import Network.HTTP.Types (status301)
 import Yesod.Routes.Parse
@@ -62,6 +63,8 @@ import Network.Wai.Middleware.MethodOverride
 import qualified Network.Wai.Handler.Warp
 import System.Log.FastLogger
 import Control.Monad.Logger
+import qualified Paths_yesod_core
+import Data.Version (showVersion)
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This function will provide no middlewares; if you want commonly
@@ -140,7 +143,17 @@ toWaiApp site = do
 --
 -- Since 1.2.0
 warp :: YesodDispatch site => Int -> site -> IO ()
-warp port site = toWaiApp site >>= Network.Wai.Handler.Warp.run port
+warp port site = toWaiApp site >>= Network.Wai.Handler.Warp.runSettings
+    Network.Wai.Handler.Warp.defaultSettings
+        { Network.Wai.Handler.Warp.settingsPort = port
+        , Network.Wai.Handler.Warp.settingsServerName = S8.pack $ concat
+            [ "Warp/"
+            , Network.Wai.Handler.Warp.warpVersion
+            , " + Yesod/"
+            , showVersion Paths_yesod_core.version
+            , " (core)"
+            ]
+        }
 
 -- | A default set of middlewares.
 --
