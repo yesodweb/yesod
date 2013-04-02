@@ -24,7 +24,7 @@ backend pre-conditions, or to assert that your session is having the desired eff
 
 module Yesod.Test (
   -- * Declaring and running your test suite
-  yesodSpec, YesodSpec, YesodSpecM, YesodSpecTree (..), ydescribe, yit,
+  yesodSpec, YesodSpec, YesodSpecTree (..), ydescribe, yit,
 
   -- * Making requests
   -- | To make a request you need to point to an url and pass in some parameters.
@@ -53,6 +53,7 @@ module Yesod.Test (
 
   -- * Grab information
   getTestYesod,
+  getResponse,
 
   -- * Utils for debugging tests
   printBody, printMatches,
@@ -84,7 +85,6 @@ import Control.Monad.IO.Class
 import System.IO
 import Yesod.Test.TransversingCSS
 import Yesod.Core (toWaiAppPlain, YesodDispatch)
-import Data.Monoid (mappend)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import Text.XML.Cursor hiding (element)
@@ -96,21 +96,54 @@ import qualified Web.Cookie as Cookie
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
 
--- | The state used in a single test case defined using 'it'
-data OneSpecData site = OneSpecData Application site Cookies (Maybe SResponse)
+-- | The state used in a single test case defined using 'yit'
+--
+-- Since 1.2.0
+data YesodExampleData site = YesodExampleData
+    { yedApp :: !Application
+    , yedSite :: !site
+    , yedCookies :: !Cookies
+    , yedResponse :: !(Maybe SResponse)
+    }
+
+-- | A single test case, to be run with 'yit'.
+--
+-- Since 1.2.0
+type YesodExample site = ST.StateT (YesodExampleData site) IO
+
+-- | Mapping from cookie name to value.
+--
+-- Since 1.2.0
+type Cookies = M.Map ByteString Cookie.SetCookie
+
+-- | Corresponds to hspec\'s 'Spec'.
+--
+-- Since 1.2.0
+type YesodSpec site = Writer [YesodSpecTree site] ()
+
+-- | Internal data structure, corresponding to hspec\'s 'YesodSpecTree'.
+--
+-- Since 1.2.0
+data YesodSpecTree site
+    = YesodSpecGroup String [YesodSpecTree site]
+    | YesodSpecItem String (YesodExample site ())
 
 -- | Get the foundation value used for the current test.
 --
 -- Since 1.2.0
 getTestYesod :: YesodExample site site
-getTestYesod = do
-    OneSpecData _ site _ _ <- ST.get
-    return site
+getTestYesod = fmap yedSite ST.get
 
--- | The OneSpec state monad is where 'yit' runs.
-type YesodExample site = ST.StateT (OneSpecData site) IO
+-- | Get the most recently provided response value, if available.
+--
+-- Since 1.2.0
+getResponse :: YesodExample site (Maybe SResponse)
+getResponse = fmap yedResponse ST.get
 
-data RequestBuilderData = RequestBuilderData [RequestPart] (Maybe SResponse)
+data RequestBuilderData = RequestBuilderData
+    { rbdPosts :: [RequestPart]
+    , rbdResponse :: (Maybe SResponse)
+    }
 
 -- | Request parts let us discern regular key/values from files sent in the request.
 data RequestPart
@@ -122,28 +155,10 @@ data RequestPart
 -- response to analize the forms that the server is expecting to receive.
 type RequestBuilder = ST.StateT RequestBuilderData IO
 
--- | Both the OneSpec and RequestBuilder monads hold a response that can be analized,
--- by making them instances of this class we can have general methods that work on
--- the last received response.
-class HoldsResponse a where
-  readResponse :: a -> Maybe SResponse
-instance HoldsResponse (OneSpecData conn) where
-  readResponse (OneSpecData _ _ _ x) = x
-instance HoldsResponse RequestBuilderData where
-  readResponse (RequestBuilderData _ x) = x
-
-type Cookies = M.Map ByteString Cookie.SetCookie
-
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
 ydescribe :: String -> YesodSpec site -> YesodSpec site
 ydescribe label yspecs = tell [YesodSpecGroup label $ execWriter yspecs]
-
-type YesodSpec site = YesodSpecM site ()
-type YesodSpecM site = Writer [YesodSpecTree site]
-data YesodSpecTree site
-    = YesodSpecGroup String [YesodSpecTree site]
-    | YesodSpecItem String (YesodExample site ())
 
 yesodSpec :: YesodDispatch site
           => site
@@ -155,7 +170,12 @@ yesodSpec site yspecs =
     unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = Core.it x $ do
         app <- toWaiAppPlain site
-        ST.evalStateT y $ OneSpecData app site M.empty Nothing
+        ST.evalStateT y YesodExampleData
+            { yedApp = app
+            , yedSite = site
+            , yedCookies = M.empty
+            , yedResponse = Nothing
+            }
 
 -- | Describe a single test that keeps cookies, and a reference to the last response.
 yit :: String -> YesodExample site () -> YesodSpec site
@@ -163,9 +183,17 @@ yit label example = tell [YesodSpecItem label example]
 
 -- Performs a given action using the last response. Use this to create
 -- response-level assertions
-withResponse :: HoldsResponse a => (SResponse -> ST.StateT a IO b) -> ST.StateT a IO b
-withResponse f = maybe err f =<< fmap readResponse ST.get
+withResponse' :: MonadIO m
+              => (state -> Maybe SResponse)
+              -> (SResponse -> ST.StateT state m a)
+              -> ST.StateT state m a
+withResponse' getter f = maybe err f . getter =<< ST.get
  where err = failure "There was no response, you should make a request"
+
+-- | Performs a given action using the last response. Use this to create
+-- response-level assertions
+withResponse :: (SResponse -> YesodExample site a) -> YesodExample site a
+withResponse = withResponse' yedResponse
 
 -- | Use HXT to parse a value from an html tag.
 -- Check for usage examples in this module's source.
@@ -173,18 +201,25 @@ parseHTML :: HtmlLBS -> Cursor
 parseHTML html = fromDocument $ HD.parseLBS html
 
 -- | Query the last response using css selectors, returns a list of matched fragments
-htmlQuery :: HoldsResponse a => Query -> ST.StateT a IO [HtmlLBS]
-htmlQuery query = withResponse $ \ res ->
+htmlQuery' :: MonadIO m
+           => (state -> Maybe SResponse)
+           -> Query
+           -> ST.StateT state m [HtmlLBS]
+htmlQuery' getter query = withResponse' getter $ \ res ->
   case findBySelector (simpleBody res) query of
     Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
     Right matches -> return $ map (encodeUtf8 . TL.pack) matches
+
+-- | Query the last response using css selectors, returns a list of matched fragments
+htmlQuery :: Query -> YesodExample site [HtmlLBS]
+htmlQuery = htmlQuery' yedResponse
 
 -- | Asserts that the two given values are equal.
 assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()
 assertEqual msg a b = liftIO $ HUnit.assertBool msg (a == b)
 
 -- | Assert the last response status is as expected.
-statusIs :: HoldsResponse a => Int -> ST.StateT a IO ()
+statusIs :: Int -> YesodExample site ()
 statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
   liftIO $ flip HUnit.assertBool (H.statusCode s == number) $ concat
     [ "Expected status was ", show number
@@ -192,7 +227,7 @@ statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
     ]
 
 -- | Assert the given header key/value pair was returned.
-assertHeader :: HoldsResponse a => CI BS8.ByteString -> BS8.ByteString -> ST.StateT a IO ()
+assertHeader :: CI BS8.ByteString -> BS8.ByteString -> YesodExample site ()
 assertHeader header value = withResponse $ \ SResponse { simpleHeaders = h } ->
   case lookup header h of
     Nothing -> failure $ T.pack $ concat
@@ -212,7 +247,7 @@ assertHeader header value = withResponse $ \ SResponse { simpleHeaders = h } ->
         ]
 
 -- | Assert the given header was not included in the response.
-assertNoHeader :: HoldsResponse a => CI BS8.ByteString -> ST.StateT a IO ()
+assertNoHeader :: CI BS8.ByteString -> YesodExample site ()
 assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
   case lookup header h of
     Nothing -> return ()
@@ -225,14 +260,14 @@ assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
 
 -- | Assert the last response is exactly equal to the given text. This is
 -- useful for testing API responses.
-bodyEquals :: HoldsResponse a => String -> ST.StateT a IO ()
+bodyEquals :: String -> YesodExample site ()
 bodyEquals text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to equal " ++ text) $
     (simpleBody res) == BSL8.pack text
 
 -- | Assert the last response has the given text. The check is performed using the response
 -- body in full text form.
-bodyContains :: HoldsResponse a => String -> ST.StateT a IO ()
+bodyContains :: String -> YesodExample site ()
 bodyContains text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to contain " ++ text) $
     (simpleBody res) `contains` text
@@ -242,7 +277,7 @@ contains a b = DL.isInfixOf b (BSL8.unpack a)
 
 -- | Queries the html using a css selector, and all matched elements must contain
 -- the given string.
-htmlAllContain :: HoldsResponse a => Query -> String -> ST.StateT a IO ()
+htmlAllContain :: Query -> String -> YesodExample site ()
 htmlAllContain query search = do
   matches <- htmlQuery query
   case matches of
@@ -254,7 +289,7 @@ htmlAllContain query search = do
 -- element contains the given string.
 --
 -- Since 0.3.5
-htmlAnyContain :: HoldsResponse a => Query -> String -> ST.StateT a IO ()
+htmlAnyContain :: Query -> String -> YesodExample site ()
 htmlAnyContain query search = do
   matches <- htmlQuery query
   case matches of
@@ -264,19 +299,19 @@ htmlAnyContain query search = do
 
 -- | Performs a css query on the last response and asserts the matched elements
 -- are as many as expected.
-htmlCount :: HoldsResponse a => Query -> Int -> ST.StateT a IO ()
+htmlCount :: Query -> Int -> YesodExample site ()
 htmlCount query count = do
   matches <- fmap DL.length $ htmlQuery query
   liftIO $ flip HUnit.assertBool (matches == count)
     ("Expected "++(show count)++" elements to match "++T.unpack query++", found "++(show matches))
 
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec)
-printBody :: HoldsResponse a => ST.StateT a IO ()
-printBody = withResponse $ \ SResponse { simpleBody = b } -> 
+printBody :: YesodExample site ()
+printBody = withResponse $ \ SResponse { simpleBody = b } ->
   liftIO $ hPutStrLn stderr $ BSL8.unpack b
 
 -- | Performs a CSS query and print the matches to stderr.
-printMatches :: HoldsResponse a => Query -> ST.StateT a IO ()
+printMatches :: Query -> YesodExample site ()
 printMatches query = do
   matches <- htmlQuery query
   liftIO $ hPutStrLn stderr $ show matches
@@ -298,7 +333,12 @@ fileByName name path mimetype = do
 
 -- This looks up the name of a field based on the contents of the label pointing to it.
 nameFromLabel :: T.Text -> RequestBuilder T.Text
-nameFromLabel label = withResponse $ \ res -> do
+nameFromLabel label = do
+  mres <- fmap rbdResponse ST.get
+  res <-
+    case mres of
+      Nothing -> failure "nameFromLabel: No response available"
+      Just res -> return res
   let
     body = simpleBody res
     mfor = parseHTML body
@@ -345,7 +385,7 @@ fileByLabel label path mime = do
 -- Receives a CSS selector that should resolve to the form element containing the nonce.
 addNonce_ :: Query -> RequestBuilder ()
 addNonce_ scope = do
-  matches <- htmlQuery $ scope `mappend` "input[name=_token][type=hidden][value]"
+  matches <- htmlQuery' rbdResponse $ scope <> "input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No nonce found in the current page"
     element:[] -> byName "_token" $ head $ attribute "value" $ parseHTML element
@@ -380,22 +420,26 @@ doRequest method url paramsBuild = doRequestHeaders method url [] paramsBuild
 -- headers as well as letting you specify the request method.
 doRequestHeaders :: H.Method -> BS8.ByteString -> [H.Header] -> RequestBuilder a -> YesodExample site ()
 doRequestHeaders method url extrahead paramsBuild = do
-  OneSpecData app conn oldCookies mRes <- ST.get
+  YesodExampleData app conn oldCookies mRes <- ST.get
 
   -- expire cookies and filter them for the current path. TODO: support max age
   currentUtc <- liftIO getCurrentTime
   let cookies = M.filter (checkCookieTime currentUtc) oldCookies
       cookiesForPath = M.filter checkCookiePath cookies
 
-  RequestBuilderData parts _ <- liftIO $ ST.execStateT paramsBuild $ RequestBuilderData [] mRes
-  let req = if DL.any isFile parts
-          then makeMultipart cookiesForPath parts
-          else makeSinglepart cookiesForPath parts
+  RequestBuilderData parts _ <- liftIO $ ST.execStateT paramsBuild RequestBuilderData
+    { rbdPosts = []
+    , rbdResponse = mRes
+    }
+  let maker
+        | DL.any isFile parts = makeMultipart
+        | otherwise = makeSinglepart
+      req = maker cookiesForPath parts
 
   response <- liftIO $ runSession (srequest req) app
   let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
       cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
-  ST.put $ OneSpecData app conn cookies' (Just response)
+  ST.put $ YesodExampleData app conn cookies' (Just response)
  where
   isFile (ReqFilePart _ _ _ _) = True
   isFile _ = False
