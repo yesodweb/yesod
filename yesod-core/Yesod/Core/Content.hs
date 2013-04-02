@@ -31,6 +31,8 @@ module Yesod.Core.Content
     , typeOctet
       -- * Utilities
     , simpleContentType
+    , contentTypeBaseType
+    , contentTypeTypes
       -- * Evaluation strategy
     , DontFullyEvaluate (..)
       -- * Representations
@@ -208,6 +210,23 @@ typeOctet = "application/octet-stream"
 -- character encoding for HTML data. This function would return \"text/html\".
 simpleContentType :: ContentType -> ContentType
 simpleContentType = fst . B.breakByte 59 -- 59 == ;
+
+-- Strip the subtype and any other extra information.
+-- For example, \"text/html; charset=utf-8\" return "text"
+contentTypeBaseType :: ContentType -> B.ByteString
+contentTypeBaseType = fst . B.breakByte slash
+  where slash = 47
+
+-- Give just the media types as a pair.
+-- For example, \"text/html; charset=utf-8\" returns ("text", "html")
+contentTypeTypes :: ContentType -> (B.ByteString, B.ByteString)
+contentTypeTypes ct = (main, fst $ B.breakByte space (tailEmpty sub))
+  where
+    tailEmpty x = if B.null x then "" else B.tail x
+    (main, sub) = B.breakByte slash ct
+    slash = 47
+    space = 32
+
 
 instance HasContentType a => HasContentType (DontFullyEvaluate a) where
     getContentType = getContentType . liftM unDontFullyEvaluate

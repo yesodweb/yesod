@@ -292,11 +292,11 @@ authorizationCheck = do
                         void $ permissionDenied "Authentication required"
                     Just url' -> do
                       void $ selectRep $ do
-                          provideRepType typeJson $ do
-                              void $ permissionDenied "Authentication required"
                           provideRepType typeHtml $ do
                               setUltDestCurrent
                               void $ redirect url'
+                          provideRepType typeJson $ do
+                              void $ permissionDenied "Authentication required"
             Unauthorized s' -> permissionDenied s'
 
 -- | Convert a widget to a 'PageContent'.
