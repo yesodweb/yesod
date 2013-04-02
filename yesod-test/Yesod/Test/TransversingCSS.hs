@@ -27,7 +27,7 @@ Only a subset of the CSS spec is currently supported:
 
 module Yesod.Test.TransversingCSS (
   findBySelector,
-  Html,
+  HtmlLBS,
   Query,
   -- * For HXT hackers
   -- | These functions expose some low level details that you can blissfully ignore.
@@ -50,14 +50,14 @@ import Text.Blaze.Html (toHtml)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 
 type Query = T.Text
-type Html = L.ByteString
+type HtmlLBS = L.ByteString
 
 -- | Perform a css 'Query' on 'Html'. Returns Either
 --
 -- * Left: Query parse error.
 --
 -- * Right: List of matching Html fragments.
-findBySelector :: Html -> Query -> Either String [String]
+findBySelector :: HtmlLBS -> Query -> Either String [String]
 findBySelector html query = (\x -> map (renderHtml . toHtml . node) . runQuery x)
     <$> (Right $ fromDocument $ HD.parseLBS html)
     <*> parseQuery query

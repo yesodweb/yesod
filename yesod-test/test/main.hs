@@ -3,6 +3,8 @@
 import Test.HUnit hiding (Test)
 import Test.Hspec
 
+import Yesod.Core (liteApp, dispatchTo, Html)
+import Yesod.Test
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
 import Text.XML
@@ -60,3 +62,16 @@ main = hspec $ do
                         ]
                     ]
              in parseHtml_ html @?= doc
+    let app = liteApp $ dispatchTo $ return ("Hello world!" :: Html)
+    describe "basic usage" $ yesodSpec app $ do
+        ydescribe "tests1" $ do
+            yit "tests1a" $ do
+                get_ "/"
+                statusIs 200
+                bodyEquals "Hello world!"
+            yit "tests1b" $ do
+                get_ "/foo"
+                statusIs 404
+        ydescribe "tests2" $ do
+            yit "tests2a" $ return ()
+            yit "tests2b" $ return ()
