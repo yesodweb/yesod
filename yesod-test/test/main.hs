@@ -3,11 +3,13 @@
 import Test.HUnit hiding (Test)
 import Test.Hspec
 
-import Yesod.Core (liteApp, dispatchTo, Html)
+import Yesod.Core
 import Yesod.Test
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
 import Text.XML
+import Data.Text (Text)
+import Data.Monoid ((<>))
 
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
@@ -62,16 +64,26 @@ main = hspec $ do
                         ]
                     ]
              in parseHtml_ html @?= doc
-    let app = liteApp $ dispatchTo $ return ("Hello world!" :: Html)
+    let app = liteApp $ dispatchTo $ do
+            mfoo <- lookupGetParam "foo"
+            case mfoo of
+                Nothing -> return "Hello world!"
+                Just foo -> return $ "foo=" <> foo
     describe "basic usage" $ yesodSpec app $ do
         ydescribe "tests1" $ do
             yit "tests1a" $ do
-                get_ "/"
+                get_ ("/" :: Text)
                 statusIs 200
                 bodyEquals "Hello world!"
             yit "tests1b" $ do
-                get_ "/foo"
+                get_ ("/foo" :: Text)
                 statusIs 404
         ydescribe "tests2" $ do
-            yit "tests2a" $ return ()
+            yit "type-safe URLs" $ do
+                get_ $ LiteAppRoute []
+                statusIs 200
+            yit "type-safe URLs with query-string" $ do
+                get_ (LiteAppRoute [], [("foo", "bar")])
+                statusIs 200
+                bodyEquals "foo=bar"
             yit "tests2b" $ return ()
