@@ -24,7 +24,7 @@ backend pre-conditions, or to assert that your session is having the desired eff
 
 module Yesod.Test (
   -- * Declaring and running your test suite
-  runTests, describe, it, SpecsConn, OneSpec,
+  yesodSpec, YesodSpec, YesodSpecM, YesodSpecTree (..), ydescribe, yit,
 
   -- * Making requests
   -- | To make a request you need to point to an url and pass in some parameters.
@@ -32,7 +32,7 @@ module Yesod.Test (
   -- To build your parameters you will use the RequestBuilder monad that lets you
   -- add values, add files, lookup fields by label and find the current
   -- nonce value and add it to your request too.
-  -- 
+  --
   post, post_, get, get_, doRequest, doRequestHeaders,
   byName, fileByName,
 
@@ -47,12 +47,12 @@ module Yesod.Test (
   -- request parameters.
   addNonce, addNonce_,
 
-  -- * Running database queries
-  runDBRunner,
-
   -- * Assertions
   assertEqual, assertHeader, assertNoHeader, statusIs, bodyEquals, bodyContains,
   htmlAllContain, htmlAnyContain, htmlCount,
+
+  -- * Grab information
+  getTestYesod,
 
   -- * Utils for debugging tests
   printBody, printMatches,
@@ -65,8 +65,8 @@ module Yesod.Test (
 
 where
 
+import qualified Test.Hspec as Hspec
 import qualified Test.Hspec.Core as Core
-import qualified Test.Hspec.Runner as Runner
 import qualified Data.List as DL
 import qualified Data.ByteString.Char8 as BS8
 import Data.ByteString (ByteString)
@@ -83,32 +83,32 @@ import qualified Control.Monad.Trans.State as ST
 import Control.Monad.IO.Class
 import System.IO
 import Yesod.Test.TransversingCSS
+import Yesod.Core (toWaiAppPlain, YesodDispatch)
 import Data.Monoid (mappend)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import Text.XML.Cursor hiding (element)
 import qualified Text.XML.Cursor as C
 import qualified Text.HTML.DOM as HD
-import Data.Conduit.Pool (Pool)
-import Control.Monad.Trans.Control (MonadBaseControl)
+import Control.Monad.Trans.Writer
 import qualified Data.Map as M
 import qualified Web.Cookie as Cookie
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
 
--- | The state used in 'describe' to build a list of specs
-data SpecsData conn = SpecsData Application (Pool conn) [Core.SpecTree]
-
--- | The specs state monad is where 'describe' runs.
--- parameterized by a database connection.
--- You should create type Specs = SpecsConn MyDBConnection
-type SpecsConn conn = ST.StateT (SpecsData conn) IO ()
-
 -- | The state used in a single test case defined using 'it'
-data OneSpecData conn = OneSpecData Application (Pool conn) Cookies (Maybe SResponse)
+data OneSpecData site = OneSpecData Application site Cookies (Maybe SResponse)
 
--- | The OneSpec state monad is where 'it' runs.
-type OneSpec conn = ST.StateT (OneSpecData conn) IO
+-- | Get the foundation value used for the current test.
+--
+-- Since 1.2.0
+getTestYesod :: YesodExample site site
+getTestYesod = do
+    OneSpecData _ site _ _ <- ST.get
+    return site
+
+-- | The OneSpec state monad is where 'yit' runs.
+type YesodExample site = ST.StateT (OneSpecData site) IO
 
 data RequestBuilderData = RequestBuilderData [RequestPart] (Maybe SResponse)
 
@@ -134,35 +134,32 @@ instance HoldsResponse RequestBuilderData where
 
 type Cookies = M.Map ByteString Cookie.SetCookie
 
--- | Runs your test suite, using you wai 'Application' and 'ConnectionPool' for performing 
--- the database queries in your tests.
---
--- You application may already have your connection pool but you need to pass another one
--- separately here.
--- 
--- Look at the examples directory on this package to get an idea of the (small) amount of
--- boilerplate code you'll need to write before calling this.
-runTests :: Application -> Pool conn -> SpecsConn conn -> IO ()
-runTests app connection specsDef = do
-  (SpecsData _ _ specs) <- ST.execStateT specsDef (SpecsData app connection [])
-  (Runner.hspec . Core.fromSpecList) specs
-
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
-describe :: String -> SpecsConn conn -> SpecsConn conn
-describe label action = do
-  sData <- ST.get
-  SpecsData app conn specs <- liftIO $ ST.execStateT action sData
-  ST.put $ SpecsData app conn [Core.describe label specs]
+ydescribe :: String -> YesodSpec site -> YesodSpec site
+ydescribe label yspecs = tell [YesodSpecGroup label $ execWriter yspecs]
+
+type YesodSpec site = YesodSpecM site ()
+type YesodSpecM site = Writer [YesodSpecTree site]
+data YesodSpecTree site
+    = YesodSpecGroup String [YesodSpecTree site]
+    | YesodSpecItem String (YesodExample site ())
+
+yesodSpec :: YesodDispatch site
+          => site
+          -> YesodSpec site
+          -> Hspec.Spec
+yesodSpec site yspecs =
+    Core.fromSpecList $ map unYesod $ execWriter yspecs
+  where
+    unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
+    unYesod (YesodSpecItem x y) = Core.it x $ do
+        app <- toWaiAppPlain site
+        ST.evalStateT y $ OneSpecData app site M.empty Nothing
 
 -- | Describe a single test that keeps cookies, and a reference to the last response.
-it :: String -> OneSpec conn () -> SpecsConn conn
-it label action = do
-  SpecsData app conn specs <- ST.get
-  let spec = Core.it label $ do
-        _ <- ST.execStateT action $ OneSpecData app conn M.empty Nothing
-        return ()
-  ST.put $ SpecsData app conn $ spec : specs
+yit :: String -> YesodExample site () -> YesodSpec site
+yit label example = tell [YesodSpecItem label example]
 
 -- Performs a given action using the last response. Use this to create
 -- response-level assertions
@@ -172,18 +169,18 @@ withResponse f = maybe err f =<< fmap readResponse ST.get
 
 -- | Use HXT to parse a value from an html tag.
 -- Check for usage examples in this module's source.
-parseHTML :: Html -> Cursor
+parseHTML :: HtmlLBS -> Cursor
 parseHTML html = fromDocument $ HD.parseLBS html
 
 -- | Query the last response using css selectors, returns a list of matched fragments
-htmlQuery :: HoldsResponse a => Query -> ST.StateT a IO [Html]
+htmlQuery :: HoldsResponse a => Query -> ST.StateT a IO [HtmlLBS]
 htmlQuery query = withResponse $ \ res ->
   case findBySelector (simpleBody res) query of
     Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
     Right matches -> return $ map (encodeUtf8 . TL.pack) matches
 
 -- | Asserts that the two given values are equal.
-assertEqual :: (Eq a) => String -> a -> a -> OneSpec conn ()
+assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()
 assertEqual msg a b = liftIO $ HUnit.assertBool msg (a == b)
 
 -- | Assert the last response status is as expected.
@@ -359,29 +356,29 @@ addNonce :: RequestBuilder ()
 addNonce = addNonce_ ""
 
 -- | Perform a POST request to url, using params
-post :: BS8.ByteString -> RequestBuilder () -> OneSpec conn ()
+post :: BS8.ByteString -> RequestBuilder () -> YesodExample site ()
 post url paramsBuild = do
   doRequest "POST" url paramsBuild
 
 -- | Perform a POST request without params
-post_ :: BS8.ByteString -> OneSpec conn ()
+post_ :: BS8.ByteString -> YesodExample site ()
 post_ = flip post $ return ()
  
 -- | Perform a GET request to url, using params
-get :: BS8.ByteString -> RequestBuilder () -> OneSpec conn ()
+get :: BS8.ByteString -> RequestBuilder () -> YesodExample site ()
 get url paramsBuild = doRequest "GET" url paramsBuild
 
 -- | Perform a GET request without params
-get_ :: BS8.ByteString -> OneSpec conn ()
+get_ :: BS8.ByteString -> YesodExample site ()
 get_ = flip get $ return ()
 
 -- | General interface to performing requests, letting you specify the request method
-doRequest :: H.Method -> BS8.ByteString -> RequestBuilder a -> OneSpec conn ()
+doRequest :: H.Method -> BS8.ByteString -> RequestBuilder a -> YesodExample site ()
 doRequest method url paramsBuild = doRequestHeaders method url [] paramsBuild
 
 -- | General interface to performing requests, allowing you to add extra
 -- headers as well as letting you specify the request method.
-doRequestHeaders :: H.Method -> BS8.ByteString -> [H.Header] -> RequestBuilder a -> OneSpec conn ()
+doRequestHeaders :: H.Method -> BS8.ByteString -> [H.Header] -> RequestBuilder a -> YesodExample site ()
 doRequestHeaders method url extrahead paramsBuild = do
   OneSpecData app conn oldCookies mRes <- ST.get
 
@@ -456,16 +453,6 @@ doRequestHeaders method url extrahead paramsBuild = do
     }
 
   (urlPath, urlQuery) = BS8.break (== '?') url
-  
--- | Run a persistent db query. For asserting on the results of performed actions
--- or setting up pre-conditions. At the moment this part is still very raw.
---
--- It is intended that you parametize the first argument of this function for your backend
--- runDB = runDBRunnder SqlPersist
-runDBRunner :: (MonadBaseControl IO m, MonadIO m) => (poolrunner m a -> Pool conn -> IO a) -> poolrunner m a -> OneSpec conn a
-runDBRunner poolRunner query = do
-  OneSpecData _ pool _ _ <- ST.get
-  liftIO $ poolRunner query pool
 
 -- Yes, just a shortcut
 failure :: (MonadIO a) => T.Text -> a b

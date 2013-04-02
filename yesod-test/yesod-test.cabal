@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            0.4.0
+version:            1.2.0
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -38,6 +38,7 @@ library
                    , time
                    , blaze-builder
                    , cookie
+                   , yesod-core                >= 1.2
 
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
@@ -56,6 +57,7 @@ test-suite test
                           , bytestring
                           , containers
                           , html-conduit
+                          , yesod-core
 
 source-repository head
   type: git
