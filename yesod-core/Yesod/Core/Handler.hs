@@ -850,12 +850,14 @@ selectRep :: MonadHandler m
           => Writer.Writer (Endo [ProvidedRep m]) ()
           -> m TypedContent
 selectRep w = do
+    -- the content types are already sorted by q values
+    -- which have been stripped
     cts <- liftM reqAccept getRequest
 
     case mapMaybe tryAccept cts of
         [] ->
             case reps of
-                [] -> return $ toTypedContent ("No reps provided to selectRep" :: Text)
+                [] -> sendResponseStatus H.status500 ("No reps provided to selectRep" :: Text)
                 rep:_ ->
                   if null cts
                     then returnRep rep
@@ -864,6 +866,7 @@ selectRep w = do
   where
     explainUnaccepted :: Text
     explainUnaccepted = "no match found for accept header"
+
     returnRep (ProvidedRep ct mcontent) =
         mcontent >>= return . TypedContent ct
 
@@ -875,6 +878,8 @@ selectRep w = do
         , (simpleContentType k, v)
         ]) reps
 
+    -- match on the type for sub-type wildcards.
+    -- If the accept is text/* it should match a provided text/html
     mainTypeMap = Map.fromList $ reverse $ map
       (\v@(ProvidedRep ct _) -> (fst $ contentTypeTypes ct, v)) reps
 
