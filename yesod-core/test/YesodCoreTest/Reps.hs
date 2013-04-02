@@ -9,11 +9,15 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import Data.String (IsString)
 import Data.Text (Text)
+import Data.Maybe (fromJust)
+import Data.Monoid (Endo (..))
+import qualified Control.Monad.Trans.Writer    as Writer
 
 data App = App
 
 mkYesod "App" [parseRoutes|
-/ HomeR GET
+/     HomeR GET
+/json JsonR GET
 |]
 
 instance Yesod App
@@ -23,23 +27,39 @@ specialHtml = "text/html; charset=special"
 
 getHomeR :: Handler TypedContent
 getHomeR = selectRep $ do
-    let go ct t = provideRepType ct $ return (t :: Text)
-    go typeHtml "HTML"
-    go specialHtml "HTMLSPECIAL"
-    go typeJson "JSON"
-    go typeXml "XML"
+    rep typeHtml "HTML"
+    rep specialHtml "HTMLSPECIAL"
+    rep typeXml "XML"
+    rep typeJson "JSON"
+
+rep :: Monad m => ContentType -> Text -> Writer.Writer (Data.Monoid.Endo [ProvidedRep m]) ()
+rep ct t = provideRepType ct $ return (t :: Text)
+
+getJsonR :: Handler TypedContent
+getJsonR = selectRep $ do
+  rep typeHtml "HTML"
+  provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
+
+testRequest :: Request
+            -> ByteString -- ^ expected body
+            -> Spec
+testRequest req expected = it (S8.unpack $ fromJust $ lookup "Accept" $ requestHeaders req) $ do
+    app <- toWaiApp App
+    flip runSession app $ do
+        sres <- request req
+        assertBody expected sres
+        assertStatus 200 sres
 
 test :: String -- ^ accept header
      -> ByteString -- ^ expected body
      -> Spec
-test accept expected = it accept $ do
-    app <- toWaiApp App
-    flip runSession app $ do
-        sres <- request defaultRequest
+test accept expected =
+    testRequest (acceptRequest accept) expected
+
+acceptRequest :: String -> Request
+acceptRequest accept = defaultRequest
             { requestHeaders = [("Accept", S8.pack accept)]
             }
-        assertBody expected sres
-        assertStatus 200 sres
 
 specs :: Spec
 specs = describe "selectRep" $ do
@@ -53,3 +73,4 @@ specs = describe "selectRep" $ do
     test (S8.unpack typeHtml) "HTML"
     test "text/html" "HTML"
     test specialHtml "HTMLSPECIAL"
+    testRequest (acceptRequest "application/json") { pathInfo = ["json"] } "{\"message\":\"Invalid Login\"}"
