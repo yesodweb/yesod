@@ -60,8 +60,8 @@ specs = describe "Auth" $ do
     test "POST" "no-auth" $ \sres -> assertStatus 200 sres
     test "GET" "needs-login-html" $ \sres -> assertStatus 303 sres
     test "POST" "needs-login-html" $ \sres -> assertStatus 303 sres
-    test "GET" "needs-login-json" $ \sres -> assertStatus 403 sres
-    test "POST" "needs-login-json" $ \sres -> assertStatus 403 sres
+    test "GET" "needs-login-json" $ \sres -> assertStatus 401 sres
+    test "POST" "needs-login-json" $ \sres -> assertStatus 401 sres
     test "GET" "read-only" $ \sres -> assertStatus 200 sres
     test "POST" "read-only" $ \sres -> assertStatus 403 sres
     test "GET" "forbidden" $ \sres -> assertStatus 403 sres
