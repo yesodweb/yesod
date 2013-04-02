@@ -172,7 +172,7 @@ import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
-import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, HasContentType (..), ToContent (..), ToFlushBuilder (..))
+import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
@@ -186,6 +186,7 @@ import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
 import Control.Failure (failure)
 import Blaze.ByteString.Builder (Builder)
+import Safe (headMay)
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -849,27 +850,51 @@ selectRep :: MonadHandler m
           => Writer.Writer (Endo [ProvidedRep m]) ()
           -> m TypedContent
 selectRep w = do
+    -- the content types are already sorted by q values
+    -- which have been stripped
     cts <- liftM reqAccept getRequest
+
     case mapMaybe tryAccept cts of
         [] ->
             case reps of
-                [] -> return $ toTypedContent ("No reps provided to selectRep" :: Text)
-                rep:_ -> returnRep rep
+                [] -> sendResponseStatus H.status500 ("No reps provided to selectRep" :: Text)
+                rep:_ ->
+                  if null cts
+                    then returnRep rep
+                    else sendResponseStatus H.status406 explainUnaccepted
         rep:_ -> returnRep rep
   where
-    returnRep (ProvidedRep ct mcontent) = do
-        content <- mcontent
-        return $ TypedContent ct content
+    explainUnaccepted :: Text
+    explainUnaccepted = "no match found for accept header"
+
+    returnRep (ProvidedRep ct mcontent) =
+        mcontent >>= return . TypedContent ct
 
     reps = appEndo (Writer.execWriter w) []
+
     repMap = Map.unions $ map (\v@(ProvidedRep k _) -> Map.fromList
         [ (k, v)
         , (noSpace k, v)
         , (simpleContentType k, v)
         ]) reps
-    tryAccept ct = Map.lookup ct repMap <|>
-                   Map.lookup (noSpace ct) repMap <|>
-                   Map.lookup (simpleContentType ct) repMap
+
+    -- match on the type for sub-type wildcards.
+    -- If the accept is text/* it should match a provided text/html
+    mainTypeMap = Map.fromList $ reverse $ map
+      (\v@(ProvidedRep ct _) -> (fst $ contentTypeTypes ct, v)) reps
+
+    tryAccept ct =
+        if subType == "*"
+          then if mainType == "*"
+                 then headMay reps
+                 else Map.lookup mainType mainTypeMap
+          else lookupAccept ct
+        where
+          (mainType, subType) = contentTypeTypes ct
+
+    lookupAccept ct = Map.lookup ct repMap <|>
+                      Map.lookup (noSpace ct) repMap <|>
+                      Map.lookup (simpleContentType ct) repMap
 
     -- Mime types such as "text/html; charset=foo" get converted to
     -- "text/html;charset=foo"
