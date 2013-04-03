@@ -270,7 +270,7 @@ class RenderRoute site => Yesod site where
 -- Since 1.2.0
 defaultYesodMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
 defaultYesodMiddleware handler = do
-    setHeader "Vary" "Accept, Accept-Language"
+    addHeader "Vary" "Accept, Accept-Language"
     authorizationCheck
     handler
 
