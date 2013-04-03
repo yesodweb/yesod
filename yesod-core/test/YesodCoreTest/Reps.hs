@@ -40,21 +40,22 @@ getJsonR = selectRep $ do
   rep typeHtml "HTML"
   provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
 
-testRequest :: Request
+testRequest :: Int -- ^ http status code
+            -> Request
             -> ByteString -- ^ expected body
             -> Spec
-testRequest req expected = it (S8.unpack $ fromJust $ lookup "Accept" $ requestHeaders req) $ do
+testRequest status req expected = it (S8.unpack $ fromJust $ lookup "Accept" $ requestHeaders req) $ do
     app <- toWaiApp App
     flip runSession app $ do
         sres <- request req
+        assertStatus status sres
         assertBody expected sres
-        assertStatus 200 sres
 
 test :: String -- ^ accept header
      -> ByteString -- ^ expected body
      -> Spec
 test accept expected =
-    testRequest (acceptRequest accept) expected
+    testRequest 200 (acceptRequest accept) expected
 
 acceptRequest :: String -> Request
 acceptRequest accept = defaultRequest
@@ -68,9 +69,11 @@ specs = describe "selectRep" $ do
     test "text/xml" "XML"
     test (S8.unpack typeXml) "XML"
     test "text/xml,application/json" "XML"
-    test "text/foo" "HTML"
     test "text/xml;q=0.9,application/json;q=1.0" "JSON"
     test (S8.unpack typeHtml) "HTML"
     test "text/html" "HTML"
     test specialHtml "HTMLSPECIAL"
-    testRequest (acceptRequest "application/json") { pathInfo = ["json"] } "{\"message\":\"Invalid Login\"}"
+    testRequest 200 (acceptRequest "application/json") { pathInfo = ["json"] } "{\"message\":\"Invalid Login\"}"
+    testRequest 406 (acceptRequest "text/foo") "no match found for accept header"
+    test "text/*" "HTML"
+    test "*/*" "HTML"
