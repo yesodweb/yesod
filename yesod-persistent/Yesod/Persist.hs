@@ -18,9 +18,8 @@ module Yesod.Persist
     ) where
 
 import Database.Persist
-import Database.Persist.Store
 import Database.Persist.TH
-import Database.Persist.GenericSql (SqlPersist, unSqlPersist)
+import Database.Persist.Sql (SqlPersistT, unSqlPersistT)
 import Control.Monad.Trans.Reader (runReaderT)
 
 import Yesod.Core
@@ -29,7 +28,7 @@ import Blaze.ByteString.Builder (Builder)
 import Data.IORef.Lifted
 import Data.Conduit.Pool
 import Control.Monad.Trans.Resource
-import qualified Database.Persist.GenericSql.Internal as SQL
+import qualified Database.Persist.Sql as SQL
 
 type YesodDB site = YesodPersistBackend site (HandlerT site IO)
 
@@ -47,7 +46,7 @@ defaultRunDB :: PersistConfig c
              -> HandlerT site IO a
 defaultRunDB getConfig getPool f = do
     master <- getYesod
-    Database.Persist.Store.runPool
+    Database.Persist.runPool
         (getConfig master)
         f
         (getPool master)
@@ -77,7 +76,7 @@ newtype DBRunner site = DBRunner
 -- | Helper for implementing 'getDBRunner'.
 --
 -- Since 1.2.0
-defaultGetDBRunner :: YesodPersistBackend site ~ SqlPersist
+defaultGetDBRunner :: YesodPersistBackend site ~ SqlPersistT
                    => (site -> Pool SQL.Connection)
                    -> HandlerT site IO (DBRunner site, HandlerT site IO ())
 defaultGetDBRunner getPool = do
@@ -87,12 +86,12 @@ defaultGetDBRunner getPool = do
     managedConn <- takeResource pool
     let conn = mrValue managedConn
 
-    let withPrep f = f conn (SQL.prepare conn)
-    (finishTransaction, ()) <- allocate (withPrep SQL.begin) $ \() -> do
+    let withPrep f = f conn (SQL.connPrepare conn)
+    (finishTransaction, ()) <- allocate (withPrep SQL.connBegin) $ \() -> do
         didSucceed <- readIORef ididSucceed
         withPrep $ if didSucceed
-            then SQL.commitC
-            else SQL.rollbackC
+            then SQL.connCommit
+            else SQL.connRollback
 
     let cleanup = do
             writeIORef ididSucceed True
@@ -100,7 +99,7 @@ defaultGetDBRunner getPool = do
             mrReuse managedConn True
             mrRelease managedConn
 
-    return (DBRunner $ \x -> runReaderT (unSqlPersist x) conn, cleanup)
+    return (DBRunner $ \x -> runReaderT (unSqlPersistT x) conn, cleanup)
 
 -- | Like 'runDB', but transforms a @Source@. See 'respondSourceDB' for an
 -- example, practical use case.
@@ -152,8 +151,8 @@ getBy404 key = do
         Nothing -> lift notFound
         Just res -> return res
 
-instance MonadHandler m => MonadHandler (SqlPersist m) where
-    type HandlerSite (SqlPersist m) = HandlerSite m
+instance MonadHandler m => MonadHandler (SqlPersistT m) where
+    type HandlerSite (SqlPersistT m) = HandlerSite m
     liftHandlerT = lift . liftHandlerT
-instance MonadWidget m => MonadWidget (SqlPersist m) where
+instance MonadWidget m => MonadWidget (SqlPersistT m) where
     liftWidgetT = lift . liftWidgetT

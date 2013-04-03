@@ -61,8 +61,8 @@ import qualified Text.Email.Validate as Email
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Network.URI (parseURI)
-import Database.Persist (PersistField)
-import Database.Persist.Store (Entity (..))
+import Database.Persist.Sql (PersistField, PersistFieldSql)
+import Database.Persist (Entity (..))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.Maybe (listToMaybe, fromMaybe)
@@ -70,8 +70,7 @@ import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
-import Database.Persist.Store (PersistEntityBackend)
-import Database.Persist.Store (PersistMonadBackend)
+import Database.Persist (PersistMonadBackend, PersistEntityBackend)
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
@@ -164,7 +163,7 @@ $newline never
 -- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField, Ord)
+    deriving (Show, Read, Eq, PersistField, PersistFieldSql, Ord)
 instance ToHtml Textarea where
     toHtml =
         unsafeByteString
