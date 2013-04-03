@@ -42,7 +42,7 @@ module Yesod.Test
     , get
     , post
     , request
-    , addHeader
+    , addRequestHeader
     , setMethod
     , addPostParam
     , addGetParam
@@ -471,8 +471,8 @@ setUrl url' = do
         , rbdGets = rbdGets rbd ++ H.parseQuery (TE.encodeUtf8 urlQuery)
         }
 
-addHeader :: H.Header -> RequestBuilder site ()
-addHeader header = ST.modify $ \rbd -> rbd
+addRequestHeader :: H.Header -> RequestBuilder site ()
+addRequestHeader header = ST.modify $ \rbd -> rbd
     { rbdHeaders = header : rbdHeaders rbd
     }
 
