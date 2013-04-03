@@ -6,13 +6,12 @@ import Test.Hspec
 import Database.Persist.Sqlite
 import Network.Wai.Test
 import Yesod.Core
-import Database.Persist.Store
 import Data.Conduit
 import Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import Yesod.Persist
 import Data.Text (Text)
 
-share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persist|
+share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 Person
     name Text
 |]
@@ -28,7 +27,7 @@ mkYesod "App" [parseRoutes|
 
 instance Yesod App
 instance YesodPersist App where
-    type YesodPersistBackend App = SqlPersist
+    type YesodPersistBackend App = SqlPersistT
     runDB = defaultRunDB appConfig appPool
 instance YesodPersistRunner App where
     getDBRunner = defaultGetDBRunner appPool
