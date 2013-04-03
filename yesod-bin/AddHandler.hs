@@ -89,7 +89,7 @@ mkHandler name pattern methods = unlines
   where
     go method =
         [ ""
-        , concat $ func : " :: " : map toArrow types ++ ["Handler RepHtml"]
+        , concat $ func : " :: " : map toArrow types ++ ["Handler Html"]
         , concat
             [ func
             , " = error \"Not yet implemented: "
