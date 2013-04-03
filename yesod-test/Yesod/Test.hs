@@ -27,6 +27,7 @@ module Yesod.Test
     ( -- * Declaring and running your test suite
       yesodSpec
     , YesodSpec
+    , YesodExample
     , YesodSpecTree (..)
     , ydescribe
     , yit
