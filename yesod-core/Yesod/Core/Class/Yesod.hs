@@ -428,7 +428,7 @@ defaultErrorHandler NotAuthenticated = selectRep $ do
         -- however, there is no standard to indicate a redirection
         --
         -- change this to Basic or Digest if you allow those forms of authentications
-        setHeader "WWW-Authenticate" "RedirectJSON realm=\"application\", param=\"authentication_url\""
+        addHeader "WWW-Authenticate" "RedirectJSON realm=\"application\", param=\"authentication_url\""
 
         -- The client will just use the authentication_url in the JSON
         site <- getYesod
