@@ -80,5 +80,6 @@ getStatus :: ErrorResponse -> H.Status
 getStatus NotFound = H.status404
 getStatus (InternalError _) = H.status500
 getStatus (InvalidArgs _) = H.status400
+getStatus NotAuthenticated = H.status401
 getStatus (PermissionDenied _) = H.status403
 getStatus (BadMethod _) = H.status405

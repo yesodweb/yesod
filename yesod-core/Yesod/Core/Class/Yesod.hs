@@ -290,15 +290,14 @@ authorizationCheck = do
             AuthenticationRequired -> do
                 master <- getYesod
                 case authRoute master of
-                    Nothing ->
-                        void $ permissionDenied "Authentication required"
+                    Nothing -> void $ notAuthenticated
                     Just url' -> do
                       void $ selectRep $ do
                           provideRepType typeHtml $ do
                               setUltDestCurrent
                               void $ redirect url'
-                          provideRepType typeJson $ do
-                              void $ permissionDenied "Authentication required"
+                          provideRepType typeJson $
+                              void $ notAuthenticated
             Unauthorized s' -> permissionDenied s'
 
 -- | Convert a widget to a 'PageContent'.
@@ -412,6 +411,35 @@ defaultErrorHandler NotFound = selectRep $ do
         |]
     provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
 
+-- For API requests.
+-- For a user with a browser,
+-- if you specify an authRoute the user will be redirected there and
+-- this page will not be shown.
+defaultErrorHandler NotAuthenticated = selectRep $ do
+    provideRep $ defaultLayout $ do
+        setTitle "Not logged in"
+        toWidget [hamlet|
+            <h1>Not logged in
+            <p style="display:none;">Set the authRoute and the user will be redirected there.
+        |]
+
+    provideRep $ do
+        -- 401 *MUST* include a WWW-Authenticate header
+        -- however, there is no standard to indicate a redirection
+        --
+        -- change this to Basic or Digest if you allow those forms of authentications
+        setHeader "WWW-Authenticate" "RedirectJSON realm=\"application\", param=\"authentication_url\""
+
+        -- The client will just use the authentication_url in the JSON
+        site <- getYesod
+        rend <- getUrlRender
+        return $ object $ [
+          "message" .= ("Not logged in"::Text)
+          ] ++
+          case authRoute site of
+              Nothing -> []
+              Just url -> ["authentication_url" .= rend url]
+
 defaultErrorHandler (PermissionDenied msg) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Permission Denied"
@@ -419,14 +447,10 @@ defaultErrorHandler (PermissionDenied msg) = selectRep $ do
             <h1>Permission denied
             <p>#{msg}
         |]
-    provideRep $ do
-        site <- getYesod
-        rend <- getUrlRender
+    provideRep $
         return $ object $ [
           "message" .= ("Permission Denied. " <> msg)
-          ] ++ case authRoute site of
-              Nothing -> []
-              Just url -> ["auth_url" .= rend url]
+          ]
 
 defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ defaultLayout $ do
