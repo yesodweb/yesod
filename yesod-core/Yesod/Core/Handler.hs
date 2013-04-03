@@ -73,6 +73,7 @@ module Yesod.Core.Handler
       -- ** Errors
     , notFound
     , badMethod
+    , notAuthenticated
     , permissionDenied
     , permissionDeniedI
     , invalidArgs
@@ -513,6 +514,10 @@ badMethod :: MonadHandler m => m a
 badMethod = do
     w <- waiRequest
     hcError $ BadMethod $ W.requestMethod w
+
+-- | Return a 401 status code
+notAuthenticated :: MonadHandler m => m a
+notAuthenticated = hcError NotAuthenticated
 
 -- | Return a 403 permission denied page.
 permissionDenied :: MonadHandler m => Text -> m a
