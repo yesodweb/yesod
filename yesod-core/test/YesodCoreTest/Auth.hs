@@ -7,6 +7,7 @@ import Network.Wai.Test
 import Network.Wai
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Text as T
+import Data.List (isSuffixOf)
 
 data App = App
 
@@ -47,6 +48,9 @@ test method path f = it (method ++ " " ++ path) $ do
         sres <- request defaultRequest
             { requestMethod = S8.pack method
             , pathInfo = [T.pack path]
+            , requestHeaders =
+                if not $ isSuffixOf "json" path then [] else
+                  [("Accept", S8.pack "application/json")]
             }
         f sres
 
