@@ -284,6 +284,7 @@ data ErrorResponse =
       NotFound
     | InternalError Text
     | InvalidArgs [Text]
+    | NotAuthenticated
     | PermissionDenied Text
     | BadMethod H.Method
     deriving (Show, Eq, Typeable)
