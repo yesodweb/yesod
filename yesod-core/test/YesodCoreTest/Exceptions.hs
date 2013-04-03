@@ -26,7 +26,7 @@ getRootR = error "FOOBAR" >> return ()
 
 getRedirR :: Handler ()
 getRedirR = do
-    setHeader "foo" "bar"
+    addHeader "foo" "bar"
     redirectWith status301 RootR
 
 exceptionsTest :: Spec

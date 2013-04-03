@@ -94,6 +94,7 @@ module Yesod.Core.Handler
     , setCookie
     , getExpires
     , deleteCookie
+    , addHeader
     , setHeader
     , setLanguage
       -- ** Content caching and expiration
@@ -539,7 +540,7 @@ invalidArgsI msg = do
 -- | Set the cookie on the client.
 
 setCookie :: MonadHandler m => SetCookie -> m ()
-setCookie = addHeader . AddCookie
+setCookie = addHeaderInternal . AddCookie
 
 -- | Helper function for setCookieExpires value
 getExpires :: MonadIO m
@@ -558,7 +559,7 @@ deleteCookie :: MonadHandler m
              => Text -- ^ key
              -> Text -- ^ path
              -> m ()
-deleteCookie a = addHeader . DeleteCookie (encodeUtf8 a) . encodeUtf8
+deleteCookie a = addHeaderInternal . DeleteCookie (encodeUtf8 a) . encodeUtf8
 
 
 -- | Set the language in the user session. Will show up in 'languages' on the
@@ -570,8 +571,15 @@ setLanguage = setSession langKey
 --
 -- Note that, while the data type used here is 'Text', you must provide only
 -- ASCII value to be HTTP compliant.
+--
+-- Since 1.2.0
+addHeader :: MonadHandler m => Text -> Text -> m ()
+addHeader a = addHeaderInternal . Header (encodeUtf8 a) . encodeUtf8
+
+-- | Deprecated synonym for addHeader.
 setHeader :: MonadHandler m => Text -> Text -> m ()
-setHeader a = addHeader . Header (encodeUtf8 a) . encodeUtf8
+setHeader = addHeader
+{-# DEPRECATED setHeader "Please use addHeader instead" #-}
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
@@ -628,8 +636,8 @@ modSession :: (SessionMap -> SessionMap) -> GHState -> GHState
 modSession f x = x { ghsSession = f $ ghsSession x }
 
 -- | Internal use only, not to be confused with 'setHeader'.
-addHeader :: MonadHandler m => Header -> m ()
-addHeader = tell . Endo . (:)
+addHeaderInternal :: MonadHandler m => Header -> m ()
+addHeaderInternal = tell . Endo . (:)
 
 -- | Some value which can be turned into a URL for redirects.
 class RedirectUrl master a where
