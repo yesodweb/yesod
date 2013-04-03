@@ -12,24 +12,30 @@ data App = App
 
 mkYesod "App" [parseRoutes|
 /no-auth NoAuthR
-/needs-login NeedsLoginR
+/needs-login-json NeedsLoginJsonR
+/needs-login-html NeedsLoginHtmlR
 /read-only ReadOnlyR
 /forbidden ForbiddenR
 |]
 
 instance Yesod App where
     isAuthorized NoAuthR _ = return Authorized
-    isAuthorized NeedsLoginR _ = return AuthenticationRequired
+    isAuthorized NeedsLoginJsonR _ = return AuthenticationRequired
+    isAuthorized NeedsLoginHtmlR _ = return AuthenticationRequired
     isAuthorized ReadOnlyR False = return Authorized
     isAuthorized ReadOnlyR True = return $ Unauthorized "Read only"
     isAuthorized ForbiddenR _ = return $ Unauthorized "Forbidden"
     authRoute _ = Just NoAuthR
 
-handleNoAuthR, handleNeedsLoginR, handleReadOnlyR, handleForbiddenR :: Handler ()
-handleNoAuthR = return ()
-handleNeedsLoginR = return ()
-handleReadOnlyR = return ()
-handleForbiddenR = return ()
+handleNoAuthR, handleReadOnlyR, handleForbiddenR :: Handler ()
+handleNoAuthR     = return ()
+handleReadOnlyR   = return ()
+handleForbiddenR  = return ()
+
+handleNeedsLoginJsonR :: Handler RepJson
+handleNeedsLoginJsonR = return $ repJson $ object []
+handleNeedsLoginHtmlR :: Handler RepHtml
+handleNeedsLoginHtmlR = return ""
 
 test :: String -- ^ method
      -> String -- ^ path
@@ -48,8 +54,10 @@ specs :: Spec
 specs = describe "Auth" $ do
     test "GET" "no-auth" $ \sres -> assertStatus 200 sres
     test "POST" "no-auth" $ \sres -> assertStatus 200 sres
-    test "GET" "needs-login" $ \sres -> assertStatus 303 sres
-    test "POST" "needs-login" $ \sres -> assertStatus 303 sres
+    test "GET" "needs-login-html" $ \sres -> assertStatus 303 sres
+    test "POST" "needs-login-html" $ \sres -> assertStatus 303 sres
+    test "GET" "needs-login-json" $ \sres -> assertStatus 403 sres
+    test "POST" "needs-login-json" $ \sres -> assertStatus 403 sres
     test "GET" "read-only" $ \sres -> assertStatus 200 sres
     test "POST" "read-only" $ \sres -> assertStatus 403 sres
     test "GET" "forbidden" $ \sres -> assertStatus 403 sres
