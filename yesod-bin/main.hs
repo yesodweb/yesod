@@ -148,8 +148,8 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                      <*> extraCabalArgs
                      <*> option ( long "port" <> short 'p' <> value 3000 <> metavar "N"
                             <> help "Devel server listening port" )
-                     <*> option ( long "proxy-timeout" <> short 'x' <> value 10 <> metavar "N"
-                            <> help "Devel server timeout before returning 'not ready' message (in seconds)" )
+                     <*> option ( long "proxy-timeout" <> short 'x' <> value 0 <> metavar "N"
+                            <> help "Devel server timeout before returning 'not ready' message (in seconds, 0 for none)" )
 
 extraCabalArgs :: Parser [String]
 extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"
