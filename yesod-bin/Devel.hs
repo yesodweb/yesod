@@ -123,7 +123,10 @@ reverseProxy opts iappPort = do
                     return $ Right $ ProxyDest "127.0.0.1" appPort)
                 def
                     { wpsOnExc = onExc
-                    , wpsTimeout = Just (1000000 * proxyTimeout opts)
+                    , wpsTimeout =
+                        if proxyTimeout opts == 0
+                            then Nothing
+                            else Just (1000000 * proxyTimeout opts)
                     }
                 manager
             putStrLn "Reverse proxy stopped, but it shouldn't"
