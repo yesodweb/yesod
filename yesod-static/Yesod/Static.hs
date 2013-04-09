@@ -49,6 +49,7 @@ module Yesod.Static
 import Prelude hiding (FilePath)
 import qualified Prelude
 import System.Directory
+import Control.Arrow (second)
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
@@ -66,11 +67,13 @@ import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Serialize
 import Data.Text (Text, pack)
+import qualified Data.Text as T
+import qualified Data.Set as S
 import qualified Data.Map as M
 import Data.IORef (readIORef, newIORef, writeIORef)
 import Network.Wai (pathInfo)
 import Data.Char (isLower, isDigit)
-import Data.List (foldl')
+import Data.List (foldl', inits, tails)
 import qualified Data.ByteString as S
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
@@ -280,14 +283,32 @@ mkStaticFilesList
     -> Bool     -- ^ append checksum query parameter
     -> Q [Dec]
 mkStaticFilesList fp fs routeConName makeHash = do
-    concat `fmap` mapM mkRoute fs
+    let (squashedFinal, squashMap) = squashStrings ("etag" : concat fs)
+    (squashedName, squashedDecl) <- mkSquashedStringsDecl squashedFinal
+    let refName = mkSquashedReference squashedName squashMap
+    routes <- concat `fmap` mapM (mkRoute refName) fs
+    return (squashedDecl ++ routes)
   where
     replace' c
         | 'A' <= c && c <= 'Z' = c
         | 'a' <= c && c <= 'z' = c
         | '0' <= c && c <= '9' = c
         | otherwise = '_'
-    mkRoute f = do
+    mkSquashedStringsDecl squashedFinal = do
+      name  <- newName "squashedStrings"
+      pack' <- [|pack|]
+      squashedFinal' <- lift squashedFinal
+      let decl = [ SigD name (ConT ''Text)
+                 , FunD name
+                     [ Clause [] (NormalB $ pack' `AppE` squashedFinal') []
+                     ]
+                 ]
+      return (name, decl)
+    mkSquashedReference squashedName squashMap = \str ->
+      case M.lookup str squashMap of
+        Nothing         -> [|pack $(lift str)|]
+        Just (pos, len) -> [|T.take len (T.drop pos $(return (VarE squashedName)))|]
+    mkRoute refName f = do
         let name' = intercalate "_" $ map (map replace') f
             routeName = mkName $
                 case () of
@@ -296,12 +317,11 @@ mkStaticFilesList fp fs routeConName makeHash = do
                         | isDigit (head name') -> '_' : name'
                         | isLower (head name') -> name'
                         | otherwise -> '_' : name'
-        f' <- [|map pack $(lift f)|]
+        f' <- ListE `fmap` mapM refName f
         let route = mkName routeConName
-        pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
-                            [|[(pack "etag", pack $(lift hash))]|]
+                            [|[($(refName "etag"), $(refName hash))]|]
                     else return $ ListE []
         return
             [ SigD routeName $ ConT route
@@ -309,6 +329,44 @@ mkStaticFilesList fp fs routeConName makeHash = do
                 [ Clause [] (NormalB $ (ConE route) `AppE` f' `AppE` qs) []
                 ]
             ]
+
+
+-- | Convert a list of 'String's into a single 'String' and a
+-- 'M.Map' of the original 'String's into an offset and a length on
+-- the resulting single 'String'.
+squashStrings :: [String] -> (String, M.Map String (Int, Int))
+squashStrings = second M.fromAscList . go 0 "" . S.toAscList . S.fromList
+  where
+    -- Length of the string of maximal length of characters from
+    -- the end of the @lastString@ that are the same.  Uses a
+    -- naive algorithm.
+    calculateOverlap lastString newString =
+      let -- Make both strings of equal length.
+          len = length lastString `min` length newString
+          lastString' = reverse $ take len $ reverse lastString
+          newString'  =           take len           newString
+          -- Using 'head' should be safe but we use another
+          -- version to avoid unuseful messages while debugging.
+          safeHead (x:_) = x
+          safeHead []    = error "squashStrings/overlap: never here"
+      in safeHead $ do
+           (lastStringSuffix, newStringPrefix) <-
+             tails lastString' `zip` reverse (inits newString')
+           guard (lastStringSuffix == newStringPrefix)
+           return (length lastStringSuffix)
+
+    -- Position the new strings on the resulting string.
+    go lastPos lastString (newString:nss) =
+      let len     = length newString
+          overlap = calculateOverlap lastString newString
+          thisPos    = lastPos - overlap
+          newLastPos = lastPos + len - overlap
+          (recString, recMap) = go newLastPos newString nss
+      in ( drop overlap newString ++ recString
+         , (newString, (thisPos, len)) : recMap
+         )
+    go _ _ [] = ([], [])
+
 
 base64md5File :: Prelude.FilePath -> IO String
 base64md5File = fmap (base64 . encode) . hashFile
