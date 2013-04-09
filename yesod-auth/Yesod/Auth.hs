@@ -18,6 +18,7 @@ module Yesod.Auth
       -- * Plugin interface
     , Creds (..)
     , setCreds
+    , clearCreds
       -- * User functions
     , defaultMaybeAuthId
     , maybeAuth
@@ -163,7 +164,11 @@ mkYesodSub "Auth"
 /page/#Text/STRINGS PluginR
 |]
 
-setCreds :: YesodAuth master => Bool -> Creds master -> GHandler sub master ()
+-- | Sets user credentials for the session after checking them with authentication backends.
+setCreds :: YesodAuth master
+         => Bool         -- ^ if HTTP redirects should be done
+         -> Creds master -- ^ new credentials
+         -> GHandler sub master ()
 setCreds doRedirects creds = do
     y    <- getYesod
     maid <- getAuthId creds
@@ -183,6 +188,17 @@ $newline never
             when doRedirects $ do
               onLogin
               redirectUltDest $ loginDest y
+
+-- | Clears current user credentials for the session.
+clearCreds :: YesodAuth master
+           => Bool -- ^ if HTTP redirect to 'logoutDest' should be done
+           -> GHandler sub master ()
+clearCreds doRedirects = do
+    y <- getYesod
+    deleteSession credsKey
+    when doRedirects $ do
+        onLogout
+        redirectUltDest $ logoutDest y
 
 getCheckR :: YesodAuth master => GHandler Auth master RepHtmlJson
 getCheckR = do
@@ -219,11 +235,7 @@ getLogoutR = do
     setUltDestReferer' >> redirectToPost (tm LogoutR)
 
 postLogoutR :: YesodAuth master => GHandler Auth master ()
-postLogoutR = do
-    y <- getYesod
-    deleteSession credsKey
-    onLogout
-    redirectUltDest $ logoutDest y
+postLogoutR = clearCreds True
 
 handlePluginR :: YesodAuth master => Text -> [Text] -> GHandler Auth master ()
 handlePluginR plugin pieces = do
