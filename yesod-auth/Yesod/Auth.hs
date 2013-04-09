@@ -190,6 +190,8 @@ $newline never
               redirectUltDest $ loginDest y
 
 -- | Clears current user credentials for the session.
+--
+-- Since 1.1.7
 clearCreds :: YesodAuth master
            => Bool -- ^ if HTTP redirect to 'logoutDest' should be done
            -> GHandler sub master ()
