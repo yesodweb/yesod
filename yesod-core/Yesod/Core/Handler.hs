@@ -7,6 +7,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE RankNTypes                 #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
