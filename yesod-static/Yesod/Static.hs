@@ -116,10 +116,10 @@ staticDevel dir = do
 -- Nota Bene: if you replace the scaffolded 'static' call in Settings/StaticFiles.hs
 -- you will need to change the scaffolded addStaticContent.  Otherwise, some of your
 -- assets will be 404'ed.  This is because by default yesod will generate compile those
--- assets to @static/tmp@ which for 'static' is fine since they are served out of the 
--- directory itself.  With embedded static, that will not work.  
+-- assets to @static/tmp@ which for 'static' is fine since they are served out of the
+-- directory itself.  With embedded static, that will not work.
 -- You can easily change @addStaticContent@ to @\_ _ _ -> return Nothing@ as a workaround.
--- This will cause yesod to embed those assets into the generated HTML file itself.  
+-- This will cause yesod to embed those assets into the generated HTML file itself.
 embed :: Prelude.FilePath -> Q Exp
 embed fp = [|Static (embeddedSettings $(embedDir fp))|]
 
