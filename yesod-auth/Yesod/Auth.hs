@@ -18,6 +18,7 @@ module Yesod.Auth
     , getAuth
     , YesodAuth (..)
     , YesodAuthPersist
+    , AuthEntity
       -- * Plugin interface
     , Creds (..)
     , setCreds
@@ -301,25 +302,34 @@ newtype CachedMaybeAuth val = CachedMaybeAuth { unCachedMaybeAuth :: Maybe val }
 -- full informatin on a given user.
 --
 -- Since 1.2.0
-type YesodAuthPersist master authVal =
+type YesodAuthPersist master =
     ( YesodAuth master
     , PersistMonadBackend (YesodPersistBackend master (HandlerT master IO))
-        ~ PersistEntityBackend authVal
-    , Key authVal ~ AuthId master
+        ~ PersistEntityBackend (AuthEntity master)
+    , Key (AuthEntity master) ~ AuthId master
     , PersistStore (YesodPersistBackend master (HandlerT master IO))
-    , PersistEntity authVal
+    , PersistEntity (AuthEntity master)
     , YesodPersist master
-    , Typeable authVal
+    , Typeable (AuthEntity master)
     )
+
+-- | If the @AuthId@ for a given site is a persistent ID, this will give the
+-- value for that entity. E.g.:
+--
+-- > type AuthId MySite = UserId
+-- > AuthEntity MySite ~ User
+--
+-- Since 1.2.0
+type AuthEntity master = KeyEntity (AuthId master)
 
 -- | Similar to 'maybeAuthId', but redirects to a login page if user is not
 -- authenticated.
 --
 -- Since 1.1.0
-requireAuthId :: YesodAuthPersist master authVal => HandlerT master IO (AuthId master)
+requireAuthId :: YesodAuthPersist master => HandlerT master IO (AuthId master)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
-requireAuth :: YesodAuthPersist master authVal => HandlerT master IO (Entity authVal)
+requireAuth :: YesodAuthPersist master => HandlerT master IO (Entity (AuthEntity master))
 requireAuth = maybeAuth >>= maybe redirectLogin return
 
 redirectLogin :: Yesod master => HandlerT master IO a
