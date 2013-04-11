@@ -44,13 +44,7 @@ mkYesodSubData name res = mkYesodDataGeneral name True res
 mkYesodDataGeneral :: String -> Bool -> [ResourceTree String] -> Q [Dec]
 mkYesodDataGeneral name isSub res = do
     let (name':rest) = words name
-    (x, _) <- mkYesodGeneral name' rest isSub res
-    let rname = mkName $ "resources" ++ name
-    eres <- lift res
-    let y = [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
-            , FunD rname [Clause [] (NormalB eres) []]
-            ]
-    return $ x ++ y
+    fmap fst $ mkYesodGeneral name' rest isSub res
 
 -- | See 'mkYesodData'.
 mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
@@ -71,10 +65,22 @@ mkYesodGeneral :: String                   -- ^ foundation type
                -> [ResourceTree String]
                -> Q([Dec],[Dec])
 mkYesodGeneral name args isSub resS = do
-     renderRouteDec <- mkRenderRouteInstance site res
-     dispatchDec    <- mkDispatchInstance site res
-     parse <- mkParseRouteInstance site res
-     return (parse : renderRouteDec ++ if isSub then [] else masterTypeSyns site, dispatchDec)
+    renderRouteDec <- mkRenderRouteInstance site res
+    dispatchDec    <- mkDispatchInstance site res
+    parse <- mkParseRouteInstance site res
+    let rname = mkName $ "resources" ++ name
+    eres <- lift resS
+    let resourcesDec =
+            [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
+            , FunD rname [Clause [] (NormalB eres) []]
+            ]
+    let dataDec = concat
+            [ [parse]
+            , renderRouteDec
+            , resourcesDec
+            , if isSub then [] else masterTypeSyns site
+            ]
+    return (dataDec, dispatchDec)
   where site    = foldl' AppT (ConT $ mkName name) (map (VarT . mkName) args)
         res     = map (fmap parseType) resS
 

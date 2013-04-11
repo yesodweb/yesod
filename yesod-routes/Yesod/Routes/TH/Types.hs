@@ -39,16 +39,17 @@ data Resource typ = Resource
     { resourceName :: String
     , resourcePieces :: [(CheckOverlap, Piece typ)]
     , resourceDispatch :: Dispatch typ
+    , resourceAttrs :: [String]
     }
     deriving Show
 
 type CheckOverlap = Bool
 
 instance Functor Resource where
-    fmap f (Resource a b c) = Resource a (map (second $ fmap f) b) (fmap f c)
+    fmap f (Resource a b c d) = Resource a (map (second $ fmap f) b) (fmap f c) d
 
 instance Lift t => Lift (Resource t) where
-    lift (Resource a b c) = [|Resource $(lift a) $(lift b) $(lift c)|]
+    lift (Resource a b c d) = [|Resource a b c d|]
 
 data Piece typ = Static String | Dynamic typ
     deriving Show
@@ -91,6 +92,6 @@ flatten :: [ResourceTree a] -> [FlatResource a]
 flatten =
     concatMap (go id)
   where
-    go front (ResourceLeaf (Resource a b c)) = [FlatResource (front []) a b c]
+    go front (ResourceLeaf (Resource a b c _)) = [FlatResource (front []) a b c]
     go front (ResourceParent name pieces children) =
         concatMap (go (front . ((name, pieces):))) children

@@ -106,11 +106,11 @@ getMySubParam _ = MySubParam
 do
     texts <- [t|[Text]|]
     let ress = map ResourceLeaf
-            [ Resource "RootR" [] $ Methods Nothing ["GET"]
-            , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) $ Methods Nothing ["GET", "POST"]
-            , Resource "WikiR" (addCheck [Static "wiki"]) $ Methods (Just texts) []
-            , Resource "SubsiteR" (addCheck [Static "subsite"]) $ Subsite (ConT ''MySub) "getMySub"
-            , Resource "SubparamR" (addCheck [Static "subparam", Dynamic $ ConT ''Int]) $ Subsite (ConT ''MySubParam) "getMySubParam"
+            [ Resource "RootR" [] (Methods Nothing ["GET"]) []
+            , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) (Methods Nothing ["GET", "POST"]) []
+            , Resource "WikiR" (addCheck [Static "wiki"]) (Methods (Just texts) []) []
+            , Resource "SubsiteR" (addCheck [Static "subsite"]) (Subsite (ConT ''MySub) "getMySub") []
+            , Resource "SubparamR" (addCheck [Static "subparam", Dynamic $ ConT ''Int]) (Subsite (ConT ''MySubParam) "getMySubParam") []
             ]
         addCheck = map ((,) True)
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
