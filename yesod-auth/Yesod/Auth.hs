@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -16,6 +17,7 @@ module Yesod.Auth
     , AuthPlugin (..)
     , getAuth
     , YesodAuth (..)
+    , YesodAuthPersist
       -- * Plugin interface
     , Creds (..)
     , setCreds
@@ -293,31 +295,31 @@ maybeAuth = runMaybeT $ do
 newtype CachedMaybeAuth val = CachedMaybeAuth { unCachedMaybeAuth :: Maybe val }
     deriving Typeable
 
+-- | Constraint which states that the given site is an instance of @YesodAuth@
+-- and that its @AuthId@ is in fact a persistent @Key@ for the given value.
+-- This is the common case in Yesod, and means that you can easily look up the
+-- full informatin on a given user.
+--
+-- Since 1.2.0
+type YesodAuthPersist master authVal =
+    ( YesodAuth master
+    , PersistMonadBackend (YesodPersistBackend master (HandlerT master IO))
+        ~ PersistEntityBackend authVal
+    , Key authVal ~ AuthId master
+    , PersistStore (YesodPersistBackend master (HandlerT master IO))
+    , PersistEntity authVal
+    , YesodPersist master
+    , Typeable authVal
+    )
+
 -- | Similar to 'maybeAuthId', but redirects to a login page if user is not
 -- authenticated.
 --
 -- Since 1.1.0
-requireAuthId :: ( YesodAuth master
-                 , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
-                 , b ~ YesodPersistBackend master
-                 , Key val ~ AuthId master
-                 , PersistStore (b (HandlerT master IO))
-                 , PersistEntity val
-                 , YesodPersist master
-                 , Typeable val
-                 )
-              => HandlerT master IO (AuthId master)
+requireAuthId :: YesodAuthPersist master authVal => HandlerT master IO (AuthId master)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
-requireAuth :: ( YesodAuth master
-               , b ~ YesodPersistBackend master
-               , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
-               , Key val ~ AuthId master
-               , PersistStore (b (HandlerT master IO))
-               , PersistEntity val
-               , YesodPersist master
-               , Typeable val
-               ) => HandlerT master IO (Entity val)
+requireAuth :: YesodAuthPersist master authVal => HandlerT master IO (Entity authVal)
 requireAuth = maybeAuth >>= maybe redirectLogin return
 
 redirectLogin :: Yesod master => HandlerT master IO a
