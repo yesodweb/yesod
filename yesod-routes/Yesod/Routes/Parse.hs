@@ -73,10 +73,21 @@ resourcesFromString =
                      in ((ResourceParent (init constr) pieces children :), otherLines'')
                 (pattern:constr:rest) ->
                     let (pieces, mmulti) = piecesFromString $ drop1Slash pattern
-                        disp = dispatchFromString rest mmulti
-                     in ((ResourceLeaf (Resource constr pieces disp):), otherLines)
+                        (attrs, rest') = takeAttrs rest
+                        disp = dispatchFromString rest' mmulti
+                     in ((ResourceLeaf (Resource constr pieces disp attrs):), otherLines)
                 [] -> (id, otherLines)
                 _ -> error $ "Invalid resource line: " ++ thisLine
+
+-- | Take attributes out of the list and put them in the first slot in the
+-- result tuple.
+takeAttrs :: [String] -> ([String], [String])
+takeAttrs =
+    go id id
+  where
+    go x y [] = (x [], y [])
+    go x y (('!':attr):rest) = go (x . (attr:)) y rest
+    go x y (z:rest) = go x (y . (z:)) rest
 
 dispatchFromString :: [String] -> Maybe String -> Dispatch String
 dispatchFromString rest mmulti

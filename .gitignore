@@ -8,3 +8,4 @@ cabal-dev/
 yesod/foobar/
 .virthualenv
 /vendor/
+/.shelly/
