@@ -40,7 +40,6 @@ library
                    , resourcet
 
     exposed-modules: Yesod.Form
-                     Yesod.Form.Class
                      Yesod.Form.Types
                      Yesod.Form.Functions
                      Yesod.Form.Input
