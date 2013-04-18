@@ -29,7 +29,7 @@ mkYesod "Y" [parseRoutes|
 |]
 
 instance Yesod Y where
-    maximumContentLength _ _ = 10
+    maximumContentLength _ _ = Just 10
 
 postPostR, postConsumeR, postPartialConsumeR, postUnusedR :: Handler RepPlain
 

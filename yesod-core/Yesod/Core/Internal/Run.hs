@@ -213,12 +213,12 @@ yesodRunner :: (ToTypedContent res, Yesod site)
             -> Maybe (Route site)
             -> Application
 yesodRunner handler' YesodRunnerEnv {..} route req
-  | KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
+  | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
   | otherwise = do
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
         maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb req) yreSessionBackend
-    let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) maxLen
+    let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) mmaxLen
     yreq <-
         case mkYesodReq of
             Left yreq -> return yreq
@@ -243,7 +243,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req
     yar <- runHandler rhe handler yreq
     liftIO $ yarToResponse yar saveSession yreq
   where
-    maxLen = maximumContentLength yreSite route
+    mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'
 
 yesodRender :: Yesod y

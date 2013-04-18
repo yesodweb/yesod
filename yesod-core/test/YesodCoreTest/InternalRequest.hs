@@ -37,7 +37,7 @@ parseWaiRequest' :: Request
                  -> Word64
                  -> YesodRequest
 parseWaiRequest' a b c d =
-    case parseWaiRequest a b c d of
+    case parseWaiRequest a b c (Just d) of
         Left yreq -> yreq
         Right needGen -> needGen g
 
