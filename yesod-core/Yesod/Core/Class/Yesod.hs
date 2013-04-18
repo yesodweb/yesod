@@ -194,9 +194,11 @@ class RenderRoute site => Yesod site where
 
     -- | Maximum allowed length of the request body, in bytes.
     --
+    -- If @Nothing@, no maximum is applied.
+    --
     -- Default: 2 megabytes.
-    maximumContentLength :: site -> Maybe (Route site) -> Word64
-    maximumContentLength _ _ = 2 * 1024 * 1024 -- 2 megabytes
+    maximumContentLength :: site -> Maybe (Route site) -> Maybe Word64
+    maximumContentLength _ _ = Just $ 2 * 1024 * 1024 -- 2 megabytes
 
     -- | Creates a @Logger@ to use for log messages.
     --

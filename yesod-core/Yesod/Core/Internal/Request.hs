@@ -73,9 +73,9 @@ parseWaiRequest :: RandomGen g
                 => W.Request
                 -> SessionMap
                 -> Bool
-                -> Word64 -- ^ max body size
+                -> Maybe Word64 -- ^ max body size
                 -> (Either YesodRequest (g -> YesodRequest))
-parseWaiRequest env session useToken maxBodySize =
+parseWaiRequest env session useToken mmaxBodySize =
     -- In most cases, we won't need to generate any random values. Therefore,
     -- we split our results: if we need a random generator, return a Right
     -- value, otherwise return a Left and avoid the relatively costly generator
@@ -87,7 +87,7 @@ parseWaiRequest env session useToken maxBodySize =
     mkRequest token' = YesodRequest
         { reqGetParams  = gets
         , reqCookies    = cookies
-        , reqWaiRequest = limitRequestBody maxBodySize env
+        , reqWaiRequest = maybe id limitRequestBody mmaxBodySize env
         , reqLangs      = langs''
         , reqToken      = token'
         , reqSession    = if useToken
