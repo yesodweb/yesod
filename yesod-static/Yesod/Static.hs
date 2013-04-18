@@ -61,6 +61,8 @@ import Language.Haskell.TH.Syntax
 
 import Crypto.Conduit (hashFile, sinkHash)
 import Crypto.Hash.MD5 (MD5)
+import Control.Monad.Trans.State
+import Control.Monad.IO.Class (liftIO)
 
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
@@ -157,18 +159,34 @@ notHidden s =
         _ -> True
 
 getFileListPieces :: Prelude.FilePath -> IO [[String]]
-getFileListPieces = flip go id
+getFileListPieces = flip evalStateT M.empty . flip go id
   where
-    go :: String -> ([String] -> [String]) -> IO [[String]]
+    go :: String
+       -> ([String] -> [String])
+       -> StateT (M.Map String String) IO [[String]]
     go fp front = do
-        allContents <- filter notHidden `fmap` getDirectoryContents fp
+        allContents <- liftIO $ filter notHidden `fmap` getDirectoryContents fp
         let fullPath :: String -> String
             fullPath f = fp ++ '/' : f
-        files <- filterM (doesFileExist . fullPath) allContents
+        files <- liftIO $ filterM (doesFileExist . fullPath) allContents
         let files' = map (front . return) files
-        dirs <- filterM (doesDirectoryExist . fullPath) allContents
+        files'' <- mapM dedupe files'
+        dirs <- liftIO $ filterM (doesDirectoryExist . fullPath) allContents
         dirs' <- mapM (\f -> go (fullPath f) (front . (:) f)) dirs
-        return $ concat $ files' : dirs'
+        return $ concat $ files'' : dirs'
+
+    -- Reuse data buffers for identical strings
+    dedupe :: [String] -> StateT (M.Map String String) IO [String]
+    dedupe = mapM dedupe'
+
+    dedupe' :: String -> StateT (M.Map String String) IO String
+    dedupe' s = do
+        m <- get
+        case M.lookup s m of
+            Just s' -> return s'
+            Nothing -> do
+                put $ M.insert s s m
+                return s
 
 -- | Template Haskell function that automatically creates routes
 -- for all of your static files.
