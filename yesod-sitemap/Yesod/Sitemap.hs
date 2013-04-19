@@ -117,4 +117,6 @@ sitemapConduit render = do
         case sitemapChangeFreq of
             Nothing -> return ()
             Just scf -> element "changefreq" [] $ yield $ EventContent $ ContentText $ showFreq scf
-        element "priority" [] $ yield $ EventContent $ ContentText $ pack $ show sitemapPriority
+        case sitemapPriority of
+            Nothing -> return ()
+            Just p -> element "priority" [] $ yield $ EventContent $ ContentText $ pack $ show p
