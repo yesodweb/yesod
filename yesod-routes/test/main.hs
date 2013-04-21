@@ -23,6 +23,7 @@ import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
 import Hierarchy
 import qualified Data.ByteString.Char8 as S8
+import qualified Data.Set as Set
 
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
@@ -105,15 +106,24 @@ getMySubParam _ = MySubParam
 
 do
     texts <- [t|[Text]|]
-    let ress = map ResourceLeaf
-            [ Resource "RootR" [] (Methods Nothing ["GET"]) []
+    let resLeaves = map ResourceLeaf
+            [ Resource "RootR" [] (Methods Nothing ["GET"]) ["foo", "bar"]
             , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) (Methods Nothing ["GET", "POST"]) []
             , Resource "WikiR" (addCheck [Static "wiki"]) (Methods (Just texts) []) []
             , Resource "SubsiteR" (addCheck [Static "subsite"]) (Subsite (ConT ''MySub) "getMySub") []
             , Resource "SubparamR" (addCheck [Static "subparam", Dynamic $ ConT ''Int]) (Subsite (ConT ''MySubParam) "getMySubParam") []
             ]
+        resParent = ResourceParent
+            "ParentR"
+            [ (True, Static "foo")
+            , (True, Dynamic $ ConT ''Text)
+            ]
+            [ ResourceLeaf $ Resource "ChildR" [] (Methods Nothing ["GET"]) ["child"]
+            ]
+        ress = resParent : resLeaves
         addCheck = map ((,) True)
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
+    rainst <- mkRouteAttrsInstance (ConT ''MyApp) ress
     prinst <- mkParseRouteInstance (ConT ''MyApp) ress
     dispatch <- mkDispatchClause MkDispatchSettings
         { mdsRunHandler = [|runHandler|]
@@ -133,6 +143,7 @@ do
                 `AppT` ConT ''MyApp)
             [FunD (mkName "dispatcher") [dispatch]]
         : prinst
+        : rainst
         : rrinst
 
 instance Dispatcher MySub master where
@@ -336,6 +347,11 @@ main = hspec $ do
 /bar/baz Foo3
 |]
             findOverlapNames routes @?= []
+    describe "routeAttrs" $ do
+        it "works" $ do
+            routeAttrs RootR @?= Set.fromList [pack "foo", pack "bar"]
+        it "hierarchy" $ do
+            routeAttrs (ParentR (pack "ignored") ChildR) @?= Set.singleton (pack "child")
     hierarchy
 
 getRootR :: Text
@@ -349,3 +365,6 @@ postBlogPostR t = pack $ "POST some blog post: " ++ unpack t
 
 handleWikiR :: [Text] -> String
 handleWikiR ts = "the wiki: " ++ show ts
+
+getChildR :: Text -> Text
+getChildR = id

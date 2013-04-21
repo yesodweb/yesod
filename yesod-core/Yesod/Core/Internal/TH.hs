@@ -66,6 +66,7 @@ mkYesodGeneral :: String                   -- ^ foundation type
                -> Q([Dec],[Dec])
 mkYesodGeneral name args isSub resS = do
     renderRouteDec <- mkRenderRouteInstance site res
+    routeAttrsDec  <- mkRouteAttrsInstance site res
     dispatchDec    <- mkDispatchInstance site res
     parse <- mkParseRouteInstance site res
     let rname = mkName $ "resources" ++ name
@@ -77,6 +78,7 @@ mkYesodGeneral name args isSub resS = do
     let dataDec = concat
             [ [parse]
             , renderRouteDec
+            , [routeAttrsDec]
             , resourcesDec
             , if isSub then [] else masterTypeSyns site
             ]

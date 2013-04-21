@@ -4,6 +4,7 @@ module Yesod.Routes.TH
       -- * Functions
     , module Yesod.Routes.TH.RenderRoute
     , module Yesod.Routes.TH.ParseRoute
+    , module Yesod.Routes.TH.RouteAttrs
       -- ** Dispatch
     , module Yesod.Routes.TH.Dispatch
     ) where
@@ -11,4 +12,5 @@ module Yesod.Routes.TH
 import Yesod.Routes.TH.Types
 import Yesod.Routes.TH.RenderRoute
 import Yesod.Routes.TH.ParseRoute
+import Yesod.Routes.TH.RouteAttrs
 import Yesod.Routes.TH.Dispatch

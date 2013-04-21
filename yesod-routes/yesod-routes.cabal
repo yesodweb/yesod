@@ -30,6 +30,7 @@ library
     other-modules:   Yesod.Routes.TH.Dispatch
                      Yesod.Routes.TH.RenderRoute
                      Yesod.Routes.TH.ParseRoute
+                     Yesod.Routes.TH.RouteAttrs
                      Yesod.Routes.TH.Types
     ghc-options:     -Wall
 
