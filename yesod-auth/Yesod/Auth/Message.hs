@@ -404,6 +404,7 @@ finnishMessage (ConfirmationEmailSent email) =
     "Vahvistussähköposti on lähetty osoitteeseen " `mappend`
     email `mappend`
     "."
+
 finnishMessage AddressVerified = "Sähköpostiosoite vahvistettu. Anna uusi salasana"
 finnishMessage InvalidKeyTitle = "Virheellinen varmistusavain"
 finnishMessage InvalidKey = "Valitettavasti varmistusavain on virheellinen."
@@ -422,13 +423,13 @@ finnishMessage NowLoggedIn = "Olet nyt kirjautunut sisään"
 finnishMessage LoginTitle = "Kirjautuminen"
 finnishMessage PleaseProvideUsername = "Käyttäjänimi puuttuu"
 finnishMessage PleaseProvidePassword = "Salasana puuttuu"
-finnishMessage NoIdentifierProvided = "No email/username provided"
-finnishMessage InvalidEmailAddress = "Invalid email address provided"
-finnishMessage PasswordResetTitle = "Password Reset"
-finnishMessage ProvideIdentifier = "Email or Username"
-finnishMessage SendPasswordResetEmail = "Send password reset email"
-finnishMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
-finnishMessage InvalidUsernamePass = "Invalid username/password combination"
+finnishMessage NoIdentifierProvided = "Sähköpostiosoite/käyttäjänimi puuttuu"
+finnishMessage InvalidEmailAddress = "Annettu sähköpostiosoite ei kelpaa"
+finnishMessage PasswordResetTitle = "Uuden salasanan tilaaminen"
+finnishMessage ProvideIdentifier = "Sähköpostiosoite tai käyttäjänimi"
+finnishMessage SendPasswordResetEmail = "Lähetä uusi salasana sähköpostitse"
+finnishMessage PasswordResetPrompt = "Anna sähköpostiosoitteesi tai käyttäjätunnuksesi alla, niin lähetämme uuden salasanan sähköpostitse."
+finnishMessage InvalidUsernamePass = "Virheellinen käyttäjänimi tai salasana."
 
 chineseMessage :: AuthMessage -> Text
 chineseMessage NoOpenID = "无效的OpenID"
