@@ -45,6 +45,7 @@ library
                    , http-types
                    , file-embed
                    , email-validate          >= 1.0
+                   , data-default
 
     exposed-modules: Yesod.Auth
                      Yesod.Auth.BrowserId
