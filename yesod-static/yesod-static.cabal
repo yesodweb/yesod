@@ -40,6 +40,9 @@ library
                    , crypto-conduit        >= 0.4
                    , cryptohash            >= 0.6.1
                    , system-filepath       >= 0.4.6    && < 0.5
+                   , system-fileio         >= 0.3
+                   , data-default
+                   , shakespeare-css       >= 1.0.3
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
 
@@ -70,6 +73,9 @@ test-suite tests
                    , crypto-conduit
                    , cryptohash
                    , system-filepath
+                   , system-fileio
+                   , data-default
+                   , shakespeare-css
 
     ghc-options:     -Wall
 

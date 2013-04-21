@@ -36,6 +36,18 @@ module Yesod.Static
     , static
     , staticDevel
     , embed
+      -- * Combining CSS/JS
+      -- $combining
+    , combineStylesheets'
+    , combineScripts'
+      -- ** Settings
+    , CombineSettings
+    , csStaticDir
+    , csCssPostProcess
+    , csJsPostProcess
+    , csCssPreProcess
+    , csJsPreProcess
+    , csCombinedFolder
       -- * Template Haskell helpers
     , staticFiles
     , staticFilesList
@@ -75,10 +87,19 @@ import Data.List (foldl')
 import qualified Data.ByteString as S
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import System.Posix.Types (EpochTime)
-import Data.Conduit (($$))
-import Data.Conduit.List (sourceList)
+import Data.Conduit
+import Data.Conduit.List (sourceList, consume)
+import Data.Conduit.Binary (sourceFile)
+import qualified Data.Conduit.Text as CT
 import Data.Functor.Identity (runIdentity)
 import qualified Filesystem.Path.CurrentOS as F
+import Filesystem.Path.CurrentOS ((</>), (<.>), FilePath)
+import Filesystem (createTree)
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TLE
+import Data.Default
+import Text.Lucius (luciusRTMinified)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -336,3 +357,173 @@ base64 = map tr
     tr '+' = '-'
     tr '/' = '_'
     tr c   = c
+
+-- $combining
+--
+-- A common scenario on a site is the desire to include many external CSS and
+-- Javascript files on every page. Doing so via the Widget functionality in
+-- Yesod will work, but would also mean that the same content will be
+-- downloaded many times. A better approach would be to combine all of these
+-- files together into a single static file and serve that as a static resource
+-- for every page. That resource can be cached on the client, and bandwidth
+-- usage reduced.
+--
+-- This could be done as a manual process, but that becomes tedious. Instead,
+-- you can use some Template Haskell code which will combine these files into a
+-- single static file at compile time.
+
+data CombineType = JS | CSS
+
+combineStatics' :: CombineType
+                -> CombineSettings
+                -> [Route Static] -- ^ files to combine
+                -> Q Exp
+combineStatics' combineType CombineSettings {..} routes = do
+    texts <- qRunIO $ runResourceT $ mapM_ yield fps $$ awaitForever readUTFFile =$ consume
+    ltext <- qRunIO $ preProcess $ TL.fromChunks texts
+    bs    <- qRunIO $ postProcess fps $ TLE.encodeUtf8 ltext
+    let hash' = base64md5 bs
+        suffix = csCombinedFolder </> F.decodeString hash' <.> extension
+        fp = csStaticDir </> suffix
+    qRunIO $ do
+        createTree $ F.directory fp
+        L.writeFile (F.encodeString fp) bs
+    let pieces = map T.unpack $ T.splitOn "/" $ either id id $ F.toText suffix
+    [|StaticRoute (map pack pieces) []|]
+  where
+    fps :: [F.FilePath]
+    fps = map toFP routes
+    toFP (StaticRoute pieces _) = csStaticDir </> F.concat (map F.fromText pieces)
+    readUTFFile fp = sourceFile (F.encodeString fp) =$= CT.decode CT.utf8
+    postProcess =
+        case combineType of
+            JS -> csJsPostProcess
+            CSS -> csCssPostProcess
+    preProcess =
+        case combineType of
+            JS -> csJsPreProcess
+            CSS -> csCssPreProcess
+    extension =
+        case combineType of
+            JS -> "js"
+            CSS -> "css"
+
+-- | Data type for holding all settings for combining files.
+--
+-- This data type is a settings type. For more information, see:
+--
+-- <http://www.yesodweb.com/book/settings-types>
+--
+-- Since 1.2.0
+data CombineSettings = CombineSettings
+    { csStaticDir :: F.FilePath
+    -- ^ File path containing static files.
+    --
+    -- Default: static
+    --
+    -- Since 1.2.0
+    , csCssPostProcess :: [FilePath] -> L.ByteString -> IO L.ByteString
+    -- ^ Post processing to be performed on CSS files.
+    --
+    -- Default: Use Lucius to minify.
+    --
+    -- Since 1.2.0
+    , csJsPostProcess :: [FilePath] -> L.ByteString -> IO L.ByteString
+    -- ^ Post processing to be performed on Javascript files.
+    --
+    -- Default: Pass-through.
+    --
+    -- Since 1.2.0
+    , csCssPreProcess :: TL.Text -> IO TL.Text
+    -- ^ Pre-processing to be performed on CSS files.
+    --
+    -- Default: convert all occurences of /static/ to ../
+    --
+    -- Since 1.2.0
+    , csJsPreProcess :: TL.Text -> IO TL.Text
+    -- ^ Pre-processing to be performed on Javascript files.
+    --
+    -- Default: Pass-through.
+    --
+    -- Since 1.2.0
+    , csCombinedFolder :: FilePath
+    -- ^ Subfolder to put combined files into.
+    --
+    -- Default: combined
+    --
+    -- Since 1.2.0
+    }
+
+instance Default CombineSettings where
+    def = CombineSettings
+        { csStaticDir = "static"
+        , csCssPostProcess = \fps ->
+              either (error . (errorIntro fps)) (return . TLE.encodeUtf8)
+            . flip luciusRTMinified []
+            . TLE.decodeUtf8
+        , csJsPostProcess = const return
+           -- FIXME The following borders on a hack. With combining of files,
+           -- the final location of the CSS is no longer fixed, so relative
+           -- references will break. Instead, we switched to using /static/
+           -- absolute references. However, when served from a separate domain
+           -- name, this will break too. The solution is that, during
+           -- development, we keep /static/, and in the combining phase, we
+           -- replace /static with a relative reference to the parent folder.
+        , csCssPreProcess =
+              return
+            . TL.replace "'/static/" "'../"
+            . TL.replace "\"/static/" "\"../"
+        , csJsPreProcess = return
+        , csCombinedFolder = "combined"
+        }
+
+errorIntro :: [FilePath] -> [Char] -> [Char]
+errorIntro fps s = "Error minifying " ++ show fps ++ ": " ++ s
+
+liftRoutes :: [Route Static] -> Q Exp
+liftRoutes =
+    fmap ListE . mapM go
+  where
+    go :: Route Static -> Q Exp
+    go (StaticRoute x y) = [|StaticRoute $(liftTexts x) $(liftPairs y)|]
+
+    liftTexts = fmap ListE . mapM liftT
+    liftT t = [|pack $(TH.lift $ T.unpack t)|]
+
+    liftPairs = fmap ListE . mapM liftPair
+    liftPair (x, y) = [|($(liftT x), $(liftT y))|]
+
+-- | Combine multiple CSS files together. Common usage would be:
+--
+-- >>> combineStylesheets' development def 'StaticR [style1_css, style2_css]
+--
+-- Where @development@ is a variable in your site indicated whether you are in
+-- development or production mode.
+--
+-- Since 1.2.0
+combineStylesheets' :: Bool -- ^ development? if so, perform no combining
+                    -> CombineSettings
+                    -> Name -- ^ Static route constructor name, e.g. \'StaticR
+                    -> [Route Static] -- ^ files to combine
+                    -> Q Exp
+combineStylesheets' development cs con routes
+    | development = [| mapM_ (addStylesheet . $(return $ ConE con)) $(liftRoutes routes) |]
+    | otherwise = [| addStylesheet $ $(return $ ConE con) $(combineStatics' CSS cs routes) |]
+
+
+-- | Combine multiple JS files together. Common usage would be:
+--
+-- >>> combineScripts' development def 'StaticR [script1_js, script2_js]
+--
+-- Where @development@ is a variable in your site indicated whether you are in
+-- development or production mode.
+--
+-- Since 1.2.0
+combineScripts' :: Bool -- ^ development? if so, perform no combining
+                -> CombineSettings
+                -> Name -- ^ Static route constructor name, e.g. \'StaticR
+                -> [Route Static] -- ^ files to combine
+                -> Q Exp
+combineScripts' development cs con routes
+    | development = [| mapM_ (addScript . $(return $ ConE con)) $(liftRoutes routes) |]
+    | otherwise = [| addScript $ $(return $ ConE con) $(combineStatics' JS cs routes) |]
