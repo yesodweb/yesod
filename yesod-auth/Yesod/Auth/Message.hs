@@ -215,15 +215,13 @@ germanMessage NowLoggedIn = "Login erfolgreich"
 germanMessage LoginTitle = "Login"
 germanMessage PleaseProvideUsername = "Bitte Nutzername angeben"
 germanMessage PleaseProvidePassword = "Bitte Passwort angeben"
-germanMessage NoIdentifierProvided = "No email/username provided"
-germanMessage InvalidEmailAddress = "Invalid email address provided"
-germanMessage PasswordResetTitle = "Password Reset"
-germanMessage ProvideIdentifier = "Email or Username"
-germanMessage SendPasswordResetEmail = "Send password reset email"
-germanMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
-germanMessage InvalidUsernamePass = "Invalid username/password combination"
-
-
+germanMessage NoIdentifierProvided = "Keine Email-Adresse oder kein Nutzername angegeben"
+germanMessage InvalidEmailAddress = "Unzulässiger Email-Anbieter"
+germanMessage PasswordResetTitle = "Passwort zurücksetzen"
+germanMessage ProvideIdentifier = "Email-Adresse oder Nutzername"
+germanMessage SendPasswordResetEmail = "Email zusenden um Passwort zurückzusetzen"
+germanMessage PasswordResetPrompt = "Nach Einhabe der Email-Adresse oder des Nutzernamen wird eine Email zugesendet mit welcher das Passwort zurückgesetzt werden kann."
+germanMessage InvalidUsernamePass = "Ungültige Kombination aus Nutzername und Passwort"
 
 frenchMessage :: AuthMessage -> Text
 frenchMessage NoOpenID = "Aucun fournisseur OpenID n'a été trouvé"
