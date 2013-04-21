@@ -13,6 +13,7 @@ module Yesod.Auth.Message
     , japaneseMessage
     , finnishMessage
     , chineseMessage
+    , spanishMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -142,42 +143,6 @@ portugueseMessage SendPasswordResetEmail = "Send password reset email"
 portugueseMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
 portugueseMessage InvalidUsernamePass = "Invalid username/password combination"
 
-spanishMessage :: AuthMessage -> Text
-spanishMessage NoOpenID = "No se encuentra el identificador OpenID"
-spanishMessage LoginOpenID = "Entrar utilizando OpenID"
-spanishMessage LoginGoogle = "Entrar utilizando Google"
-spanishMessage LoginYahoo = "Entrar utilizando Yahoo"
-spanishMessage Email = "Correo electrónico"
-spanishMessage Password = "Contraseña"
-spanishMessage Register = "Registrarse"
-spanishMessage RegisterLong = "Registrar una nueva cuenta"
-spanishMessage EnterEmail = "Coloque su dirección de correo electrónico, y un correo de confirmación le será enviado a su cuenta."
-spanishMessage ConfirmationEmailSentTitle = "La confirmación de correo ha sido enviada"
-spanishMessage (ConfirmationEmailSent email) =
-    "Una confirmacion de correo electrónico a sido enviada a " `mappend`
-    email `mappend`
-    "."
-spanishMessage AddressVerified = "Dirección verificada, por favor crea una contarseña"
-spanishMessage InvalidKeyTitle = "Llave de verificación invalida"
-spanishMessage InvalidKey = "Lo sentimos, pero esa es una llave de verificación inválida."
-spanishMessage InvalidEmailPass = "La combinación cuenta de correo/contraseña es inválida"
-spanishMessage BadSetPass = "Debe entrar al sistema para modificar la contraseña"
-spanishMessage SetPassTitle = "Modificar la contraseña"
-spanishMessage SetPass = "Actualizar la nueva contraseña"
-spanishMessage NewPass = "Nueva contraseña"
-spanishMessage ConfirmPass = "Confirmar"
-spanishMessage PassMismatch = "Las contraseñas no coinciden, intente de nuevo"
-spanishMessage PassUpdated = "Contraseña actualizada"
-spanishMessage Facebook = "Entrar mediante Facebook"
-spanishMessage LoginViaEmail = "Entrar mediante una cuenta de correo"
-spanishMessage InvalidLogin = "Login inválido"
-spanishMessage NowLoggedIn = "Usted ha ingresado al sitio"
-spanishMessage LoginTitle = "Login"
-spanishMessage PleaseProvideUsername = "Por favor digite su nombre de usuario"
-spanishMessage PleaseProvidePassword = "Por favor digite su contraseña"
-spanishMessage NoIdentifierProvided = "No ha dado una cuenta de correo/nombre de usuario"
-spanishMessage InvalidEmailAddress = "La cuenta de correo es inválida"
-spanishMessage PasswordResetTitle = "Contraseña actualizada"
 spanishMessage :: AuthMessage -> Text
 spanishMessage NoOpenID = "No se encuentra el identificador OpenID"
 spanishMessage LoginOpenID = "Entrar utilizando OpenID"
