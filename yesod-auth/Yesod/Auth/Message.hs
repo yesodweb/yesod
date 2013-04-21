@@ -12,6 +12,7 @@ module Yesod.Auth.Message
     , norwegianBokmålMessage
     , japaneseMessage
     , finnishMessage
+    , chineseMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -388,5 +389,46 @@ finnishMessage ProvideIdentifier = "Email or Username"
 finnishMessage SendPasswordResetEmail = "Send password reset email"
 finnishMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
 finnishMessage InvalidUsernamePass = "Invalid username/password combination"
+
+chineseMessage :: AuthMessage -> Text
+chineseMessage NoOpenID = "无效的OpenID"
+chineseMessage LoginOpenID = "用OpenID登录"
+chineseMessage LoginGoogle = "用Google帐户登录"
+chineseMessage LoginYahoo = "用Yahoo帐户登录"
+chineseMessage Email = "邮箱"
+chineseMessage Password = "密码"
+chineseMessage Register = "注册"
+chineseMessage RegisterLong = "注册新帐户"
+chineseMessage EnterEmail = "输入你的邮箱地址，你将收到一封确认邮件。"
+chineseMessage ConfirmationEmailSentTitle = "确认邮件已发送"
+chineseMessage (ConfirmationEmailSent email) =
+    "确认邮件已发送至 " `mappend`
+    email `mappend`
+    "."
+chineseMessage AddressVerified = "地址验证成功，请设置新密码"
+chineseMessage InvalidKeyTitle = "无效的验证码"
+chineseMessage InvalidKey = "对不起，验证码无效。"
+chineseMessage InvalidEmailPass = "无效的邮箱/密码组合"
+chineseMessage BadSetPass = "你需要登录才能设置密码"
+chineseMessage SetPassTitle = "设置密码"
+chineseMessage SetPass = "设置新密码"
+chineseMessage NewPass = "新密码"
+chineseMessage ConfirmPass = "确认"
+chineseMessage PassMismatch = "密码不匹配，请重新输入"
+chineseMessage PassUpdated = "密码更新成功"
+chineseMessage Facebook = "用Facebook帐户登录"
+chineseMessage LoginViaEmail = "用邮箱登录"
+chineseMessage InvalidLogin = "登录失败"
+chineseMessage NowLoggedIn = "登录成功"
+chineseMessage LoginTitle = "登录"
+chineseMessage PleaseProvideUsername = "请输入用户名"
+chineseMessage PleaseProvidePassword = "请输入密码"
+chineseMessage NoIdentifierProvided = "缺少邮箱/用户名"
+chineseMessage InvalidEmailAddress = "无效的邮箱地址"
+chineseMessage PasswordResetTitle = "重置密码"
+chineseMessage ProvideIdentifier = "邮箱或用户名"
+chineseMessage SendPasswordResetEmail = "发送密码重置邮件"
+chineseMessage PasswordResetPrompt = "输入你的邮箱地址或用户名，你将收到一封密码重置邮件。"
+chineseMessage InvalidUsernamePass = "无效的用户名/密码组合"
 
 
