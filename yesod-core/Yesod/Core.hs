@@ -11,6 +11,7 @@ module Yesod.Core
     , YesodSubDispatch (..)
     , RenderRoute (..)
     , ParseRoute (..)
+    , RouteAttrs (..)
       -- ** Breadcrumbs
     , YesodBreadcrumbs (..)
     , breadcrumbs

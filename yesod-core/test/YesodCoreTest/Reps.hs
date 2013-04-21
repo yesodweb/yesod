@@ -12,12 +12,15 @@ import Data.Text (Text)
 import Data.Maybe (fromJust)
 import Data.Monoid (Endo (..))
 import qualified Control.Monad.Trans.Writer    as Writer
+import qualified Data.Set as Set
 
 data App = App
 
 mkYesod "App" [parseRoutes|
-/     HomeR GET
+/     HomeR GET !home
 /json JsonR GET
+/parent/#Int ParentR:
+    /#Text/child ChildR !child
 |]
 
 instance Yesod App
@@ -39,6 +42,9 @@ getJsonR :: Handler TypedContent
 getJsonR = selectRep $ do
   rep typeHtml "HTML"
   provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
+
+handleChildR :: Int -> Text -> Handler ()
+handleChildR _ _ = return ()
 
 testRequest :: Int -- ^ http status code
             -> Request
@@ -63,7 +69,8 @@ acceptRequest accept = defaultRequest
             }
 
 specs :: Spec
-specs = describe "selectRep" $ do
+specs = do
+  describe "selectRep" $ do
     test "application/json" "JSON"
     test (S8.unpack typeJson) "JSON"
     test "text/xml" "XML"
@@ -77,3 +84,7 @@ specs = describe "selectRep" $ do
     testRequest 406 (acceptRequest "text/foo") "no match found for accept header"
     test "text/*" "HTML"
     test "*/*" "HTML"
+  describe "routeAttrs" $ do
+    it "HomeR" $ routeAttrs HomeR `shouldBe` Set.singleton "home"
+    it "JsonR" $ routeAttrs JsonR `shouldBe` Set.empty
+    it "ChildR" $ routeAttrs (ParentR 5 $ ChildR "ignored") `shouldBe` Set.singleton "child"
