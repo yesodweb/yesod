@@ -17,7 +17,7 @@ import Yesod.Routes.Dispatch hiding (Static, Dynamic)
 import Yesod.Routes.Class hiding (Route)
 import qualified Yesod.Routes.Class as YRC
 import qualified Yesod.Routes.Dispatch as D
-import Yesod.Routes.Parse (parseRoutesNoCheck)
+import Yesod.Routes.Parse (parseRoutesNoCheck, parseTypeTree, TypeTree (..))
 import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
@@ -353,6 +353,18 @@ main = hspec $ do
         it "hierarchy" $ do
             routeAttrs (ParentR (pack "ignored") ChildR) @?= Set.singleton (pack "child")
     hierarchy
+    describe "parseRouteTyoe" $ do
+        let success s t = it s $ parseTypeTree s @?= Just t
+            failure s = it s $ parseTypeTree s @?= Nothing
+        success "Int" $ TTTerm "Int"
+        success "(Int)" $ TTTerm "Int"
+        failure "(Int"
+        failure "(Int))"
+        failure "[Int"
+        failure "[Int]]"
+        success "[Int]" $ TTList $ TTTerm "Int"
+        success "Foo-Bar" $ TTApp (TTTerm "Foo") (TTTerm "Bar")
+        success "Foo-Bar-Baz" $ TTApp (TTTerm "Foo") (TTTerm "Bar") `TTApp` TTTerm "Baz"
 
 getRootR :: Text
 getRootR = pack "this is the root"

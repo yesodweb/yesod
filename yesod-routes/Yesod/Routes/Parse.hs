@@ -7,6 +7,8 @@ module Yesod.Routes.Parse
     , parseRoutesNoCheck
     , parseRoutesFileNoCheck
     , parseType
+    , parseTypeTree
+    , TypeTree (..)
     ) where
 
 import Language.Haskell.TH.Syntax
@@ -15,6 +17,7 @@ import Language.Haskell.TH.Quote
 import qualified System.IO as SIO
 import Yesod.Routes.TH
 import Yesod.Routes.Overlap (findOverlapNames)
+import Data.List (foldl')
 
 -- | A quasi-quoter to parse a string into a list of 'Resource's. Checks for
 -- overlapping routes, failing if present; use 'parseRoutesNoCheck' to skip the
@@ -116,11 +119,72 @@ piecesFromString x =
     rest = piecesFromString $ drop 1 z
 
 parseType :: String -> Type
-parseType = ConT . mkName -- FIXME handle more complicated stuff
+parseType orig =
+    maybe (error $ "Invalid type: " ++ show orig) ttToType $ parseTypeTree orig
+
+parseTypeTree :: String -> Maybe TypeTree
+parseTypeTree orig =
+    toTypeTree pieces
+  where
+    pieces = filter (not . null) $ splitOn '-' $ addDashes orig
+    addDashes [] = []
+    addDashes (x:xs) =
+        front $ addDashes xs
+      where
+        front rest
+            | x `elem` "()[]" = '-' : x : '-' : rest
+            | otherwise = x : rest
+    splitOn c s =
+        case y' of
+            _:y -> x : splitOn c y
+            [] -> [x]
+      where
+        (x, y') = break (== c) s
+
+data TypeTree = TTTerm String
+              | TTApp TypeTree TypeTree
+              | TTList TypeTree
+    deriving (Show, Eq)
+
+toTypeTree :: [String] -> Maybe TypeTree
+toTypeTree orig = do
+    (x, []) <- gos orig
+    return x
+  where
+    go [] = Nothing
+    go ("(":xs) = do
+        (x, rest) <- gos xs
+        case rest of
+            ")":rest' -> Just (x, rest')
+            _ -> Nothing
+    go ("[":xs) = do
+        (x, rest) <- gos xs
+        case rest of
+            "]":rest' -> Just (TTList x, rest')
+            _ -> Nothing
+    go (x:xs) = Just (TTTerm x, xs)
+
+    gos xs1 = do
+        (t, xs2) <- go xs1
+        (ts, xs3) <- gos' id xs2
+        Just (foldl' TTApp t ts, xs3)
+
+    gos' front [] = Just (front [], [])
+    gos' front (x:xs)
+        | x `elem` words ") ]" = Just (front [], x:xs)
+        | otherwise = do
+            (t, xs') <- go $ x:xs
+            gos' (front . (t:)) xs'
+
+ttToType :: TypeTree -> Type
+ttToType (TTTerm s) = ConT $ mkName s
+ttToType (TTApp x y) = ttToType x `AppT` ttToType y
+ttToType (TTList t) = ListT `AppT` ttToType t
 
 pieceFromString :: String -> Either String (CheckOverlap, Piece String)
 pieceFromString ('#':'!':x) = Right $ (False, Dynamic x)
 pieceFromString ('#':x) = Right $ (True, Dynamic x)
 pieceFromString ('*':x) = Left x
+pieceFromString ('+':x) = Left x
 pieceFromString ('!':x) = Right $ (False, Static x)
 pieceFromString x = Right $ (True, Static x)
