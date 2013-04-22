@@ -78,7 +78,9 @@ sitemap :: Source (HandlerT site IO) (SitemapUrl (Route site))
         -> HandlerT site IO TypedContent
 sitemap urls = do
     render <- getUrlRender
-    respondSource typeXml $ urls $= sitemapConduit render $= renderBuilder def $= CL.map Chunk
+    respondSource typeXml $ do
+        yield Flush
+        urls $= sitemapConduit render $= renderBuilder def $= CL.map Chunk
 
 -- | Convenience wrapper for @sitemap@ for the case when the input is an
 -- in-memory list.
