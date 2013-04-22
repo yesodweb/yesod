@@ -17,7 +17,22 @@ mkYesod "Y" [parseRoutes|
 / RootR GET
 /single/#Text TextR GET
 /multi/*Texts TextsR GET
+
+/route-test-1/+[Text] RT1 GET
+/route-test-2/*Vector-String RT2 GET
+/route-test-3/*Vector-(Maybe-Int) RT3 GET
+/route-test-4/#(Foo-Int-Int) RT4 GET
 |]
+
+data Vector a = Vector
+    deriving (Show, Read, Eq)
+
+instance PathMultiPiece (Vector a)
+
+data Foo x y = Foo
+    deriving (Show, Read, Eq)
+
+instance PathPiece (Foo x y)
 
 instance Yesod Y
 
@@ -29,6 +44,18 @@ getTextR foo = defaultLayout $ toWidget [hamlet|%#{foo}%|]
 
 getTextsR :: [Text] -> Handler RepHtml
 getTextsR foos = defaultLayout $ toWidget [hamlet|%#{show foos}%|]
+
+getRT1 :: [Text] -> Handler ()
+getRT1 _ = return ()
+
+getRT2 :: Vector String -> Handler ()
+getRT2 _ = return ()
+
+getRT3 :: Vector (Maybe Int) -> Handler ()
+getRT3 _ = return ()
+
+getRT4 :: Foo Int Int -> Handler ()
+getRT4 _ = return ()
 
 linksTest :: Spec
 linksTest = describe "Test.Links" $ do
