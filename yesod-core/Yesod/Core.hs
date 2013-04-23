@@ -60,6 +60,8 @@ module Yesod.Core
     , runFakeHandler
       -- * LiteApp
     , module Yesod.Core.Internal.LiteApp
+      -- * Low-level
+    , yesodRunner
       -- * Re-exports
     , module Yesod.Core.Content
     , module Yesod.Core.Dispatch
@@ -91,6 +93,7 @@ import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Yesod.Core.Internal.Session
+import Yesod.Core.Internal.Run (yesodRunner)
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Class.Breadcrumbs
