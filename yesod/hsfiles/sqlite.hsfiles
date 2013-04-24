@@ -5273,10 +5273,10 @@ $maybe msg <- mmsg
 
   <li>
     A Widget's Html, Css and Javascript are separated in three files with the #
-    \<em>.hamlet</em>, <em>.lucius</em> and <em>.julius</em> extensions. 
+    \<em>.hamlet</em>, <em>.lucius</em> and <em>.julius</em> extensions.
 
   <li ##{aDomId}>If you had javascript enabled then you wouldn't be seeing this.
-    
+
   <li #form>
     This is an example trivial Form. Read the #
     \<a href="http://www.yesodweb.com/book/forms">Forms chapter</a> #
@@ -5384,7 +5384,7 @@ body {
     margin: 0;
 }
 
-/* 
+/*
  * Addresses font-family inconsistency between 'textarea' and other form elements.
  */
 
@@ -5444,9 +5444,9 @@ abbr[title] {
  * Addresses style set to 'bolder' in FF3/4, S4/5, Chrome
 */
 
-b, 
-strong { 
-    font-weight: bold; 
+b,
+strong {
+    font-weight: bold;
 }
 
 blockquote {
@@ -5576,7 +5576,7 @@ img {
 }
 
 /*
- * Corrects overflow displayed oddly in IE9 
+ * Corrects overflow displayed oddly in IE9
  */
 
 svg:not(:root) {
@@ -5671,8 +5671,8 @@ table input {
  */
 
 button,
-html input[type="button"], 
-input[type="reset"], 
+html input[type="button"],
+input[type="reset"],
 input[type="submit"] {
     cursor: pointer; /* 1 */
     -webkit-appearance: button; /* 2 */
@@ -5735,7 +5735,7 @@ textarea {
    Tables
    ========================================================================== */
 
-/* 
+/*
  * Remove most spacing between table cells
  */
 
