@@ -8,5 +8,5 @@ import Yesod.Core
 data Y = Y
 mkYesodData "Y" [parseRoutes|
 / RootR GET
-/static StaticR GET
+/static StaticR !IGNORED GET !alsoIgnored
 |]

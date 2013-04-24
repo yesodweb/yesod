@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.1.2.3
+version:         1.2.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -23,7 +23,7 @@ library
     build-depends:   base                  >= 4        && < 5
                    , containers            >= 0.2
                    , old-time              >= 1.0
-                   , yesod-core            >= 1.1      && < 1.2
+                   , yesod-core            >= 1.2      && < 1.3
                    , base64-bytestring     >= 0.1.0.1
                    , cereal                >= 0.3
                    , bytestring            >= 0.9.1.4
@@ -40,6 +40,9 @@ library
                    , crypto-conduit        >= 0.4
                    , cryptohash            >= 0.6.1
                    , system-filepath       >= 0.4.6    && < 0.5
+                   , system-fileio         >= 0.3
+                   , data-default
+                   , shakespeare-css       >= 1.0.3
     exposed-modules: Yesod.Static
     ghc-options:     -Wall
 
@@ -70,6 +73,9 @@ test-suite tests
                    , crypto-conduit
                    , cryptohash
                    , system-filepath
+                   , system-fileio
+                   , data-default
+                   , shakespeare-css
 
     ghc-options:     -Wall
 

@@ -2,6 +2,8 @@
 module Yesod.Routes.TH.Dispatch
     ( -- ** Dispatch
       mkDispatchClause
+    , MkDispatchSettings (..)
+    , defaultGetHandler
     ) where
 
 import Prelude hiding (exp)
@@ -16,16 +18,22 @@ import Data.Char (toLower)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Control.Applicative ((<$>))
 import Data.List (foldl')
+import Data.Text.Encoding (encodeUtf8)
 
-data FlatResource a = FlatResource [(String, [(CheckOverlap, Piece a)])] String [(CheckOverlap, Piece a)] (Dispatch a)
+data MkDispatchSettings = MkDispatchSettings
+    { mdsRunHandler :: Q Exp
+    , mdsSubDispatcher :: Q Exp
+    , mdsGetPathInfo :: Q Exp
+    , mdsSetPathInfo :: Q Exp
+    , mdsMethod :: Q Exp
+    , mds404 :: Q Exp
+    , mds405 :: Q Exp
+    , mdsGetHandler :: Maybe String -> String -> Q Exp
+    }
 
-flatten :: [ResourceTree a] -> [FlatResource a]
-flatten =
-    concatMap (go id)
-  where
-    go front (ResourceLeaf (Resource a b c)) = [FlatResource (front []) a b c]
-    go front (ResourceParent name pieces children) =
-        concatMap (go (front . ((name, pieces):))) children
+defaultGetHandler :: Maybe String -> String -> Q Exp
+defaultGetHandler Nothing s = return $ VarE $ mkName $ "handle" ++ s
+defaultGetHandler (Just method) s = return $ VarE $ mkName $ map toLower method ++ s
 
 -- |
 --
@@ -90,12 +98,10 @@ flatten =
 -- @'yesodRunner'@ for the first, @'yesodDispatch'@ for the second and
 -- @fmap 'chooseRep'@.
 
-mkDispatchClause :: Q Exp -- ^ runHandler function
-                 -> Q Exp -- ^ dispatcher function
-                 -> Q Exp -- ^ fixHandler function
+mkDispatchClause :: MkDispatchSettings
                  -> [ResourceTree a]
                  -> Q Clause
-mkDispatchClause runHandler dispatcher fixHandler ress' = do
+mkDispatchClause mds ress' = do
     -- Allocate the names to be used. Start off with the names passed to the
     -- function itself (with a 0 suffix).
     --
@@ -103,41 +109,42 @@ mkDispatchClause runHandler dispatcher fixHandler ress' = do
     -- with -Wall). Additionally, we want to ensure that none of the code
     -- passed to toDispatch uses variables from the closure to prevent the
     -- dispatch data structure from being rebuilt on each run.
-    master0 <- newName "master0"
-    sub0 <- newName "sub0"
-    toMaster0 <- newName "toMaster0"
-    app4040 <- newName "app4040"
-    handler4050 <- newName "handler4050"
-    method0 <- newName "method0"
-    pieces0 <- newName "pieces0"
+    getEnv0 <- newName "yesod_dispatch_env0"
+    req0 <- newName "req0"
+    pieces <- [|$(mdsGetPathInfo mds) $(return $ VarE req0)|]
 
     -- Name of the dispatch function
     dispatch <- newName "dispatch"
 
     -- Dispatch function applied to the pieces
-    let dispatched = VarE dispatch `AppE` VarE pieces0
+    let dispatched = VarE dispatch `AppE` pieces
 
     -- The 'D.Route's used in the dispatch function
-    routes <- mapM (buildRoute runHandler dispatcher fixHandler) ress
+    routes <- mapM (buildRoute mds) ress
 
     -- The dispatch function itself
     toDispatch <- [|D.toDispatch|]
-    let dispatchFun = FunD dispatch [Clause [] (NormalB $ toDispatch `AppE` ListE routes) []]
+    let dispatchFun = FunD dispatch
+            [Clause
+                []
+                (NormalB $ toDispatch `AppE` ListE routes)
+                []
+            ]
 
     -- The input to the clause.
-    let pats = map VarP [master0, sub0, toMaster0, app4040, handler4050, method0, pieces0]
+    let pats = map VarP [getEnv0, req0]
 
     -- For each resource that dispatches based on methods, build up a map for handling the dispatching.
-    methodMaps <- catMaybes <$> mapM (buildMethodMap fixHandler) ress
+    methodMaps <- catMaybes <$> mapM (buildMethodMap mds) ress
 
     u <- [|case $(return dispatched) of
-            Just f -> f $(return $ VarE master0)
-                        $(return $ VarE sub0)
-                        $(return $ VarE toMaster0)
-                        $(return $ VarE app4040)
-                        $(return $ VarE handler4050)
-                        $(return $ VarE method0)
-            Nothing -> $(return $ VarE app4040)
+            Just f -> f $(return $ VarE getEnv0)
+                        $(return $ VarE req0)
+            Nothing -> $(mdsRunHandler mds)
+                            $(mds404 mds)
+                            $(return $ VarE getEnv0)
+                            Nothing
+                            $(return $ VarE req0)
           |]
     return $ Clause pats (NormalB u) $ dispatchFun : methodMaps
   where
@@ -147,11 +154,11 @@ mkDispatchClause runHandler dispatcher fixHandler ress' = do
 methodMapName :: String -> Name
 methodMapName s = mkName $ "methods" ++ s
 
-buildMethodMap :: Q Exp -- ^ fixHandler
+buildMethodMap :: MkDispatchSettings
                -> FlatResource a
                -> Q (Maybe Dec)
 buildMethodMap _ (FlatResource _ _ _ (Methods _ [])) = return Nothing -- single handle function
-buildMethodMap fixHandler (FlatResource parents name pieces' (Methods mmulti methods)) = do
+buildMethodMap mds (FlatResource parents name pieces' (Methods mmulti methods)) = do
     fromList <- [|Map.fromList|]
     methods' <- mapM go methods
     let exp = fromList `AppE` ListE methods'
@@ -160,20 +167,27 @@ buildMethodMap fixHandler (FlatResource parents name pieces' (Methods mmulti met
   where
     pieces = concat $ map snd parents ++ [pieces']
     go method = do
-        fh <- fixHandler
-        let func = VarE $ mkName $ map toLower method ++ name
-        pack' <- [|pack|]
+        func <- mdsGetHandler mds (Just method) name
+        pack' <- [|encodeUtf8 . pack|]
         let isDynamic Dynamic{} = True
             isDynamic _ = False
         let argCount = length (filter (isDynamic . snd) pieces) + maybe 0 (const 1) mmulti
         xs <- replicateM argCount $ newName "arg"
-        let rhs = LamE (map VarP xs) $ fh `AppE` (foldl' AppE func $ map VarE xs)
-        return $ TupE [pack' `AppE` LitE (StringL method), rhs]
+        runHandler <- mdsRunHandler mds
+        let rhs
+                | null xs = runHandler `AppE` func
+                | otherwise =
+                    LamE (map VarP xs) $
+                    runHandler `AppE` (foldl' AppE func $ map VarE xs)
+        return $ TupE
+            [ pack' `AppE` LitE (StringL method)
+            , rhs
+            ]
 buildMethodMap _ (FlatResource _ _ _ Subsite{}) = return Nothing
 
 -- | Build a single 'D.Route' expression.
-buildRoute :: Q Exp -> Q Exp -> Q Exp -> FlatResource a -> Q Exp
-buildRoute runHandler dispatcher fixHandler (FlatResource parents name resPieces resDisp) = do
+buildRoute :: MkDispatchSettings -> FlatResource a -> Q Exp
+buildRoute mds (FlatResource parents name resPieces resDisp) = do
     -- First two arguments to D.Route
     routePieces <- ListE <$> mapM (convertPiece . snd) allPieces
     isMulti <-
@@ -181,19 +195,26 @@ buildRoute runHandler dispatcher fixHandler (FlatResource parents name resPieces
             Methods Nothing _ -> [|False|]
             _ -> [|True|]
 
-    [|D.Route $(return routePieces) $(return isMulti) $(routeArg3 runHandler dispatcher fixHandler parents name (map snd allPieces) resDisp)|]
+    [|D.Route
+        $(return routePieces)
+        $(return isMulti)
+        $(routeArg3
+            mds
+            parents
+            name
+            (map snd allPieces)
+            resDisp)
+        |]
   where
     allPieces = concat $ map snd parents ++ [resPieces]
 
-routeArg3 :: Q Exp -- ^ runHandler
-          -> Q Exp -- ^ dispatcher
-          -> Q Exp -- ^ fixHandler
+routeArg3 :: MkDispatchSettings
           -> [(String, [(CheckOverlap, Piece a)])]
           -> String -- ^ name of resource
           -> [Piece a]
           -> Dispatch a
           -> Q Exp
-routeArg3 runHandler dispatcher fixHandler parents name resPieces resDisp = do
+routeArg3 mds parents name resPieces resDisp = do
     pieces <- newName "pieces"
 
     -- Allocate input piece variables (xs) and variables that have been
@@ -235,7 +256,7 @@ routeArg3 runHandler dispatcher fixHandler parents name resPieces resDisp = do
             _ -> return ([], [])
 
     -- The final expression that actually uses the values we've computed
-    caller <- buildCaller runHandler dispatcher fixHandler xrest parents name resDisp $ map snd ys ++ yrest'
+    caller <- buildCaller mds xrest parents name resDisp $ map snd ys ++ yrest'
 
     -- Put together all the statements
     just <- [|Just|]
@@ -254,24 +275,20 @@ routeArg3 runHandler dispatcher fixHandler parents name resPieces resDisp = do
     return $ LamE [VarP pieces] $ CaseE (VarE pieces) matches
 
 -- | The final expression in the individual Route definitions.
-buildCaller :: Q Exp -- ^ runHandler
-            -> Q Exp -- ^ dispatcher
-            -> Q Exp -- ^ fixHandler
+buildCaller :: MkDispatchSettings
             -> Name -- ^ xrest
             -> [(String, [(CheckOverlap, Piece a)])]
             -> String -- ^ name of resource
             -> Dispatch a
             -> [Name] -- ^ ys
             -> Q Exp
-buildCaller runHandler dispatcher fixHandler xrest parents name resDisp ys = do
-    master <- newName "master"
-    sub <- newName "sub"
-    toMaster <- newName "toMaster"
-    app404 <- newName "_app404"
-    handler405 <- newName "_handler405"
-    method <- newName "_method"
+buildCaller mds xrest parents name resDisp ys = do
+    getEnv <- newName "yesod_dispatch_env"
+    req <- newName "req"
 
-    let pat = map VarP [master, sub, toMaster, app404, handler405, method]
+    method <- [|$(mdsMethod mds) $(return $ VarE req)|]
+
+    let pat = map VarP [getEnv, req]
 
     -- Create the route
     let route = routeFromDynamics parents name ys
@@ -281,13 +298,14 @@ buildCaller runHandler dispatcher fixHandler xrest parents name resDisp ys = do
             Methods _ ms -> do
                 handler <- newName "handler"
 
+                env <- [|$(return $ VarE getEnv) (Just $(return route))|]
+
                 -- Run the whole thing
-                runner <- [|$(runHandler)
-                                $(return $ VarE handler)
-                                $(return $ VarE master)
-                                $(return $ VarE sub)
+                runner <- [|$(return $ VarE handler)
+                                $(return $ VarE getEnv)
                                 (Just $(return route))
-                                $(return $ VarE toMaster)|]
+                                $(return $ VarE req)
+                                |]
 
                 let myLet handlerExp =
                         LetE [FunD handler [Clause [] (NormalB handlerExp) []]] runner
@@ -295,32 +313,40 @@ buildCaller runHandler dispatcher fixHandler xrest parents name resDisp ys = do
                 if null ms
                     then do
                         -- Just a single handler
-                        fh <- fixHandler
-                        let he = fh `AppE` foldl' (\a b -> a `AppE` VarE b) (VarE $ mkName $ "handle" ++ name) ys
-                        return $ myLet he
+                        base <- mdsGetHandler mds Nothing name
+                        let he = foldl' (\a b -> a `AppE` VarE b) base ys
+                        runHandler <- mdsRunHandler mds
+                        return $ myLet $ runHandler `AppE` he
                     else do
                         -- Individual methods
-                        mf <- [|Map.lookup $(return $ VarE method) $(return $ VarE $ methodMapName name)|]
+                        mf <- [|Map.lookup $(return method) $(return $ VarE $ methodMapName name)|]
                         f <- newName "f"
                         let apply = foldl' (\a b -> a `AppE` VarE b) (VarE f) ys
-                        let body405 =
-                                VarE handler405
-                                `AppE` route
+                        body405 <-
+                            [|$(mdsRunHandler mds)
+                                $(mds405 mds)
+                                $(return $ VarE getEnv)
+                                (Just $(return route))
+                                $(return $ VarE req)
+                             |]
                         return $ CaseE mf
                             [ Match (ConP 'Just [VarP f]) (NormalB $ myLet apply) []
                             , Match (ConP 'Nothing []) (NormalB body405) []
                             ]
 
             Subsite _ getSub -> do
-                let sub2 = foldl' (\a b -> a `AppE` VarE b) (VarE (mkName getSub) `AppE` VarE sub) ys
-                [|$(dispatcher)
-                    $(return $ VarE master)
+                sub <- newName "sub"
+                let sub2 = LamE [VarP sub]
+                        (foldl' (\a b -> a `AppE` VarE b) (VarE (mkName getSub) `AppE` VarE sub) ys)
+                [|$(mdsSubDispatcher mds)
+                    $(mdsRunHandler mds)
                     $(return sub2)
-                    ($(return $ VarE toMaster) . $(return route))
-                    $(return $ VarE app404)
-                    ($(return $ VarE handler405) . $(return route))
-                    $(return $ VarE method)
-                    $(return $ VarE xrest)
+                    $(return route)
+                    $(return $ VarE getEnv)
+                    ($(mdsSetPathInfo mds)
+                        $(return $ VarE xrest)
+                        $(return $ VarE req)
+                        )
                  |]
 
     return $ LamE pat exp

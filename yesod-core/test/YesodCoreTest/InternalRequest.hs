@@ -6,9 +6,12 @@ import System.Random (StdGen, mkStdGen)
 
 import Network.Wai as W
 import Network.Wai.Test
-import Yesod.Internal.TestApi (randomString, parseWaiRequest')
-import Yesod.Request (Request (..))
+import Yesod.Core.Internal (randomString, parseWaiRequest)
 import Test.Hspec
+import Data.Monoid (mempty)
+import Data.Map (singleton)
+import Yesod.Core
+import Data.Word (Word64)
 
 randomStringSpecs :: Spec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
@@ -28,6 +31,15 @@ noRepeat len n = length (nub $ map (randomString len . mkStdGen) [1..n]) == n
 g :: StdGen
 g = error "test/YesodCoreTest/InternalRequest.g"
 
+parseWaiRequest' :: Request
+                 -> SessionMap
+                 -> Bool
+                 -> Word64
+                 -> YesodRequest
+parseWaiRequest' a b c d =
+    case parseWaiRequest a b c (Just d) of
+        Left yreq -> yreq
+        Right needGen -> needGen g
 
 tokenSpecs :: Spec
 tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)" $ do
@@ -38,19 +50,19 @@ tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)" $ do
 
 noDisabledToken :: Bool
 noDisabledToken = reqToken r == Nothing where
-  r = parseWaiRequest' defaultRequest [] False 0 1000 g
+  r = parseWaiRequest' defaultRequest mempty False 1000
 
 ignoreDisabledToken :: Bool
 ignoreDisabledToken = reqToken r == Nothing where
-  r = parseWaiRequest' defaultRequest [("_TOKEN", "old")] False 0 1000 g
+  r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") False 1000
 
 useOldToken :: Bool
 useOldToken = reqToken r == Just "old" where
-  r = parseWaiRequest' defaultRequest [("_TOKEN", "old")] True 0 1000 g
+  r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") True 1000
 
 generateToken :: Bool
 generateToken = reqToken r /= Nothing where
-  r = parseWaiRequest' defaultRequest [("_TOKEN", "old")] True 0 1000 g
+  r = parseWaiRequest' defaultRequest (singleton "_TOKEN" "old") True 1000
 
 
 langSpecs :: Spec
@@ -64,21 +76,21 @@ langSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqLangs)" $ do
 respectAcceptLangs :: Bool
 respectAcceptLangs = reqLangs r == ["en-US", "es", "en"] where
   r = parseWaiRequest' defaultRequest
-        { requestHeaders = [("Accept-Language", "en-US, es")] } [] False 0 1000 g
+        { requestHeaders = [("Accept-Language", "en-US, es")] } mempty False 1000
 
 respectSessionLang :: Bool
 respectSessionLang = reqLangs r == ["en"] where
-  r = parseWaiRequest' defaultRequest [("_LANG", "en")] False 0 1000 g
+  r = parseWaiRequest' defaultRequest (singleton "_LANG" "en") False 1000
 
 respectCookieLang :: Bool
 respectCookieLang = reqLangs r == ["en"] where
   r = parseWaiRequest' defaultRequest
         { requestHeaders = [("Cookie", "_LANG=en")]
-        } [] False 0 1000 g
+        } mempty False 1000
 
 respectQueryLang :: Bool
 respectQueryLang = reqLangs r == ["en-US", "en"] where
-  r = parseWaiRequest' defaultRequest { queryString = [("_LANG", Just "en-US")] } [] False 0 1000 g
+  r = parseWaiRequest' defaultRequest { queryString = [("_LANG", Just "en-US")] } mempty False 1000
 
 prioritizeLangs :: Bool
 prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "es"] where
@@ -87,8 +99,7 @@ prioritizeLangs = reqLangs r == ["en-QUERY", "en-COOKIE", "en-SESSION", "en", "e
                            , ("Cookie", "_LANG=en-COOKIE")
                            ]
         , queryString = [("_LANG", Just "en-QUERY")]
-        } [("_LANG", "en-SESSION")] False 0 10000 g
-
+        } (singleton "_LANG" "en-SESSION") False 10000
 
 internalRequestTest :: Spec
 internalRequestTest = describe "Test.InternalRequestTest" $ do

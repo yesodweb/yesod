@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.AtomFeed
@@ -35,10 +36,13 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Data.Map as Map
 
 newtype RepAtom = RepAtom Content
-instance HasReps RepAtom where
-    chooseRep (RepAtom c) _ = return (typeAtom, c)
+    deriving ToContent
+instance HasContentType RepAtom where
+    getContentType _ = typeAtom
+instance ToTypedContent RepAtom where
+    toTypedContent = TypedContent typeAtom . toContent
 
-atomFeed :: Feed (Route master) -> GHandler sub master RepAtom
+atomFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m RepAtom
 atomFeed feed = do
     render <- getUrlRender
     return $ RepAtom $ toContent $ renderLBS def $ template feed render
@@ -71,10 +75,10 @@ entryTemplate FeedEntry {..} render = Element "entry" Map.empty $ map NodeElemen
     ]
 
 -- | Generates a link tag in the head of a widget.
-atomLink :: Route m
+atomLink :: MonadWidget m
+         => Route (HandlerSite m)
          -> Text -- ^ title
-         -> GWidget s m ()
+         -> m ()
 atomLink r title = toWidgetHead [hamlet|
-$newline never
-<link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}>
-|]
+    <link href=@{r} type=#{S8.unpack typeAtom} rel="alternate" title=#{title}>
+    |]

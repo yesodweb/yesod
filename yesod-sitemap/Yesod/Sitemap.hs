@@ -19,18 +19,22 @@
 -- See <http://www.sitemaps.org/>.
 module Yesod.Sitemap
     ( sitemap
+    , sitemapList
+    , sitemapConduit
     , robots
     , SitemapUrl (..)
     , SitemapChangeFreq (..)
     ) where
 
-import Yesod.Content (RepXml (..), RepPlain (..), toContent, formatW3)
-import Yesod.Core (Route, GHandler, getUrlRender)
+import Yesod.Core
 import Data.Time (UTCTime)
-import Data.Monoid (mappend)
-import Text.XML
+import Text.XML.Stream.Render (renderBuilder)
 import Data.Text (Text, pack)
-import qualified Data.Map as Map
+import Data.XML.Types
+import Data.Conduit
+import qualified Data.Conduit.List as CL
+import Data.Default (def)
+import qualified Data.Text as T
 
 data SitemapChangeFreq = Always
                        | Hourly
@@ -51,40 +55,70 @@ showFreq Never   = "never"
 
 data SitemapUrl url = SitemapUrl
     { sitemapLoc :: url
-    , sitemapLastMod :: UTCTime
-    , sitemapChangeFreq :: SitemapChangeFreq
-    , sitemapPriority :: Double
+    , sitemapLastMod :: Maybe UTCTime
+    , sitemapChangeFreq :: Maybe SitemapChangeFreq
+    , sitemapPriority :: Maybe Double
     }
 
-template :: [SitemapUrl url]
-         -> (url -> Text)
-         -> Document
-template urls render =
-    Document (Prologue [] Nothing []) (addNS root) []
-  where
-    addNS (Element (Name ln _ _) as ns) = Element (Name ln (Just namespace) Nothing) as (map addNS' ns)
-    addNS' (NodeElement e) = NodeElement (addNS e)
-    addNS' n = n
-    namespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
-
-    root = Element "urlset" Map.empty $ map go urls
-
-    go SitemapUrl {..} = NodeElement $ Element "url" Map.empty $ map NodeElement
-        [ Element "loc" Map.empty [NodeContent $ render sitemapLoc]
-        , Element "lastmod" Map.empty [NodeContent $ formatW3 sitemapLastMod]
-        , Element "changefreq" Map.empty [NodeContent $ showFreq sitemapChangeFreq]
-        , Element "priority" Map.empty [NodeContent $ pack $ show sitemapPriority]
+-- | A basic robots file which just lists the "Sitemap: " line.
+robots :: MonadHandler m
+       => Route (HandlerSite m) -- ^ sitemap url
+       -> m Text
+robots smurl = do
+    ur <- getUrlRender
+    return $ T.unlines
+        [ "Sitemap: " `T.append` ur smurl
+        , "User-agent: *"
         ]
 
-sitemap :: [SitemapUrl (Route master)] -> GHandler sub master RepXml
+-- | Serve a stream of @SitemapUrl@s as a sitemap.
+--
+-- Since 1.2.0
+sitemap :: Source (HandlerT site IO) (SitemapUrl (Route site))
+        -> HandlerT site IO TypedContent
 sitemap urls = do
     render <- getUrlRender
-    let doc = template urls render
-    return $ RepXml $ toContent $ renderLBS def doc
+    respondSource typeXml $ do
+        yield Flush
+        urls $= sitemapConduit render $= renderBuilder def $= CL.map Chunk
 
--- | A basic robots file which just lists the "Sitemap: " line.
-robots :: Route master -- ^ sitemap url
-       -> GHandler sub master RepPlain
-robots smurl = do
-    render <- getUrlRender
-    return $ RepPlain $ toContent $ "Sitemap: " `mappend` render smurl
+-- | Convenience wrapper for @sitemap@ for the case when the input is an
+-- in-memory list.
+--
+-- Since 1.2.0
+sitemapList :: [SitemapUrl (Route site)] -> HandlerT site IO TypedContent
+sitemapList = sitemap . mapM_ yield
+
+-- | Convert a stream of @SitemapUrl@s to XML @Event@s using the given URL
+-- renderer.
+--
+-- This function is fully general for usage outside of Yesod.
+--
+-- Since 1.2.0
+sitemapConduit :: Monad m
+               => (a -> Text)
+               -> Conduit (SitemapUrl a) m Event
+sitemapConduit render = do
+    yield EventBeginDocument
+    element "urlset" [] $ awaitForever goUrl
+    yield EventEndDocument
+  where
+    namespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
+    element name' attrs inside = do
+        yield $ EventBeginElement name attrs
+        () <- inside
+        yield $ EventEndElement name
+      where
+        name = Name name' (Just namespace) Nothing
+
+    goUrl SitemapUrl {..} = element "url" [] $ do
+        element "loc" [] $ yield $ EventContent $ ContentText $ render sitemapLoc
+        case sitemapLastMod of
+            Nothing -> return ()
+            Just lm -> element "lastmod" [] $ yield $ EventContent $ ContentText $ formatW3 lm
+        case sitemapChangeFreq of
+            Nothing -> return ()
+            Just scf -> element "changefreq" [] $ yield $ EventContent $ ContentText $ showFreq scf
+        case sitemapPriority of
+            Nothing -> return ()
+            Just p -> element "priority" [] $ yield $ EventContent $ ContentText $ pack $ show p

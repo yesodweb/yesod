@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RankNTypes #-}
 -- | Use an email address as an identifier via Google's OpenID login system.
 --
 -- This backend will not use the OpenID identifier at all. It only uses OpenID
@@ -18,14 +19,7 @@ module Yesod.Auth.GoogleEmail
 import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
-import Yesod.Handler
-import Yesod.Widget (whamlet)
-import Yesod.Request
-#if MIN_VERSION_blaze_html(0, 5, 0)
-import Text.Blaze.Html (toHtml)
-#else
-import Text.Blaze (toHtml)
-#endif
+import Yesod.Core
 import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
 import qualified Data.Text as T
@@ -46,15 +40,11 @@ authGoogleEmail =
   where
     complete = PluginR pid ["complete"]
     login tm =
-        [whamlet|
-$newline never
-<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}
-|]
+        [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
     dispatch "GET" ["forward"] = do
         render <- getUrlRender
-        toMaster <- getRouteToMaster
-        let complete' = render $ toMaster complete
-        master <- getYesod
+        let complete' = render complete
+        master <- lift getYesod
         eres <- lift $ try $ OpenId.getForwardUrl googleIdent complete' Nothing
             [ ("openid.ax.type.email", "http://schema.openid.net/contact/email")
             , ("openid.ns.ax", "http://openid.net/srv/ax/1.0")
@@ -66,7 +56,7 @@ $newline never
         either
           (\err -> do
                 setMessage $ toHtml $ show (err :: SomeException)
-                redirect $ toMaster LoginR
+                redirect LoginR
                 )
           redirect
           eres
@@ -80,23 +70,22 @@ $newline never
         completeHelper posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth m => [(Text, Text)] -> GHandler Auth m ()
+completeHelper :: YesodAuth master => [(Text, Text)] -> AuthHandler master ()
 completeHelper gets' = do
-        master <- getYesod
+        master <- lift getYesod
         eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
-        toMaster <- getRouteToMaster
         let onFailure err = do
             setMessage $ toHtml $ show (err :: SomeException)
-            redirect $ toMaster LoginR
+            redirect LoginR
         let onSuccess oir = do
                 let OpenId.Identifier ident = OpenId.oirOpLocal oir
                 memail <- lookupGetParam "openid.ext1.value.email"
                 case (memail, "https://www.google.com/accounts/o8/id" `T.isPrefixOf` ident) of
-                    (Just email, True) -> setCreds True $ Creds pid email []
+                    (Just email, True) -> lift $ setCreds True $ Creds pid email []
                     (_, False) -> do
                         setMessage "Only Google login is supported"
-                        redirect $ toMaster LoginR
+                        redirect LoginR
                     (Nothing, _) -> do
                         setMessage "No email address provided"
-                        redirect $ toMaster LoginR
+                        redirect LoginR
         either onFailure onSuccess eres

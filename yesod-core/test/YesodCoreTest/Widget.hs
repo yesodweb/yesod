@@ -5,7 +5,7 @@ module YesodCoreTest.Widget (widgetTest) where
 
 import Test.Hspec
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 import Text.Julius
 import Text.Lucius
 import Text.Hamlet
@@ -61,18 +61,18 @@ getTowidgetR = defaultLayout $ do
 
 getWhamletR :: Handler RepHtml
 getWhamletR = defaultLayout [whamlet|
-$newline never
-<h1>Test
-<h2>@{WhamletR}
-<h3>_{Goodbye}
-<h3>_{MsgAnother}
-^{embed}
-|]
+                    $newline never
+                    <h1>Test
+                    <h2>@{WhamletR}
+                    <h3>_{Goodbye}
+                    <h3>_{MsgAnother}
+                    ^{embed}
+                |]
   where
     embed = [whamlet|
-$newline never
-<h4>Embed
-|]
+                $newline never
+                <h4>Embed
+                |]
 
 getAutoR :: Handler RepHtml
 getAutoR = defaultLayout [whamlet|

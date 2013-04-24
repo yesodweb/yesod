@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RankNTypes #-}
 module Yesod.Auth.OpenId
     ( authOpenId
     , forwardUrl
@@ -14,15 +15,8 @@ import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Form
-import Yesod.Handler
-import Yesod.Widget (toWidget, whamlet)
-import Yesod.Request
+import Yesod.Core
 import Text.Cassius (cassius)
-#if MIN_VERSION_blaze_html(0, 5, 0)
-import Text.Blaze.Html (toHtml)
-#else
-import Text.Blaze (toHtml)
-#endif
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
 import Control.Exception.Lifted (SomeException, try)
@@ -43,7 +37,7 @@ authOpenId idType extensionFields =
     complete = PluginR "openid" ["complete"]
     name = "openid_identifier"
     login tm = do
-        ident <- lift newIdent
+        ident <- newIdent
         -- FIXME this is a hack to get GHC 7.6's type checker to allow the
         -- code, but it shouldn't be necessary
         let y :: a -> [(Text, Text)] -> Text
@@ -66,23 +60,21 @@ $newline never
     <input type="submit" value="_{Msg.LoginOpenID}">
 |]
     dispatch "GET" ["forward"] = do
-        roid <- runInputGet $ iopt textField name
+        roid <- lift $ runInputGet $ iopt textField name
         case roid of
             Just oid -> do
                 render <- getUrlRender
-                toMaster <- getRouteToMaster
-                let complete' = render $ toMaster complete
-                master <- getYesod
+                let complete' = render complete
+                master <- lift getYesod
                 eres <- lift $ try $ OpenId.getForwardUrl oid complete' Nothing extensionFields (authHttpManager master)
                 case eres of
                     Left err -> do
                         setMessage $ toHtml $ show (err :: SomeException)
-                        redirect $ toMaster LoginR
+                        redirect LoginR
                     Right x -> redirect x
             Nothing -> do
-                toMaster <- getRouteToMaster
-                setMessageI Msg.NoOpenID
-                redirect $ toMaster LoginR
+                lift $ setMessageI Msg.NoOpenID
+                redirect LoginR
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
     dispatch "GET" ["complete"] = do
         rr <- getRequest
@@ -93,14 +85,13 @@ $newline never
         completeHelper idType posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth m => IdentifierType -> [(Text, Text)] -> GHandler Auth m ()
+completeHelper :: IdentifierType -> [(Text, Text)] -> AuthHandler master ()
 completeHelper idType gets' = do
-        master <- getYesod
-        eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
-        toMaster <- getRouteToMaster
+        master <- lift getYesod
+        eres <- try $ OpenId.authenticateClaimed gets' (authHttpManager master)
         let onFailure err = do
             setMessage $ toHtml $ show (err :: SomeException)
-            redirect $ toMaster LoginR
+            redirect LoginR
         let onSuccess oir = do
                 let claimed =
                         case OpenId.oirClaimed oir of
@@ -114,7 +105,7 @@ completeHelper idType gets' = do
                             case idType of
                                 OPLocal -> OpenId.oirOpLocal oir
                                 Claimed -> fromMaybe (OpenId.oirOpLocal oir) $ OpenId.oirClaimed oir
-                setCreds True $ Creds "openid" i gets''
+                lift $ setCreds True $ Creds "openid" i gets''
         either onFailure onSuccess eres
 
 -- | The main identifier provided by the OpenID authentication plugin is the

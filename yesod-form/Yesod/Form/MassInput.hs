@@ -12,11 +12,7 @@ module Yesod.Form.MassInput
 import Yesod.Form.Types
 import Yesod.Form.Functions
 import Yesod.Form.Fields (boolField)
-import Yesod.Widget (GWidget, whamlet)
-import Yesod.Message (RenderMessage)
-import Yesod.Handler (newIdent, GHandler)
-import Text.Blaze.Html (Html)
-import Control.Monad.Trans.Class (lift)
+import Yesod.Core
 import Control.Monad.Trans.RWS (get, put, ask)
 import Data.Maybe (fromMaybe)
 import Data.Text.Read (decimal)
@@ -25,9 +21,8 @@ import Data.Either (partitionEithers)
 import Data.Traversable (sequenceA)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
-import Yesod.Core (SomeMessage (SomeMessage))
 
-down :: Int -> MForm sub master ()
+down :: Monad m => Int -> MForm m ()
 down 0 = return ()
 down i | i < 0 = error "called down with a negative number"
 down i = do
@@ -35,7 +30,7 @@ down i = do
     put $ IntCons 0 is
     down $ i - 1
 
-up :: Int -> MForm sub master ()
+up :: Monad m => Int -> MForm m ()
 up 0 = return ()
 up i | i < 0 = error "called down with a negative number"
 up i = do
@@ -45,11 +40,11 @@ up i = do
         IntCons _ is' -> put is' >> newFormIdent >> return ()
     up $ i - 1
 
-inputList :: (m ~ GHandler sub master, xml ~ GWidget sub master (), RenderMessage master FormMessage)
+inputList :: (m ~ HandlerT site IO, xml ~ WidgetT site IO (), RenderMessage site FormMessage)
           => Html
-          -> ([[FieldView sub master]] -> xml)
-          -> (Maybe a -> AForm sub master a)
-          -> (Maybe [a] -> AForm sub master [a])
+          -> ([[FieldView site]] -> xml)
+          -> (Maybe a -> AForm (HandlerT site IO) a)
+          -> (Maybe [a] -> AForm (HandlerT site IO) [a])
 inputList label fixXml single mdef = formToAForm $ do
     theId <- lift newIdent
     down 1
@@ -89,9 +84,9 @@ $newline never
         , fvRequired = False
         }])
 
-withDelete :: (xml ~ GWidget sub master (), RenderMessage master FormMessage)
-           => AForm sub master a
-           -> MForm sub master (Either xml (FormResult a, [FieldView sub master]))
+withDelete :: (xml ~ WidgetT site IO (), RenderMessage site FormMessage)
+           => AForm (HandlerT site IO) a
+           -> MForm (HandlerT site IO) (Either xml (FormResult a, [FieldView site]))
 withDelete af = do
     down 1
     deleteName <- newFormIdent
@@ -114,9 +109,9 @@ $newline never
     up 1
     return res
 
-fixme :: (xml ~ GWidget sub master ())
-      => [Either xml (FormResult a, [FieldView sub master])]
-      -> (FormResult [a], [xml], [[FieldView sub master]])
+fixme :: (xml ~ WidgetT site IO ())
+      => [Either xml (FormResult a, [FieldView site])]
+      -> (FormResult [a], [xml], [[FieldView site]])
 fixme eithers =
     (res, xmls, map snd rest)
   where
@@ -124,8 +119,8 @@ fixme eithers =
     res = sequenceA $ map fst rest
 
 massDivs, massTable
-         :: [[FieldView sub master]]
-         -> GWidget sub master ()
+         :: [[FieldView site]]
+         -> WidgetT site IO ()
 massDivs viewss = [whamlet|
 $newline never
 $forall views <- viewss

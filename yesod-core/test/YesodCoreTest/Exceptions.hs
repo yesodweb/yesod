@@ -5,7 +5,7 @@ module YesodCoreTest.Exceptions (exceptionsTest, Widget) where
 
 import Test.Hspec
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 import Network.Wai
 import Network.Wai.Test
 import Network.HTTP.Types (status301)
@@ -18,7 +18,7 @@ mkYesod "Y" [parseRoutes|
 
 instance Yesod Y where
     approot = ApprootStatic "http://test"
-    errorHandler (InternalError e) = return $ chooseRep $ RepPlain $ toContent e
+    errorHandler (InternalError e) = return $ toTypedContent e
     errorHandler x = defaultErrorHandler x
 
 getRootR :: Handler ()
@@ -26,7 +26,7 @@ getRootR = error "FOOBAR" >> return ()
 
 getRedirR :: Handler ()
 getRedirR = do
-    setHeader "foo" "bar"
+    addHeader "foo" "bar"
     redirectWith status301 RootR
 
 exceptionsTest :: Spec

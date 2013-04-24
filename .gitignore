@@ -7,3 +7,5 @@ client_session_key.aes
 cabal-dev/
 yesod/foobar/
 .virthualenv
+/vendor/
+/.shelly/

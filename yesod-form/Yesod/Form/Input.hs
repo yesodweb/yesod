@@ -11,19 +11,17 @@ module Yesod.Form.Input
 import Yesod.Form.Types
 import Data.Text (Text)
 import Control.Applicative (Applicative (..))
-import Yesod.Handler (GHandler, invalidArgs, runRequestBody, getRequest, getYesod)
-import Yesod.Request (reqGetParams, languages)
+import Yesod.Core
 import Control.Monad (liftM)
-import Yesod.Message (RenderMessage (..), SomeMessage (..))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Control.Arrow ((***))
 
 type DText = [Text] -> [Text]
-newtype FormInput sub master a = FormInput { unFormInput :: master -> [Text] -> Env -> FileEnv -> GHandler sub master (Either DText a) }
-instance Functor (FormInput sub master) where
-    fmap a (FormInput f) = FormInput $ \c d e e' -> fmap (either Left (Right . a)) $ f c d e e'
-instance Applicative (FormInput sub master) where
+newtype FormInput m a = FormInput { unFormInput :: HandlerSite m -> [Text] -> Env -> FileEnv -> m (Either DText a) }
+instance Monad m => Functor (FormInput m) where
+    fmap a (FormInput f) = FormInput $ \c d e e' -> liftM (either Left (Right . a)) $ f c d e e'
+instance Monad m => Applicative (FormInput m) where
     pure = FormInput . const . const . const . const . return . Right
     (FormInput f) <*> (FormInput x) = FormInput $ \c d e e' -> do
         res1 <- f c d e e'
@@ -34,7 +32,8 @@ instance Applicative (FormInput sub master) where
             (_, Left b) -> Left b
             (Right a, Right b) -> Right $ a b
 
-ireq :: (RenderMessage master FormMessage) => Field sub master a -> Text -> FormInput sub master a
+ireq :: (Monad m, RenderMessage (HandlerSite m) FormMessage)
+     => Field m a -> Text -> FormInput m a
 ireq field name = FormInput $ \m l env fenv -> do
       let filteredEnv = fromMaybe [] $ Map.lookup name env
           filteredFEnv = fromMaybe [] $ Map.lookup name fenv
@@ -44,7 +43,7 @@ ireq field name = FormInput $ \m l env fenv -> do
           Right Nothing -> Left $ (:) $ renderMessage m l $ MsgInputNotFound name
           Right (Just a) -> Right a
 
-iopt :: Field sub master a -> Text -> FormInput sub master (Maybe a)
+iopt :: Monad m => Field m a -> Text -> FormInput m (Maybe a)
 iopt field name = FormInput $ \m l env fenv -> do
       let filteredEnv = fromMaybe [] $ Map.lookup name env
           filteredFEnv = fromMaybe [] $ Map.lookup name fenv
@@ -53,7 +52,7 @@ iopt field name = FormInput $ \m l env fenv -> do
         Left (SomeMessage e) -> Left $ (:) $ renderMessage m l e
         Right x -> Right x
 
-runInputGet :: FormInput sub master a -> GHandler sub master a
+runInputGet :: MonadHandler m => FormInput m a -> m a
 runInputGet (FormInput f) = do
     env <- liftM (toMap . reqGetParams) getRequest
     m <- getYesod
@@ -66,7 +65,7 @@ runInputGet (FormInput f) = do
 toMap :: [(Text, a)] -> Map.Map Text [a]
 toMap = Map.unionsWith (++) . map (\(x, y) -> Map.singleton x [y])
 
-runInputPost :: FormInput sub master a -> GHandler sub master a
+runInputPost :: MonadHandler m => FormInput m a -> m a
 runInputPost (FormInput f) = do
     (env, fenv) <- liftM (toMap *** toMap) runRequestBody
     m <- getYesod

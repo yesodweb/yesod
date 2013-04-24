@@ -22,7 +22,6 @@ module Yesod.Form.Types
     ) where
 
 import Control.Monad.Trans.RWS (RWST)
-import Yesod.Request (FileInfo)
 import Data.Text (Text)
 import Data.Monoid (Monoid (..))
 import Text.Blaze (Markup, ToMarkup (toMarkup))
@@ -31,8 +30,9 @@ import Text.Blaze (Markup, ToMarkup (toMarkup))
 #define toHtml toMarkup
 import Control.Applicative ((<$>), Applicative (..))
 import Control.Monad (liftM)
+import Control.Monad.Trans.Class
 import Data.String (IsString (..))
-import Yesod.Core (GHandler, GWidget, SomeMessage, MonadLift (..))
+import Yesod.Core
 import qualified Data.Map as Map
 
 -- | A form can produce three different results: there was no data available,
@@ -79,27 +79,35 @@ instance Show Ints where
 type Env = Map.Map Text [Text]
 type FileEnv = Map.Map Text [FileInfo]
 
-type Lang = Text
-type MForm sub master a = RWST (Maybe (Env, FileEnv), master, [Lang]) Enctype Ints (GHandler sub master) a
+type MForm m a = RWST
+    (Maybe (Env, FileEnv), HandlerSite m, [Lang])
+    Enctype
+    Ints
+    m
+    a
 
-newtype AForm sub master a = AForm
-    { unAForm :: (master, [Text]) -> Maybe (Env, FileEnv) -> Ints -> GHandler sub master (FormResult a, [FieldView sub master] -> [FieldView sub master], Ints, Enctype)
+newtype AForm m a = AForm
+    { unAForm :: (HandlerSite m, [Text])
+              -> Maybe (Env, FileEnv)
+              -> Ints
+              -> m (FormResult a, [FieldView (HandlerSite m)] -> [FieldView (HandlerSite m)], Ints, Enctype)
     }
-instance Functor (AForm sub master) where
+instance Monad m => Functor (AForm m) where
     fmap f (AForm a) =
         AForm $ \x y z -> liftM go $ a x y z
       where
         go (w, x, y, z) = (fmap f w, x, y, z)
-instance Applicative (AForm sub master) where
+instance Monad m => Applicative (AForm m) where
     pure x = AForm $ const $ const $ \ints -> return (FormSuccess x, mempty, ints, mempty)
     (AForm f) <*> (AForm g) = AForm $ \mr env ints -> do
         (a, b, ints', c) <- f mr env ints
         (x, y, ints'', z) <- g mr env ints'
         return (a <*> x, b `mappend` y, ints'', c `mappend` z)
-instance Monoid a => Monoid (AForm sub master a) where
+instance (Monad m, Monoid a) => Monoid (AForm m a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
-instance MonadLift (GHandler sub master) (AForm sub master) where
+
+instance MonadTrans AForm where
     lift f = AForm $ \_ _ ints -> do
         x <- f
         return (FormSuccess x, id, ints, mempty)
@@ -115,26 +123,26 @@ data FieldSettings master = FieldSettings
 instance IsString (FieldSettings a) where
     fromString s = FieldSettings (fromString s) Nothing Nothing Nothing []
 
-data FieldView sub master = FieldView
+data FieldView site = FieldView
     { fvLabel :: Html
     , fvTooltip :: Maybe Html
     , fvId :: Text
-    , fvInput :: GWidget sub master ()
+    , fvInput :: WidgetT site IO ()
     , fvErrors :: Maybe Html
     , fvRequired :: Bool
     }
 
-type FieldViewFunc sub master a
+type FieldViewFunc m a
     = Text -- ^ ID
    -> Text -- ^ Name
    -> [(Text, Text)] -- ^ Attributes
    -> Either Text a -- ^ Either (invalid text) or (legitimate result)
    -> Bool -- ^ Required?
-   -> GWidget sub master ()
+   -> WidgetT (HandlerSite m) IO ()
 
-data Field sub master a = Field
-    { fieldParse :: [Text] -> [FileInfo] -> GHandler sub master (Either (SomeMessage master) (Maybe a))
-    , fieldView :: FieldViewFunc sub master a
+data Field m a = Field
+    { fieldParse :: [Text] -> [FileInfo] -> m (Either (SomeMessage (HandlerSite m)) (Maybe a))
+    , fieldView :: FieldViewFunc m a
     , fieldEnctype :: Enctype
     }
 

@@ -12,6 +12,8 @@ module Yesod.Auth.Message
     , norwegianBokmålMessage
     , japaneseMessage
     , finnishMessage
+    , chineseMessage
+    , spanishMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -47,6 +49,13 @@ data AuthMessage =
     | LoginTitle
     | PleaseProvideUsername
     | PleaseProvidePassword
+    | NoIdentifierProvided
+    | InvalidEmailAddress
+    | PasswordResetTitle
+    | ProvideIdentifier
+    | SendPasswordResetEmail
+    | PasswordResetPrompt
+    | InvalidUsernamePass
 
 -- | Defaults to 'englishMessage'.
 defaultMessage :: AuthMessage -> Text
@@ -85,6 +94,13 @@ englishMessage NowLoggedIn = "You are now logged in"
 englishMessage LoginTitle = "Login"
 englishMessage PleaseProvideUsername = "Please fill in your username"
 englishMessage PleaseProvidePassword = "Please fill in your password"
+englishMessage NoIdentifierProvided = "No email/username provided"
+englishMessage InvalidEmailAddress = "Invalid email address provided"
+englishMessage PasswordResetTitle = "Password Reset"
+englishMessage ProvideIdentifier = "Email or Username"
+englishMessage SendPasswordResetEmail = "Send password reset email"
+englishMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
+englishMessage InvalidUsernamePass = "Invalid username/password combination"
 
 portugueseMessage :: AuthMessage -> Text
 portugueseMessage NoOpenID = "Nenhum identificador OpenID encontrado"
@@ -119,6 +135,54 @@ portugueseMessage NowLoggedIn = "Você acaba de entrar no site com sucesso!"
 portugueseMessage LoginTitle = "Entrar no site"
 portugueseMessage PleaseProvideUsername = "Por favor digite seu nome de usuário"
 portugueseMessage PleaseProvidePassword = "Por favor digite sua senha"
+portugueseMessage NoIdentifierProvided = "Nenhum e-mail ou nome de usuário informado"
+portugueseMessage InvalidEmailAddress = "Endereço de e-mail inválido informado"
+portugueseMessage PasswordResetTitle = "Resetar senha"
+portugueseMessage ProvideIdentifier = "E-mail ou nome de usuário"
+portugueseMessage SendPasswordResetEmail = "Enviar e-mail para resetar senha"
+portugueseMessage PasswordResetPrompt = "Insira seu endereço de e-mail ou nome de usuário abaixo.  Um e-mail para resetar sua senha será enviado para você."
+portugueseMessage InvalidUsernamePass = "Nome de usuário ou senha inválidos"
+
+spanishMessage :: AuthMessage -> Text
+spanishMessage NoOpenID = "No se encuentra el identificador OpenID"
+spanishMessage LoginOpenID = "Entrar utilizando OpenID"
+spanishMessage LoginGoogle = "Entrar utilizando Google"
+spanishMessage LoginYahoo = "Entrar utilizando Yahoo"
+spanishMessage Email = "Correo electrónico"
+spanishMessage Password = "Contraseña"
+spanishMessage Register = "Registrarse"
+spanishMessage RegisterLong = "Registrar una nueva cuenta"
+spanishMessage EnterEmail = "Coloque su dirección de correo electrónico, y un correo de confirmación le será enviado a su cuenta."
+spanishMessage ConfirmationEmailSentTitle = "La confirmación de correo ha sido enviada"
+spanishMessage (ConfirmationEmailSent email) =
+    "Una confirmación de correo electrónico ha sido enviada a " `mappend`
+    email `mappend`
+    "."
+spanishMessage AddressVerified = "Dirección verificada, por favor introduzca una contraseña"
+spanishMessage InvalidKeyTitle = "Clave de verificación invalida"
+spanishMessage InvalidKey = "Lo sentimos, pero esa clave de verificación es inválida."
+spanishMessage InvalidEmailPass = "La combinación cuenta de correo/contraseña es inválida"
+spanishMessage BadSetPass = "Debe acceder a la aplicación para modificar la contraseña"
+spanishMessage SetPassTitle = "Modificar contraseña"
+spanishMessage SetPass = "Actualizar nueva contraseña"
+spanishMessage NewPass = "Nueva contraseña"
+spanishMessage ConfirmPass = "Confirmar"
+spanishMessage PassMismatch = "Las contraseñas no coinciden, inténtelo de nuevo"
+spanishMessage PassUpdated = "Contraseña actualizada"
+spanishMessage Facebook = "Entrar mediante Facebook"
+spanishMessage LoginViaEmail = "Entrar mediante una cuenta de correo"
+spanishMessage InvalidLogin = "Login inválido"
+spanishMessage NowLoggedIn = "Usted ha ingresado al sitio"
+spanishMessage LoginTitle = "Login"
+spanishMessage PleaseProvideUsername = "Por favor escriba su nombre de usuario"
+spanishMessage PleaseProvidePassword = "Por favor escriba su contraseña"
+spanishMessage NoIdentifierProvided = "No ha indicado una cuenta de correo/nombre de usuario"
+spanishMessage InvalidEmailAddress = "La cuenta de correo es inválida"
+spanishMessage PasswordResetTitle = "Contraseña actualizada"
+spanishMessage ProvideIdentifier = "Cuenta de correo o nombre de usuario"
+spanishMessage SendPasswordResetEmail = "Correo de actualización de contraseña enviado"
+spanishMessage PasswordResetPrompt = "Escriba su cuenta de correo o nombre de usuario, y una confirmación de actualización de contraseña será enviada a su cuenta de correo."
+spanishMessage InvalidUsernamePass = "Combinación de nombre de usuario/contraseña invalida"
 
 swedishMessage :: AuthMessage -> Text
 swedishMessage NoOpenID = "Fann ej OpenID identifierare"
@@ -153,6 +217,14 @@ swedishMessage NowLoggedIn = "Du är nu inloggad"
 swedishMessage LoginTitle = "Logga in"
 swedishMessage PleaseProvideUsername = "Vänligen fyll i användarnamn"
 swedishMessage PleaseProvidePassword = "Vänligen fyll i lösenord"
+swedishMessage NoIdentifierProvided = "Emailadress eller användarnamn saknas"
+swedishMessage InvalidEmailAddress = "Ogiltig emailadress angiven"
+swedishMessage PasswordResetTitle = "Återställning av lösenord"
+swedishMessage ProvideIdentifier = "Epost eller användarnamn"
+swedishMessage SendPasswordResetEmail = "Skicka email för återställning av lösenord"
+swedishMessage PasswordResetPrompt = "Skriv in din emailadress eller användarnamn nedan och " `mappend`
+                                     "ett email för återställning av lösenord kommmer att skickas till dig."
+swedishMessage InvalidUsernamePass = "Ogiltig kombination av användarnamn och lösenord"
 
 germanMessage :: AuthMessage -> Text
 germanMessage NoOpenID = "Kein OpenID-Identifier gefunden"
@@ -187,8 +259,13 @@ germanMessage NowLoggedIn = "Login erfolgreich"
 germanMessage LoginTitle = "Login"
 germanMessage PleaseProvideUsername = "Bitte Nutzername angeben"
 germanMessage PleaseProvidePassword = "Bitte Passwort angeben"
-
-
+germanMessage NoIdentifierProvided = "Keine Email-Adresse oder kein Nutzername angegeben"
+germanMessage InvalidEmailAddress = "Unzulässiger Email-Anbieter"
+germanMessage PasswordResetTitle = "Passwort zurücksetzen"
+germanMessage ProvideIdentifier = "Email-Adresse oder Nutzername"
+germanMessage SendPasswordResetEmail = "Email zusenden um Passwort zurückzusetzen"
+germanMessage PasswordResetPrompt = "Nach Einhabe der Email-Adresse oder des Nutzernamen wird eine Email zugesendet mit welcher das Passwort zurückgesetzt werden kann."
+germanMessage InvalidUsernamePass = "Ungültige Kombination aus Nutzername und Passwort"
 
 frenchMessage :: AuthMessage -> Text
 frenchMessage NoOpenID = "Aucun fournisseur OpenID n'a été trouvé"
@@ -223,6 +300,13 @@ frenchMessage NowLoggedIn = "Vous êtes maintenant connecté"
 frenchMessage LoginTitle = "Se connecter"
 frenchMessage PleaseProvideUsername = "Merci de renseigner votre nom d'utilisateur"
 frenchMessage PleaseProvidePassword = "Merci de spécifier un mot de passe"
+frenchMessage NoIdentifierProvided = "No email/username provided"
+frenchMessage InvalidEmailAddress = "Invalid email address provided"
+frenchMessage PasswordResetTitle = "Password Reset"
+frenchMessage ProvideIdentifier = "Email or Username"
+frenchMessage SendPasswordResetEmail = "Send password reset email"
+frenchMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
+frenchMessage InvalidUsernamePass = "Invalid username/password combination"
 
 norwegianBokmålMessage :: AuthMessage -> Text
 norwegianBokmålMessage NoOpenID = "Ingen OpenID-identifiserer funnet"
@@ -257,6 +341,13 @@ norwegianBokmålMessage NowLoggedIn = "Du er nå logget inn"
 norwegianBokmålMessage LoginTitle = "Logg inn"
 norwegianBokmålMessage PleaseProvideUsername = "Vennligst fyll inn ditt brukernavn"
 norwegianBokmålMessage PleaseProvidePassword = "Vennligst fyll inn ditt passord"
+norwegianBokmålMessage NoIdentifierProvided = "No email/username provided"
+norwegianBokmålMessage InvalidEmailAddress = "Invalid email address provided"
+norwegianBokmålMessage PasswordResetTitle = "Password Reset"
+norwegianBokmålMessage ProvideIdentifier = "Email or Username"
+norwegianBokmålMessage SendPasswordResetEmail = "Send password reset email"
+norwegianBokmålMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
+norwegianBokmålMessage InvalidUsernamePass = "Invalid username/password combination"
 
 japaneseMessage :: AuthMessage -> Text
 japaneseMessage NoOpenID = "OpenID識別子がありません"
@@ -291,6 +382,13 @@ japaneseMessage NowLoggedIn = "ログインしました"
 japaneseMessage LoginTitle = "ログイン"
 japaneseMessage PleaseProvideUsername = "ユーザ名を入力してください"
 japaneseMessage PleaseProvidePassword = "パスワードを入力してください"
+japaneseMessage NoIdentifierProvided = "No email/username provided"
+japaneseMessage InvalidEmailAddress = "Invalid email address provided"
+japaneseMessage PasswordResetTitle = "Password Reset"
+japaneseMessage ProvideIdentifier = "Email or Username"
+japaneseMessage SendPasswordResetEmail = "Send password reset email"
+japaneseMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
+japaneseMessage InvalidUsernamePass = "Invalid username/password combination"
 
 finnishMessage :: AuthMessage -> Text
 finnishMessage NoOpenID = "OpenID-tunnistetta ei löydy"
@@ -307,6 +405,7 @@ finnishMessage (ConfirmationEmailSent email) =
     "Vahvistussähköposti on lähetty osoitteeseen " `mappend`
     email `mappend`
     "."
+
 finnishMessage AddressVerified = "Sähköpostiosoite vahvistettu. Anna uusi salasana"
 finnishMessage InvalidKeyTitle = "Virheellinen varmistusavain"
 finnishMessage InvalidKey = "Valitettavasti varmistusavain on virheellinen."
@@ -325,5 +424,53 @@ finnishMessage NowLoggedIn = "Olet nyt kirjautunut sisään"
 finnishMessage LoginTitle = "Kirjautuminen"
 finnishMessage PleaseProvideUsername = "Käyttäjänimi puuttuu"
 finnishMessage PleaseProvidePassword = "Salasana puuttuu"
+finnishMessage NoIdentifierProvided = "Sähköpostiosoite/käyttäjänimi puuttuu"
+finnishMessage InvalidEmailAddress = "Annettu sähköpostiosoite ei kelpaa"
+finnishMessage PasswordResetTitle = "Uuden salasanan tilaaminen"
+finnishMessage ProvideIdentifier = "Sähköpostiosoite tai käyttäjänimi"
+finnishMessage SendPasswordResetEmail = "Lähetä uusi salasana sähköpostitse"
+finnishMessage PasswordResetPrompt = "Anna sähköpostiosoitteesi tai käyttäjätunnuksesi alla, niin lähetämme uuden salasanan sähköpostitse."
+finnishMessage InvalidUsernamePass = "Virheellinen käyttäjänimi tai salasana."
+
+chineseMessage :: AuthMessage -> Text
+chineseMessage NoOpenID = "无效的OpenID"
+chineseMessage LoginOpenID = "用OpenID登录"
+chineseMessage LoginGoogle = "用Google帐户登录"
+chineseMessage LoginYahoo = "用Yahoo帐户登录"
+chineseMessage Email = "邮箱"
+chineseMessage Password = "密码"
+chineseMessage Register = "注册"
+chineseMessage RegisterLong = "注册新帐户"
+chineseMessage EnterEmail = "输入你的邮箱地址，你将收到一封确认邮件。"
+chineseMessage ConfirmationEmailSentTitle = "确认邮件已发送"
+chineseMessage (ConfirmationEmailSent email) =
+    "确认邮件已发送至 " `mappend`
+    email `mappend`
+    "."
+chineseMessage AddressVerified = "地址验证成功，请设置新密码"
+chineseMessage InvalidKeyTitle = "无效的验证码"
+chineseMessage InvalidKey = "对不起，验证码无效。"
+chineseMessage InvalidEmailPass = "无效的邮箱/密码组合"
+chineseMessage BadSetPass = "你需要登录才能设置密码"
+chineseMessage SetPassTitle = "设置密码"
+chineseMessage SetPass = "设置新密码"
+chineseMessage NewPass = "新密码"
+chineseMessage ConfirmPass = "确认"
+chineseMessage PassMismatch = "密码不匹配，请重新输入"
+chineseMessage PassUpdated = "密码更新成功"
+chineseMessage Facebook = "用Facebook帐户登录"
+chineseMessage LoginViaEmail = "用邮箱登录"
+chineseMessage InvalidLogin = "登录失败"
+chineseMessage NowLoggedIn = "登录成功"
+chineseMessage LoginTitle = "登录"
+chineseMessage PleaseProvideUsername = "请输入用户名"
+chineseMessage PleaseProvidePassword = "请输入密码"
+chineseMessage NoIdentifierProvided = "缺少邮箱/用户名"
+chineseMessage InvalidEmailAddress = "无效的邮箱地址"
+chineseMessage PasswordResetTitle = "重置密码"
+chineseMessage ProvideIdentifier = "邮箱或用户名"
+chineseMessage SendPasswordResetEmail = "发送密码重置邮件"
+chineseMessage PasswordResetPrompt = "输入你的邮箱地址或用户名，你将收到一封密码重置邮件。"
+chineseMessage InvalidUsernamePass = "无效的用户名/密码组合"
 
 
