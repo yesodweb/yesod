@@ -76,7 +76,6 @@ import Language.Haskell.TH.Syntax as TH
 import Crypto.Conduit (hashFile, sinkHash)
 import Crypto.Hash.MD5 (MD5)
 import Control.Monad.Trans.State
-import Control.Monad.IO.Class (liftIO)
 
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
@@ -100,7 +99,6 @@ import Data.Functor.Identity (runIdentity)
 import qualified Filesystem.Path.CurrentOS as F
 import Filesystem.Path.CurrentOS ((</>), (<.>), FilePath)
 import Filesystem (createTree)
-import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Default
@@ -341,7 +339,7 @@ mkStaticFilesList fp fs routeConName makeHash = do
     mkSquashedStringsDecl squashedFinal = do
       name  <- newName "squashedStrings"
       pack' <- [|pack|]
-      squashedFinal' <- lift squashedFinal
+      squashedFinal' <- TH.lift squashedFinal
       let decl = [ SigD name (ConT ''Text)
                  , FunD name
                      [ Clause [] (NormalB $ pack' `AppE` squashedFinal') []
@@ -350,7 +348,7 @@ mkStaticFilesList fp fs routeConName makeHash = do
       return (name, decl)
     mkSquashedReference squashedName squashMap = \str ->
       case M.lookup str squashMap of
-        Nothing         -> [|pack $(lift str)|]
+        Nothing         -> [|pack $(TH.lift str)|]
         Just (pos, len) -> [|T.take len (T.drop pos $(return (VarE squashedName)))|]
     mkRoute refName f = do
         let name' = intercalate "_" $ map (map replace') f

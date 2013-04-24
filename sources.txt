@@ -9,4 +9,4 @@
 ./yesod-test
 ./yesod-bin
 ./yesod
-https://github.com/yesodweb/persistent persistent1.2
+https://github.com/yesodweb/persistent

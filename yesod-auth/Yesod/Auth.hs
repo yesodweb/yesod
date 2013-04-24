@@ -242,7 +242,7 @@ setCreds doRedirects creds = do
 -- Since 1.1.7
 clearCreds :: YesodAuth master
            => Bool -- ^ if HTTP redirect to 'logoutDest' should be done
-           -> GHandler sub master ()
+           -> HandlerT master IO ()
 clearCreds doRedirects = do
     y <- getYesod
     deleteSession credsKey
@@ -282,17 +282,8 @@ getLoginR = setUltDestReferer' >> loginHandler
 getLogoutR :: AuthHandler master ()
 getLogoutR = setUltDestReferer' >> redirectToPost LogoutR
 
-<<<<<<< HEAD
-postLogoutR :: YesodAuth master => GHandler Auth master ()
-postLogoutR = clearCreds True
-=======
 postLogoutR :: AuthHandler master ()
-postLogoutR = lift $ do
-    y <- getYesod
-    deleteSession credsKey
-    onLogout
-    redirectUltDest $ logoutDest y
->>>>>>> origin/yesod1.2
+postLogoutR = lift $ clearCreds True
 
 handlePluginR :: Text -> [Text] -> AuthHandler master ()
 handlePluginR plugin pieces = do
