@@ -5,7 +5,7 @@
 module YesodCoreTest.Media (mediaTest, Widget) where
 
 import Test.Hspec
-import Yesod.Core hiding (Request)
+import Yesod.Core
 import Network.Wai
 import Network.Wai.Test
 import Text.Lucius
@@ -15,9 +15,8 @@ mkYesodDispatch "Y" resourcesY
 
 instance Yesod Y where
     addStaticContent _ _ content = do
-        tm <- getRouteToMaster
         route <- getCurrentRoute
-        case fmap tm route of
+        case route of
             Just StaticR -> return $ Just $ Left $
                         if content == "foo2{bar:baz}"
                             then "screen.css"
@@ -27,7 +26,7 @@ instance Yesod Y where
 getRootR :: Handler RepHtml
 getRootR = defaultLayout $ do
     toWidget [lucius|foo1{bar:baz}|]
-    addCassiusMedia "screen" [lucius|foo2{bar:baz}|]
+    toWidgetMedia "screen" [lucius|foo2{bar:baz}|]
     toWidget [lucius|foo3{bar:baz}|]
 
 getStaticR :: Handler RepHtml

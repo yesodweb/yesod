@@ -5,7 +5,7 @@ module YesodCoreTest.RequestBodySize (specs, Widget) where
 
 import Test.Hspec
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 
 import Network.Wai
 import Network.Wai.Test
@@ -29,7 +29,7 @@ mkYesod "Y" [parseRoutes|
 |]
 
 instance Yesod Y where
-    maximumContentLength _ _ = 10
+    maximumContentLength _ _ = Just 10
 
 postPostR, postConsumeR, postPartialConsumeR, postUnusedR :: Handler RepPlain
 
@@ -38,13 +38,11 @@ postPostR = do
     return $ RepPlain $ toContent $ T.concat val
 
 postConsumeR = do
-    req <- waiRequest
-    body <- lift $ requestBody req $$ consume
+    body <- rawRequestBody $$ consume
     return $ RepPlain $ toContent $ S.concat body
 
 postPartialConsumeR = do
-    req <- waiRequest
-    body <- lift $ requestBody req $$ isolate 5 =$ consume
+    body <- rawRequestBody $$ isolate 5 =$ consume
     return $ RepPlain $ toContent $ S.concat body
 
 postUnusedR = return $ RepPlain ""
@@ -75,6 +73,10 @@ caseHelper name path body statusChunked statusNonChunked = describe name $ do
                 then [("content-length", S8.pack $ show $ S.length body)]
                 else []
         , requestMethod = "POST"
+        , requestBodyLength =
+            if includeLength
+                then KnownLength $ fromIntegral $ S.length body
+                else ChunkedBody
         } $ L.fromChunks $ map S.singleton $ S.unpack body
 
 specs :: Spec

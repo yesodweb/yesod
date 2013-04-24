@@ -6,10 +6,12 @@ module Yesod.Routes.TH.Types
     , Piece (..)
     , Dispatch (..)
     , CheckOverlap
+    , FlatResource (..)
       -- ** Helper functions
     , resourceMulti
     , resourceTreePieces
     , resourceTreeName
+    , flatten
     ) where
 
 import Language.Haskell.TH.Syntax
@@ -37,16 +39,17 @@ data Resource typ = Resource
     { resourceName :: String
     , resourcePieces :: [(CheckOverlap, Piece typ)]
     , resourceDispatch :: Dispatch typ
+    , resourceAttrs :: [String]
     }
     deriving Show
 
 type CheckOverlap = Bool
 
 instance Functor Resource where
-    fmap f (Resource a b c) = Resource a (map (second $ fmap f) b) (fmap f c)
+    fmap f (Resource a b c d) = Resource a (map (second $ fmap f) b) (fmap f c) d
 
 instance Lift t => Lift (Resource t) where
-    lift (Resource a b c) = [|Resource $(lift a) $(lift b) $(lift c)|]
+    lift (Resource a b c d) = [|Resource a b c d|]
 
 data Piece typ = Static String | Dynamic typ
     deriving Show
@@ -82,3 +85,13 @@ instance Lift t => Lift (Dispatch t) where
 resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
 resourceMulti _ = Nothing
+
+data FlatResource a = FlatResource [(String, [(CheckOverlap, Piece a)])] String [(CheckOverlap, Piece a)] (Dispatch a)
+
+flatten :: [ResourceTree a] -> [FlatResource a]
+flatten =
+    concatMap (go id)
+  where
+    go front (ResourceLeaf (Resource a b c _)) = [FlatResource (front []) a b c]
+    go front (ResourceParent name pieces children) =
+        concatMap (go (front . ((name, pieces):))) children

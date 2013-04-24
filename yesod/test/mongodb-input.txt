@@ -1,4 +1,0 @@
-Michael
-foobar
-Foobar
-mongo

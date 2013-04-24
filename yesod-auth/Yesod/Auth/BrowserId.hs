@@ -1,10 +1,14 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RecordWildCards #-}
 module Yesod.Auth.BrowserId
     ( authBrowserId
-    , authBrowserIdAudience
     , createOnClick
+    , def
+    , BrowserIdSettings
+    , bisAudience
+    , bisLazyLoad
     ) where
 
 import Yesod.Auth
@@ -14,14 +18,13 @@ import Yesod.Core
 import Text.Hamlet (hamlet)
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad (when)
+import Control.Monad (when, unless)
 import Control.Exception (throwIO)
 import Text.Julius (julius, rawJS)
-import Data.Aeson (toJSON)
 import Network.URI (uriPath, parseURI)
 import Data.FileEmbed (embedFile)
 import Data.ByteString (ByteString)
+import Data.Default
 
 pid :: Text
 pid = "browserid"
@@ -29,38 +32,50 @@ pid = "browserid"
 complete :: Route Auth
 complete = PluginR pid []
 
--- | Log into browser ID with an audience value determined from the 'approot'.
-authBrowserId :: YesodAuth m => AuthPlugin m
-authBrowserId = helper Nothing
+-- | A settings type for various configuration options relevant to BrowserID.
+--
+-- See: <http://www.yesodweb.com/book/settings-types>
+--
+-- Since 1.2.0
+data BrowserIdSettings = BrowserIdSettings
+    { bisAudience :: Maybe Text
+    -- ^ BrowserID audience value. If @Nothing@, will be extracted based on the
+    -- approot.
+    --
+    -- Default: @Nothing@
+    --
+    -- Since 1.2.0
+    , bisLazyLoad :: Bool
+    -- ^ Use asynchronous Javascript loading for the BrowserID JS file.
+    --
+    -- Default: @True@.
+    --
+    -- Since 1.2.0
+    }
 
--- | Log into browser ID with the given audience value. Note that this must be
--- your actual hostname, or login will fail.
-authBrowserIdAudience
-    :: YesodAuth m
-    => Text -- ^ audience
-    -> AuthPlugin m
-authBrowserIdAudience = helper . Just
+instance Default BrowserIdSettings where
+    def = BrowserIdSettings
+        { bisAudience = Nothing
+        , bisLazyLoad = True
+        }
 
-helper :: YesodAuth m
-       => Maybe Text -- ^ audience
-       -> AuthPlugin m
-helper maudience = AuthPlugin
+authBrowserId :: YesodAuth m => BrowserIdSettings -> AuthPlugin m
+authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
     { apName = pid
     , apDispatch = \m ps ->
         case (m, ps) of
             ("GET", [assertion]) -> do
-                master <- getYesod
+                master <- lift getYesod
                 audience <-
-                    case maudience of
+                    case bisAudience of
                         Just a -> return a
                         Nothing -> do
-                            tm <- getRouteToMaster
                             r <- getUrlRender
-                            return $ T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
+                            return $ T.takeWhile (/= '/') $ stripScheme $ r LoginR
                 memail <- lift $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
                     Nothing -> liftIO $ throwIO InvalidBrowserIDAssertion
-                    Just email -> setCreds True Creds
+                    Just email -> lift $ setCreds True Creds
                         { credsPlugin = pid
                         , credsIdent = email
                         , credsExtra = []
@@ -72,12 +87,10 @@ helper maudience = AuthPlugin
             (_, []) -> badMethod
             _ -> notFound
     , apLogin = \toMaster -> do
-        onclick <- createOnClick toMaster
+        onclick <- createOnClick bis toMaster
 
-        autologin <- fmap (== Just "true") $ lift $ lookupGetParam "autologin"
-        when autologin $ toWidget [julius|
-#{rawJS onclick}();
-|]
+        autologin <- fmap (== Just "true") $ lookupGetParam "autologin"
+        when autologin $ toWidget [julius|#{rawJS onclick}();|]
 
         toWidget [hamlet|
 $newline never
@@ -92,29 +105,45 @@ $newline never
 
 -- | Generates a function to handle on-click events, and returns that function
 -- name.
-createOnClick :: (Route Auth -> Route master) -> GWidget sub master Text
-createOnClick toMaster = do
-    addScriptRemote browserIdJs
-    onclick <- lift newIdent
-    render <- lift getUrlRender
+createOnClick :: BrowserIdSettings
+              -> (Route Auth -> Route master)
+              -> WidgetT master IO Text
+createOnClick BrowserIdSettings {..} toMaster = do
+    unless bisLazyLoad $ addScriptRemote browserIdJs
+    onclick <- newIdent
+    render <- getUrlRender
     let login = toJSON $ getPath $ render (toMaster LoginR)
     toWidget [julius|
         function #{rawJS onclick}() {
-            navigator.id.watch({
-                onlogin: function (assertion) {
-                    if (assertion) {
-                        document.location = "@{toMaster complete}/" + assertion;
-                    }
-                },
-                onlogout: function () {}
-            });
-            navigator.id.request({
-                returnTo: #{login} + "?autologin=true"
-            });
+            if (navigator.id) {
+                navigator.id.watch({
+                    onlogin: function (assertion) {
+                        if (assertion) {
+                            document.location = "@{toMaster complete}/" + assertion;
+                        }
+                    },
+                    onlogout: function () {}
+                });
+                navigator.id.request({
+                    returnTo: #{login} + "?autologin=true"
+                });
+            }
+            else {
+                alert("Loading, please try again");
+            }
         }
     |]
+    when bisLazyLoad $ toWidget [julius|
+        (function(){
+            var bid = document.createElement("script");
+            bid.async = true;
+            bid.src = #{toJSON browserIdJs};
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(bid, s);
+        })();
+    |]
 
-    autologin <- fmap (== Just "true") $ lift $ lookupGetParam "autologin"
+    autologin <- fmap (== Just "true") $ lookupGetParam "autologin"
     when autologin $ toWidget [julius|#{rawJS onclick}();|]
     return onclick
   where

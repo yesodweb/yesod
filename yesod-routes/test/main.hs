@@ -1,4 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns#-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -15,11 +17,13 @@ import Yesod.Routes.Dispatch hiding (Static, Dynamic)
 import Yesod.Routes.Class hiding (Route)
 import qualified Yesod.Routes.Class as YRC
 import qualified Yesod.Routes.Dispatch as D
-import Yesod.Routes.Parse (parseRoutesNoCheck)
+import Yesod.Routes.Parse (parseRoutesNoCheck, parseTypeTree, TypeTree (..))
 import Yesod.Routes.Overlap (findOverlapNames)
 import Yesod.Routes.TH hiding (Dispatch)
 import Language.Haskell.TH.Syntax
 import Hierarchy
+import qualified Data.ByteString.Char8 as S8
+import qualified Data.Set as Set
 
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
@@ -76,6 +80,8 @@ instance RenderRoute MySub where
         MySub = MySubRoute ([Text], [(Text, Text)])
         deriving (Show, Eq, Read)
     renderRoute (MySubRoute x) = x
+instance ParseRoute MySub where
+    parseRoute = Just . MySubRoute
 
 getMySub :: MyApp -> MySub
 getMySub MyApp = MySub
@@ -91,22 +97,44 @@ instance RenderRoute MySubParam where
         MySubParam = ParamRoute Char
         deriving (Show, Eq, Read)
     renderRoute (ParamRoute x) = ([singleton x], [])
+instance ParseRoute MySubParam where
+    parseRoute ([unpack -> [x]], _) = Just $ ParamRoute x
+    parseRoute _ = Nothing
 
 getMySubParam :: MyApp -> Int -> MySubParam
 getMySubParam _ = MySubParam
 
 do
     texts <- [t|[Text]|]
-    let ress = map ResourceLeaf
-            [ Resource "RootR" [] $ Methods Nothing ["GET"]
-            , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) $ Methods Nothing ["GET", "POST"]
-            , Resource "WikiR" (addCheck [Static "wiki"]) $ Methods (Just texts) []
-            , Resource "SubsiteR" (addCheck [Static "subsite"]) $ Subsite (ConT ''MySub) "getMySub"
-            , Resource "SubparamR" (addCheck [Static "subparam", Dynamic $ ConT ''Int]) $ Subsite (ConT ''MySubParam) "getMySubParam"
+    let resLeaves = map ResourceLeaf
+            [ Resource "RootR" [] (Methods Nothing ["GET"]) ["foo", "bar"]
+            , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) (Methods Nothing ["GET", "POST"]) []
+            , Resource "WikiR" (addCheck [Static "wiki"]) (Methods (Just texts) []) []
+            , Resource "SubsiteR" (addCheck [Static "subsite"]) (Subsite (ConT ''MySub) "getMySub") []
+            , Resource "SubparamR" (addCheck [Static "subparam", Dynamic $ ConT ''Int]) (Subsite (ConT ''MySubParam) "getMySubParam") []
             ]
+        resParent = ResourceParent
+            "ParentR"
+            [ (True, Static "foo")
+            , (True, Dynamic $ ConT ''Text)
+            ]
+            [ ResourceLeaf $ Resource "ChildR" [] (Methods Nothing ["GET"]) ["child"]
+            ]
+        ress = resParent : resLeaves
         addCheck = map ((,) True)
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
-    dispatch <- mkDispatchClause [|runHandler|] [|dispatcher|] [|toText|] ress
+    rainst <- mkRouteAttrsInstance (ConT ''MyApp) ress
+    prinst <- mkParseRouteInstance (ConT ''MyApp) ress
+    dispatch <- mkDispatchClause MkDispatchSettings
+        { mdsRunHandler = [|runHandler|]
+        , mdsSubDispatcher = [|subDispatch dispatcher|]
+        , mdsGetPathInfo = [|fst|]
+        , mdsMethod = [|snd|]
+        , mdsSetPathInfo = [|\p (_, m) -> (p, m)|]
+        , mds404 = [|pack "404"|]
+        , mds405 = [|pack "405"|]
+        , mdsGetHandler = defaultGetHandler
+        } ress
     return
         $ InstanceD
             []
@@ -114,19 +142,29 @@ do
                 `AppT` ConT ''MyApp
                 `AppT` ConT ''MyApp)
             [FunD (mkName "dispatcher") [dispatch]]
+        : prinst
+        : rainst
         : rrinst
 
-instance RunHandler MyApp master where
-    runHandler h _ _ subRoute toMaster = (h, fmap toMaster subRoute)
-
 instance Dispatcher MySub master where
-    dispatcher _ _ toMaster _ _ _ pieces = (pack $ "subsite: " ++ show pieces, Just $ toMaster $ MySubRoute (pieces, []))
+    dispatcher env (pieces, _method) =
+        ( pack $ "subsite: " ++ show pieces
+        , Just $ envToMaster env route
+        )
+      where
+        route = MySubRoute (pieces, [])
 
 instance Dispatcher MySubParam master where
-    dispatcher _ (MySubParam i) toMaster app404 _ _ pieces =
+    dispatcher env (pieces, method) =
         case map unpack pieces of
-            [[c]] -> (pack $ "subparam " ++ show i ++ ' ' : [c], Just $ toMaster $ ParamRoute c)
-            _ -> app404
+            [[c]] ->
+                let route = ParamRoute c
+                    toMaster = envToMaster env
+                    MySubParam i = envSub env
+                 in ( pack $ "subparam " ++ show i ++ ' ' : [c]
+                    , Just $ toMaster route
+                    )
+            _ -> (pack "404", Nothing)
 
 {-
 thDispatchAlias
@@ -232,10 +270,16 @@ main = hspec $ do
             @?= (map pack ["subparam", "6", "c"], [])
 
     describe "thDispatch" $ do
-        let disp m ps = dispatcher MyApp MyApp id (pack "404", Nothing) (\route -> (pack "405", Just route)) (pack m) (map pack ps)
+        let disp m ps = dispatcher
+                (Env
+                    { envToMaster = id
+                    , envMaster = MyApp
+                    , envSub = MyApp
+                    })
+                (map pack ps, S8.pack m)
         it "routes to root" $ disp "GET" [] @?= (pack "this is the root", Just RootR)
         it "POST root is 405" $ disp "POST" [] @?= (pack "405", Just RootR)
-        it "invalid page is a 404" $ disp "GET" ["not-found"] @?= (pack "404", Nothing)
+        it "invalid page is a 404" $ disp "GET" ["not-found"] @?= (pack "404", Nothing :: Maybe (YRC.Route MyApp))
         it "routes to blog post" $ disp "GET" ["blog", "somepost"]
             @?= (pack "some blog post: somepost", Just $ BlogPostR $ pack "somepost")
         it "routes to blog post, POST method" $ disp "POST" ["blog", "somepost2"]
@@ -246,6 +290,11 @@ main = hspec $ do
             @?= (pack "subsite: [\"baz\"]", Just $ SubsiteR $ MySubRoute ([pack "baz"], []))
         it "routes to subparam" $ disp "PUT" ["subparam", "6", "q"]
             @?= (pack "subparam 6 q", Just $ SubparamR 6 $ ParamRoute 'q')
+
+    describe "parsing" $ do
+        it "subsites work" $ do
+            parseRoute ([pack "subsite", pack "foo"], [(pack "bar", pack "baz")]) @?=
+                Just (SubsiteR $ MySubRoute ([pack "foo"], [(pack "bar", pack "baz")]))
 
     describe "overlap checking" $ do
         it "catches overlapping statics" $ do
@@ -298,7 +347,24 @@ main = hspec $ do
 /bar/baz Foo3
 |]
             findOverlapNames routes @?= []
+    describe "routeAttrs" $ do
+        it "works" $ do
+            routeAttrs RootR @?= Set.fromList [pack "foo", pack "bar"]
+        it "hierarchy" $ do
+            routeAttrs (ParentR (pack "ignored") ChildR) @?= Set.singleton (pack "child")
     hierarchy
+    describe "parseRouteTyoe" $ do
+        let success s t = it s $ parseTypeTree s @?= Just t
+            failure s = it s $ parseTypeTree s @?= Nothing
+        success "Int" $ TTTerm "Int"
+        success "(Int)" $ TTTerm "Int"
+        failure "(Int"
+        failure "(Int))"
+        failure "[Int"
+        failure "[Int]]"
+        success "[Int]" $ TTList $ TTTerm "Int"
+        success "Foo-Bar" $ TTApp (TTTerm "Foo") (TTTerm "Bar")
+        success "Foo-Bar-Baz" $ TTApp (TTTerm "Foo") (TTTerm "Bar") `TTApp` TTTerm "Baz"
 
 getRootR :: Text
 getRootR = pack "this is the root"
@@ -311,3 +377,6 @@ postBlogPostR t = pack $ "POST some blog post: " ++ unpack t
 
 handleWikiR :: [Text] -> String
 handleWikiR ts = "the wiki: " ++ show ts
+
+getChildR :: Text -> Text
+getChildR = id

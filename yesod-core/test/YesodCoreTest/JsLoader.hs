@@ -3,12 +3,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 module YesodCoreTest.JsLoader (specs, Widget) where
 
-import YesodCoreTest.JsLoaderSites.HeadAsync (HA(..))
 import YesodCoreTest.JsLoaderSites.Bottom (B(..))
 
 import Test.Hspec
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 import Network.Wai.Test
 
 data H = H
@@ -27,13 +26,9 @@ specs = describe "Test.JsLoader" $ do
       res <- request defaultRequest
       assertBody "<!DOCTYPE html>\n<html><head><title></title><script src=\"load.js\"></script></head><body></body></html>" res
 
-    it "link from head async" $ runner HA $ do
-      res <- request defaultRequest
-      assertBody "<!DOCTYPE html>\n<html><head><title></title><script src=\"yepnope.js\"></script><script>yepnope({load:[\"load.js\"]});</script></head><body></body></html>" res
-
     it "link from bottom" $ runner B $ do
       res <- request defaultRequest
       assertBody "<!DOCTYPE html>\n<html><head><title></title></head><body><script src=\"load.js\"></script></body></html>" res
 
-runner :: (YesodDispatch master master, Yesod master) => master -> Session () -> IO ()
+runner :: YesodDispatch master => master -> Session () -> IO ()
 runner app f = toWaiApp app >>= runSession f

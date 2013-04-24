@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -------------------------------------------------------------------------------
 --
 -- Module        : Yesod.RssFeed
@@ -31,11 +32,14 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Data.Map as Map
 
 newtype RepRss = RepRss Content
-instance HasReps RepRss where
-    chooseRep (RepRss c) _ = return (typeRss, c)
+    deriving ToContent
+instance HasContentType RepRss where
+    getContentType _ = typeRss
+instance ToTypedContent RepRss where
+    toTypedContent = TypedContent typeRss . toContent
 
 -- | Generate the feed
-rssFeed :: Feed (Route master) -> GHandler sub master RepRss
+rssFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m RepRss
 rssFeed feed = do
     render <- getUrlRender
     return $ RepRss $ toContent $ renderLBS def $ template feed render
@@ -67,10 +71,10 @@ entryTemplate FeedEntry {..} render = Element "item" Map.empty $ map NodeElement
     ]
 
 -- | Generates a link tag in the head of a widget.
-rssLink :: Route m
+rssLink :: MonadWidget m
+        => Route (HandlerSite m)
         -> Text -- ^ title
-        -> GWidget s m ()
+        -> m ()
 rssLink r title = toWidgetHead [hamlet|
-$newline never
     <link href=@{r} type=#{S8.unpack typeRss} rel="alternate" title=#{title}>
     |]

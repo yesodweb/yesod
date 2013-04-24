@@ -10,9 +10,7 @@ import Yesod.Auth
 import qualified Web.Authenticate.Rpxnow as Rpxnow
 import Control.Monad (mplus)
 
-import Yesod.Handler
-import Yesod.Widget
-import Yesod.Request
+import Yesod.Core
 import Text.Hamlet (hamlet)
 import Data.Text (pack, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
@@ -27,12 +25,8 @@ authRpxnow :: YesodAuth m
 authRpxnow app apiKey =
     AuthPlugin "rpxnow" dispatch login
   where
-    login ::
-        forall sub master.
-        ToWidget sub master (GWidget sub master ())
-        => (Route Auth -> Route master) -> GWidget sub master ()
     login tm = do
-        render <- lift getUrlRender
+        render <- getUrlRender
         let queryString = decodeUtf8With lenientDecode
                         $ renderQuery True [("token_url", Just $ encodeUtf8 $ render $ tm $ PluginR "rpxnow" [])]
         toWidget [hamlet|
@@ -45,7 +39,7 @@ $newline never
         token <- case token1 ++ token2 of
                         [] -> invalidArgs ["token: Value not supplied"]
                         x:_ -> return $ unpack x
-        master <- getYesod
+        master <- lift getYesod
         Rpxnow.Identifier ident extra <- lift $ Rpxnow.authenticate apiKey token (authHttpManager master)
         let creds =
                 Creds "rpxnow" ident
@@ -54,7 +48,7 @@ $newline never
                 $ maybe id (\x -> (:) ("displayName", x))
                     (fmap pack $ getDisplayName $ map (unpack *** unpack) extra)
                   []
-        setCreds True creds
+        lift $ setCreds True creds
     dispatch _ _ = notFound
 
 -- | Get some form of a display name.

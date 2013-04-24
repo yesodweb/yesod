@@ -5,7 +5,7 @@ module YesodCoreTest.CleanPath (cleanPathTest, Widget) where
 
 import Test.Hspec
 
-import Yesod.Core hiding (Request)
+import Yesod.Core
 
 import Network.Wai
 import Network.Wai.Test
@@ -28,12 +28,14 @@ instance RenderRoute Subsite where
     data Route Subsite = SubsiteRoute [TS.Text]
         deriving (Eq, Show, Read)
     renderRoute (SubsiteRoute x) = (x, [])
+instance ParseRoute Subsite where
+    parseRoute (x, _) = Just $ SubsiteRoute x
 
-instance YesodDispatch Subsite master where
-    yesodDispatch _ _ _ _ _ _ _ pieces _ _ = return $ responseLBS
+instance YesodSubDispatch Subsite master where
+    yesodSubDispatch _ req = return $ responseLBS
         status200
         [ ("Content-Type", "SUBSITE")
-        ] $ L8.pack $ show pieces
+        ] $ L8.pack $ show (pathInfo req)
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
@@ -84,6 +86,11 @@ cleanPathTest =
       it "/foo/something" fooSomething
       it "subsite dispatch" subsiteDispatch
       it "redirect with query string" redQueryString
+      it "parsing" $ do
+        parseRoute (["foo"], []) `shouldBe` Just FooR
+        parseRoute (["foo", "bar"], []) `shouldBe` Just (FooStringR "bar")
+        parseRoute (["subsite", "some", "path"], []) `shouldBe` Just (SubsiteR $ SubsiteRoute ["some", "path"])
+        parseRoute (["ignore", "me"], []) `shouldBe` (Nothing :: Maybe (Route Y))
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f

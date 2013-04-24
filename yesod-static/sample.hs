@@ -1,7 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 import Yesod.Static
-import Yesod.Dispatch
 import Yesod.Core
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Application.Static

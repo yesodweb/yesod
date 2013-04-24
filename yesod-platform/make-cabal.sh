@@ -7,4 +7,4 @@ then
     cabal install cabal-nirvana -fgenerate
 fi
 
-cabal-nirvana-generate yesod yesod-static yesod-default hjsmin blaze-html yesod-test | runghc to-cabal.hs > yesod-platform.cabal
+cabal-nirvana-generate yesod yesod-static yesod-default yesod-bin hjsmin blaze-html yesod-test | runghc to-cabal.hs > yesod-platform.cabal

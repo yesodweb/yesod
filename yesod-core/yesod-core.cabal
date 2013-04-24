@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.1.8.3
+version:         1.2.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -22,9 +22,9 @@ extra-source-files:
   test/YesodCoreTest/ErrorHandling.hs
   test/YesodCoreTest/Exceptions.hs
   test/YesodCoreTest/InternalRequest.hs
+  test/YesodCoreTest/Json.hs
   test/YesodCoreTest/JsLoader.hs
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
-  test/YesodCoreTest/JsLoaderSites/HeadAsync.hs
   test/YesodCoreTest/Links.hs
   test/YesodCoreTest/Media.hs
   test/YesodCoreTest/MediaData.hs
@@ -34,23 +34,16 @@ extra-source-files:
   test/YesodCoreTest/WaiSubsite.hs
   test/YesodCoreTest/Widget.hs
   test/YesodCoreTest/YesodTest.hs
+  test/YesodCoreTest/Auth.hs
+  test/YesodCoreTest/LiteApp.hs
   test/en.msg
   test/test.hs
 
-flag test
-  description: Build the executable to run unit tests
-  default: False
-
 library
-    -- Work around a bug in cabal. Without this, wai-test doesn't get built and
-    -- we have a missing dependency during --enable-tests builds.
-    if flag(test)
-        build-depends: wai-test
-
     build-depends:   base                  >= 4.3      && < 5
                    , time                  >= 1.1.4
-                   , yesod-routes          >= 1.1      && < 1.2
-                   , wai                   >= 1.3      && < 1.5
+                   , yesod-routes          >= 1.2      && < 1.3
+                   , wai                   >= 1.4      && < 1.5
                    , wai-extra             >= 1.3      && < 1.4
                    , bytestring            >= 0.9.1.4
                    , text                  >= 0.7      && < 0.12
@@ -63,7 +56,7 @@ library
                    , shakespeare-i18n      >= 1.0      && < 1.1
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , transformers          >= 0.2.2    && < 0.4
-                   , clientsession         >= 0.8
+                   , clientsession         >= 0.9      && < 0.10
                    , random                >= 1.0.0.2  && < 1.1
                    , cereal                >= 0.3      && < 0.4
                    , old-locale            >= 1.0.0.2  && < 1.1
@@ -79,26 +72,36 @@ library
                    , vector                >= 0.9      && < 0.11
                    , aeson                 >= 0.5
                    , fast-logger           >= 0.2
-                   , monad-logger          >= 0.2.1    && < 0.4
+                   , monad-logger          >= 0.3.1    && < 0.4
                    , conduit               >= 0.5
-                   , resourcet             >= 0.3      && < 0.5
+                   , resourcet             >= 0.4.6    && < 0.5
                    , lifted-base           >= 0.1
+                   , attoparsec-conduit
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.5.1
+                   , data-default
+                   , safe
+                   , warp                  >= 1.3.8
 
-    exposed-modules: Yesod.Content
-                     Yesod.Core
-                     Yesod.Dispatch
-                     Yesod.Handler
-                     Yesod.Request
-                     Yesod.Widget
-                     Yesod.Message
-                     Yesod.Internal.TestApi
-    other-modules:   Yesod.Internal
-                     Yesod.Internal.Cache
-                     Yesod.Internal.Core
-                     Yesod.Internal.Session
-                     Yesod.Internal.Request
+    exposed-modules: Yesod.Core
+                     Yesod.Core.Content
+                     Yesod.Core.Dispatch
+                     Yesod.Core.Handler
+                     Yesod.Core.Json
+                     Yesod.Core.Widget
+                     Yesod.Core.Internal
+                     Yesod.Core.Types
+    other-modules:   Yesod.Core.Internal.Session
+                     Yesod.Core.Internal.Request
+                     Yesod.Core.Class.Handler
+                     Yesod.Core.Internal.Util
+                     Yesod.Core.Internal.Response
+                     Yesod.Core.Internal.Run
+                     Yesod.Core.Internal.TH
+                     Yesod.Core.Internal.LiteApp
+                     Yesod.Core.Class.Yesod
+                     Yesod.Core.Class.Dispatch
+                     Yesod.Core.Class.Breadcrumbs
                      Paths_yesod_core
     ghc-options:     -Wall
 
@@ -110,7 +113,7 @@ test-suite tests
     cpp-options:   -DTEST
     build-depends: base
                   ,hspec >= 1.3
-                  ,wai-test
+                  ,wai-test >= 1.3.0.5
                   ,wai
                   ,yesod-core
                   ,bytestring
@@ -125,6 +128,9 @@ test-suite tests
                   ,QuickCheck >= 2 && < 3
                   ,transformers
                   , conduit
+                  , containers
+                  , lifted-base
+                  , resourcet
     ghc-options:     -Wall
 
 source-repository head

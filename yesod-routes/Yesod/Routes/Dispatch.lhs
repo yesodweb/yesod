@@ -1,4 +1,4 @@
-Title: Experimental, optimized route dispatch code
+Title: Optimized route dispatch code
 
 Let's start with our module declaration and imports.
 

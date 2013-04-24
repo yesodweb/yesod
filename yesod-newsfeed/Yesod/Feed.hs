@@ -17,24 +17,15 @@
 -------------------------------------------------------------------------------
 module Yesod.Feed
     ( newsFeed
-    , RepAtomRss (..)
     , module Yesod.FeedTypes
     ) where
 
 import Yesod.FeedTypes
 import Yesod.AtomFeed
 import Yesod.RssFeed
-import Yesod.Content (HasReps (chooseRep), typeAtom, typeRss)
-import Yesod.Core (Route, GHandler)
+import Yesod.Core
 
-data RepAtomRss = RepAtomRss RepAtom RepRss
-instance HasReps RepAtomRss where
-    chooseRep (RepAtomRss (RepAtom a) (RepRss r)) = chooseRep
-        [ (typeAtom, a)
-        , (typeRss, r)
-        ]
-newsFeed :: Feed (Route master) -> GHandler sub master RepAtomRss
-newsFeed f = do
-    a <- atomFeed f
-    r <- rssFeed f
-    return $ RepAtomRss a r
+newsFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m TypedContent
+newsFeed f = selectRep $ do
+    provideRep $ atomFeed f
+    provideRep $ rssFeed f

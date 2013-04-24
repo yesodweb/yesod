@@ -12,18 +12,14 @@ module Yesod.Form.Jquery
     , Default (..)
     ) where
 
-import Yesod.Handler
-import Yesod.Core (Route)
+import Yesod.Core
 import Yesod.Form
-import Yesod.Widget
 import Data.Time (Day)
 import Data.Default
 import Text.Hamlet (shamlet)
 import Text.Julius (julius, rawJS)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
-import Yesod.Core (RenderMessage)
-import Data.Aeson (toJSON)
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
@@ -56,7 +52,7 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker :: a -> Either (Route a) Text
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
-jqueryDayField :: (RenderMessage master FormMessage, YesodJquery master) => JqueryDaySettings -> Field sub master Day
+jqueryDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerT site IO) Day
 jqueryDayField jds = Field
     { fieldParse = parseHelper $ maybe
                   (Left MsgInvalidDay)
@@ -100,8 +96,8 @@ $(function(){
         , "]"
         ]
 
-jqueryAutocompleteField :: (RenderMessage master FormMessage, YesodJquery master)
-                        => Route master -> Field sub master Text
+jqueryAutocompleteField :: (RenderMessage site FormMessage, YesodJquery site)
+                        => Route site -> Field (HandlerT site IO) Text
 jqueryAutocompleteField src = Field
     { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> do
@@ -118,14 +114,16 @@ $(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:2})});
     , fieldEnctype = UrlEncoded
     }
 
-addScript' :: (master -> Either (Route master) Text) -> GWidget sub master ()
+addScript' :: (HandlerSite m ~ site, MonadWidget m) => (site -> Either (Route site) Text) -> m ()
 addScript' f = do
-    y <- lift getYesod
+    y <- getYesod
     addScriptEither $ f y
 
-addStylesheet' :: (y -> Either (Route y) Text) -> GWidget sub y ()
+addStylesheet' :: (MonadWidget m, HandlerSite m ~ site)
+               => (site -> Either (Route site) Text)
+               -> m ()
 addStylesheet' f = do
-    y <- lift getYesod
+    y <- getYesod
     addStylesheetEither $ f y
 
 readMay :: Read a => String -> Maybe a
