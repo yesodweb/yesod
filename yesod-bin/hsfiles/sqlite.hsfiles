@@ -27,8 +27,8 @@ import Yesod.Default.Config
 import Yesod.Default.Main
 import Yesod.Default.Handlers
 import Network.Wai.Middleware.RequestLogger
-import qualified Database.Persist.Store
-import Database.Persist.GenericSql (runMigration)
+import qualified Database.Persist
+import Database.Persist.Sql (runMigration)
 import Network.HTTP.Conduit (newManager, def)
 import Control.Monad.Logger (runLoggingT)
 import System.IO (stdout)
@@ -71,15 +71,15 @@ makeFoundation conf = do
     manager <- newManager def
     s <- staticSite
     dbconf <- withYamlEnvironment "config/sqlite.yml" (appEnv conf)
-              Database.Persist.Store.loadConfig >>=
-              Database.Persist.Store.applyEnv
-    p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)
+              Database.Persist.loadConfig >>=
+              Database.Persist.applyEnv
+    p <- Database.Persist.createPoolConfig (dbconf :: Settings.PersistConf)
     logger <- mkLogger True stdout
     let foundation = App conf s p manager dbconf logger
 
     -- Perform database migration using our application's logging settings.
     runLoggingT
-        (Database.Persist.Store.runPool dbconf (runMigration migrateAll) p)
+        (Database.Persist.runPool dbconf (runMigration migrateAll) p)
         (messageLoggerSource foundation logger)
 
     return foundation
@@ -89,7 +89,7 @@ getApplicationDev :: IO (Int, Application)
 getApplicationDev =
     defaultDevelApp loader makeApplication
   where
-    loader = loadConfig (configSettings Development)
+    loader = Yesod.Default.Config.loadConfig (configSettings Development)
         { csParseExtra = parseExtra
         }
 
@@ -107,13 +107,12 @@ import Yesod.Default.Util (addStaticContentExternal)
 import Network.HTTP.Conduit (Manager)
 import qualified Settings
 import Settings.Development (development)
-import qualified Database.Persist.Store
+import qualified Database.Persist
+import Database.Persist.Sql (SqlPersistT)
 import Settings.StaticFiles
-import Database.Persist.GenericSql
 import Settings (widgetFile, Extra (..))
 import Model
 import Text.Jasmine (minifym)
-import Web.ClientSession (getKey)
 import Text.Hamlet (hamletFile)
 import System.Log.FastLogger (Logger)
 
@@ -124,9 +123,9 @@ import System.Log.FastLogger (Logger)
 data App = App
     { settings :: AppConfig DefaultEnv Extra
     , getStatic :: Static -- ^ Settings for static file serving.
-    , connPool :: Database.Persist.Store.PersistConfigPool Settings.PersistConfig -- ^ Database connection pool.
+    , connPool :: Database.Persist.PersistConfigPool Settings.PersistConf -- ^ Database connection pool.
     , httpManager :: Manager
-    , persistConfig :: Settings.PersistConfig
+    , persistConfig :: Settings.PersistConf
     , appLogger :: Logger
     }
 
@@ -154,7 +153,7 @@ mkMessage "App" "messages" "en"
 -- split these actions into two functions and place them in separate files.
 mkYesodData "App" $(parseRoutesFile "config/routes")
 
-type Form x = Html -> MForm App App (FormResult x, Widget)
+type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
@@ -163,11 +162,9 @@ instance Yesod App where
 
     -- Store session data on the client in encrypted cookies,
     -- default session idle timeout is 120 minutes
-    makeSessionBackend _ = do
-        key <- getKey "config/client_session_key.aes"
-        let timeout = 120 * 60 -- 120 minutes
-        (getCachedDate, _closeDateCache) <- clientSessionDateCacher timeout
-        return . Just $ clientSessionBackend2 key getCachedDate
+    makeSessionBackend _ = fmap Just $ defaultClientSessionBackend
+        (120 * 60) -- 120 minutes
+        "config/client_session_key.aes"
 
     defaultLayout widget = do
         master <- getYesod
@@ -180,8 +177,10 @@ instance Yesod App where
         -- you to use normal widget features in default-layout.
 
         pc <- widgetToPageContent $ do
-            $(widgetFile "normalize")
-            addStylesheet $ StaticR css_bootstrap_css
+            $(combineStylesheets 'StaticR
+                [ css_normalize_css
+                , css_bootstrap_css
+                ])
             $(widgetFile "default-layout")
         hamletToRepHtml $(hamletFile "templates/default-layout-wrapper.hamlet")
 
@@ -214,17 +213,14 @@ instance Yesod App where
     shouldLog _ _source level =
         development || level == LevelWarn || level == LevelError
 
-    getLogger = return . appLogger
+    makeLogger = return . appLogger
 
 -- How to run database actions.
 instance YesodPersist App where
-    type YesodPersistBackend App = SqlPersist
-    runDB f = do
-        master <- getYesod
-        Database.Persist.Store.runPool
-            (persistConfig master)
-            f
-            (connPool master)
+    type YesodPersistBackend App = SqlPersistT
+    runDB = defaultRunDB persistConfig connPool
+instance YesodPersistRunner App where
+    getDBRunner = defaultGetDBRunner connPool
 
 instance YesodAuth App where
     type AuthId App = UserId
@@ -242,7 +238,7 @@ instance YesodAuth App where
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
     -- You can add other plugins like BrowserID, email or OAuth here
-    authPlugins _ = [authBrowserId, authGoogleEmail]
+    authPlugins _ = [authBrowserId def, authGoogleEmail]
 
     authHttpManager = httpManager
 
@@ -281,7 +277,7 @@ getHomeR = do
     let submission = Nothing :: Maybe (FileInfo, Text)
         handlerName = "getHomeR" :: Text
     defaultLayout $ do
-        aDomId <- lift newIdent
+        aDomId <- newIdent
         setTitle "Welcome To Yesod!"
         $(widgetFile "homepage")
 
@@ -294,7 +290,7 @@ postHomeR = do
             _ -> Nothing
 
     defaultLayout $ do
-        aDomId <- lift newIdent
+        aDomId <- newIdent
         setTitle "Welcome To Yesod!"
         $(widgetFile "homepage")
 
@@ -341,7 +337,7 @@ import Prelude
 import Yesod
 import Data.Text (Text)
 import Database.Persist.Quasi
-
+import Data.Typeable (Typeable)
 
 -- You can define all of your database entities in the entities file.
 -- You can find more information on persistent and how to declare entities
@@ -392,21 +388,20 @@ library
                 FlexibleContexts
                 EmptyDataDecls
                 NoMonomorphismRestriction
+                DeriveDataTypeable
 
     build-depends: base                          >= 4          && < 5
                  -- , yesod-platform                >= 1.1        && < 1.2
-                 , yesod                         >= 1.1.5      && < 1.2
-                 , yesod-core                    >= 1.1.7      && < 1.2
-                 , yesod-auth                    >= 1.1        && < 1.2
-                 , yesod-static                  >= 1.1        && < 1.2
-                 , yesod-default                 >= 1.1        && < 1.2
-                 , yesod-form                    >= 1.1        && < 1.3
-                 , clientsession                 >= 0.8        && < 0.10
+                 , yesod                         >= 1.2        && < 1.3
+                 , yesod-core                    >= 1.2        && < 1.3
+                 , yesod-auth                    >= 1.2        && < 1.3
+                 , yesod-static                  >= 1.2        && < 1.3
+                 , yesod-form                    >= 1.3        && < 1.4
                  , bytestring                    >= 0.9        && < 0.11
                  , text                          >= 0.11       && < 0.12
-                 , persistent                    >= 1.1        && < 1.2
-                 , persistent-sqlite             >= 1.1        && < 1.2
-                 , persistent-template           >= 1.1.1      && < 1.2
+                 , persistent                    >= 1.2        && < 1.3
+                 , persistent-sqlite             >= 1.2        && < 1.3
+                 , persistent-template           >= 1.2        && < 1.3
                  , template-haskell
                  , hamlet                        >= 1.1        && < 1.2
                  , shakespeare-css               >= 1.0        && < 1.1
@@ -416,7 +411,7 @@ library
                  , monad-control                 >= 0.3        && < 0.4
                  , wai-extra                     >= 1.3        && < 1.4
                  , yaml                          >= 0.8        && < 0.9
-                 , http-conduit                  >= 1.8        && < 1.10
+                 , http-conduit                  >= 1.9        && < 1.10
                  , directory                     >= 1.1        && < 1.3
                  , warp                          >= 1.3        && < 1.4
                  , data-default
@@ -433,7 +428,7 @@ executable         PROJECTNAME
     hs-source-dirs:    app
     build-depends:     base
                      , PROJECTNAME
-                     , yesod-default
+                     , yesod
 
     ghc-options:       -threaded -O2
 
@@ -445,13 +440,15 @@ test-suite test
 
     build-depends: base
                  , PROJECTNAME
-                 , yesod-test >= 0.3 && < 0.4
-                 , yesod-default
+                 , yesod-test >= 1.2 && < 1.3
                  , yesod-core
+                 , yesod
                  , persistent
                  , persistent-sqlite
                  , resourcet
                  , monad-logger
+                 , transformers
+                 , hspec
 
 {-# START_FILE Settings.hs #-}
 -- | Settings are centralized, as much as possible, into this file. This
@@ -475,7 +472,7 @@ import Data.Default (def)
 import Text.Hamlet
 
 -- | Which Persistent backend this site is using.
-type PersistConfig = SqliteConf
+type PersistConf = SqliteConf
 
 -- Static setting below. Changing these requires a recompile
 
@@ -555,6 +552,8 @@ import Yesod.Static
 import qualified Yesod.Static as Static
 import Settings (staticDir)
 import Settings.Development
+import Language.Haskell.TH (Q, Exp, Name)
+import Data.Default (def)
 
 -- | use this to create your static file serving site
 staticSite :: IO Static.Static
@@ -566,6 +565,20 @@ staticSite = if development then Static.staticDevel staticDir
 --   Warning: any files added to your static directory during run-time can't be
 --   accessed this way. You'll have to use their FilePath or URL to access them.
 $(staticFiles Settings.staticDir)
+
+combineSettings :: CombineSettings
+combineSettings = def
+
+-- The following two functions can be used to combine multiple CSS or JS files
+-- at compile time to decrease bandwidth usage. Sample usage (inside a Widget):
+--
+-- $(combineStylesheets 'StaticR [style1_css, style2_css])
+
+combineStylesheets :: Name -> [Route Static] -> Q Exp
+combineStylesheets = combineStylesheets' development combineSettings
+
+combineScripts :: Name -> [Route Static] -> Q Exp
+combineScripts = combineScripts' development combineSettings
 
 {-# START_FILE app/main.hs #-}
 import Prelude              (IO)
@@ -618,6 +631,7 @@ User
     ident Text
     password Text Maybe
     UniqueUser ident
+    deriving Typeable
 Email
     email Text
     user UserId Maybe
@@ -4796,6 +4810,447 @@ a.thumbnail:hover {
   visibility: hidden;
 }
 
+{-# START_FILE static/css/normalize.css #-}
+/*! normalize.css 2011-08-12T17:28 UTC · http://github.com/necolas/normalize.css */
+
+/* =============================================================================
+   HTML5 display definitions
+   ========================================================================== */
+
+/*
+ * Corrects block display not defined in IE6/7/8/9 & FF3
+ */
+
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+nav,
+section {
+    display: block;
+}
+
+/*
+ * Corrects inline-block display not defined in IE6/7/8/9 & FF3
+ */
+
+audio,
+canvas,
+video {
+    display: inline-block;
+    *display: inline;
+    *zoom: 1;
+}
+
+/*
+ * Prevents modern browsers from displaying 'audio' without controls
+ */
+
+audio:not([controls]) {
+    display: none;
+}
+
+/*
+ * Addresses styling for 'hidden' attribute not present in IE7/8/9, FF3, S4
+ * Known issue: no IE6 support
+ */
+
+[hidden] {
+    display: none;
+}
+
+
+/* =============================================================================
+   Base
+   ========================================================================== */
+
+/*
+ * 1. Corrects text resizing oddly in IE6/7 when body font-size is set using em units
+ *    http://clagnut.com/blog/348/#c790
+ * 2. Keeps page centred in all browsers regardless of content height
+ * 3. Prevents iOS text size adjust after orientation change, without disabling user zoom
+ *    www.456bereastreet.com/archive/201012/controlling_text_size_in_safari_for_ios_without_disabling_user_zoom/
+ */
+
+html {
+    font-size: 100%; /* 1 */
+    overflow-y: scroll; /* 2 */
+    -webkit-text-size-adjust: 100%; /* 3 */
+    -ms-text-size-adjust: 100%; /* 3 */
+}
+
+/*
+ * Addresses margins handled incorrectly in IE6/7
+ */
+
+body {
+    margin: 0;
+}
+
+/* 
+ * Addresses font-family inconsistency between 'textarea' and other form elements.
+ */
+
+body,
+button,
+input,
+select,
+textarea {
+    font-family: sans-serif;
+}
+
+
+/* =============================================================================
+   Links
+   ========================================================================== */
+
+a {
+    color: #00e;
+}
+
+a:visited {
+    color: #551a8b;
+}
+
+/*
+ * Addresses outline displayed oddly in Chrome
+ */
+
+a:focus {
+    outline: thin dotted;
+}
+
+/*
+ * Improves readability when focused and also mouse hovered in all browsers
+ * people.opera.com/patrickl/experiments/keyboard/test
+ */
+
+a:hover,
+a:active {
+    outline: 0;
+}
+
+
+/* =============================================================================
+   Typography
+   ========================================================================== */
+
+/*
+ * Addresses styling not present in IE7/8/9, S5, Chrome
+ */
+
+abbr[title] {
+    border-bottom: 1px dotted;
+}
+
+/*
+ * Addresses style set to 'bolder' in FF3/4, S4/5, Chrome
+*/
+
+b, 
+strong { 
+    font-weight: bold; 
+}
+
+blockquote {
+    margin: 1em 40px;
+}
+
+/*
+ * Addresses styling not present in S5, Chrome
+ */
+
+dfn {
+    font-style: italic;
+}
+
+/*
+ * Addresses styling not present in IE6/7/8/9
+ */
+
+mark {
+    background: #ff0;
+    color: #000;
+}
+
+/*
+ * Corrects font family set oddly in IE6, S4/5, Chrome
+ * en.wikipedia.org/wiki/User:Davidgothberg/Test59
+ */
+
+pre,
+code,
+kbd,
+samp {
+    font-family: monospace, serif;
+    _font-family: 'courier new', monospace;
+    font-size: 1em;
+}
+
+/*
+ * Improves readability of pre-formatted text in all browsers
+ */
+
+pre {
+    white-space: pre;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/*
+ * 1. Addresses CSS quotes not supported in IE6/7
+ * 2. Addresses quote property not supported in S4
+ */
+
+/* 1 */
+
+q {
+    quotes: none;
+}
+
+/* 2 */
+
+q:before,
+q:after {
+    content: '';
+    content: none;
+}
+
+small {
+    font-size: 75%;
+}
+
+/*
+ * Prevents sub and sup affecting line-height in all browsers
+ * gist.github.com/413930
+ */
+
+sub,
+sup {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+}
+
+sup {
+    top: -0.5em;
+}
+
+sub {
+    bottom: -0.25em;
+}
+
+
+/* =============================================================================
+   Lists
+   ========================================================================== */
+
+ul,
+ol {
+    margin: 1em 0;
+    padding: 0 0 0 40px;
+}
+
+dd {
+    margin: 0 0 0 40px;
+}
+
+nav ul,
+nav ol {
+    list-style: none;
+    list-style-image: none;
+}
+
+
+/* =============================================================================
+   Embedded content
+   ========================================================================== */
+
+/*
+ * 1. Removes border when inside 'a' element in IE6/7/8/9
+ * 2. Improves image quality when scaled in IE7
+ *    code.flickr.com/blog/2008/11/12/on-ui-quality-the-little-things-client-side-image-resizing/
+ */
+
+img {
+    border: 0; /* 1 */
+    -ms-interpolation-mode: bicubic; /* 2 */
+}
+
+/*
+ * Corrects overflow displayed oddly in IE9 
+ */
+
+svg:not(:root) {
+    overflow: hidden;
+}
+
+
+/* =============================================================================
+   Figures
+   ========================================================================== */
+
+/*
+ * Addresses margin not present in IE6/7/8/9, S5, O11
+ */
+
+figure {
+    margin: 0;
+}
+
+
+/* =============================================================================
+   Forms
+   ========================================================================== */
+
+/*
+ * Corrects margin displayed oddly in IE6/7
+ */
+
+form {
+    margin: 0;
+}
+
+/*
+ * Define consistent margin and padding
+ */
+
+fieldset {
+    margin: 0 2px;
+    padding: 0.35em 0.625em 0.75em;
+}
+
+/*
+ * 1. Corrects color not being inherited in IE6/7/8/9
+ * 2. Corrects alignment displayed oddly in IE6/7
+ */
+
+legend {
+    border: 0; /* 1 */
+    *margin-left: -7px; /* 2 */
+}
+
+/*
+ * 1. Corrects font size not being inherited in all browsers
+ * 2. Addresses margins set differently in IE6/7, F3/4, S5, Chrome
+ * 3. Improves appearance and consistency in all browsers
+ */
+
+button,
+input,
+select,
+textarea {
+    font-size: 100%; /* 1 */
+    margin: 0; /* 2 */
+    vertical-align: baseline; /* 3 */
+    *vertical-align: middle; /* 3 */
+}
+
+/*
+ * 1. Addresses FF3/4 setting line-height using !important in the UA stylesheet
+ * 2. Corrects inner spacing displayed oddly in IE6/7
+ */
+
+button,
+input {
+    line-height: normal; /* 1 */
+    *overflow: visible;  /* 2 */
+}
+
+/*
+ * Corrects overlap and whitespace issue for buttons and inputs in IE6/7
+ * Known issue: reintroduces inner spacing
+ */
+
+table button,
+table input {
+    *overflow: auto;
+}
+
+/*
+ * 1. Improves usability and consistency of cursor style between image-type 'input' and others
+ * 2. Corrects inability to style clickable 'input' types in iOS
+ */
+
+button,
+html input[type="button"], 
+input[type="reset"], 
+input[type="submit"] {
+    cursor: pointer; /* 1 */
+    -webkit-appearance: button; /* 2 */
+}
+
+/*
+ * 1. Addresses box sizing set to content-box in IE8/9
+ * 2. Addresses excess padding in IE8/9
+ */
+
+input[type="checkbox"],
+input[type="radio"] {
+    box-sizing: border-box; /* 1 */
+    padding: 0; /* 2 */
+}
+
+/*
+ * 1. Addresses appearance set to searchfield in S5, Chrome
+ * 2. Addresses box sizing set to border-box in S5, Chrome (include -moz to future-proof)
+ */
+
+input[type="search"] {
+    -webkit-appearance: textfield; /* 1 */
+    -moz-box-sizing: content-box;
+    -webkit-box-sizing: content-box; /* 2 */
+    box-sizing: content-box;
+}
+
+/*
+ * Corrects inner padding displayed oddly in S5, Chrome on OSX
+ */
+
+input[type="search"]::-webkit-search-decoration {
+    -webkit-appearance: none;
+}
+
+/*
+ * Corrects inner padding and border displayed oddly in FF3/4
+ * www.sitepen.com/blog/2008/05/14/the-devils-in-the-details-fixing-dojos-toolbar-buttons/
+ */
+
+button::-moz-focus-inner,
+input::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+/*
+ * 1. Removes default vertical scrollbar in IE6/7/8/9
+ * 2. Improves readability and alignment in all browsers
+ */
+
+textarea {
+    overflow: auto; /* 1 */
+    vertical-align: top; /* 2 */
+}
+
+
+/* =============================================================================
+   Tables
+   ========================================================================== */
+
+/* 
+ * Remove most spacing between table cells
+ */
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
 {-# START_FILE BASE64 static/img/glyphicons-halflings-white.png #-}
 iVBORw0KGgoAAAANSUhEUgAAAdUAAACfCAMAAACY07N7AAAC2VBMVEX///8AAAAAAAD5+fn///8A
 AAD////9/f1tbW0AAAD///////////8AAAAAAAD////w8PD+/v729vYAAAD8/PwAAAAAAAD/////
@@ -5273,10 +5728,10 @@ $maybe msg <- mmsg
 
   <li>
     A Widget's Html, Css and Javascript are separated in three files with the #
-    \<em>.hamlet</em>, <em>.lucius</em> and <em>.julius</em> extensions.
+    \<em>.hamlet</em>, <em>.lucius</em> and <em>.julius</em> extensions. 
 
   <li ##{aDomId}>If you had javascript enabled then you wouldn't be seeing this.
-
+    
   <li #form>
     This is an example trivial Form. Read the #
     \<a href="http://www.yesodweb.com/book/forms">Forms chapter</a> #
@@ -5303,447 +5758,6 @@ h2##{aDomId} {
     color: #990
 }
 
-{-# START_FILE templates/normalize.lucius #-}
-/*! normalize.css 2011-08-12T17:28 UTC · http://github.com/necolas/normalize.css */
-
-/* =============================================================================
-   HTML5 display definitions
-   ========================================================================== */
-
-/*
- * Corrects block display not defined in IE6/7/8/9 & FF3
- */
-
-article,
-aside,
-details,
-figcaption,
-figure,
-footer,
-header,
-hgroup,
-nav,
-section {
-    display: block;
-}
-
-/*
- * Corrects inline-block display not defined in IE6/7/8/9 & FF3
- */
-
-audio,
-canvas,
-video {
-    display: inline-block;
-    *display: inline;
-    *zoom: 1;
-}
-
-/*
- * Prevents modern browsers from displaying 'audio' without controls
- */
-
-audio:not([controls]) {
-    display: none;
-}
-
-/*
- * Addresses styling for 'hidden' attribute not present in IE7/8/9, FF3, S4
- * Known issue: no IE6 support
- */
-
-[hidden] {
-    display: none;
-}
-
-
-/* =============================================================================
-   Base
-   ========================================================================== */
-
-/*
- * 1. Corrects text resizing oddly in IE6/7 when body font-size is set using em units
- *    http://clagnut.com/blog/348/#c790
- * 2. Keeps page centred in all browsers regardless of content height
- * 3. Prevents iOS text size adjust after orientation change, without disabling user zoom
- *    www.456bereastreet.com/archive/201012/controlling_text_size_in_safari_for_ios_without_disabling_user_zoom/
- */
-
-html {
-    font-size: 100%; /* 1 */
-    overflow-y: scroll; /* 2 */
-    -webkit-text-size-adjust: 100%; /* 3 */
-    -ms-text-size-adjust: 100%; /* 3 */
-}
-
-/*
- * Addresses margins handled incorrectly in IE6/7
- */
-
-body {
-    margin: 0;
-}
-
-/*
- * Addresses font-family inconsistency between 'textarea' and other form elements.
- */
-
-body,
-button,
-input,
-select,
-textarea {
-    font-family: sans-serif;
-}
-
-
-/* =============================================================================
-   Links
-   ========================================================================== */
-
-a {
-    color: #00e;
-}
-
-a:visited {
-    color: #551a8b;
-}
-
-/*
- * Addresses outline displayed oddly in Chrome
- */
-
-a:focus {
-    outline: thin dotted;
-}
-
-/*
- * Improves readability when focused and also mouse hovered in all browsers
- * people.opera.com/patrickl/experiments/keyboard/test
- */
-
-a:hover,
-a:active {
-    outline: 0;
-}
-
-
-/* =============================================================================
-   Typography
-   ========================================================================== */
-
-/*
- * Addresses styling not present in IE7/8/9, S5, Chrome
- */
-
-abbr[title] {
-    border-bottom: 1px dotted;
-}
-
-/*
- * Addresses style set to 'bolder' in FF3/4, S4/5, Chrome
-*/
-
-b,
-strong {
-    font-weight: bold;
-}
-
-blockquote {
-    margin: 1em 40px;
-}
-
-/*
- * Addresses styling not present in S5, Chrome
- */
-
-dfn {
-    font-style: italic;
-}
-
-/*
- * Addresses styling not present in IE6/7/8/9
- */
-
-mark {
-    background: #ff0;
-    color: #000;
-}
-
-/*
- * Corrects font family set oddly in IE6, S4/5, Chrome
- * en.wikipedia.org/wiki/User:Davidgothberg/Test59
- */
-
-pre,
-code,
-kbd,
-samp {
-    font-family: monospace, serif;
-    _font-family: 'courier new', monospace;
-    font-size: 1em;
-}
-
-/*
- * Improves readability of pre-formatted text in all browsers
- */
-
-pre {
-    white-space: pre;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-
-/*
- * 1. Addresses CSS quotes not supported in IE6/7
- * 2. Addresses quote property not supported in S4
- */
-
-/* 1 */
-
-q {
-    quotes: none;
-}
-
-/* 2 */
-
-q:before,
-q:after {
-    content: '';
-    content: none;
-}
-
-small {
-    font-size: 75%;
-}
-
-/*
- * Prevents sub and sup affecting line-height in all browsers
- * gist.github.com/413930
- */
-
-sub,
-sup {
-    font-size: 75%;
-    line-height: 0;
-    position: relative;
-    vertical-align: baseline;
-}
-
-sup {
-    top: -0.5em;
-}
-
-sub {
-    bottom: -0.25em;
-}
-
-
-/* =============================================================================
-   Lists
-   ========================================================================== */
-
-ul,
-ol {
-    margin: 1em 0;
-    padding: 0 0 0 40px;
-}
-
-dd {
-    margin: 0 0 0 40px;
-}
-
-nav ul,
-nav ol {
-    list-style: none;
-    list-style-image: none;
-}
-
-
-/* =============================================================================
-   Embedded content
-   ========================================================================== */
-
-/*
- * 1. Removes border when inside 'a' element in IE6/7/8/9
- * 2. Improves image quality when scaled in IE7
- *    code.flickr.com/blog/2008/11/12/on-ui-quality-the-little-things-client-side-image-resizing/
- */
-
-img {
-    border: 0; /* 1 */
-    -ms-interpolation-mode: bicubic; /* 2 */
-}
-
-/*
- * Corrects overflow displayed oddly in IE9
- */
-
-svg:not(:root) {
-    overflow: hidden;
-}
-
-
-/* =============================================================================
-   Figures
-   ========================================================================== */
-
-/*
- * Addresses margin not present in IE6/7/8/9, S5, O11
- */
-
-figure {
-    margin: 0;
-}
-
-
-/* =============================================================================
-   Forms
-   ========================================================================== */
-
-/*
- * Corrects margin displayed oddly in IE6/7
- */
-
-form {
-    margin: 0;
-}
-
-/*
- * Define consistent margin and padding
- */
-
-fieldset {
-    margin: 0 2px;
-    padding: 0.35em 0.625em 0.75em;
-}
-
-/*
- * 1. Corrects color not being inherited in IE6/7/8/9
- * 2. Corrects alignment displayed oddly in IE6/7
- */
-
-legend {
-    border: 0; /* 1 */
-    *margin-left: -7px; /* 2 */
-}
-
-/*
- * 1. Corrects font size not being inherited in all browsers
- * 2. Addresses margins set differently in IE6/7, F3/4, S5, Chrome
- * 3. Improves appearance and consistency in all browsers
- */
-
-button,
-input,
-select,
-textarea {
-    font-size: 100%; /* 1 */
-    margin: 0; /* 2 */
-    vertical-align: baseline; /* 3 */
-    *vertical-align: middle; /* 3 */
-}
-
-/*
- * 1. Addresses FF3/4 setting line-height using !important in the UA stylesheet
- * 2. Corrects inner spacing displayed oddly in IE6/7
- */
-
-button,
-input {
-    line-height: normal; /* 1 */
-    *overflow: visible;  /* 2 */
-}
-
-/*
- * Corrects overlap and whitespace issue for buttons and inputs in IE6/7
- * Known issue: reintroduces inner spacing
- */
-
-table button,
-table input {
-    *overflow: auto;
-}
-
-/*
- * 1. Improves usability and consistency of cursor style between image-type 'input' and others
- * 2. Corrects inability to style clickable 'input' types in iOS
- */
-
-button,
-html input[type="button"],
-input[type="reset"],
-input[type="submit"] {
-    cursor: pointer; /* 1 */
-    -webkit-appearance: button; /* 2 */
-}
-
-/*
- * 1. Addresses box sizing set to content-box in IE8/9
- * 2. Addresses excess padding in IE8/9
- */
-
-input[type="checkbox"],
-input[type="radio"] {
-    box-sizing: border-box; /* 1 */
-    padding: 0; /* 2 */
-}
-
-/*
- * 1. Addresses appearance set to searchfield in S5, Chrome
- * 2. Addresses box sizing set to border-box in S5, Chrome (include -moz to future-proof)
- */
-
-input[type="search"] {
-    -webkit-appearance: textfield; /* 1 */
-    -moz-box-sizing: content-box;
-    -webkit-box-sizing: content-box; /* 2 */
-    box-sizing: content-box;
-}
-
-/*
- * Corrects inner padding displayed oddly in S5, Chrome on OSX
- */
-
-input[type="search"]::-webkit-search-decoration {
-    -webkit-appearance: none;
-}
-
-/*
- * Corrects inner padding and border displayed oddly in FF3/4
- * www.sitepen.com/blog/2008/05/14/the-devils-in-the-details-fixing-dojos-toolbar-buttons/
- */
-
-button::-moz-focus-inner,
-input::-moz-focus-inner {
-    border: 0;
-    padding: 0;
-}
-
-/*
- * 1. Removes default vertical scrollbar in IE6/7/8/9
- * 2. Improves readability and alignment in all browsers
- */
-
-textarea {
-    overflow: auto; /* 1 */
-    vertical-align: top; /* 2 */
-}
-
-
-/* =============================================================================
-   Tables
-   ========================================================================== */
-
-/*
- * Remove most spacing between table cells
- */
-
-table {
-    border-collapse: collapse;
-    border-spacing: 0;
-}
-
 {-# START_FILE tests/HomeTest.hs #-}
 {-# LANGUAGE OverloadedStrings #-}
 module HomeTest
@@ -5755,37 +5769,41 @@ import qualified Data.List as L
 
 homeSpecs :: Specs
 homeSpecs =
-  describe "These are some example tests" $ do
+    ydescribe "These are some example tests" $ do
 
-    it "loads the index and checks it looks right" $ do
-      get_ "/"
-      statusIs 200
-      htmlAllContain "h1" "Hello"
+        yit "loads the index and checks it looks right" $ do
+            get HomeR
+            statusIs 200
+            htmlAllContain "h1" "Hello"
 
-      post "/" $ do
-        addNonce
-        fileByLabel "Choose a file" "tests/main.hs" "text/plain" -- talk about self-reference
-        byLabel "What's on the file?" "Some Content"
+            request $ do
+                setMethod "POST"
+                setUrl HomeR
+                addNonce
+                fileByLabel "Choose a file" "tests/main.hs" "text/plain" -- talk about self-reference
+                byLabel "What's on the file?" "Some Content"
 
-      statusIs 200
-      htmlCount ".message" 1
-      htmlAllContain ".message" "Some Content"
-      htmlAllContain ".message" "text/plain"
+            statusIs 200
+            printBody
+            htmlCount ".message" 1
+            htmlAllContain ".message" "Some Content"
+            htmlAllContain ".message" "text/plain"
 
-    -- This is a simple example of using a database access in a test.  The
-    -- test will succeed for a fresh scaffolded site with an empty database,
-    -- but will fail on an existing database with a non-empty user table.
-    it "leaves the user table empty" $ do
-      get_ "/"
-      statusIs 200
-      users <- runDB $ selectList ([] :: [Filter User]) []
-      assertEqual "user table empty" 0 $ L.length users
+        -- This is a simple example of using a database access in a test.  The
+        -- test will succeed for a fresh scaffolded site with an empty database,
+        -- but will fail on an existing database with a non-empty user table.
+        yit "leaves the user table empty" $ do
+            get HomeR
+            statusIs 200
+            users <- runDB $ selectList ([] :: [Filter User]) []
+            assertEqual "user table empty" 0 $ L.length users
 
 {-# START_FILE tests/TestImport.hs #-}
 {-# LANGUAGE OverloadedStrings #-}
 module TestImport
     ( module Yesod.Test
     , module Model
+    , module Foundation
     , module Database.Persist
     , runDB
     , Specs
@@ -5793,20 +5811,20 @@ module TestImport
 
 import Yesod.Test
 import Database.Persist hiding (get)
-import Database.Persist.GenericSql (runSqlPool, SqlPersist, Connection)
+import Database.Persist.Sql (runSqlPool, SqlPersist, Connection)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Control.Monad.Logger (NoLoggingT, runNoLoggingT)
+import Control.Monad.IO.Class (liftIO)
 
+import Foundation
 import Model
 
-type Specs = SpecsConn Connection
+type Specs = YesodSpec App
 
-runDB :: SqlPersist (NoLoggingT (ResourceT IO)) a -> OneSpec Connection a
-runDB = runDBRunner poolRunner
-  where
-    poolRunner query pool = runResourceT
-                          $ runNoLoggingT
-                          $ runSqlPool query pool
+runDB :: SqlPersist (NoLoggingT (ResourceT IO)) a -> YesodExample App a
+runDB query = do
+    pool <- fmap connPool getTestYesod
+    liftIO $ runResourceT $ runNoLoggingT $ runSqlPool query pool
 
 {-# START_FILE tests/main.hs #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -5818,14 +5836,18 @@ module Main where
 import Import
 import Yesod.Default.Config
 import Yesod.Test
+import Test.Hspec (hspec)
 import Application (makeFoundation)
 
 import HomeTest
 
 main :: IO ()
 main = do
-    conf <- loadConfig $ (configSettings Testing) { csParseExtra = parseExtra }
+    conf <- Yesod.Default.Config.loadConfig $ (configSettings Testing)
+                { csParseExtra = parseExtra
+                }
     foundation <- makeFoundation conf
-    app <- toWaiAppPlain foundation
-    runTests app (connPool foundation) homeSpecs
+    hspec $ do
+        yesodSpec foundation $ do
+            homeSpecs
 
