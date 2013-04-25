@@ -121,7 +121,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- | Return an HTTP connection manager that is stored in the foundation
     -- type. This allows backends to reuse persistent connections. If none of
     -- the backends you're using use HTTP connections, you can safely return
-    -- @error \"authHttpManager"@ here.
+    -- @error \"authHttpManager\"@ here.
     authHttpManager :: master -> Manager
 
     -- | Called on a successful login. By default, calls
