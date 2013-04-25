@@ -10,7 +10,9 @@ stability:       Stable
 cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-description:     Authentication for Yesod.
+description:     This package provides a pluggable mechanism for allowing users to authenticate with your site. It comes with a number of common plugins, such as OpenID, BrowserID (a.k.a., Mozilla Persona), and email. Other packages are available from Hackage as well. If you've written such an add-on, please notify me so that it can be added to this description.
+                 .
+                 * <http://hackage.haskell.org/package/yesod-auth-account>: An account authentication plugin for Yesod
 extra-source-files: persona_sign_in_blue.png
 
 library
