@@ -619,9 +619,10 @@ combineSettings :: CombineSettings
 combineSettings = def
 
 -- The following two functions can be used to combine multiple CSS or JS files
--- at compile time to decrease bandwidth usage. Sample usage (inside a Widget):
+-- at compile time to decrease the number of http requests.
+-- Sample usage (inside a Widget):
 --
--- $(combineStylesheets 'StaticR [style1_css, style2_css])
+-- > $(combineStylesheets 'StaticR [style1_css, style2_css])
 
 combineStylesheets :: Name -> [Route Static] -> Q Exp
 combineStylesheets = combineStylesheets' development combineSettings
