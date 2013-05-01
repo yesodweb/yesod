@@ -346,7 +346,12 @@ data HandlerContents =
     deriving Typeable
 
 instance Show HandlerContents where
-    show _ = "Cannot show a HandlerContents"
+    show (HCContent status (TypedContent t _)) = "HCContent " ++ show (status, t)
+    show (HCError e) = "HCError " ++ show e
+    show (HCSendFile ct fp mfp) = "HCSendFile " ++ show (ct, fp, mfp)
+    show (HCRedirect s t) = "HCRedirect " ++ show (s, t)
+    show (HCCreated t) = "HCCreated " ++ show t
+    show (HCWai _) = "HCWai"
 instance Exception HandlerContents
 
 -- Instances for WidgetT
