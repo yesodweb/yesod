@@ -9,3 +9,4 @@ yesod/foobar/
 .virthualenv
 /vendor/
 /.shelly/
+/tarballs/
