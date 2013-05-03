@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.2.0
+version:         1.2.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -17,25 +17,8 @@ homepage:        http://www.yesodweb.com/
 extra-source-files:
   test.hs
   test/YesodCoreTest.hs
-  test/YesodCoreTest/Cache.hs
-  test/YesodCoreTest/CleanPath.hs
-  test/YesodCoreTest/ErrorHandling.hs
-  test/YesodCoreTest/Exceptions.hs
-  test/YesodCoreTest/InternalRequest.hs
-  test/YesodCoreTest/Json.hs
-  test/YesodCoreTest/JsLoader.hs
+  test/YesodCoreTest/*.hs
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
-  test/YesodCoreTest/Links.hs
-  test/YesodCoreTest/Media.hs
-  test/YesodCoreTest/MediaData.hs
-  test/YesodCoreTest/NoOverloadedStrings.hs
-  test/YesodCoreTest/Redirect.hs
-  test/YesodCoreTest/RequestBodySize.hs
-  test/YesodCoreTest/WaiSubsite.hs
-  test/YesodCoreTest/Widget.hs
-  test/YesodCoreTest/YesodTest.hs
-  test/YesodCoreTest/Auth.hs
-  test/YesodCoreTest/LiteApp.hs
   test/en.msg
   test/test.hs
 
