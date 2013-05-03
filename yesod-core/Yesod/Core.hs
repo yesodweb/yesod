@@ -41,6 +41,7 @@ module Yesod.Core
     , logOtherS
       -- * Sessions
     , SessionBackend (..)
+    , customizeSessionCookies
     , defaultClientSessionBackend
     , clientSessionBackend
     , clientSessionDateCacher
