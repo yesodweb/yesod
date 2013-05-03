@@ -12,7 +12,7 @@ import           Yesod.Routes.Class
 
 import           Blaze.ByteString.Builder           (Builder)
 import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
-import           Control.Arrow                      ((***))
+import           Control.Arrow                      ((***), second)
 import           Control.Monad                      (forM, when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
@@ -235,7 +235,10 @@ class RenderRoute site => Yesod site where
     jsLoader :: site -> ScriptLoadPosition site
     jsLoader _ = BottomOfBody
 
-    -- | Create a session backend. Returning `Nothing' disables sessions.
+    -- | Create a session backend. Returning 'Nothing' disables
+    -- sessions. If you'd like to change the way that the session
+    -- cookies are created, take a look at
+    -- 'customizeSessionCookies'.
     --
     -- Default: Uses clientsession with a 2 hour timeout.
     makeSessionBackend :: site -> IO (Maybe SessionBackend)
@@ -531,6 +534,33 @@ formatLogMessage getdate loc src level msg = do
         , LS $ fileLocationToString loc
         , LB ")\n"
         ]
+
+
+-- | Customize the cookies used by the session backend.  You may
+-- use this function on your definition of 'makeSessionBackend'.
+--
+-- For example, you could set the cookie domain so that it
+-- would work across many subdomains:
+--
+-- @
+-- makeSessionBackend = fmap (customizeSessionCookie addDomain) ...
+--   where
+--     addDomain cookie = cookie { 'setCookieDomain' = Just \".example.com\" }
+-- @
+--
+-- Default: Do not customize anything ('id').
+customizeSessionCookies :: (SetCookie -> SetCookie) -> (SessionBackend -> SessionBackend)
+customizeSessionCookies customizeCookie backend = backend'
+  where
+    customizeHeader (AddCookie cookie) = AddCookie (customizeCookie cookie)
+    customizeHeader other              = other
+    customizeSaveSession = (fmap . fmap . fmap) customizeHeader
+    backend' =
+      backend {
+        sbLoadSession = \req ->
+          second customizeSaveSession `fmap` sbLoadSession backend req
+      }
+
 
 defaultClientSessionBackend :: Int -- ^ minutes
                             -> FilePath -- ^ key file
