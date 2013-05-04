@@ -2,18 +2,16 @@
 -- | This module contains everything that you need to support
 -- server-sent events in Yesod applications.
 module Yesod.EventSource
-  ( RepEventSource
-  , repEventSource
+  ( repEventSource
+  , pollingEventSource
   , ioToRepEventSource
   , EventSourcePolyfill(..)
   ) where
 
 import Blaze.ByteString.Builder (Builder)
 import Control.Monad (when)
-import Control.Monad.IO.Class (liftIO)
 import Data.Functor ((<$>))
 import Data.Monoid (mappend, mempty)
-import Yesod.Content
 import Yesod.Core
 import qualified Data.Conduit as C
 import qualified Network.Wai as W
@@ -22,25 +20,21 @@ import qualified Network.Wai.EventSource.EventStream as ES
 
 
 
--- | Data type representing a response of server-sent events
--- (e.g., see 'repEventSource' and 'ioToRepEventSource').
-newtype RepEventSource =
-  RepEventSource (C.Source (C.ResourceT IO) (C.Flush Builder))
-
-instance HasReps RepEventSource where
-  chooseRep (RepEventSource src) =
-    const $ return ("text/event-stream", ContentSource src)
-
-
 -- | (Internal) Find out the request's 'EventSourcePolyfill' and
 -- set any necessary headers.
-prepareForEventSource :: GHandler sub master EventSourcePolyfill
+prepareForEventSource :: MonadHandler m => m EventSourcePolyfill
 prepareForEventSource = do
   reqWith <- lookup "X-Requested-With" . W.requestHeaders <$> waiRequest
   let polyfill | reqWith == Just "XMLHttpRequest" = Remy'sESPolyfill
                | otherwise                        = NoESPolyfill
-  setHeader "Cache-Control" "no-cache" -- extremely important!
+  addHeader "Cache-Control" "no-cache" -- extremely important!
   return polyfill
+
+
+-- | (Internal) Source with a event stream content-type.
+respondEventStream :: C.Source (HandlerT site IO) (C.Flush Builder)
+                   -> HandlerT site IO TypedContent
+respondEventStream = respondSource "text/event-stream"
 
 
 -- | Returns a Server-Sent Event stream from a 'C.Source' of
@@ -48,26 +42,28 @@ prepareForEventSource = do
 -- event.  The connection is closed either when the 'C.Source'
 -- finishes outputting data or a 'ES.CloseEvent' is outputted,
 -- whichever comes first.
-repEventSource :: (EventSourcePolyfill -> C.Source (C.ResourceT IO) ES.ServerEvent)
-               -> GHandler sub master RepEventSource
-repEventSource src = RepEventSource . ES.sourceToSource . src <$> prepareForEventSource
+repEventSource :: (EventSourcePolyfill -> C.Source (HandlerT site IO) ES.ServerEvent)
+               -> HandlerT site IO TypedContent
+repEventSource src =
+  prepareForEventSource >>=
+  respondEventStream . ES.sourceToSource . src
 
 
--- | Return a Server-Sent Event stream given an @IO@ action that
--- is repeatedly called.  A state is threaded for the action so
--- that it may avoid using @IORefs@.  The @IO@ action may sleep
--- or block while waiting for more data.  The HTTP socket is
--- flushed after every list of simultaneous events.  The
--- connection is closed as soon as an 'ES.CloseEvent' is
+-- | Return a Server-Sent Event stream given a 'HandlerT' action
+-- that is repeatedly called.  A state is threaded for the action
+-- so that it may avoid using @IORefs@.  The @HandlerT@ action
+-- may sleep or block while waiting for more data.  The HTTP
+-- socket is flushed after every list of simultaneous events.
+-- The connection is closed as soon as an 'ES.CloseEvent' is
 -- outputted, after which no other events are sent to the client.
-ioToRepEventSource :: s
-                   -> (EventSourcePolyfill -> s -> IO ([ES.ServerEvent], s))
-                   -> GHandler sub master RepEventSource
-ioToRepEventSource initial act = do
+pollingEventSource :: s
+                   -> (EventSourcePolyfill -> s -> HandlerT site IO ([ES.ServerEvent], s))
+                   -> HandlerT site IO TypedContent
+pollingEventSource initial act = do
   polyfill <- prepareForEventSource
   let -- Get new events to be sent.
       getEvents s = do
-        (evs, s') <- liftIO (act polyfill s)
+        (evs, s') <- lift (act polyfill s)
         case evs of
           [] -> getEvents s'
           _  -> do
@@ -84,7 +80,21 @@ ioToRepEventSource initial act = do
           Nothing -> (fst $ joinEvents [] acc, False)
       joinEvents [] acc = (acc, True)
 
-  return $ RepEventSource $ getEvents initial
+  respondEventStream (getEvents initial)
+
+
+-- | Return a Server-Sent Event stream given an @IO@ action that
+-- is repeatedly called.  A state is threaded for the action so
+-- that it may avoid using @IORefs@.  The @IO@ action may sleep
+-- or block while waiting for more data.  The HTTP socket is
+-- flushed after every list of simultaneous events.  The
+-- connection is closed as soon as an 'ES.CloseEvent' is
+-- outputted, after which no other events are sent to the client.
+ioToRepEventSource :: s
+                   -> (EventSourcePolyfill -> s -> IO ([ES.ServerEvent], s))
+                   -> HandlerT site IO TypedContent
+ioToRepEventSource initial act = pollingEventSource initial act'
+  where act' p s = liftIO (act p s)
 
 
 -- | Which @EventSource@ polyfill was detected (if any).
