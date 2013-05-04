@@ -143,6 +143,7 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
 import           Control.Applicative           ((<$>), (<|>))
+import           Control.Exception             (evaluate)
 
 import           Control.Monad                 (liftM)
 import qualified Control.Monad.Trans.Writer    as Writer
@@ -179,7 +180,7 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
-import           Control.Monad.Trans.Resource  (ResourceT)
+import           Control.Monad.Trans.Resource  (ResourceT, runResourceT, withInternalState)
 import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef.Lifted             as I
 import           Data.Maybe                    (listToMaybe)
@@ -318,20 +319,15 @@ getCurrentRoute = rheRoute `liftM` askHandlerEnv
 handlerToIO :: (MonadIO m1, MonadIO m2) => HandlerT site m1 (HandlerT site IO a -> m2 a)
 handlerToIO =
   HandlerT $ \oldHandlerData -> do
-    -- Let go of the request body, cache and response headers.
-    let oldReq    = handlerRequest oldHandlerData
-        oldWaiReq = reqWaiRequest oldReq
-        newWaiReq = oldWaiReq { W.requestBody = mempty
-                              , W.requestBodyLength = W.KnownLength 0
-                              }
-        newReq    = oldReq { reqWaiRequest = newWaiReq }
-        clearedOldHandlerData =
-          oldHandlerData { handlerRequest = err "handlerRequest never here"
-                         , handlerState   = err "handlerState never here"
-                         , handlerToParent = const () }
-            where
-              err :: String -> a
-              err = error . ("handlerToIO: clearedOldHandlerData/" ++)
+    -- Take just the bits we need from oldHandlerData.
+    let newReq = oldReq { reqWaiRequest = newWaiReq }
+          where
+            oldReq    = handlerRequest oldHandlerData
+            oldWaiReq = reqWaiRequest oldReq
+            newWaiReq = oldWaiReq { W.requestBody = mempty
+                                  , W.requestBodyLength = W.KnownLength 0
+                                  }
+        oldEnv = handlerEnv oldHandlerData
     newState <- liftIO $ do
       oldState <- I.readIORef (handlerState oldHandlerData)
       return $ oldState { ghsRBC = Nothing
@@ -339,16 +335,25 @@ handlerToIO =
                         , ghsCache = mempty
                         , ghsHeaders = mempty }
 
+    -- xx From this point onwards, no references to oldHandlerData xx
+    liftIO $ evaluate (newReq `seq` oldEnv `seq` newState `seq` ())
+
     -- Return GHandler running function.
-    return $ \(HandlerT f) -> liftIO $ do
-      -- The state IORef needs to be created here, otherwise it
-      -- will be shared by different invocations of this function.
-      newStateIORef <- I.newIORef newState
-      -- FIXME previously runResourceT was used here, but that could mean resources might vanish...
-      -- Check if this new behavior is correct.
-      f clearedOldHandlerData
-                         { handlerRequest = newReq
-                         , handlerState   = newStateIORef }
+    return $ \(HandlerT f) ->
+      liftIO $
+      runResourceT $ withInternalState $ \resState -> do
+        -- The state IORef needs to be created here, otherwise it
+        -- will be shared by different invocations of this function.
+        newStateIORef <- liftIO (I.newIORef newState)
+        let newHandlerData =
+              HandlerData
+                { handlerRequest  = newReq
+                , handlerEnv      = oldEnv
+                , handlerState    = newStateIORef
+                , handlerToParent = const ()
+                , handlerResource = resState
+                }
+        liftIO (f newHandlerData)
 
 
 -- | Redirect to the given route.
