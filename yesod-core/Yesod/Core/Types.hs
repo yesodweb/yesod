@@ -300,6 +300,8 @@ data Header =
 data Location url = Local url | Remote Text
     deriving (Show, Eq)
 
+-- | A diff list that does not directly enforce uniqueness.
+-- When creating a widget Yesod will use nub to make it unique.
 newtype UniqueList x = UniqueList ([x] -> [x])
 
 data Script url = Script { scriptLocation :: Location url, scriptAttributes :: [(Text, Text)] }
