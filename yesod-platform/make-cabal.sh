@@ -7,4 +7,4 @@ then
     cabal install cabal-nirvana -fgenerate
 fi
 
-cabal-nirvana-generate yesod yesod-static hjsmin blaze-html yesod-test | runghc to-cabal.hs > yesod-platform.cabal
+cabal-nirvana-generate yesod yesod-static hjsmin blaze-html yesod-test shakespeare-text | runghc to-cabal.hs > yesod-platform.cabal
