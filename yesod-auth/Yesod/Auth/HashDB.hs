@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes                #-}
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -81,6 +82,7 @@ import Text.Hamlet (hamlet)
 
 import Control.Applicative         ((<$>), (<*>))
 import Control.Monad               (replicateM,liftM)
+import Control.Monad.Trans.Resource (MonadResourceBase)
 
 import qualified Data.ByteString.Lazy.Char8 as BS (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)
@@ -175,9 +177,22 @@ postLoginR uniq = do
                  (validateUser <$> (uniq =<< mu) <*> mp)
     if isValid 
        then lift $ setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
-       else do setMessage "Invalid username/password"
-               redirect LoginR
+       else loginMsg LoginR "Invalid username/password"
 
+loginMsg :: MonadResourceBase m
+         => Route site
+         -> Text
+         -> HandlerT site m a
+loginMsg dest msg = selectRep (do
+    provideRep $ do
+        setMessage $ toHtml msg
+        fmap asHtml $ redirect dest
+    provideRep $ return $ object
+        [ "message" .= msg
+        ]) >>= sendResponse
+  where
+    asHtml :: Html -> Html
+    asHtml = id
 
 -- | A drop in for the getAuthId method of your YesodAuth instance which
 --   can be used if authHashDB is the only plugin in use.
@@ -204,9 +219,7 @@ getAuthIdHashDB authR uniq creds = do
             case x of
                 -- user exists
                 Just (Entity uid _) -> return $ Just uid
-                Nothing       -> do
-                    setMessage "User not found"
-                    redirect $ authR LoginR
+                Nothing       -> loginMsg (authR LoginR) "User not found"
 
 -- | Prompt for username and password, validate that against a database
 --   which holds the username and a hash of the password
