@@ -89,7 +89,7 @@ import Data.Digest.Pure.SHA        (sha1, showDigest)
 import Data.Text                   (Text, pack, unpack, append)
 import Data.Maybe                  (fromMaybe)
 import System.Random               (randomRIO)
-
+import Network.HTTP.Types          (unauthorized401)
 -- | Interface for data type which holds user info. It's just a
 --   collection of getters and setters
 class HashDBUser user where
@@ -189,7 +189,7 @@ loginMsg dest msg = selectRep (do
         fmap asHtml $ redirect dest
     provideRep $ return $ object
         [ "message" .= msg
-        ]) >>= sendResponse
+        ]) >>= sendResponseStatus unauthorized401
   where
     asHtml :: Html -> Html
     asHtml = id
