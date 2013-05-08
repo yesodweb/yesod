@@ -1,6 +1,6 @@
 {-# START_FILE .ghci #-}
 :set -i.:config:dist/build/autogen
-:set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls
+:set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls -XDeriveDataTypeable
 
 {-# START_FILE .gitignore #-}
 dist*
