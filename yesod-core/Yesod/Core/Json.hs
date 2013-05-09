@@ -4,6 +4,8 @@ module Yesod.Core.Json
     ( -- * Convert from a JSON value
       defaultLayoutJson
     , jsonToRepJson
+    , returnJson
+    , provideJson
 
       -- * Convert to a JSON value
     , parseJsonBody
@@ -23,7 +25,9 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody)
+import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep)
+import Control.Monad.Trans.Writer (Writer)
+import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Types (reqAccept)
 import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
@@ -60,6 +64,20 @@ defaultLayoutJson w json = selectRep $ do
 -- /Since: 0.3.0/
 jsonToRepJson :: (Monad m, J.ToJSON a) => a -> m J.Value
 jsonToRepJson = return . J.toJSON
+{-# DEPRECATED jsonToRepJson "Use returnJson instead" #-}
+
+-- | Convert a value to a JSON representation via aeson\'s 'J.toJSON' function.
+--
+-- Since 1.2.1
+returnJson :: (Monad m, J.ToJSON a) => a -> m J.Value
+returnJson = return . J.toJSON
+
+-- | Provide a JSON representation for usage with 'selectReps', using aeson\'s
+-- 'J.toJSON' function to perform the conversion.
+--
+-- Since 1.2.1
+provideJson :: (Monad m, J.ToJSON a) => a -> Writer (Endo [ProvidedRep m]) ()
+provideJson = provideRep . return . J.toJSON
 
 -- | Parse the request body to a data type as a JSON value.  The
 -- data type must support conversion from JSON via 'J.FromJSON'.
