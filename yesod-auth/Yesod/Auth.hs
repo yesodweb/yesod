@@ -397,8 +397,7 @@ redirectLogin = do
 instance YesodAuth master => RenderMessage master AuthMessage where
     renderMessage = renderAuthMessage
 
-data AuthException = InvalidBrowserIDAssertion
-                   | InvalidFacebookResponse
+data AuthException = InvalidFacebookResponse
     deriving (Show, Typeable)
 instance Exception AuthException
 
