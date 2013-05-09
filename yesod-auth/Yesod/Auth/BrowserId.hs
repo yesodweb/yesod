@@ -19,7 +19,6 @@ import Text.Hamlet (hamlet)
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
 import Control.Monad (when, unless)
-import Control.Exception (throwIO)
 import Text.Julius (julius, rawJS)
 import Network.URI (uriPath, parseURI)
 import Data.FileEmbed (embedFile)
@@ -74,7 +73,9 @@ authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
                             return $ T.takeWhile (/= '/') $ stripScheme $ r LoginR
                 memail <- lift $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
-                    Nothing -> liftIO $ throwIO InvalidBrowserIDAssertion
+                    Nothing -> do
+                      $logErrorS "yesod-auth" "BrowserID assertion failure"
+                      loginErrorMessage LoginR "BrowserID login error."
                     Just email -> lift $ setCreds True Creds
                         { credsPlugin = pid
                         , credsIdent = email

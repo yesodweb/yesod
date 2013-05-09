@@ -82,14 +82,12 @@ import Text.Hamlet (hamlet)
 
 import Control.Applicative         ((<$>), (<*>))
 import Control.Monad               (replicateM,liftM)
-import Control.Monad.Trans.Resource (MonadResourceBase)
 
 import qualified Data.ByteString.Lazy.Char8 as BS (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)
 import Data.Text                   (Text, pack, unpack, append)
 import Data.Maybe                  (fromMaybe)
 import System.Random               (randomRIO)
-import Network.HTTP.Types          (unauthorized401)
 -- | Interface for data type which holds user info. It's just a
 --   collection of getters and setters
 class HashDBUser user where
@@ -177,22 +175,8 @@ postLoginR uniq = do
                  (validateUser <$> (uniq =<< mu) <*> mp)
     if isValid 
        then lift $ setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
-       else loginMsg LoginR "Invalid username/password"
+       else loginErrorMessage LoginR "Invalid username/password"
 
-loginMsg :: MonadResourceBase m
-         => Route site
-         -> Text
-         -> HandlerT site m a
-loginMsg dest msg = selectRep (do
-    provideRep $ do
-        setMessage $ toHtml msg
-        fmap asHtml $ redirect dest
-    provideRep $ return $ object
-        [ "message" .= msg
-        ]) >>= sendResponseStatus unauthorized401
-  where
-    asHtml :: Html -> Html
-    asHtml = id
 
 -- | A drop in for the getAuthId method of your YesodAuth instance which
 --   can be used if authHashDB is the only plugin in use.
@@ -219,7 +203,7 @@ getAuthIdHashDB authR uniq creds = do
             case x of
                 -- user exists
                 Just (Entity uid _) -> return $ Just uid
-                Nothing       -> loginMsg (authR LoginR) "User not found"
+                Nothing       -> loginErrorMessage (authR LoginR) "User not found"
 
 -- | Prompt for username and password, validate that against a database
 --   which holds the username and a hash of the password
