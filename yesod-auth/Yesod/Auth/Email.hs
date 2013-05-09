@@ -195,15 +195,13 @@ registerHelper allowUsername dest = do
     identifier <-
         case midentifier of
             Nothing -> do
-                lift $ setMessageI Msg.NoIdentifierProvided
-                redirect dest
+                loginErrorMessageI dest Msg.NoIdentifierProvided
             Just x
                 | Just x' <- Text.Email.Validate.canonicalizeEmail (encodeUtf8 x) ->
                     return $ decodeUtf8With lenientDecode x'
                 | allowUsername -> return $ TS.strip x
                 | otherwise -> do
-                    lift $ setMessageI Msg.InvalidEmailAddress
-                    redirect dest
+                    loginErrorMessageI dest Msg.InvalidEmailAddress
     mecreds <- lift $ getEmailCreds identifier
     (lid, verKey, email) <-
         case mecreds of
@@ -298,11 +296,10 @@ postLoginR = do
                 email
                 [("verifiedEmail", email)]
         Nothing -> do
-            lift $ setMessageI $
+            loginErrorMessageI LoginR $
                 if isEmail
                     then Msg.InvalidEmailPass
                     else Msg.InvalidUsernamePass
-            redirect LoginR
 
 getPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 getPasswordR = do
@@ -311,9 +308,7 @@ getPasswordR = do
     pass2 <- newIdent
     case maid of
         Just _ -> return ()
-        Nothing -> do
-            lift $ setMessageI Msg.BadSetPass
-            redirect LoginR
+        Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
     tp <- getRouteToParent
     lift $ defaultLayout $ do
         setTitleI Msg.SetPassTitle
@@ -342,14 +337,11 @@ postPasswordR = do
     (new, confirm) <- lift $ runInputPost $ (,)
         <$> ireq textField "new"
         <*> ireq textField "confirm"
-    when (new /= confirm) $ do
-        lift $ setMessageI Msg.PassMismatch
-        redirect setpassR
+    when (new /= confirm) $
+        loginErrorMessageI setpassR Msg.PassMismatch
     maid <- lift maybeAuthId
     aid <- case maid of
-            Nothing -> do
-                lift $ setMessageI Msg.BadSetPass
-                redirect LoginR
+            Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
             Just aid -> return aid
     salted <- liftIO $ saltPass new
     lift $ do
