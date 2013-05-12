@@ -54,10 +54,7 @@ authGoogleEmail =
             , ("openid.ui.icon", "true")
             ] (authHttpManager master)
         either
-          (\err -> do
-                setMessage $ toHtml $ show (err :: SomeException)
-                redirect LoginR
-                )
+          (\err -> loginErrorMessage LoginR $ T.pack $ show (err :: SomeException))
           redirect
           eres
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
@@ -72,20 +69,15 @@ authGoogleEmail =
 
 completeHelper :: YesodAuth master => [(Text, Text)] -> AuthHandler master ()
 completeHelper gets' = do
-        master <- lift getYesod
-        eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
-        let onFailure err = do
-            setMessage $ toHtml $ show (err :: SomeException)
-            redirect LoginR
-        let onSuccess oir = do
-                let OpenId.Identifier ident = OpenId.oirOpLocal oir
-                memail <- lookupGetParam "openid.ext1.value.email"
-                case (memail, "https://www.google.com/accounts/o8/id" `T.isPrefixOf` ident) of
-                    (Just email, True) -> lift $ setCreds True $ Creds pid email []
-                    (_, False) -> do
-                        setMessage "Only Google login is supported"
-                        redirect LoginR
-                    (Nothing, _) -> do
-                        setMessage "No email address provided"
-                        redirect LoginR
-        either onFailure onSuccess eres
+      master <- lift getYesod
+      eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
+      either onFailure onSuccess eres
+    where
+      onFailure err = loginErrorMessage LoginR $ T.pack $ show (err :: SomeException)
+      onSuccess oir = do
+              let OpenId.Identifier ident = OpenId.oirOpLocal oir
+              memail <- lookupGetParam "openid.ext1.value.email"
+              case (memail, "https://www.google.com/accounts/o8/id" `T.isPrefixOf` ident) of
+                  (Just email, True) -> lift $ setCreds True $ Creds pid email []
+                  (_, False)   -> loginErrorMessage LoginR "Only Google login is supported"
+                  (Nothing, _) -> loginErrorMessage LoginR "No email address provided"
