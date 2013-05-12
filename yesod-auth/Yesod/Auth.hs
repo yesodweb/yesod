@@ -23,6 +23,8 @@ module Yesod.Auth
     , Creds (..)
     , setCreds
     , clearCreds
+    , loginErrorMessage
+    , loginErrorMessageI
       -- * User functions
     , defaultMaybeAuthId
     , maybeAuth
@@ -44,6 +46,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.HashMap.Lazy as Map
+import Data.Monoid (Endo)
 import Network.HTTP.Conduit (Manager)
 
 import qualified Network.Wai as W
@@ -56,6 +59,9 @@ import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
+import Network.HTTP.Types          (unauthorized401)
+import Control.Monad.Trans.Resource (MonadResourceBase)
+import qualified Control.Monad.Trans.Writer    as Writer
 
 type AuthRoute = Route Auth
 
@@ -202,6 +208,46 @@ cachedAuth aid = runMaybeT $ do
                 $ get aid
     return $ Entity aid a
 
+
+loginErrorMessageI :: (MonadResourceBase m, YesodAuth master)
+                   => Route child
+                   -> AuthMessage
+                   -> HandlerT child (HandlerT master m) a
+loginErrorMessageI dest msg = do
+  toParent <- getRouteToParent
+  lift $ loginErrorMessageMasterI (toParent dest) msg
+
+
+loginErrorMessageMasterI :: (YesodAuth master, MonadResourceBase m, RenderMessage master AuthMessage)
+         => Route master
+         -> AuthMessage
+         -> HandlerT master m a
+loginErrorMessageMasterI dest msg = do
+  mr <- getMessageRender
+  loginErrorMessage dest (mr msg)
+
+-- | For HTML, set the message and redirect to the route.
+-- For JSON, send the message and a 401 status
+loginErrorMessage :: MonadResourceBase m
+         => Route site
+         -> Text
+         -> HandlerT site m a
+loginErrorMessage dest msg =
+  sendResponseStatus unauthorized401 =<< (
+    selectRep $ do
+      provideRep $ do
+          setMessage $ toHtml msg
+          fmap asHtml $ redirect dest
+      provideJsonMessage msg
+  )
+  where
+    asHtml :: Html -> Html
+    asHtml = id
+
+provideJsonMessage :: Monad m => Text -> Writer.Writer (Endo [ProvidedRep m]) ()
+provideJsonMessage msg = provideRep $ return $ object ["message" .= msg]
+
+
 -- | Sets user credentials for the session after checking them with authentication backends.
 setCreds :: YesodAuth master
          => Bool         -- ^ if HTTP redirects should be done
@@ -214,18 +260,12 @@ setCreds doRedirects creds = do
         Nothing -> when doRedirects $ do
             case authRoute y of
                 Nothing -> do
-                    res <- selectRep $ do
+                    sendResponseStatus unauthorized401 =<< (
+                      selectRep $ do
                         provideRep $ defaultLayout $ toWidget [shamlet|<h1>Invalid login|]
-                        provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
-                    sendResponse res
-                Just ar -> do
-                    res <- selectRep $ do
-                        provideRepType typeHtml $ do
-                            setMessageI Msg.InvalidLogin
-                            _ <- redirect ar
-                            return ()
-                        provideRep $ return $ object ["message" .= ("Invalid Login" :: Text)]
-                    sendResponse res
+                        provideJsonMessage "Invalid Login"
+                      )
+                Just ar -> loginErrorMessageMasterI ar Msg.InvalidLogin
         Just aid -> do
             setSession credsKey $ toPathPiece aid
             when doRedirects $ do
@@ -234,7 +274,7 @@ setCreds doRedirects creds = do
                   provideRepType typeHtml $ do
                       _ <- redirectUltDest $ loginDest y
                       return ()
-                  provideRep $ return $ object ["message" .= ("Login Successful" :: Text)]
+                  provideJsonMessage "Login Successful"
               sendResponse res
 
 -- | Clears current user credentials for the session.
@@ -357,8 +397,7 @@ redirectLogin = do
 instance YesodAuth master => RenderMessage master AuthMessage where
     renderMessage = renderAuthMessage
 
-data AuthException = InvalidBrowserIDAssertion
-                   | InvalidFacebookResponse
+data AuthException = InvalidFacebookResponse
     deriving (Show, Typeable)
 instance Exception AuthException
 
