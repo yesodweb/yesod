@@ -4,8 +4,8 @@ module Yesod.Auth.OAuth
     , oauthUrl
     , authTwitter
     , twitterUrl
-	  , authTumblr
-	  , tumblrUrl
+    , authTumblr
+    , tumblrUrl
     , module Web.Authenticate.OAuth
     ) where
 import           Control.Applicative      ((<$>), (<*>))
@@ -22,8 +22,7 @@ import           Data.Typeable
 import           Web.Authenticate.OAuth
 import           Yesod.Auth
 import           Yesod.Form
-import           Yesod.Handler
-import           Yesod.Widget
+import           Yesod.Core
 
 data YesodOAuthException = CredentialError String Credential
                          | SessionError String
@@ -40,26 +39,25 @@ authOAuth :: YesodAuth m
           -> AuthPlugin m
 authOAuth oauth mkCreds = AuthPlugin name dispatch login
   where
-    getOAuthSession = maybe (throwIO $ SessionError "") return =<< lookupSession oauthSessionName
     name = T.pack $ oauthServerName oauth
     url = PluginR name []
     lookupTokenSecret = bsToText . fromMaybe "" . lookup "oauth_token_secret" . unCredential
     oauthSessionName = "__oauth_token_secret"
     dispatch "GET" ["forward"] = do
-        render <- getUrlRender
-        tm <- getRouteToMaster
+        render <- lift getUrlRender
+        tm <- getRouteToParent
         let oauth' = oauth { oauthCallback = Just $ encodeUtf8 $ render $ tm url }
-        master <- getYesod
+        master <- lift getYesod
         tok <- lift $ getTemporaryCredential oauth' (authHttpManager master)
         setSession oauthSessionName $ lookupTokenSecret tok
         redirect $ authorizeUrl oauth' tok
-    dispatch "GET" [] = do
+    dispatch "GET" [] = lift $ do
+      Just tokSec <- lookupSession oauthSessionName
+      deleteSession oauthSessionName
       reqTok <-
         if oauthVersion oauth == OAuth10
           then do
             oaTok  <- runInputGet $ ireq textField "oauth_token"
-            tokSec <- getOAuthSession
-            deleteSession oauthSessionName
             return $ Credential [ ("oauth_token", encodeUtf8 oaTok)
                                 , ("oauth_token_secret", encodeUtf8 tokSec)
                                 ]
@@ -67,19 +65,17 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
             (verifier, oaTok) <-
                 runInputGet $ (,) <$> ireq textField "oauth_verifier"
                                   <*> ireq textField "oauth_token"
-            tokSec <- getOAuthSession
-            deleteSession oauthSessionName
             return $ Credential [ ("oauth_verifier", encodeUtf8 verifier)
                                 , ("oauth_token", encodeUtf8 oaTok)
                                 , ("oauth_token_secret", encodeUtf8 tokSec)
                                 ]
       master <- getYesod
-      accTok <- lift $ getAccessToken oauth reqTok (authHttpManager master)
+      accTok <- getAccessToken oauth reqTok (authHttpManager master)
       creds  <- liftIO $ mkCreds accTok
       setCreds True creds
     dispatch _ _ = notFound
     login tm = do
-        render <- lift getUrlRender
+        render <- getUrlRender
         let oaUrl = render $ tm $ oauthUrl name
         [whamlet| <a href=#{oaUrl}>Login via #{name} |]
 
@@ -96,9 +92,9 @@ authTwitter :: YesodAuth m
             -> AuthPlugin m
 authTwitter key secret = authOAuth
                 (newOAuth { oauthServerName      = "twitter"
-                          , oauthRequestUri      = "http://twitter.com/oauth/request_token"
-                          , oauthAccessTokenUri  = "http://api.twitter.com/oauth/access_token"
-                          , oauthAuthorizeUri    = "http://api.twitter.com/oauth/authorize"
+                          , oauthRequestUri      = "https://api.twitter.com/oauth/request_token"
+                          , oauthAccessTokenUri  = "https://api.twitter.com/oauth/access_token"
+                          , oauthAuthorizeUri    = "https://api.twitter.com/oauth/authorize"
                           , oauthSignatureMethod = HMACSHA1
                           , oauthConsumerKey     = key
                           , oauthConsumerSecret  = secret
