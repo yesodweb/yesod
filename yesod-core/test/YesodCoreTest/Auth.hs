@@ -35,7 +35,7 @@ handleForbiddenR  = return ()
 
 handleNeedsLoginJsonR :: Handler RepJson
 handleNeedsLoginJsonR = return $ repJson $ object []
-handleNeedsLoginHtmlR :: Handler RepHtml
+handleNeedsLoginHtmlR :: Handler Html
 handleNeedsLoginHtmlR = return ""
 
 test :: String -- ^ method

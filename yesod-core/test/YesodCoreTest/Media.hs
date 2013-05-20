@@ -23,13 +23,13 @@ instance Yesod Y where
                             else "all.css"
             _ -> return Nothing
 
-getRootR :: Handler RepHtml
+getRootR :: Handler Html
 getRootR = defaultLayout $ do
     toWidget [lucius|foo1{bar:baz}|]
     toWidgetMedia "screen" [lucius|foo2{bar:baz}|]
     toWidget [lucius|foo3{bar:baz}|]
 
-getStaticR :: Handler RepHtml
+getStaticR :: Handler Html
 getStaticR = getRootR
 
 runner :: Session () -> IO ()

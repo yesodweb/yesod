@@ -266,6 +266,7 @@ data Content = ContentBuilder !BBuilder.Builder !(Maybe Int) -- ^ The content an
 data TypedContent = TypedContent !ContentType !Content
 
 type RepHtml = Html
+{-# DEPRECATED RepHtml "Please use Html instead" #-}
 newtype RepJson = RepJson Content
 newtype RepPlain = RepPlain Content
 newtype RepXml = RepXml Content
