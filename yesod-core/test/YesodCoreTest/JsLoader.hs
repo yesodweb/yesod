@@ -17,7 +17,7 @@ mkYesod "H" [parseRoutes|
 instance Yesod H where
     jsLoader _ = BottomOfHeadBlocking
 
-getHeadR :: Handler RepHtml
+getHeadR :: Handler Html
 getHeadR = defaultLayout $ addScriptRemote "load.js"
 
 specs :: Spec

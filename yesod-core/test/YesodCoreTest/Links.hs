@@ -36,13 +36,13 @@ instance PathPiece (Foo x y)
 
 instance Yesod Y
 
-getRootR :: Handler RepHtml
+getRootR :: Handler Html
 getRootR = defaultLayout $ toWidget [hamlet|<a href=@{RootR}>|]
 
-getTextR :: Text -> Handler RepHtml
+getTextR :: Text -> Handler Html
 getTextR foo = defaultLayout $ toWidget [hamlet|%#{foo}%|]
 
-getTextsR :: [Text] -> Handler RepHtml
+getTextsR :: [Text] -> Handler Html
 getTextsR foos = defaultLayout $ toWidget [hamlet|%#{show foos}%|]
 
 getRT1 :: [Text] -> Handler ()

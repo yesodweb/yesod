@@ -26,7 +26,7 @@ mkYesod "App" [parseRoutes|
 
 instance Yesod App
 
-getHomeR :: Handler RepHtml
+getHomeR :: Handler Html
 getHomeR = do
     $logDebug "Testing logging"
     defaultLayout $ toWidget [hamlet|
@@ -42,7 +42,7 @@ $doctype 5
       <input type=submit value="BUGGY: Error thrown after runRequestBody">
 |]
 
-postNotFoundR, postFirstThingR, postAfterRunRequestBodyR :: Handler RepHtml
+postNotFoundR, postFirstThingR, postAfterRunRequestBodyR :: Handler Html
 postNotFoundR = do
    (_, _files) <- runRequestBody
    _ <- notFound
@@ -57,12 +57,12 @@ postAfterRunRequestBodyR = do
    _ <- error $ show $ fst x
    getHomeR
 
-getErrorInBodyR :: Handler RepHtml
+getErrorInBodyR :: Handler Html
 getErrorInBodyR = do
     let foo = error "error in body 19328" :: String
     defaultLayout [whamlet|#{foo}|]
 
-getErrorInBodyNoEvalR :: Handler (DontFullyEvaluate RepHtml)
+getErrorInBodyNoEvalR :: Handler (DontFullyEvaluate Html)
 getErrorInBodyNoEvalR = fmap DontFullyEvaluate getErrorInBodyR
 
 errorHandlingTest :: Spec

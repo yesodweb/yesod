@@ -31,7 +31,7 @@ mkYesod "Y" [parseRoutes|
 instance Yesod Y where
     approot = ApprootStatic "http://test"
 
-getRootR :: Handler RepHtml
+getRootR :: Handler Html
 getRootR = defaultLayout $ toWidgetBody [julius|<not escaped>|]
 
 getMultiR :: [String] -> Handler ()
@@ -46,7 +46,7 @@ instance RenderMessage Y Msg where
     renderMessage a (_:xs) y = renderMessage a xs y
     renderMessage a [] y = renderMessage a ["en"] y
 
-getTowidgetR :: Handler RepHtml
+getTowidgetR :: Handler Html
 getTowidgetR = defaultLayout $ do
     toWidget [julius|foo|] :: Widget
     toWidgetHead [julius|foo|]
@@ -59,7 +59,7 @@ getTowidgetR = defaultLayout $ do
     toWidgetHead [hamlet|<foo>|]
     toWidgetBody [hamlet|<foo>|]
 
-getWhamletR :: Handler RepHtml
+getWhamletR :: Handler Html
 getWhamletR = defaultLayout [whamlet|
                     $newline never
                     <h1>Test
@@ -74,7 +74,7 @@ getWhamletR = defaultLayout [whamlet|
                 <h4>Embed
                 |]
 
-getAutoR :: Handler RepHtml
+getAutoR :: Handler Html
 getAutoR = defaultLayout [whamlet|
 $newline never
 ^{someHtml}
@@ -82,7 +82,7 @@ $newline never
   where
     someHtml = [shamlet|somehtml|]
 
-getJSHeadR :: Handler RepHtml
+getJSHeadR :: Handler Html
 getJSHeadR = defaultLayout $ toWidgetHead [julius|alert("hello");|]
 
 widgetTest :: Spec

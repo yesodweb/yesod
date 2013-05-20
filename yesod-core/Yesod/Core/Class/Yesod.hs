@@ -83,11 +83,11 @@ class RenderRoute site => Yesod site where
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: WidgetT site IO () -> HandlerT site IO RepHtml
+    defaultLayout :: WidgetT site IO () -> HandlerT site IO Html
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
-        hamletToRepHtml [hamlet|
+        giveUrlRenderer [hamlet|
             $newline never
             $doctype 5
             <html>

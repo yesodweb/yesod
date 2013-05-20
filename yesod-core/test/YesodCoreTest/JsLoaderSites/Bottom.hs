@@ -12,6 +12,5 @@ mkYesod "B" [parseRoutes|
 instance Yesod B where
   jsLoader _ = BottomOfBody
 
-getBottomR :: Handler RepHtml
+getBottomR :: Handler Html
 getBottomR = defaultLayout $ addScriptRemote "load.js"
-

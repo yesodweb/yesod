@@ -18,10 +18,10 @@ getSubsite _ = Subsite $(mkYesodSubDispatch resourcesSubsite)
 getBarR :: Monad m => m T.Text
 getBarR = return $ T.pack "BarR"
 
-getBazR :: Yesod master => HandlerT Subsite (HandlerT master IO) RepHtml
+getBazR :: Yesod master => HandlerT Subsite (HandlerT master IO) Html
 getBazR = lift $ defaultLayout [whamlet|Used Default Layout|]
 
-getBinR :: Yesod master => HandlerT Subsite (HandlerT master IO) RepHtml
+getBinR :: Yesod master => HandlerT Subsite (HandlerT master IO) Html
 getBinR = do
     widget <- widgetToParentWidget [whamlet|
         <p>Used defaultLayoutT
