@@ -68,6 +68,9 @@ import           Network                               (withSocketsDo)
 import           Network.HTTP.Conduit                  (def, newManager)
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
                                                         waiProxyToSettings, wpsTimeout, wpsOnExc)
+#if MIN_VERSION_http_reverse_proxy(0, 2, 0)
+import qualified Network.HTTP.ReverseProxy             as ReverseProxy
+#endif
 import           Network.HTTP.Types                    (status200)
 import           Network.Socket                        (sClose)
 import           Network.Wai                           (responseLBS)
@@ -120,7 +123,13 @@ reverseProxy opts iappPort = do
             run (develPort opts) $ waiProxyToSettings
                 (const $ do
                     appPort <- liftIO $ I.readIORef iappPort
-                    return $ Right $ ProxyDest "127.0.0.1" appPort)
+                    return $
+#if MIN_VERSION_http_reverse_proxy(0, 2, 0)
+                        ReverseProxy.WPRProxyDest
+#else
+                        Right
+#endif
+                        $ ProxyDest "127.0.0.1" appPort)
                 def
                     { wpsOnExc = onExc
                     , wpsTimeout =
