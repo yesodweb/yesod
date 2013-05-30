@@ -49,11 +49,13 @@ module Yesod.Core.Handler
     , lookupPostParam
     , lookupCookie
     , lookupFile
+    , lookupHeader
       -- **** Multi-lookup
     , lookupGetParams
     , lookupPostParams
     , lookupCookies
     , lookupFiles
+    , lookupHeaders
       -- * Responses
       -- ** Pure
     , respond
@@ -191,6 +193,7 @@ import           Yesod.Routes.Class            (Route)
 import Control.Failure (failure)
 import Blaze.ByteString.Builder (Builder)
 import Safe (headMay)
+import Data.CaseInsensitive (CI)
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -799,6 +802,20 @@ languages = reqLangs `liftM` getRequest
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
 lookup' a = map snd . filter (\x -> a == fst x)
+
+-- | Lookup a request header.
+--
+-- Since 1.2.2
+lookupHeader :: MonadHandler m => CI S8.ByteString -> m (Maybe S8.ByteString)
+lookupHeader = liftM listToMaybe . lookupHeaders
+
+-- | Lookup a request header.
+--
+-- Since 1.2.2
+lookupHeaders :: MonadHandler m => CI S8.ByteString -> m [S8.ByteString]
+lookupHeaders key = do
+    req <- waiRequest
+    return $ lookup' key $ W.requestHeaders req
 
 -- | Lookup for GET parameters.
 lookupGetParams :: MonadHandler m => Text -> m [Text]
