@@ -39,6 +39,7 @@ parseRoutesFileNoCheck = parseRoutesFileWith parseRoutesNoCheck
 
 parseRoutesFileWith :: QuasiQuoter -> FilePath -> Q Exp
 parseRoutesFileWith qq fp = do
+    qAddDependentFile fp
     s <- qRunIO $ readUtf8File fp
     quoteExp qq s
 
