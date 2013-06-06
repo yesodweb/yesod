@@ -78,6 +78,26 @@ module Yesod.Core
     , MonadBaseControl
     , MonadResource (..)
     , MonadLogger
+      -- * Commonly referenced functions/datatypes
+    , Application
+      -- * Utilities
+    , showIntegral
+    , readIntegral
+      -- * Shakespeare
+      -- ** Hamlet
+    , hamlet
+    , shamlet
+    , xhamlet
+    , HtmlUrl
+      -- ** Julius
+    , julius
+    , JavascriptUrl
+    , renderJavascriptUrl
+      -- ** Cassius/Lucius
+    , cassius
+    , lucius
+    , CssUrl
+    , renderCssUrl
     ) where
 
 import Yesod.Core.Content
@@ -108,6 +128,11 @@ import Control.Monad.Trans.Control (MonadBaseControl (..))
 
 import Control.Monad.Trans.Resource (MonadResource (..))
 import Yesod.Core.Internal.LiteApp
+import Text.Hamlet
+import Text.Cassius
+import Text.Lucius
+import Text.Julius
+import Network.Wai (Application)
 
 -- | Return an 'Unauthorized' value, with the given i18n message.
 unauthorizedI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => msg -> m AuthResult
@@ -137,3 +162,12 @@ defaultLayoutSub :: Yesod parent
                  => WidgetT child IO ()
                  -> HandlerT child (HandlerT parent IO) Html
 defaultLayoutSub cwidget = widgetToParentWidget cwidget >>= lift . defaultLayout
+
+showIntegral :: Integral a => a -> String
+showIntegral x = show (fromIntegral x :: Integer)
+
+readIntegral :: Num a => String -> Maybe a
+readIntegral s =
+    case reads s of
+        (i, _):_ -> Just $ fromInteger i
+        [] -> Nothing
