@@ -24,7 +24,7 @@ import Data.Monoid (mconcat)
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
 googleHostedJqueryUiCss theme = mconcat
-    [ "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/"
+    [ "//ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/"
     , theme
     , "/jquery-ui.css"
     ]
@@ -38,11 +38,11 @@ class YesodJquery a where
     --
     -- Currently, the default value is jQuery 1.7 from Google\'s CDN.
     urlJqueryJs :: a -> Either (Route a) Text
-    urlJqueryJs _ = Right "http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"
+    urlJqueryJs _ = Right "//ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"
 
     -- | The jQuery UI 1.8 Javascript file.
     urlJqueryUiJs :: a -> Either (Route a) Text
-    urlJqueryUiJs _ = Right "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"
+    urlJqueryUiJs _ = Right "//ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"
 
     -- | The jQuery UI 1.8 CSS file; defaults to cupertino theme.
     urlJqueryUiCss :: a -> Either (Route a) Text
