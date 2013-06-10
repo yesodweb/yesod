@@ -102,13 +102,14 @@ data DevelOpts = DevelOpts
       , buildDir     :: Maybe String
       , develPort    :: Int
       , proxyTimeout :: Int
+      , useReverseProxy :: Bool
       } deriving (Show, Eq)
 
 getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10
+defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True
 
 cabalProgram :: DevelOpts -> FilePath
 cabalProgram opts | isCabalDev opts = "cabal-dev"
@@ -159,17 +160,21 @@ checkPort p = do
             sClose s
             return True
 
-getPort :: Int -> IO Int
-getPort p = do
-    avail <- checkPort p
-    if avail then return p else getPort (succ p)
+getPort :: DevelOpts -> Int -> IO Int
+getPort opts _ | not (useReverseProxy opts) = return $ develPort opts
+getPort _ p0 =
+    loop p0
+  where
+    loop p = do
+        avail <- checkPort p
+        if avail then return p else loop (succ p)
 
 devel :: DevelOpts -> [String] -> IO ()
 devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     avail <- checkPort $ develPort opts
     unless avail $ error "devel port unavailable"
-    iappPort <- getPort 17834 >>= I.newIORef
-    _ <- forkIO $ reverseProxy opts iappPort
+    iappPort <- getPort opts 17834 >>= I.newIORef
+    when (useReverseProxy opts) $ void $ forkIO $ reverseProxy opts iappPort
     checkDevelFile
     writeLock opts
 
@@ -233,7 +238,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
                    env0 <- liftIO getEnvironment
 
                    -- get a new port for the new process to listen on
-                   appPort <- liftIO $ I.readIORef iappPort >>= getPort . (+ 1)
+                   appPort <- liftIO $ I.readIORef iappPort >>= getPort opts . (+ 1)
                    liftIO $ I.writeIORef iappPort appPort
 
                    (_,_,_,ph) <- liftIO $ createProcess (proc "runghc" devArgs)
