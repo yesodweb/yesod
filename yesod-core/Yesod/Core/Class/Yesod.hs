@@ -266,7 +266,7 @@ class RenderRoute site => Yesod site where
     -- Default: the 'defaultYesodMiddleware' function.
     --
     -- Since: 1.1.6
-    yesodMiddleware :: HandlerT site IO res -> HandlerT site IO res
+    yesodMiddleware :: ToTypedContent res => HandlerT site IO res -> HandlerT site IO res
     yesodMiddleware = defaultYesodMiddleware
 
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
