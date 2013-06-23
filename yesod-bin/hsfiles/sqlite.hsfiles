@@ -1,6 +1,6 @@
 {-# START_FILE .ghci #-}
 :set -i.:config:dist/build/autogen
-:set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls
+:set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls -XDeriveDataTypeable
 
 {-# START_FILE .gitignore #-}
 dist*
@@ -182,7 +182,7 @@ instance Yesod App where
                 , css_bootstrap_css
                 ])
             $(widgetFile "default-layout")
-        hamletToRepHtml $(hamletFile "templates/default-layout-wrapper.hamlet")
+        giveUrlRenderer $(hamletFile "templates/default-layout-wrapper.hamlet")
 
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticRoot setting in Settings.hs
@@ -271,7 +271,7 @@ import Import
 -- The majority of the code you will write in Yesod lives in these handler
 -- functions. You can spread them across multiple files if you are so
 -- inclined, or create a single monolithic file.
-getHomeR :: Handler RepHtml
+getHomeR :: Handler Html
 getHomeR = do
     (formWidget, formEnctype) <- generateFormPost sampleForm
     let submission = Nothing :: Maybe (FileInfo, Text)
@@ -281,7 +281,7 @@ getHomeR = do
         setTitle "Welcome To Yesod!"
         $(widgetFile "homepage")
 
-postHomeR :: Handler RepHtml
+postHomeR :: Handler Html
 postHomeR = do
     ((result, formWidget), formEnctype) <- runFormPost sampleForm
     let handlerName = "postHomeR" :: Text
@@ -5768,7 +5768,7 @@ module HomeTest
 import TestImport
 import qualified Data.List as L
 
-homeSpecs :: Specs
+homeSpecs :: Spec
 homeSpecs =
     ydescribe "These are some example tests" $ do
 
@@ -5807,25 +5807,25 @@ module TestImport
     , module Foundation
     , module Database.Persist
     , runDB
-    , Specs
+    , Spec
+    , Example
     ) where
 
 import Yesod.Test
 import Database.Persist hiding (get)
-import Database.Persist.Sql (runSqlPool, SqlPersist, Connection)
-import Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import Control.Monad.Logger (NoLoggingT, runNoLoggingT)
+import Database.Persist.Sql (SqlPersistM, runSqlPersistMPool)
 import Control.Monad.IO.Class (liftIO)
 
 import Foundation
 import Model
 
-type Specs = YesodSpec App
+type Spec = YesodSpec App
+type Example = YesodExample App
 
-runDB :: SqlPersist (NoLoggingT (ResourceT IO)) a -> YesodExample App a
+runDB :: SqlPersistM a -> Example a
 runDB query = do
     pool <- fmap connPool getTestYesod
-    liftIO $ runResourceT $ runNoLoggingT $ runSqlPool query pool
+    liftIO $ runSqlPersistMPool query pool
 
 {-# START_FILE tests/main.hs #-}
 {-# LANGUAGE OverloadedStrings #-}

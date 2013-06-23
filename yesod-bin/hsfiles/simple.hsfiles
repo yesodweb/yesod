@@ -1,6 +1,6 @@
 {-# START_FILE .ghci #-}
 :set -i.:config:dist/build/autogen
-:set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls
+:set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls -XDeriveDataTypeable
 
 {-# START_FILE .gitignore #-}
 dist*
@@ -26,7 +26,6 @@ import Yesod.Default.Main
 import Yesod.Default.Handlers
 import Network.Wai.Middleware.RequestLogger
 import Network.HTTP.Conduit (newManager, def)
-import Control.Monad.Logger (runLoggingT)
 import System.IO (stdout)
 import System.Log.FastLogger (mkLogger)
 
@@ -161,7 +160,7 @@ instance Yesod App where
                 , css_bootstrap_css
                 ])
             $(widgetFile "default-layout")
-        hamletToRepHtml $(hamletFile "templates/default-layout-wrapper.hamlet")
+        giveUrlRenderer $(hamletFile "templates/default-layout-wrapper.hamlet")
 
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticRoot setting in Settings.hs
@@ -220,7 +219,7 @@ import Import
 -- The majority of the code you will write in Yesod lives in these handler
 -- functions. You can spread them across multiple files if you are so
 -- inclined, or create a single monolithic file.
-getHomeR :: Handler RepHtml
+getHomeR :: Handler Html
 getHomeR = do
     (formWidget, formEnctype) <- generateFormPost sampleForm
     let submission = Nothing :: Maybe (FileInfo, Text)
@@ -230,7 +229,7 @@ getHomeR = do
         setTitle "Welcome To Yesod!"
         $(widgetFile "homepage")
 
-postHomeR :: Handler RepHtml
+postHomeR :: Handler Html
 postHomeR = do
     ((result, formWidget), formEnctype) <- runFormPost sampleForm
     let handlerName = "postHomeR" :: Text
@@ -5649,7 +5648,7 @@ module HomeTest
 
 import TestImport
 
-homeSpecs :: Specs
+homeSpecs :: Spec
 homeSpecs =
     ydescribe "These are some example tests" $ do
 
@@ -5676,13 +5675,15 @@ homeSpecs =
 module TestImport
     ( module Yesod.Test
     , module Foundation
-    , Specs
+    , Spec
+    , Example
     ) where
 
 import Yesod.Test
 import Foundation
 
-type Specs = YesodSpec App
+type Spec = YesodSpec App
+type Example = YesodExample App
 
 {-# START_FILE tests/main.hs #-}
 {-# LANGUAGE OverloadedStrings #-}
