@@ -214,7 +214,7 @@ loadConfig (ConfigSettings env parseExtra getFile getObject) = do
                 Nothing -> fail $ "Not found: " ++ show k
 
 -- | Loads the configuration block in the passed file named by the
---   passed environment, yeilds to the passed function as a mapping.
+--   passed environment, yields to the passed function as a mapping.
 --
 --   Errors in the case of a bad load or if your function returns
 --   @Nothing@.
