@@ -181,7 +181,7 @@ getRegisterR = do
             <form method="post" action="@{tp registerR}">
                 <div id="registerForm">
                     <label for=#{email}>_{Msg.Email}:
-                    <input ##{email} type="email" name="email" width="150">
+                    <input ##{email} type="email" name="email" width="150" autofocus>
                 <button .btn>_{Msg.Register}
         |]
 
@@ -239,7 +239,7 @@ getForgotPasswordR = do
             <form method="post" action="@{tp forgotPasswordR}">
                 <div id="registerForm">
                     <label for=#{email}>_{Msg.ProvideIdentifier}
-                    <input ##{email} type=text name="email" width="150">
+                    <input ##{email} type=text name="email" width="150" autofocus>
                 <button .btn>_{Msg.SendPasswordResetEmail}
         |]
 
@@ -321,7 +321,7 @@ $newline never
             <th>
                 <label for=#{pass1}>_{Msg.NewPass}
             <td>
-                <input ##{pass1} type="password" name="new">
+                <input ##{pass1} type="password" name="new" autofocus>
         <tr>
             <th>
                 <label for=#{pass2}>_{Msg.ConfirmPass}
