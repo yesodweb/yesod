@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.1.9.3
+version:         1.1.9.4
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -106,7 +106,7 @@ executable             yesod
                      , resourcet          >= 0.3          && < 0.5
                      , base64-bytestring
                      , lifted-base
-                     , http-reverse-proxy >= 0.1.1
+                     , http-reverse-proxy >= 0.1.1        && < 0.2
                      , network
                      , http-conduit
                      , network-conduit
