@@ -7,6 +7,7 @@ module Devel
     , defaultDevelOpts
     ) where
 
+import           Paths_yesod_bin
 
 import qualified Distribution.Compiler                 as D
 import qualified Distribution.ModuleName               as D
@@ -28,6 +29,7 @@ import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Trans.State             (evalStateT, get)
 import qualified Data.IORef                            as I
 
+import qualified Data.ByteString.Lazy                  as LB
 import           Data.Char                             (isNumber, isUpper)
 import qualified Data.List                             as L
 import qualified Data.Map                              as Map
@@ -144,12 +146,15 @@ reverseProxy opts iappPort = do
             putStrLn "Restarting reverse proxy"
     loop `Ex.onException` exitFailure
   where
-    onExc _ _ = return $ responseLBS
+    onExc _ _ = do
+      refreshing <- liftIO $ getDataFileName "refreshing.html"
+      html <- liftIO $ LB.readFile refreshing
+      return $ responseLBS
         status200
         [ ("content-type", "text/html")
         , ("Refresh", "1")
         ]
-        "<h1>App not ready, please refresh</h1>"
+        html
 
 checkPort :: Int -> IO Bool
 checkPort p = do
@@ -444,4 +449,3 @@ waitForProcess' pid = go
 -- | wait for process started by @createProcess@, return True for ExitSuccess
 checkExit :: (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle) -> IO Bool
 checkExit (_,_,_,h) = (==ExitSuccess) <$> waitForProcess' h
-
