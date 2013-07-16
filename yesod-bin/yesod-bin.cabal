@@ -11,6 +11,7 @@ stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
+data-files:      refreshing.html
 
 extra-source-files:
   input/*.cg
