@@ -27,6 +27,7 @@ module Yesod.Test
     ( -- * Declaring and running your test suite
       yesodSpec
     , YesodSpec
+    , yesodSpecWithSiteGenerator
     , YesodExample
     , YesodSpecTree (..)
     , ydescribe
@@ -197,6 +198,28 @@ yesodSpec site yspecs =
   where
     unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
     unYesod (YesodSpecItem x y) = Core.it x $ do
+        app <- toWaiAppPlain site
+        ST.evalStateT y YesodExampleData
+            { yedApp = app
+            , yedSite = site
+            , yedCookies = M.empty
+            , yedResponse = Nothing
+            }
+
+-- | Same as yesodSpec, but instead of taking already built site it
+-- takes an action which produces site for each test.
+yesodSpecWithSiteGenerator :: YesodDispatch site
+                           => IO site
+                           -> YesodSpec site
+                           -> Hspec.Spec
+yesodSpecWithSiteGenerator getSiteAction yspecs =
+    Core.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
+    where
+      unYesod :: YesodDispatch t
+              => IO t -> YesodSpecTree t -> Core.SpecTree
+      unYesod getSiteAction' (YesodSpecGroup x y) = Core.SpecGroup x $ map (unYesod getSiteAction') y
+      unYesod getSiteAction' (YesodSpecItem x y) = Core.it x $ do
+        site <- getSiteAction'
         app <- toWaiAppPlain site
         ST.evalStateT y YesodExampleData
             { yedApp = app
