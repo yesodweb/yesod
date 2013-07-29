@@ -464,7 +464,9 @@ addNonce = addNonce_ ""
 post :: (Yesod site, RedirectUrl site url)
      => url
      -> YesodExample site ()
-post url = postBody url ""
+post url =  request $ do
+  setMethod "POST"
+  setUrl url
 
 -- | Perform a POST request to url with sending a body into it.
 postBody :: (Yesod site, RedirectUrl site url)
@@ -472,9 +474,9 @@ postBody :: (Yesod site, RedirectUrl site url)
          -> BSL8.ByteString
          -> YesodExample site ()
 postBody url body = request $ do
-  setRequestBody body
   setMethod "POST"
   setUrl url
+  setRequestBody body
 
 -- | Perform a GET request to url, using params
 get :: (Yesod site, RedirectUrl site url)
