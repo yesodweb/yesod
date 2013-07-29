@@ -591,7 +591,6 @@ request reqBuilder = do
       [ "Content-Disposition: form-data; "
       , "name=\"", TE.encodeUtf8 k, "\"\r\n\r\n"
       , TE.encodeUtf8 v, "\r\n"]
-    -- multipartPart (ReqBinaryPart v) = undefined
     multipartPart (ReqFilePart k v bytes mime) = BS8.concat
       [ "Content-Disposition: form-data; "
       , "name=\"", TE.encodeUtf8 k, "\"; "
