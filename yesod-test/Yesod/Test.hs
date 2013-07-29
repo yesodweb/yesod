@@ -464,7 +464,7 @@ addNonce = addNonce_ ""
 post :: (Yesod site, RedirectUrl site url)
      => url
      -> YesodExample site ()
-post url =  request $ do
+post url = request $ do
   setMethod "POST"
   setUrl url
 
