@@ -166,7 +166,7 @@ getResponse :: YesodExample site (Maybe SResponse)
 getResponse = fmap yedResponse ST.get
 
 data RequestBuilderData site = RequestBuilderData
-    { rbdPosts :: [RequestPart]
+    { rbdPostData :: RBDPostData
     , rbdResponse :: (Maybe SResponse)
     , rbdMethod :: H.Method
     , rbdSite :: site
@@ -175,10 +175,12 @@ data RequestBuilderData site = RequestBuilderData
     , rbdHeaders :: H.RequestHeaders
     }
 
+data RBDPostData = MultipleItemsPostData [RequestPart]
+                 | BinaryPostData BSL8.ByteString
+
 -- | Request parts let us discern regular key/values from files sent in the request.
 data RequestPart
   = ReqKvPart T.Text T.Text
-  | ReqTextPart T.Text
   | ReqFilePart T.Text FilePath BSL8.ByteString T.Text
 
 -- | The RequestBuilder state monad constructs an url encoded string of arguments
@@ -372,9 +374,10 @@ printMatches query = do
 -- | Add a parameter with the given name and value.
 addPostParam :: T.Text -> T.Text -> RequestBuilder site ()
 addPostParam name value =
-    ST.modify $ \rbd -> rbd
-        { rbdPosts = ReqKvPart name value : rbdPosts rbd
-        }
+  ST.modify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd)) }
+  where addPostData x@(BinaryPostData _) = x
+        addPostData (MultipleItemsPostData posts) =
+          MultipleItemsPostData $ ReqKvPart name value : posts
 
 addGetParam :: T.Text -> T.Text -> RequestBuilder site ()
 addGetParam name value = ST.modify $ \rbd -> rbd
@@ -388,9 +391,10 @@ addGetParam name value = ST.modify $ \rbd -> rbd
 addFile :: T.Text -> FilePath -> T.Text -> RequestBuilder site ()
 addFile name path mimetype = do
   contents <- liftIO $ BSL8.readFile path
-  ST.modify $ \rbd -> rbd
-    { rbdPosts = ReqFilePart name path contents mimetype : rbdPosts rbd
-    }
+  ST.modify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd) contents) }
+    where addPostData x@(BinaryPostData _) _ = x
+          addPostData (MultipleItemsPostData posts) contents =
+            MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
 
 -- This looks up the name of a field based on the contents of the label pointing to it.
 nameFromLabel :: T.Text -> RequestBuilder site T.Text
@@ -465,7 +469,7 @@ post url = postBody url ""
 -- | Perform a POST request to url with sending a body into it.
 postBody :: (Yesod site, RedirectUrl site url)
          => url
-         -> T.Text
+         -> BSL8.ByteString
          -> YesodExample site ()
 postBody url body = request $ do
   setRequestBody body
@@ -506,9 +510,9 @@ setUrl url' = do
 
 -- | Simple way to set HTTP request body
 setRequestBody :: (Yesod site)
-               => T.Text
+               => BSL8.ByteString
                -> RequestBuilder site ()
-setRequestBody body = ST.modify $ \rbd -> rbd { rbdPosts = [ ReqTextPart body ] }
+setRequestBody body = ST.modify $ \rbd -> rbd { rbdPostData = BinaryPostData body }
 
 addRequestHeader :: H.Header -> RequestBuilder site ()
 addRequestHeader header = ST.modify $ \rbd -> rbd
@@ -524,7 +528,7 @@ request reqBuilder = do
     YesodExampleData app site oldCookies mRes <- ST.get
 
     RequestBuilderData {..} <- liftIO $ ST.execStateT reqBuilder RequestBuilderData
-      { rbdPosts = []
+      { rbdPostData = MultipleItemsPostData []
       , rbdResponse = mRes
       , rbdMethod = "GET"
       , rbdSite = site
@@ -539,11 +543,13 @@ request reqBuilder = do
     let cookies = M.filter (checkCookieTime currentUtc) oldCookies
         cookiesForPath = M.filter (checkCookiePath path) cookies
 
-    let maker
-          | DL.any isFile rbdPosts = makeMultipart
-          | otherwise = makeSinglepart
-        req = maker cookiesForPath rbdPosts rbdMethod rbdHeaders path rbdGets
-
+    let maker = case rbdPostData of
+          MultipleItemsPostData x ->
+            if DL.any isFile x
+            then makeMultipart
+            else makeSinglepart
+          BinaryPostData _ -> makeSinglepart
+    let req = maker cookiesForPath rbdPostData rbdMethod rbdHeaders path rbdGets
     response <- liftIO $ runSession (srequest req) app
     let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
@@ -564,20 +570,26 @@ request reqBuilder = do
     boundary :: String
     boundary = "*******noneedtomakethisrandom"
     separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
-    makeMultipart cookies parts method extraHeaders urlPath urlQuery =
-      flip SRequest (BSL8.fromChunks [multiPartBody parts]) $ mkRequest
-        [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
-              [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
-        , ("Content-Type", BS8.pack $ "multipart/form-data; boundary=" ++ boundary)
-        ] method extraHeaders urlPath urlQuery
+    makeMultipart cookies rbdPostData method extraHeaders urlPath urlQuery =
+      SRequest simpleRequest' (simpleRequestBody' rbdPostData)
+      where simpleRequestBody' (MultipleItemsPostData x) =
+              BSL8.fromChunks [multiPartBody x]
+            simpleRequestBody' (BinaryPostData _) = ""
+            simpleRequest' = mkRequest
+                             [ ("Cookie", cookieValue)
+                             , ("Content-Type", contentTypeValue)]
+                             method extraHeaders urlPath urlQuery
+            cookieValue = Builder.toByteString $ Cookie.renderCookies cookiePairs
+            cookiePairs = [ (Cookie.setCookieName c, Cookie.setCookieValue c)
+                          | c <- map snd $ M.toList cookies ]
+            contentTypeValue = BS8.pack $ "multipart/form-data; boundary=" ++ boundary
     multiPartBody parts =
       BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
     multipartPart (ReqKvPart k v) = BS8.concat
       [ "Content-Disposition: form-data; "
       , "name=\"", TE.encodeUtf8 k, "\"\r\n\r\n"
       , TE.encodeUtf8 v, "\r\n"]
-    multipartPart (ReqTextPart v) = BS8.concat
-      [ TE.encodeUtf8 v, "\r\n" ]
+    -- multipartPart (ReqBinaryPart v) = undefined
     multipartPart (ReqFilePart k v bytes mime) = BS8.concat
       [ "Content-Disposition: form-data; "
       , "name=\"", TE.encodeUtf8 k, "\"; "
@@ -587,28 +599,28 @@ request reqBuilder = do
 
     -- For building the regular non-multipart requests
     makeSinglepart :: M.Map a0 Cookie.SetCookie
-                   -> [RequestPart]
+                   -> RBDPostData
                    -> H.Method
                    -> [H.Header]
                    -> T.Text
                    -> H.Query
                    -> SRequest
-    makeSinglepart cookies parts method extraHeaders urlPath urlQuery =
-      SRequest simpleRequest' simpleRequestBody'
+    makeSinglepart cookies rbdPostData method extraHeaders urlPath urlQuery =
+      SRequest simpleRequest' (simpleRequestBody' rbdPostData)
       where
         simpleRequest' = (mkRequest
                           [ ("Cookie", cookieValue)
                           , ("Content-Type", "application/x-www-form-urlencoded")]
                           method extraHeaders urlPath urlQuery)
-        simpleRequestBody' = BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&"
-                           $ map singlepartPart parts
-        cookieValue = Builder.toByteString
-                    $ Cookie.renderCookies cookiePairs
+        simpleRequestBody' (MultipleItemsPostData x) =
+          BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&"
+          $ map singlepartPart x
+        simpleRequestBody' (BinaryPostData x) = x
+        cookieValue = Builder.toByteString $ Cookie.renderCookies cookiePairs
         cookiePairs = [ (Cookie.setCookieName c, Cookie.setCookieValue c)
                       | c <- map snd $ M.toList cookies ]
         singlepartPart (ReqFilePart _ _ _ _) = ""
         singlepartPart (ReqKvPart k v) = T.concat [k,"=",v]
-        singlepartPart (ReqTextPart v) = v
 
     -- General request making
     mkRequest headers method extraHeaders urlPath urlQuery = defaultRequest
