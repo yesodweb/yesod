@@ -42,6 +42,7 @@ module Yesod.Test
     --
     , get
     , post
+    , postBody
     , request
     , addRequestHeader
     , setMethod
@@ -176,7 +177,8 @@ data RequestBuilderData site = RequestBuilderData
 
 -- | Request parts let us discern regular key/values from files sent in the request.
 data RequestPart
-  = ReqPlainPart T.Text T.Text
+  = ReqKvPart T.Text T.Text
+  | ReqTextPart T.Text
   | ReqFilePart T.Text FilePath BSL8.ByteString T.Text
 
 -- | The RequestBuilder state monad constructs an url encoded string of arguments
@@ -371,7 +373,7 @@ printMatches query = do
 addPostParam :: T.Text -> T.Text -> RequestBuilder site ()
 addPostParam name value =
     ST.modify $ \rbd -> rbd
-        { rbdPosts = ReqPlainPart name value : rbdPosts rbd
+        { rbdPosts = ReqKvPart name value : rbdPosts rbd
         }
 
 addGetParam :: T.Text -> T.Text -> RequestBuilder site ()
@@ -458,9 +460,17 @@ addNonce = addNonce_ ""
 post :: (Yesod site, RedirectUrl site url)
      => url
      -> YesodExample site ()
-post url = request $ do
-    setMethod "POST"
-    setUrl url
+post url = postBody url ""
+
+-- | Perform a POST request to url with sending a body into it.
+postBody :: (Yesod site, RedirectUrl site url)
+         => url
+         -> T.Text
+         -> YesodExample site ()
+postBody url body = request $ do
+  setRequestBody body
+  setMethod "POST"
+  setUrl url
 
 -- | Perform a GET request to url, using params
 get :: (Yesod site, RedirectUrl site url)
@@ -493,6 +503,12 @@ setUrl url' = do
                 x -> x
         , rbdGets = rbdGets rbd ++ H.parseQuery (TE.encodeUtf8 urlQuery)
         }
+
+-- | Simple way to set HTTP request body
+setRequestBody :: (Yesod site)
+               => T.Text
+               -> RequestBuilder site ()
+setRequestBody body = ST.modify $ \rbd -> rbd { rbdPosts = [ ReqTextPart body ] }
 
 addRequestHeader :: H.Header -> RequestBuilder site ()
 addRequestHeader header = ST.modify $ \rbd -> rbd
@@ -556,10 +572,12 @@ request reqBuilder = do
         ] method extraHeaders urlPath urlQuery
     multiPartBody parts =
       BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
-    multipartPart (ReqPlainPart k v) = BS8.concat
+    multipartPart (ReqKvPart k v) = BS8.concat
       [ "Content-Disposition: form-data; "
       , "name=\"", TE.encodeUtf8 k, "\"\r\n\r\n"
       , TE.encodeUtf8 v, "\r\n"]
+    multipartPart (ReqTextPart v) = BS8.concat
+      [ TE.encodeUtf8 v, "\r\n" ]
     multipartPart (ReqFilePart k v bytes mime) = BS8.concat
       [ "Content-Disposition: form-data; "
       , "name=\"", TE.encodeUtf8 k, "\"; "
@@ -568,15 +586,29 @@ request reqBuilder = do
       , BS8.concat $ BSL8.toChunks bytes, "\r\n"]
 
     -- For building the regular non-multipart requests
-    makeSinglepart cookies parts method extraHeaders urlPath urlQuery = SRequest (mkRequest
-      [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
-              [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
-      , ("Content-Type", "application/x-www-form-urlencoded")
-      ] method extraHeaders urlPath urlQuery) $
-      BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&" $ map singlepartPart parts
-
-    singlepartPart (ReqFilePart _ _ _ _) = ""
-    singlepartPart (ReqPlainPart k v) = T.concat [k,"=",v]
+    makeSinglepart :: M.Map a0 Cookie.SetCookie
+                   -> [RequestPart]
+                   -> H.Method
+                   -> [H.Header]
+                   -> T.Text
+                   -> H.Query
+                   -> SRequest
+    makeSinglepart cookies parts method extraHeaders urlPath urlQuery =
+      SRequest simpleRequest' simpleRequestBody'
+      where
+        simpleRequest' = (mkRequest
+                          [ ("Cookie", cookieValue)
+                          , ("Content-Type", "application/x-www-form-urlencoded")]
+                          method extraHeaders urlPath urlQuery)
+        simpleRequestBody' = BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&"
+                           $ map singlepartPart parts
+        cookieValue = Builder.toByteString
+                    $ Cookie.renderCookies cookiePairs
+        cookiePairs = [ (Cookie.setCookieName c, Cookie.setCookieValue c)
+                      | c <- map snd $ M.toList cookies ]
+        singlepartPart (ReqFilePart _ _ _ _) = ""
+        singlepartPart (ReqKvPart k v) = T.concat [k,"=",v]
+        singlepartPart (ReqTextPart v) = v
 
     -- General request making
     mkRequest headers method extraHeaders urlPath urlQuery = defaultRequest
