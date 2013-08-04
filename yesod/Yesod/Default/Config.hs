@@ -4,6 +4,7 @@
 module Yesod.Default.Config
     ( DefaultEnv (..)
     , fromArgs
+    , fromArgsSettings
     , loadDevelopmentConfig
 
     -- reexport
@@ -71,19 +72,19 @@ parseArgConfig = do
     capitalize [] = []
     capitalize (x:xs) = toUpper x : map toLower xs
 
--- | Load the app config from command line parameters
-fromArgs :: (Read env, Show env, Enum env, Bounded env)
-         => (env -> Object -> Parser extra)
-         -> IO (AppConfig env extra)
-fromArgs getExtra = do
+-- | Load the app config from command line parameters, using the given
+-- @ConfigSettings.
+--
+-- Since 1.2.2
+fromArgsSettings :: (Read env, Show env, Enum env, Bounded env)
+                 => (env -> IO (ConfigSettings env extra))
+                 -> IO (AppConfig env extra)
+fromArgsSettings cs = do
     args <- parseArgConfig
 
     let env = environment args
 
-    let cs = (configSettings env)
-                { csParseExtra = getExtra
-                }
-    config <- loadConfig cs
+    config <- cs env >>= loadConfig
 
     env' <- getEnvironment
     let config' =
@@ -94,6 +95,14 @@ fromArgs getExtra = do
     return $ if port args /= 0
                 then config' { appPort = port args }
                 else config'
+
+-- | Load the app config from command line parameters
+fromArgs :: (Read env, Show env, Enum env, Bounded env)
+         => (env -> Object -> Parser extra)
+         -> IO (AppConfig env extra)
+fromArgs getExtra = fromArgsSettings $ \env -> return (configSettings env)
+    { csParseExtra = getExtra
+    }
 
 -- | Load your development config (when using @'DefaultEnv'@)
 loadDevelopmentConfig :: IO (AppConfig DefaultEnv ())
