@@ -12,6 +12,7 @@ import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try)
+import Network.HTTP.Types (mkStatus)
 
 data App = App
 
@@ -22,9 +23,14 @@ mkYesod "App" [parseRoutes|
 /after_runRequestBody AfterRunRequestBodyR POST
 /error-in-body ErrorInBodyR GET
 /error-in-body-noeval ErrorInBodyNoEvalR GET
+/override-status OverrideStatusR GET
 |]
 
-instance Yesod App
+overrideStatus = mkStatus 15 "OVERRIDE"
+
+instance Yesod App where
+    errorHandler (InvalidArgs ["OVERRIDE"]) = sendResponseStatus overrideStatus ("OH HAI" :: String)
+    errorHandler x = defaultErrorHandler x
 
 getHomeR :: Handler Html
 getHomeR = do
@@ -65,6 +71,9 @@ getErrorInBodyR = do
 getErrorInBodyNoEvalR :: Handler (DontFullyEvaluate Html)
 getErrorInBodyNoEvalR = fmap DontFullyEvaluate getErrorInBodyR
 
+getOverrideStatusR :: Handler ()
+getOverrideStatusR = invalidArgs ["OVERRIDE"]
+
 errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "says not found" caseNotFound
@@ -72,6 +81,7 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "says 'There was an error' after runRequestBody" caseAfter
       it "error in body == 500" caseErrorInBody
       it "error in body, no eval == 200" caseErrorInBodyNoEval
+      it "can override status code" caseOverrideStatus
 
 runner :: Session () -> IO ()
 runner f = toWaiApp App >>= runSession f
@@ -125,3 +135,8 @@ caseErrorInBodyNoEval = do
     case eres of
         Left (_ :: SomeException) -> return ()
         Right _ -> error "Expected an exception"
+
+caseOverrideStatus :: IO ()
+caseOverrideStatus = runner $ do
+    res <- request defaultRequest { pathInfo = ["override-status"] }
+    assertStatus 15 res
