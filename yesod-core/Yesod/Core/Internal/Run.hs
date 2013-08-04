@@ -73,15 +73,18 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
     state <- liftIO $ I.readIORef istate
     let finalSession = ghsSession state
     let headers = ghsHeaders state
-    let contents = either id (HCContent H.status200 . toTypedContent) contents'
+    let contents = either id (HCContent defaultStatus . toTypedContent) contents'
     let handleError e = flip runInternalState resState $ do
             yar <- rheOnError e yreq
                 { reqSession = finalSession
                 }
             case yar of
-                YRPlain _ hs ct c sess ->
+                YRPlain status' hs ct c sess ->
                     let hs' = appEndo headers hs
-                     in return $ YRPlain (getStatus e) hs' ct c sess
+                        status
+                            | status' == defaultStatus = getStatus e
+                            | otherwise = status'
+                     in return $ YRPlain status hs' ct c sess
                 YRWai _ -> return yar
     let sendFile' ct fp p =
             return $ YRPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession

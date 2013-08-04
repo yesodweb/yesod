@@ -32,7 +32,7 @@ yarToResponse :: Monad m
               -> YesodRequest
               -> m Response
 yarToResponse (YRWai a) _ _ = return a
-yarToResponse (YRPlain s hs ct c newSess) saveSession yreq = do
+yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq = do
     extraHeaders <- do
         let nsToken = maybe
                 newSess
@@ -50,6 +50,23 @@ yarToResponse (YRPlain s hs ct c newSess) saveSession yreq = do
         go (ContentSource body) = ResponseSource s finalHeaders body
         go (ContentDontEvaluate c') = go c'
     return $ go c
+  where
+    s
+        | s' == defaultStatus = H.status200
+        | otherwise = s'
+
+-- | Indicates that the user provided no specific status code to be used, and
+-- therefore the default status code should be used. For normal responses, this
+-- would be a 200 response, whereas for error responses this would be an
+-- appropriate status code.
+--
+-- For more information on motivation for this, see:
+--
+-- https://groups.google.com/d/msg/yesodweb/vHDBzyu28TM/bezCvviWp4sJ
+--
+-- Since 1.2.3.1
+defaultStatus :: H.Status
+defaultStatus = H.mkStatus (-1) "INVALID DEFAULT STATUS"
 
 -- | Convert Header to a key/value pair.
 headerToPair :: Header
