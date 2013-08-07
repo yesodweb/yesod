@@ -222,8 +222,9 @@ class RenderRoute site => Yesod site where
                         -> LogLevel
                         -> LogStr -- ^ message
                         -> IO ()
-    messageLoggerSource a logger loc source level msg =
-        when (shouldLog a source level) $
+    messageLoggerSource a logger loc source level msg = do
+        sl <- shouldLogIO a source level
+        when sl $
             formatLogMessage (loggerDate logger) loc source level msg >>= loggerPutStr logger
 
     -- | Where to Load sripts from. We recommend the default value,
@@ -259,6 +260,19 @@ class RenderRoute site => Yesod site where
     -- Default: Logs everything at or above 'logLevel'
     shouldLog :: site -> LogSource -> LogLevel -> Bool
     shouldLog _ _ level = level >= LevelInfo
+
+    -- | Should we log the given log source/level combination.
+    --
+    -- Note that this is almost identical to @shouldLog@, except the result
+    -- lives in @IO@. This allows you to dynamically alter the logging level of
+    -- your application by having this result depend on, e.g., an @IORef@.
+    --
+    -- The default implementation simply uses @shouldLog@. Future versions of
+    -- Yesod will remove @shouldLog@ and use this method exclusively.
+    --
+    -- Since 1.2.4
+    shouldLogIO :: site -> LogSource -> LogLevel -> IO Bool
+    shouldLogIO a b c = return (shouldLog a b c)
 
     -- | A Yesod middleware, which will wrap every handler function. This
     -- allows you to run code before and after a normal handler.
