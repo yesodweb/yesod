@@ -21,6 +21,9 @@ module Yesod.Auth.Email
     , SaltedPass
     , VerStatus
     , Identifier
+     -- * Misc
+    , loginLinkKey
+    , setLoginLinkKey
     ) where
 
 import Network.Mail.Mime (randomString)
@@ -40,6 +43,8 @@ import qualified Yesod.Auth.Message as Msg
 import Control.Applicative ((<$>), (<*>))
 import Yesod.Form
 import Control.Monad (when)
+import Data.Time (getCurrentTime, addUTCTime)
+import Safe (readMay)
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -135,6 +140,29 @@ class (YesodAuth site, PathPiece (AuthEmailId site)) => YesodAuthEmail site wher
     --
     -- Since 1.2.0
     afterPasswordRoute :: site -> Route site
+
+    -- | Does the user need to provide the current password in order to set a
+    -- new password?
+    --
+    -- Default: if the user logged in via an email link do not require a password.
+    --
+    -- Since 1.2.1
+    needOldPassword :: AuthId site -> HandlerT site IO Bool
+    needOldPassword aid' = do
+        mkey <- lookupSession loginLinkKey
+        case mkey >>= readMay . TS.unpack of
+            Just (aidT, time) | Just aid <- fromPathPiece aidT, toPathPiece (aid `asTypeOf` aid') == toPathPiece aid' -> do
+                now <- liftIO getCurrentTime
+                return $ addUTCTime (60 * 30) time <= now
+            _ -> return True
+
+    -- | Check that the given plain-text password meets minimum security standards.
+    --
+    -- Default: password is at least three characters.
+    checkPasswordSecurity :: AuthId site -> Text -> HandlerT site IO (Either Text ())
+    checkPasswordSecurity _ x
+        | TS.length x >= 3 = return $ Right ()
+        | otherwise = return $ Left "Password must be at least three characters"
 
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
@@ -246,8 +274,10 @@ getForgotPasswordR = do
 postForgotPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 postForgotPasswordR = registerHelper True forgotPasswordR
 
-getVerifyR :: YesodAuthEmail m
-           => AuthEmailId m -> Text -> HandlerT Auth (HandlerT m IO) Html
+getVerifyR :: YesodAuthEmail site
+           => AuthEmailId site
+           -> Text
+           -> HandlerT Auth (HandlerT site IO) Html
 getVerifyR lid key = do
     realKey <- lift $ getVerifyKey lid
     memail <- lift $ getEmail lid
@@ -256,9 +286,10 @@ getVerifyR lid key = do
             muid <- lift $ verifyAccount lid
             case muid of
                 Nothing -> return ()
-                Just _uid -> do
+                Just uid -> do
                     lift $ setCreds False $ Creds "email-verify" email [("verifiedEmail", email)] -- FIXME uid?
                     lift $ setMessageI Msg.AddressVerified
+                    lift $ setLoginLinkKey uid
                     redirect setpassR
         _ -> return ()
     lift $ defaultLayout $ do
@@ -304,12 +335,14 @@ postLoginR = do
 getPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 getPasswordR = do
     maid <- lift maybeAuthId
+    pass0 <- newIdent
     pass1 <- newIdent
     pass2 <- newIdent
     case maid of
         Just _ -> return ()
         Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
     tp <- getRouteToParent
+    needOld <- maybe (return True) (lift . needOldPassword) maid
     lift $ defaultLayout $ do
         setTitleI Msg.SetPassTitle
         [whamlet|
@@ -317,11 +350,17 @@ $newline never
 <h3>_{Msg.SetPass}
 <form method="post" action="@{tp setpassR}">
     <table>
+        $if needOld
+            <tr>
+                <th>
+                    <label for=#{pass0}>Current Password
+                <td>
+                    <input ##{pass0} type="password" name="current" autofocus>
         <tr>
             <th>
                 <label for=#{pass1}>_{Msg.NewPass}
             <td>
-                <input ##{pass1} type="password" name="new" autofocus>
+                <input ##{pass1} type="password" name="new" :not needOld:autofocus>
         <tr>
             <th>
                 <label for=#{pass2}>_{Msg.ConfirmPass}
@@ -334,20 +373,38 @@ $newline never
 
 postPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) ()
 postPasswordR = do
+    maid <- lift maybeAuthId
+    aid <- case maid of
+            Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
+            Just aid -> return aid
+
+    needOld <- lift $ needOldPassword aid
+    when needOld $ do
+        current <- lift $ runInputPost $ ireq textField "current"
+        mrealpass <- lift $ getPassword aid
+        case mrealpass of
+            Nothing -> loginErrorMessage setpassR "You do not currently have a password set on your account"
+            Just realpass
+                | isValidPass current realpass -> return ()
+                | otherwise -> loginErrorMessage setpassR "Invalid current password, please try again"
+
     (new, confirm) <- lift $ runInputPost $ (,)
         <$> ireq textField "new"
         <*> ireq textField "confirm"
     when (new /= confirm) $
         loginErrorMessageI setpassR Msg.PassMismatch
-    maid <- lift maybeAuthId
-    aid <- case maid of
-            Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
-            Just aid -> return aid
+
+    isSecure <- lift $ checkPasswordSecurity aid new
+    case isSecure of
+        Left e -> loginErrorMessage setpassR e
+        Right () -> return ()
+
     salted <- liftIO $ saltPass new
     lift $ do
         y <- getYesod
         setPassword aid salted
         setMessageI Msg.PassUpdated
+        deleteSession loginLinkKey
         redirect $ afterPasswordRoute y
 
 saltLength :: Int
@@ -377,3 +434,18 @@ isValidPass' clear' salted' =
   where
     clear = TS.unpack clear'
     salted = TS.unpack salted'
+
+-- | Session variable set when user logged in via a login link. See
+-- 'needOldPassword'.
+--
+-- Since 1.2.1
+loginLinkKey :: Text
+loginLinkKey = "_AUTH_EMAIL_LOGIN_LINK"
+
+-- | Set 'loginLinkKey' to the current time.
+--
+-- Since 1.2.1
+setLoginLinkKey :: (YesodAuthEmail site, MonadHandler m, HandlerSite m ~ site) => AuthId site -> m ()
+setLoginLinkKey aid = do
+    now <- liftIO getCurrentTime
+    setSession loginLinkKey $ TS.pack $ show (toPathPiece aid, now)
