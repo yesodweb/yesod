@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.2.0.2
+version:         1.2.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -49,6 +49,8 @@ library
                    , email-validate          >= 1.0
                    , data-default
                    , resourcet
+                   , safe
+                   , time
 
     exposed-modules: Yesod.Auth
                      Yesod.Auth.BrowserId
