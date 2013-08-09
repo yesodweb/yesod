@@ -2,7 +2,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE GADTs #-}
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
 using wai and persistent.
@@ -166,8 +165,8 @@ getTestYesod = fmap yedSite ST.get
 getResponse :: YesodExample site (Maybe SResponse)
 getResponse = fmap yedResponse ST.get
 
-data RequestBuilderData site p = RequestBuilderData
-    { rbdPostData :: Maybe (RBDPostData p)
+data RequestBuilderData site = RequestBuilderData
+    { rbdPostData :: RBDPostData
     , rbdResponse :: (Maybe SResponse)
     , rbdMethod :: H.Method
     , rbdSite :: site
@@ -176,9 +175,8 @@ data RequestBuilderData site p = RequestBuilderData
     , rbdHeaders :: H.RequestHeaders
     }
 
-data RBDPostData a where
-  MultipleItemsPostData :: [RequestPart] -> RBDPostData [RequestPart]
-  BinaryPostData :: BSL8.ByteString -> RBDPostData BSL8.ByteString
+data RBDPostData = MultipleItemsPostData [RequestPart]
+                 | BinaryPostData BSL8.ByteString
 
 -- | Request parts let us discern regular key/values from files sent in the request.
 data RequestPart
@@ -188,7 +186,7 @@ data RequestPart
 -- | The RequestBuilder state monad constructs an url encoded string of arguments
 -- to send with your requests. Some of the functions that run on it use the current
 -- response to analize the forms that the server is expecting to receive.
-type RequestBuilder site p = ST.StateT (RequestBuilderData site p) IO
+type RequestBuilder site = ST.StateT (RequestBuilderData site) IO
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
@@ -374,16 +372,14 @@ printMatches query = do
   liftIO $ hPutStrLn stderr $ show matches
 
 -- | Add a parameter with the given name and value.
-addPostParam :: T.Text -> T.Text -> RequestBuilder site [RequestPart] ()
+addPostParam :: T.Text -> T.Text -> RequestBuilder site ()
 addPostParam name value =
   ST.modify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd)) }
-  where addPostData :: Maybe (RBDPostData [RequestPart])
-                    -> Maybe (RBDPostData [RequestPart])
-        addPostData (Just (MultipleItemsPostData posts)) =
-          Just $ MultipleItemsPostData $ ReqKvPart name value : posts
-        addPostData Nothing = Just $ MultipleItemsPostData $ [ReqKvPart name value]
+  where addPostData x@(BinaryPostData _) = x
+        addPostData (MultipleItemsPostData posts) =
+          MultipleItemsPostData $ ReqKvPart name value : posts
 
-addGetParam :: T.Text -> T.Text -> RequestBuilder site p ()
+addGetParam :: T.Text -> T.Text -> RequestBuilder site ()
 addGetParam name value = ST.modify $ \rbd -> rbd
     { rbdGets = (TE.encodeUtf8 name, Just $ TE.encodeUtf8 value)
               : rbdGets rbd
@@ -392,20 +388,16 @@ addGetParam name value = ST.modify $ \rbd -> rbd
 -- | Add a file to be posted with the current request
 --
 -- Adding a file will automatically change your request content-type to be multipart/form-data
-addFile :: T.Text -> FilePath -> T.Text -> RequestBuilder site [RequestPart] ()
+addFile :: T.Text -> FilePath -> T.Text -> RequestBuilder site ()
 addFile name path mimetype = do
   contents <- liftIO $ BSL8.readFile path
   ST.modify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd) contents) }
-    where addPostData :: Maybe (RBDPostData [RequestPart])
-                      -> BSL8.ByteString
-                      -> Maybe (RBDPostData [RequestPart])
-          addPostData (Just (MultipleItemsPostData posts)) contents =
-            Just $ MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
-          addPostData Nothing contents =
-            Just $ MultipleItemsPostData $ [ReqFilePart name path contents mimetype]
+    where addPostData x@(BinaryPostData _) _ = x
+          addPostData (MultipleItemsPostData posts) contents =
+            MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
 
 -- This looks up the name of a field based on the contents of the label pointing to it.
-nameFromLabel :: T.Text -> RequestBuilder site p T.Text
+nameFromLabel :: T.Text -> RequestBuilder site T.Text
 nameFromLabel label = do
   mres <- fmap rbdResponse ST.get
   res <-
@@ -444,19 +436,19 @@ nameFromLabel label = do
 (<>) :: T.Text -> T.Text -> T.Text
 (<>) = T.append
 
-byLabel :: T.Text -> T.Text -> RequestBuilder site [RequestPart] ()
+byLabel :: T.Text -> T.Text -> RequestBuilder site ()
 byLabel label value = do
   name <- nameFromLabel label
   addPostParam name value
 
-fileByLabel :: T.Text -> FilePath -> T.Text -> RequestBuilder site [RequestPart] ()
+fileByLabel :: T.Text -> FilePath -> T.Text -> RequestBuilder site ()
 fileByLabel label path mime = do
   name <- nameFromLabel label
   addFile name path mime
 
 -- | Lookup a _nonce form field and add it's value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the nonce.
-addNonce_ :: Query -> RequestBuilder site [RequestPart] ()
+addNonce_ :: Query -> RequestBuilder site ()
 addNonce_ scope = do
   matches <- htmlQuery' rbdResponse $ scope <> "input[name=_token][type=hidden][value]"
   case matches of
@@ -465,7 +457,7 @@ addNonce_ scope = do
     _ -> failure $ "More than one nonce found in the page"
 
 -- | For responses that display a single form, just lookup the only nonce available.
-addNonce :: RequestBuilder site [RequestPart] ()
+addNonce :: RequestBuilder site ()
 addNonce = addNonce_ ""
 
 -- | Perform a POST request to url
@@ -494,12 +486,12 @@ get url = request $ do
     setMethod "GET"
     setUrl url
 
-setMethod :: H.Method -> RequestBuilder site p ()
+setMethod :: H.Method -> RequestBuilder site ()
 setMethod m = ST.modify $ \rbd -> rbd { rbdMethod = m }
 
 setUrl :: (Yesod site, RedirectUrl site url)
        => url
-       -> RequestBuilder site p ()
+       -> RequestBuilder site ()
 setUrl url' = do
     site <- fmap rbdSite ST.get
     eurl <- runFakeHandler
@@ -521,10 +513,10 @@ setUrl url' = do
 -- | Simple way to set HTTP request body
 setRequestBody :: (Yesod site)
                => BSL8.ByteString
-               -> RequestBuilder site BSL8.ByteString ()
-setRequestBody body = ST.modify $ \rbd -> rbd { rbdPostData = Just (BinaryPostData body) }
+               -> RequestBuilder site ()
+setRequestBody body = ST.modify $ \rbd -> rbd { rbdPostData = BinaryPostData body }
 
-addRequestHeader :: H.Header -> RequestBuilder site p ()
+addRequestHeader :: H.Header -> RequestBuilder site ()
 addRequestHeader header = ST.modify $ \rbd -> rbd
     { rbdHeaders = header : rbdHeaders rbd
     }
@@ -532,13 +524,13 @@ addRequestHeader header = ST.modify $ \rbd -> rbd
 -- | General interface to performing requests, allowing you to add extra
 -- headers as well as letting you specify the request method.
 request :: Yesod site
-        => RequestBuilder site p ()
+        => RequestBuilder site ()
         -> YesodExample site ()
 request reqBuilder = do
     YesodExampleData app site oldCookies mRes <- ST.get
 
     RequestBuilderData {..} <- liftIO $ ST.execStateT reqBuilder RequestBuilderData
-      { rbdPostData = Nothing
+      { rbdPostData = MultipleItemsPostData []
       , rbdResponse = mRes
       , rbdMethod = "GET"
       , rbdSite = site
@@ -554,12 +546,11 @@ request reqBuilder = do
         cookiesForPath = M.filter (checkCookiePath path) cookies
 
     let maker = case rbdPostData of
-          Just (MultipleItemsPostData x) ->
+          MultipleItemsPostData x ->
             if DL.any isFile x
             then makeMultipart
             else makeSinglepart
-          Just (BinaryPostData _) -> makeSinglepart
-          Nothing -> makeSinglepart
+          BinaryPostData _ -> makeSinglepart
     let req = maker cookiesForPath rbdPostData rbdMethod rbdHeaders path rbdGets
     response <- liftIO $ runSession (srequest req) app
     let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
@@ -581,19 +572,11 @@ request reqBuilder = do
     boundary :: String
     boundary = "*******noneedtomakethisrandom"
     separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
-    makeMultipart :: M.Map a0 Cookie.SetCookie
-                  -> Maybe (RBDPostData [RequestPart])
-                  -> H.Method
-                  -> [H.Header]
-                  -> T.Text
-                  -> H.Query
-                  -> SRequest
     makeMultipart cookies rbdPostData method extraHeaders urlPath urlQuery =
       SRequest simpleRequest' (simpleRequestBody' rbdPostData)
-      where simpleRequestBody' :: Maybe (RBDPostData [RequestPart]) -> BSL8.ByteString
-            simpleRequestBody' (Just (MultipleItemsPostData x)) =
+      where simpleRequestBody' (MultipleItemsPostData x) =
               BSL8.fromChunks [multiPartBody x]
-            simpleRequestBody' Nothing = ""
+            simpleRequestBody' (BinaryPostData _) = ""
             simpleRequest' = mkRequest
                              [ ("Cookie", cookieValue)
                              , ("Content-Type", contentTypeValue)]
@@ -617,7 +600,7 @@ request reqBuilder = do
 
     -- For building the regular non-multipart requests
     makeSinglepart :: M.Map a0 Cookie.SetCookie
-                   -> Maybe (RBDPostData p)
+                   -> RBDPostData
                    -> H.Method
                    -> [H.Header]
                    -> T.Text
@@ -630,11 +613,10 @@ request reqBuilder = do
                           [ ("Cookie", cookieValue)
                           , ("Content-Type", "application/x-www-form-urlencoded")]
                           method extraHeaders urlPath urlQuery)
-        simpleRequestBody' (Just (MultipleItemsPostData x)) =
+        simpleRequestBody' (MultipleItemsPostData x) =
           BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&"
           $ map singlepartPart x
-        simpleRequestBody' (Just (BinaryPostData x)) = x
-        simpleRequestBody' Nothing = ""
+        simpleRequestBody' (BinaryPostData x) = x
         cookieValue = Builder.toByteString $ Cookie.renderCookies cookiePairs
         cookiePairs = [ (Cookie.setCookieName c, Cookie.setCookieValue c)
                       | c <- map snd $ M.toList cookies ]
