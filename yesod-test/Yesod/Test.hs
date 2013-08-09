@@ -49,6 +49,7 @@ module Yesod.Test
     , addPostParam
     , addGetParam
     , addFile
+    , setRequestBody
     , RequestBuilder
     , setUrl
 
@@ -375,7 +376,7 @@ printMatches query = do
 addPostParam :: T.Text -> T.Text -> RequestBuilder site ()
 addPostParam name value =
   ST.modify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd)) }
-  where addPostData x@(BinaryPostData _) = x
+  where addPostData (BinaryPostData _) = error "Trying to add post param to binary content."
         addPostData (MultipleItemsPostData posts) =
           MultipleItemsPostData $ ReqKvPart name value : posts
 
@@ -392,7 +393,7 @@ addFile :: T.Text -> FilePath -> T.Text -> RequestBuilder site ()
 addFile name path mimetype = do
   contents <- liftIO $ BSL8.readFile path
   ST.modify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd) contents) }
-    where addPostData x@(BinaryPostData _) _ = x
+    where addPostData (BinaryPostData _) _ = error "Trying to add file after setting binary content."
           addPostData (MultipleItemsPostData posts) contents =
             MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
 
@@ -576,7 +577,7 @@ request reqBuilder = do
       SRequest simpleRequest' (simpleRequestBody' rbdPostData)
       where simpleRequestBody' (MultipleItemsPostData x) =
               BSL8.fromChunks [multiPartBody x]
-            simpleRequestBody' (BinaryPostData _) = ""
+            -- simpleRequestBody' (BinaryPostData _) = ""
             simpleRequest' = mkRequest
                              [ ("Cookie", cookieValue)
                              , ("Content-Type", contentTypeValue)]
