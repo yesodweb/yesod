@@ -546,13 +546,21 @@ request reqBuilder = do
     let cookies = M.filter (checkCookieTime currentUtc) oldCookies
         cookiesForPath = M.filter (checkCookiePath path) cookies
 
-    let maker = case rbdPostData of
+    let req = case rbdPostData of
           MultipleItemsPostData x ->
             if DL.any isFile x
-            then makeMultipart
-            else makeSinglepart
-          BinaryPostData _ -> makeSinglepart
-    let req = maker cookiesForPath rbdPostData rbdMethod rbdHeaders path rbdGets
+            then (multipart x)
+            else singlepart
+          BinaryPostData _ -> singlepart
+          where singlepart = makeSinglepart cookiesForPath rbdPostData rbdMethod rbdHeaders path rbdGets
+                multipart x = makeMultipart cookiesForPath x rbdMethod rbdHeaders path rbdGets
+    -- let maker = case rbdPostData of
+    --       MultipleItemsPostData x ->
+    --         if DL.any isFile x
+    --         then makeMultipart
+    --         else makeSinglepart
+    --       BinaryPostData _ -> makeSinglepart
+    -- let req = maker cookiesForPath rbdPostData rbdMethod rbdHeaders path rbdGets
     response <- liftIO $ runSession (srequest req) app
     let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
@@ -573,11 +581,17 @@ request reqBuilder = do
     boundary :: String
     boundary = "*******noneedtomakethisrandom"
     separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
-    makeMultipart cookies rbdPostData method extraHeaders urlPath urlQuery =
-      SRequest simpleRequest' (simpleRequestBody' rbdPostData)
-      where simpleRequestBody' (MultipleItemsPostData x) =
+    makeMultipart :: M.Map a0 Cookie.SetCookie
+                  -> [RequestPart]
+                  -> H.Method
+                  -> [H.Header]
+                  -> T.Text
+                  -> H.Query
+                  -> SRequest
+    makeMultipart cookies parts method extraHeaders urlPath urlQuery =
+      SRequest simpleRequest' (simpleRequestBody' parts)
+      where simpleRequestBody' x =
               BSL8.fromChunks [multiPartBody x]
-            -- simpleRequestBody' (BinaryPostData _) = ""
             simpleRequest' = mkRequest
                              [ ("Cookie", cookieValue)
                              , ("Content-Type", contentTypeValue)]
