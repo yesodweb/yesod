@@ -10,6 +10,7 @@ config/client_session_key.aes
 *.o
 *.sqlite3
 .hsenv*
+cabal-dev/
 yesod-devel/
 
 {-# START_FILE Application.hs #-}
@@ -5759,10 +5760,10 @@ $maybe msg <- mmsg
 
   <li>
     A Widget's Html, Css and Javascript are separated in three files with the #
-    \<em>.hamlet</em>, <em>.lucius</em> and <em>.julius</em> extensions. 
+    \<em>.hamlet</em>, <em>.lucius</em> and <em>.julius</em> extensions.
 
   <li ##{aDomId}>If you had javascript enabled then you wouldn't be seeing this.
-    
+
   <li #form>
     This is an example trivial Form. Read the #
     \<a href="http://www.yesodweb.com/book/forms">Forms chapter</a> #
