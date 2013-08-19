@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -12,6 +13,11 @@ import qualified Data.ByteString.Char8        as S8
 import           Data.CaseInsensitive         (CI)
 import qualified Data.CaseInsensitive         as CI
 import           Network.Wai
+#if MIN_VERSION_wai(2, 0, 0)
+import           Data.Conduit                 (transPipe)
+import           Control.Monad.Trans.Resource (runInternalState)
+import           Network.Wai.Internal
+#endif
 import           Prelude                      hiding (catch)
 import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Core.Content
@@ -30,9 +36,10 @@ yarToResponse :: Monad m
               => YesodResponse
               -> (SessionMap -> m [Header]) -- ^ save session
               -> YesodRequest
+              -> Request
               -> m Response
-yarToResponse (YRWai a) _ _ = return a
-yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq = do
+yarToResponse (YRWai a) _ _ _ = return a
+yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req = do
     extraHeaders <- do
         let nsToken = maybe
                 newSess
@@ -47,7 +54,11 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq = do
             let hs' = maybe finalHeaders finalHeaders' mlen
              in ResponseBuilder s hs' b
         go (ContentFile fp p) = ResponseFile s finalHeaders fp p
+#if MIN_VERSION_wai(0, 2, 0)
+        go (ContentSource body) = ResponseSource s finalHeaders $ transPipe (flip runInternalState $ resourceInternalState req) body
+#else
         go (ContentSource body) = ResponseSource s finalHeaders body
+#endif
         go (ContentDontEvaluate c') = go c'
     return $ go c
   where
