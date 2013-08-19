@@ -54,7 +54,7 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req = do
             let hs' = maybe finalHeaders finalHeaders' mlen
              in ResponseBuilder s hs' b
         go (ContentFile fp p) = ResponseFile s finalHeaders fp p
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
         go (ContentSource body) = ResponseSource s finalHeaders $ transPipe (flip runInternalState $ resourceInternalState req) body
 #else
         go (ContentSource body) = ResponseSource s finalHeaders body

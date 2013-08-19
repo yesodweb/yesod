@@ -230,7 +230,7 @@ runRequestBody = do
         Just rbc -> return rbc
         Nothing -> do
             rr <- waiRequest
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
             rbc <- liftIO $ rbHelper upload rr
 #else
             rbc <- liftResourceT $ rbHelper upload rr
@@ -986,7 +986,7 @@ rawRequestBody :: MonadHandler m => Source m S.ByteString
 rawRequestBody = do
     req <- lift waiRequest
     transPipe
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
         liftIO
 #else
         liftResourceT

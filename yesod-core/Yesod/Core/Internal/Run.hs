@@ -32,7 +32,7 @@ import           Data.Text.Encoding.Error     (lenientDecode)
 import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
 import           Network.Wai.Internal
 #endif
 import           Prelude                      hiding (catch)
@@ -165,14 +165,14 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
   let handler' = do liftIO . I.writeIORef ret . Right =<< handler
                     return ()
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
   let yapp internalState = runHandler
 #else
   let yapp = runHandler
 #endif
          RunHandlerEnv
             { rheRender = yesodRender site $ resolveApproot site $ fakeWaiRequest
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
                             internalState
 #endif
             , rheRoute = Nothing
@@ -191,7 +191,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
                      (toContent ("runFakeHandler: errHandler" :: S8.ByteString))
                      (reqSession req)
       fakeWaiRequest
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
        internalState
 #endif
         =
@@ -200,7 +200,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , httpVersion    = H.http11
           , rawPathInfo    = "/runFakeHandler/pathInfo"
           , rawQueryString = ""
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
           , resourceInternalState = internalState
 #else
           , serverName     = "runFakeHandler-serverName"
@@ -215,7 +215,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , vault          = mempty
           , requestBodyLength = KnownLength 0
           }
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
       fakeRequest internalState =
 #else
       fakeRequest =
@@ -224,7 +224,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           { reqGetParams  = []
           , reqCookies    = []
           , reqWaiRequest = fakeWaiRequest
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
                                 internalState
 #endif
           , reqLangs      = []
@@ -232,7 +232,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , reqAccept     = []
           , reqSession    = fakeSessionMap
           }
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
   _ <- runResourceT $ do
     is <- getInternalState
     yapp is $ fakeRequest is
@@ -276,7 +276,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req
             { rheOnError = runHandler rheSafe . errorHandler
             }
     yar <-
-#if MIN_VERSION_wai(0, 2, 0)
+#if MIN_VERSION_wai(2, 0, 0)
         flip runInternalState (resourceInternalState req) $
 #endif
         runHandler rhe handler yreq
