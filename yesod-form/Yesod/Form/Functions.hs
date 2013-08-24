@@ -99,13 +99,18 @@ askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
+-- | Converts a form field into monadic form. This field requires a value
+-- and will return 'FormFailure' if left empty.
 mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
-     => Field m a
-     -> FieldSettings site
-     -> Maybe a
+     => Field m a           -- ^ form field
+     -> FieldSettings site  -- ^ settings for this field
+     -> Maybe a             -- ^ optional default value
      -> MForm m (FormResult a, FieldView site)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
+-- | Converts a form field into monadic form. This field is optional, i.e.
+-- if filled in, it returns 'Just a', if left empty, it returns 'Nothing'.
+-- Arguments are the same as for 'mreq' (apart from type of default value).
 mopt :: (site ~ HandlerSite m, MonadHandler m)
      => Field m a
      -> FieldSettings site
@@ -155,6 +160,7 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
+-- | Applicative equivalent of 'mreq'.
 areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      => Field m a
      -> FieldSettings site
@@ -162,6 +168,7 @@ areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      -> AForm m a
 areq a b = formToAForm . liftM (second return) . mreq a b
 
+-- | Applicative equivalent of 'mopt'.
 aopt :: MonadHandler m
      => Field m a
      -> FieldSettings (HandlerSite m)
@@ -218,7 +225,7 @@ postHelper form env = do
                   _           === _         = False  -- in order to avoid timing attacks.
     return ((res', xml), enctype)
 
--- | Similar to 'runFormPost', except it always ignore the currently available
+-- | Similar to 'runFormPost', except it always ignores the currently available
 -- environment. This is necessary in cases like a wizard UI, where a single
 -- page will both receive and incoming form and produce a new, blank form. For
 -- general usage, you can stick with @runFormPost@.
