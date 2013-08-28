@@ -42,6 +42,7 @@ module Yesod.Form.Fields
     , OptionList (..)
     , mkOptionList
     , optionsPersist
+    , optionsPersistKey
     , optionsPairs
     , optionsEnum
     ) where
@@ -510,6 +511,27 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     return $ map (\(Entity key value) -> Option
         { optionDisplay = mr (toDisplay value)
         , optionInternalValue = Entity key value
+        , optionExternalValue = toPathPiece key
+        }) pairs
+
+optionsPersistKey
+  :: (YesodPersist site
+     , PersistEntity a
+     , PersistQuery (YesodPersistBackend site (HandlerT site IO))
+     , PathPiece (Key a)
+     , RenderMessage site msg
+     , PersistEntityBackend a ~ PersistMonadBackend (YesodDB site))
+  => [Filter a]
+  -> [SelectOpt a]
+  -> (a -> msg)
+  -> HandlerT site IO (OptionList (Key a))
+
+optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
+    mr <- getMessageRender
+    pairs <- runDB $ selectList filts ords
+    return $ Import.map (\(Entity key value) -> Option
+        { optionDisplay = mr (toDisplay value)
+        , optionInternalValue = key
         , optionExternalValue = toPathPiece key
         }) pairs
 
