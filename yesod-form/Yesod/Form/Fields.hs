@@ -87,6 +87,8 @@ import Control.Applicative ((<$>), (<|>))
 
 import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 
+import Yesod.Persist.Core
+
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
