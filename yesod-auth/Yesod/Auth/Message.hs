@@ -14,6 +14,7 @@ module Yesod.Auth.Message
     , finnishMessage
     , chineseMessage
     , spanishMessage
+    , czechMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -473,4 +474,41 @@ chineseMessage SendPasswordResetEmail = "发送密码重置邮件"
 chineseMessage PasswordResetPrompt = "输入你的邮箱地址或用户名，你将收到一封密码重置邮件。"
 chineseMessage InvalidUsernamePass = "无效的用户名/密码组合"
 
-
+czechMessage :: AuthMessage -> Text
+czechMessage NoOpenID = "Nebyl nalezen identifikátor OpenID"
+czechMessage LoginOpenID = "Přihlásit přes OpenID"
+czechMessage LoginGoogle = "Přihlásit přes Google"
+czechMessage LoginYahoo = "Přihlásit přes Yahoo"
+czechMessage Email = "E-mail"
+czechMessage Password = "Heslo"
+czechMessage Register = "Registrovat"
+czechMessage RegisterLong = "Zaregistrovat nový účet"
+czechMessage EnterEmail = "Níže zadejte svou e-mailovou adresu a bude vám poslán potvrzovací e-mail."
+czechMessage ConfirmationEmailSentTitle = "Potvrzovací e-mail odeslán"
+czechMessage (ConfirmationEmailSent email) =
+    "Potvrzovací e-mail byl odeslán na " `mappend` email `mappend` "."
+czechMessage AddressVerified = "Adresa byla ověřena, prosím nastavte si nové heslo"
+czechMessage InvalidKeyTitle = "Neplatný ověřovací klíč"
+czechMessage InvalidKey = "Bohužel, ověřovací klíč je neplatný."
+czechMessage InvalidEmailPass = "Neplatná kombinace e-mail/heslo"
+czechMessage BadSetPass = "Pro nastavení hesla je vyžadováno přihlášení"
+czechMessage SetPassTitle = "Nastavit heslo"
+czechMessage SetPass = "Nastavit nové heslo"
+czechMessage NewPass = "Nové heslo"
+czechMessage ConfirmPass = "Potvrdit"
+czechMessage PassMismatch = "Hesla si neodpovídají, zkuste to znovu"
+czechMessage PassUpdated = "Heslo aktualizováno"
+czechMessage Facebook = "Přihlásit přes Facebook"
+czechMessage LoginViaEmail = "Přihlásit přes e-mail"
+czechMessage InvalidLogin = "Neplatné přihlášení"
+czechMessage NowLoggedIn = "Přihlášení proběhlo úspěšně"
+czechMessage LoginTitle = "Přihlásit"
+czechMessage PleaseProvideUsername = "Prosím, zadejte svoje uživatelské jméno"
+czechMessage PleaseProvidePassword = "Prosím, zadejte svoje heslo"
+czechMessage NoIdentifierProvided = "Nebyl poskytnut žádný e-mail nebo uživatelské jméno"
+czechMessage InvalidEmailAddress = "Zadaná e-mailová adresa je neplatná"
+czechMessage PasswordResetTitle = "Obnovení hesla"
+czechMessage ProvideIdentifier = "E-mail nebo uživatelské jméno"
+czechMessage SendPasswordResetEmail = "Poslat e-mail pro obnovení hesla"
+czechMessage PasswordResetPrompt = "Zadejte svou e-mailovou adresu nebo uživatelské jméno a bude vám poslán email pro obnovení hesla."
+czechMessage InvalidUsernamePass = "Neplatná kombinace uživatelského jména a hesla"
