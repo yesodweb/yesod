@@ -516,6 +516,10 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
         , optionExternalValue = toPathPiece key
         }) pairs
 
+-- | An alternative to 'optionsPersist' which returns just the @Key@ instead of
+-- the entire @Entity@.
+--
+-- Since 1.3.2
 optionsPersistKey
   :: (YesodPersist site
      , PersistEntity a
@@ -531,7 +535,7 @@ optionsPersistKey
 optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
     mr <- getMessageRender
     pairs <- runDB $ selectList filts ords
-    return $ Import.map (\(Entity key value) -> Option
+    return $ map (\(Entity key value) -> Option
         { optionDisplay = mr (toDisplay value)
         , optionInternalValue = key
         , optionExternalValue = toPathPiece key
