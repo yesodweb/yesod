@@ -73,7 +73,7 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Syntax as TH
 
 import Crypto.Conduit (hashFile, sinkHash)
-import Crypto.Hash.MD5 (MD5)
+import Crypto.Hash.CryptoAPI (MD5)
 import Control.Monad.Trans.State
 
 import qualified Data.ByteString.Base64
