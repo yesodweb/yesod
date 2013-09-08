@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.2.0
+version:         1.2.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -38,7 +38,7 @@ library
                    , unix-compat           >= 0.2
                    , conduit               >= 0.5
                    , crypto-conduit        >= 0.4
-                   , cryptohash            >= 0.6.1
+                   , cryptohash-cryptoapi  >= 0.1.0
                    , system-filepath       >= 0.4.6    && < 0.5
                    , system-fileio         >= 0.3
                    , data-default
@@ -71,7 +71,7 @@ test-suite tests
                    , unix-compat
                    , conduit
                    , crypto-conduit
-                   , cryptohash
+                   , cryptohash-cryptoapi
                    , system-filepath
                    , system-fileio
                    , data-default

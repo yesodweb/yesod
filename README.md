@@ -62,9 +62,9 @@ If you aren't building from an application, remove the `./` and create a new dir
 
 
 
-## hsenv (Linux only)
+## hsenv (Linux and Mac OS X)
 
-[hsenv](http://hackage.haskell.org/package/hsenv) prevents your custom build of Yesod from interfering with your currently installed cabal packages:
+[hsenv](https://github.com/tmhedberg/hsenv) prevents your custom build of Yesod from interfering with your currently installed cabal packages:
 
 * hsenv creates an isolated environment like cabal-dev
 * hsenv works at the shell level, so every shell must activate the hsenv

@@ -164,6 +164,14 @@ class (YesodAuth site, PathPiece (AuthEmailId site)) => YesodAuthEmail site wher
         | TS.length x >= 3 = return $ Right ()
         | otherwise = return $ Left "Password must be at least three characters"
 
+    -- | Response after sending a confirmation email.
+    --
+    -- Since 1.2.2
+    confirmationEmailSentResponse :: Text -> HandlerT site IO Html
+    confirmationEmailSentResponse identifier = defaultLayout $ do
+        setTitleI Msg.ConfirmationEmailSentTitle
+        [whamlet|<p>_{Msg.ConfirmationEmailSent identifier}|]
+
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch $ \tm ->
@@ -249,9 +257,7 @@ registerHelper allowUsername dest = do
     render <- getUrlRender
     let verUrl = render $ verify (toPathPiece lid) verKey
     lift $ sendVerifyEmail email verKey verUrl
-    lift $ defaultLayout $ do
-        setTitleI Msg.ConfirmationEmailSentTitle
-        [whamlet|<p>_{Msg.ConfirmationEmailSent identifier}|]
+    lift $ confirmationEmailSentResponse identifier
 
 postRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 postRegisterR = registerHelper False registerR
