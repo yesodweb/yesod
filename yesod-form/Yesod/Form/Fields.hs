@@ -437,6 +437,8 @@ $newline never
       "yes" -> Right $ Just True
       "on" -> Right $ Just True
       "no" -> Right $ Just False
+      "true" -> Right $ Just True
+      "false" -> Right $ Just False
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
 
