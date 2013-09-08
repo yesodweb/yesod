@@ -1,11 +1,8 @@
 # Overview
 
-The yesod package
+The yesod package groups together the various Yesod related packages into one cohesive whole.
 
-* groups together the various Yesod related packages into one cohesive whole.
-* contains the executable yesod
-  * yesod devel - start a development environment
-  * yesod init - create a scaffolded site
+For the yesod executeable, see [yesod-bin](/yesod-bin)
 
 # Scaffolding
 
