@@ -67,8 +67,9 @@ validPN c
 validPN '-' = True
 validPN _ = False
 
-scaffold :: IO ()
-scaffold = do
+scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
+         -> IO ()
+scaffold isBare = do
     puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
     project <- prompt $ \s ->
         if all validPN s && not (null s) && s /= "test"
@@ -90,7 +91,7 @@ scaffold = do
     putStrLn "That's it! I'm creating your files now..."
 
     let sink = unpackTemplate
-                (receiveFS $ fromString project)
+                (receiveFS $ if isBare then "." else fromString project)
                 (T.replace "PROJECTNAME" (T.pack project))
     case ebackend of
         Left req -> withManager $ \m -> do
