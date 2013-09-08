@@ -42,7 +42,7 @@ data Options = Options
                }
   deriving (Show, Eq)
 
-data Command = Init
+data Command = Init { _initBare :: Bool }
              | Configure
              | Build { buildExtraArgs   :: [String] }
              | Touch
@@ -89,7 +89,7 @@ main = do
                                              ] optParser'
   let cabal xs = rawSystem' (cabalCommand o) xs
   case optCommand o of
-    Init                    -> scaffold
+    Init bare               -> scaffold bare
     Configure               -> cabal ["configure"]
     Build es                -> touch' >> cabal ("build":es)
     Touch                   -> touch'
@@ -109,7 +109,8 @@ optParser :: Parser Options
 optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
-        <*> subparser ( command "init"      (info (pure Init)
+        <*> subparser ( command "init"
+                            (info (Init <$> (switch (long "bare" <> help "Create files in current folder")))
                             (progDesc "Scaffold a new site"))
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
