@@ -84,6 +84,10 @@ provideJson = provideRep . return . J.toJSON
 -- If you want the raw JSON value, just ask for a @'J.Result'
 -- 'J.Value'@.
 --
+-- Note that this function will consume the request body. As such, calling it
+-- twice will result in a parse error on the second call, since the request
+-- body will no longer be available.
+--
 -- /Since: 0.3.0/
 parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = do
