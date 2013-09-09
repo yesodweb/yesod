@@ -172,6 +172,17 @@ class (YesodAuth site, PathPiece (AuthEmailId site)) => YesodAuthEmail site wher
         setTitleI Msg.ConfirmationEmailSentTitle
         [whamlet|<p>_{Msg.ConfirmationEmailSent identifier}|]
 
+    -- | Additional normalization of email addresses, besides standard canonicalization.
+    --
+    -- Default: do nothing. Note that in future versions of Yesod, the default
+    -- will change to lower casing the email address. At that point, you will
+    -- need to either ensure your database values are migrated to lower case,
+    -- or change this default back to doing nothing.
+    --
+    -- Since 1.2.3
+    normalizeEmailAddress :: site -> Text -> Text
+    normalizeEmailAddress _ = TS.toLower
+
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch $ \tm ->
@@ -234,7 +245,7 @@ registerHelper allowUsername dest = do
                 loginErrorMessageI dest Msg.NoIdentifierProvided
             Just x
                 | Just x' <- Text.Email.Validate.canonicalizeEmail (encodeUtf8 x) ->
-                    return $ decodeUtf8With lenientDecode x'
+                    return $ normalizeEmailAddress y $ decodeUtf8With lenientDecode x'
                 | allowUsername -> return $ TS.strip x
                 | otherwise -> do
                     loginErrorMessageI dest Msg.InvalidEmailAddress
