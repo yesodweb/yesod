@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 module Yesod.EmbeddedStatic.Internal (
       EmbeddedStatic(..)
     , Route(..)
@@ -34,7 +35,11 @@ import Yesod.Core
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+#if MIN_VERSION_containers(0,5,0)
 import qualified Data.Map.Strict as M
+#else
+import qualified Data.Map as M
+#endif
 import qualified WaiAppStatic.Storage.Embedded as Static
 
 import Yesod.Static (base64md5)
