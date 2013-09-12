@@ -5,9 +5,10 @@ module EmbedProductionTest where
 -- using a custom generator testGen.  Also tests that the widget
 -- content is embedded properly.
 
+import Data.Maybe (isJust)
 import EmbedTestGenerator
 import Network.Wai.Test (SResponse(simpleHeaders))
-import Test.HUnit (assertFailure)
+import Test.HUnit (assertFailure, assertBool)
 import Test.Hspec (Spec)
 import Yesod.Core
 import Yesod.EmbeddedStatic
@@ -39,6 +40,13 @@ findEtag = withResponse $ \r ->
         Nothing -> liftIO (assertFailure "No etag found") >> error ""
         Just e -> return e
 
+hasCacheControl :: YesodExample site ()
+hasCacheControl = withResponse $ \r -> do
+    liftIO $ assertBool "Cache-Control missing" $
+        isJust $ lookup "Cache-Control" $ simpleHeaders r
+    liftIO $ assertBool "Expires missing" $
+        isJust $ lookup "Expires" $ simpleHeaders r
+
 embedProductionSpecs :: Spec
 embedProductionSpecs = yesodSpec (MyApp eProduction) $ do
     ydescribe "Embedded Production Entries" $ do
@@ -46,6 +54,7 @@ embedProductionSpecs = yesodSpec (MyApp eProduction) $ do
             get $ StaticR e1
             statusIs 200
             assertHeader "Content-Type" "text/plain"
+            hasCacheControl
             bodyEquals "e1 production"
 
             tag <- findEtag
@@ -59,30 +68,35 @@ embedProductionSpecs = yesodSpec (MyApp eProduction) $ do
             get $ StaticR $ embeddedResourceR ["e1"] []
             statusIs 200
             assertHeader "Content-Type" "text/plain"
+            hasCacheControl
             bodyEquals "e1 production"
 
         yit "e2 with simulated directory" $ do
             get $ StaticR e2
             statusIs 200
             assertHeader "Content-Type" "abcdef"
+            hasCacheControl
             bodyEquals "e2 production"
 
         yit "e2 with custom built directory path" $ do
             get $ StaticR $ embeddedResourceR ["dir", "e2"] []
             statusIs 200
             assertHeader "Content-Type" "abcdef"
+            hasCacheControl
             bodyEquals "e2 production"
 
         yit "e3 without haskell name" $ do
             get $ StaticR $ embeddedResourceR ["xxxx", "e3"] []
             statusIs 200
             assertHeader "Content-Type" "yyy"
+            hasCacheControl
             bodyEquals "e3 production"
 
         yit "e4 is embedded" $ do
             get $ StaticR e4
             statusIs 200
             assertHeader "Content-Type" "text/plain"
+            hasCacheControl
             bodyEquals "e4 production"
 
         yit "e4 extra development files are not embedded" $ do
@@ -98,5 +112,6 @@ embedProductionSpecs = yesodSpec (MyApp eProduction) $ do
 
             get $ T.decodeUtf8 $ BL.toStrict src
             statusIs 200
+            hasCacheControl
             assertHeader "Content-Type" "application/javascript"
             bodyEquals "console.log(\"Hello World\");"

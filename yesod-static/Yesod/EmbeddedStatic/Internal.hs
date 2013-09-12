@@ -113,7 +113,7 @@ tryExtraDevelFiles (f:fs) r = do
 -- | Helper to create the development application at runtime
 develApp :: StaticSettings -> [[T.Text] -> IO (Maybe (MimeType, BL.ByteString))] -> Application
 develApp settings extra req = do
-    resp <- staticApp settings req
+    resp <- staticApp settings {ssMaxAge = NoMaxAge} req
     if statusCode (responseStatus resp) == 404
         then tryExtraDevelFiles extra req
         else return resp
