@@ -12,6 +12,8 @@ build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Static file serving subsite for Yesod Web Framework.
 extra-source-files:
+  sample.hs
+  sample-embed.hs
   test/*.hs
   test/fs/bar/baz
   test/fs/tmp/ignored
