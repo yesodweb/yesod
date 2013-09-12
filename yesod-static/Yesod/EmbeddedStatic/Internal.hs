@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 module Yesod.EmbeddedStatic.Internal (
       EmbeddedStatic(..)
     , Route(..)
@@ -34,16 +35,26 @@ import Yesod.Core
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Map as M
+import qualified Data.HashMap.Strict as M
 import qualified WaiAppStatic.Storage.Embedded as Static
 
 import Yesod.Static (base64md5)
 import Yesod.EmbeddedStatic.Types
 
+#if !MIN_VERSION_base(4,6,0)
+-- copied from base
+atomicModifyIORef' :: IORef a -> (a -> (a,b)) -> IO b
+atomicModifyIORef' ref f = do
+    b <- atomicModifyIORef ref
+            (\x -> let (a, b) = f x
+                    in (a, a `seq` b))
+    b `seq` return b
+#endif
+
 -- | The subsite for the embedded static file server.
 data EmbeddedStatic = EmbeddedStatic {
     stApp :: !Application
-  , widgetFiles :: !(IORef (M.Map T.Text File))
+  , widgetFiles :: !(IORef (M.HashMap T.Text File))
 }
 
 instance RenderRoute EmbeddedStatic where

@@ -67,7 +67,7 @@ import Yesod.Core.Types
           )
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
-import qualified Data.Map as M
+import qualified Data.HashMap.Strict as M
 import qualified WaiAppStatic.Storage.Embedded as Static
 
 import Yesod.EmbeddedStatic.Types

@@ -15,7 +15,8 @@ import Yesod.EmbeddedStatic
 import Yesod.Test
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TL
 
 mkEmbeddedStatic False "eProduction" [testGen]
 
@@ -110,7 +111,7 @@ embedProductionSpecs = yesodSpec (MyApp eProduction) $ do
             [script] <- htmlQuery "script"
             let src = BL.takeWhile (/= 34) $ BL.drop 1 $ BL.dropWhile (/= 34) script -- 34 is "
 
-            get $ T.decodeUtf8 $ BL.toStrict src
+            get $ TL.toStrict $ TL.decodeUtf8 src
             statusIs 200
             hasCacheControl
             assertHeader "Content-Type" "application/javascript"
