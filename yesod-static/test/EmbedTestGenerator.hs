@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell, QuasiQuotes, OverloadedStrings #-}
 module EmbedTestGenerator (testGen) where
 
+import Data.Default
 import Network.Mime (MimeType)
 import Yesod.EmbeddedStatic.Types
 import Yesod.EmbeddedStatic.Generators (pathToName)
@@ -13,7 +14,7 @@ import qualified Data.ByteString.Lazy as BL
 e1, e2, e3, e4 :: Entry
 
 -- Basic entry
-e1 = Entry
+e1 = def
         { ebHaskellName = Just $ pathToName "e1"
         , ebLocation = "e1"
         , ebMimeType = "text/plain"
@@ -23,7 +24,7 @@ e1 = Entry
         }
 
 -- Test simulated directory in location
-e2 = Entry
+e2 = def
         { ebHaskellName = Just $ pathToName "e2"
         , ebLocation = "dir/e2"
         , ebMimeType = "abcdef"
@@ -33,7 +34,7 @@ e2 = Entry
         }
 
 -- Test empty haskell name
-e3 = Entry
+e3 = def
         { ebHaskellName = Nothing
         , ebLocation = "xxxx/e3"
         , ebMimeType = "yyy"
@@ -48,7 +49,7 @@ devExtra ["dir", "dev2"] = return $ Just ("mime2", "dev2 content")
 devExtra _ = return Nothing
 
 -- Entry with devel extra files
-e4 = Entry
+e4 = def
         { ebHaskellName = Just $ pathToName "e4"
         , ebLocation = "e4"
         , ebMimeType = "text/plain"
