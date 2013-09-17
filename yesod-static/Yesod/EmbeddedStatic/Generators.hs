@@ -37,6 +37,7 @@ import Control.Monad.Trans.Resource (runResourceT)
 import Data.Char (isDigit, isLower)
 import Data.Conduit (($$), (=$))
 import Data.Conduit.Process (proc, conduitProcess)
+import Data.Default (def)
 import Language.Haskell.TH
 import Network.Mime (defaultMimeLookup)
 import System.Directory (doesDirectoryExist, getDirectoryContents)
@@ -61,13 +62,12 @@ embedFile f = embedFileAt f f
 embedFileAt :: Location -> FilePath -> Generator
 embedFileAt loc f = do
     let mime = defaultMimeLookup $ T.pack f
-    let entry = Entry {
+    let entry = def {
                     ebHaskellName = Just $ pathToName loc
                   , ebLocation = loc
                   , ebMimeType = mime
                   , ebProductionContent = BL.readFile f
                   , ebDevelReload = [| BL.readFile $(litE $ stringL f) |]
-                  , ebDevelExtraFiles = Nothing
                   }
     return [entry]
 
@@ -148,7 +148,12 @@ concatFilesWith loc process files = do
         expFiles = listE $ map (litE . stringL) files
         expCt = [| BL.concat <$> mapM BL.readFile $expFiles |]
         mime = defaultMimeLookup $ T.pack loc
-    return [Entry (Just $ pathToName loc) loc mime load expCt Nothing]
+    return [def { ebHaskellName = Just $ pathToName loc
+                , ebLocation = loc
+                , ebMimeType = mime
+                , ebProductionContent = load
+                , ebDevelReload = expCt
+                }]
 
 -- | Convienient rexport of 'minifym' with a type signature to work with 'concatFilesWith'.
 jasmine :: BL.ByteString -> IO BL.ByteString
@@ -242,6 +247,7 @@ pathToName f = routeName
 -- >module CompileTime where
 -- >
 -- >import Data.Aeson
+-- >import Data.Default
 -- >import Data.Time
 -- >import Yesod.EmbeddedStatic.Generators
 -- >import Yesod.EmbeddedStatic.Types
@@ -255,13 +261,12 @@ pathToName f = routeName
 -- >
 -- >timeGenerator :: Location -> Generator
 -- >timeGenerator loc =
--- >    return $ [Entry
+-- >    return $ [def
 -- >        { ebHaskellName = Just $ pathToName loc
 -- >        , ebLocation    = loc
 -- >        , ebMimeType    = "application/json"
 -- >        , ebProductionContent = getTime
 -- >        , ebDevelReload = [| getTime |]
--- >        , ebDevelExtraFiles = Nothing
 -- >        }]
 --
 -- Notice how the @getTime@ action is given as both 'ebProductionContent' and

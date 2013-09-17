@@ -1,9 +1,18 @@
+{-# LANGUAGE TemplateHaskell, QuasiQuotes, OverloadedStrings #-}
 module Yesod.EmbeddedStatic.Types(
     Location
-  , Entry(..)
   , Generator
+  -- ** Entry
+  , Entry
+  , ebHaskellName
+  , ebLocation
+  , ebMimeType
+  , ebProductionContent
+  , ebDevelReload
+  , ebDevelExtraFiles
 ) where
 
+import Data.Default
 import Language.Haskell.TH
 import Network.Mime (MimeType)
 import qualified Data.ByteString.Lazy as BL
@@ -13,6 +22,9 @@ import qualified Data.ByteString.Lazy as BL
 type Location = String
 
 -- | A single resource embedded into the executable at compile time.
+--
+-- This data type is a settings type.  For more information, see
+-- <http://www.yesodweb.com/book/settings-types>.
 data Entry = Entry {
     ebHaskellName :: Maybe Name
         -- ^ An optional haskell name. If the name is present, a variable
@@ -40,6 +52,16 @@ data Entry = Entry {
         --   taking as input the list of path pieces and optionally returning a mime type
         --   and content.
 }
+
+-- | When using 'def', you must fill in at least 'ebLocation'.
+instance Default Entry where
+    def = Entry { ebHaskellName = Nothing
+                , ebLocation = "xxxx"
+                , ebMimeType = "application/octet-stream"
+                , ebProductionContent = return BL.empty
+                , ebDevelReload = [| return BL.empty |]
+                , ebDevelExtraFiles = Nothing
+                }
 
 -- | An embedded generator is executed at compile time to produce the entries to embed.
 type Generator = Q [Entry]
