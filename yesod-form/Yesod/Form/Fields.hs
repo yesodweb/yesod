@@ -388,6 +388,29 @@ radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                -> Field (HandlerT site IO) a
 radioFieldList = radioField . optionsPairs
 
+checkboxesFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)]
+                     -> Field (HandlerT site IO) [a]
+checkboxesFieldList = checkboxesField . optionsPairs
+
+checkboxesField :: (Eq a, RenderMessage site FormMessage)
+                 => HandlerT site IO (OptionList a)
+                 -> Field (HandlerT site IO) [a]
+checkboxesField ioptlist = (multiSelectField ioptlist)
+    { fieldView =
+        \theId name attrs val isReq -> do
+            opts <- fmap olOptions $ handlerToWidget ioptlist
+            let optselected (Left _) _ = False
+                optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
+            let selOpts = map (id &&& (optselected val)) opts
+            [whamlet|
+                <span ##{theId}>
+                    $forall (opt, optsel) <- selOpts
+                        <label>
+                            <input type=checkbox name=#{name} value=#{optionExternalValue opt} *{attrs} :optsel:checked>
+                            #{optionDisplay opt}
+                |]
+    }
+
 radioField :: (Eq a, RenderMessage site FormMessage)
            => HandlerT site IO (OptionList a)
            -> Field (HandlerT site IO) a
