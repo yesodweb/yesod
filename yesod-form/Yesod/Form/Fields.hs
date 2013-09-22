@@ -403,12 +403,11 @@ checkboxesField ioptlist = (multiSelectField ioptlist)
             opts <- fmap olOptions $ handlerToWidget ioptlist
             let optselected (Left _) _ = False
                 optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
-            let selOpts = map (id &&& (optselected val)) opts
             [whamlet|
                 <span ##{theId}>
-                    $forall (opt, optsel) <- selOpts
+                    $forall opt <- opts
                         <label>
-                            <input type=checkbox name=#{name} value=#{optionExternalValue opt} *{attrs} :optsel:checked>
+                            <input type=checkbox name=#{name} value=#{optionExternalValue opt} *{attrs} :optselected val opt:checked>
                             #{optionDisplay opt}
                 |]
     }
