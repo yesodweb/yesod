@@ -36,6 +36,8 @@ module Yesod.Form.Fields
     , selectFieldList
     , radioField
     , radioFieldList
+    , checkboxesFieldList
+    , checkboxesField
     , multiSelectField
     , multiSelectFieldList
     , Option (..)
