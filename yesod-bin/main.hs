@@ -16,6 +16,9 @@ import qualified Paths_yesod_bin
 import           Scaffolding.Scaffolder
 
 import           Options.Applicative.Builder.Internal (Mod, OptionFields)
+#if MIN_VERSION_optparse_applicative(0,6,0)
+import           Options.Applicative.Types (ReadM (ReadM))
+#endif
 
 #ifndef WINDOWS
 import           Build                  (touch)
@@ -165,7 +168,11 @@ optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
 optStr m =
     nullOption $ value Nothing <> reader (success . str)  <> m
   where
+#if MIN_VERSION_optparse_applicative(0,6,0)
+    success = ReadM . Right
+#else
     success = Right
+#endif
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
 rawSystem' :: String -> [String] -> IO ()
