@@ -20,32 +20,31 @@ data GenTestResult = GenError String
                    | GenSuccessWithDevel (IO BL.ByteString)
 
 -- | Creates a GenTestResult at compile time by testing the entry.
-testEntry :: Maybe String -> Location -> IO BL.ByteString -> Entry -> ExpQ
-testEntry name _ _ e | ebHaskellName e /= (mkName <$> name) =
-    [| GenError ("haskell name " ++ $(litE $ stringL $ show $ ebHaskellName e)
-                                 ++ " /= "
-                                 ++ $(litE $ stringL $ show name)) |]
-testEntry _ loc _ e  | ebLocation e /= loc =
-    [| GenError ("location " ++ $(litE $ stringL $ show $ ebLocation e)) |]
-testEntry _ _ act e = do
-    expected <- runIO act
-    actual <- runIO $ ebProductionContent e
-    if expected == actual
-        then [| GenSuccessWithDevel $(ebDevelReload e) |]
-        else [| GenError "production content" |]
+testEntry :: Entry -> Maybe String -> Location -> IO BL.ByteString -> ExpQ
+testEntry  e name loc act 
+    | ebHaskellName e /= (mkName <$> name) =
+        [| GenError ("haskell name " ++ $(litE $ stringL $ show $ ebHaskellName e)
+                                     ++ " /= "
+                                     ++ $(litE $ stringL $ show name)) |]
 
-testOneEntry :: Maybe String -> Location -> IO BL.ByteString -> [Entry] -> ExpQ
-testOneEntry name loc ct [e] = testEntry name loc ct e
-testOneEntry _ _ _ _ = [| GenError "not exactly one entry" |]
+    | ebLocation e /= loc =
+        [| GenError ("location " ++ $(litE $ stringL $ show $ ebLocation e)) |]
+
+    | otherwise = do
+        expected <- runIO act
+        actual <- runIO $ ebProductionContent e
+        if expected == actual
+            then [| GenSuccessWithDevel $(ebDevelReload e) |]
+            else [| GenError "production content" |]
 
 -- | Tests a list of entries 
-testEntries :: [(Maybe String, Location, IO BL.ByteString)] -> [Entry] -> ExpQ
+testEntries :: [Entry] -> [(Maybe String, Location, IO BL.ByteString)] -> ExpQ
 testEntries a b | length a /= length b = [| [GenError "lengths differ"] |]
 testEntries a b = listE $ zipWith f a' b'
     where 
-        a' = sortBy (\(_,l1,_) (_,l2,_) -> compare l1 l2) a
-        b' = sortBy (\e1 e2 -> ebLocation e1 `compare` ebLocation e2) b
-        f (name, loc, ct) e = testEntry name loc ct e
+        a' = sortBy (\e1 e2 -> ebLocation e1 `compare` ebLocation e2) a
+        b' = sortBy (\(_,l1,_) (_,l2,_) -> compare l1 l2) b
+        f e (name, loc, ct) = testEntry e name loc ct
 
 -- | Use this at runtime to assert the 'GenTestResult' is OK
 assertGenResult :: (IO BL.ByteString) -- ^ expected development content

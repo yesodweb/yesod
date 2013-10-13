@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell, QuasiQuotes, ScopedTypeVariables, OverloadedStrings #-}
 -- | A generator is executed at compile time to load a list of entries
 -- to embed into the subsite.  This module contains several basic generators,
 -- but the design of generators and entries is such that it is straightforward
@@ -21,6 +21,7 @@ module Yesod.EmbeddedStatic.Generators (
   , closureJs
   , compressTool
   , tryCompressTools
+  , keepFirstComment
 
   -- * Util
   , pathToName
@@ -32,15 +33,16 @@ module Yesod.EmbeddedStatic.Generators (
 
 import Control.Applicative ((<$>))
 import Control.Exception (try, SomeException)
-import Control.Monad (forM)
+import Control.Monad (forM, when)
 import Control.Monad.Trans.Resource (runResourceT)
 import Data.Char (isDigit, isLower)
 import Data.Conduit (($$), (=$))
 import Data.Conduit.Process (proc, conduitProcess)
 import Data.Default (def)
+import Data.Maybe (isNothing)
 import Language.Haskell.TH
 import Network.Mime (defaultMimeLookup)
-import System.Directory (doesDirectoryExist, getDirectoryContents)
+import System.Directory (doesDirectoryExist, getDirectoryContents, findExecutable)
 import System.FilePath ((</>))
 import Text.Jasmine (minifym)
 import qualified Data.ByteString.Lazy as BL
@@ -193,10 +195,14 @@ compressTool :: FilePath -- ^ program
              -> [String] -- ^ options
              -> BL.ByteString -> IO BL.ByteString
 compressTool f opts ct = do
+    mpath <- findExecutable f
+    when (isNothing mpath) $
+        fail $ "Unable to find " ++ f
     let src = C.sourceList $ BL.toChunks ct
         p = proc f opts
         sink = C.consume
     compressed <- runResourceT (src $$ conduitProcess p =$ sink)
+    putStrLn $ "Compressed successfully with " ++ f
     return $ BL.fromChunks compressed
 
 
@@ -215,6 +221,33 @@ tryCompressTools (p:ps) x = do
             putStrLn $ show err
             tryCompressTools ps x
         Right res -> return res
+
+-- | Search bytestring for */ returning the section of the bytestring up
+-- to and including the */
+findComment :: BL.ByteString -> BL.ByteString
+findComment b = result
+    where
+        (untilStar, afterStar) = BL.break (==42) b -- 42 is *
+        result = if "*/" `BL.isPrefixOf` afterStar
+                    then untilStar `BL.append` "*/"
+                    else BL.concat [untilStar, "*", findComment (BL.drop 1 afterStar)]
+
+-- | Apply the given javascript compression tool, keeping the first comment intact.
+--
+-- Many 3rd party javascript files like jquery and bootstrap have as the first comment a
+-- license statement.  Some of the above compression tools strip all comments including
+-- this license statement, in particular 'jasmine' strips everything.  'closureJs' and
+-- 'uglifyJs' preserve the first comment if it contains a \"\@license\" or \"\@preserve\"
+-- tag, but for example jquery does not use this tag. This function will extract the
+-- first comment, pass the bytestring through the given compressor, and stick the first
+-- comment back onto the result.
+keepFirstComment :: (BL.ByteString -> IO BL.ByteString) -> BL.ByteString -> IO BL.ByteString
+keepFirstComment compressor b = do
+    comp <- compressor b
+    let withoutSpace = BL.dropWhile (==32) b -- 32 is space
+    return $ if "/*" `BL.isPrefixOf` withoutSpace
+        then findComment withoutSpace `BL.append` comp
+        else comp
 
 -- | Clean up a path to make it a valid haskell name by replacing all non-letters
 --   and non-numbers by underscores.  In addition, if the path starts with a capital

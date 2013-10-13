@@ -11,46 +11,46 @@ import qualified Data.ByteString.Lazy as BL
 
 -- | Embeds the LICENSE file
 license :: GenTestResult
-license = $(embedFile "LICENSE" >>= 
-            testOneEntry (Just "_LICENSE") "LICENSE" (BL.readFile "LICENSE")
+license = $(do [e] <- embedFile "LICENSE"
+               testEntry e (Just "_LICENSE") "LICENSE" (BL.readFile "LICENSE")
            )
 
 licenseAt :: GenTestResult
-licenseAt = $(embedFileAt "abc.txt" "LICENSE" >>=
-              testOneEntry (Just "abc_txt") "abc.txt" (BL.readFile "LICENSE")
+licenseAt = $(do [e] <- embedFileAt "abc.txt" "LICENSE"
+                 testEntry e (Just "abc_txt") "abc.txt" (BL.readFile "LICENSE")
              )
 
 embDir :: [GenTestResult]
-embDir = $(embedDir "test/embed-dir" >>=
-           testEntries 
-            [ (Just "abc_def_txt", "abc/def.txt", BL.readFile "test/embed-dir/abc/def.txt")
-            , (Just "lorem_txt", "lorem.txt", BL.readFile "test/embed-dir/lorem.txt")
-            , (Just "foo", "foo", BL.readFile "test/embed-dir/foo")
-            ]
+embDir = $(do entries <- embedDir "test/embed-dir"
+              testEntries entries
+                [ (Just "abc_def_txt", "abc/def.txt", BL.readFile "test/embed-dir/abc/def.txt")
+                , (Just "lorem_txt", "lorem.txt", BL.readFile "test/embed-dir/lorem.txt")
+                , (Just "foo", "foo", BL.readFile "test/embed-dir/foo")
+                ]
           )
 
 embDirAt :: [GenTestResult]
-embDirAt = $(embedDirAt "xxx" "test/embed-dir" >>=
-           testEntries 
-            [ (Just "xxx_abc_def_txt", "xxx/abc/def.txt", BL.readFile "test/embed-dir/abc/def.txt")
-            , (Just "xxx_lorem_txt", "xxx/lorem.txt", BL.readFile "test/embed-dir/lorem.txt")
-            , (Just "xxx_foo", "xxx/foo", BL.readFile "test/embed-dir/foo")
-            ]
-          )
+embDirAt = $(do entries <- embedDirAt "xxx" "test/embed-dir"
+                testEntries entries
+                    [ (Just "xxx_abc_def_txt", "xxx/abc/def.txt", BL.readFile "test/embed-dir/abc/def.txt")
+                    , (Just "xxx_lorem_txt", "xxx/lorem.txt", BL.readFile "test/embed-dir/lorem.txt")
+                    , (Just "xxx_foo", "xxx/foo", BL.readFile "test/embed-dir/foo")
+                    ]
+            )
 
 concatR :: GenTestResult
-concatR = $(concatFiles "out.txt" [ "test/embed-dir/abc/def.txt", "test/embed-dir/foo"] >>=
-            testOneEntry (Just "out_txt") "out.txt" (return "Yesod Rocks\nBar\n")
+concatR = $(do [e] <- concatFiles "out.txt" [ "test/embed-dir/abc/def.txt", "test/embed-dir/foo"]
+               testEntry e (Just "out_txt") "out.txt" (return "Yesod Rocks\nBar\n")
            )
 
 -- The transform function should only run at compile for the production content
 concatWithR :: GenTestResult
-concatWithR = $(concatFilesWith "out2.txt"
+concatWithR = $(do [e] <- concatFilesWith "out2.txt"
                                 (\x -> return $ x `BL.append` "Extra")
-                                [ "test/embed-dir/abc/def.txt", "test/embed-dir/foo"] >>=
-                testOneEntry (Just "out2_txt") "out2.txt" (return "Yesod Rocks\nBar\nExtra")
+                                [ "test/embed-dir/abc/def.txt", "test/embed-dir/foo"]
+                   testEntry e (Just "out2_txt") "out2.txt" (return "Yesod Rocks\nBar\nExtra")
                )
-            
+
 fileGenSpecs :: Spec
 fileGenSpecs = do
     describe "Embed File" $ do
@@ -90,3 +90,9 @@ fileGenSpecs = do
             out2 <- flip tryCompressTools "abcdef"
                             [ const $ throwIO $ ErrorCall "An expected error"]
             assertEqual "" "abcdef" out2
+
+        it "keep first comment" $ do
+            let comment = "/* The initial comment with some ** in it\n * and another line\n */"
+                full = "   " `BL.append` comment `BL.append` "console.log(\"Hello, World!\");"
+            res <- keepFirstComment (const $ return "ABC") full
+            assertEqual "" (comment `BL.append` "ABC") res
