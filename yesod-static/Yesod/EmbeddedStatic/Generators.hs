@@ -32,15 +32,16 @@ module Yesod.EmbeddedStatic.Generators (
 
 import Control.Applicative ((<$>))
 import Control.Exception (try, SomeException)
-import Control.Monad (forM)
+import Control.Monad (forM, when)
 import Control.Monad.Trans.Resource (runResourceT)
 import Data.Char (isDigit, isLower)
 import Data.Conduit (($$), (=$))
 import Data.Conduit.Process (proc, conduitProcess)
 import Data.Default (def)
+import Data.Maybe (isNothing)
 import Language.Haskell.TH
 import Network.Mime (defaultMimeLookup)
-import System.Directory (doesDirectoryExist, getDirectoryContents)
+import System.Directory (doesDirectoryExist, getDirectoryContents, findExecutable)
 import System.FilePath ((</>))
 import Text.Jasmine (minifym)
 import qualified Data.ByteString.Lazy as BL
@@ -193,10 +194,14 @@ compressTool :: FilePath -- ^ program
              -> [String] -- ^ options
              -> BL.ByteString -> IO BL.ByteString
 compressTool f opts ct = do
+    mpath <- findExecutable f
+    when (isNothing mpath) $
+        fail $ "Unable to find " ++ f
     let src = C.sourceList $ BL.toChunks ct
         p = proc f opts
         sink = C.consume
     compressed <- runResourceT (src $$ conduitProcess p =$ sink)
+    putStrLn $ "Compressed successfully with " ++ f
     return $ BL.fromChunks compressed
 
 
