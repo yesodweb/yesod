@@ -91,6 +91,9 @@ library
     -- This looks like a GHC bug
     extensions:      MultiParamTypeClasses
 
+    -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
+    extensions:      TemplateHaskell
+
 test-suite tests
     type: exitcode-stdio-1.0
     main-is: test.hs
@@ -118,6 +121,7 @@ test-suite tests
                   , lifted-base
                   , resourcet
     ghc-options:     -Wall
+    extensions: TemplateHaskell
 
 source-repository head
   type:     git
