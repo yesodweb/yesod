@@ -64,8 +64,8 @@ import qualified Text.Email.Validate as Email
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Network.URI (parseURI)
-import Database.Persist.Sql (PersistField, PersistFieldSql)
-import Database.Persist (Entity (..))
+import Database.Persist.Sql (PersistField, PersistFieldSql (..))
+import Database.Persist (Entity (..), SqlType (SqlString))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.Maybe (listToMaybe, fromMaybe)
@@ -168,7 +168,9 @@ $newline never
 -- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField, PersistFieldSql, Ord)
+    deriving (Show, Read, Eq, PersistField, Ord)
+instance PersistFieldSql Textarea where
+    sqlType _ = SqlString
 instance ToHtml Textarea where
     toHtml =
         unsafeByteString

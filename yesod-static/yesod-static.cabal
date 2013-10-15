@@ -62,6 +62,7 @@ library
     other-modules:   Yesod.EmbeddedStatic.Internal
 
     ghc-options:     -Wall
+    extensions: TemplateHaskell
 
 test-suite tests
     hs-source-dirs: ., test
@@ -105,6 +106,7 @@ test-suite tests
                    , unordered-containers
 
     ghc-options:     -Wall
+    extensions: TemplateHaskell
 
 source-repository head
   type:     git
