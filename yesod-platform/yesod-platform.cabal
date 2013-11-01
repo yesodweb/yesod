@@ -1,5 +1,5 @@
 name:            yesod-platform
-version:         1.2.4.3
+version:         1.2.4.4
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -58,7 +58,7 @@ library
                  , date-cache == 0.3.0
                  , dlist == 0.5
                  , email-validate == 1.0.0
-                 , entropy == 0.2.2.2
+                 , entropy == 0.2.2.4
                  , failure == 0.2.0.1
                  , fast-logger == 0.3.3
                  , file-embed == 0.0.4.9
