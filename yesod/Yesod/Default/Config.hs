@@ -70,7 +70,7 @@ parseArgConfig = do
     getPort front (arg:rest) = getPort (front . (arg:)) rest
 
     capitalize [] = []
-    capitalize (x:xs) = toUpper x : map toLower xs
+    capitalize (x:xs) = toUpper x : xs
 
 -- | Load the app config from command line parameters, using the given
 -- @ConfigSettings.
