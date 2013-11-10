@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.2.0.1
+version:         1.2.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -12,12 +12,16 @@ build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Static file serving subsite for Yesod Web Framework.
 extra-source-files:
-  test/YesodStaticTest.hs
-  test/tests.hs
+  sample.hs
+  sample-embed.hs
+  test/*.hs
   test/fs/bar/baz
   test/fs/tmp/ignored
   test/fs/.ignored
   test/fs/foo
+  test/embed-dir/foo
+  test/embed-dir/lorem.txt
+  test/embed-dir/abc/def.txt
 
 library
     build-depends:   base                  >= 4        && < 5
@@ -30,7 +34,7 @@ library
                    , template-haskell
                    , directory             >= 1.0
                    , transformers          >= 0.2.2
-                   , wai-app-static        >= 1.3
+                   , wai-app-static        >= 1.3.2
                    , wai                   >= 1.3
                    , text                  >= 0.9
                    , file-embed            >= 0.0.4.1  && < 0.5
@@ -43,8 +47,22 @@ library
                    , system-fileio         >= 0.3
                    , data-default
                    , shakespeare-css       >= 1.0.3
+                   , mime-types            >= 0.1
+                   , hjsmin
+                   , process-conduit       >= 1.0      && < 1.1
+                   , filepath              >= 1.3
+                   , resourcet             >= 0.4
+                   , unordered-containers  >= 0.2
+
     exposed-modules: Yesod.Static
+                     Yesod.EmbeddedStatic
+                     Yesod.EmbeddedStatic.Generators
+                     Yesod.EmbeddedStatic.Types
+
+    other-modules:   Yesod.EmbeddedStatic.Internal
+
     ghc-options:     -Wall
+    extensions: TemplateHaskell
 
 test-suite tests
     hs-source-dirs: ., test
@@ -53,6 +71,10 @@ test-suite tests
     cpp-options:   -DTEST_EXPORT
     build-depends:   base
                    , hspec >= 1.3
+                   , yesod-test >= 1.2
+                   , wai-test
+                   , HUnit
+
                    -- copy from above
                    , containers
                    , old-time
@@ -76,8 +98,15 @@ test-suite tests
                    , system-fileio
                    , data-default
                    , shakespeare-css
+                   , mime-types
+                   , hjsmin
+                   , process-conduit
+                   , filepath
+                   , resourcet
+                   , unordered-containers
 
     ghc-options:     -Wall
+    extensions: TemplateHaskell
 
 source-repository head
   type:     git

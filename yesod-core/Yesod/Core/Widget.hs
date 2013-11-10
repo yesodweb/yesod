@@ -47,6 +47,7 @@ module Yesod.Core.Widget
     , handlerToWidget
       -- * Internal
     , whamletFileWithSettings
+    , asWidgetT
     ) where
 
 import Data.Monoid

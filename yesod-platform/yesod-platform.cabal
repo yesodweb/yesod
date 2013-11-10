@@ -1,5 +1,5 @@
 name:            yesod-platform
-version:         1.2.4.1
+version:         1.2.4.4
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -58,7 +58,7 @@ library
                  , date-cache == 0.3.0
                  , dlist == 0.5
                  , email-validate == 1.0.0
-                 , entropy == 0.2.2.2
+                 , entropy == 0.2.2.4
                  , failure == 0.2.0.1
                  , fast-logger == 0.3.3
                  , file-embed == 0.0.4.9
@@ -104,7 +104,7 @@ library
                  , silently == 1.2.4.1
                  , simple-sendfile == 0.2.12
                  , skein == 1.0.6
-                 , socks == 0.5.1
+                 , socks == 0.5.3
                  , stringsearch == 0.3.6.4
                  , system-fileio == 0.3.11
                  , system-filepath == 0.4.7
@@ -118,7 +118,6 @@ library
                  , unordered-containers == 0.2.3.2
                  , utf8-light == 0.4.0.1
                  , utf8-string == 0.3.7
-                 , vault == 0.3.0.0
                  , vector == 0.10.0.1
                  , void == 0.6.1
                  , wai == 1.4.0.2

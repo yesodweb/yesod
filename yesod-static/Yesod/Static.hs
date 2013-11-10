@@ -35,7 +35,6 @@ module Yesod.Static
       -- * Smart constructor
     , static
     , staticDevel
-    , embed
       -- * Combining CSS/JS
       -- $combining
     , combineStylesheets'
@@ -54,6 +53,8 @@ module Yesod.Static
     , publicFiles
       -- * Hashing
     , base64md5
+      -- * Embed
+    , embed
 #ifdef TEST_EXPORT
     , getFileListPieces
 #endif
@@ -134,8 +135,11 @@ staticDevel dir = do
     hashLookup <- cachedETagLookupDevel dir
     return $ Static $ webAppSettingsWithLookup (F.decodeString dir) hashLookup
 
--- | Produce a 'Static' based on embedding all of the static
--- files' contents in the executable at compile time.
+-- | Produce a 'Static' based on embedding all of the static files' contents in the
+-- executable at compile time.
+--
+-- You should use "Yesod.EmbeddedStatic" instead, it is much more powerful.
+--
 -- Nota Bene: if you replace the scaffolded 'static' call in Settings/StaticFiles.hs
 -- you will need to change the scaffolded addStaticContent.  Otherwise, some of your
 -- assets will be 404'ed.  This is because by default yesod will generate compile those

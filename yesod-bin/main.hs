@@ -16,6 +16,9 @@ import qualified Paths_yesod_bin
 import           Scaffolding.Scaffolder
 
 import           Options.Applicative.Builder.Internal (Mod, OptionFields)
+#if MIN_VERSION_optparse_applicative(0,6,0)
+import           Options.Applicative.Types (ReadM (ReadM))
+#endif
 
 #ifndef WINDOWS
 import           Build                  (touch)
@@ -42,7 +45,7 @@ data Options = Options
                }
   deriving (Show, Eq)
 
-data Command = Init
+data Command = Init { _initBare :: Bool }
              | Configure
              | Build { buildExtraArgs   :: [String] }
              | Touch
@@ -89,7 +92,7 @@ main = do
                                              ] optParser'
   let cabal xs = rawSystem' (cabalCommand o) xs
   case optCommand o of
-    Init                    -> scaffold
+    Init bare               -> scaffold bare
     Configure               -> cabal ["configure"]
     Build es                -> touch' >> cabal ("build":es)
     Touch                   -> touch'
@@ -109,7 +112,8 @@ optParser :: Parser Options
 optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
-        <*> subparser ( command "init"      (info (pure Init)
+        <*> subparser ( command "init"
+                            (info (Init <$> (switch (long "bare" <> help "Create files in current folder")))
                             (progDesc "Scaffold a new site"))
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
@@ -164,7 +168,11 @@ optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
 optStr m =
     nullOption $ value Nothing <> reader (success . str)  <> m
   where
+#if MIN_VERSION_optparse_applicative(0,6,0)
+    success = ReadM . Right
+#else
     success = Right
+#endif
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
 rawSystem' :: String -> [String] -> IO ()

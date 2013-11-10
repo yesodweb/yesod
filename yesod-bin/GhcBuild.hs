@@ -39,7 +39,7 @@ import           GHC.Paths          (libdir)
 import           HscTypes           (HscEnv (..), emptyHomePackageTable)
 import qualified Module
 import           MonadUtils         (liftIO)
-import           Panic              (ghcError, panic)
+import           Panic              (throwGhcException, panic)
 import           SrcLoc             (Located, mkGeneralLocated)
 import qualified StaticFlags
 import           StaticFlags        (v_Ld_inputs)
@@ -234,7 +234,7 @@ parseModeFlags args = do
              Nothing     -> doMakeMode
              Just (m, _) -> m
       errs = errs1 ++ map (mkGeneralLocated "on the commandline") errs2
-  when (not (null errs)) $ ghcError $ errorsToGhcException errs
+  when (not (null errs)) $ throwGhcException $ errorsToGhcException errs
   return (mode, flags' ++ leftover, warns)
 
 type ModeM = CmdLineP (Maybe (Mode, String), [String], [Located String])
