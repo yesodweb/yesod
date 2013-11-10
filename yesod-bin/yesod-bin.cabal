@@ -87,6 +87,7 @@ executable             yesod
                      , transformers
                      , warp               >= 1.3.7.5
                      , wai                >= 1.4
+                     , filesystem-conduit >= 1.0          && < 2.0
 
     ghc-options:       -Wall -threaded
     main-is:           main.hs
@@ -98,6 +99,7 @@ executable             yesod
                        AddHandler
                        Paths_yesod_bin
                        Options
+                       HsFile
 
 source-repository head
   type:     git
