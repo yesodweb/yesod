@@ -67,7 +67,12 @@ import qualified Config                                as GHC
 import           Data.Conduit.Network                  (HostPreference (HostIPv4),
                                                         bindPort)
 import           Network                               (withSocketsDo)
+#if MIN_VERSION_http_conduit(2, 0, 0)
+import           Network.HTTP.Conduit                  (conduitManagerSettings, newManager)
+import           Data.Default                          (def)
+#else
 import           Network.HTTP.Conduit                  (def, newManager)
+#endif
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
                                                         waiProxyToSettings, wpsTimeout, wpsOnExc)
 #if MIN_VERSION_http_reverse_proxy(0, 2, 0)
@@ -121,7 +126,11 @@ cabalProgram opts | isCabalDev opts = "cabal-dev"
 -- 3001, give an appropriate message to the user.
 reverseProxy :: DevelOpts -> I.IORef Int -> IO ()
 reverseProxy opts iappPort = do
+#if MIN_VERSION_http_conduit(2, 0, 0)
+    manager <- newManager conduitManagerSettings
+#else
     manager <- newManager def
+#endif
     let loop = forever $ do
             run (develPort opts) $ waiProxyToSettings
                 (const $ do

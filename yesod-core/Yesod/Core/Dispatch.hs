@@ -146,6 +146,7 @@ warp :: YesodDispatch site => Int -> site -> IO ()
 warp port site = toWaiApp site >>= Network.Wai.Handler.Warp.runSettings
     Network.Wai.Handler.Warp.defaultSettings
         { Network.Wai.Handler.Warp.settingsPort = port
+        {- FIXME
         , Network.Wai.Handler.Warp.settingsServerName = S8.pack $ concat
             [ "Warp/"
             , Network.Wai.Handler.Warp.warpVersion
@@ -153,6 +154,7 @@ warp port site = toWaiApp site >>= Network.Wai.Handler.Warp.runSettings
             , showVersion Paths_yesod_core.version
             , " (core)"
             ]
+        -}
         }
 
 -- | A default set of middlewares.

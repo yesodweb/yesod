@@ -195,6 +195,9 @@ import Control.Failure (failure)
 import Blaze.ByteString.Builder (Builder)
 import Safe (headMay)
 import Data.CaseInsensitive (CI)
+#if MIN_VERSION_wai(2, 0, 0)
+import qualified System.PosixCompat.Files as PC
+#endif
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -499,8 +502,17 @@ sendFilePart :: MonadHandler m
              -> Integer -- ^ offset
              -> Integer -- ^ count
              -> m a
-sendFilePart ct fp off count =
+sendFilePart ct fp off count = do
+#if MIN_VERSION_wai(2, 0, 0)
+    fs <- liftIO $ PC.getFileStatus fp
+    handlerError $ HCSendFile ct fp $ Just W.FilePart
+        { W.filePartOffset = off
+        , W.filePartByteCount = count
+        , W.filePartFileSize = fromIntegral $ PC.fileSize fs
+        }
+#else
     handlerError $ HCSendFile ct fp $ Just $ W.FilePart off count
+#endif
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.

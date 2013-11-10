@@ -10,13 +10,13 @@ module Yesod.Core.Internal.Run where
 import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
-import           Control.Exception            (fromException)
+import           Control.Exception            (fromException, bracketOnError)
 import           Control.Exception.Lifted     (catch)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
-import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState, getInternalState)
+import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.IORef                   as I
@@ -165,16 +165,9 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
   let handler' = do liftIO . I.writeIORef ret . Right =<< handler
                     return ()
-#if MIN_VERSION_wai(2, 0, 0)
-  let yapp internalState = runHandler
-#else
   let yapp = runHandler
-#endif
          RunHandlerEnv
-            { rheRender = yesodRender site $ resolveApproot site $ fakeWaiRequest
-#if MIN_VERSION_wai(2, 0, 0)
-                            internalState
-#endif
+            { rheRender = yesodRender site $ resolveApproot site fakeWaiRequest
             , rheRoute = Nothing
             , rheSite = site
             , rheUpload = fileUpload site
@@ -190,18 +183,13 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
                      typePlain
                      (toContent ("runFakeHandler: errHandler" :: S8.ByteString))
                      (reqSession req)
-      fakeWaiRequest
-#if MIN_VERSION_wai(2, 0, 0)
-       internalState
-#endif
-        =
-        Request
+      fakeWaiRequest = Request
           { requestMethod  = "POST"
           , httpVersion    = H.http11
           , rawPathInfo    = "/runFakeHandler/pathInfo"
           , rawQueryString = ""
 #if MIN_VERSION_wai(2, 0, 0)
-          , resourceInternalState = internalState
+          , requestHeaderHost = Nothing
 #else
           , serverName     = "runFakeHandler-serverName"
           , serverPort     = 80
@@ -215,30 +203,17 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , vault          = mempty
           , requestBodyLength = KnownLength 0
           }
-#if MIN_VERSION_wai(2, 0, 0)
-      fakeRequest internalState =
-#else
       fakeRequest =
-#endif
         YesodRequest
           { reqGetParams  = []
           , reqCookies    = []
           , reqWaiRequest = fakeWaiRequest
-#if MIN_VERSION_wai(2, 0, 0)
-                                internalState
-#endif
           , reqLangs      = []
           , reqToken      = Just "NaN" -- not a nonce =)
           , reqAccept     = []
           , reqSession    = fakeSessionMap
           }
-#if MIN_VERSION_wai(2, 0, 0)
-  _ <- runResourceT $ do
-    is <- getInternalState
-    yapp is $ fakeRequest is
-#else
   _ <- runResourceT $ yapp fakeRequest
-#endif
   I.readIORef ret
 {-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
 
@@ -275,12 +250,14 @@ yesodRunner handler' YesodRunnerEnv {..} route req
         rhe = rheSafe
             { rheOnError = runHandler rheSafe . errorHandler
             }
-    yar <-
 #if MIN_VERSION_wai(2, 0, 0)
-        flip runInternalState (resourceInternalState req) $
-#endif
-        runHandler rhe handler yreq
+    bracketOnError createInternalState closeInternalState $ \is -> do
+        yar <- runInternalState (runHandler rhe handler yreq) is
+        liftIO $ yarToResponse yar saveSession yreq req is
+#else
+    yar <- runHandler rhe handler yreq
     liftIO $ yarToResponse yar saveSession yreq req
+#endif
   where
     mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'
