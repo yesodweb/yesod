@@ -28,6 +28,8 @@ import Blaze.ByteString.Builder (Builder)
 import Data.IORef.Lifted
 import Data.Conduit.Pool
 import Control.Monad.Trans.Resource
+import Control.Exception (throwIO)
+import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
 
 type YesodDB site = YesodPersistBackend site (HandlerT site IO)
@@ -132,7 +134,7 @@ get404 :: ( PersistStore (t m)
 get404 key = do
     mres <- get key
     case mres of
-        Nothing -> lift notFound
+        Nothing -> notFound'
         Just res -> return res
 
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
@@ -148,8 +150,13 @@ getBy404 :: ( PersistUnique (t m)
 getBy404 key = do
     mres <- getBy key
     case mres of
-        Nothing -> lift notFound
+        Nothing -> notFound'
         Just res -> return res
+
+-- | Should be equivalent to @lift . notFound@, but there's an apparent bug in
+-- GHC 7.4.2 that leads to segfaults. This is a workaround.
+notFound' :: MonadIO m => m a
+notFound' = liftIO $ throwIO $ HCError NotFound
 
 instance MonadHandler m => MonadHandler (SqlPersistT m) where
     type HandlerSite (SqlPersistT m) = HandlerSite m
