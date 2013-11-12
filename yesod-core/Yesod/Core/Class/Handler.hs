@@ -41,7 +41,7 @@ replaceToParent hd = hd { handlerToParent = const () }
 instance MonadResourceBase m => MonadHandler (HandlerT site m) where
     type HandlerSite (HandlerT site m) = site
     liftHandlerT (HandlerT f) = HandlerT $ liftIO . f . replaceToParent
-{-# RULES "liftHandlerT (HandlerT site IO)" forall action. liftHandlerT action = id #-}
+{-# RULES "liftHandlerT (HandlerT site IO)" liftHandlerT = id #-}
 
 instance MonadResourceBase m => MonadHandler (WidgetT site m) where
     type HandlerSite (WidgetT site m) = site
