@@ -36,6 +36,8 @@ module Yesod.Form.Fields
     , selectFieldList
     , radioField
     , radioFieldList
+    , checkboxesFieldList
+    , checkboxesField
     , multiSelectField
     , multiSelectFieldList
     , Option (..)
@@ -62,8 +64,8 @@ import qualified Text.Email.Validate as Email
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Network.URI (parseURI)
-import Database.Persist.Sql (PersistField, PersistFieldSql)
-import Database.Persist (Entity (..))
+import Database.Persist.Sql (PersistField, PersistFieldSql (..))
+import Database.Persist (Entity (..), SqlType (SqlString))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.Maybe (listToMaybe, fromMaybe)
@@ -166,7 +168,9 @@ $newline never
 -- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField, PersistFieldSql, Ord)
+    deriving (Show, Read, Eq, PersistField, Ord)
+instance PersistFieldSql Textarea where
+    sqlType _ = SqlString
 instance ToHtml Textarea where
     toHtml =
         unsafeByteString
@@ -387,6 +391,28 @@ radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                => [(msg, a)]
                -> Field (HandlerT site IO) a
 radioFieldList = radioField . optionsPairs
+
+checkboxesFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)]
+                     -> Field (HandlerT site IO) [a]
+checkboxesFieldList = checkboxesField . optionsPairs
+
+checkboxesField :: (Eq a, RenderMessage site FormMessage)
+                 => HandlerT site IO (OptionList a)
+                 -> Field (HandlerT site IO) [a]
+checkboxesField ioptlist = (multiSelectField ioptlist)
+    { fieldView =
+        \theId name attrs val isReq -> do
+            opts <- fmap olOptions $ handlerToWidget ioptlist
+            let optselected (Left _) _ = False
+                optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
+            [whamlet|
+                <span ##{theId}>
+                    $forall opt <- opts
+                        <label>
+                            <input type=checkbox name=#{name} value=#{optionExternalValue opt} *{attrs} :optselected val opt:checked>
+                            #{optionDisplay opt}
+                |]
+    }
 
 radioField :: (Eq a, RenderMessage site FormMessage)
            => HandlerT site IO (OptionList a)
