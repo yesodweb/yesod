@@ -13,6 +13,8 @@ fay/Language/Fay/Yesod.hs
 .hsenv*
 cabal-dev/
 yesod-devel/
+.cabal-sandbox
+cabal.sandbox.config
 
 {-# START_FILE Application.hs #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
