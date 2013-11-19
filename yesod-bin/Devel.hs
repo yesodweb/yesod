@@ -1,13 +1,14 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+#ifdef EMBED_REFRESH
+{-# LANGUAGE TemplateHaskell   #-}
+#endif
 module Devel
     ( devel
     , DevelOpts(..)
     , defaultDevelOpts
     ) where
-
-import           Paths_yesod_bin
 
 import qualified Distribution.Compiler                 as D
 import qualified Distribution.ModuleName               as D
@@ -24,7 +25,7 @@ import           Control.Concurrent.MVar               (MVar, newEmptyMVar,
                                                         takeMVar, tryPutMVar)
 import qualified Control.Exception                     as Ex
 import           Control.Monad                         (forever, unless, void,
-                                                        when)
+                                                        when, forM)
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Trans.State             (evalStateT, get)
 import qualified Data.IORef                            as I
@@ -78,6 +79,11 @@ import           Network.Socket                        (sClose)
 import           Network.Wai                           (responseLBS)
 import           Network.Wai.Handler.Warp              (run)
 import           SrcLoc                                (Located)
+#ifdef EMBED_REFRESH
+import           Data.FileEmbed        (embedFile)
+#else
+import           Paths_yesod_bin
+#endif
 
 lockFile :: DevelOpts -> FilePath
 lockFile _opts =  "yesod-devel/devel-terminate"
@@ -122,7 +128,18 @@ cabalProgram opts | isCabalDev opts = "cabal-dev"
 reverseProxy :: DevelOpts -> I.IORef Int -> IO ()
 reverseProxy opts iappPort = do
     manager <- newManager def
-    let loop = forever $ do
+#ifdef EMBED_REFRESH
+    let refreshHtml = LB.fromStrict $(embedFile "refreshing.html")
+#else
+    refreshHtml <- liftIO $ getDataFileName "refreshing.html" >>= LB.readFile
+#endif
+    let onExc _ _ = return $ responseLBS status200
+            [ ("content-type", "text/html")
+            , ("Refresh", "1")
+            ]
+            refreshHtml
+
+    let runProxy =
             run (develPort opts) $ waiProxyToSettings
                 (const $ do
                     appPort <- liftIO $ I.readIORef iappPort
@@ -141,20 +158,13 @@ reverseProxy opts iappPort = do
                             else Just (1000000 * proxyTimeout opts)
                     }
                 manager
-            putStrLn "Reverse proxy stopped, but it shouldn't"
-            threadDelay 1000000
-            putStrLn "Restarting reverse proxy"
-    loop `Ex.onException` exitFailure
+    loop runProxy `Ex.onException` exitFailure
   where
-    onExc _ _ = do
-      refreshing <- liftIO $ getDataFileName "refreshing.html"
-      html <- liftIO $ LB.readFile refreshing
-      return $ responseLBS
-        status200
-        [ ("content-type", "text/html")
-        , ("Refresh", "1")
-        ]
-        html
+    loop proxy = forever $ do
+        void proxy
+        putStrLn "Reverse proxy stopped, but it shouldn't"
+        threadDelay 1000000
+        putStrLn "Restarting reverse proxy"
 
 checkPort :: Int -> IO Bool
 checkPort p = do
@@ -174,10 +184,12 @@ getPort _ p0 =
         avail <- checkPort p
         if avail then return p else loop (succ p)
 
+unlessM :: Monad m => m Bool -> m () -> m ()
+unlessM c a = c >>= \res -> unless res a
+
 devel :: DevelOpts -> [String] -> IO ()
 devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
-    avail <- checkPort $ develPort opts
-    unless avail $ error "devel port unavailable"
+    unlessM (checkPort $ develPort opts) $ error "devel port unavailable"
     iappPort <- getPort opts 17834 >>= I.newIORef
     when (useReverseProxy opts) $ void $ forkIO $ reverseProxy opts iappPort
     checkDevelFile
@@ -278,8 +290,8 @@ runBuildHook Nothing = return ()
 -}
 configure :: DevelOpts -> [String] -> IO Bool
 configure opts extraArgs =
-  checkExit =<< (createProcess $ proc (cabalProgram opts)
-                                ([ "configure"
+  checkExit =<< createProcess (proc (cabalProgram opts) $
+                                 [ "configure"
                                  , "-flibrary-only"
                                  , "-fdevel"
                                  , "--disable-library-profiling"
@@ -287,7 +299,7 @@ configure opts extraArgs =
                                  , "--with-ghc=yesod-ghc-wrapper"
                                  , "--with-ar=yesod-ar-wrapper"
                                  , "--with-hc-pkg=ghc-pkg"
-                                 ] ++ extraArgs)
+                                 ] ++ extraArgs
                )
 
 removeFileIfExists :: FilePath -> IO ()
@@ -302,7 +314,7 @@ mkRebuild ghcVer cabalFile opts (ldPath, arPath)
   | GHC.cProjectVersion /= ghcVer =
        failWith "Yesod has been compiled with a different GHC version, please reinstall"
   | forceCabal opts               = return (rebuildCabal opts)
-  | otherwise                     = do
+  | otherwise                     =
       return $ do
         ns <- mapM (cabalFile `isNewerThan`)
            [ "yesod-devel/ghcargs.txt", "yesod-devel/arargs.txt", "yesod-devel/ldargs.txt" ]
@@ -327,7 +339,7 @@ rebuildCabal opts = do
            | otherwise    = [ "build", "-v0" ]
 
 try_ :: forall a. IO a -> IO ()
-try_ x = (Ex.try x :: IO (Either Ex.SomeException a)) >> return ()
+try_ x = void (Ex.try x :: IO (Either Ex.SomeException a))
 
 type FileList = Map.Map FilePath EpochTime
 
@@ -335,7 +347,7 @@ getFileList :: [FilePath] -> [FilePath] -> IO FileList
 getFileList hsSourceDirs extraFiles = do
     (files, deps) <- getDeps hsSourceDirs
     let files' = extraFiles ++ files ++ map fst (Map.toList deps)
-    fmap Map.fromList $ flip mapM files' $ \f -> do
+    fmap Map.fromList $ forM files' $ \f -> do
         efs <- Ex.try $ getFileStatus f
         return $ case efs of
             Left (_ :: Ex.SomeException) -> (f, 0)

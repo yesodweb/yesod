@@ -6,7 +6,9 @@ dist
 client_session_key.aes
 cabal-dev/
 yesod/foobar/
-.virthualenv
+.hsenv/
+.cabal-sandbox/
+cabal.sandbox.config
 /vendor/
 /.shelly/
 /tarballs/
