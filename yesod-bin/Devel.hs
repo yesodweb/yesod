@@ -7,6 +7,7 @@
 module Devel
     ( devel
     , DevelOpts(..)
+    , DevelTermOpt(..)
     , defaultDevelOpts
     ) where
 
@@ -100,6 +101,8 @@ removeLock opts = do
     removeFileIfExists (lockFile opts)
     removeFileIfExists "dist/devel-terminate"  -- for compatibility with old devel.hs
 
+data DevelTermOpt = TerminateOnEnter | TerminateOnlyInterrupt
+     deriving (Show, Eq)
 data DevelOpts = DevelOpts
       { isCabalDev   :: Bool
       , forceCabal   :: Bool
@@ -111,13 +114,14 @@ data DevelOpts = DevelOpts
       , develPort    :: Int
       , proxyTimeout :: Int
       , useReverseProxy :: Bool
+      , terminateWith :: DevelTermOpt
       } deriving (Show, Eq)
 
 getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True
+defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True TerminateOnEnter
 
 cabalProgram :: DevelOpts -> FilePath
 cabalProgram opts | isCabalDev opts = "cabal-dev"
@@ -195,12 +199,19 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     checkDevelFile
     writeLock opts
 
-    putStrLn "Yesod devel server. Press ENTER to quit"
-    _ <- forkIO $ do
+    let (terminator, after) = case terminateWith opts of
+          TerminateOnEnter ->
+              ("Press ENTER", void getLine)
+          TerminateOnlyInterrupt ->  -- run for one year
+              ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
+
+
+    putStrLn $ "Yesod devel server. "  ++ terminator ++ " to quit"
+    void $ forkIO $ do
       filesModified <- newEmptyMVar
       watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
       evalStateT (mainOuterLoop iappPort filesModified) Map.empty
-    _ <- getLine
+    after
     writeLock opts
     exitSuccess
   where
