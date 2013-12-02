@@ -1,9 +1,7 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-#ifdef EMBED_REFRESH
 {-# LANGUAGE TemplateHaskell   #-}
-#endif
 module Devel
     ( devel
     , DevelOpts(..)
@@ -79,11 +77,7 @@ import           Network.Socket                        (sClose)
 import           Network.Wai                           (responseLBS)
 import           Network.Wai.Handler.Warp              (run)
 import           SrcLoc                                (Located)
-#ifdef EMBED_REFRESH
 import           Data.FileEmbed        (embedFile)
-#else
-import           Paths_yesod_bin
-#endif
 
 lockFile :: DevelOpts -> FilePath
 lockFile _opts =  "yesod-devel/devel-terminate"
@@ -128,11 +122,7 @@ cabalProgram opts | isCabalDev opts = "cabal-dev"
 reverseProxy :: DevelOpts -> I.IORef Int -> IO ()
 reverseProxy opts iappPort = do
     manager <- newManager def
-#ifdef EMBED_REFRESH
     let refreshHtml = LB.fromStrict $(embedFile "refreshing.html")
-#else
-    refreshHtml <- liftIO $ getDataFileName "refreshing.html" >>= LB.readFile
-#endif
     let onExc _ _ = return $ responseLBS status200
             [ ("content-type", "text/html")
             , ("Refresh", "1")
