@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE CPP               #-}
 module Yesod.Core.Class.Yesod where
 
 import           Control.Monad.Logger               (logErrorS)
@@ -39,10 +40,15 @@ import           Data.Default                       (def)
 import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
 import           System.IO                          (stdout)
+#if MIN_VERSION_fast_logger(2, 0, 0)
+import           Network.Wai.Logger                 (ZonedDate)
+import           System.Log.FastLogger
+#else
+import           System.Log.FastLogger.Date         (ZonedDate)
 import           System.Log.FastLogger              (LogStr (..), Logger,
                                                      loggerDate, loggerPutStr,
                                                      mkLogger)
-import           System.Log.FastLogger.Date         (ZonedDate)
+#endif
 import           Text.Blaze                         (customAttribute, textTag,
                                                      toValue, (!))
 import           Text.Blaze                         (preEscapedToMarkup)
