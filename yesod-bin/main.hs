@@ -15,9 +15,10 @@ import           Options                (injectDefaults)
 import qualified Paths_yesod_bin
 import           Scaffolding.Scaffolder
 
-import           Options.Applicative.Builder.Internal (Mod, OptionFields)
 #if MIN_VERSION_optparse_applicative(0,6,0)
 import           Options.Applicative.Types (ReadM (ReadM))
+#else
+import           Options.Applicative.Builder.Internal (Mod, OptionFields)
 #endif
 
 #ifndef WINDOWS
