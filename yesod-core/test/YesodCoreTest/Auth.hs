@@ -8,6 +8,7 @@ import Network.Wai
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Text as T
 import Data.List (isSuffixOf)
+import qualified Network.HTTP.Types as H
 
 data App = App
 
@@ -51,6 +52,7 @@ test method path f = it (method ++ " " ++ path) $ do
             , requestHeaders =
                 if not $ isSuffixOf "json" path then [] else
                   [("Accept", S8.pack "application/json")]
+            , httpVersion = H.http11
             }
         f sres
 
