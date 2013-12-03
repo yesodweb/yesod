@@ -36,7 +36,9 @@ import           Network.Wai
 import           Network.Wai.Internal
 #endif
 import           Prelude                      hiding (catch)
+#if !MIN_VERSION_fast_logger(2, 0, 0)
 import           System.Log.FastLogger        (Logger)
+#endif
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           System.Random                (newStdGen)
 import           Yesod.Core.Content

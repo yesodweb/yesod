@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Core.Dispatch
     ( -- * Quasi-quoted routing
       parseRoutes
@@ -163,7 +164,11 @@ warp port site = toWaiApp site >>= Network.Wai.Handler.Warp.runSettings
 mkDefaultMiddlewares :: Logger -> IO W.Middleware
 mkDefaultMiddlewares logger = do
     logWare <- mkRequestLogger def
+#if MIN_VERSION_fast_logger(2, 0, 0)
+        { destination = Network.Wai.Middleware.RequestLogger.Logger $ loggerSet logger
+#else
         { destination = Logger logger
+#endif
         , outputFormat = Apache FromSocket
         }
     return $ logWare

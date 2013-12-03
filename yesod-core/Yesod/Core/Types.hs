@@ -48,7 +48,7 @@ import           Network.Wai                        (FilePart,
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
 #if MIN_VERSION_fast_logger(2, 0, 0)
-import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr)
+import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
 import           Network.Wai.Logger                 (DateCacheGetter)
 #else
 import           System.Log.FastLogger              (LogStr, Logger, toLogStr)
@@ -453,5 +453,11 @@ instance ParseRoute WaiSubsite where
     parseRoute (x, y) = Just $ WaiSubsiteRoute x y
 
 #if MIN_VERSION_fast_logger(2, 0, 0)
-data Logger = Logger !LoggerSet !DateCacheGetter
+data Logger = Logger
+    { loggerSet :: !LoggerSet
+    , loggerDate :: !DateCacheGetter
+    }
+
+loggerPutStr :: Logger -> LogStr -> IO ()
+loggerPutStr (Logger ls _) = pushLogStr ls
 #endif
