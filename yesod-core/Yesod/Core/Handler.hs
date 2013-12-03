@@ -697,7 +697,7 @@ newIdent = do
     x <- get
     let i' = ghsIdent x + 1
     put x { ghsIdent = i' }
-    return $ T.pack $ 'h' : show i'
+    return $ T.pack $ "hident" ++ show i'
 
 -- | Redirect to a POST resource.
 --
