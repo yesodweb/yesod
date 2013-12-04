@@ -131,7 +131,7 @@ reverseProxy opts iappPort = do
 #else
     manager <- newManager def
 #endif
-    let refreshHtml = LB.fromStrict $(embedFile "refreshing.html")
+    let refreshHtml = LB.fromChunks $ return $(embedFile "refreshing.html")
     let onExc _ _ = return $ responseLBS status200
             [ ("content-type", "text/html")
             , ("Refresh", "1")
