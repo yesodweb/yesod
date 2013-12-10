@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -9,13 +10,13 @@ module Yesod.Core.Internal.Run where
 import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
-import           Control.Exception            (fromException)
+import           Control.Exception            (fromException, bracketOnError)
 import           Control.Exception.Lifted     (catch)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
-import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState)
+import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.IORef                   as I
@@ -31,8 +32,13 @@ import           Data.Text.Encoding.Error     (lenientDecode)
 import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
+#if MIN_VERSION_wai(2, 0, 0)
+import           Network.Wai.Internal
+#endif
 import           Prelude                      hiding (catch)
+#if !MIN_VERSION_fast_logger(2, 0, 0)
 import           System.Log.FastLogger        (Logger)
+#endif
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           System.Random                (newStdGen)
 import           Yesod.Core.Content
@@ -179,14 +185,17 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
                      typePlain
                      (toContent ("runFakeHandler: errHandler" :: S8.ByteString))
                      (reqSession req)
-      fakeWaiRequest =
-        Request
+      fakeWaiRequest = Request
           { requestMethod  = "POST"
           , httpVersion    = H.http11
           , rawPathInfo    = "/runFakeHandler/pathInfo"
           , rawQueryString = ""
+#if MIN_VERSION_wai(2, 0, 0)
+          , requestHeaderHost = Nothing
+#else
           , serverName     = "runFakeHandler-serverName"
           , serverPort     = 80
+#endif
           , requestHeaders = []
           , isSecure       = False
           , remoteHost     = error "runFakeHandler-remoteHost"
@@ -243,8 +252,14 @@ yesodRunner handler' YesodRunnerEnv {..} route req
         rhe = rheSafe
             { rheOnError = runHandler rheSafe . errorHandler
             }
+#if MIN_VERSION_wai(2, 0, 0)
+    bracketOnError createInternalState closeInternalState $ \is -> do
+        yar <- runInternalState (runHandler rhe handler yreq) is
+        liftIO $ yarToResponse yar saveSession yreq req is
+#else
     yar <- runHandler rhe handler yreq
-    liftIO $ yarToResponse yar saveSession yreq
+    liftIO $ yarToResponse yar saveSession yreq req
+#endif
   where
     mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'

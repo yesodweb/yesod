@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -194,6 +195,9 @@ import Control.Failure (failure)
 import Blaze.ByteString.Builder (Builder)
 import Safe (headMay)
 import Data.CaseInsensitive (CI)
+#if MIN_VERSION_wai(2, 0, 0)
+import qualified System.PosixCompat.Files as PC
+#endif
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -229,11 +233,19 @@ runRequestBody = do
         Just rbc -> return rbc
         Nothing -> do
             rr <- waiRequest
+#if MIN_VERSION_wai(2, 0, 0)
+            rbc <- liftIO $ rbHelper upload rr
+#else
             rbc <- liftResourceT $ rbHelper upload rr
+#endif
             put x { ghsRBC = Just rbc }
             return rbc
 
+#if MIN_VERSION_wai(2, 0, 0)
+rbHelper :: FileUpload -> W.Request -> IO RequestBodyContents
+#else
 rbHelper :: FileUpload -> W.Request -> ResourceT IO RequestBodyContents
+#endif
 rbHelper upload =
     case upload of
         FileUploadMemory s -> rbHelper' s mkFileInfoLBS
@@ -243,7 +255,11 @@ rbHelper upload =
 rbHelper' :: NWP.BackEnd x
           -> (Text -> Text -> x -> FileInfo)
           -> W.Request
+#if MIN_VERSION_wai(2, 0, 0)
+          -> IO ([(Text, Text)], [(Text, FileInfo)])
+#else
           -> ResourceT IO ([(Text, Text)], [(Text, FileInfo)])
+#endif
 rbHelper' backend mkFI req =
     (map fix1 *** mapMaybe fix2) <$> (NWP.parseRequestBody backend req)
   where
@@ -486,8 +502,17 @@ sendFilePart :: MonadHandler m
              -> Integer -- ^ offset
              -> Integer -- ^ count
              -> m a
-sendFilePart ct fp off count =
+sendFilePart ct fp off count = do
+#if MIN_VERSION_wai(2, 0, 0)
+    fs <- liftIO $ PC.getFileStatus fp
+    handlerError $ HCSendFile ct fp $ Just W.FilePart
+        { W.filePartOffset = off
+        , W.filePartByteCount = count
+        , W.filePartFileSize = fromIntegral $ PC.fileSize fs
+        }
+#else
     handlerError $ HCSendFile ct fp $ Just $ W.FilePart off count
+#endif
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
@@ -697,7 +722,7 @@ newIdent = do
     x <- get
     let i' = ghsIdent x + 1
     put x { ghsIdent = i' }
-    return $ T.pack $ 'h' : show i'
+    return $ T.pack $ "hident" ++ show i'
 
 -- | Redirect to a POST resource.
 --
@@ -916,7 +941,7 @@ selectRep w = do
         ]) reps
 
     -- match on the type for sub-type wildcards.
-    -- If the accept is text/* it should match a provided text/html
+    -- If the accept is text/ * it should match a provided text/html
     mainTypeMap = Map.fromList $ reverse $ map
       (\v@(ProvidedRep ct _) -> (fst $ contentTypeTypes ct, v)) reps
 
@@ -972,7 +997,13 @@ provideRepType ct handler =
 rawRequestBody :: MonadHandler m => Source m S.ByteString
 rawRequestBody = do
     req <- lift waiRequest
-    transPipe liftResourceT $ W.requestBody req
+    transPipe
+#if MIN_VERSION_wai(2, 0, 0)
+        liftIO
+#else
+        liftResourceT
+#endif
+        (W.requestBody req)
 
 -- | Stream the data from the file. Since Yesod 1.2, this has been generalized
 -- to work in any @MonadResource@.

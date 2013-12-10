@@ -101,7 +101,7 @@ import Filesystem (createTree)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Default
-import Text.Lucius (luciusRTMinified)
+--import Text.Lucius (luciusRTMinified)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -478,10 +478,13 @@ data CombineSettings = CombineSettings
 instance Default CombineSettings where
     def = CombineSettings
         { csStaticDir = "static"
+        {- Disabled due to: https://github.com/yesodweb/yesod/issues/623
         , csCssPostProcess = \fps ->
               either (error . (errorIntro fps)) (return . TLE.encodeUtf8)
             . flip luciusRTMinified []
             . TLE.decodeUtf8
+        -}
+        , csCssPostProcess = const return
         , csJsPostProcess = const return
            -- FIXME The following borders on a hack. With combining of files,
            -- the final location of the CSS is no longer fixed, so relative

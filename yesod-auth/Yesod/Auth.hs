@@ -34,6 +34,8 @@ module Yesod.Auth
     , AuthException (..)
       -- * Helper
     , AuthHandler
+      -- * Internal
+    , credsKey
     ) where
 
 import Control.Monad                 (when)
@@ -163,6 +165,9 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
         => HandlerT master IO (Maybe (AuthId master))
     maybeAuthId = defaultMaybeAuthId
 
+-- | Internal session key used to hold the authentication information.
+--
+-- Since 1.2.3
 credsKey :: Text
 credsKey = "_ID"
 

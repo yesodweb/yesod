@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -12,6 +13,13 @@ import qualified Data.ByteString.Char8        as S8
 import           Data.CaseInsensitive         (CI)
 import qualified Data.CaseInsensitive         as CI
 import           Network.Wai
+#if MIN_VERSION_wai(2, 0, 0)
+import           Data.Conduit                 (transPipe)
+import           Control.Monad.Trans.Resource (runInternalState, getInternalState, runResourceT, InternalState, closeInternalState)
+import           Control.Monad.Trans.Class    (lift)
+import           Network.Wai.Internal
+import           Control.Exception            (finally)
+#endif
 import           Prelude                      hiding (catch)
 import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Core.Content
@@ -26,13 +34,30 @@ import qualified Data.Map                     as Map
 import           Yesod.Core.Internal.Request  (tokenKey)
 import           Data.Text.Encoding           (encodeUtf8)
 
-yarToResponse :: Monad m
-              => YesodResponse
-              -> (SessionMap -> m [Header]) -- ^ save session
+yarToResponse :: YesodResponse
+              -> (SessionMap -> IO [Header]) -- ^ save session
               -> YesodRequest
-              -> m Response
-yarToResponse (YRWai a) _ _ = return a
-yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq = do
+              -> Request
+#if MIN_VERSION_wai(2, 0, 0)
+              -> InternalState
+#endif
+              -> IO Response
+#if MIN_VERSION_wai(2, 0, 0)
+yarToResponse (YRWai a) _ _ _ is =
+    case a of
+        ResponseSource s hs w -> return $ ResponseSource s hs $ \f ->
+            w f `finally` closeInternalState is
+        _ -> do
+            closeInternalState is
+            return a
+#else
+yarToResponse (YRWai a) _ _ _ = return a
+#endif
+yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req
+#if MIN_VERSION_wai(2, 0, 0)
+  is
+#endif
+  = do
     extraHeaders <- do
         let nsToken = maybe
                 newSess
@@ -43,6 +68,21 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq = do
     let finalHeaders = extraHeaders ++ map headerToPair hs
         finalHeaders' len = ("Content-Length", S8.pack $ show len)
                           : finalHeaders
+
+#if MIN_VERSION_wai(2, 0, 0)
+    let go (ContentBuilder b mlen) = do
+            let hs' = maybe finalHeaders finalHeaders' mlen
+            closeInternalState is
+            return $ ResponseBuilder s hs' b
+        go (ContentFile fp p) = do
+            closeInternalState is
+            return $ ResponseFile s finalHeaders fp p
+        go (ContentSource body) = return $ ResponseSource s finalHeaders $ \f ->
+            f (transPipe (flip runInternalState is) body) `finally`
+            closeInternalState is
+        go (ContentDontEvaluate c') = go c'
+    go c
+#else
     let go (ContentBuilder b mlen) =
             let hs' = maybe finalHeaders finalHeaders' mlen
              in ResponseBuilder s hs' b
@@ -50,6 +90,7 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq = do
         go (ContentSource body) = ResponseSource s finalHeaders body
         go (ContentDontEvaluate c') = go c'
     return $ go c
+#endif
   where
     s
         | s' == defaultStatus = H.status200

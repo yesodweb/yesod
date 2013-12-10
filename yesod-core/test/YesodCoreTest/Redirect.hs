@@ -45,7 +45,8 @@ specs = describe "Redirect" $ do
 
     it "303 redirect for regular, HTTP 1.1" $ app $ do
       res <- request defaultRequest {
-        pathInfo = ["rregular"]
+        pathInfo = ["rregular"],
+        httpVersion = H.http11
       }
       assertStatus 303 res
       assertBodyContains "" res
