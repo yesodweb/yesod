@@ -10,7 +10,7 @@ module Hierarchy
     ( hierarchy
     , Dispatcher (..)
     , runHandler
-    , Handler
+    , Handler2
     , App
     , toText
     , Env (..)
@@ -34,7 +34,9 @@ class ToText a where
 instance ToText Text where toText = id
 instance ToText String where toText = pack
 
-type Handler sub master a = a
+type Handler2 sub master a = a
+type Handler site a = Handler2 site site a
+
 type Request = ([Text], ByteString) -- path info, method
 type App sub master = Request -> (Text, Maybe (YRC.Route master))
 data Env sub master = Env
@@ -45,7 +47,7 @@ data Env sub master = Env
 
 subDispatch
     :: (Env sub master -> App sub master)
-    -> (Handler sub master Text -> Env sub master -> Maybe (YRC.Route sub) -> App sub master)
+    -> (Handler2 sub master Text -> Env sub master -> Maybe (YRC.Route sub) -> App sub master)
     -> (master -> sub)
     -> (YRC.Route sub -> YRC.Route master)
     -> Env master master
@@ -63,7 +65,7 @@ class Dispatcher sub master where
 
 runHandler
     :: ToText a
-    => Handler sub master a
+    => Handler2 sub master a
     -> Env sub master
     -> Maybe (Route sub)
     -> App sub master
@@ -75,11 +77,17 @@ data Hierarchy = Hierarchy
 do
     let resources = [parseRoutes|
 / HomeR GET
+
 /admin/#Int AdminR:
     / AdminRootR GET
     /login LoginR GET POST
     /table/#Text TableR GET
+
+/nest/ NestR:
+
+  /spaces      SpacedR   GET
 |]
+
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     prinst <- mkParseRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     dispatch <- mkDispatchClause MkDispatchSettings
@@ -102,23 +110,28 @@ do
         : prinst
         : rrinst
 
-getHomeR :: Handler sub master String
+getSpacedR :: Handler site String
+getSpacedR = "root-leaf"
+
+getHomeR :: Handler site String
 getHomeR = "home"
 
-getAdminRootR :: Int -> Handler sub master Text
+getAdminRootR :: Int -> Handler site Text
 getAdminRootR i = pack $ "admin root: " ++ show i
 
-getLoginR :: Int -> Handler sub master Text
+getLoginR :: Int -> Handler site Text
 getLoginR i = pack $ "login: " ++ show i
 
-postLoginR :: Int -> Handler sub master Text
+postLoginR :: Int -> Handler site Text
 postLoginR i = pack $ "post login: " ++ show i
 
-getTableR :: Int -> Text -> Handler sub master Text
-getTableR _ t = append "TableR " t
+getTableR :: Int -> Text -> Handler site Text
+getTableR _ = append "TableR "
 
 hierarchy :: Spec
 hierarchy = describe "hierarchy" $ do
+    it "nested with spacing" $
+        renderRoute (NestR SpacedR) @?= (["nest", "spaces"], [])
     it "renders root correctly" $
         renderRoute (AdminR 5 AdminRootR) @?= (["admin", "5"], [])
     it "renders table correctly" $
