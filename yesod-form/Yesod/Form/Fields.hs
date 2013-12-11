@@ -587,7 +587,7 @@ selectFieldHelper outside onOpt inside opts' = Field
             flip mapM_ opts $ \opt -> inside
                 theId
                 name
-                attrs
+                ((if isReq then (("required", "required"):) else id) attrs)
                 (optionExternalValue opt)
                 ((render opts val) == optionExternalValue opt)
                 (optionDisplay opt)
