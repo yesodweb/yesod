@@ -1,3 +1,4 @@
+../wai
 ./yesod-routes
 ./yesod-core
 ./yesod-static

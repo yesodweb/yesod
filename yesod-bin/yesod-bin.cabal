@@ -22,10 +22,6 @@ extra-source-files:
   hsfiles/simple.hsfiles
   hsfiles/sqlite.hsfiles
 
-Flag embed-refresh
-   Description: embed the refreshing.html file in the executable
-   Default: False
-
 executable             yesod-ghc-wrapper
     main-is: ghcwrapper.hs
     build-depends:
@@ -38,6 +34,7 @@ executable             yesod-ld-wrapper
     build-depends:
                     base                       >= 4         && < 5
                   , Cabal
+
 executable             yesod-ar-wrapper
     main-is: ghcwrapper.hs
     cpp-options:     -DARCMD
@@ -48,8 +45,7 @@ executable             yesod-ar-wrapper
 executable             yesod
     if os(windows)
         cpp-options:     -DWINDOWS
-   if flag(embed-refresh)
-     cpp-options: -DEMBED_REFRESH
+
     build-depends:     base               >= 4.3          && < 5
                      , ghc                >= 7.0.3        && < 7.8
                      , ghc-paths          >= 0.1
