@@ -134,7 +134,11 @@ data FileInfo = FileInfo
     }
 
 data FileUpload = FileUploadMemory !(NWP.BackEnd L.ByteString)
+#if MIN_VERSION_wai_extra(2, 0, 1)
+                | FileUploadDisk !(InternalState -> NWP.BackEnd FilePath)
+#else
                 | FileUploadDisk !(NWP.BackEnd FilePath)
+#endif
                 | FileUploadSource !(NWP.BackEnd (Source (ResourceT IO) ByteString))
 
 -- | How to determine the root of the application for constructing URLs.

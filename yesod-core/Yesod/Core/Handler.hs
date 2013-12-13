@@ -152,7 +152,7 @@ import           Control.Monad                 (liftM)
 import qualified Control.Monad.Trans.Writer    as Writer
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
-import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT)
+import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT, InternalState)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
@@ -183,7 +183,7 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
-import           Control.Monad.Trans.Resource  (ResourceT, runResourceT, withInternalState)
+import           Control.Monad.Trans.Resource  (ResourceT, runResourceT, withInternalState, getInternalState, liftResourceT)
 import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef.Lifted             as I
 import           Data.Maybe                    (listToMaybe)
@@ -233,7 +233,10 @@ runRequestBody = do
         Just rbc -> return rbc
         Nothing -> do
             rr <- waiRequest
-#if MIN_VERSION_wai(2, 0, 0)
+#if MIN_VERSION_wai_extra(2, 0, 1)
+            internalState <- liftResourceT getInternalState
+            rbc <- liftIO $ rbHelper upload rr internalState
+#elif MIN_VERSION_wai(2, 0, 0)
             rbc <- liftIO $ rbHelper upload rr
 #else
             rbc <- liftResourceT $ rbHelper upload rr
@@ -242,15 +245,20 @@ runRequestBody = do
             return rbc
 
 #if MIN_VERSION_wai(2, 0, 0)
-rbHelper :: FileUpload -> W.Request -> IO RequestBodyContents
+rbHelper :: FileUpload -> W.Request -> InternalState -> IO RequestBodyContents
+rbHelper upload req internalState =
 #else
 rbHelper :: FileUpload -> W.Request -> ResourceT IO RequestBodyContents
+rbHelper upload req =
 #endif
-rbHelper upload =
     case upload of
-        FileUploadMemory s -> rbHelper' s mkFileInfoLBS
-        FileUploadDisk s -> rbHelper' s mkFileInfoFile
-        FileUploadSource s -> rbHelper' s mkFileInfoSource
+        FileUploadMemory s -> rbHelper' s mkFileInfoLBS req
+#if MIN_VERSION_wai_extra(2, 0, 1)
+        FileUploadDisk s -> rbHelper' (s internalState) mkFileInfoFile req
+#else
+        FileUploadDisk s -> rbHelper' s mkFileInfoFile req
+#endif
+        FileUploadSource s -> rbHelper' s mkFileInfoSource req
 
 rbHelper' :: NWP.BackEnd x
           -> (Text -> Text -> x -> FileInfo)
