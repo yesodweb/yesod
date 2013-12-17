@@ -71,7 +71,6 @@ runHandler
     -> App sub master
 runHandler h Env {..} route _ = (toText h, fmap envToMaster route)
 
-
 data Hierarchy = Hierarchy
 
 do
@@ -79,13 +78,25 @@ do
 / HomeR GET
 
 /admin/#Int AdminR:
-    / AdminRootR GET
-    /login LoginR GET POST
-    /table/#Text TableR GET
+    /            AdminRootR GET
+    /login       LoginR     GET POST
+    /table/#Text TableR     GET
 
 /nest/ NestR:
 
   /spaces      SpacedR   GET
+
+  /nest2 Nest2:
+    /get        Get2      GET
+    /post       Post2         POST
+    /#Int       Delete2            DELETE
+  /nest3 Nest3:
+    /get        Get3      GET
+    /post       Post3         POST
+    /#Int       Delete3            DELETE
+
+/afterwards AfterR:
+  /             After     GET
 |]
 
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
@@ -112,6 +123,15 @@ do
 
 getSpacedR :: Handler site String
 getSpacedR = "root-leaf"
+
+getGet2   :: Handler site String; getGet2 = "get"
+postPost2 :: Handler site String; postPost2 = "post"
+deleteDelete2 :: Int -> Handler site String; deleteDelete2 = const "delete"
+getGet3   :: Handler site String; getGet3 = "get"
+postPost3 :: Handler site String; postPost3 = "post"
+deleteDelete3   :: Int -> Handler site String; deleteDelete3 = const "delete"
+
+getAfter   :: Handler site String; getAfter = "after"
 
 getHomeR :: Handler site String
 getHomeR = "home"
