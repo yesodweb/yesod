@@ -339,6 +339,11 @@ handlePluginR plugin pieces = do
         [] -> notFound
         ap:_ -> apDispatch ap method pieces
 
+-- | Similar to 'maybeAuthId', but additionally look up the value associated
+-- with the user\'s database identifier to get the value in the database. This
+-- assumes that you are using a Persistent database.
+--
+-- Since 1.1.0
 maybeAuth :: ( YesodAuth master
              , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
              , b ~ YesodPersistBackend master
@@ -388,6 +393,10 @@ type AuthEntity master = KeyEntity (AuthId master)
 requireAuthId :: YesodAuthPersist master => HandlerT master IO (AuthId master)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
+-- | Similar to 'maybeAuth', but redirects to a login page if user is not
+-- authenticated.
+--
+-- Since 1.1.0
 requireAuth :: YesodAuthPersist master => HandlerT master IO (Entity (AuthEntity master))
 requireAuth = maybeAuth >>= maybe redirectLogin return
 
