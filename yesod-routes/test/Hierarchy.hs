@@ -89,14 +89,18 @@ do
   /nest2 Nest2:
     /get        Get2      GET
     /post       Post2         POST
-    /#Int       Delete2            DELETE
+--    /#Int       Delete2            DELETE
   /nest3 Nest3:
     /get        Get3      GET
     /post       Post3         POST
-    /#Int       Delete3            DELETE
+--    /#Int       Delete3            DELETE
 
 /afterwards AfterR:
   /             After     GET
+
+-- /trailing-nest TrailingNestR:
+--  /foo TrailingFooR GET
+--  /#Int TrailingIntR GET
 |]
 
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
