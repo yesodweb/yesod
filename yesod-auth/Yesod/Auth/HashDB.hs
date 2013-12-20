@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -82,6 +83,7 @@ import Text.Hamlet (hamlet)
 
 import Control.Applicative         ((<$>), (<*>))
 import Control.Monad               (replicateM,liftM)
+import Data.Typeable               (Typeable)
 
 import qualified Data.ByteString.Lazy.Char8 as BS (pack)
 import Data.Digest.Pure.SHA        (sha1, showDigest)
@@ -258,6 +260,7 @@ User
     password Text
     salt     Text
     UniqueUser username
+    deriving Typeable
 |]
 
 instance HashDBUser (UserGeneric backend) where
