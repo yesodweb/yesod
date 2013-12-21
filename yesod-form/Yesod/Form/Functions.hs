@@ -425,8 +425,8 @@ fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing
 -- required, such as when parsing a text field.
 --
 -- Since 1.1
-parseHelper :: (Monad m, RenderMessage site FormMessage)
-            => (Text -> Either FormMessage a)
+parseHelper :: (Monad m, RenderMessage site message)
+            => (Text -> Either message a)
             -> [Text] -> [FileInfo] -> m (Either (SomeMessage site) (Maybe a))
 parseHelper _ [] _ = return $ Right Nothing
 parseHelper _ ("":_) _ = return $ Right Nothing
