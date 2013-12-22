@@ -7,4 +7,5 @@ install:
 
 script:
     - echo Done
+    - cabal-meta install --enable-tests
     - mega-sdist --test
