@@ -166,7 +166,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     maybeAuthId = defaultMaybeAuthId
 
     -- | Called on login error for HTTP requests. By default, calls
-    -- @setMessage
+    -- @setMessage@ and redirects to @dest@.
     onError :: (MonadResourceBase m) => Route master -> Text -> HandlerT master m Html
     onError dest msg = do
         setMessage $ toHtml msg
