@@ -175,7 +175,9 @@ postLoginR uniq = do
                  (validateUser <$> (uniq =<< mu) <*> mp)
     if isValid 
        then lift $ setCreds True $ Creds "hashdb" (fromMaybe "" mu) []
-       else loginErrorMessage LoginR "Invalid username/password"
+       else do
+           tm <- getRouteToParent
+           lift $ loginErrorMessage (tm LoginR) "Invalid username/password"
 
 
 -- | A drop in for the getAuthId method of your YesodAuth instance which
