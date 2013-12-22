@@ -26,6 +26,7 @@ data AuthMessage =
     | LoginGoogle
     | LoginYahoo
     | Email
+    | IdentifierNotFound Text
     | Password
     | Register
     | RegisterLong
@@ -102,6 +103,7 @@ englishMessage ProvideIdentifier = "Email or Username"
 englishMessage SendPasswordResetEmail = "Send password reset email"
 englishMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
 englishMessage InvalidUsernamePass = "Invalid username/password combination"
+englishMessage (IdentifierNotFound ident) = "Login not found: " `mappend` ident
 
 portugueseMessage :: AuthMessage -> Text
 portugueseMessage NoOpenID = "Nenhum identificador OpenID encontrado"
@@ -143,6 +145,8 @@ portugueseMessage ProvideIdentifier = "E-mail ou nome de usuário"
 portugueseMessage SendPasswordResetEmail = "Enviar e-mail para resetar senha"
 portugueseMessage PasswordResetPrompt = "Insira seu endereço de e-mail ou nome de usuário abaixo.  Um e-mail para resetar sua senha será enviado para você."
 portugueseMessage InvalidUsernamePass = "Nome de usuário ou senha inválidos"
+-- TODO
+portugueseMessage i@(IdentifierNotFound _) = englishMessage i
 
 spanishMessage :: AuthMessage -> Text
 spanishMessage NoOpenID = "No se encuentra el identificador OpenID"
@@ -184,6 +188,8 @@ spanishMessage ProvideIdentifier = "Cuenta de correo o nombre de usuario"
 spanishMessage SendPasswordResetEmail = "Correo de actualización de contraseña enviado"
 spanishMessage PasswordResetPrompt = "Escriba su cuenta de correo o nombre de usuario, y una confirmación de actualización de contraseña será enviada a su cuenta de correo."
 spanishMessage InvalidUsernamePass = "Combinación de nombre de usuario/contraseña invalida"
+-- TODO
+spanishMessage i@(IdentifierNotFound _) = englishMessage i
 
 swedishMessage :: AuthMessage -> Text
 swedishMessage NoOpenID = "Fann ej OpenID identifierare"
@@ -226,6 +232,8 @@ swedishMessage SendPasswordResetEmail = "Skicka email för återställning av l�
 swedishMessage PasswordResetPrompt = "Skriv in din emailadress eller användarnamn nedan och " `mappend`
                                      "ett email för återställning av lösenord kommmer att skickas till dig."
 swedishMessage InvalidUsernamePass = "Ogiltig kombination av användarnamn och lösenord"
+-- TODO
+swedishMessage i@(IdentifierNotFound _) = englishMessage i
 
 germanMessage :: AuthMessage -> Text
 germanMessage NoOpenID = "Kein OpenID-Identifier gefunden"
@@ -267,6 +275,8 @@ germanMessage ProvideIdentifier = "Email-Adresse oder Nutzername"
 germanMessage SendPasswordResetEmail = "Email zusenden um Passwort zurückzusetzen"
 germanMessage PasswordResetPrompt = "Nach Einhabe der Email-Adresse oder des Nutzernamen wird eine Email zugesendet mit welcher das Passwort zurückgesetzt werden kann."
 germanMessage InvalidUsernamePass = "Ungültige Kombination aus Nutzername und Passwort"
+-- TODO
+germanMessage i@(IdentifierNotFound _) = englishMessage i
 
 frenchMessage :: AuthMessage -> Text
 frenchMessage NoOpenID = "Aucun fournisseur OpenID n'a été trouvé"
@@ -308,6 +318,8 @@ frenchMessage ProvideIdentifier = "Email or Username"
 frenchMessage SendPasswordResetEmail = "Send password reset email"
 frenchMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
 frenchMessage InvalidUsernamePass = "Invalid username/password combination"
+-- TODO
+frenchMessage i@(IdentifierNotFound _) = englishMessage i
 
 norwegianBokmålMessage :: AuthMessage -> Text
 norwegianBokmålMessage NoOpenID = "Ingen OpenID-identifiserer funnet"
@@ -349,6 +361,8 @@ norwegianBokmålMessage ProvideIdentifier = "Email or Username"
 norwegianBokmålMessage SendPasswordResetEmail = "Send password reset email"
 norwegianBokmålMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
 norwegianBokmålMessage InvalidUsernamePass = "Invalid username/password combination"
+-- TODO
+norwegianBokmålMessage i@(IdentifierNotFound _) = englishMessage i
 
 japaneseMessage :: AuthMessage -> Text
 japaneseMessage NoOpenID = "OpenID識別子がありません"
@@ -390,6 +404,8 @@ japaneseMessage ProvideIdentifier = "Email or Username"
 japaneseMessage SendPasswordResetEmail = "Send password reset email"
 japaneseMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
 japaneseMessage InvalidUsernamePass = "Invalid username/password combination"
+japaneseMessage (IdentifierNotFound ident) =
+  "「" `mappend` ident `mappend` "」は正しくないログインので、または未入力の項目があります。"
 
 finnishMessage :: AuthMessage -> Text
 finnishMessage NoOpenID = "OpenID-tunnistetta ei löydy"
@@ -432,6 +448,8 @@ finnishMessage ProvideIdentifier = "Sähköpostiosoite tai käyttäjänimi"
 finnishMessage SendPasswordResetEmail = "Lähetä uusi salasana sähköpostitse"
 finnishMessage PasswordResetPrompt = "Anna sähköpostiosoitteesi tai käyttäjätunnuksesi alla, niin lähetämme uuden salasanan sähköpostitse."
 finnishMessage InvalidUsernamePass = "Virheellinen käyttäjänimi tai salasana."
+-- TODO
+finnishMessage i@(IdentifierNotFound _) = englishMessage i
 
 chineseMessage :: AuthMessage -> Text
 chineseMessage NoOpenID = "无效的OpenID"
@@ -473,6 +491,8 @@ chineseMessage ProvideIdentifier = "邮箱或用户名"
 chineseMessage SendPasswordResetEmail = "发送密码重置邮件"
 chineseMessage PasswordResetPrompt = "输入你的邮箱地址或用户名，你将收到一封密码重置邮件。"
 chineseMessage InvalidUsernamePass = "无效的用户名/密码组合"
+-- TODO
+chineseMessage i@(IdentifierNotFound _) = englishMessage i
 
 czechMessage :: AuthMessage -> Text
 czechMessage NoOpenID = "Nebyl nalezen identifikátor OpenID"
@@ -512,3 +532,5 @@ czechMessage ProvideIdentifier = "E-mail nebo uživatelské jméno"
 czechMessage SendPasswordResetEmail = "Poslat e-mail pro obnovení hesla"
 czechMessage PasswordResetPrompt = "Zadejte svou e-mailovou adresu nebo uživatelské jméno a bude vám poslán email pro obnovení hesla."
 czechMessage InvalidUsernamePass = "Neplatná kombinace uživatelského jména a hesla"
+-- TODO
+czechMessage i@(IdentifierNotFound _) = englishMessage i

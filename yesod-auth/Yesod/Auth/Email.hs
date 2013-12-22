@@ -241,14 +241,13 @@ registerHelper allowUsername dest = do
     midentifier <- lookupPostParam "email"
     identifier <-
         case midentifier of
-            Nothing -> do
-                loginErrorMessageI dest Msg.NoIdentifierProvided
+            Nothing -> loginErrorMessageI dest Msg.NoIdentifierProvided
             Just x
                 | Just x' <- Text.Email.Validate.canonicalizeEmail (encodeUtf8 x) ->
                     return $ normalizeEmailAddress y $ decodeUtf8With lenientDecode x'
                 | allowUsername -> return $ TS.strip x
-                | otherwise -> do
-                    loginErrorMessageI dest Msg.InvalidEmailAddress
+                | otherwise -> loginErrorMessageI dest Msg.InvalidEmailAddress
+
     mecreds <- lift $ getEmailCreds identifier
     (lid, verKey, email) <-
         case mecreds of
@@ -258,9 +257,8 @@ registerHelper allowUsername dest = do
                 lift $ setVerifyKey lid key
                 return (lid, key, email)
             Nothing
-                | allowUsername -> do
-                    setMessage $ toHtml $ "No record for that identifier in our database: " `TS.append` identifier
-                    redirect dest
+                | allowUsername ->
+                    loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
                 | otherwise -> do
                     key <- liftIO $ randomKey y
                     lid <- lift $ addUnverified identifier key
