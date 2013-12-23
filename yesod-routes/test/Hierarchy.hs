@@ -24,7 +24,7 @@ import Yesod.Routes.TH
 import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
 import qualified Yesod.Routes.Class as YRC
-import Data.Text (Text, pack, append)
+import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 
@@ -87,6 +87,7 @@ do
   /spaces      SpacedR   GET
 
   /nest2 Nest2:
+    /           GetPostR  GET POST
     /get        Get2      GET
     /post       Post2         POST
 --    /#Int       Delete2            DELETE
@@ -152,6 +153,13 @@ postLoginR i = pack $ "post login: " ++ show i
 getTableR :: Int -> Text -> Handler site Text
 getTableR _ = append "TableR "
 
+getGetPostR :: Handler site Text
+getGetPostR = pack "get"
+
+postGetPostR :: Handler site Text
+postGetPostR = pack "post"
+
+
 hierarchy :: Spec
 hierarchy = describe "hierarchy" $ do
     it "nested with spacing" $
@@ -167,6 +175,18 @@ hierarchy = describe "hierarchy" $ do
                 , envSub = Hierarchy
                 })
             (map pack ps, S8.pack m)
+
+    let testGetPost route getRes postRes = do
+          let routeStrs = map unpack $ fst (renderRoute route)
+          disp "GET" routeStrs @?= (getRes, Just route)
+          disp "POST" routeStrs @?= (postRes, Just route)
+
+    it "dispatches routes with multiple METHODs: admin" $
+        testGetPost (AdminR 1 LoginR) "login: 1" "post login: 1"
+
+    it "dispatches routes with multiple METHODs: nesting" $
+        testGetPost (NestR $ Nest2 GetPostR) "get" "post"
+
     it "dispatches root correctly" $ disp "GET" ["admin", "7"] @?= ("admin root: 7", Just $ AdminR 7 AdminRootR)
     it "dispatches table correctly" $ disp "GET" ["admin", "8", "table", "bar"] @?= ("TableR bar", Just $ AdminR 8 $ TableR "bar")
     it "parses" $ do
