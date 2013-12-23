@@ -165,6 +165,16 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
         => HandlerT master IO (Maybe (AuthId master))
     maybeAuthId = defaultMaybeAuthId
 
+    -- | Called on login error for HTTP requests. By default, calls
+    -- @setMessage@ and redirects to @dest@.
+    onErrorHtml :: (MonadResourceBase m) => Route master -> Text -> HandlerT master m Html
+    onErrorHtml dest msg = do
+        setMessage $ toHtml msg
+        fmap asHtml $ redirect dest
+        where
+          asHtml :: Html -> Html
+          asHtml = id
+
 -- | Internal session key used to hold the authentication information.
 --
 -- Since 1.2.3
@@ -233,21 +243,17 @@ loginErrorMessageMasterI dest msg = do
 
 -- | For HTML, set the message and redirect to the route.
 -- For JSON, send the message and a 401 status
-loginErrorMessage :: MonadResourceBase m
-         => Route site
+loginErrorMessage :: (YesodAuth master, MonadResourceBase m)
+         => Route master
          -> Text
-         -> HandlerT site m a
+         -> HandlerT master m a
 loginErrorMessage dest msg =
   sendResponseStatus unauthorized401 =<< (
     selectRep $ do
       provideRep $ do
-          setMessage $ toHtml msg
-          fmap asHtml $ redirect dest
+          onErrorHtml dest msg
       provideJsonMessage msg
   )
-  where
-    asHtml :: Html -> Html
-    asHtml = id
 
 provideJsonMessage :: Monad m => Text -> Writer.Writer (Endo [ProvidedRep m]) ()
 provideJsonMessage msg = provideRep $ return $ object ["message" .= msg]
