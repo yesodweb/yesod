@@ -167,8 +167,8 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
 
     -- | Called on login error for HTTP requests. By default, calls
     -- @setMessage@ and redirects to @dest@.
-    onError :: (MonadResourceBase m) => Route master -> Text -> HandlerT master m Html
-    onError dest msg = do
+    onErrorHtml :: (MonadResourceBase m) => Route master -> Text -> HandlerT master m Html
+    onErrorHtml dest msg = do
         setMessage $ toHtml msg
         fmap asHtml $ redirect dest
         where
@@ -251,7 +251,7 @@ loginErrorMessage dest msg =
   sendResponseStatus unauthorized401 =<< (
     selectRep $ do
       provideRep $ do
-          onError dest msg
+          onErrorHtml dest msg
       provideJsonMessage msg
   )
 
