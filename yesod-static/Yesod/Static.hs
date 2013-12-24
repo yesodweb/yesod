@@ -226,7 +226,7 @@ getFileListPieces = flip evalStateT M.empty . flip go id
 -- definitions would be created:
 --
 -- > style_css    = StaticRoute ["style.css"]    []
--- > js_script_js = StaticRoute ["js/script.js"] []
+-- > js_script_js = StaticRoute ["js", "script.js"] []
 --
 -- Note that dots (@.@), dashes (@-@) and slashes (@\/@) are
 -- replaced by underscores (@\_@) to create valid Haskell
