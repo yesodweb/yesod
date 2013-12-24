@@ -75,7 +75,8 @@ authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
                 case memail of
                     Nothing -> do
                       $logErrorS "yesod-auth" "BrowserID assertion failure"
-                      loginErrorMessage LoginR "BrowserID login error."
+                      tm <- getRouteToParent
+                      lift $ loginErrorMessage (tm LoginR) "BrowserID login error."
                     Just email -> lift $ setCreds True Creds
                         { credsPlugin = pid
                         , credsIdent = email

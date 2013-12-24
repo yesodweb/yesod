@@ -69,8 +69,10 @@ $newline never
                 master <- lift getYesod
                 eres <- lift $ try $ OpenId.getForwardUrl oid complete' Nothing extensionFields (authHttpManager master)
                 case eres of
-                    Left err -> loginErrorMessage LoginR $ T.pack $
-                                 show (err :: SomeException)
+                    Left err -> do
+                        tm <- getRouteToParent
+                        lift $ loginErrorMessage (tm LoginR) $ T.pack $
+                                show (err :: SomeException)
                     Right x -> redirect x
             Nothing -> loginErrorMessageI LoginR Msg.NoOpenID
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
@@ -89,8 +91,10 @@ completeHelper idType gets' = do
     eres <- try $ OpenId.authenticateClaimed gets' (authHttpManager master)
     either onFailure onSuccess eres
   where
-    onFailure err = loginErrorMessage LoginR $ T.pack $
-                      show (err :: SomeException)
+    onFailure err = do 
+        tm <- getRouteToParent
+        lift $ loginErrorMessage (tm LoginR) $ T.pack $
+                show (err :: SomeException)
     onSuccess oir = do
             let claimed =
                     case OpenId.oirClaimed oir of

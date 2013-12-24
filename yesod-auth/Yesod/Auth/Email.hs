@@ -393,15 +393,19 @@ postPasswordR = do
             Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
             Just aid -> return aid
 
+    tm <- getRouteToParent
+    
     needOld <- lift $ needOldPassword aid
     when needOld $ do
         current <- lift $ runInputPost $ ireq textField "current"
         mrealpass <- lift $ getPassword aid
         case mrealpass of
-            Nothing -> loginErrorMessage setpassR "You do not currently have a password set on your account"
+            Nothing ->
+                lift $ loginErrorMessage (tm setpassR) "You do not currently have a password set on your account"
             Just realpass
                 | isValidPass current realpass -> return ()
-                | otherwise -> loginErrorMessage setpassR "Invalid current password, please try again"
+                | otherwise ->
+                    lift $ loginErrorMessage (tm setpassR) "Invalid current password, please try again"
 
     (new, confirm) <- lift $ runInputPost $ (,)
         <$> ireq textField "new"
@@ -411,7 +415,7 @@ postPasswordR = do
 
     isSecure <- lift $ checkPasswordSecurity aid new
     case isSecure of
-        Left e -> loginErrorMessage setpassR e
+        Left e -> lift $ loginErrorMessage (tm setpassR) e
         Right () -> return ()
 
     salted <- liftIO $ saltPass new
