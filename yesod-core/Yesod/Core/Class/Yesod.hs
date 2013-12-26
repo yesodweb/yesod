@@ -218,7 +218,11 @@ class RenderRoute site => Yesod site where
     makeLogger :: site -> IO Logger
 #if MIN_VERSION_fast_logger(2, 0, 0)
     makeLogger _ = do
+#if MIN_VERSION_fast_logger(2, 1, 0)
+        loggerSet <- newLoggerSet defaultBufSize Nothing
+#else
         loggerSet <- newLoggerSet defaultBufSize GHC.IO.FD.stdout
+#endif
         (getter, _) <- clockDateCacher
         return $! Logger loggerSet getter
 #else
