@@ -106,7 +106,7 @@ mkHandler name pattern methods = unlines
 
     getTypes "" = []
     getTypes ('/':rest) = getTypes rest
-    getTypes ('#':rest) =
+    getTypes (c:rest) | c `elem` "#*" =
         typ : getTypes rest'
       where
         (typ, rest') = break (== '/') rest
