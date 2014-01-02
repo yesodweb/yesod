@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.2.2.5
+version:         1.2.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -56,12 +56,19 @@ library
                    , process
                    , async
 
+                   , attoparsec            >= 0.10
+                   , blaze-builder         >= 0.3
+                   , css-text              >= 0.1
+                   , hashable              >= 1.1
+
     exposed-modules: Yesod.Static
                      Yesod.EmbeddedStatic
                      Yesod.EmbeddedStatic.Generators
                      Yesod.EmbeddedStatic.Types
+                     Yesod.EmbeddedStatic.Css.AbsoluteUrl
 
     other-modules:   Yesod.EmbeddedStatic.Internal
+                     Yesod.EmbeddedStatic.Css.Util
 
     ghc-options:     -Wall
     extensions: TemplateHaskell
