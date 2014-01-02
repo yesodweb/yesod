@@ -17,6 +17,7 @@ import Yesod.EmbeddedStatic.Types
 
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import qualified Data.Text.IO as T
 import qualified Data.Text.Lazy.Encoding as TL
 import Control.Monad ((>=>))
@@ -35,15 +36,14 @@ absCssUrlsFileProd :: FilePath -- ^ Anchor relative urls to here
                      -> IO BL.ByteString
 absCssUrlsFileProd dir file = do
     contents <- T.readFile (encodeString file)
-    return $ absCssUrlsProd dir contents
+    return $ TL.encodeUtf8 $ absCssUrlsProd dir contents
 
 absCssUrlsProd :: FilePath -- ^ Anchor relative urls to here
                -> T.Text
-               -> BL.ByteString
+               -> TL.Text
 absCssUrlsProd dir contents =
     let css = either error id $ parseCssUrls contents
-        r = renderCssWith toAbsoluteUrl css
-    in  TL.encodeUtf8 r
+    in  renderCssWith toAbsoluteUrl css
   where
     toAbsoluteUrl (UrlReference rel) = T.concat
         [ "url('/"
