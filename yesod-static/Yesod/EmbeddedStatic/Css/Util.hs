@@ -67,20 +67,25 @@ parseBackgroundImage n v = case P.parseOnly parseUrl v of
         | "/" `T.isPrefixOf` url -> (n, Left v)
         | otherwise -> (n, Right $ UrlReference url)
 
-parseCssWith :: (T.Text -> T.Text -> EithUrl) -> FilePath -> IO Css
-parseCssWith urlParser fp = do
-    mparsed <- parseBlocks <$> T.readFile (encodeString fp)
+parseCssWith :: (T.Text -> T.Text -> EithUrl) -> T.Text -> Either String Css
+parseCssWith urlParser contents =
+    let mparsed = parseBlocks contents in
     case mparsed of
-        Left err -> fail $ "Unable to parse " ++ encodeString fp ++ ": " ++ err
-        Right blocks ->
-            return [ (t, map (uncurry urlParser) b) | (t,b) <- blocks ]
+        Left err -> Left err
+        Right blocks -> Right [ (t, map (uncurry urlParser) b) | (t,b) <- blocks ]
 
-parseCssUrls :: FilePath -> IO Css
+parseCssUrls :: T.Text -> Either String Css
 parseCssUrls = parseCssWith checkForUrl
 
--- | Parse the CSS from the file.  If a parse error occurs, a failure is raised (exception)
-parseCss :: FilePath -> IO Css
-parseCss = parseCssWith checkForImage
+parseCssFileWith :: (T.Text -> T.Text -> EithUrl) -> FilePath -> IO Css
+parseCssFileWith urlParser fp = do
+    mparsed <- parseCssWith urlParser <$> T.readFile (encodeString fp)
+    case mparsed of
+        Left err -> fail $ "Unable to parse " ++ encodeString fp ++ ": " ++ err
+        Right css -> return css
+
+parseCssFileUrls :: FilePath -> IO Css
+parseCssFileUrls = parseCssFileWith checkForUrl
 
 renderCssWith :: (UrlReference -> T.Text) -> Css -> TL.Text
 renderCssWith urlRenderer css =
