@@ -58,7 +58,7 @@ library
 
                    , attoparsec            >= 0.10
                    , blaze-builder         >= 0.3
-                   , css-text              >= 0.1
+                   , css-text              >= 0.1.2
                    , hashable              >= 1.1
 
     exposed-modules: Yesod.Static
