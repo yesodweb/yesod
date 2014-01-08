@@ -18,7 +18,7 @@ authDummy =
   where
     dispatch "POST" [] = do
         ident <- lift $ runInputPost $ ireq textField "ident"
-        lift $ setCreds True $ Creds "dummy" ident []
+        lift $ setCredsRedirect $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
     login authToMaster =
