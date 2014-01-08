@@ -91,6 +91,10 @@ data Creds master = Creds
 class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage) => YesodAuth master where
     type AuthId master
 
+    -- | specify the layout. Uses defaultLayout by default
+    authLayout :: WidgetT master IO () -> HandlerT master IO Html
+    authLayout = defaultLayout
+
     -- | Default destination on successful login, if no other
     -- destination exists.
     loginDest :: master -> Route master
@@ -109,7 +113,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     loginHandler :: AuthHandler master RepHtml
     loginHandler = do
         tp <- getRouteToParent
-        lift $ defaultLayout $ do
+        lift $ authLayout $ do
             setTitleI Msg.LoginTitle
             master <- getYesod
             mapM_ (flip apLogin tp) (authPlugins master)
@@ -273,7 +277,7 @@ setCreds doRedirects creds = do
                 Nothing -> do
                     sendResponseStatus unauthorized401 =<< (
                       selectRep $ do
-                        provideRep $ defaultLayout $ toWidget [shamlet|<h1>Invalid login|]
+                        provideRep $ authLayout $ toWidget [shamlet|<h1>Invalid login|]
                         provideJsonMessage "Invalid Login"
                       )
                 Just ar -> loginErrorMessageMasterI ar Msg.InvalidLogin
@@ -287,6 +291,15 @@ setCreds doRedirects creds = do
                       return ()
                   provideJsonMessage "Login Successful"
               sendResponse res
+
+-- | same as defaultLayoutJson, but uses authLayout
+authLayoutJson :: (YesodAuth site, ToJSON j)
+                  => WidgetT site IO ()  -- ^ HTML
+                  -> HandlerT site IO j  -- ^ JSON
+                  -> HandlerT site IO TypedContent
+authLayoutJson w json = selectRep $ do
+    provideRep $ authLayout w
+    provideRep $ fmap toJSON json
 
 -- | Clears current user credentials for the session.
 --
@@ -304,7 +317,7 @@ clearCreds doRedirects = do
 getCheckR :: AuthHandler master TypedContent
 getCheckR = lift $ do
     creds <- maybeAuthId
-    defaultLayoutJson (do
+    authLayoutJson (do
         setTitle "Authentication Status"
         toWidget $ html' creds) (return $ jsonCreds creds)
   where

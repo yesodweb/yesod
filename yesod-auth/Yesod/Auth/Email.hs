@@ -168,7 +168,7 @@ class (YesodAuth site, PathPiece (AuthEmailId site)) => YesodAuthEmail site wher
     --
     -- Since 1.2.2
     confirmationEmailSentResponse :: Text -> HandlerT site IO Html
-    confirmationEmailSentResponse identifier = defaultLayout $ do
+    confirmationEmailSentResponse identifier = authLayout $ do
         setTitleI Msg.ConfirmationEmailSentTitle
         [whamlet|<p>_{Msg.ConfirmationEmailSent identifier}|]
 
@@ -221,7 +221,7 @@ getRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 getRegisterR = do
     email <- newIdent
     tp <- getRouteToParent
-    lift $ defaultLayout $ do
+    lift $ authLayout $ do
         setTitleI Msg.RegisterLong
         [whamlet|
             <p>_{Msg.EnterEmail}
@@ -275,7 +275,7 @@ getForgotPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO
 getForgotPasswordR = do
     tp <- getRouteToParent
     email <- newIdent
-    lift $ defaultLayout $ do
+    lift $ authLayout $ do
         setTitleI Msg.PasswordResetTitle
         [whamlet|
             <p>_{Msg.PasswordResetPrompt}
@@ -307,7 +307,7 @@ getVerifyR lid key = do
                     lift $ setLoginLinkKey uid
                     redirect setpassR
         _ -> return ()
-    lift $ defaultLayout $ do
+    lift $ authLayout $ do
         setTitleI Msg.InvalidKey
         [whamlet|
 $newline never
@@ -358,7 +358,7 @@ getPasswordR = do
         Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
     tp <- getRouteToParent
     needOld <- maybe (return True) (lift . needOldPassword) maid
-    lift $ defaultLayout $ do
+    lift $ authLayout $ do
         setTitleI Msg.SetPassTitle
         [whamlet|
 $newline never
