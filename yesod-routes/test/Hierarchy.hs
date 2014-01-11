@@ -77,6 +77,8 @@ do
     let resources = [parseRoutes|
 / HomeR GET
 
+/!#Int BackwardsR GET
+
 /admin/#Int AdminR:
     /            AdminRootR GET
     /login       LoginR     GET POST
@@ -140,6 +142,9 @@ getAfter   :: Handler site String; getAfter = "after"
 
 getHomeR :: Handler site String
 getHomeR = "home"
+
+getBackwardsR :: Int -> Handler site Text
+getBackwardsR _ = pack "backwards"
 
 getAdminRootR :: Int -> Handler site Text
 getAdminRootR i = pack $ "admin root: " ++ show i
