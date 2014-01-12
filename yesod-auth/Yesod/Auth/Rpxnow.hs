@@ -48,7 +48,7 @@ $newline never
                 $ maybe id (\x -> (:) ("displayName", x))
                     (fmap pack $ getDisplayName $ map (unpack *** unpack) extra)
                   []
-        lift $ setCreds True creds
+        lift $ setCredsRedirect creds
     dispatch _ _ = notFound
 
 -- | Get some form of a display name.
