@@ -156,6 +156,18 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- Since 1.2.0
     maybeAuthId :: HandlerT master IO (Maybe (AuthId master))
 
+#if MIN_VERSION_persistent(2, 0, 0)
+    default maybeAuthId
+        :: ( YesodAuth master
+           , PersistEntityBackend val ~ YesodPersistBackend master
+           , Key val ~ AuthId master
+           , PersistStore (PersistEntityBackend val)
+           , PersistEntity val
+           , YesodPersist master
+           , Typeable val
+           )
+        => HandlerT master IO (Maybe (AuthId master))
+#else
     default maybeAuthId
         :: ( YesodAuth master
            , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
@@ -167,6 +179,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
            , Typeable val
            )
         => HandlerT master IO (Maybe (AuthId master))
+#endif
     maybeAuthId = defaultMaybeAuthId
 
     -- | Called on login error for HTTP requests. By default, calls
@@ -191,6 +204,18 @@ credsKey = "_ID"
 -- 'maybeAuthIdRaw' for more information.
 --
 -- Since 1.1.2
+#if MIN_VERSION_persistent(2, 0, 0)
+defaultMaybeAuthId
+          :: ( YesodAuth master
+             , b ~ YesodPersistBackend master
+             , b ~ PersistEntityBackend val
+             , Key val ~ AuthId master
+             , PersistStore b
+             , PersistEntity val
+             , YesodPersist master
+             , Typeable val
+             ) => HandlerT master IO (Maybe (AuthId master))
+#else
 defaultMaybeAuthId
           :: ( YesodAuth master
              , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
@@ -201,6 +226,7 @@ defaultMaybeAuthId
              , YesodPersist master
              , Typeable val
              ) => HandlerT master IO (Maybe (AuthId master))
+#endif
 defaultMaybeAuthId = do
     ms <- lookupSession credsKey
     case ms of
@@ -210,6 +236,17 @@ defaultMaybeAuthId = do
                 Nothing -> return Nothing
                 Just aid -> fmap (fmap entityKey) $ cachedAuth aid
 
+#if MIN_VERSION_persistent(2, 0, 0)
+cachedAuth :: ( YesodAuth master
+             , b ~ YesodPersistBackend master
+             , b ~ PersistEntityBackend val
+             , Key val ~ AuthId master
+             , PersistStore b
+             , PersistEntity val
+             , YesodPersist master
+             , Typeable val
+             ) => AuthId master -> HandlerT master IO (Maybe (Entity val))
+#else
 cachedAuth :: ( YesodAuth master
              , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
              , b ~ YesodPersistBackend master
@@ -219,6 +256,7 @@ cachedAuth :: ( YesodAuth master
              , YesodPersist master
              , Typeable val
              ) => AuthId master -> HandlerT master IO (Maybe (Entity val))
+#endif
 cachedAuth aid = runMaybeT $ do
     a <- MaybeT $ fmap unCachedMaybeAuth
                 $ cached
@@ -363,6 +401,17 @@ handlePluginR plugin pieces = do
 -- assumes that you are using a Persistent database.
 --
 -- Since 1.1.0
+#if MIN_VERSION_persistent(2, 0, 0)
+maybeAuth :: ( YesodAuth master
+             , b ~ YesodPersistBackend master
+             , b ~ PersistEntityBackend val
+             , Key val ~ AuthId master
+             , PersistStore b
+             , PersistEntity val
+             , YesodPersist master
+             , Typeable val
+             ) => HandlerT master IO (Maybe (Entity val))
+#else
 maybeAuth :: ( YesodAuth master
              , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
              , b ~ YesodPersistBackend master
@@ -372,6 +421,7 @@ maybeAuth :: ( YesodAuth master
              , YesodPersist master
              , Typeable val
              ) => HandlerT master IO (Maybe (Entity val))
+#endif
 maybeAuth = runMaybeT $ do
     aid <- MaybeT maybeAuthId
     MaybeT $ cachedAuth aid
@@ -385,6 +435,18 @@ newtype CachedMaybeAuth val = CachedMaybeAuth { unCachedMaybeAuth :: Maybe val }
 -- full informatin on a given user.
 --
 -- Since 1.2.0
+#if MIN_VERSION_persistent(2, 0, 0)
+type YesodAuthPersist master =
+    ( YesodAuth master
+    , YesodPersistBackend master
+        ~ PersistEntityBackend (AuthEntity master)
+    , Key (AuthEntity master) ~ AuthId master
+    , PersistStore (YesodPersistBackend master)
+    , PersistEntity (AuthEntity master)
+    , YesodPersist master
+    , Typeable (AuthEntity master)
+    )
+#else
 type YesodAuthPersist master =
     ( YesodAuth master
     , PersistMonadBackend (YesodPersistBackend master (HandlerT master IO))
@@ -395,6 +457,7 @@ type YesodAuthPersist master =
     , YesodPersist master
     , Typeable (AuthEntity master)
     )
+#endif
 
 -- | If the @AuthId@ for a given site is a persistent ID, this will give the
 -- value for that entity. E.g.:
