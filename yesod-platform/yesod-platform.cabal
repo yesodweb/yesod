@@ -14,7 +14,7 @@ homepage:        http://www.yesodweb.com/
 
 library
     build-depends: base >= 4 && < 5
-                 , SHA == 1.6.1
+                 , SHA == 1.6.4
                  , aeson == 0.7.0.0
                  , ansi-terminal == 0.6.1
                  , asn1-data == 0.7.1
