@@ -122,19 +122,19 @@ respondSourceDB :: YesodPersistRunner site
                 -> HandlerT site IO TypedContent
 respondSourceDB ctype = respondSource ctype . runDBSource
 
+
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
-get404 :: ( PersistStore (t m)
-          , PersistEntity val
-          , Monad (t m)
+get404 :: ( PersistEntity record
           , m ~ HandlerT site IO
-          , MonadTrans t
-          , PersistMonadBackend (t m) ~ PersistEntityBackend val
-          )
-       => Key val -> t m val
+          , db ~ YesodPersistBackend site
+          , PersistStore (db m)
+          , YesodPersist site
+          , PersistMonadBackend (db m) ~ PersistEntityBackend record
+          ) => Key record -> HandlerT site IO record
 get404 key = do
-    mres <- get key
+    mres <- runDB $ get key
     case mres of
-        Nothing -> notFound'
+        Nothing -> notFound
         Just res -> return res
 
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
