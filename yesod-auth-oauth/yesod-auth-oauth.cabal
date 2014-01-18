@@ -3,7 +3,7 @@ version:         1.2.0
 license:         BSD3
 license-file:    LICENSE
 author:          Hiromi Ishii
-maintainer:      Hiromi Ishii
+maintainer:      Michael Litchard
 synopsis:        OAuth Authentication for Yesod.
 category:        Web, Yesod
 stability:       Stable
