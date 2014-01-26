@@ -62,7 +62,7 @@ template Feed {..} render =
         : Element "link" (Map.singleton "href" $ render feedLinkHome) []
         : Element "updated" Map.empty [NodeContent $ formatW3 feedUpdated]
         : Element "id" Map.empty [NodeContent $ render feedLinkHome]
-        : Element "author" Map.empty [NodeContent feedAuthor]
+        : Element "author" Map.empty [NodeElement $ Element "name" Map.empty [NodeContent feedAuthor]]
         : map (flip entryTemplate render) feedEntries
 
 entryTemplate :: FeedEntry url -> (url -> Text) -> Element
