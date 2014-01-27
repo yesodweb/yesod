@@ -24,6 +24,9 @@ mkYesod "App" [parseRoutes|
 /error-in-body ErrorInBodyR GET
 /error-in-body-noeval ErrorInBodyNoEvalR GET
 /override-status OverrideStatusR GET
+
+-- https://github.com/yesodweb/yesod/issues/658
+/builder BuilderR GET
 |]
 
 overrideStatus = mkStatus 15 "OVERRIDE"
@@ -74,6 +77,9 @@ getErrorInBodyNoEvalR = fmap DontFullyEvaluate getErrorInBodyR
 getOverrideStatusR :: Handler ()
 getOverrideStatusR = invalidArgs ["OVERRIDE"]
 
+getBuilderR :: Handler TypedContent
+getBuilderR = return $ TypedContent "ignored" $ ContentBuilder (error "builder-3.14159") Nothing
+
 errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "says not found" caseNotFound
@@ -82,6 +88,7 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "error in body == 500" caseErrorInBody
       it "error in body, no eval == 200" caseErrorInBodyNoEval
       it "can override status code" caseOverrideStatus
+      it "builder" caseBuilder
 
 runner :: Session () -> IO ()
 runner f = toWaiApp App >>= runSession f
@@ -140,3 +147,9 @@ caseOverrideStatus :: IO ()
 caseOverrideStatus = runner $ do
     res <- request defaultRequest { pathInfo = ["override-status"] }
     assertStatus 15 res
+
+caseBuilder :: IO ()
+caseBuilder = runner $ do
+    res <- request defaultRequest { pathInfo = ["builder"] }
+    assertStatus 500 res
+    assertBodyContains "builder-3.14159" res

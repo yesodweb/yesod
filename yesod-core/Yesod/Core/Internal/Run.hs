@@ -10,7 +10,8 @@ module Yesod.Core.Internal.Run where
 import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
-import           Control.Exception            (fromException, bracketOnError)
+import           Control.Exception            (fromException, bracketOnError, evaluate)
+import qualified Control.Exception            as E
 import           Control.Exception.Lifted     (catch)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
@@ -94,7 +95,9 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
                 YRWai _ -> return yar
     let sendFile' ct fp p =
             return $ YRPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession
-    case contents of
+    contents1 <- evaluate contents `E.catch` \e -> return
+        (HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
+    case contents1 of
         HCContent status (TypedContent ct c) -> do
             ec' <- liftIO $ evaluateContent c
             case ec' of
