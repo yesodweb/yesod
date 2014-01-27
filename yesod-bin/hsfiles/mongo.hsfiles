@@ -35,7 +35,8 @@ import Network.Wai.Middleware.RequestLogger
 import qualified Network.Wai.Middleware.RequestLogger as RequestLogger
 import qualified Database.Persist
 import Network.HTTP.Conduit (newManager, conduitManagerSettings)
-import System.Log.FastLogger (newLoggerSet, defaultBufSize)
+import Control.Concurrent (forkIO, threadDelay)
+import System.Log.FastLogger (newStdoutLoggerSet, defaultBufSize)
 import Network.Wai.Logger (clockDateCacher)
 import Data.Default (def)
 import Yesod.Core.Types (loggerSet, Logger (Logger))
@@ -81,8 +82,18 @@ makeFoundation conf = do
               Database.Persist.applyEnv
     p <- Database.Persist.createPoolConfig (dbconf :: Settings.PersistConf)
 
-    loggerSet' <- newLoggerSet defaultBufSize Nothing
-    (getter, _) <- clockDateCacher
+    loggerSet' <- newStdoutLoggerSet defaultBufSize
+    (getter, updater) <- clockDateCacher
+
+    -- If the Yesod logger (as opposed to the request logger middleware) is
+    -- used less than once a second on average, you may prefer to omit this
+    -- thread and use "(updater >> getter)" in place of "getter" below.  That
+    -- would update the cache every time it is used, instead of every second.
+    let updateLoop = do
+            threadDelay 1000000
+            updater
+            updateLoop
+    _ <- forkIO updateLoop
 
     let logger = Yesod.Core.Types.Logger loggerSet' getter
         foundation = App conf s p manager dbconf logger
@@ -413,7 +424,7 @@ library
                  , aeson                         >= 0.6        && < 0.8
                  , conduit                       >= 1.0        && < 2.0
                  , monad-logger                  >= 0.3        && < 0.4
-                 , fast-logger                   >= 2.1        && < 2.2
+                 , fast-logger                   >= 2.1.4      && < 2.2
                  , wai-logger                    >= 2.1        && < 2.2
 
 executable         PROJECTNAME
