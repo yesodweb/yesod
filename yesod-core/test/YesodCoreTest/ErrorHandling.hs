@@ -27,6 +27,8 @@ mkYesod "App" [parseRoutes|
 
 -- https://github.com/yesodweb/yesod/issues/658
 /builder BuilderR GET
+/file-bad-len FileBadLenR GET
+/file-bad-name FileBadNameR GET
 |]
 
 overrideStatus = mkStatus 15 "OVERRIDE"
@@ -80,6 +82,12 @@ getOverrideStatusR = invalidArgs ["OVERRIDE"]
 getBuilderR :: Handler TypedContent
 getBuilderR = return $ TypedContent "ignored" $ ContentBuilder (error "builder-3.14159") Nothing
 
+getFileBadLenR :: Handler TypedContent
+getFileBadLenR = return $ TypedContent "ignored" $ ContentFile "yesod-core.cabal" (error "filebadlen")
+
+getFileBadNameR :: Handler TypedContent
+getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
+
 errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "says not found" caseNotFound
@@ -89,6 +97,8 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "error in body, no eval == 200" caseErrorInBodyNoEval
       it "can override status code" caseOverrideStatus
       it "builder" caseBuilder
+      it "file with bad len" caseFileBadLen
+      it "file with bad name" caseFileBadName
 
 runner :: Session () -> IO ()
 runner f = toWaiApp App >>= runSession f
@@ -153,3 +163,15 @@ caseBuilder = runner $ do
     res <- request defaultRequest { pathInfo = ["builder"] }
     assertStatus 500 res
     assertBodyContains "builder-3.14159" res
+
+caseFileBadLen :: IO ()
+caseFileBadLen = runner $ do
+    res <- request defaultRequest { pathInfo = ["file-bad-len"] }
+    assertStatus 500 res
+    assertBodyContains "filebadlen" res
+
+caseFileBadName :: IO ()
+caseFileBadName = runner $ do
+    res <- request defaultRequest { pathInfo = ["file-bad-name"] }
+    assertStatus 500 res
+    assertBodyContains "filebadname" res
