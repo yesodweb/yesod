@@ -65,12 +65,12 @@ runInputGet (FormInput f) = do
 toMap :: [(Text, a)] -> Map.Map Text [a]
 toMap = Map.unionsWith (++) . map (\(x, y) -> Map.singleton x [y])
 
-runInputPost :: MonadHandler m => FormInput m a -> m a
+runInputPost :: MonadHandler m => FormInput m a -> m (FormResult a)
 runInputPost (FormInput f) = do
     (env, fenv) <- liftM (toMap *** toMap) runRequestBody
     m <- getYesod
     l <- languages
     emx <- f m l env fenv
     case emx of
-        Left errs -> invalidArgs $ errs []
-        Right x -> return x
+        Left errs -> return $ FormFailure (errs [])
+        Right x -> return (FormSuccess x)
