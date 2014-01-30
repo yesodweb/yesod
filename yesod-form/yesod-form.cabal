@@ -27,7 +27,7 @@ library
                    , xss-sanitize          >= 0.3.0.1
                    , blaze-builder         >= 0.2.1.4
                    , network               >= 2.2
-                   , email-validate        >= 1.0
+                   , email-validate        >= 2.0.1
                    , bytestring            >= 0.9.1.4
                    , text                  >= 0.9
                    , wai                   >= 1.3
