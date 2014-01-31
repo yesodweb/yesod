@@ -72,5 +72,15 @@ runInputPost (FormInput f) = do
     l <- languages
     emx <- f m l env fenv
     case emx of
+        Left errs -> invalidArgs $ errs []
+        Right x -> return x
+
+runInputPostResult :: MonadHandler m => FormInput m a -> m (FormResult a)
+runInputPostResult (FormInput f) = do
+    (env, fenv) <- liftM (toMap *** toMap) runRequestBody
+    m <- getYesod
+    l <- languages
+    emx <- f m l env fenv
+    case emx of
         Left errs -> return $ FormFailure (errs [])
-        Right x -> return (FormSuccess x)
+        Right x   -> return $ FormSuccess x
