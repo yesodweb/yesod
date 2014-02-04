@@ -640,7 +640,12 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
 -- | Set the Expires header to some date in 2037. In other words, this content
 -- is never (realistically) expired.
 neverExpires :: MonadHandler m => m ()
-neverExpires = setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
+neverExpires = do
+    setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
+    cacheSeconds oneYear
+  where
+    oneYear :: Int
+    oneYear = 60 * 60 * 24 * 365
 
 -- | Set an Expires header in the past, meaning this content should not be
 -- cached.
