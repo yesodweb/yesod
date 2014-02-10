@@ -7,6 +7,8 @@ module Yesod.Auth.OAuth
     , authTumblr
     , tumblrUrl
     , module Web.Authenticate.OAuth
+    , OAuthProvider(..)
+    , YesodOAuth(..)
     ) where
 import           Control.Applicative      ((<$>), (<*>))
 import           Control.Arrow            ((***))
@@ -24,6 +26,14 @@ import           Yesod.Auth
 import           Yesod.Form
 import           Yesod.Core
 
+data OAuthProvider = Twitter | Tumblr
+
+class (Yesod site, YesodAuth site) => YesodOAuth site where
+    getConsumerKey          :: OAuthProvider -> HandlerT site IO ByteString
+    getConsumerSecret       :: OAuthProvider -> HandlerT site IO ByteString 
+    getAppAccessToken       :: OAuthProvider -> HandlerT site IO ByteString 
+    getAppAccessTokenSecret :: OAuthProvider -> HandlerT site IO ByteString 
+
 data YesodOAuthException = CredentialError String Credential
                          | SessionError String
                            deriving (Show, Typeable)
@@ -33,11 +43,12 @@ instance Exception YesodOAuthException
 oauthUrl :: Text -> AuthRoute
 oauthUrl name = PluginR name ["forward"]
 
-authOAuth :: YesodAuth m
+authOAuth :: (YesodAuth m, YesodOAuth m)
           => OAuth                        -- ^ 'OAuth' data-type for signing.
           -> (Credential -> IO (Creds m)) -- ^ How to extract ident.
+          -> Maybe OAuthProvider
           -> AuthPlugin m
-authOAuth oauth mkCreds = AuthPlugin name dispatch login
+authOAuth oauth mkCreds maybeProvider = AuthPlugin name dispatch login
   where
     name = T.pack $ oauthServerName oauth
     url = PluginR name []
@@ -47,33 +58,43 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
         render <- lift getUrlRender
         tm <- getRouteToParent
         let oauth' = oauth { oauthCallback = Just $ encodeUtf8 $ render $ tm url }
+        oauth'' <- lift $ addCredentialsIfNecessary oauth'
         master <- lift getYesod
-        tok <- lift $ getTemporaryCredential oauth' (authHttpManager master)
+        tok <- lift $ getTemporaryCredential oauth'' (authHttpManager master)
         setSession oauthSessionName $ lookupTokenSecret tok
-        redirect $ authorizeUrl oauth' tok
+        redirect $ authorizeUrl oauth'' tok
     dispatch "GET" [] = lift $ do
-      Just tokSec <- lookupSession oauthSessionName
-      deleteSession oauthSessionName
-      reqTok <-
-        if oauthVersion oauth == OAuth10
-          then do
-            oaTok  <- runInputGet $ ireq textField "oauth_token"
-            return $ Credential [ ("oauth_token", encodeUtf8 oaTok)
-                                , ("oauth_token_secret", encodeUtf8 tokSec)
-                                ]
-          else do
-            (verifier, oaTok) <-
-                runInputGet $ (,) <$> ireq textField "oauth_verifier"
-                                  <*> ireq textField "oauth_token"
-            return $ Credential [ ("oauth_verifier", encodeUtf8 verifier)
-                                , ("oauth_token", encodeUtf8 oaTok)
-                                , ("oauth_token_secret", encodeUtf8 tokSec)
-                                ]
-      master <- getYesod
-      accTok <- getAccessToken oauth reqTok (authHttpManager master)
-      creds  <- liftIO $ mkCreds accTok
-      setCreds True creds
+        Just tokSec <- lookupSession oauthSessionName
+        deleteSession oauthSessionName
+        reqTok <-
+          if oauthVersion oauth == OAuth10
+            then do
+              oaTok  <- runInputGet $ ireq textField "oauth_token"
+              return $ Credential [ ("oauth_token", encodeUtf8 oaTok)
+                                  , ("oauth_token_secret", encodeUtf8 tokSec)
+                                  ]
+            else do
+              (verifier, oaTok) <-
+                  runInputGet $ (,) <$> ireq textField "oauth_verifier"
+                                    <*> ireq textField "oauth_token"
+              return $ Credential [ ("oauth_verifier", encodeUtf8 verifier)
+                                  , ("oauth_token", encodeUtf8 oaTok)
+                                  , ("oauth_token_secret", encodeUtf8 tokSec)
+                                  ]
+        master <- getYesod
+        oauth' <- addCredentialsIfNecessary oauth
+        accTok <- getAccessToken oauth' reqTok (authHttpManager master)
+        creds  <- liftIO $ mkCreds accTok
+        setCreds True creds
     dispatch _ _ = notFound
+    addCredentialsIfNecessary oa = case maybeProvider of
+        Nothing -> return oa 
+        Just provider -> do
+            k <- getConsumerKey provider
+            s <- getConsumerSecret provider
+            return $ oa { oauthConsumerKey     = k
+                        , oauthConsumerSecret  = s
+                        }
     login tm = do
         render <- getUrlRender
         let oaUrl = render $ tm $ oauthUrl name
@@ -86,26 +107,23 @@ mkExtractCreds name idName (Credential dic) = do
     Just crId -> return $ Creds name crId $ map (bsToText *** bsToText) dic
     Nothing -> throwIO $ CredentialError ("key not found: " ++ idName) (Credential dic)
 
-authTwitter :: YesodAuth m
-            => ByteString -- ^ Consumer Key
-            -> ByteString -- ^ Consumer Secret
-            -> AuthPlugin m
-authTwitter key secret = authOAuth
+authTwitter :: YesodOAuth m
+            => AuthPlugin m
+authTwitter = authOAuth
                 (newOAuth { oauthServerName      = "twitter"
                           , oauthRequestUri      = "https://api.twitter.com/oauth/request_token"
                           , oauthAccessTokenUri  = "https://api.twitter.com/oauth/access_token"
                           , oauthAuthorizeUri    = "https://api.twitter.com/oauth/authorize"
                           , oauthSignatureMethod = HMACSHA1
-                          , oauthConsumerKey     = key
-                          , oauthConsumerSecret  = secret
                           , oauthVersion         = OAuth10a
                           })
                 (mkExtractCreds "twitter" "screen_name")
+                (Just Twitter)
 
 twitterUrl :: AuthRoute
 twitterUrl = oauthUrl "twitter"
 
-authTumblr :: YesodAuth m
+authTumblr :: YesodOAuth m
             => ByteString -- ^ Consumer Key
             -> ByteString -- ^ Consumer Secret
             -> AuthPlugin m
@@ -120,6 +138,7 @@ authTumblr key secret = authOAuth
                           , oauthVersion         = OAuth10a
                           })
                 (mkExtractCreds "tumblr" "name")
+                Nothing
 
 tumblrUrl :: AuthRoute
 tumblrUrl = oauthUrl "tumblr"
