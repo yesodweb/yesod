@@ -4,6 +4,7 @@ module Yesod.Form.Input
     ( FormInput (..)
     , runInputGet
     , runInputPost
+    , runInputPostResult
     , ireq
     , iopt
     ) where
@@ -66,11 +67,22 @@ toMap :: [(Text, a)] -> Map.Map Text [a]
 toMap = Map.unionsWith (++) . map (\(x, y) -> Map.singleton x [y])
 
 runInputPost :: MonadHandler m => FormInput m a -> m a
-runInputPost (FormInput f) = do
+runInputPost fi = do
+    emx <- runInputPostHelper fi
+    case emx of
+        Left errs -> invalidArgs errs
+        Right x -> return x
+
+runInputPostResult :: MonadHandler m => FormInput m a -> m (FormResult a)
+runInputPostResult fi = do
+    emx <- runInputPostHelper fi
+    case emx of
+        Left errs -> return $ FormFailure errs
+        Right x   -> return $ FormSuccess x
+
+runInputPostHelper :: MonadHandler m => FormInput m a -> m (Either [Text] a)
+runInputPostHelper (FormInput f) = do
     (env, fenv) <- liftM (toMap *** toMap) runRequestBody
     m <- getYesod
     l <- languages
-    emx <- f m l env fenv
-    case emx of
-        Left errs -> invalidArgs $ errs []
-        Right x -> return x
+    fmap (either (Left . ($ [])) Right) $ f m l env fenv

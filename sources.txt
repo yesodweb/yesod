@@ -10,3 +10,4 @@
 ./yesod-bin
 ./yesod
 ./authenticate
+./yesod-eventsource

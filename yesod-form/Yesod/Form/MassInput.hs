@@ -11,7 +11,7 @@ module Yesod.Form.MassInput
 
 import Yesod.Form.Types
 import Yesod.Form.Functions
-import Yesod.Form.Fields (boolField)
+import Yesod.Form.Fields (checkBoxField)
 import Yesod.Core
 import Control.Monad.Trans.RWS (get, put, ask)
 import Data.Maybe (fromMaybe)
@@ -97,7 +97,7 @@ $newline never
 <input type=hidden name=#{deleteName} value=yes>
 |]
         _ -> do
-            (_, xml2) <- aFormToForm $ areq boolField FieldSettings
+            (_, xml2) <- aFormToForm $ areq checkBoxField FieldSettings
                 { fsLabel = SomeMessage MsgDelete
                 , fsTooltip = Nothing
                 , fsName = Just deleteName
