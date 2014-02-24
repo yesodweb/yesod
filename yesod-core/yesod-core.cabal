@@ -125,6 +125,20 @@ test-suite tests
     ghc-options:     -Wall
     extensions: TemplateHaskell
 
+benchmark widgets
+    type: exitcode-stdio-1.0
+    hs-source-dirs: bench
+    build-depends:  base
+                  , criterion
+                  , bytestring
+                  , text
+                  , hamlet
+                  , transformers
+                  , yesod-core
+                  , blaze-html
+    main-is:        widget.hs
+    ghc-options:    -Wall -O2
+
 source-repository head
   type:     git
   location: https://github.com/yesodweb/yesod
