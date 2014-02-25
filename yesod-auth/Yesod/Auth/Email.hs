@@ -174,10 +174,7 @@ class (YesodAuth site, PathPiece (AuthEmailId site)) => YesodAuthEmail site wher
 
     -- | Additional normalization of email addresses, besides standard canonicalization.
     --
-    -- Default: do nothing. Note that in future versions of Yesod, the default
-    -- will change to lower casing the email address. At that point, you will
-    -- need to either ensure your database values are migrated to lower case,
-    -- or change this default back to doing nothing.
+    -- Default: Lower case the email address.
     --
     -- Since 1.2.3
     normalizeEmailAddress :: site -> Text -> Text
