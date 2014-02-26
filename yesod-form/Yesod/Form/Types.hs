@@ -98,7 +98,7 @@ instance Monad m => Functor (AForm m) where
       where
         go (w, x, y, z) = (fmap f w, x, y, z)
 instance Monad m => Applicative (AForm m) where
-    pure x = AForm $ const $ const $ \ints -> return (FormSuccess x, mempty, ints, mempty)
+    pure x = AForm $ const $ const $ \ints -> return (FormSuccess x, id, ints, mempty)
     (AForm f) <*> (AForm g) = AForm $ \mr env ints -> do
         (a, b, ints', c) <- f mr env ints
         (x, y, ints'', z) <- g mr env ints'
