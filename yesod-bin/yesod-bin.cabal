@@ -89,7 +89,7 @@ executable             yesod
                      , transformers
                      , warp               >= 1.3.7.5
                      , wai                >= 1.4
-                     , data-default
+                     , data-default-class
 
     ghc-options:       -Wall -threaded
     main-is:           main.hs
