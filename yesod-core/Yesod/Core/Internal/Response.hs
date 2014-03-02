@@ -128,7 +128,9 @@ headerToPair (Header key value) = (CI.mk key, value)
 evaluateContent :: Content -> IO (Either ErrorResponse Content)
 evaluateContent (ContentBuilder b mlen) = handle f $ do
     let lbs = toLazyByteString b
-    L.length lbs `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen)
+        len = L.length lbs
+        mlen' = maybe (Just $ fromIntegral len) Just mlen
+    len `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen')
   where
     f :: SomeException -> IO (Either ErrorResponse Content)
     f = return . Left . InternalError . T.pack . show
