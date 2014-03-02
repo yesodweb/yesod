@@ -69,7 +69,7 @@ import           Data.Conduit.Network                  (HostPreference (HostIPv4
 import           Network                               (withSocketsDo)
 #if MIN_VERSION_http_conduit(2, 0, 0)
 import           Network.HTTP.Conduit                  (conduitManagerSettings, newManager)
-import           Data.Default                          (def)
+import           Data.Default.Class                    (def)
 #else
 import           Network.HTTP.Conduit                  (def, newManager)
 #endif
