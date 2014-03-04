@@ -19,6 +19,10 @@ data SDC = SDC
     , reqExp :: Exp
     }
 
+-- | A simpler version of Yesod.Routes.TH.Dispatch.mkDispatchClause, based on
+-- view patterns.
+--
+-- Since 1.2.1
 mkSimpleDispatchClause :: MkDispatchSettings -> [ResourceTree a] -> Q Clause
 mkSimpleDispatchClause MkDispatchSettings {..} resources = do
     envName <- newName "env"
@@ -159,7 +163,6 @@ mkSimpleDispatchClause MkDispatchSettings {..} resources = do
                     let reqExp' = setPathInfoE `AppE` VarE restPath `AppE` reqExp
                         route' = foldl' AppE (ConE (mkName name)) dyns
                         route = foldr AppE route' extraCons
-                        getEnv = LitE $ StringL "FIXME2"
                         exp = subDispatcherE
                             `AppE` runHandlerE
                             `AppE` sub2

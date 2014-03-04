@@ -17,6 +17,7 @@ import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
 
 import Yesod.Routes.TH
+import Yesod.Routes.TH.Simple (mkSimpleDispatchClause)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
 import Yesod.Core.Content
@@ -115,7 +116,7 @@ mkDispatchInstance :: Type                -- ^ The master site type
                    -> [ResourceTree a]    -- ^ The resource
                    -> DecsQ
 mkDispatchInstance master res = do
-    clause' <- mkDispatchClause (mkMDS [|yesodRunner|]) res
+    clause' <- mkSimpleDispatchClause (mkMDS [|yesodRunner|]) res
     let thisDispatch = FunD 'yesodDispatch [clause']
     return [InstanceD [] yDispatch [thisDispatch]]
   where
@@ -123,7 +124,7 @@ mkDispatchInstance master res = do
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
-    clause' <- mkDispatchClause (mkMDS [|subHelper . fmap toTypedContent|]) res
+    clause' <- mkSimpleDispatchClause (mkMDS [|subHelper . fmap toTypedContent|]) res
     inner <- newName "inner"
     let innerFun = FunD inner [clause']
     helper <- newName "helper"

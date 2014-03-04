@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings #-} -- the module name is a lie!!!
 module YesodCoreTest.NoOverloadedStrings (noOverloadedTest, Widget) where
 
 import Test.Hspec
