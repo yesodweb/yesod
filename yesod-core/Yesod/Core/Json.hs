@@ -10,6 +10,7 @@ module Yesod.Core.Json
       -- * Convert to a JSON value
     , parseJsonBody
     , parseJsonBody_
+    , requireJsonBody
 
       -- * Produce JSON values
     , J.Value (..)
@@ -99,7 +100,13 @@ parseJsonBody = do
 -- | Same as 'parseJsonBody', but return an invalid args response on a parse
 -- error.
 parseJsonBody_ :: (MonadHandler m, J.FromJSON a) => m a
-parseJsonBody_ = do
+parseJsonBody_ = requireJsonBody
+{-# DEPRECATED parseJsonBody_ "Use requireJsonBody instead" #-}
+
+-- | Same as 'parseJsonBody', but return an invalid args response on a parse
+-- error.
+requireJsonBody :: (MonadHandler m, J.FromJSON a) => m a
+requireJsonBody = do
     ra <- parseJsonBody
     case ra of
         J.Error s -> invalidArgs [pack s]
