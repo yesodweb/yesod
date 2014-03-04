@@ -11,7 +11,8 @@ yesod/foobar/
 cabal.sandbox.config
 /vendor/
 /.shelly/
-/tarballs/
+tarballs/
 *.swp
 dist
 client_session_key.aes
+.shelly/
