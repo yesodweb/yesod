@@ -83,7 +83,7 @@ mkSimpleDispatchClause MkDispatchSettings {..} resources = do
         let restE = VarE restName
             restP = VarP restName
 
-        helperName <- newName "helper"
+        helperName <- newName $ "helper" ++ name
         let helperE = VarE helperName
 
         return $ Clause
