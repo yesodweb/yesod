@@ -10,6 +10,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -ddump-splices #-}
 import Test.Hspec
 import Test.HUnit ((@?=))
 import Data.Text (Text, pack, unpack, singleton)
@@ -129,9 +131,9 @@ do
     rainst <- mkRouteAttrsInstance (ConT ''MyApp) ress
     prinst <- mkParseRouteInstance (ConT ''MyApp) ress
 #if SIMPLE_DISPATCH
-    dispatch <- mkSimpleDispatchClauses MkDispatchSettings
+    dispatch <- mkSimpleDispatchClause MkDispatchSettings
 #else
-    dispatch <- fmap return $ mkDispatchClause MkDispatchSettings
+    dispatch <- mkDispatchClause MkDispatchSettings
 #endif
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch dispatcher|]
@@ -148,7 +150,7 @@ do
             (ConT ''Dispatcher
                 `AppT` ConT ''MyApp
                 `AppT` ConT ''MyApp)
-            [FunD (mkName "dispatcher") dispatch]
+            [FunD (mkName "dispatcher") [dispatch]]
         : prinst
         : rainst
         : rrinst

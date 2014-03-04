@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 module Hierarchy
     ( hierarchy
     , Dispatcher (..)
@@ -113,9 +114,9 @@ do
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     prinst <- mkParseRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
 #if SIMPLE_DISPATCH
-    dispatch <- mkSimpleDispatchClauses MkDispatchSettings
+    dispatch <- mkSimpleDispatchClause MkDispatchSettings
 #else
-    dispatch <- fmap return $ mkDispatchClause MkDispatchSettings
+    dispatch <- mkDispatchClause MkDispatchSettings
 #endif
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
@@ -132,7 +133,7 @@ do
             (ConT ''Dispatcher
                 `AppT` ConT ''Hierarchy
                 `AppT` ConT ''Hierarchy)
-            [FunD (mkName "dispatcher") dispatch]
+            [FunD (mkName "dispatcher") [dispatch]]
         : prinst
         : rrinst
 
