@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, ViewPatterns #-}
 module YesodCoreTest.Widget (widgetTest) where
 
 import Test.Hspec

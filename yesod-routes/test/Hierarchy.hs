@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -6,6 +7,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 module Hierarchy
     ( hierarchy
     , Dispatcher (..)
@@ -27,6 +29,9 @@ import qualified Yesod.Routes.Class as YRC
 import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
+#if SIMPLE_DISPATCH
+import Yesod.Routes.TH.Simple
+#endif
 
 class ToText a where
     toText :: a -> Text
@@ -108,7 +113,11 @@ do
 
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     prinst <- mkParseRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
+#if SIMPLE_DISPATCH
+    dispatch <- mkSimpleDispatchClause MkDispatchSettings
+#else
     dispatch <- mkDispatchClause MkDispatchSettings
+#endif
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
         , mdsGetPathInfo = [|fst|]
