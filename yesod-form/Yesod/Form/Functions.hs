@@ -39,6 +39,7 @@ module Yesod.Form.Functions
       -- * Utilities
     , fieldSettingsLabel
     , parseHelper
+    , parseHelperGen
     ) where
 
 import Yesod.Form.Types
@@ -428,6 +429,15 @@ fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing
 parseHelper :: (Monad m, RenderMessage site FormMessage)
             => (Text -> Either FormMessage a)
             -> [Text] -> [FileInfo] -> m (Either (SomeMessage site) (Maybe a))
-parseHelper _ [] _ = return $ Right Nothing
-parseHelper _ ("":_) _ = return $ Right Nothing
-parseHelper f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x
+parseHelper = parseHelperGen
+
+-- | A generalized version of 'parseHelper', allowing any type for the message
+-- indicating a bad parse.
+--
+-- Since 1.3.6
+parseHelperGen :: (Monad m, RenderMessage site msg)
+               => (Text -> Either msg a)
+               -> [Text] -> [FileInfo] -> m (Either (SomeMessage site) (Maybe a))
+parseHelperGen _ [] _ = return $ Right Nothing
+parseHelperGen _ ("":_) _ = return $ Right Nothing
+parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x
