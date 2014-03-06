@@ -47,7 +47,8 @@ data Options = Options
                }
   deriving (Show, Eq)
 
-data Command = Init { _initBare, _initHsFiles :: Bool }
+data Command = Init { _initBare :: Bool }
+             | HsFiles
              | Configure
              | Build { buildExtraArgs   :: [String] }
              | Touch
@@ -96,7 +97,8 @@ main = do
          ] optParser'
   let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
-    Init bare hsfiles -> if hsfiles then mkHsFile else scaffold bare
+    Init bare       -> scaffold bare
+    HsFiles         -> mkHsFile
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
     Touch           -> touch'
@@ -125,9 +127,10 @@ optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
         <*> subparser ( command "init"
-                            (info (Init <$> (switch (long "bare" <> help "Create files in current folder"))
-                                        <*> (switch (long "hsfiles" <> help "Create a hsfiles file for the current folder")))
+                            (info (Init <$> (switch (long "bare" <> help "Create files in current folder")))
                             (progDesc "Scaffold a new site"))
+                      <> command "hsfiles" (info (pure HsFiles)
+                            (progDesc "Create a hsfiles file for the current folder"))
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
                       <> command "build"     (info (Build <$> extraCabalArgs)
