@@ -89,6 +89,9 @@ module Yesod.Core.Handler
     , sendResponseStatus
     , sendResponseCreated
     , sendWaiResponse
+#if MIN_VERSION_wai(2, 1, 0)
+    , sendRawResponse
+#endif
       -- * Different representations
       -- $representations
     , selectRep
@@ -170,7 +173,7 @@ import qualified Data.ByteString               as S
 import qualified Data.ByteString.Lazy          as L
 import qualified Data.Map                      as Map
 
-import Data.Conduit (Source)
+import Data.Conduit (Source, Sink)
 import           Control.Arrow                 ((***))
 import qualified Data.ByteString.Char8         as S8
 import           Data.Maybe                    (mapMaybe)
@@ -197,6 +200,9 @@ import Safe (headMay)
 import Data.CaseInsensitive (CI)
 #if MIN_VERSION_wai(2, 0, 0)
 import qualified System.PosixCompat.Files as PC
+#endif
+#if MIN_VERSION_wai(2, 1, 0)
+import Control.Monad.Trans.Control (MonadBaseControl, control)
 #endif
 
 get :: MonadHandler m => m GHState
@@ -546,6 +552,23 @@ sendResponseCreated url = do
 -- you don't.
 sendWaiResponse :: MonadHandler m => W.Response -> m b
 sendWaiResponse = handlerError . HCWai
+
+#if MIN_VERSION_wai(2, 1, 0)
+-- | Send a raw response. This is used for cases such as WebSockets. Requires
+-- WAI 2.1 or later, and a web server which supports raw responses (e.g.,
+-- Warp).
+--
+-- Since 1.2.7
+sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
+                => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
+                -> m a
+sendRawResponse raw = control $ \runInIO ->
+    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
+    $ \src sink -> runInIO (raw src sink) >> return ()
+  where
+    fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
+        "sendRawResponse: backend does not support raw responses"
+#endif
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: MonadHandler m => m a

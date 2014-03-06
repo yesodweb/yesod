@@ -47,9 +47,20 @@ yarToResponse (YRWai a) _ _ _ is =
     case a of
         ResponseSource s hs w -> return $ ResponseSource s hs $ \f ->
             w f `finally` closeInternalState is
-        _ -> do
+        ResponseBuilder{} -> do
             closeInternalState is
             return a
+        ResponseFile{} -> do
+            closeInternalState is
+            return a
+#if MIN_VERSION_wai(2, 1, 0)
+        -- Ignore the fallback provided, in case it refers to a ResourceT state
+        -- in a ResponseSource.
+        ResponseRaw raw _ -> return $ ResponseRaw
+            (\f -> raw f `finally` closeInternalState is)
+            (responseLBS H.status500 [("Content-Type", "text/plain")]
+                "yarToResponse: backend does not support raw responses")
+#endif
 #else
 yarToResponse (YRWai a) _ _ _ = return a
 #endif
