@@ -23,6 +23,7 @@ import           Options.Applicative.Builder.Internal (Mod, OptionFields)
 
 #ifndef WINDOWS
 import           Build                  (touch)
+import           HsFile                 (mkHsFile)
 
 touch' :: IO ()
 touch' = touch
@@ -46,7 +47,7 @@ data Options = Options
                }
   deriving (Show, Eq)
 
-data Command = Init { _initBare :: Bool }
+data Command = Init { _initBare, _initHsFiles :: Bool }
              | Configure
              | Build { buildExtraArgs   :: [String] }
              | Touch
@@ -95,7 +96,7 @@ main = do
          ] optParser'
   let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
-    Init bare       -> scaffold bare
+    Init bare hsfiles -> if hsfiles then mkHsFile else scaffold bare
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
     Touch           -> touch'
@@ -124,7 +125,8 @@ optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
         <*> subparser ( command "init"
-                            (info (Init <$> switch (long "bare" <> help "Create files in current folder"))
+                            (info (Init <$> (switch (long "bare" <> help "Create files in current folder"))
+                                        <*> (switch (long "hsfiles" <> help "Create a hsfiles file for the current folder")))
                             (progDesc "Scaffold a new site"))
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
