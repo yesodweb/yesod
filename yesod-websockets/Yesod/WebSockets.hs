@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.WebSockets
     ( -- * Core API
-      WebsocketsT
+      WebSocketsT
     , webSockets
     , receiveData
     , sendTextData
@@ -26,7 +26,7 @@ import qualified Yesod.Core                     as Y
 -- | A transformer for a WebSockets handler.
 --
 -- Since 0.1.0
-type WebsocketsT = ReaderT WS.Connection
+type WebSocketsT = ReaderT WS.Connection
 
 -- | Attempt to run a WebSockets handler. This function first checks if the
 -- client initiated a WebSockets connection and, if so, runs the provided
@@ -35,7 +35,7 @@ type WebsocketsT = ReaderT WS.Connection
 -- instead.
 --
 -- Since 0.1.0
-webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebsocketsT m () -> m ()
+webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () -> m ()
 webSockets inner = do
     req <- Y.waiRequest
     when (WaiWS.isWebSocketsReq req) $
@@ -51,35 +51,35 @@ webSockets inner = do
 -- | Receive a piece of data from the client.
 --
 -- Since 0.1.0
-receiveData :: (MonadIO m, WS.WebSocketsData a) => WebsocketsT m a
+receiveData :: (MonadIO m, WS.WebSocketsData a) => WebSocketsT m a
 receiveData = ReaderT $ liftIO . WS.receiveData
 
 -- | Send a textual messsage to the client.
 --
 -- Since 0.1.0
-sendTextData :: (MonadIO m, WS.WebSocketsData a) => a -> WebsocketsT m ()
+sendTextData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendTextData x = ReaderT $ liftIO . flip WS.sendTextData x
 
 -- | Send a binary messsage to the client.
 --
 -- Since 0.1.0
-sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebsocketsT m ()
+sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendBinaryData x = ReaderT $ liftIO . flip WS.sendBinaryData x
 
 -- | A @Source@ of WebSockets data from the user.
 --
 -- Since 0.1.0
-sourceWS :: (MonadIO m, WS.WebSocketsData a) => C.Producer (WebsocketsT m) a
+sourceWS :: (MonadIO m, WS.WebSocketsData a) => C.Producer (WebSocketsT m) a
 sourceWS = forever $ Y.lift receiveData >>= C.yield
 
 -- | A @Sink@ for sending textual data to the user.
 --
 -- Since 0.1.0
-sinkWSText :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebsocketsT m) ()
+sinkWSText :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebSocketsT m) ()
 sinkWSText = CL.mapM_ sendTextData
 
 -- | A @Sink@ for sending binary data to the user.
 --
 -- Since 0.1.0
-sinkWSBinary :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebsocketsT m) ()
+sinkWSBinary :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebSocketsT m) ()
 sinkWSBinary = CL.mapM_ sendBinaryData
