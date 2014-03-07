@@ -22,6 +22,7 @@ library
                      , transformers      >= 0.2
                      , yesod-core        >= 1.2.7
                      , monad-control     >= 0.3
+                     , conduit           >= 1.0.15.1
 
 source-repository head
   type:     git

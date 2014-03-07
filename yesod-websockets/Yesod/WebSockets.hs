@@ -1,17 +1,24 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.WebSockets
-    ( WebsocketsT
+    ( -- * Core API
+      WebsocketsT
     , webSockets
     , receiveData
     , sendTextData
     , sendBinaryData
+      -- * Conduit API
+    , sourceWS
+    , sinkWSText
+    , sinkWSBinary
     ) where
 
-import           Control.Monad                  (when)
+import           Control.Monad                  (when, forever)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.Control    (control)
 import           Control.Monad.Trans.Reader     (ReaderT (ReaderT, runReaderT))
+import qualified Data.Conduit                   as C
+import qualified Data.Conduit.List              as CL
 import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.WebSockets             as WS
 import qualified Yesod.Core                     as Y
@@ -58,3 +65,21 @@ sendTextData x = ReaderT $ liftIO . flip WS.sendTextData x
 -- Since 0.1.0
 sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebsocketsT m ()
 sendBinaryData x = ReaderT $ liftIO . flip WS.sendBinaryData x
+
+-- | A @Source@ of WebSockets data from the user.
+--
+-- Since 0.1.0
+sourceWS :: (MonadIO m, WS.WebSocketsData a) => C.Producer (WebsocketsT m) a
+sourceWS = forever $ Y.lift receiveData >>= C.yield
+
+-- | A @Sink@ for sending textual data to the user.
+--
+-- Since 0.1.0
+sinkWSText :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebsocketsT m) ()
+sinkWSText = CL.mapM_ sendTextData
+
+-- | A @Sink@ for sending binary data to the user.
+--
+-- Since 0.1.0
+sinkWSBinary :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebsocketsT m) ()
+sinkWSBinary = CL.mapM_ sendBinaryData
