@@ -69,6 +69,7 @@ import Database.Persist.Sql (PersistField, PersistFieldSql (..))
 import Database.Persist (Entity (..), SqlType (SqlString))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
+import Data.List (findIndices)
 import Data.Maybe (listToMaybe, fromJust, fromMaybe, isNothing)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
@@ -307,12 +308,12 @@ multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field
 multiEmailField = Field
     { fieldParse = parseHelper $
         \s ->
-            let canons = map (Email.canonicalizeEmail . encodeUtf8) $
-				splitOn "," s
-	    in if any isNothing canons
-		  then Left $ MsgInvalidEmail s
-		  else Right $
-		      map (decodeUtf8With lenientDecode . fromJust) canons
+            let addrs = splitOn "," s
+                canons = map (Email.canonicalizeEmail . encodeUtf8) addrs
+            in case findIndices isNothing canons of
+                [] -> Right $
+                        map (decodeUtf8With lenientDecode . fromJust) canons
+                errs -> Left $ MsgInvalidEmail $ cat $ map (addrs !!) errs
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="email" multiple :isReq:required="" value="#{either id cat val}">
