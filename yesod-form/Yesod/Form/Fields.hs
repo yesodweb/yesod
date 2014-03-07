@@ -18,6 +18,7 @@ module Yesod.Form.Fields
     , timeField
     , htmlField
     , emailField
+    , multiEmailField
     , searchField
     , AutoFocus
     , urlField
@@ -68,7 +69,7 @@ import Database.Persist.Sql (PersistField, PersistFieldSql (..))
 import Database.Persist (Entity (..), SqlType (SqlString))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
-import Data.Maybe (listToMaybe, fromMaybe)
+import Data.Maybe (listToMaybe, fromJust, fromMaybe, isNothing)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -78,7 +79,7 @@ import Database.Persist (PersistMonadBackend, PersistEntityBackend)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
-import Data.Text (Text, unpack, pack)
+import Data.Text (Text, intercalate, unpack, pack, splitOn)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
@@ -301,6 +302,25 @@ $newline never
 |]
     , fieldEnctype = UrlEncoded
     }
+
+multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
+multiEmailField = Field
+    { fieldParse = parseHelper $
+        \s ->
+            let canons = map (Email.canonicalizeEmail . encodeUtf8) $
+				splitOn "," s
+	    in if any isNothing canons
+		  then Left $ MsgInvalidEmail s
+		  else Right $
+		      map (decodeUtf8With lenientDecode . fromJust) canons
+    , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
+<input id="#{theId}" name="#{name}" *{attrs} type="email" multiple :isReq:required="" value="#{either id cat val}">
+|]
+    , fieldEnctype = UrlEncoded
+    }
+    where
+	cat = intercalate ", "
 
 type AutoFocus = Bool
 searchField :: Monad m => RenderMessage (HandlerSite m) FormMessage => AutoFocus -> Field m Text
