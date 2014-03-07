@@ -11,11 +11,18 @@ module Yesod.WebSockets
     , sourceWS
     , sinkWSText
     , sinkWSBinary
+      -- * Async helpers
+    , race
+    , race_
+    , concurrently
+    , concurrently_
     ) where
 
-import           Control.Monad                  (when, forever)
+import qualified Control.Concurrent.Async       as A
+import           Control.Monad                  (forever, void, when)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.Control    (control)
+import           Control.Monad.Trans.Control    (MonadBaseControl (liftBaseWith, restoreM))
 import           Control.Monad.Trans.Reader     (ReaderT (ReaderT, runReaderT))
 import qualified Data.Conduit                   as C
 import qualified Data.Conduit.List              as CL
@@ -83,3 +90,35 @@ sinkWSText = CL.mapM_ sendTextData
 -- Since 0.1.0
 sinkWSBinary :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebSocketsT m) ()
 sinkWSBinary = CL.mapM_ sendBinaryData
+
+-- | Generalized version of 'A.race'.
+--
+-- Since 0.1.0
+race :: MonadBaseControl IO m => m a -> m b -> m (Either a b)
+race x y = liftBaseWith (\run -> A.race (run x) (run y))
+    >>= either (fmap Left . restoreM) (fmap Right . restoreM)
+
+-- | Generalized version of 'A.race_'.
+--
+-- Since 0.1.0
+race_ :: MonadBaseControl IO m => m a -> m b -> m ()
+race_ x y = void $ race x y
+
+-- | Generalized version of 'A.concurrently'. Note that if your underlying
+-- monad has some kind of mutable state, the state from the second action will
+-- overwrite the state from the first.
+--
+-- Since 0.1.0
+concurrently :: MonadBaseControl IO m => m a -> m b -> m (a, b)
+concurrently x y = do
+    (resX, resY) <- liftBaseWith $ \run -> A.concurrently (run x) (run y)
+    x' <- restoreM resX
+    y' <- restoreM resY
+    return (x', y')
+
+-- | Run two actions concurrently (like 'A.concurrently'), but discard their
+-- results and any modified monadic state.
+--
+-- Since 0.1.0
+concurrently_ :: MonadBaseControl IO m => m a -> m b -> m ()
+concurrently_ x y = void $ liftBaseWith $ \run -> A.concurrently (run x) (run y)

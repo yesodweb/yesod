@@ -23,6 +23,7 @@ library
                      , yesod-core        >= 1.2.7
                      , monad-control     >= 0.3
                      , conduit           >= 1.0.15.1
+                     , async             >= 2.0.1.5
 
 source-repository head
   type:     git

@@ -3,6 +3,10 @@ import Yesod.Core
 import Yesod.WebSockets
 import qualified Data.Text.Lazy as TL
 import Control.Monad (forever)
+import Control.Monad.Trans.Reader
+import Control.Concurrent (threadDelay)
+import Data.Time
+import Conduit
 
 data App = App
 
@@ -12,11 +16,17 @@ mkYesod "App" [parseRoutes|
 / HomeR GET
 |]
 
+timeSource :: MonadIO m => Source m TL.Text
+timeSource = forever $ do
+    now <- liftIO getCurrentTime
+    yield $ TL.pack $ show now
+    liftIO $ threadDelay 5000000
+
 getHomeR :: Handler Html
 getHomeR = do
-    webSockets $ forever $ do
-        msg <- receiveData
-        sendTextData $ TL.toUpper msg
+    webSockets $ race_
+        (sourceWS $$ mapC TL.toUpper =$ sinkWSText)
+        (timeSource $$ sinkWSText)
     defaultLayout $
         toWidget
             [julius|
