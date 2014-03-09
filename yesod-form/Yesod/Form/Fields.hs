@@ -69,8 +69,8 @@ import Database.Persist.Sql (PersistField, PersistFieldSql (..))
 import Database.Persist (Entity (..), SqlType (SqlString))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
-import Data.List (findIndices)
-import Data.Maybe (listToMaybe, fromJust, fromMaybe, isNothing)
+import Data.Either (partitionEithers)
+import Data.Maybe (listToMaybe, fromMaybe)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
@@ -80,7 +80,7 @@ import Database.Persist (PersistMonadBackend, PersistEntityBackend)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
-import Data.Text (Text, intercalate, unpack, pack, splitOn)
+import Data.Text as T (Text, concat, intercalate, unpack, pack, splitOn)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
@@ -308,12 +308,10 @@ multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field
 multiEmailField = Field
     { fieldParse = parseHelper $
         \s ->
-            let addrs = splitOn "," s
-                canons = map (Email.canonicalizeEmail . encodeUtf8) addrs
-            in case findIndices isNothing canons of
-                [] -> Right $
-                        map (decodeUtf8With lenientDecode . fromJust) canons
-                errs -> Left $ MsgInvalidEmail $ cat $ map (addrs !!) errs
+            let addrs = map validate $ splitOn "," s
+            in case partitionEithers addrs of
+                ([], good) -> Right good
+                (bad, _) -> Left $ MsgInvalidEmail $ cat bad
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="email" multiple :isReq:required="" value="#{either id cat val}">
@@ -321,7 +319,12 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
     where
-	cat = intercalate ", "
+        -- report offending address along with error
+        validate a = case Email.validate $ encodeUtf8 a of
+                        Left e -> Left $ T.concat [a, " (",  pack e, ")"]
+                        Right r -> Right $ emailToText r
+        cat = intercalate ", "
+        emailToText = decodeUtf8With lenientDecode . Email.toByteString
 
 type AutoFocus = Bool
 searchField :: Monad m => RenderMessage (HandlerSite m) FormMessage => AutoFocus -> Field m Text
