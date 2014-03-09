@@ -304,6 +304,9 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
+-- |
+--
+-- Since 1.3.7
 multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
 multiEmailField = Field
     { fieldParse = parseHelper $
