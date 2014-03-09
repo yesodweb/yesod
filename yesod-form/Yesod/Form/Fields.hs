@@ -18,6 +18,7 @@ module Yesod.Form.Fields
     , timeField
     , htmlField
     , emailField
+    , multiEmailField
     , searchField
     , AutoFocus
     , urlField
@@ -68,6 +69,7 @@ import Database.Persist.Sql (PersistField, PersistFieldSql (..))
 import Database.Persist (Entity (..), SqlType (SqlString))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
+import Data.Either (partitionEithers)
 import Data.Maybe (listToMaybe, fromMaybe)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
@@ -78,7 +80,7 @@ import Database.Persist (PersistMonadBackend, PersistEntityBackend)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
-import Data.Text (Text, unpack, pack)
+import Data.Text as T (Text, concat, intercalate, unpack, pack, splitOn)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
@@ -301,6 +303,28 @@ $newline never
 |]
     , fieldEnctype = UrlEncoded
     }
+
+multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
+multiEmailField = Field
+    { fieldParse = parseHelper $
+        \s ->
+            let addrs = map validate $ splitOn "," s
+            in case partitionEithers addrs of
+                ([], good) -> Right good
+                (bad, _) -> Left $ MsgInvalidEmail $ cat bad
+    , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
+<input id="#{theId}" name="#{name}" *{attrs} type="email" multiple :isReq:required="" value="#{either id cat val}">
+|]
+    , fieldEnctype = UrlEncoded
+    }
+    where
+        -- report offending address along with error
+        validate a = case Email.validate $ encodeUtf8 a of
+                        Left e -> Left $ T.concat [a, " (",  pack e, ")"]
+                        Right r -> Right $ emailToText r
+        cat = intercalate ", "
+        emailToText = decodeUtf8With lenientDecode . Email.toByteString
 
 type AutoFocus = Bool
 searchField :: Monad m => RenderMessage (HandlerSite m) FormMessage => AutoFocus -> Field m Text
