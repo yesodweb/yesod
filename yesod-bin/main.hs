@@ -48,7 +48,9 @@ data Options = Options
   deriving (Show, Eq)
 
 data Command = Init { _initBare :: Bool }
+#ifndef WINDOWS
              | HsFiles
+#endif             
              | Configure
              | Build { buildExtraArgs   :: [String] }
              | Touch
@@ -98,7 +100,9 @@ main = do
   let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
     Init bare       -> scaffold bare
+#ifndef WINDOWS    
     HsFiles         -> mkHsFile
+#endif    
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
     Touch           -> touch'
@@ -129,8 +133,10 @@ optParser = Options
         <*> subparser ( command "init"
                             (info (Init <$> (switch (long "bare" <> help "Create files in current folder")))
                             (progDesc "Scaffold a new site"))
+#ifndef WINDOWS                            
                       <> command "hsfiles" (info (pure HsFiles)
                             (progDesc "Create a hsfiles file for the current folder"))
+#endif                            
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
                       <> command "build"     (info (Build <$> extraCabalArgs)
