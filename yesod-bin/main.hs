@@ -21,9 +21,9 @@ import           Options.Applicative.Types (ReadM (ReadM))
 import           Options.Applicative.Builder.Internal (Mod, OptionFields)
 #endif
 
+import           HsFile                 (mkHsFile)
 #ifndef WINDOWS
 import           Build                  (touch)
-import           HsFile                 (mkHsFile)
 
 touch' :: IO ()
 touch' = touch
