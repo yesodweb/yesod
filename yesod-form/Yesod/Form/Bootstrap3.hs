@@ -30,6 +30,8 @@ import Yesod.Form.Functions
 
 -- | Create a new 'FieldSettings' with the classes that are
 -- required by Bootstrap v3.
+--
+-- Since: yesod-form 1.3.8
 bfs :: RenderMessage site msg => msg -> FieldSettings site
 bfs msg =
     FieldSettings (SomeMessage msg) Nothing Nothing Nothing [("class", "form-control")]
@@ -38,24 +40,32 @@ bfs msg =
 -- | Add a placeholder attribute to a field.  If you need i18n
 -- for the placeholder, currently you\'ll need to do a hack and
 -- use 'getMessageRender' manually.
+--
+-- Since: yesod-form 1.3.8
 withPlaceholder :: Text -> FieldSettings site -> FieldSettings site
 withPlaceholder placeholder fs = fs { fsAttrs = newAttrs }
     where newAttrs = ("placeholder", placeholder) : fsAttrs fs
 
 
 -- | Add an autofocus attribute to a field.
+--
+-- Since: yesod-form 1.3.8
 withAutofocus :: FieldSettings site -> FieldSettings site
 withAutofocus fs = fs { fsAttrs = newAttrs }
     where newAttrs = ("autofocus", "autofocus") : fsAttrs fs
 
 
 -- | Add the @input-lg@ CSS class to a field.
+--
+-- Since: yesod-form 1.3.8
 withLargeInput :: FieldSettings site -> FieldSettings site
 withLargeInput fs = fs { fsAttrs = newAttrs }
     where newAttrs = ("class", " input-lg ") : fsAttrs fs
 
 
 -- | Add the @input-sm@ CSS class to a field.
+--
+-- Since: yesod-form 1.3.8
 withSmallInput :: FieldSettings site -> FieldSettings site
 withSmallInput fs = fs { fsAttrs = newAttrs }
     where newAttrs = ("class", " input-sm ") : fsAttrs fs
@@ -63,6 +73,8 @@ withSmallInput fs = fs { fsAttrs = newAttrs }
 
 -- | How many bootstrap grid columns should be taken (see
 -- 'BootstrapFormLayout').
+--
+-- Since: yesod-form 1.3.8
 data BootstrapGridOptions =
     ColXs !Int
   | ColSm !Int
@@ -103,6 +115,8 @@ addGO (ColLg _) _     = error "Yesod.Form.Bootstrap.addGO: never here"
 
 
 -- | The layout used for the bootstrap form.
+--
+-- Since: yesod-form 1.3.8
 data BootstrapFormLayout =
     BootstrapBasicForm
   | BootstrapInlineForm
@@ -122,6 +136,8 @@ data BootstrapFormLayout =
 -- >  <form .form-horizontal role=form method=post action=@{ActionR} enctype=#{formEnctype}>
 -- >    ^{formWidget}
 -- >    ^{bootstrapSubmit MsgSubmit}
+--
+-- Since: yesod-form 1.3.8
 renderBootstrap3 :: Monad m => BootstrapFormLayout -> FormRender m a
 renderBootstrap3 formLayout aform fragment = do
     (res, views') <- aFormToForm aform
@@ -180,6 +196,8 @@ helpWidget view = [whamlet|
 
 
 -- | How the 'bootstrapSubmit' button should be rendered.
+--
+-- Since: yesod-form 1.3.8
 data BootstrapSubmit msg =
     BootstrapSubmit
         { bsValue   :: msg
@@ -211,6 +229,8 @@ instance IsString msg => IsString (BootstrapSubmit msg) where
 -- Alternatively, you may also just create the submit button
 -- manually as well in order to have more control over its
 -- layout.
+--
+-- Since: yesod-form 1.3.8
 bootstrapSubmit
     :: (RenderMessage site msg, HandlerSite m ~ site, MonadHandler m)
     => BootstrapSubmit msg -> AForm m ()
@@ -220,6 +240,8 @@ bootstrapSubmit = formToAForm . liftM (second return) . mbootstrapSubmit
 -- | Same as 'bootstrapSubmit' but for monadic forms.  This isn't
 -- as useful since you're not going to use 'renderBootstrap3'
 -- anyway.
+--
+-- Since: yesod-form 1.3.8
 mbootstrapSubmit
     :: (RenderMessage site msg, HandlerSite m ~ site, MonadHandler m)
     => BootstrapSubmit msg -> MForm m (FormResult (), FieldView site)
