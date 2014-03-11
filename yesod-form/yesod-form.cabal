@@ -42,6 +42,7 @@ library
     exposed-modules: Yesod.Form
                      Yesod.Form.Types
                      Yesod.Form.Functions
+                     Yesod.Form.Bootstrap3
                      Yesod.Form.Input
                      Yesod.Form.Fields
                      Yesod.Form.Jquery
