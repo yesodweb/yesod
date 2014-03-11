@@ -25,6 +25,8 @@ import Data.Text (Text)
 import Data.String (IsString(..))
 import Yesod.Core
 
+import qualified Data.Text as T
+
 import Yesod.Form.Types
 import Yesod.Form.Functions
 
@@ -60,7 +62,7 @@ withAutofocus fs = fs { fsAttrs = newAttrs }
 -- Since: yesod-form 1.3.8
 withLargeInput :: FieldSettings site -> FieldSettings site
 withLargeInput fs = fs { fsAttrs = newAttrs }
-    where newAttrs = ("class", " input-lg ") : fsAttrs fs
+    where newAttrs = addClass "input-lg" (fsAttrs fs)
 
 
 -- | Add the @input-sm@ CSS class to a field.
@@ -68,7 +70,13 @@ withLargeInput fs = fs { fsAttrs = newAttrs }
 -- Since: yesod-form 1.3.8
 withSmallInput :: FieldSettings site -> FieldSettings site
 withSmallInput fs = fs { fsAttrs = newAttrs }
-    where newAttrs = ("class", " input-sm ") : fsAttrs fs
+    where newAttrs = addClass "input-sm" (fsAttrs fs)
+
+
+addClass :: Text -> [(Text, Text)] -> [(Text, Text)]
+addClass klass []                    = [("class", klass)]
+addClass klass (("class", old):rest) = ("class", T.concat [old, " ", klass]) : rest
+addClass klass (other         :rest) = other : addClass klass rest
 
 
 -- | How many bootstrap grid columns should be taken (see
