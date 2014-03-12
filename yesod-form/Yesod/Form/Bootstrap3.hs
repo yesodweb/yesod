@@ -155,7 +155,6 @@ renderBootstrap3 formLayout aform fragment = do
         widget = [whamlet|
             $newline never
             #{fragment}
-            ^{formFailureWidget res}
             $forall view <- views
               <div .form-group :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.has-error>
                 $case formLayout
@@ -181,16 +180,6 @@ renderBootstrap3 formLayout aform fragment = do
                         ^{helpWidget view}
                 |]
     return (res, widget)
-
-
--- | (Internal) Render form failures via alerts.
-formFailureWidget :: FormResult a -> WidgetT site IO ()
-formFailureWidget (FormFailure reasons) =
-    [whamlet|
-        $forall reason <- reasons
-            <div .alert .alert-danger>#{reason}
-    |]
-formFailureWidget _ = return ()
 
 
 -- | (Internal) Render a help widget for tooltips and errors.
