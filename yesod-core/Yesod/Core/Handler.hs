@@ -137,6 +137,7 @@ module Yesod.Core.Handler
     , newIdent
       -- * Lifting
     , handlerToIO
+    , forkHandler
       -- * i18n
     , getMessageRender
       -- * Per-request caching
@@ -149,9 +150,10 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
 import           Control.Applicative           ((<$>), (<|>))
-import           Control.Exception             (evaluate)
+import           Control.Exception             (evaluate, SomeException)
+import           Control.Exception.Lifted      (handle)
 
-import           Control.Monad                 (liftM)
+import           Control.Monad                 (liftM, void)
 import qualified Control.Monad.Trans.Writer    as Writer
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
@@ -159,7 +161,6 @@ import           Control.Monad.IO.Class        (MonadIO, liftIO)
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
 import Control.Monad.Trans.Class (lift)
-import Data.Conduit (Source, Sink, transPipe, Flush (Flush), yield, Producer)
 
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
@@ -183,7 +184,6 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
-import           Control.Monad.Trans.Resource  (MonadResource, InternalState, ResourceT, runResourceT, withInternalState, getInternalState, liftResourceT)
 import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef.Lifted             as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
@@ -195,12 +195,23 @@ import Control.Failure (failure)
 import Blaze.ByteString.Builder (Builder)
 import Safe (headMay)
 import Data.CaseInsensitive (CI)
+import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO
+#if MIN_VERSION_wai(2, 0, 0)
+#else
+              , ResourceT
+#endif
+              )
 #if MIN_VERSION_wai(2, 0, 0)
 import qualified System.PosixCompat.Files as PC
 #endif
 #if MIN_VERSION_wai(2, 1, 0)
-import Control.Monad.Trans.Control (MonadBaseControl, control)
+import Control.Monad.Trans.Control (control)
 #endif
+import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
+#if MIN_VERSION_wai(2, 1, 0)
+                    , Sink
+#endif
+                   )
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -385,6 +396,18 @@ handlerToIO =
                 }
         liftIO (f newHandlerData)
 
+-- | forkIO for a Handler (run an action in the background)
+--
+-- Uses 'handlerToIO', liftResourceT, and resourceForkIO
+-- for correctness and efficiency
+--
+-- Since 1.2.8
+forkHandler :: (SomeException -> HandlerT site IO ()) -- ^ error handler
+              -> HandlerT site IO ()
+              -> HandlerT site IO ()
+forkHandler onErr handler = do
+    yesRunner <- handlerToIO
+    void $ liftResourceT $ resourceForkIO $ yesRunner $ handle onErr handler
 
 -- | Redirect to the given route.
 -- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
