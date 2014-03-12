@@ -157,7 +157,7 @@ renderBootstrap3 formLayout aform fragment = do
             #{fragment}
             ^{formFailureWidget res}
             $forall view <- views
-              <div .form-group :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.error>
+              <div .form-group :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.has-error>
                 $case formLayout
                   $of BootstrapBasicForm
                     $if fvId view /= bootstrapSubmitId
@@ -188,7 +188,7 @@ formFailureWidget :: FormResult a -> WidgetT site IO ()
 formFailureWidget (FormFailure reasons) =
     [whamlet|
         $forall reason <- reasons
-            <div .alert .alert-error>#{reason}
+            <div .alert .alert-danger>#{reason}
     |]
 formFailureWidget _ = return ()
 
