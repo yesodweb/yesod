@@ -334,7 +334,9 @@ $forall view <- views
 |]
     return (res, widget)
 
--- | Render a form using Bootstrap-friendly shamlet syntax.
+-- | Render a form using Bootstrap v2-friendly shamlet syntax.
+-- If you're using Bootstrap v3, then you should use the
+-- functions from module "Yesod.Form.Bootstrap3".
 --
 -- Sample Hamlet:
 --
@@ -369,6 +371,7 @@ renderBootstrap aform fragment = do
                                 <span .help-block>#{err}
                 |]
     return (res, widget)
+{-# DEPRECATED renderBootstrap "Please use the Yesod.Form.Bootstrap3 module." #-}
 
 check :: (Monad m, RenderMessage (HandlerSite m) msg)
       => (a -> Either msg a)
