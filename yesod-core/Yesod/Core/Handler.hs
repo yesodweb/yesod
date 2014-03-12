@@ -155,12 +155,11 @@ import           Control.Monad                 (liftM)
 import qualified Control.Monad.Trans.Writer    as Writer
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
-import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT, InternalState)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
 import Control.Monad.Trans.Class (lift)
-import Data.Conduit (transPipe, Flush (Flush), yield, Producer)
+import Data.Conduit (Source, Sink, transPipe, Flush (Flush), yield, Producer)
 
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
@@ -173,10 +172,8 @@ import qualified Data.ByteString               as S
 import qualified Data.ByteString.Lazy          as L
 import qualified Data.Map                      as Map
 
-import Data.Conduit (Source, Sink)
 import           Control.Arrow                 ((***))
 import qualified Data.ByteString.Char8         as S8
-import           Data.Maybe                    (mapMaybe)
 import           Data.Monoid                   (Endo (..), mappend, mempty)
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
@@ -186,10 +183,10 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
-import           Control.Monad.Trans.Resource  (ResourceT, runResourceT, withInternalState, getInternalState, liftResourceT)
+import           Control.Monad.Trans.Resource  (MonadResource, InternalState, ResourceT, runResourceT, withInternalState, getInternalState, liftResourceT)
 import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef.Lifted             as I
-import           Data.Maybe                    (listToMaybe)
+import           Data.Maybe                    (listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable, typeOf)
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
