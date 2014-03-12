@@ -205,7 +205,7 @@ import           Control.Monad.Trans.Resource  (MonadResource, InternalState, ru
 import qualified System.PosixCompat.Files as PC
 #endif
 #if MIN_VERSION_wai(2, 1, 0)
-import Control.Monad.Trans.Control (control)
+import Control.Monad.Trans.Control (control, MonadBaseControl)
 #endif
 import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
 #if MIN_VERSION_wai(2, 1, 0)
