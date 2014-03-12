@@ -324,10 +324,7 @@ identifyForm identVal form = \fragment -> do
 
     -- Check if we got its value back.
     mp <- askParams
-    let missing =
-          case mp of
-            Just params -> Map.lookup identifyFormKey params /= Just [identVal]
-            Nothing     -> True
+    let missing = (mp >>= Map.lookup identifyFormKey) /= Just [identVal]
 
     -- Run the form proper (with our hidden <input>).  If the
     -- data is missing, then do not provide any params to the
