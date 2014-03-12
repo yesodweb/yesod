@@ -304,7 +304,7 @@ getHelper form env = do
 -- > ((barRes, barWidget), barEnctype) <- runFormPost $ identifyForm "bar" barForm
 --
 -- Note that it's your responsibility to ensure that the
--- identication strings are unique (using the same one twice on a
+-- identification strings are unique (using the same one twice on a
 -- single handler will not generate any errors).  This allows you
 -- to create a variable number of forms and still have them work
 -- even if their number or order change between the HTML
