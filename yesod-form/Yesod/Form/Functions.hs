@@ -24,6 +24,8 @@ module Yesod.Form.Functions
       -- * Generate a blank form
     , generateFormPost
     , generateFormGet
+      -- * More than one form on a handler
+    , identifyForm
       -- * Rendering
     , FormRender
     , renderTable
@@ -45,7 +47,7 @@ module Yesod.Form.Functions
 import Yesod.Form.Types
 import Data.Text (Text, pack)
 import Control.Arrow (second)
-import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
+import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local)
 import Control.Monad.Trans.Class
 import Control.Monad (liftM, join)
 import Crypto.Classes (constTimeEq)
@@ -284,6 +286,57 @@ getHelper form env = do
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env
+
+
+-- | Creates a hidden field on the form that identifies it.  This
+-- identification is then used to distinguish between /missing/
+-- and /wrong/ form data when a single handler contains more than
+-- one form.
+--
+-- For instance, if you have the following code on your handler:
+--
+-- > ((fooRes, fooWidget), fooEnctype) <- runFormPost fooForm
+-- > ((barRes, barWidget), barEnctype) <- runFormPost barForm
+--
+-- Then replace it with
+--
+-- > ((fooRes, fooWidget), fooEnctype) <- runFormPost $ identifyForm "foo" fooForm
+-- > ((barRes, barWidget), barEnctype) <- runFormPost $ identifyForm "bar" barForm
+--
+-- Note that it's your responsibility to ensure that the
+-- identification strings are unique (using the same one twice on a
+-- single handler will not generate any errors).  This allows you
+-- to create a variable number of forms and still have them work
+-- even if their number or order change between the HTML
+-- generation and the form submission.
+identifyForm
+  :: Monad m
+  => Text -- ^ Form identification string.
+  -> (Html -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ()))
+  -> (Html -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ()))
+identifyForm identVal form = \fragment -> do
+    -- Create hidden <input>.
+    let fragment' =
+          [shamlet|
+            <input type=hidden name=#{identifyFormKey} value=#{identVal}>
+            #{fragment}
+          |]
+
+    -- Check if we got its value back.
+    mp <- askParams
+    let missing = (mp >>= Map.lookup identifyFormKey) /= Just [identVal]
+
+    -- Run the form proper (with our hidden <input>).  If the
+    -- data is missing, then do not provide any params to the
+    -- form, which will turn its result into FormMissing.  Also,
+    -- doing this avoids having lots of fields with red errors.
+    let eraseParams | missing   = local (\(_, h, l) -> (Nothing, h, l))
+                    | otherwise = id
+    eraseParams (form fragment')
+
+identifyFormKey :: Text
+identifyFormKey = "_formid"
+
 
 type FormRender m a =
        AForm m a
