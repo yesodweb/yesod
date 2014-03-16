@@ -51,6 +51,7 @@ library
                    , resourcet
                    , safe
                    , time
+                   , bcrypt
 
     exposed-modules: Yesod.Auth
                      Yesod.Auth.BrowserId
