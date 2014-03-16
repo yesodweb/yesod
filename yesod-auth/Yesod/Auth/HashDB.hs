@@ -18,13 +18,8 @@
 -- Stability   :  Stable
 -- Portability :  Portable
 --
--- /WARNING/: This module was /not/ designed with security in mind, and is not
--- suitable for production sites. In the near future, it will likely be either
--- deprecated or rewritten to have a more secure implementation. For more
--- information, see: <https://github.com/yesodweb/yesod/issues/668>.
---
 -- A yesod-auth AuthPlugin designed to look users up in Persist where
--- their user id's and a salted SHA1 hash of their password is stored.
+-- their user id's and a Bcrypt hash + salt of their password is stored.
 --
 -- Example usage:
 --
@@ -57,14 +52,11 @@
 -- Note that function which converts username to unique identifier must be same.
 --
 -- Your app must be an instance of YesodPersist. and the username,
--- salt and hashed-passwords should be added to the database.
+-- salted-and-hashed-passwords should be added to the database.
 --
--- > echo -n 'MySaltMyPassword' | sha1sum
---
--- can be used to get the hash from the commandline.
 --
 -------------------------------------------------------------------------------
-module Yesod.Auth.HashDB
+module HashDB
     ( HashDBUser(..)
     , Unique (..)
     , setPassword
@@ -73,11 +65,11 @@ module Yesod.Auth.HashDB
     , authHashDB
     , getAuthIdHashDB
       -- * Predefined data type
-    , User
-    , UserGeneric (..)
-    , UserId
+    , Siteuser
+    , SiteuserGeneric (..)
+    , SiteuserId
     , EntityField (..)
-    , migrateUsers
+    , migrateSiteusers
     ) where
 
 import Yesod.Persist
@@ -90,47 +82,39 @@ import Control.Applicative         ((<$>), (<*>))
 import Control.Monad               (replicateM,liftM)
 import Data.Typeable
 
-import qualified Data.ByteString.Lazy.Char8 as BS (pack)
-import Data.Digest.Pure.SHA        (sha1, showDigest)
+import qualified Data.ByteString.Lazy.Char8 as LBS (pack, unpack)
+import qualified Data.ByteString.Char8 as BS (pack, unpack)
+import Crypto.BCrypt
 import Data.Text                   (Text, pack, unpack, append)
-import Data.Maybe                  (fromMaybe)
+import Data.Maybe                  
 import System.Random               (randomRIO)
+import Prelude
 -- | Interface for data type which holds user info. It's just a
 --   collection of getters and setters
-class HashDBUser user where
+class HashDBUser siteuser where
   -- | Retrieve password hash from user data
-  userPasswordHash :: user -> Maybe Text
-  -- | Retrieve salt for password
-  userPasswordSalt :: user -> Maybe Text
+  siteuserPasswordHash :: siteuser -> Maybe Text
 
-  -- | Deprecated for the better named setSaltAndPasswordHash 
-  setUserHashAndSalt :: Text    -- ^ Salt
-                     -> Text    -- ^ Password hash
-                     -> user -> user
-  setUserHashAndSalt = setSaltAndPasswordHash
 
   -- | a callback for setPassword
-  setSaltAndPasswordHash :: Text    -- ^ Salt
-                     -> Text    -- ^ Password hash
-                     -> user -> user
-  setSaltAndPasswordHash = setUserHashAndSalt
+  setSaltAndPasswordHash :: Text    -- ^ Hash and Salt
+                     -> siteuser -> siteuser
 
--- | Generate random salt. Length of 8 is chosen arbitrarily
-randomSalt :: MonadIO m => m Text
-randomSalt = pack `liftM` liftIO (replicateM 8 (randomRIO ('0','z')))
-
--- | Calculate salted hash using SHA1.
-saltedHash :: Text              -- ^ Salt
-           -> Text              -- ^ Password
-           -> Text
-saltedHash salt = 
-  pack . showDigest . sha1 . BS.pack . unpack . append salt
+-- | Calculate salted hash using Bcrypt.
+saltedHash :: Text              -- ^ Password
+           -> IO (Maybe Text)
+saltedHash password = do
+   hash <- (hashPasswordUsingPolicy (HashingPolicy 10 "$2y") . BS.pack . unpack) password
+   return $ if (isJust hash)
+                then Just $ pack $ BS.unpack $ fromJust hash
+                else Nothing
 
 -- | Set password for user. This function should be used for setting
 --   passwords. It generates random salt and calculates proper hashes.
-setPassword :: (MonadIO m, HashDBUser user) => Text -> user -> m user
-setPassword pwd u = do salt <- randomSalt
-                       return $ setSaltAndPasswordHash salt (saltedHash salt pwd) u
+setPassword :: (HashDBUser siteuser) => Text -> siteuser -> IO (siteuser)
+setPassword pwd u = do 
+    hash <- saltedHash pwd
+    return $ setSaltAndPasswordHash (fromJust hash) u
 
 
 ----------------------------------------------------------------
@@ -141,22 +125,21 @@ setPassword pwd u = do salt <- randomSalt
 --   the database values.
 validateUser :: ( YesodPersist yesod
                 , b ~ YesodPersistBackend yesod
-                , PersistMonadBackend (b (HandlerT yesod IO)) ~ PersistEntityBackend user
+                , PersistMonadBackend (b (HandlerT yesod IO)) ~ PersistEntityBackend siteuser
                 , PersistUnique (b (HandlerT yesod IO))
-                , PersistEntity user
-                , HashDBUser    user
+                , PersistEntity siteuser
+                , HashDBUser    siteuser
                 ) => 
-                Unique user     -- ^ User unique identifier
+                Unique siteuser     -- ^ User unique identifier
              -> Text            -- ^ Password in plaint-text
              -> HandlerT yesod IO Bool
-validateUser userID passwd = do
+validateUser siteuserID passwd = do
   -- Checks that hash and password match
-  let validate u = do hash <- userPasswordHash u
-                      salt <- userPasswordSalt u
-                      return $ hash == saltedHash salt passwd
+  let validate u = do hash <- siteuserPasswordHash u
+                      return $ validatePassword (BS.pack $ unpack hash) (BS.pack $ unpack passwd)
   -- Get user data
-  user <- runDB $ getBy userID
-  return $ fromMaybe False $ validate . entityVal =<< user
+  siteuser <- runDB $ getBy siteuserID
+  return $ fromMaybe False $ validate . entityVal =<< siteuser
 
 
 login :: AuthRoute
@@ -166,12 +149,12 @@ login = PluginR "hashdb" ["login"]
 -- | Handle the login form. First parameter is function which maps
 --   username (whatever it might be) to unique user ID.
 postLoginR :: ( YesodAuth y, YesodPersist y
-              , HashDBUser user, PersistEntity user
+              , HashDBUser siteuser, PersistEntity siteuser
               , b ~ YesodPersistBackend y
-              , PersistMonadBackend (b (HandlerT y IO)) ~ PersistEntityBackend user
+              , PersistMonadBackend (b (HandlerT y IO)) ~ PersistEntityBackend siteuser
               , PersistUnique (b (HandlerT y IO))
               )
-           => (Text -> Maybe (Unique user))
+           => (Text -> Maybe (Unique siteuser))
            -> HandlerT Auth (HandlerT y IO) ()
 postLoginR uniq = do
     (mu,mp) <- lift $ runInputPost $ (,)
@@ -190,14 +173,14 @@ postLoginR uniq = do
 -- | A drop in for the getAuthId method of your YesodAuth instance which
 --   can be used if authHashDB is the only plugin in use.
 getAuthIdHashDB :: ( YesodAuth master, YesodPersist master
-                   , HashDBUser user, PersistEntity user
-                   , Key user ~ AuthId master
+                   , HashDBUser siteuser, PersistEntity siteuser
+                   , Key siteuser ~ AuthId master
                    , b ~ YesodPersistBackend master
-                   , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend user
+                   , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend siteuser
                    , PersistUnique (b (HandlerT master IO))
                    )
                 => (AuthRoute -> Route master)   -- ^ your site's Auth Route
-                -> (Text -> Maybe (Unique user)) -- ^ gets user ID
+                -> (Text -> Maybe (Unique siteuser)) -- ^ gets user ID
                 -> Creds master                  -- ^ the creds argument
                 -> HandlerT master IO (Maybe (AuthId master))
 getAuthIdHashDB authR uniq creds = do
@@ -217,12 +200,12 @@ getAuthIdHashDB authR uniq creds = do
 -- | Prompt for username and password, validate that against a database
 --   which holds the username and a hash of the password
 authHashDB :: ( YesodAuth m, YesodPersist m
-              , HashDBUser user
-              , PersistEntity user
+              , HashDBUser siteuser
+              , PersistEntity siteuser
               , b ~ YesodPersistBackend m
-              , PersistMonadBackend (b (HandlerT m IO)) ~ PersistEntityBackend user
+              , PersistMonadBackend (b (HandlerT m IO)) ~ PersistEntityBackend siteuser
               , PersistUnique (b (HandlerT m IO)))
-           => (Text -> Maybe (Unique user)) -> AuthPlugin m
+           => (Text -> Maybe (Unique siteuser)) -> AuthPlugin m
 authHashDB uniq = AuthPlugin "hashdb" dispatch $ \tm -> toWidget [hamlet|
 $newline never
     <div id="header">
@@ -230,24 +213,14 @@ $newline never
 
     <div id="login">
         <form method="post" action="@{tm login}">
-            <table>
-                <tr>
-                    <th>Username:
-                    <td>
-                        <input id="x" name="username" autofocus="" required>
-                <tr>
-                    <th>Password:
-                    <td>
-                        <input type="password" name="password" required>
-                <tr>
-                    <td>&nbsp;
-                    <td>
-                        <input type="submit" value="Login">
+            <fieldset>
+                <label for="username">Username
+                <input type="text" name="username">
+                <label for="password">Password
+                <input type="password" name="password">
+                <br />
+                <input type="submit" value="Login">
 
-            <script>
-                if (!("autofocus" in document.createElement("input"))) {
-                    document.getElementById("x").focus();
-                }
 
 |]
     where
@@ -260,19 +233,16 @@ $newline never
 ----------------------------------------------------------------
 
 -- | Generate data base instances for a valid user
-share [mkPersist sqlSettings, mkMigrate "migrateUsers"]
-         [persistUpperCase|
-User
+share [mkPersist sqlSettings, mkMigrate "migrateSiteusers"]
+         [persistLowerCase|
+Siteuser
     username Text Eq
     password Text
-    salt     Text
-    UniqueUser username
+    email Text Maybe
+    UniqueSiteuser username
     deriving Typeable
 |]
 
-instance HashDBUser (UserGeneric backend) where
-  userPasswordHash = Just . userPassword
-  userPasswordSalt = Just . userSalt
-  setSaltAndPasswordHash s h u = u { userSalt     = s
-                               , userPassword = h
-                               }
+instance HashDBUser (SiteuserGeneric backend) where
+  siteuserPasswordHash = Just . siteuserPassword
+  setSaltAndPasswordHash h u = u { siteuserPassword = h }
