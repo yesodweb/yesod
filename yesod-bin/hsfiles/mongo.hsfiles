@@ -14,6 +14,7 @@ cabal-dev/
 yesod-devel/
 .cabal-sandbox
 cabal.sandbox.config
+.DS_Store
 
 {-# START_FILE Application.hs #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -419,11 +420,11 @@ library
                  , shakespeare-text              >= 1.0        && < 1.1
                  , hjsmin                        >= 0.1        && < 0.2
                  , monad-control                 >= 0.3        && < 0.4
-                 , wai-extra                     >= 2.0        && < 2.1
+                 , wai-extra                     >= 2.1        && < 2.2
                  , yaml                          >= 0.8        && < 0.9
                  , http-conduit                  >= 2.0        && < 2.1
                  , directory                     >= 1.1        && < 1.3
-                 , warp                          >= 2.0        && < 2.1
+                 , warp                          >= 2.1        && < 2.2
                  , data-default
                  , aeson                         >= 0.6        && < 0.8
                  , conduit                       >= 1.0        && < 2.0
@@ -807,7 +808,7 @@ web: ./dist/build/PROJECTNAME/PROJECTNAME production -p $PORT
 {-# LANGUAGE PackageImports #-}
 import "PROJECTNAME" Application (getApplicationDev)
 import Network.Wai.Handler.Warp
-    (runSettings, defaultSettings, settingsPort)
+    (runSettings, defaultSettings, setPort)
 import Control.Concurrent (forkIO)
 import System.Directory (doesFileExist, removeFile)
 import System.Exit (exitSuccess)
@@ -817,9 +818,7 @@ main :: IO ()
 main = do
     putStrLn "Starting devel application"
     (port, app) <- getApplicationDev
-    forkIO $ runSettings defaultSettings
-        { settingsPort = port
-        } app
+    forkIO $ runSettings (setPort port defaultSettings) app
     loop
 
 loop :: IO ()
