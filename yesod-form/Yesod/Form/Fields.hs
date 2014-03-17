@@ -334,7 +334,7 @@ searchField :: Monad m => RenderMessage (HandlerSite m) FormMessage => AutoFocus
 searchField autoFocus = Field
     { fieldParse = parseHelper Right
     , fieldView = \theId name attrs val isReq -> do
-        [whamlet|\
+        [whamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
