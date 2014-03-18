@@ -43,7 +43,7 @@ library
                  , cprng-aes == 0.5.2
                  , crypto-api == 0.13
                  , crypto-cipher-types == 0.0.9
-                 , crypto-conduit == 0.5.2.2
+                 , cryptohash-conduit == 0.1.0
                  , crypto-numbers == 0.2.3
                  , crypto-pubkey == 0.2.4
                  , crypto-pubkey-types == 0.4.1
