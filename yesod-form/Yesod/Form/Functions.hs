@@ -50,7 +50,7 @@ import Control.Arrow (second)
 import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local)
 import Control.Monad.Trans.Class
 import Control.Monad (liftM, join)
-import Crypto.Classes (constTimeEq)
+import Data.Byteable (constEqBytes)
 import Text.Blaze (Markup, toMarkup)
 #define Html Markup
 #define toHtml toMarkup
@@ -223,7 +223,7 @@ postHelper form env = do
                     | not (Map.lookup tokenKey params === reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
-            where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constTimeEq` TE.encodeUtf8 t2
+            where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constEqBytes` TE.encodeUtf8 t2
                   Nothing     === Nothing   = True   -- It's important to use constTimeEq
                   _           === _         = False  -- in order to avoid timing attacks.
     return ((res', xml), enctype)
