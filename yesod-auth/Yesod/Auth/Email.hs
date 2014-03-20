@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE Rank2Types #-}
 module Yesod.Auth.Email
     ( -- * Plugin
       authEmail
@@ -24,6 +25,10 @@ module Yesod.Auth.Email
      -- * Misc
     , loginLinkKey
     , setLoginLinkKey
+     -- * Default handlers
+    , defaultRegisterHandler
+    , defaultForgotPasswordHandler
+    , defaultSetPasswordHandler
     ) where
 
 import Network.Mail.Mime (randomString)
@@ -174,14 +179,48 @@ class (YesodAuth site, PathPiece (AuthEmailId site)) => YesodAuthEmail site wher
 
     -- | Additional normalization of email addresses, besides standard canonicalization.
     --
-    -- Default: do nothing. Note that in future versions of Yesod, the default
-    -- will change to lower casing the email address. At that point, you will
-    -- need to either ensure your database values are migrated to lower case,
-    -- or change this default back to doing nothing.
+    -- Default: Lower case the email address.
     --
     -- Since 1.2.3
     normalizeEmailAddress :: site -> Text -> Text
     normalizeEmailAddress _ = TS.toLower
+
+    -- | Handler called to render the registration page.  The
+    -- default works fine, but you may want to override it in
+    -- order to have a different DOM.
+    --
+    -- Default: 'defaultRegisterHandler'.
+    --
+    -- Since: 1.2.6.
+    registerHandler :: AuthHandler site Html
+    registerHandler = defaultRegisterHandler
+
+    -- | Handler called to render the \"forgot password\" page.
+    -- The default works fine, but you may want to override it in
+    -- order to have a different DOM.
+    --
+    -- Default: 'defaultForgotPasswordHandler'.
+    --
+    -- Since: 1.2.6.
+    forgotPasswordHandler :: AuthHandler site Html
+    forgotPasswordHandler = defaultForgotPasswordHandler
+
+    -- | Handler called to render the \"set password\" page.  The
+    -- default works fine, but you may want to override it in
+    -- order to have a different DOM.
+    --
+    -- Default: 'defaultSetPasswordHandler'.
+    --
+    -- Since: 1.2.6.
+    setPasswordHandler ::
+         Bool
+         -- ^ Whether the old password is needed.  If @True@, a
+         -- field for the old password should be presented.
+         -- Otherwise, just two fields for the new password are
+         -- needed.
+      -> AuthHandler site Html
+    setPasswordHandler = defaultSetPasswordHandler
+
 
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
@@ -218,7 +257,13 @@ $newline never
     dispatch _ _ = notFound
 
 getRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
-getRegisterR = do
+getRegisterR = registerHandler
+
+-- | Default implementation of 'registerHandler'.
+--
+-- Since: 1.2.6
+defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
+defaultRegisterHandler = do
     email <- newIdent
     tp <- getRouteToParent
     lift $ authLayout $ do
@@ -272,7 +317,13 @@ postRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Htm
 postRegisterR = registerHelper False registerR
 
 getForgotPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
-getForgotPasswordR = do
+getForgotPasswordR = forgotPasswordHandler
+
+-- | Default implementation of 'forgotPasswordHandler'.
+--
+-- Since: 1.2.6
+defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
+defaultForgotPasswordHandler = do
     tp <- getRouteToParent
     email <- newIdent
     lift $ authLayout $ do
@@ -350,14 +401,21 @@ postLoginR = do
 getPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 getPasswordR = do
     maid <- lift maybeAuthId
-    pass0 <- newIdent
-    pass1 <- newIdent
-    pass2 <- newIdent
     case maid of
         Just _ -> return ()
         Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
-    tp <- getRouteToParent
     needOld <- maybe (return True) (lift . needOldPassword) maid
+    setPasswordHandler needOld
+
+-- | Default implementation of 'setPasswordHandler'.
+--
+-- Since: 1.2.6
+defaultSetPasswordHandler :: YesodAuthEmail master => Bool -> AuthHandler master Html
+defaultSetPasswordHandler needOld = do
+    tp <- getRouteToParent
+    pass0 <- newIdent
+    pass1 <- newIdent
+    pass2 <- newIdent
     lift $ authLayout $ do
         setTitleI Msg.SetPassTitle
         [whamlet|
@@ -394,7 +452,7 @@ postPasswordR = do
             Just aid -> return aid
 
     tm <- getRouteToParent
-    
+
     needOld <- lift $ needOldPassword aid
     when needOld $ do
         current <- lift $ runInputPost $ ireq textField "current"
@@ -432,7 +490,7 @@ saltLength = 5
 -- | Salt a password with a randomly generated salt.
 saltPass :: Text -> IO Text
 saltPass = fmap (decodeUtf8With lenientDecode)
-         . flip PS.makePassword 12
+         . flip PS.makePassword 14
          . encodeUtf8
 
 saltPass' :: String -> String -> String

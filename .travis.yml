@@ -11,5 +11,3 @@ script:
     - mega-sdist --test
     - cabal install mega-sdist hspec cabal-meta cabal-src
     - cabal-meta install --force-reinstalls
-
-script: mega-sdist --test

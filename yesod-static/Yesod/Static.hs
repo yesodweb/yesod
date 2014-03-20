@@ -73,14 +73,14 @@ import Data.List (intercalate)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax as TH
 
-import Crypto.Conduit (hashFile, sinkHash)
-import Crypto.Hash.CryptoAPI (MD5)
+import Crypto.Hash.Conduit (hashFile, sinkHash)
+import Crypto.Hash (MD5, Digest)
 import Control.Monad.Trans.State
 
+import qualified Data.Byteable as Byteable
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
-import qualified Data.Serialize
 import Data.Text (Text, pack)
 import qualified Data.Text as T
 import qualified Data.Map as M
@@ -359,7 +359,7 @@ mkStaticFilesList fp fs routeConName makeHash = do
 
 base64md5File :: Prelude.FilePath -> IO String
 base64md5File = fmap (base64 . encode) . hashFile
-    where encode d = Data.Serialize.encode (d :: MD5)
+    where encode d = Byteable.toBytes (d :: Digest MD5)
 
 base64md5 :: L.ByteString -> String
 base64md5 lbs =
@@ -367,7 +367,7 @@ base64md5 lbs =
           $ runIdentity
           $ sourceList (L.toChunks lbs) $$ sinkHash
   where
-    encode d = Data.Serialize.encode (d :: MD5)
+    encode d = Byteable.toBytes (d :: Digest MD5)
 
 base64 :: S.ByteString -> String
 base64 = map tr

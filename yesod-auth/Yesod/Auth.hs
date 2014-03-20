@@ -111,7 +111,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     authPlugins :: master -> [AuthPlugin master]
 
     -- | What to show on the login page.
-    loginHandler :: AuthHandler master RepHtml
+    loginHandler :: AuthHandler master Html
     loginHandler = do
         tp <- getRouteToParent
         lift $ authLayout $ do
@@ -379,7 +379,7 @@ setUltDestReferer' = lift $ do
     master <- getYesod
     when (redirectToReferer master) setUltDestReferer
 
-getLoginR :: AuthHandler master RepHtml
+getLoginR :: AuthHandler master Html
 getLoginR = setUltDestReferer' >> loginHandler
 
 getLogoutR :: AuthHandler master ()

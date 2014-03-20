@@ -11,3 +11,4 @@
 ./yesod
 ./authenticate
 ./yesod-eventsource
+./yesod-websockets
