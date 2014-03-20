@@ -33,7 +33,6 @@ library
                    , html-conduit              >= 0.1
                    , blaze-html                >= 0.5
                    , blaze-markup              >= 0.5.1
-                   , pool-conduit
                    , monad-control
                    , time
                    , blaze-builder
