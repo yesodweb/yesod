@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.2.1
+version:            1.2.1.1
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -33,7 +33,6 @@ library
                    , html-conduit              >= 0.1
                    , blaze-html                >= 0.5
                    , blaze-markup              >= 0.5.1
-                   , pool-conduit
                    , monad-control
                    , time
                    , blaze-builder
