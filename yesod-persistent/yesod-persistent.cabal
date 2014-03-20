@@ -1,5 +1,5 @@
 name:            yesod-persistent
-version:         1.2.2.1
+version:         1.2.2.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -20,9 +20,8 @@ library
                    , transformers              >= 0.2.2    && < 0.4
                    , blaze-builder
                    , conduit
-                   , lifted-base
-                   , pool-conduit
-                   , resourcet
+                   , resourcet                 >= 0.4.5
+                   , resource-pool
     exposed-modules: Yesod.Persist
                      Yesod.Persist.Core
     ghc-options:     -Wall

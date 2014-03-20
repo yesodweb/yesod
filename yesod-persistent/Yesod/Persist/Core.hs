@@ -25,8 +25,7 @@ import Control.Monad.Trans.Reader (runReaderT)
 import Yesod.Core
 import Data.Conduit
 import Blaze.ByteString.Builder (Builder)
-import Data.IORef.Lifted
-import Data.Conduit.Pool
+import Data.Pool
 import Control.Monad.Trans.Resource
 import Control.Exception (throwIO)
 import Yesod.Core.Types (HandlerContents (HCError))
@@ -82,24 +81,23 @@ defaultGetDBRunner :: YesodPersistBackend site ~ SqlPersistT
                    => (site -> Pool SQL.Connection)
                    -> HandlerT site IO (DBRunner site, HandlerT site IO ())
 defaultGetDBRunner getPool = do
-    ididSucceed <- newIORef False
-
     pool <- fmap getPool getYesod
-    managedConn <- takeResource pool
-    let conn = mrValue managedConn
+    let withPrep conn f = f conn (SQL.connPrepare conn)
+    (relKey, (conn, local)) <- allocate
+        (do
+            (conn, local) <- takeResource pool
+            withPrep conn SQL.connBegin
+            return (conn, local)
+            )
+        (\(conn, local) -> do
+            withPrep conn SQL.connRollback
+            destroyResource pool local conn)
 
-    let withPrep f = f conn (SQL.connPrepare conn)
-    (finishTransaction, ()) <- allocate (withPrep SQL.connBegin) $ \() -> do
-        didSucceed <- readIORef ididSucceed
-        withPrep $ if didSucceed
-            then SQL.connCommit
-            else SQL.connRollback
-
-    let cleanup = do
-            writeIORef ididSucceed True
-            release finishTransaction
-            mrReuse managedConn True
-            mrRelease managedConn
+    let cleanup = liftIO $ do
+            withPrep conn SQL.connCommit
+            putResource local conn
+            _ <- unprotect relKey
+            return ()
 
     return (DBRunner $ \x -> runReaderT (unSqlPersistT x) conn, cleanup)
 
