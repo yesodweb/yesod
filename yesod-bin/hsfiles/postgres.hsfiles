@@ -14,6 +14,7 @@ cabal-dev/
 yesod-devel/
 .cabal-sandbox
 cabal.sandbox.config
+.DS_Store
 
 {-# START_FILE Application.hs #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -37,7 +38,8 @@ import qualified Database.Persist
 import Database.Persist.Sql (runMigration)
 import Network.HTTP.Conduit (newManager, conduitManagerSettings)
 import Control.Monad.Logger (runLoggingT)
-import System.Log.FastLogger (newLoggerSet, defaultBufSize)
+import Control.Concurrent (forkIO, threadDelay)
+import System.Log.FastLogger (newStdoutLoggerSet, defaultBufSize)
 import Network.Wai.Logger (clockDateCacher)
 import Data.Default (def)
 import Yesod.Core.Types (loggerSet, Logger (Logger))
@@ -55,7 +57,7 @@ mkYesodDispatch "App" resourcesApp
 -- performs initialization and creates a WAI application. This is also the
 -- place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-makeApplication :: AppConfig DefaultEnv Extra -> IO Application
+makeApplication :: AppConfig DefaultEnv Extra -> IO (Application, LogFunc)
 makeApplication conf = do
     foundation <- makeFoundation conf
 
@@ -70,7 +72,8 @@ makeApplication conf = do
 
     -- Create the WAI application and apply middlewares
     app <- toWaiAppPlain foundation
-    return $ logWare app
+    let logFunc = messageLoggerSource foundation (appLogger foundation)
+    return (logWare app, logFunc)
 
 -- | Loads up any necessary settings, creates your foundation datatype, and
 -- performs some initialization.
@@ -83,8 +86,18 @@ makeFoundation conf = do
               Database.Persist.applyEnv
     p <- Database.Persist.createPoolConfig (dbconf :: Settings.PersistConf)
 
-    loggerSet' <- newLoggerSet defaultBufSize Nothing
-    (getter, _) <- clockDateCacher
+    loggerSet' <- newStdoutLoggerSet defaultBufSize
+    (getter, updater) <- clockDateCacher
+
+    -- If the Yesod logger (as opposed to the request logger middleware) is
+    -- used less than once a second on average, you may prefer to omit this
+    -- thread and use "(updater >> getter)" in place of "getter" below.  That
+    -- would update the cache every time it is used, instead of every second.
+    let updateLoop = do
+            threadDelay 1000000
+            updater
+            updateLoop
+    _ <- forkIO updateLoop
 
     let logger = Yesod.Core.Types.Logger loggerSet' getter
         foundation = App conf s p manager dbconf logger
@@ -99,7 +112,7 @@ makeFoundation conf = do
 -- for yesod devel
 getApplicationDev :: IO (Int, Application)
 getApplicationDev =
-    defaultDevelApp loader makeApplication
+    defaultDevelApp loader (fmap fst . makeApplication)
   where
     loader = Yesod.Default.Config.loadConfig (configSettings Development)
         { csParseExtra = parseExtra
@@ -235,7 +248,10 @@ instance YesodAuth App where
         case x of
             Just (Entity uid _) -> return $ Just uid
             Nothing -> do
-                fmap Just $ insert $ User (credsIdent creds) Nothing
+                fmap Just $ insert User
+                    { userIdent = credsIdent creds
+                    , userPassword = Nothing
+                    }
 
     -- You can add other plugins like BrowserID, email or OAuth here
     authPlugins _ = [authBrowserId def, authGoogleEmail]
@@ -391,7 +407,7 @@ library
                 DeriveDataTypeable
 
     build-depends: base                          >= 4          && < 5
-                 , yesod                         >= 1.2        && < 1.3
+                 , yesod                         >= 1.2.5      && < 1.3
                  , yesod-core                    >= 1.2        && < 1.3
                  , yesod-auth                    >= 1.2        && < 1.3
                  , yesod-static                  >= 1.2        && < 1.3
@@ -408,16 +424,16 @@ library
                  , shakespeare-text              >= 1.0        && < 1.1
                  , hjsmin                        >= 0.1        && < 0.2
                  , monad-control                 >= 0.3        && < 0.4
-                 , wai-extra                     >= 2.0        && < 2.1
+                 , wai-extra                     >= 2.1        && < 2.2
                  , yaml                          >= 0.8        && < 0.9
                  , http-conduit                  >= 2.0        && < 2.1
                  , directory                     >= 1.1        && < 1.3
-                 , warp                          >= 2.0        && < 2.1
+                 , warp                          >= 2.1        && < 2.2
                  , data-default
                  , aeson                         >= 0.6        && < 0.8
                  , conduit                       >= 1.0        && < 2.0
                  , monad-logger                  >= 0.3        && < 0.4
-                 , fast-logger                   >= 2.1        && < 2.2
+                 , fast-logger                   >= 2.1.4      && < 2.2
                  , wai-logger                    >= 2.1        && < 2.2
 
 executable         PROJECTNAME
@@ -584,12 +600,12 @@ combineScripts = combineScripts' development combineSettings
 {-# START_FILE app/main.hs #-}
 import Prelude              (IO)
 import Yesod.Default.Config (fromArgs)
-import Yesod.Default.Main   (defaultMain)
+import Yesod.Default.Main   (defaultMainLog)
 import Settings             (parseExtra)
 import Application          (makeApplication)
 
 main :: IO ()
-main = defaultMain (fromArgs parseExtra) makeApplication
+main = defaultMainLog (fromArgs parseExtra) makeApplication
 
 {-# START_FILE BASE64 config/favicon.ico #-}
 AAABAAIAEBAAAAEAIABoBAAAJgAAABAQAgABAAEAsAAAAI4EAAAoAAAAEAAAACAAAAABACAAAAAA
@@ -796,7 +812,7 @@ web: ./dist/build/PROJECTNAME/PROJECTNAME production -p $PORT
 {-# LANGUAGE PackageImports #-}
 import "PROJECTNAME" Application (getApplicationDev)
 import Network.Wai.Handler.Warp
-    (runSettings, defaultSettings, settingsPort)
+    (runSettings, defaultSettings, setPort)
 import Control.Concurrent (forkIO)
 import System.Directory (doesFileExist, removeFile)
 import System.Exit (exitSuccess)
@@ -806,9 +822,7 @@ main :: IO ()
 main = do
     putStrLn "Starting devel application"
     (port, app) <- getApplicationDev
-    forkIO $ runSettings defaultSettings
-        { settingsPort = port
-        } app
+    forkIO $ runSettings (setPort port defaultSettings) app
     loop
 
 loop :: IO ()

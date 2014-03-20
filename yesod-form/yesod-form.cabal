@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.3.4.2
+version:         1.3.8
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -35,13 +35,14 @@ library
                    , blaze-html            >= 0.5
                    , blaze-markup          >= 0.5.1
                    , attoparsec            >= 0.10
-                   , crypto-api            >= 0.8
+                   , byteable
                    , aeson
                    , resourcet
 
     exposed-modules: Yesod.Form
                      Yesod.Form.Types
                      Yesod.Form.Functions
+                     Yesod.Form.Bootstrap3
                      Yesod.Form.Input
                      Yesod.Form.Fields
                      Yesod.Form.Jquery

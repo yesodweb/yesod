@@ -184,6 +184,7 @@ ttToType (TTList t) = ListT `AppT` ttToType t
 
 pieceFromString :: String -> Either String (CheckOverlap, Piece String)
 pieceFromString ('#':'!':x) = Right $ (False, Dynamic x)
+pieceFromString ('!':'#':x) = Right $ (False, Dynamic x) -- https://github.com/yesodweb/yesod/issues/652
 pieceFromString ('#':x) = Right $ (True, Dynamic x)
 pieceFromString ('*':x) = Left x
 pieceFromString ('+':x) = Left x

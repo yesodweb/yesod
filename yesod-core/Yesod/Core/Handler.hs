@@ -9,6 +9,7 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -74,6 +75,7 @@ module Yesod.Core.Handler
     , redirect
     , redirectWith
     , redirectToPost
+    , Fragment(..)
       -- ** Errors
     , notFound
     , badMethod
@@ -89,6 +91,9 @@ module Yesod.Core.Handler
     , sendResponseStatus
     , sendResponseCreated
     , sendWaiResponse
+#if MIN_VERSION_wai(2, 1, 0)
+    , sendRawResponse
+#endif
       -- * Different representations
       -- $representations
     , selectRep
@@ -134,6 +139,7 @@ module Yesod.Core.Handler
     , newIdent
       -- * Lifting
     , handlerToIO
+    , forkHandler
       -- * i18n
     , getMessageRender
       -- * Per-request caching
@@ -146,18 +152,17 @@ import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
 import           Control.Applicative           ((<$>), (<|>))
-import           Control.Exception             (evaluate)
+import           Control.Exception             (evaluate, SomeException)
+import           Control.Exception.Lifted      (handle)
 
-import           Control.Monad                 (liftM)
+import           Control.Monad                 (liftM, void)
 import qualified Control.Monad.Trans.Writer    as Writer
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
-import           Control.Monad.Trans.Resource  (MonadResource, liftResourceT, InternalState)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
 import Control.Monad.Trans.Class (lift)
-import Data.Conduit (transPipe, Flush (Flush), yield, Producer)
 
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
@@ -170,10 +175,8 @@ import qualified Data.ByteString               as S
 import qualified Data.ByteString.Lazy          as L
 import qualified Data.Map                      as Map
 
-import Data.Conduit (Source)
 import           Control.Arrow                 ((***))
 import qualified Data.ByteString.Char8         as S8
-import           Data.Maybe                    (mapMaybe)
 import           Data.Monoid                   (Endo (..), mappend, mempty)
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
@@ -183,11 +186,11 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
-import           Control.Monad.Trans.Resource  (ResourceT, runResourceT, withInternalState, getInternalState, liftResourceT)
 import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef.Lifted             as I
-import           Data.Maybe                    (listToMaybe)
+import           Data.Maybe                    (listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable, typeOf)
+import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
@@ -195,9 +198,23 @@ import Control.Failure (failure)
 import Blaze.ByteString.Builder (Builder)
 import Safe (headMay)
 import Data.CaseInsensitive (CI)
+import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO
+#if MIN_VERSION_wai(2, 0, 0)
+#else
+              , ResourceT
+#endif
+              )
 #if MIN_VERSION_wai(2, 0, 0)
 import qualified System.PosixCompat.Files as PC
 #endif
+#if MIN_VERSION_wai(2, 1, 0)
+import Control.Monad.Trans.Control (control, MonadBaseControl)
+#endif
+import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
+#if MIN_VERSION_wai(2, 1, 0)
+                    , Sink
+#endif
+                   )
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -382,6 +399,18 @@ handlerToIO =
                 }
         liftIO (f newHandlerData)
 
+-- | forkIO for a Handler (run an action in the background)
+--
+-- Uses 'handlerToIO', liftResourceT, and resourceForkIO
+-- for correctness and efficiency
+--
+-- Since 1.2.8
+forkHandler :: (SomeException -> HandlerT site IO ()) -- ^ error handler
+              -> HandlerT site IO ()
+              -> HandlerT site IO ()
+forkHandler onErr handler = do
+    yesRunner <- handlerToIO
+    void $ liftResourceT $ resourceForkIO $ yesRunner $ handle onErr handler
 
 -- | Redirect to the given route.
 -- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
@@ -547,6 +576,23 @@ sendResponseCreated url = do
 sendWaiResponse :: MonadHandler m => W.Response -> m b
 sendWaiResponse = handlerError . HCWai
 
+#if MIN_VERSION_wai(2, 1, 0)
+-- | Send a raw response. This is used for cases such as WebSockets. Requires
+-- WAI 2.1 or later, and a web server which supports raw responses (e.g.,
+-- Warp).
+--
+-- Since 1.2.7
+sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
+                => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
+                -> m a
+sendRawResponse raw = control $ \runInIO ->
+    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
+    $ \src sink -> runInIO (raw src sink) >> return ()
+  where
+    fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
+        "sendRawResponse: backend does not support raw responses"
+#endif
+
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: MonadHandler m => m a
 notFound = hcError NotFound
@@ -640,7 +686,12 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
 -- | Set the Expires header to some date in 2037. In other words, this content
 -- is never (realistically) expired.
 neverExpires :: MonadHandler m => m ()
-neverExpires = setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
+neverExpires = do
+    setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
+    cacheSeconds oneYear
+  where
+    oneYear :: Int
+    oneYear = 60 * 60 * 24 * 365
 
 -- | Set an Expires header in the past, meaning this content should not be
 -- cached.
@@ -709,6 +760,18 @@ instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, [(key, va
 
 instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, Map.Map key val) where
     toTextUrl (url, params) = toTextUrl (url, Map.toList params)
+
+-- | Add a fragment identifier to a route to be used when
+-- redirecting.  For example:
+--
+-- > redirect (NewsfeedR :#: storyId)
+--
+-- Since 1.2.9.
+data Fragment a b = a :#: b deriving (Show, Typeable)
+
+instance (RedirectUrl master a, PathPiece b) => RedirectUrl master (Fragment a b) where
+  toTextUrl (a :#: b) = (\ua -> T.concat [ua, "#", toPathPiece b]) <$> toTextUrl a
+
 
 -- | Lookup for session data.
 lookupSession :: MonadHandler m => Text -> m (Maybe Text)

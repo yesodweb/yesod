@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.2.4
+version:         1.2.5
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -46,6 +46,8 @@ library
                    , directory
                    , template-haskell
                    , bytestring
+                   , monad-logger
+                   , fast-logger
 
     exposed-modules: Yesod
                    , Yesod.Default.Config

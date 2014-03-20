@@ -24,6 +24,8 @@ module Yesod.Form.Functions
       -- * Generate a blank form
     , generateFormPost
     , generateFormGet
+      -- * More than one form on a handler
+    , identifyForm
       -- * Rendering
     , FormRender
     , renderTable
@@ -39,15 +41,16 @@ module Yesod.Form.Functions
       -- * Utilities
     , fieldSettingsLabel
     , parseHelper
+    , parseHelperGen
     ) where
 
 import Yesod.Form.Types
 import Data.Text (Text, pack)
 import Control.Arrow (second)
-import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
+import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local)
 import Control.Monad.Trans.Class
 import Control.Monad (liftM, join)
-import Crypto.Classes (constTimeEq)
+import Data.Byteable (constEqBytes)
 import Text.Blaze (Markup, toMarkup)
 #define Html Markup
 #define toHtml toMarkup
@@ -220,7 +223,7 @@ postHelper form env = do
                     | not (Map.lookup tokenKey params === reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
-            where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constTimeEq` TE.encodeUtf8 t2
+            where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constEqBytes` TE.encodeUtf8 t2
                   Nothing     === Nothing   = True   -- It's important to use constTimeEq
                   _           === _         = False  -- in order to avoid timing attacks.
     return ((res', xml), enctype)
@@ -284,6 +287,57 @@ getHelper form env = do
     m <- getYesod
     runFormGeneric (form fragment) m langs env
 
+
+-- | Creates a hidden field on the form that identifies it.  This
+-- identification is then used to distinguish between /missing/
+-- and /wrong/ form data when a single handler contains more than
+-- one form.
+--
+-- For instance, if you have the following code on your handler:
+--
+-- > ((fooRes, fooWidget), fooEnctype) <- runFormPost fooForm
+-- > ((barRes, barWidget), barEnctype) <- runFormPost barForm
+--
+-- Then replace it with
+--
+-- > ((fooRes, fooWidget), fooEnctype) <- runFormPost $ identifyForm "foo" fooForm
+-- > ((barRes, barWidget), barEnctype) <- runFormPost $ identifyForm "bar" barForm
+--
+-- Note that it's your responsibility to ensure that the
+-- identification strings are unique (using the same one twice on a
+-- single handler will not generate any errors).  This allows you
+-- to create a variable number of forms and still have them work
+-- even if their number or order change between the HTML
+-- generation and the form submission.
+identifyForm
+  :: Monad m
+  => Text -- ^ Form identification string.
+  -> (Html -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ()))
+  -> (Html -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ()))
+identifyForm identVal form = \fragment -> do
+    -- Create hidden <input>.
+    let fragment' =
+          [shamlet|
+            <input type=hidden name=#{identifyFormKey} value=#{identVal}>
+            #{fragment}
+          |]
+
+    -- Check if we got its value back.
+    mp <- askParams
+    let missing = (mp >>= Map.lookup identifyFormKey) /= Just [identVal]
+
+    -- Run the form proper (with our hidden <input>).  If the
+    -- data is missing, then do not provide any params to the
+    -- form, which will turn its result into FormMissing.  Also,
+    -- doing this avoids having lots of fields with red errors.
+    let eraseParams | missing   = local (\(_, h, l) -> (Nothing, h, l))
+                    | otherwise = id
+    eraseParams (form fragment')
+
+identifyFormKey :: Text
+identifyFormKey = "_formid"
+
+
 type FormRender m a =
        AForm m a
     -> Html
@@ -333,7 +387,9 @@ $forall view <- views
 |]
     return (res, widget)
 
--- | Render a form using Bootstrap-friendly shamlet syntax.
+-- | Render a form using Bootstrap v2-friendly shamlet syntax.
+-- If you're using Bootstrap v3, then you should use the
+-- functions from module "Yesod.Form.Bootstrap3".
 --
 -- Sample Hamlet:
 --
@@ -368,6 +424,7 @@ renderBootstrap aform fragment = do
                                 <span .help-block>#{err}
                 |]
     return (res, widget)
+{-# DEPRECATED renderBootstrap "Please use the Yesod.Form.Bootstrap3 module." #-}
 
 check :: (Monad m, RenderMessage (HandlerSite m) msg)
       => (a -> Either msg a)
@@ -428,6 +485,15 @@ fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing
 parseHelper :: (Monad m, RenderMessage site FormMessage)
             => (Text -> Either FormMessage a)
             -> [Text] -> [FileInfo] -> m (Either (SomeMessage site) (Maybe a))
-parseHelper _ [] _ = return $ Right Nothing
-parseHelper _ ("":_) _ = return $ Right Nothing
-parseHelper f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x
+parseHelper = parseHelperGen
+
+-- | A generalized version of 'parseHelper', allowing any type for the message
+-- indicating a bad parse.
+--
+-- Since 1.3.6
+parseHelperGen :: (Monad m, RenderMessage site msg)
+               => (Text -> Either msg a)
+               -> [Text] -> [FileInfo] -> m (Either (SomeMessage site) (Maybe a))
+parseHelperGen _ [] _ = return $ Right Nothing
+parseHelperGen _ ("":_) _ = return $ Right Nothing
+parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x

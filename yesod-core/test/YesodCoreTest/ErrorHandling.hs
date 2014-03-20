@@ -13,6 +13,8 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try)
 import Network.HTTP.Types (mkStatus)
+import Blaze.ByteString.Builder (Builder, fromByteString, toLazyByteString)
+import Data.Monoid (mconcat)
 
 data App = App
 
@@ -24,6 +26,13 @@ mkYesod "App" [parseRoutes|
 /error-in-body ErrorInBodyR GET
 /error-in-body-noeval ErrorInBodyNoEvalR GET
 /override-status OverrideStatusR GET
+
+-- https://github.com/yesodweb/yesod/issues/658
+/builder BuilderR GET
+/file-bad-len FileBadLenR GET
+/file-bad-name FileBadNameR GET
+
+/good-builder GoodBuilderR GET
 |]
 
 overrideStatus = mkStatus 15 "OVERRIDE"
@@ -74,6 +83,21 @@ getErrorInBodyNoEvalR = fmap DontFullyEvaluate getErrorInBodyR
 getOverrideStatusR :: Handler ()
 getOverrideStatusR = invalidArgs ["OVERRIDE"]
 
+getBuilderR :: Handler TypedContent
+getBuilderR = return $ TypedContent "ignored" $ ContentBuilder (error "builder-3.14159") Nothing
+
+getFileBadLenR :: Handler TypedContent
+getFileBadLenR = return $ TypedContent "ignored" $ ContentFile "yesod-core.cabal" (error "filebadlen")
+
+getFileBadNameR :: Handler TypedContent
+getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
+
+goodBuilderContent :: Builder
+goodBuilderContent = mconcat $ replicate 100 $ fromByteString "This is a test\n"
+
+getGoodBuilderR :: Handler TypedContent
+getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent
+
 errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "says not found" caseNotFound
@@ -82,6 +106,10 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "error in body == 500" caseErrorInBody
       it "error in body, no eval == 200" caseErrorInBodyNoEval
       it "can override status code" caseOverrideStatus
+      it "builder" caseBuilder
+      it "file with bad len" caseFileBadLen
+      it "file with bad name" caseFileBadName
+      it "builder includes content-length" caseGoodBuilder
 
 runner :: Session () -> IO ()
 runner f = toWaiApp App >>= runSession f
@@ -140,3 +168,29 @@ caseOverrideStatus :: IO ()
 caseOverrideStatus = runner $ do
     res <- request defaultRequest { pathInfo = ["override-status"] }
     assertStatus 15 res
+
+caseBuilder :: IO ()
+caseBuilder = runner $ do
+    res <- request defaultRequest { pathInfo = ["builder"] }
+    assertStatus 500 res
+    assertBodyContains "builder-3.14159" res
+
+caseFileBadLen :: IO ()
+caseFileBadLen = runner $ do
+    res <- request defaultRequest { pathInfo = ["file-bad-len"] }
+    assertStatus 500 res
+    assertBodyContains "filebadlen" res
+
+caseFileBadName :: IO ()
+caseFileBadName = runner $ do
+    res <- request defaultRequest { pathInfo = ["file-bad-name"] }
+    assertStatus 500 res
+    assertBodyContains "filebadname" res
+
+caseGoodBuilder :: IO ()
+caseGoodBuilder = runner $ do
+    res <- request defaultRequest { pathInfo = ["good-builder"] }
+    assertStatus 200 res
+    let lbs = toLazyByteString goodBuilderContent
+    assertBody lbs res
+    assertHeader "content-length" (S8.pack $ show $ L.length lbs) res

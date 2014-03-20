@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.2.6.4
+version:         1.2.9
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -122,8 +122,25 @@ test-suite tests
                   , containers
                   , lifted-base
                   , resourcet
+                  , network-conduit
+                  , network
+                  , async
     ghc-options:     -Wall
     extensions: TemplateHaskell
+
+benchmark widgets
+    type: exitcode-stdio-1.0
+    hs-source-dirs: bench
+    build-depends:  base
+                  , criterion
+                  , bytestring
+                  , text
+                  , hamlet
+                  , transformers
+                  , yesod-core
+                  , blaze-html
+    main-is:        widget.hs
+    ghc-options:    -Wall -O2
 
 source-repository head
   type:     git

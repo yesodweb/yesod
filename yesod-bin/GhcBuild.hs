@@ -42,7 +42,11 @@ import           MonadUtils         (liftIO)
 import           Panic              (throwGhcException, panic)
 import           SrcLoc             (Located, mkGeneralLocated)
 import qualified StaticFlags
+#if __GLASGOW_HASKELL__ >= 707
+import           DynFlags           (ldInputs)
+#else
 import           StaticFlags        (v_Ld_inputs)
+#endif
 import           System.FilePath    (normalise, (</>))
 import           Util               (consIORef, looksLikeModuleName)
 
@@ -162,7 +166,15 @@ buildPackage' argv2 ld ar = do
     o_files <- mapM (\x -> compileFile hsc_env StopLn x)
 #endif
                  non_hs_srcs
+#if __GLASGOW_HASKELL__ >= 707
+    let dflags4 = dflags3
+            { ldInputs = map (DF.FileOption "") (reverse o_files)
+                      ++ ldInputs dflags3
+            }
+    GHC.setSessionDynFlags dflags4
+#else
     liftIO $ mapM_ (consIORef v_Ld_inputs) (reverse o_files)
+#endif
     targets <- mapM (uncurry GHC.guessTarget) hs_srcs
     GHC.setTargets targets
     ok_flag <- GHC.load GHC.LoadAllTargets

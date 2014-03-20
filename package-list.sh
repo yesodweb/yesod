@@ -3,7 +3,7 @@
 pkgs=(      ./yesod-routes
             ./yesod-core
             ./yesod-json
-            ./crypto-conduit
+            ./cryptohash-conduit
             ./authenticate/authenticate
             ./yesod-static
             ./yesod-persistent

@@ -516,7 +516,7 @@ defaultErrorHandler (BadMethod m) = selectRep $ do
             <h1>Method Not Supported
             <p>Method <code>#{S8.unpack m}</code> not supported
         |]
-    provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= m]
+    provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
 
 asyncHelper :: (url -> [x] -> Text)
          -> [Script (url)]

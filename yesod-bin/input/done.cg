@@ -24,4 +24,4 @@ Take part in the community: http://yesodweb.com/page/community
 
 Start your project:
 
-   cd PROJECTNAME && cabal sandbox init && cabal install && yesod devel
+   cd PROJECTNAME && cabal sandbox init && cabal install --enable-tests . yesod-platform yesod-bin --max-backjumps=-1 --reorder-goals && yesod devel

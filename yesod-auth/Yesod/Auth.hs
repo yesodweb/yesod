@@ -96,6 +96,10 @@ data Creds master = Creds
 class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage) => YesodAuth master where
     type AuthId master
 
+    -- | specify the layout. Uses defaultLayout by default
+    authLayout :: WidgetT master IO () -> HandlerT master IO Html
+    authLayout = defaultLayout
+
     -- | Default destination on successful login, if no other
     -- destination exists.
     loginDest :: master -> Route master
@@ -114,7 +118,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     loginHandler :: AuthHandler master Html
     loginHandler = do
         tp <- getRouteToParent
-        lift $ defaultLayout $ do
+        lift $ authLayout $ do
             setTitleI Msg.LoginTitle
             master <- getYesod
             mapM_ (flip apLogin tp) (authPlugins master)
@@ -273,7 +277,7 @@ setCredsRedirect creds = do
         Nothing ->
             case authRoute y of
                 Nothing -> do
-                    messageJson401 "Invalid Login" $ defaultLayout $
+                    messageJson401 "Invalid Login" $ authLayout $
                         toWidget [shamlet|<h1>Invalid login|]
                 Just ar -> loginErrorMessageMasterI ar Msg.InvalidLogin
         Just aid -> do
@@ -298,6 +302,15 @@ setCreds doRedirects creds =
                   Nothing -> return ()
                   Just aid -> setSession credsKey $ toPathPiece aid
 
+-- | same as defaultLayoutJson, but uses authLayout
+authLayoutJson :: (YesodAuth site, ToJSON j)
+                  => WidgetT site IO ()  -- ^ HTML
+                  -> HandlerT site IO j  -- ^ JSON
+                  -> HandlerT site IO TypedContent
+authLayoutJson w json = selectRep $ do
+    provideRep $ authLayout w
+    provideRep $ fmap toJSON json
+
 -- | Clears current user credentials for the session.
 --
 -- Since 1.1.7
@@ -314,7 +327,7 @@ clearCreds doRedirects = do
 getCheckR :: AuthHandler master TypedContent
 getCheckR = lift $ do
     creds <- maybeAuthId
-    defaultLayoutJson (do
+    authLayoutJson (do
         setTitle "Authentication Status"
         toWidget $ html' creds) (return $ jsonCreds creds)
   where

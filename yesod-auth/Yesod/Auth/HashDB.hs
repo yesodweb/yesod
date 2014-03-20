@@ -18,6 +18,11 @@
 -- Stability   :  Stable
 -- Portability :  Portable
 --
+-- /WARNING/: This module was /not/ designed with security in mind, and is not
+-- suitable for production sites. In the near future, it will likely be either
+-- deprecated or rewritten to have a more secure implementation. For more
+-- information, see: <https://github.com/yesodweb/yesod/issues/668>.
+--
 -- A yesod-auth AuthPlugin designed to look users up in Persist where
 -- their user id's and a salted SHA1 hash of their password is stored.
 --
