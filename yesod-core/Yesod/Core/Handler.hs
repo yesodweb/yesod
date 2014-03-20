@@ -9,6 +9,7 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -74,6 +75,7 @@ module Yesod.Core.Handler
     , redirect
     , redirectWith
     , redirectToPost
+    , Fragment(..)
       -- ** Errors
     , notFound
     , badMethod
@@ -188,6 +190,7 @@ import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef.Lifted             as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable, typeOf)
+import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
@@ -757,6 +760,18 @@ instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, [(key, va
 
 instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, Map.Map key val) where
     toTextUrl (url, params) = toTextUrl (url, Map.toList params)
+
+-- | Add a fragment identifier to a route to be used when
+-- redirecting.  For example:
+--
+-- > redirect (NewsfeedR :#: storyId)
+--
+-- Since 1.2.9.
+data Fragment a b = a :#: b deriving (Show, Typeable)
+
+instance (RedirectUrl master a, PathPiece b) => RedirectUrl master (Fragment a b) where
+  toTextUrl (a :#: b) = (\ua -> T.concat [ua, "#", toPathPiece b]) <$> toTextUrl a
+
 
 -- | Lookup for session data.
 lookupSession :: MonadHandler m => Text -> m (Maybe Text)

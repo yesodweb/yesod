@@ -23,7 +23,8 @@ mkYesod "HelloForms" [parseRoutes|
 /file FileR GET POST
 |]
 
-myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,,)
+myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,,,)
+    <*> pure "pure works!"
     <*> areq boolField "Bool field" Nothing
     <*> aopt boolField "Opt bool field" Nothing
     <*> areq textField "Text field" Nothing
