@@ -85,7 +85,7 @@ $newline never
         completeHelper idType posts
     dispatch _ _ = notFound
 
-completeHelper :: IdentifierType -> [(Text, Text)] -> AuthHandler master ()
+completeHelper :: IdentifierType -> [(Text, Text)] -> AuthHandler master TypedContent
 completeHelper idType gets' = do
     master <- lift getYesod
     eres <- try $ OpenId.authenticateClaimed gets' (authHttpManager master)
@@ -108,7 +108,7 @@ completeHelper idType gets' = do
                         case idType of
                             OPLocal -> OpenId.oirOpLocal oir
                             Claimed -> fromMaybe (OpenId.oirOpLocal oir) $ OpenId.oirClaimed oir
-            lift $ setCreds True $ Creds "openid" i gets''
+            lift $ setCredsRedirect $ Creds "openid" i gets''
 
 -- | The main identifier provided by the OpenID authentication plugin is the
 -- \"OP-local identifier\". There is also sometimes a \"claimed\" identifier
