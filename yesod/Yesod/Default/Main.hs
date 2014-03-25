@@ -14,6 +14,7 @@ import Yesod.Default.Config
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
     (runSettings, defaultSettings, settingsPort, settingsHost, settingsOnException)
+import qualified Network.Wai.Handler.Warp as Warp
 import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 import Network.Wai.Middleware.Gzip (gzip, GzipFiles (GzipCacheFolder), gzipFiles, def)
 import Network.Wai.Middleware.Autohead (autohead)
@@ -68,12 +69,19 @@ defaultMainLog load getApp = do
     runSettings defaultSettings
         { settingsPort = appPort config
         , settingsHost = appHost config
-        , settingsOnException = const $ \e -> logFunc
+        , settingsOnException = const $ \e -> when (shouldLog' e) $ logFunc
             $(qLocation >>= liftLoc)
             "yesod"
             LevelError
             (toLogStr $ "Exception from Warp: " ++ show e)
         } app
+  where
+    shouldLog' =
+#if MIN_VERSION_wai(2,1,3)
+        Warp.defaultShouldDisplayException
+#else
+        const True
+#endif
 
 -- | Run your application continously, listening for SIGINT and exiting
 --   when received
