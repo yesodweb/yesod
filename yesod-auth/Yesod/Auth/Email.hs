@@ -34,10 +34,13 @@ module Yesod.Auth.Email
 import Network.Mail.Mime (randomString)
 import Yesod.Auth
 import System.Random
-import Data.Digest.Pure.MD5
 import qualified Data.Text as TS
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy.Encoding as TLE
+import qualified Crypto.Hash.MD5 as H
+import Data.ByteString.Base16 as B16
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.Text (Text)
@@ -526,7 +529,8 @@ saltPass = fmap (decodeUtf8With lenientDecode)
          . encodeUtf8
 
 saltPass' :: String -> String -> String
-saltPass' salt pass = salt ++ show (md5 $ TLE.encodeUtf8 $ TL.pack $ salt ++ pass)
+saltPass' salt pass =
+    salt ++ T.unpack (TE.decodeUtf8 $ B16.encode $ H.hash $ TE.encodeUtf8 $ T.pack $ salt ++ pass)
 
 isValidPass :: Text -- ^ cleartext password
             -> SaltedPass -- ^ salted password
