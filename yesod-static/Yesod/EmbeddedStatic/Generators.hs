@@ -30,13 +30,12 @@ module Yesod.EmbeddedStatic.Generators (
   -- $example
 ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<*>))
 import Control.Exception (try, SomeException)
 import Control.Monad (forM, when)
 import Control.Monad.Trans.Resource (runResourceT)
 import Data.Char (isDigit, isLower)
-import Data.Conduit (($$), (=$))
-import Data.Conduit.Process (proc, conduitProcess)
+import Data.Conduit (($$))
 import Data.Default (def)
 import Data.Maybe (isNothing)
 import Language.Haskell.TH
@@ -46,7 +45,12 @@ import System.FilePath ((</>))
 import Text.Jasmine (minifym)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Conduit.List as C
+import Data.Conduit.Binary (sourceHandle)
 import qualified Data.Text as T
+import qualified System.Process as Proc
+import System.Exit (ExitCode (ExitSuccess))
+import Control.Concurrent.Async (Concurrently (..))
+import System.IO (hClose)
 
 import Yesod.EmbeddedStatic.Types
 
@@ -197,12 +201,20 @@ compressTool f opts ct = do
     mpath <- findExecutable f
     when (isNothing mpath) $
         fail $ "Unable to find " ++ f
-    let src = C.sourceList $ BL.toChunks ct
-        p = proc f opts
-        sink = C.consume
-    compressed <- runResourceT (src $$ conduitProcess p =$ sink)
-    putStrLn $ "Compressed successfully with " ++ f
-    return $ BL.fromChunks compressed
+    let p = (Proc.proc f opts)
+                { Proc.std_in = Proc.CreatePipe
+                , Proc.std_out = Proc.CreatePipe
+                }
+    (Just hin, Just hout, _, ph) <- Proc.createProcess p
+    (compressed, (), code) <- runConcurrently $ (,,)
+        <$> Concurrently (sourceHandle hout $$ C.consume)
+        <*> Concurrently (BL.hPut hin ct >> hClose hin)
+        <*> Concurrently (Proc.waitForProcess ph)
+    if code == ExitSuccess
+        then do
+            putStrLn $ "Compressed successfully with " ++ f
+            return $ BL.fromChunks compressed
+        else error $ "compressTool: compression failed with " ++ f
 
 
 -- | Try a list of processing functions (like the compressions above) one by one until
