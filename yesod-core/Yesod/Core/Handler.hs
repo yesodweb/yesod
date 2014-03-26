@@ -194,7 +194,7 @@ import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
-import Control.Failure (failure)
+import Control.Exception (throwIO)
 import Blaze.ByteString.Builder (Builder)
 import Safe (headMay)
 import Data.CaseInsensitive (CI)
@@ -229,7 +229,7 @@ tell :: MonadHandler m => Endo [Header] -> m ()
 tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
 
 handlerError :: MonadHandler m => HandlerContents -> m a
-handlerError = liftHandlerT . failure
+handlerError = liftIO . throwIO
 
 hcError :: MonadHandler m => ErrorResponse -> m a
 hcError = handlerError . HCError

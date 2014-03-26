@@ -43,7 +43,6 @@ library
                    , random                >= 1.0.0.2  && < 1.1
                    , cereal                >= 0.3
                    , old-locale            >= 1.0.0.2  && < 1.1
-                   , failure               >= 0.2      && < 0.3
                    , containers            >= 0.2
                    , monad-control         >= 0.3      && < 0.4
                    , transformers-base     >= 0.4
