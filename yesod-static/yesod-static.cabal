@@ -41,6 +41,7 @@ library
                    , http-types            >= 0.7
                    , unix-compat           >= 0.2
                    , conduit               >= 0.5
+                   , conduit-extra
                    , cryptohash-conduit    >= 0.1
                    , cryptohash            >= 0.11
                    , system-filepath       >= 0.4.6    && < 0.5
@@ -101,12 +102,12 @@ test-suite tests
                    , shakespeare-css
                    , mime-types
                    , hjsmin
-                   , process-conduit
                    , filepath
                    , resourcet
                    , unordered-containers
                    , async
                    , process
+                   , conduit-extra
 
     ghc-options:     -Wall -threaded
     extensions: TemplateHaskell

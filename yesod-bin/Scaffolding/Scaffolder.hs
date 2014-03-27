@@ -4,7 +4,8 @@ module Scaffolding.Scaffolder (scaffold) where
 
 import           Control.Arrow         ((&&&))
 import qualified Data.ByteString.Char8 as S
-import           Data.Conduit          (runResourceT, yield, ($$), ($$+-))
+import           Data.Conduit          (yield, ($$), ($$+-))
+import Control.Monad.Trans.Resource (runResourceT)
 import           Data.FileEmbed        (embedFile)
 import           Data.String           (fromString)
 import qualified Data.Text             as T

@@ -64,8 +64,7 @@ import           GhcBuild                              (buildPackage,
                                                         getBuildFlags, getPackageArgs)
 
 import qualified Config                                as GHC
-import           Data.Conduit.Network                  (HostPreference (HostIPv4),
-                                                        bindPort)
+import           Data.Streaming.Network                (bindPortTCP)
 import           Network                               (withSocketsDo)
 #if MIN_VERSION_http_conduit(2, 0, 0)
 import           Network.HTTP.Conduit                  (conduitManagerSettings, newManager)
@@ -171,7 +170,7 @@ reverseProxy opts iappPort = do
 
 checkPort :: Int -> IO Bool
 checkPort p = do
-    es <- Ex.try $ bindPort p HostIPv4
+    es <- Ex.try $ bindPortTCP p "*4"
     case es of
         Left (_ :: Ex.IOException) -> return False
         Right s -> do

@@ -20,12 +20,13 @@ import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
 import           Control.Monad.Trans.Control        (MonadBaseControl (..))
-import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState)
+import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), monadThrow, ResourceT)
+#if !MIN_VERSION_resourcet(1,1,0)
+import           Control.Monad.Trans.Resource       (MonadUnsafeIO (..))
+#endif
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
-import           Data.Conduit                       (Flush, MonadThrow (..),
-                                                     MonadUnsafeIO (..),
-                                                     ResourceT, Source)
+import           Data.Conduit                       (Flush, Source)
 import           Data.Dynamic                       (Dynamic)
 import           Data.IORef                         (IORef)
 import           Data.Map                           (Map, unionWith)
@@ -394,8 +395,17 @@ instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
 instance MonadTrans (WidgetT site) where
     lift = WidgetT . const . liftM (, mempty)
 instance MonadThrow m => MonadThrow (WidgetT site m) where
+#if MIN_VERSION_resourcet(1,1,0)
+    throwM = lift . throwM
+#else
     monadThrow = lift . monadThrow
+#endif
+
+#if MIN_VERSION_resourcet(1,1,0)
+instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
+#else
 instance (Applicative m, MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (WidgetT site m) where
+#endif
     liftResourceT f = WidgetT $ \hd -> liftIO $ fmap (, mempty) $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (WidgetT site m) where
@@ -434,8 +444,17 @@ instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
     restoreM (StH base) = HandlerT $ const $ restoreM base
 
 instance MonadThrow m => MonadThrow (HandlerT site m) where
+#if MIN_VERSION_resourcet(1,1,0)
+    throwM = lift . monadThrow
+#else
     monadThrow = lift . monadThrow
+#endif
+
+#if MIN_VERSION_resourcet(1,1,0)
+instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (HandlerT site m) where
+#else
 instance (MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (HandlerT site m) where
+#endif
     liftResourceT f = HandlerT $ \hd -> liftIO $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (HandlerT site m) where

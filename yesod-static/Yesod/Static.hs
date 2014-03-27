@@ -66,6 +66,7 @@ import System.Directory
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
+import Control.Monad.Trans.Resource (runResourceT)
 import Yesod.Core
 import Yesod.Core.Types
 

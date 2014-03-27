@@ -60,7 +60,8 @@ import Data.Monoid (mempty)
 
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
-import Data.Conduit (Source, ResourceT, Flush (Chunk), ResumableSource, mapOutput)
+import Data.Conduit (Source, Flush (Chunk), ResumableSource, mapOutput)
+import Control.Monad.Trans.Resource (ResourceT)
 import Data.Conduit.Internal (ResumableSource (ResumableSource))
 
 import qualified Data.Aeson as J

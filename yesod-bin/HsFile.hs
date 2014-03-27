@@ -2,7 +2,8 @@
 module HsFile (mkHsFile) where
 import Text.ProjectTemplate (createTemplate)
 import Data.Conduit 
-    ( ($$), (=$), runResourceT, ResourceT, ConduitM, awaitForever, yield, Source )
+    ( ($$), (=$), ConduitM, awaitForever, yield, Source )
+import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import qualified Data.Conduit.List as CL
 import Prelude hiding (FilePath)
 import Filesystem.Path ( FilePath )
