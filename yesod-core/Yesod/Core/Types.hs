@@ -61,6 +61,7 @@ import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
+import           Control.Monad.Reader               (MonadReader (..))
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -386,11 +387,18 @@ instance MonadBase b m => MonadBase b (WidgetT site m) where
     liftBase = WidgetT . const . liftBase . fmap (, mempty)
 instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
     data StM (WidgetT site m) a = StW (StM m (a, GWData (Route site)))
-    liftBaseWith f = WidgetT $ \reader ->
+    liftBaseWith f = WidgetT $ \reader' ->
         liftBaseWith $ \runInBase ->
             liftM (\x -> (x, mempty))
-            (f $ liftM StW . runInBase . flip unWidgetT reader)
+            (f $ liftM StW . runInBase . flip unWidgetT reader')
     restoreM (StW base) = WidgetT $ const $ restoreM base
+instance Monad m => MonadReader site (WidgetT site m) where
+    ask = WidgetT $ \hd -> return (rheSite $ handlerEnv hd, mempty)
+    local f (WidgetT g) = WidgetT $ \hd -> g hd
+        { handlerEnv = (handlerEnv hd)
+            { rheSite = f $ rheSite $ handlerEnv hd
+            }
+        }
 
 instance MonadTrans (WidgetT site) where
     lift = WidgetT . const . liftM (, mempty)
@@ -428,6 +436,13 @@ instance MonadIO m => MonadIO (HandlerT site m) where
     liftIO = lift . liftIO
 instance MonadBase b m => MonadBase b (HandlerT site m) where
     liftBase = lift . liftBase
+instance Monad m => MonadReader site (HandlerT site m) where
+    ask = HandlerT $ return . rheSite . handlerEnv
+    local f (HandlerT g) = HandlerT $ \hd -> g hd
+        { handlerEnv = (handlerEnv hd)
+            { rheSite = f $ rheSite $ handlerEnv hd
+            }
+        }
 -- | Note: although we provide a @MonadBaseControl@ instance, @lifted-base@'s
 -- @fork@ function is incompatible with the underlying @ResourceT@ system.
 -- Instead, if you must fork a separate thread, you should use
@@ -438,9 +453,9 @@ instance MonadBase b m => MonadBase b (HandlerT site m) where
 -- after cleanup. Please contact the maintainers.\"
 instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
     data StM (HandlerT site m) a = StH (StM m a)
-    liftBaseWith f = HandlerT $ \reader ->
+    liftBaseWith f = HandlerT $ \reader' ->
         liftBaseWith $ \runInBase ->
-            f $ liftM StH . runInBase . (\(HandlerT r) -> r reader)
+            f $ liftM StH . runInBase . (\(HandlerT r) -> r reader')
     restoreM (StH base) = HandlerT $ const $ restoreM base
 
 instance MonadThrow m => MonadThrow (HandlerT site m) where
