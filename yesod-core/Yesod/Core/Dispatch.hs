@@ -64,6 +64,7 @@ import Network.Wai.Middleware.MethodOverride
 import qualified Network.Wai.Handler.Warp
 import System.Log.FastLogger
 import Control.Monad.Logger
+import Control.Monad (when)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 
@@ -163,6 +164,7 @@ warp port site = do
                 ]
             -}
             , Network.Wai.Handler.Warp.settingsOnException = const $ \e ->
+                when (shouldLog' e) $
                 messageLoggerSource
                     site
                     logger
@@ -171,6 +173,13 @@ warp port site = do
                     LevelError
                     (toLogStr $ "Exception from Warp: " ++ show e)
             }
+  where
+    shouldLog' =
+#if MIN_VERSION_wai(2,1,3)
+        Warp.defaultShouldDisplayException
+#else
+        const True
+#endif
 
 -- | A default set of middlewares.
 --
