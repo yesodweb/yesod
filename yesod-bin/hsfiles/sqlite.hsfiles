@@ -36,7 +36,7 @@ import Network.Wai.Middleware.RequestLogger
 import qualified Network.Wai.Middleware.RequestLogger as RequestLogger
 import qualified Database.Persist
 import Database.Persist.Sql (runMigration)
-import Network.HTTP.Conduit (newManager, conduitManagerSettings)
+import Network.HTTP.Client.Conduit (newManager)
 import Control.Monad.Logger (runLoggingT)
 import Control.Concurrent (forkIO, threadDelay)
 import System.Log.FastLogger (newStdoutLoggerSet, defaultBufSize)
@@ -79,7 +79,7 @@ makeApplication conf = do
 -- performs some initialization.
 makeFoundation :: AppConfig DefaultEnv Extra -> IO App
 makeFoundation conf = do
-    manager <- newManager conduitManagerSettings
+    manager <- newManager
     s <- staticSite
     dbconf <- withYamlEnvironment "config/sqlite.yml" (appEnv conf)
               Database.Persist.loadConfig >>=
@@ -129,7 +129,7 @@ import Yesod.Auth.BrowserId
 import Yesod.Auth.GoogleEmail
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
-import Network.HTTP.Conduit (Manager)
+import Network.HTTP.Client.Conduit (Manager, HasHttpManager (getHttpManager))
 import qualified Settings
 import Settings.Development (development)
 import qualified Database.Persist
@@ -153,6 +153,9 @@ data App = App
     , persistConfig :: Settings.PersistConf
     , appLogger :: Logger
     }
+
+instance HasHttpManager App where
+    getHttpManager = httpManager
 
 -- Set up i18n messages. See the message folder.
 mkMessage "App" "messages" "en"
@@ -409,7 +412,7 @@ library
     build-depends: base                          >= 4          && < 5
                  , yesod                         >= 1.2.5      && < 1.3
                  , yesod-core                    >= 1.2        && < 1.3
-                 , yesod-auth                    >= 1.2        && < 1.3
+                 , yesod-auth                    >= 1.3        && < 1.4
                  , yesod-static                  >= 1.2        && < 1.3
                  , yesod-form                    >= 1.3        && < 1.4
                  , bytestring                    >= 0.9        && < 0.11
@@ -418,15 +421,12 @@ library
                  , persistent-sqlite             >= 1.3        && < 1.4
                  , persistent-template           >= 1.3        && < 1.4
                  , template-haskell
-                 , hamlet                        >= 1.1        && < 1.2
-                 , shakespeare-css               >= 1.0        && < 1.1
-                 , shakespeare-js                >= 1.2        && < 1.3
-                 , shakespeare-text              >= 1.0        && < 1.1
+                 , shakespeare                   >= 2.0        && < 2.1
                  , hjsmin                        >= 0.1        && < 0.2
                  , monad-control                 >= 0.3        && < 0.4
                  , wai-extra                     >= 2.1        && < 2.2
                  , yaml                          >= 0.8        && < 0.9
-                 , http-conduit                  >= 2.0        && < 2.1
+                 , http-conduit                  >= 2.1        && < 2.2
                  , directory                     >= 1.1        && < 1.3
                  , warp                          >= 2.1        && < 2.2
                  , data-default
