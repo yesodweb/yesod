@@ -10,6 +10,7 @@ fi
 cabal-nirvana-generate \
     yesod \
     yesod-static \
+    yesod-auth-hashdb \
     hjsmin \
     blaze-html \
     yesod-test \
