@@ -175,8 +175,8 @@ warp port site = do
             }
   where
     shouldLog' =
-#if MIN_VERSION_wai(2,1,3)
-        Warp.defaultShouldDisplayException
+#if MIN_VERSION_warp(2,1,3)
+        Network.Wai.Handler.Warp.defaultShouldDisplayException
 #else
         const True
 #endif
