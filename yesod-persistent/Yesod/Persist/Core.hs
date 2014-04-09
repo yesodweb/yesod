@@ -33,6 +33,7 @@ import Control.Exception (throwIO)
 import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
 
+-- FIXME: change back to synonym once GHC bug 8978 is fixed
 type family YesodDB site :: * -> * where
     YesodDB site = YesodPersistBackend site (HandlerT site IO)
 
