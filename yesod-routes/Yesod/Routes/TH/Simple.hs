@@ -5,11 +5,11 @@ import Prelude hiding (exp)
 import Yesod.Routes.TH
 import Language.Haskell.TH.Syntax
 import Web.PathPieces
-import Data.Maybe (mapMaybe, catMaybes)
+import Data.Maybe (catMaybes)
 import Control.Monad (forM)
 import Data.List (foldl')
-import Data.ByteString (ByteString)
 import Control.Arrow (second)
+import System.Random (randomRIO)
 
 data SDC = SDC
     { clause404 :: Clause
@@ -25,9 +25,10 @@ data SDC = SDC
 -- Since 1.2.1
 mkSimpleDispatchClause :: MkDispatchSettings -> [ResourceTree a] -> Q Clause
 mkSimpleDispatchClause MkDispatchSettings {..} resources = do
-    envName <- newName "env"
-    reqName <- newName "req"
-    helperName <- newName "helper"
+    suffix <- qRunIO $ randomRIO (1000, 9999 :: Int)
+    envName <- newName $ "env" ++ show suffix
+    reqName <- newName $ "req" ++ show suffix
+    helperName <- newName $ "helper" ++ show suffix
 
     let envE = VarE envName
         reqE = VarE reqName

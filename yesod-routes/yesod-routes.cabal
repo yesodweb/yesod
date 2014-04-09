@@ -22,6 +22,7 @@ library
                    , template-haskell
                    , path-pieces               >= 0.1      && < 0.2
                    , bytestring
+                   , random
 
     exposed-modules: Yesod.Routes.Dispatch
                      Yesod.Routes.TH
