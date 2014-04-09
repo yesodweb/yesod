@@ -128,9 +128,8 @@ import Yesod.Core
 import Control.Applicative         ((<$>), (<*>))
 import Data.Typeable
 
-import qualified Data.ByteString.Lazy.Char8 as BL (pack)
 import qualified Data.ByteString.Char8 as BS (pack, unpack)
-import Data.Digest.Pure.SHA        (sha1, showDigest)
+import qualified Crypto.Hash as CH (SHA1, Digest, hash)
 import Data.Text                   (Text, pack, unpack, append)
 import Data.Maybe                  (fromMaybe)
 import Crypto.PasswordStore        (makePassword, verifyPassword,
@@ -193,8 +192,8 @@ class HashDBUser user where
 saltedHash :: Text              -- ^ Salt
            -> Text              -- ^ Password
            -> Text
-saltedHash salt = 
-  pack . showDigest . sha1 . BL.pack . unpack . append salt
+saltedHash salt pw =
+  pack $ show (CH.hash $ BS.pack $ unpack $ append salt pw :: CH.Digest CH.SHA1)
 
 -- | Calculate a new-style password hash using "Crypto.PasswordStore".
 passwordHash :: MonadIO m => Int -> Text -> m Text

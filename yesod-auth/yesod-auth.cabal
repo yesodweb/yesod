@@ -55,7 +55,6 @@ library
                    , resourcet
                    , safe
                    , time
-                   , SHA
 
     exposed-modules: Yesod.Auth
                      Yesod.Auth.BrowserId
