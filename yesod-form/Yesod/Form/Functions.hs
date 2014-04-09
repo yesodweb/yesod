@@ -32,6 +32,7 @@ module Yesod.Form.Functions
     , renderDivs
     , renderDivsNoLabels
     , renderBootstrap
+    , renderBootstrap2
       -- * Validation
     , check
     , checkBool
@@ -387,6 +388,9 @@ $forall view <- views
 |]
     return (res, widget)
 
+renderBootstrap :: Monad m => FormRender m a
+renderBootstrap = renderBootstrap2
+
 -- | Render a form using Bootstrap v2-friendly shamlet syntax.
 -- If you're using Bootstrap v3, then you should use the
 -- functions from module "Yesod.Form.Bootstrap3".
@@ -404,8 +408,8 @@ $forall view <- views
 -- >      ^{formWidget}
 -- >      <div .form-actions>
 -- >        <input .btn .primary type=submit value=_{MsgSubmit}>
-renderBootstrap :: Monad m => FormRender m a
-renderBootstrap aform fragment = do
+renderBootstrap2 :: Monad m => FormRender m a
+renderBootstrap2 aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
         has (Just _) = True
