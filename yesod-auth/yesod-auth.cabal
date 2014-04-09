@@ -17,7 +17,7 @@ description:
    .
    * <http://hackage.haskell.org/package/yesod-auth-hashdb>: The HashDB module previously packaged in yesod-auth, now with stronger, but compatible, security.
    .
-   * <https://github.com/ollieh/yesod-auth-bcrypt/>: A alternative to the HashDB module.
+   * <https://github.com/ollieh/yesod-auth-bcrypt/>: An alternative to the HashDB module.
 extra-source-files: persona_sign_in_blue.png
 
 library
