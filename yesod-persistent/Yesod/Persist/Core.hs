@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -31,7 +32,9 @@ import Control.Exception (throwIO)
 import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
 
-type YesodDB site = YesodPersistBackend site (HandlerT site IO)
+-- FIXME: change back to synonym once GHC bug 8978 is fixed
+type family YesodDB site :: * -> * where
+    YesodDB site = YesodPersistBackend site (HandlerT site IO)
 
 class Monad (YesodPersistBackend site (HandlerT site IO)) => YesodPersist site where
     type YesodPersistBackend site :: (* -> *) -> * -> *
