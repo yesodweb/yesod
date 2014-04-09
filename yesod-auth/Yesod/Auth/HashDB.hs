@@ -21,6 +21,12 @@
 -- A yesod-auth AuthPlugin designed to look users up in Persist where
 -- their user id's and a hash of their password is stored.
 --
+-- This module was removed at @yesod-auth-1.3.0.0@ and reintroduced 
+-- into @yesod-auth-1.3.1.0@, so your dependency on @yesod-auth@ should 
+-- take that into account.  For example:
+--
+-- > yesod-auth >= 1.3.1 && < 1.4
+--
 -- Versions of this module prior to yesod-auth-1.3 used a relatively weak
 -- hashing algorithm (a single round of SHA1) which does not provide
 -- adequate protection against an attacker who discovers the hashed passwords.
@@ -68,7 +74,7 @@
 --
 -- > instance HashDBUser User where
 -- >     userPasswordHash = userPassword
--- >     setUserHashAndSalt _ h p = p { userPassword = Just h }
+-- >     setPasswordHash h p = p { userPassword = Just h }
 --
 -- In the YesodAuth instance declaration for your app, include 'authHashDB'
 -- like so:
@@ -83,7 +89,7 @@
 -- 'getAuthIdHashDB' takes a 'Text' and produces a 'Unique' value to
 -- look up in the User table.  'getAuthIdHashDB' is just a convenience
 -- for the case when 'HashDB' is the only plugin, and something else
--- would be needed if when other plugins are used as well.
+-- would be needed when other plugins are used as well.
 --
 -- You can create password hashes manually as follows, if you need to
 -- initialise the database:
@@ -147,20 +153,39 @@ class HashDBUser user where
   userPasswordSalt :: user -> Maybe Text
   userPasswordSalt _ = Just ""
 
-  -- | Deprecated for the better named 'setSaltAndPasswordHash'
+  -- | Callback for 'setPassword' and 'upgradePasswordHash'.  Produces a
+  --   version of the user data with the hash set to the new value.
+  --
+  --   This is the method which you should define for new applications, which
+  --   do not require compatibility with databases containing hashes written
+  --   by previous versions of this module.  If you do need compatibility,
+  --   define 'setSaltAndPasswordHash' instead.
+  setPasswordHash :: Text   -- ^ Password hash
+                     -> user -> user
+  setPasswordHash = setSaltAndPasswordHash ""
+
   setUserHashAndSalt :: Text    -- ^ Salt
                      -> Text    -- ^ Password hash
                      -> user -> user
-  setUserHashAndSalt = setSaltAndPasswordHash
+  setUserHashAndSalt =
+      error "Define setSaltAndPasswordHash to get old-database compatibility"
 
-  -- | Callback for 'setPassword' and 'upgradePasswordHash'.  Produces a
-  --   version of the user data with the salt and hash set to new values.
-  --   New implementations do not require a separate salt field in the
-  --   user data, and should therefore ignore the first parameter.
+  -- | Callback used in 'upgradePasswordHash' when compatibility is needed
+  --   with old-style hashes (including ones already upgraded using
+  --   'upgradePasswordHash').  This is not required for new applications,
+  --   which do not have a separate salt field in user data: please define
+  --   'setPasswordHash' instead.
+  --
+  --   The default implementation produces a runtime error, and will only be
+  --   called if a non-empty salt value needs to be set for compatibility
+  --   with an old database.
   setSaltAndPasswordHash :: Text    -- ^ Salt
                      -> Text    -- ^ Password hash
                      -> user -> user
   setSaltAndPasswordHash = setUserHashAndSalt
+
+  {-# MINIMAL userPasswordHash, (setPasswordHash | (userPasswordSalt, setSaltAndPasswordHash)) #-}
+{-# DEPRECATED setUserHashAndSalt "Please use setSaltAndPasswordHash instead" #-}
 
 
 -- | Calculate salted hash using SHA1.  Retained for compatibility with
@@ -185,7 +210,7 @@ passwordHash strength pwd = do
 setPasswordStrength :: (MonadIO m, HashDBUser user) => Int -> Text -> user -> m user
 setPasswordStrength strength pwd u = do
     hashed <- passwordHash strength pwd
-    return $ setSaltAndPasswordHash "" hashed u
+    return $ setPasswordHash hashed u
 
 -- | As 'setPasswordStrength', but using the 'defaultStrength'
 setPassword :: (MonadIO m, HashDBUser user) => Text -> user -> m user
@@ -219,7 +244,9 @@ upgradePasswordHash strength u = do
               then
                 -- Already a new-style hash, so only strengthen it as needed
                 let newHash = pack $ BS.unpack $ strengthenPassword oldHash' strength
-                in return $ Just $ setSaltAndPasswordHash oldSalt newHash u
+                in if oldSalt == ""
+                   then return $ Just $ setPasswordHash newHash u
+                   else return $ Just $ setSaltAndPasswordHash oldSalt newHash u
               else do
                 -- Old-style hash: do extra layer of hash with the new algorithm
                 newHash <- passwordHash strength oldHash
@@ -228,7 +255,7 @@ upgradePasswordHash strength u = do
 
 
 ----------------------------------------------------------------
--- Authentification
+-- Authentication
 ----------------------------------------------------------------
 
 -- | Given a user ID and password in plaintext, validate them against
