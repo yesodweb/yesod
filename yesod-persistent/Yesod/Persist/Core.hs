@@ -13,7 +13,6 @@ module Yesod.Persist.Core
     , DBRunner (..)
     , runDBSource
     , respondSourceDB
-    , YesodDB
     , get404
     , getBy404
     ) where
@@ -31,11 +30,9 @@ import Control.Exception (throwIO)
 import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
 
-type YesodDB site = YesodPersistBackend site (HandlerT site IO)
-
 class Monad (YesodPersistBackend site (HandlerT site IO)) => YesodPersist site where
     type YesodPersistBackend site :: (* -> *) -> * -> *
-    runDB :: YesodDB site a -> HandlerT site IO a
+    runDB :: YesodPersistBackend site (HandlerT site IO) a -> HandlerT site IO a
 
 -- | Helper for creating 'runDB'.
 --
@@ -71,7 +68,7 @@ class YesodPersist site => YesodPersistRunner site where
     getDBRunner :: HandlerT site IO (DBRunner site, HandlerT site IO ())
 
 newtype DBRunner site = DBRunner
-    { runDBRunner :: forall a. YesodDB site a -> HandlerT site IO a
+    { runDBRunner :: forall a. YesodPersistBackend site (HandlerT site IO) a -> HandlerT site IO a
     }
 
 -- | Helper for implementing 'getDBRunner'.
@@ -116,7 +113,7 @@ runDBSource src = do
 -- | Extends 'respondSource' to create a streaming database response body.
 respondSourceDB :: YesodPersistRunner site
                 => ContentType
-                -> Source (YesodDB site) (Flush Builder)
+                -> Source (YesodPersistBackend site (HandlerT site IO)) (Flush Builder)
                 -> HandlerT site IO TypedContent
 respondSourceDB ctype = respondSource ctype . runDBSource
 
