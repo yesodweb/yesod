@@ -13,7 +13,6 @@ module Yesod.Persist.Core
     , DBRunner (..)
     , runDBSource
     , respondSourceDB
-    , YesodDB
     , get404
     , getBy404
     ) where
@@ -30,8 +29,6 @@ import Control.Monad.Trans.Resource
 import Control.Exception (throwIO)
 import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
-
-type YesodDB site = YesodPersistBackend site (HandlerT site IO)
 
 class Monad (YesodPersistBackend site (HandlerT site IO)) => YesodPersist site where
     type YesodPersistBackend site :: (* -> *) -> * -> *
