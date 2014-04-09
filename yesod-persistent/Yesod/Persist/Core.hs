@@ -106,7 +106,7 @@ defaultGetDBRunner getPool = do
 --
 -- Since 1.2.0
 runDBSource :: YesodPersistRunner site
-            => Source (YesodDB site) a
+            => Source (YesodPersistBackend site (HandlerT site IO)) a
             -> Source (HandlerT site IO) a
 runDBSource src = do
     (dbrunner, cleanup) <- lift getDBRunner
