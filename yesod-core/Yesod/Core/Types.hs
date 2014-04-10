@@ -313,6 +313,9 @@ data Header =
     | Header ByteString ByteString
     deriving (Eq, Show)
 
+-- FIXME In the next major version bump, let's just add strictness annotations
+-- to Header (and probably everywhere else). We can also add strictness
+-- annotations to SetCookie in the cookie package.
 instance NFData Header where
     rnf (AddCookie x) = rnf x
     rnf (DeleteCookie x y) = rnf x `seq` rnf y
