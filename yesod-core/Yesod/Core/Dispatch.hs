@@ -27,6 +27,7 @@ module Yesod.Core.Dispatch
     , warpDebug
     , warpEnv
     , mkDefaultMiddlewares
+    , defaultMiddlewaresNoLogging
       -- * WAI subsites
     , WaiSubsite (..)
     ) where
@@ -194,11 +195,13 @@ mkDefaultMiddlewares logger = do
 #endif
         , outputFormat = Apache FromSocket
         }
-    return $ logWare
-           . acceptOverride
-           . autohead
-           . gzip def
-           . methodOverride
+    return $ logWare . defaultMiddlewaresNoLogging
+
+-- | All of the default middlewares, excluding logging.
+--
+-- Since 1.2.12
+defaultMiddlewaresNoLogging :: W.Middleware
+defaultMiddlewaresNoLogging = acceptOverride . autohead . gzip def . methodOverride
 
 -- | Deprecated synonym for 'warp'.
 warpDebug :: YesodDispatch site => Int -> site -> IO ()

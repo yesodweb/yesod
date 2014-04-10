@@ -16,6 +16,7 @@ import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
+import           Control.Monad.Catch                (MonadCatch (..))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
@@ -62,6 +63,7 @@ import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 import           Control.Monad.Reader               (MonadReader (..))
+import Prelude hiding (catch)
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -405,6 +407,14 @@ instance MonadTrans (WidgetT site) where
 instance MonadThrow m => MonadThrow (WidgetT site m) where
 #if MIN_VERSION_resourcet(1,1,0)
     throwM = lift . throwM
+
+instance MonadCatch m => MonadCatch (HandlerT site m) where
+  catch (HandlerT m) c = HandlerT $ \r -> m r `catch` \e -> unHandlerT (c e) r
+  mask a = HandlerT $ \e -> mask $ \u -> unHandlerT (a $ q u) e
+    where q u (HandlerT b) = HandlerT (u . b)
+  uninterruptibleMask a =
+    HandlerT $ \e -> uninterruptibleMask $ \u -> unHandlerT (a $ q u) e
+      where q u (HandlerT b) = HandlerT (u . b)
 #else
     monadThrow = lift . monadThrow
 #endif
