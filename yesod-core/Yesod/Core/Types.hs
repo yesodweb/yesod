@@ -64,6 +64,7 @@ import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 import           Control.Monad.Reader               (MonadReader (..))
 import Prelude hiding (catch)
+import Control.DeepSeq (NFData (rnf))
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -311,6 +312,11 @@ data Header =
     | DeleteCookie ByteString ByteString
     | Header ByteString ByteString
     deriving (Eq, Show)
+
+instance NFData Header where
+    rnf (AddCookie x) = rnf x
+    rnf (DeleteCookie x y) = rnf x `seq` rnf y
+    rnf (Header x y) = rnf x `seq` rnf y
 
 data Location url = Local url | Remote Text
     deriving (Show, Eq)

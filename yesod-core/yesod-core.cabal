@@ -47,7 +47,7 @@ library
                    , containers            >= 0.2
                    , monad-control         >= 0.3      && < 0.4
                    , transformers-base     >= 0.4
-                   , cookie                >= 0.4      && < 0.5
+                   , cookie                >= 0.4.1    && < 0.5
                    , http-types            >= 0.7
                    , case-insensitive      >= 0.2
                    , parsec                >= 2        && < 3.2
@@ -69,6 +69,7 @@ library
                    , unix-compat
                    , conduit-extra
                    , exceptions
+                   , deepseq
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content

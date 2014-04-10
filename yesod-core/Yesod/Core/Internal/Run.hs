@@ -48,6 +48,7 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
+import Control.DeepSeq (($!!))
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'HandlerT' into an 'Application'. Should not be needed by users.
@@ -78,23 +79,38 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
                       $ fromException e)
     state <- liftIO $ I.readIORef istate
-    let finalSession = ghsSession state
-    let headers = ghsHeaders state
-    let contents = either id (HCContent defaultStatus . toTypedContent) contents'
+
+    (finalSession, mcontents1) <- (do
+        finalSession <- return $!! ghsSession state
+        return (finalSession, Nothing)) `E.catch` \e -> return
+            (Map.empty, Just $! HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
+
+    (headers, mcontents2) <- (do
+        headers <- return $!! appEndo (ghsHeaders state) []
+        return (headers, Nothing)) `E.catch` \e -> return
+            ([], Just $! HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
+
+    let contents =
+            case mcontents1 of
+                Just x -> x
+                Nothing ->
+                    case mcontents2 of
+                        Just x -> x
+                        Nothing -> either id (HCContent defaultStatus . toTypedContent) contents'
     let handleError e = flip runInternalState resState $ do
             yar <- rheOnError e yreq
                 { reqSession = finalSession
                 }
             case yar of
                 YRPlain status' hs ct c sess ->
-                    let hs' = appEndo headers hs
+                    let hs' = headers ++ hs
                         status
                             | status' == defaultStatus = getStatus e
                             | otherwise = status'
                      in return $ YRPlain status hs' ct c sess
                 YRWai _ -> return yar
     let sendFile' ct fp p =
-            return $ YRPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession
+            return $ YRPlain H.status200 headers ct (ContentFile fp p) finalSession
     contents1 <- evaluate contents `E.catch` \e -> return
         (HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
     case contents1 of
@@ -102,7 +118,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
             ec' <- liftIO $ evaluateContent c
             case ec' of
                 Left e -> handleError e
-                Right c' -> return $ YRPlain status (appEndo headers []) ct c' finalSession
+                Right c' -> return $ YRPlain status headers ct c' finalSession
         HCError e -> handleError e
         HCRedirect status loc -> do
             let disable_caching x =
@@ -110,7 +126,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
                     : Header "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
                     : x
                 hs = (if status /= H.movedPermanently301 then disable_caching else id)
-                      $ Header "Location" (encodeUtf8 loc) : appEndo headers []
+                      $ Header "Location" (encodeUtf8 loc) : headers
             return $ YRPlain
                 status hs typePlain emptyContent
                 finalSession
@@ -118,7 +134,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
             (sendFile' ct fp p)
             (handleError . toErrorHandler)
         HCCreated loc -> do
-            let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
+            let hs = Header "Location" (encodeUtf8 loc) : headers
             return $ YRPlain
                 H.status201
                 hs
