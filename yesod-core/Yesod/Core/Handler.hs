@@ -718,11 +718,13 @@ setSessionBS :: MonadHandler m
              => Text
              -> S.ByteString
              -> m ()
-setSessionBS k = modify . modSession . Map.insert k
+setSessionBS k bs =
+    liftIO (evaluate $ k `seq` bs) >>= modify . modSession . Map.insert k
 
 -- | Unsets a session variable. See 'setSession'.
 deleteSession :: MonadHandler m => Text -> m ()
-deleteSession = modify . modSession . Map.delete
+deleteSession k =
+    liftIO (evaluate k) >>= modify . modSession . Map.delete
 
 -- | Clear all session variables.
 --
