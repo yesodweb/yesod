@@ -13,6 +13,7 @@ import           Control.Applicative          ((<$>))
 import           Control.Exception            (fromException, bracketOnError, evaluate)
 import qualified Control.Exception            as E
 import           Control.Exception.Lifted     (catch)
+import           Control.Monad                (mplus)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
@@ -91,12 +92,9 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
             ([], Just $! HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
 
     let contents =
-            case mcontents1 of
+            case mcontents1 `mplus` mcontents2 of
                 Just x -> x
-                Nothing ->
-                    case mcontents2 of
-                        Just x -> x
-                        Nothing -> either id (HCContent defaultStatus . toTypedContent) contents'
+                Nothing -> either id (HCContent defaultStatus . toTypedContent) contents'
     let handleError e = flip runInternalState resState $ do
             yar <- rheOnError e yreq
                 { reqSession = finalSession
