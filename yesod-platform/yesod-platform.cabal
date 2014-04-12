@@ -1,5 +1,5 @@
 name:            yesod-platform
-version:         1.2.9.2
+version:         1.2.9.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -77,7 +77,7 @@ library
                  , http-date == 0.0.4
                  , http-reverse-proxy == 0.3.1.4
                  , http-types == 0.8.4
-                 , language-javascript == 0.5.9
+                 , language-javascript == 0.5.12
                  , lifted-base == 0.2.2.1
                  , mime-mail == 0.4.5.1
                  , mime-types == 0.1.0.3
