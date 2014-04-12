@@ -47,7 +47,7 @@ executable             yesod
         cpp-options:     -DWINDOWS
 
     build-depends:     base               >= 4.3          && < 5
-                     , ghc                >= 7.0.3        && < 7.10
+                     , ghc                >= 7.0.3
                      , ghc-paths          >= 0.1
                      , parsec             >= 2.1          && < 4
                      , text               >= 0.11
