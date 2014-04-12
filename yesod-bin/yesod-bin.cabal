@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.2.8
+version:         1.2.8.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -47,7 +47,7 @@ executable             yesod
         cpp-options:     -DWINDOWS
 
     build-depends:     base               >= 4.3          && < 5
-                     , ghc                >= 7.0.3        && < 7.8
+                     , ghc                >= 7.0.3        && < 7.10
                      , ghc-paths          >= 0.1
                      , parsec             >= 2.1          && < 4
                      , text               >= 0.11
