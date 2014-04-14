@@ -424,6 +424,13 @@ instance MonadCatch m => MonadCatch (HandlerT site m) where
   uninterruptibleMask a =
     HandlerT $ \e -> uninterruptibleMask $ \u -> unHandlerT (a $ q u) e
       where q u (HandlerT b) = HandlerT (u . b)
+instance MonadCatch m => MonadCatch (WidgetT site m) where
+  catch (WidgetT m) c = WidgetT $ \r -> m r `catch` \e -> unWidgetT (c e) r
+  mask a = WidgetT $ \e -> mask $ \u -> unWidgetT (a $ q u) e
+    where q u (WidgetT b) = WidgetT (u . b)
+  uninterruptibleMask a =
+    WidgetT $ \e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) e
+      where q u (WidgetT b) = WidgetT (u . b)
 #else
     monadThrow = lift . monadThrow
 #endif
