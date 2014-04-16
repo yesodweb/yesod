@@ -49,7 +49,19 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
-import Control.DeepSeq (($!!))
+import Control.DeepSeq (($!!), NFData)
+import Control.Monad (liftM)
+
+returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
+#if MIN_VERSION_bytestring(0, 10, 0)
+returnDeepSessionMap sm = return $!! sm
+#else
+returnDeepSessionMap sm = fmap unWrappedBS `liftM` (return $!! fmap WrappedBS sm)
+
+-- | Work around missing NFData instance for bytestring 0.9.
+newtype WrappedBS = WrappedBS { unWrappedBS :: S8.ByteString }
+instance NFData WrappedBS
+#endif
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'HandlerT' into an 'Application'. Should not be needed by users.
@@ -82,7 +94,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
     state <- liftIO $ I.readIORef istate
 
     (finalSession, mcontents1) <- (do
-        finalSession <- return $!! ghsSession state
+        finalSession <- returnDeepSessionMap (ghsSession state)
         return (finalSession, Nothing)) `E.catch` \e -> return
             (Map.empty, Just $! HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
 

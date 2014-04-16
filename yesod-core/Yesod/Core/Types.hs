@@ -318,8 +318,8 @@ data Header =
 -- annotations to SetCookie in the cookie package.
 instance NFData Header where
     rnf (AddCookie x) = rnf x
-    rnf (DeleteCookie x y) = rnf x `seq` rnf y
-    rnf (Header x y) = rnf x `seq` rnf y
+    rnf (DeleteCookie x y) = x `seq` y `seq` ()
+    rnf (Header x y) = x `seq` y `seq` ()
 
 data Location url = Local url | Remote Text
     deriving (Show, Eq)
