@@ -2,7 +2,7 @@ language: haskell
 
 install:
     - cabal update
-    - cabal install --force-reinstalls hspec cabal-meta cabal-src
+    - cabal install --force-reinstalls hspec cabal-meta cabal-src alex
     - cabal-meta install --force-reinstalls
 
 script:
