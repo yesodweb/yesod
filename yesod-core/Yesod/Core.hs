@@ -24,6 +24,8 @@ module Yesod.Core
     , widgetToPageContent
       -- * Defaults
     , defaultErrorHandler
+    , defaultYesodMiddleware
+    , authorizationCheck
       -- * Data types
     , AuthResult (..)
     , unauthorizedI
