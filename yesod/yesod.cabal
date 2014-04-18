@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.2.5.1
+version:         1.2.5.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -30,9 +30,9 @@ library
                    , transformers              >= 0.2.2    && < 0.4
                    , wai                       >= 1.3
                    , wai-extra                 >= 1.3
-                   , hamlet                    >= 1.1      && < 1.2
-                   , shakespeare-js            >= 1.0.2    && < 1.3
-                   , shakespeare-css           >= 1.0      && < 1.1
+                   , hamlet                    >= 1.1
+                   , shakespeare-js            >= 1.0.2
+                   , shakespeare-css           >= 1.0
                    , warp                      >= 1.3
                    , blaze-html                >= 0.5
                    , blaze-markup              >= 0.5.1
@@ -48,6 +48,8 @@ library
                    , bytestring
                    , monad-logger
                    , fast-logger
+                   , conduit-extra
+                   , shakespeare
 
     exposed-modules: Yesod
                    , Yesod.Default.Config

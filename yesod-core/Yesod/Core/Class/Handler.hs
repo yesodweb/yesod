@@ -61,7 +61,9 @@ GOX(Monoid w, RWST r w s)
 GOX(Monoid w, Strict.RWST r w s)
 GO(Strict.StateT s)
 GOX(Monoid w, Strict.WriterT w)
+#if !MIN_VERSION_resourcet(1,1,0)
 GO(ExceptionT)
+#endif
 GO(Pipe l i o u)
 GO(ConduitM i o)
 #undef GO
@@ -85,7 +87,9 @@ GOX(Monoid w, RWST r w s)
 GOX(Monoid w, Strict.RWST r w s)
 GO(Strict.StateT s)
 GOX(Monoid w, Strict.WriterT w)
+#if !MIN_VERSION_resourcet(1,1,0)
 GO(ExceptionT)
+#endif
 GO(Pipe l i o u)
 GO(ConduitM i o)
 #undef GO

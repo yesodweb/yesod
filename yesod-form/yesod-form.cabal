@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.3.8
+version:         1.3.8.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -17,10 +17,11 @@ library
                    , yesod-core            >= 1.2      && < 1.3
                    , yesod-persistent      >= 1.2      && < 1.3
                    , time                  >= 1.1.4
-                   , hamlet                >= 1.1      && < 1.2
-                   , shakespeare-css       >= 1.0      && < 1.1
-                   , shakespeare-js        >= 1.0.2    && < 1.3
-                   , persistent            >= 1.2      && < 2.1
+                   , hamlet                >= 1.1
+                   , shakespeare
+                   , shakespeare-css       >= 1.0
+                   , shakespeare-js        >= 1.0.2
+                   , persistent            >= 1.2      && < 1.4
                    , template-haskell
                    , transformers          >= 0.2.2
                    , data-default

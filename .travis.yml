@@ -2,12 +2,12 @@ language: haskell
 
 install:
     - cabal update
-    - cabal install --force-reinstalls mega-sdist hspec cabal-meta cabal-src
+    - cabal install --force-reinstalls hspec cabal-meta cabal-src alex
     - cabal-meta install --force-reinstalls
 
 script:
     - echo Done
     - cabal-meta install --enable-tests
     - mega-sdist --test
-    - cabal install mega-sdist hspec cabal-meta cabal-src
+    - cabal install hspec cabal-meta cabal-src
     - cabal-meta install --force-reinstalls

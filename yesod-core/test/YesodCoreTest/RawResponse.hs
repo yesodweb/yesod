@@ -19,6 +19,7 @@ import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (withAsync)
 import Control.Monad.Trans.Resource (register)
 import Data.IORef
+import Data.Streaming.Network (bindPortTCP)
 
 data App = App
 
@@ -42,7 +43,7 @@ getFreePort = do
     loop 43124
   where
     loop port = do
-        esocket <- try $ bindPort port "*"
+        esocket <- try $ bindPortTCP port "*"
         case esocket of
             Left (_ :: IOException) -> loop (succ port)
             Right socket -> do

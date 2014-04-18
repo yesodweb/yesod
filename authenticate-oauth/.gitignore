@@ -1,6 +1,0 @@
-.DS_Store
-*.hi
-*.o
-dist
-*~
-cabal-dev

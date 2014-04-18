@@ -40,6 +40,7 @@ import Data.Conduit.List (sourceList)
 import Data.Conduit.Binary (sourceFile, sinkFile)
 import Data.Word (Word64)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Control.Exception (throwIO)
 import Yesod.Core.Types
 import qualified Data.Map as Map

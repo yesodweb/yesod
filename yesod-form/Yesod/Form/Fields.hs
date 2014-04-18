@@ -88,7 +88,7 @@ import Data.Text as T (Text, concat, intercalate, unpack, pack, splitOn)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
-import Yesod.Persist (selectList, runDB, Filter, SelectOpt, Key, YesodPersist, PersistEntity, PersistQuery, YesodDB)
+import Yesod.Persist (selectList, runDB, Filter, SelectOpt, Key, YesodPersist, PersistEntity, PersistQuery)
 import Control.Arrow ((&&&))
 
 import Control.Applicative ((<$>), (<|>))
@@ -565,9 +565,9 @@ optionsPersist :: ( YesodPersist site, PersistEntity a
                   )
 #else
 optionsPersist :: ( YesodPersist site, PersistEntity a
-                  , PersistQuery (YesodDB site)
+                  , PersistQuery (YesodPersistBackend site (HandlerT site IO))
                   , PathPiece (Key a)
-                  , PersistEntityBackend a ~ PersistMonadBackend (YesodDB site)
+                  , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend site (HandlerT site IO))
                   , RenderMessage site msg
                   )
 #endif

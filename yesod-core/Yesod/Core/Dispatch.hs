@@ -27,6 +27,7 @@ module Yesod.Core.Dispatch
     , warpDebug
     , warpEnv
     , mkDefaultMiddlewares
+    , defaultMiddlewaresNoLogging
       -- * WAI subsites
     , WaiSubsite (..)
     ) where
@@ -64,6 +65,7 @@ import Network.Wai.Middleware.MethodOverride
 import qualified Network.Wai.Handler.Warp
 import System.Log.FastLogger
 import Control.Monad.Logger
+import Control.Monad (when)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 
@@ -163,6 +165,7 @@ warp port site = do
                 ]
             -}
             , Network.Wai.Handler.Warp.settingsOnException = const $ \e ->
+                when (shouldLog' e) $
                 messageLoggerSource
                     site
                     logger
@@ -171,6 +174,13 @@ warp port site = do
                     LevelError
                     (toLogStr $ "Exception from Warp: " ++ show e)
             }
+  where
+    shouldLog' =
+#if MIN_VERSION_warp(2,1,3)
+        Network.Wai.Handler.Warp.defaultShouldDisplayException
+#else
+        const True
+#endif
 
 -- | A default set of middlewares.
 --
@@ -185,11 +195,13 @@ mkDefaultMiddlewares logger = do
 #endif
         , outputFormat = Apache FromSocket
         }
-    return $ logWare
-           . acceptOverride
-           . autohead
-           . gzip def
-           . methodOverride
+    return $ logWare . defaultMiddlewaresNoLogging
+
+-- | All of the default middlewares, excluding logging.
+--
+-- Since 1.2.12
+defaultMiddlewaresNoLogging :: W.Middleware
+defaultMiddlewaresNoLogging = acceptOverride . autohead . gzip def . methodOverride
 
 -- | Deprecated synonym for 'warp'.
 warpDebug :: YesodDispatch site => Int -> site -> IO ()

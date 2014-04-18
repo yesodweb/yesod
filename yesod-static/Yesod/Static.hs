@@ -66,6 +66,7 @@ import System.Directory
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
+import Control.Monad.Trans.Resource (runResourceT)
 import Yesod.Core
 import Yesod.Core.Types
 
@@ -446,7 +447,7 @@ data CombineSettings = CombineSettings
     , csCssPostProcess :: [FilePath] -> L.ByteString -> IO L.ByteString
     -- ^ Post processing to be performed on CSS files.
     --
-    -- Default: Use Lucius to minify.
+    -- Default: Pass-through.
     --
     -- Since 1.2.0
     , csJsPostProcess :: [FilePath] -> L.ByteString -> IO L.ByteString

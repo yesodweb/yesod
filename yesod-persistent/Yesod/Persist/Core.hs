@@ -88,7 +88,7 @@ class YesodPersist site => YesodPersistRunner site where
     getDBRunner :: HandlerT site IO (DBRunner site, HandlerT site IO ())
 
 newtype DBRunner site = DBRunner
-    { runDBRunner :: forall a. YesodDB site a -> HandlerT site IO a
+    { runDBRunner :: forall a. YesodPersistBackend site (HandlerT site IO) a -> HandlerT site IO a
     }
 
 -- | Helper for implementing 'getDBRunner'.
@@ -127,7 +127,7 @@ defaultGetDBRunner getPool = do
 --
 -- Since 1.2.0
 runDBSource :: YesodPersistRunner site
-            => Source (YesodDB site) a
+            => Source (YesodPersistBackend site (HandlerT site IO)) a
             -> Source (HandlerT site IO) a
 runDBSource src = do
     (dbrunner, cleanup) <- lift getDBRunner
@@ -137,7 +137,7 @@ runDBSource src = do
 -- | Extends 'respondSource' to create a streaming database response body.
 respondSourceDB :: YesodPersistRunner site
                 => ContentType
-                -> Source (YesodDB site) (Flush Builder)
+                -> Source (YesodPersistBackend site (HandlerT site IO)) (Flush Builder)
                 -> HandlerT site IO TypedContent
 respondSourceDB ctype = respondSource ctype . runDBSource
 
