@@ -83,10 +83,16 @@ instance render ~ RY site => ToWidget site (render -> Html) where
     toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
 instance render ~ RY site => ToWidget site (render -> Css) where
     toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . x
+instance ToWidget site Css where
+    toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . const x
 instance render ~ RY site => ToWidget site (render -> CssBuilder) where
     toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
+instance ToWidget site CssBuilder where
+    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . const x) mempty mempty
 instance render ~ RY site => ToWidget site (render -> Javascript) where
     toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
+instance ToWidget site Javascript where
+    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just $ const x) mempty
 instance (site' ~ site, IO ~ m, a ~ ()) => ToWidget site' (WidgetT site m a) where
     toWidget = liftWidgetT
 instance ToWidget site Html where
@@ -105,8 +111,12 @@ class ToWidgetMedia site a where
                   -> m ()
 instance render ~ RY site => ToWidgetMedia site (render -> Css) where
     toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . x
+instance ToWidgetMedia site Css where
+    toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . const x
 instance render ~ RY site => ToWidgetMedia site (render -> CssBuilder) where
     toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
+instance ToWidgetMedia site CssBuilder where
+    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . const x) mempty mempty
 
 class ToWidgetBody site a where
     toWidgetBody :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
@@ -115,6 +125,8 @@ instance render ~ RY site => ToWidgetBody site (render -> Html) where
     toWidgetBody = toWidget
 instance render ~ RY site => ToWidgetBody site (render -> Javascript) where
     toWidgetBody j = toWidget $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
+instance ToWidgetBody site Javascript where
+    toWidgetBody j = toWidget $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
 instance ToWidgetBody site Html where
     toWidgetBody = toWidget
 
@@ -125,10 +137,16 @@ instance render ~ RY site => ToWidgetHead site (render -> Html) where
     toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
 instance render ~ RY site => ToWidgetHead site (render -> Css) where
     toWidgetHead = toWidget
+instance ToWidgetHead site Css where
+    toWidgetHead = toWidget
 instance render ~ RY site => ToWidgetHead site (render -> CssBuilder) where
+    toWidgetHead = toWidget
+instance ToWidgetHead site CssBuilder where
     toWidgetHead = toWidget
 instance render ~ RY site => ToWidgetHead site (render -> Javascript) where
     toWidgetHead j = toWidgetHead $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
+instance ToWidgetHead site Javascript where
+    toWidgetHead j = toWidgetHead $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
 instance ToWidgetHead site Html where
     toWidgetHead = toWidgetHead . const
 
