@@ -319,7 +319,7 @@ assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
 bodyEquals :: String -> YesodExample site ()
 bodyEquals text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to equal " ++ text) $
-    (simpleBody res) == BSL8.pack text
+    (simpleBody res) == encodeUtf8 (TL.pack text)
 
 -- | Assert the last response has the given text. The check is performed using the response
 -- body in full text form.
@@ -329,7 +329,7 @@ bodyContains text = withResponse $ \ res ->
     (simpleBody res) `contains` text
 
 contains :: BSL8.ByteString -> String -> Bool
-contains a b = DL.isInfixOf b (BSL8.unpack a)
+contains a b = DL.isInfixOf b (TL.unpack $ decodeUtf8 a)
 
 -- | Queries the html using a css selector, and all matched elements must contain
 -- the given string.
@@ -364,7 +364,7 @@ htmlCount query count = do
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec)
 printBody :: YesodExample site ()
 printBody = withResponse $ \ SResponse { simpleBody = b } ->
-  liftIO $ hPutStrLn stderr $ BSL8.unpack b
+  liftIO $ BSL8.hPutStrLn stderr b
 
 -- | Performs a CSS query and print the matches to stderr.
 printMatches :: Query -> YesodExample site ()
@@ -539,7 +539,7 @@ request reqBuilder = do
       , rbdGets = []
       , rbdHeaders = []
       }
-    let path = T.cons '/' $ T.intercalate "/" rbdPath
+    let path = TE.decodeUtf8 $ Builder.toByteString $ H.encodePathSegments rbdPath
 
     -- expire cookies and filter them for the current path. TODO: support max age
     currentUtc <- liftIO getCurrentTime
@@ -644,7 +644,7 @@ request reqBuilder = do
       , remoteHost = Sock.SockAddrInet 1 2
       , requestHeaders = headers ++ extraHeaders
       , rawPathInfo = TE.encodeUtf8 urlPath
-      , pathInfo = DL.filter (/="") $ T.split (== '/') urlPath
+      , pathInfo = H.decodePathSegments $ TE.encodeUtf8 urlPath
       , rawQueryString = H.renderQuery False urlQuery
       , queryString = urlQuery
       }

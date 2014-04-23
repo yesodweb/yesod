@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 import Test.HUnit hiding (Test)
@@ -13,6 +14,7 @@ import Text.XML
 import Data.Text (Text)
 import Data.Monoid ((<>))
 import Control.Applicative
+import Network.Wai (pathInfo)
 
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
@@ -106,6 +108,15 @@ main = hspec $ do
                     addNonce
                 statusIs 200
                 bodyEquals "12345"
+        ydescribe "utf8 paths" $ do
+            yit "from path" $ do
+                get ("/dynamic1/שלום" :: Text)
+                statusIs 200
+                bodyEquals "שלום"
+            yit "from WAI" $ do
+                get ("/dynamic2/שלום" :: Text)
+                statusIs 200
+                bodyEquals "שלום"
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -117,6 +128,10 @@ app = liteApp $ do
         case mfoo of
             Nothing -> return "Hello world!"
             Just foo -> return $ "foo=" <> foo
+    onStatic "dynamic1" $ withDynamic $ \d -> dispatchTo $ return (d :: Text)
+    onStatic "dynamic2" $ onStatic "שלום" $ dispatchTo $ do
+        req <- waiRequest
+        return $ pathInfo req !! 1
     onStatic "post" $ dispatchTo $ do
         mfoo <- lookupPostParam "foo"
         case mfoo of
