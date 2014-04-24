@@ -77,9 +77,10 @@ import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
 #if MIN_VERSION_http_reverse_proxy(0, 2, 0)
 import qualified Network.HTTP.ReverseProxy             as ReverseProxy
 #endif
-import           Network.HTTP.Types                    (status200)
+import           Network.HTTP.Types                    (status200, status503)
 import           Network.Socket                        (sClose)
-import           Network.Wai                           (responseLBS)
+import           Network.Wai                           (responseLBS, requestHeaders)
+import           Network.Wai.Parse                     (parseHttpAccept)
 import           Network.Wai.Handler.Warp              (run)
 import           SrcLoc                                (Located)
 import           Data.FileEmbed        (embedFile)
@@ -135,11 +136,18 @@ reverseProxy opts iappPort = do
     manager <- newManager def
 #endif
     let refreshHtml = LB.fromChunks $ return $(embedFile "refreshing.html")
-    let onExc _ _ = return $ responseLBS status200
-            [ ("content-type", "text/html")
-            , ("Refresh", "1")
-            ]
-            refreshHtml
+    let onExc _ req
+            | maybe False (("application/json" `elem`) . parseHttpAccept)
+                (lookup "accept" $ requestHeaders req) =
+                    return $ responseLBS status503
+                        [ ("Retry-After", "1")
+                        ]
+                        "{\"message\":\"Recompiling\"}"
+            | otherwise = return $ responseLBS status200
+                [ ("content-type", "text/html")
+                , ("Refresh", "1")
+                ]
+                refreshHtml
 
     let runProxy =
             run (develPort opts) $ waiProxyToSettings

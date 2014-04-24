@@ -91,6 +91,7 @@ executable             yesod
                      , transformers
                      , warp               >= 1.3.7.5
                      , wai                >= 1.4
+                     , wai-extra
                      , data-default-class
                      , streaming-commons
 
