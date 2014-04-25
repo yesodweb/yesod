@@ -60,12 +60,12 @@ checkForImage n@("background-image") v = parseBackgroundImage n v
 checkForImage n v = (n, Left v)
 
 parseBackgroundImage :: T.Text -> T.Text -> EithUrl
-parseBackgroundImage n v = case P.parseOnly parseUrl v of
-    Left _ -> (n, Left v) -- Can't parse url
-    Right url
-        | "http" `T.isPrefixOf` url -> (n, Left v)
-        | "/" `T.isPrefixOf` url -> (n, Left v)
-        | otherwise -> (n, Right $ UrlReference url)
+parseBackgroundImage n v = (n, case P.parseOnly parseUrl v of
+    Left _ -> Left v -- Can't parse url
+    Right url ->
+        if any (`T.isPrefixOf` url) ["http://", "https://", "/"]
+            then Left v
+            else Right $ UrlReference url)
 
 parseCssWith :: (T.Text -> T.Text -> EithUrl) -> T.Text -> Either String Css
 parseCssWith urlParser contents =
