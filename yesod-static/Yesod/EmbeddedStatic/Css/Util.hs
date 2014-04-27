@@ -7,7 +7,7 @@ import Control.Monad (void, foldM)
 import Data.Hashable (Hashable)
 import Data.Monoid
 import Network.Mime (MimeType, defaultMimeLookup)
-import Filesystem.Path.CurrentOS (FilePath, directory, (</>), dropExtension, filename, toText, decodeString, encodeString, fromText)
+import Filesystem.Path.CurrentOS (FilePath, directory, (</>), dropExtension, filename, toText, decodeString, encodeString, fromText, absolute)
 import Text.CSS.Parse (parseBlocks)
 import Language.Haskell.TH (litE, stringL)
 import Text.CSS.Render (renderBlocks)
@@ -62,8 +62,8 @@ checkForImage n v = (n, Left v)
 parseBackgroundImage :: T.Text -> T.Text -> EithUrl
 parseBackgroundImage n v = (n, case P.parseOnly parseUrl v of
     Left _ -> Left v -- Can't parse url
-    Right url ->
-        if any (`T.isPrefixOf` url) ["http://", "https://", "/"]
+    Right url -> -- maybe we should find a uri parser
+        if any (`T.isPrefixOf` url) ["http://", "https://", "//"] || absolute (fromText url)
             then Left v
             else Right $ UrlReference url)
 
