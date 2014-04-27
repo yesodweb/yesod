@@ -113,6 +113,11 @@ main = hspec $ do
                 get ("/dynamic1/שלום" :: Text)
                 statusIs 200
                 bodyEquals "שלום"
+            yit "from path, type-safe URL" $ do
+                get $ LiteAppRoute ["dynamic1", "שלום"]
+                statusIs 200
+                printBody
+                bodyEquals "שלום"
             yit "from WAI" $ do
                 get ("/dynamic2/שלום" :: Text)
                 statusIs 200

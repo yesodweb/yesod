@@ -504,7 +504,7 @@ setUrl url' = do
     let (urlPath, urlQuery) = T.break (== '?') url
     ST.modify $ \rbd -> rbd
         { rbdPath =
-            case DL.filter (/="") $ T.split (== '/') urlPath of
+            case DL.filter (/="") $ H.decodePathSegments $ TE.encodeUtf8 urlPath of
                 ("http:":_:rest) -> rest
                 ("https:":_:rest) -> rest
                 x -> x
