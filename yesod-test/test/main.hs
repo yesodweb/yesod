@@ -15,6 +15,7 @@ import Data.Text (Text)
 import Data.Monoid ((<>))
 import Control.Applicative
 import Network.Wai (pathInfo)
+import Data.Maybe (fromMaybe)
 
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
@@ -122,6 +123,16 @@ main = hspec $ do
                 get ("/dynamic2/שלום" :: Text)
                 statusIs 200
                 bodyEquals "שלום"
+    describe "cookies" $ yesodSpec cookieApp $ do
+        yit "should send the cookie #730" $ do
+            get ("/" :: Text)
+            statusIs 200
+            post ("/cookie/foo" :: Text)
+            statusIs 302
+            get ("/" :: Text)
+            statusIs 200
+            printBody
+            bodyContains "Foo"
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -151,3 +162,12 @@ app = liteApp $ do
         case mfoo of
             FormSuccess (foo, _) -> return $ toHtml foo
             _ -> defaultLayout widget
+
+cookieApp :: LiteApp
+cookieApp = liteApp $ do
+    dispatchTo $ fromMaybe "no message available" <$> getMessage
+    onStatic "cookie" $ do
+        onStatic "foo" $ dispatchTo $ do
+            setMessage "Foo"
+            redirect ("/cookie/home" :: Text)
+            return ()
