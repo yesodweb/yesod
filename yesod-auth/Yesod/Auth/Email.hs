@@ -250,8 +250,11 @@ $newline never
                 <input type="password" name="password">
         <tr>
             <td colspan="2">
-                <input type="submit" value=_{Msg.LoginViaEmail}>
-                <a href="@{tm registerR}">I don't have an account
+                <button type=submit .btn .btn-success>
+                    _{Msg.LoginViaEmail}
+                &nbsp;
+                <a href="@{tm registerR}" .btn .btn-default>
+                    _{Msg.RegisterLong}
 |]
   where
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
