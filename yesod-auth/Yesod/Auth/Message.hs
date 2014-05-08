@@ -311,15 +311,14 @@ frenchMessage NowLoggedIn = "Vous êtes maintenant connecté"
 frenchMessage LoginTitle = "Se connecter"
 frenchMessage PleaseProvideUsername = "Merci de renseigner votre nom d'utilisateur"
 frenchMessage PleaseProvidePassword = "Merci de spécifier un mot de passe"
-frenchMessage NoIdentifierProvided = "No email/username provided"
-frenchMessage InvalidEmailAddress = "Invalid email address provided"
-frenchMessage PasswordResetTitle = "Password Reset"
-frenchMessage ProvideIdentifier = "Email or Username"
-frenchMessage SendPasswordResetEmail = "Send password reset email"
-frenchMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
-frenchMessage InvalidUsernamePass = "Invalid username/password combination"
--- TODO
-frenchMessage i@(IdentifierNotFound _) = englishMessage i
+frenchMessage NoIdentifierProvided = "Adresse électronique/nom d'utilisateur non spécifié"
+frenchMessage InvalidEmailAddress = "Adresse électronique spécifiée invalide"
+frenchMessage PasswordResetTitle = "Réinitialisation de mot de passe"
+frenchMessage ProvideIdentifier = "Adresse électronique ou nom d'utilisateur"
+frenchMessage SendPasswordResetEmail = "Envoie d'un message électronique pour Réinitialisation le mot de passe"
+frenchMessage PasswordResetPrompt = "Entrez votre adresse électronique ou votre nom d'utilisateur ci-dessous, et un message électronique de réinitialisation de mot de passe vous sera envoyé."
+frenchMessage InvalidUsernamePass = "Le couble nom d'utilisateur/mot de passe invalide"
+frenchMessage (IdentifierNotFound ident) = "Nom d'utilisateur introuvable: " `mappend` ident
 
 norwegianBokmålMessage :: AuthMessage -> Text
 norwegianBokmålMessage NoOpenID = "Ingen OpenID-identifiserer funnet"
