@@ -45,7 +45,7 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.Text (Text)
 import Yesod.Core
-import qualified Crypto.PasswordStore as PS
+import qualified Yesod.PasswordStore as PS
 import qualified Text.Email.Validate
 import qualified Yesod.Auth.Message as Msg
 import Control.Applicative ((<$>), (<*>))
