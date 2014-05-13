@@ -170,7 +170,7 @@ $newline never
 -- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField, Ord)
+    deriving (Show, Read, Eq, PersistField, Ord, ToJSON, FromJSON)
 instance PersistFieldSql Textarea where
     sqlType _ = SqlString
 instance ToHtml Textarea where
