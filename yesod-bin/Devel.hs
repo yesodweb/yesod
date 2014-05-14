@@ -215,7 +215,8 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     putStrLn $ "Yesod devel server. "  ++ terminator ++ " to quit"
     void $ forkIO $ do
       filesModified <- newEmptyMVar
-      watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
+      void $ forkIO $
+        watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
       evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     after
     writeLock opts
