@@ -215,7 +215,8 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     putStrLn $ "Yesod devel server. "  ++ terminator ++ " to quit"
     void $ forkIO $ do
       filesModified <- newEmptyMVar
-      watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
+      void $ forkIO $
+        void $ watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
       evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     after
     writeLock opts
@@ -276,7 +277,10 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
                    liftIO $ I.writeIORef iappPort appPort
 
                    (_,_,_,ph) <- liftIO $ createProcess (proc "runghc" devArgs)
-                        { env = Just $ ("PORT", show appPort) : ("DISPLAY_PORT", show $ develPort opts) : env0
+                        { env = Just $ Map.toList
+                                     $ Map.insert "PORT" (show appPort)
+                                     $ Map.insert "DISPLAY_PORT" (show $ develPort opts)
+                                     $ Map.fromList env0
                         }
                    derefMap <- get
                    watchTid <- liftIO . forkIO . try_ $ flip evalStateT derefMap $ do

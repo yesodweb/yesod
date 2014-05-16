@@ -45,7 +45,7 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Data.Text (Text)
 import Yesod.Core
-import qualified Crypto.PasswordStore as PS
+import qualified Yesod.PasswordStore as PS
 import qualified Text.Email.Validate
 import qualified Yesod.Auth.Message as Msg
 import Control.Applicative ((<$>), (<*>))
@@ -250,8 +250,11 @@ $newline never
                 <input type="password" name="password">
         <tr>
             <td colspan="2">
-                <input type="submit" value=_{Msg.LoginViaEmail}>
-                <a href="@{tm registerR}">I don't have an account
+                <button type=submit .btn .btn-success>
+                    _{Msg.LoginViaEmail}
+                &nbsp;
+                <a href="@{tm registerR}" .btn .btn-default>
+                    _{Msg.RegisterLong}
 |]
   where
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse

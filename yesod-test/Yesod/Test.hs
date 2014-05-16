@@ -539,7 +539,9 @@ request reqBuilder = do
       , rbdGets = []
       , rbdHeaders = []
       }
-    let path = TE.decodeUtf8 $ Builder.toByteString $ H.encodePathSegments rbdPath
+    let path
+            | null rbdPath = "/"
+            | otherwise = TE.decodeUtf8 $ Builder.toByteString $ H.encodePathSegments rbdPath
 
     -- expire cookies and filter them for the current path. TODO: support max age
     currentUtc <- liftIO getCurrentTime
