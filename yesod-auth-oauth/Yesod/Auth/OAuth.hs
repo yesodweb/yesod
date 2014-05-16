@@ -72,7 +72,7 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
       master <- getYesod
       accTok <- getAccessToken oauth reqTok (authHttpManager master)
       creds  <- liftIO $ mkCreds accTok
-      setCreds True creds
+      setCredsRedirect creds
     dispatch _ _ = notFound
     login tm = do
         render <- getUrlRender
