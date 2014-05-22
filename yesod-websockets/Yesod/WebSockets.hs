@@ -46,7 +46,7 @@ webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () ->
 webSockets inner = do
     req <- Y.waiRequest
     when (WaiWS.isWebSocketsReq req) $
-        Y.sendRawResponse $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
+        Y.sendRawResponseNoConduit $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
             WS.defaultConnectionOptions
             (WaiWS.getRequestHead req)
             (\pconn -> do

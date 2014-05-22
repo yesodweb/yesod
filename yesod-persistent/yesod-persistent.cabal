@@ -34,6 +34,7 @@ test-suite test
     build-depends: base
                  , hspec
                  , wai-test
+                 , wai-extra
                  , yesod-core
                  , persistent-sqlite
                  , yesod-persistent
