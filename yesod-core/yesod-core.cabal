@@ -131,6 +131,7 @@ test-suite tests
                   , conduit-extra
                   , shakespeare
                   , streaming-commons
+                  , wai-extra
     ghc-options:     -Wall
     extensions: TemplateHaskell
 

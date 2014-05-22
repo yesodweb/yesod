@@ -128,7 +128,7 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "builder includes content-length" caseGoodBuilder
       forM_ [1..10] $ \i -> it ("error case " ++ show i) (caseError i)
 
-runner :: Session () -> IO ()
+runner :: Session a -> IO a
 runner f = toWaiApp App >>= runSession f
 
 caseNotFound :: IO ()
@@ -175,11 +175,10 @@ caseErrorInBody = runner $ do
 caseErrorInBodyNoEval :: IO ()
 caseErrorInBodyNoEval = do
     eres <- try $ runner $ do
-        _ <- request defaultRequest { pathInfo = ["error-in-body-noeval"] }
-        return ()
+        request defaultRequest { pathInfo = ["error-in-body-noeval"] }
     case eres of
         Left (_ :: SomeException) -> return ()
-        Right _ -> error "Expected an exception"
+        Right x -> error $ "Expected an exception, got: " ++ show x
 
 caseOverrideStatus :: IO ()
 caseOverrideStatus = runner $ do
