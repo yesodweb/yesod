@@ -422,7 +422,7 @@ failWith msg = do
     exitFailure
 
 checkFileList :: FileList -> D.Library -> [FilePath]
-checkFileList fl lib = filter isUnlisted . filter isSrcFile $ sourceFiles
+checkFileList fl lib = filter (not . isSetup) . filter isUnlisted . filter isSrcFile $ sourceFiles
   where
     al = allModules lib
     -- a file is only a possible 'module file' if all path pieces start with a capital letter
@@ -431,6 +431,12 @@ checkFileList fl lib = filter isUnlisted . filter isSrcFile $ sourceFiles
                      in  all (isUpper . head) dirs && (takeExtension file `elem` [".hs", ".lhs"])
     isUnlisted file = not (toModuleName file `Set.member` al)
     toModuleName = L.intercalate "." . filter (/=".") . splitDirectories . dropExtension
+
+    isSetup "Setup.hs" = True
+    isSetup "./Setup.hs" = True
+    isSetup "Setup.lhs" = True
+    isSetup "./Setup.lhs" = True
+    isSetup _ = False
 
 allModules :: D.Library -> Set.Set String
 allModules lib = Set.fromList $ map toString $ D.exposedModules lib ++ (D.otherModules . D.libBuildInfo) lib
