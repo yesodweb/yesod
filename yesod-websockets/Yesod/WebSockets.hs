@@ -9,6 +9,7 @@ module Yesod.WebSockets
     , sendBinaryData
       -- * Conduit API
     , sourceWS
+    , sourceWSText
     , sinkWSText
     , sinkWSBinary
       -- * Async helpers
@@ -26,14 +27,16 @@ import           Control.Monad.Trans.Control    (MonadBaseControl (liftBaseWith,
 import           Control.Monad.Trans.Reader     (ReaderT (ReaderT, runReaderT))
 import qualified Data.Conduit                   as C
 import qualified Data.Conduit.List              as CL
-import qualified Network.Wai.Handler.WebSockets as WaiWS
-import qualified Network.WebSockets             as WS
 import qualified Yesod.Core                     as Y
+import qualified WaiWS
+import Data.ByteString (ByteString)
+import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 
 -- | A transformer for a WebSockets handler.
 --
 -- Since 0.1.0
-type WebSocketsT = ReaderT WS.Connection
+type WebSocketsT = ReaderT WaiWS.Connection
 
 -- | Attempt to run a WebSockets handler. This function first checks if the
 -- client initiated a WebSockets connection and, if so, runs the provided
@@ -45,50 +48,50 @@ type WebSocketsT = ReaderT WS.Connection
 webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () -> m ()
 webSockets inner = do
     req <- Y.waiRequest
-    when (WaiWS.isWebSocketsReq req) $
-        Y.sendRawResponse $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
-            WS.defaultConnectionOptions
-            (WaiWS.getRequestHead req)
-            (\pconn -> do
-                conn <- WS.acceptRequest pconn
-                runInIO $ runReaderT inner conn)
-            src
-            sink
+    case WaiWS.websocketsApp req of
+        Nothing -> return ()
+        Just runWebSockets -> Y.sendRawResponse $ \src sink -> control $ \runInIO -> runWebSockets src sink $ runInIO . runReaderT inner
 
 -- | Receive a piece of data from the client.
 --
 -- Since 0.1.0
-receiveData :: (MonadIO m, WS.WebSocketsData a) => WebSocketsT m a
-receiveData = ReaderT $ liftIO . WS.receiveData
+receiveData :: (MonadIO m) => WebSocketsT m ByteString
+receiveData = ReaderT $ liftIO . WaiWS.connRecv
 
 -- | Send a textual messsage to the client.
 --
 -- Since 0.1.0
-sendTextData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
-sendTextData x = ReaderT $ liftIO . flip WS.sendTextData x
+sendTextData :: MonadIO m => Text -> WebSocketsT m ()
+sendTextData x = ReaderT $ \conn -> liftIO $ WaiWS.connSend conn True $ encodeUtf8 x
 
 -- | Send a binary messsage to the client.
 --
 -- Since 0.1.0
-sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
-sendBinaryData x = ReaderT $ liftIO . flip WS.sendBinaryData x
+sendBinaryData :: MonadIO m => ByteString -> WebSocketsT m ()
+sendBinaryData x = ReaderT $ \conn -> liftIO $ WaiWS.connSend conn False x
 
 -- | A @Source@ of WebSockets data from the user.
 --
 -- Since 0.1.0
-sourceWS :: (MonadIO m, WS.WebSocketsData a) => C.Producer (WebSocketsT m) a
+sourceWS :: MonadIO m => C.Producer (WebSocketsT m) ByteString
 sourceWS = forever $ Y.lift receiveData >>= C.yield
+
+-- | A @Source@ of WebSockets data from the user.
+--
+-- Since 0.1.0
+sourceWSText :: MonadIO m => C.Producer (WebSocketsT m) Text
+sourceWSText = forever $ Y.lift receiveData >>= C.yield . decodeUtf8
 
 -- | A @Sink@ for sending textual data to the user.
 --
 -- Since 0.1.0
-sinkWSText :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebSocketsT m) ()
+sinkWSText :: MonadIO m => C.Consumer Text (WebSocketsT m) ()
 sinkWSText = CL.mapM_ sendTextData
 
 -- | A @Sink@ for sending binary data to the user.
 --
 -- Since 0.1.0
-sinkWSBinary :: (MonadIO m, WS.WebSocketsData a) => C.Consumer a (WebSocketsT m) ()
+sinkWSBinary :: MonadIO m => C.Consumer ByteString (WebSocketsT m) ()
 sinkWSBinary = CL.mapM_ sendBinaryData
 
 -- | Generalized version of 'A.race'.

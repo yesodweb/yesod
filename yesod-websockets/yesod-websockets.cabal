@@ -16,14 +16,21 @@ cabal-version:       >=1.8
 
 library
   exposed-modules:     Yesod.WebSockets
+  other-modules:       WaiWS
   build-depends:       base              >= 4.5 && < 5
-                     , wai-websockets    >= 2.1
-                     , websockets        >= 0.8
                      , transformers      >= 0.2
                      , yesod-core        >= 1.2.7
                      , monad-control     >= 0.3
                      , conduit           >= 1.0.15.1
                      , async             >= 2.0.1.5
+                     , base64-bytestring
+                     , bytestring
+                     , containers
+                     , cryptohash
+                     , blaze-builder
+                     , http-types
+                     , wai
+                     , text
 
 source-repository head
   type:     git

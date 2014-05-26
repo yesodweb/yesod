@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
 import Yesod.Core
 import Yesod.WebSockets
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Control.Monad (forever)
 import Control.Monad.Trans.Reader
@@ -16,16 +17,16 @@ mkYesod "App" [parseRoutes|
 / HomeR GET
 |]
 
-timeSource :: MonadIO m => Source m TL.Text
+timeSource :: MonadIO m => Source m T.Text
 timeSource = forever $ do
     now <- liftIO getCurrentTime
-    yield $ TL.pack $ show now
+    yield $ T.pack $ show now
     liftIO $ threadDelay 5000000
 
 getHomeR :: Handler Html
 getHomeR = do
     webSockets $ race_
-        (sourceWS $$ mapC TL.toUpper =$ sinkWSText)
+        (sourceWSText $$ mapC T.toUpper =$ sinkWSText)
         (timeSource $$ sinkWSText)
     defaultLayout $
         toWidget
