@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.2.9.3
+version:         1.2.9.4
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -95,7 +95,7 @@ executable             yesod
                      , data-default-class
                      , streaming-commons
 
-    ghc-options:       -Wall -threaded
+    ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
     other-modules:     Scaffolding.Scaffolder
                        Devel
