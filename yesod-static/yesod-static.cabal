@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.2.3
+version:         1.2.4
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>

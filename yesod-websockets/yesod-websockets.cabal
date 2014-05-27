@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                yesod-websockets
-version:             0.1.0.0
+version:             0.1.1
 synopsis:            WebSockets support for Yesod
 description:         WebSockets support for Yesod
 homepage:            https://github.com/yesodweb/yesod
