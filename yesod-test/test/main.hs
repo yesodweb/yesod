@@ -109,6 +109,15 @@ main = hspec $ do
                     addNonce
                 statusIs 200
                 bodyEquals "12345"
+            yit "finding html" $ do
+                get ("/html" :: Text)
+                statusIs 200
+                htmlCount "p" 2
+                htmlAllContain "p" "Hello"
+                htmlAnyContain "p" "World"
+                htmlAnyContain "p" "Moon"
+                htmlNoneContain "p" "Sun"
+
         ydescribe "utf8 paths" $ do
             yit "from path" $ do
                 get ("/dynamic1/שלום" :: Text)
@@ -162,6 +171,9 @@ app = liteApp $ do
         case mfoo of
             FormSuccess (foo, _) -> return $ toHtml foo
             _ -> defaultLayout widget
+    onStatic "html" $ dispatchTo $
+        return ("<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>" :: Text)
+
 
 cookieApp :: LiteApp
 cookieApp = liteApp $ do
