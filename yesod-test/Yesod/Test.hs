@@ -75,6 +75,7 @@ module Yesod.Test
     , bodyContains
     , htmlAllContain
     , htmlAnyContain
+    , htmlNoneContain
     , htmlCount
 
     -- * Grab information
@@ -352,6 +353,19 @@ htmlAnyContain query search = do
     [] -> failure $ "Nothing matched css query: " <> query
     _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search) $
           DL.any (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
+
+-- | Queries the html using a css selector, and fails if any matched
+-- element contains the given string (in other words, it is the logical
+-- inverse of htmlAnyContains).
+--
+-- Since 1.2.1.6
+htmlNoneContain :: Query -> String -> YesodExample site ()
+htmlNoneContain query search = do
+  matches <- htmlQuery query
+  case DL.filter (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches) of
+    [] -> return ()
+    found -> failure $ "Found " <> T.pack (show $ length found) <>
+                " instances of " <> T.pack search <> " in " <> query <> " elements"
 
 -- | Performs a css query on the last response and asserts the matched elements
 -- are as many as expected.
