@@ -358,7 +358,7 @@ htmlAnyContain query search = do
 -- element contains the given string (in other words, it is the logical
 -- inverse of htmlAnyContains).
 --
--- Since 1.2.1.6
+-- Since 1.2.2
 htmlNoneContain :: Query -> String -> YesodExample site ()
 htmlNoneContain query search = do
   matches <- htmlQuery query
