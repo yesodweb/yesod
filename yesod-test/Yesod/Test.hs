@@ -75,6 +75,7 @@ module Yesod.Test
     , bodyContains
     , htmlAllContain
     , htmlAnyContain
+    , htmlNoneContain
     , htmlCount
 
     -- * Grab information
@@ -319,7 +320,7 @@ assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
 bodyEquals :: String -> YesodExample site ()
 bodyEquals text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to equal " ++ text) $
-    (simpleBody res) == BSL8.pack text
+    (simpleBody res) == encodeUtf8 (TL.pack text)
 
 -- | Assert the last response has the given text. The check is performed using the response
 -- body in full text form.
@@ -329,7 +330,7 @@ bodyContains text = withResponse $ \ res ->
     (simpleBody res) `contains` text
 
 contains :: BSL8.ByteString -> String -> Bool
-contains a b = DL.isInfixOf b (BSL8.unpack a)
+contains a b = DL.isInfixOf b (TL.unpack $ decodeUtf8 a)
 
 -- | Queries the html using a css selector, and all matched elements must contain
 -- the given string.
@@ -353,6 +354,19 @@ htmlAnyContain query search = do
     _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search) $
           DL.any (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
 
+-- | Queries the html using a css selector, and fails if any matched
+-- element contains the given string (in other words, it is the logical
+-- inverse of htmlAnyContains).
+--
+-- Since 1.2.2
+htmlNoneContain :: Query -> String -> YesodExample site ()
+htmlNoneContain query search = do
+  matches <- htmlQuery query
+  case DL.filter (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches) of
+    [] -> return ()
+    found -> failure $ "Found " <> T.pack (show $ length found) <>
+                " instances of " <> T.pack search <> " in " <> query <> " elements"
+
 -- | Performs a css query on the last response and asserts the matched elements
 -- are as many as expected.
 htmlCount :: Query -> Int -> YesodExample site ()
@@ -364,7 +378,7 @@ htmlCount query count = do
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec)
 printBody :: YesodExample site ()
 printBody = withResponse $ \ SResponse { simpleBody = b } ->
-  liftIO $ hPutStrLn stderr $ BSL8.unpack b
+  liftIO $ BSL8.hPutStrLn stderr b
 
 -- | Performs a CSS query and print the matches to stderr.
 printMatches :: Query -> YesodExample site ()
@@ -504,7 +518,7 @@ setUrl url' = do
     let (urlPath, urlQuery) = T.break (== '?') url
     ST.modify $ \rbd -> rbd
         { rbdPath =
-            case DL.filter (/="") $ T.split (== '/') urlPath of
+            case DL.filter (/="") $ H.decodePathSegments $ TE.encodeUtf8 urlPath of
                 ("http:":_:rest) -> rest
                 ("https:":_:rest) -> rest
                 x -> x
@@ -539,7 +553,9 @@ request reqBuilder = do
       , rbdGets = []
       , rbdHeaders = []
       }
-    let path = T.cons '/' $ T.intercalate "/" rbdPath
+    let path
+            | null rbdPath = "/"
+            | otherwise = TE.decodeUtf8 $ Builder.toByteString $ H.encodePathSegments rbdPath
 
     -- expire cookies and filter them for the current path. TODO: support max age
     currentUtc <- liftIO getCurrentTime
@@ -644,7 +660,7 @@ request reqBuilder = do
       , remoteHost = Sock.SockAddrInet 1 2
       , requestHeaders = headers ++ extraHeaders
       , rawPathInfo = TE.encodeUtf8 urlPath
-      , pathInfo = DL.filter (/="") $ T.split (== '/') urlPath
+      , pathInfo = H.decodePathSegments $ TE.encodeUtf8 urlPath
       , rawQueryString = H.renderQuery False urlQuery
       , queryString = urlQuery
       }

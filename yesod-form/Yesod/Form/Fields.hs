@@ -84,7 +84,10 @@ import Database.Persist (PersistMonadBackend, PersistEntityBackend)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
-import Data.Text as T (Text, concat, intercalate, unpack, pack, splitOn)
+import Data.Text as T ( Text, append, concat, cons, head
+                      , intercalate, isPrefixOf, null, unpack, pack, splitOn
+                      )
+import qualified Data.Text as T (drop, dropWhile)  
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
@@ -121,7 +124,7 @@ $newline never
 doubleField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Double
 doubleField = Field
     { fieldParse = parseHelper $ \s ->
-        case Data.Text.Read.double s of
+        case Data.Text.Read.double (prependZero s) of
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidNumber s
 
@@ -174,7 +177,7 @@ $newline never
 -- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField, Ord)
+    deriving (Show, Read, Eq, PersistField, Ord, ToJSON, FromJSON)
 instance PersistFieldSql Textarea where
     sqlType _ = SqlString
 instance ToHtml Textarea where
@@ -735,3 +738,19 @@ $newline never
 incrInts :: Ints -> Ints
 incrInts (IntSingle i) = IntSingle $ i + 1
 incrInts (IntCons i is) = (i + 1) `IntCons` is
+
+
+-- | Adds a '0' to some text so that it may be recognized as a double.
+--   The read ftn does not recognize ".3" as 0.3 nor "-.3" as -0.3, so this
+--   function changes ".xxx" to "0.xxx" and "-.xxx" to "-0.xxx"
+
+prependZero :: Text -> Text
+prependZero t0 = if T.null t1
+                 then t1
+                 else if T.head t1 == '.'
+                      then '0' `T.cons` t1
+                      else if "-." `T.isPrefixOf` t1
+                           then "-0." `T.append` (T.drop 2 t1)
+                           else t1
+
+  where t1 = T.dropWhile ((==) ' ') t0

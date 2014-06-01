@@ -17,6 +17,9 @@ import           Control.Exception                  (Exception)
 import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.Catch                (MonadCatch (..))
+#if MIN_VERSION_exceptions(0,6,0)
+import           Control.Monad.Catch                (MonadMask (..))
+#endif
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
@@ -419,6 +422,9 @@ instance MonadThrow m => MonadThrow (WidgetT site m) where
 
 instance MonadCatch m => MonadCatch (HandlerT site m) where
   catch (HandlerT m) c = HandlerT $ \r -> m r `catch` \e -> unHandlerT (c e) r
+#if MIN_VERSION_exceptions(0,6,0)
+instance MonadMask m => MonadMask (HandlerT site m) where
+#endif
   mask a = HandlerT $ \e -> mask $ \u -> unHandlerT (a $ q u) e
     where q u (HandlerT b) = HandlerT (u . b)
   uninterruptibleMask a =
@@ -426,6 +432,9 @@ instance MonadCatch m => MonadCatch (HandlerT site m) where
       where q u (HandlerT b) = HandlerT (u . b)
 instance MonadCatch m => MonadCatch (WidgetT site m) where
   catch (WidgetT m) c = WidgetT $ \r -> m r `catch` \e -> unWidgetT (c e) r
+#if MIN_VERSION_exceptions(0,6,0)
+instance MonadMask m => MonadMask (WidgetT site m) where
+#endif
   mask a = WidgetT $ \e -> mask $ \u -> unWidgetT (a $ q u) e
     where q u (WidgetT b) = WidgetT (u . b)
   uninterruptibleMask a =

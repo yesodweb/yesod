@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 import Test.HUnit hiding (Test)
@@ -13,6 +14,8 @@ import Text.XML
 import Data.Text (Text)
 import Data.Monoid ((<>))
 import Control.Applicative
+import Network.Wai (pathInfo)
+import Data.Maybe (fromMaybe)
 
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
@@ -106,6 +109,39 @@ main = hspec $ do
                     addNonce
                 statusIs 200
                 bodyEquals "12345"
+            yit "finding html" $ do
+                get ("/html" :: Text)
+                statusIs 200
+                htmlCount "p" 2
+                htmlAllContain "p" "Hello"
+                htmlAnyContain "p" "World"
+                htmlAnyContain "p" "Moon"
+                htmlNoneContain "p" "Sun"
+
+        ydescribe "utf8 paths" $ do
+            yit "from path" $ do
+                get ("/dynamic1/שלום" :: Text)
+                statusIs 200
+                bodyEquals "שלום"
+            yit "from path, type-safe URL" $ do
+                get $ LiteAppRoute ["dynamic1", "שלום"]
+                statusIs 200
+                printBody
+                bodyEquals "שלום"
+            yit "from WAI" $ do
+                get ("/dynamic2/שלום" :: Text)
+                statusIs 200
+                bodyEquals "שלום"
+    describe "cookies" $ yesodSpec cookieApp $ do
+        yit "should send the cookie #730" $ do
+            get ("/" :: Text)
+            statusIs 200
+            post ("/cookie/foo" :: Text)
+            statusIs 302
+            get ("/" :: Text)
+            statusIs 200
+            printBody
+            bodyContains "Foo"
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -117,6 +153,10 @@ app = liteApp $ do
         case mfoo of
             Nothing -> return "Hello world!"
             Just foo -> return $ "foo=" <> foo
+    onStatic "dynamic1" $ withDynamic $ \d -> dispatchTo $ return (d :: Text)
+    onStatic "dynamic2" $ onStatic "שלום" $ dispatchTo $ do
+        req <- waiRequest
+        return $ pathInfo req !! 1
     onStatic "post" $ dispatchTo $ do
         mfoo <- lookupPostParam "foo"
         case mfoo of
@@ -131,3 +171,15 @@ app = liteApp $ do
         case mfoo of
             FormSuccess (foo, _) -> return $ toHtml foo
             _ -> defaultLayout widget
+    onStatic "html" $ dispatchTo $
+        return ("<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>" :: Text)
+
+
+cookieApp :: LiteApp
+cookieApp = liteApp $ do
+    dispatchTo $ fromMaybe "no message available" <$> getMessage
+    onStatic "cookie" $ do
+        onStatic "foo" $ dispatchTo $ do
+            setMessage "Foo"
+            redirect ("/cookie/home" :: Text)
+            return ()

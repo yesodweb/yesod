@@ -186,7 +186,7 @@ runFormGeneric :: Monad m
                -> [Text]
                -> Maybe (Env, FileEnv)
                -> m (a, Enctype)
-runFormGeneric form site langs env = evalRWST form (env, site, langs) (IntSingle 1)
+runFormGeneric form site langs env = evalRWST form (env, site, langs) (IntSingle 0)
 
 -- | This function is used to both initially render a form and to later extract
 -- results from it. Note that, due to CSRF protection and a few other issues,

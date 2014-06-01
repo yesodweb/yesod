@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.2.1.2
+version:            1.2.2
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -59,6 +59,7 @@ test-suite test
                           , yesod-core
                           , yesod-form
                           , text
+                          , wai
 
 source-repository head
   type: git

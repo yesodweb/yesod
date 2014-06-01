@@ -77,9 +77,10 @@ import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
 #if MIN_VERSION_http_reverse_proxy(0, 2, 0)
 import qualified Network.HTTP.ReverseProxy             as ReverseProxy
 #endif
-import           Network.HTTP.Types                    (status200)
+import           Network.HTTP.Types                    (status200, status503)
 import           Network.Socket                        (sClose)
-import           Network.Wai                           (responseLBS)
+import           Network.Wai                           (responseLBS, requestHeaders)
+import           Network.Wai.Parse                     (parseHttpAccept)
 import           Network.Wai.Handler.Warp              (run)
 import           SrcLoc                                (Located)
 import           Data.FileEmbed        (embedFile)
@@ -135,11 +136,18 @@ reverseProxy opts iappPort = do
     manager <- newManager def
 #endif
     let refreshHtml = LB.fromChunks $ return $(embedFile "refreshing.html")
-    let onExc _ _ = return $ responseLBS status200
-            [ ("content-type", "text/html")
-            , ("Refresh", "1")
-            ]
-            refreshHtml
+    let onExc _ req
+            | maybe False (("application/json" `elem`) . parseHttpAccept)
+                (lookup "accept" $ requestHeaders req) =
+                    return $ responseLBS status503
+                        [ ("Retry-After", "1")
+                        ]
+                        "{\"message\":\"Recompiling\"}"
+            | otherwise = return $ responseLBS status200
+                [ ("content-type", "text/html")
+                , ("Refresh", "1")
+                ]
+                refreshHtml
 
     let runProxy =
             run (develPort opts) $ waiProxyToSettings
@@ -207,7 +215,8 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     putStrLn $ "Yesod devel server. "  ++ terminator ++ " to quit"
     void $ forkIO $ do
       filesModified <- newEmptyMVar
-      watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
+      void $ forkIO $
+        void $ watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
       evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     after
     writeLock opts
@@ -268,7 +277,10 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
                    liftIO $ I.writeIORef iappPort appPort
 
                    (_,_,_,ph) <- liftIO $ createProcess (proc "runghc" devArgs)
-                        { env = Just $ ("PORT", show appPort) : ("DISPLAY_PORT", show $ develPort opts) : env0
+                        { env = Just $ Map.toList
+                                     $ Map.insert "PORT" (show appPort)
+                                     $ Map.insert "DISPLAY_PORT" (show $ develPort opts)
+                                     $ Map.fromList env0
                         }
                    derefMap <- get
                    watchTid <- liftIO . forkIO . try_ $ flip evalStateT derefMap $ do
@@ -410,7 +422,7 @@ failWith msg = do
     exitFailure
 
 checkFileList :: FileList -> D.Library -> [FilePath]
-checkFileList fl lib = filter isUnlisted . filter isSrcFile $ sourceFiles
+checkFileList fl lib = filter (not . isSetup) . filter isUnlisted . filter isSrcFile $ sourceFiles
   where
     al = allModules lib
     -- a file is only a possible 'module file' if all path pieces start with a capital letter
@@ -419,6 +431,12 @@ checkFileList fl lib = filter isUnlisted . filter isSrcFile $ sourceFiles
                      in  all (isUpper . head) dirs && (takeExtension file `elem` [".hs", ".lhs"])
     isUnlisted file = not (toModuleName file `Set.member` al)
     toModuleName = L.intercalate "." . filter (/=".") . splitDirectories . dropExtension
+
+    isSetup "Setup.hs" = True
+    isSetup "./Setup.hs" = True
+    isSetup "Setup.lhs" = True
+    isSetup "./Setup.lhs" = True
+    isSetup _ = False
 
 allModules :: D.Library -> Set.Set String
 allModules lib = Set.fromList $ map toString $ D.exposedModules lib ++ (D.otherModules . D.libBuildInfo) lib
