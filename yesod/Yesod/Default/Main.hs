@@ -77,7 +77,7 @@ defaultMainLog load getApp = do
         } app
   where
     shouldLog' =
-#if MIN_VERSION_wai(2,1,3)
+#if MIN_VERSION_warp(2,1,3)
         Warp.defaultShouldDisplayException
 #else
         const True
