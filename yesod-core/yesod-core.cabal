@@ -57,7 +57,7 @@ library
                    , fast-logger           >= 0.2
                    , wai-logger            >= 0.2
                    , monad-logger          >= 0.3.1    && < 0.4
-                   , conduit               >= 0.5
+                   , conduit               >= 1.0.11
                    , resourcet             >= 0.4.9    && < 1.2
                    , lifted-base           >= 0.1.2
                    , attoparsec-conduit
