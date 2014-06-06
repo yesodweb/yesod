@@ -15,6 +15,8 @@ import           Text.ProjectTemplate  (unpackTemplate, receiveFS)
 import           System.IO
 import           Text.Shakespeare.Text (renderTextUrl, textFile)
 import Network.HTTP.Conduit (withManager, http, parseUrl, responseBody)
+import           Data.List.Split       (splitOn)
+import           Data.Char             (isDigit)
 
 prompt :: (String -> Maybe a) -> IO a
 prompt f = do
@@ -68,12 +70,14 @@ validPN c
 validPN '-' = True
 validPN _ = False
 
+
+
 scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
          -> IO ()
 scaffold isBare = do
     puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
     project <- prompt $ \s ->
-        if all validPN s && not (null s) && s /= "test"
+        if all validPN s && not (null s) && s /= "test" && (not $ any (all isDigit) (splitOn "-" s))
             then Just s
             else Nothing
     let dir = project
