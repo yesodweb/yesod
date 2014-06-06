@@ -70,14 +70,18 @@ validPN c
 validPN '-' = True
 validPN _ = False
 
-
+-- | Cabal separates packages with a hyphen into words. A word can't consist of only digits
+-- <http://www.haskell.org/ghc/docs/7.0.3/html/Cabal/packages.html Relevant Cabal Docs>
+-- Fixes <https://github.com/yesodweb/yesod/issues/550 #550>
+wordsHaveOneCharacter :: String -> Bool
+wordsHaveOneCharacter s = not $ any (all isDigit) (splitOn "-" s)
 
 scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
          -> IO ()
 scaffold isBare = do
     puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
     project <- prompt $ \s ->
-        if all validPN s && not (null s) && s /= "test" && (not $ any (all isDigit) (splitOn "-" s))
+        if all validPN s && not (null s) && s /= "test" && wordsHaveOneCharacter s
             then Just s
             else Nothing
     let dir = project
