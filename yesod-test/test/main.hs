@@ -137,7 +137,7 @@ main = hspec $ do
             get ("/" :: Text)
             statusIs 200
             post ("/cookie/foo" :: Text)
-            statusIs 302
+            statusIs 303
             get ("/" :: Text)
             statusIs 200
             printBody

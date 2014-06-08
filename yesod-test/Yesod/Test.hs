@@ -577,7 +577,11 @@ request reqBuilder = do
     --         else makeSinglepart
     --       BinaryPostData _ -> makeSinglepart
     -- let req = maker cookiesForPath rbdPostData rbdMethod rbdHeaders path rbdGets
-    response <- liftIO $ runSession (srequest req) app
+    response <- liftIO $ runSession (srequest req
+        { simpleRequest = (simpleRequest req)
+            { httpVersion = H.http11
+            }
+        }) app
     let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
     ST.put $ YesodExampleData app site cookies' (Just response)
