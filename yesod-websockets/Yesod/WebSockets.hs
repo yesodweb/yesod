@@ -61,13 +61,13 @@ webSockets inner = do
 receiveData :: (MonadIO m, WS.WebSocketsData a) => WebSocketsT m a
 receiveData = ReaderT $ liftIO . WS.receiveData
 
--- | Send a textual messsage to the client.
+-- | Send a textual message to the client.
 --
 -- Since 0.1.0
 sendTextData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendTextData x = ReaderT $ liftIO . flip WS.sendTextData x
 
--- | Send a binary messsage to the client.
+-- | Send a binary message to the client.
 --
 -- Since 0.1.0
 sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
