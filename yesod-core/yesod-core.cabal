@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.2.15.2
+version:         1.2.15.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -38,7 +38,7 @@ library
                    , shakespeare-css       >= 1.0
                    , shakespeare-i18n      >= 1.0
                    , blaze-builder         >= 0.2.1.4  && < 0.4
-                   , transformers          >= 0.2.2    && < 0.4
+                   , transformers          >= 0.2.2
                    , mtl
                    , clientsession         >= 0.9      && < 0.10
                    , random                >= 1.0.0.2  && < 1.1
