@@ -33,7 +33,49 @@ import qualified Data.ByteString.Lazy         as L
 import qualified Data.Map                     as Map
 import           Yesod.Core.Internal.Request  (tokenKey)
 import           Data.Text.Encoding           (encodeUtf8)
+import           Data.Conduit                 (Flush (..), ($$))
+import qualified Data.Conduit.List            as CL
 
+#if MIN_VERSION_wai(3, 0, 0)
+yarToResponse :: YesodResponse
+              -> (SessionMap -> IO [Header]) -- ^ save session
+              -> YesodRequest
+              -> Request
+              -> InternalState
+              -> IO Response
+yarToResponse (YRWai a) _ _ _ _ = return a
+yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req is = do
+    extraHeaders <- do
+        let nsToken = maybe
+                newSess
+                (\n -> Map.insert tokenKey (encodeUtf8 n) newSess)
+                (reqToken yreq)
+        sessionHeaders <- saveSession nsToken
+        return $ ("Content-Type", ct) : map headerToPair sessionHeaders
+    let finalHeaders = extraHeaders ++ map headerToPair hs
+        finalHeaders' len = ("Content-Length", S8.pack $ show len)
+                          : finalHeaders
+
+    let go (ContentBuilder b mlen) = do
+            let hs' = maybe finalHeaders finalHeaders' mlen
+            return $ ResponseBuilder s hs' b
+        go (ContentFile fp p) = do
+            return $ ResponseFile s finalHeaders fp p
+        go (ContentSource body) = return $ responseStream s finalHeaders
+            $ \sendChunk flush -> do
+                transPipe (flip runInternalState is) body
+                $$ CL.mapM_ (\mchunk ->
+                    case mchunk of
+                        Flush -> flush
+                        Chunk builder -> sendChunk builder)
+        go (ContentDontEvaluate c') = go c'
+    go c
+  where
+    s
+        | s' == defaultStatus = H.status200
+        | otherwise = s'
+
+#else
 yarToResponse :: YesodResponse
               -> (SessionMap -> IO [Header]) -- ^ save session
               -> YesodRequest
@@ -106,6 +148,7 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req
     s
         | s' == defaultStatus = H.status200
         | otherwise = s'
+#endif
 
 -- | Indicates that the user provided no specific status code to be used, and
 -- therefore the default status code should be used. For normal responses, this

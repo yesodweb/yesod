@@ -83,8 +83,8 @@ specs :: Spec
 specs = describe "Test.RequestBodySize" $ do
     caseHelper "lookupPostParam- large" "post" "foobarbaz=bin" 413 413
     caseHelper "lookupPostParam- small" "post" "foo=bin" 200 200
-    caseHelper "consume- large" "consume" "this is longer than 10" 413 413
-    caseHelper "consume- small" "consume" "smaller" 200 200
+    caseHelper "total consume- large" "consume" "this is longer than 10" 413 413
+    caseHelper "total consume- small" "consume" "smaller" 200 200
     caseHelper "partial consume- large" "partial-consume" "this is longer than 10" 200 413
     caseHelper "partial consume- small" "partial-consume" "smaller" 200 200
     caseHelper "unused- large" "unused" "this is longer than 10" 200 413

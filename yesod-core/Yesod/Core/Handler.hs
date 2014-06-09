@@ -94,6 +94,9 @@ module Yesod.Core.Handler
 #if MIN_VERSION_wai(2, 1, 0)
     , sendRawResponse
 #endif
+#if MIN_VERSION_wai(3, 0, 0)
+    , sendRawResponseNoConduit
+#endif
       -- * Different representations
       -- $representations
     , selectRep
@@ -198,6 +201,8 @@ import Control.Exception (throwIO)
 import Blaze.ByteString.Builder (Builder)
 import Safe (headMay)
 import Data.CaseInsensitive (CI)
+import qualified Data.Conduit.List as CL
+import Control.Monad (unless)
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO
 #if MIN_VERSION_wai(2, 0, 0)
 #else
@@ -368,7 +373,11 @@ handlerToIO =
           where
             oldReq    = handlerRequest oldHandlerData
             oldWaiReq = reqWaiRequest oldReq
+#if MIN_VERSION_wai(3, 0, 0)
+            newWaiReq = oldWaiReq { W.requestBody = return mempty
+#else
             newWaiReq = oldWaiReq { W.requestBody = mempty
+#endif
                                   , W.requestBodyLength = W.KnownLength 0
                                   }
         oldEnv = handlerEnv oldHandlerData
@@ -576,6 +585,24 @@ sendResponseCreated url = do
 sendWaiResponse :: MonadHandler m => W.Response -> m b
 sendWaiResponse = handlerError . HCWai
 
+#if MIN_VERSION_wai(3, 0, 0)
+-- | Send a raw response without conduit. This is used for cases such as
+-- WebSockets. Requires WAI 3.0 or later, and a web server which supports raw
+-- responses (e.g., Warp).
+--
+-- Since 1.2.16
+sendRawResponseNoConduit
+    :: (MonadHandler m, MonadBaseControl IO m)
+    => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> m ())
+    -> m a
+sendRawResponseNoConduit raw = control $ \runInIO ->
+    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
+    $ \src sink -> runInIO (raw src sink) >> return ()
+  where
+    fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
+        "sendRawResponse: backend does not support raw responses"
+#endif
+
 #if MIN_VERSION_wai(2, 1, 0)
 -- | Send a raw response. This is used for cases such as WebSockets. Requires
 -- WAI 2.1 or later, and a web server which supports raw responses (e.g.,
@@ -585,12 +612,26 @@ sendWaiResponse = handlerError . HCWai
 sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
                 => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
                 -> m a
+#if MIN_VERSION_wai(3, 0, 0)
+sendRawResponse raw = control $ \runInIO ->
+    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
+    $ \src sink -> runInIO (raw (src' src) (CL.mapM_ sink)) >> return ()
+  where
+    fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
+        "sendRawResponse: backend does not support raw responses"
+    src' src = do
+        bs <- liftIO src
+        unless (S.null bs) $ do
+            yield bs
+            src' src
+#else
 sendRawResponse raw = control $ \runInIO ->
     runInIO $ sendWaiResponse $ flip W.responseRaw fallback
     $ \src sink -> runInIO (raw src sink) >> return ()
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
         "sendRawResponse: backend does not support raw responses"
+#endif
 #endif
 
 -- | Return a 404 not found page. Also denotes no handler available.
@@ -1068,6 +1109,14 @@ provideRepType ct handler =
 rawRequestBody :: MonadHandler m => Source m S.ByteString
 rawRequestBody = do
     req <- lift waiRequest
+#if MIN_VERSION_wai(3, 0, 0)
+    let loop = do
+            bs <- liftIO $ W.requestBody req
+            unless (S.null bs) $ do
+                yield bs
+                loop
+    loop
+#else
     transPipe
 #if MIN_VERSION_wai(2, 0, 0)
         liftIO
@@ -1075,6 +1124,7 @@ rawRequestBody = do
         liftResourceT
 #endif
         (W.requestBody req)
+#endif
 
 -- | Stream the data from the file. Since Yesod 1.2, this has been generalized
 -- to work in any @MonadResource@.

@@ -1,5 +1,5 @@
 name:            yesod-persistent
-version:         1.2.2.4
+version:         1.2.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -34,6 +34,7 @@ test-suite test
     build-depends: base
                  , hspec
                  , wai-test
+                 , wai-extra
                  , yesod-core
                  , persistent-sqlite
                  , yesod-persistent

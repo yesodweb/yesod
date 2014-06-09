@@ -230,7 +230,11 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , remoteHost     = error "runFakeHandler-remoteHost"
           , pathInfo       = ["runFakeHandler", "pathInfo"]
           , queryString    = []
+#if MIN_VERSION_wai(3, 0, 0)
+          , requestBody    = return mempty
+#else
           , requestBody    = mempty
+#endif
           , vault          = mempty
           , requestBodyLength = KnownLength 0
           }
@@ -253,8 +257,13 @@ yesodRunner :: (ToTypedContent res, Yesod site)
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application
+#if MIN_VERSION_wai(3, 0, 0)
+yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
+  | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = sendResponse tooLargeResponse
+#else
 yesodRunner handler' YesodRunnerEnv {..} route req
   | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
+#endif
   | otherwise = do
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
@@ -281,6 +290,16 @@ yesodRunner handler' YesodRunnerEnv {..} route req
         rhe = rheSafe
             { rheOnError = runHandler rheSafe . errorHandler
             }
+#if MIN_VERSION_wai(3, 0, 0)
+
+    E.bracket createInternalState closeInternalState $ \is -> do
+        yreq' <- yreq
+        yar <- runInternalState (runHandler rhe handler yreq') is
+        res <- yarToResponse yar saveSession yreq' req is
+        sendResponse res
+
+#else
+
 #if MIN_VERSION_wai(2, 0, 0)
     bracketOnError createInternalState closeInternalState $ \is -> do
         yar <- runInternalState (runHandler rhe handler yreq) is
@@ -288,6 +307,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req
 #else
     yar <- runHandler rhe handler yreq
     liftIO $ yarToResponse yar saveSession yreq req
+#endif
 #endif
   where
     mmaxLen = maximumContentLength yreSite route
