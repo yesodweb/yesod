@@ -1,5 +1,5 @@
 name:            yesod-platform
-version:         1.2.11
+version:         1.2.12
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -22,7 +22,7 @@ library
                  , asn1-parse == 0.8.1
                  , asn1-types == 0.2.3
                  , async == 2.0.1.5
-                 , attoparsec == 0.11.3.4
+                 , attoparsec == 0.12.0.0
                  , attoparsec-conduit == 1.1.0
                  , authenticate == 1.3.2.8
                  , base16-bytestring == 0.1.1.6
@@ -36,10 +36,11 @@ library
                  , case-insensitive == 1.2.0.0
                  , cereal == 0.4.0.1
                  , cipher-aes == 0.2.7
+                 , cipher-des == 0.0.6
                  , cipher-rc4 == 0.1.4
                  , clientsession == 0.9.0.3
-                 , conduit == 1.1.2.1
-                 , conduit-extra == 1.1.0.3
+                 , conduit == 1.1.6
+                 , conduit-extra == 1.1.0.4
                  , connection == 0.2.1
                  , cookie == 0.4.1.1
                  , cprng-aes == 0.5.2
@@ -49,7 +50,7 @@ library
                  , crypto-pubkey == 0.2.4
                  , crypto-pubkey-types == 0.4.2.2
                  , crypto-random == 0.0.7
-                 , cryptohash == 0.11.4
+                 , cryptohash == 0.11.5
                  , cryptohash-conduit == 0.1.1
                  , css-text == 0.1.2.1
                  , data-default == 0.5.3
@@ -60,22 +61,22 @@ library
                  , data-default-instances-old-locale == 0.0.1
                  , dlist == 0.7.0.1
                  , email-validate == 2.0.1
-                 , entropy == 0.2.2.4
-                 , esqueleto == 1.4.1
+                 , entropy == 0.3
+                 , esqueleto == 1.4.1.2
                  , exceptions == 0.6.1
                  , fast-logger == 2.1.5
-                 , file-embed == 0.0.6
+                 , file-embed == 0.0.7
                  , hamlet == 1.2.0
                  , hjsmin == 0.1.4.6
                  , hspec == 1.9.5
                  , hspec-expectations == 0.5.0.1
                  , html-conduit == 1.1.0.5
-                 , http-client == 0.3.2.2
+                 , http-client == 0.3.3
                  , http-client-tls == 0.2.1.1
                  , http-conduit == 2.1.2
                  , http-date == 0.0.4
-                 , http-reverse-proxy == 0.3.1.7
-                 , http-types == 0.8.4
+                 , http-reverse-proxy == 0.3.1.8
+                 , http-types == 0.8.5
                  , language-javascript == 0.5.13
                  , lifted-base == 0.2.2.2
                  , mime-mail == 0.4.5.2
@@ -90,17 +91,17 @@ library
                  , path-pieces == 0.1.3.1
                  , pem == 0.2.2
                  , persistent == 1.3.1.1
-                 , persistent-template == 1.3.1.3
+                 , persistent-template == 1.3.1.4
                  , primitive == 0.5.3.0
                  , publicsuffixlist == 0.1
                  , pwstore-fast == 2.4.1
                  , quickcheck-io == 0.1.1
-                 , resource-pool == 0.2.2.0
+                 , resource-pool == 0.2.3.0
                  , resourcet == 1.1.2.2
                  , safe == 0.3.4
                  , scientific == 0.3.2.1
                  , securemem == 0.1.3
-                 , semigroups == 0.14
+                 , semigroups == 0.15
                  , setenv == 0.1.1.1
                  , shakespeare == 2.0.0.3
                  , shakespeare-css == 1.1.0
@@ -112,47 +113,47 @@ library
                  , skein == 1.0.9
                  , socks == 0.5.4
                  , stm-chans == 3.0.0.2
-                 , streaming-commons == 0.1.2.4
+                 , streaming-commons == 0.1.3
                  , stringsearch == 0.3.6.5
-                 , system-fileio == 0.3.13
-                 , system-filepath == 0.4.11
+                 , system-fileio == 0.3.14
+                 , system-filepath == 0.4.12
                  , tagged == 0.7.2
                  , tagsoup == 0.13.1
                  , tagstream-conduit == 0.5.5.1
                  , tf-random == 0.5
-                 , tls == 1.2.7
+                 , tls == 1.2.8
                  , transformers-base == 0.4.2
+                 -- , transformers-compat == 0.3.3.4
                  , unix-compat == 0.4.1.1
                  , unordered-containers == 0.2.4.0
                  , utf8-string == 0.3.8
-                 , vector == 0.10.9.1
+                 , vector == 0.10.11.0
                  , void == 0.6.1
-                 , wai == 2.1.0.2
-                 , wai-app-static == 2.0.1
-                 , wai-extra == 2.1.1.1
+                 , wai == 3.0.0
+                 , wai-app-static == 3.0.0
+                 , wai-extra == 3.0.0
                  , wai-logger == 2.1.1
-                 , wai-test == 2.0.1.2
-                 , warp == 2.1.5.1
-                 , warp-tls == 2.0.5
+                 , wai-test == 3.0.0
+                 , warp == 3.0.0
+                 , warp-tls == 3.0.0
                  , word8 == 0.0.4
                  , x509 == 1.4.11
                  , x509-store == 1.4.4
                  , x509-system == 1.4.5
                  , x509-validation == 1.5.0
-                 , xml-conduit == 1.2.0.1
+                 , xml-conduit == 1.2.0.2
                  , xml-types == 0.3.4
                  , xss-sanitize == 0.3.5.2
-                 , yaml == 0.8.8.2
-                 , yesod == 1.2.5.2
-                 , yesod-auth == 1.3.0.5
+                 , yaml == 0.8.8.3
+                 , yesod == 1.2.5.3
+                 , yesod-auth == 1.3.1
                  , yesod-auth-hashdb == 1.3.0.1
-                 , yesod-core == 1.2.15.1
-                 , yesod-form == 1.3.9
+                 , yesod-core == 1.2.15.2
+                 , yesod-form == 1.3.9.1
                  , yesod-persistent == 1.2.2.3
                  , yesod-routes == 1.2.0.6
                  , yesod-static == 1.2.3
-                 , yesod-test == 1.2.1.5
-                 , zlib-conduit == 1.1.0
+                 , yesod-test == 1.2.2
 
     exposed-modules: Yesod.Platform
 
