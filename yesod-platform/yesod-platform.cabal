@@ -145,15 +145,15 @@ library
                  , xml-types == 0.3.4
                  , xss-sanitize == 0.3.5.2
                  , yaml == 0.8.8.3
-                 , yesod == 1.2.5.3
+                 , yesod == 1.2.6
                  , yesod-auth == 1.3.1
                  , yesod-auth-hashdb == 1.3.0.1
-                 , yesod-core == 1.2.15.2
-                 , yesod-form == 1.3.9.1
-                 , yesod-persistent == 1.2.2.3
+                 , yesod-core == 1.2.16
+                 , yesod-form == 1.3.10
+                 , yesod-persistent == 1.2.3
                  , yesod-routes == 1.2.0.6
-                 , yesod-static == 1.2.3
-                 , yesod-test == 1.2.2
+                 , yesod-static == 1.2.4
+                 , yesod-test == 1.2.3
 
     exposed-modules: Yesod.Platform
 
