@@ -12,6 +12,7 @@ import Data.Monoid (mempty)
 import Data.Map (singleton)
 import Yesod.Core
 import Data.Word (Word64)
+import System.IO.Unsafe (unsafePerformIO)
 
 randomStringSpecs :: Spec
 randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
@@ -36,7 +37,7 @@ parseWaiRequest' :: Request
                  -> Bool
                  -> Word64
                  -> YesodRequest
-parseWaiRequest' a b c d =
+parseWaiRequest' a b c d = unsafePerformIO $ -- ugly hack, just to ease migration, should be removed
     case parseWaiRequest a b c (Just d) of
         Left yreq -> yreq
         Right needGen -> needGen g

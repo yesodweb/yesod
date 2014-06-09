@@ -161,7 +161,11 @@ reverseProxy opts iappPort = do
 #endif
                         $ ProxyDest "127.0.0.1" appPort)
                 def
+#if MIN_VERSION_wai(3, 0, 0)
+                    { wpsOnExc = \e req f -> onExc e req >>= f
+#else
                     { wpsOnExc = onExc
+#endif
                     , wpsTimeout =
                         if proxyTimeout opts == 0
                             then Nothing

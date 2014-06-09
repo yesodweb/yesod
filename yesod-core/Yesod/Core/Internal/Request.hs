@@ -44,11 +44,28 @@ import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Control.Exception (throwIO)
 import Yesod.Core.Types
 import qualified Data.Map as Map
+import Data.IORef
 
 -- | Impose a limit on the size of the request body.
-limitRequestBody :: Word64 -> W.Request -> W.Request
+limitRequestBody :: Word64 -> W.Request -> IO W.Request
+#if MIN_VERSION_wai(3, 0, 0)
+limitRequestBody maxLen req = do
+    ref <- newIORef maxLen
+    return req
+        { W.requestBody = do
+            bs <- W.requestBody req
+            remaining <- readIORef ref
+            let len = fromIntegral $ S8.length bs
+                remaining' = remaining - len
+            if remaining < len
+                then throwIO $ HCWai tooLargeResponse
+                else do
+                    writeIORef ref remaining'
+                    return bs
+        }
+#else
 limitRequestBody maxLen req =
-    req { W.requestBody = W.requestBody req $= limit maxLen }
+    return req { W.requestBody = W.requestBody req $= limit maxLen }
   where
     tooLarge = liftIO $ throwIO $ HCWai tooLargeResponse
 
@@ -63,6 +80,7 @@ limitRequestBody maxLen req =
                 else do
                     yield bs
                     limit $ remaining - len
+#endif
 
 tooLargeResponse :: W.Response
 tooLargeResponse = W.responseLBS
@@ -75,7 +93,7 @@ parseWaiRequest :: RandomGen g
                 -> SessionMap
                 -> Bool
                 -> Maybe Word64 -- ^ max body size
-                -> (Either YesodRequest (g -> YesodRequest))
+                -> (Either (IO YesodRequest) (g -> IO YesodRequest))
 parseWaiRequest env session useToken mmaxBodySize =
     -- In most cases, we won't need to generate any random values. Therefore,
     -- we split our results: if we need a random generator, return a Right
@@ -85,17 +103,19 @@ parseWaiRequest env session useToken mmaxBodySize =
         Left token -> Left $ mkRequest token
         Right mkToken -> Right $ mkRequest . mkToken
   where
-    mkRequest token' = YesodRequest
-        { reqGetParams  = gets
-        , reqCookies    = cookies
-        , reqWaiRequest = maybe id limitRequestBody mmaxBodySize env
-        , reqLangs      = langs''
-        , reqToken      = token'
-        , reqSession    = if useToken
-                            then Map.delete tokenKey session
-                            else session
-        , reqAccept     = httpAccept env
-        }
+    mkRequest token' = do
+        envLimited <- maybe return limitRequestBody mmaxBodySize env
+        return YesodRequest
+            { reqGetParams  = gets
+            , reqCookies    = cookies
+            , reqWaiRequest = envLimited
+            , reqLangs      = langs''
+            , reqToken      = token'
+            , reqSession    = if useToken
+                                then Map.delete tokenKey session
+                                else session
+            , reqAccept     = httpAccept env
+            }
     gets = textQueryString env
     reqCookie = lookup "Cookie" $ W.requestHeaders env
     cookies = maybe [] parseCookiesText reqCookie

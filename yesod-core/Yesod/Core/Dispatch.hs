@@ -92,8 +92,13 @@ toWaiAppYre yre req =
   where
     site = yreSite yre
     sendRedirect :: Yesod master => master -> [Text] -> W.Application
+#if MIN_VERSION_wai(3, 0, 0)
+    sendRedirect y segments' env sendResponse =
+         sendResponse $ W.responseLBS status301
+#else
     sendRedirect y segments' env =
          return $ W.responseLBS status301
+#endif
                 [ ("Content-Type", "text/plain")
                 , ("Location", Blaze.ByteString.Builder.toByteString dest')
                 ] "Redirecting"
