@@ -27,7 +27,7 @@ mkYesod "App" [parseRoutes|
 
 instance Yesod App
 instance YesodPersist App where
-    type YesodPersistBackend App = SqlPersistT
+    type YesodPersistBackend App = SqlBackend
     runDB = defaultRunDB appConfig appPool
 instance YesodPersistRunner App where
     getDBRunner = defaultGetDBRunner appPool
