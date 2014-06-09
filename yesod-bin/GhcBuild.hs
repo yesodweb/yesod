@@ -151,7 +151,9 @@ buildPackage' argv2 ld ar = do
         haskellish (f,Nothing) =
           looksLikeModuleName f || isHaskellSrcFilename f || '.' `notElem` f
         haskellish (_,Just phase) =
-#if MIN_VERSION_ghc(7,4,0)
+#if MIN_VERSION_ghc(7,8,3)
+          phase `notElem` [As True, As False, Cc, Cobjc, Cobjcpp, CmmCpp, Cmm, StopLn]
+#elif MIN_VERSION_ghc(7,4,0)
           phase `notElem` [As, Cc, Cobjc, Cobjcpp, CmmCpp, Cmm, StopLn]
 #else
           phase `notElem` [As, Cc, CmmCpp, Cmm, StopLn]
@@ -301,7 +303,11 @@ mode_flags =
   , Flag "E"            (PassFlag (setMode (stopBeforeMode anyHsc)))
   , Flag "C"            (PassFlag (\f -> do setMode (stopBeforeMode HCc) f
                                             addFlag "-fvia-C" f))
+#if MIN_VERSION_ghc(7,8,3)
+  , Flag "S"            (PassFlag (setMode (stopBeforeMode (As True))))
+#else
   , Flag "S"            (PassFlag (setMode (stopBeforeMode As)))
+#endif
   , Flag "-make"        (PassFlag (setMode doMakeMode))
   , Flag "-interactive" (PassFlag (setMode doInteractiveMode))
   , Flag "-abi-hash"    (PassFlag (setMode doAbiHashMode))
