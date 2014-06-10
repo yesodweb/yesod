@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                yesod-websockets
-version:             0.1.1
+version:             0.1.1.1
 synopsis:            WebSockets support for Yesod
 description:         WebSockets support for Yesod
 homepage:            https://github.com/yesodweb/yesod
@@ -17,6 +17,10 @@ cabal-version:       >=1.8
 library
   exposed-modules:     Yesod.WebSockets
   build-depends:       base              >= 4.5 && < 5
+
+                     -- Just for CPP macro
+                     , wai
+
                      , wai-websockets    >= 2.1
                      , websockets        >= 0.8
                      , transformers      >= 0.2

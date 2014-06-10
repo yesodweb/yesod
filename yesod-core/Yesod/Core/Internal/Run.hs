@@ -302,8 +302,9 @@ yesodRunner handler' YesodRunnerEnv {..} route req
 
 #if MIN_VERSION_wai(2, 0, 0)
     bracketOnError createInternalState closeInternalState $ \is -> do
-        yar <- runInternalState (runHandler rhe handler yreq) is
-        liftIO $ yarToResponse yar saveSession yreq req is
+        yreq' <- yreq
+        yar <- runInternalState (runHandler rhe handler yreq') is
+        liftIO $ yarToResponse yar saveSession yreq' req is
 #else
     yar <- runHandler rhe handler yreq
     liftIO $ yarToResponse yar saveSession yreq req

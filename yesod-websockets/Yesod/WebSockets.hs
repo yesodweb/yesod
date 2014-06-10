@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Yesod.WebSockets
@@ -46,7 +47,12 @@ webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () ->
 webSockets inner = do
     req <- Y.waiRequest
     when (WaiWS.isWebSocketsReq req) $
-        Y.sendRawResponseNoConduit $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
+#if MIN_VERSION_wai(3, 0, 0)
+        Y.sendRawResponseNoConduit
+#else
+        Y.sendRawResponse
+#endif
+          $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
             WS.defaultConnectionOptions
             (WaiWS.getRequestHead req)
             (\pconn -> do
