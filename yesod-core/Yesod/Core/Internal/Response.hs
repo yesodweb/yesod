@@ -42,9 +42,11 @@ yarToResponse :: YesodResponse
               -> YesodRequest
               -> Request
               -> InternalState
-              -> IO Response
-yarToResponse (YRWai a) _ _ _ _ = return a
-yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req is = do
+              -> (Response -> IO ResponseReceived)
+              -> IO ResponseReceived
+yarToResponse (YRWai a) _ _ _ _ sendResponse = sendResponse a
+yarToResponse (YRWaiApp app) _ _ req _ sendResponse = app req sendResponse
+yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req is sendResponse = do
     extraHeaders <- do
         let nsToken = maybe
                 newSess
@@ -58,10 +60,10 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req is = do
 
     let go (ContentBuilder b mlen) = do
             let hs' = maybe finalHeaders finalHeaders' mlen
-            return $ ResponseBuilder s hs' b
+            sendResponse $ ResponseBuilder s hs' b
         go (ContentFile fp p) = do
-            return $ ResponseFile s finalHeaders fp p
-        go (ContentSource body) = return $ responseStream s finalHeaders
+            sendResponse $ ResponseFile s finalHeaders fp p
+        go (ContentSource body) = sendResponse $ responseStream s finalHeaders
             $ \sendChunk flush -> do
                 transPipe (flip runInternalState is) body
                 $$ CL.mapM_ (\mchunk ->
@@ -85,6 +87,7 @@ yarToResponse :: YesodResponse
 #endif
               -> IO Response
 #if MIN_VERSION_wai(2, 0, 0)
+yarToResponse (YRWaiApp app) _ _ req _ = app req
 yarToResponse (YRWai a) _ _ _ is =
     case a of
         ResponseSource s hs w -> return $ ResponseSource s hs $ \f ->

@@ -152,6 +152,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
                 emptyContent
                 finalSession
         HCWai r -> return $ YRWai r
+        HCWaiApp a -> return $ YRWaiApp a
 
 safeEh :: (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
        -> ErrorResponse
@@ -295,8 +296,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req
     E.bracket createInternalState closeInternalState $ \is -> do
         yreq' <- yreq
         yar <- runInternalState (runHandler rhe handler yreq') is
-        res <- yarToResponse yar saveSession yreq' req is
-        sendResponse res
+        yarToResponse yar saveSession yreq' req is sendResponse
 
 #else
 
