@@ -91,6 +91,7 @@ module Yesod.Core.Handler
     , sendResponseStatus
     , sendResponseCreated
     , sendWaiResponse
+    , sendWaiApplication
 #if MIN_VERSION_wai(2, 1, 0)
     , sendRawResponse
 #endif
@@ -584,6 +585,12 @@ sendResponseCreated url = do
 -- you don't.
 sendWaiResponse :: MonadHandler m => W.Response -> m b
 sendWaiResponse = handlerError . HCWai
+
+-- | Switch over to handling the current request with a WAI @Application@.
+--
+-- Since 1.2.17
+sendWaiApplication :: MonadHandler m => W.Application -> m b
+sendWaiApplication = handlerError . HCWaiApp
 
 #if MIN_VERSION_wai(3, 0, 0)
 -- | Send a raw response without conduit. This is used for cases such as

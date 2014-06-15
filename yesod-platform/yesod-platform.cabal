@@ -1,5 +1,5 @@
 name:            yesod-platform
-version:         1.2.12
+version:         1.2.12.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -61,7 +61,7 @@ library
                  , data-default-instances-old-locale == 0.0.1
                  , dlist == 0.7.0.1
                  , email-validate == 2.0.1
-                 , entropy == 0.3
+                 , entropy == 0.3.2
                  , esqueleto == 1.4.1.2
                  , exceptions == 0.6.1
                  , fast-logger == 2.1.5
@@ -134,7 +134,7 @@ library
                  , wai-extra == 3.0.0
                  , wai-logger == 2.1.1
                  , wai-test == 3.0.0
-                 , warp == 3.0.0
+                 , warp == 3.0.0.2
                  , warp-tls == 3.0.0
                  , word8 == 0.0.4
                  , x509 == 1.4.11

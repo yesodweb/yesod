@@ -126,6 +126,7 @@ data YesodRequest = YesodRequest
 -- or a higher-level data structure which Yesod will turn into a @Response@.
 data YesodResponse
     = YRWai !W.Response
+    | YRWaiApp !W.Application
     | YRPlain !H.Status ![Header] !ContentType !Content !SessionMap
 
 -- | A tuple containing both the POST parameters and submitted files.
@@ -372,6 +373,7 @@ data HandlerContents =
     | HCRedirect H.Status Text
     | HCCreated Text
     | HCWai W.Response
+    | HCWaiApp W.Application
     deriving Typeable
 
 instance Show HandlerContents where
@@ -381,6 +383,7 @@ instance Show HandlerContents where
     show (HCRedirect s t) = "HCRedirect " ++ show (s, t)
     show (HCCreated t) = "HCCreated " ++ show t
     show (HCWai _) = "HCWai"
+    show (HCWaiApp _) = "HCWaiApp"
 instance Exception HandlerContents
 
 -- Instances for WidgetT

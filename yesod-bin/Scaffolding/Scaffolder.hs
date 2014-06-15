@@ -15,6 +15,9 @@ import           Text.ProjectTemplate  (unpackTemplate, receiveFS)
 import           System.IO
 import           Text.Shakespeare.Text (renderTextUrl, textFile)
 import Network.HTTP.Conduit (withManager, http, parseUrl, responseBody)
+import           Data.Maybe            (isJust)
+import           Distribution.Text     (simpleParse)
+import           Distribution.Package  (PackageName)
 
 prompt :: (String -> Maybe a) -> IO a
 prompt f = do
@@ -59,21 +62,15 @@ backendBS Mysql = $(embedFile "hsfiles/mysql.hsfiles")
 backendBS MongoDB = $(embedFile "hsfiles/mongo.hsfiles")
 backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")
 
--- | Is the character valid for a project name?
-validPN :: Char -> Bool
-validPN c
-    | 'A' <= c && c <= 'Z' = True
-    | 'a' <= c && c <= 'z' = True
-    | '0' <= c && c <= '9' = True
-validPN '-' = True
-validPN _ = False
+validPackageName :: String -> Bool
+validPackageName s = isJust (simpleParse s :: Maybe PackageName)
 
 scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
          -> IO ()
 scaffold isBare = do
     puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
     project <- prompt $ \s ->
-        if all validPN s && not (null s) && s /= "test"
+        if validPackageName s && s /= "test"
             then Just s
             else Nothing
     let dir = project
