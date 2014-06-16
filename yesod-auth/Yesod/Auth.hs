@@ -163,16 +163,6 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
         => HandlerT master IO (Maybe (AuthId master))
     maybeAuthId = defaultMaybeAuthId
 
-    -- | Similar to 'maybeAuthId', but redirects to a login page if user is not
-    -- authenticated.
-    --
-    -- Since 1.1.0
-    requireAuthId :: YesodAuthPersist master => HandlerT master IO (AuthId master)
-    requireAuthId = maybeAuthId >>= maybe redirectLogin return
-
-    requireAuth :: YesodAuthPersist master => HandlerT master IO (Entity (AuthEntity master))
-    requireAuth = maybeAuth >>= maybe redirectLogin return
-
 credsKey :: Text
 credsKey = "_ID"
 
@@ -386,6 +376,15 @@ type YesodAuthPersist master =
 -- Since 1.2.0
 type AuthEntity master = KeyEntity (AuthId master)
 
+-- | Similar to 'maybeAuthId', but redirects to a login page if user is not
+-- authenticated.
+--
+-- Since 1.1.0
+requireAuthId :: YesodAuthPersist master => HandlerT master IO (AuthId master)
+requireAuthId = maybeAuthId >>= maybe redirectLogin return
+
+requireAuth :: YesodAuthPersist master => HandlerT master IO (Entity (AuthEntity master))
+requireAuth = maybeAuth >>= maybe redirectLogin return
 
 redirectLogin :: Yesod master => HandlerT master IO a
 redirectLogin = do
