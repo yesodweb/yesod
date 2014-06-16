@@ -23,6 +23,7 @@ module Yesod.Form.Functions
     , runFormGet
       -- * Generate a blank form
     , generateFormPost
+    , generateFormGet'
     , generateFormGet
       -- * More than one form on a handler
     , identifyForm
@@ -269,6 +270,14 @@ runFormGet form = do
                 Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
     getHelper form env
 
+{- FIXME: generateFormGet' "Will be renamed to generateFormGet in next verison of Yesod" -}
+generateFormGet'
+    :: (RenderMessage (HandlerSite m) FormMessage, MonadHandler m)
+    => (Html -> MForm m (FormResult a, xml))
+    -> m (xml, Enctype)
+generateFormGet' form = first snd `liftM` getHelper form Nothing
+
+{-# DEPRECATED generateFormGet "Will require RenderMessage in next verison of Yesod" #-}
 generateFormGet :: MonadHandler m
                 => (Html -> MForm m a)
                 -> m (a, Enctype)
