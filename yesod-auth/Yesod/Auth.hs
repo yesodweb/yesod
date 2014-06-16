@@ -26,10 +26,10 @@ module Yesod.Auth
     , loginErrorMessage
     , loginErrorMessageI
       -- * User functions
+    , requireAuth
     , defaultMaybeAuthId
     , maybeAuth
     , requireAuthId
-    , requireAuth
       -- * Exception
     , AuthException (..)
       -- * Helper
@@ -145,7 +145,8 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- session. This can be overridden to allow authentication via other means,
     -- such as checking for a special token in a request header. This is
     -- especially useful for creating an API to be accessed via some means
-    -- other than a browser.
+    -- other than a browser or creating additional site specific requirements
+    -- for when the authentication system.
     --
     -- Since 1.2.0
     maybeAuthId :: HandlerT master IO (Maybe (AuthId master))
@@ -383,6 +384,14 @@ type AuthEntity master = KeyEntity (AuthId master)
 requireAuthId :: YesodAuthPersist master => HandlerT master IO (AuthId master)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
+-- | Similar to 'maybeAuth', but redirects to a login page if user is not
+-- authenticated.
+--
+-- If we think of 'requireAuth' in declarative terms, it says "the user must
+-- be authenticated to run this handler."  In other words, it acts as an entry
+-- point for the authentication system, guarding the handler it is called in,
+-- and ensuring that all of the authentication requirements are met.  To customize
+-- these requirements, override 'maybeAuthId'.
 requireAuth :: YesodAuthPersist master => HandlerT master IO (Entity (AuthEntity master))
 requireAuth = maybeAuth >>= maybe redirectLogin return
 
