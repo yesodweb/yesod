@@ -53,9 +53,10 @@ import qualified Yesod.Auth.Message       as Msg
 import           Yesod.Core               (HandlerSite, MonadHandler,
                                            getRouteToParent, getUrlRender,
                                            getYesod, invalidArgs, lift,
-                                           liftBase, lookupGetParam,
+                                           lookupGetParam,
                                            lookupSession, notFound, redirect,
-                                           setSession, whamlet, (.:))
+                                           setSession, whamlet, (.:),
+                                           TypedContent, HandlerT, liftIO)
 
 pid :: Text
 pid = "googleemail2"
@@ -75,7 +76,7 @@ getCreateCsrfToken = do
     case mtoken of
         Just token -> return token
         Nothing -> do
-            stdgen <- liftBase newStdGen
+            stdgen <- liftIO newStdGen
             let token = T.pack $ fst $ randomString 10 stdgen
             setSession csrfKey token
             return token
@@ -111,6 +112,11 @@ authGoogleEmail clientID clientSecret =
     login tm = do
         url <- getDest tm
         [whamlet|<a href=#{url}>_{Msg.LoginGoogle}|]
+
+    dispatch :: YesodAuth site
+             => Text
+             -> [Text]
+             -> HandlerT Auth (HandlerT site IO) TypedContent
     dispatch "GET" ["forward"] = do
         tm <- getRouteToParent
         lift (getDest tm) >>= redirect
@@ -130,7 +136,7 @@ authGoogleEmail clientID clientSecret =
 
         render <- getUrlRender
 
-        req' <- parseUrl "https://accounts.google.com/o/oauth2/token" -- FIXME don't hardcode, use: https://accounts.google.com/.well-known/openid-configuration
+        req' <- liftIO $ parseUrl "https://accounts.google.com/o/oauth2/token" -- FIXME don't hardcode, use: https://accounts.google.com/.well-known/openid-configuration
         let req =
                 urlEncodedBody
                     [ ("code", encodeUtf8 code)
@@ -152,7 +158,7 @@ authGoogleEmail clientID clientSecret =
 
         unless (tokenType == "Bearer") $ error $ "Unknown token type: " ++ show tokenType
 
-        req2' <- parseUrl "https://www.googleapis.com/plus/v1/people/me"
+        req2' <- liftIO $ parseUrl "https://www.googleapis.com/plus/v1/people/me"
         let req2 = req2'
                 { requestHeaders =
                     [ ("Authorization", encodeUtf8 $ "Bearer " `mappend` accessToken)
