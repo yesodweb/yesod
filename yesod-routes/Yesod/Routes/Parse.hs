@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE PatternGuards #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-} -- QuasiQuoter
 module Yesod.Routes.Parse
     ( parseRoutes
@@ -67,14 +68,30 @@ resourcesFromString =
         | length spaces < indent = ([], thisLine : otherLines)
         | otherwise = (this others, remainder)
       where
+        parseAttr ('!':x) = Just x
+        parseAttr _ = Nothing
+
+        stripColonLast =
+            go id
+          where
+            go _ [] = Nothing
+            go front [x]
+                | null x = Nothing
+                | last x == ':' = Just $ front [init x]
+                | otherwise = Nothing
+            go front (x:xs) = go (front . (x:)) xs
+
         spaces = takeWhile (== ' ') thisLine
         (others, remainder) = parse indent otherLines'
         (this, otherLines') =
             case takeWhile (/= "--") $ words thisLine of
-                [pattern, constr] | last constr == ':' ->
+                (pattern:rest0)
+                    | Just (constr:rest) <- stripColonLast rest0
+                    , Just attrs <- mapM parseAttr rest ->
                     let (children, otherLines'') = parse (length spaces + 1) otherLines
+                        children' = addAttrs attrs children
                         (pieces, Nothing) = piecesFromString $ drop1Slash pattern
-                     in ((ResourceParent (init constr) pieces children :), otherLines'')
+                     in ((ResourceParent constr pieces children' :), otherLines'')
                 (pattern:constr:rest) ->
                     let (pieces, mmulti) = piecesFromString $ drop1Slash pattern
                         (attrs, rest') = takeAttrs rest
@@ -82,6 +99,15 @@ resourcesFromString =
                      in ((ResourceLeaf (Resource constr pieces disp attrs):), otherLines)
                 [] -> (id, otherLines)
                 _ -> error $ "Invalid resource line: " ++ thisLine
+
+addAttrs :: [String] -> [ResourceTree String] -> [ResourceTree String]
+addAttrs attrs =
+    map goTree
+  where
+    goTree (ResourceLeaf res) = ResourceLeaf (goRes res)
+    goTree (ResourceParent x y z) = ResourceParent x y (map goTree z)
+
+    goRes res = res { resourceAttrs = attrs ++ resourceAttrs res }
 
 -- | Take attributes out of the list and put them in the first slot in the
 -- result tuple.
