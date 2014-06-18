@@ -271,6 +271,9 @@ runFormGet form = do
     getHelper form env
 
 {- FIXME: generateFormGet' "Will be renamed to generateFormGet in next verison of Yesod" -}
+-- |
+--
+-- Since 1.3.11
 generateFormGet'
     :: (RenderMessage (HandlerSite m) FormMessage, MonadHandler m)
     => (Html -> MForm m (FormResult a, xml))
