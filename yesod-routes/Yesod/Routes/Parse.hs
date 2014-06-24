@@ -19,6 +19,8 @@ import qualified System.IO as SIO
 import Yesod.Routes.TH
 import Yesod.Routes.Overlap (findOverlapNames)
 import Data.List (foldl')
+import Data.Maybe (mapMaybe)
+import qualified Data.Set as Set
 
 -- | A quasi-quoter to parse a string into a list of 'Resource's. Checks for
 -- overlapping routes, failing if present; use 'parseRoutesNoCheck' to skip the
@@ -107,7 +109,21 @@ addAttrs attrs =
     goTree (ResourceLeaf res) = ResourceLeaf (goRes res)
     goTree (ResourceParent x y z) = ResourceParent x y (map goTree z)
 
-    goRes res = res { resourceAttrs = attrs ++ resourceAttrs res }
+    goRes res =
+        res { resourceAttrs = noDupes ++ resourceAttrs res }
+      where
+        usedKeys = Set.fromList $ map fst $ mapMaybe toPair $ resourceAttrs res
+        used attr =
+            case toPair attr of
+                Nothing -> False
+                Just (key, _) -> key `Set.member` usedKeys
+        noDupes = filter (not . used) attrs
+
+    toPair s =
+        case break (== '=') s of
+            (x, '=':y) -> Just (x, y)
+            _ -> Nothing
+
 
 -- | Take attributes out of the list and put them in the first slot in the
 -- result tuple.

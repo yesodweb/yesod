@@ -99,8 +99,8 @@ do
     /post       Post3         POST
 --    /#Int       Delete3            DELETE
 
-/afterwards AfterR:
-  /             After     GET
+/afterwards AfterR !parent !key=value1:
+  /             After     GET !child !key=value2
 
 -- /trailing-nest TrailingNestR:
 --  /foo TrailingFooR GET
@@ -204,3 +204,5 @@ hierarchy = describe "hierarchy" $ do
         parseRoute (["admin!", "5"], []) @?= (Nothing :: Maybe (Route Hierarchy))
     it "inherited attributes" $ do
         routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
+    it "pair attributes" $
+        routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]
