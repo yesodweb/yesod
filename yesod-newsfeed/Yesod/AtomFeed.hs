@@ -20,6 +20,7 @@
 -- | Generation of Atom newsfeeds.
 module Yesod.AtomFeed
     ( atomFeed
+    , atomFeedText
     , atomLink
     , RepAtom (..)
     , module Yesod.FeedTypes
@@ -46,6 +47,11 @@ atomFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m RepAtom
 atomFeed feed = do
     render <- getUrlRender
     return $ RepAtom $ toContent $ renderLBS def $ template feed render
+
+-- | Same as @'atomFeed'@ but for @'Feed Text'@. Useful for cases where you are
+--   generating a feed of external links.
+atomFeedText :: MonadHandler m => Feed Text -> m RepAtom
+atomFeedText feed = return $ RepAtom $ toContent $ renderLBS def $ template feed id
 
 template :: Feed url -> (url -> Text) -> Document
 template Feed {..} render =
