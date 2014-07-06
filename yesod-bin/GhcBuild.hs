@@ -39,10 +39,14 @@ import           GHC.Paths          (libdir)
 import           HscTypes           (HscEnv (..), emptyHomePackageTable)
 import qualified Module
 import           MonadUtils         (liftIO)
-import           Panic              (ghcError, panic)
+import           Panic              (throwGhcException, panic)
 import           SrcLoc             (Located, mkGeneralLocated)
 import qualified StaticFlags
+#if __GLASGOW_HASKELL__ >= 707
+import           DynFlags           (ldInputs)
+#else
 import           StaticFlags        (v_Ld_inputs)
+#endif
 import           System.FilePath    (normalise, (</>))
 import           Util               (consIORef, looksLikeModuleName)
 
@@ -147,7 +151,9 @@ buildPackage' argv2 ld ar = do
         haskellish (f,Nothing) =
           looksLikeModuleName f || isHaskellSrcFilename f || '.' `notElem` f
         haskellish (_,Just phase) =
-#if MIN_VERSION_ghc(7,4,0)
+#if MIN_VERSION_ghc(7,8,3)
+          phase `notElem` [As True, As False, Cc, Cobjc, Cobjcpp, CmmCpp, Cmm, StopLn]
+#elif MIN_VERSION_ghc(7,4,0)
           phase `notElem` [As, Cc, Cobjc, Cobjcpp, CmmCpp, Cmm, StopLn]
 #else
           phase `notElem` [As, Cc, CmmCpp, Cmm, StopLn]
@@ -162,7 +168,15 @@ buildPackage' argv2 ld ar = do
     o_files <- mapM (\x -> compileFile hsc_env StopLn x)
 #endif
                  non_hs_srcs
+#if __GLASGOW_HASKELL__ >= 707
+    let dflags4 = dflags3
+            { ldInputs = map (DF.FileOption "") (reverse o_files)
+                      ++ ldInputs dflags3
+            }
+    GHC.setSessionDynFlags dflags4
+#else
     liftIO $ mapM_ (consIORef v_Ld_inputs) (reverse o_files)
+#endif
     targets <- mapM (uncurry GHC.guessTarget) hs_srcs
     GHC.setTargets targets
     ok_flag <- GHC.load GHC.LoadAllTargets
@@ -234,7 +248,7 @@ parseModeFlags args = do
              Nothing     -> doMakeMode
              Just (m, _) -> m
       errs = errs1 ++ map (mkGeneralLocated "on the commandline") errs2
-  when (not (null errs)) $ ghcError $ errorsToGhcException errs
+  when (not (null errs)) $ throwGhcException $ errorsToGhcException errs
   return (mode, flags' ++ leftover, warns)
 
 type ModeM = CmdLineP (Maybe (Mode, String), [String], [Located String])
@@ -289,7 +303,11 @@ mode_flags =
   , Flag "E"            (PassFlag (setMode (stopBeforeMode anyHsc)))
   , Flag "C"            (PassFlag (\f -> do setMode (stopBeforeMode HCc) f
                                             addFlag "-fvia-C" f))
+#if MIN_VERSION_ghc(7,8,3)
+  , Flag "S"            (PassFlag (setMode (stopBeforeMode (As True))))
+#else
   , Flag "S"            (PassFlag (setMode (stopBeforeMode As)))
+#endif
   , Flag "-make"        (PassFlag (setMode doMakeMode))
   , Flag "-interactive" (PassFlag (setMode doInteractiveMode))
   , Flag "-abi-hash"    (PassFlag (setMode doAbiHashMode))

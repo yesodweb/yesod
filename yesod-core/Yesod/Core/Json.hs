@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances, OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Core.Json
     ( -- * Convert from a JSON value
@@ -10,6 +11,7 @@ module Yesod.Core.Json
       -- * Convert to a JSON value
     , parseJsonBody
     , parseJsonBody_
+    , requireJsonBody
 
       -- * Produce JSON values
     , J.Value (..)
@@ -27,6 +29,7 @@ module Yesod.Core.Json
 
 import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep)
 import Control.Monad.Trans.Writer (Writer)
+import Control.Monad.Trans.Resource (runExceptionT)
 import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Types (reqAccept)
@@ -41,6 +44,7 @@ import Data.Conduit.Attoparsec (sinkParser)
 import Data.Text (pack)
 import qualified Data.Vector as V
 import Data.Conduit
+import Data.Conduit.Lift
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe (listToMaybe)
 import Control.Monad (liftM)
@@ -84,10 +88,18 @@ provideJson = provideRep . return . J.toJSON
 -- If you want the raw JSON value, just ask for a @'J.Result'
 -- 'J.Value'@.
 --
+-- Note that this function will consume the request body. As such, calling it
+-- twice will result in a parse error on the second call, since the request
+-- body will no longer be available.
+--
 -- /Since: 0.3.0/
 parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = do
+#if MIN_VERSION_resourcet(1,1,0)
+    eValue <- rawRequestBody $$ runCatchC (sinkParser JP.value')
+#else
     eValue <- runExceptionT $ rawRequestBody $$ sinkParser JP.value'
+#endif
     return $ case eValue of
         Left e -> J.Error $ show e
         Right value -> J.fromJSON value
@@ -95,7 +107,13 @@ parseJsonBody = do
 -- | Same as 'parseJsonBody', but return an invalid args response on a parse
 -- error.
 parseJsonBody_ :: (MonadHandler m, J.FromJSON a) => m a
-parseJsonBody_ = do
+parseJsonBody_ = requireJsonBody
+{-# DEPRECATED parseJsonBody_ "Use requireJsonBody instead" #-}
+
+-- | Same as 'parseJsonBody', but return an invalid args response on a parse
+-- error.
+requireJsonBody :: (MonadHandler m, J.FromJSON a) => m a
+requireJsonBody = do
     ra <- parseJsonBody
     case ra of
         J.Error s -> invalidArgs [pack s]

@@ -1,5 +1,5 @@
 name:            yesod-eventsource
-version:         1.1
+version:         1.1.1
 license:         MIT
 license-file:    LICENSE
 author:          Felipe Lessa <felipe.lessa@gmail.com>
@@ -29,9 +29,10 @@ description:
 library
     build-depends:   base                  >= 4        && < 5
                    , yesod-core            == 1.2.*
-                   , conduit               >= 0.5      && < 1.1
-                   , wai                   >= 1.3      && < 1.5
-                   , wai-eventsource       >= 1.3      && < 1.4
+                   , conduit               >= 0.5      && < 1.2
+                   , wai                   >= 1.3
+                   , wai-eventsource       >= 1.3
+                   , wai-extra
                    , blaze-builder
                    , transformers
     exposed-modules: Yesod.EventSource

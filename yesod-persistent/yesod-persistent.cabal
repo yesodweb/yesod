@@ -1,5 +1,5 @@
 name:            yesod-persistent
-version:         1.2.1
+version:         1.2.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -15,14 +15,13 @@ description:     Some helpers for using Persistent from Yesod.
 library
     build-depends:   base                      >= 4        && < 5
                    , yesod-core                >= 1.2.2    && < 1.3
-                   , persistent                >= 1.2      && < 1.3
-                   , persistent-template       >= 1.2      && < 1.3
-                   , transformers              >= 0.2.2    && < 0.4
+                   , persistent                >= 1.2      && < 1.4
+                   , persistent-template       >= 1.2      && < 1.4
+                   , transformers              >= 0.2.2
                    , blaze-builder
                    , conduit
-                   , lifted-base
-                   , pool-conduit
-                   , resourcet
+                   , resourcet                 >= 0.4.5
+                   , resource-pool
     exposed-modules: Yesod.Persist
                      Yesod.Persist.Core
     ghc-options:     -Wall
@@ -35,6 +34,7 @@ test-suite test
     build-depends: base
                  , hspec
                  , wai-test
+                 , wai-extra
                  , yesod-core
                  , persistent-sqlite
                  , yesod-persistent

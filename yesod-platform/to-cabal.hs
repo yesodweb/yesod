@@ -3,7 +3,7 @@ import Control.Applicative ((<$>))
 
 main = do
     pkgs <- map (intercalate " == ")
-          . filter (\xs -> not $ any (`isPrefixOf` xs) $ map return ["parsec", "text", "transformers", "mtl", "HUnit", "QuickCheck", "binary", "zlib", "stm", "regex-compat", "hashable"])
+          . filter (\xs -> not $ any (`isPrefixOf` xs) $ map return ["parsec", "text", "transformers", "mtl", "HUnit", "QuickCheck", "binary", "zlib", "stm", "regex-compat", "hashable", "vault", "integer-gmp"])
           . map words
           . filter (not . null)
           . lines

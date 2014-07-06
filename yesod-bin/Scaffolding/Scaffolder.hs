@@ -4,7 +4,8 @@ module Scaffolding.Scaffolder (scaffold) where
 
 import           Control.Arrow         ((&&&))
 import qualified Data.ByteString.Char8 as S
-import           Data.Conduit          (runResourceT, yield, ($$), ($$+-))
+import           Data.Conduit          (yield, ($$), ($$+-))
+import Control.Monad.Trans.Resource (runResourceT)
 import           Data.FileEmbed        (embedFile)
 import           Data.String           (fromString)
 import qualified Data.Text             as T
@@ -14,6 +15,9 @@ import           Text.ProjectTemplate  (unpackTemplate, receiveFS)
 import           System.IO
 import           Text.Shakespeare.Text (renderTextUrl, textFile)
 import Network.HTTP.Conduit (withManager, http, parseUrl, responseBody)
+import           Data.Maybe            (isJust)
+import           Distribution.Text     (simpleParse)
+import           Distribution.Package  (PackageName)
 
 prompt :: (String -> Maybe a) -> IO a
 prompt f = do
@@ -58,20 +62,15 @@ backendBS Mysql = $(embedFile "hsfiles/mysql.hsfiles")
 backendBS MongoDB = $(embedFile "hsfiles/mongo.hsfiles")
 backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")
 
--- | Is the character valid for a project name?
-validPN :: Char -> Bool
-validPN c
-    | 'A' <= c && c <= 'Z' = True
-    | 'a' <= c && c <= 'z' = True
-    | '0' <= c && c <= '9' = True
-validPN '-' = True
-validPN _ = False
+validPackageName :: String -> Bool
+validPackageName s = isJust (simpleParse s :: Maybe PackageName)
 
-scaffold :: IO ()
-scaffold = do
+scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
+         -> IO ()
+scaffold isBare = do
     puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
     project <- prompt $ \s ->
-        if all validPN s && not (null s) && s /= "test"
+        if validPackageName s && s /= "test"
             then Just s
             else Nothing
     let dir = project
@@ -90,7 +89,7 @@ scaffold = do
     putStrLn "That's it! I'm creating your files now..."
 
     let sink = unpackTemplate
-                (receiveFS $ fromString project)
+                (receiveFS $ if isBare then "." else fromString project)
                 (T.replace "PROJECTNAME" (T.pack project))
     case ebackend of
         Left req -> withManager $ \m -> do

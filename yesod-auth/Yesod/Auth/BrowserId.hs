@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Yesod.Auth.BrowserId
     ( authBrowserId
-    , createOnClick
+    , createOnClick, createOnClickOverride
     , def
     , BrowserIdSettings
     , bisAudience
@@ -75,8 +75,9 @@ authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
                 case memail of
                     Nothing -> do
                       $logErrorS "yesod-auth" "BrowserID assertion failure"
-                      loginErrorMessage LoginR "BrowserID login error."
-                    Just email -> lift $ setCreds True Creds
+                      tm <- getRouteToParent
+                      lift $ loginErrorMessage (tm LoginR) "BrowserID login error."
+                    Just email -> lift $ setCredsRedirect Creds
                         { credsPlugin = pid
                         , credsIdent = email
                         , credsExtra = []
@@ -106,14 +107,16 @@ $newline never
 
 -- | Generates a function to handle on-click events, and returns that function
 -- name.
-createOnClick :: BrowserIdSettings
+createOnClickOverride :: BrowserIdSettings
               -> (Route Auth -> Route master)
+              -> Maybe (Route master)
               -> WidgetT master IO Text
-createOnClick BrowserIdSettings {..} toMaster = do
+createOnClickOverride BrowserIdSettings {..} toMaster mOnRegistration = do
     unless bisLazyLoad $ addScriptRemote browserIdJs
     onclick <- newIdent
     render <- getUrlRender
-    let login = toJSON $ getPath $ render (toMaster LoginR)
+    let login = toJSON $ getPath $ render loginRoute -- (toMaster LoginR)
+        loginRoute = maybe (toMaster LoginR) id mOnRegistration
     toWidget [julius|
         function #{rawJS onclick}() {
             if (navigator.id) {
@@ -151,3 +154,10 @@ createOnClick BrowserIdSettings {..} toMaster = do
     getPath t = fromMaybe t $ do
         uri <- parseURI $ T.unpack t
         return $ T.pack $ uriPath uri
+
+-- | Generates a function to handle on-click events, and returns that function
+-- name.
+createOnClick :: BrowserIdSettings
+              -> (Route Auth -> Route master)
+              -> WidgetT master IO Text
+createOnClick bidSettings toMaster = createOnClickOverride bidSettings toMaster Nothing

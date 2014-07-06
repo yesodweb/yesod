@@ -9,7 +9,6 @@ An advanced web framework using the Haskell programming language. Featuring:
     * techniques for constant-space memory consumption
   * asynchronous IO
     * this is built in to the Haskell programming language (like Erlang)
-    * handles a greater concurrent load than any other web application server
 
 # Learn more: http://yesodweb.com/
 
@@ -27,18 +26,19 @@ Your application is a cabal package and you use `cabal` to install its dependenc
 
 Install conflicts are unfortunately common in Haskell development.
 If you are not using any sandbox tools, you may discover that some of the other haskell installs on your system are broken.
-You can prevent this by using sandbox tools: `cabal-dev` or `hsenv`.
+You can prevent this by using cabal sandbox.
 
-Isolating an entire project with a virtual machine is also a great idea, you just need some tools to help that process.
-[Vagrant](http://vagrantup.com) is a great tool for that and there is a [Haskell Platform installer](https://bitbucket.org/puffnfresh/vagrant-haskell-heroku) for it.
+Isolating an entire project is also a great idea, you just need some tools to help that process.
+On Linux you can use Docker.
+On any OS you can use a virtual machine. [Vagrant](http://vagrantup.com) is a great tool for that and there is a [Haskell Platform installer](https://bitbucket.org/puffnfresh/vagrant-haskell-heroku) for it.
 
-## Using cabal-dev
+## Using cabal sandbox
 
-cabal-dev creates a sandboxed environment for an individual cabal package.
-Instead of using the `cabal` command, use the `cabal-dev` command which will use the sandbox.
+To sandbox a project, type:
 
-Use `yesod devel --dev` when developing your application.
+    cabal sandbox init
 
+This ensures that future installs will be local to the sandboxed directory.
 
 
 ## Installing the latest development version from github for use with your application
@@ -55,32 +55,18 @@ In your application folder, create a `sources.txt` file with the following conte
     https://github.com/yesodweb/wai
 
 `./` means build your app. The yesod repos will be cloned and placed in a `vendor` repo.
-Now run: `cabal-meta install`. If you use `cabal-dev`, run `cabal-meta --dev install`
+Now run: `cabal-meta install`.
 
 This should work almost all of the time. You can read more on [cabal-meta](https://github.com/yesodweb/cabal-meta)
 If you aren't building from an application, remove the `./` and create a new directory for your sources.txt first.
 
 
 
-## hsenv (Linux only)
+## hsenv (Linux and Mac OS X)
 
-[hsenv](http://hackage.haskell.org/package/hsenv) prevents your custom build of Yesod from interfering with your currently installed cabal packages:
+[hsenv](https://github.com/tmhedberg/hsenv) also provides a sandbox, but works at the shell level.
+Generally we recommend using cabal sandbox, but hsenv has tools for allowing you to use different versions of GHC, which may be useful for you.
 
-* hsenv creates an isolated environment like cabal-dev
-* hsenv works at the shell level, so every shell must activate the hsenv
-* cabal-dev by default isolates a single cabal package, but hsenv isolates multiple packages together.
-* cabal-dev can isolate multiple packages together by using the -s sandbox argument
-
-
-## cabal-src
-
-The cabal-src tool helps resolve dependency conflicts when installing local packages.
-This capability is already built in if you are using cabal-dev or cabal-meta. Otherwise install cabal-src with:
-
-    cabal install cabal-src
-
-Whenever you would use `cabal install` to install a local package, use `cabal-src-install` instead.
-Our installer script now uses cabal-src-install when it is available.
 
 
 ## Cloning the repos
@@ -100,7 +86,7 @@ done
 
 ## Building your changes to Yesod
 
-Yesod is composed of 4 "mega-repos", each with multiple cabal packages. `./script/install` will run tests against each package and install each package.
+The traditional Yesod stack requires 4 "mega-repos", each with multiple cabal packages. `./script/install` will run tests against each package and install each package.
 
 ### install package in all repos
 

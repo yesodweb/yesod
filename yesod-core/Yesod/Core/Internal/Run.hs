@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -9,13 +10,15 @@ module Yesod.Core.Internal.Run where
 import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
-import           Control.Exception            (fromException)
+import           Control.Exception            (fromException, bracketOnError, evaluate)
+import qualified Control.Exception            as E
 import           Control.Exception.Lifted     (catch)
+import           Control.Monad                (mplus)
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
-import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState)
+import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.IORef                   as I
@@ -31,8 +34,13 @@ import           Data.Text.Encoding.Error     (lenientDecode)
 import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
+#if MIN_VERSION_wai(2, 0, 0)
+import           Network.Wai.Internal
+#endif
 import           Prelude                      hiding (catch)
+#if !MIN_VERSION_fast_logger(2, 0, 0)
 import           System.Log.FastLogger        (Logger)
+#endif
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           System.Random                (newStdGen)
 import           Yesod.Core.Content
@@ -41,6 +49,19 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
+import Control.DeepSeq (($!!), NFData)
+import Control.Monad (liftM)
+
+returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
+#if MIN_VERSION_bytestring(0, 10, 0)
+returnDeepSessionMap sm = return $!! sm
+#else
+returnDeepSessionMap sm = fmap unWrappedBS `liftM` (return $!! fmap WrappedBS sm)
+
+-- | Work around missing NFData instance for bytestring 0.9.
+newtype WrappedBS = WrappedBS { unWrappedBS :: S8.ByteString }
+instance NFData WrappedBS
+#endif
 
 -- | Function used internally by Yesod in the process of converting a
 -- 'HandlerT' into an 'Application'. Should not be needed by users.
@@ -71,29 +92,43 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
         (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
                       $ fromException e)
     state <- liftIO $ I.readIORef istate
-    let finalSession = ghsSession state
-    let headers = ghsHeaders state
-    let contents = either id (HCContent defaultStatus . toTypedContent) contents'
+
+    (finalSession, mcontents1) <- (do
+        finalSession <- returnDeepSessionMap (ghsSession state)
+        return (finalSession, Nothing)) `E.catch` \e -> return
+            (Map.empty, Just $! HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
+
+    (headers, mcontents2) <- (do
+        headers <- return $!! appEndo (ghsHeaders state) []
+        return (headers, Nothing)) `E.catch` \e -> return
+            ([], Just $! HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
+
+    let contents =
+            case mcontents1 `mplus` mcontents2 of
+                Just x -> x
+                Nothing -> either id (HCContent defaultStatus . toTypedContent) contents'
     let handleError e = flip runInternalState resState $ do
             yar <- rheOnError e yreq
                 { reqSession = finalSession
                 }
             case yar of
                 YRPlain status' hs ct c sess ->
-                    let hs' = appEndo headers hs
+                    let hs' = headers ++ hs
                         status
                             | status' == defaultStatus = getStatus e
                             | otherwise = status'
                      in return $ YRPlain status hs' ct c sess
                 YRWai _ -> return yar
     let sendFile' ct fp p =
-            return $ YRPlain H.status200 (appEndo headers []) ct (ContentFile fp p) finalSession
-    case contents of
+            return $ YRPlain H.status200 headers ct (ContentFile fp p) finalSession
+    contents1 <- evaluate contents `E.catch` \e -> return
+        (HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
+    case contents1 of
         HCContent status (TypedContent ct c) -> do
             ec' <- liftIO $ evaluateContent c
             case ec' of
                 Left e -> handleError e
-                Right c' -> return $ YRPlain status (appEndo headers []) ct c' finalSession
+                Right c' -> return $ YRPlain status headers ct c' finalSession
         HCError e -> handleError e
         HCRedirect status loc -> do
             let disable_caching x =
@@ -101,7 +136,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
                     : Header "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
                     : x
                 hs = (if status /= H.movedPermanently301 then disable_caching else id)
-                      $ Header "Location" (encodeUtf8 loc) : appEndo headers []
+                      $ Header "Location" (encodeUtf8 loc) : headers
             return $ YRPlain
                 status hs typePlain emptyContent
                 finalSession
@@ -109,7 +144,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
             (sendFile' ct fp p)
             (handleError . toErrorHandler)
         HCCreated loc -> do
-            let hs = Header "Location" (encodeUtf8 loc) : appEndo headers []
+            let hs = Header "Location" (encodeUtf8 loc) : headers
             return $ YRPlain
                 H.status201
                 hs
@@ -117,6 +152,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
                 emptyContent
                 finalSession
         HCWai r -> return $ YRWai r
+        HCWaiApp a -> return $ YRWaiApp a
 
 safeEh :: (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
        -> ErrorResponse
@@ -179,20 +215,27 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
                      typePlain
                      (toContent ("runFakeHandler: errHandler" :: S8.ByteString))
                      (reqSession req)
-      fakeWaiRequest =
-        Request
+      fakeWaiRequest = Request
           { requestMethod  = "POST"
           , httpVersion    = H.http11
           , rawPathInfo    = "/runFakeHandler/pathInfo"
           , rawQueryString = ""
+#if MIN_VERSION_wai(2, 0, 0)
+          , requestHeaderHost = Nothing
+#else
           , serverName     = "runFakeHandler-serverName"
           , serverPort     = 80
+#endif
           , requestHeaders = []
           , isSecure       = False
           , remoteHost     = error "runFakeHandler-remoteHost"
           , pathInfo       = ["runFakeHandler", "pathInfo"]
           , queryString    = []
+#if MIN_VERSION_wai(3, 0, 0)
+          , requestBody    = return mempty
+#else
           , requestBody    = mempty
+#endif
           , vault          = mempty
           , requestBodyLength = KnownLength 0
           }
@@ -215,8 +258,13 @@ yesodRunner :: (ToTypedContent res, Yesod site)
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application
+#if MIN_VERSION_wai(3, 0, 0)
+yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
+  | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = sendResponse tooLargeResponse
+#else
 yesodRunner handler' YesodRunnerEnv {..} route req
   | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
+#endif
   | otherwise = do
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
@@ -243,8 +291,25 @@ yesodRunner handler' YesodRunnerEnv {..} route req
         rhe = rheSafe
             { rheOnError = runHandler rheSafe . errorHandler
             }
+#if MIN_VERSION_wai(3, 0, 0)
+
+    E.bracket createInternalState closeInternalState $ \is -> do
+        yreq' <- yreq
+        yar <- runInternalState (runHandler rhe handler yreq') is
+        yarToResponse yar saveSession yreq' req is sendResponse
+
+#else
+
+#if MIN_VERSION_wai(2, 0, 0)
+    bracketOnError createInternalState closeInternalState $ \is -> do
+        yreq' <- yreq
+        yar <- runInternalState (runHandler rhe handler yreq') is
+        liftIO $ yarToResponse yar saveSession yreq' req is
+#else
     yar <- runHandler rhe handler yreq
-    liftIO $ yarToResponse yar saveSession yreq
+    liftIO $ yarToResponse yar saveSession yreq req
+#endif
+#endif
   where
     mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'

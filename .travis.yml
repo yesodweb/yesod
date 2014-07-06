@@ -2,12 +2,12 @@ language: haskell
 
 install:
     - cabal update
-    - cabal install mega-sdist hspec cabal-meta cabal-src
-    - git clone https://github.com/snoyberg/tagstream-conduit.git
-    - cd tagstream-conduit
-    - cabal-src-install --src-only
-    - cd ..
-    - cabal-meta install --force-reinstalls --enable-tests
+    - cabal install --force-reinstalls hspec cabal-meta cabal-src alex
+    - cabal-meta install --force-reinstalls
 
 script:
     - echo Done
+    - cabal-meta install --enable-tests
+    - mega-sdist --test
+    - cabal install hspec cabal-meta cabal-src
+    - cabal-meta install --force-reinstalls

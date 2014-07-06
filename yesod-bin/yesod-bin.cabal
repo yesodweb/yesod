@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.2.2
+version:         1.2.11
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -34,6 +34,7 @@ executable             yesod-ld-wrapper
     build-depends:
                     base                       >= 4         && < 5
                   , Cabal
+
 executable             yesod-ar-wrapper
     main-is: ghcwrapper.hs
     cpp-options:     -DARCMD
@@ -44,15 +45,17 @@ executable             yesod-ar-wrapper
 executable             yesod
     if os(windows)
         cpp-options:     -DWINDOWS
+
     build-depends:     base               >= 4.3          && < 5
-                     , ghc                >= 7.0.3        && < 7.8
+                     , ghc                >= 7.0.3
                      , ghc-paths          >= 0.1
                      , parsec             >= 2.1          && < 4
                      , text               >= 0.11
-                     , shakespeare-text   >= 1.0          && < 1.1
-                     , shakespeare        >= 1.0.2        && < 1.1
-                     , shakespeare-js     >= 1.0.2        && < 1.2
-                     , shakespeare-css    >= 1.0.2        && < 1.1
+                     , shakespeare
+                     , shakespeare-text   >= 1.0
+                     , shakespeare        >= 1.0.2        && < 2.1
+                     , shakespeare-js     >= 1.0.2
+                     , shakespeare-css    >= 1.0.2
                      , bytestring         >= 0.9.1.4
                      , time               >= 1.1.4
                      , template-haskell
@@ -72,11 +75,12 @@ executable             yesod
                      , unordered-containers
                      , yaml               >= 0.8          && < 0.9
                      , optparse-applicative >= 0.5
-                     , fsnotify           >= 0.0          && < 0.1
+                     , fsnotify           >= 0.0          && < 0.2
                      , split              >= 0.2          && < 0.3
                      , file-embed
-                     , conduit            >= 0.5          && < 1.1
-                     , resourcet          >= 0.3          && < 0.5
+                     , conduit            >= 0.5          && < 1.2
+                     , conduit-extra
+                     , resourcet          >= 0.3          && < 1.2
                      , base64-bytestring
                      , lifted-base
                      , http-reverse-proxy >= 0.1.1
@@ -87,8 +91,11 @@ executable             yesod
                      , transformers
                      , warp               >= 1.3.7.5
                      , wai                >= 1.4
+                     , wai-extra
+                     , data-default-class
+                     , streaming-commons
 
-    ghc-options:       -Wall -threaded
+    ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
     other-modules:     Scaffolding.Scaffolder
                        Devel
@@ -98,6 +105,7 @@ executable             yesod
                        AddHandler
                        Paths_yesod_bin
                        Options
+                       HsFile
 
 source-repository head
   type:     git

@@ -43,6 +43,7 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
     url = PluginR name []
     lookupTokenSecret = bsToText . fromMaybe "" . lookup "oauth_token_secret" . unCredential
     oauthSessionName = "__oauth_token_secret"
+
     dispatch "GET" ["forward"] = do
         render <- lift getUrlRender
         tm <- getRouteToParent
@@ -72,8 +73,9 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
       master <- getYesod
       accTok <- getAccessToken oauth reqTok (authHttpManager master)
       creds  <- liftIO $ mkCreds accTok
-      setCreds True creds
+      setCredsRedirect creds
     dispatch _ _ = notFound
+
     login tm = do
         render <- getUrlRender
         let oaUrl = render $ tm $ oauthUrl name

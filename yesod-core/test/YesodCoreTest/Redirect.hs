@@ -7,7 +7,7 @@ import qualified Network.HTTP.Types as H
 
 data Y = Y
 mkYesod "Y" [parseRoutes|
-/ RootR GET
+/ RootR GET POST
 /r301 R301 GET
 /r303 R303 GET
 /r307 R307 GET
@@ -20,6 +20,9 @@ app = yesod Y
 getRootR :: Handler ()
 getRootR = return ()
 
+postRootR :: Handler ()
+postRootR = return ()
+
 getR301, getR303, getR307, getRRegular :: Handler ()
 getR301 = redirectWith H.status301 RootR
 getR303 = redirectWith H.status303 RootR
@@ -28,6 +31,11 @@ getRRegular = redirect RootR
 
 specs :: Spec
 specs = describe "Redirect" $ do
+    it "no redirect" $ app $ do
+      res <- request defaultRequest { pathInfo = [], requestMethod = "POST" }
+      assertStatus 200 res
+      assertBodyContains "" res
+
     it "301 redirect" $ app $ do
       res <- request defaultRequest { pathInfo = ["r301"] }
       assertStatus 301 res
@@ -45,7 +53,8 @@ specs = describe "Redirect" $ do
 
     it "303 redirect for regular, HTTP 1.1" $ app $ do
       res <- request defaultRequest {
-        pathInfo = ["rregular"]
+        pathInfo = ["rregular"],
+        httpVersion = H.http11
       }
       assertStatus 303 res
       assertBodyContains "" res

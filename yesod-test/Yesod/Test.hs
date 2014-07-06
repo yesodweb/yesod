@@ -42,12 +42,14 @@ module Yesod.Test
     --
     , get
     , post
+    , postBody
     , request
     , addRequestHeader
     , setMethod
     , addPostParam
     , addGetParam
     , addFile
+    , setRequestBody
     , RequestBuilder
     , setUrl
 
@@ -73,6 +75,7 @@ module Yesod.Test
     , bodyContains
     , htmlAllContain
     , htmlAnyContain
+    , htmlNoneContain
     , htmlCount
 
     -- * Grab information
@@ -165,7 +168,7 @@ getResponse :: YesodExample site (Maybe SResponse)
 getResponse = fmap yedResponse ST.get
 
 data RequestBuilderData site = RequestBuilderData
-    { rbdPosts :: [RequestPart]
+    { rbdPostData :: RBDPostData
     , rbdResponse :: (Maybe SResponse)
     , rbdMethod :: H.Method
     , rbdSite :: site
@@ -174,9 +177,12 @@ data RequestBuilderData site = RequestBuilderData
     , rbdHeaders :: H.RequestHeaders
     }
 
+data RBDPostData = MultipleItemsPostData [RequestPart]
+                 | BinaryPostData BSL8.ByteString
+
 -- | Request parts let us discern regular key/values from files sent in the request.
 data RequestPart
-  = ReqPlainPart T.Text T.Text
+  = ReqKvPart T.Text T.Text
   | ReqFilePart T.Text FilePath BSL8.ByteString T.Text
 
 -- | The RequestBuilder state monad constructs an url encoded string of arguments
@@ -314,7 +320,7 @@ assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
 bodyEquals :: String -> YesodExample site ()
 bodyEquals text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to equal " ++ text) $
-    (simpleBody res) == BSL8.pack text
+    (simpleBody res) == encodeUtf8 (TL.pack text)
 
 -- | Assert the last response has the given text. The check is performed using the response
 -- body in full text form.
@@ -324,7 +330,7 @@ bodyContains text = withResponse $ \ res ->
     (simpleBody res) `contains` text
 
 contains :: BSL8.ByteString -> String -> Bool
-contains a b = DL.isInfixOf b (BSL8.unpack a)
+contains a b = DL.isInfixOf b (TL.unpack $ decodeUtf8 a)
 
 -- | Queries the html using a css selector, and all matched elements must contain
 -- the given string.
@@ -348,6 +354,19 @@ htmlAnyContain query search = do
     _ -> liftIO $ HUnit.assertBool ("None of "++T.unpack query++" contain "++search) $
           DL.any (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches)
 
+-- | Queries the html using a css selector, and fails if any matched
+-- element contains the given string (in other words, it is the logical
+-- inverse of htmlAnyContains).
+--
+-- Since 1.2.2
+htmlNoneContain :: Query -> String -> YesodExample site ()
+htmlNoneContain query search = do
+  matches <- htmlQuery query
+  case DL.filter (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches) of
+    [] -> return ()
+    found -> failure $ "Found " <> T.pack (show $ length found) <>
+                " instances of " <> T.pack search <> " in " <> query <> " elements"
+
 -- | Performs a css query on the last response and asserts the matched elements
 -- are as many as expected.
 htmlCount :: Query -> Int -> YesodExample site ()
@@ -359,7 +378,7 @@ htmlCount query count = do
 -- | Outputs the last response body to stderr (So it doesn't get captured by HSpec)
 printBody :: YesodExample site ()
 printBody = withResponse $ \ SResponse { simpleBody = b } ->
-  liftIO $ hPutStrLn stderr $ BSL8.unpack b
+  liftIO $ BSL8.hPutStrLn stderr b
 
 -- | Performs a CSS query and print the matches to stderr.
 printMatches :: Query -> YesodExample site ()
@@ -370,9 +389,10 @@ printMatches query = do
 -- | Add a parameter with the given name and value.
 addPostParam :: T.Text -> T.Text -> RequestBuilder site ()
 addPostParam name value =
-    ST.modify $ \rbd -> rbd
-        { rbdPosts = ReqPlainPart name value : rbdPosts rbd
-        }
+  ST.modify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd)) }
+  where addPostData (BinaryPostData _) = error "Trying to add post param to binary content."
+        addPostData (MultipleItemsPostData posts) =
+          MultipleItemsPostData $ ReqKvPart name value : posts
 
 addGetParam :: T.Text -> T.Text -> RequestBuilder site ()
 addGetParam name value = ST.modify $ \rbd -> rbd
@@ -386,9 +406,10 @@ addGetParam name value = ST.modify $ \rbd -> rbd
 addFile :: T.Text -> FilePath -> T.Text -> RequestBuilder site ()
 addFile name path mimetype = do
   contents <- liftIO $ BSL8.readFile path
-  ST.modify $ \rbd -> rbd
-    { rbdPosts = ReqFilePart name path contents mimetype : rbdPosts rbd
-    }
+  ST.modify $ \rbd -> rbd { rbdPostData = (addPostData (rbdPostData rbd) contents) }
+    where addPostData (BinaryPostData _) _ = error "Trying to add file after setting binary content."
+          addPostData (MultipleItemsPostData posts) contents =
+            MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
 
 -- This looks up the name of a field based on the contents of the label pointing to it.
 nameFromLabel :: T.Text -> RequestBuilder site T.Text
@@ -400,10 +421,10 @@ nameFromLabel label = do
       Just res -> return res
   let
     body = simpleBody res
-    mfor = parseHTML body
+    mlabel = parseHTML body
                 $// C.element "label"
                 >=> contentContains label
-                >=> attribute "for"
+    mfor = mlabel >>= attribute "for"
 
     contentContains x c
         | x `T.isInfixOf` T.concat (c $// content) = [c]
@@ -423,8 +444,11 @@ nameFromLabel label = do
             , " which was not found. "
             ]
         name:_ -> return name
-        _ -> failure $ "More than one input with id " <> for
-    [] -> failure $ "No label contained: " <> label
+        [] -> failure $ "No input with id " <> for
+    [] ->
+      case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "name") of
+        [] -> failure $ "No label contained: " <> label
+        name:_ -> return name
     _ -> failure $ "More than one label contained " <> label
 
 (<>) :: T.Text -> T.Text -> T.Text
@@ -459,8 +483,18 @@ post :: (Yesod site, RedirectUrl site url)
      => url
      -> YesodExample site ()
 post url = request $ do
-    setMethod "POST"
-    setUrl url
+  setMethod "POST"
+  setUrl url
+
+-- | Perform a POST request to url with sending a body into it.
+postBody :: (Yesod site, RedirectUrl site url)
+         => url
+         -> BSL8.ByteString
+         -> YesodExample site ()
+postBody url body = request $ do
+  setMethod "POST"
+  setUrl url
+  setRequestBody body
 
 -- | Perform a GET request to url, using params
 get :: (Yesod site, RedirectUrl site url)
@@ -487,12 +521,18 @@ setUrl url' = do
     let (urlPath, urlQuery) = T.break (== '?') url
     ST.modify $ \rbd -> rbd
         { rbdPath =
-            case DL.filter (/="") $ T.split (== '/') urlPath of
+            case DL.filter (/="") $ H.decodePathSegments $ TE.encodeUtf8 urlPath of
                 ("http:":_:rest) -> rest
                 ("https:":_:rest) -> rest
                 x -> x
         , rbdGets = rbdGets rbd ++ H.parseQuery (TE.encodeUtf8 urlQuery)
         }
+
+-- | Simple way to set HTTP request body
+setRequestBody :: (Yesod site)
+               => BSL8.ByteString
+               -> RequestBuilder site ()
+setRequestBody body = ST.modify $ \rbd -> rbd { rbdPostData = BinaryPostData body }
 
 addRequestHeader :: H.Header -> RequestBuilder site ()
 addRequestHeader header = ST.modify $ \rbd -> rbd
@@ -508,7 +548,7 @@ request reqBuilder = do
     YesodExampleData app site oldCookies mRes <- ST.get
 
     RequestBuilderData {..} <- liftIO $ ST.execStateT reqBuilder RequestBuilderData
-      { rbdPosts = []
+      { rbdPostData = MultipleItemsPostData []
       , rbdResponse = mRes
       , rbdMethod = "GET"
       , rbdSite = site
@@ -516,18 +556,30 @@ request reqBuilder = do
       , rbdGets = []
       , rbdHeaders = []
       }
-    let path = T.cons '/' $ T.intercalate "/" rbdPath
+    let path
+            | null rbdPath = "/"
+            | otherwise = TE.decodeUtf8 $ Builder.toByteString $ H.encodePathSegments rbdPath
 
     -- expire cookies and filter them for the current path. TODO: support max age
     currentUtc <- liftIO getCurrentTime
     let cookies = M.filter (checkCookieTime currentUtc) oldCookies
         cookiesForPath = M.filter (checkCookiePath path) cookies
 
-    let maker
-          | DL.any isFile rbdPosts = makeMultipart
-          | otherwise = makeSinglepart
-        req = maker cookiesForPath rbdPosts rbdMethod rbdHeaders path rbdGets
-
+    let req = case rbdPostData of
+          MultipleItemsPostData x ->
+            if DL.any isFile x
+            then (multipart x)
+            else singlepart
+          BinaryPostData _ -> singlepart
+          where singlepart = makeSinglepart cookiesForPath rbdPostData rbdMethod rbdHeaders path rbdGets
+                multipart x = makeMultipart cookiesForPath x rbdMethod rbdHeaders path rbdGets
+    -- let maker = case rbdPostData of
+    --       MultipleItemsPostData x ->
+    --         if DL.any isFile x
+    --         then makeMultipart
+    --         else makeSinglepart
+    --       BinaryPostData _ -> makeSinglepart
+    -- let req = maker cookiesForPath rbdPostData rbdMethod rbdHeaders path rbdGets
     response <- liftIO $ runSession (srequest req) app
     let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
@@ -548,15 +600,28 @@ request reqBuilder = do
     boundary :: String
     boundary = "*******noneedtomakethisrandom"
     separator = BS8.concat ["--", BS8.pack boundary, "\r\n"]
+    makeMultipart :: M.Map a0 Cookie.SetCookie
+                  -> [RequestPart]
+                  -> H.Method
+                  -> [H.Header]
+                  -> T.Text
+                  -> H.Query
+                  -> SRequest
     makeMultipart cookies parts method extraHeaders urlPath urlQuery =
-      flip SRequest (BSL8.fromChunks [multiPartBody parts]) $ mkRequest
-        [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
-              [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
-        , ("Content-Type", BS8.pack $ "multipart/form-data; boundary=" ++ boundary)
-        ] method extraHeaders urlPath urlQuery
+      SRequest simpleRequest' (simpleRequestBody' parts)
+      where simpleRequestBody' x =
+              BSL8.fromChunks [multiPartBody x]
+            simpleRequest' = mkRequest
+                             [ ("Cookie", cookieValue)
+                             , ("Content-Type", contentTypeValue)]
+                             method extraHeaders urlPath urlQuery
+            cookieValue = Builder.toByteString $ Cookie.renderCookies cookiePairs
+            cookiePairs = [ (Cookie.setCookieName c, Cookie.setCookieValue c)
+                          | c <- map snd $ M.toList cookies ]
+            contentTypeValue = BS8.pack $ "multipart/form-data; boundary=" ++ boundary
     multiPartBody parts =
       BS8.concat $ separator : [BS8.concat [multipartPart p, separator] | p <- parts]
-    multipartPart (ReqPlainPart k v) = BS8.concat
+    multipartPart (ReqKvPart k v) = BS8.concat
       [ "Content-Disposition: form-data; "
       , "name=\"", TE.encodeUtf8 k, "\"\r\n\r\n"
       , TE.encodeUtf8 v, "\r\n"]
@@ -568,15 +633,29 @@ request reqBuilder = do
       , BS8.concat $ BSL8.toChunks bytes, "\r\n"]
 
     -- For building the regular non-multipart requests
-    makeSinglepart cookies parts method extraHeaders urlPath urlQuery = SRequest (mkRequest
-      [ ("Cookie", Builder.toByteString $ Cookie.renderCookies
-              [(Cookie.setCookieName c, Cookie.setCookieValue c) | c <- map snd $ M.toList cookies])
-      , ("Content-Type", "application/x-www-form-urlencoded")
-      ] method extraHeaders urlPath urlQuery) $
-      BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&" $ map singlepartPart parts
-
-    singlepartPart (ReqFilePart _ _ _ _) = ""
-    singlepartPart (ReqPlainPart k v) = T.concat [k,"=",v]
+    makeSinglepart :: M.Map a0 Cookie.SetCookie
+                   -> RBDPostData
+                   -> H.Method
+                   -> [H.Header]
+                   -> T.Text
+                   -> H.Query
+                   -> SRequest
+    makeSinglepart cookies rbdPostData method extraHeaders urlPath urlQuery =
+      SRequest simpleRequest' (simpleRequestBody' rbdPostData)
+      where
+        simpleRequest' = (mkRequest
+                          [ ("Cookie", cookieValue)
+                          , ("Content-Type", "application/x-www-form-urlencoded")]
+                          method extraHeaders urlPath urlQuery)
+        simpleRequestBody' (MultipleItemsPostData x) =
+          BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&"
+          $ map singlepartPart x
+        simpleRequestBody' (BinaryPostData x) = x
+        cookieValue = Builder.toByteString $ Cookie.renderCookies cookiePairs
+        cookiePairs = [ (Cookie.setCookieName c, Cookie.setCookieValue c)
+                      | c <- map snd $ M.toList cookies ]
+        singlepartPart (ReqFilePart _ _ _ _) = ""
+        singlepartPart (ReqKvPart k v) = T.concat [k,"=",v]
 
     -- General request making
     mkRequest headers method extraHeaders urlPath urlQuery = defaultRequest
@@ -584,7 +663,7 @@ request reqBuilder = do
       , remoteHost = Sock.SockAddrInet 1 2
       , requestHeaders = headers ++ extraHeaders
       , rawPathInfo = TE.encodeUtf8 urlPath
-      , pathInfo = DL.filter (/="") $ T.split (== '/') urlPath
+      , pathInfo = H.decodePathSegments $ TE.encodeUtf8 urlPath
       , rawQueryString = H.renderQuery False urlQuery
       , queryString = urlQuery
       }

@@ -18,6 +18,7 @@ module Yesod.Form.Fields
     , timeField
     , htmlField
     , emailField
+    , multiEmailField
     , searchField
     , AutoFocus
     , urlField
@@ -36,12 +37,15 @@ module Yesod.Form.Fields
     , selectFieldList
     , radioField
     , radioFieldList
+    , checkboxesFieldList
+    , checkboxesField
     , multiSelectField
     , multiSelectFieldList
     , Option (..)
     , OptionList (..)
     , mkOptionList
     , optionsPersist
+    , optionsPersistKey
     , optionsPairs
     , optionsEnum
     ) where
@@ -61,10 +65,11 @@ import qualified Text.Email.Validate as Email
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Network.URI (parseURI)
-import Database.Persist.Sql (PersistField, PersistFieldSql)
-import Database.Persist (Entity (..))
+import Database.Persist.Sql (PersistField, PersistFieldSql (..))
+import Database.Persist (Entity (..), SqlType (SqlString))
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
+import Data.Either (partitionEithers)
 import Data.Maybe (listToMaybe, fromMaybe)
 
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
@@ -75,16 +80,21 @@ import Database.Persist (PersistMonadBackend, PersistEntityBackend)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
-import Data.Text (Text, unpack, pack)
+import Data.Text as T ( Text, append, concat, cons, head
+                      , intercalate, isPrefixOf, null, unpack, pack, splitOn
+                      )
+import qualified Data.Text as T (drop, dropWhile)  
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
-import Yesod.Persist (selectList, runDB, Filter, SelectOpt, Key, YesodPersist, PersistEntity, PersistQuery, YesodDB)
+import Yesod.Persist (selectList, runDB, Filter, SelectOpt, Key, YesodPersist, PersistEntity, PersistQuery)
 import Control.Arrow ((&&&))
 
 import Control.Applicative ((<$>), (<|>))
 
 import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
+
+import Yesod.Persist.Core
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
@@ -99,7 +109,7 @@ intField = Field
 
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} type="number" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" *{attrs} type="number" step=1 :isReq:required="" value="#{showVal val}">
 |]
     , fieldEnctype = UrlEncoded
     }
@@ -110,13 +120,13 @@ $newline never
 doubleField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Double
 doubleField = Field
     { fieldParse = parseHelper $ \s ->
-        case Data.Text.Read.double s of
+        case Data.Text.Read.double (prependZero s) of
             Right (a, "") -> Right a
             _ -> Left $ MsgInvalidNumber s
 
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" *{attrs} type="number" step=any :isReq:required="" value="#{showVal val}">
 |]
     , fieldEnctype = UrlEncoded
     }
@@ -163,7 +173,9 @@ $newline never
 -- | A newtype wrapper around a 'Text' that converts newlines to HTML
 -- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
-    deriving (Show, Read, Eq, PersistField, PersistFieldSql, Ord)
+    deriving (Show, Read, Eq, PersistField, Ord, ToJSON, FromJSON)
+instance PersistFieldSql Textarea where
+    sqlType _ = SqlString
 instance ToHtml Textarea where
     toHtml =
         unsafeByteString
@@ -295,12 +307,37 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
+-- |
+--
+-- Since 1.3.7
+multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
+multiEmailField = Field
+    { fieldParse = parseHelper $
+        \s ->
+            let addrs = map validate $ splitOn "," s
+            in case partitionEithers addrs of
+                ([], good) -> Right good
+                (bad, _) -> Left $ MsgInvalidEmail $ cat bad
+    , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+$newline never
+<input id="#{theId}" name="#{name}" *{attrs} type="email" multiple :isReq:required="" value="#{either id cat val}">
+|]
+    , fieldEnctype = UrlEncoded
+    }
+    where
+        -- report offending address along with error
+        validate a = case Email.validate $ encodeUtf8 a of
+                        Left e -> Left $ T.concat [a, " (",  pack e, ")"]
+                        Right r -> Right $ emailToText r
+        cat = intercalate ", "
+        emailToText = decodeUtf8With lenientDecode . Email.toByteString
+
 type AutoFocus = Bool
 searchField :: Monad m => RenderMessage (HandlerSite m) FormMessage => AutoFocus -> Field m Text
 searchField autoFocus = Field
     { fieldParse = parseHelper Right
     , fieldView = \theId name attrs val isReq -> do
-        [whamlet|\
+        [whamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="search" :isReq:required="" :autoFocus:autofocus="" value="#{either id id val}">
 |]
@@ -385,6 +422,28 @@ radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                -> Field (HandlerT site IO) a
 radioFieldList = radioField . optionsPairs
 
+checkboxesFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)]
+                     -> Field (HandlerT site IO) [a]
+checkboxesFieldList = checkboxesField . optionsPairs
+
+checkboxesField :: (Eq a, RenderMessage site FormMessage)
+                 => HandlerT site IO (OptionList a)
+                 -> Field (HandlerT site IO) [a]
+checkboxesField ioptlist = (multiSelectField ioptlist)
+    { fieldView =
+        \theId name attrs val isReq -> do
+            opts <- fmap olOptions $ handlerToWidget ioptlist
+            let optselected (Left _) _ = False
+                optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
+            [whamlet|
+                <span ##{theId}>
+                    $forall opt <- opts
+                        <label>
+                            <input type=checkbox name=#{name} value=#{optionExternalValue opt} *{attrs} :optselected val opt:checked>
+                            #{optionDisplay opt}
+                |]
+    }
+
 radioField :: (Eq a, RenderMessage site FormMessage)
            => HandlerT site IO (OptionList a)
            -> Field (HandlerT site IO) a
@@ -434,6 +493,8 @@ $newline never
       "yes" -> Right $ Just True
       "on" -> Right $ Just True
       "no" -> Right $ Just False
+      "true" -> Right $ Just True
+      "false" -> Right $ Just False
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
 
@@ -495,9 +556,9 @@ optionsEnum :: (MonadHandler m, Show a, Enum a, Bounded a) => m (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
 optionsPersist :: ( YesodPersist site, PersistEntity a
-                  , PersistQuery (YesodDB site)
+                  , PersistQuery (YesodPersistBackend site (HandlerT site IO))
                   , PathPiece (Key a)
-                  , PersistEntityBackend a ~ PersistMonadBackend (YesodDB site)
+                  , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend site (HandlerT site IO))
                   , RenderMessage site msg
                   )
                => [Filter a]
@@ -510,6 +571,31 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     return $ map (\(Entity key value) -> Option
         { optionDisplay = mr (toDisplay value)
         , optionInternalValue = Entity key value
+        , optionExternalValue = toPathPiece key
+        }) pairs
+
+-- | An alternative to 'optionsPersist' which returns just the @Key@ instead of
+-- the entire @Entity@.
+--
+-- Since 1.3.2
+optionsPersistKey
+  :: (YesodPersist site
+     , PersistEntity a
+     , PersistQuery (YesodPersistBackend site (HandlerT site IO))
+     , PathPiece (Key a)
+     , RenderMessage site msg
+     , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend site (HandlerT site IO)))
+  => [Filter a]
+  -> [SelectOpt a]
+  -> (a -> msg)
+  -> HandlerT site IO (OptionList (Key a))
+
+optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
+    mr <- getMessageRender
+    pairs <- runDB $ selectList filts ords
+    return $ map (\(Entity key value) -> Option
+        { optionDisplay = mr (toDisplay value)
+        , optionInternalValue = key
         , optionExternalValue = toPathPiece key
         }) pairs
 
@@ -531,7 +617,7 @@ selectFieldHelper outside onOpt inside opts' = Field
             flip mapM_ opts $ \opt -> inside
                 theId
                 name
-                attrs
+                ((if isReq then (("required", "required"):) else id) attrs)
                 (optionExternalValue opt)
                 ((render opts val) == optionExternalValue opt)
                 (optionDisplay opt)
@@ -628,3 +714,19 @@ $newline never
 incrInts :: Ints -> Ints
 incrInts (IntSingle i) = IntSingle $ i + 1
 incrInts (IntCons i is) = (i + 1) `IntCons` is
+
+
+-- | Adds a '0' to some text so that it may be recognized as a double.
+--   The read ftn does not recognize ".3" as 0.3 nor "-.3" as -0.3, so this
+--   function changes ".xxx" to "0.xxx" and "-.xxx" to "-0.xxx"
+
+prependZero :: Text -> Text
+prependZero t0 = if T.null t1
+                 then t1
+                 else if T.head t1 == '.'
+                      then '0' `T.cons` t1
+                      else if "-." `T.isPrefixOf` t1
+                           then "-0." `T.append` (T.drop 2 t1)
+                           else t1
+
+  where t1 = T.dropWhile ((==) ' ') t0

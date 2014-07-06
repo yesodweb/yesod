@@ -62,7 +62,10 @@ keter cabal noBuild = do
     L.writeFile fp $ compress $ Tar.write archive
 
     case Map.lookup "copy-to" value of
-        Just (String s) -> run "scp" [fp, T.unpack s]
+        Just (String s) ->
+            case parseMaybe (.: "copy-to-port") value of
+                Just i -> run "scp" ["-P" ++ show (i :: Int), fp, T.unpack s]
+                Nothing -> run "scp" [fp, T.unpack s]
         _ -> return ()
 
 try' :: IO a -> IO (Either SomeException a)

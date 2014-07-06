@@ -9,3 +9,5 @@
 ./yesod-test
 ./yesod-bin
 ./yesod
+./yesod-eventsource
+./yesod-websockets

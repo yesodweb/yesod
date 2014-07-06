@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Core.Types where
 
 import qualified Blaze.ByteString.Builder           as BBuilder
@@ -15,16 +16,21 @@ import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
+import           Control.Monad.Catch                (MonadCatch (..))
+#if MIN_VERSION_exceptions(0,6,0)
+import           Control.Monad.Catch                (MonadMask (..))
+#endif
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
 import           Control.Monad.Trans.Control        (MonadBaseControl (..))
-import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState)
+import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), monadThrow, ResourceT)
+#if !MIN_VERSION_resourcet(1,1,0)
+import           Control.Monad.Trans.Resource       (MonadUnsafeIO (..))
+#endif
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
-import           Data.Conduit                       (Flush, MonadThrow (..),
-                                                     MonadUnsafeIO (..),
-                                                     ResourceT, Source)
+import           Data.Conduit                       (Flush, Source)
 import           Data.Dynamic                       (Dynamic)
 import           Data.IORef                         (IORef)
 import           Data.Map                           (Map, unionWith)
@@ -46,7 +52,12 @@ import           Network.Wai                        (FilePart,
                                                      RequestBodyLength)
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
+#if MIN_VERSION_fast_logger(2, 0, 0)
+import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
+import           Network.Wai.Logger                 (DateCacheGetter)
+#else
 import           System.Log.FastLogger              (LogStr, Logger, toLogStr)
+#endif
 import           Text.Blaze.Html                    (Html)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
@@ -54,6 +65,9 @@ import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
+import           Control.Monad.Reader               (MonadReader (..))
+import Prelude hiding (catch)
+import Control.DeepSeq (NFData (rnf))
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -112,6 +126,7 @@ data YesodRequest = YesodRequest
 -- or a higher-level data structure which Yesod will turn into a @Response@.
 data YesodResponse
     = YRWai !W.Response
+    | YRWaiApp !W.Application
     | YRPlain !H.Status ![Header] !ContentType !Content !SessionMap
 
 -- | A tuple containing both the POST parameters and submitted files.
@@ -128,7 +143,11 @@ data FileInfo = FileInfo
     }
 
 data FileUpload = FileUploadMemory !(NWP.BackEnd L.ByteString)
+#if MIN_VERSION_wai_extra(2, 0, 1)
+                | FileUploadDisk !(InternalState -> NWP.BackEnd FilePath)
+#else
                 | FileUploadDisk !(NWP.BackEnd FilePath)
+#endif
                 | FileUploadSource !(NWP.BackEnd (Source (ResourceT IO) ByteString))
 
 -- | How to determine the root of the application for constructing URLs.
@@ -298,6 +317,14 @@ data Header =
     | Header ByteString ByteString
     deriving (Eq, Show)
 
+-- FIXME In the next major version bump, let's just add strictness annotations
+-- to Header (and probably everywhere else). We can also add strictness
+-- annotations to SetCookie in the cookie package.
+instance NFData Header where
+    rnf (AddCookie x) = rnf x
+    rnf (DeleteCookie x y) = x `seq` y `seq` ()
+    rnf (Header x y) = x `seq` y `seq` ()
+
 data Location url = Local url | Remote Text
     deriving (Show, Eq)
 
@@ -346,6 +373,7 @@ data HandlerContents =
     | HCRedirect H.Status Text
     | HCCreated Text
     | HCWai W.Response
+    | HCWaiApp W.Application
     deriving Typeable
 
 instance Show HandlerContents where
@@ -355,6 +383,7 @@ instance Show HandlerContents where
     show (HCRedirect s t) = "HCRedirect " ++ show (s, t)
     show (HCCreated t) = "HCCreated " ++ show t
     show (HCWai _) = "HCWai"
+    show (HCWaiApp _) = "HCWaiApp"
 instance Exception HandlerContents
 
 -- Instances for WidgetT
@@ -375,17 +404,54 @@ instance MonadBase b m => MonadBase b (WidgetT site m) where
     liftBase = WidgetT . const . liftBase . fmap (, mempty)
 instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
     data StM (WidgetT site m) a = StW (StM m (a, GWData (Route site)))
-    liftBaseWith f = WidgetT $ \reader ->
+    liftBaseWith f = WidgetT $ \reader' ->
         liftBaseWith $ \runInBase ->
             liftM (\x -> (x, mempty))
-            (f $ liftM StW . runInBase . flip unWidgetT reader)
+            (f $ liftM StW . runInBase . flip unWidgetT reader')
     restoreM (StW base) = WidgetT $ const $ restoreM base
+instance Monad m => MonadReader site (WidgetT site m) where
+    ask = WidgetT $ \hd -> return (rheSite $ handlerEnv hd, mempty)
+    local f (WidgetT g) = WidgetT $ \hd -> g hd
+        { handlerEnv = (handlerEnv hd)
+            { rheSite = f $ rheSite $ handlerEnv hd
+            }
+        }
 
 instance MonadTrans (WidgetT site) where
     lift = WidgetT . const . liftM (, mempty)
 instance MonadThrow m => MonadThrow (WidgetT site m) where
+#if MIN_VERSION_resourcet(1,1,0)
+    throwM = lift . throwM
+
+instance MonadCatch m => MonadCatch (HandlerT site m) where
+  catch (HandlerT m) c = HandlerT $ \r -> m r `catch` \e -> unHandlerT (c e) r
+#if MIN_VERSION_exceptions(0,6,0)
+instance MonadMask m => MonadMask (HandlerT site m) where
+#endif
+  mask a = HandlerT $ \e -> mask $ \u -> unHandlerT (a $ q u) e
+    where q u (HandlerT b) = HandlerT (u . b)
+  uninterruptibleMask a =
+    HandlerT $ \e -> uninterruptibleMask $ \u -> unHandlerT (a $ q u) e
+      where q u (HandlerT b) = HandlerT (u . b)
+instance MonadCatch m => MonadCatch (WidgetT site m) where
+  catch (WidgetT m) c = WidgetT $ \r -> m r `catch` \e -> unWidgetT (c e) r
+#if MIN_VERSION_exceptions(0,6,0)
+instance MonadMask m => MonadMask (WidgetT site m) where
+#endif
+  mask a = WidgetT $ \e -> mask $ \u -> unWidgetT (a $ q u) e
+    where q u (WidgetT b) = WidgetT (u . b)
+  uninterruptibleMask a =
+    WidgetT $ \e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) e
+      where q u (WidgetT b) = WidgetT (u . b)
+#else
     monadThrow = lift . monadThrow
+#endif
+
+#if MIN_VERSION_resourcet(1,1,0)
+instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
+#else
 instance (Applicative m, MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (WidgetT site m) where
+#endif
     liftResourceT f = WidgetT $ \hd -> liftIO $ fmap (, mempty) $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (WidgetT site m) where
@@ -408,6 +474,13 @@ instance MonadIO m => MonadIO (HandlerT site m) where
     liftIO = lift . liftIO
 instance MonadBase b m => MonadBase b (HandlerT site m) where
     liftBase = lift . liftBase
+instance Monad m => MonadReader site (HandlerT site m) where
+    ask = HandlerT $ return . rheSite . handlerEnv
+    local f (HandlerT g) = HandlerT $ \hd -> g hd
+        { handlerEnv = (handlerEnv hd)
+            { rheSite = f $ rheSite $ handlerEnv hd
+            }
+        }
 -- | Note: although we provide a @MonadBaseControl@ instance, @lifted-base@'s
 -- @fork@ function is incompatible with the underlying @ResourceT@ system.
 -- Instead, if you must fork a separate thread, you should use
@@ -418,14 +491,23 @@ instance MonadBase b m => MonadBase b (HandlerT site m) where
 -- after cleanup. Please contact the maintainers.\"
 instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
     data StM (HandlerT site m) a = StH (StM m a)
-    liftBaseWith f = HandlerT $ \reader ->
+    liftBaseWith f = HandlerT $ \reader' ->
         liftBaseWith $ \runInBase ->
-            f $ liftM StH . runInBase . (\(HandlerT r) -> r reader)
+            f $ liftM StH . runInBase . (\(HandlerT r) -> r reader')
     restoreM (StH base) = HandlerT $ const $ restoreM base
 
 instance MonadThrow m => MonadThrow (HandlerT site m) where
+#if MIN_VERSION_resourcet(1,1,0)
+    throwM = lift . monadThrow
+#else
     monadThrow = lift . monadThrow
+#endif
+
+#if MIN_VERSION_resourcet(1,1,0)
+instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (HandlerT site m) where
+#else
 instance (MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (HandlerT site m) where
+#endif
     liftResourceT f = HandlerT $ \hd -> liftIO $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (HandlerT site m) where
@@ -445,3 +527,13 @@ instance RenderRoute WaiSubsite where
     renderRoute (WaiSubsiteRoute ps qs) = (ps, qs)
 instance ParseRoute WaiSubsite where
     parseRoute (x, y) = Just $ WaiSubsiteRoute x y
+
+#if MIN_VERSION_fast_logger(2, 0, 0)
+data Logger = Logger
+    { loggerSet :: !LoggerSet
+    , loggerDate :: !DateCacheGetter
+    }
+
+loggerPutStr :: Logger -> LogStr -> IO ()
+loggerPutStr (Logger ls _) = pushLogStr ls
+#endif

@@ -23,7 +23,10 @@ module Yesod.Form.Functions
     , runFormGet
       -- * Generate a blank form
     , generateFormPost
+    , generateFormGet'
     , generateFormGet
+      -- * More than one form on a handler
+    , identifyForm
       -- * Rendering
     , FormRender
     , renderTable
@@ -39,15 +42,16 @@ module Yesod.Form.Functions
       -- * Utilities
     , fieldSettingsLabel
     , parseHelper
+    , parseHelperGen
     ) where
 
 import Yesod.Form.Types
 import Data.Text (Text, pack)
 import Control.Arrow (second)
-import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST)
+import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local)
 import Control.Monad.Trans.Class
 import Control.Monad (liftM, join)
-import Crypto.Classes (constTimeEq)
+import Data.Byteable (constEqBytes)
 import Text.Blaze (Markup, toMarkup)
 #define Html Markup
 #define toHtml toMarkup
@@ -99,13 +103,18 @@ askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
 
+-- | Converts a form field into monadic form. This field requires a value
+-- and will return 'FormFailure' if left empty.
 mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
-     => Field m a
-     -> FieldSettings site
-     -> Maybe a
+     => Field m a           -- ^ form field
+     -> FieldSettings site  -- ^ settings for this field
+     -> Maybe a             -- ^ optional default value
      -> MForm m (FormResult a, FieldView site)
 mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
 
+-- | Converts a form field into monadic form. This field is optional, i.e.
+-- if filled in, it returns 'Just a', if left empty, it returns 'Nothing'.
+-- Arguments are the same as for 'mreq' (apart from type of default value).
 mopt :: (site ~ HandlerSite m, MonadHandler m)
      => Field m a
      -> FieldSettings site
@@ -155,6 +164,7 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         , fvRequired = isReq
         })
 
+-- | Applicative equivalent of 'mreq'.
 areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      => Field m a
      -> FieldSettings site
@@ -162,6 +172,7 @@ areq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      -> AForm m a
 areq a b = formToAForm . liftM (second return) . mreq a b
 
+-- | Applicative equivalent of 'mopt'.
 aopt :: MonadHandler m
      => Field m a
      -> FieldSettings (HandlerSite m)
@@ -175,7 +186,7 @@ runFormGeneric :: Monad m
                -> [Text]
                -> Maybe (Env, FileEnv)
                -> m (a, Enctype)
-runFormGeneric form site langs env = evalRWST form (env, site, langs) (IntSingle 1)
+runFormGeneric form site langs env = evalRWST form (env, site, langs) (IntSingle 0)
 
 -- | This function is used to both initially render a form and to later extract
 -- results from it. Note that, due to CSRF protection and a few other issues,
@@ -213,12 +224,12 @@ postHelper form env = do
                     | not (Map.lookup tokenKey params === reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
-            where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constTimeEq` TE.encodeUtf8 t2
+            where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constEqBytes` TE.encodeUtf8 t2
                   Nothing     === Nothing   = True   -- It's important to use constTimeEq
                   _           === _         = False  -- in order to avoid timing attacks.
     return ((res', xml), enctype)
 
--- | Similar to 'runFormPost', except it always ignore the currently available
+-- | Similar to 'runFormPost', except it always ignores the currently available
 -- environment. This is necessary in cases like a wizard UI, where a single
 -- page will both receive and incoming form and produce a new, blank form. For
 -- general usage, you can stick with @runFormPost@.
@@ -259,6 +270,17 @@ runFormGet form = do
                 Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
     getHelper form env
 
+{- FIXME: generateFormGet' "Will be renamed to generateFormGet in next verison of Yesod" -}
+-- |
+--
+-- Since 1.3.11
+generateFormGet'
+    :: (RenderMessage (HandlerSite m) FormMessage, MonadHandler m)
+    => (Html -> MForm m (FormResult a, xml))
+    -> m (xml, Enctype)
+generateFormGet' form = first snd `liftM` getHelper form Nothing
+
+{-# DEPRECATED generateFormGet "Will require RenderMessage in next verison of Yesod" #-}
 generateFormGet :: MonadHandler m
                 => (Html -> MForm m a)
                 -> m (a, Enctype)
@@ -276,6 +298,57 @@ getHelper form env = do
     langs <- languages
     m <- getYesod
     runFormGeneric (form fragment) m langs env
+
+
+-- | Creates a hidden field on the form that identifies it.  This
+-- identification is then used to distinguish between /missing/
+-- and /wrong/ form data when a single handler contains more than
+-- one form.
+--
+-- For instance, if you have the following code on your handler:
+--
+-- > ((fooRes, fooWidget), fooEnctype) <- runFormPost fooForm
+-- > ((barRes, barWidget), barEnctype) <- runFormPost barForm
+--
+-- Then replace it with
+--
+-- > ((fooRes, fooWidget), fooEnctype) <- runFormPost $ identifyForm "foo" fooForm
+-- > ((barRes, barWidget), barEnctype) <- runFormPost $ identifyForm "bar" barForm
+--
+-- Note that it's your responsibility to ensure that the
+-- identification strings are unique (using the same one twice on a
+-- single handler will not generate any errors).  This allows you
+-- to create a variable number of forms and still have them work
+-- even if their number or order change between the HTML
+-- generation and the form submission.
+identifyForm
+  :: Monad m
+  => Text -- ^ Form identification string.
+  -> (Html -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ()))
+  -> (Html -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ()))
+identifyForm identVal form = \fragment -> do
+    -- Create hidden <input>.
+    let fragment' =
+          [shamlet|
+            <input type=hidden name=#{identifyFormKey} value=#{identVal}>
+            #{fragment}
+          |]
+
+    -- Check if we got its value back.
+    mp <- askParams
+    let missing = (mp >>= Map.lookup identifyFormKey) /= Just [identVal]
+
+    -- Run the form proper (with our hidden <input>).  If the
+    -- data is missing, then do not provide any params to the
+    -- form, which will turn its result into FormMissing.  Also,
+    -- doing this avoids having lots of fields with red errors.
+    let eraseParams | missing   = local (\(_, h, l) -> (Nothing, h, l))
+                    | otherwise = id
+    eraseParams (form fragment')
+
+identifyFormKey :: Text
+identifyFormKey = "_formid"
+
 
 type FormRender m a =
        AForm m a
@@ -326,7 +399,9 @@ $forall view <- views
 |]
     return (res, widget)
 
--- | Render a form using Bootstrap-friendly shamlet syntax.
+-- | Render a form using Bootstrap v2-friendly shamlet syntax.
+-- If you're using Bootstrap v3, then you should use the
+-- functions from module "Yesod.Form.Bootstrap3".
 --
 -- Sample Hamlet:
 --
@@ -361,6 +436,7 @@ renderBootstrap aform fragment = do
                                 <span .help-block>#{err}
                 |]
     return (res, widget)
+{-# DEPRECATED renderBootstrap "Please use the Yesod.Form.Bootstrap3 module." #-}
 
 check :: (Monad m, RenderMessage (HandlerSite m) msg)
       => (a -> Either msg a)
@@ -421,6 +497,15 @@ fieldSettingsLabel msg = FieldSettings (SomeMessage msg) Nothing Nothing Nothing
 parseHelper :: (Monad m, RenderMessage site FormMessage)
             => (Text -> Either FormMessage a)
             -> [Text] -> [FileInfo] -> m (Either (SomeMessage site) (Maybe a))
-parseHelper _ [] _ = return $ Right Nothing
-parseHelper _ ("":_) _ = return $ Right Nothing
-parseHelper f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x
+parseHelper = parseHelperGen
+
+-- | A generalized version of 'parseHelper', allowing any type for the message
+-- indicating a bad parse.
+--
+-- Since 1.3.6
+parseHelperGen :: (Monad m, RenderMessage site msg)
+               => (Text -> Either msg a)
+               -> [Text] -> [FileInfo] -> m (Either (SomeMessage site) (Maybe a))
+parseHelperGen _ [] _ = return $ Right Nothing
+parseHelperGen _ ("":_) _ = return $ Right Nothing
+parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x

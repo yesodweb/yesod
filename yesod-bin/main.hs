@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RecordWildCards             #-}
 
 import           Control.Monad          (unless)
 import           Data.Monoid
@@ -9,14 +9,19 @@ import           System.Exit            (ExitCode (ExitSuccess), exitWith)
 import           System.Process         (rawSystem)
 
 import           AddHandler             (addHandler)
-import           Devel                  (DevelOpts (..), devel)
+import           Devel                  (DevelOpts (..), devel, DevelTermOpt(..))
 import           Keter                  (keter)
 import           Options                (injectDefaults)
 import qualified Paths_yesod_bin
 import           Scaffolding.Scaffolder
 
+#if MIN_VERSION_optparse_applicative(0,6,0)
+import           Options.Applicative.Types (ReadM (ReadM))
+#else
 import           Options.Applicative.Builder.Internal (Mod, OptionFields)
+#endif
 
+import           HsFile                 (mkHsFile)
 #ifndef WINDOWS
 import           Build                  (touch)
 
@@ -42,7 +47,8 @@ data Options = Options
                }
   deriving (Show, Eq)
 
-data Command = Init
+data Command = Init { _initBare :: Bool }
+             | HsFiles
              | Configure
              | Build { buildExtraArgs   :: [String] }
              | Touch
@@ -56,6 +62,7 @@ data Command = Init
                      , _develPort        :: Int
                      , _proxyTimeout     :: Int
                      , _noReverseProxy   :: Bool
+                     , _interruptOnly    :: Bool
                      }
              | Test
              | AddHandler
@@ -71,36 +78,46 @@ cabalCommand mopt
 
 main :: IO ()
 main = do
-  o <- execParser =<< injectDefaults "yesod" [ ("yesod.devel.extracabalarg" , \o args -> o { optCommand =
-                                                    case optCommand o of
-                                                        d@Devel{} -> d { develExtraArgs = args }
-                                                        c -> c
-                                                    })
-                                             , ("yesod.devel.ignore"        , \o args -> o { optCommand =
-                                                    case optCommand o of
-                                                        d@Devel{} -> d { develIgnore = args }
-                                                        c -> c
-                                                    })
-                                             , ("yesod.build.extracabalarg" , \o args -> o { optCommand =
-                                                    case optCommand o of
-                                                        b@Build{} -> b { buildExtraArgs = args }
-                                                        c -> c
-                                                    })
-                                             ] optParser'
-  let cabal xs = rawSystem' (cabalCommand o) xs
+  o <- execParser =<< injectDefaults "yesod"
+         [ ("yesod.devel.extracabalarg" , \o args -> o { optCommand =
+                case optCommand o of
+                    d@Devel{} -> d { develExtraArgs = args }
+                    c -> c
+                })
+         , ("yesod.devel.ignore"        , \o args -> o { optCommand =
+                case optCommand o of
+                    d@Devel{} -> d { develIgnore = args }
+                    c -> c
+                })
+         , ("yesod.build.extracabalarg" , \o args -> o { optCommand =
+                case optCommand o of
+                    b@Build{} -> b { buildExtraArgs = args }
+                    c -> c
+                })
+         ] optParser'
+  let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
-    Init                    -> scaffold
-    Configure               -> cabal ["configure"]
-    Build es                -> touch' >> cabal ("build":es)
-    Touch                   -> touch'
-    Devel da s f r b _ig es p t nrp -> devel (DevelOpts (optCabalPgm o == CabalDev) da (optVerbose o) r s f b p t (not nrp)) es
-    Keter noRebuild         -> keter (cabalCommand o) noRebuild
-    Version                 -> do putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
-    AddHandler              -> addHandler
-    Test                    -> do touch'
-                                  cabal ["configure", "--enable-tests", "-flibrary-only"]
-                                  cabal ["build"]
-                                  cabal ["test"]
+    Init bare       -> scaffold bare
+    HsFiles         -> mkHsFile
+    Configure       -> cabal ["configure"]
+    Build es        -> touch' >> cabal ("build":es)
+    Touch           -> touch'
+    Keter noRebuild -> keter (cabalCommand o) noRebuild
+    Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
+    AddHandler      -> addHandler
+    Test            -> cabalTest cabal
+    Devel{..}       -> devel (DevelOpts
+                              (optCabalPgm o == CabalDev) _develDisableApi (optVerbose o)
+                              _develRescan _develSuccessHook _develFailHook
+                              _develBuildDir _develPort _proxyTimeout
+                              (not _noReverseProxy)
+                              (if _interruptOnly then TerminateOnlyInterrupt else TerminateOnEnter )
+                           ) develExtraArgs
+  where
+    cabalTest cabal = do touch'
+                         _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]
+                         _ <- cabal ["build"]
+                         cabal ["test"]
 
 optParser' :: ParserInfo Options
 optParser' = info (helper <*> optParser) ( fullDesc <> header "Yesod Web Framework command line utility" )
@@ -109,8 +126,11 @@ optParser :: Parser Options
 optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
-        <*> subparser ( command "init"      (info (pure Init)
+        <*> subparser ( command "init"
+                            (info (Init <$> (switch (long "bare" <> help "Create files in current folder")))
                             (progDesc "Scaffold a new site"))
+                      <> command "hsfiles" (info (pure HsFiles)
+                            (progDesc "Create a hsfiles file for the current folder"))
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
                       <> command "build"     (info (Build <$> extraCabalArgs)
@@ -153,6 +173,8 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Devel server timeout before returning 'not ready' message (in seconds, 0 for none)" )
                      <*> switch ( long "disable-reverse-proxy" <> short 'n'
                             <> help "Disable reverse proxy" )
+                     <*> switch ( long "interrupt-only"  <> short 'c'
+                            <> help "Disable exiting when enter is pressed")
 
 extraCabalArgs :: Parser [String]
 extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"
@@ -164,7 +186,11 @@ optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
 optStr m =
     nullOption $ value Nothing <> reader (success . str)  <> m
   where
+#if MIN_VERSION_optparse_applicative(0,6,0)
+    success = ReadM . Right
+#else
     success = Right
+#endif
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
 rawSystem' :: String -> [String] -> IO ()

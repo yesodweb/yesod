@@ -46,7 +46,18 @@ repEventSource :: (EventSourcePolyfill -> C.Source (HandlerT site IO) ES.ServerE
                -> HandlerT site IO TypedContent
 repEventSource src =
   prepareForEventSource >>=
-  respondEventStream . ES.sourceToSource . src
+  respondEventStream . sourceToSource . src
+
+-- | Convert a ServerEvent source into a Builder source of serialized
+-- events.
+sourceToSource :: Monad m => C.Source m ES.ServerEvent -> C.Source m (C.Flush Builder)
+sourceToSource src =
+    src C.$= C.awaitForever eventToFlushBuilder
+  where
+    eventToFlushBuilder event =
+        case ES.eventToBuilder event of
+            Nothing -> return ()
+            Just x -> C.yield (C.Chunk x) >> C.yield C.Flush
 
 
 -- | Return a Server-Sent Event stream given a 'HandlerT' action

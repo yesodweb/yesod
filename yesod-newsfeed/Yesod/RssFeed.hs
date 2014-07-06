@@ -16,6 +16,7 @@
 -------------------------------------------------------------------------------
 module Yesod.RssFeed
     ( rssFeed
+    , rssFeedText
     , rssLink
     , RepRss (..)
     , module Yesod.FeedTypes
@@ -43,6 +44,11 @@ rssFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m RepRss
 rssFeed feed = do
     render <- getUrlRender
     return $ RepRss $ toContent $ renderLBS def $ template feed render
+
+-- | Same as @'rssFeed'@ but for @'Feed Text'@. Useful for cases where you are
+--   generating a feed of external links.
+rssFeedText :: MonadHandler m => Feed Text -> m RepRss
+rssFeedText feed = return $ RepRss $ toContent $ renderLBS def $ template feed id
 
 template :: Feed url -> (url -> Text) -> Document
 template Feed {..} render =

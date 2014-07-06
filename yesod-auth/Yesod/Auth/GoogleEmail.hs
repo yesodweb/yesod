@@ -54,7 +54,9 @@ authGoogleEmail =
             , ("openid.ui.icon", "true")
             ] (authHttpManager master)
         either
-          (\err -> loginErrorMessage LoginR $ T.pack $ show (err :: SomeException))
+          (\err -> do
+            tm <- getRouteToParent
+            lift $ loginErrorMessage (tm LoginR) $ T.pack $ show (err :: SomeException))
           redirect
           eres
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
@@ -67,17 +69,19 @@ authGoogleEmail =
         completeHelper posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth master => [(Text, Text)] -> AuthHandler master ()
+completeHelper :: YesodAuth master => [(Text, Text)] -> AuthHandler master TypedContent
 completeHelper gets' = do
       master <- lift getYesod
       eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)
-      either onFailure onSuccess eres
+      tm <- getRouteToParent
+      either (onFailure tm) (onSuccess tm) eres
     where
-      onFailure err = loginErrorMessage LoginR $ T.pack $ show (err :: SomeException)
-      onSuccess oir = do
+      onFailure tm err =
+        lift $ loginErrorMessage (tm LoginR) $ T.pack $ show (err :: SomeException)
+      onSuccess tm oir = do
               let OpenId.Identifier ident = OpenId.oirOpLocal oir
               memail <- lookupGetParam "openid.ext1.value.email"
               case (memail, "https://www.google.com/accounts/o8/id" `T.isPrefixOf` ident) of
-                  (Just email, True) -> lift $ setCreds True $ Creds pid email []
-                  (_, False)   -> loginErrorMessage LoginR "Only Google login is supported"
-                  (Nothing, _) -> loginErrorMessage LoginR "No email address provided"
+                  (Just email, True) -> lift $ setCredsRedirect $ Creds pid email []
+                  (_, False)   -> lift $ loginErrorMessage (tm LoginR) "Only Google login is supported"
+                  (Nothing, _) -> lift $ loginErrorMessage (tm LoginR) "No email address provided"

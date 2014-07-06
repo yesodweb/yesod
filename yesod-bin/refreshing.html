@@ -58,7 +58,8 @@
       <h1>The application isn’t built</h1>
       <h2>We’ll keep trying to refresh every second</h2>
       <div class="msgs">
-        <p>Meanwhile, here are some motivational messages:</p>
+        <script> document.getElementsByClassName("msgs")[0].style.display = "none"; </script>
+        <p>Meanwhile, here is a motivational message:</p>
         <ul>
           <li>You are a beautiful person making a beautiful web site.</li>
           <li>Keep going, you’ve nearly fixed the bug!</li>
@@ -66,7 +67,20 @@
           <li>Get a glass of water, keep hydrated.</li>
         </ul>
       </div>
-      <footer><small><script>document.write(new Date())</script></small></footer>
+      <script>
+        var msg = document.getElementsByClassName("msgs")[0];
+        var lis = Array.prototype.slice.call(msg.querySelectorAll("li"));
+        lis.forEach(function(li){ li.style.display = "none"; });
+        lis[Math.floor(Math.random() * lis.length)].style.display = "block";
+        msg.style.display = "block";
+      </script>
+      <footer>
+        <small>
+          <script>
+            document.write(new Date())
+          </script>
+        </small>
+      </footer>
     </div>
   </body>
 </html>

@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE CPP               #-}
 module Yesod.Core.Class.Yesod where
 
 import           Control.Monad.Logger               (logErrorS)
@@ -39,10 +40,16 @@ import           Data.Default                       (def)
 import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
 import           System.IO                          (stdout)
+#if MIN_VERSION_fast_logger(2, 0, 0)
+import           Network.Wai.Logger                 (ZonedDate, clockDateCacher)
+import           System.Log.FastLogger
+import qualified GHC.IO.FD
+#else
+import           System.Log.FastLogger.Date         (ZonedDate)
 import           System.Log.FastLogger              (LogStr (..), Logger,
                                                      loggerDate, loggerPutStr,
                                                      mkLogger)
-import           System.Log.FastLogger.Date         (ZonedDate)
+#endif
 import           Text.Blaze                         (customAttribute, textTag,
                                                      toValue, (!))
 import           Text.Blaze                         (preEscapedToMarkup)
@@ -209,7 +216,18 @@ class RenderRoute site => Yesod site where
     --
     -- Default: Sends to stdout and automatically flushes on each write.
     makeLogger :: site -> IO Logger
+#if MIN_VERSION_fast_logger(2, 0, 0)
+    makeLogger _ = do
+#if MIN_VERSION_fast_logger(2, 1, 0)
+        loggerSet <- newLoggerSet defaultBufSize Nothing
+#else
+        loggerSet <- newLoggerSet defaultBufSize GHC.IO.FD.stdout
+#endif
+        (getter, _) <- clockDateCacher
+        return $! Logger loggerSet getter
+#else
     makeLogger _ = mkLogger True stdout
+#endif
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
     --
@@ -498,7 +516,7 @@ defaultErrorHandler (BadMethod m) = selectRep $ do
             <h1>Method Not Supported
             <p>Method <code>#{S8.unpack m}</code> not supported
         |]
-    provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= m]
+    provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
 
 asyncHelper :: (url -> [x] -> Text)
          -> [Script (url)]
@@ -523,6 +541,30 @@ asyncHelper render scripts jscript jsLoc =
                     Nothing -> Nothing
                     Just j -> Just $ jelper j
 
+#if MIN_VERSION_fast_logger(2, 0, 0)
+formatLogMessage :: IO ZonedDate
+                 -> Loc
+                 -> LogSource
+                 -> LogLevel
+                 -> LogStr -- ^ message
+                 -> IO LogStr
+formatLogMessage getdate loc src level msg = do
+    now <- getdate
+    return $
+        toLogStr now `mappend`
+        " [" `mappend`
+        (case level of
+            LevelOther t -> toLogStr t
+            _ -> toLogStr $ drop 5 $ show level) `mappend`
+        (if T.null src
+            then mempty
+            else "#" `mappend` toLogStr src) `mappend`
+        "] " `mappend`
+        msg `mappend`
+        " @(" `mappend`
+        toLogStr (fileLocationToString loc) `mappend`
+        ")\n"
+#else
 formatLogMessage :: IO ZonedDate
                  -> Loc
                  -> LogSource
@@ -548,7 +590,7 @@ formatLogMessage getdate loc src level msg = do
         , LS $ fileLocationToString loc
         , LB ")\n"
         ]
-
+#endif
 
 -- | Customize the cookies used by the session backend.  You may
 -- use this function on your definition of 'makeSessionBackend'.

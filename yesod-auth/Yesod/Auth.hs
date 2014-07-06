@@ -22,6 +22,7 @@ module Yesod.Auth
       -- * Plugin interface
     , Creds (..)
     , setCreds
+    , setCredsRedirect
     , clearCreds
     , loginErrorMessage
     , loginErrorMessageI
@@ -34,6 +35,11 @@ module Yesod.Auth
     , AuthException (..)
       -- * Helper
     , AuthHandler
+      -- * Internal
+    , credsKey
+    , provideJsonMessage
+    , messageJson401
+    , asHtml
     ) where
 
 import Control.Monad                 (when)
@@ -62,6 +68,7 @@ import Control.Exception (Exception)
 import Network.HTTP.Types          (unauthorized401)
 import Control.Monad.Trans.Resource (MonadResourceBase)
 import qualified Control.Monad.Trans.Writer    as Writer
+import Control.Monad (void)
 
 type AuthRoute = Route Auth
 
@@ -72,7 +79,7 @@ type Piece = Text
 
 data AuthPlugin master = AuthPlugin
     { apName :: Text
-    , apDispatch :: Method -> [Piece] -> AuthHandler master ()
+    , apDispatch :: Method -> [Piece] -> AuthHandler master TypedContent
     , apLogin :: (Route Auth -> Route master) -> WidgetT master IO ()
     }
 
@@ -89,6 +96,10 @@ data Creds master = Creds
 class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage) => YesodAuth master where
     type AuthId master
 
+    -- | specify the layout. Uses defaultLayout by default
+    authLayout :: WidgetT master IO () -> HandlerT master IO Html
+    authLayout = defaultLayout
+
     -- | Default destination on successful login, if no other
     -- destination exists.
     loginDest :: master -> Route master
@@ -104,10 +115,10 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     authPlugins :: master -> [AuthPlugin master]
 
     -- | What to show on the login page.
-    loginHandler :: AuthHandler master RepHtml
+    loginHandler :: AuthHandler master Html
     loginHandler = do
         tp <- getRouteToParent
-        lift $ defaultLayout $ do
+        lift $ authLayout $ do
             setTitleI Msg.LoginTitle
             master <- getYesod
             mapM_ (flip apLogin tp) (authPlugins master)
@@ -163,6 +174,16 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
         => HandlerT master IO (Maybe (AuthId master))
     maybeAuthId = defaultMaybeAuthId
 
+    -- | Called on login error for HTTP requests. By default, calls
+    -- @setMessage@ and redirects to @dest@.
+    onErrorHtml :: (MonadResourceBase m) => Route master -> Text -> HandlerT master m Html
+    onErrorHtml dest msg = do
+        setMessage $ toHtml msg
+        fmap asHtml $ redirect dest
+
+-- | Internal session key used to hold the authentication information.
+--
+-- Since 1.2.3
 credsKey :: Text
 credsKey = "_ID"
 
@@ -212,7 +233,7 @@ cachedAuth aid = runMaybeT $ do
 loginErrorMessageI :: (MonadResourceBase m, YesodAuth master)
                    => Route child
                    -> AuthMessage
-                   -> HandlerT child (HandlerT master m) a
+                   -> HandlerT child (HandlerT master m) TypedContent
 loginErrorMessageI dest msg = do
   toParent <- getRouteToParent
   lift $ loginErrorMessageMasterI (toParent dest) msg
@@ -221,61 +242,74 @@ loginErrorMessageI dest msg = do
 loginErrorMessageMasterI :: (YesodAuth master, MonadResourceBase m, RenderMessage master AuthMessage)
          => Route master
          -> AuthMessage
-         -> HandlerT master m a
+         -> HandlerT master m TypedContent
 loginErrorMessageMasterI dest msg = do
   mr <- getMessageRender
   loginErrorMessage dest (mr msg)
 
 -- | For HTML, set the message and redirect to the route.
 -- For JSON, send the message and a 401 status
-loginErrorMessage :: MonadResourceBase m
-         => Route site
+loginErrorMessage :: (YesodAuth master, MonadResourceBase m)
+         => Route master
          -> Text
-         -> HandlerT site m a
-loginErrorMessage dest msg =
-  sendResponseStatus unauthorized401 =<< (
-    selectRep $ do
-      provideRep $ do
-          setMessage $ toHtml msg
-          fmap asHtml $ redirect dest
-      provideJsonMessage msg
-  )
-  where
-    asHtml :: Html -> Html
-    asHtml = id
+         -> HandlerT master m TypedContent
+loginErrorMessage dest msg = messageJson401 msg (onErrorHtml dest msg)
+
+messageJson401 :: MonadResourceBase m => Text -> HandlerT master m Html -> HandlerT master m TypedContent
+messageJson401 msg html = selectRep $ do
+    provideRep html
+    provideRep $ do
+        let obj = object ["message" .= msg]
+        void $ sendResponseStatus unauthorized401 obj
+        return obj
 
 provideJsonMessage :: Monad m => Text -> Writer.Writer (Endo [ProvidedRep m]) ()
 provideJsonMessage msg = provideRep $ return $ object ["message" .= msg]
 
+
+setCredsRedirect :: YesodAuth master
+         => Creds master -- ^ new credentials
+         -> HandlerT master IO TypedContent
+setCredsRedirect creds = do
+    y    <- getYesod
+    maid <- getAuthId creds
+    case maid of
+        Nothing ->
+            case authRoute y of
+                Nothing -> do
+                    messageJson401 "Invalid Login" $ authLayout $
+                        toWidget [shamlet|<h1>Invalid login|]
+                Just ar -> loginErrorMessageMasterI ar Msg.InvalidLogin
+        Just aid -> do
+            setSession credsKey $ toPathPiece aid
+            onLogin
+            res <- selectRep $ do
+                provideRepType typeHtml $
+                    fmap asHtml $ redirectUltDest $ loginDest y
+                provideJsonMessage "Login Successful"
+            sendResponse res
 
 -- | Sets user credentials for the session after checking them with authentication backends.
 setCreds :: YesodAuth master
          => Bool         -- ^ if HTTP redirects should be done
          -> Creds master -- ^ new credentials
          -> HandlerT master IO ()
-setCreds doRedirects creds = do
-    y    <- getYesod
-    maid <- getAuthId creds
-    case maid of
-        Nothing -> when doRedirects $ do
-            case authRoute y of
-                Nothing -> do
-                    sendResponseStatus unauthorized401 =<< (
-                      selectRep $ do
-                        provideRep $ defaultLayout $ toWidget [shamlet|<h1>Invalid login|]
-                        provideJsonMessage "Invalid Login"
-                      )
-                Just ar -> loginErrorMessageMasterI ar Msg.InvalidLogin
-        Just aid -> do
-            setSession credsKey $ toPathPiece aid
-            when doRedirects $ do
-              onLogin
-              res <- selectRep $ do
-                  provideRepType typeHtml $ do
-                      _ <- redirectUltDest $ loginDest y
-                      return ()
-                  provideJsonMessage "Login Successful"
-              sendResponse res
+setCreds doRedirects creds =
+    if doRedirects
+      then void $ setCredsRedirect creds
+      else do maid <- getAuthId creds
+              case maid of
+                  Nothing -> return ()
+                  Just aid -> setSession credsKey $ toPathPiece aid
+
+-- | same as defaultLayoutJson, but uses authLayout
+authLayoutJson :: (YesodAuth site, ToJSON j)
+                  => WidgetT site IO ()  -- ^ HTML
+                  -> HandlerT site IO j  -- ^ JSON
+                  -> HandlerT site IO TypedContent
+authLayoutJson w json = selectRep $ do
+    provideRep $ authLayout w
+    provideRep $ fmap toJSON json
 
 -- | Clears current user credentials for the session.
 --
@@ -293,7 +327,7 @@ clearCreds doRedirects = do
 getCheckR :: AuthHandler master TypedContent
 getCheckR = lift $ do
     creds <- maybeAuthId
-    defaultLayoutJson (do
+    authLayoutJson (do
         setTitle "Authentication Status"
         toWidget $ html' creds) (return $ jsonCreds creds)
   where
@@ -316,7 +350,7 @@ setUltDestReferer' = lift $ do
     master <- getYesod
     when (redirectToReferer master) setUltDestReferer
 
-getLoginR :: AuthHandler master RepHtml
+getLoginR :: AuthHandler master Html
 getLoginR = setUltDestReferer' >> loginHandler
 
 getLogoutR :: AuthHandler master ()
@@ -325,7 +359,7 @@ getLogoutR = setUltDestReferer' >> redirectToPost LogoutR
 postLogoutR :: AuthHandler master ()
 postLogoutR = lift $ clearCreds True
 
-handlePluginR :: Text -> [Text] -> AuthHandler master ()
+handlePluginR :: Text -> [Text] -> AuthHandler master TypedContent
 handlePluginR plugin pieces = do
     master <- lift getYesod
     env <- waiRequest
@@ -334,6 +368,11 @@ handlePluginR plugin pieces = do
         [] -> notFound
         ap:_ -> apDispatch ap method pieces
 
+-- | Similar to 'maybeAuthId', but additionally look up the value associated
+-- with the user\'s database identifier to get the value in the database. This
+-- assumes that you are using a Persistent database.
+--
+-- Since 1.1.0
 maybeAuth :: ( YesodAuth master
              , PersistMonadBackend (b (HandlerT master IO)) ~ PersistEntityBackend val
              , b ~ YesodPersistBackend master
@@ -383,6 +422,10 @@ type AuthEntity master = KeyEntity (AuthId master)
 requireAuthId :: YesodAuthPersist master => HandlerT master IO (AuthId master)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
+-- | Similar to 'maybeAuth', but redirects to a login page if user is not
+-- authenticated.
+--
+-- Since 1.1.0
 requireAuth :: YesodAuthPersist master => HandlerT master IO (Entity (AuthEntity master))
 requireAuth = maybeAuth >>= maybe redirectLogin return
 
@@ -403,3 +446,6 @@ instance Exception AuthException
 
 instance YesodAuth master => YesodSubDispatch Auth (HandlerT master IO) where
     yesodSubDispatch = $(mkYesodSubDispatch resourcesAuth)
+
+asHtml :: Html -> Html
+asHtml = id

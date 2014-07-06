@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.2.1
+version:         1.3.1.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -10,9 +10,14 @@ stability:       Stable
 cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-description:     This package provides a pluggable mechanism for allowing users to authenticate with your site. It comes with a number of common plugins, such as OpenID, BrowserID (a.k.a., Mozilla Persona), and email. Other packages are available from Hackage as well. If you've written such an add-on, please notify me so that it can be added to this description.
-                 .
-                 * <http://hackage.haskell.org/package/yesod-auth-account>: An account authentication plugin for Yesod
+description:
+    This package provides a pluggable mechanism for allowing users to authenticate with your site. It comes with a number of common plugins, such as OpenID, BrowserID (a.k.a., Mozilla Persona), and email. Other packages are available from Hackage as well. If you've written such an add-on, please notify me so that it can be added to this description.
+   .
+   * <http://hackage.haskell.org/package/yesod-auth-account>: An account authentication plugin for Yesod
+   .
+   * <http://hackage.haskell.org/package/yesod-auth-hashdb>: The HashDB module previously packaged in yesod-auth, now with stronger, but compatible, security.
+   .
+   * <https://github.com/ollieh/yesod-auth-bcrypt/>: An alternative to the HashDB module.
 extra-source-files: persona_sign_in_blue.png
 
 library
@@ -22,24 +27,24 @@ library
                    , yesod-core              >= 1.2       && < 1.3
                    , wai                     >= 1.4
                    , template-haskell
-                   , pureMD5                 >= 2.0
+                   , base16-bytestring
+                   , cryptohash
                    , random                  >= 1.0.0.2
                    , text                    >= 0.7
                    , mime-mail               >= 0.3
                    , yesod-persistent        >= 1.2
-                   , hamlet                  >= 1.1       && < 1.2
-                   , shakespeare-css         >= 1.0       && < 1.1
-                   , shakespeare-js          >= 1.0.2     && < 1.2
+                   , hamlet                  >= 1.1
+                   , shakespeare
+                   , shakespeare-css         >= 1.0
+                   , shakespeare-js          >= 1.0.2
                    , containers
                    , unordered-containers
                    , yesod-form              >= 1.3       && < 1.4
                    , transformers            >= 0.2.2
-                   , persistent              >= 1.2       && < 1.3
-                   , persistent-template     >= 1.2       && < 1.3
-                   , SHA                     >= 1.4.1.3
+                   , persistent              >= 1.2       && < 1.4
+                   , persistent-template     >= 1.2       && < 1.4
                    , http-conduit            >= 1.5
                    , aeson                   >= 0.5
-                   , pwstore-fast            >= 2.2
                    , lifted-base             >= 0.1
                    , blaze-html              >= 0.5
                    , blaze-markup            >= 0.5.1
@@ -51,6 +56,14 @@ library
                    , resourcet
                    , safe
                    , time
+                   , base64-bytestring
+                   , byteable
+                   , binary
+                   , http-client
+                   , blaze-builder
+                   , conduit
+                   , conduit-extra
+                   , attoparsec-conduit
 
     exposed-modules: Yesod.Auth
                      Yesod.Auth.BrowserId
@@ -58,10 +71,11 @@ library
                      Yesod.Auth.Email
                      Yesod.Auth.OpenId
                      Yesod.Auth.Rpxnow
-                     Yesod.Auth.HashDB
                      Yesod.Auth.Message
                      Yesod.Auth.GoogleEmail
+                     Yesod.Auth.GoogleEmail2
     other-modules:   Yesod.Auth.Routes
+                     Yesod.PasswordStore
     ghc-options:     -Wall
 
 source-repository head

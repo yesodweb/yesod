@@ -35,7 +35,6 @@ module Yesod.Static
       -- * Smart constructor
     , static
     , staticDevel
-    , embed
       -- * Combining CSS/JS
       -- $combining
     , combineStylesheets'
@@ -54,6 +53,8 @@ module Yesod.Static
     , publicFiles
       -- * Hashing
     , base64md5
+      -- * Embed
+    , embed
 #ifdef TEST_EXPORT
     , getFileListPieces
 #endif
@@ -65,6 +66,7 @@ import System.Directory
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
+import Control.Monad.Trans.Resource (runResourceT)
 import Yesod.Core
 import Yesod.Core.Types
 
@@ -72,14 +74,14 @@ import Data.List (intercalate)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax as TH
 
-import Crypto.Conduit (hashFile, sinkHash)
-import Crypto.Hash.MD5 (MD5)
+import Crypto.Hash.Conduit (hashFile, sinkHash)
+import Crypto.Hash (MD5, Digest)
 import Control.Monad.Trans.State
 
+import qualified Data.Byteable as Byteable
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
-import qualified Data.Serialize
 import Data.Text (Text, pack)
 import qualified Data.Text as T
 import qualified Data.Map as M
@@ -100,7 +102,7 @@ import Filesystem (createTree)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Default
-import Text.Lucius (luciusRTMinified)
+--import Text.Lucius (luciusRTMinified)
 
 import Network.Wai.Application.Static
     ( StaticSettings (..)
@@ -134,8 +136,11 @@ staticDevel dir = do
     hashLookup <- cachedETagLookupDevel dir
     return $ Static $ webAppSettingsWithLookup (F.decodeString dir) hashLookup
 
--- | Produce a 'Static' based on embedding all of the static
--- files' contents in the executable at compile time.
+-- | Produce a 'Static' based on embedding all of the static files' contents in the
+-- executable at compile time.
+--
+-- You should use "Yesod.EmbeddedStatic" instead, it is much more powerful.
+--
 -- Nota Bene: if you replace the scaffolded 'static' call in Settings/StaticFiles.hs
 -- you will need to change the scaffolded addStaticContent.  Otherwise, some of your
 -- assets will be 404'ed.  This is because by default yesod will generate compile those
@@ -222,7 +227,7 @@ getFileListPieces = flip evalStateT M.empty . flip go id
 -- definitions would be created:
 --
 -- > style_css    = StaticRoute ["style.css"]    []
--- > js_script_js = StaticRoute ["js/script.js"] []
+-- > js_script_js = StaticRoute ["js", "script.js"] []
 --
 -- Note that dots (@.@), dashes (@-@) and slashes (@\/@) are
 -- replaced by underscores (@\_@) to create valid Haskell
@@ -355,7 +360,7 @@ mkStaticFilesList fp fs routeConName makeHash = do
 
 base64md5File :: Prelude.FilePath -> IO String
 base64md5File = fmap (base64 . encode) . hashFile
-    where encode d = Data.Serialize.encode (d :: MD5)
+    where encode d = Byteable.toBytes (d :: Digest MD5)
 
 base64md5 :: L.ByteString -> String
 base64md5 lbs =
@@ -363,7 +368,7 @@ base64md5 lbs =
           $ runIdentity
           $ sourceList (L.toChunks lbs) $$ sinkHash
   where
-    encode d = Data.Serialize.encode (d :: MD5)
+    encode d = Byteable.toBytes (d :: Digest MD5)
 
 base64 :: S.ByteString -> String
 base64 = map tr
@@ -442,7 +447,7 @@ data CombineSettings = CombineSettings
     , csCssPostProcess :: [FilePath] -> L.ByteString -> IO L.ByteString
     -- ^ Post processing to be performed on CSS files.
     --
-    -- Default: Use Lucius to minify.
+    -- Default: Pass-through.
     --
     -- Since 1.2.0
     , csJsPostProcess :: [FilePath] -> L.ByteString -> IO L.ByteString
@@ -474,10 +479,13 @@ data CombineSettings = CombineSettings
 instance Default CombineSettings where
     def = CombineSettings
         { csStaticDir = "static"
+        {- Disabled due to: https://github.com/yesodweb/yesod/issues/623
         , csCssPostProcess = \fps ->
               either (error . (errorIntro fps)) (return . TLE.encodeUtf8)
             . flip luciusRTMinified []
             . TLE.decodeUtf8
+        -}
+        , csCssPostProcess = const return
         , csJsPostProcess = const return
            -- FIXME The following borders on a hack. With combining of files,
            -- the final location of the CSS is no longer fixed, so relative

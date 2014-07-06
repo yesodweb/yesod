@@ -1,15 +1,20 @@
 {-# LANGUAGE CPP                #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module Yesod.Default.Main
     ( defaultMain
+    , defaultMainLog
     , defaultRunner
     , defaultDevelApp
+    , LogFunc
     ) where
 
 import Yesod.Default.Config
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
-    (runSettings, defaultSettings, settingsPort, settingsHost)
+    (runSettings, defaultSettings, settingsPort, settingsHost, settingsOnException)
+import qualified Network.Wai.Handler.Warp as Warp
 import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 import Network.Wai.Middleware.Gzip (gzip, GzipFiles (GzipCacheFolder), gzipFiles, def)
 import Network.Wai.Middleware.Autohead (autohead)
@@ -18,6 +23,9 @@ import Control.Monad (when)
 import System.Environment (getEnvironment)
 import Data.Maybe (fromMaybe)
 import Safe (readMay)
+import Control.Monad.Logger (Loc, LogSource, LogLevel (LevelError), liftLoc)
+import System.Log.FastLogger (LogStr, toLogStr)
+import Language.Haskell.TH.Syntax (qLocation)
 
 #ifndef WINDOWS
 import qualified System.Posix.Signals as Signal
@@ -44,6 +52,36 @@ defaultMain load getApp = do
         { settingsPort = appPort config
         , settingsHost = appHost config
         } app
+
+type LogFunc = Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+
+-- | Same as @defaultMain@, but gets a logging function back as well as an
+-- @Application@ to install Warp exception handlers.
+--
+-- Since 1.2.5
+defaultMainLog :: (Show env, Read env)
+               => IO (AppConfig env extra)
+               -> (AppConfig env extra -> IO (Application, LogFunc))
+               -> IO ()
+defaultMainLog load getApp = do
+    config <- load
+    (app, logFunc) <- getApp config
+    runSettings defaultSettings
+        { settingsPort = appPort config
+        , settingsHost = appHost config
+        , settingsOnException = const $ \e -> when (shouldLog' e) $ logFunc
+            $(qLocation >>= liftLoc)
+            "yesod"
+            LevelError
+            (toLogStr $ "Exception from Warp: " ++ show e)
+        } app
+  where
+    shouldLog' =
+#if MIN_VERSION_warp(2,1,3)
+        Warp.defaultShouldDisplayException
+#else
+        const True
+#endif
 
 -- | Run your application continously, listening for SIGINT and exiting
 --   when received
