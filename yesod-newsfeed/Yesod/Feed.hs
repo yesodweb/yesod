@@ -26,6 +26,8 @@ import Yesod.AtomFeed
 import Yesod.RssFeed
 import Yesod.Core
 
+import Data.Text
+
 newsFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m TypedContent
 newsFeed f = selectRep $ do
     provideRep $ atomFeed f
