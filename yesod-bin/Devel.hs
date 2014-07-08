@@ -258,7 +258,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
            list <- liftIO $ getFileList hsSourceDirs [cabal]
            success <- liftIO rebuild
            pkgArgs <- liftIO (ghcPackageArgs opts)
-           let devArgs = pkgArgs ++ ["devel.hs"]
+           let devArgs = pkgArgs ++ ["+RTS", "-I0", "-RTS", "devel.hs"]
            let loop list0 = do
                    (haskellFileChanged, list1) <- liftIO $
                        watchForChanges filesModified hsSourceDirs [cabal] list0 (eventTimeout opts)
