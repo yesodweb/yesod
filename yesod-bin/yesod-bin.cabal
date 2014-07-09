@@ -95,7 +95,7 @@ executable             yesod
                      , data-default-class
                      , streaming-commons
 
-    ghc-options:       -Wall -threaded -rtsopts
+    ghc-options:       -Wall -threaded -rtsopts -with-rtsopts=-I0
     main-is:           main.hs
     other-modules:     Scaffolding.Scaffolder
                        Devel
