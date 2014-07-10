@@ -23,7 +23,7 @@ import Data.Maybe (fromMaybe)
 import qualified Data.HashMap.Strict as M
 import System.Environment (getArgs, getProgName, getEnvironment)
 import System.Exit (exitFailure)
-import Data.Conduit.Network (HostPreference)
+import Data.Streaming.Network (HostPreference)
 import Data.String (fromString)
 
 -- | A yesod-provided @'AppEnv'@, allows for Development, Testing, and
