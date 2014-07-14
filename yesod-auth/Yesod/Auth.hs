@@ -56,6 +56,7 @@ import Data.Monoid (Endo)
 import Network.HTTP.Conduit (Manager)
 
 import qualified Network.Wai as W
+import Text.Hamlet (shamlet)
 
 import Yesod.Core
 import Yesod.Persist
@@ -418,7 +419,7 @@ type AuthEntity master = KeyEntity (AuthId master)
 -- authenticated.
 --
 -- Since 1.1.0
-requireAuthId :: YesodAuth master => HandlerT master IO (AuthId master)
+requireAuthId :: YesodAuthPersist master => HandlerT master IO (AuthId master)
 requireAuthId = maybeAuthId >>= maybe redirectLogin return
 
 -- | Similar to 'maybeAuth', but redirects to a login page if user is not
