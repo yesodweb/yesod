@@ -28,6 +28,7 @@ library
                      , monad-control     >= 0.3
                      , conduit           >= 1.0.15.1
                      , async             >= 2.0.1.5
+                     , enclosed-exceptions >= 1.0
 
 source-repository head
   type:     git
