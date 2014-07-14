@@ -30,6 +30,7 @@ import qualified Data.Conduit.List              as CL
 import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.WebSockets             as WS
 import qualified Yesod.Core                     as Y
+import qualified Control.Exception              as E
 
 -- | A transformer for a WebSockets handler.
 --
@@ -67,17 +68,53 @@ webSockets inner = do
 receiveData :: (MonadIO m, WS.WebSocketsData a) => WebSocketsT m a
 receiveData = ReaderT $ liftIO . WS.receiveData
 
+-- | Receive a piece of data from the client.
+-- Execute IO () action on WebSocket Exception
+-- Since 0.1.1.3
+receiveDataX :: (MonadIO m, WS.WebSocketsData a) => IO () -> a -> WebSocketsT m a
+receiveDataX ex d = ReaderT $ \c -> liftIO $ (WS.receiveData c) `E.catch` (\(_ :: E.SomeException) -> ex >> return d)
+
 -- | Send a textual message to the client.
 --
 -- Since 0.1.0
 sendTextData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendTextData x = ReaderT $ liftIO . flip WS.sendTextData x
 
+-- | Send a textual message to the client.
+-- Execute IO () action on WebSocket Exception
+-- Since 0.1.1.3
+sendTextDataX :: (MonadIO m, WS.WebSocketsData a) => IO () -> a -> WebSocketsT m ()
+sendTextDataX ex x = ReaderT $ \c -> liftIO $ (flip WS.sendTextData x $ c) `E.catch` (\(_ :: E.SomeException) -> ex)
+
 -- | Send a binary message to the client.
 --
 -- Since 0.1.0
 sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendBinaryData x = ReaderT $ liftIO . flip WS.sendBinaryData x
+
+-- | Send a ping message to the client.
+--
+-- Since 0.1.1.3
+sendPing :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
+sendPing x = ReaderT $ liftIO $ flip WS.sendPing x
+
+-- | Send a ping message to the client. 
+-- Execute IO () action on WebSocket Exception
+-- Since 0.1.1.3
+sendPingX :: (MonadIO m, WS.WebSocketsData a) => IO () -> a -> WebSocketsT m ()
+sendPingX ex x = ReaderT $ \c -> liftIO $ (flip WS.sendPing x $ c) `E.catch` (\(_ :: E.SomeException) -> ex)
+
+-- | Send a close request to the client. 
+-- 
+-- Since 0.1.1.3
+sendClose :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
+sendClose x = ReaderT $ liftIO . flip WS.sendClose x
+
+-- | Send a close request to the client. 
+-- Execute IO () action on WebSocket Exception
+-- Since 0.1.1.3
+sendCloseX :: (MonadIO m, WS.WebSocketsData a) => IO () -> a -> WebSocketsT m ()
+sendCloseX ex x = ReaderT $ \c -> liftIO $ (flip WS.sendClose x $ c) `E.catch` (\(_ :: E.SomeException) -> ex)
 
 -- | A @Source@ of WebSockets data from the user.
 --
