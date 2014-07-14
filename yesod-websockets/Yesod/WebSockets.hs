@@ -72,7 +72,7 @@ webSockets inner = do
             src
             sink
 
-
+-- | Wrapper for capturing exceptions
 wrapWSE :: (MonadIO m, WS.WebSocketsData a) => (WS.Connection -> a -> IO ())-> a -> WebSocketsT m (Either SomeException ())
 wrapWSE ws x = ReaderT $ liftIO . tryAny . flip ws x
 
@@ -103,7 +103,7 @@ sendTextData = wrapWS WS.sendTextData
 -- `either handle_exception return =<< sendTextDataE ("Welcome" :: Text)`
 -- Since 0.1.1.3
 sendTextDataE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
-sendTextDataE = wrapWS WS.sendTextData
+sendTextDataE = wrapWSE WS.sendTextData
 
 -- | Send a binary message to the client.
 --
@@ -112,7 +112,7 @@ sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendBinaryData = wrapWS WS.sendBinaryData
 
 -- | Send a binary message to the client.
--- Capture SomeException as the result or operation
+-- Capture SomeException as the result of operation
 -- Since 0.1.1.3
 sendBinaryDataE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
 sendBinaryDataE = wrapWSE WS.sendBinaryData
