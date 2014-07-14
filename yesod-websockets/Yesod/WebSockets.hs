@@ -110,7 +110,7 @@ sendBinaryDataX ex x = ReaderT $ \c -> liftIO $ (flip WS.sendBinaryData x $ c) `
 --
 -- Since 0.1.1.3
 sendPing :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
-sendPing x = ReaderT $ liftIO $ flip WS.sendPing x
+sendPing x = ReaderT $ liftIO . flip WS.sendPing x
 
 -- | Send a ping message to the client. 
 -- Execute IO () action on WebSocket Exception
