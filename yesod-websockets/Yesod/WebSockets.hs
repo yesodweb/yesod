@@ -6,8 +6,15 @@ module Yesod.WebSockets
       WebSocketsT
     , webSockets
     , receiveData
+    , receiveDataX
+    , sendPing
+    , sendPingX
+    , sendClose
+    , sendCloseX
     , sendTextData
+    , sendTextDataX
     , sendBinaryData
+    , sendBinaryDataX
       -- * Conduit API
     , sourceWS
     , sinkWSText
@@ -91,6 +98,13 @@ sendTextDataX ex x = ReaderT $ \c -> liftIO $ (flip WS.sendTextData x $ c) `E.ca
 -- Since 0.1.0
 sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendBinaryData x = ReaderT $ liftIO . flip WS.sendBinaryData x
+
+-- | Send a binary message to the client.
+-- Execute IO () action on WebSocket Exception
+-- Since 0.1.1.3
+sendBinaryDataX :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
+sendBinaryDataX ex x = ReaderT $ \c -> liftIO $ (flip WS.sendBinaryData x $ c) `E.catch` (\(_ :: E.SomeException) -> ex)
+
 
 -- | Send a ping message to the client.
 --
