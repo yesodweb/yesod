@@ -103,7 +103,7 @@ sendBinaryData x = ReaderT $ liftIO . flip WS.sendBinaryData x
 -- | Send a binary message to the client.
 -- Execute IO () action on WebSocket Exception
 -- Since 0.1.1.3
-sendBinaryDataX :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
+sendBinaryDataX :: (MonadIO m, WS.WebSocketsData a) => IO () -> a -> WebSocketsT m ()
 sendBinaryDataX ex x = ReaderT $ \c -> liftIO $ (flip WS.sendBinaryData x $ c) `E.catch` (\(_ :: E.SomeException) -> ex)
 
 
