@@ -7,7 +7,7 @@ import Data.Yaml
 import qualified Data.HashMap.Strict as Map
 import qualified Data.Text as T
 import System.Exit
-import System.Cmd
+import System.Process
 import Control.Monad
 import System.Directory
 import Data.Maybe (mapMaybe)
