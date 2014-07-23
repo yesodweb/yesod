@@ -52,14 +52,14 @@ mkSimpleDispatchClause MkDispatchSettings {..} resources = do
         (NormalB $ helperE `AppE` pathInfo)
         [FunD helperName $ clauses ++ [clause404']]
   where
-    handlePiece :: (CheckOverlap, Piece a) -> Q (Pat, Maybe Exp)
-    handlePiece (_, Static str) = return (LitP $ StringL str, Nothing)
-    handlePiece (_, Dynamic _) = do
+    handlePiece :: Piece a -> Q (Pat, Maybe Exp)
+    handlePiece (Static str) = return (LitP $ StringL str, Nothing)
+    handlePiece (Dynamic _) = do
         x <- newName "dyn"
         let pat = ViewP (VarE 'fromPathPiece) (ConP 'Just [VarP x])
         return (pat, Just $ VarE x)
 
-    handlePieces :: [(CheckOverlap, Piece a)] -> Q ([Pat], [Exp])
+    handlePieces :: [Piece a] -> Q ([Pat], [Exp])
     handlePieces = fmap (second catMaybes . unzip) . mapM handlePiece
 
     mkCon :: String -> [Exp] -> Exp
@@ -72,7 +72,7 @@ mkSimpleDispatchClause MkDispatchSettings {..} resources = do
         addPat x y = ConP '(:) [x, y]
 
     go :: SDC -> ResourceTree a -> Q Clause
-    go sdc (ResourceParent name pieces children) = do
+    go sdc (ResourceParent name _check pieces children) = do
         (pats, dyns) <- handlePieces pieces
         let sdc' = sdc
                 { extraParams = extraParams sdc ++ dyns
@@ -91,7 +91,7 @@ mkSimpleDispatchClause MkDispatchSettings {..} resources = do
             [mkPathPat restP pats]
             (NormalB $ helperE `AppE` restE)
             [FunD helperName $ childClauses ++ [clause404 sdc]]
-    go SDC {..} (ResourceLeaf (Resource name pieces dispatch _)) = do
+    go SDC {..} (ResourceLeaf (Resource name pieces dispatch _ _check)) = do
         (pats, dyns) <- handlePieces pieces
 
         (chooseMethod, finalPat) <- handleDispatch dispatch dyns

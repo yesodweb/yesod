@@ -112,21 +112,21 @@ getMySubParam _ = MySubParam
 do
     texts <- [t|[Text]|]
     let resLeaves = map ResourceLeaf
-            [ Resource "RootR" [] (Methods Nothing ["GET"]) ["foo", "bar"]
-            , Resource "BlogPostR" (addCheck [Static "blog", Dynamic $ ConT ''Text]) (Methods Nothing ["GET", "POST"]) []
-            , Resource "WikiR" (addCheck [Static "wiki"]) (Methods (Just texts) []) []
-            , Resource "SubsiteR" (addCheck [Static "subsite"]) (Subsite (ConT ''MySub) "getMySub") []
-            , Resource "SubparamR" (addCheck [Static "subparam", Dynamic $ ConT ''Int]) (Subsite (ConT ''MySubParam) "getMySubParam") []
+            [ Resource "RootR" [] (Methods Nothing ["GET"]) ["foo", "bar"] True
+            , Resource "BlogPostR" [Static "blog", Dynamic $ ConT ''Text] (Methods Nothing ["GET", "POST"]) [] True
+            , Resource "WikiR" [Static "wiki"] (Methods (Just texts) []) [] True
+            , Resource "SubsiteR" [Static "subsite"] (Subsite (ConT ''MySub) "getMySub") [] True
+            , Resource "SubparamR" [Static "subparam", Dynamic $ ConT ''Int] (Subsite (ConT ''MySubParam) "getMySubParam") [] True
             ]
         resParent = ResourceParent
             "ParentR"
-            [ (True, Static "foo")
-            , (True, Dynamic $ ConT ''Text)
+            True
+            [ Static "foo"
+            , Dynamic $ ConT ''Text
             ]
-            [ ResourceLeaf $ Resource "ChildR" [] (Methods Nothing ["GET"]) ["child"]
+            [ ResourceLeaf $ Resource "ChildR" [] (Methods Nothing ["GET"]) ["child"] True
             ]
         ress = resParent : resLeaves
-        addCheck = map ((,) True)
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
     rainst <- mkRouteAttrsInstance (ConT ''MyApp) ress
     prinst <- mkParseRouteInstance (ConT ''MyApp) ress
@@ -347,6 +347,29 @@ main = hspec $ do
 /foo Foo1
 /#!String Foo2
 /!foo Foo3
+|]
+            findOverlapNames routes @?= []
+        it "obeys multipiece ignore rules #779" $ do
+            let routes = [parseRoutesNoCheck|
+/foo Foo1
+/+![String] Foo2
+|]
+            findOverlapNames routes @?= []
+        it "ignore rules for entire route #779" $ do
+            let routes = [parseRoutesNoCheck|
+/foo Foo1
+!/+[String] Foo2
+!/#String Foo3
+!/foo Foo4
+|]
+            findOverlapNames routes @?= []
+        it "ignore rules for hierarchy" $ do
+            let routes = [parseRoutesNoCheck|
+/+[String] Foo1
+!/foo Foo2:
+    /foo Foo3
+/foo Foo4:
+    /!#foo Foo5
 |]
             findOverlapNames routes @?= []
         it "proper boolean logic" $ do

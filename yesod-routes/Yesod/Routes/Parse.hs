@@ -73,15 +73,28 @@ resourcesFromString =
             case takeWhile (/= "--") $ words thisLine of
                 [pattern, constr] | last constr == ':' ->
                     let (children, otherLines'') = parse (length spaces + 1) otherLines
-                        (pieces, Nothing) = piecesFromString $ drop1Slash pattern
-                     in ((ResourceParent (init constr) pieces children :), otherLines'')
+                        (pieces, Nothing, check) = piecesFromStringCheck pattern
+                     in ((ResourceParent (init constr) check pieces children :), otherLines'')
                 (pattern:constr:rest) ->
-                    let (pieces, mmulti) = piecesFromString $ drop1Slash pattern
+                    let (pieces, mmulti, check) = piecesFromStringCheck pattern
                         (attrs, rest') = takeAttrs rest
                         disp = dispatchFromString rest' mmulti
-                     in ((ResourceLeaf (Resource constr pieces disp attrs):), otherLines)
+                     in ((ResourceLeaf (Resource constr pieces disp attrs check):), otherLines)
                 [] -> (id, otherLines)
                 _ -> error $ "Invalid resource line: " ++ thisLine
+
+piecesFromStringCheck :: String -> ([Piece String], Maybe String, Bool)
+piecesFromStringCheck s0 =
+    (pieces, mmulti, check)
+  where
+    (s1, check1) = stripBang s0
+    (pieces', mmulti') = piecesFromString $ drop1Slash s1
+    pieces = map snd pieces'
+    mmulti = fmap snd mmulti'
+    check = check1 && all fst pieces' && maybe True fst mmulti'
+
+    stripBang ('!':rest) = (rest, False)
+    stripBang x = (x, True)
 
 -- | Take attributes out of the list and put them in the first slot in the
 -- result tuple.
@@ -107,7 +120,7 @@ drop1Slash :: String -> String
 drop1Slash ('/':x) = x
 drop1Slash x = x
 
-piecesFromString :: String -> ([(CheckOverlap, Piece String)], Maybe String)
+piecesFromString :: String -> ([(CheckOverlap, Piece String)], Maybe (CheckOverlap, String))
 piecesFromString "" = ([], Nothing)
 piecesFromString x =
     case (this, rest) of
@@ -182,11 +195,19 @@ ttToType (TTTerm s) = ConT $ mkName s
 ttToType (TTApp x y) = ttToType x `AppT` ttToType y
 ttToType (TTList t) = ListT `AppT` ttToType t
 
-pieceFromString :: String -> Either String (CheckOverlap, Piece String)
+pieceFromString :: String -> Either (CheckOverlap, String) (CheckOverlap, Piece String)
 pieceFromString ('#':'!':x) = Right $ (False, Dynamic x)
 pieceFromString ('!':'#':x) = Right $ (False, Dynamic x) -- https://github.com/yesodweb/yesod/issues/652
 pieceFromString ('#':x) = Right $ (True, Dynamic x)
-pieceFromString ('*':x) = Left x
-pieceFromString ('+':x) = Left x
+
+pieceFromString ('*':'!':x) = Left (False, x)
+pieceFromString ('+':'!':x) = Left (False, x)
+
+pieceFromString ('!':'*':x) = Left (False, x)
+pieceFromString ('!':'+':x) = Left (False, x)
+
+pieceFromString ('*':x) = Left (True, x)
+pieceFromString ('+':x) = Left (True, x)
+
 pieceFromString ('!':x) = Right $ (False, Static x)
 pieceFromString x = Right $ (True, Static x)

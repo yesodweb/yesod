@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Yesod.Routes.TH.Types
     ( -- * Data types
@@ -15,41 +16,37 @@ module Yesod.Routes.TH.Types
     ) where
 
 import Language.Haskell.TH.Syntax
-import Control.Arrow (second)
 
-data ResourceTree typ = ResourceLeaf (Resource typ) | ResourceParent String [(CheckOverlap, Piece typ)] [ResourceTree typ]
+data ResourceTree typ
+    = ResourceLeaf (Resource typ)
+    | ResourceParent String CheckOverlap [Piece typ] [ResourceTree typ]
+    deriving Functor
 
-resourceTreePieces :: ResourceTree typ -> [(CheckOverlap, Piece typ)]
+resourceTreePieces :: ResourceTree typ -> [Piece typ]
 resourceTreePieces (ResourceLeaf r) = resourcePieces r
-resourceTreePieces (ResourceParent _ x _) = x
+resourceTreePieces (ResourceParent _ _ x _) = x
 
 resourceTreeName :: ResourceTree typ -> String
 resourceTreeName (ResourceLeaf r) = resourceName r
-resourceTreeName (ResourceParent x _ _) = x
-
-instance Functor ResourceTree where
-    fmap f (ResourceLeaf r) = ResourceLeaf (fmap f r)
-    fmap f (ResourceParent a b c) = ResourceParent a (map (second $ fmap f) b) $ map (fmap f) c
+resourceTreeName (ResourceParent x _ _ _) = x
 
 instance Lift t => Lift (ResourceTree t) where
     lift (ResourceLeaf r) = [|ResourceLeaf $(lift r)|]
-    lift (ResourceParent a b c) = [|ResourceParent $(lift a) $(lift b) $(lift c)|]
+    lift (ResourceParent a b c d) = [|ResourceParent $(lift a) $(lift b) $(lift c) $(lift d)|]
 
 data Resource typ = Resource
     { resourceName :: String
-    , resourcePieces :: [(CheckOverlap, Piece typ)]
+    , resourcePieces :: [Piece typ]
     , resourceDispatch :: Dispatch typ
     , resourceAttrs :: [String]
+    , resourceCheck :: CheckOverlap
     }
-    deriving Show
+    deriving (Show, Functor)
 
 type CheckOverlap = Bool
 
-instance Functor Resource where
-    fmap f (Resource a b c d) = Resource a (map (second $ fmap f) b) (fmap f c) d
-
 instance Lift t => Lift (Resource t) where
-    lift (Resource a b c d) = [|Resource a b c d|]
+    lift (Resource a b c d e) = [|Resource a b c d e|]
 
 data Piece typ = Static String | Dynamic typ
     deriving Show
@@ -86,12 +83,18 @@ resourceMulti :: Resource typ -> Maybe typ
 resourceMulti Resource { resourceDispatch = Methods (Just t) _ } = Just t
 resourceMulti _ = Nothing
 
-data FlatResource a = FlatResource [(String, [(CheckOverlap, Piece a)])] String [(CheckOverlap, Piece a)] (Dispatch a)
+data FlatResource a = FlatResource
+    { frParentPieces :: [(String, [Piece a])]
+    , frName :: String
+    , frPieces :: [Piece a]
+    , frDispatch :: Dispatch a
+    , frCheck :: Bool
+    }
 
 flatten :: [ResourceTree a] -> [FlatResource a]
 flatten =
-    concatMap (go id)
+    concatMap (go id True)
   where
-    go front (ResourceLeaf (Resource a b c _)) = [FlatResource (front []) a b c]
-    go front (ResourceParent name pieces children) =
-        concatMap (go (front . ((name, pieces):))) children
+    go front check' (ResourceLeaf (Resource a b c _ check)) = [FlatResource (front []) a b c (check' && check)]
+    go front check' (ResourceParent name check pieces children) =
+        concatMap (go (front . ((name, pieces):)) (check && check')) children

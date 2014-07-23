@@ -19,11 +19,11 @@ mkRouteAttrsInstance typ ress = do
 
 goTree :: (Pat -> Pat) -> ResourceTree a -> Q [Clause]
 goTree front (ResourceLeaf res) = fmap return $ goRes front res
-goTree front (ResourceParent name pieces trees) =
+goTree front (ResourceParent name _check pieces trees) =
     fmap concat $ mapM (goTree front') trees
   where
     ignored = ((replicate toIgnore WildP ++) . return)
-    toIgnore = length $ filter (isDynamic . snd) pieces
+    toIgnore = length $ filter isDynamic pieces
     isDynamic Dynamic{} = True
     isDynamic Static{} = False
     front' = front . ConP (mkName name) . ignored

@@ -157,8 +157,8 @@ methodMapName s = mkName $ "methods" ++ s
 buildMethodMap :: MkDispatchSettings
                -> FlatResource a
                -> Q (Maybe Dec)
-buildMethodMap _ (FlatResource _ _ _ (Methods _ [])) = return Nothing -- single handle function
-buildMethodMap mds (FlatResource parents name pieces' (Methods mmulti methods)) = do
+buildMethodMap _ (FlatResource _ _ _ (Methods _ []) _) = return Nothing -- single handle function
+buildMethodMap mds (FlatResource parents name pieces' (Methods mmulti methods) _check) = do
     fromList <- [|Map.fromList|]
     methods' <- mapM go methods
     let exp = fromList `AppE` ListE methods'
@@ -171,7 +171,7 @@ buildMethodMap mds (FlatResource parents name pieces' (Methods mmulti methods)) 
         pack' <- [|encodeUtf8 . pack|]
         let isDynamic Dynamic{} = True
             isDynamic _ = False
-        let argCount = length (filter (isDynamic . snd) pieces) + maybe 0 (const 1) mmulti
+        let argCount = length (filter isDynamic pieces) + maybe 0 (const 1) mmulti
         xs <- replicateM argCount $ newName "arg"
         runHandler <- mdsRunHandler mds
         let rhs
@@ -183,13 +183,13 @@ buildMethodMap mds (FlatResource parents name pieces' (Methods mmulti methods)) 
             [ pack' `AppE` LitE (StringL method)
             , rhs
             ]
-buildMethodMap _ (FlatResource _ _ _ Subsite{}) = return Nothing
+buildMethodMap _ (FlatResource _ _ _ Subsite{} _check) = return Nothing
 
 -- | Build a single 'D.Route' expression.
 buildRoute :: MkDispatchSettings -> FlatResource a -> Q Exp
-buildRoute mds (FlatResource parents name resPieces resDisp) = do
+buildRoute mds (FlatResource parents name resPieces resDisp _) = do
     -- First two arguments to D.Route
-    routePieces <- ListE <$> mapM (convertPiece . snd) allPieces
+    routePieces <- ListE <$> mapM convertPiece allPieces
     isMulti <-
         case resDisp of
             Methods Nothing _ -> [|False|]
@@ -202,14 +202,14 @@ buildRoute mds (FlatResource parents name resPieces resDisp) = do
             mds
             parents
             name
-            (map snd allPieces)
+            allPieces
             resDisp)
         |]
   where
     allPieces = concat $ map snd parents ++ [resPieces]
 
 routeArg3 :: MkDispatchSettings
-          -> [(String, [(CheckOverlap, Piece a)])]
+          -> [(String, [Piece a])]
           -> String -- ^ name of resource
           -> [Piece a]
           -> Dispatch a
@@ -277,7 +277,7 @@ routeArg3 mds parents name resPieces resDisp = do
 -- | The final expression in the individual Route definitions.
 buildCaller :: MkDispatchSettings
             -> Name -- ^ xrest
-            -> [(String, [(CheckOverlap, Piece a)])]
+            -> [(String, [Piece a])]
             -> String -- ^ name of resource
             -> Dispatch a
             -> [Name] -- ^ ys
@@ -356,7 +356,7 @@ convertPiece :: Piece a -> Q Exp
 convertPiece (Static s) = [|D.Static (pack $(lift s))|]
 convertPiece (Dynamic _) = [|D.Dynamic|]
 
-routeFromDynamics :: [(String, [(CheckOverlap, Piece a)])] -- ^ parents
+routeFromDynamics :: [(String, [Piece a])] -- ^ parents
                   -> String -- ^ constructor name
                   -> [Name]
                   -> Exp
@@ -364,7 +364,7 @@ routeFromDynamics [] name ys = foldl' (\a b -> a `AppE` VarE b) (ConE $ mkName n
 routeFromDynamics ((parent, pieces):rest) name ys =
     foldl' (\a b -> a `AppE` b) (ConE $ mkName parent) here
   where
-    (here', ys') = splitAt (length $ filter (isDynamic . snd) pieces) ys
+    (here', ys') = splitAt (length $ filter isDynamic pieces) ys
     isDynamic Dynamic{} = True
     isDynamic _ = False
     here = map VarE here' ++ [routeFromDynamics rest name ys']

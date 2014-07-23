@@ -43,7 +43,7 @@ mkParseRouteClauses ress' = do
         [dispatchFun]
   where
     ress = map noMethods $ flatten ress'
-    noMethods (FlatResource a b c d) = FlatResource a b c $ noMethods' d
+    noMethods (FlatResource a b c d e) = FlatResource a b c (noMethods' d) e
     noMethods' (Methods a _) = Methods a []
     noMethods' (Subsite a b) = Subsite a b
 
@@ -56,9 +56,9 @@ mkParseRouteInstance typ ress = do
 
 -- | Build a single 'D.Route' expression.
 buildRoute :: Name -> FlatResource a -> Q Exp
-buildRoute query (FlatResource parents name resPieces resDisp) = do
+buildRoute query (FlatResource parents name resPieces resDisp _check) = do
     -- First two arguments to D.Route
-    routePieces <- ListE <$> mapM (convertPiece . snd) allPieces
+    routePieces <- ListE <$> mapM convertPiece allPieces
     isMulti <-
         case resDisp of
             Methods Nothing _ -> [|False|]
@@ -71,14 +71,14 @@ buildRoute query (FlatResource parents name resPieces resDisp) = do
             query
             parents
             name
-            (map snd allPieces)
+            allPieces
             resDisp)
         |]
   where
     allPieces = concat $ map snd parents ++ [resPieces]
 
 routeArg3 :: Name -- ^ query string parameters
-          -> [(String, [(CheckOverlap, Piece a)])]
+          -> [(String, [Piece a])]
           -> String -- ^ name of resource
           -> [Piece a]
           -> Dispatch a
@@ -146,7 +146,7 @@ routeArg3 query parents name resPieces resDisp = do
 -- | The final expression in the individual Route definitions.
 buildCaller :: Name -- ^ query string parameters
             -> Name -- ^ xrest
-            -> [(String, [(CheckOverlap, Piece a)])]
+            -> [(String, [Piece a])]
             -> String -- ^ name of resource
             -> Dispatch a
             -> [Name] -- ^ ys
@@ -164,7 +164,7 @@ convertPiece :: Piece a -> Q Exp
 convertPiece (Static s) = [|D.Static (pack $(lift s))|]
 convertPiece (Dynamic _) = [|D.Dynamic|]
 
-routeFromDynamics :: [(String, [(CheckOverlap, Piece a)])] -- ^ parents
+routeFromDynamics :: [(String, [Piece a])] -- ^ parents
                   -> String -- ^ constructor name
                   -> [Name]
                   -> Exp
@@ -172,7 +172,7 @@ routeFromDynamics [] name ys = foldl' (\a b -> a `AppE` VarE b) (ConE $ mkName n
 routeFromDynamics ((parent, pieces):rest) name ys =
     foldl' (\a b -> a `AppE` b) (ConE $ mkName parent) here
   where
-    (here', ys') = splitAt (length $ filter (isDynamic . snd) pieces) ys
+    (here', ys') = splitAt (length $ filter isDynamic pieces) ys
     isDynamic Dynamic{} = True
     isDynamic _ = False
     here = map VarE here' ++ [routeFromDynamics rest name ys']
