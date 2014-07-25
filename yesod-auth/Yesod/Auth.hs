@@ -415,18 +415,23 @@ type YesodAuthPersist master =
 type AuthEntity master = KeyEntity (AuthId master)
 
 -- | Similar to 'maybeAuthId', but redirects to a login page if user is not
--- authenticated.
+-- authenticated or responds with error 401 if this is an API client (expecting JSON).
 --
 -- Since 1.1.0
 requireAuthId :: YesodAuth master => HandlerT master IO (AuthId master)
-requireAuthId = maybeAuthId >>= maybe redirectLogin return
+requireAuthId = maybeAuthId >>= maybe handleAuthLack return
 
 -- | Similar to 'maybeAuth', but redirects to a login page if user is not
--- authenticated.
+-- authenticated or responds with error 401 if this is an API client (expecting JSON).
 --
 -- Since 1.1.0
 requireAuth :: YesodAuthPersist master => HandlerT master IO (Entity (AuthEntity master))
-requireAuth = maybeAuth >>= maybe redirectLogin return
+requireAuth = maybeAuth >>= maybe handleAuthLack return
+
+handleAuthLack :: Yesod master => HandlerT master IO a
+handleAuthLack = do
+    aj <- acceptsJson
+    if aj then notAuthenticated else redirectLogin
 
 redirectLogin :: Yesod master => HandlerT master IO a
 redirectLogin = do
