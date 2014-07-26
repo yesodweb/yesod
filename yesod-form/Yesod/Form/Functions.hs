@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -23,6 +24,7 @@ module Yesod.Form.Functions
     , runFormGet
       -- * Generate a blank form
     , generateFormPost
+    , generateFormGet'
     , generateFormGet
       -- * More than one form on a handler
     , identifyForm
@@ -270,6 +272,17 @@ runFormGet form = do
                 Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
     getHelper form env
 
+{- FIXME: generateFormGet' "Will be renamed to generateFormGet in next verison of Yesod" -}
+-- |
+--
+-- Since 1.3.11
+generateFormGet'
+    :: (RenderMessage (HandlerSite m) FormMessage, MonadHandler m)
+    => (Html -> MForm m (FormResult a, xml))
+    -> m (xml, Enctype)
+generateFormGet' form = first snd `liftM` getHelper form Nothing
+
+{-# DEPRECATED generateFormGet "Will require RenderMessage in next verison of Yesod" #-}
 generateFormGet :: MonadHandler m
                 => (Html -> MForm m a)
                 -> m (a, Enctype)
@@ -345,15 +358,21 @@ type FormRender m a =
     -> MForm m (FormResult a, WidgetT (HandlerSite m) IO ())
 
 renderTable, renderDivs, renderDivsNoLabels :: Monad m => FormRender m a
+-- | Render a form into a series of tr tags. Note that, in order to allow
+-- you to add extra rows to the table, this function does /not/ wrap up
+-- the resulting HTML in a table tag; you must do that yourself.
 renderTable aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
     let widget = [whamlet|
 $newline never
-\#{fragment}
-$forall view <- views
+$if null views
+    \#{fragment}
+$forall (isFirst, view) <- addIsFirst views
     <tr :fvRequired view:.required :not $ fvRequired view:.optional>
         <td>
+            $if isFirst
+                \#{fragment}
             <label for=#{fvId view}>#{fvLabel view}
             $maybe tt <- fvTooltip view
                 <div .tooltip>#{tt}
@@ -362,6 +381,9 @@ $forall view <- views
             <td .errors>#{err}
 |]
     return (res, widget)
+  where
+    addIsFirst [] = []
+    addIsFirst (x:y) = (True, x) : map (False, ) y
 
 -- | render a field inside a div
 renderDivs = renderDivsMaybeLabels True

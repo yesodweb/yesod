@@ -421,10 +421,10 @@ nameFromLabel label = do
       Just res -> return res
   let
     body = simpleBody res
-    mfor = parseHTML body
+    mlabel = parseHTML body
                 $// C.element "label"
                 >=> contentContains label
-                >=> attribute "for"
+    mfor = mlabel >>= attribute "for"
 
     contentContains x c
         | x `T.isInfixOf` T.concat (c $// content) = [c]
@@ -444,8 +444,11 @@ nameFromLabel label = do
             , " which was not found. "
             ]
         name:_ -> return name
-        _ -> failure $ "More than one input with id " <> for
-    [] -> failure $ "No label contained: " <> label
+        [] -> failure $ "No input with id " <> for
+    [] ->
+      case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "name") of
+        [] -> failure $ "No label contained: " <> label
+        name:_ -> return name
     _ -> failure $ "More than one label contained " <> label
 
 (<>) :: T.Text -> T.Text -> T.Text

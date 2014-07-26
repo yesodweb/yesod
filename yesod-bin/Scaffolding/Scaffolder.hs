@@ -73,7 +73,6 @@ scaffold isBare = do
         if validPackageName s && s /= "test"
             then Just s
             else Nothing
-    let dir = project
 
     puts $ renderTextUrl undefined $(textFile "input/database.cg")
 

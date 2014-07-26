@@ -1018,8 +1018,8 @@ lookupCookies pn = do
 -- representations, e.g.:
 --
 -- > selectRep $ do
--- >   provideRep typeHtml $ produceHtmlOutput
--- >   provideRep typeJson $ produceJsonOutput
+-- >   provideRep produceHtmlOutput
+-- >   provideRep produceJsonOutput
 --
 -- The first provided representation will be used if no matches are found.
 

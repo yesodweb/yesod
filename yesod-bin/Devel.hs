@@ -266,7 +266,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
                    unless (anyTouched || haskellFileChanged) $ loop list1
            if not success
              then liftIO $ do
-                   putStrLn "Build failure, pausing..."
+                   putStrLn "\x1b[1;31mBuild failure, pausing...\x1b[0m"
                    runBuildHook $ failHook opts
              else do
                    liftIO $ runBuildHook $ successHook opts

@@ -1,5 +1,12 @@
+{-# START_FILE .dir-locals.el #-}
+((haskell-mode . ((haskell-indent-spaces . 4)
+                  (haskell-process-use-ghci . t)))
+ (hamlet-mode . ((hamlet/basic-offset . 4)
+                 (haskell-process-use-ghci . t))))
+
 {-# START_FILE .ghci #-}
 :set -i.:config:dist/build/autogen
+:set -DDEVELOPMENT
 :set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls -XDeriveDataTypeable
 
 {-# START_FILE .gitignore #-}
@@ -215,6 +222,13 @@ instance Yesod App where
     -- The page to be redirected to when authentication is required.
     authRoute _ = Just $ AuthR LoginR
 
+    -- Routes not requiring authenitcation.
+    isAuthorized (AuthR _) _ = return Authorized
+    isAuthorized FaviconR _ = return Authorized
+    isAuthorized RobotsR _ = return Authorized
+    -- Default to Authorized for now.
+    isAuthorized _ _ = return Authorized
+
     -- This function creates static content files in the static folder
     -- and names them based on a hash of their content. This allows
     -- expiration dates to be set far in the future without worry of
@@ -390,6 +404,7 @@ import Yesod
 import Data.Text (Text)
 import Database.Persist.Quasi
 import Data.Typeable (Typeable)
+import Prelude
 
 -- You can define all of your database entities in the entities file.
 -- You can find more information on persistent and how to declare entities
@@ -646,6 +661,75 @@ combineStylesheets = combineStylesheets' development combineSettings
 
 combineScripts :: Name -> [Route Static] -> Q Exp
 combineScripts = combineScripts' development combineSettings
+
+{-# START_FILE app/DevelMain.hs #-}
+-- | Development version to be run inside GHCi.
+--
+-- start this up with:
+--
+-- cabal repl --ghc-options="-O0 -fobject-code"
+--
+-- run with:
+--
+-- :l DevelMain
+-- DevelMain.update
+--
+-- You will need to add these packages to your .cabal file
+-- * foreign-store >= 0.1 (very light-weight)
+-- * warp (you already depend on this, it just isn't in your .cabal file)
+--
+-- If you don't use cabal repl, you will need
+-- to add settings to your .ghci file.
+--
+-- :set -DDEVELOPMENT
+--
+-- There is more information about using ghci
+-- on the wiki: https://github.com/yesodweb/yesod/wiki/ghci
+
+module DevelMain where
+
+import Application (getApplicationDev)
+
+import Control.Exception (finally)
+import Control.Concurrent
+import Data.IORef
+import Foreign.Store
+import Network.Wai.Handler.Warp
+
+-- | Start or restart the server.
+-- A Store holds onto some data across ghci reloads
+update :: IO ()
+update = do
+    mtidStore <- lookupStore tidStoreNum
+    case mtidStore of
+      -- no server running
+      Nothing -> do
+          done <- storeAction doneStore newEmptyMVar
+          tid <- start done
+          _ <- storeAction (Store tidStoreNum) (newIORef tid)
+          return ()
+      -- server is already running
+      Just tidStore ->
+          -- shut the server down with killThread and wait for the done signal
+          modifyStoredIORef tidStore $ \tid -> do
+              killThread tid
+              withStore doneStore takeMVar >> readStore doneStore >>= start
+  where
+    doneStore = Store 0
+    tidStoreNum = 1
+
+    modifyStoredIORef :: Store (IORef a) -> (a -> IO a) -> IO ()
+    modifyStoredIORef store f = withStore store $ \ref -> do
+        v <- readIORef ref
+        f v >>= writeIORef ref
+
+-- | Start the server in a separate thread.
+start :: MVar () -- ^ Written to when the thread is killed.
+      -> IO ThreadId
+start done = do
+    (port,app) <- getApplicationDev
+    forkIO (finally (runSettings (setPort port defaultSettings) app)
+                    (putMVar done ()))
 
 {-# START_FILE app/main.hs #-}
 import Prelude              (IO)

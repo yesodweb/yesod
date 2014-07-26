@@ -17,6 +17,7 @@
 -------------------------------------------------------------------------------
 module Yesod.Feed
     ( newsFeed
+    , newsFeedText
     , module Yesod.FeedTypes
     ) where
 
@@ -25,7 +26,16 @@ import Yesod.AtomFeed
 import Yesod.RssFeed
 import Yesod.Core
 
+import Data.Text
+
 newsFeed :: MonadHandler m => Feed (Route (HandlerSite m)) -> m TypedContent
 newsFeed f = selectRep $ do
     provideRep $ atomFeed f
     provideRep $ rssFeed f
+
+-- | Same as @'newsFeed'@ but for @'Feed Text'@. Useful for cases where you are
+--   generating a feed of external links.
+newsFeedText :: MonadHandler m => Feed Text -> m TypedContent
+newsFeedText f = selectRep $ do
+    provideRep $ atomFeedText f
+    provideRep $ rssFeedText f

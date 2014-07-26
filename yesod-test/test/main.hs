@@ -132,6 +132,14 @@ main = hspec $ do
                 get ("/dynamic2/שלום" :: Text)
                 statusIs 200
                 bodyEquals "שלום"
+
+        ydescribe "labels" $ do
+            yit "can click checkbox" $ do
+                get ("/labels" :: Text)
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/labels" :: Text)
+                    byLabel "Foo Bar" "yes"
     describe "cookies" $ yesodSpec cookieApp $ do
         yit "should send the cookie #730" $ do
             get ("/" :: Text)
@@ -173,6 +181,9 @@ app = liteApp $ do
             _ -> defaultLayout widget
     onStatic "html" $ dispatchTo $
         return ("<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>" :: Text)
+
+    onStatic "labels" $ dispatchTo $
+        return ("<html><label><input type='checkbox' name='fooname' id='foobar'>Foo Bar</label></html>" :: Text)
 
 
 cookieApp :: LiteApp

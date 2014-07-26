@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE PatternGuards #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-} -- QuasiQuoter
 module Yesod.Routes.Parse
     ( parseRoutes
@@ -18,6 +19,8 @@ import qualified System.IO as SIO
 import Yesod.Routes.TH
 import Yesod.Routes.Overlap (findOverlapNames)
 import Data.List (foldl')
+import Data.Maybe (mapMaybe)
+import qualified Data.Set as Set
 
 -- | A quasi-quoter to parse a string into a list of 'Resource's. Checks for
 -- overlapping routes, failing if present; use 'parseRoutesNoCheck' to skip the
@@ -67,14 +70,30 @@ resourcesFromString =
         | length spaces < indent = ([], thisLine : otherLines)
         | otherwise = (this others, remainder)
       where
+        parseAttr ('!':x) = Just x
+        parseAttr _ = Nothing
+
+        stripColonLast =
+            go id
+          where
+            go _ [] = Nothing
+            go front [x]
+                | null x = Nothing
+                | last x == ':' = Just $ front [init x]
+                | otherwise = Nothing
+            go front (x:xs) = go (front . (x:)) xs
+
         spaces = takeWhile (== ' ') thisLine
         (others, remainder) = parse indent otherLines'
         (this, otherLines') =
             case takeWhile (/= "--") $ words thisLine of
-                [pattern, constr] | last constr == ':' ->
+                (pattern:rest0)
+                    | Just (constr:rest) <- stripColonLast rest0
+                    , Just attrs <- mapM parseAttr rest ->
                     let (children, otherLines'') = parse (length spaces + 1) otherLines
+                        children' = addAttrs attrs children
                         (pieces, Nothing, check) = piecesFromStringCheck pattern
-                     in ((ResourceParent (init constr) check pieces children :), otherLines'')
+                     in ((ResourceParent constr check pieces children' :), otherLines'')
                 (pattern:constr:rest) ->
                     let (pieces, mmulti, check) = piecesFromStringCheck pattern
                         (attrs, rest') = takeAttrs rest
@@ -95,6 +114,28 @@ piecesFromStringCheck s0 =
 
     stripBang ('!':rest) = (rest, False)
     stripBang x = (x, True)
+
+addAttrs :: [String] -> [ResourceTree String] -> [ResourceTree String]
+addAttrs attrs =
+    map goTree
+  where
+    goTree (ResourceLeaf res) = ResourceLeaf (goRes res)
+    goTree (ResourceParent w x y z) = ResourceParent w x y (map goTree z)
+
+    goRes res =
+        res { resourceAttrs = noDupes ++ resourceAttrs res }
+      where
+        usedKeys = Set.fromList $ map fst $ mapMaybe toPair $ resourceAttrs res
+        used attr =
+            case toPair attr of
+                Nothing -> False
+                Just (key, _) -> key `Set.member` usedKeys
+        noDupes = filter (not . used) attrs
+
+    toPair s =
+        case break (== '=') s of
+            (x, '=':y) -> Just (x, y)
+            _ -> Nothing
 
 -- | Take attributes out of the list and put them in the first slot in the
 -- result tuple.

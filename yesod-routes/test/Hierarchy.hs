@@ -32,6 +32,7 @@ import qualified Data.ByteString.Char8 as S8
 #if SIMPLE_DISPATCH
 import Yesod.Routes.TH.Simple
 #endif
+import qualified Data.Set as Set
 
 class ToText a where
     toText :: a -> Text
@@ -89,9 +90,9 @@ do
     /login       LoginR     GET POST
     /table/#Text TableR     GET
 
-/nest/ NestR:
+/nest/ NestR !NestingAttr:
 
-  /spaces      SpacedR   GET
+  /spaces      SpacedR   GET !NonNested
 
   /nest2 Nest2:
     /           GetPostR  GET POST
@@ -103,8 +104,8 @@ do
     /post       Post3         POST
 --    /#Int       Delete3            DELETE
 
-/afterwards AfterR:
-  /             After     GET
+/afterwards AfterR !parent !key=value1:
+  /             After     GET !child !key=value2
 
 -- /trailing-nest TrailingNestR:
 --  /foo TrailingFooR GET
@@ -112,6 +113,7 @@ do
 |]
 
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
+    rainst <- mkRouteAttrsInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     prinst <- mkParseRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
 #if SIMPLE_DISPATCH
     dispatch <- mkSimpleDispatchClause MkDispatchSettings
@@ -135,6 +137,7 @@ do
                 `AppT` ConT ''Hierarchy)
             [FunD (mkName "dispatcher") [dispatch]]
         : prinst
+        : rainst
         : rrinst
 
 getSpacedR :: Handler site String
@@ -208,3 +211,7 @@ hierarchy = describe "hierarchy" $ do
         parseRoute ([], [("foo", "bar")]) @?= Just HomeR
         parseRoute (["admin", "5"], []) @?= Just (AdminR 5 AdminRootR)
         parseRoute (["admin!", "5"], []) @?= (Nothing :: Maybe (Route Hierarchy))
+    it "inherited attributes" $ do
+        routeAttrs (NestR SpacedR) @?= Set.fromList ["NestingAttr", "NonNested"]
+    it "pair attributes" $
+        routeAttrs (AfterR After) @?= Set.fromList ["parent", "child", "key=value2"]

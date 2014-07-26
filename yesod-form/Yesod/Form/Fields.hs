@@ -237,7 +237,7 @@ $newline never
     }
 
 readMay :: Read a => String -> Maybe a
-readMay s = case reads s of
+readMay s = case filter (Prelude.null . snd) $ reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
 
