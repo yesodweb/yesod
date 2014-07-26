@@ -187,7 +187,7 @@ data RequestPart
 
 -- | The RequestBuilder state monad constructs an url encoded string of arguments
 -- to send with your requests. Some of the functions that run on it use the current
--- response to analize the forms that the server is expecting to receive.
+-- response to analyze the forms that the server is expecting to receive.
 type RequestBuilder site = ST.StateT (RequestBuilderData site) IO
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
