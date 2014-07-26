@@ -5,22 +5,22 @@ import Yesod.Form.Types (FormMessage (..))
 import Data.Monoid (mappend)
 import Data.Text (Text)
 
-englishFormMessage :: FormMessage -> Text
-englishFormMessage (MsgInvalidInteger t) = "Неверно записано целое число: " `mappend` t
-englishFormMessage (MsgInvalidNumber t) = "Неверный формат числа: " `mappend` t
-englishFormMessage (MsgInvalidEntry t) = "Неверный выбор: " `mappend` t
-englishFormMessage MsgInvalidTimeFormat = "Неверно указано время, используйте формат ЧЧ:ММ[:СС]"
-englishFormMessage MsgInvalidDay = "Неверно указана дата, используйте формат ГГГГ-ММ-ДД"
-englishFormMessage (MsgInvalidUrl t) = "Неверно указан URL адрес: " `mappend` t
-englishFormMessage (MsgInvalidEmail t) = "Неверно указана электронная почта: " `mappend` t
-englishFormMessage (MsgInvalidHour t) = "Неверно указан час: " `mappend` t
-englishFormMessage (MsgInvalidMinute t) = "Неверно указаны минуты: " `mappend` t
-englishFormMessage (MsgInvalidSecond t) = "Неверны указаны секунды: " `mappend` t
-englishFormMessage MsgCsrfWarning = "Для защиты от межсайтовой подделки запросов (CSRF), пожалуйста, подтвердите отправку данных формы."
-englishFormMessage MsgValueRequired = "Отсутствует требуемое значение."
-englishFormMessage (MsgInputNotFound t) = "Поле не найдено: " `mappend` t
-englishFormMessage MsgSelectNone = "<Не выбрано>"
-englishFormMessage (MsgInvalidBool t) = "Неверное логическое значение: " `mappend` t
-englishFormMessage MsgBoolYes = "Да"
-englishFormMessage MsgBoolNo = "Нет"
-englishFormMessage MsgDelete = "Удалить?"
+russianFormMessage :: FormMessage -> Text
+russianFormMessage (MsgInvalidInteger t) = "Неверно записано целое число: " `mappend` t
+russianFormMessage (MsgInvalidNumber t) = "Неверный формат числа: " `mappend` t
+russianFormMessage (MsgInvalidEntry t) = "Неверный выбор: " `mappend` t
+russianFormMessage MsgInvalidTimeFormat = "Неверно указано время, используйте формат ЧЧ:ММ[:СС]"
+russianFormMessage MsgInvalidDay = "Неверно указана дата, используйте формат ГГГГ-ММ-ДД"
+russianFormMessage (MsgInvalidUrl t) = "Неверно указан URL адрес: " `mappend` t
+russianFormMessage (MsgInvalidEmail t) = "Неверно указана электронная почта: " `mappend` t
+russianFormMessage (MsgInvalidHour t) = "Неверно указан час: " `mappend` t
+russianFormMessage (MsgInvalidMinute t) = "Неверно указаны минуты: " `mappend` t
+russianFormMessage (MsgInvalidSecond t) = "Неверны указаны секунды: " `mappend` t
+russianFormMessage MsgCsrfWarning = "Для защиты от межсайтовой подделки запросов (CSRF), пожалуйста, подтвердите отправку данных формы."
+russianFormMessage MsgValueRequired = "Отсутствует требуемое значение."
+russianFormMessage (MsgInputNotFound t) = "Поле не найдено: " `mappend` t
+russianFormMessage MsgSelectNone = "<Не выбрано>"
+russianFormMessage (MsgInvalidBool t) = "Неверное логическое значение: " `mappend` t
+russianFormMessage MsgBoolYes = "Да"
+russianFormMessage MsgBoolNo = "Нет"
+russianFormMessage MsgDelete = "Удалить?"
