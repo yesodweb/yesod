@@ -15,6 +15,7 @@ module Yesod.Auth.Message
     , chineseMessage
     , spanishMessage
     , czechMessage
+    , russianMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -533,3 +534,47 @@ czechMessage PasswordResetPrompt = "Zadejte svou e-mailovou adresu nebo uživate
 czechMessage InvalidUsernamePass = "Neplatná kombinace uživatelského jména a hesla"
 -- TODO
 czechMessage i@(IdentifierNotFound _) = englishMessage i
+
+-- Так как e-mail – это фактическое сокращение словосочетания electronic mail,
+-- для русского перевода так же использовано сокращение: эл.почта
+russianMessage :: AuthMessage -> Text
+russianMessage NoOpenID = "Идентификатор OpenID не найден"
+russianMessage LoginOpenID = "Вход с помощью OpenID"
+russianMessage LoginGoogle = "Вход с помощью Google"
+russianMessage LoginYahoo = "Вход с помощью Yahoo"
+russianMessage Email = "Эл.почта"
+russianMessage Password = "Пароль"
+russianMessage Register = "Регистрация"
+russianMessage RegisterLong = "Создать учётную запись"
+russianMessage EnterEmail = "Введите свой адрес эл.почты ниже, вам будет отправлено письмо для подтверждения."
+russianMessage ConfirmationEmailSentTitle = "Письмо для подтверждения отправлено"
+russianMessage (ConfirmationEmailSent email) =
+    "Письмо для подтверждения было отправлено на адрес " `mappend`
+    email `mappend`
+    "."
+russianMessage AddressVerified = "Адрес подтверждён. Пожалуйста, установите новый пароль."
+russianMessage InvalidKeyTitle = "Неверный ключ подтверждения"
+russianMessage InvalidKey = "Извините, но ключ подтверждения оказался недействительным."
+russianMessage InvalidEmailPass = "Неверное сочетание эл.почты и пароля"
+russianMessage BadSetPass = "Чтобы изменить пароль, необходимо выполнить вход"
+russianMessage SetPassTitle = "Установить пароль"
+russianMessage SetPass = "Установить новый пароль"
+russianMessage NewPass = "Новый пароль"
+russianMessage ConfirmPass = "Подтверждение"
+russianMessage PassMismatch = "Пароли не совпадают, повторите снова"
+russianMessage PassUpdated = "Пароль обновлён"
+russianMessage Facebook = "Вход с помощью Facebook"
+russianMessage LoginViaEmail = "Вход по адресу эл.почты"
+russianMessage InvalidLogin = "Неверный логин"
+russianMessage NowLoggedIn = "Вход выполнен"
+russianMessage LoginTitle = "Вход"
+russianMessage PleaseProvideUsername = "Пожалуйста, введите ваше имя пользователя"
+russianMessage PleaseProvidePassword = "Пожалуйста, введите ваш пароль"
+russianMessage NoIdentifierProvided = "Не указан адрес эл.почты/имя пользователя"
+russianMessage InvalidEmailAddress = "Указан неверный адрес эл.почты"
+russianMessage PasswordResetTitle = "Сброс пароля"
+russianMessage ProvideIdentifier = "Имя пользователя или эл.почта"
+russianMessage SendPasswordResetEmail = "Отправить письмо для сброса пароля"
+russianMessage PasswordResetPrompt = "Введите адрес эл.почты или ваше имя пользователя ниже, вам будет отправлено письмо для сброса пароля."
+russianMessage InvalidUsernamePass = "Неверное сочетание имени пользователя и пароля"
+russianMessage (IdentifierNotFound ident) = "Логин не найден: " `mappend` ident
