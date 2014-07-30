@@ -34,6 +34,7 @@ module Yesod.Form.Functions
     , renderDivs
     , renderDivsNoLabels
     , renderBootstrap
+    , renderBootstrap2
       -- * Validation
     , check
     , checkBool
@@ -426,8 +427,10 @@ $forall view <- views
 -- >      ^{formWidget}
 -- >      <div .form-actions>
 -- >        <input .btn .primary type=submit value=_{MsgSubmit}>
-renderBootstrap :: Monad m => FormRender m a
-renderBootstrap aform fragment = do
+--
+-- Since 1.3.14
+renderBootstrap2 :: Monad m => FormRender m a
+renderBootstrap2 aform fragment = do
     (res, views') <- aFormToForm aform
     let views = views' []
         has (Just _) = True
@@ -446,6 +449,10 @@ renderBootstrap aform fragment = do
                                 <span .help-block>#{err}
                 |]
     return (res, widget)
+
+-- | Deprecated synonym for 'renderBootstrap2'.
+renderBootstrap :: Monad m => FormRender m a
+renderBootstrap = renderBootstrap2
 {-# DEPRECATED renderBootstrap "Please use the Yesod.Form.Bootstrap3 module." #-}
 
 check :: (Monad m, RenderMessage (HandlerSite m) msg)
