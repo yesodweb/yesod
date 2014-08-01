@@ -124,7 +124,7 @@ library
                  , tls == 1.2.8
                  , transformers-base == 0.4.2
                  -- , transformers-compat == 0.3.3.4
-                 , unix-compat == 0.4.1.1
+                 , unix-compat == 0.4.1.3
                  , unordered-containers == 0.2.4.0
                  , utf8-string == 0.3.8
                  , vector == 0.10.11.0
@@ -144,7 +144,7 @@ library
                  , xml-conduit == 1.2.0.2
                  , xml-types == 0.3.4
                  , xss-sanitize == 0.3.5.2
-                 , yaml == 0.8.8.3
+                 , yaml == 0.8.8.4
                  , yesod == 1.2.6
                  , yesod-auth == 1.3.1
                  , yesod-auth-hashdb == 1.3.0.1
