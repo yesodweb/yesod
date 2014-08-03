@@ -9,6 +9,7 @@ module Yesod.Auth.BrowserId
     , BrowserIdSettings
     , bisAudience
     , bisLazyLoad
+    , forwardUrl
     ) where
 
 import Yesod.Auth
@@ -28,8 +29,10 @@ import Data.Default
 pid :: Text
 pid = "browserid"
 
-complete :: Route Auth
-complete = PluginR pid []
+forwardUrl :: AuthRoute
+forwardUrl = PluginR pid []
+
+complete = forwardUrl
 
 -- | A settings type for various configuration options relevant to BrowserID.
 --
