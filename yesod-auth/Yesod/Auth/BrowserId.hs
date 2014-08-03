@@ -32,6 +32,7 @@ pid = "browserid"
 forwardUrl :: AuthRoute
 forwardUrl = PluginR pid []
 
+complete :: AuthRoute
 complete = forwardUrl
 
 -- | A settings type for various configuration options relevant to BrowserID.
