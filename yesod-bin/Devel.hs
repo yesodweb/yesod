@@ -209,12 +209,19 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     checkDevelFile
     writeLock opts
 
+    let onAbort (_ :: Ex.SomeException) = do
+        writeLock opts
+        exitSuccess
+
+    let getLines = forever $ do
+        _ <- getLine
+        return ()
+
     let (terminator, after) = case terminateWith opts of
           TerminateOnEnter ->
-              ("Press ENTER", void getLine)
+              ("Press CTRL-D", void $ Ex.handle onAbort getLines)
           TerminateOnlyInterrupt ->  -- run for one year
               ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
-
 
     putStrLn $ "Yesod devel server. "  ++ terminator ++ " to quit"
     void $ forkIO $ do
@@ -223,8 +230,6 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
         void $ watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
       evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     after
-    writeLock opts
-    exitSuccess
   where
     bd = getBuildDir opts
 
