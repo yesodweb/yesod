@@ -30,11 +30,14 @@ import           Blaze.ByteString.Builder (fromByteString, toByteString)
 import           Control.Applicative      ((<$>), (<*>))
 import           Control.Arrow            (second)
 import           Control.Monad            (liftM, unless)
+import qualified Data.Aeson               as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            withObject)
+import qualified Data.ByteString.Lazy     as BL
 import           Data.Conduit             (($$+-))
 import           Data.Conduit.Attoparsec  (sinkParser)
+import qualified Data.HashMap.Strict      as M
 import           Data.Monoid              (mappend)
 import           Data.Text                (Text)
 import qualified Data.Text                as T
@@ -175,7 +178,7 @@ authGoogleEmail clientID clientSecret =
                 [e] -> return e
                 [] -> error "No account email"
                 x -> error $ "Too many account emails: " ++ show x
-        lift $ setCredsRedirect $ Creds pid email []
+        lift $ setCredsRedirect $ Creds pid email $ allPersonInfo value2
 
     dispatch _ _ = notFound
 
@@ -200,3 +203,9 @@ instance FromJSON Email where
     parseJSON = withObject "Email" $ \o -> Email
         <$> o .: "value"
         <*> o .: "type"
+
+allPersonInfo :: A.Value -> [(Text, Text)]
+allPersonInfo (A.Object o) = map enc $ M.toList o
+    where enc (key, A.String s) = (key, s)
+          enc (key, v) = (key, decodeUtf8 $ BL.toStrict $ A.encode v)
+allPersonInfo _ = error "Google did not return a person object"
