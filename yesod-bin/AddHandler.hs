@@ -6,7 +6,8 @@ import Data.Char (isLower, toLower, isSpace)
 import Data.List (isPrefixOf, isSuffixOf)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import System.Directory (getDirectoryContents)
+import System.Directory (getDirectoryContents, doesFileExist)
+import Control.Monad (when)
 
 -- strict readFile
 readFile :: FilePath -> IO String
@@ -29,6 +30,12 @@ addHandler = do
         c:_
             | isLower c -> error "Name must start with an upper case letter"
             | otherwise -> return ()
+
+    -- Check that the handler file doesn't already exist
+    let handlerFile = concat ["Handler/", name, ".hs"]
+    exists <- doesFileExist handlerFile
+    when exists $ error $ "File already exists: " ++ show handlerFile
+
     putStr "Enter route pattern (ex: /entry/#EntryId): "
     hFlush stdout
     pattern <- getLine
@@ -41,7 +48,7 @@ addHandler = do
     modify "Application.hs" $ fixApp name
     modify cabal $ fixCabal name
     modify "config/routes" $ fixRoutes name pattern methods
-    writeFile ("Handler/" ++ name ++ ".hs") $ mkHandler name pattern methods
+    writeFile handlerFile $ mkHandler name pattern methods
 
 fixApp :: String -> String -> String
 fixApp name =
