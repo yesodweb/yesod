@@ -213,13 +213,9 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
         writeLock opts
         exitSuccess
 
-    let getLines = forever $ do
-        _ <- getLine
-        return ()
-
     let (terminator, after) = case terminateWith opts of
           TerminateOnEnter ->
-              ("Press CTRL-D", void $ Ex.handle onAbort getLines)
+              ("Press CTRL-D", void $ Ex.handle onAbort $ forever getLine)
           TerminateOnlyInterrupt ->  -- run for one year
               ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
 
