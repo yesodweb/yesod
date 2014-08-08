@@ -50,6 +50,9 @@ import           System.IO.Error                       (isDoesNotExistError)
 import           System.Posix.Types                    (EpochTime)
 import           System.PosixCompat.Files              (getFileStatus,
                                                         modificationTime)
+import           System.Posix.Signals                  (installHandler,
+                                                        sigINT,
+                                                        Handler(Catch))
 import           System.Process                        (ProcessHandle,
                                                         createProcess, env,
                                                         getProcessExitCode,
@@ -213,9 +216,13 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
         writeLock opts
         exitSuccess
 
+    let handler = Ex.handle onAbort . forever $ do
+        _ <- installHandler sigINT (Catch $ return ()) Nothing
+        getLine
+
     let (terminator, after) = case terminateWith opts of
           TerminateOnEOF ->
-              ("Press CTRL-D", void . Ex.handle onAbort $ forever getLine)
+              ("Press CTRL-D", void handler)
           TerminateOnlyInterrupt ->  -- run for one year
               ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
 

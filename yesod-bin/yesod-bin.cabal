@@ -94,6 +94,7 @@ executable             yesod
                      , wai-extra
                      , data-default-class
                      , streaming-commons
+                     , unix
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
