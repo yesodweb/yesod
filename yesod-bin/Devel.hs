@@ -388,7 +388,7 @@ watchForChanges filesModified hsSourceDirs extraFiles list t = do
                 Map.differenceWith compareTimes newList list `Map.union`
                 Map.differenceWith compareTimes list newList
         return (haskellFileChanged, newList)
-      else timeout (10000000*t) (takeMVar filesModified) >>
+      else timeout (1000000*t) (takeMVar filesModified) >>
            watchForChanges filesModified hsSourceDirs extraFiles list t
   where
     compareTimes x y
