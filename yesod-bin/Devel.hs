@@ -100,7 +100,7 @@ removeLock opts = do
     removeFileIfExists (lockFile opts)
     removeFileIfExists "dist/devel-terminate"  -- for compatibility with old devel.hs
 
-data DevelTermOpt = TerminateOnEnter | TerminateOnlyInterrupt
+data DevelTermOpt = TerminateOnEOF | TerminateOnlyInterrupt
      deriving (Show, Eq)
 data DevelOpts = DevelOpts
       { isCabalDev   :: Bool
@@ -120,7 +120,7 @@ getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True TerminateOnEnter
+defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True TerminateOnEOF
 
 cabalProgram :: DevelOpts -> FilePath
 cabalProgram opts | isCabalDev opts = "cabal-dev"
@@ -214,8 +214,8 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
         exitSuccess
 
     let (terminator, after) = case terminateWith opts of
-          TerminateOnEnter ->
-              ("Press CTRL-D", void $ Ex.handle onAbort $ forever getLine)
+          TerminateOnEOF ->
+              ("Press CTRL-D", void . Ex.handle onAbort $ forever getLine)
           TerminateOnlyInterrupt ->  -- run for one year
               ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
 
