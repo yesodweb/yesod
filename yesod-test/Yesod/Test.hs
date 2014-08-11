@@ -28,6 +28,7 @@ module Yesod.Test
       yesodSpec
     , YesodSpec
     , yesodSpecWithSiteGenerator
+    , yesodSpecApp
     , YesodExample
     , YesodExampleData(..)
     , YesodSpecTree (..)
@@ -228,6 +229,27 @@ yesodSpecWithSiteGenerator getSiteAction yspecs =
       unYesod getSiteAction' (YesodSpecItem x y) = Core.it x $ do
         site <- getSiteAction'
         app <- toWaiAppPlain site
+        ST.evalStateT y YesodExampleData
+            { yedApp = app
+            , yedSite = site
+            , yedCookies = M.empty
+            , yedResponse = Nothing
+            }
+
+-- | Same as yesodSpec, but instead of taking a site it
+-- takes an action which produces the 'Application' for each test.
+-- This lets you use your middleware from makeApplication
+yesodSpecApp :: YesodDispatch site
+             => site
+             -> IO Application
+             -> YesodSpec site
+             -> Hspec.Spec
+yesodSpecApp site getApp yspecs =
+    Core.fromSpecList $ map unYesod $ execWriter yspecs
+  where
+    unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
+    unYesod (YesodSpecItem x y) = Core.it x $ do
+        app <- getApp
         ST.evalStateT y YesodExampleData
             { yedApp = app
             , yedSite = site
