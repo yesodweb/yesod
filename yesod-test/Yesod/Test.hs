@@ -29,6 +29,7 @@ module Yesod.Test
     , YesodSpec
     , yesodSpecWithSiteGenerator
     , YesodExample
+    , YesodExampleData(..)
     , YesodSpecTree (..)
     , ydescribe
     , yit
@@ -125,7 +126,7 @@ import Data.Time.Clock (getCurrentTime)
 
 -- | The state used in a single test case defined using 'yit'
 --
--- Since 1.2.0
+-- Since 1.2.4
 data YesodExampleData site = YesodExampleData
     { yedApp :: !Application
     , yedSite :: !site
