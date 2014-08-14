@@ -27,16 +27,17 @@ keter :: String -- ^ cabal command
       -> Bool -- ^ no build?
       -> IO ()
 keter cabal noBuild = do
-    mvalue <- decodeFile "config/keter.yaml"
+    ketercfg <- keterConfig
+    mvalue <- decodeFile ketercfg
     value <-
         case mvalue of
             Nothing -> error "No config/keter.yaml found"
             Just (Object value) ->
                 case Map.lookup "host" value of
                     Just (String s) | "<<" `T.isPrefixOf` s ->
-                        error "Please set your hostname in config/keter.yaml"
+                        error $ "Please set your hostname in " ++ ketercfg
                     _ -> return value
-            Just _ -> error "config/keter.yaml is not an object"
+            Just _ -> error $ ketercfg ++ " is not an object"
 
     files <- getDirectoryContents "."
     project <-
@@ -48,7 +49,7 @@ keter cabal noBuild = do
     exec <-
         case Map.lookup "exec" value of
             Just (String s) -> return $ F.collapse $ "config" F.</> F.fromText s
-            _ -> error "exec not found in config/keter.yaml"
+            _ -> error $ "exec not found in " ++ ketercfg
 
     unless noBuild $ do
         run cabal ["clean"]
@@ -67,6 +68,12 @@ keter cabal noBuild = do
                 Just i -> run "scp" ["-P" ++ show (i :: Int), fp, T.unpack s]
                 Nothing -> run "scp" [fp, T.unpack s]
         _ -> return ()
+  where
+    -- Test for alternative config file extension (yaml or yml).
+    keterConfig = do
+        let yml = "config/keter.yml"
+        ymlExists <- doesFileExist yml
+        return $ if ymlExists then yml else "config/keter.yaml"
 
 try' :: IO a -> IO (Either SomeException a)
 try' = try
