@@ -416,7 +416,7 @@ checkCabalFile gpd = case D.condLibrary gpd of
            unless (null unlisted) $ do
                 putStrLn "WARNING: the following source files are not listed in exposed-modules or other-modules:"
                 mapM_ putStrLn unlisted
-           when (D.fromString "Application" `notElem` D.exposedModules dLib) $
+           when ("Application" `notElem` (map (last . D.components) $ D.exposedModules dLib)) $
                 putStrLn "WARNING: no exposed module Application"
            return (hsSourceDirs, dLib)
 
