@@ -388,7 +388,7 @@ watchForChanges filesModified hsSourceDirs extraFiles list t = do
                 Map.differenceWith compareTimes newList list `Map.union`
                 Map.differenceWith compareTimes list newList
         return (haskellFileChanged, newList)
-      else timeout (10000000*t) (takeMVar filesModified) >>
+      else timeout (1000000*t) (takeMVar filesModified) >>
            watchForChanges filesModified hsSourceDirs extraFiles list t
   where
     compareTimes x y
@@ -416,7 +416,7 @@ checkCabalFile gpd = case D.condLibrary gpd of
            unless (null unlisted) $ do
                 putStrLn "WARNING: the following source files are not listed in exposed-modules or other-modules:"
                 mapM_ putStrLn unlisted
-           when (D.fromString "Application" `notElem` D.exposedModules dLib) $
+           when ("Application" `notElem` (map (last . D.components) $ D.exposedModules dLib)) $
                 putStrLn "WARNING: no exposed module Application"
            return (hsSourceDirs, dLib)
 
