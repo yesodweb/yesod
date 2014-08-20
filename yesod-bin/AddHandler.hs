@@ -22,20 +22,28 @@ addHandler = do
             [] -> error "No cabal file found"
             _ -> error "Too many cabal files found"
 
-    putStr "Name of route (without trailing R): "
-    hFlush stdout
-    name <- getLine
-    case name of
-        [] -> error "Please provide a name"
-        c:_
-            | isLower c -> error "Name must start with an upper case letter"
-            | otherwise -> return ()
+    let routeInput = do
+        putStr "Name of route (without trailing R): "
+        hFlush stdout
+        name <- getLine
+        case name of
+            [] -> error "No name entered. Quitting ..."
+            c:_
+                | isLower c -> do
+                    putStrLn "Name must start with an upper case letter"
+                    routeInput
+                | otherwise -> do
+                    -- Check that the handler file doesn't already exist
+                    let handlerFile = concat ["Handler/", name, ".hs"]
+                    exists <- doesFileExist handlerFile
+                    if exists
+                        then do
+                            putStrLn $ "File already exists: " ++ show handlerFile
+                            putStrLn "Try another name or leave blank to exit"
+                            routeInput
+                        else return (name, handlerFile)
 
-    -- Check that the handler file doesn't already exist
-    let handlerFile = concat ["Handler/", name, ".hs"]
-    exists <- doesFileExist handlerFile
-    when exists $ error $ "File already exists: " ++ show handlerFile
-
+    (name, handlerFile) <- routeInput
     putStr "Enter route pattern (ex: /entry/#EntryId): "
     hFlush stdout
     pattern <- getLine
