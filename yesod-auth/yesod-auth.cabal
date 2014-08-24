@@ -48,7 +48,7 @@ library
                    , persistent              >= 1.2       && < 1.4
                    , persistent-template     >= 1.2       && < 1.4
                    , http-conduit            >= 1.5
-                   , aeson                   >= 0.5
+                   , aeson                   >= 0.7
                    , lifted-base             >= 0.1
                    , blaze-html              >= 0.5
                    , blaze-markup            >= 0.5.1
