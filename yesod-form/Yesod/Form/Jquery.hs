@@ -7,6 +7,7 @@ module Yesod.Form.Jquery
     ( YesodJquery (..)
     , jqueryDayField
     , jqueryAutocompleteField
+    , jqueryAutocompleteField'
     , googleHostedJqueryUiCss
     , JqueryDaySettings (..)
     , Default (..)
@@ -98,7 +99,13 @@ $(function(){
 
 jqueryAutocompleteField :: (RenderMessage site FormMessage, YesodJquery site)
                         => Route site -> Field (HandlerT site IO) Text
-jqueryAutocompleteField src = Field
+jqueryAutocompleteField = jqueryAutocompleteField' 2
+
+jqueryAutocompleteField' :: (RenderMessage site FormMessage, YesodJquery site)
+                         => Int -- ^ autocomplete minimum length
+                         -> Route site
+                         -> Field (HandlerT site IO) Text
+jqueryAutocompleteField' minLen src = Field
     { fieldParse = parseHelper $ Right
     , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
@@ -109,7 +116,7 @@ $newline never
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
         toWidget [julius|
-$(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:2})});
+$(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:#{toJSON minLen}})});
 |]
     , fieldEnctype = UrlEncoded
     }

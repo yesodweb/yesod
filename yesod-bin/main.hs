@@ -152,6 +152,9 @@ optParser = Options
 keterOptions :: Parser Command
 keterOptions = Keter <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebuilding" )
 
+defaultRescan :: Int
+defaultRescan = 10
+
 develOptions :: Parser Command
 develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Disable fast GHC API rebuilding")
@@ -159,8 +162,10 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Run COMMAND after rebuild succeeds")
                      <*> optStr ( long "failure-hook" <> short 'f' <> metavar "COMMAND"
                             <> help "Run COMMAND when rebuild fails")
-                     <*> option ( long "event-timeout" <> short 't' <> value 1 <> metavar "N"
-                            <> help "Force rescan of files every N seconds" )
+                     <*> option ( long "event-timeout" <> short 't' <> value defaultRescan <> metavar "N"
+                            <> help ("Force rescan of files every N seconds (default "
+                                     ++ show defaultRescan
+                                     ++ ", use -1 to rely on FSNotify alone)") )
                      <*> optStr ( long "builddir" <> short 'b'
                             <> help "Set custom cabal build directory, default `dist'")
                      <*> many ( strOption ( long "ignore" <> short 'i' <> metavar "DIR"

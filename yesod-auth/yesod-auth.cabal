@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.3.1.1
+version:         1.3.4.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -19,6 +19,10 @@ description:
    .
    * <https://github.com/ollieh/yesod-auth-bcrypt/>: An alternative to the HashDB module.
 extra-source-files: persona_sign_in_blue.png
+
+flag network-uri
+  description: Get Network.URI from the network-uri package
+  default: True
 
 library
     build-depends:   base                    >= 4         && < 5
@@ -44,11 +48,10 @@ library
                    , persistent              >= 1.2       && < 2.1
                    , persistent-template     >= 1.2       && < 2.1
                    , http-conduit            >= 1.5
-                   , aeson                   >= 0.5
+                   , aeson                   >= 0.7
                    , lifted-base             >= 0.1
                    , blaze-html              >= 0.5
                    , blaze-markup            >= 0.5.1
-                   , network
                    , http-types
                    , file-embed
                    , email-validate          >= 1.0
@@ -64,6 +67,11 @@ library
                    , conduit
                    , conduit-extra
                    , attoparsec-conduit
+
+    if flag(network-uri)
+      build-depends: network-uri >= 2.6
+    else
+      build-depends: network < 2.6
 
     exposed-modules: Yesod.Auth
                      Yesod.Auth.BrowserId

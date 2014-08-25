@@ -430,6 +430,8 @@ renderBootstrap = renderBootstrap2
 -- >      ^{formWidget}
 -- >      <div .form-actions>
 -- >        <input .btn .primary type=submit value=_{MsgSubmit}>
+--
+-- Since 1.3.14
 renderBootstrap2 :: Monad m => FormRender m a
 renderBootstrap2 aform fragment = do
     (res, views') <- aFormToForm aform
@@ -450,6 +452,10 @@ renderBootstrap2 aform fragment = do
                                 <span .help-block>#{err}
                 |]
     return (res, widget)
+
+-- | Deprecated synonym for 'renderBootstrap2'.
+renderBootstrap :: Monad m => FormRender m a
+renderBootstrap = renderBootstrap2
 {-# DEPRECATED renderBootstrap "Please use the Yesod.Form.Bootstrap3 module." #-}
 
 check :: (Monad m, RenderMessage (HandlerSite m) msg)

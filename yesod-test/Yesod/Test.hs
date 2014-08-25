@@ -28,7 +28,9 @@ module Yesod.Test
       yesodSpec
     , YesodSpec
     , yesodSpecWithSiteGenerator
+    , yesodSpecApp
     , YesodExample
+    , YesodExampleData(..)
     , YesodSpecTree (..)
     , ydescribe
     , yit
@@ -125,7 +127,7 @@ import Data.Time.Clock (getCurrentTime)
 
 -- | The state used in a single test case defined using 'yit'
 --
--- Since 1.2.0
+-- Since 1.2.4
 data YesodExampleData site = YesodExampleData
     { yedApp :: !Application
     , yedSite :: !site
@@ -187,7 +189,7 @@ data RequestPart
 
 -- | The RequestBuilder state monad constructs an url encoded string of arguments
 -- to send with your requests. Some of the functions that run on it use the current
--- response to analize the forms that the server is expecting to receive.
+-- response to analyze the forms that the server is expecting to receive.
 type RequestBuilder site = ST.StateT (RequestBuilderData site) IO
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
@@ -227,6 +229,27 @@ yesodSpecWithSiteGenerator getSiteAction yspecs =
       unYesod getSiteAction' (YesodSpecItem x y) = Core.it x $ do
         site <- getSiteAction'
         app <- toWaiAppPlain site
+        ST.evalStateT y YesodExampleData
+            { yedApp = app
+            , yedSite = site
+            , yedCookies = M.empty
+            , yedResponse = Nothing
+            }
+
+-- | Same as yesodSpec, but instead of taking a site it
+-- takes an action which produces the 'Application' for each test.
+-- This lets you use your middleware from makeApplication
+yesodSpecApp :: YesodDispatch site
+             => site
+             -> IO Application
+             -> YesodSpec site
+             -> Hspec.Spec
+yesodSpecApp site getApp yspecs =
+    Core.fromSpecList $ map unYesod $ execWriter yspecs
+  where
+    unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
+    unYesod (YesodSpecItem x y) = Core.it x $ do
+        app <- getApp
         ST.evalStateT y YesodExampleData
             { yedApp = app
             , yedSite = site

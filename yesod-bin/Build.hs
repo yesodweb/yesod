@@ -33,7 +33,8 @@ import qualified Data.Set as Set
 
 import qualified System.Posix.Types
 import           System.Directory
-import           System.FilePath (takeExtension, replaceExtension, (</>), takeDirectory)
+import           System.FilePath (takeExtension, replaceExtension, (</>), takeDirectory,
+                                    splitPath, joinPath)
 import           System.PosixCompat.Files (getFileStatus, setFileTimes,
                                              accessTime, modificationTime)
 
@@ -112,7 +113,7 @@ removeHi :: FilePath -> FilePath -> IO ()
 removeHi _ hs = mapM_ removeFile' hiFiles
     where
       removeFile' file = try' (removeFile file) >> return ()
-      hiFiles          = map (\e -> "dist/build" </> replaceExtension hs e)
+      hiFiles          = map (\e -> "dist/build" </> removeSrc (replaceExtension hs e))
                              ["hi", "p_hi"]
 
 -- | change file mtime of .hs file to that of the dependency
@@ -124,7 +125,12 @@ updateFileTime x hs = do
   return ()
 
 hiFile :: FilePath -> FilePath
-hiFile hs = "dist/build" </> replaceExtension hs "hi"
+hiFile hs = "dist/build" </> removeSrc (replaceExtension hs "hi")
+
+removeSrc :: FilePath -> FilePath
+removeSrc f = case splitPath f of
+    ("src/" : xs) -> joinPath xs
+    _ -> f
 
 try' :: IO x -> IO (Either SomeException x)
 try' = try

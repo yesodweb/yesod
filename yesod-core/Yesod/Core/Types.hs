@@ -68,6 +68,9 @@ import           Yesod.Routes.Class                 (RenderRoute (..), ParseRout
 import           Control.Monad.Reader               (MonadReader (..))
 import Prelude hiding (catch)
 import Control.DeepSeq (NFData (rnf))
+#if MIN_VERSION_conduit(1, 1, 0)
+import Data.Conduit.Lazy (MonadActive, monadActive)
+#endif
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -457,6 +460,13 @@ instance (Applicative m, MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResou
 instance MonadIO m => MonadLogger (WidgetT site m) where
     monadLoggerLog a b c d = WidgetT $ \hd ->
         liftIO $ fmap (, mempty) $ rheLog (handlerEnv hd) a b c (toLogStr d)
+
+#if MIN_VERSION_conduit(1, 1, 0)
+instance MonadActive m => MonadActive (WidgetT site m) where
+    monadActive = lift monadActive
+instance MonadActive m => MonadActive (HandlerT site m) where
+    monadActive = lift monadActive
+#endif
 
 instance MonadTrans (HandlerT site) where
     lift = HandlerT . const
