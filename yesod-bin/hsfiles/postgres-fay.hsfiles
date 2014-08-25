@@ -487,7 +487,7 @@ executable         PROJECTNAME
                      , PROJECTNAME
                      , yesod
 
-    ghc-options:       -threaded -O2
+    ghc-options:       -threaded -O2 -rtsopts -with-rtsopts=-N
 
 test-suite test
     type:              exitcode-stdio-1.0
