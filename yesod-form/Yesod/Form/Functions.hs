@@ -410,9 +410,6 @@ $forall view <- views
 |]
     return (res, widget)
 
-renderBootstrap :: Monad m => FormRender m a
-renderBootstrap = renderBootstrap2
-
 -- | Render a form using Bootstrap v2-friendly shamlet syntax.
 -- If you're using Bootstrap v3, then you should use the
 -- functions from module "Yesod.Form.Bootstrap3".
