@@ -75,7 +75,11 @@ import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
+#if MIN_VERSION_persistent(2, 0, 0)
+import Database.Persist (PersistEntityBackend)
+#else
 import Database.Persist (PersistMonadBackend, PersistEntityBackend)
+#endif
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
@@ -555,12 +559,21 @@ optionsPairs opts = do
 optionsEnum :: (MonadHandler m, Show a, Enum a, Bounded a) => m (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
+#if MIN_VERSION_persistent(2, 0, 0)
+optionsPersist :: ( YesodPersist site, PersistEntity a
+                  , PersistQuery (PersistEntityBackend a)
+                  , PathPiece (Key a)
+                  , RenderMessage site msg
+                  , YesodPersistBackend site ~ PersistEntityBackend a
+                  )
+#else
 optionsPersist :: ( YesodPersist site, PersistEntity a
                   , PersistQuery (YesodPersistBackend site (HandlerT site IO))
                   , PathPiece (Key a)
                   , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend site (HandlerT site IO))
                   , RenderMessage site msg
                   )
+#endif
                => [Filter a]
                -> [SelectOpt a]
                -> (a -> msg)
@@ -578,13 +591,24 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
 -- the entire @Entity@.
 --
 -- Since 1.3.2
+#if MIN_VERSION_persistent(2, 0, 0)
+optionsPersistKey
+  :: (YesodPersist site
+     , PersistEntity a
+     , PersistQuery (PersistEntityBackend a)
+     , PathPiece (Key a)
+     , RenderMessage site msg
+     , YesodPersistBackend site ~ PersistEntityBackend a
+     )
+#else
 optionsPersistKey
   :: (YesodPersist site
      , PersistEntity a
      , PersistQuery (YesodPersistBackend site (HandlerT site IO))
      , PathPiece (Key a)
      , RenderMessage site msg
-     , PersistEntityBackend a ~ PersistMonadBackend (YesodPersistBackend site (HandlerT site IO)))
+     , PersistEntityBackend a ~ PersistMonadBackend (YesodDB site))
+#endif
   => [Filter a]
   -> [SelectOpt a]
   -> (a -> msg)

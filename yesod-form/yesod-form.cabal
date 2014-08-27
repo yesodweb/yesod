@@ -25,7 +25,7 @@ library
                    , shakespeare
                    , shakespeare-css       >= 1.0
                    , shakespeare-js        >= 1.0.2
-                   , persistent            >= 1.2      && < 1.4
+                   , persistent            >= 1.2      && < 2.1
                    , template-haskell
                    , transformers          >= 0.2.2
                    , data-default
