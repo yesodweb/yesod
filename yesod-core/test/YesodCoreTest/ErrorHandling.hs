@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
     , Widget
