@@ -477,6 +477,10 @@ type YesodAuthPersist master =
 --
 -- Since 1.2.0
 type AuthEntity master = KeyEntity (AuthId master)
+#if MIN_VERSION_persistent(2, 0, 0)
+type family KeyEntity key
+type instance KeyEntity (Key x) = x
+#endif
 
 -- | Similar to 'maybeAuthId', but redirects to a login page if user is not
 -- authenticated or responds with error 401 if this is an API client (expecting JSON).
