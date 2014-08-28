@@ -1,5 +1,5 @@
 name:            yesod-eventsource
-version:         1.1.1
+version:         1.1.1.1
 license:         MIT
 license-file:    LICENSE
 author:          Felipe Lessa <felipe.lessa@gmail.com>

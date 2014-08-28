@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies #-}
 {-# LANGUAGE EmptyDataDecls, FlexibleContexts, GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
 module Yesod.PersistSpec where
 
 import Test.Hspec
@@ -28,7 +29,11 @@ mkYesod "App" [parseRoutes|
 
 instance Yesod App
 instance YesodPersist App where
+#if MIN_VERSION_persistent(2, 0, 0)
     type YesodPersistBackend App = SqlBackend
+#else
+    type YesodPersistBackend App = SqlPersistT
+#endif
     runDB = defaultRunDB appConfig appPool
 instance YesodPersistRunner App where
     getDBRunner = defaultGetDBRunner appPool
