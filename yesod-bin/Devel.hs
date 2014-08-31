@@ -35,6 +35,9 @@ import qualified Data.List                             as L
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe)
 import qualified Data.Set                              as Set
+import qualified Data.Text                             as T
+
+import qualified Filesystem.Path.CurrentOS             as FP (toText)
 
 import           System.Directory
 import           System.Environment                    (getEnvironment)
@@ -220,13 +223,17 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     void $ forkIO $ do
       filesModified <- newEmptyMVar
       void $ forkIO $
-        void $ watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
+        void $ watchTree manager "." hsOnly (
+                \_ -> void $ tryPutMVar filesModified () )
       evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     after
     writeLock opts
     exitSuccess
   where
     bd = getBuildDir opts
+    hsOnly ev = case (FP.toText . eventPath) ev of
+                    Right fp -> isHaskell (T.unpack fp)
+                    Left _   -> False
 
     -- outer loop re-reads the cabal file
     mainOuterLoop iappPort filesModified = do
@@ -384,18 +391,21 @@ watchForChanges filesModified hsSourceDirs extraFiles list t = do
     newList <- getFileList hsSourceDirs extraFiles
     if list /= newList
       then do
-        let haskellFileChanged = not $ Map.null $ Map.filterWithKey isHaskell $
+        let haskellFileChanged = not $ Map.null $
+                -- following filtering not required as already done in watchTree
+                -- Map.filterWithKey (const . isHaskell) $
                 Map.differenceWith compareTimes newList list `Map.union`
                 Map.differenceWith compareTimes list newList
         return (haskellFileChanged, newList)
-      else timeout (1000000*t) (takeMVar filesModified) >>
+      else takeMVar filesModified >>
            watchForChanges filesModified hsSourceDirs extraFiles list t
   where
     compareTimes x y
         | x == y = Nothing
         | otherwise = Just x
 
-    isHaskell filename _ = takeExtension filename `elem` [".hs", ".lhs", ".hsc", ".cabal"]
+isHaskell :: FilePath -> Bool
+isHaskell filename = takeExtension filename `elem` [".hs", ".lhs", ".hsc", ".cabal"]
 
 checkDevelFile :: IO ()
 checkDevelFile = do
