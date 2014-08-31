@@ -205,7 +205,8 @@ unlessM :: Monad m => m Bool -> m () -> m ()
 unlessM c a = c >>= \res -> unless res a
 
 devel :: DevelOpts -> [String] -> IO ()
-devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
+devel opts passThroughArgs = withSocketsDo $
+    withManagerConf watchConfig $ \manager -> do
     unlessM (checkPort $ develPort opts) $ error "devel port unavailable"
     iappPort <- getPort opts 17834 >>= I.newIORef
     when (useReverseProxy opts) $ void $ forkIO $ reverseProxy opts iappPort
@@ -230,10 +231,15 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     writeLock opts
     exitSuccess
   where
-    bd = getBuildDir opts
-    hsOnly ev = case (FP.toText . eventPath) ev of
+    bd          = getBuildDir opts
+    hsOnly ev   = case (FP.toText . eventPath) ev of
                     Right fp -> isHaskell (T.unpack fp)
                     Left _   -> False
+    watchConfig = case opts of
+                    DevelOpts { eventTimeout = et }
+                        | et >= 0 -> defaultConfig { confPollInterval = 10^6 * et
+                                                   , confUsePolling   = True }
+                        | otherwise -> defaultConfig { confUsePolling = False }
 
     -- outer loop re-reads the cabal file
     mainOuterLoop iappPort filesModified = do
@@ -268,7 +274,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
            let devArgs = pkgArgs ++ ["devel.hs"]
            let loop list0 = do
                    (haskellFileChanged, list1) <- liftIO $
-                       watchForChanges filesModified hsSourceDirs [cabal] list0 (eventTimeout opts)
+                       watchForChanges filesModified hsSourceDirs [cabal] list0
                    anyTouched <- recompDeps hsSourceDirs
                    unless (anyTouched || haskellFileChanged) $ loop list1
            if not success
@@ -386,8 +392,8 @@ getFileList hsSourceDirs extraFiles = do
             Right fs -> (f, modificationTime fs)
 
 -- | Returns @True@ if a .hs file changed.
-watchForChanges :: MVar () -> [FilePath] -> [FilePath] -> FileList -> Int -> IO (Bool, FileList)
-watchForChanges filesModified hsSourceDirs extraFiles list t = do
+watchForChanges :: MVar () -> [FilePath] -> [FilePath] -> FileList -> IO (Bool, FileList)
+watchForChanges filesModified hsSourceDirs extraFiles list = do
     newList <- getFileList hsSourceDirs extraFiles
     if list /= newList
       then do
@@ -398,14 +404,16 @@ watchForChanges filesModified hsSourceDirs extraFiles list t = do
                 Map.differenceWith compareTimes list newList
         return (haskellFileChanged, newList)
       else takeMVar filesModified >>
-           watchForChanges filesModified hsSourceDirs extraFiles list t
+           watchForChanges filesModified hsSourceDirs extraFiles list
   where
     compareTimes x y
         | x == y = Nothing
         | otherwise = Just x
 
 isHaskell :: FilePath -> Bool
-isHaskell filename = takeExtension filename `elem` [".hs", ".lhs", ".hsc", ".cabal"]
+isHaskell filename = takeExtension filename `elem`
+                        [ ".hs", ".lhs", ".hsc", ".cabal", ".hamlet", ".lucius"
+                        , ".julius", ".cassius"]
 
 checkDevelFile :: IO ()
 checkDevelFile = do
