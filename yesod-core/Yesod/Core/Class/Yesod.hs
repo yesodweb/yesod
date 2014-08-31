@@ -94,7 +94,7 @@ class RenderRoute site => Yesod site where
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
-        giveUrlRenderer [hamlet|
+        withUrlRenderer [hamlet|
             $newline never
             $doctype 5
             <html>
