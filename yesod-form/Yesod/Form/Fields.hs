@@ -166,9 +166,9 @@ $newline never
 htmlField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Html
 htmlField = Field
     { fieldParse = parseHelper $ Right . preEscapedText . sanitizeBalance
-    , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
+    , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
-<textarea id="#{theId}" name="#{name}" *{attrs}>#{showVal val}
+<textarea :isReq:required="" id="#{theId}" name="#{name}" *{attrs}>#{showVal val}
 |]
     , fieldEnctype = UrlEncoded
     }
