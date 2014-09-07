@@ -51,11 +51,7 @@ executable             yesod
                      , ghc-paths          >= 0.1
                      , parsec             >= 2.1          && < 4
                      , text               >= 0.11
-                     , shakespeare
-                     , shakespeare-text   >= 1.0
-                     , shakespeare        >= 1.0.2        && < 2.1
-                     , shakespeare-js     >= 1.0.2
-                     , shakespeare-css    >= 1.0.2
+                     , shakespeare        >= 2.0
                      , bytestring         >= 0.9.1.4
                      , time               >= 1.1.4
                      , template-haskell
@@ -78,7 +74,7 @@ executable             yesod
                      , fsnotify           >= 0.0          && < 0.2
                      , split              >= 0.2          && < 0.3
                      , file-embed
-                     , conduit            >= 0.5          && < 1.3
+                     , conduit            >= 1.2
                      , conduit-extra
                      , resourcet          >= 0.3          && < 1.2
                      , base64-bytestring
@@ -86,7 +82,6 @@ executable             yesod
                      , http-reverse-proxy >= 0.1.1
                      , network
                      , http-conduit
-                     , network-conduit
                      , project-template   >= 0.1.1
                      , transformers
                      , warp               >= 1.3.7.5

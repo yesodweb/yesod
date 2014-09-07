@@ -30,16 +30,12 @@ library
                    , transformers              >= 0.2.2
                    , wai                       >= 1.3
                    , wai-extra                 >= 1.3
-                   , hamlet                    >= 1.1
-                   , shakespeare-js            >= 1.0.2
-                   , shakespeare-css           >= 1.0
                    , warp                      >= 1.3
                    , blaze-html                >= 0.5
                    , blaze-markup              >= 0.5.1
                    , aeson
                    , safe
                    , data-default
-                   , network-conduit
                    , unordered-containers
                    , yaml
                    , text
