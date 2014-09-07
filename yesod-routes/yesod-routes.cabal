@@ -24,8 +24,7 @@ library
                    , bytestring
                    , random
 
-    exposed-modules: Yesod.Routes.Dispatch
-                     Yesod.Routes.TH
+    exposed-modules: Yesod.Routes.TH
                      Yesod.Routes.Class
                      Yesod.Routes.Parse
                      Yesod.Routes.Overlap

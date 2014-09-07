@@ -6,16 +6,17 @@ module Yesod.Routes.TH.ParseRoute
 
 import Yesod.Routes.TH.Types
 import Language.Haskell.TH.Syntax
-import Data.Text (pack)
+import Data.Text (Text, pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
-import qualified Yesod.Routes.Dispatch as D
+import Yesod.Routes.TH.Dispatch
 import Data.List (foldl')
 import Control.Applicative ((<$>))
 import Data.Maybe (catMaybes)
 import Control.Monad (forM)
 import Control.Monad (join)
 
+{- FIXME
 -- | Clauses for the 'parseRoute' method.
 mkParseRouteClauses :: [ResourceTree a] -> Q [Clause]
 mkParseRouteClauses ress' = do
@@ -46,13 +47,31 @@ mkParseRouteClauses ress' = do
     noMethods (FlatResource a b c d e) = FlatResource a b c (noMethods' d) e
     noMethods' (Methods a _) = Methods a []
     noMethods' (Subsite a b) = Subsite a b
+-}
 
 mkParseRouteInstance :: Type -> [ResourceTree a] -> Q Dec
 mkParseRouteInstance typ ress = do
-    cls <- mkParseRouteClauses ress
+    cls <- mkDispatchClause
+        MkDispatchSettings
+            { mdsRunHandler = [|\_ _ x _ -> x|]
+            , mds404 = [|error "mds404"|]
+            , mds405 = [|error "mds405"|]
+            , mdsGetPathInfo = [|fst|]
+            , mdsMethod = [|const ("GET" :: Text)|] -- FIXME wouldn't it be nice to get rid of method dispatching here
+            , mdsGetHandler = \_ _ -> [|error "mdsGetHandler"|]
+            , mdsSetPathInfo = [|\p (_, q) -> (p, q)|]
+            , mdsSubDispatcher = [|\_runHandler _getSub toMaster _env (p, q) -> fmap toMaster (parseRoute (p :: [Text], q :: [(Text, Text)]))|]
+            }
+        ress
+    helper <- newName "helper"
+    fixer <- [|(\f x -> f () x) :: (() -> ([Text], [(Text, Text)]) -> Maybe (Route a)) -> ([Text], [(Text, Text)]) -> Maybe (Route a)|]
     return $ InstanceD [] (ConT ''ParseRoute `AppT` typ)
-        [ FunD 'parseRoute cls
+        [ FunD 'parseRoute $ return $ Clause
+            []
+            (NormalB $ fixer `AppE` VarE helper)
+            [FunD helper [cls]]
         ]
+        {- FIXME
 
 -- | Build a single 'D.Route' expression.
 buildRoute :: Name -> FlatResource a -> Q Exp
@@ -176,3 +195,4 @@ routeFromDynamics ((parent, pieces):rest) name ys =
     isDynamic Dynamic{} = True
     isDynamic _ = False
     here = map VarE here' ++ [routeFromDynamics rest name ys']
+-}
