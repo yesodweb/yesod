@@ -26,9 +26,6 @@ import Language.Haskell.TH.Syntax
 import Hierarchy
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Set as Set
-#if SIMPLE_DISPATCH
-import Yesod.Routes.TH.Simple
-#endif
 
 result :: ([Text] -> Maybe Int) -> Dispatch Int
 result f ts = f ts
@@ -130,11 +127,7 @@ do
     rrinst <- mkRenderRouteInstance (ConT ''MyApp) ress
     rainst <- mkRouteAttrsInstance (ConT ''MyApp) ress
     prinst <- mkParseRouteInstance (ConT ''MyApp) ress
-#if SIMPLE_DISPATCH
-    dispatch <- mkSimpleDispatchClause MkDispatchSettings
-#else
     dispatch <- mkDispatchClause MkDispatchSettings
-#endif
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch dispatcher|]
         , mdsGetPathInfo = [|fst|]

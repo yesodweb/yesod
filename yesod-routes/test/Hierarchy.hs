@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -29,9 +28,6 @@ import qualified Yesod.Routes.Class as YRC
 import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
-#if SIMPLE_DISPATCH
-import Yesod.Routes.TH.Simple
-#endif
 import qualified Data.Set as Set
 
 class ToText a where
@@ -115,11 +111,7 @@ do
     rrinst <- mkRenderRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     rainst <- mkRouteAttrsInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
     prinst <- mkParseRouteInstance (ConT ''Hierarchy) $ map (fmap parseType) resources
-#if SIMPLE_DISPATCH
-    dispatch <- mkSimpleDispatchClause MkDispatchSettings
-#else
     dispatch <- mkDispatchClause MkDispatchSettings
-#endif
         { mdsRunHandler = [|runHandler|]
         , mdsSubDispatcher = [|subDispatch|]
         , mdsGetPathInfo = [|fst|]

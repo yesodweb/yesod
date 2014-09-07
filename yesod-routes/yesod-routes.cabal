@@ -26,7 +26,6 @@ library
 
     exposed-modules: Yesod.Routes.Dispatch
                      Yesod.Routes.TH
-                     Yesod.Routes.TH.Simple
                      Yesod.Routes.Class
                      Yesod.Routes.Parse
                      Yesod.Routes.Overlap
