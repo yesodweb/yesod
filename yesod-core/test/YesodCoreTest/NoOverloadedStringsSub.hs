@@ -1,6 +1,10 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings #-} -- hah, the test should be renamed...
+-- Not actually a problem, we're now requiring overloaded strings, we just need
+-- to make the docs more explicit about it.
 module YesodCoreTest.NoOverloadedStringsSub where
 
 import Yesod.Core

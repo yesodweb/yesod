@@ -7,7 +7,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -ddump-splices #-}
 module Hierarchy
     ( hierarchy
     , Dispatcher (..)
@@ -25,7 +24,6 @@ import Yesod.Routes.Parse
 import Yesod.Routes.TH
 import Yesod.Routes.Class
 import Language.Haskell.TH.Syntax
-import qualified Yesod.Routes.Class as YRC
 import Data.Text (Text, pack, unpack, append)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
@@ -41,18 +39,18 @@ type Handler2 sub master a = a
 type Handler site a = Handler2 site site a
 
 type Request = ([Text], ByteString) -- path info, method
-type App sub master = Request -> (Text, Maybe (YRC.Route master))
+type App sub master = Request -> (Text, Maybe (Route master))
 data Env sub master = Env
-    { envToMaster :: YRC.Route sub -> YRC.Route master
+    { envToMaster :: Route sub -> Route master
     , envSub :: sub
     , envMaster :: master
     }
 
 subDispatch
     :: (Env sub master -> App sub master)
-    -> (Handler2 sub master Text -> Env sub master -> Maybe (YRC.Route sub) -> App sub master)
+    -> (Handler2 sub master Text -> Env sub master -> Maybe (Route sub) -> App sub master)
     -> (master -> sub)
-    -> (YRC.Route sub -> YRC.Route master)
+    -> (Route sub -> Route master)
     -> Env master master
     -> App sub master
 subDispatch handler _runHandler getSub toMaster env req =

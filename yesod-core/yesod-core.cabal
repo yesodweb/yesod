@@ -25,7 +25,6 @@ extra-source-files:
 library
     build-depends:   base                  >= 4.3      && < 5
                    , time                  >= 1.1.4
-                   , yesod-routes          >= 1.2.1    && < 1.3
                    , wai                   >= 1.4
                    , wai-extra             >= 1.3
                    , bytestring            >= 0.9.1.4
@@ -91,6 +90,17 @@ library
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs
                      Paths_yesod_core
+
+                     Yesod.Routes.TH
+                     Yesod.Routes.Class
+                     Yesod.Routes.Parse
+                     Yesod.Routes.Overlap
+                     Yesod.Routes.TH.Dispatch
+                     Yesod.Routes.TH.RenderRoute
+                     Yesod.Routes.TH.ParseRoute
+                     Yesod.Routes.TH.RouteAttrs
+                     Yesod.Routes.TH.Types
+
     ghc-options:     -Wall
     -- Following line added due to: https://github.com/yesodweb/yesod/issues/545
     -- This looks like a GHC bug
@@ -98,6 +108,24 @@ library
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     extensions:      TemplateHaskell
+
+test-suite test-routes
+    type: exitcode-stdio-1.0
+    main-is: RouteSpec.hs
+    hs-source-dirs: test, .
+
+    -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
+    extensions:      TemplateHaskell
+
+    build-depends: base
+                 , hspec
+                 , containers
+                 , bytestring
+                 , template-haskell
+                 , text
+                 , random
+                 , path-pieces
+                 , HUnit
 
 test-suite tests
     type: exitcode-stdio-1.0
