@@ -15,11 +15,7 @@ import           Options                (injectDefaults)
 import qualified Paths_yesod_bin
 import           Scaffolding.Scaffolder
 
-#if MIN_VERSION_optparse_applicative(0,6,0)
 import           Options.Applicative.Types (ReadM (ReadM))
-#else
-import           Options.Applicative.Builder.Internal (Mod, OptionFields)
-#endif
 
 import           HsFile                 (mkHsFile)
 #ifndef WINDOWS
@@ -155,12 +151,6 @@ keterOptions = Keter <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebu
 defaultRescan :: Int
 defaultRescan = 10
 
-#if MIN_VERSION_optparse_applicative(0,10,0)
-option' = option auto
-#else
-option' = option
-#endif
-
 develOptions :: Parser Command
 develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Disable fast GHC API rebuilding")
@@ -168,7 +158,7 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Run COMMAND after rebuild succeeds")
                      <*> optStr ( long "failure-hook" <> short 'f' <> metavar "COMMAND"
                             <> help "Run COMMAND when rebuild fails")
-                     <*> option' ( long "event-timeout" <> short 't' <> value defaultRescan <> metavar "N"
+                     <*> option auto ( long "event-timeout" <> short 't' <> value defaultRescan <> metavar "N"
                             <> help ("Force rescan of files every N seconds (default "
                                      ++ show defaultRescan
                                      ++ ", use -1 to rely on FSNotify alone)") )
@@ -178,9 +168,9 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                                    <> help "ignore file changes in DIR" )
                               )
                      <*> extraCabalArgs
-                     <*> option' ( long "port" <> short 'p' <> value 3000 <> metavar "N"
+                     <*> option auto ( long "port" <> short 'p' <> value 3000 <> metavar "N"
                             <> help "Devel server listening port" )
-                     <*> option' ( long "proxy-timeout" <> short 'x' <> value 0 <> metavar "N"
+                     <*> option auto ( long "proxy-timeout" <> short 'x' <> value 0 <> metavar "N"
                             <> help "Devel server timeout before returning 'not ready' message (in seconds, 0 for none)" )
                      <*> switch ( long "disable-reverse-proxy" <> short 'n'
                             <> help "Disable reverse proxy" )
@@ -195,17 +185,9 @@ extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metava
 -- | Optional @String@ argument
 optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
 optStr m =
-#if MIN_VERSION_optparse_applicative(0,10,0)
     nullOption (success . str) $ value Nothing <> m
-#else
-    nullOption $ value Nothing <> reader (success . str)  <> m
-#endif
   where
-#if MIN_VERSION_optparse_applicative(0,6,0)
     success = ReadM . Right
-#else
-    success = Right
-#endif
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
 rawSystem' :: String -> [String] -> IO ()

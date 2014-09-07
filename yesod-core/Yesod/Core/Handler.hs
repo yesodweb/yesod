@@ -92,12 +92,8 @@ module Yesod.Core.Handler
     , sendResponseCreated
     , sendWaiResponse
     , sendWaiApplication
-#if MIN_VERSION_wai(2, 1, 0)
     , sendRawResponse
-#endif
-#if MIN_VERSION_wai(3, 0, 0)
     , sendRawResponseNoConduit
-#endif
       -- * Different representations
       -- $representations
     , selectRep
@@ -206,21 +202,11 @@ import Data.CaseInsensitive (CI)
 import qualified Data.Conduit.List as CL
 import Control.Monad (unless)
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO
-#if MIN_VERSION_wai(2, 0, 0)
-#else
-              , ResourceT
-#endif
               )
-#if MIN_VERSION_wai(2, 0, 0)
 import qualified System.PosixCompat.Files as PC
-#endif
-#if MIN_VERSION_wai(2, 1, 0)
 import Control.Monad.Trans.Control (control, MonadBaseControl)
-#endif
 import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
-#if MIN_VERSION_wai(2, 1, 0)
                     , Sink
-#endif
                    )
 
 get :: MonadHandler m => m GHState
@@ -257,41 +243,22 @@ runRequestBody = do
         Just rbc -> return rbc
         Nothing -> do
             rr <- waiRequest
-#if MIN_VERSION_wai_extra(2, 0, 1)
             internalState <- liftResourceT getInternalState
             rbc <- liftIO $ rbHelper upload rr internalState
-#elif MIN_VERSION_wai(2, 0, 0)
-            rbc <- liftIO $ rbHelper upload rr
-#else
-            rbc <- liftResourceT $ rbHelper upload rr
-#endif
             put x { ghsRBC = Just rbc }
             return rbc
 
-#if MIN_VERSION_wai(2, 0, 0)
 rbHelper :: FileUpload -> W.Request -> InternalState -> IO RequestBodyContents
 rbHelper upload req internalState =
-#else
-rbHelper :: FileUpload -> W.Request -> ResourceT IO RequestBodyContents
-rbHelper upload req =
-#endif
     case upload of
         FileUploadMemory s -> rbHelper' s mkFileInfoLBS req
-#if MIN_VERSION_wai_extra(2, 0, 1)
         FileUploadDisk s -> rbHelper' (s internalState) mkFileInfoFile req
-#else
-        FileUploadDisk s -> rbHelper' s mkFileInfoFile req
-#endif
         FileUploadSource s -> rbHelper' s mkFileInfoSource req
 
 rbHelper' :: NWP.BackEnd x
           -> (Text -> Text -> x -> FileInfo)
           -> W.Request
-#if MIN_VERSION_wai(2, 0, 0)
           -> IO ([(Text, Text)], [(Text, FileInfo)])
-#else
-          -> ResourceT IO ([(Text, Text)], [(Text, FileInfo)])
-#endif
 rbHelper' backend mkFI req =
     (map fix1 *** mapMaybe fix2) <$> (NWP.parseRequestBody backend req)
   where
@@ -375,11 +342,7 @@ handlerToIO =
           where
             oldReq    = handlerRequest oldHandlerData
             oldWaiReq = reqWaiRequest oldReq
-#if MIN_VERSION_wai(3, 0, 0)
             newWaiReq = oldWaiReq { W.requestBody = return mempty
-#else
-            newWaiReq = oldWaiReq { W.requestBody = mempty
-#endif
                                   , W.requestBodyLength = W.KnownLength 0
                                   }
         oldEnv = handlerEnv oldHandlerData
@@ -551,16 +514,12 @@ sendFilePart :: MonadHandler m
              -> Integer -- ^ count
              -> m a
 sendFilePart ct fp off count = do
-#if MIN_VERSION_wai(2, 0, 0)
     fs <- liftIO $ PC.getFileStatus fp
     handlerError $ HCSendFile ct fp $ Just W.FilePart
         { W.filePartOffset = off
         , W.filePartByteCount = count
         , W.filePartFileSize = fromIntegral $ PC.fileSize fs
         }
-#else
-    handlerError $ HCSendFile ct fp $ Just $ W.FilePart off count
-#endif
 
 -- | Bypass remaining handler code and output the given content with a 200
 -- status code.
@@ -593,7 +552,6 @@ sendWaiResponse = handlerError . HCWai
 sendWaiApplication :: MonadHandler m => W.Application -> m b
 sendWaiApplication = handlerError . HCWaiApp
 
-#if MIN_VERSION_wai(3, 0, 0)
 -- | Send a raw response without conduit. This is used for cases such as
 -- WebSockets. Requires WAI 3.0 or later, and a web server which supports raw
 -- responses (e.g., Warp).
@@ -609,9 +567,7 @@ sendRawResponseNoConduit raw = control $ \runInIO ->
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
         "sendRawResponse: backend does not support raw responses"
-#endif
 
-#if MIN_VERSION_wai(2, 1, 0)
 -- | Send a raw response. This is used for cases such as WebSockets. Requires
 -- WAI 2.1 or later, and a web server which supports raw responses (e.g.,
 -- Warp).
@@ -620,7 +576,6 @@ sendRawResponseNoConduit raw = control $ \runInIO ->
 sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
                 => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
                 -> m a
-#if MIN_VERSION_wai(3, 0, 0)
 sendRawResponse raw = control $ \runInIO ->
     runInIO $ sendWaiResponse $ flip W.responseRaw fallback
     $ \src sink -> runInIO (raw (src' src) (CL.mapM_ sink)) >> return ()
@@ -632,15 +587,6 @@ sendRawResponse raw = control $ \runInIO ->
         unless (S.null bs) $ do
             yield bs
             src' src
-#else
-sendRawResponse raw = control $ \runInIO ->
-    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
-    $ \src sink -> runInIO (raw src sink) >> return ()
-  where
-    fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
-        "sendRawResponse: backend does not support raw responses"
-#endif
-#endif
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: MonadHandler m => m a
@@ -1126,22 +1072,12 @@ provideRepType ct handler =
 rawRequestBody :: MonadHandler m => Source m S.ByteString
 rawRequestBody = do
     req <- lift waiRequest
-#if MIN_VERSION_wai(3, 0, 0)
     let loop = do
             bs <- liftIO $ W.requestBody req
             unless (S.null bs) $ do
                 yield bs
                 loop
     loop
-#else
-    transPipe
-#if MIN_VERSION_wai(2, 0, 0)
-        liftIO
-#else
-        liftResourceT
-#endif
-        (W.requestBody req)
-#endif
 
 -- | Stream the data from the file. Since Yesod 1.2, this has been generalized
 -- to work in any @MonadResource@.

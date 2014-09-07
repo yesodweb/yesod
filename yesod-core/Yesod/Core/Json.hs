@@ -95,11 +95,7 @@ provideJson = provideRep . return . J.toJSON
 -- /Since: 0.3.0/
 parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = do
-#if MIN_VERSION_resourcet(1,1,0)
     eValue <- rawRequestBody $$ runCatchC (sinkParser JP.value')
-#else
-    eValue <- runExceptionT $ rawRequestBody $$ sinkParser JP.value'
-#endif
     return $ case eValue of
         Left e -> J.Error $ show e
         Right value -> J.fromJSON value

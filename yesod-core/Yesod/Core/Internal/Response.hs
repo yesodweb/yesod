@@ -13,13 +13,11 @@ import qualified Data.ByteString.Char8        as S8
 import           Data.CaseInsensitive         (CI)
 import qualified Data.CaseInsensitive         as CI
 import           Network.Wai
-#if MIN_VERSION_wai(2, 0, 0)
 import           Data.Conduit                 (transPipe)
 import           Control.Monad.Trans.Resource (runInternalState, getInternalState, runResourceT, InternalState, closeInternalState)
 import           Control.Monad.Trans.Class    (lift)
 import           Network.Wai.Internal
 import           Control.Exception            (finally)
-#endif
 import           Prelude                      hiding (catch)
 import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Core.Content
@@ -36,7 +34,6 @@ import           Data.Text.Encoding           (encodeUtf8)
 import           Data.Conduit                 (Flush (..), ($$))
 import qualified Data.Conduit.List            as CL
 
-#if MIN_VERSION_wai(3, 0, 0)
 yarToResponse :: YesodResponse
               -> (SessionMap -> IO [Header]) -- ^ save session
               -> YesodRequest
@@ -76,82 +73,6 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req is sendResponse 
     s
         | s' == defaultStatus = H.status200
         | otherwise = s'
-
-#else
-yarToResponse :: YesodResponse
-              -> (SessionMap -> IO [Header]) -- ^ save session
-              -> YesodRequest
-              -> Request
-#if MIN_VERSION_wai(2, 0, 0)
-              -> InternalState
-#endif
-              -> IO Response
-#if MIN_VERSION_wai(2, 0, 0)
-yarToResponse (YRWaiApp app) _ _ req _ = app req
-yarToResponse (YRWai a) _ _ _ is =
-    case a of
-        ResponseSource s hs w -> return $ ResponseSource s hs $ \f ->
-            w f `finally` closeInternalState is
-        ResponseBuilder{} -> do
-            closeInternalState is
-            return a
-        ResponseFile{} -> do
-            closeInternalState is
-            return a
-#if MIN_VERSION_wai(2, 1, 0)
-        -- Ignore the fallback provided, in case it refers to a ResourceT state
-        -- in a ResponseSource.
-        ResponseRaw raw _ -> return $ ResponseRaw
-            (\f -> raw f `finally` closeInternalState is)
-            (responseLBS H.status500 [("Content-Type", "text/plain")]
-                "yarToResponse: backend does not support raw responses")
-#endif
-#else
-yarToResponse (YRWai a) _ _ _ = return a
-#endif
-yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req
-#if MIN_VERSION_wai(2, 0, 0)
-  is
-#endif
-  = do
-    extraHeaders <- do
-        let nsToken = maybe
-                newSess
-                (\n -> Map.insert tokenKey (encodeUtf8 n) newSess)
-                (reqToken yreq)
-        sessionHeaders <- saveSession nsToken
-        return $ ("Content-Type", ct) : map headerToPair sessionHeaders
-    let finalHeaders = extraHeaders ++ map headerToPair hs
-        finalHeaders' len = ("Content-Length", S8.pack $ show len)
-                          : finalHeaders
-
-#if MIN_VERSION_wai(2, 0, 0)
-    let go (ContentBuilder b mlen) = do
-            let hs' = maybe finalHeaders finalHeaders' mlen
-            closeInternalState is
-            return $ ResponseBuilder s hs' b
-        go (ContentFile fp p) = do
-            closeInternalState is
-            return $ ResponseFile s finalHeaders fp p
-        go (ContentSource body) = return $ ResponseSource s finalHeaders $ \f ->
-            f (transPipe (flip runInternalState is) body) `finally`
-            closeInternalState is
-        go (ContentDontEvaluate c') = go c'
-    go c
-#else
-    let go (ContentBuilder b mlen) =
-            let hs' = maybe finalHeaders finalHeaders' mlen
-             in ResponseBuilder s hs' b
-        go (ContentFile fp p) = ResponseFile s finalHeaders fp p
-        go (ContentSource body) = ResponseSource s finalHeaders body
-        go (ContentDontEvaluate c') = go c'
-    return $ go c
-#endif
-  where
-    s
-        | s' == defaultStatus = H.status200
-        | otherwise = s'
-#endif
 
 -- | Indicates that the user provided no specific status code to be used, and
 -- therefore the default status code should be used. For normal responses, this

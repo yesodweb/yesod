@@ -92,13 +92,8 @@ toWaiAppYre yre req =
   where
     site = yreSite yre
     sendRedirect :: Yesod master => master -> [Text] -> W.Application
-#if MIN_VERSION_wai(3, 0, 0)
     sendRedirect y segments' env sendResponse =
          sendResponse $ W.responseLBS status301
-#else
-    sendRedirect y segments' env =
-         return $ W.responseLBS status301
-#endif
                 [ ("Content-Type", "text/plain")
                 , ("Location", Blaze.ByteString.Builder.toByteString dest')
                 ] "Redirecting"
@@ -180,12 +175,7 @@ warp port site = do
                     (toLogStr $ "Exception from Warp: " ++ show e)
             }
   where
-    shouldLog' =
-#if MIN_VERSION_warp(2,1,3)
-        Network.Wai.Handler.Warp.defaultShouldDisplayException
-#else
-        const True
-#endif
+    shouldLog' = Network.Wai.Handler.Warp.defaultShouldDisplayException
 
 -- | A default set of middlewares.
 --
@@ -193,11 +183,7 @@ warp port site = do
 mkDefaultMiddlewares :: Logger -> IO W.Middleware
 mkDefaultMiddlewares logger = do
     logWare <- mkRequestLogger def
-#if MIN_VERSION_fast_logger(2, 0, 0)
         { destination = Network.Wai.Middleware.RequestLogger.Logger $ loggerSet logger
-#else
-        { destination = Logger logger
-#endif
         , outputFormat = Apache FromSocket
         }
     return $ logWare . defaultMiddlewaresNoLogging

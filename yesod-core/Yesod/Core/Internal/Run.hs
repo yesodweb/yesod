@@ -34,13 +34,8 @@ import           Data.Text.Encoding.Error     (lenientDecode)
 import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
-#if MIN_VERSION_wai(2, 0, 0)
 import           Network.Wai.Internal
-#endif
 import           Prelude                      hiding (catch)
-#if !MIN_VERSION_fast_logger(2, 0, 0)
-import           System.Log.FastLogger        (Logger)
-#endif
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           System.Random                (newStdGen)
 import           Yesod.Core.Content
@@ -220,22 +215,13 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , httpVersion    = H.http11
           , rawPathInfo    = "/runFakeHandler/pathInfo"
           , rawQueryString = ""
-#if MIN_VERSION_wai(2, 0, 0)
           , requestHeaderHost = Nothing
-#else
-          , serverName     = "runFakeHandler-serverName"
-          , serverPort     = 80
-#endif
           , requestHeaders = []
           , isSecure       = False
           , remoteHost     = error "runFakeHandler-remoteHost"
           , pathInfo       = ["runFakeHandler", "pathInfo"]
           , queryString    = []
-#if MIN_VERSION_wai(3, 0, 0)
           , requestBody    = return mempty
-#else
-          , requestBody    = mempty
-#endif
           , vault          = mempty
           , requestBodyLength = KnownLength 0
           }
@@ -258,13 +244,8 @@ yesodRunner :: (ToTypedContent res, Yesod site)
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application
-#if MIN_VERSION_wai(3, 0, 0)
 yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
   | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = sendResponse tooLargeResponse
-#else
-yesodRunner handler' YesodRunnerEnv {..} route req
-  | Just maxLen <- mmaxLen, KnownLength len <- requestBodyLength req, maxLen < len = return tooLargeResponse
-#endif
   | otherwise = do
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
@@ -291,25 +272,11 @@ yesodRunner handler' YesodRunnerEnv {..} route req
         rhe = rheSafe
             { rheOnError = runHandler rheSafe . errorHandler
             }
-#if MIN_VERSION_wai(3, 0, 0)
 
     E.bracket createInternalState closeInternalState $ \is -> do
         yreq' <- yreq
         yar <- runInternalState (runHandler rhe handler yreq') is
         yarToResponse yar saveSession yreq' req is sendResponse
-
-#else
-
-#if MIN_VERSION_wai(2, 0, 0)
-    bracketOnError createInternalState closeInternalState $ \is -> do
-        yreq' <- yreq
-        yar <- runInternalState (runHandler rhe handler yreq') is
-        liftIO $ yarToResponse yar saveSession yreq' req is
-#else
-    yar <- runHandler rhe handler yreq
-    liftIO $ yarToResponse yar saveSession yreq req
-#endif
-#endif
   where
     mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'

@@ -33,11 +33,7 @@ instance ParseRoute Subsite where
     parseRoute (x, _) = Just $ SubsiteRoute x
 
 instance YesodSubDispatch Subsite master where
-#if MIN_VERSION_wai(3, 0, 0)
     yesodSubDispatch _ req f = f $ responseLBS
-#else
-    yesodSubDispatch _ req = return $ responseLBS
-#endif
         status200
         [ ("Content-Type", "SUBSITE")
         ] $ L8.pack $ show (pathInfo req)

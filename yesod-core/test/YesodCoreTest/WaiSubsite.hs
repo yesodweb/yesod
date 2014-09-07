@@ -6,11 +6,7 @@ import Yesod.Core
 import qualified Network.HTTP.Types as H
 
 myApp :: Application
-#if MIN_VERSION_wai(3, 0, 0)
 myApp _ f = f $ responseLBS H.status200 [("Content-type", "text/plain")] "WAI"
-#else
-myApp _ = return $ responseLBS H.status200 [("Content-type", "text/plain")] "WAI"
-#endif
 
 getApp :: a -> WaiSubsite
 getApp _ = WaiSubsite myApp

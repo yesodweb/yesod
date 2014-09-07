@@ -5,7 +5,6 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE CPP #-}
 module Yesod.Core.Types where
 
 import qualified Blaze.ByteString.Builder           as BBuilder
@@ -17,17 +16,12 @@ import           Control.Exception                  (Exception)
 import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.Catch                (MonadCatch (..))
-#if MIN_VERSION_exceptions(0,6,0)
 import           Control.Monad.Catch                (MonadMask (..))
-#endif
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
 import           Control.Monad.Trans.Control        (MonadBaseControl (..))
 import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), monadThrow, ResourceT)
-#if !MIN_VERSION_resourcet(1,1,0)
-import           Control.Monad.Trans.Resource       (MonadUnsafeIO (..))
-#endif
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, Source)
@@ -52,12 +46,8 @@ import           Network.Wai                        (FilePart,
                                                      RequestBodyLength)
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
-#if MIN_VERSION_fast_logger(2, 0, 0)
 import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
 import           Network.Wai.Logger                 (DateCacheGetter)
-#else
-import           System.Log.FastLogger              (LogStr, Logger, toLogStr)
-#endif
 import           Text.Blaze.Html                    (Html)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
@@ -68,9 +58,7 @@ import           Yesod.Routes.Class                 (RenderRoute (..), ParseRout
 import           Control.Monad.Reader               (MonadReader (..))
 import Prelude hiding (catch)
 import Control.DeepSeq (NFData (rnf))
-#if MIN_VERSION_conduit(1, 1, 0)
 import Data.Conduit.Lazy (MonadActive, monadActive)
-#endif
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -146,11 +134,7 @@ data FileInfo = FileInfo
     }
 
 data FileUpload = FileUploadMemory !(NWP.BackEnd L.ByteString)
-#if MIN_VERSION_wai_extra(2, 0, 1)
                 | FileUploadDisk !(InternalState -> NWP.BackEnd FilePath)
-#else
-                | FileUploadDisk !(NWP.BackEnd FilePath)
-#endif
                 | FileUploadSource !(NWP.BackEnd (Source (ResourceT IO) ByteString))
 
 -- | How to determine the root of the application for constructing URLs.
@@ -423,14 +407,11 @@ instance Monad m => MonadReader site (WidgetT site m) where
 instance MonadTrans (WidgetT site) where
     lift = WidgetT . const . liftM (, mempty)
 instance MonadThrow m => MonadThrow (WidgetT site m) where
-#if MIN_VERSION_resourcet(1,1,0)
     throwM = lift . throwM
 
 instance MonadCatch m => MonadCatch (HandlerT site m) where
   catch (HandlerT m) c = HandlerT $ \r -> m r `catch` \e -> unHandlerT (c e) r
-#if MIN_VERSION_exceptions(0,6,0)
 instance MonadMask m => MonadMask (HandlerT site m) where
-#endif
   mask a = HandlerT $ \e -> mask $ \u -> unHandlerT (a $ q u) e
     where q u (HandlerT b) = HandlerT (u . b)
   uninterruptibleMask a =
@@ -438,35 +419,24 @@ instance MonadMask m => MonadMask (HandlerT site m) where
       where q u (HandlerT b) = HandlerT (u . b)
 instance MonadCatch m => MonadCatch (WidgetT site m) where
   catch (WidgetT m) c = WidgetT $ \r -> m r `catch` \e -> unWidgetT (c e) r
-#if MIN_VERSION_exceptions(0,6,0)
 instance MonadMask m => MonadMask (WidgetT site m) where
-#endif
   mask a = WidgetT $ \e -> mask $ \u -> unWidgetT (a $ q u) e
     where q u (WidgetT b) = WidgetT (u . b)
   uninterruptibleMask a =
     WidgetT $ \e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) e
       where q u (WidgetT b) = WidgetT (u . b)
-#else
-    monadThrow = lift . monadThrow
-#endif
 
-#if MIN_VERSION_resourcet(1,1,0)
 instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
-#else
-instance (Applicative m, MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (WidgetT site m) where
-#endif
     liftResourceT f = WidgetT $ \hd -> liftIO $ fmap (, mempty) $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (WidgetT site m) where
     monadLoggerLog a b c d = WidgetT $ \hd ->
         liftIO $ fmap (, mempty) $ rheLog (handlerEnv hd) a b c (toLogStr d)
 
-#if MIN_VERSION_conduit(1, 1, 0)
 instance MonadActive m => MonadActive (WidgetT site m) where
     monadActive = lift monadActive
 instance MonadActive m => MonadActive (HandlerT site m) where
     monadActive = lift monadActive
-#endif
 
 instance MonadTrans (HandlerT site) where
     lift = HandlerT . const
@@ -507,17 +477,9 @@ instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
     restoreM (StH base) = HandlerT $ const $ restoreM base
 
 instance MonadThrow m => MonadThrow (HandlerT site m) where
-#if MIN_VERSION_resourcet(1,1,0)
     throwM = lift . monadThrow
-#else
-    monadThrow = lift . monadThrow
-#endif
 
-#if MIN_VERSION_resourcet(1,1,0)
 instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (HandlerT site m) where
-#else
-instance (MonadIO m, MonadUnsafeIO m, MonadThrow m) => MonadResource (HandlerT site m) where
-#endif
     liftResourceT f = HandlerT $ \hd -> liftIO $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (HandlerT site m) where
@@ -538,7 +500,6 @@ instance RenderRoute WaiSubsite where
 instance ParseRoute WaiSubsite where
     parseRoute (x, y) = Just $ WaiSubsiteRoute x y
 
-#if MIN_VERSION_fast_logger(2, 0, 0)
 data Logger = Logger
     { loggerSet :: !LoggerSet
     , loggerDate :: !DateCacheGetter
@@ -546,4 +507,3 @@ data Logger = Logger
 
 loggerPutStr :: Logger -> LogStr -> IO ()
 loggerPutStr (Logger ls _) = pushLogStr ls
-#endif

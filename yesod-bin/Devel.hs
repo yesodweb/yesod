@@ -66,17 +66,11 @@ import           GhcBuild                              (buildPackage,
 import qualified Config                                as GHC
 import           Data.Streaming.Network                (bindPortTCP)
 import           Network                               (withSocketsDo)
-#if MIN_VERSION_http_conduit(2, 0, 0)
 import           Network.HTTP.Conduit                  (conduitManagerSettings, newManager)
 import           Data.Default.Class                    (def)
-#else
-import           Network.HTTP.Conduit                  (def, newManager)
-#endif
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
                                                         waiProxyToSettings, wpsTimeout, wpsOnExc)
-#if MIN_VERSION_http_reverse_proxy(0, 2, 0)
 import qualified Network.HTTP.ReverseProxy             as ReverseProxy
-#endif
 import           Network.HTTP.Types                    (status200, status503)
 import           Network.Socket                        (sClose)
 import           Network.Wai                           (responseLBS, requestHeaders)
@@ -130,11 +124,7 @@ cabalProgram opts | isCabalDev opts = "cabal-dev"
 -- 3001, give an appropriate message to the user.
 reverseProxy :: DevelOpts -> I.IORef Int -> IO ()
 reverseProxy opts iappPort = do
-#if MIN_VERSION_http_conduit(2, 0, 0)
     manager <- newManager conduitManagerSettings
-#else
-    manager <- newManager def
-#endif
     let refreshHtml = LB.fromChunks $ return $(embedFile "refreshing.html")
     let onExc _ req
             | maybe False (("application/json" `elem`) . parseHttpAccept)
@@ -154,18 +144,10 @@ reverseProxy opts iappPort = do
                 (const $ do
                     appPort <- liftIO $ I.readIORef iappPort
                     return $
-#if MIN_VERSION_http_reverse_proxy(0, 2, 0)
                         ReverseProxy.WPRProxyDest
-#else
-                        Right
-#endif
                         $ ProxyDest "127.0.0.1" appPort)
                 def
-#if MIN_VERSION_wai(3, 0, 0)
                     { wpsOnExc = \e req f -> onExc e req >>= f
-#else
-                    { wpsOnExc = onExc
-#endif
                     , wpsTimeout =
                         if proxyTimeout opts == 0
                             then Nothing

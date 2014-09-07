@@ -76,15 +76,9 @@ injectDefaultP env path p@(OptP o)
      p <|> if any ((==Just "1") . getEnvValue env path) names then pure a else empty
   | otherwise = p
   where
-#if MIN_VERSION_optparse_applicative(0,6,0)
     right= ReadM . Right
     left = ReadM . Left
     either' f g (ReadM x) = either f g x
-#else
-    right = Right
-    left = Left
-    either' = either
-#endif
 injectDefaultP env path (MultP p1 p2) =
    MultP (injectDefaultP env path p1) (injectDefaultP env path p2)
 injectDefaultP env path (AltP p1 p2) =

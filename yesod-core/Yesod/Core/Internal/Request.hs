@@ -48,7 +48,6 @@ import Data.IORef
 
 -- | Impose a limit on the size of the request body.
 limitRequestBody :: Word64 -> W.Request -> IO W.Request
-#if MIN_VERSION_wai(3, 0, 0)
 limitRequestBody maxLen req = do
     ref <- newIORef maxLen
     return req
@@ -63,24 +62,6 @@ limitRequestBody maxLen req = do
                     writeIORef ref remaining'
                     return bs
         }
-#else
-limitRequestBody maxLen req =
-    return req { W.requestBody = W.requestBody req $= limit maxLen }
-  where
-    tooLarge = liftIO $ throwIO $ HCWai tooLargeResponse
-
-    limit 0 = tooLarge
-    limit remaining =
-        await >>= maybe (return ()) go
-      where
-        go bs = do
-            let len = fromIntegral $ S8.length bs
-            if len > remaining
-                then tooLarge
-                else do
-                    yield bs
-                    limit $ remaining - len
-#endif
 
 tooLargeResponse :: W.Response
 tooLargeResponse = W.responseLBS

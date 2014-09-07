@@ -76,12 +76,7 @@ defaultMainLog load getApp = do
             (toLogStr $ "Exception from Warp: " ++ show e)
         } app
   where
-    shouldLog' =
-#if MIN_VERSION_warp(2,1,3)
-        Warp.defaultShouldDisplayException
-#else
-        const True
-#endif
+    shouldLog' = Warp.defaultShouldDisplayException
 
 -- | Run your application continously, listening for SIGINT and exiting
 --   when received

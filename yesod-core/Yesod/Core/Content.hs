@@ -63,9 +63,7 @@ import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Source, Flush (Chunk), ResumableSource, mapOutput)
 import Control.Monad.Trans.Resource (ResourceT)
 import Data.Conduit.Internal (ResumableSource (ResumableSource))
-#if MIN_VERSION_conduit(1, 2, 0)
 import qualified Data.Conduit.Internal as CI
-#endif
 
 import qualified Data.Aeson as J
 import Data.Aeson.Encode (fromValue)
@@ -118,10 +116,8 @@ instance ToContent Css where
 instance ToContent Javascript where
     toContent = toContent . toLazyText . unJavascript
 
-#if MIN_VERSION_conduit(1, 2, 0)
 instance ToFlushBuilder builder => ToContent (CI.Pipe () () builder () (ResourceT IO) ()) where
     toContent src = ContentSource $ CI.ConduitM (CI.mapOutput toFlushBuilder src >>=)
-#endif
 
 instance ToFlushBuilder builder => ToContent (Source (ResourceT IO) builder) where
     toContent src = ContentSource $ mapOutput toFlushBuilder src

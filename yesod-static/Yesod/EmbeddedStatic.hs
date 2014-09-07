@@ -90,11 +90,7 @@ instance Yesod master => YesodSubDispatch EmbeddedStatic (HandlerT master IO) wh
             resp = case pathInfo req of
                             ("res":_) -> stApp site req
                             ("widget":_) -> staticApp (widgetSettings site) req
-#if MIN_VERSION_wai(3,0,0)
                             _ -> ($ responseLBS status404 [] "Not Found")
-#else
-                            _ -> return $ responseLBS status404 [] "Not Found"
-#endif
 
 -- | Create the haskell variable for the link to the entry
 mkRoute :: ComputedEntry -> Q [Dec]

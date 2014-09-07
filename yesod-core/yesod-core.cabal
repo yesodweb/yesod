@@ -49,7 +49,7 @@ library
                    , directory             >= 1
                    , vector                >= 0.9      && < 0.11
                    , aeson                 >= 0.5
-                   , fast-logger           >= 0.2
+                   , fast-logger           >= 2.1
                    , wai-logger            >= 0.2
                    , monad-logger          >= 0.3.1    && < 0.4
                    , conduit               >= 1.2
@@ -62,7 +62,7 @@ library
                    , warp                  >= 1.3.8
                    , unix-compat
                    , conduit-extra
-                   , exceptions
+                   , exceptions            >= 0.6
                    , deepseq
 
     exposed-modules: Yesod.Core

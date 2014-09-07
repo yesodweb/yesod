@@ -70,7 +70,7 @@ executable             yesod
                      , system-fileio      >= 0.3          && < 0.4
                      , unordered-containers
                      , yaml               >= 0.8          && < 0.9
-                     , optparse-applicative >= 0.5
+                     , optparse-applicative >= 0.10
                      , fsnotify           >= 0.0          && < 0.2
                      , split              >= 0.2          && < 0.3
                      , file-embed
@@ -79,9 +79,9 @@ executable             yesod
                      , resourcet          >= 0.3          && < 1.2
                      , base64-bytestring
                      , lifted-base
-                     , http-reverse-proxy >= 0.1.1
+                     , http-reverse-proxy >= 0.4
                      , network
-                     , http-conduit
+                     , http-conduit       >= 2.1.4
                      , project-template   >= 0.1.1
                      , transformers
                      , warp               >= 1.3.7.5
