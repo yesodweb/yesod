@@ -52,6 +52,7 @@ runProgram pgm args = do
       return (ExitFailure 1)
     Just p -> rawSystem (programPath p) args
 
+main :: IO ()
 main = do
   args <- getArgs
   e <- doesDirectoryExist "yesod-devel"
