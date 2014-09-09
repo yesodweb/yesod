@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -19,8 +20,10 @@ module Yesod.Persist.Core
     ) where
 
 import Database.Persist
+#if !MIN_VERSION_persistent(2, 0, 0)
 import Database.Persist.Sql (SqlPersistT, unSqlPersistT)
-import Control.Monad.Trans.Reader (runReaderT)
+#endif
+import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 
 import Yesod.Core
 import Data.Conduit
@@ -31,11 +34,25 @@ import Control.Exception (throwIO)
 import Yesod.Core.Types (HandlerContents (HCError))
 import qualified Database.Persist.Sql as SQL
 
-type YesodDB site = YesodPersistBackend site (HandlerT site IO)
+#if MIN_VERSION_persistent(2, 0, 0)
+unSqlPersistT :: a -> a
+unSqlPersistT = id
+#endif
 
+#if MIN_VERSION_persistent(2, 0, 0)
+type YesodDB site = ReaderT (YesodPersistBackend site) (HandlerT site IO)
+#else
+type YesodDB site = YesodPersistBackend site (HandlerT site IO)
+#endif
+
+#if MIN_VERSION_persistent(2, 0, 0)
+class Monad (YesodDB site) => YesodPersist site where
+    type YesodPersistBackend site
+#else
 class Monad (YesodPersistBackend site (HandlerT site IO)) => YesodPersist site where
     type YesodPersistBackend site :: (* -> *) -> * -> *
-    runDB :: YesodPersistBackend site (HandlerT site IO) a -> HandlerT site IO a
+#endif
+    runDB :: YesodDB site a -> HandlerT site IO a
 
 -- | Helper for creating 'runDB'.
 --
@@ -71,13 +88,17 @@ class YesodPersist site => YesodPersistRunner site where
     getDBRunner :: HandlerT site IO (DBRunner site, HandlerT site IO ())
 
 newtype DBRunner site = DBRunner
-    { runDBRunner :: forall a. YesodPersistBackend site (HandlerT site IO) a -> HandlerT site IO a
+    { runDBRunner :: forall a. YesodDB site a -> HandlerT site IO a
     }
 
 -- | Helper for implementing 'getDBRunner'.
 --
 -- Since 1.2.0
+#if MIN_VERSION_persistent(2, 0, 0)
+defaultGetDBRunner :: YesodPersistBackend site ~ SQL.SqlBackend
+#else
 defaultGetDBRunner :: YesodPersistBackend site ~ SqlPersistT
+#endif
                    => (site -> Pool SQL.Connection)
                    -> HandlerT site IO (DBRunner site, HandlerT site IO ())
 defaultGetDBRunner getPool = do
@@ -106,7 +127,7 @@ defaultGetDBRunner getPool = do
 --
 -- Since 1.2.0
 runDBSource :: YesodPersistRunner site
-            => Source (YesodPersistBackend site (HandlerT site IO)) a
+            => Source (YesodDB site) a
             -> Source (HandlerT site IO) a
 runDBSource src = do
     (dbrunner, cleanup) <- lift getDBRunner
@@ -116,11 +137,16 @@ runDBSource src = do
 -- | Extends 'respondSource' to create a streaming database response body.
 respondSourceDB :: YesodPersistRunner site
                 => ContentType
-                -> Source (YesodPersistBackend site (HandlerT site IO)) (Flush Builder)
+                -> Source (YesodDB site) (Flush Builder)
                 -> HandlerT site IO TypedContent
 respondSourceDB ctype = respondSource ctype . runDBSource
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
+#if MIN_VERSION_persistent(2, 0, 0)
+get404 :: (MonadIO m, PersistStore (PersistEntityBackend val), PersistEntity val)
+       => Key val
+       -> ReaderT (PersistEntityBackend val) m val
+#else
 get404 :: ( PersistStore (t m)
           , PersistEntity val
           , Monad (t m)
@@ -129,6 +155,7 @@ get404 :: ( PersistStore (t m)
           , PersistMonadBackend (t m) ~ PersistEntityBackend val
           )
        => Key val -> t m val
+#endif
 get404 key = do
     mres <- get key
     case mres of
@@ -137,6 +164,11 @@ get404 key = do
 
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
 --   exist.
+#if MIN_VERSION_persistent(2, 0, 0)
+getBy404 :: (PersistUnique (PersistEntityBackend val), PersistEntity val, MonadIO m)
+         => Unique val
+         -> ReaderT (PersistEntityBackend val) m (Entity val)
+#else
 getBy404 :: ( PersistUnique (t m)
             , PersistEntity val
             , m ~ HandlerT site IO
@@ -145,6 +177,7 @@ getBy404 :: ( PersistUnique (t m)
             , PersistEntityBackend val ~ PersistMonadBackend (t m)
             )
          => Unique val -> t m (Entity val)
+#endif
 getBy404 key = do
     mres <- getBy key
     case mres of
@@ -156,8 +189,10 @@ getBy404 key = do
 notFound' :: MonadIO m => m a
 notFound' = liftIO $ throwIO $ HCError NotFound
 
+#if !MIN_VERSION_persistent(2, 0, 0)
 instance MonadHandler m => MonadHandler (SqlPersistT m) where
     type HandlerSite (SqlPersistT m) = HandlerSite m
     liftHandlerT = lift . liftHandlerT
 instance MonadWidget m => MonadWidget (SqlPersistT m) where
     liftWidgetT = lift . liftWidgetT
+#endif

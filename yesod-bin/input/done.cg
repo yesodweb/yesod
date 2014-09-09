@@ -22,6 +22,9 @@ Start with the book: http://www.yesodweb.com/book
 Take part in the community: http://yesodweb.com/page/community
 
 
-Start your project:
+It's highly recommended to follow the quick start guide for
+installing Yesod: http://www.yesodweb.com/page/quickstart
 
-   cd PROJECTNAME && cabal sandbox init && cabal install --enable-tests . yesod-platform yesod-bin --max-backjumps=-1 --reorder-goals && yesod devel
+If your system is already configured correctly, please run:
+
+   cd PROJECTNAME && cabal install -j --enable-tests --max-backjumps=-1 --reorder-goals && yesod devel

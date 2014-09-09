@@ -364,6 +364,10 @@ library
                  , fast-logger                   >= 2.2        && < 2.3
                  , wai-logger                    >= 2.2        && < 2.3
 
+    -- see https://github.com/yesodweb/yesod/issues/814
+    if !os(windows)
+        build-depends: unix
+
 executable         PROJECTNAME
     if flag(library-only)
         Buildable: False
@@ -374,7 +378,7 @@ executable         PROJECTNAME
                      , PROJECTNAME
                      , yesod
 
-    ghc-options:       -threaded -O2
+    ghc-options:       -threaded -O2 -rtsopts -with-rtsopts=-N
 
 test-suite test
     type:              exitcode-stdio-1.0
@@ -621,7 +625,7 @@ AAAAAAAAAAAA////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
 
-{-# START_FILE config/keter.yaml #-}
+{-# START_FILE config/keter.yml #-}
 exec: ../dist/build/PROJECTNAME/PROJECTNAME
 args:
     - production
@@ -756,6 +760,7 @@ Production:
 web: ./dist/build/PROJECTNAME/PROJECTNAME production -p $PORT
 
 {-# START_FILE devel.hs #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE PackageImports #-}
 import "PROJECTNAME" Application (getApplicationDev)
 import Network.Wai.Handler.Warp
@@ -765,8 +770,16 @@ import System.Directory (doesFileExist, removeFile)
 import System.Exit (exitSuccess)
 import Control.Concurrent (threadDelay)
 
+#ifndef mingw32_HOST_OS
+import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
+#endif
+
 main :: IO ()
 main = do
+#ifndef mingw32_HOST_OS
+    _ <- installHandler sigINT (Catch $ return ()) Nothing
+#endif
+
     putStrLn "Starting devel application"
     (port, app) <- getApplicationDev
     forkIO $ runSettings (setPort port defaultSettings) app

@@ -1,9 +1,9 @@
 name:               yesod-test
-version:            1.2.3.2
+version:            1.2.5
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
-maintainer:         Nubis <nubis@woobiz.com.ar>, Michael Snoyman
+maintainer:         Michael Snoyman, Greg Weber, Nubis <nubis@woobiz.com.ar>
 synopsis:           integration testing for WAI/Yesod Applications 
 category:           Web, Yesod, Testing
 stability:          Experimental

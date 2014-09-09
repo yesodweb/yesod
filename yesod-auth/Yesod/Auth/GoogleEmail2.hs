@@ -30,15 +30,20 @@ import           Blaze.ByteString.Builder (fromByteString, toByteString)
 import           Control.Applicative      ((<$>), (<*>))
 import           Control.Arrow            (second)
 import           Control.Monad            (liftM, unless)
+import qualified Data.Aeson               as A
+import qualified Data.Aeson.Encode        as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            withObject)
 import           Data.Conduit             (($$+-))
 import           Data.Conduit.Attoparsec  (sinkParser)
+import qualified Data.HashMap.Strict      as M
 import           Data.Monoid              (mappend)
 import           Data.Text                (Text)
 import qualified Data.Text                as T
 import           Data.Text.Encoding       (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Lazy           as TL
+import qualified Data.Text.Lazy.Builder   as TL
 import           Network.HTTP.Client      (parseUrl, requestHeaders,
                                            responseBody, urlEncodedBody)
 import           Network.HTTP.Conduit     (http)
@@ -175,7 +180,7 @@ authGoogleEmail clientID clientSecret =
                 [e] -> return e
                 [] -> error "No account email"
                 x -> error $ "Too many account emails: " ++ show x
-        lift $ setCredsRedirect $ Creds pid email []
+        lift $ setCredsRedirect $ Creds pid email $ allPersonInfo value2
 
     dispatch _ _ = notFound
 
@@ -200,3 +205,9 @@ instance FromJSON Email where
     parseJSON = withObject "Email" $ \o -> Email
         <$> o .: "value"
         <*> o .: "type"
+
+allPersonInfo :: A.Value -> [(Text, Text)]
+allPersonInfo (A.Object o) = map enc $ M.toList o
+    where enc (key, A.String s) = (key, s)
+          enc (key, v) = (key, TL.toStrict $ TL.toLazyText $ A.encodeToTextBuilder v)
+allPersonInfo _ = []
