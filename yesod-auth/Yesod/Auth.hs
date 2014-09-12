@@ -9,6 +9,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Auth
     ( -- * Subsite
@@ -392,6 +393,7 @@ class (YesodAuth master, YesodPersist master) => YesodAuthPersist master where
     --
     -- Since 1.2.0
     type AuthEntity master :: *
+    type instance AuthEntity master = KeyEntity (AuthId master)
 
     getAuthEntity :: AuthId master -> HandlerT master IO (Maybe (AuthEntity master))
 
