@@ -28,8 +28,10 @@ module Yesod.Auth
     , loginErrorMessageI
       -- * User functions
     , defaultMaybeAuthId
+    , maybeAuthPair
     , maybeAuth
     , requireAuthId
+    , requireAuthPair
     , requireAuth
       -- * Exception
     , AuthException (..)
@@ -342,13 +344,27 @@ handlePluginR plugin pieces = do
         ap:_ -> apDispatch ap method pieces
 
 -- | Similar to 'maybeAuthId', but additionally look up the value associated
--- with the user\'s database identifier to get the value in the database.
+-- with the user\'s database identifier to get the value in the database. This
+-- assumes that you are using a Persistent database.
 --
 -- Since 1.1.0
-maybeAuth
-    :: (YesodAuthPersist master, Typeable (AuthEntity master))
-    => HandlerT master IO (Maybe (AuthId master, AuthEntity master))
+maybeAuth :: ( YesodAuthPersist master
+             , val ~ AuthEntity master
+             , Key val ~ AuthId master
+             , PersistEntity val
+             , Typeable val
+             ) => HandlerT master IO (Maybe (Entity val))
 maybeAuth = runMaybeT $ do
+    (aid, ae) <- MaybeT maybeAuthPair
+    return $ Entity aid ae
+
+-- | Similar to 'maybeAuth', but doesn’t assume that you are using a
+-- Persistent database.
+--
+-- Since 1.4.0
+maybeAuthPair :: (YesodAuthPersist master, Typeable (AuthEntity master))
+              => HandlerT master IO (Maybe (AuthId master, AuthEntity master))
+maybeAuthPair = runMaybeT $ do
     aid <- MaybeT maybeAuthId
     ae  <- MaybeT $ cachedAuth aid
     return (aid, ae)
@@ -404,9 +420,21 @@ requireAuthId = maybeAuthId >>= maybe handleAuthLack return
 -- authenticated or responds with error 401 if this is an API client (expecting JSON).
 --
 -- Since 1.1.0
-requireAuth :: (YesodAuthPersist master, Typeable (AuthEntity master))
-            => HandlerT master IO (AuthId master, AuthEntity master)
+requireAuth :: ( YesodAuthPersist master
+               , val ~ AuthEntity master
+               , Key val ~ AuthId master
+               , PersistEntity val
+               , Typeable val
+               ) => HandlerT master IO (Entity val)
 requireAuth = maybeAuth >>= maybe handleAuthLack return
+
+-- | Similar to 'requireAuth', but not tied to Persistent's 'Entity' type.
+-- Instead, the 'AuthId' and 'AuthEntity' are returned in a tuple.
+--
+-- Since 1.4.0
+requireAuthPair :: (YesodAuthPersist master, Typeable (AuthEntity master))
+                => HandlerT master IO (AuthId master, AuthEntity master)
+requireAuthPair = maybeAuthPair >>= maybe handleAuthLack return
 
 handleAuthLack :: Yesod master => HandlerT master IO a
 handleAuthLack = do
