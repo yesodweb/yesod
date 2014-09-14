@@ -9,6 +9,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Auth
     ( -- * Subsite
@@ -18,8 +19,7 @@ module Yesod.Auth
     , AuthPlugin (..)
     , getAuth
     , YesodAuth (..)
-    , YesodAuthPersist
-    , AuthEntity
+    , YesodAuthPersist (..)
       -- * Plugin interface
     , Creds (..)
     , setCreds
@@ -29,8 +29,10 @@ module Yesod.Auth
     , loginErrorMessageI
       -- * User functions
     , defaultMaybeAuthId
+    , maybeAuthPair
     , maybeAuth
     , requireAuthId
+    , requireAuthPair
     , requireAuth
       -- * Exception
     , AuthException (..)
@@ -162,14 +164,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     maybeAuthId :: HandlerT master IO (Maybe (AuthId master))
 
     default maybeAuthId
-        :: ( YesodAuth master
-           , PersistEntityBackend val ~ YesodPersistBackend master
-           , Key val ~ AuthId master
-           , PersistStore (PersistEntityBackend val)
-           , PersistEntity val
-           , YesodPersist master
-           , Typeable val
-           )
+        :: (YesodAuthPersist master, Typeable (AuthEntity master))
         => HandlerT master IO (Maybe (AuthId master))
     maybeAuthId = defaultMaybeAuthId
 
@@ -193,40 +188,22 @@ credsKey = "_ID"
 --
 -- Since 1.1.2
 defaultMaybeAuthId
-          :: ( YesodAuth master
-             , b ~ YesodPersistBackend master
-             , b ~ PersistEntityBackend val
-             , Key val ~ AuthId master
-             , PersistStore b
-             , PersistEntity val
-             , YesodPersist master
-             , Typeable val
-             ) => HandlerT master IO (Maybe (AuthId master))
-defaultMaybeAuthId = do
-    ms <- lookupSession credsKey
-    case ms of
-        Nothing -> return Nothing
-        Just s ->
-            case fromPathPiece s of
-                Nothing -> return Nothing
-                Just aid -> fmap (fmap entityKey) $ cachedAuth aid
+    :: (YesodAuthPersist master, Typeable (AuthEntity master))
+    => HandlerT master IO (Maybe (AuthId master))
+defaultMaybeAuthId = runMaybeT $ do
+    s   <- MaybeT $ lookupSession credsKey
+    aid <- MaybeT $ return $ fromPathPiece s
+    _   <- MaybeT $ cachedAuth aid
+    return aid
 
-cachedAuth :: ( YesodAuth master
-             , b ~ YesodPersistBackend master
-             , b ~ PersistEntityBackend val
-             , Key val ~ AuthId master
-             , PersistStore b
-             , PersistEntity val
-             , YesodPersist master
-             , Typeable val
-             ) => AuthId master -> HandlerT master IO (Maybe (Entity val))
-cachedAuth aid = runMaybeT $ do
-    a <- MaybeT $ fmap unCachedMaybeAuth
-                $ cached
-                $ fmap CachedMaybeAuth
-                $ runDB
-                $ get aid
-    return $ Entity aid a
+cachedAuth
+    :: (YesodAuthPersist master, Typeable (AuthEntity master))
+    => AuthId master -> HandlerT master IO (Maybe (AuthEntity master))
+cachedAuth
+    = fmap unCachedMaybeAuth
+    . cached
+    . fmap CachedMaybeAuth
+    . getAuthEntity
 
 
 loginErrorMessageI :: (MonadResourceBase m, YesodAuth master)
@@ -372,47 +349,65 @@ handlePluginR plugin pieces = do
 -- assumes that you are using a Persistent database.
 --
 -- Since 1.1.0
-maybeAuth :: ( YesodAuth master
-             , b ~ YesodPersistBackend master
-             , b ~ PersistEntityBackend val
+maybeAuth :: ( YesodAuthPersist master
+             , val ~ AuthEntity master
              , Key val ~ AuthId master
-             , PersistStore b
              , PersistEntity val
-             , YesodPersist master
              , Typeable val
              ) => HandlerT master IO (Maybe (Entity val))
 maybeAuth = runMaybeT $ do
+    (aid, ae) <- MaybeT maybeAuthPair
+    return $ Entity aid ae
+
+-- | Similar to 'maybeAuth', but doesn’t assume that you are using a
+-- Persistent database.
+--
+-- Since 1.4.0
+maybeAuthPair :: (YesodAuthPersist master, Typeable (AuthEntity master))
+              => HandlerT master IO (Maybe (AuthId master, AuthEntity master))
+maybeAuthPair = runMaybeT $ do
     aid <- MaybeT maybeAuthId
-    MaybeT $ cachedAuth aid
+    ae  <- MaybeT $ cachedAuth aid
+    return (aid, ae)
+
 
 newtype CachedMaybeAuth val = CachedMaybeAuth { unCachedMaybeAuth :: Maybe val }
     deriving Typeable
 
--- | Constraint which states that the given site is an instance of @YesodAuth@
--- and that its @AuthId@ is in fact a persistent @Key@ for the given value.
--- This is the common case in Yesod, and means that you can easily look up the
--- full informatin on a given user.
+-- | Class which states that the given site is an instance of @YesodAuth@
+-- and that its @AuthId@ is a lookup key for the full user information in
+-- a @YesodPersist@ database.
 --
--- Since 1.2.0
-type YesodAuthPersist master =
-    ( YesodAuth master
-    , YesodPersistBackend master
-        ~ PersistEntityBackend (AuthEntity master)
-    , Key (AuthEntity master) ~ AuthId master
-    , PersistStore (YesodPersistBackend master)
-    , PersistEntity (AuthEntity master)
-    , YesodPersist master
-    , Typeable (AuthEntity master)
-    )
+-- The default implementation of @getAuthEntity@ assumes that the @AuthId@
+-- for the @YesodAuth@ superclass is in fact a persistent @Key@ for the
+-- given value.  This is the common case in Yesod, and means that you can
+-- easily look up the full information on a given user.
+--
+-- Since 1.4.0
+class (YesodAuth master, YesodPersist master) => YesodAuthPersist master where
+    -- | If the @AuthId@ for a given site is a persistent ID, this will give the
+    -- value for that entity. E.g.:
+    --
+    -- > type AuthId MySite = UserId
+    -- > AuthEntity MySite ~ User
+    --
+    -- Since 1.2.0
+    type AuthEntity master :: *
+    type AuthEntity master = KeyEntity (AuthId master)
 
--- | If the @AuthId@ for a given site is a persistent ID, this will give the
--- value for that entity. E.g.:
---
--- > type AuthId MySite = UserId
--- > AuthEntity MySite ~ User
---
--- Since 1.2.0
-type AuthEntity master = KeyEntity (AuthId master)
+    getAuthEntity :: AuthId master -> HandlerT master IO (Maybe (AuthEntity master))
+
+    default getAuthEntity
+        :: ( YesodPersistBackend master
+               ~ PersistEntityBackend (AuthEntity master)
+           , Key (AuthEntity master) ~ AuthId master
+           , PersistStore (YesodPersistBackend master)
+           , PersistEntity (AuthEntity master)
+           )
+        => AuthId master -> HandlerT master IO (Maybe (AuthEntity master))
+    getAuthEntity = runDB . get
+
+
 type family KeyEntity key
 type instance KeyEntity (Key x) = x
 
@@ -427,8 +422,21 @@ requireAuthId = maybeAuthId >>= maybe handleAuthLack return
 -- authenticated or responds with error 401 if this is an API client (expecting JSON).
 --
 -- Since 1.1.0
-requireAuth :: YesodAuthPersist master => HandlerT master IO (Entity (AuthEntity master))
+requireAuth :: ( YesodAuthPersist master
+               , val ~ AuthEntity master
+               , Key val ~ AuthId master
+               , PersistEntity val
+               , Typeable val
+               ) => HandlerT master IO (Entity val)
 requireAuth = maybeAuth >>= maybe handleAuthLack return
+
+-- | Similar to 'requireAuth', but not tied to Persistent's 'Entity' type.
+-- Instead, the 'AuthId' and 'AuthEntity' are returned in a tuple.
+--
+-- Since 1.4.0
+requireAuthPair :: (YesodAuthPersist master, Typeable (AuthEntity master))
+                => HandlerT master IO (AuthId master, AuthEntity master)
+requireAuthPair = maybeAuthPair >>= maybe handleAuthLack return
 
 handleAuthLack :: Yesod master => HandlerT master IO a
 handleAuthLack = do
