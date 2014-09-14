@@ -26,7 +26,7 @@ mkYesod "BID" [parseRoutes|
 getRootR :: Handler ()
 getRootR = redirect $ AuthR LoginR
 
-getAfterLoginR :: Handler RepHtml
+getAfterLoginR :: Handler Html
 getAfterLoginR = do
     mauth <- maybeAuthId
     defaultLayout $ toWidget [hamlet|
@@ -41,13 +41,14 @@ instance YesodAuth BID where
     loginDest _ = AfterLoginR
     logoutDest _ = AuthR LoginR
     getAuthId = return . Just . credsIdent
-    authPlugins _ = [authBrowserId]
+    authPlugins _ = [authBrowserId def]
     authHttpManager = httpManager
+    maybeAuthId = lookupSession credsKey
 
 instance RenderMessage BID FormMessage where
     renderMessage _ _ = defaultFormMessage
 
 main :: IO ()
 main = do
-    m <- newManager def
+    m <- newManager conduitManagerSettings
     toWaiApp (BID m) >>= run 3000 . logStdoutDev
