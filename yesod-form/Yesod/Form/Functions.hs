@@ -45,6 +45,7 @@ module Yesod.Form.Functions
     , fieldSettingsLabel
     , parseHelper
     , parseHelperGen
+    , convertField
     ) where
 
 import Yesod.Form.Types
@@ -526,3 +527,28 @@ parseHelperGen :: (Monad m, RenderMessage site msg)
 parseHelperGen _ [] _ = return $ Right Nothing
 parseHelperGen _ ("":_) _ = return $ Right Nothing
 parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $ f x
+
+-- | Since a 'Field' cannot be a 'Functor', it is not obvious how to "reuse" a Field
+-- on a @newtype@ or otherwise equivalent type. This function allows you to convert
+-- a @Field m a@ to a @Field m b@ assuming you provide a bidireccional
+-- convertion among the two, through the first two functions.
+--
+-- A simple example:
+--
+-- > import Data.Monoid
+-- > sumField :: (Functor m, Monad m, RenderMessage (HandlerSite m) FormMessage) => Field m (Sum Int)
+-- > sumField = convertField Sum getSum intField
+--
+-- Another example, not using a newtype, but instead creating a Lazy Text field:
+--
+-- > import qualified Data.Text.Lazy as TL
+-- > TextField :: (Functor m, Monad m, RenderMessage (HandlerSite m) FormMessage) => Field m TL.Text
+-- > lazyTextField = convertField TL.fromStrict TL.toStrict textField
+--
+convertField :: (Functor m)
+             => (a -> b) -> (b -> a)
+             -> Field m a -> Field m b
+convertField to from (Field fParse fView fEnctype) = let
+  fParse' ts = fmap (fmap (fmap to)) . fParse ts
+  fView' ti tn at ei = fView ti tn at (fmap from ei)
+  in Field fParse' fView' fEnctype
