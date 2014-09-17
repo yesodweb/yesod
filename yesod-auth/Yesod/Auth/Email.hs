@@ -243,11 +243,11 @@ $newline never
         <tr>
             <th>_{Msg.Email}
             <td>
-                <input type="email" name="email">
+                <input type="email" name="email" required>
         <tr>
             <th>_{Msg.Password}
             <td>
-                <input type="password" name="password">
+                <input type="password" name="password" required>
         <tr>
             <td colspan="2">
                 <button type=submit .btn .btn-success>
