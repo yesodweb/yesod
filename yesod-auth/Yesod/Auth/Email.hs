@@ -182,7 +182,9 @@ class ( YesodAuth site
     confirmationEmailSentResponse :: Text -> HandlerT site IO TypedContent
     confirmationEmailSentResponse identifier = do
         mr <- getMessageRender
-        messageJson401 (mr msg) $ authLayout $ do
+        selectRep $ do
+            provideJsonMessage (mr msg)
+            provideRep $ authLayout $ do
               setTitleI Msg.ConfirmationEmailSentTitle
               [whamlet|<p>_{msg}|]
       where
