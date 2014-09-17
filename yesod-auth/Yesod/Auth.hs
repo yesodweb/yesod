@@ -47,7 +47,7 @@ import Control.Monad                 (when)
 import Control.Monad.Trans.Maybe
 
 import Yesod.Auth.Routes
-import Data.Aeson
+import Data.Aeson hiding (json)
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import           Data.Text (Text)

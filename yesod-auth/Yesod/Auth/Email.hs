@@ -36,9 +36,7 @@ import Yesod.Auth
 import System.Random
 import qualified Data.Text as TS
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Lazy.Encoding as TLE
 import qualified Crypto.Hash.MD5 as H
 import Data.ByteString.Base16 as B16
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
