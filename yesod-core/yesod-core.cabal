@@ -40,6 +40,7 @@ library
                    , cereal                >= 0.3
                    , old-locale            >= 1.0.0.2  && < 1.1
                    , containers            >= 0.2
+                   , unordered-containers  >= 0.2
                    , monad-control         >= 0.3      && < 0.4
                    , transformers-base     >= 0.4
                    , cookie                >= 0.4.1    && < 0.5
@@ -73,6 +74,7 @@ library
                      Yesod.Core.Widget
                      Yesod.Core.Internal
                      Yesod.Core.Types
+                     Yesod.Core.TypeCache
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
                      Yesod.Core.Class.Handler
