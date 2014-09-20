@@ -545,6 +545,7 @@ parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $
 -- > TextField :: (Functor m, Monad m, RenderMessage (HandlerSite m) FormMessage) => Field m TL.Text
 -- > lazyTextField = convertField TL.fromStrict TL.toStrict textField
 --
+-- Since 1.3.16
 convertField :: (Functor m)
              => (a -> b) -> (b -> a)
              -> Field m a -> Field m b
