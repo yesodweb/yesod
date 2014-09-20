@@ -156,7 +156,7 @@ authGoogleEmail clientID clientSecret =
         manager <- liftM authHttpManager $ lift getYesod
         res <- http req manager
         value <- responseBody res $$+- sinkParser json'
-        Tokens accessToken _idToken tokenType <-
+        Tokens accessToken tokenType <-
             case parseEither parseJSON value of
                 Left e -> error e
                 Right t -> return t
@@ -184,11 +184,10 @@ authGoogleEmail clientID clientSecret =
 
     dispatch _ _ = notFound
 
-data Tokens = Tokens Text Text Text
+data Tokens = Tokens Text Text
 instance FromJSON Tokens where
     parseJSON = withObject "Tokens" $ \o -> Tokens
         <$> o .: "access_token"
-        <*> o .: "id_token"
         <*> o .: "token_type"
 
 data Person = Person [Email]
