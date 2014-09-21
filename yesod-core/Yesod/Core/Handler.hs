@@ -145,6 +145,7 @@ module Yesod.Core.Handler
     , getMessageRender
       -- * Per-request caching
     , cached
+    , cachedBy
     ) where
 
 import           Data.Time                     (UTCTime, addUTCTime,
@@ -187,10 +188,9 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
-import           Data.Dynamic                  (fromDynamic, toDyn)
 import qualified Data.IORef.Lifted             as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
-import           Data.Typeable                 (Typeable, typeOf)
+import           Data.Typeable                 (Typeable)
 import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
@@ -208,6 +208,7 @@ import Control.Monad.Trans.Control (control, MonadBaseControl)
 import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
                     , Sink
                    )
+import qualified Yesod.Core.TypeCache as Cache
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -351,6 +352,7 @@ handlerToIO =
       return $ oldState { ghsRBC = Nothing
                         , ghsIdent = 1
                         , ghsCache = mempty
+                        , ghsCacheBy = mempty
                         , ghsHeaders = mempty }
 
     -- xx From this point onwards, no references to oldHandlerData xx
@@ -851,34 +853,47 @@ getMessageRender = do
     l <- reqLangs `liftM` getRequest
     return $ renderMessage (rheSite env) l
 
--- | Use a per-request cache to avoid performing the same action multiple
--- times. Note that values are stored by their type. Therefore, you should use
--- newtype wrappers to distinguish logically different types.
+-- | Use a per-request cache to avoid performing the same action multiple times.
+-- Values are stored by their type, the result of typeOf from Typeable.
+-- Therefore, you should use different newtype wrappers at each cache site.
+--
+-- For example, yesod-auth uses an un-exported newtype, CachedMaybeAuth and exports functions that utilize it such as maybeAuth.
+-- This means that another module can create its own newtype wrapper to cache the same type from a different action without any cache conflicts.
+--
+-- See the original announcement: <http://www.yesodweb.com/blog/2013/03/yesod-1-2-cleaner-internals>
 --
 -- Since 1.2.0
 cached :: (MonadHandler m, Typeable a)
        => m a
        -> m a
-cached f = do
+cached action = do
     gs <- get
-    let cache = ghsCache gs
-    case clookup cache of
-        Just val -> return val
-        Nothing -> do
-            val <- f
-            put $ gs { ghsCache = cinsert val cache }
-            return val
-  where
-    clookup :: Typeable a => Cache -> Maybe a
-    clookup (Cache m) =
-        res
-      where
-        res = Map.lookup (typeOf $ fromJust res) m >>= fromDynamic
-        fromJust :: Maybe a -> a
-        fromJust = error "Yesod.Handler.cached.fromJust: Argument to typeOf was evaluated"
+    eres <- Cache.cached (ghsCache gs) action
+    case eres of
+      Right res -> return res
+      Left (newCache, res) -> do
+          put $ gs { ghsCache = newCache }
+          return res
 
-    cinsert :: Typeable a => a -> Cache -> Cache
-    cinsert v (Cache m) = Cache (Map.insert (typeOf v) (toDyn v) m)
+-- | a per-request cache. just like 'cached'.
+-- 'cached' can only cache a single value per type.
+-- 'cachedBy' stores multiple values per type by usage of a ByteString key
+--
+-- 'cached' is ideal to cache an action that has only one value of a type, such as the session's current user
+-- 'cachedBy' is required if the action has parameters and can return multiple values per type.
+-- You can turn those parameters into a ByteString cache key.
+-- For example, caching a lookup of a Link by a token where multiple token lookups might be performed.
+--
+-- Since 1.4.0
+cachedBy :: (MonadHandler m, Typeable a) => S.ByteString -> m a -> m a
+cachedBy k action = do
+    gs <- get
+    eres <- Cache.cachedBy (ghsCacheBy gs) k action
+    case eres of
+      Right res -> return res
+      Left (newCache, res) -> do
+          put $ gs { ghsCacheBy = newCache }
+          return res
 
 -- | Get the list of supported languages supplied by the user.
 --

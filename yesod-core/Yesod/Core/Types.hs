@@ -25,7 +25,6 @@ import           Control.Monad.Trans.Resource       (MonadResource (..), Interna
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, Source)
-import           Data.Dynamic                       (Dynamic)
 import           Data.IORef                         (IORef)
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
@@ -39,7 +38,6 @@ import qualified Data.Text                          as T
 import qualified Data.Text.Lazy.Builder             as TBuilder
 import           Data.Time                          (UTCTime)
 import           Data.Typeable                      (Typeable)
-import           Data.Typeable                      (TypeRep)
 import           Language.Haskell.TH.Syntax         (Loc)
 import qualified Network.HTTP.Types                 as H
 import           Network.Wai                        (FilePart,
@@ -59,6 +57,7 @@ import           Control.Monad.Reader               (MonadReader (..))
 import Prelude hiding (catch)
 import Control.DeepSeq (NFData (rnf))
 import Data.Conduit.Lazy (MonadActive, monadActive)
+import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -162,9 +161,6 @@ type BottomOfHeadAsync master
       -> Maybe (HtmlUrl (Route master)) -- ^ widget of js to run on async completion
       -> (HtmlUrl (Route master)) -- ^ widget to insert at the bottom of <head>
 
-newtype Cache = Cache (Map TypeRep Dynamic)
-    deriving Monoid
-
 type Texts = [Text]
 
 -- | Wrap up a normal WAI application as a Yesod subsite.
@@ -223,7 +219,8 @@ data GHState = GHState
     { ghsSession :: SessionMap
     , ghsRBC     :: Maybe RequestBodyContents
     , ghsIdent   :: Int
-    , ghsCache   :: Cache
+    , ghsCache   :: TypeMap
+    , ghsCacheBy :: KeyedTypeMap
     , ghsHeaders :: Endo [Header]
     }
 

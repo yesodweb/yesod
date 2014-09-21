@@ -74,6 +74,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
         , ghsRBC = Nothing
         , ghsIdent = 1
         , ghsCache = mempty
+        , ghsCacheBy = mempty
         , ghsHeaders = mempty
         }
     let hd = HandlerData
