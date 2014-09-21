@@ -17,6 +17,8 @@ import qualified Codec.Archive.Tar as Tar
 import Control.Exception
 import qualified Data.ByteString.Lazy as L
 import Codec.Compression.GZip (compress)
+import qualified Data.Foldable as Fold
+import Control.Monad.Trans.Writer (tell, execWriter)
 
 run :: String -> [String] -> IO ()
 run a b = do
@@ -36,7 +38,12 @@ keter cabal noBuild = do
                 case Map.lookup "host" value of
                     Just (String s) | "<<" `T.isPrefixOf` s ->
                         error $ "Please set your hostname in " ++ ketercfg
-                    _ -> return value
+                    _ ->
+                        case Map.lookup "user-edited" value of
+                            Just (Bool False) ->
+                                error $ "Please edit your Keter config file at "
+                                     ++ ketercfg
+                            _ -> return value
             Just _ -> error $ ketercfg ++ " is not an object"
 
     files <- getDirectoryContents "."
@@ -46,10 +53,14 @@ keter cabal noBuild = do
             [] -> error "No cabal file found"
             _ -> error "Too many cabal files found"
 
-    exec <-
-        case Map.lookup "exec" value of
-            Just (String s) -> return $ F.collapse $ "config" F.</> F.fromText s
-            _ -> error $ "exec not found in " ++ ketercfg
+    let findExecs (Object v) =
+            mapM_ go $ Map.toList v
+          where
+            go ("exec", String s) = tell [F.collapse $ "config" F.</> F.fromText s]
+            go (_, v') = findExecs v'
+        findExecs (Array v) = Fold.mapM_ findExecs v
+        findExecs _ = return ()
+        execs = execWriter $ findExecs $ Object value
 
     unless noBuild $ do
         run cabal ["clean"]
@@ -58,7 +69,7 @@ keter cabal noBuild = do
 
     _ <- try' $ F.removeTree "static/tmp"
 
-    archive <- Tar.pack "" [F.encodeString exec, "config", "static"]
+    archive <- Tar.pack "" $ "config" : "static" : map F.encodeString execs
     let fp = T.unpack project ++ ".keter"
     L.writeFile fp $ compress $ Tar.write archive
 
