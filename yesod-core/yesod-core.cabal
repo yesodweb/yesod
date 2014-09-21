@@ -74,7 +74,6 @@ library
                      Yesod.Core.Widget
                      Yesod.Core.Internal
                      Yesod.Core.Types
-                     Yesod.Core.TypeCache
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
                      Yesod.Core.Class.Handler
@@ -86,6 +85,7 @@ library
                      Yesod.Core.Class.Yesod
                      Yesod.Core.Class.Dispatch
                      Yesod.Core.Class.Breadcrumbs
+                     Yesod.Core.TypeCache
                      Paths_yesod_core
 
                      Yesod.Routes.TH

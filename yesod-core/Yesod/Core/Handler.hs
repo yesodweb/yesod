@@ -855,7 +855,7 @@ getMessageRender = do
 
 -- | Use a per-request cache to avoid performing the same action multiple times.
 -- Values are stored by their type, the result of typeOf from Typeable.
--- Therefore, you should use differnt newtype wrappers at each cache site.
+-- Therefore, you should use different newtype wrappers at each cache site.
 --
 -- For example, yesod-auth uses an un-exported newtype, CachedMaybeAuth and exports functions that utilize it such as maybeAuth.
 -- This means that another module can create its own newtype wrapper to cache the same type from a different action without any cache conflicts.
