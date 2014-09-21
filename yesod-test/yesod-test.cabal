@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.2.6
+version:            1.4.0
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -37,7 +37,7 @@ library
                    , time
                    , blaze-builder
                    , cookie
-                   , yesod-core                >= 1.2
+                   , yesod-core                >= 1.4
 
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery

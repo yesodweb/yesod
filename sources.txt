@@ -4,6 +4,7 @@
 ./yesod-newsfeed
 ./yesod-form
 ./yesod-auth
+./yesod-auth-oauth
 ./yesod-sitemap
 ./yesod-test
 ./yesod-bin
