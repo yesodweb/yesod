@@ -98,7 +98,14 @@ makeFoundation conf = do
     (getter, _) <- clockDateCacher
 
     let logger = Yesod.Core.Types.Logger loggerSet' getter
-        foundation = App conf s p manager dbconf logger
+        foundation = App
+            { settings = conf
+            , getStatic = s
+            , connPool = p
+            , httpManager = manager
+            , persistConfig = dbconf
+            , appLogger = logger
+            }
 
     -- Perform database migration using our application's logging settings.
     runLoggingT
@@ -459,7 +466,7 @@ executable         PROJECTNAME
 test-suite test
     type:              exitcode-stdio-1.0
     main-is:           main.hs
-    hs-source-dirs:    tests
+    hs-source-dirs:    test
     ghc-options:       -Wall
 
     build-depends: base
@@ -8036,7 +8043,7 @@ h2##{aDomId} {
     color: #990
 }
 
-{-# START_FILE tests/HomeTest.hs #-}
+{-# START_FILE test/HomeTest.hs #-}
 {-# LANGUAGE OverloadedStrings #-}
 module HomeTest
     ( homeSpecs
@@ -8058,7 +8065,7 @@ homeSpecs =
                 setMethod "POST"
                 setUrl HomeR
                 addNonce
-                fileByLabel "Choose a file" "tests/main.hs" "text/plain" -- talk about self-reference
+                fileByLabel "Choose a file" "test/main.hs" "text/plain" -- talk about self-reference
                 byLabel "What's on the file?" "Some Content"
 
             statusIs 200
@@ -8076,7 +8083,7 @@ homeSpecs =
             users <- runDB $ selectList ([] :: [Filter User]) []
             assertEqual "user table empty" 0 $ L.length users
 
-{-# START_FILE tests/TestImport.hs #-}
+{-# START_FILE test/TestImport.hs #-}
 {-# LANGUAGE OverloadedStrings #-}
 module TestImport
     ( module Yesod.Test
@@ -8104,7 +8111,7 @@ runDB query = do
     pool <- fmap connPool getTestYesod
     liftIO $ runSqlPersistMPool query pool
 
-{-# START_FILE tests/main.hs #-}
+{-# START_FILE test/main.hs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
