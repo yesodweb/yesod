@@ -205,8 +205,7 @@ unlessM :: Monad m => m Bool -> m () -> m ()
 unlessM c a = c >>= \res -> unless res a
 
 devel :: DevelOpts -> [String] -> IO ()
-devel opts passThroughArgs = withSocketsDo $
-    withManagerConf watchConfig $ \manager -> do
+devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     unlessM (checkPort $ develPort opts) $ error "devel port unavailable"
     iappPort <- getPort opts 17834 >>= I.newIORef
     when (useReverseProxy opts) $ void $ forkIO $ reverseProxy opts iappPort
@@ -224,22 +223,24 @@ devel opts passThroughArgs = withSocketsDo $
     void $ forkIO $ do
       filesModified <- newEmptyMVar
       void $ forkIO $
-        void $ watchTree manager "." hsOnly (
-                \_ -> void $ tryPutMVar filesModified () )
+        void $ detectChanges filesModified manager
       evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     after
     writeLock opts
     exitSuccess
   where
-    bd          = getBuildDir opts
-    hsOnly ev   = case (FP.toText . eventPath) ev of
-                    Right fp -> isHaskell (T.unpack fp)
-                    Left _   -> False
-    watchConfig = case opts of
-                    DevelOpts { eventTimeout = et }
-                        | et >= 0 -> defaultConfig { confPollInterval = 10^6 * et
-                                                   , confUsePolling   = True }
-                        | otherwise -> defaultConfig { confUsePolling = False }
+    bd                   = getBuildDir opts
+    detectChanges fm mgr = case opts of
+        DevelOpts { eventTimeout = et }
+            | et < 0 -> watchTree mgr "." hsOnly (\_ -> void $ tryPutMVar fm ())
+            | otherwise  -> do let poll = do
+                                   threadDelay $ et * 10^6
+                                   tryPutMVar fm ()
+                                   poll
+                               poll
+    hsOnly ev            = case (FP.toText . eventPath) ev of
+                            Right fp -> isHaskell (T.unpack fp)
+                            Left _   -> False
 
     -- outer loop re-reads the cabal file
     mainOuterLoop iappPort filesModified = do
@@ -253,10 +254,7 @@ devel opts passThroughArgs = withSocketsDo $
       if c then do
              -- these files contain the wrong data after the configure step,
              -- remove them to force a cabal build first
-             liftIO $ mapM_ removeFileIfExists [ "yesod-devel/ghcargs.txt"
-                                               , "yesod-devel/arargs.txt"
-                                               , "yesod-devel/ldargs.txt"
-                                               ]
+             liftIO cleanDev
              rebuild <- liftIO $ mkRebuild ghcVer cabal opts ldar
              mainInnerLoop iappPort hsSourceDirs filesModified cabal rebuild
            else do
@@ -277,6 +275,9 @@ devel opts passThroughArgs = withSocketsDo $
                        watchForChanges filesModified hsSourceDirs [cabal] list0
                    anyTouched <- recompDeps hsSourceDirs
                    unless (anyTouched || haskellFileChanged) $ loop list1
+           success <- if not success
+                         then liftIO $ cleanDev >> rebuild  -- failsafe rebuild
+                         else return success
            if not success
              then liftIO $ do
                    putStrLn "\x1b[1;31mBuild failure, pausing...\x1b[0m"
@@ -314,6 +315,13 @@ devel opts passThroughArgs = withSocketsDo $
            loop list
            n <- liftIO $ cabal `isNewerThan` (bd </> "setup-config")
            if n then mainOuterLoop iappPort filesModified else go
+
+    -- these files contain the wrong data after the configure step,
+    -- remove them to force a cabal build first
+    cleanDev = mapM_ removeFileIfExists [ "yesod-devel/ghcargs.txt"
+                                        , "yesod-devel/arargs.txt"
+                                        , "yesod-devel/ldargs.txt"
+                                        ]
 
 runBuildHook :: Maybe String -> IO ()
 runBuildHook (Just s) = do
@@ -398,8 +406,6 @@ watchForChanges filesModified hsSourceDirs extraFiles list = do
     if list /= newList
       then do
         let haskellFileChanged = not $ Map.null $
-                -- following filtering not required as already done in watchTree
-                -- Map.filterWithKey (const . isHaskell) $
                 Map.differenceWith compareTimes newList list `Map.union`
                 Map.differenceWith compareTimes list newList
         return (haskellFileChanged, newList)

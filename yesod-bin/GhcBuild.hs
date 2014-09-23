@@ -23,6 +23,7 @@ import           Control.Monad      (when)
 import           Data.IORef
 import           System.Process     (rawSystem)
 import           System.Environment (getEnvironment)
+import           System.Exit        (ExitCode (..))
 
 import           CmdLineParser
 import           Data.Char          (toLower)
@@ -182,15 +183,20 @@ buildPackage' argv2 ld ar = do
     ok_flag <- GHC.load GHC.LoadAllTargets
     if GHC.failed ok_flag
       then return False
-      else liftIO (linkPkg ld ar) >> return True
+      else liftIO (linkPkg ld ar)
 
-linkPkg :: FilePath -> FilePath -> IO ()
+linkPkg :: FilePath -> FilePath -> IO Bool
 linkPkg ld ar = do
   arargs <- fmap read $ readFile "yesod-devel/arargs.txt"
-  rawSystem ar arargs
-  ldargs <- fmap read $ readFile "yesod-devel/ldargs.txt"
-  rawSystem ld ldargs
-  return ()
+  arRes <- rawSystem ar arargs
+  case arRes of
+    ExitFailure err -> return False
+    ExitSuccess -> do
+        ldargs <- fmap read $ readFile "yesod-devel/ldargs.txt"
+        ldRes <- rawSystem ld ldargs
+        case ldRes of
+            ExitFailure err -> return False
+            ExitSuccess -> return True
 
 --------------------------------------------------------------------------------------------
 -- stuff below copied from ghc main.hs
