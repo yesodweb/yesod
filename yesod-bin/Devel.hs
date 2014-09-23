@@ -405,7 +405,7 @@ watchForChanges filesModified hsSourceDirs extraFiles list = do
     newList <- getFileList hsSourceDirs extraFiles
     if list /= newList
       then do
-        let haskellFileChanged = not $ Map.null $
+        let haskellFileChanged = not $ Map.null $ Map.filterWithKey (const . isHaskell) $
                 Map.differenceWith compareTimes newList list `Map.union`
                 Map.differenceWith compareTimes list newList
         return (haskellFileChanged, newList)
