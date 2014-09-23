@@ -36,7 +36,7 @@ library
                    , transformers          >= 0.2.2
                    , mtl
                    , clientsession         >= 0.9      && < 0.10
-                   , random                >= 1.0.0.2  && < 1.1
+                   , random                >= 1.0.0.2  && < 1.2
                    , cereal                >= 0.3
                    , old-locale            >= 1.0.0.2  && < 1.1
                    , containers            >= 0.2
