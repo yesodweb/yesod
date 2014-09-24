@@ -1,12 +1,13 @@
 -- | a module for caching a monadic action based on its return type
 --
--- The cache is a HashMap where the key uses the result of typeOf from Typeable.
--- The value stored is toDyn from Dynamic to support arbitrary value types.
+-- The cache is a HashMap where the key uses the TypeReP from Typeable.
+-- The value stored is toDyn from Dynamic to support arbitrary value types in the same Map.
 --
 -- un-exported newtype wrappers should be used to maintain unique keys in the cache.
+-- Note that a TypeRep is unique to a module in a package, so types from different modules will not conflict if they have the same name.
 --
 -- used in 'Yesod.Core.Handler.cached' and 'Yesod.Core.Handler.cachedBy'
-module Yesod.Core.TypeCache where
+module Yesod.Core.TypeCache (cached, cachedBy) where
 
 import           Prelude hiding (lookup)
 import           Data.Typeable                      (Typeable, TypeRep, typeOf)
@@ -18,16 +19,16 @@ type TypeMap      = HashMap TypeRep Dynamic
 type KeyedTypeMap = HashMap (TypeRep, ByteString) Dynamic
 
 -- | avoid performing the same action multiple times.
--- Values are stored by their type, the result of typeOf from Typeable.
--- Therefore, you should use different newtype wrappers at each cache site.
+-- Values are stored by their TypeRep from Typeable.
+-- Therefore, you should use un-exported newtype wrappers for each cache.
 --
 -- For example, yesod-auth uses an un-exported newtype, CachedMaybeAuth and exports functions that utilize it such as maybeAuth.
 -- This means that another module can create its own newtype wrapper to cache the same type from a different action without any cache conflicts.
 --
--- In Yesod, this is used for a cache that is cleared at the end of every request.
+-- In Yesod, this is used for a request-local cache that is cleared at the end of every request.
 -- See the original announcement: <http://www.yesodweb.com/blog/2013/03/yesod-1-2-cleaner-internals>
 --
--- Since 1.2.0
+-- Since 1.4.0
 cached :: (Monad m, Typeable a)
        => TypeMap
        -> m a
@@ -49,9 +50,9 @@ cached cache action = case clookup cache of
     cinsert :: Typeable a => a -> TypeMap -> TypeMap
     cinsert v = insert (typeOf v) (toDyn v)
 
--- | like 'cached'.
+-- | similar to 'cached'.
 -- 'cached' can only cache a single value per type.
--- 'cachedBy' stores multiple values per type by usage of a ByteString key
+-- 'cachedBy' stores multiple values per type by indexing on a ByteString key
 --
 -- 'cached' is ideal to cache an action that has only one value of a type, such as the session's current user
 -- 'cachedBy' is required if the action has parameters and can return multiple values per type.
