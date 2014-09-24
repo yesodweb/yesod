@@ -9,13 +9,13 @@
 -- that tell the plugin how to interoprate with your user data storage (your database).
 -- However, almost everything is customizeable by setting more methods on the type class.
 -- In addition, you can send all the form submissions via JSON and completely control the user's flow.
--- This is a standare registration e-mail flow
+-- This is a standard registration e-mail flow
 --
 -- 1) A user registers a new e-mail address, and an e-mail is sent there
 -- 2) The user clicks on the registration link in the e-mail
 --    Note that at this point they are actually logged in (without a password)
 --    That means that when they log out they will need to reset their password
--- 3) The user sets their password and is redircted to the site.
+-- 3) The user sets their password and is redirected to the site.
 -- 4) The user can now
 --    * logout and sign in
 --    * reset their password
