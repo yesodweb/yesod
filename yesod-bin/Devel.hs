@@ -232,15 +232,13 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     bd                   = getBuildDir opts
     detectChanges fm mgr = case opts of
         DevelOpts { eventTimeout = et }
-            | et < 0 -> watchTree mgr "." hsOnly (\_ -> void $ tryPutMVar fm ())
+            | et < 0     -> watchTree mgr "." (const True) (
+                                   \_ -> void $ tryPutMVar fm ())
             | otherwise  -> do let poll = do
                                    threadDelay $ et * 10^6
                                    tryPutMVar fm ()
                                    poll
                                poll
-    hsOnly ev            = case (FP.toText . eventPath) ev of
-                            Right fp -> isHaskell (T.unpack fp)
-                            Left _   -> False
 
     -- outer loop re-reads the cabal file
     mainOuterLoop iappPort filesModified = do
@@ -405,7 +403,7 @@ watchForChanges filesModified hsSourceDirs extraFiles list = do
     newList <- getFileList hsSourceDirs extraFiles
     if list /= newList
       then do
-        let haskellFileChanged = not $ Map.null $ Map.filterWithKey (const . isHaskell) $
+        let haskellFileChanged = not $ Map.null $ Map.filterWithKey isHaskell $
                 Map.differenceWith compareTimes newList list `Map.union`
                 Map.differenceWith compareTimes list newList
         return (haskellFileChanged, newList)
@@ -415,11 +413,9 @@ watchForChanges filesModified hsSourceDirs extraFiles list = do
     compareTimes x y
         | x == y = Nothing
         | otherwise = Just x
-
-isHaskell :: FilePath -> Bool
-isHaskell filename = takeExtension filename `elem`
-                        [ ".hs", ".lhs", ".hsc", ".cabal", ".hamlet", ".lucius"
-                        , ".julius", ".cassius"]
+    isHaskell filename _ = takeExtension filename `elem`
+                            [ ".hs", ".lhs", ".hsc", ".cabal", ".hamlet"
+                            , ".lucius", ".julius", ".cassius"]
 
 checkDevelFile :: IO ()
 checkDevelFile = do
