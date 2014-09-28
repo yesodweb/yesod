@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies #-}
 {-# LANGUAGE EmptyDataDecls, FlexibleContexts, GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE CPP #-}
 module Yesod.PersistSpec where
 
