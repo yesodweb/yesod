@@ -37,8 +37,8 @@ data Overlap t = Overlap
     }
 
 data OverlapF = OverlapF
-    { overlapF1 :: [String]
-    , overlapF2 :: [String]
+    { _overlapF1 :: [String]
+    , _overlapF2 :: [String]
     }
 
 overlaps :: [Piece t] -> [Piece t] -> Bool -> Bool -> Bool

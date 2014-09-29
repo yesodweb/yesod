@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -54,7 +55,9 @@ import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 import           Control.Monad.Reader               (MonadReader (..))
+#if !MIN_VERSION_base(4, 6, 0)
 import Prelude hiding (catch)
+#endif
 import Control.DeepSeq (NFData (rnf))
 import Data.Conduit.Lazy (MonadActive, monadActive)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)

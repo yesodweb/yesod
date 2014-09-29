@@ -118,8 +118,8 @@ mkDispatchClause MkDispatchSettings {..} resources = do
             []
       where
         handleDispatch :: Dispatch a -> [Exp] -> Q (Exp, Pat)
-        handleDispatch dispatch dyns =
-            case dispatch of
+        handleDispatch dispatch' dyns =
+            case dispatch' of
                 Methods multi methods -> do
                     (finalPat, mfinalE) <-
                         case multi of

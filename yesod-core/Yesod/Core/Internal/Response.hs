@@ -14,11 +14,11 @@ import           Data.CaseInsensitive         (CI)
 import qualified Data.CaseInsensitive         as CI
 import           Network.Wai
 import           Data.Conduit                 (transPipe)
-import           Control.Monad.Trans.Resource (runInternalState, getInternalState, runResourceT, InternalState, closeInternalState)
-import           Control.Monad.Trans.Class    (lift)
+import           Control.Monad.Trans.Resource (runInternalState, InternalState)
 import           Network.Wai.Internal
-import           Control.Exception            (finally)
+#if !MIN_VERSION_base(4, 6, 0)
 import           Prelude                      hiding (catch)
+#endif
 import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Core.Content
 import           Yesod.Core.Types
@@ -43,7 +43,7 @@ yarToResponse :: YesodResponse
               -> IO ResponseReceived
 yarToResponse (YRWai a) _ _ _ _ sendResponse = sendResponse a
 yarToResponse (YRWaiApp app) _ _ req _ sendResponse = app req sendResponse
-yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq req is sendResponse = do
+yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq _req is sendResponse = do
     extraHeaders <- do
         let nsToken = maybe
                 newSess

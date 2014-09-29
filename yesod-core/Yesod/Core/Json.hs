@@ -29,7 +29,6 @@ module Yesod.Core.Json
 
 import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep)
 import Control.Monad.Trans.Writer (Writer)
-import Control.Monad.Trans.Resource (runExceptionT)
 import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Types (reqAccept)

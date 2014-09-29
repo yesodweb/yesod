@@ -39,10 +39,8 @@ import qualified Network.Wai                        as W
 import           Data.Default                       (def)
 import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
-import           System.IO                          (stdout)
 import           Network.Wai.Logger                 (ZonedDate, clockDateCacher)
 import           System.Log.FastLogger
-import qualified GHC.IO.FD
 import           Text.Blaze                         (customAttribute, textTag,
                                                      toValue, (!))
 import           Text.Blaze                         (preEscapedToMarkup)
@@ -210,9 +208,9 @@ class RenderRoute site => Yesod site where
     -- Default: Sends to stdout and automatically flushes on each write.
     makeLogger :: site -> IO Logger
     makeLogger _ = do
-        loggerSet <- newLoggerSet defaultBufSize Nothing
+        loggerSet' <- newStdoutLoggerSet defaultBufSize
         (getter, _) <- clockDateCacher
-        return $! Logger loggerSet getter
+        return $! Logger loggerSet' getter
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
     --

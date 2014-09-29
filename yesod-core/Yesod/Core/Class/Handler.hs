@@ -13,8 +13,8 @@ module Yesod.Core.Class.Handler
 import Yesod.Core.Types
 import Data.Monoid (mempty)
 import Control.Monad (liftM)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Trans.Resource (MonadResource, MonadResourceBase, ExceptionT (..))
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Resource (MonadResource, MonadResourceBase)
 import Control.Monad.Trans.Class (lift)
 import Data.Monoid (Monoid)
 import Data.Conduit.Internal (Pipe, ConduitM)

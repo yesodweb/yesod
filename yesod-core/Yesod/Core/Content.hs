@@ -66,7 +66,11 @@ import Data.Conduit.Internal (ResumableSource (ResumableSource))
 import qualified Data.Conduit.Internal as CI
 
 import qualified Data.Aeson as J
+#if MIN_VERSION_aeson(0, 7, 0)
+import Data.Aeson.Encode (encodeToTextBuilder)
+#else
 import Data.Aeson.Encode (fromValue)
+#endif
 import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Text.Lazy.Builder (toLazyText)
 import Yesod.Core.Types
@@ -243,7 +247,11 @@ instance ToContent J.Value where
     toContent = flip ContentBuilder Nothing
               . Blaze.fromLazyText
               . toLazyText
+#if MIN_VERSION_aeson(0, 7, 0)
+              . encodeToTextBuilder
+#else
               . fromValue
+#endif
 instance HasContentType J.Value where
     getContentType _ = typeJson
 

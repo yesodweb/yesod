@@ -10,7 +10,7 @@ module Yesod.Core.Internal.Run where
 import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Applicative          ((<$>))
-import           Control.Exception            (fromException, bracketOnError, evaluate)
+import           Control.Exception            (fromException, evaluate)
 import qualified Control.Exception            as E
 import           Control.Exception.Lifted     (catch)
 import           Control.Monad                (mplus)
@@ -35,7 +35,9 @@ import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
 import           Network.Wai.Internal
+#if !MIN_VERSION_base(4, 6, 0)
 import           Prelude                      hiding (catch)
+#endif
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           System.Random                (newStdGen)
 import           Yesod.Core.Content
@@ -44,8 +46,7 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
-import Control.DeepSeq (($!!), NFData)
-import Control.Monad (liftM)
+import Control.DeepSeq (($!!))
 
 returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
 #if MIN_VERSION_bytestring(0, 10, 0)
@@ -115,6 +116,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
                             | otherwise = status'
                      in return $ YRPlain status hs' ct c sess
                 YRWai _ -> return yar
+                YRWaiApp _ -> return yar
     let sendFile' ct fp p =
             return $ YRPlain H.status200 headers ct (ContentFile fp p) finalSession
     contents1 <- evaluate contents `E.catch` \e -> return
@@ -225,6 +227,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           , requestBody    = return mempty
           , vault          = mempty
           , requestBodyLength = KnownLength 0
+          , requestHeaderRange = Nothing
           }
       fakeRequest =
         YesodRequest
