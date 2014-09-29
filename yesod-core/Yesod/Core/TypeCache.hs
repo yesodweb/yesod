@@ -7,7 +7,7 @@
 -- Note that a TypeRep is unique to a module in a package, so types from different modules will not conflict if they have the same name.
 --
 -- used in 'Yesod.Core.Handler.cached' and 'Yesod.Core.Handler.cachedBy'
-module Yesod.Core.TypeCache (cached, cachedBy) where
+module Yesod.Core.TypeCache (cached, cachedBy, TypeMap, KeyedTypeMap) where
 
 import           Prelude hiding (lookup)
 import           Data.Typeable                      (Typeable, TypeRep, typeOf)
