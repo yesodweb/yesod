@@ -11,7 +11,7 @@ import Yesod.Test
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS
 import Text.XML
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Data.Monoid ((<>))
 import Control.Applicative
 import Network.Wai (pathInfo)
@@ -40,6 +40,10 @@ main = hspec $ do
             let html = "<html><head><title>foo</title></head><body><br><p>Hello World</p></body></html>"
                 query = "body > p"
              in findBySelector_ html query @?= ["<p>Hello World</p>"]
+        let query = "form.foo input[name=_token][type=hidden][value]"
+            html = "<input name='_token' type='hidden' value='foo'><form class='foo'><input name='_token' type='hidden' value='bar'></form>"
+            expected = "<input name=\"_token\" type=\"hidden\" value=\"bar\" />"
+         in it query $ findBySelector_ html (pack query) @?= [expected]
     describe "HTML parsing" $ do
         it "XHTML" $
             let html = "<html><head><title>foo</title></head><body><p>Hello World</p></body></html>"
