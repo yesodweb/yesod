@@ -74,6 +74,7 @@ library
                      Yesod.Core.Widget
                      Yesod.Core.Internal
                      Yesod.Core.Types
+                     Yesod.Routes.Class
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
                      Yesod.Core.Class.Handler
@@ -89,7 +90,6 @@ library
                      Paths_yesod_core
 
                      Yesod.Routes.TH
-                     Yesod.Routes.Class
                      Yesod.Routes.Parse
                      Yesod.Routes.Overlap
                      Yesod.Routes.TH.Dispatch
