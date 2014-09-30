@@ -46,7 +46,8 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Routes.Class           (Route, renderRoute)
-import Control.DeepSeq (($!!))
+import Control.DeepSeq (($!!), NFData)
+import Control.Monad (liftM)
 
 returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
 #if MIN_VERSION_bytestring(0, 10, 0)
