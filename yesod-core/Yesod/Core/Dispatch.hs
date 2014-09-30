@@ -96,7 +96,6 @@ toWaiAppYre yre req =
          sendResponse $ W.responseLBS status301
                 [ ("Content-Type", "text/plain")
                 , ("Location", Blaze.ByteString.Builder.toByteString dest')
-                -- FIXME , ("Server", serverValue)
                 ] "Redirecting"
       where
         dest = joinPath y (resolveApproot y env) segments' []
@@ -155,6 +154,7 @@ warp port site = do
     logger <- makeLogger site
     toWaiAppLogger logger site >>= Network.Wai.Handler.Warp.runSettings (
         Network.Wai.Handler.Warp.setPort port $
+        Network.Wai.Handler.Warp.setServerName serverValue $
         Network.Wai.Handler.Warp.setOnException (\_ e ->
                 when (shouldLog' e) $
                 messageLoggerSource
@@ -168,8 +168,8 @@ warp port site = do
   where
     shouldLog' = Network.Wai.Handler.Warp.defaultShouldDisplayException
 
-_serverValue :: S8.ByteString -- FIXME
-_serverValue = S8.pack $ concat
+serverValue :: S8.ByteString
+serverValue = S8.pack $ concat
     [ "Warp/"
     , Network.Wai.Handler.Warp.warpVersion
     , " + Yesod/"
