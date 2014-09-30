@@ -31,7 +31,7 @@ type KeyedTypeMap = HashMap (TypeRep, ByteString) Dynamic
 -- Since 1.4.0
 cached :: (Monad m, Typeable a)
        => TypeMap
-       -> m a
+       -> m a                       -- ^ cache the result of this action
        -> m (Either (TypeMap, a) a) -- ^ Left is a cache miss, Right is a hit
 cached cache action = case clookup cache of
     Just val -> return $ Right val
@@ -63,7 +63,7 @@ cached cache action = case clookup cache of
 cachedBy :: (Monad m, Typeable a)
          => KeyedTypeMap
          -> ByteString
-         -> m a
+         -> m a                            -- ^ cache the result of this action
          -> m (Either (KeyedTypeMap, a) a) -- ^ Left is a cache miss, Right is a hit
 cachedBy cache k action = case clookup k cache of
     Just val -> return $ Right val
