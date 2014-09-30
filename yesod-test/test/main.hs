@@ -45,7 +45,7 @@ main = hspec $ do
             expected = "<input name=\"_token\" type=\"hidden\" value=\"bar\" />"
          in it query $ findBySelector_ html (pack query) @?= [expected]
         it "descendents" $
-            let html = "<p><b><i>hello</i></b></p>"
+            let html = "<html><p><b><i>hello</i></b></p></html>"
                 query = "p i"
              in findBySelector_ html query @?= ["<i>hello</i>"]
     describe "HTML parsing" $ do
