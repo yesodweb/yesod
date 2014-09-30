@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.4.0
+version:         1.4.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -110,6 +110,8 @@ test-suite test-routes
     type: exitcode-stdio-1.0
     main-is: RouteSpec.hs
     hs-source-dirs: test, .
+
+    other-modules: Hierarchy
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     extensions:      TemplateHaskell
