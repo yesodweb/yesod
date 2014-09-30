@@ -60,10 +60,10 @@ directChildren :: Parser SelectorGroup
 directChildren = string "> " >> DirectChildren <$> parseSelectors
 
 deepChildren :: Parser SelectorGroup
-deepChildren = DeepChildren <$> parseSelectors
+deepChildren = pOptionalTrailingSpace $ DeepChildren <$> parseSelectors
 
 parseSelectors :: Parser [Selector]
-parseSelectors = pOptionalTrailingSpace . many1 $
+parseSelectors = many1 $
     parseId <|> parseClass <|> parseTag <|> parseAttr
 
 parseId :: Parser Selector
@@ -87,7 +87,7 @@ parseAttr = pSquare $ choice
 -- | pIdent : Parse an identifier (not yet supporting escapes and unicode as
 -- part of the identifier). Basically the regex: [-]?[_a-zA-Z][_a-zA-Z0-9]*
 pIdent :: Parser Text
-pIdent = pOptionalTrailingSpace $ do
+pIdent = do
     leadingMinus <- string "-" <|> pure ""
     nmstart <- T.singleton <$> satisfy (\c -> isAlpha c || c == '_')
     nmchar <- takeWhile (\c -> isAlphaNum c || c == '_')
