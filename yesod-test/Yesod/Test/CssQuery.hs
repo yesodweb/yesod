@@ -9,10 +9,7 @@ module Yesod.Test.CssQuery
 import Prelude hiding (takeWhile)
 import Data.Text (Text)
 import Data.Attoparsec.Text
-import Control.Applicative
-import Data.Char
-
-import qualified Data.Text as T
+import Control.Applicative (many, (<|>), optional)
 
 data SelectorGroup
   = DirectChildren [Selector]
@@ -30,13 +27,6 @@ data Selector
   | ByAttrEnds Text Text
   deriving (Show, Eq)
 
-
--- The official syntax specification for CSS2 can be found here:
---      http://www.w3.org/TR/CSS2/syndata.html
--- but that spec is tricky to fully support. Instead we do the minimal and we
--- can extend it as needed.
-
-
 -- | Parses a query into an intermediate format which is easy to feed to HXT
 --
 -- * The top-level lists represent the top level comma separated queries.
@@ -51,54 +41,66 @@ parseQuery = parseOnly cssQuery
 
 -- Below this line is the Parsec parser for css queries.
 cssQuery :: Parser [[SelectorGroup]]
-cssQuery = sepBy rules (char ',' >> optional (char ' '))
+cssQuery = sepBy rules (char ',' >> (optional (char ' ')))
 
 rules :: Parser [SelectorGroup]
 rules = many $ directChildren <|> deepChildren
 
 directChildren :: Parser SelectorGroup
-directChildren = string "> " >> DirectChildren <$> parseSelectors
+directChildren = do
+  _ <- char '>'
+  _ <- char ' '
+  sels <- selectors
+  _ <- optional $ char ' '
+  return $ DirectChildren sels
 
 deepChildren :: Parser SelectorGroup
-deepChildren = DeepChildren <$> parseSelectors
-
-parseSelectors :: Parser [Selector]
-parseSelectors = pOptionalTrailingSpace . many1 $
-    parseId <|> parseClass <|> parseTag <|> parseAttr
+deepChildren = do 
+  sels <- selectors
+  _ <- optional $ char ' '
+  return $ DeepChildren sels
+  
+selectors :: Parser [Selector]
+selectors = many1 $ parseId
+  <|> parseClass
+  <|> parseTag
+  <|> parseAttr
 
 parseId :: Parser Selector
-parseId = char '#' >> ById <$> pIdent
+parseId = do
+  _ <- char '#'
+  x <- takeWhile $ flip notElem ",#.[ >"
+  return $ ById x
 
 parseClass :: Parser Selector
-parseClass = char '.' >> ByClass <$> pIdent
+parseClass = do
+  _ <- char '.'
+  x <- takeWhile $ flip notElem ",#.[ >"
+  return $ ByClass x
 
 parseTag :: Parser Selector
-parseTag = ByTagName <$> pIdent
+parseTag = do
+  x <- takeWhile1 $ flip notElem ",#.[ >"
+  return $ ByTagName x
 
 parseAttr :: Parser Selector
-parseAttr = pSquare $ choice
-    [ ByAttrEquals <$> pIdent <*> (string "=" *> pAttrValue)
-    , ByAttrContains <$> pIdent <*> (string "*=" *> pAttrValue)
-    , ByAttrStarts <$> pIdent <*> (string "^=" *> pAttrValue)
-    , ByAttrEnds <$> pIdent <*> (string "$=" *> pAttrValue)
-    , ByAttrExists <$> pIdent
-    ]
+parseAttr = do
+  _ <- char '['
+  name <- takeWhile $ flip notElem ",#.=$^*]"
+  (parseAttrExists name)
+    <|> (parseAttrWith "=" ByAttrEquals name)
+    <|> (parseAttrWith "*=" ByAttrContains name)
+    <|> (parseAttrWith "^=" ByAttrStarts name)
+    <|> (parseAttrWith "$=" ByAttrEnds name)
 
--- | pIdent : Parse an identifier (not yet supporting escapes and unicode as
--- part of the identifier). Basically the regex: [-]?[_a-zA-Z][_a-zA-Z0-9]*
-pIdent :: Parser Text
-pIdent = pOptionalTrailingSpace $ do
-    leadingMinus <- string "-" <|> pure ""
-    nmstart <- T.singleton <$> satisfy (\c -> isAlpha c || c == '_')
-    nmchar <- takeWhile (\c -> isAlphaNum c || c == '_')
-    return $ T.concat [ leadingMinus, nmstart, nmchar ]
+parseAttrExists :: Text -> Parser Selector
+parseAttrExists attrname = do
+  _ <- char ']'
+  return $ ByAttrExists attrname
 
-
-pAttrValue :: Parser Text
-pAttrValue = takeWhile (/= ']')
-
-pSquare :: Parser a -> Parser a
-pSquare p = char '[' *> p <* char ']'
-
-pOptionalTrailingSpace :: Parser a -> Parser a
-pOptionalTrailingSpace p = p <* optional (char ' ')
+parseAttrWith :: Text -> (Text -> Text -> Selector) -> Text -> Parser Selector
+parseAttrWith sign constructor name = do
+  _ <- string sign
+  value <- takeWhile $ flip notElem ",#.]"
+  _ <- char ']'
+  return $ constructor name value
