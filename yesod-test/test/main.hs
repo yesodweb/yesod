@@ -44,6 +44,14 @@ main = hspec $ do
             html = "<input name='_token' type='hidden' value='foo'><form class='foo'><input name='_token' type='hidden' value='bar'></form>"
             expected = "<input name=\"_token\" type=\"hidden\" value=\"bar\" />"
          in it query $ findBySelector_ html (pack query) @?= [expected]
+        it "descendents and children" $
+            let html = "<html><p><b><i><u>hello</u></i></b></p></html>"
+                query = "p > b u"
+             in findBySelector_ html query @?= ["<u>hello</u>"]
+        it "hyphenated classes" $
+            let html = "<html><p class='foo-bar'><b><i><u>hello</u></i></b></p></html>"
+                query = "p.foo-bar u"
+             in findBySelector_ html query @?= ["<u>hello</u>"]
         it "descendents" $
             let html = "<html><p><b><i>hello</i></b></p></html>"
                 query = "p i"
