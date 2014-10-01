@@ -26,10 +26,10 @@ class Yesod a => YesodNic a where
 nicHtmlField :: YesodNic site => Field (HandlerT site IO) Html
 nicHtmlField = Field
     { fieldParse = \e _ -> return . Right . fmap (preEscapedToMarkup . sanitizeBalance) . listToMaybe $ e
-    , fieldView = \theId name attrs val isReq -> do
+    , fieldView = \theId name attrs val _isReq -> do
         toWidget [shamlet|
 $newline never
-    <textarea id="#{theId}" *{attrs} name="#{name}" :isReq:required .html>#{showVal val}
+    <textarea id="#{theId}" *{attrs} name="#{name}" .html>#{showVal val}
 |]
         addScript' urlNicEdit
         master <- getYesod
