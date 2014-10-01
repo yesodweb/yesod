@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 import Yesod.Core
 import Yesod.Form
+import Yesod.Form.Nic
 import Yesod.Form.MassInput
 import Control.Applicative
 import Data.Text (Text, pack)
@@ -9,6 +11,7 @@ import Network.Wai.Handler.Warp (run)
 import Data.Time (utctDay, getCurrentTime)
 import qualified Data.Text as T
 import Control.Monad.IO.Class (liftIO)
+import Text.Blaze.Html.Renderer.String (renderHtml)
 
 data Fruit = Apple | Banana | Pear
     deriving (Show, Enum, Bounded, Eq)
@@ -23,7 +26,7 @@ mkYesod "HelloForms" [parseRoutes|
 /file FileR GET POST
 |]
 
-myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,,,)
+myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,,,,)
     <*> pure "pure works!"
     <*> areq boolField "Bool field" Nothing
     <*> aopt boolField "Opt bool field" Nothing
@@ -35,6 +38,10 @@ myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,,,)
     <*> aopt intField "Opt int field" Nothing
     <*> aopt (radioFieldList fruits) "Opt radio" Nothing
     <*> aopt multiEmailField "Opt multi email" Nothing
+    <*> areq nicHtmlField "NIC HTML" Nothing
+
+instance Show Html where
+    show = renderHtml
 
 data HelloForms = HelloForms
 
@@ -42,6 +49,7 @@ instance RenderMessage HelloForms FormMessage where
     renderMessage _ _ = defaultFormMessage
 
 instance Yesod HelloForms
+instance YesodNic HelloForms
 
 fixType :: Handler a -> Handler a
 fixType = id
