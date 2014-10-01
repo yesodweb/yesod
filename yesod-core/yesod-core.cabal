@@ -148,7 +148,6 @@ test-suite tests
                   , containers
                   , lifted-base
                   , resourcet
-                  , network-conduit
                   , network
                   , async
                   , conduit-extra

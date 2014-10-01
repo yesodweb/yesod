@@ -1,5 +1,5 @@
 name:            yesod-persistent
-version:         1.4.0
+version:         1.4.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -33,7 +33,6 @@ test-suite test
     other-modules: Yesod.PersistSpec
     build-depends: base
                  , hspec
-                 , wai-test
                  , wai-extra
                  , yesod-core
                  , persistent-sqlite
