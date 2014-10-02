@@ -62,7 +62,7 @@ cached cache action = case clookup cache of
 -- Since 1.4.0
 cachedBy :: (Monad m, Typeable a)
          => KeyedTypeMap
-         -> ByteString
+         -> ByteString                     -- ^ a cache key
          -> m a                            -- ^ cache the result of this action
          -> m (Either (KeyedTypeMap, a) a) -- ^ Left is a cache miss, Right is a hit
 cachedBy cache k action = case clookup k cache of
