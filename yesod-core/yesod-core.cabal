@@ -60,7 +60,7 @@ library
                    , blaze-markup          >= 0.5.1
                    , data-default
                    , safe
-                   , warp                  >= 3.0.2
+                   , warp                  >= 3.0.2.2
                    , unix-compat
                    , conduit-extra
                    , exceptions            >= 0.6
