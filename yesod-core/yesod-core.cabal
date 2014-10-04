@@ -61,7 +61,7 @@ library
                    , data-default
                    , safe
                    , warp                  >= 3.0.2
-                   , unix-compat
+                   , unix-compat           >= 0.4.1.3
                    , conduit-extra
                    , exceptions            >= 0.6
                    , deepseq
