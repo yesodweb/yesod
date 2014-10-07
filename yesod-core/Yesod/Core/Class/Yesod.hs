@@ -14,10 +14,12 @@ import           Yesod.Routes.Class
 import           Blaze.ByteString.Builder           (Builder)
 import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import           Control.Arrow                      ((***), second)
+import           Control.Exception                  (bracket)
 import           Control.Monad                      (forM, when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
                                                      LogSource)
+import           Control.Monad.Trans.Resource       (InternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))
@@ -283,6 +285,20 @@ class RenderRoute site => Yesod site where
     -- Since: 1.1.6
     yesodMiddleware :: ToTypedContent res => HandlerT site IO res -> HandlerT site IO res
     yesodMiddleware = defaultYesodMiddleware
+
+    -- | How to allocate an @InternalState@ for each request.
+    --
+    -- The default implementation is almost always what you want. However, if
+    -- you know that you are never taking advantage of the @MonadResource@
+    -- instance in your handler functions, setting this to a dummy
+    -- implementation can provide a small optimization. Only do this if you
+    -- really know what you're doing, otherwise you can turn safe code into a
+    -- runtime error!
+    --
+    -- Since 1.4.2
+    yesodWithInternalState :: site -> Maybe (Route site) -> (InternalState -> IO a) -> IO a
+    yesodWithInternalState _ _ = bracket createInternalState closeInternalState
+    {-# INLINE yesodWithInternalState #-}
 
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
 -- \"Vary: Accept, Accept-Language\" and performs authorization checks.

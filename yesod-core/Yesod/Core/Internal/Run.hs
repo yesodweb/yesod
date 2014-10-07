@@ -18,7 +18,7 @@ import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
-import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState, createInternalState, closeInternalState)
+import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.IORef                   as I
@@ -278,7 +278,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
             { rheOnError = runHandler rheSafe . errorHandler
             }
 
-    E.bracket createInternalState closeInternalState $ \is -> do
+    yesodWithInternalState yreSite route $ \is -> do
         yreq' <- yreq
         yar <- runInternalState (runHandler rhe handler yreq') is
         yarToResponse yar saveSession yreq' req is sendResponse
