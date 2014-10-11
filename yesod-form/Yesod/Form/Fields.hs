@@ -193,9 +193,9 @@ instance ToHtml Textarea where
 textareaField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Textarea
 textareaField = Field
     { fieldParse = parseHelper $ Right . Textarea
-    , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
+    , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
-<textarea id="#{theId}" name="#{name}" *{attrs}>#{either id unTextarea val}
+<textarea id="#{theId}" name="#{name}" :isReq:required="" *{attrs}>#{either id unTextarea val}
 |]
     , fieldEnctype = UrlEncoded
     }
