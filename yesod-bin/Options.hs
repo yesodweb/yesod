@@ -62,6 +62,8 @@ configLines = mapMaybe (mkLine . takeWhile (/='#')) . lines
 --   the map contains the paths with the value that's passed into the reader if the
 --   command line parser gives no result
 injectDefaultP :: M.Map [String] String -> [String] -> Parser a -> Parser a
+injectDefaultP _ _ = id
+{- FIXME Disabled due to changes in optparse-applicative 0.11
 injectDefaultP _env _path n@(NilP{})   = n
 injectDefaultP env path p@(OptP o)
   | (Option (CmdReader cmds f) props) <- o  =
@@ -84,7 +86,7 @@ injectDefaultP env path (MultP p1 p2) =
 injectDefaultP env path (AltP p1 p2) =
    AltP (injectDefaultP env path p1) (injectDefaultP env path p2)
 injectDefaultP _env _path b@(BindP {}) = b
-
+-}
 
 getEnvValue :: M.Map [String] String -> [String] -> OptName -> Maybe String
 getEnvValue env path (OptLong l) = M.lookup (path ++ [normalizeName l]) env

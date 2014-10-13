@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.4.0
+version:         1.4.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -70,7 +70,7 @@ executable             yesod
                      , system-fileio      >= 0.3          && < 0.4
                      , unordered-containers
                      , yaml               >= 0.8          && < 0.9
-                     , optparse-applicative >= 0.10
+                     , optparse-applicative >= 0.11
                      , fsnotify           >= 0.0          && < 0.2
                      , split              >= 0.2          && < 0.3
                      , file-embed
