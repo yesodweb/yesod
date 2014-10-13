@@ -397,9 +397,9 @@ library
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
-        ghc-options:   -Wall -O0
+        ghc-options:   -Wall -fwarn-tabs -O0
     else
-        ghc-options:   -Wall -O2
+        ghc-options:   -Wall -fwarn-tabs -O2
 
     extensions: TemplateHaskell
                 QuasiQuotes
@@ -768,7 +768,8 @@ stanzas:
 # If you would like to have Keter automatically create a PostgreSQL database
 # and set appropriate environment variables for it to be discovered, uncomment
 # the following line.
-# postgres: true
+# plugins:
+#   postgres: true
 
 {-# START_FILE config/models #-}
 User
