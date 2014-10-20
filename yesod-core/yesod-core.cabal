@@ -65,6 +65,9 @@ library
                    , conduit-extra
                    , exceptions            >= 0.6
                    , deepseq
+                   , mwc-random
+                   , primitive
+                   , word8
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
@@ -154,6 +157,7 @@ test-suite tests
                   , shakespeare
                   , streaming-commons
                   , wai-extra
+                  , mwc-random
     ghc-options:     -Wall
     extensions: TemplateHaskell
 

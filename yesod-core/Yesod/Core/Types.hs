@@ -46,6 +46,7 @@ import           Network.Wai                        (FilePart,
 import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
 import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
+import qualified System.Random.MWC                  as MWC
 import           Network.Wai.Logger                 (DateCacheGetter)
 import           Text.Blaze.Html                    (Html)
 import           Text.Hamlet                        (HtmlUrl)
@@ -193,6 +194,7 @@ data YesodRunnerEnv site = YesodRunnerEnv
     { yreLogger         :: !Logger
     , yreSite           :: !site
     , yreSessionBackend :: !(Maybe SessionBackend)
+    , yreGen            :: !MWC.GenIO
     }
 
 data YesodSubRunnerEnv sub parent parentMonad = YesodSubRunnerEnv

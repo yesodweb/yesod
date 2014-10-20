@@ -256,10 +256,10 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
     (session, saveSession) <- liftIO $ do
         maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb req) yreSessionBackend
     let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) mmaxLen
-    yreq <-
-        case mkYesodReq of
-            Left yreq -> return yreq
-            Right needGen -> liftIO $ needGen <$> newStdGen
+    let yreq =
+            case mkYesodReq of
+                Left yreq -> yreq
+                Right needGen -> needGen yreGen
     let ra = resolveApproot yreSite req
     let log' = messageLoggerSource yreSite yreLogger
         -- We set up two environments: the first one has a "safe" error handler
