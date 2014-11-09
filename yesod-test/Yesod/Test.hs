@@ -96,7 +96,7 @@ module Yesod.Test
     ) where
 
 import qualified Test.Hspec as Hspec
-import qualified Test.Hspec.Core as Core
+import qualified Test.Hspec.Core as Hspec
 import qualified Data.List as DL
 import qualified Data.ByteString.Char8 as BS8
 import Data.ByteString (ByteString)
@@ -202,10 +202,10 @@ yesodSpec :: YesodDispatch site
           -> YesodSpec site
           -> Hspec.Spec
 yesodSpec site yspecs =
-    Core.fromSpecList $ map unYesod $ execWriter yspecs
+    Hspec.fromSpecList $ map unYesod $ execWriter yspecs
   where
-    unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
-    unYesod (YesodSpecItem x y) = Core.it x $ do
+    unYesod (YesodSpecGroup x y) = Hspec.specGroup x $ map unYesod y
+    unYesod (YesodSpecItem x y) = Hspec.specItem x $ do
         app <- toWaiAppPlain site
         ST.evalStateT y YesodExampleData
             { yedApp = app
@@ -221,12 +221,10 @@ yesodSpecWithSiteGenerator :: YesodDispatch site
                            -> YesodSpec site
                            -> Hspec.Spec
 yesodSpecWithSiteGenerator getSiteAction yspecs =
-    Core.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
+    Hspec.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
     where
-      unYesod :: YesodDispatch t
-              => IO t -> YesodSpecTree t -> Core.SpecTree
-      unYesod getSiteAction' (YesodSpecGroup x y) = Core.SpecGroup x $ map (unYesod getSiteAction') y
-      unYesod getSiteAction' (YesodSpecItem x y) = Core.it x $ do
+      unYesod getSiteAction' (YesodSpecGroup x y) = Hspec.specGroup x $ map (unYesod getSiteAction') y
+      unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ do
         site <- getSiteAction'
         app <- toWaiAppPlain site
         ST.evalStateT y YesodExampleData
@@ -245,10 +243,10 @@ yesodSpecApp :: YesodDispatch site
              -> YesodSpec site
              -> Hspec.Spec
 yesodSpecApp site getApp yspecs =
-    Core.fromSpecList $ map unYesod $ execWriter yspecs
+    Hspec.fromSpecList $ map unYesod $ execWriter yspecs
   where
-    unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
-    unYesod (YesodSpecItem x y) = Core.it x $ do
+    unYesod (YesodSpecGroup x y) = Hspec.specGroup x $ map unYesod y
+    unYesod (YesodSpecItem x y) = Hspec.specItem x $ do
         app <- getApp
         ST.evalStateT y YesodExampleData
             { yedApp = app
