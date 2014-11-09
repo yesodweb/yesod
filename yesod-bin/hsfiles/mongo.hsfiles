@@ -279,7 +279,6 @@ getExtra = fmap (appExtra . settings) getYesod
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
 
 {-# START_FILE Handler/Home.hs #-}
-{-# LANGUAGE TupleSections, OverloadedStrings #-}
 module Handler.Home where
 
 import Import
@@ -415,6 +414,7 @@ library
                 NoMonomorphismRestriction
                 DeriveDataTypeable
                 ViewPatterns
+                TupleSections
 
     build-depends: base                          >= 4          && < 5
                  , yesod                         >= 1.4.0      && < 1.5
@@ -461,9 +461,25 @@ executable         PROJECTNAME
 
 test-suite test
     type:              exitcode-stdio-1.0
-    main-is:           main.hs
+    main-is:           Spec.hs
     hs-source-dirs:    test
     ghc-options:       -Wall
+
+    extensions: TemplateHaskell
+                QuasiQuotes
+                OverloadedStrings
+                NoImplicitPrelude
+                CPP
+                MultiParamTypeClasses
+                TypeFamilies
+                GADTs
+                GeneralizedNewtypeDeriving
+                FlexibleContexts
+                EmptyDataDecls
+                NoMonomorphismRestriction
+                DeriveDataTypeable
+                ViewPatterns
+                TupleSections
 
     build-depends: base
                  , PROJECTNAME
@@ -9002,7 +9018,7 @@ $maybe msg <- mmsg
     <form method=post action=@{HomeR}#form enctype=#{formEnctype}>
       ^{formWidget}
       <button .btn .btn-primary type="submit">
-         Send it! <span class="glyphicon glyphicon-upload">
+         Send it! <span class="glyphicon glyphicon-upload"></span>
 
   <li> And last but not least, Testing. In <em>tests/main.hs</em> you will find a #
     test suite that performs tests on this page. #
@@ -9019,17 +9035,16 @@ h2##{aDomId} {
     color: #990
 }
 
-{-# START_FILE test/HomeTest.hs #-}
-{-# LANGUAGE OverloadedStrings #-}
-module HomeTest
-    ( homeSpecs
+{-# START_FILE test/Handler/HomeSpec.hs #-}
+module Handler.HomeSpec
+    ( spec
     ) where
 
 import TestImport
 import qualified Data.List as L
 
-homeSpecs :: Spec
-homeSpecs =
+spec :: Spec
+spec =
     ydescribe "These are some example tests" $ do
 
         yit "loads the index and checks it looks right" $ do
@@ -9041,11 +9056,11 @@ homeSpecs =
                 setMethod "POST"
                 setUrl HomeR
                 addNonce
-                fileByLabel "Choose a file" "test/main.hs" "text/plain" -- talk about self-reference
+                fileByLabel "Choose a file" "test/Spec.hs" "text/plain" -- talk about self-reference
                 byLabel "What's on the file?" "Some Content"
 
             statusIs 200
-            printBody
+            -- more debugging printBody
             htmlCount ".message" 1
             htmlAllContain ".message" "Some Content"
             htmlAllContain ".message" "text/plain"
@@ -9059,13 +9074,34 @@ homeSpecs =
             users <- runDB $ selectList ([] :: [Filter User]) []
             assertEqual "user table empty" 0 $ L.length users
 
+{-# START_FILE test/Spec.hs #-}
+module Main where
+
+import Import
+import Yesod.Default.Config
+import Yesod.Test
+import Test.Hspec (hspec)
+import Application (makeFoundation)
+
+import qualified Handler.HomeSpec
+
+main :: IO ()
+main = do
+    conf <- Yesod.Default.Config.loadConfig $ (configSettings Testing)
+                { csParseExtra = parseExtra
+                }
+    foundation <- makeFoundation conf
+    hspec $ do
+        yesodSpec foundation $ do
+            Handler.HomeSpec.spec
+
 {-# START_FILE test/TestImport.hs #-}
-{-# LANGUAGE OverloadedStrings #-}
 module TestImport
     ( module Yesod.Test
     , module Model
     , module Foundation
     , module Database.Persist
+    , module Prelude
     , runDB
     , Spec
     , Example
@@ -9077,6 +9113,7 @@ import Database.Persist.MongoDB hiding (master)
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Control.Monad.Logger (NoLoggingT, runNoLoggingT)
 import Control.Monad.IO.Class (liftIO)
+import Prelude
 
 import Foundation
 import Model
@@ -9088,29 +9125,4 @@ runDB :: Action (NoLoggingT (ResourceT IO)) a -> YesodExample App a
 runDB query = do
     pool <- fmap connPool getTestYesod
     liftIO $ runResourceT $ runNoLoggingT $ runMongoDBPoolDef query pool
-
-{-# START_FILE test/main.hs #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
-module Main where
-
-import Import
-import Yesod.Default.Config
-import Yesod.Test
-import Test.Hspec (hspec)
-import Application (makeFoundation)
-
-import HomeTest
-
-main :: IO ()
-main = do
-    conf <- Yesod.Default.Config.loadConfig $ (configSettings Testing)
-                { csParseExtra = parseExtra
-                }
-    foundation <- makeFoundation conf
-    hspec $ do
-        yesodSpec foundation $ do
-            homeSpecs
 
