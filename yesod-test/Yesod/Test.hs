@@ -95,8 +95,7 @@ module Yesod.Test
     , withResponse
     ) where
 
-import qualified Test.Hspec as Hspec
-import qualified Test.Hspec.Core as Hspec
+import qualified Test.Hspec.Core.Spec as Hspec
 import qualified Data.List as DL
 import qualified Data.ByteString.Char8 as BS8
 import Data.ByteString (ByteString)
