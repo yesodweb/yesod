@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.4.0.6
+version:         1.4.0.7
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -21,6 +21,7 @@ extra-source-files:
   hsfiles/postgres-fay.hsfiles
   hsfiles/simple.hsfiles
   hsfiles/sqlite.hsfiles
+  ChangeLog.md
 
 executable             yesod-ghc-wrapper
     main-is: ghcwrapper.hs
