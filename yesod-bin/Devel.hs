@@ -300,6 +300,8 @@ configure opts extraArgs =
   checkExit =<< createProcess (proc (cabalProgram opts) $
                                  [ "configure"
                                  , "-flibrary-only"
+                                 , "--disable-tests"
+                                 , "--disable-benchmarks"
                                  , "-fdevel"
                                  , "--disable-library-profiling"
                                  , "--with-ld=yesod-ld-wrapper"
