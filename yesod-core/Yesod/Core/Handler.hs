@@ -94,6 +94,7 @@ module Yesod.Core.Handler
     , sendWaiApplication
     , sendRawResponse
     , sendRawResponseNoConduit
+    , notModified
       -- * Different representations
       -- $representations
     , selectRep
@@ -112,6 +113,7 @@ module Yesod.Core.Handler
     , neverExpires
     , alreadyExpired
     , expiresAt
+    , setEtag
       -- * Session
     , SessionMap
     , lookupSession
@@ -590,6 +592,13 @@ sendRawResponse raw = control $ \runInIO ->
             yield bs
             src' src
 
+-- | Send a 304 not modified response immediately. This is a short-circuiting
+-- action.
+--
+-- Since 1.4.4
+notModified :: MonadHandler m => m a
+notModified = sendWaiResponse $ W.responseBuilder H.status304 [] mempty
+
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: MonadHandler m => m a
 notFound = hcError NotFound
@@ -698,6 +707,18 @@ alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 -- | Set an Expires header to the given date.
 expiresAt :: MonadHandler m => UTCTime -> m ()
 expiresAt = setHeader "Expires" . formatRFC1123
+
+-- | Check the if-none-match header and, if it matches the given value, return
+-- a 304 not modified response. Otherwise, set the etag header to the given
+-- value.
+--
+-- Since 1.4.4
+setEtag :: MonadHandler m => Text -> m ()
+setEtag etag = do
+    mmatch <- lookupHeader "if-none-match"
+    case mmatch of
+        Just x | encodeUtf8 etag == x -> notModified
+        _ -> addHeader "etag" etag
 
 -- | Set a variable in the user's session.
 --
