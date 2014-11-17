@@ -13,11 +13,13 @@
 dist*
 static/tmp/
 static/combined/
+static/fay-runtime.js
+static/faygen*.js
 config/client_session_key.aes
 *.hi
 *.o
 *.sqlite3
-fay/Language/Fay/Yesod.hs
+fay/Fay/Yesod.hs
 .hsenv*
 cabal-dev/
 yesod-devel/
@@ -469,8 +471,8 @@ library
                  , yesod-auth                    >= 1.4.0      && < 1.5
                  , yesod-static                  >= 1.4.0      && < 1.5
                  , yesod-form                    >= 1.4.0      && < 1.5
-                 , yesod-fay                     >= 0.5.0.1
-                 , fay                           >= 0.16
+                 , yesod-fay                     >= 0.7        && < 0.8
+                 , fay                           >= 0.21.2.1   && < 0.22
                  , bytestring                    >= 0.9        && < 0.11
                  , text                          >= 0.11       && < 2.0
                  , persistent                    >= 2.0        && < 2.2
@@ -619,6 +621,7 @@ fayFile' staticR moduleName
         { yfsSeparateRuntime = Just ("static", staticR)
         -- , yfsPostProcess = readProcess "java" ["-jar", "closure-compiler.jar"]
         , yfsExternal = Just ("static", staticR)
+        , yfsPackages = ["fay-dom"]
         }
 
 data Extra = Extra
@@ -1069,55 +1072,53 @@ module SharedTypes where
 
 import Prelude
 import Data.Data
-import Language.Fay.Yesod
-#ifdef FAY
-import FFI
-#else
---import Language.Fay.FFI
-#endif
+import Fay.Yesod
 
 data Command = GetFib Int (Returns Int)
-    deriving (Read, Typeable, Data)
+    deriving (Typeable, Data)
 
 
-{-# START_FILE fay/Home.hs #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE EmptyDataDecls    #-}
-module Home where
+{-# START_FILE fay/FFIExample.hs #-}
+-- | Example of defining FFI functions.
+--
+-- The `ffi' method is currently incompatible with 'RebindableSyntax',
+-- so these are defined in another module.
 
-import Prelude
-import Fay.FFI
-import Language.Fay.Yesod
-import SharedTypes
+module FFIExample where
 
-data Element
-
-getElementById :: String -> Fay Element
-getElementById = ffi "document.getElementById(%1)"
-
-getAttribute :: String -> Element -> Fay String
-getAttribute = ffi "%2[%1]"
-
-setInnerHTML :: Element -> String -> Fay ()
-setInnerHTML = ffi "%1.innerHTML=%2"
+import Data.Text (Text)
+import DOM
+import FFI
 
 onKeyUp :: Element -> Fay () -> Fay ()
 onKeyUp = ffi "%1.onkeyup=%2"
 
-alert :: String -> Fay ()
-alert = ffi "window.alert(%1)"
+setInnerHTML :: Element -> Text -> Fay ()
+setInnerHTML = ffi "%1.innerHTML=%2"
 
-parseInt :: String -> Fay Int
-parseInt = ffi "window.parseInt(%1, 10)"
+{-# START_FILE fay/Home.hs #-}
+{-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+module Home where
+
+import           FFIExample
+
+import           DOM
+import           Data.Text (fromString)
+import qualified Data.Text as T
+import           Fay.Yesod
+import           Prelude
+import           SharedTypes
 
 main :: Fay ()
 main = do
     input <- getElementById "fibindex"
     result <- getElementById "fibresult"
     onKeyUp input $ do
-        indexS <- getAttribute "value" input
+        indexS <- getValue input
         index <- parseInt indexS
-        call (GetFib index) $ setInnerHTML result . show
+        call (GetFib index) $ setInnerHTML result . T.pack . show
 
 {-# START_FILE messages/en.msg #-}
 Hello: Hello
