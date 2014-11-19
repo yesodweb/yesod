@@ -21,7 +21,7 @@ import Data.Text (Text, pack)
 import System.Environment (getEnvironment, getArgs)
 import Control.Arrow ((***))
 import Control.Applicative ((<$>))
-import Control.Monad (guard, forM)
+import Control.Monad (forM)
 import Control.Exception (throwIO)
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Yaml as Y
@@ -35,6 +35,7 @@ import System.Directory (doesFileExist)
 import Network.Wai.Logger (clockDateCacher)
 import Yesod.Core.Types (Logger (Logger))
 import System.Log.FastLogger (LoggerSet)
+import qualified Data.Text as T
 
 #ifndef mingw32_HOST_OS
 import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
@@ -56,32 +57,20 @@ applyEnv :: H.HashMap Text Text -> Value -> Value
 applyEnv env =
     goV
   where
-    goV (Object o) =
-        case checkEnv o of
-            Just (name, value) ->
-                case H.lookup name env of
-                    Nothing -> value
-                    Just t -> matchType value t
-            Nothing -> Object $ goV <$> o
+    goV (Object o) = Object $ goV <$> o
     goV (Array a) = Array (goV <$> a)
+    goV (String t1) = fromMaybe (String t1) $ do
+        t2 <- T.stripPrefix "_env:" t1
+        let (name, t3) = T.break (== ':') t2
+        Just $ case H.lookup name env of
+            Just val -> parseValue val
+            Nothing ->
+                case T.stripPrefix ":" t3 of
+                    Just val -> parseValue val
+                    Nothing -> Null
     goV v = v
 
-    checkEnv o = do
-        guard $ H.size o == 2
-        String name <- H.lookup "env" o
-        value <- H.lookup "value" o
-        return (name, value)
-
-matchType :: Value -> Text -> Value
-matchType (Number _) t = tryWrap Number t
-matchType (Bool _) t = tryWrap Bool t
-matchType _ t = String t
-
-tryWrap :: FromJSON a => (a -> Value) -> Text -> Value
-tryWrap con t =
-    case Y.decode $ encodeUtf8 t of
-        Nothing -> String t
-        Just x -> con x
+    parseValue val = fromMaybe (String val) $ Y.decode $ encodeUtf8 val
 
 getCurrentEnv :: IO (H.HashMap Text Text)
 getCurrentEnv = fmap (H.fromList . map (pack *** pack)) getEnvironment
