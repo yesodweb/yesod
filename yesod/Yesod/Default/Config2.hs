@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | Some next-gen helper functions for the scaffolding's configuration system.
 module Yesod.Default.Config2
@@ -5,18 +6,35 @@ module Yesod.Default.Config2
     , applyCurrentEnv
     , getCurrentEnv
     , applyEnv
+    , loadAppSettings
+    , loadAppSettingsArgs
+    , configSettingsYml
+    , getDevSettings
+    , develMainHelper
     ) where
 
 import Data.Monoid
 import Data.Aeson
 import qualified Data.HashMap.Strict as H
 import Data.Text (Text, pack)
-import System.Environment (getEnvironment)
+import System.Environment (getEnvironment, getArgs)
 import Control.Arrow ((***))
 import Control.Applicative ((<$>))
-import Control.Monad (guard)
+import Control.Monad (guard, forM)
+import Control.Exception (throwIO)
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Yaml as Y
+import Network.Wai (Application)
+import Network.Wai.Handler.Warp
+import Safe (readMay)
+import Data.Maybe (fromMaybe)
+import Control.Concurrent (forkIO, threadDelay)
+import System.Exit (exitSuccess)
+import System.Directory (doesFileExist)
+
+#ifndef mingw32_HOST_OS
+import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
+#endif
 
 newtype MergedValue = MergedValue { getMergedValue :: Value }
 
@@ -66,3 +84,83 @@ getCurrentEnv = fmap (H.fromList . map (pack *** pack)) getEnvironment
 
 applyCurrentEnv :: Value -> IO Value
 applyCurrentEnv orig = flip applyEnv orig <$> getCurrentEnv
+
+-- | Load the settings from the following three sources:
+--
+-- * Run time config files
+--
+-- * Run time environment variables
+--
+-- * The default compile time config file
+loadAppSettings
+    :: FromJSON settings
+    => [FilePath] -- ^ run time config files to use, earlier files have precedence
+    -> [Value] -- ^ any other values to use, usually from compile time config. overridden by files
+    -> Bool -- ^ use environment variables
+    -> IO settings
+loadAppSettings runTimeFiles compileValues useEnv = do
+    runValues <- forM runTimeFiles $ \fp -> do
+        eres <- Y.decodeFileEither fp
+        case eres of
+            Left e -> do
+                putStrLn $ "Could not parse file as YAML: " ++ fp
+                throwIO e
+            Right value -> return value
+    let value' = getMergedValue
+               $ mconcat
+               $ map MergedValue
+               $ runValues ++ compileValues
+    value <-
+        if useEnv
+            then applyCurrentEnv value'
+            else return $ applyEnv mempty value'
+
+    case fromJSON value of
+        Error s -> error $ "Could not convert to AppSettings: " ++ s
+        Success settings -> return settings
+
+-- | Same as @loadAppSettings@, but get the list of runtime config files from
+-- the command line arguments.
+loadAppSettingsArgs
+    :: FromJSON settings
+    => [Value] -- ^ any other values to use, usually from compile time config. overridden by files
+    -> Bool -- ^ use environment variables
+    -> IO settings
+loadAppSettingsArgs values env = do
+    args <- getArgs
+    loadAppSettings args values env
+
+-- | Location of the default config file.
+configSettingsYml :: FilePath
+configSettingsYml = "config/settings.yml"
+
+-- | Helper for getApplicationDev in the scaffolding. Looks up PORT and
+-- DISPLAY_PORT and prints appropriate messages.
+getDevSettings :: Settings -> IO Settings
+getDevSettings settings = do
+    env <- getEnvironment
+    let p = fromMaybe (getPort settings) $ lookup "PORT" env >>= readMay
+        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMay
+    putStrLn $ "Devel application launched: http://localhost:" ++ show pdisplay
+    return $ setPort p settings
+
+-- | Helper for develMain in the scaffolding.
+develMainHelper :: IO (Settings, Application) -> IO ()
+develMainHelper getSettingsApp = do
+#ifndef mingw32_HOST_OS
+    _ <- installHandler sigINT (Catch $ return ()) Nothing
+#endif
+
+    putStrLn "Starting devel application"
+    (settings, app) <- getSettingsApp
+    _ <- forkIO $ runSettings settings app
+    loop
+  where
+    loop :: IO ()
+    loop = do
+        threadDelay 100000
+        e <- doesFileExist "yesod-devel/devel-terminate"
+        if e then terminateDevel else loop
+
+    terminateDevel :: IO ()
+    terminateDevel = exitSuccess
