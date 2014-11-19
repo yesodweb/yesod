@@ -16,6 +16,7 @@ module Yesod.Auth.Message
     , spanishMessage
     , czechMessage
     , russianMessage
+    , dutchMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -578,3 +579,45 @@ russianMessage SendPasswordResetEmail = "Отправить письмо для 
 russianMessage PasswordResetPrompt = "Введите адрес эл.почты или ваше имя пользователя ниже, вам будет отправлено письмо для сброса пароля."
 russianMessage InvalidUsernamePass = "Неверное сочетание имени пользователя и пароля"
 russianMessage (IdentifierNotFound ident) = "Логин не найден: " `mappend` ident
+
+dutchMessage :: AuthMessage -> Text
+dutchMessage NoOpenID = "Geen OpenID identificator gevonden"
+dutchMessage LoginOpenID = "Inloggen via OpenID"
+dutchMessage LoginGoogle = "Inloggen via Google"
+dutchMessage LoginYahoo = "Inloggen via Yahoo"
+dutchMessage Email = "E-mail"
+dutchMessage Password = "Wachtwoord"
+dutchMessage Register = "Registreren"
+dutchMessage RegisterLong = "Registreer een nieuw account"
+dutchMessage EnterEmail = "Voer uw e-mailadres hieronder in, er zal een bevestigings-e-mail naar u worden verzonden."
+dutchMessage ConfirmationEmailSentTitle = "Bevestigings-e-mail verzonden"
+dutchMessage (ConfirmationEmailSent email) =
+    "Een bevestigings-e-mail is verzonden naar " `mappend`
+    email `mappend`
+    "."
+dutchMessage AddressVerified = "Adres geverifieerd, stel alstublieft een nieuwe wachtwoord in"
+dutchMessage InvalidKeyTitle = "Ongeldig verificatietoken"
+dutchMessage InvalidKey = "Dat was helaas een ongeldig verificatietoken."
+dutchMessage InvalidEmailPass = "Ongeldige e-mailadres/wachtwoord combinatie"
+dutchMessage BadSetPass = "U moet ingelogd zijn om een nieuwe wachtwoord in te stellen"
+dutchMessage SetPassTitle = "Wachtwoord instellen"
+dutchMessage SetPass = "Een nieuwe wachtwoord instellen"
+dutchMessage NewPass = "Nieuw wachtwoord"
+dutchMessage ConfirmPass = "Bevestig"
+dutchMessage PassMismatch = "Wachtwoorden kwamen niet overeen, probeer het alstublieft nog eens"
+dutchMessage PassUpdated = "Wachtwoord geüpdatet"
+dutchMessage Facebook = "Inloggen met Facebook"
+dutchMessage LoginViaEmail = "Inloggen via e-mail"
+dutchMessage InvalidLogin = "Ongeldige inloggegevens"
+dutchMessage NowLoggedIn = "U bent nu ingelogd"
+dutchMessage LoginTitle = "Inloggen"
+dutchMessage PleaseProvideUsername = "Voer alstublieft uw gebruikersnaam in"
+dutchMessage PleaseProvidePassword = "Voer alstublieft uw wachtwoord in"
+dutchMessage NoIdentifierProvided = "Geen e-mailadres/gebruikersnaam opgegeven"
+dutchMessage InvalidEmailAddress = "Ongeldig e-mailadres opgegeven"
+dutchMessage PasswordResetTitle = "Wachtwoord wijzigen"
+dutchMessage ProvideIdentifier = "E-mailadres of gebruikersnaam"
+dutchMessage SendPasswordResetEmail = "Stuur een wachtwoord reset e-mail"
+dutchMessage PasswordResetPrompt = "Voer uw e-mailadres of gebruikersnaam hieronder in, er zal een e-mail naar u worden verzonden waarmee u uw wachtwoord kunt wijzigen."
+dutchMessage InvalidUsernamePass = "Ongeldige gebruikersnaam/wachtwoord combinatie"
+dutchMessage (IdentifierNotFound ident) = "Inloggegevens niet gevonden: " `mappend` ident
