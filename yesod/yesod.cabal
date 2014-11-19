@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.4.0
+version:         1.4.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -50,6 +50,7 @@ library
 
     exposed-modules: Yesod
                    , Yesod.Default.Config
+                   , Yesod.Default.Config2
                    , Yesod.Default.Main
                    , Yesod.Default.Util
                    , Yesod.Default.Handlers
