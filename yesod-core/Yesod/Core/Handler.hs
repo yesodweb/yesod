@@ -211,6 +211,7 @@ import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
                     , Sink
                    )
 import qualified Yesod.Core.TypeCache as Cache
+import qualified Data.Word8 as W8
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -712,13 +713,31 @@ expiresAt = setHeader "Expires" . formatRFC1123
 -- a 304 not modified response. Otherwise, set the etag header to the given
 -- value.
 --
+-- Note that it is the responsibility of the caller to ensure that the provided
+-- value is a value etag value, no sanity checking is performed by this
+-- function.
+--
 -- Since 1.4.4
 setEtag :: MonadHandler m => Text -> m ()
 setEtag etag = do
     mmatch <- lookupHeader "if-none-match"
-    case mmatch of
-        Just x | encodeUtf8 etag == x -> notModified
-        _ -> addHeader "etag" etag
+    let matches = maybe [] parseMatch mmatch
+    if encodeUtf8 etag `elem` matches
+        then notModified
+        else addHeader "etag" $ T.concat ["\"", etag, "\""]
+
+-- | Parse an if-none-match field according to the spec. Does not parsing on
+-- weak matches, which are not supported by setEtag.
+parseMatch :: S.ByteString -> [S.ByteString]
+parseMatch =
+    map clean . S.split W8._comma
+  where
+    clean = stripQuotes . fst . S.spanEnd W8.isSpace . S.dropWhile W8.isSpace
+
+    stripQuotes bs
+        | S.length bs >= 2 && S.head bs == W8._quotedbl && S.last bs == W8._quotedbl
+            = S.init $ S.tail bs
+        | otherwise = bs
 
 -- | Set a variable in the user's session.
 --
