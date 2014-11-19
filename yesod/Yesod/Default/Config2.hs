@@ -11,6 +11,7 @@ module Yesod.Default.Config2
     , configSettingsYml
     , getDevSettings
     , develMainHelper
+    , makeYesodLogger
     ) where
 
 import Data.Monoid
@@ -31,6 +32,9 @@ import Data.Maybe (fromMaybe)
 import Control.Concurrent (forkIO, threadDelay)
 import System.Exit (exitSuccess)
 import System.Directory (doesFileExist)
+import Network.Wai.Logger (clockDateCacher)
+import Yesod.Core.Types (Logger (Logger))
+import System.Log.FastLogger (LoggerSet)
 
 #ifndef mingw32_HOST_OS
 import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
@@ -164,3 +168,8 @@ develMainHelper getSettingsApp = do
 
     terminateDevel :: IO ()
     terminateDevel = exitSuccess
+
+makeYesodLogger :: LoggerSet -> IO Logger
+makeYesodLogger loggerSet' = do
+    (getter, _) <- clockDateCacher
+    return $! Yesod.Core.Types.Logger loggerSet' getter

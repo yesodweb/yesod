@@ -47,6 +47,7 @@ library
                    , conduit-extra
                    , shakespeare
                    , streaming-commons
+                   , wai-logger
 
     exposed-modules: Yesod
                    , Yesod.Default.Config
