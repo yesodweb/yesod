@@ -12,6 +12,7 @@ module Yesod.Default.Config2
     , getDevSettings
     , develMainHelper
     , makeYesodLogger
+    , EnvUsage (..)
     ) where
 
 import Data.Monoid
@@ -53,8 +54,9 @@ mergeValues (Object x) (Object y) = Object $ H.unionWith mergeValues x y
 mergeValues (Object x) y | H.null x = y
 mergeValues x _ = x
 
-applyEnv :: H.HashMap Text Text -> Value -> Value
-applyEnv env =
+applyEnv :: Bool -- ^ require an environment variable to be present?
+         -> H.HashMap Text Text -> Value -> Value
+applyEnv requireEnv env =
     goV
   where
     goV (Object o) = Object $ goV <$> o
@@ -66,8 +68,8 @@ applyEnv env =
             Just val -> parseValue val
             Nothing ->
                 case T.stripPrefix ":" t3 of
-                    Just val -> parseValue val
-                    Nothing -> Null
+                    Just val | not requireEnv -> parseValue val
+                    _ -> Null
     goV v = v
 
     parseValue val = fromMaybe (String val) $ Y.decode $ encodeUtf8 val
@@ -75,8 +77,11 @@ applyEnv env =
 getCurrentEnv :: IO (H.HashMap Text Text)
 getCurrentEnv = fmap (H.fromList . map (pack *** pack)) getEnvironment
 
-applyCurrentEnv :: Value -> IO Value
-applyCurrentEnv orig = flip applyEnv orig <$> getCurrentEnv
+applyCurrentEnv :: Bool -- ^ require an environment variable to be present?
+                -> Value -> IO Value
+applyCurrentEnv requireEnv orig = flip (applyEnv requireEnv) orig <$> getCurrentEnv
+
+data EnvUsage = IgnoreEnv | UseEnv | RequireEnv
 
 -- | Load the settings from the following three sources:
 --
@@ -89,9 +94,9 @@ loadAppSettings
     :: FromJSON settings
     => [FilePath] -- ^ run time config files to use, earlier files have precedence
     -> [Value] -- ^ any other values to use, usually from compile time config. overridden by files
-    -> Bool -- ^ use environment variables
+    -> EnvUsage
     -> IO settings
-loadAppSettings runTimeFiles compileValues useEnv = do
+loadAppSettings runTimeFiles compileValues envUsage = do
     runValues <- forM runTimeFiles $ \fp -> do
         eres <- Y.decodeFileEither fp
         case eres of
@@ -104,9 +109,10 @@ loadAppSettings runTimeFiles compileValues useEnv = do
                $ map MergedValue
                $ runValues ++ compileValues
     value <-
-        if useEnv
-            then applyCurrentEnv value'
-            else return $ applyEnv mempty value'
+        case envUsage of
+            IgnoreEnv -> return $ applyEnv False mempty value'
+            UseEnv -> applyCurrentEnv False value'
+            RequireEnv -> applyCurrentEnv True value'
 
     case fromJSON value of
         Error s -> error $ "Could not convert to AppSettings: " ++ s
@@ -117,7 +123,7 @@ loadAppSettings runTimeFiles compileValues useEnv = do
 loadAppSettingsArgs
     :: FromJSON settings
     => [Value] -- ^ any other values to use, usually from compile time config. overridden by files
-    -> Bool -- ^ use environment variables
+    -> EnvUsage -- ^ use environment variables
     -> IO settings
 loadAppSettingsArgs values env = do
     args <- getArgs
