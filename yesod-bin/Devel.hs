@@ -35,6 +35,9 @@ import qualified Data.List                             as L
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe)
 import qualified Data.Set                              as Set
+import qualified Data.Text                             as T
+
+import qualified Filesystem.Path.CurrentOS             as FP (toText)
 
 import           System.Directory
 import           System.Environment                    (getEnvironment)
@@ -202,13 +205,22 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     void $ forkIO $ do
       filesModified <- newEmptyMVar
       void $ forkIO $
-        void $ watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
+        void $ detectChanges filesModified manager
       evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     after
     writeLock opts
     exitSuccess
   where
-    bd = getBuildDir opts
+    bd                   = getBuildDir opts
+    detectChanges fm mgr = case opts of
+        DevelOpts { eventTimeout = et }
+            | et < 0     -> watchTree mgr "." (const True) (
+                                   \_ -> void $ tryPutMVar fm ())
+            | otherwise  -> do let poll = do
+                                   threadDelay $ et * 10^6
+                                   tryPutMVar fm ()
+                                   poll
+                               poll
 
     -- outer loop re-reads the cabal file
     mainOuterLoop iappPort filesModified = do
@@ -222,10 +234,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
       if c then do
              -- these files contain the wrong data after the configure step,
              -- remove them to force a cabal build first
-             liftIO $ mapM_ removeFileIfExists [ "yesod-devel/ghcargs.txt"
-                                               , "yesod-devel/arargs.txt"
-                                               , "yesod-devel/ldargs.txt"
-                                               ]
+             liftIO cleanDev
              rebuild <- liftIO $ mkRebuild ghcVer cabal opts ldar
              mainInnerLoop iappPort hsSourceDirs filesModified cabal rebuild
            else do
@@ -243,9 +252,12 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
            let devArgs = pkgArgs ++ ["devel.hs"]
            let loop list0 = do
                    (haskellFileChanged, list1) <- liftIO $
-                       watchForChanges filesModified hsSourceDirs [cabal] list0 (eventTimeout opts)
+                       watchForChanges filesModified hsSourceDirs [cabal] list0
                    anyTouched <- recompDeps hsSourceDirs
                    unless (anyTouched || haskellFileChanged) $ loop list1
+           success <- if not success
+                         then liftIO $ cleanDev >> rebuild  -- failsafe rebuild
+                         else return success
            if not success
              then liftIO $ do
                    putStrLn "\x1b[1;31mBuild failure, pausing...\x1b[0m"
@@ -283,6 +295,13 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
            loop list
            n <- liftIO $ cabal `isNewerThan` (bd </> "setup-config")
            if n then mainOuterLoop iappPort filesModified else go
+
+    -- these files contain the wrong data after the configure step,
+    -- remove them to force a cabal build first
+    cleanDev = mapM_ removeFileIfExists [ "yesod-devel/ghcargs.txt"
+                                        , "yesod-devel/arargs.txt"
+                                        , "yesod-devel/ldargs.txt"
+                                        ]
 
 runBuildHook :: Maybe String -> IO ()
 runBuildHook (Just s) = do
@@ -363,8 +382,8 @@ getFileList hsSourceDirs extraFiles = do
             Right fs -> (f, modificationTime fs)
 
 -- | Returns @True@ if a .hs file changed.
-watchForChanges :: MVar () -> [FilePath] -> [FilePath] -> FileList -> Int -> IO (Bool, FileList)
-watchForChanges filesModified hsSourceDirs extraFiles list t = do
+watchForChanges :: MVar () -> [FilePath] -> [FilePath] -> FileList -> IO (Bool, FileList)
+watchForChanges filesModified hsSourceDirs extraFiles list = do
     newList <- getFileList hsSourceDirs extraFiles
     if list /= newList
       then do
@@ -372,14 +391,15 @@ watchForChanges filesModified hsSourceDirs extraFiles list t = do
                 Map.differenceWith compareTimes newList list `Map.union`
                 Map.differenceWith compareTimes list newList
         return (haskellFileChanged, newList)
-      else timeout (1000000*t) (takeMVar filesModified) >>
-           watchForChanges filesModified hsSourceDirs extraFiles list t
+      else takeMVar filesModified >>
+           watchForChanges filesModified hsSourceDirs extraFiles list
   where
     compareTimes x y
         | x == y = Nothing
         | otherwise = Just x
-
-    isHaskell filename _ = takeExtension filename `elem` [".hs", ".lhs", ".hsc", ".cabal"]
+    isHaskell filename _ = takeExtension filename `elem`
+                            [ ".hs", ".lhs", ".hsc", ".cabal", ".hamlet"
+                            , ".lucius", ".julius", ".cassius"]
 
 checkDevelFile :: IO ()
 checkDevelFile = do
