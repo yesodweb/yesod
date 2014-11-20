@@ -81,7 +81,11 @@ applyCurrentEnv :: Bool -- ^ require an environment variable to be present?
                 -> Value -> IO Value
 applyCurrentEnv requireEnv orig = flip (applyEnv requireEnv) orig <$> getCurrentEnv
 
-data EnvUsage = IgnoreEnv | UseEnv | RequireEnv
+data EnvUsage = IgnoreEnv
+              | UseEnv
+              | RequireEnv
+              | UseCustomEnv (H.HashMap Text Text)
+              | RequireCustomEnv (H.HashMap Text Text)
 
 -- | Load the settings from the following three sources:
 --
@@ -113,6 +117,8 @@ loadAppSettings runTimeFiles compileValues envUsage = do
             IgnoreEnv -> return $ applyEnv False mempty value'
             UseEnv -> applyCurrentEnv False value'
             RequireEnv -> applyCurrentEnv True value'
+            UseCustomEnv env -> return $ applyEnv False env value'
+            RequireCustomEnv env -> return $ applyEnv True env value'
 
     case fromJSON value of
         Error s -> error $ "Could not convert to AppSettings: " ++ s
