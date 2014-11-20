@@ -12,7 +12,12 @@ module Yesod.Default.Config2
     , getDevSettings
     , develMainHelper
     , makeYesodLogger
-    , EnvUsage (..)
+    , EnvUsage
+    , ignoreEnv
+    , useEnv
+    , requireEnv
+    , useCustomEnv
+    , requireCustomEnv
     ) where
 
 import Data.Monoid
@@ -86,6 +91,15 @@ data EnvUsage = IgnoreEnv
               | RequireEnv
               | UseCustomEnv (H.HashMap Text Text)
               | RequireCustomEnv (H.HashMap Text Text)
+
+ignoreEnv, useEnv, requireEnv :: EnvUsage
+ignoreEnv = IgnoreEnv
+useEnv = UseEnv
+requireEnv = RequireEnv
+
+useCustomEnv, requireCustomEnv :: H.HashMap Text Text -> EnvUsage
+useCustomEnv = UseCustomEnv
+requireCustomEnv = RequireCustomEnv
 
 -- | Load the settings from the following three sources:
 --
