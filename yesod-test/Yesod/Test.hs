@@ -2,6 +2,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
 using wai and persistent.
@@ -695,3 +697,20 @@ request reqBuilder = do
 -- Yes, just a shortcut
 failure :: (MonadIO a) => T.Text -> a b
 failure reason = (liftIO $ HUnit.assertFailure $ T.unpack reason) >> error ""
+
+instance YesodDispatch site => Hspec.Example (ST.StateT (YesodExampleData site) IO a) where
+    type Arg (ST.StateT (YesodExampleData site) IO a) = site
+
+    evaluateExample example params action =
+        Hspec.evaluateExample
+            (action $ \site -> do
+                app <- toWaiAppPlain site
+                _ <- ST.evalStateT example YesodExampleData
+                    { yedApp = app
+                    , yedSite = site
+                    , yedCookies = M.empty
+                    , yedResponse = Nothing
+                    }
+                return ())
+            params
+            ($ ())

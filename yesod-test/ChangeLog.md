@@ -1,1 +1,7 @@
-__1.4.1.1__ Upgrade to hspec 2
+## 1.4.2
+
+Provide `Example` instance for `YesodExample`.
+
+## 1.4.1.1
+
+Upgrade to hspec 2
