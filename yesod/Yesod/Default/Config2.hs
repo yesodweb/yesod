@@ -129,11 +129,11 @@ loadAppSettings runTimeFiles compileValues envUsage = do
             Just ne -> return $ getMergedValue $ sconcat ne
     value <-
         case envUsage of
-            IgnoreEnv -> return $ applyEnv False mempty value'
-            UseEnv -> applyCurrentEnv False value'
-            RequireEnv -> applyCurrentEnv True value'
-            UseCustomEnv env -> return $ applyEnv False env value'
-            RequireCustomEnv env -> return $ applyEnv True env value'
+            IgnoreEnv            -> return $ applyEnv        False mempty value'
+            UseEnv               ->          applyCurrentEnv False        value'
+            RequireEnv           ->          applyCurrentEnv True         value'
+            UseCustomEnv env     -> return $ applyEnv        False env    value'
+            RequireCustomEnv env -> return $ applyEnv        True  env    value'
 
     case fromJSON value of
         Error s -> error $ "Could not convert to AppSettings: " ++ s
