@@ -48,6 +48,7 @@ library
                    , shakespeare
                    , streaming-commons
                    , wai-logger
+                   , semigroups
 
     exposed-modules: Yesod
                    , Yesod.Default.Config

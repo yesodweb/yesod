@@ -21,6 +21,8 @@ module Yesod.Default.Config2
     ) where
 
 import Data.Monoid
+import Data.Semigroup
+import Data.List.NonEmpty (nonEmpty)
 import Data.Aeson
 import qualified Data.HashMap.Strict as H
 import Data.Text (Text, pack)
@@ -49,14 +51,12 @@ import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
 
 newtype MergedValue = MergedValue { getMergedValue :: Value }
 
-instance Monoid MergedValue where
-    mempty = MergedValue $ Object H.empty
-    MergedValue x `mappend` MergedValue y = MergedValue $ mergeValues x y
+instance Semigroup MergedValue where
+    MergedValue x <> MergedValue y = MergedValue $ mergeValues x y
 
 -- | Left biased
 mergeValues :: Value -> Value -> Value
 mergeValues (Object x) (Object y) = Object $ H.unionWith mergeValues x y
-mergeValues (Object x) y | H.null x = y
 mergeValues x _ = x
 
 applyEnv :: Bool -- ^ require an environment variable to be present?
@@ -119,13 +119,14 @@ loadAppSettings runTimeFiles compileValues envUsage = do
         eres <- Y.decodeFileEither fp
         case eres of
             Left e -> do
-                putStrLn $ "Could not parse file as YAML: " ++ fp
+                putStrLn $ "loadAppSettings: Could not parse file as YAML: " ++ fp
                 throwIO e
             Right value -> return value
-    let value' = getMergedValue
-               $ mconcat
-               $ map MergedValue
-               $ runValues ++ compileValues
+
+    value' <-
+        case nonEmpty $ map MergedValue $ runValues ++ compileValues of
+            Nothing -> error "loadAppSettings: No configuration provided"
+            Just ne -> return $ getMergedValue $ sconcat ne
     value <-
         case envUsage of
             IgnoreEnv -> return $ applyEnv False mempty value'
