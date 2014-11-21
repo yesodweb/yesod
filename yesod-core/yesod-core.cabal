@@ -69,6 +69,7 @@ library
                    , mwc-random
                    , primitive
                    , word8
+                   , auto-update
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content

@@ -694,7 +694,7 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
 -- is never (realistically) expired.
 neverExpires :: MonadHandler m => m ()
 neverExpires = do
-    setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
+    askHandlerEnv >>= liftIO . rheGetMaxExpires >>= setHeader "Expires"
     cacheSeconds oneYear
   where
     oneYear :: Int

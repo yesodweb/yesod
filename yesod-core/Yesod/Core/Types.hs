@@ -177,6 +177,7 @@ data RunHandlerEnv site = RunHandlerEnv
     , rheUpload   :: !(RequestBodyLength -> FileUpload)
     , rheLog      :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
     , rheOnError  :: !(ErrorResponse -> YesodApp)
+    , rheGetMaxExpires :: IO Text
       -- ^ How to respond when an error is thrown internally.
       --
       -- Since 1.2.0
