@@ -61,7 +61,7 @@ mergeValues x _ = x
 
 applyEnv :: Bool -- ^ require an environment variable to be present?
          -> H.HashMap Text Text -> Value -> Value
-applyEnv requireEnv env =
+applyEnv requireEnv' env =
     goV
   where
     goV (Object o) = Object $ goV <$> o
@@ -73,7 +73,7 @@ applyEnv requireEnv env =
             Just val -> parseValue val
             Nothing ->
                 case T.stripPrefix ":" t3 of
-                    Just val | not requireEnv -> parseValue val
+                    Just val | not requireEnv' -> parseValue val
                     _ -> Null
     goV v = v
 
@@ -84,7 +84,7 @@ getCurrentEnv = fmap (H.fromList . map (pack *** pack)) getEnvironment
 
 applyCurrentEnv :: Bool -- ^ require an environment variable to be present?
                 -> Value -> IO Value
-applyCurrentEnv requireEnv orig = flip (applyEnv requireEnv) orig <$> getCurrentEnv
+applyCurrentEnv requireEnv' orig = flip (applyEnv requireEnv') orig <$> getCurrentEnv
 
 data EnvUsage = IgnoreEnv
               | UseEnv
