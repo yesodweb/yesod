@@ -1,13 +1,19 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
--- | Helper functions for creating forms when using Bootstrap v3.
+-- | Helper functions for creating forms when using <http://getbootstrap.com/ Bootstrap 3>.
+--
+
 module Yesod.Form.Bootstrap3
-  ( -- * Rendering forms
+  ( -- * Example: Rendering a basic form
+    -- $example
+
+    -- * Rendering forms
     renderBootstrap3
   , BootstrapFormLayout(..)
   , BootstrapGridOptions(..)
     -- * Field settings
+    -- $fieldSettings
   , bfs
   , withPlaceholder
   , withAutofocus
@@ -30,7 +36,7 @@ import qualified Data.Text as T
 import Yesod.Form.Types
 import Yesod.Form.Functions
 
--- | Create a new 'FieldSettings' with the classes that are
+-- | Create a new 'FieldSettings' with the @form-control@ class that is
 -- required by Bootstrap v3.
 --
 -- Since: yesod-form 1.3.8
@@ -126,14 +132,14 @@ addGO (ColLg _) _     = error "Yesod.Form.Bootstrap.addGO: never here"
 --
 -- Since: yesod-form 1.3.8
 data BootstrapFormLayout =
-    BootstrapBasicForm
-  | BootstrapInlineForm
+    BootstrapBasicForm -- ^ A form with labels and inputs listed vertically. See <http://getbootstrap.com/css/#forms-example>
+  | BootstrapInlineForm -- ^ A form whose @\<inputs>@ are laid out horizontally (displayed as @inline-block@). For this layout, @\<label>@s are still added to the HTML, but are hidden from display. See <http://getbootstrap.com/css/#forms-inline>
   | BootstrapHorizontalForm
-      { bflLabelOffset :: !BootstrapGridOptions
-      , bflLabelSize   :: !BootstrapGridOptions
-      , bflInputOffset :: !BootstrapGridOptions
-      , bflInputSize   :: !BootstrapGridOptions
-      }
+      { bflLabelOffset :: !BootstrapGridOptions -- ^ The left <http://getbootstrap.com/css/#grid-offsetting offset> of the @\<label>@.
+      , bflLabelSize   :: !BootstrapGridOptions -- ^ The number of grid columns the @\<label>@ should use.
+      , bflInputOffset :: !BootstrapGridOptions -- ^ The left <http://getbootstrap.com/css/#grid-offsetting offset> of the @\<input>@ from its @\<label>@.
+      , bflInputSize   :: !BootstrapGridOptions -- ^ The number of grid columns the @\<input>@ should use.
+      } -- ^ A form laid out using the Bootstrap grid, with labels in the left column and inputs on the right. See <http://getbootstrap.com/css/#forms-horizontal>
     deriving (Show)
 
 
@@ -260,3 +266,29 @@ mbootstrapSubmit (BootstrapSubmit msg classes attrs) =
 -- 'bootstrapSubmit' outside 'renderBootstrap3'.
 bootstrapSubmitId :: Text
 bootstrapSubmitId = "b:ootstrap___unique__:::::::::::::::::submit-id"
+
+-- $example
+-- @\<input\>@ tags in Bootstrap 3 require the @form-control@ class,
+-- and so they need modified 'FieldSettings' to display correctly.
+--
+-- When creating your forms, use the 'bfs' function to add this class:
+--
+-- > personForm :: AForm Handler Person
+-- > personForm = Person
+-- >        <$> areq textField (bfs ("Name" :: Text)) Nothing
+-- >        <*> areq textField (bfs ("Surname" :: Text)) Nothing
+--
+-- That form can then be rendered into a widget using the 'renderBootstrap3' function. Here, the form is laid out vertically using 'BootstrapBasicForm':
+--
+-- > (widget, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm personForm
+
+-- $fieldSettings
+-- This module comes with several methods to help customize your Bootstrap 3 @\<input\>@s.
+-- These functions can be chained together to apply several properties to an input:
+--
+-- > userForm :: AForm Handler UserForm
+-- > userForm = UserForm
+-- >        <$> areq textField nameSettings Nothing
+-- >      where nameSettings = withAutofocus $
+-- >                           withPlaceholder "First name" $
+-- >                           (bfs ("Name" :: Text))
