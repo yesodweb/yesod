@@ -5,7 +5,7 @@ module Yesod.Default.Config2
     ( MergedValue (..)
     , applyCurrentEnv
     , getCurrentEnv
-    , applyEnv
+    , applyEnvValue
     , loadAppSettings
     , loadAppSettingsArgs
     , configSettingsYml
@@ -59,9 +59,9 @@ mergeValues :: Value -> Value -> Value
 mergeValues (Object x) (Object y) = Object $ H.unionWith mergeValues x y
 mergeValues x _ = x
 
-applyEnv :: Bool -- ^ require an environment variable to be present?
-         -> H.HashMap Text Text -> Value -> Value
-applyEnv requireEnv' env =
+applyEnvValue :: Bool -- ^ require an environment variable to be present?
+              -> H.HashMap Text Text -> Value -> Value
+applyEnvValue requireEnv' env =
     goV
   where
     goV (Object o) = Object $ goV <$> o
@@ -84,7 +84,7 @@ getCurrentEnv = fmap (H.fromList . map (pack *** pack)) getEnvironment
 
 applyCurrentEnv :: Bool -- ^ require an environment variable to be present?
                 -> Value -> IO Value
-applyCurrentEnv requireEnv' orig = flip (applyEnv requireEnv') orig <$> getCurrentEnv
+applyCurrentEnv requireEnv' orig = flip (applyEnvValue requireEnv') orig <$> getCurrentEnv
 
 data EnvUsage = IgnoreEnv
               | UseEnv
@@ -129,11 +129,11 @@ loadAppSettings runTimeFiles compileValues envUsage = do
             Just ne -> return $ getMergedValue $ sconcat ne
     value <-
         case envUsage of
-            IgnoreEnv            -> return $ applyEnv        False mempty value'
+            IgnoreEnv            -> return $ applyEnvValue   False mempty value'
             UseEnv               ->          applyCurrentEnv False        value'
             RequireEnv           ->          applyCurrentEnv True         value'
-            UseCustomEnv env     -> return $ applyEnv        False env    value'
-            RequireCustomEnv env -> return $ applyEnv        True  env    value'
+            UseCustomEnv env     -> return $ applyEnvValue   False env    value'
+            RequireCustomEnv env -> return $ applyEnvValue   True  env    value'
 
     case fromJSON value of
         Error s -> error $ "Could not convert to AppSettings: " ++ s
