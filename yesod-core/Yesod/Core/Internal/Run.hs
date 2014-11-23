@@ -50,7 +50,7 @@ import           Yesod.Core.Internal.Util     (formatRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
 import Control.DeepSeq (($!!), NFData)
 import Control.Monad (liftM)
-import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction)
+import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 
 returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
 #if MIN_VERSION_bytestring(0, 10, 0)
