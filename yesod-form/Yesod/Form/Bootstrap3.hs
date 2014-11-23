@@ -203,9 +203,9 @@ data BootstrapSubmit msg =
         { bsValue   :: msg
           -- ^ The text of the submit button.
         , bsClasses :: Text
-          -- ^ Classes added to the @<button>@.
+          -- ^ Classes added to the @\<button>@.
         , bsAttrs   :: [(Text, Text)]
-          -- ^ Attributes added to the @<button>@.
+          -- ^ Attributes added to the @\<button>@.
         } deriving (Show)
 
 instance IsString msg => IsString (BootstrapSubmit msg) where
@@ -224,7 +224,7 @@ instance IsString msg => IsString (BootstrapSubmit msg) where
 -- >        <*> areq textField "Surname" Nothing
 -- >        <*  bootstrapSubmit ("Register" :: BootstrapSubmit Text)
 --
--- (Note that @<*@ is not a typo.)
+-- (Note that '<*' is not a typo.)
 --
 -- Alternatively, you may also just create the submit button
 -- manually as well in order to have more control over its
