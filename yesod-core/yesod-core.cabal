@@ -5,10 +5,7 @@ license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Creation of type-safe, RESTful web applications.
-description:
-    Yesod is a framework designed to foster creation of RESTful web application that have strong compile-time guarantees of correctness. It also affords space efficient code and portability to many deployment backends, from CGI to stand-alone serving.
-    .
-    The Yesod documentation site <http://www.yesodweb.com/> has much more information, tutorials and information on some of the supporting packages, like Hamlet and Persistent.
+description:     See README.md
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.8
@@ -22,6 +19,7 @@ extra-source-files:
   test/en.msg
   test/test.hs
   changelog.md
+  README.md
 
 library
     build-depends:   base                  >= 4.3      && < 5
