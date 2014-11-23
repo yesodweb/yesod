@@ -8,6 +8,9 @@ module Yesod.Form.Bootstrap3
   ( -- * Example: Rendering a basic form
     -- $example
 
+    -- * Example: Rendering a horizontal form
+    -- $example2
+
     -- * Rendering forms
     renderBootstrap3
   , BootstrapFormLayout(..)
@@ -133,23 +136,17 @@ addGO (ColLg _) _     = error "Yesod.Form.Bootstrap.addGO: never here"
 -- Since: yesod-form 1.3.8
 data BootstrapFormLayout =
     BootstrapBasicForm -- ^ A form with labels and inputs listed vertically. See <http://getbootstrap.com/css/#forms-example>
-  | BootstrapInlineForm -- ^ A form whose @\<inputs>@ are laid out horizontally (displayed as @inline-block@). For this layout, @\<label>@s are still added to the HTML, but are hidden from display. See <http://getbootstrap.com/css/#forms-inline>
+  | BootstrapInlineForm -- ^ A form whose @\<inputs>@ are laid out horizontally (displayed as @inline-block@). For this layout, @\<label>@s are still added to the HTML, but are hidden from display. When using this layout, you must add the @form-inline@ class to your form tag. See <http://getbootstrap.com/css/#forms-inline>
   | BootstrapHorizontalForm
       { bflLabelOffset :: !BootstrapGridOptions -- ^ The left <http://getbootstrap.com/css/#grid-offsetting offset> of the @\<label>@.
       , bflLabelSize   :: !BootstrapGridOptions -- ^ The number of grid columns the @\<label>@ should use.
       , bflInputOffset :: !BootstrapGridOptions -- ^ The left <http://getbootstrap.com/css/#grid-offsetting offset> of the @\<input>@ from its @\<label>@.
       , bflInputSize   :: !BootstrapGridOptions -- ^ The number of grid columns the @\<input>@ should use.
-      } -- ^ A form laid out using the Bootstrap grid, with labels in the left column and inputs on the right. See <http://getbootstrap.com/css/#forms-horizontal>
+      } -- ^ A form laid out using the Bootstrap grid, with labels in the left column and inputs on the right. When using this layout, you must add the @form-horizontal@ class to your form tag. Bootstrap requires additional markup for the submit button for horizontal forms; you can use 'bootstrapSubmit' in your form or write the markup manually. See <http://getbootstrap.com/css/#forms-horizontal>
     deriving (Show)
 
 
 -- | Render the given form using Bootstrap v3 conventions.
---
--- Sample Hamlet for 'BootstrapHorizontalForm':
---
--- >  <form .form-horizontal role=form method=post action=@{ActionR} enctype=#{formEnctype}>
--- >    ^{formWidget}
--- >    ^{bootstrapSubmit MsgSubmit}
 --
 -- Since: yesod-form 1.3.8
 renderBootstrap3 :: Monad m => BootstrapFormLayout -> FormRender m a
@@ -280,7 +277,32 @@ bootstrapSubmitId = "b:ootstrap___unique__:::::::::::::::::submit-id"
 --
 -- That form can then be rendered into a widget using the 'renderBootstrap3' function. Here, the form is laid out vertically using 'BootstrapBasicForm':
 --
--- > (widget, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm personForm
+-- > (formWidget, formEnctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm personForm
+--
+-- And then used in Hamlet:
+--
+-- >  <form role=form method=post action=@{ActionR} enctype=#{formEnctype}>
+-- >    ^{formWidget}
+-- >    <button type="submit" .btn .btn-default>Submit
+
+-- $example2
+-- Yesod.Form.Bootstrap3 also supports <http://getbootstrap.com/css/#forms-horizontal horizontal, grid based forms>.
+-- These forms require additional markup for the submit tag, which is provided by the 'bootstrapSubmit' function:
+--
+-- > personForm :: AForm Handler Person
+-- > personForm = Person
+-- >        <$> areq textField MsgName Nothing
+-- >        <*> areq textField MsgSurname Nothing
+-- >        <*  bootstrapSubmit MsgSubmit -- bootstrapSubmit works with all BootstrapFormLayouts, but provides the additional markup required for Bootstrap's horizontal forms.
+--
+-- That form can be rendered with specific grid spacing:
+--
+-- > (formWidget, formEnctype) <- generateFormPost $ renderBootstrap3 (BootstrapHorizontalForm (ColSm 0) (ColSm 4) (ColSm 0) (ColSm 6)) personForm
+--
+-- And then used in Hamlet. Note the additional @form-horizontal@ class on the form, and that a manual submit tag isn't required:
+--
+-- >  <form .form-horizontal role=form method=post action=@{ActionR} enctype=#{formEnctype}>
+-- >    ^{formWidget}
 
 -- $fieldSettings
 -- This module comes with several methods to help customize your Bootstrap 3 @\<input\>@s.
