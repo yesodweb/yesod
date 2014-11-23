@@ -295,7 +295,9 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
 
 getGetMaxExpires :: MonadIO m => m (IO Text)
 getGetMaxExpires = liftIO $ mkAutoUpdate defaultUpdateSettings
-  { updateAction = liftM (formatRFC1123 . addUTCTime (60*60*24*365)) getCurrentTime }
+  { updateAction = liftM (formatRFC1123 . addUTCTime (60*60*24*365)) getCurrentTime
+  , updateFreq = 60 * 60 * 1000000 -- ^ Update once per hour
+  }
 
 yesodRender :: Yesod y
             => y
