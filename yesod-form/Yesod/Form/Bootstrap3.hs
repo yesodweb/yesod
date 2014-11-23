@@ -222,7 +222,7 @@ instance IsString msg => IsString (BootstrapSubmit msg) where
 --
 -- > Person <$> areq textField "Name"    Nothing
 -- >        <*> areq textField "Surname" Nothing
--- >        <*  bootstrapSubmit "Register"
+-- >        <*  bootstrapSubmit ("Register" :: BootstrapSubmit Text)
 --
 -- (Note that @<*@ is not a typo.)
 --
@@ -293,7 +293,8 @@ bootstrapSubmitId = "b:ootstrap___unique__:::::::::::::::::submit-id"
 -- > personForm = Person
 -- >        <$> areq textField MsgName Nothing
 -- >        <*> areq textField MsgSurname Nothing
--- >        <*  bootstrapSubmit MsgSubmit -- bootstrapSubmit works with all BootstrapFormLayouts, but provides the additional markup required for Bootstrap's horizontal forms.
+-- >        <*  bootstrapSubmit (BootstrapSubmit MsgSubmit "btn-default" [("attribute-name","attribute-value")])
+-- >        -- Note: bootstrapSubmit works with all BootstrapFormLayouts, but provides the additional markup required for Bootstrap's horizontal forms.
 --
 -- That form can be rendered with specific grid spacing:
 --
