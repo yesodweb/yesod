@@ -160,7 +160,7 @@ timeField = Field
     { fieldParse = parseHelper parseTime
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" *{attrs} type="time" :isReq:required="" value="#{showVal val}">
 |]
     , fieldEnctype = UrlEncoded
     }
