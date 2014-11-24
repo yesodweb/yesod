@@ -1,17 +1,10 @@
-# Overview
+## yesod
 
-The yesod package groups together the various Yesod related packages into one cohesive whole.
+The yesod package groups together the various Yesod related packages into one
+cohesive whole. This is the "battery loaded" version of Yesod, whereas most of
+the core code lives in
+[yesod-core](http://www.stackage.org/package/yesod-core/).
 
-For the yesod executeable, see [yesod-bin](/yesod-bin)
+For the yesod executable, see [yesod-bin](http://www.stackage.org/package/yesod-bin/).
 
-# Scaffolding
-
-## Test suite
-
-test/run.sh
-
-## Getting a list of scaffold files for the cabal file
-
-It is necessary after adding a scaffolding file to add it to the list of files in the cabal file.
-
-  find scaffold -type f
+Yesod is [fully documented on its website](http://www.yesodweb.com/).
