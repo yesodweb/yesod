@@ -4,6 +4,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
+-- | Functions for creating inputs 
+-- 
+-- When possible, the field functions use a specific input type (e.g. "number"), allowing supporting browsers to validate the input before form submission. Browsers can also improve usability with this information; for example, mobile browsers might present a specialized keyboard for an input of type "email" or "number".
 module Yesod.Form.Fields
     ( -- * i18n
       FormMessage (..)
@@ -99,7 +102,7 @@ import Yesod.Persist.Core
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
-
+-- | Creates a input with @type="number"@ to accept integers.
 intField :: (Monad m, Integral i, RenderMessage (HandlerSite m) FormMessage) => Field m i
 intField = Field
     { fieldParse = parseHelper $ \s ->
@@ -117,6 +120,7 @@ $newline never
     showVal = either id (pack . showI)
     showI x = show (fromIntegral x :: Integer)
 
+-- | Creates a input with @type="number"@ to accept any number.
 doubleField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Double
 doubleField = Field
     { fieldParse = parseHelper $ \s ->
@@ -132,6 +136,8 @@ $newline never
     }
   where showVal = either id (pack . show)
 
+-- | Creates an input with @type="date"@, validating the input using the 'parseDate' function.
+-- Add the @time@ package and import the 'Data.Time.Calendar' module to use this function.
 dayField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Day
 dayField = Field
     { fieldParse = parseHelper $ parseDate . unpack
@@ -143,6 +149,9 @@ $newline never
     }
   where showVal = either id (pack . show)
 
+-- | MTODO: Parses time from a [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with a 24 hour clock system).
+-- | Creates an input with MTODO: should this use input type="time" ?
+-- Add the @time@ package and import the 'Data.Time.LocalTime' module to use this function.
 timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
 timeField = Field
     { fieldParse = parseHelper parseTime
@@ -159,6 +168,7 @@ $newline never
       where
         fullSec = fromInteger $ floor $ todSec tod
 
+-- | Creates a @\<textarea>@ tag whose input is sanitized to prevent XSS attacks and is validated for having balanced tags.
 htmlField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Html
 htmlField = Field
     { fieldParse = parseHelper $ Right . preEscapedText . sanitizeBalance
@@ -170,8 +180,10 @@ $newline never
     }
   where showVal = either id (pack . renderHtml)
 
--- | A newtype wrapper around a 'Text' that converts newlines to HTML
--- br-tags.
+-- | A newtype wrapper around a 'Text' whose 'ToHtml' instance converts newlines to HTML @\<br>@ tags.
+-- (When text is entered into a <textarea>, newline characters are used to separate lines.
+-- If this text is then placed verbatim into HTML, the lines won't be separated, thus the need for replacing with @\<br>@ tags).
+-- If you don't need this functionality, simply use 'unTextarea' to access the raw text.
 newtype Textarea = Textarea { unTextarea :: Text }
     deriving (Show, Read, Eq, PersistField, Ord, ToJSON, FromJSON)
 instance PersistFieldSql Textarea where
@@ -190,6 +202,7 @@ instance ToHtml Textarea where
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
+-- | Creates a @\<textarea>@ tag whose value is wrapped in a 'Textarea'; see 'Textarea' for details.
 textareaField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Textarea
 textareaField = Field
     { fieldParse = parseHelper $ Right . Textarea
@@ -200,6 +213,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
+-- | Creates an input with @type="hidden"@; you can use this to store information in a form that users shouldn't see (for example, Yesod stores CSRF tokens in a hidden field).
 hiddenField :: (Monad m, PathPiece p, RenderMessage (HandlerSite m) FormMessage)
             => Field m p
 hiddenField = Field
@@ -211,6 +225,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
+-- Creates a input with @type="text"@.
 textField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 textField = Field
     { fieldParse = parseHelper $ Right
@@ -221,7 +236,7 @@ $newline never
 |]
     , fieldEnctype = UrlEncoded
     }
-
+-- Creates a field with @type="password"@.
 passwordField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 passwordField = Field
     { fieldParse = parseHelper $ Right
@@ -237,6 +252,7 @@ readMay s = case filter (Prelude.null . snd) $ reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
 
+-- | Parses a 'Day' from a 'String', replacing the '/' character with '-'.
 parseDate :: String -> Either FormMessage Day
 parseDate = maybe (Left MsgInvalidDay) Right
               . readMay . replace '/' '-'
@@ -292,7 +308,8 @@ timeParser = do
         if i < 0 || i >= 60
             then fail $ show $ msg $ pack xy
             else return $ fromIntegral (i :: Int)
-
+            -
+-- | Creates an input with @type="email". Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see 'Text.Email.Validate')
 emailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 emailField = Field
     { fieldParse = parseHelper $
@@ -307,7 +324,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
--- |
+-- | Creates an input with @type="email" with the <http://www.w3.org/html/wg/drafts/html/master/forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as a comma separated list of emails. Each email address is validated as described in 'emailField'.
 --
 -- Since 1.3.7
 multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
@@ -333,6 +350,7 @@ $newline never
         emailToText = decodeUtf8With lenientDecode . Email.toByteString
 
 type AutoFocus = Bool
+-- | Creates an input with @type="search"@. MTODO: explain the CSS/JS/Autofocus stuff
 searchField :: Monad m => RenderMessage (HandlerSite m) FormMessage => AutoFocus -> Field m Text
 searchField autoFocus = Field
     { fieldParse = parseHelper Right
@@ -353,7 +371,7 @@ $newline never
             |]
     , fieldEnctype = UrlEncoded
     }
-
+-- | Creates an input with @type="url"@, validating the URL according to RFC3986.
 urlField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 urlField = Field
     { fieldParse = parseHelper $ \s ->
@@ -467,6 +485,10 @@ $newline never
         \#{text}
 |])
 
+-- | Creates a group of radio buttons to answer the question given in the message.
+-- If this field is optional, the first radio button is labeled "<None>", the second "Yes" and the third "No".
+-- If this field is required, the first radio button is labeled "Yes" and the second "No". 
+-- (Exact label titles will depend on localization.)
 boolField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Bool
 boolField = Field
       { fieldParse = \e _ -> return $ boolParser e
@@ -498,7 +520,8 @@ $newline never
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
 
--- | While the default @'boolField'@ implements a radio button so you
+-- | Creates an input with @type="checkbox"@. 
+--   While the default @'boolField'@ implements a radio button so you
 --   can differentiate between an empty response (Nothing) and a no
 --   response (Just False), this simpler checkbox field returns an empty
 --   response as Just False.
