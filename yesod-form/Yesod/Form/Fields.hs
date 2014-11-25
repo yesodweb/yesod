@@ -21,6 +21,8 @@ module Yesod.Form.Fields
     , intField
     , dayField
     , timeField
+    , timeFieldTypeTime
+    , timeFieldTypeText
     , htmlField
     , emailField
     , multiEmailField
@@ -152,20 +154,18 @@ $newline never
     }
   where showVal = either id (pack . show)
 
--- | Parses time from a [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with a 24 hour clock system). MTODO: should this use input type="time" ?
--- 
--- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
+-- | An alias for 'timeFieldTypeText'.
 timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
 timeField = timeFieldTypeText
-{-# DEPRECATED timeField "timeField currently defaults to an input of type=\"text\". In the next major release, it will default to type=\"time\". To opt in to the new functionality, use 'timeFieldTypeTime'. To keep the existing behavior, use 'timeFieldTypeText'. See https://github.com/yesodweb/yesod/pull/874 for details." #-}
+{-# DEPRECATED timeField "'timeField' currently defaults to an input of type=\"text\". In the next major release, it will default to type=\"time\". To opt in to the new functionality, use 'timeFieldTypeTime'. To keep the existing behavior, use 'timeFieldTypeText'. See 'https://github.com/yesodweb/yesod/pull/874' for details." #-}
 
--- | Creates an input with @type="time"@. Parses time from a [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with a 24 hour clock system).
+-- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay  
 timeFieldTypeTime = timeFieldOfType "time"
 
--- | Creates an input with @type="text"@. Parses time from a [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with a 24 hour clock system).
+-- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 timeFieldTypeText :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
