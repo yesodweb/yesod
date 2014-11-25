@@ -1,7 +1,19 @@
-__1.4.4.2__ `neverExpires` uses dates one year in the future (instead of in 2037).
+## 1.4.4.5
 
-__1.4.4.1__ Improvements to etag/if-none-match support #868 #869
+Support time 1.5
 
-__1.4.4__ Add the `notModified` and `setEtag` functions.
+## 1.4.4.2
 
-__1.4.3__ Switch to mwc-random for token generation.
+`neverExpires` uses dates one year in the future (instead of in 2037).
+
+## 1.4.4.1
+
+Improvements to etag/if-none-match support #868 #869
+
+## 1.4.4
+
+Add the `notModified` and `setEtag` functions.
+
+## 1.4.3
+
+Switch to mwc-random for token generation.
