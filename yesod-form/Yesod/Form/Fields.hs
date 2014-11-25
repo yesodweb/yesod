@@ -102,7 +102,7 @@ import Yesod.Persist.Core
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
--- | Creates a input with @type="number"@ to accept integers.
+-- | Creates a input with @type="number"@ and @step=1@.
 intField :: (Monad m, Integral i, RenderMessage (HandlerSite m) FormMessage) => Field m i
 intField = Field
     { fieldParse = parseHelper $ \s ->
@@ -120,7 +120,7 @@ $newline never
     showVal = either id (pack . showI)
     showI x = show (fromIntegral x :: Integer)
 
--- | Creates a input with @type="number"@ to accept any number.
+-- | Creates a input with @type="number"@ and @step=any@.
 doubleField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Double
 doubleField = Field
     { fieldParse = parseHelper $ \s ->
@@ -252,7 +252,7 @@ readMay s = case filter (Prelude.null . snd) $ reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
 
--- | Parses a 'Day' from a 'String', replacing the '/' character with '-'.
+-- | Parses a 'Day' from a 'String'
 parseDate :: String -> Either FormMessage Day
 parseDate = maybe (Left MsgInvalidDay) Right
               . readMay . replace '/' '-'
@@ -309,7 +309,7 @@ timeParser = do
             then fail $ show $ msg $ pack xy
             else return $ fromIntegral (i :: Int)
             -
--- | Creates an input with @type="email". Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see 'Text.Email.Validate')
+-- | Creates an input with @type="email". Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see 'Text.Email.Validate').
 emailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 emailField = Field
     { fieldParse = parseHelper $
@@ -324,7 +324,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
--- | Creates an input with @type="email" with the <http://www.w3.org/html/wg/drafts/html/master/forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as a comma separated list of emails. Each email address is validated as described in 'emailField'.
+-- | Creates an input with @type="email" with the <http://www.w3.org/html/wg/drafts/html/master/forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
 --
 -- Since 1.3.7
 multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
