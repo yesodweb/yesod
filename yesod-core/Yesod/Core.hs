@@ -45,6 +45,7 @@ module Yesod.Core
     , SessionBackend (..)
     , customizeSessionCookies
     , defaultClientSessionBackend
+    , envClientSessionBackend
     , clientSessionBackend
     , clientSessionDateCacher
     , loadClientSession
