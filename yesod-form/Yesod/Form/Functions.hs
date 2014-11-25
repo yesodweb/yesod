@@ -254,8 +254,8 @@ postEnv = do
             return $ Just (p', Map.unionsWith (++) $ map (\(k, v) -> Map.singleton k [v]) f)
 
 runFormPostNoToken :: MonadHandler m
-                   => (Html -> MForm m (FormResult a, xml))
-                   -> m ((FormResult a, xml), Enctype)
+                   => (Html -> MForm m a)
+                   -> m (a, Enctype)
 runFormPostNoToken form = do
     langs <- languages
     m <- getYesod
