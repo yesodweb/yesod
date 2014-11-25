@@ -21,6 +21,8 @@ module Yesod.Form.Fields
     , intField
     , dayField
     , timeField
+    , timeFieldTypeTime
+    , timeFieldTypeText
     , htmlField
     , emailField
     , multiEmailField
@@ -152,15 +154,29 @@ $newline never
     }
   where showVal = either id (pack . show)
 
--- | Parses time from a [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with a 24 hour clock system). MTODO: should this use input type="time" ?
+-- | An alias for 'timeFieldTypeText'.
+timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
+timeField = timeFieldTypeText
+{-# DEPRECATED timeField "'timeField' currently defaults to an input of type=\"text\". In the next major release, it will default to type=\"time\". To opt in to the new functionality, use 'timeFieldTypeTime'. To keep the existing behavior, use 'timeFieldTypeText'. See 'https://github.com/yesodweb/yesod/pull/874' for details." #-}
+
+-- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
-timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
-timeField = Field
+timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay  
+timeFieldTypeTime = timeFieldOfType "time"
+
+-- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
+-- 
+-- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
+timeFieldTypeText :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
+timeFieldTypeText = timeFieldOfType "text"
+
+timeFieldOfType :: Monad m => RenderMessage (HandlerSite m) FormMessage => Text -> Field m TimeOfDay
+timeFieldOfType inputType = Field
     { fieldParse = parseHelper parseTime
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" *{attrs} type="#{inputType}" :isReq:required="" value="#{showVal val}">
 |]
     , fieldEnctype = UrlEncoded
     }
