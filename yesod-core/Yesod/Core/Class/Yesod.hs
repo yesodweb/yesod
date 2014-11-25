@@ -598,6 +598,32 @@ defaultClientSessionBackend minutes fp = do
   (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
   return $ clientSessionBackend key getCachedDate
 
+-- | Create a @SessionBackend@ which reads the session key from the named
+-- environment variable.
+--
+-- This can be useful if:
+--
+-- 1. You can't rely on a persistent file system (e.g. Heroku)
+-- 2. Your application is open source (e.g. you can't commit the key)
+--
+-- By keeping a consistent value in the environment variable, your users will
+-- have consistent sessions without relying on the file system.
+--
+-- Note: A suitable value should only be obtained in one of two ways:
+--
+-- 1. Run this code without the variable set, a value will be generated and
+--    printed on @/dev/stdout/@
+-- 2. Use @clientsession-generate@
+--
+envClientSessionBackend :: Int -- ^ minutes
+                        -> String -- ^ environment variable name
+                        -> IO SessionBackend
+envClientSessionBackend minutes name = do
+    key <- CS.getKeyEnv name
+    let timeout = fromIntegral (minutes * 60)
+    (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
+    return $ clientSessionBackend key getCachedDate
+
 jsToHtml :: Javascript -> Html
 jsToHtml (Javascript b) = preEscapedToMarkup $ toLazyText b
 
