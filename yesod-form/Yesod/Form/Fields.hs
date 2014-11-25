@@ -4,9 +4,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
--- | Functions for creating inputs 
--- 
+-- | Field functions allow you to easily create and validate forms, cleanly handling the uncertainty of parsing user input.
+--
 -- When possible, the field functions use a specific input type (e.g. "number"), allowing supporting browsers to validate the input before form submission. Browsers can also improve usability with this information; for example, mobile browsers might present a specialized keyboard for an input of type "email" or "number".
+--
+-- See the Yesod book <http://www.yesodweb.com/book/forms chapter on forms> for a broader overview of forms in Yesod.
 module Yesod.Form.Fields
     ( -- * i18n
       FormMessage (..)
@@ -137,7 +139,8 @@ $newline never
   where showVal = either id (pack . show)
 
 -- | Creates an input with @type="date"@, validating the input using the 'parseDate' function.
--- Add the @time@ package and import the 'Data.Time.Calendar' module to use this function.
+--
+-- Add the @time@ package and import the "Data.Time.Calendar" module to use this function.
 dayField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Day
 dayField = Field
     { fieldParse = parseHelper $ parseDate . unpack
@@ -149,9 +152,9 @@ $newline never
     }
   where showVal = either id (pack . show)
 
--- | MTODO: Parses time from a [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with a 24 hour clock system).
--- | Creates an input with MTODO: should this use input type="time" ?
--- Add the @time@ package and import the 'Data.Time.LocalTime' module to use this function.
+-- | Parses time from a [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with a 24 hour clock system). MTODO: should this use input type="time" ?
+-- 
+-- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
 timeField = Field
     { fieldParse = parseHelper parseTime
@@ -180,8 +183,9 @@ $newline never
     }
   where showVal = either id (pack . renderHtml)
 
--- | A newtype wrapper around a 'Text' whose 'ToHtml' instance converts newlines to HTML @\<br>@ tags.
--- (When text is entered into a <textarea>, newline characters are used to separate lines.
+-- | A newtype wrapper around a 'Text' whose 'ToMarkup' instance converts newlines to HTML @\<br>@ tags.
+-- 
+-- (When text is entered into a @\<textarea>@, newline characters are used to separate lines.
 -- If this text is then placed verbatim into HTML, the lines won't be separated, thus the need for replacing with @\<br>@ tags).
 -- If you don't need this functionality, simply use 'unTextarea' to access the raw text.
 newtype Textarea = Textarea { unTextarea :: Text }
@@ -202,7 +206,7 @@ instance ToHtml Textarea where
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
--- | Creates a @\<textarea>@ tag whose value is wrapped in a 'Textarea'; see 'Textarea' for details.
+-- | Creates a @\<textarea>@ tag whose returned value is wrapped in a 'Textarea'; see 'Textarea' for details.
 textareaField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Textarea
 textareaField = Field
     { fieldParse = parseHelper $ Right . Textarea
@@ -225,7 +229,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
--- Creates a input with @type="text"@.
+-- | Creates a input with @type="text"@.
 textField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 textField = Field
     { fieldParse = parseHelper $ Right
@@ -236,7 +240,7 @@ $newline never
 |]
     , fieldEnctype = UrlEncoded
     }
--- Creates a field with @type="password"@.
+-- | Creates an input with @type="password"@.
 passwordField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 passwordField = Field
     { fieldParse = parseHelper $ Right
@@ -252,7 +256,7 @@ readMay s = case filter (Prelude.null . snd) $ reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
 
--- | Parses a 'Day' from a 'String'
+-- | Parses a 'Day' from a 'String'.
 parseDate :: String -> Either FormMessage Day
 parseDate = maybe (Left MsgInvalidDay) Right
               . readMay . replace '/' '-'
@@ -308,8 +312,8 @@ timeParser = do
         if i < 0 || i >= 60
             then fail $ show $ msg $ pack xy
             else return $ fromIntegral (i :: Int)
-            -
--- | Creates an input with @type="email". Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see 'Text.Email.Validate').
+            
+-- | Creates an input with @type="email"@. Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see "Text.Email.Validate").
 emailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 emailField = Field
     { fieldParse = parseHelper $
@@ -324,7 +328,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
--- | Creates an input with @type="email" with the <http://www.w3.org/html/wg/drafts/html/master/forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
+-- | Creates an input with @type="email"@ with the <http://www.w3.org/html/wg/drafts/html/master/forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
 --
 -- Since 1.3.7
 multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
@@ -350,7 +354,7 @@ $newline never
         emailToText = decodeUtf8With lenientDecode . Email.toByteString
 
 type AutoFocus = Bool
--- | Creates an input with @type="search"@. MTODO: explain the CSS/JS/Autofocus stuff
+-- | Creates an input with @type="search"@. For <http://caniuse.com/#search=autofocus browsers without autofocus support>, a JS fallback is used if @AutoFocus@ is true.
 searchField :: Monad m => RenderMessage (HandlerSite m) FormMessage => AutoFocus -> Field m Text
 searchField autoFocus = Field
     { fieldParse = parseHelper Right
@@ -485,10 +489,13 @@ $newline never
         \#{text}
 |])
 
--- | Creates a group of radio buttons to answer the question given in the message.
--- If this field is optional, the first radio button is labeled "<None>", the second "Yes" and the third "No".
--- If this field is required, the first radio button is labeled "Yes" and the second "No". 
--- (Exact label titles will depend on localization.)
+-- | Creates a group of radio buttons to answer the question given in the message. Radio buttons are used to allow differentiating between an empty response (@Nothing@) and a no response (@Just False@). Consider using the simpler 'checkBoxField' if you don't need to make this distinction.
+--
+-- If this field is optional, the first radio button is labeled "\<None>", the second \"Yes" and the third \"No".
+--
+-- If this field is required, the first radio button is labeled \"Yes" and the second \"No". 
+--
+-- (Exact label titles will depend on localization).
 boolField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Bool
 boolField = Field
       { fieldParse = \e _ -> return $ boolParser e
@@ -522,9 +529,9 @@ $newline never
 
 -- | Creates an input with @type="checkbox"@. 
 --   While the default @'boolField'@ implements a radio button so you
---   can differentiate between an empty response (Nothing) and a no
---   response (Just False), this simpler checkbox field returns an empty
---   response as Just False.
+--   can differentiate between an empty response (@Nothing@) and a no
+--   response (@Just False@), this simpler checkbox field returns an empty
+--   response as @Just False@.
 --
 --   Note that this makes the field always optional.
 --
@@ -658,6 +665,7 @@ selectFieldHelper outside onOpt inside opts' = Field
                     Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
                     Just y -> Right $ Just y
 
+-- | Creates an input with @type="file"@.
 fileField :: (Monad m, RenderMessage (HandlerSite m) FormMessage)
           => Field m FileInfo
 fileField = Field
