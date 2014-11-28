@@ -615,6 +615,7 @@ defaultClientSessionBackend minutes fp = do
 --    printed on @/dev/stdout/@
 -- 2. Use @clientsession-generate@
 --
+-- Since 1.4.5
 envClientSessionBackend :: Int -- ^ minutes
                         -> String -- ^ environment variable name
                         -> IO SessionBackend

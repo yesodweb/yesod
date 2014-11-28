@@ -1,3 +1,7 @@
+## 1.4.5
+
+* `envClientSessionBackend`
+
 ## 1.4.4.5
 
 Support time 1.5
