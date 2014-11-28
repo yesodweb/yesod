@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.4.1.1
+version:         1.4.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -11,6 +11,8 @@ cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 description:     Form handling support for Yesod Web Framework
+extra-source-files: ChangeLog.md
+                    README.md
 
 flag network-uri
   description: Get Network.URI from the network-uri package

@@ -162,12 +162,16 @@ timeField = timeFieldTypeText
 -- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
+--
+-- Since 1.4.2
 timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay  
 timeFieldTypeTime = timeFieldOfType "time"
 
 -- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
 -- 
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
+--
+-- Since 1.4.2
 timeFieldTypeText :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
 timeFieldTypeText = timeFieldOfType "text"
 
