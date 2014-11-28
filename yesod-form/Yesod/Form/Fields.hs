@@ -599,7 +599,7 @@ data Option a = Option
     , optionInternalValue :: a -- ^ The Haskell value being selected.
     , optionExternalValue :: Text -- ^ The representation of this value stored in the form.
     }
--- Creates an 'OptionList' from a list of (display-value, internal value) pairs.
+-- | Creates an 'OptionList' from a list of (display-value, internal value) pairs.
 optionsPairs :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
              => [(msg, a)] -> m (OptionList a)
 optionsPairs opts = do
@@ -617,22 +617,19 @@ optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
 -- | Selects a list of 'Entity's with the given 'Filter' and 'SelectOpt's. The @(a -> msg)@ function is then used to derive the display value for an 'OptionList'. Example usage:
 --
--- @
--- Country
---    name Text
---    deriving Eq -- Must derive Eq
--- @
--- @
--- data CountryForm = CountryForm
---   { country :: Entity Country
---   }
+-- > Country
+-- >    name Text
+-- >    deriving Eq -- Must derive Eq
 --
--- countryNameForm :: AForm Handler CountryForm
--- countryNameForm = CountryForm
---         <$> areq (selectField countries) "Which country do you live in?" Nothing
---         where 
---           countries = optionsPersist [] [Asc CountryName] countryName
--- @
+-- > data CountryForm = CountryForm
+-- >   { country :: Entity Country
+-- >   }
+-- >
+-- > countryNameForm :: AForm Handler CountryForm
+-- > countryNameForm = CountryForm
+-- >         <$> areq (selectField countries) "Which country do you live in?" Nothing
+-- >         where
+-- >           countries = optionsPersist [] [Asc CountryName] countryName
 optionsPersist :: ( YesodPersist site, PersistEntity a
                   , PersistQuery (PersistEntityBackend a)
                   , PathPiece (Key a)
@@ -652,8 +649,8 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
         , optionExternalValue = toPathPiece key
         }) pairs
 
--- | An alternative to 'optionsPersist' which returns just the @Key@ instead of
--- the entire @Entity@.
+-- | An alternative to 'optionsPersist' which returns just the 'Key' instead of
+-- the entire 'Entity'.
 --
 -- Since 1.3.2
 optionsPersistKey
@@ -817,18 +814,3 @@ prependZero t0 = if T.null t1
 -- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A list of these, together with a function mapping from an external value back to a Haskell value, form an 'OptionList', which several of these functions take as an argument.
 -- 
 -- Typically, you won't need to create an 'OptionList' directly and can instead make one with functions like 'optionsPairs' or 'optionsEnum'. Alternatively, you can use functions like 'selectFieldList', which use their @[(msg, a)]@ parameter to create an 'OptionList' themselves.
-
--- Alternatively, you can use functions like 'selectFieldList' which take a @[(msg, a)]@ parameter and create the 'OptionList' themselves.
--- Alternatively, Functions that don't take an 'OptionsList', like 'selectFieldList', will create one from their @[(msg, a)]@ parameter.
--- The basic datastructure used is an 'Option', representing an individual choice a user can make. An 'OptionList' groups these together along with a function mapping from the  r These are combined into an 'OptionList',  A group of these is an 'OptionList'
---
--- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A group of these are
--- The datastructure is the 'OptionList', which combines a list of 'Options' with 
--- The basic datastructure used is an 'Option', which is used to create a selection for the user. 
--- Typically, you won't need to create these directly, and can instead make them with 'optionsPairs' or 'optionsEnum'. Functions that don't take an 'OptionsList', like 'selectFieldList', will create them from their @[(msg, a)]@ parameter.
---
--- These functions provide support for inputs where one or more options is selected from a list.
---
--- The basic datastructures used are 'Option' and 'OptionList'; together these handle the display value and mapping from the form request data to Haskell values.
--- 
--- Typically, you won't need to create these directly, and can instead make them with 'optionsPairs' or 'optionsEnum'. Functions that don't take an 'OptionsList', like 'selectFieldList', will create them from their @[(msg, a)]@ parameter.
