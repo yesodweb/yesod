@@ -62,6 +62,9 @@ import Prelude hiding (catch)
 import Control.DeepSeq (NFData (rnf))
 import Data.Conduit.Lazy (MonadActive, monadActive)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
+#if MIN_VERSION_monad_logger(0, 3, 10)
+import Control.Monad.Logger (MonadLoggerIO (..))
+#endif
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -436,6 +439,11 @@ instance MonadIO m => MonadLogger (WidgetT site m) where
     monadLoggerLog a b c d = WidgetT $ \hd ->
         liftIO $ fmap (, mempty) $ rheLog (handlerEnv hd) a b c (toLogStr d)
 
+#if MIN_VERSION_monad_logger(0, 3, 10)
+instance MonadIO m => MonadLoggerIO (WidgetT site m) where
+    askLoggerIO = WidgetT $ \hd -> return (rheLog (handlerEnv hd), mempty)
+#endif
+
 instance MonadActive m => MonadActive (WidgetT site m) where
     monadActive = lift monadActive
 instance MonadActive m => MonadActive (HandlerT site m) where
@@ -488,6 +496,11 @@ instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (HandlerT si
 instance MonadIO m => MonadLogger (HandlerT site m) where
     monadLoggerLog a b c d = HandlerT $ \hd ->
         liftIO $ rheLog (handlerEnv hd) a b c (toLogStr d)
+
+#if MIN_VERSION_monad_logger(0, 3, 10)
+instance MonadIO m => MonadLoggerIO (HandlerT site m) where
+    askLoggerIO = HandlerT $ \hd -> return (rheLog (handlerEnv hd))
+#endif
 
 instance Monoid (UniqueList x) where
     mempty = UniqueList id
