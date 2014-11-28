@@ -40,12 +40,13 @@ module Yesod.Form.Fields
     , fileAFormReq
     , fileAFormOpt
       -- * Options
+      -- $optionsOverview
     , selectField
     , selectFieldList
     , radioField
     , radioFieldList
-    , checkboxesFieldList
     , checkboxesField
+    , checkboxesFieldList
     , multiSelectField
     , multiSelectFieldList
     , Option (..)
@@ -403,11 +404,17 @@ urlField = Field
     , fieldEnctype = UrlEncoded
     }
 
+-- | Creates a @\<select>@ tag for selecting one option. Example usage:
+--
+-- > areq (selectFieldList [("Value 1" :: Text, "value1"),("Value 2", "value2")]) "Which value?" Nothing
 selectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                 => [(msg, a)]
                 -> Field (HandlerT site IO) a
 selectFieldList = selectField . optionsPairs
 
+-- | Creates a @\<select>@ tag for selecting one option. Example usage:
+--
+-- > areq (selectField $ optionsPairs [(MsgValue1, "value1"),(MsgValue2, "value2")]) "Which value?" Nothing
 selectField :: (Eq a, RenderMessage site FormMessage)
             => HandlerT site IO (OptionList a)
             -> Field (HandlerT site IO) a
@@ -425,11 +432,13 @@ $newline never
 <option value=#{value} :isSel:selected>#{text}
 |]) -- inside
 
+-- | Creates a @\<select>@ tag for selecting multiple options.
 multiSelectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                      => [(msg, a)]
                      -> Field (HandlerT site IO) [a]
 multiSelectFieldList = multiSelectField . optionsPairs
 
+-- | Creates a @\<select>@ tag for selecting multiple options.
 multiSelectField :: (Eq a, RenderMessage site FormMessage)
                  => HandlerT site IO (OptionList a)
                  -> Field (HandlerT site IO) [a]
@@ -455,15 +464,18 @@ multiSelectField ioptlist =
             optselected (Left _) _ = False
             optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
 
+-- | Creates an input with @type="radio"@ for selecting one option.
 radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                => [(msg, a)]
                -> Field (HandlerT site IO) a
 radioFieldList = radioField . optionsPairs
 
+-- | Creates an input with @type="checkbox"@ for selecting multiple options.
 checkboxesFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)]
                      -> Field (HandlerT site IO) [a]
 checkboxesFieldList = checkboxesField . optionsPairs
 
+-- | Creates an input with @type="checkbox"@ for selecting multiple options.
 checkboxesField :: (Eq a, RenderMessage site FormMessage)
                  => HandlerT site IO (OptionList a)
                  -> Field (HandlerT site IO) [a]
@@ -481,7 +493,7 @@ checkboxesField ioptlist = (multiSelectField ioptlist)
                             #{optionDisplay opt}
                 |]
     }
-
+-- | Creates an input with @type="radio"@ for selecting one option.
 radioField :: (Eq a, RenderMessage site FormMessage)
            => HandlerT site IO (OptionList a)
            -> Field (HandlerT site IO) a
@@ -570,11 +582,12 @@ $newline never
 
         showVal = either (\_ -> False)
 
+-- | A structure holding a list of options. Typically you can use a convenience function like 'mkOptionList' or 'optionsPairs' instead of creating this directly.
 data OptionList a = OptionList
     { olOptions :: [Option a]
-    , olReadExternal :: Text -> Maybe a
+    , olReadExternal :: Text -> Maybe a -- ^ A function mapping from the form's value ('optionExternalValue') to the selected Haskell value ('optionInternalValue').
     }
-
+-- | Creates an 'OptionList', using a 'Map' to implement the 'olReadExternal' function.
 mkOptionList :: [Option a] -> OptionList a
 mkOptionList os = OptionList
     { olOptions = os
@@ -582,11 +595,11 @@ mkOptionList os = OptionList
     }
 
 data Option a = Option
-    { optionDisplay :: Text
-    , optionInternalValue :: a
-    , optionExternalValue :: Text
+    { optionDisplay :: Text -- ^ The user-facing label.
+    , optionInternalValue :: a -- ^ The Haskell value being selected.
+    , optionExternalValue :: Text -- ^ The representation of this value stored in the form.
     }
-
+-- Creates an 'OptionList' from a list of (display-value, internal value) pairs.
 optionsPairs :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
              => [(msg, a)] -> m (OptionList a)
 optionsPairs opts = do
@@ -598,9 +611,28 @@ optionsPairs opts = do
                  }
   return $ mkOptionList (zipWith mkOption [1 :: Int ..] opts)
 
+-- | Creates an 'OptionList' from an 'Enum', using its 'Show' instance for the user-facing value.
 optionsEnum :: (MonadHandler m, Show a, Enum a, Bounded a) => m (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
+-- | Selects a list of 'Entity's with the given 'Filter' and 'SelectOpt's. The @(a -> msg)@ function is then used to derive the display value for an 'OptionList'. Example usage:
+--
+-- @
+-- Country
+--    name Text
+--    deriving Eq -- Must derive Eq
+-- @
+-- @
+-- data CountryForm = CountryForm
+--   { country :: Entity Country
+--   }
+--
+-- countryNameForm :: AForm Handler CountryForm
+-- countryNameForm = CountryForm
+--         <$> areq (selectField countries) "Which country do you live in?" Nothing
+--         where 
+--           countries = optionsPersist [] [Asc CountryName] countryName
+-- @
 optionsPersist :: ( YesodPersist site, PersistEntity a
                   , PersistQuery (PersistEntityBackend a)
                   , PathPiece (Key a)
@@ -778,3 +810,25 @@ prependZero t0 = if T.null t1
                            else t1
 
   where t1 = T.dropWhile ((==) ' ') t0
+
+-- $optionsOverview
+-- These functions create inputs where one or more options can be selected from a list.
+-- 
+-- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A list of these, together with a function mapping from an external value back to a Haskell value, form an 'OptionList', which several of these functions take as an argument.
+-- 
+-- Typically, you won't need to create an 'OptionList' directly and can instead make one with functions like 'optionsPairs' or 'optionsEnum'. Alternatively, you can use functions like 'selectFieldList', which use their @[(msg, a)]@ parameter to create an 'OptionList' themselves.
+
+-- Alternatively, you can use functions like 'selectFieldList' which take a @[(msg, a)]@ parameter and create the 'OptionList' themselves.
+-- Alternatively, Functions that don't take an 'OptionsList', like 'selectFieldList', will create one from their @[(msg, a)]@ parameter.
+-- The basic datastructure used is an 'Option', representing an individual choice a user can make. An 'OptionList' groups these together along with a function mapping from the  r These are combined into an 'OptionList',  A group of these is an 'OptionList'
+--
+-- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A group of these are
+-- The datastructure is the 'OptionList', which combines a list of 'Options' with 
+-- The basic datastructure used is an 'Option', which is used to create a selection for the user. 
+-- Typically, you won't need to create these directly, and can instead make them with 'optionsPairs' or 'optionsEnum'. Functions that don't take an 'OptionsList', like 'selectFieldList', will create them from their @[(msg, a)]@ parameter.
+--
+-- These functions provide support for inputs where one or more options is selected from a list.
+--
+-- The basic datastructures used are 'Option' and 'OptionList'; together these handle the display value and mapping from the form request data to Haskell values.
+-- 
+-- Typically, you won't need to create these directly, and can instead make them with 'optionsPairs' or 'optionsEnum'. Functions that don't take an 'OptionsList', like 'selectFieldList', will create them from their @[(msg, a)]@ parameter.
