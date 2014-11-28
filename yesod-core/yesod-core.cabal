@@ -18,7 +18,7 @@ extra-source-files:
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
   test/en.msg
   test/test.hs
-  changelog.md
+  ChangeLog.md
   README.md
 
 library
