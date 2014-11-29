@@ -28,32 +28,31 @@ cabal.sandbox.config
 {-# START_FILE Application.hs #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Application
-    ( makeApplication
-    , getApplicationDev
+    ( getApplicationDev
+    , appMain
+    , develMain
     , makeFoundation
     ) where
 
+import Control.Monad.Logger                 (liftLoc, runLoggingT)
+import Database.Persist.Postgresql          (createPostgresqlPool, pgConnStr,
+                                             pgPoolSize, runSqlPool)
 import Import
-import Yesod.Auth
-import Yesod.Default.Config
-import Yesod.Default.Main
-import Yesod.Default.Handlers
-import Network.Wai.Middleware.RequestLogger
-    ( mkRequestLogger, outputFormat, OutputFormat (..), IPAddrSource (..), destination
-    )
-import qualified Network.Wai.Middleware.RequestLogger as RequestLogger
-import qualified Database.Persist
-import Database.Persist.Sql (runMigration)
-import Database.Persist.Postgresql (createPostgresqlPool, pgConnStr, pgPoolSize)
-import Network.HTTP.Client.Conduit (newManager)
-import Control.Monad.Logger (runLoggingT)
-import System.Log.FastLogger (newStdoutLoggerSet, defaultBufSize)
-import Network.Wai.Logger (clockDateCacher)
-import Data.Default (def)
-import Yesod.Core.Types (loggerSet, Logger (Logger))
+import Language.Haskell.TH.Syntax           (qLocation)
+import Network.Wai.Handler.Warp             (Settings, defaultSettings,
+                                             defaultShouldDisplayException,
+                                             runSettings, setHost,
+                                             setOnException, setPort)
+import Network.Wai.Middleware.RequestLogger (Destination (Logger),
+                                             IPAddrSource (..),
+                                             OutputFormat (..), destination,
+                                             mkRequestLogger, outputFormat)
+import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
+                                             toLogStr)
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
+import Handler.Common
 import Handler.Home
 
 -- This line actually creates our YesodDispatch instance. It is the second half
@@ -61,112 +60,136 @@ import Handler.Home
 -- comments there for more details.
 mkYesodDispatch "App" resourcesApp
 
--- This function allocates resources (such as a database connection pool),
--- performs initialization and creates a WAI application. This is also the
--- place to put your migrate statements to have automatic database
+-- | This function allocates resources (such as a database connection pool),
+-- performs initialization and return a foundation datatype value. This is also
+-- the place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
-makeApplication :: AppConfig DefaultEnv Extra -> IO (Application, LogFunc)
-makeApplication conf = do
-    foundation <- makeFoundation conf
+makeFoundation :: AppSettings -> IO App
+makeFoundation appSettings = do
+    -- Some basic initializations: HTTP connection manager, logger, and static
+    -- subsite.
+    appHttpManager <- newManager
+    appLogger <- newStdoutLoggerSet defaultBufSize >>= makeYesodLogger
+    appStatic <-
+        (if appMutableStatic appSettings then staticDevel else static)
+        (appStaticDir appSettings)
 
-    -- Initialize the logging middleware
+    -- We need a log function to create a connection pool. We need a connection
+    -- pool to create our foundation. And we need our foundation to get a
+    -- logging function. To get out of this loop, we initially create a
+    -- temporary foundation without a real connection pool, get a log function
+    -- from there, and then create the real foundation.
+    let mkFoundation appConnPool = App {..}
+        tempFoundation = mkFoundation $ error "connPool forced in tempFoundation"
+        logFunc = messageLoggerSource tempFoundation appLogger
+
+    -- Create the database connection pool
+    pool <- flip runLoggingT logFunc $ createPostgresqlPool
+        (pgConnStr  $ appDatabaseConf appSettings)
+        (pgPoolSize $ appDatabaseConf appSettings)
+
+    -- Perform database migration using our application's logging settings.
+    runLoggingT (runSqlPool (runMigration migrateAll) pool) logFunc
+
+    -- Return the foundation
+    return $ mkFoundation pool
+
+-- | Convert our foundation to a WAI Application by calling @toWaiAppPlain@ and
+-- applyng some additional middlewares.
+makeApplication :: App -> IO Application
+makeApplication foundation = do
     logWare <- mkRequestLogger def
         { outputFormat =
-            if development
+            if appDetailedRequestLogging $ appSettings foundation
                 then Detailed True
-                else Apache FromSocket
-        , destination = RequestLogger.Logger $ loggerSet $ appLogger foundation
+                else Apache
+                        (if appIpFromHeader $ appSettings foundation
+                            then FromFallback
+                            else FromSocket)
+        , destination = Logger $ loggerSet $ appLogger foundation
         }
 
     -- Create the WAI application and apply middlewares
-    app <- toWaiAppPlain foundation
-    let logFunc = messageLoggerSource foundation (appLogger foundation)
-    return (logWare $ defaultMiddlewaresNoLogging app, logFunc)
+    appPlain <- toWaiAppPlain foundation
+    return $ logWare $ defaultMiddlewaresNoLogging appPlain
 
--- | Loads up any necessary settings, creates your foundation datatype, and
--- performs some initialization.
-makeFoundation :: AppConfig DefaultEnv Extra -> IO App
-makeFoundation conf = do
-    manager <- newManager
-    s <- staticSite
-    dbconf <- withYamlEnvironment "config/postgresql.yml" (appEnv conf)
-              Database.Persist.loadConfig >>=
-              Database.Persist.applyEnv
+-- | Warp settings for the given foundation value.
+warpSettings :: App -> Settings
+warpSettings foundation =
+      setPort (appPort $ appSettings foundation)
+    $ setHost (appHost $ appSettings foundation)
+    $ setOnException (\_req e ->
+        when (defaultShouldDisplayException e) $ messageLoggerSource
+            foundation
+            (appLogger foundation)
+            $(qLocation >>= liftLoc)
+            "yesod"
+            LevelError
+            (toLogStr $ "Exception from Warp: " ++ show e))
+      defaultSettings
 
-    loggerSet' <- newStdoutLoggerSet defaultBufSize
-    (getter, _) <- clockDateCacher
+-- | For yesod devel, return the Warp settings and WAI Application.
+getApplicationDev :: IO (Settings, Application)
+getApplicationDev = do
+    settings <- loadAppSettings [configSettingsYml] [] useEnv
+    foundation <- makeFoundation settings
+    app <- makeApplication foundation
+    wsettings <- getDevSettings $ warpSettings foundation
+    return (wsettings, app)
 
-    let logger = Yesod.Core.Types.Logger loggerSet' getter
-        mkFoundation p = App
-            { settings = conf
-            , getStatic = s
-            , connPool = p
-            , httpManager = manager
-            , persistConfig = dbconf
-            , appLogger = logger
-            }
-        tempFoundation = mkFoundation $ error "connPool forced in tempFoundation"
-        logFunc = messageLoggerSource tempFoundation logger
+-- | main function for use by yesod devel
+develMain :: IO ()
+develMain = develMainHelper getApplicationDev
 
-    p <- flip runLoggingT logFunc
-       $ createPostgresqlPool (pgConnStr dbconf) (pgPoolSize dbconf)
-    let foundation = mkFoundation p
+-- | The @main@ function for an executable running this site.
+appMain :: IO ()
+appMain = do
+    -- Get the settings from all relevant sources
+    settings <- loadAppSettingsArgs
+        -- fall back to compile-time values, set to [] to require values at runtime
+        [configSettingsYmlValue]
 
-    -- Perform database migration using our application's logging settings.
-    flip runLoggingT logFunc
-        (Database.Persist.runPool dbconf (runMigration migrateAll) p)
+        -- allow environment variables to override
+        useEnv
 
-    return foundation
+    -- Generate the foundation from the settings
+    foundation <- makeFoundation settings
 
--- for yesod devel
-getApplicationDev :: IO (Int, Application)
-getApplicationDev =
-    defaultDevelApp loader (fmap fst . makeApplication)
-  where
-    loader = Yesod.Default.Config.loadConfig (configSettings Development)
-        { csParseExtra = parseExtra
-        }
+    -- Generate a WAI Application from the foundation
+    app <- makeApplication foundation
+
+    -- Run the application with Warp
+    runSettings (warpSettings foundation) app
 
 {-# START_FILE Foundation.hs #-}
 module Foundation where
 
-import Prelude
-import Yesod
-import Yesod.Static
-import Yesod.Auth
-import Yesod.Auth.BrowserId
-import Yesod.Default.Config
-import Yesod.Default.Util (addStaticContentExternal)
-import Network.HTTP.Client.Conduit (Manager, HasHttpManager (getHttpManager))
-import qualified Settings
-import Settings.Development (development)
-import qualified Database.Persist
-import Database.Persist.Sql (SqlBackend)
-import Settings.StaticFiles
-import Settings (widgetFile, Extra (..))
+import ClassyPrelude.Yesod
+import Database.Persist.Sql (ConnectionPool, runSqlPool)
 import Model
-import Text.Jasmine (minifym)
-import Text.Hamlet (hamletFile)
-import Yesod.Core.Types (Logger)
+import Settings
+import Settings.StaticFiles
+import Text.Hamlet          (hamletFile)
+import Text.Jasmine         (minifym)
+import Yesod.Auth
+import Yesod.Auth.BrowserId (authBrowserId)
+import Yesod.Core.Types     (Logger)
+import Yesod.Default.Util   (addStaticContentExternal)
 
--- | The site argument for your application. This can be a good place to
+-- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
 -- starts running, such as database connections. Every handler will have
 -- access to the data present here.
 data App = App
-    { settings :: AppConfig DefaultEnv Extra
-    , getStatic :: Static -- ^ Settings for static file serving.
-    , connPool :: Database.Persist.PersistConfigPool Settings.PersistConf -- ^ Database connection pool.
-    , httpManager :: Manager
-    , persistConfig :: Settings.PersistConf
-    , appLogger :: Logger
+    { appSettings    :: AppSettings
+    , appStatic      :: Static -- ^ Settings for static file serving.
+    , appConnPool    :: ConnectionPool -- ^ Database connection pool.
+    , appHttpManager :: Manager
+    , appLogger      :: Logger
     }
 
 instance HasHttpManager App where
-    getHttpManager = httpManager
-
--- Set up i18n messages. See the message folder.
-mkMessage "App" "messages" "en"
+    getHttpManager = appHttpManager
 
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
@@ -177,12 +200,15 @@ mkMessage "App" "messages" "en"
 -- explanation for this split.
 mkYesodData "App" $(parseRoutesFile "config/routes")
 
+-- | A convenient synonym for creating forms.
 type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
 instance Yesod App where
-    approot = ApprootMaster $ appRoot . settings
+    -- Controls the base of generated URLs. For more information on modifying,
+    -- see: https://github.com/yesodweb/yesod/wiki/Overriding-approot
+    approot = ApprootMaster $ appRoot . appSettings
 
     -- Store session data on the client in encrypted cookies,
     -- default session idle timeout is 120 minutes
@@ -205,12 +231,6 @@ instance Yesod App where
             $(widgetFile "default-layout")
         withUrlRenderer $(hamletFile "templates/default-layout-wrapper.hamlet")
 
-    -- This is done to provide an optimization for serving static files from
-    -- a separate domain. Please see the staticRoot setting in Settings.hs
-    urlRenderOverride y (StaticR s) =
-        Just $ uncurry (joinPath y (Settings.staticRoot $ settings y)) $ renderRoute s
-    urlRenderOverride _ _ = Nothing
-
     -- The page to be redirected to when authentication is required.
     authRoute _ = Just $ AuthR LoginR
 
@@ -225,30 +245,38 @@ instance Yesod App where
     -- and names them based on a hash of their content. This allows
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
-    addStaticContent =
-        addStaticContentExternal minifym genFileName Settings.staticDir (StaticR . flip StaticRoute [])
+    addStaticContent ext mime content = do
+        master <- getYesod
+        let staticDir = appStaticDir $ appSettings master
+        addStaticContentExternal
+            minifym
+            genFileName
+            staticDir
+            (StaticR . flip StaticRoute [])
+            ext
+            mime
+            content
       where
         -- Generate a unique filename based on the content itself
-        genFileName lbs
-            | development = "autogen-" ++ base64md5 lbs
-            | otherwise   = base64md5 lbs
-
-    -- Place Javascript at bottom of the body tag so the rest of the page loads first
-    jsLoader _ = BottomOfBody
+        genFileName lbs = "autogen-" ++ base64md5 lbs
 
     -- What messages should be logged. The following includes all messages when
     -- in development, and warnings and errors in production.
-    shouldLog _ _source level =
-        development || level == LevelWarn || level == LevelError
+    shouldLog app _source level =
+        appShouldLogAll (appSettings app)
+            || level == LevelWarn
+            || level == LevelError
 
     makeLogger = return . appLogger
 
 -- How to run database actions.
 instance YesodPersist App where
     type YesodPersistBackend App = SqlBackend
-    runDB = defaultRunDB persistConfig connPool
+    runDB action = do
+        master <- getYesod
+        runSqlPool action $ appConnPool master
 instance YesodPersistRunner App where
-    getDBRunner = defaultGetDBRunner connPool
+    getDBRunner = defaultGetDBRunner appConnPool
 
 instance YesodAuth App where
     type AuthId App = UserId
@@ -257,6 +285,8 @@ instance YesodAuth App where
     loginDest _ = HomeR
     -- Where to send a user after logout
     logoutDest _ = HomeR
+    -- Override the above two destinations when a Referer: header is present
+    redirectToReferer _ = True
 
     getAuthId creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
@@ -271,7 +301,7 @@ instance YesodAuth App where
     -- You can add other plugins like BrowserID, email or OAuth here
     authPlugins _ = [authBrowserId def]
 
-    authHttpManager = httpManager
+    authHttpManager = getHttpManager
 
 instance YesodAuthPersist App
 
@@ -280,23 +310,38 @@ instance YesodAuthPersist App
 instance RenderMessage App FormMessage where
     renderMessage _ _ = defaultFormMessage
 
--- | Get the 'Extra' value, used to hold data from the settings.yml file.
-getExtra :: Handler Extra
-getExtra = fmap (appExtra . settings) getYesod
-
--- Note: previous versions of the scaffolding included a deliver function to
--- send emails. Unfortunately, there are too many different options for us to
--- give a reasonable default. Instead, the information is available on the
--- wiki:
+-- Note: Some functionality previously present in the scaffolding has been
+-- moved to documentation in the Wiki. Following are some hopefully helpful
+-- links:
 --
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
+-- https://github.com/yesodweb/yesod/wiki/Serve-static-files-from-a-separate-domain
+-- https://github.com/yesodweb/yesod/wiki/i18n-messages-in-the-scaffolding
+
+{-# START_FILE Handler/Common.hs #-}
+-- | Common handler functions.
+module Handler.Common where
+
+import Data.FileEmbed (embedFile)
+import Import
+
+-- These handlers embed files in the executable at compile time to avoid a
+-- runtime dependency, and for efficiency.
+
+getFaviconR :: Handler TypedContent
+getFaviconR = return $ TypedContent "image/x-icon"
+                     $ toContent $(embedFile "config/favicon.ico")
+
+getRobotsR :: Handler TypedContent
+getRobotsR = return $ TypedContent typePlain
+                    $ toContent $(embedFile "config/robots.txt")
 
 {-# START_FILE Handler/Home.hs #-}
 module Handler.Home where
 
 import Import
-import Yesod.Form.Bootstrap3
-    ( BootstrapFormLayout (..), renderBootstrap3, withSmallInput )
+import Yesod.Form.Bootstrap3 (BootstrapFormLayout (..), renderBootstrap3,
+                              withSmallInput)
 
 -- This is a handler function for the GET request method on the HomeR
 -- resource pattern. All of your resource patterns are defined in
@@ -338,40 +383,20 @@ module Import
     ( module Import
     ) where
 
-import           Prelude              as Import hiding (head, init, last,
-                                                 readFile, tail, writeFile)
-import           Yesod                as Import hiding (Route (..))
-
-import           Control.Applicative  as Import (pure, (<$>), (<*>))
-import           Data.Text            as Import (Text)
-
-import           Foundation           as Import
-import           Model                as Import
-import           Settings             as Import
-import           Settings.Development as Import
-import           Settings.StaticFiles as Import
-
-#if __GLASGOW_HASKELL__ >= 704
-import           Data.Monoid          as Import
-                                                 (Monoid (mappend, mempty, mconcat),
-                                                 (<>))
-#else
-import           Data.Monoid          as Import
-                                                 (Monoid (mappend, mempty, mconcat))
-
-infixr 5 <>
-(<>) :: Monoid m => m -> m -> m
-(<>) = mappend
-#endif
+import ClassyPrelude.Yesod   as Import
+import Foundation            as Import
+import Model                 as Import
+import Settings              as Import
+import Settings.StaticFiles  as Import
+import Yesod.Auth            as Import
+import Yesod.Core.Types      as Import (loggerSet)
+import Yesod.Default.Config2 as Import
 
 {-# START_FILE Model.hs #-}
 module Model where
 
-import Yesod
-import Data.Text (Text)
+import ClassyPrelude.Yesod
 import Database.Persist.Quasi
-import Data.Typeable (Typeable)
-import Prelude
 
 -- You can define all of your database entities in the entities file.
 -- You can find more information on persistent and how to declare entities
@@ -401,7 +426,7 @@ library
                      Model
                      Settings
                      Settings.StaticFiles
-                     Settings.Development
+                     Handler.Common
                      Handler.Home
 
     if flag(dev) || flag(library-only)
@@ -425,17 +450,21 @@ library
                 DeriveDataTypeable
                 ViewPatterns
                 TupleSections
+                RecordWildCards
 
     build-depends: base                          >= 4          && < 5
-                 , yesod                         >= 1.4.0      && < 1.5
+                 , yesod                         >= 1.4.1      && < 1.5
                  , yesod-core                    >= 1.4.0      && < 1.5
                  , yesod-auth                    >= 1.4.0      && < 1.5
-                 , yesod-static                  >= 1.4.0      && < 1.5
+                 , yesod-static                  >= 1.4.0.3    && < 1.5
                  , yesod-form                    >= 1.4.0      && < 1.5
+                 , classy-prelude                >= 0.10.2
+                 , classy-prelude-conduit        >= 0.10.2
+                 , classy-prelude-yesod          >= 0.10.2
                  , bytestring                    >= 0.9        && < 0.11
                  , text                          >= 0.11       && < 2.0
                  , persistent                    >= 2.0        && < 2.2
-                 , persistent-postgresql         >= 2.0        && < 2.2
+                 , persistent-postgresql         >= 2.1.1      && < 2.2
                  , persistent-template           >= 2.0        && < 2.2
                  , template-haskell
                  , shakespeare                   >= 2.0        && < 2.1
@@ -452,10 +481,12 @@ library
                  , monad-logger                  >= 0.3        && < 0.4
                  , fast-logger                   >= 2.2        && < 2.3
                  , wai-logger                    >= 2.2        && < 2.3
-
-    -- see https://github.com/yesodweb/yesod/issues/814
-    if !os(windows)
-        build-depends: unix
+                 , file-embed
+                 , safe
+                 , unordered-containers
+                 , containers
+                 , vector
+                 , time
 
 executable         PROJECTNAME
     if flag(library-only)
@@ -463,9 +494,7 @@ executable         PROJECTNAME
 
     main-is:           main.hs
     hs-source-dirs:    app
-    build-depends:     base
-                     , PROJECTNAME
-                     , yesod
+    build-depends:     base, PROJECTNAME
 
     ghc-options:       -threaded -O2 -rtsopts -with-rtsopts=-N
 
@@ -493,7 +522,7 @@ test-suite test
 
     build-depends: base
                  , PROJECTNAME
-                 , yesod-test >= 1.4 && < 1.5
+                 , yesod-test >= 1.4.2 && < 1.5
                  , yesod-core
                  , yesod
                  , persistent
@@ -502,6 +531,8 @@ test-suite test
                  , monad-logger
                  , transformers
                  , hspec
+                 , classy-prelude
+                 , classy-prelude-yesod
 
 {-# START_FILE Settings.hs #-}
 -- | Settings are centralized, as much as possible, into this file. This
@@ -511,44 +542,80 @@ test-suite test
 -- declared in the Foundation.hs file.
 module Settings where
 
-import Prelude
-import Text.Shakespeare.Text (st)
-import Language.Haskell.TH.Syntax
+import ClassyPrelude.Yesod
+import Control.Exception           (throw)
+import Data.Aeson                  (Result (..), fromJSON, withObject, (.!=),
+                                    (.:?))
+import Data.FileEmbed              (embedFile)
+import Data.Yaml                   (decodeEither')
 import Database.Persist.Postgresql (PostgresConf)
-import Yesod.Default.Config
-import Yesod.Default.Util
-import Data.Text (Text)
-import Data.Yaml
-import Control.Applicative
-import Settings.Development
-import Data.Default (def)
-import Text.Hamlet
+import Language.Haskell.TH.Syntax  (Exp, Name, Q)
+import Network.Wai.Handler.Warp    (HostPreference)
+import Yesod.Default.Config2       (applyEnvValue, configSettingsYml)
+import Yesod.Default.Util          (WidgetFileSettings, widgetFileNoReload,
+                                    widgetFileReload)
 
--- | Which Persistent backend this site is using.
-type PersistConf = PostgresConf
+-- | Runtime settings to configure this application. These settings can be
+-- loaded from various sources: defaults, environment variables, config files,
+-- theoretically even a database.
+data AppSettings = AppSettings
+    { appStaticDir              :: String
+    -- ^ Directory from which to serve static files.
+    , appDatabaseConf           :: PostgresConf
+    -- ^ Configuration settings for accessing the database.
+    , appRoot                   :: Text
+    -- ^ Base for all generated URLs.
+    , appHost                   :: HostPreference
+    -- ^ Host/interface the server should bind to.
+    , appPort                   :: Int
+    -- ^ Port to listen on
+    , appIpFromHeader           :: Bool
+    -- ^ Get the IP address from the header when logging. Useful when sitting
+    -- behind a reverse proxy.
 
--- Static setting below. Changing these requires a recompile
+    , appDetailedRequestLogging :: Bool
+    -- ^ Use detailed request logging system
+    , appShouldLogAll           :: Bool
+    -- ^ Should all log messages be displayed?
+    , appReloadTemplates        :: Bool
+    -- ^ Use the reload version of templates
+    , appMutableStatic          :: Bool
+    -- ^ Assume that files in the static dir may change after compilation
+    , appSkipCombining          :: Bool
+    -- ^ Perform no stylesheet/script combining
 
--- | The location of static files on your system. This is a file system
--- path. The default value works properly with your scaffolded site.
-staticDir :: FilePath
-staticDir = "static"
+    -- Example app-specific configuration values.
+    , appCopyright              :: Text
+    -- ^ Copyright text to appear in the footer of the page
+    , appAnalytics              :: Maybe Text
+    -- ^ Google Analytics code
+    }
 
--- | The base URL for your static files. As you can see by the default
--- value, this can simply be "static" appended to your application root.
--- A powerful optimization can be serving static files from a separate
--- domain name. This allows you to use a web server optimized for static
--- files, more easily set expires and cache values, and avoid possibly
--- costly transference of cookies on static files. For more information,
--- please see:
---   http://code.google.com/speed/page-speed/docs/request.html#ServeFromCookielessDomain
---
--- If you change the resource pattern for StaticR in Foundation.hs, you will
--- have to make a corresponding change here.
---
--- To see how this value is used, see urlRenderOverride in Foundation.hs
-staticRoot :: AppConfig DefaultEnv x -> Text
-staticRoot conf = [st|#{appRoot conf}/static|]
+instance FromJSON AppSettings where
+    parseJSON = withObject "AppSettings" $ \o -> do
+        let defaultDev =
+#if DEVELOPMENT
+                True
+#else
+                False
+#endif
+        appStaticDir              <- o .: "static-dir"
+        appDatabaseConf           <- o .: "database"
+        appRoot                   <- o .: "approot"
+        appHost                   <- fromString <$> o .: "host"
+        appPort                   <- o .: "port"
+        appIpFromHeader           <- o .: "ip-from-header"
+
+        appDetailedRequestLogging <- o .:? "detailed-logging" .!= defaultDev
+        appShouldLogAll           <- o .:? "should-log-all"   .!= defaultDev
+        appReloadTemplates        <- o .:? "reload-templates" .!= defaultDev
+        appMutableStatic          <- o .:? "mutable-static"   .!= defaultDev
+        appSkipCombining          <- o .:? "skip-combining"   .!= defaultDev
+
+        appCopyright              <- o .: "copyright"
+        appAnalytics              <- o .:? "analytics"
+
+        return AppSettings {..}
 
 -- | Settings for 'widgetFile', such as which template languages to support and
 -- default Hamlet settings.
@@ -558,69 +625,34 @@ staticRoot conf = [st|#{appRoot conf}/static|]
 -- https://github.com/yesodweb/yesod/wiki/Overriding-widgetFile
 widgetFileSettings :: WidgetFileSettings
 widgetFileSettings = def
-    { wfsHamletSettings = defaultHamletSettings
-        { hamletNewlines = AlwaysNewlines
-        }
-    }
+
+-- | How static files should be combined.
+combineSettings :: CombineSettings
+combineSettings = def
 
 -- The rest of this file contains settings which rarely need changing by a
 -- user.
 
 widgetFile :: String -> Q Exp
-widgetFile = (if development then widgetFileReload
-                             else widgetFileNoReload)
+widgetFile = (if appReloadTemplates compileTimeAppSettings
+                then widgetFileReload
+                else widgetFileNoReload)
               widgetFileSettings
 
-data Extra = Extra
-    { extraCopyright :: Text
-    , extraAnalytics :: Maybe Text -- ^ Google Analytics
-    } deriving Show
+-- | Raw bytes at compile time of @config/settings.yml@
+configSettingsYmlBS :: ByteString
+configSettingsYmlBS = $(embedFile configSettingsYml)
 
-parseExtra :: DefaultEnv -> Object -> Parser Extra
-parseExtra _ o = Extra
-    <$> o .:  "copyright"
-    <*> o .:? "analytics"
+-- | @config/settings.yml@, parsed to a @Value@.
+configSettingsYmlValue :: Value
+configSettingsYmlValue = either throw id $ decodeEither' configSettingsYmlBS
 
-{-# START_FILE Settings/Development.hs #-}
-module Settings.Development where
-
-import Prelude
-
-development :: Bool
-development =
-#if DEVELOPMENT
-  True
-#else
-  False
-#endif
-
-production :: Bool
-production = not development
-
-{-# START_FILE Settings/StaticFiles.hs #-}
-module Settings.StaticFiles where
-
-import Prelude (IO)
-import Yesod.Static
-import qualified Yesod.Static as Static
-import Settings (staticDir)
-import Settings.Development
-import Language.Haskell.TH (Q, Exp, Name)
-import Data.Default (def)
-
--- | use this to create your static file serving site
-staticSite :: IO Static.Static
-staticSite = if development then Static.staticDevel staticDir
-                            else Static.static      staticDir
-
--- | This generates easy references to files in the static directory at compile time,
---   giving you compile-time verification that referenced files exist.
---   Warning: any files added to your static directory during run-time can't be
---   accessed this way. You'll have to use their FilePath or URL to access them.
-$(staticFiles Settings.staticDir)
-
-combineSettings :: CombineSettings
-combineSettings = def
+-- | A version of @AppSettings@ parsed at compile time from @config/settings.yml@.
+compileTimeAppSettings :: AppSettings
+compileTimeAppSettings =
+    case fromJSON $ applyEnvValue False mempty configSettingsYmlValue of
+        Error e -> error e
+        Success settings -> settings
 
 -- The following two functions can be used to combine multiple CSS or JS files
 -- at compile time to decrease the number of http requests.
@@ -629,10 +661,26 @@ combineSettings = def
 -- > $(combineStylesheets 'StaticR [style1_css, style2_css])
 
 combineStylesheets :: Name -> [Route Static] -> Q Exp
-combineStylesheets = combineStylesheets' development combineSettings
+combineStylesheets = combineStylesheets'
+    (appSkipCombining compileTimeAppSettings)
+    combineSettings
 
 combineScripts :: Name -> [Route Static] -> Q Exp
-combineScripts = combineScripts' development combineSettings
+combineScripts = combineScripts'
+    (appSkipCombining compileTimeAppSettings)
+    combineSettings
+
+{-# START_FILE Settings/StaticFiles.hs #-}
+module Settings.StaticFiles where
+
+import Settings     (appStaticDir, compileTimeAppSettings)
+import Yesod.Static (staticFiles)
+
+-- | This generates easy references to files in the static directory at compile time,
+--   giving you compile-time verification that referenced files exist.
+--   Warning: any files added to your static directory during run-time can't be
+--   accessed this way. You'll have to use their FilePath or URL to access them.
+staticFiles (appStaticDir compileTimeAppSettings)
 
 {-# START_FILE app/DevelMain.hs #-}
 -- | Development version to be run inside GHCi.
@@ -699,19 +747,24 @@ update = do
 start :: MVar () -- ^ Written to when the thread is killed.
       -> IO ThreadId
 start done = do
-    (port,app) <- getApplicationDev
-    forkIO (finally (runSettings (setPort port defaultSettings) app)
+    (settings,app) <- getApplicationDev
+    forkIO (finally (runSettings settings app)
                     (putMVar done ()))
 
-{-# START_FILE app/main.hs #-}
-import Prelude              (IO)
-import Yesod.Default.Config (fromArgs)
-import Yesod.Default.Main   (defaultMainLog)
-import Settings             (parseExtra)
-import Application          (makeApplication)
+{-# START_FILE app/devel.hs #-}
+{-# LANGUAGE PackageImports #-}
+import "PROJECTNAME" Application (develMain)
+import Prelude (IO)
 
 main :: IO ()
-main = defaultMainLog (fromArgs parseExtra) makeApplication
+main = develMain
+
+{-# START_FILE app/main.hs #-}
+import Prelude     (IO)
+import Application (appMain)
+
+main :: IO ()
+main = appMain
 
 {-# START_FILE BASE64 config/favicon.ico #-}
 AAABAAIAEBAAAAEAIABoBAAAJgAAABAQAgABAAEAsAAAAI4EAAAoAAAAEAAAACAAAAABACAAAAAA
@@ -816,46 +869,11 @@ Email
 
  -- By default this file is used in Model.hs (which is imported by Foundation.hs)
 
-{-# START_FILE config/postgresql.yml #-}
-# NOTE: These settings can be overridden by environment variables as well, in
-# particular:
-#
-#    PGHOST
-#    PGPORT
-#    PGUSER
-#    PGPASS
-#    PGDATABASE
-
-Default: &defaults
-  user: PROJECTNAME
-  password: PROJECTNAME
-  host: localhost
-  port: 5432
-  database: PROJECTNAME
-  poolsize: 10
-
-Development:
-  <<: *defaults
-
-Testing:
-  database: PROJECTNAME_test
-  <<: *defaults
-
-Staging:
-  database: PROJECTNAME_staging
-  poolsize: 100
-  <<: *defaults
-
-Production:
-  database: PROJECTNAME_production
-  poolsize: 100
-  <<: *defaults
-
 {-# START_FILE config/robots.txt #-}
 User-agent: *
 
 {-# START_FILE config/routes #-}
-/static StaticR Static getStatic
+/static StaticR Static appStatic
 /auth   AuthR   Auth   getAuth
 
 /favicon.ico FaviconR GET
@@ -864,155 +882,36 @@ User-agent: *
 / HomeR GET POST
 
 {-# START_FILE config/settings.yml #-}
-Default: &defaults
-  host: "*4" # any IPv4 host
-  port: 3000
-  approot: "http://localhost:3000"
-  copyright: Insert copyright statement here
-  #analytics: UA-YOURCODE
+static-dir:     "_env:STATIC_DIR:static"
+host:           "_env:HOST:*4" # any IPv4 host
+port:           "_env:PORT:3000"
+approot:        "_env:APPROOT:http://localhost:3000"
+ip-from-header: "_env:IP_FROM_HEADER:false"
 
-Development:
-  <<: *defaults
+# Optional values with the following production defaults.
+# In development, they default to the inverse.
+#
+# development: false
+# detailed-logging: false
+# should-log-all: false
+# reload-templates: false
+# mutable-static: false
+# skip-combining: false
 
-Testing:
-  <<: *defaults
+database:
+  user:     "_env:PGUSER:PROJECTNAME"
+  password: "_env:PGPASS:PROJECTNAME"
+  host:     "_env:PGHOST:localhost"
+  port:     "_env:PGPORT:5432"
+  database: "_env:PGDATABASE:PROJECTNAME"
+  poolsize: "_env:PGPOOLSIZE:10"
 
-Staging:
-  <<: *defaults
+copyright: Insert copyright statement here
+#analytics: UA-YOURCODE
 
-Production:
-  #approot: "http://www.example.com"
-  <<: *defaults
-
-{-# START_FILE deploy/Procfile #-}
-# Free deployment to Heroku.
-#
-#   !! Warning: You must use a 64 bit machine to compile !!
-#
-#   This could mean using a virtual machine. Give your VM as much memory as you can to speed up linking.
-#
-# Basic Yesod setup:
-#
-# * Move this file out of the deploy directory and into your root directory
-#
-#     mv deploy/Procfile ./
-#
-# * Create an empty package.json
-#     echo '{ "name": "PROJECTNAME", "version": "0.0.1", "dependencies": {} }' >> package.json
-#
-# Postgresql Yesod setup:
-#
-# * add dependencies on the "heroku", "aeson" and "unordered-containers" packages in your cabal file
-#
-# * add code in Application.hs to use the heroku package and load the connection parameters.
-#   The below works for Postgresql.
-#
-#   import Data.HashMap.Strict as H
-#   import Data.Aeson.Types as AT
-#   #ifndef DEVELOPMENT
-#   import qualified Web.Heroku
-#   #endif
-#
-#
-#
-#   makeFoundation :: AppConfig DefaultEnv Extra -> Logger -> IO App
-#   makeFoundation conf setLogger = do
-#       manager <- newManager def
-#       s <- staticSite
-#       hconfig <- loadHerokuConfig
-#       dbconf <- withYamlEnvironment "config/postgresql.yml" (appEnv conf)
-#                 (Database.Persist.Store.loadConfig . combineMappings hconfig) >>=
-#                 Database.Persist.Store.applyEnv
-#       p <- Database.Persist.Store.createPoolConfig (dbconf :: Settings.PersistConfig)
-#       Database.Persist.Store.runPool dbconf (runMigration migrateAll) p
-#       return $ App conf setLogger s p manager dbconf
-#
-#   #ifndef DEVELOPMENT
-#   canonicalizeKey :: (Text, val) -> (Text, val)
-#   canonicalizeKey ("dbname", val) = ("database", val)
-#   canonicalizeKey pair = pair
-#
-#   toMapping :: [(Text, Text)] -> AT.Value
-#   toMapping xs = AT.Object $ M.fromList $ map (\(key, val) -> (key, AT.String val)) xs
-#   #endif
-#
-#   combineMappings :: AT.Value -> AT.Value -> AT.Value
-#   combineMappings (AT.Object m1) (AT.Object m2) = AT.Object $ m1 `M.union` m2
-#   combineMappings _ _ = error "Data.Object is not a Mapping."
-#
-#   loadHerokuConfig :: IO AT.Value
-#   loadHerokuConfig = do
-#   #ifdef DEVELOPMENT
-#       return $ AT.Object M.empty
-#   #else
-#       Web.Heroku.dbConnParams >>= return . toMapping . map canonicalizeKey
-#   #endif
-
-
-
-# Heroku setup:
-# Find the Heroku guide. Roughly:
-#
-# * sign up for a heroku account and register your ssh key
-# * create a new application on the *cedar* stack
-#
-# * make your Yesod project the git repository for that application
-# * create a deploy branch
-#
-#     git checkout -b deploy
-#
-# Repeat these steps to deploy:
-# * add your web executable binary (referenced below) to the git repository
-#
-#     git checkout deploy
-#     git add ./dist/build/PROJECTNAME/PROJECTNAME
-#     git commit -m deploy
-#
-# * push to Heroku
-#
-#     git push heroku deploy:master
-
-
-# Heroku configuration that runs your app
-web: ./dist/build/PROJECTNAME/PROJECTNAME production -p $PORT
-
-{-# START_FILE devel.hs #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE PackageImports #-}
-import "PROJECTNAME" Application (getApplicationDev)
-import Network.Wai.Handler.Warp
-    (runSettings, defaultSettings, setPort)
-import Control.Concurrent (forkIO)
-import System.Directory (doesFileExist, removeFile)
-import System.Exit (exitSuccess)
-import Control.Concurrent (threadDelay)
-
-#ifndef mingw32_HOST_OS
-import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
-#endif
-
-main :: IO ()
-main = do
-#ifndef mingw32_HOST_OS
-    _ <- installHandler sigINT (Catch $ return ()) Nothing
-#endif
-
-    putStrLn "Starting devel application"
-    (port, app) <- getApplicationDev
-    forkIO $ runSettings (setPort port defaultSettings) app
-    loop
-
-loop :: IO ()
-loop = do
-  threadDelay 100000
-  e <- doesFileExist "yesod-devel/devel-terminate"
-  if e then terminateDevel else loop
-
-terminateDevel :: IO ()
-terminateDevel = exitSuccess
-
-{-# START_FILE messages/en.msg #-}
-Hello: Hello
+{-# START_FILE config/test-settings.yml #-}
+database:
+  database: PROJECTNAME_test
 
 {-# START_FILE static/css/bootstrap.css #-}
 /*!
@@ -8978,9 +8877,9 @@ $newline never
             <div id="main" role="main">
               ^{pageBody pc}
             <footer>
-                #{extraCopyright $ appExtra $ settings master}
+                #{appCopyright $ appSettings master}
 
-        $maybe analytics <- extraAnalytics $ appExtra $ settings master
+        $maybe analytics <- appAnalytics $ appSettings master
             <script>
               if(!window.location.href.match(/localhost/)){
                 window._gaq = [['_setAccount','#{analytics}'],['_trackPageview'],['_trackPageLoadTime']];
@@ -9003,7 +8902,7 @@ $maybe msg <- mmsg
 ^{widget}
 
 {-# START_FILE templates/homepage.hamlet #-}
-<h1>_{MsgHello}
+<h1>Welcome to Yesod!
 
 <ol>
   <li>Now that you have a working project you should use the #
@@ -9054,92 +8953,88 @@ h2##{aDomId} {
     color: #990
 }
 
-{-# START_FILE test/Handler/HomeSpec.hs #-}
-module Handler.HomeSpec
-    ( spec
-    ) where
+{-# START_FILE test/Handler/CommonSpec.hs #-}
+module Handler.CommonSpec (spec) where
 
 import TestImport
-import qualified Data.List as L
 
 spec :: Spec
-spec =
-    ydescribe "These are some example tests" $ do
-
-        yit "loads the index and checks it looks right" $ do
-            get HomeR
+spec = withApp $ do
+    describe "robots.txt" $ do
+        it "gives a 200" $ do
+            get RobotsR
             statusIs 200
-            htmlAllContain "h1" "Hello"
-
-            request $ do
-                setMethod "POST"
-                setUrl HomeR
-                addNonce
-                fileByLabel "Choose a file" "test/Spec.hs" "text/plain" -- talk about self-reference
-                byLabel "What's on the file?" "Some Content"
-
+        it "has correct User-agent" $ do
+            get RobotsR
+            bodyContains "User-agent: *"
+    describe "favicon.ico" $ do
+        it "gives a 200" $ do
+            get FaviconR
             statusIs 200
-            -- more debugging printBody
-            htmlCount ".message" 1
-            htmlAllContain ".message" "Some Content"
-            htmlAllContain ".message" "text/plain"
 
-        -- This is a simple example of using a database access in a test.  The
-        -- test will succeed for a fresh scaffolded site with an empty database,
-        -- but will fail on an existing database with a non-empty user table.
-        yit "leaves the user table empty" $ do
-            get HomeR
-            statusIs 200
-            users <- runDB $ selectList ([] :: [Filter User]) []
-            assertEqual "user table empty" 0 $ L.length users
+{-# START_FILE test/Handler/HomeSpec.hs #-}
+module Handler.HomeSpec (spec) where
+
+import TestImport
+
+spec :: Spec
+spec = withApp $ do
+    it "loads the index and checks it looks right" $ do
+        get HomeR
+        statusIs 200
+        htmlAllContain "h1" "Welcome to Yesod"
+
+        request $ do
+            setMethod "POST"
+            setUrl HomeR
+            addNonce
+            fileByLabel "Choose a file" "test/Spec.hs" "text/plain" -- talk about self-reference
+            byLabel "What's on the file?" "Some Content"
+
+        statusIs 200
+        -- more debugging printBody
+        htmlCount ".message" 1
+        htmlAllContain ".message" "Some Content"
+        htmlAllContain ".message" "text/plain"
+
+    -- This is a simple example of using a database access in a test.  The
+    -- test will succeed for a fresh scaffolded site with an empty database,
+    -- but will fail on an existing database with a non-empty user table.
+    it "leaves the user table empty" $ do
+        get HomeR
+        statusIs 200
+        users <- runDB $ selectList ([] :: [Filter User]) []
+        assertEqual "user table empty" 0 $ length users
 
 {-# START_FILE test/Spec.hs #-}
-module Main where
-
-import Import
-import Yesod.Default.Config
-import Yesod.Test
-import Test.Hspec (hspec)
-import Application (makeFoundation)
-
-import qualified Handler.HomeSpec
-
-main :: IO ()
-main = do
-    conf <- Yesod.Default.Config.loadConfig $ (configSettings Testing)
-                { csParseExtra = parseExtra
-                }
-    foundation <- makeFoundation conf
-    hspec $ do
-        yesodSpec foundation $ do
-            Handler.HomeSpec.spec
+{-# OPTIONS_GHC -F -pgmF hspec-discover #-}
 
 {-# START_FILE test/TestImport.hs #-}
 module TestImport
-    ( module Yesod.Test
-    , module Model
-    , module Foundation
-    , module Database.Persist
-    , module Prelude
-    , runDB
-    , Spec
-    , Example
+    ( module TestImport
+    , module X
     ) where
 
-import Yesod.Test
-import Database.Persist hiding (get)
-import Database.Persist.Sql (SqlPersistM, runSqlPersistMPool)
-import Control.Monad.IO.Class (liftIO)
-import Prelude
+import Application           (makeFoundation)
+import ClassyPrelude         as X
+import Database.Persist      as X hiding (get)
+import Database.Persist.Sql  (SqlPersistM, runSqlPersistMPool)
+import Foundation            as X
+import Model                 as X
+import Test.Hspec            as X
+import Yesod.Default.Config2 (ignoreEnv, loadAppSettings)
+import Yesod.Test            as X
 
-import Foundation
-import Model
-
-type Spec = YesodSpec App
-type Example = YesodExample App
-
-runDB :: SqlPersistM a -> Example a
+runDB :: SqlPersistM a -> YesodExample App a
 runDB query = do
-    pool <- fmap connPool getTestYesod
+    pool <- fmap appConnPool getTestYesod
     liftIO $ runSqlPersistMPool query pool
+
+withApp :: SpecWith App -> Spec
+withApp = before $ do
+    settings <- loadAppSettings
+        ["config/test-settings.yml", "config/settings.yml"]
+        []
+        ignoreEnv
+    makeFoundation settings
 
