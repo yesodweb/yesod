@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.4.5
+version:         1.4.6
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -77,6 +77,7 @@ library
                      Yesod.Core.Widget
                      Yesod.Core.Internal
                      Yesod.Core.Types
+                     Yesod.Core.Unsafe
                      Yesod.Routes.TH.Types
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request

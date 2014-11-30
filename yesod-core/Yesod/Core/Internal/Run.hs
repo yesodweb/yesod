@@ -247,7 +247,6 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           }
   _ <- runResourceT $ yapp fakeRequest
   I.readIORef ret
-{-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
 
 yesodRunner :: (ToTypedContent res, Yesod site)
             => HandlerT site IO res
