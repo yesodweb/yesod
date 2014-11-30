@@ -1,3 +1,7 @@
+## 1.4.3
+
+Added `jqueryDatePickerDayField`.
+
 ## 1.4.2.1
 
 Documentation updates

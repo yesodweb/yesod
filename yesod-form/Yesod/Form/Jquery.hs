@@ -58,6 +58,8 @@ jqueryDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDa
 jqueryDayField = flip jqueryDayField' "date"
 
 -- | Use jQuery's datepicker as the underlying implementation.
+--
+-- Since 1.4.3
 jqueryDatePickerDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerT site IO) Day
 jqueryDatePickerDayField = flip jqueryDayField' "text"
 
