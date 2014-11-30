@@ -1,6 +1,6 @@
 -- | This is designed to be used as
 --
--- > qualifyed import Yesod.Core.Unsafe as Unsafe
+-- > qualified import Yesod.Core.Unsafe as Unsafe
 --
 -- This serves as a reminder that the functions are unsafe to use in many situations.
 module Yesod.Core.Unsafe (runFakeHandler, fakeHandlerGetLogger) where

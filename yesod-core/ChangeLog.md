@@ -1,6 +1,11 @@
+## 1.4.6
+
+Added the `Yesod.Core.Unsafe` module.
+
 ## 1.4.5
 
 * `envClientSessionBackend`
+* Conditional `MonadLoggerIO` instance.
 
 ## 1.4.4.5
 
