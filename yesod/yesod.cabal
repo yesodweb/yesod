@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.4.1
+version:         1.4.1.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -11,6 +11,7 @@ stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
+extra-source-files: README.md
 
 library
     if os(windows)
