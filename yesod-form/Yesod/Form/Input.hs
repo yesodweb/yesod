@@ -5,17 +5,21 @@
 -- <http://www.yesodweb.com/book/forms#forms_kinds_of_forms>.
 module Yesod.Form.Input
     ( FormInput (..)
+    , MFormInput (..)
     , runInputGet
     , runInputGetResult
     , runInputPost
     , runInputPostResult
     , ireq
     , iopt
+    , mireq
+    , miopt
     ) where
 
 import Yesod.Form.Types
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Control.Applicative (Applicative (..))
+import Control.Monad (ap)
 import Yesod.Core
 import Control.Monad (liftM, (<=<))
 import qualified Data.Map as Map
@@ -65,6 +69,43 @@ iopt field name = FormInput $ \m l env fenv -> do
       return $ case emx of
         Left (SomeMessage e) -> Left $ (:) $ renderMessage m l e
         Right x -> Right x
+
+-- | A variant of @FormInput@ which has a @Monad@ instance. This is
+-- more powerful and less user-friendly than @FormInput@ because it
+-- allows the validation of fields to depend on another field, for
+-- example, validating the City field may depend on the value of
+-- State/Province. @FormInput@ only has an @Applicative@ instance,
+-- which is not powerful enough to handle coupled fields. WARNING: Do
+-- not use @MFormInput@ when regular @FormInput@ is sufficient,
+-- because at most one error message can be provided due to the
+-- monadic nature.
+newtype MFormInput m a = MFormInput { unMFormInput :: FormInput m a }
+instance (Monad m) => Monad (MFormInput m) where
+    return = MFormInput . pure
+    (MFormInput (FormInput x)) >>= f = MFormInput . FormInput $ \c d e e' -> do
+        r <- x c d e e'
+        case r of
+            Left e -> return $ Left e
+            Right a -> do
+                let (MFormInput (FormInput y)) = f a
+                y c d e e'
+    fail = MFormInput . FormInput . const . const . const . const . return . Left . (:) . pack
+instance (Monad m) => Functor (MFormInput m) where
+  fmap = liftM
+instance (Monad m) => Applicative (MFormInput m) where
+  pure = return
+  (<*>) = ap
+
+-- | Same as @ireq@, but designed to be used for @MFormInput@.
+mireq :: (Monad m, RenderMessage (HandlerSite m) FormMessage)
+      => Field m a
+      -> Text -- ^ name of the field
+      -> MFormInput m a
+mireq = (MFormInput .) . ireq
+
+-- | Same as @iopt@, but designed to be used for @MFormInput@.
+miopt :: Monad m => Field m a -> Text -> MFormInput m (Maybe a)
+miopt = (MFormInput .) . iopt
 
 -- | Run a @FormInput@ on the GET parameters (i.e., query string). If parsing
 -- fails, calls 'invalidArgs'.
