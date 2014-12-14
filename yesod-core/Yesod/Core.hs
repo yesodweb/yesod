@@ -44,9 +44,14 @@ module Yesod.Core
       -- * Sessions
     , SessionBackend (..)
     , customizeSessionCookies
+    , contextualizedClientSessionBackend
     , defaultClientSessionBackend
     , envClientSessionBackend
     , clientSessionBackend
+    , unsecured
+    , sslOnly
+    , applyStrictTransportSecurity
+    , makeSessionsSslOnly
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
