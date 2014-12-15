@@ -1,11 +1,11 @@
 name:            yesod-core
-version:         1.4.6
+version:         1.4.6.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Creation of type-safe, RESTful web applications.
-description:     See README.md
+description:     Hackage documentation generation is not reliable. For up to date documentation, please see: <http://www.stackage.org/package/yesod-core>.
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.8
