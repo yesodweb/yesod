@@ -53,6 +53,7 @@ webSockets inner = do
             (WaiWS.getRequestHead req)
             (\pconn -> do
                 conn <- WS.acceptRequest pconn
+                WS.forkPingThread conn 30
                 runInIO $ runReaderT inner conn)
             src
             sink

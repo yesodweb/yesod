@@ -97,7 +97,7 @@ scaffold isBare = do
         Right backend -> runResourceT $ yield (backendBS backend) $$ sink
 
     let projectnameReplacer = if isBare
-        then LT.replace "cd PROJECTNAME && " ""
-        else LT.replace "PROJECTNAME" (LT.pack project)
+                                then LT.replace "cd PROJECTNAME && " ""
+                                else LT.replace "PROJECTNAME" (LT.pack project)
 
     TLIO.putStr $ projectnameReplacer $ renderTextUrl undefined $(textFile "input/done.cg")
