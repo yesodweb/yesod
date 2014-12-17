@@ -1,3 +1,7 @@
+## 1.4.6.2
+
+monad-control 1.0
+
 ## 1.4.6
 
 Added the `Yesod.Core.Unsafe` module.

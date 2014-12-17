@@ -567,7 +567,7 @@ sendRawResponseNoConduit
     => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> m ())
     -> m a
 sendRawResponseNoConduit raw = control $ \runInIO ->
-    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
+    liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> runInIO (raw src sink) >> return ()
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
@@ -582,7 +582,7 @@ sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
                 => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
                 -> m a
 sendRawResponse raw = control $ \runInIO ->
-    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
+    liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> runInIO (raw (src' src) (CL.mapM_ sink)) >> return ()
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
