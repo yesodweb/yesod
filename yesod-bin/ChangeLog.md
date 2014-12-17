@@ -1,3 +1,11 @@
+## 1.4.2
+
+Scaffolding updates:
+
+* Import.NoFoundation
+* Explanation of static files in Settings.StaticFiles
+* Explanation of environment variables in settings.yml
+
 ## 1.4.1.2
 
 No args passed in keter.yml

@@ -148,14 +148,10 @@ appMain = do
 {-# START_FILE Foundation.hs #-}
 module Foundation where
 
-import ClassyPrelude.Yesod
 import Database.Persist.MongoDB hiding (master)
-import Model
-import Settings
-import Settings.StaticFiles
+import Import.NoFoundation
 import Text.Hamlet              (hamletFile)
 import Text.Jasmine             (minifym)
-import Yesod.Auth
 import Yesod.Auth.BrowserId     (authBrowserId)
 import Yesod.Core.Types         (Logger)
 import Yesod.Default.Util       (addStaticContentExternal)
@@ -368,8 +364,15 @@ module Import
     ( module Import
     ) where
 
-import ClassyPrelude.Yesod   as Import
 import Foundation            as Import
+import Import.NoFoundation   as Import
+
+{-# START_FILE Import/NoFoundation.hs #-}
+module Import.NoFoundation
+    ( module Import
+    ) where
+
+import ClassyPrelude.Yesod   as Import
 import Model                 as Import
 import Settings              as Import
 import Settings.StaticFiles  as Import
@@ -411,6 +414,7 @@ library
     exposed-modules: Application
                      Foundation
                      Import
+                     Import.NoFoundation
                      Model
                      Settings
                      Settings.StaticFiles
@@ -664,10 +668,18 @@ module Settings.StaticFiles where
 import Settings     (appStaticDir, compileTimeAppSettings)
 import Yesod.Static (staticFiles)
 
--- | This generates easy references to files in the static directory at compile time,
---   giving you compile-time verification that referenced files exist.
---   Warning: any files added to your static directory during run-time can't be
---   accessed this way. You'll have to use their FilePath or URL to access them.
+-- This generates easy references to files in the static directory at compile time,
+-- giving you compile-time verification that referenced files exist.
+-- Warning: any files added to your static directory during run-time can't be
+-- accessed this way. You'll have to use their FilePath or URL to access them.
+--
+-- For example, to refer to @static/js/script.js@ via an identifier, you'd use:
+--
+--     js_script_js
+--
+-- If the identifier is not available, you may use:
+--
+--     StaticFile ["js", "script.js"] []
 staticFiles (appStaticDir compileTimeAppSettings)
 
 {-# START_FILE app/DevelMain.hs #-}
@@ -869,6 +881,9 @@ User-agent: *
 / HomeR GET POST
 
 {-# START_FILE config/settings.yml #-}
+# Values formatted like "_env:ENV_VAR_NAME:default_value" can be overridden by the specified environment variable.
+# See https://github.com/yesodweb/yesod/wiki/Configuration#overriding-configuration-values-with-environment-variables
+
 static-dir:     "_env:STATIC_DIR:static"
 host:           "_env:HOST:*4" # any IPv4 host
 port:           "_env:PORT:3000"
