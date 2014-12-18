@@ -100,6 +100,11 @@ class RenderRoute site => Yesod site where
                     ^{pageBody p}
             |]
 
+    -- | Behavior to apply to the site to harden against attackers
+    -- Default: applies no security and specifies a 2 hour session timeout.
+    securityPolicy :: site -> SecurityPolicy site
+    securityPolicy _ = unsecured 120
+
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
@@ -244,9 +249,10 @@ class RenderRoute site => Yesod site where
     -- cookies are created, take a look at
     -- 'customizeSessionCookies'.
     --
-    -- Default: Uses clientsession with a 2 hour timeout.
+    -- Default: Uses clientsession and the session timeout established in
+    -- securityPolicy
     makeSessionBackend :: site -> IO (Maybe SessionBackend)
-    makeSessionBackend _ = fmap Just $ defaultClientSessionBackend 120 CS.defaultKeyFile
+    makeSessionBackend =  contextualizedClientSessionBackend CS.defaultKeyFile
 
     -- | How to store uploaded files.
     --
@@ -300,15 +306,73 @@ class RenderRoute site => Yesod site where
     yesodWithInternalState _ _ = bracket createInternalState closeInternalState
     {-# INLINE yesodWithInternalState #-}
 
+-- | Configuration values and behaviors that are used to determine how to secure
+-- user communication with the site
+data SecurityPolicy site = SecurityPolicy
+    { hardenMiddleware :: HandlerT site IO ()
+    , hardenSessions :: SessionBackend -> SessionBackend
+    , sessionTimeout :: Int
+    }
+
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
 -- \"Vary: Accept, Accept-Language\" and performs authorization checks.
 --
 -- Since 1.2.0
 defaultYesodMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
 defaultYesodMiddleware handler = do
+    getYesod >>= hardenMiddleware . securityPolicy
     addHeader "Vary" "Accept, Accept-Language"
     authorizationCheck
     handler
+
+-- | Default implementation of 'securityPolicy'. This policy is for sites where
+-- security is not of particular concern. User sessions are vulnerable to
+-- hijacking by an attacker, even if part or all of the site is served over ssl.
+unsecured :: Yesod site
+          => Int -- ^ session timeout in minutes
+          -> SecurityPolicy site
+unsecured timeout =
+    SecurityPolicy
+    { hardenMiddleware = return ()
+    , hardenSessions = id
+    , sessionTimeout = timeout
+    }
+
+-- | Alternate implementation of 'securityPolicy'. Adds a Strict-Transport-Security
+-- header with a max-age equal to the session timeout to all responses and sets
+-- the Secure bit on the session cookie. Using this policy makes it impossible
+-- to access the site over unencrypted http using any standard browser.
+sslOnly :: Yesod site
+        => Int -- ^ session timeout in minutes
+        -> SecurityPolicy site
+sslOnly timeout =
+    SecurityPolicy
+    { hardenMiddleware = applyStrictTransportSecurity timeout
+    , hardenSessions = makeSessionsSslOnly
+    , sessionTimeout = timeout
+    }
+
+-- | Apply a Strict-Transport-Security header with the specified timeout to all
+-- responses so that browsers will rewrite all http links to https. For security,
+-- the max-age of the STS header should always equal or exceed the client sessions
+-- timeout.
+applyStrictTransportSecurity :: Yesod site
+                             => Int -- ^ minutes
+                             -> HandlerT site IO ()
+applyStrictTransportSecurity timeout =
+    addHeader "Strict-Transport-Security"
+              $ T.pack $ concat [ "max-age="
+                                , show $ timeout * 60
+                                , "; includeSubDomains"
+                                ]
+
+-- | Set the secure bit on session cookies so that browsers will not transmit
+-- them over http
+makeSessionsSslOnly :: SessionBackend -> SessionBackend
+makeSessionsSslOnly =
+    customizeSessionCookies setSecureBit
+  where
+    setSecureBit cookie = cookie { setCookieSecure = True }
 
 -- | Check if a given request is authorized via 'isAuthorized' and
 -- 'isWriteRequest'.
@@ -570,11 +634,11 @@ formatLogMessage getdate loc src level msg = do
 -- would work across many subdomains:
 --
 -- @
--- makeSessionBackend = fmap (customizeSessionCookie addDomain) ...
+-- makeSessionBackend site =
+--     (fmap . fmap) (customizeSessionCookies addDomain) ...
 --   where
 --     addDomain cookie = cookie { 'setCookieDomain' = Just \".example.com\" }
 -- @
---
 -- Default: Do not customize anything ('id').
 customizeSessionCookies :: (SetCookie -> SetCookie) -> (SessionBackend -> SessionBackend)
 customizeSessionCookies customizeCookie backend = backend'
@@ -588,6 +652,17 @@ customizeSessionCookies customizeCookie backend = backend'
           second customizeSaveSession `fmap` sbLoadSession backend req
       }
 
+-- | Create a client session backend appropriate to the configuration of the
+-- running site (at present, this means incorporating its SecurityPolicy)
+contextualizedClientSessionBackend :: Yesod site
+                                   => FilePath -- ^ key file
+                                   -> site
+                                   -> IO (Maybe SessionBackend)
+contextualizedClientSessionBackend keyfile site =
+    fmap (Just . harden) $ defaultClientSessionBackend timeout keyfile
+  where
+    harden = hardenSessions $ securityPolicy site
+    timeout = sessionTimeout $ securityPolicy site
 
 defaultClientSessionBackend :: Int -- ^ minutes
                             -> FilePath -- ^ key file

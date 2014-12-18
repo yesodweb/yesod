@@ -138,6 +138,7 @@ test-suite tests
     cpp-options:   -DTEST
     build-depends: base
                   ,hspec >= 1.3
+                  ,hspec-expectations
                   ,wai >= 3.0
                   ,yesod-core
                   ,bytestring
@@ -159,6 +160,7 @@ test-suite tests
                   , streaming-commons
                   , wai-extra
                   , mwc-random
+                  , cookie >= 0.4.1    && < 0.5
     ghc-options:     -Wall
     extensions: TemplateHaskell
 
