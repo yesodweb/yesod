@@ -308,7 +308,7 @@ class RenderRoute site => Yesod site where
 
 -- | Configuration values and behaviors that are used to determine how to secure
 -- user communication with the site
-data Yesod site => SecurityPolicy site = SecurityPolicy
+data SecurityPolicy site = SecurityPolicy
     { hardenMiddleware :: HandlerT site IO ()
     , hardenSessions :: SessionBackend -> SessionBackend
     , sessionTimeout :: Int
@@ -339,9 +339,9 @@ unsecured timeout =
     }
 
 -- | Alternate implementation of 'securityPolicy'. Adds a Strict-Transport-Security
--- header with a 2-hour max-age to all responses and sets the Secure bit on the
--- session cookie. Using this policy makes it impossible to access the site over
--- unencrypted http using any standard browser.
+-- header with a max-age equal to the session timeout to all responses and sets
+-- the Secure bit on the session cookie. Using this policy makes it impossible
+-- to access the site over unencrypted http using any standard browser.
 sslOnly :: Yesod site
         => Int -- ^ session timeout in minutes
         -> SecurityPolicy site
