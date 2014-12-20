@@ -35,6 +35,7 @@ data Backend = Sqlite
              | Mysql
              | MongoDB
              | Simple
+             | Minimal
   deriving (Eq, Read, Show, Enum, Bounded)
 
 puts :: LT.Text -> IO ()
@@ -50,6 +51,7 @@ showBackend PostgresqlFay = "pf"
 showBackend Mysql = "mysql"
 showBackend MongoDB = "mongo"
 showBackend Simple = "simple"
+showBackend Minimal = "mini"
 
 readBackend :: String -> Maybe Backend
 readBackend s = lookup s $ map (showBackend &&& id) backends
@@ -61,6 +63,7 @@ backendBS PostgresqlFay = $(embedFile "hsfiles/postgres-fay.hsfiles")
 backendBS Mysql = $(embedFile "hsfiles/mysql.hsfiles")
 backendBS MongoDB = $(embedFile "hsfiles/mongo.hsfiles")
 backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")
+backendBS Minimal = $(embedFile "hsfiles/minimal.hsfiles")
 
 validPackageName :: String -> Bool
 validPackageName s = isJust (simpleParse s :: Maybe PackageName)

@@ -8,6 +8,8 @@ We recommend starting with SQLite: it has no dependencies.
     mongo  = mongodb
     mysql  = MySQL
     simple = no database, no auth
+    mini   = bare bones, the "Hello World" of multi-file Yesod apps
+             (Note: not configured to work with yesod devel)
     url    = Let me specify URL containing a site (advanced)
 
 So, what'll it be? 

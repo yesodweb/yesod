@@ -1,3 +1,7 @@
+## 1.4.3
+
+Add the minimal scaffolding
+
 ## 1.4.2
 
 Scaffolding updates:
