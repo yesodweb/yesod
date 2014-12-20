@@ -310,6 +310,39 @@ defaultYesodMiddleware handler = do
     authorizationCheck
     handler
 
+-- | Defends against session hijacking by setting the secure bit on session
+-- cookies so that browsers will not transmit them over http. With this
+-- setting on, it follows that the server will regard requests made over
+-- http as sessionless, because the session cookie will not be included in
+-- the request. Use this as part of a total security measure which also
+-- includes disabling HTTP traffic to the site or issuing redirects from
+-- HTTP urls, and composing 'sslOnlyMiddleware' with the site's
+-- 'yesodMiddleware'.
+sslOnlySessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
+sslOnlySessions = (fmap . fmap) secureSessionCookies
+  where
+    setSecureBit cookie = cookie { setCookieSecure = True }
+    secureSessionCookies = customizeSessionCookies setSecureBit
+
+-- | Apply a Strict-Transport-Security header with the specified timeout to
+-- all responses so that browsers will rewrite all http links to https
+-- until the timeout expires. For security, the max-age of the STS header
+-- should always equal or exceed the client sessions timeout. This defends
+-- against hijacking attacks on the sessions of users who attempt to access
+-- the site using an http url. This middleware makes a site functionally
+-- inaccessible over vanilla http in all standard browsers.
+sslOnlyMiddleware :: Yesod site
+                     => Int -- ^ minutes
+                     -> HandlerT site IO res
+                     -> HandlerT site IO res
+sslOnlyMiddleware timeout handler = do
+    addHeader "Strict-Transport-Security"
+              $ T.pack $ concat [ "max-age="
+                                , show $ timeout * 60
+                                , "; includeSubDomains"
+                                ]
+    handler
+
 -- | Check if a given request is authorized via 'isAuthorized' and
 -- 'isWriteRequest'.
 --
@@ -570,7 +603,8 @@ formatLogMessage getdate loc src level msg = do
 -- would work across many subdomains:
 --
 -- @
--- makeSessionBackend = fmap (customizeSessionCookie addDomain) ...
+-- makeSessionBackend site =
+--     (fmap . fmap) (customizeSessionCookies addDomain) ...
 --   where
 --     addDomain cookie = cookie { 'setCookieDomain' = Just \".example.com\" }
 -- @

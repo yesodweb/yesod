@@ -47,6 +47,8 @@ module Yesod.Core
     , defaultClientSessionBackend
     , envClientSessionBackend
     , clientSessionBackend
+    , sslOnlySessions
+    , sslOnlyMiddleware
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
