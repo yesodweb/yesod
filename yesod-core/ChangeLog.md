@@ -1,3 +1,7 @@
+## 1.4.7
+
+SSL-only session security [#894](https://github.com/yesodweb/yesod/pull/894)
+
 ## 1.4.6.2
 
 monad-control 1.0

@@ -318,6 +318,8 @@ defaultYesodMiddleware handler = do
 -- includes disabling HTTP traffic to the site or issuing redirects from
 -- HTTP urls, and composing 'sslOnlyMiddleware' with the site's
 -- 'yesodMiddleware'.
+--
+-- Since 1.4.7
 sslOnlySessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
 sslOnlySessions = (fmap . fmap) secureSessionCookies
   where
@@ -331,6 +333,8 @@ sslOnlySessions = (fmap . fmap) secureSessionCookies
 -- against hijacking attacks on the sessions of users who attempt to access
 -- the site using an http url. This middleware makes a site functionally
 -- inaccessible over vanilla http in all standard browsers.
+--
+-- Since 1.4.7
 sslOnlyMiddleware :: Yesod site
                      => Int -- ^ minutes
                      -> HandlerT site IO res
