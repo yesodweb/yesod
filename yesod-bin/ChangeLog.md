@@ -1,3 +1,7 @@
+## 1.4.3.2
+
+add-handler adds arguments too [#898](https://github.com/yesodweb/yesod/issues/898)
+
 ## 1.4.3
 
 Add the minimal scaffolding
