@@ -107,7 +107,9 @@ mkHandler name pattern methods = unlines
         , concat $ func : " :: " : map toArrow types ++ ["Handler Html"]
         , concat
             [ func
-            , " = error \"Not yet implemented: "
+            , " "
+            , concatMap toArgument types
+            , "= error \"Not yet implemented: "
             , func
             , "\""
             ]
@@ -118,6 +120,7 @@ mkHandler name pattern methods = unlines
     types = getTypes pattern
 
     toArrow t = concat [t, " -> "]
+    toArgument t = concat [uncapitalize t, " "]
 
     getTypes "" = []
     getTypes ('/':rest) = getTypes rest
@@ -126,3 +129,7 @@ mkHandler name pattern methods = unlines
       where
         (typ, rest') = break (== '/') rest
     getTypes rest = getTypes $ dropWhile (/= '/') rest
+
+uncapitalize :: String -> String
+uncapitalize (x:xs) = toLower x : xs
+uncapitalize "" = ""
