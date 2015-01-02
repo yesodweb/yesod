@@ -1,3 +1,7 @@
+## 1.4.3.3
+
+More consistent whitespace in hamlet files in scaffolding [#50](https://github.com/yesodweb/yesod-scaffold/issues/50)
+
 ## 1.4.3.2
 
 add-handler adds arguments too [#898](https://github.com/yesodweb/yesod/issues/898)
