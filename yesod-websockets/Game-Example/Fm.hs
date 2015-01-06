@@ -9,7 +9,7 @@ import System.Random
 import System.IO.Unsafe -- Only for values going directly into HTML website forms.
 
 toDouble :: Int -> Double
-toDouble x = (read (show x)) :: Double
+toDouble x = read (show x) :: Double
 
 {-----------------------------------------------------------------------------------
 POTENTIALLY DANGEROUS CODE
@@ -36,7 +36,7 @@ computation a b c  | b == "+"   = (+) a c
                    | b == "Concatenate"  = cat a c
 
 fRound :: Double -> Int
-fRound x = round x
+fRound = round
 
 notWhole :: Double -> Bool
 notWhole x = fromIntegral (round x) /= x
@@ -46,7 +46,7 @@ cat l m   | m < 0  = 3.1
           | l == 0  = 3.1
           | notWhole l  = 3.1
           | notWhole m  = 3.1
-          | otherwise  = read ((show $ round l) ++ (show $ round m)) :: Double
+          | otherwise  = read (show (round l) ++ show (round m) :: Double)
 
 g :: (Double -> Double -> Double) -> String
 g x         | x 3 2 == 5 = " + "
@@ -141,7 +141,7 @@ h7 (a',b',c',d',e',f',g') = g' ++ d' ++ "(" ++ e' ++ f' ++
 --        | otherwise  = ""
 
 ca [] = ["Empty"]
-ca [a, b, c, d, e] = (map h (calc a b c d)) ++ map h2 (calc2 a b c d) ++ map h3 (calc3 a b c d) ++ map h4 (calc4 a b c d)  ++
+ca [a, b, c, d, e] = map h (calc a b c d) ++ map h2 (calc2 a b c d) ++ map h3 (calc3 a b c d) ++ map h4 (calc4 a b c d)  ++
     map h5 (calc5 a b c d) ++ map h6 (calc6 a b c d) ++ map h7 (calc7 a b c d)
 ca _ = ["What?"]
 
@@ -149,8 +149,8 @@ cars [a,b,c,d,e] = concat $ ca [a,b,c,d,e]
 
 truck x = do 
     let y = map round x
-    let z = show (y !! 0) ++ " " ++ show (y !! 1) ++ " " ++ show (y !! 2) ++ " " ++  show (y !! 3) ++ "<br><br>"
-    let a = (z ++ (cars x) ++ "<br>") :: String 
+    let z = show (head y) ++ " " ++ show (y !! 1) ++ " " ++ show (y !! 2) ++ " " ++  show (y !! 3) ++ "<br><br>"
+    let a = (z ++ cars x ++ "<br>") :: String 
     return a :: IO String 
 
 main = truck $ roll 6 6 12 20

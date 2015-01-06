@@ -13,7 +13,7 @@ import Control.Exception.Base-- import Network.Wai.Handler.Warp hiding (defaultS
 import Text.Julius
 
 han :: String -> IO () -> IO ()
-han s x = handle (\(SomeException _) -> print s) (x)
+han s = handle (\(SomeException _) -> print s)
 
 go = "GO" :: Text
 greeting = "The game of Score!" :: Text
@@ -37,14 +37,14 @@ scoreApp = do
     race_ 
         (forever $ atomically (readTChan readChan) >>= sendTextData) 
         (sourceWS $$ mapM_C (\msg -> 
-            if (msg == go) 
+            if msg == go 
                 then do 
                     let x = roll 6 6 12 20
                     y <- liftIO $ truck x
                     let z = map round x
-                    liftIO $ han "Problem forwarding a roll" $ atomically $ writeTChan writeChan $ go <> (pack $ show z) 
-                    liftIO $ han "Problem forwarding solutions" $ atomically $ writeTChan writeChan $ solutions <> (pack y) 
-            else do 
+                    liftIO $ han "Problem forwarding a roll" $ atomically $ writeTChan writeChan $ go <> pack (show z) 
+                    liftIO $ han "Problem forwarding solutions" $ atomically $ writeTChan writeChan $ solutions <> pack y 
+            else 
                 liftIO $ han "Problem forwarding a message" $ atomically $ writeTChan writeChan msg )) 
 
 getHomeR :: Handler Html
