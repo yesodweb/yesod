@@ -26,7 +26,7 @@ mkYesod "HelloForms" [parseRoutes|
 /file FileR GET POST
 |]
 
-myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,,,,,)
+myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,,,,)
     <*> pure "pure works!"
     <*> areq boolField "Bool field" Nothing
     <*> aopt boolField "Opt bool field" Nothing
@@ -39,7 +39,6 @@ myForm = fixType $ runFormGet $ renderDivs $ pure (,,,,,,,,,,,,)
     <*> aopt (radioFieldList fruits) "Opt radio" Nothing
     <*> aopt multiEmailField "Opt multi email" Nothing
     <*> areq nicHtmlField "NIC HTML" Nothing
-    <*> aopt timeField "Opt Time" Nothing
 
 instance Show Html where
     show = renderHtml

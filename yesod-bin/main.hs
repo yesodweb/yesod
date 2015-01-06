@@ -15,6 +15,8 @@ import           Options                (injectDefaults)
 import qualified Paths_yesod_bin
 import           Scaffolding.Scaffolder
 
+import           Options.Applicative.Types (ReadM (ReadM))
+
 import           HsFile                 (mkHsFile)
 #ifndef WINDOWS
 import           Build                  (touch)
@@ -182,7 +184,10 @@ extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metava
 
 -- | Optional @String@ argument
 optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)
-optStr m = option (Just <$> str) $ value Nothing <> m
+optStr m =
+    nullOption (success . str) $ value Nothing <> m
+  where
+    success = ReadM . Right
 
 -- | Like @rawSystem@, but exits if it receives a non-success result.
 rawSystem' :: String -> [String] -> IO ()

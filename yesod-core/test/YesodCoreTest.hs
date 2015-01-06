@@ -20,7 +20,6 @@ import qualified YesodCoreTest.Streaming as Streaming
 import qualified YesodCoreTest.Reps as Reps
 import qualified YesodCoreTest.Auth as Auth
 import qualified YesodCoreTest.LiteApp as LiteApp
-import qualified YesodCoreTest.Ssl as Ssl
 
 import Test.Hspec
 
@@ -45,5 +44,3 @@ specs = do
       Reps.specs
       Auth.specs
       LiteApp.specs
-      Ssl.unsecSpec
-      Ssl.sslOnlySpec

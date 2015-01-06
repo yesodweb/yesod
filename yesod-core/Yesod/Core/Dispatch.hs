@@ -68,7 +68,6 @@ import Control.Monad.Logger
 import Control.Monad (when)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
-import qualified System.Random.MWC as MWC
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This function will provide no middlewares; if you want commonly
@@ -77,12 +76,10 @@ toWaiAppPlain :: YesodDispatch site => site -> IO W.Application
 toWaiAppPlain site = do
     logger <- makeLogger site
     sb <- makeSessionBackend site
-    gen <- MWC.createSystemRandom
     return $ toWaiAppYre $ YesodRunnerEnv
             { yreLogger = logger
             , yreSite = site
             , yreSessionBackend = sb
-            , yreGen = gen
             }
 
 toWaiAppYre :: YesodDispatch site => YesodRunnerEnv site -> W.Application
@@ -128,12 +125,10 @@ toWaiApp site = do
 toWaiAppLogger :: YesodDispatch site => Logger -> site -> IO W.Application
 toWaiAppLogger logger site = do
     sb <- makeSessionBackend site
-    gen <- MWC.createSystemRandom
     let yre = YesodRunnerEnv
                 { yreLogger = logger
                 , yreSite = site
                 , yreSessionBackend = sb
-                , yreGen = gen
                 }
     messageLoggerSource
         site

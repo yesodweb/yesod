@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.4.3.1
+version:         1.4.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -10,9 +10,7 @@ stability:       Stable
 cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-description:     API docs and the README are available at <http://www.stackage.org/package/yesod-form>
-extra-source-files: ChangeLog.md
-                    README.md
+description:     Form handling support for Yesod Web Framework
 
 flag network-uri
   description: Get Network.URI from the network-uri package
@@ -65,7 +63,6 @@ library
                      Yesod.Form.I18n.Japanese
                      Yesod.Form.I18n.Czech
                      Yesod.Form.I18n.Russian
-                     Yesod.Form.I18n.Dutch
                      -- FIXME Yesod.Helpers.Crud
     ghc-options:     -Wall
 

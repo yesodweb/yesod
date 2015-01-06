@@ -1,5 +1,5 @@
 name:               yesod-test
-version:            1.4.2.2
+version:            1.4.0.1
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
@@ -10,8 +10,8 @@ stability:          Experimental
 cabal-version:      >= 1.8
 build-type:         Simple
 homepage:           http://www.yesodweb.com
-description:     API docs and the README are available at <http://www.stackage.org/package/yesod-test>
-extra-source-files: README.md, LICENSE, test/main.hs, ChangeLog.md
+description:        Behaviour Oriented integration Testing for Yesod Applications 
+extra-source-files: README.md, LICENSE, test/main.hs
 
 library
     build-depends:   base                      >= 4.3      && < 5
@@ -23,7 +23,7 @@ library
                    , network                   >= 2.2
                    , http-types                >= 0.7
                    , HUnit                     >= 1.2
-                   , hspec-core                == 2.*
+                   , hspec                     >= 1.4
                    , bytestring                >= 0.9
                    , case-insensitive          >= 0.2
                    , text

@@ -13,3 +13,7 @@ cabal.sandbox.config
 /vendor/
 .shelly/
 tarballs/
+*.swp
+dist
+client_session_key.aes
+.shelly/

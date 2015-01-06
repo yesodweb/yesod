@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.4.0.4
+version:         1.4.0.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -10,7 +10,7 @@ stability:       Stable
 cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-description:     API docs and the README are available at <http://www.stackage.org/package/yesod-static>
+description:     Static file serving subsite for Yesod Web Framework.
 extra-source-files:
   sample.hs
   sample-embed.hs
@@ -22,8 +22,6 @@ extra-source-files:
   test/embed-dir/foo
   test/embed-dir/lorem.txt
   test/embed-dir/abc/def.txt
-  ChangeLog.md
-  README.md
 
 library
     build-depends:   base                  >= 4        && < 5
@@ -107,6 +105,7 @@ test-suite tests
                    , system-filepath
                    , system-fileio
                    , data-default
+                   , shakespeare-css
                    , mime-types
                    , hjsmin
                    , filepath

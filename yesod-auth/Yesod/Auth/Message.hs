@@ -16,7 +16,6 @@ module Yesod.Auth.Message
     , spanishMessage
     , czechMessage
     , russianMessage
-    , dutchMessage
     ) where
 
 import Data.Monoid (mappend)
@@ -60,7 +59,6 @@ data AuthMessage =
     | SendPasswordResetEmail
     | PasswordResetPrompt
     | InvalidUsernamePass
-    | Logout
 
 -- | Defaults to 'englishMessage'.
 defaultMessage :: AuthMessage -> Text
@@ -107,7 +105,6 @@ englishMessage SendPasswordResetEmail = "Send password reset email"
 englishMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
 englishMessage InvalidUsernamePass = "Invalid username/password combination"
 englishMessage (IdentifierNotFound ident) = "Login not found: " `mappend` ident
-englishMessage Logout = "Logout"
 
 portugueseMessage :: AuthMessage -> Text
 portugueseMessage NoOpenID = "Nenhum identificador OpenID encontrado"
@@ -151,7 +148,6 @@ portugueseMessage PasswordResetPrompt = "Insira seu endereço de e-mail ou nome 
 portugueseMessage InvalidUsernamePass = "Nome de usuário ou senha inválidos"
 -- TODO
 portugueseMessage i@(IdentifierNotFound _) = englishMessage i
-portugueseMessage Logout = "Sair" -- FIXME by Google Translate
 
 spanishMessage :: AuthMessage -> Text
 spanishMessage NoOpenID = "No se encuentra el identificador OpenID"
@@ -195,7 +191,6 @@ spanishMessage PasswordResetPrompt = "Escriba su cuenta de correo o nombre de us
 spanishMessage InvalidUsernamePass = "Combinación de nombre de usuario/contraseña invalida"
 -- TODO
 spanishMessage i@(IdentifierNotFound _) = englishMessage i
-spanishMessage Logout = "Finalizar la sesión" -- FIXME by Google Translate
 
 swedishMessage :: AuthMessage -> Text
 swedishMessage NoOpenID = "Fann ej OpenID identifierare"
@@ -240,7 +235,6 @@ swedishMessage PasswordResetPrompt = "Skriv in din emailadress eller användarna
 swedishMessage InvalidUsernamePass = "Ogiltig kombination av användarnamn och lösenord"
 -- TODO
 swedishMessage i@(IdentifierNotFound _) = englishMessage i
-swedishMessage Logout = "Loggar ut" -- FIXME by Google Translate
 
 germanMessage :: AuthMessage -> Text
 germanMessage NoOpenID = "Kein OpenID-Identifier gefunden"
@@ -284,7 +278,6 @@ germanMessage PasswordResetPrompt = "Nach Einhabe der Email-Adresse oder des Nut
 germanMessage InvalidUsernamePass = "Ungültige Kombination aus Nutzername und Passwort"
 -- TODO
 germanMessage i@(IdentifierNotFound _) = englishMessage i
-germanMessage Logout = "Ausloggen" -- FIXME by Google Translate
 
 frenchMessage :: AuthMessage -> Text
 frenchMessage NoOpenID = "Aucun fournisseur OpenID n'a été trouvé"
@@ -295,16 +288,16 @@ frenchMessage Email = "Adresse électronique"
 frenchMessage Password = "Mot de passe"
 frenchMessage Register = "S'inscrire"
 frenchMessage RegisterLong = "Créer un compte"
-frenchMessage EnterEmail = "Entrez ci-dessous votre courriel, et un message de confirmation vous sera envoyé"
+frenchMessage EnterEmail = "Entrez ci-dessous votre adresse électronique, et un message de confirmation vous sera envoyé"
 frenchMessage ConfirmationEmailSentTitle = "Message de confirmation"
 frenchMessage (ConfirmationEmailSent email) =
     "Un message de confirmation a été envoyé à " `mappend`
     email `mappend`
     "."
-frenchMessage AddressVerified = "Votre courriel a été validée, merci de choisir un nouveau mot de passe."
+frenchMessage AddressVerified = "Votre adresse électronique a été validée, merci de choisir un nouveau mot de passe."
 frenchMessage InvalidKeyTitle = "Clef de validation incorrecte"
 frenchMessage InvalidKey = "Désolé, mais cette clef de validation est incorrecte"
-frenchMessage InvalidEmailPass = "La combinaison de ce mot de passe et de cette adresse électronique n'existe pas."
+frenchMessage InvalidEmailPass = "Le couple mot de passe/adresse électronique n'est pas correct"
 frenchMessage BadSetPass = "Vous devez être connecté pour choisir un mot de passe"
 frenchMessage SetPassTitle = "Changer de mot de passe"
 frenchMessage SetPass = "Choisir un nouveau mot de passe"
@@ -313,21 +306,20 @@ frenchMessage ConfirmPass = "Confirmation du mot de passe"
 frenchMessage PassMismatch = "Le deux mots de passe sont différents, veuillez les corriger"
 frenchMessage PassUpdated = "Le mot de passe a bien été changé"
 frenchMessage Facebook = "Se connecter avec Facebook"
-frenchMessage LoginViaEmail = "Se connecter avec un courriel"
+frenchMessage LoginViaEmail = "Se connecter à l'aide d'une adresse électronique"
 frenchMessage InvalidLogin = "Nom d'utilisateur incorrect"
 frenchMessage NowLoggedIn = "Vous êtes maintenant connecté"
 frenchMessage LoginTitle = "Se connecter"
-frenchMessage PleaseProvideUsername = "Veuillez fournir votre nom d'utilisateur"
-frenchMessage PleaseProvidePassword = "Veuillez fournir votre mot de passe"
-frenchMessage NoIdentifierProvided = "Courriel/nom d'utilisateur non spécifié"
+frenchMessage PleaseProvideUsername = "Merci de renseigner votre nom d'utilisateur"
+frenchMessage PleaseProvidePassword = "Merci de spécifier un mot de passe"
+frenchMessage NoIdentifierProvided = "Adresse électronique/nom d'utilisateur non spécifié"
 frenchMessage InvalidEmailAddress = "Adresse électronique spécifiée invalide"
-frenchMessage PasswordResetTitle = "Réinitialisation du mot de passe"
-frenchMessage ProvideIdentifier = "Courriel ou nom d'utilisateur"
-frenchMessage SendPasswordResetEmail = "Envoie d'un courriel pour réinitialiser le mot de passe"
-frenchMessage PasswordResetPrompt = "Entrez votre courriel ou votre nom d'utilisateur ci-dessous, et vous recevrez un message électronique pour réinitialiser votre mot de passe."
-frenchMessage InvalidUsernamePass = "La combinaison de ce mot de passe et de ce nom d'utilisateur n'existe pas."
+frenchMessage PasswordResetTitle = "Réinitialisation de mot de passe"
+frenchMessage ProvideIdentifier = "Adresse électronique ou nom d'utilisateur"
+frenchMessage SendPasswordResetEmail = "Envoie d'un message électronique pour Réinitialisation le mot de passe"
+frenchMessage PasswordResetPrompt = "Entrez votre adresse électronique ou votre nom d'utilisateur ci-dessous, et un message électronique de réinitialisation de mot de passe vous sera envoyé."
+frenchMessage InvalidUsernamePass = "Le couble nom d'utilisateur/mot de passe invalide"
 frenchMessage (IdentifierNotFound ident) = "Nom d'utilisateur introuvable: " `mappend` ident
-frenchMessage Logout = "Déconnexion"
 
 norwegianBokmålMessage :: AuthMessage -> Text
 norwegianBokmålMessage NoOpenID = "Ingen OpenID-identifiserer funnet"
@@ -371,7 +363,6 @@ norwegianBokmålMessage PasswordResetPrompt = "Enter your e-mail address or user
 norwegianBokmålMessage InvalidUsernamePass = "Invalid username/password combination"
 -- TODO
 norwegianBokmålMessage i@(IdentifierNotFound _) = englishMessage i
-norwegianBokmålMessage Logout = "Logge ut" -- FIXME by Google Translate
 
 japaneseMessage :: AuthMessage -> Text
 japaneseMessage NoOpenID = "OpenID識別子がありません"
@@ -415,7 +406,6 @@ japaneseMessage PasswordResetPrompt = "以下にメールアドレスまたは�
 japaneseMessage InvalidUsernamePass = "ユーザ名とパスワードの組み合わせが間違っています"
 japaneseMessage (IdentifierNotFound ident) =
   ident `mappend` "は登録されていません"
-japaneseMessage Logout = "ログアウト" -- FIXME by Google Translate
 
 finnishMessage :: AuthMessage -> Text
 finnishMessage NoOpenID = "OpenID-tunnistetta ei löydy"
@@ -460,7 +450,6 @@ finnishMessage PasswordResetPrompt = "Anna sähköpostiosoitteesi tai käyttäj�
 finnishMessage InvalidUsernamePass = "Virheellinen käyttäjänimi tai salasana."
 -- TODO
 finnishMessage i@(IdentifierNotFound _) = englishMessage i
-finnishMessage Logout = "Kirjaudu ulos" -- FIXME by Google Translate
 
 chineseMessage :: AuthMessage -> Text
 chineseMessage NoOpenID = "无效的OpenID"
@@ -504,7 +493,6 @@ chineseMessage PasswordResetPrompt = "输入你的邮箱地址或用户名，你
 chineseMessage InvalidUsernamePass = "无效的用户名/密码组合"
 -- TODO
 chineseMessage i@(IdentifierNotFound _) = englishMessage i
-chineseMessage Logout = "註銷" -- FIXME by Google Translate
 
 czechMessage :: AuthMessage -> Text
 czechMessage NoOpenID = "Nebyl nalezen identifikátor OpenID"
@@ -546,7 +534,6 @@ czechMessage PasswordResetPrompt = "Zadejte svou e-mailovou adresu nebo uživate
 czechMessage InvalidUsernamePass = "Neplatná kombinace uživatelského jména a hesla"
 -- TODO
 czechMessage i@(IdentifierNotFound _) = englishMessage i
-czechMessage Logout = "Odhlásit" -- FIXME by Google Translate
 
 -- Так как e-mail – это фактическое сокращение словосочетания electronic mail,
 -- для русского перевода так же использовано сокращение: эл.почта
@@ -576,11 +563,11 @@ russianMessage NewPass = "Новый пароль"
 russianMessage ConfirmPass = "Подтверждение"
 russianMessage PassMismatch = "Пароли не совпадают, повторите снова"
 russianMessage PassUpdated = "Пароль обновлён"
-russianMessage Facebook = "Войти с помощью Facebook"
-russianMessage LoginViaEmail = "Войти по адресу эл.почты"
+russianMessage Facebook = "Вход с помощью Facebook"
+russianMessage LoginViaEmail = "Вход по адресу эл.почты"
 russianMessage InvalidLogin = "Неверный логин"
 russianMessage NowLoggedIn = "Вход выполнен"
-russianMessage LoginTitle = "Войти"
+russianMessage LoginTitle = "Вход"
 russianMessage PleaseProvideUsername = "Пожалуйста, введите ваше имя пользователя"
 russianMessage PleaseProvidePassword = "Пожалуйста, введите ваш пароль"
 russianMessage NoIdentifierProvided = "Не указан адрес эл.почты/имя пользователя"
@@ -591,47 +578,3 @@ russianMessage SendPasswordResetEmail = "Отправить письмо для 
 russianMessage PasswordResetPrompt = "Введите адрес эл.почты или ваше имя пользователя ниже, вам будет отправлено письмо для сброса пароля."
 russianMessage InvalidUsernamePass = "Неверное сочетание имени пользователя и пароля"
 russianMessage (IdentifierNotFound ident) = "Логин не найден: " `mappend` ident
-russianMessage Logout = "Выйти"
-
-dutchMessage :: AuthMessage -> Text
-dutchMessage NoOpenID = "Geen OpenID identificator gevonden"
-dutchMessage LoginOpenID = "Inloggen via OpenID"
-dutchMessage LoginGoogle = "Inloggen via Google"
-dutchMessage LoginYahoo = "Inloggen via Yahoo"
-dutchMessage Email = "E-mail"
-dutchMessage Password = "Wachtwoord"
-dutchMessage Register = "Registreren"
-dutchMessage RegisterLong = "Registreer een nieuw account"
-dutchMessage EnterEmail = "Voer uw e-mailadres hieronder in, er zal een bevestigings-e-mail naar u worden verzonden."
-dutchMessage ConfirmationEmailSentTitle = "Bevestigings-e-mail verzonden"
-dutchMessage (ConfirmationEmailSent email) =
-    "Een bevestigings-e-mail is verzonden naar " `mappend`
-    email `mappend`
-    "."
-dutchMessage AddressVerified = "Adres geverifieerd, stel alstublieft een nieuwe wachtwoord in"
-dutchMessage InvalidKeyTitle = "Ongeldig verificatietoken"
-dutchMessage InvalidKey = "Dat was helaas een ongeldig verificatietoken."
-dutchMessage InvalidEmailPass = "Ongeldige e-mailadres/wachtwoord combinatie"
-dutchMessage BadSetPass = "U moet ingelogd zijn om een nieuwe wachtwoord in te stellen"
-dutchMessage SetPassTitle = "Wachtwoord instellen"
-dutchMessage SetPass = "Een nieuwe wachtwoord instellen"
-dutchMessage NewPass = "Nieuw wachtwoord"
-dutchMessage ConfirmPass = "Bevestig"
-dutchMessage PassMismatch = "Wachtwoorden kwamen niet overeen, probeer het alstublieft nog eens"
-dutchMessage PassUpdated = "Wachtwoord geüpdatet"
-dutchMessage Facebook = "Inloggen met Facebook"
-dutchMessage LoginViaEmail = "Inloggen via e-mail"
-dutchMessage InvalidLogin = "Ongeldige inloggegevens"
-dutchMessage NowLoggedIn = "U bent nu ingelogd"
-dutchMessage LoginTitle = "Inloggen"
-dutchMessage PleaseProvideUsername = "Voer alstublieft uw gebruikersnaam in"
-dutchMessage PleaseProvidePassword = "Voer alstublieft uw wachtwoord in"
-dutchMessage NoIdentifierProvided = "Geen e-mailadres/gebruikersnaam opgegeven"
-dutchMessage InvalidEmailAddress = "Ongeldig e-mailadres opgegeven"
-dutchMessage PasswordResetTitle = "Wachtwoord wijzigen"
-dutchMessage ProvideIdentifier = "E-mailadres of gebruikersnaam"
-dutchMessage SendPasswordResetEmail = "Stuur een wachtwoord reset e-mail"
-dutchMessage PasswordResetPrompt = "Voer uw e-mailadres of gebruikersnaam hieronder in, er zal een e-mail naar u worden verzonden waarmee u uw wachtwoord kunt wijzigen."
-dutchMessage InvalidUsernamePass = "Ongeldige gebruikersnaam/wachtwoord combinatie"
-dutchMessage (IdentifierNotFound ident) = "Inloggegevens niet gevonden: " `mappend` ident
-dutchMessage Logout = "Logout" -- FIXME NOT TRANSLATED

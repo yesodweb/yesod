@@ -188,7 +188,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     unlessM (checkPort $ develPort opts) $ error "devel port unavailable"
     iappPort <- getPort opts 17834 >>= I.newIORef
     when (useReverseProxy opts) $ void $ forkIO $ reverseProxy opts iappPort
-    develHsPath <- checkDevelFile
+    checkDevelFile
     writeLock opts
 
     let (terminator, after) = case terminateWith opts of
@@ -203,7 +203,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
       filesModified <- newEmptyMVar
       void $ forkIO $
         void $ watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
-      evalStateT (mainOuterLoop develHsPath iappPort filesModified) Map.empty
+      evalStateT (mainOuterLoop iappPort filesModified) Map.empty
     after
     writeLock opts
     exitSuccess
@@ -211,7 +211,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     bd = getBuildDir opts
 
     -- outer loop re-reads the cabal file
-    mainOuterLoop develHsPath iappPort filesModified = do
+    mainOuterLoop iappPort filesModified = do
       ghcVer <- liftIO ghcVersion
       cabal  <- liftIO $ D.findPackageDesc "."
       gpd    <- liftIO $ D.readPackageDescription D.normal cabal
@@ -227,20 +227,20 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
                                                , "yesod-devel/ldargs.txt"
                                                ]
              rebuild <- liftIO $ mkRebuild ghcVer cabal opts ldar
-             mainInnerLoop develHsPath iappPort hsSourceDirs filesModified cabal rebuild
+             mainInnerLoop iappPort hsSourceDirs filesModified cabal rebuild
            else do
              liftIO (threadDelay 5000000)
-             mainOuterLoop develHsPath iappPort filesModified
+             mainOuterLoop iappPort filesModified
 
     -- inner loop rebuilds after files change
-    mainInnerLoop develHsPath iappPort hsSourceDirs filesModified cabal rebuild = go
+    mainInnerLoop iappPort hsSourceDirs filesModified cabal rebuild = go
        where
          go = do
            _ <- recompDeps hsSourceDirs
            list <- liftIO $ getFileList hsSourceDirs [cabal]
            success <- liftIO rebuild
            pkgArgs <- liftIO (ghcPackageArgs opts)
-           let devArgs = pkgArgs ++ [develHsPath]
+           let devArgs = pkgArgs ++ ["devel.hs"]
            let loop list0 = do
                    (haskellFileChanged, list1) <- liftIO $
                        watchForChanges filesModified hsSourceDirs [cabal] list0 (eventTimeout opts)
@@ -282,7 +282,7 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
                    liftIO $ Ex.throwTo watchTid (userError "process finished")
            loop list
            n <- liftIO $ cabal `isNewerThan` (bd </> "setup-config")
-           if n then mainOuterLoop develHsPath iappPort filesModified else go
+           if n then mainOuterLoop iappPort filesModified else go
 
 runBuildHook :: Maybe String -> IO ()
 runBuildHook (Just s) = do
@@ -300,8 +300,6 @@ configure opts extraArgs =
   checkExit =<< createProcess (proc (cabalProgram opts) $
                                  [ "configure"
                                  , "-flibrary-only"
-                                 , "--disable-tests"
-                                 , "--disable-benchmarks"
                                  , "-fdevel"
                                  , "--disable-library-profiling"
                                  , "--with-ld=yesod-ld-wrapper"
@@ -381,18 +379,10 @@ watchForChanges filesModified hsSourceDirs extraFiles list t = do
 
     isHaskell filename _ = takeExtension filename `elem` [".hs", ".lhs", ".hsc", ".cabal"]
 
-checkDevelFile :: IO FilePath
-checkDevelFile =
-    loop paths
-  where
-    paths = ["app/devel.hs", "devel.hs", "src/devel.hs"]
-
-    loop [] = failWith $ "file devel.hs not found, checked: " ++ show paths
-    loop (x:xs) = do
-        e <- doesFileExist x
-        if e
-            then return x
-            else loop xs
+checkDevelFile :: IO ()
+checkDevelFile = do
+  e <- doesFileExist "devel.hs"
+  unless e $ failWith "file devel.hs not found"
 
 checkCabalFile :: D.GenericPackageDescription -> IO ([FilePath], D.Library)
 checkCabalFile gpd = case D.condLibrary gpd of

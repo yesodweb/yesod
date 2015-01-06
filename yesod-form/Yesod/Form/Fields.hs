@@ -4,11 +4,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
--- | Field functions allow you to easily create and validate forms, cleanly handling the uncertainty of parsing user input.
---
--- When possible, the field functions use a specific input type (e.g. "number"), allowing supporting browsers to validate the input before form submission. Browsers can also improve usability with this information; for example, mobile browsers might present a specialized keyboard for an input of type "email" or "number".
---
--- See the Yesod book <http://www.yesodweb.com/book/forms chapter on forms> for a broader overview of forms in Yesod.
 module Yesod.Form.Fields
     ( -- * i18n
       FormMessage (..)
@@ -21,8 +16,6 @@ module Yesod.Form.Fields
     , intField
     , dayField
     , timeField
-    , timeFieldTypeTime
-    , timeFieldTypeText
     , htmlField
     , emailField
     , multiEmailField
@@ -40,13 +33,12 @@ module Yesod.Form.Fields
     , fileAFormReq
     , fileAFormOpt
       -- * Options
-      -- $optionsOverview
     , selectField
     , selectFieldList
     , radioField
     , radioFieldList
-    , checkboxesField
     , checkboxesFieldList
+    , checkboxesField
     , multiSelectField
     , multiSelectFieldList
     , Option (..)
@@ -107,7 +99,7 @@ import Yesod.Persist.Core
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
--- | Creates a input with @type="number"@ and @step=1@.
+
 intField :: (Monad m, Integral i, RenderMessage (HandlerSite m) FormMessage) => Field m i
 intField = Field
     { fieldParse = parseHelper $ \s ->
@@ -125,7 +117,6 @@ $newline never
     showVal = either id (pack . showI)
     showI x = show (fromIntegral x :: Integer)
 
--- | Creates a input with @type="number"@ and @step=any@.
 doubleField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Double
 doubleField = Field
     { fieldParse = parseHelper $ \s ->
@@ -141,9 +132,6 @@ $newline never
     }
   where showVal = either id (pack . show)
 
--- | Creates an input with @type="date"@, validating the input using the 'parseDate' function.
---
--- Add the @time@ package and import the "Data.Time.Calendar" module to use this function.
 dayField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Day
 dayField = Field
     { fieldParse = parseHelper $ parseDate . unpack
@@ -155,33 +143,12 @@ $newline never
     }
   where showVal = either id (pack . show)
 
--- | An alias for 'timeFieldTypeText'.
 timeField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
-timeField = timeFieldTypeText
-{-# DEPRECATED timeField "'timeField' currently defaults to an input of type=\"text\". In the next major release, it will default to type=\"time\". To opt in to the new functionality, use 'timeFieldTypeTime'. To keep the existing behavior, use 'timeFieldTypeText'. See 'https://github.com/yesodweb/yesod/pull/874' for details." #-}
-
--- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
--- 
--- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
---
--- Since 1.4.2
-timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay  
-timeFieldTypeTime = timeFieldOfType "time"
-
--- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
--- 
--- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
---
--- Since 1.4.2
-timeFieldTypeText :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
-timeFieldTypeText = timeFieldOfType "text"
-
-timeFieldOfType :: Monad m => RenderMessage (HandlerSite m) FormMessage => Text -> Field m TimeOfDay
-timeFieldOfType inputType = Field
+timeField = Field
     { fieldParse = parseHelper parseTime
     , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} type="#{inputType}" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" *{attrs} :isReq:required="" value="#{showVal val}">
 |]
     , fieldEnctype = UrlEncoded
     }
@@ -192,7 +159,6 @@ $newline never
       where
         fullSec = fromInteger $ floor $ todSec tod
 
--- | Creates a @\<textarea>@ tag whose input is sanitized to prevent XSS attacks and is validated for having balanced tags.
 htmlField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Html
 htmlField = Field
     { fieldParse = parseHelper $ Right . preEscapedText . sanitizeBalance
@@ -204,11 +170,8 @@ $newline never
     }
   where showVal = either id (pack . renderHtml)
 
--- | A newtype wrapper around a 'Text' whose 'ToMarkup' instance converts newlines to HTML @\<br>@ tags.
--- 
--- (When text is entered into a @\<textarea>@, newline characters are used to separate lines.
--- If this text is then placed verbatim into HTML, the lines won't be separated, thus the need for replacing with @\<br>@ tags).
--- If you don't need this functionality, simply use 'unTextarea' to access the raw text.
+-- | A newtype wrapper around a 'Text' that converts newlines to HTML
+-- br-tags.
 newtype Textarea = Textarea { unTextarea :: Text }
     deriving (Show, Read, Eq, PersistField, Ord, ToJSON, FromJSON)
 instance PersistFieldSql Textarea where
@@ -227,18 +190,16 @@ instance ToHtml Textarea where
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
--- | Creates a @\<textarea>@ tag whose returned value is wrapped in a 'Textarea'; see 'Textarea' for details.
 textareaField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Textarea
 textareaField = Field
     { fieldParse = parseHelper $ Right . Textarea
-    , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+    , fieldView = \theId name attrs val _isReq -> toWidget [hamlet|
 $newline never
-<textarea id="#{theId}" name="#{name}" :isReq:required="" *{attrs}>#{either id unTextarea val}
+<textarea id="#{theId}" name="#{name}" *{attrs}>#{either id unTextarea val}
 |]
     , fieldEnctype = UrlEncoded
     }
 
--- | Creates an input with @type="hidden"@; you can use this to store information in a form that users shouldn't see (for example, Yesod stores CSRF tokens in a hidden field).
 hiddenField :: (Monad m, PathPiece p, RenderMessage (HandlerSite m) FormMessage)
             => Field m p
 hiddenField = Field
@@ -250,7 +211,6 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
--- | Creates a input with @type="text"@.
 textField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 textField = Field
     { fieldParse = parseHelper $ Right
@@ -261,7 +221,7 @@ $newline never
 |]
     , fieldEnctype = UrlEncoded
     }
--- | Creates an input with @type="password"@.
+
 passwordField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 passwordField = Field
     { fieldParse = parseHelper $ Right
@@ -277,7 +237,6 @@ readMay s = case filter (Prelude.null . snd) $ reads s of
                 (x, _):_ -> Just x
                 [] -> Nothing
 
--- | Parses a 'Day' from a 'String'.
 parseDate :: String -> Either FormMessage Day
 parseDate = maybe (Left MsgInvalidDay) Right
               . readMay . replace '/' '-'
@@ -333,8 +292,7 @@ timeParser = do
         if i < 0 || i >= 60
             then fail $ show $ msg $ pack xy
             else return $ fromIntegral (i :: Int)
-            
--- | Creates an input with @type="email"@. Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see "Text.Email.Validate").
+
 emailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 emailField = Field
     { fieldParse = parseHelper $
@@ -349,7 +307,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
--- | Creates an input with @type="email"@ with the <http://www.w3.org/html/wg/drafts/html/master/forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
+-- |
 --
 -- Since 1.3.7
 multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
@@ -375,7 +333,6 @@ $newline never
         emailToText = decodeUtf8With lenientDecode . Email.toByteString
 
 type AutoFocus = Bool
--- | Creates an input with @type="search"@. For <http://caniuse.com/#search=autofocus browsers without autofocus support>, a JS fallback is used if @AutoFocus@ is true.
 searchField :: Monad m => RenderMessage (HandlerSite m) FormMessage => AutoFocus -> Field m Text
 searchField autoFocus = Field
     { fieldParse = parseHelper Right
@@ -396,7 +353,7 @@ $newline never
             |]
     , fieldEnctype = UrlEncoded
     }
--- | Creates an input with @type="url"@, validating the URL according to RFC3986.
+
 urlField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 urlField = Field
     { fieldParse = parseHelper $ \s ->
@@ -408,17 +365,11 @@ urlField = Field
     , fieldEnctype = UrlEncoded
     }
 
--- | Creates a @\<select>@ tag for selecting one option. Example usage:
---
--- > areq (selectFieldList [("Value 1" :: Text, "value1"),("Value 2", "value2")]) "Which value?" Nothing
 selectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                 => [(msg, a)]
                 -> Field (HandlerT site IO) a
 selectFieldList = selectField . optionsPairs
 
--- | Creates a @\<select>@ tag for selecting one option. Example usage:
---
--- > areq (selectField $ optionsPairs [(MsgValue1, "value1"),(MsgValue2, "value2")]) "Which value?" Nothing
 selectField :: (Eq a, RenderMessage site FormMessage)
             => HandlerT site IO (OptionList a)
             -> Field (HandlerT site IO) a
@@ -436,13 +387,11 @@ $newline never
 <option value=#{value} :isSel:selected>#{text}
 |]) -- inside
 
--- | Creates a @\<select>@ tag for selecting multiple options.
 multiSelectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                      => [(msg, a)]
                      -> Field (HandlerT site IO) [a]
 multiSelectFieldList = multiSelectField . optionsPairs
 
--- | Creates a @\<select>@ tag for selecting multiple options.
 multiSelectField :: (Eq a, RenderMessage site FormMessage)
                  => HandlerT site IO (OptionList a)
                  -> Field (HandlerT site IO) [a]
@@ -468,18 +417,15 @@ multiSelectField ioptlist =
             optselected (Left _) _ = False
             optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
 
--- | Creates an input with @type="radio"@ for selecting one option.
 radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
                => [(msg, a)]
                -> Field (HandlerT site IO) a
 radioFieldList = radioField . optionsPairs
 
--- | Creates an input with @type="checkbox"@ for selecting multiple options.
 checkboxesFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)]
                      -> Field (HandlerT site IO) [a]
 checkboxesFieldList = checkboxesField . optionsPairs
 
--- | Creates an input with @type="checkbox"@ for selecting multiple options.
 checkboxesField :: (Eq a, RenderMessage site FormMessage)
                  => HandlerT site IO (OptionList a)
                  -> Field (HandlerT site IO) [a]
@@ -497,7 +443,7 @@ checkboxesField ioptlist = (multiSelectField ioptlist)
                             #{optionDisplay opt}
                 |]
     }
--- | Creates an input with @type="radio"@ for selecting one option.
+
 radioField :: (Eq a, RenderMessage site FormMessage)
            => HandlerT site IO (OptionList a)
            -> Field (HandlerT site IO) a
@@ -521,13 +467,6 @@ $newline never
         \#{text}
 |])
 
--- | Creates a group of radio buttons to answer the question given in the message. Radio buttons are used to allow differentiating between an empty response (@Nothing@) and a no response (@Just False@). Consider using the simpler 'checkBoxField' if you don't need to make this distinction.
---
--- If this field is optional, the first radio button is labeled "\<None>", the second \"Yes" and the third \"No".
---
--- If this field is required, the first radio button is labeled \"Yes" and the second \"No". 
---
--- (Exact label titles will depend on localization).
 boolField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Bool
 boolField = Field
       { fieldParse = \e _ -> return $ boolParser e
@@ -559,11 +498,10 @@ $newline never
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
 
--- | Creates an input with @type="checkbox"@. 
---   While the default @'boolField'@ implements a radio button so you
---   can differentiate between an empty response (@Nothing@) and a no
---   response (@Just False@), this simpler checkbox field returns an empty
---   response as @Just False@.
+-- | While the default @'boolField'@ implements a radio button so you
+--   can differentiate between an empty response (Nothing) and a no
+--   response (Just False), this simpler checkbox field returns an empty
+--   response as Just False.
 --
 --   Note that this makes the field always optional.
 --
@@ -586,12 +524,11 @@ $newline never
 
         showVal = either (\_ -> False)
 
--- | A structure holding a list of options. Typically you can use a convenience function like 'mkOptionList' or 'optionsPairs' instead of creating this directly.
 data OptionList a = OptionList
     { olOptions :: [Option a]
-    , olReadExternal :: Text -> Maybe a -- ^ A function mapping from the form's value ('optionExternalValue') to the selected Haskell value ('optionInternalValue').
+    , olReadExternal :: Text -> Maybe a
     }
--- | Creates an 'OptionList', using a 'Map' to implement the 'olReadExternal' function.
+
 mkOptionList :: [Option a] -> OptionList a
 mkOptionList os = OptionList
     { olOptions = os
@@ -599,11 +536,11 @@ mkOptionList os = OptionList
     }
 
 data Option a = Option
-    { optionDisplay :: Text -- ^ The user-facing label.
-    , optionInternalValue :: a -- ^ The Haskell value being selected.
-    , optionExternalValue :: Text -- ^ The representation of this value stored in the form.
+    { optionDisplay :: Text
+    , optionInternalValue :: a
+    , optionExternalValue :: Text
     }
--- | Creates an 'OptionList' from a list of (display-value, internal value) pairs.
+
 optionsPairs :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
              => [(msg, a)] -> m (OptionList a)
 optionsPairs opts = do
@@ -615,25 +552,9 @@ optionsPairs opts = do
                  }
   return $ mkOptionList (zipWith mkOption [1 :: Int ..] opts)
 
--- | Creates an 'OptionList' from an 'Enum', using its 'Show' instance for the user-facing value.
 optionsEnum :: (MonadHandler m, Show a, Enum a, Bounded a) => m (OptionList a)
 optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 
--- | Selects a list of 'Entity's with the given 'Filter' and 'SelectOpt's. The @(a -> msg)@ function is then used to derive the display value for an 'OptionList'. Example usage:
---
--- > Country
--- >    name Text
--- >    deriving Eq -- Must derive Eq
---
--- > data CountryForm = CountryForm
--- >   { country :: Entity Country
--- >   }
--- >
--- > countryNameForm :: AForm Handler CountryForm
--- > countryNameForm = CountryForm
--- >         <$> areq (selectField countries) "Which country do you live in?" Nothing
--- >         where
--- >           countries = optionsPersist [] [Asc CountryName] countryName
 optionsPersist :: ( YesodPersist site, PersistEntity a
                   , PersistQuery (PersistEntityBackend a)
                   , PathPiece (Key a)
@@ -653,8 +574,8 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
         , optionExternalValue = toPathPiece key
         }) pairs
 
--- | An alternative to 'optionsPersist' which returns just the 'Key' instead of
--- the entire 'Entity'.
+-- | An alternative to 'optionsPersist' which returns just the @Key@ instead of
+-- the entire @Entity@.
 --
 -- Since 1.3.2
 optionsPersistKey
@@ -714,7 +635,6 @@ selectFieldHelper outside onOpt inside opts' = Field
                     Nothing -> Left $ SomeMessage $ MsgInvalidEntry x
                     Just y -> Right $ Just y
 
--- | Creates an input with @type="file"@.
 fileField :: (Monad m, RenderMessage (HandlerSite m) FormMessage)
           => Field m FileInfo
 fileField = Field
@@ -811,10 +731,3 @@ prependZero t0 = if T.null t1
                            else t1
 
   where t1 = T.dropWhile ((==) ' ') t0
-
--- $optionsOverview
--- These functions create inputs where one or more options can be selected from a list.
--- 
--- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A list of these, together with a function mapping from an external value back to a Haskell value, form an 'OptionList', which several of these functions take as an argument.
--- 
--- Typically, you won't need to create an 'OptionList' directly and can instead make one with functions like 'optionsPairs' or 'optionsEnum'. Alternatively, you can use functions like 'selectFieldList', which use their @[(msg, a)]@ parameter to create an 'OptionList' themselves.

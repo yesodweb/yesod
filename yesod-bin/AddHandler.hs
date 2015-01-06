@@ -1,13 +1,13 @@
-{-# LANGUAGE PatternGuards #-}
 module AddHandler (addHandler) where
 
 import Prelude hiding (readFile)
 import System.IO (hFlush, stdout)
 import Data.Char (isLower, toLower, isSpace)
-import Data.List (isPrefixOf, isSuffixOf, stripPrefix)
+import Data.List (isPrefixOf, isSuffixOf)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import System.Directory (getDirectoryContents, doesFileExist)
+import Control.Monad (when)
 
 -- strict readFile
 readFile :: FilePath -> IO String
@@ -62,18 +62,18 @@ fixApp :: String -> String -> String
 fixApp name =
     unlines . reverse . go . reverse . lines
   where
-    l spaces = "import " ++ spaces ++ "Handler." ++ name
+    l = "import Handler." ++ name
 
-    go [] = [l ""]
+    go [] = [l]
     go (x:xs)
-        | Just y <- stripPrefix "import " x, "Handler." `isPrefixOf` dropWhile (== ' ') y = l (takeWhile (== ' ') y) : x : xs
+        | "import Handler." `isPrefixOf` x = l : x : xs
         | otherwise = x : go xs
 
 fixCabal :: String -> String -> String
 fixCabal name =
     unlines . reverse . go . reverse . lines
   where
-    l = "                  Handler." ++ name
+    l = "import Handler." ++ name
 
     go [] = [l]
     go (x:xs)
@@ -107,9 +107,7 @@ mkHandler name pattern methods = unlines
         , concat $ func : " :: " : map toArrow types ++ ["Handler Html"]
         , concat
             [ func
-            , " "
-            , concatMap toArgument types
-            , "= error \"Not yet implemented: "
+            , " = error \"Not yet implemented: "
             , func
             , "\""
             ]
@@ -120,7 +118,6 @@ mkHandler name pattern methods = unlines
     types = getTypes pattern
 
     toArrow t = concat [t, " -> "]
-    toArgument t = concat [uncapitalize t, " "]
 
     getTypes "" = []
     getTypes ('/':rest) = getTypes rest
@@ -129,7 +126,3 @@ mkHandler name pattern methods = unlines
       where
         (typ, rest') = break (== '/') rest
     getTypes rest = getTypes $ dropWhile (/= '/') rest
-
-uncapitalize :: String -> String
-uncapitalize (x:xs) = toLower x : xs
-uncapitalize "" = ""
