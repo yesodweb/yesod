@@ -46,7 +46,7 @@ cat l m   | m < 0  = 3.1
           | l == 0  = 3.1
           | notWhole l  = 3.1
           | notWhole m  = 3.1
-          | otherwise  = read (show (round l) ++ show (round m) :: Double)
+          | otherwise  = read (show (round l) ++ show (round m))
 
 g :: (Double -> Double -> Double) -> String
 g x         | x 3 2 == 5 = " + "
@@ -149,7 +149,7 @@ cars [a,b,c,d,e] = concat $ ca [a,b,c,d,e]
 
 truck x = do 
     let y = map round x
-    let z = show (head y) ++ " " ++ show (y !! 1) ++ " " ++ show (y !! 2) ++ " " ++  show (y !! 3) ++ "<br><br>"
+    let z = show (y !! 0) ++ " " ++ show (y !! 1) ++ " " ++ show (y !! 2) ++ " " ++  show (y !! 3) ++ "<br><br>"
     let a = (z ++ cars x ++ "<br>") :: String 
     return a :: IO String 
 
