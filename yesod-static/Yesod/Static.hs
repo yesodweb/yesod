@@ -247,7 +247,7 @@ staticFiles dir = mkStaticFiles dir
 -- files, but only need to refer to a few of them from Haskell.
 staticFilesList :: Prelude.FilePath -> [Prelude.FilePath] -> Q [Dec]
 staticFilesList dir fs =
-    mkStaticFilesList dir (map split fs) "StaticRoute" True
+    mkStaticFilesList dir (map split fs) True
   where
     split :: Prelude.FilePath -> [String]
     split [] = []
@@ -266,7 +266,7 @@ staticFilesList dir fs =
 -- contents, however they'll need send a request to the server to
 -- see if their copy is up-to-date.
 publicFiles :: Prelude.FilePath -> Q [Dec]
-publicFiles dir = mkStaticFiles' dir "StaticRoute" False
+publicFiles dir = mkStaticFiles' dir False
 
 
 mkHashMap :: Prelude.FilePath -> IO (M.Map F.FilePath S8.ByteString)
@@ -311,23 +311,21 @@ cachedETagLookup dir = do
     return $ (\f -> return $ M.lookup f etags)
 
 mkStaticFiles :: Prelude.FilePath -> Q [Dec]
-mkStaticFiles fp = mkStaticFiles' fp "StaticRoute" True
+mkStaticFiles fp = mkStaticFiles' fp True
 
 mkStaticFiles' :: Prelude.FilePath -- ^ static directory
-               -> String   -- ^ route constructor "StaticRoute"
                -> Bool     -- ^ append checksum query parameter
                -> Q [Dec]
-mkStaticFiles' fp routeConName makeHash = do
+mkStaticFiles' fp makeHash = do
     fs <- qRunIO $ getFileListPieces fp
-    mkStaticFilesList fp fs routeConName makeHash
+    mkStaticFilesList fp fs makeHash
 
 mkStaticFilesList
     :: Prelude.FilePath -- ^ static directory
     -> [[String]] -- ^ list of files to create identifiers for
-    -> String   -- ^ route constructor "StaticRoute"
     -> Bool     -- ^ append checksum query parameter
     -> Q [Dec]
-mkStaticFilesList fp fs routeConName makeHash = do
+mkStaticFilesList fp fs makeHash = do
     concat `fmap` mapM mkRoute fs
   where
     replace' c
@@ -345,16 +343,15 @@ mkStaticFilesList fp fs routeConName makeHash = do
                         | isLower (head name') -> name'
                         | otherwise -> '_' : name'
         f' <- [|map pack $(TH.lift f)|]
-        let route = mkName routeConName
         pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
                             [|[(pack "etag", pack $(TH.lift hash))]|]
                     else return $ ListE []
         return
-            [ SigD routeName $ ConT route
+            [ SigD routeName $ ConT ''StaticRoute
             , FunD routeName
-                [ Clause [] (NormalB $ (ConE route) `AppE` f' `AppE` qs) []
+                [ Clause [] (NormalB $ (ConE 'StaticRoute) `AppE` f' `AppE` qs) []
                 ]
             ]
 

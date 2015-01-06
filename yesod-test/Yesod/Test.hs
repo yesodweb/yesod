@@ -2,6 +2,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
 using wai and persistent.
@@ -95,8 +97,7 @@ module Yesod.Test
     , withResponse
     ) where
 
-import qualified Test.Hspec as Hspec
-import qualified Test.Hspec.Core as Core
+import qualified Test.Hspec.Core.Spec as Hspec
 import qualified Data.List as DL
 import qualified Data.ByteString.Char8 as BS8
 import Data.ByteString (ByteString)
@@ -202,10 +203,10 @@ yesodSpec :: YesodDispatch site
           -> YesodSpec site
           -> Hspec.Spec
 yesodSpec site yspecs =
-    Core.fromSpecList $ map unYesod $ execWriter yspecs
+    Hspec.fromSpecList $ map unYesod $ execWriter yspecs
   where
-    unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
-    unYesod (YesodSpecItem x y) = Core.it x $ do
+    unYesod (YesodSpecGroup x y) = Hspec.specGroup x $ map unYesod y
+    unYesod (YesodSpecItem x y) = Hspec.specItem x $ do
         app <- toWaiAppPlain site
         ST.evalStateT y YesodExampleData
             { yedApp = app
@@ -221,12 +222,10 @@ yesodSpecWithSiteGenerator :: YesodDispatch site
                            -> YesodSpec site
                            -> Hspec.Spec
 yesodSpecWithSiteGenerator getSiteAction yspecs =
-    Core.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
+    Hspec.fromSpecList $ map (unYesod getSiteAction) $ execWriter yspecs
     where
-      unYesod :: YesodDispatch t
-              => IO t -> YesodSpecTree t -> Core.SpecTree
-      unYesod getSiteAction' (YesodSpecGroup x y) = Core.SpecGroup x $ map (unYesod getSiteAction') y
-      unYesod getSiteAction' (YesodSpecItem x y) = Core.it x $ do
+      unYesod getSiteAction' (YesodSpecGroup x y) = Hspec.specGroup x $ map (unYesod getSiteAction') y
+      unYesod getSiteAction' (YesodSpecItem x y) = Hspec.specItem x $ do
         site <- getSiteAction'
         app <- toWaiAppPlain site
         ST.evalStateT y YesodExampleData
@@ -245,10 +244,10 @@ yesodSpecApp :: YesodDispatch site
              -> YesodSpec site
              -> Hspec.Spec
 yesodSpecApp site getApp yspecs =
-    Core.fromSpecList $ map unYesod $ execWriter yspecs
+    Hspec.fromSpecList $ map unYesod $ execWriter yspecs
   where
-    unYesod (YesodSpecGroup x y) = Core.SpecGroup x $ map unYesod y
-    unYesod (YesodSpecItem x y) = Core.it x $ do
+    unYesod (YesodSpecGroup x y) = Hspec.specGroup x $ map unYesod y
+    unYesod (YesodSpecItem x y) = Hspec.specItem x $ do
         app <- getApp
         ST.evalStateT y YesodExampleData
             { yedApp = app
@@ -698,3 +697,20 @@ request reqBuilder = do
 -- Yes, just a shortcut
 failure :: (MonadIO a) => T.Text -> a b
 failure reason = (liftIO $ HUnit.assertFailure $ T.unpack reason) >> error ""
+
+instance YesodDispatch site => Hspec.Example (ST.StateT (YesodExampleData site) IO a) where
+    type Arg (ST.StateT (YesodExampleData site) IO a) = site
+
+    evaluateExample example params action =
+        Hspec.evaluateExample
+            (action $ \site -> do
+                app <- toWaiAppPlain site
+                _ <- ST.evalStateT example YesodExampleData
+                    { yedApp = app
+                    , yedSite = site
+                    , yedCookies = M.empty
+                    , yedResponse = Nothing
+                    }
+                return ())
+            params
+            ($ ())

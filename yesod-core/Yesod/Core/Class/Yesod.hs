@@ -14,10 +14,12 @@ import           Yesod.Routes.Class
 import           Blaze.ByteString.Builder           (Builder)
 import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import           Control.Arrow                      ((***), second)
+import           Control.Exception                  (bracket)
 import           Control.Monad                      (forM, when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
                                                      LogSource)
+import           Control.Monad.Trans.Resource       (InternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))
@@ -284,6 +286,20 @@ class RenderRoute site => Yesod site where
     yesodMiddleware :: ToTypedContent res => HandlerT site IO res -> HandlerT site IO res
     yesodMiddleware = defaultYesodMiddleware
 
+    -- | How to allocate an @InternalState@ for each request.
+    --
+    -- The default implementation is almost always what you want. However, if
+    -- you know that you are never taking advantage of the @MonadResource@
+    -- instance in your handler functions, setting this to a dummy
+    -- implementation can provide a small optimization. Only do this if you
+    -- really know what you're doing, otherwise you can turn safe code into a
+    -- runtime error!
+    --
+    -- Since 1.4.2
+    yesodWithInternalState :: site -> Maybe (Route site) -> (InternalState -> IO a) -> IO a
+    yesodWithInternalState _ _ = bracket createInternalState closeInternalState
+    {-# INLINE yesodWithInternalState #-}
+
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
 -- \"Vary: Accept, Accept-Language\" and performs authorization checks.
 --
@@ -292,6 +308,43 @@ defaultYesodMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO
 defaultYesodMiddleware handler = do
     addHeader "Vary" "Accept, Accept-Language"
     authorizationCheck
+    handler
+
+-- | Defends against session hijacking by setting the secure bit on session
+-- cookies so that browsers will not transmit them over http. With this
+-- setting on, it follows that the server will regard requests made over
+-- http as sessionless, because the session cookie will not be included in
+-- the request. Use this as part of a total security measure which also
+-- includes disabling HTTP traffic to the site or issuing redirects from
+-- HTTP urls, and composing 'sslOnlyMiddleware' with the site's
+-- 'yesodMiddleware'.
+--
+-- Since 1.4.7
+sslOnlySessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
+sslOnlySessions = (fmap . fmap) secureSessionCookies
+  where
+    setSecureBit cookie = cookie { setCookieSecure = True }
+    secureSessionCookies = customizeSessionCookies setSecureBit
+
+-- | Apply a Strict-Transport-Security header with the specified timeout to
+-- all responses so that browsers will rewrite all http links to https
+-- until the timeout expires. For security, the max-age of the STS header
+-- should always equal or exceed the client sessions timeout. This defends
+-- against hijacking attacks on the sessions of users who attempt to access
+-- the site using an http url. This middleware makes a site functionally
+-- inaccessible over vanilla http in all standard browsers.
+--
+-- Since 1.4.7
+sslOnlyMiddleware :: Yesod site
+                     => Int -- ^ minutes
+                     -> HandlerT site IO res
+                     -> HandlerT site IO res
+sslOnlyMiddleware timeout handler = do
+    addHeader "Strict-Transport-Security"
+              $ T.pack $ concat [ "max-age="
+                                , show $ timeout * 60
+                                , "; includeSubDomains"
+                                ]
     handler
 
 -- | Check if a given request is authorized via 'isAuthorized' and
@@ -554,7 +607,8 @@ formatLogMessage getdate loc src level msg = do
 -- would work across many subdomains:
 --
 -- @
--- makeSessionBackend = fmap (customizeSessionCookie addDomain) ...
+-- makeSessionBackend site =
+--     (fmap . fmap) (customizeSessionCookies addDomain) ...
 --   where
 --     addDomain cookie = cookie { 'setCookieDomain' = Just \".example.com\" }
 -- @
@@ -581,6 +635,33 @@ defaultClientSessionBackend minutes fp = do
   let timeout = fromIntegral (minutes * 60)
   (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
   return $ clientSessionBackend key getCachedDate
+
+-- | Create a @SessionBackend@ which reads the session key from the named
+-- environment variable.
+--
+-- This can be useful if:
+--
+-- 1. You can't rely on a persistent file system (e.g. Heroku)
+-- 2. Your application is open source (e.g. you can't commit the key)
+--
+-- By keeping a consistent value in the environment variable, your users will
+-- have consistent sessions without relying on the file system.
+--
+-- Note: A suitable value should only be obtained in one of two ways:
+--
+-- 1. Run this code without the variable set, a value will be generated and
+--    printed on @/dev/stdout/@
+-- 2. Use @clientsession-generate@
+--
+-- Since 1.4.5
+envClientSessionBackend :: Int -- ^ minutes
+                        -> String -- ^ environment variable name
+                        -> IO SessionBackend
+envClientSessionBackend minutes name = do
+    key <- CS.getKeyEnv name
+    let timeout = fromIntegral (minutes * 60)
+    (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
+    return $ clientSessionBackend key getCachedDate
 
 jsToHtml :: Javascript -> Html
 jsToHtml (Javascript b) = preEscapedToMarkup $ toLazyText b

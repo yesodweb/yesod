@@ -1,21 +1,17 @@
 name:            yesod
-version:         1.4.0
+version:         1.4.1.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        Creation of type-safe, RESTful web applications.
-description:
-    A RESTful web framework with strong compile-time guarantees of correctness. It also affords space efficient code, highly concurrent loads, and portability to many deployment backends (via the wai package), from CGI to stand-alone serving.
-    .
-    Yesod also focuses on developer productivity. Yesod integrates well with tools for all your basic web development (wai, persistent, and shakespeare/hamlet)
-    .
-    The Yesod documentation site <http://www.yesodweb.com/> has much more information, including on the supporting packages mentioned above.
+description:     API docs and the README are available at <http://www.stackage.org/package/yesod>
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
+extra-source-files: README.md ChangeLog.md
 
 library
     if os(windows)
@@ -26,7 +22,7 @@ library
                    , yesod-auth                >= 1.4      && < 1.5
                    , yesod-persistent          >= 1.4      && < 1.5
                    , yesod-form                >= 1.4      && < 1.5
-                   , monad-control             >= 0.3      && < 0.4
+                   , monad-control             >= 0.3      && < 1.1
                    , transformers              >= 0.2.2
                    , wai                       >= 1.3
                    , wai-extra                 >= 1.3
@@ -47,9 +43,12 @@ library
                    , conduit-extra
                    , shakespeare
                    , streaming-commons
+                   , wai-logger
+                   , semigroups
 
     exposed-modules: Yesod
                    , Yesod.Default.Config
+                   , Yesod.Default.Config2
                    , Yesod.Default.Main
                    , Yesod.Default.Util
                    , Yesod.Default.Handlers

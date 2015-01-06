@@ -94,6 +94,7 @@ module Yesod.Core.Handler
     , sendWaiApplication
     , sendRawResponse
     , sendRawResponseNoConduit
+    , notModified
       -- * Different representations
       -- $representations
     , selectRep
@@ -112,6 +113,7 @@ module Yesod.Core.Handler
     , neverExpires
     , alreadyExpired
     , expiresAt
+    , setEtag
       -- * Session
     , SessionMap
     , lookupSession
@@ -209,6 +211,7 @@ import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
                     , Sink
                    )
 import qualified Yesod.Core.TypeCache as Cache
+import qualified Data.Word8 as W8
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -564,7 +567,7 @@ sendRawResponseNoConduit
     => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> m ())
     -> m a
 sendRawResponseNoConduit raw = control $ \runInIO ->
-    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
+    liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> runInIO (raw src sink) >> return ()
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
@@ -579,7 +582,7 @@ sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
                 => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
                 -> m a
 sendRawResponse raw = control $ \runInIO ->
-    runInIO $ sendWaiResponse $ flip W.responseRaw fallback
+    liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> runInIO (raw (src' src) (CL.mapM_ sink)) >> return ()
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
@@ -589,6 +592,13 @@ sendRawResponse raw = control $ \runInIO ->
         unless (S.null bs) $ do
             yield bs
             src' src
+
+-- | Send a 304 not modified response immediately. This is a short-circuiting
+-- action.
+--
+-- Since 1.4.4
+notModified :: MonadHandler m => m a
+notModified = sendWaiResponse $ W.responseBuilder H.status304 [] mempty
 
 -- | Return a 404 not found page. Also denotes no handler available.
 notFound :: MonadHandler m => m a
@@ -684,7 +694,7 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
 -- is never (realistically) expired.
 neverExpires :: MonadHandler m => m ()
 neverExpires = do
-    setHeader "Expires" "Thu, 31 Dec 2037 23:55:55 GMT"
+    askHandlerEnv >>= liftIO . rheGetMaxExpires >>= setHeader "Expires"
     cacheSeconds oneYear
   where
     oneYear :: Int
@@ -698,6 +708,36 @@ alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 -- | Set an Expires header to the given date.
 expiresAt :: MonadHandler m => UTCTime -> m ()
 expiresAt = setHeader "Expires" . formatRFC1123
+
+-- | Check the if-none-match header and, if it matches the given value, return
+-- a 304 not modified response. Otherwise, set the etag header to the given
+-- value.
+--
+-- Note that it is the responsibility of the caller to ensure that the provided
+-- value is a value etag value, no sanity checking is performed by this
+-- function.
+--
+-- Since 1.4.4
+setEtag :: MonadHandler m => Text -> m ()
+setEtag etag = do
+    mmatch <- lookupHeader "if-none-match"
+    let matches = maybe [] parseMatch mmatch
+    if encodeUtf8 etag `elem` matches
+        then notModified
+        else addHeader "etag" $ T.concat ["\"", etag, "\""]
+
+-- | Parse an if-none-match field according to the spec. Does not parsing on
+-- weak matches, which are not supported by setEtag.
+parseMatch :: S.ByteString -> [S.ByteString]
+parseMatch =
+    map clean . S.split W8._comma
+  where
+    clean = stripQuotes . fst . S.spanEnd W8.isSpace . S.dropWhile W8.isSpace
+
+    stripQuotes bs
+        | S.length bs >= 2 && S.head bs == W8._quotedbl && S.last bs == W8._quotedbl
+            = S.init $ S.tail bs
+        | otherwise = bs
 
 -- | Set a variable in the user's session.
 --

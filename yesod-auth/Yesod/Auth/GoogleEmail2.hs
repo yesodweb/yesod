@@ -115,8 +115,7 @@ authGoogleEmail clientID clientSecret =
                     `mappend` renderQueryText True qs
 
     login tm = do
-        url <- getDest tm
-        [whamlet|<a href=#{url}>_{Msg.LoginGoogle}|]
+        [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
 
     dispatch :: YesodAuth site
              => Text

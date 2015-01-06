@@ -6,6 +6,7 @@
 module Yesod.Form.Jquery
     ( YesodJquery (..)
     , jqueryDayField
+    , jqueryDatePickerDayField
     , jqueryAutocompleteField
     , jqueryAutocompleteField'
     , googleHostedJqueryUiCss
@@ -54,7 +55,16 @@ class YesodJquery a where
     urlJqueryUiDateTimePicker _ = Right "http://github.com/gregwebs/jquery.ui.datetimepicker/raw/master/jquery.ui.datetimepicker.js"
 
 jqueryDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerT site IO) Day
-jqueryDayField jds = Field
+jqueryDayField = flip jqueryDayField' "date"
+
+-- | Use jQuery's datepicker as the underlying implementation.
+--
+-- Since 1.4.3
+jqueryDatePickerDayField :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Field (HandlerT site IO) Day
+jqueryDatePickerDayField = flip jqueryDayField' "text"
+
+jqueryDayField' :: (RenderMessage site FormMessage, YesodJquery site) => JqueryDaySettings -> Text -> Field (HandlerT site IO) Day
+jqueryDayField' jds inputType = Field
     { fieldParse = parseHelper $ maybe
                   (Left MsgInvalidDay)
                   Right
@@ -63,7 +73,7 @@ jqueryDayField jds = Field
     , fieldView = \theId name attrs val isReq -> do
         toWidget [shamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} type="date" :isReq:required="" value="#{showVal val}">
+<input id="#{theId}" name="#{name}" *{attrs} type="#{inputType}" :isReq:required="" value="#{showVal val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs

@@ -45,7 +45,10 @@ module Yesod.Core
     , SessionBackend (..)
     , customizeSessionCookies
     , defaultClientSessionBackend
+    , envClientSessionBackend
     , clientSessionBackend
+    , sslOnlySessions
+    , sslOnlyMiddleware
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
@@ -60,7 +63,7 @@ module Yesod.Core
       -- * Misc
     , yesodVersion
     , yesodRender
-    , runFakeHandler
+    , Yesod.Core.runFakeHandler
       -- * LiteApp
     , module Yesod.Core.Internal.LiteApp
       -- * Low-level
@@ -120,7 +123,8 @@ import Yesod.Core.Internal.Run (yesodRunner)
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Class.Breadcrumbs
-import Yesod.Core.Internal.Run (yesodRender, runFakeHandler)
+import Yesod.Core.Internal.Run (yesodRender)
+import qualified Yesod.Core.Internal.Run
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import Yesod.Routes.Class
@@ -135,6 +139,15 @@ import Text.Cassius
 import Text.Lucius
 import Text.Julius
 import Network.Wai (Application)
+
+runFakeHandler :: (Yesod site, MonadIO m) =>
+                  SessionMap
+               -> (site -> Logger)
+               -> site
+               -> HandlerT site IO a
+               -> m (Either ErrorResponse a)
+runFakeHandler = Yesod.Core.Internal.Run.runFakeHandler
+{-# DEPRECATED runFakeHandler "import runFakeHandler from Yesod.Core.Unsafe" #-}
 
 -- | Return an 'Unauthorized' value, with the given i18n message.
 unauthorizedI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => msg -> m AuthResult

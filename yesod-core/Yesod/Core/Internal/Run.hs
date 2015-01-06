@@ -18,7 +18,7 @@ import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
                                                liftLoc)
-import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState, createInternalState, closeInternalState)
+import           Control.Monad.Trans.Resource (runResourceT, withInternalState, runInternalState)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import qualified Data.IORef                   as I
@@ -31,6 +31,7 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8)
 import           Data.Text.Encoding           (decodeUtf8With)
 import           Data.Text.Encoding.Error     (lenientDecode)
+import           Data.Time                    (getCurrentTime, addUTCTime)
 import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
@@ -45,9 +46,11 @@ import           Yesod.Core.Class.Yesod
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
+import           Yesod.Core.Internal.Util     (formatRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
 import Control.DeepSeq (($!!), NFData)
 import Control.Monad (liftM)
+import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 
 returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
 #if MIN_VERSION_bytestring(0, 10, 0)
@@ -194,6 +197,7 @@ runFakeHandler :: (Yesod site, MonadIO m) =>
                -> m (Either ErrorResponse a)
 runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
+  getMaxExpires <- getGetMaxExpires
   let handler' = do liftIO . I.writeIORef ret . Right =<< handler
                     return ()
   let yapp = runHandler
@@ -204,6 +208,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
             , rheUpload = fileUpload site
             , rheLog = messageLoggerSource site $ logger site
             , rheOnError = errHandler
+            , rheGetMaxExpires = getMaxExpires
             }
         handler'
       errHandler err req = do
@@ -242,7 +247,6 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
           }
   _ <- runResourceT $ yapp fakeRequest
   I.readIORef ret
-{-# WARNING runFakeHandler "Usually you should *not* use runFakeHandler unless you really understand how it works and why you need it." #-}
 
 yesodRunner :: (ToTypedContent res, Yesod site)
             => HandlerT site IO res
@@ -255,11 +259,12 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
         maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb req) yreSessionBackend
+    getMaxExpires <- getGetMaxExpires
     let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) mmaxLen
-    yreq <-
-        case mkYesodReq of
-            Left yreq -> return yreq
-            Right needGen -> liftIO $ needGen <$> newStdGen
+    let yreq =
+            case mkYesodReq of
+                Left yreq -> yreq
+                Right needGen -> needGen yreGen
     let ra = resolveApproot yreSite req
     let log' = messageLoggerSource yreSite yreLogger
         -- We set up two environments: the first one has a "safe" error handler
@@ -273,18 +278,25 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
             , rheUpload = fileUpload yreSite
             , rheLog = log'
             , rheOnError = safeEh log'
+            , rheGetMaxExpires = getMaxExpires
             }
         rhe = rheSafe
             { rheOnError = runHandler rheSafe . errorHandler
             }
 
-    E.bracket createInternalState closeInternalState $ \is -> do
+    yesodWithInternalState yreSite route $ \is -> do
         yreq' <- yreq
         yar <- runInternalState (runHandler rhe handler yreq') is
         yarToResponse yar saveSession yreq' req is sendResponse
   where
     mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'
+
+getGetMaxExpires :: MonadIO m => m (IO Text)
+getGetMaxExpires = liftIO $ mkAutoUpdate defaultUpdateSettings
+  { updateAction = liftM (formatRFC1123 . addUTCTime (60*60*24*365)) getCurrentTime
+  , updateFreq = 60 * 60 * 1000000 -- Update once per hour
+  }
 
 yesodRender :: Yesod y
             => y

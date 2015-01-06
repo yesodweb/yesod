@@ -46,19 +46,6 @@ instance RenderMessage Y Msg where
     renderMessage a (_:xs) y = renderMessage a xs y
     renderMessage a [] y = renderMessage a ["en"] y
 
-getTowidgetR :: Handler Html
-getTowidgetR = defaultLayout $ do
-    toWidget [julius|foo|] :: Widget
-    toWidgetHead [julius|foo|]
-    toWidgetBody [julius|foo|]
-
-    toWidget [lucius|foo{bar:baz}|]
-    toWidgetHead [lucius|foo{bar:baz}|]
-
-    toWidget [hamlet|<foo>|]
-    toWidgetHead [hamlet|<foo>|]
-    toWidgetBody [hamlet|<foo>|]
-
 getWhamletR :: Handler Html
 getWhamletR = defaultLayout [whamlet|
                     $newline never
@@ -85,13 +72,31 @@ $newline never
 getJSHeadR :: Handler Html
 getJSHeadR = defaultLayout $ toWidgetHead [julius|alert("hello");|]
 
+getTowidgetR :: Handler Html
+getTowidgetR = defaultLayout $ do
+    toWidget [julius|toWidget|] :: Widget
+    toWidgetHead [julius|toHead|]
+    toWidgetBody [julius|toBody|]
+
+    toWidget [lucius|toWidget{bar:baz}|]
+    toWidgetHead [lucius|toHead{bar:baz}|]
+
+    toWidget [hamlet|<p>toWidget|]
+    toWidgetHead [hamlet|<toHead>|]
+    toWidgetBody [hamlet|<p>toBody|]
+
 widgetTest :: Spec
 widgetTest = describe "Test.Widget" $ do
-      it "addJuliusBody" case_addJuliusBody
-      it "whamlet" case_whamlet
-      it "two letter lang codes" case_two_letter_lang
-      it "automatically applies toWidget" case_auto
-      it "toWidgetHead puts JS in head" case_jshead
+  it "addJuliusBody" case_addJuliusBody
+  it "whamlet" case_whamlet
+  it "two letter lang codes" case_two_letter_lang
+  it "automatically applies toWidget" case_auto
+  it "toWidgetHead puts JS in head" case_jshead
+  it "toWidget" $ runner $ do
+    res <- request defaultRequest
+        { pathInfo = ["towidget"]
+        }
+    assertBody "<!DOCTYPE html>\n<html><head><title></title><script>toHead</script><toHead></toHead>\n<style>toWidget{bar:baz}toHead{bar:baz}</style></head><body><script>toBody</script><p>toWidget</p>\n<p>toBody</p>\n<script>toWidget</script></body></html>" res
 
 runner :: Session () -> IO ()
 runner f = toWaiApp Y >>= runSession f

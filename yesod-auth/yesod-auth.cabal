@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.4.0.1
+version:         1.4.1.2
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -10,15 +10,10 @@ stability:       Stable
 cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-description:
-    This package provides a pluggable mechanism for allowing users to authenticate with your site. It comes with a number of common plugins, such as OpenID, BrowserID (a.k.a., Mozilla Persona), and email. Other packages are available from Hackage as well. If you've written such an add-on, please notify me so that it can be added to this description.
-   .
-   * <http://hackage.haskell.org/package/yesod-auth-account>: An account authentication plugin for Yesod
-   .
-   * <http://hackage.haskell.org/package/yesod-auth-hashdb>: The HashDB module previously packaged in yesod-auth, now with stronger, but compatible, security.
-   .
-   * <https://github.com/ollieh/yesod-auth-bcrypt/>: An alternative to the HashDB module.
+description:     API docs and the README are available at <http://www.stackage.org/package/yesod-auth>
 extra-source-files: persona_sign_in_blue.png
+                    README.md
+                    ChangeLog.md
 
 flag network-uri
   description: Get Network.URI from the network-uri package

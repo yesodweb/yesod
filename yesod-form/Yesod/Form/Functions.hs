@@ -254,8 +254,8 @@ postEnv = do
             return $ Just (p', Map.unionsWith (++) $ map (\(k, v) -> Map.singleton k [v]) f)
 
 runFormPostNoToken :: MonadHandler m
-                   => (Html -> MForm m (FormResult a, xml))
-                   -> m ((FormResult a, xml), Enctype)
+                   => (Html -> MForm m a)
+                   -> m (a, Enctype)
 runFormPostNoToken form = do
     langs <- languages
     m <- getYesod
@@ -273,7 +273,7 @@ runFormGet form = do
                 Just _ -> Just (Map.unionsWith (++) $ map (\(x, y) -> Map.singleton x [y]) gets, Map.empty)
     getHelper form env
 
-{- FIXME: generateFormGet' "Will be renamed to generateFormGet in next verison of Yesod" -}
+{- FIXME: generateFormGet' "Will be renamed to generateFormGet in next version of Yesod" -}
 -- |
 --
 -- Since 1.3.11
@@ -283,7 +283,7 @@ generateFormGet'
     -> m (xml, Enctype)
 generateFormGet' form = first snd `liftM` getHelper form Nothing
 
-{-# DEPRECATED generateFormGet "Will require RenderMessage in next verison of Yesod" #-}
+{-# DEPRECATED generateFormGet "Will require RenderMessage in next version of Yesod" #-}
 generateFormGet :: MonadHandler m
                 => (Html -> MForm m a)
                 -> m (a, Enctype)
