@@ -35,7 +35,6 @@ data Backend = Sqlite
              | Mysql
              | MongoDB
              | Simple
-             | Minimal
   deriving (Eq, Read, Show, Enum, Bounded)
 
 puts :: LT.Text -> IO ()
@@ -51,7 +50,6 @@ showBackend PostgresqlFay = "pf"
 showBackend Mysql = "mysql"
 showBackend MongoDB = "mongo"
 showBackend Simple = "simple"
-showBackend Minimal = "mini"
 
 readBackend :: String -> Maybe Backend
 readBackend s = lookup s $ map (showBackend &&& id) backends
@@ -63,7 +61,6 @@ backendBS PostgresqlFay = $(embedFile "hsfiles/postgres-fay.hsfiles")
 backendBS Mysql = $(embedFile "hsfiles/mysql.hsfiles")
 backendBS MongoDB = $(embedFile "hsfiles/mongo.hsfiles")
 backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")
-backendBS Minimal = $(embedFile "hsfiles/minimal.hsfiles")
 
 validPackageName :: String -> Bool
 validPackageName s = isJust (simpleParse s :: Maybe PackageName)
@@ -99,8 +96,4 @@ scaffold isBare = do
             responseBody res $$+- sink
         Right backend -> runResourceT $ yield (backendBS backend) $$ sink
 
-    let projectnameReplacer = if isBare
-                                then LT.replace "cd PROJECTNAME && " ""
-                                else LT.replace "PROJECTNAME" (LT.pack project)
-
-    TLIO.putStr $ projectnameReplacer $ renderTextUrl undefined $(textFile "input/done.cg")
+    TLIO.putStr $ LT.replace "PROJECTNAME" (LT.pack project) $ renderTextUrl undefined $(textFile "input/done.cg")

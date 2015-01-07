@@ -7,8 +7,6 @@ module Options (injectDefaults) where
 import           Control.Applicative
 import qualified Control.Exception         as E
 import           Control.Monad
-import           Control.Monad.Trans.Except
-import           Control.Monad.Trans.Reader
 import           Data.Char                 (isAlphaNum, isSpace, toLower)
 import           Data.List                 (foldl')
 import           Data.List.Split           (splitOn)
@@ -73,21 +71,20 @@ injectDefaultP env path p@(OptP o)
            in  parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
      in  OptP (Option (CmdReader cmds (`M.lookup` cmdMap)) props)
   | (Option (OptReader names (CReader _ rdr) _) _) <- o =
-     p <|> either (const empty)
-                  pure
-                  (runExcept . msum $
-                    map (maybe (throwE $ ErrorMsg "Missing environment variable")
-                               (runReaderT (unReadM rdr))
-                          . getEnvValue env path)
-                        names)
+     p <|> either' (const empty) pure (msum $ map (rdr <=< (maybe (left $ ErrorMsg "Missing environment variable") right . getEnvValue env path)) names)
   | (Option (FlagReader names a) _) <- o =
      p <|> if any ((==Just "1") . getEnvValue env path) names then pure a else empty
   | otherwise = p
+  where
+    right= ReadM . Right
+    left = ReadM . Left
+    either' f g (ReadM x) = either f g x
 injectDefaultP env path (MultP p1 p2) =
    MultP (injectDefaultP env path p1) (injectDefaultP env path p2)
 injectDefaultP env path (AltP p1 p2) =
    AltP (injectDefaultP env path p1) (injectDefaultP env path p2)
 injectDefaultP _env _path b@(BindP {}) = b
+
 
 getEnvValue :: M.Map [String] String -> [String] -> OptName -> Maybe String
 getEnvValue env path (OptLong l) = M.lookup (path ++ [normalizeName l]) env

@@ -39,7 +39,7 @@ This is the helloworld and kitchen sink. In this case for testing a yesod app.
   mySuite = do
     describe "Basic navigation and assertions" $ do
       it "Gets a page that has a form, with auto generated fields and token" $ do
-        get "url/of/page/with/form" -- Load a page
+        get_ "url/of/page/with/form" -- Load a page
         statusIs 200 -- Assert the status was success
 
         bodyContains "Hello Person" -- Assert any part of the document contains some text.

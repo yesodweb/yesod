@@ -1,5 +1,5 @@
 name:            yesod-auth-oauth
-version:         1.4.0.1
+version:         1.4.0
 license:         BSD3
 license-file:    LICENSE
 author:          Hiromi Ishii
@@ -10,8 +10,7 @@ stability:       Stable
 cabal-version:   >= 1.6.0
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-description:     API docs and the README are available at <http://www.stackage.org/package/yesod-auth-oauth>
-extra-source-files: README.md ChangeLog.md
+description:     Oauth Authentication for Yesod.
 
 flag ghc7
 

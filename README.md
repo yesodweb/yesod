@@ -86,18 +86,23 @@ done
 
 ## Building your changes to Yesod
 
-The traditional Yesod stack requires 4 "mega-repos", each with multiple cabal packages. `cabal-meta install` will install each package.
+The traditional Yesod stack requires 4 "mega-repos", each with multiple cabal packages. `./script/install` will run tests against each package and install each package.
 
 ### install package in all repos
 
 ~~~ { .bash }
 for repo in shakespeare persistent wai yesod; do
     pushd $repo
-    cabal-meta install
+    ./scripts/install
     popd
 done
 ~~~
 
+### Clean build (sometimes necessary)
+
+~~~ { .bash }
+./scripts/install --clean
+~~~
 
 ### Building individual packages
 
