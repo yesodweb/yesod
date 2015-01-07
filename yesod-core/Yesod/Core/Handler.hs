@@ -281,7 +281,7 @@ rbHelper' backend mkFI req =
 askHandlerEnv :: MonadHandler m => m (RunHandlerEnv (HandlerSite m))
 askHandlerEnv = liftHandlerT $ HandlerT $ return . handlerEnv
 
--- | Get the master site appliation argument.
+-- | Get the master site application argument.
 getYesod :: MonadHandler m => m (HandlerSite m)
 getYesod = rheSite `liftM` askHandlerEnv
 
