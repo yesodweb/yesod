@@ -160,33 +160,3 @@ truck x = do
 
 main = truck $ roll 6 6 12 20
 
-{-
-
-    "Using the first number left of the result obtained from the second and third numbers." ++
-    map h2 (calc2 a b c d) ++
-    pim (calc2 a b c d) ++
-
-    "Using the first two numbers and then the remaining two numbers, then using those results."++
-    map h3 (calc3 a b c d) ++
-    pim (calc3 a b c d) ++
-
-    "Using the result from the first two numbers left of the third, then that result left of fourth number." ++
-    map h4 (calc4 a b c d) ++
-    pim (calc4 a b c d) ++
-
-    "Using the third number left of the result obtained from the first two, then that result left of the fourth number." ++
-    map h5 (calc5 a b c d) ++
-    pim (calc5 a b c d) ++
-
-    "Using the fourth number to the left of the result from using the first two numbers' result left of the third." ++
-    map h6 (calc6 a b c d) ++
-    pim (calc6 a b c d)     ++
-
-    "Using the fourth number to the left of the result from using the third number left of the result from the first two." ++
-    map h7 (calc7 a b c d) ++
-    pim (calc7 a b c d) 
--}
-
-
-
-
