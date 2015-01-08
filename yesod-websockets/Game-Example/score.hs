@@ -9,11 +9,7 @@ import Data.Monoid ((<>))
 import Control.Concurrent.STM.Lifted
 import Data.Text (Text, pack, isPrefixOf)
 import Fm hiding (main) 
-import Control.Exception.Base-- import Network.Wai.Handler.Warp hiding (defaultShouldDisplayException)
 import Text.Julius
-
-han :: String -> IO () -> IO ()
-han s = handle (\(SomeException _) -> print s)
 
 go = "GO" :: Text
 greeting = "The game of Score!" :: Text
@@ -37,15 +33,17 @@ scoreApp = do
     race_ 
         (forever $ atomically (readTChan readChan) >>= sendTextData) 
         (sourceWS $$ mapM_C (\msg -> 
-            if msg == go 
-                then do 
-                    let x = roll 6 6 12 20
-                    y <- liftIO $ truck x
-                    let z = map round x
-                    liftIO $ han "Problem forwarding a roll" $ atomically $ writeTChan writeChan $ go <> pack (show z) 
-                    liftIO $ han "Problem forwarding solutions" $ atomically $ writeTChan writeChan $ solutions <> pack y 
-            else 
-                liftIO $ han "Problem forwarding a message" $ atomically $ writeTChan writeChan msg )) 
+          if msg == go 
+            then do 
+              let x = roll 6 6 12 20
+              y <- liftIO $ truck x
+              let z = map round x
+              liftIO $ atomically $ writeTChan writeChan
+                $ go <> pack (show z) 
+              liftIO $ atomically $ writeTChan writeChan 
+                $ solutions <> pack y 
+          else 
+              liftIO $ atomically $ writeTChan writeChan msg )) 
 
 getHomeR :: Handler Html
 getHomeR = do 
@@ -227,21 +225,24 @@ getHomeR = do
 
 // ***************************************   timer control variables   ***
 
-        var T;    // Used for countdown in SCORE and IMPOSSIBLE.
-        var T2;   // Used for private countdowns in the individual browser. The file is countDown
-        var T3;   // Used for private countdowns. The file is countDown2. This is for SCORE after IMPOSSIBLE.
-        var T4;   // Used for countdown in SCORE after IMPOSSIBLE has been clicked.
+        var DS_T;    // Used for countdown in DS_score and IMPOSSIBLE.
+        var DS_T2;   // Used for private countdowns in the individual browser. The file is countDown
+        var DS_T3;   // Used for private countdowns. The file is countDown2. This is for DS_score after IMPOSSIBLE.
+        var DS_T4;   // Used for countdown in DS_score after IMPOSSIBLE has been clicked.
 
 // *************************************  end timer control variables  ***
-
-        var player = "Default Player";
-        var impossiblePlayer = "Bozo the Clown";
-        var score = 0; 
-        var solutions = "";
-        playerList = [];
-        players = {};
-        game = {"Steve" : {"player" : "Steve", "score" : 42}};
-        var ops = [" + ", " - ", " * ", " / ", "Concat"];
+        var DS_a;
+        var DS_b;
+        var DS_c;
+        var DS_d;
+        var DS_e;
+        var DS_player  = "Default Player";
+        var DS_impossiblePlayer = "Bozo the Clown";
+        var DS_score = 0; 
+        var DS_solutions = "";
+        var DS_players = {};
+        var DS_game = {"Steve" : {"DS_player" : "Steve", "DS_score" : 42}};
+        var DS_ops = [" + ", " - ", " * ", " / ", "Concat"];
         var url = document.URL,
             form = document.getElementById("form"),
             input = document.getElementById("input"),
@@ -251,7 +252,7 @@ getHomeR = do
 
         var TOG = "off";
 
-// **********************************************************   Page setup   ****************
+// ***********************************   Page setup   ***
 
         $(document).ready( function () {
             $("#output2").html("To get started, please enter a nickname.");   
@@ -278,22 +279,75 @@ getHomeR = do
             $("#8").val("concat");
         });
 
-// $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$   FUNCTIONS  
+// $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$   FUNCTIONS  
 
-// *****************************************************   Repeating functions   ***
+
+        function elep() {
+            var selDay2 = document.getElementsByName('day');
+            var selOps2 = document.getElementsByName('ops');
+            var selNight2 = document.getElementsByName('night');
+            var y = {};
+            var cow = [];
+            var a;
+            var b;
+
+            for (var i = 0; i < 4; i+=1) {
+                if (!(selDay2[i].checked || selNight2[i].checked)) {
+                    cow.push(selDay2[i].value);
+                }
+            }
+
+            for (var i = 0; i < 4; i++) {
+                if (selDay2[i].checked) {
+                    a = i;
+                    y.a = 1 * selDay2[i].value;
+                }
+            }
+
+            for (var i = 0; i < 5; i++) {
+                if (selOps2[i].checked) {
+                    y.b = 1 * selOps2[i].value;
+                }
+            }
+
+            for (var i = 0; i < 4; i++) {
+                if (selNight2[i].checked) {
+                    c = i;
+                    y.c = 1 * selNight2[i].value;
+                }
+            }
+
+            if (a == b) {
+                $("#output3").html("<h2>YOU CAN'T USE THE SAME DIE TWICE");
+                return;
+            }
+
+            else if (a != b) {
+                DS_a = y.a;
+                DS_b = y.b;
+                DS_c = y.c;
+                DS_d = cow[0];
+                DS_e = cow[1];
+            }
+        }
+
+
+
+
+// *****************************************************   Perpetually cycling functions   ***
 
         setInterval (function () {
-            conn.send("COWS," + player + "," + score);                           
+            conn.send("COWS," + DS_player  + "," + DS_score);                           
         }, 1000);
 
         setInterval (function () {
-            game = {};                           
+            DS_game = {};                           
         }, 10000);
 
         setInterval (function () {
             $("#rightOne").html("");
-            for (players in game) {
-                $("#rightOne").append(game[players].player + " " + game[players].score + "<br>");
+            for (players in DS_game) {
+                $("#rightOne").append(DS_game[players].player + " " + DS_game[players].score + "<br>");
             }                               
         }, 500);
 
@@ -301,12 +355,12 @@ getHomeR = do
         setInterval (function () {
             SCH_t = SCH_t - 1;  
             var timer = function () {
-                if (T < 1) {
+                if (DS_T < 1) {
                     return;
                 } else {
-                    T = T - 1;
+                    DS_T = DS_T - 1;
                     $("#output").show();
-                    $("#output").html(T);
+                    $("#output").html(DS_T);
                 }
             }
             timer();    
@@ -315,29 +369,30 @@ getHomeR = do
 // *********************************************************   Sign-in screener   ***
 
         var f9 = function (el) {
-            for (cows in players) {
+            var x;
+            for (cows in DS_players) {
                 if (players[cows] == el) {x = true;} else {x = false;}
             };
             if (x) {$("#output2").html("<h2>" + el + " is taken. Please try again.");
             } else {
                 conn.send("COWS" + el + 0);
-                player = el;
+                DS_player  = el;
                 $("#form").hide();
                 $("#roll").show();
             }
         } 
 
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^   Player clicked:  SCORE, IMPOSSIBLE, or SCORE2   ^^^
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^   DS_player  clicked:  SCORE, IMPOSSIBLE, or SCORE2   ^^^
 
         var localCalc1 = function() {
           setTimeout (function () {
-            T2 = T2 - 1;
-            if (T2 > 0) {
+            DS_T2 = DS_T2 - 1;
+            if (DS_T2 > 0) {
                 localCalc1();
             }
-            if (T2 == 0) {
-                score -= 1;
-                conn.send("LOSER" + player)
+            if (DS_T2 == 0) {
+                DS_score -= 1;
+                conn.send("LOSER" + DS_player)
                 return;
             } 
             else return;     
@@ -347,12 +402,12 @@ getHomeR = do
         var localCalc2 = function() {
           setTimeout (function () {
             T3 = T3 - 1;
-            if (T3 > 0) {
+            if (DS_T3 > 0) {
                 localCalc2();
             }
-            if (T3 == 0) {
-                score += 2;
-                conn.send("WINNER" + player);
+            if (DS_T3 == 0) {
+                DS_score += 2;
+                conn.send("WINNER" + DS_player);
                 return;
             } 
             else return;     
@@ -363,13 +418,13 @@ getHomeR = do
           setTimeout (function () {
             T3 = (-1)
             T4 = T4 - 1;
-            if (T4 > 0) {
+            if (DS_T4 > 0) {
                 console.log(T4);
                 localCalc3();
             }
-            else if (T4 == 0) {
-                score -= 1;
-                conn.send("LOSER2" + player);
+            else if (DS_T4 == 0) {
+                DS_score -= 1;
+                conn.send("LOSER2" + DS_player);
                 return;
             } 
             else {
@@ -378,7 +433,7 @@ getHomeR = do
           }, 1000)
         }
 
-// **************************************************************   Score keeping   ***
+// **************************************************************   DS_score keeping   ***
 
         var winner = function (x) {
             $("#output").html("");
@@ -392,7 +447,7 @@ getHomeR = do
 
         var loser2 = function (x) {
             $("#output").html("");
-            $("#output3").html("<h2>Deduct one point from " + x + "<br>One point for " + impossiblePlayer + "</h2>");     
+            $("#output3").html("<h2>Deduct one point from " + x + "<br>One point for " + DS_impossiblePlayer + "</h2>");     
         }      
 
 // **********************************************    Click callback functions    ***
@@ -404,13 +459,14 @@ getHomeR = do
         $("#SCORE1").click( function () {  
             $("#submitA").show();
             conn.send("THIRTY");
-            T2 = 31;
+            DS_T2 = 31;
             $("#output2").html("");
             localCalc1();
         });
 
         $("#submitA").click( function () {
             $("#output").html("");
+            elep();
             var x = elephant();
             if (x != "cow") {
                 conn.send("EVAL_A," + x);
@@ -422,6 +478,7 @@ getHomeR = do
 
         $("#submitB").click( function () {
             $("#output").html("");
+            elep();
             var x = elephant2();
             if (x != "cow") {
                 conn.send("EVAL_A," + x);
@@ -433,6 +490,7 @@ getHomeR = do
 
         $("#submitC").click( function () {
             $("#output").html("");
+            elep();
             var x = elephant3();
             if (x != "cow") {
                 conn.send("EVAL_A," + x);
@@ -442,8 +500,8 @@ getHomeR = do
 
         $("#IMPOSSIBLE").click( function () {
             TOG = "on";
-            score = score - 1;
-            conn.send("SIXTY" + player);
+            DS_score = DS_score - 1;
+            conn.send("SIXTY" + DS_player);
             T3 = 61;
             localCalc2();
         });           
@@ -455,10 +513,10 @@ getHomeR = do
             localCalc3();
         });
 
-// ***************************************************************   Solutions   ********** 
+// ***************************************************************   DS_solutions   ********** 
         $("#sol").click( function () { 
-            $("#out8").append(solutions);    
-            conn.send("LOOKED" + player);           
+            $("#out8").append(DS_solutions);    
+            conn.send("LOOKED" + DS_player);           
         });
 
         $("#erase").click( function () { 
@@ -501,172 +559,70 @@ getHomeR = do
                 case 4: res = a+""+c
             }
             if (res == 20) {
-                conn.send("WINNER" + player)
+                conn.send("WINNER" + DS_player)
             } 
             return res;
         };
 
-// ******************************************************   Number crunching   ***
+// *****************************   Number crunching   ***
 
-        function elephant() {
-            var selDay = document.getElementsByName('day');
-            var selOps = document.getElementsByName('ops');
-            var selNight = document.getElementsByName('night');
-            var yak = {};
-            var cow = [];
-            var a;
-            var b;
+       function elephant() {
+            var a = DS_a;
+            var b = DS_b;
+            var c = DS_c;
+            var d = firstCalc(DS_a, DS_b, DS_c)
+            var gak = [DS_a, DS_b, DS_c, d, DS_d, DS_e];
+            $("#output3").show();
+            $("#output3").append("gak: " + gak + "<br>");
+            $("#submitB").show();
+            return gak;
+        }
 
-            for (var i = 0; i < 4; i+=1) {
-                if (!(selDay[i].checked || selNight[i].checked)) {
-                    cow.push(selDay[i].value);
-                }
+       function elephant2() {
+            var a = DS_a;
+            var b = DS_b;
+            var c = DS_c;
+            res = calculate(DS_a, DS_b, DS_c);
+            var gak = [DS_a, DS_b, DS_c, res, DS_d];
+            $("#output3").append(gak + "<br>")
+            $("#submitD").show();
+            if (res === 20) { 
+                DS_score += 1; 
+                conn.send("WINNER" + DS_player); 
+                return gak;               
+            }
+            else {return gak};
+        }
+
+       function elephant3() {
+            var a = DS_a;
+            var b = DS_b;
+            var c = DS_c;
+            var rs = calculate(DS_a, DS_b, DS_c);
+            var gak = [DS_a, DS_b, DS_c, rs]; 
+            $("#output3").append(gak + "<br>")
+            $("#submitD").hide(); 
+
+            if (rs !== 20 && TOG == "off") { 
+                DS_score -= 1;
+                conn.send("LOSER" + DS_player) 
+                return gak; 
             }
 
-            for (var i = 0; i < 4; i++) {
-                if (selDay[i].checked) {
-                    a = i;
-                    yak.a = 1 * selDay[i].value;
-                }
-            }
+             if (rs !== 20 && TOG == "on") { 
+                DS_score -= 1;
+                conn.send("LOSER2" + DS_player) 
+                return gak; 
+            }               
 
-            for (var i = 0; i < 5; i++) {
-                if (selOps[i].checked) {
-                    yak.b = 1 * selOps[i].value;
-                }
-            }
-
-            for (var i = 0; i < 4; i++) {
-                if (selNight[i].checked) {
-                    b = i;
-                    yak.c = 1 * selNight[i].value;
-                }
-            }
-            if (a == b) {
-                $("#output3").html("<h2>YOU CAN'T USE THE SAME DIE TWICE");
-                return "cow";
-            }
-            else if (a != b) {
-                var gak = [yak.a, yak.b, yak.c, firstCalc(yak.a, yak.b, yak.c), cow[0], cow[1]];
-                $("#submitB").show();
-                $("#output3").html("");
-                return gak;
+            if (rs === 20) { 
+                DS_score += 1; 
+                conn.send("WINNER" + DS_player); 
+                return gak; 
             }
         }
 
-        function elephant2() {
-            var selDay2 = document.getElementsByName('day');
-            var selOps2 = document.getElementsByName('ops');
-            var selNight2 = document.getElementsByName('night');
-            var yak2 = {};
-            var cow2 = [];
-            var a;
-            var b;
-
-            for (var i = 0; i < 3; i+=1) {
-                if (!(selDay2[i].checked || selNight2[i].checked)) {
-                    cow2.push(selDay2[i].value);
-                }
-            }
-
-            for (var i = 0; i < 3; i++) {
-                if (selDay2[i].checked) {
-                    a = i;
-                    yak2.a = 1 * selDay2[i].value;
-                }
-            }
-
-            for (var i = 0; i < 5; i++) {
-                if (selOps2[i].checked) {
-                    yak2.b = 1 * selOps2[i].value;
-                }
-            }
-
-            for (var i = 0; i < 3; i++) {
-                if (selNight2[i].checked) {
-                    b = i;
-                    yak2.c = 1 * selNight2[i].value;
-                }
-            }
-
-            if (a == b) {
-                $("#output3").html("<h2>YOU CAN'T USE THE SAME DIE TWICE");
-                return "cow";
-            }
-
-            else if (a != b) {
-                res = calculate(yak2.a, yak2.b, yak2.c);
-                var gak = [yak2.a, yak2.b, yak2.c, res, cow2[0]];
-                $("#output3").html("");
-                $("#submitD").show();
-                if (res === 20) { 
-                    score += 1; 
-                    conn.send("WINNER" + player); 
-                    return gak;               
-                }
-                else {return gak};
-            }
-        }
-
-        function elephant3() {
-            var selDay3 = document.getElementsByName('day');
-            var selOps3 = document.getElementsByName('ops');
-            var selNight3 = document.getElementsByName('night');
-            var yak3 = {};
-            var cow3 = [];
-            var a;
-            var b;
-
-            for (var i = 0; i < 2; i++) {
-                if (selDay3[i].checked) {
-                    a = i;
-                    yak3.a = 1 * (selDay3[i].value) * 1;
-                }
-            }
-
-            for (var i = 0; i < 5; i++) {
-                if (selOps3[i].checked) {
-                    yak3.b = 1 * (selOps3[i].value) * 1;
-                }
-            }
-
-            for (var i = 0; i < 2; i++) {
-                if (selNight3[i].checked) {
-                    b = i;
-                    yak3.c = 1 * (selNight3[i].value) * 1;
-                }
-            }
-            if (a == b) {
-                $("#output3").html("<h2>YOU CAN'T USE THE SAME DIE TWICE");
-                return "cow";
-            }
-            else if (a != b) {
-                $("#output3").html("");
-                var rs = calculate(yak3.a, yak3.b, yak3.c);
-                var gak = [yak3.a, yak3.b, yak3.c, rs]; 
-                $("#submitD").hide(); 
-
-                if (rs !== 20 && TOG == "off") { 
-                    score -= 1;
-                    conn.send("LOSER" + player) 
-                    return gak; 
-                }
-
-                 if (rs !== 20 && TOG == "on") { 
-                    score -= 1;
-                    conn.send("LOSER2" + player) 
-                    return gak; 
-                }               
-
-                if (rs === 20) { 
-                    score += 1; 
-                    conn.send("WINNER" + player); 
-                    return gak; 
-                }
-            }
-        }
-
-// *****************************************************  PROCESS INCOMING DATA  ***
+// **************************  PROCESS INCOMING DATA  ***
 
         conn.onmessage = function(e) {
             var data = e.data;
@@ -678,13 +634,13 @@ getHomeR = do
                 var l = x.split(","); 
                 var pl = l[1];
                 var sc = l[2]; 
-                game[pl] = {"player" : pl, "score" : sc};
-                players[pl] = pl 
+                DS_game[pl] = {"player" : pl, "score" : sc};
+                DS_players[pl] = pl 
             }   
 
             if (e.data.substring(0,9) == "SOLUTIONS") {
                 var a = e.data;
-                solutions = a.substring(9);
+                DS_solutions = a.substring(9);
             }   
 
             if (data.substring(0,2) == "GO") {
@@ -694,8 +650,8 @@ getHomeR = do
                 $("#out9").show();
                 $("#erase2").show();
                 $("#output3").html("");
-                T = 0;
-                T2 = (-1);
+                DS_T = 0;
+                DS_T2 = (-1);
                 T3 = (-1);
                 T4 = (-1);
                 $("#1").show();
@@ -704,7 +660,9 @@ getHomeR = do
                 $("#10").show();
                 $("#11").show();
                 $("#12").show();
-                $("#output2").html("Click 'SCORE' to begin calculating, <br> or 'IMPOSSIBLE' if you think competitors can't find a solution within 60 seconds. ");
+                $("#output2").html("Click 'SCORE' to begin calculating, "
+                    + "<br> or 'IMPOSSIBLE' if you think competitors "
+                        + "can't find a solution within 60 seconds. ");
                 $("#out2").html("");
                 $("#out3").show();               
                 $("#SCORE1").show();
@@ -765,7 +723,7 @@ getHomeR = do
                 var e = zx[5]
                 var f = zx[6]
                 $("#out2").show();
-                $("#out2").append(a + " " + ops[b] + " " + c + " = " + d + "<br>");
+                $("#out2").append(a + " " + DS_ops[b] + " " + c + " = " + d + "<br>");
 
                 $("#0").html(d + " &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
                 $("#1").html(e + " &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
@@ -788,7 +746,7 @@ getHomeR = do
             }
 
             if (data == "THIRTY") {
-                T = 31;
+                DS_T = 31;
                 $("#IMPOSSIBLE").hide();                    
                 $("#SCORE1").hide(); 
                 $("#roll").hide(); 
@@ -802,7 +760,7 @@ getHomeR = do
             }
 
             if (data == "THIRTY2") {
-                T = 31;
+                DS_T = 31;
                 T3 = (-1);
                 $("#IMPOSSIBLE").hide();
                 $("#SCORE3").hide();   
@@ -810,7 +768,7 @@ getHomeR = do
             }
 
             if (data.substring(0,5) == "SIXTY") {
-                T = 61;
+                DS_T = 61;
                 var name = data.substring(5);
                 $("#SCORE3").show();
                 $("#roll").hide();
@@ -818,16 +776,16 @@ getHomeR = do
                 $("#SCORE1").hide();
                 $("#IMPOSSIBLE").hide();
                 $("#output2").show(); 
-                $("#output2").html("The deduction from " + name + "'s score might be temporary.")
-                impossiblePlayer = e.data.substring(5); 
-                $("#output4").html("impossiblePlayer is " + impossiblePlayer);        
+                $("#output2").html("The deduction from " + name + "'s DS_score might be temporary.")
+                DS_impossiblePlayer = e.data.substring(5); 
+                $("#output4").html("impossiblePlayer is " + DS_impossiblePlayer);        
             }
 
             if (data.substring(0,6) == "WINNER") {   // The browsers keep score
-                T = (-1);
-                T2 = (-1);
-                T3 = (-1);
-                T4 = (-1);
+                DS_T = (-1);
+                DS_T2 = (-1);
+                DS_T3 = (-1);
+                DS_T4 = (-1);
                 var win = data.substring(6);
                 $("#roll").show();
                 $("#submitA").hide();
@@ -839,8 +797,8 @@ getHomeR = do
             }                   
 
             if (data.substring(0,5) == "LOSER") { 
-                T = -1;
-                t2 = -1;
+                DS_T = -1;
+                DS_T2 = -1;
                 var lose = e.data.substring(5);                    
                 $("#roll").show();
                 $("#submitA").hide();
@@ -852,11 +810,11 @@ getHomeR = do
             }
 
              if (data.substring(0,6) == "LOSER2") { 
-                T = -1;
+                DS_T = -1;
                 T4 = -1;
                 var lose = e.data.substring(6);
-                if (player == impossiblePlayer) {
-                    score += 2;
+                if (DS_player == DS_impossiblePlayer) {
+                    DS_score += 2;
                 }
                 $("#output2").html("");                   
                 $("#roll").show();
