@@ -7,6 +7,7 @@ import Data.Text hiding (map, concat, null)
 import Prelude
 import System.Random
 import System.IO.Unsafe -- Only for values going directly into HTML website forms.
+import Data.Set (fromList, toList)
 
 toDouble :: Int -> Double
 toDouble x = read (show x) :: Double
@@ -63,94 +64,98 @@ scoreDiv :: (Eq a, Fractional a) => a -> a -> a
 scoreDiv az bz  | bz == 0  = 99999
                 | otherwise = (/) az bz
 
+ops =  [cat, (+), (-), (*), scoreDiv] 
+
+{- There are 7 ways in which the numbers must be ordered so that all possible outcomes 
+are covered. That is why we have 7 distinct functions covering "op2 (op1 a' b') c' == 20", 
+"op2 a' (op1 b' c') == 20", "op3 (op1 a' b') (op2 c' d') == 20", etc.
+-}
+
 calc :: Double -> Double -> Double -> Double -> [(String, String, String, String, String)]
 calc a b c d = [(f a', g op1, f b', g op2, f c') |
-                        [a',b',c',d'] <- nub(permutations [a,b,c,d]),
-                            op1 <- [cat, (+), (-), (*), scoreDiv],
-                            op2 <- [cat, (+), (-), (*), scoreDiv],
+                        [a',b',c',d'] <- toList $ fromList (permutations [a,b,c,d]),
+                            op1 <- ops,
+                            op2 <- ops,
                             op2 (op1 a' b') c' == 20]
 
 calc2 :: Double -> Double -> Double -> Double -> [(String, String, String, String, String)]
 calc2 a b c d = [(f a', g op1, f b', g op2, f c') |
-                        [a',b',c',d'] <- nub(permutations [a,b,c,d]),
-                            op1 <- [cat, (+), (-), (*), scoreDiv],
-                            op2 <- [cat, (+), (-), (*), scoreDiv],
+                        [a',b',c',d'] <- toList $ fromList (permutations [a,b,c,d]),
+                            op1 <- ops,
+                            op2 <- ops,
                             op2 a' (op1 b' c') == 20]
 
 calc3 :: Double -> Double -> Double -> Double -> [(String, String, String, String, String, String, String)]
 calc3 a b c d = [(f a', g op1, f b', g op3, f c', g op2, f d') |
-                        [a',b',c',d'] <- nub(permutations [a,b,c,d]),
-                            op1 <- [cat, (+), (-), (*), scoreDiv],
-                            op2 <- [cat, (+), (-), (*), scoreDiv],
-                            op3 <- [cat, (+), (-), (*), scoreDiv],
+                        [a',b',c',d'] <- toList $ fromList (permutations [a,b,c,d]),
+                            op1 <- ops,
+                            op2 <- ops,
+                            op3 <- ops,
                             op3 (op1 a' b') (op2 c' d') == 20]
 
 calc4 :: Double -> Double -> Double -> Double -> [(String, String, String, String, String, String, String)]
 calc4 a b c d = [(f a', g op1, f b', g op3, f c', g op2, f d') |
-                        [a',b',c',d'] <- nub(permutations [a,b,c,d]),
-                            op1 <- [cat, (+), (-), (*), scoreDiv],
-                            op2 <- [cat, (+), (-), (*), scoreDiv],
-                            op3 <- [cat, (+), (-), (*), scoreDiv],
+                        [a',b',c',d'] <- toList $ fromList (permutations [a,b,c,d]),
+                            op1 <- ops,
+                            op2 <- ops,
+                            op3 <- ops,
                             op3 (op2 (op1 a' b') c') d' == 20]
 
 calc5 a b c d = [(f a', g op1, f b', g op3, f c', g op2, f d') |
-                        [a',b',c',d'] <- nub(permutations [a,b,c,d]),
-                            op1 <- [cat, (+), (-), (*), scoreDiv],
-                            op2 <- [cat, (+), (-), (*), scoreDiv],
-                            op3 <- [cat, (+), (-), (*), scoreDiv],
+                        [a',b',c',d'] <- toList $ fromList (permutations [a,b,c,d]),
+                            op1 <- ops,
+                            op2 <- ops,
+                            op3 <- ops,
                             op3 (op2 c' (op1 a' b')) d' == 20]
 
 calc6 a b c d = [(f a', g op1, f b', g op3, f c', g op2, f d') |
-                        [a',b',c',d'] <- nub(permutations [a,b,c,d]),
-                            op1 <- [cat, (+), (-), (*), scoreDiv],
-                            op2 <- [cat, (+), (-), (*), scoreDiv],
-                            op3 <- [cat, (+), (-), (*), scoreDiv],
+                        [a',b',c',d'] <- toList $ fromList (permutations [a,b,c,d]),
+                            op1 <- ops,
+                            op2 <- ops,
+                            op3 <- ops,
                             op3 d' (op2 (op1 a' b') c') == 20]
 
 calc7 a b c d = [(f a', g op1, f b', g op3, f c', g op2, f d') |
-                        [a',b',c',d'] <- nub(permutations [a,b,c,d]),
-                            op1 <- [cat, (+), (-), (*), scoreDiv],
-                            op2 <- [cat, (+), (-), (*), scoreDiv],
-                            op3 <- [cat, (+), (-), (*), scoreDiv],
+                        [a',b',c',d'] <- toList $ fromList (permutations [a,b,c,d]),
+                            op1 <- ops,
+                            op2 <- ops,
+                            op3 <- ops,
                             op3 d' (op2 c' (op1 a' b')) == 20]
 
 h :: (String, String, String, String, String) -> String
-h (a',b',c',d',e') = "(" ++ a' ++ b' ++ c' ++ ")" ++ d' ++ e' ++ " = 20<br>  "
+h (a',b',c',d',e') = concat ["(", a', b', c',")", d', e', " = 20<br>  "]
 
 h2 :: (String, String, String, String, String) -> String
-h2 (a',b',c',d',e') = a' ++ d' ++  "(" ++ c' ++ b' ++ e'++ ") = 20<br>  "
+h2 (a',b',c',d',e') = concat [a', d',  "(", c', b', e'++ ") = 20<br>  "]
 
 h3 :: (String, String, String, String, String, String, String) -> String
-h3 (a',b',c',d',e',f',g') = "(" ++ a' ++ b' ++ c' ++ ")"  ++ d' ++ "(" ++ e' ++ f' ++
-                            g' ++ ") = 20<br>  "
+h3 (a',b',c',d',e',f',g') = concat ["(", a', b', c', ")" , d', "(", e', f',
+                            g', ") = 20<br>  "]
 
 h4 :: (String, String, String, String, String, String, String) -> String
-h4 (a',b',c',d',e',f',g') = "((" ++ a' ++ b' ++ c' ++ ")" ++
-    f' ++ e' ++ ")" ++ d' ++ g' ++ ") = 20<br>  "
+h4 (a',b',c',d',e',f',g') = concat ["((", a', b', c', ")",
+    f', e', ")", d', g', ") = 20<br>  "]
 
-h5 (a',b',c',d',e',f',g') = "(" ++ e' ++ f' ++ "(" ++ a' ++
-  b' ++ c' ++ "))" ++ d' ++ g' ++ ") = 20<br>  "
+h5 (a',b',c',d',e',f',g') = concat ["(", e', f', "(", a',
+  b', c', "))", d', g', ") = 20<br>  "]
 
-h6 (a',b',c',d',e',f',g') = g' ++ d' ++ "((" ++ a' ++ b' ++
-  c' ++ ")" ++ f' ++ e' ++ ") = 20<br>  "
+h6 (a',b',c',d',e',f',g') = concat [g', d', "((", a', b',
+  c', ")", f', e', ") = 20<br>  "]
 
-h7 (a',b',c',d',e',f',g') = g' ++ d' ++ "(" ++ e' ++ f' ++
-  "(" ++ a' ++ b' ++ c' ++ ")) = 20<br> "
-
--- pim x  | null x  = " -- There are no solutions in this category"
---        | otherwise  = ""
+h7 (a',b',c',d',e',f',g') = concat [g', d', "(", e', f',
+  "(", a', b', c', ")) = 20<br> "]
 
 ca [] = ["Empty"]
-ca [a, b, c, d, e] = map h (calc a b c d) ++ map h2 (calc2 a b c d) ++ map h3 (calc3 a b c d) ++ map h4 (calc4 a b c d)  ++
-    map h5 (calc5 a b c d) ++ map h6 (calc6 a b c d) ++ map h7 (calc7 a b c d)
+ca [a, b, c, d, e] = concat [map h (calc a b c d), map h2 (calc2 a b c d), map h3 (calc3 a b c d), map h4 (calc4 a b c d) ,
+    map h5 (calc5 a b c d), map h6 (calc6 a b c d), map h7 (calc7 a b c d)]
 ca _ = ["What?"]
 
 cars [a,b,c,d,e] = concat $ ca [a,b,c,d,e]
 
 truck x = do 
     let y = map round x
-    let z = show (y !! 0) ++ " " ++ show (y !! 1) ++ " " ++ show (y !! 2) ++ " " ++  show (y !! 3) ++ "<br><br>"
-    let a = (z ++ cars x ++ "<br>") :: String 
+    let z = show $ concat [show (y !! 0), " ", show (y !! 1), " ", show (y !! 2), " ",  show (y !! 3), "<br><br>"]
+    let a = concat [z, cars x, "<br>"] :: String 
     return a :: IO String 
 
 main = truck $ roll 6 6 12 20
