@@ -32,6 +32,12 @@ module Application
     , appMain
     , develMain
     , makeFoundation
+    -- * for DevelMain
+    , getApplicationRepl
+    , shutdownApp
+    -- * for GHCI
+    , handler
+    , db
     ) where
 
 import Control.Monad.Logger                 (liftLoc, runLoggingT)
@@ -42,7 +48,7 @@ import Language.Haskell.TH.Syntax           (qLocation)
 import Network.Wai.Handler.Warp             (Settings, defaultSettings,
                                              defaultShouldDisplayException,
                                              runSettings, setHost,
-                                             setOnException, setPort)
+                                             setOnException, setPort, getPort)
 import Network.Wai.Middleware.RequestLogger (Destination (Logger),
                                              IPAddrSource (..),
                                              OutputFormat (..), destination,
@@ -131,11 +137,14 @@ warpSettings foundation =
 -- | For yesod devel, return the Warp settings and WAI Application.
 getApplicationDev :: IO (Settings, Application)
 getApplicationDev = do
-    settings <- loadAppSettings [configSettingsYml] [] useEnv
+    settings <- getAppSettings
     foundation <- makeFoundation settings
-    app <- makeApplication foundation
     wsettings <- getDevSettings $ warpSettings foundation
+    app <- makeApplication foundation
     return (wsettings, app)
+
+getAppSettings :: IO AppSettings
+getAppSettings = loadAppSettings [configSettingsYml] [] useEnv
 
 -- | main function for use by yesod devel
 develMain :: IO ()
@@ -161,6 +170,34 @@ appMain = do
     -- Run the application with Warp
     runSettings (warpSettings foundation) app
 
+
+--------------------------------------------------------------
+-- Functions for DevelMain.hs (a way to run the app from GHCi)
+--------------------------------------------------------------
+getApplicationRepl :: IO (Int, App, Application)
+getApplicationRepl = do
+    settings <- getAppSettings
+    foundation <- makeFoundation settings
+    wsettings <- getDevSettings $ warpSettings foundation
+    app1 <- makeApplication foundation
+    return (getPort wsettings, foundation, app1)
+
+shutdownApp :: App -> IO ()
+shutdownApp _ = return ()
+
+
+---------------------------------------------
+-- Functions for use in development with GHCi
+---------------------------------------------
+
+-- | Run a handler
+handler :: Handler a -> IO a
+handler h = getAppSettings >>= makeFoundation >>= flip unsafeHandler h
+
+-- | Run DB queries
+db :: ReaderT SqlBackend (HandlerT App IO) a -> IO a
+db = handler . runDB
+
 {-# START_FILE Foundation.hs #-}
 module Foundation where
 
@@ -171,6 +208,7 @@ import Text.Jasmine         (minifym)
 import Yesod.Auth.BrowserId (authBrowserId)
 import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
+import qualified Yesod.Core.Unsafe as Unsafe
 
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -306,6 +344,9 @@ instance YesodAuthPersist App
 instance RenderMessage App FormMessage where
     renderMessage _ _ = defaultFormMessage
 
+unsafeHandler :: App -> Handler a -> IO a
+unsafeHandler = Unsafe.fakeHandlerGetLogger appLogger
+
 -- Note: Some functionality previously present in the scaffolding has been
 -- moved to documentation in the Wiki. Following are some hopefully helpful
 -- links:
@@ -423,6 +464,7 @@ Flag library-only
     Default:       False
 
 library
+    hs-source-dirs: ., app
     exposed-modules: Application
                      Foundation
                      Import
@@ -458,7 +500,7 @@ library
 
     build-depends: base                          >= 4          && < 5
                  , yesod                         >= 1.4.1      && < 1.5
-                 , yesod-core                    >= 1.4.0      && < 1.5
+                 , yesod-core                    >= 1.4.6      && < 1.5
                  , yesod-auth                    >= 1.4.0      && < 1.5
                  , yesod-static                  >= 1.4.0.3    && < 1.5
                  , yesod-form                    >= 1.4.0      && < 1.5
@@ -695,40 +737,51 @@ import Yesod.Static (staticFiles)
 staticFiles (appStaticDir compileTimeAppSettings)
 
 {-# START_FILE app/DevelMain.hs #-}
--- | Development version to be run inside GHCi.
+-- | Running your app inside GHCi.
 --
--- start this up with:
+-- To start up GHCi for usage with Yesod, first make sure you are in dev mode:
 --
--- cabal repl --ghc-options="-O0 -fobject-code"
+-- > cabal configure -fdev
 --
--- run with:
+-- Note that @yesod devel@ automatically sets the dev flag.
+-- Now launch the repl:
 --
--- :l DevelMain
--- DevelMain.update
+-- > cabal repl --ghc-options="-O0 -fobject-code"
 --
--- You will need to add these packages to your .cabal file
--- * foreign-store >= 0.1 (very light-weight)
--- * warp (you already depend on this, it just isn't in your .cabal file)
+-- To start your app, run:
+--
+-- > :l DevelMain
+-- > DevelMain.update
+--
+-- You can also call @DevelMain.shutdown@ to stop the app
+--
+-- You will need to add the foreign-store package to your .cabal file.
+-- It is very light-weight.
 --
 -- If you don't use cabal repl, you will need
--- to add settings to your .ghci file.
+-- to run the following in GHCi or to add it to
+-- your .ghci file.
 --
 -- :set -DDEVELOPMENT
 --
--- There is more information about using ghci
+-- There is more information about this approach,
 -- on the wiki: https://github.com/yesodweb/yesod/wiki/ghci
 
 module DevelMain where
 
-import Application (getApplicationDev)
+import Prelude
+import Application (getApplicationRepl, shutdownApp)
 
 import Control.Exception (finally)
+import Control.Monad ((>=>))
 import Control.Concurrent
 import Data.IORef
 import Foreign.Store
 import Network.Wai.Handler.Warp
+import GHC.Word
 
 -- | Start or restart the server.
+-- newStore is from foreign-store.
 -- A Store holds onto some data across ghci reloads
 update :: IO ()
 update = do
@@ -741,27 +794,48 @@ update = do
           _ <- storeAction (Store tidStoreNum) (newIORef tid)
           return ()
       -- server is already running
-      Just tidStore ->
-          -- shut the server down with killThread and wait for the done signal
-          modifyStoredIORef tidStore $ \tid -> do
-              killThread tid
-              withStore doneStore takeMVar >> readStore doneStore >>= start
+      Just tidStore -> restartAppInNewThread tidStore
   where
+    doneStore :: Store (MVar ())
     doneStore = Store 0
-    tidStoreNum = 1
 
-    modifyStoredIORef :: Store (IORef a) -> (a -> IO a) -> IO ()
-    modifyStoredIORef store f = withStore store $ \ref -> do
-        v <- readIORef ref
-        f v >>= writeIORef ref
+    -- shut the server down with killThread and wait for the done signal
+    restartAppInNewThread :: Store (IORef ThreadId) -> IO ()
+    restartAppInNewThread tidStore = modifyStoredIORef tidStore $ \tid -> do
+        killThread tid
+        withStore doneStore takeMVar
+        readStore doneStore >>= start
 
--- | Start the server in a separate thread.
-start :: MVar () -- ^ Written to when the thread is killed.
-      -> IO ThreadId
-start done = do
-    (settings,app) <- getApplicationDev
-    forkIO (finally (runSettings settings app)
-                    (putMVar done ()))
+
+    -- | Start the server in a separate thread.
+    start :: MVar () -- ^ Written to when the thread is killed.
+          -> IO ThreadId
+    start done = do
+        (port, site, app) <- getApplicationRepl
+        forkIO (finally (runSettings (setPort port defaultSettings) app)
+                        -- Note that this implies concurrency
+                        -- between shutdownApp and the next app that is starting.
+                        -- Normally this should be fine
+                        (putMVar done () >> shutdownApp site))
+
+-- | kill the server
+shutdown :: IO ()
+shutdown = do
+    mtidStore <- lookupStore tidStoreNum
+    case mtidStore of
+      -- no server running
+      Nothing -> putStrLn "no Yesod app running"
+      Just tidStore -> do
+          withStore tidStore $ readIORef >=> killThread
+          putStrLn "Yesod app is shutdown"
+
+tidStoreNum :: Word32
+tidStoreNum = 1
+
+modifyStoredIORef :: Store (IORef a) -> (a -> IO a) -> IO ()
+modifyStoredIORef store f = withStore store $ \ref -> do
+    v <- readIORef ref
+    f v >>= writeIORef ref
 
 {-# START_FILE app/devel.hs #-}
 {-# LANGUAGE PackageImports #-}

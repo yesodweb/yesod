@@ -1,3 +1,11 @@
+## 1.4.3.4
+
+Scaffolding updates:
+
+* Improve `DevelMain` support
+* Wipe out database during test runs
+* Convenience `unsafeHandler` function
+
 ## 1.4.3.3
 
 More consistent whitespace in hamlet files in scaffolding [#50](https://github.com/yesodweb/yesod-scaffold/issues/50)
