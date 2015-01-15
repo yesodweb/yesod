@@ -24,7 +24,7 @@ library
                    , network                   >= 2.2
                    , http-types                >= 0.7
                    , HUnit                     >= 1.2
-                   , hspec                     >= 1.4
+                   , hspec                     >= 1.4      && < 2.0
                    , bytestring                >= 0.9
                    , case-insensitive          >= 0.2
                    , text
