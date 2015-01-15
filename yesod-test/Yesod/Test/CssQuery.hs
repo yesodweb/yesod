@@ -57,7 +57,8 @@ rules :: Parser [SelectorGroup]
 rules = many $ directChildren <|> deepChildren
 
 directChildren :: Parser SelectorGroup
-directChildren = string "> " >> DirectChildren <$> parseSelectors
+directChildren =
+    string "> " >> DirectChildren <$> pOptionalTrailingSpace parseSelectors
 
 deepChildren :: Parser SelectorGroup
 deepChildren = DeepChildren <$> parseSelectors
@@ -90,7 +91,7 @@ pIdent :: Parser Text
 pIdent = pOptionalTrailingSpace $ do
     leadingMinus <- string "-" <|> pure ""
     nmstart <- T.singleton <$> satisfy (\c -> isAlpha c || c == '_')
-    nmchar <- takeWhile (\c -> isAlphaNum c || c == '_')
+    nmchar <- takeWhile (\c -> isAlphaNum c || c == '_' || c == '-')
     return $ T.concat [ leadingMinus, nmstart, nmchar ]
 
 
