@@ -102,7 +102,7 @@ combine func file isReload tls = do
             , func
             , " on "
             , show file
-            , ", but no template were found."
+            , ", but no templates were found."
             ]
         exps -> return $ DoE $ map NoBindS exps
   where
