@@ -484,7 +484,7 @@ test-suite test
                  , yesod-test >= 1.4.2 && < 1.5
                  , yesod-core
                  , yesod
-                 , hspec
+                 , hspec >= 2.0.0
                  , classy-prelude
                  , classy-prelude-yesod
 
@@ -8858,12 +8858,6 @@ $newline never
           \  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
           })();
         }
-    \<!-- Prompt IE 6 users to install Chrome Frame. Remove this if you want to support IE 6.  chromium.org/developers/how-tos/chrome-frame-getting-started -->
-    \<!--[if lt IE 7 ]>
-      <script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js">
-      <script>
-        window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})
-    \<![endif]-->
 
 {-# START_FILE templates/default-layout.hamlet #-}
 $maybe msg <- mmsg

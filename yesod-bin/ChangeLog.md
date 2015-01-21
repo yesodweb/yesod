@@ -5,6 +5,7 @@ Scaffolding updates:
 * Improve `DevelMain` support
 * Wipe out database during test runs
 * Convenience `unsafeHandler` function
+* Remove deprecated Chrome Frame code
 
 ## 1.4.3.3
 

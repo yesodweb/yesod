@@ -565,9 +565,11 @@ test-suite test
                  , resourcet
                  , monad-logger
                  , transformers
-                 , hspec
+                 , hspec >= 2.0.0
                  , classy-prelude
                  , classy-prelude-yesod
+                 , mongoDB
+                 , monad-control
 
 {-# START_FILE Settings.hs #-}
 -- | Settings are centralized, as much as possible, into this file. This
@@ -8965,12 +8967,6 @@ $newline never
           \  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
           })();
         }
-    \<!-- Prompt IE 6 users to install Chrome Frame. Remove this if you want to support IE 6.  chromium.org/developers/how-tos/chrome-frame-getting-started -->
-    \<!--[if lt IE 7 ]>
-      <script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js">
-      <script>
-        window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})
-    \<![endif]-->
 
 {-# START_FILE templates/default-layout.hamlet #-}
 $maybe msg <- mmsg
@@ -9101,14 +9097,22 @@ import Settings                 (appDatabaseConf)
 import Test.Hspec               as X
 import Yesod.Default.Config2    (ignoreEnv, loadAppSettings)
 import Yesod.Test               as X
+-- Wiping the test database
+import Database.MongoDB.Query (allCollections)
+import Database.MongoDB.Admin (dropCollection)
+import Control.Monad.Trans.Control (MonadBaseControl)
 
 runDB :: Action IO a -> YesodExample App a
 runDB action = do
     master <- getTestYesod
+    liftIO $ runDBWithApp master action
+
+runDBWithApp :: App -> Action IO a -> IO a
+runDBWithApp app action = do
     liftIO $ runMongoDBPool
-        (mgAccessMode $ appDatabaseConf $ appSettings master)
+        (mgAccessMode $ appDatabaseConf $ appSettings app)
         action
-        (appConnPool master)
+        (appConnPool app)
 
 withApp :: SpecWith App -> Spec
 withApp = before $ do
@@ -9116,5 +9120,19 @@ withApp = before $ do
         ["config/test-settings.yml", "config/settings.yml"]
         []
         ignoreEnv
-    makeFoundation settings
+    app <- makeFoundation settings
+    wipeDB app
+    return app
+
+-- This function will wipe your database.
+-- 'withApp' calls it before each test, creating a clean environment for each
+-- spec to run in.
+wipeDB :: App -> IO ()
+wipeDB app = void $ runDBWithApp app dropAllCollections
+
+dropAllCollections :: (MonadIO m, MonadBaseControl IO m) => Action m [Bool]
+dropAllCollections = allCollections >>= return . filter (not . isSystemCollection) >>= mapM dropCollection
+      where
+        isSystemCollection = isPrefixOf "system."
+
 
