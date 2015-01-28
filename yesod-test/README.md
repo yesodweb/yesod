@@ -50,7 +50,7 @@ This is the helloworld and kitchen sink. In this case for testing a yesod app.
 
         -- Performs the post using the current page to extract field values:
         post "url/to/post/to" $ do
-          addNonce -- Add the _nonce field with the currently shown value
+          addToken -- Add the CSRF _token field with the currently shown value
 
           -- Lookup field by the text on the labels pointing to them.
           byLabel "Email:" "gustavo@cerati.com"

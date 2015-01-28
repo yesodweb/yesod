@@ -122,7 +122,7 @@ main = hspec $ do
                     setUrl ("/form" :: Text)
                     byLabel "Some Label" "12345"
                     fileByLabel "Some File" "test/main.hs" "text/plain"
-                    addNonce
+                    addToken
                 statusIs 200
                 bodyEquals "12345"
             yit "finding html" $ do
