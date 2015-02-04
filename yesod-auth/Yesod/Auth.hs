@@ -295,9 +295,9 @@ clearCreds :: YesodAuth master
            -> HandlerT master IO ()
 clearCreds doRedirects = do
     y <- getYesod
+    onLogout
     deleteSession credsKey
     when doRedirects $ do
-        onLogout
         redirectUltDest $ logoutDest y
 
 getCheckR :: AuthHandler master TypedContent
