@@ -83,17 +83,19 @@ fixCabal name =
         (spaces, x') = span isSpace x
 
 fixRoutes :: String -> String -> String -> String -> String
-fixRoutes name pattern methods =
-    (++ l)
+fixRoutes name pattern methods fileContents =
+    fileContents ++ l
   where
     l = concat
-        [ pattern
+        [ startingCharacter
+        , pattern
         , " "
         , name
         , "R "
         , methods
         , "\n"
         ]
+    startingCharacter = if "\n" `isSuffixOf` fileContents then "" else "\n"
 
 mkHandler :: String -> String -> String -> String
 mkHandler name pattern methods = unlines
