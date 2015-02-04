@@ -1,3 +1,7 @@
+## 1.4.3.5
+
+* Fix add-handler putting two routes on one line [#922](https://github.com/yesodweb/yesod/pull/922)
+
 ## 1.4.3.4
 
 Scaffolding updates:
