@@ -1,3 +1,7 @@
+## 1.4.3.6
+
+* Scaffold update: use `addToken` instead of `addNonce`
+
 ## 1.4.3.5
 
 * Fix add-handler putting two routes on one line [#922](https://github.com/yesodweb/yesod/pull/922)

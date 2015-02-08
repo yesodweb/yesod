@@ -557,7 +557,7 @@ test-suite test
 
     build-depends: base
                  , PROJECTNAME
-                 , yesod-test >= 1.4.2 && < 1.5
+                 , yesod-test >= 1.4.3 && < 1.5
                  , yesod-core
                  , yesod
                  , persistent
@@ -9059,7 +9059,7 @@ spec = withApp $ do
         request $ do
             setMethod "POST"
             setUrl HomeR
-            addNonce
+            addToken
             fileByLabel "Choose a file" "test/Spec.hs" "text/plain" -- talk about self-reference
             byLabel "What's on the file?" "Some Content"
 
