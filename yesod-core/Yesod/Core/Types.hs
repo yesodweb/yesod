@@ -291,8 +291,7 @@ type ContentType = ByteString -- FIXME Text?
 -- Since 1.1.0
 newtype DontFullyEvaluate a = DontFullyEvaluate { unDontFullyEvaluate :: a }
 
--- | Responses to indicate some form of an error occurred. These are different
--- from 'SpecialResponse' in that they allow for custom error pages.
+-- | Responses to indicate some form of an error occurred.
 data ErrorResponse =
       NotFound
     | InternalError Text
