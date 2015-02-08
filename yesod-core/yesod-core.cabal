@@ -68,6 +68,7 @@ library
                    , primitive
                    , word8
                    , auto-update
+                   , semigroups
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content

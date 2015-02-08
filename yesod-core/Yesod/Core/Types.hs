@@ -65,6 +65,7 @@ import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 #if MIN_VERSION_monad_logger(0, 3, 10)
 import Control.Monad.Logger (MonadLoggerIO (..))
 #endif
+import Data.Semigroup (Semigroup)
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -248,6 +249,7 @@ newtype WidgetT site m a = WidgetT
 instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mempty = return ()
     mappend x y = x >> y
+instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
