@@ -1,3 +1,7 @@
+## 1.4.7.3
+
+* Remove defunct reference to SpecialResponse [#925](https://github.com/yesodweb/yesod/issues/925)
+
 ## 1.4.7
 
 SSL-only session security [#894](https://github.com/yesodweb/yesod/pull/894)
