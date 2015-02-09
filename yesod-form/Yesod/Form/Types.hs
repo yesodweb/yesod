@@ -34,6 +34,7 @@ import Control.Monad.Trans.Class
 import Data.String (IsString (..))
 import Yesod.Core
 import qualified Data.Map as Map
+import Data.Semigroup (Semigroup, (<>))
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -58,6 +59,8 @@ instance Applicative FormResult where
 instance Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
     mappend x y = mappend <$> x <*> y
+instance Semigroup m => Semigroup (FormResult m) where
+    x <> y = (<>) <$> x <*> y
 
 -- | The encoding type required by a form. The 'ToHtml' instance produces values
 -- that can be inserted directly into HTML.
@@ -70,6 +73,7 @@ instance Monoid Enctype where
     mempty = UrlEncoded
     mappend UrlEncoded UrlEncoded = UrlEncoded
     mappend _ _ = Multipart
+instance Semigroup Enctype
 
 data Ints = IntCons Int Ints | IntSingle Int
 instance Show Ints where
@@ -106,6 +110,8 @@ instance Monad m => Applicative (AForm m) where
 instance (Monad m, Monoid a) => Monoid (AForm m a) where
     mempty = pure mempty
     mappend a b = mappend <$> a <*> b
+instance (Monad m, Semigroup a) => Semigroup (AForm m a) where
+    a <> b = (<>) <$> a <*> b
 
 instance MonadTrans AForm where
     lift f = AForm $ \_ _ ints -> do
