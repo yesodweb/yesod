@@ -1,3 +1,7 @@
+## 1.4.4
+
+* Add a `Semigroup` instance
+
 ## 1.4.3
 
 Added `jqueryDatePickerDayField`.
