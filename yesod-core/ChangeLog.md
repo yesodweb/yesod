@@ -1,3 +1,7 @@
+## 1.4.8
+
+* Add a bunch of `Semigroup` instances
+
 ## 1.4.7.3
 
 * Remove defunct reference to SpecialResponse [#925](https://github.com/yesodweb/yesod/issues/925)
