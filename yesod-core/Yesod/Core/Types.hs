@@ -65,6 +65,7 @@ import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 #if MIN_VERSION_monad_logger(0, 3, 10)
 import Control.Monad.Logger (MonadLoggerIO (..))
 #endif
+import Data.Semigroup (Semigroup)
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -248,6 +249,7 @@ newtype WidgetT site m a = WidgetT
 instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mempty = return ()
     mappend x y = x >> y
+instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
@@ -332,8 +334,10 @@ newtype Title = Title { unTitle :: Html }
 
 newtype Head url = Head (HtmlUrl url)
     deriving Monoid
+instance Semigroup (Head a)
 newtype Body url = Body (HtmlUrl url)
     deriving Monoid
+instance Semigroup (Body a)
 
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 
@@ -357,6 +361,7 @@ instance Monoid (GWData a) where
         (unionWith mappend a5 b5)
         (a6 `mappend` b6)
         (a7 `mappend` b7)
+instance Semigroup (GWData a)
 
 data HandlerContents =
       HCContent H.Status !TypedContent
@@ -521,6 +526,7 @@ instance MonadIO m => MonadLoggerIO (HandlerT site m) where
 instance Monoid (UniqueList x) where
     mempty = UniqueList id
     UniqueList x `mappend` UniqueList y = UniqueList $ x . y
+instance Semigroup (UniqueList x)
 
 instance IsString Content where
     fromString = flip ContentBuilder Nothing . Blaze.ByteString.Builder.Char.Utf8.fromString
