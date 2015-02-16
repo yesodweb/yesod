@@ -22,8 +22,9 @@
 --
 -- Since 1.3.1
 module Yesod.Auth.GoogleEmail2
-    ( -- * Authentication handler
+    ( -- * Authentication handlers
       authGoogleEmail
+    , authGoogleEmailSaveToken
     , forwardUrl
     -- * User authentication token
     , Token(..)
@@ -48,7 +49,7 @@ module Yesod.Auth.GoogleEmail2
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
 import           Control.Applicative      ((<$>), (<*>))
 import           Control.Arrow            (second)
-import           Control.Monad            (liftM, unless)
+import           Control.Monad            (liftM, unless, when)
 import           Data.Aeson               ((.:?))
 import qualified Data.Aeson               as A
 import qualified Data.Aeson.Encode        as A
@@ -100,7 +101,8 @@ accessTokenKey :: Text
 accessTokenKey = "_GOOGLE_ACCESS_TOKEN"
 
 -- | Get user's access token from the session. Returns Nothing if it's not found
---   (probably because the user is not logged in via 'Yesod.Auth.GoogleEmail2')
+--   (probably because the user is not logged in via 'Yesod.Auth.GoogleEmail2'
+--   or you are not using 'authGoogleEmailSaveToken')
 getUserAccessToken :: MonadHandler m => m (Maybe Token)
 getUserAccessToken = fmap (\t -> Token t "Bearer") <$> lookupSession accessTokenKey
 
@@ -119,7 +121,22 @@ authGoogleEmail :: YesodAuth m
                 => Text -- ^ client ID
                 -> Text -- ^ client secret
                 -> AuthPlugin m
-authGoogleEmail clientID clientSecret =
+authGoogleEmail = authPlugin False
+
+-- | An alternative version which stores user access token in the session
+--   variable. Use it if you want to request user's profile from your app.
+authGoogleEmailSaveToken :: YesodAuth m
+                         => Text -- ^ client ID
+                         -> Text -- ^ client secret
+                         -> AuthPlugin m
+authGoogleEmailSaveToken = authPlugin True
+
+authPlugin :: YesodAuth m
+           => Bool -- ^ if the token should be stored
+           -> Text -- ^ client ID
+           -> Text -- ^ client secret
+           -> AuthPlugin m
+authPlugin storeToken clientID clientSecret =
     AuthPlugin pid dispatch login
   where
     complete = PluginR pid ["complete"]
@@ -192,7 +209,7 @@ authGoogleEmail clientID clientSecret =
         unless (tokenType' == "Bearer") $ error $ "Unknown token type: " ++ show tokenType'
 
         -- User's access token is saved for further access to API
-        setSession accessTokenKey accessToken'
+        when storeToken $ setSession accessTokenKey accessToken'
 
         personValue <- lift $ getPersonValue manager token
         person <- case parseEither parseJSON personValue of
@@ -228,8 +245,9 @@ getPersonValue manager token = do
 
 --------------------------------------------------------------------------------
 -- | An authentication token which was acquired from OAuth callback.
---   The token gets saved into the session storage, from where it can be
---   acquired which 'getUserAccessToken'.
+--   The token gets saved into the session storage only if you use
+--   'authGoogleEmailSaveToken'.
+--   You can acquire saved token with 'getUserAccessToken'.
 data Token = Token { accessToken :: Text
                    , tokenType   :: Text
                    } deriving (Show, Eq)
