@@ -7204,7 +7204,6 @@ button.close {
     display: none !important;
   }
 }
-/*# sourceMappingURL=bootstrap.css.map */
 
 {-# START_FILE BASE64 static/fonts/glyphicons-halflings-regular.eot #-}
 b08AABFOAAACAAIABAAAAAAABQAAAAAAAAABAJABAAAEAExQAAAAAAAAAAAAAAAAAAAAAAEAAAAA

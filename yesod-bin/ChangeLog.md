@@ -1,3 +1,7 @@
+## 1.4.3.8
+
+* Scaffold update: fix 404 for missing sourcemap
+
 ## 1.4.3.6
 
 * Scaffold update: use `addToken` instead of `addNonce`
