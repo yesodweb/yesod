@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.4.8
+version:         1.4.8.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -29,7 +29,7 @@ library
                    , bytestring            >= 0.9.1.4
                    , text                  >= 0.7
                    , template-haskell
-                   , path-pieces           >= 0.1.2    && < 0.2
+                   , path-pieces           >= 0.1.2    && < 0.3
                    , shakespeare           >= 2.0
                    , blaze-builder         >= 0.2.1.4  && < 0.4
                    , transformers          >= 0.2.2
