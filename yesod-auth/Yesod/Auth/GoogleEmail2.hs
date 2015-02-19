@@ -22,22 +22,44 @@
 --
 -- Since 1.3.1
 module Yesod.Auth.GoogleEmail2
-    ( authGoogleEmail
+    ( -- * Authentication handlers
+      authGoogleEmail
+    , authGoogleEmailSaveToken
     , forwardUrl
+    -- * User authentication token
+    , Token(..)
+    , getUserAccessToken
+    -- * Person
+    , getPerson
+    , Person(..)
+    , Name(..)
+    , Gender(..)
+    , PersonImage(..)
+    , resizePersonImage
+    , RelationshipStatus(..)
+    , PersonURI(..)
+    , PersonURIType(..)
+    , Organization(..)
+    , OrganizationType(..)
+    , Place(..)
+    , Email(..)
+    , EmailType(..)
     ) where
 
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
 import           Control.Applicative      ((<$>), (<*>))
 import           Control.Arrow            (second)
-import           Control.Monad            (liftM, unless)
+import           Control.Monad            (liftM, unless, when)
+import           Data.Aeson               ((.:?))
 import qualified Data.Aeson               as A
 import qualified Data.Aeson.Encode        as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
-                                           withObject)
+                                           parseMaybe, withObject, withText)
 import           Data.Conduit             (($$+-))
 import           Data.Conduit.Attoparsec  (sinkParser)
 import qualified Data.HashMap.Strict      as M
+import           Data.Maybe               (fromMaybe)
 import           Data.Monoid              (mappend)
 import           Data.Text                (Text)
 import qualified Data.Text                as T
@@ -45,7 +67,7 @@ import           Data.Text.Encoding       (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy           as TL
 import qualified Data.Text.Lazy.Builder   as TL
 import           Network.HTTP.Client      (parseUrl, requestHeaders,
-                                           responseBody, urlEncodedBody)
+                                           responseBody, urlEncodedBody, Manager)
 import           Network.HTTP.Conduit     (http)
 import           Network.HTTP.Types       (renderQueryText)
 import           Network.Mail.Mime        (randomString)
@@ -75,6 +97,15 @@ csrfKey = "_GOOGLE_CSRF_TOKEN"
 getCsrfToken :: MonadHandler m => m (Maybe Text)
 getCsrfToken = lookupSession csrfKey
 
+accessTokenKey :: Text
+accessTokenKey = "_GOOGLE_ACCESS_TOKEN"
+
+-- | Get user's access token from the session. Returns Nothing if it's not found
+--   (probably because the user is not logged in via 'Yesod.Auth.GoogleEmail2'
+--   or you are not using 'authGoogleEmailSaveToken')
+getUserAccessToken :: MonadHandler m => m (Maybe Token)
+getUserAccessToken = fmap (\t -> Token t "Bearer") <$> lookupSession accessTokenKey
+
 getCreateCsrfToken :: MonadHandler m => m Text
 getCreateCsrfToken = do
     mtoken <- getCsrfToken
@@ -90,7 +121,22 @@ authGoogleEmail :: YesodAuth m
                 => Text -- ^ client ID
                 -> Text -- ^ client secret
                 -> AuthPlugin m
-authGoogleEmail clientID clientSecret =
+authGoogleEmail = authPlugin False
+
+-- | An alternative version which stores user access token in the session
+--   variable. Use it if you want to request user's profile from your app.
+authGoogleEmailSaveToken :: YesodAuth m
+                         => Text -- ^ client ID
+                         -> Text -- ^ client secret
+                         -> AuthPlugin m
+authGoogleEmailSaveToken = authPlugin True
+
+authPlugin :: YesodAuth m
+           => Bool -- ^ if the token should be stored
+           -> Text -- ^ client ID
+           -> Text -- ^ client secret
+           -> AuthPlugin m
+authPlugin storeToken clientID clientSecret =
     AuthPlugin pid dispatch login
   where
     complete = PluginR pid ["complete"]
@@ -155,54 +201,315 @@ authGoogleEmail clientID clientSecret =
         manager <- liftM authHttpManager $ lift getYesod
         res <- http req manager
         value <- responseBody res $$+- sinkParser json'
-        Tokens accessToken tokenType <-
+        token@(Token accessToken' tokenType') <-
             case parseEither parseJSON value of
                 Left e -> error e
                 Right t -> return t
 
-        unless (tokenType == "Bearer") $ error $ "Unknown token type: " ++ show tokenType
+        unless (tokenType' == "Bearer") $ error $ "Unknown token type: " ++ show tokenType'
 
-        req2' <- liftIO $ parseUrl "https://www.googleapis.com/plus/v1/people/me"
-        let req2 = req2'
-                { requestHeaders =
-                    [ ("Authorization", encodeUtf8 $ "Bearer " `mappend` accessToken)
-                    ]
-                }
-        res2 <- http req2 manager
-        value2 <- responseBody res2 $$+- sinkParser json'
-        Person emails <-
-            case parseEither parseJSON value2 of
+        -- User's access token is saved for further access to API
+        when storeToken $ setSession accessTokenKey accessToken'
+
+        personValue <- lift $ getPersonValue manager token
+        person <- case parseEither parseJSON personValue of
                 Left e -> error e
                 Right x -> return x
+
         email <-
-            case map emailValue $ filter (\e -> emailType e == "account") emails of
+            case map emailValue $ filter (\e -> emailType e == EmailAccount) $ personEmails person of
                 [e] -> return e
                 [] -> error "No account email"
                 x -> error $ "Too many account emails: " ++ show x
-        lift $ setCredsRedirect $ Creds pid email $ allPersonInfo value2
+        lift $ setCredsRedirect $ Creds pid email $ allPersonInfo personValue
 
     dispatch _ _ = notFound
 
-data Tokens = Tokens Text Text
-instance FromJSON Tokens where
-    parseJSON = withObject "Tokens" $ \o -> Tokens
+-- | Allows to fetch information about a user from Google's API.
+--   In case of parsing error returns 'Nothing'.
+--   Will throw 'HttpException' in case of network problems or error response code.
+getPerson :: Manager -> Token -> HandlerT site IO (Maybe Person)
+getPerson manager token = parseMaybe parseJSON <$> getPersonValue manager token
+
+getPersonValue :: Manager -> Token -> HandlerT site IO A.Value
+getPersonValue manager token = do
+    req2' <- liftIO $ parseUrl "https://www.googleapis.com/plus/v1/people/me"
+    let req2 = req2'
+            { requestHeaders =
+                [ ("Authorization", encodeUtf8 $ "Bearer " `mappend` accessToken token)
+                ]
+            }
+    res2 <- http req2 manager
+    val <- responseBody res2 $$+- sinkParser json'
+    return val
+
+--------------------------------------------------------------------------------
+-- | An authentication token which was acquired from OAuth callback.
+--   The token gets saved into the session storage only if you use
+--   'authGoogleEmailSaveToken'.
+--   You can acquire saved token with 'getUserAccessToken'.
+data Token = Token { accessToken :: Text
+                   , tokenType   :: Text
+                   } deriving (Show, Eq)
+
+instance FromJSON Token where
+    parseJSON = withObject "Tokens" $ \o -> Token
         <$> o .: "access_token"
         <*> o .: "token_type"
 
-data Person = Person [Email]
-instance FromJSON Person where
-    parseJSON = withObject "Person" $ \o -> Person
-        <$> o .: "emails"
+--------------------------------------------------------------------------------
+-- | Gender of the person
+data Gender = Male | Female | OtherGender deriving (Show, Eq)
 
+instance FromJSON Gender where
+    parseJSON = withText "Gender" $ \t -> return $ case t of
+                                                "male"   -> Male
+                                                "female" -> Female
+                                                _        -> OtherGender
+
+--------------------------------------------------------------------------------
+-- | URIs specified in the person's profile
+data PersonURI =
+    PersonURI { uriLabel :: Maybe Text
+              , uriValue :: Maybe Text
+              , uriType  :: Maybe PersonURIType
+              } deriving (Show, Eq)
+
+instance FromJSON PersonURI where
+    parseJSON = withObject "PersonURI" $ \o -> PersonURI <$> o .:? "label"
+                                                         <*> o .:? "value"
+                                                         <*> o .:? "type"
+
+--------------------------------------------------------------------------------
+-- | The type of URI
+data PersonURIType = OtherProfile       -- ^ URI for another profile
+                   | Contributor        -- ^ URI to a site for which this person is a contributor
+                   | Website            -- ^ URI for this Google+ Page's primary website
+                   | OtherURI           -- ^ Other URL
+                   | PersonURIType Text -- ^ Something else
+                   deriving (Show, Eq)
+
+instance FromJSON PersonURIType where
+    parseJSON = withText "PersonURIType" $ \t -> return $ case t of
+            "otherProfile" -> OtherProfile
+            "contributor"  -> Contributor
+            "website"      -> Website
+            "other"        -> OtherURI
+            _              -> PersonURIType t
+
+--------------------------------------------------------------------------------
+-- | Current or past organizations with which this person is associated
+data Organization =
+    Organization { orgName  :: Maybe Text
+                   -- ^ The person's job title or role within the organization
+                 , orgTitle :: Maybe Text
+                 , orgType  :: Maybe OrganizationType
+                   -- ^ The date that the person joined this organization.
+                 , orgStartDate :: Maybe Text
+                   -- ^ The date that the person left this organization.
+                 , orgEndDate   :: Maybe Text
+                   -- ^ If @True@, indicates this organization is the person's
+                   -- ^ primary one, which is typically interpreted as the current one.
+                 , orgPrimary   :: Maybe Bool
+                 } deriving (Show, Eq)
+
+instance FromJSON Organization where
+    parseJSON = withObject "Organization" $ \o ->
+        Organization <$> o .:? "name"
+                     <*> o .:? "title"
+                     <*> o .:? "type"
+                     <*> o .:? "startDate"
+                     <*> o .:? "endDate"
+                     <*> o .:? "primary"
+
+--------------------------------------------------------------------------------
+-- | The type of an organization
+data OrganizationType = Work
+                      | School
+                      | OrganizationType Text -- ^ Something else
+                      deriving (Show, Eq)
+instance FromJSON OrganizationType where
+    parseJSON = withText "OrganizationType" $ \t -> return $ case t of
+                                                "work"   -> Work
+                                                "school" -> School
+                                                _        -> OrganizationType t
+
+--------------------------------------------------------------------------------
+-- | A place where the person has lived or is living at the moment.
+data Place =
+    Place { -- | A place where this person has lived. For example: "Seattle, WA", "Near Toronto".
+            placeValue :: Maybe Text
+            -- | If @True@, this place of residence is this person's primary residence.
+          , placePrimary :: Maybe Bool
+          } deriving (Show, Eq)
+
+instance FromJSON Place where
+    parseJSON = withObject "Place" $ \o -> Place <$> (o .:? "value") <*> (o .:? "primary")
+
+--------------------------------------------------------------------------------
+-- | Individual components of a name
+data Name =
+    Name { -- | The full name of this person, including middle names, suffixes, etc
+           nameFormatted :: Maybe Text
+           -- | The family name (last name) of this person
+         , nameFamily    :: Maybe Text
+           -- | The given name (first name) of this person
+         , nameGiven     :: Maybe Text
+           -- | The middle name of this person.
+         , nameMiddle    :: Maybe Text
+           -- | The honorific prefixes (such as "Dr." or "Mrs.") for this person
+         , nameHonorificPrefix :: Maybe Text
+           -- | The honorific suffixes (such as "Jr.") for this person
+         , nameHonorificSuffix :: Maybe Text
+         } deriving (Show, Eq)
+
+instance FromJSON Name where
+    parseJSON = withObject "Name" $ \o -> Name <$> o .:? "formatted"
+                                               <*> o .:? "familyName"
+                                               <*> o .:? "givenName"
+                                               <*> o .:? "middleName"
+                                               <*> o .:? "honorificPrefix"
+                                               <*> o .:? "honorificSuffix"
+
+--------------------------------------------------------------------------------
+-- | The person's relationship status.
+data RelationshipStatus = Single              -- ^ Person is single
+                        | InRelationship      -- ^ Person is in a relationship
+                        | Engaged             -- ^ Person is engaged
+                        | Married             -- ^ Person is married
+                        | Complicated         -- ^ The relationship is complicated
+                        | OpenRelationship    -- ^ Person is in an open relationship
+                        | Widowed             -- ^ Person is widowed
+                        | DomesticPartnership -- ^ Person is in a domestic partnership
+                        | CivilUnion          -- ^ Person is in a civil union
+                        | RelationshipStatus Text -- ^ Something else
+                        deriving (Show, Eq)
+
+instance FromJSON RelationshipStatus where
+    parseJSON = withText "RelationshipStatus" $ \t -> return $ case t of
+                  "single"                    -> Single
+                  "in_a_relationship"         -> InRelationship
+                  "engaged"                   -> Engaged
+                  "married"                   -> Married
+                  "its_complicated"           -> Complicated
+                  "open_relationship"         -> OpenRelationship
+                  "widowed"                   -> Widowed
+                  "in_domestic_partnership"   -> DomesticPartnership
+                  "in_civil_union"            -> CivilUnion
+                  _                           -> RelationshipStatus t
+
+--------------------------------------------------------------------------------
+-- | The URI of the person's profile photo.
+newtype PersonImage = PersonImage { imageUri :: Text } deriving (Show, Eq)
+
+instance FromJSON PersonImage where
+    parseJSON = withObject "PersonImage" $ \o -> PersonImage <$> o .: "url"
+
+-- | @resizePersonImage img 30@ would set query part to @?sz=30@ which would resize
+--   the image under the URI. If for some reason you need to modify the query
+--   part, you should do it after resizing.
+resizePersonImage :: PersonImage -> Int -> PersonImage
+resizePersonImage (PersonImage uri) size =
+    PersonImage $ uri `mappend` "?sz=" `mappend` T.pack (show size)
+
+--------------------------------------------------------------------------------
+-- | Information about the user
+--   Full description of the resource https://developers.google.com/+/api/latest/people
+data Person = Person
+    { personId           :: Text
+      -- | The name of this person, which is suitable for display
+    , personDisplayName        :: Maybe Text
+    , personName               :: Maybe Name
+    , personNickname           :: Maybe Text
+    , personBirthday           :: Maybe Text -- ^ Birthday formatted as YYYY-MM-DD
+    , personGender             :: Maybe Gender
+    , personProfileUri         :: Maybe Text -- ^ The URI of this person's profile
+    , personImage              :: Maybe PersonImage
+    , personAboutMe            :: Maybe Text -- ^ A short biography for this person
+    , personRelationshipStatus :: Maybe RelationshipStatus
+    , personUris               :: [PersonURI]
+    , personOrganizations      :: [Organization]
+    , personPlacesLived        :: [Place]
+    -- | The brief description of this person
+    , personTagline            :: Maybe Text
+    -- | Whether this user has signed up for Google+
+    , personIsPlusUser         :: Maybe Bool
+    -- | The "bragging rights" line of this person
+    , personBraggingRights     :: Maybe Text
+    -- | if a Google+ page, the number of people who have +1'd this page
+    , personPlusOneCount       :: Maybe Int
+    -- | For followers who are visible, the number of people who have added
+    --   this person or page to a circle.
+    , personCircledByCount     :: Maybe Int
+    -- | Whether the person or Google+ Page has been verified. This is used only
+    --   for pages with a higher risk of being impersonated or similar. This
+    --   flag will not be present on most profiles.
+    , personVerified           :: Maybe Bool
+    -- | The user's preferred language for rendering.
+    , personLanguage           :: Maybe Text
+    , personEmails             :: [Email]
+    , personDomain             :: Maybe Text
+    , personOccupation         :: Maybe Text -- ^ The occupation of this person
+    , personSkills             :: Maybe Text -- ^ The person's skills
+    } deriving (Show, Eq)
+
+
+instance FromJSON Person where
+    parseJSON = withObject "Person" $ \o ->
+        Person <$> o .:  "id"
+               <*> o .:  "displayName"
+               <*> o .:? "name"
+               <*> o .:? "nickname"
+               <*> o .:? "birthday"
+               <*> o .:? "gender"
+               <*> (o .:? "url")
+               <*> o .:? "image"
+               <*> o .:? "aboutMe"
+               <*> o .:? "relationshipStatus"
+               <*> ((fromMaybe []) <$> (o .:? "urls"))
+               <*> ((fromMaybe []) <$> (o .:? "organizations"))
+               <*> ((fromMaybe []) <$> (o .:? "placesLived"))
+               <*> o .:? "tagline"
+               <*> o .:? "isPlusUser"
+               <*> o .:? "braggingRights"
+               <*> o .:? "plusOneCount"
+               <*> o .:? "circledByCount"
+               <*> o .:? "verified"
+               <*> o .:? "language"
+               <*> ((fromMaybe []) <$> (o .:? "emails"))
+               <*> o .:? "domain"
+               <*> o .:? "occupation"
+               <*> o .:? "skills"
+
+--------------------------------------------------------------------------------
+-- | Person's email
 data Email = Email
     { emailValue :: Text
-    , emailType  :: Text
+    , emailType  :: EmailType
     }
-    deriving Show
+    deriving (Show, Eq)
+
 instance FromJSON Email where
     parseJSON = withObject "Email" $ \o -> Email
         <$> o .: "value"
         <*> o .: "type"
+
+--------------------------------------------------------------------------------
+-- | Type of email
+data EmailType = EmailAccount   -- ^ Google account email address
+               | EmailHome      -- ^ Home email address
+               | EmailWork      -- ^ Work email adress
+               | EmailOther     -- ^ Other email address
+               | EmailType Text -- ^ Something else
+               deriving (Show, Eq)
+
+instance FromJSON EmailType where
+    parseJSON = withText "EmailType" $ \t -> return $ case t of
+        "account" -> EmailAccount
+        "home"    -> EmailHome
+        "work"    -> EmailWork
+        "other"   -> EmailOther
+        _         -> EmailType t
 
 allPersonInfo :: A.Value -> [(Text, Text)]
 allPersonInfo (A.Object o) = map enc $ M.toList o
