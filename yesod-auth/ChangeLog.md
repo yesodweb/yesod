@@ -1,3 +1,7 @@
+## 1.4.3
+
+* Added means to fetch user's Google profile [#936](https://github.com/yesodweb/yesod/pull/936)
+
 ## 1.4.2
 
 * Perform `onLogout` before session cleaning [#923](https://github.com/yesodweb/yesod/pull/923)
