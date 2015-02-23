@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 -- | Use an email address as an identifier via Google's OpenID login system.
 --
 -- This backend will not use the OpenID identifier at all. It only uses OpenID

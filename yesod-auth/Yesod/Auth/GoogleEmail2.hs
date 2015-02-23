@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE FlexibleContexts  #-}
 -- | Use an email address as an identifier via Google's login system.
 --
 -- Note that this is a replacement for "Yesod.Auth.GoogleEmail", which depends
