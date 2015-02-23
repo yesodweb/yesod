@@ -321,7 +321,7 @@ removeFileIfExists file = removeFile file `Ex.catch` handler
 mkRebuild :: String -> FilePath -> DevelOpts -> (FilePath, FilePath) -> IO (IO Bool)
 mkRebuild ghcVer cabalFile opts (ldPath, arPath)
   | GHC.cProjectVersion /= ghcVer =
-       failWith "Yesod has been compiled with a different GHC version, please reinstall"
+       failWith "Yesod has been compiled with a different GHC version, please reinstall yesod-bin"
   | forceCabal opts               = return (rebuildCabal opts)
   | otherwise                     =
       return $ do
