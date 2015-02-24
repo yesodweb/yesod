@@ -1,3 +1,7 @@
+## 1.4.3.9
+
+* Scaffold update: minimal scaffold uses yesod-core instead of yesod [yesodweb/yesod-scaffold#65](https://github.com/yesodweb/yesod-scaffold/issues/65)
+
 ## 1.4.3.8
 
 * Scaffold update: fix 404 for missing sourcemap
