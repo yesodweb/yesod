@@ -8888,6 +8888,7 @@ $maybe msg <- mmsg
 
   <li ##{aDomId}>If you had javascript enabled then you wouldn't be seeing this.
 
+  <hr />
   <li #form>
     This is an example trivial Form. Read the #
     \<a href="http://www.yesodweb.com/book/forms">Forms chapter<span class="glyphicon glyphicon-bookmark"></span></a> #
@@ -8899,6 +8900,7 @@ $maybe msg <- mmsg
       ^{formWidget}
       <button .btn .btn-primary type="submit">
          Send it! <span class="glyphicon glyphicon-upload"></span>
+  <hr />
 
   <li> And last but not least, Testing. In <em>tests/main.hs</em> you will find a #
     test suite that performs tests on this page. #
@@ -8909,10 +8911,24 @@ document.getElementById(#{toJSON aDomId}).innerHTML = "This text was added by th
 
 {-# START_FILE templates/homepage.lucius #-}
 h1 {
-    text-align: center
+    text-align: center;
+    margin-bottom: 30px
 }
 h2##{aDomId} {
     color: #990
+}
+li {
+    line-height: 2em;
+    font-size: 16px
+}
+ol {
+    margin-bottom: 30px
+}
+footer {
+    text-align: center
+}
+.input-sm {
+    margin-left: 20px
 }
 
 {-# START_FILE test/Handler/CommonSpec.hs #-}
