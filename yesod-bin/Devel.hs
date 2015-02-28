@@ -68,6 +68,7 @@ import           Data.Streaming.Network                (bindPortTCP)
 import           Network                               (withSocketsDo)
 import           Network.HTTP.Conduit                  (conduitManagerSettings, newManager)
 import           Data.Default.Class                    (def)
+import           Network.HTTP.Client                   (managerSetProxy, noProxy)
 import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
                                                         waiProxyToSettings, wpsTimeout, wpsOnExc)
 import qualified Network.HTTP.ReverseProxy             as ReverseProxy
@@ -124,7 +125,7 @@ cabalProgram opts | isCabalDev opts = "cabal-dev"
 -- 3001, give an appropriate message to the user.
 reverseProxy :: DevelOpts -> I.IORef Int -> IO ()
 reverseProxy opts iappPort = do
-    manager <- newManager conduitManagerSettings
+    manager <- newManager $ managerSetProxy noProxy conduitManagerSettings
     let refreshHtml = LB.fromChunks $ return $(embedFile "refreshing.html")
     let onExc _ req
             | maybe False (("application/json" `elem`) . parseHttpAccept)
