@@ -1,3 +1,7 @@
+## 1.4.3.10
+
+* Disregard proxy environment variables in yesod devel [#945](https://github.com/yesodweb/yesod/pull/945)
+
 ## 1.4.3.9
 
 * Scaffold update: minimal scaffold uses yesod-core instead of yesod [yesodweb/yesod-scaffold#65](https://github.com/yesodweb/yesod-scaffold/issues/65)
