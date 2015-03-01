@@ -1,6 +1,10 @@
-## 1.4.3.10
+## 1.4.3.11
 
 * Disregard proxy environment variables in yesod devel [#945](https://github.com/yesodweb/yesod/pull/945)
+
+## 1.4.3.10
+
+* Allow blaze-builder 0.4
 
 ## 1.4.3.9
 
