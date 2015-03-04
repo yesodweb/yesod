@@ -53,14 +53,18 @@ keter cabal noBuild = do
             [] -> error "No cabal file found"
             _ -> error "Too many cabal files found"
 
-    let findExecs (Object v) =
+    let findFiles (Object v) =
             mapM_ go $ Map.toList v
           where
-            go ("exec", String s) = tell [F.collapse $ "config" F.</> F.fromText s]
-            go (_, v') = findExecs v'
-        findExecs (Array v) = Fold.mapM_ findExecs v
-        findExecs _ = return ()
-        execs = execWriter $ findExecs $ Object value
+            go ("exec", String s) = tellFile s
+            go ("extraFiles", Array v) = Fold.mapM_ tellFile' v
+            go (_, v') = findFiles v'
+        findFiles (Array v) = Fold.mapM_ findFiles v
+        findFiles _ = return ()
+        bundleFiles = execWriter $ findFiles $ Object value
+        tellFile s = tell [F.collapse $ "config" F.</> F.fromText s]
+        tellFile' (String s) = tellFile s
+        tellFile' _          = error "extraFiles should be a flat array"
 
     unless noBuild $ do
         run cabal ["clean"]
@@ -69,7 +73,8 @@ keter cabal noBuild = do
 
     _ <- try' $ F.removeTree "static/tmp"
 
-    archive <- Tar.pack "" $ "config" : "static" : map F.encodeString execs
+    archive <- Tar.pack "" $
+        "config" : "static" : map F.encodeString bundleFiles
     let fp = T.unpack project ++ ".keter"
     L.writeFile fp $ compress $ Tar.write archive
 
