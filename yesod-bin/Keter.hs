@@ -9,7 +9,7 @@ import qualified Data.Text as T
 import System.Exit
 import System.Process
 import Control.Monad
-import System.Directory
+import System.Directory hiding (findFiles)
 import Data.Maybe (mapMaybe)
 import qualified Filesystem.Path.CurrentOS as F
 import qualified Filesystem as F
@@ -57,14 +57,14 @@ keter cabal noBuild = do
             mapM_ go $ Map.toList v
           where
             go ("exec", String s) = tellFile s
-            go ("extraFiles", Array v) = Fold.mapM_ tellFile' v
+            go ("extraFiles", Array a) = Fold.mapM_ tellExtra a
             go (_, v') = findFiles v'
+            tellFile s = tell [F.collapse $ "config" F.</> F.fromText s]
+            tellExtra (String s) = tellFile s
+            tellExtra _          = error "extraFiles should be a flat array"
         findFiles (Array v) = Fold.mapM_ findFiles v
         findFiles _ = return ()
         bundleFiles = execWriter $ findFiles $ Object value
-        tellFile s = tell [F.collapse $ "config" F.</> F.fromText s]
-        tellFile' (String s) = tellFile s
-        tellFile' _          = error "extraFiles should be a flat array"
 
     unless noBuild $ do
         run cabal ["clean"]
