@@ -9,7 +9,7 @@ import qualified Data.Text as T
 import System.Exit
 import System.Process
 import Control.Monad
-import System.Directory
+import System.Directory hiding (findFiles)
 import Data.Maybe (mapMaybe)
 import qualified Filesystem.Path.CurrentOS as F
 import qualified Filesystem as F
@@ -53,14 +53,18 @@ keter cabal noBuild = do
             [] -> error "No cabal file found"
             _ -> error "Too many cabal files found"
 
-    let findExecs (Object v) =
+    let findFiles (Object v) =
             mapM_ go $ Map.toList v
           where
-            go ("exec", String s) = tell [F.collapse $ "config" F.</> F.fromText s]
-            go (_, v') = findExecs v'
-        findExecs (Array v) = Fold.mapM_ findExecs v
-        findExecs _ = return ()
-        execs = execWriter $ findExecs $ Object value
+            go ("exec", String s) = tellFile s
+            go ("extraFiles", Array a) = Fold.mapM_ tellExtra a
+            go (_, v') = findFiles v'
+            tellFile s = tell [F.collapse $ "config" F.</> F.fromText s]
+            tellExtra (String s) = tellFile s
+            tellExtra _          = error "extraFiles should be a flat array"
+        findFiles (Array v) = Fold.mapM_ findFiles v
+        findFiles _ = return ()
+        bundleFiles = execWriter $ findFiles $ Object value
 
     unless noBuild $ do
         run cabal ["clean"]
@@ -69,7 +73,8 @@ keter cabal noBuild = do
 
     _ <- try' $ F.removeTree "static/tmp"
 
-    archive <- Tar.pack "" $ "config" : "static" : map F.encodeString execs
+    archive <- Tar.pack "" $
+        "config" : "static" : map F.encodeString bundleFiles
     let fp = T.unpack project ++ ".keter"
     L.writeFile fp $ compress $ Tar.write archive
 
