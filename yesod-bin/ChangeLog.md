@@ -1,3 +1,7 @@
+## 1.4.4
+
+* Add and process Keter option 'extraFiles' [#947](https://github.com/yesodweb/yesod/pull/947)
+
 ## 1.4.3.11
 
 * Disregard proxy environment variables in yesod devel [#945](https://github.com/yesodweb/yesod/pull/945)
