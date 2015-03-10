@@ -1,3 +1,7 @@
+## 1.4.8.2
+
+* Allow blaze-builder 0.4
+
 ## 1.4.8.1
 
 * Bump upper bound on path-pieces
