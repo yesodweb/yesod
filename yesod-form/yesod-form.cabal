@@ -1,5 +1,5 @@
 name:            yesod-form
-version:         1.4.4
+version:         1.4.4.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>

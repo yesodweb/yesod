@@ -223,6 +223,7 @@ postHelper form env = do
     ((res, xml), enctype) <- runFormGeneric (form token) m langs env
     let res' =
             case (res, env) of
+                (_, Nothing) -> FormMissing
                 (FormSuccess{}, Just (params, _))
                     | not (Map.lookup tokenKey params === reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
