@@ -1,3 +1,7 @@
+## 1.4.5
+
+* add a switch to yesod to skip deploying a .keter with copy-to [#952](https://github.com/yesodweb/yesod/issues/952)
+
 ## 1.4.4
 
 * Add and process Keter option 'extraFiles' [#947](https://github.com/yesodweb/yesod/pull/947)

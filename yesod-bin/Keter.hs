@@ -27,8 +27,9 @@ run a b = do
 
 keter :: String -- ^ cabal command
       -> Bool -- ^ no build?
+      -> Bool -- ^ no copy to?
       -> IO ()
-keter cabal noBuild = do
+keter cabal noBuild noCopyTo = do
     ketercfg <- keterConfig
     mvalue <- decodeFile ketercfg
     value <-
@@ -78,7 +79,7 @@ keter cabal noBuild = do
     let fp = T.unpack project ++ ".keter"
     L.writeFile fp $ compress $ Tar.write archive
 
-    case Map.lookup "copy-to" value of
+    unless noCopyTo $ case Map.lookup "copy-to" value of
         Just (String s) ->
             case parseMaybe (.: "copy-to-port") value of
                 Just i -> run "scp" ["-P" ++ show (i :: Int), fp, T.unpack s]

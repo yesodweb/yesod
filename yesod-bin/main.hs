@@ -60,7 +60,10 @@ data Command = Init { _initBare :: Bool }
                      }
              | Test
              | AddHandler
-             | Keter { _keterNoRebuild :: Bool }
+             | Keter
+                    { _keterNoRebuild :: Bool
+                    , _keterNoCopyTo  :: Bool
+                    }
              | Version
   deriving (Show, Eq)
 
@@ -96,7 +99,7 @@ main = do
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
     Touch           -> touch'
-    Keter noRebuild -> keter (cabalCommand o) noRebuild
+    Keter{..}       -> keter (cabalCommand o) _keterNoRebuild _keterNoCopyTo
     Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
     AddHandler      -> addHandler
     Test            -> cabalTest cabal
@@ -144,7 +147,9 @@ optParser = Options
                       )
 
 keterOptions :: Parser Command
-keterOptions = Keter <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebuilding" )
+keterOptions = Keter
+    <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebuilding" )
+    <*> switch ( long "nocopyto" <> help "Ignore copy-to directive in keter config file" )
 
 defaultRescan :: Int
 defaultRescan = 10
