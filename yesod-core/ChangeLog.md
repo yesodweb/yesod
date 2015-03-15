@@ -1,3 +1,7 @@
+## 1.4.8.3
+
+* Use 307 redirect for cleaning paths and non-GET requests [#951](https://github.com/yesodweb/yesod/issues/951)
+
 ## 1.4.8.2
 
 * Allow blaze-builder 0.4

@@ -47,7 +47,7 @@ import Data.Monoid (mappend)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
 import qualified Blaze.ByteString.Builder
-import Network.HTTP.Types (status301)
+import Network.HTTP.Types (status301, status307)
 import Yesod.Routes.Parse
 import Yesod.Core.Types
 import Yesod.Core.Class.Yesod
@@ -96,11 +96,17 @@ toWaiAppYre yre req =
     site = yreSite yre
     sendRedirect :: Yesod master => master -> [Text] -> W.Application
     sendRedirect y segments' env sendResponse =
-         sendResponse $ W.responseLBS status301
+         sendResponse $ W.responseLBS status
                 [ ("Content-Type", "text/plain")
                 , ("Location", Blaze.ByteString.Builder.toByteString dest')
                 ] "Redirecting"
       where
+        -- Ensure that non-GET requests get redirected correctly. See:
+        -- https://github.com/yesodweb/yesod/issues/951
+        status
+            | W.requestMethod env == "GET" = status301
+            | otherwise                    = status307
+
         dest = joinPath y (resolveApproot y env) segments' []
         dest' =
             if S.null (W.rawQueryString env)
