@@ -60,6 +60,10 @@ data Command = Init { _initBare :: Bool }
                      }
              | Test
              | AddHandler
+                    { addHandlerRoute   :: Maybe String
+                    , addHandlerPattern :: Maybe String
+                    , addHandlerMethods :: [String]
+                    }
              | Keter
                     { _keterNoRebuild :: Bool
                     , _keterNoCopyTo  :: Bool
@@ -101,7 +105,7 @@ main = do
     Touch           -> touch'
     Keter{..}       -> keter (cabalCommand o) _keterNoRebuild _keterNoCopyTo
     Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
-    AddHandler      -> addHandler
+    AddHandler{..}  -> addHandler addHandlerRoute addHandlerPattern addHandlerMethods
     Test            -> cabalTest cabal
     Devel{..}       -> devel (DevelOpts
                               (optCabalPgm o == CabalDev) _develDisableApi (optVerbose o)
@@ -138,8 +142,9 @@ optParser = Options
                             (progDesc "Run project with the devel server"))
                       <> command "test"      (info (pure Test)
                             (progDesc "Build and run the integration tests"))
-                      <> command "add-handler" (info (pure AddHandler)
-                            (progDesc "Add a new handler and module to the project"))
+                      <> command "add-handler" (info addHandlerOptions
+                            (progDesc ("Add a new handler and module to the project."
+                            ++ " Interactively asks for input if you do not specify arguments.")))
                       <> command "keter"       (info keterOptions
                             (progDesc "Build a keter bundle"))
                       <> command "version"     (info (pure Version)
@@ -184,6 +189,16 @@ extraCabalArgs :: Parser [String]
 extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"
                                    <> help "pass extra argument ARG to cabal")
                       )
+
+addHandlerOptions :: Parser Command
+addHandlerOptions = AddHandler
+    <$> optStr ( long "route" <> short 'r' <> metavar "ROUTE"
+           <> help "Name of route (without trailing R). Required.")
+    <*> optStr ( long "pattern" <> short 'p' <> metavar "PATTERN"
+           <> help "Route pattern (ex: /entry/#EntryId). Defaults to \"\".")
+    <*> many (strOption ( long "method" <> short 'm' <> metavar "METHOD"
+                 <> help "Takes one method. Use this multiple times to add multiple methods. Defaults to none.")
+             )
 
 -- | Optional @String@ argument
 optStr :: Mod OptionFields (Maybe String) -> Parser (Maybe String)

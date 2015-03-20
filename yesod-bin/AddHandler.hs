@@ -2,61 +2,106 @@
 module AddHandler (addHandler) where
 
 import Prelude hiding (readFile)
-import System.IO (hFlush, stdout)
-import Data.Char (isLower, toLower, isSpace)
-import Data.List (isPrefixOf, isSuffixOf, stripPrefix)
+import System.IO  (hFlush, stdout)
+import Data.Char  (isLower, toLower, isSpace)
+import Data.List  (isPrefixOf, isSuffixOf, stripPrefix)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import System.Directory (getDirectoryContents, doesFileExist)
+
+data RouteError = EmptyRoute
+                | RouteCaseError
+                | RouteExists FilePath
+                deriving Eq
+
+instance Show RouteError where
+    show EmptyRoute         = "No name entered. Quitting ..."
+    show RouteCaseError     = "Name must start with an upper case letter"
+    show (RouteExists file) = "File already exists: " ++ file
 
 -- strict readFile
 readFile :: FilePath -> IO String
 readFile = fmap T.unpack . TIO.readFile
 
-addHandler :: IO ()
-addHandler = do
-    allFiles <- getDirectoryContents "."
-    cabal <-
-        case filter (".cabal" `isSuffixOf`) allFiles of
-            [x] -> return x
-            [] -> error "No cabal file found"
-            _ -> error "Too many cabal files found"
+cmdLineArgsError :: String
+cmdLineArgsError = "You have to specify a route name if you want to add handler with command line arguments."
 
+addHandler :: Maybe String -> Maybe String -> [String] -> IO ()
+addHandler (Just route) pat met = do
+    cabal <- getCabal
+    checked <- checkRoute route
+    let routePair = case checked of
+          Left err@EmptyRoute -> (error . show) err
+          Left err@RouteCaseError -> (error . show) err
+          Left err@(RouteExists _) -> (error . show) err
+          Right p -> p
+
+    addHandlerFiles cabal routePair pattern methods
+  where
+    pattern = fromMaybe "" pat -- pattern defaults to ""
+    methods = unwords met      -- methods default to none
+
+addHandler Nothing (Just _) _ = error cmdLineArgsError
+addHandler Nothing _ (_:_)    = error cmdLineArgsError
+addHandler _ _ _ = addHandlerInteractive
+
+addHandlerInteractive :: IO ()
+addHandlerInteractive = do
+    cabal <- getCabal
     let routeInput = do
         putStr "Name of route (without trailing R): "
         hFlush stdout
         name <- getLine
-        case name of
-            [] -> error "No name entered. Quitting ..."
-            c:_
-                | isLower c -> do
-                    putStrLn "Name must start with an upper case letter"
-                    routeInput
-                | otherwise -> do
-                    -- Check that the handler file doesn't already exist
-                    let handlerFile = concat ["Handler/", name, ".hs"]
-                    exists <- doesFileExist handlerFile
-                    if exists
-                        then do
-                            putStrLn $ "File already exists: " ++ show handlerFile
-                            putStrLn "Try another name or leave blank to exit"
-                            routeInput
-                        else return (name, handlerFile)
+        checked <- checkRoute name
+        case checked of
+            Left err@EmptyRoute -> (error . show) err
+            Left err@RouteCaseError -> print err >> routeInput
+            Left err@(RouteExists _) -> do
+              print err
+              putStrLn "Try another name or leave blank to exit"
+              routeInput
+            Right p -> return p
 
-    (name, handlerFile) <- routeInput
+    routePair <- routeInput
     putStr "Enter route pattern (ex: /entry/#EntryId): "
     hFlush stdout
     pattern <- getLine
     putStr "Enter space-separated list of methods (ex: GET POST): "
     hFlush stdout
     methods <- getLine
+    addHandlerFiles cabal routePair pattern methods
 
-    let modify fp f = readFile fp >>= writeFile fp . f
-
+addHandlerFiles :: FilePath -> (String, FilePath) -> String -> String -> IO ()
+addHandlerFiles cabal (name, handlerFile) pattern methods = do
     modify "Application.hs" $ fixApp name
     modify cabal $ fixCabal name
     modify "config/routes" $ fixRoutes name pattern methods
     writeFile handlerFile $ mkHandler name pattern methods
+  where
+    modify fp f = readFile fp >>= writeFile fp . f
+
+getCabal :: IO FilePath
+getCabal = do
+    allFiles <- getDirectoryContents "."
+    case filter (".cabal" `isSuffixOf`) allFiles of
+        [x] -> return x
+        [] -> error "No cabal file found"
+        _ -> error "Too many cabal files found"
+
+checkRoute :: String -> IO (Either RouteError (String, FilePath))
+checkRoute name =
+    case name of
+        [] -> return $ Left EmptyRoute
+        c:_
+            | isLower c -> return $ Left RouteCaseError
+            | otherwise -> do
+                -- Check that the handler file doesn't already exist
+                let handlerFile = concat ["Handler/", name, ".hs"]
+                exists <- doesFileExist handlerFile
+                if exists
+                    then (return . Left . RouteExists) handlerFile
+                    else return $ Right (name, handlerFile)
 
 fixApp :: String -> String -> String
 fixApp name =
