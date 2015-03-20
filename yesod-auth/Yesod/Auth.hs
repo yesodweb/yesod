@@ -28,6 +28,7 @@ module Yesod.Auth
     , loginErrorMessage
     , loginErrorMessageI
       -- * User functions
+    , AuthenticationResult (..)
     , defaultMaybeAuthId
     , maybeAuthPair
     , maybeAuth
@@ -67,7 +68,7 @@ import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
 import Data.Typeable (Typeable)
 import Control.Exception (Exception)
-import Network.HTTP.Types          (unauthorized401)
+import Network.HTTP.Types (Status, internalServerError500, unauthorized401)
 import Control.Monad.Trans.Resource (MonadResourceBase)
 import qualified Control.Monad.Trans.Writer    as Writer
 import Control.Monad (void)
@@ -78,6 +79,12 @@ type AuthHandler master a = YesodAuth master => HandlerT Auth (HandlerT master I
 
 type Method = Text
 type Piece = Text
+
+-- | The result of an authentication based on credentials
+data AuthenticationResult master
+    = Authenticated (AuthId master) -- ^ Authenticated successfully
+    | UserError AuthMessage         -- ^ Invalid credentials provided by user
+    | ServerError Text              -- ^ Some other error
 
 data AuthPlugin master = AuthPlugin
     { apName :: Text
@@ -110,8 +117,27 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- destination exists.
     logoutDest :: master -> Route master
 
+    -- | Perform authentication based on the given credentials.
+    --
+    -- Default implementation is in terms of @'getAuthId'@
+    --
+    authenticate :: Creds master -> HandlerT master IO (AuthenticationResult master)
+    authenticate creds = do
+        muid <- getAuthId creds
+
+        return $ maybe (UserError Msg.InvalidLogin) Authenticated muid
+
     -- | Determine the ID associated with the set of credentials.
+    --
+    -- Default implementation is in terms of @'authenticate'@
+    --
     getAuthId :: Creds master -> HandlerT master IO (Maybe (AuthId master))
+    getAuthId creds = do
+        auth <- authenticate creds
+
+        return $ case auth of
+            Authenticated auid -> Just auid
+            _ -> Nothing
 
     -- | Which authentication backends to use.
     authPlugins :: master -> [AuthPlugin master]
@@ -175,6 +201,10 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
         setMessage $ toHtml msg
         fmap asHtml $ redirect dest
 
+    {-# MINIMAL loginDest, logoutDest, (authenticate | getAuthId), authPlugins, authHttpManager #-}
+
+{-# DEPRECATED getAuthId "Define 'authenticate' instead; 'getAuthId' will be removed in the next major version" #-}
+
 -- | Internal session key used to hold the authentication information.
 --
 -- Since 1.2.3
@@ -232,11 +262,21 @@ loginErrorMessage :: (YesodAuth master, MonadResourceBase m)
 loginErrorMessage dest msg = messageJson401 msg (onErrorHtml dest msg)
 
 messageJson401 :: MonadResourceBase m => Text -> HandlerT master m Html -> HandlerT master m TypedContent
-messageJson401 msg html = selectRep $ do
+messageJson401 = messageJsonStatus unauthorized401
+
+messageJson500 :: MonadResourceBase m => Text -> HandlerT master m Html -> HandlerT master m TypedContent
+messageJson500 = messageJsonStatus internalServerError500
+
+messageJsonStatus :: MonadResourceBase m
+                  => Status
+                  -> Text
+                  -> HandlerT master m Html
+                  -> HandlerT master m TypedContent
+messageJsonStatus status msg html = selectRep $ do
     provideRep html
     provideRep $ do
         let obj = object ["message" .= msg]
-        void $ sendResponseStatus unauthorized401 obj
+        void $ sendResponseStatus status obj
         return obj
 
 provideJsonMessage :: Monad m => Text -> Writer.Writer (Endo [ProvidedRep m]) ()
@@ -248,15 +288,9 @@ setCredsRedirect :: YesodAuth master
          -> HandlerT master IO TypedContent
 setCredsRedirect creds = do
     y    <- getYesod
-    maid <- getAuthId creds
-    case maid of
-        Nothing ->
-            case authRoute y of
-                Nothing -> do
-                    messageJson401 "Invalid Login" $ authLayout $
-                        toWidget [shamlet|<h1>Invalid login|]
-                Just ar -> loginErrorMessageMasterI ar Msg.InvalidLogin
-        Just aid -> do
+    auth <- authenticate creds
+    case auth of
+        Authenticated aid -> do
             setSession credsKey $ toPathPiece aid
             onLogin
             res <- selectRep $ do
@@ -264,6 +298,30 @@ setCredsRedirect creds = do
                     fmap asHtml $ redirectUltDest $ loginDest y
                 provideJsonMessage "Login Successful"
             sendResponse res
+
+        UserError msg ->
+            case authRoute y of
+                Nothing -> do
+                    msg' <- renderMessage' msg
+                    messageJson401 msg' $ authLayout $ -- TODO
+                        toWidget [whamlet|<h1>_{msg}|]
+                Just ar -> loginErrorMessageMasterI ar msg
+
+        ServerError msg -> do
+            $(logError) msg
+
+            case authRoute y of
+                Nothing -> do
+                    msg' <- renderMessage' Msg.AuthError
+                    messageJson500 msg' $ authLayout $
+                        toWidget [whamlet|<h1>_{Msg.AuthError}|]
+                Just ar -> loginErrorMessageMasterI ar Msg.AuthError
+
+  where
+    renderMessage' msg = do
+        langs <- languages
+        master <- getYesod
+        return $ renderAuthMessage master langs msg
 
 -- | Sets user credentials for the session after checking them with authentication backends.
 setCreds :: YesodAuth master
@@ -273,10 +331,10 @@ setCreds :: YesodAuth master
 setCreds doRedirects creds =
     if doRedirects
       then void $ setCredsRedirect creds
-      else do maid <- getAuthId creds
-              case maid of
-                  Nothing -> return ()
-                  Just aid -> setSession credsKey $ toPathPiece aid
+      else do auth <- authenticate creds
+              case auth of
+                  Authenticated aid -> setSession credsKey $ toPathPiece aid
+                  _ -> return ()
 
 -- | same as defaultLayoutJson, but uses authLayout
 authLayoutJson :: (YesodAuth site, ToJSON j)

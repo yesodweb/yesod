@@ -61,6 +61,7 @@ data AuthMessage =
     | PasswordResetPrompt
     | InvalidUsernamePass
     | Logout
+    | AuthError
 
 -- | Defaults to 'englishMessage'.
 defaultMessage :: AuthMessage -> Text
@@ -108,6 +109,7 @@ englishMessage PasswordResetPrompt = "Enter your e-mail address or username belo
 englishMessage InvalidUsernamePass = "Invalid username/password combination"
 englishMessage (IdentifierNotFound ident) = "Login not found: " `mappend` ident
 englishMessage Logout = "Logout"
+englishMessage AuthError = "Authentication Error" -- FIXME by Google Translate
 
 portugueseMessage :: AuthMessage -> Text
 portugueseMessage NoOpenID = "Nenhum identificador OpenID encontrado"
@@ -152,6 +154,7 @@ portugueseMessage InvalidUsernamePass = "Nome de usuário ou senha inválidos"
 -- TODO
 portugueseMessage i@(IdentifierNotFound _) = englishMessage i
 portugueseMessage Logout = "Sair" -- FIXME by Google Translate
+portugueseMessage AuthError = "Erro de autenticação" -- FIXME by Google Translate
 
 spanishMessage :: AuthMessage -> Text
 spanishMessage NoOpenID = "No se encuentra el identificador OpenID"
@@ -196,6 +199,7 @@ spanishMessage InvalidUsernamePass = "Combinación de nombre de usuario/contrase
 -- TODO
 spanishMessage i@(IdentifierNotFound _) = englishMessage i
 spanishMessage Logout = "Finalizar la sesión" -- FIXME by Google Translate
+spanishMessage AuthError = "Error de autenticación" -- FIXME by Google Translate
 
 swedishMessage :: AuthMessage -> Text
 swedishMessage NoOpenID = "Fann ej OpenID identifierare"
@@ -241,6 +245,7 @@ swedishMessage InvalidUsernamePass = "Ogiltig kombination av användarnamn och l
 -- TODO
 swedishMessage i@(IdentifierNotFound _) = englishMessage i
 swedishMessage Logout = "Loggar ut" -- FIXME by Google Translate
+swedishMessage AuthError = "Autentisering Fel" -- FIXME by Google Translate
 
 germanMessage :: AuthMessage -> Text
 germanMessage NoOpenID = "Kein OpenID-Identifier gefunden"
@@ -285,6 +290,7 @@ germanMessage InvalidUsernamePass = "Ungültige Kombination aus Nutzername und P
 -- TODO
 germanMessage i@(IdentifierNotFound _) = englishMessage i
 germanMessage Logout = "Ausloggen" -- FIXME by Google Translate
+germanMessage AuthError = "Authorisierungsfehler" -- FIXME by Google Translate
 
 frenchMessage :: AuthMessage -> Text
 frenchMessage NoOpenID = "Aucun fournisseur OpenID n'a été trouvé"
@@ -328,6 +334,7 @@ frenchMessage PasswordResetPrompt = "Entrez votre courriel ou votre nom d'utilis
 frenchMessage InvalidUsernamePass = "La combinaison de ce mot de passe et de ce nom d'utilisateur n'existe pas."
 frenchMessage (IdentifierNotFound ident) = "Nom d'utilisateur introuvable: " `mappend` ident
 frenchMessage Logout = "Déconnexion"
+frenchMessage AuthError = "Erreur d'authentification" -- FIXME by Google Translate
 
 norwegianBokmålMessage :: AuthMessage -> Text
 norwegianBokmålMessage NoOpenID = "Ingen OpenID-identifiserer funnet"
@@ -372,6 +379,7 @@ norwegianBokmålMessage InvalidUsernamePass = "Invalid username/password combina
 -- TODO
 norwegianBokmålMessage i@(IdentifierNotFound _) = englishMessage i
 norwegianBokmålMessage Logout = "Logge ut" -- FIXME by Google Translate
+norwegianBokmålMessage AuthError = "Godkjenningsfeil" -- FIXME by Google Translate
 
 japaneseMessage :: AuthMessage -> Text
 japaneseMessage NoOpenID = "OpenID識別子がありません"
@@ -416,6 +424,7 @@ japaneseMessage InvalidUsernamePass = "ユーザ名とパスワードの組み�
 japaneseMessage (IdentifierNotFound ident) =
   ident `mappend` "は登録されていません"
 japaneseMessage Logout = "ログアウト" -- FIXME by Google Translate
+japaneseMessage AuthError = "認証エラー" -- FIXME by Google Translate
 
 finnishMessage :: AuthMessage -> Text
 finnishMessage NoOpenID = "OpenID-tunnistetta ei löydy"
@@ -461,6 +470,7 @@ finnishMessage InvalidUsernamePass = "Virheellinen käyttäjänimi tai salasana.
 -- TODO
 finnishMessage i@(IdentifierNotFound _) = englishMessage i
 finnishMessage Logout = "Kirjaudu ulos" -- FIXME by Google Translate
+finnishMessage AuthError = "Authentication Error" -- FIXME by Google Translate
 
 chineseMessage :: AuthMessage -> Text
 chineseMessage NoOpenID = "无效的OpenID"
@@ -505,6 +515,7 @@ chineseMessage InvalidUsernamePass = "无效的用户名/密码组合"
 -- TODO
 chineseMessage i@(IdentifierNotFound _) = englishMessage i
 chineseMessage Logout = "註銷" -- FIXME by Google Translate
+chineseMessage AuthError = "验证错误" -- FIXME by Google Translate
 
 czechMessage :: AuthMessage -> Text
 czechMessage NoOpenID = "Nebyl nalezen identifikátor OpenID"
@@ -547,6 +558,7 @@ czechMessage InvalidUsernamePass = "Neplatná kombinace uživatelského jména a
 -- TODO
 czechMessage i@(IdentifierNotFound _) = englishMessage i
 czechMessage Logout = "Odhlásit" -- FIXME by Google Translate
+czechMessage AuthError = "Chyba ověřování" -- FIXME by Google Translate
 
 -- Так как e-mail – это фактическое сокращение словосочетания electronic mail,
 -- для русского перевода так же использовано сокращение: эл.почта
@@ -592,6 +604,7 @@ russianMessage PasswordResetPrompt = "Введите адрес эл.почты 
 russianMessage InvalidUsernamePass = "Неверное сочетание имени пользователя и пароля"
 russianMessage (IdentifierNotFound ident) = "Логин не найден: " `mappend` ident
 russianMessage Logout = "Выйти"
+russianMessage AuthError = "Ошибка аутентификации"
 
 dutchMessage :: AuthMessage -> Text
 dutchMessage NoOpenID = "Geen OpenID identificator gevonden"
@@ -635,3 +648,4 @@ dutchMessage PasswordResetPrompt = "Voer uw e-mailadres of gebruikersnaam hieron
 dutchMessage InvalidUsernamePass = "Ongeldige gebruikersnaam/wachtwoord combinatie"
 dutchMessage (IdentifierNotFound ident) = "Inloggegevens niet gevonden: " `mappend` ident
 dutchMessage Logout = "Logout" -- FIXME NOT TRANSLATED
+dutchMessage AuthError = "Verificatiefout" -- FIXME by Google Translate
