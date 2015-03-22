@@ -7,7 +7,22 @@
 {-# START_FILE .ghci #-}
 :set -i.:config:dist/build/autogen
 :set -DDEVELOPMENT
-:set -XCPP -XTemplateHaskell -XQuasiQuotes -XTypeFamilies -XFlexibleContexts -XGADTs -XOverloadedStrings -XMultiParamTypeClasses -XGeneralizedNewtypeDeriving -XEmptyDataDecls -XDeriveDataTypeable
+:set -XCPP
+:set -XDeriveDataTypeable
+:set -XEmptyDataDecls
+:set -XFlexibleContexts
+:set -XGADTs
+:set -XGeneralizedNewtypeDeriving
+:set -XMultiParamTypeClasses
+:set -XNoImplicitPrelude
+:set -XNoMonomorphismRestriction
+:set -XOverloadedStrings
+:set -XQuasiQuotes
+:set -XRecordWildCards
+:set -XTemplateHaskell
+:set -XTupleSections
+:set -XTypeFamilies
+:set -XViewPatterns
 
 {-# START_FILE .gitignore #-}
 dist*
@@ -253,7 +268,7 @@ instance Yesod App where
 
     -- Store session data on the client in encrypted cookies,
     -- default session idle timeout is 120 minutes
-    makeSessionBackend _ = fmap Just $ defaultClientSessionBackend
+    makeSessionBackend _ = Just <$> defaultClientSessionBackend
         120    -- timeout in minutes
         "config/client_session_key.aes"
 
@@ -342,11 +357,10 @@ instance YesodAuth App where
         x <- getBy $ UniqueUser $ credsIdent creds
         case x of
             Just (Entity uid _) -> return $ Just uid
-            Nothing -> do
-                fmap Just $ insert User
-                    { userIdent = credsIdent creds
-                    , userPassword = Nothing
-                    }
+            Nothing -> Just <$> insert User
+                { userIdent = credsIdent creds
+                , userPassword = Nothing
+                }
 
     -- You can add other plugins like BrowserID, email or OAuth here
     authPlugins _ = [authBrowserId def]
@@ -559,7 +573,7 @@ library
                  , persistent-template           >= 2.0        && < 2.2
                  , template-haskell
                  , shakespeare                   >= 2.0        && < 2.1
-                 , monad-control                 >= 0.3        && < 0.4
+                 , monad-control                 >= 0.3        && < 1.1
                  , wai-extra                     >= 3.0        && < 3.1
                  , yaml                          >= 0.8        && < 0.9
                  , http-conduit                  >= 2.1        && < 2.2
@@ -569,7 +583,7 @@ library
                  , aeson                         >= 0.6        && < 0.9
                  , conduit                       >= 1.0        && < 2.0
                  , monad-logger                  >= 0.3        && < 0.4
-                 , fast-logger                   >= 2.2        && < 2.3
+                 , fast-logger                   >= 2.2        && < 2.4
                  , wai-logger                    >= 2.2        && < 2.3
                  , file-embed
                  , safe
@@ -619,6 +633,7 @@ test-suite test
                  , persistent-postgresql
                  , resourcet
                  , monad-logger
+                 , shakespeare
                  , transformers
                  , hspec >= 2.0.0
                  , classy-prelude
@@ -9122,6 +9137,7 @@ $maybe msg <- mmsg
 
   <li ##{aDomId}>If you had javascript enabled then you wouldn't be seeing this.
 
+  <hr />
   <li #form>
     This is an example trivial Form. Read the #
     \<a href="http://www.yesodweb.com/book/forms">Forms chapter<span class="glyphicon glyphicon-bookmark"></span></a> #
@@ -9133,6 +9149,7 @@ $maybe msg <- mmsg
       ^{formWidget}
       <button .btn .btn-primary type="submit">
          Send it! <span class="glyphicon glyphicon-upload"></span>
+  <hr />
 
   <li> And last but not least, Testing. In <em>tests/main.hs</em> you will find a #
     test suite that performs tests on this page. #
@@ -9148,10 +9165,24 @@ document.getElementById(#{toJSON aDomId}).innerHTML = "This text was added by th
 
 {-# START_FILE templates/homepage.lucius #-}
 h1 {
-    text-align: center
+    text-align: center;
+    margin-bottom: 30px
 }
 h2##{aDomId} {
     color: #990
+}
+li {
+    line-height: 2em;
+    font-size: 16px
+}
+ol {
+    margin-bottom: 30px
+}
+footer {
+    text-align: center
+}
+.input-sm {
+    margin-left: 20px
 }
 
 {-# START_FILE test/Handler/CommonSpec.hs #-}
@@ -9223,6 +9254,7 @@ import Database.Persist.Sql  (SqlPersistM, SqlBackend, runSqlPersistMPool, rawEx
 import Foundation            as X
 import Model                 as X
 import Test.Hspec            as X
+import Text.Shakespeare.Text (st)
 import Yesod.Default.Config2 (ignoreEnv, loadAppSettings)
 import Yesod.Test            as X
 
@@ -9249,16 +9281,21 @@ withApp = before $ do
 -- 'withApp' calls it before each test, creating a clean environment for each
 -- spec to run in.
 wipeDB :: App -> IO ()
-wipeDB app = do
-    runDBWithApp app $ do
-        tables <- getTables
-        sqlBackend <- ask
+wipeDB app = runDBWithApp app $ do
+    tables <- getTables
+    sqlBackend <- ask
 
-        let escapedTables = map (connEscapeName sqlBackend . DBName) tables
-            query = "TRUNCATE TABLE " ++ (intercalate ", " escapedTables)
-        rawExecute query []
+    let escapedTables = map (connEscapeName sqlBackend . DBName) tables
+        query = "TRUNCATE TABLE " ++ intercalate ", " escapedTables
+    rawExecute query []
 
 getTables :: MonadIO m => ReaderT SqlBackend m [Text]
 getTables = do
-    tables <- rawSql "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';" []
+    tables <- rawSql [st|
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public';
+    |] []
+
     return $ map unSingle tables
+
