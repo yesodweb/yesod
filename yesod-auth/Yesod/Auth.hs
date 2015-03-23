@@ -121,6 +121,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     --
     -- Default implementation is in terms of @'getAuthId'@
     --
+    -- Since: 1.4.4
     authenticate :: Creds master -> HandlerT master IO (AuthenticationResult master)
     authenticate creds = do
         muid <- getAuthId creds
