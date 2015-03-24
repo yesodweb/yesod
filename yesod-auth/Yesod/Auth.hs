@@ -81,6 +81,8 @@ type Method = Text
 type Piece = Text
 
 -- | The result of an authentication based on credentials
+--
+-- Since 1.4.4
 data AuthenticationResult master
     = Authenticated (AuthId master) -- ^ Authenticated successfully
     | UserError AuthMessage         -- ^ Invalid credentials provided by user
