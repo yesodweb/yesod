@@ -108,6 +108,7 @@ data DevelOpts = DevelOpts
       , failHook     :: Maybe String
       , buildDir     :: Maybe String
       , develPort    :: Int
+      , develTlsPort :: Int
       , proxyTimeout :: Int
       , useReverseProxy :: Bool
       , terminateWith :: DevelTermOpt
@@ -117,7 +118,20 @@ getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True TerminateOnEnter
+defaultDevelOpts = DevelOpts
+    { isCabalDev   = False
+    , forceCabal   = False
+    , verbose      = False
+    , eventTimeout = -1
+    , successHook  = Nothing
+    , failHook     = Nothing
+    , buildDir     = Nothing
+    , develPort    = 3000
+    , develTlsPort = 3443
+    , proxyTimeout = 10
+    , useReverseProxy = True
+    , terminateWith = TerminateOnEnter
+    }
 
 cabalProgram :: DevelOpts -> FilePath
 cabalProgram opts | isCabalDev opts = "cabal-dev"
@@ -146,8 +160,8 @@ reverseProxy opts iappPort = do
                 ]
                 refreshHtml
 
-    let runProxy =
-            run (develPort opts) $ waiProxyToSettings
+    let runProxy port =
+            run port $ waiProxyToSettings
                 (const $ do
                     appPort <- liftIO $ I.readIORef iappPort
                     return $
@@ -161,13 +175,14 @@ reverseProxy opts iappPort = do
                             else Just (1000000 * proxyTimeout opts)
                     }
                 manager
-    loop runProxy `Ex.onException` exitFailure
+    _ <- forkIO $ loop "https" (runProxy $ develTlsPort opts) `Ex.onException` exitFailure
+    loop "http" (runProxy $ develPort opts) `Ex.onException` exitFailure
   where
-    loop proxy = forever $ do
+    loop label proxy = forever $ do
         void proxy
-        putStrLn "Reverse proxy stopped, but it shouldn't"
+        putStrLn $ "Reverse proxy stopped, but it shouldn't: " ++ label
         threadDelay 1000000
-        putStrLn "Restarting reverse proxy"
+        putStrLn $ "Restarting reverse proxy: " ++ label
 
 checkPort :: Int -> IO Bool
 checkPort p = do
