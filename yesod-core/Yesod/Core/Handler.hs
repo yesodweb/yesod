@@ -979,6 +979,8 @@ lookupHeaders key = do
 
 -- | Lookup basic authentication data from __Authorization__ header of
 -- request. Returns user name and password
+--
+-- Since 1.4.9
 lookupBasicAuth :: (MonadHandler m) => m (Maybe (Text, Text))
 lookupBasicAuth = fmap (>>= getBA)
                   (lookupHeader "Authorization")
@@ -989,6 +991,8 @@ lookupBasicAuth = fmap (>>= getBA)
 
 -- | Lookup bearer authentication datafrom __Authorization__ header of
 -- request. Returns bearer token value
+--
+-- Since 1.4.9
 lookupBearerAuth :: (MonadHandler m) => m (Maybe Text)
 lookupBearerAuth = fmap (>>= getBR)
                    (lookupHeader "Authorization")
