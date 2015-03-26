@@ -52,6 +52,9 @@ module Yesod.Core.Handler
     , lookupCookie
     , lookupFile
     , lookupHeader
+      -- **** Lookup authentication data
+    , lookupBasicAuth
+    , lookupBearerAuth
       -- **** Multi-lookup
     , lookupGetParams
     , lookupPostParams
@@ -166,6 +169,8 @@ import           Control.Monad.IO.Class        (MonadIO, liftIO)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
+import           Network.Wai.Middleware.HttpAuth
+    ( extractBasicAuth, extractBearerAuth )
 import Control.Monad.Trans.Class (lift)
 
 import qualified Data.Text                     as T
@@ -971,6 +976,26 @@ lookupHeaders :: MonadHandler m => CI S8.ByteString -> m [S8.ByteString]
 lookupHeaders key = do
     req <- waiRequest
     return $ lookup' key $ W.requestHeaders req
+
+-- | Lookup basic authentication data from __Authorization__ header of
+-- request. Returns user name and password
+lookupBasicAuth :: (MonadHandler m) => m (Maybe (Text, Text))
+lookupBasicAuth = fmap (>>= getBA)
+                  (lookupHeader "Authorization")
+  where
+    getBA bs = (\(x, y) -> ( decodeUtf8With lenientDecode x
+                          , decodeUtf8With lenientDecode y))
+               <$> extractBasicAuth bs
+
+-- | Lookup bearer authentication datafrom __Authorization__ header of
+-- request. Returns bearer token value
+lookupBearerAuth :: (MonadHandler m) => m (Maybe Text)
+lookupBearerAuth = fmap (>>= getBR)
+                   (lookupHeader "Authorization")
+  where
+    getBR bs = decodeUtf8With lenientDecode
+               <$> extractBearerAuth bs
+
 
 -- | Lookup for GET parameters.
 lookupGetParams :: MonadHandler m => Text -> m [Text]
