@@ -78,7 +78,8 @@ import           Network.HTTP.Types                    (status200, status503)
 import           Network.Socket                        (sClose)
 import           Network.Wai                           (responseLBS, requestHeaders)
 import           Network.Wai.Parse                     (parseHttpAccept)
-import           Network.Wai.Handler.Warp              (run)
+import           Network.Wai.Handler.Warp              (run, defaultSettings, setPort)
+import           Network.Wai.Handler.WarpTLS           (runTLS, tlsSettingsMemory)
 import           SrcLoc                                (Located)
 import           Data.FileEmbed        (embedFile)
 
@@ -160,8 +161,7 @@ reverseProxy opts iappPort = do
                 ]
                 refreshHtml
 
-    let runProxy port =
-            run port $ waiProxyToSettings
+    let proxyApp = waiProxyToSettings
                 (const $ do
                     appPort <- liftIO $ I.readIORef iappPort
                     return $
@@ -175,8 +175,13 @@ reverseProxy opts iappPort = do
                             else Just (1000000 * proxyTimeout opts)
                     }
                 manager
-    _ <- forkIO $ loop "https" (runProxy $ develTlsPort opts) `Ex.onException` exitFailure
-    loop "http" (runProxy $ develPort opts) `Ex.onException` exitFailure
+        runProxyTls port app = do
+          let cert = $(embedFile "certificate.pem")
+              key = $(embedFile "key.pem")
+              tlsSettings = tlsSettingsMemory cert key
+          runTLS tlsSettings (setPort port defaultSettings) app
+    _ <- forkIO $ loop "https" (runProxyTls (develTlsPort opts) proxyApp) `Ex.onException` exitFailure
+    loop "http" (run (develPort opts) proxyApp) `Ex.onException` exitFailure
   where
     loop label proxy = forever $ do
         void proxy
