@@ -112,7 +112,7 @@ main = do
                               _develRescan _develSuccessHook _develFailHook
                               _develBuildDir _develPort _proxyTimeout
                               (not _noReverseProxy)
-                              (if _interruptOnly then TerminateOnlyInterrupt else TerminateOnEnter )
+                              (if _interruptOnly then TerminateOnlyInterrupt else TerminateOnEOF )
                            ) develExtraArgs
   where
     cabalTest cabal = do touch'

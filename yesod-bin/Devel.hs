@@ -50,6 +50,9 @@ import           System.IO.Error                       (isDoesNotExistError)
 import           System.Posix.Types                    (EpochTime)
 import           System.PosixCompat.Files              (getFileStatus,
                                                         modificationTime)
+import           System.Posix.Signals                  (installHandler,
+                                                        sigINT,
+                                                        Handler(Catch))
 import           System.Process                        (ProcessHandle,
                                                         createProcess, env,
                                                         getProcessExitCode,
@@ -97,7 +100,7 @@ removeLock opts = do
     removeFileIfExists (lockFile opts)
     removeFileIfExists "dist/devel-terminate"  -- for compatibility with old devel.hs
 
-data DevelTermOpt = TerminateOnEnter | TerminateOnlyInterrupt
+data DevelTermOpt = TerminateOnEOF | TerminateOnlyInterrupt
      deriving (Show, Eq)
 data DevelOpts = DevelOpts
       { isCabalDev   :: Bool
@@ -117,7 +120,7 @@ getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True TerminateOnEnter
+defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True TerminateOnEOF
 
 cabalProgram :: DevelOpts -> FilePath
 cabalProgram opts | isCabalDev opts = "cabal-dev"
@@ -198,12 +201,19 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     develHsPath <- checkDevelFile
     writeLock opts
 
+    let onAbort (_ :: Ex.SomeException) = do
+        writeLock opts
+        exitSuccess
+
+    let handler = Ex.handle onAbort . forever $ do
+        _ <- installHandler sigINT (Catch $ return ()) Nothing
+        getLine
+
     let (terminator, after) = case terminateWith opts of
-          TerminateOnEnter ->
-              ("Press ENTER", void getLine)
+          TerminateOnEOF ->
+              ("Press CTRL-D", void handler)
           TerminateOnlyInterrupt ->  -- run for one year
               ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
-
 
     putStrLn $ "Yesod devel server. "  ++ terminator ++ " to quit"
     void $ forkIO $ do
@@ -212,8 +222,6 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
         void $ watchTree manager "." (const True) (\_ -> void (tryPutMVar filesModified ()))
       evalStateT (mainOuterLoop develHsPath iappPort filesModified) Map.empty
     after
-    writeLock opts
-    exitSuccess
   where
     bd = getBuildDir opts
 
