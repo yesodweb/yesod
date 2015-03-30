@@ -22,6 +22,7 @@ import           Control.Applicative                   ((<$>), (<*>))
 import           Control.Concurrent                    (forkIO, threadDelay)
 import           Control.Concurrent.MVar               (MVar, newEmptyMVar,
                                                         takeMVar, tryPutMVar)
+import           Control.Concurrent.Async              (race_)
 import qualified Control.Exception                     as Ex
 import           Control.Monad                         (forever, unless, void,
                                                         when, forM)
@@ -180,14 +181,15 @@ reverseProxy opts iappPort = do
               key = $(embedFile "key.pem")
               tlsSettings = tlsSettingsMemory cert key
           runTLS tlsSettings (setPort port defaultSettings) app
-    _ <- forkIO $ loop "https" (runProxyTls (develTlsPort opts) proxyApp) `Ex.onException` exitFailure
-    loop "http" (run (develPort opts) proxyApp) `Ex.onException` exitFailure
+        httpProxy = run (develPort opts) proxyApp
+        httpsProxy = runProxyTls (develTlsPort opts) proxyApp
+    loop (race_ httpProxy httpsProxy) `Ex.onException` exitFailure
   where
-    loop label proxy = forever $ do
-        void proxy
-        putStrLn $ "Reverse proxy stopped, but it shouldn't: " ++ label
+    loop proxies = forever $ do
+        void proxies
+        putStrLn $ "Reverse proxy stopped, but it shouldn't"
         threadDelay 1000000
-        putStrLn $ "Restarting reverse proxy: " ++ label
+        putStrLn $ "Restarting reverse proxies"
 
 checkPort :: Int -> IO Bool
 checkPort p = do

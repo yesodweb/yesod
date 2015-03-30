@@ -89,6 +89,7 @@ executable             yesod
                      , data-default-class
                      , streaming-commons
                      , warp-tls
+                     , async
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
