@@ -22,6 +22,7 @@ import           Control.Applicative                   ((<$>), (<*>))
 import           Control.Concurrent                    (forkIO, threadDelay)
 import           Control.Concurrent.MVar               (MVar, newEmptyMVar,
                                                         takeMVar, tryPutMVar)
+import           Control.Concurrent.Async              (race_)
 import qualified Control.Exception                     as Ex
 import           Control.Monad                         (forever, unless, void,
                                                         when, forM)
@@ -78,7 +79,8 @@ import           Network.HTTP.Types                    (status200, status503)
 import           Network.Socket                        (sClose)
 import           Network.Wai                           (responseLBS, requestHeaders)
 import           Network.Wai.Parse                     (parseHttpAccept)
-import           Network.Wai.Handler.Warp              (run)
+import           Network.Wai.Handler.Warp              (run, defaultSettings, setPort)
+import           Network.Wai.Handler.WarpTLS           (runTLS, tlsSettingsMemory)
 import           SrcLoc                                (Located)
 import           Data.FileEmbed        (embedFile)
 
@@ -108,6 +110,7 @@ data DevelOpts = DevelOpts
       , failHook     :: Maybe String
       , buildDir     :: Maybe String
       , develPort    :: Int
+      , develTlsPort :: Int
       , proxyTimeout :: Int
       , useReverseProxy :: Bool
       , terminateWith :: DevelTermOpt
@@ -117,7 +120,20 @@ getBuildDir :: DevelOpts -> String
 getBuildDir opts = fromMaybe "dist" (buildDir opts)
 
 defaultDevelOpts :: DevelOpts
-defaultDevelOpts = DevelOpts False False False (-1) Nothing Nothing Nothing 3000 10 True TerminateOnEnter
+defaultDevelOpts = DevelOpts
+    { isCabalDev   = False
+    , forceCabal   = False
+    , verbose      = False
+    , eventTimeout = -1
+    , successHook  = Nothing
+    , failHook     = Nothing
+    , buildDir     = Nothing
+    , develPort    = 3000
+    , develTlsPort = 3443
+    , proxyTimeout = 10
+    , useReverseProxy = True
+    , terminateWith = TerminateOnEnter
+    }
 
 cabalProgram :: DevelOpts -> FilePath
 cabalProgram opts | isCabalDev opts = "cabal-dev"
@@ -146,8 +162,7 @@ reverseProxy opts iappPort = do
                 ]
                 refreshHtml
 
-    let runProxy =
-            run (develPort opts) $ waiProxyToSettings
+    let proxyApp = waiProxyToSettings
                 (const $ do
                     appPort <- liftIO $ I.readIORef iappPort
                     return $
@@ -161,13 +176,20 @@ reverseProxy opts iappPort = do
                             else Just (1000000 * proxyTimeout opts)
                     }
                 manager
-    loop runProxy `Ex.onException` exitFailure
+        runProxyTls port app = do
+          let cert = $(embedFile "certificate.pem")
+              key = $(embedFile "key.pem")
+              tlsSettings = tlsSettingsMemory cert key
+          runTLS tlsSettings (setPort port defaultSettings) app
+        httpProxy = run (develPort opts) proxyApp
+        httpsProxy = runProxyTls (develTlsPort opts) proxyApp
+    loop (race_ httpProxy httpsProxy) `Ex.onException` exitFailure
   where
-    loop proxy = forever $ do
-        void proxy
-        putStrLn "Reverse proxy stopped, but it shouldn't"
+    loop proxies = forever $ do
+        void proxies
+        putStrLn $ "Reverse proxy stopped, but it shouldn't"
         threadDelay 1000000
-        putStrLn "Restarting reverse proxy"
+        putStrLn $ "Restarting reverse proxies"
 
 checkPort :: Int -> IO Bool
 checkPort p = do

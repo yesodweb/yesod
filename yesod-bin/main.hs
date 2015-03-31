@@ -54,6 +54,7 @@ data Command = Init { _initBare :: Bool }
                      , develIgnore       :: [String]
                      , develExtraArgs    :: [String]
                      , _develPort        :: Int
+                     , _develTlsPort     :: Int
                      , _proxyTimeout     :: Int
                      , _noReverseProxy   :: Bool
                      , _interruptOnly    :: Bool
@@ -107,13 +108,21 @@ main = do
     Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
     AddHandler{..}  -> addHandler addHandlerRoute addHandlerPattern addHandlerMethods
     Test            -> cabalTest cabal
-    Devel{..}       -> devel (DevelOpts
-                              (optCabalPgm o == CabalDev) _develDisableApi (optVerbose o)
-                              _develRescan _develSuccessHook _develFailHook
-                              _develBuildDir _develPort _proxyTimeout
-                              (not _noReverseProxy)
-                              (if _interruptOnly then TerminateOnlyInterrupt else TerminateOnEnter )
-                           ) develExtraArgs
+    Devel{..}       -> let develOpts = DevelOpts
+                             { isCabalDev   = optCabalPgm o == CabalDev
+                             , forceCabal   = _develDisableApi
+                             , verbose      = optVerbose o
+                             , eventTimeout = _develRescan
+                             , successHook  = _develSuccessHook
+                             , failHook     = _develFailHook
+                             , buildDir     = _develBuildDir
+                             , develPort    = _develPort
+                             , develTlsPort = _develTlsPort
+                             , proxyTimeout = _proxyTimeout
+                             , useReverseProxy = not _noReverseProxy
+                             , terminateWith = if _interruptOnly then TerminateOnlyInterrupt else TerminateOnEnter
+                             }
+                       in devel develOpts develExtraArgs
   where
     cabalTest cabal = do touch'
                          _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]
@@ -178,6 +187,8 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                      <*> extraCabalArgs
                      <*> option auto ( long "port" <> short 'p' <> value 3000 <> metavar "N"
                             <> help "Devel server listening port" )
+                     <*> option auto ( long "tls-port" <> short 'q' <> value 3443 <> metavar "N"
+                            <> help "Devel server listening port (tls)" )
                      <*> option auto ( long "proxy-timeout" <> short 'x' <> value 0 <> metavar "N"
                             <> help "Devel server timeout before returning 'not ready' message (in seconds, 0 for none)" )
                      <*> switch ( long "disable-reverse-proxy" <> short 'n'

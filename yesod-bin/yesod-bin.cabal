@@ -17,6 +17,7 @@ extra-source-files:
   input/*.cg
   hsfiles/*.hsfiles
   ChangeLog.md
+  *.pem
 
 executable             yesod-ghc-wrapper
     main-is: ghcwrapper.hs
@@ -87,6 +88,8 @@ executable             yesod
                      , wai-extra
                      , data-default-class
                      , streaming-commons
+                     , warp-tls
+                     , async
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
