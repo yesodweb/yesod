@@ -183,6 +183,12 @@ reverseProxy opts iappPort = do
           runTLS tlsSettings (setPort port defaultSettings) app
         httpProxy = run (develPort opts) proxyApp
         httpsProxy = runProxyTls (develTlsPort opts) proxyApp
+    putStrLn "Application can be accessed at:\n"
+    putStrLn $ "http://127.0.0.1:" ++ show (develPort opts)
+    putStrLn $ "https://127.0.0.1:" ++ show (develTlsPort opts)
+    putStrLn $ "If you wish to test https capabilities, you should set the following variable:"
+    putStrLn $ "  export APPROOT=https://127.0.0.1:" ++ show (develTlsPort opts)
+    putStrLn ""
     loop (race_ httpProxy httpsProxy) `Ex.onException` exitFailure
   where
     loop proxies = forever $ do

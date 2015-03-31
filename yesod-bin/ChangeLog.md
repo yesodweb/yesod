@@ -1,3 +1,7 @@
+## 1.4.6
+
+* Add TLS support to `yesod devel` [#964](https://github.com/yesodweb/yesod/pull/964)
+
 ## 1.4.5
 
 * add a switch to yesod to skip deploying a .keter with copy-to [#952](https://github.com/yesodweb/yesod/issues/952)
