@@ -1,3 +1,7 @@
+## 1.4.9.1
+
+* Deal better with multiple cookie headers
+
 ## 1.4.9
 
 * Add simple authentication helpers [#962](https://github.com/yesodweb/yesod/pull/962)

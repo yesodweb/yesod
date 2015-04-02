@@ -695,11 +695,11 @@ loadClientSession key getCachedDate sessionName req = load
     load = do
       date <- getCachedDate
       return (sess date, save date)
-    sess date = fromMaybe Map.empty $ do
-      raw <- lookup "Cookie" $ W.requestHeaders req
-      val <- lookup sessionName $ parseCookies raw
+    sess date = Map.unions $ do
+      raw <- [v | (k, v) <- W.requestHeaders req, k == "Cookie"]
+      val <- [v | (k, v) <- parseCookies raw, k == sessionName]
       let host = "" -- fixme, properly lock sessions to client address
-      decodeClientSession key date host val
+      maybe [] return $ decodeClientSession key date host val
     save date sess' = do
       -- We should never cache the IV!  Be careful!
       iv <- liftIO CS.randomIV
