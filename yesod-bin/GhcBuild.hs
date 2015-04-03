@@ -87,15 +87,26 @@ getPackageArgs buildDir argv2 = do
     let pkgFlags = map convertPkgFlag (GHC.packageFlags dflags1)
         hideAll | gopt DF.Opt_HideAllPackages dflags1 = [ "-hide-all-packages"]
                 | otherwise                           = []
-        ownPkg = "-package-id" ++ Module.packageIdString (DF.thisPackage dflags1) ++ "-inplace"
+        ownPkg = packageString (DF.thisPackage dflags1)
     return (extra dflags1 ++ hideAll ++ pkgFlags ++ [ownPkg])
   where
+#if __GLASGOW_HASKELL__ >= 710
+    convertPkgFlag (DF.ExposePackage (DF.PackageArg p) _)    = "-package" ++ p
+    convertPkgFlag (DF.ExposePackage (DF.PackageIdArg p) _)  = "-package-id" ++ p
+    convertPkgFlag (DF.ExposePackage (DF.PackageKeyArg p) _) = "-package-key" ++ p
+#else
     convertPkgFlag (DF.ExposePackage p)   = "-package" ++ p
     convertPkgFlag (DF.ExposePackageId p) = "-package-id" ++ p
+#endif
     convertPkgFlag (DF.HidePackage p)     = "-hide-package" ++ p
     convertPkgFlag (DF.IgnorePackage p)   = "-ignore-package" ++ p
     convertPkgFlag (DF.TrustPackage p)    = "-trust" ++ p
     convertPkgFlag (DF.DistrustPackage p) ="-distrust" ++ p
+#if __GLASGOW_HASKELL__ >= 710
+    packageString flags = "-package-key" ++ Module.packageKeyString flags
+#else
+    packageString flags = "-package-id" ++ Module.packageIdString flags ++ "-inplace"
+#endif
 #if __GLASGOW_HASKELL__ >= 705
     extra df = inplaceConf ++ extra'
       where
@@ -248,7 +259,13 @@ parseModeFlags args = do
              Nothing     -> doMakeMode
              Just (m, _) -> m
       errs = errs1 ++ map (mkGeneralLocated "on the commandline") errs2
-  when (not (null errs)) $ throwGhcException $ errorsToGhcException errs
+#if __GLASGOW_HASKELL__ >= 710
+      errorsToGhcException' = errorsToGhcException . map (\(GHC.L _ e) -> ("on the commandline", e))
+#else
+      errorsToGhcException' = errorsToGhcException
+#endif
+
+  when (not (null errs)) $ throwGhcException $ errorsToGhcException' errs
   return (mode, flags' ++ leftover, warns)
 
 type ModeM = CmdLineP (Maybe (Mode, String), [String], [Located String])
@@ -258,16 +275,16 @@ type ModeM = CmdLineP (Maybe (Mode, String), [String], [Located String])
 mode_flags :: [Flag ModeM]
 mode_flags =
   [  ------- help / version ----------------------------------------------
-    Flag "?"                     (PassFlag (setMode showGhcUsageMode))
-  , Flag "-help"                 (PassFlag (setMode showGhcUsageMode))
-  , Flag "V"                     (PassFlag (setMode showVersionMode))
-  , Flag "-version"              (PassFlag (setMode showVersionMode))
-  , Flag "-numeric-version"      (PassFlag (setMode showNumVersionMode))
-  , Flag "-info"                 (PassFlag (setMode showInfoMode))
-  , Flag "-supported-languages"  (PassFlag (setMode showSupportedExtensionsMode))
-  , Flag "-supported-extensions" (PassFlag (setMode showSupportedExtensionsMode))
+    mkFlag "?"                     (PassFlag (setMode showGhcUsageMode))
+  , mkFlag "-help"                 (PassFlag (setMode showGhcUsageMode))
+  , mkFlag "V"                     (PassFlag (setMode showVersionMode))
+  , mkFlag "-version"              (PassFlag (setMode showVersionMode))
+  , mkFlag "-numeric-version"      (PassFlag (setMode showNumVersionMode))
+  , mkFlag "-info"                 (PassFlag (setMode showInfoMode))
+  , mkFlag "-supported-languages"  (PassFlag (setMode showSupportedExtensionsMode))
+  , mkFlag "-supported-extensions" (PassFlag (setMode showSupportedExtensionsMode))
   ] ++
-  [ Flag k'                      (PassFlag (setMode (printSetting k)))
+  [ mkFlag k'                      (PassFlag (setMode (printSetting k)))
   | k <- ["Project version",
           "Booter version",
           "Stage",
@@ -293,26 +310,31 @@ mode_flags =
         replaceSpace c   = c
   ] ++
       ------- interfaces ----------------------------------------------------
-  [ Flag "-show-iface"  (HasArg (\f -> setMode (showInterfaceMode f)
+  [ mkFlag "-show-iface"  (HasArg (\f -> setMode (showInterfaceMode f)
                                                "--show-iface"))
 
       ------- primary modes ------------------------------------------------
-  , Flag "c"            (PassFlag (\f -> do setMode (stopBeforeMode StopLn) f
-                                            addFlag "-no-link" f))
-  , Flag "M"            (PassFlag (setMode doMkDependHSMode))
-  , Flag "E"            (PassFlag (setMode (stopBeforeMode anyHsc)))
-  , Flag "C"            (PassFlag (\f -> do setMode (stopBeforeMode HCc) f
-                                            addFlag "-fvia-C" f))
+  , mkFlag "c"            (PassFlag (\f -> do setMode (stopBeforeMode StopLn) f
+                                              addFlag "-no-link" f))
+  , mkFlag "M"            (PassFlag (setMode doMkDependHSMode))
+  , mkFlag "E"            (PassFlag (setMode (stopBeforeMode anyHsc)))
+  , mkFlag "C"            (PassFlag (\f -> do setMode (stopBeforeMode HCc) f
+                                              addFlag "-fvia-C" f))
 #if MIN_VERSION_ghc(7,8,3)
-  , Flag "S"            (PassFlag (setMode (stopBeforeMode (As True))))
+  , mkFlag "S"            (PassFlag (setMode (stopBeforeMode (As True))))
 #else
-  , Flag "S"            (PassFlag (setMode (stopBeforeMode As)))
+  , mkFlag "S"            (PassFlag (setMode (stopBeforeMode As)))
 #endif
-  , Flag "-make"        (PassFlag (setMode doMakeMode))
-  , Flag "-interactive" (PassFlag (setMode doInteractiveMode))
-  , Flag "-abi-hash"    (PassFlag (setMode doAbiHashMode))
-  , Flag "e"            (SepArg   (\s -> setMode (doEvalMode s) "-e"))
+  , mkFlag "-make"        (PassFlag (setMode doMakeMode))
+  , mkFlag "-interactive" (PassFlag (setMode doInteractiveMode))
+  , mkFlag "-abi-hash"    (PassFlag (setMode doAbiHashMode))
+  , mkFlag "e"            (SepArg   (\s -> setMode (doEvalMode s) "-e"))
   ]
+#if MIN_VERSION_ghc(7,10,1)
+  where mkFlag fName fOptKind = Flag fName fOptKind AllModes
+#else
+  where mkFlag fName fOptKind = Flag fName fOptKind
+#endif
 
 setMode :: Mode -> String -> EwM ModeM ()
 setMode newMode newFlag = liftEwM $ do

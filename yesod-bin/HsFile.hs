@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 module HsFile (mkHsFile) where
 import Text.ProjectTemplate (createTemplate)
@@ -5,7 +6,11 @@ import Data.Conduit
     ( ($$), (=$), ConduitM, awaitForever, yield, Source )
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import qualified Data.Conduit.List as CL
+#if __GLASGOW_HASKELL__ >= 710
+import Prelude hiding (FilePath, traverse)
+#else
 import Prelude hiding (FilePath)
+#endif
 import Filesystem.Path ( FilePath )
 import Filesystem.Path.CurrentOS ( encodeString )
 import qualified Filesystem as F
