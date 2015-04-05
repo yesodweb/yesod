@@ -248,7 +248,11 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
     -- outer loop re-reads the cabal file
     mainOuterLoop develHsPath iappPort filesModified = do
       ghcVer <- liftIO ghcVersion
+#if MIN_VERSION_Cabal(1,20,0)
+      cabal  <- liftIO $ D.tryFindPackageDesc "."
+#else
       cabal  <- liftIO $ D.findPackageDesc "."
+#endif
       gpd    <- liftIO $ D.readPackageDescription D.normal cabal
       ldar   <- liftIO lookupLdAr
       (hsSourceDirs, _) <- liftIO $ checkCabalFile gpd
