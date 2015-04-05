@@ -1,3 +1,7 @@
+## 1.4.7
+
+* GHC 7.10 support
+
 ## 1.4.6
 
 * Add TLS support to `yesod devel` [#964](https://github.com/yesodweb/yesod/pull/964)
