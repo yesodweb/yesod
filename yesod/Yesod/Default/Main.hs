@@ -13,7 +13,7 @@ module Yesod.Default.Main
 import Yesod.Default.Config
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
-    (runSettings, defaultSettings, settingsPort, settingsHost, settingsOnException)
+    (runSettings, defaultSettings, setPort, setHost, setOnException)
 import qualified Network.Wai.Handler.Warp as Warp
 import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 import Network.Wai.Middleware.Gzip (gzip, GzipFiles (GzipCacheFolder), gzipFiles, def)
@@ -48,10 +48,11 @@ defaultMain :: (Show env, Read env)
 defaultMain load getApp = do
     config <- load
     app <- getApp config
-    runSettings defaultSettings
-        { settingsPort = appPort config
-        , settingsHost = appHost config
-        } app
+    runSettings 
+        ( setPort (appPort config)
+        $ setHost (appHost config)
+        $ defaultSettings
+        ) app
 
 type LogFunc = Loc -> LogSource -> LogLevel -> LogStr -> IO ()
 
@@ -66,15 +67,16 @@ defaultMainLog :: (Show env, Read env)
 defaultMainLog load getApp = do
     config <- load
     (app, logFunc) <- getApp config
-    runSettings defaultSettings
-        { settingsPort = appPort config
-        , settingsHost = appHost config
-        , settingsOnException = const $ \e -> when (shouldLog' e) $ logFunc
+    runSettings 
+        ( setPort (appPort config)
+        $ setHost (appHost config)
+        $ setOnException (const $ \e -> when (shouldLog' e) $ logFunc
             $(qLocation >>= liftLoc)
             "yesod"
             LevelError
-            (toLogStr $ "Exception from Warp: " ++ show e)
-        } app
+            (toLogStr $ "Exception from Warp: " ++ show e))
+        $ defaultSettings
+        ) app
   where
     shouldLog' = Warp.defaultShouldDisplayException
 
