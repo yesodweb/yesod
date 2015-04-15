@@ -507,7 +507,11 @@ lookupLdAr = do
 
 lookupLdAr' :: IO (Maybe (FilePath, FilePath))
 lookupLdAr' = do
+#if MIN_VERSION_Cabal(1,22,0)
   (_, _, pgmc) <- D.configCompilerEx (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent
+#else
+  (_, pgmc) <- D.configCompiler (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent
+#endif
   pgmc' <- D.configureAllKnownPrograms D.silent pgmc
   return $ (,) <$> look D.ldProgram pgmc' <*> look D.arProgram pgmc'
      where
