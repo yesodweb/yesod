@@ -84,23 +84,24 @@ import           Network.Wai.Handler.WarpTLS           (runTLS, tlsSettingsMemor
 import           SrcLoc                                (Located)
 import           Data.FileEmbed        (embedFile)
 
-lockFile :: DevelOpts -> FilePath
-lockFile _opts =  "yesod-devel/devel-terminate"
+lockFile :: FilePath
+lockFile =  "yesod-devel/devel-terminate"
 
 writeLock :: DevelOpts -> IO ()
 writeLock opts = do
     createDirectoryIfMissing True "yesod-devel"
-    writeFile (lockFile opts) ""
+    writeFile lockFile ""
     createDirectoryIfMissing True "dist" -- for compatibility with old devel.hs
     writeFile "dist/devel-terminate" ""
 
 removeLock :: DevelOpts -> IO ()
 removeLock opts = do
-    removeFileIfExists (lockFile opts)
+    removeFileIfExists lockFile
     removeFileIfExists "dist/devel-terminate"  -- for compatibility with old devel.hs
 
 data DevelTermOpt = TerminateOnEnter | TerminateOnlyInterrupt
      deriving (Show, Eq)
+     
 data DevelOpts = DevelOpts
       { isCabalDev   :: Bool
       , forceCabal   :: Bool
@@ -136,8 +137,9 @@ defaultDevelOpts = DevelOpts
     }
 
 cabalProgram :: DevelOpts -> FilePath
-cabalProgram opts | isCabalDev opts = "cabal-dev"
-                  | otherwise       = "cabal"
+cabalProgram opts
+  | isCabalDev opts = "cabal-dev"
+  | otherwise       = "cabal"
 
 -- | Run a reverse proxy from port 3000 to 3001. If there is no response on
 -- 3001, give an appropriate message to the user.
@@ -207,7 +209,8 @@ checkPort p = do
             return True
 
 getPort :: DevelOpts -> Int -> IO Int
-getPort opts _ | not (useReverseProxy opts) = return $ develPort opts
+getPort opts _ 
+  | not (useReverseProxy opts) = return $ develPort opts
 getPort _ p0 =
     loop p0
   where
@@ -504,7 +507,11 @@ lookupLdAr = do
 
 lookupLdAr' :: IO (Maybe (FilePath, FilePath))
 lookupLdAr' = do
+#if MIN_VERSION_Cabal(1,22,0)
+  (_, _, pgmc) <- D.configCompilerEx (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent
+#else
   (_, pgmc) <- D.configCompiler (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent
+#endif
   pgmc' <- D.configureAllKnownPrograms D.silent pgmc
   return $ (,) <$> look D.ldProgram pgmc' <*> look D.arProgram pgmc'
      where
