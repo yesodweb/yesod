@@ -81,9 +81,20 @@ keter cabal noBuild noCopyTo = do
 
     unless noCopyTo $ case Map.lookup "copy-to" value of
         Just (String s) ->
-            case parseMaybe (.: "copy-to-port") value of
-                Just i -> run "scp" ["-P" ++ show (i :: Int), fp, T.unpack s]
-                Nothing -> run "scp" [fp, T.unpack s]
+            let baseArgs = [fp, T.unpack s] :: [String]
+
+                scpArgs =
+                    case parseMaybe (.: "copy-to-args") value of
+                        Just as -> as ++ baseArgs
+                        Nothing -> baseArgs
+
+                args =
+                    case parseMaybe (.: "copy-to-port") value of
+                        Just i -> "-P" : show (i :: Int) : scpArgs
+                        Nothing -> scpArgs
+
+            in run "scp" args
+
         _ -> return ()
   where
     -- Test for alternative config file extension (yaml or yml).
