@@ -88,7 +88,7 @@ executable             yesod
                      , wai-extra
                      , data-default-class
                      , streaming-commons
-                     , warp-tls
+                     , warp-tls           >= 3.0.1
                      , async
 
     ghc-options:       -Wall -threaded -rtsopts
