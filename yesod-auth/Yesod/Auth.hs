@@ -146,6 +146,10 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     authPlugins :: master -> [AuthPlugin master]
 
     -- | What to show on the login page.
+    -- 
+    -- Default handler concatenates plugin widgets and wraps the result
+    -- in 'authLayout'. Override if you need fancy widget containers
+    -- or entirely custom page.
     loginHandler :: AuthHandler master Html
     loginHandler = do
         tp <- getRouteToParent
