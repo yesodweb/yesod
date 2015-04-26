@@ -30,6 +30,7 @@ module Yesod.Auth.Email
     , registerR
     , forgotPasswordR
     , setpassR
+    , verifyR
     , isValidPass
       -- * Types
     , Email
@@ -74,8 +75,8 @@ registerR = PluginR "email" ["register"]
 forgotPasswordR = PluginR "email" ["forgot-password"]
 setpassR = PluginR "email" ["set-password"]
 
-verify :: Text -> Text -> AuthRoute -- FIXME
-verify eid verkey = PluginR "email" ["verify", eid, verkey]
+verifyR :: Text -> Text -> AuthRoute -- FIXME
+verifyR eid verkey = PluginR "email" ["verify", eid, verkey]
 
 type Email = Text
 type VerKey = Text
@@ -345,7 +346,7 @@ registerHelper allowUsername dest = do
                 Nothing -> loginErrorMessageI dest (Msg.IdentifierNotFound identifier)
                 Just (lid, verKey, email) -> do
                     render <- getUrlRender
-                    let verUrl = render $ verify (toPathPiece lid) verKey
+                    let verUrl = render $ verifyR (toPathPiece lid) verKey
                     lift $ sendVerifyEmail email verKey verUrl
                     lift $ confirmationEmailSentResponse identifier
 
