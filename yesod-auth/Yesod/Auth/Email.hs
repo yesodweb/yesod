@@ -69,11 +69,13 @@ import Yesod.Form
 import Data.Time (getCurrentTime, addUTCTime)
 import Safe (readMay)
 
-loginR, registerR, forgotPasswordR, setpassR, verifyR :: AuthRoute
+loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
 registerR = PluginR "email" ["register"]
 forgotPasswordR = PluginR "email" ["forgot-password"]
 setpassR = PluginR "email" ["set-password"]
+
+verifyR :: Text -> Text -> AuthRoute -- FIXME
 verifyR eid verkey = PluginR "email" ["verify", eid, verkey]
 
 type Email = Text
