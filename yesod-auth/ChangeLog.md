@@ -1,3 +1,7 @@
+## 1.4.5
+
+* Adds export of email verify route [#980](https://github.com/yesodweb/yesod/pull/980)
+
 ## 1.4.4
 
 * Add AuthenticationResult and authenticate function [#959](https://github.com/yesodweb/yesod/pull/959)

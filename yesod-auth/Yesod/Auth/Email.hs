@@ -75,6 +75,9 @@ registerR = PluginR "email" ["register"]
 forgotPasswordR = PluginR "email" ["forgot-password"]
 setpassR = PluginR "email" ["set-password"]
 
+-- |
+--
+-- Since 1.4.5
 verifyR :: Text -> Text -> AuthRoute -- FIXME
 verifyR eid verkey = PluginR "email" ["verify", eid, verkey]
 
