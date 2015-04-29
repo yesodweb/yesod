@@ -92,7 +92,9 @@ scaffold isBare = do
 
     let sink = unpackTemplate
                 (receiveFS $ if isBare then "." else fromString project)
-                (T.replace "PROJECTNAME" (T.pack project))
+                ( T.replace "PROJECTNAME" (T.pack project)
+                . T.replace "PROJECTNAME_LOWER" (T.toLower $ T.pack project)
+                )
     case ebackend of
         Left req -> withManager $ \m -> do
             res <- http req m
