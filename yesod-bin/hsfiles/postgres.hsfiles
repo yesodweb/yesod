@@ -101,6 +101,9 @@ makeFoundation appSettings = do
     -- temporary foundation without a real connection pool, get a log function
     -- from there, and then create the real foundation.
     let mkFoundation appConnPool = App {..}
+        -- The App {..} syntax is an example of record wild cards. For more
+        -- information, see:
+        -- https://ocharles.org.uk/blog/posts/2014-12-04-record-wildcards.html
         tempFoundation = mkFoundation $ error "connPool forced in tempFoundation"
         logFunc = messageLoggerSource tempFoundation appLogger
 
@@ -1002,11 +1005,11 @@ ip-from-header: "_env:IP_FROM_HEADER:false"
 # skip-combining: false
 
 database:
-  user:     "_env:PGUSER:PROJECTNAME"
+  user:     "_env:PGUSER:PROJECTNAME_LOWER"
   password: "_env:PGPASS:PROJECTNAME"
   host:     "_env:PGHOST:localhost"
   port:     "_env:PGPORT:5432"
-  database: "_env:PGDATABASE:PROJECTNAME"
+  database: "_env:PGDATABASE:PROJECTNAME_LOWER"
   poolsize: "_env:PGPOOLSIZE:10"
 
 copyright: Insert copyright statement here
@@ -1014,7 +1017,7 @@ copyright: Insert copyright statement here
 
 {-# START_FILE config/test-settings.yml #-}
 database:
-  database: PROJECTNAME_test
+  database: PROJECTNAME_LOWER_test
 
 {-# START_FILE static/css/bootstrap.css #-}
 /*!

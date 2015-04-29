@@ -894,8 +894,7 @@ copyright: Insert copyright statement here
 #analytics: UA-YOURCODE
 
 {-# START_FILE config/test-settings.yml #-}
-database:
-  database: PROJECTNAME_test
+{}
 
 {-# START_FILE static/css/bootstrap.css #-}
 /*!
