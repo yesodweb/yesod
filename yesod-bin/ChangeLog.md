@@ -1,3 +1,7 @@
+## 1.4.7.2
+
+* Scaffolding updates, including fix for [#982](https://github.com/yesodweb/yesod/issues/982)
+
 ## 1.4.7
 
 * GHC 7.10 support
