@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, OverloadedStrings, QuasiQuotes #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Auth.OAuth
     ( authOAuth
     , oauthUrl
