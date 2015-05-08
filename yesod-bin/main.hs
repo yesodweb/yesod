@@ -41,7 +41,7 @@ data Options = Options
                }
   deriving (Show, Eq)
 
-data Command = Init { _initBare :: Bool }
+data Command = Init { _initBare :: Bool, _initName :: Maybe String }
              | HsFiles
              | Configure
              | Build { buildExtraArgs   :: [String] }
@@ -99,7 +99,7 @@ main = do
          ] optParser'
   let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
-    Init bare       -> scaffold bare
+    Init bare name  -> scaffold bare name
     HsFiles         -> mkHsFile
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
@@ -136,8 +136,7 @@ optParser :: Parser Options
 optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
-        <*> subparser ( command "init"
-                            (info (Init <$> (switch (long "bare" <> help "Create files in current folder")))
+        <*> subparser ( command "init"         (info initOptions
                             (progDesc "Scaffold a new site"))
                       <> command "hsfiles" (info (pure HsFiles)
                             (progDesc "Create a hsfiles file for the current folder"))
@@ -159,6 +158,12 @@ optParser = Options
                       <> command "version"     (info (pure Version)
                             (progDesc "Print the version of Yesod"))
                       )
+
+initOptions :: Parser Command
+initOptions = Init
+    <$> switch (long "bare" <> help "Create files in current folder")
+    <*> optStr (long "name" <> short 'n' <> metavar "APP_NAME"
+            <> help "Set the application name")
 
 keterOptions :: Parser Command
 keterOptions = Keter

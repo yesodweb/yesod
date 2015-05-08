@@ -66,16 +66,14 @@ backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")
 backendBS Minimal = $(embedFile "hsfiles/minimal.hsfiles")
 
 validPackageName :: String -> Bool
-validPackageName s = isJust (simpleParse s :: Maybe PackageName)
+validPackageName s = isJust (simpleParse s :: Maybe PackageName) && s /= "test"
 
 scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
+         -> Maybe String -- ^ application name
          -> IO ()
-scaffold isBare = do
+scaffold isBare appName = do
     puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
-    project <- prompt $ \s ->
-        if validPackageName s && s /= "test"
-            then Just s
-            else Nothing
+    project <- projectName appName
 
     puts $ renderTextUrl undefined $(textFile "input/database.cg")
 
@@ -106,3 +104,19 @@ scaffold isBare = do
                                 else LT.replace "PROJECTNAME" (LT.pack project)
 
     TLIO.putStr $ projectnameReplacer $ renderTextUrl undefined $(textFile "input/done.cg")
+
+projectName :: Maybe String -- ^ application name
+            -> IO String
+projectName appName = case appName of
+    Nothing   -> askForProjectName
+    Just name ->
+        if validPackageName name
+            then return name
+            else do
+                 putStr "Given application name is not valid, please choose another one"
+                 hFlush stdout
+                 askForProjectName
+  where
+    askForProjectName = do
+        puts $ renderTextUrl undefined $(textFile "input/project_name.cg")
+        prompt $ \s -> if validPackageName s then Just s else Nothing
