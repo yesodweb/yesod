@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
-module Scaffolding.Scaffolder (scaffold) where
+module Scaffolding.Scaffolder (scaffold, backendOptions) where
 
 import           Control.Arrow         ((&&&))
 import qualified Data.ByteString.Char8 as S
@@ -14,8 +14,9 @@ import qualified Data.Text.Lazy.IO     as TLIO
 import           Text.ProjectTemplate  (unpackTemplate, receiveFS)
 import           System.IO
 import           Text.Shakespeare.Text (renderTextUrl, textFile)
-import Network.HTTP.Conduit (withManager, http, parseUrl, responseBody)
-import           Data.Maybe            (isJust)
+import           Network.HTTP.Conduit  (Request, withManager, http, parseUrl, responseBody)
+import           Data.Maybe            (isJust, fromJust)
+import           Data.List             (intercalate)
 import           Distribution.Text     (simpleParse)
 import           Distribution.Package  (PackageName)
 
@@ -44,6 +45,9 @@ puts s = TLIO.putStr (LT.init s) >> hFlush stdout
 backends :: [Backend]
 backends = [minBound .. maxBound]
 
+backendOptions :: String
+backendOptions = intercalate "/" (map inputBackend backends)
+
 showBackend :: Backend -> String
 showBackend Sqlite = "s"
 showBackend Postgresql = "p"
@@ -53,8 +57,17 @@ showBackend MongoDB = "mongo"
 showBackend Simple = "simple"
 showBackend Minimal = "mini"
 
-readBackend :: String -> Maybe Backend
-readBackend s = lookup s $ map (showBackend &&& id) backends
+inputBackend :: Backend -> String
+inputBackend Sqlite = "sqlite"
+inputBackend Postgresql = "postgresql"
+inputBackend PostgresqlFay = "postgresql_fay"
+inputBackend Mysql = "mysql"
+inputBackend MongoDB = "mongo"
+inputBackend Simple = "simple"
+inputBackend Minimal = "mini"
+
+readBackend :: (Backend -> String) -> String -> Maybe Backend
+readBackend f s = lookup s $ map (f &&& id) backends
 
 backendBS :: Backend -> S.ByteString
 backendBS Sqlite = $(embedFile "hsfiles/sqlite.hsfiles")
@@ -68,23 +81,14 @@ backendBS Minimal = $(embedFile "hsfiles/minimal.hsfiles")
 validPackageName :: String -> Bool
 validPackageName s = isJust (simpleParse s :: Maybe PackageName) && s /= "test"
 
-scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
+scaffold :: Bool         -- ^ bare directory instead of a new subdirectory?
          -> Maybe String -- ^ application name
+         -> Maybe String -- ^ database
          -> IO ()
-scaffold isBare appName = do
+scaffold isBare appName database = do
     puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
     project <- projectName appName
-
-    puts $ renderTextUrl undefined $(textFile "input/database.cg")
-
-    ebackend' <- prompt $ \s -> if s == "url" then Just (Left ()) else fmap Right $ readBackend s
-
-    ebackend <-
-        case ebackend' of
-            Left () -> do
-                puts "Please enter the URL:  "
-                fmap Left $ prompt parseUrl
-            Right backend -> return $ Right backend
+    ebackend <- projectDatabase database
 
     putStrLn "That's it! I'm creating your files now..."
 
@@ -105,18 +109,29 @@ scaffold isBare appName = do
 
     TLIO.putStr $ projectnameReplacer $ renderTextUrl undefined $(textFile "input/done.cg")
 
+projectDatabase :: Maybe String -- ^ database
+                -> IO (Either Request Backend)
+projectDatabase Nothing = do
+    puts $ renderTextUrl undefined $(textFile "input/database.cg")
+    ebackend' <- prompt $ \s -> if s == "url" then Just (Left ()) else fmap Right $ readBackend showBackend s
+    case ebackend' of
+        Left () -> do
+            puts "Please enter the URL:  "
+            fmap Left $ prompt parseUrl
+        Right backend -> return $ Right backend
+projectDatabase (Just db)
+    | "url" == db = do
+        puts "Please enter the URL:  "
+        fmap Left $ prompt parseUrl
+    | isJust parsedDB = return $ Right (fromJust parsedDB)
+    | otherwise       = error "Invalid value for --database option."
+  where
+    parsedDB = readBackend inputBackend db
+
 projectName :: Maybe String -- ^ application name
             -> IO String
-projectName appName = case appName of
-    Nothing   -> askForProjectName
-    Just name ->
-        if validPackageName name
-            then return name
-            else do
-                 putStr "Given application name is not valid, please choose another one"
-                 hFlush stdout
-                 askForProjectName
-  where
-    askForProjectName = do
-        puts $ renderTextUrl undefined $(textFile "input/project_name.cg")
-        prompt $ \s -> if validPackageName s then Just s else Nothing
+projectName Nothing = do
+    puts $ renderTextUrl undefined $(textFile "input/project_name.cg")
+    prompt $ \s -> if validPackageName s then Just s else Nothing
+projectName (Just name) | validPackageName name = return name
+                        | otherwise             = error "Invalid value for --name option."
