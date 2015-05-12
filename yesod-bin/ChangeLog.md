@@ -1,3 +1,7 @@
+## 1.4.8
+
+* Drop system-filepath
+
 ## 1.4.7.2
 
 * Scaffolding updates, including fix for [#982](https://github.com/yesodweb/yesod/issues/982)

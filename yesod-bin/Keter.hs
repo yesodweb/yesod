@@ -11,8 +11,8 @@ import System.Process
 import Control.Monad
 import System.Directory hiding (findFiles)
 import Data.Maybe (mapMaybe)
-import qualified Filesystem.Path.CurrentOS as F
-import qualified Filesystem as F
+import System.Directory (removeDirectoryRecursive)
+import System.FilePath ((</>))
 import qualified Codec.Archive.Tar as Tar
 import Control.Exception
 import qualified Data.ByteString.Lazy as L
@@ -60,7 +60,7 @@ keter cabal noBuild noCopyTo = do
             go ("exec", String s) = tellFile s
             go ("extraFiles", Array a) = Fold.mapM_ tellExtra a
             go (_, v') = findFiles v'
-            tellFile s = tell [F.collapse $ "config" F.</> F.fromText s]
+            tellFile s = tell ["config" </> T.unpack s]
             tellExtra (String s) = tellFile s
             tellExtra _          = error "extraFiles should be a flat array"
         findFiles (Array v) = Fold.mapM_ findFiles v
@@ -72,10 +72,10 @@ keter cabal noBuild noCopyTo = do
         run cabal ["configure"]
         run cabal ["build"]
 
-    _ <- try' $ F.removeTree "static/tmp"
+    _ <- try' $ removeDirectoryRecursive "static/tmp"
 
     archive <- Tar.pack "" $
-        "config" : "static" : map F.encodeString bundleFiles
+        "config" : "static" : bundleFiles
     let fp = T.unpack project ++ ".keter"
     L.writeFile fp $ compress $ Tar.write archive
 

@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.4.7.2
+version:         1.4.8
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -63,8 +63,6 @@ executable             yesod
                      , process
                      , zlib               >= 0.5
                      , tar                >= 0.4          && < 0.5
-                     , system-filepath    >= 0.4          && < 0.5
-                     , system-fileio      >= 0.3          && < 0.4
                      , unordered-containers
                      , yaml               >= 0.8          && < 0.9
                      , optparse-applicative >= 0.11
