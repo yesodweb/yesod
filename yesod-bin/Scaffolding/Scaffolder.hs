@@ -3,6 +3,7 @@
 module Scaffolding.Scaffolder (scaffold) where
 
 import           Control.Arrow         ((&&&))
+import           Control.Monad         (mfilter)
 import qualified Data.ByteString.Char8 as S
 import           Data.Conduit          (yield, ($$), ($$+-))
 import Control.Monad.Trans.Resource (runResourceT)
@@ -19,15 +20,18 @@ import           Data.Maybe            (isJust)
 import           Distribution.Text     (simpleParse)
 import           Distribution.Package  (PackageName)
 
-prompt :: (String -> Maybe a) -> IO a
-prompt f = do
-    s <- getLine
-    case f s of
+prompt :: (String -> Maybe a) -> Maybe String -> IO a
+prompt f (Just s) = accept f s
+prompt f Nothing  = accept f =<< getLine
+
+accept :: (String -> Maybe a) -> String -> IO a
+accept parser s = do
+    case parser s of
         Just a -> return a
         Nothing -> do
             putStr "That was not a valid entry, please try again: "
             hFlush stdout
-            prompt f
+            getLine >>= accept parser
 
 data Backend = Sqlite
              | Postgresql
@@ -66,26 +70,33 @@ backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")
 backendBS Minimal = $(embedFile "hsfiles/minimal.hsfiles")
 
 validPackageName :: String -> Bool
-validPackageName s = isJust (simpleParse s :: Maybe PackageName)
+validPackageName s =
+    isJust (simpleParse s :: Maybe PackageName) && s /= "test"
 
-scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
+parsePackageName :: String -> Maybe String
+parsePackageName = mfilter validPackageName . Just
+
+parseBackend :: String -> Maybe (Either () Backend)
+parseBackend "url" = Just (Left ())
+parseBackend s     = fmap Right $ readBackend s
+
+scaffold :: Bool         -- ^ bare directory instead of a new subdirectory?
+         -> Maybe String -- ^ project name
+         -> Maybe String -- ^ backend
          -> IO ()
-scaffold isBare = do
+scaffold isBare projectName projectBackend = do
     puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
-    project <- prompt $ \s ->
-        if validPackageName s && s /= "test"
-            then Just s
-            else Nothing
+    project <- prompt parsePackageName projectName
 
     puts $ renderTextUrl undefined $(textFile "input/database.cg")
 
-    ebackend' <- prompt $ \s -> if s == "url" then Just (Left ()) else fmap Right $ readBackend s
+    ebackend' <- prompt parseBackend projectBackend
 
     ebackend <-
         case ebackend' of
             Left () -> do
                 puts "Please enter the URL:  "
-                fmap Left $ prompt parseUrl
+                fmap Left $ prompt parseUrl Nothing
             Right backend -> return $ Right backend
 
     putStrLn "That's it! I'm creating your files now..."
