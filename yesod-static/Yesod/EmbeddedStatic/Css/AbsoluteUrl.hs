@@ -11,7 +11,6 @@ module Yesod.EmbeddedStatic.Css.AbsoluteUrl (
   , absCssUrlsProd
 ) where
 
-import Prelude hiding (FilePath)
 import Yesod.EmbeddedStatic.Generators
 import Yesod.EmbeddedStatic.Types
 
@@ -22,7 +21,7 @@ import qualified Data.Text.IO as T
 import qualified Data.Text.Lazy.Encoding as TL
 import Control.Monad ((>=>))
 import Data.Maybe (fromMaybe)
-import Filesystem.Path.CurrentOS ((</>), collapse, FilePath, fromText, toText, encodeString, decodeString)
+import System.FilePath ((</>))
 
 import Yesod.EmbeddedStatic.Css.Util
 
@@ -35,7 +34,7 @@ absCssUrlsFileProd :: FilePath -- ^ Anchor relative urls to here
                      -> FilePath
                      -> IO BL.ByteString
 absCssUrlsFileProd dir file = do
-    contents <- T.readFile (encodeString file)
+    contents <- T.readFile file
     return $ TL.encodeUtf8 $ absCssUrlsProd dir contents
 
 absCssUrlsProd :: FilePath -- ^ Anchor relative urls to here
@@ -47,14 +46,14 @@ absCssUrlsProd dir contents =
   where
     toAbsoluteUrl (UrlReference rel) = T.concat
         [ "url('/"
-        , (either id id $ toText $ collapse $ dir </> fromText rel)
+        , (T.pack $ dir </> T.unpack rel)
         , "')"
         ]
 
 
 -- | Equivalent to passing the same string twice to 'absoluteUrlsAt'.
 absoluteUrls :: FilePath -> Generator
-absoluteUrls f = absoluteUrlsAt (encodeString f) f
+absoluteUrls f = absoluteUrlsAt f f
 
 -- | Equivalent to passing @return@ to 'absoluteUrlsWith'.
 absoluteUrlsAt :: Location -> FilePath -> Generator
@@ -74,7 +73,7 @@ absoluteUrlsWith ::
   -> Maybe (CssGeneration -> IO BL.ByteString) -- ^ Another filter function run after this one (for example @return . yuiCSS . cssContent@) or other CSS filter that runs after this filter.
                      -> Generator
 absoluteUrlsWith loc file mpostFilter =
-    return [ cssProductionFilter (absCssUrlsFileProd (decodeString loc) >=> postFilter . mkCssGeneration loc file) loc file
+    return [ cssProductionFilter (absCssUrlsFileProd loc >=> postFilter . mkCssGeneration loc file) loc file
     ]
   where
     postFilter = fromMaybe (return . cssContent) mpostFilter

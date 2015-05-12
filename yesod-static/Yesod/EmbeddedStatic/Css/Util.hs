@@ -1,19 +1,18 @@
 {-# LANGUAGE OverloadedStrings, QuasiQuotes, TemplateHaskell, TupleSections, GeneralizedNewtypeDeriving #-}
 module Yesod.EmbeddedStatic.Css.Util where
 
-import Prelude hiding (FilePath)
 import Control.Applicative
 import Control.Monad (void, foldM)
 import Data.Hashable (Hashable)
 import Data.Monoid
 import Network.Mime (MimeType, defaultMimeLookup)
-import Filesystem.Path.CurrentOS (FilePath, directory, (</>), dropExtension, filename, toText, decodeString, encodeString, fromText, absolute)
 import Text.CSS.Parse (parseBlocks)
 import Language.Haskell.TH (litE, stringL)
 import Text.CSS.Render (renderBlocks)
 import Yesod.EmbeddedStatic.Types
 import Yesod.EmbeddedStatic (pathToName)
 import Data.Default (def)
+import System.FilePath ((</>), takeFileName, takeDirectory, dropExtension)
 
 import qualified Blaze.ByteString.Builder as B
 import qualified Blaze.ByteString.Builder.Char.Utf8 as B
@@ -63,7 +62,7 @@ parseBackgroundImage :: T.Text -> T.Text -> EithUrl
 parseBackgroundImage n v = (n, case P.parseOnly parseUrl v of
     Left _ -> Left v -- Can't parse url
     Right url -> -- maybe we should find a uri parser
-        if any (`T.isPrefixOf` url) ["http://", "https://", "//"] || absolute (fromText url)
+        if any (`T.isPrefixOf` url) ["http://", "https://", "/"]
             then Left v
             else Right $ UrlReference url)
 
@@ -79,9 +78,9 @@ parseCssUrls = parseCssWith checkForUrl
 
 parseCssFileWith :: (T.Text -> T.Text -> EithUrl) -> FilePath -> IO Css
 parseCssFileWith urlParser fp = do
-    mparsed <- parseCssWith urlParser <$> T.readFile (encodeString fp)
+    mparsed <- parseCssWith urlParser <$> T.readFile fp
     case mparsed of
-        Left err -> fail $ "Unable to parse " ++ encodeString fp ++ ": " ++ err
+        Left err -> fail $ "Unable to parse " ++ fp ++ ": " ++ err
         Right css -> return css
 
 parseCssFileUrls :: FilePath -> IO Css
@@ -101,7 +100,7 @@ loadImages dir css loadImage = foldM load M.empty $ concat [map snd block | (_,b
         load imap (Left _) = return imap
         load imap (Right f) | f `M.member` imap = return imap
         load imap (Right f@(UrlReference path)) = do
-            img <- loadImage (dir </> fromText path)
+            img <- loadImage (dir </> T.unpack path)
             return $ maybe imap (\i -> M.insert f i imap) img
 
 
@@ -129,14 +128,14 @@ cssProductionFilter prodFilter loc file =
         , ebLocation = loc
         , ebMimeType = "text/css"
         , ebProductionContent = prodFilter file
-        , ebDevelReload = [| develPassThrough $(litE (stringL loc)) $(litE (stringL $ encodeString file)) |]
+        , ebDevelReload = [| develPassThrough $(litE (stringL loc)) $(litE (stringL file)) |]
         , ebDevelExtraFiles = Nothing
         }
 
 cssProductionImageFilter :: (FilePath -> IO BL.ByteString) -> Location -> FilePath -> Entry
 cssProductionImageFilter prodFilter loc file =
   (cssProductionFilter prodFilter loc file)
-    { ebDevelReload = [| develBgImgB64 $(litE (stringL loc)) $(litE (stringL $ encodeString file)) |]
+    { ebDevelReload = [| develBgImgB64 $(litE (stringL loc)) $(litE (stringL file)) |]
     , ebDevelExtraFiles = Just [| develExtraFiles $(litE (stringL loc)) |]
     }
 
@@ -158,8 +157,8 @@ parseBackground loc file = do
     url <- PBL.takeWhile (/= 39) -- single quote
     void $ PBL.string "')"
 
-    let b64 = B64.encode $ T.encodeUtf8 (either id id $ toText (directory file)) <> url
-        newUrl = B.fromString (encodeString $ filename $ decodeString loc) <> B.fromString "/" <> B.fromByteString b64
+    let b64 = B64.encode $ T.encodeUtf8 (T.pack $ takeDirectory file) <> url
+        newUrl = B.fromString (takeFileName loc) <> B.fromString "/" <> B.fromByteString b64
 
     return $ B.fromByteString "background-image"
           <> B.fromByteString s1
@@ -175,12 +174,12 @@ parseDev loc file b = do
     (PBL.endOfInput *> (pure $! b <> b')) <|> (parseDev loc file $! b <> b')
 
 develPassThrough :: Location -> FilePath -> IO BL.ByteString
-develPassThrough _ = BL.readFile . encodeString
+develPassThrough _ = BL.readFile
 
 -- | Create the CSS during development
 develBgImgB64 :: Location -> FilePath -> IO BL.ByteString
 develBgImgB64 loc file = do
-    ct <- BL.readFile $ encodeString file
+    ct <- BL.readFile file
     case PBL.eitherResult $ PBL.parse (parseDev loc file mempty) ct of
         Left err -> error err
         Right b -> return $ B.toLazyByteString b
@@ -190,7 +189,7 @@ develExtraFiles :: Location -> [T.Text] -> IO (Maybe (MimeType, BL.ByteString))
 develExtraFiles loc parts =
     case reverse parts of
         (file:dir) | T.pack loc == T.intercalate "/" (reverse dir) -> do
-            let file' = T.decodeUtf8 $ B64.decodeLenient $ T.encodeUtf8 $ either id id $ toText $ dropExtension $ fromText file
+            let file' = T.decodeUtf8 $ B64.decodeLenient $ T.encodeUtf8 $ T.pack $ dropExtension $ T.unpack file
             ct <- BL.readFile $ T.unpack file'
             return $ Just (defaultMimeLookup file', ct)
         _ -> return Nothing

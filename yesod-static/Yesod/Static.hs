@@ -60,8 +60,6 @@ module Yesod.Static
 #endif
     ) where
 
-import Prelude hiding (FilePath)
-import qualified Prelude
 import System.Directory
 import Control.Monad
 import Data.FileEmbed (embedDir)
@@ -96,9 +94,9 @@ import Data.Conduit.List (sourceList, consume)
 import Data.Conduit.Binary (sourceFile)
 import qualified Data.Conduit.Text as CT
 import Data.Functor.Identity (runIdentity)
-import qualified Filesystem.Path.CurrentOS as F
-import Filesystem.Path.CurrentOS ((</>), (<.>), FilePath)
-import Filesystem (createTree)
+import System.FilePath ((</>), (<.>), FilePath, takeDirectory)
+import qualified System.FilePath as F
+import System.Directory (createDirectoryIfMissing)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Default
@@ -123,18 +121,18 @@ type StaticRoute = Route Static
 -- Does not have index files or directory listings.  The static
 -- files' contents /must not/ change, however new files can be
 -- added.
-static :: Prelude.FilePath -> IO Static
+static :: FilePath -> IO Static
 static dir = do
     hashLookup <- cachedETagLookup dir
-    return $ Static $ webAppSettingsWithLookup (F.decodeString dir) hashLookup
+    return $ Static $ webAppSettingsWithLookup dir hashLookup
 
 -- | Same as 'static', but does not assumes that the files do not
 -- change and checks their modification time whenever a request
 -- is made.
-staticDevel :: Prelude.FilePath -> IO Static
+staticDevel :: FilePath -> IO Static
 staticDevel dir = do
     hashLookup <- cachedETagLookupDevel dir
-    return $ Static $ webAppSettingsWithLookup (F.decodeString dir) hashLookup
+    return $ Static $ webAppSettingsWithLookup dir hashLookup
 
 -- | Produce a 'Static' based on embedding all of the static files' contents in the
 -- executable at compile time.
@@ -148,7 +146,7 @@ staticDevel dir = do
 -- directory itself.  With embedded static, that will not work.
 -- You can easily change @addStaticContent@ to @\_ _ _ -> return Nothing@ as a workaround.
 -- This will cause yesod to embed those assets into the generated HTML file itself.
-embed :: Prelude.FilePath -> Q Exp
+embed :: FilePath -> Q Exp
 embed fp = [|Static (embeddedSettings $(embedDir fp))|]
 
 instance RenderRoute Static where
@@ -178,14 +176,14 @@ instance YesodSubDispatch Static m where
       where
         Static set = ysreGetSub $ yreSite $ ysreParentEnv
 
-notHidden :: Prelude.FilePath -> Bool
+notHidden :: FilePath -> Bool
 notHidden "tmp" = False
 notHidden s =
     case s of
         '.':_ -> False
         _ -> True
 
-getFileListPieces :: Prelude.FilePath -> IO [[String]]
+getFileListPieces :: FilePath -> IO [[String]]
 getFileListPieces = flip evalStateT M.empty . flip go id
   where
     go :: String
@@ -232,7 +230,7 @@ getFileListPieces = flip evalStateT M.empty . flip go id
 -- Note that dots (@.@), dashes (@-@) and slashes (@\/@) are
 -- replaced by underscores (@\_@) to create valid Haskell
 -- identifiers.
-staticFiles :: Prelude.FilePath -> Q [Dec]
+staticFiles :: FilePath -> Q [Dec]
 staticFiles dir = mkStaticFiles dir
 
 -- | Same as 'staticFiles', but takes an explicit list of files
@@ -245,11 +243,11 @@ staticFiles dir = mkStaticFiles dir
 --
 -- This can be useful when you have a very large number of static
 -- files, but only need to refer to a few of them from Haskell.
-staticFilesList :: Prelude.FilePath -> [Prelude.FilePath] -> Q [Dec]
+staticFilesList :: FilePath -> [FilePath] -> Q [Dec]
 staticFilesList dir fs =
     mkStaticFilesList dir (map split fs) True
   where
-    split :: Prelude.FilePath -> [String]
+    split :: FilePath -> [String]
     split [] = []
     split x =
         let (a, b) = break (== '/') x
@@ -265,38 +263,38 @@ staticFilesList dir fs =
 -- on the future.  Browsers still will be able to cache the
 -- contents, however they'll need send a request to the server to
 -- see if their copy is up-to-date.
-publicFiles :: Prelude.FilePath -> Q [Dec]
+publicFiles :: FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles' dir False
 
 
-mkHashMap :: Prelude.FilePath -> IO (M.Map F.FilePath S8.ByteString)
+mkHashMap :: FilePath -> IO (M.Map FilePath S8.ByteString)
 mkHashMap dir = do
     fs <- getFileListPieces dir
     hashAlist fs >>= return . M.fromList
   where
-    hashAlist :: [[String]] -> IO [(F.FilePath, S8.ByteString)]
+    hashAlist :: [[String]] -> IO [(FilePath, S8.ByteString)]
     hashAlist fs = mapM hashPair fs
       where
-        hashPair :: [String] -> IO (F.FilePath, S8.ByteString)
+        hashPair :: [String] -> IO (FilePath, S8.ByteString)
         hashPair pieces = do let file = pathFromRawPieces dir pieces
                              h <- base64md5File file
-                             return (F.decodeString file, S8.pack h)
+                             return (file, S8.pack h)
 
-pathFromRawPieces :: Prelude.FilePath -> [String] -> Prelude.FilePath
+pathFromRawPieces :: FilePath -> [String] -> FilePath
 pathFromRawPieces =
     foldl' append
   where
     append a b = a ++ '/' : b
 
-cachedETagLookupDevel :: Prelude.FilePath -> IO ETagLookup
+cachedETagLookupDevel :: FilePath -> IO ETagLookup
 cachedETagLookupDevel dir = do
     etags <- mkHashMap dir
-    mtimeVar <- newIORef (M.empty :: M.Map F.FilePath EpochTime)
+    mtimeVar <- newIORef (M.empty :: M.Map FilePath EpochTime)
     return $ \f ->
       case M.lookup f etags of
         Nothing -> return Nothing
         Just checksum -> do
-          fs <- getFileStatus $ F.encodeString f
+          fs <- getFileStatus f
           let newt = modificationTime fs
           mtimes <- readIORef mtimeVar
           oldt <- case M.lookup f mtimes of
@@ -305,15 +303,15 @@ cachedETagLookupDevel dir = do
           return $ if newt /= oldt then Nothing else Just checksum
 
 
-cachedETagLookup :: Prelude.FilePath -> IO ETagLookup
+cachedETagLookup :: FilePath -> IO ETagLookup
 cachedETagLookup dir = do
     etags <- mkHashMap dir
     return $ (\f -> return $ M.lookup f etags)
 
-mkStaticFiles :: Prelude.FilePath -> Q [Dec]
+mkStaticFiles :: FilePath -> Q [Dec]
 mkStaticFiles fp = mkStaticFiles' fp True
 
-mkStaticFiles' :: Prelude.FilePath -- ^ static directory
+mkStaticFiles' :: FilePath -- ^ static directory
                -> Bool     -- ^ append checksum query parameter
                -> Q [Dec]
 mkStaticFiles' fp makeHash = do
@@ -321,7 +319,7 @@ mkStaticFiles' fp makeHash = do
     mkStaticFilesList fp fs makeHash
 
 mkStaticFilesList
-    :: Prelude.FilePath -- ^ static directory
+    :: FilePath -- ^ static directory
     -> [[String]] -- ^ list of files to create identifiers for
     -> Bool     -- ^ append checksum query parameter
     -> Q [Dec]
@@ -355,7 +353,7 @@ mkStaticFilesList fp fs makeHash = do
                 ]
             ]
 
-base64md5File :: Prelude.FilePath -> IO String
+base64md5File :: FilePath -> IO String
 base64md5File = fmap (base64 . encode) . hashFile
     where encode d = Byteable.toBytes (d :: Digest MD5)
 
@@ -402,18 +400,18 @@ combineStatics' combineType CombineSettings {..} routes = do
     ltext <- qRunIO $ preProcess $ TL.fromChunks texts
     bs    <- qRunIO $ postProcess fps $ TLE.encodeUtf8 ltext
     let hash' = base64md5 bs
-        suffix = csCombinedFolder </> F.decodeString hash' <.> extension
+        suffix = csCombinedFolder </> hash' <.> extension
         fp = csStaticDir </> suffix
     qRunIO $ do
-        createTree $ F.directory fp
-        L.writeFile (F.encodeString fp) bs
-    let pieces = map T.unpack $ T.splitOn "/" $ either id id $ F.toText suffix
+        createDirectoryIfMissing True $ takeDirectory fp
+        L.writeFile fp bs
+    let pieces = map T.unpack $ T.splitOn "/" $ T.pack suffix
     [|StaticRoute (map pack pieces) []|]
   where
-    fps :: [F.FilePath]
+    fps :: [FilePath]
     fps = map toFP routes
-    toFP (StaticRoute pieces _) = csStaticDir </> F.concat (map F.fromText pieces)
-    readUTFFile fp = sourceFile (F.encodeString fp) =$= CT.decode CT.utf8
+    toFP (StaticRoute pieces _) = csStaticDir </> F.joinPath (map T.unpack pieces)
+    readUTFFile fp = sourceFile fp =$= CT.decode CT.utf8
     postProcess =
         case combineType of
             JS -> csJsPostProcess
@@ -435,7 +433,7 @@ combineStatics' combineType CombineSettings {..} routes = do
 --
 -- Since 1.2.0
 data CombineSettings = CombineSettings
-    { csStaticDir :: F.FilePath
+    { csStaticDir :: FilePath
     -- ^ File path containing static files.
     --
     -- Default: static
