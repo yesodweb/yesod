@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell   #-}
 module Scaffolding.Scaffolder (scaffold, backendOptions) where
 
@@ -8,6 +9,7 @@ import           Data.Conduit          (yield, ($$), ($$+-))
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Control.DeepSeq       (($!!), NFData)
 import           Data.FileEmbed        (embedFile)
+import           GHC.Generics          (Generic)
 import           Data.String           (fromString)
 import qualified Data.Text             as T
 import qualified Data.Text.Lazy        as LT
@@ -34,6 +36,7 @@ prompt f = do
 data BackendInput = BIUrl
                   | BIBackend Backend
                   | BIUndefined
+  deriving (Generic)
 
 instance NFData BackendInput
 
@@ -44,7 +47,9 @@ data Backend = Sqlite
              | MongoDB
              | Simple
              | Minimal
-  deriving (Eq, Read, Show, Enum, Bounded)
+  deriving (Eq, Read, Show, Enum, Bounded, Generic)
+
+instance NFData Backend
 
 puts :: LT.Text -> IO ()
 puts s = TLIO.putStr (LT.init s) >> hFlush stdout
