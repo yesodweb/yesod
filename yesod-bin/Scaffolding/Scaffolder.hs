@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Scaffolding.Scaffolder (scaffold) where
 
 import           Control.Arrow         ((&&&))
@@ -20,18 +21,15 @@ import           Data.Maybe            (isJust)
 import           Distribution.Text     (simpleParse)
 import           Distribution.Package  (PackageName)
 
-prompt :: (String -> Maybe a) -> Maybe String -> IO a
-prompt f (Just s) = accept f s
-prompt f Nothing  = accept f =<< getLine
-
-accept :: (String -> Maybe a) -> String -> IO a
-accept parser s = do
-    case parser s of
+prompt :: (String -> Maybe a) -> IO a
+prompt f = do
+    s <- getLine
+    case f s of
         Just a -> return a
         Nothing -> do
             putStr "That was not a valid entry, please try again: "
             hFlush stdout
-            getLine >>= accept parser
+            prompt f
 
 data Backend = Sqlite
              | Postgresql
@@ -70,8 +68,7 @@ backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")
 backendBS Minimal = $(embedFile "hsfiles/minimal.hsfiles")
 
 validPackageName :: String -> Bool
-validPackageName s =
-    isJust (simpleParse s :: Maybe PackageName) && s /= "test"
+validPackageName s = isJust (simpleParse s :: Maybe PackageName) && s /= "test"
 
 parsePackageName :: String -> Maybe String
 parsePackageName = mfilter validPackageName . Just
@@ -80,23 +77,24 @@ parseBackend :: String -> Maybe (Either () Backend)
 parseBackend "url" = Just (Left ())
 parseBackend s     = fmap Right $ readBackend s
 
+runOption :: IO () -> (String -> Maybe a) -> Maybe String -> IO a
+runOption screen f Nothing              = screen >> prompt f
+runOption _      f (Just (f -> Just a)) = return a
+runOption _      _ (Just s)             = error $ s ++ " is not a valid argument."
+
 scaffold :: Bool         -- ^ bare directory instead of a new subdirectory?
          -> Maybe String -- ^ project name
          -> Maybe String -- ^ backend
          -> IO ()
 scaffold isBare projectName projectBackend = do
-    puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
-    project <- prompt parsePackageName projectName
-
-    puts $ renderTextUrl undefined $(textFile "input/database.cg")
-
-    ebackend' <- prompt parseBackend projectBackend
+    project <- runOption welcome parsePackageName projectName
+    ebackend' <- runOption selectDB parseBackend projectBackend
 
     ebackend <-
         case ebackend' of
             Left () -> do
                 puts "Please enter the URL:  "
-                fmap Left $ prompt parseUrl Nothing
+                fmap Left $ prompt parseUrl
             Right backend -> return $ Right backend
 
     putStrLn "That's it! I'm creating your files now..."
@@ -117,3 +115,6 @@ scaffold isBare projectName projectBackend = do
                                 else LT.replace "PROJECTNAME" (LT.pack project)
 
     TLIO.putStr $ projectnameReplacer $ renderTextUrl undefined $(textFile "input/done.cg")
+  where
+    welcome  = puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
+    selectDB = puts $ renderTextUrl undefined $(textFile "input/database.cg")
