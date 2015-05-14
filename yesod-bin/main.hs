@@ -165,7 +165,7 @@ optParser = Options
 initOptions :: Parser Command
 initOptions = Init
     <$> switch ( long "bare" <> help "Create files in current folder" )
-    <*> optStr ( long "project-name" <> help "Name of project" )
+    <*> optStr ( long "name" <> help "Name of project" )
     <*> optStr ( long "backend" <> help "Backend (use the same string as in interactive mode)" )
 
 keterOptions :: Parser Command
