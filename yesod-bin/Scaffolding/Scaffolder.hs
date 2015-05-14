@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Scaffolding.Scaffolder (scaffold) where
 
 import           Control.Arrow         ((&&&))
+import           Control.Monad         (mfilter)
 import qualified Data.ByteString.Char8 as S
 import           Data.Conduit          (yield, ($$), ($$+-))
 import Control.Monad.Trans.Resource (runResourceT)
@@ -66,20 +68,27 @@ backendBS Simple = $(embedFile "hsfiles/simple.hsfiles")
 backendBS Minimal = $(embedFile "hsfiles/minimal.hsfiles")
 
 validPackageName :: String -> Bool
-validPackageName s = isJust (simpleParse s :: Maybe PackageName)
+validPackageName s = isJust (simpleParse s :: Maybe PackageName) && s /= "test"
 
-scaffold :: Bool -- ^ bare directory instead of a new subdirectory?
+parsePackageName :: String -> Maybe String
+parsePackageName = mfilter validPackageName . Just
+
+parseBackend :: String -> Maybe (Either () Backend)
+parseBackend "url" = Just (Left ())
+parseBackend s     = fmap Right $ readBackend s
+
+runOption :: IO () -> (String -> Maybe a) -> Maybe String -> IO a
+runOption screen f Nothing              = screen >> prompt f
+runOption _      f (Just (f -> Just a)) = return a
+runOption _      _ (Just s)             = error $ s ++ " is not a valid argument."
+
+scaffold :: Bool         -- ^ bare directory instead of a new subdirectory?
+         -> Maybe String -- ^ project name
+         -> Maybe String -- ^ backend
          -> IO ()
-scaffold isBare = do
-    puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
-    project <- prompt $ \s ->
-        if validPackageName s && s /= "test"
-            then Just s
-            else Nothing
-
-    puts $ renderTextUrl undefined $(textFile "input/database.cg")
-
-    ebackend' <- prompt $ \s -> if s == "url" then Just (Left ()) else fmap Right $ readBackend s
+scaffold isBare projectName projectBackend = do
+    project <- runOption welcome parsePackageName projectName
+    ebackend' <- runOption selectDB parseBackend projectBackend
 
     ebackend <-
         case ebackend' of
@@ -106,3 +115,6 @@ scaffold isBare = do
                                 else LT.replace "PROJECTNAME" (LT.pack project)
 
     TLIO.putStr $ projectnameReplacer $ renderTextUrl undefined $(textFile "input/done.cg")
+  where
+    welcome  = puts $ renderTextUrl undefined $(textFile "input/welcome.cg")
+    selectDB = puts $ renderTextUrl undefined $(textFile "input/database.cg")
