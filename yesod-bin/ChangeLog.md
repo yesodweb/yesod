@@ -1,3 +1,7 @@
+## 1.4.9
+
+* Command line options for `yesod init` [#986](https://github.com/yesodweb/yesod/pull/986)
+
 ## 1.4.8
 
 * Drop system-filepath
