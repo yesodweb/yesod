@@ -88,6 +88,7 @@ executable             yesod
                      , streaming-commons
                      , warp-tls           >= 3.0.1
                      , async
+                     , deepseq
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
