@@ -10,7 +10,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE CPP #-}
@@ -46,6 +45,7 @@ module Yesod.Core.Widget
     , handlerToWidget
       -- * Internal
     , asWidgetT
+    , tellWidget
 
       -- * Formerly Yesod.Core.Types
     , ScriptLoadPosition(..)
@@ -74,7 +74,7 @@ module Yesod.Core.Widget
     ) where
 
 import           Control.Applicative                (Applicative(..))
-import           Control.Monad                      (liftM, ap, forM)
+import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.Catch                (MonadCatch (..))
 import           Control.Monad.Catch                (MonadMask (..))
@@ -97,65 +97,47 @@ import Control.Monad.Trans.RWS      ( RWST     )
 import qualified Control.Monad.Trans.RWS.Strict    as Strict ( RWST   )
 import qualified Control.Monad.Trans.State.Strict  as Strict ( StateT )
 import qualified Control.Monad.Trans.Writer.Strict as Strict ( WriterT )
-import qualified Data.ByteString.Lazy               as L
 import Blaze.ByteString.Builder (Builder)
 import           Data.Conduit                       (Flush (Chunk), Producer, ConduitM)
 import Data.Conduit.Internal (Pipe(..))
 import Data.Conduit.Lazy (MonadActive, monadActive)
-import           Data.List                          (foldl', nub)
 import Data.Monoid
 import Data.Semigroup (Semigroup)
 import qualified Data.Text                          as T
 import qualified Text.Blaze.Html.Renderer.Text as RenderText
-import           Text.Blaze.Html               (preEscapedToMarkup, toHtml, Html)
-import qualified Text.Blaze.Html5 as H
+import           Text.Blaze.Html               (preEscapedToMarkup, Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Yesod.Routes.Class
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Text (Text)
 import qualified Data.Map as Map
-import Language.Haskell.TH.Quote (QuasiQuoter)
-import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP), newName)
 
-import Data.Text.Lazy.Builder (fromLazyText, toLazyText)
 import           System.Log.FastLogger              (toLogStr)
 import qualified Data.Text.Lazy as TL
-import           Data.Text.Lazy.Encoding            (encodeUtf8)
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
-import Yesod.Core.Class.Yesod (Yesod)
-import Yesod.Core.Handler (getUrlRenderParams, toTextUrl, invalidArgs, permissionDenied, setSession, lookupSession, deleteSession, RedirectUrl, withUrlRenderer, sendChunk, getRequest, getYesod, sendResponse, selectRep, provideRep)
-import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), ToFlushBuilder(..), typeJavascript, typeHtml, typeCss)
+import Yesod.Core.Handler (setSession, lookupSession, deleteSession, withUrlRenderer, sendChunk)
+import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), ToFlushBuilder(..), typeHtml)
 import           Data.Map                           (Map, unionWith)
-import qualified Data.Aeson as J
 
 -- templating types
-class ToWidgetBuilder a where
-  toWidgetBuilder :: a -> Builder
-
 type Render url = url -> [(Text, Text)] -> Text
-type Translate msg = msg -> Html
 type HtmlUrl url = Render url -> Html
-type HtmlUrlI18n msg url = Translate msg -> Render url -> Html
-
 
 
 ------------------------------------
 -- Original Yesod.Core.Widget
 ------------------------------------
-preEscapedLazyText :: TL.Text -> Html
-preEscapedLazyText = preEscapedToMarkup
-
 class ToWidget site a where
     toWidget :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidget site (render -> Html) where
-    toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
+    toWidget x = tellWidget $ GWData (Body x) mempty mempty mempty mempty mempty mempty
 instance render ~ RY site => ToWidget site (render -> CssBuilder) where
-    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
+    toWidget x = tellWidget $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
 instance ToWidget site CssBuilder where
-    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . const x) mempty mempty
+    toWidget x = tellWidget $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . const x) mempty mempty
 instance (site' ~ site, IO ~ m, a ~ ()) => ToWidget site' (WidgetT site m a) where
     toWidget = liftWidgetT
 instance ToWidget site Html where
@@ -173,9 +155,9 @@ class ToWidgetMedia site a where
                   -> a
                   -> m ()
 instance render ~ RY site => ToWidgetMedia site (render -> CssBuilder) where
-    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
+    toWidgetMedia media x = tellWidget $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
 instance ToWidgetMedia site CssBuilder where
-    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . const x) mempty mempty
+    toWidgetMedia media x = tellWidget $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . const x) mempty mempty
 
 class ToWidgetBody site a where
     toWidgetBody :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
@@ -189,12 +171,12 @@ class ToWidgetHead site a where
     toWidgetHead :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidgetHead site (render -> Html) where
-    toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
+    toWidgetHead = tellWidget . GWData mempty mempty mempty mempty mempty mempty . Head
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
 setTitle :: MonadWidget m => Html -> m ()
-setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
+setTitle x = tellWidget $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
 
 -- | Link to the specified local stylesheet.
 addStylesheet :: MonadWidget m => Route (HandlerSite m) -> m ()
@@ -205,7 +187,7 @@ addStylesheetAttrs :: MonadWidget m
                    => Route (HandlerSite m)
                    -> [(Text, Text)]
                    -> m ()
-addStylesheetAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
+addStylesheetAttrs x y = tellWidget $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
 
 -- | Link to the specified remote stylesheet.
 addStylesheetRemote :: MonadWidget m => Text -> m ()
@@ -213,7 +195,7 @@ addStylesheetRemote = flip addStylesheetRemoteAttrs []
 
 -- | Link to the specified remote stylesheet.
 addStylesheetRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
-addStylesheetRemoteAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
+addStylesheetRemoteAttrs x y = tellWidget $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
 
 addStylesheetEither :: MonadWidget m
                     => Either (Route (HandlerSite m)) Text
@@ -231,7 +213,7 @@ addScript = flip addScriptAttrs []
 
 -- | Link to the specified local script.
 addScriptAttrs :: MonadWidget m => Route (HandlerSite m) -> [(Text, Text)] -> m ()
-addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
+addScriptAttrs x y = tellWidget $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
 addScriptRemote :: MonadWidget m => Text -> m ()
@@ -239,10 +221,10 @@ addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
 addScriptRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
-addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
+addScriptRemoteAttrs x y = tellWidget $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
-tell :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
-tell w = liftWidgetT $ WidgetT $ const $ return ((), w)
+tellWidget :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
+tellWidget w = liftWidgetT $ WidgetT $ const $ return ((), w)
 
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)

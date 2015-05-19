@@ -1,5 +1,11 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
+{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings                   #-}
+{-# LANGUAGE QuasiQuotes                         #-}
+{-# LANGUAGE TypeFamilies                        #-}
 module Yesod.Shakespeare (
-    , whamlet
+      whamlet
     , whamletFile
       -- * Special Hamlet quasiquoter/TH for Widgets
     , ihamletToRepHtml
@@ -43,11 +49,42 @@ module Yesod.Shakespeare (
     , renderCssUrl
 ) where
 
-import Yesod.Core.Widget
+import           Control.Monad                      (liftM, forM)
+import Control.Monad.Trans.Class (lift)
 import Text.Shakespeare.I18N
+import qualified Data.ByteString.Lazy               as L
+import           Data.List                          (foldl', nub)
+import           Text.Blaze.Html               (preEscapedToMarkup, toHtml, Html)
+import qualified Text.Blaze.Html5 as H
+import Language.Haskell.TH.Quote (QuasiQuoter)
+import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP), newName)
+import Data.Text (Text)
+import qualified Data.Text.Lazy as TL
+import Data.Text.Lazy.Builder (fromLazyText, toLazyText)
+import           Data.Text.Lazy.Encoding            (encodeUtf8)
+import Data.Monoid (Last(..), mempty)
+import qualified Data.Map as Map
 
-instance ToWidgetBuilder Javascript where
-  toWidgetBuilder = unJavascript
+import qualified Text.Hamlet as NP
+import Text.Julius (Javascript(..), JavascriptUrl, renderJavascript, renderJavascriptUrl, julius)
+import Text.Hamlet (hamlet, shamlet, xhamlet)
+import Text.Lucius (Css, renderCss, CssUrl, renderCssUrl, lucius)
+import Text.Cassius (cassius)
+
+import Yesod.Core.Types
+import Yesod.Core.Widget
+import Yesod.Core.Class.Handler (HandlerSite, MonadHandler)
+import Yesod.Core.Handler (getUrlRenderParams, toTextUrl, invalidArgs, permissionDenied, RedirectUrl, withUrlRenderer, getRequest, getYesod, sendResponse)
+import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), typeJavascript, typeCss)
+import           Yesod.Routes.Class            (Route)
+
+type Translate msg = msg -> Html
+type HtmlUrlI18n msg url = Translate msg -> Render url -> Html
+type Render url = url -> [(Text, Text)] -> Text
+type HtmlUrl url = Render url -> Html
+
+preEscapedLazyText :: TL.Text -> Html
+preEscapedLazyText = preEscapedToMarkup
 
 whamlet :: QuasiQuoter
 whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
@@ -123,9 +160,9 @@ $doctype 5
 -- from Yesod.Core.Class.Yesod
 ------------------------------
 type AddStaticContent site = Text -- ^ filename extension
-                           -> Text -- ^ mime-type
-                           -> L.ByteString -- ^ content
-                           -> HandlerT site IO (Maybe (Either Text (Route site, [(Text, Text)])))
+                          -> Text -- ^ mime-type
+                          -> L.ByteString -- ^ content
+                          -> HandlerT site IO (Maybe (Either Text (Route site, [(Text, Text)])))
 
 -- | Convert a widget to a 'PageContent'.
 -- not bound to the Yesod typeclass
@@ -137,7 +174,8 @@ type AddStaticContent site = Text -- ^ filename extension
 widgetToPageContentUnbound addStaticContent jsLoader w = do
     master <- getYesod
     hd <- HandlerT return
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- lift $ unWidgetT w hd
+    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style mJS' (Head head')) <- lift $ unWidgetT w hd
+    let jscript = fmap (\x -> Javascript . x) mJS'
     let title = maybe mempty unTitle mTitle
         scripts = runUniqueList scripts'
         stylesheets = runUniqueList stylesheets'
@@ -289,9 +327,9 @@ instance render ~ RY site => ToWidget site (render -> Css) where
 instance ToWidget site Css where
     toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . const x
 instance render ~ RY site => ToWidget site (render -> Javascript) where
-    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
+    toWidget x = tellWidget $ GWData mempty mempty mempty mempty mempty (Just $ unJavascript . x) mempty
 instance ToWidget site Javascript where
-    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just $ const x) mempty
+    toWidget x = tellWidget $ GWData mempty mempty mempty mempty mempty (Just $ const $ unJavascript x) mempty
 instance render ~ RY site => ToWidgetMedia site (render -> Css) where
     toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . x
 instance ToWidgetMedia site Css where
