@@ -47,6 +47,8 @@ module Yesod.Shakespeare (
     , lucius
     , CssUrl
     , renderCssUrl
+
+    , module Text.Shakespeare.I18N
 ) where
 
 import           Control.Monad                      (liftM, forM)

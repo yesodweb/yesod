@@ -2,6 +2,7 @@
 module YesodCoreTest.StubSslOnly ( App ( App ) ) where
 
 import Yesod.Core
+import Yesod.Shakespeare
 import qualified Web.ClientSession                  as CS
 
 data App = App

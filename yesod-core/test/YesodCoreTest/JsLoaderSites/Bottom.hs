@@ -1,9 +1,10 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module YesodCoreTest.JsLoaderSites.Bottom (B(..), Widget) where
+module YesodCoreTest.JsLoaderSites.Bottom (B(..)) where
 
 import Yesod.Core
+import Yesod.Core.Widget
 
 data B = B
 mkYesod "B" [parseRoutes|

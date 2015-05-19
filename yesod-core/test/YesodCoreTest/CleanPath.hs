@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
 {-# LANGUAGE CPP #-}
-module YesodCoreTest.CleanPath (cleanPathTest, Widget) where
+module YesodCoreTest.CleanPath (cleanPathTest) where
 
 import Test.Hspec
 
