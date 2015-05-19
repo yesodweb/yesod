@@ -55,8 +55,9 @@ masterTypeSyns :: Type -> [Dec]
 masterTypeSyns site =
     [ TySynD (mkName "Handler") []
       $ ConT ''HandlerT `AppT` site `AppT` ConT ''IO
-    , TySynD (mkName "Widget")  []
-      $ ConT ''WidgetT `AppT` site `AppT` ConT ''IO `AppT` ConT ''()
+    -- FIXME
+    -- , TySynD (mkName "Widget")  []
+    --  $ ConT ''WidgetT `AppT` site `AppT` ConT ''IO `AppT` ConT ''()
     ]
 
 mkYesodGeneral :: String                   -- ^ foundation type

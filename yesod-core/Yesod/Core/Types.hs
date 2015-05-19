@@ -27,10 +27,9 @@ import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, Source)
 import           Data.IORef                         (IORef)
-import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
-import           Data.Monoid                        (Endo (..), Last (..),
-                                                     Monoid (..))
+import           Data.Map                           (Map)
+import           Data.Monoid                        (Endo (..), Monoid (..))
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
 import           Data.String                        (IsString (fromString))
@@ -49,8 +48,6 @@ import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr
 import qualified System.Random.MWC                  as MWC
 import           Network.Wai.Logger                 (DateCacheGetter)
 import           Text.Blaze.Html                    (Html)
-import           Text.Hamlet                        (HtmlUrl)
-import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Control.Monad.Trans.Class          (MonadTrans (..))
@@ -159,16 +156,6 @@ type ResolvedApproot = Text
 data AuthResult = Authorized | AuthenticationRequired | Unauthorized Text
     deriving (Eq, Show, Read)
 
-data ScriptLoadPosition master
-    = BottomOfBody
-    | BottomOfHeadBlocking
-    | BottomOfHeadAsync (BottomOfHeadAsync master)
-
-type BottomOfHeadAsync master
-       = [Text] -- ^ urls to load asynchronously
-      -> Maybe (HtmlUrl (Route master)) -- ^ widget of js to run on async completion
-      -> (HtmlUrl (Route master)) -- ^ widget to insert at the bottom of <head>
-
 type Texts = [Text]
 
 -- | Wrap up a normal WAI application as a Yesod subsite.
@@ -239,18 +226,6 @@ data GHState = GHState
 -- the 'HandlerT' monad and template haskell code should hide it away.
 type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 
--- | A generic widget, allowing specification of both the subsite and master
--- site datatypes. While this is simply a @WriterT@, we define a newtype for
--- better error messages.
-newtype WidgetT site m a = WidgetT
-    { unWidgetT :: HandlerData site (MonadRoute m) -> m (a, GWData (Route site))
-    }
-
-instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
-    mempty = return ()
-    mappend x y = x >> y
-instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
-
 type RY master = Route master -> [(Text, Text)] -> Text
 
 -- | Newtype wrapper allowing injection of arbitrary content into CSS.
@@ -261,16 +236,6 @@ type RY master = Route master -> [(Text, Text)] -> Text
 --
 -- Since: 1.1.3
 newtype CssBuilder = CssBuilder { unCssBuilder :: TBuilder.Builder }
-
--- | Content for a web page. By providing this datatype, we can easily create
--- generic site templates, which would have the type signature:
---
--- > PageContent url -> HtmlUrl url
-data PageContent url = PageContent
-    { pageTitle :: Html
-    , pageHead  :: HtmlUrl url
-    , pageBody  :: HtmlUrl url
-    }
 
 data Content = ContentBuilder !BBuilder.Builder !(Maybe Int) -- ^ The content and optional content length.
              | ContentSource !(Source (ResourceT IO) (Flush BBuilder.Builder))
@@ -332,36 +297,7 @@ data Stylesheet url = Stylesheet { styleLocation :: Location url, styleAttribute
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html }
 
-newtype Head url = Head (HtmlUrl url)
-    deriving Monoid
-instance Semigroup (Head a)
-newtype Body url = Body (HtmlUrl url)
-    deriving Monoid
-instance Semigroup (Body a)
-
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
-
-data GWData a = GWData
-    { gwdBody        :: !(Body a)
-    , gwdTitle       :: !(Last Title)
-    , gwdScripts     :: !(UniqueList (Script a))
-    , gwdStylesheets :: !(UniqueList (Stylesheet a))
-    , gwdCss         :: !(Map (Maybe Text) (CssBuilderUrl a)) -- media type
-    , gwdJavascript  :: !(Maybe (JavascriptUrl a))
-    , gwdHead        :: !(Head a)
-    }
-instance Monoid (GWData a) where
-    mempty = GWData mempty mempty mempty mempty mempty mempty mempty
-    mappend (GWData a1 a2 a3 a4 a5 a6 a7)
-            (GWData b1 b2 b3 b4 b5 b6 b7) = GWData
-        (a1 `mappend` b1)
-        (a2 `mappend` b2)
-        (a3 `mappend` b3)
-        (a4 `mappend` b4)
-        (unionWith mappend a5 b5)
-        (a6 `mappend` b6)
-        (a7 `mappend` b7)
-instance Semigroup (GWData a)
 
 data HandlerContents =
       HCContent H.Status !TypedContent
@@ -383,51 +319,6 @@ instance Show HandlerContents where
     show (HCWaiApp _) = "HCWaiApp"
 instance Exception HandlerContents
 
--- Instances for WidgetT
-instance Monad m => Functor (WidgetT site m) where
-    fmap = liftM
-instance Monad m => Applicative (WidgetT site m) where
-    pure = return
-    (<*>) = ap
-instance Monad m => Monad (WidgetT site m) where
-    return a = WidgetT $ const $ return (a, mempty)
-    WidgetT x >>= f = WidgetT $ \r -> do
-        (a, wa) <- x r
-        (b, wb) <- unWidgetT (f a) r
-        return (b, wa `mappend` wb)
-instance MonadIO m => MonadIO (WidgetT site m) where
-    liftIO = lift . liftIO
-instance MonadBase b m => MonadBase b (WidgetT site m) where
-    liftBase = WidgetT . const . liftBase . fmap (, mempty)
-instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
-#if MIN_VERSION_monad_control(1,0,0)
-    type StM (WidgetT site m) a = StM m (a, GWData (Route site))
-    liftBaseWith f = WidgetT $ \reader' ->
-        liftBaseWith $ \runInBase ->
-            liftM (\x -> (x, mempty))
-            (f $ runInBase . flip unWidgetT reader')
-    restoreM = WidgetT . const . restoreM
-#else
-    data StM (WidgetT site m) a = StW (StM m (a, GWData (Route site)))
-    liftBaseWith f = WidgetT $ \reader' ->
-        liftBaseWith $ \runInBase ->
-            liftM (\x -> (x, mempty))
-            (f $ liftM StW . runInBase . flip unWidgetT reader')
-    restoreM (StW base) = WidgetT $ const $ restoreM base
-#endif
-instance Monad m => MonadReader site (WidgetT site m) where
-    ask = WidgetT $ \hd -> return (rheSite $ handlerEnv hd, mempty)
-    local f (WidgetT g) = WidgetT $ \hd -> g hd
-        { handlerEnv = (handlerEnv hd)
-            { rheSite = f $ rheSite $ handlerEnv hd
-            }
-        }
-
-instance MonadTrans (WidgetT site) where
-    lift = WidgetT . const . liftM (, mempty)
-instance MonadThrow m => MonadThrow (WidgetT site m) where
-    throwM = lift . throwM
-
 instance MonadCatch m => MonadCatch (HandlerT site m) where
   catch (HandlerT m) c = HandlerT $ \r -> m r `catch` \e -> unHandlerT (c e) r
 instance MonadMask m => MonadMask (HandlerT site m) where
@@ -436,29 +327,6 @@ instance MonadMask m => MonadMask (HandlerT site m) where
   uninterruptibleMask a =
     HandlerT $ \e -> uninterruptibleMask $ \u -> unHandlerT (a $ q u) e
       where q u (HandlerT b) = HandlerT (u . b)
-instance MonadCatch m => MonadCatch (WidgetT site m) where
-  catch (WidgetT m) c = WidgetT $ \r -> m r `catch` \e -> unWidgetT (c e) r
-instance MonadMask m => MonadMask (WidgetT site m) where
-  mask a = WidgetT $ \e -> mask $ \u -> unWidgetT (a $ q u) e
-    where q u (WidgetT b) = WidgetT (u . b)
-  uninterruptibleMask a =
-    WidgetT $ \e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) e
-      where q u (WidgetT b) = WidgetT (u . b)
-
-instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
-    liftResourceT f = WidgetT $ \hd -> liftIO $ fmap (, mempty) $ runInternalState f (handlerResource hd)
-
-instance MonadIO m => MonadLogger (WidgetT site m) where
-    monadLoggerLog a b c d = WidgetT $ \hd ->
-        liftIO $ fmap (, mempty) $ rheLog (handlerEnv hd) a b c (toLogStr d)
-
-#if MIN_VERSION_monad_logger(0, 3, 10)
-instance MonadIO m => MonadLoggerIO (WidgetT site m) where
-    askLoggerIO = WidgetT $ \hd -> return (rheLog (handlerEnv hd), mempty)
-#endif
-
-instance MonadActive m => MonadActive (WidgetT site m) where
-    monadActive = lift monadActive
 instance MonadActive m => MonadActive (HandlerT site m) where
     monadActive = lift monadActive
 

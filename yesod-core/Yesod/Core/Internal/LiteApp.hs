@@ -7,6 +7,7 @@ import Data.Monoid
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Types
+import Yesod.Core.Widget (WidgetT)
 import Yesod.Core.Content
 import Data.Text (Text)
 import Web.PathPieces
