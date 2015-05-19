@@ -298,6 +298,7 @@ data Stylesheet url = Stylesheet { styleLocation :: Location url, styleAttribute
 newtype Title = Title { unTitle :: Html }
 
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
+type BuilderUrl url = (url -> [(Text, Text)] -> Text) -> TBuilder.Builder
 
 data HandlerContents =
       HCContent H.Status !TypedContent

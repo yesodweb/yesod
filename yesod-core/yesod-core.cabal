@@ -30,7 +30,6 @@ library
                    , text                  >= 0.7
                    , template-haskell
                    , path-pieces           >= 0.1.2    && < 0.3
-                   , shakespeare           >= 2.0
                    , blaze-builder         >= 0.2.1.4  && < 0.5
                    , transformers          >= 0.2.2
                    , mtl
