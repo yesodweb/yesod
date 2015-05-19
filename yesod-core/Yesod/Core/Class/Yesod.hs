@@ -23,8 +23,6 @@ import           Control.Monad.Trans.Resource       (InternalState, createIntern
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))
-import           Data.List                          (foldl')
-import           Data.List                          (nub)
 import qualified Data.Map                           as Map
 import           Data.Maybe                         (fromMaybe)
 import           Data.Monoid
@@ -46,16 +44,15 @@ import           System.Log.FastLogger
 import           Text.Blaze                         (customAttribute, textTag,
                                                      toValue, (!))
 import           Text.Blaze                         (preEscapedToMarkup)
+import           Text.Blaze.Html                    (Html)
 import qualified Text.Blaze.Html5                   as TBH
-import           Text.Hamlet
-import           Text.Julius
 import qualified Web.ClientSession                  as CS
 import           Web.Cookie                         (parseCookies)
 import           Web.Cookie                         (SetCookie (..))
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
-import           Yesod.Core.Widget
 import Control.Monad.Trans.Class (lift)
+
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -80,10 +77,12 @@ class RenderRoute site => Yesod site where
     --
     -- Default value: 'defaultErrorHandler'.
     errorHandler :: ErrorResponse -> HandlerT site IO TypedContent
-    errorHandler = defaultErrorHandler
+    -- errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
+    {- FIXME
     defaultLayout :: WidgetT site IO () -> HandlerT site IO Html
+    widgetToPageContent = widgetToPageContentUnbound addStaticContent jsLoader
     defaultLayout w = do
         p <- widgetToPageContent w
         mmsg <- getMessage
@@ -99,6 +98,7 @@ class RenderRoute site => Yesod site where
                         <p .message>#{msg}
                     ^{pageBody p}
             |]
+            -}
 
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
@@ -236,8 +236,9 @@ class RenderRoute site => Yesod site where
     -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
     --
     -- Or write your own async js loader.
-    jsLoader :: site -> ScriptLoadPosition site
-    jsLoader _ = BottomOfBody
+    -- FIXME: the type
+    -- jsLoader :: site -> ScriptLoadPosition site
+    -- jsLoader _ = BottomOfBody
 
     -- | Create a session backend. Returning 'Nothing' disables
     -- sessions. If you'd like to change the way that the session
@@ -299,6 +300,7 @@ class RenderRoute site => Yesod site where
     yesodWithInternalState :: site -> Maybe (Route site) -> (InternalState -> IO a) -> IO a
     yesodWithInternalState _ _ = bracket createInternalState closeInternalState
     {-# INLINE yesodWithInternalState #-}
+
 
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
 -- \"Vary: Accept, Accept-Language\" and performs authorization checks.
@@ -373,104 +375,7 @@ authorizationCheck = do
                               void $ notAuthenticated
             Unauthorized s' -> permissionDenied s'
 
--- | Convert a widget to a 'PageContent'.
-widgetToPageContent :: (Eq (Route site), Yesod site)
-                    => WidgetT site IO ()
-                    -> HandlerT site IO (PageContent (Route site))
-widgetToPageContent w = do
-    master <- getYesod
-    hd <- HandlerT return
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- lift $ unWidgetT w hd
-    let title = maybe mempty unTitle mTitle
-        scripts = runUniqueList scripts'
-        stylesheets = runUniqueList stylesheets'
-
-    render <- getUrlRenderParams
-    let renderLoc x =
-            case x of
-                Nothing -> Nothing
-                Just (Left s) -> Just s
-                Just (Right (u, p)) -> Just $ render u p
-    css <- forM (Map.toList style) $ \(mmedia, content) -> do
-        let rendered = toLazyText $ content render
-        x <- addStaticContent "css" "text/css; charset=utf-8"
-           $ encodeUtf8 rendered
-        return (mmedia,
-            case x of
-                Nothing -> Left $ preEscapedToMarkup rendered
-                Just y -> Right $ either id (uncurry render) y)
-    jsLoc <-
-        case jscript of
-            Nothing -> return Nothing
-            Just s -> do
-                x <- addStaticContent "js" "text/javascript; charset=utf-8"
-                   $ encodeUtf8 $ renderJavascriptUrl render s
-                return $ renderLoc x
-
-    -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
-    -- the asynchronous loader means your page doesn't have to wait for all the js to load
-    let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
-        regularScriptLoad = [hamlet|
-            $newline never
-            $forall s <- scripts
-                ^{mkScriptTag s}
-            $maybe j <- jscript
-                $maybe s <- jsLoc
-                    <script src="#{s}">
-                $nothing
-                    <script>^{jelper j}
-        |]
-
-        headAll = [hamlet|
-            $newline never
-            \^{head'}
-            $forall s <- stylesheets
-                ^{mkLinkTag s}
-            $forall s <- css
-                $maybe t <- right $ snd s
-                    $maybe media <- fst s
-                        <link rel=stylesheet media=#{media} href=#{t}>
-                    $nothing
-                        <link rel=stylesheet href=#{t}>
-                $maybe content <- left $ snd s
-                    $maybe media <- fst s
-                        <style media=#{media}>#{content}
-                    $nothing
-                        <style>#{content}
-            $case jsLoader master
-              $of BottomOfBody
-              $of BottomOfHeadAsync asyncJsLoader
-                  ^{asyncJsLoader asyncScripts mcomplete}
-              $of BottomOfHeadBlocking
-                  ^{regularScriptLoad}
-        |]
-    let bodyScript = [hamlet|
-            $newline never
-            ^{body}
-            ^{regularScriptLoad}
-        |]
-
-    return $ PageContent title headAll $
-        case jsLoader master of
-            BottomOfBody -> bodyScript
-            _ -> body
-  where
-    renderLoc' render' (Local url) = render' url []
-    renderLoc' _ (Remote s) = s
-
-    addAttr x (y, z) = x ! customAttribute (textTag y) (toValue z)
-    mkScriptTag (Script loc attrs) render' =
-        foldl' addAttr TBH.script (("src", renderLoc' render' loc) : attrs) $ return ()
-    mkLinkTag (Stylesheet loc attrs) render' =
-        foldl' addAttr TBH.link
-            ( ("rel", "stylesheet")
-            : ("href", renderLoc' render' loc)
-            : attrs
-            )
-
-    runUniqueList :: Eq x => UniqueList x -> [x]
-    runUniqueList (UniqueList x) = nub $ x []
-
+{- FIXME
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerT site IO TypedContent
 defaultErrorHandler NotFound = selectRep $ do
@@ -553,29 +458,7 @@ defaultErrorHandler (BadMethod m) = selectRep $ do
             <p>Method <code>#{S8.unpack m}</code> not supported
         |]
     provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
-
-asyncHelper :: (url -> [x] -> Text)
-         -> [Script (url)]
-         -> Maybe (JavascriptUrl (url))
-         -> Maybe Text
-         -> (Maybe (HtmlUrl url), [Text])
-asyncHelper render scripts jscript jsLoc =
-    (mcomplete, scripts'')
-  where
-    scripts' = map goScript scripts
-    scripts'' =
-        case jsLoc of
-            Just s -> scripts' ++ [s]
-            Nothing -> scripts'
-    goScript (Script (Local url) _) = render url []
-    goScript (Script (Remote s) _) = s
-    mcomplete =
-        case jsLoc of
-            Just{} -> Nothing
-            Nothing ->
-                case jscript of
-                    Nothing -> Nothing
-                    Just j -> Just $ jelper j
+    -}
 
 formatLogMessage :: IO ZonedDate
                  -> Loc
@@ -662,20 +545,6 @@ envClientSessionBackend minutes name = do
     let timeout = fromIntegral (minutes * 60)
     (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
     return $ clientSessionBackend key getCachedDate
-
-jsToHtml :: Javascript -> Html
-jsToHtml (Javascript b) = preEscapedToMarkup $ toLazyText b
-
-jelper :: JavascriptUrl url -> HtmlUrl url
-jelper = fmap jsToHtml
-
-left :: Either a b -> Maybe a
-left (Left x) = Just x
-left _ = Nothing
-
-right :: Either a b -> Maybe b
-right (Right x) = Just x
-right _ = Nothing
 
 clientSessionBackend :: CS.Key  -- ^ The encryption key
                      -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'

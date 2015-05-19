@@ -58,8 +58,6 @@ import Control.Monad (liftM)
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
 import Data.Monoid (mempty)
 
-import Text.Hamlet (Html)
-import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Source, Flush (Chunk), ResumableSource, mapOutput)
 import Control.Monad.Trans.Resource (ResourceT)
 import Data.Conduit.Internal (ResumableSource (ResumableSource))
@@ -74,8 +72,6 @@ import Data.Aeson.Encode (fromValue)
 import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Text.Lazy.Builder (toLazyText)
 import Yesod.Core.Types
-import Text.Lucius (Css, renderCss)
-import Text.Julius (Javascript, unJavascript)
 
 -- | Zero-length enumerator.
 emptyContent :: Content
@@ -106,19 +102,12 @@ instance ToContent Text where
     toContent = toContent . Blaze.fromLazyText
 instance ToContent String where
     toContent = toContent . Blaze.fromString
-instance ToContent Html where
-    toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
 instance ToContent () where
     toContent () = toContent B.empty
 instance ToContent (ContentType, Content) where
     toContent = snd
 instance ToContent TypedContent where
     toContent (TypedContent _ c) = c
-
-instance ToContent Css where
-    toContent = toContent . renderCss
-instance ToContent Javascript where
-    toContent = toContent . toLazyText . unJavascript
 
 instance ToFlushBuilder builder => ToContent (CI.Pipe () () builder () (ResourceT IO) ()) where
     toContent src = ContentSource $ CI.ConduitM (CI.mapOutput toFlushBuilder src >>=)
@@ -145,8 +134,6 @@ instance ToFlushBuilder (Flush T.Text) where toFlushBuilder = fmap Blaze.fromTex
 instance ToFlushBuilder T.Text where toFlushBuilder = Chunk . Blaze.fromText
 instance ToFlushBuilder (Flush String) where toFlushBuilder = fmap Blaze.fromString
 instance ToFlushBuilder String where toFlushBuilder = Chunk . Blaze.fromString
-instance ToFlushBuilder (Flush Html) where toFlushBuilder = fmap renderHtmlBuilder
-instance ToFlushBuilder Html where toFlushBuilder = Chunk . renderHtmlBuilder
 
 repJson :: ToContent a => a -> RepJson
 repJson = RepJson . toContent
@@ -255,20 +242,11 @@ instance ToContent J.Value where
 instance HasContentType J.Value where
     getContentType _ = typeJson
 
-instance HasContentType Html where
-    getContentType _ = typeHtml
-
 instance HasContentType Text where
     getContentType _ = typePlain
 
 instance HasContentType T.Text where
     getContentType _ = typePlain
-
-instance HasContentType Css where
-    getContentType _ = typeCss
-
-instance HasContentType Javascript where
-    getContentType _ = typeJavascript
 
 -- | Any type which can be converted to 'TypedContent'.
 --
@@ -290,8 +268,6 @@ instance ToTypedContent RepXml where
     toTypedContent (RepXml c) = TypedContent typeXml c
 instance ToTypedContent J.Value where
     toTypedContent v = TypedContent typeJson (toContent v)
-instance ToTypedContent Html where
-    toTypedContent h = TypedContent typeHtml (toContent h)
 instance ToTypedContent T.Text where
     toTypedContent t = TypedContent typePlain (toContent t)
 instance ToTypedContent [Char] where
@@ -302,8 +278,3 @@ instance ToTypedContent a => ToTypedContent (DontFullyEvaluate a) where
     toTypedContent (DontFullyEvaluate a) =
         let TypedContent ct c = toTypedContent a
          in TypedContent ct (ContentDontEvaluate c)
-
-instance ToTypedContent Css where
-    toTypedContent = TypedContent typeCss . toContent
-instance ToTypedContent Javascript where
-    toTypedContent = TypedContent typeJavascript . toContent
