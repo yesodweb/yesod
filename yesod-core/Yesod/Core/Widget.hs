@@ -10,7 +10,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE CPP #-}
@@ -20,11 +19,6 @@ module Yesod.Core.Widget
     ( -- * Datatype
       WidgetT(..)
     , PageContent (..)
-      -- * Special Hamlet quasiquoter/TH for Widgets
-    , whamlet
-    , whamletFile
-    , ihamletToRepHtml
-    , ihamletToHtml
       -- * Convert to Widget
     , ToWidget (..)
     , ToWidgetHead (..)
@@ -33,7 +27,6 @@ module Yesod.Core.Widget
       -- * Creating
       -- ** Head of page
     , setTitle
-    , setTitleI
       -- ** CSS
     , addStylesheet
     , addStylesheetAttrs
@@ -51,8 +44,8 @@ module Yesod.Core.Widget
     , widgetToParentWidget
     , handlerToWidget
       -- * Internal
-    , whamletFileWithSettings
     , asWidgetT
+    , tellWidget
 
       -- * Formerly Yesod.Core.Types
     , ScriptLoadPosition(..)
@@ -61,30 +54,16 @@ module Yesod.Core.Widget
     , Head(..)
     , Body(..)
 
-      -- * Formerly Yesod.Core.Class.Yesod
-    , jelper
-    , asyncHelper
-    , jsToHtml
-
       -- * Formerly Yesod.Core.Class.Handler
 
       -- * Formerly Yesod.Core.Handler
       -- ** Streaming
     , sendChunkHtml
-      -- ** Redirecting
-    , redirectToPost
-      -- ** Errors
-    , permissionDeniedI
-    , invalidArgsI
-    , unauthorizedI
       -- ** Messages
     , setMessage
-    , setMessageI
     , getMessage
       -- ** Hamlet
     , hamletToRepHtml
-      -- * i18n
-    , getMessageRender
 
       -- * Formerly Yesod.Core.Json
     -- FIXME
@@ -95,7 +74,7 @@ module Yesod.Core.Widget
     ) where
 
 import           Control.Applicative                (Applicative(..))
-import           Control.Monad                      (liftM, ap, forM)
+import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.Catch                (MonadCatch (..))
 import           Control.Monad.Catch                (MonadMask (..))
@@ -118,72 +97,57 @@ import Control.Monad.Trans.RWS      ( RWST     )
 import qualified Control.Monad.Trans.RWS.Strict    as Strict ( RWST   )
 import qualified Control.Monad.Trans.State.Strict  as Strict ( StateT )
 import qualified Control.Monad.Trans.Writer.Strict as Strict ( WriterT )
-import qualified Data.ByteString.Lazy               as L
 import Blaze.ByteString.Builder (Builder)
 import           Data.Conduit                       (Flush (Chunk), Producer, ConduitM)
 import Data.Conduit.Internal (Pipe(..))
 import Data.Conduit.Lazy (MonadActive, monadActive)
-import           Data.List                          (foldl', nub)
 import Data.Monoid
 import Data.Semigroup (Semigroup)
 import qualified Data.Text                          as T
 import qualified Text.Blaze.Html.Renderer.Text as RenderText
-import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
-import qualified Text.Blaze.Html5 as H
+import           Text.Blaze.Html               (preEscapedToMarkup, Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
-import Text.Hamlet
-import Text.Cassius
-import Text.Julius
-import Text.Shakespeare.I18N (renderMessage)
 import Yesod.Routes.Class
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Text.Shakespeare.I18N (RenderMessage)
 import Data.Text (Text)
 import qualified Data.Map as Map
-import Language.Haskell.TH.Quote (QuasiQuoter)
-import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP), newName)
 
-import qualified Text.Hamlet as NP
-import Data.Text.Lazy.Builder (fromLazyText, toLazyText)
 import           System.Log.FastLogger              (toLogStr)
 import qualified Data.Text.Lazy as TL
-import           Data.Text.Lazy.Encoding            (encodeUtf8)
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
-import Yesod.Core.Class.Yesod (Yesod)
-import Yesod.Core.Handler (getUrlRenderParams, toTextUrl, invalidArgs, permissionDenied, setSession, lookupSession, deleteSession, RedirectUrl, withUrlRenderer, sendChunk, getRequest, getYesod, sendResponse, selectRep, provideRep)
-import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), ToFlushBuilder(..), typeJavascript, typeHtml, typeCss)
+import Yesod.Core.Handler (setSession, lookupSession, deleteSession, withUrlRenderer, sendChunk)
+import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), ToFlushBuilder(..), typeHtml)
 import           Data.Map                           (Map, unionWith)
-import qualified Data.Aeson as J
+
+-- templating types
+type Render url = url -> [(Text, Text)] -> Text
+type HtmlUrl url = Render url -> Html
+
 
 ------------------------------------
 -- Original Yesod.Core.Widget
 ------------------------------------
-preEscapedLazyText :: TL.Text -> Html
-preEscapedLazyText = preEscapedToMarkup
-
 class ToWidget site a where
     toWidget :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidget site (render -> Html) where
-    toWidget x = tell $ GWData (Body x) mempty mempty mempty mempty mempty mempty
-instance render ~ RY site => ToWidget site (render -> Css) where
-    toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . x
-instance ToWidget site Css where
-    toWidget x = toWidget $ CssBuilder . fromLazyText . renderCss . const x
+    toWidget x = tellWidget $ GWData (Body x) mempty mempty mempty mempty mempty mempty
 instance render ~ RY site => ToWidget site (render -> CssBuilder) where
-    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
+    toWidget x = tellWidget $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . x) mempty mempty
 instance ToWidget site CssBuilder where
-    toWidget x = tell $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . const x) mempty mempty
-instance render ~ RY site => ToWidget site (render -> Javascript) where
-    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just x) mempty
-instance ToWidget site Javascript where
-    toWidget x = tell $ GWData mempty mempty mempty mempty mempty (Just $ const x) mempty
+    toWidget x = tellWidget $ GWData mempty mempty mempty mempty (Map.singleton Nothing $ unCssBuilder . const x) mempty mempty
 instance (site' ~ site, IO ~ m, a ~ ()) => ToWidget site' (WidgetT site m a) where
     toWidget = liftWidgetT
 instance ToWidget site Html where
     toWidget = toWidget . const
+instance ToWidgetHead site Html where
+    toWidgetHead = toWidgetHead . const
+instance render ~ RY site => ToWidgetHead site (render -> CssBuilder) where
+    toWidgetHead = toWidget
+instance ToWidgetHead site CssBuilder where
+    toWidgetHead = toWidget
 
 -- | Allows adding some CSS to the page with a specific media type.
 --
@@ -196,24 +160,16 @@ class ToWidgetMedia site a where
                   => Text -- ^ media value
                   -> a
                   -> m ()
-instance render ~ RY site => ToWidgetMedia site (render -> Css) where
-    toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . x
-instance ToWidgetMedia site Css where
-    toWidgetMedia media x = toWidgetMedia media $ CssBuilder . fromLazyText . renderCss . const x
 instance render ~ RY site => ToWidgetMedia site (render -> CssBuilder) where
-    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
+    toWidgetMedia media x = tellWidget $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . x) mempty mempty
 instance ToWidgetMedia site CssBuilder where
-    toWidgetMedia media x = tell $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . const x) mempty mempty
+    toWidgetMedia media x = tellWidget $ GWData mempty mempty mempty mempty (Map.singleton (Just media) $ unCssBuilder . const x) mempty mempty
 
 class ToWidgetBody site a where
     toWidgetBody :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidgetBody site (render -> Html) where
     toWidgetBody = toWidget
-instance render ~ RY site => ToWidgetBody site (render -> Javascript) where
-    toWidgetBody j = toWidget $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
-instance ToWidgetBody site Javascript where
-    toWidgetBody j = toWidget $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
 instance ToWidgetBody site Html where
     toWidgetBody = toWidget
 
@@ -221,33 +177,12 @@ class ToWidgetHead site a where
     toWidgetHead :: (MonadWidget m, HandlerSite m ~ site) => a -> m ()
 
 instance render ~ RY site => ToWidgetHead site (render -> Html) where
-    toWidgetHead = tell . GWData mempty mempty mempty mempty mempty mempty . Head
-instance render ~ RY site => ToWidgetHead site (render -> Css) where
-    toWidgetHead = toWidget
-instance ToWidgetHead site Css where
-    toWidgetHead = toWidget
-instance render ~ RY site => ToWidgetHead site (render -> CssBuilder) where
-    toWidgetHead = toWidget
-instance ToWidgetHead site CssBuilder where
-    toWidgetHead = toWidget
-instance render ~ RY site => ToWidgetHead site (render -> Javascript) where
-    toWidgetHead j = toWidgetHead $ \r -> H.script $ preEscapedLazyText $ renderJavascriptUrl r j
-instance ToWidgetHead site Javascript where
-    toWidgetHead j = toWidgetHead $ \_ -> H.script $ preEscapedLazyText $ renderJavascript j
-instance ToWidgetHead site Html where
-    toWidgetHead = toWidgetHead . const
+    toWidgetHead = tellWidget . GWData mempty mempty mempty mempty mempty mempty . Head
 
 -- | Set the page title. Calling 'setTitle' multiple times overrides previously
 -- set values.
 setTitle :: MonadWidget m => Html -> m ()
-setTitle x = tell $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
-
--- | Set the page title. Calling 'setTitle' multiple times overrides previously
--- set values.
-setTitleI :: (MonadWidget m, RenderMessage (HandlerSite m) msg) => msg -> m ()
-setTitleI msg = do
-    mr <- getMessageRender
-    setTitle $ toHtml $ mr msg
+setTitle x = tellWidget $ GWData mempty (Last $ Just $ Title x) mempty mempty mempty mempty mempty
 
 -- | Link to the specified local stylesheet.
 addStylesheet :: MonadWidget m => Route (HandlerSite m) -> m ()
@@ -258,7 +193,7 @@ addStylesheetAttrs :: MonadWidget m
                    => Route (HandlerSite m)
                    -> [(Text, Text)]
                    -> m ()
-addStylesheetAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
+addStylesheetAttrs x y = tellWidget $ GWData mempty mempty mempty (toUnique $ Stylesheet (Local x) y) mempty mempty mempty
 
 -- | Link to the specified remote stylesheet.
 addStylesheetRemote :: MonadWidget m => Text -> m ()
@@ -266,7 +201,7 @@ addStylesheetRemote = flip addStylesheetRemoteAttrs []
 
 -- | Link to the specified remote stylesheet.
 addStylesheetRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
-addStylesheetRemoteAttrs x y = tell $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
+addStylesheetRemoteAttrs x y = tellWidget $ GWData mempty mempty mempty (toUnique $ Stylesheet (Remote x) y) mempty mempty mempty
 
 addStylesheetEither :: MonadWidget m
                     => Either (Route (HandlerSite m)) Text
@@ -284,7 +219,7 @@ addScript = flip addScriptAttrs []
 
 -- | Link to the specified local script.
 addScriptAttrs :: MonadWidget m => Route (HandlerSite m) -> [(Text, Text)] -> m ()
-addScriptAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
+addScriptAttrs x y = tellWidget $ GWData mempty mempty (toUnique $ Script (Local x) y) mempty mempty mempty mempty
 
 -- | Link to the specified remote script.
 addScriptRemote :: MonadWidget m => Text -> m ()
@@ -292,57 +227,10 @@ addScriptRemote = flip addScriptRemoteAttrs []
 
 -- | Link to the specified remote script.
 addScriptRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
-addScriptRemoteAttrs x y = tell $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
+addScriptRemoteAttrs x y = tellWidget $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
-whamlet :: QuasiQuoter
-whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
-
-whamletFile :: FilePath -> Q Exp
-whamletFile = NP.hamletFileWithSettings rules NP.defaultHamletSettings
-
-whamletFileWithSettings :: NP.HamletSettings -> FilePath -> Q Exp
-whamletFileWithSettings = NP.hamletFileWithSettings rules
-
-asWidgetT :: WidgetT site m () -> WidgetT site m ()
-asWidgetT = id
-
-rules :: Q NP.HamletRules
-rules = do
-    ah <- [|asWidgetT . toWidget|]
-    let helper qg f = do
-            x <- newName "urender"
-            e <- f $ VarE x
-            let e' = LamE [VarP x] e
-            g <- qg
-            bind <- [|(>>=)|]
-            return $ InfixE (Just g) bind (Just e')
-    let ur f = do
-            let env = NP.Env
-                    (Just $ helper [|getUrlRenderParams|])
-                    (Just $ helper [|liftM (toHtml .) getMessageRender|])
-            f env
-    return $ NP.HamletRules ah ur $ \_ b -> return $ ah `AppE` b
-
--- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-ihamletToRepHtml :: (MonadHandler m, RenderMessage (HandlerSite m) message)
-                 => HtmlUrlI18n message (Route (HandlerSite m))
-                 -> m Html
-ihamletToRepHtml = ihamletToHtml
-{-# DEPRECATED ihamletToRepHtml "Please use ihamletToHtml instead" #-}
-
--- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
---
--- Since 1.2.1
-ihamletToHtml :: (MonadHandler m, RenderMessage (HandlerSite m) message)
-              => HtmlUrlI18n message (Route (HandlerSite m))
-              -> m Html
-ihamletToHtml ih = do
-    urender <- getUrlRenderParams
-    mrender <- getMessageRender
-    return $ ih (toHtml . mrender) urender
-
-tell :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
-tell w = liftWidgetT $ WidgetT $ const $ return ((), w)
+tellWidget :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
+tellWidget w = liftWidgetT $ WidgetT $ const $ return ((), w)
 
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
@@ -396,7 +284,7 @@ data GWData a = GWData
     , gwdScripts     :: !(UniqueList (Script a))
     , gwdStylesheets :: !(UniqueList (Stylesheet a))
     , gwdCss         :: !(Map (Maybe Text) (CssBuilderUrl a)) -- media type
-    , gwdJavascript  :: !(Maybe (JavascriptUrl a))
+    , gwdJavascript  :: !(Maybe (BuilderUrl a))
     , gwdHead        :: !(Head a)
     }
 instance Monoid (GWData a) where
@@ -503,6 +391,10 @@ instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mappend x y = x >> y
 instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
 
+asWidgetT :: WidgetT site m () -> WidgetT site m ()
+asWidgetT = id
+
+
 -- | Content for a web page. By providing this datatype, we can easily create
 -- generic site templates, which would have the type signature:
 --
@@ -527,25 +419,13 @@ instance Semigroup (Body a)
 ------------------------------------
 instance ToContent Html where
     toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
-instance ToContent Css where
-    toContent = toContent . renderCss
-instance ToContent Javascript where
-    toContent = toContent . toLazyText . unJavascript
 instance ToTypedContent Html where
     toTypedContent h = TypedContent typeHtml (toContent h)
 instance ToFlushBuilder (Flush Html) where toFlushBuilder = fmap renderHtmlBuilder
 instance ToFlushBuilder Html where toFlushBuilder = Chunk . renderHtmlBuilder
-instance ToTypedContent Css where
-    toTypedContent = TypedContent typeCss . toContent
-instance ToTypedContent Javascript where
-    toTypedContent = TypedContent typeJavascript . toContent
 
 instance HasContentType Html where
     getContentType _ = typeHtml
-instance HasContentType Css where
-    getContentType _ = typeCss
-instance HasContentType Javascript where
-    getContentType _ = typeJavascript
 
 ------------------------------------
 -- Formerly Yesod.Core.Class.Handler
@@ -593,15 +473,6 @@ msgKey = T.pack "_MSG"
 setMessage :: MonadHandler m => Html -> m ()
 setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
 
--- | Sets a message in the user's session.
---
--- See 'getMessage'.
-setMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
-            => msg -> m ()
-setMessageI msg = do
-    mr <- getMessageRender
-    setMessage $ toHtml $ mr msg
-
 -- | Gets the message in the user's session, if available, and then clears the
 -- variable.
 --
@@ -612,57 +483,10 @@ getMessage = do
     deleteSession msgKey
     return mmsg
 
--- | Return a 403 permission denied page.
-permissionDeniedI :: (RenderMessage (HandlerSite m) msg, MonadHandler m)
-                  => msg
-                  -> m a
-permissionDeniedI msg = do
-    mr <- getMessageRender
-    permissionDenied $ mr msg
-
--- | Return a 400 invalid arguments page.
-invalidArgsI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => [msg] -> m a
-invalidArgsI msg = do
-    mr <- getMessageRender
-    invalidArgs $ map mr msg
-
--- | Redirect to a POST resource.
---
--- This is not technically a redirect; instead, it returns an HTML page with a
--- POST form, and some Javascript to automatically submit the form. This can be
--- useful when you need to post a plain link somewhere that needs to cause
--- changes on the server.
-redirectToPost :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
-               => url
-               -> m a
-redirectToPost url = do
-    urlText <- toTextUrl url
-    withUrlRenderer [hamlet|
-$newline never
-$doctype 5
-
-<html>
-    <head>
-        <title>Redirecting...
-    <body onload="document.getElementById('form').submit()">
-        <form id="form" method="post" action=#{urlText}>
-            <noscript>
-                <p>Javascript has been disabled; please click on the button below to be redirected.
-            <input type="submit" value="Continue">
-|] >>= sendResponse
-
-
 -- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
 hamletToRepHtml :: MonadHandler m => HtmlUrl (Route (HandlerSite m)) -> m Html
 hamletToRepHtml = withUrlRenderer
 {-# DEPRECATED hamletToRepHtml "Use withUrlRenderer instead" #-}
-
-getMessageRender :: (MonadHandler m, RenderMessage (HandlerSite m) message)
-                 => m (message -> Text)
-getMessageRender = do
-    site <- getYesod
-    l <- reqLangs `liftM` getRequest
-    return $ renderMessage site l
 
 -- | Type-specialized version of 'sendChunk' for @Html@s.
 --
@@ -670,162 +494,6 @@ getMessageRender = do
 sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
 sendChunkHtml = sendChunk
 
-
-------------------------------
--- from Yesod.Core.Class.Yesod
-------------------------------
-type AddStaticContent site = Text -- ^ filename extension
-                           -> Text -- ^ mime-type
-                           -> L.ByteString -- ^ content
-                           -> HandlerT site IO (Maybe (Either Text (Route site, [(Text, Text)])))
-
--- | Convert a widget to a 'PageContent'.
--- not bound to the Yesod typeclass
-{- widgetToPageContentUnbound
-  :: (MonadBaseControl IO m, MonadThrow m, MonadIO m, Eq (Route site))
-  => AddStaticContent site -> site -> ScriptLoadPosition site -> WidgetT site IO ()
-  -> HandlerT site m (PageContent (Route site))
-  -}
-widgetToPageContentUnbound addStaticContent jsLoader w = do
-    master <- getYesod
-    hd <- HandlerT return
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- lift $ unWidgetT w hd
-    let title = maybe mempty unTitle mTitle
-        scripts = runUniqueList scripts'
-        stylesheets = runUniqueList stylesheets'
-
-    render <- getUrlRenderParams
-    let renderLoc x =
-            case x of
-                Nothing -> Nothing
-                Just (Left s) -> Just s
-                Just (Right (u, p)) -> Just $ render u p
-    css <- forM (Map.toList style) $ \(mmedia, content) -> do
-        let rendered = toLazyText $ content render
-        x <- addStaticContent "css" "text/css; charset=utf-8"
-           $ encodeUtf8 rendered
-        return (mmedia,
-            case x of
-                Nothing -> Left $ preEscapedToMarkup rendered
-                Just y -> Right $ either id (uncurry render) y)
-    jsLoc <-
-        case jscript of
-            Nothing -> return Nothing
-            Just s -> do
-                x <- addStaticContent "js" "text/javascript; charset=utf-8"
-                   $ encodeUtf8 $ renderJavascriptUrl render s
-                return $ renderLoc x
-
-    -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
-    -- the asynchronous loader means your page doesn't have to wait for all the js to load
-    let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
-        regularScriptLoad = [hamlet|
-            $newline never
-            $forall s <- scripts
-                ^{mkScriptTag s}
-            $maybe j <- jscript
-                $maybe s <- jsLoc
-                    <script src="#{s}">
-                $nothing
-                    <script>^{jelper j}
-        |]
-
-        headAll = [hamlet|
-            $newline never
-            \^{head'}
-            $forall s <- stylesheets
-                ^{mkLinkTag s}
-            $forall s <- css
-                $maybe t <- right $ snd s
-                    $maybe media <- fst s
-                        <link rel=stylesheet media=#{media} href=#{t}>
-                    $nothing
-                        <link rel=stylesheet href=#{t}>
-                $maybe content <- left $ snd s
-                    $maybe media <- fst s
-                        <style media=#{media}>#{content}
-                    $nothing
-                        <style>#{content}
-            $case jsLoader master
-              $of BottomOfBody
-              $of BottomOfHeadAsync asyncJsLoader
-                  ^{asyncJsLoader asyncScripts mcomplete}
-              $of BottomOfHeadBlocking
-                  ^{regularScriptLoad}
-        |]
-    let bodyScript = [hamlet|
-            $newline never
-            ^{body}
-            ^{regularScriptLoad}
-        |]
-
-    return $ PageContent title headAll $
-        case jsLoader master of
-            BottomOfBody -> bodyScript
-            _ -> body
-  where
-    renderLoc' render' (Local url) = render' url []
-    renderLoc' _ (Remote s) = s
-
-    addAttr x (y, z) = x H.! H.customAttribute (H.textTag y) (H.toValue z)
-    mkScriptTag (Script loc attrs) render' =
-        foldl' addAttr H.script (("src", renderLoc' render' loc) : attrs) $ return ()
-    mkLinkTag (Stylesheet loc attrs) render' =
-        foldl' addAttr H.link
-            ( ("rel", "stylesheet")
-            : ("href", renderLoc' render' loc)
-            : attrs
-            )
-
-    runUniqueList :: Eq x => UniqueList x -> [x]
-    runUniqueList (UniqueList x) = nub $ x []
-
-asyncHelper :: (url -> [x] -> Text)
-         -> [Script (url)]
-         -> Maybe (JavascriptUrl (url))
-         -> Maybe Text
-         -> (Maybe (HtmlUrl url), [Text])
-asyncHelper render scripts jscript jsLoc =
-    (mcomplete, scripts'')
-  where
-    scripts' = map goScript scripts
-    scripts'' =
-        case jsLoc of
-            Just s -> scripts' ++ [s]
-            Nothing -> scripts'
-    goScript (Script (Local url) _) = render url []
-    goScript (Script (Remote s) _) = s
-    mcomplete =
-        case jsLoc of
-            Just{} -> Nothing
-            Nothing ->
-                case jscript of
-                    Nothing -> Nothing
-                    Just j -> Just $ jelper j
-
-jsToHtml :: Javascript -> Html
-jsToHtml (Javascript b) = preEscapedToMarkup $ toLazyText b
-
-jelper :: JavascriptUrl url -> HtmlUrl url
-jelper = fmap jsToHtml
-
-right :: Either a b -> Maybe b
-right (Right x) = Just x
-right _ = Nothing
-
-left :: Either a b -> Maybe a
-left (Left x) = Just x
-left _ = Nothing
-
-
------------------------------
--- originally from Yesod.Core
------------------------------
--- | Return an 'Unauthorized' value, with the given i18n message.
-unauthorizedI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => msg -> m AuthResult
-unauthorizedI msg = do
-    mr <- getMessageRender
-    return $ Unauthorized $ mr msg
 
 -----------------------------
 -- originally from Yesod.Core.Json
@@ -835,7 +503,7 @@ unauthorizedI msg = do
 -- ('defaultLayout').
 --
 -- /Since: 0.3.0/
-{-
+{- FIXME
 defaultLayoutJson :: (Yesod site, J.ToJSON a)
                   => WidgetT site IO ()  -- ^ HTML
                   -> HandlerT site IO a  -- ^ JSON
