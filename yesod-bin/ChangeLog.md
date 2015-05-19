@@ -1,3 +1,7 @@
+## 1.4.9.2
+
+* Collapse paths in keter bundles, see [mailing list thread](https://groups.google.com/d/msg/yesodweb/Ndd310qfSEc/pZOXldsKowsJ)
+
 ## 1.4.9
 
 * Command line options for `yesod init` [#986](https://github.com/yesodweb/yesod/pull/986)

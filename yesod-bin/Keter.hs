@@ -60,12 +60,18 @@ keter cabal noBuild noCopyTo = do
             go ("exec", String s) = tellFile s
             go ("extraFiles", Array a) = Fold.mapM_ tellExtra a
             go (_, v') = findFiles v'
-            tellFile s = tell ["config" </> T.unpack s]
+            tellFile s = tell [collapse $ "config" </> T.unpack s]
             tellExtra (String s) = tellFile s
             tellExtra _          = error "extraFiles should be a flat array"
         findFiles (Array v) = Fold.mapM_ findFiles v
         findFiles _ = return ()
         bundleFiles = execWriter $ findFiles $ Object value
+
+        collapse = T.unpack . T.intercalate "/" . collapse' . T.splitOn "/" . T.pack
+        collapse' (_:"..":rest) = collapse' rest
+        collapse' (".":xs) = collapse' xs
+        collapse' (x:xs) = x : collapse' xs
+        collapse' [] = []
 
     unless noBuild $ do
         run cabal ["clean"]
