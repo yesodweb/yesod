@@ -1,5 +1,7 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, MultiParamTypeClasses, OverloadedStrings #-}
-module YesodCoreTest.Redirect (specs, Widget) where
+{-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies, MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+module YesodCoreTest.Redirect (specs) where
 
 import YesodCoreTest.YesodTest
 import Yesod.Core.Handler (redirectWith, setEtag)

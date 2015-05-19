@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module YesodCoreTest.RequestBodySize (specs, Widget) where
+module YesodCoreTest.RequestBodySize (specs) where
 
 import Test.Hspec
 

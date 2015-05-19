@@ -7,8 +7,11 @@ import Test.Hspec
 import YesodCoreTest.NoOverloadedStringsSub
 
 import Yesod.Core
+import Yesod.Core.Widget
+import Yesod.Shakespeare
 import Network.Wai
 import Network.Wai.Test
+import Network.Wai (pathInfo)
 import Data.Monoid (mempty)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as L8
@@ -48,10 +51,8 @@ mkYesod "Y" [parseRoutes|
 
 instance Yesod Y
 
-getRootR :: Handler ()
+getRootR, getFooR :: Handler ()
 getRootR = return ()
-
-getFooR :: Handler ()
 getFooR = return ()
 
 runner :: Session () -> IO ()
@@ -88,7 +89,7 @@ case_deflayoutT = runner $ do
 
 noOverloadedTest :: Spec
 noOverloadedTest = describe "Test.NoOverloadedStrings" $ do
-      it "sanity" case_sanity
-      it "subsite" case_subsite
-      it "deflayout" case_deflayout
-      it "deflayoutT" case_deflayoutT
+    it "sanity" case_sanity
+    it "subsite" case_subsite
+    it "deflayout" case_deflayout
+    it "deflayoutT" case_deflayoutT

@@ -164,7 +164,7 @@ test-suite tests
                   , wai-extra
                   , mwc-random
                   , cookie >= 0.4.1    && < 0.5
-    ghc-options:     -Wall
+    ghc-options: -Wall -fno-warn-unused-binds
     extensions: TemplateHaskell
 
 benchmark widgets

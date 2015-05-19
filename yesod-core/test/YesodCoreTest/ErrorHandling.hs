@@ -6,6 +6,7 @@ module YesodCoreTest.ErrorHandling
     , Widget
     ) where
 import Yesod.Core
+import Yesod.Core.Widget
 import Test.Hspec
 import Network.Wai
 import Network.Wai.Test
