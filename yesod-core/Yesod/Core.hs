@@ -55,8 +55,7 @@ module Yesod.Core
       -- * Subsites
     , MonadHandler (..)
     , getRouteToParent
-    -- FIXME
-    -- , defaultLayoutSub
+    , defaultLayoutSub
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -108,6 +107,7 @@ import Yesod.Core.Class.Handler
 import Yesod.Core.Json
 import Yesod.Core.Types
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
+import Yesod.Core.Widget
 import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 
 import Control.Monad.Logger
@@ -157,12 +157,10 @@ maybeAuthorized r isWrite = do
 getRouteToParent :: Monad m => HandlerT child (HandlerT parent m) (Route child -> Route parent)
 getRouteToParent = HandlerT $ return . handlerToParent
 
-{-
 defaultLayoutSub :: Yesod parent
                  => WidgetT child IO ()
                  -> HandlerT child (HandlerT parent IO) Html
 defaultLayoutSub cwidget = widgetToParentWidget cwidget >>= lift . defaultLayout
--}
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)
