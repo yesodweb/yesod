@@ -5,6 +5,7 @@
 {-# LANGUAGE CPP               #-}
 module Yesod.Core.Class.Yesod where
 
+import           Control.Monad                      (mplus)
 import           Control.Monad.Logger               (logErrorS)
 import           Yesod.Core.Content
 import           Yesod.Core.Handler
@@ -15,11 +16,12 @@ import           Blaze.ByteString.Builder           (Builder)
 import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import           Control.Arrow                      ((***), second)
 import           Control.Exception                  (bracket)
-import           Control.Monad                      (forM, when, void)
+import           Control.Monad                      (when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
                                                      LogSource)
 import           Control.Monad.Trans.Resource       (InternalState, createInternalState, closeInternalState)
+import qualified Data.Aeson as J
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))
@@ -30,8 +32,6 @@ import           Data.Text                          (Text)
 import qualified Data.Text                          as T
 import qualified Data.Text.Encoding                 as TE
 import qualified Data.Text.Encoding.Error           as TEE
-import           Data.Text.Lazy.Builder             (toLazyText)
-import           Data.Text.Lazy.Encoding            (encodeUtf8)
 import           Data.Word                          (Word64)
 import           Language.Haskell.TH.Syntax         (Loc (..))
 import           Network.HTTP.Types                 (encodePath)
@@ -41,9 +41,6 @@ import           Network.Wai.Parse                  (lbsBackEnd,
                                                      tempFileBackEnd)
 import           Network.Wai.Logger                 (ZonedDate, clockDateCacher)
 import           System.Log.FastLogger
-import           Text.Blaze                         (customAttribute, textTag,
-                                                     toValue, (!))
-import           Text.Blaze                         (preEscapedToMarkup)
 import           Text.Blaze.Html                    (Html)
 import qualified Text.Blaze.Html5                   as TBH
 import qualified Web.ClientSession                  as CS
@@ -51,7 +48,10 @@ import           Web.Cookie                         (parseCookies)
 import           Web.Cookie                         (SetCookie (..))
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
-import Control.Monad.Trans.Class (lift)
+
+-- for jsLoader and defaultErrorHandler
+import           Yesod.Core.Widget (WidgetT, toWidget, setTitle, PageContent(..), ScriptLoadPosition(BottomOfBody), getMessage, widgetToPageContentUnbound)
+import qualified Data.Foldable
 
 
 -- | Define settings for a Yesod applications. All methods have intelligent
@@ -77,28 +77,11 @@ class RenderRoute site => Yesod site where
     --
     -- Default value: 'defaultErrorHandler'.
     errorHandler :: ErrorResponse -> HandlerT site IO TypedContent
-    -- errorHandler = defaultErrorHandler
+    errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    {- FIXME
     defaultLayout :: WidgetT site IO () -> HandlerT site IO Html
-    widgetToPageContent = widgetToPageContentUnbound addStaticContent jsLoader
-    defaultLayout w = do
-        p <- widgetToPageContent w
-        mmsg <- getMessage
-        withUrlRenderer [hamlet|
-            $newline never
-            $doctype 5
-            <html>
-                <head>
-                    <title>#{pageTitle p}
-                    ^{pageHead p}
-                <body>
-                    $maybe msg <- mmsg
-                        <p .message>#{msg}
-                    ^{pageBody p}
-            |]
-            -}
+    defaultLayout = defaultDefaultLayout
 
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
@@ -236,9 +219,8 @@ class RenderRoute site => Yesod site where
     -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
     --
     -- Or write your own async js loader.
-    -- FIXME: the type
-    -- jsLoader :: site -> ScriptLoadPosition site
-    -- jsLoader _ = BottomOfBody
+    jsLoader :: site -> ScriptLoadPosition site
+    jsLoader _ = BottomOfBody
 
     -- | Create a session backend. Returning 'Nothing' disables
     -- sessions. If you'd like to change the way that the session
@@ -375,7 +357,75 @@ authorizationCheck = do
                               void $ notAuthenticated
             Unauthorized s' -> permissionDenied s'
 
-{- FIXME
+
+-- templating types
+type Render url = url -> [(Text, Text)] -> Text
+type HtmlUrl url = Render url -> Html
+
+maybeH :: Monad m => Maybe a -> (a -> m ()) -> Maybe (m ()) -> m ()
+maybeH mv f mm = fromMaybe (return ()) $ fmap f mv `mplus` mm
+
+
+widgetToPageContent
+  :: (Yesod site, Eq (Route site))
+  => WidgetT site IO ()
+  -> HandlerT site IO (PageContent (Route site))
+widgetToPageContent = widgetToPageContentUnbound addStaticContent jsLoader
+
+
+-- | Provide both an HTML and JSON representation for a piece of
+-- data, using the default layout for the HTML output
+-- ('defaultLayout').
+--
+-- /Since: 0.3.0/
+defaultLayoutJson :: (Yesod site, J.ToJSON a)
+                  => WidgetT site IO ()  -- ^ HTML
+                  -> HandlerT site IO a  -- ^ JSON
+                  -> HandlerT site IO TypedContent
+defaultLayoutJson w json = selectRep $ do
+    provideRep $ defaultLayout w
+    provideRep $ fmap J.toJSON json
+
+
+defaultDefaultLayout :: Yesod site => WidgetT site IO () -> HandlerT site IO Html
+defaultDefaultLayout w = do
+    p <- widgetToPageContent w
+    mmsg <- getMessage
+    withUrlRenderer $ htmlTemplate p mmsg
+  where
+    asHtmlUrl :: HtmlUrl url -> HtmlUrl url
+    asHtmlUrl = id
+
+    -- equivalent to
+    -- [hamlet|
+    --    $newline never
+    --    $doctype 5
+    --    <html>
+    --        <head>
+    --            <title>#{pageTitle p}
+    --            ^{pageHead p}
+    --        <body>
+    --            $maybe msg <- mmsg
+    --                <p .message>#{msg}
+    --            ^{pageBody p}
+    --    |]
+    htmlTemplate p mmsg = \_render_afYl -> do
+        TBH.preEscapedText $ T.pack "<!DOCTYPE html>\n<html><head><title>"
+        TBH.toHtml (pageTitle p)
+        TBH.preEscapedText $ T.pack "</title>"
+        asHtmlUrl (pageHead p) _render_afYl
+        TBH.preEscapedText $ T.pack "</head><body>"
+        maybeH
+          mmsg
+          (\ msg_afYm
+             -> do { id ((TBH.preEscapedText . T.pack) "<p class=\"message\">");
+                     id (TBH.toHtml msg_afYm);
+                     id ((TBH.preEscapedText . T.pack) "</p>") })
+          Nothing
+        asHtmlUrl (pageBody p) _render_afYl
+        (TBH.preEscapedText . T.pack) "</body></html>"
+
+
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerT site IO TypedContent
 defaultErrorHandler NotFound = selectRep $ do
@@ -383,11 +433,19 @@ defaultErrorHandler NotFound = selectRep $ do
         r <- waiRequest
         let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
         setTitle "Not Found"
-        toWidget [hamlet|
-            <h1>Not Found
-            <p>#{path'}
-        |]
+        toWidget $ htmlTemplate path'
     provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
+  where
+    -- equivalent to
+    --
+    --    [hamlet|
+    --        <h1>Not Found
+    --        <p>#{path'}
+    --    |]
+     htmlTemplate path' = \_renderer -> do 
+       TBH.preEscapedText $ T.pack "<h1>Not Found</h1>\n<p>"
+       TBH.toHtml path'
+       TBH.preEscapedText $ T.pack "</p>"
 
 -- For API requests.
 -- For a user with a browser,
@@ -396,10 +454,7 @@ defaultErrorHandler NotFound = selectRep $ do
 defaultErrorHandler NotAuthenticated = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Not logged in"
-        toWidget [hamlet|
-            <h1>Not logged in
-            <p style="display:none;">Set the authRoute and the user will be redirected there.
-        |]
+        toWidget htmlTemplate
 
     provideRep $ do
         -- 401 *MUST* include a WWW-Authenticate header
@@ -417,48 +472,97 @@ defaultErrorHandler NotAuthenticated = selectRep $ do
           case authRoute site of
               Nothing -> []
               Just url -> ["authentication_url" .= rend url]
+  where
+    -- equivalent to
+    --   [hamlet|
+    --      <h1>Not logged in
+    --        <p style="display:none;">Set the authRoute and the user will be redirected there.
+    --   |]
+    htmlTemplate = \_renderer -> TBH.preEscapedText $ T.pack
+      "<h1>Not logged in</h1>\n<p style=\"display:none;\">Set the authRoute and the user will be redirected there.</p>"
+
 
 defaultErrorHandler (PermissionDenied msg) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Permission Denied"
-        toWidget [hamlet|
-            <h1>Permission denied
-            <p>#{msg}
-        |]
+        toWidget htmlTemplate
     provideRep $
         return $ object $ [
           "message" .= ("Permission Denied. " <> msg)
           ]
+  where
+    -- equivalent to
+    --
+    --    [hamlet|
+    --        <h1>Permission denied
+    --        <p>#{msg}
+    --    |]
+    htmlTemplate = \_renderer -> do
+      TBH.preEscapedText $ T.pack "<h1>Permission denied</h1>\n<p>"
+      TBH.toHtml msg
+      TBH.preEscapedText $ T.pack "</p>"
+
 
 defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Invalid Arguments"
-        toWidget [hamlet|
-            <h1>Invalid Arguments
-            <ul>
-                $forall msg <- ia
-                    <li>#{msg}
-        |]
+        toWidget htmlTemplate
     provideRep $ return $ object ["message" .= ("Invalid Arguments" :: Text), "errors" .= ia]
+  where
+    -- equivalent to
+    -- [hamlet|
+    --        <h1>Invalid Arguments
+    --        <ul>
+    --            $forall msg <- ia
+    --               <li>#{msg}
+    --    |]
+    htmlTemplate = \_renderer -> do
+      (TBH.preEscapedText . T.pack) "<h1>Invalid Arguments</h1>\n<ul>"
+      Data.Foldable.mapM_
+                (\ msg_afNn
+                   -> do { (TBH.preEscapedText . T.pack) "<li>";
+                           TBH.toHtml msg_afNn;
+                           (TBH.preEscapedText . T.pack) "</li>" })
+                ia;
+      (TBH.preEscapedText . T.pack) "</ul>"
+
+
 defaultErrorHandler (InternalError e) = do
     $logErrorS "yesod-core" e
     selectRep $ do
         provideRep $ defaultLayout $ do
             setTitle "Internal Server Error"
-            toWidget [hamlet|
-                <h1>Internal Server Error
-                <pre>#{e}
-            |]
+            toWidget htmlTemplate
         provideRep $ return $ object ["message" .= ("Internal Server Error" :: Text), "error" .= e]
+  where
+    -- equivalent to
+    --        [hamlet|
+    --            <h1>Internal Server Error
+    --            <pre>#{e}
+    --        |]
+    htmlTemplate = \_renderer -> do
+      (TBH.preEscapedText . T.pack) "<h1>Internal Server Error</h1>\n<pre>"
+      TBH.toHtml e
+      (TBH.preEscapedText . T.pack) "</pre>"
+
 defaultErrorHandler (BadMethod m) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle"Bad Method"
-        toWidget [hamlet|
-            <h1>Method Not Supported
-            <p>Method <code>#{S8.unpack m}</code> not supported
-        |]
+        toWidget $ htmlTemplate
     provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
-    -}
+  where
+    -- equivalent to
+    --
+    --    [hamlet|
+    --        <h1>Method Not Supported
+    --        <p>Method <code>#{S8.unpack m}</code> not supported
+    --    |]
+    htmlTemplate = \ _render -> do
+        TBH.preEscapedText $ T.pack
+             "<h1>Method Not Supported</h1>\n<p>Method <code>"
+        TBH.toHtml (S8.unpack m)
+        TBH.preEscapedText $ T.pack "</code> not supported</p>"
+
 
 formatLogMessage :: IO ZonedDate
                  -> Loc

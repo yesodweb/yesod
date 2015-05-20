@@ -24,10 +24,6 @@ module Yesod.Shakespeare (
       -- * i18n
     , getMessageRender
 
-      -- * Formerly Yesod.Core.Class.Yesod
-    , jelper
-    , asyncHelper
-    , jsToHtml
       -- * Formerly Yesod.Core.Handler
       -- ** Redirecting
     , redirectToPost
@@ -51,8 +47,9 @@ module Yesod.Shakespeare (
     , module Text.Shakespeare.I18N
 ) where
 
+import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad                      (liftM, forM)
-import Control.Monad.Trans.Class (lift)
+import           Control.Monad.Trans.Class (lift)
 import Text.Shakespeare.I18N
 import qualified Data.ByteString.Lazy               as L
 import           Data.List                          (foldl', nub)
@@ -63,7 +60,6 @@ import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP)
 import Data.Text (Text)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Builder (fromLazyText, toLazyText)
-import           Data.Text.Lazy.Encoding            (encodeUtf8)
 import Data.Monoid (Last(..), mempty)
 import qualified Data.Map as Map
 
@@ -79,6 +75,11 @@ import Yesod.Core.Class.Handler (HandlerSite, MonadHandler)
 import Yesod.Core.Handler (getUrlRenderParams, toTextUrl, invalidArgs, permissionDenied, RedirectUrl, withUrlRenderer, getRequest, getYesod, sendResponse)
 import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), typeJavascript, typeCss)
 import           Yesod.Routes.Class            (Route)
+
+-- for hamlet expansion
+import qualified Data.Foldable
+import qualified Data.Text
+import Text.Hamlet (asHtmlUrl)
 
 type Translate msg = msg -> Html
 type HtmlUrlI18n msg url = Translate msg -> Render url -> Html
@@ -157,153 +158,6 @@ $doctype 5
                 <p>Javascript has been disabled; please click on the button below to be redirected.
             <input type="submit" value="Continue">
 |] >>= sendResponse
-
-------------------------------
--- from Yesod.Core.Class.Yesod
-------------------------------
-type AddStaticContent site = Text -- ^ filename extension
-                          -> Text -- ^ mime-type
-                          -> L.ByteString -- ^ content
-                          -> HandlerT site IO (Maybe (Either Text (Route site, [(Text, Text)])))
-
--- | Convert a widget to a 'PageContent'.
--- not bound to the Yesod typeclass
-{- widgetToPageContentUnbound
-  :: (MonadBaseControl IO m, MonadThrow m, MonadIO m, Eq (Route site))
-  => AddStaticContent site -> site -> ScriptLoadPosition site -> WidgetT site IO ()
-  -> HandlerT site m (PageContent (Route site))
-  -}
-widgetToPageContentUnbound addStaticContent jsLoader w = do
-    master <- getYesod
-    hd <- HandlerT return
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style mJS' (Head head')) <- lift $ unWidgetT w hd
-    let jscript = fmap (\x -> Javascript . x) mJS'
-    let title = maybe mempty unTitle mTitle
-        scripts = runUniqueList scripts'
-        stylesheets = runUniqueList stylesheets'
-
-    render <- getUrlRenderParams
-    let renderLoc x =
-            case x of
-                Nothing -> Nothing
-                Just (Left s) -> Just s
-                Just (Right (u, p)) -> Just $ render u p
-    css <- forM (Map.toList style) $ \(mmedia, content) -> do
-        let rendered = toLazyText $ content render
-        x <- addStaticContent "css" "text/css; charset=utf-8"
-           $ encodeUtf8 rendered
-        return (mmedia,
-            case x of
-                Nothing -> Left $ preEscapedToMarkup rendered
-                Just y -> Right $ either id (uncurry render) y)
-    jsLoc <-
-        case jscript of
-            Nothing -> return Nothing
-            Just s -> do
-                x <- addStaticContent "js" "text/javascript; charset=utf-8"
-                   $ encodeUtf8 $ renderJavascriptUrl render s
-                return $ renderLoc x
-
-    -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
-    -- the asynchronous loader means your page doesn't have to wait for all the js to load
-    let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
-        regularScriptLoad = [hamlet|
-            $newline never
-            $forall s <- scripts
-                ^{mkScriptTag s}
-            $maybe j <- jscript
-                $maybe s <- jsLoc
-                    <script src="#{s}">
-                $nothing
-                    <script>^{jelper j}
-        |]
-
-        headAll = [hamlet|
-            $newline never
-            \^{head'}
-            $forall s <- stylesheets
-                ^{mkLinkTag s}
-            $forall s <- css
-                $maybe t <- right $ snd s
-                    $maybe media <- fst s
-                        <link rel=stylesheet media=#{media} href=#{t}>
-                    $nothing
-                        <link rel=stylesheet href=#{t}>
-                $maybe content <- left $ snd s
-                    $maybe media <- fst s
-                        <style media=#{media}>#{content}
-                    $nothing
-                        <style>#{content}
-            $case jsLoader master
-              $of BottomOfBody
-              $of BottomOfHeadAsync asyncJsLoader
-                  ^{asyncJsLoader asyncScripts mcomplete}
-              $of BottomOfHeadBlocking
-                  ^{regularScriptLoad}
-        |]
-    let bodyScript = [hamlet|
-            $newline never
-            ^{body}
-            ^{regularScriptLoad}
-        |]
-
-    return $ PageContent title headAll $
-        case jsLoader master of
-            BottomOfBody -> bodyScript
-            _ -> body
-  where
-    renderLoc' render' (Local url) = render' url []
-    renderLoc' _ (Remote s) = s
-
-    addAttr x (y, z) = x H.! H.customAttribute (H.textTag y) (H.toValue z)
-    mkScriptTag (Script loc attrs) render' =
-        foldl' addAttr H.script (("src", renderLoc' render' loc) : attrs) $ return ()
-    mkLinkTag (Stylesheet loc attrs) render' =
-        foldl' addAttr H.link
-            ( ("rel", "stylesheet")
-            : ("href", renderLoc' render' loc)
-            : attrs
-            )
-
-    runUniqueList :: Eq x => UniqueList x -> [x]
-    runUniqueList (UniqueList x) = nub $ x []
-
-asyncHelper :: (url -> [x] -> Text)
-         -> [Script (url)]
-         -> Maybe (JavascriptUrl (url))
-         -> Maybe Text
-         -> (Maybe (HtmlUrl url), [Text])
-asyncHelper render scripts jscript jsLoc =
-    (mcomplete, scripts'')
-  where
-    scripts' = map goScript scripts
-    scripts'' =
-        case jsLoc of
-            Just s -> scripts' ++ [s]
-            Nothing -> scripts'
-    goScript (Script (Local url) _) = render url []
-    goScript (Script (Remote s) _) = s
-    mcomplete =
-        case jsLoc of
-            Just{} -> Nothing
-            Nothing ->
-                case jscript of
-                    Nothing -> Nothing
-                    Just j -> Just $ jelper j
-
-jsToHtml :: Javascript -> Html
-jsToHtml (Javascript b) = preEscapedToMarkup $ toLazyText b
-
-jelper :: JavascriptUrl url -> HtmlUrl url
-jelper = fmap jsToHtml
-
-right :: Either a b -> Maybe b
-right (Right x) = Just x
-right _ = Nothing
-
-left :: Either a b -> Maybe a
-left (Left x) = Just x
-left _ = Nothing
 
 ------------------------------------
 -- Formerly Yesod.Core.Content

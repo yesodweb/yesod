@@ -21,11 +21,9 @@ module Yesod.Core
     , ErrorResponse (..)
       -- * Utitlities
     , maybeAuthorized
-    -- FIXME: API breakage
-    -- , widgetToPageContent
+    , widgetToPageContent
       -- * Defaults
-    -- FIXME: API breakage
-    -- , defaultErrorHandler
+    , defaultErrorHandler
     , defaultYesodMiddleware
     , authorizationCheck
       -- * Data types

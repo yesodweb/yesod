@@ -47,6 +47,12 @@ module Yesod.Core.Widget
     , asWidgetT
     , tellWidget
 
+      -- * Formerly Yesod.Core.Class.Yesod
+    , jelper
+    , asyncHelper
+    , jsToHtml
+    , widgetToPageContentUnbound
+
       -- * Formerly Yesod.Core.Types
     , ScriptLoadPosition(..)
     , BottomOfHeadAsync
@@ -66,7 +72,6 @@ module Yesod.Core.Widget
     , hamletToRepHtml
 
       -- * Formerly Yesod.Core.Json
-    -- FIXME
     -- , defaultLayoutJson
 
       -- * Formerly Yesod.Core
@@ -74,7 +79,7 @@ module Yesod.Core.Widget
     ) where
 
 import           Control.Applicative                (Applicative(..))
-import           Control.Monad                      (liftM, ap)
+import           Control.Monad                      (liftM, ap, forM, mplus)
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.Catch                (MonadCatch (..))
 import           Control.Monad.Catch                (MonadMask (..))
@@ -98,6 +103,7 @@ import qualified Control.Monad.Trans.RWS.Strict    as Strict ( RWST   )
 import qualified Control.Monad.Trans.State.Strict  as Strict ( StateT )
 import qualified Control.Monad.Trans.Writer.Strict as Strict ( WriterT )
 import Blaze.ByteString.Builder (Builder)
+import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush (Chunk), Producer, ConduitM)
 import Data.Conduit.Internal (Pipe(..))
 import Data.Conduit.Lazy (MonadActive, monadActive)
@@ -110,6 +116,7 @@ import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Yesod.Routes.Class
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Text (Text)
+import           Data.Maybe                         (fromMaybe)
 import qualified Data.Map as Map
 
 import           System.Log.FastLogger              (toLogStr)
@@ -117,9 +124,17 @@ import qualified Data.Text.Lazy as TL
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
-import Yesod.Core.Handler (setSession, lookupSession, deleteSession, withUrlRenderer, sendChunk)
+import Yesod.Core.Handler (setSession, lookupSession, deleteSession, withUrlRenderer, sendChunk, getUrlRenderParams, getYesod)
 import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), ToFlushBuilder(..), typeHtml)
+import           Data.List                          (foldl', nub)
 import           Data.Map                           (Map, unionWith)
+import           Data.Text.Lazy.Builder (toLazyText)
+import qualified Data.Text.Lazy.Builder as TLB
+import           Data.Text.Lazy.Encoding (encodeUtf8)
+import qualified Data.Foldable
+import qualified Data.Text
+import qualified Text.Blaze.Html5                   as TBH
+import qualified Text.Blaze.Html5 as H
 
 -- templating types
 type Render url = url -> [(Text, Text)] -> Text
@@ -489,20 +504,242 @@ sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
 sendChunkHtml = sendChunk
 
 
------------------------------
--- originally from Yesod.Core.Json
------------------------------
--- | Provide both an HTML and JSON representation for a piece of
--- data, using the default layout for the HTML output
--- ('defaultLayout').
---
--- /Since: 0.3.0/
-{- FIXME
-defaultLayoutJson :: (Yesod site, J.ToJSON a)
-                  => WidgetT site IO ()  -- ^ HTML
-                  -> HandlerT site IO a  -- ^ JSON
-                  -> HandlerT site IO TypedContent
-defaultLayoutJson w json = selectRep $ do
-    provideRep $ defaultLayout w
-    provideRep $ fmap J.toJSON json
-    -}
+maybeH :: Monad m => Maybe a -> (a -> m ()) -> Maybe (m ()) -> m ()
+maybeH mv f mm = fromMaybe (return ()) $ fmap f mv `mplus` mm
+
+type AddStaticContent site m = Text -- ^ filename extension
+                            -> Text -- ^ mime-type
+                            -> L.ByteString -- ^ content
+                            -> HandlerT site m (Maybe (Either Text (Route site, [(Text, Text)])))
+
+-- | Convert a widget to a 'PageContent'.
+-- not bound to the Yesod typeclass
+widgetToPageContentUnbound
+  :: (MonadBaseControl IO m, MonadThrow m, MonadIO m, Eq (Route site))
+  => AddStaticContent site m
+  -> (site -> ScriptLoadPosition site)
+  -> WidgetT site m ()
+  -> HandlerT site m (PageContent (Route site))
+widgetToPageContentUnbound addStaticContent jsLoader w = do
+    master <- getYesod
+    hd <- HandlerT return
+    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- lift $ unWidgetT w hd
+    let title = maybe mempty unTitle mTitle
+        scripts = runUniqueList scripts'
+        stylesheets = runUniqueList stylesheets'
+
+    render <- getUrlRenderParams
+    let renderLoc x =
+            case x of
+                Nothing -> Nothing
+                Just (Left s) -> Just s
+                Just (Right (u, p)) -> Just $ render u p
+    css <- forM (Map.toList style) $ \(mmedia, content) -> do
+        let rendered = toLazyText $ content render
+        x <- addStaticContent "css" "text/css; charset=utf-8"
+           $ encodeUtf8 rendered
+        return (mmedia,
+            case x of
+                Nothing -> Left $ preEscapedToMarkup rendered
+                Just y -> Right $ either id (uncurry render) y)
+    jsLoc <-
+        case jscript of
+            Nothing -> return Nothing
+            Just s -> do
+                x <- addStaticContent "js" "text/javascript; charset=utf-8"
+                   $ encodeUtf8 $ toLazyText $ s render
+                return $ renderLoc x
+
+    -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
+    -- the asynchronous loader means your page doesn't have to wait for all the js to load
+    let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
+        scriptLoad = regularScriptLoad scripts jscript jsLoc
+        headAll = headContent head' stylesheets css master asyncScripts mcomplete scriptLoad
+
+    let bodyScript = bodyScriptLoad body scriptLoad
+
+    return $ PageContent title headAll $
+        case jsLoader master of
+            BottomOfBody -> bodyScript
+            _ -> body
+  where
+    renderLoc' render' (Local url) = render' url []
+    renderLoc' _ (Remote s) = s
+
+    addAttr x (y, z) = x H.! H.customAttribute (H.textTag y) (H.toValue z)
+    mkScriptTag (Script loc attrs) render' =
+        foldl' addAttr H.script (("src", renderLoc' render' loc) : attrs) $ return ()
+    mkLinkTag (Stylesheet loc attrs) render' =
+        foldl' addAttr H.link
+            ( ("rel", "stylesheet")
+            : ("href", renderLoc' render' loc)
+            : attrs
+            )
+
+    runUniqueList :: Eq x => UniqueList x -> [x]
+    runUniqueList (UniqueList x) = nub $ x []
+
+    -- equivalent to
+    --
+    --   [hamlet|
+    --        $newline never
+    --        ^{body}
+    --        ^{scriptLoad}
+    --    |]
+    bodyScriptLoad body scriptLoad = \renderer -> do
+        asHtmlUrl body renderer
+        asHtmlUrl scriptLoad renderer
+
+    -- equivalent to
+    --
+    --  [hamlet|
+    --    $newline never
+    --    $forall s <- scripts
+    --        ^{mkScriptTag s}
+    --    $maybe j <- jscript
+    --        $maybe s <- jsLoc
+    --            <script src="#{s}">
+    --        $nothing
+    --            <script>^{jelper j}
+    -- |]
+    regularScriptLoad scripts jscript jsLoc = \_render_ahpp -> do
+       { Data.Foldable.mapM_
+            (\ s_ahpq -> asHtmlUrl (mkScriptTag s_ahpq) _render_ahpp) scripts;
+         maybeH
+            jscript
+            (\ j_ahpr
+               -> maybeH
+                    jsLoc
+                    (\ s_ahps
+                       -> do { id ((H.preEscapedText . Data.Text.pack) "<script src=\"");
+                               id (TBH.toHtml s_ahps);
+                               id ((H.preEscapedText . Data.Text.pack) "\"></script>") })
+                    (Just
+                       (do { id ((H.preEscapedText . Data.Text.pack) "<script>");
+                             asHtmlUrl (jelper j_ahpr) _render_ahpp;
+                             id ((H.preEscapedText . Data.Text.pack) "</script>") })))
+            Nothing }
+
+    -- equivalent to
+    --
+    -- [hamlet|
+    --    $newline never
+    --    \^{head'}
+    --    $forall s <- stylesheets
+    --        ^{mkLinkTag s}
+    --    $forall s <- css
+    --        $maybe t <- right $ snd s
+    --            $maybe media <- fst s
+    --                <link rel=stylesheet media=#{media} href=#{t}>
+    --            $nothing
+    --                <link rel=stylesheet href=#{t}>
+    --        $maybe content <- left $ snd s
+    --            $maybe media <- fst s
+    --                <style media=#{media}>#{content}
+    --            $nothing
+    --                <style>#{content}
+    --    $case jsLoader master
+    --      $of BottomOfBody
+    --      $of BottomOfHeadAsync asyncJsLoader
+    --          ^{asyncJsLoader asyncScripts mcomplete}
+    --      $of BottomOfHeadBlocking
+    --          ^{scriptLoad}
+    -- |]
+    headContent head' stylesheets css master asyncScripts mcomplete scriptLoad = \_render_ahmq -> do
+      { asHtmlUrl head' _render_ahmq;
+        Data.Foldable.mapM_
+          (\ s_ahmr -> asHtmlUrl (mkLinkTag s_ahmr) _render_ahmq)
+          stylesheets;
+        Data.Foldable.mapM_
+          (\ s_ahms
+             -> do { maybeH
+                       (right (snd s_ahms))
+                       (\ t_ahmt
+                          -> maybeH
+                               (fst s_ahms)
+                               (\ media_ahmu
+                                  -> do { id
+                                            ((H.preEscapedText . Data.Text.pack)
+                                               "<link rel=\"stylesheet\" media=\"");
+                                          id (TBH.toHtml media_ahmu);
+                                          id
+                                            ((H.preEscapedText . Data.Text.pack)
+                                               "\" href=\"");
+                                          id (TBH.toHtml t_ahmt);
+                                          id ((H.preEscapedText . Data.Text.pack) "\">") })
+                               (Just
+                                  (do { id
+                                          ((H.preEscapedText . Data.Text.pack)
+                                             "<link rel=\"stylesheet\" href=\"");
+                                        id (TBH.toHtml t_ahmt);
+                                        id ((H.preEscapedText . Data.Text.pack) "\">") })))
+                       Nothing;
+                     maybeH
+                       (left (snd s_ahms))
+                       (\ content_ahmv
+                          -> maybeH
+                               (fst s_ahms)
+                               (\ media_ahmw
+                                  -> do { id
+                                            ((H.preEscapedText . Data.Text.pack)
+                                               "<style media=\"");
+                                          id (TBH.toHtml media_ahmw);
+                                          id ((H.preEscapedText . Data.Text.pack) "\">");
+                                          id (TBH.toHtml content_ahmv);
+                                          id
+                                            ((H.preEscapedText . Data.Text.pack)
+                                               "</style>") })
+                               (Just
+                                  (do { id ((H.preEscapedText . Data.Text.pack) "<style>");
+                                        id (TBH.toHtml content_ahmv);
+                                        id
+                                          ((H.preEscapedText . Data.Text.pack)
+                                             "</style>") })))
+                       Nothing })
+          css;
+        case jsLoader master of
+          BottomOfBody -> return ()
+          BottomOfHeadAsync asyncJsLoader_ahmx -> asHtmlUrl (asyncJsLoader_ahmx asyncScripts mcomplete) _render_ahmq
+          BottomOfHeadBlocking -> asHtmlUrl scriptLoad _render_ahmq
+      }
+
+
+asyncHelper :: (url -> [x] -> Text)
+         -> [Script (url)]
+         -> Maybe (BuilderUrl url)
+         -> Maybe Text
+         -> (Maybe (HtmlUrl url), [Text])
+asyncHelper render scripts jscript jsLoc =
+    (mcomplete, scripts'')
+  where
+    scripts' = map goScript scripts
+    scripts'' =
+        case jsLoc of
+            Just s -> scripts' ++ [s]
+            Nothing -> scripts'
+    goScript (Script (Local url) _) = render url []
+    goScript (Script (Remote s) _) = s
+    mcomplete =
+        case jsLoc of
+            Just{} -> Nothing
+            Nothing ->
+                case jscript of
+                    Nothing -> Nothing
+                    Just j -> Just $ jelper j
+
+jsToHtml :: TLB.Builder -> Html
+jsToHtml b = preEscapedToMarkup $ toLazyText b
+
+jelper :: (Render url -> TLB.Builder) -> HtmlUrl url
+jelper = fmap jsToHtml
+
+right :: Either a b -> Maybe b
+right (Right x) = Just x
+right _ = Nothing
+
+left :: Either a b -> Maybe a
+left (Left x) = Just x
+left _ = Nothing
+
+asHtmlUrl :: HtmlUrl url -> HtmlUrl url
+asHtmlUrl = id

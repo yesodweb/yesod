@@ -104,7 +104,7 @@ library
                      Yesod.Routes.TH.ParseRoute
                      Yesod.Routes.TH.RouteAttrs
 
-    ghc-options:     -Wall
+    ghc-options:     -Wall -ddump-splices -ddump-to-file
     -- Following line added due to: https://github.com/yesodweb/yesod/issues/545
     -- This looks like a GHC bug
     extensions:      MultiParamTypeClasses

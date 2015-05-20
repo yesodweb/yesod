@@ -22,6 +22,7 @@ import Yesod.Core.Types
 import Yesod.Core.Content
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
+import Yesod.Core.Widget (WidgetT)
 
 -- | Generates URL datatype and site function for the given 'Resource's. This
 -- is used for creating sites, /not/ subsites. See 'mkYesodSub' for the latter.
@@ -55,9 +56,8 @@ masterTypeSyns :: Type -> [Dec]
 masterTypeSyns site =
     [ TySynD (mkName "Handler") []
       $ ConT ''HandlerT `AppT` site `AppT` ConT ''IO
-    -- FIXME
-    -- , TySynD (mkName "Widget")  []
-    --  $ ConT ''WidgetT `AppT` site `AppT` ConT ''IO `AppT` ConT ''()
+    , TySynD (mkName "Widget")  []
+      $ ConT ''WidgetT `AppT` site `AppT` ConT ''IO `AppT` ConT ''()
     ]
 
 mkYesodGeneral :: String                   -- ^ foundation type
