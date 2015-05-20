@@ -21,11 +21,9 @@ module Yesod.Core
     , ErrorResponse (..)
       -- * Utitlities
     , maybeAuthorized
-    -- FIXME: API breakage
-    -- , widgetToPageContent
+    , widgetToPageContent
       -- * Defaults
-    -- FIXME: API breakage
-    -- , defaultErrorHandler
+    , defaultErrorHandler
     , defaultYesodMiddleware
     , authorizationCheck
       -- * Data types
@@ -58,12 +56,11 @@ module Yesod.Core
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
-    -- * JS loaders
       -- * Subsites
     , MonadHandler (..)
+    , MonadWidget (..)
     , getRouteToParent
-    -- FIXME
-    -- , defaultLayoutSub
+    , defaultLayoutSub
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -76,6 +73,7 @@ module Yesod.Core
     , module Yesod.Core.Content
     , module Yesod.Core.Dispatch
     , module Yesod.Core.Handler
+    , module Yesod.Core.Widget
     , module Yesod.Core.Json
     , module Yesod.Core.Internal.Util
     , module Text.Blaze.Html
@@ -91,8 +89,10 @@ module Yesod.Core
     , showIntegral
     , readIntegral
     -- FIXME: API breakage
-      -- * Shakespeare
-      -- ** Hamlet
+    -- , unauthorizedI
+    -- module Text.Shakesepare.I18N
+    -- * Shakespeare
+    -- ** Hamlet
     -- , hamlet
     -- , shamlet
     -- , xhamlet
@@ -112,9 +112,11 @@ import Yesod.Core.Content
 import Yesod.Core.Dispatch
 import Yesod.Core.Handler
 import Yesod.Core.Class.Handler
+import Yesod.Core.Widget
 import Yesod.Core.Json
 import Yesod.Core.Types
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
+import Yesod.Core.Widget
 import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 
 import Control.Monad.Logger
@@ -164,12 +166,10 @@ maybeAuthorized r isWrite = do
 getRouteToParent :: Monad m => HandlerT child (HandlerT parent m) (Route child -> Route parent)
 getRouteToParent = HandlerT $ return . handlerToParent
 
-{-
 defaultLayoutSub :: Yesod parent
                  => WidgetT child IO ()
                  -> HandlerT child (HandlerT parent IO) Html
 defaultLayoutSub cwidget = widgetToParentWidget cwidget >>= lift . defaultLayout
--}
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)

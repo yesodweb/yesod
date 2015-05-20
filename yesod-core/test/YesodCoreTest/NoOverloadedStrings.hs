@@ -9,7 +9,6 @@ import YesodCoreTest.NoOverloadedStringsSub
 import Yesod.Core
 import Yesod.Core.Widget
 import Yesod.Shakespeare
-import Network.Wai
 import Network.Wai.Test
 import Network.Wai (pathInfo)
 import Data.Monoid (mempty)

@@ -3,9 +3,9 @@
 {-# LANGUAGE ViewPatterns #-}
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
-    , Widget
     ) where
 import Yesod.Core
+import Yesod.Shakespeare (whamlet)
 import Yesod.Core.Widget
 import Test.Hspec
 import Network.Wai
