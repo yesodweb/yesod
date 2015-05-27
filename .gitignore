@@ -13,3 +13,9 @@ cabal.sandbox.config
 /vendor/
 .shelly/
 tarballs/
+
+# useful when mounting into docker
+.cabal
+.ghc
+.stackage
+.bash_history
