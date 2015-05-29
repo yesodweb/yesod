@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-module YesodCoreTest.Cache (cacheTest, Widget) where
+module YesodCoreTest.Cache (cacheTest) where
 
 import Test.Hspec
 

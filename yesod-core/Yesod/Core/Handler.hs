@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
@@ -72,21 +71,17 @@ module Yesod.Core.Handler
     , sendChunkLBS
     , sendChunkText
     , sendChunkLazyText
-    , sendChunkHtml
       -- ** Redirecting
     , RedirectUrl (..)
     , redirect
     , redirectWith
-    , redirectToPost
     , Fragment(..)
       -- ** Errors
     , notFound
     , badMethod
     , notAuthenticated
     , permissionDenied
-    , permissionDeniedI
     , invalidArgs
-    , invalidArgsI
       -- ** Short-circuit responses.
     , sendFile
     , sendFilePart
@@ -132,13 +127,8 @@ module Yesod.Core.Handler
     , setUltDestReferer
     , redirectUltDest
     , clearUltDest
-      -- ** Messages
-    , setMessage
-    , setMessageI
-    , getMessage
       -- * Helpers for specific content
       -- ** Hamlet
-    , hamletToRepHtml
     , giveUrlRenderer
     , withUrlRenderer
       -- ** Misc
@@ -146,8 +136,6 @@ module Yesod.Core.Handler
       -- * Lifting
     , handlerToIO
     , forkHandler
-      -- * i18n
-    , getMessageRender
       -- * Per-request caching
     , cached
     , cachedBy
@@ -177,8 +165,6 @@ import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
 import           Data.Text.Encoding.Error      (lenientDecode)
 import qualified Data.Text.Lazy                as TL
-import qualified Text.Blaze.Html.Renderer.Text as RenderText
-import           Text.Hamlet                   (Html, HtmlUrl, hamlet)
 
 import qualified Data.ByteString               as S
 import qualified Data.ByteString.Lazy          as L
@@ -189,11 +175,9 @@ import qualified Data.ByteString.Char8         as S8
 import           Data.Monoid                   (Endo (..), mappend, mempty)
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
-import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
 import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
-import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
 
 import qualified Data.IORef.Lifted             as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
@@ -481,34 +465,6 @@ redirectUltDest def = do
 clearUltDest :: MonadHandler m => m ()
 clearUltDest = deleteSession ultDestKey
 
-msgKey :: Text
-msgKey = "_MSG"
-
--- | Sets a message in the user's session.
---
--- See 'getMessage'.
-setMessage :: MonadHandler m => Html -> m ()
-setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
-
--- | Sets a message in the user's session.
---
--- See 'getMessage'.
-setMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
-            => msg -> m ()
-setMessageI msg = do
-    mr <- getMessageRender
-    setMessage $ toHtml $ mr msg
-
--- | Gets the message in the user's session, if available, and then clears the
--- variable.
---
--- See 'setMessage'.
-getMessage :: MonadHandler m => m (Maybe Html)
-getMessage = do
-    mmsg <- liftM (fmap preEscapedToMarkup) $ lookupSession msgKey
-    deleteSession msgKey
-    return mmsg
-
 -- | Bypass remaining handler code and output the given file.
 --
 -- For some backends, this is more efficient than reading in the file to
@@ -623,23 +579,9 @@ notAuthenticated = hcError NotAuthenticated
 permissionDenied :: MonadHandler m => Text -> m a
 permissionDenied = hcError . PermissionDenied
 
--- | Return a 403 permission denied page.
-permissionDeniedI :: (RenderMessage (HandlerSite m) msg, MonadHandler m)
-                  => msg
-                  -> m a
-permissionDeniedI msg = do
-    mr <- getMessageRender
-    permissionDenied $ mr msg
-
 -- | Return a 400 invalid arguments page.
 invalidArgs :: MonadHandler m => [Text] -> m a
 invalidArgs = hcError . InvalidArgs
-
--- | Return a 400 invalid arguments page.
-invalidArgsI :: (MonadHandler m, RenderMessage (HandlerSite m) msg) => [msg] -> m a
-invalidArgsI msg = do
-    mr <- getMessageRender
-    invalidArgs $ map mr msg
 
 ------- Headers
 -- | Set the cookie on the client.
@@ -837,36 +779,6 @@ newIdent = do
     put x { ghsIdent = i' }
     return $ T.pack $ "hident" ++ show i'
 
--- | Redirect to a POST resource.
---
--- This is not technically a redirect; instead, it returns an HTML page with a
--- POST form, and some Javascript to automatically submit the form. This can be
--- useful when you need to post a plain link somewhere that needs to cause
--- changes on the server.
-redirectToPost :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
-               => url
-               -> m a
-redirectToPost url = do
-    urlText <- toTextUrl url
-    withUrlRenderer [hamlet|
-$newline never
-$doctype 5
-
-<html>
-    <head>
-        <title>Redirecting...
-    <body onload="document.getElementById('form').submit()">
-        <form id="form" method="post" action=#{urlText}>
-            <noscript>
-                <p>Javascript has been disabled; please click on the button below to be redirected.
-            <input type="submit" value="Continue">
-|] >>= sendResponse
-
--- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
-hamletToRepHtml :: MonadHandler m => HtmlUrl (Route (HandlerSite m)) -> m Html
-hamletToRepHtml = withUrlRenderer
-{-# DEPRECATED hamletToRepHtml "Use withUrlRenderer instead" #-}
-
 -- | Deprecated synonym for 'withUrlRenderer'.
 --
 -- Since 1.2.0
@@ -890,13 +802,6 @@ withUrlRenderer f = do
 -- | Get the request\'s 'W.Request' value.
 waiRequest :: MonadHandler m => m W.Request
 waiRequest = reqWaiRequest `liftM` getRequest
-
-getMessageRender :: (MonadHandler m, RenderMessage (HandlerSite m) message)
-                 => m (message -> Text)
-getMessageRender = do
-    env <- askHandlerEnv
-    l <- reqLangs `liftM` getRequest
-    return $ renderMessage (rheSite env) l
 
 -- | Use a per-request cache to avoid performing the same action multiple times.
 -- Values are stored by their type, the result of typeOf from Typeable.
@@ -1232,9 +1137,3 @@ sendChunkText = sendChunk
 -- Since 1.2.0
 sendChunkLazyText :: Monad m => TL.Text -> Producer m (Flush Builder)
 sendChunkLazyText = sendChunk
-
--- | Type-specialized version of 'sendChunk' for @Html@s.
---
--- Since 1.2.0
-sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
-sendChunkHtml = sendChunk

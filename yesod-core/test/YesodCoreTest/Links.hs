@@ -1,11 +1,12 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
-module YesodCoreTest.Links (linksTest, Widget) where
+module YesodCoreTest.Links (linksTest) where
 
 import Test.Hspec
 
 import Yesod.Core
+import Yesod.Core.Widget
 import Text.Hamlet
 import Network.Wai
 import Network.Wai.Test

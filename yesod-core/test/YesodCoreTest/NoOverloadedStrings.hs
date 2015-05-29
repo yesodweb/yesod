@@ -7,7 +7,8 @@ import Test.Hspec
 import YesodCoreTest.NoOverloadedStringsSub
 
 import Yesod.Core
-import Network.Wai
+import Yesod.Core.Widget
+import Yesod.Shakespeare
 import Network.Wai.Test
 import Data.Monoid (mempty)
 import qualified Data.Text as T

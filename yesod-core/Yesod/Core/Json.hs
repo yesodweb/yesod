@@ -3,8 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Core.Json
     ( -- * Convert from a JSON value
-      defaultLayoutJson
-    , jsonToRepJson
+      jsonToRepJson
     , returnJson
     , provideJson
 
@@ -32,9 +31,8 @@ import Control.Monad.Trans.Writer (Writer)
 import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Types (reqAccept)
-import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
+import Yesod.Core.Class.Yesod (Yesod)
 import Yesod.Core.Class.Handler
-import Yesod.Core.Widget (WidgetT)
 import Yesod.Routes.Class
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Parser as JP
@@ -47,19 +45,6 @@ import Data.Conduit.Lift
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe (listToMaybe)
 import Control.Monad (liftM)
-
--- | Provide both an HTML and JSON representation for a piece of
--- data, using the default layout for the HTML output
--- ('defaultLayout').
---
--- /Since: 0.3.0/
-defaultLayoutJson :: (Yesod site, J.ToJSON a)
-                  => WidgetT site IO ()  -- ^ HTML
-                  -> HandlerT site IO a  -- ^ JSON
-                  -> HandlerT site IO TypedContent
-defaultLayoutJson w json = selectRep $ do
-    provideRep $ defaultLayout w
-    provideRep $ fmap J.toJSON json
 
 -- | Wraps a data type in a 'RepJson'.  The data type must
 -- support conversion to JSON via 'J.ToJSON'.
