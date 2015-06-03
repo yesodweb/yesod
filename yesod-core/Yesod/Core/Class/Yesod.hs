@@ -322,7 +322,7 @@ defaultMessageLoggerSource ckLoggable logger loc source level msg = do
         loggerPutStr logger
 
 -- | Default implementation of 'shouldLog'. Logs everything at or
--- above 'logLevel'.
+-- above 'LevelInfo'.
 defaultShouldLog :: LogSource -> LogLevel -> Bool
 defaultShouldLog _ level = level >= LevelInfo
 
