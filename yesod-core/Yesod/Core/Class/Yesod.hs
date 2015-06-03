@@ -26,7 +26,6 @@ import Data.Aeson (object, (.=))
 import           Data.List                          (foldl')
 import           Data.List                          (nub)
 import qualified Data.Map                           as Map
-import           Data.Maybe                         (fromMaybe)
 import           Data.Monoid
 import           Data.Text                          (Text)
 import qualified Data.Text                          as T
