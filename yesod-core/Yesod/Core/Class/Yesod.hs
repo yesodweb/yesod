@@ -254,7 +254,7 @@ class RenderRoute site => Yesod site where
 
     -- | Should we log the given log source/level combination.
     --
-    -- Default: the 'shouldLog' function.
+    -- Default: the 'defaultShouldLog' function.
     shouldLog :: site -> LogSource -> LogLevel -> Bool
     shouldLog _ = defaultShouldLog
 
