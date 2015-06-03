@@ -207,17 +207,14 @@ class RenderRoute site => Yesod site where
     -- method return that already created value. That way, you can use that
     -- same @Logger@ for printing messages during app initialization.
     --
-    -- Default: Sends to stdout and automatically flushes on each write.
+    -- Default: the 'defaultMakeLogger' function.
     makeLogger :: site -> IO Logger
-    makeLogger _ = do
-        loggerSet' <- newStdoutLoggerSet defaultBufSize
-        (getter, _) <- clockDateCacher
-        return $! Logger loggerSet' getter
+    makeLogger _ = defaultMakeLogger
 
     -- | Send a message to the @Logger@ provided by @getLogger@.
     --
-    -- Default implementation: checks if the message should be logged using
-    -- 'shouldLog' and, if so, formats using 'formatLogMessage'.
+    -- Default: the 'defaultMessageLoggerSource' function, using
+    -- 'shouldLogIO' to check whether we should log.
     messageLoggerSource :: site
                         -> Logger
                         -> Loc -- ^ position in source code
@@ -225,10 +222,7 @@ class RenderRoute site => Yesod site where
                         -> LogLevel
                         -> LogStr -- ^ message
                         -> IO ()
-    messageLoggerSource a logger loc source level msg = do
-        sl <- shouldLogIO a source level
-        when sl $
-            formatLogMessage (loggerDate logger) loc source level msg >>= loggerPutStr logger
+    messageLoggerSource site = defaultMessageLoggerSource $ shouldLogIO site
 
     -- | Where to Load sripts from. We recommend the default value,
     -- 'BottomOfBody'.  Alternatively use the built in async yepnope loader:
@@ -260,9 +254,9 @@ class RenderRoute site => Yesod site where
 
     -- | Should we log the given log source/level combination.
     --
-    -- Default: Logs everything at or above 'logLevel'
+    -- Default: the 'shouldLog' function.
     shouldLog :: site -> LogSource -> LogLevel -> Bool
-    shouldLog _ _ level = level >= LevelInfo
+    shouldLog _ = defaultShouldLog
 
     -- | Should we log the given log source/level combination.
     --
@@ -299,6 +293,43 @@ class RenderRoute site => Yesod site where
     yesodWithInternalState :: site -> Maybe (Route site) -> (InternalState -> IO a) -> IO a
     yesodWithInternalState _ _ = bracket createInternalState closeInternalState
     {-# INLINE yesodWithInternalState #-}
+
+-- | Default implementation of 'makeLogger'. Sends to stdout and
+-- automatically flushes on each write.
+defaultMakeLogger :: IO Logger
+defaultMakeLogger = do
+    loggerSet' <- newStdoutLoggerSet defaultBufSize
+    (getter, _) <- clockDateCacher
+    return $! Logger loggerSet' getter
+
+-- | Default implementation of 'messageLoggerSource'. Checks if the
+-- message should be logged using the provided function, and if so,
+-- formats using 'formatLogMessage'. You can use 'defaultShouldLogIO'
+-- as the provided function.
+defaultMessageLoggerSource ::
+       (LogSource -> LogLevel -> IO Bool) -- ^ Check whether we should
+                                          -- log this
+    -> Logger
+    -> Loc -- ^ position in source code
+    -> LogSource
+    -> LogLevel
+    -> LogStr -- ^ message
+    -> IO ()
+defaultMessageLoggerSource ckLoggable logger loc source level msg = do
+    loggable <- ckLoggable source level
+    when loggable $
+        formatLogMessage (loggerDate logger) loc source level msg >>=
+        loggerPutStr logger
+
+-- | Default implementation of 'shouldLog'. Logs everything at or
+-- above 'logLevel'.
+defaultShouldLog :: LogSource -> LogLevel -> Bool
+defaultShouldLog _ level = level >= LevelInfo
+
+-- | A default implementation of 'shouldLogIO' that can be used with
+-- 'defaultMessageLoggerSource'. Just uses 'defaultShouldLog'.
+defaultShouldLogIO :: LogSource -> LogLevel -> IO Bool
+defaultShouldLogIO a b = return $ defaultShouldLog a b
 
 -- | Default implementation of 'yesodMiddleware'. Adds the response header
 -- \"Vary: Accept, Accept-Language\" and performs authorization checks.
@@ -577,6 +608,7 @@ asyncHelper render scripts jscript jsLoc =
                     Nothing -> Nothing
                     Just j -> Just $ jelper j
 
+-- | Default formatting for log messages.
 formatLogMessage :: IO ZonedDate
                  -> Loc
                  -> LogSource

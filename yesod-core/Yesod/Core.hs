@@ -30,6 +30,11 @@ module Yesod.Core
     , AuthResult (..)
     , unauthorizedI
       -- * Logging
+    , defaultMakeLogger
+    , defaultMessageLoggerSource
+    , defaultShouldLog
+    , defaultShouldLogIO
+    , formatLogMessage
     , LogLevel (..)
     , logDebug
     , logInfo
