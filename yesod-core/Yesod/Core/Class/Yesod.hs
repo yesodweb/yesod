@@ -295,6 +295,8 @@ class RenderRoute site => Yesod site where
 
 -- | Default implementation of 'makeLogger'. Sends to stdout and
 -- automatically flushes on each write.
+--
+-- Since 1.4.10
 defaultMakeLogger :: IO Logger
 defaultMakeLogger = do
     loggerSet' <- newStdoutLoggerSet defaultBufSize
@@ -305,6 +307,8 @@ defaultMakeLogger = do
 -- message should be logged using the provided function, and if so,
 -- formats using 'formatLogMessage'. You can use 'defaultShouldLogIO'
 -- as the provided function.
+--
+-- Since 1.4.10
 defaultMessageLoggerSource ::
        (LogSource -> LogLevel -> IO Bool) -- ^ Check whether we should
                                           -- log this
@@ -322,11 +326,15 @@ defaultMessageLoggerSource ckLoggable logger loc source level msg = do
 
 -- | Default implementation of 'shouldLog'. Logs everything at or
 -- above 'LevelInfo'.
+--
+-- Since 1.4.10
 defaultShouldLog :: LogSource -> LogLevel -> Bool
 defaultShouldLog _ level = level >= LevelInfo
 
 -- | A default implementation of 'shouldLogIO' that can be used with
 -- 'defaultMessageLoggerSource'. Just uses 'defaultShouldLog'.
+--
+-- Since 1.4.10
 defaultShouldLogIO :: LogSource -> LogLevel -> IO Bool
 defaultShouldLogIO a b = return $ defaultShouldLog a b
 
@@ -608,6 +616,8 @@ asyncHelper render scripts jscript jsLoc =
                     Just j -> Just $ jelper j
 
 -- | Default formatting for log messages.
+--
+-- Since 1.4.10
 formatLogMessage :: IO ZonedDate
                  -> Loc
                  -> LogSource

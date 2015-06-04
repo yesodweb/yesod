@@ -1,3 +1,7 @@
+## 1.4.10
+
+* Export log formatting [#1001](https://github.com/yesodweb/yesod/pull/1001)
+
 ## 1.4.9.1
 
 * Deal better with multiple cookie headers
