@@ -151,6 +151,7 @@ module Yesod.Core.Handler
       -- * Per-request caching
     , cached
     , cachedBy
+    , stripHandlerT
     ) where
 
 import           Data.Time                     (UTCTime, addUTCTime,
@@ -217,6 +218,7 @@ import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
                    )
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
+import Yesod.Core.Internal.Run (stripHandlerT)
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState

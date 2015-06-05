@@ -30,6 +30,7 @@ module Yesod.Core.Dispatch
     , defaultMiddlewaresNoLogging
       -- * WAI subsites
     , WaiSubsite (..)
+    , subHelper
     ) where
 
 import Prelude hiding (exp)
@@ -69,6 +70,7 @@ import Control.Monad (when)
 import qualified Paths_yesod_core
 import Data.Version (showVersion)
 import qualified System.Random.MWC as MWC
+import Yesod.Core.Class.Dispatch (subHelper)
 
 -- | Convert the given argument into a WAI application, executable with any WAI
 -- handler. This function will provide no middlewares; if you want commonly
