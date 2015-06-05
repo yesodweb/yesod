@@ -11,9 +11,9 @@ import Yesod.Routes.Class
 import qualified Network.Wai as W
 import Yesod.Core.Types
 import Yesod.Core.Content
+import Yesod.Core.Handler (stripHandlerT)
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Handler
-import Yesod.Core.Internal.Run
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -31,7 +31,8 @@ instance YesodSubDispatch WaiSubsite master where
         WaiSubsite app = ysreGetSub $ yreSite $ ysreParentEnv
 
 -- | A helper function for creating YesodSubDispatch instances, used by the
--- internal generated code.
+-- internal generated code. This function has been exported since 1.4.11.
+-- It promotes a subsite handler to a wai application.
 subHelper :: Monad m -- NOTE: This is incredibly similar in type signature to yesodRunner, should probably be pointed out/explained.
           => HandlerT child (HandlerT parent m) TypedContent
           -> YesodSubRunnerEnv child parent (HandlerT parent m)
