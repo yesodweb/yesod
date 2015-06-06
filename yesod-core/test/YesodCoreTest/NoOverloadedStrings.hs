@@ -10,6 +10,7 @@ import Yesod.Core
 import Yesod.Core.Widget
 import Yesod.Shakespeare
 import Network.Wai.Test
+import Network.Wai (pathInfo)
 import Data.Monoid (mempty)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as L8
