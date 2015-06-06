@@ -50,10 +50,8 @@ mkYesod "Y" [parseRoutes|
 
 instance Yesod Y
 
-getRootR :: Handler ()
+getRootR, getFooR :: Handler ()
 getRootR = return ()
-
-getFooR :: Handler ()
 getFooR = return ()
 
 runner :: Session () -> IO ()
@@ -90,7 +88,7 @@ case_deflayoutT = runner $ do
 
 noOverloadedTest :: Spec
 noOverloadedTest = describe "Test.NoOverloadedStrings" $ do
-      it "sanity" case_sanity
-      it "subsite" case_subsite
-      it "deflayout" case_deflayout
-      it "deflayoutT" case_deflayoutT
+    it "sanity" case_sanity
+    it "subsite" case_subsite
+    it "deflayout" case_deflayout
+    it "deflayoutT" case_deflayoutT
