@@ -51,9 +51,9 @@ module Yesod.Core
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
-    -- * JS loaders
       -- * Subsites
     , MonadHandler (..)
+    , MonadWidget (..)
     , getRouteToParent
     , defaultLayoutSub
       -- * Misc
@@ -68,6 +68,7 @@ module Yesod.Core
     , module Yesod.Core.Content
     , module Yesod.Core.Dispatch
     , module Yesod.Core.Handler
+    , module Yesod.Core.Widget
     , module Yesod.Core.Json
     , module Yesod.Core.Internal.Util
     , module Text.Blaze.Html
@@ -83,8 +84,10 @@ module Yesod.Core
     , showIntegral
     , readIntegral
     -- FIXME: API breakage
-      -- * Shakespeare
-      -- ** Hamlet
+    -- , unauthorizedI
+    -- module Text.Shakesepare.I18N
+    -- * Shakespeare
+    -- ** Hamlet
     -- , hamlet
     -- , shamlet
     -- , xhamlet
