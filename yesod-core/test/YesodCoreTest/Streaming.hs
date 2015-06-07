@@ -2,7 +2,6 @@
 module YesodCoreTest.Streaming (specs) where
 
 import Yesod.Core
-import Yesod.Core.Widget (sendChunkHtml)
 import Test.Hspec
 import Network.Wai.Test
 import Data.Text (Text)
