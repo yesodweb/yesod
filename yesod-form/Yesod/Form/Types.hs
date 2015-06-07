@@ -33,6 +33,7 @@ import Control.Monad (liftM)
 import Control.Monad.Trans.Class
 import Data.String (IsString (..))
 import Yesod.Core
+import Yesod.Shakespeare
 import qualified Data.Map as Map
 import Data.Semigroup (Semigroup, (<>))
 

@@ -21,6 +21,7 @@ import Yesod.Auth
 import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Core
+import Yesod.Shakespeare
 import Data.Text (Text)
 import qualified Yesod.Auth.Message as Msg
 import qualified Data.Text as T

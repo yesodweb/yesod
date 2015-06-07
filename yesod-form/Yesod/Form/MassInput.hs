@@ -13,6 +13,7 @@ import Yesod.Form.Types
 import Yesod.Form.Functions
 import Yesod.Form.Fields (checkBoxField)
 import Yesod.Core
+import Yesod.Shakespeare
 import Control.Monad.Trans.RWS (get, put, ask)
 import Data.Maybe (fromMaybe)
 import Data.Text.Read (decimal)

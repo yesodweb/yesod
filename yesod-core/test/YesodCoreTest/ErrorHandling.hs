@@ -5,7 +5,7 @@ module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
     ) where
 import Yesod.Core
-import Yesod.Shakespeare (whamlet)
+import Text.Hamlet (hamlet)
 import Yesod.Core.Widget
 import Test.Hspec
 import Network.Wai
@@ -81,7 +81,7 @@ postAfterRunRequestBodyR = do
 getErrorInBodyR :: Handler Html
 getErrorInBodyR = do
     let foo = error "error in body 19328" :: String
-    defaultLayout [whamlet|#{foo}|]
+    defaultLayout $ toWidget [hamlet|#{foo}|]
 
 getErrorInBodyNoEvalR :: Handler (DontFullyEvaluate Html)
 getErrorInBodyNoEvalR = fmap DontFullyEvaluate getErrorInBodyR

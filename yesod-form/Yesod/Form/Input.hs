@@ -17,6 +17,7 @@ import Yesod.Form.Types
 import Data.Text (Text)
 import Control.Applicative (Applicative (..))
 import Yesod.Core
+import Yesod.Shakespeare
 import Control.Monad (liftM, (<=<))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)

@@ -1,4 +1,5 @@
 ./yesod-core
+./yesod-shakespeare
 ./yesod-static
 ./yesod-persistent
 ./yesod-newsfeed

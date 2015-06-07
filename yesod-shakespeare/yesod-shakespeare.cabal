@@ -1,0 +1,73 @@
+name:            yesod-shakespeare
+version:         1.5
+license:         MIT
+license-file:    LICENSE
+author:          Michael Snoyman <michael@snoyman.com>
+maintainer:      Michael Snoyman <michael@snoyman.com>
+synopsis:        Creation of type-safe, RESTful web applications.
+description:     API docs and the README are available at <http://www.stackage.org/package/yesod-core>
+category:        Web, Yesod
+stability:       Stable
+cabal-version:   >= 1.8
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+extra-source-files:
+  test/YesodShakespeareTest/*.hs
+  test/en.msg
+  test/test.hs
+  ChangeLog.md
+  README.md
+
+library
+    build-depends:   base                  >= 4.3      && < 5
+                   , shakespeare
+                   , yesod-core >= 1.4
+                   , text                  >= 0.7
+                   , template-haskell
+                   , bytestring            >= 0.9.1.4
+                   , transformers          >= 0.2.2
+                   , blaze-html            >= 0.5
+                   , containers            >= 0.2
+
+    exposed-modules: Yesod.Shakespeare
+
+    ghc-options:     -Wall -ddump-splices -ddump-to-file
+    -- Following line added due to: https://github.com/yesodweb/yesod/issues/545
+    -- This looks like a GHC bug
+    extensions:      MultiParamTypeClasses
+
+    -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
+    extensions:      TemplateHaskell
+
+test-suite tests
+    type: exitcode-stdio-1.0
+    main-is: test.hs
+    hs-source-dirs: test
+
+    cpp-options:   -DTEST
+    build-depends: base
+                  ,hspec >= 1.3
+                  ,hspec-expectations
+                  ,yesod-core
+                  ,yesod-shakespeare
+                  ,wai
+                  ,wai-extra
+    ghc-options: -Wall -fno-warn-unused-binds
+    extensions: TemplateHaskell
+
+benchmark widgets
+    type: exitcode-stdio-1.0
+    hs-source-dirs: bench
+    build-depends:  base
+                  , yesod-shakespeare
+                  , yesod-core
+                  , transformers
+                  , blaze-html
+                  , bytestring
+                  , criterion
+    main-is:        widget.hs
+    ghc-options:    -Wall -O2
+
+source-repository head
+  type:     git
+  location: https://github.com/yesodweb/yesod

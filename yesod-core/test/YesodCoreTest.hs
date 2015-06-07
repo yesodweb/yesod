@@ -1,10 +1,8 @@
 {-# LANGUAGE CPP                        #-}
-module YesodCoreTest (specs) where 
+module YesodCoreTest (specs) where
 
 import YesodCoreTest.CleanPath
 import YesodCoreTest.Exceptions
-import YesodCoreTest.Widget
-import YesodCoreTest.Media
 import YesodCoreTest.Links
 import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.InternalRequest
@@ -28,8 +26,6 @@ specs :: Spec
 specs = do
       cleanPathTest
       exceptionsTest
-      widgetTest
-      mediaTest
       linksTest
       noOverloadedTest
       internalRequestTest

@@ -17,6 +17,7 @@ module Yesod.Default.Util
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, pack, unpack)
 import Yesod.Core -- purposely using complete import so that Haddock will see addStaticContent
+import Yesod.Shakespeare
 import Control.Monad (when, unless)
 import System.Directory (doesFileExist, createDirectoryIfMissing)
 import Language.Haskell.TH.Syntax

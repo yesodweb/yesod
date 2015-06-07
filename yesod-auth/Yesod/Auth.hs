@@ -63,6 +63,7 @@ import qualified Network.Wai as W
 
 import Yesod.Core
 import Yesod.Persist
+import Yesod.Shakespeare
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
 import Yesod.Form (FormMessage)
@@ -146,7 +147,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     authPlugins :: master -> [AuthPlugin master]
 
     -- | What to show on the login page.
-    -- 
+    --
     -- Default handler concatenates plugin widgets and wraps the result
     -- in 'authLayout'. Override if you need fancy widget containers
     -- or entirely custom page.

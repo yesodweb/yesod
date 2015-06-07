@@ -2,7 +2,7 @@
 module YesodCoreTest.StubUnsecured ( App ( App ) ) where
 
 import Yesod.Core
-import Yesod.Shakespeare
+import Text.Hamlet (hamlet)
 
 data App = App
 
@@ -13,8 +13,8 @@ mkYesod "App" [parseRoutes|
 instance Yesod App
 
 getHomeR :: Handler Html
-getHomeR = defaultLayout
-    [whamlet|
+getHomeR = defaultLayout $ toWidget
+    [hamlet|
         <p>
             Welcome to my test application.
     |]

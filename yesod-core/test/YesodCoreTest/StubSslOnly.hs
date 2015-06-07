@@ -2,7 +2,7 @@
 module YesodCoreTest.StubSslOnly ( App ( App ) ) where
 
 import Yesod.Core
-import Yesod.Shakespeare
+import Text.Hamlet (hamlet)
 import qualified Web.ClientSession                  as CS
 
 data App = App
@@ -17,8 +17,8 @@ instance Yesod App where
         fmap Just $ defaultClientSessionBackend 120 CS.defaultKeyFile
 
 getHomeR :: Handler Html
-getHomeR = defaultLayout
-    [whamlet|
+getHomeR = defaultLayout $ toWidget
+    [hamlet|
         <p>
             Welcome to my test application.
     |]

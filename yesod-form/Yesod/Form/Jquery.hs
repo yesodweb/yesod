@@ -15,6 +15,7 @@ module Yesod.Form.Jquery
     ) where
 
 import Yesod.Core
+import Yesod.Shakespeare
 import Yesod.Form
 import Data.Time (Day)
 import Data.Default

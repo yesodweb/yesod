@@ -11,6 +11,7 @@ import Network.Wai.Test (SResponse(simpleHeaders))
 import Test.HUnit (assertFailure, assertBool)
 import Test.Hspec (Spec)
 import Yesod.Core
+import Yesod.Shakespeare
 import Yesod.EmbeddedStatic
 import Yesod.Test
 import qualified Data.ByteString as B

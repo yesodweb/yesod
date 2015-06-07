@@ -83,8 +83,9 @@ import           Yesod.Core               (HandlerSite, MonadHandler,
                                            getYesod, invalidArgs, lift,
                                            lookupGetParam,
                                            lookupSession, notFound, redirect,
-                                           setSession, whamlet, (.:),
+                                           setSession, (.:),
                                            TypedContent, HandlerT, liftIO)
+import           Yesod.Shakespeare        (whamlet)
 
 pid :: Text
 pid = "googleemail2"

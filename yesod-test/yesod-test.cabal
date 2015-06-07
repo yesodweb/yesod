@@ -57,6 +57,7 @@ test-suite test
                           , containers
                           , html-conduit
                           , yesod-core
+                          , yesod-shakespeare
                           , yesod-form
                           , text
                           , wai

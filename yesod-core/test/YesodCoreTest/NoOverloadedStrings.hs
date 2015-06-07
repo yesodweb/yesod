@@ -8,7 +8,7 @@ import YesodCoreTest.NoOverloadedStringsSub
 
 import Yesod.Core
 import Yesod.Core.Widget
-import Yesod.Shakespeare
+import Text.Hamlet (hamlet)
 import Network.Wai.Test
 import Network.Wai (pathInfo)
 import Data.Monoid (mempty)
@@ -22,11 +22,11 @@ getBarR :: Monad m => m T.Text
 getBarR = return $ T.pack "BarR"
 
 getBazR :: Yesod master => HandlerT Subsite (HandlerT master IO) Html
-getBazR = lift $ defaultLayout [whamlet|Used Default Layout|]
+getBazR = lift $ defaultLayout $ toWidget [hamlet|Used Default Layout|]
 
 getBinR :: Yesod master => HandlerT Subsite (HandlerT master IO) Html
 getBinR = do
-    widget <- widgetToParentWidget [whamlet|
+    widget <- widgetToParentWidget $ toWidget [hamlet|
         <p>Used defaultLayoutT
         <a href=@{BazR}>Baz
     |]

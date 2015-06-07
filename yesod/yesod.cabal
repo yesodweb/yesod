@@ -19,6 +19,7 @@ library
 
     build-depends:   base                      >= 4.3      && < 5
                    , yesod-core                >= 1.4      && < 1.5
+                   , yesod-shakespeare         >= 1.5      && < 1.6
                    , yesod-auth                >= 1.4      && < 1.5
                    , yesod-persistent          >= 1.4      && < 1.5
                    , yesod-form                >= 1.4      && < 1.5

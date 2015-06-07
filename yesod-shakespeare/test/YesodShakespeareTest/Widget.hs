@@ -1,16 +1,13 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
-module YesodCoreTest.Widget (widgetTest) where
+module YesodShakespeareTest.Widget (widgetTest) where
 
 import Test.Hspec
 
 import Yesod.Core
 import Yesod.Core.Widget
 import Yesod.Shakespeare
-import Text.Julius
-import Text.Lucius
-import Text.Hamlet
 
 import Network.Wai
 import Network.Wai.Test

@@ -69,12 +69,13 @@ import Text.Hamlet (hamlet, shamlet, xhamlet)
 import Text.Lucius (Css, renderCss, CssUrl, renderCssUrl, lucius)
 import Text.Cassius (cassius)
 
+import Yesod.Core ( HandlerSite, MonadHandler
+                  , getUrlRenderParams, toTextUrl, invalidArgs, permissionDenied, RedirectUrl, withUrlRenderer, getRequest, getYesod, sendResponse
+                  , ToContent(..), ToTypedContent(..), HasContentType(..), typeJavascript, typeCss
+                  , Route
+                  , ToWidget(..), ToWidgetBody(..), ToWidgetMedia(..), ToWidgetHead(..), MonadWidget(..), asWidgetT, tellWidget, GWData(..), setMessage, setTitle
+                  )
 import Yesod.Core.Types
-import Yesod.Core.Widget
-import Yesod.Core.Class.Handler (HandlerSite, MonadHandler)
-import Yesod.Core.Handler (getUrlRenderParams, toTextUrl, invalidArgs, permissionDenied, RedirectUrl, withUrlRenderer, getRequest, getYesod, sendResponse)
-import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), typeJavascript, typeCss)
-import           Yesod.Routes.Class            (Route)
 
 -- for hamlet expansion
 import qualified Data.Foldable

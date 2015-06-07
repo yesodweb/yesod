@@ -33,6 +33,7 @@ import Control.Monad (liftM)
 import Data.Text (Text)
 import Data.String (IsString(..))
 import Yesod.Core
+import Yesod.Shakespeare
 
 import qualified Data.Text as T
 

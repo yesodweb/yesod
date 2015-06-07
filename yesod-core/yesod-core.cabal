@@ -16,7 +16,6 @@ extra-source-files:
   test/YesodCoreTest.hs
   test/YesodCoreTest/*.hs
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
-  test/en.msg
   test/test.hs
   ChangeLog.md
   README.md
@@ -68,7 +67,6 @@ library
                    , word8
                    , auto-update
                    , semigroups
-                   , shakespeare
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
@@ -80,7 +78,6 @@ library
                      Yesod.Core.Types
                      Yesod.Core.Unsafe
                      Yesod.Routes.TH.Types
-                     Yesod.Shakespeare
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request
                      Yesod.Core.Class.Handler
@@ -104,7 +101,7 @@ library
                      Yesod.Routes.TH.ParseRoute
                      Yesod.Routes.TH.RouteAttrs
 
-    ghc-options:     -Wall -ddump-splices -ddump-to-file
+    ghc-options:     -Wall
     -- Following line added due to: https://github.com/yesodweb/yesod/issues/545
     -- This looks like a GHC bug
     extensions:      MultiParamTypeClasses
@@ -166,19 +163,6 @@ test-suite tests
                   , cookie >= 0.4.1    && < 0.5
     ghc-options: -Wall -fno-warn-unused-binds
     extensions: TemplateHaskell
-
-benchmark widgets
-    type: exitcode-stdio-1.0
-    hs-source-dirs: bench
-    build-depends:  base
-                  , criterion
-                  , bytestring
-                  , text
-                  , transformers
-                  , yesod-core
-                  , blaze-html
-    main-is:        widget.hs
-    ghc-options:    -Wall -O2
 
 source-repository head
   type:     git

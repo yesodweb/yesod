@@ -2,15 +2,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module YesodCoreTest.Media (mediaTest, Widget) where
+module YesodShakespeareTest.Media (mediaTest, Widget) where
 
 import Test.Hspec
 import Yesod.Core
 import Yesod.Core.Widget
+import Yesod.Shakespeare
 import Network.Wai
 import Network.Wai.Test
-import Text.Lucius
-import YesodCoreTest.MediaData
+import YesodShakespeareTest.MediaData
 
 mkYesodDispatch "Y" resourcesY
 

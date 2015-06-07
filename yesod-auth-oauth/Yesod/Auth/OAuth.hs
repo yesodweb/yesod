@@ -24,6 +24,7 @@ import           Web.Authenticate.OAuth
 import           Yesod.Auth
 import           Yesod.Form
 import           Yesod.Core
+import           Yesod.Shakespeare
 
 data YesodOAuthException = CredentialError String Credential
                          | SessionError String

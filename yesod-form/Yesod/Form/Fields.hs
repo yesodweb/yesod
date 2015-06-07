@@ -62,6 +62,7 @@ import Yesod.Form.Types
 import Yesod.Form.I18n.English
 import Yesod.Form.Functions (parseHelper)
 import Yesod.Core
+import Yesod.Shakespeare
 import Text.Hamlet
 import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup
@@ -91,7 +92,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text as T ( Text, append, concat, cons, head
                       , intercalate, isPrefixOf, null, unpack, pack, splitOn
                       )
-import qualified Data.Text as T (drop, dropWhile)  
+import qualified Data.Text as T (drop, dropWhile)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
@@ -161,15 +162,15 @@ timeField = timeFieldTypeText
 {-# DEPRECATED timeField "'timeField' currently defaults to an input of type=\"text\". In the next major release, it will default to type=\"time\". To opt in to the new functionality, use 'timeFieldTypeTime'. To keep the existing behavior, use 'timeFieldTypeText'. See 'https://github.com/yesodweb/yesod/pull/874' for details." #-}
 
 -- | Creates an input with @type="time"@. <http://caniuse.com/#search=time%20input%20type Browsers not supporting this type> will fallback to a text field, and Yesod will parse the time as described in 'timeFieldTypeText'.
--- 
+--
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
 -- Since 1.4.2
-timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay  
+timeFieldTypeTime :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m TimeOfDay
 timeFieldTypeTime = timeFieldOfType "time"
 
 -- | Creates an input with @type="text"@, parsing the time from an [H]H:MM[:SS] format, with an optional AM or PM (if not given, AM is assumed for compatibility with the 24 hour clock system).
--- 
+--
 -- Add the @time@ package and import the "Data.Time.LocalTime" module to use this function.
 --
 -- Since 1.4.2
@@ -205,7 +206,7 @@ $newline never
   where showVal = either id (pack . renderHtml)
 
 -- | A newtype wrapper around a 'Text' whose 'ToMarkup' instance converts newlines to HTML @\<br>@ tags.
--- 
+--
 -- (When text is entered into a @\<textarea>@, newline characters are used to separate lines.
 -- If this text is then placed verbatim into HTML, the lines won't be separated, thus the need for replacing with @\<br>@ tags).
 -- If you don't need this functionality, simply use 'unTextarea' to access the raw text.
@@ -333,7 +334,7 @@ timeParser = do
         if i < 0 || i >= 60
             then fail $ show $ msg $ pack xy
             else return $ fromIntegral (i :: Int)
-            
+
 -- | Creates an input with @type="email"@. Yesod will validate the email's correctness according to RFC5322 and canonicalize it by removing comments and whitespace (see "Text.Email.Validate").
 emailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 emailField = Field
@@ -525,7 +526,7 @@ $newline never
 --
 -- If this field is optional, the first radio button is labeled "\<None>", the second \"Yes" and the third \"No".
 --
--- If this field is required, the first radio button is labeled \"Yes" and the second \"No". 
+-- If this field is required, the first radio button is labeled \"Yes" and the second \"No".
 --
 -- (Exact label titles will depend on localization).
 boolField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Bool
@@ -559,7 +560,7 @@ $newline never
       t -> Left $ SomeMessage $ MsgInvalidBool t
     showVal = either (\_ -> False)
 
--- | Creates an input with @type="checkbox"@. 
+-- | Creates an input with @type="checkbox"@.
 --   While the default @'boolField'@ implements a radio button so you
 --   can differentiate between an empty response (@Nothing@) and a no
 --   response (@Just False@), this simpler checkbox field returns an empty
@@ -814,7 +815,7 @@ prependZero t0 = if T.null t1
 
 -- $optionsOverview
 -- These functions create inputs where one or more options can be selected from a list.
--- 
+--
 -- The basic datastructure used is an 'Option', which combines a user-facing display value, the internal Haskell value being selected, and an external 'Text' stored as the @value@ in the form (used to map back to the internal value). A list of these, together with a function mapping from an external value back to a Haskell value, form an 'OptionList', which several of these functions take as an argument.
--- 
+--
 -- Typically, you won't need to create an 'OptionList' directly and can instead make one with functions like 'optionsPairs' or 'optionsEnum'. Alternatively, you can use functions like 'selectFieldList', which use their @[(msg, a)]@ parameter to create an 'OptionList' themselves.

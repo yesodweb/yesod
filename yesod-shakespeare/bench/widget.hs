@@ -5,7 +5,7 @@
 module Main where
 
 import Criterion.Main
-import Text.Hamlet
+import Yesod.Shakespeare
 import Numeric (showInt)
 import qualified Data.ByteString.Lazy as L
 import qualified Text.Blaze.Html.Renderer.Utf8 as Utf8

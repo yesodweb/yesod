@@ -80,6 +80,7 @@ test-suite tests
     build-depends:   base
                    , hspec >= 1.3
                    , yesod-test >= 1.4
+                   , yesod-shakespeare >= 1.5
                    , wai-extra
                    , HUnit
 

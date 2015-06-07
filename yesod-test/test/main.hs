@@ -7,6 +7,7 @@ import Test.Hspec
 
 import Yesod.Core
 import Yesod.Form
+import Yesod.Shakespeare
 import Yesod.Test
 import Yesod.Test.CssQuery
 import Yesod.Test.TransversingCSS

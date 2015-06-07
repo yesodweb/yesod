@@ -59,6 +59,7 @@ import Text.Blaze (Markup, toMarkup)
 #define Html Markup
 #define toHtml toMarkup
 import Yesod.Core
+import Yesod.Shakespeare
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
