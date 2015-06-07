@@ -151,6 +151,7 @@ module Yesod.Core.Handler
       -- * Per-request caching
     , cached
     , cachedBy
+    , stripHandlerT
     ) where
 
 import           Data.Time                     (UTCTime, addUTCTime,
@@ -1238,3 +1239,22 @@ sendChunkLazyText = sendChunk
 -- Since 1.2.0
 sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
 sendChunkHtml = sendChunk
+
+-- | Converts a child handler to a parent handler
+--
+-- Exported since 1.4.11
+stripHandlerT :: HandlerT child (HandlerT parent m) a
+              -> (parent -> child)
+              -> (Route child -> Route parent)
+              -> Maybe (Route child)
+              -> HandlerT parent m a
+stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
+    let env = handlerEnv hd
+    ($ hd) $ unHandlerT $ f hd
+        { handlerEnv = env
+            { rheSite = getSub $ rheSite env
+            , rheRoute = newRoute
+            , rheRender = \url params -> rheRender env (toMaster url) params
+            }
+        , handlerToParent = toMaster
+        }

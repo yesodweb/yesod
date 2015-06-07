@@ -30,6 +30,7 @@ module Yesod.Core.Dispatch
     , defaultMiddlewaresNoLogging
       -- * WAI subsites
     , WaiSubsite (..)
+    , subHelper
     ) where
 
 import Prelude hiding (exp)
