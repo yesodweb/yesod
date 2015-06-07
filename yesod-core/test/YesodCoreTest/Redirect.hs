@@ -1,4 +1,6 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, MultiParamTypeClasses, OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies, MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 module YesodCoreTest.Redirect (specs) where
 
 import YesodCoreTest.YesodTest

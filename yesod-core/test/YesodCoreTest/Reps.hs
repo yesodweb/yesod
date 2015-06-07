@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies, MultiParamTypeClasses, ViewPatterns #-}
+{-# LANGUAGE TemplateHaskell, QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies, MultiParamTypeClasses, ViewPatterns, OverloadedStrings #-}
 module YesodCoreTest.Reps (specs) where
 
 import Yesod.Core
