@@ -3,7 +3,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yesod.Core.Json
     ( -- * Convert from a JSON value
-      jsonToRepJson
+      defaultLayoutJson
+    , jsonToRepJson
     , returnJson
     , provideJson
 
@@ -31,7 +32,7 @@ import Control.Monad.Trans.Writer (Writer)
 import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Types (reqAccept)
-import Yesod.Core.Class.Yesod (Yesod)
+import Yesod.Core.Class.Yesod (Yesod, defaultLayoutJson)
 import Yesod.Core.Class.Handler
 import Yesod.Routes.Class
 import qualified Data.Aeson as J

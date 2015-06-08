@@ -60,8 +60,6 @@ module Yesod.Core.Widget
     , Head(..)
     , Body(..)
 
-      -- * Formerly Yesod.Core.Class.Handler
-
       -- * Formerly Yesod.Core.Handler
       -- ** Streaming
     , sendChunkHtml
@@ -70,9 +68,6 @@ module Yesod.Core.Widget
     , getMessage
       -- ** Hamlet
     , hamletToRepHtml
-
-      -- * Formerly Yesod.Core.Json
-    -- , defaultLayoutJson
 
       -- * Formerly Yesod.Core
     , MonadWidget (..)
