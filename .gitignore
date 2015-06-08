@@ -2,7 +2,9 @@
 *.o
 *.o_p
 *.hi
-dist
+dist/
+dist-stack/
+.stack-work
 *.swp
 client_session_key.aes
 cabal-dev/

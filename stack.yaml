@@ -1,0 +1,17 @@
+resolver: lts-2.9
+packages:
+  - ./yesod-core
+  - ./yesod-static
+  - ./yesod-persistent
+  - ./yesod-newsfeed
+  - ./yesod-form
+  - ./yesod-auth
+  - ./yesod-auth-oauth
+  - ./yesod-sitemap
+  - ./yesod-test
+  - ./yesod-bin
+  - ./yesod
+  - ./yesod-eventsource
+  - ./yesod-websockets
+extra-deps:
+  - wai-app-static-3.1.0
