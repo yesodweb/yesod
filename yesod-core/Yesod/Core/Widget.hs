@@ -24,6 +24,17 @@ module Yesod.Core.Widget
     , ToWidgetHead (..)
     , ToWidgetBody (..)
     , ToWidgetMedia (..)
+
+      -- Formerly Yesod.Core.Types
+    , ScriptLoadPosition(..)
+    , BottomOfHeadAsync
+    , GWData(..)
+    , Head(..)
+    , Body(..)
+
+      -- Formerly Yesod.Core
+    , MonadWidget (..)
+
       -- * Creating
       -- ** Head of page
     , setTitle
@@ -47,30 +58,22 @@ module Yesod.Core.Widget
     , asWidgetT
     , tellWidget
 
-      -- * Formerly Yesod.Core.Class.Yesod
+      -- Formerly Yesod.Core.Class.Yesod
+      -- *
     , jelper
     , asyncHelper
     , jsToHtml
     , widgetToPageContentUnbound
 
-      -- * Formerly Yesod.Core.Types
-    , ScriptLoadPosition(..)
-    , BottomOfHeadAsync
-    , GWData(..)
-    , Head(..)
-    , Body(..)
-
-      -- * Formerly Yesod.Core.Handler
-      -- ** Streaming
+      -- Formerly Yesod.Core.Handler
+      -- * Streaming
     , sendChunkHtml
-      -- ** Messages
+      -- * Messages
     , setMessage
     , getMessage
-      -- ** Hamlet
+      -- * Hamlet
     , hamletToRepHtml
 
-      -- * Formerly Yesod.Core
-    , MonadWidget (..)
     ) where
 
 import           Control.Applicative                (Applicative(..))

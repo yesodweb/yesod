@@ -88,24 +88,6 @@ module Yesod.Core
       -- * Utilities
     , showIntegral
     , readIntegral
-    -- FIXME: API breakage
-    -- , unauthorizedI
-    -- module Text.Shakesepare.I18N
-    -- * Shakespeare
-    -- ** Hamlet
-    -- , hamlet
-    -- , shamlet
-    -- , xhamlet
-    -- , HtmlUrl
-      -- ** Julius
-    -- , julius
-    -- , JavascriptUrl
-    -- , renderJavascriptUrl
-      -- ** Cassius/Lucius
-    -- , cassius
-    -- , lucius
-    -- , CssUrl
-    -- , renderCssUrl
     ) where
 
 import Yesod.Core.Content
