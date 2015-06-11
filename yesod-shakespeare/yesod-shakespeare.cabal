@@ -31,7 +31,7 @@ library
 
     exposed-modules: Yesod.Shakespeare
 
-    ghc-options:     -Wall -ddump-splices -ddump-to-file
+    ghc-options:     -Wall
     -- Following line added due to: https://github.com/yesodweb/yesod/issues/545
     -- This looks like a GHC bug
     extensions:      MultiParamTypeClasses

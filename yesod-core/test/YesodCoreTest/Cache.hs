@@ -13,8 +13,6 @@ import Yesod.Core
 import Data.IORef.Lifted
 import Data.Typeable (Typeable)
 import qualified Data.ByteString.Lazy.Char8 as L8
-import Data.Text (Text)
-import Data.Text.Encoding (encodeUtf8)
 
 data C = C
 

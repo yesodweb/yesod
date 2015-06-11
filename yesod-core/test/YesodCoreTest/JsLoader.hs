@@ -8,7 +8,6 @@ import YesodCoreTest.JsLoaderSites.Bottom (B(..))
 import Test.Hspec
 
 import Yesod.Core
-import Yesod.Core.Widget
 import Network.Wai.Test
 
 data H = H

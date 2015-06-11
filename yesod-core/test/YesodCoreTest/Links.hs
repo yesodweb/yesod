@@ -6,7 +6,6 @@ module YesodCoreTest.Links (linksTest) where
 import Test.Hspec
 
 import Yesod.Core
-import Yesod.Core.Widget
 import Text.Hamlet
 import Network.Wai
 import Network.Wai.Test

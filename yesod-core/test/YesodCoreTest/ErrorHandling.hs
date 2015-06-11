@@ -6,11 +6,9 @@ module YesodCoreTest.ErrorHandling
     ) where
 import Yesod.Core
 import Text.Hamlet (hamlet)
-import Yesod.Core.Widget
 import Test.Hspec
 import Network.Wai
 import Network.Wai.Test
-import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try)

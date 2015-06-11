@@ -7,7 +7,6 @@ import Test.Hspec
 import YesodCoreTest.NoOverloadedStringsSub
 
 import Yesod.Core
-import Yesod.Core.Widget
 import Text.Hamlet (hamlet)
 import Network.Wai.Test
 import Network.Wai (pathInfo)

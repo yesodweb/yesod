@@ -27,12 +27,11 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep)
+import Yesod.Core.Handler (getRequest, invalidArgs, redirect,  provideRep, rawRequestBody, ProvidedRep)
 import Control.Monad.Trans.Writer (Writer)
 import Data.Monoid (Endo)
-import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Types (reqAccept)
-import Yesod.Core.Class.Yesod (Yesod, defaultLayoutJson)
+import Yesod.Core.Class.Yesod (defaultLayoutJson)
 import Yesod.Core.Class.Handler
 import Yesod.Routes.Class
 import qualified Data.Aeson as J

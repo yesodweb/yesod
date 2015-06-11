@@ -8,7 +8,6 @@
 module YesodCoreTest.NoOverloadedStringsSub where
 
 import Yesod.Core
-import Network.Wai
 import Yesod.Core.Types
 
 data Subsite = Subsite (forall master. Yesod master => YesodSubRunnerEnv Subsite master (HandlerT master IO) -> Application)

@@ -3,11 +3,7 @@ module YesodCoreTest.RawResponse (specs) where
 
 import Yesod.Core
 import Test.Hspec
-import qualified Data.Map as Map
-import Network.Wai.Test
 import Network.Wai (responseStream)
-import Data.Text (Text)
-import Data.ByteString.Lazy (ByteString)
 import qualified Data.Conduit.List as CL
 import qualified Data.ByteString.Char8 as S8
 import Data.Conduit
