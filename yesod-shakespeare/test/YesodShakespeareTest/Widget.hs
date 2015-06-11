@@ -6,7 +6,6 @@ module YesodShakespeareTest.Widget (widgetTest) where
 import Test.Hspec
 
 import Yesod.Core
-import Yesod.Core.Widget
 import Yesod.Shakespeare
 
 import Network.Wai

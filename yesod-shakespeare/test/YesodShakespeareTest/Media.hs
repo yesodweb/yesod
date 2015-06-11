@@ -6,7 +6,6 @@ module YesodShakespeareTest.Media (mediaTest, Widget) where
 
 import Test.Hspec
 import Yesod.Core
-import Yesod.Core.Widget
 import Yesod.Shakespeare
 import Network.Wai
 import Network.Wai.Test

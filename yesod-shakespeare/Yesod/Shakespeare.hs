@@ -24,10 +24,6 @@ module Yesod.Shakespeare (
       -- * i18n
     , getMessageRender
 
-      -- * Formerly Yesod.Core.Handler
-      -- ** Redirecting
-    , redirectToPost
-
       -- * Shakespeare
       -- ** Hamlet
     , hamlet
@@ -47,12 +43,8 @@ module Yesod.Shakespeare (
     , module Text.Shakespeare.I18N
 ) where
 
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad                      (liftM, forM)
-import           Control.Monad.Trans.Class (lift)
+import           Control.Monad                      (liftM)
 import Text.Shakespeare.I18N
-import qualified Data.ByteString.Lazy               as L
-import           Data.List                          (foldl', nub)
 import           Text.Blaze.Html               (preEscapedToMarkup, toHtml, Html)
 import qualified Text.Blaze.Html5 as H
 import Language.Haskell.TH.Quote (QuasiQuoter)
@@ -60,8 +52,7 @@ import Language.Haskell.TH.Syntax (Q, Exp (InfixE, VarE, LamE, AppE), Pat (VarP)
 import Data.Text (Text)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Builder (fromLazyText, toLazyText)
-import Data.Monoid (Last(..), mempty)
-import qualified Data.Map as Map
+import Data.Monoid (mempty)
 
 import qualified Text.Hamlet as NP
 import Text.Julius (Javascript(..), JavascriptUrl, renderJavascript, renderJavascriptUrl, julius)
@@ -70,17 +61,12 @@ import Text.Lucius (Css, renderCss, CssUrl, renderCssUrl, lucius)
 import Text.Cassius (cassius)
 
 import Yesod.Core ( HandlerSite, MonadHandler
-                  , getUrlRenderParams, toTextUrl, invalidArgs, permissionDenied, RedirectUrl, withUrlRenderer, getRequest, getYesod, sendResponse
+                  , getUrlRenderParams, invalidArgs, permissionDenied,  getRequest, getYesod
                   , ToContent(..), ToTypedContent(..), HasContentType(..), typeJavascript, typeCss
                   , Route
                   , ToWidget(..), ToWidgetBody(..), ToWidgetMedia(..), ToWidgetHead(..), MonadWidget(..), asWidgetT, tellWidget, GWData(..), setMessage, setTitle
                   )
 import Yesod.Core.Types
-
--- for hamlet expansion
-import qualified Data.Foldable
-import qualified Data.Text
-import Text.Hamlet (asHtmlUrl)
 
 type Translate msg = msg -> Html
 type HtmlUrlI18n msg url = Translate msg -> Render url -> Html
@@ -133,32 +119,6 @@ ihamletToHtml ih = do
     urender <- getUrlRenderParams
     mrender <- getMessageRender
     return $ ih (toHtml . mrender) urender
-
-
--- | Redirect to a POST resource.
---
--- This is not technically a redirect; instead, it returns an HTML page with a
--- POST form, and some Javascript to automatically submit the form. This can be
--- useful when you need to post a plain link somewhere that needs to cause
--- changes on the server.
-redirectToPost :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
-               => url
-               -> m a
-redirectToPost url = do
-    urlText <- toTextUrl url
-    withUrlRenderer [hamlet|
-$newline never
-$doctype 5
-
-<html>
-    <head>
-        <title>Redirecting...
-    <body onload="document.getElementById('form').submit()">
-        <form id="form" method="post" action=#{urlText}>
-            <noscript>
-                <p>Javascript has been disabled; please click on the button below to be redirected.
-            <input type="submit" value="Continue">
-|] >>= sendResponse
 
 ------------------------------------
 -- Formerly Yesod.Core.Content

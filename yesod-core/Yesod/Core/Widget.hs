@@ -66,6 +66,8 @@ module Yesod.Core.Widget
     , widgetToPageContentUnbound
 
       -- Formerly Yesod.Core.Handler
+      -- * Redirecting
+    , redirectToPost
       -- * Streaming
     , sendChunkHtml
       -- * Messages
@@ -121,6 +123,7 @@ import           System.Log.FastLogger              (toLogStr)
 import qualified Data.Text.Lazy as TL
 
 import Yesod.Core.Types
+import Yesod.Core.Handler (sendResponse, RedirectUrl(..))
 import Yesod.Core.Class.Handler
 import Yesod.Core.Handler (setSession, lookupSession, deleteSession, withUrlRenderer, sendChunk, getUrlRenderParams, getYesod)
 import Yesod.Core.Content (ToContent(..), ToTypedContent(..), HasContentType(..), ToFlushBuilder(..), typeHtml)
@@ -500,6 +503,40 @@ getMessage = do
 hamletToRepHtml :: MonadHandler m => HtmlUrl (Route (HandlerSite m)) -> m Html
 hamletToRepHtml = withUrlRenderer
 {-# DEPRECATED hamletToRepHtml "Use withUrlRenderer instead" #-}
+
+-- | Redirect to a POST resource.
+--
+-- This is not technically a redirect; instead, it returns an HTML page with a
+-- POST form, and some Javascript to automatically submit the form. This can be
+-- useful when you need to post a plain link somewhere that needs to cause
+-- changes on the server.
+redirectToPost :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
+               => url
+               -> m a
+redirectToPost url = do
+    urlText <- toTextUrl url
+    withUrlRenderer (htmlTemplate urlText) >>= sendResponse
+  where
+    {- equivalent to
+          [hamlet|
+    $newline never
+    $doctype 5
+
+    <html>
+        <head>
+            <title>Redirecting...
+        <body onload="document.getElementById('form').submit()">
+            <form id="form" method="post" action=#{urlText}>
+                <noscript>
+                    <p>Javascript has been disabled; please click on the button below to be redirected.
+                <input type="submit" value="Continue">
+    |]
+    -}
+    htmlTemplate urlText = \_render_abxV -> do
+       (H.preEscapedText . Data.Text.pack) "<!DOCTYPE html>\n<html><head><title>Redirecting...</title></head><body onload=\"document.getElementById('form').submit()\"><form id=\"form\" method=\"post\" action=\""
+       H.toHtml urlText
+       (H.preEscapedText . Data.Text.pack) "\"><noscript><p>Javascript has been disabled; please click on the button below to be redirected.</p></noscript><input type=\"submit\" value=\"Continue\"></form></body></html>"
+
 
 -- | Type-specialized version of 'sendChunk' for @Html@s.
 --

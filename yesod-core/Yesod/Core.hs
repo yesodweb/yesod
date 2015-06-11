@@ -98,7 +98,6 @@ import Yesod.Core.Widget
 import Yesod.Core.Json
 import Yesod.Core.Types
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
-import Yesod.Core.Widget
 import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 
 import Control.Monad.Logger
