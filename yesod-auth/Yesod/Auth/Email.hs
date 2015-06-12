@@ -49,13 +49,12 @@ module Yesod.Auth.Email
     , defaultSetPasswordHandler
     ) where
 
-import Network.Mail.Mime (randomString)
 import Yesod.Auth
-import System.Random
 import qualified Data.Text as TS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Crypto.Hash.MD5 as H
+import qualified Crypto.Nonce as Nonce
 import Data.ByteString.Base16 as B16
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
@@ -69,6 +68,8 @@ import Control.Monad (void)
 import Yesod.Form
 import Data.Time (getCurrentTime, addUTCTime)
 import Safe (readMay)
+import System.IO.Unsafe (unsafePerformIO)
+
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -163,9 +164,7 @@ class ( YesodAuth site
     --
     -- Since 1.1.0
     randomKey :: site -> IO Text
-    randomKey _ = do
-        stdgen <- newStdGen
-        return $ TS.pack $ fst $ randomString 10 stdgen
+    randomKey _ = Nonce.nonce128urlT defaultNonceGen
 
     -- | Route to send user to after password has been set correctly.
     --
@@ -586,3 +585,8 @@ setLoginLinkKey :: (YesodAuthEmail site, MonadHandler m, HandlerSite m ~ site) =
 setLoginLinkKey aid = do
     now <- liftIO getCurrentTime
     setSession loginLinkKey $ TS.pack $ show (toPathPiece aid, now)
+
+
+defaultNonceGen :: Nonce.Generator
+defaultNonceGen = unsafePerformIO (Nonce.new)
+{-# NOINLINE defaultNonceGen #-}
