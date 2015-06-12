@@ -71,8 +71,6 @@ import           Network.HTTP.Client      (parseUrl, requestHeaders,
                                            responseBody, urlEncodedBody, Manager)
 import           Network.HTTP.Conduit     (http)
 import           Network.HTTP.Types       (renderQueryText)
-import           Network.Mail.Mime        (randomString)
-import           System.Random            (newStdGen)
 import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
                                            AuthRoute, Creds (Creds),
                                            Route (PluginR), YesodAuth,
@@ -85,6 +83,9 @@ import           Yesod.Core               (HandlerSite, MonadHandler,
                                            lookupSession, notFound, redirect,
                                            setSession, whamlet, (.:),
                                            TypedContent, HandlerT, liftIO)
+import qualified Crypto.Nonce             as Nonce
+import System.IO.Unsafe (unsafePerformIO)
+
 
 pid :: Text
 pid = "googleemail2"
@@ -113,8 +114,7 @@ getCreateCsrfToken = do
     case mtoken of
         Just token -> return token
         Nothing -> do
-            stdgen <- liftIO newStdGen
-            let token = T.pack $ fst $ randomString 10 stdgen
+            token <- Nonce.nonce128urlT defaultNonceGen
             setSession csrfKey token
             return token
 
@@ -549,3 +549,8 @@ allPersonInfo (A.Object o) = map enc $ M.toList o
     where enc (key, A.String s) = (key, s)
           enc (key, v) = (key, TL.toStrict $ TL.toLazyText $ A.encodeToTextBuilder v)
 allPersonInfo _ = []
+
+
+defaultNonceGen :: Nonce.Generator
+defaultNonceGen = unsafePerformIO (Nonce.new)
+{-# NOINLINE defaultNonceGen #-}
