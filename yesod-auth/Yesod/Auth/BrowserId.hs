@@ -16,11 +16,10 @@ import Yesod.Auth
 import Web.Authenticate.BrowserId
 import Data.Text (Text)
 import Yesod.Core
-import Text.Hamlet (hamlet)
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
 import Control.Monad (when, unless)
-import Text.Julius (julius, rawJS)
+import Text.Julius (rawJS)
 import Network.URI (uriPath, parseURI)
 import Data.FileEmbed (embedFile)
 import Data.ByteString (ByteString)

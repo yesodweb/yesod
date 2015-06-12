@@ -64,7 +64,6 @@ import qualified Yesod.PasswordStore as PS
 import qualified Text.Email.Validate
 import qualified Yesod.Auth.Message as Msg
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (void)
 import Yesod.Form
 import Data.Time (getCurrentTime, addUTCTime)
 import Safe (readMay)

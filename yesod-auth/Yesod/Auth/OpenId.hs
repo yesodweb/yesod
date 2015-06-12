@@ -17,7 +17,6 @@ import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Form
 import Yesod.Core
-import Text.Cassius (cassius)
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
 import Control.Exception.Lifted (SomeException, try)
@@ -92,7 +91,7 @@ completeHelper idType gets' = do
     eres <- try $ OpenId.authenticateClaimed gets' (authHttpManager master)
     either onFailure onSuccess eres
   where
-    onFailure err = do 
+    onFailure err = do
         tm <- getRouteToParent
         lift $ loginErrorMessage (tm LoginR) $ T.pack $
                 show (err :: SomeException)

@@ -9,7 +9,6 @@ module Yesod.Auth.Dummy
 
 import Yesod.Auth
 import Yesod.Form (runInputPost, textField, ireq)
-import Text.Hamlet (hamlet)
 import Yesod.Core
 
 authDummy :: YesodAuth m => AuthPlugin m

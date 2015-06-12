@@ -11,7 +11,6 @@ import qualified Web.Authenticate.Rpxnow as Rpxnow
 import Control.Monad (mplus)
 
 import Yesod.Core
-import Text.Hamlet (hamlet)
 import Data.Text (pack, unpack)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
