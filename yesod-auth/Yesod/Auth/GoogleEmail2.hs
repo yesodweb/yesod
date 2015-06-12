@@ -1,5 +1,5 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE QuasiQuotes       #-}
 -- | Use an email address as an identifier via Google's login system.
 --
@@ -47,10 +47,24 @@ module Yesod.Auth.GoogleEmail2
     , EmailType(..)
     ) where
 
+import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
+                                           AuthRoute, Creds (Creds),
+                                           Route (PluginR), YesodAuth,
+                                           authHttpManager, setCredsRedirect)
+import qualified Yesod.Auth.Message       as Msg
+import           Yesod.Core               (HandlerSite, HandlerT, MonadHandler,
+                                           TypedContent, getRouteToParent,
+                                           getUrlRender, getYesod, invalidArgs,
+                                           lift, liftIO, lookupGetParam,
+                                           lookupSession, notFound, redirect,
+                                           setSession, whamlet, (.:))
+
+
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
 import           Control.Applicative      ((<$>), (<*>))
 import           Control.Arrow            (second)
 import           Control.Monad            (liftM, unless, when)
+import qualified Crypto.Nonce             as Nonce
 import           Data.Aeson               ((.:?))
 import qualified Data.Aeson               as A
 import qualified Data.Aeson.Encode        as A
@@ -67,24 +81,11 @@ import qualified Data.Text                as T
 import           Data.Text.Encoding       (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy           as TL
 import qualified Data.Text.Lazy.Builder   as TL
-import           Network.HTTP.Client      (parseUrl, requestHeaders,
-                                           responseBody, urlEncodedBody, Manager)
+import           Network.HTTP.Client      (Manager, parseUrl, requestHeaders,
+                                           responseBody, urlEncodedBody)
 import           Network.HTTP.Conduit     (http)
 import           Network.HTTP.Types       (renderQueryText)
-import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
-                                           AuthRoute, Creds (Creds),
-                                           Route (PluginR), YesodAuth,
-                                           authHttpManager, setCredsRedirect)
-import qualified Yesod.Auth.Message       as Msg
-import           Yesod.Core               (HandlerSite, MonadHandler,
-                                           getRouteToParent, getUrlRender,
-                                           getYesod, invalidArgs, lift,
-                                           lookupGetParam,
-                                           lookupSession, notFound, redirect,
-                                           setSession, whamlet, (.:),
-                                           TypedContent, HandlerT, liftIO)
-import qualified Crypto.Nonce             as Nonce
-import System.IO.Unsafe (unsafePerformIO)
+import           System.IO.Unsafe         (unsafePerformIO)
 
 
 pid :: Text
@@ -315,10 +316,10 @@ instance FromJSON PersonURIType where
 --
 -- Since 1.4.3
 data Organization =
-    Organization { orgName  :: Maybe Text
+    Organization { orgName      :: Maybe Text
                    -- ^ The person's job title or role within the organization
-                 , orgTitle :: Maybe Text
-                 , orgType  :: Maybe OrganizationType
+                 , orgTitle     :: Maybe Text
+                 , orgType      :: Maybe OrganizationType
                    -- ^ The date that the person joined this organization.
                  , orgStartDate :: Maybe Text
                    -- ^ The date that the person left this organization.
@@ -357,7 +358,7 @@ instance FromJSON OrganizationType where
 -- Since 1.4.3
 data Place =
     Place { -- | A place where this person has lived. For example: "Seattle, WA", "Near Toronto".
-            placeValue :: Maybe Text
+            placeValue   :: Maybe Text
             -- | If @True@, this place of residence is this person's primary residence.
           , placePrimary :: Maybe Bool
           } deriving (Show, Eq)
@@ -371,13 +372,13 @@ instance FromJSON Place where
 -- Since 1.4.3
 data Name =
     Name { -- | The full name of this person, including middle names, suffixes, etc
-           nameFormatted :: Maybe Text
+           nameFormatted       :: Maybe Text
            -- | The family name (last name) of this person
-         , nameFamily    :: Maybe Text
+         , nameFamily          :: Maybe Text
            -- | The given name (first name) of this person
-         , nameGiven     :: Maybe Text
+         , nameGiven           :: Maybe Text
            -- | The middle name of this person.
-         , nameMiddle    :: Maybe Text
+         , nameMiddle          :: Maybe Text
            -- | The honorific prefixes (such as "Dr." or "Mrs.") for this person
          , nameHonorificPrefix :: Maybe Text
            -- | The honorific suffixes (such as "Jr.") for this person
@@ -445,7 +446,7 @@ resizePersonImage (PersonImage uri) size =
 --
 -- Since 1.4.3
 data Person = Person
-    { personId           :: Text
+    { personId                 :: Text
       -- | The name of this person, which is suitable for display
     , personDisplayName        :: Maybe Text
     , personName               :: Maybe Name
