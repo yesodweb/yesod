@@ -220,6 +220,10 @@ instance HasHttpManager App where
 -- Note that this is really half the story; in Application.hs, mkYesodDispatch
 -- generates the rest of the code. Please see the linked documentation for an
 -- explanation for this split.
+--
+-- This function also generates the following type synonyms:
+-- type Handler = HandlerT App IO
+-- type Widget = WidgetT App IO ()
 mkYesodData "App" $(parseRoutesFile "config/routes")
 
 -- | A convenient synonym for creating forms.
@@ -852,6 +856,12 @@ stanzas:
 # Use the following to automatically copy your bundle upon creation via `yesod
 # keter`. Uses `scp` internally, so you can set it to a remote destination
 # copy-to: user@host:/opt/keter/incoming
+
+# You can pass arguments to `scp` used above. This example limits bandwidth to
+# 1024 Kbit/s and uses port 2222 instead of the default 22
+# copy-to-args:
+#   - "-l 1024"
+#   - "-P 2222"
 
 # If you would like to have Keter automatically create a PostgreSQL database
 # and set appropriate environment variables for it to be discovered, uncomment

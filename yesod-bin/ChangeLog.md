@@ -1,3 +1,7 @@
+## 1.4.10
+
+* Scaffolding update
+
 ## 1.4.9.2
 
 * Collapse paths in keter bundles, see [mailing list thread](https://groups.google.com/d/msg/yesodweb/Ndd310qfSEc/pZOXldsKowsJ)

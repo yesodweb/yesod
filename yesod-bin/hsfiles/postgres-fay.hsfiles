@@ -229,6 +229,7 @@ import Database.Persist.Sql        (ConnectionPool, runSqlPool)
 import Import.NoFoundation
 import Text.Hamlet                 (hamletFile)
 import Yesod.Auth.BrowserId        (authBrowserId)
+import Yesod.Auth.Message          (AuthMessage (InvalidLogin))
 import qualified Yesod.Core.Unsafe as Unsafe
 import Yesod.Core.Types            (Logger)
 import Yesod.Default.Util          (addStaticContentExternal)
@@ -257,6 +258,10 @@ instance HasHttpManager App where
 -- Note that this is really half the story; in Application.hs, mkYesodDispatch
 -- generates the rest of the code. Please see the linked documentation for an
 -- explanation for this split.
+--
+-- This function also generates the following type synonyms:
+-- type Handler = HandlerT App IO
+-- type Widget = WidgetT App IO ()
 mkYesodData "App" $(parseRoutesFile "config/routes")
 
 -- | A convenient synonym for creating forms.
@@ -356,14 +361,11 @@ instance YesodAuth App where
     -- Override the above two destinations when a Referer: header is present
     redirectToReferer _ = True
 
-    getAuthId creds = runDB $ do
+    authenticate creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
-        case x of
-            Just (Entity uid _) -> return $ Just uid
-            Nothing -> Just <$> insert User
-                { userIdent = credsIdent creds
-                , userPassword = Nothing
-                }
+        return $ case x of
+            Just (Entity uid _) -> Authenticated uid
+            Nothing -> UserError InvalidLogin
 
     -- You can add other plugins like BrowserID, email or OAuth here
     authPlugins _ = [authBrowserId def]
@@ -565,7 +567,7 @@ library
                  , yesod-static                  >= 1.4.0.3    && < 1.5
                  , yesod-form                    >= 1.4.0      && < 1.5
                  , yesod-fay                     >= 0.7        && < 0.8
-                 , fay                           >= 0.21.2.1   && < 0.22
+                 , fay                           >= 0.21.2.1   && < 0.24
                  , classy-prelude                >= 0.10.2
                  , classy-prelude-conduit        >= 0.10.2
                  , classy-prelude-yesod          >= 0.10.2
@@ -1010,6 +1012,12 @@ stanzas:
 # Use the following to automatically copy your bundle upon creation via `yesod
 # keter`. Uses `scp` internally, so you can set it to a remote destination
 # copy-to: user@host:/opt/keter/incoming
+
+# You can pass arguments to `scp` used above. This example limits bandwidth to
+# 1024 Kbit/s and uses port 2222 instead of the default 22
+# copy-to-args:
+#   - "-l 1024"
+#   - "-P 2222"
 
 # If you would like to have Keter automatically create a PostgreSQL database
 # and set appropriate environment variables for it to be discovered, uncomment

@@ -224,6 +224,7 @@ import Database.Persist.Sql (ConnectionPool, runSqlPool)
 import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 import Yesod.Auth.BrowserId (authBrowserId)
+import Yesod.Auth.Message   (AuthMessage (InvalidLogin))
 import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
 import qualified Yesod.Core.Unsafe as Unsafe
@@ -250,6 +251,10 @@ instance HasHttpManager App where
 -- Note that this is really half the story; in Application.hs, mkYesodDispatch
 -- generates the rest of the code. Please see the linked documentation for an
 -- explanation for this split.
+--
+-- This function also generates the following type synonyms:
+-- type Handler = HandlerT App IO
+-- type Widget = WidgetT App IO ()
 mkYesodData "App" $(parseRoutesFile "config/routes")
 
 -- | A convenient synonym for creating forms.
@@ -340,14 +345,11 @@ instance YesodAuth App where
     -- Override the above two destinations when a Referer: header is present
     redirectToReferer _ = True
 
-    getAuthId creds = runDB $ do
+    authenticate creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
-        case x of
-            Just (Entity uid _) -> return $ Just uid
-            Nothing -> Just <$> insert User
-                { userIdent = credsIdent creds
-                , userPassword = Nothing
-                }
+        return $ case x of
+            Just (Entity uid _) -> Authenticated uid
+            Nothing -> UserError InvalidLogin
 
     -- You can add other plugins like BrowserID, email or OAuth here
     authPlugins _ = [authBrowserId def]
@@ -951,6 +953,12 @@ stanzas:
 # Use the following to automatically copy your bundle upon creation via `yesod
 # keter`. Uses `scp` internally, so you can set it to a remote destination
 # copy-to: user@host:/opt/keter/incoming
+
+# You can pass arguments to `scp` used above. This example limits bandwidth to
+# 1024 Kbit/s and uses port 2222 instead of the default 22
+# copy-to-args:
+#   - "-l 1024"
+#   - "-P 2222"
 
 # If you would like to have Keter automatically create a PostgreSQL database
 # and set appropriate environment variables for it to be discovered, uncomment
