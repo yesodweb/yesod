@@ -54,6 +54,7 @@ library
                    , unordered-containers  >= 0.2
                    , process
                    , async
+                   , parallel              >= 3.2
 
                    , attoparsec            >= 0.10
                    , blaze-builder         >= 0.3
@@ -109,6 +110,7 @@ test-suite tests
                    , resourcet
                    , unordered-containers
                    , async
+                   , parallel
                    , process
                    , conduit-extra
 
