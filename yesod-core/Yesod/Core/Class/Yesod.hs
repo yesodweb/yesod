@@ -55,6 +55,7 @@ import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
 import Control.Monad.Trans.Class (lift)
+import Data.CaseInsensitive (CI)
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -410,6 +411,56 @@ authorizationCheck = do
                           provideRepType typeJson $
                               void $ notAuthenticated
             Unauthorized s' -> permissionDenied s'
+
+-- | Calls 'csrfCheckMiddleware' with 'isWriteRequest', 'defaultCsrfHeaderName', and 'defaultCsrfParamName' as parameters.
+--
+-- Since 1.4.14
+defaultCsrfCheckMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfCheckMiddleware handler = do
+    csrfCheckMiddleware
+        handler
+        (getCurrentRoute >>= maybe (return False) isWriteRequest)
+        defaultCsrfHeaderName
+        defaultCsrfParamName
+
+-- | Looks up the CSRF token from the request headers or POST parameters. If the value doesn't match the token stored in the session,
+-- this function throws a 'PermissionDenied' error.
+--
+-- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+--
+-- Since 1.4.14
+csrfCheckMiddleware :: Yesod site
+                    => HandlerT site IO res
+                    -> HandlerT site IO Bool -- ^ Whether or not to perform the CSRF check.
+                    -> CI S8.ByteString -- ^ The header name to lookup the CSRF token from.
+                    -> Text -- ^ The POST parameter name to lookup the CSRF token from.
+                    -> HandlerT site IO res
+csrfCheckMiddleware handler shouldCheckFn headerName paramName = do
+    shouldCheck <- shouldCheckFn
+    when shouldCheck (checkCsrfHeaderOrParam headerName paramName)
+    handler
+
+-- | Calls 'csrfSetCookieMiddleware' with the 'defaultCsrfCookieName'.
+--
+-- Since 1.4.14
+defaultCsrfSetCookieMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfSetCookieMiddleware handler = csrfSetCookieMiddleware handler (def { setCookieName = defaultCsrfCookieName })
+
+-- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie. See 'setCsrfCookieWithCookie'.
+--
+-- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+--
+-- Since 1.4.14
+csrfSetCookieMiddleware :: Yesod site => HandlerT site IO res -> SetCookie -> HandlerT site IO res
+csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handler
+
+-- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'. Use this midle 
+--
+-- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+--
+-- Since 1.4.14
+defaultCsrfMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfMiddleware = defaultCsrfSetCookieMiddleware . defaultCsrfCheckMiddleware
 
 -- | Convert a widget to a 'PageContent'.
 widgetToPageContent :: (Eq (Route site), Yesod site)

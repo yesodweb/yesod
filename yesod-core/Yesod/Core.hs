@@ -57,6 +57,12 @@ module Yesod.Core
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
+    -- * CSRF protection
+    , defaultCsrfMiddleware
+    , defaultCsrfSetCookieMiddleware
+    , csrfSetCookieMiddleware
+    , defaultCsrfCheckMiddleware
+    , csrfCheckMiddleware
     -- * JS loaders
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync

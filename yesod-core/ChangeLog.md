@@ -1,3 +1,7 @@
+## 1.4.14
+
+* Add CSRF protection functions and middleware based on HTTP cookies and headers [#1017](https://github.com/yesodweb/yesod/pull/1017)
+
 ## 1.4.13
 
 * Add mkYesodGeneral, which allows creating sites with polymorphic type parameters [#1055](https://github.com/yesodweb/yesod/pull/1055)
