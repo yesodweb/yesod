@@ -1,3 +1,7 @@
+## 1.4.11
+
+* Expose `stripHandlerT` and `subHelper`
+
 ## 1.4.10
 
 * Export log formatting [#1001](https://github.com/yesodweb/yesod/pull/1001)
