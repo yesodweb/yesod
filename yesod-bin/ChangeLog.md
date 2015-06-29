@@ -1,3 +1,8 @@
+## 1.4.11
+
+* Add support to `yesod devel` to detect and use `GHC_PACKAGE_PATH`. This makes
+  `yesod devel` compatible with `stack`, just run: `stack exec -- yesod devel`.
+
 ## 1.4.10
 
 * Scaffolding update

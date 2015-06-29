@@ -5,7 +5,9 @@ import           Control.Monad          (unless)
 import           Data.Monoid
 import           Data.Version           (showVersion)
 import           Options.Applicative
+import           System.Environment     (getEnvironment)
 import           System.Exit            (ExitCode (ExitSuccess), exitWith)
+import           System.FilePath        (splitSearchPath)
 import           System.Process         (rawSystem)
 
 import           AddHandler             (addHandler)
@@ -108,7 +110,9 @@ main = do
     Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
     AddHandler{..}  -> addHandler addHandlerRoute addHandlerPattern addHandlerMethods
     Test            -> cabalTest cabal
-    Devel{..}       -> let develOpts = DevelOpts
+    Devel{..}       ->do
+                       (configOpts, menv) <- handleGhcPackagePath
+                       let develOpts = DevelOpts
                              { isCabalDev   = optCabalPgm o == CabalDev
                              , forceCabal   = _develDisableApi
                              , verbose      = optVerbose o
@@ -121,13 +125,27 @@ main = do
                              , proxyTimeout = _proxyTimeout
                              , useReverseProxy = not _noReverseProxy
                              , terminateWith = if _interruptOnly then TerminateOnlyInterrupt else TerminateOnEnter
+                             , develConfigOpts = configOpts
+                             , develEnv = menv
                              }
-                       in devel develOpts develExtraArgs
+                       devel develOpts develExtraArgs
   where
     cabalTest cabal = do touch'
                          _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]
                          _ <- cabal ["build"]
                          cabal ["test"]
+
+handleGhcPackagePath :: IO ([String], Maybe [(String, String)])
+handleGhcPackagePath = do
+    env <- getEnvironment
+    case lookup "GHC_PACKAGE_PATH" env of
+        Nothing -> return ([], Nothing)
+        Just gpp -> do
+            let opts = "--package-db=clear"
+                     : "--package-db=global"
+                     : map ("--package-db=" ++)
+                       (drop 1 $ reverse $ splitSearchPath gpp)
+            return (opts, Just $ filter (\(x, _) -> x /= "GHC_PACKAGE_PATH") env)
 
 optParser' :: ParserInfo Options
 optParser' = info (helper <*> optParser) ( fullDesc <> header "Yesod Web Framework command line utility" )

@@ -115,6 +115,10 @@ data DevelOpts = DevelOpts
       , proxyTimeout :: Int
       , useReverseProxy :: Bool
       , terminateWith :: DevelTermOpt
+
+      -- Support for GHC_PACKAGE_PATH wrapping
+      , develConfigOpts :: [String]
+      , develEnv :: Maybe [(String, String)]
       } deriving (Show, Eq)
 
 getBuildDir :: DevelOpts -> String
@@ -353,8 +357,8 @@ configure opts extraArgs =
                                  , "--with-ghc=yesod-ghc-wrapper"
                                  , "--with-ar=yesod-ar-wrapper"
                                  , "--with-hc-pkg=ghc-pkg"
-                                 ] ++ extraArgs
-               )
+                                 ] ++ develConfigOpts opts ++ extraArgs
+               ) { env = develEnv opts }
 
 removeFileIfExists :: FilePath -> IO ()
 removeFileIfExists file = removeFile file `Ex.catch` handler
@@ -388,6 +392,8 @@ rebuildCabal :: DevelOpts -> IO Bool
 rebuildCabal opts = do
   putStrLn $ "Rebuilding application... (using " ++ cabalProgram opts ++ ")"
   checkExit =<< createProcess (proc (cabalProgram opts) args)
+        { env = develEnv opts
+        }
     where
       args | verbose opts = [ "build" ]
            | otherwise    = [ "build", "-v0" ]
