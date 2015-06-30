@@ -52,7 +52,7 @@ executable             yesod
                      , bytestring         >= 0.9.1.4
                      , time               >= 1.1.4
                      , template-haskell
-                     , directory          >= 1.0
+                     , directory          >= 1.2.1
                      , Cabal
                      , unix-compat        >= 0.2          && < 0.5
                      , containers         >= 0.2
