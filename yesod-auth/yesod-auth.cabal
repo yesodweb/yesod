@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.4.5.1
+version:         1.4.6
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -58,6 +58,7 @@ library
                    , blaze-builder
                    , conduit
                    , conduit-extra
+                   , nonce                   >= 1.0.2     && < 1.1
 
     if flag(network-uri)
       build-depends: network-uri >= 2.6

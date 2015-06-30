@@ -1,9 +1,10 @@
 {-# LANGUAGE ConstrainedClassMethods #-}
-{-# LANGUAGE QuasiQuotes, TypeFamilies #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE FlexibleContexts        #-}
+{-# LANGUAGE OverloadedStrings       #-}
+{-# LANGUAGE PatternGuards           #-}
+{-# LANGUAGE QuasiQuotes             #-}
+{-# LANGUAGE Rank2Types              #-}
+{-# LANGUAGE TypeFamilies            #-}
 -- | A Yesod plugin for Authentication via e-mail
 --
 -- This plugin works out of the box by only setting a few methods on the type class
@@ -49,26 +50,27 @@ module Yesod.Auth.Email
     , defaultSetPasswordHandler
     ) where
 
-import Network.Mail.Mime (randomString)
-import Yesod.Auth
-import System.Random
-import qualified Data.Text as TS
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Crypto.Hash.MD5 as H
-import Data.ByteString.Base16 as B16
-import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
-import Data.Text.Encoding.Error (lenientDecode)
-import Data.Text (Text)
-import Yesod.Core
-import qualified Yesod.PasswordStore as PS
+import           Yesod.Auth
+import qualified Yesod.Auth.Message       as Msg
+import           Yesod.Core
+import           Yesod.Form
+import qualified Yesod.PasswordStore      as PS
+
+import           Control.Applicative      ((<$>), (<*>))
+import qualified Crypto.Hash.MD5          as H
+import qualified Crypto.Nonce             as Nonce
+import           Data.ByteString.Base16   as B16
+import           Data.Text                (Text)
+import qualified Data.Text                as TS
+import qualified Data.Text                as T
+import           Data.Text.Encoding       (decodeUtf8With, encodeUtf8)
+import qualified Data.Text.Encoding       as TE
+import           Data.Text.Encoding.Error (lenientDecode)
+import           Data.Time                (addUTCTime, getCurrentTime)
+import           Safe                     (readMay)
+import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
-import qualified Yesod.Auth.Message as Msg
-import Control.Applicative ((<$>), (<*>))
-import Control.Monad (void)
-import Yesod.Form
-import Data.Time (getCurrentTime, addUTCTime)
-import Safe (readMay)
+
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -98,11 +100,11 @@ type Identifier = Text
 
 -- | Data stored in a database for each e-mail address.
 data EmailCreds site = EmailCreds
-    { emailCredsId :: AuthEmailId site
+    { emailCredsId     :: AuthEmailId site
     , emailCredsAuthId :: Maybe (AuthId site)
     , emailCredsStatus :: VerStatus
     , emailCredsVerkey :: Maybe VerKey
-    , emailCredsEmail :: Email
+    , emailCredsEmail  :: Email
     }
 
 class ( YesodAuth site
@@ -163,9 +165,7 @@ class ( YesodAuth site
     --
     -- Since 1.1.0
     randomKey :: site -> IO Text
-    randomKey _ = do
-        stdgen <- newStdGen
-        return $ TS.pack $ fst $ randomString 10 stdgen
+    randomKey _ = Nonce.nonce128urlT defaultNonceGen
 
     -- | Route to send user to after password has been set correctly.
     --
@@ -586,3 +586,8 @@ setLoginLinkKey :: (YesodAuthEmail site, MonadHandler m, HandlerSite m ~ site) =
 setLoginLinkKey aid = do
     now <- liftIO getCurrentTime
     setSession loginLinkKey $ TS.pack $ show (toPathPiece aid, now)
+
+
+defaultNonceGen :: Nonce.Generator
+defaultNonceGen = unsafePerformIO (Nonce.new)
+{-# NOINLINE defaultNonceGen #-}
