@@ -633,10 +633,6 @@ formatLogMessage :: IO ZonedDate
                  -> IO LogStr
 formatLogMessage getdate loc src level msg = do
     now <- getdate
-    let sourceSuffix = if loc_package loc == "<unknown>" then "" else mempty
-          `mappend` " @(" 
-          `mappend` toLogStr (fileLocationToString loc) 
-          `mappend` ")"
     return $ mempty
         `mappend` toLogStr now 
         `mappend` " [" 
@@ -650,6 +646,11 @@ formatLogMessage getdate loc src level msg = do
         `mappend` msg 
         `mappend` sourceSuffix
         `mappend` "\n"
+    where 
+    sourceSuffix = if loc_package loc == "<unknown>" then "" else mempty
+        `mappend` " @(" 
+        `mappend` toLogStr (fileLocationToString loc) 
+        `mappend` ")"
 
 -- | Customize the cookies used by the session backend.  You may
 -- use this function on your definition of 'makeSessionBackend'.
