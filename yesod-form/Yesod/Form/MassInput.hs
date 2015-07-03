@@ -82,6 +82,7 @@ $newline never
 |]
         , fvErrors = Nothing
         , fvRequired = False
+        , fvHidden = False
         }])
 
 withDelete :: (xml ~ WidgetT site IO (), RenderMessage site FormMessage)

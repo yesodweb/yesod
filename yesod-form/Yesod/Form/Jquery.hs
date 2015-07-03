@@ -9,9 +9,11 @@ module Yesod.Form.Jquery
     , jqueryDatePickerDayField
     , jqueryAutocompleteField
     , jqueryAutocompleteField'
+    , jqueryAutocompleteField''
     , googleHostedJqueryUiCss
     , JqueryDaySettings (..)
     , Default (..)
+    , jqfs
     ) where
 
 import Yesod.Core
@@ -20,8 +22,9 @@ import Data.Time (Day)
 import Data.Default
 import Text.Hamlet (shamlet)
 import Text.Julius (julius, rawJS)
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, pack, unpack, append)
 import Data.Monoid (mconcat)
+import Data.List (find)
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
@@ -70,7 +73,7 @@ jqueryDayField' jds inputType = Field
                   Right
               . readMay
               . unpack
-    , fieldView = \theId name attrs val isReq -> do
+    , fieldView = \theId name attrs val isReq False -> do
         toWidget [shamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="#{inputType}" :isReq:required="" value="#{showVal val}">
@@ -93,6 +96,7 @@ $(function(){
 });
 |]
     , fieldEnctype = UrlEncoded
+    , fieldHidden = False
     }
   where
     showVal = either id (pack . show)
@@ -115,21 +119,54 @@ jqueryAutocompleteField' :: (RenderMessage site FormMessage, YesodJquery site)
                          => Int -- ^ autocomplete minimum length
                          -> Route site
                          -> Field (HandlerT site IO) Text
-jqueryAutocompleteField' minLen src = Field
+jqueryAutocompleteField' minLen = jqueryAutocompleteField'' minLen False
+
+jqueryAutocompleteField'' :: (RenderMessage site FormMessage, YesodJquery site)
+                         => Int -- ^ autocomplete minimum length
+                         -> Bool -- ^ store value in hidden input
+                         -> Route site
+                         -> Field (HandlerT site IO) Text
+jqueryAutocompleteField'' minLen hidden src = Field
     { fieldParse = parseHelper $ Right
-    , fieldView = \theId name attrs val isReq -> do
+    , fieldView = \theId name attrs val isReq False -> do
+        let cls = find (\(c,_) -> c == "class") attrs
+        let clsval c = case c of
+                Just (_, clazz) -> append clazz " autocomplete"
+                Nothing         -> pack "autocomplete"
+        let attrs' = ("class", clsval cls) : (filter (\(c,_) -> c /= "class") attrs)
         toWidget [shamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} type="text" :isReq:required="" value="#{either id id val}" .autocomplete>
+<input id="#{theId}" name="#{name}" *{attrs'} type="text" :isReq:required="" value="#{either id id val}">
 |]
         addScript' urlJqueryJs
         addScript' urlJqueryUiJs
         addStylesheet' urlJqueryUiCss
-        toWidget [julius|
+        case hidden of
+            True  -> toWidget [julius|
+$(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:#{toJSON minLen},select:function(ev, ui){ev.preventDefault();$("##{rawJS theId}").val(ui.item.label);$("##{rawJS theId}_id").val(ui.item.value);}})});
+|]
+            False -> toWidget [julius|
 $(function(){$("##{rawJS theId}").autocomplete({source:"@{src}",minLength:#{toJSON minLen}})});
 |]
     , fieldEnctype = UrlEncoded
+    , fieldHidden = False
     }
+
+
+jqfs :: RenderMessage site msg
+    => msg
+    -> Text -- ^ base ID
+    -> Bool -- ^ hidden field?
+    -> Bool -- ^ bootstrap3?
+    -> FieldSettings site
+jqfs msg bid hidden bs =
+    FieldSettings (SomeMessage msg) Nothing (id bid hidden) Nothing (cls hidden bs)
+  where cls _ False    = []
+        cls True True  = []
+        cls False True = [("class", "form-control")]
+        id :: Text -> Bool -> Maybe Text
+        id baseid True  = Just (append baseid "_id")
+        id baseid False = Just baseid
 
 addScript' :: (HandlerSite m ~ site, MonadWidget m) => (site -> Either (Route site) Text) -> m ()
 addScript' f = do

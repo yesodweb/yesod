@@ -26,7 +26,7 @@ class Yesod a => YesodNic a where
 nicHtmlField :: YesodNic site => Field (HandlerT site IO) Html
 nicHtmlField = Field
     { fieldParse = \e _ -> return . Right . fmap (preEscapedToMarkup . sanitizeBalance) . listToMaybe $ e
-    , fieldView = \theId name attrs val _isReq -> do
+    , fieldView = \theId name attrs val _isReq False -> do
         toWidget [shamlet|
 $newline never
     <textarea id="#{theId}" *{attrs} name="#{name}" .html>#{showVal val}
@@ -42,6 +42,7 @@ bkLib.onDomLoaded(function(){new nicEditor({fullPanel:true}).panelInstance("#{ra
 (function(){new nicEditor({fullPanel:true}).panelInstance("#{rawJS theId}")})();
 |]
     , fieldEnctype = UrlEncoded
+    , fieldHidden = False
     }
   where
     showVal = either id (pack . renderHtml)

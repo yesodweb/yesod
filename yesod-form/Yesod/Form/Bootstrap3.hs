@@ -159,29 +159,32 @@ renderBootstrap3 formLayout aform fragment = do
             $newline never
             #{fragment}
             $forall view <- views
-              <div .form-group :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.has-error>
-                $case formLayout
-                  $of BootstrapBasicForm
-                    $if fvId view /= bootstrapSubmitId
-                      <label for=#{fvId view}>#{fvLabel view}
-                    ^{fvInput view}
-                    ^{helpWidget view}
-                  $of BootstrapInlineForm
-                    $if fvId view /= bootstrapSubmitId
-                      <label .sr-only for=#{fvId view}>#{fvLabel view}
-                    ^{fvInput view}
-                    ^{helpWidget view}
-                  $of BootstrapHorizontalForm labelOffset labelSize inputOffset inputSize
-                    $if fvId view /= bootstrapSubmitId
-                      <label .control-label .#{toOffset labelOffset} .#{toColumn labelSize} for=#{fvId view}>#{fvLabel view}
-                      <div .#{toOffset inputOffset} .#{toColumn inputSize}>
-                        ^{fvInput view}
-                        ^{helpWidget view}
-                    $else
-                      <div .#{toOffset (addGO inputOffset (addGO labelOffset labelSize))} .#{toColumn inputSize}>
-                        ^{fvInput view}
-                        ^{helpWidget view}
-                |]
+              $if fvHidden view
+                ^{fvInput view}
+              $else
+                <div .form-group :fvRequired view:.required :not $ fvRequired view:.optional :has $ fvErrors view:.has-error>
+                  $case formLayout
+                    $of BootstrapBasicForm
+                      $if fvId view /= bootstrapSubmitId
+                        <label for=#{fvId view}>#{fvLabel view}
+                      ^{fvInput view}
+                      ^{helpWidget view}
+                    $of BootstrapInlineForm
+                      $if fvId view /= bootstrapSubmitId
+                        <label .sr-only for=#{fvId view}>#{fvLabel view}
+                      ^{fvInput view}
+                      ^{helpWidget view}
+                    $of BootstrapHorizontalForm labelOffset labelSize inputOffset inputSize
+                      $if fvId view /= bootstrapSubmitId
+                        <label .control-label .#{toOffset labelOffset} .#{toColumn labelSize} for=#{fvId view}>#{fvLabel view}
+                        <div .#{toOffset inputOffset} .#{toColumn inputSize}>
+                          ^{fvInput view}
+                          ^{helpWidget view}
+                      $else
+                        <div .#{toOffset (addGO inputOffset (addGO labelOffset labelSize))} .#{toColumn inputSize}>
+                          ^{fvInput view}
+                          ^{helpWidget view}
+                  |]
     return (res, widget)
 
 
@@ -253,7 +256,8 @@ mbootstrapSubmit (BootstrapSubmit msg classes attrs) =
                         , fvId       = bootstrapSubmitId
                         , fvInput    = widget
                         , fvErrors   = Nothing
-                        , fvRequired = False }
+                        , fvRequired = False
+                        , fvHidden   = False }
     in return (res, fv)
 
 

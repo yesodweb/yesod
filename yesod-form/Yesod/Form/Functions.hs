@@ -60,7 +60,6 @@ import Text.Blaze (Markup, toMarkup)
 #define toHtml toMarkup
 import Yesod.Core
 import Network.Wai (requestMethod)
-import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
 import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Data.Map as Map
@@ -113,7 +112,7 @@ mreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
      -> FieldSettings site  -- ^ settings for this field
      -> Maybe a             -- ^ optional default value
      -> MForm m (FormResult a, FieldView site)
-mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True
+mreq field fs mdef = mhelper field fs mdef (\m l -> FormFailure [renderMessage m l MsgValueRequired]) FormSuccess True (fieldHidden field)
 
 -- | Converts a form field into monadic form. This field is optional, i.e.
 -- if filled in, it returns 'Just a', if left empty, it returns 'Nothing'.
@@ -123,7 +122,7 @@ mopt :: (site ~ HandlerSite m, MonadHandler m)
      -> FieldSettings site
      -> Maybe (Maybe a)
      -> MForm m (FormResult (Maybe a), FieldView site)
-mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False
+mopt field fs mdef = mhelper field fs (join mdef) (const $ const $ FormSuccess Nothing) (FormSuccess . Just) False (fieldHidden field)
 
 mhelper :: (site ~ HandlerSite m, MonadHandler m)
         => Field m a
@@ -132,9 +131,10 @@ mhelper :: (site ~ HandlerSite m, MonadHandler m)
         -> (site -> [Text] -> FormResult b) -- ^ on missing
         -> (a -> FormResult b) -- ^ on success
         -> Bool -- ^ is it required?
+        -> Bool -- ^ is it hidden?
         -> MForm m (FormResult b, FieldView site)
 
-mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
+mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq isHidden = do
     tell fieldEnctype
     mp <- askParams
     name <- maybe newFormIdent return fsName
@@ -159,12 +159,13 @@ mhelper Field {..} FieldSettings {..} mdef onMissing onFound isReq = do
         { fvLabel = toHtml $ mr2 fsLabel
         , fvTooltip = fmap toHtml $ fmap mr2 fsTooltip
         , fvId = theId
-        , fvInput = fieldView theId name fsAttrs val isReq
+        , fvInput = fieldView theId name fsAttrs val isReq isHidden
         , fvErrors =
             case res of
                 FormFailure [e] -> Just $ toHtml e
                 _ -> Nothing
         , fvRequired = isReq
+        , fvHidden = isHidden
         })
 
 -- | Applicative equivalent of 'mreq'.
@@ -550,7 +551,7 @@ parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $
 convertField :: (Functor m)
              => (a -> b) -> (b -> a)
              -> Field m a -> Field m b
-convertField to from (Field fParse fView fEnctype) = let
+convertField to from (Field fParse fView fEnctype fHidden) = let
   fParse' ts = fmap (fmap (fmap to)) . fParse ts
   fView' ti tn at ei = fView ti tn at (fmap from ei)
-  in Field fParse' fView' fEnctype
+  in Field fParse' fView' fEnctype fHidden

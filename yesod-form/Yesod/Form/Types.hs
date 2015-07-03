@@ -136,6 +136,7 @@ data FieldView site = FieldView
     , fvInput :: WidgetT site IO ()
     , fvErrors :: Maybe Html
     , fvRequired :: Bool
+    , fvHidden :: Bool
     }
 
 type FieldViewFunc m a
@@ -144,12 +145,14 @@ type FieldViewFunc m a
    -> [(Text, Text)] -- ^ Attributes
    -> Either Text a -- ^ Either (invalid text) or (legitimate result)
    -> Bool -- ^ Required?
+   -> Bool -- ^ Hidden?
    -> WidgetT (HandlerSite m) IO ()
 
 data Field m a = Field
     { fieldParse :: [Text] -> [FileInfo] -> m (Either (SomeMessage (HandlerSite m)) (Maybe a))
     , fieldView :: FieldViewFunc m a
     , fieldEnctype :: Enctype
+    , fieldHidden :: Bool
     }
 
 data FormMessage = MsgInvalidInteger Text
