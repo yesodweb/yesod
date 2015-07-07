@@ -1,3 +1,7 @@
+## 1.4.12
+
+* Don't show source location for logs that don't have that information [#1027](https://github.com/yesodweb/yesod/pull/1027)
+
 ## 1.4.11
 
 * Expose `stripHandlerT` and `subHelper`

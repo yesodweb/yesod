@@ -615,7 +615,14 @@ asyncHelper render scripts jscript jsLoc =
                     Nothing -> Nothing
                     Just j -> Just $ jelper j
 
--- | Default formatting for log messages.
+-- | Default formatting for log messages. When you use
+-- the template haskell logging functions for to log with information
+-- about the source location, that information will be appended to 
+-- the end of the log. When you use the non-TH logging functions, 
+-- like 'logDebugN', this function does not include source 
+-- information. This currently works by checking to see if the
+-- package name is the string \"\<unknown\>\". This is a hack,
+-- but it removes some of the visual clutter from non-TH logs.
 --
 -- Since 1.4.10
 formatLogMessage :: IO ZonedDate
@@ -626,20 +633,24 @@ formatLogMessage :: IO ZonedDate
                  -> IO LogStr
 formatLogMessage getdate loc src level msg = do
     now <- getdate
-    return $
-        toLogStr now `mappend`
-        " [" `mappend`
-        (case level of
+    return $ mempty
+        `mappend` toLogStr now 
+        `mappend` " [" 
+        `mappend` (case level of
             LevelOther t -> toLogStr t
-            _ -> toLogStr $ drop 5 $ show level) `mappend`
-        (if T.null src
+            _ -> toLogStr $ drop 5 $ show level) 
+        `mappend` (if T.null src
             then mempty
-            else "#" `mappend` toLogStr src) `mappend`
-        "] " `mappend`
-        msg `mappend`
-        " @(" `mappend`
-        toLogStr (fileLocationToString loc) `mappend`
-        ")\n"
+            else "#" `mappend` toLogStr src) 
+        `mappend` "] " 
+        `mappend` msg 
+        `mappend` sourceSuffix
+        `mappend` "\n"
+    where 
+    sourceSuffix = if loc_package loc == "<unknown>" then "" else mempty
+        `mappend` " @(" 
+        `mappend` toLogStr (fileLocationToString loc) 
+        `mappend` ")"
 
 -- | Customize the cookies used by the session backend.  You may
 -- use this function on your definition of 'makeSessionBackend'.
