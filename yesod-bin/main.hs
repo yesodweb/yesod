@@ -110,6 +110,7 @@ main = do
     Keter{..}       -> let keterOpts = KeterOpts
                              { cabalArgs = configOpts
                              , cabalEnv = menv
+                             , cabal = cabalCommand o
                              , noBuild = _keterNoRebuild
                              , noCopyTo = _keterNoCopyTo
                              }
