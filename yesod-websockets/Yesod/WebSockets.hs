@@ -83,7 +83,7 @@ receiveData = ReaderT $ liftIO . WS.receiveData
 
 -- | Receive a piece of data from the client.
 -- Capture SomeException as the result or operation
--- Since 0.1.1.3
+-- Since 0.2.2
 receiveDataE :: (MonadIO m, WS.WebSocketsData a) => WebSocketsT m (Either SomeException a)
 receiveDataE = ReaderT $ liftIO . tryAny . WS.receiveData
 
@@ -97,7 +97,7 @@ sendTextData = wrapWS WS.sendTextData
 -- Capture SomeException as the result or operation
 -- and can be used like 
 -- `either handle_exception return =<< sendTextDataE ("Welcome" :: Text)`
--- Since 0.1.1.3
+-- Since 0.2.2
 sendTextDataE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
 sendTextDataE = wrapWSE WS.sendTextData
 
@@ -109,31 +109,31 @@ sendBinaryData = wrapWS WS.sendBinaryData
 
 -- | Send a binary message to the client.
 -- Capture SomeException as the result of operation
--- Since 0.1.1.3
+-- Since 0.2.2
 sendBinaryDataE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
 sendBinaryDataE = wrapWSE WS.sendBinaryData
 
 -- | Send a ping message to the client.
 --
--- Since 0.1.1.3
+-- Since 0.2.2
 sendPing :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendPing = wrapWS WS.sendPing
 
 -- | Send a ping message to the client. 
 -- Capture SomeException as the result of operation
--- Since 0.1.1.3
+-- Since 0.2.2
 sendPingE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
 sendPingE = wrapWSE WS.sendPing
 
 -- | Send a close request to the client. 
 -- 
--- Since 0.1.1.3
+-- Since 0.2.2
 sendClose :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
 sendClose = wrapWS WS.sendClose
 
 -- | Send a close request to the client. 
 -- Capture SomeException as the result of operation
--- Since 0.1.1.3
+-- Since 0.2.2
 sendCloseE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
 sendCloseE = wrapWSE WS.sendClose
 
