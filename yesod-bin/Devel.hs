@@ -238,9 +238,17 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
 
     let (terminator, after) = case terminateWith opts of
           TerminateOnEnter ->
-              ("Press ENTER", void getLine)
+              ("Type 'quit'", blockQuit)
           TerminateOnlyInterrupt ->  -- run for one year
               ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
+
+        blockQuit = do
+            s <- getLine
+            if s == "quit"
+                then return ()
+                else do
+                    putStrLn "Type 'quit' to quit"
+                    blockQuit
 
 
     putStrLn $ "Yesod devel server. "  ++ terminator ++ " to quit"
