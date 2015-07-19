@@ -12,7 +12,7 @@ import           System.Process         (rawSystem)
 
 import           AddHandler             (addHandler)
 import           Devel                  (DevelOpts (..), devel, DevelTermOpt(..))
-import           Keter                  (keter)
+import           Keter                  (KeterOpts (..), keter)
 import           Options                (injectDefaults)
 import qualified Paths_yesod_bin
 import           Scaffolding.Scaffolder (scaffold, backendOptions)
@@ -100,19 +100,25 @@ main = do
                 })
          ] optParser'
   let cabal = rawSystem' (cabalCommand o)
+  (configOpts, menv) <- handleGhcPackagePath
   case optCommand o of
     Init{..}        -> scaffold _initBare _initName _initDatabase
     HsFiles         -> mkHsFile
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
     Touch           -> touch'
-    Keter{..}       -> keter (cabalCommand o) _keterNoRebuild _keterNoCopyTo
+    Keter{..}       -> let keterOpts = KeterOpts
+                             { cabalArgs = configOpts
+                             , cabalEnv = menv
+                             , cabal = cabalCommand o
+                             , noBuild = _keterNoRebuild
+                             , noCopyTo = _keterNoCopyTo
+                             }
+                       in keter keterOpts
     Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
     AddHandler{..}  -> addHandler addHandlerRoute addHandlerPattern addHandlerMethods
     Test            -> cabalTest cabal
-    Devel{..}       ->do
-                       (configOpts, menv) <- handleGhcPackagePath
-                       let develOpts = DevelOpts
+    Devel{..}       -> let develOpts = DevelOpts
                              { isCabalDev   = optCabalPgm o == CabalDev
                              , forceCabal   = _develDisableApi
                              , verbose      = optVerbose o
@@ -128,7 +134,7 @@ main = do
                              , develConfigOpts = configOpts
                              , develEnv = menv
                              }
-                       devel develOpts develExtraArgs
+                       in devel develOpts develExtraArgs
   where
     cabalTest cabal = do touch'
                          _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]

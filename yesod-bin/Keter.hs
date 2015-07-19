@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Keter
     ( keter
+    , KeterOpts(..)
     ) where
 
 import Data.Yaml
@@ -20,16 +22,25 @@ import Codec.Compression.GZip (compress)
 import qualified Data.Foldable as Fold
 import Control.Monad.Trans.Writer (tell, execWriter)
 
-run :: String -> [String] -> IO ()
-run a b = do
-    ec <- rawSystem a b
+data KeterOpts = KeterOpts
+    { cabalArgs :: [String]
+    , cabalEnv :: Maybe [(String, String)]
+    , cabal :: String
+    , noBuild :: Bool
+    , noCopyTo :: Bool
+    }
+
+run :: Maybe [(String,String)] -- ^ Additional environment vars
+    -> String
+    -> [String]
+    -> IO ()
+run menv a b = do
+    (_, _, _, h) <- createProcess (proc a b) { env = menv }
+    ec <- waitForProcess h
     unless (ec == ExitSuccess) $ exitWith ec
 
-keter :: String -- ^ cabal command
-      -> Bool -- ^ no build?
-      -> Bool -- ^ no copy to?
-      -> IO ()
-keter cabal noBuild noCopyTo = do
+keter :: KeterOpts -> IO ()
+keter KeterOpts{..} = do
     ketercfg <- keterConfig
     mvalue <- decodeFile ketercfg
     value <-
@@ -74,9 +85,9 @@ keter cabal noBuild noCopyTo = do
         collapse' [] = []
 
     unless noBuild $ do
-        run cabal ["clean"]
-        run cabal ["configure"]
-        run cabal ["build"]
+        run cabalEnv cabal ["clean"]
+        run cabalEnv cabal (cabalArgs ++ ["configure"])
+        run cabalEnv cabal ["build"]
 
     _ <- try' $ removeDirectoryRecursive "static/tmp"
 
@@ -99,7 +110,7 @@ keter cabal noBuild noCopyTo = do
                         Just i -> "-P" : show (i :: Int) : scpArgs
                         Nothing -> scpArgs
 
-            in run "scp" args
+            in run Nothing "scp" args
 
         _ -> return ()
   where
