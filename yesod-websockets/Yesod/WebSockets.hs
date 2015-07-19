@@ -7,6 +7,7 @@ module Yesod.WebSockets
     , webSockets
     , receiveData
     , receiveDataE
+    , sendDataMessageE
     , sendPing
     , sendPingE
     , sendClose
@@ -15,6 +16,7 @@ module Yesod.WebSockets
     , sendTextDataE
     , sendBinaryData
     , sendBinaryDataE
+    , sendDataMessageE
       -- * Conduit API
     , sourceWS
     , sinkWSText
@@ -87,6 +89,12 @@ receiveData = ReaderT $ liftIO . WS.receiveData
 receiveDataE :: (MonadIO m, WS.WebSocketsData a) => WebSocketsT m (Either SomeException a)
 receiveDataE = ReaderT $ liftIO . tryAny . WS.receiveData
 
+-- | Receive an application message.
+-- Capture SomeException as the result or operation
+-- Since 0.2.2
+receiveDataMessageE :: (MonadIO m) => WebSocketsT m (Either SomeException WS.DataMessage)
+receiveDataMessageE = ReaderT $ liftIO . tryAny . WS.receiveDataMessage
+
 -- | Send a textual message to the client.
 --
 -- Since 0.1.0
@@ -124,6 +132,12 @@ sendPing = wrapWS WS.sendPing
 -- Since 0.2.2
 sendPingE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
 sendPingE = wrapWSE WS.sendPing
+
+-- | Send a DataMessage to the client. 
+-- Capture SomeException as the result of operation
+-- Since 0.2.2
+sendDataMessageE :: (MonadIO m) => WS.DataMessage -> WebSocketsT m (Either SomeException ())
+sendDataMessageE x = ReaderT $ liftIO . tryAny . (`WS.sendDataMessage` x)
 
 -- | Send a close request to the client. 
 -- 
