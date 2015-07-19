@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/yesodweb/yesod.png?label=ready&title=Ready)](https://waffle.io/yesodweb/yesod)
 ## Yesod Web Framework
 
 An advanced web framework using the Haskell programming language. Featuring:
