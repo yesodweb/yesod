@@ -1,5 +1,5 @@
 name:                yesod-websockets
-version:             0.2.1.1
+version:             0.2.2
 synopsis:            WebSockets support for Yesod
 description:         WebSockets support for Yesod
 homepage:            https://github.com/yesodweb/yesod
@@ -27,6 +27,7 @@ library
                      , monad-control     >= 0.3
                      , conduit           >= 1.0.15.1
                      , async             >= 2.0.1.5
+                     , enclosed-exceptions >= 1.0
 
 source-repository head
   type:     git
