@@ -251,8 +251,7 @@ instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mappend x y = x >> y
 instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
 
--- | Any type with an 'IsString' instance can be trivially
--- promoted to a widget.
+-- | A 'String' can be trivially promoted to a widget.
 --
 -- For example, in a yesod-scaffold site you could use:
 --
