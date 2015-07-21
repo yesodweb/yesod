@@ -250,9 +250,16 @@ instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mempty = return ()
     mappend x y = x >> y
 instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
+
+-- | Any type with an 'IsString' instance can be trivially
+-- promoted to a widget.
+--
+-- For example, in a yesod-scaffold site you could use:
+--
+-- @getHomeR = do defaultLayout "Widget text"@
 instance (Monad m, a ~ ()) => IsString (WidgetT site m a) where
     fromString = toWidget . toHtml . T.pack
-      where toWidget x = WidgetT $ const $ return $ ((), GWData (Body (const x)) 
+      where toWidget x = WidgetT $ const $ return $ ((), GWData (Body (const x))
                          mempty mempty mempty mempty mempty mempty)
 
 type RY master = Route master -> [(Text, Text)] -> Text
