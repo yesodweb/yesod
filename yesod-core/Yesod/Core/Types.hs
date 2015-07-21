@@ -48,7 +48,7 @@ import qualified Network.Wai.Parse                  as NWP
 import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
 import qualified System.Random.MWC                  as MWC
 import           Network.Wai.Logger                 (DateCacheGetter)
-import           Text.Blaze.Html                    (Html)
+import           Text.Blaze.Html                    (Html, toHtml)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
@@ -250,6 +250,10 @@ instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mempty = return ()
     mappend x y = x >> y
 instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
+instance Monad m => IsString (WidgetT site m ()) where
+    fromString = toWidget . toHtml . T.pack
+      where toWidget x = WidgetT $ const $ return $ ((), GWData (Body (const x)) 
+                         mempty mempty mempty mempty mempty mempty)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
