@@ -250,7 +250,7 @@ instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mempty = return ()
     mappend x y = x >> y
 instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
-instance Monad m => IsString (WidgetT site m ()) where
+instance (Monad m, a ~ ()) => IsString (WidgetT site m a) where
     fromString = toWidget . toHtml . T.pack
       where toWidget x = WidgetT $ const $ return $ ((), GWData (Body (const x)) 
                          mempty mempty mempty mempty mempty mempty)
