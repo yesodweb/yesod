@@ -28,7 +28,7 @@ keter :: String -- ^ cabal command
       -> Bool -- ^ no build?
       -> Bool -- ^ no copy to?
       -> IO ()
-keter _cabal noBuild noCopyTo = do
+keter cabal noBuild noCopyTo = do
     ketercfg <- keterConfig
     mvalue <- decodeFile ketercfg
     value <-
@@ -72,11 +72,12 @@ keter _cabal noBuild noCopyTo = do
         collapse' (x:xs) = x : collapse' xs
         collapse' [] = []
 
-    unless noBuild $ do
-        run "stack" ["clean"]
-        -- run cabal ["configure"]
-        createDirectoryIfMissing True "./dist/bin"
-        run "stack" $ words "--local-bin-path ./dist/bin build --copy-bins"
+    unless noBuild $ if elem "stack.yaml" files
+        then do run "stack" ["clean"]
+                createDirectoryIfMissing True "./dist/bin"
+                run "stack"
+                    (words "--local-bin-path ./dist/bin build --copy-bins")
+        else mapM_ (\x -> run cabal [x]) ["clean", "configure", "build"]
 
     _ <- try' $ removeDirectoryRecursive "static/tmp"
 
