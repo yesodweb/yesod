@@ -9,7 +9,7 @@ import           Control.Monad                     (when)
 import           Data.Maybe                        (fromMaybe)
 
 import           Distribution.Compiler             (CompilerFlavor (..))
-import           Distribution.Simple.Configure     (configCompiler)
+import qualified Distribution.Simple.Configure as D
 import           Distribution.Simple.Program       (arProgram,
                                                     defaultProgramConfiguration,
                                                     ghcProgram, ldProgram,
@@ -44,7 +44,11 @@ outFile = "yesod-devel/ghcargs.txt"
 
 runProgram :: Program -> [String] -> IO ExitCode
 runProgram pgm args = do
-  (comp, pgmc) <- configCompiler (Just GHC) Nothing Nothing defaultProgramConfiguration silent
+#if MIN_VERSION_Cabal(1,18,0)
+  (_, comp, pgmc) <- D.configCompilerEx (Just GHC) Nothing Nothing defaultProgramConfiguration silent
+#else
+  (comp, pgmc) <- D.configCompiler (Just GHC) Nothing Nothing defaultProgramConfiguration silent
+#endif
   pgmc' <- configureAllKnownPrograms silent pgmc
   case lookupProgram pgm pgmc' of
     Nothing -> do
