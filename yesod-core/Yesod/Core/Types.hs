@@ -48,7 +48,7 @@ import qualified Network.Wai.Parse                  as NWP
 import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
 import qualified System.Random.MWC                  as MWC
 import           Network.Wai.Logger                 (DateCacheGetter)
-import           Text.Blaze.Html                    (Html)
+import           Text.Blaze.Html                    (Html, toHtml)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
@@ -250,6 +250,16 @@ instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mempty = return ()
     mappend x y = x >> y
 instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
+
+-- | A 'String' can be trivially promoted to a widget.
+--
+-- For example, in a yesod-scaffold site you could use:
+--
+-- @getHomeR = do defaultLayout "Widget text"@
+instance (Monad m, a ~ ()) => IsString (WidgetT site m a) where
+    fromString = toWidget . toHtml . T.pack
+      where toWidget x = WidgetT $ const $ return $ ((), GWData (Body (const x))
+                         mempty mempty mempty mempty mempty mempty)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
