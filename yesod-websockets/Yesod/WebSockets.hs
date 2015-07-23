@@ -7,7 +7,7 @@ module Yesod.WebSockets
     , webSockets
     , receiveData
     , receiveDataE
-    , sendDataMessageE
+    , receiveDataMessageE
     , sendPing
     , sendPingE
     , sendClose
@@ -91,7 +91,7 @@ receiveDataE = ReaderT $ liftIO . tryAny . WS.receiveData
 
 -- | Receive an application message.
 -- Capture SomeException as the result or operation
--- Since 0.2.2
+-- Since 0.2.3
 receiveDataMessageE :: (MonadIO m) => WebSocketsT m (Either SomeException WS.DataMessage)
 receiveDataMessageE = ReaderT $ liftIO . tryAny . WS.receiveDataMessage
 
@@ -135,7 +135,7 @@ sendPingE = wrapWSE WS.sendPing
 
 -- | Send a DataMessage to the client. 
 -- Capture SomeException as the result of operation
--- Since 0.2.2
+-- Since 0.2.3
 sendDataMessageE :: (MonadIO m) => WS.DataMessage -> WebSocketsT m (Either SomeException ())
 sendDataMessageE x = ReaderT $ liftIO . tryAny . (`WS.sendDataMessage` x)
 
