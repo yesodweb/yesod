@@ -34,7 +34,6 @@ import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.Control    (control)
 import           Control.Monad.Trans.Control    (MonadBaseControl (liftBaseWith, restoreM))
 import           Control.Monad.Trans.Reader     (ReaderT (ReaderT, runReaderT))
-import           Data.Either
 import qualified Data.Conduit                   as C
 import qualified Data.Conduit.List              as CL
 import qualified Network.Wai.Handler.WebSockets as WaiWS
