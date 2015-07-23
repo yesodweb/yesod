@@ -15,3 +15,4 @@ packages:
   - ./yesod-websockets
 extra-deps:
   - wai-app-static-3.1.0
+  - nonce-1.0.2
