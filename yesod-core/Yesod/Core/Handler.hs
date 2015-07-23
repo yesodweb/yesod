@@ -28,6 +28,7 @@ module Yesod.Core.Handler
       HandlerT
       -- ** Read information from handler
     , getYesod
+    , getsYesod
     , getUrlRender
     , getUrlRenderParams
     , getCurrentRoute
@@ -290,6 +291,11 @@ askHandlerEnv = liftHandlerT $ HandlerT $ return . handlerEnv
 -- | Get the master site application argument.
 getYesod :: MonadHandler m => m (HandlerSite m)
 getYesod = rheSite `liftM` askHandlerEnv
+
+-- | Get a specific component of the master site application argument. 
+--   Analogous to the 'gets' function for operating on 'StateT'.
+getsYesod :: MonadHandler m => (HandlerSite m -> a) -> m a
+getsYesod f = (f . rheSite) `liftM` askHandlerEnv
 
 -- | Get the URL rendering function.
 getUrlRender :: MonadHandler m => m (Route (HandlerSite m) -> Text)
