@@ -1,3 +1,7 @@
+## 1.4.13
+
+* Enable stack with yesod keter [#1041](https://github.com/yesodweb/yesod/pull/1041)
+
 ## 1.4.12
 
 * Devel server: have to type quit to quit
