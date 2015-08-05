@@ -15,6 +15,7 @@ import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
+import Control.Monad (replicateM)
 
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
@@ -65,6 +66,18 @@ mkYesodGeneral :: String                   -- ^ foundation type
                -> [ResourceTree String]
                -> Q([Dec],[Dec])
 mkYesodGeneral name args isSub resS = do
+    info <- reify $ mkName name
+    let arity =
+          case info of
+            TyConI dec ->
+              case dec of
+                DataD _ _ vs _ _ -> length vs
+                NewtypeD _ _ vs _ _ -> length vs
+                _ -> 0
+            _ -> 0
+    vs <- fmap (fmap VarT) $ replicateM arity $ newName "t"
+    let site = foldl' AppT (foldl' AppT (ConT $ mkName name) vs) (map (VarT . mkName) args)
+        res = map (fmap parseType) resS
     renderRouteDec <- mkRenderRouteInstance site res
     routeAttrsDec  <- mkRouteAttrsInstance site res
     dispatchDec    <- mkDispatchInstance site res
@@ -83,8 +96,6 @@ mkYesodGeneral name args isSub resS = do
             , if isSub then [] else masterTypeSyns site
             ]
     return (dataDec, dispatchDec)
-  where site    = foldl' AppT (ConT $ mkName name) (map (VarT . mkName) args)
-        res     = map (fmap parseType) resS
 
 mkMDS :: Q Exp -> MkDispatchSettings
 mkMDS rh = MkDispatchSettings
