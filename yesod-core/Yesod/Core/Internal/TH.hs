@@ -52,11 +52,11 @@ mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] False
 
 -- | Get the Handler and Widget type synonyms for the given site.
-masterTypeSyns :: Type -> [Dec]
-masterTypeSyns site =
-    [ TySynD (mkName "Handler") []
+masterTypeSyns :: [Name] -> Type -> [Dec]
+masterTypeSyns vs site =
+    [ TySynD (mkName "Handler") (fmap PlainTV vs)
       $ ConT ''HandlerT `AppT` site `AppT` ConT ''IO
-    , TySynD (mkName "Widget")  []
+    , TySynD (mkName "Widget")  (fmap PlainTV vs)
       $ ConT ''WidgetT `AppT` site `AppT` ConT ''IO `AppT` ConT ''()
     ]
 
@@ -75,8 +75,13 @@ mkYesodGeneral name args isSub resS = do
                 NewtypeD _ _ vs _ _ -> length vs
                 _ -> 0
             _ -> 0
-    vs <- fmap (fmap VarT) $ replicateM arity $ newName "t"
-    let site = foldl' AppT (foldl' AppT (ConT $ mkName name) vs) (map (VarT . mkName) args)
+    -- Generate as many variable names as the arity indicates
+    vns <- replicateM arity $ newName "t"
+        -- Variables for type parameters
+    let vs = fmap VarT vns
+        -- Base type (site type with variables)
+        basety = foldl' AppT (ConT $ mkName name) vs
+        site = foldl' AppT basety (map (VarT . mkName) args)
         res = map (fmap parseType) resS
     renderRouteDec <- mkRenderRouteInstance site res
     routeAttrsDec  <- mkRouteAttrsInstance site res
@@ -93,7 +98,7 @@ mkYesodGeneral name args isSub resS = do
             , renderRouteDec
             , [routeAttrsDec]
             , resourcesDec
-            , if isSub then [] else masterTypeSyns site
+            , if isSub then [] else masterTypeSyns vns site
             ]
     return (dataDec, dispatchDec)
 
