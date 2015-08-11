@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE CPP #-}
 module Yesod.Core.Internal.TH where
 
 import Prelude hiding (exp)
@@ -94,7 +95,13 @@ mkYesodGeneral name args isSub resS = do
                    case arg of
                      Left  t  -> ( ConT (mkName t):xs, n:ns, cs )
                      Right ts -> ( VarT n         :xs,   ns
-                                 , fmap (\t -> AppT (ConT $ mkName t) (VarT n)) ts ++ cs )
+                                 , fmap (\t -> 
+#if MIN_VERSION_base(4,8,0)
+                                               AppT (ConT $ mkName t) (VarT n)
+#else
+                                               ClassP (mkName t) [VarT n]
+#endif
+                                          ) ts ++ cs )
                  ) ([],vns,[]) args
         site = foldl' AppT (ConT $ mkName name) argtypes
         res = map (fmap parseType) resS
