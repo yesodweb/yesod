@@ -11,6 +11,7 @@ import System.Process
 import Control.Monad
 import System.Directory hiding (findFiles)
 import Data.Maybe (mapMaybe)
+import Data.Monoid
 import System.FilePath ((</>))
 import qualified Codec.Archive.Tar as Tar
 import Control.Exception
@@ -27,8 +28,9 @@ run a b = do
 keter :: String -- ^ cabal command
       -> Bool -- ^ no build?
       -> Bool -- ^ no copy to?
+      -> [String] -- ^ build args
       -> IO ()
-keter cabal noBuild noCopyTo = do
+keter cabal noBuild noCopyTo buildArgs = do
     ketercfg <- keterConfig
     mvalue <- decodeFile ketercfg
     value <-
@@ -76,8 +78,11 @@ keter cabal noBuild noCopyTo = do
         then do run "stack" ["clean"]
                 createDirectoryIfMissing True "./dist/bin"
                 run "stack"
-                    (words "--local-bin-path ./dist/bin build --copy-bins")
-        else mapM_ (\x -> run cabal [x]) ["clean", "configure", "build"]
+                    ((words "--local-bin-path ./dist/bin build --copy-bins")
+                     <> buildArgs)
+        else do run cabal ["clean"]
+                run cabal ["configure"]
+                run cabal ("build" : buildArgs)
 
     _ <- try' $ removeDirectoryRecursive "static/tmp"
 
