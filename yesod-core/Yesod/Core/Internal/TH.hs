@@ -96,7 +96,7 @@ mkYesodGeneral name args isSub resS = do
                      Left  t  -> ( ConT (mkName t):xs, n:ns, cs )
                      Right ts -> ( VarT n         :xs,   ns
                                  , fmap (\t -> 
-#if MIN_VERSION_base(4,8,0)
+#if MIN_VERSION_template_haskell(2,10,0)
                                                AppT (ConT $ mkName t) (VarT n)
 #else
                                                ClassP (mkName t) [VarT n]
