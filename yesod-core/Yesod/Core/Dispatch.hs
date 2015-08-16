@@ -11,6 +11,7 @@ module Yesod.Core.Dispatch
     , parseRoutesFile
     , parseRoutesFileNoCheck
     , mkYesod
+    , mkYesodWith
       -- ** More fine-grained
     , mkYesodData
     , mkYesodSubData
