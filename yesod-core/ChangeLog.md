@@ -1,3 +1,9 @@
+## 1.4.13
+
+* Add mkYesodGeneral, which allows creating sites with polymorphic type parameters [#1055](https://github.com/yesodweb/yesod/pull/1055)
+* Add getsYesod function [#1042](https://github.com/yesodweb/yesod/pull/1042)
+* Add IsString instance for WidgetT site m () [#1038](https://github.com/yesodweb/yesod/pull/1038)
+
 ## 1.4.12
 
 * Don't show source location for logs that don't have that information [#1027](https://github.com/yesodweb/yesod/pull/1027)
