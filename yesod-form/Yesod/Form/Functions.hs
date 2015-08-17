@@ -228,9 +228,10 @@ postHelper form env = do
                     | not (Map.lookup tokenKey params === reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
+            -- It's important to use constant-time comparison (constEqBytes) in order to avoid timing attacks.
             where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constEqBytes` TE.encodeUtf8 t2
-                  Nothing     === Nothing   = True   -- It's important to use constTimeEq
-                  _           === _         = False  -- in order to avoid timing attacks.
+                  Nothing     === Nothing   = True
+                  _           === _         = False
     return ((res', xml), enctype)
 
 -- | Similar to 'runFormPost', except it always ignores the currently available
