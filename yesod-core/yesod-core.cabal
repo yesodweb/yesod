@@ -69,6 +69,7 @@ library
                    , word8
                    , auto-update
                    , semigroups
+                   , byteable
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content
