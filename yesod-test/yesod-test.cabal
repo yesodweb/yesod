@@ -37,7 +37,7 @@ library
                    , time
                    , blaze-builder
                    , cookie
-                   , yesod-core                >= 1.4
+                   , yesod-core                >= 1.4.14
 
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery

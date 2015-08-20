@@ -2,6 +2,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
+
 import Test.HUnit hiding (Test)
 import Test.Hspec
 
@@ -166,6 +170,26 @@ main = hspec $ do
             statusIs 200
             printBody
             bodyContains "Foo"
+    describe "CSRF with cookies/headers" $ yesodSpec CsrfApp $ do
+        yit "Should receive a CSRF cookie and add its value to the headers" $ do
+            get ("/" :: Text)
+            statusIs 200
+
+            request $ do
+                setMethod "POST"
+                setUrl ("/" :: Text)
+                addTokenFromCookie
+            statusIs 200
+        yit "Should 403 requests if we don't add the CSRF token" $ do
+            get ("/" :: Text)
+            statusIs 200
+
+            request $ do
+                setMethod "POST"
+                setUrl ("/" :: Text)
+            statusIs 403
+
+
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -210,3 +234,26 @@ cookieApp = liteApp $ do
             setMessage "Foo"
             redirect ("/cookie/home" :: Text)
             return ()
+
+data CsrfApp = CsrfApp
+
+mkYesod "CsrfApp" [parseRoutes|
+/ HomeR GET POST
+|]
+
+instance Yesod CsrfApp where
+    yesodMiddleware = defaultYesodMiddleware . defaultCsrfMiddleware
+
+getHomeR :: Handler Html
+getHomeR = defaultLayout
+    [whamlet|
+        <p>
+            Welcome to my test application.
+    |]
+
+postHomeR :: Handler Html
+postHomeR = defaultLayout
+    [whamlet|
+        <p>
+            Welcome to my test application.
+    |]
