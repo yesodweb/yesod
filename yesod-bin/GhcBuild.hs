@@ -88,7 +88,7 @@ getPackageArgs buildDir argv2 = do
         hideAll | gopt DF.Opt_HideAllPackages dflags1 = [ "-hide-all-packages"]
                 | otherwise                           = []
         ownPkg = packageString (DF.thisPackage dflags1)
-    return (extra dflags1 ++ hideAll ++ pkgFlags ++ [ownPkg])
+    return (reverse (extra dflags1) ++ hideAll ++ pkgFlags ++ [ownPkg])
   where
 #if __GLASGOW_HASKELL__ >= 710
     convertPkgFlag (DF.ExposePackage (DF.PackageArg p) _)    = "-package" ++ p
