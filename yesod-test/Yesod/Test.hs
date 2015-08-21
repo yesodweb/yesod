@@ -75,8 +75,6 @@ module Yesod.Test
     -- these functions to add the token to your request.
     , addToken
     , addToken_
-    , addNonce
-    , addNonce_
     , addTokenFromCookie
     , addTokenFromCookieNamedToHeaderNamed
 
@@ -542,7 +540,7 @@ byLabel label value = do
 --
 -- You can set this parameter like so:
 --
--- > request $ do 
+-- > request $ do
 -- >   fileByLabel "Please submit an image" "static/img/picture.png" "img/png"
 --
 -- This function also supports the implicit label syntax, in which
@@ -558,16 +556,6 @@ fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
 fileByLabel label path mime = do
   name <- nameFromLabel label
   addFile name path mime
-
--- | An alias for 'addToken_'.
-addNonce_ :: Query -> RequestBuilder site ()
-addNonce_ = addToken_
-{-# DEPRECATED addNonce_ "Use 'addToken_' instead; 'addNonce_' will be removed in the next major version. Reasoning: Yesod's CSRF tokens are not actually nonces (one-time values), so yesod-form moved to calling them tokens instead. yesod-test is now using the word token as well. See https://github.com/yesodweb/yesod/issues/914 for details." #-}
-
--- | An alias for 'addToken'.
-addNonce :: RequestBuilder site ()
-addNonce = addToken
-{-# DEPRECATED addNonce "Use 'addToken' instead; 'addNonce' will be removed in the next major version. Reasoning: Yesod's CSRF tokens are not actually nonces (one-time values), so yesod-form moved to calling them tokens instead. yesod-test is now using the word token as well. See https://github.com/yesodweb/yesod/issues/914 for details." #-}
 
 -- | Lookups the hidden input named "_token" and adds its value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the token.
