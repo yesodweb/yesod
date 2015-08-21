@@ -1,3 +1,17 @@
+## 1.5
+
+* remove deprecated addNonce functions
+* You can now configure testing middleware
+
+Configuring middleware makes it easy to add logging among other things.
+middleware is applied to the wai app before each test.
+
+If you follow the yesod scaffold, you probably have a
+withApp function in TestImport.hs.
+This function should now return (foundation, middleware).
+`id` is an acceptable value for middleware.
+
+
 ## 1.4.4
 
 test helpers for CRSF middleware such as addTokenFromCookie
