@@ -33,6 +33,9 @@ module Yesod.Test
     , yesodSpecApp
     , YesodExample
     , YesodExampleData(..)
+    , TestApp
+    , YSpec
+    , testApp
     , YesodSpecTree (..)
     , ydescribe
     , yit
@@ -905,15 +908,20 @@ parseSetCookies headers = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-C
 failure :: (MonadIO a) => T.Text -> a b
 failure reason = (liftIO $ HUnit.assertFailure $ T.unpack reason) >> error ""
 
+type TestApp site = (site, Middleware)
+testApp :: site -> Middleware -> TestApp site
+testApp site middleware = (site, middleware)
+type YSpec site = Hspec.SpecWith (TestApp site)
+
 instance YesodDispatch site => Hspec.Example (ST.StateT (YesodExampleData site) IO a) where
-    type Arg (ST.StateT (YesodExampleData site) IO a) = site
+    type Arg (ST.StateT (YesodExampleData site) IO a) = TestApp site
 
     evaluateExample example params action =
         Hspec.evaluateExample
-            (action $ \site -> do
+            (action $ \(site, middleware) -> do
                 app <- toWaiAppPlain site
                 _ <- ST.evalStateT example YesodExampleData
-                    { yedApp = app
+                    { yedApp = middleware app
                     , yedSite = site
                     , yedCookies = M.empty
                     , yedResponse = Nothing
