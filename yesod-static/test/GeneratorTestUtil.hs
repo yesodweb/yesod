@@ -5,7 +5,7 @@ import Control.Applicative
 import Control.Monad (when)
 import Data.List (sortBy)
 import Language.Haskell.TH
-import Test.HUnit
+import Test.HUnit hiding (Location)
 import Yesod.EmbeddedStatic.Types
 import qualified Data.ByteString.Lazy as BL
 
@@ -38,11 +38,11 @@ testOneEntry :: Maybe String -> Location -> IO BL.ByteString -> [Entry] -> ExpQ
 testOneEntry name loc ct [e] = testEntry name loc ct e
 testOneEntry _ _ _ _ = [| GenError "not exactly one entry" |]
 
--- | Tests a list of entries 
+-- | Tests a list of entries
 testEntries :: [(Maybe String, Location, IO BL.ByteString)] -> [Entry] -> ExpQ
 testEntries a b | length a /= length b = [| [GenError "lengths differ"] |]
 testEntries a b = listE $ zipWith f a' b'
-    where 
+    where
         a' = sortBy (\(_,l1,_) (_,l2,_) -> compare l1 l2) a
         b' = sortBy (\e1 e2 -> ebLocation e1 `compare` ebLocation e2) b
         f (name, loc, ct) e = testEntry name loc ct e
