@@ -1,10 +1,13 @@
 ## 1.4.14
 
 * Add CSRF protection functions and middleware based on HTTP cookies and headers [#1017](https://github.com/yesodweb/yesod/pull/1017)
+* Add mkYesodWith, which allows creating sites with polymorphic type parameters [#1055](https://github.com/yesodweb/yesod/pull/1055)
+* Do not define the site type below a call to mkYesod (or any variant), as it will be required at splicing time for reification.
+  This was allowed before because reification was not in use. Reification was introduced to allow parametrized types to be used
+  by mkYesod (and variants), with potentially polymorphic variables.
 
 ## 1.4.13
 
-* Add mkYesodGeneral, which allows creating sites with polymorphic type parameters [#1055](https://github.com/yesodweb/yesod/pull/1055)
 * Add getsYesod function [#1042](https://github.com/yesodweb/yesod/pull/1042)
 * Add IsString instance for WidgetT site m () [#1038](https://github.com/yesodweb/yesod/pull/1038)
 
