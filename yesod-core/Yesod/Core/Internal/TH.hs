@@ -9,7 +9,7 @@ module Yesod.Core.Internal.TH where
 import Prelude hiding (exp)
 import Yesod.Core.Handler
 
-import Language.Haskell.TH
+import Language.Haskell.TH hiding (cxt)
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
@@ -76,17 +76,22 @@ mkYesodGeneral :: String                   -- ^ foundation type
                -> Bool                     -- ^ is this a subsite
                -> [ResourceTree String]
                -> Q([Dec],[Dec])
-mkYesodGeneral name args isSub resS = do
-    info <- reify $ mkName name
-    let arity =
-          case info of
-            TyConI dec ->
-              case dec of
-                DataD _ _ vs _ _ -> length vs
-                NewtypeD _ _ vs _ _ -> length vs
-                _ -> 0
-            _ -> 0
-        (mtys,ptys) = partitionEithers args
+mkYesodGeneral namestr args isSub resS = do
+    mname <- lookupTypeName namestr
+    arity <- case mname of
+               Just name -> do
+                 info <- reify name
+                 return $
+                   case info of
+                     TyConI dec ->
+                       case dec of
+                         DataD _ _ vs _ _ -> length vs
+                         NewtypeD _ _ vs _ _ -> length vs
+                         _ -> 0
+                     _ -> 0
+               _ -> return 0
+    let name = mkName namestr
+        (mtys,_) = partitionEithers args
     -- Generate as many variable names as the arity indicates
     vns <- replicateM (arity - length mtys) $ newName "t"
         -- Base type (site type with variables)
@@ -103,13 +108,13 @@ mkYesodGeneral name args isSub resS = do
 #endif
                                           ) ts ++ cs )
                  ) ([],vns,[]) args
-        site = foldl' AppT (ConT $ mkName name) argtypes
+        site = foldl' AppT (ConT name) argtypes
         res = map (fmap parseType) resS
     renderRouteDec <- mkRenderRouteInstance site res
     routeAttrsDec  <- mkRouteAttrsInstance site res
     dispatchDec    <- mkDispatchInstance site cxt res
     parse <- mkParseRouteInstance site res
-    let rname = mkName $ "resources" ++ name
+    let rname = mkName $ "resources" ++ namestr
     eres <- lift resS
     let resourcesDec =
             [ SigD rname $ ListT `AppT` (ConT ''ResourceTree `AppT` ConT ''String)
