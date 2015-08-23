@@ -18,12 +18,13 @@ import Text.XML
 import Data.Text (Text, pack)
 import Data.Monoid ((<>))
 import Control.Applicative
-import Network.Wai (pathInfo)
+import Network.Wai (pathInfo, requestHeaders)
 import Data.Maybe (fromMaybe)
 
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
+import Network.HTTP.Types.Status (unsupportedMediaType415)
 
 parseQuery_ = either error id . parseQuery
 findBySelector_ x = either error id . findBySelector x
@@ -160,6 +161,30 @@ main = hspec $ do
                     setMethod "POST"
                     setUrl ("/labels" :: Text)
                     byLabel "Foo Bar" "yes"
+        ydescribe "Content-Type handling" $ do
+            yit "can set a content-type" $ do
+                request $ do
+                    setUrl ("/checkContentType" :: Text)
+                    addRequestHeader ("Expected-Content-Type","text/plain")
+                    addRequestHeader ("Content-Type","text/plain")
+                statusIs 200
+            yit "adds the form-urlencoded Content-Type if you add parameters" $ do
+                request $ do
+                    setUrl ("/checkContentType" :: Text)
+                    addRequestHeader ("Expected-Content-Type","application/x-www-form-urlencoded")
+                    addPostParam "foo" "foobarbaz"
+                statusIs 200
+            yit "defaults to no Content-Type" $ do
+                get ("/checkContentType" :: Text)
+                statusIs 200
+            yit "returns a 415 for the wrong Content-Type" $ do
+                -- Tests that the test handler is functioning
+                request $ do
+                    setUrl ("/checkContentType" :: Text)
+                    addRequestHeader ("Expected-Content-Type","application/x-www-form-urlencoded")
+                    addRequestHeader ("Content-Type","text/plain")
+                statusIs 415
+
     describe "cookies" $ yesodSpec cookieApp $ do
         yit "should send the cookie #730" $ do
             get ("/" :: Text)
@@ -225,6 +250,15 @@ app = liteApp $ do
     onStatic "labels" $ dispatchTo $
         return ("<html><label><input type='checkbox' name='fooname' id='foobar'>Foo Bar</label></html>" :: Text)
 
+    onStatic "checkContentType" $ dispatchTo $ do
+        headers <- requestHeaders <$> waiRequest
+
+        let actual   = lookup "Content-Type" headers
+            expected = lookup "Expected-Content-Type" headers
+
+        if actual == expected
+            then return ()
+            else sendResponseStatus unsupportedMediaType415 ()
 
 cookieApp :: LiteApp
 cookieApp = liteApp $ do
