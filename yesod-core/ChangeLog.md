@@ -1,3 +1,7 @@
+## 1.4.15
+
+* mkYesod avoids using reify when it isn't necessary. This avoids needing to define the site type below the call to mkYesod.
+
 ## 1.4.14
 
 * Add CSRF protection functions and middleware based on HTTP cookies and headers [#1017](https://github.com/yesodweb/yesod/pull/1017)
