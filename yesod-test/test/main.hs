@@ -160,6 +160,13 @@ main = hspec $ do
                     setMethod "POST"
                     setUrl ("/labels" :: Text)
                     byLabel "Foo Bar" "yes"
+
+        ydescribe "tokens" $ do
+            yit "can find a CSRF token field" $ do
+                get ("/tokens" :: Text)
+                request $ do
+                    addNonce_ "#formId"
+
     describe "cookies" $ yesodSpec cookieApp $ do
         yit "should send the cookie #730" $ do
             get ("/" :: Text)
@@ -224,6 +231,8 @@ app = liteApp $ do
 
     onStatic "labels" $ dispatchTo $
         return ("<html><label><input type='checkbox' name='fooname' id='foobar'>Foo Bar</label></html>" :: Text)
+    onStatic "tokens" $ dispatchTo $
+        return ("<html><form id='formId'><input name='_token' type='hidden' value='bar'></form></html>" :: Text)
 
 
 cookieApp :: LiteApp
