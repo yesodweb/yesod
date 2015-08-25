@@ -1,3 +1,9 @@
+## 1.5.0.1
+
+* Fixed the `application/x-www-form-urlencoded` header being added to all requests, even those sending a binary POST body [#1064](https://github.com/yesodweb/yesod/pull/1064/files)
+	* The `application/x-www-form-urlencoded` Content-Type header is now only added if key-value POST parameters are added
+	* If no key-values pairs are added, or the request body is set with `setRequestBody`, no default Content-Type header is set
+
 ## 1.5
 
 * remove deprecated addNonce functions

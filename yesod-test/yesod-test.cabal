@@ -60,6 +60,7 @@ test-suite test
                           , yesod-form
                           , text
                           , wai
+                          , http-types
 
 source-repository head
   type: git

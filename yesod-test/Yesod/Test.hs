@@ -876,8 +876,7 @@ request reqBuilder = do
       SRequest simpleRequest' (simpleRequestBody' rbdPostData)
       where
         simpleRequest' = (mkRequest
-                          [ ("Cookie", cookieValue)
-                          , ("Content-Type", "application/x-www-form-urlencoded")]
+                          ([ ("Cookie", cookieValue) ] ++ headersForPostData rbdPostData)
                           method extraHeaders urlPath urlQuery)
         simpleRequestBody' (MultipleItemsPostData x) =
           BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&"
@@ -888,6 +887,13 @@ request reqBuilder = do
                       | c <- map snd $ M.toList cookies ]
         singlepartPart (ReqFilePart _ _ _ _) = ""
         singlepartPart (ReqKvPart k v) = T.concat [k,"=",v]
+
+        -- If the request appears to be submitting a form (has key-value pairs) give it the form-urlencoded Content-Type.
+        -- The previous behavior was to always use the form-urlencoded Content-Type https://github.com/yesodweb/yesod/issues/1063
+        headersForPostData (MultipleItemsPostData []) = []
+        headersForPostData (MultipleItemsPostData _ ) = [("Content-Type", "application/x-www-form-urlencoded")]
+        headersForPostData (BinaryPostData _ ) = []
+
 
     -- General request making
     mkRequest headers method extraHeaders urlPath urlQuery = defaultRequest
