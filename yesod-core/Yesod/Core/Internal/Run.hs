@@ -7,9 +7,12 @@
 {-# LANGUAGE FlexibleContexts  #-}
 module Yesod.Core.Internal.Run where
 
+
+#if __GLASGOW_HASKELL__ < 710
+import           Data.Monoid                  (mempty)
+#endif
 import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
-import           Control.Applicative          ((<$>))
 import           Control.Exception            (fromException, evaluate)
 import qualified Control.Exception            as E
 import           Control.Exception.Lifted     (catch)
@@ -25,7 +28,7 @@ import qualified Data.IORef                   as I
 import qualified Data.Map                     as Map
 import           Data.Maybe                   (isJust)
 import           Data.Maybe                   (fromMaybe)
-import           Data.Monoid                  (appEndo, mempty)
+import           Data.Monoid                  (appEndo)
 import           Data.Text                    (Text)
 import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8)
@@ -40,7 +43,6 @@ import           Network.Wai.Internal
 import           Prelude                      hiding (catch)
 #endif
 import           System.Log.FastLogger        (LogStr, toLogStr)
-import           System.Random                (newStdGen)
 import           Yesod.Core.Content
 import           Yesod.Core.Class.Yesod
 import           Yesod.Core.Types
@@ -48,9 +50,9 @@ import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
 import           Yesod.Core.Internal.Util     (formatRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
-import Control.DeepSeq (($!!), NFData)
-import Control.Monad (liftM)
-import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
+import           Control.DeepSeq              (($!!))
+import           Control.Monad                (liftM)
+import           Control.AutoUpdate           (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 
 returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
 #if MIN_VERSION_bytestring(0, 10, 0)
@@ -263,7 +265,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
     let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) mmaxLen
     let yreq =
             case mkYesodReq of
-                Left yreq -> yreq
+                Left yreq' -> yreq'
                 Right needGen -> needGen yreGen
     let ra = resolveApproot yreSite req
     let log' = messageLoggerSource yreSite yreLogger

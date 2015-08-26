@@ -178,7 +178,12 @@ import           Data.Time                     (UTCTime, addUTCTime,
 import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
-import           Control.Applicative           ((<$>), (<|>))
+
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative           ((<$>))
+import           Data.Monoid                   (mempty, mappend)
+#endif
+import           Control.Applicative           ((<|>))
 import           Control.Exception             (evaluate, SomeException)
 import           Control.Exception.Lifted      (handle)
 
@@ -208,7 +213,7 @@ import           Data.Byteable                 (constEqBytes)
 
 import           Control.Arrow                 ((***))
 import qualified Data.ByteString.Char8         as S8
-import           Data.Monoid                   (Endo (..), mappend, mempty)
+import           Data.Monoid                   (Endo (..))
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))

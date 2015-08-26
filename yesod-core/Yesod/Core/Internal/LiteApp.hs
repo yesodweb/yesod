@@ -1,9 +1,10 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE TypeFamilies, PatternGuards, CPP #-}
 module Yesod.Core.Internal.LiteApp where
 
-import Yesod.Routes.Class
+#if __GLASGOW_HASKELL__ < 710
 import Data.Monoid
+#endif
+import Yesod.Routes.Class
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Types
