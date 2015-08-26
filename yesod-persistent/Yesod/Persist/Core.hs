@@ -81,7 +81,7 @@ newtype DBRunner site = DBRunner
 --
 -- Since 1.2.0
 defaultGetDBRunner :: YesodPersistBackend site ~ SQL.SqlBackend
-                   => (site -> Pool SQL.Connection)
+                   => (site -> Pool SQL.SqlBackend)
                    -> HandlerT site IO (DBRunner site, HandlerT site IO ())
 defaultGetDBRunner getPool = do
     pool <- fmap getPool getYesod
