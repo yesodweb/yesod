@@ -56,8 +56,9 @@ import qualified Data.Text as T
 import Control.Monad (liftM)
 
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
+#if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (mempty)
-
+#endif
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Source, Flush (Chunk), ResumableSource, mapOutput)

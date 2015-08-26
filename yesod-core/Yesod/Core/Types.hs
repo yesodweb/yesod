@@ -10,8 +10,11 @@ module Yesod.Core.Types where
 
 import qualified Blaze.ByteString.Builder           as BBuilder
 import qualified Blaze.ByteString.Builder.Char.Utf8
+#if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative                (Applicative (..))
 import           Control.Applicative                ((<$>))
+import           Data.Monoid                        (Monoid (..))
+#endif
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (liftM, ap)
@@ -29,8 +32,7 @@ import           Data.Conduit                       (Flush, Source)
 import           Data.IORef                         (IORef)
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
-import           Data.Monoid                        (Endo (..), Last (..),
-                                                     Monoid (..))
+import           Data.Monoid                        (Endo (..), Last (..))
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
 import           Data.String                        (IsString (fromString))
