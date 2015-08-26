@@ -20,7 +20,11 @@ module Yesod.Default.Config2
     , requireCustomEnv
     ) where
 
+
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>))
 import Data.Monoid
+#endif
 import Data.Semigroup
 import Data.List.NonEmpty (nonEmpty)
 import Data.Aeson
@@ -28,7 +32,6 @@ import qualified Data.HashMap.Strict as H
 import Data.Text (Text, pack)
 import System.Environment (getEnvironment, getArgs)
 import Control.Arrow ((***))
-import Control.Applicative ((<$>))
 import Control.Monad (forM)
 import Control.Exception (throwIO)
 import Data.Text.Encoding (encodeUtf8)
