@@ -5,6 +5,7 @@ module Yesod.WebSockets
     ( -- * Core API
       WebSocketsT
     , webSockets
+    , webSocketsWith
     , receiveData
     , receiveDataE
     , receiveDataMessageE
@@ -55,19 +56,40 @@ type WebSocketsT = ReaderT WS.Connection
 --
 -- Since 0.1.0
 webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () -> m ()
-webSockets inner = do
+webSockets = webSocketsWith $ const $ return $ Just $ WS.AcceptRequest Nothing
+
+-- | Varient of 'webSockets' which allows you to specify the 'WS.AcceptRequest'
+-- setttings when upgrading to a websocket connection.
+--
+-- Since 0.2.4
+webSocketsWith :: (Y.MonadBaseControl IO m, Y.MonadHandler m)
+               => (WS.RequestHead -> m (Maybe WS.AcceptRequest))
+               -- ^ A Nothing indicates that the websocket upgrade request should not happen
+               -- and instead the rest of the handler will be called instead.  This allows
+               -- you to use 'WS.getRequestSubprotocols' and only accept the request if
+               -- a compatible subprotocol is given.  Also, the action runs before upgrading
+               -- the request to websockets, so you can also use short-circuiting handler
+               -- actions such as 'Y.invalidArgs'.
+               -> WebSocketsT m ()
+               -> m ()
+webSocketsWith buildAr inner = do
     req <- Y.waiRequest
-    when (WaiWS.isWebSocketsReq req) $
-        Y.sendRawResponseNoConduit
-          $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
-            WS.defaultConnectionOptions
-            (WaiWS.getRequestHead req)
-            (\pconn -> do
-                conn <- WS.acceptRequest pconn
-                WS.forkPingThread conn 30
-                runInIO $ runReaderT inner conn)
-            src
-            sink
+    when (WaiWS.isWebSocketsReq req) $ do
+        let rhead = WaiWS.getRequestHead req
+        mar <- buildAr rhead
+        case mar of
+            Nothing -> return ()
+            Just ar -> do
+                Y.sendRawResponseNoConduit
+                  $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
+                    WS.defaultConnectionOptions
+                    rhead
+                    (\pconn -> do
+                        conn <- WS.acceptRequestWith pconn ar
+                        WS.forkPingThread conn 30
+                        runInIO $ runReaderT inner conn)
+                    src
+                    sink
 
 -- | Wrapper for capturing exceptions
 wrapWSE :: (MonadIO m, WS.WebSocketsData a) => (WS.Connection -> a -> IO ())-> a -> WebSocketsT m (Either SomeException ())
