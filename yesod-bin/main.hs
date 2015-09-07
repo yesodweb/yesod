@@ -102,7 +102,9 @@ main = do
          ] optParser'
   let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
-    Init{..}        -> scaffold _initBare _initName _initDatabase
+    Init{..}        -> do
+                     putStrLn "NOTE: This command has been deprecated in favor of 'stack new'"
+                     scaffold _initBare _initName _initDatabase
     HsFiles         -> mkHsFile
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
