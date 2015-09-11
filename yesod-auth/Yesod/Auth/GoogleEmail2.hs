@@ -152,7 +152,7 @@ authPlugin storeToken clientID clientSecret =
         csrf <- getCreateCsrfToken
         render <- getUrlRender
         let qs = map (second Just)
-                [ ("scope", "email")
+                [ ("scope", "email profile")
                 , ("state", csrf)
                 , ("redirect_uri", render $ tm complete)
                 , ("response_type", "code")
