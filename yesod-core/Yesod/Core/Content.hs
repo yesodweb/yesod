@@ -56,8 +56,9 @@ import qualified Data.Text as T
 import Control.Monad (liftM)
 
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
+#if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (mempty)
-
+#endif
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Source, Flush (Chunk), ResumableSource, mapOutput)
@@ -76,6 +77,7 @@ import Data.Text.Lazy.Builder (toLazyText)
 import Yesod.Core.Types
 import Text.Lucius (Css, renderCss)
 import Text.Julius (Javascript, unJavascript)
+import Data.Word8 (_semicolon, _slash)
 
 -- | Zero-length enumerator.
 emptyContent :: Content
@@ -224,18 +226,15 @@ typeOctet = "application/octet-stream"
 -- For example, \"text/html; charset=utf-8\" is commonly used to specify the
 -- character encoding for HTML data. This function would return \"text/html\".
 simpleContentType :: ContentType -> ContentType
-simpleContentType = fst . B.breakByte 59 -- 59 == ;
+simpleContentType = fst . B.break (== _semicolon)
 
 -- Give just the media types as a pair.
 -- For example, \"text/html; charset=utf-8\" returns ("text", "html")
 contentTypeTypes :: ContentType -> (B.ByteString, B.ByteString)
-contentTypeTypes ct = (main, fst $ B.breakByte semicolon (tailEmpty sub))
+contentTypeTypes ct = (main, fst $ B.break (== _semicolon) (tailEmpty sub))
   where
     tailEmpty x = if B.null x then "" else B.tail x
-    (main, sub) = B.breakByte slash ct
-    slash = 47
-    semicolon = 59
-
+    (main, sub) = B.break (== _slash) ct
 
 instance HasContentType a => HasContentType (DontFullyEvaluate a) where
     getContentType = getContentType . liftM unDontFullyEvaluate

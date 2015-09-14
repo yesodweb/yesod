@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, CPP #-}
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
       mkRenderRouteInstance
@@ -14,7 +14,9 @@ import Control.Monad (replicateM)
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
+#if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (mconcat)
+#endif
 
 -- | Generate the constructors of a route data type.
 mkRouteCons :: [ResourceTree Type] -> ([Con], [Dec])

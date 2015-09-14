@@ -1,5 +1,5 @@
 name:            yesod-core
-version:         1.4.11
+version:         1.4.15
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -47,7 +47,7 @@ library
                    , case-insensitive      >= 0.2
                    , parsec                >= 2        && < 3.2
                    , directory             >= 1
-                   , vector                >= 0.9      && < 0.11
+                   , vector                >= 0.9      && < 0.12
                    , aeson                 >= 0.5
                    , fast-logger           >= 2.2
                    , wai-logger            >= 0.2
@@ -69,6 +69,7 @@ library
                    , word8
                    , auto-update
                    , semigroups
+                   , byteable
 
     exposed-modules: Yesod.Core
                      Yesod.Core.Content

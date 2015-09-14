@@ -169,7 +169,7 @@ jasmine ct = return $ either (const ct) id $ minifym ct
 -- to both mangle and compress and the option \"-\" to cause uglifyjs to read from
 -- standard input.
 uglifyJs :: BL.ByteString -> IO BL.ByteString
-uglifyJs = compressTool "uglifyjs" ["-m", "-c", "-"]
+uglifyJs = compressTool "uglifyjs" ["-", "-m", "-c"]
 
 -- | Use <http://yui.github.io/yuicompressor/ YUI Compressor> to compress javascript.
 -- Assumes a script @yuicompressor@ is located in the path.  If not, you can still

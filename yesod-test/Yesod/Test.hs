@@ -33,6 +33,9 @@ module Yesod.Test
     , yesodSpecApp
     , YesodExample
     , YesodExampleData(..)
+    , TestApp
+    , YSpec
+    , testApp
     , YesodSpecTree (..)
     , ydescribe
     , yit
@@ -75,8 +78,8 @@ module Yesod.Test
     -- these functions to add the token to your request.
     , addToken
     , addToken_
-    , addNonce
-    , addNonce_
+    , addTokenFromCookie
+    , addTokenFromCookieNamedToHeaderNamed
 
     -- * Assertions
     , assertEqual
@@ -93,6 +96,7 @@ module Yesod.Test
     -- * Grab information
     , getTestYesod
     , getResponse
+    , getRequestCookies
 
     -- * Debug output
     , printBody
@@ -133,6 +137,7 @@ import qualified Data.Map as M
 import qualified Web.Cookie as Cookie
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
+import Control.Applicative ((<$>))
 
 -- | The state used in a single test case defined using 'yit'
 --
@@ -538,7 +543,7 @@ byLabel label value = do
 --
 -- You can set this parameter like so:
 --
--- > request $ do 
+-- > request $ do
 -- >   fileByLabel "Please submit an image" "static/img/picture.png" "img/png"
 --
 -- This function also supports the implicit label syntax, in which
@@ -554,16 +559,6 @@ fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
 fileByLabel label path mime = do
   name <- nameFromLabel label
   addFile name path mime
-
--- | An alias for 'addToken_'.
-addNonce_ :: Query -> RequestBuilder site ()
-addNonce_ = addToken_
-{-# DEPRECATED addNonce_ "Use 'addToken_' instead; 'addNonce_' will be removed in the next major version. Reasoning: Yesod's CSRF tokens are not actually nonces (one-time values), so yesod-form moved to calling them tokens instead. yesod-test is now using the word token as well. See https://github.com/yesodweb/yesod/issues/914 for details." #-}
-
--- | An alias for 'addToken'.
-addNonce :: RequestBuilder site ()
-addNonce = addToken
-{-# DEPRECATED addNonce "Use 'addToken' instead; 'addNonce' will be removed in the next major version. Reasoning: Yesod's CSRF tokens are not actually nonces (one-time values), so yesod-form moved to calling them tokens instead. yesod-test is now using the word token as well. See https://github.com/yesodweb/yesod/issues/914 for details." #-}
 
 -- | Lookups the hidden input named "_token" and adds its value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the token.
@@ -588,6 +583,65 @@ addToken_ scope = do
 -- >   addToken
 addToken :: RequestBuilder site ()
 addToken = addToken_ ""
+
+-- | Calls 'addTokenFromCookieNamedToHeaderNamed' with the 'defaultCsrfCookieName' and 'defaultCsrfHeaderName'.
+--
+-- Use this function if you're using the CSRF middleware from "Yesod.Core" and haven't customized the cookie or header name.
+--
+-- ==== __Examples__
+--
+-- > request $ do
+-- >   addTokenFromCookie
+--
+-- Since 1.4.3.2
+addTokenFromCookie :: RequestBuilder site ()
+addTokenFromCookie = addTokenFromCookieNamedToHeaderNamed defaultCsrfCookieName defaultCsrfHeaderName
+
+-- | Looks up the CSRF token stored in the cookie with the given name and adds it to the request headers. An error is thrown if the cookie can't be found.
+--
+-- Use this function if you're using the CSRF middleware from "Yesod.Core" and have customized the cookie or header name.
+--
+-- See "Yesod.Core.Handler" for details on this approach to CSRF protection.
+--
+-- ==== __Examples__
+--
+-- > import Data.CaseInsensitive (CI)
+-- > request $ do
+-- >   addTokenFromCookieNamedToHeaderNamed "cookieName" (CI "headerName")
+--
+-- Since 1.4.3.2
+addTokenFromCookieNamedToHeaderNamed :: ByteString -- ^ The name of the cookie
+                                     -> CI ByteString -- ^ The name of the header
+                                     -> RequestBuilder site ()
+addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
+  cookies <- getRequestCookies
+  case M.lookup cookieName cookies of
+        Just csrfCookie -> addRequestHeader (headerName, Cookie.setCookieValue csrfCookie)
+        Nothing -> failure $ T.concat
+          [ "addTokenFromCookieNamedToHeaderNamed failed to lookup CSRF cookie with name: "
+          , T.pack $ show cookieName
+          , ". Cookies were: "
+          , T.pack $ show cookies
+          ]
+
+-- | Returns the 'Cookies' from the most recent request. If a request hasn't been made, an error is raised.
+--
+-- ==== __Examples__
+--
+-- > request $ do
+-- >   cookies <- getRequestCookies
+-- >   liftIO $ putStrLn $ "Cookies are: " ++ show cookies
+--
+-- Since 1.4.3.2
+getRequestCookies :: RequestBuilder site Cookies
+getRequestCookies = do
+  requestBuilderData <- ST.get
+  headers <- case simpleHeaders <$> rbdResponse requestBuilderData of
+                  Just h -> return h
+                  Nothing -> failure "getRequestCookies: No request has been made yet; the cookies can't be looked up."
+
+  return $ M.fromList $ map (\c -> (Cookie.setCookieName c, c)) (parseSetCookies headers)
+
 
 -- | Perform a POST request to @url@.
 --
@@ -759,7 +813,7 @@ request reqBuilder = do
             { httpVersion = H.http11
             }
         }) app
-    let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
+    let newCookies = parseSetCookies $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
     ST.put $ YesodExampleData app site cookies' (Just response)
   where
@@ -822,8 +876,7 @@ request reqBuilder = do
       SRequest simpleRequest' (simpleRequestBody' rbdPostData)
       where
         simpleRequest' = (mkRequest
-                          [ ("Cookie", cookieValue)
-                          , ("Content-Type", "application/x-www-form-urlencoded")]
+                          ([ ("Cookie", cookieValue) ] ++ headersForPostData rbdPostData)
                           method extraHeaders urlPath urlQuery)
         simpleRequestBody' (MultipleItemsPostData x) =
           BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&"
@@ -834,6 +887,13 @@ request reqBuilder = do
                       | c <- map snd $ M.toList cookies ]
         singlepartPart (ReqFilePart _ _ _ _) = ""
         singlepartPart (ReqKvPart k v) = T.concat [k,"=",v]
+
+        -- If the request appears to be submitting a form (has key-value pairs) give it the form-urlencoded Content-Type.
+        -- The previous behavior was to always use the form-urlencoded Content-Type https://github.com/yesodweb/yesod/issues/1063
+        headersForPostData (MultipleItemsPostData []) = []
+        headersForPostData (MultipleItemsPostData _ ) = [("Content-Type", "application/x-www-form-urlencoded")]
+        headersForPostData (BinaryPostData _ ) = []
+
 
     -- General request making
     mkRequest headers method extraHeaders urlPath urlQuery = defaultRequest
@@ -846,19 +906,28 @@ request reqBuilder = do
       , queryString = urlQuery
       }
 
+
+parseSetCookies :: [H.Header] -> [Cookie.SetCookie]
+parseSetCookies headers = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ headers
+
 -- Yes, just a shortcut
 failure :: (MonadIO a) => T.Text -> a b
 failure reason = (liftIO $ HUnit.assertFailure $ T.unpack reason) >> error ""
 
+type TestApp site = (site, Middleware)
+testApp :: site -> Middleware -> TestApp site
+testApp site middleware = (site, middleware)
+type YSpec site = Hspec.SpecWith (TestApp site)
+
 instance YesodDispatch site => Hspec.Example (ST.StateT (YesodExampleData site) IO a) where
-    type Arg (ST.StateT (YesodExampleData site) IO a) = site
+    type Arg (ST.StateT (YesodExampleData site) IO a) = TestApp site
 
     evaluateExample example params action =
         Hspec.evaluateExample
-            (action $ \site -> do
+            (action $ \(site, middleware) -> do
                 app <- toWaiAppPlain site
                 _ <- ST.evalStateT example YesodExampleData
-                    { yedApp = app
+                    { yedApp = middleware app
                     , yedSite = site
                     , yedCookies = M.empty
                     , yedResponse = Nothing

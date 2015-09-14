@@ -24,13 +24,13 @@ import Data.Streaming.Network (bindPortTCP)
 import Network.HTTP.Types (status200)
 import Blaze.ByteString.Builder (fromByteString)
 
-data App = App
-
 mkYesod "App" [parseRoutes|
 / HomeR GET
 /wai-stream WaiStreamR GET
 /wai-app-stream WaiAppStreamR GET
 |]
+
+data App = App
 
 instance Yesod App
 

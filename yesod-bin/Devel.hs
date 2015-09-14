@@ -88,14 +88,14 @@ lockFile :: FilePath
 lockFile =  "yesod-devel/devel-terminate"
 
 writeLock :: DevelOpts -> IO ()
-writeLock opts = do
+writeLock _opts = do
     createDirectoryIfMissing True "yesod-devel"
     writeFile lockFile ""
     createDirectoryIfMissing True "dist" -- for compatibility with old devel.hs
     writeFile "dist/devel-terminate" ""
 
 removeLock :: DevelOpts -> IO ()
-removeLock opts = do
+removeLock _opts = do
     removeFileIfExists lockFile
     removeFileIfExists "dist/devel-terminate"  -- for compatibility with old devel.hs
 
@@ -138,6 +138,8 @@ defaultDevelOpts = DevelOpts
     , proxyTimeout = 10
     , useReverseProxy = True
     , terminateWith = TerminateOnEnter
+    , develConfigOpts = []
+    , develEnv = Nothing
     }
 
 cabalProgram :: DevelOpts -> FilePath
@@ -197,7 +199,7 @@ reverseProxy opts iappPort = do
     putStrLn ""
     loop (race_ httpProxy httpsProxy) `Ex.catch` \e -> do
         print (e :: Ex.SomeException)
-        exitFailure
+        _ <- exitFailure
         Ex.throwIO e -- heh, just for good measure
   where
     loop proxies = forever $ do
@@ -238,9 +240,17 @@ devel opts passThroughArgs = withSocketsDo $ withManager $ \manager -> do
 
     let (terminator, after) = case terminateWith opts of
           TerminateOnEnter ->
-              ("Press ENTER", void getLine)
+              ("Type 'quit'", blockQuit)
           TerminateOnlyInterrupt ->  -- run for one year
               ("Interrupt", threadDelay $ 1000 * 1000 * 60 * 60 * 24 * 365)
+
+        blockQuit = do
+            s <- getLine
+            if s == "quit"
+                then return ()
+                else do
+                    putStrLn "Type 'quit' to quit"
+                    blockQuit
 
 
     putStrLn $ "Yesod devel server. "  ++ terminator ++ " to quit"
@@ -516,7 +526,7 @@ lookupLdAr = do
 
 lookupLdAr' :: IO (Maybe (FilePath, FilePath))
 lookupLdAr' = do
-#if MIN_VERSION_Cabal(1,22,0)
+#if MIN_VERSION_Cabal(1,18,0)
   (_, _, pgmc) <- D.configCompilerEx (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent
 #else
   (_, pgmc) <- D.configCompiler (Just D.GHC) Nothing Nothing D.defaultProgramConfiguration D.silent

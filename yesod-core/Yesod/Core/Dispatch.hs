@@ -11,6 +11,7 @@ module Yesod.Core.Dispatch
     , parseRoutesFile
     , parseRoutesFileNoCheck
     , mkYesod
+    , mkYesodWith
       -- ** More fine-grained
     , mkYesodData
     , mkYesodSubData
@@ -44,7 +45,9 @@ import qualified Network.Wai as W
 import Data.ByteString.Lazy.Char8 ()
 
 import Data.Text (Text)
+#if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (mappend)
+#endif
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
 import qualified Blaze.ByteString.Builder

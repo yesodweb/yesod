@@ -32,13 +32,17 @@ config/client_session_key.aes
 *.hi
 *.o
 *.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 .hsenv*
 cabal-dev/
+.stack-work/
 yesod-devel/
 .cabal-sandbox
 cabal.sandbox.config
 .DS_Store
 *.swp
+*.keter
 
 {-# START_FILE Application.hs #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -82,7 +86,7 @@ import Handler.Home
 mkYesodDispatch "App" resourcesApp
 
 -- | This function allocates resources (such as a database connection pool),
--- performs initialization and return a foundation datatype value. This is also
+-- performs initialization and returns a foundation datatype value. This is also
 -- the place to put your migrate statements to have automatic database
 -- migrations handled by Yesod.
 makeFoundation :: AppSettings -> IO App
@@ -119,7 +123,7 @@ makeFoundation appSettings = do
     return $ mkFoundation pool
 
 -- | Convert our foundation to a WAI Application by calling @toWaiAppPlain@ and
--- applyng some additional middlewares.
+-- applying some additional middlewares.
 makeApplication :: App -> IO Application
 makeApplication foundation = do
     logWare <- mkRequestLogger def
@@ -510,6 +514,7 @@ library
                 GADTs
                 GeneralizedNewtypeDeriving
                 FlexibleContexts
+                FlexibleInstances
                 EmptyDataDecls
                 NoMonomorphismRestriction
                 DeriveDataTypeable
@@ -521,16 +526,16 @@ library
                  , yesod                         >= 1.4.1      && < 1.5
                  , yesod-core                    >= 1.4.6      && < 1.5
                  , yesod-auth                    >= 1.4.0      && < 1.5
-                 , yesod-static                  >= 1.4.0.3    && < 1.5
+                 , yesod-static                  >= 1.4.0.3    && < 1.6
                  , yesod-form                    >= 1.4.0      && < 1.5
                  , classy-prelude                >= 0.10.2
                  , classy-prelude-conduit        >= 0.10.2
                  , classy-prelude-yesod          >= 0.10.2
                  , bytestring                    >= 0.9        && < 0.11
                  , text                          >= 0.11       && < 2.0
-                 , persistent                    >= 2.0        && < 2.2
-                 , persistent-sqlite             >= 2.1.1      && < 2.2
-                 , persistent-template           >= 2.0        && < 2.2
+                 , persistent                    >= 2.0        && < 2.3
+                 , persistent-sqlite             >= 2.1.1      && < 2.3
+                 , persistent-template           >= 2.0        && < 2.3
                  , template-haskell
                  , shakespeare                   >= 2.0        && < 2.1
                  , hjsmin                        >= 0.1        && < 0.2
@@ -539,12 +544,12 @@ library
                  , yaml                          >= 0.8        && < 0.9
                  , http-conduit                  >= 2.1        && < 2.2
                  , directory                     >= 1.1        && < 1.3
-                 , warp                          >= 3.0        && < 3.1
+                 , warp                          >= 3.0        && < 3.2
                  , data-default
-                 , aeson                         >= 0.6        && < 0.9
+                 , aeson                         >= 0.6        && < 0.10
                  , conduit                       >= 1.0        && < 2.0
                  , monad-logger                  >= 0.3        && < 0.4
-                 , fast-logger                   >= 2.2        && < 2.4
+                 , fast-logger                   >= 2.2        && < 2.5
                  , wai-logger                    >= 2.2        && < 2.3
                  , file-embed
                  , safe
@@ -579,6 +584,7 @@ test-suite test
                 GADTs
                 GeneralizedNewtypeDeriving
                 FlexibleContexts
+                FlexibleInstances
                 EmptyDataDecls
                 NoMonomorphismRestriction
                 DeriveDataTypeable
@@ -952,7 +958,7 @@ stanzas:
 
 # Use the following to automatically copy your bundle upon creation via `yesod
 # keter`. Uses `scp` internally, so you can set it to a remote destination
-# copy-to: user@host:/opt/keter/incoming
+# copy-to: user@host:/opt/keter/incoming/
 
 # You can pass arguments to `scp` used above. This example limits bandwidth to
 # 1024 Kbit/s and uses port 2222 instead of the default 22
@@ -9065,7 +9071,7 @@ $maybe msg <- mmsg
          Send it! <span class="glyphicon glyphicon-upload"></span>
   <hr />
 
-  <li> And last but not least, Testing. In <em>tests/main.hs</em> you will find a #
+  <li> And last but not least, Testing. In <em>test/Spec.hs</em> you will find a #
     test suite that performs tests on this page. #
     You can run your tests by doing: <pre>yesod test</pre>
 

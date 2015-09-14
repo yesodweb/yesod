@@ -5,9 +5,19 @@ module Yesod.WebSockets
     ( -- * Core API
       WebSocketsT
     , webSockets
+    , webSocketsWith
     , receiveData
+    , receiveDataE
+    , receiveDataMessageE
+    , sendPing
+    , sendPingE
+    , sendClose
+    , sendCloseE
     , sendTextData
+    , sendTextDataE
     , sendBinaryData
+    , sendBinaryDataE
+    , sendDataMessageE
       -- * Conduit API
     , sourceWS
     , sinkWSText
@@ -30,6 +40,8 @@ import qualified Data.Conduit.List              as CL
 import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.WebSockets             as WS
 import qualified Yesod.Core                     as Y
+import           Control.Exception (SomeException)
+import           Control.Exception.Enclosed (tryAny)
 
 -- | A transformer for a WebSockets handler.
 --
@@ -44,19 +56,47 @@ type WebSocketsT = ReaderT WS.Connection
 --
 -- Since 0.1.0
 webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () -> m ()
-webSockets inner = do
+webSockets = webSocketsWith $ const $ return $ Just $ WS.AcceptRequest Nothing
+
+-- | Varient of 'webSockets' which allows you to specify the 'WS.AcceptRequest'
+-- setttings when upgrading to a websocket connection.
+--
+-- Since 0.2.4
+webSocketsWith :: (Y.MonadBaseControl IO m, Y.MonadHandler m)
+               => (WS.RequestHead -> m (Maybe WS.AcceptRequest))
+               -- ^ A Nothing indicates that the websocket upgrade request should not happen
+               -- and instead the rest of the handler will be called instead.  This allows
+               -- you to use 'WS.getRequestSubprotocols' and only accept the request if
+               -- a compatible subprotocol is given.  Also, the action runs before upgrading
+               -- the request to websockets, so you can also use short-circuiting handler
+               -- actions such as 'Y.invalidArgs'.
+               -> WebSocketsT m ()
+               -> m ()
+webSocketsWith buildAr inner = do
     req <- Y.waiRequest
-    when (WaiWS.isWebSocketsReq req) $
-        Y.sendRawResponseNoConduit
-          $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
-            WS.defaultConnectionOptions
-            (WaiWS.getRequestHead req)
-            (\pconn -> do
-                conn <- WS.acceptRequest pconn
-                WS.forkPingThread conn 30
-                runInIO $ runReaderT inner conn)
-            src
-            sink
+    when (WaiWS.isWebSocketsReq req) $ do
+        let rhead = WaiWS.getRequestHead req
+        mar <- buildAr rhead
+        case mar of
+            Nothing -> return ()
+            Just ar -> do
+                Y.sendRawResponseNoConduit
+                  $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
+                    WS.defaultConnectionOptions
+                    rhead
+                    (\pconn -> do
+                        conn <- WS.acceptRequestWith pconn ar
+                        WS.forkPingThread conn 30
+                        runInIO $ runReaderT inner conn)
+                    src
+                    sink
+
+-- | Wrapper for capturing exceptions
+wrapWSE :: (MonadIO m, WS.WebSocketsData a) => (WS.Connection -> a -> IO ())-> a -> WebSocketsT m (Either SomeException ())
+wrapWSE ws x = ReaderT $ liftIO . tryAny . flip ws x
+
+wrapWS :: (MonadIO m, WS.WebSocketsData a) => (WS.Connection -> a -> IO ()) -> a -> WebSocketsT m ()
+wrapWS ws x = ReaderT $ liftIO . flip ws x
 
 -- | Receive a piece of data from the client.
 --
@@ -64,17 +104,73 @@ webSockets inner = do
 receiveData :: (MonadIO m, WS.WebSocketsData a) => WebSocketsT m a
 receiveData = ReaderT $ liftIO . WS.receiveData
 
+-- | Receive a piece of data from the client.
+-- Capture SomeException as the result or operation
+-- Since 0.2.2
+receiveDataE :: (MonadIO m, WS.WebSocketsData a) => WebSocketsT m (Either SomeException a)
+receiveDataE = ReaderT $ liftIO . tryAny . WS.receiveData
+
+-- | Receive an application message.
+-- Capture SomeException as the result or operation
+-- Since 0.2.3
+receiveDataMessageE :: (MonadIO m) => WebSocketsT m (Either SomeException WS.DataMessage)
+receiveDataMessageE = ReaderT $ liftIO . tryAny . WS.receiveDataMessage
+
 -- | Send a textual message to the client.
 --
 -- Since 0.1.0
 sendTextData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
-sendTextData x = ReaderT $ liftIO . flip WS.sendTextData x
+sendTextData = wrapWS WS.sendTextData
+
+-- | Send a textual message to the client.
+-- Capture SomeException as the result or operation
+-- and can be used like 
+-- `either handle_exception return =<< sendTextDataE ("Welcome" :: Text)`
+-- Since 0.2.2
+sendTextDataE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
+sendTextDataE = wrapWSE WS.sendTextData
 
 -- | Send a binary message to the client.
 --
 -- Since 0.1.0
 sendBinaryData :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
-sendBinaryData x = ReaderT $ liftIO . flip WS.sendBinaryData x
+sendBinaryData = wrapWS WS.sendBinaryData
+
+-- | Send a binary message to the client.
+-- Capture SomeException as the result of operation
+-- Since 0.2.2
+sendBinaryDataE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
+sendBinaryDataE = wrapWSE WS.sendBinaryData
+
+-- | Send a ping message to the client.
+--
+-- Since 0.2.2
+sendPing :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
+sendPing = wrapWS WS.sendPing
+
+-- | Send a ping message to the client. 
+-- Capture SomeException as the result of operation
+-- Since 0.2.2
+sendPingE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
+sendPingE = wrapWSE WS.sendPing
+
+-- | Send a DataMessage to the client. 
+-- Capture SomeException as the result of operation
+-- Since 0.2.3
+sendDataMessageE :: (MonadIO m) => WS.DataMessage -> WebSocketsT m (Either SomeException ())
+sendDataMessageE x = ReaderT $ liftIO . tryAny . (`WS.sendDataMessage` x)
+
+-- | Send a close request to the client. 
+-- 
+-- Since 0.2.2
+sendClose :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m ()
+sendClose = wrapWS WS.sendClose
+
+-- | Send a close request to the client. 
+-- Capture SomeException as the result of operation
+-- Since 0.2.2
+sendCloseE :: (MonadIO m, WS.WebSocketsData a) => a -> WebSocketsT m (Either SomeException ())
+sendCloseE = wrapWSE WS.sendClose
 
 -- | A @Source@ of WebSockets data from the user.
 --

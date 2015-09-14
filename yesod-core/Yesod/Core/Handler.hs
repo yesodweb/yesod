@@ -28,6 +28,7 @@ module Yesod.Core.Handler
       HandlerT
       -- ** Read information from handler
     , getYesod
+    , getsYesod
     , getUrlRender
     , getUrlRenderParams
     , getCurrentRoute
@@ -152,6 +153,24 @@ module Yesod.Core.Handler
     , cached
     , cachedBy
     , stripHandlerT
+      -- * AJAX CSRF protection
+
+      -- $ajaxCSRFOverview
+
+      -- ** Setting CSRF Cookies
+    , setCsrfCookie
+    , setCsrfCookieWithCookie
+    , defaultCsrfCookieName
+      -- ** Looking up CSRF Headers
+    , checkCsrfHeaderNamed
+    , hasValidCsrfHeaderNamed
+    , defaultCsrfHeaderName
+      -- ** Looking up CSRF POST Parameters
+    , hasValidCsrfParamNamed
+    , checkCsrfParamNamed
+    , defaultCsrfParamName
+      -- ** Checking CSRF Headers or POST Parameters
+    , checkCsrfHeaderOrParam
     ) where
 
 import           Data.Time                     (UTCTime, addUTCTime,
@@ -159,7 +178,12 @@ import           Data.Time                     (UTCTime, addUTCTime,
 import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
-import           Control.Applicative           ((<$>), (<|>))
+
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative           ((<$>))
+import           Data.Monoid                   (mempty, mappend)
+#endif
+import           Control.Applicative           ((<|>))
 import           Control.Exception             (evaluate, SomeException)
 import           Control.Exception.Lifted      (handle)
 
@@ -185,9 +209,11 @@ import qualified Data.ByteString               as S
 import qualified Data.ByteString.Lazy          as L
 import qualified Data.Map                      as Map
 
+import           Data.Byteable                 (constEqBytes)
+
 import           Control.Arrow                 ((***))
 import qualified Data.ByteString.Char8         as S8
-import           Data.Monoid                   (Endo (..), mappend, mempty)
+import           Data.Monoid                   (Endo (..))
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Text.Shakespeare.I18N         (RenderMessage (..))
@@ -218,6 +244,8 @@ import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
                    )
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
+import qualified Data.Foldable as Fold
+import Data.Default
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -290,6 +318,11 @@ askHandlerEnv = liftHandlerT $ HandlerT $ return . handlerEnv
 -- | Get the master site application argument.
 getYesod :: MonadHandler m => m (HandlerSite m)
 getYesod = rheSite `liftM` askHandlerEnv
+
+-- | Get a specific component of the master site application argument. 
+--   Analogous to the 'gets' function for operating on 'StateT'.
+getsYesod :: MonadHandler m => (HandlerSite m -> a) -> m a
+getsYesod f = (f . rheSite) `liftM` askHandlerEnv
 
 -- | Get the URL rendering function.
 getUrlRender :: MonadHandler m => m (Route (HandlerSite m) -> Text)
@@ -473,10 +506,10 @@ setUltDestReferer = do
 redirectUltDest :: (RedirectUrl (HandlerSite m) url, MonadHandler m)
                 => url -- ^ default destination if nothing in session
                 -> m a
-redirectUltDest def = do
+redirectUltDest defaultDestination = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
-    maybe (redirect def) redirect mdest
+    maybe (redirect defaultDestination) redirect mdest
 
 -- | Remove a previously set ultimate destination. See 'setUltDest'.
 clearUltDest :: MonadHandler m => m ()
@@ -1258,3 +1291,116 @@ stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
             }
         , handlerToParent = toMaster
         }
+
+-- $ajaxCSRFOverview
+-- When a user has authenticated with your site, all requests made from the browser to your server will include the session information that you use to verify that the user is logged in. 
+-- Unfortunately, this allows attackers to make unwanted requests on behalf of the user by e.g. submitting an HTTP request to your site when the user visits theirs. 
+-- This is known as a <https://en.wikipedia.org/wiki/Cross-site_request_forgery Cross Site Request Forgery> (CSRF) attack.
+--
+-- To combat this attack, you need a way to verify that the request is valid.
+-- This is achieved by generating a random string ("token"), storing it in your encrypted session so that the server can look it up (see 'reqToken'), and adding the token to HTTP requests made to your server.
+-- When a request comes in, the token in the request is compared to the one from the encrypted session. If they match, you can be sure the request is valid.
+--
+-- Yesod implements this behavior in two ways:
+--
+-- (1) The yesod-form package <http://www.yesodweb.com/book/forms#forms_running_forms stores the CSRF token in a hidden field> in the form, then validates it with functions like 'Yesod.Form.Functions.runFormPost'.
+--
+-- (2) Yesod can store the CSRF token in a cookie which is accessible by Javascript. Requests made by Javascript can lookup this cookie and add it as a header to requests. The server then checks the token in the header against the one in the encrypted session.
+--
+-- The form-based approach has the advantage of working for users with Javascript disabled, while adding the token to the headers with Javascript allows things like submitting JSON or binary data in AJAX requests. Yesod supports checking for a CSRF token in either the POST parameters of the form ('checkCsrfHeaderNamed'), the headers ('checkCsrfHeaderNamed'), or both options ('checkCsrfHeaderOrParam').
+--
+-- The easiest way to check both sources is to add the 'defaultCsrfMiddleware' to your Yesod Middleware.
+
+-- | The default cookie name for the CSRF token ("XSRF-TOKEN").
+-- 
+-- Since 1.4.14
+defaultCsrfCookieName :: S8.ByteString
+defaultCsrfCookieName = "XSRF-TOKEN"
+
+-- | Sets a cookie with a CSRF token, using 'defaultCsrfCookieName' for the cookie name.
+-- 
+-- Since 1.4.14
+setCsrfCookie :: MonadHandler m => m ()
+setCsrfCookie = setCsrfCookieWithCookie def { setCookieName = defaultCsrfCookieName }
+
+-- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie.
+-- 
+-- Since 1.4.14
+setCsrfCookieWithCookie :: MonadHandler m => SetCookie -> m ()
+setCsrfCookieWithCookie cookie  = do
+    mCsrfToken <- reqToken <$> getRequest
+    Fold.forM_ mCsrfToken (\token -> setCookie $ cookie { setCookieValue = encodeUtf8 token })
+
+-- | The default header name for the CSRF token ("X-XSRF-TOKEN").
+-- 
+-- Since 1.4.14
+defaultCsrfHeaderName :: CI S8.ByteString
+defaultCsrfHeaderName = "X-XSRF-TOKEN"
+
+-- | Takes a header name to lookup a CSRF token. If the value doesn't match the token stored in the session,
+-- this function throws a 'PermissionDenied' error.
+-- 
+-- Since 1.4.14
+checkCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m ()
+checkCsrfHeaderNamed headerName = do
+  valid <- hasValidCsrfHeaderNamed headerName
+  unless valid (permissionDenied csrfErrorMessage)
+
+-- | Takes a header name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
+-- 
+-- Since 1.4.14
+hasValidCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m Bool
+hasValidCsrfHeaderNamed headerName = do
+  mCsrfToken  <- reqToken <$> getRequest
+  mXsrfHeader <- lookupHeader headerName
+
+  return $ validCsrf mCsrfToken mXsrfHeader
+
+-- CSRF Parameter checking
+
+-- | The default parameter name for the CSRF token ("_token")
+--
+-- Since 1.4.14
+defaultCsrfParamName :: Text
+defaultCsrfParamName = "_token"
+
+-- | Takes a POST parameter name to lookup a CSRF token. If the value doesn't match the token stored in the session,
+-- this function throws a 'PermissionDenied' error.
+--
+-- Since 1.4.14
+checkCsrfParamNamed :: MonadHandler m => Text -> m ()
+checkCsrfParamNamed paramName = do
+  valid <- hasValidCsrfParamNamed paramName
+  unless valid (permissionDenied csrfErrorMessage)
+
+-- | Takes a POST parameter name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
+--
+-- Since 1.4.14
+hasValidCsrfParamNamed :: MonadHandler m => Text -> m Bool
+hasValidCsrfParamNamed paramName = do
+  mCsrfToken  <- reqToken <$> getRequest
+  mCsrfParam <- lookupPostParam paramName
+
+  return $ validCsrf mCsrfToken (encodeUtf8 <$> mCsrfParam)
+
+-- | Checks that a valid CSRF token is present in either the request headers or POST parameters.
+-- If the value doesn't match the token stored in the session, this function throws a 'PermissionDenied' error.
+--
+-- Since 1.4.14
+checkCsrfHeaderOrParam :: MonadHandler m
+                       => CI S8.ByteString -- ^ The header name to lookup the CSRF token
+                       -> Text -- ^ The POST parameter name to lookup the CSRF token
+                       -> m ()
+checkCsrfHeaderOrParam headerName paramName = do
+  validHeader <- hasValidCsrfHeaderNamed headerName
+  validParam <- hasValidCsrfParamNamed paramName
+  unless (validHeader || validParam) (permissionDenied csrfErrorMessage)
+
+validCsrf :: Maybe Text -> Maybe S.ByteString -> Bool
+-- It's important to use constant-time comparison (constEqBytes) in order to avoid timing attacks.
+validCsrf (Just token) (Just param) = encodeUtf8 token `constEqBytes` param
+validCsrf Nothing            _param = True
+validCsrf (Just _token)     Nothing = False
+
+csrfErrorMessage :: Text
+csrfErrorMessage = "A valid CSRF token wasn't present in HTTP headers or POST parameters. Check the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."

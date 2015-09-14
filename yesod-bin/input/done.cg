@@ -27,4 +27,4 @@ installing Yesod: http://www.yesodweb.com/page/quickstart
 
 If your system is already configured correctly, please run:
 
-   cd PROJECTNAME && cabal install -j --enable-tests --max-backjumps=-1 --reorder-goals && yesod devel
+    cd PROJECTNAME && stack build && stack exec -- yesod devel

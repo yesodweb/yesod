@@ -70,6 +70,7 @@ data Command = Init { _initBare :: Bool, _initName :: Maybe String, _initDatabas
              | Keter
                     { _keterNoRebuild :: Bool
                     , _keterNoCopyTo  :: Bool
+                    , _keterBuildArgs :: [String]
                     }
              | Version
   deriving (Show, Eq)
@@ -101,12 +102,14 @@ main = do
          ] optParser'
   let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
-    Init{..}        -> scaffold _initBare _initName _initDatabase
+    Init{..}        -> do
+                     putStrLn "NOTE: This command has been deprecated in favor of 'stack new'"
+                     scaffold _initBare _initName _initDatabase
     HsFiles         -> mkHsFile
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
     Touch           -> touch'
-    Keter{..}       -> keter (cabalCommand o) _keterNoRebuild _keterNoCopyTo
+    Keter{..}       -> keter (cabalCommand o) _keterNoRebuild _keterNoCopyTo _keterBuildArgs
     Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
     AddHandler{..}  -> addHandler addHandlerRoute addHandlerPattern addHandlerMethods
     Test            -> cabalTest cabal
@@ -189,6 +192,9 @@ keterOptions :: Parser Command
 keterOptions = Keter
     <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebuilding" )
     <*> switch ( long "nocopyto" <> help "Ignore copy-to directive in keter config file" )
+    <*> optStrToList ( long "build-args" <> help "Build arguments" )
+  where
+    optStrToList m = option (words <$> str) $ value [] <> m
 
 defaultRescan :: Int
 defaultRescan = 10

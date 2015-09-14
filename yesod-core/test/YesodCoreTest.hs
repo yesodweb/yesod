@@ -21,6 +21,7 @@ import qualified YesodCoreTest.Reps as Reps
 import qualified YesodCoreTest.Auth as Auth
 import qualified YesodCoreTest.LiteApp as LiteApp
 import qualified YesodCoreTest.Ssl as Ssl
+import qualified YesodCoreTest.Csrf as Csrf
 
 import Test.Hspec
 
@@ -47,3 +48,4 @@ specs = do
       LiteApp.specs
       Ssl.unsecSpec
       Ssl.sslOnlySpec
+      Csrf.csrfSpec

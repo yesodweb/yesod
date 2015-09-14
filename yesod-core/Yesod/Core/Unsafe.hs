@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | This is designed to be used as
 --
 -- > qualified import Yesod.Core.Unsafe as Unsafe
@@ -9,7 +10,9 @@ import Yesod.Core.Internal.Run (runFakeHandler)
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Yesod
+#if __GLASGOW_HASKELL__ < 710
 import Data.Monoid            (mempty, mappend)
+#endif
 import Control.Monad.IO.Class (MonadIO)
 
 -- | designed to be used as

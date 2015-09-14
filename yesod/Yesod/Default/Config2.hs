@@ -20,7 +20,11 @@ module Yesod.Default.Config2
     , requireCustomEnv
     ) where
 
+
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>))
 import Data.Monoid
+#endif
 import Data.Semigroup
 import Data.List.NonEmpty (nonEmpty)
 import Data.Aeson
@@ -28,7 +32,6 @@ import qualified Data.HashMap.Strict as H
 import Data.Text (Text, pack)
 import System.Environment (getEnvironment, getArgs)
 import Control.Arrow ((***))
-import Control.Applicative ((<$>))
 import Control.Monad (forM)
 import Control.Exception (throwIO)
 import Data.Text.Encoding (encodeUtf8)
@@ -69,11 +72,23 @@ applyEnvValue requireEnv' env =
     goV (String t1) = fromMaybe (String t1) $ do
         t2 <- T.stripPrefix "_env:" t1
         let (name, t3) = T.break (== ':') t2
+            mdef = fmap parseValue $ T.stripPrefix ":" t3
         Just $ case H.lookup name env of
-            Just val -> parseValue val
+            Just val ->
+                -- If the default value parses as a String, we treat the
+                -- environment variable as a raw value and do not parse it.
+                -- This means that things like numeric passwords just work.
+                -- However, for originally numerical or boolean values (e.g.,
+                -- port numbers), we still perform a normal YAML parse.
+                --
+                -- For details, see:
+                -- https://github.com/yesodweb/yesod/issues/1061
+                case mdef of
+                    Just (String _) -> String val
+                    _ -> parseValue val
             Nothing ->
-                case T.stripPrefix ":" t3 of
-                    Just val | not requireEnv' -> parseValue val
+                case mdef of
+                    Just val | not requireEnv' -> val
                     _ -> Null
     goV v = v
 

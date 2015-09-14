@@ -10,8 +10,11 @@ module Yesod.Core.Types where
 
 import qualified Blaze.ByteString.Builder           as BBuilder
 import qualified Blaze.ByteString.Builder.Char.Utf8
+#if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative                (Applicative (..))
 import           Control.Applicative                ((<$>))
+import           Data.Monoid                        (Monoid (..))
+#endif
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (liftM, ap)
@@ -29,8 +32,7 @@ import           Data.Conduit                       (Flush, Source)
 import           Data.IORef                         (IORef)
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
-import           Data.Monoid                        (Endo (..), Last (..),
-                                                     Monoid (..))
+import           Data.Monoid                        (Endo (..), Last (..))
 import           Data.Serialize                     (Serialize (..),
                                                      putByteString)
 import           Data.String                        (IsString (fromString))
@@ -48,7 +50,7 @@ import qualified Network.Wai.Parse                  as NWP
 import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
 import qualified System.Random.MWC                  as MWC
 import           Network.Wai.Logger                 (DateCacheGetter)
-import           Text.Blaze.Html                    (Html)
+import           Text.Blaze.Html                    (Html, toHtml)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
@@ -250,6 +252,16 @@ instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
     mempty = return ()
     mappend x y = x >> y
 instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
+
+-- | A 'String' can be trivially promoted to a widget.
+--
+-- For example, in a yesod-scaffold site you could use:
+--
+-- @getHomeR = do defaultLayout "Widget text"@
+instance (Monad m, a ~ ()) => IsString (WidgetT site m a) where
+    fromString = toWidget . toHtml . T.pack
+      where toWidget x = WidgetT $ const $ return $ ((), GWData (Body (const x))
+                         mempty mempty mempty mempty mempty mempty)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
