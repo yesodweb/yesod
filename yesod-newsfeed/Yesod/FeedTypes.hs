@@ -23,6 +23,7 @@ data Feed url = Feed
     , feedLanguage    :: Text
 
     , feedUpdated     :: UTCTime
+    , feedLogo        :: Maybe (url, Text)
     , feedEntries     :: [FeedEntry url]
     }
 
@@ -32,4 +33,5 @@ data FeedEntry url = FeedEntry
     , feedEntryUpdated :: UTCTime
     , feedEntryTitle   :: Text
     , feedEntryContent :: Html
+    , feedEntryEnclosure :: Maybe (url, Int, Text)
     }
