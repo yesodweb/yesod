@@ -28,7 +28,6 @@ module Yesod.AtomFeed
 
 import Yesod.Core
 import Yesod.FeedTypes
-import Yesod.Common
 import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text)
