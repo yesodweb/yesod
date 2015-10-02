@@ -1,3 +1,7 @@
+## 1.4.7
+
+* add a runHttpRequest function for handling HTTP errors
+
 ## 1.4.6
 
 * Use nonce package to generate verification keys and CSRF tokens [#1011](https://github.com/yesodweb/yesod/pull/1011)

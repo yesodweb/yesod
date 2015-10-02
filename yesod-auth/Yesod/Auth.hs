@@ -46,6 +46,7 @@ module Yesod.Auth
     , asHtml
     ) where
 
+import           Control.Applicative ((<$>))
 import Control.Monad                 (when)
 import Control.Monad.Trans.Maybe
 
@@ -57,11 +58,12 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.HashMap.Lazy as Map
 import Data.Monoid (Endo)
-import Network.HTTP.Conduit (Manager)
+import Network.HTTP.Client (Manager, Request, withResponse, Response, BodyReader)
 
 import qualified Network.Wai as W
 
 import Yesod.Core
+import Yesod.Core.Types (HandlerT(..), unHandlerT)
 import Yesod.Persist
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
@@ -146,7 +148,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     authPlugins :: master -> [AuthPlugin master]
 
     -- | What to show on the login page.
-    -- 
+    --
     -- Default handler concatenates plugin widgets and wraps the result
     -- in 'authLayout'. Override if you need fancy widget containers
     -- or entirely custom page.
@@ -207,6 +209,16 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     onErrorHtml dest msg = do
         setMessage $ toHtml msg
         fmap asHtml $ redirect dest
+
+    -- | runHttpRequest gives you a chance to handle an HttpException and retry
+    --  The default behavior is to simply execute the request which will throw an exception on failure
+    --
+    --  The HTTP 'Request' is given in case it is useful to change behavior based on inspecting the request.
+    --  This is an experimental API that is not broadly used throughout the yesod-auth code base
+    runHttpRequest :: Request -> (Response BodyReader -> HandlerT master IO a) -> HandlerT master IO a
+    runHttpRequest req inner = do
+      man <- authHttpManager <$> getYesod
+      HandlerT $ \t -> withResponse req man $ \res -> unHandlerT (inner res) t
 
     {-# MINIMAL loginDest, logoutDest, (authenticate | getAuthId), authPlugins, authHttpManager #-}
 
