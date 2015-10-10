@@ -34,7 +34,6 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8)
 import           Data.Text.Encoding           (decodeUtf8With)
 import           Data.Text.Encoding.Error     (lenientDecode)
-import           Data.Time                    (getCurrentTime, addUTCTime)
 import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
@@ -48,11 +47,9 @@ import           Yesod.Core.Class.Yesod
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Request  (parseWaiRequest,
                                                tooLargeResponse)
-import           Yesod.Core.Internal.Util     (formatRFC1123)
+import           Yesod.Core.Internal.Util     (getCurrentMaxExpiresRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
 import           Control.DeepSeq              (($!!))
-import           Control.Monad                (liftM)
-import           Control.AutoUpdate           (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
 
 returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
 #if MIN_VERSION_bytestring(0, 10, 0)
@@ -199,7 +196,7 @@ runFakeHandler :: (Yesod site, MonadIO m) =>
                -> m (Either ErrorResponse a)
 runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
-  getMaxExpires <- getGetMaxExpires
+  maxExpires <- getCurrentMaxExpiresRFC1123
   let handler' = do liftIO . I.writeIORef ret . Right =<< handler
                     return ()
   let yapp = runHandler
@@ -210,7 +207,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
             , rheUpload = fileUpload site
             , rheLog = messageLoggerSource site $ logger site
             , rheOnError = errHandler
-            , rheGetMaxExpires = getMaxExpires
+            , rheMaxExpires = maxExpires
             }
         handler'
       errHandler err req = do
@@ -261,7 +258,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $ do
         maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb req) yreSessionBackend
-    getMaxExpires <- getGetMaxExpires
+    maxExpires <- yreGetMaxExpires
     let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) mmaxLen
     let yreq =
             case mkYesodReq of
@@ -280,7 +277,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
             , rheUpload = fileUpload yreSite
             , rheLog = log'
             , rheOnError = safeEh log'
-            , rheGetMaxExpires = getMaxExpires
+            , rheMaxExpires = maxExpires
             }
         rhe = rheSafe
             { rheOnError = runHandler rheSafe . errorHandler
@@ -293,12 +290,6 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
   where
     mmaxLen = maximumContentLength yreSite route
     handler = yesodMiddleware handler'
-
-getGetMaxExpires :: MonadIO m => m (IO Text)
-getGetMaxExpires = liftIO $ mkAutoUpdate defaultUpdateSettings
-  { updateAction = liftM (formatRFC1123 . addUTCTime (60*60*24*365)) getCurrentTime
-  , updateFreq = 60 * 60 * 1000000 -- Update once per hour
-  }
 
 yesodRender :: Yesod y
             => y

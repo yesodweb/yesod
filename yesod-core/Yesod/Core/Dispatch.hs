@@ -59,6 +59,8 @@ import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
 import Safe (readMay)
 import System.Environment (getEnvironment)
+import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
+import Yesod.Core.Internal.Util (getCurrentMaxExpiresRFC1123)
 
 import Network.Wai.Middleware.Autohead
 import Network.Wai.Middleware.AcceptOverride
@@ -82,11 +84,13 @@ toWaiAppPlain site = do
     logger <- makeLogger site
     sb <- makeSessionBackend site
     gen <- MWC.createSystemRandom
+    getMaxExpires <- getGetMaxExpires
     return $ toWaiAppYre $ YesodRunnerEnv
             { yreLogger = logger
             , yreSite = site
             , yreSessionBackend = sb
             , yreGen = gen
+            , yreGetMaxExpires = getMaxExpires
             }
 
 toWaiAppYre :: YesodDispatch site => YesodRunnerEnv site -> W.Application
@@ -139,11 +143,13 @@ toWaiAppLogger :: YesodDispatch site => Logger -> site -> IO W.Application
 toWaiAppLogger logger site = do
     sb <- makeSessionBackend site
     gen <- MWC.createSystemRandom
+    getMaxExpires <- getGetMaxExpires
     let yre = YesodRunnerEnv
                 { yreLogger = logger
                 , yreSite = site
                 , yreSessionBackend = sb
                 , yreGen = gen
+                , yreGetMaxExpires = getMaxExpires
                 }
     messageLoggerSource
         site
@@ -230,3 +236,9 @@ warpEnv site = do
             case readMay portS of
                 Nothing -> error $ "warpEnv: invalid PORT environment variable: " ++ show portS
                 Just port -> warp port site
+
+getGetMaxExpires :: IO (IO Text)
+getGetMaxExpires = mkAutoUpdate defaultUpdateSettings
+  { updateAction = getCurrentMaxExpiresRFC1123
+  , updateFreq = 60 * 60 * 1000000 -- Update once per hour
+  }
