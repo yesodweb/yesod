@@ -1,3 +1,7 @@
+## 1.4.16.1
+
+* bugfix neverExpires leaked threads
+
 ## 1.4.15
 
 * mkYesod avoids using reify when it isn't necessary. This avoids needing to define the site type below the call to mkYesod.
