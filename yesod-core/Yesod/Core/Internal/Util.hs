@@ -54,6 +54,8 @@ formatRFC1123 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
 formatRFC822 :: UTCTime -> T.Text
 formatRFC822 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
 
--- | Format the time a year from now as per RFC 1123.
+{- | Get the time 365 days from now in RFC 1123 format. For use as an expiry
+date on a resource that never expires. See RFC 2616 section 14.21 for details.
+-}
 getCurrentMaxExpiresRFC1123 :: IO T.Text
 getCurrentMaxExpiresRFC1123 = liftM (formatRFC1123 . addUTCTime (60*60*24*365)) getCurrentTime
