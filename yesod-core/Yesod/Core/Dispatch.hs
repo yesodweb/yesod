@@ -240,5 +240,5 @@ warpEnv site = do
 getGetMaxExpires :: IO (IO Text)
 getGetMaxExpires = mkAutoUpdate defaultUpdateSettings
   { updateAction = getCurrentMaxExpiresRFC1123
-  , updateFreq = 60 * 60 * 1000000 -- Update once per hour
+  , updateFreq = 24 * 60 * 60 * 1000000 -- Update once per day
   }
