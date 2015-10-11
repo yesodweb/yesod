@@ -183,10 +183,10 @@ data RunHandlerEnv site = RunHandlerEnv
     , rheUpload   :: !(RequestBodyLength -> FileUpload)
     , rheLog      :: !(Loc -> LogSource -> LogLevel -> LogStr -> IO ())
     , rheOnError  :: !(ErrorResponse -> YesodApp)
-    , rheGetMaxExpires :: IO Text
       -- ^ How to respond when an error is thrown internally.
       --
       -- Since 1.2.0
+    , rheMaxExpires :: !Text
     }
 
 data HandlerData site parentRoute = HandlerData
@@ -202,6 +202,7 @@ data YesodRunnerEnv site = YesodRunnerEnv
     , yreSite           :: !site
     , yreSessionBackend :: !(Maybe SessionBackend)
     , yreGen            :: !MWC.GenIO
+    , yreGetMaxExpires  :: IO Text
     }
 
 data YesodSubRunnerEnv sub parent parentMonad = YesodSubRunnerEnv
