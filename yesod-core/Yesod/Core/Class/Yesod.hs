@@ -64,18 +64,14 @@ class RenderRoute site => Yesod site where
     -- | An absolute URL to the root of the application. Do not include
     -- trailing slash.
     --
-    -- Default value: 'ApprootRelative'. This is valid under the following
-    -- conditions:
+    -- Default value: 'guessApproot'. If you know your application root
+    -- statically, it will be more efficient and more reliable to instead use
+    -- 'ApprootStatic' or 'ApprootMaster'. If you do not need full absolute
+    -- URLs, you can use 'ApprootRelative' instead.
     --
-    -- * Your application is served from the root of the domain.
-    --
-    -- * You do not use any features that require absolute URLs, such as Atom
-    -- feeds and XML sitemaps.
-    --
-    -- If this is not true, you should override with a different
-    -- implementation.
+    -- Note: Prior to yesod-core 1.5, the default value was 'ApprootRelative'.
     approot :: Approot site
-    approot = ApprootRelative
+    approot = guessApproot
 
     -- | Output error response pages.
     --
