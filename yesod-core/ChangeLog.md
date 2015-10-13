@@ -1,6 +1,6 @@
 ## 1.4.16
 
-* Add `guessApproot`
+* Add `guessApproot` and `guessApprootOr`
 
 ## 1.4.15
 

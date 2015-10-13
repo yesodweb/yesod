@@ -73,6 +73,7 @@ module Yesod.Core
     , defaultLayoutSub
       -- * Approot
     , guessApproot
+    , guessApprootOr
       -- * Misc
     , yesodVersion
     , yesodRender
