@@ -835,9 +835,20 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
 --
 -- Since 1.4.16
 guessApproot :: Approot site
-guessApproot = ApprootRequest $ \_master req ->
+guessApproot = guessApprootOr ApprootRelative
+
+-- | Guess the approot based on request headers, with fall back to the
+-- specified 'AppRoot'.
+--
+-- Since 1.4.16
+guessApprootOr :: Approot site -> Approot site
+guessApprootOr fallback = ApprootRequest $ \master req ->
     case W.requestHeaderHost req of
-        Nothing -> ""
+        Nothing -> case fallback of
+                       ApprootRelative  -> ""
+                       ApprootStatic t  -> t
+                       ApprootMaster f  -> f master
+                       ApprootRequest f -> f master req
         Just host ->
             (if Network.Wai.Request.appearsSecure req
                 then "https://"
