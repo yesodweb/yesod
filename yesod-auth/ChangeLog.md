@@ -1,3 +1,7 @@
+## 1.4.8
+
+* GoogleEmail2: proper error message when permission denied
+
 ## 1.4.7
 
 * add a runHttpRequest function for handling HTTP errors
