@@ -842,13 +842,13 @@ guessApproot = guessApprootOr ApprootRelative
 --
 -- Since 1.4.16
 guessApprootOr :: Approot site -> Approot site
-guessApprootOr fallback = ApprootRequest $ \_master req ->
+guessApprootOr fallback = ApprootRequest $ \master req ->
     case W.requestHeaderHost req of
         Nothing -> case fallback of
                        ApprootRelative  -> ""
                        ApprootStatic t  -> t
-                       ApprootMaster f  -> f _master
-                       ApprootRequest f -> f _master req
+                       ApprootMaster f  -> f master
+                       ApprootRequest f -> f master req
         Just host ->
             (if Network.Wai.Request.appearsSecure req
                 then "https://"
