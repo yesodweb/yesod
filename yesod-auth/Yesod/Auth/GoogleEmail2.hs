@@ -50,14 +50,17 @@ module Yesod.Auth.GoogleEmail2
 import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
                                            AuthRoute, Creds (Creds),
                                            Route (PluginR), YesodAuth,
-                                           runHttpRequest, setCredsRedirect)
+                                           runHttpRequest, setCredsRedirect,
+                                           logoutDest)
 import qualified Yesod.Auth.Message       as Msg
 import           Yesod.Core               (HandlerSite, HandlerT, MonadHandler,
                                            TypedContent, getRouteToParent,
                                            getUrlRender, invalidArgs,
                                            lift, liftIO, lookupGetParam,
                                            lookupSession, notFound, redirect,
-                                           setSession, whamlet, (.:))
+                                           setSession, whamlet, (.:),
+                                           setMessage, getYesod, authRoute,
+                                           toHtml)
 
 
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
@@ -187,7 +190,18 @@ authPlugin storeToken clientID clientSecret =
         mcode <- lookupGetParam "code"
         code <-
             case mcode of
-                Nothing -> invalidArgs ["Missing code paramter"]
+                Nothing -> do
+                    merr <- lookupGetParam "error"
+                    case merr of
+                        Nothing -> invalidArgs ["Missing code paramter"]
+                        Just err -> do
+                            master <- lift getYesod
+                            let msg =
+                                    case err of
+                                        "access_denied" -> "Access denied"
+                                        _ -> "Unknown error occurred: " `T.append` err
+                            setMessage $ toHtml msg
+                            lift $ redirect $ logoutDest master
                 Just c -> return c
 
         render <- getUrlRender
