@@ -56,6 +56,7 @@ import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
 import Control.Monad.Trans.Class (lift)
 import Data.CaseInsensitive (CI)
+import qualified Network.Wai.Request
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -826,3 +827,19 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
   where
     line = show . fst . loc_start
     char = show . snd . loc_start
+
+-- | Guess the approot based on request headers. For more information, see
+-- "Network.Wai.Middleware.Approot"
+--
+-- In the case of headers being unavailable, it falls back to 'ApprootRelative'
+--
+-- Since 1.4.16
+guessApproot :: Approot site
+guessApproot = ApprootRequest $ \_master req ->
+    case W.requestHeaderHost req of
+        Nothing -> ""
+        Just host ->
+            (if Network.Wai.Request.appearsSecure req
+                then "https://"
+                else "http://")
+            `T.append` TE.decodeUtf8With TEE.lenientDecode host

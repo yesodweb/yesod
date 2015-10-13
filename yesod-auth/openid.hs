@@ -38,7 +38,7 @@ $nothing
 |]
 
 instance Yesod BID where
-    approot = ApprootStatic "http://localhost:3000"
+    approot = guessApproot
 
 instance YesodAuth BID where
     type AuthId BID = Text
