@@ -35,6 +35,8 @@ import Data.String (IsString (..))
 import Yesod.Core
 import qualified Data.Map as Map
 import Data.Semigroup (Semigroup, (<>))
+import Data.Traversable
+import Data.Foldable
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -61,6 +63,16 @@ instance Monoid m => Monoid (FormResult m) where
     mappend x y = mappend <$> x <*> y
 instance Semigroup m => Semigroup (FormResult m) where
     x <> y = (<>) <$> x <*> y
+instance Foldable FormResult where
+    foldMap f r = case r of
+      FormSuccess a -> f a
+      FormFailure errs -> mempty
+      FormMissing -> mempty
+instance Traversable FormResult where
+    traverse f r = case r of
+      FormSuccess a -> fmap FormSuccess (f a)
+      FormFailure errs -> pure (FormFailure errs)
+      FormMissing -> pure FormMissing
 
 -- | The encoding type required by a form. The 'ToHtml' instance produces values
 -- that can be inserted directly into HTML.
