@@ -63,11 +63,15 @@ instance Monoid m => Monoid (FormResult m) where
     mappend x y = mappend <$> x <*> y
 instance Semigroup m => Semigroup (FormResult m) where
     x <> y = (<>) <$> x <*> y
+
+-- | Since 1.4.4.2
 instance Foldable FormResult where
     foldMap f r = case r of
       FormSuccess a -> f a
       FormFailure errs -> mempty
       FormMissing -> mempty
+
+-- | Since 1.4.4.2
 instance Traversable FormResult where
     traverse f r = case r of
       FormSuccess a -> fmap FormSuccess (f a)
