@@ -30,6 +30,7 @@ module Yesod.Auth
       -- * User functions
     , AuthenticationResult (..)
     , defaultMaybeAuthId
+    , defaultLoginHandler
     , maybeAuthPair
     , maybeAuth
     , requireAuthId
@@ -149,16 +150,11 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
 
     -- | What to show on the login page.
     --
-    -- Default handler concatenates plugin widgets and wraps the result
-    -- in 'authLayout'. Override if you need fancy widget containers
-    -- or entirely custom page.
+    -- By default this calls 'defaultLoginHandler', which concatenates
+    -- plugin widgets and wraps the result in 'authLayout'. Override if
+    -- you need fancy widget containers or entirely custom page.
     loginHandler :: AuthHandler master Html
-    loginHandler = do
-        tp <- getRouteToParent
-        lift $ authLayout $ do
-            setTitleI Msg.LoginTitle
-            master <- getYesod
-            mapM_ (flip apLogin tp) (authPlugins master)
+    loginHandler = defaultLoginHandler
 
     -- | Used for i18n of messages provided by this package.
     renderAuthMessage :: master
@@ -253,6 +249,21 @@ cachedAuth
     . cached
     . fmap CachedMaybeAuth
     . getAuthEntity
+
+
+-- | Default handler to show the login page.
+--
+-- This is the default 'loginHandler'.  It concatenates plugin widgets and
+-- wraps the result in 'authLayout'.  See 'loginHandler' for more details.
+--
+-- Since 1.4.9
+defaultLoginHandler :: AuthHandler master Html
+defaultLoginHandler = do
+    tp <- getRouteToParent
+    lift $ authLayout $ do
+        setTitleI Msg.LoginTitle
+        master <- getYesod
+        mapM_ (flip apLogin tp) (authPlugins master)
 
 
 loginErrorMessageI :: (MonadResourceBase m, YesodAuth master)
