@@ -1,3 +1,7 @@
+## 1.4.9
+
+* Expose defaultLoginHandler
+
 ## 1.4.8
 
 * GoogleEmail2: proper error message when permission denied
