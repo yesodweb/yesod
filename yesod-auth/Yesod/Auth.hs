@@ -152,7 +152,21 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     --
     -- By default this calls 'defaultLoginHandler', which concatenates
     -- plugin widgets and wraps the result in 'authLayout'. Override if
-    -- you need fancy widget containers or entirely custom page.
+    -- you need fancy widget containers, additional functionality, or an
+    -- entirely custom page.  For example, in some applications you may
+    -- want to prevent the login page being displayed for a user who is
+    -- already logged in, even if the URL is visited explicitly; this can
+    -- be done by overriding 'loginHandler' in your instance declaration
+    -- with something like:
+    --
+    -- > instance YesodAuth App where
+    -- >     ...
+    -- >     loginHandler = do
+    -- >         ma <- lift maybeAuthId
+    -- >         when (isJust ma) $
+    -- >             lift $ redirect HomeR   -- or any other Handler code you want
+    -- >         defaultLoginHandler
+    -- 
     loginHandler :: AuthHandler master Html
     loginHandler = defaultLoginHandler
 
