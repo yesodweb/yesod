@@ -16,6 +16,7 @@ import Control.Monad (forever, guard)
 import Yesod.Core.Types
 import Yesod.Core.Internal.Util
 import qualified Data.IORef as I
+import Control.AutoUpdate
 
 encodeClientSession :: CS.Key
                     -> CS.IV
@@ -54,15 +55,15 @@ clientSessionDateCacher ::
      NominalDiffTime -- ^ Inactive session valitity.
   -> IO (IO ClientSessionDateCache, IO ())
 clientSessionDateCacher validity = do
-    ref <- getUpdated >>= I.newIORef
-    tid <- forkIO $ forever (doUpdate ref)
-    return $! (I.readIORef ref, killThread tid)
+    getClientSessionDateCache <- mkAutoUpdate defaultUpdateSettings
+      { updateAction = getUpdated
+      , updateFreq   = 10000000 -- 10s
+      }
+
+    return $! (getClientSessionDateCache, return ())
   where
     getUpdated = do
       now <- getCurrentTime
       let expires  = validity `addUTCTime` now
           expiresS = runPut (putTime expires)
       return $! ClientSessionDateCache now expires expiresS
-    doUpdate ref = do
-      threadDelay 10000000 -- 10s
-      I.writeIORef ref =<< getUpdated
