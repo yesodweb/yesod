@@ -45,11 +45,14 @@ decodeClientSession key date rhost encrypted = do
 ----------------------------------------------------------------------
 
 
--- Mostly copied from Kazu's date-cache, but with modifications
--- that better suit our needs.
+-- Originally copied from Kazu's date-cache, but now using mkAutoUpdate.
 --
 -- The cached date is updated every 10s, we don't need second
 -- resolution for session expiration times.
+--
+-- The second component of the returned tuple used to be an action that
+-- killed the updater thread, but is now a no-op that's just there
+-- to preserve the type.
 
 clientSessionDateCacher ::
      NominalDiffTime -- ^ Inactive session valitity.
