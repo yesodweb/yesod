@@ -19,8 +19,8 @@ module Yesod.Auth.Message
     , dutchMessage
     ) where
 
-import Data.Monoid (mappend)
-import Data.Text (Text)
+import           Data.Monoid (mappend)
+import           Data.Text   (Text)
 
 data AuthMessage =
       NoOpenID
