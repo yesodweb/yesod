@@ -5,6 +5,7 @@ env:
  #- CABALVER=1.20 GHCVER=7.6.3
  - CABALVER=1.20 GHCVER=7.8.4
  - CABALVER=1.22 GHCVER=7.10.1
+ - CABALVER=1.22 GHCVER=7.10.2
  #- CABALVER=head GHCVER=head   # see section about GHC HEAD snapshots
 
 # Note: the distinction between `before_install` and `install` is not important.
@@ -21,7 +22,10 @@ install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
- - cabal install cabal-src cabal-meta alex happy
+ - travis_retry curl -L http://download.fpcomplete.com/michael/cabal-meta.tar.gz > cabal-meta.tar.gz
+ - mkdir -p $HOME/.cabal/bin
+ - tar zxfv cabal-meta.tar.gz -C $HOME/.cabal/bin
+ - cabal install alex happy
 
 # Here starts the actual work to be performed for the package under test; any command which exits with a non-zero exit code causes the build to fail.
 script:
