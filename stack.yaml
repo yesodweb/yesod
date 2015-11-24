@@ -13,3 +13,7 @@ packages:
   - ./yesod
   - ./yesod-eventsource
   - ./yesod-websockets
+
+# Needed for LTS 2
+extra-deps:
+- wai-app-static-3.1.3
