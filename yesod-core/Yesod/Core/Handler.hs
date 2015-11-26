@@ -94,7 +94,7 @@ module Yesod.Core.Handler
     , sendResponse
     , sendResponseStatus
       -- ** Type specific response with custom status
-    , sendResponseStatusJSON
+    , sendStatusJSON
     , sendResponseCreated
     , sendWaiResponse
     , sendWaiApplication
@@ -580,8 +580,8 @@ sendResponseStatus s = handlerError . HCContent s . toTypedContent
 
 -- | Bypass remaining handler code and output the given JSON with the given
 -- status code.
-sendResponseStatusJSON :: (MonadHandler m, ToJSON a) => H.Status -> a -> m a
-sendResponseStatusJSON s v = sendResponseStatus s (toJSON v)
+sendStatusJSON :: (MonadHandler m, ToJSON a) => H.Status -> a -> m a
+sendStatusJSON s v = sendResponseStatus s (toJSON v)
 
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
