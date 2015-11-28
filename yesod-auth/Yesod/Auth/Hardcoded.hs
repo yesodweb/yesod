@@ -7,7 +7,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-|
 Module      : Yesod.Auth.Hardcoded
-Description : Very simple auth plugin for harcoded auth pairs.
+Description : Very simple auth plugin for hardcoded auth pairs.
 Copyright   : (c) Arthur Fayzrakhmanov, 2015
 License     : MIT
 Maintainer  : heraldhoi@gmail.com
@@ -18,39 +18,98 @@ that allowed to log in and visit some specific sections of your website without
 ability to register new managers.  This simple plugin is designed exactly for
 this purpose.
 
-Here is a quick example usage instruction.
+Here is a quick usage example.
 
-= Enable plugin
-First of all, add plugin to 'authPlugins' list:
+== Define hardcoded users representation
 
-@
-instance YesodAuth App where
-  authPlugins _ = [authHardcoded]
-@
-
-= Define a manager data type
+Let's assume, that we want to have some hardcoded managers with normal site
+users.  Let's define hardcoded user representation:
 
 @
 data SiteManager = SiteManager
   { manUserName :: Text
   , manPassWord :: Text }
+  deriving Show
 
 siteManagers :: [SiteManager]
 siteManagers = [SiteManager "content editor" "top secret"]
 @
 
-= Describe a plugin instance of your app
+
+== Describe 'YesodAuth' instance
+
+Now we need to have some convenient 'AuthId' type representing both
+cases:
+
+@
+instance YesodAuth App where
+  type AuthId App = Either UserId Text
+@
+
+Here, right @Text@ value will present hardcoded user name (which obviously must
+be unique).
+
+'AuthId' must have an instance of 'PathPiece' class, this is needed to store
+user identifier in session (this happens in 'setCreds' and 'setCredsRedirect'
+actions) and to read that identifier from session (this happens in
+`dafaultMaybeAuthId` action).  So we have to define it:
+
+@
+import Text.Read (readMaybe)
+
+instance PathPiece (Either UserId Text) where
+  fromPathPiece = readMaybe . unpack
+  toPathPiece = pack . show
+@
+
+Quiet simple so far.  Now let's add plugin to 'authPlugins' list, and define
+'authenticate' method, it should return user identifier for given credentials,
+for normal users it is usually persistent key, for hardcoded users we will
+return user name again.
+
+@
+instance YesodAuth App where
+  -- ..
+  authPlugins _ = [authHardcoded]
+
+  authenticate Creds{..} =
+    return
+      (case credsPlugin of
+         "hardcoded" ->
+           case lookupUser credsIdent of
+             Nothing -> UserError InvalidLogin
+             Just m  -> Authenticated (Right (manUserName m)))
+@
+
+Here @lookupUser@ is just a helper function to lookup hardcoded users by name:
+
+@
+lookupUser :: Text -> Maybe SiteManager
+lookupUser username = find (\m -> manUserName m == username) siteManagers
+@
+
+
+== Describe an 'YesodAuthPersist' instance
+
+Now we need to manually define 'YesodAuthPersist' instance.
+
+> instance YesodAuthPersist App where
+>   type AuthEntity App = Either User SiteManager
+>
+>   getAuthEntity (Left uid) =
+>     do x <- runDB (get uid)
+>        return (Left <$> x)
+>   getAuthEntity (Right username) = return (Right <$> lookupUser username)
+
+
+== Define 'YesodAuthHardcoded' instance
+
+Finally, let's define an plugin instance
 
 @
 instance YesodAuthHardcoded App where
   validatePassword u = return . validPassword u
-  isUserNameExists   = return . lookupUser
-
-lookupUser :: Text -> Bool
-lookupUser username =
-  case find (\m -> manUserName m == username) siteManagers of
-    Just _ -> True
-    _      -> False
+  doesUserNameExist  = return . isJust . lookupUser
 
 validPassword :: Text -> Text -> Bool
 validPassword u p =
@@ -59,26 +118,12 @@ validPassword u p =
     _      -> False
 @
 
-= One caveat: 'authenticate' action of 'YesodAuth'.
 
-You may want to store additional information for harcoded users in database, but
-in this example let's cheat a bit:
+== Conclusion
 
-@
-instance YesodAuth App where
-  authenticate _ =
-    return (Authenticated (toSqlKey 0))
-@
-
-It is also possible to make 'authenticate' action smart enough to examine which
-plugin was used to log in user, e.g.
-
-@
-authenticate creds =
-  case credsPlugin creds of
-    "hardcoded" -> -- ...
-    -- ...
-@
+Now we can use 'maybeAuthId', 'maybeAuthPair', 'requireAuthId', and
+'requireAuthPair', moreover, the returned value makes possible to distinguish
+normal users and site managers.
 -}
 module Yesod.Auth.Hardcoded
   ( YesodAuthHardcoded(..)
