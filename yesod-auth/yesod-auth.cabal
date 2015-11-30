@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.4.10
+version:         1.4.10.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
@@ -75,6 +75,7 @@ library
                      Yesod.Auth.Message
                      Yesod.Auth.GoogleEmail
                      Yesod.Auth.GoogleEmail2
+                     Yesod.Auth.Hardcoded
     other-modules:   Yesod.Auth.Routes
                      Yesod.PasswordStore
     ghc-options:     -Wall
