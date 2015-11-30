@@ -1,3 +1,7 @@
+## 1.4.11
+
+Add Yesod.Auth.Hardcoded
+
 ## 1.4.9
 
 * Expose defaultLoginHandler
