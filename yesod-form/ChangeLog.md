@@ -1,3 +1,7 @@
+## 1.4.6
+
+* Functor instances for Option/OptionList
+
 ## 1.4.5
 
 * Foldable/Traversable instances for FormResult [#1089](https://github.com/yesodweb/yesod/pull/1089)
