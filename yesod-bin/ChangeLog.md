@@ -1,3 +1,7 @@
+## 1.4.15
+
+* Deprecate yesod init
+
 ## 1.4.14
 
 * Fix order of -package-db arguments to runghc [#1057](https://github.com/yesodweb/yesod/issues/1057)
