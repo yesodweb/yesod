@@ -74,6 +74,7 @@ module Yesod.Core
       -- * Approot
     , guessApproot
     , guessApprootOr
+    , getApprootText
       -- * Misc
     , yesodVersion
     , yesodRender

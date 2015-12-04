@@ -1,3 +1,7 @@
+## 1.4.17
+
+* Add `getApprootText`
+
 ## 1.4.16
 
 * Add `guessApproot` and `guessApprootOr`

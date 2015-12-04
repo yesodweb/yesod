@@ -844,13 +844,20 @@ guessApproot = guessApprootOr ApprootRelative
 guessApprootOr :: Approot site -> Approot site
 guessApprootOr fallback = ApprootRequest $ \master req ->
     case W.requestHeaderHost req of
-        Nothing -> case fallback of
-                       ApprootRelative  -> ""
-                       ApprootStatic t  -> t
-                       ApprootMaster f  -> f master
-                       ApprootRequest f -> f master req
+        Nothing -> getApprootText fallback master req
         Just host ->
             (if Network.Wai.Request.appearsSecure req
                 then "https://"
                 else "http://")
             `T.append` TE.decodeUtf8With TEE.lenientDecode host
+
+-- | Get the textual application root from an 'Approot' value.
+--
+-- Since 1.4.17
+getApprootText :: Approot site -> site -> W.Request -> Text
+getApprootText ar site req =
+    case ar of
+        ApprootRelative -> ""
+        ApprootStatic t -> t
+        ApprootMaster f -> f site
+        ApprootRequest f -> f site req
