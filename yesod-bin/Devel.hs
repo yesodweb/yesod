@@ -188,7 +188,13 @@ reverseProxy opts iappPort = do
           let cert = $(embedFile "certificate.pem")
               key = $(embedFile "key.pem")
               tlsSettings = tlsSettingsMemory cert key
-          runTLS tlsSettings (setPort port defaultSettings) app
+          runTLS tlsSettings (setPort port defaultSettings) $ \req send -> do
+            let req' = req
+                    { requestHeaders
+                        = ("X-Forwarded-Proto", "https")
+                        : requestHeaders req
+                    }
+            app req' send
         httpProxy = run (develPort opts) proxyApp
         httpsProxy = runProxyTls (develTlsPort opts) proxyApp
     putStrLn "Application can be accessed at:\n"
