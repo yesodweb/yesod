@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.4.16
+version:         1.4.16.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -82,7 +82,7 @@ executable             yesod
                      , transformers
                      , transformers-compat
                      , warp               >= 1.3.7.5
-                     , wai                >= 1.4
+                     , wai                >= 2.0
                      , wai-extra
                      , data-default-class
                      , streaming-commons

@@ -77,7 +77,8 @@ import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
 import qualified Network.HTTP.ReverseProxy             as ReverseProxy
 import           Network.HTTP.Types                    (status200, status503)
 import           Network.Socket                        (sClose)
-import           Network.Wai                           (responseLBS, requestHeaders)
+import           Network.Wai                           (responseLBS, requestHeaders,
+                                                        requestHeaderHost)
 import           Network.Wai.Parse                     (parseHttpAccept)
 import           Network.Wai.Handler.Warp              (run, defaultSettings, setPort)
 import           Network.Wai.Handler.WarpTLS           (runTLS, tlsSettingsMemory)
@@ -192,7 +193,18 @@ reverseProxy opts iappPort = do
             let req' = req
                     { requestHeaders
                         = ("X-Forwarded-Proto", "https")
-                        : requestHeaders req
+                        -- Workaround for
+                        -- https://github.com/yesodweb/wai/issues/478, where
+                        -- the Host headers aren't set. Without this, generated
+                        -- URLs from guestApproot are incorrect, see:
+                        -- https://github.com/yesodweb/yesod-scaffold/issues/114
+                        : (case lookup "host" (requestHeaders req) of
+                            Nothing ->
+                                case requestHeaderHost req of
+                                    Just host -> (("Host", host):)
+                                    Nothing -> id
+                            Just _ -> id)
+                          (requestHeaders req)
                     }
             app req' send
         httpProxy = run (develPort opts) proxyApp

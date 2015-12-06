@@ -1,3 +1,7 @@
+## 1.4.16.1
+
+* Workaround for [wai#478](https://github.com/yesodweb/wai/issues/478)
+
 ## 1.4.16
 
 * Some updates for better reverse proxying [yesod-scaffold#114](https://github.com/yesodweb/yesod-scaffold/issues/114)
