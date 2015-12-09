@@ -13,10 +13,11 @@ import Control.Monad (forM)
 import Data.List (foldl')
 import Control.Arrow (second)
 import System.Random (randomRIO)
+import Yesod.Core.Types (HandlerT)
 import Yesod.Routes.TH.Types
 import Data.Char (toLower)
 
-data MkDispatchSettings = MkDispatchSettings
+data MkDispatchSettings b site c = MkDispatchSettings
     { mdsRunHandler :: Q Exp
     , mdsSubDispatcher :: Q Exp
     , mdsGetPathInfo :: Q Exp
@@ -25,6 +26,7 @@ data MkDispatchSettings = MkDispatchSettings
     , mds404 :: Q Exp
     , mds405 :: Q Exp
     , mdsGetHandler :: Maybe String -> String -> Q Exp
+    , mdsUnwrapper :: Exp -> Q Exp
     }
 
 data SDC = SDC
@@ -39,7 +41,7 @@ data SDC = SDC
 -- view patterns.
 --
 -- Since 1.4.0
-mkDispatchClause :: MkDispatchSettings -> [ResourceTree a] -> Q Clause
+mkDispatchClause :: MkDispatchSettings b site c -> [ResourceTree a] -> Q Clause
 mkDispatchClause MkDispatchSettings {..} resources = do
     suffix <- qRunIO $ randomRIO (1000, 9999 :: Int)
     envName <- newName $ "env" ++ show suffix
@@ -141,7 +143,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                         mkRunExp mmethod = do
                             runHandlerE <- mdsRunHandler
                             handlerE' <- mdsGetHandler mmethod name
-                            let handlerE = foldl' AppE handlerE' allDyns
+                            handlerE <- mdsUnwrapper $ foldl' AppE handlerE' allDyns
                             return $ runHandlerE
                                 `AppE` handlerE
                                 `AppE` envExp
