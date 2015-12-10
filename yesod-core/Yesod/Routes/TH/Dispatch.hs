@@ -13,7 +13,6 @@ import Control.Monad (forM)
 import Data.List (foldl')
 import Control.Arrow (second)
 import System.Random (randomRIO)
-import Yesod.Core.Types (HandlerT)
 import Yesod.Routes.TH.Types
 import Data.Char (toLower)
 
