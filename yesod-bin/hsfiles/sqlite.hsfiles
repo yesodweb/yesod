@@ -9073,7 +9073,7 @@ $maybe msg <- mmsg
 
   <li> And last but not least, Testing. In <em>test/Spec.hs</em> you will find a #
     test suite that performs tests on this page. #
-    You can run your tests by doing: <pre>yesod test</pre>
+    You can run your tests by doing: <pre>stack test</pre>
 
 {-# START_FILE templates/homepage.julius #-}
 document.getElementById(#{toJSON aDomId}).innerHTML = "This text was added by the Javascript part of the homepage widget.";
