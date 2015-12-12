@@ -427,7 +427,7 @@ defaultCsrfCheckMiddleware handler = do
 -- | Looks up the CSRF token from the request headers or POST parameters. If the value doesn't match the token stored in the session,
 -- this function throws a 'PermissionDenied' error.
 --
--- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
 csrfCheckMiddleware :: Yesod site
@@ -449,15 +449,15 @@ defaultCsrfSetCookieMiddleware handler = csrfSetCookieMiddleware handler (def { 
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie. See 'setCsrfCookieWithCookie'.
 --
--- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
 csrfSetCookieMiddleware :: Yesod site => HandlerT site IO res -> SetCookie -> HandlerT site IO res
 csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handler
 
--- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'. Use this midle 
+-- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'.
 --
--- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
 defaultCsrfMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
@@ -669,9 +669,9 @@ asyncHelper render scripts jscript jsLoc =
 
 -- | Default formatting for log messages. When you use
 -- the template haskell logging functions for to log with information
--- about the source location, that information will be appended to 
--- the end of the log. When you use the non-TH logging functions, 
--- like 'logDebugN', this function does not include source 
+-- about the source location, that information will be appended to
+-- the end of the log. When you use the non-TH logging functions,
+-- like 'logDebugN', this function does not include source
 -- information. This currently works by checking to see if the
 -- package name is the string \"\<unknown\>\". This is a hack,
 -- but it removes some of the visual clutter from non-TH logs.
@@ -686,22 +686,22 @@ formatLogMessage :: IO ZonedDate
 formatLogMessage getdate loc src level msg = do
     now <- getdate
     return $ mempty
-        `mappend` toLogStr now 
-        `mappend` " [" 
+        `mappend` toLogStr now
+        `mappend` " ["
         `mappend` (case level of
             LevelOther t -> toLogStr t
-            _ -> toLogStr $ drop 5 $ show level) 
+            _ -> toLogStr $ drop 5 $ show level)
         `mappend` (if T.null src
             then mempty
-            else "#" `mappend` toLogStr src) 
-        `mappend` "] " 
-        `mappend` msg 
+            else "#" `mappend` toLogStr src)
+        `mappend` "] "
+        `mappend` msg
         `mappend` sourceSuffix
         `mappend` "\n"
-    where 
+    where
     sourceSuffix = if loc_package loc == "<unknown>" then "" else mempty
-        `mappend` " @(" 
-        `mappend` toLogStr (fileLocationToString loc) 
+        `mappend` " @("
+        `mappend` toLogStr (fileLocationToString loc)
         `mappend` ")"
 
 -- | Customize the cookies used by the session backend.  You may
