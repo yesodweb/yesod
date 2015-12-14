@@ -1,3 +1,7 @@
+## 1.4.18
+
+* Add hook to apply arbitrary function to all handlers [#1122](https://github.com/yesodweb/yesod/pull/1122)
+
 ## 1.4.17
 
 * Add `getApprootText`
