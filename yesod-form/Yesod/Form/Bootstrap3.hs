@@ -191,7 +191,7 @@ helpWidget view = [whamlet|
     $maybe tt <- fvTooltip view
       <span .help-block>#{tt}
     $maybe err <- fvErrors view
-      <span .help-block>#{err}
+      <span .help-block .error-block>#{err}
 |]
 
 
