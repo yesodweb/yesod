@@ -1,3 +1,7 @@
+## 1.4.17
+
+* Fully remove the `yesod init` command
+
 ## 1.4.16.1
 
 * Workaround for [wai#478](https://github.com/yesodweb/wai/issues/478)

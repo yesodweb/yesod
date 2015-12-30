@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.4.16.1
+version:         1.4.17
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -14,8 +14,6 @@ homepage:        http://www.yesodweb.com/
 data-files:      refreshing.html
 
 extra-source-files:
-  input/*.cg
-  hsfiles/*.hsfiles
   ChangeLog.md
   *.pem
 
@@ -92,8 +90,7 @@ executable             yesod
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
-    other-modules:     Scaffolding.Scaffolder
-                       Devel
+    other-modules:     Devel
                        Build
                        GhcBuild
                        Keter
