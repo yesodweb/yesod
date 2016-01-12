@@ -93,6 +93,8 @@ module Yesod.Core.Handler
     , sendFilePart
     , sendResponse
     , sendResponseStatus
+      -- ** Type specific response with custom status
+    , sendStatusJSON
     , sendResponseCreated
     , sendWaiResponse
     , sendWaiApplication
@@ -198,6 +200,7 @@ import           Network.Wai.Middleware.HttpAuth
     ( extractBasicAuth, extractBearerAuth )
 import Control.Monad.Trans.Class (lift)
 
+import           Data.Aeson                    (ToJSON(..))
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
 import           Data.Text.Encoding.Error      (lenientDecode)
@@ -319,7 +322,7 @@ askHandlerEnv = liftHandlerT $ HandlerT $ return . handlerEnv
 getYesod :: MonadHandler m => m (HandlerSite m)
 getYesod = rheSite `liftM` askHandlerEnv
 
--- | Get a specific component of the master site application argument. 
+-- | Get a specific component of the master site application argument.
 --   Analogous to the 'gets' function for operating on 'StateT'.
 getsYesod :: MonadHandler m => (HandlerSite m -> a) -> m a
 getsYesod f = (f . rheSite) `liftM` askHandlerEnv
@@ -575,6 +578,11 @@ sendResponse = handlerError . HCContent H.status200 . toTypedContent
 sendResponseStatus :: (MonadHandler m, ToTypedContent c) => H.Status -> c -> m a
 sendResponseStatus s = handlerError . HCContent s . toTypedContent
 
+-- | Bypass remaining handler code and output the given JSON with the given
+-- status code.
+sendStatusJSON :: (MonadHandler m, ToJSON a) => H.Status -> a -> m a
+sendStatusJSON s v = sendResponseStatus s (toJSON v)
+
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
 sendResponseCreated :: MonadHandler m => Route (HandlerSite m) -> m a
@@ -733,7 +741,7 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
 -- is never (realistically) expired.
 neverExpires :: MonadHandler m => m ()
 neverExpires = do
-    askHandlerEnv >>= liftIO . rheGetMaxExpires >>= setHeader "Expires"
+    setHeader "Expires" . rheMaxExpires =<< askHandlerEnv
     cacheSeconds oneYear
   where
     oneYear :: Int
@@ -1293,8 +1301,8 @@ stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
         }
 
 -- $ajaxCSRFOverview
--- When a user has authenticated with your site, all requests made from the browser to your server will include the session information that you use to verify that the user is logged in. 
--- Unfortunately, this allows attackers to make unwanted requests on behalf of the user by e.g. submitting an HTTP request to your site when the user visits theirs. 
+-- When a user has authenticated with your site, all requests made from the browser to your server will include the session information that you use to verify that the user is logged in.
+-- Unfortunately, this allows attackers to make unwanted requests on behalf of the user by e.g. submitting an HTTP request to your site when the user visits theirs.
 -- This is known as a <https://en.wikipedia.org/wiki/Cross-site_request_forgery Cross Site Request Forgery> (CSRF) attack.
 --
 -- To combat this attack, you need a way to verify that the request is valid.
@@ -1307,24 +1315,24 @@ stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
 --
 -- (2) Yesod can store the CSRF token in a cookie which is accessible by Javascript. Requests made by Javascript can lookup this cookie and add it as a header to requests. The server then checks the token in the header against the one in the encrypted session.
 --
--- The form-based approach has the advantage of working for users with Javascript disabled, while adding the token to the headers with Javascript allows things like submitting JSON or binary data in AJAX requests. Yesod supports checking for a CSRF token in either the POST parameters of the form ('checkCsrfHeaderNamed'), the headers ('checkCsrfHeaderNamed'), or both options ('checkCsrfHeaderOrParam').
+-- The form-based approach has the advantage of working for users with Javascript disabled, while adding the token to the headers with Javascript allows things like submitting JSON or binary data in AJAX requests. Yesod supports checking for a CSRF token in either the POST parameters of the form ('checkCsrfParamNamed'), the headers ('checkCsrfHeaderNamed'), or both options ('checkCsrfHeaderOrParam').
 --
 -- The easiest way to check both sources is to add the 'defaultCsrfMiddleware' to your Yesod Middleware.
 
 -- | The default cookie name for the CSRF token ("XSRF-TOKEN").
--- 
+--
 -- Since 1.4.14
 defaultCsrfCookieName :: S8.ByteString
 defaultCsrfCookieName = "XSRF-TOKEN"
 
 -- | Sets a cookie with a CSRF token, using 'defaultCsrfCookieName' for the cookie name.
--- 
+--
 -- Since 1.4.14
 setCsrfCookie :: MonadHandler m => m ()
 setCsrfCookie = setCsrfCookieWithCookie def { setCookieName = defaultCsrfCookieName }
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie.
--- 
+--
 -- Since 1.4.14
 setCsrfCookieWithCookie :: MonadHandler m => SetCookie -> m ()
 setCsrfCookieWithCookie cookie  = do
@@ -1332,14 +1340,14 @@ setCsrfCookieWithCookie cookie  = do
     Fold.forM_ mCsrfToken (\token -> setCookie $ cookie { setCookieValue = encodeUtf8 token })
 
 -- | The default header name for the CSRF token ("X-XSRF-TOKEN").
--- 
+--
 -- Since 1.4.14
 defaultCsrfHeaderName :: CI S8.ByteString
 defaultCsrfHeaderName = "X-XSRF-TOKEN"
 
 -- | Takes a header name to lookup a CSRF token. If the value doesn't match the token stored in the session,
 -- this function throws a 'PermissionDenied' error.
--- 
+--
 -- Since 1.4.14
 checkCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m ()
 checkCsrfHeaderNamed headerName = do
@@ -1347,7 +1355,7 @@ checkCsrfHeaderNamed headerName = do
   unless valid (permissionDenied csrfErrorMessage)
 
 -- | Takes a header name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
--- 
+--
 -- Since 1.4.14
 hasValidCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m Bool
 hasValidCsrfHeaderNamed headerName = do

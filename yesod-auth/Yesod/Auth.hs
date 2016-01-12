@@ -30,6 +30,7 @@ module Yesod.Auth
       -- * User functions
     , AuthenticationResult (..)
     , defaultMaybeAuthId
+    , defaultLoginHandler
     , maybeAuthPair
     , maybeAuth
     , requireAuthId
@@ -46,6 +47,7 @@ module Yesod.Auth
     , asHtml
     ) where
 
+import           Control.Applicative ((<$>))
 import Control.Monad                 (when)
 import Control.Monad.Trans.Maybe
 
@@ -57,11 +59,12 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.HashMap.Lazy as Map
 import Data.Monoid (Endo)
-import Network.HTTP.Conduit (Manager)
+import Network.HTTP.Client (Manager, Request, withResponse, Response, BodyReader)
 
 import qualified Network.Wai as W
 
 import Yesod.Core
+import Yesod.Core.Types (HandlerT(..), unHandlerT)
 import Yesod.Persist
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
 import qualified Yesod.Auth.Message as Msg
@@ -146,17 +149,26 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     authPlugins :: master -> [AuthPlugin master]
 
     -- | What to show on the login page.
+    --
+    -- By default this calls 'defaultLoginHandler', which concatenates
+    -- plugin widgets and wraps the result in 'authLayout'. Override if
+    -- you need fancy widget containers, additional functionality, or an
+    -- entirely custom page.  For example, in some applications you may
+    -- want to prevent the login page being displayed for a user who is
+    -- already logged in, even if the URL is visited explicitly; this can
+    -- be done by overriding 'loginHandler' in your instance declaration
+    -- with something like:
+    --
+    -- > instance YesodAuth App where
+    -- >     ...
+    -- >     loginHandler = do
+    -- >         ma <- lift maybeAuthId
+    -- >         when (isJust ma) $
+    -- >             lift $ redirect HomeR   -- or any other Handler code you want
+    -- >         defaultLoginHandler
     -- 
-    -- Default handler concatenates plugin widgets and wraps the result
-    -- in 'authLayout'. Override if you need fancy widget containers
-    -- or entirely custom page.
     loginHandler :: AuthHandler master Html
-    loginHandler = do
-        tp <- getRouteToParent
-        lift $ authLayout $ do
-            setTitleI Msg.LoginTitle
-            master <- getYesod
-            mapM_ (flip apLogin tp) (authPlugins master)
+    loginHandler = defaultLoginHandler
 
     -- | Used for i18n of messages provided by this package.
     renderAuthMessage :: master
@@ -208,6 +220,16 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
         setMessage $ toHtml msg
         fmap asHtml $ redirect dest
 
+    -- | runHttpRequest gives you a chance to handle an HttpException and retry
+    --  The default behavior is to simply execute the request which will throw an exception on failure
+    --
+    --  The HTTP 'Request' is given in case it is useful to change behavior based on inspecting the request.
+    --  This is an experimental API that is not broadly used throughout the yesod-auth code base
+    runHttpRequest :: Request -> (Response BodyReader -> HandlerT master IO a) -> HandlerT master IO a
+    runHttpRequest req inner = do
+      man <- authHttpManager <$> getYesod
+      HandlerT $ \t -> withResponse req man $ \res -> unHandlerT (inner res) t
+
     {-# MINIMAL loginDest, logoutDest, (authenticate | getAuthId), authPlugins, authHttpManager #-}
 
 {-# DEPRECATED getAuthId "Define 'authenticate' instead; 'getAuthId' will be removed in the next major version" #-}
@@ -241,6 +263,21 @@ cachedAuth
     . cached
     . fmap CachedMaybeAuth
     . getAuthEntity
+
+
+-- | Default handler to show the login page.
+--
+-- This is the default 'loginHandler'.  It concatenates plugin widgets and
+-- wraps the result in 'authLayout'.  See 'loginHandler' for more details.
+--
+-- Since 1.4.9
+defaultLoginHandler :: AuthHandler master Html
+defaultLoginHandler = do
+    tp <- getRouteToParent
+    lift $ authLayout $ do
+        setTitleI Msg.LoginTitle
+        master <- getYesod
+        mapM_ (flip apLogin tp) (authPlugins master)
 
 
 loginErrorMessageI :: (MonadResourceBase m, YesodAuth master)

@@ -1,3 +1,19 @@
+## 1.4.17
+
+* Fully remove the `yesod init` command
+
+## 1.4.16.1
+
+* Workaround for [wai#478](https://github.com/yesodweb/wai/issues/478)
+
+## 1.4.16
+
+* Some updates for better reverse proxying [yesod-scaffold#114](https://github.com/yesodweb/yesod-scaffold/issues/114)
+
+## 1.4.15
+
+* Deprecate yesod init
+
 ## 1.4.14
 
 * Fix order of -package-db arguments to runghc [#1057](https://github.com/yesodweb/yesod/issues/1057)

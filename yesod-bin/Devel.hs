@@ -77,7 +77,8 @@ import           Network.HTTP.ReverseProxy             (ProxyDest (ProxyDest),
 import qualified Network.HTTP.ReverseProxy             as ReverseProxy
 import           Network.HTTP.Types                    (status200, status503)
 import           Network.Socket                        (sClose)
-import           Network.Wai                           (responseLBS, requestHeaders)
+import           Network.Wai                           (responseLBS, requestHeaders,
+                                                        requestHeaderHost)
 import           Network.Wai.Parse                     (parseHttpAccept)
 import           Network.Wai.Handler.Warp              (run, defaultSettings, setPort)
 import           Network.Wai.Handler.WarpTLS           (runTLS, tlsSettingsMemory)
@@ -188,14 +189,31 @@ reverseProxy opts iappPort = do
           let cert = $(embedFile "certificate.pem")
               key = $(embedFile "key.pem")
               tlsSettings = tlsSettingsMemory cert key
-          runTLS tlsSettings (setPort port defaultSettings) app
+          runTLS tlsSettings (setPort port defaultSettings) $ \req send -> do
+            let req' = req
+                    { requestHeaders
+                        = ("X-Forwarded-Proto", "https")
+                        -- Workaround for
+                        -- https://github.com/yesodweb/wai/issues/478, where
+                        -- the Host headers aren't set. Without this, generated
+                        -- URLs from guestApproot are incorrect, see:
+                        -- https://github.com/yesodweb/yesod-scaffold/issues/114
+                        : (case lookup "host" (requestHeaders req) of
+                            Nothing ->
+                                case requestHeaderHost req of
+                                    Just host -> (("Host", host):)
+                                    Nothing -> id
+                            Just _ -> id)
+                          (requestHeaders req)
+                    }
+            app req' send
         httpProxy = run (develPort opts) proxyApp
         httpsProxy = runProxyTls (develTlsPort opts) proxyApp
     putStrLn "Application can be accessed at:\n"
-    putStrLn $ "http://127.0.0.1:" ++ show (develPort opts)
-    putStrLn $ "https://127.0.0.1:" ++ show (develTlsPort opts)
+    putStrLn $ "http://localhost:" ++ show (develPort opts)
+    putStrLn $ "https://localhost:" ++ show (develTlsPort opts)
     putStrLn $ "If you wish to test https capabilities, you should set the following variable:"
-    putStrLn $ "  export APPROOT=https://127.0.0.1:" ++ show (develTlsPort opts)
+    putStrLn $ "  export APPROOT=https://localhost:" ++ show (develTlsPort opts)
     putStrLn ""
     loop (race_ httpProxy httpsProxy) `Ex.catch` \e -> do
         print (e :: Ex.SomeException)

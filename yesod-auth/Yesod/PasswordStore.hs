@@ -38,7 +38,7 @@
 -- > >>> makePassword "hunter2" 14
 -- > "sha256|14|Zo4LdZGrv/HYNAUG3q8WcA==|zKjbHZoTpuPLp1lh6ATolWGIKjhXvY4TysuKvqtNFyk="
 --
--- This will hash the password @\"hunter2\"@, with strength 12, which is a good
+-- This will hash the password @\"hunter2\"@, with strength 14, which is a good
 -- default value. The strength here determines how long the hashing will
 -- take. When doing the hashing, we iterate the SHA256 hash function
 -- @2^strength@ times, so increasing the strength by 1 makes the hashing take

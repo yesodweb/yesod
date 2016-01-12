@@ -604,6 +604,12 @@ data OptionList a = OptionList
     { olOptions :: [Option a]
     , olReadExternal :: Text -> Maybe a -- ^ A function mapping from the form's value ('optionExternalValue') to the selected Haskell value ('optionInternalValue').
     }
+
+-- | Since 1.4.6
+instance Functor OptionList where
+    fmap f (OptionList options readExternal) = 
+      OptionList ((fmap.fmap) f options) (fmap f . readExternal)
+
 -- | Creates an 'OptionList', using a 'Map' to implement the 'olReadExternal' function.
 mkOptionList :: [Option a] -> OptionList a
 mkOptionList os = OptionList
@@ -616,6 +622,11 @@ data Option a = Option
     , optionInternalValue :: a -- ^ The Haskell value being selected.
     , optionExternalValue :: Text -- ^ The representation of this value stored in the form.
     }
+
+-- | Since 1.4.6
+instance Functor Option where
+    fmap f (Option display internal external) = Option display (f internal) external
+
 -- | Creates an 'OptionList' from a list of (display-value, internal value) pairs.
 optionsPairs :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
              => [(msg, a)] -> m (OptionList a)

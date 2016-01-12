@@ -50,20 +50,24 @@ module Yesod.Auth.GoogleEmail2
 import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
                                            AuthRoute, Creds (Creds),
                                            Route (PluginR), YesodAuth,
-                                           authHttpManager, setCredsRedirect)
+                                           runHttpRequest, setCredsRedirect,
+                                           logoutDest)
 import qualified Yesod.Auth.Message       as Msg
 import           Yesod.Core               (HandlerSite, HandlerT, MonadHandler,
                                            TypedContent, getRouteToParent,
-                                           getUrlRender, getYesod, invalidArgs,
+                                           getUrlRender, invalidArgs,
                                            lift, liftIO, lookupGetParam,
                                            lookupSession, notFound, redirect,
-                                           setSession, whamlet, (.:))
+                                           setSession, whamlet, (.:),
+                                           setMessage, getYesod, authRoute,
+                                           toHtml)
 
 
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
 import           Control.Applicative      ((<$>), (<*>))
 import           Control.Arrow            (second)
-import           Control.Monad            (liftM, unless, when)
+import           Control.Monad            (unless, when)
+import           Control.Monad.IO.Class   (MonadIO)
 import qualified Crypto.Nonce             as Nonce
 import           Data.Aeson               ((.:?))
 import qualified Data.Aeson               as A
@@ -71,7 +75,7 @@ import qualified Data.Aeson.Encode        as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            parseMaybe, withObject, withText)
-import           Data.Conduit             (($$+-))
+import           Data.Conduit             (($$+-), ($$))
 import           Data.Conduit.Attoparsec  (sinkParser)
 import qualified Data.HashMap.Strict      as M
 import           Data.Maybe               (fromMaybe)
@@ -83,7 +87,8 @@ import qualified Data.Text.Lazy           as TL
 import qualified Data.Text.Lazy.Builder   as TL
 import           Network.HTTP.Client      (Manager, parseUrl, requestHeaders,
                                            responseBody, urlEncodedBody)
-import           Network.HTTP.Conduit     (http)
+import           Network.HTTP.Client.Conduit (Request, bodyReaderSource)
+import           Network.HTTP.Conduit (http)
 import           Network.HTTP.Types       (renderQueryText)
 import           System.IO.Unsafe         (unsafePerformIO)
 
@@ -185,7 +190,18 @@ authPlugin storeToken clientID clientSecret =
         mcode <- lookupGetParam "code"
         code <-
             case mcode of
-                Nothing -> invalidArgs ["Missing code paramter"]
+                Nothing -> do
+                    merr <- lookupGetParam "error"
+                    case merr of
+                        Nothing -> invalidArgs ["Missing code paramter"]
+                        Just err -> do
+                            master <- lift getYesod
+                            let msg =
+                                    case err of
+                                        "access_denied" -> "Access denied"
+                                        _ -> "Unknown error occurred: " `T.append` err
+                            setMessage $ toHtml msg
+                            lift $ redirect $ logoutDest master
                 Just c -> return c
 
         render <- getUrlRender
@@ -202,9 +218,7 @@ authPlugin storeToken clientID clientSecret =
                     req'
                         { requestHeaders = []
                         }
-        manager <- liftM authHttpManager $ lift getYesod
-        res <- http req manager
-        value <- responseBody res $$+- sinkParser json'
+        value <- makeHttpRequest req
         token@(Token accessToken' tokenType') <-
             case parseEither parseJSON value of
                 Left e -> error e
@@ -215,7 +229,7 @@ authPlugin storeToken clientID clientSecret =
         -- User's access token is saved for further access to API
         when storeToken $ setSession accessTokenKey accessToken'
 
-        personValue <- lift $ getPersonValue manager token
+        personValue <- makeHttpRequest =<< personValueRequest token
         person <- case parseEither parseJSON personValue of
                 Left e -> error e
                 Right x -> return x
@@ -229,25 +243,33 @@ authPlugin storeToken clientID clientSecret =
 
     dispatch _ _ = notFound
 
+makeHttpRequest
+  :: (YesodAuth site)
+  => Request
+  -> HandlerT Auth (HandlerT site IO) A.Value
+makeHttpRequest req = lift $
+    runHttpRequest req $ \res -> bodyReaderSource (responseBody res) $$ sinkParser json'
+
 -- | Allows to fetch information about a user from Google's API.
 --   In case of parsing error returns 'Nothing'.
 --   Will throw 'HttpException' in case of network problems or error response code.
 --
 -- Since 1.4.3
 getPerson :: Manager -> Token -> HandlerT site IO (Maybe Person)
-getPerson manager token = parseMaybe parseJSON <$> getPersonValue manager token
+getPerson manager token = parseMaybe parseJSON <$> (do
+    req <- personValueRequest token
+    res <- http req manager
+    responseBody res $$+- sinkParser json'
+  )
 
-getPersonValue :: Manager -> Token -> HandlerT site IO A.Value
-getPersonValue manager token = do
+personValueRequest :: MonadIO m => Token -> m Request
+personValueRequest token = do
     req2' <- liftIO $ parseUrl "https://www.googleapis.com/plus/v1/people/me"
-    let req2 = req2'
+    return req2'
             { requestHeaders =
                 [ ("Authorization", encodeUtf8 $ "Bearer " `mappend` accessToken token)
                 ]
             }
-    res2 <- http req2 manager
-    val <- responseBody res2 $$+- sinkParser json'
-    return val
 
 --------------------------------------------------------------------------------
 -- | An authentication token which was acquired from OAuth callback.

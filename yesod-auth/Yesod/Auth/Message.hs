@@ -19,8 +19,8 @@ module Yesod.Auth.Message
     , dutchMessage
     ) where
 
-import Data.Monoid (mappend)
-import Data.Text (Text)
+import           Data.Monoid (mappend)
+import           Data.Text   (Text)
 
 data AuthMessage =
       NoOpenID
@@ -28,6 +28,7 @@ data AuthMessage =
     | LoginGoogle
     | LoginYahoo
     | Email
+    | UserName
     | IdentifierNotFound Text
     | Password
     | Register
@@ -61,7 +62,9 @@ data AuthMessage =
     | PasswordResetPrompt
     | InvalidUsernamePass
     | Logout
+    | LogoutTitle
     | AuthError
+{-# DEPRECATED Logout "Please, use LogoutTitle instead." #-}
 
 -- | Defaults to 'englishMessage'.
 defaultMessage :: AuthMessage -> Text
@@ -73,6 +76,7 @@ englishMessage LoginOpenID = "Login via OpenID"
 englishMessage LoginGoogle = "Login via Google"
 englishMessage LoginYahoo = "Login via Yahoo"
 englishMessage Email = "Email"
+englishMessage UserName = "User name"
 englishMessage Password = "Password"
 englishMessage Register = "Register"
 englishMessage RegisterLong = "Register a new account"
@@ -97,7 +101,7 @@ englishMessage Facebook = "Login with Facebook"
 englishMessage LoginViaEmail = "Login via email"
 englishMessage InvalidLogin = "Invalid login"
 englishMessage NowLoggedIn = "You are now logged in"
-englishMessage LoginTitle = "Login"
+englishMessage LoginTitle = "Log In"
 englishMessage PleaseProvideUsername = "Please fill in your username"
 englishMessage PleaseProvidePassword = "Please fill in your password"
 englishMessage NoIdentifierProvided = "No email/username provided"
@@ -108,7 +112,8 @@ englishMessage SendPasswordResetEmail = "Send password reset email"
 englishMessage PasswordResetPrompt = "Enter your e-mail address or username below, and a password reset e-mail will be sent to you."
 englishMessage InvalidUsernamePass = "Invalid username/password combination"
 englishMessage (IdentifierNotFound ident) = "Login not found: " `mappend` ident
-englishMessage Logout = "Logout"
+englishMessage Logout = "Log Out"
+englishMessage LogoutTitle = "Log Out"
 englishMessage AuthError = "Authentication Error" -- FIXME by Google Translate
 
 portugueseMessage :: AuthMessage -> Text
@@ -117,6 +122,7 @@ portugueseMessage LoginOpenID = "Entrar via OpenID"
 portugueseMessage LoginGoogle = "Entrar via Google"
 portugueseMessage LoginYahoo = "Entrar via Yahoo"
 portugueseMessage Email = "E-mail"
+portugueseMessage UserName = "Nome de usuário" -- FIXME by Google Translate "user name"
 portugueseMessage Password = "Senha"
 portugueseMessage Register = "Registrar"
 portugueseMessage RegisterLong = "Registrar uma nova conta"
@@ -154,6 +160,7 @@ portugueseMessage InvalidUsernamePass = "Nome de usuário ou senha inválidos"
 -- TODO
 portugueseMessage i@(IdentifierNotFound _) = englishMessage i
 portugueseMessage Logout = "Sair" -- FIXME by Google Translate
+portugueseMessage LogoutTitle = "Sair" -- FIXME by Google Translate
 portugueseMessage AuthError = "Erro de autenticação" -- FIXME by Google Translate
 
 spanishMessage :: AuthMessage -> Text
@@ -162,6 +169,7 @@ spanishMessage LoginOpenID = "Entrar utilizando OpenID"
 spanishMessage LoginGoogle = "Entrar utilizando Google"
 spanishMessage LoginYahoo = "Entrar utilizando Yahoo"
 spanishMessage Email = "Correo electrónico"
+spanishMessage UserName = "Nombre de Usuario" -- FIXME by Google Translate "user name"
 spanishMessage Password = "Contraseña"
 spanishMessage Register = "Registrarse"
 spanishMessage RegisterLong = "Registrar una nueva cuenta"
@@ -186,7 +194,7 @@ spanishMessage Facebook = "Entrar mediante Facebook"
 spanishMessage LoginViaEmail = "Entrar mediante una cuenta de correo"
 spanishMessage InvalidLogin = "Login inválido"
 spanishMessage NowLoggedIn = "Usted ha ingresado al sitio"
-spanishMessage LoginTitle = "Login"
+spanishMessage LoginTitle = "Log In"
 spanishMessage PleaseProvideUsername = "Por favor escriba su nombre de usuario"
 spanishMessage PleaseProvidePassword = "Por favor escriba su contraseña"
 spanishMessage NoIdentifierProvided = "No ha indicado una cuenta de correo/nombre de usuario"
@@ -199,6 +207,7 @@ spanishMessage InvalidUsernamePass = "Combinación de nombre de usuario/contrase
 -- TODO
 spanishMessage i@(IdentifierNotFound _) = englishMessage i
 spanishMessage Logout = "Finalizar la sesión" -- FIXME by Google Translate
+spanishMessage LogoutTitle = "Finalizar la sesión" -- FIXME by Google Translate
 spanishMessage AuthError = "Error de autenticación" -- FIXME by Google Translate
 
 swedishMessage :: AuthMessage -> Text
@@ -207,6 +216,7 @@ swedishMessage LoginOpenID = "Logga in via OpenID"
 swedishMessage LoginGoogle = "Logga in via Google"
 swedishMessage LoginYahoo = "Logga in via Yahoo"
 swedishMessage Email = "Epost"
+swedishMessage UserName = "Användarnamn"  -- FIXME by Google Translate "user name"
 swedishMessage Password = "Lösenord"
 swedishMessage Register = "Registrera"
 swedishMessage RegisterLong = "Registrera ett nytt konto"
@@ -245,6 +255,7 @@ swedishMessage InvalidUsernamePass = "Ogiltig kombination av användarnamn och l
 -- TODO
 swedishMessage i@(IdentifierNotFound _) = englishMessage i
 swedishMessage Logout = "Loggar ut" -- FIXME by Google Translate
+swedishMessage LogoutTitle = "Loggar ut" -- FIXME by Google Translate
 swedishMessage AuthError = "Autentisering Fel" -- FIXME by Google Translate
 
 germanMessage :: AuthMessage -> Text
@@ -253,6 +264,7 @@ germanMessage LoginOpenID = "Login via OpenID"
 germanMessage LoginGoogle = "Login via Google"
 germanMessage LoginYahoo = "Login via Yahoo"
 germanMessage Email = "Email"
+germanMessage UserName = "Benutzername" -- FIXME by Google Translate "user name"
 germanMessage Password = "Passwort"
 germanMessage Register = "Registrieren"
 germanMessage RegisterLong = "Neuen Account registrieren"
@@ -277,7 +289,7 @@ germanMessage Facebook = "Login über Facebook"
 germanMessage LoginViaEmail = "Login via e-Mail"
 germanMessage InvalidLogin = "Ungültiger Login"
 germanMessage NowLoggedIn = "Login erfolgreich"
-germanMessage LoginTitle = "Login"
+germanMessage LoginTitle = "Log In"
 germanMessage PleaseProvideUsername = "Bitte Nutzername angeben"
 germanMessage PleaseProvidePassword = "Bitte Passwort angeben"
 germanMessage NoIdentifierProvided = "Keine Email-Adresse oder kein Nutzername angegeben"
@@ -290,6 +302,7 @@ germanMessage InvalidUsernamePass = "Ungültige Kombination aus Nutzername und P
 -- TODO
 germanMessage i@(IdentifierNotFound _) = englishMessage i
 germanMessage Logout = "Ausloggen" -- FIXME by Google Translate
+germanMessage LogoutTitle = "Ausloggen" -- FIXME by Google Translate
 germanMessage AuthError = "Authorisierungsfehler" -- FIXME by Google Translate
 
 frenchMessage :: AuthMessage -> Text
@@ -298,6 +311,7 @@ frenchMessage LoginOpenID = "Se connecter avec OpenID"
 frenchMessage LoginGoogle = "Se connecter avec Google"
 frenchMessage LoginYahoo = "Se connecter avec Yahoo"
 frenchMessage Email = "Adresse électronique"
+frenchMessage UserName = "Nom d'utilisateur" -- FIXME by Google Translate "user name"
 frenchMessage Password = "Mot de passe"
 frenchMessage Register = "S'inscrire"
 frenchMessage RegisterLong = "Créer un compte"
@@ -334,6 +348,7 @@ frenchMessage PasswordResetPrompt = "Entrez votre courriel ou votre nom d'utilis
 frenchMessage InvalidUsernamePass = "La combinaison de ce mot de passe et de ce nom d'utilisateur n'existe pas."
 frenchMessage (IdentifierNotFound ident) = "Nom d'utilisateur introuvable: " `mappend` ident
 frenchMessage Logout = "Déconnexion"
+frenchMessage LogoutTitle = "Déconnexion"
 frenchMessage AuthError = "Erreur d'authentification" -- FIXME by Google Translate
 
 norwegianBokmålMessage :: AuthMessage -> Text
@@ -342,6 +357,7 @@ norwegianBokmålMessage LoginOpenID = "Logg inn med OpenID"
 norwegianBokmålMessage LoginGoogle = "Logg inn med Google"
 norwegianBokmålMessage LoginYahoo = "Logg inn med Yahoo"
 norwegianBokmålMessage Email = "E-post"
+norwegianBokmålMessage UserName = "Brukernavn" -- FIXME by Google Translate "user name"
 norwegianBokmålMessage Password = "Passord"
 norwegianBokmålMessage Register = "Registrer"
 norwegianBokmålMessage RegisterLong = "Registrer en ny konto"
@@ -379,6 +395,7 @@ norwegianBokmålMessage InvalidUsernamePass = "Invalid username/password combina
 -- TODO
 norwegianBokmålMessage i@(IdentifierNotFound _) = englishMessage i
 norwegianBokmålMessage Logout = "Logge ut" -- FIXME by Google Translate
+norwegianBokmålMessage LogoutTitle = "Logge ut" -- FIXME by Google Translate
 norwegianBokmålMessage AuthError = "Godkjenningsfeil" -- FIXME by Google Translate
 
 japaneseMessage :: AuthMessage -> Text
@@ -387,6 +404,7 @@ japaneseMessage LoginOpenID = "OpenIDでログイン"
 japaneseMessage LoginGoogle = "Googleでログイン"
 japaneseMessage LoginYahoo = "Yahooでログイン"
 japaneseMessage Email = "Eメール"
+japaneseMessage UserName = "ユーザー名" -- FIXME by Google Translate "user name"
 japaneseMessage Password = "パスワード"
 japaneseMessage Register = "登録"
 japaneseMessage RegisterLong = "新規アカウント登録"
@@ -424,6 +442,7 @@ japaneseMessage InvalidUsernamePass = "ユーザ名とパスワードの組み�
 japaneseMessage (IdentifierNotFound ident) =
   ident `mappend` "は登録されていません"
 japaneseMessage Logout = "ログアウト" -- FIXME by Google Translate
+japaneseMessage LogoutTitle = "ログアウト" -- FIXME by Google Translate
 japaneseMessage AuthError = "認証エラー" -- FIXME by Google Translate
 
 finnishMessage :: AuthMessage -> Text
@@ -432,6 +451,7 @@ finnishMessage LoginOpenID = "Kirjaudu OpenID-tilillä"
 finnishMessage LoginGoogle = "Kirjaudu Google-tilillä"
 finnishMessage LoginYahoo = "Kirjaudu Yahoo-tilillä"
 finnishMessage Email = "Sähköposti"
+finnishMessage UserName = "Käyttäjätunnus" -- FIXME by Google Translate "user name"
 finnishMessage Password = "Salasana"
 finnishMessage Register = "Luo uusi"
 finnishMessage RegisterLong = "Luo uusi tili"
@@ -470,6 +490,7 @@ finnishMessage InvalidUsernamePass = "Virheellinen käyttäjänimi tai salasana.
 -- TODO
 finnishMessage i@(IdentifierNotFound _) = englishMessage i
 finnishMessage Logout = "Kirjaudu ulos" -- FIXME by Google Translate
+finnishMessage LogoutTitle = "Kirjaudu ulos" -- FIXME by Google Translate
 finnishMessage AuthError = "Authentication Error" -- FIXME by Google Translate
 
 chineseMessage :: AuthMessage -> Text
@@ -478,6 +499,7 @@ chineseMessage LoginOpenID = "用OpenID登录"
 chineseMessage LoginGoogle = "用Google帐户登录"
 chineseMessage LoginYahoo = "用Yahoo帐户登录"
 chineseMessage Email = "邮箱"
+chineseMessage UserName = "用户名" -- FIXME by Google Translate "user name"
 chineseMessage Password = "密码"
 chineseMessage Register = "注册"
 chineseMessage RegisterLong = "注册新帐户"
@@ -515,6 +537,7 @@ chineseMessage InvalidUsernamePass = "无效的用户名/密码组合"
 -- TODO
 chineseMessage i@(IdentifierNotFound _) = englishMessage i
 chineseMessage Logout = "註銷" -- FIXME by Google Translate
+chineseMessage LogoutTitle = "註銷" -- FIXME by Google Translate
 chineseMessage AuthError = "验证错误" -- FIXME by Google Translate
 
 czechMessage :: AuthMessage -> Text
@@ -523,6 +546,7 @@ czechMessage LoginOpenID = "Přihlásit přes OpenID"
 czechMessage LoginGoogle = "Přihlásit přes Google"
 czechMessage LoginYahoo = "Přihlásit přes Yahoo"
 czechMessage Email = "E-mail"
+czechMessage UserName = "Uživatelské jméno"
 czechMessage Password = "Heslo"
 czechMessage Register = "Registrovat"
 czechMessage RegisterLong = "Zaregistrovat nový účet"
@@ -558,6 +582,7 @@ czechMessage InvalidUsernamePass = "Neplatná kombinace uživatelského jména a
 -- TODO
 czechMessage i@(IdentifierNotFound _) = englishMessage i
 czechMessage Logout = "Odhlásit" -- FIXME by Google Translate
+czechMessage LogoutTitle = "Odhlásit" -- FIXME by Google Translate
 czechMessage AuthError = "Chyba ověřování" -- FIXME by Google Translate
 
 -- Так как e-mail – это фактическое сокращение словосочетания electronic mail,
@@ -568,6 +593,7 @@ russianMessage LoginOpenID = "Вход с помощью OpenID"
 russianMessage LoginGoogle = "Вход с помощью Google"
 russianMessage LoginYahoo = "Вход с помощью Yahoo"
 russianMessage Email = "Эл.почта"
+russianMessage UserName = "Имя пользователя"
 russianMessage Password = "Пароль"
 russianMessage Register = "Регистрация"
 russianMessage RegisterLong = "Создать учётную запись"
@@ -604,6 +630,7 @@ russianMessage PasswordResetPrompt = "Введите адрес эл.почты 
 russianMessage InvalidUsernamePass = "Неверное сочетание имени пользователя и пароля"
 russianMessage (IdentifierNotFound ident) = "Логин не найден: " `mappend` ident
 russianMessage Logout = "Выйти"
+russianMessage LogoutTitle = "Выйти"
 russianMessage AuthError = "Ошибка аутентификации"
 
 dutchMessage :: AuthMessage -> Text
@@ -612,6 +639,7 @@ dutchMessage LoginOpenID = "Inloggen via OpenID"
 dutchMessage LoginGoogle = "Inloggen via Google"
 dutchMessage LoginYahoo = "Inloggen via Yahoo"
 dutchMessage Email = "E-mail"
+dutchMessage UserName = "Gebruikersnaam" -- FIXME by Google Translate "user name"
 dutchMessage Password = "Wachtwoord"
 dutchMessage Register = "Registreren"
 dutchMessage RegisterLong = "Registreer een nieuw account"
@@ -647,5 +675,6 @@ dutchMessage SendPasswordResetEmail = "Stuur een wachtwoord reset e-mail"
 dutchMessage PasswordResetPrompt = "Voer uw e-mailadres of gebruikersnaam hieronder in, er zal een e-mail naar u worden verzonden waarmee u uw wachtwoord kunt wijzigen."
 dutchMessage InvalidUsernamePass = "Ongeldige gebruikersnaam/wachtwoord combinatie"
 dutchMessage (IdentifierNotFound ident) = "Inloggegevens niet gevonden: " `mappend` ident
-dutchMessage Logout = "Logout" -- FIXME NOT TRANSLATED
+dutchMessage Logout = "Log Out" -- FIXME NOT TRANSLATED
+dutchMessage LogoutTitle = "Log Out" -- FIXME NOT TRANSLATED
 dutchMessage AuthError = "Verificatiefout" -- FIXME by Google Translate
