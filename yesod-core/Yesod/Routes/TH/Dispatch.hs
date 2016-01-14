@@ -176,11 +176,12 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                     subDispatcherE <- mdsSubDispatcher
                     runHandlerE <- mdsRunHandler
                     sub <- newName "sub"
+                    sroute <- newName "sroute"
                     let sub2 = LamE [VarP sub]
                             (foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) dyns)
                     let reqExp' = setPathInfoE `AppE` VarE restPath `AppE` reqExp
                         route' = foldl' AppE (ConE (mkName name)) dyns
-                        route = foldr AppE route' extraCons
+                        route = LamE [VarP sroute] $ foldr AppE (AppE route' $ VarE sroute) extraCons
                         exp = subDispatcherE
                             `AppE` runHandlerE
                             `AppE` sub2
