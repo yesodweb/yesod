@@ -15,6 +15,8 @@ data Y = Y
 mkYesod "Y" [parseRoutes|
 / RootR GET
 /sub WaiSubsiteR WaiSubsite getApp
+/nested NestedR:
+  /sub NestedWaiSubsiteR WaiSubsite getApp
 |]
 
 instance Yesod Y
@@ -34,5 +36,10 @@ specs = describe "WaiSubsite" $ do
 
     it "subsite" $ app $ do
       res <- request defaultRequest { pathInfo = ["sub", "foo"] }
+      assertStatus 200 res
+      assertBodyContains "WAI" res
+
+    it "nested subsite" $ app $ do
+      res <- request defaultRequest { pathInfo = ["nested", "sub", "foo"] }
       assertStatus 200 res
       assertBodyContains "WAI" res
