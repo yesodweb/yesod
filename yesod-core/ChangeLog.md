@@ -1,3 +1,7 @@
+## Unreleased
+
+* Allow subsites within hierarchical routes [#1144](https://github.com/yesodweb/yesod/pull/1144)
+
 ## 1.4.18
 
 * Add hook to apply arbitrary function to all handlers [#1122](https://github.com/yesodweb/yesod/pull/1122)
