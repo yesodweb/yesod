@@ -1,4 +1,4 @@
-## Unreleased
+## 1.4.18.2
 
 * Allow subsites within hierarchical routes [#1144](https://github.com/yesodweb/yesod/pull/1144)
 
