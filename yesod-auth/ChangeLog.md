@@ -1,3 +1,7 @@
+## 1.4.12
+
+* Deprecated Yesod.Auth.GoogleEmail
+
 ## 1.4.11
 
 Add Yesod.Auth.Hardcoded
