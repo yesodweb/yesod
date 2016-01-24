@@ -1,3 +1,7 @@
+## 1.4.19
+
+* Auth logout not working with defaultCsrfMiddleware [#1151](https://github.com/yesodweb/yesod/issues/1151)
+
 ## 1.4.18.2
 
 * Allow subsites within hierarchical routes [#1144](https://github.com/yesodweb/yesod/pull/1144)

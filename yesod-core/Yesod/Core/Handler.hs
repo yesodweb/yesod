@@ -890,6 +890,7 @@ redirectToPost :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
                -> m a
 redirectToPost url = do
     urlText <- toTextUrl url
+    req <- getRequest
     withUrlRenderer [hamlet|
 $newline never
 $doctype 5
@@ -899,6 +900,8 @@ $doctype 5
         <title>Redirecting...
     <body onload="document.getElementById('form').submit()">
         <form id="form" method="post" action=#{urlText}>
+            $maybe token <- reqToken req
+                <input type=hidden name=#{defaultCsrfParamName} value=#{token}>
             <noscript>
                 <p>Javascript has been disabled; please click on the button below to be redirected.
             <input type="submit" value="Continue">
