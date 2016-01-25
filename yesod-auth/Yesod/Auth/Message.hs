@@ -283,7 +283,7 @@ germanMessage SetPassTitle = "Passwort angeben"
 germanMessage SetPass = "Neues Passwort angeben"
 germanMessage NewPass = "Neues Passwort"
 germanMessage ConfirmPass = "Bestätigen"
-germanMessage PassMismatch = "Die Passwörter stimmten nicht überein"
+germanMessage PassMismatch = "Die Passwörter stimmen nicht überein"
 germanMessage PassUpdated = "Passwort überschrieben"
 germanMessage Facebook = "Login über Facebook"
 germanMessage LoginViaEmail = "Login via e-Mail"
@@ -303,7 +303,7 @@ germanMessage InvalidUsernamePass = "Ungültige Kombination aus Nutzername und P
 germanMessage i@(IdentifierNotFound _) = englishMessage i
 germanMessage Logout = "Ausloggen" -- FIXME by Google Translate
 germanMessage LogoutTitle = "Ausloggen" -- FIXME by Google Translate
-germanMessage AuthError = "Authorisierungsfehler" -- FIXME by Google Translate
+germanMessage AuthError = "Autorisierungsfehler" -- FIXME by Google Translate
 
 frenchMessage :: AuthMessage -> Text
 frenchMessage NoOpenID = "Aucun fournisseur OpenID n'a été trouvé"
