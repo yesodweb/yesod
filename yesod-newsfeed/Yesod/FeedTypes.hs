@@ -1,6 +1,7 @@
 module Yesod.FeedTypes
     ( Feed (..)
     , FeedEntry (..)
+    , EntryEnclosure (..)
     ) where
 
 import Text.Hamlet      (Html)
@@ -27,11 +28,19 @@ data Feed url = Feed
     , feedEntries     :: [FeedEntry url]
     }
 
+data EntryEnclosure url = EntryEnclosure
+    { enclosedUrl :: url
+    , enclosedSize :: Int -- ^ Specified in bytes
+    , enclosedMimeType :: Text
+    }
+
 -- | Each feed entry
 data FeedEntry url = FeedEntry
     { feedEntryLink    :: url
     , feedEntryUpdated :: UTCTime
     , feedEntryTitle   :: Text
     , feedEntryContent :: Html
-    , feedEntryEnclosure :: Maybe (url, Int, Text)
+    , feedEntryEnclosure :: Maybe (EntryEnclosure url)
+      -- ^ Allows enclosed data: RSS \<enclosure> or Atom \<link
+      -- rel=enclosure>
     }
