@@ -28,6 +28,12 @@ data Feed url = Feed
     , feedEntries     :: [FeedEntry url]
     }
 
+-- | RSS and Atom allow for linked content to be enclosed in a feed entry.
+-- This represents the enclosed content.
+--
+-- Atom feeds ignore 'enclosedSize' and 'enclosedMimeType'.
+--
+-- @since 1.6
 data EntryEnclosure url = EntryEnclosure
     { enclosedUrl :: url
     , enclosedSize :: Int -- ^ Specified in bytes
@@ -43,4 +49,6 @@ data FeedEntry url = FeedEntry
     , feedEntryEnclosure :: Maybe (EntryEnclosure url)
       -- ^ Allows enclosed data: RSS \<enclosure> or Atom \<link
       -- rel=enclosure>
+      --
+      -- @since 1.5
     }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6
+
+* Create new datatype `EntryEnclosure` for self-documentation of `feedEntryEnclosure`.
+
 ## 1.5
 
 ### Yesod/FeedTypes.hs
