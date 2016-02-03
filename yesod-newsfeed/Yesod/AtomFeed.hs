@@ -28,7 +28,6 @@ module Yesod.AtomFeed
 
 import Yesod.Core
 import Yesod.FeedTypes
-import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text)
 import Data.Text.Lazy (toStrict)
@@ -86,7 +85,9 @@ entryTemplate FeedEntry {..} render = Element "entry" Map.empty $ map NodeElemen
     ++
     case feedEntryEnclosure of
         Nothing -> []
-        Just (route, _, _) -> [Element "link" (Map.fromList [("rel", "enclosure"), ("href", render route)]) []]
+        Just (EntryEnclosure{..}) ->
+            [Element "link" (Map.fromList [("rel", "enclosure")
+                                          ,("href", render enclosedUrl)]) []]
 
 -- | Generates a link tag in the head of a widget.
 atomLink :: MonadWidget m
