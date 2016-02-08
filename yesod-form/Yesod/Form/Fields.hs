@@ -74,7 +74,7 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Network.URI (parseURI)
 import Database.Persist.Sql (PersistField, PersistFieldSql (..))
-import Database.Persist (Entity (..), SqlType (SqlString))
+import Database.Persist (Entity (..), SqlType (SqlString), BaseBackend, PersistQueryRead)
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.Either (partitionEithers)
@@ -645,11 +645,13 @@ optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 -- >         <$> areq (selectField countries) "Which country do you live in?" Nothing
 -- >         where
 -- >           countries = optionsPersist [] [Asc CountryName] countryName
-optionsPersist :: ( YesodPersist site, PersistEntity a
-                  , PersistQuery (PersistEntityBackend a)
+optionsPersist :: ( YesodPersist site
+                  , PersistEntity a
+                  , PersistQueryRead backend
                   , PathPiece (Key a)
                   , RenderMessage site msg
-                  , YesodPersistBackend site ~ PersistEntityBackend a
+                  , YesodPersistBackend site ~ backend
+                  , BaseBackend backend ~ PersistEntityBackend a
                   )
                => [Filter a]
                -> [SelectOpt a]
@@ -671,10 +673,11 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
 optionsPersistKey
   :: (YesodPersist site
      , PersistEntity a
-     , PersistQuery (PersistEntityBackend a)
+     , PersistQueryRead backend
      , PathPiece (Key a)
      , RenderMessage site msg
-     , YesodPersistBackend site ~ PersistEntityBackend a
+     , backend ~ YesodPersistBackend site
+     , BaseBackend backend ~ PersistEntityBackend a
      )
   => [Filter a]
   -> [SelectOpt a]
