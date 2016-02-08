@@ -20,7 +20,7 @@ module Yesod.Persist.Core
     ) where
 
 import Database.Persist
-import Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import Control.Monad.Trans.Reader (ReaderT, runReaderT, withReaderT)
 
 import Yesod.Core
 import Data.Conduit
@@ -124,9 +124,9 @@ respondSourceDB :: YesodPersistRunner site
 respondSourceDB ctype = respondSource ctype . runDBSource
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
-get404 :: (MonadIO m, PersistStore (PersistEntityBackend val), PersistEntity val)
+get404 :: (MonadIO m, PersistStore backend, BaseBackend backend ~ PersistEntityBackend val, PersistEntity val)
        => Key val
-       -> ReaderT (PersistEntityBackend val) m val
+       -> ReaderT backend m val
 get404 key = do
     mres <- get key
     case mres of
@@ -135,9 +135,9 @@ get404 key = do
 
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
 --   exist.
-getBy404 :: (PersistUnique (PersistEntityBackend val), PersistEntity val, MonadIO m)
+getBy404 :: (PersistUnique backend, BaseBackend backend ~ PersistEntityBackend val, PersistEntity val, MonadIO m)
          => Unique val
-         -> ReaderT (PersistEntityBackend val) m (Entity val)
+         -> ReaderT backend m (Entity val)
 getBy404 key = do
     mres <- getBy key
     case mres of
