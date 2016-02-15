@@ -160,10 +160,14 @@ authHardcoded =
   where
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
     dispatch _ _ = notFound
-    loginWidget toMaster =
+    loginWidget toMaster = do
+      request <- getRequest
+      let tokenKey = ("_token" :: Text) -- This value taken from yesod-form's postHelper. Not ideal that it's hard-coded in two places.
       [whamlet|
         $newline never
         <form method="post" action="@{toMaster loginR}">
+          $maybe t <- reqToken request
+            <input type=hidden name=#{tokenKey} value=#{t}>
           <table>
             <tr>
               <th>_{Msg.UserName}
