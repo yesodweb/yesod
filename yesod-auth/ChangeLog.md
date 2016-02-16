@@ -1,3 +1,7 @@
+## 1.4.13
+
+* Add a CSRF token to the login form from `Yesod.Auth.Hardcoded`, making it compatible with the CSRF middleware [#1161](https://github.com/yesodweb/yesod/pull/1161)
+
 ## 1.4.12
 
 * Deprecated Yesod.Auth.GoogleEmail
