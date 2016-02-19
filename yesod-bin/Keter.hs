@@ -77,26 +77,27 @@ keter cabal noBuild noCopyTo buildArgs = do
         collapse' (x:xs) = x : collapse' xs
         collapse' [] = []
 
-    stackQueryRunSuccess <- do
-      (ec,_,_) <- readProcessWithExitCode "stack" ["query"] ""
-      return (ec == ExitSuccess)
+    unless noBuild $ do
+        stackQueryRunSuccess <- do
+            (ec,_,_) <- readProcessWithExitCode "stack" ["query"] ""
+            return (ec == ExitSuccess)
 
-    let inStackExec = isJust $ lookup "STACK_EXE" env'
-        mStackYaml = lookup "STACK_YAML" env'
-        useStack = inStackExec || isJust mStackYaml || stackQueryRunSuccess
+        let inStackExec = isJust $ lookup "STACK_EXE" env'
+            mStackYaml = lookup "STACK_YAML" env'
+            useStack = inStackExec || isJust mStackYaml || stackQueryRunSuccess
 
-    unless noBuild $ if useStack
-        then do let stackYaml = maybeToList $ fmap ("--stack-yaml="<>) mStackYaml
-                    localBinPath = cwd' </> "dist/bin"
-                run "stack" $ stackYaml <> ["clean"]
-                createDirectoryIfMissing True localBinPath
-                run "stack"
-                    (stackYaml
-                     <> ["--local-bin-path",localBinPath,"build","--copy-bins"]
-                     <> buildArgs)
-        else do run cabal ["clean"]
-                run cabal ["configure"]
-                run cabal ("build" : buildArgs)
+        if useStack
+            then do let stackYaml = maybeToList $ fmap ("--stack-yaml="<>) mStackYaml
+                        localBinPath = cwd' </> "dist/bin"
+                    run "stack" $ stackYaml <> ["clean"]
+                    createDirectoryIfMissing True localBinPath
+                    run "stack"
+                        (stackYaml
+                         <> ["--local-bin-path",localBinPath,"build","--copy-bins"]
+                         <> buildArgs)
+            else do run cabal ["clean"]
+                    run cabal ["configure"]
+                    run cabal ("build" : buildArgs)
 
     _ <- try' $ removeDirectoryRecursive "static/tmp"
 
