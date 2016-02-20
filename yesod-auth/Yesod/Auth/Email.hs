@@ -301,13 +301,13 @@ getRegisterR = registerHandler
 -- Since: 1.2.6
 defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultRegisterHandler = do
-    ((f,widget),e) <- lift $ runFormPost registrationForm
+    ((_,widget),enctype) <- lift $ runFormPost registrationForm
     toParentRoute <- getRouteToParent
     lift $ authLayout $ do
         setTitleI Msg.RegisterLong
         [whamlet|
             <p>_{Msg.EnterEmail}
-            <form method="post" action="@{toParentRoute registerR}">
+            <form method="post" action="@{toParentRoute registerR}" enctype=#{enctype}>
                 <div id="registerForm">
                     ^{widget}
                 <button .btn>_{Msg.Register}
