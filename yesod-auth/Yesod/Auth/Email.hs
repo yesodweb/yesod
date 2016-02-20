@@ -315,8 +315,8 @@ defaultRegisterHandler = do
     where
         registrationForm extra = do
             let emailSettings = FieldSettings {
-                fsTooltip = Nothing ,
                 fsLabel = SomeMessage Msg.Email,
+                fsTooltip = Nothing,
                 fsId = Just "email",
                 fsName = Just "email",
                 fsAttrs = []
