@@ -319,7 +319,7 @@ defaultRegisterHandler = do
                 fsTooltip = Nothing,
                 fsId = Just "email",
                 fsName = Just "email",
-                fsAttrs = []
+                fsAttrs = [("autofocus", "")]
             }
 
             (emailRes, emailView) <- mreq emailField emailSettings Nothing
