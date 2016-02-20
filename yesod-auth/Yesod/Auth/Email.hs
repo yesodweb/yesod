@@ -322,7 +322,7 @@ defaultRegisterHandler = do
                 fsAttrs = []
             }
 
-            (emailRes, emailView) <- mreq textField emailSettings Nothing
+            (emailRes, emailView) <- mreq emailField emailSettings Nothing
 
             let userRes = UserForm <$> emailRes
             let widget = do
