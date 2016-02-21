@@ -258,28 +258,28 @@ class ( YesodAuth site
 
 authEmail :: YesodAuthEmail m => AuthPlugin m
 authEmail =
-    AuthPlugin "email" dispatch $ \tm ->
-        [whamlet|
-$newline never
-<form method="post" action="@{tm loginR}">
-    <table>
-        <tr>
-            <th>_{Msg.Email}
-            <td>
-                <input type="email" name="email" required>
-        <tr>
-            <th>_{Msg.Password}
-            <td>
-                <input type="password" name="password" required>
-        <tr>
-            <td colspan="2">
-                <button type=submit .btn .btn-success>
-                    _{Msg.LoginViaEmail}
-                &nbsp;
-                <a href="@{tm registerR}" .btn .btn-default>
-                    _{Msg.RegisterLong}
-|]
+    AuthPlugin "email" dispatch login
   where
+    login tm =
+        [whamlet|
+            <form method="post" action="@{tm loginR}">
+                <table>
+                    <tr>
+                        <th>_{Msg.Email}
+                        <td>
+                            <input type="email" name="email" required>
+                    <tr>
+                        <th>_{Msg.Password}
+                        <td>
+                            <input type="password" name="password" required>
+                    <tr>
+                        <td colspan="2">
+                            <button type=submit .btn .btn-success>
+                                _{Msg.LoginViaEmail}
+                            &nbsp;
+                            <a href="@{tm registerR}" .btn .btn-default>
+                                _{Msg.RegisterLong}
+        |]
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
     dispatch "POST" ["register"] = postRegisterR >>= sendResponse
     dispatch "GET" ["forgot-password"] = getForgotPasswordR >>= sendResponse
