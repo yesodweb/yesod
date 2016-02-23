@@ -59,6 +59,7 @@ import Text.Blaze (Markup, toMarkup)
 #define Html Markup
 #define toHtml toMarkup
 import Yesod.Core
+import Yesod.Core.Handler (defaultCsrfParamName)
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
 import Data.Monoid (mempty)
@@ -213,7 +214,7 @@ postHelper  :: (MonadHandler m, RenderMessage (HandlerSite m) FormMessage)
             -> m ((FormResult a, xml), Enctype)
 postHelper form env = do
     req <- getRequest
-    let tokenKey = "_token"
+    let tokenKey = defaultCsrfParamName
     let token =
             case reqToken req of
                 Nothing -> mempty
