@@ -107,6 +107,8 @@ data EmailCreds site = EmailCreds
     , emailCredsEmail  :: Email
     }
 
+data UserForm = UserForm { email :: Text }
+
 class ( YesodAuth site
       , PathPiece (AuthEmailId site)
       , (RenderMessage site Msg.AuthMessage)
@@ -299,18 +301,37 @@ getRegisterR = registerHandler
 -- Since: 1.2.6
 defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultRegisterHandler = do
-    email <- newIdent
-    tp <- getRouteToParent
+    ((_,widget),enctype) <- lift $ runFormPost registrationForm
+    toParentRoute <- getRouteToParent
     lift $ authLayout $ do
         setTitleI Msg.RegisterLong
         [whamlet|
             <p>_{Msg.EnterEmail}
-            <form method="post" action="@{tp registerR}">
+            <form method="post" action="@{toParentRoute registerR}" enctype=#{enctype}>
                 <div id="registerForm">
-                    <label for=#{email}>_{Msg.Email}:
-                    <input ##{email} type="email" name="email" width="150" autofocus>
+                    ^{widget}
                 <button .btn>_{Msg.Register}
         |]
+    where
+        registrationForm extra = do
+            let emailSettings = FieldSettings {
+                fsLabel = SomeMessage Msg.Email,
+                fsTooltip = Nothing,
+                fsId = Just "email",
+                fsName = Just "email",
+                fsAttrs = [("autofocus", "")]
+            }
+
+            (emailRes, emailView) <- mreq emailField emailSettings Nothing
+
+            let userRes = UserForm <$> emailRes
+            let widget = do
+                [whamlet|
+                    #{extra}
+                    ^{fvInput emailView}
+                |]
+
+            return (userRes, widget)
 
 registerHelper :: YesodAuthEmail master
                => Bool -- ^ allow usernames?
