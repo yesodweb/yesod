@@ -103,7 +103,7 @@ authTwitter key secret = authOAuth
                           , oauthConsumerSecret  = secret
                           , oauthVersion         = OAuth10a
                           })
-                (mkExtractCreds "twitter" "screen_name")
+                (mkExtractCreds "twitter" "user_id")
 
 twitterUrl :: AuthRoute
 twitterUrl = oauthUrl "twitter"
