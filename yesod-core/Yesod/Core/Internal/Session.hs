@@ -55,7 +55,7 @@ decodeClientSession key date rhost encrypted = do
 -- to preserve the type.
 
 clientSessionDateCacher ::
-     NominalDiffTime -- ^ Inactive session valitity.
+     NominalDiffTime -- ^ Inactive session validity.
   -> IO (IO ClientSessionDateCache, IO ())
 clientSessionDateCacher validity = do
     getClientSessionDateCache <- mkAutoUpdate defaultUpdateSettings
