@@ -5,7 +5,6 @@ module Yesod.Auth.OAuth
     , oauthUrl
     , authTwitter
     , twitterUrl
-    , twitterId
     , authTumblr
     , tumblrUrl
     , module Web.Authenticate.OAuth
@@ -108,25 +107,6 @@ authTwitter key secret = authOAuth
 
 twitterUrl :: AuthRoute
 twitterUrl = oauthUrl "twitter"
-
--- | Gets Twitter ID (/user_id/) from @Creds@.
---
--- Never use @credsIdent@ for Twitter OAuth. @credsIdent@ returns /screen_name/, which shouldn't be used for authentication.
--- /screen_name/ is text like /foo/ of /\@foo/ which is unique but __mutable__. So /screen_name/ cannot authenticate users.
--- /user_id/ is integer which is unique and __immutable__. So you should use this for authentication.
---
--- Because of compatibility, @credsIdent@ returns /screen_name/ yet.
---
--- Since 1.4.x.x
-twitterId :: Yesod m => Creds m -> Text
-twitterId creds =
-    let
-        key   = "user_id"
-        extra = credsExtra creds
-    in
-        case lookup key extra of
-            Just uId -> uId
-            Nothing  -> throw $ CredentialError ("key not found: " ++ (T.unpack key)) (Credential $ map (encodeUtf8 *** encodeUtf8) extra)
 
 authTumblr :: YesodAuth m
             => ByteString -- ^ Consumer Key
