@@ -117,7 +117,9 @@ authTwitter key secret = authTwitter' key secret "screen_name"
 
 -- | Twitter plugin which uses Twitter's /user_id/ as ID.
 --
--- Since 1.4.x.x TODO fix version
+-- For more information, see: https://github.com/yesodweb/yesod/pull/1168
+--
+-- @since 1.4.1
 authTwitterUsingUserId :: YesodAuth m
                   => ByteString -- ^ Consumer Key
                   -> ByteString -- ^ Consumer Secret
