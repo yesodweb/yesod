@@ -4,6 +4,7 @@ module Yesod.Auth.OAuth
     ( authOAuth
     , oauthUrl
     , authTwitter
+    , authTwitterUsingUserId
     , twitterUrl
     , authTumblr
     , tumblrUrl
@@ -89,11 +90,12 @@ mkExtractCreds name idName (Credential dic) = do
     Just crId -> return $ Creds name crId $ map (bsToText *** bsToText) dic
     Nothing -> throwIO $ CredentialError ("key not found: " ++ idName) (Credential dic)
 
-authTwitter :: YesodAuth m
-            => ByteString -- ^ Consumer Key
-            -> ByteString -- ^ Consumer Secret
-            -> AuthPlugin m
-authTwitter key secret = authOAuth
+authTwitter' :: YesodAuth m
+             => ByteString -- ^ Consumer Key
+             -> ByteString -- ^ Consumer Secret
+             -> String
+             -> AuthPlugin m
+authTwitter' key secret idName = authOAuth
                 (newOAuth { oauthServerName      = "twitter"
                           , oauthRequestUri      = "https://api.twitter.com/oauth/request_token"
                           , oauthAccessTokenUri  = "https://api.twitter.com/oauth/access_token"
@@ -103,7 +105,24 @@ authTwitter key secret = authOAuth
                           , oauthConsumerSecret  = secret
                           , oauthVersion         = OAuth10a
                           })
-                (mkExtractCreds "twitter" "screen_name")
+                (mkExtractCreds "twitter" idName)
+
+-- | This plugin uses Twitter's /screen_name/ as ID, which shouldn't be used for authentication because it is mutable.
+authTwitter :: YesodAuth m
+            => ByteString -- ^ Consumer Key
+            -> ByteString -- ^ Consumer Secret
+            -> AuthPlugin m
+authTwitter key secret = authTwitter' key secret "screen_name"
+{-# DEPRECATED authTwitter "Use authTwitterUsingUserID instead" #-}
+
+-- | Twitter plugin which uses Twitter's /user_id/ as ID.
+--
+-- Since 1.4.x.x TODO fix version
+authTwitterUsingUserId :: YesodAuth m
+                  => ByteString -- ^ Consumer Key
+                  -> ByteString -- ^ Consumer Secret
+                  -> AuthPlugin m
+authTwitterUsingUserId key secret = authTwitter' key secret "user_id"
 
 twitterUrl :: AuthRoute
 twitterUrl = oauthUrl "twitter"
