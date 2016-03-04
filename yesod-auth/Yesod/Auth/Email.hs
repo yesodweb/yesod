@@ -258,9 +258,26 @@ class ( YesodAuth site
 
 authEmail :: (YesodAuthEmail m) => AuthPlugin m
 authEmail =
-    AuthPlugin "email" dispatch login
+    AuthPlugin "email" dispatch emailLoginHandler
   where
-    login toParent = do
+    dispatch "GET" ["register"] = getRegisterR >>= sendResponse
+    dispatch "POST" ["register"] = postRegisterR >>= sendResponse
+    dispatch "GET" ["forgot-password"] = getForgotPasswordR >>= sendResponse
+    dispatch "POST" ["forgot-password"] = postForgotPasswordR >>= sendResponse
+    dispatch "GET" ["verify", eid, verkey] =
+        case fromPathPiece eid of
+            Nothing -> notFound
+            Just eid' -> getVerifyR eid' verkey >>= sendResponse
+    dispatch "POST" ["login"] = postLoginR >>= sendResponse
+    dispatch "GET" ["set-password"] = getPasswordR >>= sendResponse
+    dispatch "POST" ["set-password"] = postPasswordR >>= sendResponse
+    dispatch _ _ = notFound
+
+getRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
+getRegisterR = registerHandler
+
+emailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
+emailLoginHandler toParent = do
         ((_,widget),enctype) <- liftWidgetT $ runFormPost loginForm
 
         [whamlet|
@@ -273,7 +290,7 @@ authEmail =
                     <a href="@{toParent registerR}" .btn .btn-default>
                         _{Msg.RegisterLong}
         |]
-
+  where
     loginForm extra = do
         emailMsg <- renderMessage' Msg.Email
         let emailSettings = FieldSettings {
@@ -312,22 +329,6 @@ authEmail =
         langs <- languages
         master <- getYesod
         return $ renderAuthMessage master langs msg
-    dispatch "GET" ["register"] = getRegisterR >>= sendResponse
-    dispatch "POST" ["register"] = postRegisterR >>= sendResponse
-    dispatch "GET" ["forgot-password"] = getForgotPasswordR >>= sendResponse
-    dispatch "POST" ["forgot-password"] = postForgotPasswordR >>= sendResponse
-    dispatch "GET" ["verify", eid, verkey] =
-        case fromPathPiece eid of
-            Nothing -> notFound
-            Just eid' -> getVerifyR eid' verkey >>= sendResponse
-    dispatch "POST" ["login"] = postLoginR >>= sendResponse
-    dispatch "GET" ["set-password"] = getPasswordR >>= sendResponse
-    dispatch "POST" ["set-password"] = postPasswordR >>= sendResponse
-    dispatch _ _ = notFound
-
-getRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
-getRegisterR = registerHandler
-
 -- | Default implementation of 'registerHandler'.
 --
 -- Since: 1.2.6
