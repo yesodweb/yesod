@@ -4,6 +4,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 -- | Provide the user with a rich text editor.
+--
+-- According to NIC editor homepage it is not actively maintained since June
+-- 2012.  There is another better alternative — open sourced Summernote editor
+-- released under MIT licence.  You can use Summernote in your Yesod forms via
+-- separately distributed
+-- <http://hackage.haskell.org/package/yesod-form-richtext yesod-form-richtext>
+-- package.
 module Yesod.Form.Nic
     ( YesodNic (..)
     , nicHtmlField
