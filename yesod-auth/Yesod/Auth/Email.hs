@@ -108,6 +108,7 @@ data EmailCreds site = EmailCreds
     }
 
 data UserForm = UserForm { email :: Text }
+data UserLoginForm = UserLoginForm { loginEmail :: Text, loginPassword :: Text }
 
 class ( YesodAuth site
       , PathPiece (AuthEmailId site)
@@ -255,31 +256,62 @@ class ( YesodAuth site
       -> AuthHandler site TypedContent
     setPasswordHandler = defaultSetPasswordHandler
 
-
-authEmail :: YesodAuthEmail m => AuthPlugin m
+authEmail :: (YesodAuthEmail m) => AuthPlugin m
 authEmail =
     AuthPlugin "email" dispatch login
   where
-    login tm =
+    login toParent = do
+        ((_,widget),enctype) <- liftWidgetT $ runFormPost loginForm
+
         [whamlet|
-            <form method="post" action="@{tm loginR}">
-                <table>
-                    <tr>
-                        <th>_{Msg.Email}
-                        <td>
-                            <input type="email" name="email" required>
-                    <tr>
-                        <th>_{Msg.Password}
-                        <td>
-                            <input type="password" name="password" required>
-                    <tr>
-                        <td colspan="2">
-                            <button type=submit .btn .btn-success>
-                                _{Msg.LoginViaEmail}
-                            &nbsp;
-                            <a href="@{tm registerR}" .btn .btn-default>
-                                _{Msg.RegisterLong}
+            <form method="post" action="@{toParent loginR}">
+                ^{widget}
+                <div>
+                    <button type=submit .btn .btn-success>
+                        _{Msg.LoginViaEmail}
+                    &nbsp;
+                    <a href="@{toParent registerR}" .btn .btn-default>
+                        _{Msg.RegisterLong}
         |]
+
+    loginForm extra = do
+        emailMsg <- renderMessage' Msg.Email
+        let emailSettings = FieldSettings {
+            fsLabel = SomeMessage Msg.Email,
+            fsTooltip = Nothing,
+            fsId = Just "email",
+            fsName = Just "email",
+            fsAttrs = [("autofocus", ""), ("placeholder", emailMsg)]
+        }
+
+        (emailRes, emailView) <- mreq emailField emailSettings Nothing
+
+        passwordMsg <- renderMessage' Msg.Password
+        let passwordSettings = FieldSettings {
+            fsLabel = SomeMessage Msg.Password,
+            fsTooltip = Nothing,
+            fsId = Just "password",
+            fsName = Just "password",
+            fsAttrs = [("placeholder", passwordMsg)]
+        }
+
+        (passwordRes, passwordView) <- mreq passwordField passwordSettings Nothing
+
+        let userRes = UserLoginForm <$> emailRes <*> passwordRes
+        let widget = do
+            [whamlet|
+                #{extra}
+                <div>
+                    ^{fvInput emailView}
+                <div>
+                    ^{fvInput passwordView}
+            |]
+
+        return (userRes, widget)
+    renderMessage' msg = do
+        langs <- languages
+        master <- getYesod
+        return $ renderAuthMessage master langs msg
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
     dispatch "POST" ["register"] = postRegisterR >>= sendResponse
     dispatch "GET" ["forgot-password"] = getForgotPasswordR >>= sendResponse
