@@ -360,6 +360,7 @@ defaultRegisterHandler = do
             let widget = do
                 [whamlet|
                     #{extra}
+                    ^{fvLabel emailView}
                     ^{fvInput emailView}
                 |]
 
