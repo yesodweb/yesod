@@ -580,6 +580,8 @@ sendResponseStatus s = handlerError . HCContent s . toTypedContent
 
 -- | Bypass remaining handler code and output the given JSON with the given
 -- status code.
+-- 
+-- Since 1.4.18
 sendStatusJSON :: (MonadHandler m, ToJSON c) => H.Status -> c -> m a
 sendStatusJSON s v = sendResponseStatus s (toJSON v)
 
