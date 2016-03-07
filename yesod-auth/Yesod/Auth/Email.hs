@@ -108,6 +108,7 @@ data EmailCreds site = EmailCreds
     }
 
 data UserForm = UserForm { email :: Text }
+data UserLoginForm = UserLoginForm { loginEmail :: Text, loginPassword :: Text }
 
 class ( YesodAuth site
       , PathPiece (AuthEmailId site)
@@ -255,30 +256,9 @@ class ( YesodAuth site
       -> AuthHandler site TypedContent
     setPasswordHandler = defaultSetPasswordHandler
 
-
-authEmail :: YesodAuthEmail m => AuthPlugin m
+authEmail :: (YesodAuthEmail m) => AuthPlugin m
 authEmail =
-    AuthPlugin "email" dispatch $ \tm ->
-        [whamlet|
-$newline never
-<form method="post" action="@{tm loginR}">
-    <table>
-        <tr>
-            <th>_{Msg.Email}
-            <td>
-                <input type="email" name="email" required>
-        <tr>
-            <th>_{Msg.Password}
-            <td>
-                <input type="password" name="password" required>
-        <tr>
-            <td colspan="2">
-                <button type=submit .btn .btn-success>
-                    _{Msg.LoginViaEmail}
-                &nbsp;
-                <a href="@{tm registerR}" .btn .btn-default>
-                    _{Msg.RegisterLong}
-|]
+    AuthPlugin "email" dispatch emailLoginHandler
   where
     dispatch "GET" ["register"] = getRegisterR >>= sendResponse
     dispatch "POST" ["register"] = postRegisterR >>= sendResponse
@@ -296,6 +276,59 @@ $newline never
 getRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 getRegisterR = registerHandler
 
+emailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
+emailLoginHandler toParent = do
+        ((_,widget),enctype) <- liftWidgetT $ runFormPost loginForm
+
+        [whamlet|
+            <form method="post" action="@{toParent loginR}">
+                ^{widget}
+                <div>
+                    <button type=submit .btn .btn-success>
+                        _{Msg.LoginViaEmail}
+                    &nbsp;
+                    <a href="@{toParent registerR}" .btn .btn-default>
+                        _{Msg.RegisterLong}
+        |]
+  where
+    loginForm extra = do
+        emailMsg <- renderMessage' Msg.Email
+        let emailSettings = FieldSettings {
+            fsLabel = SomeMessage Msg.Email,
+            fsTooltip = Nothing,
+            fsId = Just "email",
+            fsName = Just "email",
+            fsAttrs = [("autofocus", ""), ("placeholder", emailMsg)]
+        }
+
+        (emailRes, emailView) <- mreq emailField emailSettings Nothing
+
+        passwordMsg <- renderMessage' Msg.Password
+        let passwordSettings = FieldSettings {
+            fsLabel = SomeMessage Msg.Password,
+            fsTooltip = Nothing,
+            fsId = Just "password",
+            fsName = Just "password",
+            fsAttrs = [("placeholder", passwordMsg)]
+        }
+
+        (passwordRes, passwordView) <- mreq passwordField passwordSettings Nothing
+
+        let userRes = UserLoginForm <$> emailRes <*> passwordRes
+        let widget = do
+            [whamlet|
+                #{extra}
+                <div>
+                    ^{fvInput emailView}
+                <div>
+                    ^{fvInput passwordView}
+            |]
+
+        return (userRes, widget)
+    renderMessage' msg = do
+        langs <- languages
+        master <- getYesod
+        return $ renderAuthMessage master langs msg
 -- | Default implementation of 'registerHandler'.
 --
 -- Since: 1.2.6
@@ -328,6 +361,7 @@ defaultRegisterHandler = do
             let widget = do
                 [whamlet|
                     #{extra}
+                    ^{fvLabel emailView}
                     ^{fvInput emailView}
                 |]
 
