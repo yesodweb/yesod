@@ -107,6 +107,7 @@ data EmailCreds site = EmailCreds
     , emailCredsEmail  :: Email
     }
 
+data PasswordForm = PasswordForm { passwordCurrent :: Text, passwordNew :: Text, passwordConfirm :: Text }
 data UserForm = UserForm { email :: Text }
 data UserLoginForm = UserLoginForm { loginEmail :: Text, loginPassword :: Text }
 
@@ -516,40 +517,77 @@ getPasswordR = do
 -- Since: 1.2.6
 defaultSetPasswordHandler :: YesodAuthEmail master => Bool -> AuthHandler master TypedContent
 defaultSetPasswordHandler needOld = do
-    tp <- getRouteToParent
-    pass0 <- newIdent
-    pass1 <- newIdent
-    pass2 <- newIdent
-    mr <- lift getMessageRender
+    messageRender <- lift getMessageRender
+    toParent <- getRouteToParent
     selectRep $ do
-      provideJsonMessage $ mr Msg.SetPass
-      provideRep $ lift $ authLayout $ do
-          setTitleI Msg.SetPassTitle
-          [whamlet|
-$newline never
-<h3>_{Msg.SetPass}
-<form method="post" action="@{tp setpassR}">
-    <table>
-        $if needOld
-            <tr>
-                <th>
-                    <label for=#{pass0}>Current Password
-                <td>
-                    <input ##{pass0} type="password" name="current" autofocus>
-        <tr>
-            <th>
-                <label for=#{pass1}>_{Msg.NewPass}
-            <td>
-                <input ##{pass1} type="password" name="new" :not needOld:autofocus>
-        <tr>
-            <th>
-                <label for=#{pass2}>_{Msg.ConfirmPass}
-            <td>
-                <input ##{pass2} type="password" name="confirm">
-        <tr>
-            <td colspan="2">
-                <input type="submit" value=_{Msg.SetPassTitle}>
-|]
+        provideJsonMessage $ messageRender Msg.SetPass
+        provideRep $ lift $ authLayout $ do
+            ((_,widget),enctype) <- liftWidgetT $ runFormPost $ setPasswordForm needOld
+            setTitleI Msg.SetPassTitle
+            [whamlet|
+                <h3>_{Msg.SetPass}
+                <form method="post" action="@{toParent setpassR}">
+                    ^{widget}
+            |]
+  where
+    setPasswordForm needOld extra = do
+        (currentPasswordRes, currentPasswordView) <- mreq passwordField currentPasswordSettings Nothing
+        (newPasswordRes, newPasswordView) <- mreq passwordField newPasswordSettings Nothing
+        (confirmPasswordRes, confirmPasswordView) <- mreq passwordField confirmPasswordSettings Nothing
+
+        let passwordFormRes = PasswordForm <$> currentPasswordRes <*> newPasswordRes <*> confirmPasswordRes
+        let widget = do
+            [whamlet|
+                #{extra}
+                <table>
+                    $if needOld
+                        <tr>
+                            <th>
+                                ^{fvLabel currentPasswordView}
+                            <td>
+                                ^{fvInput currentPasswordView}
+                    <tr>
+                        <th>
+                            ^{fvLabel newPasswordView}
+                        <td>
+                            ^{fvInput newPasswordView}
+                    <tr>
+                        <th>
+                            ^{fvLabel confirmPasswordView}
+                        <td>
+                            ^{fvInput confirmPasswordView}
+                    <tr>
+                        <td colspan="2">
+                            <input type=submit value=_{Msg.SetPassTitle}>
+            |]
+
+        return (passwordFormRes, widget)
+    currentPasswordSettings =
+         FieldSettings {
+             fsLabel = SomeMessage Msg.CurrentPassword,
+             fsTooltip = Nothing,
+             fsId = Just "currentPassword",
+             fsName = Just "current",
+             fsAttrs = [("autofocus", "")]
+         }
+    newPasswordSettings =
+        FieldSettings {
+            fsLabel = SomeMessage Msg.NewPass,
+            fsTooltip = Nothing,
+            fsId = Just "newPassword",
+            fsName = Just "new",
+            fsAttrs = [("autofocus", ""), (":not", ""), ("needOld:autofocus", "")]
+        }
+    confirmPasswordSettings =
+        FieldSettings {
+            fsLabel = SomeMessage Msg.ConfirmPass,
+            fsTooltip = Nothing,
+            fsId = Just "confirmPassword",
+            fsName = Just "confirm",
+            fsAttrs = [("autofocus", "")]
+        }
+
+
 
 postPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
 postPasswordR = do

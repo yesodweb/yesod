@@ -60,6 +60,7 @@ data AuthMessage =
     | ProvideIdentifier
     | SendPasswordResetEmail
     | PasswordResetPrompt
+    | CurrentPassword
     | InvalidUsernamePass
     | Logout
     | LogoutTitle
@@ -78,6 +79,7 @@ englishMessage LoginYahoo = "Login via Yahoo"
 englishMessage Email = "Email"
 englishMessage UserName = "User name"
 englishMessage Password = "Password"
+englishMessage CurrentPassword = "Current Password"
 englishMessage Register = "Register"
 englishMessage RegisterLong = "Register a new account"
 englishMessage EnterEmail = "Enter your e-mail address below, and a confirmation e-mail will be sent to you."
