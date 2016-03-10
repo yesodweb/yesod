@@ -107,6 +107,7 @@ data EmailCreds site = EmailCreds
     , emailCredsEmail  :: Email
     }
 
+data ForgotPasswordForm = ForgotPasswordForm { forgotEmail :: Text }
 data PasswordForm = PasswordForm { passwordCurrent :: Text, passwordNew :: Text, passwordConfirm :: Text }
 data UserForm = UserForm { email :: Text }
 data UserLoginForm = UserLoginForm { loginEmail :: Text, loginPassword :: Text }
@@ -421,18 +422,38 @@ getForgotPasswordR = forgotPasswordHandler
 -- Since: 1.2.6
 defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultForgotPasswordHandler = do
-    tp <- getRouteToParent
-    email <- newIdent
+    ((_,widget),enctype) <- lift $ runFormPost forgotPasswordForm 
+    toParent <- getRouteToParent
     lift $ authLayout $ do
         setTitleI Msg.PasswordResetTitle
         [whamlet|
             <p>_{Msg.PasswordResetPrompt}
-            <form method="post" action="@{tp forgotPasswordR}">
-                <div id="registerForm">
-                    <label for=#{email}>_{Msg.ProvideIdentifier}
-                    <input ##{email} type=text name="email" width="150" autofocus>
-                <button .btn>_{Msg.SendPasswordResetEmail}
+            <form method=post action=@{toParent forgotPasswordR} enctype=#{enctype}>
+                <div id="forgotPasswordForm">
+                    ^{widget}
+                    <button .btn>_{Msg.SendPasswordResetEmail}
         |]
+  where
+    forgotPasswordForm extra = do
+         (emailRes, emailView) <- mreq emailField emailSettings Nothing
+    
+         let forgotPasswordRes = ForgotPasswordForm <$> emailRes
+         let widget = do
+             [whamlet|
+                 #{extra}
+                 ^{fvLabel emailView}
+                 ^{fvInput emailView}
+             |]
+
+	 return (forgotPasswordRes, widget)
+    emailSettings =
+        FieldSettings {
+            fsLabel = SomeMessage Msg.ProvideIdentifier,
+            fsTooltip = Nothing,
+            fsId = Just "forgotPassword",
+            fsName = Just "email",
+            fsAttrs = [("autofocus", "")]
+        }
 
 postForgotPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
 postForgotPasswordR = registerHelper True forgotPasswordR
