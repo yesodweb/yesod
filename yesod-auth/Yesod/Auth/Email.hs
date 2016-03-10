@@ -284,13 +284,14 @@ emailLoginHandler toParent = do
 
         [whamlet|
             <form method="post" action="@{toParent loginR}">
-                ^{widget}
-                <div>
-                    <button type=submit .btn .btn-success>
-                        _{Msg.LoginViaEmail}
-                    &nbsp;
-                    <a href="@{toParent registerR}" .btn .btn-default>
-                        _{Msg.RegisterLong}
+                <div id="emailLoginForm">
+                    ^{widget}
+                    <div>
+                        <button type=submit .btn .btn-success>
+                            _{Msg.LoginViaEmail}
+                        &nbsp;
+                        <a href="@{toParent registerR}" .btn .btn-default>
+                            _{Msg.RegisterLong}
         |]
   where
     loginForm extra = do
