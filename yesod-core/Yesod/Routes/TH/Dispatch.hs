@@ -16,7 +16,7 @@ import System.Random (randomRIO)
 import Yesod.Routes.TH.Types
 import Data.Char (toLower)
 
-data MkDispatchSettings = MkDispatchSettings
+data MkDispatchSettings b site c = MkDispatchSettings
     { mdsRunHandler :: Q Exp
     , mdsSubDispatcher :: Q Exp
     , mdsGetPathInfo :: Q Exp
@@ -25,6 +25,7 @@ data MkDispatchSettings = MkDispatchSettings
     , mds404 :: Q Exp
     , mds405 :: Q Exp
     , mdsGetHandler :: Maybe String -> String -> Q Exp
+    , mdsUnwrapper :: Exp -> Q Exp
     }
 
 data SDC = SDC
@@ -39,7 +40,7 @@ data SDC = SDC
 -- view patterns.
 --
 -- Since 1.4.0
-mkDispatchClause :: MkDispatchSettings -> [ResourceTree a] -> Q Clause
+mkDispatchClause :: MkDispatchSettings b site c -> [ResourceTree a] -> Q Clause
 mkDispatchClause MkDispatchSettings {..} resources = do
     suffix <- qRunIO $ randomRIO (1000, 9999 :: Int)
     envName <- newName $ "env" ++ show suffix
@@ -141,7 +142,7 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                         mkRunExp mmethod = do
                             runHandlerE <- mdsRunHandler
                             handlerE' <- mdsGetHandler mmethod name
-                            let handlerE = foldl' AppE handlerE' allDyns
+                            handlerE <- mdsUnwrapper $ foldl' AppE handlerE' allDyns
                             return $ runHandlerE
                                 `AppE` handlerE
                                 `AppE` envExp
@@ -175,11 +176,12 @@ mkDispatchClause MkDispatchSettings {..} resources = do
                     subDispatcherE <- mdsSubDispatcher
                     runHandlerE <- mdsRunHandler
                     sub <- newName "sub"
+                    sroute <- newName "sroute"
                     let sub2 = LamE [VarP sub]
                             (foldl' (\a b -> a `AppE` b) (VarE (mkName getSub) `AppE` VarE sub) dyns)
                     let reqExp' = setPathInfoE `AppE` VarE restPath `AppE` reqExp
                         route' = foldl' AppE (ConE (mkName name)) dyns
-                        route = foldr AppE route' extraCons
+                        route = LamE [VarP sroute] $ foldr AppE (AppE route' $ VarE sroute) extraCons
                         exp = subDispatcherE
                             `AppE` runHandlerE
                             `AppE` sub2

@@ -13,6 +13,7 @@
 -- to BrowserID), and it requires no credential managing or setup (as opposed
 -- to Email).
 module Yesod.Auth.GoogleEmail
+    {-# DEPRECATED "Google no longer provides OpenID support, please use Yesod.Auth.GoogleEmail2" #-}
     ( authGoogleEmail
     , forwardUrl
     ) where

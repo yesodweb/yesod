@@ -71,6 +71,10 @@ module Yesod.Core
     , MonadWidget (..)
     , getRouteToParent
     , defaultLayoutSub
+      -- * Approot
+    , guessApproot
+    , guessApprootOr
+    , getApprootText
       -- * Misc
     , yesodVersion
     , yesodRender

@@ -1,3 +1,11 @@
+## 1.4.6
+
+* Functor instances for Option/OptionList
+
+## 1.4.5
+
+* Foldable/Traversable instances for FormResult [#1089](https://github.com/yesodweb/yesod/pull/1089)
+
 ## 1.4.4.1
 
 * runFormPost has wrong behavior for empty forms [#950](https://github.com/yesodweb/yesod/issues/950)

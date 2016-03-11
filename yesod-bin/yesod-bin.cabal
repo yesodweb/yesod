@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.4.14
+version:         1.4.17.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -14,8 +14,6 @@ homepage:        http://www.yesodweb.com/
 data-files:      refreshing.html
 
 extra-source-files:
-  input/*.cg
-  hsfiles/*.hsfiles
   ChangeLog.md
   *.pem
 
@@ -62,7 +60,7 @@ executable             yesod
                      , filepath           >= 1.1
                      , process
                      , zlib               >= 0.5
-                     , tar                >= 0.4          && < 0.5
+                     , tar                >= 0.4          && < 0.6
                      , unordered-containers
                      , yaml               >= 0.8          && < 0.9
                      , optparse-applicative >= 0.11
@@ -82,7 +80,7 @@ executable             yesod
                      , transformers
                      , transformers-compat
                      , warp               >= 1.3.7.5
-                     , wai                >= 1.4
+                     , wai                >= 2.0
                      , wai-extra
                      , data-default-class
                      , streaming-commons
@@ -92,8 +90,7 @@ executable             yesod
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
-    other-modules:     Scaffolding.Scaffolder
-                       Devel
+    other-modules:     Devel
                        Build
                        GhcBuild
                        Keter

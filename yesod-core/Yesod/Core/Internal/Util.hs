@@ -5,13 +5,16 @@ module Yesod.Core.Internal.Util
     , formatW3
     , formatRFC1123
     , formatRFC822
+    , getCurrentMaxExpiresRFC1123
     ) where
 
 import           Data.Int       (Int64)
 import           Data.Serialize (Get, Put, Serialize (..))
 import qualified Data.Text      as T
 import           Data.Time      (Day (ModifiedJulianDay, toModifiedJulianDay),
-                                 DiffTime, UTCTime (..), formatTime)
+                                 DiffTime, UTCTime (..), formatTime,
+                                 getCurrentTime, addUTCTime)
+import           Control.Monad  (liftM)
 
 #if MIN_VERSION_time(1,5,0)
 import           Data.Time      (defaultTimeLocale)
@@ -50,3 +53,9 @@ formatRFC1123 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %X %Z"
 -- | Format as per RFC 822.
 formatRFC822 :: UTCTime -> T.Text
 formatRFC822 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
+
+{- | Get the time 365 days from now in RFC 1123 format. For use as an expiry
+date on a resource that never expires. See RFC 2616 section 14.21 for details.
+-}
+getCurrentMaxExpiresRFC1123 :: IO T.Text
+getCurrentMaxExpiresRFC1123 = liftM (formatRFC1123 . addUTCTime (60*60*24*365)) getCurrentTime

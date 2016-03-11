@@ -1,3 +1,27 @@
+## 1.4.13
+
+* Add a CSRF token to the login form from `Yesod.Auth.Hardcoded`, making it compatible with the CSRF middleware [#1161](https://github.com/yesodweb/yesod/pull/1161)
+
+## 1.4.12
+
+* Deprecated Yesod.Auth.GoogleEmail
+
+## 1.4.11
+
+Add Yesod.Auth.Hardcoded
+
+## 1.4.9
+
+* Expose defaultLoginHandler
+
+## 1.4.8
+
+* GoogleEmail2: proper error message when permission denied
+
+## 1.4.7
+
+* add a runHttpRequest function for handling HTTP errors
+
 ## 1.4.6
 
 * Use nonce package to generate verification keys and CSRF tokens [#1011](https://github.com/yesodweb/yesod/pull/1011)

@@ -6,11 +6,12 @@ module Keter
 import Data.Yaml
 import qualified Data.HashMap.Strict as Map
 import qualified Data.Text as T
+import System.Environment (getEnvironment)
 import System.Exit
 import System.Process
 import Control.Monad
 import System.Directory hiding (findFiles)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (mapMaybe,isJust,maybeToList)
 import Data.Monoid
 import System.FilePath ((</>))
 import qualified Codec.Archive.Tar as Tar
@@ -48,6 +49,8 @@ keter cabal noBuild noCopyTo buildArgs = do
                             _ -> return value
             Just _ -> error $ ketercfg ++ " is not an object"
 
+    env' <- getEnvironment
+    cwd' <- getCurrentDirectory
     files <- getDirectoryContents "."
     project <-
         case mapMaybe (T.stripSuffix ".cabal" . T.pack) files of
@@ -74,15 +77,27 @@ keter cabal noBuild noCopyTo buildArgs = do
         collapse' (x:xs) = x : collapse' xs
         collapse' [] = []
 
-    unless noBuild $ if elem "stack.yaml" files
-        then do run "stack" ["clean"]
-                createDirectoryIfMissing True "./dist/bin"
-                run "stack"
-                    ((words "--local-bin-path ./dist/bin build --copy-bins")
-                     <> buildArgs)
-        else do run cabal ["clean"]
-                run cabal ["configure"]
-                run cabal ("build" : buildArgs)
+    unless noBuild $ do
+        stackQueryRunSuccess <- do
+            (ec,_,_) <- readProcessWithExitCode "stack" ["query"] ""
+            return (ec == ExitSuccess)
+
+        let inStackExec = isJust $ lookup "STACK_EXE" env'
+            mStackYaml = lookup "STACK_YAML" env'
+            useStack = inStackExec || isJust mStackYaml || stackQueryRunSuccess
+
+        if useStack
+            then do let stackYaml = maybeToList $ fmap ("--stack-yaml="<>) mStackYaml
+                        localBinPath = cwd' </> "dist/bin"
+                    run "stack" $ stackYaml <> ["clean"]
+                    createDirectoryIfMissing True localBinPath
+                    run "stack"
+                        (stackYaml
+                         <> ["--local-bin-path",localBinPath,"build","--copy-bins"]
+                         <> buildArgs)
+            else do run cabal ["clean"]
+                    run cabal ["configure"]
+                    run cabal ("build" : buildArgs)
 
     _ <- try' $ removeDirectoryRecursive "static/tmp"
 

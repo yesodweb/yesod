@@ -56,6 +56,7 @@ import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
 import Control.Monad.Trans.Class (lift)
 import Data.CaseInsensitive (CI)
+import qualified Network.Wai.Request
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -426,7 +427,7 @@ defaultCsrfCheckMiddleware handler = do
 -- | Looks up the CSRF token from the request headers or POST parameters. If the value doesn't match the token stored in the session,
 -- this function throws a 'PermissionDenied' error.
 --
--- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
 csrfCheckMiddleware :: Yesod site
@@ -448,15 +449,15 @@ defaultCsrfSetCookieMiddleware handler = csrfSetCookieMiddleware handler (def { 
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie. See 'setCsrfCookieWithCookie'.
 --
--- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
 csrfSetCookieMiddleware :: Yesod site => HandlerT site IO res -> SetCookie -> HandlerT site IO res
 csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handler
 
--- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'. Use this midle 
+-- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'.
 --
--- For details, see the "AJAX CSRF protection" section of 'Yesod.Core.Handler'.
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
 defaultCsrfMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
@@ -668,9 +669,9 @@ asyncHelper render scripts jscript jsLoc =
 
 -- | Default formatting for log messages. When you use
 -- the template haskell logging functions for to log with information
--- about the source location, that information will be appended to 
--- the end of the log. When you use the non-TH logging functions, 
--- like 'logDebugN', this function does not include source 
+-- about the source location, that information will be appended to
+-- the end of the log. When you use the non-TH logging functions,
+-- like 'logDebugN', this function does not include source
 -- information. This currently works by checking to see if the
 -- package name is the string \"\<unknown\>\". This is a hack,
 -- but it removes some of the visual clutter from non-TH logs.
@@ -685,22 +686,22 @@ formatLogMessage :: IO ZonedDate
 formatLogMessage getdate loc src level msg = do
     now <- getdate
     return $ mempty
-        `mappend` toLogStr now 
-        `mappend` " [" 
+        `mappend` toLogStr now
+        `mappend` " ["
         `mappend` (case level of
             LevelOther t -> toLogStr t
-            _ -> toLogStr $ drop 5 $ show level) 
+            _ -> toLogStr $ drop 5 $ show level)
         `mappend` (if T.null src
             then mempty
-            else "#" `mappend` toLogStr src) 
-        `mappend` "] " 
-        `mappend` msg 
+            else "#" `mappend` toLogStr src)
+        `mappend` "] "
+        `mappend` msg
         `mappend` sourceSuffix
         `mappend` "\n"
-    where 
+    where
     sourceSuffix = if loc_package loc == "<unknown>" then "" else mempty
-        `mappend` " @(" 
-        `mappend` toLogStr (fileLocationToString loc) 
+        `mappend` " @("
+        `mappend` toLogStr (fileLocationToString loc)
         `mappend` ")"
 
 -- | Customize the cookies used by the session backend.  You may
@@ -826,3 +827,37 @@ fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
   where
     line = show . fst . loc_start
     char = show . snd . loc_start
+
+-- | Guess the approot based on request headers. For more information, see
+-- "Network.Wai.Middleware.Approot"
+--
+-- In the case of headers being unavailable, it falls back to 'ApprootRelative'
+--
+-- Since 1.4.16
+guessApproot :: Approot site
+guessApproot = guessApprootOr ApprootRelative
+
+-- | Guess the approot based on request headers, with fall back to the
+-- specified 'AppRoot'.
+--
+-- Since 1.4.16
+guessApprootOr :: Approot site -> Approot site
+guessApprootOr fallback = ApprootRequest $ \master req ->
+    case W.requestHeaderHost req of
+        Nothing -> getApprootText fallback master req
+        Just host ->
+            (if Network.Wai.Request.appearsSecure req
+                then "https://"
+                else "http://")
+            `T.append` TE.decodeUtf8With TEE.lenientDecode host
+
+-- | Get the textual application root from an 'Approot' value.
+--
+-- Since 1.4.17
+getApprootText :: Approot site -> site -> W.Request -> Text
+getApprootText ar site req =
+    case ar of
+        ApprootRelative -> ""
+        ApprootStatic t -> t
+        ApprootMaster f -> f site
+        ApprootRequest f -> f site req

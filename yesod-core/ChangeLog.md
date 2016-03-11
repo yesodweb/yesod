@@ -1,3 +1,27 @@
+## 1.4.19
+
+* Auth logout not working with defaultCsrfMiddleware [#1151](https://github.com/yesodweb/yesod/issues/1151)
+
+## 1.4.18.2
+
+* Allow subsites within hierarchical routes [#1144](https://github.com/yesodweb/yesod/pull/1144)
+
+## 1.4.18
+
+* Add hook to apply arbitrary function to all handlers [#1122](https://github.com/yesodweb/yesod/pull/1122)
+
+## 1.4.17
+
+* Add `getApprootText`
+
+## 1.4.16
+
+* Add `guessApproot` and `guessApprootOr`
+
+## 1.4.15.1
+
+* bugfix neverExpires leaked threads
+
 ## 1.4.15
 
 * mkYesod avoids using reify when it isn't necessary. This avoids needing to define the site type below the call to mkYesod.

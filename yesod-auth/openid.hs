@@ -27,7 +27,7 @@ getRootR = getAfterLoginR
 getAfterLoginR :: Handler RepHtml
 getAfterLoginR = do
     mauth <- maybeAuthId
-    defaultLayout $ addHamlet [hamlet|
+    defaultLayout [whamlet|
 <p>Auth: #{show mauth}
 $maybe _ <- mauth
     <p>
@@ -38,21 +38,22 @@ $nothing
 |]
 
 instance Yesod BID where
-    approot = ApprootStatic "http://localhost:3000"
+    approot = guessApproot
 
 instance YesodAuth BID where
     type AuthId BID = Text
     loginDest _ = AfterLoginR
     logoutDest _ = AuthR LoginR
     getAuthId = return . Just . credsIdentClaimed
-    authPlugins _ = [authOpenId]
+    authPlugins _ = [authOpenId Claimed []]
     authHttpManager = httpManager
+    maybeAuthId = lookupSession credsKey
 
 instance RenderMessage BID FormMessage where
     renderMessage _ _ = defaultFormMessage
 
 main :: IO ()
 main = do
-    m <- newManager def
+    m <- newManager tlsManagerSettings
     toWaiApp (BID m) >>= run 3000
 
