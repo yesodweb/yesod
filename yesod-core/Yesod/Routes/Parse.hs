@@ -18,7 +18,7 @@ import Language.Haskell.TH.Quote
 import qualified System.IO as SIO
 import Yesod.Routes.TH
 import Yesod.Routes.Overlap (findOverlapNames)
-import Data.List (foldl')
+import Data.List (foldl', isPrefixOf)
 import Data.Maybe (mapMaybe)
 import qualified Data.Set as Set
 
@@ -86,7 +86,7 @@ resourcesFromString =
         spaces = takeWhile (== ' ') thisLine
         (others, remainder) = parse indent otherLines'
         (this, otherLines') =
-            case takeWhile (/= "--") $ words thisLine of
+            case takeWhile (not . isPrefixOf "--") $ words thisLine of
                 (pattern:rest0)
                     | Just (constr:rest) <- stripColonLast rest0
                     , Just attrs <- mapM parseAttr rest ->
