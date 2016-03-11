@@ -295,27 +295,12 @@ emailLoginHandler toParent = do
         |]
   where
     loginForm extra = do
-        emailMsg <- renderMessage' Msg.Email
-        let emailSettings = FieldSettings {
-            fsLabel = SomeMessage Msg.Email,
-            fsTooltip = Nothing,
-            fsId = Just "email",
-            fsName = Just "email",
-            fsAttrs = [("autofocus", ""), ("placeholder", emailMsg)]
-        }
 
-        (emailRes, emailView) <- mreq emailField emailSettings Nothing
+        emailMsg <- renderMessage' Msg.Email
+        (emailRes, emailView) <- mreq emailField (emailSettings emailMsg) Nothing
 
         passwordMsg <- renderMessage' Msg.Password
-        let passwordSettings = FieldSettings {
-            fsLabel = SomeMessage Msg.Password,
-            fsTooltip = Nothing,
-            fsId = Just "password",
-            fsName = Just "password",
-            fsAttrs = [("placeholder", passwordMsg)]
-        }
-
-        (passwordRes, passwordView) <- mreq passwordField passwordSettings Nothing
+        (passwordRes, passwordView) <- mreq passwordField (passwordSettings passwordMsg) Nothing
 
         let userRes = UserLoginForm <$> emailRes <*> passwordRes
         let widget = do
@@ -328,6 +313,22 @@ emailLoginHandler toParent = do
             |]
 
         return (userRes, widget)
+    emailSettings emailMsg = do
+        FieldSettings {
+            fsLabel = SomeMessage Msg.Email,
+            fsTooltip = Nothing,
+            fsId = Just "email",
+            fsName = Just "email",
+            fsAttrs = [("autofocus", ""), ("placeholder", emailMsg)]
+        }
+    passwordSettings passwordMsg =
+         FieldSettings {
+            fsLabel = SomeMessage Msg.Password,
+            fsTooltip = Nothing,
+            fsId = Just "password",
+            fsName = Just "password",
+            fsAttrs = [("placeholder", passwordMsg)]
+        }
     renderMessage' msg = do
         langs <- languages
         master <- getYesod
