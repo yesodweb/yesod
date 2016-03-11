@@ -280,7 +280,7 @@ getRegisterR = registerHandler
 
 emailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
 emailLoginHandler toParent = do
-        ((_,widget),enctype) <- liftWidgetT $ runFormPost loginForm
+        (widget, enctype) <- liftWidgetT $ generateFormPost loginForm
 
         [whamlet|
             <form method="post" action="@{toParent loginR}">
@@ -338,7 +338,7 @@ emailLoginHandler toParent = do
 -- Since: 1.2.6
 defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultRegisterHandler = do
-    ((_,widget),enctype) <- lift $ runFormPost registrationForm
+    (widget, enctype) <- lift $ generateFormPost registrationForm
     toParentRoute <- getRouteToParent
     lift $ authLayout $ do
         setTitleI Msg.RegisterLong
@@ -424,7 +424,7 @@ getForgotPasswordR = forgotPasswordHandler
 -- Since: 1.2.6
 defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultForgotPasswordHandler = do
-    ((_,widget),enctype) <- lift $ runFormPost forgotPasswordForm 
+    (widget, enctype) <- lift $ generateFormPost forgotPasswordForm
     toParent <- getRouteToParent
     lift $ authLayout $ do
         setTitleI Msg.PasswordResetTitle
@@ -545,7 +545,7 @@ defaultSetPasswordHandler needOld = do
     selectRep $ do
         provideJsonMessage $ messageRender Msg.SetPass
         provideRep $ lift $ authLayout $ do
-            ((_,widget),enctype) <- liftWidgetT $ runFormPost $ setPasswordForm needOld
+            (widget, enctype) <- liftWidgetT $ generateFormPost $ setPasswordForm needOld
             setTitleI Msg.SetPassTitle
             [whamlet|
                 <h3>_{Msg.SetPass}
