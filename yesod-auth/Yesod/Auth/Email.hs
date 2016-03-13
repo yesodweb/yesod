@@ -107,6 +107,7 @@ data EmailCreds site = EmailCreds
     , emailCredsEmail  :: Email
     }
 
+data ForgotPasswordForm = ForgotPasswordForm { forgotEmail :: Text }
 data PasswordForm = PasswordForm { passwordCurrent :: Text, passwordNew :: Text, passwordConfirm :: Text }
 data UserForm = UserForm { email :: Text }
 data UserLoginForm = UserLoginForm { loginEmail :: Text, loginPassword :: Text }
@@ -279,41 +280,27 @@ getRegisterR = registerHandler
 
 emailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
 emailLoginHandler toParent = do
-        ((_,widget),enctype) <- liftWidgetT $ runFormPost loginForm
+        (widget, enctype) <- liftWidgetT $ generateFormPost loginForm
 
         [whamlet|
             <form method="post" action="@{toParent loginR}">
-                ^{widget}
-                <div>
-                    <button type=submit .btn .btn-success>
-                        _{Msg.LoginViaEmail}
-                    &nbsp;
-                    <a href="@{toParent registerR}" .btn .btn-default>
-                        _{Msg.RegisterLong}
+                <div id="emailLoginForm">
+                    ^{widget}
+                    <div>
+                        <button type=submit .btn .btn-success>
+                            _{Msg.LoginViaEmail}
+                        &nbsp;
+                        <a href="@{toParent registerR}" .btn .btn-default>
+                            _{Msg.RegisterLong}
         |]
   where
     loginForm extra = do
-        emailMsg <- renderMessage' Msg.Email
-        let emailSettings = FieldSettings {
-            fsLabel = SomeMessage Msg.Email,
-            fsTooltip = Nothing,
-            fsId = Just "email",
-            fsName = Just "email",
-            fsAttrs = [("autofocus", ""), ("placeholder", emailMsg)]
-        }
 
-        (emailRes, emailView) <- mreq emailField emailSettings Nothing
+        emailMsg <- renderMessage' Msg.Email
+        (emailRes, emailView) <- mreq emailField (emailSettings emailMsg) Nothing
 
         passwordMsg <- renderMessage' Msg.Password
-        let passwordSettings = FieldSettings {
-            fsLabel = SomeMessage Msg.Password,
-            fsTooltip = Nothing,
-            fsId = Just "password",
-            fsName = Just "password",
-            fsAttrs = [("placeholder", passwordMsg)]
-        }
-
-        (passwordRes, passwordView) <- mreq passwordField passwordSettings Nothing
+        (passwordRes, passwordView) <- mreq passwordField (passwordSettings passwordMsg) Nothing
 
         let userRes = UserLoginForm <$> emailRes <*> passwordRes
         let widget = do
@@ -326,6 +313,22 @@ emailLoginHandler toParent = do
             |]
 
         return (userRes, widget)
+    emailSettings emailMsg = do
+        FieldSettings {
+            fsLabel = SomeMessage Msg.Email,
+            fsTooltip = Nothing,
+            fsId = Just "email",
+            fsName = Just "email",
+            fsAttrs = [("autofocus", ""), ("placeholder", emailMsg)]
+        }
+    passwordSettings passwordMsg =
+         FieldSettings {
+            fsLabel = SomeMessage Msg.Password,
+            fsTooltip = Nothing,
+            fsId = Just "password",
+            fsName = Just "password",
+            fsAttrs = [("placeholder", passwordMsg)]
+        }
     renderMessage' msg = do
         langs <- languages
         master <- getYesod
@@ -335,7 +338,7 @@ emailLoginHandler toParent = do
 -- Since: 1.2.6
 defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultRegisterHandler = do
-    ((_,widget),enctype) <- lift $ runFormPost registrationForm
+    (widget, enctype) <- lift $ generateFormPost registrationForm
     toParentRoute <- getRouteToParent
     lift $ authLayout $ do
         setTitleI Msg.RegisterLong
@@ -421,18 +424,38 @@ getForgotPasswordR = forgotPasswordHandler
 -- Since: 1.2.6
 defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultForgotPasswordHandler = do
-    tp <- getRouteToParent
-    email <- newIdent
+    (widget, enctype) <- lift $ generateFormPost forgotPasswordForm
+    toParent <- getRouteToParent
     lift $ authLayout $ do
         setTitleI Msg.PasswordResetTitle
         [whamlet|
             <p>_{Msg.PasswordResetPrompt}
-            <form method="post" action="@{tp forgotPasswordR}">
-                <div id="registerForm">
-                    <label for=#{email}>_{Msg.ProvideIdentifier}
-                    <input ##{email} type=text name="email" width="150" autofocus>
-                <button .btn>_{Msg.SendPasswordResetEmail}
+            <form method=post action=@{toParent forgotPasswordR} enctype=#{enctype}>
+                <div id="forgotPasswordForm">
+                    ^{widget}
+                    <button .btn>_{Msg.SendPasswordResetEmail}
         |]
+  where
+    forgotPasswordForm extra = do
+         (emailRes, emailView) <- mreq emailField emailSettings Nothing
+    
+         let forgotPasswordRes = ForgotPasswordForm <$> emailRes
+         let widget = do
+             [whamlet|
+                 #{extra}
+                 ^{fvLabel emailView}
+                 ^{fvInput emailView}
+             |]
+
+	 return (forgotPasswordRes, widget)
+    emailSettings =
+        FieldSettings {
+            fsLabel = SomeMessage Msg.ProvideIdentifier,
+            fsTooltip = Nothing,
+            fsId = Just "forgotPassword",
+            fsName = Just "email",
+            fsAttrs = [("autofocus", "")]
+        }
 
 postForgotPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
 postForgotPasswordR = registerHelper True forgotPasswordR
@@ -522,7 +545,7 @@ defaultSetPasswordHandler needOld = do
     selectRep $ do
         provideJsonMessage $ messageRender Msg.SetPass
         provideRep $ lift $ authLayout $ do
-            ((_,widget),enctype) <- liftWidgetT $ runFormPost $ setPasswordForm needOld
+            (widget, enctype) <- liftWidgetT $ generateFormPost $ setPasswordForm needOld
             setTitleI Msg.SetPassTitle
             [whamlet|
                 <h3>_{Msg.SetPass}
