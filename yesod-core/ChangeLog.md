@@ -1,3 +1,7 @@
+## 1.4.19.1
+
+* Allow lines of dashes in route files [#1182](https://github.com/yesodweb/yesod/pull/1182)
+
 ## 1.4.19
 
 * Auth logout not working with defaultCsrfMiddleware [#1151](https://github.com/yesodweb/yesod/issues/1151)
