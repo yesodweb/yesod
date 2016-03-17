@@ -285,7 +285,7 @@ withResponse' getter errTrace f = maybe err f . getter =<< ST.get
        msg = if null errTrace
              then "There was no response, you should make a request."
              else
-               "There was no response, you should make a request. A request was requested because: \n - "
+               "There was no response, you should make a request. A response was needed because: \n - "
                <> T.intercalate "\n - " errTrace
 
 -- | Performs a given action using the last response. Use this to create
