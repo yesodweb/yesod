@@ -277,15 +277,21 @@ yit label example = tell [YesodSpecItem label example]
 -- response-level assertions
 withResponse' :: MonadIO m
               => (state -> Maybe SResponse)
+              -> [T.Text]
               -> (SResponse -> ST.StateT state m a)
               -> ST.StateT state m a
-withResponse' getter f = maybe err f . getter =<< ST.get
- where err = failure "There was no response, you should make a request"
+withResponse' getter errTrace f = maybe err f . getter =<< ST.get
+ where err = failure msg
+       msg = if null errTrace
+             then "There was no response, you should make a request."
+             else
+               "There was no response, you should make a request. A request was requested because: "
+               <> T.intercalate "\n-" errTrace
 
 -- | Performs a given action using the last response. Use this to create
 -- response-level assertions
 withResponse :: (SResponse -> YesodExample site a) -> YesodExample site a
-withResponse = withResponse' yedResponse
+withResponse = withResponse' yedResponse []
 
 -- | Use HXT to parse a value from an HTML tag.
 -- Check for usage examples in this module's source.
@@ -295,16 +301,17 @@ parseHTML html = fromDocument $ HD.parseLBS html
 -- | Query the last response using CSS selectors, returns a list of matched fragments
 htmlQuery' :: MonadIO m
            => (state -> Maybe SResponse)
+           -> [T.Text]
            -> Query
            -> ST.StateT state m [HtmlLBS]
-htmlQuery' getter query = withResponse' getter $ \ res ->
+htmlQuery' getter errTrace query = withResponse' getter ("Tried to invoke htmlQuery' in order to read HTML of a previous response." : errTrace) $ \ res ->
   case findBySelector (simpleBody res) query of
     Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
     Right matches -> return $ map (encodeUtf8 . TL.pack) matches
 
 -- | Query the last response using CSS selectors, returns a list of matched fragments
 htmlQuery :: Query -> YesodExample site [HtmlLBS]
-htmlQuery = htmlQuery' yedResponse
+htmlQuery = htmlQuery' yedResponse []
 
 -- | Asserts that the two given values are equal.
 assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()
@@ -569,7 +576,7 @@ fileByLabel label path mime = do
 -- >   addToken_ "#formID"
 addToken_ :: Query -> RequestBuilder site ()
 addToken_ scope = do
-  matches <- htmlQuery' rbdResponse $ scope <> "input[name=_token][type=hidden][value]"
+  matches <- htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $ scope <> "input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No CSRF token found in the current page"
     element:[] -> addPostParam "_token" $ head $ attribute "value" $ parseHTML element
