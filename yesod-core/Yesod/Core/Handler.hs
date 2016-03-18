@@ -568,19 +568,16 @@ getMessages = do
 -- | Calls 'addMessage' with an empty status
 setMessage :: MonadHandler m => Html -> m ()
 setMessage = addMessage ""
-{-# DEPRECATED setMessage "Please use addMessage instead" #-}
 
 -- | Calls 'addMessageI' with an empty status
 setMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
             => msg -> m ()
 setMessageI = addMessageI ""
-{-# DEPRECATED setMessageI "Please use addMessageI instead" #-}
 
 -- | Gets just the last message in the user's session,
 -- discards the rest and the status
 getMessage :: MonadHandler m => m (Maybe Html)
 getMessage = (return . fmap snd . headMay) =<< getMessages
-{-# DEPRECATED getMessage "Please use getMessages instead" #-}
 
 -- | Bypass remaining handler code and output the given file.
 --
