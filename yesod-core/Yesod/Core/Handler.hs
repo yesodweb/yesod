@@ -136,6 +136,9 @@ module Yesod.Core.Handler
     , redirectUltDest
     , clearUltDest
       -- ** Messages
+    , addMessage
+    , addMessageI
+    , getMessages
     , setMessage
     , setMessageI
     , getMessage
@@ -205,7 +208,7 @@ import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
 import           Data.Text.Encoding.Error      (lenientDecode)
 import qualified Data.Text.Lazy                as TL
-import qualified Text.Blaze.Html.Renderer.Text as RenderText
+import           Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import           Text.Hamlet                   (Html, HtmlUrl, hamlet)
 
 import qualified Data.ByteString               as S
@@ -223,7 +226,7 @@ import           Text.Shakespeare.I18N         (RenderMessage (..))
 import           Web.Cookie                    (SetCookie (..))
 import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
-import           Text.Blaze.Html               (preEscapedToMarkup, toHtml)
+import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
 
 import qualified Data.IORef.Lifted             as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
@@ -521,30 +524,60 @@ clearUltDest = deleteSession ultDestKey
 msgKey :: Text
 msgKey = "_MSG"
 
--- | Sets a message in the user's session.
+-- | Adds a status and message in the user's session.
 --
--- See 'getMessage'.
-setMessage :: MonadHandler m => Html -> m ()
-setMessage = setSession msgKey . T.concat . TL.toChunks . RenderText.renderHtml
+-- See 'getMessages'.
+addMessage :: MonadHandler m
+           => Text -- ^ status
+           -> Html -- ^ message
+           -> m ()
+addMessage status msg = do
+    val <- lookupSessionBS msgKey
+    setSessionBS msgKey $ addMsg val
+  where
+    addMsg = maybe msg' (S.append msg' . S.cons W8._nul)
+    msg' = S.append
+        (encodeUtf8 status)
+        (W8._nul `S.cons` (L.toStrict $ renderHtml msg))
 
--- | Sets a message in the user's session.
+-- | Adds a message in the user's session but uses RenderMessage to allow for i18n
 --
--- See 'getMessage'.
+-- See 'getMessages'.
+addMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
+            => Text -> msg -> m ()
+addMessageI status msg = do
+    mr <- getMessageRender
+    addMessage status $ toHtml $ mr msg
+
+-- | Gets all messages in the user's session, and then clears the variable.
+--
+-- See 'addMessage'.
+getMessages :: MonadHandler m => m [(Text, Html)]
+getMessages = do
+    bs <- lookupSessionBS msgKey
+    let ms = maybe [] enlist bs
+    deleteSession msgKey
+    return ms
+  where
+    enlist = pairup . S.split W8._nul
+    pairup [] = []
+    pairup [x] = []
+    pairup (s:v:xs) = (decode s, preEscapedToHtml (decode v)) : pairup xs
+    decode = decodeUtf8With lenientDecode
+
+-- | Calls 'addMessage' with an empty status
+setMessage :: MonadHandler m => Html -> m ()
+setMessage = addMessage ""
+
+-- | Calls 'addMessageI' with an empty status
 setMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
             => msg -> m ()
-setMessageI msg = do
-    mr <- getMessageRender
-    setMessage $ toHtml $ mr msg
+setMessageI = addMessageI ""
 
--- | Gets the message in the user's session, if available, and then clears the
--- variable.
---
--- See 'setMessage'.
+-- | Gets just the last message in the user's session,
+-- discards the rest and the status
 getMessage :: MonadHandler m => m (Maybe Html)
-getMessage = do
-    mmsg <- liftM (fmap preEscapedToMarkup) $ lookupSession msgKey
-    deleteSession msgKey
-    return mmsg
+getMessage = (return . fmap snd . headMay) =<< getMessages
 
 -- | Bypass remaining handler code and output the given file.
 --

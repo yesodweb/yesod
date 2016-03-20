@@ -59,7 +59,7 @@ import           Yesod.Core               (HandlerSite, HandlerT, MonadHandler,
                                            lift, liftIO, lookupGetParam,
                                            lookupSession, notFound, redirect,
                                            setSession, whamlet, (.:),
-                                           setMessage, getYesod, authRoute,
+                                           addMessage, getYesod, authRoute,
                                            toHtml)
 
 
@@ -200,7 +200,7 @@ authPlugin storeToken clientID clientSecret =
                                     case err of
                                         "access_denied" -> "Access denied"
                                         _ -> "Unknown error occurred: " `T.append` err
-                            setMessage $ toHtml msg
+                            addMessage "error" $ toHtml msg
                             lift $ redirect $ logoutDest master
                 Just c -> return c
 

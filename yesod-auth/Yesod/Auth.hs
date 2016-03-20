@@ -189,9 +189,9 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     authHttpManager :: master -> Manager
 
     -- | Called on a successful login. By default, calls
-    -- @setMessageI NowLoggedIn@.
+    -- @addMessageI "success" NowLoggedIn@.
     onLogin :: HandlerT master IO ()
-    onLogin = setMessageI Msg.NowLoggedIn
+    onLogin = addMessageI "success" Msg.NowLoggedIn
 
     -- | Called on logout. By default, does nothing
     onLogout :: HandlerT master IO ()
@@ -214,10 +214,10 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     maybeAuthId = defaultMaybeAuthId
 
     -- | Called on login error for HTTP requests. By default, calls
-    -- @setMessage@ and redirects to @dest@.
+    -- @addMessage@ with "error" as status and redirects to @dest@.
     onErrorHtml :: (MonadResourceBase m) => Route master -> Text -> HandlerT master m Html
     onErrorHtml dest msg = do
-        setMessage $ toHtml msg
+        addMessage "error" $ toHtml msg
         fmap asHtml $ redirect dest
 
     -- | runHttpRequest gives you a chance to handle an HttpException and retry

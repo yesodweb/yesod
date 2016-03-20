@@ -437,17 +437,17 @@ defaultForgotPasswordHandler = do
         |]
   where
     forgotPasswordForm extra = do
-         (emailRes, emailView) <- mreq emailField emailSettings Nothing
+        (emailRes, emailView) <- mreq emailField emailSettings Nothing
     
-         let forgotPasswordRes = ForgotPasswordForm <$> emailRes
-         let widget = do
-             [whamlet|
-                 #{extra}
-                 ^{fvLabel emailView}
-                 ^{fvInput emailView}
-             |]
+        let forgotPasswordRes = ForgotPasswordForm <$> emailRes
+        let widget = do
+            [whamlet|
+                #{extra}
+                ^{fvLabel emailView}
+                ^{fvInput emailView}
+            |]
+        return (forgotPasswordRes, widget)
 
-	 return (forgotPasswordRes, widget)
     emailSettings =
         FieldSettings {
             fsLabel = SomeMessage Msg.ProvideIdentifier,
@@ -479,7 +479,7 @@ getVerifyR lid key = do
                     let msgAv = Msg.AddressVerified
                     selectRep $ do
                       provideRep $ do
-                        lift $ setMessageI msgAv
+                        lift $ addMessageI "success" msgAv
                         fmap asHtml $ redirect setpassR
                       provideJsonMessage $ mr msgAv
         _ -> invalidKey mr
@@ -650,7 +650,7 @@ postPasswordR = do
                       y <- lift $ do
                           setPassword aid salted
                           deleteSession loginLinkKey
-                          setMessageI msgOk
+                          addMessageI "success" msgOk
                           getYesod
 
                       mr <- lift getMessageRender
