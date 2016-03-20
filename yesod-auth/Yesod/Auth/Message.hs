@@ -17,6 +17,7 @@ module Yesod.Auth.Message
     , czechMessage
     , russianMessage
     , dutchMessage
+    , danishMessage
     ) where
 
 import           Data.Monoid (mappend,(<>))
@@ -736,3 +737,50 @@ croatianMessage (IdentifierNotFound ident) = "Korisničko ime/e-pošta nisu pron
 croatianMessage Logout = "Odjava"
 croatianMessage LogoutTitle = "Odjava"
 croatianMessage AuthError = "Pogreška provjere autentičnosti"
+
+danishMessage :: AuthMessage -> Text
+danishMessage NoOpenID = "Mangler OpenID identifier"
+danishMessage LoginOpenID = "Login med OpenID"
+danishMessage LoginGoogle = "Login med Google"
+danishMessage LoginYahoo = "Login med Yahoo"
+danishMessage Email = "E-mail"
+danishMessage UserName = "Brugernavn"
+danishMessage Password = "Kodeord"
+danishMessage CurrentPassword = "Nuværende kodeord"
+danishMessage Register = "Opret"
+danishMessage RegisterLong = "Opret en ny konto"
+danishMessage EnterEmail = "Indtast din e-mailadresse nedenfor og en bekræftelsesmail vil blive sendt til dig."
+danishMessage ConfirmationEmailSentTitle = "Bekræftelsesmail sendt"
+danishMessage (ConfirmationEmailSent email) =
+    "En bekræftelsesmail er sendt til " `mappend`
+    email `mappend`
+    "."
+danishMessage AddressVerified = "Adresse bekræftet, sæt venligst et nyt kodeord"
+danishMessage InvalidKeyTitle = "Ugyldig verifikationsnøgle"
+danishMessage InvalidKey = "Beklager, det var en ugyldigt verifikationsnøgle."
+danishMessage InvalidEmailPass = "Ugyldigt e-mail/kodeord"
+danishMessage BadSetPass = "Du skal være logget ind for at sætte et kodeord"
+danishMessage SetPassTitle = "Sæt kodeord"
+danishMessage SetPass = "Sæt et nyt kodeord"
+danishMessage NewPass = "Nyt kodeord"
+danishMessage ConfirmPass = "Bekræft"
+danishMessage PassMismatch = "Kodeordne var forskellige, prøv venligst igen"
+danishMessage PassUpdated = "Kodeord opdateret"
+danishMessage Facebook = "Login med Facebook"
+danishMessage LoginViaEmail = "Login med e-mail"
+danishMessage InvalidLogin = "Ugyldigt login"
+danishMessage NowLoggedIn = "Du er nu logget ind"
+danishMessage LoginTitle = "Log ind"
+danishMessage PleaseProvideUsername = "Indtast venligst dit brugernavn"
+danishMessage PleaseProvidePassword = "Indtasy venligst dit kodeord"
+danishMessage NoIdentifierProvided = "Mangler e-mail/username"
+danishMessage InvalidEmailAddress = "Ugyldig e-mailadresse indtastet"
+danishMessage PasswordResetTitle = "Nulstilning af kodeord"
+danishMessage ProvideIdentifier = "E-mail eller brugernavn"
+danishMessage SendPasswordResetEmail = "Send kodeordsnulstillingsmail"
+danishMessage PasswordResetPrompt = "Indtast din e-mailadresse eller dit brugernavn nedenfor, så bliver en kodeordsnulstilningsmail sendt til dig."
+danishMessage InvalidUsernamePass = "Ugyldigt brugernavn/kodeord"
+danishMessage (IdentifierNotFound ident) = "Brugernavn findes ikke: " `mappend` ident
+danishMessage Logout = "Log ud"
+danishMessage LogoutTitle = "Log ud"
+danishMessage AuthError = "Fejl ved bekræftelse af identitet"
