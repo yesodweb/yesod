@@ -21,7 +21,7 @@ import Control.Applicative
 import Network.Wai (pathInfo, requestHeaders)
 import Data.Maybe (fromMaybe)
 import Data.Either (isLeft)
-import Control.Monad.Catch (try)
+import Control.Exception.Lifted(try, SomeException)
 
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
@@ -234,9 +234,11 @@ main = hspec $ do
         yit "throws an exception when no redirect was returned" $ do
             get ("/" :: Text)
             statusIs 200
-            r <- followRedirect
+            -- This appears to be an HUnitFailure, which is not
+            -- exported, so I'm catching SomeException instead.
+            (r :: Either SomeException ()) <- try followRedirect
             statusIs 200
-            -- assertBool "expected exception" $ isLeft r
+            liftIO $ assertBool "expected exception" $ isLeft r
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
