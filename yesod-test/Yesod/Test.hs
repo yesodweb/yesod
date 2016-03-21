@@ -695,7 +695,9 @@ get url = request $ do
     setUrl url
 
 -- | Follow a redirect, if the last response was a redirect.
--- | (We consider 301, 302, 303, 307 and 308 as redirects.)
+-- | (We consider a request a redirect if the status is
+-- | 301, 302, 303, 307 or 308, and the Location header is set.)
+-- |
 -- | Return Left with an error message if not a redirect
 -- | Return Right with the redirected URL if it was.
 --
