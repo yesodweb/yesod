@@ -1,3 +1,7 @@
+## 1.5.1.0
+
+* Better error provenance for stuff invoking withResponse' [#1191](https://github.com/yesodweb/yesod/pull/1191)
+
 ## 1.5.0.1
 
 * Fixed the `application/x-www-form-urlencoded` header being added to all requests, even those sending a binary POST body [#1064](https://github.com/yesodweb/yesod/pull/1064/files)
