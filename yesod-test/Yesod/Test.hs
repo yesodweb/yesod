@@ -706,7 +706,7 @@ followRedirect = do
   case mr of
    Nothing ->  return $ Left "no response, so no redirect to follow"
    Just r -> do
-     if not ((H.statusCode $ simpleStatus r) `elem` [301,303])
+     if not ((H.statusCode $ simpleStatus r) `elem` [301, 302, 303, 307, 308])
        then return $ Left  "followRedirect called, but previous request was not a redirect"
        else do
          case lookup "Location" (simpleHeaders r) of
