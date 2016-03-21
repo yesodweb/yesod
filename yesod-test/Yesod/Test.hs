@@ -704,8 +704,6 @@ get url = request $ do
 -- > followRedirect
 followRedirect :: Yesod site
                =>  YesodExample site (Either T.Text T.Text) -- ^ 'Left' with an error message if not a redirect, 'Right' with the redirected URL if it was
-followRedirect :: Yesod site
-               =>  YesodExample site (Either T.Text T.Text)
 followRedirect = do
   mr <- getResponse
   case mr of
