@@ -20,11 +20,13 @@ import Data.Monoid ((<>))
 import Control.Applicative
 import Network.Wai (pathInfo, requestHeaders)
 import Data.Maybe (fromMaybe)
+import Data.Either (isLeft)
+import Control.Monad.Catch (try)
 
 import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
-import Network.HTTP.Types.Status (unsupportedMediaType415)
+import Network.HTTP.Types.Status (status301, status303, unsupportedMediaType415)
 
 parseQuery_ = either error id . parseQuery
 findBySelector_ x = either error id . findBySelector x
@@ -213,8 +215,28 @@ main = hspec $ do
                 setMethod "POST"
                 setUrl ("/" :: Text)
             statusIs 403
+    describe "test redirects" $ yesodSpec app $ do
+        yit "follows 303 redirects when requested" $ do
+            get ("/redirect303" :: Text)
+            statusIs 303
+            followRedirect
+            statusIs 200
+            bodyContains "we have been successfully redirected"
+
+        yit "follows 301 redirects when requested" $ do
+            get ("/redirect301" :: Text)
+            statusIs 301
+            followRedirect
+            statusIs 200
+            bodyContains "we have been successfully redirected"
 
 
+        yit "throws an exception when no redirect was returned" $ do
+            get ("/" :: Text)
+            statusIs 200
+            r <- followRedirect
+            statusIs 200
+            -- assertBool "expected exception" $ isLeft r
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -235,6 +257,9 @@ app = liteApp $ do
         case mfoo of
             Nothing -> error "No foo"
             Just foo -> return foo
+    onStatic "redirect301" $ dispatchTo $ redirectWith status301 ("/redirectTarget" :: Text) >> return ()
+    onStatic "redirect303" $ dispatchTo $ redirectWith status303 ("/redirectTarget" :: Text) >> return ()
+    onStatic "redirectTarget" $ dispatchTo $ return ("we have been successfully redirected" :: Text)
     onStatic "form" $ dispatchTo $ do
         ((mfoo, widget), _) <- runFormPost
                         $ renderDivs

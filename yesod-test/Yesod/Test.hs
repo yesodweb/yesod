@@ -50,6 +50,7 @@ module Yesod.Test
     , get
     , post
     , postBody
+    , followRedirect
     , request
     , addRequestHeader
     , setMethod
@@ -692,6 +693,25 @@ get :: (Yesod site, RedirectUrl site url)
 get url = request $ do
     setMethod "GET"
     setUrl url
+
+-- | Follow a redirect, if the last response was a redirect.
+-- ==== __Examples__
+-- > get HomeR
+--
+-- > followRedirect
+followRedirect :: Yesod site
+               =>  YesodExample site ()
+followRedirect = do
+  mr <- getResponse
+  case mr of
+   Nothing ->  failure "no response, so no redirect to follow"
+   Just r -> do
+     if not ((H.statusCode $ simpleStatus r) `elem` [301,303])
+       then failure "followRedirect called, but previous request was not a redirect"
+       else do
+         case lookup "Location" (simpleHeaders r) of
+          Nothing -> failure "No location header set"
+          Just h -> get (TE.decodeUtf8 h)
 
 -- | Sets the HTTP method used by the request.
 --
