@@ -695,16 +695,15 @@ get url = request $ do
     setUrl url
 
 -- | Follow a redirect, if the last response was a redirect.
--- | (We consider a request a redirect if the status is
--- | 301, 302, 303, 307 or 308, and the Location header is set.)
--- |
--- | Return Left with an error message if not a redirect
--- | Return Right with the redirected URL if it was.
+-- (We consider a request a redirect if the status is
+-- 301, 302, 303, 307 or 308, and the Location header is set.)
 --
 -- ==== __Examples__
 --
 -- > get HomeR
 -- > followRedirect
+followRedirect :: Yesod site
+               =>  YesodExample site (Either T.Text T.Text) -- ^ 'Left' with an error message if not a redirect, 'Right' with the redirected URL if it was
 followRedirect :: Yesod site
                =>  YesodExample site (Either T.Text T.Text)
 followRedirect = do
@@ -713,7 +712,7 @@ followRedirect = do
    Nothing ->  return $ Left "followRedirect called, but there was no previous response, so no redirect to follow"
    Just r -> do
      if not ((H.statusCode $ simpleStatus r) `elem` [301, 302, 303, 307, 308])
-       then return $ Left  "followRedirect called, but previous request was not a redirect"
+       then return $ Left "followRedirect called, but previous request was not a redirect"
        else do
          case lookup "Location" (simpleHeaders r) of
           Nothing -> return $ Left "followRedirect called, but no location header set"
