@@ -695,12 +695,13 @@ get url = request $ do
     setUrl url
 
 -- | Follow a redirect, if the last response was a redirect.
+-- | (We consider 301, 302, 303, 307 and 308 as redirects.)
 -- | Return Left with an error message if not a redirect
 -- | Return Right with the redirected URL if it was.
 --
 -- ==== __Examples__
--- > get HomeR
 --
+-- > get HomeR
 -- > followRedirect
 followRedirect :: Yesod site
                =>  YesodExample site (Either T.Text T.Text)
