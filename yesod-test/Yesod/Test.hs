@@ -695,12 +695,15 @@ get url = request $ do
     setUrl url
 
 -- | Follow a redirect, if the last response was a redirect.
+-- | Return Left with an error message if not a redirect
+-- | Return Right with the redirected URL if it was.
+--
 -- ==== __Examples__
 -- > get HomeR
 --
 -- > followRedirect
 followRedirect :: Yesod site
-               =>  YesodExample site (Either T.Text ())
+               =>  YesodExample site (Either T.Text T.Text)
 followRedirect = do
   mr <- getResponse
   case mr of
@@ -711,7 +714,8 @@ followRedirect = do
        else do
          case lookup "Location" (simpleHeaders r) of
           Nothing -> return $ Left "followRedirect called, but no location header set"
-          Just h -> get (TE.decodeUtf8 h) >> return (Right ())
+          Just h -> let url = TE.decodeUtf8 h in
+                     get url  >> return (Right url)
 
 -- | Sets the HTTP method used by the request.
 --

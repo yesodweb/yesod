@@ -20,7 +20,7 @@ import Data.Monoid ((<>))
 import Control.Applicative
 import Network.Wai (pathInfo, requestHeaders)
 import Data.Maybe (fromMaybe)
-import Data.Either (isLeft)
+import Data.Either (isLeft, isRight)
 import Control.Exception.Lifted(try, SomeException)
 
 import Data.ByteString.Lazy.Char8 ()
@@ -219,14 +219,16 @@ main = hspec $ do
         yit "follows 303 redirects when requested" $ do
             get ("/redirect303" :: Text)
             statusIs 303
-            followRedirect
+            r <- followRedirect
+            liftIO $ assertBool "expected a Right from a 303 redirect" $ isRight r
             statusIs 200
             bodyContains "we have been successfully redirected"
 
         yit "follows 301 redirects when requested" $ do
             get ("/redirect301" :: Text)
             statusIs 301
-            followRedirect
+            r <- followRedirect
+            liftIO $ assertBool "expected a Right from a 301 redirect" $ isRight r
             statusIs 200
             bodyContains "we have been successfully redirected"
 
@@ -235,7 +237,7 @@ main = hspec $ do
             get ("/" :: Text)
             statusIs 200
             r <- followRedirect
-            liftIO $ assertBool "expected exception" $ isLeft r
+            liftIO $ assertBool "expected a Left when not a redirect" $ isLeft r
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
