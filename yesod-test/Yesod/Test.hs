@@ -704,13 +704,13 @@ followRedirect :: Yesod site
 followRedirect = do
   mr <- getResponse
   case mr of
-   Nothing ->  return $ Left "no response, so no redirect to follow"
+   Nothing ->  return $ Left "followRedirect called, but there was no previous response, so no redirect to follow"
    Just r -> do
      if not ((H.statusCode $ simpleStatus r) `elem` [301, 302, 303, 307, 308])
        then return $ Left  "followRedirect called, but previous request was not a redirect"
        else do
          case lookup "Location" (simpleHeaders r) of
-          Nothing -> return $ Left "No location header set"
+          Nothing -> return $ Left "followRedirect called, but no location header set"
           Just h -> get (TE.decodeUtf8 h) >> return (Right ())
 
 -- | Sets the HTTP method used by the request.
