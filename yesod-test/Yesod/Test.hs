@@ -700,18 +700,18 @@ get url = request $ do
 --
 -- > followRedirect
 followRedirect :: Yesod site
-               =>  YesodExample site ()
+               =>  YesodExample site (Either T.Text ())
 followRedirect = do
   mr <- getResponse
   case mr of
-   Nothing ->  failure "no response, so no redirect to follow"
+   Nothing ->  return $ Left "no response, so no redirect to follow"
    Just r -> do
      if not ((H.statusCode $ simpleStatus r) `elem` [301,303])
-       then failure "followRedirect called, but previous request was not a redirect"
+       then return $ Left  "followRedirect called, but previous request was not a redirect"
        else do
          case lookup "Location" (simpleHeaders r) of
-          Nothing -> failure "No location header set"
-          Just h -> get (TE.decodeUtf8 h)
+          Nothing -> return $ Left "No location header set"
+          Just h -> get (TE.decodeUtf8 h) >> return (Right ())
 
 -- | Sets the HTTP method used by the request.
 --

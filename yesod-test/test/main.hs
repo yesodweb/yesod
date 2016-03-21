@@ -231,13 +231,10 @@ main = hspec $ do
             bodyContains "we have been successfully redirected"
 
 
-        yit "throws an exception when no redirect was returned" $ do
+        yit "returns a Left when no redirect was returned" $ do
             get ("/" :: Text)
             statusIs 200
-            -- This appears to be an HUnitFailure, which is not
-            -- exported, so I'm catching SomeException instead.
-            (r :: Either SomeException ()) <- try followRedirect
-            statusIs 200
+            r <- followRedirect
             liftIO $ assertBool "expected exception" $ isLeft r
 
 instance RenderMessage LiteApp FormMessage where
