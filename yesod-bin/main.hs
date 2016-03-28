@@ -6,7 +6,7 @@ import           Data.Monoid
 import           Data.Version           (showVersion)
 import           Options.Applicative
 import           System.Environment     (getEnvironment)
-import           System.Exit            (ExitCode (ExitSuccess), exitWith)
+import           System.Exit            (ExitCode (ExitSuccess), exitWith, exitFailure)
 import           System.FilePath        (splitSearchPath)
 import           System.Process         (rawSystem)
 
@@ -15,6 +15,7 @@ import           Devel                  (DevelOpts (..), devel, DevelTermOpt(..)
 import           Keter                  (keter)
 import           Options                (injectDefaults)
 import qualified Paths_yesod_bin
+import           System.IO              (hPutStrLn, stderr)
 
 import           HsFile                 (mkHsFile)
 #ifndef WINDOWS
@@ -130,10 +131,18 @@ main = do
                              }
                        devel develOpts develExtraArgs
   where
-    cabalTest cabal = do touch'
-                         _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]
-                         _ <- cabal ["build"]
-                         cabal ["test"]
+    cabalTest cabal = do
+        env <- getEnvironment
+        case lookup "STACK_EXE" env of
+            Nothing -> do
+                touch'
+                _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]
+                _ <- cabal ["build"]
+                cabal ["test"]
+            Just _ -> do
+                hPutStrLn stderr "'yesod test' is no longer needed with Stack"
+                hPutStrLn stderr "Instead, please just run 'stack test'"
+                exitFailure
 
 handleGhcPackagePath :: IO ([String], Maybe [(String, String)])
 handleGhcPackagePath = do
