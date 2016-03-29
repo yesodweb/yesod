@@ -20,7 +20,7 @@ module Yesod.Auth.Message
     , danishMessage
     ) where
 
-import           Data.Monoid (mappend,(<>))
+import           Data.Monoid (mappend, (<>))
 import           Data.Text   (Text)
 
 data AuthMessage =
@@ -625,7 +625,7 @@ russianMessage BadSetPass = "Чтобы изменить пароль, необ�
 russianMessage SetPassTitle = "Установить пароль"
 russianMessage SetPass = "Установить новый пароль"
 russianMessage NewPass = "Новый пароль"
-russianMessage ConfirmPass = "Подтверждение"
+russianMessage ConfirmPass = "Подтверждение пароля"
 russianMessage PassMismatch = "Пароли не совпадают, повторите снова"
 russianMessage PassUpdated = "Пароль обновлён"
 russianMessage Facebook = "Войти с помощью Facebook"
