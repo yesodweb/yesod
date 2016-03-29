@@ -20,7 +20,7 @@ module Yesod.Auth.Message
     , danishMessage
     ) where
 
-import           Data.Monoid (mappend,(<>))
+import           Data.Monoid (mappend, (<>))
 import           Data.Text   (Text)
 
 data AuthMessage =
