@@ -1,3 +1,7 @@
+## 1.4.20.1
+
+* Log a warning when a CSRF error occurs [#1200](https://github.com/yesodweb/yesod/pull/1200)
+
 ## 1.4.20
 
 * `addMessage`, `addMessageI`, and `getMessages` functions

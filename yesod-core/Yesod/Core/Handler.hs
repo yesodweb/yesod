@@ -1458,4 +1458,4 @@ validCsrf Nothing            _param = True
 validCsrf (Just _token)     Nothing = False
 
 csrfErrorMessage :: Text
-csrfErrorMessage = "A valid CSRF token wasn't present in HTTP headers or POST parameters. Check the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
+csrfErrorMessage = "A valid CSRF token wasn't present in HTTP headers or POST parameters. Because the request could have been forged, it's been rejected altogether. Check the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
