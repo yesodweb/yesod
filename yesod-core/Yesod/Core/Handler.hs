@@ -252,6 +252,7 @@ import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
 import Data.Default
+import Control.Monad.Logger (MonadLogger, logWarnS)
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -1439,14 +1440,16 @@ hasValidCsrfParamNamed paramName = do
 -- If the value doesn't match the token stored in the session, this function throws a 'PermissionDenied' error.
 --
 -- Since 1.4.14
-checkCsrfHeaderOrParam :: MonadHandler m
+checkCsrfHeaderOrParam :: (MonadHandler m, MonadLogger m)
                        => CI S8.ByteString -- ^ The header name to lookup the CSRF token
                        -> Text -- ^ The POST parameter name to lookup the CSRF token
                        -> m ()
 checkCsrfHeaderOrParam headerName paramName = do
   validHeader <- hasValidCsrfHeaderNamed headerName
   validParam <- hasValidCsrfParamNamed paramName
-  unless (validHeader || validParam) (permissionDenied csrfErrorMessage)
+  unless (validHeader || validParam) $ do
+    $logWarnS "yesod-core" csrfErrorMessage
+    permissionDenied csrfErrorMessage
 
 validCsrf :: Maybe Text -> Maybe S.ByteString -> Bool
 -- It's important to use constant-time comparison (constEqBytes) in order to avoid timing attacks.
@@ -1455,4 +1458,4 @@ validCsrf Nothing            _param = True
 validCsrf (Just _token)     Nothing = False
 
 csrfErrorMessage :: Text
-csrfErrorMessage = "A valid CSRF token wasn't present in HTTP headers or POST parameters. Check the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
+csrfErrorMessage = "A valid CSRF token wasn't present in HTTP headers or POST parameters. Because the request could have been forged, it's been rejected altogether. Check the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
