@@ -527,6 +527,8 @@ msgKey = "_MSG"
 -- | Adds a status and message in the user's session.
 --
 -- See 'getMessages'.
+--
+-- @since 1.4.20
 addMessage :: MonadHandler m
            => Text -- ^ status
            -> Html -- ^ message
@@ -543,6 +545,8 @@ addMessage status msg = do
 -- | Adds a message in the user's session but uses RenderMessage to allow for i18n
 --
 -- See 'getMessages'.
+--
+-- @since 1.4.20
 addMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
             => Text -> msg -> m ()
 addMessageI status msg = do
@@ -552,6 +556,8 @@ addMessageI status msg = do
 -- | Gets all messages in the user's session, and then clears the variable.
 --
 -- See 'addMessage'.
+--
+-- @since 1.4.20
 getMessages :: MonadHandler m => m [(Text, Html)]
 getMessages = do
     bs <- lookupSessionBS msgKey

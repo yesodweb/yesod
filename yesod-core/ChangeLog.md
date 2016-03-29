@@ -1,3 +1,7 @@
+## 1.4.20
+
+* `addMessage`, `addMessageI`, and `getMessages` functions
+
 ## 1.4.19.1
 
 * Allow lines of dashes in route files [#1182](https://github.com/yesodweb/yesod/pull/1182)
