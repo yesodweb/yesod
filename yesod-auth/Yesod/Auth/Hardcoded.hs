@@ -160,10 +160,13 @@ authHardcoded =
   where
     dispatch "POST" ["login"] = postLoginR >>= sendResponse
     dispatch _ _ = notFound
-    loginWidget toMaster =
+    loginWidget toMaster = do
+      request <- getRequest
       [whamlet|
         $newline never
         <form method="post" action="@{toMaster loginR}">
+          $maybe t <- reqToken request
+            <input type=hidden name=#{defaultCsrfParamName} value=#{t}>
           <table>
             <tr>
               <th>_{Msg.UserName}

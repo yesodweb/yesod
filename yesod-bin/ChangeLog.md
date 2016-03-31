@@ -1,3 +1,7 @@
+## 1.4.18
+
+* Disable `yesod test` when using Stack [#1198](https://github.com/yesodweb/yesod/issues/1198)
+
 ## 1.4.17
 
 * Fully remove the `yesod init` command

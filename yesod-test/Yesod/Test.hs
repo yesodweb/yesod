@@ -50,6 +50,7 @@ module Yesod.Test
     , get
     , post
     , postBody
+    , followRedirect
     , request
     , addRequestHeader
     , setMethod
@@ -277,15 +278,21 @@ yit label example = tell [YesodSpecItem label example]
 -- response-level assertions
 withResponse' :: MonadIO m
               => (state -> Maybe SResponse)
+              -> [T.Text]
               -> (SResponse -> ST.StateT state m a)
               -> ST.StateT state m a
-withResponse' getter f = maybe err f . getter =<< ST.get
- where err = failure "There was no response, you should make a request"
+withResponse' getter errTrace f = maybe err f . getter =<< ST.get
+ where err = failure msg
+       msg = if null errTrace
+             then "There was no response, you should make a request."
+             else
+               "There was no response, you should make a request. A response was needed because: \n - "
+               <> T.intercalate "\n - " errTrace
 
 -- | Performs a given action using the last response. Use this to create
 -- response-level assertions
 withResponse :: (SResponse -> YesodExample site a) -> YesodExample site a
-withResponse = withResponse' yedResponse
+withResponse = withResponse' yedResponse []
 
 -- | Use HXT to parse a value from an HTML tag.
 -- Check for usage examples in this module's source.
@@ -295,16 +302,17 @@ parseHTML html = fromDocument $ HD.parseLBS html
 -- | Query the last response using CSS selectors, returns a list of matched fragments
 htmlQuery' :: MonadIO m
            => (state -> Maybe SResponse)
+           -> [T.Text]
            -> Query
            -> ST.StateT state m [HtmlLBS]
-htmlQuery' getter query = withResponse' getter $ \ res ->
+htmlQuery' getter errTrace query = withResponse' getter ("Tried to invoke htmlQuery' in order to read HTML of a previous response." : errTrace) $ \ res ->
   case findBySelector (simpleBody res) query of
     Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
     Right matches -> return $ map (encodeUtf8 . TL.pack) matches
 
 -- | Query the last response using CSS selectors, returns a list of matched fragments
 htmlQuery :: Query -> YesodExample site [HtmlLBS]
-htmlQuery = htmlQuery' yedResponse
+htmlQuery = htmlQuery' yedResponse []
 
 -- | Asserts that the two given values are equal.
 assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()
@@ -569,7 +577,7 @@ fileByLabel label path mime = do
 -- >   addToken_ "#formID"
 addToken_ :: Query -> RequestBuilder site ()
 addToken_ scope = do
-  matches <- htmlQuery' rbdResponse $ scope <> "input[name=_token][type=hidden][value]"
+  matches <- htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $ scope <> "input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No CSRF token found in the current page"
     element:[] -> addPostParam "_token" $ head $ attribute "value" $ parseHTML element
@@ -685,6 +693,29 @@ get :: (Yesod site, RedirectUrl site url)
 get url = request $ do
     setMethod "GET"
     setUrl url
+
+-- | Follow a redirect, if the last response was a redirect.
+-- (We consider a request a redirect if the status is
+-- 301, 302, 303, 307 or 308, and the Location header is set.)
+--
+-- ==== __Examples__
+--
+-- > get HomeR
+-- > followRedirect
+followRedirect :: Yesod site
+               =>  YesodExample site (Either T.Text T.Text) -- ^ 'Left' with an error message if not a redirect, 'Right' with the redirected URL if it was
+followRedirect = do
+  mr <- getResponse
+  case mr of
+   Nothing ->  return $ Left "followRedirect called, but there was no previous response, so no redirect to follow"
+   Just r -> do
+     if not ((H.statusCode $ simpleStatus r) `elem` [301, 302, 303, 307, 308])
+       then return $ Left "followRedirect called, but previous request was not a redirect"
+       else do
+         case lookup "Location" (simpleHeaders r) of
+          Nothing -> return $ Left "followRedirect called, but no location header set"
+          Just h -> let url = TE.decodeUtf8 h in
+                     get url  >> return (Right url)
 
 -- | Sets the HTTP method used by the request.
 --

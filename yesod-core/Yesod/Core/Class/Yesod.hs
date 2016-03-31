@@ -87,7 +87,7 @@ class RenderRoute site => Yesod site where
     defaultLayout :: WidgetT site IO () -> HandlerT site IO Html
     defaultLayout w = do
         p <- widgetToPageContent w
-        mmsg <- getMessage
+        msgs <- getMessages
         withUrlRenderer [hamlet|
             $newline never
             $doctype 5
@@ -96,8 +96,8 @@ class RenderRoute site => Yesod site where
                     <title>#{pageTitle p}
                     ^{pageHead p}
                 <body>
-                    $maybe msg <- mmsg
-                        <p .message>#{msg}
+                    $forall (status, msg) <- msgs
+                        <p class="message #{status}">#{msg}
                     ^{pageBody p}
             |]
 

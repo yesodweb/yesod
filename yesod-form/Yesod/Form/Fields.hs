@@ -349,7 +349,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
--- | Creates an input with @type="email"@ with the <http://www.w3.org/html/wg/drafts/html/master/forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
+-- | Creates an input with @type="email"@ with the <http://w3c.github.io/html/sec-forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
 --
 -- Since 1.3.7
 multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
