@@ -14,7 +14,7 @@ packages:
   - ./yesod-eventsource
   - ./yesod-websockets
   - location:
-      git: git@github.com:pseudonom/persistent.git
+      git: https://github.com/pseudonom/persistent.git
       commit: 0edba747e49c816e94c235bced16978cb729b175
     subdirs:
     - persistent
