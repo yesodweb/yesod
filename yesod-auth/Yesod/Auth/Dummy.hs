@@ -20,10 +20,13 @@ authDummy =
         lift $ setCredsRedirect $ Creds "dummy" ident []
     dispatch _ _ = notFound
     url = PluginR "dummy" []
-    login authToMaster =
+    login authToMaster = do
+        request <- getRequest
         toWidget [hamlet|
 $newline never
 <form method="post" action="@{authToMaster url}">
+    $maybe t <- reqToken request
+        <input type=hidden name=#{defaultCsrfParamName} value=#{t}>
     Your new identifier is: #
     <input type="text" name="ident">
     <input type="submit" value="Dummy Login">
