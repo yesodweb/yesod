@@ -15,7 +15,7 @@ packages:
   - ./yesod-websockets
   - location:
       git: https://github.com/pseudonom/persistent.git
-      commit: 0edba747e49c816e94c235bced16978cb729b175
+      commit: 1b7b70ed5d36adaffaf4cf9927fefcf16fec8969
     subdirs:
     - persistent
 

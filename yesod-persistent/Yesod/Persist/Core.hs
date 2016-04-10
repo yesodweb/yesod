@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -80,12 +81,12 @@ newtype DBRunner site = DBRunner
 -- | Helper for implementing 'getDBRunner'.
 --
 -- Since 1.2.0
-defaultGetDBRunner :: YesodPersistBackend site ~ SQL.SqlBackend
-                   => (site -> Pool SQL.SqlBackend)
+defaultGetDBRunner :: (SQL.IsSqlBackend backend, YesodPersistBackend site ~ backend)
+                   => (site -> Pool backend)
                    -> HandlerT site IO (DBRunner site, HandlerT site IO ())
 defaultGetDBRunner getPool = do
     pool <- fmap getPool getYesod
-    let withPrep conn f = f conn (SQL.connPrepare conn)
+    let withPrep conn f = f (persistBackend conn) (SQL.connPrepare $ persistBackend conn)
     (relKey, (conn, local)) <- allocate
         (do
             (conn, local) <- takeResource pool
