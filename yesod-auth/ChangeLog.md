@@ -1,3 +1,7 @@
+## 1.4.13.1
+
+* Add CSRF token to login form from `Yesod.Auth.Dummy` [#1205](https://github.com/yesodweb/yesod/pull/1205)
+
 ## 1.4.13
 
 * Add a CSRF token to the login form from `Yesod.Auth.Hardcoded`, making it compatible with the CSRF middleware [#1161](https://github.com/yesodweb/yesod/pull/1161)
