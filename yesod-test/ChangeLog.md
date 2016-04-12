@@ -1,3 +1,7 @@
+## 1.5.1.1
+
+* Fix `addToken_` needing a trailing space and allows multiples spaces in css selector.
+	
 ## 1.5.1.0
 
 * Better error provenance for stuff invoking withResponse' [#1191](https://github.com/yesodweb/yesod/pull/1191)

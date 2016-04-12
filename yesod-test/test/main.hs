@@ -140,7 +140,7 @@ main = hspec $ do
                 htmlAnyContain "p" "World"
                 htmlAnyContain "p" "Moon"
                 htmlNoneContain "p" "Sun"
-            yit "CSRF token" $ do
+            yit "finds the CSRF token by css selector" $ do
                 get ("/form" :: Text)
                 statusIs 200
 
