@@ -140,6 +140,18 @@ main = hspec $ do
                 htmlAnyContain "p" "World"
                 htmlAnyContain "p" "Moon"
                 htmlNoneContain "p" "Sun"
+            yit "finds the CSRF token by css selector" $ do
+                get ("/form" :: Text)
+                statusIs 200
+
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/form" :: Text)
+                    byLabel "Some Label" "12345"
+                    fileByLabel "Some File" "test/main.hs" "text/plain"
+                    addToken_ "body"
+                statusIs 200
+                bodyEquals "12345"
 
         ydescribe "utf8 paths" $ do
             yit "from path" $ do

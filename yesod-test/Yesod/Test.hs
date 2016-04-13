@@ -577,7 +577,7 @@ fileByLabel label path mime = do
 -- >   addToken_ "#formID"
 addToken_ :: Query -> RequestBuilder site ()
 addToken_ scope = do
-  matches <- htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $ scope <> "input[name=_token][type=hidden][value]"
+  matches <- htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $ scope <> " input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No CSRF token found in the current page"
     element:[] -> addPostParam "_token" $ head $ attribute "value" $ parseHTML element
