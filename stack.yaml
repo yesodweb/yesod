@@ -13,14 +13,10 @@ packages:
   - ./yesod
   - ./yesod-eventsource
   - ./yesod-websockets
-  - location:
-      git: https://github.com/yesodweb/persistent.git
-      commit: 4cb12ad1e240d190647ea75f1bc784fa6b5b7cc2
-    subdirs:
-    - persistent
 
 # Needed for LTS 2
 extra-deps:
 - wai-app-static-3.1.4.1
 - http-api-data-0.2
 - yaml-0.8.17
+- persistent-2.5
