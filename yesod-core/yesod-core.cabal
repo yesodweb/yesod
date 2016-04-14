@@ -80,6 +80,7 @@ library
                      Yesod.Core.Internal
                      Yesod.Core.Types
                      Yesod.Core.Unsafe
+                     Yesod.Core.FormHelpers
                      Yesod.Routes.TH.Types
     other-modules:   Yesod.Core.Internal.Session
                      Yesod.Core.Internal.Request

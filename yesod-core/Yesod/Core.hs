@@ -92,6 +92,7 @@ module Yesod.Core
     , module Text.Shakespeare.I18N
     , module Yesod.Core.Internal.Util
     , module Text.Blaze.Html
+    , module Yesod.Core.FormHelpers
     , MonadTrans (..)
     , MonadIO (..)
     , MonadBase (..)
@@ -127,6 +128,7 @@ import Yesod.Core.Class.Handler
 import Yesod.Core.Widget
 import Yesod.Core.Json
 import Yesod.Core.Types
+import Yesod.Core.FormHelpers
 import Text.Shakespeare.I18N
 import Yesod.Core.Internal.Util (formatW3 , formatRFC1123 , formatRFC822)
 import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
