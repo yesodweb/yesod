@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -74,7 +75,7 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Network.URI (parseURI)
 import Database.Persist.Sql (PersistField, PersistFieldSql (..))
-import Database.Persist (Entity (..), SqlType (SqlString), BaseBackend, PersistQueryRead)
+import Database.Persist (Entity (..), SqlType (SqlString), PersistRecordBackend, PersistQueryRead)
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.Either (partitionEithers)
@@ -646,12 +647,11 @@ optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 -- >         where
 -- >           countries = optionsPersist [] [Asc CountryName] countryName
 optionsPersist :: ( YesodPersist site
-                  , PersistEntity a
                   , PersistQueryRead backend
                   , PathPiece (Key a)
                   , RenderMessage site msg
                   , YesodPersistBackend site ~ backend
-                  , BaseBackend backend ~ PersistEntityBackend a
+                  , PersistRecordBackend a backend
                   )
                => [Filter a]
                -> [SelectOpt a]
@@ -672,12 +672,11 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
 -- Since 1.3.2
 optionsPersistKey
   :: (YesodPersist site
-     , PersistEntity a
      , PersistQueryRead backend
      , PathPiece (Key a)
      , RenderMessage site msg
      , backend ~ YesodPersistBackend site
-     , BaseBackend backend ~ PersistEntityBackend a
+     , PersistRecordBackend a backend
      )
   => [Filter a]
   -> [SelectOpt a]

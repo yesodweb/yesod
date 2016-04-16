@@ -501,10 +501,9 @@ class (YesodAuth master, YesodPersist master) => YesodAuthPersist master where
 
     default getAuthEntity
         :: ( YesodPersistBackend master ~ backend
-           , BaseBackend backend ~ PersistEntityBackend (AuthEntity master)
+           , PersistRecordBackend (AuthEntity master) backend
            , Key (AuthEntity master) ~ AuthId master
            , PersistStore backend
-           , PersistEntity (AuthEntity master)
            )
         => AuthId master -> HandlerT master IO (Maybe (AuthEntity master))
     getAuthEntity = runDB . get

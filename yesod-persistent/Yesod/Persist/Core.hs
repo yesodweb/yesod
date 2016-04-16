@@ -125,7 +125,7 @@ respondSourceDB :: YesodPersistRunner site
 respondSourceDB ctype = respondSource ctype . runDBSource
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
-get404 :: (MonadIO m, PersistStore backend, BaseBackend backend ~ PersistEntityBackend val, PersistEntity val)
+get404 :: (MonadIO m, PersistStore backend, PersistRecordBackend val backend)
        => Key val
        -> ReaderT backend m val
 get404 key = do
@@ -136,7 +136,7 @@ get404 key = do
 
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
 --   exist.
-getBy404 :: (PersistUnique backend, BaseBackend backend ~ PersistEntityBackend val, PersistEntity val, MonadIO m)
+getBy404 :: (PersistUnique backend, PersistRecordBackend val backend, MonadIO m)
          => Unique val
          -> ReaderT backend m (Entity val)
 getBy404 key = do
