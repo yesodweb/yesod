@@ -16,5 +16,6 @@ packages:
 
 # Needed for LTS 2
 extra-deps:
+- date-cache-0.3.0
 - wai-app-static-3.1.4.1
 - yaml-0.8.17

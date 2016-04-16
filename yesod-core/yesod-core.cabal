@@ -51,6 +51,7 @@ library
                    , aeson                 >= 0.5
                    , fast-logger           >= 2.2
                    , wai-logger            >= 0.2
+                   , date-cache
                    , monad-logger          >= 0.3.1    && < 0.4
                    , conduit               >= 1.2
                    , resourcet             >= 0.4.9    && < 1.2
