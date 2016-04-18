@@ -102,7 +102,7 @@ main = do
          ] optParser'
   let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
-    Init _          -> error "The init command has been removed. Please use 'stack new' instead"
+    Init _          -> initErrorMsg
     HsFiles         -> mkHsFile
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
@@ -143,6 +143,17 @@ main = do
                 hPutStrLn stderr "'yesod test' is no longer needed with Stack"
                 hPutStrLn stderr "Instead, please just run 'stack test'"
                 exitFailure
+
+    initErrorMsg = do
+        mapM_ putStrLn
+            [ "The init command has been removed."
+            , "Please use 'stack new <project name> <template>' instead where the"
+            , "available templates can be found by running 'stack templates'. For"
+            , "a Yesod based application you should probably choose one of the"
+            , "pre-canned Yesod templates."
+            ]
+        exitFailure
+
 
 handleGhcPackagePath :: IO ([String], Maybe [(String, String)])
 handleGhcPackagePath = do
