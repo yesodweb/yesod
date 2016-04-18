@@ -81,9 +81,15 @@ newtype DBRunner site = DBRunner
 -- | Helper for implementing 'getDBRunner'.
 --
 -- Since 1.2.0
+#if MIN_VERSION_persistent(2,5,0)
 defaultGetDBRunner :: (SQL.IsSqlBackend backend, YesodPersistBackend site ~ backend)
                    => (site -> Pool backend)
                    -> HandlerT site IO (DBRunner site, HandlerT site IO ())
+#else
+defaultGetDBRunner :: YesodPersistBackend site ~ SQL.SqlBackend
+                   => (site -> Pool SQL.SqlBackend)
+                   -> HandlerT site IO (DBRunner site, HandlerT site IO ())
+#endif
 defaultGetDBRunner getPool = do
     pool <- fmap getPool getYesod
     let withPrep conn f = f (persistBackend conn) (SQL.connPrepare $ persistBackend conn)
@@ -125,9 +131,15 @@ respondSourceDB :: YesodPersistRunner site
 respondSourceDB ctype = respondSource ctype . runDBSource
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
+#if MIN_VERSION_persistent(2,5,0)
 get404 :: (MonadIO m, PersistStore backend, PersistRecordBackend val backend)
        => Key val
        -> ReaderT backend m val
+#else
+get404 :: (MonadIO m, PersistStore (PersistEntityBackend val), PersistEntity val)
+       => Key val
+       -> ReaderT (PersistEntityBackend val) m val
+#endif
 get404 key = do
     mres <- get key
     case mres of
@@ -136,9 +148,15 @@ get404 key = do
 
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
 --   exist.
+#if MIN_VERSION_persistent(2,5,0)
 getBy404 :: (PersistUnique backend, PersistRecordBackend val backend, MonadIO m)
          => Unique val
          -> ReaderT backend m (Entity val)
+#else
+getBy404 :: (PersistUnique (PersistEntityBackend val), PersistEntity val, MonadIO m)
+         => Unique val
+         -> ReaderT (PersistEntityBackend val) m (Entity val)
+#endif
 getBy404 key = do
     mres <- getBy key
     case mres of
