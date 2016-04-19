@@ -18,6 +18,7 @@ import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
 #if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>))
 import Data.Monoid (mconcat)
 #endif
 
