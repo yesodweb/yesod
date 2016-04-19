@@ -37,7 +37,7 @@ library
                    , unordered-containers
                    , yesod-form              >= 1.4       && < 1.5
                    , transformers            >= 0.2.2
-                   , persistent              >= 2.1       && < 2.3
+                   , persistent              >= 2.1       && < 2.6
                    , persistent-template     >= 2.1       && < 2.2
                    , http-client
                    , http-conduit            >= 2.1

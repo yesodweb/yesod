@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -74,7 +75,11 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Network.URI (parseURI)
 import Database.Persist.Sql (PersistField, PersistFieldSql (..))
+#if MIN_VERSION_persistent(2,5,0)
+import Database.Persist (Entity (..), SqlType (SqlString), PersistRecordBackend, PersistQueryRead)
+#else
 import Database.Persist (Entity (..), SqlType (SqlString))
+#endif
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.Either (partitionEithers)
@@ -645,6 +650,19 @@ optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 -- >         <$> areq (selectField countries) "Which country do you live in?" Nothing
 -- >         where
 -- >           countries = optionsPersist [] [Asc CountryName] countryName
+#if MIN_VERSION_persistent(2,5,0)
+optionsPersist :: ( YesodPersist site
+                  , PersistQueryRead backend
+                  , PathPiece (Key a)
+                  , RenderMessage site msg
+                  , YesodPersistBackend site ~ backend
+                  , PersistRecordBackend a backend
+                  )
+               => [Filter a]
+               -> [SelectOpt a]
+               -> (a -> msg)
+               -> HandlerT site IO (OptionList (Entity a))
+#else
 optionsPersist :: ( YesodPersist site, PersistEntity a
                   , PersistQuery (PersistEntityBackend a)
                   , PathPiece (Key a)
@@ -655,6 +673,7 @@ optionsPersist :: ( YesodPersist site, PersistEntity a
                -> [SelectOpt a]
                -> (a -> msg)
                -> HandlerT site IO (OptionList (Entity a))
+#endif
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     mr <- getMessageRender
     pairs <- runDB $ selectList filts ords
@@ -668,6 +687,20 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
 -- the entire 'Entity'.
 --
 -- Since 1.3.2
+#if MIN_VERSION_persistent(2,5,0)
+optionsPersistKey
+  :: (YesodPersist site
+     , PersistQueryRead backend
+     , PathPiece (Key a)
+     , RenderMessage site msg
+     , backend ~ YesodPersistBackend site
+     , PersistRecordBackend a backend
+     )
+  => [Filter a]
+  -> [SelectOpt a]
+  -> (a -> msg)
+  -> HandlerT site IO (OptionList (Key a))
+#else
 optionsPersistKey
   :: (YesodPersist site
      , PersistEntity a
@@ -680,6 +713,7 @@ optionsPersistKey
   -> [SelectOpt a]
   -> (a -> msg)
   -> HandlerT site IO (OptionList (Key a))
+#endif
 
 optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
     mr <- getMessageRender

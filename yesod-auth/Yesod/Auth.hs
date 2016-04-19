@@ -499,6 +499,15 @@ class (YesodAuth master, YesodPersist master) => YesodAuthPersist master where
 
     getAuthEntity :: AuthId master -> HandlerT master IO (Maybe (AuthEntity master))
 
+#if MIN_VERSION_persistent(2,5,0)
+    default getAuthEntity
+        :: ( YesodPersistBackend master ~ backend
+           , PersistRecordBackend (AuthEntity master) backend
+           , Key (AuthEntity master) ~ AuthId master
+           , PersistStore backend
+           )
+        => AuthId master -> HandlerT master IO (Maybe (AuthEntity master))
+#else
     default getAuthEntity
         :: ( YesodPersistBackend master
                ~ PersistEntityBackend (AuthEntity master)
@@ -507,6 +516,7 @@ class (YesodAuth master, YesodPersist master) => YesodAuthPersist master where
            , PersistEntity (AuthEntity master)
            )
         => AuthId master -> HandlerT master IO (Maybe (AuthEntity master))
+#endif
     getAuthEntity = runDB . get
 
 
