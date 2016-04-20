@@ -79,7 +79,7 @@ keter cabal noBuild noCopyTo buildArgs = do
 
     unless noBuild $ do
         stackQueryRunSuccess <- do
-            eres <- try $ readProcessWithExitCode "stack" ["query"] "" :: IO (Either SomeException (ExitCode, String, String))
+            eres <- try $ readProcessWithExitCode "stack" ["query"] "" :: IO (Either IOException (ExitCode, String, String))
             return $ either (\_ -> False) (\(ec, _, _) -> (ec == ExitSuccess)) eres
 
         let inStackExec = isJust $ lookup "STACK_EXE" env'
