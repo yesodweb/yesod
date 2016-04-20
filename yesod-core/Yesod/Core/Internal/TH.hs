@@ -86,8 +86,13 @@ mkYesodGeneral namestr args isSub f resS = do
                    case info of
                      TyConI dec ->
                        case dec of
+#if MIN_VERSION_template_haskell(2,11,0)
+                         DataD _ _ vs _ _ _ -> length vs
+                         NewtypeD _ _ vs _ _ _ -> length vs
+#else
                          DataD _ _ vs _ _ -> length vs
                          NewtypeD _ _ vs _ _ -> length vs
+#endif
                          _ -> 0
                      _ -> 0
                _ -> return 0

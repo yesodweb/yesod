@@ -41,7 +41,7 @@ case500 :: IO ()
 case500 = runner $ do
     res <- request defaultRequest
     assertStatus 500 res
-    assertBody "FOOBAR" res
+    assertBodyContains "FOOBAR" res
 
 caseRedirect :: IO ()
 caseRedirect = runner $ do

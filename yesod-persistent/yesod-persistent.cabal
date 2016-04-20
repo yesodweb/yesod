@@ -17,7 +17,7 @@ library
     build-depends:   base                      >= 4        && < 5
                    , yesod-core                >= 1.4.0    && < 1.5
                    , persistent                >= 2.1      && < 2.6
-                   , persistent-template       >= 2.1      && < 2.2
+                   , persistent-template       >= 2.1      && < 2.6
                    , transformers              >= 0.2.2
                    , blaze-builder
                    , conduit

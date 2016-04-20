@@ -85,12 +85,36 @@ getPackageArgs buildDir argv2 = do
     dflags0 <- GHC.getSessionDynFlags
     (dflags1, _, _) <- GHC.parseDynamicFlags dflags0 argv3
     let pkgFlags = map convertPkgFlag (GHC.packageFlags dflags1)
+        ignorePkgFlags =
+#if __GLASGOW_HASKELL__ >= 800
+            map convertIgnorePkgFlag (GHC.ignorePackageFlags dflags1)
+#else
+            []
+#endif
+        trustPkgFlags =
+#if __GLASGOW_HASKELL__ >= 800
+            map convertTrustPkgFlag (GHC.trustFlags dflags1)
+#else
+            []
+#endif
         hideAll | gopt DF.Opt_HideAllPackages dflags1 = [ "-hide-all-packages"]
                 | otherwise                           = []
         ownPkg = packageString (DF.thisPackage dflags1)
-    return (reverse (extra dflags1) ++ hideAll ++ pkgFlags ++ [ownPkg])
+    return (reverse (extra dflags1) ++ hideAll ++ trustPkgFlags ++ ignorePkgFlags ++ pkgFlags ++ [ownPkg])
   where
-#if __GLASGOW_HASKELL__ >= 710
+#if __GLASGOW_HASKELL__ >= 800
+    convertIgnorePkgFlag (DF.IgnorePackage p)  = "-ignore-package" ++ p
+    convertTrustPkgFlag (DF.TrustPackage p)    = "-trust" ++ p
+    convertTrustPkgFlag (DF.DistrustPackage p) = "-distrust" ++ p
+#else
+    convertPkgFlag (DF.IgnorePackage p)   = "-ignore-package" ++ p
+    convertPkgFlag (DF.TrustPackage p)    = "-trust" ++ p
+    convertPkgFlag (DF.DistrustPackage p) = "-distrust" ++ p
+#endif
+#if __GLASGOW_HASKELL__ >= 800
+    convertPkgFlag (DF.ExposePackage _ (DF.PackageArg p) _)  = "-package" ++ p
+    convertPkgFlag (DF.ExposePackage _ (DF.UnitIdArg p) _)   = "-package-id" ++ p
+#elif __GLASGOW_HASKELL__ == 710
     convertPkgFlag (DF.ExposePackage (DF.PackageArg p) _)    = "-package" ++ p
     convertPkgFlag (DF.ExposePackage (DF.PackageIdArg p) _)  = "-package-id" ++ p
     convertPkgFlag (DF.ExposePackage (DF.PackageKeyArg p) _) = "-package-key" ++ p
@@ -99,10 +123,9 @@ getPackageArgs buildDir argv2 = do
     convertPkgFlag (DF.ExposePackageId p) = "-package-id" ++ p
 #endif
     convertPkgFlag (DF.HidePackage p)     = "-hide-package" ++ p
-    convertPkgFlag (DF.IgnorePackage p)   = "-ignore-package" ++ p
-    convertPkgFlag (DF.TrustPackage p)    = "-trust" ++ p
-    convertPkgFlag (DF.DistrustPackage p) ="-distrust" ++ p
-#if __GLASGOW_HASKELL__ >= 710
+#if __GLASGOW_HASKELL__ >= 800
+    packageString flags = "-package-id" ++ Module.unitIdString flags
+#elif __GLASGOW_HASKELL__ == 710
     packageString flags = "-package-key" ++ Module.packageKeyString flags
 #else
     packageString flags = "-package-id" ++ Module.packageIdString flags ++ "-inplace"
@@ -162,7 +185,9 @@ buildPackage' argv2 ld ar = do
         haskellish (f,Nothing) =
           looksLikeModuleName f || isHaskellSrcFilename f || '.' `notElem` f
         haskellish (_,Just phase) =
-#if MIN_VERSION_ghc(7,8,3)
+#if MIN_VERSION_ghc(8,0,0)
+          phase `notElem` [As True, As False, Cc, Cobjc, Cobjcxx, CmmCpp, Cmm, StopLn]
+#elif MIN_VERSION_ghc(7,8,3)
           phase `notElem` [As True, As False, Cc, Cobjc, Cobjcpp, CmmCpp, Cmm, StopLn]
 #elif MIN_VERSION_ghc(7,4,0)
           phase `notElem` [As, Cc, Cobjc, Cobjcpp, CmmCpp, Cmm, StopLn]
