@@ -1,3 +1,7 @@
+## 1.4.18.1
+
+* error handling when checking for stack binary [#1219](https://github.com/yesodweb/yesod/pull/1219)
+
 ## 1.4.18
 
 * Disable `yesod test` when using Stack [#1198](https://github.com/yesodweb/yesod/issues/1198)
