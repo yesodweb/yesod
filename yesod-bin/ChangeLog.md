@@ -1,6 +1,7 @@
 ## 1.4.18.1
 
 * error handling when checking for stack binary [#1219](https://github.com/yesodweb/yesod/pull/1219)
+* GHC 8 support
 
 ## 1.4.18
 
