@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 -- | BigTable benchmark implemented using Hamlet.
 --
 {-# LANGUAGE QuasiQuotes #-}

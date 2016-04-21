@@ -177,6 +177,7 @@ benchmark widgets
                   , transformers
                   , yesod-core
                   , blaze-html
+                  , shakespeare
     main-is:        widget.hs
     ghc-options:    -Wall -O2
 
