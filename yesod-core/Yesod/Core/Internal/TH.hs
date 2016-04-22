@@ -9,7 +9,7 @@ module Yesod.Core.Internal.TH where
 import Prelude hiding (exp)
 import Yesod.Core.Handler
 
-import Language.Haskell.TH hiding (cxt)
+import Language.Haskell.TH hiding (cxt, instanceD)
 import Language.Haskell.TH.Syntax
 
 import qualified Network.Wai as W
@@ -106,7 +106,7 @@ mkYesodGeneral namestr args isSub f resS = do
                    case arg of
                      Left  t  -> ( ConT (mkName t):xs, n:ns, cs )
                      Right ts -> ( VarT n         :xs,   ns
-                                 , fmap (\t -> 
+                                 , fmap (\t ->
 #if MIN_VERSION_template_haskell(2,10,0)
                                                AppT (ConT $ mkName t) (VarT n)
 #else
@@ -169,7 +169,7 @@ mkDispatchInstance :: Type                      -- ^ The master site type
 mkDispatchInstance master cxt f res = do
     clause' <- mkDispatchClause (mkMDS f [|yesodRunner|]) res
     let thisDispatch = FunD 'yesodDispatch [clause']
-    return [InstanceD cxt yDispatch [thisDispatch]]
+    return [instanceD cxt yDispatch [thisDispatch]]
   where
     yDispatch = ConT ''YesodDispatch `AppT` master
 
@@ -186,3 +186,10 @@ mkYesodSubDispatch res = do
                     [innerFun]
                 ]
     return $ LetE [fun] (VarE helper)
+
+instanceD :: Cxt -> Type -> [Dec] -> Dec
+#if MIN_VERSION_template_haskell(2,11,0)
+instanceD = InstanceD Nothing
+#else
+instanceD = InstanceD
+#endif
