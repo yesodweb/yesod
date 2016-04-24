@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
@@ -27,7 +28,7 @@ mkParseRouteInstance typ ress = do
         (map removeMethods ress)
     helper <- newName "helper"
     fixer <- [|(\f x -> f () x) :: (() -> ([Text], [(Text, Text)]) -> Maybe (Route a)) -> ([Text], [(Text, Text)]) -> Maybe (Route a)|]
-    return $ InstanceD [] (ConT ''ParseRoute `AppT` typ)
+    return $ instanceD [] (ConT ''ParseRoute `AppT` typ)
         [ FunD 'parseRoute $ return $ Clause
             []
             (NormalB $ fixer `AppE` VarE helper)
@@ -42,3 +43,10 @@ mkParseRouteInstance typ ress = do
 
     fixDispatch (Methods x _) = Methods x []
     fixDispatch x = x
+
+instanceD :: Cxt -> Type -> [Dec] -> Dec
+#if MIN_VERSION_template_haskell(2,11,0)
+instanceD = InstanceD Nothing
+#else
+instanceD = InstanceD
+#endif

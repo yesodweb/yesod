@@ -95,7 +95,11 @@ do
         , mdsUnwrapper = return
         } ress
     return
+#if MIN_VERSION_template_haskell(2,11,0)
+        $ InstanceD Nothing
+#else
         $ InstanceD
+#endif
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''MyApp
