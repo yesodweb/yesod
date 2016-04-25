@@ -1,3 +1,7 @@
+## 1.4.20.2
+
+* GHC 8 support
+
 ## 1.4.20.1
 
 * Log a warning when a CSRF error occurs [#1200](https://github.com/yesodweb/yesod/pull/1200)
