@@ -23,30 +23,18 @@ import Data.Text
 
 data FormStyle = ButtonForm | LinkForm
 
-httpLink :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => FormStyle -> Text -> Route site -> Text -> WidgetT site m ()
-httpLink formType methodType path text = do
+httpLink :: (MonadIO m, MonadBaseControl IO m, MonadThrow m, ToWidget site c) => (Text -> c) -> Text -> Route site -> Text -> WidgetT site m ()
+httpLink buttonCSS methodType path text = do
     request <- getRequest
+    buttonClass <- newIdent
     toWidget $ formMethodWrapper
       [whamlet|
         $maybe token <- reqToken request
           <input type=hidden name=#{defaultCsrfParamName} value=#{token}>
-        $case formType
-          $of LinkForm
-            <button class=buttonLink> #{text}
-          $of ButtonForm
-            <button> #{text}
+          <button class=#{buttonClass}> #{text}
       |]
-    toWidget
-      [lucius|
-        .buttonLink {
-          background: none;
-          border: none; 
-          padding: 0;
-          color: #069;
-          text-decoration: underline;
-          cursor: pointer;
-        }
-      |]
+    toWidget $
+      buttonCSS buttonClass
   where
     formMethodWrapper contents = 
       [whamlet|
@@ -63,7 +51,21 @@ httpLink formType methodType path text = do
     isFormSupported = toUpper methodType == "GET" || toUpper methodType == "POST"
 
 buttonLink :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => Text -> Route site -> Text -> WidgetT site m ()
-buttonLink = httpLink ButtonForm
+buttonLink = httpLink style
+  where
+    style ident =
+      [lucius|
+        .#{ident} {
+          background: none;
+          border: none;
+          padding: 0;
+          color: #069;
+          text-decoration: underline;
+          cursor: pointer;
+        }
+      |]
 
 link :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => Text -> Route site -> Text -> WidgetT site m ()
-link = httpLink LinkForm
+link = httpLink
+  [lucius|
+  |]
