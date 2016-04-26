@@ -5,8 +5,11 @@
 module Yesod.Core.FormHelpers
     (
       httpLink,
+      httpLinkParams,
       buttonLink,
-      link
+      buttonLinkParams,
+      link,
+      linkParams,
     ) where
 
 import Control.Monad.IO.Class (MonadIO)
@@ -20,8 +23,8 @@ import Data.String (IsString)
 import Text.Lucius
 import Data.Text
 
-httpLink :: (MonadIO m, MonadBaseControl IO m, MonadThrow m, ToWidget site c) => (Text -> c) -> Text -> Route site -> Text -> WidgetT site m ()
-httpLink buttonCSS methodType path text = do
+httpLinkParams :: (MonadIO m, MonadBaseControl IO m, MonadThrow m, ToWidget site c) => (Text -> c) -> [(Text, Text)] -> Text -> Route site -> Text -> WidgetT site m ()
+httpLinkParams buttonCSS params methodType path text = do
     request <- getRequest
     buttonClass <- newIdent
     toWidget $ formMethodWrapper
@@ -36,19 +39,22 @@ httpLink buttonCSS methodType path text = do
     formMethodWrapper contents = 
       [whamlet|
         $if isFormSupported
-          <form action=@{path} method=#{methodType}>
+          <form action=@?{(path, queryString)} method=#{methodType}>
             ^{contents}
         $else
           <form action=@?{(path, queryString)}>
             ^{contents}
       |]
     queryString
-      | isFormSupported = []
-      | otherwise = [("_method", methodType)]
+      | isFormSupported = params
+      | otherwise = [("_method", methodType)] ++ params
     isFormSupported = toUpper methodType == "GET" || toUpper methodType == "POST"
 
-buttonLink :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => Text -> Route site -> Text -> WidgetT site m ()
-buttonLink = httpLink style
+httpLink :: (MonadIO m, MonadBaseControl IO m, MonadThrow m, ToWidget site c) => (Text -> c) -> Text -> Route site -> Text -> WidgetT site m ()
+httpLink buttonCSS = httpLinkParams buttonCSS []
+
+buttonLinkParams :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => [(Text, Text)] -> Text -> Route site -> Text -> WidgetT site m ()
+buttonLinkParams params = httpLinkParams style params
   where
     style ident =
       [lucius|
@@ -62,7 +68,15 @@ buttonLink = httpLink style
         }
       |]
 
+buttonLink :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => Text -> Route site -> Text -> WidgetT site m ()
+buttonLink = buttonLinkParams []
+
+linkParams :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => [(Text, Text)] -> Text -> Route site -> Text -> WidgetT site m ()
+linkParams params = httpLinkParams style params
+  where
+    style =
+      [lucius|
+      |]
+
 link :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => Text -> Route site -> Text -> WidgetT site m ()
-link = httpLink
-  [lucius|
-  |]
+link = linkParams []
