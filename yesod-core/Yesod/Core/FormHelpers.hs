@@ -4,7 +4,6 @@
 
 module Yesod.Core.FormHelpers
     (
-      FormStyle,
       httpLink,
       buttonLink,
       link
@@ -20,8 +19,6 @@ import Text.Blaze (ToMarkup)
 import Data.String (IsString)
 import Text.Lucius
 import Data.Text
-
-data FormStyle = ButtonForm | LinkForm
 
 httpLink :: (MonadIO m, MonadBaseControl IO m, MonadThrow m, ToWidget site c) => (Text -> c) -> Text -> Route site -> Text -> WidgetT site m ()
 httpLink buttonCSS methodType path text = do
