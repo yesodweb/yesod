@@ -18,8 +18,6 @@ import Yesod.Routes.Class
 import Control.Monad.Trans.Resource (MonadResource (..), MonadThrow (..))
 import Yesod.Core.Widget
 import Yesod.Core.Handler
-import Text.Blaze (ToMarkup)
-import Data.String (IsString)
 import Text.Lucius
 import Data.Text
 
