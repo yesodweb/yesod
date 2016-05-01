@@ -368,11 +368,15 @@ sslOnlySessions = (fmap . fmap) secureSessionCookies
 
 -- | Helps defend against CSRF attacks by setting the SameSite attribute on
 -- session cookies to "Lax".
+--
+-- Since 1.4.21
 laxSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
 laxSameSiteSessions = sameSiteSession sameSiteLax
 
 -- | Helps defend against CSRF attacks by setting the SameSite attribute on
 -- session cookies to "Strict".
+--
+-- Since 1.4.21
 strictSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
 strictSameSiteSessions = sameSiteSession sameSiteStrict
 
