@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP                        #-}
-module YesodCoreTest (specs) where 
+module YesodCoreTest (specs) where
 
 import YesodCoreTest.CleanPath
 import YesodCoreTest.Exceptions
@@ -48,4 +48,5 @@ specs = do
       LiteApp.specs
       Ssl.unsecSpec
       Ssl.sslOnlySpec
+      Ssl.sameSiteSpec
       Csrf.csrfSpec

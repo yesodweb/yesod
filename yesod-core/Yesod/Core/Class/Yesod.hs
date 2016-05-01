@@ -49,7 +49,7 @@ import qualified Text.Blaze.Html5                   as TBH
 import           Text.Hamlet
 import           Text.Julius
 import qualified Web.ClientSession                  as CS
-import           Web.Cookie                         (parseCookies)
+import           Web.Cookie                         (parseCookies, sameSiteLax, sameSiteStrict, SameSiteOption)
 import           Web.Cookie                         (SetCookie (..))
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
@@ -365,6 +365,22 @@ sslOnlySessions = (fmap . fmap) secureSessionCookies
   where
     setSecureBit cookie = cookie { setCookieSecure = True }
     secureSessionCookies = customizeSessionCookies setSecureBit
+
+-- | Helps defend against CSRF attacks by setting the SameSite attribute on
+-- session cookies to "Lax".
+laxSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
+laxSameSiteSessions = sameSiteSession sameSiteLax
+
+-- | Helps defend against CSRF attacks by setting the SameSite attribute on
+-- session cookies to "Strict".
+strictSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
+strictSameSiteSessions = sameSiteSession sameSiteStrict
+
+sameSiteSession :: SameSiteOption -> IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
+sameSiteSession s = (fmap . fmap) secureSessionCookies
+  where
+    sameSite cookie = cookie { setCookieSameSite = (pure s) }
+    secureSessionCookies = customizeSessionCookies sameSite
 
 -- | Apply a Strict-Transport-Security header with the specified timeout to
 -- all responses so that browsers will rewrite all http links to https
