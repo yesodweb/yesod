@@ -391,7 +391,7 @@ strictSameSiteSessions = sameSiteSession sameSiteStrict
 sameSiteSession :: SameSiteOption -> IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
 sameSiteSession s = (fmap . fmap) secureSessionCookies
   where
-    sameSite cookie = cookie { setCookieSameSite = (Just s) }
+    sameSite cookie = cookie { setCookieSameSite = Just s }
     secureSessionCookies = customizeSessionCookies sameSite
 
 -- | Apply a Strict-Transport-Security header with the specified timeout to
