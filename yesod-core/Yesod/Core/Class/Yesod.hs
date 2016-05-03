@@ -367,14 +367,22 @@ sslOnlySessions = (fmap . fmap) secureSessionCookies
     secureSessionCookies = customizeSessionCookies setSecureBit
 
 -- | Helps defend against CSRF attacks by setting the SameSite attribute on
--- session cookies to "Lax".
+-- session cookies to Lax. With the Lax setting, the cookie will be sent with same-site
+-- requests, and with cross-site top-level navigations.
+--
+-- This option is liable to change in future versions
+-- of Yesod as the spec evolves. View more information <https://datatracker.ietf.org/doc/draft-west-first-party-cookies/ here>.
 --
 -- Since 1.4.21
 laxSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
 laxSameSiteSessions = sameSiteSession sameSiteLax
 
 -- | Helps defend against CSRF attacks by setting the SameSite attribute on
--- session cookies to "Strict".
+-- session cookies to Strict. With the Strict setting, the cookie will only be
+-- sent with same-site requests.
+--
+-- This option is liable to change in future versions
+-- of Yesod as the spec evolves. View more information <https://datatracker.ietf.org/doc/draft-west-first-party-cookies/ here>.
 --
 -- Since 1.4.21
 strictSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
