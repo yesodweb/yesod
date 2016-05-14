@@ -142,6 +142,12 @@ class ( YesodAuth site
 
     -- | Verify the email address on the given account.
     --
+    -- __/Warning!/__ If you have persisted the @'AuthEmailId' site@
+    -- somewhere, this method should delete that key, or make it unusable
+    -- in some fashion. Otherwise, the same key can be used multiple times!
+    --
+    -- See <https://github.com/yesodweb/yesod/issues/1222>.
+    --
     -- Since 1.1.0
     verifyAccount :: AuthEmailId site -> HandlerT site IO (Maybe (AuthId site))
 
