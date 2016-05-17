@@ -58,7 +58,7 @@ parseRoutesNoCheck = QuasiQuoter
     { quoteExp = lift . resourcesFromString
     }
 
--- | Convert a multi-line string to a set of resources. See documentation for
+-- | Converts a multi-line string to a set of resources. See documentation for
 -- the format of this string. This is a partial function which calls 'error' on
 -- invalid input.
 resourcesFromString :: String -> [ResourceTree String]
