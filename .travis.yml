@@ -81,9 +81,10 @@ matrix:
     compiler: ": #stack default osx"
     os: osx
 
-  - env: BUILD=stack ARGS="--resolver lts-2"
-    compiler: ": #stack 7.8.4 osx"
-    os: osx
+  # Doesn't include hfsevents
+  #- env: BUILD=stack ARGS="--resolver lts-2"
+  #  compiler: ": #stack 7.8.4 osx"
+  #  os: osx
 
   - env: BUILD=stack ARGS="--resolver lts-3"
     compiler: ": #stack 7.10.2 osx"
