@@ -174,24 +174,24 @@ optParser :: Parser Options
 optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
-        <*> subparser ( command "init"         (info initOptions
+        <*> subparser ( command "init"         (info (helper <*> initOptions)
                             (progDesc "Command no longer available, please use 'stack new'"))
                       <> command "hsfiles" (info (pure HsFiles)
                             (progDesc "Create a hsfiles file for the current folder"))
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
-                      <> command "build"     (info (Build <$> extraCabalArgs)
+                      <> command "build"     (info (helper <*> (Build <$> extraCabalArgs))
                             (progDesc $ "Build project (performs TH dependency analysis)" ++ windowsWarning))
                       <> command "touch"     (info (pure Touch)
                             (progDesc $ "Touch any files with altered TH dependencies but do not build" ++ windowsWarning))
-                      <> command "devel"     (info develOptions
+                      <> command "devel"     (info (helper <*> develOptions)
                             (progDesc "Run project with the devel server"))
                       <> command "test"      (info (pure Test)
                             (progDesc "Build and run the integration tests"))
-                      <> command "add-handler" (info addHandlerOptions
+                      <> command "add-handler" (info (helper <*> addHandlerOptions)
                             (progDesc ("Add a new handler and module to the project."
                             ++ " Interactively asks for input if you do not specify arguments.")))
-                      <> command "keter"       (info keterOptions
+                      <> command "keter"       (info (helper <*> keterOptions)
                             (progDesc "Build a keter bundle"))
                       <> command "version"     (info (pure Version)
                             (progDesc "Print the version of Yesod"))

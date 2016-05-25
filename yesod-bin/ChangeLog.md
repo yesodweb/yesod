@@ -1,3 +1,7 @@
+## 1.4.18.2
+
+* Work around change in behavior in newer optparse-applicative ([mailing list discussion](https://groups.google.com/d/msg/yesodweb/BrTkMKFREgU/AKVc9AK2AQAJ))
+
 ## 1.4.18.1
 
 * error handling when checking for stack binary [#1219](https://github.com/yesodweb/yesod/pull/1219)
