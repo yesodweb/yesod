@@ -26,7 +26,7 @@ library
                    , time                  >= 1.1.4
                    , wai                   >= 3.0
                    , wai-extra             >= 3.0.7
-                   , bytestring            >= 0.9.1.4
+                   , bytestring            >= 0.10
                    , text                  >= 0.7
                    , template-haskell
                    , path-pieces           >= 0.1.2    && < 0.3
