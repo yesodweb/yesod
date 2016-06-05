@@ -226,11 +226,7 @@ class RenderRoute site => Yesod site where
     messageLoggerSource site = defaultMessageLoggerSource $ shouldLogIO site
 
     -- | Where to Load sripts from. We recommend the default value,
-    -- 'BottomOfBody'.  Alternatively use the built in async yepnope loader:
-    --
-    -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
-    --
-    -- Or write your own async js loader.
+    -- 'BottomOfBody'.
     jsLoader :: site -> ScriptLoadPosition site
     jsLoader _ = BottomOfBody
 
