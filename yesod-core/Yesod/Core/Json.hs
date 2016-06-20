@@ -58,7 +58,7 @@ import Control.Monad (liftM)
 -- data, using the default layout for the HTML output
 -- ('defaultLayout').
 --
--- /Since: 0.3.0/
+-- @since 0.3.0
 defaultLayoutJson :: (Yesod site, J.ToJSON a)
                   => WidgetT site IO ()  -- ^ HTML
                   -> HandlerT site IO a  -- ^ JSON
@@ -74,21 +74,21 @@ defaultLayoutJson w json = selectRep $ do
 -- | Wraps a data type in a 'RepJson'.  The data type must
 -- support conversion to JSON via 'J.ToJSON'.
 --
--- /Since: 0.3.0/
+-- @since 0.3.0
 jsonToRepJson :: (Monad m, J.ToJSON a) => a -> m J.Value
 jsonToRepJson = return . J.toJSON
 {-# DEPRECATED jsonToRepJson "Use returnJson instead" #-}
 
 -- | Convert a value to a JSON representation via aeson\'s 'J.toJSON' function.
 --
--- Since 1.2.1
+-- @since 1.2.1
 returnJson :: (Monad m, J.ToJSON a) => a -> m J.Value
 returnJson = return . J.toJSON
 
 #if MIN_VERSION_aeson(0, 11, 0)
 -- | Convert a value to a JSON representation via aeson\'s 'J.toEncoding' function.
 --
--- Since ?
+-- @since 1.4.21
 returnJsonEncoding :: (Monad m, J.ToJSON a) => a -> m J.Encoding
 returnJsonEncoding = return . J.toEncoding
 #endif
@@ -96,7 +96,7 @@ returnJsonEncoding = return . J.toEncoding
 -- | Provide a JSON representation for usage with 'selectReps', using aeson\'s
 -- 'J.toJSON' (aeson >= 0.11: 'J.toEncoding') function to perform the conversion.
 --
--- Since 1.2.1
+-- @since 1.2.1
 provideJson :: (Monad m, J.ToJSON a) => a -> Writer (Endo [ProvidedRep m]) ()
 #if MIN_VERSION_aeson(0, 11, 0)
 provideJson = provideRep . return . J.toEncoding
@@ -113,7 +113,7 @@ provideJson = provideRep . return . J.toJSON
 -- twice will result in a parse error on the second call, since the request
 -- body will no longer be available.
 --
--- /Since: 0.3.0/
+-- @since 0.3.0
 parseJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
 parseJsonBody = do
     eValue <- rawRequestBody $$ runCatchC (sinkParser JP.value')
@@ -161,7 +161,7 @@ jsonOrRedirect = jsonOrRedirect' J.toJSON
 --     @application\/json@ (e.g. AJAX, see 'acceptsJSON').
 --
 --     2. 3xx otherwise, following the PRG pattern.
--- Since ?
+-- @since 1.4.21
 jsonEncodingOrRedirect :: (MonadHandler m, J.ToJSON a)
             => Route (HandlerSite m) -- ^ Redirect target
             -> a            -- ^ Data to send via JSON

@@ -1,3 +1,7 @@
+## 1.4.21
+
+* Add support for `Encoding` from `aeson-0.11` [#1241](https://github.com/yesodweb/yesod/pull/1241)
+
 ## 1.4.20.2
 
 * GHC 8 support
