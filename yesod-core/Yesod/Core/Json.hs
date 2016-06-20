@@ -6,6 +6,9 @@ module Yesod.Core.Json
       defaultLayoutJson
     , jsonToRepJson
     , returnJson
+#if MIN_VERSION_aeson(0, 11, 0)
+    , returnJsonEncoding
+#endif
     , provideJson
 
       -- * Convert to a JSON value
@@ -24,6 +27,9 @@ module Yesod.Core.Json
 
       -- * Convenience functions
     , jsonOrRedirect
+#if MIN_VERSION_aeson(0, 11, 0)
+    , jsonEncodingOrRedirect
+#endif
     , acceptsJson
     ) where
 
@@ -59,7 +65,11 @@ defaultLayoutJson :: (Yesod site, J.ToJSON a)
                   -> HandlerT site IO TypedContent
 defaultLayoutJson w json = selectRep $ do
     provideRep $ defaultLayout w
+#if MIN_VERSION_aeson(0, 11, 0)
+    provideRep $ fmap J.toEncoding json
+#else
     provideRep $ fmap J.toJSON json
+#endif
 
 -- | Wraps a data type in a 'RepJson'.  The data type must
 -- support conversion to JSON via 'J.ToJSON'.
@@ -75,12 +85,24 @@ jsonToRepJson = return . J.toJSON
 returnJson :: (Monad m, J.ToJSON a) => a -> m J.Value
 returnJson = return . J.toJSON
 
+#if MIN_VERSION_aeson(0, 11, 0)
+-- | Convert a value to a JSON representation via aeson\'s 'J.toEncoding' function.
+--
+-- Since ?
+returnJsonEncoding :: (Monad m, J.ToJSON a) => a -> m J.Encoding
+returnJsonEncoding = return . J.toEncoding
+#endif
+
 -- | Provide a JSON representation for usage with 'selectReps', using aeson\'s
--- 'J.toJSON' function to perform the conversion.
+-- 'J.toJSON' (aeson >= 0.11: 'J.toEncoding') function to perform the conversion.
 --
 -- Since 1.2.1
 provideJson :: (Monad m, J.ToJSON a) => a -> Writer (Endo [ProvidedRep m]) ()
+#if MIN_VERSION_aeson(0, 11, 0)
+provideJson = provideRep . return . J.toEncoding
+#else
 provideJson = provideRep . return . J.toJSON
+#endif
 
 -- | Parse the request body to a data type as a JSON value.  The
 -- data type must support conversion from JSON via 'J.FromJSON'.
@@ -129,9 +151,32 @@ jsonOrRedirect :: (MonadHandler m, J.ToJSON a)
                => Route (HandlerSite m) -- ^ Redirect target
                -> a            -- ^ Data to send via JSON
                -> m J.Value
-jsonOrRedirect r j = do
+jsonOrRedirect = jsonOrRedirect' J.toJSON
+
+#if MIN_VERSION_aeson(0, 11, 0)
+-- | jsonEncodingOrRedirect simplifies the scenario where a POST handler sends a different
+-- response based on Accept headers:
+--
+--     1. 200 with JSON data if the client prefers
+--     @application\/json@ (e.g. AJAX, see 'acceptsJSON').
+--
+--     2. 3xx otherwise, following the PRG pattern.
+-- Since ?
+jsonEncodingOrRedirect :: (MonadHandler m, J.ToJSON a)
+            => Route (HandlerSite m) -- ^ Redirect target
+            -> a            -- ^ Data to send via JSON
+            -> m J.Encoding
+jsonEncodingOrRedirect = jsonOrRedirect' J.toEncoding
+#endif
+
+jsonOrRedirect' :: (MonadHandler m, J.ToJSON a)
+            => (a -> b)
+            -> Route (HandlerSite m) -- ^ Redirect target
+            -> a            -- ^ Data to send via JSON
+            -> m b
+jsonOrRedirect' f r j = do
     q <- acceptsJson
-    if q then return (J.toJSON j)
+    if q then return (f j)
          else redirect r
 
 -- | Returns @True@ if the client prefers @application\/json@ as

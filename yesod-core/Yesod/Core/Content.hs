@@ -251,8 +251,19 @@ instance ToContent J.Value where
 #else
               . fromValue
 #endif
+
+#if MIN_VERSION_aeson(0, 11, 0)
+instance ToContent J.Encoding where
+    toContent = flip ContentBuilder Nothing . J.fromEncoding
+#endif
+
 instance HasContentType J.Value where
     getContentType _ = typeJson
+
+#if MIN_VERSION_aeson(0, 11, 0)
+instance HasContentType J.Encoding where
+    getContentType _ = typeJson
+#endif
 
 instance HasContentType Html where
     getContentType _ = typeHtml
@@ -289,6 +300,10 @@ instance ToTypedContent RepXml where
     toTypedContent (RepXml c) = TypedContent typeXml c
 instance ToTypedContent J.Value where
     toTypedContent v = TypedContent typeJson (toContent v)
+#if MIN_VERSION_aeson(0, 11, 0)
+instance ToTypedContent J.Encoding where
+    toTypedContent e = TypedContent typeJson (toContent e)
+#endif
 instance ToTypedContent Html where
     toTypedContent h = TypedContent typeHtml (toContent h)
 instance ToTypedContent T.Text where
