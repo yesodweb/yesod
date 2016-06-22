@@ -64,6 +64,7 @@ import           Control.Monad.Reader               (MonadReader (..))
 import Prelude hiding (catch)
 #endif
 import Control.DeepSeq (NFData (rnf))
+import Control.DeepSeq.Generics (genericRnf)
 import Data.Conduit.Lazy (MonadActive, monadActive)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 #if MIN_VERSION_monad_logger(0, 3, 10)
@@ -317,7 +318,8 @@ data ErrorResponse =
     | PermissionDenied Text
     | BadMethod H.Method
     deriving (Show, Eq, Typeable, Generic)
-instance NFData ErrorResponse
+instance NFData ErrorResponse where
+    rnf = genericRnf
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.
