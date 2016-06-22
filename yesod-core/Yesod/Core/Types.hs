@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -41,6 +42,7 @@ import qualified Data.Text                          as T
 import qualified Data.Text.Lazy.Builder             as TBuilder
 import           Data.Time                          (UTCTime)
 import           Data.Typeable                      (Typeable)
+import           GHC.Generics                       (Generic)
 import           Language.Haskell.TH.Syntax         (Loc)
 import qualified Network.HTTP.Types                 as H
 import           Network.Wai                        (FilePart,
@@ -314,7 +316,8 @@ data ErrorResponse =
     | NotAuthenticated
     | PermissionDenied Text
     | BadMethod H.Method
-    deriving (Show, Eq, Typeable)
+    deriving (Show, Eq, Typeable, Generic)
+instance NFData ErrorResponse
 
 ----- header stuff
 -- | Headers to be added to a 'Result'.

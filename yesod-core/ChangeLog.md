@@ -1,3 +1,7 @@
+## 1.4.22
+
+* Proper handling of impure exceptions within `HandlerError` values
+
 ## 1.4.21
 
 * Add support for `Encoding` from `aeson-0.11` [#1241](https://github.com/yesodweb/yesod/pull/1241)

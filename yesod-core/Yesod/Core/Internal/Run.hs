@@ -15,8 +15,7 @@ import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
 import           Control.Exception            (fromException, evaluate)
 import qualified Control.Exception            as E
-import           Control.Exception.Lifted     (catch)
-import           Control.Monad                (mplus)
+import           Control.Monad                (mplus, (<=<))
 import           Control.Monad.IO.Class       (MonadIO)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger         (LogLevel (LevelError), LogSource,
@@ -38,9 +37,6 @@ import           Language.Haskell.TH.Syntax   (Loc, qLocation)
 import qualified Network.HTTP.Types           as H
 import           Network.Wai
 import           Network.Wai.Internal
-#if !MIN_VERSION_base(4, 6, 0)
-import           Prelude                      hiding (catch)
-#endif
 import           System.Log.FastLogger        (LogStr, toLogStr)
 import           Yesod.Core.Content
 import           Yesod.Core.Class.Yesod
@@ -62,6 +58,36 @@ newtype WrappedBS = WrappedBS { unWrappedBS :: S8.ByteString }
 instance NFData WrappedBS
 #endif
 
+-- | Catch all synchronous exceptions, ignoring asynchronous
+-- exceptions.
+--
+-- Ideally we'd use this from a different library
+catchSync :: IO a -> (E.SomeException -> IO a) -> IO a
+catchSync thing after = thing `E.catch` \e ->
+    if isAsyncException e
+        then E.throwIO e
+        else after e
+
+-- | Determine if an exception is asynchronous
+--
+-- Also worth being upstream
+isAsyncException :: E.SomeException -> Bool
+isAsyncException e =
+    case fromException e of
+        Just E.SomeAsyncException{} -> True
+        Nothing -> False
+
+-- | Convert an exception into an ErrorResponse
+toErrorHandler :: E.SomeException -> IO ErrorResponse
+toErrorHandler e0 = flip catchSync errFromShow $
+    case fromException e0 of
+        Just (HCError x) -> evaluate $!! x
+        _
+            | isAsyncException e0 -> E.throwIO e0
+            | otherwise -> errFromShow e0
+    where
+    errFromShow x = return $! InternalError $! T.pack $! show x
+
 -- | Function used internally by Yesod in the process of converting a
 -- 'HandlerT' into an 'Application'. Should not be needed by users.
 runHandler :: ToTypedContent c
@@ -69,10 +95,6 @@ runHandler :: ToTypedContent c
            -> HandlerT site IO c
            -> YesodApp
 runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -> do
-    let toErrorHandler e =
-            case fromException e of
-                Just (HCError x) -> x
-                _ -> InternalError $ T.pack $ show e
     istate <- liftIO $ I.newIORef GHState
         { ghsSession = reqSession yreq
         , ghsRBC = Nothing
@@ -88,41 +110,44 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
             , handlerToParent = const ()
             , handlerResource = resState
             }
-    contents' <- catch (fmap Right $ unHandlerT handler hd)
-        (\e -> return $ Left $ maybe (HCError $ toErrorHandler e) id
-                      $ fromException e)
+    contents' <- catchSync (fmap Right $ unHandlerT handler hd)
+        (\e -> do
+            eh <- toErrorHandler e
+            return $ Left $ maybe (HCError eh) id $ fromException e)
     state <- liftIO $ I.readIORef istate
 
     (finalSession, mcontents1) <- (do
         finalSession <- returnDeepSessionMap (ghsSession state)
-        return (finalSession, Nothing)) `E.catch` \e -> return
-            (Map.empty, Just $! HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
+        return (finalSession, Nothing)) `catchSync` \e -> return
+            (Map.empty, Just $! HCError $! InternalError $! T.pack $! show e)
 
     (headers, mcontents2) <- (do
         headers <- return $!! appEndo (ghsHeaders state) []
-        return (headers, Nothing)) `E.catch` \e -> return
-            ([], Just $! HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
+        return (headers, Nothing)) `catchSync` \e -> return
+            ([], Just $! HCError $! InternalError $! T.pack $! show e)
 
     let contents =
             case mcontents1 `mplus` mcontents2 of
                 Just x -> x
                 Nothing -> either id (HCContent defaultStatus . toTypedContent) contents'
-    let handleError e = flip runInternalState resState $ do
-            yar <- rheOnError e yreq
-                { reqSession = finalSession
-                }
-            case yar of
-                YRPlain status' hs ct c sess ->
-                    let hs' = headers ++ hs
-                        status
-                            | status' == defaultStatus = getStatus e
-                            | otherwise = status'
-                     in return $ YRPlain status hs' ct c sess
-                YRWai _ -> return yar
-                YRWaiApp _ -> return yar
+    let handleError e0 = do
+            e <- (evaluate $!! e0) `catchSync` \e -> return $! InternalError $! T.pack $! show e
+            flip runInternalState resState $ do
+                yar <- rheOnError e yreq
+                    { reqSession = finalSession
+                    }
+                case yar of
+                    YRPlain status' hs ct c sess ->
+                        let hs' = headers ++ hs
+                            status
+                                | status' == defaultStatus = getStatus e
+                                | otherwise = status'
+                        in return $ YRPlain status hs' ct c sess
+                    YRWai _ -> return yar
+                    YRWaiApp _ -> return yar
     let sendFile' ct fp p =
             return $ YRPlain H.status200 headers ct (ContentFile fp p) finalSession
-    contents1 <- evaluate contents `E.catch` \e -> return
+    contents1 <- evaluate contents `catchSync` \e -> return
         (HCError $! InternalError $! T.pack $! show (e :: E.SomeException))
     case contents1 of
         HCContent status (TypedContent ct c) -> do
@@ -141,9 +166,9 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
             return $ YRPlain
                 status hs typePlain emptyContent
                 finalSession
-        HCSendFile ct fp p -> catch
+        HCSendFile ct fp p -> catchSync
             (sendFile' ct fp p)
-            (handleError . toErrorHandler)
+            (handleError <=< toErrorHandler)
         HCCreated loc -> do
             let hs = Header "Location" (encodeUtf8 loc) : headers
             return $ YRPlain
