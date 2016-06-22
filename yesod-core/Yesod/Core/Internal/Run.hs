@@ -47,17 +47,6 @@ import           Yesod.Core.Internal.Util     (getCurrentMaxExpiresRFC1123)
 import           Yesod.Routes.Class           (Route, renderRoute)
 import           Control.DeepSeq              (($!!))
 
-returnDeepSessionMap :: Monad m => SessionMap -> m SessionMap
-#if MIN_VERSION_bytestring(0, 10, 0)
-returnDeepSessionMap sm = return $!! sm
-#else
-returnDeepSessionMap sm = fmap unWrappedBS `liftM` (return $!! fmap WrappedBS sm)
-
--- | Work around missing NFData instance for bytestring 0.9.
-newtype WrappedBS = WrappedBS { unWrappedBS :: S8.ByteString }
-instance NFData WrappedBS
-#endif
-
 -- | Catch all synchronous exceptions, ignoring asynchronous
 -- exceptions.
 --
@@ -117,7 +106,7 @@ runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -
     state <- liftIO $ I.readIORef istate
 
     (finalSession, mcontents1) <- (do
-        finalSession <- returnDeepSessionMap (ghsSession state)
+        finalSession <- evaluate $!! ghsSession state
         return (finalSession, Nothing)) `catchSync` \e -> return
             (Map.empty, Just $! HCError $! InternalError $! T.pack $! show e)
 
