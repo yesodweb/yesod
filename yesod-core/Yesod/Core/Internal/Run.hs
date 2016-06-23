@@ -10,7 +10,7 @@ module Yesod.Core.Internal.Run where
 
 
 #if __GLASGOW_HASKELL__ < 710
-import           Data.Monoid                  (mempty)
+import           Data.Monoid                  (Monoid, mempty)
 #endif
 import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
