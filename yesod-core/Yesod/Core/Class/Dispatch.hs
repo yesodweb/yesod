@@ -1,7 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts  #-}
@@ -25,10 +24,9 @@ class YesodSubDispatch sub m where
                      -> W.Application
 
 instance YesodSubDispatch WaiSubsite master where
-    yesodSubDispatch YesodSubRunnerEnv {..} req =
-        app req
+    yesodSubDispatch YesodSubRunnerEnv {..} = app
       where
-        WaiSubsite app = ysreGetSub $ yreSite $ ysreParentEnv
+        WaiSubsite app = ysreGetSub $ yreSite ysreParentEnv
 
 -- | A helper function for creating YesodSubDispatch instances, used by the
 -- internal generated code. This function has been exported since 1.4.11.

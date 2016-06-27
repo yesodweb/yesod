@@ -189,10 +189,10 @@ import           Control.Applicative           ((<$>))
 import           Data.Monoid                   (mempty, mappend)
 #endif
 import           Control.Applicative           ((<|>))
-import           Control.Exception             (evaluate, SomeException)
+import           Control.Exception             (evaluate, SomeException, throwIO)
 import           Control.Exception.Lifted      (handle)
 
-import           Control.Monad                 (liftM, void)
+import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
@@ -235,24 +235,19 @@ import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
-import Control.Exception (throwIO)
-import Blaze.ByteString.Builder (Builder)
-import Safe (headMay)
-import Data.CaseInsensitive (CI)
+import           Blaze.ByteString.Builder (Builder)
+import           Safe (headMay)
+import           Data.CaseInsensitive (CI)
 import qualified Data.Conduit.List as CL
-import Control.Monad (unless)
-import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO
-              )
+import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
-import Control.Monad.Trans.Control (control, MonadBaseControl)
-import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
-                    , Sink
-                   )
+import           Control.Monad.Trans.Control (control, MonadBaseControl)
+import           Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer, Sink)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
 import qualified Data.Foldable as Fold
-import Data.Default
-import Control.Monad.Logger (MonadLogger, logWarnS)
+import           Data.Default
+import           Control.Monad.Logger (MonadLogger, logWarnS)
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -305,7 +300,7 @@ rbHelper' :: NWP.BackEnd x
           -> W.Request
           -> IO ([(Text, Text)], [(Text, FileInfo)])
 rbHelper' backend mkFI req =
-    (map fix1 *** mapMaybe fix2) <$> (NWP.parseRequestBody backend req)
+    (map fix1 *** mapMaybe fix2) <$> NWP.parseRequestBody backend req
   where
     fix1 = go *** go
     fix2 (x, NWP.FileInfo a' b c)
@@ -324,29 +319,29 @@ askHandlerEnv = liftHandlerT $ HandlerT $ return . handlerEnv
 
 -- | Get the master site application argument.
 getYesod :: MonadHandler m => m (HandlerSite m)
-getYesod = rheSite `liftM` askHandlerEnv
+getYesod = rheSite <$> askHandlerEnv
 
 -- | Get a specific component of the master site application argument.
 --   Analogous to the 'gets' function for operating on 'StateT'.
 getsYesod :: MonadHandler m => (HandlerSite m -> a) -> m a
-getsYesod f = (f . rheSite) `liftM` askHandlerEnv
+getsYesod f = (f . rheSite) <$> askHandlerEnv
 
 -- | Get the URL rendering function.
 getUrlRender :: MonadHandler m => m (Route (HandlerSite m) -> Text)
 getUrlRender = do
-    x <- rheRender `liftM` askHandlerEnv
+    x <- rheRender <$> askHandlerEnv
     return $ flip x []
 
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
     :: MonadHandler m
     => m (Route (HandlerSite m) -> [(Text, Text)] -> Text)
-getUrlRenderParams = rheRender `liftM` askHandlerEnv
+getUrlRenderParams = rheRender <$> askHandlerEnv
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
 getCurrentRoute :: MonadHandler m => m (Maybe (Route (HandlerSite m)))
-getCurrentRoute = rheRoute `liftM` askHandlerEnv
+getCurrentRoute = rheRoute <$> askHandlerEnv
 
 -- | Returns a function that runs 'HandlerT' actions inside @IO@.
 --
@@ -487,7 +482,7 @@ setUltDestCurrent = do
     case route of
         Nothing -> return ()
         Just r -> do
-            gets' <- reqGetParams `liftM` getRequest
+            gets' <- reqGetParams <$> getRequest
             setUltDest (r, gets')
 
 -- | Sets the ultimate destination to the referer request header, if present.
@@ -541,7 +536,7 @@ addMessage status msg = do
     addMsg = maybe msg' (S.append msg' . S.cons W8._nul)
     msg' = S.append
         (encodeUtf8 status)
-        (W8._nul `S.cons` (L.toStrict $ renderHtml msg))
+        (W8._nul `S.cons` L.toStrict (renderHtml msg))
 
 -- | Adds a message in the user's session but uses RenderMessage to allow for i18n
 --
@@ -584,7 +579,7 @@ setMessageI = addMessageI ""
 -- | Gets just the last message in the user's session,
 -- discards the rest and the status
 getMessage :: MonadHandler m => m (Maybe Html)
-getMessage = (return . fmap snd . headMay) =<< getMessages
+getMessage = fmap (fmap snd . headMay) getMessages
 
 -- | Bypass remaining handler code and output the given file.
 --
@@ -657,7 +652,7 @@ sendRawResponseNoConduit
     -> m a
 sendRawResponseNoConduit raw = control $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
-    $ \src sink -> runInIO (raw src sink) >> return ()
+    $ \src sink -> void $ runInIO (raw src sink)
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
         "sendRawResponse: backend does not support raw responses"
@@ -672,7 +667,7 @@ sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
                 -> m a
 sendRawResponse raw = control $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
-    $ \src sink -> runInIO (raw (src' src) (CL.mapM_ sink)) >> return ()
+    $ \src sink -> void $ runInIO $ raw (src' src) (CL.mapM_ sink)
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
         "sendRawResponse: backend does not support raw responses"
@@ -901,17 +896,17 @@ instance (RedirectUrl master a, PathPiece b) => RedirectUrl master (Fragment a b
 
 -- | Lookup for session data.
 lookupSession :: MonadHandler m => Text -> m (Maybe Text)
-lookupSession = (liftM . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
+lookupSession = (fmap . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
 
 -- | Lookup for session data in binary format.
 lookupSessionBS :: MonadHandler m => Text -> m (Maybe S.ByteString)
 lookupSessionBS n = do
-    m <- liftM ghsSession get
+    m <- fmap ghsSession get
     return $ Map.lookup n m
 
 -- | Get all session variables.
 getSession :: MonadHandler m => m SessionMap
-getSession = liftM ghsSession get
+getSession = fmap ghsSession get
 
 -- | Get a unique identifier.
 newIdent :: MonadHandler m => m Text
@@ -976,13 +971,13 @@ withUrlRenderer f = do
 
 -- | Get the request\'s 'W.Request' value.
 waiRequest :: MonadHandler m => m W.Request
-waiRequest = reqWaiRequest `liftM` getRequest
+waiRequest = reqWaiRequest <$> getRequest
 
 getMessageRender :: (MonadHandler m, RenderMessage (HandlerSite m) message)
                  => m (message -> Text)
 getMessageRender = do
     env <- askHandlerEnv
-    l <- reqLangs `liftM` getRequest
+    l <- reqLangs <$> getRequest
     return $ renderMessage (rheSite env) l
 
 -- | Use a per-request cache to avoid performing the same action multiple times.
@@ -1045,7 +1040,7 @@ cachedBy k action = do
 --
 -- This is handled by parseWaiRequest (not exposed).
 languages :: MonadHandler m => m [Text]
-languages = reqLangs `liftM` getRequest
+languages = reqLangs <$> getRequest
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
 lookup' a = map snd . filter (\x -> a == fst x)
@@ -1054,7 +1049,7 @@ lookup' a = map snd . filter (\x -> a == fst x)
 --
 -- Since 1.2.2
 lookupHeader :: MonadHandler m => CI S8.ByteString -> m (Maybe S8.ByteString)
-lookupHeader = liftM listToMaybe . lookupHeaders
+lookupHeader = fmap listToMaybe . lookupHeaders
 
 -- | Lookup a request header.
 --
@@ -1069,11 +1064,9 @@ lookupHeaders key = do
 --
 -- Since 1.4.9
 lookupBasicAuth :: (MonadHandler m) => m (Maybe (Text, Text))
-lookupBasicAuth = fmap (>>= getBA)
-                  (lookupHeader "Authorization")
+lookupBasicAuth = fmap (>>= getBA) (lookupHeader "Authorization")
   where
-    getBA bs = (\(x, y) -> ( decodeUtf8With lenientDecode x
-                          , decodeUtf8With lenientDecode y))
+    getBA bs = (decodeUtf8With lenientDecode *** decodeUtf8With lenientDecode)
                <$> extractBasicAuth bs
 
 -- | Lookup bearer authentication datafrom __Authorization__ header of
@@ -1096,7 +1089,7 @@ lookupGetParams pn = do
 
 -- | Lookup for GET parameters.
 lookupGetParam :: MonadHandler m => Text -> m (Maybe Text)
-lookupGetParam = liftM listToMaybe . lookupGetParams
+lookupGetParam = fmap listToMaybe . lookupGetParams
 
 -- | Lookup for POST parameters.
 lookupPostParams :: (MonadResource m, MonadHandler m) => Text -> m [Text]
@@ -1107,13 +1100,13 @@ lookupPostParams pn = do
 lookupPostParam :: (MonadResource m, MonadHandler m)
                 => Text
                 -> m (Maybe Text)
-lookupPostParam = liftM listToMaybe . lookupPostParams
+lookupPostParam = fmap listToMaybe . lookupPostParams
 
 -- | Lookup for POSTed files.
 lookupFile :: (MonadHandler m, MonadResource m)
            => Text
            -> m (Maybe FileInfo)
-lookupFile = liftM listToMaybe . lookupFiles
+lookupFile = fmap listToMaybe . lookupFiles
 
 -- | Lookup for POSTed files.
 lookupFiles :: (MonadHandler m, MonadResource m)
@@ -1125,7 +1118,7 @@ lookupFiles pn = do
 
 -- | Lookup for cookie data.
 lookupCookie :: MonadHandler m => Text -> m (Maybe Text)
-lookupCookie = liftM listToMaybe . lookupCookies
+lookupCookie = fmap listToMaybe . lookupCookies
 
 -- | Lookup for cookie data.
 lookupCookies :: MonadHandler m => Text -> m [Text]
@@ -1160,7 +1153,7 @@ selectRep :: MonadHandler m
 selectRep w = do
     -- the content types are already sorted by q values
     -- which have been stripped
-    cts <- liftM reqAccept getRequest
+    cts <- fmap reqAccept getRequest
 
     case mapMaybe tryAccept cts of
         [] ->
@@ -1175,8 +1168,7 @@ selectRep w = do
     explainUnaccepted :: Text
     explainUnaccepted = "no match found for accept header"
 
-    returnRep (ProvidedRep ct mcontent) =
-        mcontent >>= return . TypedContent ct
+    returnRep (ProvidedRep ct mcontent) = fmap (TypedContent ct) mcontent
 
     reps = appEndo (Writer.execWriter w) []
 
@@ -1235,7 +1227,7 @@ provideRepType :: (Monad m, ToContent a)
                -> m a
                -> Writer.Writer (Endo [ProvidedRep m]) ()
 provideRepType ct handler =
-    Writer.tell $ Endo $ (ProvidedRep ct (liftM toContent handler):)
+    Writer.tell $ Endo (ProvidedRep ct (liftM toContent handler):)
 
 -- | Stream in the raw request body without any parsing.
 --

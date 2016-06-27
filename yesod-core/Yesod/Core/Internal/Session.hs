@@ -61,7 +61,7 @@ clientSessionDateCacher validity = do
       , updateFreq   = 10000000 -- 10s
       }
 
-    return $! (getClientSessionDateCache, return ())
+    return (getClientSessionDateCache, return ())
   where
     getUpdated = do
       now <- getCurrentTime

@@ -55,7 +55,7 @@ mkRouteCons rttypes =
       where
         con = NormalC (mkName name)
             $ map (\x -> (notStrict, x))
-            $ concat [singles, [ConT $ mkName name]]
+            $ singles ++ [ConT $ mkName name]
 
         singles = concatMap toSingle pieces
         toSingle Static{} = []
@@ -99,7 +99,7 @@ mkRenderRouteClauses =
         dyns <- replicateM cnt $ newName "dyn"
         sub <-
             case resourceDispatch res of
-                Subsite{} -> fmap return $ newName "sub"
+                Subsite{} -> return <$> newName "sub"
                 _ -> return []
         let pat = ConP (mkName $ resourceName res) $ map VarP $ dyns ++ sub
 
@@ -136,7 +136,7 @@ mkRenderRouteClauses =
     mkPieces _ _ [] _ = []
     mkPieces toText tsp (Static s:ps) dyns = toText s : mkPieces toText tsp ps dyns
     mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = tsp `AppE` VarE d : mkPieces toText tsp ps dyns
-    mkPieces _ _ ((Dynamic _) : _) [] = error "mkPieces 120"
+    mkPieces _ _ (Dynamic _ : _) [] = error "mkPieces 120"
 
 -- | Generate the 'RenderRoute' instance.
 --

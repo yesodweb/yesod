@@ -20,8 +20,7 @@ import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (liftM, ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
-import           Control.Monad.Catch                (MonadCatch (..))
-import           Control.Monad.Catch                (MonadMask (..))
+import           Control.Monad.Catch                (MonadMask (..), MonadCatch (..))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
@@ -172,7 +171,7 @@ data ScriptLoadPosition master
 type BottomOfHeadAsync master
        = [Text] -- ^ urls to load asynchronously
       -> Maybe (HtmlUrl (Route master)) -- ^ widget of js to run on async completion
-      -> (HtmlUrl (Route master)) -- ^ widget to insert at the bottom of <head>
+      -> HtmlUrl (Route master) -- ^ widget to insert at the bottom of <head>
 
 type Texts = [Text]
 
@@ -264,7 +263,7 @@ instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
 -- @getHomeR = do defaultLayout "Widget text"@
 instance (Monad m, a ~ ()) => IsString (WidgetT site m a) where
     fromString = toWidget . toHtml . T.pack
-      where toWidget x = WidgetT $ const $ return $ ((), GWData (Body (const x))
+      where toWidget x = WidgetT $ const $ return ((), GWData (Body (const x))
                          mempty mempty mempty mempty mempty mempty)
 
 type RY master = Route master -> [(Text, Text)] -> Text
@@ -422,15 +421,15 @@ instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
     type StM (WidgetT site m) a = StM m (a, GWData (Route site))
     liftBaseWith f = WidgetT $ \reader' ->
         liftBaseWith $ \runInBase ->
-            liftM (\x -> (x, mempty))
+            fmap (\x -> (x, mempty))
             (f $ runInBase . flip unWidgetT reader')
     restoreM = WidgetT . const . restoreM
 #else
     data StM (WidgetT site m) a = StW (StM m (a, GWData (Route site)))
     liftBaseWith f = WidgetT $ \reader' ->
         liftBaseWith $ \runInBase ->
-            liftM (\x -> (x, mempty))
-            (f $ liftM StW . runInBase . flip unWidgetT reader')
+            fmap (\x -> (x, mempty))
+            (f $ fmap StW . runInBase . flip unWidgetT reader')
     restoreM (StW base) = WidgetT $ const $ restoreM base
 #endif
 instance Monad m => MonadReader site (WidgetT site m) where
@@ -464,11 +463,11 @@ instance MonadMask m => MonadMask (WidgetT site m) where
       where q u (WidgetT b) = WidgetT (u . b)
 
 instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
-    liftResourceT f = WidgetT $ \hd -> liftIO $ fmap (, mempty) $ runInternalState f (handlerResource hd)
+    liftResourceT f = WidgetT $ \hd -> liftIO $ (, mempty) <$> runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (WidgetT site m) where
     monadLoggerLog a b c d = WidgetT $ \hd ->
-        liftIO $ fmap (, mempty) $ rheLog (handlerEnv hd) a b c (toLogStr d)
+        liftIO $ (, mempty) <$> rheLog (handlerEnv hd) a b c (toLogStr d)
 
 #if MIN_VERSION_monad_logger(0, 3, 10)
 instance MonadIO m => MonadLoggerIO (WidgetT site m) where
@@ -522,7 +521,7 @@ instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
     data StM (HandlerT site m) a = StH (StM m a)
     liftBaseWith f = HandlerT $ \reader' ->
         liftBaseWith $ \runInBase ->
-            f $ liftM StH . runInBase . (\(HandlerT r) -> r reader')
+            f $ fmap StH . runInBase . (\(HandlerT r) -> r reader')
     restoreM (StH base) = HandlerT $ const $ restoreM base
 #endif
 

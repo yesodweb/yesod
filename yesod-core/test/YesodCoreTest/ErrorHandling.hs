@@ -9,11 +9,10 @@ import Yesod.Core
 import Test.Hspec
 import Network.Wai
 import Network.Wai.Test
-import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try)
-import Network.HTTP.Types (mkStatus)
+import Network.HTTP.Types (Status, mkStatus)
 import Blaze.ByteString.Builder (Builder, fromByteString, toLazyByteString)
 import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
@@ -40,6 +39,7 @@ mkYesod "App" [parseRoutes|
 /good-builder GoodBuilderR GET
 |]
 
+overrideStatus :: Status
 overrideStatus = mkStatus 15 "OVERRIDE"
 
 instance Yesod App where

@@ -6,10 +6,6 @@ module YesodCoreTest.Widget (widgetTest) where
 import Test.Hspec
 
 import Yesod.Core
-import Text.Julius
-import Text.Lucius
-import Text.Hamlet
-
 import Network.Wai
 import Network.Wai.Test
 

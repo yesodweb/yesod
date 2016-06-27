@@ -53,8 +53,6 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Text.Lazy (Text, pack)
 import qualified Data.Text as T
-import Control.Monad (liftM)
-
 import Blaze.ByteString.Builder (Builder, fromByteString, fromLazyByteString)
 #if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (mempty)
@@ -62,6 +60,7 @@ import Data.Monoid (mempty)
 import Text.Hamlet (Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Data.Conduit (Source, Flush (Chunk), ResumableSource, mapOutput)
+import Control.Monad (liftM)
 import Control.Monad.Trans.Resource (ResourceT)
 import Data.Conduit.Internal (ResumableSource (ResumableSource))
 import qualified Data.Conduit.Internal as CI

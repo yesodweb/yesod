@@ -57,9 +57,12 @@ import Text.Cassius
 import Text.Julius
 import Yesod.Routes.Class
 import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>))
+#endif
+import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Text.Shakespeare.I18N (RenderMessage)
-import Control.Monad (liftM)
 import Data.Text (Text)
 import qualified Data.Map as Map
 import Language.Haskell.TH.Quote (QuasiQuoter)
@@ -232,7 +235,7 @@ rules = do
     let ur f = do
             let env = NP.Env
                     (Just $ helper [|getUrlRenderParams|])
-                    (Just $ helper [|liftM (toHtml .) getMessageRender|])
+                    (Just $ helper [|fmap (toHtml .) getMessageRender|])
             f env
     return $ NP.HamletRules ah ur $ \_ b -> return $ ah `AppE` b
 
@@ -272,16 +275,16 @@ widgetToParentWidget (WidgetT f) = HandlerT $ \hd -> do
 
 liftGWD :: (child -> parent) -> GWData child -> GWData parent
 liftGWD tp gwd = GWData
-    { gwdBody = fixBody $ gwdBody gwd
-    , gwdTitle = gwdTitle gwd
-    , gwdScripts = fixUnique fixScript $ gwdScripts gwd
+    { gwdBody        = fixBody $ gwdBody gwd
+    , gwdTitle       = gwdTitle gwd
+    , gwdScripts     = fixUnique fixScript $ gwdScripts gwd
     , gwdStylesheets = fixUnique fixStyle $ gwdStylesheets gwd
-    , gwdCss = fmap fixCss $ gwdCss gwd
-    , gwdJavascript = fmap fixJS $ gwdJavascript gwd
-    , gwdHead = fixHead $ gwdHead gwd
+    , gwdCss         = fixCss <$> gwdCss gwd
+    , gwdJavascript  = fixJS <$> gwdJavascript gwd
+    , gwdHead        = fixHead $ gwdHead gwd
     }
   where
-    fixRender f route params = f (tp route) params
+    fixRender f route = f (tp route)
 
     fixBody (Body h) = Body $ h . fixRender
     fixHead (Head h) = Head $ h . fixRender
