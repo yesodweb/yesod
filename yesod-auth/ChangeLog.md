@@ -1,3 +1,7 @@
+## 1.4.13.3
+
+* Doc update (and a warning)
+
 ## 1.4.13.1
 
 * Add CSRF token to login form from `Yesod.Auth.Dummy` [#1205](https://github.com/yesodweb/yesod/pull/1205)

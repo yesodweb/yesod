@@ -1,5 +1,5 @@
 name:            yesod-auth
-version:         1.4.13.2
+version:         1.4.13.3
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman, Patrick Brisbin
