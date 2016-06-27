@@ -568,7 +568,7 @@ getMessages = do
   where
     enlist = pairup . S.split W8._nul
     pairup [] = []
-    pairup [x] = []
+    pairup [_] = []
     pairup (s:v:xs) = (decode s, preEscapedToHtml (decode v)) : pairup xs
     decode = decodeUtf8With lenientDecode
 
