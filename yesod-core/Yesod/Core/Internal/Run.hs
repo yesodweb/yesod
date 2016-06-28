@@ -11,6 +11,7 @@ module Yesod.Core.Internal.Run where
 
 #if __GLASGOW_HASKELL__ < 710
 import           Data.Monoid                  (Monoid, mempty)
+import           Control.Applicative          ((<$>))
 #endif
 import Yesod.Core.Internal.Response
 import           Blaze.ByteString.Builder     (toByteString)
@@ -102,7 +103,7 @@ basicRunHandler rhe handler yreq resState = do
         (\e ->
             case fromException e of
                 Just e' -> return e'
-                Nothing -> fmap HCError $ toErrorHandler e)
+                Nothing -> HCError <$> toErrorHandler e)
 
     -- Get the raw state and return
     state <- I.readIORef istate
@@ -330,7 +331,7 @@ yesodRunner handler' YesodRunnerEnv {..} route req sendResponse
   | otherwise = do
     let dontSaveSession _ = return []
     (session, saveSession) <- liftIO $
-        maybe (return (Map.empty, dontSaveSession)) (\sb -> sbLoadSession sb req) yreSessionBackend
+        maybe (return (Map.empty, dontSaveSession)) (`sbLoadSession` req) yreSessionBackend
     maxExpires <- yreGetMaxExpires
     let mkYesodReq = parseWaiRequest req session (isJust yreSessionBackend) mmaxLen
     let yreq =

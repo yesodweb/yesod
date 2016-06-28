@@ -8,7 +8,6 @@ import Test.Hspec
 import Yesod.Core
 import Network.Wai
 import Network.Wai.Test
-import Text.Lucius
 import YesodCoreTest.MediaData
 
 mkYesodDispatch "Y" resourcesY

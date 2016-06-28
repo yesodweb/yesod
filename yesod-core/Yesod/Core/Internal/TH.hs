@@ -16,7 +16,10 @@ import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
 import Data.List (foldl')
-import Control.Monad (replicateM)
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>))
+#endif
+import Control.Monad (replicateM, void)
 import Data.Either (partitionEithers)
 
 import Yesod.Routes.TH
@@ -45,15 +48,15 @@ mkYesodWith name args = fmap (uncurry (++)) . mkYesodGeneral name args False ret
 -- monolithic file into smaller parts. Use this function, paired with
 -- 'mkYesodDispatch', to do just that.
 mkYesodData :: String -> [ResourceTree String] -> Q [Dec]
-mkYesodData name res = mkYesodDataGeneral name False res
+mkYesodData name = mkYesodDataGeneral name False
 
 mkYesodSubData :: String -> [ResourceTree String] -> Q [Dec]
-mkYesodSubData name res = mkYesodDataGeneral name True res
+mkYesodSubData name = mkYesodDataGeneral name True
 
 mkYesodDataGeneral :: String -> Bool -> [ResourceTree String] -> Q [Dec]
 mkYesodDataGeneral name isSub res = do
     let (name':rest) = words name
-    fmap fst $ mkYesodGeneral name' (fmap Left rest) isSub return res
+    fst <$> mkYesodGeneral name' (fmap Left rest) isSub return res
 
 -- | See 'mkYesodData'.
 mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
@@ -150,8 +153,8 @@ mkMDS f rh = MkDispatchSettings
     , mdsGetPathInfo = [|W.pathInfo|]
     , mdsSetPathInfo = [|\p r -> r { W.pathInfo = p }|]
     , mdsMethod = [|W.requestMethod|]
-    , mds404 = [|notFound >> return ()|]
-    , mds405 = [|badMethod >> return ()|]
+    , mds404 = [|void notFound|]
+    , mds405 = [|void badMethod|]
     , mdsGetHandler = defaultGetHandler
     , mdsUnwrapper = f
     }

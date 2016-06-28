@@ -1,5 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings, CPP #-}
 module Yesod.Core.Internal.Request
     ( parseWaiRequest
     , RequestBodyContents
@@ -37,7 +36,7 @@ import Data.Text.Encoding.Error (lenientDecode)
 import Data.Conduit
 import Data.Conduit.List (sourceList)
 import Data.Conduit.Binary (sourceFile, sinkFile)
-import Data.Word (Word64)
+import Data.Word (Word8, Word64)
 import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Control.Exception (throwIO)
 import Control.Monad ((<=<), liftM)
@@ -47,7 +46,6 @@ import Data.IORef
 import qualified System.Random.MWC as MWC
 import Control.Monad.Primitive (PrimMonad, PrimState)
 import qualified Data.Vector.Storable as V
-import Data.Word (Word8)
 import Data.ByteString.Internal (ByteString (PS))
 import qualified Data.Word8 as Word8
 
@@ -78,7 +76,7 @@ parseWaiRequest :: W.Request
                 -> SessionMap
                 -> Bool
                 -> Maybe Word64 -- ^ max body size
-                -> (Either (IO YesodRequest) (MWC.GenIO -> IO YesodRequest))
+                -> Either (IO YesodRequest) (MWC.GenIO -> IO YesodRequest)
 parseWaiRequest env session useToken mmaxBodySize =
     -- In most cases, we won't need to generate any random values. Therefore,
     -- we split our results: if we need a random generator, return a Right
@@ -147,7 +145,7 @@ httpAccept = NWP.parseHttpAccept
 
 addTwoLetters :: ([Text] -> [Text], Set.Set Text) -> [Text] -> [Text]
 addTwoLetters (toAdd, exist) [] =
-    filter (flip Set.notMember exist) $ toAdd []
+    filter (`Set.notMember` exist) $ toAdd []
 addTwoLetters (toAdd, exist) (l:ls) =
     l : addTwoLetters (toAdd', exist') ls
   where
@@ -177,7 +175,8 @@ fromByteVector v =
 {-# INLINE fromByteVector #-}
 
 mkFileInfoLBS :: Text -> Text -> L.ByteString -> FileInfo
-mkFileInfoLBS name ct lbs = FileInfo name ct (sourceList $ L.toChunks lbs) (\fp -> L.writeFile fp lbs)
+mkFileInfoLBS name ct lbs =
+    FileInfo name ct (sourceList $ L.toChunks lbs) (`L.writeFile` lbs)
 
 mkFileInfoFile :: Text -> Text -> FilePath -> FileInfo
 mkFileInfoFile name ct fp = FileInfo name ct (sourceFile fp) (\dst -> runResourceT $ sourceFile fp $$ sinkFile dst)

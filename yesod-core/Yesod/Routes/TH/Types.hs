@@ -53,11 +53,11 @@ data Piece typ = Static String | Dynamic typ
     deriving Show
 
 instance Functor Piece where
-    fmap _ (Static s) = (Static s)
+    fmap _ (Static s)  = Static s
     fmap f (Dynamic t) = Dynamic (f t)
 
 instance Lift t => Lift (Piece t) where
-    lift (Static s) = [|Static $(lift s)|]
+    lift (Static s)  = [|Static  $(lift s)|]
     lift (Dynamic t) = [|Dynamic $(lift t)|]
 
 data Dispatch typ =

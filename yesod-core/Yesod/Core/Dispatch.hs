@@ -85,7 +85,7 @@ toWaiAppPlain site = do
     sb <- makeSessionBackend site
     gen <- MWC.createSystemRandom
     getMaxExpires <- getGetMaxExpires
-    return $ toWaiAppYre $ YesodRunnerEnv
+    return $ toWaiAppYre YesodRunnerEnv
             { yreLogger = logger
             , yreSite = site
             , yreSessionBackend = sb
@@ -119,8 +119,8 @@ toWaiAppYre yre req =
         dest' =
             if S.null (W.rawQueryString env)
                 then dest
-                else (dest `mappend`
-                     Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
+                else dest `mappend`
+                     Blaze.ByteString.Builder.fromByteString (W.rawQueryString env)
 
 -- | Same as 'toWaiAppPlain', but provides a default set of middlewares. This
 -- set may change with future releases, but currently covers:
@@ -184,7 +184,7 @@ warp port site = do
                     $(qLocation >>= liftLoc)
                     "yesod-core"
                     LevelError
-                    (toLogStr $ "Exception from Warp: " ++ show e)) $
+                    (toLogStr $ "Exception from Warp: " ++ show e))
         Network.Wai.Handler.Warp.defaultSettings)
   where
     shouldLog' = Network.Wai.Handler.Warp.defaultShouldDisplayException
@@ -231,7 +231,7 @@ warpEnv :: YesodDispatch site => site -> IO ()
 warpEnv site = do
     env <- getEnvironment
     case lookup "PORT" env of
-        Nothing -> error $ "warpEnv: no PORT environment variable found"
+        Nothing -> error "warpEnv: no PORT environment variable found"
         Just portS ->
             case readMay portS of
                 Nothing -> error $ "warpEnv: invalid PORT environment variable: " ++ show portS

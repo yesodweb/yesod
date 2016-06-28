@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -134,11 +133,10 @@ import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Yesod.Core.Internal.Session
-import Yesod.Core.Internal.Run (yesodRunner)
+import Yesod.Core.Internal.Run (yesodRunner, yesodRender)
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Class.Breadcrumbs
-import Yesod.Core.Internal.Run (yesodRender)
 import qualified Yesod.Core.Internal.Run
 import qualified Paths_yesod_core
 import Data.Version (showVersion)

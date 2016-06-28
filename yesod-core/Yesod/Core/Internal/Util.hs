@@ -14,8 +14,6 @@ import qualified Data.Text      as T
 import           Data.Time      (Day (ModifiedJulianDay, toModifiedJulianDay),
                                  DiffTime, UTCTime (..), formatTime,
                                  getCurrentTime, addUTCTime)
-import           Control.Monad  (liftM)
-
 #if MIN_VERSION_time(1,5,0)
 import           Data.Time      (defaultTimeLocale)
 #else
@@ -58,4 +56,4 @@ formatRFC822 = T.pack . formatTime defaultTimeLocale "%a, %d %b %Y %H:%M:%S %z"
 date on a resource that never expires. See RFC 2616 section 14.21 for details.
 -}
 getCurrentMaxExpiresRFC1123 :: IO T.Text
-getCurrentMaxExpiresRFC1123 = liftM (formatRFC1123 . addUTCTime (60*60*24*365)) getCurrentTime
+getCurrentMaxExpiresRFC1123 = fmap (formatRFC1123 . addUTCTime (60*60*24*365)) getCurrentTime

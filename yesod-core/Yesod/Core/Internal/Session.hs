@@ -11,11 +11,9 @@ import qualified Web.ClientSession as CS
 import Data.Serialize
 import Data.Time
 import Data.ByteString (ByteString)
-import Control.Concurrent (forkIO, killThread, threadDelay)
-import Control.Monad (forever, guard)
+import Control.Monad (guard)
 import Yesod.Core.Types
 import Yesod.Core.Internal.Util
-import qualified Data.IORef as I
 import Control.AutoUpdate
 
 encodeClientSession :: CS.Key
@@ -63,7 +61,7 @@ clientSessionDateCacher validity = do
       , updateFreq   = 10000000 -- 10s
       }
 
-    return $! (getClientSessionDateCache, return ())
+    return (getClientSessionDateCache, return ())
   where
     getUpdated = do
       now <- getCurrentTime

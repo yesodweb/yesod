@@ -5,7 +5,6 @@
 {-# LANGUAGE CPP               #-}
 module Yesod.Core.Class.Yesod where
 
-import           Control.Monad.Logger               (logErrorS)
 import           Yesod.Core.Content
 import           Yesod.Core.Handler
 
@@ -15,16 +14,18 @@ import           Blaze.ByteString.Builder           (Builder)
 import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
 import           Control.Arrow                      ((***), second)
 import           Control.Exception                  (bracket)
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative                ((<$>))
+#endif
 import           Control.Monad                      (forM, when, void)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
-                                                     LogSource)
+                                                     LogSource, logErrorS)
 import           Control.Monad.Trans.Resource       (InternalState, createInternalState, closeInternalState)
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))
-import           Data.List                          (foldl')
-import           Data.List                          (nub)
+import           Data.List                          (foldl', nub)
 import qualified Data.Map                           as Map
 import           Data.Monoid
 import           Data.Text                          (Text)
@@ -43,14 +44,13 @@ import           Network.Wai.Parse                  (lbsBackEnd,
 import           Network.Wai.Logger                 (ZonedDate, clockDateCacher)
 import           System.Log.FastLogger
 import           Text.Blaze                         (customAttribute, textTag,
-                                                     toValue, (!))
-import           Text.Blaze                         (preEscapedToMarkup)
+                                                     toValue, (!),
+                                                     preEscapedToMarkup)
 import qualified Text.Blaze.Html5                   as TBH
 import           Text.Hamlet
 import           Text.Julius
 import qualified Web.ClientSession                  as CS
-import           Web.Cookie                         (parseCookies)
-import           Web.Cookie                         (SetCookie (..))
+import           Web.Cookie                         (SetCookie (..), parseCookies)
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
@@ -237,7 +237,7 @@ class RenderRoute site => Yesod site where
     --
     -- Default: Uses clientsession with a 2 hour timeout.
     makeSessionBackend :: site -> IO (Maybe SessionBackend)
-    makeSessionBackend _ = fmap Just $ defaultClientSessionBackend 120 CS.defaultKeyFile
+    makeSessionBackend _ = Just <$> defaultClientSessionBackend 120 CS.defaultKeyFile
 
     -- | How to store uploaded files.
     --
@@ -388,8 +388,7 @@ sslOnlyMiddleware timeout handler = do
 --
 -- Since 1.2.0
 authorizationCheck :: Yesod site => HandlerT site IO ()
-authorizationCheck = do
-    getCurrentRoute >>= maybe (return ()) checkUrl
+authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
   where
     checkUrl url = do
         isWrite <- isWriteRequest url
@@ -399,21 +398,21 @@ authorizationCheck = do
             AuthenticationRequired -> do
                 master <- getYesod
                 case authRoute master of
-                    Nothing -> void $ notAuthenticated
-                    Just url' -> do
+                    Nothing -> void notAuthenticated
+                    Just url' ->
                       void $ selectRep $ do
                           provideRepType typeHtml $ do
                               setUltDestCurrent
                               void $ redirect url'
                           provideRepType typeJson $
-                              void $ notAuthenticated
+                              void notAuthenticated
             Unauthorized s' -> permissionDenied s'
 
 -- | Calls 'csrfCheckMiddleware' with 'isWriteRequest', 'defaultCsrfHeaderName', and 'defaultCsrfParamName' as parameters.
 --
 -- Since 1.4.14
 defaultCsrfCheckMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
-defaultCsrfCheckMiddleware handler = do
+defaultCsrfCheckMiddleware handler =
     csrfCheckMiddleware
         handler
         (getCurrentRoute >>= maybe (return False) isWriteRequest)
@@ -592,12 +591,9 @@ defaultErrorHandler NotAuthenticated = selectRep $ do
         -- The client will just use the authentication_url in the JSON
         site <- getYesod
         rend <- getUrlRender
-        return $ object $ [
-          "message" .= ("Not logged in"::Text)
-          ] ++
-          case authRoute site of
-              Nothing -> []
-              Just url -> ["authentication_url" .= rend url]
+        let apair u = ["authentication_url" .= rend u]
+            content = maybe [] apair (authRoute site)
+        return $ object $ ("message" .= ("Not logged in"::Text)):content
 
 defaultErrorHandler (PermissionDenied msg) = selectRep $ do
     provideRep $ defaultLayout $ do
@@ -607,9 +603,7 @@ defaultErrorHandler (PermissionDenied msg) = selectRep $ do
             <p>#{msg}
         |]
     provideRep $
-        return $ object $ [
-          "message" .= ("Permission Denied. " <> msg)
-          ]
+        return $ object ["message" .= ("Permission Denied. " <> msg)]
 
 defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ defaultLayout $ do
@@ -641,8 +635,8 @@ defaultErrorHandler (BadMethod m) = selectRep $ do
     provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
 
 asyncHelper :: (url -> [x] -> Text)
-         -> [Script (url)]
-         -> Maybe (JavascriptUrl (url))
+         -> [Script url]
+         -> Maybe (JavascriptUrl url)
          -> Maybe Text
          -> (Maybe (HtmlUrl url), [Text])
 asyncHelper render scripts jscript jsLoc =
@@ -732,8 +726,7 @@ defaultClientSessionBackend :: Int -- ^ minutes
                             -> IO SessionBackend
 defaultClientSessionBackend minutes fp = do
   key <- CS.getKey fp
-  let timeout = fromIntegral (minutes * 60)
-  (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
+  (getCachedDate, _closeDateCacher) <- clientSessionDateCacher (minToSec minutes)
   return $ clientSessionBackend key getCachedDate
 
 -- | Create a @SessionBackend@ which reads the session key from the named
@@ -759,9 +752,11 @@ envClientSessionBackend :: Int -- ^ minutes
                         -> IO SessionBackend
 envClientSessionBackend minutes name = do
     key <- CS.getKeyEnv name
-    let timeout = fromIntegral (minutes * 60)
-    (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
+    (getCachedDate, _closeDateCacher) <- clientSessionDateCacher $ minToSec minutes
     return $ clientSessionBackend key getCachedDate
+
+minToSec :: (Integral a, Num b) => a -> b
+minToSec minutes = fromIntegral (minutes * 60)
 
 jsToHtml :: Javascript -> Html
 jsToHtml (Javascript b) = preEscapedToMarkup $ toLazyText b
@@ -818,8 +813,14 @@ loadClientSession key getCachedDate sessionName req = load
 -- turn the TH Loc loaction information into a human readable string
 -- leaving out the loc_end parameter
 fileLocationToString :: Loc -> String
-fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
-  ' ' : (loc_filename loc) ++ ':' : (line loc) ++ ':' : (char loc)
+fileLocationToString loc =
+    concat
+      [ loc_package loc
+      , ':' : loc_module loc
+      , ' ' : loc_filename loc
+      , ':' : line loc
+      , ':' : char loc
+      ]
   where
     line = show . fst . loc_start
     char = show . snd . loc_start
