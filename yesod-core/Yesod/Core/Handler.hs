@@ -725,10 +725,10 @@ invalidArgsI msg = do
 
 setCookie :: MonadHandler m => SetCookie -> m ()
 setCookie sc = do
-  addHeaderInternal (DeleteCookie name value)
+  addHeaderInternal (DeleteCookie name path)
   addHeaderInternal (AddCookie sc)
   where name = setCookieName sc
-        value = setCookieValue sc
+        path = maybe "/" id (setCookiePath sc)
 
 -- | Helper function for setCookieExpires value
 getExpires :: MonadIO m
