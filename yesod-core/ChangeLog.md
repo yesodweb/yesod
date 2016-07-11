@@ -1,3 +1,8 @@
+## 1.4.23.1
+
+* Don't allow sending multiple cookies with the same name to the client, in accordance with [RFC 6265](https://tools.ietf.org/html/rfc6265). This fixes an issue where multiple CSRF tokens were sent to the client. [#1258](https://github.com/yesodweb/yesod/pull/1258)
+* Default CSRF tokens to the root path "/", fixing an issue where multiple tokens were stored in cookies, and using the wrong one led to CSRF errors [#1248](https://github.com/yesodweb/yesod/pull/1248)
+
 ## 1.4.23
 
 * urlParamRenderOverride method for Yesod class [#1257](https://github.com/yesodweb/yesod/pull/1257)
