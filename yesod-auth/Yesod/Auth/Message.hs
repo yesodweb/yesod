@@ -653,9 +653,9 @@ dutchMessage LoginOpenID = "Inloggen via OpenID"
 dutchMessage LoginGoogle = "Inloggen via Google"
 dutchMessage LoginYahoo = "Inloggen via Yahoo"
 dutchMessage Email = "E-mail"
-dutchMessage UserName = "Gebruikersnaam" -- FIXME by Google Translate "user name"
+dutchMessage UserName = "Gebruikersnaam"
 dutchMessage Password = "Wachtwoord"
-dutchMessage CurrentPassword = "Current password"
+dutchMessage CurrentPassword = "Huidig wachtwoord"
 dutchMessage Register = "Registreren"
 dutchMessage RegisterLong = "Registreer een nieuw account"
 dutchMessage EnterEmail = "Voer uw e-mailadres hieronder in, er zal een bevestigings-e-mail naar u worden verzonden."
@@ -690,9 +690,9 @@ dutchMessage SendPasswordResetEmail = "Stuur een wachtwoord reset e-mail"
 dutchMessage PasswordResetPrompt = "Voer uw e-mailadres of gebruikersnaam hieronder in, er zal een e-mail naar u worden verzonden waarmee u uw wachtwoord kunt wijzigen."
 dutchMessage InvalidUsernamePass = "Ongeldige gebruikersnaam/wachtwoord combinatie"
 dutchMessage (IdentifierNotFound ident) = "Inloggegevens niet gevonden: " `mappend` ident
-dutchMessage Logout = "Log Out" -- FIXME NOT TRANSLATED
-dutchMessage LogoutTitle = "Log Out" -- FIXME NOT TRANSLATED
-dutchMessage AuthError = "Verificatiefout" -- FIXME by Google Translate
+dutchMessage Logout = "Uitloggen"
+dutchMessage LogoutTitle = "Uitloggen"
+dutchMessage AuthError = "Verificatiefout"
 
 croatianMessage :: AuthMessage -> Text
 croatianMessage NoOpenID = "Nije pronađen OpenID identifikator"
