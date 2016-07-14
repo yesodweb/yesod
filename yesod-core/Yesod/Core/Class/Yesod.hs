@@ -454,6 +454,18 @@ csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handl
 --
 -- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
+-- You can add this chain this middleware together with other middleware like so:
+--
+-- @
+-- 'yesodMiddleware' = 'defaultYesodMiddleware' . 'defaultCsrfMiddleware'
+-- @
+--
+-- or:
+--
+-- @
+-- 'yesodMiddleware' app = 'defaultYesodMiddleware' $ 'defaultCsrfMiddleware' $ app
+-- @
+--
 -- Since 1.4.14
 defaultCsrfMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
 defaultCsrfMiddleware = defaultCsrfSetCookieMiddleware . defaultCsrfCheckMiddleware
