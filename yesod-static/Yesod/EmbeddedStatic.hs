@@ -33,7 +33,7 @@
 -- contains the created 'EmbeddedStatic'.
 --
 -- It is recommended that you serve static resources from a separate domain to save time
--- on transmitting cookies.  You can use 'urlRenderOverride' to do so, by redirecting
+-- on transmitting cookies.  You can use 'urlParamRenderOverride' to do so, by redirecting
 -- routes to this subsite to a different domain (but the same path) and then pointing the
 -- alternative domain to this server.  In addition, you might consider using a reverse
 -- proxy like varnish or squid to cache the static content, but the embedded content in
