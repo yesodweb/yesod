@@ -21,3 +21,4 @@ extra-deps:
 - yaml-0.8.17
 - nonce-1.0.2
 - persistent-2.5
+- cookie-0.4.2

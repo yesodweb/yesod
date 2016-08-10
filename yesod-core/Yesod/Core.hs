@@ -52,6 +52,8 @@ module Yesod.Core
     , envClientSessionBackend
     , clientSessionBackend
     , sslOnlySessions
+    , laxSameSiteSessions
+    , strictSameSiteSessions
     , sslOnlyMiddleware
     , clientSessionDateCacher
     , loadClientSession
