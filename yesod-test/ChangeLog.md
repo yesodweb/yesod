@@ -1,3 +1,7 @@
+## 1.5.2
+
+* Added assertEq, deprecated assertEqual [#1259](https://github.com/yesodweb/yesod/pull/1259)
+
 ## 1.5.1.1
 
 * Fix `addToken_` needing a trailing space and allows multiples spaces in css selector.

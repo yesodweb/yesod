@@ -319,6 +319,11 @@ htmlQuery' getter errTrace query = withResponse' getter ("Tried to invoke htmlQu
 htmlQuery :: Query -> YesodExample site [HtmlLBS]
 htmlQuery = htmlQuery' yedResponse []
 
+-- | Asserts that the two given values are equal.
+--
+-- In case they are not equal, error mesasge includes the two values.
+--
+-- @since 1.5.2
 assertEq :: (Eq a, Show a) => String -> a -> a -> YesodExample site ()
 assertEq m a b =
   liftIO $ HUnit.assertBool msg (a == b)
@@ -331,6 +336,8 @@ assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()
 assertEqual = assertEqualNoShow
 
 -- | Asserts that the two given values are equal.
+--
+-- @since 1.5.2
 assertEqualNoShow :: (Eq a) => String -> a -> a -> YesodExample site ()
 assertEqualNoShow msg a b = liftIO $ HUnit.assertBool msg (a == b)
 
