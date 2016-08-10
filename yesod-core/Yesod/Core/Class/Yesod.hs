@@ -394,7 +394,7 @@ sslOnlySessions = (fmap . fmap) secureSessionCookies
 -- This option is liable to change in future versions of Yesod as the spec evolves.
 -- View more information <https://datatracker.ietf.org/doc/draft-west-first-party-cookies/ here>.
 --
--- Since 1.4.21
+-- @since 1.4.23
 laxSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
 laxSameSiteSessions = sameSiteSession sameSiteLax
 
@@ -405,7 +405,7 @@ laxSameSiteSessions = sameSiteSession sameSiteLax
 -- This option is liable to change in future versions of Yesod as the spec evolves.
 -- View more information <https://datatracker.ietf.org/doc/draft-west-first-party-cookies/ here>.
 --
--- Since 1.4.21
+-- @since 1.4.23
 strictSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
 strictSameSiteSessions = sameSiteSession sameSiteStrict
 

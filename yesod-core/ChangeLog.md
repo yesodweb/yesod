@@ -1,6 +1,7 @@
 ## 1.4.23
 
 * urlParamRenderOverride method for Yesod class [#1257](https://github.com/yesodweb/yesod/pull/1257)
+* Add laxSameSiteSessions and strictSameSiteSessions [#1226](https://github.com/yesodweb/yesod/pull/1226)
 
 ## 1.4.22
 
