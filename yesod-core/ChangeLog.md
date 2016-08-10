@@ -1,3 +1,7 @@
+## 1.4.23
+
+* urlParamRenderOverride method for Yesod class [#1257](https://github.com/yesodweb/yesod/pull/1257)
+
 ## 1.4.22
 
 * Proper handling of impure exceptions within `HandlerError` values
