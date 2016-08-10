@@ -10,8 +10,9 @@ import           Yesod.Core.Handler
 
 import           Yesod.Routes.Class
 
-import           Blaze.ByteString.Builder           (Builder)
-import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
+import           Blaze.ByteString.Builder           (Builder, toByteString)
+import           Blaze.ByteString.Builder.ByteString (copyByteString)
+import           Blaze.ByteString.Builder.Char.Utf8 (fromText, fromChar)
 import           Control.Arrow                      ((***), second)
 import           Control.Exception                  (bracket)
 #if __GLASGOW_HASKELL__ < 710
@@ -36,7 +37,7 @@ import           Data.Text.Lazy.Builder             (toLazyText)
 import           Data.Text.Lazy.Encoding            (encodeUtf8)
 import           Data.Word                          (Word64)
 import           Language.Haskell.TH.Syntax         (Loc (..))
-import           Network.HTTP.Types                 (encodePath)
+import           Network.HTTP.Types                 (encodePath, renderQueryText)
 import qualified Network.Wai                        as W
 import           Data.Default                       (def)
 import           Network.Wai.Parse                  (lbsBackEnd,
@@ -106,6 +107,28 @@ class RenderRoute site => Yesod site where
     -- sending cookies.
     urlRenderOverride :: site -> Route site -> Maybe Builder
     urlRenderOverride _ _ = Nothing
+
+    -- | Override the rendering function for a particular URL and query string
+    -- parameters. One use case for this is to offload static hosting to a
+    -- different domain name to avoid sending cookies.
+    -- 
+    -- For backward compatibility default implementation is in terms of
+    -- 'urlRenderOverride', probably ineffective
+    -- 
+    -- Since 1.4.23
+    urlParamRenderOverride :: site
+                           -> Route site
+                           -> [(T.Text, T.Text)] -- ^ query string
+                           -> Maybe Builder
+    urlParamRenderOverride y route params = addParams params <$> urlRenderOverride y route
+      where
+        addParams [] routeBldr = routeBldr
+        addParams nonEmptyParams routeBldr =
+            let routeBS = toByteString routeBldr
+                qsSeparator = fromChar $ if S8.elem '?' routeBS then '&' else '?'
+                valueToMaybe t = if t == "" then Nothing else Just t
+                queryText = map (id *** valueToMaybe) nonEmptyParams
+            in copyByteString routeBS `mappend` qsSeparator `mappend` renderQueryText False queryText
 
     -- | Determine if a request is authorized or not.
     --
@@ -290,6 +313,7 @@ class RenderRoute site => Yesod site where
     yesodWithInternalState :: site -> Maybe (Route site) -> (InternalState -> IO a) -> IO a
     yesodWithInternalState _ _ = bracket createInternalState closeInternalState
     {-# INLINE yesodWithInternalState #-}
+{-# DEPRECATED urlRenderOverride "Use urlParamRenderOverride instead" #-}
 
 -- | Default implementation of 'makeLogger'. Sends to stdout and
 -- automatically flushes on each write.

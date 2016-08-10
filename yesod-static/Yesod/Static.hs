@@ -19,7 +19,7 @@
 --
 -- In fact, in an ideal setup you'll serve your static files from
 -- a separate domain name to save time on transmitting
--- cookies. In that case, you may wish to use 'urlRenderOverride'
+-- cookies. In that case, you may wish to use 'urlParamRenderOverride'
 -- to redirect requests to this subsite to a separate domain
 -- name.
 --
