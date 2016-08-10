@@ -4,6 +4,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
+
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
 using wai and persistent.
@@ -84,6 +85,9 @@ module Yesod.Test
 
     -- * Assertions
     , assertEqual
+    , assertEqualNoShow
+    , assertEq
+
     , assertHeader
     , assertNoHeader
     , statusIs
@@ -139,6 +143,7 @@ import qualified Web.Cookie as Cookie
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
 import Control.Applicative ((<$>))
+import Text.Show.Pretty (ppShow)
 
 -- | The state used in a single test case defined using 'yit'
 --
@@ -314,9 +319,20 @@ htmlQuery' getter errTrace query = withResponse' getter ("Tried to invoke htmlQu
 htmlQuery :: Query -> YesodExample site [HtmlLBS]
 htmlQuery = htmlQuery' yedResponse []
 
--- | Asserts that the two given values are equal.
+assertEq :: (Eq a, Show a) => String -> a -> a -> YesodExample site ()
+assertEq m a b =
+  liftIO $ HUnit.assertBool msg (a == b)
+  where msg = "Assertion: " ++ m ++ "\n" ++
+              "First argument:  " ++ ppShow a ++ "\n" ++
+              "Second argument: " ++ ppShow b ++ "\n"
+
+{-# DEPRECATED assertEqual "Use assertEq instead" #-}
 assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()
-assertEqual msg a b = liftIO $ HUnit.assertBool msg (a == b)
+assertEqual = assertEqualNoShow
+
+-- | Asserts that the two given values are equal.
+assertEqualNoShow :: (Eq a) => String -> a -> a -> YesodExample site ()
+assertEqualNoShow msg a b = liftIO $ HUnit.assertBool msg (a == b)
 
 -- | Assert the last response status is as expected.
 statusIs :: Int -> YesodExample site ()
