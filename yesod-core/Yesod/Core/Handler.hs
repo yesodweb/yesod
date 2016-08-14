@@ -724,7 +724,11 @@ invalidArgsI msg = do
 -- | Set the cookie on the client.
 
 setCookie :: MonadHandler m => SetCookie -> m ()
-setCookie = addHeaderInternal . AddCookie
+setCookie sc = do
+  addHeaderInternal (DeleteCookie name path)
+  addHeaderInternal (AddCookie sc)
+  where name = setCookieName sc
+        path = maybe "/" id (setCookiePath sc)
 
 -- | Helper function for setCookieExpires value
 getExpires :: MonadIO m
