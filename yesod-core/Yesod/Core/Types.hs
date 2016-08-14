@@ -323,7 +323,7 @@ instance NFData ErrorResponse where
 ----- header stuff
 -- | Headers to be added to a 'Result'.
 data Header =
-    AddCookie SetCookie
+      AddCookie SetCookie
     | DeleteCookie ByteString ByteString
     | Header ByteString ByteString
     deriving (Eq, Show)
