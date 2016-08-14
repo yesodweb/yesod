@@ -1,3 +1,8 @@
+## 1.4.13.4
+
+* Improved translations
+* peristent 2.6
+
 ## 1.4.13.3
 
 * Doc update (and a warning)
