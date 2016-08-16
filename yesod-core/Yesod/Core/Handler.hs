@@ -1358,7 +1358,7 @@ stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
 --
 -- The form-based approach has the advantage of working for users with Javascript disabled, while adding the token to the headers with Javascript allows things like submitting JSON or binary data in AJAX requests. Yesod supports checking for a CSRF token in either the POST parameters of the form ('checkCsrfParamNamed'), the headers ('checkCsrfHeaderNamed'), or both options ('checkCsrfHeaderOrParam').
 --
--- The easiest way to check both sources is to add the 'defaultCsrfMiddleware' to your Yesod Middleware.
+-- The easiest way to check both sources is to add the 'Yesod.Core.defaultCsrfMiddleware' to your Yesod Middleware.
 
 -- | The default cookie name for the CSRF token ("XSRF-TOKEN").
 --
@@ -1368,11 +1368,15 @@ defaultCsrfCookieName = "XSRF-TOKEN"
 
 -- | Sets a cookie with a CSRF token, using 'defaultCsrfCookieName' for the cookie name.
 --
+-- The cookie's path is set to @/@, making it valid for your whole website.
+--
 -- Since 1.4.14
 setCsrfCookie :: MonadHandler m => m ()
-setCsrfCookie = setCsrfCookieWithCookie def { setCookieName = defaultCsrfCookieName }
+setCsrfCookie = setCsrfCookieWithCookie def { setCookieName = defaultCsrfCookieName, setCookiePath = Just "/" }
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie.
+--
+-- Make sure to set the 'setCookiePath' to the root path of your application, otherwise you'll generate a new CSRF token for every path of your app. If your app is run from from e.g. www.example.com\/app1, use @app1@. The vast majority of sites will just use @/@.
 --
 -- Since 1.4.14
 setCsrfCookieWithCookie :: MonadHandler m => SetCookie -> m ()

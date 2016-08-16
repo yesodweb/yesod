@@ -45,6 +45,12 @@ csrfSpec = describe "A Yesod application with the defaultCsrfMiddleware" $ do
         assertStatus 200 res
         assertClientCookieExists "Should have an XSRF-TOKEN cookie" defaultCsrfCookieName
 
+    it "uses / as the path of the cookie" $ runner $ do -- https://github.com/yesodweb/yesod/issues/1247
+        res <- request defaultRequest
+        assertStatus 200 res
+        cookiePath <- fmap setCookiePath requireCsrfCookie
+        liftIO $ cookiePath `shouldBe` Just "/"
+
     it "200s write requests with the correct CSRF header, but no param" $ runner $ do
         getRes <- request defaultRequest
         assertStatus 200 getRes

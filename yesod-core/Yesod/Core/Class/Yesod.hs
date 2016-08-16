@@ -491,13 +491,17 @@ csrfCheckMiddleware handler shouldCheckFn headerName paramName = do
 
 -- | Calls 'csrfSetCookieMiddleware' with the 'defaultCsrfCookieName'.
 --
+-- The cookie's path is set to @/@, making it valid for your whole website.
+--
 -- Since 1.4.14
 defaultCsrfSetCookieMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
-defaultCsrfSetCookieMiddleware handler = csrfSetCookieMiddleware handler (def { setCookieName = defaultCsrfCookieName })
+defaultCsrfSetCookieMiddleware handler = setCsrfCookie >> handler
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie. See 'setCsrfCookieWithCookie'.
 --
 -- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
+--
+-- Make sure to set the 'setCookiePath' to the root path of your application, otherwise you'll generate a new CSRF token for every path of your app. If your app is run from from e.g. www.example.com\/app1, use @app1@. The vast majority of sites will just use @/@.
 --
 -- Since 1.4.14
 csrfSetCookieMiddleware :: Yesod site => HandlerT site IO res -> SetCookie -> HandlerT site IO res
