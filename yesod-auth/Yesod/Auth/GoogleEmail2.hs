@@ -140,6 +140,7 @@ authGoogleEmailSaveToken :: YesodAuth m
                          -> AuthPlugin m
 authGoogleEmailSaveToken = authPlugin True
 
+-- Reference: https://developers.google.com/identity/protocols/OAuth2WebServer
 authPlugin :: YesodAuth m
            => Bool -- ^ if the token should be stored
            -> Text -- ^ client ID
