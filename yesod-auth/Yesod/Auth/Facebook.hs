@@ -1,50 +1,32 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
--- | Use an email address as an identifier via Google's login system.
+-- | Use an unique id of a facebook account as an identifier via Facebook's login system.
 --
--- Note that this is a replacement for "Yesod.Auth.GoogleEmail", which depends
--- on Google's now deprecated OpenID system. For more information, see
--- <https://developers.google.com/+/api/auth-migration>.
---
--- By using this plugin, you are trusting Google to validate an email address,
--- and requiring users to have a Google account. On the plus side, you get to
--- use email addresses as the identifier, many users have existing Google
--- accounts, the login system has been long tested (as opposed to BrowserID),
--- and it requires no credential managing or setup (as opposed to Email).
+-- By using this plugin, you are trusting Facebook to authenticate
+-- you, and requiring users to have a Facebook account. On the plus
+-- side, many users have existing Facebook accounts, the login system
+-- has been long tested (as opposed to BrowserID), and it requires no
+-- credential managing or setup (as opposed to Email).
 --
 -- In order to use this plugin:
 --
--- * Create an application on the Google Developer Console <https://console.developers.google.com/>
+-- * Create an application on the Facebook Developer platform <https://developers.facebook.com/apps>
 --
--- * Create OAuth credentials. The redirect URI will be <http://yourdomain/auth/page/googleemail2/complete>. (If you have your authentication subsite at a different root than \/auth\/, please adjust accordingly.)
+-- * Create OAuth credentials. The redirect URI will be <http://yourdomain/auth/page/facebook/complete>. (If you have your authentication subsite at a different root than \/auth\/, please adjust accordingly.)
 --
--- * Enable the Google+ API.
---
--- Since 1.3.1
+-- Reference for understanding the implementation: <https://developers.facebook.com/docs/facebook-login/manually-build-a-login-flow>
 module Yesod.Auth.Facebook
     ( -- * Authentication handlers
-      authGoogleEmail
-    , authGoogleEmailSaveToken
+      authFacebookEmail
+    , authFacebookEmailSaveToken
     , forwardUrl
     -- * User authentication token
     , Token(..)
-    , getUserAccessToken
     -- * Person
     , getPerson
     , Person(..)
-    , Name(..)
     , Gender(..)
-    , PersonImage(..)
-    , resizePersonImage
-    , RelationshipStatus(..)
-    , PersonURI(..)
-    , PersonURIType(..)
-    , Organization(..)
-    , OrganizationType(..)
-    , Place(..)
-    , Email(..)
-    , EmailType(..)
     ) where
 
 import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
@@ -64,8 +46,9 @@ import           Yesod.Core               (HandlerSite, HandlerT, MonadHandler,
 
 
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
-import           Control.Applicative      ((<$>), (<*>))
+import           Control.Applicative      ((<$>), (<*>), empty)
 import           Control.Arrow            (second)
+import           Data.Monoid              ((<>))
 import           Control.Monad            (unless, when)
 import           Control.Monad.IO.Class   (MonadIO)
 import qualified Crypto.Nonce             as Nonce
@@ -78,7 +61,7 @@ import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
 import           Data.Conduit             (($$+-), ($$))
 import           Data.Conduit.Attoparsec  (sinkParser)
 import qualified Data.HashMap.Strict      as M
-import           Data.Maybe               (fromMaybe)
+import           Data.Maybe               (fromMaybe, fromJust)
 import           Data.Monoid              (mappend)
 import           Data.Text                (Text)
 import qualified Data.Text                as T
@@ -86,7 +69,8 @@ import           Data.Text.Encoding       (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy           as TL
 import qualified Data.Text.Lazy.Builder   as TL
 import           Network.HTTP.Client      (Manager, parseUrl, requestHeaders,
-                                           responseBody, urlEncodedBody)
+                                           setQueryString, responseBody, 
+                                           urlEncodedBody)
 import           Network.HTTP.Client.Conduit (Request, bodyReaderSource)
 import           Network.HTTP.Conduit (http)
 import           Network.HTTP.Types       (renderQueryText)
@@ -104,7 +88,7 @@ data Token = Token { accessToken :: Text
                    } deriving (Show, Eq)
 
 instance FromJSON Token where
-    parseJSON = withObject "Tokens" $ \o -> Token
+    parseJSON = withObject "Token" $ \o -> Token
         <$> o .: "access_token"
         <*> o .: "token_type"
         <*> o .: "expires_in"
@@ -124,18 +108,6 @@ getCsrfToken = lookupSession csrfKey
 
 accessTokenKey :: Text
 accessTokenKey = "_FACEBOOK_ACCESS_TOKEN"
-
-accessTokenType :: Text
-accessTokenType = "_FACEBOOK_TOKEN_TYPE"
-
-accessTokenExpiration :: Text
-accessTokenExpiration = "_FACEBOOK_TOKEN_EXPIRATION"
-
--- | Get user's access token from the session. Returns Nothing if it's not found
---   (probably because the user is not logged in via 'Yesod.Auth.Facebook'
---   or you are not using 'authFacebookEmailSaveToken')
-getUserAccessToken :: MonadHandler m => m (Maybe Token)
-getUserAccessToken = fmap (\t -> Token t "Bearer") <$> lookupSession accessTokenKey
 
 getCreateCsrfToken :: MonadHandler m => m Text
 getCreateCsrfToken = do
@@ -255,7 +227,7 @@ authPlugin storeToken clientID clientSecret =
                     Left e -> error e
                     Right x -> return x
 
-        personValue <- makeHttpRequest =<< personValueRequest (id userId) token
+        personValue <- makeHttpRequest =<< personValueRequest (uid userId) token
         person <- case parseEither parseJSON personValue of
                 Left e -> error e
                 Right x -> return x
@@ -271,7 +243,7 @@ makeHttpRequest
 makeHttpRequest req = lift $
     runHttpRequest req $ \res -> bodyReaderSource (responseBody res) $$ sinkParser json'
 
--- | Allows to fetch information about a user from Google's API.
+-- | Allows to fetch information about a user from Facebook's API.
 --   In case of parsing error returns 'Nothing'.
 --   Will throw 'HttpException' in case of network problems or error response code.
 --
@@ -295,21 +267,21 @@ userIdRequest token = do
     return $ setQueryString [("access_token", Just (encodeUtf8 $ accessToken token)),
                              ("fields", Just "id")] req2'
 
--- Reference: https://developers.facebook.com/docs/graph-api/reference/user
+-- Reference: <https://developers.facebook.com/docs/graph-api/reference/user>
 personValueRequest :: MonadIO m => Text -> Token -> m Request
 personValueRequest userid token = do
-    req2' <- liftIO $ parseUrl ("https://graph.facebook.com/v2.7/" <> userid)
+    req2' <- liftIO $ parseUrl ("https://graph.facebook.com/v2.7/" <> (T.unpack userid))
     return $ setQueryString [("access_token", Just (encodeUtf8 $ accessToken token)),
                              ("fields", Just "id,email,name,gender")] req2'
 
 
 data UserId = UserId {
-      id :: Text
+      uid :: Text
     } deriving (Show, Eq)
 
 instance FromJSON UserId where
-    parseJSON (Object v) = UserId <$>
-                           v .: "id"
+    parseJSON (A.Object v) = UserId <$>
+                             v .: "id"
     parseJSON _ = empty
 
 data Person = Person {
@@ -320,11 +292,11 @@ data Person = Person {
 }
 
 allPersonInfo :: Person -> [(Text, Text)]
-allPersonInfo person = if (email person === Nothing)
+allPersonInfo person = if (email person == Nothing)
                        then info
                        else ("email", fromJust $ email person):info
     where
-      info = [("name", name person),("gender", T.pack $ gender person)]
+      info = [("name", name person),("gender", T.pack $ show $ gender person)]
 
 data Gender = Male | Female | OtherGender deriving (Show, Eq)
 
@@ -335,11 +307,11 @@ instance FromJSON Gender where
                                                 _        -> OtherGender
 
 instance FromJSON Person where
-    parseJSON (Object v) = Person <$>
-                           v .: "id"
-                           v .: "name"
-                           v .: "email"
-                           v .: "gender"
+    parseJSON (A.Object v) = Person <$>
+                             v .: "id" <*>
+                             v .: "name" <*>
+                             v .: "email" <*>
+                             v .: "gender"
     parseJSON _ = empty
 
 
