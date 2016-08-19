@@ -18,8 +18,8 @@
 -- Reference for understanding the implementation: <https://developers.facebook.com/docs/facebook-login/manually-build-a-login-flow>
 module Yesod.Auth.Facebook
     ( -- * Authentication handlers
-      authFacebookEmail
-    , authFacebookEmailSaveToken
+      authFacebookId
+    , authFacebookIdSaveToken
     , forwardUrl
     -- * User authentication token
     , Token(..)
@@ -79,7 +79,7 @@ import           System.IO.Unsafe         (unsafePerformIO)
 --------------------------------------------------------------------------------
 -- | An authentication token which was acquired from OAuth callback.
 --   The token gets saved into the session storage only if you use
---   'authFacebookEmailSaveToken'.
+--   'authFacebookIdSaveToken'.
 --   You can acquire saved token with 'getUserAccessToken'.
 --
 data Token = Token { accessToken :: Text
@@ -119,20 +119,20 @@ getCreateCsrfToken = do
             setSession csrfKey token
             return token
 
-authFacebookEmail :: YesodAuth m
+authFacebookId :: YesodAuth m
                 => Text -- ^ client ID
                 -> Text -- ^ client secret
                 -> AuthPlugin m
-authFacebookEmail = authPlugin False
+authFacebookId = authPlugin False
 
 -- | An alternative version which stores user access token in the session
 --   variable. Use it if you want to request user's profile from your app.
 --
-authFacebookEmailSaveToken :: YesodAuth m
+authFacebookIdSaveToken :: YesodAuth m
                          => Text -- ^ client ID
                          -> Text -- ^ client secret
                          -> AuthPlugin m
-authFacebookEmailSaveToken = authPlugin True
+authFacebookIdSaveToken = authPlugin True
 
 -- Reference: https://developers.facebook.com/docs/facebook-login/manually-build-a-login-flow
 --            https://developers.facebook.com/docs/facebook-login/access-tokens/
