@@ -419,9 +419,9 @@ sameSiteSession s = (fmap . fmap) secureSessionCookies
 -- all responses so that browsers will rewrite all http links to https
 -- until the timeout expires. For security, the max-age of the STS header
 -- should always equal or exceed the client sessions timeout. This defends
--- against hijacking attacks on the sessions of users who attempt to access
--- the site using an http url. This middleware makes a site functionally
--- inaccessible over vanilla http in all standard browsers.
+-- against SSL-stripping man-in-the-middle attacks. It is only effective if
+-- a secure connection has already been made; Strict-Transport-Security
+-- headers are ignored over HTTP.
 --
 -- Since 1.4.7
 sslOnlyMiddleware :: Yesod site
