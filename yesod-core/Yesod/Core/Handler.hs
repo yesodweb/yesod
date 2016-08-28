@@ -214,6 +214,7 @@ import           Text.Hamlet                   (Html, HtmlUrl, hamlet)
 import qualified Data.ByteString               as S
 import qualified Data.ByteString.Lazy          as L
 import qualified Data.Map                      as Map
+import qualified Data.HashMap.Strict           as HM
 
 import           Data.Byteable                 (constEqBytes)
 
@@ -1002,12 +1003,14 @@ cached :: (MonadHandler m, Typeable a)
        => m a
        -> m a
 cached action = do
-    gs <- get
-    eres <- Cache.cached (ghsCache gs) action
+    cache <- ghsCache <$> get
+    eres <- Cache.cached cache action
     case eres of
       Right res -> return res
       Left (newCache, res) -> do
-          put $ gs { ghsCache = newCache }
+          gs <- get
+          let merged = newCache `HM.union` ghsCache gs
+          put $ gs { ghsCache = merged }
           return res
 
 -- | a per-request cache. just like 'cached'.
@@ -1022,12 +1025,14 @@ cached action = do
 -- Since 1.4.0
 cachedBy :: (MonadHandler m, Typeable a) => S.ByteString -> m a -> m a
 cachedBy k action = do
-    gs <- get
-    eres <- Cache.cachedBy (ghsCacheBy gs) k action
+    cache <- ghsCacheBy <$> get
+    eres <- Cache.cachedBy cache k action
     case eres of
       Right res -> return res
       Left (newCache, res) -> do
-          put $ gs { ghsCacheBy = newCache }
+          gs <- get
+          let merged = newCache `HM.union` ghsCacheBy gs
+          put $ gs { ghsCacheBy = merged }
           return res
 
 -- | Get the list of supported languages supplied by the user.
