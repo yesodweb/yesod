@@ -615,10 +615,14 @@ sendResponseStatus s = handlerError . HCContent s . toTypedContent
 
 -- | Bypass remaining handler code and output the given JSON with the given
 -- status code.
--- 
+--
 -- Since 1.4.18
 sendStatusJSON :: (MonadHandler m, ToJSON c) => H.Status -> c -> m a
+#if MIN_VERSION_aeson(0, 11, 0)
+sendStatusJSON s v = sendResponseStatus s (toEncoding v)
+#else
 sendStatusJSON s v = sendResponseStatus s (toJSON v)
+#endif
 
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
