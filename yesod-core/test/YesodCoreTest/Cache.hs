@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE Rank2Types #-}
 module YesodCoreTest.Cache (cacheTest, Widget) where
 
 import Test.Hspec
@@ -25,6 +26,8 @@ newtype V2 = V2 Int
 mkYesod "C" [parseRoutes|
 /    RootR GET
 /key KeyR GET
+/nested NestedR GET
+/nested-key NestedKeyR GET
 |]
 
 instance Yesod C where
@@ -55,6 +58,24 @@ getKeyR = do
 
     return $ RepPlain $ toContent $ show [v1a, v1b, v2a, v2b, v3a, v3b]
 
+getNestedR :: Handler RepPlain
+getNestedR = getNested cached
+
+getNestedKeyR :: Handler RepPlain
+getNestedKeyR = getNested $ cachedBy "3"
+
+-- | Issue #1266
+getNested ::  (forall a. Typeable a => (Handler a -> Handler a)) -> Handler RepPlain
+getNested cacheMethod = do
+    ref <- newIORef 0
+    let getV2 = atomicModifyIORef ref $ \i -> (i + 1, V2 $ i + 1)
+    V1 _ <- cacheMethod $ do
+      V2 val <- cacheMethod $ getV2
+      return $ V1 val
+    V2 v2 <- cacheMethod $ getV2
+
+    return $ RepPlain $ toContent $ show v2
+
 cacheTest :: Spec
 cacheTest =
   describe "Test.Cache" $ do
@@ -67,6 +88,16 @@ cacheTest =
       res <- request defaultRequest { pathInfo = ["key"] }
       assertStatus 200 res
       assertBody (L8.pack $ show [1, 1, 2, 2, 3, 3 :: Int]) res
+
+    it "nested cached" $ runner $ do
+      res <- request defaultRequest { pathInfo = ["nested"] }
+      assertStatus 200 res
+      assertBody (L8.pack $ show (1 :: Int)) res
+
+    it "nested cachedBy" $ runner $ do
+      res <- request defaultRequest { pathInfo = ["nested-key"] }
+      assertStatus 200 res
+      assertBody (L8.pack $ show (1 :: Int)) res
 
 runner :: Session () -> IO ()
 runner f = toWaiApp C >>= runSession f
