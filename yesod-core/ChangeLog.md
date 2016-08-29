@@ -1,3 +1,7 @@
+## 1.4.24
+
+* cached and cachedBy will not overwrite global state changes [#1268](https://github.com/yesodweb/yesod/pull/1268)
+
 ## 1.4.23.1
 
 * Don't allow sending multiple cookies with the same name to the client, in accordance with [RFC 6265](https://tools.ietf.org/html/rfc6265). This fixes an issue where multiple CSRF tokens were sent to the client. [#1258](https://github.com/yesodweb/yesod/pull/1258)
