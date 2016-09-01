@@ -398,6 +398,7 @@ bodyContains text = withResponse $ \ res ->
 
 -- | Assert the last response doesn't have the given text. The check is performed using the response
 -- body in full text form.
+-- @since 1.5.3
 bodyNotContains :: String -> YesodExample site ()
 bodyNotContains text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body not to contain " ++ text) $
