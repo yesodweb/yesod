@@ -93,6 +93,7 @@ module Yesod.Test
     , statusIs
     , bodyEquals
     , bodyContains
+    , bodyNotContains
     , htmlAllContain
     , htmlAnyContain
     , htmlNoneContain

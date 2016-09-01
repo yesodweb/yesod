@@ -1,3 +1,7 @@
+## 1.5.3
+
+* Added bodyNotContains [#1271](https://github.com/yesodweb/yesod/pull/1271)
+
 ## 1.5.2
 
 * Added assertEq, deprecated assertEqual [#1259](https://github.com/yesodweb/yesod/pull/1259)
@@ -5,7 +9,7 @@
 ## 1.5.1.1
 
 * Fix `addToken_` needing a trailing space and allows multiples spaces in css selector.
-	
+
 ## 1.5.1.0
 
 * Better error provenance for stuff invoking withResponse' [#1191](https://github.com/yesodweb/yesod/pull/1191)
