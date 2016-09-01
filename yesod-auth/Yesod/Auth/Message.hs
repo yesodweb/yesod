@@ -280,7 +280,7 @@ germanMessage ConfirmationEmailSentTitle = "Bestätigung verschickt."
 germanMessage (ConfirmationEmailSent email) =
     "Eine Bestätigung wurde an " `mappend`
     email `mappend`
-    "versandt."
+    " versandt."
 germanMessage AddressVerified = "Adresse bestätigt, bitte neues Passwort angeben"
 germanMessage InvalidKeyTitle = "Ungültiger Bestätigungsschlüssel"
 germanMessage InvalidKey = "Das war leider ein ungültiger Bestätigungsschlüssel"
