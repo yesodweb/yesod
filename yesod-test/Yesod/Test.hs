@@ -402,7 +402,7 @@ bodyContains text = withResponse $ \ res ->
 bodyNotContains :: String -> YesodExample site ()
 bodyNotContains text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body not to contain " ++ text) $
-    not . contains (simpleBody res) text
+    not $ contains (simpleBody res) text
 
 contains :: BSL8.ByteString -> String -> Bool
 contains a b = DL.isInfixOf b (TL.unpack $ decodeUtf8 a)
