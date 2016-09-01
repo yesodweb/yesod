@@ -93,6 +93,7 @@ module Yesod.Test
     , statusIs
     , bodyEquals
     , bodyContains
+    , bodyNotContains
     , htmlAllContain
     , htmlAnyContain
     , htmlNoneContain
@@ -394,6 +395,14 @@ bodyContains :: String -> YesodExample site ()
 bodyContains text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to contain " ++ text) $
     (simpleBody res) `contains` text
+
+-- | Assert the last response doesn't have the given text. The check is performed using the response
+-- body in full text form.
+-- @since 1.5.3
+bodyNotContains :: String -> YesodExample site ()
+bodyNotContains text = withResponse $ \ res ->
+  liftIO $ HUnit.assertBool ("Expected body not to contain " ++ text) $
+    not $ contains (simpleBody res) text
 
 contains :: BSL8.ByteString -> String -> Bool
 contains a b = DL.isInfixOf b (TL.unpack $ decodeUtf8 a)
