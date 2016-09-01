@@ -1,4 +1,6 @@
-## Yesod Web Framework
+[![Build Status](https://travis-ci.org/yesodweb/yesod.svg?branch=master)](https://travis-ci.org/yesodweb/yesod)
+
+# Yesod Web Framework
 
 An advanced web framework using the Haskell programming language. Featuring:
 
