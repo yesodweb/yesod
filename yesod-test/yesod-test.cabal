@@ -43,6 +43,7 @@ library
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
                      Yesod.Test.TransversingCSS
+    other-modules:   Yesod.Test.Internal
     ghc-options:  -Wall
 
 test-suite test
