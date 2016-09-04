@@ -120,9 +120,20 @@ fixApp name =
         | otherwise = x : go xs
 
 fixCabal :: String -> String -> String
-fixCabal name =
-    unlines . reverse . go . reverse . lines
+fixCabal name orig =
+    unlines $ (reverse $ go $ reverse libraryLines) ++ restLines
   where
+    origLines = lines orig
+
+    (libraryLines, restLines) = break isExeTestBench origLines
+
+    isExeTestBench x = any
+        (\prefix -> prefix `isPrefixOf` x)
+        [ "executable"
+        , "test-suite"
+        , "benchmark"
+        ]
+
     l = "                  Handler." ++ name
 
     go [] = [l]

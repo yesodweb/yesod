@@ -1,3 +1,7 @@
+## 1.4.18.3
+
+* Adding a new handler adds it under wrong stanza [#1273](https://github.com/yesodweb/yesod/issues/1273)
+
 ## 1.4.18.2
 
 * Work around change in behavior in newer optparse-applicative ([mailing list discussion](https://groups.google.com/d/msg/yesodweb/BrTkMKFREgU/AKVc9AK2AQAJ))
