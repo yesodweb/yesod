@@ -56,7 +56,9 @@ GO(IdentityT)
 GO(ListT)
 GO(MaybeT)
 GOX(Error e, ErrorT e)
+#if __GLASGOW_HASKELL__ >= 710
 GO(ExceptT e)
+#endif
 GO(ReaderT r)
 GO(StateT s)
 GOX(Monoid w, WriterT w)
@@ -80,7 +82,9 @@ GO(IdentityT)
 GO(ListT)
 GO(MaybeT)
 GOX(Error e, ErrorT e)
+#if __GLASGOW_HASKELL__ >= 710
 GO(ExceptT e)
+#endif
 GO(ReaderT r)
 GO(StateT s)
 GOX(Monoid w, WriterT w)
