@@ -24,7 +24,9 @@ import Control.Monad.Trans.Identity ( IdentityT)
 import Control.Monad.Trans.List     ( ListT    )
 import Control.Monad.Trans.Maybe    ( MaybeT   )
 import Control.Monad.Trans.Error    ( ErrorT, Error)
+#if __GLASGOW_HASKELL__ >= 710
 import Control.Monad.Trans.Except   ( ExceptT  )
+#endif
 import Control.Monad.Trans.Reader   ( ReaderT  )
 import Control.Monad.Trans.State    ( StateT   )
 import Control.Monad.Trans.Writer   ( WriterT  )
