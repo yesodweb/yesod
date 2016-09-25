@@ -1,3 +1,7 @@
+## 1.4.25
+
+* Add instance of MonadHandler and MonadWidget for ExceptT [#1278](https://github.com/yesodweb/yesod/pull/1278)
+
 ## 1.4.24
 
 * cached and cachedBy will not overwrite global state changes [#1268](https://github.com/yesodweb/yesod/pull/1268)
