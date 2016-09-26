@@ -40,6 +40,8 @@ executable             yesod-ar-wrapper
 executable             yesod
     if os(windows)
         cpp-options:     -DWINDOWS
+    if os(openbsd)
+        ld-options:      -Wl,-zwxneeded
 
     build-depends:     base               >= 4.3          && < 5
                      , ghc                >= 7.0.3
