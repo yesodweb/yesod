@@ -1,3 +1,7 @@
+## 1.4.18.4
+
+* Link yesod-bin with wxneeded on OpenBSD. [#1281](https://github.com/yesodweb/yesod/pull/1281)
+
 ## 1.4.18.3
 
 * Adding a new handler adds it under wrong stanza [#1273](https://github.com/yesodweb/yesod/issues/1273)
