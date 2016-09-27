@@ -66,12 +66,20 @@ configLines = mapMaybe (mkLine . takeWhile (/='#')) . lines
 injectDefaultP :: M.Map [String] String -> [String] -> Parser a -> Parser a
 injectDefaultP _env _path n@(NilP{})   = n
 injectDefaultP env path p@(OptP o)
+#if MIN_VERSION_optparse_applicative(0,13,0)
+  | (Option (CmdReader _ cmds f) props) <- o  =
+#else
   | (Option (CmdReader cmds f) props) <- o  =
+#endif
      let cmdMap = M.fromList (map (\c -> (c, mkCmd c)) cmds)
          mkCmd cmd =
            let (Just parseri) = f cmd
            in  parseri { infoParser = injectDefaultP env (path ++ [normalizeName cmd]) (infoParser parseri) }
+#if MIN_VERSION_optparse_applicative(0,13,0)
+     in  OptP (Option (CmdReader Nothing cmds (`M.lookup` cmdMap)) props)
+#else
      in  OptP (Option (CmdReader cmds (`M.lookup` cmdMap)) props)
+#endif
   | (Option (OptReader names (CReader _ rdr) _) _) <- o =
      p <|> either (const empty)
                   pure
