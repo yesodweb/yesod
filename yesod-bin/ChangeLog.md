@@ -1,3 +1,7 @@
+## 1.4.18.5
+
+* yesod-bin: Make it build with latest optparse-applicative [#1282](https://github.com/yesodweb/yesod/pull/1282)
+
 ## 1.4.18.4
 
 * Link yesod-bin with wxneeded on OpenBSD. [#1281](https://github.com/yesodweb/yesod/pull/1281)
