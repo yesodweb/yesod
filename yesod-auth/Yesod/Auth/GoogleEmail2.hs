@@ -574,6 +574,8 @@ allPersonInfo (A.Object o) = map enc $ M.toList o
 allPersonInfo _ = []
 
 
+-- See https://github.com/yesodweb/yesod/issues/1245 for discussion on this
+-- use of unsafePerformIO.
 defaultNonceGen :: Nonce.Generator
 defaultNonceGen = unsafePerformIO (Nonce.new)
 {-# NOINLINE defaultNonceGen #-}
