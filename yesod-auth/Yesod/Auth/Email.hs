@@ -710,6 +710,8 @@ setLoginLinkKey aid = do
     setSession loginLinkKey $ TS.pack $ show (toPathPiece aid, now)
 
 
+-- See https://github.com/yesodweb/yesod/issues/1245 for discussion on this
+-- use of unsafePerformIO.
 defaultNonceGen :: Nonce.Generator
 defaultNonceGen = unsafePerformIO (Nonce.new)
 {-# NOINLINE defaultNonceGen #-}
