@@ -100,7 +100,7 @@ getPackageArgs buildDir argv2 = do
         hideAll | gopt DF.Opt_HideAllPackages dflags1 = [ "-hide-all-packages"]
                 | otherwise                           = []
         ownPkg = packageString (DF.thisPackage dflags1)
-    return (reverse (extra dflags1) ++ hideAll ++ trustPkgFlags ++ ignorePkgFlags ++ pkgFlags ++ [ownPkg])
+    return (reverse (extra dflags1) ++ hideAll ++ trustPkgFlags ++ ignorePkgFlags ++ pkgFlags ++ ownPkg)
   where
 #if __GLASGOW_HASKELL__ >= 800
     convertIgnorePkgFlag (DF.IgnorePackage p)  = "-ignore-package" ++ p
@@ -124,11 +124,13 @@ getPackageArgs buildDir argv2 = do
 #endif
     convertPkgFlag (DF.HidePackage p)     = "-hide-package" ++ p
 #if __GLASGOW_HASKELL__ >= 800
-    packageString flags = "-package-id" ++ Module.unitIdString flags
+    -- See: https://github.com/yesodweb/yesod/issues/1284
+    packageString _flags = []
+    --packageString flags = "-package-id" ++ Module.unitIdString flags
 #elif __GLASGOW_HASKELL__ == 710
-    packageString flags = "-package-key" ++ Module.packageKeyString flags
+    packageString flags = ["-package-key" ++ Module.packageKeyString flags]
 #else
-    packageString flags = "-package-id" ++ Module.packageIdString flags ++ "-inplace"
+    packageString flags = ["-package-id" ++ Module.packageIdString flags ++ "-inplace"]
 #endif
 #if __GLASGOW_HASKELL__ >= 705
     extra df = inplaceConf ++ extra'
