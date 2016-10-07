@@ -1,3 +1,7 @@
+## 1.4.18.7
+
+* Actually release the changes for #1284
+
 ## 1.4.18.6
 
 * Fix support for GHC 8.0.1 [#1284](https://github.com/yesodweb/yesod/issues/1284)
