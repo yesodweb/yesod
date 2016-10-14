@@ -43,6 +43,7 @@ import Network.Mime (defaultMimeLookup)
 import System.Directory (doesDirectoryExist, getDirectoryContents, findExecutable)
 import System.FilePath ((</>))
 import Text.Jasmine (minifym)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Conduit.List as C
 import Data.Conduit.Binary (sourceHandle)
@@ -71,8 +72,9 @@ embedFileAt loc f = do
                     ebHaskellName = Just $ pathToName loc
                   , ebLocation = loc
                   , ebMimeType = mime
-                  , ebProductionContent = BL.readFile f
-                  , ebDevelReload = [| BL.readFile $(litE $ stringL f) |]
+                  , ebProductionContent = fmap BL.fromStrict (BS.readFile f)
+                  , ebDevelReload = [| fmap BL.fromStrict
+                                       (BS.readFile $(litE $ stringL f)) |]
                   }
     return [entry]
 
