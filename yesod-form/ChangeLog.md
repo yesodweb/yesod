@@ -1,3 +1,7 @@
+## 1.4.7
+
+* Added Yesod.Form.I18n.Spanish
+
 ## 1.4.6
 
 * Functor instances for Option/OptionList
