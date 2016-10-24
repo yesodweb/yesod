@@ -1,4 +1,4 @@
-## 1.4.7
+## 1.4.8
 
 * Added Yesod.Form.I18n.Spanish
 
