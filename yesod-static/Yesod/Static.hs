@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
 ---------------------------------------------------------
 --
 -- | Serve static files from a Yesod app.
@@ -74,6 +75,7 @@ import Language.Haskell.TH.Syntax as TH
 
 import Crypto.Hash.Conduit (hashFile, sinkHash)
 import Crypto.Hash (MD5, Digest)
+import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans.State
 
 import qualified Data.Byteable as Byteable
@@ -102,6 +104,7 @@ import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Default
 --import Text.Lucius (luciusRTMinified)
 
+import Network.Wai (pathInfo)
 import Network.Wai.Application.Static
     ( StaticSettings (..)
     , staticApp
@@ -170,11 +173,16 @@ instance RenderRoute Static where
 instance ParseRoute Static where
     parseRoute (x, y) = Just $ StaticRoute x y
 
-instance YesodSubDispatch Static m where
+instance (MonadThrow m, MonadIO m, MonadBaseControl IO m)
+  => YesodSubDispatch Static (HandlerT master m) where
     yesodSubDispatch YesodSubRunnerEnv {..} req =
-        staticApp set req
+        ysreParentRunner base ysreParentEnv (fmap ysreToParentRoute route) req
       where
+        base = stripHandlerT handlert ysreGetSub ysreToParentRoute route
+        route = Just $ StaticRoute (pathInfo req) []
+
         Static set = ysreGetSub $ yreSite $ ysreParentEnv
+        handlert = sendWaiApplication $ staticApp set
 
 notHidden :: FilePath -> Bool
 notHidden "tmp" = False
