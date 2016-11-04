@@ -1,3 +1,8 @@
+## 1.4.26
+
+* Modify `languages` so that, if you previously called `setLanguage`, the newly
+  set language will be reflected.
+
 ## 1.4.25
 
 * Add instance of MonadHandler and MonadWidget for ExceptT [#1278](https://github.com/yesodweb/yesod/pull/1278)
