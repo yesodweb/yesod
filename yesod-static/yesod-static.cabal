@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.5.1
+version:         1.5.1.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -112,6 +112,7 @@ test-suite tests
                    , async
                    , process
                    , conduit-extra
+                   , exceptions
 
     ghc-options:     -Wall -threaded
     extensions: TemplateHaskell

@@ -1,3 +1,7 @@
+## 1.5.1.1
+
+* Fix test suite compilation
+
 ## 1.5.1
 
 * yesod-static doesn't obey Authentication [#1286](https://github.com/yesodweb/yesod/issues/1286)
