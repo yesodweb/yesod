@@ -17,9 +17,11 @@ module Yesod.Default.Util
 import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, pack, unpack)
 import Yesod.Core -- purposely using complete import so that Haddock will see addStaticContent
-import Control.Exception (onException)
 import Control.Monad (when, unless)
-import System.Directory (doesFileExist, createDirectoryIfMissing, removeFile)
+import Control.Monad.Trans.Resource (runResourceT)
+import Data.Conduit (($$))
+import Data.Conduit.Binary (sourceLbs, sinkFileCautious)
+import System.Directory (doesFileExist, createDirectoryIfMissing)
 import Language.Haskell.TH.Syntax
 import Text.Lucius (luciusFile, luciusFileReload)
 import Text.Julius (juliusFile, juliusFileReload)
@@ -44,7 +46,8 @@ addStaticContentExternal
 addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
     liftIO $ createDirectoryIfMissing True statictmp
     exists <- liftIO $ doesFileExist fn'
-    unless exists $ liftIO $ L.writeFile fn' content' `onException` remove fn'
+    unless exists $
+        liftIO $ runResourceT $ sourceLbs content' $$ sinkFileCautious fn'
     return $ Just $ Right (toRoute ["tmp", pack fn], [])
   where
     fn, statictmp, fn' :: FilePath
@@ -53,7 +56,6 @@ addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
     fn = hash content ++ '.' : unpack ext'
     statictmp = staticDir ++ "/tmp/"
     fn' = statictmp ++ fn
-    remove f = doesFileExist f >>= \x -> when x $ removeFile f
 
     content' :: L.ByteString
     content'
