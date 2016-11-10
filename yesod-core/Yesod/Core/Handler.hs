@@ -1053,7 +1053,10 @@ cachedBy k action = do
 --
 -- This is handled by parseWaiRequest (not exposed).
 languages :: MonadHandler m => m [Text]
-languages = reqLangs <$> getRequest
+languages = do
+    mlang <- lookupSession langKey
+    langs <- reqLangs <$> getRequest
+    return $ maybe id (:) mlang langs
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
 lookup' a = map snd . filter (\x -> a == fst x)
