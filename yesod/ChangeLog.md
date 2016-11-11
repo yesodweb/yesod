@@ -1,3 +1,7 @@
+## 1.4.3.1
+
+*  Handle exceptions while writing a file in `addStaticContentExternal`
+
 ## 1.4.3
 
 * Switch to `Data.Yaml.Config`

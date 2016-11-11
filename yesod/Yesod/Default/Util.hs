@@ -18,6 +18,9 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text (Text, pack, unpack)
 import Yesod.Core -- purposely using complete import so that Haddock will see addStaticContent
 import Control.Monad (when, unless)
+import Control.Monad.Trans.Resource (runResourceT)
+import Data.Conduit (($$))
+import Data.Conduit.Binary (sourceLbs, sinkFileCautious)
 import System.Directory (doesFileExist, createDirectoryIfMissing)
 import Language.Haskell.TH.Syntax
 import Text.Lucius (luciusFile, luciusFileReload)
@@ -43,7 +46,8 @@ addStaticContentExternal
 addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
     liftIO $ createDirectoryIfMissing True statictmp
     exists <- liftIO $ doesFileExist fn'
-    unless exists $ liftIO $ L.writeFile fn' content'
+    unless exists $
+        liftIO $ runResourceT $ sourceLbs content' $$ sinkFileCautious fn'
     return $ Just $ Right (toRoute ["tmp", pack fn], [])
   where
     fn, statictmp, fn' :: FilePath

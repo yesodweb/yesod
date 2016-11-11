@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.4.3
+version:         1.4.3.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -40,7 +40,9 @@ library
                    , bytestring
                    , monad-logger
                    , fast-logger
-                   , conduit-extra
+                   , conduit
+                   , conduit-extra             >= 1.1.14
+                   , resourcet
                    , shakespeare
                    , streaming-commons
                    , wai-logger
