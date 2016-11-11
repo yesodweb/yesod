@@ -25,3 +25,4 @@ extra-deps:
 - cookie-0.4.2
 
 - conduit-extra-1.1.14
+- streaming-commons-0.1.16
