@@ -24,7 +24,7 @@ module Yesod.Form.Types
 import Control.Monad.Trans.RWS (RWST)
 import Data.Text (Text)
 import Data.Monoid (Monoid (..))
-import Text.Blaze (Markup, ToMarkup (toMarkup))
+import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define Html Markup
 #define ToHtml ToMarkup
 #define toHtml toMarkup
@@ -85,6 +85,9 @@ data Enctype = UrlEncoded | Multipart
 instance ToHtml Enctype where
     toHtml UrlEncoded = "application/x-www-form-urlencoded"
     toHtml Multipart = "multipart/form-data"
+instance ToValue Enctype where
+    toValue UrlEncoded = "application/x-www-form-urlencoded"
+    toValue Multipart = "multipart/form-data"
 instance Monoid Enctype where
     mempty = UrlEncoded
     mappend UrlEncoded UrlEncoded = UrlEncoded
