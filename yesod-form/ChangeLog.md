@@ -1,3 +1,7 @@
+## 1.4.9
+
+* Added a `ToValue` instance for `Enctype` [#1296](https://github.com/yesodweb/yesod/pull/1296)
+
 ## 1.4.8
 
 * Added Yesod.Form.I18n.Spanish
