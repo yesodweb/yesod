@@ -382,9 +382,8 @@ registerHelper :: YesodAuthEmail master
                -> HandlerT Auth (HandlerT master IO) TypedContent
 registerHelper allowUsername dest = do
     y <- lift getYesod
-    req <- getRequest
-    midentifier <- lookupPostParam "email"
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
+    midentifier <- lookupPostParam "email"
     let eidentifier = case midentifier of
                           Nothing -> Left Msg.NoIdentifierProvided
                           Just x
