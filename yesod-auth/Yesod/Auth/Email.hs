@@ -5,7 +5,6 @@
 {-# LANGUAGE QuasiQuotes             #-}
 {-# LANGUAGE Rank2Types              #-}
 {-# LANGUAGE TypeFamilies            #-}
-{-# LANGUAGE DoAndIfThenElse         #-}
 -- | A Yesod plugin for Authentication via e-mail
 --
 -- This plugin works out of the box by only setting a few methods on the type class
@@ -71,7 +70,6 @@ import           Data.Time                (addUTCTime, getCurrentTime)
 import           Safe                     (readMay)
 import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
-
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -386,20 +384,17 @@ registerHelper allowUsername dest = do
     y <- lift getYesod
     req <- getRequest
     midentifier <- lookupPostParam "email"
-    csrfToken <- lookupPostParam "_token"
-    if (csrfToken /= reqToken req)
-    then permissionDenied csrfErrorMessage
-    else do
-      let eidentifier = case midentifier of
+    checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
+    let eidentifier = case midentifier of
                           Nothing -> Left Msg.NoIdentifierProvided
                           Just x
                               | Just x' <- Text.Email.Validate.canonicalizeEmail (encodeUtf8 x) ->
                                          Right $ normalizeEmailAddress y $ decodeUtf8With lenientDecode x'
                               | allowUsername -> Right $ TS.strip x
                               | otherwise -> Left Msg.InvalidEmailAddress
-      case eidentifier of
-        Left route -> loginErrorMessageI dest route
-        Right identifier -> do
+    case eidentifier of
+      Left route -> loginErrorMessageI dest route
+      Right identifier -> do
             mecreds <- lift $ getEmailCreds identifier
             registerCreds <-
                 case mecreds of
@@ -712,10 +707,6 @@ setLoginLinkKey :: (YesodAuthEmail site, MonadHandler m, HandlerSite m ~ site) =
 setLoginLinkKey aid = do
     now <- liftIO getCurrentTime
     setSession loginLinkKey $ TS.pack $ show (toPathPiece aid, now)
-
-csrfErrorMessage :: Text
-csrfErrorMessage = "A valid CSRF token wasn't present in HTTP headers or POST parameters. Because the request could have been forged, it's been rejected altogether. Check the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
-
 
 -- See https://github.com/yesodweb/yesod/issues/1245 for discussion on this
 -- use of unsafePerformIO.
