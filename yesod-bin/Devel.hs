@@ -22,6 +22,7 @@ import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
 import           Data.Streaming.Network                (bindPortTCP,
                                                         bindRandomPortTCP)
+import           Data.String                           (fromString)
 import           Data.Time                             (getCurrentTime)
 import qualified Distribution.Package                  as D
 import qualified Distribution.PackageDescription       as D
@@ -313,8 +314,10 @@ devel opts passThroughArgs = do
             -- Start watching the signal file, and set changedVar to
             -- True each time it's changed.
             void $ watchDir manager
-                    (takeDirectory develSignalFile')
-                    (\e -> eventPath e == develSignalFile')
+                    -- Using fromString to work with older versions of fsnotify
+                    -- that use system-filepath
+                    (fromString (takeDirectory develSignalFile'))
+                    (\e -> eventPath e == fromString develSignalFile')
                     (const $ atomically $ writeTVar changedVar True)
 
             -- Alright, watching is set up, let the build thread know
