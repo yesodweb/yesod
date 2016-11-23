@@ -28,3 +28,4 @@ extra-deps:
 - streaming-commons-0.1.16
 - typed-process-0.1.0.0
 - say-0.1.0.0
+- safe-exceptions-0.1.4.0
