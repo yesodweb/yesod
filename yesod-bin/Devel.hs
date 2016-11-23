@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TemplateHaskell     #-}
 module Devel
@@ -228,7 +229,11 @@ devel opts passThroughArgs = do
 
     -- Find out the name of our package, needed for the upcoming Stack
     -- commands
+#if MIN_VERSION_Cabal(1, 20, 0)
+    cabal  <- D.findPackageDesc "."
+#else
     cabal  <- D.tryFindPackageDesc "."
+#endif
     gpd    <- D.readPackageDescription D.normal cabal
     let pd = D.packageDescription gpd
         D.PackageIdentifier (D.PackageName packageName) _version = D.package pd
