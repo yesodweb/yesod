@@ -230,9 +230,9 @@ devel opts passThroughArgs = do
     -- Find out the name of our package, needed for the upcoming Stack
     -- commands
 #if MIN_VERSION_Cabal(1, 20, 0)
-    cabal  <- D.findPackageDesc "."
-#else
     cabal  <- D.tryFindPackageDesc "."
+#else
+    cabal  <- D.findPackageDesc "."
 #endif
     gpd    <- D.readPackageDescription D.normal cabal
     let pd = D.packageDescription gpd
