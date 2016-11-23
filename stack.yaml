@@ -26,3 +26,5 @@ extra-deps:
 
 - conduit-extra-1.1.14
 - streaming-commons-0.1.16
+- typed-process-0.1.0.0
+- say-0.1.0.0
