@@ -1,0 +1,30 @@
+name:                devel-example
+version:             0.1.0.0
+build-type:          Simple
+cabal-version:       >=1.10
+
+flag library-only
+  default: False
+  description: Do not build the executable
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     DevelExample
+  build-depends:       base
+                     , async
+                     , directory
+                     , http-types
+                     , wai
+                     , wai-extra
+                     , warp
+  default-language:    Haskell2010
+
+executable devel-example
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , devel-example
+  default-language:    Haskell2010
+  if flag(library-only)
+    buildable:         False

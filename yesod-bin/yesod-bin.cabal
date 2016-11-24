@@ -5,16 +5,17 @@ license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        The yesod helper executable.
-description:     Provides scaffolding, devel server, and some simple code generation helpers.
+description:     See README.md for more information
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-data-files:      refreshing.html
 
 extra-source-files:
+  README.md
   ChangeLog.md
+  refreshing.html
   *.pem
 
 executable             yesod

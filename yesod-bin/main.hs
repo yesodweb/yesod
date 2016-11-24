@@ -180,7 +180,7 @@ keterOptions = Keter
 develOptions :: Parser Command
 develOptions = Devel <$> optStr ( long "success-hook" <> short 's' <> metavar "COMMAND"
                             <> help "Run COMMAND after rebuild succeeds")
-                     <*> extraCabalArgs
+                     <*> extraStackArgs
                      <*> option auto ( long "port" <> short 'p' <> value 3000 <> metavar "N"
                             <> help "Devel server listening port" )
                      <*> option auto ( long "tls-port" <> short 'q' <> value 3443 <> metavar "N"
@@ -189,6 +189,11 @@ develOptions = Devel <$> optStr ( long "success-hook" <> short 's' <> metavar "C
                             <> help "Devel server timeout before returning 'not ready' message (in seconds, 0 for none)" )
                      <*> switch ( long "disable-reverse-proxy" <> short 'n'
                             <> help "Disable reverse proxy" )
+
+extraStackArgs :: Parser [String]
+extraStackArgs = many (strOption ( long "extra-stack-arg" <> short 'e' <> metavar "ARG"
+                                   <> help "pass extra argument ARG to stack")
+                      )
 
 extraCabalArgs :: Parser [String]
 extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"

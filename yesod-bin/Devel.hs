@@ -10,8 +10,6 @@ module Devel
 import           Control.Applicative                   ((<|>))
 import           Control.Concurrent                    (threadDelay)
 import           Control.Concurrent.Async              (race_)
-import           Control.Concurrent.MVar               (newEmptyMVar, putMVar,
-                                                        takeMVar)
 import           Control.Concurrent.STM
 import qualified Control.Exception.Safe                as Ex
 import           Control.Monad                         (forever, unless, void,
@@ -20,6 +18,7 @@ import qualified Data.ByteString.Lazy                  as LB
 import           Data.Default.Class                    (def)
 import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
+import qualified Data.Set                              as Set
 import           Data.Streaming.Network                (bindPortTCP,
                                                         bindRandomPortTCP)
 import           Data.String                           (fromString)
@@ -216,6 +215,13 @@ checkDevelFile =
             then return x
             else loop xs
 
+-- | Get the set of all flags available in the given cabal file
+getAvailableFlags :: D.GenericPackageDescription -> Set.Set String
+getAvailableFlags =
+    Set.fromList . map (unFlagName . D.flagName) . D.genPackageFlags
+  where
+    unFlagName (D.FlagName fn) = fn
+
 -- | This is the main entry point. Run the devel server.
 devel :: DevelOpts -- ^ command line options
       -> [String] -- ^ extra options to pass to Stack
@@ -239,11 +245,6 @@ devel opts passThroughArgs = do
     let pd = D.packageDescription gpd
         D.PackageIdentifier (D.PackageName packageName) _version = D.package pd
 
-    -- Create a baton to indicate we're watching for file changes. We
-    -- need to ensure that we install the file watcher before we start
-    -- the Stack build loop.
-    watchingBaton <- newEmptyMVar
-
     -- Which file contains the code to run
     develHsPath <- checkDevelFile
 
@@ -260,37 +261,43 @@ devel opts passThroughArgs = do
 
     -- Run the following concurrently. If any of them exit, take the
     -- whole thing down.
-    withRevProxy $ race_
-        -- Wait until we're watching for file changes, then start the
-        -- build loop
-        (takeMVar watchingBaton >> runStackBuild packageName)
+    --
+    -- We need to put withChangedVar outside of all this, since we
+    -- need to ensure we start watching files before the stack build
+    -- loop starts.
+    withChangedVar $ \changedVar -> withRevProxy $ race_
+        -- Start the build loop
+        (runStackBuild packageName (getAvailableFlags gpd))
 
         -- Run the app itself, restarting when a build succeeds
-        (runApp appPortVar watchingBaton develHsPath)
+        (runApp appPortVar changedVar develHsPath)
   where
     -- say, but only when verbose is on
     sayV = when (verbose opts) . sayString
 
     -- Leverage "stack build --file-watch" to do the build
-    runStackBuild packageName = do
+    runStackBuild packageName availableFlags = do
         -- We call into this app for the devel-signal command
         myPath <- getExecutablePath
-        runProcess_ $
-            setDelegateCtlc True $
-            proc "stack" $
+        let procConfig = setDelegateCtlc True $ proc "stack" $
                 [ "build"
                 , "--fast"
                 , "--file-watch"
 
-                -- Turn on various flags, and indicate the specific
-                -- component we want
-                , "--flag", packageName ++ ":dev"
-                , "--flag", packageName ++ ":library-only"
+                -- Indicate the component we want
                 , packageName ++ ":lib"
 
                 -- signal the watcher that a build has succeeded
                 , "--exec", myPath ++ " devel-signal"
                 ] ++
+
+                -- Turn on relevant flags
+                concatMap
+                    (\flagName -> [ "--flag", packageName ++ ":" ++ flagName])
+                    (Set.toList $ Set.intersection
+                        availableFlags
+                        (Set.fromList ["dev", "library-only"])) ++
+
                 -- Add the success hook
                 (case successHook opts of
                     Nothing -> []
@@ -299,105 +306,109 @@ devel opts passThroughArgs = do
                 -- Any extra args passed on the command line
                 passThroughArgs
 
-    -- Each time the library builds successfully, run the application
-    runApp appPortVar watchingBaton develHsPath = do
+        sayV $ show procConfig
+
+        runProcess_ procConfig
+
+    -- Run the inner action with a TVar which will be set to True
+    -- whenever the signal file is modified.
+    withChangedVar inner = withManager $ \manager -> do
+        -- Variable indicating that the signal file has been changed. We
+        -- reset it each time we handle the signal.
+        changedVar <- newTVarIO False
+
         -- Get the absolute path of the signal file, needed for the
         -- file watching
         develSignalFile' <- canonicalizeSpecialFile SignalFile
 
-        -- Enable file watching
-        withManager $ \manager -> do
-            -- Variable indicating that the signal file has been
-            -- changed. We reset it each time we handle the signal.
-            changedVar <- newTVarIO False
+        -- Start watching the signal file, and set changedVar to
+        -- True each time it's changed.
+        void $ watchDir manager
+                -- Using fromString to work with older versions of fsnotify
+                -- that use system-filepath
+                (fromString (takeDirectory develSignalFile'))
+                (\e -> eventPath e == fromString develSignalFile')
+                (const $ atomically $ writeTVar changedVar True)
 
-            -- Start watching the signal file, and set changedVar to
-            -- True each time it's changed.
-            void $ watchDir manager
-                    -- Using fromString to work with older versions of fsnotify
-                    -- that use system-filepath
-                    (fromString (takeDirectory develSignalFile'))
-                    (\e -> eventPath e == fromString develSignalFile')
-                    (const $ atomically $ writeTVar changedVar True)
+        -- Run the inner action
+        inner changedVar
 
-            -- Alright, watching is set up, let the build thread know
-            -- it can get started.
-            putMVar watchingBaton ()
+    -- Each time the library builds successfully, run the application
+    runApp appPortVar changedVar develHsPath = do
+        -- Wait for the first change, indicating that the library
+        -- has been built
+        atomically $ do
+            changed <- readTVar changedVar
+            check changed
+            writeTVar changedVar False
 
-            -- Wait for the first change, indicating that the library
-            -- has been built
-            atomically $ do
-                changed <- readTVar changedVar
-                check changed
-                writeTVar changedVar False
+        sayV "First successful build complete, running app"
 
-            sayV "First successful build complete, running app"
+        -- We're going to set the PORT and DISPLAY_PORT variables
+        -- for the child below
+        env <- fmap Map.fromList getEnvironment
 
-            -- We're going to set the PORT and DISPLAY_PORT variables
-            -- for the child below
-            env <- fmap Map.fromList getEnvironment
+        -- Keep looping forever, print any synchronous exceptions,
+        -- and eventually die from an async exception from one of
+        -- the other threads (via race_ above).
+        forever $ Ex.handleAny (\e -> sayErrString $ "Exception in runApp: " ++ show e) $ do
+            -- Get the port the child should listen on, and tell
+            -- the reverse proxy about it
+            newPort <-
+                if useReverseProxy opts
+                    then getNewPort opts
+                    -- no reverse proxy, so use the develPort directly
+                    else return (develPort opts)
+            atomically $ writeTVar appPortVar newPort
 
-            -- Keep looping forever, print any synchronous exceptions,
-            -- and eventually die from an async exception from one of
-            -- the other threads (via race_ above).
-            forever $ Ex.handleAny (\e -> sayErrString $ "Exception in runApp: " ++ show e) $ do
-                -- Get the port the child should listen on, and tell
-                -- the reverse proxy about it
-                newPort <-
-                    if useReverseProxy opts
-                        then getNewPort opts
-                        -- no reverse proxy, so use the develPort directly
-                        else return (develPort opts)
-                atomically $ writeTVar appPortVar newPort
+            -- Modified environment
+            let env' = Map.toList
+                        $ Map.insert "PORT" (show newPort)
+                        $ Map.insert "DISPLAY_PORT" (show $ develPort opts)
+                        env
 
-                -- Modified environment
-                let env' = Map.toList
-                         $ Map.insert "PORT" (show newPort)
-                         $ Map.insert "DISPLAY_PORT" (show $ develPort opts)
-                           env
+            -- Remove the terminate file so we don't immediately exit
+            removeSpecialFile TermFile
 
-                -- Remove the terminate file so we don't immediately exit
-                removeSpecialFile TermFile
+            -- Launch the main function in the Main module defined
+            -- in the file develHsPath. We use ghc instead of
+            -- runghc to avoid the extra (confusing) resident
+            -- runghc process. Starting with GHC 8.0.2, that will
+            -- not be necessary.
+            let procDef = setStdin closed $ setEnv env' $ proc "stack"
+                    [ "ghc"
+                    , "--"
+                    , develHsPath
+                    , "-e"
+                    , "Main.main"
+                    ]
 
-                -- Launch the main function in the Main module defined
-                -- in the file develHsPath. We use ghc instead of
-                -- runghc to avoid the extra (confusing) resident
-                -- runghc process. Starting with GHC 8.0.2, that will
-                -- not be necessary.
-                let procDef = setEnv env' $ proc "stack"
-                        [ "ghc"
-                        , "--"
-                        , develHsPath
-                        , "-e"
-                        , "Main.main"
-                        ]
+            -- Start running the child process with GHC
+            withProcess procDef $ \p -> do
+                -- Wait for either the process to exit, or for a new build to come through
+                eres <- atomically (fmap Left (waitExitCodeSTM p) <|> fmap Right
+                    (do changed <- readTVar changedVar
+                        check changed
+                        writeTVar changedVar False))
+                            -- on an async exception, make sure the child dies
+                            `Ex.onException` writeSpecialFile TermFile
+                case eres of
+                    -- Child exited, which indicates some
+                    -- error. Let the user know, sleep for a bit
+                    -- to avoid busy-looping, and then we'll try
+                    -- again.
+                    Left ec -> do
+                        sayErrString $ "Unexpected: child process exited with " ++ show ec
+                        threadDelay 1000000
+                        sayErrString "Trying again"
+                    -- New build succeeded
+                    Right () -> do
+                        -- Kill the child process, both with the
+                        -- TermFile, and by signaling the process
+                        -- directly.
+                        writeSpecialFile TermFile
+                        stopProcess p
 
-                -- Start running the child process with GHC
-                withProcess procDef $ \p -> do
-                    -- Wait for either the process to exit, or for a new build to come through
-                    eres <- atomically (fmap Left (waitExitCodeSTM p) <|> fmap Right
-                        (do changed <- readTVar changedVar
-                            check changed
-                            writeTVar changedVar False))
-                                -- on an async exception, make sure the child dies
-                                `Ex.onException` writeSpecialFile TermFile
-                    case eres of
-                        -- Child exited, which indicates some
-                        -- error. Let the user know, sleep for a bit
-                        -- to avoid busy-looping, and then we'll try
-                        -- again.
-                        Left ec -> do
-                            sayErrString $ "Unexpected: child process exited with " ++ show ec
-                            threadDelay 1000000
-                            sayErrString "Trying again"
-                        -- New build succeeded
-                        Right () -> do
-                            -- Kill the child process, both with the
-                            -- TermFile, and by signaling the process
-                            -- directly.
-                            writeSpecialFile TermFile
-                            stopProcess p
-
-                            -- Wait until the child properly exits, then we'll try again
-                            ec <- waitExitCode p
-                            sayV $ "Expected: child process exited with " ++ show ec
+                        -- Wait until the child properly exits, then we'll try again
+                        ec <- waitExitCode p
+                        sayV $ "Expected: child process exited with " ++ show ec
