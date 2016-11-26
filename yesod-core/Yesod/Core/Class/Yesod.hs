@@ -575,7 +575,7 @@ widgetToPageContent w = do
                 ^{mkScriptTag s}
             $maybe j <- jscript
                 $maybe s <- jsLoc
-                    ^{mkDefaultScriptTag s (jsAttributes master)}
+                    <script src="#{s}" *{jsAttributes master}>
                 $nothing
                     <script>^{jelper j}
         |]
@@ -618,8 +618,6 @@ widgetToPageContent w = do
     renderLoc' _ (Remote s) = s
 
     addAttr x (y, z) = x ! customAttribute (textTag y) (toValue z)
-    mkDefaultScriptTag sUrl attrs _ =
-        foldl' addAttr TBH.script (("src", sUrl) : attrs) $ return ()
     mkScriptTag (Script loc attrs) render' =
         foldl' addAttr TBH.script (("src", renderLoc' render' loc) : attrs) $ return ()
     mkLinkTag (Stylesheet loc attrs) render' =
