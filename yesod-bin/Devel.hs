@@ -375,6 +375,10 @@ devel opts passThroughArgs = do
             -- runghc to avoid the extra (confusing) resident
             -- runghc process. Starting with GHC 8.0.2, that will
             -- not be necessary.
+
+            {- Hmm, unknown errors trying to get this to work. Just doing the
+             - runghc thing instead.
+
             let procDef = setStdin closed $ setEnv env' $ proc "stack"
                     [ "ghc"
                     , "--"
@@ -382,6 +386,14 @@ devel opts passThroughArgs = do
                     , "-e"
                     , "Main.main"
                     ]
+            -}
+            let procDef = setStdin closed $ setEnv env' $ proc "stack"
+                    [ "runghc"
+                    , "--"
+                    , develHsPath
+                    ]
+
+            sayV $ "Running child process: " ++ show procDef
 
             -- Start running the child process with GHC
             withProcess procDef $ \p -> do
