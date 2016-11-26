@@ -254,6 +254,11 @@ class RenderRoute site => Yesod site where
     jsLoader :: site -> ScriptLoadPosition site
     jsLoader _ = BottomOfBody
 
+    -- | Default attributes to put on the JavaScript <script> tag
+    -- generated for julius files
+    jsAttributes :: site -> [(Text, Text)]
+    jsAttributes _ = []
+
     -- | Create a session backend. Returning 'Nothing' disables
     -- sessions. If you'd like to change the way that the session
     -- cookies are created, take a look at
@@ -570,7 +575,7 @@ widgetToPageContent w = do
                 ^{mkScriptTag s}
             $maybe j <- jscript
                 $maybe s <- jsLoc
-                    <script src="#{s}">
+                    ^{mkDefaultScriptTag s (jsAttributes master)}
                 $nothing
                     <script>^{jelper j}
         |]
@@ -613,6 +618,8 @@ widgetToPageContent w = do
     renderLoc' _ (Remote s) = s
 
     addAttr x (y, z) = x ! customAttribute (textTag y) (toValue z)
+    mkDefaultScriptTag sUrl attrs _ =
+        foldl' addAttr TBH.script (("src", sUrl) : attrs) $ return ()
     mkScriptTag (Script loc attrs) render' =
         foldl' addAttr TBH.script (("src", renderLoc' render' loc) : attrs) $ return ()
     mkLinkTag (Stylesheet loc attrs) render' =
