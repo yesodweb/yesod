@@ -15,6 +15,9 @@ import qualified Control.Exception.Safe                as Ex
 import           Control.Monad                         (forever, unless, void,
                                                         when)
 import qualified Data.ByteString.Lazy                  as LB
+import           Data.Conduit                          (($$), (=$))
+import qualified Data.Conduit.Binary                   as CB
+import qualified Data.Conduit.List                     as CL
 import           Data.Default.Class                    (def)
 import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
@@ -53,6 +56,7 @@ import           System.Environment                    (getEnvironment,
 import           System.FilePath                       (takeDirectory,
                                                         takeFileName, (</>))
 import           System.FSNotify
+import           System.IO                             (stdout, stderr)
 import           System.IO.Error                       (isDoesNotExistError)
 import           System.Process.Typed
 
@@ -267,7 +271,7 @@ devel opts passThroughArgs = do
     -- loop starts.
     withChangedVar $ \changedVar -> withRevProxy $ race_
         -- Start the build loop
-        (runStackBuild packageName (getAvailableFlags gpd))
+        (runStackBuild appPortVar packageName (getAvailableFlags gpd))
 
         -- Run the app itself, restarting when a build succeeds
         (runApp appPortVar changedVar develHsPath)
@@ -276,10 +280,12 @@ devel opts passThroughArgs = do
     sayV = when (verbose opts) . sayString
 
     -- Leverage "stack build --file-watch" to do the build
-    runStackBuild packageName availableFlags = do
+    runStackBuild appPortVar packageName availableFlags = do
         -- We call into this app for the devel-signal command
         myPath <- getExecutablePath
-        let procConfig = setDelegateCtlc True $ proc "stack" $
+        let procConfig = setStdout createSource
+                       $ setStderr createSource
+                       $ setDelegateCtlc True $ proc "stack" $
                 [ "build"
                 , "--fast"
                 , "--file-watch"
@@ -308,7 +314,17 @@ devel opts passThroughArgs = do
 
         sayV $ show procConfig
 
-        runProcess_ procConfig
+        -- Monitor the stdout and stderr content from the build process. Any
+        -- time some output comes, we invalidate the currently running app by
+        -- changing the destination port for reverse proxying to -1. We also
+        -- make sure that all content to stdout or stderr from the build
+        -- process is piped to the actual stdout and stderr handles.
+        withProcess_ procConfig $ \p -> do
+            let helper getter h = runConduit
+                    $ getter p
+                   $$ CL.iterM (\_ -> atomically $ writeTVar appPortVar (-1))
+                   =$ CB.sinkHandle h
+            race_ (helper getStdout stdout) (helper getStderr stderr)
 
     -- Run the inner action with a TVar which will be set to True
     -- whenever the signal file is modified.
