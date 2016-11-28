@@ -89,6 +89,7 @@ module Yesod.Test.Mock
     , getResponse
     , getRequestCookies
     , getMocks
+    , modifyMocks
 
     -- * Debug output
     , printBody
@@ -183,6 +184,11 @@ getResponse = yedResponse <$> ST.get
 -- | Get the mocks used for the current test.
 getMocks :: YesodExample site mocks mocks
 getMocks = yedMocks <$> ST.get
+
+-- | Modify the mocks for the current test.
+modifyMocks :: (mocks -> mocks) -> YesodExample site mocks ()
+modifyMocks f = ST.get >>= ST.put . modify
+  where modify y = y { yedMocks = f $ yedMocks y }
 
 -- | Start describing a Tests suite keeping cookies and a reference to the tested 'Application'
 -- and 'ConnectionPool'
