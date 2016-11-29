@@ -1,3 +1,7 @@
+## 1.4.27
+
+* Added `jsAttributes` [#1308](https://github.com/yesodweb/yesod/pull/1308)
+
 ## 1.4.26
 
 * Modify `languages` so that, if you previously called `setLanguage`, the newly
