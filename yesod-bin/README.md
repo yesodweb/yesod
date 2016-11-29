@@ -7,6 +7,10 @@ superceded by functionality in the
 [Haskell Stack build tool](http://haskellstack.org/). This README will
 speak exclusively about `yesod devel`.
 
+__CAVEAT__ There may be some issues using `yesod devel` in Docker-enabled
+projects. See [comment on
+Github](https://github.com/yesodweb/yesod/pull/1305#issuecomment-263204471).
+
 ### Development server
 
 The development server will automatically recompile your application
