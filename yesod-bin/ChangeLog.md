@@ -1,3 +1,21 @@
+## 1.5.0
+
+Rewrite of `yesod devel` to take advantage of Stack for a simpler codebase.
+
+Advantages:
+
+* Does not link against the ghc library, so can be used with multiple
+  GHC versions
+* Leverages Stack's ability to check for dependent files, which is
+  more robust than what yesod devel was doing previously
+* Seems to involve less rebuilding of the library on initial run
+
+Disadvantages:
+
+* Lost some functionality (e.g., failure hooks, controlling the exit
+  command)
+* Newer codebase, quite likely has bugs that need to be ironed out.
+
 ## 1.4.18.7
 
 * Actually release the changes for #1284

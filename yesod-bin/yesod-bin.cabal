@@ -1,41 +1,22 @@
 name:            yesod-bin
-version:         1.4.18.7
+version:         1.5.0
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
 maintainer:      Michael Snoyman <michael@snoyman.com>
 synopsis:        The yesod helper executable.
-description:     Provides scaffolding, devel server, and some simple code generation helpers.
+description:     See README.md for more information
 category:        Web, Yesod
 stability:       Stable
 cabal-version:   >= 1.6
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
-data-files:      refreshing.html
 
 extra-source-files:
+  README.md
   ChangeLog.md
+  refreshing.html
   *.pem
-
-executable             yesod-ghc-wrapper
-    main-is: ghcwrapper.hs
-    build-depends:
-                    base                       >= 4         && < 5
-                  , Cabal
-
-executable             yesod-ld-wrapper
-    main-is: ghcwrapper.hs
-    cpp-options:     -DLDCMD
-    build-depends:
-                    base                       >= 4         && < 5
-                  , Cabal
-
-executable             yesod-ar-wrapper
-    main-is: ghcwrapper.hs
-    cpp-options:     -DARCMD
-    build-depends:
-                     base                       >= 4         && < 5
-                   , Cabal
 
 executable             yesod
     if os(windows)
@@ -44,8 +25,6 @@ executable             yesod
         ld-options:      -Wl,-zwxneeded
 
     build-depends:     base               >= 4.3          && < 5
-                     , ghc                >= 7.0.3
-                     , ghc-paths          >= 0.1
                      , parsec             >= 2.1          && < 4
                      , text               >= 0.11
                      , shakespeare        >= 2.0
@@ -53,7 +32,7 @@ executable             yesod
                      , time               >= 1.1.4
                      , template-haskell
                      , directory          >= 1.2.1
-                     , Cabal
+                     , Cabal              >= 1.18
                      , unix-compat        >= 0.2          && < 0.5
                      , containers         >= 0.2
                      , attoparsec         >= 0.10
@@ -75,10 +54,13 @@ executable             yesod
                      , base64-bytestring
                      , lifted-base
                      , http-reverse-proxy >= 0.4
-                     , network
-                     , http-conduit       >= 2.1.4
-                     , http-client
+                     , network            >= 2.5
+                     , http-client-tls
+                     , http-client        >= 0.4.7
                      , project-template   >= 0.1.1
+                     , safe-exceptions
+                     , say
+                     , stm
                      , transformers
                      , transformers-compat
                      , warp               >= 1.3.7.5
@@ -89,12 +71,12 @@ executable             yesod
                      , warp-tls           >= 3.0.1
                      , async
                      , deepseq
+                     , typed-process
 
     ghc-options:       -Wall -threaded -rtsopts
     main-is:           main.hs
     other-modules:     Devel
                        Build
-                       GhcBuild
                        Keter
                        AddHandler
                        Paths_yesod_bin
