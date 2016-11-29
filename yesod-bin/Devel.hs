@@ -320,8 +320,8 @@ devel opts passThroughArgs = do
         -- make sure that all content to stdout or stderr from the build
         -- process is piped to the actual stdout and stderr handles.
         withProcess_ procConfig $ \p -> do
-            let helper getter h = runConduit
-                    $ getter p
+            let helper getter h =
+                      getter p
                    $$ CL.iterM (\_ -> atomically $ writeTVar appPortVar (-1))
                    =$ CB.sinkHandle h
             race_ (helper getStdout stdout) (helper getStderr stderr)

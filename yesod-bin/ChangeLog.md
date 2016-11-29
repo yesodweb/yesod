@@ -1,3 +1,7 @@
+## 1.5.0.1
+
+* Fix build failure
+
 ## 1.5.0
 
 Rewrite of `yesod devel` to take advantage of Stack for a simpler codebase.
