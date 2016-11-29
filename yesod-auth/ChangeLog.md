@@ -1,3 +1,7 @@
+## 1.4.14
+
+* Remove Google OpenID link [#1309](https://github.com/yesodweb/yesod/pull/1309)
+
 ## 1.4.13.5
 
 * Translation fix
