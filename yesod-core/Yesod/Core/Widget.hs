@@ -72,6 +72,7 @@ import qualified Text.Hamlet as NP
 import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Builder as TB
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
@@ -100,6 +101,12 @@ instance (site' ~ site, IO ~ m, a ~ ()) => ToWidget site' (WidgetT site m a) whe
     toWidget = liftWidgetT
 instance ToWidget site Html where
     toWidget = toWidget . const
+instance ToWidget site Text where
+    toWidget = toWidget . toHtml
+instance ToWidget site TL.Text where
+    toWidget = toWidget . toHtml
+instance ToWidget site TB.Builder where
+    toWidget = toWidget . toHtml
 
 -- | Allows adding some CSS to the page with a specific media type.
 --
