@@ -1,3 +1,7 @@
+## 0.2.4.1
+
+* Support for websockets 0.10
+
 ## 0.2.3
 
 * `receiveDataMessageE` and `sendDataMessageE`

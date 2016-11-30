@@ -56,7 +56,11 @@ type WebSocketsT = ReaderT WS.Connection
 --
 -- Since 0.1.0
 webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () -> m ()
+#if MIN_VERSION_websockets(0,10,0)
+webSockets = webSocketsWith $ const $ return $ Just $ WS.AcceptRequest Nothing []
+#else
 webSockets = webSocketsWith $ const $ return $ Just $ WS.AcceptRequest Nothing
+#endif
 
 -- | Varient of 'webSockets' which allows you to specify the 'WS.AcceptRequest'
 -- setttings when upgrading to a websocket connection.
