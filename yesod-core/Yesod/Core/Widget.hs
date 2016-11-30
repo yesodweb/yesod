@@ -101,10 +101,13 @@ instance (site' ~ site, IO ~ m, a ~ ()) => ToWidget site' (WidgetT site m a) whe
     toWidget = liftWidgetT
 instance ToWidget site Html where
     toWidget = toWidget . const
+-- | @since 1.4.28
 instance ToWidget site Text where
     toWidget = toWidget . toHtml
+-- | @since 1.4.28
 instance ToWidget site TL.Text where
     toWidget = toWidget . toHtml
+-- | @since 1.4.28
 instance ToWidget site TB.Builder where
     toWidget = toWidget . toHtml
 
