@@ -52,6 +52,7 @@ module Yesod.Test
     , post
     , postBody
     , followRedirect
+    , getLocation
     , request
     , addRequestHeader
     , setMethod
@@ -748,6 +749,28 @@ followRedirect = do
           Nothing -> return $ Left "followRedirect called, but no location header set"
           Just h -> let url = TE.decodeUtf8 h in
                      get url  >> return (Right url)
+
+-- | Parse the Location header of the last response.
+--
+-- ==== __Examples__
+--
+-- > post ResourcesR
+-- > (Right (ResourceR resourceId)) <- getLocation
+getLocation :: (Yesod site, ParseRoute site)
+            => YesodExample site (Either T.Text (Route site))
+getLocation = do
+  mr <- getResponse
+  case mr of
+    Nothing -> return $ Left "getLocation called, but there was no previous response, so no Location header"
+    Just r -> case lookup "Location" (simpleHeaders r) of
+      Nothing -> return $ Left "getLocation called, but the previous response has no Location header"
+      Just h -> case parseRoute $ decodePath h of
+        Nothing -> return $ Left "getLocation called, but couldn’t parse it into a route"
+        Just l -> return $ Right l
+  where decodePath b = let (x, y) = BS8.break (=='?') b
+                       in (H.decodePathSegments x, unJust <$> H.parseQueryText y)
+        unJust (a, Just b) = (a, b)
+        unJust (a, Nothing) = (a, mempty)
 
 -- | Sets the HTTP method used by the request.
 --

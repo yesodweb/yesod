@@ -5,6 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 import Test.HUnit hiding (Test)
 import Test.Hspec
@@ -31,6 +32,14 @@ import Network.HTTP.Types.Status (status301, status303, unsupportedMediaType415)
 parseQuery_ = either error id . parseQuery
 findBySelector_ x = either error id . findBySelector x
 parseHtml_ = HD.parseLBS
+
+data RoutedApp = RoutedApp
+
+mkYesod "RoutedApp" [parseRoutes|
+/                HomeR      GET POST
+/resources       ResourcesR POST
+/resources/#Text ResourceR  GET
+|]
 
 main :: IO ()
 main = hspec $ do
@@ -209,7 +218,7 @@ main = hspec $ do
             statusIs 200
             printBody
             bodyContains "Foo"
-    describe "CSRF with cookies/headers" $ yesodSpec CsrfApp $ do
+    describe "CSRF with cookies/headers" $ yesodSpec RoutedApp $ do
         yit "Should receive a CSRF cookie and add its value to the headers" $ do
             get ("/" :: Text)
             statusIs 200
@@ -250,6 +259,30 @@ main = hspec $ do
             statusIs 200
             r <- followRedirect
             liftIO $ assertBool "expected a Left when not a redirect" $ isLeft r
+
+    describe "route parsing in tests" $ yesodSpec RoutedApp $ do
+        yit "parses location header into a route" $ do
+            -- get CSRF token
+            get HomeR
+            statusIs 200
+
+            request $ do
+                setMethod "POST"
+                setUrl $ ResourcesR
+                addPostParam "foo" "bar"
+                addTokenFromCookie
+            statusIs 201
+
+            loc <- getLocation
+            liftIO $ assertBool "expected location to be available" $ isRight loc
+            let (Right (ResourceR t)) = loc
+            liftIO $ assertBool "expected location header to contain post param" $ t == "bar"
+
+        yit "returns a Left when no redirect was returned" $ do
+            get HomeR
+            statusIs 200
+            loc <- getLocation
+            liftIO $ assertBool "expected a Left when not a redirect" $ isLeft loc
 
 instance RenderMessage LiteApp FormMessage where
     renderMessage _ _ = defaultFormMessage
@@ -307,13 +340,7 @@ cookieApp = liteApp $ do
             redirect ("/cookie/home" :: Text)
             return ()
 
-data CsrfApp = CsrfApp
-
-mkYesod "CsrfApp" [parseRoutes|
-/ HomeR GET POST
-|]
-
-instance Yesod CsrfApp where
+instance Yesod RoutedApp where
     yesodMiddleware = defaultYesodMiddleware . defaultCsrfMiddleware
 
 getHomeR :: Handler Html
@@ -328,4 +355,16 @@ postHomeR = defaultLayout
     [whamlet|
         <p>
             Welcome to my test application.
+    |]
+
+postResourcesR :: Handler ()
+postResourcesR = do
+  ([("foo", t)], _) <- runRequestBody
+  sendResponseCreated $ ResourceR t
+
+getResourceR :: Text -> Handler Html
+getResourceR i = defaultLayout
+    [whamlet|
+        <p>
+            Read item #{i}.
     |]
