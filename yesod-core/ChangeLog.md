@@ -1,3 +1,7 @@
+## 1.4.28
+
+* Add ToWidget instances for strict text, lazy text, and text builder [#1310](https://github.com/yesodweb/yesod/pull/1310)
+
 ## 1.4.27
 
 * Added `jsAttributes` [#1308](https://github.com/yesodweb/yesod/pull/1308)
