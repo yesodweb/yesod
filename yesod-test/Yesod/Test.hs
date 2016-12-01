@@ -756,6 +756,8 @@ followRedirect = do
 --
 -- > post ResourcesR
 -- > (Right (ResourceR resourceId)) <- getLocation
+--
+-- @since 1.5.4
 getLocation :: (Yesod site, ParseRoute site)
             => YesodExample site (Either T.Text (Route site))
 getLocation = do

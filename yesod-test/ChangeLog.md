@@ -1,3 +1,7 @@
+## 1.5.4
+
+* yesod-test: add getLocation test helper. [#1314](https://github.com/yesodweb/yesod/pull/1314)
+
 ## 1.5.3
 
 * Added bodyNotContains [#1271](https://github.com/yesodweb/yesod/pull/1271)
