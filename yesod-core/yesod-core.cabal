@@ -56,7 +56,7 @@ library
                    , resourcet             >= 0.4.9    && < 1.2
                    , lifted-base           >= 0.1.2
                    , blaze-html            >= 0.5
-                   , blaze-markup          >= 0.5.1
+                   , blaze-markup          >= 0.7.1
                    , data-default
                    , safe
                    , warp                  >= 3.0.2
