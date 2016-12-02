@@ -24,6 +24,7 @@ module Yesod.Core.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
+    , toWaiAppYre
     , warp
     , warpDebug
     , warpEnv
