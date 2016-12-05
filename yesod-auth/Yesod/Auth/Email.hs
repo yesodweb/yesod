@@ -4,6 +4,7 @@
 {-# LANGUAGE PatternGuards           #-}
 {-# LANGUAGE QuasiQuotes             #-}
 {-# LANGUAGE Rank2Types              #-}
+{-# LANGUAGE ScopedTypeVariables#-}
 {-# LANGUAGE TypeFamilies            #-}
 -- | A Yesod plugin for Authentication via e-mail
 --
@@ -70,6 +71,8 @@ import           Data.Time                (addUTCTime, getCurrentTime)
 import           Safe                     (readMay)
 import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
+import           Network.HTTP.Types.Status (status400)
+import Data.Aeson.Types (Parser(..), Result(..), parseMaybe, withObject)
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -376,6 +379,11 @@ defaultRegisterHandler = do
 
             return (userRes, widget)
 
+parseEmail :: Value -> Parser Text
+parseEmail = withObject "email" (\obj -> do
+                                   email' <- obj .: "email"
+                                   return email')
+
 registerHelper :: YesodAuthEmail master
                => Bool -- ^ allow usernames?
                -> Route Auth
@@ -383,7 +391,14 @@ registerHelper :: YesodAuthEmail master
 registerHelper allowUsername dest = do
     y <- lift getYesod
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
-    midentifier <- lookupPostParam "email"
+    pidentifier <- lookupPostParam "email"
+    (jidentifier :: Result Value) <- lift parseJsonBody
+    let midentifier = case pidentifier of
+                        Nothing -> case jidentifier of
+                                     Error _ -> Nothing
+                                     Success val -> parseMaybe parseEmail val
+                        Just _ -> pidentifier
+
     let eidentifier = case midentifier of
                           Nothing -> Left Msg.NoIdentifierProvided
                           Just x
