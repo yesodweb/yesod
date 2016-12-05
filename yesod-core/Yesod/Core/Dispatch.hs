@@ -17,6 +17,8 @@ module Yesod.Core.Dispatch
     , mkYesodSubData
     , mkYesodDispatch
     , mkYesodSubDispatch
+      -- *** Helpers
+    , getGetMaxExpires
       -- ** Path pieces
     , PathPiece (..)
     , PathMultiPiece (..)
