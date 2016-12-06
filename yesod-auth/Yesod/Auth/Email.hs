@@ -86,7 +86,7 @@ setpassR = PluginR "email" ["set-password"]
 
 -- |
 --
--- Since 1.4.5
+-- @since 1.4.5
 verifyR :: Text -> Text -> AuthRoute -- FIXME
 verifyR eid verkey = PluginR "email" ["verify", eid, verkey]
 
@@ -101,7 +101,7 @@ type VerStatus = Bool
 --
 -- Note that any of these other identifiers must not be valid email addresses.
 --
--- Since 1.2.0
+-- @since 1.2.0
 type Identifier = Text
 
 -- | Data stored in a database for each e-mail address.
@@ -128,22 +128,22 @@ class ( YesodAuth site
     -- | Add a new email address to the database, but indicate that the address
     -- has not yet been verified.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     addUnverified :: Email -> VerKey -> HandlerT site IO (AuthEmailId site)
 
     -- | Send an email to the given address to verify ownership.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     sendVerifyEmail :: Email -> VerKey -> VerUrl -> HandlerT site IO ()
 
     -- | Get the verification key for the given email ID.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     getVerifyKey :: AuthEmailId site -> HandlerT site IO (Maybe VerKey)
 
     -- | Set the verification key for the given email ID.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     setVerifyKey :: AuthEmailId site -> VerKey -> HandlerT site IO ()
 
     -- | Verify the email address on the given account.
@@ -154,39 +154,39 @@ class ( YesodAuth site
     --
     -- See <https://github.com/yesodweb/yesod/issues/1222>.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     verifyAccount :: AuthEmailId site -> HandlerT site IO (Maybe (AuthId site))
 
     -- | Get the salted password for the given account.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     getPassword :: AuthId site -> HandlerT site IO (Maybe SaltedPass)
 
     -- | Set the salted password for the given account.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     setPassword :: AuthId site -> SaltedPass -> HandlerT site IO ()
 
     -- | Get the credentials for the given @Identifier@, which may be either an
     -- email address or some other identification (e.g., username).
     --
-    -- Since 1.2.0
+    -- @since 1.2.0
     getEmailCreds :: Identifier -> HandlerT site IO (Maybe (EmailCreds site))
 
     -- | Get the email address for the given email ID.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     getEmail :: AuthEmailId site -> HandlerT site IO (Maybe Email)
 
     -- | Generate a random alphanumeric string.
     --
-    -- Since 1.1.0
+    -- @since 1.1.0
     randomKey :: site -> IO Text
     randomKey _ = Nonce.nonce128urlT defaultNonceGen
 
     -- | Route to send user to after password has been set correctly.
     --
-    -- Since 1.2.0
+    -- @since 1.2.0
     afterPasswordRoute :: site -> Route site
 
     -- | Does the user need to provide the current password in order to set a
@@ -194,7 +194,7 @@ class ( YesodAuth site
     --
     -- Default: if the user logged in via an email link do not require a password.
     --
-    -- Since 1.2.1
+    -- @since 1.2.1
     needOldPassword :: AuthId site -> HandlerT site IO Bool
     needOldPassword aid' = do
         mkey <- lookupSession loginLinkKey
@@ -214,7 +214,7 @@ class ( YesodAuth site
 
     -- | Response after sending a confirmation email.
     --
-    -- Since 1.2.2
+    -- @since 1.2.2
     confirmationEmailSentResponse :: Text -> HandlerT site IO TypedContent
     confirmationEmailSentResponse identifier = do
         mr <- getMessageRender
@@ -230,7 +230,7 @@ class ( YesodAuth site
     --
     -- Default: Lower case the email address.
     --
-    -- Since 1.2.3
+    -- @since 1.2.3
     normalizeEmailAddress :: site -> Text -> Text
     normalizeEmailAddress _ = TS.toLower
 
@@ -240,7 +240,7 @@ class ( YesodAuth site
     --
     -- Default: 'defaultRegisterHandler'.
     --
-    -- Since: 1.2.6.
+    -- @since: 1.2.6.
     registerHandler :: AuthHandler site Html
     registerHandler = defaultRegisterHandler
 
@@ -250,7 +250,7 @@ class ( YesodAuth site
     --
     -- Default: 'defaultForgotPasswordHandler'.
     --
-    -- Since: 1.2.6.
+    -- @since: 1.2.6.
     forgotPasswordHandler :: AuthHandler site Html
     forgotPasswordHandler = defaultForgotPasswordHandler
 
@@ -260,7 +260,7 @@ class ( YesodAuth site
     --
     -- Default: 'defaultSetPasswordHandler'.
     --
-    -- Since: 1.2.6.
+    -- @since: 1.2.6.
     setPasswordHandler ::
          Bool
          -- ^ Whether the old password is needed.  If @True@, a
@@ -347,7 +347,7 @@ emailLoginHandler toParent = do
         return $ renderAuthMessage master langs msg
 -- | Default implementation of 'registerHandler'.
 --
--- Since: 1.2.6
+-- @since: 1.2.6
 defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultRegisterHandler = do
     (widget, enctype) <- lift $ generateFormPost registrationForm
@@ -444,7 +444,7 @@ getForgotPasswordR = forgotPasswordHandler
 
 -- | Default implementation of 'forgotPasswordHandler'.
 --
--- Since: 1.2.6
+-- @since: 1.2.6
 defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultForgotPasswordHandler = do
     (widget, enctype) <- lift $ generateFormPost forgotPasswordForm
@@ -576,7 +576,7 @@ getPasswordR = do
 
 -- | Default implementation of 'setPasswordHandler'.
 --
--- Since: 1.2.6
+-- @since: 1.2.6
 defaultSetPasswordHandler :: YesodAuthEmail master => Bool -> AuthHandler master TypedContent
 defaultSetPasswordHandler needOld = do
     messageRender <- lift getMessageRender
@@ -757,13 +757,13 @@ isValidPass' clear' salted' =
 -- | Session variable set when user logged in via a login link. See
 -- 'needOldPassword'.
 --
--- Since 1.2.1
+-- @since 1.2.1
 loginLinkKey :: Text
 loginLinkKey = "_AUTH_EMAIL_LOGIN_LINK"
 
 -- | Set 'loginLinkKey' to the current time.
 --
--- Since 1.2.1
+-- @since 1.2.1
 setLoginLinkKey :: (YesodAuthEmail site, MonadHandler m, HandlerSite m ~ site) => AuthId site -> m ()
 setLoginLinkKey aid = do
     now <- liftIO getCurrentTime
