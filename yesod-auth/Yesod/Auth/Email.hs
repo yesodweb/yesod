@@ -72,7 +72,8 @@ import           Safe                     (readMay)
 import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
 import           Network.HTTP.Types.Status (status400)
-import Data.Aeson.Types (Parser(..), Result(..), parseMaybe, withObject)
+import           Data.Aeson.Types (Parser(..), Result(..), parseMaybe, withObject, (.:?))
+import           Data.Maybe (isJust, isNothing, fromJust)
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -645,54 +646,81 @@ defaultSetPasswordHandler needOld = do
             fsAttrs = [("autofocus", "")]
         }
 
-
+parsePassword :: Value -> Parser (Text, Text, Maybe Text)
+parsePassword = withObject "password" (\obj -> do
+                                         email' <- obj .: "new"
+                                         pass <- obj .: "confirm"
+                                         curr <- obj .:? "current"
+                                         return (email', pass, curr))
 
 postPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
 postPasswordR = do
     maid <- lift maybeAuthId
+    (creds :: Result Value) <- lift parseJsonBody
+    let jcreds = case creds of
+                   Error _ -> Nothing
+                   Success val -> parseMaybe parsePassword val
+    let doJsonParsing = isJust jcreds
     case maid of
         Nothing -> loginErrorMessageI LoginR Msg.BadSetPass
         Just aid -> do
             tm <- getRouteToParent
-
             needOld <- lift $ needOldPassword aid
-            if not needOld then confirmPassword aid tm else do
-                current <- lift $ runInputPost $ ireq textField "current"
+            if not needOld then confirmPassword aid tm jcreds else do
+                res <- lift $ runInputPostResult $ ireq textField "current"
+                let fcurrent = case res of
+                                 FormSuccess currentPass -> Just currentPass
+                                 _ -> Nothing
+                let current = if doJsonParsing
+                              then getThird jcreds
+                              else fcurrent
                 mrealpass <- lift $ getPassword aid
                 case mrealpass of
                     Nothing ->
                         lift $ loginErrorMessage (tm setpassR) "You do not currently have a password set on your account"
                     Just realpass
-                        | isValidPass current realpass -> confirmPassword aid tm
+                        | isNothing current -> loginErrorMessageI LoginR Msg.BadSetPass
+                        | isValidPass (fromJust current) realpass -> confirmPassword aid tm jcreds
                         | otherwise ->
                             lift $ loginErrorMessage (tm setpassR) "Invalid current password, please try again"
 
   where
     msgOk = Msg.PassUpdated
-    confirmPassword aid tm = do
-        (new, confirm) <- lift $ runInputPost $ (,)
+    getThird (Just (_,_,t)) = t
+    getThird Nothing = Nothing
+    getNewConfirm (Just (a,b,_)) = Just (a,b)
+    getNewConfirm _ = Nothing
+    confirmPassword aid tm jcreds = do
+        res <- lift $ runInputPostResult $ (,)
             <$> ireq textField "new"
             <*> ireq textField "confirm"
-
-        if new /= confirm
-          then loginErrorMessageI setpassR Msg.PassMismatch
-          else do
-              isSecure <- lift $ checkPasswordSecurity aid new
-              case isSecure of
+        let creds = if (isJust jcreds)
+                    then getNewConfirm jcreds
+                    else case res of
+                           FormSuccess res' -> Just res'
+                           _ -> Nothing
+        case creds of
+          Nothing -> loginErrorMessageI setpassR Msg.PassMismatch
+          Just (new, confirm) ->
+              if new /= confirm
+              then loginErrorMessageI setpassR Msg.PassMismatch
+              else do
+                isSecure <- lift $ checkPasswordSecurity aid new
+                case isSecure of
                   Left e -> lift $ loginErrorMessage (tm setpassR) e
                   Right () -> do
-                      salted <- liftIO $ saltPass new
-                      y <- lift $ do
-                          setPassword aid salted
-                          deleteSession loginLinkKey
-                          addMessageI "success" msgOk
-                          getYesod
+                     salted <- liftIO $ saltPass new
+                     y <- lift $ do
+                                setPassword aid salted
+                                deleteSession loginLinkKey
+                                addMessageI "success" msgOk
+                                getYesod
 
-                      mr <- lift getMessageRender
-                      selectRep $ do
-                        provideRep $
-                          fmap asHtml $ lift $ redirect $ afterPasswordRoute y
-                        provideJsonMessage (mr msgOk)
+                     mr <- lift getMessageRender
+                     selectRep $ do
+                         provideRep $ 
+                            fmap asHtml $ lift $ redirect $ afterPasswordRoute y
+                         provideJsonMessage (mr msgOk)
 
 saltLength :: Int
 saltLength = 5
