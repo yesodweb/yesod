@@ -17,14 +17,17 @@
 --
 -- This is a standard registration e-mail flow
 --
--- 1) A user registers a new e-mail address, and an e-mail is sent there
--- 2) The user clicks on the registration link in the e-mail
---    Note that at this point they are actually logged in (without a password)
---    That means that when they log out they will need to reset their password
--- 3) The user sets their password and is redirected to the site.
--- 4) The user can now
---    * logout and sign in
---    * reset their password
+-- 1. A user registers a new e-mail address, and an e-mail is sent there
+-- 2. The user clicks on the registration link in the e-mail. Note that
+--   at this point they are actually logged in (without a
+--   password). That means that when they log out they will need to
+--  reset their password.
+-- 3. The user sets their password and is redirected to the site.
+-- 4. The user can now
+--
+--     * logout and sign in
+--     * reset their password
+--
 module Yesod.Auth.Email
     ( -- * Plugin
       authEmail
@@ -240,7 +243,7 @@ class ( YesodAuth site
     --
     -- Default: 'defaultRegisterHandler'.
     --
-    -- @since: 1.2.6.
+    -- @since: 1.2.6
     registerHandler :: AuthHandler site Html
     registerHandler = defaultRegisterHandler
 
@@ -250,7 +253,7 @@ class ( YesodAuth site
     --
     -- Default: 'defaultForgotPasswordHandler'.
     --
-    -- @since: 1.2.6.
+    -- @since: 1.2.6
     forgotPasswordHandler :: AuthHandler site Html
     forgotPasswordHandler = defaultForgotPasswordHandler
 
@@ -260,7 +263,7 @@ class ( YesodAuth site
     --
     -- Default: 'defaultSetPasswordHandler'.
     --
-    -- @since: 1.2.6.
+    -- @since: 1.2.6
     setPasswordHandler ::
          Bool
          -- ^ Whether the old password is needed.  If @True@, a
@@ -347,7 +350,7 @@ emailLoginHandler toParent = do
         return $ renderAuthMessage master langs msg
 -- | Default implementation of 'registerHandler'.
 --
--- @since: 1.2.6
+-- @since 1.2.6
 defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultRegisterHandler = do
     (widget, enctype) <- lift $ generateFormPost registrationForm
@@ -444,7 +447,7 @@ getForgotPasswordR = forgotPasswordHandler
 
 -- | Default implementation of 'forgotPasswordHandler'.
 --
--- @since: 1.2.6
+-- @since 1.2.6
 defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
 defaultForgotPasswordHandler = do
     (widget, enctype) <- lift $ generateFormPost forgotPasswordForm
@@ -576,7 +579,7 @@ getPasswordR = do
 
 -- | Default implementation of 'setPasswordHandler'.
 --
--- @since: 1.2.6
+-- @since 1.2.6
 defaultSetPasswordHandler :: YesodAuthEmail master => Bool -> AuthHandler master TypedContent
 defaultSetPasswordHandler needOld = do
     messageRender <- lift getMessageRender
