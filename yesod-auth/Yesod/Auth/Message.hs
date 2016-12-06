@@ -13,6 +13,7 @@ module Yesod.Auth.Message
     , japaneseMessage
     , finnishMessage
     , chineseMessage
+    , croatianMessage
     , spanishMessage
     , czechMessage
     , russianMessage
