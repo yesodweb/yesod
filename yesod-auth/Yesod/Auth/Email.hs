@@ -8,10 +8,13 @@
 {-# LANGUAGE TypeFamilies            #-}
 -- | A Yesod plugin for Authentication via e-mail
 --
--- This plugin works out of the box by only setting a few methods on the type class
--- that tell the plugin how to interoprate with your user data storage (your database).
--- However, almost everything is customizeable by setting more methods on the type class.
--- In addition, you can send all the form submissions via JSON and completely control the user's flow.
+-- This plugin works out of the box by only setting a few methods on
+-- the type class that tell the plugin how to interoperate with your
+-- user data storage (your database).  However, almost everything is
+-- customizeable by setting more methods on the type class.  In
+-- addition, you can send all the form submissions via JSON and
+-- completely control the user's flow.
+--
 -- This is a standard registration e-mail flow
 --
 -- 1) A user registers a new e-mail address, and an e-mail is sent there
