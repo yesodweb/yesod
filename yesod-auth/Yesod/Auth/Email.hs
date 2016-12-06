@@ -512,38 +512,54 @@ $newline never
 |]
 
 
+parseCreds :: Value -> Parser (Text, Text)
+parseCreds = withObject "creds" (\obj -> do
+                                   email' <- obj .: "email"
+                                   pass <- obj .: "password"
+                                   return (email', pass))
+
+
 postLoginR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
 postLoginR = do
-    (identifier, pass) <- lift $ runInputPost $ (,)
+    result <- lift $ runInputPostResult $ (,)
         <$> ireq textField "email"
         <*> ireq textField "password"
-    mecreds <- lift $ getEmailCreds identifier
-    maid <-
-        case ( mecreds >>= emailCredsAuthId
-             , emailCredsEmail <$> mecreds
-             , emailCredsStatus <$> mecreds
-             ) of
-            (Just aid, Just email, Just True) -> do
-                mrealpass <- lift $ getPassword aid
-                case mrealpass of
-                    Nothing -> return Nothing
-                    Just realpass -> return $
-                        if isValidPass pass realpass
-                            then Just email
-                            else Nothing
-            _ -> return Nothing
-    let isEmail = Text.Email.Validate.isValid $ encodeUtf8 identifier
-    case maid of
-        Just email ->
-            lift $ setCredsRedirect $ Creds
-                (if isEmail then "email" else "username")
-                email
-                [("verifiedEmail", email)]
-        Nothing ->
-            loginErrorMessageI LoginR $
-                if isEmail
-                    then Msg.InvalidEmailPass
-                    else Msg.InvalidUsernamePass
+    (creds :: Result Value) <- lift parseJsonBody
+    let midentifier = case result of
+                        FormSuccess (iden, pass) -> Just (iden, pass)
+                        _ -> case creds of
+                               Error _ -> Nothing
+                               Success val -> parseMaybe parseCreds val
+                                              
+    case midentifier of
+      Nothing -> loginErrorMessageI LoginR Msg.NoIdentifierProvided
+      Just (identifier, pass) -> do
+          mecreds <- lift $ getEmailCreds identifier
+          maid <-
+              case ( mecreds >>= emailCredsAuthId
+                   , emailCredsEmail <$> mecreds
+                   , emailCredsStatus <$> mecreds
+                   ) of
+                (Just aid, Just email, Just True) -> do
+                       mrealpass <- lift $ getPassword aid
+                       case mrealpass of
+                         Nothing -> return Nothing
+                         Just realpass -> return $ if isValidPass pass realpass
+                                                   then Just email
+                                                   else Nothing
+                _ -> return Nothing
+          let isEmail = Text.Email.Validate.isValid $ encodeUtf8 identifier
+          case maid of
+            Just email ->
+                lift $ setCredsRedirect $ Creds
+                         (if isEmail then "email" else "username")
+                         email
+                         [("verifiedEmail", email)]
+            Nothing ->
+                loginErrorMessageI LoginR $
+                                   if isEmail
+                                   then Msg.InvalidEmailPass
+                                   else Msg.InvalidUsernamePass
 
 getPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
 getPasswordR = do
