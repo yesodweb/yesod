@@ -1,3 +1,7 @@
+## 1.5.4.1
+
+* Compilation fix for GHC 7.8
+
 ## 1.5.4
 
 * yesod-test: add getLocation test helper. [#1314](https://github.com/yesodweb/yesod/pull/1314)
