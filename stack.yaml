@@ -29,3 +29,4 @@ extra-deps:
 - typed-process-0.1.0.0
 - say-0.1.0.0
 - safe-exceptions-0.1.4.0
+- blaze-markup-0.7.1.0
