@@ -1,4 +1,4 @@
-## 1.4.14.1
+## 1.4.15
 
 * Add JSON endpoints to Yesod.Auth.Email module
 * Export croatianMessage from Message module
