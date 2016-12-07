@@ -399,13 +399,14 @@ registerHelper allowUsername dest = do
     y <- lift getYesod
     checkCsrfHeaderOrParam defaultCsrfHeaderName defaultCsrfParamName
     pidentifier <- lookupPostParam "email"
-    (jidentifier :: Result Value) <- lift parseJsonBody
-    let midentifier = case pidentifier of
-                        Nothing -> case jidentifier of
-                                     Error _ -> Nothing
-                                     Success val -> parseMaybe parseEmail val
-                        Just _ -> pidentifier
-
+    midentifier <- case pidentifier of
+                     Nothing -> do
+                       (jidentifier :: Result Value) <- lift parseJsonBody                                     
+                       case jidentifier of
+                         Error _ -> return Nothing
+                         Success val -> return $ parseMaybe parseEmail val
+                     Just _ -> return pidentifier
+                                  
     let eidentifier = case midentifier of
                           Nothing -> Left Msg.NoIdentifierProvided
                           Just x
@@ -531,12 +532,14 @@ postLoginR = do
     result <- lift $ runInputPostResult $ (,)
         <$> ireq textField "email"
         <*> ireq textField "password"
-    (creds :: Result Value) <- lift parseJsonBody
-    let midentifier = case result of
-                        FormSuccess (iden, pass) -> Just (iden, pass)
-                        _ -> case creds of
-                               Error _ -> Nothing
-                               Success val -> parseMaybe parseCreds val
+    
+    midentifier <- case result of
+                     FormSuccess (iden, pass) -> return $ Just (iden, pass)
+                     _ -> do
+                       (creds :: Result Value) <- lift parseJsonBody
+                       case creds of
+                         Error _ -> return Nothing
+                         Success val -> return $ parseMaybe parseCreds val
                                               
     case midentifier of
       Nothing -> loginErrorMessageI LoginR Msg.NoIdentifierProvided
