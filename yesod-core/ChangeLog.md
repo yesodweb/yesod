@@ -1,3 +1,7 @@
+## 1.4.29
+
+* Exports some internals and fix version bounds [#1318](https://github.com/yesodweb/yesod/pull/1318)
+
 ## 1.4.28
 
 * Add ToWidget instances for strict text, lazy text, and text builder [#1310](https://github.com/yesodweb/yesod/pull/1310)
