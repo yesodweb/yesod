@@ -17,6 +17,8 @@ module Yesod.Core.Dispatch
     , mkYesodSubData
     , mkYesodDispatch
     , mkYesodSubDispatch
+      -- *** Helpers
+    , getGetMaxExpires
       -- ** Path pieces
     , PathPiece (..)
     , PathMultiPiece (..)
@@ -24,6 +26,7 @@ module Yesod.Core.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
+    , toWaiAppYre
     , warp
     , warpDebug
     , warpEnv
@@ -93,6 +96,11 @@ toWaiAppPlain site = do
             , yreGetMaxExpires = getMaxExpires
             }
 
+-- | Pure low level function to construct WAI application. Usefull
+-- when you need not standard way to run your app, or want to embed it
+-- inside another app.
+--
+-- @since 1.4.29
 toWaiAppYre :: YesodDispatch site => YesodRunnerEnv site -> W.Application
 toWaiAppYre yre req =
     case cleanPath site $ W.pathInfo req of
@@ -237,6 +245,10 @@ warpEnv site = do
                 Nothing -> error $ "warpEnv: invalid PORT environment variable: " ++ show portS
                 Just port -> warp port site
 
+-- | Default constructor for 'yreGetMaxExpires' field. Low level
+-- function for simple manual construction of 'YesodRunnerEnv'.
+--
+-- @since 1.4.29
 getGetMaxExpires :: IO (IO Text)
 getGetMaxExpires = mkAutoUpdate defaultUpdateSettings
   { updateAction = getCurrentMaxExpiresRFC1123
