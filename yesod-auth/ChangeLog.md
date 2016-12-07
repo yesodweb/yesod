@@ -1,6 +1,13 @@
+## 1.4.14.1
+
+* Add JSON endpoints to Yesod.Auth.Email module
+* Export croatianMessage from Message module
+* Minor Haddock rendering fixes at Auth.Email module
+
 ## 1.4.14
 
 * Remove Google OpenID link [#1309](https://github.com/yesodweb/yesod/pull/1309)
+* Add CSRF Security check in `registerHelperFunction` [#1302](https://github.com/yesodweb/yesod/pull/1302)
 
 ## 1.4.13.5
 
