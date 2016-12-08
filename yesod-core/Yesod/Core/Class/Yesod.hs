@@ -319,6 +319,19 @@ class RenderRoute site => Yesod site where
     yesodWithInternalState :: site -> Maybe (Route site) -> (InternalState -> IO a) -> IO a
     yesodWithInternalState _ _ = bracket createInternalState closeInternalState
     {-# INLINE yesodWithInternalState #-}
+
+    -- | Convert a title and HTML snippet into a 'Widget'. Used
+    -- primarily for wrapping up error messages for better display.
+    --
+    -- @since 1.4.30
+    defaultMessageWidget :: Html -> HtmlUrl (Route site) -> WidgetT site IO ()
+    defaultMessageWidget title body = do
+        setTitle title
+        toWidget
+            [hamlet|
+                <h1>#{title}
+                ^{body}
+            |]
 {-# DEPRECATED urlRenderOverride "Use urlParamRenderOverride instead" #-}
 
 -- | Default implementation of 'makeLogger'. Sends to stdout and
@@ -636,11 +649,7 @@ defaultErrorHandler NotFound = selectRep $ do
     provideRep $ defaultLayout $ do
         r <- waiRequest
         let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
-        setTitle "Not Found"
-        toWidget [hamlet|
-            <h1>Not Found
-            <p>#{path'}
-        |]
+        defaultMessageWidget "Not Found" [hamlet|<p>#{path'}|]
     provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
 
 -- For API requests.
@@ -648,12 +657,9 @@ defaultErrorHandler NotFound = selectRep $ do
 -- if you specify an authRoute the user will be redirected there and
 -- this page will not be shown.
 defaultErrorHandler NotAuthenticated = selectRep $ do
-    provideRep $ defaultLayout $ do
-        setTitle "Not logged in"
-        toWidget [hamlet|
-            <h1>Not logged in
-            <p style="display:none;">Set the authRoute and the user will be redirected there.
-        |]
+    provideRep $ defaultLayout $ defaultMessageWidget
+        "Not logged in"
+        [hamlet|<p style="display:none;">Set the authRoute and the user will be redirected there.|]
 
     provideRep $ do
         -- 401 *MUST* include a WWW-Authenticate header
@@ -670,20 +676,16 @@ defaultErrorHandler NotAuthenticated = selectRep $ do
         return $ object $ ("message" .= ("Not logged in"::Text)):content
 
 defaultErrorHandler (PermissionDenied msg) = selectRep $ do
-    provideRep $ defaultLayout $ do
-        setTitle "Permission Denied"
-        toWidget [hamlet|
-            <h1>Permission denied
-            <p>#{msg}
-        |]
+    provideRep $ defaultLayout $ defaultMessageWidget
+        "Permission Denied"
+        [hamlet|<p>#{msg}|]
     provideRep $
         return $ object ["message" .= ("Permission Denied. " <> msg)]
 
 defaultErrorHandler (InvalidArgs ia) = selectRep $ do
-    provideRep $ defaultLayout $ do
-        setTitle "Invalid Arguments"
-        toWidget [hamlet|
-            <h1>Invalid Arguments
+    provideRep $ defaultLayout $ defaultMessageWidget
+        "Invalid Arguments"
+        [hamlet|
             <ul>
                 $forall msg <- ia
                     <li>#{msg}
@@ -692,20 +694,14 @@ defaultErrorHandler (InvalidArgs ia) = selectRep $ do
 defaultErrorHandler (InternalError e) = do
     $logErrorS "yesod-core" e
     selectRep $ do
-        provideRep $ defaultLayout $ do
-            setTitle "Internal Server Error"
-            toWidget [hamlet|
-                <h1>Internal Server Error
-                <pre>#{e}
-            |]
+        provideRep $ defaultLayout $ defaultMessageWidget
+            "Internal Server Error"
+            [hamlet|<pre>#{e}|]
         provideRep $ return $ object ["message" .= ("Internal Server Error" :: Text), "error" .= e]
 defaultErrorHandler (BadMethod m) = selectRep $ do
-    provideRep $ defaultLayout $ do
-        setTitle"Bad Method"
-        toWidget [hamlet|
-            <h1>Method Not Supported
-            <p>Method <code>#{S8.unpack m}</code> not supported
-        |]
+    provideRep $ defaultLayout $ defaultMessageWidget
+        "Method Not Supported"
+        [hamlet|<p>Method <code>#{S8.unpack m}</code> not supported|]
     provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
 
 asyncHelper :: (url -> [x] -> Text)

@@ -1,3 +1,7 @@
+## 1.4.30
+
+* Add `defaultMessageWidget`
+
 ## 1.4.29
 
 * Exports some internals and fix version bounds [#1318](https://github.com/yesodweb/yesod/pull/1318)
