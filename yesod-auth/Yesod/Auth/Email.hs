@@ -28,6 +28,60 @@
 --     * logout and sign in
 --     * reset their password
 --
+-- = Using JSON Endpoints
+--
+-- We are assuming that you have declared auth route as follows
+-- 
+-- @
+--    /auth AuthR Auth getAuth
+-- @
+-- 
+-- If you are using a different route, then you have to adjust the
+-- endpoints accordingly.
+--
+--     * Registration
+-- 
+-- @
+--       Endpoint: \/auth\/page\/email\/register
+--       Method: POST
+--       JSON Data: { "email": "myemail@domain.com" }
+-- @
+-- 
+--     * Forgot password
+--  
+-- @
+--       Endpoint: \/auth\/page\/email\/forgot-password
+--       Method: POST
+--       JSON Data: { "email": "myemail@domain.com" }
+-- @
+--
+--     * Login
+--  
+-- @
+--       Endpoint: \/auth\/page\/email\/login
+--       Method: POST
+--       JSON Data: { 
+--                      "email": "myemail@domain.com",
+--                      "password": "myStrongPassword"
+--                  }
+-- @
+-- 
+--     * Set new password
+--
+-- @
+--       Endpoint: \/auth\/page\/email\/set-password
+--       Method: POST
+--       JSON Data: {
+--                       "new": "newPassword",
+--                       "confirm": "newPassword",
+--                       "current": "currentPassword"
+--                  }
+-- @
+--
+--  Note that in the set password endpoint, the presence of the key
+--  "current" is dependent on how the 'needOldPassword' is defined in
+--  the instance for 'YesodAuthEmail'.
+
 module Yesod.Auth.Email
     ( -- * Plugin
       authEmail
