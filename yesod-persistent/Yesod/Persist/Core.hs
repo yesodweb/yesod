@@ -168,9 +168,17 @@ getBy404 key = do
 -- | Create a new record in the database, returning an automatically
 -- created key, or raise a 400 bad request if a uniqueness constraint
 -- is violated.
-insert400 :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend record backend)
-          => record
-          -> ReaderT backend m (Key record)
+--
+-- @since 1.4.1
+#if MIN_VERSION_persistent(2,5,0)
+insert400 :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
+          => val
+          -> ReaderT backend m (Key val)
+#else
+insert400 :: (MonadIO m, PersistUniqueWrite (PersistEntityBackend val), PersistEntity val)
+          => val
+          -> ReaderT (PersistEntityBackend val) m (Key val)
+#endif
 insert400 datum = do
     conflict <- checkUnique datum
     case conflict of
@@ -179,9 +187,17 @@ insert400 datum = do
         Nothing -> insert datum
 
 -- | Same as 'insert400', but doesn’t return a key.
-insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend record backend)
-           => record
+--
+-- @since 1.4.1
+#if MIN_VERSION_persistent(2,5,0)
+insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
+           => val
            -> ReaderT backend m ()
+#else
+insert400_ :: (MonadIO m, PersistUniqueWrite (PersistEntityBackend val), PersistEntity val)
+           => val
+           -> ReaderT (PersistEntityBackend val) m ()
+#endif
 insert400_ datum = insert400 datum >> return ()
 
 -- | Should be equivalent to @lift . notFound@, but there's an apparent bug in
