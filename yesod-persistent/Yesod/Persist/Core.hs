@@ -18,6 +18,8 @@ module Yesod.Persist.Core
     , YesodDB
     , get404
     , getBy404
+    , insert400
+    , insert400_
     ) where
 
 import Database.Persist
@@ -163,7 +165,46 @@ getBy404 key = do
         Nothing -> notFound'
         Just res -> return res
 
+-- | Create a new record in the database, returning an automatically
+-- created key, or raise a 400 bad request if a uniqueness constraint
+-- is violated.
+--
+-- @since 1.4.1
+#if MIN_VERSION_persistent(2,5,0)
+insert400 :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
+          => val
+          -> ReaderT backend m (Key val)
+#else
+insert400 :: (MonadIO m, PersistUniqueWrite (PersistEntityBackend val), PersistEntity val)
+          => val
+          -> ReaderT (PersistEntityBackend val) m (Key val)
+#endif
+insert400 datum = do
+    conflict <- checkUnique datum
+    case conflict of
+        Just unique ->
+            badRequest' $ map (unHaskellName . fst) $ persistUniqueToFieldNames unique
+        Nothing -> insert datum
+
+-- | Same as 'insert400', but doesn’t return a key.
+--
+-- @since 1.4.1
+#if MIN_VERSION_persistent(2,5,0)
+insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val backend)
+           => val
+           -> ReaderT backend m ()
+#else
+insert400_ :: (MonadIO m, PersistUniqueWrite (PersistEntityBackend val), PersistEntity val)
+           => val
+           -> ReaderT (PersistEntityBackend val) m ()
+#endif
+insert400_ datum = insert400 datum >> return ()
+
 -- | Should be equivalent to @lift . notFound@, but there's an apparent bug in
 -- GHC 7.4.2 that leads to segfaults. This is a workaround.
 notFound' :: MonadIO m => m a
 notFound' = liftIO $ throwIO $ HCError NotFound
+
+-- | Constructed like 'notFound'', and for the same reasons.
+badRequest' :: MonadIO m => Texts -> m a
+badRequest' = liftIO . throwIO . HCError . InvalidArgs
