@@ -175,7 +175,7 @@ insert400 :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val ba
           => val
           -> ReaderT backend m (Key val)
 #else
-insert400 :: (MonadIO m, PersistUniqueWrite (PersistEntityBackend val), PersistEntity val)
+insert400 :: (MonadIO m, PersistUnique (PersistEntityBackend val), PersistEntity val)
           => val
           -> ReaderT (PersistEntityBackend val) m (Key val)
 #endif
@@ -194,7 +194,7 @@ insert400_ :: (MonadIO m, PersistUniqueWrite backend, PersistRecordBackend val b
            => val
            -> ReaderT backend m ()
 #else
-insert400_ :: (MonadIO m, PersistUniqueWrite (PersistEntityBackend val), PersistEntity val)
+insert400_ :: (MonadIO m, PersistUnique (PersistEntityBackend val), PersistEntity val)
            => val
            -> ReaderT (PersistEntityBackend val) m ()
 #endif
