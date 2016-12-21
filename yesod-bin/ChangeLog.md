@@ -1,3 +1,7 @@
+## 1.5.1
+
+* Add `--host` option to `yesod devel`
+
 ## 1.5.0.1
 
 * Fix build failure

@@ -44,8 +44,8 @@ import qualified Network.Socket
 import           Network.Wai                           (requestHeaderHost,
                                                         requestHeaders,
                                                         responseLBS)
-import           Network.Wai.Handler.Warp              (defaultSettings, run,
-                                                        setPort)
+import           Network.Wai.Handler.Warp              (defaultSettings, runSettings,
+                                                        setPort, setHost)
 import           Network.Wai.Handler.WarpTLS           (runTLS,
                                                         tlsSettingsMemory)
 import           Network.Wai.Parse                     (parseHttpAccept)
@@ -115,6 +115,7 @@ data DevelOpts = DevelOpts
       , develTlsPort    :: Int
       , proxyTimeout    :: Int
       , useReverseProxy :: Bool
+      , develHost       :: Maybe String
       } deriving (Show, Eq)
 
 -- | Run a reverse proxy from the develPort and develTlsPort ports to
@@ -151,11 +152,12 @@ reverseProxy opts appPortVar = do
                             else Just (1000000 * proxyTimeout opts)
                     }
                 manager
+        defaultSettings' = maybe id (setHost . fromString) (develHost opts) defaultSettings
         runProxyTls port app = do
           let cert = $(embedFile "certificate.pem")
               key = $(embedFile "key.pem")
               tlsSettings = tlsSettingsMemory cert key
-          runTLS tlsSettings (setPort port defaultSettings) $ \req send -> do
+          runTLS tlsSettings (setPort port defaultSettings') $ \req send -> do
             let req' = req
                     { requestHeaders
                         = ("X-Forwarded-Proto", "https")
@@ -173,7 +175,7 @@ reverseProxy opts appPortVar = do
                           (requestHeaders req)
                     }
             app req' send
-        httpProxy = run (develPort opts) proxyApp
+        httpProxy = runSettings (setPort (develPort opts) defaultSettings') proxyApp
         httpsProxy = runProxyTls (develTlsPort opts) proxyApp
     say "Application can be accessed at:\n"
     sayString $ "http://localhost:" ++ show (develPort opts)

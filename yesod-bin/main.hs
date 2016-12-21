@@ -54,6 +54,7 @@ data Command = Init [String]
                      , develTlsPort     :: Int
                      , proxyTimeout     :: Int
                      , noReverseProxy   :: Bool
+                     , develHost        :: Maybe String
                      }
              | DevelSignal
              | Test
@@ -108,6 +109,7 @@ main = do
                              , develTlsPort = develTlsPort
                              , proxyTimeout = proxyTimeout
                              , useReverseProxy = not noReverseProxy
+                             , develHost    = develHost
                              } develExtraArgs
     DevelSignal     -> develSignal
   where
@@ -189,6 +191,8 @@ develOptions = Devel <$> optStr ( long "success-hook" <> short 's' <> metavar "C
                             <> help "Devel server timeout before returning 'not ready' message (in seconds, 0 for none)" )
                      <*> switch ( long "disable-reverse-proxy" <> short 'n'
                             <> help "Disable reverse proxy" )
+                     <*> optStr (long "host" <> metavar "HOST"
+                            <> help "Host interface to bind to; IP address, '*' for all interfaces, '*4' for IP4, '*6' for IP6")
 
 extraStackArgs :: Parser [String]
 extraStackArgs = many (strOption ( long "extra-stack-arg" <> short 'e' <> metavar "ARG"
