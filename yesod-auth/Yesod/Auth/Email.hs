@@ -238,7 +238,7 @@ class ( YesodAuth site
     -- | Generate a random alphanumeric string.
     --
     -- @since 1.1.0
-    randomKey :: site -> IO Text
+    randomKey :: site -> IO VerKey
     randomKey _ = Nonce.nonce128urlT defaultNonceGen
 
     -- | Route to send user to after password has been set correctly.
