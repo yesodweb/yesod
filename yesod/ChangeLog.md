@@ -1,3 +1,7 @@
+## 1.4.4
+
+* Reduce dependencies
+
 ## 1.4.3.1
 
 *  Handle exceptions while writing a file in `addStaticContentExternal`

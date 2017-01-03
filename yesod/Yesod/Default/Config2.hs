@@ -38,7 +38,7 @@ import qualified Data.HashMap.Strict as H
 import System.Environment (getEnvironment)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
-import Safe (readMay)
+import Text.Read (readMaybe)
 import Data.Maybe (fromMaybe)
 import Control.Concurrent (forkIO, threadDelay)
 import System.Exit (exitSuccess)
@@ -96,8 +96,8 @@ configSettingsYml = "config/settings.yml"
 getDevSettings :: Settings -> IO Settings
 getDevSettings settings = do
     env <- getEnvironment
-    let p = fromMaybe (getPort settings) $ lookup "PORT" env >>= readMay
-        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMay
+    let p = fromMaybe (getPort settings) $ lookup "PORT" env >>= readMaybe
+        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMaybe
     putStrLn $ "Devel application launched: http://localhost:" ++ show pdisplay
     return $ setPort p settings
 

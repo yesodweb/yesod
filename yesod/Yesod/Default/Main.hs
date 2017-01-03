@@ -22,7 +22,7 @@ import Network.Wai.Middleware.Jsonp (jsonp)
 import Control.Monad (when)
 import System.Environment (getEnvironment)
 import Data.Maybe (fromMaybe)
-import Safe (readMay)
+import Text.Read (readMaybe)
 import Control.Monad.Logger (Loc, LogSource, LogLevel (LevelError), liftLoc)
 import System.Log.FastLogger (LogStr, toLogStr)
 import Language.Haskell.TH.Syntax (qLocation)
@@ -120,8 +120,8 @@ defaultDevelApp
 defaultDevelApp load getApp = do
     conf   <- load
     env <- getEnvironment
-    let p = fromMaybe (appPort conf) $ lookup "PORT" env >>= readMay
-        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMay
+    let p = fromMaybe (appPort conf) $ lookup "PORT" env >>= readMaybe
+        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMaybe
     putStrLn $ "Devel application launched: http://localhost:" ++ show pdisplay
     app <- getApp conf
     return (p, app)

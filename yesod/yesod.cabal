@@ -1,5 +1,5 @@
 name:            yesod
-version:         1.4.3.1
+version:         1.4.4
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -17,9 +17,8 @@ library
     if os(windows)
         cpp-options: -DWINDOWS
 
-    build-depends:   base                      >= 4.3      && < 5
+    build-depends:   base                      >= 4.6      && < 5
                    , yesod-core                >= 1.4      && < 1.5
-                   , yesod-auth                >= 1.4      && < 1.5
                    , yesod-persistent          >= 1.4      && < 1.5
                    , yesod-form                >= 1.4      && < 1.5
                    , monad-control             >= 0.3      && < 1.1
@@ -30,8 +29,7 @@ library
                    , blaze-html                >= 0.5
                    , blaze-markup              >= 0.5.1
                    , aeson
-                   , safe
-                   , data-default
+                   , data-default-class
                    , unordered-containers
                    , yaml                      >= 0.8.17
                    , text
