@@ -12,7 +12,7 @@
 sudo: false
 
 # Choose a lightweight base image; we provide our own build tools.
-language: c
+language: generic
 
 # Caching so the next build will be fast too.
 cache:
