@@ -46,7 +46,9 @@ mkRouteCons rttypes =
 
     mkRouteCon (ResourceParent name _check pieces children) = do
         (cons, decs) <- mkRouteCons children
-#if MIN_VERSION_template_haskell(2,11,0)
+#if MIN_VERSION_template_haskell(2,12,0)
+        dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT [''Show, ''Read, ''Eq])
+#elif MIN_VERSION_template_haskell(2,11,0)
         dec <- DataD [] (mkName name) [] Nothing cons <$> mapM conT [''Show, ''Read, ''Eq]
 #else
         let dec = DataD [] (mkName name) [] cons [''Show, ''Read, ''Eq]
@@ -153,7 +155,9 @@ mkRenderRouteInstance' :: Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
 mkRenderRouteInstance' cxt typ ress = do
     cls <- mkRenderRouteClauses ress
     (cons, decs) <- mkRouteCons ress
-#if MIN_VERSION_template_haskell(2,11,0)
+#if MIN_VERSION_template_haskell(2,12,0)
+    did <- DataInstD [] ''Route [typ] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT clazzes)
+#elif MIN_VERSION_template_haskell(2,11,0)
     did <- DataInstD [] ''Route [typ] Nothing cons <$> mapM conT clazzes
 #else
     let did = DataInstD [] ''Route [typ] cons clazzes
