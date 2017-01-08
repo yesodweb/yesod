@@ -47,7 +47,7 @@ library
                    , case-insensitive      >= 0.2
                    , parsec                >= 2        && < 3.2
                    , directory             >= 1
-                   , vector                >= 0.9      && < 0.12
+                   , vector                >= 0.9      && < 0.13
                    , aeson                 >= 0.5
                    , fast-logger           >= 2.2
                    , wai-logger            >= 0.2
