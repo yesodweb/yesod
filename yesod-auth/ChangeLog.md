@@ -1,3 +1,8 @@
+## 1.4.15.1
+
+* Document JSON endpoints of Yesod.Auth.Email
+* Add Show instance for user credentials `Creds`
+
 ## 1.4.15
 
 * Add JSON endpoints to Yesod.Auth.Email module
