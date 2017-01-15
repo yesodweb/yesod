@@ -18,7 +18,7 @@ module Yesod.Core
     , Approot (..)
     , FileUpload (..)
     , ErrorResponse (..)
-      -- * Utitlities
+      -- * Utilities
     , maybeAuthorized
     , widgetToPageContent
       -- * Defaults
