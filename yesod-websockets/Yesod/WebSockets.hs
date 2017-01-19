@@ -6,6 +6,8 @@ module Yesod.WebSockets
       WebSocketsT
     , webSockets
     , webSocketsWith
+    , webSocketsOptions
+    , webSocketsOptionsWith
     , receiveData
     , receiveDataE
     , receiveDataMessageE
@@ -27,6 +29,9 @@ module Yesod.WebSockets
     , race_
     , concurrently
     , concurrently_
+      -- * Re-exports from websockets
+    , WS.defaultConnectionOptions
+    , WS.ConnectionOptions (..)
     ) where
 
 import qualified Control.Concurrent.Async       as A
@@ -56,10 +61,20 @@ type WebSocketsT = ReaderT WS.Connection
 --
 -- Since 0.1.0
 webSockets :: (Y.MonadBaseControl IO m, Y.MonadHandler m) => WebSocketsT m () -> m ()
+webSockets = webSocketsOptions WS.defaultConnectionOptions
+
+-- | Varient of 'webSockets' which allows you to specify
+-- the WS.ConnectionOptions setttings when upgrading to a websocket connection.
+--
+-- Since 0.2.5
+webSocketsOptions :: (Y.MonadBaseControl IO m, Y.MonadHandler m)
+               => WS.ConnectionOptions
+               -> WebSocketsT m ()
+               -> m ()
 #if MIN_VERSION_websockets(0,10,0)
-webSockets = webSocketsWith $ const $ return $ Just $ WS.AcceptRequest Nothing []
+webSocketsOptions opts = webSocketsOptionsWith opts $ const $ return $ Just $ WS.AcceptRequest Nothing []
 #else
-webSockets = webSocketsWith $ const $ return $ Just $ WS.AcceptRequest Nothing
+webSocketsOptions opts = webSocketsOptionsWith opts $ const $ return $ Just $ WS.AcceptRequest Nothing
 #endif
 
 -- | Varient of 'webSockets' which allows you to specify the 'WS.AcceptRequest'
@@ -76,17 +91,36 @@ webSocketsWith :: (Y.MonadBaseControl IO m, Y.MonadHandler m)
                -- actions such as 'Y.invalidArgs'.
                -> WebSocketsT m ()
                -> m ()
-webSocketsWith buildAr inner = do
+webSocketsWith = webSocketsOptionsWith WS.defaultConnectionOptions
+
+-- | Varient of 'webSockets' which allows you to specify both
+-- the WS.ConnectionOptions and the 'WS.AcceptRequest'
+-- setttings when upgrading to a websocket connection.
+--
+-- Since 0.2.5
+webSocketsOptionsWith :: (Y.MonadBaseControl IO m, Y.MonadHandler m)
+               => WS.ConnectionOptions
+               -- ^ Custom websockets options
+               -> (WS.RequestHead -> m (Maybe WS.AcceptRequest))
+               -- ^ A Nothing indicates that the websocket upgrade request should not happen
+               -- and instead the rest of the handler will be called instead.  This allows
+               -- you to use 'WS.getRequestSubprotocols' and only accept the request if
+               -- a compatible subprotocol is given.  Also, the action runs before upgrading
+               -- the request to websockets, so you can also use short-circuiting handler
+               -- actions such as 'Y.invalidArgs'.
+               -> WebSocketsT m ()
+               -> m ()
+webSocketsOptionsWith wsConnOpts buildAr inner = do
     req <- Y.waiRequest
     when (WaiWS.isWebSocketsReq req) $ do
         let rhead = WaiWS.getRequestHead req
         mar <- buildAr rhead
         case mar of
             Nothing -> return ()
-            Just ar -> do
+            Just ar ->
                 Y.sendRawResponseNoConduit
                   $ \src sink -> control $ \runInIO -> WaiWS.runWebSockets
-                    WS.defaultConnectionOptions
+                    wsConnOpts
                     rhead
                     (\pconn -> do
                         conn <- WS.acceptRequestWith pconn ar
