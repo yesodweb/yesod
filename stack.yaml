@@ -2,6 +2,7 @@ resolver: lts-6.23
 packages:
   - ./yesod-core
   - ./yesod-static
+  - ./yesod-sibi
   - ./yesod-persistent
   - ./yesod-newsfeed
   - ./yesod-form

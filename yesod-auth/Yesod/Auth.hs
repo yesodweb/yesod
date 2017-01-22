@@ -105,7 +105,7 @@ data Creds master = Creds
     { credsPlugin :: Text -- ^ How the user was authenticated
     , credsIdent :: Text -- ^ Identifier. Exact meaning depends on plugin.
     , credsExtra :: [(Text, Text)]
-    }
+    } deriving (Show)
 
 class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage) => YesodAuth master where
     type AuthId master

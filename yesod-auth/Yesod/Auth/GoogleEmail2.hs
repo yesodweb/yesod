@@ -96,8 +96,9 @@ import           System.IO.Unsafe         (unsafePerformIO)
 pid :: Text
 pid = "googleemail2"
 
-forwardUrl :: AuthRoute
-forwardUrl = PluginR pid ["forward"]
+forwardUrl :: Text -- ^ Client Id
+           -> AuthRoute
+forwardUrl cid = PluginR pid ["forward", cid]
 
 csrfKey :: Text
 csrfKey = "_GOOGLE_CSRF_TOKEN"
@@ -152,16 +153,17 @@ authPlugin storeToken clientID clientSecret =
 
     getDest :: MonadHandler m
             => (Route Auth -> Route (HandlerSite m))
+            -> Text
             -> m Text
-    getDest tm = do
+    getDest tm cid = do
         csrf <- getCreateCsrfToken
         render <- getUrlRender
         let qs = map (second Just)
                 [ ("scope", "email profile")
                 , ("state", csrf)
-                , ("redirect_uri", render $ tm complete)
+                , ("redirect_uri", render $ tm complete )
                 , ("response_type", "code")
-                , ("client_id", clientID)
+                , ("client_id", cid)
                 , ("access_type", "offline")
                 ]
         return $ decodeUtf8
@@ -170,15 +172,15 @@ authPlugin storeToken clientID clientSecret =
                     `mappend` renderQueryText True qs
 
     login tm = do
-        [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
+        [whamlet|<a href=@{tm (forwardUrl clientID)}>_{Msg.LoginGoogle}|]
 
     dispatch :: YesodAuth site
              => Text
              -> [Text]
              -> HandlerT Auth (HandlerT site IO) TypedContent
-    dispatch "GET" ["forward"] = do
+    dispatch "GET" ["forward", cid] = do
         tm <- getRouteToParent
-        lift (getDest tm) >>= redirect
+        lift (getDest tm cid) >>= redirect
 
     dispatch "GET" ["complete"] = do
         mstate <- lookupGetParam "state"
@@ -239,7 +241,7 @@ authPlugin storeToken clientID clientSecret =
                 [e] -> return e
                 [] -> error "No account email"
                 x -> error $ "Too many account emails: " ++ show x
-        lift $ setCredsRedirect $ Creds pid email $ allPersonInfo personValue
+        lift $ setCredsRedirect $ Creds pid email (("auth_client_id", clientID):allPersonInfo personValue)
 
     dispatch _ _ = notFound
 
