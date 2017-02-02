@@ -455,12 +455,11 @@ registerHelper allowUsername dest = do
     pidentifier <- lookupPostParam "email"
     midentifier <- case pidentifier of
                      Nothing -> do
-                       (jidentifier :: Result Value) <- lift parseJsonBody                                     
+                       (jidentifier :: Result Value) <- lift parseJsonBody
                        case jidentifier of
                          Error _ -> return Nothing
                          Success val -> return $ parseMaybe parseEmail val
                      Just _ -> return pidentifier
-                                  
     let eidentifier = case midentifier of
                           Nothing -> Left Msg.NoIdentifierProvided
                           Just x
@@ -586,7 +585,7 @@ postLoginR = do
     result <- lift $ runInputPostResult $ (,)
         <$> ireq textField "email"
         <*> ireq textField "password"
-    
+
     midentifier <- case result of
                      FormSuccess (iden, pass) -> return $ Just (iden, pass)
                      _ -> do
@@ -594,7 +593,7 @@ postLoginR = do
                        case creds of
                          Error _ -> return Nothing
                          Success val -> return $ parseMaybe parseCreds val
-                                              
+
     case midentifier of
       Nothing -> loginErrorMessageI LoginR Msg.NoIdentifierProvided
       Just (identifier, pass) -> do
