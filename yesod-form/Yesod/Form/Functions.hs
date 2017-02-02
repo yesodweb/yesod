@@ -62,7 +62,7 @@ import Yesod.Core
 import Yesod.Core.Handler (defaultCsrfParamName)
 import Network.Wai (requestMethod)
 import Text.Hamlet (shamlet)
-import Data.Monoid (mempty)
+import Data.Monoid (mempty, (<>))
 import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
@@ -336,13 +336,13 @@ identifyForm identVal form = \fragment -> do
     -- Create hidden <input>.
     let fragment' =
           [shamlet|
-            <input type=hidden name=#{identifyFormKey} value=#{identVal}>
+            <input type=hidden name=#{identifyFormKey} value=identify-#{identVal}>
             #{fragment}
           |]
 
     -- Check if we got its value back.
     mp <- askParams
-    let missing = (mp >>= Map.lookup identifyFormKey) /= Just [identVal]
+    let missing = (mp >>= Map.lookup identifyFormKey) /= Just ["identify-" <> identVal]
 
     -- Run the form proper (with our hidden <input>).  If the
     -- data is missing, then do not provide any params to the
@@ -350,7 +350,11 @@ identifyForm identVal form = \fragment -> do
     -- doing this avoids having lots of fields with red errors.
     let eraseParams | missing   = local (\(_, h, l) -> (Nothing, h, l))
                     | otherwise = id
-    eraseParams (form fragment')
+    ( res', w) <- eraseParams (form fragment')
+
+    -- Empty forms now properly return FormMissing. [#1072](https://github.com/yesodweb/yesod/issues/1072)
+    let res = if missing then FormMissing else res'
+    return ( res, w)
 
 identifyFormKey :: Text
 identifyFormKey = "_formid"
