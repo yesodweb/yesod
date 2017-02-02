@@ -1,3 +1,7 @@
+## 1.4.16
+
+* Fix email provider [#1330](https://github.com/yesodweb/yesod/issues/1330)
+
 ## 1.4.15
 
 * Add JSON endpoints to Yesod.Auth.Email module

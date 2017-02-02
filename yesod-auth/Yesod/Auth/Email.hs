@@ -455,7 +455,7 @@ registerHelper allowUsername dest = do
     pidentifier <- lookupPostParam "email"
     midentifier <- case pidentifier of
                      Nothing -> do
-                       (jidentifier :: Result Value) <- lift parseJsonBody
+                       (jidentifier :: Result Value) <- lift parseCheckJsonBody
                        case jidentifier of
                          Error _ -> return Nothing
                          Success val -> return $ parseMaybe parseEmail val
@@ -589,7 +589,7 @@ postLoginR = do
     midentifier <- case result of
                      FormSuccess (iden, pass) -> return $ Just (iden, pass)
                      _ -> do
-                       (creds :: Result Value) <- lift parseJsonBody
+                       (creds :: Result Value) <- lift parseCheckJsonBody
                        case creds of
                          Error _ -> return Nothing
                          Success val -> return $ parseMaybe parseCreds val
@@ -718,7 +718,7 @@ parsePassword = withObject "password" (\obj -> do
 postPasswordR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) TypedContent
 postPasswordR = do
     maid <- lift maybeAuthId
-    (creds :: Result Value) <- lift parseJsonBody
+    (creds :: Result Value) <- lift parseCheckJsonBody
     let jcreds = case creds of
                    Error _ -> Nothing
                    Success val -> parseMaybe parsePassword val

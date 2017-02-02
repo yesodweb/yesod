@@ -1,3 +1,7 @@
+## 1.4.31
+
+* Add `parseCheckJsonBody` and `requireCheckJsonBody`
+
 ## 1.4.30
 
 * Add `defaultMessageWidget`

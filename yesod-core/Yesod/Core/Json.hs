@@ -13,8 +13,10 @@ module Yesod.Core.Json
 
       -- * Convert to a JSON value
     , parseJsonBody
+    , parseCheckJsonBody
     , parseJsonBody_
     , requireJsonBody
+    , requireCheckJsonBody
 
       -- * Produce JSON values
     , J.Value (..)
@@ -33,7 +35,7 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep)
+import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep, lookupHeader)
 import Control.Monad.Trans.Writer (Writer)
 import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
@@ -121,6 +123,15 @@ parseJsonBody = do
         Left e -> J.Error $ show e
         Right value -> J.fromJSON value
 
+-- | Same as 'parseJsonBody', but ensures that the mime type indicates
+-- JSON content.
+parseCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m (J.Result a)
+parseCheckJsonBody = do
+    mct <- lookupHeader "content-type"
+    case fmap (B8.takeWhile (/= ';')) mct of
+        Just "application/json" -> parseJsonBody
+        _ -> return $ J.Error $ "Non-JSON content type: " ++ show mct
+
 -- | Same as 'parseJsonBody', but return an invalid args response on a parse
 -- error.
 parseJsonBody_ :: (MonadHandler m, J.FromJSON a) => m a
@@ -132,6 +143,15 @@ parseJsonBody_ = requireJsonBody
 requireJsonBody :: (MonadHandler m, J.FromJSON a) => m a
 requireJsonBody = do
     ra <- parseJsonBody
+    case ra of
+        J.Error s -> invalidArgs [pack s]
+        J.Success a -> return a
+
+-- | Same as 'requireJsonBody', but ensures that the mime type
+-- indicates JSON content.
+requireCheckJsonBody :: (MonadHandler m, J.FromJSON a) => m a
+requireCheckJsonBody = do
+    ra <- parseCheckJsonBody
     case ra of
         J.Error s -> invalidArgs [pack s]
         J.Success a -> return a
