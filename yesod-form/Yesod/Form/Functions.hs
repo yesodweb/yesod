@@ -352,6 +352,7 @@ identifyForm identVal form = \fragment -> do
                     | otherwise = id
     ( res', w) <- eraseParams (form fragment')
 
+    -- Empty forms now properly return FormMissing. [#1072](https://github.com/yesodweb/yesod/issues/1072)
     let res = if missing then FormMissing else res'
     return ( res, w)
 

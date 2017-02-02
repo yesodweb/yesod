@@ -1,3 +1,7 @@
+## 1.4.10
+
+* Fixed `identifyForm` to properly return `FormMissing` for empty forms. [#1072](https://github.com/yesodweb/yesod/issues/1072)
+
 ## 1.4.9
 
 * Added a `ToValue` instance for `Enctype` [#1296](https://github.com/yesodweb/yesod/pull/1296)
