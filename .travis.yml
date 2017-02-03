@@ -175,7 +175,13 @@ script:
   set -ex
   case "$BUILD" in
     stack)
-      stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
+      if [ `uname` = "Darwin" ]
+      then
+        # Use slightly less intensive options on OS X due to Travis timeouts
+        stack --no-terminal $ARGS test --fast
+      else
+        stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
+      fi
       ;;
     cabal)
       cabal install --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 $CABALARGS $PACKAGES
