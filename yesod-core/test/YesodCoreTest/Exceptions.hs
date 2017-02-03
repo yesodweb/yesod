@@ -1,7 +1,11 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module YesodCoreTest.Exceptions (exceptionsTest, Widget) where
+module YesodCoreTest.Exceptions
+    ( exceptionsTest
+    , Widget
+    , resourcesY
+    ) where
 
 import Test.Hspec
 

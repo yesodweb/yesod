@@ -51,28 +51,28 @@ instance Functor FormResult where
     fmap _ FormMissing = FormMissing
     fmap _ (FormFailure errs) = FormFailure errs
     fmap f (FormSuccess a) = FormSuccess $ f a
-instance Applicative FormResult where
+instance Control.Applicative.Applicative FormResult where
     pure = FormSuccess
     (FormSuccess f) <*> (FormSuccess g) = FormSuccess $ f g
     (FormFailure x) <*> (FormFailure y) = FormFailure $ x ++ y
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
-instance Monoid m => Monoid (FormResult m) where
+instance Data.Monoid.Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
     mappend x y = mappend <$> x <*> y
 instance Semigroup m => Semigroup (FormResult m) where
-    x <> y = (<>) <$> x <*> y
+    x <> y = (<>) Control.Applicative.<$> x <*> y
 
 -- | @since 1.4.5
-instance Foldable FormResult where
+instance Data.Foldable.Foldable FormResult where
     foldMap f r = case r of
       FormSuccess a -> f a
-      FormFailure errs -> mempty
+      FormFailure _errs -> mempty
       FormMissing -> mempty
 
 -- | @since 1.4.5
-instance Traversable FormResult where
+instance Data.Traversable.Traversable FormResult where
     traverse f r = case r of
       FormSuccess a -> fmap FormSuccess (f a)
       FormFailure errs -> pure (FormFailure errs)

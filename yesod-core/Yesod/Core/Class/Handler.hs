@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- Because of ErrorT
 module Yesod.Core.Class.Handler
     ( MonadHandler (..)
     , MonadWidget (..)

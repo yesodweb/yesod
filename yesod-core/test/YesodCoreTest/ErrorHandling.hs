@@ -4,6 +4,7 @@
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
     , Widget
+    , resourcesApp
     ) where
 import Yesod.Core
 import Test.Hspec
@@ -98,7 +99,7 @@ getFileBadNameR :: Handler TypedContent
 getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
 
 goodBuilderContent :: Builder
-goodBuilderContent = mconcat $ replicate 100 $ fromByteString "This is a test\n"
+goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ fromByteString "This is a test\n"
 
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent
@@ -114,6 +115,7 @@ getErrorR 7 = setLanguage undefined
 getErrorR 8 = cacheSeconds undefined
 getErrorR 9 = setUltDest (undefined :: Text)
 getErrorR 10 = setMessage undefined
+getErrorR x = error $ "getErrorR: " ++ show x
 
 errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling" $ do

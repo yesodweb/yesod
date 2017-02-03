@@ -163,7 +163,7 @@ pbkdf2 password (SaltBS salt) c =
     let hLen = 32
         dkLen = hLen in go hLen dkLen
   where
-    go hLen dkLen | dkLen > (2^32 - 1) * hLen = error "Derived key too long."
+    go hLen dkLen | dkLen > (2^(32 :: Int) - 1) * hLen = error "Derived key too long."
                   | otherwise =
                       let !l = ceiling ((fromIntegral dkLen / fromIntegral hLen) :: Double)
                           !r = dkLen - (l - 1) * hLen
@@ -412,18 +412,4 @@ modifySTRef' ref f = do
     x <- readSTRef ref
     let x' = f x
     x' `seq` writeSTRef ref x'
-#endif
-
-#if MIN_VERSION_bytestring(0, 10, 0)
-toStrict :: BL.ByteString -> BS.ByteString
-toStrict = BL.toStrict
-
-fromStrict :: BS.ByteString -> BL.ByteString
-fromStrict = BL.fromStrict
-#else
-toStrict :: BL.ByteString -> BS.ByteString
-toStrict = BS.concat . BL.toChunks
-
-fromStrict :: BS.ByteString -> BL.ByteString
-fromStrict = BL.fromChunks . return
 #endif

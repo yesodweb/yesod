@@ -126,7 +126,7 @@ fixme eithers =
     (res, xmls, map snd rest)
   where
     (xmls, rest) = partitionEithers eithers
-    res = sequenceA $ map fst rest
+    res = Data.Traversable.sequenceA $ map fst rest
 
 massDivs, massTable
          :: [[FieldView site]]

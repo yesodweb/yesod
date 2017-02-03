@@ -78,6 +78,17 @@ test-suite tests
     main-is: tests.hs
     type: exitcode-stdio-1.0
     cpp-options:   -DTEST_EXPORT
+    other-modules:   EmbedDevelTest
+                     EmbedProductionTest
+                     EmbedTestGenerator
+                     FileGeneratorTests
+                     GeneratorTestUtil
+                     Yesod.EmbeddedStatic
+                     Yesod.EmbeddedStatic.Generators
+                     Yesod.EmbeddedStatic.Internal
+                     Yesod.EmbeddedStatic.Types
+                     Yesod.Static
+                     YesodStaticTest
     build-depends:   base
                    , hspec >= 1.3
                    , yesod-test >= 1.4

@@ -132,6 +132,7 @@ import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import qualified Control.Monad.Trans.State as ST
 import Control.Monad.IO.Class
 import System.IO
+import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
 import Yesod.Core
 import qualified Data.Text.Lazy as TL
@@ -678,7 +679,7 @@ addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
 getRequestCookies :: RequestBuilder site Cookies
 getRequestCookies = do
   requestBuilderData <- ST.get
-  headers <- case simpleHeaders <$> rbdResponse requestBuilderData of
+  headers <- case simpleHeaders Control.Applicative.<$> rbdResponse requestBuilderData of
                   Just h -> return h
                   Nothing -> failure "getRequestCookies: No request has been made yet; the cookies can't be looked up."
 
@@ -802,7 +803,7 @@ setUrl :: (Yesod site, RedirectUrl site url)
        -> RequestBuilder site ()
 setUrl url' = do
     site <- fmap rbdSite ST.get
-    eurl <- runFakeHandler
+    eurl <- Yesod.Core.Unsafe.runFakeHandler
         M.empty
         (const $ error "Yesod.Test: No logger available")
         site

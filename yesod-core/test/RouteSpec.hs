@@ -118,7 +118,7 @@ instance Dispatcher MySub master where
         route = MySubRoute (pieces, [])
 
 instance Dispatcher MySubParam master where
-    dispatcher env (pieces, method) =
+    dispatcher env (pieces, _method) =
         case map unpack pieces of
             [[c]] ->
                 let route = ParamRoute c
@@ -234,56 +234,65 @@ main = hspec $ do
 
     describe "overlap checking" $ do
         it "catches overlapping statics" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /foo Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping dynamics" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /#Int Foo1
 /#String Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping statics and dynamics" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /#String Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping multi" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /##*Strings Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping subsite" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /foo Foo2 Subsite getSubsite
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "no false positives" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /bar/#String Foo2
 |]
             findOverlapNames routes @?= []
         it "obeys ignore rules" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /#!String Foo2
 /!foo Foo3
 |]
             findOverlapNames routes @?= []
         it "obeys multipiece ignore rules #779" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /+![String] Foo2
 |]
             findOverlapNames routes @?= []
         it "ignore rules for entire route #779" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 !/+[String] Foo2
 !/#String Foo3
@@ -291,7 +300,8 @@ main = hspec $ do
 |]
             findOverlapNames routes @?= []
         it "ignore rules for hierarchy" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /+[String] Foo1
 !/foo Foo2:
     /foo Foo3

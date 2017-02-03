@@ -1,7 +1,11 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
 {-# LANGUAGE OverloadedStrings #-} -- the module name is a lie!!!
-module YesodCoreTest.NoOverloadedStrings (noOverloadedTest, Widget) where
+module YesodCoreTest.NoOverloadedStrings
+    ( noOverloadedTest
+    , Widget
+    , resourcesY
+    ) where
 
 import Test.Hspec
 import YesodCoreTest.NoOverloadedStringsSub
@@ -60,7 +64,7 @@ runner f = toWaiApp Y >>= runSession f
 case_sanity :: IO ()
 case_sanity = runner $ do
     res <- request defaultRequest
-    assertBody mempty res
+    assertBody Data.Monoid.mempty res
 
 case_subsite :: IO ()
 case_subsite = runner $ do

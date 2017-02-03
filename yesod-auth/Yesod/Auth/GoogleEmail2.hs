@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
@@ -59,7 +60,7 @@ import           Yesod.Core               (HandlerSite, HandlerT, MonadHandler,
                                            lift, liftIO, lookupGetParam,
                                            lookupSession, notFound, redirect,
                                            setSession, whamlet, (.:),
-                                           addMessage, getYesod, authRoute,
+                                           addMessage, getYesod,
                                            toHtml)
 
 
@@ -85,8 +86,9 @@ import qualified Data.Text                as T
 import           Data.Text.Encoding       (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy           as TL
 import qualified Data.Text.Lazy.Builder   as TL
-import           Network.HTTP.Client      (Manager, parseUrl, requestHeaders,
+import           Network.HTTP.Client      (Manager, requestHeaders,
                                            responseBody, urlEncodedBody)
+import qualified Network.HTTP.Client      as HTTP
 import           Network.HTTP.Client.Conduit (Request, bodyReaderSource)
 import           Network.HTTP.Conduit (http)
 import           Network.HTTP.Types       (renderQueryText)
@@ -167,7 +169,7 @@ authPlugin storeToken clientID clientSecret =
         return $ decodeUtf8
                $ toByteString
                $ fromByteString "https://accounts.google.com/o/oauth2/auth"
-                    `mappend` renderQueryText True qs
+                    `Data.Monoid.mappend` renderQueryText True qs
 
     login tm = do
         [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
@@ -206,7 +208,13 @@ authPlugin storeToken clientID clientSecret =
 
         render <- getUrlRender
 
-        req' <- liftIO $ parseUrl "https://accounts.google.com/o/oauth2/token" -- FIXME don't hardcode, use: https://accounts.google.com/.well-known/openid-configuration
+        req' <- liftIO $
+#if MIN_VERSION_http_client(0,4,30)
+            HTTP.parseUrlThrow
+#else
+            HTTP.parseUrl
+#endif
+            "https://accounts.google.com/o/oauth2/token" -- FIXME don't hardcode, use: https://accounts.google.com/.well-known/openid-configuration
         let req =
                 urlEncodedBody
                     [ ("code", encodeUtf8 code)
@@ -264,7 +272,13 @@ getPerson manager token = parseMaybe parseJSON <$> (do
 
 personValueRequest :: MonadIO m => Token -> m Request
 personValueRequest token = do
-    req2' <- liftIO $ parseUrl "https://www.googleapis.com/plus/v1/people/me"
+    req2' <- liftIO $
+#if MIN_VERSION_http_client(0,4,30)
+            HTTP.parseUrlThrow
+#else
+            HTTP.parseUrl
+#endif
+        "https://www.googleapis.com/plus/v1/people/me"
     return req2'
             { requestHeaders =
                 [ ("Authorization", encodeUtf8 $ "Bearer " `mappend` accessToken token)
@@ -284,8 +298,8 @@ data Token = Token { accessToken :: Text
 
 instance FromJSON Token where
     parseJSON = withObject "Tokens" $ \o -> Token
-        <$> o .: "access_token"
-        <*> o .: "token_type"
+        Control.Applicative.<$> o .: "access_token"
+        Control.Applicative.<*> o .: "token_type"
 
 --------------------------------------------------------------------------------
 -- | Gender of the person

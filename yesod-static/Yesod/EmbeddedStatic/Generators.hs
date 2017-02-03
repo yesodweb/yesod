@@ -30,10 +30,9 @@ module Yesod.EmbeddedStatic.Generators (
   -- $example
 ) where
 
-import Control.Applicative ((<$>), (<*>))
+import Control.Applicative as A ((<$>), (<*>))
 import Control.Exception (try, SomeException)
 import Control.Monad (forM, when)
-import Control.Monad.Trans.Resource (runResourceT)
 import Data.Char (isDigit, isLower)
 import Data.Conduit (($$))
 import Data.Default (def)
@@ -209,9 +208,9 @@ compressTool f opts ct = do
                 }
     (Just hin, Just hout, _, ph) <- Proc.createProcess p
     (compressed, (), code) <- runConcurrently $ (,,)
-        <$> Concurrently (sourceHandle hout $$ C.consume)
-        <*> Concurrently (BL.hPut hin ct >> hClose hin)
-        <*> Concurrently (Proc.waitForProcess ph)
+        A.<$> Concurrently (sourceHandle hout $$ C.consume)
+        A.<*> Concurrently (BL.hPut hin ct >> hClose hin)
+        A.<*> Concurrently (Proc.waitForProcess ph)
     if code == ExitSuccess
         then do
             putStrLn $ "Compressed successfully with " ++ f

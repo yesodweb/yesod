@@ -1,5 +1,9 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
-module YesodCoreTest.StubLaxSameSite ( App ( App ) ) where
+module YesodCoreTest.StubLaxSameSite
+    ( App ( App )
+    , Widget
+    , resourcesApp
+    ) where
 
 import Yesod.Core
 import qualified Web.ClientSession                  as CS

@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies, MultiParamTypeClasses #-}
-module YesodCoreTest.Auth (specs, Widget) where
+module YesodCoreTest.Auth
+    ( specs
+    , Widget
+    , resourcesApp
+    ) where
 
 import Yesod.Core
 import Test.Hspec

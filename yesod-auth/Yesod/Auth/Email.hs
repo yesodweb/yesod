@@ -131,8 +131,7 @@ import           Data.Time                (addUTCTime, getCurrentTime)
 import           Safe                     (readMay)
 import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
-import           Network.HTTP.Types.Status (status400)
-import           Data.Aeson.Types (Parser(..), Result(..), parseMaybe, withObject, (.:?))
+import           Data.Aeson.Types (Parser, Result(..), parseMaybe, withObject, (.:?))
 import           Data.Maybe (isJust, isNothing, fromJust)
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
@@ -170,10 +169,10 @@ data EmailCreds site = EmailCreds
     , emailCredsEmail  :: Email
     }
 
-data ForgotPasswordForm = ForgotPasswordForm { forgotEmail :: Text }
-data PasswordForm = PasswordForm { passwordCurrent :: Text, passwordNew :: Text, passwordConfirm :: Text }
-data UserForm = UserForm { email :: Text }
-data UserLoginForm = UserLoginForm { loginEmail :: Text, loginPassword :: Text }
+data ForgotPasswordForm = ForgotPasswordForm { _forgotEmail :: Text }
+data PasswordForm = PasswordForm { _passwordCurrent :: Text, _passwordNew :: Text, _passwordConfirm :: Text }
+data UserForm = UserForm { _userFormEmail :: Text }
+data UserLoginForm = UserLoginForm { _loginEmail :: Text, _loginPassword :: Text }
 
 class ( YesodAuth site
       , PathPiece (AuthEmailId site)
@@ -352,7 +351,7 @@ emailLoginHandler toParent = do
         (widget, enctype) <- liftWidgetT $ generateFormPost loginForm
 
         [whamlet|
-            <form method="post" action="@{toParent loginR}">
+            <form method="post" action="@{toParent loginR}", enctype=#{enctype}>
                 <div id="emailLoginForm">
                     ^{widget}
                     <div>
@@ -371,7 +370,8 @@ emailLoginHandler toParent = do
         passwordMsg <- renderMessage' Msg.Password
         (passwordRes, passwordView) <- mreq passwordField (passwordSettings passwordMsg) Nothing
 
-        let userRes = UserLoginForm <$> emailRes <*> passwordRes
+        let userRes = UserLoginForm Control.Applicative.<$> emailRes
+                                    Control.Applicative.<*> passwordRes
         let widget = do
             [whamlet|
                 #{extra}
@@ -603,21 +603,21 @@ postLoginR = do
                    , emailCredsEmail <$> mecreds
                    , emailCredsStatus <$> mecreds
                    ) of
-                (Just aid, Just email, Just True) -> do
+                (Just aid, Just email', Just True) -> do
                        mrealpass <- lift $ getPassword aid
                        case mrealpass of
                          Nothing -> return Nothing
                          Just realpass -> return $ if isValidPass pass realpass
-                                                   then Just email
+                                                   then Just email'
                                                    else Nothing
                 _ -> return Nothing
           let isEmail = Text.Email.Validate.isValid $ encodeUtf8 identifier
           case maid of
-            Just email ->
+            Just email' ->
                 lift $ setCredsRedirect $ Creds
                          (if isEmail then "email" else "username")
-                         email
-                         [("verifiedEmail", email)]
+                         email'
+                         [("verifiedEmail", email')]
             Nothing ->
                 loginErrorMessageI LoginR $
                                    if isEmail
@@ -643,15 +643,15 @@ defaultSetPasswordHandler needOld = do
     selectRep $ do
         provideJsonMessage $ messageRender Msg.SetPass
         provideRep $ lift $ authLayout $ do
-            (widget, enctype) <- liftWidgetT $ generateFormPost $ setPasswordForm needOld
+            (widget, enctype) <- liftWidgetT $ generateFormPost setPasswordForm
             setTitleI Msg.SetPassTitle
             [whamlet|
                 <h3>_{Msg.SetPass}
-                <form method="post" action="@{toParent setpassR}">
+                <form method="post" action="@{toParent setpassR}" enctype=#{enctype}>
                     ^{widget}
             |]
   where
-    setPasswordForm needOld extra = do
+    setPasswordForm extra = do
         (currentPasswordRes, currentPasswordView) <- mreq passwordField currentPasswordSettings Nothing
         (newPasswordRes, newPasswordView) <- mreq passwordField newPasswordSettings Nothing
         (confirmPasswordRes, confirmPasswordView) <- mreq passwordField confirmPasswordSettings Nothing

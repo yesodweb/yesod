@@ -17,6 +17,9 @@ module Hierarchy
     , toText
     , Env (..)
     , subDispatch
+    -- to avoid warnings
+    , deleteDelete2
+    , deleteDelete3
     ) where
 
 import Test.Hspec

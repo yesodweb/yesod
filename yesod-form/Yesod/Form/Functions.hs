@@ -59,9 +59,7 @@ import Text.Blaze (Markup, toMarkup)
 #define Html Markup
 #define toHtml toMarkup
 import Yesod.Core
-import Yesod.Core.Handler (defaultCsrfParamName)
 import Network.Wai (requestMethod)
-import Text.Hamlet (shamlet)
 import Data.Monoid (mempty, (<>))
 import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Data.Map as Map
@@ -217,7 +215,7 @@ postHelper form env = do
     let tokenKey = defaultCsrfParamName
     let token =
             case reqToken req of
-                Nothing -> mempty
+                Nothing -> Data.Monoid.mempty
                 Just n -> [shamlet|<input type=hidden name=#{tokenKey} value=#{n}>|]
     m <- getYesod
     langs <- languages

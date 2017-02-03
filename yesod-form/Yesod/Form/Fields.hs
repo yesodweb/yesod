@@ -63,12 +63,10 @@ import Yesod.Form.Types
 import Yesod.Form.I18n.English
 import Yesod.Form.Functions (parseHelper)
 import Yesod.Core
-import Text.Hamlet
 import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup
 #define toHtml toMarkup
 #define preEscapedText preEscapedToMarkup
-import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
@@ -88,7 +86,6 @@ import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
-import Database.Persist (PersistEntityBackend)
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
@@ -96,11 +93,11 @@ import qualified Data.ByteString.Lazy as L
 import Data.Text as T ( Text, append, concat, cons, head
                       , intercalate, isPrefixOf, null, unpack, pack, splitOn
                       )
-import qualified Data.Text as T (drop, dropWhile)  
+import qualified Data.Text as T (drop, dropWhile)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
-import Yesod.Persist (selectList, runDB, Filter, SelectOpt, Key, YesodPersist, PersistEntity, PersistQuery)
+import Yesod.Persist (selectList, Filter, SelectOpt, Key)
 import Control.Arrow ((&&&))
 
 import Control.Applicative ((<$>), (<|>))
@@ -323,7 +320,7 @@ timeParser = do
   where
     hour = do
         x <- digit
-        y <- (return <$> digit) <|> return []
+        y <- (return Control.Applicative.<$> digit) <|> return []
         let xy = x : y
         let i = read xy
         if i < 0 || i >= 24
@@ -490,7 +487,7 @@ checkboxesField :: (Eq a, RenderMessage site FormMessage)
                  -> Field (HandlerT site IO) [a]
 checkboxesField ioptlist = (multiSelectField ioptlist)
     { fieldView =
-        \theId name attrs val isReq -> do
+        \theId name attrs val _isReq -> do
             opts <- fmap olOptions $ handlerToWidget ioptlist
             let optselected (Left _) _ = False
                 optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
