@@ -1,6 +1,11 @@
+## 1.4.17
+
+* Add Show instance for user credentials `Creds`
+
 ## 1.4.16
 
 * Fix email provider [#1330](https://github.com/yesodweb/yesod/issues/1330)
+* Document JSON endpoints of Yesod.Auth.Email
 
 ## 1.4.15
 
