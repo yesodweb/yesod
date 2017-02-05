@@ -16,7 +16,7 @@ module Yesod.EmbeddedStatic.Internal (
     , widgetSettings
 ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative as A ((<$>))
 import Data.IORef
 import Language.Haskell.TH
 import Network.HTTP.Types (Status(..), status404, status200, status304)
@@ -28,7 +28,6 @@ import Yesod.Core
           ( HandlerT
           , ParseRoute(..)
           , RenderRoute(..)
-          , Yesod(..)
           , getYesod
           , liftIO
           )
@@ -140,13 +139,12 @@ type AddStaticContent site = T.Text -> T.Text -> BL.ByteString
                           -> HandlerT site IO (Maybe (Either T.Text (Route site, [(T.Text, T.Text)])))
 
 -- | Helper for embedStaticContent and embedLicensedStaticContent.
-staticContentHelper :: Yesod site
-                    => (site -> EmbeddedStatic)
+staticContentHelper :: (site -> EmbeddedStatic)
                     -> (Route EmbeddedStatic -> Route site)
                     -> (BL.ByteString -> Either a BL.ByteString)
                     -> AddStaticContent site
 staticContentHelper getStatic staticR minify ext _ ct = do
-    wIORef <- widgetFiles . getStatic <$> getYesod
+    wIORef <- widgetFiles . getStatic A.<$> getYesod
     let hash = T.pack $ base64md5 ct
         hash' = Just $ T.encodeUtf8 hash
         filename = T.concat [hash, ".", ext]

@@ -189,7 +189,7 @@ jsonEncodingOrRedirect :: (MonadHandler m, J.ToJSON a)
 jsonEncodingOrRedirect = jsonOrRedirect' J.toEncoding
 #endif
 
-jsonOrRedirect' :: (MonadHandler m, J.ToJSON a)
+jsonOrRedirect' :: MonadHandler m
             => (a -> b)
             -> Route (HandlerSite m) -- ^ Redirect target
             -> a            -- ^ Data to send via JSON

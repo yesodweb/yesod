@@ -130,10 +130,10 @@ webSocketsOptionsWith wsConnOpts buildAr inner = do
                     sink
 
 -- | Wrapper for capturing exceptions
-wrapWSE :: (MonadIO m, WS.WebSocketsData a) => (WS.Connection -> a -> IO ())-> a -> WebSocketsT m (Either SomeException ())
+wrapWSE :: MonadIO m => (WS.Connection -> a -> IO ())-> a -> WebSocketsT m (Either SomeException ())
 wrapWSE ws x = ReaderT $ liftIO . tryAny . flip ws x
 
-wrapWS :: (MonadIO m, WS.WebSocketsData a) => (WS.Connection -> a -> IO ()) -> a -> WebSocketsT m ()
+wrapWS :: MonadIO m => (WS.Connection -> a -> IO ()) -> a -> WebSocketsT m ()
 wrapWS ws x = ReaderT $ liftIO . flip ws x
 
 -- | Receive a piece of data from the client.

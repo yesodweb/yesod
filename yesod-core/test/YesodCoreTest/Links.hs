@@ -1,7 +1,11 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
-module YesodCoreTest.Links (linksTest, Widget) where
+module YesodCoreTest.Links
+    ( linksTest
+    , Widget
+    , resourcesY
+    ) where
 
 import Test.Hspec
 
@@ -26,12 +30,16 @@ mkYesod "Y" [parseRoutes|
 data Vector a = Vector
     deriving (Show, Read, Eq)
 
-instance PathMultiPiece (Vector a)
+instance PathMultiPiece (Vector a) where
+    toPathMultiPiece = error "toPathMultiPiece"
+    fromPathMultiPiece = error "fromPathMultiPiece"
 
 data Foo x y = Foo
     deriving (Show, Read, Eq)
 
-instance PathPiece (Foo x y)
+instance PathPiece (Foo x y) where
+    toPathPiece = error "toPathPiece"
+    fromPathPiece = error "fromPathPiece"
 
 instance Yesod Y
 

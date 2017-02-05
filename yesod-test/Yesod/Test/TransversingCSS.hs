@@ -59,8 +59,8 @@ type HtmlLBS = L.ByteString
 -- * Right: List of matching Html fragments.
 findBySelector :: HtmlLBS -> Query -> Either String [String]
 findBySelector html query = (\x -> map (renderHtml . toHtml . node) . runQuery x)
-    <$> (Right $ fromDocument $ HD.parseLBS html)
-    <*> parseQuery query
+    Control.Applicative.<$> (Right $ fromDocument $ HD.parseLBS html)
+    Control.Applicative.<*> parseQuery query
 
 -- Run a compiled query on Html, returning a list of matching Html fragments.
 runQuery :: Cursor -> [[SelectorGroup]] -> [Cursor]

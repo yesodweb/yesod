@@ -167,7 +167,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- >             lift $ redirect HomeR   -- or any other Handler code you want
     -- >         defaultLoginHandler
     -- 
-    loginHandler :: AuthHandler master Html
+    loginHandler :: HandlerT Auth (HandlerT master IO) Html
     loginHandler = defaultLoginHandler
 
     -- | Used for i18n of messages provided by this package.
@@ -227,7 +227,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     --  This is an experimental API that is not broadly used throughout the yesod-auth code base
     runHttpRequest :: Request -> (Response BodyReader -> HandlerT master IO a) -> HandlerT master IO a
     runHttpRequest req inner = do
-      man <- authHttpManager <$> getYesod
+      man <- authHttpManager Control.Applicative.<$> getYesod
       HandlerT $ \t -> withResponse req man $ \res -> unHandlerT (inner res) t
 
     {-# MINIMAL loginDest, logoutDest, (authenticate | getAuthId), authPlugins, authHttpManager #-}

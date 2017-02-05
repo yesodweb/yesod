@@ -6,7 +6,7 @@ import Data.Monoid (mappend)
 import Data.Text (Text)
 
 englishFormMessage :: FormMessage -> Text
-englishFormMessage (MsgInvalidInteger t) = "Invalid integer: " `mappend` t
+englishFormMessage (MsgInvalidInteger t) = "Invalid integer: " `Data.Monoid.mappend` t
 englishFormMessage (MsgInvalidNumber t) = "Invalid number: " `mappend` t
 englishFormMessage (MsgInvalidEntry t) = "Invalid entry: " `mappend` t
 englishFormMessage MsgInvalidTimeFormat = "Invalid time, must be in HH:MM[:SS] format"

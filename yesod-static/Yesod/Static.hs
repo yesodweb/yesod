@@ -96,9 +96,8 @@ import Data.Conduit.List (sourceList, consume)
 import Data.Conduit.Binary (sourceFile)
 import qualified Data.Conduit.Text as CT
 import Data.Functor.Identity (runIdentity)
-import System.FilePath ((</>), (<.>), FilePath, takeDirectory)
+import System.FilePath ((</>), (<.>), takeDirectory)
 import qualified System.FilePath as F
-import System.Directory (createDirectoryIfMissing)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Default
@@ -349,7 +348,6 @@ mkStaticFilesList fp fs makeHash = do
                         | isLower (head name') -> name'
                         | otherwise -> '_' : name'
         f' <- [|map pack $(TH.lift f)|]
-        pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
                             [|[(pack "etag", pack $(TH.lift hash))]|]
@@ -504,9 +502,6 @@ instance Default CombineSettings where
         , csJsPreProcess = return
         , csCombinedFolder = "combined"
         }
-
-errorIntro :: [FilePath] -> [Char] -> [Char]
-errorIntro fps s = "Error minifying " ++ show fps ++ ": " ++ s
 
 liftRoutes :: [Route Static] -> Q Exp
 liftRoutes =

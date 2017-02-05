@@ -6,7 +6,7 @@ import Data.Monoid (mappend)
 import Data.Text (Text)
 
 swedishFormMessage :: FormMessage -> Text
-swedishFormMessage (MsgInvalidInteger t) = "Ogiltigt antal: " `mappend` t
+swedishFormMessage (MsgInvalidInteger t) = "Ogiltigt antal: " `Data.Monoid.mappend` t
 swedishFormMessage (MsgInvalidNumber t) = "Ogiltigt nummer: " `mappend` t
 swedishFormMessage (MsgInvalidEntry t) = "Invalid entry: " `mappend` t
 swedishFormMessage MsgInvalidTimeFormat = "Ogiltigt klockslag, måste vara på formatet HH:MM[:SS]"

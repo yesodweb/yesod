@@ -87,7 +87,7 @@ englishMessage RegisterLong = "Register a new account"
 englishMessage EnterEmail = "Enter your e-mail address below, and a confirmation e-mail will be sent to you."
 englishMessage ConfirmationEmailSentTitle = "Confirmation e-mail sent"
 englishMessage (ConfirmationEmailSent email) =
-    "A confirmation e-mail has been sent to " `mappend`
+    "A confirmation e-mail has been sent to " `Data.Monoid.mappend`
     email `mappend`
     "."
 englishMessage AddressVerified = "Address verified, please set a new password"
@@ -464,7 +464,7 @@ finnishMessage LoginYahoo = "Kirjaudu Yahoo-tilillä"
 finnishMessage Email = "Sähköposti"
 finnishMessage UserName = "Käyttäjätunnus" -- FIXME by Google Translate "user name"
 finnishMessage Password = "Salasana"
-finnishMessage Password = "Current password"
+finnishMessage CurrentPassword = "Current password"
 finnishMessage Register = "Luo uusi"
 finnishMessage RegisterLong = "Luo uusi tili"
 finnishMessage EnterEmail = "Kirjoita alle sähköpostiosoitteesi, johon vahvistussähköposti lähetetään."

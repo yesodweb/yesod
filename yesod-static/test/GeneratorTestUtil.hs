@@ -5,8 +5,8 @@ import Control.Applicative
 import Control.Monad (when)
 import Data.List (sortBy)
 import Language.Haskell.TH
-import Test.HUnit hiding (Location)
-import Yesod.EmbeddedStatic.Types
+import Test.HUnit
+import Yesod.EmbeddedStatic.Types as Y
 import qualified Data.ByteString.Lazy as BL
 
 -- We test the generators by executing them at compile time
@@ -20,8 +20,8 @@ data GenTestResult = GenError String
                    | GenSuccessWithDevel (IO BL.ByteString)
 
 -- | Creates a GenTestResult at compile time by testing the entry.
-testEntry :: Maybe String -> Location -> IO BL.ByteString -> Entry -> ExpQ
-testEntry name _ _ e | ebHaskellName e /= (mkName <$> name) =
+testEntry :: Maybe String -> Y.Location -> IO BL.ByteString -> Entry -> ExpQ
+testEntry name _ _ e | ebHaskellName e /= (mkName Control.Applicative.<$> name) =
     [| GenError ("haskell name " ++ $(litE $ stringL $ show $ ebHaskellName e)
                                  ++ " /= "
                                  ++ $(litE $ stringL $ show name)) |]
@@ -34,12 +34,12 @@ testEntry _ _ act e = do
         then [| GenSuccessWithDevel $(ebDevelReload e) |]
         else [| GenError "production content" |]
 
-testOneEntry :: Maybe String -> Location -> IO BL.ByteString -> [Entry] -> ExpQ
+testOneEntry :: Maybe String -> Y.Location -> IO BL.ByteString -> [Entry] -> ExpQ
 testOneEntry name loc ct [e] = testEntry name loc ct e
 testOneEntry _ _ _ _ = [| GenError "not exactly one entry" |]
 
 -- | Tests a list of entries
-testEntries :: [(Maybe String, Location, IO BL.ByteString)] -> [Entry] -> ExpQ
+testEntries :: [(Maybe String, Y.Location, IO BL.ByteString)] -> [Entry] -> ExpQ
 testEntries a b | length a /= length b = [| [GenError "lengths differ"] |]
 testEntries a b = listE $ zipWith f a' b'
     where

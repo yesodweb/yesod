@@ -2,7 +2,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
 {-# LANGUAGE CPP #-}
-module YesodCoreTest.CleanPath (cleanPathTest, Widget) where
+module YesodCoreTest.CleanPath
+    ( cleanPathTest
+    , Widget
+    , resourcesY
+    ) where
 
 import Test.Hspec
 
@@ -60,7 +64,7 @@ instance Yesod Y where
         corrected = filter (not . TS.null) s
 
     joinPath Y ar pieces' qs' =
-        fromText ar `mappend` encodePath pieces qs
+        fromText ar `Data.Monoid.mappend` encodePath pieces qs
       where
         pieces = if null pieces' then [""] else pieces'
         qs = map (TE.encodeUtf8 *** go) qs'

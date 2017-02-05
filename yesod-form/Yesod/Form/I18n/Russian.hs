@@ -6,7 +6,7 @@ import Data.Monoid (mappend)
 import Data.Text (Text)
 
 russianFormMessage :: FormMessage -> Text
-russianFormMessage (MsgInvalidInteger t) = "Неверно записано целое число: " `mappend` t
+russianFormMessage (MsgInvalidInteger t) = "Неверно записано целое число: " `Data.Monoid.mappend` t
 russianFormMessage (MsgInvalidNumber t) = "Неверный формат числа: " `mappend` t
 russianFormMessage (MsgInvalidEntry t) = "Неверный выбор: " `mappend` t
 russianFormMessage MsgInvalidTimeFormat = "Неверно указано время, используйте формат ЧЧ:ММ[:СС]"

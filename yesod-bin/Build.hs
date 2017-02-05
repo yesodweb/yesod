@@ -11,7 +11,7 @@ module Build
     , safeReadFile
     ) where
 
-import           Control.Applicative ((<|>), many, (<$>))
+import           Control.Applicative as App ((<|>), many, (<$>))
 import qualified Data.Attoparsec.Text as A
 import           Data.Char (isSpace, isUpper)
 import qualified Data.Text as T
@@ -28,7 +28,7 @@ import           Control.Monad.Trans.Writer (WriterT, tell, execWriterT)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Class (lift)
 
-import           Data.Monoid (Monoid (mappend, mempty))
+import           Data.Monoid (Monoid (..))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -77,7 +77,7 @@ getDeps hsSourceDirs = do
     return $ (hss, fixDeps $ zip hss deps')
 
 data AnyFilesTouched = NoFilesTouched | SomeFilesTouched
-instance Monoid AnyFilesTouched where
+instance Data.Monoid.Monoid AnyFilesTouched where
     mempty = NoFilesTouched
     mappend NoFilesTouched NoFilesTouched = mempty
     mappend _ _ = SomeFilesTouched
@@ -201,7 +201,7 @@ determineDeps x = do
                 Left _ -> return []
                 Right r -> mapM go r >>= filterM (doesFileExist . snd) . concat
   where
-    go (Just (StaticFiles fp, _)) = map ((,) AlwaysOutdated) <$> getFolderContents fp
+    go (Just (StaticFiles fp, _)) = map ((,) AlwaysOutdated) App.<$> getFolderContents fp
     go (Just (Hamlet, f)) = return [(AlwaysOutdated, f)]
     go (Just (Widget, f)) = return
         [ (AlwaysOutdated, "templates/" ++ f ++ ".hamlet")

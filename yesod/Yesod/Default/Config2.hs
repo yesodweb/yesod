@@ -28,10 +28,6 @@ module Yesod.Default.Config2
 
 import Data.Yaml.Config
 
-#if __GLASGOW_HASKELL__ < 710
-import Control.Applicative ((<$>))
-import Data.Monoid
-#endif
 import Data.Semigroup
 import Data.Aeson
 import qualified Data.HashMap.Strict as H

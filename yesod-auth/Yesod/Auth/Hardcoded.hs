@@ -186,8 +186,8 @@ postLoginR :: (YesodAuthHardcoded master)
            => HandlerT Auth (HandlerT master IO) TypedContent
 postLoginR =
   do (username, password) <- lift (runInputPost
-       ((,) <$> ireq textField "username"
-            <*> ireq textField "password"))
+       ((,) Control.Applicative.<$> ireq textField "username"
+            Control.Applicative.<*> ireq textField "password"))
      isValid <- lift (validatePassword username password)
      if isValid
         then lift (setCredsRedirect (Creds "hardcoded" username []))

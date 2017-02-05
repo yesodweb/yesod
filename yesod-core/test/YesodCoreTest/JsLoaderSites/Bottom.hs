@@ -1,7 +1,11 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-module YesodCoreTest.JsLoaderSites.Bottom (B(..), Widget) where
+module YesodCoreTest.JsLoaderSites.Bottom
+    ( B(..)
+    , Widget
+    , resourcesB -- avoid warning
+    ) where
 
 import Yesod.Core
 

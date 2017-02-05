@@ -3,7 +3,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Rank2Types #-}
-module YesodCoreTest.Cache (cacheTest, Widget) where
+module YesodCoreTest.Cache
+    ( cacheTest
+    , Widget
+    , resourcesC
+    ) where
 
 import Test.Hspec
 

@@ -132,6 +132,7 @@ import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import qualified Control.Monad.Trans.State as ST
 import Control.Monad.IO.Class
 import System.IO
+import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
 import Yesod.Core
 import qualified Data.Text.Lazy as TL
@@ -678,7 +679,7 @@ addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
 getRequestCookies :: RequestBuilder site Cookies
 getRequestCookies = do
   requestBuilderData <- ST.get
-  headers <- case simpleHeaders <$> rbdResponse requestBuilderData of
+  headers <- case simpleHeaders Control.Applicative.<$> rbdResponse requestBuilderData of
                   Just h -> return h
                   Nothing -> failure "getRequestCookies: No request has been made yet; the cookies can't be looked up."
 
@@ -759,8 +760,7 @@ followRedirect = do
 -- > (Right (ResourceR resourceId)) <- getLocation
 --
 -- @since 1.5.4
-getLocation :: (Yesod site, ParseRoute site)
-            => YesodExample site (Either T.Text (Route site))
+getLocation :: ParseRoute site => YesodExample site (Either T.Text (Route site))
 getLocation = do
   mr <- getResponse
   case mr of
@@ -802,7 +802,7 @@ setUrl :: (Yesod site, RedirectUrl site url)
        -> RequestBuilder site ()
 setUrl url' = do
     site <- fmap rbdSite ST.get
-    eurl <- runFakeHandler
+    eurl <- Yesod.Core.Unsafe.runFakeHandler
         M.empty
         (const $ error "Yesod.Test: No logger available")
         site
@@ -828,9 +828,7 @@ setUrl url' = do
 -- > import Data.Aeson
 -- > request $ do
 -- >   setRequestBody $ encode $ object ["age" .= (1 :: Integer)]
-setRequestBody :: (Yesod site)
-               => BSL8.ByteString
-               -> RequestBuilder site ()
+setRequestBody :: BSL8.ByteString -> RequestBuilder site ()
 setRequestBody body = ST.modify $ \rbd -> rbd { rbdPostData = BinaryPostData body }
 
 -- | Adds the given header to the request; see "Network.HTTP.Types.Header" for creating 'Header's.
@@ -858,8 +856,7 @@ addRequestHeader header = ST.modify $ \rbd -> rbd
 -- >   byLabel "First Name" "Felipe"
 -- >   setMethod "PUT"
 -- >   setUrl NameR
-request :: Yesod site
-        => RequestBuilder site ()
+request :: RequestBuilder site ()
         -> YesodExample site ()
 request reqBuilder = do
     YesodExampleData app site oldCookies mRes <- ST.get

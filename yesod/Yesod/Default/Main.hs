@@ -41,8 +41,7 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 --   > main :: IO ()
 --   > main = defaultMain (fromArgs parseExtra) makeApplication
 --
-defaultMain :: (Show env, Read env)
-            => IO (AppConfig env extra)
+defaultMain :: IO (AppConfig env extra)
             -> (AppConfig env extra -> IO Application)
             -> IO ()
 defaultMain load getApp = do
@@ -60,8 +59,7 @@ type LogFunc = Loc -> LogSource -> LogLevel -> LogStr -> IO ()
 -- @Application@ to install Warp exception handlers.
 --
 -- Since 1.2.5
-defaultMainLog :: (Show env, Read env)
-               => IO (AppConfig env extra)
+defaultMainLog :: IO (AppConfig env extra)
                -> (AppConfig env extra -> IO (Application, LogFunc))
                -> IO ()
 defaultMainLog load getApp = do
@@ -113,8 +111,7 @@ defaultRunner f app = do
 -- | Run your development app using a custom environment type and loader
 --   function
 defaultDevelApp
-    :: (Show env, Read env)
-    => IO (AppConfig env extra) -- ^ A means to load your development @'AppConfig'@
+    :: IO (AppConfig env extra) -- ^ A means to load your development @'AppConfig'@
     -> (AppConfig env extra -> IO Application) -- ^ Get your @Application@
     -> IO (Int, Application)
 defaultDevelApp load getApp = do

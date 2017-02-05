@@ -11,7 +11,7 @@ module Yesod.EventSource
 import Blaze.ByteString.Builder (Builder)
 import Control.Monad (when)
 import Data.Functor ((<$>))
-import Data.Monoid (mappend, mempty)
+import Data.Monoid (Monoid (..))
 import Yesod.Core
 import qualified Data.Conduit as C
 import qualified Network.Wai as W
@@ -24,7 +24,7 @@ import qualified Network.Wai.EventSource.EventStream as ES
 -- set any necessary headers.
 prepareForEventSource :: MonadHandler m => m EventSourcePolyfill
 prepareForEventSource = do
-  reqWith <- lookup "X-Requested-With" . W.requestHeaders <$> waiRequest
+  reqWith <- lookup "X-Requested-With" . W.requestHeaders Data.Functor.<$> waiRequest
   let polyfill | reqWith == Just "XMLHttpRequest" = Remy'sESPolyfill
                | otherwise                        = NoESPolyfill
   addHeader "Cache-Control" "no-cache" -- extremely important!
@@ -87,7 +87,7 @@ pollingEventSource initial act = do
       -- when we the connection should be closed.
       joinEvents (ev:evs) acc =
         case ES.eventToBuilder ev of
-          Just b  -> joinEvents evs (acc `mappend` b)
+          Just b  -> joinEvents evs (acc `Data.Monoid.mappend` b)
           Nothing -> (fst $ joinEvents [] acc, False)
       joinEvents [] acc = (acc, True)
 

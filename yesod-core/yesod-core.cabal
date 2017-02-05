@@ -12,7 +12,6 @@ cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
 extra-source-files:
-  test.hs
   test/YesodCoreTest.hs
   test/YesodCoreTest/*.hs
   test/YesodCoreTest/JsLoaderSites/Bottom.hs
@@ -119,6 +118,15 @@ test-suite test-routes
     hs-source-dirs: test, .
 
     other-modules: Hierarchy
+                   Yesod.Routes.Class
+                   Yesod.Routes.Overlap
+                   Yesod.Routes.Parse
+                   Yesod.Routes.TH
+                   Yesod.Routes.TH.Dispatch
+                   Yesod.Routes.TH.ParseRoute
+                   Yesod.Routes.TH.RenderRoute
+                   Yesod.Routes.TH.RouteAttrs
+                   Yesod.Routes.TH.Types
 
     -- Workaround for: http://ghc.haskell.org/trac/ghc/ticket/8443
     extensions:      TemplateHaskell
@@ -137,6 +145,37 @@ test-suite tests
     type: exitcode-stdio-1.0
     main-is: test.hs
     hs-source-dirs: test
+
+    other-modules: YesodCoreTest
+                   YesodCoreTest.Auth
+                   YesodCoreTest.Cache
+                   YesodCoreTest.CleanPath
+                   YesodCoreTest.Csrf
+                   YesodCoreTest.ErrorHandling
+                   YesodCoreTest.Exceptions
+                   YesodCoreTest.InternalRequest
+                   YesodCoreTest.JsLoader
+                   YesodCoreTest.JsLoaderSites.Bottom
+                   YesodCoreTest.Json
+                   YesodCoreTest.Links
+                   YesodCoreTest.LiteApp
+                   YesodCoreTest.Media
+                   YesodCoreTest.MediaData
+                   YesodCoreTest.NoOverloadedStrings
+                   YesodCoreTest.NoOverloadedStringsSub
+                   YesodCoreTest.RawResponse
+                   YesodCoreTest.Redirect
+                   YesodCoreTest.Reps
+                   YesodCoreTest.RequestBodySize
+                   YesodCoreTest.Ssl
+                   YesodCoreTest.Streaming
+                   YesodCoreTest.StubLaxSameSite
+                   YesodCoreTest.StubSslOnly
+                   YesodCoreTest.StubStrictSameSite
+                   YesodCoreTest.StubUnsecured
+                   YesodCoreTest.WaiSubsite
+                   YesodCoreTest.Widget
+                   YesodCoreTest.YesodTest
 
     cpp-options:   -DTEST
     build-depends: base

@@ -23,7 +23,7 @@ module Yesod.Persist.Core
     ) where
 
 import Database.Persist
-import Control.Monad.Trans.Reader (ReaderT, runReaderT, withReaderT)
+import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 
 import Yesod.Core
 import Data.Conduit

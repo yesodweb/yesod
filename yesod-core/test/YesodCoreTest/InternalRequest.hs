@@ -21,8 +21,8 @@ randomStringSpecs = describe "Yesod.Internal.Request.randomString" $ do
 
 -- NOTE: this testcase may break on other systems/architectures if
 -- mkStdGen is not identical everywhere (is it?).
-looksRandom :: Bool
-looksRandom = runST $ do
+_looksRandom :: Bool
+_looksRandom = runST $ do
     gen <- MWC.create
     s <- randomString 20 gen
     return $ s == "VH9SkhtptqPs6GqtofVg"
@@ -57,7 +57,7 @@ tokenSpecs = describe "Yesod.Internal.Request.parseWaiRequest (reqToken)" $ do
 
 noDisabledToken :: Bool
 noDisabledToken = reqToken r == Nothing where
-  r = parseWaiRequest' defaultRequest mempty False 1000
+  r = parseWaiRequest' defaultRequest Data.Monoid.mempty False 1000
 
 ignoreDisabledToken :: Bool
 ignoreDisabledToken = reqToken r == Nothing where
