@@ -760,8 +760,7 @@ followRedirect = do
 -- > (Right (ResourceR resourceId)) <- getLocation
 --
 -- @since 1.5.4
-getLocation :: (Yesod site, ParseRoute site)
-            => YesodExample site (Either T.Text (Route site))
+getLocation :: ParseRoute site => YesodExample site (Either T.Text (Route site))
 getLocation = do
   mr <- getResponse
   case mr of
@@ -829,9 +828,7 @@ setUrl url' = do
 -- > import Data.Aeson
 -- > request $ do
 -- >   setRequestBody $ encode $ object ["age" .= (1 :: Integer)]
-setRequestBody :: (Yesod site)
-               => BSL8.ByteString
-               -> RequestBuilder site ()
+setRequestBody :: BSL8.ByteString -> RequestBuilder site ()
 setRequestBody body = ST.modify $ \rbd -> rbd { rbdPostData = BinaryPostData body }
 
 -- | Adds the given header to the request; see "Network.HTTP.Types.Header" for creating 'Header's.
@@ -859,8 +856,7 @@ addRequestHeader header = ST.modify $ \rbd -> rbd
 -- >   byLabel "First Name" "Felipe"
 -- >   setMethod "PUT"
 -- >   setUrl NameR
-request :: Yesod site
-        => RequestBuilder site ()
+request :: RequestBuilder site ()
         -> YesodExample site ()
 request reqBuilder = do
     YesodExampleData app site oldCookies mRes <- ST.get

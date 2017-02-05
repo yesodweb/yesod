@@ -59,7 +59,6 @@ import Network.Wai.Application.Static (staticApp)
 import System.IO.Unsafe (unsafePerformIO)
 import Yesod.Core
           ( HandlerT
-          , Yesod(..)
           , YesodSubDispatch(..)
           )
 import Yesod.Core.Types
@@ -82,7 +81,7 @@ import Yesod.EmbeddedStatic.Generators
 embeddedResourceR :: [T.Text] -> [(T.Text, T.Text)] -> Route EmbeddedStatic
 embeddedResourceR = EmbeddedResourceR
 
-instance Yesod master => YesodSubDispatch EmbeddedStatic (HandlerT master IO) where
+instance YesodSubDispatch EmbeddedStatic (HandlerT master IO) where
     yesodSubDispatch YesodSubRunnerEnv {..} req = resp
         where
             master = yreSite ysreParentEnv
@@ -176,8 +175,7 @@ mkEmbeddedStatic dev esName gen = do
 -- >     addStaticContent = embedStaticContent getStatic StaticR mini
 -- >         where mini = if development then Right else minifym
 -- >     ...
-embedStaticContent :: Yesod site
-                   => (site -> EmbeddedStatic)   -- ^ How to retrieve the embedded static subsite from your site
+embedStaticContent :: (site -> EmbeddedStatic)   -- ^ How to retrieve the embedded static subsite from your site
                    -> (Route EmbeddedStatic -> Route site) -- ^ how to convert an embedded static route
                    -> (BL.ByteString -> Either a BL.ByteString) -- ^ javascript minifier
                    -> AddStaticContent site

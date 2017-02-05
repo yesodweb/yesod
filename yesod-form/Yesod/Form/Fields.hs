@@ -439,13 +439,13 @@ $newline never
 |]) -- inside
 
 -- | Creates a @\<select>@ tag for selecting multiple options.
-multiSelectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
+multiSelectFieldList :: (Eq a, RenderMessage site msg)
                      => [(msg, a)]
                      -> Field (HandlerT site IO) [a]
 multiSelectFieldList = multiSelectField . optionsPairs
 
 -- | Creates a @\<select>@ tag for selecting multiple options.
-multiSelectField :: (Eq a, RenderMessage site FormMessage)
+multiSelectField :: Eq a
                  => HandlerT site IO (OptionList a)
                  -> Field (HandlerT site IO) [a]
 multiSelectField ioptlist =
@@ -477,12 +477,12 @@ radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
 radioFieldList = radioField . optionsPairs
 
 -- | Creates an input with @type="checkbox"@ for selecting multiple options.
-checkboxesFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)]
+checkboxesFieldList :: (Eq a, RenderMessage site msg) => [(msg, a)]
                      -> Field (HandlerT site IO) [a]
 checkboxesFieldList = checkboxesField . optionsPairs
 
 -- | Creates an input with @type="checkbox"@ for selecting multiple options.
-checkboxesField :: (Eq a, RenderMessage site FormMessage)
+checkboxesField :: Eq a
                  => HandlerT site IO (OptionList a)
                  -> Field (HandlerT site IO) [a]
 checkboxesField ioptlist = (multiSelectField ioptlist)
@@ -569,7 +569,7 @@ $newline never
 --
 --   Note that this makes the field always optional.
 --
-checkBoxField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Bool
+checkBoxField :: Monad m => Field m Bool
 checkBoxField = Field
     { fieldParse = \e _ -> return $ checkBoxParser e
     , fieldView  = \theId name attrs val _ -> [whamlet|
@@ -757,7 +757,7 @@ selectFieldHelper outside onOpt inside opts' = Field
                     Just y -> Right $ Just y
 
 -- | Creates an input with @type="file"@.
-fileField :: (Monad m, RenderMessage (HandlerSite m) FormMessage)
+fileField :: Monad m
           => Field m FileInfo
 fileField = Field
     { fieldParse = \_ files -> return $
@@ -803,7 +803,6 @@ $newline never
     return (res, (fv :), ints', Multipart)
 
 fileAFormOpt :: MonadHandler m
-             => RenderMessage (HandlerSite m) FormMessage
              => FieldSettings (HandlerSite m)
              -> AForm m (Maybe FileInfo)
 fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do

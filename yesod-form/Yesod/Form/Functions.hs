@@ -243,8 +243,7 @@ generateFormPost
     -> m (xml, Enctype)
 generateFormPost form = first snd `liftM` postHelper form Nothing
 
-postEnv :: (MonadHandler m, MonadResource m)
-        => m (Maybe (Env, FileEnv))
+postEnv :: MonadHandler m => m (Maybe (Env, FileEnv))
 postEnv = do
     req <- getRequest
     if requestMethod (reqWaiRequest req) == "GET"
@@ -279,7 +278,7 @@ runFormGet form = do
 --
 -- Since 1.3.11
 generateFormGet'
-    :: (RenderMessage (HandlerSite m) FormMessage, MonadHandler m)
+    :: MonadHandler m
     => (Html -> MForm m (FormResult a, xml))
     -> m (xml, Enctype)
 generateFormGet' form = first snd `liftM` getHelper form Nothing

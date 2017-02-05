@@ -44,7 +44,7 @@ up i = do
 
 -- | Generate a form that accepts 0 or more values from the user, allowing the
 -- user to specify that a new row is necessary.
-inputList :: (m ~ HandlerT site IO, xml ~ WidgetT site IO (), RenderMessage site FormMessage)
+inputList :: (xml ~ WidgetT site IO (), RenderMessage site FormMessage)
           => Html
           -- ^ label for the form
           -> ([[FieldView site]] -> xml)
@@ -119,8 +119,7 @@ $newline never
     up 1
     return res
 
-fixme :: (xml ~ WidgetT site IO ())
-      => [Either xml (FormResult a, [FieldView site])]
+fixme :: [Either xml (FormResult a, [FieldView site])]
       -> (FormResult [a], [xml], [[FieldView site]])
 fixme eithers =
     (res, xmls, map snd rest)

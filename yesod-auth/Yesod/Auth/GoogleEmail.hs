@@ -71,7 +71,7 @@ authGoogleEmail =
         completeHelper posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth master => [(Text, Text)] -> AuthHandler master TypedContent
+completeHelper :: [(Text, Text)] -> AuthHandler master TypedContent
 completeHelper gets' = do
       master <- lift getYesod
       eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)

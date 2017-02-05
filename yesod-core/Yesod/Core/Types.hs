@@ -462,7 +462,12 @@ instance MonadMask m => MonadMask (WidgetT site m) where
     WidgetT $ \e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) e
       where q u (WidgetT b) = WidgetT (u . b)
 
+-- CPP to avoid a redundant constraints warning
+#if MIN_VERSION_base(4,9,0)
+instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
+#else
 instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
+#endif
     liftResourceT f = WidgetT $ \hd -> liftIO $ (, mempty) <$> runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (WidgetT site m) where

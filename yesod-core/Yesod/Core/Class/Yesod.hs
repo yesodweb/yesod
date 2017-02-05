@@ -442,10 +442,9 @@ sameSiteSession s = (fmap . fmap) secureSessionCookies
 -- headers are ignored over HTTP.
 --
 -- Since 1.4.7
-sslOnlyMiddleware :: Yesod site
-                     => Int -- ^ minutes
-                     -> HandlerT site IO res
-                     -> HandlerT site IO res
+sslOnlyMiddleware :: Int -- ^ minutes
+                  -> HandlerT site IO res
+                  -> HandlerT site IO res
 sslOnlyMiddleware timeout handler = do
     addHeader "Strict-Transport-Security"
               $ T.pack $ concat [ "max-age="
@@ -496,8 +495,7 @@ defaultCsrfCheckMiddleware handler =
 -- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
-csrfCheckMiddleware :: Yesod site
-                    => HandlerT site IO res
+csrfCheckMiddleware :: HandlerT site IO res
                     -> HandlerT site IO Bool -- ^ Whether or not to perform the CSRF check.
                     -> CI S8.ByteString -- ^ The header name to lookup the CSRF token from.
                     -> Text -- ^ The POST parameter name to lookup the CSRF token from.
@@ -512,7 +510,7 @@ csrfCheckMiddleware handler shouldCheckFn headerName paramName = do
 -- The cookie's path is set to @/@, making it valid for your whole website.
 --
 -- Since 1.4.14
-defaultCsrfSetCookieMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfSetCookieMiddleware :: HandlerT site IO res -> HandlerT site IO res
 defaultCsrfSetCookieMiddleware handler = setCsrfCookie >> handler
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie. See 'setCsrfCookieWithCookie'.
@@ -522,7 +520,7 @@ defaultCsrfSetCookieMiddleware handler = setCsrfCookie >> handler
 -- Make sure to set the 'setCookiePath' to the root path of your application, otherwise you'll generate a new CSRF token for every path of your app. If your app is run from from e.g. www.example.com\/app1, use @app1@. The vast majority of sites will just use @/@.
 --
 -- Since 1.4.14
-csrfSetCookieMiddleware :: Yesod site => HandlerT site IO res -> SetCookie -> HandlerT site IO res
+csrfSetCookieMiddleware :: HandlerT site IO res -> SetCookie -> HandlerT site IO res
 csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handler
 
 -- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'.
@@ -546,7 +544,7 @@ defaultCsrfMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO 
 defaultCsrfMiddleware = defaultCsrfSetCookieMiddleware . defaultCsrfCheckMiddleware
 
 -- | Convert a widget to a 'PageContent'.
-widgetToPageContent :: (Eq (Route site), Yesod site)
+widgetToPageContent :: Yesod site
                     => WidgetT site IO ()
                     -> HandlerT site IO (PageContent (Route site))
 widgetToPageContent w = do

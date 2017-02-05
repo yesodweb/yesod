@@ -28,7 +28,6 @@ import Yesod.Core
           ( HandlerT
           , ParseRoute(..)
           , RenderRoute(..)
-          , Yesod(..)
           , getYesod
           , liftIO
           )
@@ -140,8 +139,7 @@ type AddStaticContent site = T.Text -> T.Text -> BL.ByteString
                           -> HandlerT site IO (Maybe (Either T.Text (Route site, [(T.Text, T.Text)])))
 
 -- | Helper for embedStaticContent and embedLicensedStaticContent.
-staticContentHelper :: Yesod site
-                    => (site -> EmbeddedStatic)
+staticContentHelper :: (site -> EmbeddedStatic)
                     -> (Route EmbeddedStatic -> Route site)
                     -> (BL.ByteString -> Either a BL.ByteString)
                     -> AddStaticContent site

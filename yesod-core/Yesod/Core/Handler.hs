@@ -1119,13 +1119,13 @@ lookupPostParam :: (MonadResource m, MonadHandler m)
 lookupPostParam = fmap listToMaybe . lookupPostParams
 
 -- | Lookup for POSTed files.
-lookupFile :: (MonadHandler m, MonadResource m)
+lookupFile :: MonadHandler m
            => Text
            -> m (Maybe FileInfo)
 lookupFile = fmap listToMaybe . lookupFiles
 
 -- | Lookup for POSTed files.
-lookupFiles :: (MonadHandler m, MonadResource m)
+lookupFiles :: MonadHandler m
             => Text
             -> m [FileInfo]
 lookupFiles pn = do

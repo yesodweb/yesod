@@ -297,7 +297,7 @@ class ( YesodAuth site
     -- Default: 'defaultRegisterHandler'.
     --
     -- @since: 1.2.6
-    registerHandler :: AuthHandler site Html
+    registerHandler :: HandlerT Auth (HandlerT site IO) Html
     registerHandler = defaultRegisterHandler
 
     -- | Handler called to render the \"forgot password\" page.
@@ -307,7 +307,7 @@ class ( YesodAuth site
     -- Default: 'defaultForgotPasswordHandler'.
     --
     -- @since: 1.2.6
-    forgotPasswordHandler :: AuthHandler site Html
+    forgotPasswordHandler :: HandlerT Auth (HandlerT site IO) Html
     forgotPasswordHandler = defaultForgotPasswordHandler
 
     -- | Handler called to render the \"set password\" page.  The
@@ -323,7 +323,7 @@ class ( YesodAuth site
          -- field for the old password should be presented.
          -- Otherwise, just two fields for the new password are
          -- needed.
-      -> AuthHandler site TypedContent
+      -> HandlerT Auth (HandlerT site IO) TypedContent
     setPasswordHandler = defaultSetPasswordHandler
 
 authEmail :: (YesodAuthEmail m) => AuthPlugin m
@@ -405,7 +405,7 @@ emailLoginHandler toParent = do
 -- | Default implementation of 'registerHandler'.
 --
 -- @since 1.2.6
-defaultRegisterHandler :: YesodAuthEmail master => AuthHandler master Html
+defaultRegisterHandler :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 defaultRegisterHandler = do
     (widget, enctype) <- lift $ generateFormPost registrationForm
     toParentRoute <- getRouteToParent
@@ -502,7 +502,7 @@ getForgotPasswordR = forgotPasswordHandler
 -- | Default implementation of 'forgotPasswordHandler'.
 --
 -- @since 1.2.6
-defaultForgotPasswordHandler :: YesodAuthEmail master => AuthHandler master Html
+defaultForgotPasswordHandler :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 defaultForgotPasswordHandler = do
     (widget, enctype) <- lift $ generateFormPost forgotPasswordForm
     toParent <- getRouteToParent
@@ -636,7 +636,7 @@ getPasswordR = do
 -- | Default implementation of 'setPasswordHandler'.
 --
 -- @since 1.2.6
-defaultSetPasswordHandler :: YesodAuthEmail master => Bool -> AuthHandler master TypedContent
+defaultSetPasswordHandler :: YesodAuthEmail master => Bool -> HandlerT Auth (HandlerT master IO) TypedContent
 defaultSetPasswordHandler needOld = do
     messageRender <- lift getMessageRender
     toParent <- getRouteToParent
@@ -823,7 +823,10 @@ loginLinkKey = "_AUTH_EMAIL_LOGIN_LINK"
 -- | Set 'loginLinkKey' to the current time.
 --
 -- @since 1.2.1
-setLoginLinkKey :: (YesodAuthEmail site, MonadHandler m, HandlerSite m ~ site) => AuthId site -> m ()
+--setLoginLinkKey :: (MonadHandler m) => AuthId site -> m ()
+setLoginLinkKey :: (MonadHandler m, YesodAuthEmail (HandlerSite m))
+                => AuthId (HandlerSite m)
+                -> m ()
 setLoginLinkKey aid = do
     now <- liftIO getCurrentTime
     setSession loginLinkKey $ TS.pack $ show (toPathPiece aid, now)

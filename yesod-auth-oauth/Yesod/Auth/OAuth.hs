@@ -83,7 +83,7 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
         let oaUrl = render $ tm $ oauthUrl name
         [whamlet| <a href=#{oaUrl}>Login via #{name} |]
 
-mkExtractCreds :: YesodAuth m => Text -> String -> Credential -> IO (Creds m)
+mkExtractCreds :: Text -> String -> Credential -> IO (Creds m)
 mkExtractCreds name idName (Credential dic) = do
   let mcrId = decodeUtf8With lenientDecode <$> lookup (encodeUtf8 $ T.pack idName) dic
   case mcrId of
