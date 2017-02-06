@@ -106,6 +106,7 @@ module Yesod.Auth.Email
     , loginLinkKey
     , setLoginLinkKey
      -- * Default handlers
+    , defaultEmailLoginHandler
     , defaultRegisterHandler
     , defaultForgotPasswordHandler
     , defaultSetPasswordHandler
@@ -290,6 +291,17 @@ class ( YesodAuth site
     normalizeEmailAddress :: site -> Text -> Text
     normalizeEmailAddress _ = TS.toLower
 
+    -- | Handler called to render the login page.
+    -- The default works fine, but you may want to override it in
+    -- order to have a different DOM.
+    --
+    -- Default: 'defaultEmailLoginHandler'.
+    --
+    -- @since: 1.2.6
+    emailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
+    emailLoginHandler = defaultEmailLoginHandler
+
+
     -- | Handler called to render the registration page.  The
     -- default works fine, but you may want to override it in
     -- order to have a different DOM.
@@ -346,8 +358,11 @@ authEmail =
 getRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 getRegisterR = registerHandler
 
-emailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
-emailLoginHandler toParent = do
+-- | Default implementation of 'emailLoginHandler'.
+--
+-- @since 1.2.6
+defaultEmailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
+defaultEmailLoginHandler toParent = do
         (widget, enctype) <- liftWidgetT $ generateFormPost loginForm
 
         [whamlet|
@@ -402,6 +417,7 @@ emailLoginHandler toParent = do
         langs <- languages
         master <- getYesod
         return $ renderAuthMessage master langs msg
+
 -- | Default implementation of 'registerHandler'.
 --
 -- @since 1.2.6
