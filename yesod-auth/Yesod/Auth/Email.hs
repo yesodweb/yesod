@@ -298,7 +298,7 @@ class ( YesodAuth site
     -- Default: 'defaultEmailLoginHandler'.
     --
     -- @since: 1.2.6
-    emailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
+    emailLoginHandler :: (Route Auth -> Route site) -> WidgetT site IO ()
     emailLoginHandler = defaultEmailLoginHandler
 
 
@@ -534,7 +534,7 @@ defaultForgotPasswordHandler = do
   where
     forgotPasswordForm extra = do
         (emailRes, emailView) <- mreq emailField emailSettings Nothing
-    
+
         let forgotPasswordRes = ForgotPasswordForm <$> emailRes
         let widget = do
             [whamlet|
