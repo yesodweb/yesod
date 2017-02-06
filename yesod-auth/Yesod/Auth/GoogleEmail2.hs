@@ -22,7 +22,7 @@
 --
 -- * Enable the Google+ API.
 --
--- Since 1.3.1
+-- @since 1.3.1
 module Yesod.Auth.GoogleEmail2
     ( -- * Authentication handlers
       authGoogleEmail
@@ -141,7 +141,7 @@ authGoogleEmail = authPlugin False
 -- | An alternative version which stores user access token in the session
 --   variable. Use it if you want to request user's profile from your app.
 --
--- Since 1.4.3
+-- @since 1.4.3
 authGoogleEmailSaveToken :: YesodAuth m
                          => Text -- ^ client ID
                          -> Text -- ^ client secret
@@ -268,7 +268,7 @@ makeHttpRequest req = lift $
 --   In case of parsing error returns 'Nothing'.
 --   Will throw 'HttpException' in case of network problems or error response code.
 --
--- Since 1.4.3
+-- @since 1.4.3
 getPerson :: Manager -> Token -> HandlerT site IO (Maybe Person)
 getPerson manager token = parseMaybe parseJSON <$> (do
     req <- personValueRequest token
@@ -297,7 +297,7 @@ personValueRequest token = do
 --   'authGoogleEmailSaveToken'.
 --   You can acquire saved token with 'getUserAccessToken'.
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Token = Token { accessToken :: Text
                    , tokenType   :: Text
                    } deriving (Show, Eq)
@@ -310,7 +310,7 @@ instance FromJSON Token where
 --------------------------------------------------------------------------------
 -- | Gender of the person
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Gender = Male | Female | OtherGender deriving (Show, Eq)
 
 instance FromJSON Gender where
@@ -322,7 +322,7 @@ instance FromJSON Gender where
 --------------------------------------------------------------------------------
 -- | URIs specified in the person's profile
 --
--- Since 1.4.3
+-- @since 1.4.3
 data PersonURI =
     PersonURI { uriLabel :: Maybe Text
               , uriValue :: Maybe Text
@@ -337,7 +337,7 @@ instance FromJSON PersonURI where
 --------------------------------------------------------------------------------
 -- | The type of URI
 --
--- Since 1.4.3
+-- @since 1.4.3
 data PersonURIType = OtherProfile       -- ^ URI for another profile
                    | Contributor        -- ^ URI to a site for which this person is a contributor
                    | Website            -- ^ URI for this Google+ Page's primary website
@@ -356,7 +356,7 @@ instance FromJSON PersonURIType where
 --------------------------------------------------------------------------------
 -- | Current or past organizations with which this person is associated
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Organization =
     Organization { orgName      :: Maybe Text
                    -- ^ The person's job title or role within the organization
@@ -383,7 +383,7 @@ instance FromJSON Organization where
 --------------------------------------------------------------------------------
 -- | The type of an organization
 --
--- Since 1.4.3
+-- @since 1.4.3
 data OrganizationType = Work
                       | School
                       | OrganizationType Text -- ^ Something else
@@ -397,7 +397,7 @@ instance FromJSON OrganizationType where
 --------------------------------------------------------------------------------
 -- | A place where the person has lived or is living at the moment.
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Place =
     Place { -- | A place where this person has lived. For example: "Seattle, WA", "Near Toronto".
             placeValue   :: Maybe Text
@@ -411,7 +411,7 @@ instance FromJSON Place where
 --------------------------------------------------------------------------------
 -- | Individual components of a name
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Name =
     Name { -- | The full name of this person, including middle names, suffixes, etc
            nameFormatted       :: Maybe Text
@@ -438,7 +438,7 @@ instance FromJSON Name where
 --------------------------------------------------------------------------------
 -- | The person's relationship status.
 --
--- Since 1.4.3
+-- @since 1.4.3
 data RelationshipStatus = Single              -- ^ Person is single
                         | InRelationship      -- ^ Person is in a relationship
                         | Engaged             -- ^ Person is engaged
@@ -467,7 +467,7 @@ instance FromJSON RelationshipStatus where
 --------------------------------------------------------------------------------
 -- | The URI of the person's profile photo.
 --
--- Since 1.4.3
+-- @since 1.4.3
 newtype PersonImage = PersonImage { imageUri :: Text } deriving (Show, Eq)
 
 instance FromJSON PersonImage where
@@ -477,7 +477,7 @@ instance FromJSON PersonImage where
 --   the image under the URI. If for some reason you need to modify the query
 --   part, you should do it after resizing.
 --
--- Since 1.4.3
+-- @since 1.4.3
 resizePersonImage :: PersonImage -> Int -> PersonImage
 resizePersonImage (PersonImage uri) size =
     PersonImage $ uri `mappend` "?sz=" `mappend` T.pack (show size)
@@ -486,7 +486,7 @@ resizePersonImage (PersonImage uri) size =
 -- | Information about the user
 --   Full description of the resource https://developers.google.com/+/api/latest/people
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Person = Person
     { personId                 :: Text
       -- | The name of this person, which is suitable for display
@@ -556,7 +556,7 @@ instance FromJSON Person where
 --------------------------------------------------------------------------------
 -- | Person's email
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Email = Email
     { emailValue :: Text
     , emailType  :: EmailType
@@ -571,7 +571,7 @@ instance FromJSON Email where
 --------------------------------------------------------------------------------
 -- | Type of email
 --
--- Since 1.4.3
+-- @since 1.4.3
 data EmailType = EmailAccount   -- ^ Google account email address
                | EmailHome      -- ^ Home email address
                | EmailWork      -- ^ Work email adress
