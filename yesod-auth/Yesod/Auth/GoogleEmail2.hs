@@ -46,6 +46,8 @@ module Yesod.Auth.GoogleEmail2
     , Place(..)
     , Email(..)
     , EmailType(..)
+    -- * Other functions
+    , pid
     ) where
 
 import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
@@ -95,6 +97,10 @@ import           Network.HTTP.Types       (renderQueryText)
 import           System.IO.Unsafe         (unsafePerformIO)
 
 
+-- | Plugin identifier. This is used to identify the plugin used for
+-- authentication. The 'credsPlugin' will contain this value when this
+-- plugin is used for authentication.
+-- @since 1.4.17
 pid :: Text
 pid = "googleemail2"
 
