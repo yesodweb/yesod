@@ -21,7 +21,7 @@ library
         cpp-options:     -DGHC7
     else
         build-depends:   base                >= 4         && < 4.3
-    build-depends:   authenticate-oauth      >= 1.5       && < 1.7
+    build-depends:   authenticate-oauth      >= 1.5       && < 1.6
                    , bytestring              >= 0.9.1.4
                    , yesod-core              >= 1.4       && < 1.5
                    , yesod-auth              >= 1.4       && < 1.5
