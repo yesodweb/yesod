@@ -78,7 +78,8 @@ fileGenSpecs = do
     describe "Compress" $ do
         it "compress tool function" $ do
             out <- compressTool "runhaskell" [] "main = putStrLn \"Hello World\""
-            assertEqual "" "Hello World\n" out
+            -- 13 == CR, to make this test work on Windows
+            BL.filter (/= 13) out `shouldBe` "Hello World\n"
 
         it "tryCompressTools" $ do
             out <- flip tryCompressTools "abcdef" 

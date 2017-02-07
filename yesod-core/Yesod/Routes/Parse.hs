@@ -63,7 +63,7 @@ parseRoutesNoCheck = QuasiQuoter
 -- invalid input.
 resourcesFromString :: String -> [ResourceTree String]
 resourcesFromString =
-    fst . parse 0 . filter (not . all (== ' ')) . lines
+    fst . parse 0 . filter (not . all (== ' ')) . lines . filter (/= '\r')
   where
     parse _ [] = ([], [])
     parse indent (thisLine:otherLines)
