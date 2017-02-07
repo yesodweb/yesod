@@ -1,6 +1,7 @@
 ## 1.4.17
 
 * Add Show instance for user credentials `Creds`
+* Export pid type for identifying plugin
 
 ## 1.4.16
 
