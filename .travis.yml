@@ -152,23 +152,6 @@ before_install:
 install:
 - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
 - if [ -f configure.ac ]; then autoreconf -i; fi
-- |
-  set -ex
-  case "$BUILD" in
-    stack)
-      stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
-      ;;
-    cabal)
-      cabal --version
-      travis_retry cabal update
-
-      # Get the list of packages from the stack.yaml file
-      PACKAGES=$(stack --install-ghc query locals | grep '^ *path' | sed 's@^ *path:@@')
-
-      cabal install --only-dependencies --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 $CABALARGS $PACKAGES
-      ;;
-  esac
-  set +ex
 
 script:
 - |
@@ -177,6 +160,9 @@ script:
     stack)
       if [ `uname` = "Darwin" ]
       then
+        # Build dependencies with -O0 as well
+        echo "apply-ghc-options: everything" >> stack.yaml
+
         # Use slightly less intensive options on OS X due to Travis timeouts
         stack --no-terminal $ARGS test --fast --pedantic
       else
@@ -184,6 +170,12 @@ script:
       fi
       ;;
     cabal)
+      cabal --version
+      travis_retry cabal update
+
+      # Get the list of packages from the stack.yaml file
+      PACKAGES=$(stack --install-ghc query locals | grep '^ *path' | sed 's@^ *path:@@')
+
       cabal install --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 $CABALARGS $PACKAGES
 
       ORIGDIR=$(pwd)
