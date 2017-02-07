@@ -152,6 +152,13 @@ before_install:
 install:
 - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
 - if [ -f configure.ac ]; then autoreconf -i; fi
+- |
+  set -ex
+  if [ "$RESOLVER" = "--resolver nightly" ]
+  then
+    stack $RESOLVER solver --update-config
+  fi
+  set +ex
 
 script:
 - |
