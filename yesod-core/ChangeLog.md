@@ -1,3 +1,8 @@
+## 1.4.32
+
+* Fix warnings
+* Route parsing handles CRLF line endings
+
 ## 1.4.31
 
 * Add `parseCheckJsonBody` and `requireCheckJsonBody`

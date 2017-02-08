@@ -1,3 +1,7 @@
+## 1.4.2
+
+* Fix warnings
+
 ## 1.4.1
 
 * change OAuth Twitter ID, screen_name → user_id [#1168](https://github.com/yesodweb/yesod/pull/1168)

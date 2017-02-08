@@ -1,3 +1,7 @@
+## 1.5.5
+
+* Fix warnings
+
 ## 1.5.4.1
 
 * Compilation fix for GHC 7.8
