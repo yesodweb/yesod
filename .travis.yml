@@ -156,7 +156,7 @@ install:
   set -ex
   if [ "$ARGS" = "--resolver nightly" ]
   then
-    stack $ARGS solver --update-config
+    stack --install-ghc $ARGS solver --update-config
   fi
   set +ex
 
