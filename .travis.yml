@@ -154,9 +154,9 @@ install:
 - if [ -f configure.ac ]; then autoreconf -i; fi
 - |
   set -ex
-  if [ "$RESOLVER" = "--resolver nightly" ]
+  if [ "$ARGS" = "--resolver nightly" ]
   then
-    stack $RESOLVER solver --update-config
+    stack $ARGS solver --update-config
   fi
   set +ex
 
