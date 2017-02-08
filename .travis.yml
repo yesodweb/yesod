@@ -171,9 +171,9 @@ script:
         echo "apply-ghc-options: everything" >> stack.yaml
 
         # Use slightly less intensive options on OS X due to Travis timeouts
-        stack --no-terminal $ARGS test --fast --pedantic
+        stack --install-ghc --no-terminal $ARGS test --fast --pedantic
       else
-        stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps --pedantic
+        stack --install-ghc --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps --pedantic
       fi
       ;;
     cabal)
