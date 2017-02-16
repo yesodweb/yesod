@@ -31,6 +31,7 @@ module Yesod.Core.Handler
     , getsYesod
     , getUrlRender
     , getUrlRenderParams
+    , getPostParams
     , getCurrentRoute
     , getRequest
     , waiRequest
@@ -338,6 +339,18 @@ getUrlRenderParams
     :: MonadHandler m
     => m (Route (HandlerSite m) -> [(Text, Text)] -> Text)
 getUrlRenderParams = rheRender <$> askHandlerEnv
+
+-- | Get all the post parameters passed to the handler. To also get
+-- the submitted files (if any), you have to use 'runRequestBody'
+-- instead of this function.
+--
+-- @since 1.4.33
+getPostParams
+  :: MonadHandler m
+  => m [(Text, Text)]
+getPostParams = do
+  reqBodyContent <- runRequestBody
+  return $ fst reqBodyContent
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
