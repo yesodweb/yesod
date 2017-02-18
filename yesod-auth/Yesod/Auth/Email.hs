@@ -297,7 +297,7 @@ class ( YesodAuth site
     --
     -- Default: 'defaultEmailLoginHandler'.
     --
-    -- @since: 1.2.6
+    -- @since 1.4.11
     emailLoginHandler :: (Route Auth -> Route site) -> WidgetT site IO ()
     emailLoginHandler = defaultEmailLoginHandler
 
