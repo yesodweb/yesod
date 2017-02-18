@@ -1,3 +1,7 @@
+## 1.4.11
+
+* Fix warnings
+
 ## 1.4.10
 
 * Fixed `identifyForm` to properly return `FormMissing` for empty forms. [#1072](https://github.com/yesodweb/yesod/issues/1072)

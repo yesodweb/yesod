@@ -1,3 +1,7 @@
+## 0.2.6
+
+* Fix warnings
+
 ## 0.2.5
 
 * Allow to start websockets with custom ConnectionOptions with `webSocketsOptions` and `webSocketsOptionsWith`

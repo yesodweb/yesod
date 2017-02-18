@@ -1,3 +1,7 @@
+## 1.5.2
+
+* Fix warnings
+
 ## 1.5.1
 
 * Add `--host` option to `yesod devel`

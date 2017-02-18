@@ -1,3 +1,8 @@
+## 1.5.2
+
+* Fix test case for CRLF line endings
+* Fix warnings
+
 ## 1.5.1.1
 
 * Fix test suite compilation

@@ -1,3 +1,13 @@
+## 1.4.33
+
+* Add 'getPostParams' in Yesod.Core.Handler
+* Haddock rendering improved.
+
+## 1.4.32
+
+* Fix warnings
+* Route parsing handles CRLF line endings
+
 ## 1.4.31
 
 * Add `parseCheckJsonBody` and `requireCheckJsonBody`
