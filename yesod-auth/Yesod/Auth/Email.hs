@@ -297,7 +297,7 @@ class ( YesodAuth site
     --
     -- Default: 'defaultEmailLoginHandler'.
     --
-    -- @since 1.4.11
+    -- @since 1.4.17
     emailLoginHandler :: (Route Auth -> Route site) -> WidgetT site IO ()
     emailLoginHandler = defaultEmailLoginHandler
 
@@ -360,7 +360,7 @@ getRegisterR = registerHandler
 
 -- | Default implementation of 'emailLoginHandler'.
 --
--- @since 1.2.6
+-- @since 1.4.17
 defaultEmailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
 defaultEmailLoginHandler toParent = do
         (widget, enctype) <- liftWidgetT $ generateFormPost loginForm
