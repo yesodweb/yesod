@@ -3,6 +3,7 @@
 * Add Show instance for user credentials `Creds`
 * Export pid type for identifying plugin
 * Fix warnings
+* Allow for a custom Email Login DOM with `emailLoginHandler`
 
 ## 1.4.16
 
