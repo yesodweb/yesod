@@ -1,6 +1,8 @@
 ## 1.4.11
 
 * Fix warnings
+* Fixed spelling errors and wording for `Yesod.Form.Functions.convertField`'s
+  documentation
 
 ## 1.4.10
 
