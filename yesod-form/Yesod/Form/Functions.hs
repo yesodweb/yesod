@@ -534,8 +534,8 @@ parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $
 
 -- | Since a 'Field' cannot be a 'Functor', it is not obvious how to "reuse" a Field
 -- on a @newtype@ or otherwise equivalent type. This function allows you to convert
--- a @Field m a@ to a @Field m b@ assuming you provide a bidireccional
--- convertion among the two, through the first two functions.
+-- a @Field m a@ to a @Field m b@ assuming you provide a bidirectional
+-- conversion between the two, through the first two functions.
 --
 -- A simple example:
 --
