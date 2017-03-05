@@ -406,7 +406,8 @@ devel opts passThroughArgs = do
                     ]
             -}
             let procDef = setStdin closed $ setEnv env' $ proc "stack"
-                    [ "runghc"
+                    [ "--no-nix-pure" -- https://github.com/yesodweb/yesod/issues/1357
+                    , "runghc"
                     , "--"
                     , develHsPath
                     ]

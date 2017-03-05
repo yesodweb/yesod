@@ -1,3 +1,7 @@
+## 1.5.2.1
+
+* Use `--no-nix-pure` [#1357](https://github.com/yesodweb/yesod/issues/1357)
+
 ## 1.5.2
 
 * Fix warnings
