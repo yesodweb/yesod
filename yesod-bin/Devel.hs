@@ -21,6 +21,7 @@ import qualified Data.Conduit.List                     as CL
 import           Data.Default.Class                    (def)
 import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
+import           Data.Maybe                            (isJust)
 import qualified Data.Set                              as Set
 import           Data.Streaming.Network                (bindPortTCP,
                                                         bindRandomPortTCP)
@@ -362,9 +363,11 @@ devel opts passThroughArgs = do
 
         sayV "First successful build complete, running app"
 
-        -- We're going to set the PORT and DISPLAY_PORT variables
-        -- for the child below
+        -- We're going to set the PORT and DISPLAY_PORT variables for
+        -- the child below. Also need to know if the env program
+        -- exists.
         env <- fmap Map.fromList getEnvironment
+        hasEnv <- fmap isJust $ findExecutable "env"
 
         -- Keep looping forever, print any synchronous exceptions,
         -- and eventually die from an async exception from one of
@@ -405,9 +408,27 @@ devel opts passThroughArgs = do
                     , "Main.main"
                     ]
             -}
-            let procDef = setStdin closed $ setEnv env' $ proc "stack"
-                    [ "--no-nix-pure" -- https://github.com/yesodweb/yesod/issues/1357
+
+            -- Nix support in Stack doesn't pass along env vars by
+            -- default, so we use the env command. But if the command
+            -- isn't available, just set the env var. I'm sure this
+            -- will break _some_ combination of systems, but we'll
+            -- deal with that later. Previous issues:
+            --
+            -- https://github.com/yesodweb/yesod/issues/1357
+            -- https://github.com/yesodweb/yesod/issues/1359
+            let procDef
+                  | hasEnv = setStdin closed $ proc "stack"
+                    [ "exec"
+                    , "--"
+                    , "env"
+                    , "PORT=" ++ show newPort
+                    , "DISPLAY_PORT=" ++ show (develPort opts)
                     , "runghc"
+                    , develHsPath
+                    ]
+                  | otherwise = setStdin closed $ setEnv env' $ proc "stack"
+                    [ "runghc"
                     , "--"
                     , develHsPath
                     ]

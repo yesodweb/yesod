@@ -1,3 +1,7 @@
+## 1.5.2.2
+
+* I guess `--no-nix-pure` implies Nix... sigh [#1359](https://github.com/yesodweb/yesod/issues/1359)
+
 ## 1.5.2.1
 
 * Use `--no-nix-pure` [#1357](https://github.com/yesodweb/yesod/issues/1357)
