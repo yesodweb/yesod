@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yesod.Core.Internal.TH where
 
 import Prelude hiding (exp)
@@ -15,12 +16,16 @@ import Language.Haskell.TH.Syntax
 import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
-import Data.List (foldl')
+import Data.Char (isLower)
+import Data.List (foldl', uncons)
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative ((<$>))
 #endif
 import Control.Monad (replicateM, void)
 import Data.Either (partitionEithers)
+import Text.Parsec (parse, many1, many, eof, try, (<|>), option, sepBy1)
+import Text.Parsec.Token (symbol)
+import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
@@ -55,8 +60,40 @@ mkYesodSubData name = mkYesodDataGeneral name True
 
 mkYesodDataGeneral :: String -> Bool -> [ResourceTree String] -> Q [Dec]
 mkYesodDataGeneral name isSub res = do
-    let (name':rest) = words name
-    fst <$> mkYesodGeneral name' (fmap Left rest) isSub return res
+    let (name', rest, cxt) = case parse parseName "" name of
+            Left err -> error $ show err
+            Right a -> a
+    fst <$> mkYesodGeneral' cxt name' (fmap Left rest) isSub return res
+
+    where
+        parseName = do
+            cxt <- option [] parseContext
+            name' <- parseWord
+            args <- many parseWord
+            spaces
+            eof
+            return ( name', args, cxt)
+
+        parseWord = do
+            spaces
+            many1 alphaNum
+
+        parseContext = try $ do
+            cxts <- parseParen parseContexts
+            spaces
+            _ <- string "=>"
+            return cxts
+
+        parseParen p = do
+            spaces
+            _ <- char '('
+            r <- p
+            spaces
+            _ <- char ')'
+            return r
+
+        parseContexts = 
+            sepBy1 (many1 parseWord) (spaces >> char ',' >> return ())
 
 -- | See 'mkYesodData'.
 mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
@@ -80,7 +117,17 @@ mkYesodGeneral :: String                    -- ^ foundation type
                -> (Exp -> Q Exp)            -- ^ unwrap handler
                -> [ResourceTree String]
                -> Q([Dec],[Dec])
-mkYesodGeneral namestr args isSub f resS = do
+mkYesodGeneral = mkYesodGeneral' []
+
+mkYesodGeneral' :: [[String]]               -- ^ Appliction context. Used in RenderRoute, RouteAttrs, and ParseRoute instances.
+               -> String                    -- ^ foundation type
+               -> [Either String [String]]  -- ^ arguments for the type
+               -> Bool                      -- ^ is this a subsite
+               -> (Exp -> Q Exp)            -- ^ unwrap handler
+               -> [ResourceTree String]
+               -> Q([Dec],[Dec])
+mkYesodGeneral' appCxt' namestr args isSub f resS = do
+    let appCxt = fmap (\(c:rest) -> foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest) appCxt'
     mname <- lookupTypeName namestr
     arity <- case mname of
                Just name -> do
@@ -105,10 +152,15 @@ mkYesodGeneral namestr args isSub f resS = do
     vns <- replicateM (arity - length mtys) $ newName "t"
         -- Base type (site type with variables)
     let (argtypes,cxt) = (\(ns,r,cs) -> (ns ++ fmap VarT r, cs)) $
-          foldr (\arg (xs,n:ns,cs) ->
+          foldr (\arg (xs,vns',cs) ->
                    case arg of
-                     Left  t  -> ( ConT (mkName t):xs, n:ns, cs )
-                     Right ts -> ( VarT n         :xs,   ns
+                     Left  t@(h:_) | isLower h -> 
+                                 ( VarT (mkName t):xs, vns', cs )
+                     Left  t  -> 
+                                 ( ConT (mkName t):xs, vns', cs )
+                     Right ts -> 
+                                 let (n, ns) = maybe (error "mkYesodGeneral: Should be unreachable.") id $ uncons vns' in
+                                 ( VarT n : xs, ns
                                  , fmap (\t ->
 #if MIN_VERSION_template_haskell(2,10,0)
                                                AppT (ConT $ mkName t) (VarT n)
@@ -119,10 +171,10 @@ mkYesodGeneral namestr args isSub f resS = do
                  ) ([],vns,[]) args
         site = foldl' AppT (ConT name) argtypes
         res = map (fmap parseType) resS
-    renderRouteDec <- mkRenderRouteInstance site res
-    routeAttrsDec  <- mkRouteAttrsInstance site res
+    renderRouteDec <- mkRenderRouteInstance' appCxt site res
+    routeAttrsDec  <- mkRouteAttrsInstance' appCxt site res
     dispatchDec    <- mkDispatchInstance site cxt f res
-    parse <- mkParseRouteInstance site res
+    parseRoute <- mkParseRouteInstance' appCxt site res
     let rname = mkName $ "resources" ++ namestr
     eres <- lift resS
     let resourcesDec =
@@ -130,13 +182,17 @@ mkYesodGeneral namestr args isSub f resS = do
             , FunD rname [Clause [] (NormalB eres) []]
             ]
     let dataDec = concat
-            [ [parse]
+            [ [parseRoute]
             , renderRouteDec
             , [routeAttrsDec]
             , resourcesDec
             , if isSub then [] else masterTypeSyns vns site
             ]
     return (dataDec, dispatchDec)
+
+    where
+        nameToType t@(h:_) | isLower h = VarT $ mkName t
+        nameToType t = ConT $ mkName t
 
 mkMDS :: (Exp -> Q Exp) -> Q Exp -> MkDispatchSettings a site b
 mkMDS f rh = MkDispatchSettings

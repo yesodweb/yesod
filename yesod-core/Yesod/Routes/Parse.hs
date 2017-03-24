@@ -13,7 +13,7 @@ module Yesod.Routes.Parse
     ) where
 
 import Language.Haskell.TH.Syntax
-import Data.Char (isUpper, isSpace)
+import Data.Char (isUpper, isLower, isSpace)
 import Language.Haskell.TH.Quote
 import qualified System.IO as SIO
 import Yesod.Routes.TH
@@ -252,6 +252,7 @@ toTypeTree orig = do
             gos' (front . (t:)) xs'
 
 ttToType :: TypeTree -> Type
+ttToType (TTTerm s@(h:_)) | isLower h = VarT $ mkName s
 ttToType (TTTerm s) = ConT $ mkName s
 ttToType (TTApp x y) = ttToType x `AppT` ttToType y
 ttToType (TTList t) = ListT `AppT` ttToType t

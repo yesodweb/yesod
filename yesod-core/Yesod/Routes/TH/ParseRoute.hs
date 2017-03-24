@@ -3,6 +3,7 @@
 module Yesod.Routes.TH.ParseRoute
     ( -- ** ParseRoute
       mkParseRouteInstance
+    , mkParseRouteInstance'
     ) where
 
 import Yesod.Routes.TH.Types
@@ -12,7 +13,10 @@ import Yesod.Routes.Class
 import Yesod.Routes.TH.Dispatch
 
 mkParseRouteInstance :: Type -> [ResourceTree a] -> Q Dec
-mkParseRouteInstance typ ress = do
+mkParseRouteInstance = mkParseRouteInstance' []
+
+mkParseRouteInstance' :: Cxt -> Type -> [ResourceTree a] -> Q Dec
+mkParseRouteInstance' cxt typ ress = do
     cls <- mkDispatchClause
         MkDispatchSettings
             { mdsRunHandler = [|\_ _ x _ -> x|]
@@ -28,7 +32,7 @@ mkParseRouteInstance typ ress = do
         (map removeMethods ress)
     helper <- newName "helper"
     fixer <- [|(\f x -> f () x) :: (() -> ([Text], [(Text, Text)]) -> Maybe (Route a)) -> ([Text], [(Text, Text)]) -> Maybe (Route a)|]
-    return $ instanceD [] (ConT ''ParseRoute `AppT` typ)
+    return $ instanceD cxt (ConT ''ParseRoute `AppT` typ)
         [ FunD 'parseRoute $ return $ Clause
             []
             (NormalB $ fixer `AppE` VarE helper)
