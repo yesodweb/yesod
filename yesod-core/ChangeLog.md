@@ -1,3 +1,7 @@
+## 1.4.33
+
+* Adds curly brackets to route parser. [#1363](https://github.com/yesodweb/yesod/pull/1363)
+
 ## 1.4.32
 
 * Fix warnings
