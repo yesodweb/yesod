@@ -322,7 +322,7 @@ main = hspec $ do
         it "hierarchy" $ do
             routeAttrs (ParentR (pack "ignored") ChildR) @?= Set.singleton (pack "child")
     hierarchy
-    describe "parseRouteTyoe" $ do
+    describe "parseRouteType" $ do
         let success s t = it s $ parseTypeTree s @?= Just t
             failure s = it s $ parseTypeTree s @?= Nothing
         success "Int" $ TTTerm "Int"
@@ -334,6 +334,8 @@ main = hspec $ do
         success "[Int]" $ TTList $ TTTerm "Int"
         success "Foo-Bar" $ TTApp (TTTerm "Foo") (TTTerm "Bar")
         success "Foo-Bar-Baz" $ TTApp (TTTerm "Foo") (TTTerm "Bar") `TTApp` TTTerm "Baz"
+        success "Foo Bar" $ TTApp (TTTerm "Foo") (TTTerm "Bar")
+        success "Foo Bar Baz" $ TTApp (TTTerm "Foo") (TTTerm "Bar") `TTApp` TTTerm "Baz"
 
 getRootR :: Text
 getRootR = pack "this is the root"
