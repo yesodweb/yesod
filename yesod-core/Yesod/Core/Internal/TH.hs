@@ -16,7 +16,11 @@ import Language.Haskell.TH.Syntax
 import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
+#if MIN_VERSION_base(4,8,0)
 import Data.List (foldl', uncons)
+#else
+import Data.List (foldl')
+#endif
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative ((<$>))
 #endif
@@ -125,7 +129,13 @@ mkYesodGeneral' :: [[String]]               -- ^ Appliction context. Used in Ren
                -> [ResourceTree String]
                -> Q([Dec],[Dec])
 mkYesodGeneral' appCxt' namestr args isSub f resS = do
-    let appCxt = fmap (\(c:rest) -> foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest) appCxt'
+    let appCxt = fmap (\(c:rest) -> 
+#if MIN_VERSION_template_haskell(2,10,0)
+            foldl' (\acc v -> acc `AppT` nameToType v) (ConT $ mkName c) rest
+#else
+            ClassP (mkName c) $ fmap nameToType rest
+#endif
+          ) appCxt'
     mname <- lookupTypeName namestr
     arity <- case mname of
                Just name -> do
@@ -185,6 +195,12 @@ mkYesodGeneral' appCxt' namestr args isSub f resS = do
             , if isSub then [] else masterTypeSyns vns site
             ]
     return (dataDec, dispatchDec)
+
+#if !MIN_VERSION_base(4,8,0)
+    where
+        uncons (h:t) = Just (h,t)
+        uncons _ = Nothing
+#endif
 
 mkMDS :: (Exp -> Q Exp) -> Q Exp -> MkDispatchSettings a site b
 mkMDS f rh = MkDispatchSettings
