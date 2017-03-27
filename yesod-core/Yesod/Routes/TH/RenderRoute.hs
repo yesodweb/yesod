@@ -3,7 +3,6 @@ module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
       mkRenderRouteInstance
     , mkRenderRouteInstance'
-    , mkRenderRouteInstance'
     , mkRouteCons
     , mkRenderRouteClauses
     ) where

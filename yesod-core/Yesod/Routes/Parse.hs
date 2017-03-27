@@ -10,6 +10,8 @@ module Yesod.Routes.Parse
     , parseType
     , parseTypeTree
     , TypeTree (..)
+    , dropBracket
+    , nameToType
     ) where
 
 import Language.Haskell.TH.Syntax
@@ -252,15 +254,18 @@ toTypeTree orig = do
             gos' (front . (t:)) xs'
 
 ttToType :: TypeTree -> Type
-ttToType (TTTerm s@(h:_)) | isLower h = VarT $ mkName s
-ttToType (TTTerm s) = ConT $ mkName s
+ttToType (TTTerm s) = nameToType s
 ttToType (TTApp x y) = ttToType x `AppT` ttToType y
 ttToType (TTList t) = ListT `AppT` ttToType t
 
+nameToType :: String -> Type
+nameToType t@(h:_) | isLower h = VarT $ mkName t
+nameToType t = ConT $ mkName t
+
 pieceFromString :: String -> Either (CheckOverlap, String) (CheckOverlap, Piece String)
-pieceFromString ('#':'!':x) = Right $ (False, dynamicPieceFromString x)
-pieceFromString ('!':'#':x) = Right $ (False, dynamicPieceFromString x) -- https://github.com/yesodweb/yesod/issues/652
-pieceFromString ('#':x) = Right $ (True, dynamicPieceFromString x)
+pieceFromString ('#':'!':x) = Right $ (False, Dynamic $ dropBracket x)
+pieceFromString ('!':'#':x) = Right $ (False, Dynamic $ dropBracket x) -- https://github.com/yesodweb/yesod/issues/652
+pieceFromString ('#':x) = Right $ (True, Dynamic $ dropBracket x)
 
 pieceFromString ('*':'!':x) = Left (False, x)
 pieceFromString ('+':'!':x) = Left (False, x)
@@ -274,9 +279,9 @@ pieceFromString ('+':x) = Left (True, x)
 pieceFromString ('!':x) = Right $ (False, Static x)
 pieceFromString x = Right $ (True, Static x)
 
-dynamicPieceFromString :: String -> Piece String
-dynamicPieceFromString str@('{':x) = case break (== '}') x of
-    (s, "}") -> Dynamic s
-    _ -> error $ "Invalid path piece: " ++ str
-dynamicPieceFromString x = Dynamic x
--- JP: Should we check if there are curly brackets or other invalid characters?
+dropBracket :: String -> String
+dropBracket str@('{':x) = case break (== '}') x of
+    (s, "}") -> s
+    _ -> error $ "Unclosed bracket ('{'): " ++ str
+dropBracket x = x
+

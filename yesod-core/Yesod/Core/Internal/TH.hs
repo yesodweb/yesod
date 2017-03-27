@@ -16,15 +16,13 @@ import Language.Haskell.TH.Syntax
 import qualified Network.Wai as W
 
 import Data.ByteString.Lazy.Char8 ()
-import Data.Char (isLower)
 import Data.List (foldl', uncons)
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative ((<$>))
 #endif
 import Control.Monad (replicateM, void)
 import Data.Either (partitionEithers)
-import Text.Parsec (parse, many1, many, eof, try, (<|>), option, sepBy1)
-import Text.Parsec.Token (symbol)
+import Text.Parsec (parse, many1, many, eof, try, option, sepBy1)
 import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 
 import Yesod.Routes.TH
@@ -154,10 +152,8 @@ mkYesodGeneral' appCxt' namestr args isSub f resS = do
     let (argtypes,cxt) = (\(ns,r,cs) -> (ns ++ fmap VarT r, cs)) $
           foldr (\arg (xs,vns',cs) ->
                    case arg of
-                     Left  t@(h:_) | isLower h -> 
-                                 ( VarT (mkName t):xs, vns', cs )
                      Left  t  -> 
-                                 ( ConT (mkName t):xs, vns', cs )
+                                 ( nameToType t:xs, vns', cs )
                      Right ts -> 
                                  let (n, ns) = maybe (error "mkYesodGeneral: Should be unreachable.") id $ uncons vns' in
                                  ( VarT n : xs, ns
@@ -170,7 +166,7 @@ mkYesodGeneral' appCxt' namestr args isSub f resS = do
                                           ) ts ++ cs )
                  ) ([],vns,[]) args
         site = foldl' AppT (ConT name) argtypes
-        res = map (fmap parseType) resS
+        res = map (fmap (parseType . dropBracket)) resS
     renderRouteDec <- mkRenderRouteInstance' appCxt site res
     routeAttrsDec  <- mkRouteAttrsInstance' appCxt site res
     dispatchDec    <- mkDispatchInstance site cxt f res
@@ -189,10 +185,6 @@ mkYesodGeneral' appCxt' namestr args isSub f resS = do
             , if isSub then [] else masterTypeSyns vns site
             ]
     return (dataDec, dispatchDec)
-
-    where
-        nameToType t@(h:_) | isLower h = VarT $ mkName t
-        nameToType t = ConT $ mkName t
 
 mkMDS :: (Exp -> Q Exp) -> Q Exp -> MkDispatchSettings a site b
 mkMDS f rh = MkDispatchSettings
