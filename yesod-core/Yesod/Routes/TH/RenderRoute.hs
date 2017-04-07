@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, CPP #-}
 module Yesod.Routes.TH.RenderRoute
     ( -- ** RenderRoute
       mkRenderRouteInstance
@@ -8,24 +8,30 @@ module Yesod.Routes.TH.RenderRoute
     ) where
 
 import Yesod.Routes.TH.Types
+#if MIN_VERSION_template_haskell(2,11,0)
+import Language.Haskell.TH (conT)
+#endif
 import Language.Haskell.TH.Syntax
 import Data.Maybe (maybeToList)
 import Control.Monad (replicateM)
 import Data.Text (pack)
 import Web.PathPieces (PathPiece (..), PathMultiPiece (..))
 import Yesod.Routes.Class
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>))
 import Data.Monoid (mconcat)
+#endif
 
 -- | Generate the constructors of a route data type.
-mkRouteCons :: [ResourceTree Type] -> ([Con], [Dec])
-mkRouteCons =
-    mconcat . map mkRouteCon
+mkRouteCons :: [ResourceTree Type] -> Q ([Con], [Dec])
+mkRouteCons rttypes =
+    mconcat <$> mapM mkRouteCon rttypes
   where
     mkRouteCon (ResourceLeaf res) =
-        ([con], [])
+        return ([con], [])
       where
         con = NormalC (mkName $ resourceName res)
-            $ map (\x -> (NotStrict, x))
+            $ map (\x -> (notStrict, x))
             $ concat [singles, multi, sub]
         singles = concatMap toSingle $ resourcePieces res
         toSingle Static{} = []
@@ -37,14 +43,21 @@ mkRouteCons =
             case resourceDispatch res of
                 Subsite { subsiteType = typ } -> [ConT ''Route `AppT` typ]
                 _ -> []
-    mkRouteCon (ResourceParent name _check pieces children) =
-        ([con], dec : decs)
+
+    mkRouteCon (ResourceParent name _check pieces children) = do
+        (cons, decs) <- mkRouteCons children
+#if MIN_VERSION_template_haskell(2,12,0)
+        dec <- DataD [] (mkName name) [] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT [''Show, ''Read, ''Eq])
+#elif MIN_VERSION_template_haskell(2,11,0)
+        dec <- DataD [] (mkName name) [] Nothing cons <$> mapM conT [''Show, ''Read, ''Eq]
+#else
+        let dec = DataD [] (mkName name) [] cons [''Show, ''Read, ''Eq]
+#endif
+        return ([con], dec : decs)
       where
-        (cons, decs) = mkRouteCons children
         con = NormalC (mkName name)
-            $ map (\x -> (NotStrict, x))
-            $ concat [singles, [ConT $ mkName name]]
-        dec = DataD [] (mkName name) [] cons [''Show, ''Read, ''Eq]
+            $ map (\x -> (notStrict, x))
+            $ singles ++ [ConT $ mkName name]
 
         singles = concatMap toSingle pieces
         toSingle Static{} = []
@@ -88,7 +101,7 @@ mkRenderRouteClauses =
         dyns <- replicateM cnt $ newName "dyn"
         sub <-
             case resourceDispatch res of
-                Subsite{} -> fmap return $ newName "sub"
+                Subsite{} -> return <$> newName "sub"
                 _ -> return []
         let pat = ConP (mkName $ resourceName res) $ map VarP $ dyns ++ sub
 
@@ -125,7 +138,7 @@ mkRenderRouteClauses =
     mkPieces _ _ [] _ = []
     mkPieces toText tsp (Static s:ps) dyns = toText s : mkPieces toText tsp ps dyns
     mkPieces toText tsp (Dynamic{}:ps) (d:dyns) = tsp `AppE` VarE d : mkPieces toText tsp ps dyns
-    mkPieces _ _ ((Dynamic _) : _) [] = error "mkPieces 120"
+    mkPieces _ _ (Dynamic _ : _) [] = error "mkPieces 120"
 
 -- | Generate the 'RenderRoute' instance.
 --
@@ -141,10 +154,32 @@ mkRenderRouteInstance = mkRenderRouteInstance' []
 mkRenderRouteInstance' :: Cxt -> Type -> [ResourceTree Type] -> Q [Dec]
 mkRenderRouteInstance' cxt typ ress = do
     cls <- mkRenderRouteClauses ress
-    let (cons, decs) = mkRouteCons ress
-    return $ InstanceD cxt (ConT ''RenderRoute `AppT` typ)
-        [ DataInstD [] ''Route [typ] cons clazzes
+    (cons, decs) <- mkRouteCons ress
+#if MIN_VERSION_template_haskell(2,12,0)
+    did <- DataInstD [] ''Route [typ] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT clazzes)
+#elif MIN_VERSION_template_haskell(2,11,0)
+    did <- DataInstD [] ''Route [typ] Nothing cons <$> mapM conT clazzes
+#else
+    let did = DataInstD [] ''Route [typ] cons clazzes
+#endif
+    return $ instanceD cxt (ConT ''RenderRoute `AppT` typ)
+        [ did
         , FunD (mkName "renderRoute") cls
         ] : decs
   where
     clazzes = [''Show, ''Eq, ''Read]
+
+#if MIN_VERSION_template_haskell(2,11,0)
+notStrict :: Bang
+notStrict = Bang NoSourceUnpackedness NoSourceStrictness
+#else
+notStrict :: Strict
+notStrict = NotStrict
+#endif
+
+instanceD :: Cxt -> Type -> [Dec] -> Dec
+#if MIN_VERSION_template_haskell(2,11,0)
+instanceD = InstanceD Nothing
+#else
+instanceD = InstanceD
+#endif

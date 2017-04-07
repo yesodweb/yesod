@@ -11,11 +11,14 @@ module Yesod.Core.Dispatch
     , parseRoutesFile
     , parseRoutesFileNoCheck
     , mkYesod
+    , mkYesodWith
       -- ** More fine-grained
     , mkYesodData
     , mkYesodSubData
     , mkYesodDispatch
     , mkYesodSubDispatch
+      -- *** Helpers
+    , getGetMaxExpires
       -- ** Path pieces
     , PathPiece (..)
     , PathMultiPiece (..)
@@ -23,6 +26,7 @@ module Yesod.Core.Dispatch
       -- * Convert to WAI
     , toWaiApp
     , toWaiAppPlain
+    , toWaiAppYre
     , warp
     , warpDebug
     , warpEnv
@@ -44,7 +48,9 @@ import qualified Network.Wai as W
 import Data.ByteString.Lazy.Char8 ()
 
 import Data.Text (Text)
+#if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (mappend)
+#endif
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
 import qualified Blaze.ByteString.Builder
@@ -56,6 +62,8 @@ import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
 import Safe (readMay)
 import System.Environment (getEnvironment)
+import Control.AutoUpdate (mkAutoUpdate, defaultUpdateSettings, updateAction, updateFreq)
+import Yesod.Core.Internal.Util (getCurrentMaxExpiresRFC1123)
 
 import Network.Wai.Middleware.Autohead
 import Network.Wai.Middleware.AcceptOverride
@@ -79,13 +87,20 @@ toWaiAppPlain site = do
     logger <- makeLogger site
     sb <- makeSessionBackend site
     gen <- MWC.createSystemRandom
-    return $ toWaiAppYre $ YesodRunnerEnv
+    getMaxExpires <- getGetMaxExpires
+    return $ toWaiAppYre YesodRunnerEnv
             { yreLogger = logger
             , yreSite = site
             , yreSessionBackend = sb
             , yreGen = gen
+            , yreGetMaxExpires = getMaxExpires
             }
 
+-- | Pure low level function to construct WAI application. Usefull
+-- when you need not standard way to run your app, or want to embed it
+-- inside another app.
+--
+-- @since 1.4.29
 toWaiAppYre :: YesodDispatch site => YesodRunnerEnv site -> W.Application
 toWaiAppYre yre req =
     case cleanPath site $ W.pathInfo req of
@@ -112,8 +127,8 @@ toWaiAppYre yre req =
         dest' =
             if S.null (W.rawQueryString env)
                 then dest
-                else (dest `mappend`
-                     Blaze.ByteString.Builder.fromByteString (W.rawQueryString env))
+                else dest `mappend`
+                     Blaze.ByteString.Builder.fromByteString (W.rawQueryString env)
 
 -- | Same as 'toWaiAppPlain', but provides a default set of middlewares. This
 -- set may change with future releases, but currently covers:
@@ -136,11 +151,13 @@ toWaiAppLogger :: YesodDispatch site => Logger -> site -> IO W.Application
 toWaiAppLogger logger site = do
     sb <- makeSessionBackend site
     gen <- MWC.createSystemRandom
+    getMaxExpires <- getGetMaxExpires
     let yre = YesodRunnerEnv
                 { yreLogger = logger
                 , yreSite = site
                 , yreSessionBackend = sb
                 , yreGen = gen
+                , yreGetMaxExpires = getMaxExpires
                 }
     messageLoggerSource
         site
@@ -175,7 +192,7 @@ warp port site = do
                     $(qLocation >>= liftLoc)
                     "yesod-core"
                     LevelError
-                    (toLogStr $ "Exception from Warp: " ++ show e)) $
+                    (toLogStr $ "Exception from Warp: " ++ show e))
         Network.Wai.Handler.Warp.defaultSettings)
   where
     shouldLog' = Network.Wai.Handler.Warp.defaultShouldDisplayException
@@ -222,8 +239,18 @@ warpEnv :: YesodDispatch site => site -> IO ()
 warpEnv site = do
     env <- getEnvironment
     case lookup "PORT" env of
-        Nothing -> error $ "warpEnv: no PORT environment variable found"
+        Nothing -> error "warpEnv: no PORT environment variable found"
         Just portS ->
             case readMay portS of
                 Nothing -> error $ "warpEnv: invalid PORT environment variable: " ++ show portS
                 Just port -> warp port site
+
+-- | Default constructor for 'yreGetMaxExpires' field. Low level
+-- function for simple manual construction of 'YesodRunnerEnv'.
+--
+-- @since 1.4.29
+getGetMaxExpires :: IO (IO Text)
+getGetMaxExpires = mkAutoUpdate defaultUpdateSettings
+  { updateAction = getCurrentMaxExpiresRFC1123
+  , updateFreq = 24 * 60 * 60 * 1000000 -- Update once per day
+  }

@@ -1,19 +1,15 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternGuards     #-}
 {-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
 module Yesod.Core.Internal.Response where
 
-import           Blaze.ByteString.Builder     (toByteString)
 import           Data.ByteString              (ByteString)
 import qualified Data.ByteString              as S
 import qualified Data.ByteString.Char8        as S8
 import           Data.CaseInsensitive         (CI)
 import qualified Data.CaseInsensitive         as CI
 import           Network.Wai
-import           Data.Conduit                 (transPipe)
+import           Control.Monad                (mplus)
 import           Control.Monad.Trans.Resource (runInternalState, InternalState)
 import           Network.Wai.Internal
 #if !MIN_VERSION_base(4, 6, 0)
@@ -26,12 +22,12 @@ import qualified Network.HTTP.Types           as H
 import qualified Data.Text                    as T
 import           Control.Exception            (SomeException, handle)
 import           Blaze.ByteString.Builder     (fromLazyByteString,
-                                               toLazyByteString)
+                                               toLazyByteString, toByteString)
 import qualified Data.ByteString.Lazy         as L
 import qualified Data.Map                     as Map
 import           Yesod.Core.Internal.Request  (tokenKey)
 import           Data.Text.Encoding           (encodeUtf8)
-import           Data.Conduit                 (Flush (..), ($$))
+import           Data.Conduit                 (Flush (..), ($$), transPipe)
 import qualified Data.Conduit.List            as CL
 
 yarToResponse :: YesodResponse
@@ -58,11 +54,10 @@ yarToResponse (YRPlain s' hs ct c newSess) saveSession yreq _req is sendResponse
     let go (ContentBuilder b mlen) = do
             let hs' = maybe finalHeaders finalHeaders' mlen
             sendResponse $ ResponseBuilder s hs' b
-        go (ContentFile fp p) = do
-            sendResponse $ ResponseFile s finalHeaders fp p
+        go (ContentFile fp p) = sendResponse $ ResponseFile s finalHeaders fp p
         go (ContentSource body) = sendResponse $ responseStream s finalHeaders
-            $ \sendChunk flush -> do
-                transPipe (flip runInternalState is) body
+            $ \sendChunk flush ->
+                transPipe (`runInternalState` is) body
                 $$ CL.mapM_ (\mchunk ->
                     case mchunk of
                         Flush -> flush
@@ -91,7 +86,7 @@ defaultStatus = H.mkStatus (-1) "INVALID DEFAULT STATUS"
 headerToPair :: Header
              -> (CI ByteString, ByteString)
 headerToPair (AddCookie sc) =
-    ("Set-Cookie", toByteString $ renderSetCookie $ sc)
+    ("Set-Cookie", toByteString $ renderSetCookie sc)
 headerToPair (DeleteCookie key path) =
     ( "Set-Cookie"
     , S.concat
@@ -107,7 +102,7 @@ evaluateContent :: Content -> IO (Either ErrorResponse Content)
 evaluateContent (ContentBuilder b mlen) = handle f $ do
     let lbs = toLazyByteString b
         len = L.length lbs
-        mlen' = maybe (Just $ fromIntegral len) Just mlen
+        mlen' = mlen `mplus` Just (fromIntegral len)
     len `seq` return (Right $ ContentBuilder (fromLazyByteString lbs) mlen')
   where
     f :: SomeException -> IO (Either ErrorResponse Content)

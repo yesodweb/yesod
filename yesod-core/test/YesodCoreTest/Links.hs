@@ -2,11 +2,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
 module YesodCoreTest.Links (linksTest) where
+    ( linksTest
+    , Widget
+    , resourcesY
+    ) where
 
 import Test.Hspec
 
 import Yesod.Core
-import Text.Hamlet
 import Network.Wai
 import Network.Wai.Test
 import Data.Text (Text)
@@ -22,17 +25,22 @@ mkYesod "Y" [parseRoutes|
 /route-test-2/*Vector-String RT2 GET
 /route-test-3/*Vector-(Maybe-Int) RT3 GET
 /route-test-4/#(Foo-Int-Int) RT4 GET
+/route-test-4-spaces/#{Foo Int Int} RT4Spaces GET
 |]
 
 data Vector a = Vector
     deriving (Show, Read, Eq)
 
-instance PathMultiPiece (Vector a)
+instance PathMultiPiece (Vector a) where
+    toPathMultiPiece = error "toPathMultiPiece"
+    fromPathMultiPiece = error "fromPathMultiPiece"
 
 data Foo x y = Foo
     deriving (Show, Read, Eq)
 
-instance PathPiece (Foo x y)
+instance PathPiece (Foo x y) where
+    toPathPiece = error "toPathPiece"
+    fromPathPiece = error "fromPathPiece"
 
 instance Yesod Y
 
@@ -56,6 +64,9 @@ getRT3 _ = return ()
 
 getRT4 :: Foo Int Int -> Handler ()
 getRT4 _ = return ()
+
+getRT4Spaces :: Foo Int Int -> Handler ()
+getRT4Spaces _ = return ()
 
 linksTest :: Spec
 linksTest = describe "Test.Links" $ do

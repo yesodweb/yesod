@@ -1,3 +1,111 @@
+## 1.5.2.2
+
+* I guess `--no-nix-pure` implies Nix... sigh [#1359](https://github.com/yesodweb/yesod/issues/1359)
+
+## 1.5.2.1
+
+* Use `--no-nix-pure` [#1357](https://github.com/yesodweb/yesod/issues/1357)
+
+## 1.5.2
+
+* Fix warnings
+
+## 1.5.1
+
+* Add `--host` option to `yesod devel`
+
+## 1.5.0.1
+
+* Fix build failure
+
+## 1.5.0
+
+Rewrite of `yesod devel` to take advantage of Stack for a simpler codebase.
+
+Advantages:
+
+* Does not link against the ghc library, so can be used with multiple
+  GHC versions
+* Leverages Stack's ability to check for dependent files, which is
+  more robust than what yesod devel was doing previously
+* Seems to involve less rebuilding of the library on initial run
+
+Disadvantages:
+
+* Lost some functionality (e.g., failure hooks, controlling the exit
+  command)
+* Newer codebase, quite likely has bugs that need to be ironed out.
+
+## 1.4.18.7
+
+* Actually release the changes for #1284
+
+## 1.4.18.6
+
+* Fix support for GHC 8.0.1 [#1284](https://github.com/yesodweb/yesod/issues/1284)
+
+## 1.4.18.5
+
+* yesod-bin: Make it build with latest optparse-applicative [#1282](https://github.com/yesodweb/yesod/pull/1282)
+
+## 1.4.18.4
+
+* Link yesod-bin with wxneeded on OpenBSD. [#1281](https://github.com/yesodweb/yesod/pull/1281)
+
+## 1.4.18.3
+
+* Adding a new handler adds it under wrong stanza [#1273](https://github.com/yesodweb/yesod/issues/1273)
+
+## 1.4.18.2
+
+* Work around change in behavior in newer optparse-applicative ([mailing list discussion](https://groups.google.com/d/msg/yesodweb/BrTkMKFREgU/AKVc9AK2AQAJ))
+
+## 1.4.18.1
+
+* error handling when checking for stack binary [#1219](https://github.com/yesodweb/yesod/pull/1219)
+* GHC 8 support
+
+## 1.4.18
+
+* Disable `yesod test` when using Stack [#1198](https://github.com/yesodweb/yesod/issues/1198)
+
+## 1.4.17
+
+* Fully remove the `yesod init` command
+
+## 1.4.16.1
+
+* Workaround for [wai#478](https://github.com/yesodweb/wai/issues/478)
+
+## 1.4.16
+
+* Some updates for better reverse proxying [yesod-scaffold#114](https://github.com/yesodweb/yesod-scaffold/issues/114)
+
+## 1.4.15
+
+* Deprecate yesod init
+
+## 1.4.14
+
+* Fix order of -package-db arguments to runghc [#1057](https://github.com/yesodweb/yesod/issues/1057)
+
+## 1.4.13
+
+* Enable stack with yesod keter [#1041](https://github.com/yesodweb/yesod/pull/1041)
+
+## 1.4.12
+
+* Devel server: have to type quit to quit
+
+## 1.4.11
+
+* Add support to `yesod devel` to detect and use `GHC_PACKAGE_PATH`. This makes
+  `yesod devel` compatible with `stack`, just run: `stack exec -- yesod devel`.
+
+## 1.4.10
+
+* Scaffolding update
+
 ## 1.4.9.2
 
 * Collapse paths in keter bundles, see [mailing list thread](https://groups.google.com/d/msg/yesodweb/Ndd310qfSEc/pZOXldsKowsJ)

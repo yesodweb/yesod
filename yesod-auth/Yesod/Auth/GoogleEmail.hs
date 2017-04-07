@@ -13,6 +13,7 @@
 -- to BrowserID), and it requires no credential managing or setup (as opposed
 -- to Email).
 module Yesod.Auth.GoogleEmail
+    {-# DEPRECATED "Google no longer provides OpenID support, please use Yesod.Auth.GoogleEmail2" #-}
     ( authGoogleEmail
     , forwardUrl
     ) where
@@ -71,7 +72,7 @@ authGoogleEmail =
         completeHelper posts
     dispatch _ _ = notFound
 
-completeHelper :: YesodAuth master => [(Text, Text)] -> AuthHandler master TypedContent
+completeHelper :: [(Text, Text)] -> AuthHandler master TypedContent
 completeHelper gets' = do
       master <- lift getYesod
       eres <- lift $ try $ OpenId.authenticateClaimed gets' (authHttpManager master)

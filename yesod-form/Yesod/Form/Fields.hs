@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -68,14 +69,17 @@ import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup
 #define toHtml toMarkup
 #define preEscapedText preEscapedToMarkup
-import Text.Cassius
 import Data.Time (Day, TimeOfDay(..))
 import qualified Text.Email.Validate as Email
 import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
 import Network.URI (parseURI)
 import Database.Persist.Sql (PersistField, PersistFieldSql (..))
+#if MIN_VERSION_persistent(2,5,0)
+import Database.Persist (Entity (..), SqlType (SqlString), PersistRecordBackend, PersistQueryRead)
+#else
 import Database.Persist (Entity (..), SqlType (SqlString))
+#endif
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
 import Data.Either (partitionEithers)
@@ -84,7 +88,6 @@ import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Blaze.ByteString.Builder.Html.Utf8 as B
 import Blaze.ByteString.Builder (writeByteString, toLazyByteString)
 import Blaze.ByteString.Builder.Internal.Write (fromWriteList)
-import Database.Persist (PersistEntityBackend)
 
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import qualified Data.ByteString as S
@@ -96,7 +99,7 @@ import qualified Data.Text as T (drop, dropWhile)
 import qualified Data.Text.Read
 
 import qualified Data.Map as Map
-import Yesod.Persist (selectList, runDB, Filter, SelectOpt, Key, YesodPersist, PersistEntity, PersistQuery)
+import Yesod.Persist (selectList, Filter, SelectOpt, Key)
 import Control.Arrow ((&&&))
 
 import Control.Applicative ((<$>), (<|>))
@@ -319,7 +322,7 @@ timeParser = do
   where
     hour = do
         x <- digit
-        y <- (return <$> digit) <|> return []
+        y <- (return Control.Applicative.<$> digit) <|> return []
         let xy = x : y
         let i = read xy
         if i < 0 || i >= 24
@@ -350,7 +353,7 @@ $newline never
     , fieldEnctype = UrlEncoded
     }
 
--- | Creates an input with @type="email"@ with the <http://www.w3.org/html/wg/drafts/html/master/forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
+-- | Creates an input with @type="email"@ with the <http://w3c.github.io/html/sec-forms.html#the-multiple-attribute multiple> attribute; browsers might implement this as taking a comma separated list of emails. Each email address is validated as described in 'emailField'.
 --
 -- Since 1.3.7
 multiEmailField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m [Text]
@@ -438,13 +441,13 @@ $newline never
 |]) -- inside
 
 -- | Creates a @\<select>@ tag for selecting multiple options.
-multiSelectFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
+multiSelectFieldList :: (Eq a, RenderMessage site msg)
                      => [(msg, a)]
                      -> Field (HandlerT site IO) [a]
 multiSelectFieldList = multiSelectField . optionsPairs
 
 -- | Creates a @\<select>@ tag for selecting multiple options.
-multiSelectField :: (Eq a, RenderMessage site FormMessage)
+multiSelectField :: Eq a
                  => HandlerT site IO (OptionList a)
                  -> Field (HandlerT site IO) [a]
 multiSelectField ioptlist =
@@ -476,17 +479,17 @@ radioFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg)
 radioFieldList = radioField . optionsPairs
 
 -- | Creates an input with @type="checkbox"@ for selecting multiple options.
-checkboxesFieldList :: (Eq a, RenderMessage site FormMessage, RenderMessage site msg) => [(msg, a)]
+checkboxesFieldList :: (Eq a, RenderMessage site msg) => [(msg, a)]
                      -> Field (HandlerT site IO) [a]
 checkboxesFieldList = checkboxesField . optionsPairs
 
 -- | Creates an input with @type="checkbox"@ for selecting multiple options.
-checkboxesField :: (Eq a, RenderMessage site FormMessage)
+checkboxesField :: Eq a
                  => HandlerT site IO (OptionList a)
                  -> Field (HandlerT site IO) [a]
 checkboxesField ioptlist = (multiSelectField ioptlist)
     { fieldView =
-        \theId name attrs val isReq -> do
+        \theId name attrs val _isReq -> do
             opts <- fmap olOptions $ handlerToWidget ioptlist
             let optselected (Left _) _ = False
                 optselected (Right vals) opt = (optionInternalValue opt) `elem` vals
@@ -568,7 +571,7 @@ $newline never
 --
 --   Note that this makes the field always optional.
 --
-checkBoxField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Bool
+checkBoxField :: Monad m => Field m Bool
 checkBoxField = Field
     { fieldParse = \e _ -> return $ checkBoxParser e
     , fieldView  = \theId name attrs val _ -> [whamlet|
@@ -592,6 +595,12 @@ data OptionList a = OptionList
     { olOptions :: [Option a]
     , olReadExternal :: Text -> Maybe a -- ^ A function mapping from the form's value ('optionExternalValue') to the selected Haskell value ('optionInternalValue').
     }
+
+-- | Since 1.4.6
+instance Functor OptionList where
+    fmap f (OptionList options readExternal) = 
+      OptionList ((fmap.fmap) f options) (fmap f . readExternal)
+
 -- | Creates an 'OptionList', using a 'Map' to implement the 'olReadExternal' function.
 mkOptionList :: [Option a] -> OptionList a
 mkOptionList os = OptionList
@@ -604,6 +613,11 @@ data Option a = Option
     , optionInternalValue :: a -- ^ The Haskell value being selected.
     , optionExternalValue :: Text -- ^ The representation of this value stored in the form.
     }
+
+-- | Since 1.4.6
+instance Functor Option where
+    fmap f (Option display internal external) = Option display (f internal) external
+
 -- | Creates an 'OptionList' from a list of (display-value, internal value) pairs.
 optionsPairs :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
              => [(msg, a)] -> m (OptionList a)
@@ -635,6 +649,19 @@ optionsEnum = optionsPairs $ map (\x -> (pack $ show x, x)) [minBound..maxBound]
 -- >         <$> areq (selectField countries) "Which country do you live in?" Nothing
 -- >         where
 -- >           countries = optionsPersist [] [Asc CountryName] countryName
+#if MIN_VERSION_persistent(2,5,0)
+optionsPersist :: ( YesodPersist site
+                  , PersistQueryRead backend
+                  , PathPiece (Key a)
+                  , RenderMessage site msg
+                  , YesodPersistBackend site ~ backend
+                  , PersistRecordBackend a backend
+                  )
+               => [Filter a]
+               -> [SelectOpt a]
+               -> (a -> msg)
+               -> HandlerT site IO (OptionList (Entity a))
+#else
 optionsPersist :: ( YesodPersist site, PersistEntity a
                   , PersistQuery (PersistEntityBackend a)
                   , PathPiece (Key a)
@@ -645,6 +672,7 @@ optionsPersist :: ( YesodPersist site, PersistEntity a
                -> [SelectOpt a]
                -> (a -> msg)
                -> HandlerT site IO (OptionList (Entity a))
+#endif
 optionsPersist filts ords toDisplay = fmap mkOptionList $ do
     mr <- getMessageRender
     pairs <- runDB $ selectList filts ords
@@ -658,6 +686,20 @@ optionsPersist filts ords toDisplay = fmap mkOptionList $ do
 -- the entire 'Entity'.
 --
 -- Since 1.3.2
+#if MIN_VERSION_persistent(2,5,0)
+optionsPersistKey
+  :: (YesodPersist site
+     , PersistQueryRead backend
+     , PathPiece (Key a)
+     , RenderMessage site msg
+     , backend ~ YesodPersistBackend site
+     , PersistRecordBackend a backend
+     )
+  => [Filter a]
+  -> [SelectOpt a]
+  -> (a -> msg)
+  -> HandlerT site IO (OptionList (Key a))
+#else
 optionsPersistKey
   :: (YesodPersist site
      , PersistEntity a
@@ -670,6 +712,7 @@ optionsPersistKey
   -> [SelectOpt a]
   -> (a -> msg)
   -> HandlerT site IO (OptionList (Key a))
+#endif
 
 optionsPersistKey filts ords toDisplay = fmap mkOptionList $ do
     mr <- getMessageRender
@@ -716,7 +759,7 @@ selectFieldHelper outside onOpt inside opts' = Field
                     Just y -> Right $ Just y
 
 -- | Creates an input with @type="file"@.
-fileField :: (Monad m, RenderMessage (HandlerSite m) FormMessage)
+fileField :: Monad m
           => Field m FileInfo
 fileField = Field
     { fieldParse = \_ files -> return $
@@ -762,7 +805,6 @@ $newline never
     return (res, (fv :), ints', Multipart)
 
 fileAFormOpt :: MonadHandler m
-             => RenderMessage (HandlerSite m) FormMessage
              => FieldSettings (HandlerSite m)
              -> AForm m (Maybe FileInfo)
 fileAFormOpt fs = AForm $ \(master, langs) menvs ints -> do

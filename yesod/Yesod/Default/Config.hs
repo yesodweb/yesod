@@ -15,7 +15,7 @@ module Yesod.Default.Config
     , withYamlEnvironment
     ) where
 
-import Data.Char (toUpper, toLower)
+import Data.Char (toUpper)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Yaml

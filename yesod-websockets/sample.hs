@@ -1,12 +1,12 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
 import Yesod.Core
 import Yesod.WebSockets
 import qualified Data.Text.Lazy as TL
 import Control.Monad (forever)
-import Control.Monad.Trans.Reader
 import Control.Concurrent (threadDelay)
 import Data.Time
-import Conduit
+import Data.Conduit
+import qualified Data.Conduit.List
 
 data App = App
 
@@ -25,7 +25,7 @@ timeSource = forever $ do
 getHomeR :: Handler Html
 getHomeR = do
     webSockets $ race_
-        (sourceWS $$ mapC TL.toUpper =$ sinkWSText)
+        (sourceWS $$ Data.Conduit.List.map TL.toUpper =$ sinkWSText)
         (timeSource $$ sinkWSText)
     defaultLayout $
         toWidget
@@ -42,6 +42,9 @@ getHomeR = do
                 };
                 conn.onmessage = function(e) {
                     document.write("<p>" + e.data + "</p>");
+                };
+                conn.onclose = function () {
+                    document.write("<p>Connection Closed</p>");
                 };
             |]
 

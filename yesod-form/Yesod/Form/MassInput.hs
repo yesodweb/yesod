@@ -3,6 +3,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP#-}
+-- | A module providing a means of creating multiple input forms, such as a
+-- list of 0 or more recipients.
 module Yesod.Form.MassInput
     ( inputList
     , massDivs
@@ -41,11 +43,19 @@ up i = do
         IntCons _ is' -> put is' >> newFormIdent >> return ()
     up $ i - 1
 
-inputList :: (m ~ HandlerT site IO, xml ~ WidgetT site IO (), RenderMessage site FormMessage)
+-- | Generate a form that accepts 0 or more values from the user, allowing the
+-- user to specify that a new row is necessary.
+inputList :: (xml ~ WidgetT site IO (), RenderMessage site FormMessage)
           => Html
+          -- ^ label for the form
           -> ([[FieldView site]] -> xml)
+          -- ^ how to display the rows, usually either 'massDivs' or 'massTable'
           -> (Maybe a -> AForm (HandlerT site IO) a)
-          -> (Maybe [a] -> AForm (HandlerT site IO) [a])
+          -- ^ display a single row of the form, where @Maybe a@ gives the
+          -- previously submitted value
+          -> Maybe [a]
+          -- ^ default initial values for the form
+          -> AForm (HandlerT site IO) [a]
 inputList label fixXml single mdef = formToAForm $ do
     theId <- lift newIdent
     down 1
@@ -110,14 +120,13 @@ $newline never
     up 1
     return res
 
-fixme :: (xml ~ WidgetT site IO ())
-      => [Either xml (FormResult a, [FieldView site])]
+fixme :: [Either xml (FormResult a, [FieldView site])]
       -> (FormResult [a], [xml], [[FieldView site]])
 fixme eithers =
     (res, xmls, map snd rest)
   where
     (xmls, rest) = partitionEithers eithers
-    res = sequenceA $ map fst rest
+    res = Data.Traversable.sequenceA $ map fst rest
 
 massDivs, massTable
          :: [[FieldView site]]

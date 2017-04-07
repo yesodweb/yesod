@@ -22,7 +22,7 @@ import Network.Wai.Middleware.Jsonp (jsonp)
 import Control.Monad (when)
 import System.Environment (getEnvironment)
 import Data.Maybe (fromMaybe)
-import Safe (readMay)
+import Text.Read (readMaybe)
 import Control.Monad.Logger (Loc, LogSource, LogLevel (LevelError), liftLoc)
 import System.Log.FastLogger (LogStr, toLogStr)
 import Language.Haskell.TH.Syntax (qLocation)
@@ -41,8 +41,7 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 --   > main :: IO ()
 --   > main = defaultMain (fromArgs parseExtra) makeApplication
 --
-defaultMain :: (Show env, Read env)
-            => IO (AppConfig env extra)
+defaultMain :: IO (AppConfig env extra)
             -> (AppConfig env extra -> IO Application)
             -> IO ()
 defaultMain load getApp = do
@@ -60,8 +59,7 @@ type LogFunc = Loc -> LogSource -> LogLevel -> LogStr -> IO ()
 -- @Application@ to install Warp exception handlers.
 --
 -- Since 1.2.5
-defaultMainLog :: (Show env, Read env)
-               => IO (AppConfig env extra)
+defaultMainLog :: IO (AppConfig env extra)
                -> (AppConfig env extra -> IO (Application, LogFunc))
                -> IO ()
 defaultMainLog load getApp = do
@@ -113,15 +111,14 @@ defaultRunner f app = do
 -- | Run your development app using a custom environment type and loader
 --   function
 defaultDevelApp
-    :: (Show env, Read env)
-    => IO (AppConfig env extra) -- ^ A means to load your development @'AppConfig'@
+    :: IO (AppConfig env extra) -- ^ A means to load your development @'AppConfig'@
     -> (AppConfig env extra -> IO Application) -- ^ Get your @Application@
     -> IO (Int, Application)
 defaultDevelApp load getApp = do
     conf   <- load
     env <- getEnvironment
-    let p = fromMaybe (appPort conf) $ lookup "PORT" env >>= readMay
-        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMay
+    let p = fromMaybe (appPort conf) $ lookup "PORT" env >>= readMaybe
+        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMaybe
     putStrLn $ "Devel application launched: http://localhost:" ++ show pdisplay
     app <- getApp conf
     return (p, app)

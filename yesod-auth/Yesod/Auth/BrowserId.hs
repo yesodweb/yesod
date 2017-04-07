@@ -2,7 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
+-- | NOTE: Mozilla Persona will be shut down by the end of 2016, therefore this
+-- module is no longer recommended for use.
 module Yesod.Auth.BrowserId
+    {-# DEPRECATED "Mozilla Persona will be shut down by the end of 2016" #-}
     ( authBrowserId
     , createOnClick, createOnClickOverride
     , def
@@ -16,11 +19,10 @@ import Yesod.Auth
 import Web.Authenticate.BrowserId
 import Data.Text (Text)
 import Yesod.Core
-import Text.Hamlet (hamlet)
 import qualified Data.Text as T
 import Data.Maybe (fromMaybe)
 import Control.Monad (when, unless)
-import Text.Julius (julius, rawJS)
+import Text.Julius (rawJS)
 import Network.URI (uriPath, parseURI)
 import Data.FileEmbed (embedFile)
 import Data.ByteString (ByteString)

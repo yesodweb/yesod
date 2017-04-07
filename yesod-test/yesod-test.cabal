@@ -1,10 +1,10 @@
 name:               yesod-test
-version:            1.4.3.1
+version:            1.5.5
 license:            MIT
 license-file:       LICENSE
 author:             Nubis <nubis@woobiz.com.ar>
 maintainer:         Michael Snoyman, Greg Weber, Nubis <nubis@woobiz.com.ar>
-synopsis:           integration testing for WAI/Yesod Applications 
+synopsis:           integration testing for WAI/Yesod Applications
 category:           Web, Yesod, Testing
 stability:          Experimental
 cabal-version:      >= 1.8
@@ -14,30 +14,31 @@ description:     API docs and the README are available at <http://www.stackage.o
 extra-source-files: README.md, LICENSE, test/main.hs, ChangeLog.md
 
 library
-    build-depends:   base                      >= 4.3      && < 5
+    build-depends:   HUnit                     >= 1.2
                    , attoparsec                >= 0.10
+                   , base                      >= 4.3      && < 5
+                   , blaze-builder
+                   , blaze-html                >= 0.5
+                   , blaze-markup              >= 0.5.1
+                   , bytestring                >= 0.9
+                   , case-insensitive          >= 0.2
+                   , containers
+                   , cookie
+                   , hspec-core                == 2.*
+                   , html-conduit              >= 0.1
+                   , http-types                >= 0.7
+                   , monad-control
+                   , network                   >= 2.2
                    , persistent                >= 1.0
+                   , pretty-show               >= 1.6
+                   , text
+                   , time
                    , transformers              >= 0.2.2
                    , wai                       >= 3.0
                    , wai-extra
-                   , network                   >= 2.2
-                   , http-types                >= 0.7
-                   , HUnit                     >= 1.2
-                   , hspec-core                == 2.*
-                   , bytestring                >= 0.9
-                   , case-insensitive          >= 0.2
-                   , text
                    , xml-conduit               >= 1.0
                    , xml-types                 >= 0.3
-                   , containers
-                   , html-conduit              >= 0.1
-                   , blaze-html                >= 0.5
-                   , blaze-markup              >= 0.5.1
-                   , monad-control
-                   , time
-                   , blaze-builder
-                   , cookie
-                   , yesod-core                >= 1.4
+                   , yesod-core                >= 1.4.14
 
     exposed-modules: Yesod.Test
                      Yesod.Test.CssQuery
@@ -61,6 +62,8 @@ test-suite test
                           , yesod-form
                           , text
                           , wai
+                          , lifted-base
+                          , http-types
 
 source-repository head
   type: git

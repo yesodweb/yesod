@@ -3,6 +3,8 @@
 {-# LANGUAGE ViewPatterns #-}
 module YesodCoreTest.ErrorHandling
     ( errorHandlingTest
+    , Widget
+    , resourcesApp
     ) where
 import Yesod.Core
 import Text.Hamlet (hamlet)
@@ -12,7 +14,7 @@ import Network.Wai.Test
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as S8
 import Control.Exception (SomeException, try)
-import Network.HTTP.Types (mkStatus)
+import Network.HTTP.Types (Status, mkStatus)
 import Blaze.ByteString.Builder (Builder, fromByteString, toLazyByteString)
 import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
@@ -39,6 +41,7 @@ mkYesod "App" [parseRoutes|
 /good-builder GoodBuilderR GET
 |]
 
+overrideStatus :: Status
 overrideStatus = mkStatus 15 "OVERRIDE"
 
 instance Yesod App where
@@ -97,7 +100,7 @@ getFileBadNameR :: Handler TypedContent
 getFileBadNameR = return $ TypedContent "ignored" $ ContentFile (error "filebadname") Nothing
 
 goodBuilderContent :: Builder
-goodBuilderContent = mconcat $ replicate 100 $ fromByteString "This is a test\n"
+goodBuilderContent = Data.Monoid.mconcat $ replicate 100 $ fromByteString "This is a test\n"
 
 getGoodBuilderR :: Handler TypedContent
 getGoodBuilderR = return $ TypedContent "text/plain" $ toContent goodBuilderContent
@@ -113,6 +116,7 @@ getErrorR 7 = setLanguage undefined
 getErrorR 8 = cacheSeconds undefined
 getErrorR 9 = setUltDest (undefined :: Text)
 getErrorR 10 = setMessage undefined
+getErrorR x = error $ "getErrorR: " ++ show x
 
 errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling" $ do

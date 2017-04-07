@@ -24,7 +24,6 @@ module Yesod.RssFeed
 
 import Yesod.Core
 import Yesod.FeedTypes
-import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text, pack)
 import Data.Text.Lazy (toStrict)
@@ -66,15 +65,32 @@ template Feed {..} render =
         : Element "lastBuildDate" Map.empty [NodeContent $ formatRFC822 feedUpdated]
         : Element "language" Map.empty [NodeContent feedLanguage]
         : map (flip entryTemplate render) feedEntries
+        ++
+        case feedLogo of
+            Nothing -> []
+            Just (route, desc) -> [Element "image" Map.empty 
+                [ NodeElement $ Element "url" Map.empty [NodeContent $ render route]
+                , NodeElement $ Element "title" Map.empty [NodeContent desc]
+                , NodeElement $ Element "link" Map.empty [NodeContent $ render feedLinkHome]
+                ]
+                ]
 
 entryTemplate :: FeedEntry url -> (url -> Text) -> Element
-entryTemplate FeedEntry {..} render = Element "item" Map.empty $ map NodeElement
+entryTemplate FeedEntry {..} render = Element "item" Map.empty $ map NodeElement $
     [ Element "title" Map.empty [NodeContent feedEntryTitle]
     , Element "link" Map.empty [NodeContent $ render feedEntryLink]
     , Element "guid" Map.empty [NodeContent $ render feedEntryLink]
     , Element "pubDate" Map.empty [NodeContent $ formatRFC822 feedEntryUpdated]
     , Element "description" Map.empty [NodeContent $ toStrict $ renderHtml feedEntryContent]
     ]
+    ++
+    case feedEntryEnclosure of
+        Nothing -> []
+        Just (EntryEnclosure{..}) -> [
+            Element "enclosure"
+                    (Map.fromList [("type", enclosedMimeType)
+                                  ,("length", pack $ show enclosedSize)
+                                  ,("url", render enclosedUrl)]) []]
 
 -- | Generates a link tag in the head of a widget.
 rssLink :: MonadWidget m

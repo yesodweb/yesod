@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies, MultiParamTypeClasses, ScopedTypeVariables #-}
 module YesodCoreTest.RawResponse (specs) where
+    ( specs
+    , Widget
+    , resourcesApp
+    ) where
 
 import Yesod.Core
 import Test.Hspec
@@ -11,7 +15,7 @@ import qualified Data.Conduit.Binary as CB
 import Data.Char (toUpper)
 import Control.Exception (try, IOException)
 import Data.Conduit.Network
-import Network.Socket (sClose)
+import Network.Socket (close)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (withAsync)
 import Control.Monad.Trans.Resource (register)
@@ -20,19 +24,19 @@ import Data.Streaming.Network (bindPortTCP)
 import Network.HTTP.Types (status200)
 import Blaze.ByteString.Builder (fromByteString)
 
-data App = App
-
 mkYesod "App" [parseRoutes|
 / HomeR GET
 /wai-stream WaiStreamR GET
 /wai-app-stream WaiAppStreamR GET
 |]
 
+data App = App
+
 instance Yesod App
 
 getHomeR :: Handler ()
 getHomeR = do
-    ref <- liftIO $ newIORef 0
+    ref <- liftIO $ newIORef (0 :: Int)
     _ <- register $ writeIORef ref 1
     sendRawResponse $ \src sink -> liftIO $ do
         val <- readIORef ref
@@ -62,7 +66,7 @@ getFreePort = do
         case esocket of
             Left (_ :: IOException) -> loop (succ port)
             Right socket -> do
-                sClose socket
+                close socket
                 return port
 
 specs :: Spec

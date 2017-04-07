@@ -10,6 +10,7 @@ import Yesod.Shakespeare
 import Network.Wai
 import Network.Wai.Test
 import YesodShakespeareTest.MediaData
+import YesodCoreTest.MediaData
 
 mkYesodDispatch "Y" resourcesY
 

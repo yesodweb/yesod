@@ -5,21 +5,28 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- Because of ErrorT
 module Yesod.Core.Class.Handler
     ( MonadHandler (..)
     ) where
 
 import Yesod.Core.Types
+import Control.Monad (liftM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Resource (MonadResource, MonadResourceBase)
 import Control.Monad.Trans.Class (lift)
-import Data.Monoid (Monoid)
+#if __GLASGOW_HASKELL__ < 710
+import Data.Monoid (Monoid, mempty)
+#endif
 import Data.Conduit.Internal (Pipe, ConduitM)
 
 import Control.Monad.Trans.Identity ( IdentityT)
 import Control.Monad.Trans.List     ( ListT    )
 import Control.Monad.Trans.Maybe    ( MaybeT   )
 import Control.Monad.Trans.Error    ( ErrorT, Error)
+#if MIN_VERSION_transformers(0,4,0)
+import Control.Monad.Trans.Except   ( ExceptT  )
+#endif
 import Control.Monad.Trans.Reader   ( ReaderT  )
 import Control.Monad.Trans.State    ( StateT   )
 import Control.Monad.Trans.Writer   ( WriterT  )
@@ -46,6 +53,35 @@ GO(IdentityT)
 GO(ListT)
 GO(MaybeT)
 GOX(Error e, ErrorT e)
+#if MIN_VERSION_transformers(0,4,0)
+GO(ExceptT e)
+#endif
+GO(ReaderT r)
+GO(StateT s)
+GOX(Monoid w, WriterT w)
+GOX(Monoid w, RWST r w s)
+GOX(Monoid w, Strict.RWST r w s)
+GO(Strict.StateT s)
+GOX(Monoid w, Strict.WriterT w)
+GO(Pipe l i o u)
+GO(ConduitM i o)
+#undef GO
+#undef GOX
+
+class MonadHandler m => MonadWidget m where
+    liftWidgetT :: WidgetT (HandlerSite m) IO a -> m a
+instance MonadResourceBase m => MonadWidget (WidgetT site m) where
+    liftWidgetT (WidgetT f) = WidgetT $ liftIO . f . replaceToParent
+
+#define GO(T) instance MonadWidget m => MonadWidget (T m) where liftWidgetT = lift . liftWidgetT
+#define GOX(X, T) instance (X, MonadWidget m) => MonadWidget (T m) where liftWidgetT = lift . liftWidgetT
+GO(IdentityT)
+GO(ListT)
+GO(MaybeT)
+GOX(Error e, ErrorT e)
+#if MIN_VERSION_transformers(0,4,0)
+GO(ExceptT e)
+#endif
 GO(ReaderT r)
 GO(StateT s)
 GOX(Monoid w, WriterT w)

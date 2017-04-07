@@ -1,6 +1,7 @@
 module Yesod.FeedTypes
     ( Feed (..)
     , FeedEntry (..)
+    , EntryEnclosure (..)
     ) where
 
 import Text.Hamlet      (Html)
@@ -23,7 +24,20 @@ data Feed url = Feed
     , feedLanguage    :: Text
 
     , feedUpdated     :: UTCTime
+    , feedLogo        :: Maybe (url, Text)
     , feedEntries     :: [FeedEntry url]
+    }
+
+-- | RSS and Atom allow for linked content to be enclosed in a feed entry.
+-- This represents the enclosed content.
+--
+-- Atom feeds ignore 'enclosedSize' and 'enclosedMimeType'.
+--
+-- @since 1.6
+data EntryEnclosure url = EntryEnclosure
+    { enclosedUrl :: url
+    , enclosedSize :: Int -- ^ Specified in bytes
+    , enclosedMimeType :: Text
     }
 
 -- | Each feed entry
@@ -32,4 +46,9 @@ data FeedEntry url = FeedEntry
     , feedEntryUpdated :: UTCTime
     , feedEntryTitle   :: Text
     , feedEntryContent :: Html
+    , feedEntryEnclosure :: Maybe (EntryEnclosure url)
+      -- ^ Allows enclosed data: RSS \<enclosure> or Atom \<link
+      -- rel=enclosure>
+      --
+      -- @since 1.5
     }

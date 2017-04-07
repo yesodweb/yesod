@@ -1,5 +1,6 @@
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE QuasiQuotes       #-}
 -- | Use an email address as an identifier via Google's login system.
 --
@@ -21,7 +22,7 @@
 --
 -- * Enable the Google+ API.
 --
--- Since 1.3.1
+-- @since 1.3.1
 module Yesod.Auth.GoogleEmail2
     ( -- * Authentication handlers
       authGoogleEmail
@@ -45,19 +46,38 @@ module Yesod.Auth.GoogleEmail2
     , Place(..)
     , Email(..)
     , EmailType(..)
+    -- * Other functions
+    , pid
     ) where
+
+import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
+                                           AuthRoute, Creds (Creds),
+                                           Route (PluginR), YesodAuth,
+                                           runHttpRequest, setCredsRedirect,
+                                           logoutDest)
+import qualified Yesod.Auth.Message       as Msg
+import           Yesod.Core               (HandlerSite, HandlerT, MonadHandler,
+                                           TypedContent, getRouteToParent,
+                                           getUrlRender, invalidArgs,
+                                           lift, liftIO, lookupGetParam,
+                                           lookupSession, notFound, redirect,
+                                           setSession, whamlet, (.:),
+                                           addMessage, getYesod,
+                                           toHtml)
 
 import           Blaze.ByteString.Builder (fromByteString, toByteString)
 import           Control.Applicative      ((<$>), (<*>))
 import           Control.Arrow            (second)
-import           Control.Monad            (liftM, unless, when)
+import           Control.Monad            (unless, when)
+import           Control.Monad.IO.Class   (MonadIO)
+import qualified Crypto.Nonce             as Nonce
 import           Data.Aeson               ((.:?))
 import qualified Data.Aeson               as A
 import qualified Data.Aeson.Encode        as A
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            parseMaybe, withObject, withText)
-import           Data.Conduit             (($$+-))
+import           Data.Conduit             (($$+-), ($$))
 import           Data.Conduit.Attoparsec  (sinkParser)
 import qualified Data.HashMap.Strict      as M
 import           Data.Maybe               (fromMaybe)
@@ -67,26 +87,22 @@ import qualified Data.Text                as T
 import           Data.Text.Encoding       (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Lazy           as TL
 import qualified Data.Text.Lazy.Builder   as TL
-import           Network.HTTP.Client      (parseUrl, requestHeaders,
-                                           responseBody, urlEncodedBody, Manager)
-import           Network.HTTP.Conduit     (http)
+import           Network.HTTP.Client      (Manager, requestHeaders,
+                                           responseBody, urlEncodedBody)
+import qualified Network.HTTP.Client      as HTTP
+import           Network.HTTP.Client.Conduit (Request, bodyReaderSource)
+import           Network.HTTP.Conduit (http)
 import           Network.HTTP.Types       (renderQueryText)
+
 import           Network.Mail.Mime        (randomString)
 import           System.Random            (newStdGen)
-import           Yesod.Auth               (Auth, AuthPlugin (AuthPlugin),
-                                           AuthRoute, Creds (Creds),
-                                           Route (PluginR), YesodAuth,
-                                           authHttpManager, setCredsRedirect)
-import qualified Yesod.Auth.Message       as Msg
-import           Yesod.Core               (HandlerSite, MonadHandler,
-                                           getRouteToParent, getUrlRender,
-                                           getYesod, invalidArgs, lift,
-                                           lookupGetParam,
-                                           lookupSession, notFound, redirect,
-                                           setSession, (.:),
-                                           TypedContent, HandlerT, liftIO)
 import           Yesod.Shakespeare        (whamlet)
+import           System.IO.Unsafe         (unsafePerformIO)
 
+-- | Plugin identifier. This is used to identify the plugin used for
+-- authentication. The 'credsPlugin' will contain this value when this
+-- plugin is used for authentication.
+-- @since 1.4.17
 pid :: Text
 pid = "googleemail2"
 
@@ -114,8 +130,7 @@ getCreateCsrfToken = do
     case mtoken of
         Just token -> return token
         Nothing -> do
-            stdgen <- liftIO newStdGen
-            let token = T.pack $ fst $ randomString 10 stdgen
+            token <- Nonce.nonce128urlT defaultNonceGen
             setSession csrfKey token
             return token
 
@@ -128,7 +143,7 @@ authGoogleEmail = authPlugin False
 -- | An alternative version which stores user access token in the session
 --   variable. Use it if you want to request user's profile from your app.
 --
--- Since 1.4.3
+-- @since 1.4.3
 authGoogleEmailSaveToken :: YesodAuth m
                          => Text -- ^ client ID
                          -> Text -- ^ client secret
@@ -152,7 +167,7 @@ authPlugin storeToken clientID clientSecret =
         csrf <- getCreateCsrfToken
         render <- getUrlRender
         let qs = map (second Just)
-                [ ("scope", "email")
+                [ ("scope", "email profile")
                 , ("state", csrf)
                 , ("redirect_uri", render $ tm complete)
                 , ("response_type", "code")
@@ -162,7 +177,7 @@ authPlugin storeToken clientID clientSecret =
         return $ decodeUtf8
                $ toByteString
                $ fromByteString "https://accounts.google.com/o/oauth2/auth"
-                    `mappend` renderQueryText True qs
+                    `Data.Monoid.mappend` renderQueryText True qs
 
     login tm = do
         [whamlet|<a href=@{tm forwardUrl}>_{Msg.LoginGoogle}|]
@@ -185,12 +200,29 @@ authPlugin storeToken clientID clientSecret =
         mcode <- lookupGetParam "code"
         code <-
             case mcode of
-                Nothing -> invalidArgs ["Missing code paramter"]
+                Nothing -> do
+                    merr <- lookupGetParam "error"
+                    case merr of
+                        Nothing -> invalidArgs ["Missing code paramter"]
+                        Just err -> do
+                            master <- lift getYesod
+                            let msg =
+                                    case err of
+                                        "access_denied" -> "Access denied"
+                                        _ -> "Unknown error occurred: " `T.append` err
+                            addMessage "error" $ toHtml msg
+                            lift $ redirect $ logoutDest master
                 Just c -> return c
 
         render <- getUrlRender
 
-        req' <- liftIO $ parseUrl "https://accounts.google.com/o/oauth2/token" -- FIXME don't hardcode, use: https://accounts.google.com/.well-known/openid-configuration
+        req' <- liftIO $
+#if MIN_VERSION_http_client(0,4,30)
+            HTTP.parseUrlThrow
+#else
+            HTTP.parseUrl
+#endif
+            "https://accounts.google.com/o/oauth2/token" -- FIXME don't hardcode, use: https://accounts.google.com/.well-known/openid-configuration
         let req =
                 urlEncodedBody
                     [ ("code", encodeUtf8 code)
@@ -202,9 +234,7 @@ authPlugin storeToken clientID clientSecret =
                     req'
                         { requestHeaders = []
                         }
-        manager <- liftM authHttpManager $ lift getYesod
-        res <- http req manager
-        value <- responseBody res $$+- sinkParser json'
+        value <- makeHttpRequest req
         token@(Token accessToken' tokenType') <-
             case parseEither parseJSON value of
                 Left e -> error e
@@ -215,7 +245,7 @@ authPlugin storeToken clientID clientSecret =
         -- User's access token is saved for further access to API
         when storeToken $ setSession accessTokenKey accessToken'
 
-        personValue <- lift $ getPersonValue manager token
+        personValue <- makeHttpRequest =<< personValueRequest token
         person <- case parseEither parseJSON personValue of
                 Left e -> error e
                 Right x -> return x
@@ -229,25 +259,39 @@ authPlugin storeToken clientID clientSecret =
 
     dispatch _ _ = notFound
 
+makeHttpRequest
+  :: (YesodAuth site)
+  => Request
+  -> HandlerT Auth (HandlerT site IO) A.Value
+makeHttpRequest req = lift $
+    runHttpRequest req $ \res -> bodyReaderSource (responseBody res) $$ sinkParser json'
+
 -- | Allows to fetch information about a user from Google's API.
 --   In case of parsing error returns 'Nothing'.
 --   Will throw 'HttpException' in case of network problems or error response code.
 --
--- Since 1.4.3
+-- @since 1.4.3
 getPerson :: Manager -> Token -> HandlerT site IO (Maybe Person)
-getPerson manager token = parseMaybe parseJSON <$> getPersonValue manager token
+getPerson manager token = parseMaybe parseJSON <$> (do
+    req <- personValueRequest token
+    res <- http req manager
+    responseBody res $$+- sinkParser json'
+  )
 
-getPersonValue :: Manager -> Token -> HandlerT site IO A.Value
-getPersonValue manager token = do
-    req2' <- liftIO $ parseUrl "https://www.googleapis.com/plus/v1/people/me"
-    let req2 = req2'
+personValueRequest :: MonadIO m => Token -> m Request
+personValueRequest token = do
+    req2' <- liftIO $
+#if MIN_VERSION_http_client(0,4,30)
+            HTTP.parseUrlThrow
+#else
+            HTTP.parseUrl
+#endif
+        "https://www.googleapis.com/plus/v1/people/me"
+    return req2'
             { requestHeaders =
                 [ ("Authorization", encodeUtf8 $ "Bearer " `mappend` accessToken token)
                 ]
             }
-    res2 <- http req2 manager
-    val <- responseBody res2 $$+- sinkParser json'
-    return val
 
 --------------------------------------------------------------------------------
 -- | An authentication token which was acquired from OAuth callback.
@@ -255,20 +299,20 @@ getPersonValue manager token = do
 --   'authGoogleEmailSaveToken'.
 --   You can acquire saved token with 'getUserAccessToken'.
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Token = Token { accessToken :: Text
                    , tokenType   :: Text
                    } deriving (Show, Eq)
 
 instance FromJSON Token where
     parseJSON = withObject "Tokens" $ \o -> Token
-        <$> o .: "access_token"
-        <*> o .: "token_type"
+        Control.Applicative.<$> o .: "access_token"
+        Control.Applicative.<*> o .: "token_type"
 
 --------------------------------------------------------------------------------
 -- | Gender of the person
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Gender = Male | Female | OtherGender deriving (Show, Eq)
 
 instance FromJSON Gender where
@@ -280,7 +324,7 @@ instance FromJSON Gender where
 --------------------------------------------------------------------------------
 -- | URIs specified in the person's profile
 --
--- Since 1.4.3
+-- @since 1.4.3
 data PersonURI =
     PersonURI { uriLabel :: Maybe Text
               , uriValue :: Maybe Text
@@ -295,7 +339,7 @@ instance FromJSON PersonURI where
 --------------------------------------------------------------------------------
 -- | The type of URI
 --
--- Since 1.4.3
+-- @since 1.4.3
 data PersonURIType = OtherProfile       -- ^ URI for another profile
                    | Contributor        -- ^ URI to a site for which this person is a contributor
                    | Website            -- ^ URI for this Google+ Page's primary website
@@ -314,12 +358,12 @@ instance FromJSON PersonURIType where
 --------------------------------------------------------------------------------
 -- | Current or past organizations with which this person is associated
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Organization =
-    Organization { orgName  :: Maybe Text
+    Organization { orgName      :: Maybe Text
                    -- ^ The person's job title or role within the organization
-                 , orgTitle :: Maybe Text
-                 , orgType  :: Maybe OrganizationType
+                 , orgTitle     :: Maybe Text
+                 , orgType      :: Maybe OrganizationType
                    -- ^ The date that the person joined this organization.
                  , orgStartDate :: Maybe Text
                    -- ^ The date that the person left this organization.
@@ -341,7 +385,7 @@ instance FromJSON Organization where
 --------------------------------------------------------------------------------
 -- | The type of an organization
 --
--- Since 1.4.3
+-- @since 1.4.3
 data OrganizationType = Work
                       | School
                       | OrganizationType Text -- ^ Something else
@@ -355,10 +399,10 @@ instance FromJSON OrganizationType where
 --------------------------------------------------------------------------------
 -- | A place where the person has lived or is living at the moment.
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Place =
     Place { -- | A place where this person has lived. For example: "Seattle, WA", "Near Toronto".
-            placeValue :: Maybe Text
+            placeValue   :: Maybe Text
             -- | If @True@, this place of residence is this person's primary residence.
           , placePrimary :: Maybe Bool
           } deriving (Show, Eq)
@@ -369,16 +413,16 @@ instance FromJSON Place where
 --------------------------------------------------------------------------------
 -- | Individual components of a name
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Name =
     Name { -- | The full name of this person, including middle names, suffixes, etc
-           nameFormatted :: Maybe Text
+           nameFormatted       :: Maybe Text
            -- | The family name (last name) of this person
-         , nameFamily    :: Maybe Text
+         , nameFamily          :: Maybe Text
            -- | The given name (first name) of this person
-         , nameGiven     :: Maybe Text
+         , nameGiven           :: Maybe Text
            -- | The middle name of this person.
-         , nameMiddle    :: Maybe Text
+         , nameMiddle          :: Maybe Text
            -- | The honorific prefixes (such as "Dr." or "Mrs.") for this person
          , nameHonorificPrefix :: Maybe Text
            -- | The honorific suffixes (such as "Jr.") for this person
@@ -396,7 +440,7 @@ instance FromJSON Name where
 --------------------------------------------------------------------------------
 -- | The person's relationship status.
 --
--- Since 1.4.3
+-- @since 1.4.3
 data RelationshipStatus = Single              -- ^ Person is single
                         | InRelationship      -- ^ Person is in a relationship
                         | Engaged             -- ^ Person is engaged
@@ -425,7 +469,7 @@ instance FromJSON RelationshipStatus where
 --------------------------------------------------------------------------------
 -- | The URI of the person's profile photo.
 --
--- Since 1.4.3
+-- @since 1.4.3
 newtype PersonImage = PersonImage { imageUri :: Text } deriving (Show, Eq)
 
 instance FromJSON PersonImage where
@@ -435,7 +479,7 @@ instance FromJSON PersonImage where
 --   the image under the URI. If for some reason you need to modify the query
 --   part, you should do it after resizing.
 --
--- Since 1.4.3
+-- @since 1.4.3
 resizePersonImage :: PersonImage -> Int -> PersonImage
 resizePersonImage (PersonImage uri) size =
     PersonImage $ uri `mappend` "?sz=" `mappend` T.pack (show size)
@@ -444,9 +488,9 @@ resizePersonImage (PersonImage uri) size =
 -- | Information about the user
 --   Full description of the resource https://developers.google.com/+/api/latest/people
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Person = Person
-    { personId           :: Text
+    { personId                 :: Text
       -- | The name of this person, which is suitable for display
     , personDisplayName        :: Maybe Text
     , personName               :: Maybe Name
@@ -514,7 +558,7 @@ instance FromJSON Person where
 --------------------------------------------------------------------------------
 -- | Person's email
 --
--- Since 1.4.3
+-- @since 1.4.3
 data Email = Email
     { emailValue :: Text
     , emailType  :: EmailType
@@ -529,7 +573,7 @@ instance FromJSON Email where
 --------------------------------------------------------------------------------
 -- | Type of email
 --
--- Since 1.4.3
+-- @since 1.4.3
 data EmailType = EmailAccount   -- ^ Google account email address
                | EmailHome      -- ^ Home email address
                | EmailWork      -- ^ Work email adress
@@ -550,3 +594,10 @@ allPersonInfo (A.Object o) = map enc $ M.toList o
     where enc (key, A.String s) = (key, s)
           enc (key, v) = (key, TL.toStrict $ TL.toLazyText $ A.encodeToTextBuilder v)
 allPersonInfo _ = []
+
+
+-- See https://github.com/yesodweb/yesod/issues/1245 for discussion on this
+-- use of unsafePerformIO.
+defaultNonceGen :: Nonce.Generator
+defaultNonceGen = unsafePerformIO (Nonce.new)
+{-# NOINLINE defaultNonceGen #-}

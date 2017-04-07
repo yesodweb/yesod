@@ -4,6 +4,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
+
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
 using wai and persistent.
@@ -33,6 +34,9 @@ module Yesod.Test
     , yesodSpecApp
     , YesodExample
     , YesodExampleData(..)
+    , TestApp
+    , YSpec
+    , testApp
     , YesodSpecTree (..)
     , ydescribe
     , yit
@@ -47,6 +51,8 @@ module Yesod.Test
     , get
     , post
     , postBody
+    , followRedirect
+    , getLocation
     , request
     , addRequestHeader
     , setMethod
@@ -75,16 +81,20 @@ module Yesod.Test
     -- these functions to add the token to your request.
     , addToken
     , addToken_
-    , addNonce
-    , addNonce_
+    , addTokenFromCookie
+    , addTokenFromCookieNamedToHeaderNamed
 
     -- * Assertions
     , assertEqual
+    , assertEqualNoShow
+    , assertEq
+
     , assertHeader
     , assertNoHeader
     , statusIs
     , bodyEquals
     , bodyContains
+    , bodyNotContains
     , htmlAllContain
     , htmlAnyContain
     , htmlNoneContain
@@ -93,6 +103,7 @@ module Yesod.Test
     -- * Grab information
     , getTestYesod
     , getResponse
+    , getRequestCookies
 
     -- * Debug output
     , printBody
@@ -121,6 +132,7 @@ import Network.Wai.Test hiding (assertHeader, assertNoHeader, request)
 import qualified Control.Monad.Trans.State as ST
 import Control.Monad.IO.Class
 import System.IO
+import Yesod.Core.Unsafe (runFakeHandler)
 import Yesod.Test.TransversingCSS
 import Yesod.Core
 import qualified Data.Text.Lazy as TL
@@ -133,6 +145,9 @@ import qualified Data.Map as M
 import qualified Web.Cookie as Cookie
 import qualified Blaze.ByteString.Builder as Builder
 import Data.Time.Clock (getCurrentTime)
+import Control.Applicative ((<$>))
+import Text.Show.Pretty (ppShow)
+import Data.Monoid (mempty)
 
 -- | The state used in a single test case defined using 'yit'
 --
@@ -272,15 +287,21 @@ yit label example = tell [YesodSpecItem label example]
 -- response-level assertions
 withResponse' :: MonadIO m
               => (state -> Maybe SResponse)
+              -> [T.Text]
               -> (SResponse -> ST.StateT state m a)
               -> ST.StateT state m a
-withResponse' getter f = maybe err f . getter =<< ST.get
- where err = failure "There was no response, you should make a request"
+withResponse' getter errTrace f = maybe err f . getter =<< ST.get
+ where err = failure msg
+       msg = if null errTrace
+             then "There was no response, you should make a request."
+             else
+               "There was no response, you should make a request. A response was needed because: \n - "
+               <> T.intercalate "\n - " errTrace
 
 -- | Performs a given action using the last response. Use this to create
 -- response-level assertions
 withResponse :: (SResponse -> YesodExample site a) -> YesodExample site a
-withResponse = withResponse' yedResponse
+withResponse = withResponse' yedResponse []
 
 -- | Use HXT to parse a value from an HTML tag.
 -- Check for usage examples in this module's source.
@@ -290,20 +311,39 @@ parseHTML html = fromDocument $ HD.parseLBS html
 -- | Query the last response using CSS selectors, returns a list of matched fragments
 htmlQuery' :: MonadIO m
            => (state -> Maybe SResponse)
+           -> [T.Text]
            -> Query
            -> ST.StateT state m [HtmlLBS]
-htmlQuery' getter query = withResponse' getter $ \ res ->
+htmlQuery' getter errTrace query = withResponse' getter ("Tried to invoke htmlQuery' in order to read HTML of a previous response." : errTrace) $ \ res ->
   case findBySelector (simpleBody res) query of
     Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
     Right matches -> return $ map (encodeUtf8 . TL.pack) matches
 
 -- | Query the last response using CSS selectors, returns a list of matched fragments
 htmlQuery :: Query -> YesodExample site [HtmlLBS]
-htmlQuery = htmlQuery' yedResponse
+htmlQuery = htmlQuery' yedResponse []
 
 -- | Asserts that the two given values are equal.
+--
+-- In case they are not equal, error mesasge includes the two values.
+--
+-- @since 1.5.2
+assertEq :: (Eq a, Show a) => String -> a -> a -> YesodExample site ()
+assertEq m a b =
+  liftIO $ HUnit.assertBool msg (a == b)
+  where msg = "Assertion: " ++ m ++ "\n" ++
+              "First argument:  " ++ ppShow a ++ "\n" ++
+              "Second argument: " ++ ppShow b ++ "\n"
+
+{-# DEPRECATED assertEqual "Use assertEq instead" #-}
 assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()
-assertEqual msg a b = liftIO $ HUnit.assertBool msg (a == b)
+assertEqual = assertEqualNoShow
+
+-- | Asserts that the two given values are equal.
+--
+-- @since 1.5.2
+assertEqualNoShow :: (Eq a) => String -> a -> a -> YesodExample site ()
+assertEqualNoShow msg a b = liftIO $ HUnit.assertBool msg (a == b)
 
 -- | Assert the last response status is as expected.
 statusIs :: Int -> YesodExample site ()
@@ -358,6 +398,14 @@ bodyContains :: String -> YesodExample site ()
 bodyContains text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to contain " ++ text) $
     (simpleBody res) `contains` text
+
+-- | Assert the last response doesn't have the given text. The check is performed using the response
+-- body in full text form.
+-- @since 1.5.3
+bodyNotContains :: String -> YesodExample site ()
+bodyNotContains text = withResponse $ \ res ->
+  liftIO $ HUnit.assertBool ("Expected body not to contain " ++ text) $
+    not $ contains (simpleBody res) text
 
 contains :: BSL8.ByteString -> String -> Bool
 contains a b = DL.isInfixOf b (TL.unpack $ decodeUtf8 a)
@@ -538,7 +586,7 @@ byLabel label value = do
 --
 -- You can set this parameter like so:
 --
--- > request $ do 
+-- > request $ do
 -- >   fileByLabel "Please submit an image" "static/img/picture.png" "img/png"
 --
 -- This function also supports the implicit label syntax, in which
@@ -555,16 +603,6 @@ fileByLabel label path mime = do
   name <- nameFromLabel label
   addFile name path mime
 
--- | An alias for 'addToken_'.
-addNonce_ :: Query -> RequestBuilder site ()
-addNonce_ = addToken_
-{-# DEPRECATED addNonce_ "Use 'addToken_' instead; 'addNonce_' will be removed in the next major version. Reasoning: Yesod's CSRF tokens are not actually nonces (one-time values), so yesod-form moved to calling them tokens instead. yesod-test is now using the word token as well. See https://github.com/yesodweb/yesod/issues/914 for details." #-}
-
--- | An alias for 'addToken'.
-addNonce :: RequestBuilder site ()
-addNonce = addToken
-{-# DEPRECATED addNonce "Use 'addToken' instead; 'addNonce' will be removed in the next major version. Reasoning: Yesod's CSRF tokens are not actually nonces (one-time values), so yesod-form moved to calling them tokens instead. yesod-test is now using the word token as well. See https://github.com/yesodweb/yesod/issues/914 for details." #-}
-
 -- | Lookups the hidden input named "_token" and adds its value to the params.
 -- Receives a CSS selector that should resolve to the form element containing the token.
 --
@@ -574,7 +612,7 @@ addNonce = addToken
 -- >   addToken_ "#formID"
 addToken_ :: Query -> RequestBuilder site ()
 addToken_ scope = do
-  matches <- htmlQuery' rbdResponse $ scope <> "input[name=_token][type=hidden][value]"
+  matches <- htmlQuery' rbdResponse ["Tried to get CSRF token with addToken'"] $ scope <> " input[name=_token][type=hidden][value]"
   case matches of
     [] -> failure $ "No CSRF token found in the current page"
     element:[] -> addPostParam "_token" $ head $ attribute "value" $ parseHTML element
@@ -588,6 +626,65 @@ addToken_ scope = do
 -- >   addToken
 addToken :: RequestBuilder site ()
 addToken = addToken_ ""
+
+-- | Calls 'addTokenFromCookieNamedToHeaderNamed' with the 'defaultCsrfCookieName' and 'defaultCsrfHeaderName'.
+--
+-- Use this function if you're using the CSRF middleware from "Yesod.Core" and haven't customized the cookie or header name.
+--
+-- ==== __Examples__
+--
+-- > request $ do
+-- >   addTokenFromCookie
+--
+-- Since 1.4.3.2
+addTokenFromCookie :: RequestBuilder site ()
+addTokenFromCookie = addTokenFromCookieNamedToHeaderNamed defaultCsrfCookieName defaultCsrfHeaderName
+
+-- | Looks up the CSRF token stored in the cookie with the given name and adds it to the request headers. An error is thrown if the cookie can't be found.
+--
+-- Use this function if you're using the CSRF middleware from "Yesod.Core" and have customized the cookie or header name.
+--
+-- See "Yesod.Core.Handler" for details on this approach to CSRF protection.
+--
+-- ==== __Examples__
+--
+-- > import Data.CaseInsensitive (CI)
+-- > request $ do
+-- >   addTokenFromCookieNamedToHeaderNamed "cookieName" (CI "headerName")
+--
+-- Since 1.4.3.2
+addTokenFromCookieNamedToHeaderNamed :: ByteString -- ^ The name of the cookie
+                                     -> CI ByteString -- ^ The name of the header
+                                     -> RequestBuilder site ()
+addTokenFromCookieNamedToHeaderNamed cookieName headerName = do
+  cookies <- getRequestCookies
+  case M.lookup cookieName cookies of
+        Just csrfCookie -> addRequestHeader (headerName, Cookie.setCookieValue csrfCookie)
+        Nothing -> failure $ T.concat
+          [ "addTokenFromCookieNamedToHeaderNamed failed to lookup CSRF cookie with name: "
+          , T.pack $ show cookieName
+          , ". Cookies were: "
+          , T.pack $ show cookies
+          ]
+
+-- | Returns the 'Cookies' from the most recent request. If a request hasn't been made, an error is raised.
+--
+-- ==== __Examples__
+--
+-- > request $ do
+-- >   cookies <- getRequestCookies
+-- >   liftIO $ putStrLn $ "Cookies are: " ++ show cookies
+--
+-- Since 1.4.3.2
+getRequestCookies :: RequestBuilder site Cookies
+getRequestCookies = do
+  requestBuilderData <- ST.get
+  headers <- case simpleHeaders Control.Applicative.<$> rbdResponse requestBuilderData of
+                  Just h -> return h
+                  Nothing -> failure "getRequestCookies: No request has been made yet; the cookies can't be looked up."
+
+  return $ M.fromList $ map (\c -> (Cookie.setCookieName c, c)) (parseSetCookies headers)
+
 
 -- | Perform a POST request to @url@.
 --
@@ -632,6 +729,52 @@ get url = request $ do
     setMethod "GET"
     setUrl url
 
+-- | Follow a redirect, if the last response was a redirect.
+-- (We consider a request a redirect if the status is
+-- 301, 302, 303, 307 or 308, and the Location header is set.)
+--
+-- ==== __Examples__
+--
+-- > get HomeR
+-- > followRedirect
+followRedirect :: Yesod site
+               =>  YesodExample site (Either T.Text T.Text) -- ^ 'Left' with an error message if not a redirect, 'Right' with the redirected URL if it was
+followRedirect = do
+  mr <- getResponse
+  case mr of
+   Nothing ->  return $ Left "followRedirect called, but there was no previous response, so no redirect to follow"
+   Just r -> do
+     if not ((H.statusCode $ simpleStatus r) `elem` [301, 302, 303, 307, 308])
+       then return $ Left "followRedirect called, but previous request was not a redirect"
+       else do
+         case lookup "Location" (simpleHeaders r) of
+          Nothing -> return $ Left "followRedirect called, but no location header set"
+          Just h -> let url = TE.decodeUtf8 h in
+                     get url  >> return (Right url)
+
+-- | Parse the Location header of the last response.
+--
+-- ==== __Examples__
+--
+-- > post ResourcesR
+-- > (Right (ResourceR resourceId)) <- getLocation
+--
+-- @since 1.5.4
+getLocation :: ParseRoute site => YesodExample site (Either T.Text (Route site))
+getLocation = do
+  mr <- getResponse
+  case mr of
+    Nothing -> return $ Left "getLocation called, but there was no previous response, so no Location header"
+    Just r -> case lookup "Location" (simpleHeaders r) of
+      Nothing -> return $ Left "getLocation called, but the previous response has no Location header"
+      Just h -> case parseRoute $ decodePath h of
+        Nothing -> return $ Left "getLocation called, but couldn’t parse it into a route"
+        Just l -> return $ Right l
+  where decodePath b = let (x, y) = BS8.break (=='?') b
+                       in (H.decodePathSegments x, unJust <$> H.parseQueryText y)
+        unJust (a, Just b) = (a, b)
+        unJust (a, Nothing) = (a, Data.Monoid.mempty)
+
 -- | Sets the HTTP method used by the request.
 --
 -- ==== __Examples__
@@ -659,7 +802,7 @@ setUrl :: (Yesod site, RedirectUrl site url)
        -> RequestBuilder site ()
 setUrl url' = do
     site <- fmap rbdSite ST.get
-    eurl <- runFakeHandler
+    eurl <- Yesod.Core.Unsafe.runFakeHandler
         M.empty
         (const $ error "Yesod.Test: No logger available")
         site
@@ -685,9 +828,7 @@ setUrl url' = do
 -- > import Data.Aeson
 -- > request $ do
 -- >   setRequestBody $ encode $ object ["age" .= (1 :: Integer)]
-setRequestBody :: (Yesod site)
-               => BSL8.ByteString
-               -> RequestBuilder site ()
+setRequestBody :: BSL8.ByteString -> RequestBuilder site ()
 setRequestBody body = ST.modify $ \rbd -> rbd { rbdPostData = BinaryPostData body }
 
 -- | Adds the given header to the request; see "Network.HTTP.Types.Header" for creating 'Header's.
@@ -715,8 +856,7 @@ addRequestHeader header = ST.modify $ \rbd -> rbd
 -- >   byLabel "First Name" "Felipe"
 -- >   setMethod "PUT"
 -- >   setUrl NameR
-request :: Yesod site
-        => RequestBuilder site ()
+request :: RequestBuilder site ()
         -> YesodExample site ()
 request reqBuilder = do
     YesodExampleData app site oldCookies mRes <- ST.get
@@ -759,7 +899,7 @@ request reqBuilder = do
             { httpVersion = H.http11
             }
         }) app
-    let newCookies = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ simpleHeaders response
+    let newCookies = parseSetCookies $ simpleHeaders response
         cookies' = M.fromList [(Cookie.setCookieName c, c) | c <- newCookies] `M.union` cookies
     ST.put $ YesodExampleData app site cookies' (Just response)
   where
@@ -822,8 +962,7 @@ request reqBuilder = do
       SRequest simpleRequest' (simpleRequestBody' rbdPostData)
       where
         simpleRequest' = (mkRequest
-                          [ ("Cookie", cookieValue)
-                          , ("Content-Type", "application/x-www-form-urlencoded")]
+                          ([ ("Cookie", cookieValue) ] ++ headersForPostData rbdPostData)
                           method extraHeaders urlPath urlQuery)
         simpleRequestBody' (MultipleItemsPostData x) =
           BSL8.fromChunks $ return $ TE.encodeUtf8 $ T.intercalate "&"
@@ -834,6 +973,13 @@ request reqBuilder = do
                       | c <- map snd $ M.toList cookies ]
         singlepartPart (ReqFilePart _ _ _ _) = ""
         singlepartPart (ReqKvPart k v) = T.concat [k,"=",v]
+
+        -- If the request appears to be submitting a form (has key-value pairs) give it the form-urlencoded Content-Type.
+        -- The previous behavior was to always use the form-urlencoded Content-Type https://github.com/yesodweb/yesod/issues/1063
+        headersForPostData (MultipleItemsPostData []) = []
+        headersForPostData (MultipleItemsPostData _ ) = [("Content-Type", "application/x-www-form-urlencoded")]
+        headersForPostData (BinaryPostData _ ) = []
+
 
     -- General request making
     mkRequest headers method extraHeaders urlPath urlQuery = defaultRequest
@@ -846,19 +992,28 @@ request reqBuilder = do
       , queryString = urlQuery
       }
 
+
+parseSetCookies :: [H.Header] -> [Cookie.SetCookie]
+parseSetCookies headers = map (Cookie.parseSetCookie . snd) $ DL.filter (("Set-Cookie"==) . fst) $ headers
+
 -- Yes, just a shortcut
 failure :: (MonadIO a) => T.Text -> a b
 failure reason = (liftIO $ HUnit.assertFailure $ T.unpack reason) >> error ""
 
+type TestApp site = (site, Middleware)
+testApp :: site -> Middleware -> TestApp site
+testApp site middleware = (site, middleware)
+type YSpec site = Hspec.SpecWith (TestApp site)
+
 instance YesodDispatch site => Hspec.Example (ST.StateT (YesodExampleData site) IO a) where
-    type Arg (ST.StateT (YesodExampleData site) IO a) = site
+    type Arg (ST.StateT (YesodExampleData site) IO a) = TestApp site
 
     evaluateExample example params action =
         Hspec.evaluateExample
-            (action $ \site -> do
+            (action $ \(site, middleware) -> do
                 app <- toWaiAppPlain site
                 _ <- ST.evalStateT example YesodExampleData
-                    { yedApp = app
+                    { yedApp = middleware app
                     , yedSite = site
                     , yedCookies = M.empty
                     , yedResponse = Nothing

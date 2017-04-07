@@ -28,7 +28,6 @@ module Yesod.AtomFeed
 
 import Yesod.Core
 import Yesod.FeedTypes
-import Text.Hamlet (hamlet)
 import qualified Data.ByteString.Char8 as S8
 import Data.Text (Text)
 import Data.Text.Lazy (toStrict)
@@ -70,15 +69,25 @@ template Feed {..} render =
         : Element "id" Map.empty [NodeContent $ render feedLinkHome]
         : Element "author" Map.empty [NodeElement $ Element "name" Map.empty [NodeContent feedAuthor]]
         : map (flip entryTemplate render) feedEntries
+        ++
+        case feedLogo of
+            Nothing -> []
+            Just (route, _) -> [Element "logo" Map.empty [NodeContent $ render route]]
 
 entryTemplate :: FeedEntry url -> (url -> Text) -> Element
-entryTemplate FeedEntry {..} render = Element "entry" Map.empty $ map NodeElement
+entryTemplate FeedEntry {..} render = Element "entry" Map.empty $ map NodeElement $
     [ Element "id" Map.empty [NodeContent $ render feedEntryLink]
     , Element "link" (Map.singleton "href" $ render feedEntryLink) []
     , Element "updated" Map.empty [NodeContent $ formatW3 feedEntryUpdated]
     , Element "title" Map.empty [NodeContent feedEntryTitle]
     , Element "content" (Map.singleton "type" "html") [NodeContent $ toStrict $ renderHtml feedEntryContent]
     ]
+    ++
+    case feedEntryEnclosure of
+        Nothing -> []
+        Just (EntryEnclosure{..}) ->
+            [Element "link" (Map.fromList [("rel", "enclosure")
+                                          ,("href", render enclosedUrl)]) []]
 
 -- | Generates a link tag in the head of a widget.
 atomLink :: MonadWidget m

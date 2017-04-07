@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Yesod.Routes.TH
     ( module Yesod.Routes.TH.Types
       -- * Functions

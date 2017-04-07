@@ -17,6 +17,7 @@ import Data.Text (Text)
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 Person
     name Text
+    UniquePerson name
 |]
 
 data App = App
@@ -26,6 +27,7 @@ data App = App
 
 mkYesod "App" [parseRoutes|
 / HomeR GET
+/ins InsertR GET
 |]
 
 instance Yesod App
@@ -50,6 +52,9 @@ getHomeR = do
         yield $ Chunk $ fromText "\n"
         yield Flush
 
+getInsertR :: Handler ()
+getInsertR = runDB $ insert400_ $ Person "Alice"
+
 test :: String -> Session () -> Spec
 test name session = it name $ do
     let config = SqliteConf ":memory:" 1
@@ -58,7 +63,13 @@ test name session = it name $ do
     runSession session app
 
 spec :: Spec
-spec = test "streaming" $ do
-    sres <- request defaultRequest
-    assertBody "Alice\nBob\nCharlie\n" sres
-    assertStatus 200 sres
+spec = do
+    test "streaming" $ do
+        sres <- request defaultRequest
+        assertBody "Alice\nBob\nCharlie\n" sres
+        assertStatus 200 sres
+    test "insert400" $ do
+        sres <- request defaultRequest
+        assertStatus 200 sres
+        sres' <- request $ defaultRequest `setPath` "/ins"
+        assertStatus 400 sres'

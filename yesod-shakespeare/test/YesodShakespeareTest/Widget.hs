@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
-module YesodShakespeareTest.Widget (widgetTest) where
+module YesodShakespeareTest.Widget (widgetTest, resourcesY) where
 
 import Test.Hspec
 

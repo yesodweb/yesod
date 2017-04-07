@@ -30,10 +30,9 @@ module Yesod.EmbeddedStatic.Generators (
   -- $example
 ) where
 
-import Control.Applicative ((<$>), (<*>))
+import Control.Applicative as A ((<$>), (<*>))
 import Control.Exception (try, SomeException)
 import Control.Monad (forM, when)
-import Control.Monad.Trans.Resource (runResourceT)
 import Data.Char (isDigit, isLower)
 import Data.Conduit (($$))
 import Data.Default (def)
@@ -43,6 +42,7 @@ import Network.Mime (defaultMimeLookup)
 import System.Directory (doesDirectoryExist, getDirectoryContents, findExecutable)
 import System.FilePath ((</>))
 import Text.Jasmine (minifym)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Conduit.List as C
 import Data.Conduit.Binary (sourceHandle)
@@ -71,8 +71,9 @@ embedFileAt loc f = do
                     ebHaskellName = Just $ pathToName loc
                   , ebLocation = loc
                   , ebMimeType = mime
-                  , ebProductionContent = BL.readFile f
-                  , ebDevelReload = [| BL.readFile $(litE $ stringL f) |]
+                  , ebProductionContent = fmap BL.fromStrict (BS.readFile f)
+                  , ebDevelReload = [| fmap BL.fromStrict
+                                       (BS.readFile $(litE $ stringL f)) |]
                   }
     return [entry]
 
@@ -169,7 +170,7 @@ jasmine ct = return $ either (const ct) id $ minifym ct
 -- to both mangle and compress and the option \"-\" to cause uglifyjs to read from
 -- standard input.
 uglifyJs :: BL.ByteString -> IO BL.ByteString
-uglifyJs = compressTool "uglifyjs" ["-m", "-c", "-"]
+uglifyJs = compressTool "uglifyjs" ["-", "-m", "-c"]
 
 -- | Use <http://yui.github.io/yuicompressor/ YUI Compressor> to compress javascript.
 -- Assumes a script @yuicompressor@ is located in the path.  If not, you can still
@@ -207,9 +208,9 @@ compressTool f opts ct = do
                 }
     (Just hin, Just hout, _, ph) <- Proc.createProcess p
     (compressed, (), code) <- runConcurrently $ (,,)
-        <$> Concurrently (sourceHandle hout $$ C.consume)
-        <*> Concurrently (BL.hPut hin ct >> hClose hin)
-        <*> Concurrently (Proc.waitForProcess ph)
+        A.<$> Concurrently (sourceHandle hout $$ C.consume)
+        A.<*> Concurrently (BL.hPut hin ct >> hClose hin)
+        A.<*> Concurrently (Proc.waitForProcess ph)
     if code == ExitSuccess
         then do
             putStrLn $ "Compressed successfully with " ++ f

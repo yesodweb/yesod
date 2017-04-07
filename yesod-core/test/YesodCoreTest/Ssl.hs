@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
-module YesodCoreTest.Ssl ( sslOnlySpec, unsecSpec ) where
+module YesodCoreTest.Ssl ( sslOnlySpec, unsecSpec, sameSiteSpec ) where
 import qualified YesodCoreTest.StubSslOnly as Ssl
+import qualified YesodCoreTest.StubLaxSameSite as LaxSameSite
+import qualified YesodCoreTest.StubStrictSameSite as StrictSameSite
 import qualified YesodCoreTest.StubUnsecured as Unsecured
 import Yesod.Core
 import Test.Hspec
@@ -62,3 +64,15 @@ unsecSpec = describe "A Yesod application with sslOnly off" $ do
   where
     atHome = homeFixtureFor Unsecured.App
     isNotSecure c = not $ Cookie.setCookieSecure c
+
+sameSiteSpec :: Spec
+sameSiteSpec = describe "A Yesod application" $ do
+    it "can set a Lax SameSite option" $
+        laxHome $ "_SESSION" `cookieShouldSatisfy` isLax
+    it "can set a Strict SameSite option" $
+        strictHome $ "_SESSION" `cookieShouldSatisfy` isStrict
+  where
+    laxHome = homeFixtureFor LaxSameSite.App
+    strictHome = homeFixtureFor StrictSameSite.App
+    isLax = (== Just Cookie.sameSiteLax) . Cookie.setCookieSameSite
+    isStrict = (== Just Cookie.sameSiteStrict) . Cookie.setCookieSameSite

@@ -2,40 +2,39 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | Some next-gen helper functions for the scaffolding's configuration system.
 module Yesod.Default.Config2
-    ( MergedValue (..)
-    , applyCurrentEnv
-    , getCurrentEnv
-    , applyEnvValue
-    , loadAppSettings
-    , loadAppSettingsArgs
-    , configSettingsYml
+    ( -- * Locally defined
+      configSettingsYml
     , getDevSettings
     , develMainHelper
     , makeYesodLogger
+      -- * Re-exports from Data.Yaml.Config
+    , applyCurrentEnv
+    , getCurrentEnv
+    , applyEnvValue
+    , loadYamlSettings
+    , loadYamlSettingsArgs
     , EnvUsage
     , ignoreEnv
     , useEnv
     , requireEnv
     , useCustomEnv
     , requireCustomEnv
+      -- * For backwards compatibility
+    , MergedValue (..)
+    , loadAppSettings
+    , loadAppSettingsArgs
     ) where
 
-import Data.Monoid
+
+import Data.Yaml.Config
+
 import Data.Semigroup
-import Data.List.NonEmpty (nonEmpty)
 import Data.Aeson
 import qualified Data.HashMap.Strict as H
-import Data.Text (Text, pack)
-import System.Environment (getEnvironment, getArgs)
-import Control.Arrow ((***))
-import Control.Applicative ((<$>))
-import Control.Monad (forM)
-import Control.Exception (throwIO)
-import Data.Text.Encoding (encodeUtf8)
-import qualified Data.Yaml as Y
+import System.Environment (getEnvironment)
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp
-import Safe (readMay)
+import Text.Read (readMaybe)
 import Data.Maybe (fromMaybe)
 import Control.Concurrent (forkIO, threadDelay)
 import System.Exit (exitSuccess)
@@ -43,7 +42,6 @@ import System.Directory (doesFileExist)
 import Network.Wai.Logger (clockDateCacher)
 import Yesod.Core.Types (Logger (Logger))
 import System.Log.FastLogger (LoggerSet)
-import qualified Data.Text as T
 
 #ifndef mingw32_HOST_OS
 import System.Posix.Signals (installHandler, sigINT, Handler(Catch))
@@ -59,48 +57,6 @@ mergeValues :: Value -> Value -> Value
 mergeValues (Object x) (Object y) = Object $ H.unionWith mergeValues x y
 mergeValues x _ = x
 
-applyEnvValue :: Bool -- ^ require an environment variable to be present?
-              -> H.HashMap Text Text -> Value -> Value
-applyEnvValue requireEnv' env =
-    goV
-  where
-    goV (Object o) = Object $ goV <$> o
-    goV (Array a) = Array (goV <$> a)
-    goV (String t1) = fromMaybe (String t1) $ do
-        t2 <- T.stripPrefix "_env:" t1
-        let (name, t3) = T.break (== ':') t2
-        Just $ case H.lookup name env of
-            Just val -> parseValue val
-            Nothing ->
-                case T.stripPrefix ":" t3 of
-                    Just val | not requireEnv' -> parseValue val
-                    _ -> Null
-    goV v = v
-
-    parseValue val = fromMaybe (String val) $ Y.decode $ encodeUtf8 val
-
-getCurrentEnv :: IO (H.HashMap Text Text)
-getCurrentEnv = fmap (H.fromList . map (pack *** pack)) getEnvironment
-
-applyCurrentEnv :: Bool -- ^ require an environment variable to be present?
-                -> Value -> IO Value
-applyCurrentEnv requireEnv' orig = flip (applyEnvValue requireEnv') orig <$> getCurrentEnv
-
-data EnvUsage = IgnoreEnv
-              | UseEnv
-              | RequireEnv
-              | UseCustomEnv (H.HashMap Text Text)
-              | RequireCustomEnv (H.HashMap Text Text)
-
-ignoreEnv, useEnv, requireEnv :: EnvUsage
-ignoreEnv = IgnoreEnv
-useEnv = UseEnv
-requireEnv = RequireEnv
-
-useCustomEnv, requireCustomEnv :: H.HashMap Text Text -> EnvUsage
-useCustomEnv = UseCustomEnv
-requireCustomEnv = RequireCustomEnv
-
 -- | Load the settings from the following three sources:
 --
 -- * Run time config files
@@ -114,30 +70,8 @@ loadAppSettings
     -> [Value] -- ^ any other values to use, usually from compile time config. overridden by files
     -> EnvUsage
     -> IO settings
-loadAppSettings runTimeFiles compileValues envUsage = do
-    runValues <- forM runTimeFiles $ \fp -> do
-        eres <- Y.decodeFileEither fp
-        case eres of
-            Left e -> do
-                putStrLn $ "loadAppSettings: Could not parse file as YAML: " ++ fp
-                throwIO e
-            Right value -> return value
-
-    value' <-
-        case nonEmpty $ map MergedValue $ runValues ++ compileValues of
-            Nothing -> error "loadAppSettings: No configuration provided"
-            Just ne -> return $ getMergedValue $ sconcat ne
-    value <-
-        case envUsage of
-            IgnoreEnv            -> return $ applyEnvValue   False mempty value'
-            UseEnv               ->          applyCurrentEnv False        value'
-            RequireEnv           ->          applyCurrentEnv True         value'
-            UseCustomEnv env     -> return $ applyEnvValue   False env    value'
-            RequireCustomEnv env -> return $ applyEnvValue   True  env    value'
-
-    case fromJSON value of
-        Error s -> error $ "Could not convert to AppSettings: " ++ s
-        Success settings -> return settings
+loadAppSettings = loadYamlSettings
+{-# DEPRECATED loadAppSettings "Use loadYamlSettings" #-}
 
 -- | Same as @loadAppSettings@, but get the list of runtime config files from
 -- the command line arguments.
@@ -146,9 +80,8 @@ loadAppSettingsArgs
     => [Value] -- ^ any other values to use, usually from compile time config. overridden by files
     -> EnvUsage -- ^ use environment variables
     -> IO settings
-loadAppSettingsArgs values env = do
-    args <- getArgs
-    loadAppSettings args values env
+loadAppSettingsArgs = loadYamlSettingsArgs
+{-# DEPRECATED loadAppSettingsArgs "Use loadYamlSettingsArgs" #-}
 
 -- | Location of the default config file.
 configSettingsYml :: FilePath
@@ -159,8 +92,8 @@ configSettingsYml = "config/settings.yml"
 getDevSettings :: Settings -> IO Settings
 getDevSettings settings = do
     env <- getEnvironment
-    let p = fromMaybe (getPort settings) $ lookup "PORT" env >>= readMay
-        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMay
+    let p = fromMaybe (getPort settings) $ lookup "PORT" env >>= readMaybe
+        pdisplay = fromMaybe p $ lookup "DISPLAY_PORT" env >>= readMaybe
     putStrLn $ "Devel application launched: http://localhost:" ++ show pdisplay
     return $ setPort p settings
 
@@ -185,6 +118,8 @@ develMainHelper getSettingsApp = do
     terminateDevel :: IO ()
     terminateDevel = exitSuccess
 
+-- | Create a 'Logger' value (from yesod-core) out of a 'LoggerSet' (from
+-- fast-logger).
 makeYesodLogger :: LoggerSet -> IO Logger
 makeYesodLogger loggerSet' = do
     (getter, _) <- clockDateCacher

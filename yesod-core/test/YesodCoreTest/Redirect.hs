@@ -2,6 +2,10 @@
 {-# LANGUAGE TypeFamilies, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 module YesodCoreTest.Redirect (specs) where
+    ( specs
+    , Widget
+    , resourcesY
+    ) where
 
 import YesodCoreTest.YesodTest
 import Yesod.Core.Handler (redirectWith, setEtag)

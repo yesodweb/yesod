@@ -27,8 +27,10 @@ module Yesod.Core.Handler
       HandlerT
       -- ** Read information from handler
     , getYesod
+    , getsYesod
     , getUrlRender
     , getUrlRenderParams
+    , getPostParams
     , getCurrentRoute
     , getRequest
     , waiRequest
@@ -87,6 +89,8 @@ module Yesod.Core.Handler
     , sendFilePart
     , sendResponse
     , sendResponseStatus
+      -- ** Type specific response with custom status
+    , sendStatusJSON
     , sendResponseCreated
     , sendWaiResponse
     , sendWaiApplication
@@ -127,6 +131,13 @@ module Yesod.Core.Handler
     , setUltDestReferer
     , redirectUltDest
     , clearUltDest
+      -- ** Messages
+    , addMessage
+    , addMessageI
+    , getMessages
+    , setMessage
+    , setMessageI
+    , getMessage
       -- * Helpers for specific content
       -- ** Hamlet
     , giveUrlRenderer
@@ -140,6 +151,24 @@ module Yesod.Core.Handler
     , cached
     , cachedBy
     , stripHandlerT
+      -- * AJAX CSRF protection
+
+      -- $ajaxCSRFOverview
+
+      -- ** Setting CSRF Cookies
+    , setCsrfCookie
+    , setCsrfCookieWithCookie
+    , defaultCsrfCookieName
+      -- ** Looking up CSRF Headers
+    , checkCsrfHeaderNamed
+    , hasValidCsrfHeaderNamed
+    , defaultCsrfHeaderName
+      -- ** Looking up CSRF POST Parameters
+    , hasValidCsrfParamNamed
+    , checkCsrfParamNamed
+    , defaultCsrfParamName
+      -- ** Checking CSRF Headers or POST Parameters
+    , checkCsrfHeaderOrParam
     ) where
 
 import           Data.Time                     (UTCTime, addUTCTime,
@@ -147,11 +176,16 @@ import           Data.Time                     (UTCTime, addUTCTime,
 import           Yesod.Core.Internal.Request   (langKey, mkFileInfoFile,
                                                 mkFileInfoLBS, mkFileInfoSource)
 
-import           Control.Applicative           ((<$>), (<|>))
-import           Control.Exception             (evaluate, SomeException)
+
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative           ((<$>))
+import           Data.Monoid                   (mempty, mappend)
+#endif
+import           Control.Applicative           ((<|>))
+import           Control.Exception             (evaluate, SomeException, throwIO)
 import           Control.Exception.Lifted      (handle)
 
-import           Control.Monad                 (liftM, void)
+import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
 
 import           Control.Monad.IO.Class        (MonadIO, liftIO)
@@ -162,23 +196,30 @@ import           Network.Wai.Middleware.HttpAuth
     ( extractBasicAuth, extractBearerAuth )
 import Control.Monad.Trans.Class (lift)
 
+import           Data.Aeson                    (ToJSON(..))
 import qualified Data.Text                     as T
 import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
 import           Data.Text.Encoding.Error      (lenientDecode)
 import qualified Data.Text.Lazy                as TL
+import           Text.Blaze.Html.Renderer.Utf8 (renderHtml)
+import           Text.Hamlet                   (Html, HtmlUrl, hamlet)
 
 import qualified Data.ByteString               as S
 import qualified Data.ByteString.Lazy          as L
 import qualified Data.Map                      as Map
+import qualified Data.HashMap.Strict           as HM
+
+import           Data.Byteable                 (constEqBytes)
 
 import           Control.Arrow                 ((***))
 import qualified Data.ByteString.Char8         as S8
-import           Data.Monoid                   (Endo (..), mappend, mempty)
+import           Data.Monoid                   (Endo (..))
 import           Data.Text                     (Text)
 import qualified Network.Wai.Parse             as NWP
 import           Web.Cookie                    (SetCookie (..))
 import           Yesod.Core.Content            (ToTypedContent (..), simpleContentType, contentTypeTypes, HasContentType (..), ToContent (..), ToFlushBuilder (..))
 import           Yesod.Core.Internal.Util      (formatRFC1123)
+import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
 
 import qualified Data.IORef.Lifted             as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
@@ -187,21 +228,19 @@ import           Web.PathPieces                (PathPiece(..))
 import           Yesod.Core.Class.Handler
 import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
-import Control.Exception (throwIO)
-import Blaze.ByteString.Builder (Builder)
-import Safe (headMay)
-import Data.CaseInsensitive (CI)
+import           Blaze.ByteString.Builder (Builder)
+import           Safe (headMay)
+import           Data.CaseInsensitive (CI)
 import qualified Data.Conduit.List as CL
-import Control.Monad (unless)
-import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO
-              )
+import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
-import Control.Monad.Trans.Control (control, MonadBaseControl)
-import Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer
-                    , Sink
-                   )
+import           Control.Monad.Trans.Control (control, MonadBaseControl)
+import           Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer, Sink)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
+import qualified Data.Foldable as Fold
+import           Data.Default
+import           Control.Monad.Logger (MonadLogger, logWarnS)
 
 get :: MonadHandler m => m GHState
 get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
@@ -254,7 +293,7 @@ rbHelper' :: NWP.BackEnd x
           -> W.Request
           -> IO ([(Text, Text)], [(Text, FileInfo)])
 rbHelper' backend mkFI req =
-    (map fix1 *** mapMaybe fix2) <$> (NWP.parseRequestBody backend req)
+    (map fix1 *** mapMaybe fix2) <$> NWP.parseRequestBody backend req
   where
     fix1 = go *** go
     fix2 (x, NWP.FileInfo a' b c)
@@ -273,24 +312,41 @@ askHandlerEnv = liftHandlerT $ HandlerT $ return . handlerEnv
 
 -- | Get the master site application argument.
 getYesod :: MonadHandler m => m (HandlerSite m)
-getYesod = rheSite `liftM` askHandlerEnv
+getYesod = rheSite <$> askHandlerEnv
+
+-- | Get a specific component of the master site application argument.
+--   Analogous to the 'gets' function for operating on 'StateT'.
+getsYesod :: MonadHandler m => (HandlerSite m -> a) -> m a
+getsYesod f = (f . rheSite) <$> askHandlerEnv
 
 -- | Get the URL rendering function.
 getUrlRender :: MonadHandler m => m (Route (HandlerSite m) -> Text)
 getUrlRender = do
-    x <- rheRender `liftM` askHandlerEnv
+    x <- rheRender <$> askHandlerEnv
     return $ flip x []
 
 -- | The URL rendering function with query-string parameters.
 getUrlRenderParams
     :: MonadHandler m
     => m (Route (HandlerSite m) -> [(Text, Text)] -> Text)
-getUrlRenderParams = rheRender `liftM` askHandlerEnv
+getUrlRenderParams = rheRender <$> askHandlerEnv
+
+-- | Get all the post parameters passed to the handler. To also get
+-- the submitted files (if any), you have to use 'runRequestBody'
+-- instead of this function.
+--
+-- @since 1.4.33
+getPostParams
+  :: MonadHandler m
+  => m [(Text, Text)]
+getPostParams = do
+  reqBodyContent <- runRequestBody
+  return $ fst reqBodyContent
 
 -- | Get the route requested by the user. If this is a 404 response- where the
 -- user requested an invalid route- this function will return 'Nothing'.
 getCurrentRoute :: MonadHandler m => m (Maybe (Route (HandlerSite m)))
-getCurrentRoute = rheRoute `liftM` askHandlerEnv
+getCurrentRoute = rheRoute <$> askHandlerEnv
 
 -- | Returns a function that runs 'HandlerT' actions inside @IO@.
 --
@@ -373,7 +429,7 @@ handlerToIO =
 -- Uses 'handlerToIO', liftResourceT, and resourceForkIO
 -- for correctness and efficiency
 --
--- Since 1.2.8
+-- @since 1.2.8
 forkHandler :: (SomeException -> HandlerT site IO ()) -- ^ error handler
               -> HandlerT site IO ()
               -> HandlerT site IO ()
@@ -431,7 +487,7 @@ setUltDestCurrent = do
     case route of
         Nothing -> return ()
         Just r -> do
-            gets' <- reqGetParams `liftM` getRequest
+            gets' <- reqGetParams <$> getRequest
             setUltDest (r, gets')
 
 -- | Sets the ultimate destination to the referer request header, if present.
@@ -457,14 +513,78 @@ setUltDestReferer = do
 redirectUltDest :: (RedirectUrl (HandlerSite m) url, MonadHandler m)
                 => url -- ^ default destination if nothing in session
                 -> m a
-redirectUltDest def = do
+redirectUltDest defaultDestination = do
     mdest <- lookupSession ultDestKey
     deleteSession ultDestKey
-    maybe (redirect def) redirect mdest
+    maybe (redirect defaultDestination) redirect mdest
 
 -- | Remove a previously set ultimate destination. See 'setUltDest'.
 clearUltDest :: MonadHandler m => m ()
 clearUltDest = deleteSession ultDestKey
+
+msgKey :: Text
+msgKey = "_MSG"
+
+-- | Adds a status and message in the user's session.
+--
+-- See 'getMessages'.
+--
+-- @since 1.4.20
+addMessage :: MonadHandler m
+           => Text -- ^ status
+           -> Html -- ^ message
+           -> m ()
+addMessage status msg = do
+    val <- lookupSessionBS msgKey
+    setSessionBS msgKey $ addMsg val
+  where
+    addMsg = maybe msg' (S.append msg' . S.cons W8._nul)
+    msg' = S.append
+        (encodeUtf8 status)
+        (W8._nul `S.cons` L.toStrict (renderHtml msg))
+
+-- | Adds a message in the user's session but uses RenderMessage to allow for i18n
+--
+-- See 'getMessages'.
+--
+-- @since 1.4.20
+addMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
+            => Text -> msg -> m ()
+addMessageI status msg = do
+    mr <- getMessageRender
+    addMessage status $ toHtml $ mr msg
+
+-- | Gets all messages in the user's session, and then clears the variable.
+--
+-- See 'addMessage'.
+--
+-- @since 1.4.20
+getMessages :: MonadHandler m => m [(Text, Html)]
+getMessages = do
+    bs <- lookupSessionBS msgKey
+    let ms = maybe [] enlist bs
+    deleteSession msgKey
+    return ms
+  where
+    enlist = pairup . S.split W8._nul
+    pairup [] = []
+    pairup [_] = []
+    pairup (s:v:xs) = (decode s, preEscapedToHtml (decode v)) : pairup xs
+    decode = decodeUtf8With lenientDecode
+
+-- | Calls 'addMessage' with an empty status
+setMessage :: MonadHandler m => Html -> m ()
+setMessage = addMessage ""
+
+-- | Calls 'addMessageI' with an empty status
+setMessageI :: (MonadHandler m, RenderMessage (HandlerSite m) msg)
+            => msg -> m ()
+setMessageI = addMessageI ""
+
+-- | Gets just the last message in the user's session,
+-- discards the rest and the status
+getMessage :: MonadHandler m => m (Maybe Html)
+getMessage = fmap (fmap snd . headMay) getMessages
 
 -- | Bypass remaining handler code and output the given file.
 --
@@ -498,6 +618,17 @@ sendResponse = handlerError . HCContent H.status200 . toTypedContent
 sendResponseStatus :: (MonadHandler m, ToTypedContent c) => H.Status -> c -> m a
 sendResponseStatus s = handlerError . HCContent s . toTypedContent
 
+-- | Bypass remaining handler code and output the given JSON with the given
+-- status code.
+--
+-- @since 1.4.18
+sendStatusJSON :: (MonadHandler m, ToJSON c) => H.Status -> c -> m a
+#if MIN_VERSION_aeson(0, 11, 0)
+sendStatusJSON s v = sendResponseStatus s (toEncoding v)
+#else
+sendStatusJSON s v = sendResponseStatus s (toJSON v)
+#endif
+
 -- | Send a 201 "Created" response with the given route as the Location
 -- response header.
 sendResponseCreated :: MonadHandler m => Route (HandlerSite m) -> m a
@@ -515,7 +646,7 @@ sendWaiResponse = handlerError . HCWai
 
 -- | Switch over to handling the current request with a WAI @Application@.
 --
--- Since 1.2.17
+-- @since 1.2.17
 sendWaiApplication :: MonadHandler m => W.Application -> m b
 sendWaiApplication = handlerError . HCWaiApp
 
@@ -523,14 +654,14 @@ sendWaiApplication = handlerError . HCWaiApp
 -- WebSockets. Requires WAI 3.0 or later, and a web server which supports raw
 -- responses (e.g., Warp).
 --
--- Since 1.2.16
+-- @since 1.2.16
 sendRawResponseNoConduit
     :: (MonadHandler m, MonadBaseControl IO m)
     => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> m ())
     -> m a
 sendRawResponseNoConduit raw = control $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
-    $ \src sink -> runInIO (raw src sink) >> return ()
+    $ \src sink -> void $ runInIO (raw src sink)
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
         "sendRawResponse: backend does not support raw responses"
@@ -539,13 +670,13 @@ sendRawResponseNoConduit raw = control $ \runInIO ->
 -- WAI 2.1 or later, and a web server which supports raw responses (e.g.,
 -- Warp).
 --
--- Since 1.2.7
+-- @since 1.2.7
 sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
                 => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
                 -> m a
 sendRawResponse raw = control $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
-    $ \src sink -> runInIO (raw (src' src) (CL.mapM_ sink)) >> return ()
+    $ \src sink -> void $ runInIO $ raw (src' src) (CL.mapM_ sink)
   where
     fallback = W.responseLBS H.status500 [("Content-Type", "text/plain")]
         "sendRawResponse: backend does not support raw responses"
@@ -558,7 +689,7 @@ sendRawResponse raw = control $ \runInIO ->
 -- | Send a 304 not modified response immediately. This is a short-circuiting
 -- action.
 --
--- Since 1.4.4
+-- @since 1.4.4
 notModified :: MonadHandler m => m a
 notModified = sendWaiResponse $ W.responseBuilder H.status304 [] mempty
 
@@ -588,7 +719,11 @@ invalidArgs = hcError . InvalidArgs
 -- | Set the cookie on the client.
 
 setCookie :: MonadHandler m => SetCookie -> m ()
-setCookie = addHeaderInternal . AddCookie
+setCookie sc = do
+  addHeaderInternal (DeleteCookie name path)
+  addHeaderInternal (AddCookie sc)
+  where name = setCookieName sc
+        path = maybe "/" id (setCookiePath sc)
 
 -- | Helper function for setCookieExpires value
 getExpires :: MonadIO m
@@ -620,7 +755,7 @@ setLanguage = setSession langKey
 -- Note that, while the data type used here is 'Text', you must provide only
 -- ASCII value to be HTTP compliant.
 --
--- Since 1.2.0
+-- @since 1.2.0
 addHeader :: MonadHandler m => Text -> Text -> m ()
 addHeader a = addHeaderInternal . Header (encodeUtf8 a) . encodeUtf8
 
@@ -642,7 +777,7 @@ cacheSeconds i = setHeader "Cache-Control" $ T.concat
 -- is never (realistically) expired.
 neverExpires :: MonadHandler m => m ()
 neverExpires = do
-    askHandlerEnv >>= liftIO . rheGetMaxExpires >>= setHeader "Expires"
+    setHeader "Expires" . rheMaxExpires =<< askHandlerEnv
     cacheSeconds oneYear
   where
     oneYear :: Int
@@ -665,7 +800,7 @@ expiresAt = setHeader "Expires" . formatRFC1123
 -- value is a value etag value, no sanity checking is performed by this
 -- function.
 --
--- Since 1.4.4
+-- @since 1.4.4
 setEtag :: MonadHandler m => Text -> m ()
 setEtag etag = do
     mmatch <- lookupHeader "if-none-match"
@@ -711,7 +846,7 @@ deleteSession = modify . modSession . Map.delete
 
 -- | Clear all session variables.
 --
--- Since: 1.0.1
+-- @since: 1.0.1
 clearSession :: MonadHandler m => m ()
 clearSession = modify $ \x -> x { ghsSession = Map.empty }
 
@@ -751,7 +886,7 @@ instance (key ~ Text, val ~ Text) => RedirectUrl master (Route master, Map.Map k
 --
 -- > redirect (NewsfeedR :#: storyId)
 --
--- Since 1.2.9.
+-- @since 1.2.9.
 data Fragment a b = a :#: b deriving (Show, Typeable)
 
 instance (RedirectUrl master a, PathPiece b) => RedirectUrl master (Fragment a b) where
@@ -760,17 +895,17 @@ instance (RedirectUrl master a, PathPiece b) => RedirectUrl master (Fragment a b
 
 -- | Lookup for session data.
 lookupSession :: MonadHandler m => Text -> m (Maybe Text)
-lookupSession = (liftM . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
+lookupSession = (fmap . fmap) (decodeUtf8With lenientDecode) . lookupSessionBS
 
 -- | Lookup for session data in binary format.
 lookupSessionBS :: MonadHandler m => Text -> m (Maybe S.ByteString)
 lookupSessionBS n = do
-    m <- liftM ghsSession get
+    m <- fmap ghsSession get
     return $ Map.lookup n m
 
 -- | Get all session variables.
 getSession :: MonadHandler m => m SessionMap
-getSession = liftM ghsSession get
+getSession = fmap ghsSession get
 
 -- | Get a unique identifier.
 newIdent :: MonadHandler m => m Text
@@ -780,9 +915,43 @@ newIdent = do
     put x { ghsIdent = i' }
     return $ T.pack $ "hident" ++ show i'
 
+-- | Redirect to a POST resource.
+--
+-- This is not technically a redirect; instead, it returns an HTML page with a
+-- POST form, and some Javascript to automatically submit the form. This can be
+-- useful when you need to post a plain link somewhere that needs to cause
+-- changes on the server.
+redirectToPost :: (MonadHandler m, RedirectUrl (HandlerSite m) url)
+               => url
+               -> m a
+redirectToPost url = do
+    urlText <- toTextUrl url
+    req <- getRequest
+    withUrlRenderer [hamlet|
+$newline never
+$doctype 5
+
+<html>
+    <head>
+        <title>Redirecting...
+    <body onload="document.getElementById('form').submit()">
+        <form id="form" method="post" action=#{urlText}>
+            $maybe token <- reqToken req
+                <input type=hidden name=#{defaultCsrfParamName} value=#{token}>
+            <noscript>
+                <p>Javascript has been disabled; please click on the button below to be redirected.
+            <input type="submit" value="Continue">
+|] >>= sendResponse
+
+-- | Wraps the 'Content' generated by 'hamletToContent' in a 'RepHtml'.
+hamletToRepHtml :: MonadHandler m => HtmlUrl (Route (HandlerSite m)) -> m Html
+hamletToRepHtml = withUrlRenderer
+{-# DEPRECATED hamletToRepHtml "Use withUrlRenderer instead" #-}
+
+>>>>>>> 6b4139672ebcdc93245c1c48cfeb3048fa2bd4d6
 -- | Deprecated synonym for 'withUrlRenderer'.
 --
--- Since 1.2.0
+-- @since 1.2.0
 giveUrlRenderer :: MonadHandler m
                 => ((Route (HandlerSite m) -> [(Text, Text)] -> Text) -> output)
                 -> m output
@@ -792,7 +961,7 @@ giveUrlRenderer = withUrlRenderer
 -- | Provide a URL rendering function to the given function and return the
 -- result. Useful for processing Shakespearean templates.
 --
--- Since 1.2.20
+-- @since 1.2.20
 withUrlRenderer :: MonadHandler m
                 => ((Route (HandlerSite m) -> [(Text, Text)] -> Text) -> output)
                 -> m output
@@ -802,7 +971,14 @@ withUrlRenderer f = do
 
 -- | Get the request\'s 'W.Request' value.
 waiRequest :: MonadHandler m => m W.Request
-waiRequest = reqWaiRequest `liftM` getRequest
+waiRequest = reqWaiRequest <$> getRequest
+
+getMessageRender :: (MonadHandler m, RenderMessage (HandlerSite m) message)
+                 => m (message -> Text)
+getMessageRender = do
+    env <- askHandlerEnv
+    l <- reqLangs <$> getRequest
+    return $ renderMessage (rheSite env) l
 
 -- | Use a per-request cache to avoid performing the same action multiple times.
 -- Values are stored by their type, the result of typeOf from Typeable.
@@ -813,17 +989,19 @@ waiRequest = reqWaiRequest `liftM` getRequest
 --
 -- See the original announcement: <http://www.yesodweb.com/blog/2013/03/yesod-1-2-cleaner-internals>
 --
--- Since 1.2.0
+-- @since 1.2.0
 cached :: (MonadHandler m, Typeable a)
        => m a
        -> m a
 cached action = do
-    gs <- get
-    eres <- Cache.cached (ghsCache gs) action
+    cache <- ghsCache <$> get
+    eres <- Cache.cached cache action
     case eres of
       Right res -> return res
       Left (newCache, res) -> do
-          put $ gs { ghsCache = newCache }
+          gs <- get
+          let merged = newCache `HM.union` ghsCache gs
+          put $ gs { ghsCache = merged }
           return res
 
 -- | a per-request cache. just like 'cached'.
@@ -835,15 +1013,17 @@ cached action = do
 -- You can turn those parameters into a ByteString cache key.
 -- For example, caching a lookup of a Link by a token where multiple token lookups might be performed.
 --
--- Since 1.4.0
+-- @since 1.4.0
 cachedBy :: (MonadHandler m, Typeable a) => S.ByteString -> m a -> m a
 cachedBy k action = do
-    gs <- get
-    eres <- Cache.cachedBy (ghsCacheBy gs) k action
+    cache <- ghsCacheBy <$> get
+    eres <- Cache.cachedBy cache k action
     case eres of
       Right res -> return res
       Left (newCache, res) -> do
-          put $ gs { ghsCacheBy = newCache }
+          gs <- get
+          let merged = newCache `HM.union` ghsCacheBy gs
+          put $ gs { ghsCacheBy = merged }
           return res
 
 -- | Get the list of supported languages supplied by the user.
@@ -864,20 +1044,23 @@ cachedBy k action = do
 --
 -- This is handled by parseWaiRequest (not exposed).
 languages :: MonadHandler m => m [Text]
-languages = reqLangs `liftM` getRequest
+languages = do
+    mlang <- lookupSession langKey
+    langs <- reqLangs <$> getRequest
+    return $ maybe id (:) mlang langs
 
 lookup' :: Eq a => a -> [(a, b)] -> [b]
 lookup' a = map snd . filter (\x -> a == fst x)
 
 -- | Lookup a request header.
 --
--- Since 1.2.2
+-- @since 1.2.2
 lookupHeader :: MonadHandler m => CI S8.ByteString -> m (Maybe S8.ByteString)
-lookupHeader = liftM listToMaybe . lookupHeaders
+lookupHeader = fmap listToMaybe . lookupHeaders
 
 -- | Lookup a request header.
 --
--- Since 1.2.2
+-- @since 1.2.2
 lookupHeaders :: MonadHandler m => CI S8.ByteString -> m [S8.ByteString]
 lookupHeaders key = do
     req <- waiRequest
@@ -886,19 +1069,17 @@ lookupHeaders key = do
 -- | Lookup basic authentication data from __Authorization__ header of
 -- request. Returns user name and password
 --
--- Since 1.4.9
+-- @since 1.4.9
 lookupBasicAuth :: (MonadHandler m) => m (Maybe (Text, Text))
-lookupBasicAuth = fmap (>>= getBA)
-                  (lookupHeader "Authorization")
+lookupBasicAuth = fmap (>>= getBA) (lookupHeader "Authorization")
   where
-    getBA bs = (\(x, y) -> ( decodeUtf8With lenientDecode x
-                          , decodeUtf8With lenientDecode y))
+    getBA bs = (decodeUtf8With lenientDecode *** decodeUtf8With lenientDecode)
                <$> extractBasicAuth bs
 
 -- | Lookup bearer authentication datafrom __Authorization__ header of
 -- request. Returns bearer token value
 --
--- Since 1.4.9
+-- @since 1.4.9
 lookupBearerAuth :: (MonadHandler m) => m (Maybe Text)
 lookupBearerAuth = fmap (>>= getBR)
                    (lookupHeader "Authorization")
@@ -915,7 +1096,7 @@ lookupGetParams pn = do
 
 -- | Lookup for GET parameters.
 lookupGetParam :: MonadHandler m => Text -> m (Maybe Text)
-lookupGetParam = liftM listToMaybe . lookupGetParams
+lookupGetParam = fmap listToMaybe . lookupGetParams
 
 -- | Lookup for POST parameters.
 lookupPostParams :: (MonadResource m, MonadHandler m) => Text -> m [Text]
@@ -926,16 +1107,16 @@ lookupPostParams pn = do
 lookupPostParam :: (MonadResource m, MonadHandler m)
                 => Text
                 -> m (Maybe Text)
-lookupPostParam = liftM listToMaybe . lookupPostParams
+lookupPostParam = fmap listToMaybe . lookupPostParams
 
 -- | Lookup for POSTed files.
-lookupFile :: (MonadHandler m, MonadResource m)
+lookupFile :: MonadHandler m
            => Text
            -> m (Maybe FileInfo)
-lookupFile = liftM listToMaybe . lookupFiles
+lookupFile = fmap listToMaybe . lookupFiles
 
 -- | Lookup for POSTed files.
-lookupFiles :: (MonadHandler m, MonadResource m)
+lookupFiles :: MonadHandler m
             => Text
             -> m [FileInfo]
 lookupFiles pn = do
@@ -944,7 +1125,7 @@ lookupFiles pn = do
 
 -- | Lookup for cookie data.
 lookupCookie :: MonadHandler m => Text -> m (Maybe Text)
-lookupCookie = liftM listToMaybe . lookupCookies
+lookupCookie = fmap listToMaybe . lookupCookies
 
 -- | Lookup for cookie data.
 lookupCookies :: MonadHandler m => Text -> m [Text]
@@ -972,14 +1153,14 @@ lookupCookies pn = do
 -- | Select a representation to send to the client based on the representations
 -- provided inside this do-block. Should be used together with 'provideRep'.
 --
--- Since 1.2.0
+-- @since 1.2.0
 selectRep :: MonadHandler m
           => Writer.Writer (Endo [ProvidedRep m]) ()
           -> m TypedContent
 selectRep w = do
     -- the content types are already sorted by q values
     -- which have been stripped
-    cts <- liftM reqAccept getRequest
+    cts <- fmap reqAccept getRequest
 
     case mapMaybe tryAccept cts of
         [] ->
@@ -994,8 +1175,7 @@ selectRep w = do
     explainUnaccepted :: Text
     explainUnaccepted = "no match found for accept header"
 
-    returnRep (ProvidedRep ct mcontent) =
-        mcontent >>= return . TypedContent ct
+    returnRep (ProvidedRep ct mcontent) = fmap (TypedContent ct) mcontent
 
     reps = appEndo (Writer.execWriter w) []
 
@@ -1029,13 +1209,13 @@ selectRep w = do
 
 -- | Internal representation of a single provided representation.
 --
--- Since 1.2.0
+-- @since 1.2.0
 data ProvidedRep m = ProvidedRep !ContentType !(m Content)
 
 -- | Provide a single representation to be used, based on the request of the
 -- client. Should be used together with 'selectRep'.
 --
--- Since 1.2.0
+-- @since 1.2.0
 provideRep :: (Monad m, HasContentType a)
            => m a
            -> Writer.Writer (Endo [ProvidedRep m]) ()
@@ -1048,17 +1228,17 @@ provideRep handler = provideRepType (getContentType handler) handler
 --
 -- > provideRepType "application/x-special-format" "This is the content"
 --
--- Since 1.2.0
+-- @since 1.2.0
 provideRepType :: (Monad m, ToContent a)
                => ContentType
                -> m a
                -> Writer.Writer (Endo [ProvidedRep m]) ()
 provideRepType ct handler =
-    Writer.tell $ Endo $ (ProvidedRep ct (liftM toContent handler):)
+    Writer.tell $ Endo (ProvidedRep ct (liftM toContent handler):)
 
 -- | Stream in the raw request body without any parsing.
 --
--- Since 1.2.0
+-- @since 1.2.0
 rawRequestBody :: MonadHandler m => Source m S.ByteString
 rawRequestBody = do
     req <- lift waiRequest
@@ -1078,7 +1258,7 @@ fileSource = transPipe liftResourceT . fileSourceRaw
 --
 -- > respond ct = return . TypedContent ct . toContent
 --
--- Since 1.2.0
+-- @since 1.2.0
 respond :: (Monad m, ToContent a) => ContentType -> a -> m TypedContent
 respond ct = return . TypedContent ct . toContent
 
@@ -1090,7 +1270,7 @@ respond ct = return . TypedContent ct . toContent
 -- actions make no sense here. For example: short-circuit responses, setting
 -- headers, changing status codes, etc.
 --
--- Since 1.2.0
+-- @since 1.2.0
 respondSource :: ContentType
               -> Source (HandlerT site IO) (Flush Builder)
               -> HandlerT site IO TypedContent
@@ -1104,40 +1284,46 @@ respondSource ctype src = HandlerT $ \hd ->
 -- | In a streaming response, send a single chunk of data. This function works
 -- on most datatypes, such as @ByteString@ and @Html@.
 --
--- Since 1.2.0
+-- @since 1.2.0
 sendChunk :: Monad m => ToFlushBuilder a => a -> Producer m (Flush Builder)
 sendChunk = yield . toFlushBuilder
 
 -- | In a streaming response, send a flush command, causing all buffered data
 -- to be immediately sent to the client.
 --
--- Since 1.2.0
+-- @since 1.2.0
 sendFlush :: Monad m => Producer m (Flush Builder)
 sendFlush = yield Flush
 
 -- | Type-specialized version of 'sendChunk' for strict @ByteString@s.
 --
--- Since 1.2.0
+-- @since 1.2.0
 sendChunkBS :: Monad m => S.ByteString -> Producer m (Flush Builder)
 sendChunkBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @ByteString@s.
 --
--- Since 1.2.0
+-- @since 1.2.0
 sendChunkLBS :: Monad m => L.ByteString -> Producer m (Flush Builder)
 sendChunkLBS = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for strict @Text@s.
 --
--- Since 1.2.0
+-- @since 1.2.0
 sendChunkText :: Monad m => T.Text -> Producer m (Flush Builder)
 sendChunkText = sendChunk
 
 -- | Type-specialized version of 'sendChunk' for lazy @Text@s.
 --
--- Since 1.2.0
+-- @since 1.2.0
 sendChunkLazyText :: Monad m => TL.Text -> Producer m (Flush Builder)
 sendChunkLazyText = sendChunk
+
+-- | Type-specialized version of 'sendChunk' for @Html@s.
+--
+-- @since 1.2.0
+sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
+sendChunkHtml = sendChunk
 
 -- | Converts a child handler to a parent handler
 --
@@ -1157,3 +1343,122 @@ stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
             }
         , handlerToParent = toMaster
         }
+
+-- $ajaxCSRFOverview
+-- When a user has authenticated with your site, all requests made from the browser to your server will include the session information that you use to verify that the user is logged in.
+-- Unfortunately, this allows attackers to make unwanted requests on behalf of the user by e.g. submitting an HTTP request to your site when the user visits theirs.
+-- This is known as a <https://en.wikipedia.org/wiki/Cross-site_request_forgery Cross Site Request Forgery> (CSRF) attack.
+--
+-- To combat this attack, you need a way to verify that the request is valid.
+-- This is achieved by generating a random string ("token"), storing it in your encrypted session so that the server can look it up (see 'reqToken'), and adding the token to HTTP requests made to your server.
+-- When a request comes in, the token in the request is compared to the one from the encrypted session. If they match, you can be sure the request is valid.
+--
+-- Yesod implements this behavior in two ways:
+--
+-- (1) The yesod-form package <http://www.yesodweb.com/book/forms#forms_running_forms stores the CSRF token in a hidden field> in the form, then validates it with functions like 'Yesod.Form.Functions.runFormPost'.
+--
+-- (2) Yesod can store the CSRF token in a cookie which is accessible by Javascript. Requests made by Javascript can lookup this cookie and add it as a header to requests. The server then checks the token in the header against the one in the encrypted session.
+--
+-- The form-based approach has the advantage of working for users with Javascript disabled, while adding the token to the headers with Javascript allows things like submitting JSON or binary data in AJAX requests. Yesod supports checking for a CSRF token in either the POST parameters of the form ('checkCsrfParamNamed'), the headers ('checkCsrfHeaderNamed'), or both options ('checkCsrfHeaderOrParam').
+--
+-- The easiest way to check both sources is to add the 'Yesod.Core.defaultCsrfMiddleware' to your Yesod Middleware.
+
+-- | The default cookie name for the CSRF token ("XSRF-TOKEN").
+--
+-- @since 1.4.14
+defaultCsrfCookieName :: S8.ByteString
+defaultCsrfCookieName = "XSRF-TOKEN"
+
+-- | Sets a cookie with a CSRF token, using 'defaultCsrfCookieName' for the cookie name.
+--
+-- The cookie's path is set to @/@, making it valid for your whole website.
+--
+-- @since 1.4.14
+setCsrfCookie :: MonadHandler m => m ()
+setCsrfCookie = setCsrfCookieWithCookie def { setCookieName = defaultCsrfCookieName, setCookiePath = Just "/" }
+
+-- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie.
+--
+-- Make sure to set the 'setCookiePath' to the root path of your application, otherwise you'll generate a new CSRF token for every path of your app. If your app is run from from e.g. www.example.com\/app1, use @app1@. The vast majority of sites will just use @/@.
+--
+-- @since 1.4.14
+setCsrfCookieWithCookie :: MonadHandler m => SetCookie -> m ()
+setCsrfCookieWithCookie cookie  = do
+    mCsrfToken <- reqToken <$> getRequest
+    Fold.forM_ mCsrfToken (\token -> setCookie $ cookie { setCookieValue = encodeUtf8 token })
+
+-- | The default header name for the CSRF token ("X-XSRF-TOKEN").
+--
+-- @since 1.4.14
+defaultCsrfHeaderName :: CI S8.ByteString
+defaultCsrfHeaderName = "X-XSRF-TOKEN"
+
+-- | Takes a header name to lookup a CSRF token. If the value doesn't match the token stored in the session,
+-- this function throws a 'PermissionDenied' error.
+--
+-- @since 1.4.14
+checkCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m ()
+checkCsrfHeaderNamed headerName = do
+  valid <- hasValidCsrfHeaderNamed headerName
+  unless valid (permissionDenied csrfErrorMessage)
+
+-- | Takes a header name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
+--
+-- @since 1.4.14
+hasValidCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m Bool
+hasValidCsrfHeaderNamed headerName = do
+  mCsrfToken  <- reqToken <$> getRequest
+  mXsrfHeader <- lookupHeader headerName
+
+  return $ validCsrf mCsrfToken mXsrfHeader
+
+-- CSRF Parameter checking
+
+-- | The default parameter name for the CSRF token ("_token")
+--
+-- @since 1.4.14
+defaultCsrfParamName :: Text
+defaultCsrfParamName = "_token"
+
+-- | Takes a POST parameter name to lookup a CSRF token. If the value doesn't match the token stored in the session,
+-- this function throws a 'PermissionDenied' error.
+--
+-- @since 1.4.14
+checkCsrfParamNamed :: MonadHandler m => Text -> m ()
+checkCsrfParamNamed paramName = do
+  valid <- hasValidCsrfParamNamed paramName
+  unless valid (permissionDenied csrfErrorMessage)
+
+-- | Takes a POST parameter name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
+--
+-- @since 1.4.14
+hasValidCsrfParamNamed :: MonadHandler m => Text -> m Bool
+hasValidCsrfParamNamed paramName = do
+  mCsrfToken  <- reqToken <$> getRequest
+  mCsrfParam <- lookupPostParam paramName
+
+  return $ validCsrf mCsrfToken (encodeUtf8 <$> mCsrfParam)
+
+-- | Checks that a valid CSRF token is present in either the request headers or POST parameters.
+-- If the value doesn't match the token stored in the session, this function throws a 'PermissionDenied' error.
+--
+-- @since 1.4.14
+checkCsrfHeaderOrParam :: (MonadHandler m, MonadLogger m)
+                       => CI S8.ByteString -- ^ The header name to lookup the CSRF token
+                       -> Text -- ^ The POST parameter name to lookup the CSRF token
+                       -> m ()
+checkCsrfHeaderOrParam headerName paramName = do
+  validHeader <- hasValidCsrfHeaderNamed headerName
+  validParam <- hasValidCsrfParamNamed paramName
+  unless (validHeader || validParam) $ do
+    $logWarnS "yesod-core" csrfErrorMessage
+    permissionDenied csrfErrorMessage
+
+validCsrf :: Maybe Text -> Maybe S.ByteString -> Bool
+-- It's important to use constant-time comparison (constEqBytes) in order to avoid timing attacks.
+validCsrf (Just token) (Just param) = encodeUtf8 token `constEqBytes` param
+validCsrf Nothing            _param = True
+validCsrf (Just _token)     Nothing = False
+
+csrfErrorMessage :: Text
+csrfErrorMessage = "A valid CSRF token wasn't present in HTTP headers or POST parameters. Because the request could have been forged, it's been rejected altogether. Check the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."

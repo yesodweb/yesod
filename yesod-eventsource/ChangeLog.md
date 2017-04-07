@@ -1,1 +1,3 @@
-No changes logged yet
+## 1.4.1
+
+* Fix warnings

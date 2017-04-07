@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies, MultiParamTypeClasses, ViewPatterns #-}
 module YesodCoreTest.Json (specs) where
+    ( specs
+    , Widget
+    , resourcesApp
+    ) where
 
 import Yesod.Core
 import Test.Hspec

@@ -5,26 +5,29 @@
 {-# LANGUAGE CPP               #-}
 module Yesod.Core.Class.Yesod where
 
-import           Control.Monad                      (mplus)
-import           Control.Monad.Logger               (logErrorS)
 import           Yesod.Core.Content
 import           Yesod.Core.Handler
 
 import           Yesod.Routes.Class
 
-import           Blaze.ByteString.Builder           (Builder)
-import           Blaze.ByteString.Builder.Char.Utf8 (fromText)
+import           Blaze.ByteString.Builder           (Builder, toByteString)
+import           Blaze.ByteString.Builder.ByteString (copyByteString)
+import           Blaze.ByteString.Builder.Char.Utf8 (fromText, fromChar)
 import           Control.Arrow                      ((***), second)
 import           Control.Exception                  (bracket)
-import           Control.Monad                      (when, void)
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative                ((<$>))
+#endif
+import           Control.Monad                      (forM, when, void, mplus)
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel (LevelInfo, LevelOther),
-                                                     LogSource)
+                                                     LogSource, logErrorS)
 import           Control.Monad.Trans.Resource       (InternalState, createInternalState, closeInternalState)
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Char8              as S8
 import qualified Data.ByteString.Lazy               as L
 import Data.Aeson (object, (.=))
+import           Data.List                          (foldl', nub)
 import qualified Data.Map                           as Map
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid
@@ -34,7 +37,7 @@ import qualified Data.Text.Encoding                 as TE
 import qualified Data.Text.Encoding.Error           as TEE
 import           Data.Word                          (Word64)
 import           Language.Haskell.TH.Syntax         (Loc (..))
-import           Network.HTTP.Types                 (encodePath)
+import           Network.HTTP.Types                 (encodePath, renderQueryText)
 import qualified Network.Wai                        as W
 import           Data.Default                       (def)
 import           Network.Wai.Parse                  (lbsBackEnd,
@@ -42,10 +45,13 @@ import           Network.Wai.Parse                  (lbsBackEnd,
 import           Network.Wai.Logger                 (ZonedDate, clockDateCacher)
 import           System.Log.FastLogger
 import           Text.Blaze.Html                    (Html)
+import           Text.Blaze                         (customAttribute, textTag,
+                                                     toValue, (!),
+                                                     preEscapedToMarkup)
 import qualified Text.Blaze.Html5                   as TBH
 import qualified Web.ClientSession                  as CS
-import           Web.Cookie                         (parseCookies)
-import           Web.Cookie                         (SetCookie (..))
+import           Web.Cookie                         (SetCookie (..), parseCookies, sameSiteLax,
+                                                     sameSiteStrict, SameSiteOption)
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 
@@ -53,6 +59,10 @@ import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget (WidgetT, toWidget, setTitle, PageContent(..), ScriptLoadPosition(BottomOfBody), getMessage, widgetToPageContentUnbound)
 import qualified Data.Foldable
 
+import           Yesod.Core.Widget
+import Control.Monad.Trans.Class (lift)
+import Data.CaseInsensitive (CI)
+import qualified Network.Wai.Request
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -88,6 +98,28 @@ class RenderRoute site => Yesod site where
     -- sending cookies.
     urlRenderOverride :: site -> Route site -> Maybe Builder
     urlRenderOverride _ _ = Nothing
+
+    -- | Override the rendering function for a particular URL and query string
+    -- parameters. One use case for this is to offload static hosting to a
+    -- different domain name to avoid sending cookies.
+    -- 
+    -- For backward compatibility default implementation is in terms of
+    -- 'urlRenderOverride', probably ineffective
+    -- 
+    -- Since 1.4.23
+    urlParamRenderOverride :: site
+                           -> Route site
+                           -> [(T.Text, T.Text)] -- ^ query string
+                           -> Maybe Builder
+    urlParamRenderOverride y route params = addParams params <$> urlRenderOverride y route
+      where
+        addParams [] routeBldr = routeBldr
+        addParams nonEmptyParams routeBldr =
+            let routeBS = toByteString routeBldr
+                qsSeparator = fromChar $ if S8.elem '?' routeBS then '&' else '?'
+                valueToMaybe t = if t == "" then Nothing else Just t
+                queryText = map (id *** valueToMaybe) nonEmptyParams
+            in copyByteString routeBS `mappend` qsSeparator `mappend` renderQueryText False queryText
 
     -- | Determine if a request is authorized or not.
     --
@@ -208,13 +240,14 @@ class RenderRoute site => Yesod site where
     messageLoggerSource site = defaultMessageLoggerSource $ shouldLogIO site
 
     -- | Where to Load sripts from. We recommend the default value,
-    -- 'BottomOfBody'.  Alternatively use the built in async yepnope loader:
-    --
-    -- > BottomOfHeadAsync $ loadJsYepnope $ Right $ StaticR js_modernizr_js
-    --
-    -- Or write your own async js loader.
+    -- 'BottomOfBody'.
     jsLoader :: site -> ScriptLoadPosition site
     jsLoader _ = BottomOfBody
+
+    -- | Default attributes to put on the JavaScript <script> tag
+    -- generated for julius files
+    jsAttributes :: site -> [(Text, Text)]
+    jsAttributes _ = []
 
     -- | Create a session backend. Returning 'Nothing' disables
     -- sessions. If you'd like to change the way that the session
@@ -223,7 +256,7 @@ class RenderRoute site => Yesod site where
     --
     -- Default: Uses clientsession with a 2 hour timeout.
     makeSessionBackend :: site -> IO (Maybe SessionBackend)
-    makeSessionBackend _ = fmap Just $ defaultClientSessionBackend 120 CS.defaultKeyFile
+    makeSessionBackend _ = Just <$> defaultClientSessionBackend 120 CS.defaultKeyFile
 
     -- | How to store uploaded files.
     --
@@ -276,6 +309,20 @@ class RenderRoute site => Yesod site where
     yesodWithInternalState :: site -> Maybe (Route site) -> (InternalState -> IO a) -> IO a
     yesodWithInternalState _ _ = bracket createInternalState closeInternalState
     {-# INLINE yesodWithInternalState #-}
+
+    -- | Convert a title and HTML snippet into a 'Widget'. Used
+    -- primarily for wrapping up error messages for better display.
+    --
+    -- @since 1.4.30
+    defaultMessageWidget :: Html -> HtmlUrl (Route site) -> WidgetT site IO ()
+    defaultMessageWidget title body = do
+        setTitle title
+        toWidget
+            [hamlet|
+                <h1>#{title}
+                ^{body}
+            |]
+{-# DEPRECATED urlRenderOverride "Use urlParamRenderOverride instead" #-}
 
 -- | Default implementation of 'makeLogger'. Sends to stdout and
 -- automatically flushes on each write.
@@ -348,19 +395,46 @@ sslOnlySessions = (fmap . fmap) secureSessionCookies
     setSecureBit cookie = cookie { setCookieSecure = True }
     secureSessionCookies = customizeSessionCookies setSecureBit
 
+-- | Helps defend against CSRF attacks by setting the SameSite attribute on
+-- session cookies to Lax. With the Lax setting, the cookie will be sent with same-site
+-- requests, and with cross-site top-level navigations.
+--
+-- This option is liable to change in future versions of Yesod as the spec evolves.
+-- View more information <https://datatracker.ietf.org/doc/draft-west-first-party-cookies/ here>.
+--
+-- @since 1.4.23
+laxSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
+laxSameSiteSessions = sameSiteSession sameSiteLax
+
+-- | Helps defend against CSRF attacks by setting the SameSite attribute on
+-- session cookies to Strict. With the Strict setting, the cookie will only be
+-- sent with same-site requests.
+--
+-- This option is liable to change in future versions of Yesod as the spec evolves.
+-- View more information <https://datatracker.ietf.org/doc/draft-west-first-party-cookies/ here>.
+--
+-- @since 1.4.23
+strictSameSiteSessions :: IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
+strictSameSiteSessions = sameSiteSession sameSiteStrict
+
+sameSiteSession :: SameSiteOption -> IO (Maybe SessionBackend) -> IO (Maybe SessionBackend)
+sameSiteSession s = (fmap . fmap) secureSessionCookies
+  where
+    sameSite cookie = cookie { setCookieSameSite = Just s }
+    secureSessionCookies = customizeSessionCookies sameSite
+
 -- | Apply a Strict-Transport-Security header with the specified timeout to
 -- all responses so that browsers will rewrite all http links to https
 -- until the timeout expires. For security, the max-age of the STS header
 -- should always equal or exceed the client sessions timeout. This defends
--- against hijacking attacks on the sessions of users who attempt to access
--- the site using an http url. This middleware makes a site functionally
--- inaccessible over vanilla http in all standard browsers.
+-- against SSL-stripping man-in-the-middle attacks. It is only effective if
+-- a secure connection has already been made; Strict-Transport-Security
+-- headers are ignored over HTTP.
 --
 -- Since 1.4.7
-sslOnlyMiddleware :: Yesod site
-                     => Int -- ^ minutes
-                     -> HandlerT site IO res
-                     -> HandlerT site IO res
+sslOnlyMiddleware :: Int -- ^ minutes
+                  -> HandlerT site IO res
+                  -> HandlerT site IO res
 sslOnlyMiddleware timeout handler = do
     addHeader "Strict-Transport-Security"
               $ T.pack $ concat [ "max-age="
@@ -374,8 +448,7 @@ sslOnlyMiddleware timeout handler = do
 --
 -- Since 1.2.0
 authorizationCheck :: Yesod site => HandlerT site IO ()
-authorizationCheck = do
-    getCurrentRoute >>= maybe (return ()) checkUrl
+authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
   where
     checkUrl url = do
         isWrite <- isWriteRequest url
@@ -385,16 +458,15 @@ authorizationCheck = do
             AuthenticationRequired -> do
                 master <- getYesod
                 case authRoute master of
-                    Nothing -> void $ notAuthenticated
-                    Just url' -> do
+                    Nothing -> void notAuthenticated
+                    Just url' ->
                       void $ selectRep $ do
                           provideRepType typeHtml $ do
                               setUltDestCurrent
                               void $ redirect url'
                           provideRepType typeJson $
-                              void $ notAuthenticated
+                              void notAuthenticated
             Unauthorized s' -> permissionDenied s'
-
 
 -- templating types
 type Render url = url -> [(Text, Text)] -> Text
@@ -464,14 +536,176 @@ defaultDefaultLayout w = do
         (TBH.preEscapedText . T.pack) "</body></html>"
 
 
+-- | Calls 'csrfCheckMiddleware' with 'isWriteRequest', 'defaultCsrfHeaderName', and 'defaultCsrfParamName' as parameters.
+--
+-- Since 1.4.14
+defaultCsrfCheckMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfCheckMiddleware handler =
+    csrfCheckMiddleware
+        handler
+        (getCurrentRoute >>= maybe (return False) isWriteRequest)
+        defaultCsrfHeaderName
+        defaultCsrfParamName
+
+-- | Looks up the CSRF token from the request headers or POST parameters. If the value doesn't match the token stored in the session,
+-- this function throws a 'PermissionDenied' error.
+--
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
+--
+-- Since 1.4.14
+csrfCheckMiddleware :: HandlerT site IO res
+                    -> HandlerT site IO Bool -- ^ Whether or not to perform the CSRF check.
+                    -> CI S8.ByteString -- ^ The header name to lookup the CSRF token from.
+                    -> Text -- ^ The POST parameter name to lookup the CSRF token from.
+                    -> HandlerT site IO res
+csrfCheckMiddleware handler shouldCheckFn headerName paramName = do
+    shouldCheck <- shouldCheckFn
+    when shouldCheck (checkCsrfHeaderOrParam headerName paramName)
+    handler
+
+-- | Calls 'csrfSetCookieMiddleware' with the 'defaultCsrfCookieName'.
+--
+-- The cookie's path is set to @/@, making it valid for your whole website.
+--
+-- Since 1.4.14
+defaultCsrfSetCookieMiddleware :: HandlerT site IO res -> HandlerT site IO res
+defaultCsrfSetCookieMiddleware handler = setCsrfCookie >> handler
+
+-- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie. See 'setCsrfCookieWithCookie'.
+--
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
+--
+-- Make sure to set the 'setCookiePath' to the root path of your application, otherwise you'll generate a new CSRF token for every path of your app. If your app is run from from e.g. www.example.com\/app1, use @app1@. The vast majority of sites will just use @/@.
+--
+-- Since 1.4.14
+csrfSetCookieMiddleware :: HandlerT site IO res -> SetCookie -> HandlerT site IO res
+csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handler
+
+-- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'.
+--
+-- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
+--
+-- You can add this chain this middleware together with other middleware like so:
+--
+-- @
+-- 'yesodMiddleware' = 'defaultYesodMiddleware' . 'defaultCsrfMiddleware'
+-- @
+--
+-- or:
+--
+-- @
+-- 'yesodMiddleware' app = 'defaultYesodMiddleware' $ 'defaultCsrfMiddleware' $ app
+-- @
+--
+-- Since 1.4.14
+defaultCsrfMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfMiddleware = defaultCsrfSetCookieMiddleware . defaultCsrfCheckMiddleware
+
+-- | Convert a widget to a 'PageContent'.
+widgetToPageContent :: Yesod site
+                    => WidgetT site IO ()
+                    -> HandlerT site IO (PageContent (Route site))
+widgetToPageContent w = do
+    master <- getYesod
+    hd <- HandlerT return
+    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- lift $ unWidgetT w hd
+    let title = maybe mempty unTitle mTitle
+        scripts = runUniqueList scripts'
+        stylesheets = runUniqueList stylesheets'
+
+    render <- getUrlRenderParams
+    let renderLoc x =
+            case x of
+                Nothing -> Nothing
+                Just (Left s) -> Just s
+                Just (Right (u, p)) -> Just $ render u p
+    css <- forM (Map.toList style) $ \(mmedia, content) -> do
+        let rendered = toLazyText $ content render
+        x <- addStaticContent "css" "text/css; charset=utf-8"
+           $ encodeUtf8 rendered
+        return (mmedia,
+            case x of
+                Nothing -> Left $ preEscapedToMarkup rendered
+                Just y -> Right $ either id (uncurry render) y)
+    jsLoc <-
+        case jscript of
+            Nothing -> return Nothing
+            Just s -> do
+                x <- addStaticContent "js" "text/javascript; charset=utf-8"
+                   $ encodeUtf8 $ renderJavascriptUrl render s
+                return $ renderLoc x
+
+    -- modernizr should be at the end of the <head> http://www.modernizr.com/docs/#installing
+    -- the asynchronous loader means your page doesn't have to wait for all the js to load
+    let (mcomplete, asyncScripts) = asyncHelper render scripts jscript jsLoc
+        regularScriptLoad = [hamlet|
+            $newline never
+            $forall s <- scripts
+                ^{mkScriptTag s}
+            $maybe j <- jscript
+                $maybe s <- jsLoc
+                    <script src="#{s}" *{jsAttributes master}>
+                $nothing
+                    <script>^{jelper j}
+        |]
+
+        headAll = [hamlet|
+            $newline never
+            \^{head'}
+            $forall s <- stylesheets
+                ^{mkLinkTag s}
+            $forall s <- css
+                $maybe t <- right $ snd s
+                    $maybe media <- fst s
+                        <link rel=stylesheet media=#{media} href=#{t}>
+                    $nothing
+                        <link rel=stylesheet href=#{t}>
+                $maybe content <- left $ snd s
+                    $maybe media <- fst s
+                        <style media=#{media}>#{content}
+                    $nothing
+                        <style>#{content}
+            $case jsLoader master
+              $of BottomOfBody
+              $of BottomOfHeadAsync asyncJsLoader
+                  ^{asyncJsLoader asyncScripts mcomplete}
+              $of BottomOfHeadBlocking
+                  ^{regularScriptLoad}
+        |]
+    let bodyScript = [hamlet|
+            $newline never
+            ^{body}
+            ^{regularScriptLoad}
+        |]
+
+    return $ PageContent title headAll $
+        case jsLoader master of
+            BottomOfBody -> bodyScript
+            _ -> body
+  where
+    renderLoc' render' (Local url) = render' url []
+    renderLoc' _ (Remote s) = s
+
+    addAttr x (y, z) = x ! customAttribute (textTag y) (toValue z)
+    mkScriptTag (Script loc attrs) render' =
+        foldl' addAttr TBH.script (("src", renderLoc' render' loc) : attrs) $ return ()
+    mkLinkTag (Stylesheet loc attrs) render' =
+        foldl' addAttr TBH.link
+            ( ("rel", "stylesheet")
+            : ("href", renderLoc' render' loc)
+            : attrs
+            )
+
+    runUniqueList :: Eq x => UniqueList x -> [x]
+    runUniqueList (UniqueList x) = nub $ x []
+
 -- | The default error handler for 'errorHandler'.
 defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerT site IO TypedContent
 defaultErrorHandler NotFound = selectRep $ do
     provideRep $ defaultLayout $ do
         r <- waiRequest
         let path' = TE.decodeUtf8With TEE.lenientDecode $ W.rawPathInfo r
-        setTitle "Not Found"
-        toWidget $ htmlTemplate path'
+        defaultMessageWidget "Not Found" [hamlet|<p>#{path'}|]
     provideRep $ return $ object ["message" .= ("Not Found" :: Text)]
   where
     -- equivalent to
@@ -490,9 +724,9 @@ defaultErrorHandler NotFound = selectRep $ do
 -- if you specify an authRoute the user will be redirected there and
 -- this page will not be shown.
 defaultErrorHandler NotAuthenticated = selectRep $ do
-    provideRep $ defaultLayout $ do
-        setTitle "Not logged in"
-        toWidget htmlTemplate
+    provideRep $ defaultLayout $ defaultMessageWidget
+        "Not logged in"
+        [hamlet|<p style="display:none;">Set the authRoute and the user will be redirected there.|]
 
     provideRep $ do
         -- 401 *MUST* include a WWW-Authenticate header
@@ -504,6 +738,10 @@ defaultErrorHandler NotAuthenticated = selectRep $ do
         -- The client will just use the authentication_url in the JSON
         site <- getYesod
         rend <- getUrlRender
+    -- Otherwise in master:
+    -- let apair u = ["authentication_url" .= rend u]
+    --      content = maybe [] apair (authRoute site)
+    --  return $ object $ ("message" .= ("Not logged in"::Text)):content
         return $ object $ [
           "message" .= ("Not logged in"::Text)
           ] ++
@@ -540,6 +778,12 @@ defaultErrorHandler (PermissionDenied msg) = selectRep $ do
       TBH.toHtml msg
       TBH.preEscapedText $ T.pack "</p>"
 
+--defaultErrorHandler (PermissionDenied msg) = selectRep $ do
+--    provideRep $ defaultLayout $ defaultMessageWidget
+--        "Permission Denied"
+--        [hamlet|<p>#{msg}|]
+--   provideRep $
+--        return $ object ["message" .= ("Permission Denied. " <> msg)]
 
 defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ defaultLayout $ do
@@ -562,8 +806,17 @@ defaultErrorHandler (InvalidArgs ia) = selectRep $ do
                            TBH.toHtml msg_afNn;
                            (TBH.preEscapedText . T.pack) "</li>" })
                 ia;
-      (TBH.preEscapedText . T.pack) "</ul>"
+      (TBH.preEscapedText . T.packV) "</ul>"
 
+--defaultErrorHandler (InvalidArgs ia) = selectRep $ do
+--    provideRep $ defaultLayout $ defaultMessageWidget
+--        "Invalid Arguments"
+--        [hamlet|
+--           <ul>
+--                $forall msg <- ia
+--                    <li>#{msg}
+--        |]
+--    provideRep $ return $ object ["message" .= ("Invalid Arguments" :: Text), "errors" .= ia]
 
 defaultErrorHandler (InternalError e) = do
     $logErrorS "yesod-core" e
@@ -583,6 +836,14 @@ defaultErrorHandler (InternalError e) = do
       TBH.toHtml e
       (TBH.preEscapedText . T.pack) "</pre>"
 
+--defaultErrorHandler (InternalError e) = do
+--    $logErrorS "yesod-core" e
+--    selectRep $ do
+--        provideRep $ defaultLayout $ defaultMessageWidget
+--            "Internal Server Error"
+--            [hamlet|<pre>#{e}|]
+--        provideRep $ return $ object ["message" .= ("Internal Server Error" :: Text), "error" .= e]
+
 defaultErrorHandler (BadMethod m) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle"Bad Method"
@@ -601,8 +862,43 @@ defaultErrorHandler (BadMethod m) = selectRep $ do
         TBH.toHtml (S8.unpack m)
         TBH.preEscapedText $ T.pack "</code> not supported</p>"
 
+--defaultErrorHandler (BadMethod m) = selectRep $ do
+--    provideRep $ defaultLayout $ defaultMessageWidget
+--        "Method Not Supported"
+--        [hamlet|<p>Method <code>#{S8.unpack m}</code> not supported|]
+--    provideRep $ return $ object ["message" .= ("Bad method" :: Text), "method" .= TE.decodeUtf8With TEE.lenientDecode m]
 
--- | Default formatting for log messages.
+asyncHelper :: (url -> [x] -> Text)
+         -> [Script url]
+         -> Maybe (JavascriptUrl url)
+         -> Maybe Text
+         -> (Maybe (HtmlUrl url), [Text])
+asyncHelper render scripts jscript jsLoc =
+    (mcomplete, scripts'')
+  where
+    scripts' = map goScript scripts
+    scripts'' =
+        case jsLoc of
+            Just s -> scripts' ++ [s]
+            Nothing -> scripts'
+    goScript (Script (Local url) _) = render url []
+    goScript (Script (Remote s) _) = s
+    mcomplete =
+        case jsLoc of
+            Just{} -> Nothing
+            Nothing ->
+                case jscript of
+                    Nothing -> Nothing
+                    Just j -> Just $ jelper j
+
+-- | Default formatting for log messages. When you use
+-- the template haskell logging functions for to log with information
+-- about the source location, that information will be appended to
+-- the end of the log. When you use the non-TH logging functions,
+-- like 'logDebugN', this function does not include source
+-- information. This currently works by checking to see if the
+-- package name is the string \"\<unknown\>\". This is a hack,
+-- but it removes some of the visual clutter from non-TH logs.
 --
 -- Since 1.4.10
 formatLogMessage :: IO ZonedDate
@@ -613,20 +909,24 @@ formatLogMessage :: IO ZonedDate
                  -> IO LogStr
 formatLogMessage getdate loc src level msg = do
     now <- getdate
-    return $
-        toLogStr now `mappend`
-        " [" `mappend`
-        (case level of
+    return $ mempty
+        `mappend` toLogStr now
+        `mappend` " ["
+        `mappend` (case level of
             LevelOther t -> toLogStr t
-            _ -> toLogStr $ drop 5 $ show level) `mappend`
-        (if T.null src
+            _ -> toLogStr $ drop 5 $ show level)
+        `mappend` (if T.null src
             then mempty
-            else "#" `mappend` toLogStr src) `mappend`
-        "] " `mappend`
-        msg `mappend`
-        " @(" `mappend`
-        toLogStr (fileLocationToString loc) `mappend`
-        ")\n"
+            else "#" `mappend` toLogStr src)
+        `mappend` "] "
+        `mappend` msg
+        `mappend` sourceSuffix
+        `mappend` "\n"
+    where
+    sourceSuffix = if loc_package loc == "<unknown>" then "" else mempty
+        `mappend` " @("
+        `mappend` toLogStr (fileLocationToString loc)
+        `mappend` ")"
 
 -- | Customize the cookies used by the session backend.  You may
 -- use this function on your definition of 'makeSessionBackend'.
@@ -660,8 +960,7 @@ defaultClientSessionBackend :: Int -- ^ minutes
                             -> IO SessionBackend
 defaultClientSessionBackend minutes fp = do
   key <- CS.getKey fp
-  let timeout = fromIntegral (minutes * 60)
-  (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
+  (getCachedDate, _closeDateCacher) <- clientSessionDateCacher (minToSec minutes)
   return $ clientSessionBackend key getCachedDate
 
 -- | Create a @SessionBackend@ which reads the session key from the named
@@ -687,9 +986,25 @@ envClientSessionBackend :: Int -- ^ minutes
                         -> IO SessionBackend
 envClientSessionBackend minutes name = do
     key <- CS.getKeyEnv name
-    let timeout = fromIntegral (minutes * 60)
-    (getCachedDate, _closeDateCacher) <- clientSessionDateCacher timeout
+    (getCachedDate, _closeDateCacher) <- clientSessionDateCacher $ minToSec minutes
     return $ clientSessionBackend key getCachedDate
+
+minToSec :: (Integral a, Num b) => a -> b
+minToSec minutes = fromIntegral (minutes * 60)
+
+jsToHtml :: Javascript -> Html
+jsToHtml (Javascript b) = preEscapedToMarkup $ toLazyText b
+
+jelper :: JavascriptUrl url -> HtmlUrl url
+jelper = fmap jsToHtml
+
+left :: Either a b -> Maybe a
+left (Left x) = Just x
+left _ = Nothing
+
+right :: Either a b -> Maybe b
+right (Right x) = Just x
+right _ = Nothing
 
 clientSessionBackend :: CS.Key  -- ^ The encryption key
                      -> IO ClientSessionDateCache -- ^ See 'clientSessionDateCacher'
@@ -732,8 +1047,48 @@ loadClientSession key getCachedDate sessionName req = load
 -- turn the TH Loc loaction information into a human readable string
 -- leaving out the loc_end parameter
 fileLocationToString :: Loc -> String
-fileLocationToString loc = (loc_package loc) ++ ':' : (loc_module loc) ++
-  ' ' : (loc_filename loc) ++ ':' : (line loc) ++ ':' : (char loc)
+fileLocationToString loc =
+    concat
+      [ loc_package loc
+      , ':' : loc_module loc
+      , ' ' : loc_filename loc
+      , ':' : line loc
+      , ':' : char loc
+      ]
   where
     line = show . fst . loc_start
     char = show . snd . loc_start
+
+-- | Guess the approot based on request headers. For more information, see
+-- "Network.Wai.Middleware.Approot"
+--
+-- In the case of headers being unavailable, it falls back to 'ApprootRelative'
+--
+-- Since 1.4.16
+guessApproot :: Approot site
+guessApproot = guessApprootOr ApprootRelative
+
+-- | Guess the approot based on request headers, with fall back to the
+-- specified 'AppRoot'.
+--
+-- Since 1.4.16
+guessApprootOr :: Approot site -> Approot site
+guessApprootOr fallback = ApprootRequest $ \master req ->
+    case W.requestHeaderHost req of
+        Nothing -> getApprootText fallback master req
+        Just host ->
+            (if Network.Wai.Request.appearsSecure req
+                then "https://"
+                else "http://")
+            `T.append` TE.decodeUtf8With TEE.lenientDecode host
+
+-- | Get the textual application root from an 'Approot' value.
+--
+-- Since 1.4.17
+getApprootText :: Approot site -> site -> W.Request -> Text
+getApprootText ar site req =
+    case ar of
+        ApprootRelative -> ""
+        ApprootStatic t -> t
+        ApprootMaster f -> f site
+        ApprootRequest f -> f site req

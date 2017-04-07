@@ -92,9 +92,14 @@ do
         , mds404 = [|pack "404"|]
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
+        , mdsUnwrapper = return
         } ress
     return
+#if MIN_VERSION_template_haskell(2,11,0)
+        $ InstanceD Nothing
+#else
         $ InstanceD
+#endif
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''MyApp
@@ -113,7 +118,7 @@ instance Dispatcher MySub master where
         route = MySubRoute (pieces, [])
 
 instance Dispatcher MySubParam master where
-    dispatcher env (pieces, method) =
+    dispatcher env (pieces, _method) =
         case map unpack pieces of
             [[c]] ->
                 let route = ParamRoute c
@@ -229,56 +234,65 @@ main = hspec $ do
 
     describe "overlap checking" $ do
         it "catches overlapping statics" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /foo Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping dynamics" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /#Int Foo1
 /#String Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping statics and dynamics" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /#String Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping multi" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /##*Strings Foo2
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "catches overlapping subsite" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /foo Foo2 Subsite getSubsite
 |]
             findOverlapNames routes @?= [("Foo1", "Foo2")]
         it "no false positives" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /bar/#String Foo2
 |]
             findOverlapNames routes @?= []
         it "obeys ignore rules" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /#!String Foo2
 /!foo Foo3
 |]
             findOverlapNames routes @?= []
         it "obeys multipiece ignore rules #779" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 /+![String] Foo2
 |]
             findOverlapNames routes @?= []
         it "ignore rules for entire route #779" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /foo Foo1
 !/+[String] Foo2
 !/#String Foo3
@@ -286,7 +300,8 @@ main = hspec $ do
 |]
             findOverlapNames routes @?= []
         it "ignore rules for hierarchy" $ do
-            let routes = [parseRoutesNoCheck|
+            let routes :: [ResourceTree String]
+                routes = [parseRoutesNoCheck|
 /+[String] Foo1
 !/foo Foo2:
     /foo Foo3
@@ -307,7 +322,7 @@ main = hspec $ do
         it "hierarchy" $ do
             routeAttrs (ParentR (pack "ignored") ChildR) @?= Set.singleton (pack "child")
     hierarchy
-    describe "parseRouteTyoe" $ do
+    describe "parseRouteType" $ do
         let success s t = it s $ parseTypeTree s @?= Just t
             failure s = it s $ parseTypeTree s @?= Nothing
         success "Int" $ TTTerm "Int"
@@ -319,6 +334,8 @@ main = hspec $ do
         success "[Int]" $ TTList $ TTTerm "Int"
         success "Foo-Bar" $ TTApp (TTTerm "Foo") (TTTerm "Bar")
         success "Foo-Bar-Baz" $ TTApp (TTTerm "Foo") (TTTerm "Bar") `TTApp` TTTerm "Baz"
+        success "Foo Bar" $ TTApp (TTTerm "Foo") (TTTerm "Bar")
+        success "Foo Bar Baz" $ TTApp (TTTerm "Foo") (TTTerm "Bar") `TTApp` TTTerm "Baz"
 
 getRootR :: Text
 getRootR = pack "this is the root"

@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
 ---------------------------------------------------------
 --
 -- | Serve static files from a Yesod app.
@@ -19,7 +20,7 @@
 --
 -- In fact, in an ideal setup you'll serve your static files from
 -- a separate domain name to save time on transmitting
--- cookies. In that case, you may wish to use 'urlRenderOverride'
+-- cookies. In that case, you may wish to use 'urlParamRenderOverride'
 -- to redirect requests to this subsite to a separate domain
 -- name.
 --
@@ -74,6 +75,7 @@ import Language.Haskell.TH.Syntax as TH
 
 import Crypto.Hash.Conduit (hashFile, sinkHash)
 import Crypto.Hash (MD5, Digest)
+import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans.State
 
 import qualified Data.Byteable as Byteable
@@ -94,14 +96,14 @@ import Data.Conduit.List (sourceList, consume)
 import Data.Conduit.Binary (sourceFile)
 import qualified Data.Conduit.Text as CT
 import Data.Functor.Identity (runIdentity)
-import System.FilePath ((</>), (<.>), FilePath, takeDirectory)
+import System.FilePath ((</>), (<.>), takeDirectory)
 import qualified System.FilePath as F
-import System.Directory (createDirectoryIfMissing)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Default
 --import Text.Lucius (luciusRTMinified)
 
+import Network.Wai (pathInfo)
 import Network.Wai.Application.Static
     ( StaticSettings (..)
     , staticApp
@@ -170,11 +172,16 @@ instance RenderRoute Static where
 instance ParseRoute Static where
     parseRoute (x, y) = Just $ StaticRoute x y
 
-instance YesodSubDispatch Static m where
+instance (MonadThrow m, MonadIO m, MonadBaseControl IO m)
+  => YesodSubDispatch Static (HandlerT master m) where
     yesodSubDispatch YesodSubRunnerEnv {..} req =
-        staticApp set req
+        ysreParentRunner base ysreParentEnv (fmap ysreToParentRoute route) req
       where
+        base = stripHandlerT handlert ysreGetSub ysreToParentRoute route
+        route = Just $ StaticRoute (pathInfo req) []
+
         Static set = ysreGetSub $ yreSite $ ysreParentEnv
+        handlert = sendWaiApplication $ staticApp set
 
 notHidden :: FilePath -> Bool
 notHidden "tmp" = False
@@ -341,7 +348,6 @@ mkStaticFilesList fp fs makeHash = do
                         | isLower (head name') -> name'
                         | otherwise -> '_' : name'
         f' <- [|map pack $(TH.lift f)|]
-        pack' <- [|pack|]
         qs <- if makeHash
                     then do hash <- qRunIO $ base64md5File $ pathFromRawPieces fp f
                             [|[(pack "etag", pack $(TH.lift hash))]|]
@@ -496,9 +502,6 @@ instance Default CombineSettings where
         , csJsPreProcess = return
         , csCombinedFolder = "combined"
         }
-
-errorIntro :: [FilePath] -> [Char] -> [Char]
-errorIntro fps s = "Error minifying " ++ show fps ++ ": " ++ s
 
 liftRoutes :: [Route Static] -> Q Exp
 liftRoutes =

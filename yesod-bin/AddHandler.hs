@@ -9,6 +9,7 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import System.Directory (getDirectoryContents, doesFileExist)
+import Control.Monad (unless)
 
 data RouteError = EmptyRoute
                 | RouteCaseError
@@ -78,7 +79,11 @@ addHandlerFiles cabal (name, handlerFile) pattern methods = do
     modify cabal $ fixCabal name
     modify "config/routes" $ fixRoutes name pattern methods
     writeFile handlerFile $ mkHandler name pattern methods
+    specExists <- doesFileExist specFile
+    unless specExists $
+      writeFile specFile $ mkSpec name pattern methods
   where
+    specFile = "test/Handler/" ++ name ++ "Spec.hs"
     modify fp f = readFile fp >>= writeFile fp . f
 
 getCabal :: IO FilePath
@@ -115,9 +120,20 @@ fixApp name =
         | otherwise = x : go xs
 
 fixCabal :: String -> String -> String
-fixCabal name =
-    unlines . reverse . go . reverse . lines
+fixCabal name orig =
+    unlines $ (reverse $ go $ reverse libraryLines) ++ restLines
   where
+    origLines = lines orig
+
+    (libraryLines, restLines) = break isExeTestBench origLines
+
+    isExeTestBench x = any
+        (\prefix -> prefix `isPrefixOf` x)
+        [ "executable"
+        , "test-suite"
+        , "benchmark"
+        ]
+
     l = "                  Handler." ++ name
 
     go [] = [l]
@@ -141,6 +157,24 @@ fixRoutes name pattern methods fileContents =
         , "\n"
         ]
     startingCharacter = if "\n" `isSuffixOf` fileContents then "" else "\n"
+
+mkSpec :: String -> String -> String -> String
+mkSpec name _ methods = unlines
+    $ ("module Handler." ++ name ++ "Spec (spec) where")
+    : ""
+    : "import TestImport"
+    : ""
+    : "spec :: Spec"
+    : "spec = withApp $ do"
+    : concatMap go (words methods)
+  where
+    go method =
+        [ ""
+        , "    describe \"" ++ func ++ "\" $ do"
+        , "        error \"Spec not implemented: " ++ func ++ "\""
+        , ""]
+      where
+        func = concat [map toLower method, name, "R"]
 
 mkHandler :: String -> String -> String -> String
 mkHandler name pattern methods = unlines

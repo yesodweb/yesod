@@ -6,7 +6,7 @@ import Data.Monoid (mappend)
 import Data.Text (Text)
 
 germanFormMessage :: FormMessage -> Text
-germanFormMessage (MsgInvalidInteger t) = "Ungültige Ganzzahl: " `mappend` t
+germanFormMessage (MsgInvalidInteger t) = "Ungültige Ganzzahl: " `Data.Monoid.mappend` t
 germanFormMessage (MsgInvalidNumber t) = "Ungültige Zahl: " `mappend` t
 germanFormMessage (MsgInvalidEntry t) = "Ungültiger Eintrag: " `mappend` t
 germanFormMessage MsgInvalidTimeFormat = "Ungültiges Zeitformat, HH:MM[:SS] Format erwartet"

@@ -52,9 +52,6 @@ authOpenId idType extensionFields =
         [whamlet|
 $newline never
 <form method="get" action="@{tm forwardUrl}">
-    <input type="hidden" name="openid_identifier" value="https://www.google.com/accounts/o8/id">
-    <button .openid-google>_{Msg.LoginGoogle}
-<form method="get" action="@{tm forwardUrl}">
     <input type="hidden" name="openid_identifier" value="http://me.yahoo.com">
     <button .openid-yahoo>_{Msg.LoginYahoo}
 <form method="get" action="@{tm forwardUrl}">

@@ -61,8 +61,7 @@ import Text.Blaze (Markup, toMarkup)
 import Yesod.Core
 import Yesod.Shakespeare
 import Network.Wai (requestMethod)
-import Text.Hamlet (shamlet)
-import Data.Monoid (mempty)
+import Data.Monoid (mempty, (<>))
 import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Data.Map as Map
 import qualified Data.Text.Encoding as TE
@@ -214,10 +213,10 @@ postHelper  :: (MonadHandler m, RenderMessage (HandlerSite m) FormMessage)
             -> m ((FormResult a, xml), Enctype)
 postHelper form env = do
     req <- getRequest
-    let tokenKey = "_token"
+    let tokenKey = defaultCsrfParamName
     let token =
             case reqToken req of
-                Nothing -> mempty
+                Nothing -> Data.Monoid.mempty
                 Just n -> [shamlet|<input type=hidden name=#{tokenKey} value=#{n}>|]
     m <- getYesod
     langs <- languages
@@ -229,9 +228,10 @@ postHelper form env = do
                     | not (Map.lookup tokenKey params === reqToken req) ->
                         FormFailure [renderMessage m langs MsgCsrfWarning]
                 _ -> res
+            -- It's important to use constant-time comparison (constEqBytes) in order to avoid timing attacks.
             where (Just [t1]) === (Just t2) = TE.encodeUtf8 t1 `constEqBytes` TE.encodeUtf8 t2
-                  Nothing     === Nothing   = True   -- It's important to use constTimeEq
-                  _           === _         = False  -- in order to avoid timing attacks.
+                  Nothing     === Nothing   = True
+                  _           === _         = False
     return ((res', xml), enctype)
 
 -- | Similar to 'runFormPost', except it always ignores the currently available
@@ -244,8 +244,7 @@ generateFormPost
     -> m (xml, Enctype)
 generateFormPost form = first snd `liftM` postHelper form Nothing
 
-postEnv :: (MonadHandler m, MonadResource m)
-        => m (Maybe (Env, FileEnv))
+postEnv :: MonadHandler m => m (Maybe (Env, FileEnv))
 postEnv = do
     req <- getRequest
     if requestMethod (reqWaiRequest req) == "GET"
@@ -280,7 +279,7 @@ runFormGet form = do
 --
 -- Since 1.3.11
 generateFormGet'
-    :: (RenderMessage (HandlerSite m) FormMessage, MonadHandler m)
+    :: MonadHandler m
     => (Html -> MForm m (FormResult a, xml))
     -> m (xml, Enctype)
 generateFormGet' form = first snd `liftM` getHelper form Nothing
@@ -335,13 +334,13 @@ identifyForm identVal form = \fragment -> do
     -- Create hidden <input>.
     let fragment' =
           [shamlet|
-            <input type=hidden name=#{identifyFormKey} value=#{identVal}>
+            <input type=hidden name=#{identifyFormKey} value=identify-#{identVal}>
             #{fragment}
           |]
 
     -- Check if we got its value back.
     mp <- askParams
-    let missing = (mp >>= Map.lookup identifyFormKey) /= Just [identVal]
+    let missing = (mp >>= Map.lookup identifyFormKey) /= Just ["identify-" <> identVal]
 
     -- Run the form proper (with our hidden <input>).  If the
     -- data is missing, then do not provide any params to the
@@ -349,7 +348,11 @@ identifyForm identVal form = \fragment -> do
     -- doing this avoids having lots of fields with red errors.
     let eraseParams | missing   = local (\(_, h, l) -> (Nothing, h, l))
                     | otherwise = id
-    eraseParams (form fragment')
+    ( res', w) <- eraseParams (form fragment')
+
+    -- Empty forms now properly return FormMissing. [#1072](https://github.com/yesodweb/yesod/issues/1072)
+    let res = if missing then FormMissing else res'
+    return ( res, w)
 
 identifyFormKey :: Text
 identifyFormKey = "_formid"
@@ -532,8 +535,8 @@ parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $
 
 -- | Since a 'Field' cannot be a 'Functor', it is not obvious how to "reuse" a Field
 -- on a @newtype@ or otherwise equivalent type. This function allows you to convert
--- a @Field m a@ to a @Field m b@ assuming you provide a bidireccional
--- convertion among the two, through the first two functions.
+-- a @Field m a@ to a @Field m b@ assuming you provide a bidirectional
+-- conversion between the two, through the first two functions.
 --
 -- A simple example:
 --

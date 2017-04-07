@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -19,7 +18,7 @@ module Yesod.Core
     , Approot (..)
     , FileUpload (..)
     , ErrorResponse (..)
-      -- * Utitlities
+      -- * Utilities
     , maybeAuthorized
     , widgetToPageContent
       -- * Defaults
@@ -52,15 +51,30 @@ module Yesod.Core
     , envClientSessionBackend
     , clientSessionBackend
     , sslOnlySessions
+    , laxSameSiteSessions
+    , strictSameSiteSessions
     , sslOnlyMiddleware
     , clientSessionDateCacher
     , loadClientSession
     , Header(..)
+    -- * CSRF protection
+    , defaultCsrfMiddleware
+    , defaultCsrfSetCookieMiddleware
+    , csrfSetCookieMiddleware
+    , defaultCsrfCheckMiddleware
+    , csrfCheckMiddleware
+    -- * JS loaders
+    , ScriptLoadPosition (..)
+    , BottomOfHeadAsync
       -- * Subsites
     , MonadHandler (..)
     , MonadWidget (..)
     , getRouteToParent
     , defaultLayoutSub
+      -- * Approot
+    , guessApproot
+    , guessApprootOr
+    , getApprootText
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -103,11 +117,10 @@ import Text.Blaze.Html (Html, toHtml, preEscapedToMarkup)
 import Control.Monad.Logger
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Yesod.Core.Internal.Session
-import Yesod.Core.Internal.Run (yesodRunner)
+import Yesod.Core.Internal.Run (yesodRunner, yesodRender)
 import Yesod.Core.Class.Yesod
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Class.Breadcrumbs
-import Yesod.Core.Internal.Run (yesodRender)
 import qualified Yesod.Core.Internal.Run
 import qualified Paths_yesod_core
 import Data.Version (showVersion)

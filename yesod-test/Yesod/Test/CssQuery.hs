@@ -51,14 +51,14 @@ parseQuery = parseOnly cssQuery
 
 -- Below this line is the Parsec parser for css queries.
 cssQuery :: Parser [[SelectorGroup]]
-cssQuery = sepBy rules (char ',' >> optional (char ' '))
+cssQuery = many (char ' ') >> sepBy rules (char ',' >> many (char ' '))
 
 rules :: Parser [SelectorGroup]
 rules = many $ directChildren <|> deepChildren
 
 directChildren :: Parser SelectorGroup
 directChildren =
-    string "> " >> DirectChildren <$> pOptionalTrailingSpace parseSelectors
+    string "> " >> (many (char ' ')) >> DirectChildren <$> pOptionalTrailingSpace parseSelectors
 
 deepChildren :: Parser SelectorGroup
 deepChildren = pOptionalTrailingSpace $ DeepChildren <$> parseSelectors
@@ -102,4 +102,4 @@ pSquare :: Parser a -> Parser a
 pSquare p = char '[' *> p <* char ']'
 
 pOptionalTrailingSpace :: Parser a -> Parser a
-pOptionalTrailingSpace p = p <* optional (char ' ')
+pOptionalTrailingSpace p = p <* many (char ' ')

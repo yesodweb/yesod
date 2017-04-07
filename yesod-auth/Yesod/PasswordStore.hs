@@ -38,7 +38,7 @@
 -- > >>> makePassword "hunter2" 14
 -- > "sha256|14|Zo4LdZGrv/HYNAUG3q8WcA==|zKjbHZoTpuPLp1lh6ATolWGIKjhXvY4TysuKvqtNFyk="
 --
--- This will hash the password @\"hunter2\"@, with strength 12, which is a good
+-- This will hash the password @\"hunter2\"@, with strength 14, which is a good
 -- default value. The strength here determines how long the hashing will
 -- take. When doing the hashing, we iterate the SHA256 hash function
 -- @2^strength@ times, so increasing the strength by 1 makes the hashing take
@@ -163,7 +163,7 @@ pbkdf2 password (SaltBS salt) c =
     let hLen = 32
         dkLen = hLen in go hLen dkLen
   where
-    go hLen dkLen | dkLen > (2^32 - 1) * hLen = error "Derived key too long."
+    go hLen dkLen | dkLen > (2^(32 :: Int) - 1) * hLen = error "Derived key too long."
                   | otherwise =
                       let !l = ceiling ((fromIntegral dkLen / fromIntegral hLen) :: Double)
                           !r = dkLen - (l - 1) * hLen
@@ -412,18 +412,4 @@ modifySTRef' ref f = do
     x <- readSTRef ref
     let x' = f x
     x' `seq` writeSTRef ref x'
-#endif
-
-#if MIN_VERSION_bytestring(0, 10, 0)
-toStrict :: BL.ByteString -> BS.ByteString
-toStrict = BL.toStrict
-
-fromStrict :: BS.ByteString -> BL.ByteString
-fromStrict = BL.fromStrict
-#else
-toStrict :: BL.ByteString -> BS.ByteString
-toStrict = BS.concat . BL.toChunks
-
-fromStrict :: BS.ByteString -> BL.ByteString
-fromStrict = BL.fromChunks . return
 #endif

@@ -114,13 +114,20 @@ import qualified Text.Blaze.Html.Renderer.Text as RenderText
 import           Text.Blaze.Html               (preEscapedToMarkup, Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Yesod.Routes.Class
+import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>))
+#endif
+import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Text.Shakespeare.I18N (RenderMessage)
 import Data.Text (Text)
 import           Data.Maybe                         (fromMaybe)
 import qualified Data.Map as Map
 
 import           System.Log.FastLogger              (toLogStr)
 import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Builder as TB
 
 import Yesod.Core.Types
 import Yesod.Core.Handler (sendResponse, RedirectUrl(..))
@@ -164,6 +171,15 @@ instance render ~ RY site => ToWidgetHead site (render -> CssBuilder) where
     toWidgetHead = toWidget
 instance ToWidgetHead site CssBuilder where
     toWidgetHead = toWidget
+-- | @since 1.4.28
+instance ToWidget site Text where
+    toWidget = toWidget . toHtml
+-- | @since 1.4.28
+instance ToWidget site TL.Text where
+    toWidget = toWidget . toHtml
+-- | @since 1.4.28
+instance ToWidget site TB.Builder where
+    toWidget = toWidget . toHtml
 
 -- | Allows adding some CSS to the page with a specific media type.
 --
@@ -245,6 +261,35 @@ addScriptRemote = flip addScriptRemoteAttrs []
 addScriptRemoteAttrs :: MonadWidget m => Text -> [(Text, Text)] -> m ()
 addScriptRemoteAttrs x y = tellWidget $ GWData mempty mempty (toUnique $ Script (Remote x) y) mempty mempty mempty mempty
 
+whamlet :: QuasiQuoter
+whamlet = NP.hamletWithSettings rules NP.defaultHamletSettings
+
+whamletFile :: FilePath -> Q Exp
+whamletFile = NP.hamletFileWithSettings rules NP.defaultHamletSettings
+
+whamletFileWithSettings :: NP.HamletSettings -> FilePath -> Q Exp
+whamletFileWithSettings = NP.hamletFileWithSettings rules
+
+asWidgetT :: WidgetT site m () -> WidgetT site m ()
+asWidgetT = id
+
+rules :: Q NP.HamletRules
+rules = do
+    ah <- [|asWidgetT . toWidget|]
+    let helper qg f = do
+            x <- newName "urender"
+            e <- f $ VarE x
+            let e' = LamE [VarP x] e
+            g <- qg
+            bind <- [|(>>=)|]
+            return $ InfixE (Just g) bind (Just e')
+    let ur f = do
+            let env = NP.Env
+                    (Just $ helper [|getUrlRenderParams|])
+                    (Just $ helper [|fmap (toHtml .) getMessageRender|])
+            f env
+    return $ NP.HamletRules ah ur $ \_ b -> return $ ah `AppE` b
+
 tellWidget :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
 tellWidget w = liftWidgetT $ WidgetT $ const $ return ((), w)
 
@@ -263,16 +308,16 @@ widgetToParentWidget (WidgetT f) = HandlerT $ \hd -> do
 
 liftGWD :: (child -> parent) -> GWData child -> GWData parent
 liftGWD tp gwd = GWData
-    { gwdBody = fixBody $ gwdBody gwd
-    , gwdTitle = gwdTitle gwd
-    , gwdScripts = fixUnique fixScript $ gwdScripts gwd
+    { gwdBody        = fixBody $ gwdBody gwd
+    , gwdTitle       = gwdTitle gwd
+    , gwdScripts     = fixUnique fixScript $ gwdScripts gwd
     , gwdStylesheets = fixUnique fixStyle $ gwdStylesheets gwd
-    , gwdCss = fmap fixCss $ gwdCss gwd
-    , gwdJavascript = fmap fixJS $ gwdJavascript gwd
-    , gwdHead = fixHead $ gwdHead gwd
+    , gwdCss         = fixCss <$> gwdCss gwd
+    , gwdJavascript  = fixJS <$> gwdJavascript gwd
+    , gwdHead        = fixHead $ gwdHead gwd
     }
   where
-    fixRender f route params = f (tp route) params
+    fixRender f route = f (tp route)
 
     fixBody (Body h) = Body $ h . fixRender
     fixHead (Head h) = Head $ h . fixRender

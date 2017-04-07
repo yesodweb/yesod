@@ -1,5 +1,5 @@
 name:            yesod-auth-oauth
-version:         1.4.0.2
+version:         1.4.2
 license:         BSD3
 license-file:    LICENSE
 author:          Hiromi Ishii
@@ -28,7 +28,7 @@ library
                    , yesod-auth              >= 1.4       && < 1.5
                    , text                    >= 0.7
                    , yesod-form              >= 1.4       && < 1.5
-                   , transformers            >= 0.2.2     && < 0.5
+                   , transformers            >= 0.2.2     && < 0.6
                    , lifted-base             >= 0.2       && < 0.3
     exposed-modules: Yesod.Auth.OAuth
     ghc-options:     -Wall

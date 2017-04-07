@@ -6,7 +6,7 @@ import Data.Monoid (mappend)
 import Data.Text (Text)
 
 russianFormMessage :: FormMessage -> Text
-russianFormMessage (MsgInvalidInteger t) = "Неверно записано целое число: " `mappend` t
+russianFormMessage (MsgInvalidInteger t) = "Неверно записано целое число: " `Data.Monoid.mappend` t
 russianFormMessage (MsgInvalidNumber t) = "Неверный формат числа: " `mappend` t
 russianFormMessage (MsgInvalidEntry t) = "Неверный выбор: " `mappend` t
 russianFormMessage MsgInvalidTimeFormat = "Неверно указано время, используйте формат ЧЧ:ММ[:СС]"
@@ -15,7 +15,7 @@ russianFormMessage (MsgInvalidUrl t) = "Неверно указан URL адре
 russianFormMessage (MsgInvalidEmail t) = "Неверно указана электронная почта: " `mappend` t
 russianFormMessage (MsgInvalidHour t) = "Неверно указан час: " `mappend` t
 russianFormMessage (MsgInvalidMinute t) = "Неверно указаны минуты: " `mappend` t
-russianFormMessage (MsgInvalidSecond t) = "Неверны указаны секунды: " `mappend` t
+russianFormMessage (MsgInvalidSecond t) = "Неверно указаны секунды: " `mappend` t
 russianFormMessage MsgCsrfWarning = "Для защиты от межсайтовой подделки запросов (CSRF), пожалуйста, подтвердите отправку данных формы."
 russianFormMessage MsgValueRequired = "Обязательно к заполнению"
 russianFormMessage (MsgInputNotFound t) = "Поле не найдено: " `mappend` t

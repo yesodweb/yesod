@@ -24,7 +24,7 @@ module Yesod.Form.Types
 import Control.Monad.Trans.RWS (RWST)
 import Data.Text (Text)
 import Data.Monoid (Monoid (..))
-import Text.Blaze (Markup, ToMarkup (toMarkup))
+import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define Html Markup
 #define ToHtml ToMarkup
 #define toHtml toMarkup
@@ -36,6 +36,8 @@ import Yesod.Core
 import Yesod.Shakespeare
 import qualified Data.Map as Map
 import Data.Semigroup (Semigroup, (<>))
+import Data.Traversable
+import Data.Foldable
 
 -- | A form can produce three different results: there was no data available,
 -- the data was invalid, or there was a successful parse.
@@ -50,18 +52,32 @@ instance Functor FormResult where
     fmap _ FormMissing = FormMissing
     fmap _ (FormFailure errs) = FormFailure errs
     fmap f (FormSuccess a) = FormSuccess $ f a
-instance Applicative FormResult where
+instance Control.Applicative.Applicative FormResult where
     pure = FormSuccess
     (FormSuccess f) <*> (FormSuccess g) = FormSuccess $ f g
     (FormFailure x) <*> (FormFailure y) = FormFailure $ x ++ y
     (FormFailure x) <*> _ = FormFailure x
     _ <*> (FormFailure y) = FormFailure y
     _ <*> _ = FormMissing
-instance Monoid m => Monoid (FormResult m) where
+instance Data.Monoid.Monoid m => Monoid (FormResult m) where
     mempty = pure mempty
     mappend x y = mappend <$> x <*> y
 instance Semigroup m => Semigroup (FormResult m) where
-    x <> y = (<>) <$> x <*> y
+    x <> y = (<>) Control.Applicative.<$> x <*> y
+
+-- | @since 1.4.5
+instance Data.Foldable.Foldable FormResult where
+    foldMap f r = case r of
+      FormSuccess a -> f a
+      FormFailure _errs -> mempty
+      FormMissing -> mempty
+
+-- | @since 1.4.5
+instance Data.Traversable.Traversable FormResult where
+    traverse f r = case r of
+      FormSuccess a -> fmap FormSuccess (f a)
+      FormFailure errs -> pure (FormFailure errs)
+      FormMissing -> pure FormMissing
 
 -- | The encoding type required by a form. The 'ToHtml' instance produces values
 -- that can be inserted directly into HTML.
@@ -70,6 +86,9 @@ data Enctype = UrlEncoded | Multipart
 instance ToHtml Enctype where
     toHtml UrlEncoded = "application/x-www-form-urlencoded"
     toHtml Multipart = "multipart/form-data"
+instance ToValue Enctype where
+    toValue UrlEncoded = "application/x-www-form-urlencoded"
+    toValue Multipart = "multipart/form-data"
 instance Monoid Enctype where
     mempty = UrlEncoded
     mappend UrlEncoded UrlEncoded = UrlEncoded

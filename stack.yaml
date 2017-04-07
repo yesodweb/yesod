@@ -1,4 +1,4 @@
-resolver: lts-2.9
+resolver: lts-6.23
 packages:
   - ./yesod-core
   - ./yesod-static
@@ -14,5 +14,20 @@ packages:
   - ./yesod-eventsource
   - ./yesod-websockets
   - ./yesod-shakespeare
+
+# Needed for LTS 2
 extra-deps:
-  - wai-app-static-3.1.0
+- wai-app-static-3.1.4.1
+- http-api-data-0.2
+- yaml-0.8.17
+- nonce-1.0.2
+- persistent-2.5
+- persistent-sqlite-2.5
+- cookie-0.4.2
+
+- conduit-extra-1.1.14
+- streaming-commons-0.1.16
+- typed-process-0.1.0.0
+- say-0.1.0.0
+- safe-exceptions-0.1.4.0
+- blaze-markup-0.7.1.0

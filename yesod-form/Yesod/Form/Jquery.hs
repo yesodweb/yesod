@@ -19,14 +19,13 @@ import Yesod.Shakespeare
 import Yesod.Form
 import Data.Time (Day)
 import Data.Default
-import Text.Hamlet (shamlet)
-import Text.Julius (julius, rawJS)
+import Text.Julius (rawJS)
 import Data.Text (Text, pack, unpack)
 import Data.Monoid (mconcat)
 
 -- | Gets the Google hosted jQuery UI 1.8 CSS file with the given theme.
 googleHostedJqueryUiCss :: Text -> Text
-googleHostedJqueryUiCss theme = mconcat
+googleHostedJqueryUiCss theme = Data.Monoid.mconcat
     [ "//ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/"
     , theme
     , "/jquery-ui.css"

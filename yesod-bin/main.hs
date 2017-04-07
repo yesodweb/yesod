@@ -1,19 +1,21 @@
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE RecordWildCards             #-}
+module Main (main) where
 
 import           Control.Monad          (unless)
 import           Data.Monoid
 import           Data.Version           (showVersion)
 import           Options.Applicative
-import           System.Exit            (ExitCode (ExitSuccess), exitWith)
+import           System.Environment     (getEnvironment)
+import           System.Exit            (ExitCode (ExitSuccess), exitWith, exitFailure)
 import           System.Process         (rawSystem)
 
 import           AddHandler             (addHandler)
-import           Devel                  (DevelOpts (..), devel, DevelTermOpt(..))
+import           Devel                  (DevelOpts (..), devel, develSignal)
 import           Keter                  (keter)
 import           Options                (injectDefaults)
 import qualified Paths_yesod_bin
-import           Scaffolding.Scaffolder (scaffold, backendOptions)
+import           System.IO              (hPutStrLn, stderr)
 
 import           HsFile                 (mkHsFile)
 #ifndef WINDOWS
@@ -41,24 +43,20 @@ data Options = Options
                }
   deriving (Show, Eq)
 
-data Command = Init { _initBare :: Bool, _initName :: Maybe String, _initDatabase :: Maybe String }
+data Command = Init [String]
              | HsFiles
              | Configure
              | Build { buildExtraArgs   :: [String] }
              | Touch
-             | Devel { _develDisableApi  :: Bool
-                     , _develSuccessHook :: Maybe String
-                     , _develFailHook    :: Maybe String
-                     , _develRescan      :: Int
-                     , _develBuildDir    :: Maybe String
-                     , develIgnore       :: [String]
+             | Devel { develSuccessHook :: Maybe String
                      , develExtraArgs    :: [String]
-                     , _develPort        :: Int
-                     , _develTlsPort     :: Int
-                     , _proxyTimeout     :: Int
-                     , _noReverseProxy   :: Bool
-                     , _interruptOnly    :: Bool
+                     , develPort        :: Int
+                     , develTlsPort     :: Int
+                     , proxyTimeout     :: Int
+                     , noReverseProxy   :: Bool
+                     , develHost        :: Maybe String
                      }
+             | DevelSignal
              | Test
              | AddHandler
                     { addHandlerRoute   :: Maybe String
@@ -68,6 +66,7 @@ data Command = Init { _initBare :: Bool, _initName :: Maybe String, _initDatabas
              | Keter
                     { _keterNoRebuild :: Bool
                     , _keterNoCopyTo  :: Bool
+                    , _keterBuildArgs :: [String]
                     }
              | Version
   deriving (Show, Eq)
@@ -86,11 +85,6 @@ main = do
                     d@Devel{} -> d { develExtraArgs = args }
                     c -> c
                 })
-         , ("yesod.devel.ignore"        , \o args -> o { optCommand =
-                case optCommand o of
-                    d@Devel{} -> d { develIgnore = args }
-                    c -> c
-                })
          , ("yesod.build.extracabalarg" , \o args -> o { optCommand =
                 case optCommand o of
                     b@Build{} -> b { buildExtraArgs = args }
@@ -99,35 +93,48 @@ main = do
          ] optParser'
   let cabal = rawSystem' (cabalCommand o)
   case optCommand o of
-    Init{..}        -> scaffold _initBare _initName _initDatabase
+    Init _          -> initErrorMsg
     HsFiles         -> mkHsFile
     Configure       -> cabal ["configure"]
     Build es        -> touch' >> cabal ("build":es)
     Touch           -> touch'
-    Keter{..}       -> keter (cabalCommand o) _keterNoRebuild _keterNoCopyTo
+    Keter{..}       -> keter (cabalCommand o) _keterNoRebuild _keterNoCopyTo _keterBuildArgs
     Version         -> putStrLn ("yesod-bin version: " ++ showVersion Paths_yesod_bin.version)
     AddHandler{..}  -> addHandler addHandlerRoute addHandlerPattern addHandlerMethods
     Test            -> cabalTest cabal
-    Devel{..}       -> let develOpts = DevelOpts
-                             { isCabalDev   = optCabalPgm o == CabalDev
-                             , forceCabal   = _develDisableApi
-                             , verbose      = optVerbose o
-                             , eventTimeout = _develRescan
-                             , successHook  = _develSuccessHook
-                             , failHook     = _develFailHook
-                             , buildDir     = _develBuildDir
-                             , develPort    = _develPort
-                             , develTlsPort = _develTlsPort
-                             , proxyTimeout = _proxyTimeout
-                             , useReverseProxy = not _noReverseProxy
-                             , terminateWith = if _interruptOnly then TerminateOnlyInterrupt else TerminateOnEnter
-                             }
-                       in devel develOpts develExtraArgs
+    Devel{..}       -> devel DevelOpts
+                             { verbose      = optVerbose o
+                             , successHook  = develSuccessHook
+                             , develPort    = develPort
+                             , develTlsPort = develTlsPort
+                             , proxyTimeout = proxyTimeout
+                             , useReverseProxy = not noReverseProxy
+                             , develHost    = develHost
+                             } develExtraArgs
+    DevelSignal     -> develSignal
   where
-    cabalTest cabal = do touch'
-                         _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]
-                         _ <- cabal ["build"]
-                         cabal ["test"]
+    cabalTest cabal = do
+        env <- getEnvironment
+        case lookup "STACK_EXE" env of
+            Nothing -> do
+                touch'
+                _ <- cabal ["configure", "--enable-tests", "-flibrary-only"]
+                _ <- cabal ["build"]
+                cabal ["test"]
+            Just _ -> do
+                hPutStrLn stderr "'yesod test' is no longer needed with Stack"
+                hPutStrLn stderr "Instead, please just run 'stack test'"
+                exitFailure
+
+    initErrorMsg = do
+        mapM_ putStrLn
+            [ "The init command has been removed."
+            , "Please use 'stack new <project name> <template>' instead where the"
+            , "available templates can be found by running 'stack templates'. For"
+            , "a Yesod based application you should probably choose one of the"
+            , "pre-canned Yesod templates."
+            ]
+        exitFailure
 
 optParser' :: ParserInfo Options
 optParser' = info (helper <*> optParser) ( fullDesc <> header "Yesod Web Framework command line utility" )
@@ -136,62 +143,46 @@ optParser :: Parser Options
 optParser = Options
         <$> flag Cabal CabalDev ( long "dev"     <> short 'd' <> help "use cabal-dev" )
         <*> switch              ( long "verbose" <> short 'v' <> help "More verbose output" )
-        <*> subparser ( command "init"         (info initOptions
-                            (progDesc "Scaffold a new site"))
+        <*> subparser ( command "init"         (info (helper <*> initOptions)
+                            (progDesc "Command no longer available, please use 'stack new'"))
                       <> command "hsfiles" (info (pure HsFiles)
                             (progDesc "Create a hsfiles file for the current folder"))
                       <> command "configure" (info (pure Configure)
                             (progDesc "Configure a project for building"))
-                      <> command "build"     (info (Build <$> extraCabalArgs)
+                      <> command "build"     (info (helper <*> (Build <$> extraCabalArgs))
                             (progDesc $ "Build project (performs TH dependency analysis)" ++ windowsWarning))
                       <> command "touch"     (info (pure Touch)
                             (progDesc $ "Touch any files with altered TH dependencies but do not build" ++ windowsWarning))
-                      <> command "devel"     (info develOptions
+                      <> command "devel"     (info (helper <*> develOptions)
                             (progDesc "Run project with the devel server"))
+                      <> command "devel-signal"     (info (helper <*> pure DevelSignal)
+                            (progDesc "Used internally by the devel command"))
                       <> command "test"      (info (pure Test)
                             (progDesc "Build and run the integration tests"))
-                      <> command "add-handler" (info addHandlerOptions
+                      <> command "add-handler" (info (helper <*> addHandlerOptions)
                             (progDesc ("Add a new handler and module to the project."
                             ++ " Interactively asks for input if you do not specify arguments.")))
-                      <> command "keter"       (info keterOptions
+                      <> command "keter"       (info (helper <*> keterOptions)
                             (progDesc "Build a keter bundle"))
                       <> command "version"     (info (pure Version)
                             (progDesc "Print the version of Yesod"))
                       )
 
 initOptions :: Parser Command
-initOptions = Init
-    <$> switch (long "bare" <> help "Create files in current folder")
-    <*> optStr (long "name" <> short 'n' <> metavar "APP_NAME"
-            <> help "Set the application name")
-    <*> optStr (long "database" <> short 'd' <> metavar "DATABASE"
-            <> help ("Preconfigure for selected database (options: " ++ backendOptions ++ ")"))
+initOptions = Init <$> many (argument str mempty)
 
 keterOptions :: Parser Command
 keterOptions = Keter
     <$> switch ( long "nobuild" <> short 'n' <> help "Skip rebuilding" )
     <*> switch ( long "nocopyto" <> help "Ignore copy-to directive in keter config file" )
-
-defaultRescan :: Int
-defaultRescan = 10
+    <*> optStrToList ( long "build-args" <> help "Build arguments" )
+  where
+    optStrToList m = option (words <$> str) $ value [] <> m
 
 develOptions :: Parser Command
-develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
-                            <> help "Disable fast GHC API rebuilding")
-                     <*> optStr ( long "success-hook" <> short 's' <> metavar "COMMAND"
+develOptions = Devel <$> optStr ( long "success-hook" <> short 's' <> metavar "COMMAND"
                             <> help "Run COMMAND after rebuild succeeds")
-                     <*> optStr ( long "failure-hook" <> short 'f' <> metavar "COMMAND"
-                            <> help "Run COMMAND when rebuild fails")
-                     <*> option auto ( long "event-timeout" <> short 't' <> value defaultRescan <> metavar "N"
-                            <> help ("Force rescan of files every N seconds (default "
-                                     ++ show defaultRescan
-                                     ++ ", use -1 to rely on FSNotify alone)") )
-                     <*> optStr ( long "builddir" <> short 'b'
-                            <> help "Set custom cabal build directory, default `dist'")
-                     <*> many ( strOption ( long "ignore" <> short 'i' <> metavar "DIR"
-                                   <> help "ignore file changes in DIR" )
-                              )
-                     <*> extraCabalArgs
+                     <*> extraStackArgs
                      <*> option auto ( long "port" <> short 'p' <> value 3000 <> metavar "N"
                             <> help "Devel server listening port" )
                      <*> option auto ( long "tls-port" <> short 'q' <> value 3443 <> metavar "N"
@@ -200,8 +191,13 @@ develOptions = Devel <$> switch ( long "disable-api"  <> short 'd'
                             <> help "Devel server timeout before returning 'not ready' message (in seconds, 0 for none)" )
                      <*> switch ( long "disable-reverse-proxy" <> short 'n'
                             <> help "Disable reverse proxy" )
-                     <*> switch ( long "interrupt-only"  <> short 'c'
-                            <> help "Disable exiting when enter is pressed")
+                     <*> optStr (long "host" <> metavar "HOST"
+                            <> help "Host interface to bind to; IP address, '*' for all interfaces, '*4' for IP4, '*6' for IP6")
+
+extraStackArgs :: Parser [String]
+extraStackArgs = many (strOption ( long "extra-stack-arg" <> short 'e' <> metavar "ARG"
+                                   <> help "pass extra argument ARG to stack")
+                      )
 
 extraCabalArgs :: Parser [String]
 extraCabalArgs = many (strOption ( long "extra-cabal-arg" <> short 'e' <> metavar "ARG"

@@ -2,6 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 module YesodCoreTest.RequestBodySize (specs) where
+    ( specs
+    , Widget
+    , resourcesY
+    ) where
 
 import Test.Hspec
 

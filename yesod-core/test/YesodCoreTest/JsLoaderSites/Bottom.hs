@@ -2,6 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 module YesodCoreTest.JsLoaderSites.Bottom (B(..)) where
+    ( B(..)
+    , Widget
+    , resourcesB -- avoid warning
+    ) where
 
 import Yesod.Core
 import Yesod.Core.Widget

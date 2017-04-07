@@ -1,6 +1,10 @@
 {-# LANGUAGE TemplateHaskell, QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies, MultiParamTypeClasses, ViewPatterns, OverloadedStrings #-}
 module YesodCoreTest.Reps (specs) where
+    ( specs
+    , Widget
+    , resourcesApp
+    ) where
 
 import Yesod.Core
 import Test.Hspec

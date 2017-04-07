@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE CPP #-}
 module Hierarchy
     ( hierarchy
     , Dispatcher (..)
@@ -16,6 +17,9 @@ module Hierarchy
     , toText
     , Env (..)
     , subDispatch
+    -- to avoid warnings
+    , deleteDelete2
+    , deleteDelete3
     ) where
 
 import Test.Hspec
@@ -78,6 +82,8 @@ do
     let resources = [parseRoutes|
 / HomeR GET
 
+----------------------------------------
+
 /!#Int BackwardsR GET
 
 /admin/#Int AdminR:
@@ -119,9 +125,14 @@ do
         , mds404 = [|pack "404"|]
         , mds405 = [|pack "405"|]
         , mdsGetHandler = defaultGetHandler
+        , mdsUnwrapper = return
         } resources
     return
+#if MIN_VERSION_template_haskell(2,11,0)
+        $ InstanceD Nothing
+#else
         $ InstanceD
+#endif
             []
             (ConT ''Dispatcher
                 `AppT` ConT ''Hierarchy

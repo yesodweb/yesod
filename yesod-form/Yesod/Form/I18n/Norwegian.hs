@@ -6,7 +6,7 @@ import Data.Monoid (mappend)
 import Data.Text (Text)
 
 norwegianBokmålFormMessage :: FormMessage -> Text
-norwegianBokmålFormMessage (MsgInvalidInteger t) = "Ugyldig antall: " `mappend` t
+norwegianBokmålFormMessage (MsgInvalidInteger t) = "Ugyldig antall: " `Data.Monoid.mappend` t
 norwegianBokmålFormMessage (MsgInvalidNumber t) = "Ugyldig nummer: " `mappend` t
 norwegianBokmålFormMessage (MsgInvalidEntry t) = "Ugyldig oppføring: " `mappend` t
 norwegianBokmålFormMessage MsgInvalidTimeFormat = "Ugyldig klokkeslett, må være i formatet HH:MM[:SS]"

@@ -30,7 +30,7 @@ type DText = [Text] -> [Text]
 newtype FormInput m a = FormInput { unFormInput :: HandlerSite m -> [Text] -> Env -> FileEnv -> m (Either DText a) }
 instance Monad m => Functor (FormInput m) where
     fmap a (FormInput f) = FormInput $ \c d e e' -> liftM (either Left (Right . a)) $ f c d e e'
-instance Monad m => Applicative (FormInput m) where
+instance Monad m => Control.Applicative.Applicative (FormInput m) where
     pure = FormInput . const . const . const . const . return . Right
     (FormInput f) <*> (FormInput x) = FormInput $ \c d e e' -> do
         res1 <- f c d e e'

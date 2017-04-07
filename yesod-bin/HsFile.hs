@@ -3,9 +3,9 @@
 module HsFile (mkHsFile) where
 import Text.ProjectTemplate (createTemplate)
 import Data.Conduit 
-    ( ($$), (=$), ConduitM, awaitForever, yield, Source )
+    ( ($$), (=$), awaitForever)
 import Data.Conduit.Filesystem (sourceDirectory)
-import Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import Control.Monad.Trans.Resource (runResourceT)
 import qualified Data.Conduit.List as CL
 import qualified Data.ByteString as BS
 import Control.Monad.IO.Class (liftIO)

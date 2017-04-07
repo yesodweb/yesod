@@ -1,5 +1,9 @@
 {-# LANGUAGE TypeFamilies, QuasiQuotes, TemplateHaskell, MultiParamTypeClasses, OverloadedStrings #-}
-module YesodCoreTest.StubSslOnly ( App ( App ) ) where
+module YesodCoreTest.StubSslOnly
+    ( App ( App )
+    , Widget
+    , resourcesApp
+    ) where
 
 import Yesod.Core
 import Text.Hamlet (hamlet)
