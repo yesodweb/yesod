@@ -267,7 +267,7 @@ $newline never
 passwordField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 passwordField = Field
     { fieldParse = parseHelper $ Right
-    , fieldView = \theId name attrs _val isReq -> toWidget [hamlet|
+    , fieldView = \theId name attrs _ isReq -> toWidget [hamlet|
 $newline never
 <input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="">
 |]
