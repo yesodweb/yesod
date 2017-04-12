@@ -16,8 +16,8 @@ extra-source-files: README.md ChangeLog.md
 library
     build-depends:   base                      >= 4        && < 5
                    , yesod-core                >= 1.4.0    && < 1.5
-                   , persistent                >= 2.1      && < 2.7
-                   , persistent-template       >= 2.1      && < 2.7
+                   , persistent                >= 2.1      && < 2.8
+                   , persistent-template       >= 2.1      && < 2.8
                    , transformers              >= 0.2.2
                    , blaze-builder
                    , conduit
