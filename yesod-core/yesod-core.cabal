@@ -21,7 +21,7 @@ extra-source-files:
   README.md
 
 library
-    build-depends:   base                  >= 4.6      && < 5
+    build-depends:   base                  >= 4.7      && < 5
                    , time                  >= 1.1.4
                    , wai                   >= 3.0
                    , wai-extra             >= 3.0.7
