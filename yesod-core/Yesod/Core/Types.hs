@@ -339,8 +339,37 @@ data Stylesheet url = Stylesheet { styleLocation :: Location url, styleAttribute
     deriving (Show, Eq)
 newtype Title = Title { unTitle :: Html }
 
+newtype Head url = Head (HtmlUrl url)
+    deriving Monoid
+instance Semigroup (Head a)
+newtype Body url = Body (HtmlUrl url)
+    deriving Monoid
+instance Semigroup (Body a)
+
 type CssBuilderUrl a = (a -> [(Text, Text)] -> Text) -> TBuilder.Builder
 type BuilderUrl url = (url -> [(Text, Text)] -> Text) -> TBuilder.Builder
+
+data GWData a = GWData
+    { gwdBody        :: !(Body a)
+    , gwdTitle       :: !(Last Title)
+    , gwdScripts     :: !(UniqueList (Script a))
+    , gwdStylesheets :: !(UniqueList (Stylesheet a))
+    , gwdCss         :: !(Map (Maybe Text) (CssBuilderUrl a)) -- media type
+    , gwdJavascript  :: !(Maybe (JavascriptUrl a))
+    , gwdHead        :: !(Head a)
+    }
+instance Monoid (GWData a) where
+    mempty = GWData mempty mempty mempty mempty mempty mempty mempty
+    mappend (GWData a1 a2 a3 a4 a5 a6 a7)
+            (GWData b1 b2 b3 b4 b5 b6 b7) = GWData
+        (a1 `mappend` b1)
+        (a2 `mappend` b2)
+        (a3 `mappend` b3)
+        (a4 `mappend` b4)
+        (unionWith mappend a5 b5)
+        (a6 `mappend` b6)
+        (a7 `mappend` b7)
+instance Semigroup (GWData a)
 
 data HandlerContents =
       HCContent H.Status !TypedContent
