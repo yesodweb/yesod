@@ -107,12 +107,19 @@ instance ToContent Text where
     toContent = toContent . Blaze.fromLazyText
 instance ToContent String where
     toContent = toContent . Blaze.fromString
+instance ToContent Html where
+    toContent bs = ContentBuilder (renderHtmlBuilder bs) Nothing
 instance ToContent () where
     toContent () = toContent B.empty
 instance ToContent (ContentType, Content) where
     toContent = snd
 instance ToContent TypedContent where
     toContent (TypedContent _ c) = c
+
+instance ToContent Css where
+    toContent = toContent . renderCss
+instance ToContent Javascript where
+    toContent = toContent . toLazyText . unJavascript
 
 instance ToFlushBuilder builder => ToContent (CI.Pipe () () builder () (ResourceT IO) ()) where
     toContent src = ContentSource $ CI.ConduitM (CI.mapOutput toFlushBuilder src >>=)
@@ -121,7 +128,6 @@ instance ToFlushBuilder builder => ToContent (Source (ResourceT IO) builder) whe
     toContent src = ContentSource $ mapOutput toFlushBuilder src
 instance ToFlushBuilder builder => ToContent (ResumableSource (ResourceT IO) builder) where
     toContent (ResumableSource src _) = toContent src
-
 -- | A class for all data which can be sent in a streaming response. Note that
 -- for textual data, instances must use UTF-8 encoding.
 --
