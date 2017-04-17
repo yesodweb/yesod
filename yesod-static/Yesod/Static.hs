@@ -101,6 +101,7 @@ import qualified System.FilePath as F
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import Data.Default
+import Control.Parallel.Strategies
 --import Text.Lucius (luciusRTMinified)
 
 import Network.Wai (pathInfo)
@@ -277,10 +278,11 @@ publicFiles dir = mkStaticFiles' dir False
 mkHashMap :: FilePath -> IO (M.Map FilePath S8.ByteString)
 mkHashMap dir = do
     fs <- getFileListPieces dir
-    hashAlist fs >>= return . M.fromList
+    hashList <- sequence (hashAlist fs)
+    return $ M.fromList hashList
   where
-    hashAlist :: [[String]] -> IO [(FilePath, S8.ByteString)]
-    hashAlist fs = mapM hashPair fs
+    hashAlist :: [[String]] -> [IO (FilePath, S8.ByteString)]
+    hashAlist fs = parMap rpar hashPair fs
       where
         hashPair :: [String] -> IO (FilePath, S8.ByteString)
         hashPair pieces = do let file = pathFromRawPieces dir pieces
