@@ -64,6 +64,7 @@ import Network.HTTP.Client (Manager, Request, withResponse, Response, BodyReader
 import qualified Network.Wai as W
 
 import Yesod.Core
+import Yesod.Core.Handler (addMessageI, addMessage)
 import Yesod.Core.Types (HandlerT(..), unHandlerT)
 import Yesod.Persist
 import Yesod.Auth.Message (AuthMessage, defaultMessage)
