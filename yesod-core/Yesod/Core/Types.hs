@@ -50,7 +50,7 @@ import qualified Network.Wai                        as W
 import qualified Network.Wai.Parse                  as NWP
 import           System.Log.FastLogger              (LogStr, LoggerSet, toLogStr, pushLogStr)
 import qualified System.Random.MWC                  as MWC
-import           Network.Wai.Logger                 (DateCacheGetter)
+import           System.Date.Cache                  (DateCacheGetter)
 import           Text.Blaze.Html                    (Html, toHtml)
 import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
