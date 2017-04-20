@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -11,9 +12,12 @@ import           Control.Applicative                   ((<|>))
 import           Control.Concurrent                    (threadDelay)
 import           Control.Concurrent.Async              (race_)
 import           Control.Concurrent.STM
+import           Control.Concurrent.MVar
+import System.IO
 import qualified Control.Exception.Safe                as Ex
 import           Control.Monad                         (forever, unless, void,
                                                         when)
+import Data.ByteString (ByteString, isInfixOf)
 import qualified Data.ByteString.Lazy                  as LB
 import           Data.Conduit                          (($$), (=$))
 import qualified Data.Conduit.Binary                   as CB
@@ -222,6 +226,33 @@ checkDevelFile =
             then return x
             else loop xs
 
+stackSuccessString :: ByteString
+stackSuccessString = "ExitSuccess"
+
+stackFailureString :: ByteString
+stackFailureString = "ExitFailure"
+
+data BuildOutput = Started
+                   deriving (Show, Eq, Ord)
+
+makeEmptyMVar :: MVar a -> IO ()
+makeEmptyMVar mvar = do
+  isEmpty <- isEmptyMVar mvar
+  case isEmpty of
+    True -> return ()
+    False -> takeMVar mvar >> return ()
+
+updateAppPort :: ByteString -> MVar (BuildOutput) -> TVar Int -> IO ()
+updateAppPort bs mvar appPortVar = do
+  isEmpty <- isEmptyMVar mvar
+  let hasEnd = isInfixOf stackFailureString bs || isInfixOf stackSuccessString bs
+  case (isEmpty,hasEnd) of
+    (True,False) -> do
+      putMVar mvar Started
+      atomically $ writeTVar appPortVar (-1 :: Int)
+    (_,False) -> return ()
+    (_,True) -> makeEmptyMVar mvar
+
 -- | Get the set of all flags available in the given cabal file
 getAvailableFlags :: D.GenericPackageDescription -> Set.Set String
 getAvailableFlags =
@@ -283,6 +314,7 @@ devel opts passThroughArgs = do
     sayV = when (verbose opts) . sayString
 
     -- Leverage "stack build --file-watch" to do the build
+    runStackBuild :: TVar Int -> [Char] -> Set.Set [Char] -> IO ()
     runStackBuild appPortVar packageName availableFlags = do
         -- We call into this app for the devel-signal command
         myPath <- getExecutablePath
@@ -316,7 +348,7 @@ devel opts passThroughArgs = do
                 passThroughArgs
 
         sayV $ show procConfig
-
+        mvar <- newEmptyMVar
         -- Monitor the stdout and stderr content from the build process. Any
         -- time some output comes, we invalidate the currently running app by
         -- changing the destination port for reverse proxying to -1. We also
@@ -325,12 +357,13 @@ devel opts passThroughArgs = do
         withProcess_ procConfig $ \p -> do
             let helper getter h =
                       getter p
-                   $$ CL.iterM (\_ -> atomically $ writeTVar appPortVar (-1))
+                   $$ CL.iterM (\(str :: ByteString) -> updateAppPort str mvar appPortVar)
                    =$ CB.sinkHandle h
             race_ (helper getStdout stdout) (helper getStderr stderr)
 
     -- Run the inner action with a TVar which will be set to True
     -- whenever the signal file is modified.
+    withChangedVar :: (TVar Bool -> IO a) -> IO a
     withChangedVar inner = withManager $ \manager -> do
         -- Variable indicating that the signal file has been changed. We
         -- reset it each time we handle the signal.
