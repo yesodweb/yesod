@@ -1,3 +1,7 @@
+## 1.5.2.3
+
+* Fix race condition which leads dev server to stay in compilation mode. [#1380](https://github.com/yesodweb/yesod/issues/1380)
+
 ## 1.5.2.2
 
 * I guess `--no-nix-pure` implies Nix... sigh [#1359](https://github.com/yesodweb/yesod/issues/1359)
