@@ -13,7 +13,6 @@ import           Control.Concurrent                    (threadDelay)
 import           Control.Concurrent.Async              (race_)
 import           Control.Concurrent.STM
 import           Control.Concurrent.MVar
-import System.IO
 import qualified Control.Exception.Safe                as Ex
 import           Control.Monad                         (forever, unless, void,
                                                         when)
