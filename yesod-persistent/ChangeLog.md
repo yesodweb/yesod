@@ -1,3 +1,7 @@
+## 1.4.3
+
+Relax upper bound on persistent
+
 ## 1.4.2
 
 * Fix warnings
