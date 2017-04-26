@@ -12,7 +12,6 @@ import           Control.Applicative                   ((<|>))
 import           Control.Concurrent                    (threadDelay)
 import           Control.Concurrent.Async              (race_)
 import           Control.Concurrent.STM
-import           Control.Concurrent.MVar
 import qualified Control.Exception.Safe                as Ex
 import           Control.Monad                         (forever, unless, void,
                                                         when)
@@ -145,6 +144,9 @@ reverseProxy opts appPortVar = do
     let proxyApp = waiProxyToSettings
                 (const $ do
                     appPort <- atomically $ readTVar appPortVar
+#if DEBUG
+                    print $ "revProxy: appPort " ++ (show appPort)
+#endif                    
                     return $
                         ReverseProxy.WPRProxyDest
                         $ ProxyDest "127.0.0.1" appPort)
@@ -244,11 +246,22 @@ updateAppPort bs buildStarted appPortVar = do
   let buildEnd = isInfixOf stackFailureString bs || isInfixOf stackSuccessString bs
   case (hasStarted, buildEnd) of
     (False, False) -> do
+#if DEBUG
+      print "updated appPortVar to -1"
+#endif                    
       atomically $ do
         writeTVar appPortVar (-1 :: Int)
         writeTVar buildStarted True
-    (True, False) -> return ()
-    (_, True) -> atomically $ writeTVar buildStarted False
+    (True, False) -> do
+#if DEBUG
+      print "ignored"
+#endif                    
+      return ()
+    (_, True) -> do
+#if DEBUG
+      print "Reset buildStarted to False"
+#endif                          
+      atomically $ writeTVar buildStarted False
 
 -- | Get the set of all flags available in the given cabal file
 getAvailableFlags :: D.GenericPackageDescription -> Set.Set String
@@ -383,6 +396,7 @@ devel opts passThroughArgs = do
         inner changedVar
 
     -- Each time the library builds successfully, run the application
+    runApp :: TVar Int -> TVar Bool -> String -> IO b
     runApp appPortVar changedVar develHsPath = do
         -- Wait for the first change, indicating that the library
         -- has been built
