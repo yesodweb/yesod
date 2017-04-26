@@ -231,26 +231,24 @@ stackSuccessString = "ExitSuccess"
 stackFailureString :: ByteString
 stackFailureString = "ExitFailure"
 
-data BuildOutput = Started
-                   deriving (Show, Eq, Ord)
-
-makeEmptyMVar :: MVar a -> IO ()
-makeEmptyMVar mvar = do
-  isEmpty <- isEmptyMVar mvar
-  case isEmpty of
-    True -> return ()
-    False -> takeMVar mvar >> return ()
-
-updateAppPort :: ByteString -> MVar (BuildOutput) -> TVar Int -> IO ()
-updateAppPort bs mvar appPortVar = do
-  isEmpty <- isEmptyMVar mvar
-  let hasEnd = isInfixOf stackFailureString bs || isInfixOf stackSuccessString bs
-  case (isEmpty,hasEnd) of
-    (True,False) -> do
-      putMVar mvar Started
-      atomically $ writeTVar appPortVar (-1 :: Int)
-    (_,False) -> return ()
-    (_,True) -> makeEmptyMVar mvar
+-- We need updateAppPort logic to prevent a race condition.
+-- See https://github.com/yesodweb/yesod/issues/1380
+updateAppPort :: ByteString -> TVar Bool -- ^ Bool to indicate if the
+                                         -- output from stack has
+                                         -- started. False indicate
+                                         -- that it hasn't started
+                                         -- yet.
+              -> TVar Int -> IO ()
+updateAppPort bs buildStarted appPortVar = do
+  hasStarted <- readTVarIO buildStarted
+  let buildEnd = isInfixOf stackFailureString bs || isInfixOf stackSuccessString bs
+  case (hasStarted, buildEnd) of
+    (False, False) -> do
+      atomically $ do
+        writeTVar appPortVar (-1 :: Int)
+        writeTVar buildStarted True
+    (True, False) -> return ()
+    (_, True) -> atomically $ writeTVar buildStarted False
 
 -- | Get the set of all flags available in the given cabal file
 getAvailableFlags :: D.GenericPackageDescription -> Set.Set String
@@ -347,7 +345,7 @@ devel opts passThroughArgs = do
                 passThroughArgs
 
         sayV $ show procConfig
-        mvar <- newEmptyMVar
+        buildStarted <- newTVarIO False
         -- Monitor the stdout and stderr content from the build process. Any
         -- time some output comes, we invalidate the currently running app by
         -- changing the destination port for reverse proxying to -1. We also
@@ -356,7 +354,7 @@ devel opts passThroughArgs = do
         withProcess_ procConfig $ \p -> do
             let helper getter h =
                       getter p
-                   $$ CL.iterM (\(str :: ByteString) -> updateAppPort str mvar appPortVar)
+                   $$ CL.iterM (\(str :: ByteString) -> updateAppPort str buildStarted appPortVar)
                    =$ CB.sinkHandle h
             race_ (helper getStdout stdout) (helper getStderr stderr)
 
