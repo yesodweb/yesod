@@ -18,11 +18,17 @@ extra-source-files:
   refreshing.html
   *.pem
 
+flag debug
+  default: False
+  description: Print debugging info.
+
 executable             yesod
     if os(windows)
         cpp-options:     -DWINDOWS
     if os(openbsd)
         ld-options:      -Wl,-zwxneeded
+    if flag(debug)
+      cpp-options: -DDEBUG
 
     build-depends:     base               >= 4.3          && < 5
                      , parsec             >= 2.1          && < 4
