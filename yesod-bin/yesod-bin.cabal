@@ -18,10 +18,6 @@ extra-source-files:
   refreshing.html
   *.pem
 
-flag debug
-  default: False
-  description: Print debugging info.
-
 executable             yesod
     if os(windows)
         cpp-options:     -DWINDOWS
