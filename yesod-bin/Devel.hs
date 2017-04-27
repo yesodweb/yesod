@@ -128,6 +128,7 @@ reverseProxy :: DevelOpts -> TVar Int -> IO ()
 reverseProxy opts appPortVar = do
     manager <- newManager $ managerSetProxy noProxy tlsManagerSettings
     let refreshHtml = LB.fromChunks [$(embedFile "refreshing.html")]
+        sayV = when (verbose opts) . sayString    
     let onExc _ req
             | maybe False (("application/json" `elem`) . parseHttpAccept)
                 (lookup "accept" $ requestHeaders req) =
@@ -144,9 +145,7 @@ reverseProxy opts appPortVar = do
     let proxyApp = waiProxyToSettings
                 (const $ do
                     appPort <- atomically $ readTVar appPortVar
-#if DEBUG
-                    print $ "revProxy: appPort " ++ (show appPort)
-#endif                    
+                    sayV $ "revProxy: appPort " ++ (show appPort)
                     return $
                         ReverseProxy.WPRProxyDest
                         $ ProxyDest "127.0.0.1" appPort)
@@ -240,28 +239,16 @@ updateAppPort :: ByteString -> TVar Bool -- ^ Bool to indicate if the
                                          -- started. False indicate
                                          -- that it hasn't started
                                          -- yet.
-              -> TVar Int -> IO ()
+              -> TVar Int -> STM ()
 updateAppPort bs buildStarted appPortVar = do
-  hasStarted <- readTVarIO buildStarted
+  hasStarted <- readTVar buildStarted
   let buildEnd = isInfixOf stackFailureString bs || isInfixOf stackSuccessString bs
   case (hasStarted, buildEnd) of
     (False, False) -> do
-#if DEBUG
-      print "updated appPortVar to -1"
-#endif                    
-      atomically $ do
-        writeTVar appPortVar (-1 :: Int)
-        writeTVar buildStarted True
-    (True, False) -> do
-#if DEBUG
-      print "ignored"
-#endif                    
-      return ()
-    (_, True) -> do
-#if DEBUG
-      print "Reset buildStarted to False"
-#endif                          
-      atomically $ writeTVar buildStarted False
+      writeTVar appPortVar (-1 :: Int)
+      writeTVar buildStarted True
+    (True, False) -> return ()
+    (_, True) -> writeTVar buildStarted False
 
 -- | Get the set of all flags available in the given cabal file
 getAvailableFlags :: D.GenericPackageDescription -> Set.Set String
@@ -367,7 +354,7 @@ devel opts passThroughArgs = do
         withProcess_ procConfig $ \p -> do
             let helper getter h =
                       getter p
-                   $$ CL.iterM (\(str :: ByteString) -> updateAppPort str buildStarted appPortVar)
+                   $$ CL.iterM (\(str :: ByteString) -> atomically (updateAppPort str buildStarted appPortVar))
                    =$ CB.sinkHandle h
             race_ (helper getStdout stdout) (helper getStderr stderr)
 
