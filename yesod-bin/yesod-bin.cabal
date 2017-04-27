@@ -23,8 +23,6 @@ executable             yesod
         cpp-options:     -DWINDOWS
     if os(openbsd)
         ld-options:      -Wl,-zwxneeded
-    if flag(debug)
-      cpp-options: -DDEBUG
 
     build-depends:     base               >= 4.3          && < 5
                      , parsec             >= 2.1          && < 4
