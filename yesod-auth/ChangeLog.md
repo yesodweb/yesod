@@ -1,3 +1,7 @@
+## 1.4.18
+
+* Relax upper bound on persistent
+
 ## 1.4.17
 
 * Add Show instance for user credentials `Creds`
