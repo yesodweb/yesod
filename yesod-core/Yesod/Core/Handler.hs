@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE BangPatterns               #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -861,11 +862,11 @@ setSessionBS :: MonadHandler m
              => Text
              -> S.ByteString
              -> m ()
-setSessionBS k = modify . modSession . Map.insert k
+setSessionBS !k !bs = modify . modSession $ Map.insert k bs
 
 -- | Unsets a session variable. See 'setSession'.
 deleteSession :: MonadHandler m => Text -> m ()
-deleteSession = modify . modSession . Map.delete
+deleteSession !k = modify . modSession $ Map.delete k
 
 -- | Clear all session variables.
 --
