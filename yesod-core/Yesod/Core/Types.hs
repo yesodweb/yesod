@@ -175,9 +175,12 @@ type BottomOfHeadAsync master
 
 type Texts = [Text]
 
--- | Wrap up a normal WAI application as a Yesod subsite.
+-- | Wrap up a normal WAI application as a Yesod subsite. Ignore parent site's middleware and isAuthorized.
 newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 
+-- | Like 'WaiSubsite', but applies parent site's middleware and isAuthorized.
+-- 
+-- @since 1.4.34
 newtype WaiSubsiteWithAuth = WaiSubsiteWithAuth { runWaiSubsiteWithAuth :: W.Application }
 
 data RunHandlerEnv site = RunHandlerEnv
