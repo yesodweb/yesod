@@ -178,6 +178,8 @@ type Texts = [Text]
 -- | Wrap up a normal WAI application as a Yesod subsite.
 newtype WaiSubsite = WaiSubsite { runWaiSubsite :: W.Application }
 
+newtype WaiSubsiteWithAuth = WaiSubsiteWithAuth { runWaiSubsiteWithAuth :: W.Application }
+
 data RunHandlerEnv site = RunHandlerEnv
     { rheRender   :: !(Route site -> [(Text, Text)] -> Text)
     , rheRoute    :: !(Maybe (Route site))
@@ -559,6 +561,14 @@ instance RenderRoute WaiSubsite where
     renderRoute (WaiSubsiteRoute ps qs) = (ps, qs)
 instance ParseRoute WaiSubsite where
     parseRoute (x, y) = Just $ WaiSubsiteRoute x y
+
+instance RenderRoute WaiSubsiteWithAuth where
+  data Route WaiSubsiteWithAuth = WaiSubsiteWithAuthRoute [Text] [(Text,Text)]
+       deriving (Show, Eq, Read, Ord)
+  renderRoute (WaiSubsiteWithAuthRoute ps qs) = (ps,qs)
+
+instance ParseRoute WaiSubsiteWithAuth where
+  parseRoute (x, y) = Just $ WaiSubsiteWithAuthRoute x y
 
 data Logger = Logger
     { loggerSet :: !LoggerSet
