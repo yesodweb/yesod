@@ -34,6 +34,7 @@ module Yesod.Core.Dispatch
     , defaultMiddlewaresNoLogging
       -- * WAI subsites
     , WaiSubsite (..)
+    , WaiSubsiteWithAuth (..)
     , subHelper
     ) where
 
