@@ -12,6 +12,7 @@ module Yesod.Default.Util
     , WidgetFileSettings
     , wfsLanguages
     , wfsHamletSettings
+    , wfsTemplatesDirectory
     ) where
 
 import qualified Data.ByteString.Lazy as L
@@ -63,8 +64,8 @@ addStaticContentExternal minify hash staticDir toRoute ext' _ content = do
         | otherwise = content
 
 -- | expects a file extension for each type, e.g: hamlet lucius julius
-globFile :: String -> String -> FilePath
-globFile kind x = "templates/" ++ x ++ "." ++ kind
+globFile :: FilePath -> String -> String -> FilePath
+globFile templatesDir kind x = templatesDir ++ "/" ++ x ++ "." ++ kind
 
 data TemplateLanguage = TemplateLanguage
     { tlRequiresToWidget :: Bool
@@ -86,19 +87,20 @@ defaultTemplateLanguages hset =
 data WidgetFileSettings = WidgetFileSettings
     { wfsLanguages :: HamletSettings -> [TemplateLanguage]
     , wfsHamletSettings :: HamletSettings
+    , wfsTemplatesDirectory :: FilePath
     }
 
 instance Default WidgetFileSettings where
-    def = WidgetFileSettings defaultTemplateLanguages defaultHamletSettings
+    def = WidgetFileSettings defaultTemplateLanguages defaultHamletSettings "templates"
 
 widgetFileNoReload :: WidgetFileSettings -> FilePath -> Q Exp
-widgetFileNoReload wfs x = combine "widgetFileNoReload" x False $ wfsLanguages wfs $ wfsHamletSettings wfs
+widgetFileNoReload wfs x = combine "widgetFileNoReload" x (wfsTemplatesDirectory wfs) False $ wfsLanguages wfs $ wfsHamletSettings wfs
 
 widgetFileReload :: WidgetFileSettings -> FilePath -> Q Exp
-widgetFileReload wfs x = combine "widgetFileReload" x True $ wfsLanguages wfs $ wfsHamletSettings wfs
+widgetFileReload wfs x = combine "widgetFileReload" x (wfsTemplatesDirectory wfs) True $ wfsLanguages wfs $ wfsHamletSettings wfs
 
-combine :: String -> String -> Bool -> [TemplateLanguage] -> Q Exp
-combine func file isReload tls = do
+combine :: String -> String -> FilePath -> Bool -> [TemplateLanguage] -> Q Exp
+combine func file templatesDir isReload tls = do
     mexps <- qmexps
     case catMaybes mexps of
         [] -> error $ concat
@@ -114,19 +116,21 @@ combine func file isReload tls = do
     qmexps = mapM go tls
 
     go :: TemplateLanguage -> Q (Maybe Exp)
-    go tl = whenExists file (tlRequiresToWidget tl) (tlExtension tl) ((if isReload then tlReload else tlNoReload) tl)
+    go tl = whenExists file (tlRequiresToWidget tl) templatesDir (tlExtension tl) ((if isReload then tlReload else tlNoReload) tl)
 
 whenExists :: String
            -> Bool -- ^ requires toWidget wrap
+           -> FilePath -- ^ path to templates directory
            -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
 whenExists = warnUnlessExists False
 
 warnUnlessExists :: Bool
                  -> String
                  -> Bool -- ^ requires toWidget wrap
+                 -> FilePath -- ^ path to templates directory
                  -> String -> (FilePath -> Q Exp) -> Q (Maybe Exp)
-warnUnlessExists shouldWarn x wrap glob f = do
-    let fn = globFile glob x
+warnUnlessExists shouldWarn x wrap templatesDir glob f = do
+    let fn = globFile templatesDir glob x
     e <- qRunIO $ doesFileExist fn
     when (shouldWarn && not e) $ qRunIO $ putStrLn $ "widget file not found: " ++ fn
     if e
