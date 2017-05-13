@@ -114,7 +114,7 @@ import qualified Text.Blaze.Html.Renderer.Text as RenderText
 import           Text.Blaze.Html               (preEscapedToMarkup, Html)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtmlBuilder)
 import Yesod.Routes.Class
-import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
+import Yesod.Core.Handler (getUrlRenderParams)
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative ((<$>))
 #endif
