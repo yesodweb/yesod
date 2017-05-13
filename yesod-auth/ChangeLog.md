@@ -1,3 +1,7 @@
+## 1.4.17.1
+
+* Some translation fixes
+
 ## 1.4.17
 
 * Add Show instance for user credentials `Creds`
