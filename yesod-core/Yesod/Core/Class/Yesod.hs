@@ -93,6 +93,23 @@ class RenderRoute site => Yesod site where
     defaultLayout :: WidgetT site IO () -> HandlerT site IO Html
     defaultLayout = defaultDefaultLayout
 
+-- May 12 Conflict fix
+--    defaultLayout w = do
+--        p <- widgetToPageContent w
+--        msgs <- getMessages
+--        withUrlRenderer [hamlet|
+--            $newline never
+--            $doctype 5
+--            <html>
+--                <head>
+--                    <title>#{pageTitle p}
+--                   ^{pageHead p}
+--                <body>
+--                    $forall (status, msg) <- msgs
+--                        <p class="message #{status}">#{msg}
+--                    ^{pageBody p}
+--            |]
+
     -- | Override the rendering function for a particular URL. One use case for
     -- this is to offload static hosting to a different domain name to avoid
     -- sending cookies.
@@ -468,6 +485,8 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
                               void notAuthenticated
             Unauthorized s' -> permissionDenied s'
 
+-- Not in Master but in Shakespeare removal branch
+
 -- templating types
 type Render url = url -> [(Text, Text)] -> Text
 type HtmlUrl url = Render url -> Html
@@ -789,7 +808,6 @@ defaultErrorHandler (InvalidArgs ia) = selectRep $ do
     provideRep $ defaultLayout $ do
         setTitle "Invalid Arguments"
         toWidget htmlTemplate
-    provideRep $ return $ object ["message" .= ("Invalid Arguments" :: Text), "errors" .= ia]
   where
     -- equivalent to
     -- [hamlet|
@@ -827,6 +845,8 @@ defaultErrorHandler (InternalError e) = do
         provideRep $ return $ object ["message" .= ("Internal Server Error" :: Text), "error" .= e]
   where
     -- equivalent to
+    --    provideRep $ defaultLayout $ defaultMessageWidget
+    --        "Internal Server Error"
     --        [hamlet|
     --            <h1>Internal Server Error
     --            <pre>#{e}

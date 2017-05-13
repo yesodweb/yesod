@@ -13,7 +13,6 @@ packages:
   - ./yesod
   - ./yesod-eventsource
   - ./yesod-websockets
-  - ./yesod-shakespeare
 
 # Needed for LTS 2
 extra-deps:

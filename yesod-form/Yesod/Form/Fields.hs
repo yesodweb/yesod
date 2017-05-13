@@ -63,8 +63,6 @@ import Yesod.Form.Types
 import Yesod.Form.I18n.English
 import Yesod.Form.Functions (parseHelper)
 import Yesod.Core
-import Yesod.Shakespeare
-import Text.Hamlet
 import Text.Blaze (ToMarkup (toMarkup), unsafeByteString)
 #define ToHtml ToMarkup
 #define toHtml toMarkup
@@ -269,9 +267,9 @@ $newline never
 passwordField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 passwordField = Field
     { fieldParse = parseHelper $ Right
-    , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+    , fieldView = \theId name attrs _ isReq -> toWidget [hamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="" value="#{either id id val}">
+<input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="">
 |]
     , fieldEnctype = UrlEncoded
     }

@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP, QuasiQuotes, TemplateHaskell, TypeFamilies, MultiParamTypeClasses, OverloadedStrings #-}
-module YesodCoreTest.WaiSubsite (specs) where
+{-# LANGUAGE CPP, QuasiQuotes, TemplateHaskell, TypeFamilies, MultiParamTypeClasses, OverloadedStrings, ViewPatterns #-}
+module YesodCoreTest.WaiSubsite
     ( specs
     , Widget
     , resourcesY

@@ -25,6 +25,7 @@ library
                    , bytestring              >= 0.9.1.4
                    , yesod-core              >= 1.4       && < 1.5
                    , yesod-shakespeare       >= 1.5       && < 1.6
+                   , yesod-core              >= 1.4.31    && < 1.5
                    , wai                     >= 1.4
                    , template-haskell
                    , base16-bytestring
@@ -38,8 +39,8 @@ library
                    , unordered-containers
                    , yesod-form              >= 1.4       && < 1.5
                    , transformers            >= 0.2.2
-                   , persistent              >= 2.1       && < 2.7
-                   , persistent-template     >= 2.1       && < 2.7
+                   , persistent              >= 2.1       && < 2.8
+                   , persistent-template     >= 2.1       && < 2.8
                    , http-client
                    , http-conduit            >= 2.1
                    , aeson                   >= 0.7

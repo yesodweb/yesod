@@ -135,10 +135,6 @@ import qualified Text.Email.Validate
 import           Data.Aeson.Types (Parser, Result(..), parseMaybe, withObject, (.:?))
 import           Data.Maybe (isJust, isNothing, fromJust)
 
-import Network.Mail.Mime (randomString)
-import System.Random
-import Yesod.Shakespeare
-
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
 registerR = PluginR "email" ["register"]

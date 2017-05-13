@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, TemplateHaskell, QuasiQuotes, TypeFamilies, MultiParamTypeClasses, ScopedTypeVariables #-}
-module YesodCoreTest.RawResponse (specs) where
+module YesodCoreTest.RawResponse
     ( specs
     , Widget
     , resourcesApp

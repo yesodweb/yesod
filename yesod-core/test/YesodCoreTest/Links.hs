@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TypeFamilies, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances, ViewPatterns #-}
-module YesodCoreTest.Links (linksTest) where
+module YesodCoreTest.Links
     ( linksTest
     , Widget
     , resourcesY

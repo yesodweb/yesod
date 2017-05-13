@@ -94,9 +94,6 @@ import           Network.HTTP.Client.Conduit (Request, bodyReaderSource)
 import           Network.HTTP.Conduit (http)
 import           Network.HTTP.Types       (renderQueryText)
 
-import           Network.Mail.Mime        (randomString)
-import           System.Random            (newStdGen)
-import           Yesod.Shakespeare        (whamlet)
 import           System.IO.Unsafe         (unsafePerformIO)
 
 -- | Plugin identifier. This is used to identify the plugin used for

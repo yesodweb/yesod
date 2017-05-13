@@ -86,6 +86,7 @@ module Yesod.Test
 
     -- * Assertions
     , assertEqual
+    , assertNotEq
     , assertEqualNoShow
     , assertEq
 
@@ -334,6 +335,17 @@ assertEq m a b =
   where msg = "Assertion: " ++ m ++ "\n" ++
               "First argument:  " ++ ppShow a ++ "\n" ++
               "Second argument: " ++ ppShow b ++ "\n"
+
+-- | Asserts that the two given values are not equal.
+--
+-- In case they are equal, error mesasge includes the values.
+--
+-- @since 1.5.6
+assertNotEq :: (Eq a, Show a) => String -> a -> a -> YesodExample site ()
+assertNotEq m a b =
+  liftIO $ HUnit.assertBool msg (a /= b)
+  where msg = "Assertion: " ++ m ++ "\n" ++
+              "Both arguments:  " ++ ppShow a ++ "\n"
 
 {-# DEPRECATED assertEqual "Use assertEq instead" #-}
 assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()

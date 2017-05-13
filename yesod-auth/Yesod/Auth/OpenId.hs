@@ -17,8 +17,6 @@ import qualified Web.Authenticate.OpenId as OpenId
 
 import Yesod.Form
 import Yesod.Core
-import Yesod.Shakespeare
-import Text.Cassius (cassius)
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
 import Control.Exception.Lifted (SomeException, try)
