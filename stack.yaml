@@ -23,6 +23,7 @@ extra-deps:
 - persistent-2.5
 - persistent-sqlite-2.5
 - cookie-0.4.2
+- cryptonite-0.23
 
 - conduit-extra-1.1.14
 - streaming-commons-0.1.16
