@@ -27,7 +27,8 @@ library
                    , wai                     >= 1.4
                    , template-haskell
                    , base16-bytestring
-                   , cryptohash
+                   , cryptonite
+                   , memory
                    , random                  >= 1.0.0.2
                    , text                    >= 0.7
                    , mime-mail               >= 0.3
