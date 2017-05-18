@@ -102,16 +102,14 @@ module Yesod.PasswordStore (
         importSalt              -- :: ByteString -> Salt
   ) where
 
-
+import qualified Crypto.MAC.HMAC as CH
 import qualified Crypto.Hash as CH
-import qualified Crypto.Hash.SHA256 as H
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Binary as Binary
 import Control.Monad
 import Control.Monad.ST
-import Data.Byteable (toBytes)
 import Data.STRef
 import Data.Bits
 import Data.ByteString.Char8 (ByteString)
@@ -120,6 +118,7 @@ import System.IO
 import System.Random
 import Data.Maybe
 import qualified Control.Exception
+import Data.ByteArray (convert)
 
 ---------------------
 -- Cryptographic base
@@ -134,14 +133,18 @@ import qualified Control.Exception
 -- matches.
 pbkdf1 :: ByteString -> Salt -> Int -> ByteString
 pbkdf1 password (SaltBS salt) iter = hashRounds first_hash (iter + 1)
-    where first_hash = H.finalize $ H.init `H.update` password `H.update` salt
+  where
+    first_hash =
+      convert $
+      ((CH.hashFinalize $ CH.hashInit `CH.hashUpdate` password `CH.hashUpdate` salt) :: CH.Digest CH.SHA256)
+
 
 -- | Hash a 'ByteString' for a given number of rounds. The number of rounds is 0
 -- or more. If the number of rounds specified is 0, the ByteString will be
 -- returned unmodified.
 hashRounds :: ByteString -> Int -> ByteString
 hashRounds (!bs) 0 = bs
-hashRounds bs rounds = hashRounds (H.hash bs) (rounds - 1)
+hashRounds bs rounds = hashRounds (convert (CH.hash bs :: CH.Digest CH.SHA256)) (rounds - 1)
 
 -- | Computes the hmacSHA256 of the given message, with the given 'Salt'.
 hmacSHA256 :: ByteString
@@ -151,7 +154,7 @@ hmacSHA256 :: ByteString
            -> ByteString
            -- ^ The encoded message
 hmacSHA256 secret msg =
-    toBytes (CH.hmacGetDigest (CH.hmac secret msg) :: CH.Digest CH.SHA256)
+    convert (CH.hmacGetDigest (CH.hmac secret msg) :: CH.Digest CH.SHA256)
 
 -- | PBKDF2 key-derivation function.
 -- For details see @http://tools.ietf.org/html/rfc2898@.
