@@ -33,7 +33,10 @@ extra-deps:
 - x509-validation-1.6.5
 - tls-1.3.8
 - Win32-notify-0.3.0.1
-
+- asn1-parse-0.9.4
+- asn1-types-0.3.2
+- connection-0.2.8
+- socks-0.5.5
 
 - conduit-extra-1.1.14
 - streaming-commons-0.1.16
