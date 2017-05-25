@@ -117,9 +117,8 @@ import qualified Yesod.Auth.Message       as Msg
 import           Yesod.Core
 import           Yesod.Form
 import qualified Yesod.PasswordStore      as PS
-
 import           Control.Applicative      ((<$>), (<*>))
-import qualified Crypto.Hash.MD5          as H
+import qualified Crypto.Hash              as H
 import qualified Crypto.Nonce             as Nonce
 import           Data.ByteString.Base16   as B16
 import           Data.Text                (Text)
@@ -134,6 +133,7 @@ import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
 import           Data.Aeson.Types (Parser, Result(..), parseMaybe, withObject, (.:?))
 import           Data.Maybe (isJust, isNothing, fromJust)
+import Data.ByteArray (convert)
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -811,7 +811,7 @@ saltPass = fmap (decodeUtf8With lenientDecode)
 
 saltPass' :: String -> String -> String
 saltPass' salt pass =
-    salt ++ T.unpack (TE.decodeUtf8 $ B16.encode $ H.hash $ TE.encodeUtf8 $ T.pack $ salt ++ pass)
+    salt ++ T.unpack (TE.decodeUtf8 $ B16.encode $ convert (H.hash (TE.encodeUtf8 $ T.pack $ salt ++ pass) :: H.Digest H.MD5))
 
 isValidPass :: Text -- ^ cleartext password
             -> SaltedPass -- ^ salted password

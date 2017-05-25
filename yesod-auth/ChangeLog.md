@@ -1,3 +1,7 @@
+## 1.4.17.2
+
+* Move to cryptonite from cryptohash
+
 ## 1.4.17.1
 
 * Some translation fixes
