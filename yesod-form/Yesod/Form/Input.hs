@@ -25,7 +25,7 @@ import Control.Arrow ((***))
 type DText = [Text] -> [Text]
 
 -- | Type for a form which parses a value of type @a@ with the base monad @m@
--- (usually your @Handler@). Can can compose this using its @Applicative@ instance.
+-- (usually your @Handler@). Can compose this using its @Applicative@ instance.
 newtype FormInput m a = FormInput { unFormInput :: HandlerSite m -> [Text] -> Env -> FileEnv -> m (Either DText a) }
 instance Monad m => Functor (FormInput m) where
     fmap a (FormInput f) = FormInput $ \c d e e' -> liftM (either Left (Right . a)) $ f c d e e'

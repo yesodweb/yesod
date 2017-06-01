@@ -1,3 +1,8 @@
+## 1.5.6
+
+* Add assertNotEq.
+[#1375](https://github.com/yesodweb/yesod/pull/1375)
+
 ## 1.5.5
 
 * Fix warnings

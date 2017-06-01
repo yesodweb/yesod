@@ -246,7 +246,7 @@ staticFiles dir = mkStaticFiles dir
 -- files @\"static\/js\/jquery.js\"@ and
 -- @\"static\/css\/normalize.css\"@, you would use:
 --
--- > staticFilesList \"static\" [\"js\/jquery.js\", \"css\/normalize.css\"]
+-- > staticFilesList "static" ["js/jquery.js", "css/normalize.css"]
 --
 -- This can be useful when you have a very large number of static
 -- files, but only need to refer to a few of them from Haskell.

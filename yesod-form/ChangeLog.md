@@ -1,3 +1,7 @@
+## 1.4.12
+
+* Password field does not remember its previous value
+
 ## 1.4.11
 
 * Fix warnings

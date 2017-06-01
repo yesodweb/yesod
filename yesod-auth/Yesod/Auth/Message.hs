@@ -416,7 +416,7 @@ japaneseMessage LoginYahoo = "Yahooでログイン"
 japaneseMessage Email = "Eメール"
 japaneseMessage UserName = "ユーザー名" -- FIXME by Google Translate "user name"
 japaneseMessage Password = "パスワード"
-japaneseMessage CurrentPassword = "Current password"
+japaneseMessage CurrentPassword = "現在のパスワード"
 japaneseMessage Register = "登録"
 japaneseMessage RegisterLong = "新規アカウント登録"
 japaneseMessage EnterEmail = "メールアドレスを入力してください。確認メールが送られます"
@@ -511,9 +511,9 @@ chineseMessage LoginOpenID = "用OpenID登录"
 chineseMessage LoginGoogle = "用Google帐户登录"
 chineseMessage LoginYahoo = "用Yahoo帐户登录"
 chineseMessage Email = "邮箱"
-chineseMessage UserName = "用户名" -- FIXME by Google Translate "user name"
+chineseMessage UserName = "用户名"
 chineseMessage Password = "密码"
-chineseMessage CurrentPassword = "Current password"
+chineseMessage CurrentPassword = "当前密码"
 chineseMessage Register = "注册"
 chineseMessage RegisterLong = "注册新帐户"
 chineseMessage EnterEmail = "输入你的邮箱地址，你将收到一封确认邮件。"
@@ -547,11 +547,10 @@ chineseMessage ProvideIdentifier = "邮箱或用户名"
 chineseMessage SendPasswordResetEmail = "发送密码重置邮件"
 chineseMessage PasswordResetPrompt = "输入你的邮箱地址或用户名，你将收到一封密码重置邮件。"
 chineseMessage InvalidUsernamePass = "无效的用户名/密码组合"
--- TODO
-chineseMessage i@(IdentifierNotFound _) = englishMessage i
-chineseMessage Logout = "註銷" -- FIXME by Google Translate
-chineseMessage LogoutTitle = "註銷" -- FIXME by Google Translate
-chineseMessage AuthError = "验证错误" -- FIXME by Google Translate
+chineseMessage (IdentifierNotFound ident) = "邮箱/用户名不存在: " `mappend` ident
+chineseMessage Logout = "注销"
+chineseMessage LogoutTitle = "注销"
+chineseMessage AuthError = "验证错误"
 
 czechMessage :: AuthMessage -> Text
 czechMessage NoOpenID = "Nebyl nalezen identifikátor OpenID"
