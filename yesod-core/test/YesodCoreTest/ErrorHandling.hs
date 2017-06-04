@@ -38,6 +38,11 @@ mkYesod "App" [parseRoutes|
 /file-bad-name FileBadNameR GET
 
 /good-builder GoodBuilderR GET
+
+/auth-not-accepted AuthNotAcceptedR GET
+/auth-not-adequate AuthNotAdequateR GET
+/args-not-valid ArgsNotValidR POST
+/only-plain-text OnlyPlainTextR GET
 |]
 
 overrideStatus :: Status
@@ -117,6 +122,18 @@ getErrorR 9 = setUltDest (undefined :: Text)
 getErrorR 10 = setMessage undefined
 getErrorR x = error $ "getErrorR: " ++ show x
 
+getAuthNotAcceptedR :: Handler TypedContent
+getAuthNotAcceptedR = notAuthenticated
+
+getAuthNotAdequateR :: Handler TypedContent
+getAuthNotAdequateR = permissionDenied "That doesn’t belong to you. "
+
+postArgsNotValidR :: Handler TypedContent
+postArgsNotValidR = invalidArgs ["Doesn’t matter.", "Don’t want it."]
+
+getOnlyPlainTextR :: Handler TypedContent
+getOnlyPlainTextR = selectRep $ provideRepType "text/plain" $ return ("Only plain text." :: Text)
+
 errorHandlingTest :: Spec
 errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "says not found" caseNotFound
@@ -130,6 +147,13 @@ errorHandlingTest = describe "Test.ErrorHandling" $ do
       it "file with bad name" caseFileBadName
       it "builder includes content-length" caseGoodBuilder
       forM_ [1..10] $ \i -> it ("error case " ++ show i) (caseError i)
+      it "accept DVI file, invalid args -> 400" caseDviInvalidArgs
+      it "accept audio, not authenticated -> 401" caseAudioNotAuthenticated
+      it "accept CSS, permission denied -> 403" caseCssPermissionDenied
+      it "accept image, non-existent path -> 404" caseImageNotFound
+      it "accept video, bad method -> 405" caseVideoBadMethod
+      it "accept email, not acceptable -> 406" caseEmailNotAcceptable
+      it "accept SGML, internal error -> 500" caseSgmlInternalError
 
 runner :: Session a -> IO a
 runner f = toWaiApp App >>= runSession f
@@ -220,3 +244,82 @@ caseError i = runner $ do
     assertStatus 500 res `E.catch` \e -> do
         liftIO $ print res
         E.throwIO (e :: E.SomeException)
+
+caseDviInvalidArgs :: IO ()
+caseDviInvalidArgs = runner $ do
+    res <- request defaultRequest
+            { pathInfo = ["args-not-valid"]
+            , requestMethod = "POST"
+            , requestHeaders =
+                ("accept", "application/x-dvi") : requestHeaders defaultRequest
+            }
+    assertStatus 400 res
+    assertNoHeader "content-type" res
+    assertBody mempty res
+
+caseAudioNotAuthenticated :: IO ()
+caseAudioNotAuthenticated = runner $ do
+    res <- request defaultRequest
+            { pathInfo = ["auth-not-accepted"]
+            , requestHeaders =
+                ("accept", "audio/mpeg") : requestHeaders defaultRequest
+            }
+    assertStatus 401 res
+    assertNoHeader "content-type" res
+    assertBody mempty res
+
+caseCssPermissionDenied :: IO ()
+caseCssPermissionDenied = runner $ do
+    res <- request defaultRequest
+            { pathInfo = ["auth-not-adequate"]
+            , requestHeaders =
+                ("accept", "text/css") : requestHeaders defaultRequest
+            }
+    assertStatus 403 res
+    assertNoHeader "content-type" res
+    assertBody mempty res
+
+caseImageNotFound :: IO ()
+caseImageNotFound = runner $ do
+    res <- request defaultRequest
+            { pathInfo = ["not_a_path"]
+            , requestHeaders =
+                ("accept", "image/jpeg") : requestHeaders defaultRequest
+            }
+    assertStatus 404 res
+    assertNoHeader "content-type" res
+    assertBody mempty res
+
+caseVideoBadMethod :: IO ()
+caseVideoBadMethod = runner $ do
+    res <- request defaultRequest
+            { pathInfo = ["good-builder"]
+            , requestMethod = "DELETE"
+            , requestHeaders =
+                ("accept", "video/webm") : requestHeaders defaultRequest
+            }
+    assertStatus 405 res
+    assertNoHeader "content-type" res
+    assertBody mempty res
+
+caseEmailNotAcceptable :: IO ()
+caseEmailNotAcceptable = runner $ do
+    res <- request defaultRequest
+            { pathInfo = ["only-plain-text"]
+            , requestHeaders =
+                ("accept", "message/rfc822") : requestHeaders defaultRequest
+            }
+    assertStatus 406 res
+    assertNoHeader "content-type" res
+    assertBody mempty res
+
+caseSgmlInternalError :: IO ()
+caseSgmlInternalError = runner $ do
+    res <- request defaultRequest
+            { pathInfo = ["first_thing"]
+            , requestHeaders =
+                ("accept", "text/sgml") : requestHeaders defaultRequest
+            }
+    assertStatus 500 res
+    assertNoHeader "content-type" res
+    assertBody mempty res
