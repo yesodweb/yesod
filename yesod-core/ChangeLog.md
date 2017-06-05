@@ -1,3 +1,8 @@
+## 1.4.35
+
+* Contexts can be included in generated TH instances. [1365](https://github.com/yesodweb/yesod/issues/1365)
+* Type variables can be included in routes.
+
 ## 1.4.34
 
 * Add `WaiSubsiteWithAuth`. [#1394](https://github.com/yesodweb/yesod/pull/1394)
