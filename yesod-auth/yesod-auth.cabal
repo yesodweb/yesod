@@ -76,6 +76,7 @@ library
                      Yesod.Auth.Message
                      Yesod.Auth.GoogleEmail
                      Yesod.Auth.GoogleEmail2
+                     Yesod.Auth.Facebook
                      Yesod.Auth.Hardcoded
     other-modules:   Yesod.Auth.Routes
                      Yesod.PasswordStore

@@ -102,8 +102,8 @@ getAuth = const Auth
 
 -- | User credentials
 data Creds master = Creds
-    { credsPlugin :: Text -- ^ How the user was authenticated
-    , credsIdent :: Text -- ^ Identifier. Exact meaning depends on plugin.
+    { credsPlugin :: Text -- ^ How the user was authenticated. For 'Yesod.Auth.GoogleEmail2', this has the value of "googleemail2"
+    , credsIdent :: Text -- ^ Identifier. Exact meaning depends on plugin. For 'Yesod.Auth.GoogleEmail2', this stores email.
     , credsExtra :: [(Text, Text)]
     } deriving (Show)
 
