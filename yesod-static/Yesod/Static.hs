@@ -51,6 +51,8 @@ module Yesod.Static
       -- * Template Haskell helpers
     , staticFiles
     , staticFilesList
+    , staticFilesMap
+    , staticFilesMergeMap
     , publicFiles
       -- * Hashing
     , base64md5
@@ -62,6 +64,7 @@ module Yesod.Static
     ) where
 
 import System.Directory
+import qualified System.FilePath as FP
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
@@ -273,6 +276,43 @@ staticFilesList dir fs =
 publicFiles :: FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles' dir False
 
+-- | Similar to 'staticFilesList', but takes a manifest mapping
+-- unmunged names to fingerprinted file names.
+staticFilesMap :: FilePath -> M.Map FilePath FilePath -> Q [Dec]
+staticFilesMap fp m = mkStaticFilesList' fp (map splitBoth mapList) True
+  where
+    splitBoth (k, v) = (split k, split v)
+    mapList = M.toList m
+    split :: FilePath -> [String]
+    split [] = []
+    split x =
+        let (a, b) = break (== '/') x
+         in a : split (drop 1 b)
+
+staticFilesMergeMap :: FilePath -> M.Map FilePath FilePath -> Q [Dec]
+staticFilesMergeMap fp m = do
+  fs <- qRunIO $ getFileListPieces fp
+  let filesList = map FP.joinPath fs
+      mergedMapList = M.toList $ foldl' (checkedInsert invertedMap) m filesList
+  mkStaticFilesList' fp (map splitBoth mergedMapList) True
+  where
+    splitBoth (k, v) = (split k, split v)
+    swap (x, y) = (y, x)
+    mapList = M.toList m
+    invertedMap = M.fromList $ map swap mapList
+    split :: FilePath -> [String]
+    split [] = []
+    split x =
+        let (a, b) = break (== '/') x
+         in a : split (drop 1 b)
+    checkedInsert
+      :: M.Map FilePath FilePath -- inverted dictionary
+      -> M.Map FilePath FilePath -- accumulating state
+      -> FilePath
+      -> M.Map FilePath FilePath
+    checkedInsert iDict st p = if M.member p iDict
+      then st
+      else M.insert p p st
 
 mkHashMap :: FilePath -> IO (M.Map FilePath S8.ByteString)
 mkHashMap dir = do
@@ -330,7 +370,16 @@ mkStaticFilesList
     -> [[String]] -- ^ list of files to create identifiers for
     -> Bool     -- ^ append checksum query parameter
     -> Q [Dec]
-mkStaticFilesList fp fs makeHash = do
+mkStaticFilesList fp fs makeHash = mkStaticFilesList' fp (zip fs fs) makeHash
+
+mkStaticFilesList'
+    :: FilePath -- ^ static directory
+    -> [([String], [String])] -- ^ list of files to create identifiers for, where
+                              -- the first argument of the tuple is the identifier
+                              -- alias and the second is the actual file name
+    -> Bool     -- ^ append checksum query parameter
+    -> Q [Dec]
+mkStaticFilesList' fp fs makeHash = do
     concat `fmap` mapM mkRoute fs
   where
     replace' c
@@ -338,8 +387,8 @@ mkStaticFilesList fp fs makeHash = do
         | 'a' <= c && c <= 'z' = c
         | '0' <= c && c <= '9' = c
         | otherwise = '_'
-    mkRoute f = do
-        let name' = intercalate "_" $ map (map replace') f
+    mkRoute (alias, f) = do
+        let name' = intercalate "_" $ map (map replace') alias
             routeName = mkName $
                 case () of
                     ()
