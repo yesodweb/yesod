@@ -276,8 +276,10 @@ staticFilesList dir fs =
 publicFiles :: FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles' dir False
 
--- | Similar to 'staticFilesList', but takes a manifest mapping
+-- | Similar to 'staticFilesList', but takes a mapping of
 -- unmunged names to fingerprinted file names.
+--
+-- @since 1.5.3
 staticFilesMap :: FilePath -> M.Map FilePath FilePath -> Q [Dec]
 staticFilesMap fp m = mkStaticFilesList' fp (map splitBoth mapList) True
   where
@@ -289,6 +291,11 @@ staticFilesMap fp m = mkStaticFilesList' fp (map splitBoth mapList) True
         let (a, b) = break (== '/') x
          in a : split (drop 1 b)
 
+-- | Similar to 'staticFilesMergeMap', but also generates identifiers
+-- for all files in the specified directory that don't have a
+-- fingerprinted version.
+--
+-- @since 1.5.3
 staticFilesMergeMap :: FilePath -> M.Map FilePath FilePath -> Q [Dec]
 staticFilesMergeMap fp m = do
   fs <- qRunIO $ getFileListPieces fp
@@ -305,6 +312,9 @@ staticFilesMergeMap fp m = do
     split x =
         let (a, b) = break (== '/') x
          in a : split (drop 1 b)
+    -- We want to keep mappings for all files that are pre-fingerprinted,
+    -- so this function checks against all of the existing fingerprinted files and
+    -- only inserts a new mapping if it's not a fingerprinted file.
     checkedInsert
       :: M.Map FilePath FilePath -- inverted dictionary
       -> M.Map FilePath FilePath -- accumulating state

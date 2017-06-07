@@ -1,3 +1,8 @@
+## 1.5.3
+
+* Add `staticFilesMap` function
+* Add `staticFilesMergeMap` function
+
 ## 1.5.2
 
 * Fix test case for CRLF line endings
