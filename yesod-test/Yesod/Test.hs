@@ -62,6 +62,7 @@ module Yesod.Test
     , setRequestBody
     , RequestBuilder
     , setUrl
+    , clickOn
 
     -- *** Adding fields by label
     -- | Yesod can auto generate field names, so you are never sure what
@@ -829,6 +830,16 @@ setUrl url' = do
                 x -> x
         , rbdGets = rbdGets rbd ++ H.parseQuery (TE.encodeUtf8 urlQuery)
         }
+
+clickOn :: Yesod site => Query -> YesodExample site ()
+clickOn query = do
+  withResponse' yedResponse ["Tried to invoke clickOn in order to read HTML of a previous response."] $ \ res ->
+    case findAttributeBySelector (simpleBody res) query "href" of
+      Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
+      Right [[match]] -> get match
+      Right matches -> failure $ "Expected exactly one match for clickOn: got " <> T.pack (show matches)
+
+
 
 -- | Simple way to set HTTP request body
 --

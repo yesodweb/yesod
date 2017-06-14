@@ -34,6 +34,7 @@ import Data.ByteString.Lazy.Char8 ()
 import qualified Data.Map as Map
 import qualified Text.HTML.DOM as HD
 import Network.HTTP.Types.Status (status301, status303, unsupportedMediaType415)
+import Control.Exception.Lifted(SomeException, try)
 
 parseQuery_ :: Text -> [[SelectorGroup]]
 parseQuery_ = either error id . parseQuery
@@ -169,6 +170,15 @@ main = hspec $ do
                     addToken_ "body"
                 statusIs 200
                 bodyEquals "12345"
+            yit "can follow a link via clickOn" $ do
+              get ("/htmlWithLink" :: Text)
+              clickOn "a#thelink"
+              statusIs 200
+
+              get ("/htmlWithLink" :: Text)
+              (bad :: Either SomeException ()) <- try (clickOn "a#nonexistentlink")
+              assertEq "bad link" (isLeft bad) True
+
 
         ydescribe "utf8 paths" $ do
             yit "from path" $ do
@@ -326,6 +336,8 @@ app = liteApp $ do
     onStatic "html" $ dispatchTo $
         return ("<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>" :: Text)
 
+    onStatic "htmlWithLink" $ dispatchTo $
+        return ("<html><head><title>A link</title></head><body><a href=\"/html\" id=\"thelink\">Link!</a></body></html>" :: Text)
     onStatic "labels" $ dispatchTo $
         return ("<html><label><input type='checkbox' name='fooname' id='foobar'>Foo Bar</label></html>" :: Text)
 

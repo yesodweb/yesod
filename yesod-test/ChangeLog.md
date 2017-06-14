@@ -1,3 +1,7 @@
+## 1.5.7
+
+* Add clickOn
+
 ## 1.5.6
 
 * Add assertNotEq.

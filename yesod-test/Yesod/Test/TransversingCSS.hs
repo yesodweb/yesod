@@ -10,16 +10,16 @@ and it returns a list of the HTML fragments that matched the given query.
 Only a subset of the CSS spec is currently supported:
 
  * By tag name: /table td a/
- 
+
  * By class names: /.container .content/
 
  * By Id: /#oneId/
 
  * By attribute: /[hasIt]/, /[exact=match]/, /[contains*=text]/, /[starts^=with]/, /[ends$=with]/
- 
+
  * Union: /a, span, p/
- 
- * Immediate children: /div > p/ 
+
+ * Immediate children: /div > p/
 
  * Get jiggy with it: /div[data-attr=yeah] > .mon, .foo.bar div, #oneThing/
 
@@ -27,6 +27,7 @@ Only a subset of the CSS spec is currently supported:
 
 module Yesod.Test.TransversingCSS (
   findBySelector,
+  findAttributeBySelector,
   HtmlLBS,
   Query,
   -- * For HXT hackers
@@ -58,9 +59,30 @@ type HtmlLBS = L.ByteString
 --
 -- * Right: List of matching Html fragments.
 findBySelector :: HtmlLBS -> Query -> Either String [String]
-findBySelector html query = (\x -> map (renderHtml . toHtml . node) . runQuery x)
-    Control.Applicative.<$> (Right $ fromDocument $ HD.parseLBS html)
-    Control.Applicative.<*> parseQuery query
+findBySelector html query =
+  map (renderHtml . toHtml . node) <$> findCursorsBySelector html query
+
+-- | Perform a css 'Query' on 'Html'. Returns Either
+--
+-- * Left: Query parse error.
+--
+-- * Right: List of matching Cursors
+findCursorsBySelector :: HtmlLBS -> Query -> Either String [Cursor]
+findCursorsBySelector html query =
+  runQuery (fromDocument $ HD.parseLBS html)
+       <$> parseQuery query
+
+-- | Perform a css 'Query' on 'Html'. Returns Either
+--
+-- * Left: Query parse error.
+--
+-- * Right: List of matching Cursors
+--
+-- Since 1.5.7
+findAttributeBySelector :: HtmlLBS -> Query -> T.Text -> Either String [[T.Text]]
+findAttributeBySelector html query attr =
+  map (laxAttribute attr) <$> findCursorsBySelector html query
+
 
 -- Run a compiled query on Html, returning a list of matching Html fragments.
 runQuery :: Cursor -> [[SelectorGroup]] -> [Cursor]
