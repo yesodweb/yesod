@@ -42,7 +42,6 @@ where
 
 import Yesod.Test.CssQuery
 import qualified Data.Text as T
-import Control.Applicative ((<$>), (<*>))
 import Text.XML
 import Text.XML.Cursor
 import qualified Data.ByteString.Lazy as L
@@ -78,7 +77,7 @@ findCursorsBySelector html query =
 --
 -- * Right: List of matching Cursors
 --
--- Since 1.5.7
+-- @since 1.5.7
 findAttributeBySelector :: HtmlLBS -> Query -> T.Text -> Either String [[T.Text]]
 findAttributeBySelector html query attr =
   map (laxAttribute attr) <$> findCursorsBySelector html query
