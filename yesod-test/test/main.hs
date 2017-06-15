@@ -174,6 +174,7 @@ main = hspec $ do
               get ("/htmlWithLink" :: Text)
               clickOn "a#thelink"
               statusIs 200
+              bodyEquals "<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>"
 
               get ("/htmlWithLink" :: Text)
               (bad :: Either SomeException ()) <- try (clickOn "a#nonexistentlink")

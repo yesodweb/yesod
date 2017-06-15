@@ -831,6 +831,13 @@ setUrl url' = do
         , rbdGets = rbdGets rbd ++ H.parseQuery (TE.encodeUtf8 urlQuery)
         }
 
+
+-- | Click on a link defined by a CSS query
+--
+-- ==== __ Examples__
+--
+-- > get "/foobar"
+-- > clickOn "a#idofthelink"
 clickOn :: Yesod site => Query -> YesodExample site ()
 clickOn query = do
   withResponse' yedResponse ["Tried to invoke clickOn in order to read HTML of a previous response."] $ \ res ->
