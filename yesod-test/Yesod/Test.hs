@@ -838,6 +838,8 @@ setUrl url' = do
 --
 -- > get "/foobar"
 -- > clickOn "a#idofthelink"
+--
+-- @since 1.5.7 
 clickOn :: Yesod site => Query -> YesodExample site ()
 clickOn query = do
   withResponse' yedResponse ["Tried to invoke clickOn in order to read HTML of a previous response."] $ \ res ->
