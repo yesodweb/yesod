@@ -1,3 +1,8 @@
+## 1.5.7
+
+* Add clickOn.
+[#1408](https://github.com/yesodweb/yesod/pull/1408)
+
 ## 1.5.6
 
 * Add assertNotEq.
