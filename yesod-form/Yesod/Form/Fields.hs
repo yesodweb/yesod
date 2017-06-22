@@ -226,6 +226,7 @@ instance ToHtml Textarea where
         . unTextarea
       where
         -- Taken from blaze-builder and modified with newline handling.
+        writeHtmlEscapedChar '\r' = mempty
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
