@@ -106,6 +106,10 @@ import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput,
 
 import Yesod.Persist.Core
 
+#if !MIN_VERSION_base(4,8,0)
+import Data.Monoid
+#endif
+
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
