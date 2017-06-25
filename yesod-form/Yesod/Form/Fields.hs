@@ -106,6 +106,10 @@ import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput,
 
 import Yesod.Persist.Core
 
+#if !MIN_VERSION_base(4,8,0)
+import Data.Monoid
+#endif
+
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
 
@@ -226,6 +230,7 @@ instance ToHtml Textarea where
         . unTextarea
       where
         -- Taken from blaze-builder and modified with newline handling.
+        writeHtmlEscapedChar '\r' = mempty
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 

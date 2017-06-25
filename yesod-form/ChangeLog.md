@@ -1,3 +1,7 @@
+## 1.4.13
+
+* Fixed `textareaField` `writeHtmlEscapedChar` trim "\r"
+
 ## 1.4.12
 
 * Password field does not remember its previous value
