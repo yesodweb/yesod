@@ -160,7 +160,7 @@ mkRenderRouteInstance' cxt typ ress = do
     (cons, decs) <- mkRouteCons ress
 #if MIN_VERSION_template_haskell(2,12,0)
     did <- DataInstD [] ''Route [typ] Nothing cons <$> fmap (pure . DerivClause Nothing) (mapM conT (clazzes False))
-    let sds = fmap (\t -> StandaloneDerivD cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
+    let sds = fmap (\t -> StandaloneDerivD Nothing cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
 #elif MIN_VERSION_template_haskell(2,11,0)
     did <- DataInstD [] ''Route [typ] Nothing cons <$> mapM conT (clazzes False)
     let sds = fmap (\t -> StandaloneDerivD cxt $ ConT t `AppT` ( ConT ''Route `AppT` typ)) (clazzes True)
