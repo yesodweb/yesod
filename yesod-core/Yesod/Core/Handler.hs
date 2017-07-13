@@ -798,19 +798,30 @@ setHeader = addHeader
 -- @since 1.4.36
 replaceOrAddHeader :: MonadHandler m => Text -> Text -> m ()
 replaceOrAddHeader a b =
-  let header = Header (encodeUtf8 a) (encodeUtf8 b)
-  in modify $ \g -> g {ghsHeaders = replaceHeader header (ghsHeaders g)}
+  modify $ \g -> g {ghsHeaders = replaceHeader (ghsHeaders g)}
   where
+    repHeader = Header (encodeUtf8 a) (encodeUtf8 b)
+
     sameHeaderName :: Header -> Header -> Bool
     sameHeaderName (Header n1 _) (Header n2 _) = n1 == n2
     sameHeaderName _ _ = False
 
-    replaceHeader :: Header -> Endo [Header] -> Endo [Header]
-    replaceHeader header endo =
+    replaceIndividualHeader :: [Header] -> [Header]
+    replaceIndividualHeader [] = [repHeader]
+    replaceIndividualHeader xs = aux xs []
+      where
+        aux [] acc = acc ++ [repHeader]
+        aux (x:xs') acc =
+          if sameHeaderName repHeader x
+            then acc ++
+                 [repHeader] ++
+                 (filter (\header -> not (sameHeaderName header repHeader)) xs')
+            else aux xs' (acc ++ [x])
+
+    replaceHeader :: Endo [Header] -> Endo [Header]
+    replaceHeader endo =
       let allHeaders :: [Header] = appEndo endo []
-      in Endo
-           (\rest ->
-              header : filter (\x -> not (sameHeaderName x header)) allHeaders ++ rest)
+      in Endo (\rest -> replaceIndividualHeader allHeaders ++ rest)
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
