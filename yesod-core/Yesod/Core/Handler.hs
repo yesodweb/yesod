@@ -789,6 +789,13 @@ setHeader :: MonadHandler m => Text -> Text -> m ()
 setHeader = addHeader
 {-# DEPRECATED setHeader "Please use addHeader instead" #-}
 
+-- | Replace an existing header with a new value or add a new header
+-- if not present.
+--
+-- Note that, while the data type used here is 'Text', you must provide only
+-- ASCII value to be HTTP compliant.
+--
+-- @since 1.4.36
 replaceOrAddHeader :: MonadHandler m => Text -> Text -> m ()
 replaceOrAddHeader a b =
   let header = Header (encodeUtf8 a) (encodeUtf8 b)
