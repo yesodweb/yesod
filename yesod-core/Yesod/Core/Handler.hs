@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
