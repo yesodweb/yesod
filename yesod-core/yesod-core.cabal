@@ -150,6 +150,7 @@ test-suite tests
                    YesodCoreTest.Auth
                    YesodCoreTest.Cache
                    YesodCoreTest.CleanPath
+                   YesodCoreTest.Header
                    YesodCoreTest.Csrf
                    YesodCoreTest.ErrorHandling
                    YesodCoreTest.Exceptions
