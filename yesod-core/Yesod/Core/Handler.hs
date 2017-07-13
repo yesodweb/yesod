@@ -809,9 +809,8 @@ replaceOrAddHeader a b =
     replaceHeader header endo =
       let allHeaders :: [Header] = appEndo endo []
       in Endo
-           (\y ->
-              (header : y) ++
-              filter (\x -> not (sameHeaderName x header)) allHeaders)
+           (\rest ->
+              header : filter (\x -> not (sameHeaderName x header)) allHeaders ++ rest)
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
