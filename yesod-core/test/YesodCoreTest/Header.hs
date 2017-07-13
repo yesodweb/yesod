@@ -25,6 +25,7 @@ mkYesod
   [parseRoutes|
 /header1 Header1R GET
 /header2 Header2R GET
+/header3 Header3R GET
 |]
 
 instance Yesod App
@@ -38,6 +39,14 @@ getHeader2R :: Handler RepPlain
 getHeader2R = do
   addHeader "hello" "world"
   replaceOrAddHeader "hello" "sibi"
+  return $ RepPlain $ toContent ("header test" :: Text)
+
+getHeader3R :: Handler RepPlain
+getHeader3R = do
+  addHeader "hello" "world"
+  addHeader "michael" "snoyman"
+  addHeader "yesod" "framework"
+  replaceOrAddHeader "yesod" "book"
   return $ RepPlain $ toContent ("header test" :: Text)
 
 runner :: Session () -> IO ()
@@ -55,8 +64,17 @@ multipleHeaderTest =
     res <- request defaultRequest {pathInfo = decodePathSegments "/header2"}
     assertHeader "hello" "sibi" res
 
+header3Test :: IO ()
+header3Test = do
+  runner $ do
+    res <- request defaultRequest { pathInfo = decodePathSegments "/header3"}
+    assertHeader "hello" "world" res
+    assertHeader "michael" "snoyman" res
+    assertHeader "yesod" "book" res
+                 
 headerTest :: Spec
 headerTest =
   describe "Test.Header" $ do
     it "addHeader" addHeaderTest
     it "multiple header" multipleHeaderTest
+    it "persist headers" header3Test
