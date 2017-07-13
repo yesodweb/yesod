@@ -114,6 +114,7 @@ module Yesod.Core.Handler
     , deleteCookie
     , addHeader
     , setHeader
+    , replaceOrAddHeader
     , setLanguage
       -- ** Content caching and expiration
     , cacheSeconds
@@ -786,6 +787,23 @@ addHeader a = addHeaderInternal . Header (encodeUtf8 a) . encodeUtf8
 setHeader :: MonadHandler m => Text -> Text -> m ()
 setHeader = addHeader
 {-# DEPRECATED setHeader "Please use addHeader instead" #-}
+
+replaceOrAddHeader :: MonadHandler m => Text -> Text -> m ()
+replaceOrAddHeader a b =
+  let header = Header (encodeUtf8 a) (encodeUtf8 b)
+  in modify $ \g -> g {ghsHeaders = replaceHeader header (ghsHeaders g)}
+  where
+    sameHeaderName :: Header -> Header -> Bool
+    sameHeaderName (Header n1 _) (Header n2 _) = n1 == n2
+    sameHeaderName _ _ = False
+
+    replaceHeader :: Header -> Endo [Header] -> Endo [Header]
+    replaceHeader header endo =
+      let allHeaders :: [Header] = appEndo endo []
+      in Endo
+           (\y ->
+              (header : y) ++
+              filter (\x -> not (sameHeaderName x header)) allHeaders)
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.
