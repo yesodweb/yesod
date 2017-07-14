@@ -208,7 +208,7 @@ import Control.Monad.Trans.Class (lift)
 
 import           Data.Aeson                    (ToJSON(..))
 import qualified Data.Text                     as T
-import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
+import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8, decodeUtf8)
 import           Data.Text.Encoding.Error      (lenientDecode)
 import qualified Data.Text.Lazy                as TL
 import           Text.Blaze.Html.Renderer.Utf8 (renderHtml)
@@ -803,7 +803,7 @@ replaceOrAddHeader a b =
     repHeader = Header (encodeUtf8 a) (encodeUtf8 b)
 
     sameHeaderName :: Header -> Header -> Bool
-    sameHeaderName (Header n1 _) (Header n2 _) = n1 == n2
+    sameHeaderName (Header n1 _) (Header n2 _) = T.toLower (decodeUtf8 n1) == T.toLower (decodeUtf8 n2)
     sameHeaderName _ _ = False
 
     replaceIndividualHeader :: [Header] -> [Header]
