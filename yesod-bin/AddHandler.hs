@@ -5,9 +5,13 @@ import Prelude hiding (readFile)
 import System.IO  (hFlush, stdout)
 import Data.Char  (isLower, toLower, isSpace)
 import Data.List  (isPrefixOf, isSuffixOf, stripPrefix)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Distribution.PackageDescription.Parse (readPackageDescription)
+import Distribution.PackageDescription.Configuration (flattenPackageDescription)
+import Distribution.PackageDescription (allBuildInfo, hsSourceDirs)
+import Distribution.Verbosity (normal)
 import System.Directory (getDirectoryContents, doesFileExist)
 import Control.Monad (unless)
 
@@ -31,7 +35,7 @@ cmdLineArgsError = "You have to specify a route name if you want to add handler 
 addHandler :: Maybe String -> Maybe String -> [String] -> IO ()
 addHandler (Just route) pat met = do
     cabal <- getCabal
-    checked <- checkRoute route
+    checked <- checkRoute route cabal
     let routePair = case checked of
           Left err@EmptyRoute -> (error . show) err
           Left err@RouteCaseError -> (error . show) err
@@ -54,7 +58,7 @@ addHandlerInteractive = do
         putStr "Name of route (without trailing R): "
         hFlush stdout
         name <- getLine
-        checked <- checkRoute name
+        checked <- checkRoute name cabal
         case checked of
             Left err@EmptyRoute -> (error . show) err
             Left err@RouteCaseError -> print err >> routeInput
@@ -75,7 +79,9 @@ addHandlerInteractive = do
 
 addHandlerFiles :: FilePath -> (String, FilePath) -> String -> String -> IO ()
 addHandlerFiles cabal (name, handlerFile) pattern methods = do
-    modify "Application.hs" $ fixApp name
+    src <- getSrcDir cabal
+    let applicationFile = concat [src, "/Application.hs"]
+    modify applicationFile $ fixApp name
     modify cabal $ fixCabal name
     modify "config/routes" $ fixRoutes name pattern methods
     writeFile handlerFile $ mkHandler name pattern methods
@@ -94,15 +100,16 @@ getCabal = do
         [] -> error "No cabal file found"
         _ -> error "Too many cabal files found"
 
-checkRoute :: String -> IO (Either RouteError (String, FilePath))
-checkRoute name =
+checkRoute :: String -> FilePath -> IO (Either RouteError (String, FilePath))
+checkRoute name cabal =
     case name of
         [] -> return $ Left EmptyRoute
         c:_
             | isLower c -> return $ Left RouteCaseError
             | otherwise -> do
                 -- Check that the handler file doesn't already exist
-                let handlerFile = concat ["Handler/", name, ".hs"]
+                src <- getSrcDir cabal
+                let handlerFile = concat [src, "/Handler/", name, ".hs"]
                 exists <- doesFileExist handlerFile
                 if exists
                     then (return . Left . RouteExists) handlerFile
@@ -214,3 +221,10 @@ mkHandler name pattern methods = unlines
 uncapitalize :: String -> String
 uncapitalize (x:xs) = toLower x : xs
 uncapitalize "" = ""
+
+getSrcDir :: FilePath -> IO FilePath
+getSrcDir cabal = do
+    pd <- flattenPackageDescription <$> readPackageDescription normal cabal
+    let buildInfo = allBuildInfo pd
+        srcDirs = concatMap hsSourceDirs buildInfo
+    return $ fromMaybe "." $ listToMaybe srcDirs
