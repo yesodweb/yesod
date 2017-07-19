@@ -1,3 +1,7 @@
+## 1.5.8
+* Added implicit parameter HasCallStack to assertions.
+[#1421](https://github.com/yesodweb/yesod/pull/1421)
+
 ## 1.5.7
 
 * Add clickOn.
