@@ -1,3 +1,7 @@
+## 1.4.35.1
+
+* TH fix for GHC 8.2
+
 ## 1.4.35
 
 * Contexts can be included in generated TH instances. [1365](https://github.com/yesodweb/yesod/issues/1365)
