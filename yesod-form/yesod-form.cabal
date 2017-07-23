@@ -24,7 +24,7 @@ library
                    , yesod-persistent      >= 1.4      && < 1.5
                    , time                  >= 1.1.4
                    , shakespeare           >= 2.0
-                   , persistent            >= 2.5
+                   , persistent
                    , template-haskell
                    , transformers          >= 0.2.2
                    , data-default
