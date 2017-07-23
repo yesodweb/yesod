@@ -139,11 +139,8 @@ install:
 - if [ -f configure.ac ]; then autoreconf -i; fi
 - |
   set -ex
-  if [ "$ARGS" = "--resolver nightly" ]
-  then
-    stack --install-ghc $ARGS build cabal-install
-    stack --install-ghc $ARGS solver --update-config
-  fi
+  stack --install-ghc $ARGS build cabal-install
+  stack --install-ghc $ARGS solver --update-config
   set +ex
 
 script:
