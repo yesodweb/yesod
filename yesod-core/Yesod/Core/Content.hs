@@ -66,7 +66,8 @@ import Data.Conduit.Internal (ResumableSource (ResumableSource))
 import qualified Data.Conduit.Internal as CI
 
 import qualified Data.Aeson as J
-#if MIN_VERSION_aeson(0, 7, 0)
+#if MIN_VERSION_aeson(1, 0, 0)
+#elif MIN_VERSION_aeson(0, 7, 0)
 import Data.Aeson.Encode (encodeToTextBuilder)
 #else
 import Data.Aeson.Encode (fromValue)
@@ -242,6 +243,11 @@ instance ToContent a => ToContent (DontFullyEvaluate a) where
     toContent (DontFullyEvaluate a) = ContentDontEvaluate $ toContent a
 
 instance ToContent J.Value where
+#if MIN_VERSION_aeson(1, 0, 0)
+    toContent = flip ContentBuilder Nothing
+              . J.fromEncoding
+              . J.toEncoding
+#else
     toContent = flip ContentBuilder Nothing
               . Blaze.fromLazyText
               . toLazyText
@@ -249,6 +255,8 @@ instance ToContent J.Value where
               . encodeToTextBuilder
 #else
               . fromValue
+#endif
+
 #endif
 
 #if MIN_VERSION_aeson(0, 11, 0)
