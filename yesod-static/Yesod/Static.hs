@@ -81,7 +81,7 @@ import Crypto.Hash (MD5, Digest)
 import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans.State
 
-import qualified Data.Byteable as Byteable
+import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
@@ -420,7 +420,7 @@ mkStaticFilesList' fp fs makeHash = do
 
 base64md5File :: FilePath -> IO String
 base64md5File = fmap (base64 . encode) . hashFile
-    where encode d = Byteable.toBytes (d :: Digest MD5)
+    where encode d = ByteArray.convert (d :: Digest MD5)
 
 base64md5 :: L.ByteString -> String
 base64md5 lbs =
@@ -428,7 +428,7 @@ base64md5 lbs =
           $ runIdentity
           $ sourceList (L.toChunks lbs) $$ sinkHash
   where
-    encode d = Byteable.toBytes (d :: Digest MD5)
+    encode d = ByteArray.convert (d :: Digest MD5)
 
 base64 :: S.ByteString -> String
 base64 = map tr
