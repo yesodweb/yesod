@@ -74,7 +74,11 @@ import           Control.Monad.IO.Class   (MonadIO)
 import qualified Crypto.Nonce             as Nonce
 import           Data.Aeson               ((.:?))
 import qualified Data.Aeson               as A
+#if MIN_VERSION_aeson(1,0,0)
+import qualified Data.Aeson.Text          as A
+#else
 import qualified Data.Aeson.Encode        as A
+#endif
 import           Data.Aeson.Parser        (json')
 import           Data.Aeson.Types         (FromJSON (parseJSON), parseEither,
                                            parseMaybe, withObject, withText)

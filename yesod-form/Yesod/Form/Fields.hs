@@ -76,7 +76,7 @@ import Database.Persist.Sql (PersistField, PersistFieldSql (..))
 #if MIN_VERSION_persistent(2,5,0)
 import Database.Persist (Entity (..), SqlType (SqlString), PersistRecordBackend, PersistQueryRead)
 #else
-import Database.Persist (Entity (..), SqlType (SqlString))
+import Database.Persist (Entity (..), SqlType (SqlString), PersistEntity, PersistQuery, PersistEntityBackend)
 #endif
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)

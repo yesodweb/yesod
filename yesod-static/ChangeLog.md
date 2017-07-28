@@ -1,3 +1,7 @@
+## 1.5.3.1
+
+* Switch to cryptonite
+
 ## 1.5.3
 
 * Add `staticFilesMap` function

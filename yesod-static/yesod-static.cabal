@@ -1,5 +1,5 @@
 name:            yesod-static
-version:         1.5.3
+version:         1.5.3.1
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -44,8 +44,9 @@ library
                    , unix-compat           >= 0.2
                    , conduit               >= 0.5
                    , conduit-extra
-                   , cryptohash-conduit    >= 0.1
-                   , cryptohash            >= 0.11
+                   , cryptonite-conduit    >= 0.1
+                   , cryptonite            >= 0.11
+                   , memory
                    , data-default
                    , mime-types            >= 0.1
                    , hjsmin
@@ -112,8 +113,9 @@ test-suite tests
                    , http-types
                    , unix-compat
                    , conduit
-                   , cryptohash-conduit
-                   , cryptohash
+                   , cryptonite-conduit
+                   , cryptonite
+                   , memory
                    , data-default
                    , mime-types
                    , hjsmin
