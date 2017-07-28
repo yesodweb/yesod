@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 ---------------------------------------------------------
 --
 -- Module        : Yesod.Handler
@@ -114,6 +115,7 @@ module Yesod.Core.Handler
     , deleteCookie
     , addHeader
     , setHeader
+    , replaceOrAddHeader
     , setLanguage
       -- ** Content caching and expiration
     , cacheSeconds
@@ -206,7 +208,7 @@ import Control.Monad.Trans.Class (lift)
 
 import           Data.Aeson                    (ToJSON(..))
 import qualified Data.Text                     as T
-import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8)
+import           Data.Text.Encoding            (decodeUtf8With, encodeUtf8, decodeUtf8)
 import           Data.Text.Encoding.Error      (lenientDecode)
 import qualified Data.Text.Lazy                as TL
 import           Text.Blaze.Html.Renderer.Utf8 (renderHtml)
@@ -786,6 +788,40 @@ addHeader a = addHeaderInternal . Header (encodeUtf8 a) . encodeUtf8
 setHeader :: MonadHandler m => Text -> Text -> m ()
 setHeader = addHeader
 {-# DEPRECATED setHeader "Please use addHeader instead" #-}
+
+-- | Replace an existing header with a new value or add a new header
+-- if not present.
+--
+-- Note that, while the data type used here is 'Text', you must provide only
+-- ASCII value to be HTTP compliant.
+--
+-- @since 1.4.36
+replaceOrAddHeader :: MonadHandler m => Text -> Text -> m ()
+replaceOrAddHeader a b =
+  modify $ \g -> g {ghsHeaders = replaceHeader (ghsHeaders g)}
+  where
+    repHeader = Header (encodeUtf8 a) (encodeUtf8 b)
+
+    sameHeaderName :: Header -> Header -> Bool
+    sameHeaderName (Header n1 _) (Header n2 _) = T.toLower (decodeUtf8 n1) == T.toLower (decodeUtf8 n2)
+    sameHeaderName _ _ = False
+
+    replaceIndividualHeader :: [Header] -> [Header]
+    replaceIndividualHeader [] = [repHeader]
+    replaceIndividualHeader xs = aux xs []
+      where
+        aux [] acc = acc ++ [repHeader]
+        aux (x:xs') acc =
+          if sameHeaderName repHeader x
+            then acc ++
+                 [repHeader] ++
+                 (filter (\header -> not (sameHeaderName header repHeader)) xs')
+            else aux xs' (acc ++ [x])
+
+    replaceHeader :: Endo [Header] -> Endo [Header]
+    replaceHeader endo =
+      let allHeaders :: [Header] = appEndo endo []
+      in Endo (\rest -> replaceIndividualHeader allHeaders ++ rest)
 
 -- | Set the Cache-Control header to indicate this response should be cached
 -- for the given number of seconds.

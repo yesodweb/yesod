@@ -6,6 +6,7 @@ import YesodCoreTest.Exceptions
 import YesodCoreTest.Widget
 import YesodCoreTest.Media
 import YesodCoreTest.Links
+import YesodCoreTest.Header
 import YesodCoreTest.NoOverloadedStrings
 import YesodCoreTest.InternalRequest
 import YesodCoreTest.ErrorHandling
@@ -27,6 +28,7 @@ import Test.Hspec
 
 specs :: Spec
 specs = do
+      headerTest
       cleanPathTest
       exceptionsTest
       widgetTest
