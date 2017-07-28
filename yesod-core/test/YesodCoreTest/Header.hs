@@ -7,15 +7,12 @@ module YesodCoreTest.Header
   , resourcesApp
   ) where
 
-import Data.ByteString.Lazy (ByteString)
-import qualified Data.Map as Map
 import Data.Text (Text)
-import Network.HTTP.Types (decodePathSegments, status200)
+import Network.HTTP.Types (decodePathSegments)
 import Network.Wai
 import Network.Wai.Test
 import Test.Hspec
 import Yesod.Core
-import Yesod.Core.Handler
 
 data App =
   App
@@ -67,11 +64,11 @@ multipleHeaderTest =
 header3Test :: IO ()
 header3Test = do
   runner $ do
-    res <- request defaultRequest { pathInfo = decodePathSegments "/header3"}
+    res <- request defaultRequest {pathInfo = decodePathSegments "/header3"}
     assertHeader "hello" "world" res
     assertHeader "michael" "snoyman" res
     assertHeader "yesod" "book" res
-                 
+
 headerTest :: Spec
 headerTest =
   describe "Test.Header" $ do
