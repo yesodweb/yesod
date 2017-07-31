@@ -255,7 +255,11 @@ getAvailableFlags :: D.GenericPackageDescription -> Set.Set String
 getAvailableFlags =
     Set.fromList . map (unFlagName . D.flagName) . D.genPackageFlags
   where
+#if MIN_VERSION_Cabal(2, 0, 0)
+    unFlagName = D.unFlagName
+#else
     unFlagName (D.FlagName fn) = fn
+#endif
 
 -- | This is the main entry point. Run the devel server.
 devel :: DevelOpts -- ^ command line options
@@ -276,9 +280,20 @@ devel opts passThroughArgs = do
 #else
     cabal  <- D.findPackageDesc "."
 #endif
+
+#if MIN_VERSION_Cabal(1, 20, 0)
+    gpd    <- D.readGenericPackageDescription D.normal cabal
+#else
     gpd    <- D.readPackageDescription D.normal cabal
+#endif
+
     let pd = D.packageDescription gpd
-        D.PackageIdentifier (D.PackageName packageName) _version = D.package pd
+        D.PackageIdentifier packageNameWrapped _version = D.package pd
+#if MIN_VERSION_Cabal(2, 0, 0)
+        packageName = D.unPackageName packageNameWrapped
+#else
+        D.PackageName packageName = packageNameWrapped
+#endif
 
     -- Which file contains the code to run
     develHsPath <- checkDevelFile

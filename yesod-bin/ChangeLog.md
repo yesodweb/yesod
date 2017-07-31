@@ -1,3 +1,7 @@
+## 1.5.2.4
+
+* Cabal 2.0 support
+
 ## 1.5.2.3
 
 * Fix race condition which leads dev server to stay in compilation mode. [#1380](https://github.com/yesodweb/yesod/issues/1380)
