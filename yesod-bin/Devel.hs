@@ -281,7 +281,7 @@ devel opts passThroughArgs = do
     cabal  <- D.findPackageDesc "."
 #endif
 
-#if MIN_VERSION_Cabal(1, 20, 0)
+#if MIN_VERSION_Cabal(2, 0, 0)
     gpd    <- D.readGenericPackageDescription D.normal cabal
 #else
     gpd    <- D.readPackageDescription D.normal cabal
