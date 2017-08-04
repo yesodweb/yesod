@@ -1,3 +1,7 @@
+## 1.5.2.5
+
+* Support for `add-handler` when modules are in `src/` directory [#1413](https://github.com/yesodweb/yesod/issues/1413)
+
 ## 1.5.2.4
 
 * Cabal 2.0 support
