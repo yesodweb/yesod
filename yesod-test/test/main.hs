@@ -150,6 +150,18 @@ main = hspec $ do
                     addToken
                 statusIs 200
                 bodyEquals "12345"
+            yit "labels WForm" $ do
+                get ("/wform" :: Text)
+                statusIs 200
+
+                request $ do
+                    setMethod "POST"
+                    setUrl ("/wform" :: Text)
+                    byLabel "Some WLabel" "12345"
+                    fileByLabel "Some WFile" "test/main.hs" "text/plain"
+                    addToken
+                statusIs 200
+                bodyEquals "12345"
             yit "finding html" $ do
                 get ("/html" :: Text)
                 statusIs 200
@@ -334,6 +346,15 @@ app = liteApp $ do
         case mfoo of
             FormSuccess (foo, _) -> return $ toHtml foo
             _ -> defaultLayout widget
+    onStatic "wform" $ dispatchTo $ do
+        ((mfoo, widget), _) <- runFormPost $ renderDivs $ wFormToAForm $ do
+          field1F <- wreq textField "Some WLabel" Nothing
+          field2F <- wreq fileField "Some WFile" Nothing
+
+          return $ (,) Control.Applicative.<$> field1F <*> field2F
+        case mfoo of
+            FormSuccess (foo, _) -> return $ toHtml foo
+            _                    -> defaultLayout widget
     onStatic "html" $ dispatchTo $
         return ("<html><head><title>Hello</title></head><body><p>Hello World</p><p>Hello Moon</p></body></html>" :: Text)
 
