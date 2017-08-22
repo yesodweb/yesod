@@ -58,7 +58,7 @@ test-suite test
                           , containers
                           , html-conduit
                           , yesod-core
-                          , yesod-form
+                          , yesod-form >= 1.4.14
                           , text
                           , wai
                           , lifted-base
