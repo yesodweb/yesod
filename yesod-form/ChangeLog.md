@@ -1,3 +1,7 @@
+## 1.4.15
+
+* Added `Alternative` instance to `FormResult` to simplify handling pages with multiple forms.
+
 ## 1.4.14
 
 * Added `WForm` to reduce the verbosity using monadic forms.

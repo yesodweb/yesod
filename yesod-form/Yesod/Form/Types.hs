@@ -30,7 +30,7 @@ import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define Html Markup
 #define ToHtml ToMarkup
 #define toHtml toMarkup
-import Control.Applicative ((<$>), Applicative (..))
+import Control.Applicative ((<$>), Alternative (..), Applicative (..))
 import Control.Monad (liftM)
 import Control.Monad.Trans.Class
 import Data.String (IsString (..))
@@ -45,6 +45,8 @@ import Data.Foldable
 --
 -- The 'Applicative' instance will concatenate the failure messages in two
 -- 'FormResult's.
+-- The 'Alternative' instance will choose 'FormFailure' before 'FormSuccess',
+-- and 'FormMissing' last of all.
 data FormResult a = FormMissing
                   | FormFailure [Text]
                   | FormSuccess a
@@ -79,6 +81,16 @@ instance Data.Traversable.Traversable FormResult where
       FormSuccess a -> fmap FormSuccess (f a)
       FormFailure errs -> pure (FormFailure errs)
       FormMissing -> pure FormMissing
+
+-- | @since 1.4.15
+instance Alternative FormResult where
+    empty = FormMissing
+
+    FormFailure e    <|> _             = FormFailure e
+    _                <|> FormFailure e = FormFailure e
+    FormSuccess s    <|> FormSuccess _ = FormSuccess s
+    FormMissing      <|> result        = result
+    result           <|> FormMissing   = result
 
 -- | The encoding type required by a form. The 'ToHtml' instance produces values
 -- that can be inserted directly into HTML.
