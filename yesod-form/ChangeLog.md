@@ -1,3 +1,8 @@
+## 1.4.14
+
+* Added `WForm` to reduce the verbosity using monadic forms.
+* Added `wreq` and `wopt` correspondent functions for `WForm`.
+
 ## 1.4.13
 
 * Fixed `textareaField` `writeHtmlEscapedChar` trim "\r"
