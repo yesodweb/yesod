@@ -1,13 +1,8 @@
 {-# LANGUAGE OverloadedStrings, BangPatterns #-}
 {-# LANGUAGE CPP #-}
 -- |
--- Module      : Crypto.PasswordStore
--- Copyright   : (c) Peter Scott, 2011
--- License     : BSD-style
---
--- Maintainer  : pjscott@iastate.edu
--- Stability   : experimental
--- Portability : portable
+-- This is a fork of pwstore-fast, originally copyright (c) Peter Scott, 2011,
+-- and released under a BSD-style licence.
 --
 -- Securely store hashed, salted passwords. If you need to store and verify
 -- passwords, there are many wrong ways to do it, most of them all too
@@ -71,7 +66,7 @@
 -- iteration count. This does not have a significant effect on security, but can
 -- be handy for compatibility with other code.
 
-module Yesod.PasswordStore (
+module Yesod.Auth.Util.PasswordStore (
 
         -- * Algorithms
         pbkdf1,                 -- :: ByteString -> Salt -> Int -> ByteString
