@@ -65,6 +65,8 @@
 -- Note that, as of version 2.4, you can also use PBKDF2, and specify the exact
 -- iteration count. This does not have a significant effect on security, but can
 -- be handy for compatibility with other code.
+--
+-- @since 1.4.18
 
 module Yesod.Auth.Util.PasswordStore (
 
@@ -126,6 +128,9 @@ import Data.ByteArray (convert)
 -- key should be stored in the password file. When a user wishes to authenticate
 -- a password, just pass it and the salt to this function, and see if the output
 -- matches.
+--
+-- @since 1.4.18
+--
 pbkdf1 :: ByteString -> Salt -> Int -> ByteString
 pbkdf1 password (SaltBS salt) iter = hashRounds first_hash (iter + 1)
   where
@@ -156,6 +161,9 @@ hmacSHA256 secret msg =
 -- @32@ is the most common digest size for @SHA256@, and is
 -- what the algorithm internally uses.
 -- @HMAC+SHA256@ is used as @PRF@, because @HMAC+SHA1@ is considered too weak.
+--
+-- @since 1.4.18
+--
 pbkdf2 :: ByteString -> Salt -> Int -> ByteString
 pbkdf2 password (SaltBS salt) c =
     let hLen = 32
@@ -194,6 +202,9 @@ pbkdf2 password (SaltBS salt) c =
 -- | Generate a 'Salt' from 128 bits of data from @\/dev\/urandom@, with the
 -- system RNG as a fallback. This is the function used to generate salts by
 -- 'makePassword'.
+--
+-- @since 1.4.18
+--
 genSaltIO :: IO Salt
 genSaltIO =
     Control.Exception.catch genSaltDevURandom def
@@ -247,6 +258,9 @@ writePwHash (strength, SaltBS salt, hash) =
 -- database. Generates a salt using high-quality randomness from
 -- @\/dev\/urandom@ or (if that is not available, for example on Windows)
 -- 'System.Random', which is included in the hashed output.
+--
+-- @since 1.4.18
+--
 makePassword :: ByteString -> Int -> IO ByteString
 makePassword = makePasswordWith pbkdf1
 
@@ -254,6 +268,8 @@ makePassword = makePasswordWith pbkdf1
 -- to choose the algorithm to use.
 --
 -- >>> makePasswordWith pbkdf1 "password" 14
+--
+-- @since 1.4.18
 --
 makePasswordWith :: (ByteString -> Salt -> Int -> ByteString)
                  -- ^ The algorithm to use (e.g. pbkdf1)
@@ -271,6 +287,9 @@ makePasswordWith algorithm password strength = do
 -- Note that, unlike 'makePasswordWith', this function takes the @raw@
 -- number of iterations. This means the user will need to specify a
 -- sensible value, typically @10000@ or @20000@.
+--
+-- @since 1.4.18
+--
 makePasswordSaltWith :: (ByteString -> Salt -> Int -> ByteString)
                      -- ^ A function modeling an algorithm (e.g. 'pbkdf1')
                      -> (Int -> Int)
@@ -291,6 +310,9 @@ makePasswordSaltWith algorithm strengthModifier pwd salt strength = writePwHash 
 --
 -- > >>> makePasswordSalt "hunter2" (makeSalt "72cd18b5ebfe6e96") 14
 -- > "sha256|14|NzJjZDE4YjVlYmZlNmU5Ng==|yuiNrZW3KHX+pd0sWy9NTTsy5Yopmtx4UYscItSsoxc="
+--
+-- @since 1.4.18
+--
 makePasswordSalt :: ByteString -> Salt -> Int -> ByteString
 makePasswordSalt = makePasswordSaltWith pbkdf1 (2^)
 
@@ -306,6 +328,8 @@ makePasswordSalt = makePasswordSaltWith pbkdf1 (2^)
 --
 -- > >>> verifyPasswordWith pbkdf2 id "hunter2" "sha256..."
 -- > True
+--
+-- @since 1.4.18
 --
 verifyPasswordWith :: (ByteString -> Salt -> Int -> ByteString)
                    -- ^ A function modeling an algorithm (e.g. pbkdf1)
@@ -323,6 +347,9 @@ verifyPasswordWith algorithm strengthModifier userInput pwHash =
           encode (algorithm userInput salt (strengthModifier strength)) == goodHash
 
 -- | Like 'verifyPasswordWith', but uses 'pbkdf1' as algorithm.
+--
+-- @since 1.4.18
+--
 verifyPassword :: ByteString -> ByteString -> Bool
 verifyPassword = verifyPasswordWith pbkdf1 (2^)
 
@@ -336,6 +363,9 @@ verifyPassword = verifyPasswordWith pbkdf1 (2^)
 -- This function can be used to periodically update your password database when
 -- computers get faster, in order to keep up with Moore's law. This isn't hugely
 -- important, but it's a good idea.
+--
+-- @since 1.4.18
+--
 strengthenPassword :: ByteString -> Int -> ByteString
 strengthenPassword pwHash newstr =
     case readPwHash pwHash of
@@ -350,6 +380,9 @@ strengthenPassword pwHash newstr =
                 hash = decodeLenient hashB64
 
 -- | Return the strength of a password hash.
+--
+-- @since 1.4.18
+--
 passwordStrength :: ByteString -> Int
 passwordStrength pwHash = case readPwHash pwHash of
                             Nothing               -> 0
@@ -363,12 +396,18 @@ passwordStrength pwHash = case readPwHash pwHash of
 -- hash. You can generate a salt with 'genSaltIO' or 'genSaltRandom', or if you
 -- really know what you're doing, you can create them from your own ByteString
 -- values with 'makeSalt'.
+--
+-- @since 1.4.18
+--
 newtype Salt = SaltBS ByteString
     deriving (Show, Eq, Ord)
 
 -- | Create a 'Salt' from a 'ByteString'. The input must be at least 8
 -- characters, and can contain arbitrary bytes. Most users will not need to use
 -- this function.
+--
+-- @since 1.4.18
+--
 makeSalt :: ByteString -> Salt
 makeSalt = SaltBS . encode . check_length
     where check_length salt | B.length salt < 8 =
@@ -377,17 +416,26 @@ makeSalt = SaltBS . encode . check_length
 
 -- | Convert a 'Salt' into a 'ByteString'. The resulting 'ByteString' will be
 -- base64-encoded. Most users will not need to use this function.
+--
+-- @since 1.4.18
+--
 exportSalt :: Salt -> ByteString
 exportSalt (SaltBS bs) = bs
 
 -- | Convert a raw 'ByteString' into a 'Salt'.
 -- Use this function with caution, since using a weak salt will result in a
 -- weak password.
+--
+-- @since 1.4.18
+--
 importSalt :: ByteString -> Salt
 importSalt = SaltBS
 
 -- | Is the format of a password hash valid? Attempts to parse a given password
 -- hash. Returns 'True' if it parses correctly, and 'False' otherwise.
+--
+-- @since 1.4.18
+--
 isPasswordFormatValid :: ByteString -> Bool
 isPasswordFormatValid = isJust . readPwHash
 
@@ -395,6 +443,9 @@ isPasswordFormatValid = isJust . readPwHash
 -- generator. Returns the salt and the updated random number generator. This is
 -- meant to be used with 'makePasswordSalt' by people who would prefer to either
 -- use their own random number generator or avoid the 'IO' monad.
+--
+-- @since 1.4.18
+--
 genSaltRandom :: (RandomGen b) => b -> (Salt, b)
 genSaltRandom gen = (salt, newgen)
     where rands _ 0 = []
