@@ -116,7 +116,7 @@ import           Yesod.Auth
 import qualified Yesod.Auth.Message       as Msg
 import           Yesod.Core
 import           Yesod.Form
-import qualified Yesod.PasswordStore      as PS
+import qualified Yesod.Auth.Util.PasswordStore as PS
 import           Control.Applicative      ((<$>), (<*>))
 import qualified Crypto.Hash              as H
 import qualified Crypto.Nonce             as Nonce

@@ -1,3 +1,7 @@
+## 1.4.18
+
+* Expose Yesod.Auth.Util.PasswordStore
+
 ## 1.4.17.3
 
 * Some translation fixes
