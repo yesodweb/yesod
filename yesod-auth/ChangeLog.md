@@ -1,3 +1,7 @@
+## 1.4.19
+
+* Adjust English localization to distinguish between "log in" (verb) and "login" (noun)
+
 ## 1.4.18
 
 * Expose Yesod.Auth.Util.PasswordStore
