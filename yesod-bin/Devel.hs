@@ -334,7 +334,6 @@ devel opts passThroughArgs = do
                        $ setStderr createSource
                        $ setDelegateCtlc True $ proc "stack" $
                 [ "build"
-                , "--fast"
                 , "--file-watch"
 
                 -- Indicate the component we want
