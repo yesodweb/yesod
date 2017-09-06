@@ -1,3 +1,7 @@
+## 1.4.16
+
+* Korean translation
+
 ## 1.4.15
 
 * Added `Alternative` instance to `FormResult` to simplify handling pages with multiple forms.
