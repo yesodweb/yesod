@@ -1,3 +1,7 @@
+## 1.4.37
+
+* Add `setWeakEtag` function in Yesod.Core.Handler module.
+
 ## 1.4.36
 
 * Add `replaceOrAddHeader` function in Yesod.Core.Handler module. [1416](https://github.com/yesodweb/yesod/issues/1416)

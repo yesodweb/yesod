@@ -123,6 +123,7 @@ module Yesod.Core.Handler
     , alreadyExpired
     , expiresAt
     , setEtag
+    , setWeakEtag
       -- * Session
     , SessionMap
     , lookupSession
@@ -851,12 +852,24 @@ alreadyExpired = setHeader "Expires" "Thu, 01 Jan 1970 05:05:05 GMT"
 expiresAt :: MonadHandler m => UTCTime -> m ()
 expiresAt = setHeader "Expires" . formatRFC1123
 
+data Etag
+  = WeakEtag !S.ByteString
+  -- ^ Prefixed by W/ and surrounded in quotes. Signifies that contents are
+  -- semantically identical but make no guarantees about being bytewise identical.
+  | StrongEtag !S.ByteString
+  -- ^ Signifies that contents should be byte-for-byte identical if they match
+  -- the provided ETag
+  | InvalidEtag !S.ByteString
+  -- ^ Anything else that ends up in a header that expects an ETag but doesn't
+  -- properly follow the ETag format specified in RFC 7232, section 2.3
+  deriving (Show, Eq)
+
 -- | Check the if-none-match header and, if it matches the given value, return
 -- a 304 not modified response. Otherwise, set the etag header to the given
 -- value.
 --
 -- Note that it is the responsibility of the caller to ensure that the provided
--- value is a value etag value, no sanity checking is performed by this
+-- value is a valid etag value, no sanity checking is performed by this
 -- function.
 --
 -- @since 1.4.4
@@ -864,22 +877,49 @@ setEtag :: MonadHandler m => Text -> m ()
 setEtag etag = do
     mmatch <- lookupHeader "if-none-match"
     let matches = maybe [] parseMatch mmatch
-    if encodeUtf8 etag `elem` matches
+    if StrongEtag (encodeUtf8 etag) `elem` matches
         then notModified
         else addHeader "etag" $ T.concat ["\"", etag, "\""]
 
--- | Parse an if-none-match field according to the spec. Does not parsing on
--- weak matches, which are not supported by setEtag.
-parseMatch :: S.ByteString -> [S.ByteString]
+-- | Parse an if-none-match field according to the spec.
+parseMatch :: S.ByteString -> [Etag]
 parseMatch =
     map clean . S.split W8._comma
   where
-    clean = stripQuotes . fst . S.spanEnd W8.isSpace . S.dropWhile W8.isSpace
+    clean = classify . fst . S.spanEnd W8.isSpace . S.dropWhile W8.isSpace
 
-    stripQuotes bs
+    classify bs
         | S.length bs >= 2 && S.head bs == W8._quotedbl && S.last bs == W8._quotedbl
-            = S.init $ S.tail bs
-        | otherwise = bs
+            = StrongEtag $ S.init $ S.tail bs
+        | S.length bs >= 4 &&
+          S.head bs == W8._W &&
+          S.index bs 1 == W8._slash &&
+          S.index bs 2 == W8._quotedbl &&
+          S.last bs == W8._quotedbl
+            = WeakEtag $ S.init $ S.drop 3 bs
+        | otherwise = InvalidEtag bs
+
+-- | Check the if-none-match header and, if it matches the given value, return
+-- a 304 not modified response. Otherwise, set the etag header to the given
+-- value.
+--
+-- A weak etag is only expected to be semantically identical to the prior content,
+-- but doesn't have to be byte-for-byte identical. Therefore it can be useful for
+-- dynamically generated content that may be difficult to perform bytewise hashing
+-- upon.
+--
+-- Note that it is the responsibility of the caller to ensure that the provided
+-- value is a valid etag value, no sanity checking is performed by this
+-- function.
+--
+-- @since 1.4.37
+setWeakEtag :: MonadHandler m => Text -> m ()
+setWeakEtag etag = do
+    mmatch <- lookupHeader "if-none-match"
+    let matches = maybe [] parseMatch mmatch
+    if WeakEtag (encodeUtf8 etag) `elem` matches
+        then notModified
+        else addHeader "etag" $ T.concat ["W/\"", etag, "\""]
 
 -- | Set a variable in the user's session.
 --
