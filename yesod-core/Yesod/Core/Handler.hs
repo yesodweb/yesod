@@ -877,9 +877,13 @@ setEtag :: MonadHandler m => Text -> m ()
 setEtag etag = do
     mmatch <- lookupHeader "if-none-match"
     let matches = maybe [] parseMatch mmatch
-    if StrongEtag (encodeUtf8 etag) `elem` matches
+        baseTag = encodeUtf8 etag
+        strongTag = StrongEtag baseTag
+        badTag = InvalidEtag baseTag
+    if any (\tag -> tag == strongTag || tag == badTag) matches
         then notModified
         else addHeader "etag" $ T.concat ["\"", etag, "\""]
+
 
 -- | Parse an if-none-match field according to the spec.
 parseMatch :: S.ByteString -> [Etag]

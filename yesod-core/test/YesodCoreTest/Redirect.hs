@@ -79,12 +79,14 @@ specs = describe "Redirect" $ do
         res <- request defaultRequest { pathInfo = ["etag"] }
         assertStatus 200 res
         assertHeader "etag" "\"hello world\"" res
+      -- Note: this violates the RFC around ETag format, but is being left as is
+      -- out of concerns that it might break existing users with misbehaving clients.
       it "single, unquoted if-none-match" $ app $ do
         res <- request defaultRequest
             { pathInfo = ["etag"]
             , requestHeaders = [("if-none-match", "hello world")]
             }
-        assertStatus 200 res
+        assertStatus 304 res
       it "different if-none-match" $ app $ do
         res <- request defaultRequest
             { pathInfo = ["etag"]
