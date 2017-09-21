@@ -4,7 +4,7 @@
 {-# LANGUAGE PatternGuards           #-}
 {-# LANGUAGE QuasiQuotes             #-}
 {-# LANGUAGE Rank2Types              #-}
-{-# LANGUAGE ScopedTypeVariables#-}
+{-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE TypeFamilies            #-}
 -- | A Yesod plugin for Authentication via e-mail
 --
@@ -132,7 +132,7 @@ import           Safe                     (readMay)
 import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
 import           Data.Aeson.Types (Parser, Result(..), parseMaybe, withObject, (.:?))
-import           Data.Maybe (isJust, isNothing, fromJust)
+import           Data.Maybe (isJust)
 import Data.ByteArray (convert)
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
@@ -202,6 +202,22 @@ class ( YesodAuth site
     --
     -- @since 1.1.0
     setVerifyKey :: AuthEmailId site -> VerKey -> HandlerT site IO ()
+
+    -- | Hash and salt a password
+    --
+    -- Default: 'saltPass'.
+    --
+    -- @since 1.4.20
+    hashAndSaltPassword :: Text -> HandlerT site IO SaltedPass
+    hashAndSaltPassword = liftIO . saltPass
+
+    -- | Verify a password matches the stored password for the given account.
+    --
+    -- Default: Fetch a password with 'getPassword' and match using 'Yesod.Auth.Util.PasswordStore.verifyPassword'.
+    --
+    -- @since 1.4.20
+    verifyPassword :: Text -> SaltedPass -> HandlerT site IO Bool
+    verifyPassword plain salted = return $ isValidPass plain salted
 
     -- | Verify the email address on the given account.
     --
@@ -620,12 +636,14 @@ postLoginR = do
                    , emailCredsStatus <$> mecreds
                    ) of
                 (Just aid, Just email', Just True) -> do
-                       mrealpass <- lift $ getPassword aid
-                       case mrealpass of
-                         Nothing -> return Nothing
-                         Just realpass -> return $ if isValidPass pass realpass
-                                                   then Just email'
-                                                   else Nothing
+                      mrealpass <- lift $ getPassword aid
+                      case mrealpass of
+                        Nothing -> return Nothing
+                        Just realpass -> do
+                            passValid <- lift $ verifyPassword pass realpass 
+                            return $ if passValid
+                                    then Just email'
+                                    else Nothing
                 _ -> return Nothing
           let isEmail = Text.Email.Validate.isValid $ encodeUtf8 identifier
           case maid of
@@ -753,14 +771,16 @@ postPasswordR = do
                               then getThird jcreds
                               else fcurrent
                 mrealpass <- lift $ getPassword aid
-                case mrealpass of
-                    Nothing ->
+                case (mrealpass, current) of
+                    (Nothing, _) ->
                         lift $ loginErrorMessage (tm setpassR) "You do not currently have a password set on your account"
-                    Just realpass
-                        | isNothing current -> loginErrorMessageI LoginR Msg.BadSetPass
-                        | isValidPass (fromJust current) realpass -> confirmPassword aid tm jcreds
-                        | otherwise ->
-                            lift $ loginErrorMessage (tm setpassR) "Invalid current password, please try again"
+                    (_, Nothing) ->
+                        loginErrorMessageI LoginR Msg.BadSetPass
+                    (Just realpass, Just current') -> do
+                        passValid <- lift $ verifyPassword current' realpass
+                        if passValid
+                          then confirmPassword aid tm jcreds
+                          else lift $ loginErrorMessage (tm setpassR) "Invalid current password, please try again"
 
   where
     msgOk = Msg.PassUpdated
@@ -787,7 +807,7 @@ postPasswordR = do
                 case isSecure of
                   Left e -> lift $ loginErrorMessage (tm setpassR) e
                   Right () -> do
-                     salted <- liftIO $ saltPass new
+                     salted <- lift $ hashAndSaltPassword new
                      y <- lift $ do
                                 setPassword aid salted
                                 deleteSession loginLinkKey
