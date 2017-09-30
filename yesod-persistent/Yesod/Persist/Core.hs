@@ -41,16 +41,16 @@ type YesodDB site = ReaderT (YesodPersistBackend site) (HandlerT site IO)
 
 class Monad (YesodDB site) => YesodPersist site where
     type YesodPersistBackend site
-    runDB :: YesodDB site a -> HandlerT site IO a
+    runDB :: (MonadIO m) => YesodDB site a -> HandlerT site m a
 
 -- | Helper for creating 'runDB'.
 --
 -- Since 1.2.0
-defaultRunDB :: PersistConfig c
+defaultRunDB :: (PersistConfig c, MonadIO m, MonadThrow m, MonadBaseControl IO m)
              => (site -> c)
              -> (site -> PersistConfigPool c)
-             -> PersistConfigBackend c (HandlerT site IO) a
-             -> HandlerT site IO a
+             -> PersistConfigBackend c (HandlerT site m) a
+             -> HandlerT site m a
 defaultRunDB getConfig getPool f = do
     master <- getYesod
     Database.Persist.runPool
