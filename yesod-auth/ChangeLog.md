@@ -1,3 +1,8 @@
+## 1.4.20
+
+* Extend `YesodAuthEmail` to support extensible password hashing via
+  `hashAndSaltPassword` and `verifyPassword` functions
+
 ## 1.4.19
 
 * Adjust English localization to distinguish between "log in" (verb) and "login" (noun)
