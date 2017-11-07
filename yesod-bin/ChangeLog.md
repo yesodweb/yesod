@@ -1,3 +1,7 @@
+## 1.5.2.6
+
+* Drop an upper bound
+
 ## 1.5.2.5
 
 * Support for `add-handler` when modules are in `src/` directory [#1413](https://github.com/yesodweb/yesod/issues/1413)

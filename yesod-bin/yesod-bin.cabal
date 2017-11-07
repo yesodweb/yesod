@@ -1,5 +1,5 @@
 name:            yesod-bin
-version:         1.5.2.5
+version:         1.5.2.6
 license:         MIT
 license-file:    LICENSE
 author:          Michael Snoyman <michael@snoyman.com>
@@ -33,7 +33,7 @@ executable             yesod
                      , template-haskell
                      , directory          >= 1.2.1
                      , Cabal              >= 1.18
-                     , unix-compat        >= 0.2          && < 0.5
+                     , unix-compat        >= 0.2
                      , containers         >= 0.2
                      , attoparsec         >= 0.10
                      , http-types         >= 0.7
