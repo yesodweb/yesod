@@ -243,7 +243,8 @@ credsKey = "_ID"
 -- | Retrieves user credentials from the session, if user is authenticated.
 --
 -- This function does /not/ confirm that the credentials are valid, see
--- 'maybeAuthIdRaw' for more information.
+-- 'maybeAuthIdRaw' for more information. The first call in a request
+-- does a database request to make sure that the account is still in the database.
 --
 -- Since 1.1.2
 defaultMaybeAuthId
