@@ -25,5 +25,5 @@ command -v yesod && yesod version
 
 ### Support
 
-Please direct support questions to [Stack Overflow](https://stackoverflow.com/questions/tagged/yesod) or the [Yesod Google Group](https://groups.google.com/forum/#!forum/yesodweb). If you don't get a response there, or you suspect there may be a bug in Yesod causing your problem, you're welcome to ask here.
+Please direct support questions to [Stack Overflow](https://stackoverflow.com/questions/tagged/yesod+haskell) or the [Yesod Google Group](https://groups.google.com/forum/#!forum/yesodweb). If you don't get a response there, or you suspect there may be a bug in Yesod causing your problem, you're welcome to ask here.
 -->

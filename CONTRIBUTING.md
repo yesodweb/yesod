@@ -70,12 +70,13 @@ Examples are recommended, but not required, in documentation. Marking new APIs w
 
 ### Versioning
 
-Yesod packages roughly follow the Haskell Package Versioning Policy style of MAJOR.MAJOR.MINOR.PATCH
+Yesod packages roughly follow the Haskell Package Versioning Policy style of A.B.C.[D] (MAJOR.MAJOR.MINOR.[PATCH])
 
-* MAJOR - Used for massive changes in the library
-* MAJOR - Used for smaller breaking changes, like removing, renaming, or changing behavior of existing public API.
-* MINOR - Used for new public APIs
-* PATCH - Used for bug fixes
+* A - Used for massive changes in the library. (Example: 1.2.3.4 becomes 2.0.0)
+* B - Used for smaller breaking changes, like removing, renaming, or changing behavior of existing public API. (Example: 1.2.3.4 becomes 1.3.0)
+* C - Used for new public APIs (Example: 1.2.3.4 becomes 1.2.4)
+* D - Used for bug fixes (Example: 1.2.3.4 becomes 1.2.3.5).
+	* D is optional in the version number, so 2.0.0 is a valid version.
 
 Documentation changes don't require a new version.
 
@@ -83,7 +84,7 @@ If you feel there is ambiguity to a change (e.g. fixing a bug in a function, whe
 
 Unlike in the Package Versioning Policy, deprecations are not counted as MAJOR changes.
 
-In some cases, dropping compatibility with a major version of a dependency (e.g. changing from transformers >= 0.3 to transformers >= 0.4), is considered a MAJOR breaking change.
+In some cases, dropping compatibility with a major version of a dependency (e.g. changing from transformers >= 0.3 to transformers >= 0.4), is considered a breaking change.
 
 ### Changelog
 
