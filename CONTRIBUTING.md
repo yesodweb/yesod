@@ -17,11 +17,39 @@ packages:
 - '/path/to/this/repo/yesod-auth'
 ```
 
-## Testing
+## Coding Guidelines
 
-Tests are appreciated, but not required, for changes to Yesod.
+### Safety
 
-## Documentation
+Avoid partial functions. Even if you know the partial function is safe in your instance, partial functions require more reasoning from the programmer and are not resilient to refactoring. For the rare cases where a partial function is appropriate, a custom `error` should be used.
+
+### Style 
+
+Keep coding style consistent with the rest of the file, but don't worry about style too much otherwise. PRs changing code style are viewed skeptically.
+
+### Dependencies
+
+Avoid adding unnecessary dependencies. If a dependency provides only a minor convenience for your implementation, it's probably better to skip it.
+
+If you do add a new dependency, try to support a wide range of versions of it.
+
+### Backwards Compatibility
+
+Backwards incompatible changes are viewed skeptically—best to ask in an issue to see if a particular backwards incompatible change would be approved. If possible keep backwards compatibility by adding new APIs and deprecating old ones.
+
+Keep backwards compatibility with old versions of dependencies when possible.
+
+## PR Guidelines
+
+### PR Scope
+
+As much as possible, keep separate changes in separate PRs.
+
+### Testing
+
+Tests are recommended, but not required.
+
+### Documentation
 
 All public APIs must be documented. Documenting private functions is optional, but may be nice depending on their complexity. Example documentation:
 
@@ -38,21 +66,29 @@ addToken_ :: Query -- ^ CSS selector that resolves to the @<form>@ containing th
 		  -> RequestBuilder site ()
 ```
 
-Examples are appreciated, but not required, in documentation. Marking new APIs with `@since <version number>` is required.
+Examples are recommended, but not required, in documentation. Marking new APIs with `@since <version number>` is required.
 
-## Versioning
+### Versioning
 
-Yesod packages roughly follow the Haskell Package Versioning Policy, MAJOR.MAJOR.MINOR.PATCH
+Yesod packages roughly follow the Haskell Package Versioning Policy style of MAJOR.MAJOR.MINOR.PATCH
 
 * MAJOR - Used for massive changes in the library
-* MAJOR - Used for smaller breaking changes, like removing functions or changed behavior of a function.
+* MAJOR - Used for smaller breaking changes, like removing, renaming, or changing behavior of existing public API.
 * MINOR - Used for new public APIs
-* PATCH - Used for bug fixes and documentationc changes.
+* PATCH - Used for bug fixes
+
+Documentation changes don't require a new version.
 
 If you feel there is ambiguity to a change (e.g. fixing a bug in a function, when people may be relying on the old broken behavior), you can ask in an issue or pull request.
 
 Unlike in the Package Versioning Policy, deprecations are not counted as MAJOR changes.
 
-## Changelog
+In some cases, dropping compatibility with a major version of a dependency (e.g. changing from transformers >= 0.3 to transformers >= 0.4), is considered a MAJOR breaking change.
 
-After you submit a PR, update the subproject's Changelog.md file with a link to your PR
+### Changelog
+
+After you submit a PR, update the subproject's Changelog.md file with the new version number and a link to your PR. If your PR does not need to bump the version number, include the change in an "Unreleased" section at the top.
+
+### Releases
+
+Releases should be done as soon as possible after a pull request is merged—don't be shy about reminding us to make a release if we forget.
