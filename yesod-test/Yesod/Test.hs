@@ -339,7 +339,7 @@ htmlQuery = htmlQuery' yedResponse []
 
 -- | Asserts that the two given values are equal.
 --
--- In case they are not equal, error mesasge includes the two values.
+-- In case they are not equal, error message includes the two values.
 --
 -- @since 1.5.2
 assertEq :: (HasCallStack, Eq a, Show a) => String -> a -> a -> YesodExample site ()
