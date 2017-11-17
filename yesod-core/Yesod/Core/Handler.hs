@@ -242,7 +242,7 @@ import           Yesod.Core.Types
 import           Yesod.Routes.Class            (Route)
 import           Blaze.ByteString.Builder (Builder)
 import           Safe (headMay)
-import           Data.CaseInsensitive (CI)
+import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
@@ -1501,18 +1501,22 @@ defaultCsrfHeaderName = "X-XSRF-TOKEN"
 -- @since 1.4.14
 checkCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m ()
 checkCsrfHeaderNamed headerName = do
-  valid <- hasValidCsrfHeaderNamed headerName
-  unless valid (permissionDenied csrfErrorMessage)
+  (valid, mHeader) <- hasValidCsrfHeaderNamed' headerName
+  unless valid (permissionDenied $ csrfErrorMessage [CSRFHeader (decodeUtf8 $ original headerName) mHeader])
 
 -- | Takes a header name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
 --
 -- @since 1.4.14
 hasValidCsrfHeaderNamed :: MonadHandler m => CI S8.ByteString -> m Bool
-hasValidCsrfHeaderNamed headerName = do
+hasValidCsrfHeaderNamed headerName = fst <$> hasValidCsrfHeaderNamed' headerName
+
+-- | Like 'hasValidCsrfHeaderNamed', but also returns the header value to be used in error messages.
+hasValidCsrfHeaderNamed' :: MonadHandler m => CI S8.ByteString -> m (Bool, Maybe Text)
+hasValidCsrfHeaderNamed' headerName = do
   mCsrfToken  <- reqToken <$> getRequest
   mXsrfHeader <- lookupHeader headerName
 
-  return $ validCsrf mCsrfToken mXsrfHeader
+  return $ (validCsrf mCsrfToken mXsrfHeader, decodeUtf8 <$> mXsrfHeader)
 
 -- CSRF Parameter checking
 
@@ -1528,18 +1532,22 @@ defaultCsrfParamName = "_token"
 -- @since 1.4.14
 checkCsrfParamNamed :: MonadHandler m => Text -> m ()
 checkCsrfParamNamed paramName = do
-  valid <- hasValidCsrfParamNamed paramName
-  unless valid (permissionDenied csrfErrorMessage)
+  (valid, mParam) <- hasValidCsrfParamNamed' paramName
+  unless valid (permissionDenied $ csrfErrorMessage [CSRFParam paramName mParam])
 
 -- | Takes a POST parameter name to lookup a CSRF token, and returns whether the value matches the token stored in the session.
 --
 -- @since 1.4.14
 hasValidCsrfParamNamed :: MonadHandler m => Text -> m Bool
-hasValidCsrfParamNamed paramName = do
+hasValidCsrfParamNamed paramName = fst <$> hasValidCsrfParamNamed' paramName
+
+-- | Like 'hasValidCsrfParamNamed', but also returns the param value to be used in error messages.
+hasValidCsrfParamNamed' :: MonadHandler m => Text -> m (Bool, Maybe Text)
+hasValidCsrfParamNamed' paramName = do
   mCsrfToken  <- reqToken <$> getRequest
   mCsrfParam <- lookupPostParam paramName
 
-  return $ validCsrf mCsrfToken (encodeUtf8 <$> mCsrfParam)
+  return $ (validCsrf mCsrfToken (encodeUtf8 <$> mCsrfParam), mCsrfParam)
 
 -- | Checks that a valid CSRF token is present in either the request headers or POST parameters.
 -- If the value doesn't match the token stored in the session, this function throws a 'PermissionDenied' error.
@@ -1550,11 +1558,12 @@ checkCsrfHeaderOrParam :: (MonadHandler m, MonadLogger m)
                        -> Text -- ^ The POST parameter name to lookup the CSRF token
                        -> m ()
 checkCsrfHeaderOrParam headerName paramName = do
-  validHeader <- hasValidCsrfHeaderNamed headerName
-  validParam <- hasValidCsrfParamNamed paramName
+  (validHeader, mHeader) <- hasValidCsrfHeaderNamed' headerName
+  (validParam, mParam) <- hasValidCsrfParamNamed' paramName
   unless (validHeader || validParam) $ do
-    $logWarnS "yesod-core" csrfErrorMessage
-    permissionDenied csrfErrorMessage
+    let errorMessage = csrfErrorMessage $ [CSRFHeader (decodeUtf8 $ original headerName) mHeader, CSRFParam paramName mParam]
+    $logWarnS "yesod-core" errorMessage
+    permissionDenied errorMessage
 
 validCsrf :: Maybe Text -> Maybe S.ByteString -> Bool
 -- It's important to use constant-time comparison (constEqBytes) in order to avoid timing attacks.
@@ -1562,5 +1571,25 @@ validCsrf (Just token) (Just param) = encodeUtf8 token `constEqBytes` param
 validCsrf Nothing            _param = True
 validCsrf (Just _token)     Nothing = False
 
-csrfErrorMessage :: Text
-csrfErrorMessage = "A valid CSRF token wasn't present in HTTP headers or POST parameters. Because the request could have been forged, it's been rejected altogether. Check the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
+data CSRFExpectation = CSRFHeader Text (Maybe Text) -- Key/Value
+                     | CSRFParam Text (Maybe Text) -- Key/Value
+
+csrfErrorMessage :: [CSRFExpectation]
+                  -> Text -- ^ Error message
+csrfErrorMessage expectedLocations = T.intercalate "\n"
+  [ "A valid CSRF token wasn't present. Because the request could have been forged, it's been rejected altogether."
+  , "If you're a developer of this site, these tips will help you debug the issue:"
+  , "- Read the Yesod.Core.Handler docs of the yesod-core package for details on CSRF protection."
+  , "- Check that your HTTP client is persisting cookies between requests, like a browser does."
+  , "- By default, the CSRF token is sent to the client in a cookie named " `mappend` (decodeUtf8 defaultCsrfCookieName) `mappend` "."
+  , "- The server is looking for the token in the following locations:\n" `mappend` T.intercalate "\n" (map csrfLocation expectedLocations)
+  ]
+
+  where csrfLocation expected = case expected of
+          CSRFHeader k v -> T.intercalate " " ["  - An HTTP header named", k, (formatValue v)]
+          CSRFParam k v -> T.intercalate " " ["  - A POST parameter named", k, (formatValue v)]
+
+        formatValue :: Maybe Text -> Text
+        formatValue maybeText = case maybeText of
+          Nothing -> "(which is not currently set)"
+          Just t -> T.concat ["(which has the current, incorrect value: '", t, "')"]
