@@ -1,3 +1,7 @@
+## 1.4.3
+
+* Fix overly powerful constraints on get404 and getBy404.
+
 ## 1.4.2
 
 * Fix warnings
