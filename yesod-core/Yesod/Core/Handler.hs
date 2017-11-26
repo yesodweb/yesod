@@ -1079,7 +1079,7 @@ getMessageRender :: (MonadHandler m, RenderMessage (HandlerSite m) message)
                  => m (message -> Text)
 getMessageRender = do
     env <- askHandlerEnv
-    l <- reqLangs <$> getRequest
+    l <- languages
     return $ renderMessage (rheSite env) l
 
 -- | Use a per-request cache to avoid performing the same action multiple times.
@@ -1130,14 +1130,14 @@ cachedBy k action = do
 
 -- | Get the list of supported languages supplied by the user.
 --
--- Languages are determined based on the following three (in descending order
+-- Languages are determined based on the following (in descending order
 -- of preference):
+--
+-- * The _LANG user session variable.
 --
 -- * The _LANG get parameter.
 --
 -- * The _LANG cookie.
---
--- * The _LANG user session variable.
 --
 -- * Accept-Language HTTP header.
 --
