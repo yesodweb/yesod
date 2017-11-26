@@ -223,6 +223,13 @@ main = hspec $ do
                     setUrl ("labels2" :: Text)
                     byLabel "hobby" "fishing")
                 assertEq "failure wasn't called" (isLeft bad) True
+            yit "byLabelExact performs an exact match over the given label name" $ do
+                get ("/labels2" :: Text)
+                (bad :: Either SomeException ()) <- try (request $ do
+                    setMethod "POST"
+                    setUrl ("labels2" :: Text)
+                    byLabelExact "hobby" "fishing")
+                assertEq "failure was called" (isRight bad) True
 
         ydescribe "Content-Type handling" $ do
             yit "can set a content-type" $ do

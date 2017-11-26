@@ -73,6 +73,7 @@ module Yesod.Test
     -- These functions let you add parameters to your request based
     -- on currently displayed label names.
     , byLabel
+    , byLabelExact
     , fileByLabel
 
     -- *** CSRF Tokens
@@ -563,6 +564,46 @@ nameFromLabel label = do
         name:_ -> return name
     _ -> failure $ "More than one label contained " <> label
 
+-- This looks up the name of a field based on the contents of the label pointing to it (exact).
+nameFromLabelExact :: T.Text -> RequestBuilder site T.Text
+nameFromLabelExact label = do
+  mres <- fmap rbdResponse ST.get
+  res <-
+    case mres of
+      Nothing -> failure "nameFromLabel: No response available"
+      Just res -> return res
+  let
+    body = simpleBody res
+    mlabel = parseHTML body
+                $// C.element "label"
+                >=> contentIs label
+    mfor = mlabel >>= attribute "for"
+
+    contentIs x c
+        | x == T.concat (c $// content) = [c]
+        | otherwise = []
+
+  case mfor of
+    for:[] -> do
+      let mname = parseHTML body
+                    $// attributeIs "id" for
+                    >=> attribute "name"
+      case mname of
+        "":_ -> failure $ T.concat
+            [ "Label "
+            , label
+            , " resolved to id "
+            , for
+            , " which was not found. "
+            ]
+        name:_ -> return name
+        [] -> failure $ "No input with id " <> for
+    [] ->
+      case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "name") of
+        [] -> failure $ "No label contained: " <> label
+        name:_ -> return name
+    _ -> failure $ "More than one label contained " <> label
+
 (<>) :: T.Text -> T.Text -> T.Text
 (<>) = T.append
 
@@ -596,6 +637,38 @@ byLabel :: T.Text -- ^ The text contained in the @\<label>@.
         -> RequestBuilder site ()
 byLabel label value = do
   name <- nameFromLabel label
+  addPostParam name value
+
+-- How does this work for the alternate <label><input></label> syntax?
+
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a parameter
+-- for that input to the request body.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=Michael@ to the server:
+--
+-- > <form method="POST">
+-- >   <label for="user">Username</label>
+-- >   <input id="user" name="f1" />
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   byLabel "Username" "Michael"
+--
+-- This function also supports the implicit label syntax, in which
+-- the @\<input>@ is nested inside the @\<label>@ rather than specified with @for@:
+--
+-- > <form method="POST">
+-- >   <label>Username <input name="f1"> </label>
+-- > </form>
+byLabelExact :: T.Text -- ^ The text contained in the @\<label>@.
+             -> T.Text -- ^ The value to set the parameter to.
+             -> RequestBuilder site ()
+byLabelExact label value = do
+  name <- nameFromLabelExact label
   addPostParam name value
 
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
