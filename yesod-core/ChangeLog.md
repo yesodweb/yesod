@@ -1,5 +1,5 @@
 ## 1.4.37.1
-* Fix documentation on `languages` function, update `getMessageRender` to use said function. [1325] (https://github.com/yesodweb/yesod/issues/1325)
+* Fix documentation on `languages` function, update `getMessageRender` to use said function. [#1457] (https://github.com/yesodweb/yesod/pull/1457)
 
 ## 1.4.37
 
