@@ -536,10 +536,10 @@ genericNameFromLabel match label = do
     body = simpleBody res
     mlabel = parseHTML body
                 $// C.element "label"
-                >=> contentMatches label
+                >=> isContentMatch label
     mfor = mlabel >>= attribute "for"
 
-    contentMatches x c
+    isContentMatch x c
         | x `match` T.concat (c $// content) = [c]
         | otherwise = []
 
