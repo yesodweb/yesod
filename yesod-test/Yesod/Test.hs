@@ -564,23 +564,23 @@ nameFromLabel label = do
         name:_ -> return name
     _ -> failure $ "More than one label contained " <> label
 
--- This looks up the name of a field based on the contents of the label pointing to it (exact).
-nameFromLabelExact :: T.Text -> RequestBuilder site T.Text
-nameFromLabelExact label = do
+-- This looks up the name of a field based on the contents of the label pointing to it.
+genericNameFromLabel :: (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
+genericNameFromLabel match label = do
   mres <- fmap rbdResponse ST.get
   res <-
     case mres of
-      Nothing -> failure "nameFromLabel: No response available"
+      Nothing -> failure "genericNameFromLabel: No response available"
       Just res -> return res
   let
     body = simpleBody res
     mlabel = parseHTML body
                 $// C.element "label"
-                >=> contentIs label
+                >=> contentMatches label
     mfor = mlabel >>= attribute "for"
 
-    contentIs x c
-        | x == T.concat (c $// content) = [c]
+    contentMatches x c
+        | x `match` T.concat (c $// content) = [c]
         | otherwise = []
 
   case mfor of
@@ -632,11 +632,12 @@ nameFromLabelExact label = do
 -- > <form method="POST">
 -- >   <label>Username <input name="f1"> </label>
 -- > </form>
-byLabel :: T.Text -- ^ The text contained in the @\<label>@.
-        -> T.Text -- ^ The value to set the parameter to.
-        -> RequestBuilder site ()
-byLabel label value = do
-  name <- nameFromLabel label
+byLabelWithMatch :: (T.Text -> T.Text -> Bool)
+                 -> T.Text -- ^ The text contained in the @\<label>@.
+                 -> T.Text -- ^ The value to set the parameter to.
+                 -> RequestBuilder site ()
+byLabelWithMatch match label value = do
+  name <- genericNameFromLabel match label
   addPostParam name value
 
 -- How does this work for the alternate <label><input></label> syntax?
@@ -664,12 +665,15 @@ byLabel label value = do
 -- > <form method="POST">
 -- >   <label>Username <input name="f1"> </label>
 -- > </form>
-byLabelExact :: T.Text -- ^ The text contained in the @\<label>@.
+byLabel :: T.Text -- ^ The text contained in the @\<label>@.
+        -> T.Text -- ^ The value to set the parameter to.
+        -> RequestBuilder site ()
+byLabel = byLabelWithMatch T.isInfixOf
+
+byLabelExact :: T.Text
              -> T.Text -- ^ The value to set the parameter to.
              -> RequestBuilder site ()
-byLabelExact label value = do
-  name <- nameFromLabelExact label
-  addPostParam name value
+byLabelExact = byLabelWithMatch (==)
 
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
 --
@@ -698,7 +702,7 @@ fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
             -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
             -> RequestBuilder site ()
 fileByLabel label path mime = do
-  name <- nameFromLabel label
+  name <- genericNameFromLabel T.isInfixOf label
   addFile name path mime
 
 -- | Lookups the hidden input named "_token" and adds its value to the params.
