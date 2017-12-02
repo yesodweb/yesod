@@ -567,34 +567,11 @@ genericNameFromLabel match label = do
 (<>) :: T.Text -> T.Text -> T.Text
 (<>) = T.append
 
--- How does this work for the alternate <label><input></label> syntax?
-
--- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a parameter
--- for that input to the request body.
---
--- ==== __Examples__
---
--- Given this HTML, we want to submit @f1=Michael@ to the server:
---
--- > <form method="POST">
--- >   <label for="user">Username</label>
--- >   <input id="user" name="f1" />
--- > </form>
---
--- You can set this parameter like so:
---
--- > request $ do
--- >   byLabel "Username" "Michael"
---
--- This function also supports the implicit label syntax, in which
--- the @\<input>@ is nested inside the @\<label>@ rather than specified with @for@:
---
--- > <form method="POST">
--- >   <label>Username <input name="f1"> </label>
--- > </form>
-byLabelWithMatch :: (T.Text -> T.Text -> Bool)
-                 -> T.Text -- ^ The text contained in the @\<label>@.
-                 -> T.Text -- ^ The value to set the parameter to.
+-- |
+-- @since 1.5.9
+byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+                 -> T.Text                     -- ^ The text contained in the @\<label>@.
+                 -> T.Text                     -- ^ The value to set the parameter to.
                  -> RequestBuilder site ()
 byLabelWithMatch match label value = do
   name <- genericNameFromLabel match label
@@ -625,12 +602,52 @@ byLabelWithMatch match label value = do
 -- > <form method="POST">
 -- >   <label>Username <input name="f1"> </label>
 -- > </form>
+--
+-- Note that this function finds the labels in which contain the given word.
+-- It might choice labels unexpectedly or just fail in the circumstances like below:
+--
+-- > <form method="POST">
+-- >   <label for="nickname">Nickname</label>
+-- >   <input id="nickname" name="f1" />
+--
+-- >   <label for="nickname2">Nickname2</label>
+-- >   <input id="nickname2" name="f2" />
+-- > </form>
+--
+-- > request $ do
+-- >   byLabel "Nickname" "Snoyberger"
+--
+-- Therefore, this function is deprecated. Please consider using 'byLabelExact',
+-- which performs the exact match over the given word.
 byLabel :: T.Text -- ^ The text contained in the @\<label>@.
         -> T.Text -- ^ The value to set the parameter to.
         -> RequestBuilder site ()
 byLabel = byLabelWithMatch T.isInfixOf
 
-byLabelExact :: T.Text
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a parameter
+-- for that input to the request body.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=Michael@ to the server:
+--
+-- > <form method="POST">
+-- >   <label for="user">Username</label>
+-- >   <input id="user" name="f1" />
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   byLabel "Username" "Michael"
+--
+-- This function also supports the implicit label syntax, in which
+-- the @\<input>@ is nested inside the @\<label>@ rather than specified with @for@:
+--
+-- > <form method="POST">
+-- >   <label>Username <input name="f1"> </label>
+-- > </form>
+byLabelExact :: T.Text -- ^ The text in the @\<label>@.
              -> T.Text -- ^ The value to set the parameter to.
              -> RequestBuilder site ()
 byLabelExact = byLabelWithMatch (==)
