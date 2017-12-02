@@ -525,46 +525,6 @@ addFile name path mimetype = do
             MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
 
 -- This looks up the name of a field based on the contents of the label pointing to it.
-nameFromLabel :: T.Text -> RequestBuilder site T.Text
-nameFromLabel label = do
-  mres <- fmap rbdResponse ST.get
-  res <-
-    case mres of
-      Nothing -> failure "nameFromLabel: No response available"
-      Just res -> return res
-  let
-    body = simpleBody res
-    mlabel = parseHTML body
-                $// C.element "label"
-                >=> contentContains label
-    mfor = mlabel >>= attribute "for"
-
-    contentContains x c
-        | x `T.isInfixOf` T.concat (c $// content) = [c]
-        | otherwise = []
-
-  case mfor of
-    for:[] -> do
-      let mname = parseHTML body
-                    $// attributeIs "id" for
-                    >=> attribute "name"
-      case mname of
-        "":_ -> failure $ T.concat
-            [ "Label "
-            , label
-            , " resolved to id "
-            , for
-            , " which was not found. "
-            ]
-        name:_ -> return name
-        [] -> failure $ "No input with id " <> for
-    [] ->
-      case filter (/= "") $ mlabel >>= (child >=> C.element "input" >=> attribute "name") of
-        [] -> failure $ "No label contained: " <> label
-        name:_ -> return name
-    _ -> failure $ "More than one label contained " <> label
-
--- This looks up the name of a field based on the contents of the label pointing to it.
 genericNameFromLabel :: (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericNameFromLabel match label = do
   mres <- fmap rbdResponse ST.get
