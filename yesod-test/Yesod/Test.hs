@@ -524,7 +524,10 @@ addFile name path mimetype = do
           addPostData (MultipleItemsPostData posts) contents =
             MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
 
+-- |
 -- This looks up the name of a field based on the contents of the label pointing to it.
+--
+-- @since 1.5.9
 genericNameFromLabel :: (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericNameFromLabel match label = do
   mres <- fmap rbdResponse ST.get
@@ -647,6 +650,8 @@ byLabel = byLabelWithMatch T.isInfixOf
 -- > <form method="POST">
 -- >   <label>Username <input name="f1"> </label>
 -- > </form>
+--
+-- @since 1.5.9
 byLabelExact :: T.Text -- ^ The text in the @\<label>@.
              -> T.Text -- ^ The value to set the parameter to.
              -> RequestBuilder site ()
