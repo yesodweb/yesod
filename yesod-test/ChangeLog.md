@@ -1,3 +1,7 @@
+## 1.5.9
+* Add byLabelExact and related functions
+[#1459](https://github.com/yesodweb/yesod/pull/1459)
+
 ## 1.5.8
 * Added implicit parameter HasCallStack to assertions.
 [#1421](https://github.com/yesodweb/yesod/pull/1421)
