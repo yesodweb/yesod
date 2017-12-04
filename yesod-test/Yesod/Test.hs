@@ -526,8 +526,6 @@ addFile name path mimetype = do
 
 -- |
 -- This looks up the name of a field based on the contents of the label pointing to it.
---
--- @since 1.5.9
 genericNameFromLabel :: (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
 genericNameFromLabel match label = do
   mres <- fmap rbdResponse ST.get
@@ -570,8 +568,6 @@ genericNameFromLabel match label = do
 (<>) :: T.Text -> T.Text -> T.Text
 (<>) = T.append
 
--- |
--- @since 1.5.9
 byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
                  -> T.Text                     -- ^ The text contained in the @\<label>@.
                  -> T.Text                     -- ^ The value to set the parameter to.
@@ -606,8 +602,9 @@ byLabelWithMatch match label value = do
 -- >   <label>Username <input name="f1"> </label>
 -- > </form>
 --
--- Note that this function finds the labels in which contain the given word.
--- It might choice labels unexpectedly or just fail in the circumstances like below:
+-- Warning: This function looks for any label that contains the provided text.
+-- If multiple labels contain that text, this function will throw an error,
+-- as in the example below:
 --
 -- > <form method="POST">
 -- >   <label for="nickname">Nickname</label>
@@ -620,8 +617,10 @@ byLabelWithMatch match label value = do
 -- > request $ do
 -- >   byLabel "Nickname" "Snoyberger"
 --
+-- Then, it throws "More than one label contained" error.
+--
 -- Therefore, this function is deprecated. Please consider using 'byLabelExact',
--- which performs the exact match over the given word.
+-- which performs the exact match over the provided text.
 byLabel :: T.Text -- ^ The text contained in the @\<label>@.
         -> T.Text -- ^ The value to set the parameter to.
         -> RequestBuilder site ()
