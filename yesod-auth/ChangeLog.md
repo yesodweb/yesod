@@ -1,3 +1,7 @@
+## 1.4.18
+
+* Add redirectToCurrent to Yesod.Auth module for controlling setUltDestCurrent in redirectLogin
+
 ## 1.4.17
 
 * Add Show instance for user credentials `Creds`

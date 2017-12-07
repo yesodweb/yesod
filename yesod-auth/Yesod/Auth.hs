@@ -166,8 +166,8 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- >         when (isJust ma) $
     -- >             lift $ redirect HomeR   -- or any other Handler code you want
     -- >         defaultLoginHandler
-    -- 
-    loginHandler :: HandlerT Auth (HandlerT master IO) Html
+    --
+    loginHandler :: AuthHandler master Html
     loginHandler = defaultLoginHandler
 
     -- | Used for i18n of messages provided by this package.
@@ -181,6 +181,12 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- 'loginDest' and 'logoutDest'. Default is 'False'.
     redirectToReferer :: master -> Bool
     redirectToReferer _ = False
+
+    -- | When being redirected to the login page should the current page
+    -- be set to redirect back to. Default is 'True'.
+    -- @since 1.4.18
+    redirectToCurrent :: master -> Bool
+    redirectToCurrent _ = True
 
     -- | Return an HTTP connection manager that is stored in the foundation
     -- type. This allows backends to reuse persistent connections. If none of
@@ -550,15 +556,15 @@ requireAuthPair :: (YesodAuthPersist master, Typeable (AuthEntity master))
                 => HandlerT master IO (AuthId master, AuthEntity master)
 requireAuthPair = maybeAuthPair >>= maybe handleAuthLack return
 
-handleAuthLack :: Yesod master => HandlerT master IO a
+handleAuthLack :: YesodAuth master => HandlerT master IO a
 handleAuthLack = do
     aj <- acceptsJson
     if aj then notAuthenticated else redirectLogin
 
-redirectLogin :: Yesod master => HandlerT master IO a
+redirectLogin :: YesodAuth master => HandlerT master IO a
 redirectLogin = do
     y <- getYesod
-    setUltDestCurrent
+    when (redirectToCurrent y) setUltDestCurrent
     case authRoute y of
         Just z -> redirect z
         Nothing -> permissionDenied "Please configure authRoute"
