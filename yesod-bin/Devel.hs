@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -14,6 +15,7 @@ import           Control.Concurrent.STM
 import qualified Control.Exception.Safe                as Ex
 import           Control.Monad                         (forever, unless, void,
                                                         when)
+import Data.ByteString (ByteString, isInfixOf)
 import qualified Data.ByteString.Lazy                  as LB
 import           Data.Conduit                          (($$), (=$))
 import qualified Data.Conduit.Binary                   as CB
@@ -21,6 +23,7 @@ import qualified Data.Conduit.List                     as CL
 import           Data.Default.Class                    (def)
 import           Data.FileEmbed                        (embedFile)
 import qualified Data.Map                              as Map
+import           Data.Maybe                            (isJust)
 import qualified Data.Set                              as Set
 import           Data.Streaming.Network                (bindPortTCP,
                                                         bindRandomPortTCP)
@@ -125,6 +128,7 @@ reverseProxy :: DevelOpts -> TVar Int -> IO ()
 reverseProxy opts appPortVar = do
     manager <- newManager $ managerSetProxy noProxy tlsManagerSettings
     let refreshHtml = LB.fromChunks [$(embedFile "refreshing.html")]
+        sayV = when (verbose opts) . sayString    
     let onExc _ req
             | maybe False (("application/json" `elem`) . parseHttpAccept)
                 (lookup "accept" $ requestHeaders req) =
@@ -141,6 +145,7 @@ reverseProxy opts appPortVar = do
     let proxyApp = waiProxyToSettings
                 (const $ do
                     appPort <- atomically $ readTVar appPortVar
+                    sayV $ "revProxy: appPort " ++ (show appPort)
                     return $
                         ReverseProxy.WPRProxyDest
                         $ ProxyDest "127.0.0.1" appPort)
@@ -221,12 +226,40 @@ checkDevelFile =
             then return x
             else loop xs
 
+stackSuccessString :: ByteString
+stackSuccessString = "ExitSuccess"
+
+stackFailureString :: ByteString
+stackFailureString = "ExitFailure"
+
+-- We need updateAppPort logic to prevent a race condition.
+-- See https://github.com/yesodweb/yesod/issues/1380
+updateAppPort :: ByteString -> TVar Bool -- ^ Bool to indicate if the
+                                         -- output from stack has
+                                         -- started. False indicate
+                                         -- that it hasn't started
+                                         -- yet.
+              -> TVar Int -> STM ()
+updateAppPort bs buildStarted appPortVar = do
+  hasStarted <- readTVar buildStarted
+  let buildEnd = isInfixOf stackFailureString bs || isInfixOf stackSuccessString bs
+  case (hasStarted, buildEnd) of
+    (False, False) -> do
+      writeTVar appPortVar (-1 :: Int)
+      writeTVar buildStarted True
+    (True, False) -> return ()
+    (_, True) -> writeTVar buildStarted False
+
 -- | Get the set of all flags available in the given cabal file
 getAvailableFlags :: D.GenericPackageDescription -> Set.Set String
 getAvailableFlags =
     Set.fromList . map (unFlagName . D.flagName) . D.genPackageFlags
   where
+#if MIN_VERSION_Cabal(2, 0, 0)
+    unFlagName = D.unFlagName
+#else
     unFlagName (D.FlagName fn) = fn
+#endif
 
 -- | This is the main entry point. Run the devel server.
 devel :: DevelOpts -- ^ command line options
@@ -247,9 +280,20 @@ devel opts passThroughArgs = do
 #else
     cabal  <- D.findPackageDesc "."
 #endif
+
+#if MIN_VERSION_Cabal(2, 0, 0)
+    gpd    <- D.readGenericPackageDescription D.normal cabal
+#else
     gpd    <- D.readPackageDescription D.normal cabal
+#endif
+
     let pd = D.packageDescription gpd
-        D.PackageIdentifier (D.PackageName packageName) _version = D.package pd
+        D.PackageIdentifier packageNameWrapped _version = D.package pd
+#if MIN_VERSION_Cabal(2, 0, 0)
+        packageName = D.unPackageName packageNameWrapped
+#else
+        D.PackageName packageName = packageNameWrapped
+#endif
 
     -- Which file contains the code to run
     develHsPath <- checkDevelFile
@@ -282,6 +326,7 @@ devel opts passThroughArgs = do
     sayV = when (verbose opts) . sayString
 
     -- Leverage "stack build --file-watch" to do the build
+    runStackBuild :: TVar Int -> [Char] -> Set.Set [Char] -> IO ()
     runStackBuild appPortVar packageName availableFlags = do
         -- We call into this app for the devel-signal command
         myPath <- getExecutablePath
@@ -315,7 +360,7 @@ devel opts passThroughArgs = do
                 passThroughArgs
 
         sayV $ show procConfig
-
+        buildStarted <- newTVarIO False
         -- Monitor the stdout and stderr content from the build process. Any
         -- time some output comes, we invalidate the currently running app by
         -- changing the destination port for reverse proxying to -1. We also
@@ -324,12 +369,13 @@ devel opts passThroughArgs = do
         withProcess_ procConfig $ \p -> do
             let helper getter h =
                       getter p
-                   $$ CL.iterM (\_ -> atomically $ writeTVar appPortVar (-1))
+                   $$ CL.iterM (\(str :: ByteString) -> atomically (updateAppPort str buildStarted appPortVar))
                    =$ CB.sinkHandle h
             race_ (helper getStdout stdout) (helper getStderr stderr)
 
     -- Run the inner action with a TVar which will be set to True
     -- whenever the signal file is modified.
+    withChangedVar :: (TVar Bool -> IO a) -> IO a
     withChangedVar inner = withManager $ \manager -> do
         -- Variable indicating that the signal file has been changed. We
         -- reset it each time we handle the signal.
@@ -352,6 +398,7 @@ devel opts passThroughArgs = do
         inner changedVar
 
     -- Each time the library builds successfully, run the application
+    runApp :: TVar Int -> TVar Bool -> String -> IO b
     runApp appPortVar changedVar develHsPath = do
         -- Wait for the first change, indicating that the library
         -- has been built
@@ -362,9 +409,11 @@ devel opts passThroughArgs = do
 
         sayV "First successful build complete, running app"
 
-        -- We're going to set the PORT and DISPLAY_PORT variables
-        -- for the child below
+        -- We're going to set the PORT and DISPLAY_PORT variables for
+        -- the child below. Also need to know if the env program
+        -- exists.
         env <- fmap Map.fromList getEnvironment
+        hasEnv <- fmap isJust $ findExecutable "env"
 
         -- Keep looping forever, print any synchronous exceptions,
         -- and eventually die from an async exception from one of
@@ -405,7 +454,26 @@ devel opts passThroughArgs = do
                     , "Main.main"
                     ]
             -}
-            let procDef = setStdin closed $ setEnv env' $ proc "stack"
+
+            -- Nix support in Stack doesn't pass along env vars by
+            -- default, so we use the env command. But if the command
+            -- isn't available, just set the env var. I'm sure this
+            -- will break _some_ combination of systems, but we'll
+            -- deal with that later. Previous issues:
+            --
+            -- https://github.com/yesodweb/yesod/issues/1357
+            -- https://github.com/yesodweb/yesod/issues/1359
+            let procDef
+                  | hasEnv = setStdin closed $ proc "stack"
+                    [ "exec"
+                    , "--"
+                    , "env"
+                    , "PORT=" ++ show newPort
+                    , "DISPLAY_PORT=" ++ show (develPort opts)
+                    , "runghc"
+                    , develHsPath
+                    ]
+                  | otherwise = setStdin closed $ setEnv env' $ proc "stack"
                     [ "runghc"
                     , "--"
                     , develHsPath

@@ -1,3 +1,7 @@
+## 1.4.5
+
+* Fix warnings
+
 ## 1.4.4
 
 * Reduce dependencies

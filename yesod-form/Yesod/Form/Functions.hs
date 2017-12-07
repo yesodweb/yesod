@@ -13,7 +13,12 @@ module Yesod.Form.Functions
       -- * Applicative/Monadic conversion
     , formToAForm
     , aFormToForm
+    , mFormToWForm
+    , wFormToAForm
+    , wFormToMForm
       -- * Fields to Forms
+    , wreq
+    , wopt
     , mreq
     , mopt
     , areq
@@ -51,8 +56,9 @@ module Yesod.Form.Functions
 import Yesod.Form.Types
 import Data.Text (Text, pack)
 import Control.Arrow (second)
-import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local)
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.RWS (ask, get, put, runRWST, tell, evalRWST, local, mapRWST)
+import Control.Monad.Trans.Writer (runWriterT, writer)
 import Control.Monad (liftM, join)
 import Data.Byteable (constEqBytes)
 import Text.Blaze (Markup, toMarkup)
@@ -104,6 +110,58 @@ askFiles :: Monad m => MForm m (Maybe FileEnv)
 askFiles = do
     (x, _, _) <- ask
     return $ liftM snd x
+
+-- | Converts a form field into monadic form 'WForm'. This field requires a
+-- value and will return 'FormFailure' if left empty.
+--
+-- @since 1.4.14
+wreq :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m)
+     => Field m a           -- ^ form field
+     -> FieldSettings site  -- ^ settings for this field
+     -> Maybe a             -- ^ optional default value
+     -> WForm m (FormResult a)
+wreq f fs = mFormToWForm . mreq f fs
+
+-- | Converts a form field into monadic form 'WForm'. This field is optional,
+-- i.e.  if filled in, it returns 'Just a', if left empty, it returns
+-- 'Nothing'.  Arguments are the same as for 'wreq' (apart from type of default
+-- value).
+--
+-- @since 1.4.14
+wopt :: (MonadHandler m, HandlerSite m ~ site)
+     => Field m a           -- ^ form field
+     -> FieldSettings site  -- ^ settings for this field
+     -> Maybe (Maybe a)     -- ^ optional default value
+     -> WForm m (FormResult (Maybe a))
+wopt f fs = mFormToWForm . mopt f fs
+
+-- | Converts a monadic form 'WForm' into an applicative form 'AForm'.
+--
+-- @since 1.4.14
+wFormToAForm :: MonadHandler m
+             => WForm m (FormResult a)  -- ^ input form
+             -> AForm m a               -- ^ output form
+wFormToAForm = formToAForm . wFormToMForm
+
+-- | Converts a monadic form 'WForm' into another monadic form 'MForm'.
+--
+-- @since 1.4.14
+wFormToMForm :: (MonadHandler m, HandlerSite m ~ site)
+             => WForm m a                      -- ^ input form
+             -> MForm m (a, [FieldView site])  -- ^ output form
+wFormToMForm = mapRWST (fmap group . runWriterT)
+  where
+    group ((a, ints, enctype), views) = ((a, views), ints, enctype)
+
+-- | Converts a monadic form 'MForm' into another monadic form 'WForm'.
+--
+-- @since 1.4.14
+mFormToWForm :: (MonadHandler m, HandlerSite m ~ site)
+             => MForm m (a, FieldView site)  -- ^ input form
+             -> WForm m a                    -- ^ output form
+mFormToWForm = mapRWST $ \f -> do
+  ((a, view), ints, enctype) <- lift f
+  writer ((a, ints, enctype), [view])
 
 -- | Converts a form field into monadic form. This field requires a value
 -- and will return 'FormFailure' if left empty.
@@ -534,8 +592,8 @@ parseHelperGen f (x:_) _ = return $ either (Left . SomeMessage) (Right . Just) $
 
 -- | Since a 'Field' cannot be a 'Functor', it is not obvious how to "reuse" a Field
 -- on a @newtype@ or otherwise equivalent type. This function allows you to convert
--- a @Field m a@ to a @Field m b@ assuming you provide a bidireccional
--- convertion among the two, through the first two functions.
+-- a @Field m a@ to a @Field m b@ assuming you provide a bidirectional
+-- conversion between the two, through the first two functions.
 --
 -- A simple example:
 --

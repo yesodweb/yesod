@@ -1,3 +1,21 @@
+## 1.5.8
+* Added implicit parameter HasCallStack to assertions.
+[#1421](https://github.com/yesodweb/yesod/pull/1421)
+
+## 1.5.7
+
+* Add clickOn.
+[#1408](https://github.com/yesodweb/yesod/pull/1408)
+
+## 1.5.6
+
+* Add assertNotEq.
+[#1375](https://github.com/yesodweb/yesod/pull/1375)
+
+## 1.5.5
+
+* Fix warnings
+
 ## 1.5.4.1
 
 * Compilation fix for GHC 7.8

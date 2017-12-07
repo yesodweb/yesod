@@ -25,6 +25,7 @@ mkYesod "Y" [parseRoutes|
 /route-test-2/*Vector-String RT2 GET
 /route-test-3/*Vector-(Maybe-Int) RT3 GET
 /route-test-4/#(Foo-Int-Int) RT4 GET
+/route-test-4-spaces/#{Foo Int Int} RT4Spaces GET
 |]
 
 data Vector a = Vector
@@ -63,6 +64,9 @@ getRT3 _ = return ()
 
 getRT4 :: Foo Int Int -> Handler ()
 getRT4 _ = return ()
+
+getRT4Spaces :: Foo Int Int -> Handler ()
+getRT4Spaces _ = return ()
 
 linksTest :: Spec
 linksTest = describe "Test.Links" $ do

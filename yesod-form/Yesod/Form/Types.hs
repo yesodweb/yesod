@@ -12,6 +12,7 @@ module Yesod.Form.Types
     , FileEnv
     , Ints (..)
       -- * Form
+    , WForm
     , MForm
     , AForm (..)
       -- * Build forms
@@ -22,13 +23,14 @@ module Yesod.Form.Types
     ) where
 
 import Control.Monad.Trans.RWS (RWST)
+import Control.Monad.Trans.Writer (WriterT)
 import Data.Text (Text)
 import Data.Monoid (Monoid (..))
 import Text.Blaze (Markup, ToMarkup (toMarkup), ToValue (toValue))
 #define Html Markup
 #define ToHtml ToMarkup
 #define toHtml toMarkup
-import Control.Applicative ((<$>), Applicative (..))
+import Control.Applicative ((<$>), Alternative (..), Applicative (..))
 import Control.Monad (liftM)
 import Control.Monad.Trans.Class
 import Data.String (IsString (..))
@@ -43,6 +45,8 @@ import Data.Foldable
 --
 -- The 'Applicative' instance will concatenate the failure messages in two
 -- 'FormResult's.
+-- The 'Alternative' instance will choose 'FormFailure' before 'FormSuccess',
+-- and 'FormMissing' last of all.
 data FormResult a = FormMissing
                   | FormFailure [Text]
                   | FormSuccess a
@@ -78,6 +82,16 @@ instance Data.Traversable.Traversable FormResult where
       FormFailure errs -> pure (FormFailure errs)
       FormMissing -> pure FormMissing
 
+-- | @since 1.4.15
+instance Alternative FormResult where
+    empty = FormMissing
+
+    FormFailure e    <|> _             = FormFailure e
+    _                <|> FormFailure e = FormFailure e
+    FormSuccess s    <|> FormSuccess _ = FormSuccess s
+    FormMissing      <|> result        = result
+    result           <|> FormMissing   = result
+
 -- | The encoding type required by a form. The 'ToHtml' instance produces values
 -- that can be inserted directly into HTML.
 data Enctype = UrlEncoded | Multipart
@@ -101,6 +115,29 @@ instance Show Ints where
 
 type Env = Map.Map Text [Text]
 type FileEnv = Map.Map Text [FileInfo]
+
+-- | 'MForm' variant stacking a 'WriterT'. The following code example using a
+-- monadic form 'MForm':
+--
+-- > formToAForm $ do
+-- >   (field1F, field1V) <- mreq textField MsgField1 Nothing
+-- >   (field2F, field2V) <- mreq (checkWith field1F textField) MsgField2 Nothing
+-- >   (field3F, field3V) <- mreq (checkWith field1F textField) MsgField3 Nothing
+-- >   return
+-- >     ( MyForm <$> field1F <*> field2F <*> field3F
+-- >     , [field1V, field2V, field3V]
+-- >     )
+--
+-- Could be rewritten as follows using 'WForm':
+--
+-- > wFormToAForm $ do
+-- >   field1F <- wreq textField MsgField1 Nothing
+-- >   field2F <- wreq (checkWith field1F textField) MsgField2 Nothing
+-- >   field3F <- wreq (checkWith field1F textField) MsgField3 Nothing
+-- >   return $ MyForm <$> field1F <*> field2F <*> field3F
+--
+-- @since 1.4.14
+type WForm m a = MForm (WriterT [FieldView (HandlerSite m)] m) a
 
 type MForm m a = RWST
     (Maybe (Env, FileEnv), HandlerSite m, [Lang])

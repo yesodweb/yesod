@@ -1,3 +1,11 @@
+## 1.4.3
+
+* Fix overly powerful constraints on get404 and getBy404.
+
+## 1.4.2
+
+* Fix warnings
+
 ## 1.4.1.1
 
 * Fix build failure with older persistent versions [#1324](https://github.com/yesodweb/yesod/issues/1324)

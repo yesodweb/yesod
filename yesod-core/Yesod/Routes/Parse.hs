@@ -10,10 +10,12 @@ module Yesod.Routes.Parse
     , parseType
     , parseTypeTree
     , TypeTree (..)
+    , dropBracket
+    , nameToType
     ) where
 
 import Language.Haskell.TH.Syntax
-import Data.Char (isUpper)
+import Data.Char (isUpper, isLower, isSpace)
 import Language.Haskell.TH.Quote
 import qualified System.IO as SIO
 import Yesod.Routes.TH
@@ -86,7 +88,7 @@ resourcesFromString =
         spaces = takeWhile (== ' ') thisLine
         (others, remainder) = parse indent otherLines'
         (this, otherLines') =
-            case takeWhile (not . isPrefixOf "--") $ words thisLine of
+            case takeWhile (not . isPrefixOf "--") $ splitSpaces thisLine of
                 (pattern:rest0)
                     | Just (constr:rest) <- stripColonLast rest0
                     , Just attrs <- mapM parseAttr rest ->
@@ -101,6 +103,26 @@ resourcesFromString =
                      in ((ResourceLeaf (Resource constr pieces disp attrs check):), otherLines)
                 [] -> (id, otherLines)
                 _ -> error $ "Invalid resource line: " ++ thisLine
+
+-- | Splits a string by spaces, as long as the spaces are not enclosed by curly brackets (not recursive).
+splitSpaces :: String -> [String]
+splitSpaces "" = []
+splitSpaces str = 
+    let (rest, piece) = parse $ dropWhile isSpace str in
+    piece:(splitSpaces rest)
+
+    where 
+        parse :: String -> ( String, String)
+        parse ('{':s) = fmap ('{':) $ parseBracket s
+        parse (c:s) | isSpace c = (s, [])
+        parse (c:s) = fmap (c:) $ parse s
+        parse "" = ("", "")
+
+        parseBracket :: String -> ( String, String)
+        parseBracket ('{':_) = error $ "Invalid resource line (nested curly bracket): " ++ str
+        parseBracket ('}':s) = fmap ('}':) $ parse s
+        parseBracket (c:s) = fmap (c:) $ parseBracket s
+        parseBracket "" = error $ "Invalid resource line (unclosed curly bracket): " ++ str
 
 piecesFromStringCheck :: String -> ([Piece String], Maybe String, Bool)
 piecesFromStringCheck s0 =
@@ -181,7 +203,7 @@ parseTypeTree :: String -> Maybe TypeTree
 parseTypeTree orig =
     toTypeTree pieces
   where
-    pieces = filter (not . null) $ splitOn '-' $ addDashes orig
+    pieces = filter (not . null) $ splitOn (\c -> c == '-' || c == ' ') $ addDashes orig
     addDashes [] = []
     addDashes (x:xs) =
         front $ addDashes xs
@@ -194,7 +216,7 @@ parseTypeTree orig =
             _:y -> x : splitOn c y
             [] -> [x]
       where
-        (x, y') = break (== c) s
+        (x, y') = break c s
 
 data TypeTree = TTTerm String
               | TTApp TypeTree TypeTree
@@ -232,14 +254,18 @@ toTypeTree orig = do
             gos' (front . (t:)) xs'
 
 ttToType :: TypeTree -> Type
-ttToType (TTTerm s) = ConT $ mkName s
+ttToType (TTTerm s) = nameToType s
 ttToType (TTApp x y) = ttToType x `AppT` ttToType y
 ttToType (TTList t) = ListT `AppT` ttToType t
 
+nameToType :: String -> Type
+nameToType t@(h:_) | isLower h = VarT $ mkName t
+nameToType t = ConT $ mkName t
+
 pieceFromString :: String -> Either (CheckOverlap, String) (CheckOverlap, Piece String)
-pieceFromString ('#':'!':x) = Right $ (False, Dynamic x)
-pieceFromString ('!':'#':x) = Right $ (False, Dynamic x) -- https://github.com/yesodweb/yesod/issues/652
-pieceFromString ('#':x) = Right $ (True, Dynamic x)
+pieceFromString ('#':'!':x) = Right $ (False, Dynamic $ dropBracket x)
+pieceFromString ('!':'#':x) = Right $ (False, Dynamic $ dropBracket x) -- https://github.com/yesodweb/yesod/issues/652
+pieceFromString ('#':x) = Right $ (True, Dynamic $ dropBracket x)
 
 pieceFromString ('*':'!':x) = Left (False, x)
 pieceFromString ('+':'!':x) = Left (False, x)
@@ -252,3 +278,10 @@ pieceFromString ('+':x) = Left (True, x)
 
 pieceFromString ('!':x) = Right $ (False, Static x)
 pieceFromString x = Right $ (True, Static x)
+
+dropBracket :: String -> String
+dropBracket str@('{':x) = case break (== '}') x of
+    (s, "}") -> s
+    _ -> error $ "Unclosed bracket ('{'): " ++ str
+dropBracket x = x
+

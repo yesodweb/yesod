@@ -1,3 +1,43 @@
+## 1.4.37.2
+
+* Improve error messages for the CSRF checking functions [#1455](https://github.com/yesodweb/yesod/issues/1455)
+
+## 1.4.37.1
+
+* Fix documentation on `languages` function, update `getMessageRender` to use said function. [#1457](https://github.com/yesodweb/yesod/pull/1457)
+
+## 1.4.37
+
+* Add `setWeakEtag` function in Yesod.Core.Handler module.
+
+## 1.4.36
+
+* Add `replaceOrAddHeader` function in Yesod.Core.Handler module. [1416](https://github.com/yesodweb/yesod/issues/1416)
+
+## 1.4.35.1
+
+* TH fix for GHC 8.2
+
+## 1.4.35
+
+* Contexts can be included in generated TH instances. [1365](https://github.com/yesodweb/yesod/issues/1365)
+* Type variables can be included in routes.
+
+## 1.4.34
+
+* Add `WaiSubsiteWithAuth`. [#1394](https://github.com/yesodweb/yesod/pull/1394)
+
+## 1.4.33
+
+* Adds curly brackets to route parser. [#1363](https://github.com/yesodweb/yesod/pull/1363)
+
+## 1.4.32
+
+* Fix warnings
+* Route parsing handles CRLF line endings
+* Add 'getPostParams' in Yesod.Core.Handler
+* Haddock rendering improved.
+
 ## 1.4.31
 
 * Add `parseCheckJsonBody` and `requireCheckJsonBody`

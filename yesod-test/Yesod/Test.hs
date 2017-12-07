@@ -4,6 +4,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 {-|
 Yesod.Test is a pragmatic framework for testing web applications built
@@ -62,6 +64,7 @@ module Yesod.Test
     , setRequestBody
     , RequestBuilder
     , setUrl
+    , clickOn
 
     -- *** Adding fields by label
     -- | Yesod can auto generate field names, so you are never sure what
@@ -86,6 +89,7 @@ module Yesod.Test
 
     -- * Assertions
     , assertEqual
+    , assertNotEq
     , assertEqualNoShow
     , assertEq
 
@@ -148,6 +152,16 @@ import Data.Time.Clock (getCurrentTime)
 import Control.Applicative ((<$>))
 import Text.Show.Pretty (ppShow)
 import Data.Monoid (mempty)
+#if MIN_VERSION_base(4,9,0)
+import GHC.Stack (HasCallStack)
+#elif MIN_VERSION_base(4,8,1)
+import GHC.Stack (CallStack)
+type HasCallStack = (?callStack :: CallStack)
+#else
+import GHC.Exts (Constraint)
+type HasCallStack = (() :: Constraint)
+#endif
+
 
 -- | The state used in a single test case defined using 'yit'
 --
@@ -325,28 +339,39 @@ htmlQuery = htmlQuery' yedResponse []
 
 -- | Asserts that the two given values are equal.
 --
--- In case they are not equal, error mesasge includes the two values.
+-- In case they are not equal, error message includes the two values.
 --
 -- @since 1.5.2
-assertEq :: (Eq a, Show a) => String -> a -> a -> YesodExample site ()
+assertEq :: (HasCallStack, Eq a, Show a) => String -> a -> a -> YesodExample site ()
 assertEq m a b =
   liftIO $ HUnit.assertBool msg (a == b)
   where msg = "Assertion: " ++ m ++ "\n" ++
               "First argument:  " ++ ppShow a ++ "\n" ++
               "Second argument: " ++ ppShow b ++ "\n"
 
+-- | Asserts that the two given values are not equal.
+--
+-- In case they are equal, error mesasge includes the values.
+--
+-- @since 1.5.6
+assertNotEq :: (HasCallStack, Eq a, Show a) => String -> a -> a -> YesodExample site ()
+assertNotEq m a b =
+  liftIO $ HUnit.assertBool msg (a /= b)
+  where msg = "Assertion: " ++ m ++ "\n" ++
+              "Both arguments:  " ++ ppShow a ++ "\n"
+
 {-# DEPRECATED assertEqual "Use assertEq instead" #-}
-assertEqual :: (Eq a) => String -> a -> a -> YesodExample site ()
+assertEqual :: (HasCallStack, Eq a) => String -> a -> a -> YesodExample site ()
 assertEqual = assertEqualNoShow
 
 -- | Asserts that the two given values are equal.
 --
 -- @since 1.5.2
-assertEqualNoShow :: (Eq a) => String -> a -> a -> YesodExample site ()
+assertEqualNoShow :: (HasCallStack, Eq a) => String -> a -> a -> YesodExample site ()
 assertEqualNoShow msg a b = liftIO $ HUnit.assertBool msg (a == b)
 
 -- | Assert the last response status is as expected.
-statusIs :: Int -> YesodExample site ()
+statusIs :: HasCallStack => Int -> YesodExample site ()
 statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
   liftIO $ flip HUnit.assertBool (H.statusCode s == number) $ concat
     [ "Expected status was ", show number
@@ -354,7 +379,7 @@ statusIs number = withResponse $ \ SResponse { simpleStatus = s } ->
     ]
 
 -- | Assert the given header key/value pair was returned.
-assertHeader :: CI BS8.ByteString -> BS8.ByteString -> YesodExample site ()
+assertHeader :: HasCallStack => CI BS8.ByteString -> BS8.ByteString -> YesodExample site ()
 assertHeader header value = withResponse $ \ SResponse { simpleHeaders = h } ->
   case lookup header h of
     Nothing -> failure $ T.pack $ concat
@@ -374,7 +399,7 @@ assertHeader header value = withResponse $ \ SResponse { simpleHeaders = h } ->
         ]
 
 -- | Assert the given header was not included in the response.
-assertNoHeader :: CI BS8.ByteString -> YesodExample site ()
+assertNoHeader :: HasCallStack => CI BS8.ByteString -> YesodExample site ()
 assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
   case lookup header h of
     Nothing -> return ()
@@ -387,14 +412,14 @@ assertNoHeader header = withResponse $ \ SResponse { simpleHeaders = h } ->
 
 -- | Assert the last response is exactly equal to the given text. This is
 -- useful for testing API responses.
-bodyEquals :: String -> YesodExample site ()
+bodyEquals :: HasCallStack => String -> YesodExample site ()
 bodyEquals text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to equal " ++ text) $
     (simpleBody res) == encodeUtf8 (TL.pack text)
 
 -- | Assert the last response has the given text. The check is performed using the response
 -- body in full text form.
-bodyContains :: String -> YesodExample site ()
+bodyContains :: HasCallStack => String -> YesodExample site ()
 bodyContains text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body to contain " ++ text) $
     (simpleBody res) `contains` text
@@ -402,7 +427,7 @@ bodyContains text = withResponse $ \ res ->
 -- | Assert the last response doesn't have the given text. The check is performed using the response
 -- body in full text form.
 -- @since 1.5.3
-bodyNotContains :: String -> YesodExample site ()
+bodyNotContains :: HasCallStack => String -> YesodExample site ()
 bodyNotContains text = withResponse $ \ res ->
   liftIO $ HUnit.assertBool ("Expected body not to contain " ++ text) $
     not $ contains (simpleBody res) text
@@ -412,7 +437,7 @@ contains a b = DL.isInfixOf b (TL.unpack $ decodeUtf8 a)
 
 -- | Queries the HTML using a CSS selector, and all matched elements must contain
 -- the given string.
-htmlAllContain :: Query -> String -> YesodExample site ()
+htmlAllContain :: HasCallStack => Query -> String -> YesodExample site ()
 htmlAllContain query search = do
   matches <- htmlQuery query
   case matches of
@@ -424,7 +449,7 @@ htmlAllContain query search = do
 -- element contains the given string.
 --
 -- Since 0.3.5
-htmlAnyContain :: Query -> String -> YesodExample site ()
+htmlAnyContain :: HasCallStack => Query -> String -> YesodExample site ()
 htmlAnyContain query search = do
   matches <- htmlQuery query
   case matches of
@@ -437,7 +462,7 @@ htmlAnyContain query search = do
 -- inverse of htmlAnyContains).
 --
 -- Since 1.2.2
-htmlNoneContain :: Query -> String -> YesodExample site ()
+htmlNoneContain :: HasCallStack => Query -> String -> YesodExample site ()
 htmlNoneContain query search = do
   matches <- htmlQuery query
   case DL.filter (DL.isInfixOf search) (map (TL.unpack . decodeUtf8) matches) of
@@ -447,7 +472,7 @@ htmlNoneContain query search = do
 
 -- | Performs a CSS query on the last response and asserts the matched elements
 -- are as many as expected.
-htmlCount :: Query -> Int -> YesodExample site ()
+htmlCount :: HasCallStack => Query -> Int -> YesodExample site ()
 htmlCount query count = do
   matches <- fmap DL.length $ htmlQuery query
   liftIO $ flip HUnit.assertBool (matches == count)
@@ -817,6 +842,25 @@ setUrl url' = do
                 x -> x
         , rbdGets = rbdGets rbd ++ H.parseQuery (TE.encodeUtf8 urlQuery)
         }
+
+
+-- | Click on a link defined by a CSS query
+--
+-- ==== __ Examples__
+--
+-- > get "/foobar"
+-- > clickOn "a#idofthelink"
+--
+-- @since 1.5.7 
+clickOn :: Yesod site => Query -> YesodExample site ()
+clickOn query = do
+  withResponse' yedResponse ["Tried to invoke clickOn in order to read HTML of a previous response."] $ \ res ->
+    case findAttributeBySelector (simpleBody res) query "href" of
+      Left err -> failure $ query <> " did not parse: " <> T.pack (show err)
+      Right [[match]] -> get match
+      Right matches -> failure $ "Expected exactly one match for clickOn: got " <> T.pack (show matches)
+
+
 
 -- | Simple way to set HTTP request body
 --

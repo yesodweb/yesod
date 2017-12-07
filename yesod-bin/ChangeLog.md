@@ -1,3 +1,31 @@
+## 1.5.2.6
+
+* Drop an upper bound
+
+## 1.5.2.5
+
+* Support for `add-handler` when modules are in `src/` directory [#1413](https://github.com/yesodweb/yesod/issues/1413)
+
+## 1.5.2.4
+
+* Cabal 2.0 support
+
+## 1.5.2.3
+
+* Fix race condition which leads dev server to stay in compilation mode. [#1380](https://github.com/yesodweb/yesod/issues/1380)
+
+## 1.5.2.2
+
+* I guess `--no-nix-pure` implies Nix... sigh [#1359](https://github.com/yesodweb/yesod/issues/1359)
+
+## 1.5.2.1
+
+* Use `--no-nix-pure` [#1357](https://github.com/yesodweb/yesod/issues/1357)
+
+## 1.5.2
+
+* Fix warnings
+
 ## 1.5.1
 
 * Add `--host` option to `yesod devel`

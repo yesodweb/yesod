@@ -1,3 +1,17 @@
+## 1.5.3.1
+
+* Switch to cryptonite
+
+## 1.5.3
+
+* Add `staticFilesMap` function
+* Add `staticFilesMergeMap` function
+
+## 1.5.2
+
+* Fix test case for CRLF line endings
+* Fix warnings
+
 ## 1.5.1.1
 
 * Fix test suite compilation

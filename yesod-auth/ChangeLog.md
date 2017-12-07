@@ -1,11 +1,38 @@
-## 1.4.18
+## 1.4.21
 
 * Add redirectToCurrent to Yesod.Auth module for controlling setUltDestCurrent in redirectLogin
+
+## 1.4.20
+
+* Extend `YesodAuthEmail` to support extensible password hashing via
+  `hashAndSaltPassword` and `verifyPassword` functions
+
+## 1.4.19
+
+* Adjust English localization to distinguish between "log in" (verb) and "login" (noun)
+
+## 1.4.18
+
+* Expose Yesod.Auth.Util.PasswordStore
+
+## 1.4.17.3
+
+* Some translation fixes
+
+## 1.4.17.2
+
+* Move to cryptonite from cryptohash
+
+## 1.4.17.1
+
+* Some translation fixes
 
 ## 1.4.17
 
 * Add Show instance for user credentials `Creds`
 * Export pid type for identifying plugin
+* Fix warnings
+* Allow for a custom Email Login DOM with `emailLoginHandler`
 
 ## 1.4.16
 

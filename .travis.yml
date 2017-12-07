@@ -53,9 +53,9 @@ matrix:
   - env: BUILD=cabal GHCVER=7.10.3 CABALVER=1.22 HAPPYVER=1.19.5 ALEXVER=3.1.7
     compiler: ": #GHC 7.10.3"
     addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.3,happy-1.19.5,alex-3.1.7], sources: [hvr-ghc]}}
-  - env: BUILD=cabal GHCVER=8.0.1 CABALVER=head HAPPYVER=1.19.5 ALEXVER=3.1.7
-    compiler: ": #GHC 8.0.1"
-    addons: {apt: {packages: [cabal-install-head,ghc-8.0.1,happy-1.19.5,alex-3.1.7], sources: [hvr-ghc]}}
+  - env: BUILD=cabal GHCVER=8.0.2 CABALVER=1.24 HAPPYVER=1.19.5 ALEXVER=3.1.7
+    compiler: ": #GHC 8.0.2"
+    addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.2,happy-1.19.5,alex-3.1.7], sources: [hvr-ghc]}}
 
   # Build with the newest GHC and cabal-install. This is an accepted failure,
   # see below.
@@ -69,20 +69,12 @@ matrix:
     compiler: ": #stack default"
     addons: {apt: {packages: [libgmp-dev]}}
 
-  - env: BUILD=stack ARGS="--resolver lts-2"
-    compiler: ": #stack 7.8.4"
-    addons: {apt: {packages: [libgmp-dev]}}
-
-  - env: BUILD=stack ARGS="--resolver lts-3"
-    compiler: ": #stack 7.10.2"
-    addons: {apt: {packages: [libgmp-dev]}}
-
   - env: BUILD=stack ARGS="--resolver lts-6"
     compiler: ": #stack 7.10.3"
     addons: {apt: {packages: [libgmp-dev]}}
 
-  - env: BUILD=stack ARGS="--resolver lts-7"
-    compiler: ": #stack 8.0.1"
+  - env: BUILD=stack ARGS="--resolver lts-8"
+    compiler: ": #stack 8.0.2"
     addons: {apt: {packages: [libgmp-dev]}}
 
   # Nightly builds are allowed to fail
@@ -95,21 +87,12 @@ matrix:
     compiler: ": #stack default osx"
     os: osx
 
-  # Travis includes an OS X which is incompatible with GHC 7.8.4
-  #- env: BUILD=stack ARGS="--resolver lts-2"
-  #  compiler: ": #stack 7.8.4 osx"
-  #  os: osx
-
-  - env: BUILD=stack ARGS="--resolver lts-3"
-    compiler: ": #stack 7.10.2 osx"
-    os: osx
-
   - env: BUILD=stack ARGS="--resolver lts-6"
     compiler: ": #stack 7.10.3 osx"
     os: osx
 
-  - env: BUILD=stack ARGS="--resolver lts-7"
-    compiler: ": #stack 8.0.1 osx"
+  - env: BUILD=stack ARGS="--resolver lts-8"
+    compiler: ": #stack 8.0.2 osx"
     os: osx
 
   - env: BUILD=stack ARGS="--resolver nightly"
@@ -119,6 +102,8 @@ matrix:
   allow_failures:
   - env: BUILD=cabal GHCVER=head  CABALVER=head HAPPYVER=1.19.5 ALEXVER=3.1.7
   - env: BUILD=stack ARGS="--resolver nightly"
+  - env: BUILD=cabal GHCVER=7.8.4 CABALVER=1.18 HAPPYVER=1.19.5 ALEXVER=3.1.7
+  - env: BUILD=cabal GHCVER=7.10.3 CABALVER=1.22 HAPPYVER=1.19.5 ALEXVER=3.1.7
 
 before_install:
 # Using compiler above sets CC to an invalid value, so unset it
@@ -154,9 +139,10 @@ install:
 - if [ -f configure.ac ]; then autoreconf -i; fi
 - |
   set -ex
-  if [ "$RESOLVER" = "--resolver nightly" ]
+  if [ "$ARGS" = "--resolver nightly" ]
   then
-    stack $RESOLVER solver --update-config
+    stack --install-ghc $ARGS build cabal-install
+    stack --install-ghc $ARGS solver --update-config
   fi
   set +ex
 
@@ -170,10 +156,16 @@ script:
         # Build dependencies with -O0 as well
         echo "apply-ghc-options: everything" >> stack.yaml
 
+        # Avoid OOM for building Cabal
+        stack --install-ghc --no-terminal $ARGS build Cabal --fast
+
         # Use slightly less intensive options on OS X due to Travis timeouts
-        stack --no-terminal $ARGS test --fast --pedantic
+        stack --install-ghc --no-terminal $ARGS test --fast
       else
-        stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps --pedantic
+        # Avoid OOM for building Cabal
+        stack --install-ghc --no-terminal $ARGS build Cabal --fast
+
+        stack --install-ghc --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps --pedantic
       fi
       ;;
     cabal)

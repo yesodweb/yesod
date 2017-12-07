@@ -51,6 +51,8 @@ module Yesod.Static
       -- * Template Haskell helpers
     , staticFiles
     , staticFilesList
+    , staticFilesMap
+    , staticFilesMergeMap
     , publicFiles
       -- * Hashing
     , base64md5
@@ -62,6 +64,7 @@ module Yesod.Static
     ) where
 
 import System.Directory
+import qualified System.FilePath as FP
 import Control.Monad
 import Data.FileEmbed (embedDir)
 
@@ -78,7 +81,7 @@ import Crypto.Hash (MD5, Digest)
 import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans.State
 
-import qualified Data.Byteable as Byteable
+import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.ByteString.Lazy as L
@@ -246,7 +249,7 @@ staticFiles dir = mkStaticFiles dir
 -- files @\"static\/js\/jquery.js\"@ and
 -- @\"static\/css\/normalize.css\"@, you would use:
 --
--- > staticFilesList \"static\" [\"js\/jquery.js\", \"css\/normalize.css\"]
+-- > staticFilesList "static" ["js/jquery.js", "css/normalize.css"]
 --
 -- This can be useful when you have a very large number of static
 -- files, but only need to refer to a few of them from Haskell.
@@ -273,6 +276,53 @@ staticFilesList dir fs =
 publicFiles :: FilePath -> Q [Dec]
 publicFiles dir = mkStaticFiles' dir False
 
+-- | Similar to 'staticFilesList', but takes a mapping of
+-- unmunged names to fingerprinted file names.
+--
+-- @since 1.5.3
+staticFilesMap :: FilePath -> M.Map FilePath FilePath -> Q [Dec]
+staticFilesMap fp m = mkStaticFilesList' fp (map splitBoth mapList) True
+  where
+    splitBoth (k, v) = (split k, split v)
+    mapList = M.toList m
+    split :: FilePath -> [String]
+    split [] = []
+    split x =
+        let (a, b) = break (== '/') x
+         in a : split (drop 1 b)
+
+-- | Similar to 'staticFilesMergeMap', but also generates identifiers
+-- for all files in the specified directory that don't have a
+-- fingerprinted version.
+--
+-- @since 1.5.3
+staticFilesMergeMap :: FilePath -> M.Map FilePath FilePath -> Q [Dec]
+staticFilesMergeMap fp m = do
+  fs <- qRunIO $ getFileListPieces fp
+  let filesList = map FP.joinPath fs
+      mergedMapList = M.toList $ foldl' (checkedInsert invertedMap) m filesList
+  mkStaticFilesList' fp (map splitBoth mergedMapList) True
+  where
+    splitBoth (k, v) = (split k, split v)
+    swap (x, y) = (y, x)
+    mapList = M.toList m
+    invertedMap = M.fromList $ map swap mapList
+    split :: FilePath -> [String]
+    split [] = []
+    split x =
+        let (a, b) = break (== '/') x
+         in a : split (drop 1 b)
+    -- We want to keep mappings for all files that are pre-fingerprinted,
+    -- so this function checks against all of the existing fingerprinted files and
+    -- only inserts a new mapping if it's not a fingerprinted file.
+    checkedInsert
+      :: M.Map FilePath FilePath -- inverted dictionary
+      -> M.Map FilePath FilePath -- accumulating state
+      -> FilePath
+      -> M.Map FilePath FilePath
+    checkedInsert iDict st p = if M.member p iDict
+      then st
+      else M.insert p p st
 
 mkHashMap :: FilePath -> IO (M.Map FilePath S8.ByteString)
 mkHashMap dir = do
@@ -330,7 +380,16 @@ mkStaticFilesList
     -> [[String]] -- ^ list of files to create identifiers for
     -> Bool     -- ^ append checksum query parameter
     -> Q [Dec]
-mkStaticFilesList fp fs makeHash = do
+mkStaticFilesList fp fs makeHash = mkStaticFilesList' fp (zip fs fs) makeHash
+
+mkStaticFilesList'
+    :: FilePath -- ^ static directory
+    -> [([String], [String])] -- ^ list of files to create identifiers for, where
+                              -- the first argument of the tuple is the identifier
+                              -- alias and the second is the actual file name
+    -> Bool     -- ^ append checksum query parameter
+    -> Q [Dec]
+mkStaticFilesList' fp fs makeHash = do
     concat `fmap` mapM mkRoute fs
   where
     replace' c
@@ -338,8 +397,8 @@ mkStaticFilesList fp fs makeHash = do
         | 'a' <= c && c <= 'z' = c
         | '0' <= c && c <= '9' = c
         | otherwise = '_'
-    mkRoute f = do
-        let name' = intercalate "_" $ map (map replace') f
+    mkRoute (alias, f) = do
+        let name' = intercalate "_" $ map (map replace') alias
             routeName = mkName $
                 case () of
                     ()
@@ -361,7 +420,7 @@ mkStaticFilesList fp fs makeHash = do
 
 base64md5File :: FilePath -> IO String
 base64md5File = fmap (base64 . encode) . hashFile
-    where encode d = Byteable.toBytes (d :: Digest MD5)
+    where encode d = ByteArray.convert (d :: Digest MD5)
 
 base64md5 :: L.ByteString -> String
 base64md5 lbs =
@@ -369,7 +428,7 @@ base64md5 lbs =
           $ runIdentity
           $ sourceList (L.toChunks lbs) $$ sinkHash
   where
-    encode d = Byteable.toBytes (d :: Digest MD5)
+    encode d = ByteArray.convert (d :: Digest MD5)
 
 base64 :: S.ByteString -> String
 base64 = map tr

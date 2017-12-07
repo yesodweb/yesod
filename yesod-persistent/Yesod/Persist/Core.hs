@@ -134,7 +134,7 @@ respondSourceDB ctype = respondSource ctype . runDBSource
 
 -- | Get the given entity by ID, or return a 404 not found if it doesn't exist.
 #if MIN_VERSION_persistent(2,5,0)
-get404 :: (MonadIO m, PersistStore backend, PersistRecordBackend val backend)
+get404 :: (MonadIO m, PersistStoreRead backend, PersistRecordBackend val backend)
        => Key val
        -> ReaderT backend m val
 #else
@@ -151,7 +151,7 @@ get404 key = do
 -- | Get the given entity by unique key, or return a 404 not found if it doesn't
 --   exist.
 #if MIN_VERSION_persistent(2,5,0)
-getBy404 :: (PersistUnique backend, PersistRecordBackend val backend, MonadIO m)
+getBy404 :: (PersistUniqueRead backend, PersistRecordBackend val backend, MonadIO m)
          => Unique val
          -> ReaderT backend m (Entity val)
 #else

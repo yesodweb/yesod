@@ -4,7 +4,7 @@
 {-# LANGUAGE PatternGuards           #-}
 {-# LANGUAGE QuasiQuotes             #-}
 {-# LANGUAGE Rank2Types              #-}
-{-# LANGUAGE ScopedTypeVariables#-}
+{-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE TypeFamilies            #-}
 -- | A Yesod plugin for Authentication via e-mail
 --
@@ -106,6 +106,7 @@ module Yesod.Auth.Email
     , loginLinkKey
     , setLoginLinkKey
      -- * Default handlers
+    , defaultEmailLoginHandler
     , defaultRegisterHandler
     , defaultForgotPasswordHandler
     , defaultSetPasswordHandler
@@ -115,10 +116,9 @@ import           Yesod.Auth
 import qualified Yesod.Auth.Message       as Msg
 import           Yesod.Core
 import           Yesod.Form
-import qualified Yesod.PasswordStore      as PS
-
+import qualified Yesod.Auth.Util.PasswordStore as PS
 import           Control.Applicative      ((<$>), (<*>))
-import qualified Crypto.Hash.MD5          as H
+import qualified Crypto.Hash              as H
 import qualified Crypto.Nonce             as Nonce
 import           Data.ByteString.Base16   as B16
 import           Data.Text                (Text)
@@ -132,7 +132,8 @@ import           Safe                     (readMay)
 import           System.IO.Unsafe         (unsafePerformIO)
 import qualified Text.Email.Validate
 import           Data.Aeson.Types (Parser, Result(..), parseMaybe, withObject, (.:?))
-import           Data.Maybe (isJust, isNothing, fromJust)
+import           Data.Maybe (isJust)
+import Data.ByteArray (convert)
 
 loginR, registerR, forgotPasswordR, setpassR :: AuthRoute
 loginR = PluginR "email" ["login"]
@@ -201,6 +202,22 @@ class ( YesodAuth site
     --
     -- @since 1.1.0
     setVerifyKey :: AuthEmailId site -> VerKey -> HandlerT site IO ()
+
+    -- | Hash and salt a password
+    --
+    -- Default: 'saltPass'.
+    --
+    -- @since 1.4.20
+    hashAndSaltPassword :: Text -> HandlerT site IO SaltedPass
+    hashAndSaltPassword = liftIO . saltPass
+
+    -- | Verify a password matches the stored password for the given account.
+    --
+    -- Default: Fetch a password with 'getPassword' and match using 'Yesod.Auth.Util.PasswordStore.verifyPassword'.
+    --
+    -- @since 1.4.20
+    verifyPassword :: Text -> SaltedPass -> HandlerT site IO Bool
+    verifyPassword plain salted = return $ isValidPass plain salted
 
     -- | Verify the email address on the given account.
     --
@@ -290,6 +307,17 @@ class ( YesodAuth site
     normalizeEmailAddress :: site -> Text -> Text
     normalizeEmailAddress _ = TS.toLower
 
+    -- | Handler called to render the login page.
+    -- The default works fine, but you may want to override it in
+    -- order to have a different DOM.
+    --
+    -- Default: 'defaultEmailLoginHandler'.
+    --
+    -- @since 1.4.17
+    emailLoginHandler :: (Route Auth -> Route site) -> WidgetT site IO ()
+    emailLoginHandler = defaultEmailLoginHandler
+
+
     -- | Handler called to render the registration page.  The
     -- default works fine, but you may want to override it in
     -- order to have a different DOM.
@@ -346,8 +374,11 @@ authEmail =
 getRegisterR :: YesodAuthEmail master => HandlerT Auth (HandlerT master IO) Html
 getRegisterR = registerHandler
 
-emailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
-emailLoginHandler toParent = do
+-- | Default implementation of 'emailLoginHandler'.
+--
+-- @since 1.4.17
+defaultEmailLoginHandler :: YesodAuthEmail master => (Route Auth -> Route master) -> WidgetT master IO ()
+defaultEmailLoginHandler toParent = do
         (widget, enctype) <- liftWidgetT $ generateFormPost loginForm
 
         [whamlet|
@@ -402,6 +433,7 @@ emailLoginHandler toParent = do
         langs <- languages
         master <- getYesod
         return $ renderAuthMessage master langs msg
+
 -- | Default implementation of 'registerHandler'.
 --
 -- @since 1.2.6
@@ -518,7 +550,7 @@ defaultForgotPasswordHandler = do
   where
     forgotPasswordForm extra = do
         (emailRes, emailView) <- mreq emailField emailSettings Nothing
-    
+
         let forgotPasswordRes = ForgotPasswordForm <$> emailRes
         let widget = do
             [whamlet|
@@ -604,12 +636,14 @@ postLoginR = do
                    , emailCredsStatus <$> mecreds
                    ) of
                 (Just aid, Just email', Just True) -> do
-                       mrealpass <- lift $ getPassword aid
-                       case mrealpass of
-                         Nothing -> return Nothing
-                         Just realpass -> return $ if isValidPass pass realpass
-                                                   then Just email'
-                                                   else Nothing
+                      mrealpass <- lift $ getPassword aid
+                      case mrealpass of
+                        Nothing -> return Nothing
+                        Just realpass -> do
+                            passValid <- lift $ verifyPassword pass realpass 
+                            return $ if passValid
+                                    then Just email'
+                                    else Nothing
                 _ -> return Nothing
           let isEmail = Text.Email.Validate.isValid $ encodeUtf8 identifier
           case maid of
@@ -737,14 +771,16 @@ postPasswordR = do
                               then getThird jcreds
                               else fcurrent
                 mrealpass <- lift $ getPassword aid
-                case mrealpass of
-                    Nothing ->
+                case (mrealpass, current) of
+                    (Nothing, _) ->
                         lift $ loginErrorMessage (tm setpassR) "You do not currently have a password set on your account"
-                    Just realpass
-                        | isNothing current -> loginErrorMessageI LoginR Msg.BadSetPass
-                        | isValidPass (fromJust current) realpass -> confirmPassword aid tm jcreds
-                        | otherwise ->
-                            lift $ loginErrorMessage (tm setpassR) "Invalid current password, please try again"
+                    (_, Nothing) ->
+                        loginErrorMessageI LoginR Msg.BadSetPass
+                    (Just realpass, Just current') -> do
+                        passValid <- lift $ verifyPassword current' realpass
+                        if passValid
+                          then confirmPassword aid tm jcreds
+                          else lift $ loginErrorMessage (tm setpassR) "Invalid current password, please try again"
 
   where
     msgOk = Msg.PassUpdated
@@ -771,7 +807,7 @@ postPasswordR = do
                 case isSecure of
                   Left e -> lift $ loginErrorMessage (tm setpassR) e
                   Right () -> do
-                     salted <- liftIO $ saltPass new
+                     salted <- lift $ hashAndSaltPassword new
                      y <- lift $ do
                                 setPassword aid salted
                                 deleteSession loginLinkKey
@@ -795,7 +831,7 @@ saltPass = fmap (decodeUtf8With lenientDecode)
 
 saltPass' :: String -> String -> String
 saltPass' salt pass =
-    salt ++ T.unpack (TE.decodeUtf8 $ B16.encode $ H.hash $ TE.encodeUtf8 $ T.pack $ salt ++ pass)
+    salt ++ T.unpack (TE.decodeUtf8 $ B16.encode $ convert (H.hash (TE.encodeUtf8 $ T.pack $ salt ++ pass) :: H.Digest H.MD5))
 
 isValidPass :: Text -- ^ cleartext password
             -> SaltedPass -- ^ salted password

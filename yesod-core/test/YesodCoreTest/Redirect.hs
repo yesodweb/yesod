@@ -6,7 +6,7 @@ module YesodCoreTest.Redirect
     ) where
 
 import YesodCoreTest.YesodTest
-import Yesod.Core.Handler (redirectWith, setEtag)
+import Yesod.Core.Handler (redirectWith, setEtag, setWeakEtag)
 import qualified Network.HTTP.Types as H
 
 data Y = Y
@@ -17,6 +17,7 @@ mkYesod "Y" [parseRoutes|
 /r307 R307 GET
 /rregular RRegular GET
 /etag EtagR GET
+/weak-etag WeakEtagR GET
 |]
 instance Yesod Y where approot = ApprootStatic "http://test"
 app :: Session () -> IO ()
@@ -28,12 +29,13 @@ getRootR = return ()
 postRootR :: Handler ()
 postRootR = return ()
 
-getR301, getR303, getR307, getRRegular, getEtagR :: Handler ()
+getR301, getR303, getR307, getRRegular, getEtagR, getWeakEtagR :: Handler ()
 getR301 = redirectWith H.status301 RootR
 getR303 = redirectWith H.status303 RootR
 getR307 = redirectWith H.status307 RootR
 getRRegular = redirect RootR
 getEtagR = setEtag "hello world"
+getWeakEtagR = setWeakEtag "hello world"
 
 specs :: Spec
 specs = describe "Redirect" $ do
@@ -77,6 +79,8 @@ specs = describe "Redirect" $ do
         res <- request defaultRequest { pathInfo = ["etag"] }
         assertStatus 200 res
         assertHeader "etag" "\"hello world\"" res
+      -- Note: this violates the RFC around ETag format, but is being left as is
+      -- out of concerns that it might break existing users with misbehaving clients.
       it "single, unquoted if-none-match" $ app $ do
         res <- request defaultRequest
             { pathInfo = ["etag"]
@@ -102,9 +106,27 @@ specs = describe "Redirect" $ do
             , requestHeaders = [("if-none-match", "\"foo\", \"hello world\"")]
             }
         assertStatus 304 res
-      it "ignore weak" $ app $ do
+      it "ignore weak when provided normal etag" $ app $ do
         res <- request defaultRequest
             { pathInfo = ["etag"]
             , requestHeaders = [("if-none-match", "\"foo\", W/\"hello world\"")]
+            }
+        assertStatus 200 res
+      it "weak etag" $ app $ do
+        res <- request defaultRequest
+            { pathInfo = ["weak-etag"]
+            , requestHeaders = [("if-none-match", "\"foo\", W/\"hello world\"")]
+            }
+        assertStatus 304 res
+      it "different if-none-match for weak etag" $ app $ do
+        res <- request defaultRequest
+            { pathInfo = ["weak-etag"]
+            , requestHeaders = [("if-none-match", "W/\"foo\"")]
+            }
+        assertStatus 200 res
+      it "ignore strong when expecting weak" $ app $ do
+        res <- request defaultRequest
+            { pathInfo = ["weak-etag"]
+            , requestHeaders = [("if-none-match", "\"hello world\", W/\"foo\"")]
             }
         assertStatus 200 res

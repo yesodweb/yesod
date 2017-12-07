@@ -76,7 +76,7 @@ import Database.Persist.Sql (PersistField, PersistFieldSql (..))
 #if MIN_VERSION_persistent(2,5,0)
 import Database.Persist (Entity (..), SqlType (SqlString), PersistRecordBackend, PersistQueryRead)
 #else
-import Database.Persist (Entity (..), SqlType (SqlString))
+import Database.Persist (Entity (..), SqlType (SqlString), PersistEntity, PersistQuery, PersistEntityBackend)
 #endif
 import Text.HTML.SanitizeXSS (sanitizeBalance)
 import Control.Monad (when, unless)
@@ -105,6 +105,10 @@ import Control.Applicative ((<$>), (<|>))
 import Data.Attoparsec.Text (Parser, char, string, digit, skipSpace, endOfInput, parseOnly)
 
 import Yesod.Persist.Core
+
+#if !MIN_VERSION_base(4,8,0)
+import Data.Monoid
+#endif
 
 defaultFormMessage :: FormMessage -> Text
 defaultFormMessage = englishFormMessage
@@ -226,6 +230,7 @@ instance ToHtml Textarea where
         . unTextarea
       where
         -- Taken from blaze-builder and modified with newline handling.
+        writeHtmlEscapedChar '\r' = mempty
         writeHtmlEscapedChar '\n' = writeByteString "<br>"
         writeHtmlEscapedChar c    = B.writeHtmlEscapedChar c
 
@@ -267,9 +272,9 @@ $newline never
 passwordField :: Monad m => RenderMessage (HandlerSite m) FormMessage => Field m Text
 passwordField = Field
     { fieldParse = parseHelper $ Right
-    , fieldView = \theId name attrs val isReq -> toWidget [hamlet|
+    , fieldView = \theId name attrs _ isReq -> toWidget [hamlet|
 $newline never
-<input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="" value="#{either id id val}">
+<input id="#{theId}" name="#{name}" *{attrs} type="password" :isReq:required="">
 |]
     , fieldEnctype = UrlEncoded
     }
