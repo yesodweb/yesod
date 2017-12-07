@@ -167,7 +167,7 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- >             lift $ redirect HomeR   -- or any other Handler code you want
     -- >         defaultLoginHandler
     --
-    loginHandler :: AuthHandler master Html
+    loginHandler :: HandlerT Auth (HandlerT master IO) Html
     loginHandler = defaultLoginHandler
 
     -- | Used for i18n of messages provided by this package.
