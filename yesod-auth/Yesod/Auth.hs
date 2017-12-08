@@ -184,7 +184,8 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
 
     -- | When being redirected to the login page should the current page
     -- be set to redirect back to. Default is 'True'.
-    -- @since 1.4.18
+    --                      
+    -- @since 1.4.21
     redirectToCurrent :: master -> Bool
     redirectToCurrent _ = True
 
