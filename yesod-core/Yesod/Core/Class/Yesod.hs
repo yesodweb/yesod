@@ -59,6 +59,7 @@ import           Yesod.Core.Widget
 import Control.Monad.Trans.Class (lift)
 import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Request
+import Data.IORef
 
 -- | Define settings for a Yesod applications. All methods have intelligent
 -- defaults, and therefore no implementation is required.
@@ -550,7 +551,9 @@ widgetToPageContent :: Yesod site
 widgetToPageContent w = do
     master <- getYesod
     hd <- HandlerT return
-    ((), GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head')) <- lift $ unWidgetT w hd
+    ref <- lift $ newIORef mempty
+    lift $ unWidgetT w ref hd
+    GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- lift $ readIORef ref
     let title = maybe mempty unTitle mTitle
         scripts = runUniqueList scripts'
         stylesheets = runUniqueList stylesheets'

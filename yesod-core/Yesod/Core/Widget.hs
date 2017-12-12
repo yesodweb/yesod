@@ -60,7 +60,6 @@ import Yesod.Core.Handler (getMessageRender, getUrlRenderParams)
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative ((<$>))
 #endif
-import Control.Monad (liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Text.Shakespeare.I18N (RenderMessage)
 import Data.Text (Text)
@@ -73,6 +72,7 @@ import Data.Text.Lazy.Builder (fromLazyText)
 import Text.Blaze.Html (toHtml, preEscapedToMarkup)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TB
+import Data.IORef
 
 import Yesod.Core.Types
 import Yesod.Core.Class.Handler
@@ -268,20 +268,24 @@ ihamletToHtml ih = do
     return $ ih (toHtml . mrender) urender
 
 tell :: MonadWidget m => GWData (Route (HandlerSite m)) -> m ()
-tell w = liftWidgetT $ WidgetT $ const $ return ((), w)
+tell = liftWidgetT . tellWidget
 
 toUnique :: x -> UniqueList x
 toUnique = UniqueList . (:)
 
 handlerToWidget :: Monad m => HandlerT site m a -> WidgetT site m a
-handlerToWidget (HandlerT f) = WidgetT $ liftM (, mempty) . f
+handlerToWidget (HandlerT f) = WidgetT $ const f
 
 widgetToParentWidget :: MonadIO m
                      => WidgetT child IO a
                      -> HandlerT child (HandlerT parent m) (WidgetT parent m a)
-widgetToParentWidget (WidgetT f) = HandlerT $ \hd -> do
-    (a, gwd) <- liftIO $ f hd { handlerToParent = const () }
-    return $ WidgetT $ const $ return (a, liftGWD (handlerToParent hd) gwd)
+widgetToParentWidget (WidgetT f) = HandlerT $ \hdChild -> do
+    return $ WidgetT $ \ref _hdParent -> liftIO $ do
+      tmp <- newIORef mempty
+      a <- f tmp hdChild { handlerToParent = const () }
+      gwd <- readIORef tmp
+      modifyIORef' ref (<> liftGWD (handlerToParent hdChild) gwd)
+      return a
 
 liftGWD :: (child -> parent) -> GWData child -> GWData parent
 liftGWD tp gwd = GWData

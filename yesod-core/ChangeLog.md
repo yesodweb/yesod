@@ -1,3 +1,10 @@
+## 1.4.38
+
+* Internal only change, users of stable API are unaffected: `WidgetT`
+  holds its data in an `IORef` so that it is isomorphic to `ReaderT`,
+  avoiding state-loss issues..
+* Instances for `MonadUnliftIO`
+
 ## 1.4.37.2
 
 * Improve error messages for the CSRF checking functions [#1455](https://github.com/yesodweb/yesod/issues/1455)

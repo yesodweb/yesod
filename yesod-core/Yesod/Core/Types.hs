@@ -29,7 +29,7 @@ import           Control.Monad.Trans.Resource       (MonadResource (..), Interna
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, Source)
-import           Data.IORef                         (IORef)
+import           Data.IORef                         (IORef, modifyIORef')
 import           Data.Map                           (Map, unionWith)
 import qualified Data.Map                           as Map
 import           Data.Monoid                        (Endo (..), Last (..))
@@ -59,6 +59,7 @@ import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 import           Control.Monad.Reader               (MonadReader (..))
+import           Data.Monoid                        ((<>))
 import Control.DeepSeq (NFData (rnf))
 import Control.DeepSeq.Generics (genericRnf)
 import Data.Conduit.Lazy (MonadActive, monadActive)
@@ -248,7 +249,7 @@ type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
 -- better error messages.
 newtype WidgetT site m a = WidgetT
-    { unWidgetT :: HandlerData site (MonadRoute m) -> m (a, GWData (Route site))
+    { unWidgetT :: IORef (GWData (Route site)) -> HandlerData site (MonadRoute m) -> m a
     }
 
 instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
@@ -261,10 +262,12 @@ instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
 -- For example, in a yesod-scaffold site you could use:
 --
 -- @getHomeR = do defaultLayout "Widget text"@
-instance (Monad m, a ~ ()) => IsString (WidgetT site m a) where
+instance (MonadIO m, a ~ ()) => IsString (WidgetT site m a) where -- FIXME turn it into WidgetFor?
     fromString = toWidget . toHtml . T.pack
-      where toWidget x = WidgetT $ const $ return ((), GWData (Body (const x))
-                         mempty mempty mempty mempty mempty mempty)
+      where toWidget x = tellWidget mempty { gwdBody = Body (const x) }
+
+tellWidget :: MonadIO m => GWData (Route site) -> WidgetT site m ()
+tellWidget d = WidgetT $ \ref _ -> liftIO $ modifyIORef' ref (<> d)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
@@ -407,32 +410,30 @@ instance Monad m => Applicative (WidgetT site m) where
     pure = return
     (<*>) = ap
 instance Monad m => Monad (WidgetT site m) where
-    return a = WidgetT $ const $ return (a, mempty)
-    WidgetT x >>= f = WidgetT $ \r -> do
-        (a, wa) <- x r
-        (b, wb) <- unWidgetT (f a) r
-        return (b, wa `mappend` wb)
+    return a = WidgetT $ \_ _ -> return a
+    WidgetT x >>= f = WidgetT $ \ref r -> do
+        a <- x ref r
+        unWidgetT (f a) ref r
 instance MonadIO m => MonadIO (WidgetT site m) where
     liftIO = lift . liftIO
 instance MonadBase b m => MonadBase b (WidgetT site m) where
-    liftBase = WidgetT . const . liftBase . fmap (, mempty)
+    liftBase = WidgetT . const . const . liftBase
 instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
-    type StM (WidgetT site m) a = StM m (a, GWData (Route site))
-    liftBaseWith f = WidgetT $ \reader' ->
+    type StM (WidgetT site m) a = StM m a
+    liftBaseWith f = WidgetT $ \ref reader' ->
         liftBaseWith $ \runInBase ->
-            fmap (\x -> (x, mempty))
-            (f $ runInBase . flip unWidgetT reader')
-    restoreM = WidgetT . const . restoreM
+            f $ runInBase . (\(WidgetT w) -> w ref reader')
+    restoreM = WidgetT . const . const . restoreM
 instance Monad m => MonadReader site (WidgetT site m) where
-    ask = WidgetT $ \hd -> return (rheSite $ handlerEnv hd, mempty)
-    local f (WidgetT g) = WidgetT $ \hd -> g hd
+    ask = WidgetT $ \_ hd -> return (rheSite $ handlerEnv hd)
+    local f (WidgetT g) = WidgetT $ \ref hd -> g ref hd
         { handlerEnv = (handlerEnv hd)
             { rheSite = f $ rheSite $ handlerEnv hd
             }
         }
 
 instance MonadTrans (WidgetT site) where
-    lift = WidgetT . const . liftM (, mempty)
+    lift = WidgetT . const . const
 instance MonadThrow m => MonadThrow (WidgetT site m) where
     throwM = lift . throwM
 
@@ -445,13 +446,13 @@ instance MonadMask m => MonadMask (HandlerT site m) where
     HandlerT $ \e -> uninterruptibleMask $ \u -> unHandlerT (a $ q u) e
       where q u (HandlerT b) = HandlerT (u . b)
 instance MonadCatch m => MonadCatch (WidgetT site m) where
-  catch (WidgetT m) c = WidgetT $ \r -> m r `catch` \e -> unWidgetT (c e) r
+  catch (WidgetT m) c = WidgetT $ \ref r -> m ref r `catch` \e -> unWidgetT (c e) ref r
 instance MonadMask m => MonadMask (WidgetT site m) where
-  mask a = WidgetT $ \e -> mask $ \u -> unWidgetT (a $ q u) e
-    where q u (WidgetT b) = WidgetT (u . b)
+  mask a = WidgetT $ \ref e -> mask $ \u -> unWidgetT (a $ q u) ref e
+    where q u (WidgetT b) = WidgetT (\ref e -> u $ b ref e)
   uninterruptibleMask a =
-    WidgetT $ \e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) e
-      where q u (WidgetT b) = WidgetT (u . b)
+    WidgetT $ \ref e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) ref e
+      where q u (WidgetT b) = WidgetT (\ref e -> u $ b ref e)
 
 -- CPP to avoid a redundant constraints warning
 #if MIN_VERSION_base(4,9,0)
@@ -459,14 +460,14 @@ instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT sit
 #else
 instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
 #endif
-    liftResourceT f = WidgetT $ \hd -> liftIO $ (, mempty) <$> runInternalState f (handlerResource hd)
+    liftResourceT f = WidgetT $ \_ hd -> liftIO $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (WidgetT site m) where
-    monadLoggerLog a b c d = WidgetT $ \hd ->
-        liftIO $ (, mempty) <$> rheLog (handlerEnv hd) a b c (toLogStr d)
+    monadLoggerLog a b c d = WidgetT $ \_ hd ->
+        liftIO $ rheLog (handlerEnv hd) a b c (toLogStr d)
 
 instance MonadIO m => MonadLoggerIO (WidgetT site m) where
-    askLoggerIO = WidgetT $ \hd -> return (rheLog (handlerEnv hd), mempty)
+    askLoggerIO = WidgetT $ \_ hd -> return $ rheLog $ handlerEnv hd
 
 instance MonadActive m => MonadActive (WidgetT site m) where
     monadActive = lift monadActive
