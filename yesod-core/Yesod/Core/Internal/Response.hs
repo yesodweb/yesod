@@ -12,9 +12,6 @@ import           Network.Wai
 import           Control.Monad                (mplus)
 import           Control.Monad.Trans.Resource (runInternalState, InternalState)
 import           Network.Wai.Internal
-#if !MIN_VERSION_base(4, 6, 0)
-import           Prelude                      hiding (catch)
-#endif
 import           Web.Cookie                   (renderSetCookie)
 import           Yesod.Core.Content
 import           Yesod.Core.Types

@@ -13,12 +13,7 @@ import           Data.Serialize (Get, Put, Serialize (..))
 import qualified Data.Text      as T
 import           Data.Time      (Day (ModifiedJulianDay, toModifiedJulianDay),
                                  DiffTime, UTCTime (..), formatTime,
-                                 getCurrentTime, addUTCTime)
-#if MIN_VERSION_time(1,5,0)
-import           Data.Time      (defaultTimeLocale)
-#else
-import           System.Locale  (defaultTimeLocale)
-#endif
+                                 getCurrentTime, addUTCTime, defaultTimeLocale)
 
 putTime :: UTCTime -> Put
 putTime (UTCTime d t) =

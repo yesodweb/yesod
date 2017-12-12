@@ -6,9 +6,7 @@ module Yesod.Core.Json
       defaultLayoutJson
     , jsonToRepJson
     , returnJson
-#if MIN_VERSION_aeson(0, 11, 0)
     , returnJsonEncoding
-#endif
     , provideJson
 
       -- * Convert to a JSON value
@@ -29,9 +27,7 @@ module Yesod.Core.Json
 
       -- * Convenience functions
     , jsonOrRedirect
-#if MIN_VERSION_aeson(0, 11, 0)
     , jsonEncodingOrRedirect
-#endif
     , acceptsJson
     ) where
 
@@ -67,11 +63,7 @@ defaultLayoutJson :: (Yesod site, J.ToJSON a)
                   -> HandlerT site IO TypedContent
 defaultLayoutJson w json = selectRep $ do
     provideRep $ defaultLayout w
-#if MIN_VERSION_aeson(0, 11, 0)
     provideRep $ fmap J.toEncoding json
-#else
-    provideRep $ fmap J.toJSON json
-#endif
 
 -- | Wraps a data type in a 'RepJson'.  The data type must
 -- support conversion to JSON via 'J.ToJSON'.
@@ -87,24 +79,18 @@ jsonToRepJson = return . J.toJSON
 returnJson :: (Monad m, J.ToJSON a) => a -> m J.Value
 returnJson = return . J.toJSON
 
-#if MIN_VERSION_aeson(0, 11, 0)
 -- | Convert a value to a JSON representation via aeson\'s 'J.toEncoding' function.
 --
 -- @since 1.4.21
 returnJsonEncoding :: (Monad m, J.ToJSON a) => a -> m J.Encoding
 returnJsonEncoding = return . J.toEncoding
-#endif
 
 -- | Provide a JSON representation for usage with 'selectReps', using aeson\'s
 -- 'J.toJSON' (aeson >= 0.11: 'J.toEncoding') function to perform the conversion.
 --
 -- @since 1.2.1
 provideJson :: (Monad m, J.ToJSON a) => a -> Writer (Endo [ProvidedRep m]) ()
-#if MIN_VERSION_aeson(0, 11, 0)
 provideJson = provideRep . return . J.toEncoding
-#else
-provideJson = provideRep . return . J.toJSON
-#endif
 
 -- | Parse the request body to a data type as a JSON value.  The
 -- data type must support conversion from JSON via 'J.FromJSON'.
@@ -173,7 +159,6 @@ jsonOrRedirect :: (MonadHandler m, J.ToJSON a)
                -> m J.Value
 jsonOrRedirect = jsonOrRedirect' J.toJSON
 
-#if MIN_VERSION_aeson(0, 11, 0)
 -- | jsonEncodingOrRedirect simplifies the scenario where a POST handler sends a different
 -- response based on Accept headers:
 --
@@ -187,7 +172,6 @@ jsonEncodingOrRedirect :: (MonadHandler m, J.ToJSON a)
             -> a            -- ^ Data to send via JSON
             -> m J.Encoding
 jsonEncodingOrRedirect = jsonOrRedirect' J.toEncoding
-#endif
 
 jsonOrRedirect' :: MonadHandler m
             => (a -> b)

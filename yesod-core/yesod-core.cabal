@@ -22,7 +22,7 @@ extra-source-files:
 
 library
     build-depends:   base                  >= 4.7      && < 5
-                   , time                  >= 1.1.4
+                   , time                  >= 1.5
                    , wai                   >= 3.0
                    , wai-extra             >= 3.0.7
                    , bytestring            >= 0.10
@@ -31,7 +31,7 @@ library
                    , path-pieces           >= 0.1.2    && < 0.3
                    , shakespeare           >= 2.0
                    , blaze-builder         >= 0.2.1.4  && < 0.5
-                   , transformers          >= 0.2.2
+                   , transformers          >= 0.4
                    , mtl
                    , clientsession         >= 0.9.1    && < 0.10
                    , random                >= 1.0.0.2  && < 1.2
@@ -39,7 +39,7 @@ library
                    , old-locale            >= 1.0.0.2  && < 1.1
                    , containers            >= 0.2
                    , unordered-containers  >= 0.2
-                   , monad-control         >= 0.3      && < 1.1
+                   , monad-control         >= 1.0      && < 1.1
                    , transformers-base     >= 0.4
                    , cookie                >= 0.4.2    && < 0.5
                    , http-types            >= 0.7
@@ -47,10 +47,10 @@ library
                    , parsec                >= 2        && < 3.2
                    , directory             >= 1
                    , vector                >= 0.9      && < 0.13
-                   , aeson                 >= 0.5
+                   , aeson                 >= 1.0
                    , fast-logger           >= 2.2
                    , wai-logger            >= 0.2
-                   , monad-logger          >= 0.3.1    && < 0.4
+                   , monad-logger          >= 0.3.10   && < 0.4
                    , conduit               >= 1.2
                    , resourcet             >= 0.4.9    && < 1.2
                    , lifted-base           >= 0.1.2

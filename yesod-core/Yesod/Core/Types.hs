@@ -59,16 +59,11 @@ import           Yesod.Core.Internal.Util           (getTime, putTime)
 import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 import           Control.Monad.Reader               (MonadReader (..))
-#if !MIN_VERSION_base(4, 6, 0)
-import Prelude hiding (catch)
-#endif
 import Control.DeepSeq (NFData (rnf))
 import Control.DeepSeq.Generics (genericRnf)
 import Data.Conduit.Lazy (MonadActive, monadActive)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
-#if MIN_VERSION_monad_logger(0, 3, 10)
 import Control.Monad.Logger (MonadLoggerIO (..))
-#endif
 import Data.Semigroup (Semigroup)
 
 -- Sessions
@@ -422,21 +417,12 @@ instance MonadIO m => MonadIO (WidgetT site m) where
 instance MonadBase b m => MonadBase b (WidgetT site m) where
     liftBase = WidgetT . const . liftBase . fmap (, mempty)
 instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
-#if MIN_VERSION_monad_control(1,0,0)
     type StM (WidgetT site m) a = StM m (a, GWData (Route site))
     liftBaseWith f = WidgetT $ \reader' ->
         liftBaseWith $ \runInBase ->
             fmap (\x -> (x, mempty))
             (f $ runInBase . flip unWidgetT reader')
     restoreM = WidgetT . const . restoreM
-#else
-    data StM (WidgetT site m) a = StW (StM m (a, GWData (Route site)))
-    liftBaseWith f = WidgetT $ \reader' ->
-        liftBaseWith $ \runInBase ->
-            fmap (\x -> (x, mempty))
-            (f $ fmap StW . runInBase . flip unWidgetT reader')
-    restoreM (StW base) = WidgetT $ const $ restoreM base
-#endif
 instance Monad m => MonadReader site (WidgetT site m) where
     ask = WidgetT $ \hd -> return (rheSite $ handlerEnv hd, mempty)
     local f (WidgetT g) = WidgetT $ \hd -> g hd
@@ -479,10 +465,8 @@ instance MonadIO m => MonadLogger (WidgetT site m) where
     monadLoggerLog a b c d = WidgetT $ \hd ->
         liftIO $ (, mempty) <$> rheLog (handlerEnv hd) a b c (toLogStr d)
 
-#if MIN_VERSION_monad_logger(0, 3, 10)
 instance MonadIO m => MonadLoggerIO (WidgetT site m) where
     askLoggerIO = WidgetT $ \hd -> return (rheLog (handlerEnv hd), mempty)
-#endif
 
 instance MonadActive m => MonadActive (WidgetT site m) where
     monadActive = lift monadActive
@@ -521,19 +505,11 @@ instance Monad m => MonadReader site (HandlerT site m) where
 -- \"Control.Monad.Trans.Resource.register\': The mutable state is being accessed
 -- after cleanup. Please contact the maintainers.\"
 instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
-#if MIN_VERSION_monad_control(1,0,0)
     type StM (HandlerT site m) a = StM m a
     liftBaseWith f = HandlerT $ \reader' ->
         liftBaseWith $ \runInBase ->
             f $ runInBase . (\(HandlerT r) -> r reader')
     restoreM = HandlerT . const . restoreM
-#else
-    data StM (HandlerT site m) a = StH (StM m a)
-    liftBaseWith f = HandlerT $ \reader' ->
-        liftBaseWith $ \runInBase ->
-            f $ fmap StH . runInBase . (\(HandlerT r) -> r reader')
-    restoreM (StH base) = HandlerT $ const $ restoreM base
-#endif
 
 instance MonadThrow m => MonadThrow (HandlerT site m) where
     throwM = lift . monadThrow
@@ -545,10 +521,8 @@ instance MonadIO m => MonadLogger (HandlerT site m) where
     monadLoggerLog a b c d = HandlerT $ \hd ->
         liftIO $ rheLog (handlerEnv hd) a b c (toLogStr d)
 
-#if MIN_VERSION_monad_logger(0, 3, 10)
 instance MonadIO m => MonadLoggerIO (HandlerT site m) where
     askLoggerIO = HandlerT $ \hd -> return (rheLog (handlerEnv hd))
-#endif
 
 instance Monoid (UniqueList x) where
     mempty = UniqueList id

@@ -66,12 +66,6 @@ import Data.Conduit.Internal (ResumableSource (ResumableSource))
 import qualified Data.Conduit.Internal as CI
 
 import qualified Data.Aeson as J
-#if MIN_VERSION_aeson(1, 0, 0)
-#elif MIN_VERSION_aeson(0, 7, 0)
-import Data.Aeson.Encode (encodeToTextBuilder)
-#else
-import Data.Aeson.Encode (fromValue)
-#endif
 import qualified Blaze.ByteString.Builder.Char.Utf8 as Blaze
 import Data.Text.Lazy.Builder (toLazyText)
 import Yesod.Core.Types
@@ -243,34 +237,18 @@ instance ToContent a => ToContent (DontFullyEvaluate a) where
     toContent (DontFullyEvaluate a) = ContentDontEvaluate $ toContent a
 
 instance ToContent J.Value where
-#if MIN_VERSION_aeson(1, 0, 0)
     toContent = flip ContentBuilder Nothing
               . J.fromEncoding
               . J.toEncoding
-#else
-    toContent = flip ContentBuilder Nothing
-              . Blaze.fromLazyText
-              . toLazyText
-#if MIN_VERSION_aeson(0, 7, 0)
-              . encodeToTextBuilder
-#else
-              . fromValue
-#endif
 
-#endif
-
-#if MIN_VERSION_aeson(0, 11, 0)
 instance ToContent J.Encoding where
     toContent = flip ContentBuilder Nothing . J.fromEncoding
-#endif
 
 instance HasContentType J.Value where
     getContentType _ = typeJson
 
-#if MIN_VERSION_aeson(0, 11, 0)
 instance HasContentType J.Encoding where
     getContentType _ = typeJson
-#endif
 
 instance HasContentType Html where
     getContentType _ = typeHtml
@@ -307,10 +285,8 @@ instance ToTypedContent RepXml where
     toTypedContent (RepXml c) = TypedContent typeXml c
 instance ToTypedContent J.Value where
     toTypedContent v = TypedContent typeJson (toContent v)
-#if MIN_VERSION_aeson(0, 11, 0)
 instance ToTypedContent J.Encoding where
     toTypedContent e = TypedContent typeJson (toContent e)
-#endif
 instance ToTypedContent Html where
     toTypedContent h = TypedContent typeHtml (toContent h)
 instance ToTypedContent T.Text where
