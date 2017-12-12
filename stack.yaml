@@ -13,3 +13,5 @@ packages:
   - ./yesod
   - ./yesod-eventsource
   - ./yesod-websockets
+extra-deps:
+- unliftio-core-0.1.0.0

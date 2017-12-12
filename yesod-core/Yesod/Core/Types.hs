@@ -66,6 +66,7 @@ import Data.Conduit.Lazy (MonadActive, monadActive)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import Data.Semigroup (Semigroup)
+import Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), withUnliftIO)
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -424,6 +425,12 @@ instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
         liftBaseWith $ \runInBase ->
             f $ runInBase . (\(WidgetT w) -> w ref reader')
     restoreM = WidgetT . const . const . restoreM
+-- | @since 1.4.38
+instance MonadUnliftIO m => MonadUnliftIO (WidgetT site m) where
+  {-# INLINE askUnliftIO #-}
+  askUnliftIO = WidgetT $ \ref r ->
+                withUnliftIO $ \u ->
+                return (UnliftIO (\(WidgetT w) -> unliftIO u $ w ref r))
 instance Monad m => MonadReader site (WidgetT site m) where
     ask = WidgetT $ \_ hd -> return (rheSite $ handlerEnv hd)
     local f (WidgetT g) = WidgetT $ \ref hd -> g ref hd
@@ -511,6 +518,12 @@ instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
         liftBaseWith $ \runInBase ->
             f $ runInBase . (\(HandlerT r) -> r reader')
     restoreM = HandlerT . const . restoreM
+-- | @since 1.4.38
+instance MonadUnliftIO m => MonadUnliftIO (HandlerT site m) where
+  {-# INLINE askUnliftIO #-}
+  askUnliftIO = HandlerT $ \r ->
+                withUnliftIO $ \u ->
+                return (UnliftIO (unliftIO u . flip unHandlerT r))
 
 instance MonadThrow m => MonadThrow (HandlerT site m) where
     throwM = lift . monadThrow
