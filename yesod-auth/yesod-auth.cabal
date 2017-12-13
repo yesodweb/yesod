@@ -41,6 +41,7 @@ library
                    , persistent              >= 2.1       && < 2.8
                    , persistent-template     >= 2.1       && < 2.8
                    , http-client
+                   , http-client-tls
                    , http-conduit            >= 2.1
                    , aeson                   >= 0.7
                    , lifted-base             >= 0.1
@@ -61,6 +62,7 @@ library
                    , conduit
                    , conduit-extra
                    , nonce                   >= 1.0.2     && < 1.1
+                   , unliftio-core
 
     if flag(network-uri)
       build-depends: network-uri >= 2.6

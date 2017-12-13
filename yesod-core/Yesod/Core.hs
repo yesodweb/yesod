@@ -76,6 +76,7 @@ module Yesod.Core
     , getApprootText
       -- * Subsites
     , MonadSubHandler (..)
+    , SubsiteData
       -- * Misc
     , yesodVersion
     , yesodRender
