@@ -70,20 +70,21 @@ authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
     , apDispatch = \m ps ->
         case (m, ps) of
             ("GET", [assertion]) -> do
-                master <- lift getYesod
+                master <- getYesod
                 audience <-
                     case bisAudience of
                         Just a -> return a
                         Nothing -> do
                             r <- getUrlRender
-                            return $ T.takeWhile (/= '/') $ stripScheme $ r LoginR
-                memail <- lift $ checkAssertion audience assertion (authHttpManager master)
+                            tm <- getRouteToParent
+                            return $ T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
+                memail <- liftHandler $ checkAssertion audience assertion (authHttpManager master)
                 case memail of
                     Nothing -> do
                       $logErrorS "yesod-auth" "BrowserID assertion failure"
                       tm <- getRouteToParent
-                      lift $ loginErrorMessage (tm LoginR) "BrowserID login error."
-                    Just email -> lift $ setCredsRedirect Creds
+                      liftHandler $ loginErrorMessage (tm LoginR) "BrowserID login error."
+                    Just email -> liftHandler $ setCredsRedirect Creds
                         { credsPlugin = pid
                         , credsIdent = email
                         , credsExtra = []

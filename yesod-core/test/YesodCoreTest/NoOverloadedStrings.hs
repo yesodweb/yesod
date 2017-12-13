@@ -29,10 +29,10 @@ getBazR = liftHandler $ defaultLayout [whamlet|Used Default Layout|]
 
 getBinR :: (MonadSubHandler m, Yesod (HandlerSite m), SubHandlerSite m ~ Subsite) => m Html
 getBinR = do
-    toParentRoute <- getToParentRoute
+    routeToParent <- getRouteToParent
     liftHandler $ defaultLayout [whamlet|
         <p>Used defaultLayoutT
-        <a href=@{toParentRoute BazR}>Baz
+        <a href=@{routeToParent BazR}>Baz
     |]
 
 getOnePiecesR :: Monad m => Int -> m ()

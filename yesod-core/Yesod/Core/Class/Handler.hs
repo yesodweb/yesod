@@ -14,6 +14,7 @@ module Yesod.Core.Class.Handler
     ) where
 
 import Yesod.Core.Types
+import Control.Monad.Logger (MonadLogger)
 import Control.Monad.Trans.Resource (MonadResource)
 import Control.Monad.Trans.Class (lift)
 #if __GLASGOW_HASKELL__ < 710
@@ -35,7 +36,7 @@ import qualified Control.Monad.Trans.State.Strict  as Strict ( StateT )
 import qualified Control.Monad.Trans.Writer.Strict as Strict ( WriterT )
 
 -- FIXME should we just use MonadReader instances instead?
-class MonadResource m => MonadHandler m where
+class (MonadResource m, MonadLogger m) => MonadHandler m where
     type HandlerSite m
     liftHandler :: HandlerFor (HandlerSite m) a -> m a
 
