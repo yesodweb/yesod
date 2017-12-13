@@ -67,15 +67,15 @@ module Yesod.Core
     -- * JS loaders
     , ScriptLoadPosition (..)
     , BottomOfHeadAsync
-      -- * Subsites
+    -- * Generalizing type classes
     , MonadHandler (..)
     , MonadWidget (..)
-    , getRouteToParent
-    , defaultLayoutSub
       -- * Approot
     , guessApproot
     , guessApprootOr
     , getApprootText
+      -- * Subsites
+    , MonadSubHandler (..)
       -- * Misc
     , yesodVersion
     , yesodRender
@@ -184,14 +184,6 @@ maybeAuthorized :: Yesod site
 maybeAuthorized r isWrite = do
     x <- isAuthorized r isWrite
     return $ if x == Authorized then Just r else Nothing
-
-getRouteToParent :: Monad m => HandlerT child (HandlerT parent m) (Route child -> Route parent)
-getRouteToParent = HandlerT $ return . handlerToParent
-
-defaultLayoutSub :: Yesod parent
-                 => WidgetT child IO ()
-                 -> HandlerT child (HandlerT parent IO) Html
-defaultLayoutSub cwidget = widgetToParentWidget cwidget >>= lift . defaultLayout
 
 showIntegral :: Integral a => a -> String
 showIntegral x = show (fromIntegral x :: Integer)

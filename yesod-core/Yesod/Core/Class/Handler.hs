@@ -9,11 +9,12 @@
 module Yesod.Core.Class.Handler
     ( MonadHandler (..)
     , MonadWidget (..)
+    , liftHandlerT
+    , liftWidgetT
     ) where
 
 import Yesod.Core.Types
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Resource (MonadResource, MonadResourceBase)
+import Control.Monad.Trans.Resource (MonadResource)
 import Control.Monad.Trans.Class (lift)
 #if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (Monoid)
@@ -33,25 +34,27 @@ import qualified Control.Monad.Trans.RWS.Strict    as Strict ( RWST   )
 import qualified Control.Monad.Trans.State.Strict  as Strict ( StateT )
 import qualified Control.Monad.Trans.Writer.Strict as Strict ( WriterT )
 
+-- FIXME should we just use MonadReader instances instead?
 class MonadResource m => MonadHandler m where
     type HandlerSite m
-    liftHandlerT :: HandlerT (HandlerSite m) IO a -> m a
+    liftHandler :: HandlerFor (HandlerSite m) a -> m a
 
-replaceToParent :: HandlerData site route -> HandlerData site ()
-replaceToParent hd = hd { handlerToParent = const () }
+liftHandlerT :: MonadHandler m => HandlerFor (HandlerSite m) a -> m a
+liftHandlerT = liftHandler
+{-# DEPRECATED liftHandlerT "Use liftHandler instead" #-}
 
-instance MonadResourceBase m => MonadHandler (HandlerT site m) where
-    type HandlerSite (HandlerT site m) = site
-    liftHandlerT (HandlerT f) = HandlerT $ liftIO . f . replaceToParent
-{-# RULES "liftHandlerT (HandlerT site IO)" liftHandlerT = id #-}
+instance MonadHandler (HandlerFor site) where
+    type HandlerSite (HandlerFor site) = site
+    liftHandler = id
+    {-# INLINE liftHandler #-}
 
-instance MonadResourceBase m => MonadHandler (WidgetT site m) where
-    type HandlerSite (WidgetT site m) = site
-    liftHandlerT (HandlerT f) = WidgetT $ \_ref env -> liftIO $ f $ replaceToParent env
-{-# RULES "liftHandlerT (WidgetT site IO)" forall f. liftHandlerT (HandlerT f) = WidgetT $ const f #-}
+instance MonadHandler (WidgetFor site) where
+    type HandlerSite (WidgetFor site) = site
+    liftHandler (HandlerFor f) = WidgetFor $ f . wdHandler
+    {-# INLINE liftHandler #-}
 
-#define GO(T) instance MonadHandler m => MonadHandler (T m) where type HandlerSite (T m) = HandlerSite m; liftHandlerT = lift . liftHandlerT
-#define GOX(X, T) instance (X, MonadHandler m) => MonadHandler (T m) where type HandlerSite (T m) = HandlerSite m; liftHandlerT = lift . liftHandlerT
+#define GO(T) instance MonadHandler m => MonadHandler (T m) where type HandlerSite (T m) = HandlerSite m; liftHandler = lift . liftHandler
+#define GOX(X, T) instance (X, MonadHandler m) => MonadHandler (T m) where type HandlerSite (T m) = HandlerSite m; liftHandler = lift . liftHandler
 GO(IdentityT)
 GO(ListT)
 GO(MaybeT)
@@ -70,12 +73,17 @@ GO(ConduitM i o)
 #undef GOX
 
 class MonadHandler m => MonadWidget m where
-    liftWidgetT :: WidgetT (HandlerSite m) IO a -> m a
-instance MonadResourceBase m => MonadWidget (WidgetT site m) where
-    liftWidgetT (WidgetT f) = WidgetT $ \ref env -> liftIO $ f ref $ replaceToParent env
+    liftWidget :: WidgetFor (HandlerSite m) a -> m a
+instance MonadWidget (WidgetFor site) where
+    liftWidget = id
+    {-# INLINE liftWidget #-}
 
-#define GO(T) instance MonadWidget m => MonadWidget (T m) where liftWidgetT = lift . liftWidgetT
-#define GOX(X, T) instance (X, MonadWidget m) => MonadWidget (T m) where liftWidgetT = lift . liftWidgetT
+liftWidgetT :: MonadWidget m => WidgetFor (HandlerSite m) a -> m a
+liftWidgetT = liftWidget
+{-# DEPRECATED liftWidgetT "Use liftWidget instead" #-}
+
+#define GO(T) instance MonadWidget m => MonadWidget (T m) where liftWidget = lift . liftWidget
+#define GOX(X, T) instance (X, MonadWidget m) => MonadWidget (T m) where liftWidget = lift . liftWidget
 GO(IdentityT)
 GO(ListT)
 GO(MaybeT)

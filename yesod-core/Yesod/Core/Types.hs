@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TupleSections #-}
@@ -18,14 +19,14 @@ import           Data.Monoid                        (Monoid (..))
 #endif
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
-import           Control.Monad                      (liftM, ap)
+import           Control.Monad                      (ap)
 import           Control.Monad.Base                 (MonadBase (liftBase))
 import           Control.Monad.Catch                (MonadMask (..), MonadCatch (..))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
 import           Control.Monad.Trans.Control        (MonadBaseControl (..))
-import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), monadThrow, ResourceT)
+import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), ResourceT)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, Source)
@@ -56,7 +57,6 @@ import           Text.Hamlet                        (HtmlUrl)
 import           Text.Julius                        (JavascriptUrl)
 import           Web.Cookie                         (SetCookie)
 import           Yesod.Core.Internal.Util           (getTime, putTime)
-import           Control.Monad.Trans.Class          (MonadTrans (..))
 import           Yesod.Routes.Class                 (RenderRoute (..), ParseRoute (..))
 import           Control.Monad.Reader               (MonadReader (..))
 import           Data.Monoid                        ((<>))
@@ -66,7 +66,7 @@ import Data.Conduit.Lazy (MonadActive, monadActive)
 import Yesod.Core.TypeCache (TypeMap, KeyedTypeMap)
 import Control.Monad.Logger (MonadLoggerIO (..))
 import Data.Semigroup (Semigroup)
-import Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), withUnliftIO)
+import Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..))
 
 -- Sessions
 type SessionMap = Map Text ByteString
@@ -193,11 +193,10 @@ data RunHandlerEnv site = RunHandlerEnv
     , rheMaxExpires :: !Text
     }
 
-data HandlerData site parentRoute = HandlerData
+data HandlerData site = HandlerData
     { handlerRequest  :: !YesodRequest
     , handlerEnv      :: !(RunHandlerEnv site)
     , handlerState    :: !(IORef GHState)
-    , handlerToParent :: !(Route site -> parentRoute)
     , handlerResource :: !InternalState
     }
 
@@ -224,16 +223,13 @@ type ParentRunner parent m
 
 -- | A generic handler monad, which can have a different subsite and master
 -- site. We define a newtype for better error message.
-newtype HandlerT site m a = HandlerT
-    { unHandlerT :: HandlerData site (MonadRoute m) -> m a
+newtype HandlerFor site a = HandlerFor
+    { unHandlerFor :: HandlerData site -> IO a
     }
-
-type family MonadRoute (m :: * -> *)
-type instance MonadRoute IO = ()
-type instance MonadRoute (HandlerT site m) = (Route site)
+    deriving Functor
 
 data GHState = GHState
-    { ghsSession :: SessionMap
+    { ghsSession :: !SessionMap
     , ghsRBC     :: Maybe RequestBodyContents
     , ghsIdent   :: Int
     , ghsCache   :: TypeMap
@@ -249,26 +245,32 @@ type YesodApp = YesodRequest -> ResourceT IO YesodResponse
 -- | A generic widget, allowing specification of both the subsite and master
 -- site datatypes. While this is simply a @WriterT@, we define a newtype for
 -- better error messages.
-newtype WidgetT site m a = WidgetT
-    { unWidgetT :: IORef (GWData (Route site)) -> HandlerData site (MonadRoute m) -> m a
+newtype WidgetFor site a = WidgetFor
+    { unWidgetFor :: WidgetData site -> IO a
     }
+    deriving Functor
 
-instance (a ~ (), Monad m) => Monoid (WidgetT site m a) where
+data WidgetData site = WidgetData
+  { wdRef :: {-# UNPACK #-} !(IORef (GWData (Route site)))
+  , wdHandler :: {-# UNPACK #-} !(HandlerData site)
+  }
+
+instance a ~ () => Monoid (WidgetFor site a) where
     mempty = return ()
     mappend x y = x >> y
-instance (a ~ (), Monad m) => Semigroup (WidgetT site m a)
+instance a ~ () => Semigroup (WidgetFor site a)
 
 -- | A 'String' can be trivially promoted to a widget.
 --
 -- For example, in a yesod-scaffold site you could use:
 --
 -- @getHomeR = do defaultLayout "Widget text"@
-instance (MonadIO m, a ~ ()) => IsString (WidgetT site m a) where -- FIXME turn it into WidgetFor?
+instance a ~ () => IsString (WidgetFor site a) where
     fromString = toWidget . toHtml . T.pack
       where toWidget x = tellWidget mempty { gwdBody = Body (const x) }
 
-tellWidget :: MonadIO m => GWData (Route site) -> WidgetT site m ()
-tellWidget d = WidgetT $ \ref _ -> liftIO $ modifyIORef' ref (<> d)
+tellWidget :: GWData (Route site) -> WidgetFor site ()
+tellWidget d = WidgetFor $ \wd -> modifyIORef' (wdRef wd) (<> d)
 
 type RY master = Route master -> [(Text, Text)] -> Text
 
@@ -404,106 +406,85 @@ instance Show HandlerContents where
     show (HCWaiApp _) = "HCWaiApp"
 instance Exception HandlerContents
 
--- Instances for WidgetT
-instance Monad m => Functor (WidgetT site m) where
-    fmap = liftM
-instance Monad m => Applicative (WidgetT site m) where
-    pure = return
+-- Instances for WidgetFor
+instance Applicative (WidgetFor site) where
+    pure = WidgetFor . const . pure
     (<*>) = ap
-instance Monad m => Monad (WidgetT site m) where
-    return a = WidgetT $ \_ _ -> return a
-    WidgetT x >>= f = WidgetT $ \ref r -> do
-        a <- x ref r
-        unWidgetT (f a) ref r
-instance MonadIO m => MonadIO (WidgetT site m) where
-    liftIO = lift . liftIO
-instance MonadBase b m => MonadBase b (WidgetT site m) where
-    liftBase = WidgetT . const . const . liftBase
-instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
-    type StM (WidgetT site m) a = StM m a
-    liftBaseWith f = WidgetT $ \ref reader' ->
+instance Monad (WidgetFor site) where
+    return = pure
+    WidgetFor x >>= f = WidgetFor $ \wd -> do
+        a <- x wd
+        unWidgetFor (f a) wd
+instance MonadIO (WidgetFor site) where
+    liftIO = WidgetFor . const
+instance b ~ IO => MonadBase b (WidgetFor site) where
+    liftBase = WidgetFor . const
+instance b ~ IO => MonadBaseControl b (WidgetFor site) where
+    type StM (WidgetFor site) a = a
+    liftBaseWith f = WidgetFor $ \wd ->
         liftBaseWith $ \runInBase ->
-            f $ runInBase . (\(WidgetT w) -> w ref reader')
-    restoreM = WidgetT . const . const . restoreM
+            f $ runInBase . (flip unWidgetFor wd)
+    restoreM = WidgetFor . const . return
 -- | @since 1.4.38
-instance MonadUnliftIO m => MonadUnliftIO (WidgetT site m) where
+instance MonadUnliftIO (WidgetFor site) where
   {-# INLINE askUnliftIO #-}
-  askUnliftIO = WidgetT $ \ref r ->
-                withUnliftIO $ \u ->
-                return (UnliftIO (\(WidgetT w) -> unliftIO u $ w ref r))
-instance Monad m => MonadReader site (WidgetT site m) where
-    ask = WidgetT $ \_ hd -> return (rheSite $ handlerEnv hd)
-    local f (WidgetT g) = WidgetT $ \ref hd -> g ref hd
-        { handlerEnv = (handlerEnv hd)
-            { rheSite = f $ rheSite $ handlerEnv hd
-            }
-        }
+  askUnliftIO = WidgetFor $ \wd ->
+                return (UnliftIO (flip unWidgetFor wd))
+instance MonadReader (WidgetData site) (WidgetFor site) where
+    ask = WidgetFor return
+    local f (WidgetFor g) = WidgetFor $ g . f
 
-instance MonadTrans (WidgetT site) where
-    lift = WidgetT . const . const
-instance MonadThrow m => MonadThrow (WidgetT site m) where
-    throwM = lift . throwM
+instance MonadThrow (WidgetFor site) where
+    throwM = liftIO . throwM
 
-instance MonadCatch m => MonadCatch (HandlerT site m) where
-  catch (HandlerT m) c = HandlerT $ \r -> m r `catch` \e -> unHandlerT (c e) r
-instance MonadMask m => MonadMask (HandlerT site m) where
-  mask a = HandlerT $ \e -> mask $ \u -> unHandlerT (a $ q u) e
-    where q u (HandlerT b) = HandlerT (u . b)
+instance MonadCatch (HandlerFor site) where
+  catch (HandlerFor m) c = HandlerFor $ \r -> m r `catch` \e -> unHandlerFor (c e) r
+instance MonadMask (HandlerFor site) where
+  mask a = HandlerFor $ \e -> mask $ \u -> unHandlerFor (a $ q u) e
+    where q u (HandlerFor b) = HandlerFor (u . b)
   uninterruptibleMask a =
-    HandlerT $ \e -> uninterruptibleMask $ \u -> unHandlerT (a $ q u) e
-      where q u (HandlerT b) = HandlerT (u . b)
-instance MonadCatch m => MonadCatch (WidgetT site m) where
-  catch (WidgetT m) c = WidgetT $ \ref r -> m ref r `catch` \e -> unWidgetT (c e) ref r
-instance MonadMask m => MonadMask (WidgetT site m) where
-  mask a = WidgetT $ \ref e -> mask $ \u -> unWidgetT (a $ q u) ref e
-    where q u (WidgetT b) = WidgetT (\ref e -> u $ b ref e)
+    HandlerFor $ \e -> uninterruptibleMask $ \u -> unHandlerFor (a $ q u) e
+      where q u (HandlerFor b) = HandlerFor (u . b)
+instance MonadCatch (WidgetFor site) where
+  catch (WidgetFor m) c = WidgetFor $ \r -> m r `catch` \e -> unWidgetFor (c e) r
+instance MonadMask (WidgetFor site) where
+  mask a = WidgetFor $ \e -> mask $ \u -> unWidgetFor (a $ q u) e
+    where q u (WidgetFor b) = WidgetFor (u . b)
   uninterruptibleMask a =
-    WidgetT $ \ref e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) ref e
-      where q u (WidgetT b) = WidgetT (\ref e -> u $ b ref e)
+    WidgetFor $ \e -> uninterruptibleMask $ \u -> unWidgetFor (a $ q u) e
+      where q u (WidgetFor b) = WidgetFor (u . b)
 
--- CPP to avoid a redundant constraints warning
-#if MIN_VERSION_base(4,9,0)
-instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
-#else
-instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
-#endif
-    liftResourceT f = WidgetT $ \_ hd -> liftIO $ runInternalState f (handlerResource hd)
+instance MonadResource (WidgetFor site) where
+    liftResourceT f = WidgetFor $ runInternalState f . handlerResource . wdHandler
 
-instance MonadIO m => MonadLogger (WidgetT site m) where
-    monadLoggerLog a b c d = WidgetT $ \_ hd ->
-        liftIO $ rheLog (handlerEnv hd) a b c (toLogStr d)
+instance MonadLogger (WidgetFor site) where
+    monadLoggerLog a b c d = WidgetFor $ \wd ->
+        rheLog (handlerEnv $ wdHandler wd) a b c (toLogStr d)
 
-instance MonadIO m => MonadLoggerIO (WidgetT site m) where
-    askLoggerIO = WidgetT $ \_ hd -> return $ rheLog $ handlerEnv hd
+instance MonadLoggerIO (WidgetFor site) where
+    askLoggerIO = WidgetFor $ return . rheLog . handlerEnv . wdHandler
 
-instance MonadActive m => MonadActive (WidgetT site m) where
-    monadActive = lift monadActive
-instance MonadActive m => MonadActive (HandlerT site m) where
-    monadActive = lift monadActive
-
-instance MonadTrans (HandlerT site) where
-    lift = HandlerT . const
+-- FIXME look at implementation of ResourceT
+instance MonadActive (WidgetFor site) where
+    monadActive = liftIO monadActive
+instance MonadActive (HandlerFor site) where
+    monadActive = liftIO monadActive
 
 -- Instances for HandlerT
-instance Monad m => Functor (HandlerT site m) where
-    fmap = liftM
-instance Monad m => Applicative (HandlerT site m) where
-    pure = return
+instance Applicative (HandlerFor site) where
+    pure = HandlerFor . const . return
     (<*>) = ap
-instance Monad m => Monad (HandlerT site m) where
-    return = HandlerT . const . return
-    HandlerT x >>= f = HandlerT $ \r -> x r >>= \x' -> unHandlerT (f x') r
-instance MonadIO m => MonadIO (HandlerT site m) where
-    liftIO = lift . liftIO
-instance MonadBase b m => MonadBase b (HandlerT site m) where
-    liftBase = lift . liftBase
-instance Monad m => MonadReader site (HandlerT site m) where
-    ask = HandlerT $ return . rheSite . handlerEnv
-    local f (HandlerT g) = HandlerT $ \hd -> g hd
-        { handlerEnv = (handlerEnv hd)
-            { rheSite = f $ rheSite $ handlerEnv hd
-            }
-        }
+instance Monad (HandlerFor site) where
+    return = pure
+    HandlerFor x >>= f = HandlerFor $ \r -> x r >>= \x' -> unHandlerFor (f x') r
+instance MonadIO (HandlerFor site) where
+    liftIO = HandlerFor . const
+instance b ~ IO => MonadBase b (HandlerFor site) where
+    liftBase = liftIO
+instance MonadReader (HandlerData site) (HandlerFor site) where
+    ask = HandlerFor return
+    local f (HandlerFor g) = HandlerFor $ g . f
+
 -- | Note: although we provide a @MonadBaseControl@ instance, @lifted-base@'s
 -- @fork@ function is incompatible with the underlying @ResourceT@ system.
 -- Instead, if you must fork a separate thread, you should use
@@ -512,31 +493,30 @@ instance Monad m => MonadReader site (HandlerT site m) where
 -- Using fork usually leads to an exception that says
 -- \"Control.Monad.Trans.Resource.register\': The mutable state is being accessed
 -- after cleanup. Please contact the maintainers.\"
-instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
-    type StM (HandlerT site m) a = StM m a
-    liftBaseWith f = HandlerT $ \reader' ->
+instance b ~ IO => MonadBaseControl b (HandlerFor site) where
+    type StM (HandlerFor site) a = a
+    liftBaseWith f = HandlerFor $ \reader' ->
         liftBaseWith $ \runInBase ->
-            f $ runInBase . (\(HandlerT r) -> r reader')
-    restoreM = HandlerT . const . restoreM
+            f $ runInBase . (flip unHandlerFor reader')
+    restoreM = HandlerFor . const . return
 -- | @since 1.4.38
-instance MonadUnliftIO m => MonadUnliftIO (HandlerT site m) where
+instance MonadUnliftIO (HandlerFor site) where
   {-# INLINE askUnliftIO #-}
-  askUnliftIO = HandlerT $ \r ->
-                withUnliftIO $ \u ->
-                return (UnliftIO (unliftIO u . flip unHandlerT r))
+  askUnliftIO = HandlerFor $ \r ->
+                return (UnliftIO (flip unHandlerFor r))
 
-instance MonadThrow m => MonadThrow (HandlerT site m) where
-    throwM = lift . monadThrow
+instance MonadThrow (HandlerFor site) where
+    throwM = liftIO . throwM
 
-instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (HandlerT site m) where
-    liftResourceT f = HandlerT $ \hd -> liftIO $ runInternalState f (handlerResource hd)
+instance MonadResource (HandlerFor site) where
+    liftResourceT f = HandlerFor $ runInternalState f . handlerResource
 
-instance MonadIO m => MonadLogger (HandlerT site m) where
-    monadLoggerLog a b c d = HandlerT $ \hd ->
-        liftIO $ rheLog (handlerEnv hd) a b c (toLogStr d)
+instance MonadLogger (HandlerFor site) where
+    monadLoggerLog a b c d = HandlerFor $ \hd ->
+        rheLog (handlerEnv hd) a b c (toLogStr d)
 
-instance MonadIO m => MonadLoggerIO (HandlerT site m) where
-    askLoggerIO = HandlerT $ \hd -> return (rheLog (handlerEnv hd))
+instance MonadLoggerIO (HandlerFor site) where
+    askLoggerIO = HandlerFor $ \hd -> return (rheLog (handlerEnv hd))
 
 instance Monoid (UniqueList x) where
     mempty = UniqueList id

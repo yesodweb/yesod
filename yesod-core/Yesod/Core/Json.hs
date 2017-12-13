@@ -31,14 +31,14 @@ module Yesod.Core.Json
     , acceptsJson
     ) where
 
-import Yesod.Core.Handler (HandlerT, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep, lookupHeader)
+import Yesod.Core.Handler (HandlerFor, getRequest, invalidArgs, redirect, selectRep, provideRep, rawRequestBody, ProvidedRep, lookupHeader)
 import Control.Monad.Trans.Writer (Writer)
 import Data.Monoid (Endo)
 import Yesod.Core.Content (TypedContent)
 import Yesod.Core.Types (reqAccept)
 import Yesod.Core.Class.Yesod (defaultLayout, Yesod)
 import Yesod.Core.Class.Handler
-import Yesod.Core.Widget (WidgetT)
+import Yesod.Core.Widget (WidgetFor)
 import Yesod.Routes.Class
 import qualified Data.Aeson as J
 import qualified Data.Aeson.Parser as JP
@@ -58,9 +58,9 @@ import Control.Monad (liftM)
 --
 -- @since 0.3.0
 defaultLayoutJson :: (Yesod site, J.ToJSON a)
-                  => WidgetT site IO ()  -- ^ HTML
-                  -> HandlerT site IO a  -- ^ JSON
-                  -> HandlerT site IO TypedContent
+                  => WidgetFor site ()  -- ^ HTML
+                  -> HandlerFor site a  -- ^ JSON
+                  -> HandlerFor site TypedContent
 defaultLayoutJson w json = selectRep $ do
     provideRep $ defaultLayout w
     provideRep $ fmap J.toEncoding json

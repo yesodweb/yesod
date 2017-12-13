@@ -11,11 +11,11 @@ import Data.Text (Text)
 class YesodBreadcrumbs site where
     -- | Returns the title and the parent resource, if available. If you return
     -- a 'Nothing', then this is considered a top-level page.
-    breadcrumb :: Route site -> HandlerT site IO (Text , Maybe (Route site))
+    breadcrumb :: Route site -> HandlerFor site (Text , Maybe (Route site))
 
 -- | Gets the title of the current page and the hierarchy of parent pages,
 -- along with their respective titles.
-breadcrumbs :: YesodBreadcrumbs site => HandlerT site IO (Text, [(Route site, Text)])
+breadcrumbs :: YesodBreadcrumbs site => HandlerFor site (Text, [(Route site, Text)])
 breadcrumbs = do
     x <- getCurrentRoute
     case x of

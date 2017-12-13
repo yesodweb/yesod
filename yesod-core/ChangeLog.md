@@ -1,3 +1,7 @@
+## 1.5.0
+
+* Overhaul of `HandlerT`/`WidgetT` to no longer be transformers.
+
 ## 1.4.38
 
 * Internal only change, users of stable API are unaffected: `WidgetT`

@@ -27,6 +27,7 @@
 module Yesod.Core.Handler
     ( -- * Handler monad
       HandlerT
+    , HandlerFor
       -- ** Read information from handler
     , getYesod
     , getsYesod
@@ -161,7 +162,6 @@ module Yesod.Core.Handler
       -- * Per-request caching
     , cached
     , cachedBy
-    , stripHandlerT
       -- * AJAX CSRF protection
 
       -- $ajaxCSRFOverview
@@ -254,14 +254,17 @@ import qualified Data.Foldable as Fold
 import           Data.Default
 import           Control.Monad.Logger (MonadLogger, logWarnS)
 
+type HandlerT site (m :: * -> *) = HandlerFor site
+{-# DEPRECATED HandlerT "Use HandlerFor directly" #-}
+
 get :: MonadHandler m => m GHState
-get = liftHandlerT $ HandlerT $ I.readIORef . handlerState
+get = liftHandler $ HandlerFor $ I.readIORef . handlerState
 
 put :: MonadHandler m => GHState -> m ()
-put x = liftHandlerT $ HandlerT $ flip I.writeIORef x . handlerState
+put x = liftHandler $ HandlerFor $ flip I.writeIORef x . handlerState
 
 modify :: MonadHandler m => (GHState -> GHState) -> m ()
-modify f = liftHandlerT $ HandlerT $ flip I.modifyIORef f . handlerState
+modify f = liftHandler $ HandlerFor $ flip I.modifyIORef f . handlerState
 
 tell :: MonadHandler m => Endo [Header] -> m ()
 tell hs = modify $ \g -> g { ghsHeaders = ghsHeaders g `mappend` hs }
@@ -273,14 +276,14 @@ hcError :: MonadHandler m => ErrorResponse -> m a
 hcError = handlerError . HCError
 
 getRequest :: MonadHandler m => m YesodRequest
-getRequest = liftHandlerT $ HandlerT $ return . handlerRequest
+getRequest = liftHandler $ HandlerFor $ return . handlerRequest
 
 runRequestBody :: MonadHandler m => m RequestBodyContents
 runRequestBody = do
     HandlerData
         { handlerEnv = RunHandlerEnv {..}
         , handlerRequest = req
-        } <- liftHandlerT $ HandlerT return
+        } <- liftHandler $ HandlerFor return
     let len = W.requestBodyLength $ reqWaiRequest req
         upload = rheUpload len
     x <- get
@@ -320,7 +323,7 @@ rbHelper' backend mkFI req =
     go = decodeUtf8With lenientDecode
 
 askHandlerEnv :: MonadHandler m => m (RunHandlerEnv (HandlerSite m))
-askHandlerEnv = liftHandlerT $ HandlerT $ return . handlerEnv
+askHandlerEnv = liftHandler $ HandlerFor $ return . handlerEnv
 
 -- | Get the master site application argument.
 getYesod :: MonadHandler m => m (HandlerSite m)
@@ -396,9 +399,9 @@ getCurrentRoute = rheRoute <$> askHandlerEnv
 -- This allows the inner 'GHandler' to outlive the outer
 -- 'GHandler' (e.g., on the @forkIO@ example above, a response
 -- may be sent to the client without killing the new thread).
-handlerToIO :: (MonadIO m1, MonadIO m2) => HandlerT site m1 (HandlerT site IO a -> m2 a)
+handlerToIO :: MonadIO m => HandlerFor site (HandlerFor site a -> m a)
 handlerToIO =
-  HandlerT $ \oldHandlerData -> do
+  HandlerFor $ \oldHandlerData -> do
     -- Take just the bits we need from oldHandlerData.
     let newReq = oldReq { reqWaiRequest = newWaiReq }
           where
@@ -420,7 +423,7 @@ handlerToIO =
     liftIO $ evaluate (newReq `seq` oldEnv `seq` newState `seq` ())
 
     -- Return GHandler running function.
-    return $ \(HandlerT f) ->
+    return $ \(HandlerFor f) ->
       liftIO $
       runResourceT $ withInternalState $ \resState -> do
         -- The state IORef needs to be created here, otherwise it
@@ -431,7 +434,6 @@ handlerToIO =
                 { handlerRequest  = newReq
                 , handlerEnv      = oldEnv
                 , handlerState    = newStateIORef
-                , handlerToParent = const ()
                 , handlerResource = resState
                 }
         liftIO (f newHandlerData)
@@ -442,9 +444,9 @@ handlerToIO =
 -- for correctness and efficiency
 --
 -- @since 1.2.8
-forkHandler :: (SomeException -> HandlerT site IO ()) -- ^ error handler
-              -> HandlerT site IO ()
-              -> HandlerT site IO ()
+forkHandler :: (SomeException -> HandlerFor site ()) -- ^ error handler
+              -> HandlerFor site ()
+              -> HandlerFor site ()
 forkHandler onErr handler = do
     yesRunner <- handlerToIO
     void $ liftResourceT $ resourceForkIO $ yesRunner $ handle onErr handler
@@ -1370,14 +1372,14 @@ respond ct = return . TypedContent ct . toContent
 --
 -- @since 1.2.0
 respondSource :: ContentType
-              -> Source (HandlerT site IO) (Flush Builder)
-              -> HandlerT site IO TypedContent
-respondSource ctype src = HandlerT $ \hd ->
+              -> Source (HandlerFor site) (Flush Builder)
+              -> HandlerFor site TypedContent
+respondSource ctype src = HandlerFor $ \hd ->
     -- Note that this implementation relies on the fact that the ResourceT
     -- environment provided by the server is the same one used in HandlerT.
     -- This is a safe assumption assuming the HandlerT is run correctly.
     return $ TypedContent ctype $ ContentSource
-           $ transPipe (lift . flip unHandlerT hd) src
+           $ transPipe (lift . flip unHandlerFor hd) src
 
 -- | In a streaming response, send a single chunk of data. This function works
 -- on most datatypes, such as @ByteString@ and @Html@.
@@ -1422,25 +1424,6 @@ sendChunkLazyText = sendChunk
 -- @since 1.2.0
 sendChunkHtml :: Monad m => Html -> Producer m (Flush Builder)
 sendChunkHtml = sendChunk
-
--- | Converts a child handler to a parent handler
---
--- Exported since 1.4.11
-stripHandlerT :: HandlerT child (HandlerT parent m) a
-              -> (parent -> child)
-              -> (Route child -> Route parent)
-              -> Maybe (Route child)
-              -> HandlerT parent m a
-stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
-    let env = handlerEnv hd
-    ($ hd) $ unHandlerT $ f hd
-        { handlerEnv = env
-            { rheSite = getSub $ rheSite env
-            , rheRoute = newRoute
-            , rheRender = \url params -> rheRender env (toMaster url) params
-            }
-        , handlerToParent = toMaster
-        }
 
 -- $ajaxCSRFOverview
 -- When a user has authenticated with your site, all requests made from the browser to your server will include the session information that you use to verify that the user is logged in.

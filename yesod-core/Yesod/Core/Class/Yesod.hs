@@ -56,7 +56,6 @@ import           Web.Cookie                         (SetCookie (..), parseCookie
 import           Yesod.Core.Types
 import           Yesod.Core.Internal.Session
 import           Yesod.Core.Widget
-import Control.Monad.Trans.Class (lift)
 import Data.CaseInsensitive (CI)
 import qualified Network.Wai.Request
 import Data.IORef
@@ -83,11 +82,11 @@ class RenderRoute site => Yesod site where
     -- | Output error response pages.
     --
     -- Default value: 'defaultErrorHandler'.
-    errorHandler :: ErrorResponse -> HandlerT site IO TypedContent
+    errorHandler :: ErrorResponse -> HandlerFor site TypedContent
     errorHandler = defaultErrorHandler
 
     -- | Applies some form of layout to the contents of a page.
-    defaultLayout :: WidgetT site IO () -> HandlerT site IO Html
+    defaultLayout :: WidgetFor site () -> HandlerFor site Html
     defaultLayout w = do
         p <- widgetToPageContent w
         msgs <- getMessages
@@ -139,7 +138,7 @@ class RenderRoute site => Yesod site where
     -- If authentication is required, return 'AuthenticationRequired'.
     isAuthorized :: Route site
                  -> Bool -- ^ is this a write request?
-                 -> HandlerT site IO AuthResult
+                 -> HandlerFor site AuthResult
     isAuthorized _ _ = return Authorized
 
     -- | Determines whether the current request is a write request. By default,
@@ -149,7 +148,7 @@ class RenderRoute site => Yesod site where
     --
     -- This function is used to determine if a request is authorized; see
     -- 'isAuthorized'.
-    isWriteRequest :: Route site -> HandlerT site IO Bool
+    isWriteRequest :: Route site -> HandlerFor site Bool
     isWriteRequest _ = do
         wai <- waiRequest
         return $ W.requestMethod wai `notElem`
@@ -215,7 +214,7 @@ class RenderRoute site => Yesod site where
     addStaticContent :: Text -- ^ filename extension
                      -> Text -- ^ mime-type
                      -> L.ByteString -- ^ content
-                     -> HandlerT site IO (Maybe (Either Text (Route site, [(Text, Text)])))
+                     -> HandlerFor site (Maybe (Either Text (Route site, [(Text, Text)])))
     addStaticContent _ _ _ = return Nothing
 
     -- | Maximum allowed length of the request body, in bytes.
@@ -304,7 +303,7 @@ class RenderRoute site => Yesod site where
     -- Default: the 'defaultYesodMiddleware' function.
     --
     -- Since: 1.1.6
-    yesodMiddleware :: ToTypedContent res => HandlerT site IO res -> HandlerT site IO res
+    yesodMiddleware :: ToTypedContent res => HandlerFor site res -> HandlerFor site res
     yesodMiddleware = defaultYesodMiddleware
 
     -- | How to allocate an @InternalState@ for each request.
@@ -325,7 +324,7 @@ class RenderRoute site => Yesod site where
     -- primarily for wrapping up error messages for better display.
     --
     -- @since 1.4.30
-    defaultMessageWidget :: Html -> HtmlUrl (Route site) -> WidgetT site IO ()
+    defaultMessageWidget :: Html -> HtmlUrl (Route site) -> WidgetFor site ()
     defaultMessageWidget title body = do
         setTitle title
         toWidget
@@ -384,7 +383,7 @@ defaultShouldLogIO a b = return $ defaultShouldLog a b
 -- \"Vary: Accept, Accept-Language\" and performs authorization checks.
 --
 -- Since 1.2.0
-defaultYesodMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultYesodMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
 defaultYesodMiddleware handler = do
     addHeader "Vary" "Accept, Accept-Language"
     authorizationCheck
@@ -444,8 +443,8 @@ sameSiteSession s = (fmap . fmap) secureSessionCookies
 --
 -- Since 1.4.7
 sslOnlyMiddleware :: Int -- ^ minutes
-                  -> HandlerT site IO res
-                  -> HandlerT site IO res
+                  -> HandlerFor site res
+                  -> HandlerFor site res
 sslOnlyMiddleware timeout handler = do
     addHeader "Strict-Transport-Security"
               $ T.pack $ concat [ "max-age="
@@ -458,7 +457,7 @@ sslOnlyMiddleware timeout handler = do
 -- 'isWriteRequest'.
 --
 -- Since 1.2.0
-authorizationCheck :: Yesod site => HandlerT site IO ()
+authorizationCheck :: Yesod site => HandlerFor site ()
 authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
   where
     checkUrl url = do
@@ -482,7 +481,7 @@ authorizationCheck = getCurrentRoute >>= maybe (return ()) checkUrl
 -- | Calls 'csrfCheckMiddleware' with 'isWriteRequest', 'defaultCsrfHeaderName', and 'defaultCsrfParamName' as parameters.
 --
 -- Since 1.4.14
-defaultCsrfCheckMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfCheckMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
 defaultCsrfCheckMiddleware handler =
     csrfCheckMiddleware
         handler
@@ -496,11 +495,11 @@ defaultCsrfCheckMiddleware handler =
 -- For details, see the "AJAX CSRF protection" section of "Yesod.Core.Handler".
 --
 -- Since 1.4.14
-csrfCheckMiddleware :: HandlerT site IO res
-                    -> HandlerT site IO Bool -- ^ Whether or not to perform the CSRF check.
+csrfCheckMiddleware :: HandlerFor site res
+                    -> HandlerFor site Bool -- ^ Whether or not to perform the CSRF check.
                     -> CI S8.ByteString -- ^ The header name to lookup the CSRF token from.
                     -> Text -- ^ The POST parameter name to lookup the CSRF token from.
-                    -> HandlerT site IO res
+                    -> HandlerFor site res
 csrfCheckMiddleware handler shouldCheckFn headerName paramName = do
     shouldCheck <- shouldCheckFn
     when shouldCheck (checkCsrfHeaderOrParam headerName paramName)
@@ -511,7 +510,7 @@ csrfCheckMiddleware handler shouldCheckFn headerName paramName = do
 -- The cookie's path is set to @/@, making it valid for your whole website.
 --
 -- Since 1.4.14
-defaultCsrfSetCookieMiddleware :: HandlerT site IO res -> HandlerT site IO res
+defaultCsrfSetCookieMiddleware :: HandlerFor site res -> HandlerFor site res
 defaultCsrfSetCookieMiddleware handler = setCsrfCookie >> handler
 
 -- | Takes a 'SetCookie' and overrides its value with a CSRF token, then sets the cookie. See 'setCsrfCookieWithCookie'.
@@ -521,7 +520,7 @@ defaultCsrfSetCookieMiddleware handler = setCsrfCookie >> handler
 -- Make sure to set the 'setCookiePath' to the root path of your application, otherwise you'll generate a new CSRF token for every path of your app. If your app is run from from e.g. www.example.com\/app1, use @app1@. The vast majority of sites will just use @/@.
 --
 -- Since 1.4.14
-csrfSetCookieMiddleware :: HandlerT site IO res -> SetCookie -> HandlerT site IO res
+csrfSetCookieMiddleware :: HandlerFor site res -> SetCookie -> HandlerFor site res
 csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handler
 
 -- | Calls 'defaultCsrfSetCookieMiddleware' and 'defaultCsrfCheckMiddleware'.
@@ -541,23 +540,26 @@ csrfSetCookieMiddleware handler cookie = setCsrfCookieWithCookie cookie >> handl
 -- @
 --
 -- Since 1.4.14
-defaultCsrfMiddleware :: Yesod site => HandlerT site IO res -> HandlerT site IO res
+defaultCsrfMiddleware :: Yesod site => HandlerFor site res -> HandlerFor site res
 defaultCsrfMiddleware = defaultCsrfSetCookieMiddleware . defaultCsrfCheckMiddleware
 
 -- | Convert a widget to a 'PageContent'.
 widgetToPageContent :: Yesod site
-                    => WidgetT site IO ()
-                    -> HandlerT site IO (PageContent (Route site))
-widgetToPageContent w = do
-    master <- getYesod
-    hd <- HandlerT return
-    ref <- lift $ newIORef mempty
-    lift $ unWidgetT w ref hd
-    GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- lift $ readIORef ref
-    let title = maybe mempty unTitle mTitle
-        scripts = runUniqueList scripts'
-        stylesheets = runUniqueList stylesheets'
+                    => WidgetFor site ()
+                    -> HandlerFor site (PageContent (Route site))
+widgetToPageContent w = HandlerFor $ \hd -> do
+  master <- unHandlerFor getYesod hd
+  ref <- newIORef mempty
+  unWidgetFor w WidgetData
+    { wdRef = ref
+    , wdHandler = hd
+    }
+  GWData (Body body) (Last mTitle) scripts' stylesheets' style jscript (Head head') <- readIORef ref
+  let title = maybe mempty unTitle mTitle
+      scripts = runUniqueList scripts'
+      stylesheets = runUniqueList stylesheets'
 
+  flip unHandlerFor hd $ do
     render <- getUrlRenderParams
     let renderLoc x =
             case x of
@@ -645,7 +647,7 @@ widgetToPageContent w = do
     runUniqueList (UniqueList x) = nub $ x []
 
 -- | The default error handler for 'errorHandler'.
-defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerT site IO TypedContent
+defaultErrorHandler :: Yesod site => ErrorResponse -> HandlerFor site TypedContent
 defaultErrorHandler NotFound = selectRep $ do
     provideRep $ defaultLayout $ do
         r <- waiRequest

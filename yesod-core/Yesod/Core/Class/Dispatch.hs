@@ -6,13 +6,13 @@
 {-# LANGUAGE FlexibleContexts  #-}
 module Yesod.Core.Class.Dispatch where
 
-import Yesod.Routes.Class
 import qualified Network.Wai as W
 import Yesod.Core.Types
-import Yesod.Core.Content
-import Yesod.Core.Handler (sendWaiApplication, stripHandlerT)
-import Yesod.Core.Class.Yesod
+import Yesod.Core.Content (ToTypedContent (..))
+import Yesod.Core.Handler (sendWaiApplication, getYesod, getCurrentRoute)
 import Yesod.Core.Class.Handler
+import Yesod.Core.Class.Yesod
+import Control.Monad.Trans.Reader (ReaderT (..), ask)
 
 -- | This class is automatically instantiated when you use the template haskell
 -- mkYesod function. You should never need to deal with it directly.
@@ -28,24 +28,63 @@ instance YesodSubDispatch WaiSubsite master where
       where
         WaiSubsite app = ysreGetSub $ yreSite ysreParentEnv
 
-instance YesodSubDispatch WaiSubsiteWithAuth (HandlerT master IO) where
+instance MonadHandler m => YesodSubDispatch WaiSubsiteWithAuth m where
   yesodSubDispatch YesodSubRunnerEnv {..} req =
-      ysreParentRunner base ysreParentEnv (fmap ysreToParentRoute route) req
+      ysreParentRunner handlert ysreParentEnv (fmap ysreToParentRoute route) req
     where
-      base  = stripHandlerT handlert ysreGetSub ysreToParentRoute route
       route = Just $ WaiSubsiteWithAuthRoute (W.pathInfo req) []
       WaiSubsiteWithAuth set = ysreGetSub $ yreSite $ ysreParentEnv
-      handlert = sendWaiApplication $ set
+      handlert = sendWaiApplication set
 
--- | A helper function for creating YesodSubDispatch instances, used by the
--- internal generated code. This function has been exported since 1.4.11.
--- It promotes a subsite handler to a wai application.
-subHelper :: Monad m -- NOTE: This is incredibly similar in type signature to yesodRunner, should probably be pointed out/explained.
-          => HandlerT child (HandlerT parent m) TypedContent
-          -> YesodSubRunnerEnv child parent (HandlerT parent m)
-          -> Maybe (Route child)
-          -> W.Application
-subHelper handlert YesodSubRunnerEnv {..} route =
-    ysreParentRunner base ysreParentEnv (fmap ysreToParentRoute route)
+type SubHandler child parent a = ReaderT (SubsiteData child parent) (HandlerFor parent) a
+
+data SubsiteData child parent = SubsiteData
+  { sdToParentRoute :: !(Route child -> Route parent)
+  , sdCurrentRoute :: !(Maybe (Route child))
+  , sdSubsiteData :: !child
+  }
+
+class MonadHandler m => MonadSubHandler m where
+  type SubHandlerSite m
+
+  getSubYesod :: m (SubHandlerSite m)
+  getToParentRoute :: m (Route (SubHandlerSite m) -> Route (HandlerSite m))
+  getSubCurrentRoute :: m (Maybe (Route (SubHandlerSite m)))
+
+instance MonadSubHandler (HandlerFor site) where
+  type SubHandlerSite (HandlerFor site) = site
+
+  getSubYesod = getYesod
+  getToParentRoute = return id
+  getSubCurrentRoute = getCurrentRoute
+
+instance MonadSubHandler (WidgetFor site) where
+  type SubHandlerSite (WidgetFor site) = site
+
+  getSubYesod = getYesod
+  getToParentRoute = return id
+  getSubCurrentRoute = getCurrentRoute
+
+instance (MonadSubHandler m, parent ~ SubHandlerSite m) => MonadSubHandler (ReaderT (SubsiteData child parent) m) where
+  type SubHandlerSite (ReaderT (SubsiteData child parent) m) = child
+
+  getSubYesod = fmap sdSubsiteData ask
+  getSubCurrentRoute = fmap sdCurrentRoute ask
+  getToParentRoute = ReaderT $ \sd -> do
+    toParent' <- getToParentRoute
+    return $ toParent' . sdToParentRoute sd
+
+subHelper
+  :: (ToTypedContent content, MonadSubHandler m, parent ~ HandlerSite m)
+  => ReaderT (SubsiteData child parent) m content
+  -> YesodSubRunnerEnv child parent m
+  -> Maybe (Route child)
+  -> W.Application
+subHelper (ReaderT f) YesodSubRunnerEnv {..} mroute =
+    ysreParentRunner handler ysreParentEnv (fmap ysreToParentRoute mroute)
   where
-    base = stripHandlerT (fmap toTypedContent handlert) ysreGetSub ysreToParentRoute route
+    handler = fmap toTypedContent $ f SubsiteData
+      { sdToParentRoute = ysreToParentRoute
+      , sdCurrentRoute = mroute
+      , sdSubsiteData = ysreGetSub $ yreSite ysreParentEnv
+      }

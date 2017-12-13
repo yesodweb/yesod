@@ -83,7 +83,7 @@ errFromShow x = evaluate $!! InternalError $! T.pack $! show x
 -- represented by the @HandlerContents@.
 basicRunHandler :: ToTypedContent c
                 => RunHandlerEnv site
-                -> HandlerT site IO c
+                -> HandlerFor site c
                 -> YesodRequest
                 -> InternalState
                 -> IO (GHState, HandlerContents)
@@ -96,7 +96,7 @@ basicRunHandler rhe handler yreq resState = do
     -- converting them into a @HandlerContents@
     contents' <- catchSync
         (do
-            res <- unHandlerT handler (hd istate)
+            res <- unHandlerFor handler (hd istate)
             tc <- evaluate (toTypedContent res)
             -- Success! Wrap it up in an @HCContent@
             return (HCContent defaultStatus tc))
@@ -121,7 +121,6 @@ basicRunHandler rhe handler yreq resState = do
         { handlerRequest = yreq
         , handlerEnv     = rhe
         , handlerState   = istate
-        , handlerToParent = const ()
         , handlerResource = resState
         }
 
@@ -208,7 +207,7 @@ evalFallback contents val = catchSync
 -- 'HandlerT' into an 'Application'. Should not be needed by users.
 runHandler :: ToTypedContent c
            => RunHandlerEnv site
-           -> HandlerT site IO c
+           -> HandlerFor site c
            -> YesodApp
 runHandler rhe@RunHandlerEnv {..} handler yreq = withInternalState $ \resState -> do
     -- Get the raw state and original contents
@@ -263,7 +262,7 @@ runFakeHandler :: (Yesod site, MonadIO m) =>
                   SessionMap
                -> (site -> Logger)
                -> site
-               -> HandlerT site IO a
+               -> HandlerFor site a
                -> m (Either ErrorResponse a)
 runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   ret <- I.newIORef (Left $ InternalError "runFakeHandler: no result")
@@ -322,7 +321,7 @@ runFakeHandler fakeSessionMap logger site handler = liftIO $ do
   I.readIORef ret
 
 yesodRunner :: (ToTypedContent res, Yesod site)
-            => HandlerT site IO res
+            => HandlerFor site res
             -> YesodRunnerEnv site
             -> Maybe (Route site)
             -> Application

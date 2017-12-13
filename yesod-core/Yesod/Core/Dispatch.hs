@@ -35,7 +35,6 @@ module Yesod.Core.Dispatch
       -- * WAI subsites
     , WaiSubsite (..)
     , WaiSubsiteWithAuth (..)
-    , subHelper
     ) where
 
 import Prelude hiding (exp)

@@ -32,7 +32,6 @@ import Text.ParserCombinators.Parsec.Char (alphaNum, spaces, string, char)
 import Yesod.Routes.TH
 import Yesod.Routes.Parse
 import Yesod.Core.Types
-import Yesod.Core.Content
 import Yesod.Core.Class.Dispatch
 import Yesod.Core.Internal.Run
 
@@ -102,12 +101,12 @@ mkYesodDispatch :: String -> [ResourceTree String] -> Q [Dec]
 mkYesodDispatch name = fmap snd . mkYesodGeneral name [] False return
 
 -- | Get the Handler and Widget type synonyms for the given site.
-masterTypeSyns :: [Name] -> Type -> [Dec]
+masterTypeSyns :: [Name] -> Type -> [Dec] -- FIXME remove from here, put into the scaffolding itself?
 masterTypeSyns vs site =
     [ TySynD (mkName "Handler") (fmap PlainTV vs)
-      $ ConT ''HandlerT `AppT` site `AppT` ConT ''IO
+      $ ConT ''HandlerFor `AppT` site
     , TySynD (mkName "Widget")  (fmap PlainTV vs)
-      $ ConT ''WidgetT `AppT` site `AppT` ConT ''IO `AppT` ConT ''()
+      $ ConT ''WidgetFor `AppT` site `AppT` ConT ''()
     ]
 
 -- | 'Left' arguments indicate a monomorphic type, a 'Right' argument
@@ -242,7 +241,7 @@ mkDispatchInstance master cxt f res = do
 
 mkYesodSubDispatch :: [ResourceTree a] -> Q Exp
 mkYesodSubDispatch res = do
-    clause' <- mkDispatchClause (mkMDS return [|subHelper . fmap toTypedContent|]) res
+    clause' <- mkDispatchClause (mkMDS return [|subHelper|]) res
     inner <- newName "inner"
     let innerFun = FunD inner [clause']
     helper <- newName "helper"
