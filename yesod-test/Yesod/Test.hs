@@ -75,6 +75,7 @@ module Yesod.Test
     , byLabel
     , byLabelExact
     , fileByLabel
+    , fileByLabelExact
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -678,12 +679,46 @@ byLabelExact = byLabelWithMatch (==)
 -- > <form method="POST">
 -- >   <label>Please submit an image <input type="file" name="f1"> </label>
 -- > </form>
+--
+-- Warning: There exists the same issue of 'byLabel'. Please use 'fileByLabelExact' instead.
 fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
             -> FilePath -- ^ The path to the file.
             -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
             -> RequestBuilder site ()
 fileByLabel label path mime = do
   name <- genericNameFromLabel T.isInfixOf label
+  addFile name path mime
+
+  -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit a file with the parameter name @f1@ to the server:
+--
+-- > <form method="POST">
+-- >   <label for="imageInput">Please submit an image</label>
+-- >   <input id="imageInput" type="file" name="f1" accept="image/*">
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   fileByLabel "Please submit an image" "static/img/picture.png" "img/png"
+--
+-- This function also supports the implicit label syntax, in which
+-- the @\<input>@ is nested inside the @\<label>@ rather than specified with @for@:
+--
+-- > <form method="POST">
+-- >   <label>Please submit an image <input type="file" name="f1"> </label>
+-- > </form>
+--
+-- @since 1.5.9
+fileByLabelExact :: T.Text -- ^ The text contained in the @\<label>@.
+                 -> FilePath -- ^ The path to the file.
+                 -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
+                 -> RequestBuilder site ()
+fileByLabelExact label path mime = do
+  name <- genericNameFromLabel (==) label
   addFile name path mime
 
 -- | Lookups the hidden input named "_token" and adds its value to the params.
