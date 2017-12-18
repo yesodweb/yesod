@@ -680,7 +680,7 @@ byLabelExact = byLabelWithMatch (==)
 -- >   <label>Please submit an image <input type="file" name="f1"> </label>
 -- > </form>
 --
--- Warning: There exists the same issue of 'byLabel'. Please use 'fileByLabelExact' instead.
+-- Warning: This function has the same issue as 'byLabel'. Please use 'fileByLabelExact' instead.
 fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
             -> FilePath -- ^ The path to the file.
             -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
