@@ -78,7 +78,6 @@ import Language.Haskell.TH.Syntax as TH
 
 import Crypto.Hash.Conduit (hashFile, sinkHash)
 import Crypto.Hash (MD5, Digest)
-import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans.State
 
 import qualified Data.ByteArray as ByteArray
@@ -175,12 +174,10 @@ instance RenderRoute Static where
 instance ParseRoute Static where
     parseRoute (x, y) = Just $ StaticRoute x y
 
-instance (MonadThrow m, MonadIO m, MonadBaseControl IO m)
-  => YesodSubDispatch Static (HandlerT master m) where
+instance MonadHandler m => YesodSubDispatch Static m where
     yesodSubDispatch YesodSubRunnerEnv {..} req =
-        ysreParentRunner base ysreParentEnv (fmap ysreToParentRoute route) req
+        ysreParentRunner handlert ysreParentEnv (fmap ysreToParentRoute route) req
       where
-        base = stripHandlerT handlert ysreGetSub ysreToParentRoute route
         route = Just $ StaticRoute (pathInfo req) []
 
         Static set = ysreGetSub $ yreSite $ ysreParentEnv

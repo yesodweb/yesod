@@ -39,6 +39,7 @@ module Yesod.Auth
       -- * Exception
     , AuthException (..)
       -- * Helper
+    , MonadAuthHandler
     , AuthHandler
       -- * Internal
     , credsKey
@@ -49,8 +50,7 @@ module Yesod.Auth
 
 import Control.Monad                 (when)
 import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.Reader    (ReaderT)
-import Control.Monad.IO.Unlift       (withRunInIO)
+import Control.Monad.IO.Unlift       (withRunInIO, MonadUnliftIO)
 
 import Yesod.Auth.Routes
 import Data.Aeson hiding (json)
@@ -78,7 +78,8 @@ import Control.Monad (void)
 
 type AuthRoute = Route Auth
 
-type AuthHandler master a = forall m. (MonadSubHandler m, YesodAuth master, master ~ HandlerSite m, Auth ~ SubHandlerSite m) => m a
+type MonadAuthHandler master m = (MonadSubHandler m, YesodAuth master, master ~ HandlerSite m, Auth ~ SubHandlerSite m, MonadUnliftIO m)
+type AuthHandler master a = forall m. MonadAuthHandler master m => m a
 
 type Method = Text
 type Piece = Text
@@ -192,8 +193,8 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     -- type. This allows backends to reuse persistent connections. If none of
     -- the backends you're using use HTTP connections, you can safely return
     -- @error \"authHttpManager\"@ here.
-    authHttpManager :: master -> IO Manager
-    authHttpManager _ = getGlobalManager
+    authHttpManager :: AuthHandler master Manager
+    authHttpManager = liftIO getGlobalManager
 
     -- | Called on a successful login. By default, calls
     -- @addMessageI "success" NowLoggedIn@.
@@ -232,13 +233,14 @@ class (Yesod master, PathPiece (AuthId master), RenderMessage master FormMessage
     --
     --  The HTTP 'Request' is given in case it is useful to change behavior based on inspecting the request.
     --  This is an experimental API that is not broadly used throughout the yesod-auth code base
-    runHttpRequest :: (MonadSubHandler m, HandlerSite m ~ master, SubHandlerSite m ~ Auth)
-                   => Request
-                   -> (Response BodyReader -> ReaderT (SubsiteData Auth master) (HandlerFor master) a)
-                   -> m a
+    runHttpRequest
+      :: MonadAuthHandler master m
+      => Request
+      -> (Response BodyReader -> m a)
+      -> m a
     runHttpRequest req inner = do
-      man <- getYesod >>= liftIO . authHttpManager
-      lift $ withRunInIO $ \run -> withResponse req man $ run . inner
+      man <- authHttpManager
+      withRunInIO $ \run -> withResponse req man $ run . inner
 
     {-# MINIMAL loginDest, logoutDest, (authenticate | getAuthId), authPlugins, authHttpManager #-}
 
@@ -268,7 +270,8 @@ defaultMaybeAuthId = runMaybeT $ do
 
 cachedAuth
     :: (YesodAuthPersist master, Typeable (AuthEntity master))
-    => AuthId master -> AuthHandler master (Maybe (AuthEntity master))
+    => AuthId master
+    -> AuthHandler master (Maybe (AuthEntity master))
 cachedAuth
     = fmap unCachedMaybeAuth
     . cached
@@ -285,25 +288,25 @@ cachedAuth
 defaultLoginHandler :: AuthHandler master Html
 defaultLoginHandler = do
     tp <- getRouteToParent
-    liftHandler $ authLayout $ do
+    authLayout $ do
         setTitleI Msg.LoginTitle
         master <- getYesod
         mapM_ (flip apLogin tp) (authPlugins master)
 
 
-loginErrorMessageI :: (YesodAuth (HandlerSite m), MonadSubHandler m)
-                   => Route (SubHandlerSite m)
-                   -> AuthMessage
-                   -> m TypedContent
+loginErrorMessageI
+  :: Route Auth
+  -> AuthMessage
+  -> AuthHandler master TypedContent
 loginErrorMessageI dest msg = do
   toParent <- getRouteToParent
-  liftHandler $ loginErrorMessageMasterI (toParent dest) msg
+  loginErrorMessageMasterI (toParent dest) msg
 
 
-loginErrorMessageMasterI :: (YesodAuth master, RenderMessage master AuthMessage)
-         => Route master
-         -> AuthMessage
-         -> AuthHandler master TypedContent
+loginErrorMessageMasterI
+  :: Route master
+  -> AuthMessage
+  -> AuthHandler master TypedContent
 loginErrorMessageMasterI dest msg = do
   mr <- getMessageRender
   loginErrorMessage dest (mr msg)
@@ -316,19 +319,22 @@ loginErrorMessage :: YesodAuth master
          -> AuthHandler master TypedContent
 loginErrorMessage dest msg = messageJson401 msg (onErrorHtml dest msg)
 
-messageJson401 :: (MonadSubHandler m, HandlerSite m ~ master, SubHandlerSite m ~ Auth)
-               => Text
-               -> m Html
-               -> m TypedContent
+messageJson401
+  :: MonadAuthHandler master m
+  => Text
+  -> m Html
+  -> m TypedContent
 messageJson401 = messageJsonStatus unauthorized401
 
-messageJson500 :: Text -> HandlerFor master Html -> HandlerFor master TypedContent
+messageJson500 :: MonadAuthHandler master m => Text -> m Html -> m TypedContent
 messageJson500 = messageJsonStatus internalServerError500
 
-messageJsonStatus :: Status
-                  -> Text
-                  -> HandlerFor master Html
-                  -> HandlerFor master TypedContent
+messageJsonStatus
+  :: MonadAuthHandler master m
+  => Status
+  -> Text
+  -> m Html
+  -> m TypedContent
 messageJsonStatus status msg html = selectRep $ do
     provideRep html
     provideRep $ do
@@ -340,9 +346,9 @@ provideJsonMessage :: Monad m => Text -> Writer.Writer (Endo [ProvidedRep m]) ()
 provideJsonMessage msg = provideRep $ return $ object ["message" .= msg]
 
 
-setCredsRedirect :: YesodAuth master
-         => Creds master -- ^ new credentials
-         -> HandlerFor master TypedContent
+setCredsRedirect
+  :: Creds master -- ^ new credentials
+  -> AuthHandler master TypedContent
 setCredsRedirect creds = do
     y    <- getYesod
     auth <- authenticate creds
@@ -381,10 +387,9 @@ setCredsRedirect creds = do
         return $ renderAuthMessage master langs msg
 
 -- | Sets user credentials for the session after checking them with authentication backends.
-setCreds :: YesodAuth master
-         => Bool         -- ^ if HTTP redirects should be done
+setCreds :: Bool         -- ^ if HTTP redirects should be done
          -> Creds master -- ^ new credentials
-         -> HandlerFor master ()
+         -> AuthHandler master ()
 setCreds doRedirects creds =
     if doRedirects
       then void $ setCredsRedirect creds
@@ -394,10 +399,11 @@ setCreds doRedirects creds =
                   _ -> return ()
 
 -- | same as defaultLayoutJson, but uses authLayout
-authLayoutJson :: (YesodAuth site, ToJSON j)
-                  => WidgetFor site ()  -- ^ HTML
-                  -> HandlerFor site j  -- ^ JSON
-                  -> HandlerFor site TypedContent
+authLayoutJson
+  :: (ToJSON j, MonadAuthHandler master m)
+  => WidgetFor master ()  -- ^ HTML
+  -> m j  -- ^ JSON
+  -> m TypedContent
 authLayoutJson w json = selectRep $ do
     provideRep $ authLayout w
     provideRep $ fmap toJSON json
@@ -405,18 +411,17 @@ authLayoutJson w json = selectRep $ do
 -- | Clears current user credentials for the session.
 --
 -- Since 1.1.7
-clearCreds :: (MonadHandler m, YesodAuth (HandlerSite m))
-           => Bool -- ^ if HTTP redirect to 'logoutDest' should be done
-           -> m ()
+clearCreds :: Bool -- ^ if HTTP redirect to 'logoutDest' should be done
+           -> AuthHandler master ()
 clearCreds doRedirects = do
     y <- getYesod
-    liftHandler onLogout
+    onLogout
     deleteSession credsKey
     when doRedirects $ do
         redirectUltDest $ logoutDest y
 
 getCheckR :: AuthHandler master TypedContent
-getCheckR = liftHandler $ do
+getCheckR = do
     creds <- maybeAuthId
     authLayoutJson (do
         setTitle "Authentication Status"
@@ -437,7 +442,7 @@ $nothing
             ]
 
 setUltDestReferer' :: AuthHandler master ()
-setUltDestReferer' = liftHandler $ do
+setUltDestReferer' = do
     master <- getYesod
     when (redirectToReferer master) setUltDestReferer
 
@@ -471,17 +476,16 @@ maybeAuth :: ( YesodAuthPersist master
              , Key val ~ AuthId master
              , PersistEntity val
              , Typeable val
-             ) => HandlerFor master (Maybe (Entity val))
-maybeAuth = runMaybeT $ do
-    (aid, ae) <- MaybeT maybeAuthPair
-    return $ Entity aid ae
+             ) => AuthHandler master (Maybe (Entity val))
+maybeAuth = fmap (fmap (uncurry Entity)) maybeAuthPair
 
 -- | Similar to 'maybeAuth', but doesn’t assume that you are using a
 -- Persistent database.
 --
 -- Since 1.4.0
-maybeAuthPair :: (YesodAuthPersist master, Typeable (AuthEntity master))
-              => HandlerFor master (Maybe (AuthId master, AuthEntity master))
+maybeAuthPair
+  :: (YesodAuthPersist master, Typeable (AuthEntity master))
+  => AuthHandler master (Maybe (AuthId master, AuthEntity master))
 maybeAuthPair = runMaybeT $ do
     aid <- MaybeT maybeAuthId
     ae  <- MaybeT $ cachedAuth aid
@@ -512,9 +516,8 @@ class (YesodAuth master, YesodPersist master) => YesodAuthPersist master where
     type AuthEntity master :: *
     type AuthEntity master = KeyEntity (AuthId master)
 
-    getAuthEntity :: AuthId master -> HandlerFor master (Maybe (AuthEntity master))
+    getAuthEntity :: AuthId master -> AuthHandler master (Maybe (AuthEntity master))
 
-#if MIN_VERSION_persistent(2,5,0)
     default getAuthEntity
         :: ( YesodPersistBackend master ~ backend
            , PersistRecordBackend (AuthEntity master) backend
@@ -522,16 +525,6 @@ class (YesodAuth master, YesodPersist master) => YesodAuthPersist master where
            , PersistStore backend
            )
         => AuthId master -> HandlerFor master (Maybe (AuthEntity master))
-#else
-    default getAuthEntity
-        :: ( YesodPersistBackend master
-               ~ PersistEntityBackend (AuthEntity master)
-           , Key (AuthEntity master) ~ AuthId master
-           , PersistStore (YesodPersistBackend master)
-           , PersistEntity (AuthEntity master)
-           )
-        => AuthId master -> HandlerFor master (Maybe (AuthEntity master))
-#endif
     getAuthEntity = runDB . get
 
 
@@ -542,7 +535,7 @@ type instance KeyEntity (Key x) = x
 -- authenticated or responds with error 401 if this is an API client (expecting JSON).
 --
 -- Since 1.1.0
-requireAuthId :: YesodAuth master => HandlerFor master (AuthId master)
+requireAuthId :: AuthHandler master (AuthId master)
 requireAuthId = maybeAuthId >>= maybe handleAuthLack return
 
 -- | Similar to 'maybeAuth', but redirects to a login page if user is not
@@ -554,23 +547,26 @@ requireAuth :: ( YesodAuthPersist master
                , Key val ~ AuthId master
                , PersistEntity val
                , Typeable val
-               ) => HandlerFor master (Entity val)
+               ) => AuthHandler master (Entity val)
 requireAuth = maybeAuth >>= maybe handleAuthLack return
 
 -- | Similar to 'requireAuth', but not tied to Persistent's 'Entity' type.
 -- Instead, the 'AuthId' and 'AuthEntity' are returned in a tuple.
 --
 -- Since 1.4.0
-requireAuthPair :: (YesodAuthPersist master, Typeable (AuthEntity master))
-                => HandlerFor master (AuthId master, AuthEntity master)
+requireAuthPair
+  :: ( YesodAuthPersist master
+     , Typeable (AuthEntity master)
+     )
+  => AuthHandler master (AuthId master, AuthEntity master)
 requireAuthPair = maybeAuthPair >>= maybe handleAuthLack return
 
-handleAuthLack :: YesodAuth master => HandlerFor master a
+handleAuthLack :: AuthHandler master a
 handleAuthLack = do
     aj <- acceptsJson
     if aj then notAuthenticated else redirectLogin
 
-redirectLogin :: YesodAuth master => HandlerFor master a
+redirectLogin :: AuthHandler master a
 redirectLogin = do
     y <- getYesod
     when (redirectToCurrent y) setUltDestCurrent
@@ -586,7 +582,7 @@ data AuthException = InvalidFacebookResponse
 instance Exception AuthException
 
 -- FIXME HandlerSite m ~ SubHandlerSite m should be unnecessary
-instance (YesodAuth (HandlerSite m), HandlerSite m ~ SubHandlerSite m, MonadSubHandler m) => YesodSubDispatch Auth m where
+instance (YesodAuth (HandlerSite m), HandlerSite m ~ SubHandlerSite m, MonadSubHandler m, MonadUnliftIO m) => YesodSubDispatch Auth m where
     yesodSubDispatch = $(mkYesodSubDispatch resourcesAuth)
 
 asHtml :: Html -> Html

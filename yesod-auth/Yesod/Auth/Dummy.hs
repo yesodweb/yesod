@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 -- | Provides a dummy authentication module that simply lets a user specify
 -- his/her identifier. This is not intended for real world use, just for
 -- testing.
@@ -16,7 +17,7 @@ authDummy :: YesodAuth m => AuthPlugin m
 authDummy =
     AuthPlugin "dummy" dispatch login
   where
-    dispatch "POST" [] = liftHandler $ do
+    dispatch "POST" [] = do
         ident <- runInputPost $ ireq textField "ident"
         setCredsRedirect $ Creds "dummy" ident []
     dispatch _ _ = notFound

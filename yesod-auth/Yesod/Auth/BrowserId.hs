@@ -70,7 +70,6 @@ authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
     , apDispatch = \m ps ->
         case (m, ps) of
             ("GET", [assertion]) -> do
-                master <- getYesod
                 audience <-
                     case bisAudience of
                         Just a -> return a
@@ -78,13 +77,14 @@ authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
                             r <- getUrlRender
                             tm <- getRouteToParent
                             return $ T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
-                memail <- liftHandler $ checkAssertion audience assertion (authHttpManager master)
+                manager <- authHttpManager
+                memail <- liftResourceT $ checkAssertion audience assertion manager
                 case memail of
                     Nothing -> do
                       $logErrorS "yesod-auth" "BrowserID assertion failure"
                       tm <- getRouteToParent
-                      liftHandler $ loginErrorMessage (tm LoginR) "BrowserID login error."
-                    Just email -> liftHandler $ setCredsRedirect Creds
+                      loginErrorMessage (tm LoginR) "BrowserID login error."
+                    Just email -> setCredsRedirect Creds
                         { credsPlugin = pid
                         , credsIdent = email
                         , credsExtra = []
@@ -117,7 +117,7 @@ $newline never
 createOnClickOverride :: BrowserIdSettings
               -> (Route Auth -> Route master)
               -> Maybe (Route master)
-              -> WidgetT master IO Text
+              -> WidgetFor master Text
 createOnClickOverride BrowserIdSettings {..} toMaster mOnRegistration = do
     unless bisLazyLoad $ addScriptRemote browserIdJs
     onclick <- newIdent
@@ -166,5 +166,5 @@ createOnClickOverride BrowserIdSettings {..} toMaster mOnRegistration = do
 -- name.
 createOnClick :: BrowserIdSettings
               -> (Route Auth -> Route master)
-              -> WidgetT master IO Text
+              -> WidgetFor master Text
 createOnClick bidSettings toMaster = createOnClickOverride bidSettings toMaster Nothing

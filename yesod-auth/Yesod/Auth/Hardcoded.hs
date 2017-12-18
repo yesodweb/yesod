@@ -131,9 +131,10 @@ module Yesod.Auth.Hardcoded
   , loginR )
   where
 
-import           Yesod.Auth          (Auth, AuthPlugin (..), AuthRoute,
+import           Yesod.Auth          (AuthPlugin (..), AuthRoute,
                                       Creds (..), Route (..), YesodAuth,
-                                      loginErrorMessageI, setCredsRedirect)
+                                      loginErrorMessageI, setCredsRedirect,
+                                      AuthHandler)
 import qualified Yesod.Auth.Message  as Msg
 import           Yesod.Core
 import           Yesod.Form          (ireq, runInputPost, textField)
@@ -148,10 +149,10 @@ loginR = PluginR "hardcoded" ["login"]
 class (YesodAuth site) => YesodAuthHardcoded site where
 
   -- | Check whether given user name exists among hardcoded names.
-  doesUserNameExist :: Text -> HandlerT site IO Bool
+  doesUserNameExist :: Text -> AuthHandler site Bool
 
   -- | Validate given user name with given password.
-  validatePassword :: Text -> Text -> HandlerT site IO Bool
+  validatePassword :: Text -> Text -> AuthHandler site Bool
 
 
 authHardcoded :: YesodAuthHardcoded m => AuthPlugin m
@@ -182,16 +183,16 @@ authHardcoded =
         |]
 
 
-postLoginR :: (YesodAuthHardcoded master)
-           => HandlerT Auth (HandlerT master IO) TypedContent
+postLoginR :: YesodAuthHardcoded site
+           => AuthHandler site TypedContent
 postLoginR =
-  do (username, password) <- lift (runInputPost
+  do (username, password) <- runInputPost
        ((,) Control.Applicative.<$> ireq textField "username"
-            Control.Applicative.<*> ireq textField "password"))
-     isValid <- lift (validatePassword username password)
+            Control.Applicative.<*> ireq textField "password")
+     isValid <- validatePassword username password
      if isValid
-        then lift (setCredsRedirect (Creds "hardcoded" username []))
-        else do isExists <- lift (doesUserNameExist username)
+        then setCredsRedirect (Creds "hardcoded" username [])
+        else do isExists <- doesUserNameExist username
                 loginErrorMessageI LoginR
                                    (if isExists
                                        then Msg.InvalidUsernamePass

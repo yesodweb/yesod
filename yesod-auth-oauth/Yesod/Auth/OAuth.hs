@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable, OverloadedStrings, QuasiQuotes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Yesod.Auth.OAuth
     ( authOAuth
     , oauthUrl
@@ -14,6 +17,7 @@ import           Control.Applicative      as A ((<$>), (<*>))
 import           Control.Arrow            ((***))
 import           Control.Exception.Lifted
 import           Control.Monad.IO.Class
+import           Control.Monad.IO.Unlift  (MonadUnliftIO)
 import           Data.ByteString          (ByteString)
 import           Data.Maybe
 import           Data.Text                (Text)
@@ -35,26 +39,37 @@ instance Exception YesodOAuthException
 oauthUrl :: Text -> AuthRoute
 oauthUrl name = PluginR name ["forward"]
 
-authOAuth :: YesodAuth m
+authOAuth :: forall master. YesodAuth master
           => OAuth                        -- ^ 'OAuth' data-type for signing.
-          -> (Credential -> IO (Creds m)) -- ^ How to extract ident.
-          -> AuthPlugin m
+          -> (Credential -> IO (Creds master)) -- ^ How to extract ident.
+          -> AuthPlugin master
 authOAuth oauth mkCreds = AuthPlugin name dispatch login
   where
     name = T.pack $ oauthServerName oauth
     url = PluginR name []
     lookupTokenSecret = bsToText . fromMaybe "" . lookup "oauth_token_secret" . unCredential
+
+    oauthSessionName :: Text
     oauthSessionName = "__oauth_token_secret"
 
+    dispatch
+      :: ( MonadSubHandler m
+         , master ~ HandlerSite m
+         , Auth ~ SubHandlerSite m
+         , MonadUnliftIO m
+         )
+      => Text
+      -> [Text]
+      -> m TypedContent
     dispatch "GET" ["forward"] = do
-        render <- lift getUrlRender
+        render <- getUrlRender
         tm <- getRouteToParent
         let oauth' = oauth { oauthCallback = Just $ encodeUtf8 $ render $ tm url }
-        master <- lift getYesod
-        tok <- lift $ getTemporaryCredential oauth' (authHttpManager master)
+        manager <- authHttpManager
+        tok <- getTemporaryCredential oauth' manager
         setSession oauthSessionName $ lookupTokenSecret tok
         redirect $ authorizeUrl oauth' tok
-    dispatch "GET" [] = lift $ do
+    dispatch "GET" [] = do
       Just tokSec <- lookupSession oauthSessionName
       deleteSession oauthSessionName
       reqTok <-
@@ -72,8 +87,8 @@ authOAuth oauth mkCreds = AuthPlugin name dispatch login
                                 , ("oauth_token", encodeUtf8 oaTok)
                                 , ("oauth_token_secret", encodeUtf8 tokSec)
                                 ]
-      master <- getYesod
-      accTok <- getAccessToken oauth reqTok (authHttpManager master)
+      manager <- authHttpManager
+      accTok <- getAccessToken oauth reqTok manager
       creds  <- liftIO $ mkCreds accTok
       setCredsRedirect creds
     dispatch _ _ = notFound
