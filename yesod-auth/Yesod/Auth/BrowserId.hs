@@ -78,7 +78,7 @@ authBrowserId bis@BrowserIdSettings {..} = AuthPlugin
                             tm <- getRouteToParent
                             return $ T.takeWhile (/= '/') $ stripScheme $ r $ tm LoginR
                 manager <- authHttpManager
-                memail <- liftResourceT $ checkAssertion audience assertion manager
+                memail <- checkAssertion audience assertion manager
                 case memail of
                     Nothing -> do
                       $logErrorS "yesod-auth" "BrowserID assertion failure"

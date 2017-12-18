@@ -12,7 +12,7 @@ import           Control.Applicative                   ((<|>))
 import           Control.Concurrent                    (threadDelay)
 import           Control.Concurrent.Async              (race_)
 import           Control.Concurrent.STM
-import qualified Control.Exception.Safe                as Ex
+import qualified UnliftIO.Exception                    as Ex
 import           Control.Monad                         (forever, unless, void,
                                                         when)
 import Data.ByteString (ByteString, isInfixOf)

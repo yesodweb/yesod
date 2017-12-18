@@ -20,7 +20,7 @@ import Yesod.Form
 import Yesod.Core
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
-import Control.Exception.Lifted (SomeException, try)
+import UnliftIO.Exception (tryAny)
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
@@ -71,11 +71,9 @@ $newline never
                 render <- getUrlRender
                 let complete' = render $ tm complete
                 manager <- authHttpManager
-                eres <- liftResourceT $ try $ OpenId.getForwardUrl oid complete' Nothing extensionFields manager
+                eres <- tryAny $ OpenId.getForwardUrl oid complete' Nothing extensionFields manager
                 case eres of
-                    Left err -> do
-                        loginErrorMessage (tm LoginR) $ T.pack $
-                                show (err :: SomeException)
+                    Left err -> loginErrorMessage (tm LoginR) $ T.pack $ show err
                     Right x -> redirect x
             Nothing -> loginErrorMessageI LoginR Msg.NoOpenID
     dispatch "GET" ["complete", ""] = dispatch "GET" ["complete"] -- compatibility issues
@@ -91,13 +89,12 @@ $newline never
 completeHelper :: IdentifierType -> [(Text, Text)] -> AuthHandler master TypedContent
 completeHelper idType gets' = do
     manager <- authHttpManager
-    eres <- liftResourceT $ try $ OpenId.authenticateClaimed gets' manager
+    eres <- tryAny $ OpenId.authenticateClaimed gets' manager
     either onFailure onSuccess eres
   where
     onFailure err = do
         tm <- getRouteToParent
-        loginErrorMessage (tm LoginR) $ T.pack $
-                show (err :: SomeException)
+        loginErrorMessage (tm LoginR) $ T.pack $ show err
     onSuccess oir = do
             let claimed =
                     case OpenId.oirClaimed oir of

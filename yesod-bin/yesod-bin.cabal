@@ -52,13 +52,12 @@ executable             yesod
                      , conduit-extra
                      , resourcet          >= 0.3          && < 1.2
                      , base64-bytestring
-                     , lifted-base
                      , http-reverse-proxy >= 0.4
                      , network            >= 2.5
                      , http-client-tls
                      , http-client        >= 0.4.7
                      , project-template   >= 0.1.1
-                     , safe-exceptions
+                     , unliftio
                      , say
                      , stm
                      , transformers

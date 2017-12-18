@@ -15,3 +15,5 @@ packages:
   - ./yesod-websockets
 extra-deps:
 - unliftio-core-0.1.0.0
+- unliftio-0.2.0.0
+- ../.stable/authenticate/authenticate

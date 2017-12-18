@@ -42,8 +42,7 @@ $newline never
                         [] -> invalidArgs ["token: Value not supplied"]
                         x:_ -> return $ unpack x
         manager <- authHttpManager
-        Rpxnow.Identifier ident extra <-
-          liftResourceT $ Rpxnow.authenticate apiKey token manager
+        Rpxnow.Identifier ident extra <- Rpxnow.authenticate apiKey token manager
         let creds =
                 Creds "rpxnow" ident
                 $ maybe id (\x -> (:) ("verifiedEmail", x))

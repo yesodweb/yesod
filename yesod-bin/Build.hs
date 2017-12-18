@@ -20,10 +20,9 @@ import           Data.Text.Encoding.Error (lenientDecode)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 
-import           Control.Exception (SomeException, try, IOException)
-import           Control.Exception.Lifted (handle)
+import           UnliftIO.Exception (tryIO, IOException, handleAny, catchAny, tryAny)
 import           Control.Monad (when, filterM, forM, forM_, (>=>))
-import           Control.Monad.Trans.State (StateT, get, put, execStateT)
+import           Control.Monad.Trans.State (StateT (StateT), get, put, execStateT)
 import           Control.Monad.Trans.Writer (WriterT, tell, execWriterT)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Class (lift)
@@ -45,11 +44,11 @@ import           Text.Cassius     (cassiusUsedIdentifiers)
 import           Text.Lucius      (luciusUsedIdentifiers)
 
 safeReadFile :: MonadIO m => FilePath -> m (Either IOException ByteString)
-safeReadFile = liftIO . try . S.readFile
+safeReadFile = liftIO . tryIO . S.readFile
 
 touch :: IO ()
 touch = do
-    m <- handle (\(_ :: SomeException) -> return Map.empty) $ readFile touchCache >>= readIO
+    m <- handleAny (\_ -> return Map.empty) $ readFile touchCache >>= readIO
     x <- fmap snd (getDeps [])
     m' <- execStateT (execWriterT $ touchDeps id updateFileTime x) m
     createDirectoryIfMissing True $ takeDirectory touchCache
@@ -87,8 +86,10 @@ touchDeps :: (FilePath -> FilePath) ->
              Deps -> WriterT AnyFilesTouched (StateT (Map.Map FilePath (Set.Set Deref)) IO) ()
 touchDeps f action deps = (mapM_ go . Map.toList) deps
   where
+    ignoreStateEx defRes (StateT g) = StateT $ \s0 ->
+      g s0 `catchAny` \_ -> return (defRes, s0)
     go (x, (ys, ct)) = do
-        isChanged <- handle (\(_ :: SomeException) -> return True) $ lift $
+        isChanged <- lift $ ignoreStateEx True $
             case ct of
                 AlwaysOutdated -> return True
                 CompareUsedIdentifiers getDerefs -> do
@@ -113,7 +114,7 @@ touchDeps f action deps = (mapM_ go . Map.toList) deps
 removeHi :: FilePath -> FilePath -> IO ()
 removeHi _ hs = mapM_ removeFile' hiFiles
     where
-      removeFile' file = try' (removeFile file) >> return ()
+      removeFile' file = tryAny (removeFile file) >> return ()
       hiFiles          = map (\e -> "dist/build" </> removeSrc (replaceExtension hs e))
                              ["hi", "p_hi"]
 
@@ -122,7 +123,7 @@ updateFileTime :: FilePath -> FilePath -> IO ()
 updateFileTime x hs = do
   (_     , modx) <- getFileStatus' x
   (access, _   ) <- getFileStatus' hs
-  _ <- try' (setFileTimes hs access modx)
+  _ <- tryAny (setFileTimes hs access modx)
   return ()
 
 hiFile :: FilePath -> FilePath
@@ -133,9 +134,6 @@ removeSrc f = case splitPath f of
     ("src/" : xs) -> joinPath xs
     _ -> f
 
-try' :: IO x -> IO (Either SomeException x)
-try' = try
-
 isNewerThan :: FilePath -> FilePath -> IO Bool
 isNewerThan f1 f2 = do
   (_, mod1) <- getFileStatus' f1
@@ -145,7 +143,7 @@ isNewerThan f1 f2 = do
 getFileStatus' :: FilePath ->
                   IO (System.Posix.Types.EpochTime, System.Posix.Types.EpochTime)
 getFileStatus' fp = do
-    efs <- try' $ getFileStatus fp
+    efs <- tryAny $ getFileStatus fp
     case efs of
         Left _ -> return (0, 0)
         Right fs -> return (accessTime fs, modificationTime fs)

@@ -15,7 +15,7 @@ module Yesod.Auth.OAuth
     ) where
 import           Control.Applicative      as A ((<$>), (<*>))
 import           Control.Arrow            ((***))
-import           Control.Exception.Lifted
+import           Control.Exception        (Exception, throwIO)
 import           Control.Monad.IO.Class
 import           Control.Monad.IO.Unlift  (MonadUnliftIO)
 import           Data.ByteString          (ByteString)
