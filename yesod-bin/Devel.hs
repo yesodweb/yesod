@@ -61,7 +61,7 @@ import           System.FilePath                       (takeDirectory,
 import           System.FSNotify
 import           System.IO                             (stdout, stderr)
 import           System.IO.Error                       (isDoesNotExistError)
-import           System.Process.Typed
+import           Data.Conduit.Process.Typed
 
 -- We have two special files:
 --
