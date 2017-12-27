@@ -73,7 +73,9 @@ module Yesod.Test
     -- These functions let you add parameters to your request based
     -- on currently displayed label names.
     , byLabel
+    , byLabelExact
     , fileByLabel
+    , fileByLabelExact
 
     -- *** CSRF Tokens
     -- | In order to prevent CSRF exploits, yesod-form adds a hidden input
@@ -162,6 +164,8 @@ import GHC.Exts (Constraint)
 type HasCallStack = (() :: Constraint)
 #endif
 
+{-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact instead" #-}
+{-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact instead" #-}
 
 -- | The state used in a single test case defined using 'yit'
 --
@@ -523,23 +527,24 @@ addFile name path mimetype = do
           addPostData (MultipleItemsPostData posts) contents =
             MultipleItemsPostData $ ReqFilePart name path contents mimetype : posts
 
+-- |
 -- This looks up the name of a field based on the contents of the label pointing to it.
-nameFromLabel :: T.Text -> RequestBuilder site T.Text
-nameFromLabel label = do
+genericNameFromLabel :: (T.Text -> T.Text -> Bool) -> T.Text -> RequestBuilder site T.Text
+genericNameFromLabel match label = do
   mres <- fmap rbdResponse ST.get
   res <-
     case mres of
-      Nothing -> failure "nameFromLabel: No response available"
+      Nothing -> failure "genericNameFromLabel: No response available"
       Just res -> return res
   let
     body = simpleBody res
     mlabel = parseHTML body
                 $// C.element "label"
-                >=> contentContains label
+                >=> isContentMatch label
     mfor = mlabel >>= attribute "for"
 
-    contentContains x c
-        | x `T.isInfixOf` T.concat (c $// content) = [c]
+    isContentMatch x c
+        | x `match` T.concat (c $// content) = [c]
         | otherwise = []
 
   case mfor of
@@ -566,6 +571,14 @@ nameFromLabel label = do
 (<>) :: T.Text -> T.Text -> T.Text
 (<>) = T.append
 
+byLabelWithMatch :: (T.Text -> T.Text -> Bool) -- ^ The matching method which is used to find labels (i.e. exact, contains)
+                 -> T.Text                     -- ^ The text contained in the @\<label>@.
+                 -> T.Text                     -- ^ The value to set the parameter to.
+                 -> RequestBuilder site ()
+byLabelWithMatch match label value = do
+  name <- genericNameFromLabel match label
+  addPostParam name value
+
 -- How does this work for the alternate <label><input></label> syntax?
 
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a parameter
@@ -591,12 +604,60 @@ nameFromLabel label = do
 -- > <form method="POST">
 -- >   <label>Username <input name="f1"> </label>
 -- > </form>
+--
+-- Warning: This function looks for any label that contains the provided text.
+-- If multiple labels contain that text, this function will throw an error,
+-- as in the example below:
+--
+-- > <form method="POST">
+-- >   <label for="nickname">Nickname</label>
+-- >   <input id="nickname" name="f1" />
+--
+-- >   <label for="nickname2">Nickname2</label>
+-- >   <input id="nickname2" name="f2" />
+-- > </form>
+--
+-- > request $ do
+-- >   byLabel "Nickname" "Snoyberger"
+--
+-- Then, it throws "More than one label contained" error.
+--
+-- Therefore, this function is deprecated. Please consider using 'byLabelExact',
+-- which performs the exact match over the provided text.
 byLabel :: T.Text -- ^ The text contained in the @\<label>@.
         -> T.Text -- ^ The value to set the parameter to.
         -> RequestBuilder site ()
-byLabel label value = do
-  name <- nameFromLabel label
-  addPostParam name value
+byLabel = byLabelWithMatch T.isInfixOf
+
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a parameter
+-- for that input to the request body.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit @f1=Michael@ to the server:
+--
+-- > <form method="POST">
+-- >   <label for="user">Username</label>
+-- >   <input id="user" name="f1" />
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   byLabel "Username" "Michael"
+--
+-- This function also supports the implicit label syntax, in which
+-- the @\<input>@ is nested inside the @\<label>@ rather than specified with @for@:
+--
+-- > <form method="POST">
+-- >   <label>Username <input name="f1"> </label>
+-- > </form>
+--
+-- @since 1.5.9
+byLabelExact :: T.Text -- ^ The text in the @\<label>@.
+             -> T.Text -- ^ The value to set the parameter to.
+             -> RequestBuilder site ()
+byLabelExact = byLabelWithMatch (==)
 
 -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
 --
@@ -620,12 +681,46 @@ byLabel label value = do
 -- > <form method="POST">
 -- >   <label>Please submit an image <input type="file" name="f1"> </label>
 -- > </form>
+--
+-- Warning: This function has the same issue as 'byLabel'. Please use 'fileByLabelExact' instead.
 fileByLabel :: T.Text -- ^ The text contained in the @\<label>@.
             -> FilePath -- ^ The path to the file.
             -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
             -> RequestBuilder site ()
 fileByLabel label path mime = do
-  name <- nameFromLabel label
+  name <- genericNameFromLabel T.isInfixOf label
+  addFile name path mime
+
+  -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
+--
+-- ==== __Examples__
+--
+-- Given this HTML, we want to submit a file with the parameter name @f1@ to the server:
+--
+-- > <form method="POST">
+-- >   <label for="imageInput">Please submit an image</label>
+-- >   <input id="imageInput" type="file" name="f1" accept="image/*">
+-- > </form>
+--
+-- You can set this parameter like so:
+--
+-- > request $ do
+-- >   fileByLabel "Please submit an image" "static/img/picture.png" "img/png"
+--
+-- This function also supports the implicit label syntax, in which
+-- the @\<input>@ is nested inside the @\<label>@ rather than specified with @for@:
+--
+-- > <form method="POST">
+-- >   <label>Please submit an image <input type="file" name="f1"> </label>
+-- > </form>
+--
+-- @since 1.5.9
+fileByLabelExact :: T.Text -- ^ The text contained in the @\<label>@.
+                 -> FilePath -- ^ The path to the file.
+                 -> T.Text -- ^ The MIME type of the file, e.g. "image/png".
+                 -> RequestBuilder site ()
+fileByLabelExact label path mime = do
+  name <- genericNameFromLabel (==) label
   addFile name path mime
 
 -- | Lookups the hidden input named "_token" and adds its value to the params.
