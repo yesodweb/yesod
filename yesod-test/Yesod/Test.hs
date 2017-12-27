@@ -164,8 +164,8 @@ import GHC.Exts (Constraint)
 type HasCallStack = (() :: Constraint)
 #endif
 
-{-# DEPRECATED byLabel "This function seems to have multiple bugs. Use byLabelExact instead" #-}
-{-# DEPRECATED fileByLabel "This function seems to have multiple bugs. Use fileByLabelExact instead" #-}
+{-# DEPRECATED byLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use byLabelExact instead" #-}
+{-# DEPRECATED fileByLabel "This function seems to have multiple bugs (ref: https://github.com/yesodweb/yesod/pull/1459). Use fileByLabelExact instead" #-}
 
 -- | The state used in a single test case defined using 'yit'
 --
