@@ -1,6 +1,6 @@
 ## 1.5.9.1
 
-* Fix broken Haddocks
+* Fixes a Haddock syntax error in 1.5.9 [#1473](https://github.com/yesodweb/yesod/pull/1473)
 
 ## 1.5.9
 * Add byLabelExact and related functions
