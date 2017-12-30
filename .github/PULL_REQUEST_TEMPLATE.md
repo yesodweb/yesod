@@ -2,7 +2,7 @@ Before submitting your PR, check that you've:
 
 - [ ] Bumped the version number
 - [ ] Documented new APIs with [Haddock markup](https://www.haskell.org/haddock/doc/html/index.html)
-- [ ] Added [`@since` declarations](http://haskell-haddock.readthedocs.io/en/latest/markup.html#since) to the Haddock
+- [ ] Added [`@since` declarations](http://haskell-haddock.readthedocs.io/en/latest/markup.html#since) to the Haddocks for new, public APIs
 
 After submitting your PR:
 
