@@ -691,7 +691,7 @@ fileByLabel label path mime = do
   name <- genericNameFromLabel T.isInfixOf label
   addFile name path mime
 
-  -- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
+-- | Finds the @\<label>@ with the given value, finds its corresponding @\<input>@, then adds a file for that input to the request body.
 --
 -- ==== __Examples__
 --

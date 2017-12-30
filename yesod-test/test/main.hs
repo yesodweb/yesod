@@ -1,3 +1,6 @@
+-- Ignore warnings about using deprecated byLabel/fileByLabel functions
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
