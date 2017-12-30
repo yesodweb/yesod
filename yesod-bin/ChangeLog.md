@@ -1,3 +1,7 @@
+## 1.5.3
+
+* Support typed-process-0.2.0.0
+
 ## 1.5.2.6
 
 * Drop an upper bound

@@ -14,4 +14,6 @@ packages:
   - ./yesod-eventsource
   - ./yesod-websockets
 extra-deps:
+- conduit-extra-1.2.2
 - unliftio-core-0.1.0.0
+- typed-process-0.2.0.0
