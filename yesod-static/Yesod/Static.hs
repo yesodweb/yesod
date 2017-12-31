@@ -175,7 +175,7 @@ instance RenderRoute Static where
 instance ParseRoute Static where
     parseRoute (x, y) = Just $ StaticRoute x y
 
-instance (MonadThrow m, MonadIO m, MonadBaseControl IO m)
+instance (MonadThrow m, MonadUnliftIO m)
   => YesodSubDispatch Static (HandlerT master m) where
     yesodSubDispatch YesodSubRunnerEnv {..} req =
         ysreParentRunner base ysreParentEnv (fmap ysreToParentRoute route) req

@@ -5,15 +5,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- Because of ErrorT
 module Yesod.Core.Class.Handler
     ( MonadHandler (..)
     , MonadWidget (..)
     ) where
 
 import Yesod.Core.Types
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Resource (MonadResource, MonadResourceBase)
+import Control.Monad.IO.Unlift (liftIO, MonadUnliftIO, MonadIO)
+import Control.Monad.Trans.Resource (MonadResource)
 import Control.Monad.Trans.Class (lift)
 #if __GLASGOW_HASKELL__ < 710
 import Data.Monoid (Monoid)
@@ -23,7 +22,6 @@ import Data.Conduit.Internal (Pipe, ConduitM)
 import Control.Monad.Trans.Identity ( IdentityT)
 import Control.Monad.Trans.List     ( ListT    )
 import Control.Monad.Trans.Maybe    ( MaybeT   )
-import Control.Monad.Trans.Error    ( ErrorT, Error)
 import Control.Monad.Trans.Except   ( ExceptT  )
 import Control.Monad.Trans.Reader   ( ReaderT  )
 import Control.Monad.Trans.State    ( StateT   )
@@ -40,12 +38,12 @@ class MonadResource m => MonadHandler m where
 replaceToParent :: HandlerData site route -> HandlerData site ()
 replaceToParent hd = hd { handlerToParent = const () }
 
-instance MonadResourceBase m => MonadHandler (HandlerT site m) where
+instance MonadIO m => MonadHandler (HandlerT site m) where
     type HandlerSite (HandlerT site m) = site
     liftHandlerT (HandlerT f) = HandlerT $ liftIO . f . replaceToParent
 {-# RULES "liftHandlerT (HandlerT site IO)" liftHandlerT = id #-}
 
-instance MonadResourceBase m => MonadHandler (WidgetT site m) where
+instance MonadIO m => MonadHandler (WidgetT site m) where
     type HandlerSite (WidgetT site m) = site
     liftHandlerT (HandlerT f) = WidgetT $ \_ref env -> liftIO $ f $ replaceToParent env
 {-# RULES "liftHandlerT (WidgetT site IO)" forall f. liftHandlerT (HandlerT f) = WidgetT $ const f #-}
@@ -55,7 +53,6 @@ instance MonadResourceBase m => MonadHandler (WidgetT site m) where
 GO(IdentityT)
 GO(ListT)
 GO(MaybeT)
-GOX(Error e, ErrorT e)
 GO(ExceptT e)
 GO(ReaderT r)
 GO(StateT s)
@@ -71,7 +68,7 @@ GO(ConduitM i o)
 
 class MonadHandler m => MonadWidget m where
     liftWidgetT :: WidgetT (HandlerSite m) IO a -> m a
-instance MonadResourceBase m => MonadWidget (WidgetT site m) where
+instance MonadIO m => MonadWidget (WidgetT site m) where
     liftWidgetT (WidgetT f) = WidgetT $ \ref env -> liftIO $ f ref $ replaceToParent env
 
 #define GO(T) instance MonadWidget m => MonadWidget (T m) where liftWidgetT = lift . liftWidgetT
@@ -79,7 +76,6 @@ instance MonadResourceBase m => MonadWidget (WidgetT site m) where
 GO(IdentityT)
 GO(ListT)
 GO(MaybeT)
-GOX(Error e, ErrorT e)
 GO(ExceptT e)
 GO(ReaderT r)
 GO(StateT s)

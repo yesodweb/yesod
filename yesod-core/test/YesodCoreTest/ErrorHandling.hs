@@ -18,7 +18,9 @@ import Blaze.ByteString.Builder (Builder, fromByteString, toLazyByteString)
 import Data.Monoid (mconcat)
 import Data.Text (Text, pack)
 import Control.Monad (forM_)
-import qualified Control.Exception.Lifted as E
+import Control.Monad.Trans.State (StateT (..))
+import Control.Monad.Trans.Reader (ReaderT (..))
+import qualified UnliftIO.Exception as E
 
 data App = App
 
@@ -217,6 +219,6 @@ caseGoodBuilder = runner $ do
 caseError :: Int -> IO ()
 caseError i = runner $ do
     res <- request defaultRequest { pathInfo = ["error", pack $ show i] }
-    assertStatus 500 res `E.catch` \e -> do
+    ReaderT $ \r -> StateT $ \s -> runStateT (runReaderT (assertStatus 500 res) r) s `E.catch` \e -> do
         liftIO $ print res
         E.throwIO (e :: E.SomeException)

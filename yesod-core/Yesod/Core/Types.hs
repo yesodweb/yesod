@@ -19,13 +19,10 @@ import           Data.Monoid                        (Monoid (..))
 import           Control.Arrow                      (first)
 import           Control.Exception                  (Exception)
 import           Control.Monad                      (liftM, ap)
-import           Control.Monad.Base                 (MonadBase (liftBase))
-import           Control.Monad.Catch                (MonadMask (..), MonadCatch (..))
 import           Control.Monad.IO.Class             (MonadIO (liftIO))
 import           Control.Monad.Logger               (LogLevel, LogSource,
                                                      MonadLogger (..))
-import           Control.Monad.Trans.Control        (MonadBaseControl (..))
-import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), monadThrow, ResourceT)
+import           Control.Monad.Trans.Resource       (MonadResource (..), InternalState, runInternalState, MonadThrow (..), throwM, ResourceT)
 import           Data.ByteString                    (ByteString)
 import qualified Data.ByteString.Lazy               as L
 import           Data.Conduit                       (Flush, Source)
@@ -417,14 +414,6 @@ instance Monad m => Monad (WidgetT site m) where
         unWidgetT (f a) ref r
 instance MonadIO m => MonadIO (WidgetT site m) where
     liftIO = lift . liftIO
-instance MonadBase b m => MonadBase b (WidgetT site m) where
-    liftBase = WidgetT . const . const . liftBase
-instance MonadBaseControl b m => MonadBaseControl b (WidgetT site m) where
-    type StM (WidgetT site m) a = StM m a
-    liftBaseWith f = WidgetT $ \ref reader' ->
-        liftBaseWith $ \runInBase ->
-            f $ runInBase . (\(WidgetT w) -> w ref reader')
-    restoreM = WidgetT . const . const . restoreM
 -- | @since 1.4.38
 instance MonadUnliftIO m => MonadUnliftIO (WidgetT site m) where
   {-# INLINE askUnliftIO #-}
@@ -444,29 +433,8 @@ instance MonadTrans (WidgetT site) where
 instance MonadThrow m => MonadThrow (WidgetT site m) where
     throwM = lift . throwM
 
-instance MonadCatch m => MonadCatch (HandlerT site m) where
-  catch (HandlerT m) c = HandlerT $ \r -> m r `catch` \e -> unHandlerT (c e) r
-instance MonadMask m => MonadMask (HandlerT site m) where
-  mask a = HandlerT $ \e -> mask $ \u -> unHandlerT (a $ q u) e
-    where q u (HandlerT b) = HandlerT (u . b)
-  uninterruptibleMask a =
-    HandlerT $ \e -> uninterruptibleMask $ \u -> unHandlerT (a $ q u) e
-      where q u (HandlerT b) = HandlerT (u . b)
-instance MonadCatch m => MonadCatch (WidgetT site m) where
-  catch (WidgetT m) c = WidgetT $ \ref r -> m ref r `catch` \e -> unWidgetT (c e) ref r
-instance MonadMask m => MonadMask (WidgetT site m) where
-  mask a = WidgetT $ \ref e -> mask $ \u -> unWidgetT (a $ q u) ref e
-    where q u (WidgetT b) = WidgetT (\ref e -> u $ b ref e)
-  uninterruptibleMask a =
-    WidgetT $ \ref e -> uninterruptibleMask $ \u -> unWidgetT (a $ q u) ref e
-      where q u (WidgetT b) = WidgetT (\ref e -> u $ b ref e)
-
 -- CPP to avoid a redundant constraints warning
-#if MIN_VERSION_base(4,9,0)
-instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
-#else
-instance (Applicative m, MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (WidgetT site m) where
-#endif
+instance MonadIO m => MonadResource (WidgetT site m) where
     liftResourceT f = WidgetT $ \_ hd -> liftIO $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (WidgetT site m) where
@@ -495,8 +463,6 @@ instance Monad m => Monad (HandlerT site m) where
     HandlerT x >>= f = HandlerT $ \r -> x r >>= \x' -> unHandlerT (f x') r
 instance MonadIO m => MonadIO (HandlerT site m) where
     liftIO = lift . liftIO
-instance MonadBase b m => MonadBase b (HandlerT site m) where
-    liftBase = lift . liftBase
 instance Monad m => MonadReader site (HandlerT site m) where
     ask = HandlerT $ return . rheSite . handlerEnv
     local f (HandlerT g) = HandlerT $ \hd -> g hd
@@ -504,20 +470,6 @@ instance Monad m => MonadReader site (HandlerT site m) where
             { rheSite = f $ rheSite $ handlerEnv hd
             }
         }
--- | Note: although we provide a @MonadBaseControl@ instance, @lifted-base@'s
--- @fork@ function is incompatible with the underlying @ResourceT@ system.
--- Instead, if you must fork a separate thread, you should use
--- @resourceForkIO@.
---
--- Using fork usually leads to an exception that says
--- \"Control.Monad.Trans.Resource.register\': The mutable state is being accessed
--- after cleanup. Please contact the maintainers.\"
-instance MonadBaseControl b m => MonadBaseControl b (HandlerT site m) where
-    type StM (HandlerT site m) a = StM m a
-    liftBaseWith f = HandlerT $ \reader' ->
-        liftBaseWith $ \runInBase ->
-            f $ runInBase . (\(HandlerT r) -> r reader')
-    restoreM = HandlerT . const . restoreM
 -- | @since 1.4.38
 instance MonadUnliftIO m => MonadUnliftIO (HandlerT site m) where
   {-# INLINE askUnliftIO #-}
@@ -526,9 +478,9 @@ instance MonadUnliftIO m => MonadUnliftIO (HandlerT site m) where
                 return (UnliftIO (unliftIO u . flip unHandlerT r))
 
 instance MonadThrow m => MonadThrow (HandlerT site m) where
-    throwM = lift . monadThrow
+    throwM = lift . throwM
 
-instance (MonadIO m, MonadBase IO m, MonadThrow m) => MonadResource (HandlerT site m) where
+instance MonadIO m => MonadResource (HandlerT site m) where
     liftResourceT f = HandlerT $ \hd -> liftIO $ runInternalState f (handlerResource hd)
 
 instance MonadIO m => MonadLogger (HandlerT site m) where

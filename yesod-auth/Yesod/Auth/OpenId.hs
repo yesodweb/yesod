@@ -19,7 +19,7 @@ import Yesod.Form
 import Yesod.Core
 import Data.Text (Text, isPrefixOf)
 import qualified Yesod.Auth.Message as Msg
-import Control.Exception.Lifted (SomeException, try)
+import UnliftIO.Exception (SomeException, try)
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 

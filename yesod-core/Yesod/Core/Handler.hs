@@ -194,12 +194,12 @@ import           Data.Monoid                   (mempty, mappend)
 #endif
 import           Control.Applicative           ((<|>))
 import           Control.Exception             (evaluate, SomeException, throwIO)
-import           Control.Exception.Lifted      (handle)
+import           Control.Exception             (handle)
 
 import           Control.Monad                 (void, liftM, unless)
 import qualified Control.Monad.Trans.Writer    as Writer
 
-import           Control.Monad.IO.Class        (MonadIO, liftIO)
+import           Control.Monad.IO.Unlift       (MonadIO, liftIO, MonadUnliftIO, withRunInIO)
 
 import qualified Network.HTTP.Types            as H
 import qualified Network.Wai                   as W
@@ -233,7 +233,7 @@ import           Yesod.Core.Content            (ToTypedContent (..), simpleConte
 import           Yesod.Core.Internal.Util      (formatRFC1123)
 import           Text.Blaze.Html               (preEscapedToHtml, toHtml)
 
-import qualified Data.IORef.Lifted             as I
+import qualified Data.IORef                    as I
 import           Data.Maybe                    (listToMaybe, mapMaybe)
 import           Data.Typeable                 (Typeable)
 import           Web.PathPieces                (PathPiece(..))
@@ -246,7 +246,6 @@ import           Data.CaseInsensitive (CI, original)
 import qualified Data.Conduit.List as CL
 import           Control.Monad.Trans.Resource  (MonadResource, InternalState, runResourceT, withInternalState, getInternalState, liftResourceT, resourceForkIO)
 import qualified System.PosixCompat.Files as PC
-import           Control.Monad.Trans.Control (control, MonadBaseControl)
 import           Data.Conduit (Source, transPipe, Flush (Flush), yield, Producer, Sink)
 import qualified Yesod.Core.TypeCache as Cache
 import qualified Data.Word8 as W8
@@ -447,7 +446,8 @@ forkHandler :: (SomeException -> HandlerT site IO ()) -- ^ error handler
               -> HandlerT site IO ()
 forkHandler onErr handler = do
     yesRunner <- handlerToIO
-    void $ liftResourceT $ resourceForkIO $ yesRunner $ handle onErr handler
+    void $ liftResourceT $ resourceForkIO $
+      liftIO $ handle (yesRunner . onErr) (yesRunner handler)
 
 -- | Redirect to the given route.
 -- HTTP status code 303 for HTTP 1.1 clients and 302 for HTTP 1.0
@@ -664,10 +664,10 @@ sendWaiApplication = handlerError . HCWaiApp
 --
 -- @since 1.2.16
 sendRawResponseNoConduit
-    :: (MonadHandler m, MonadBaseControl IO m)
+    :: (MonadHandler m, MonadUnliftIO m)
     => (IO S8.ByteString -> (S8.ByteString -> IO ()) -> m ())
     -> m a
-sendRawResponseNoConduit raw = control $ \runInIO ->
+sendRawResponseNoConduit raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO (raw src sink)
   where
@@ -679,10 +679,10 @@ sendRawResponseNoConduit raw = control $ \runInIO ->
 -- Warp).
 --
 -- @since 1.2.7
-sendRawResponse :: (MonadHandler m, MonadBaseControl IO m)
+sendRawResponse :: (MonadHandler m, MonadUnliftIO m)
                 => (Source IO S8.ByteString -> Sink S8.ByteString IO () -> m ())
                 -> m a
-sendRawResponse raw = control $ \runInIO ->
+sendRawResponse raw = withRunInIO $ \runInIO ->
     liftIO $ throwIO $ HCWai $ flip W.responseRaw fallback
     $ \src sink -> void $ runInIO $ raw (src' src) (CL.mapM_ sink)
   where

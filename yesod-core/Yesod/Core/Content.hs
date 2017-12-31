@@ -117,7 +117,7 @@ instance ToContent Javascript where
     toContent = toContent . toLazyText . unJavascript
 
 instance ToFlushBuilder builder => ToContent (CI.Pipe () () builder () (ResourceT IO) ()) where
-    toContent src = ContentSource $ CI.ConduitM (CI.mapOutput toFlushBuilder src >>=)
+    toContent src = ContentSource $ CI.ConduitT (CI.mapOutput toFlushBuilder src >>=)
 
 instance ToFlushBuilder builder => ToContent (Source (ResourceT IO) builder) where
     toContent src = ContentSource $ mapOutput toFlushBuilder src

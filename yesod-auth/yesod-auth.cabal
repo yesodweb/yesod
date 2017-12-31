@@ -43,7 +43,7 @@ library
                    , http-client
                    , http-conduit            >= 2.1
                    , aeson                   >= 0.7
-                   , lifted-base             >= 0.1
+                   , unliftio
                    , blaze-html              >= 0.5
                    , blaze-markup            >= 0.5.1
                    , http-types
@@ -74,7 +74,6 @@ library
                      Yesod.Auth.OpenId
                      Yesod.Auth.Rpxnow
                      Yesod.Auth.Message
-                     Yesod.Auth.GoogleEmail
                      Yesod.Auth.GoogleEmail2
                      Yesod.Auth.Hardcoded
                      Yesod.Auth.Util.PasswordStore
