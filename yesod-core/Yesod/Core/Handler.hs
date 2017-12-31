@@ -1464,6 +1464,23 @@ stripHandlerT (HandlerT f) getSub toMaster newRoute = HandlerT $ \hd -> do
 -- The form-based approach has the advantage of working for users with Javascript disabled, while adding the token to the headers with Javascript allows things like submitting JSON or binary data in AJAX requests. Yesod supports checking for a CSRF token in either the POST parameters of the form ('checkCsrfParamNamed'), the headers ('checkCsrfHeaderNamed'), or both options ('checkCsrfHeaderOrParam').
 --
 -- The easiest way to check both sources is to add the 'Yesod.Core.defaultCsrfMiddleware' to your Yesod Middleware.
+--
+-- === Opting-out of CSRF checking for specific routes
+--
+-- (Note: this code is generic to opting out of any Yesod middleware)
+--
+-- @
+-- 'yesodMiddleware' app = do
+--   maybeRoute <- 'getCurrentRoute'
+--   let dontCheckCsrf = case maybeRoute of
+--                         Just HomeR                     -> True  -- Don't check HomeR
+--                         Nothing                        -> True  -- Don't check for 404s
+--                         _                              -> False -- Check other routes
+--
+--   'defaultYesodMiddleware' $ 'defaultCsrfSetCookieMiddleware' $ (if dontCheckCsrf then 'id' else 'defaultCsrfCheckMiddleware') $ app
+-- @
+--
+-- This can also be implemented using the 'csrfCheckMiddleware' function.
 
 -- | The default cookie name for the CSRF token ("XSRF-TOKEN").
 --
